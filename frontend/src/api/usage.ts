@@ -10,8 +10,12 @@ import type {
   UsageStatsResponse,
   PaginatedResponse,
   TrendDataPoint,
-  ModelStat
+  ModelStat,
+  LeaderboardPeriod,
+  UserLeaderboardResponse
 } from '@/types'
+
+export type { LeaderboardPeriod, UserLeaderboardItem, UserLeaderboardResponse } from '@/types'
 
 // ==================== Dashboard Types ====================
 
@@ -223,6 +227,16 @@ export async function getDashboardModels(params?: {
   return data
 }
 
+export async function getDashboardLeaderboard(params: {
+  period: LeaderboardPeriod
+  limit?: number
+}): Promise<UserLeaderboardResponse> {
+  const { data } = await apiClient.get<UserLeaderboardResponse>('/usage/dashboard/leaderboard', {
+    params
+  })
+  return data
+}
+
 export interface BatchApiKeyUsageStats {
   api_key_id: number
   today_actual_cost: number
@@ -268,6 +282,7 @@ export const usageAPI = {
   getDashboardStats,
   getDashboardTrend,
   getDashboardModels,
+  getDashboardLeaderboard,
   getDashboardApiKeysUsage
 }
 

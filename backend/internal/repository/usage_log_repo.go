@@ -2152,6 +2152,8 @@ type UserUsageTrendPoint = usagestats.UserUsageTrendPoint
 // UserSpendingRankingItem represents a user spending ranking row.
 type UserSpendingRankingItem = usagestats.UserSpendingRankingItem
 type UserSpendingRankingResponse = usagestats.UserSpendingRankingResponse
+type UserLeaderboardItem = usagestats.UserLeaderboardItem
+type UserLeaderboardResponse = usagestats.UserLeaderboardResponse
 
 // APIKeyUsageTrendPoint represents API key usage trend data point
 type APIKeyUsageTrendPoint = usagestats.APIKeyUsageTrendPoint
@@ -2351,6 +2353,144 @@ func (r *usageLogRepository) GetUserSpendingRanking(ctx context.Context, startTi
 
 // UserDashboardStats 用户仪表盘统计
 type UserDashboardStats = usagestats.UserDashboardStats
+
+// GetUserLeaderboard returns user-visible leaderboard rows and keeps the current
+// user's entry available even when it falls outside the requested top limit.
+func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (result *UserLeaderboardResponse, err error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	conditions := make([]string, 0, 2)
+	args := make([]any, 0, 4)
+	if !startTime.IsZero() {
+		args = append(args, startTime)
+		conditions = append(conditions, fmt.Sprintf("u.created_at >= $%d", len(args)))
+	}
+	if !endTime.IsZero() {
+		args = append(args, endTime)
+		conditions = append(conditions, fmt.Sprintf("u.created_at < $%d", len(args)))
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	limitArg := len(args) + 1
+	currentUserArg := len(args) + 2
+	query := fmt.Sprintf(`
+		WITH user_spend AS (
+			SELECT
+				u.user_id,
+				COALESCE(us.username, '') as username,
+				COALESCE(us.email, '') as email,
+				COALESCE(ua.url, '') as avatar_url,
+				COALESCE(SUM(u.actual_cost), 0) as actual_cost,
+				COUNT(*) as requests,
+				COALESCE(SUM(u.input_tokens + u.output_tokens + u.cache_creation_tokens + u.cache_read_tokens), 0) as tokens
+			FROM usage_logs u
+			LEFT JOIN users us ON u.user_id = us.id
+			LEFT JOIN user_avatars ua ON u.user_id = ua.user_id
+			%s
+			GROUP BY u.user_id, us.username, us.email, ua.url
+		),
+		ranked AS (
+			SELECT
+				ROW_NUMBER() OVER (ORDER BY actual_cost DESC, tokens DESC, user_id ASC) as rank,
+				user_id,
+				username,
+				email,
+				avatar_url,
+				actual_cost,
+				requests,
+				tokens,
+				COALESCE(SUM(actual_cost) OVER (), 0) as total_actual_cost,
+				COALESCE(SUM(requests) OVER (), 0) as total_requests,
+				COALESCE(SUM(tokens) OVER (), 0) as total_tokens
+			FROM user_spend
+		),
+		selected AS (
+			SELECT *
+			FROM ranked
+			WHERE rank <= $%d OR user_id = $%d
+		)
+		SELECT
+			rank,
+			user_id,
+			username,
+			email,
+			NULLIF(avatar_url, '') as avatar_url,
+			actual_cost,
+			requests,
+			tokens,
+			total_actual_cost,
+			total_requests,
+			total_tokens
+		FROM selected
+		ORDER BY rank ASC
+	`, whereClause, limitArg, currentUserArg)
+
+	args = append(args, limit, currentUserID)
+	rows, err := r.sql.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+			result = nil
+		}
+	}()
+
+	ranking := make([]UserLeaderboardItem, 0)
+	var currentUserEntry *UserLeaderboardItem
+	totalActualCost := 0.0
+	totalRequests := int64(0)
+	totalTokens := int64(0)
+	for rows.Next() {
+		var row UserLeaderboardItem
+		var avatarURL sql.NullString
+		if err = rows.Scan(
+			&row.Rank,
+			&row.UserID,
+			&row.Username,
+			&row.Email,
+			&avatarURL,
+			&row.ActualCost,
+			&row.Requests,
+			&row.Tokens,
+			&totalActualCost,
+			&totalRequests,
+			&totalTokens,
+		); err != nil {
+			return nil, err
+		}
+		if avatarURL.Valid && strings.TrimSpace(avatarURL.String) != "" {
+			value := avatarURL.String
+			row.AvatarURL = &value
+		}
+		row.IsCurrentUser = row.UserID == currentUserID
+		if row.Rank <= int64(limit) {
+			ranking = append(ranking, row)
+		}
+		if row.IsCurrentUser {
+			current := row
+			currentUserEntry = &current
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return &UserLeaderboardResponse{
+		Ranking:          ranking,
+		CurrentUserEntry: currentUserEntry,
+		TotalActualCost:  totalActualCost,
+		TotalRequests:    totalRequests,
+		TotalTokens:      totalTokens,
+	}, nil
+}
 
 // GetUserDashboardStats 获取用户专属的仪表盘统计
 func (r *usageLogRepository) GetUserDashboardStats(ctx context.Context, userID int64) (*UserDashboardStats, error) {

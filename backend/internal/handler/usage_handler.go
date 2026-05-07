@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -298,6 +299,114 @@ func parseUserTimeRange(c *gin.Context) (time.Time, time.Time) {
 	return startTime, endTime
 }
 
+const (
+	defaultLeaderboardLimit = 20
+	maxLeaderboardLimit     = 100
+)
+
+func parseDashboardLeaderboardLimit(raw string) int {
+	limit, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil || limit <= 0 {
+		return defaultLeaderboardLimit
+	}
+	if limit > maxLeaderboardLimit {
+		return maxLeaderboardLimit
+	}
+	return limit
+}
+
+func userLocation(userTZ string) *time.Location {
+	if strings.TrimSpace(userTZ) != "" {
+		if loc, err := time.LoadLocation(userTZ); err == nil {
+			return loc
+		}
+	}
+	return timezone.Location()
+}
+
+func startOfDayInLocation(t time.Time, loc *time.Location) time.Time {
+	t = t.In(loc)
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, loc)
+}
+
+func parseDashboardLeaderboardPeriod(rawPeriod, userTZ string, now time.Time) (string, time.Time, time.Time, string, string, error) {
+	period := strings.TrimSpace(rawPeriod)
+	if period == "" {
+		period = "day"
+	}
+	loc := userLocation(userTZ)
+	now = now.In(loc)
+
+	switch period {
+	case "day":
+		start := startOfDayInLocation(now, loc)
+		end := start.AddDate(0, 0, 1)
+		date := start.Format("2006-01-02")
+		return period, start, end, date, date, nil
+	case "week":
+		weekday := int(now.Weekday())
+		if weekday == 0 {
+			weekday = 7
+		}
+		start := startOfDayInLocation(now.AddDate(0, 0, -weekday+1), loc)
+		end := start.AddDate(0, 0, 7)
+		return period, start, end, start.Format("2006-01-02"), end.AddDate(0, 0, -1).Format("2006-01-02"), nil
+	case "month":
+		start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+		end := start.AddDate(0, 1, 0)
+		return period, start, end, start.Format("2006-01-02"), end.AddDate(0, 0, -1).Format("2006-01-02"), nil
+	case "all":
+		return period, time.Time{}, time.Time{}, "", now.Format("2006-01-02"), nil
+	default:
+		return "", time.Time{}, time.Time{}, "", "", errors.New("invalid leaderboard period")
+	}
+}
+
+func finalizeUserLeaderboardItem(item *usagestats.UserLeaderboardItem) {
+	if item == nil {
+		return
+	}
+	email := strings.TrimSpace(item.Email)
+	username := strings.TrimSpace(item.Username)
+	if email == "" && isLikelyEmailAddress(username) {
+		email = username
+	}
+	if email != "" {
+		item.EmailMasked = service.MaskEmail(email)
+	} else {
+		item.EmailMasked = ""
+	}
+	switch {
+	case username != "" && !isLikelyEmailAddress(username):
+		item.DisplayName = username
+	case item.EmailMasked != "":
+		item.DisplayName = item.EmailMasked
+	default:
+		item.DisplayName = "User #" + strconv.FormatInt(item.UserID, 10)
+	}
+	item.Email = ""
+	item.Username = ""
+}
+
+func isLikelyEmailAddress(value string) bool {
+	value = strings.TrimSpace(value)
+	if strings.Count(value, "@") != 1 || strings.ContainsAny(value, " \t\r\n") {
+		return false
+	}
+	parts := strings.Split(value, "@")
+	return parts[0] != "" && strings.Contains(parts[1], ".")
+}
+
+func finalizeUserLeaderboardResponse(payload *usagestats.UserLeaderboardResponse) {
+	if payload == nil {
+		return
+	}
+	for i := range payload.Ranking {
+		finalizeUserLeaderboardItem(&payload.Ranking[i])
+	}
+	finalizeUserLeaderboardItem(payload.CurrentUserEntry)
+}
+
 // DashboardStats handles getting user dashboard statistics
 // GET /api/v1/usage/dashboard/stats
 func (h *UsageHandler) DashboardStats(c *gin.Context) {
@@ -314,6 +423,43 @@ func (h *UsageHandler) DashboardStats(c *gin.Context) {
 	}
 
 	response.Success(c, stats)
+}
+
+// DashboardLeaderboard handles getting user-visible spending leaderboard data.
+// GET /api/v1/usage/dashboard/leaderboard
+func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	userTZ := c.Query("timezone")
+	period, startTime, endTime, startDate, endDate, err := parseDashboardLeaderboardPeriod(c.DefaultQuery("period", "day"), userTZ, timezone.NowInUserLocation(userTZ))
+	if err != nil {
+		response.BadRequest(c, "Invalid period, use day/week/month/all")
+		return
+	}
+	limit := parseDashboardLeaderboardLimit(c.DefaultQuery("limit", strconv.Itoa(defaultLeaderboardLimit)))
+
+	leaderboard, err := h.usageService.GetUserLeaderboard(c.Request.Context(), startTime, endTime, limit, subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if leaderboard == nil {
+		leaderboard = &usagestats.UserLeaderboardResponse{}
+	}
+	leaderboard.Period = period
+	leaderboard.StartDate = startDate
+	leaderboard.EndDate = endDate
+	leaderboard.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
+	if leaderboard.Ranking == nil {
+		leaderboard.Ranking = []usagestats.UserLeaderboardItem{}
+	}
+	finalizeUserLeaderboardResponse(leaderboard)
+
+	response.Success(c, leaderboard)
 }
 
 // DashboardTrend handles getting user usage trend data

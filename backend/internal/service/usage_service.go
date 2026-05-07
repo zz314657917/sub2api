@@ -297,6 +297,15 @@ func (s *UsageService) GetAPIKeyDashboardStats(ctx context.Context, apiKeyID int
 	return stats, nil
 }
 
+// GetUserLeaderboard returns the user dashboard leaderboard for a time range.
+func (s *UsageService) GetUserLeaderboard(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (*usagestats.UserLeaderboardResponse, error) {
+	leaderboard, err := s.usageRepo.GetUserLeaderboard(ctx, startTime, endTime, limit, currentUserID)
+	if err != nil {
+		return nil, fmt.Errorf("get user leaderboard: %w", err)
+	}
+	return leaderboard, nil
+}
+
 // GetUserUsageTrendByUserID returns per-user usage trend.
 func (s *UsageService) GetUserUsageTrendByUserID(ctx context.Context, userID int64, startTime, endTime time.Time, granularity string) ([]usagestats.TrendDataPoint, error) {
 	trend, err := s.usageRepo.GetUserUsageTrendByUserID(ctx, userID, startTime, endTime, granularity)

@@ -162,6 +162,34 @@ type UserSpendingRankingResponse struct {
 	TotalTokens     int64                     `json:"total_tokens"`
 }
 
+// UserLeaderboardItem represents one user-visible leaderboard row.
+type UserLeaderboardItem struct {
+	Rank          int64   `json:"rank"`
+	UserID        int64   `json:"user_id"`
+	DisplayName   string  `json:"display_name"`
+	EmailMasked   string  `json:"email_masked"`
+	AvatarURL     *string `json:"avatar_url,omitempty"`
+	ActualCost    float64 `json:"actual_cost"`
+	Requests      int64   `json:"requests"`
+	Tokens        int64   `json:"tokens"`
+	IsCurrentUser bool    `json:"is_current_user"`
+	Username      string  `json:"-"`
+	Email         string  `json:"-"`
+}
+
+// UserLeaderboardResponse represents the user dashboard leaderboard payload.
+type UserLeaderboardResponse struct {
+	Period           string                `json:"period"`
+	StartDate        string                `json:"start_date"`
+	EndDate          string                `json:"end_date"`
+	GeneratedAt      string                `json:"generated_at"`
+	TotalActualCost  float64               `json:"total_actual_cost"`
+	TotalRequests    int64                 `json:"total_requests"`
+	TotalTokens      int64                 `json:"total_tokens"`
+	Ranking          []UserLeaderboardItem `json:"ranking"`
+	CurrentUserEntry *UserLeaderboardItem  `json:"current_user_entry"`
+}
+
 // UserBreakdownItem represents per-user usage breakdown within a dimension (group, model, endpoint).
 type UserBreakdownItem struct {
 	UserID      int64   `json:"user_id"`

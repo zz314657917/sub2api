@@ -216,6 +216,55 @@
           </div>
         </div>
 
+        <!-- Row 3: Cache Stats -->
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <!-- Today Cache Hit Rate -->
+          <div class="card p-4">
+            <div class="flex items-center gap-3">
+              <div class="rounded-lg bg-cyan-100 p-2 dark:bg-cyan-900/30">
+                <Icon name="sparkles" size="md" class="text-cyan-600 dark:text-cyan-400" :stroke-width="2" />
+              </div>
+              <div class="min-w-0">
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  {{ t('admin.dashboard.todayCacheHitRate') }}
+                </p>
+                <p class="text-xl font-bold text-gray-900 dark:text-white">
+                  {{ formatCacheHitRate(stats.today_cache_read_tokens, stats.today_cache_creation_tokens) }}
+                </p>
+                <p
+                  class="truncate text-xs text-gray-500 dark:text-gray-400"
+                  :title="cacheReadTitle(stats.today_cache_read_tokens)"
+                >
+                  {{ t('admin.dashboard.cacheReadTokens') }}: {{ formatTokens(stats.today_cache_read_tokens) }}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Total Cache Hit Rate -->
+          <div class="card p-4">
+            <div class="flex items-center gap-3">
+              <div class="rounded-lg bg-teal-100 p-2 dark:bg-teal-900/30">
+                <Icon name="database" size="md" class="text-teal-600 dark:text-teal-400" :stroke-width="2" />
+              </div>
+              <div class="min-w-0">
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
+                  {{ t('admin.dashboard.totalCacheHitRate') }}
+                </p>
+                <p class="text-xl font-bold text-gray-900 dark:text-white">
+                  {{ formatCacheHitRate(stats.total_cache_read_tokens, stats.total_cache_creation_tokens) }}
+                </p>
+                <p
+                  class="truncate text-xs text-gray-500 dark:text-gray-400"
+                  :title="cacheReadTitle(stats.total_cache_read_tokens)"
+                >
+                  {{ t('admin.dashboard.cacheReadTokens') }}: {{ formatTokens(stats.total_cache_read_tokens) }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Charts Section -->
         <div class="space-y-6">
           <!-- Date Range Filter -->
@@ -554,6 +603,15 @@ const formatDuration = (ms: number): string => {
   }
   return `${Math.round(ms)}ms`
 }
+
+const formatCacheHitRate = (cacheReadTokens: number, cacheCreationTokens: number): string => {
+  const cacheTokens = cacheReadTokens + cacheCreationTokens
+  if (cacheTokens <= 0) return t('common.notAvailable')
+  return `${((cacheReadTokens / cacheTokens) * 100).toFixed(1)}%`
+}
+
+const cacheReadTitle = (cacheReadTokens: number): string =>
+  `${t('admin.dashboard.cacheReadTokens')}: ${formatNumber(cacheReadTokens)}`
 
 const goToUserUsage = (item: UserSpendingRankingItem) => {
   void router.push({

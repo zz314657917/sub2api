@@ -467,6 +467,68 @@ func TestUsageLogRepositoryGetUserSpendingRanking(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestUsageLogRepositoryGetUserLeaderboardRanksCurrentUserInTop(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+
+	start := time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC)
+	end := start.Add(7 * 24 * time.Hour)
+
+	rows := sqlmock.NewRows([]string{
+		"rank", "user_id", "username", "email", "avatar_url", "actual_cost", "requests", "tokens",
+		"total_actual_cost", "total_requests", "total_tokens",
+	}).
+		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 12.5, int64(9), int64(900), 40.0, int64(30), int64(2600)).
+		AddRow(int64(2), int64(1), "", "alpha@example.com", "https://cdn.example.com/a.png", 12.5, int64(8), int64(800), 40.0, int64(30), int64(2600))
+
+	mock.ExpectQuery("WITH user_spend AS \\(").
+		WithArgs(start, end, 2, int64(1)).
+		WillReturnRows(rows)
+
+	got, err := repo.GetUserLeaderboard(context.Background(), start, end, 2, 1)
+	require.NoError(t, err)
+	require.Len(t, got.Ranking, 2)
+	require.Equal(t, int64(1), got.Ranking[0].Rank)
+	require.False(t, got.Ranking[0].IsCurrentUser)
+	require.Equal(t, int64(2), got.Ranking[1].Rank)
+	require.True(t, got.Ranking[1].IsCurrentUser)
+	require.NotNil(t, got.CurrentUserEntry)
+	require.Equal(t, got.Ranking[1], *got.CurrentUserEntry)
+	require.Equal(t, 40.0, got.TotalActualCost)
+	require.Equal(t, int64(30), got.TotalRequests)
+	require.Equal(t, int64(2600), got.TotalTokens)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUsageLogRepositoryGetUserLeaderboardKeepsCurrentUserEntryOutsideLimit(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+
+	start := time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC)
+	end := start.Add(7 * 24 * time.Hour)
+
+	rows := sqlmock.NewRows([]string{
+		"rank", "user_id", "username", "email", "avatar_url", "actual_cost", "requests", "tokens",
+		"total_actual_cost", "total_requests", "total_tokens",
+	}).
+		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 20.0, int64(9), int64(900), 30.0, int64(12), int64(1200)).
+		AddRow(int64(4), int64(9), "", "outside@example.com", nil, 1.0, int64(1), int64(50), 30.0, int64(12), int64(1200))
+
+	mock.ExpectQuery("WITH user_spend AS \\(").
+		WithArgs(start, end, 1, int64(9)).
+		WillReturnRows(rows)
+
+	got, err := repo.GetUserLeaderboard(context.Background(), start, end, 1, 9)
+	require.NoError(t, err)
+	require.Len(t, got.Ranking, 1)
+	require.Equal(t, int64(2), got.Ranking[0].UserID)
+	require.NotNil(t, got.CurrentUserEntry)
+	require.Equal(t, int64(4), got.CurrentUserEntry.Rank)
+	require.Equal(t, int64(9), got.CurrentUserEntry.UserID)
+	require.True(t, got.CurrentUserEntry.IsCurrentUser)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestBuildRequestTypeFilterConditionLegacyFallback(t *testing.T) {
 	tests := []struct {
 		name      string

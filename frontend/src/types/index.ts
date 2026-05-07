@@ -1387,6 +1387,32 @@ export interface UserSpendingRankingResponse {
   end_date: string
 }
 
+export type LeaderboardPeriod = 'day' | 'week' | 'month' | 'all'
+
+export interface UserLeaderboardItem {
+  rank: number
+  user_id: number
+  display_name: string
+  email_masked: string
+  avatar_url?: string | null
+  actual_cost: number
+  requests: number
+  tokens: number
+  is_current_user: boolean
+}
+
+export interface UserLeaderboardResponse {
+  period: LeaderboardPeriod
+  start_date: string
+  end_date: string
+  generated_at: string
+  total_actual_cost: number
+  total_requests: number
+  total_tokens: number
+  ranking: UserLeaderboardItem[]
+  current_user_entry: UserLeaderboardItem | null
+}
+
 export interface ApiKeyUsageTrendPoint {
   date: string
   api_key_id: number
