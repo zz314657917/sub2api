@@ -300,8 +300,8 @@ func parseUserTimeRange(c *gin.Context) (time.Time, time.Time) {
 }
 
 const (
-	defaultLeaderboardLimit = 20
-	maxLeaderboardLimit     = 100
+	defaultLeaderboardLimit = 10
+	maxLeaderboardLimit     = 10
 )
 
 func parseDashboardLeaderboardLimit(raw string) int {

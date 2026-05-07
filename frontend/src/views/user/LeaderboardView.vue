@@ -201,6 +201,7 @@ const leaderboard = ref<UserLeaderboardResponse | null>(null)
 const loading = ref(false)
 const error = ref(false)
 const hasLoaded = ref(false)
+const leaderboardLimit = 10
 let loadSeq = 0
 
 const periodOptions = computed(() => [
@@ -210,7 +211,7 @@ const periodOptions = computed(() => [
   { value: 'all' as const, label: t('leaderboard.period.all') },
 ])
 
-const rankingItems = computed<UserLeaderboardItem[]>(() => leaderboard.value?.ranking ?? [])
+const rankingItems = computed<UserLeaderboardItem[]>(() => (leaderboard.value?.ranking ?? []).slice(0, leaderboardLimit))
 const showCurrentUserSummary = computed(() => {
   const current = leaderboard.value?.current_user_entry
   if (!current) return false
@@ -224,7 +225,7 @@ async function loadLeaderboard() {
   leaderboard.value = null
 
   try {
-    const response = await usageAPI.getDashboardLeaderboard({ period: period.value, limit: 20 })
+    const response = await usageAPI.getDashboardLeaderboard({ period: period.value, limit: leaderboardLimit })
     if (currentSeq !== loadSeq) return
     leaderboard.value = response
     hasLoaded.value = true

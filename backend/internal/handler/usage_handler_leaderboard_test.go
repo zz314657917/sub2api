@@ -78,14 +78,14 @@ func TestUsageHandlerDashboardLeaderboardLimitClamp(t *testing.T) {
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, 100, repo.limit)
+	require.Equal(t, 10, repo.limit)
 	require.Equal(t, int64(42), repo.currentUserID)
 
 	req = httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?limit=0", nil)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.Equal(t, 20, repo.limit)
+	require.Equal(t, 10, repo.limit)
 }
 
 func TestUsageHandlerDashboardLeaderboardMasksEmailAndDisplayName(t *testing.T) {

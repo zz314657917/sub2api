@@ -2358,7 +2358,7 @@ type UserDashboardStats = usagestats.UserDashboardStats
 // user's entry available even when it falls outside the requested top limit.
 func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (result *UserLeaderboardResponse, err error) {
 	if limit <= 0 {
-		limit = 20
+		limit = 10
 	}
 
 	conditions := make([]string, 0, 2)

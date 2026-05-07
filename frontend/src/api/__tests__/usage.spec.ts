@@ -19,12 +19,12 @@ describe('usage api', () => {
   })
 
   it('loads user dashboard leaderboard with period and limit params', async () => {
-    await getDashboardLeaderboard({ period: 'week', limit: 20 })
+    await getDashboardLeaderboard({ period: 'week', limit: 10 })
 
     expect(get).toHaveBeenCalledWith('/usage/dashboard/leaderboard', {
       params: {
         period: 'week',
-        limit: 20,
+        limit: 10,
       },
     })
   })

@@ -95,12 +95,12 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    expect(getDashboardLeaderboard).toHaveBeenCalledWith({ period: 'day', limit: 20 })
+    expect(getDashboardLeaderboard).toHaveBeenCalledWith({ period: 'day', limit: 10 })
 
     await wrapper.findAll('button').find((button) => button.text() === '周榜')?.trigger('click')
     await flushPromises()
 
-    expect(getDashboardLeaderboard).toHaveBeenLastCalledWith({ period: 'week', limit: 20 })
+    expect(getDashboardLeaderboard).toHaveBeenLastCalledWith({ period: 'week', limit: 10 })
   })
 
   it('clears stale rows while loading the next period', async () => {
@@ -193,6 +193,40 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).toContain('我的排名')
     expect(wrapper.text()).toContain('#28')
     expect(wrapper.text()).toContain('Me')
+  })
+
+  it('renders at most 10 ranking items', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        ranking: Array.from({ length: 12 }, (_, index) => ({
+          rank: index + 1,
+          user_id: index + 1,
+          display_name: `User ${index + 1}`,
+          email_masked: `u***${index + 1}@example.com`,
+          avatar_url: null,
+          actual_cost: 12 - index,
+          requests: 10 + index,
+          tokens: 1000 + index,
+          is_current_user: false,
+        })),
+        current_user_entry: null,
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('User 10')
+    expect(wrapper.text()).not.toContain('User 11')
+    expect(wrapper.text()).not.toContain('User 12')
   })
 
   it('renders an empty state when there are no ranking items', async () => {
