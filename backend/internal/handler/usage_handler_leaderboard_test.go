@@ -113,3 +113,30 @@ func TestUsageHandlerDashboardLeaderboardMasksEmailAndDisplayName(t *testing.T) 
 	require.Contains(t, body, `"email_masked":"a***e@example.com"`)
 	require.Contains(t, body, `"display_name":"a***e@example.com"`)
 }
+
+func TestUsageHandlerDashboardLeaderboardMasksPhoneAndQQDisplayName(t *testing.T) {
+	repo := &userLeaderboardUsageRepo{
+		response: &usagestats.UserLeaderboardResponse{
+			Ranking: []usagestats.UserLeaderboardItem{
+				{Rank: 1, UserID: 42, Username: "13812345678", ActualCost: 9.5, Requests: 2, Tokens: 100},
+				{Rank: 2, UserID: 99, Username: "QQ:1234567890", ActualCost: 1.5, Requests: 1, Tokens: 20, IsCurrentUser: true},
+			},
+			CurrentUserEntry: &usagestats.UserLeaderboardItem{Rank: 2, UserID: 99, Username: "QQ:1234567890", ActualCost: 1.5, Requests: 1, Tokens: 20, IsCurrentUser: true},
+			TotalActualCost:  11,
+			TotalRequests:    3,
+			TotalTokens:      120,
+		},
+	}
+	router := newUserLeaderboardRouter(repo, 99)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	body := rec.Body.String()
+	require.NotContains(t, body, "13812345678")
+	require.NotContains(t, body, "1234567890")
+	require.Contains(t, body, `"display_name":"138****5678"`)
+	require.Contains(t, body, `"display_name":"QQ:12******90"`)
+}

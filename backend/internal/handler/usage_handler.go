@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -304,6 +305,11 @@ const (
 	maxLeaderboardLimit     = 10
 )
 
+var (
+	leaderboardPhonePattern      = regexp.MustCompile(`(?:\+?86[ -]*)?1[3-9][0-9][ -]*[0-9]{4}[ -]*[0-9]{4}`)
+	leaderboardExplicitQQPattern = regexp.MustCompile(`(?i)qq[ :：-]*[0-9]{5,12}`)
+)
+
 func parseDashboardLeaderboardLimit(raw string) int {
 	limit, err := strconv.Atoi(strings.TrimSpace(raw))
 	if err != nil || limit <= 0 {
@@ -378,7 +384,7 @@ func finalizeUserLeaderboardItem(item *usagestats.UserLeaderboardItem) {
 	}
 	switch {
 	case username != "" && !isLikelyEmailAddress(username):
-		item.DisplayName = username
+		item.DisplayName = maskSensitiveLeaderboardDisplayName(username)
 	case item.EmailMasked != "":
 		item.DisplayName = item.EmailMasked
 	default:
@@ -386,6 +392,98 @@ func finalizeUserLeaderboardItem(item *usagestats.UserLeaderboardItem) {
 	}
 	item.Email = ""
 	item.Username = ""
+}
+
+func maskSensitiveLeaderboardDisplayName(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if isDigitsOnly(value) {
+		if isLikelyMainlandMobile(value) {
+			return maskMainlandMobile(value)
+		}
+		if isLikelyQQNumber(value) {
+			return maskQQNumber(value)
+		}
+		return value
+	}
+
+	masked := leaderboardPhonePattern.ReplaceAllStringFunc(value, func(match string) string {
+		digits := digitsOnly(match)
+		if strings.HasPrefix(digits, "86") && len(digits) == 13 {
+			digits = digits[2:]
+		}
+		if !isLikelyMainlandMobile(digits) {
+			return match
+		}
+		return maskMainlandMobile(digits)
+	})
+
+	return leaderboardExplicitQQPattern.ReplaceAllStringFunc(masked, func(match string) string {
+		digitStart := firstDigitIndex(match)
+		if digitStart < 0 {
+			return match
+		}
+		digits := digitsOnly(match[digitStart:])
+		if !isLikelyQQNumber(digits) {
+			return match
+		}
+		return match[:digitStart] + maskQQNumber(digits)
+	})
+}
+
+func isDigitsOnly(value string) bool {
+	if value == "" {
+		return false
+	}
+	for i := 0; i < len(value); i++ {
+		if value[i] < '0' || value[i] > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func digitsOnly(value string) string {
+	var b strings.Builder
+	for i := 0; i < len(value); i++ {
+		if value[i] >= '0' && value[i] <= '9' {
+			b.WriteByte(value[i])
+		}
+	}
+	return b.String()
+}
+
+func firstDigitIndex(value string) int {
+	for i := 0; i < len(value); i++ {
+		if value[i] >= '0' && value[i] <= '9' {
+			return i
+		}
+	}
+	return -1
+}
+
+func isLikelyMainlandMobile(value string) bool {
+	return len(value) == 11 && isDigitsOnly(value) && value[0] == '1' && value[1] >= '3' && value[1] <= '9'
+}
+
+func maskMainlandMobile(value string) string {
+	if !isLikelyMainlandMobile(value) {
+		return value
+	}
+	return value[:3] + "****" + value[7:]
+}
+
+func isLikelyQQNumber(value string) bool {
+	return len(value) >= 5 && len(value) <= 12 && isDigitsOnly(value) && value[0] != '0'
+}
+
+func maskQQNumber(value string) string {
+	if !isLikelyQQNumber(value) || len(value) <= 4 {
+		return value
+	}
+	return value[:2] + strings.Repeat("*", len(value)-4) + value[len(value)-2:]
 }
 
 func isLikelyEmailAddress(value string) bool {
