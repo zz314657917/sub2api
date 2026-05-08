@@ -144,12 +144,14 @@ describe('admin DashboardView', () => {
     }))
   })
 
-  it('renders cache hit rate in summary cards', async () => {
+  it('renders input cache reuse in summary cards', async () => {
     getSnapshotV2.mockResolvedValueOnce({
       stats: createDashboardStats({
+        today_input_tokens: 700,
         today_cache_read_tokens: 300,
         today_cache_creation_tokens: 100,
-        total_cache_read_tokens: 900,
+        total_input_tokens: 300,
+        total_cache_read_tokens: 700,
         total_cache_creation_tokens: 100
       }),
       trend: [],
@@ -173,8 +175,8 @@ describe('admin DashboardView', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('75.0%')
-    expect(wrapper.text()).toContain('90.0%')
+    expect(wrapper.text()).toContain('30.0%')
+    expect(wrapper.text()).toContain('70.0%')
     expect(wrapper.text()).toContain('admin.dashboard.todayCacheHitRate')
     expect(wrapper.text()).toContain('admin.dashboard.totalCacheHitRate')
   })

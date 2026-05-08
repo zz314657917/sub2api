@@ -134,7 +134,7 @@
 
   <!-- Row 3: Cache Stats -->
   <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-    <!-- Today Cache Hit Rate -->
+    <!-- Today Input Cache Reuse -->
     <div class="card p-4">
       <div class="flex items-center gap-3">
         <div class="rounded-lg bg-cyan-100 p-2 dark:bg-cyan-900/30">
@@ -143,7 +143,7 @@
         <div class="min-w-0">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.todayCacheHitRate') }}</p>
           <p class="text-xl font-bold text-gray-900 dark:text-white">
-            {{ formatCacheHitRate(stats?.today_cache_read_tokens || 0, stats?.today_cache_creation_tokens || 0) }}
+            {{ formatCacheReuseRate(stats?.today_cache_read_tokens || 0, stats?.today_input_tokens || 0) }}
           </p>
           <p class="truncate text-xs text-gray-500 dark:text-gray-400" :title="cacheReadTitle(stats?.today_cache_read_tokens || 0)">
             {{ t('dashboard.cacheReadTokens') }}: {{ formatTokens(stats?.today_cache_read_tokens || 0) }}
@@ -152,7 +152,7 @@
       </div>
     </div>
 
-    <!-- Total Cache Hit Rate -->
+    <!-- Total Input Cache Reuse -->
     <div class="card p-4">
       <div class="flex items-center gap-3">
         <div class="rounded-lg bg-teal-100 p-2 dark:bg-teal-900/30">
@@ -161,7 +161,7 @@
         <div class="min-w-0">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.totalCacheHitRate') }}</p>
           <p class="text-xl font-bold text-gray-900 dark:text-white">
-            {{ formatCacheHitRate(stats?.total_cache_read_tokens || 0, stats?.total_cache_creation_tokens || 0) }}
+            {{ formatCacheReuseRate(stats?.total_cache_read_tokens || 0, stats?.total_input_tokens || 0) }}
           </p>
           <p class="truncate text-xs text-gray-500 dark:text-gray-400" :title="cacheReadTitle(stats?.total_cache_read_tokens || 0)">
             {{ t('dashboard.cacheReadTokens') }}: {{ formatTokens(stats?.total_cache_read_tokens || 0) }}
@@ -198,10 +198,10 @@ const formatTokens = (t: number) => {
   return t.toString()
 }
 const formatDuration = (ms: number) => ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms.toFixed(0)}ms`
-const formatCacheHitRate = (cacheReadTokens: number, cacheCreationTokens: number) => {
-  const cacheTokens = cacheReadTokens + cacheCreationTokens
-  if (cacheTokens <= 0) return t('common.notAvailable')
-  return `${((cacheReadTokens / cacheTokens) * 100).toFixed(1)}%`
+const formatCacheReuseRate = (cacheReadTokens: number, inputTokens: number) => {
+  const inputTotal = cacheReadTokens + inputTokens
+  if (inputTotal <= 0) return t('common.notAvailable')
+  return `${((cacheReadTokens / inputTotal) * 100).toFixed(1)}%`
 }
 const cacheReadTitle = (cacheReadTokens: number) =>
   `${t('dashboard.cacheReadTokens')}: ${formatNumber(cacheReadTokens)}`

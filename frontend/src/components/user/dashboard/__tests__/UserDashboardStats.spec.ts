@@ -8,8 +8,8 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key: string) => {
       const messages: Record<string, string> = {
-        'dashboard.todayCacheHitRate': 'Today Cache Hit Rate',
-        'dashboard.totalCacheHitRate': 'Historical Cache Hit Rate',
+        'dashboard.todayCacheHitRate': 'Today Input Cache Reuse',
+        'dashboard.totalCacheHitRate': 'Historical Input Cache Reuse',
         'dashboard.cacheReadTokens': 'Cache Read',
         'common.notAvailable': 'N/A',
       }
@@ -44,13 +44,15 @@ const makeStats = (overrides: Partial<UserStatsType> = {}): UserStatsType => ({
 })
 
 describe('UserDashboardStats', () => {
-  it('renders today and historical cache hit rate cards', () => {
+  it('renders today and historical input cache reuse cards', () => {
     const wrapper = mount(UserDashboardStats, {
       props: {
         stats: makeStats({
+          today_input_tokens: 700,
           today_cache_read_tokens: 300,
           today_cache_creation_tokens: 100,
-          total_cache_read_tokens: 900,
+          total_input_tokens: 300,
+          total_cache_read_tokens: 700,
           total_cache_creation_tokens: 100,
         }),
         balance: 0,
@@ -63,12 +65,12 @@ describe('UserDashboardStats', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Today Cache Hit Rate')
-    expect(wrapper.text()).toContain('Historical Cache Hit Rate')
-    expect(wrapper.text()).toContain('75.0%')
-    expect(wrapper.text()).toContain('90.0%')
+    expect(wrapper.text()).toContain('Today Input Cache Reuse')
+    expect(wrapper.text()).toContain('Historical Input Cache Reuse')
+    expect(wrapper.text()).toContain('30.0%')
+    expect(wrapper.text()).toContain('70.0%')
     expect(wrapper.text()).toContain('Cache Read: 300')
-    expect(wrapper.text()).toContain('Cache Read: 900')
+    expect(wrapper.text()).toContain('Cache Read: 700')
   })
 
   it('renders N/A when there are no cache tokens', () => {
