@@ -51,11 +51,12 @@ const (
 
 // Redeem type constants
 const (
-	RedeemTypeBalance          = domain.RedeemTypeBalance
-	RedeemTypeConcurrency      = domain.RedeemTypeConcurrency
-	RedeemTypeSubscription     = domain.RedeemTypeSubscription
-	RedeemTypeInvitation       = domain.RedeemTypeInvitation
-	RedeemTypeAffiliateBalance = "affiliate_balance"
+	RedeemTypeBalance           = domain.RedeemTypeBalance
+	RedeemTypeConcurrency       = domain.RedeemTypeConcurrency
+	RedeemTypeSubscription      = domain.RedeemTypeSubscription
+	RedeemTypeInvitation        = domain.RedeemTypeInvitation
+	RedeemTypeAffiliateBalance  = "affiliate_balance"
+	RedeemTypeLeaderboardReward = domain.RedeemTypeLeaderboardReward
 )
 
 // PromoCode status constants
@@ -307,6 +308,13 @@ const (
 	// user-facing aggregate view. When false: user endpoint returns an empty list and the
 	// sidebar entry is hidden. Defaults to false (opt-in feature).
 	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
+
+	// Leaderboard daily reward settings. Defaults are disabled with zero threshold/rewards.
+	SettingKeyLeaderboardDailyRewardEnabled            = "leaderboard_daily_reward_enabled"
+	SettingKeyLeaderboardDailyRewardMinTotalActualCost = "leaderboard_daily_reward_min_total_actual_cost"
+	SettingKeyLeaderboardDailyRewardRank1Amount        = "leaderboard_daily_reward_rank_1_amount"
+	SettingKeyLeaderboardDailyRewardRank2Amount        = "leaderboard_daily_reward_rank_2_amount"
+	SettingKeyLeaderboardDailyRewardRank3Amount        = "leaderboard_daily_reward_rank_3_amount"
 
 	// =========================
 	// Overload Cooldown (529)

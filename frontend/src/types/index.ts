@@ -1152,7 +1152,7 @@ export interface CodexSessionImportResult {
 
 // ==================== Usage & Redeem Types ====================
 
-export type RedeemCodeType = 'balance' | 'concurrency' | 'subscription' | 'invitation'
+export type RedeemCodeType = 'balance' | 'concurrency' | 'subscription' | 'invitation' | 'leaderboard_reward'
 export type UsageRequestType = 'unknown' | 'sync' | 'stream' | 'ws_v2'
 
 export interface UsageLog {
@@ -1454,7 +1454,28 @@ export interface UserLeaderboardItem {
   actual_cost: number
   requests: number
   tokens: number
+  balance: number
   is_current_user: boolean
+}
+
+export interface LeaderboardDailyRewardTier {
+  rank: number
+  amount: number
+}
+
+export interface LeaderboardDailyRewards {
+  reward_date: string
+  settlement_timezone: string
+  enabled: boolean
+  min_total_actual_cost: number
+  yesterday_total_actual_cost: number
+  threshold_met: boolean
+  rewards: LeaderboardDailyRewardTier[]
+  current_user_rank: number
+  current_user_reward_amount: number
+  can_claim: boolean
+  claimed: boolean
+  reason: string
 }
 
 export interface UserLeaderboardResponse {
@@ -1467,6 +1488,7 @@ export interface UserLeaderboardResponse {
   total_tokens: number
   ranking: UserLeaderboardItem[]
   current_user_entry: UserLeaderboardItem | null
+  daily_rewards?: LeaderboardDailyRewards | null
 }
 
 export interface ApiKeyUsageTrendPoint {

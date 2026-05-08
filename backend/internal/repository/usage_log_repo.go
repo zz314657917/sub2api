@@ -2386,6 +2386,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 				COALESCE(us.username, '') as username,
 				COALESCE(us.email, '') as email,
 				COALESCE(ua.url, '') as avatar_url,
+				COALESCE(us.balance, 0) as balance,
 				COALESCE(SUM(u.actual_cost), 0) as actual_cost,
 				COUNT(*) as requests,
 				COALESCE(SUM(u.input_tokens + u.output_tokens + u.cache_creation_tokens + u.cache_read_tokens), 0) as tokens
@@ -2393,7 +2394,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 			LEFT JOIN users us ON u.user_id = us.id
 			LEFT JOIN user_avatars ua ON u.user_id = ua.user_id
 			%s
-			GROUP BY u.user_id, us.username, us.email, ua.url
+			GROUP BY u.user_id, us.username, us.email, us.balance, ua.url
 		),
 		ranked AS (
 			SELECT
@@ -2402,6 +2403,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 				username,
 				email,
 				avatar_url,
+				balance,
 				actual_cost,
 				requests,
 				tokens,
@@ -2421,6 +2423,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 			username,
 			email,
 			NULLIF(avatar_url, '') as avatar_url,
+			balance,
 			actual_cost,
 			requests,
 			tokens,
@@ -2457,6 +2460,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 			&row.Username,
 			&row.Email,
 			&avatarURL,
+			&row.Balance,
 			&row.ActualCost,
 			&row.Requests,
 			&row.Tokens,
@@ -2493,6 +2497,116 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 }
 
 // GetUserDashboardStats 获取用户专属的仪表盘统计
+func (r *usageLogRepository) leaderboardRewardClaimExecutor(ctx context.Context) (sqlExecutor, error) {
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		return tx.Client(), nil
+	}
+	if r.sql != nil {
+		return r.sql, nil
+	}
+	if r.client != nil {
+		return r.client, nil
+	}
+	return nil, fmt.Errorf("leaderboard reward claim sql executor is not configured")
+}
+
+func (r *usageLogRepository) GetLeaderboardDailyRewardClaim(ctx context.Context, rewardDate string, userID int64) (*service.LeaderboardDailyRewardClaim, error) {
+	exec, err := r.leaderboardRewardClaimExecutor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := exec.QueryContext(ctx, `
+		SELECT id, reward_date::text, user_id, rank, amount, total_actual_cost, redeem_code_id, created_at
+		FROM leaderboard_daily_reward_claims
+		WHERE reward_date = $1 AND user_id = $2
+	`, rewardDate, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return nil, service.ErrLeaderboardDailyRewardClaimNotFound
+	}
+	var claim service.LeaderboardDailyRewardClaim
+	var redeemCodeID sql.NullInt64
+	if err := rows.Scan(
+		&claim.ID,
+		&claim.RewardDate,
+		&claim.UserID,
+		&claim.Rank,
+		&claim.Amount,
+		&claim.TotalActualCost,
+		&redeemCodeID,
+		&claim.CreatedAt,
+	); err != nil {
+		return nil, err
+	}
+	if redeemCodeID.Valid {
+		claim.RedeemCodeID = &redeemCodeID.Int64
+	}
+	return &claim, nil
+}
+
+func (r *usageLogRepository) CreateLeaderboardDailyRewardClaim(ctx context.Context, claim *service.LeaderboardDailyRewardClaim) error {
+	exec, err := r.leaderboardRewardClaimExecutor(ctx)
+	if err != nil {
+		return err
+	}
+	rows, err := exec.QueryContext(ctx, `
+		INSERT INTO leaderboard_daily_reward_claims (
+			reward_date, user_id, rank, amount, total_actual_cost, redeem_code_id
+		)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at
+	`, claim.RewardDate, claim.UserID, claim.Rank, claim.Amount, claim.TotalActualCost, claim.RedeemCodeID)
+	if err != nil {
+		if isLeaderboardRewardUniqueViolation(err) {
+			return service.ErrLeaderboardDailyRewardAlreadyClaimed
+		}
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		return fmt.Errorf("create leaderboard daily reward claim returned no row")
+	}
+	return rows.Scan(&claim.ID, &claim.CreatedAt)
+}
+
+func (r *usageLogRepository) AttachLeaderboardDailyRewardClaimRedeemCode(ctx context.Context, claimID, redeemCodeID int64) error {
+	exec, err := r.leaderboardRewardClaimExecutor(ctx)
+	if err != nil {
+		return err
+	}
+	result, err := exec.ExecContext(ctx, `
+		UPDATE leaderboard_daily_reward_claims
+		SET redeem_code_id = $2
+		WHERE id = $1
+	`, claimID, redeemCodeID)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrLeaderboardDailyRewardClaimNotFound
+	}
+	return nil
+}
+
+func isLeaderboardRewardUniqueViolation(err error) bool {
+	var pqErr *pq.Error
+	return errors.As(err, &pqErr) && string(pqErr.Code) == "23505"
+}
+
 func (r *usageLogRepository) GetUserDashboardStats(ctx context.Context, userID int64) (*UserDashboardStats, error) {
 	stats := &UserDashboardStats{}
 	today := timezone.Today()

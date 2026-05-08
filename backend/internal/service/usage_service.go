@@ -58,6 +58,8 @@ type UsageService struct {
 	userRepo             UserRepository
 	entClient            *dbent.Client
 	authCacheInvalidator APIKeyAuthCacheInvalidator
+	settingRepo          SettingRepository
+	redeemRepo           RedeemCodeRepository
 }
 
 // NewUsageService 创建使用统计服务实例
@@ -68,6 +70,19 @@ func NewUsageService(usageRepo UsageLogRepository, userRepo UserRepository, entC
 		entClient:            entClient,
 		authCacheInvalidator: authCacheInvalidator,
 	}
+}
+
+// SetLeaderboardRewardDependencies wires optional repositories used by leaderboard rewards.
+func (s *UsageService) SetLeaderboardRewardDependencies(settingRepo SettingRepository, redeemRepo RedeemCodeRepository) {
+	s.settingRepo = settingRepo
+	s.redeemRepo = redeemRepo
+}
+
+// ProvideUsageService creates UsageService with optional leaderboard reward dependencies.
+func ProvideUsageService(usageRepo UsageLogRepository, userRepo UserRepository, settingRepo SettingRepository, redeemRepo RedeemCodeRepository, entClient *dbent.Client, authCacheInvalidator APIKeyAuthCacheInvalidator) *UsageService {
+	svc := NewUsageService(usageRepo, userRepo, entClient, authCacheInvalidator)
+	svc.SetLeaderboardRewardDependencies(settingRepo, redeemRepo)
+	return svc
 }
 
 // Create 创建使用日志

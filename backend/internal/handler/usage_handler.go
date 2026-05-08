@@ -555,9 +555,32 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 	if leaderboard.Ranking == nil {
 		leaderboard.Ranking = []usagestats.UserLeaderboardItem{}
 	}
+	dailyRewards, err := h.usageService.GetLeaderboardDailyRewards(c.Request.Context(), subject.UserID, userTZ)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	leaderboard.DailyRewards = dailyRewards
 	finalizeUserLeaderboardResponse(leaderboard)
 
 	response.Success(c, leaderboard)
+}
+
+// ClaimDashboardLeaderboardDailyReward handles claiming yesterday's top-3 reward.
+// POST /api/v1/usage/dashboard/leaderboard/daily-reward/claim
+func (h *UsageHandler) ClaimDashboardLeaderboardDailyReward(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	result, err := h.usageService.ClaimLeaderboardDailyReward(c.Request.Context(), subject.UserID, "")
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
 }
 
 // DashboardTrend handles getting user usage trend data

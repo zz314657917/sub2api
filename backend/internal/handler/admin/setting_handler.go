@@ -260,7 +260,12 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 
-		AvailableChannelsEnabled: settings.AvailableChannelsEnabled,
+		AvailableChannelsEnabled:                 settings.AvailableChannelsEnabled,
+		LeaderboardDailyRewardEnabled:            settings.LeaderboardDailyRewardEnabled,
+		LeaderboardDailyRewardMinTotalActualCost: settings.LeaderboardDailyRewardMinTotalActualCost,
+		LeaderboardDailyRewardRank1Amount:        settings.LeaderboardDailyRewardRank1Amount,
+		LeaderboardDailyRewardRank2Amount:        settings.LeaderboardDailyRewardRank2Amount,
+		LeaderboardDailyRewardRank3Amount:        settings.LeaderboardDailyRewardRank3Amount,
 
 		AffiliateEnabled: settings.AffiliateEnabled,
 	}
@@ -562,6 +567,12 @@ type UpdateSettingsRequest struct {
 
 	// Available Channels feature switch (user-facing)
 	AvailableChannelsEnabled *bool `json:"available_channels_enabled"`
+
+	LeaderboardDailyRewardEnabled            *bool    `json:"leaderboard_daily_reward_enabled"`
+	LeaderboardDailyRewardMinTotalActualCost *float64 `json:"leaderboard_daily_reward_min_total_actual_cost"`
+	LeaderboardDailyRewardRank1Amount        *float64 `json:"leaderboard_daily_reward_rank_1_amount"`
+	LeaderboardDailyRewardRank2Amount        *float64 `json:"leaderboard_daily_reward_rank_2_amount"`
+	LeaderboardDailyRewardRank3Amount        *float64 `json:"leaderboard_daily_reward_rank_3_amount"`
 
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled *bool `json:"affiliate_enabled"`
@@ -1493,6 +1504,16 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.AvailableChannelsEnabled
 		}(),
+		LeaderboardDailyRewardEnabled: func() bool {
+			if req.LeaderboardDailyRewardEnabled != nil {
+				return *req.LeaderboardDailyRewardEnabled
+			}
+			return previousSettings.LeaderboardDailyRewardEnabled
+		}(),
+		LeaderboardDailyRewardMinTotalActualCost: float64ValueOrDefault(req.LeaderboardDailyRewardMinTotalActualCost, previousSettings.LeaderboardDailyRewardMinTotalActualCost),
+		LeaderboardDailyRewardRank1Amount:        float64ValueOrDefault(req.LeaderboardDailyRewardRank1Amount, previousSettings.LeaderboardDailyRewardRank1Amount),
+		LeaderboardDailyRewardRank2Amount:        float64ValueOrDefault(req.LeaderboardDailyRewardRank2Amount, previousSettings.LeaderboardDailyRewardRank2Amount),
+		LeaderboardDailyRewardRank3Amount:        float64ValueOrDefault(req.LeaderboardDailyRewardRank3Amount, previousSettings.LeaderboardDailyRewardRank3Amount),
 		AffiliateEnabled: func() bool {
 			if req.AffiliateEnabled != nil {
 				return *req.AffiliateEnabled
@@ -1781,7 +1802,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ChannelMonitorEnabled:                updatedSettings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
 
-		AvailableChannelsEnabled: updatedSettings.AvailableChannelsEnabled,
+		AvailableChannelsEnabled:                 updatedSettings.AvailableChannelsEnabled,
+		LeaderboardDailyRewardEnabled:            updatedSettings.LeaderboardDailyRewardEnabled,
+		LeaderboardDailyRewardMinTotalActualCost: updatedSettings.LeaderboardDailyRewardMinTotalActualCost,
+		LeaderboardDailyRewardRank1Amount:        updatedSettings.LeaderboardDailyRewardRank1Amount,
+		LeaderboardDailyRewardRank2Amount:        updatedSettings.LeaderboardDailyRewardRank2Amount,
+		LeaderboardDailyRewardRank3Amount:        updatedSettings.LeaderboardDailyRewardRank3Amount,
 
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,
 

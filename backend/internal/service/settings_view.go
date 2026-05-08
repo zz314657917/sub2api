@@ -157,6 +157,13 @@ type SystemSettings struct {
 	// Available Channels feature (user-facing aggregate view)
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
 
+	// Leaderboard daily reward feature
+	LeaderboardDailyRewardEnabled            bool    `json:"leaderboard_daily_reward_enabled"`
+	LeaderboardDailyRewardMinTotalActualCost float64 `json:"leaderboard_daily_reward_min_total_actual_cost"`
+	LeaderboardDailyRewardRank1Amount        float64 `json:"leaderboard_daily_reward_rank_1_amount"`
+	LeaderboardDailyRewardRank2Amount        float64 `json:"leaderboard_daily_reward_rank_2_amount"`
+	LeaderboardDailyRewardRank3Amount        float64 `json:"leaderboard_daily_reward_rank_3_amount"`
+
 	// Claude Code version check
 	MinClaudeCodeVersion string
 	MaxClaudeCodeVersion string

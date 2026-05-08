@@ -1564,6 +1564,16 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyAvailableChannelsEnabled] = strconv.FormatBool(settings.AvailableChannelsEnabled)
 
 	// Affiliate (邀请返利) feature switch
+	settings.LeaderboardDailyRewardMinTotalActualCost = normalizeNonNegativeFloat(settings.LeaderboardDailyRewardMinTotalActualCost)
+	settings.LeaderboardDailyRewardRank1Amount = normalizeNonNegativeFloat(settings.LeaderboardDailyRewardRank1Amount)
+	settings.LeaderboardDailyRewardRank2Amount = normalizeNonNegativeFloat(settings.LeaderboardDailyRewardRank2Amount)
+	settings.LeaderboardDailyRewardRank3Amount = normalizeNonNegativeFloat(settings.LeaderboardDailyRewardRank3Amount)
+	updates[SettingKeyLeaderboardDailyRewardEnabled] = strconv.FormatBool(settings.LeaderboardDailyRewardEnabled)
+	updates[SettingKeyLeaderboardDailyRewardMinTotalActualCost] = strconv.FormatFloat(settings.LeaderboardDailyRewardMinTotalActualCost, 'f', 8, 64)
+	updates[SettingKeyLeaderboardDailyRewardRank1Amount] = strconv.FormatFloat(settings.LeaderboardDailyRewardRank1Amount, 'f', 8, 64)
+	updates[SettingKeyLeaderboardDailyRewardRank2Amount] = strconv.FormatFloat(settings.LeaderboardDailyRewardRank2Amount, 'f', 8, 64)
+	updates[SettingKeyLeaderboardDailyRewardRank3Amount] = strconv.FormatFloat(settings.LeaderboardDailyRewardRank3Amount, 'f', 8, 64)
+
 	updates[SettingKeyAffiliateEnabled] = strconv.FormatBool(settings.AffiliateEnabled)
 
 	// 风控中心功能开关
@@ -2343,7 +2353,12 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyChannelMonitorDefaultIntervalSeconds: "60",
 
 		// Available channels feature (default disabled; opt-in)
-		SettingKeyAvailableChannelsEnabled: "false",
+		SettingKeyAvailableChannelsEnabled:                 "false",
+		SettingKeyLeaderboardDailyRewardEnabled:            "false",
+		SettingKeyLeaderboardDailyRewardMinTotalActualCost: "0",
+		SettingKeyLeaderboardDailyRewardRank1Amount:        "0",
+		SettingKeyLeaderboardDailyRewardRank2Amount:        "0",
+		SettingKeyLeaderboardDailyRewardRank3Amount:        "0",
 
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
 		SettingKeyAffiliateEnabled: "false",
@@ -2711,6 +2726,12 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// Available channels feature (default: disabled; strict true)
 	result.AvailableChannelsEnabled = settings[SettingKeyAvailableChannelsEnabled] == "true"
+
+	result.LeaderboardDailyRewardEnabled = settings[SettingKeyLeaderboardDailyRewardEnabled] == "true"
+	result.LeaderboardDailyRewardMinTotalActualCost = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardMinTotalActualCost], 0)
+	result.LeaderboardDailyRewardRank1Amount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardRank1Amount], 0)
+	result.LeaderboardDailyRewardRank2Amount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardRank2Amount], 0)
+	result.LeaderboardDailyRewardRank3Amount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardRank3Amount], 0)
 
 	// Affiliate (邀请返利) feature (default: disabled; strict true)
 	result.AffiliateEnabled = settings[SettingKeyAffiliateEnabled] == "true"

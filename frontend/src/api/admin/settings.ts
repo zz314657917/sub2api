@@ -521,6 +521,13 @@ export interface SystemSettings {
   // Available Channels feature switch
   available_channels_enabled: boolean;
 
+  // Leaderboard daily reward feature switch and balance amounts
+  leaderboard_daily_reward_enabled: boolean;
+  leaderboard_daily_reward_min_total_actual_cost: number;
+  leaderboard_daily_reward_rank_1_amount: number;
+  leaderboard_daily_reward_rank_2_amount: number;
+  leaderboard_daily_reward_rank_3_amount: number;
+
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: boolean;
 
@@ -713,6 +720,13 @@ export interface UpdateSettingsRequest {
 
   // Available Channels feature switch
   available_channels_enabled?: boolean;
+
+  // Leaderboard daily reward feature switch and balance amounts
+  leaderboard_daily_reward_enabled?: boolean;
+  leaderboard_daily_reward_min_total_actual_cost?: number;
+  leaderboard_daily_reward_rank_1_amount?: number;
+  leaderboard_daily_reward_rank_2_amount?: number;
+  leaderboard_daily_reward_rank_3_amount?: number;
 
   // Affiliate (邀请返利) feature switch
   affiliate_enabled?: boolean;

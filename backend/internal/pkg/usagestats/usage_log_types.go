@@ -172,22 +172,46 @@ type UserLeaderboardItem struct {
 	ActualCost    float64 `json:"actual_cost"`
 	Requests      int64   `json:"requests"`
 	Tokens        int64   `json:"tokens"`
+	Balance       float64 `json:"balance"`
 	IsCurrentUser bool    `json:"is_current_user"`
 	Username      string  `json:"-"`
 	Email         string  `json:"-"`
 }
 
+// LeaderboardDailyRewardTier represents the configured balance reward for one rank.
+type LeaderboardDailyRewardTier struct {
+	Rank   int     `json:"rank"`
+	Amount float64 `json:"amount"`
+}
+
+// LeaderboardDailyRewards represents yesterday's reward settlement status.
+type LeaderboardDailyRewards struct {
+	RewardDate               string                       `json:"reward_date"`
+	SettlementTimezone       string                       `json:"settlement_timezone"`
+	Enabled                  bool                         `json:"enabled"`
+	MinTotalActualCost       float64                      `json:"min_total_actual_cost"`
+	YesterdayTotalActualCost float64                      `json:"yesterday_total_actual_cost"`
+	ThresholdMet             bool                         `json:"threshold_met"`
+	Rewards                  []LeaderboardDailyRewardTier `json:"rewards"`
+	CurrentUserRank          int64                        `json:"current_user_rank"`
+	CurrentUserRewardAmount  float64                      `json:"current_user_reward_amount"`
+	CanClaim                 bool                         `json:"can_claim"`
+	Claimed                  bool                         `json:"claimed"`
+	Reason                   string                       `json:"reason"`
+}
+
 // UserLeaderboardResponse represents the user dashboard leaderboard payload.
 type UserLeaderboardResponse struct {
-	Period           string                `json:"period"`
-	StartDate        string                `json:"start_date"`
-	EndDate          string                `json:"end_date"`
-	GeneratedAt      string                `json:"generated_at"`
-	TotalActualCost  float64               `json:"total_actual_cost"`
-	TotalRequests    int64                 `json:"total_requests"`
-	TotalTokens      int64                 `json:"total_tokens"`
-	Ranking          []UserLeaderboardItem `json:"ranking"`
-	CurrentUserEntry *UserLeaderboardItem  `json:"current_user_entry"`
+	Period           string                   `json:"period"`
+	StartDate        string                   `json:"start_date"`
+	EndDate          string                   `json:"end_date"`
+	GeneratedAt      string                   `json:"generated_at"`
+	TotalActualCost  float64                  `json:"total_actual_cost"`
+	TotalRequests    int64                    `json:"total_requests"`
+	TotalTokens      int64                    `json:"total_tokens"`
+	Ranking          []UserLeaderboardItem    `json:"ranking"`
+	CurrentUserEntry *UserLeaderboardItem     `json:"current_user_entry"`
+	DailyRewards     *LeaderboardDailyRewards `json:"daily_rewards,omitempty"`
 }
 
 // UserBreakdownItem represents per-user usage breakdown within a dimension (group, model, endpoint).
