@@ -90,6 +90,21 @@ func Type(v string) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldType, v))
 }
 
+// OwnerUserID applies equality check predicate on the "owner_user_id" field. It's identical to OwnerUserIDEQ.
+func OwnerUserID(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldOwnerUserID, v))
+}
+
+// ShareMode applies equality check predicate on the "share_mode" field. It's identical to ShareModeEQ.
+func ShareMode(v string) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldShareMode, v))
+}
+
+// ShareStatus applies equality check predicate on the "share_status" field. It's identical to ShareStatusEQ.
+func ShareStatus(v string) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldShareStatus, v))
+}
+
 // ProxyID applies equality check predicate on the "proxy_id" field. It's identical to ProxyIDEQ.
 func ProxyID(v int64) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldProxyID, v))
@@ -583,6 +598,186 @@ func TypeEqualFold(v string) predicate.Account {
 // TypeContainsFold applies the ContainsFold predicate on the "type" field.
 func TypeContainsFold(v string) predicate.Account {
 	return predicate.Account(sql.FieldContainsFold(FieldType, v))
+}
+
+// OwnerUserIDEQ applies the EQ predicate on the "owner_user_id" field.
+func OwnerUserIDEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDNEQ applies the NEQ predicate on the "owner_user_id" field.
+func OwnerUserIDNEQ(v int64) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDIn applies the In predicate on the "owner_user_id" field.
+func OwnerUserIDIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldOwnerUserID, vs...))
+}
+
+// OwnerUserIDNotIn applies the NotIn predicate on the "owner_user_id" field.
+func OwnerUserIDNotIn(vs ...int64) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldOwnerUserID, vs...))
+}
+
+// OwnerUserIDGT applies the GT predicate on the "owner_user_id" field.
+func OwnerUserIDGT(v int64) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDGTE applies the GTE predicate on the "owner_user_id" field.
+func OwnerUserIDGTE(v int64) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDLT applies the LT predicate on the "owner_user_id" field.
+func OwnerUserIDLT(v int64) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDLTE applies the LTE predicate on the "owner_user_id" field.
+func OwnerUserIDLTE(v int64) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldOwnerUserID, v))
+}
+
+// OwnerUserIDIsNil applies the IsNil predicate on the "owner_user_id" field.
+func OwnerUserIDIsNil() predicate.Account {
+	return predicate.Account(sql.FieldIsNull(FieldOwnerUserID))
+}
+
+// OwnerUserIDNotNil applies the NotNil predicate on the "owner_user_id" field.
+func OwnerUserIDNotNil() predicate.Account {
+	return predicate.Account(sql.FieldNotNull(FieldOwnerUserID))
+}
+
+// ShareModeEQ applies the EQ predicate on the "share_mode" field.
+func ShareModeEQ(v string) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldShareMode, v))
+}
+
+// ShareModeNEQ applies the NEQ predicate on the "share_mode" field.
+func ShareModeNEQ(v string) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldShareMode, v))
+}
+
+// ShareModeIn applies the In predicate on the "share_mode" field.
+func ShareModeIn(vs ...string) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldShareMode, vs...))
+}
+
+// ShareModeNotIn applies the NotIn predicate on the "share_mode" field.
+func ShareModeNotIn(vs ...string) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldShareMode, vs...))
+}
+
+// ShareModeGT applies the GT predicate on the "share_mode" field.
+func ShareModeGT(v string) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldShareMode, v))
+}
+
+// ShareModeGTE applies the GTE predicate on the "share_mode" field.
+func ShareModeGTE(v string) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldShareMode, v))
+}
+
+// ShareModeLT applies the LT predicate on the "share_mode" field.
+func ShareModeLT(v string) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldShareMode, v))
+}
+
+// ShareModeLTE applies the LTE predicate on the "share_mode" field.
+func ShareModeLTE(v string) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldShareMode, v))
+}
+
+// ShareModeContains applies the Contains predicate on the "share_mode" field.
+func ShareModeContains(v string) predicate.Account {
+	return predicate.Account(sql.FieldContains(FieldShareMode, v))
+}
+
+// ShareModeHasPrefix applies the HasPrefix predicate on the "share_mode" field.
+func ShareModeHasPrefix(v string) predicate.Account {
+	return predicate.Account(sql.FieldHasPrefix(FieldShareMode, v))
+}
+
+// ShareModeHasSuffix applies the HasSuffix predicate on the "share_mode" field.
+func ShareModeHasSuffix(v string) predicate.Account {
+	return predicate.Account(sql.FieldHasSuffix(FieldShareMode, v))
+}
+
+// ShareModeEqualFold applies the EqualFold predicate on the "share_mode" field.
+func ShareModeEqualFold(v string) predicate.Account {
+	return predicate.Account(sql.FieldEqualFold(FieldShareMode, v))
+}
+
+// ShareModeContainsFold applies the ContainsFold predicate on the "share_mode" field.
+func ShareModeContainsFold(v string) predicate.Account {
+	return predicate.Account(sql.FieldContainsFold(FieldShareMode, v))
+}
+
+// ShareStatusEQ applies the EQ predicate on the "share_status" field.
+func ShareStatusEQ(v string) predicate.Account {
+	return predicate.Account(sql.FieldEQ(FieldShareStatus, v))
+}
+
+// ShareStatusNEQ applies the NEQ predicate on the "share_status" field.
+func ShareStatusNEQ(v string) predicate.Account {
+	return predicate.Account(sql.FieldNEQ(FieldShareStatus, v))
+}
+
+// ShareStatusIn applies the In predicate on the "share_status" field.
+func ShareStatusIn(vs ...string) predicate.Account {
+	return predicate.Account(sql.FieldIn(FieldShareStatus, vs...))
+}
+
+// ShareStatusNotIn applies the NotIn predicate on the "share_status" field.
+func ShareStatusNotIn(vs ...string) predicate.Account {
+	return predicate.Account(sql.FieldNotIn(FieldShareStatus, vs...))
+}
+
+// ShareStatusGT applies the GT predicate on the "share_status" field.
+func ShareStatusGT(v string) predicate.Account {
+	return predicate.Account(sql.FieldGT(FieldShareStatus, v))
+}
+
+// ShareStatusGTE applies the GTE predicate on the "share_status" field.
+func ShareStatusGTE(v string) predicate.Account {
+	return predicate.Account(sql.FieldGTE(FieldShareStatus, v))
+}
+
+// ShareStatusLT applies the LT predicate on the "share_status" field.
+func ShareStatusLT(v string) predicate.Account {
+	return predicate.Account(sql.FieldLT(FieldShareStatus, v))
+}
+
+// ShareStatusLTE applies the LTE predicate on the "share_status" field.
+func ShareStatusLTE(v string) predicate.Account {
+	return predicate.Account(sql.FieldLTE(FieldShareStatus, v))
+}
+
+// ShareStatusContains applies the Contains predicate on the "share_status" field.
+func ShareStatusContains(v string) predicate.Account {
+	return predicate.Account(sql.FieldContains(FieldShareStatus, v))
+}
+
+// ShareStatusHasPrefix applies the HasPrefix predicate on the "share_status" field.
+func ShareStatusHasPrefix(v string) predicate.Account {
+	return predicate.Account(sql.FieldHasPrefix(FieldShareStatus, v))
+}
+
+// ShareStatusHasSuffix applies the HasSuffix predicate on the "share_status" field.
+func ShareStatusHasSuffix(v string) predicate.Account {
+	return predicate.Account(sql.FieldHasSuffix(FieldShareStatus, v))
+}
+
+// ShareStatusEqualFold applies the EqualFold predicate on the "share_status" field.
+func ShareStatusEqualFold(v string) predicate.Account {
+	return predicate.Account(sql.FieldEqualFold(FieldShareStatus, v))
+}
+
+// ShareStatusContainsFold applies the ContainsFold predicate on the "share_status" field.
+func ShareStatusContainsFold(v string) predicate.Account {
+	return predicate.Account(sql.FieldContainsFold(FieldShareStatus, v))
 }
 
 // ProxyIDEQ applies the EQ predicate on the "proxy_id" field.

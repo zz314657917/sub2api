@@ -143,13 +143,14 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 
 	for {
 		reqLog.Debug("openai.images.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForImages(
+		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForImagesForUser(
 			c.Request.Context(),
 			apiKey.GroupID,
 			sessionHash,
 			parsed.Model,
 			failedAccountIDs,
 			parsed.RequiredCapability,
+			subject.UserID,
 		)
 		if err != nil {
 			reqLog.Warn("openai.images.account_select_failed",

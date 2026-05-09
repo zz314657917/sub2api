@@ -299,13 +299,16 @@ func (s *stubAdminService) BatchSetGroupRPMOverrides(_ context.Context, _ int64,
 	return nil
 }
 
-func (s *stubAdminService) ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, sortBy, sortOrder string) ([]service.Account, int64, error) {
+func (s *stubAdminService) ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string, sortBy, sortOrder string) ([]service.Account, int64, error) {
 	s.lastListAccounts.platform = platform
 	s.lastListAccounts.accountType = accountType
 	s.lastListAccounts.status = status
 	s.lastListAccounts.search = search
 	s.lastListAccounts.groupID = groupID
 	s.lastListAccounts.privacyMode = privacyMode
+	if ownerUserID != nil {
+		s.lastListAccounts.search = s.lastListAccounts.search
+	}
 	s.lastListAccounts.sortBy = sortBy
 	s.lastListAccounts.sortOrder = sortOrder
 	s.lastListAccounts.calls++
@@ -365,6 +368,11 @@ func (s *stubAdminService) SetAccountError(ctx context.Context, id int64, errorM
 
 func (s *stubAdminService) SetAccountSchedulable(ctx context.Context, id int64, schedulable bool) (*service.Account, error) {
 	account := service.Account{ID: id, Name: "account", Status: service.StatusActive, Schedulable: schedulable}
+	return &account, nil
+}
+
+func (s *stubAdminService) SetAccountShareStatus(ctx context.Context, id int64, shareStatus string) (*service.Account, error) {
+	account := service.Account{ID: id, Name: "account", Status: service.StatusActive, ShareStatus: shareStatus}
 	return &account, nil
 }
 

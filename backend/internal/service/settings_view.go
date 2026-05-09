@@ -130,6 +130,11 @@ type SystemSettings struct {
 	AffiliateRebateFreezeHours   int
 	AffiliateRebateDurationDays  int
 	AffiliateRebatePerInviteeCap float64
+	AccountShareEnabled          bool
+	AccountShareOwnerRatePercent float64
+	AccountShareFreezeHours      int
+	AccountShareAutoReview       bool
+	AccountShareUserAccountLimit int
 	DefaultUserRPMLimit          int
 	DefaultSubscriptions         []DefaultSubscriptionSetting
 
@@ -259,6 +264,9 @@ type PublicSettings struct {
 
 	// Affiliate (邀请返利) feature toggle
 	AffiliateEnabled bool `json:"affiliate_enabled"`
+
+	// User-owned account sharing feature toggle
+	AccountShareEnabled bool `json:"account_share_enabled"`
 
 	// 风控中心功能开关
 	RiskControlEnabled bool `json:"risk_control_enabled"`

@@ -156,6 +156,9 @@ type Account struct {
 	Type               string         `json:"type"`
 	Credentials        map[string]any `json:"credentials"`
 	Extra              map[string]any `json:"extra"`
+	OwnerUserID        *int64         `json:"owner_user_id,omitempty"`
+	ShareMode          string         `json:"share_mode"`
+	ShareStatus        string         `json:"share_status"`
 	ProxyID            *int64         `json:"proxy_id"`
 	Concurrency        int            `json:"concurrency"`
 	LoadFactor         *int           `json:"load_factor,omitempty"`

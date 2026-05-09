@@ -31,6 +31,17 @@ const (
 	AffiliateRebatePerInviteeCapDefault = 0.0   // 0 = 无上限
 )
 
+// User-owned account sharing settings.
+const (
+	AccountShareOwnerRatePercentDefault = 80.0
+	AccountShareOwnerRatePercentMin     = 0.0
+	AccountShareOwnerRatePercentMax     = 100.0
+	AccountShareFreezeHoursDefault      = 72
+	AccountShareFreezeHoursMax          = 2160
+	AccountShareUserAccountLimitDefault = 5
+	AccountShareUserAccountLimitMax     = 100
+)
+
 // Platform constants
 const (
 	PlatformAnthropic   = domain.PlatformAnthropic
@@ -47,6 +58,17 @@ const (
 	AccountTypeUpstream       = domain.AccountTypeUpstream       // 上游透传类型账号（通过 Base URL + API Key 连接上游）
 	AccountTypeBedrock        = domain.AccountTypeBedrock        // AWS Bedrock 类型账号（通过 SigV4 签名或 API Key 连接 Bedrock，由 credentials.auth_mode 区分）
 	AccountTypeServiceAccount = domain.AccountTypeServiceAccount // Google Service Account 类型账号（用于 Vertex AI）
+)
+
+const (
+	AccountShareModePrivate = "private"
+	AccountShareModePublic  = "public"
+
+	AccountShareStatusNotShared     = "not_shared"
+	AccountShareStatusPendingReview = "pending_review"
+	AccountShareStatusActive        = "active"
+	AccountShareStatusRejected      = "rejected"
+	AccountShareStatusSuspended     = "suspended"
 )
 
 // Redeem type constants
@@ -91,6 +113,14 @@ const OIDCConnectSyntheticEmailDomain = "@oidc-connect.invalid"
 
 // WeChatConnectSyntheticEmailDomain 是 WeChat Connect 用户的合成邮箱后缀（RFC 保留域名）。
 const WeChatConnectSyntheticEmailDomain = "@wechat-connect.invalid"
+
+const (
+	SettingKeyAccountShareEnabled          = "account_share_enabled"
+	SettingKeyAccountShareOwnerRate        = "account_share_owner_rate"
+	SettingKeyAccountShareFreezeHours      = "account_share_freeze_hours"
+	SettingKeyAccountShareAutoReview       = "account_share_auto_review"
+	SettingKeyAccountShareUserAccountLimit = "account_share_user_account_limit"
+)
 
 // Setting keys
 const (

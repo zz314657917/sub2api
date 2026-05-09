@@ -60,7 +60,26 @@ func RegisterUserRoutes(
 			keys.GET("/:id", h.APIKey.GetByID)
 			keys.POST("", h.APIKey.Create)
 			keys.PUT("/:id", h.APIKey.Update)
-			keys.DELETE("/:id", h.APIKey.Delete)
+		keys.DELETE("/:id", h.APIKey.Delete)
+		}
+
+		// 用户账号共享池
+		accounts := authenticated.Group("/user/accounts")
+		{
+			accounts.GET("", h.UserAccount.List)
+			accounts.POST("", h.UserAccount.Create)
+			accounts.POST("/import", h.UserAccount.Import)
+			accounts.POST("/oauth/auth-url", h.UserAccount.GenerateAuthURL)
+			accounts.POST("/oauth/exchange-code", h.UserAccount.ExchangeCode)
+			accounts.POST("/session-import", h.UserAccount.ImportSession)
+			accounts.GET("/share/summary", h.UserAccount.GetShareSummary)
+			accounts.POST("/share/transfer", h.UserAccount.TransferShareToBalance)
+			accounts.GET("/:id", h.UserAccount.GetByID)
+			accounts.PUT("/:id", h.UserAccount.Update)
+			accounts.DELETE("/:id", h.UserAccount.Delete)
+			accounts.POST("/:id/share-mode", h.UserAccount.UpdateShareMode)
+			accounts.GET("/:id/usage", h.UserAccount.GetUsage)
+			accounts.POST("/:id/test", h.UserAccount.Test)
 		}
 
 		// 用户可用分组（非管理员接口）

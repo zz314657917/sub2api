@@ -24,6 +24,9 @@ type Account struct {
 	Type        string
 	Credentials map[string]any
 	Extra       map[string]any
+	OwnerUserID *int64
+	ShareMode   string
+	ShareStatus string
 	ProxyID     *int64
 	Concurrency int
 	Priority    int
@@ -75,6 +78,69 @@ type TempUnschedulableRule struct {
 
 func (a *Account) IsActive() bool {
 	return a.Status == StatusActive
+}
+
+func (a *Account) CanBeUsedByUser(userID int64) bool {
+	if a == nil {
+		return false
+	}
+	if a.OwnerUserID == nil {
+		return true
+	}
+	if userID > 0 && *a.OwnerUserID == userID {
+		return true
+	}
+	return a.ShareMode == AccountShareModePublic && a.ShareStatus == AccountShareStatusActive
+}
+
+func ShouldSkipBillingForSelfOwnedPrivateAccount(userID int64, account *Account) bool {
+	if account == nil || account.OwnerUserID == nil || userID <= 0 {
+		return false
+	}
+	return *account.OwnerUserID == userID && account.ShareMode == AccountShareModePrivate
+}
+
+func clampAccountShareOwnerRate(value float64) float64 {
+	if value < AccountShareOwnerRatePercentMin {
+		return AccountShareOwnerRatePercentMin
+	}
+	if value > AccountShareOwnerRatePercentMax {
+		return AccountShareOwnerRatePercentMax
+	}
+	return value
+}
+
+func normalizeAccountShareFreezeHours(hours int) int {
+	if hours < 0 {
+		return AccountShareFreezeHoursDefault
+	}
+	if hours > AccountShareFreezeHoursMax {
+		return AccountShareFreezeHoursMax
+	}
+	return hours
+}
+
+func normalizeAccountShareUserAccountLimit(limit int) int {
+	if limit < 0 {
+		return AccountShareUserAccountLimitDefault
+	}
+	if limit > AccountShareUserAccountLimitMax {
+		return AccountShareUserAccountLimitMax
+	}
+	return limit
+}
+
+func filterAccountsForUser(accounts []Account, userID int64) []Account {
+	if len(accounts) == 0 {
+		return accounts
+	}
+	filtered := accounts[:0]
+	for _, account := range accounts {
+		if account.CanBeUsedByUser(userID) {
+			filtered = append(filtered, account)
+		}
+	}
+	return filtered
 }
 
 // BillingRateMultiplier 返回账号计费倍率。

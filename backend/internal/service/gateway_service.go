@@ -1465,6 +1465,19 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			derefGroupID(groupID), groupPlatform, requestedModel, shortSessionHash(sessionHash), stickyAccountID, cfg.LoadBatchEnabled, s.concurrencyService != nil)
 	}
 
+	clearUserInvisibleSticky := func(account *Account) bool {
+		if account == nil || account.ID <= 0 || stickyAccountID <= 0 || account.ID != stickyAccountID {
+			return false
+		}
+		if account.CanBeUsedByUser(sub2apiUserID) {
+			return false
+		}
+		if sessionHash != "" && s.cache != nil {
+			_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
+		}
+		return true
+	}
+
 	if s.concurrencyService == nil || !cfg.LoadBatchEnabled {
 		// 复制排除列表，用于会话限制拒绝时的重试
 		localExcluded := make(map[int64]struct{})
@@ -1476,6 +1489,15 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			account, err := s.SelectAccountForModelWithExclusions(ctx, groupID, sessionHash, requestedModel, localExcluded)
 			if err != nil {
 				return nil, err
+			}
+			if !account.CanBeUsedByUser(sub2apiUserID) {
+				if account.ID > 0 {
+					localExcluded[account.ID] = struct{}{}
+					if stickyAccountID == account.ID && sessionHash != "" && s.cache != nil {
+						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
+					}
+				}
+				continue
 			}
 
 			result, err := s.tryAcquireAccountSlot(ctx, account.ID, account.Concurrency)
@@ -1528,6 +1550,10 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	if err != nil {
 		return nil, err
 	}
+	if len(accounts) == 0 {
+		return nil, ErrNoAvailableAccounts
+	}
+	accounts = filterAccountsForUser(accounts, sub2apiUserID)
 	if len(accounts) == 0 {
 		return nil, ErrNoAvailableAccounts
 	}
@@ -1642,8 +1668,12 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 					// 粘性账号在路由列表中，优先使用
 					if stickyAccount, ok := accountByID[stickyAccountID]; ok {
 						var stickyCacheMissReason string
+						if clearUserInvisibleSticky(stickyAccount) {
+							stickyCacheMissReason = "user_share_scope"
+						}
 
-						gatePass := s.isAccountSchedulableForSelection(stickyAccount) &&
+						gatePass := stickyCacheMissReason == "" &&
+							s.isAccountSchedulableForSelection(stickyAccount) &&
 							s.isAccountAllowedForPlatform(stickyAccount, platform, useMixed) &&
 							(requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, stickyAccount, requestedModel)) &&
 							s.isAccountSchedulableForModelSelection(ctx, stickyAccount, requestedModel) &&
@@ -1815,6 +1845,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			if ok {
 				// 检查账户是否需要清理粘性会话绑定
 				clearSticky := shouldClearStickySession(account, requestedModel)
+				if clearUserInvisibleSticky(account) {
+					clearSticky = true
+				}
 				if clearSticky {
 					slog.Debug("sticky.layer1_5_no_routing_clear",
 						"account_id", accountID,
@@ -7889,18 +7922,56 @@ type postUsageBillingParams struct {
 	IsSubscriptionBill    bool
 	AccountRateMultiplier float64
 	APIKeyService         APIKeyQuotaUpdater
+
+	AccountShareEnabled          bool
+	AccountShareOwnerRatePercent float64
+	AccountShareFreezeHours      int
+}
+
+type accountShareBillingSettings struct {
+	Enabled          bool
+	OwnerRatePercent float64
+	FreezeHours      int
+}
+
+func resolveAccountShareBillingSettings(ctx context.Context, settingService *SettingService) accountShareBillingSettings {
+	if settingService == nil {
+		return accountShareBillingSettings{
+			Enabled:          true,
+			OwnerRatePercent: AccountShareOwnerRatePercentDefault,
+			FreezeHours:      AccountShareFreezeHoursDefault,
+		}
+	}
+	return accountShareBillingSettings{
+		Enabled:          settingService.IsAccountShareEnabled(ctx),
+		OwnerRatePercent: settingService.GetAccountShareOwnerRatePercent(ctx),
+		FreezeHours:      settingService.GetAccountShareFreezeHours(ctx),
+	}
 }
 
 func (p *postUsageBillingParams) shouldDeductAPIKeyQuota() bool {
+	if p.shouldSkipSelfOwnedPrivateBilling() {
+		return false
+	}
 	return p.Cost.ActualCost > 0 && p.APIKey.Quota > 0 && p.APIKeyService != nil
 }
 
 func (p *postUsageBillingParams) shouldUpdateRateLimits() bool {
+	if p.shouldSkipSelfOwnedPrivateBilling() {
+		return false
+	}
 	return p.Cost.ActualCost > 0 && p.APIKey.HasRateLimits() && p.APIKeyService != nil
 }
 
 func (p *postUsageBillingParams) shouldUpdateAccountQuota() bool {
 	return p.Cost.TotalCost > 0 && p.Account.IsAPIKeyOrBedrock() && p.Account.HasAnyQuotaLimit()
+}
+
+func (p *postUsageBillingParams) shouldSkipSelfOwnedPrivateBilling() bool {
+	if p == nil || p.User == nil || p.Account == nil {
+		return false
+	}
+	return ShouldSkipBillingForSelfOwnedPrivateAccount(p.User.ID, p.Account)
 }
 
 // postUsageBilling is the legacy fallback billing path used when the unified
@@ -7912,7 +7983,7 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 
 	cost := p.Cost
 
-	if p.IsSubscriptionBill {
+	if p.IsSubscriptionBill && !p.shouldSkipSelfOwnedPrivateBilling() {
 		// Subscription usage tracked by ActualCost so group rate multiplier
 		// consumes the quota at the expected speed.
 		if cost.ActualCost > 0 {
@@ -7920,7 +7991,7 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 				slog.Error("increment subscription usage failed", "subscription_id", p.Subscription.ID, "error", err)
 			}
 		}
-	} else {
+	} else if !p.shouldSkipSelfOwnedPrivateBilling() {
 		if cost.ActualCost > 0 {
 			if err := deps.userRepo.DeductBalance(billingCtx, p.User.ID, cost.ActualCost); err != nil {
 				slog.Error("deduct balance failed", "user_id", p.User.ID, "error", err)
@@ -8019,7 +8090,11 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 	// user-specific) rate multiplier consumes subscription quota at the expected
 	// speed. TotalCost remains the raw (pre-multiplier) value; downstream guards
 	// on "> 0" still correctly skip free subscriptions (RateMultiplier == 0).
-	if p.IsSubscriptionBill && p.Subscription != nil && p.Cost.TotalCost > 0 {
+	if p.shouldSkipSelfOwnedPrivateBilling() {
+		// Owner using their own private upstream account does not consume platform
+		// balance, subscription quota, or API key quota. Account quota stats remain
+		// active below so the owner can still see upstream-account consumption.
+	} else if p.IsSubscriptionBill && p.Subscription != nil && p.Cost.TotalCost > 0 {
 		cmd.SubscriptionID = &p.Subscription.ID
 		cmd.SubscriptionCost = p.Cost.ActualCost
 	} else if p.Cost.ActualCost > 0 {
@@ -8035,9 +8110,27 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 	if p.shouldUpdateAccountQuota() {
 		cmd.AccountQuotaCost = p.Cost.TotalCost * p.AccountRateMultiplier
 	}
+	if p.shouldCreateAccountShareLedger() {
+		cmd.AccountShareOwnerUserID = *p.Account.OwnerUserID
+		cmd.AccountShareOwnerRatePercent = clampAccountShareOwnerRate(p.AccountShareOwnerRatePercent)
+		cmd.AccountShareFreezeHours = normalizeAccountShareFreezeHours(p.AccountShareFreezeHours)
+	}
 
 	cmd.Normalize()
 	return cmd
+}
+
+func (p *postUsageBillingParams) shouldCreateAccountShareLedger() bool {
+	if p == nil || !p.AccountShareEnabled || p.User == nil || p.Account == nil || p.Account.OwnerUserID == nil || p.Cost == nil {
+		return false
+	}
+	if p.Cost.ActualCost <= 0 {
+		return false
+	}
+	if p.User.ID <= 0 || *p.Account.OwnerUserID <= 0 || p.User.ID == *p.Account.OwnerUserID {
+		return false
+	}
+	return p.Account.ShareMode == AccountShareModePublic && p.Account.ShareStatus == AccountShareStatusActive
 }
 
 func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog, p *postUsageBillingParams, deps *billingDeps, repo UsageBillingRepository) (bool, error) {
@@ -8430,6 +8523,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 
 	requestID := usageLog.RequestID
+	accountShareSettings := resolveAccountShareBillingSettings(ctx, s.settingService)
 	_, billingErr := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
 		Cost:                  cost,
 		User:                  user,
@@ -8440,6 +8534,9 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		IsSubscriptionBill:    isSubscriptionBilling,
 		AccountRateMultiplier: accountRateMultiplier,
 		APIKeyService:         input.APIKeyService,
+		AccountShareEnabled:          accountShareSettings.Enabled,
+		AccountShareOwnerRatePercent: accountShareSettings.OwnerRatePercent,
+		AccountShareFreezeHours:      accountShareSettings.FreezeHours,
 	}, s.billingDeps(), s.usageBillingRepo)
 
 	if billingErr != nil {

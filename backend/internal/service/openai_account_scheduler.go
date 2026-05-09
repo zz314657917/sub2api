@@ -1027,6 +1027,20 @@ func (s *OpenAIGatewayService) SelectAccountWithScheduler(
 	return s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, "", requireCompact)
 }
 
+func (s *OpenAIGatewayService) SelectAccountWithSchedulerForUser(
+	ctx context.Context,
+	groupID *int64,
+	previousResponseID string,
+	sessionHash string,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requiredTransport OpenAIUpstreamTransport,
+	requireCompact bool,
+	sub2apiUserID int64,
+) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	return s.selectAccountWithSchedulerForUser(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, "", requireCompact, sub2apiUserID)
+}
+
 func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
 	ctx context.Context,
 	groupID *int64,
@@ -1042,6 +1056,25 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
 	// 如果要求 native 能力（如指定了模型）但没有可用的 APIKey 账号，回退到 basic（OAuth 账号）
 	if requiredCapability == OpenAIImagesCapabilityNative {
 		return s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, OpenAIImagesCapabilityBasic, false)
+	}
+	return selection, decision, err
+}
+
+func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImagesForUser(
+	ctx context.Context,
+	groupID *int64,
+	sessionHash string,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requiredCapability OpenAIImagesCapability,
+	sub2apiUserID int64,
+) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	selection, decision, err := s.selectAccountWithSchedulerForUser(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, requiredCapability, false, sub2apiUserID)
+	if err == nil && selection != nil && selection.Account != nil {
+		return selection, decision, nil
+	}
+	if requiredCapability == OpenAIImagesCapabilityNative {
+		return s.selectAccountWithSchedulerForUser(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, OpenAIImagesCapabilityBasic, false, sub2apiUserID)
 	}
 	return selection, decision, err
 }
@@ -1137,6 +1170,51 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 		RequireCompact:          requireCompact,
 		ExcludedIDs:             excludedIDs,
 	})
+}
+
+func (s *OpenAIGatewayService) selectAccountWithSchedulerForUser(
+	ctx context.Context,
+	groupID *int64,
+	previousResponseID string,
+	sessionHash string,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requiredTransport OpenAIUpstreamTransport,
+	requiredImageCapability OpenAIImagesCapability,
+	requireCompact bool,
+	sub2apiUserID int64,
+) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	effectiveExcludedIDs := cloneExcludedAccountIDs(excludedIDs)
+	var lastDecision OpenAIAccountScheduleDecision
+	for attempts := 0; attempts < 1024; attempts++ {
+		selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, effectiveExcludedIDs, requiredTransport, requiredImageCapability, requireCompact)
+		lastDecision = decision
+		if err != nil {
+			return nil, decision, err
+		}
+		if selection == nil || selection.Account == nil {
+			return selection, decision, nil
+		}
+		if selection.Account.CanBeUsedByUser(sub2apiUserID) {
+			return selection, decision, nil
+		}
+		if selection.ReleaseFunc != nil {
+			selection.ReleaseFunc()
+		}
+		if sessionHash != "" {
+			_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+		}
+		if effectiveExcludedIDs == nil {
+			effectiveExcludedIDs = make(map[int64]struct{})
+		}
+		if _, exists := effectiveExcludedIDs[selection.Account.ID]; exists {
+			return nil, decision, ErrNoAvailableAccounts
+		}
+		effectiveExcludedIDs[selection.Account.ID] = struct{}{}
+		previousResponseID = ""
+		sessionHash = ""
+	}
+	return nil, lastDecision, ErrNoAvailableAccounts
 }
 
 func cloneExcludedAccountIDs(excludedIDs map[int64]struct{}) map[int64]struct{} {

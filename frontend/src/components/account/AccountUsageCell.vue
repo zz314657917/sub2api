@@ -473,6 +473,7 @@
 import { ref, computed, onMounted, onBeforeUnmount, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
+import userAPI from '@/api/user'
 import type { Account, AccountUsageInfo, GeminiCredentials, WindowStats } from '@/types'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { enqueueUsageRequest } from '@/utils/usageLoadQueue'
@@ -490,11 +491,13 @@ const props = withDefaults(
     todayStats?: WindowStats | null
     todayStatsLoading?: boolean
     manualRefreshToken?: number
+    usageApiScope?: 'admin' | 'user'
   }>(),
   {
     todayStats: null,
     todayStatsLoading: false,
-    manualRefreshToken: 0
+    manualRefreshToken: 0,
+    usageApiScope: 'admin'
   }
 )
 
@@ -1001,7 +1004,10 @@ const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?
   error.value = null
 
   try {
-    const fetchFn = () => adminAPI.accounts.getUsage(props.account.id, options?.source)
+    const fetchFn = () =>
+      props.usageApiScope === 'user'
+        ? userAPI.getAccountUsage(props.account.id, options?.source)
+        : adminAPI.accounts.getUsage(props.account.id, options?.source)
     const result = await enqueueUsageRequest(props.account, fetchFn)
     if (!unmounted.value) {
       usageInfo.value = result
@@ -1070,7 +1076,9 @@ const attachVisibilityObserver = () => {
 const loadActiveUsage = async () => {
   activeQueryLoading.value = true
   try {
-    usageInfo.value = await adminAPI.accounts.getUsage(props.account.id, 'active')
+    usageInfo.value = props.usageApiScope === 'user'
+      ? await userAPI.getAccountUsage(props.account.id, 'active')
+      : await adminAPI.accounts.getUsage(props.account.id, 'active')
   } catch (e: any) {
     console.error('Failed to load active usage:', e)
   } finally {

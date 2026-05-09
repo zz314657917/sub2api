@@ -131,6 +131,61 @@ func (_u *AccountUpdate) SetExtra(v map[string]interface{}) *AccountUpdate {
 	return _u
 }
 
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_u *AccountUpdate) SetOwnerUserID(v int64) *AccountUpdate {
+	_u.mutation.ResetOwnerUserID()
+	_u.mutation.SetOwnerUserID(v)
+	return _u
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableOwnerUserID(v *int64) *AccountUpdate {
+	if v != nil {
+		_u.SetOwnerUserID(*v)
+	}
+	return _u
+}
+
+// AddOwnerUserID adds value to the "owner_user_id" field.
+func (_u *AccountUpdate) AddOwnerUserID(v int64) *AccountUpdate {
+	_u.mutation.AddOwnerUserID(v)
+	return _u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (_u *AccountUpdate) ClearOwnerUserID() *AccountUpdate {
+	_u.mutation.ClearOwnerUserID()
+	return _u
+}
+
+// SetShareMode sets the "share_mode" field.
+func (_u *AccountUpdate) SetShareMode(v string) *AccountUpdate {
+	_u.mutation.SetShareMode(v)
+	return _u
+}
+
+// SetNillableShareMode sets the "share_mode" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableShareMode(v *string) *AccountUpdate {
+	if v != nil {
+		_u.SetShareMode(*v)
+	}
+	return _u
+}
+
+// SetShareStatus sets the "share_status" field.
+func (_u *AccountUpdate) SetShareStatus(v string) *AccountUpdate {
+	_u.mutation.SetShareStatus(v)
+	return _u
+}
+
+// SetNillableShareStatus sets the "share_status" field if the given value is not nil.
+func (_u *AccountUpdate) SetNillableShareStatus(v *string) *AccountUpdate {
+	if v != nil {
+		_u.SetShareStatus(*v)
+	}
+	return _u
+}
+
 // SetProxyID sets the "proxy_id" field.
 func (_u *AccountUpdate) SetProxyID(v int64) *AccountUpdate {
 	_u.mutation.SetProxyID(v)
@@ -650,6 +705,16 @@ func (_u *AccountUpdate) check() error {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ShareMode(); ok {
+		if err := account.ShareModeValidator(v); err != nil {
+			return &ValidationError{Name: "share_mode", err: fmt.Errorf(`ent: validator failed for field "Account.share_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ShareStatus(); ok {
+		if err := account.ShareStatusValidator(v); err != nil {
+			return &ValidationError{Name: "share_status", err: fmt.Errorf(`ent: validator failed for field "Account.share_status": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
@@ -704,6 +769,21 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Extra(); ok {
 		_spec.SetField(account.FieldExtra, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.OwnerUserID(); ok {
+		_spec.SetField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOwnerUserID(); ok {
+		_spec.AddField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if _u.mutation.OwnerUserIDCleared() {
+		_spec.ClearField(account.FieldOwnerUserID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.ShareMode(); ok {
+		_spec.SetField(account.FieldShareMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ShareStatus(); ok {
+		_spec.SetField(account.FieldShareStatus, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Concurrency(); ok {
 		_spec.SetField(account.FieldConcurrency, field.TypeInt, value)
@@ -1055,6 +1135,61 @@ func (_u *AccountUpdateOne) SetCredentials(v map[string]interface{}) *AccountUpd
 // SetExtra sets the "extra" field.
 func (_u *AccountUpdateOne) SetExtra(v map[string]interface{}) *AccountUpdateOne {
 	_u.mutation.SetExtra(v)
+	return _u
+}
+
+// SetOwnerUserID sets the "owner_user_id" field.
+func (_u *AccountUpdateOne) SetOwnerUserID(v int64) *AccountUpdateOne {
+	_u.mutation.ResetOwnerUserID()
+	_u.mutation.SetOwnerUserID(v)
+	return _u
+}
+
+// SetNillableOwnerUserID sets the "owner_user_id" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableOwnerUserID(v *int64) *AccountUpdateOne {
+	if v != nil {
+		_u.SetOwnerUserID(*v)
+	}
+	return _u
+}
+
+// AddOwnerUserID adds value to the "owner_user_id" field.
+func (_u *AccountUpdateOne) AddOwnerUserID(v int64) *AccountUpdateOne {
+	_u.mutation.AddOwnerUserID(v)
+	return _u
+}
+
+// ClearOwnerUserID clears the value of the "owner_user_id" field.
+func (_u *AccountUpdateOne) ClearOwnerUserID() *AccountUpdateOne {
+	_u.mutation.ClearOwnerUserID()
+	return _u
+}
+
+// SetShareMode sets the "share_mode" field.
+func (_u *AccountUpdateOne) SetShareMode(v string) *AccountUpdateOne {
+	_u.mutation.SetShareMode(v)
+	return _u
+}
+
+// SetNillableShareMode sets the "share_mode" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableShareMode(v *string) *AccountUpdateOne {
+	if v != nil {
+		_u.SetShareMode(*v)
+	}
+	return _u
+}
+
+// SetShareStatus sets the "share_status" field.
+func (_u *AccountUpdateOne) SetShareStatus(v string) *AccountUpdateOne {
+	_u.mutation.SetShareStatus(v)
+	return _u
+}
+
+// SetNillableShareStatus sets the "share_status" field if the given value is not nil.
+func (_u *AccountUpdateOne) SetNillableShareStatus(v *string) *AccountUpdateOne {
+	if v != nil {
+		_u.SetShareStatus(*v)
+	}
 	return _u
 }
 
@@ -1590,6 +1725,16 @@ func (_u *AccountUpdateOne) check() error {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.ShareMode(); ok {
+		if err := account.ShareModeValidator(v); err != nil {
+			return &ValidationError{Name: "share_mode", err: fmt.Errorf(`ent: validator failed for field "Account.share_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.ShareStatus(); ok {
+		if err := account.ShareStatusValidator(v); err != nil {
+			return &ValidationError{Name: "share_status", err: fmt.Errorf(`ent: validator failed for field "Account.share_status": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
@@ -1661,6 +1806,21 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.Extra(); ok {
 		_spec.SetField(account.FieldExtra, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.OwnerUserID(); ok {
+		_spec.SetField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedOwnerUserID(); ok {
+		_spec.AddField(account.FieldOwnerUserID, field.TypeInt64, value)
+	}
+	if _u.mutation.OwnerUserIDCleared() {
+		_spec.ClearField(account.FieldOwnerUserID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.ShareMode(); ok {
+		_spec.SetField(account.FieldShareMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ShareStatus(); ok {
+		_spec.SetField(account.FieldShareStatus, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Concurrency(); ok {
 		_spec.SetField(account.FieldConcurrency, field.TypeInt, value)

@@ -139,6 +139,10 @@
     @apply rounded-lg px-3 py-1.5 text-xs;
   }
 
+  .btn-xs {
+    @apply rounded-md px-2 py-1 text-[11px];
+  }
+
   .btn-md {
     @apply rounded-xl px-4 py-2 text-sm;
   }
@@ -326,6 +330,14 @@
 
   .badge-primary {
     @apply bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400;
+  }
+
+  .badge-info {
+    @apply bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400;
+  }
+
+  .badge-secondary {
+    @apply bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-dark-300;
   }
 
   .badge-success {

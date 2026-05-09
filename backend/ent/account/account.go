@@ -33,6 +33,12 @@ const (
 	FieldCredentials = "credentials"
 	// FieldExtra holds the string denoting the extra field in the database.
 	FieldExtra = "extra"
+	// FieldOwnerUserID holds the string denoting the owner_user_id field in the database.
+	FieldOwnerUserID = "owner_user_id"
+	// FieldShareMode holds the string denoting the share_mode field in the database.
+	FieldShareMode = "share_mode"
+	// FieldShareStatus holds the string denoting the share_status field in the database.
+	FieldShareStatus = "share_status"
 	// FieldProxyID holds the string denoting the proxy_id field in the database.
 	FieldProxyID = "proxy_id"
 	// FieldConcurrency holds the string denoting the concurrency field in the database.
@@ -121,6 +127,9 @@ var Columns = []string{
 	FieldType,
 	FieldCredentials,
 	FieldExtra,
+	FieldOwnerUserID,
+	FieldShareMode,
+	FieldShareStatus,
 	FieldProxyID,
 	FieldConcurrency,
 	FieldLoadFactor,
@@ -182,6 +191,14 @@ var (
 	DefaultCredentials func() map[string]interface{}
 	// DefaultExtra holds the default value on creation for the "extra" field.
 	DefaultExtra func() map[string]interface{}
+	// DefaultShareMode holds the default value on creation for the "share_mode" field.
+	DefaultShareMode string
+	// ShareModeValidator is a validator for the "share_mode" field. It is called by the builders before save.
+	ShareModeValidator func(string) error
+	// DefaultShareStatus holds the default value on creation for the "share_status" field.
+	DefaultShareStatus string
+	// ShareStatusValidator is a validator for the "share_status" field. It is called by the builders before save.
+	ShareStatusValidator func(string) error
 	// DefaultConcurrency holds the default value on creation for the "concurrency" field.
 	DefaultConcurrency int
 	// DefaultPriority holds the default value on creation for the "priority" field.
@@ -241,6 +258,21 @@ func ByPlatform(opts ...sql.OrderTermOption) OrderOption {
 // ByType orders the results by the type field.
 func ByType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldType, opts...).ToFunc()
+}
+
+// ByOwnerUserID orders the results by the owner_user_id field.
+func ByOwnerUserID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldOwnerUserID, opts...).ToFunc()
+}
+
+// ByShareMode orders the results by the share_mode field.
+func ByShareMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldShareMode, opts...).ToFunc()
+}
+
+// ByShareStatus orders the results by the share_status field.
+func ByShareStatus(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldShareStatus, opts...).ToFunc()
 }
 
 // ByProxyID orders the results by the proxy_id field.

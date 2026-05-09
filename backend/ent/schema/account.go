@@ -85,6 +85,18 @@ func (Account) Fields() []ent.Field {
 		field.JSON("extra", map[string]any{}).
 			Default(func() map[string]any { return map[string]any{} }).
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
+		field.Int64("owner_user_id").
+			Optional().
+			Nillable().
+			Comment("User owner for self-authorized accounts; NULL means system/admin account."),
+		field.String("share_mode").
+			MaxLen(20).
+			Default("private").
+			Comment("User account sharing mode: private or public."),
+		field.String("share_status").
+			MaxLen(30).
+			Default("not_shared").
+			Comment("Public sharing review/runtime status."),
 
 		// proxy_id: 关联的代理配置 ID（可选）
 		// 用于需要通过特定代理访问 API 的场景
@@ -229,6 +241,8 @@ func (Account) Indexes() []ent.Index {
 		index.Fields("rate_limit_reset_at"), // 筛选速率限制解除时间
 		index.Fields("overload_until"),      // 筛选过载账户
 		// 调度热路径复合索引（线上由 SQL 迁移创建部分索引，schema 仅用于模型可读性对齐）
+		index.Fields("owner_user_id"),
+		index.Fields("share_mode", "share_status"),
 		index.Fields("platform", "priority"),
 		index.Fields("priority", "status"),
 		index.Fields("deleted_at"), // 软删除查询优化

@@ -263,6 +263,29 @@
               <span class="pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out" :class="[row.schedulable ? 'translate-x-4' : 'translate-x-0']" />
             </button>
           </template>
+          <template #cell-share="{ row }">
+            <div class="flex min-w-[150px] flex-col gap-1">
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span :class="['badge text-xs', row.owner_user_id ? 'badge-info' : 'badge-secondary']">
+                  {{ row.owner_user_id ? t('admin.accounts.share.userOwned') : t('admin.accounts.share.systemOwned') }}
+                </span>
+                <span :class="['badge text-xs', row.share_mode === 'public' ? 'badge-primary' : 'badge-secondary']">
+                  {{ formatShareMode(row.share_mode) }}
+                </span>
+                <span :class="['badge text-xs', shareStatusClass(row.share_status)]">
+                  {{ formatShareStatus(row.share_status) }}
+                </span>
+              </div>
+              <div v-if="row.share_status === 'pending_review'" class="flex gap-1">
+                <button class="btn btn-xs btn-primary" :disabled="reviewingShareAccountId === row.id" @click="handleSetShareStatus(row, 'active')">
+                  {{ t('admin.accounts.share.approve') }}
+                </button>
+                <button class="btn btn-xs btn-secondary" :disabled="reviewingShareAccountId === row.id" @click="handleSetShareStatus(row, 'rejected')">
+                  {{ t('admin.accounts.share.reject') }}
+                </button>
+              </div>
+            </div>
+          </template>
           <template #cell-today_stats="{ row }">
             <AccountTodayStatsCell
               :stats="todayStatsByAccountId[String(row.id)] ?? null"
@@ -437,6 +460,9 @@ type AccountBulkEditTarget =
         group?: string
         search?: string
         privacy_mode?: string
+        owner_filter?: string
+        share_mode?: string
+        share_status?: string
         sort_by?: string
         sort_order?: AccountSortOrder
       }
@@ -485,6 +511,7 @@ const showSchedulePanel = ref(false)
 const scheduleAcc = ref<Account | null>(null)
 const scheduleModelOptions = ref<SelectOption[]>([])
 const togglingSchedulable = ref<number | null>(null)
+const reviewingShareAccountId = ref<number | null>(null)
 const menu = reactive<{show:boolean, acc:Account|null, pos:{top:number, left:number}|null}>({ show: false, acc: null, pos: null })
 const exportingData = ref(false)
 
@@ -492,7 +519,7 @@ const exportingData = ref(false)
 const showAccountToolsDropdown = ref(false)
 const accountToolsDropdownRef = ref<HTMLElement | null>(null)
 const hiddenColumns = reactive<Set<string>>(new Set())
-const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'proxy', 'notes', 'priority', 'rate_multiplier']
+const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'share', 'proxy', 'notes', 'priority', 'rate_multiplier']
 const HIDDEN_COLUMNS_KEY = 'account-hidden-columns'
 
 // Sorting settings
@@ -726,6 +753,9 @@ const {
     type: '',
     status: '',
     privacy_mode: '',
+    owner_filter: '',
+    share_mode: '',
+    share_status: '',
     group: '',
     search: '',
     sort_by: sortState.sort_by,
@@ -930,6 +960,9 @@ const refreshAccountsIncrementally = async () => {
         type?: string
         status?: string
         privacy_mode?: string
+        owner_filter?: string
+        share_mode?: string
+        share_status?: string
         group?: string
         search?: string
         sort_by?: string
@@ -1116,6 +1149,7 @@ const allColumns = computed(() => {
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
     { key: 'status', label: t('admin.accounts.columns.status'), sortable: true },
     { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true },
+    { key: 'share', label: t('admin.accounts.columns.share'), sortable: false },
     { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false }
   ]
   if (!authStore.isSimpleMode) {
@@ -1347,6 +1381,9 @@ const buildBulkEditFilterSnapshot = () => {
     group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
+    owner_filter: typeof rawParams.owner_filter === 'string' ? rawParams.owner_filter : '',
+    share_mode: typeof rawParams.share_mode === 'string' ? rawParams.share_mode : '',
+    share_status: typeof rawParams.share_status === 'string' ? rawParams.share_status : '',
     sort_by: typeof rawParams.sort_by === 'string' ? rawParams.sort_by : '',
     sort_order: sortOrder
   }
@@ -1397,6 +1434,9 @@ const buildAccountQueryFilters = () => ({
   status: params.status || '',
   group: params.group || '',
   privacy_mode: params.privacy_mode || '',
+  owner_filter: params.owner_filter || '',
+  share_mode: params.share_mode || '',
+  share_status: params.share_status || '',
   search: params.search || '',
   sort_by: sortState.sort_by,
   sort_order: sortState.sort_order
@@ -1440,6 +1480,10 @@ const accountMatchesCurrentFilters = (account: Account) => {
       return false
     }
   }
+  if (filters.owner_filter === 'system' && account.owner_user_id) return false
+  if (filters.owner_filter === 'user' && !account.owner_user_id) return false
+  if (filters.share_mode && account.share_mode !== filters.share_mode) return false
+  if (filters.share_status && account.share_status !== filters.share_status) return false
   const search = String(filters.search || '').trim().toLowerCase()
   if (search && !account.name.toLowerCase().includes(search)) return false
   return true
@@ -1583,6 +1627,54 @@ const handleSetPrivacy = async (a: Account) => {
   } catch (error: any) {
     console.error('Failed to set privacy:', error)
     appStore.showError(error?.response?.data?.message || t('admin.accounts.privacyFailed'))
+  }
+}
+const formatShareMode = (mode: string | null | undefined) => {
+  return mode === 'public' ? t('admin.accounts.share.public') : t('admin.accounts.share.private')
+}
+const formatShareStatus = (status: string | null | undefined) => {
+  switch (status) {
+    case 'pending_review':
+      return t('admin.accounts.share.pendingReview')
+    case 'active':
+      return t('admin.accounts.share.active')
+    case 'rejected':
+      return t('admin.accounts.share.rejected')
+    case 'suspended':
+      return t('admin.accounts.share.suspended')
+    default:
+      return t('admin.accounts.share.notShared')
+  }
+}
+const shareStatusClass = (status: string | null | undefined) => {
+  switch (status) {
+    case 'pending_review':
+      return 'badge-warning'
+    case 'active':
+      return 'badge-success'
+    case 'rejected':
+      return 'badge-danger'
+    case 'suspended':
+      return 'badge-danger'
+    default:
+      return 'badge-secondary'
+  }
+}
+const handleSetShareStatus = async (
+  a: Account,
+  status: 'not_shared' | 'pending_review' | 'active' | 'rejected' | 'suspended'
+) => {
+  reviewingShareAccountId.value = a.id
+  try {
+    const updated = await adminAPI.accounts.setShareStatus(a.id, status)
+    patchAccountInList(updated)
+    enterAutoRefreshSilentWindow()
+    appStore.showSuccess(t('admin.accounts.share.reviewSuccess'))
+  } catch (error: any) {
+    console.error('Failed to update account share status:', error)
+    appStore.showError(error?.message || t('admin.accounts.share.reviewFailed'))
+  } finally {
+    reviewingShareAccountId.value = null
   }
 }
 const handleDelete = (a: Account) => { deletingAcc.value = a; showDeleteDialog.value = true }

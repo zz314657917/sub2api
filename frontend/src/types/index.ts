@@ -670,6 +670,8 @@ export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity'
 export type AccountType = 'oauth' | 'setup-token' | 'apikey' | 'upstream' | 'bedrock' | 'service_account'
 export type OAuthAddMethod = 'oauth' | 'setup-token'
 export type ProxyProtocol = 'http' | 'https' | 'socks5' | 'socks5h'
+export type AccountShareMode = 'private' | 'public'
+export type AccountShareStatus = 'not_shared' | 'pending_review' | 'active' | 'rejected' | 'suspended'
 
 // Claude Model type (returned by /v1/models and account models API)
 export interface ClaudeModel {
@@ -802,6 +804,9 @@ export interface Account {
     antigravity_credits_overages?: Record<string, { activated_at: string; active_until: string }>
   } & Record<string, unknown>)
   proxy_id: number | null
+  owner_user_id?: number | null
+  share_mode?: AccountShareMode | string
+  share_status?: AccountShareStatus | string
   concurrency: number
   load_factor?: number | null
   current_concurrency?: number // Real-time concurrency count from Redis
@@ -942,6 +947,85 @@ export interface AccountUsageInfo {
   error_code?: string
 
   error?: string            // usage 获取失败时的错误信息
+}
+
+export interface UserAccountShareSummary {
+  owner_user_id: number
+  frozen_amount: number
+  available_amount: number
+  transferred_amount: number
+  total_amount: number
+  count_frozen: number
+  count_available: number
+  count_transferred: number
+}
+
+export interface UserAccountTransferResponse {
+  transferred_amount: number
+  balance: number
+}
+
+export interface CreateUserAccountRequest {
+  name: string
+  notes?: string | null
+  platform: AccountPlatform | string
+  type: AccountType | string
+  credentials: Record<string, unknown>
+  extra?: Record<string, unknown>
+  expires_at?: number | null
+  auto_pause_on_expired?: boolean
+}
+
+export interface UpdateUserAccountRequest {
+  name?: string
+  notes?: string | null
+  credentials?: Record<string, unknown>
+  extra?: Record<string, unknown>
+  expires_at?: number | null
+  auto_pause_on_expired?: boolean
+}
+
+export interface ImportUserAccountRequest extends CreateUserAccountRequest {
+  format?: string
+}
+
+export interface UserAccountAuthURLRequest {
+  platform?: AccountPlatform | string
+  method?: string
+  redirect_uri?: string
+  project_id?: string
+  oauth_type?: string
+  tier_id?: string
+}
+
+export interface UserAccountAuthURLResponse {
+  auth_url?: string
+  url?: string
+  session_id?: string
+  state?: string
+  [key: string]: unknown
+}
+
+export interface UserAccountExchangeCodeRequest {
+  platform: AccountPlatform | string
+  method?: string
+  session_id: string
+  code: string
+  state?: string
+  redirect_uri?: string
+  oauth_type?: string
+  tier_id?: string
+  name?: string
+  notes?: string | null
+}
+
+export interface UserAccountSessionImportRequest {
+  platform: AccountPlatform | string
+  method?: string
+  session_key?: string
+  code?: string
+  name?: string
+  notes?: string | null
 }
 
 // OpenAI Codex usage snapshot (from response headers)

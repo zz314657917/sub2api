@@ -334,6 +334,100 @@ func TestOpenAIGatewayService_GenerateSessionHash_EmptyBodyStillEmpty(t *testing
 	require.Empty(t, svc.GenerateSessionHash(c, nil))
 }
 
+func TestOpenAISelectAccountWithSchedulerForUser_SkipsOtherUsersPrivateAccount(t *testing.T) {
+	ownerID := int64(10)
+	repo := stubOpenAIAccountRepo{accounts: []Account{
+		{
+			ID:          1,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeOAuth,
+			Status:      StatusActive,
+			Schedulable: true,
+			Concurrency: 1,
+			Priority:    1,
+			OwnerUserID: &ownerID,
+			ShareMode:   AccountShareModePrivate,
+			ShareStatus: AccountShareStatusNotShared,
+		},
+		{
+			ID:          2,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeOAuth,
+			Status:      StatusActive,
+			Schedulable: true,
+			Concurrency: 1,
+			Priority:    2,
+		},
+	}}
+	svc := &OpenAIGatewayService{accountRepo: repo}
+
+	selection, _, err := svc.SelectAccountWithSchedulerForUser(
+		context.Background(),
+		nil,
+		"",
+		"",
+		"gpt-4",
+		nil,
+		OpenAIUpstreamTransportAny,
+		false,
+		11,
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Account)
+	require.Equal(t, int64(2), selection.Account.ID)
+}
+
+func TestOpenAISelectAccountWithSchedulerForUser_ClearsStickyOtherUsersPrivateAccount(t *testing.T) {
+	ownerID := int64(10)
+	sessionHash := "private-sticky"
+	cacheKey := (&OpenAIGatewayService{}).openAISessionCacheKey(sessionHash)
+	cache := &stubGatewayCache{sessionBindings: map[string]int64{cacheKey: 1}}
+	repo := stubOpenAIAccountRepo{accounts: []Account{
+		{
+			ID:          1,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeOAuth,
+			Status:      StatusActive,
+			Schedulable: true,
+			Concurrency: 1,
+			Priority:    1,
+			OwnerUserID: &ownerID,
+			ShareMode:   AccountShareModePrivate,
+			ShareStatus: AccountShareStatusNotShared,
+		},
+		{
+			ID:          2,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeOAuth,
+			Status:      StatusActive,
+			Schedulable: true,
+			Concurrency: 1,
+			Priority:    2,
+		},
+	}}
+	svc := &OpenAIGatewayService{accountRepo: repo, cache: cache}
+
+	selection, _, err := svc.SelectAccountWithSchedulerForUser(
+		context.Background(),
+		nil,
+		"",
+		sessionHash,
+		"gpt-4",
+		nil,
+		OpenAIUpstreamTransportAny,
+		false,
+		11,
+	)
+
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Account)
+	require.Equal(t, int64(2), selection.Account.ID)
+	require.NotContains(t, cache.sessionBindings, cacheKey)
+}
+
 func (c stubConcurrencyCache) GetAccountWaitingCount(ctx context.Context, accountID int64) (int, error) {
 	if c.waitCounts != nil {
 		if count, ok := c.waitCounts[accountID]; ok {

@@ -39,6 +39,10 @@ export async function list(
     group?: string
     search?: string
     privacy_mode?: string
+    owner_user_id?: number | string
+    owner_filter?: string
+    share_mode?: string
+    share_status?: string
     lite?: string
     sort_by?: string
     sort_order?: 'asc' | 'desc'
@@ -74,6 +78,10 @@ export async function listWithEtag(
     group?: string
     search?: string
     privacy_mode?: string
+    owner_user_id?: number | string
+    owner_filter?: string
+    share_mode?: string
+    share_status?: string
     lite?: string
     sort_by?: string
     sort_order?: 'asc' | 'desc'
@@ -637,6 +645,16 @@ export async function setPrivacy(id: number): Promise<Account> {
   return data
 }
 
+export async function setShareStatus(
+  id: number,
+  shareStatus: 'not_shared' | 'pending_review' | 'active' | 'rejected' | 'suspended'
+): Promise<Account> {
+  const { data } = await apiClient.post<Account>(`/admin/accounts/${id}/share-status`, {
+    share_status: shareStatus
+  })
+  return data
+}
+
 export const accountsAPI = {
   list,
   listWithEtag,
@@ -674,7 +692,8 @@ export const accountsAPI = {
   getAntigravityDefaultModelMapping,
   batchClearError,
   batchRefresh,
-  setPrivacy
+  setPrivacy,
+  setShareStatus
 }
 
 export default accountsAPI

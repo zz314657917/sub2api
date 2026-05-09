@@ -626,6 +626,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeyAffiliateEnabled,
+		SettingKeyAccountShareEnabled,
 		SettingKeyRiskControlEnabled,
 	}
 
@@ -729,7 +730,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 
-		AffiliateEnabled: settings[SettingKeyAffiliateEnabled] == "true",
+		AffiliateEnabled:     settings[SettingKeyAffiliateEnabled] == "true",
+		AccountShareEnabled:  settings[SettingKeyAccountShareEnabled] != "false",
 
 		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
 	}, nil
@@ -1566,6 +1568,16 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	// Affiliate (邀请返利) feature switch
 	updates[SettingKeyAffiliateEnabled] = strconv.FormatBool(settings.AffiliateEnabled)
 
+	// User-owned account sharing pool.
+	updates[SettingKeyAccountShareEnabled] = strconv.FormatBool(settings.AccountShareEnabled)
+	settings.AccountShareOwnerRatePercent = clampAccountShareOwnerRate(settings.AccountShareOwnerRatePercent)
+	updates[SettingKeyAccountShareOwnerRate] = strconv.FormatFloat(settings.AccountShareOwnerRatePercent, 'f', 8, 64)
+	settings.AccountShareFreezeHours = normalizeAccountShareFreezeHours(settings.AccountShareFreezeHours)
+	updates[SettingKeyAccountShareFreezeHours] = strconv.Itoa(settings.AccountShareFreezeHours)
+	updates[SettingKeyAccountShareAutoReview] = strconv.FormatBool(settings.AccountShareAutoReview)
+	settings.AccountShareUserAccountLimit = normalizeAccountShareUserAccountLimit(settings.AccountShareUserAccountLimit)
+	updates[SettingKeyAccountShareUserAccountLimit] = strconv.Itoa(settings.AccountShareUserAccountLimit)
+
 	// 风控中心功能开关
 	updates[SettingKeyRiskControlEnabled] = strconv.FormatBool(settings.RiskControlEnabled)
 
@@ -1946,6 +1958,70 @@ func (s *SettingService) IsAffiliateEnabled(ctx context.Context) bool {
 		return false // 默认关闭
 	}
 	return value == "true"
+}
+
+func (s *SettingService) IsAccountShareEnabled(ctx context.Context) bool {
+	if s == nil || s.settingRepo == nil {
+		return true
+	}
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyAccountShareEnabled)
+	if err != nil || strings.TrimSpace(value) == "" {
+		return true
+	}
+	return strings.TrimSpace(value) == "true"
+}
+
+func (s *SettingService) GetAccountShareOwnerRatePercent(ctx context.Context) float64 {
+	if s == nil || s.settingRepo == nil {
+		return AccountShareOwnerRatePercentDefault
+	}
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyAccountShareOwnerRate)
+	if err != nil {
+		return AccountShareOwnerRatePercentDefault
+	}
+	rate, err := strconv.ParseFloat(strings.TrimSpace(value), 64)
+	if err != nil {
+		return AccountShareOwnerRatePercentDefault
+	}
+	return clampAccountShareOwnerRate(rate)
+}
+
+func (s *SettingService) GetAccountShareFreezeHours(ctx context.Context) int {
+	if s == nil || s.settingRepo == nil {
+		return AccountShareFreezeHoursDefault
+	}
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyAccountShareFreezeHours)
+	if err != nil {
+		return AccountShareFreezeHoursDefault
+	}
+	hours, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return AccountShareFreezeHoursDefault
+	}
+	return normalizeAccountShareFreezeHours(hours)
+}
+
+func (s *SettingService) IsAccountShareAutoReview(ctx context.Context) bool {
+	if s == nil || s.settingRepo == nil {
+		return false
+	}
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyAccountShareAutoReview)
+	return err == nil && strings.TrimSpace(value) == "true"
+}
+
+func (s *SettingService) GetAccountShareUserAccountLimit(ctx context.Context) int {
+	if s == nil || s.settingRepo == nil {
+		return AccountShareUserAccountLimitDefault
+	}
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyAccountShareUserAccountLimit)
+	if err != nil {
+		return AccountShareUserAccountLimitDefault
+	}
+	limit, err := strconv.Atoi(strings.TrimSpace(value))
+	if err != nil {
+		return AccountShareUserAccountLimitDefault
+	}
+	return normalizeAccountShareUserAccountLimit(limit)
 }
 
 // GetAffiliateRebateRatePercent 读取并 clamp 全局返利比例。
@@ -2348,6 +2424,13 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
 		SettingKeyAffiliateEnabled: "false",
 
+		// User-owned account sharing pool.
+		SettingKeyAccountShareEnabled:          "true",
+		SettingKeyAccountShareOwnerRate:        strconv.FormatFloat(AccountShareOwnerRatePercentDefault, 'f', 8, 64),
+		SettingKeyAccountShareFreezeHours:      strconv.Itoa(AccountShareFreezeHoursDefault),
+		SettingKeyAccountShareAutoReview:       "false",
+		SettingKeyAccountShareUserAccountLimit: strconv.Itoa(AccountShareUserAccountLimitDefault),
+
 		// 风控中心功能（默认关闭，显式启用）
 		SettingKeyRiskControlEnabled: "false",
 
@@ -2714,6 +2797,24 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// Affiliate (邀请返利) feature (default: disabled; strict true)
 	result.AffiliateEnabled = settings[SettingKeyAffiliateEnabled] == "true"
+
+	result.AccountShareEnabled = settings[SettingKeyAccountShareEnabled] != "false"
+	if ownerRate, err := strconv.ParseFloat(settings[SettingKeyAccountShareOwnerRate], 64); err == nil {
+		result.AccountShareOwnerRatePercent = clampAccountShareOwnerRate(ownerRate)
+	} else {
+		result.AccountShareOwnerRatePercent = AccountShareOwnerRatePercentDefault
+	}
+	if freezeHours, err := strconv.Atoi(settings[SettingKeyAccountShareFreezeHours]); err == nil {
+		result.AccountShareFreezeHours = normalizeAccountShareFreezeHours(freezeHours)
+	} else {
+		result.AccountShareFreezeHours = AccountShareFreezeHoursDefault
+	}
+	result.AccountShareAutoReview = settings[SettingKeyAccountShareAutoReview] == "true"
+	if limit, err := strconv.Atoi(settings[SettingKeyAccountShareUserAccountLimit]); err == nil {
+		result.AccountShareUserAccountLimit = normalizeAccountShareUserAccountLimit(limit)
+	} else {
+		result.AccountShareUserAccountLimit = AccountShareUserAccountLimitDefault
+	}
 
 	// 风控中心功能（默认关闭，严格 true 才启用）
 	result.RiskControlEnabled = settings[SettingKeyRiskControlEnabled] == "true"

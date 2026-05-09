@@ -67,7 +67,7 @@ type AdminService interface {
 	ReplaceUserGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (*ReplaceUserGroupResult, error)
 
 	// Account management
-	ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, sortBy, sortOrder string) ([]Account, int64, error)
+	ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string, sortBy, sortOrder string) ([]Account, int64, error)
 	GetAccount(ctx context.Context, id int64) (*Account, error)
 	GetAccountsByIDs(ctx context.Context, ids []int64) ([]*Account, error)
 	CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error)
@@ -85,6 +85,7 @@ type AdminService interface {
 	// ForceAntigravityPrivacy 强制重新设置 Antigravity OAuth 账号隐私，无论当前状态。
 	ForceAntigravityPrivacy(ctx context.Context, account *Account) string
 	SetAccountSchedulable(ctx context.Context, id int64, schedulable bool) (*Account, error)
+	SetAccountShareStatus(ctx context.Context, id int64, shareStatus string) (*Account, error)
 	BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error)
 	CheckMixedChannelRisk(ctx context.Context, currentAccountID int64, currentAccountPlatform string, groupIDs []int64) error
 
@@ -510,6 +511,10 @@ const (
 )
 
 var ErrRPMStatusUnavailable = infraerrors.New(http.StatusNotImplemented, "RPM_STATUS_UNAVAILABLE", "RPM cache not available")
+
+type accountShareFilterRepository interface {
+	ListWithShareFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string) ([]Account, *pagination.PaginationResult, error)
+}
 
 // adminServiceImpl implements AdminService
 type adminServiceImpl struct {
@@ -2323,9 +2328,28 @@ func (s *adminServiceImpl) ReplaceUserGroup(ctx context.Context, userID, oldGrou
 }
 
 // Account management implementations
-func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, sortBy, sortOrder string) ([]Account, int64, error) {
+func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string, sortBy, sortOrder string) ([]Account, int64, error) {
 	params := pagination.PaginationParams{Page: page, PageSize: pageSize, SortBy: sortBy, SortOrder: sortOrder}
-	accounts, result, err := s.accountRepo.ListWithFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode)
+
+	hasShareFilters := ownerUserID != nil ||
+		strings.TrimSpace(ownerFilter) != "" ||
+		strings.TrimSpace(shareMode) != "" ||
+		strings.TrimSpace(shareStatus) != ""
+
+	var (
+		accounts []Account
+		result   *pagination.PaginationResult
+		err      error
+	)
+	if hasShareFilters {
+		shareRepo, ok := s.accountRepo.(accountShareFilterRepository)
+		if !ok {
+			return nil, 0, fmt.Errorf("account repository does not support share filters")
+		}
+		accounts, result, err = shareRepo.ListWithShareFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, ownerUserID, ownerFilter, shareMode, shareStatus)
+	} else {
+		accounts, result, err = s.accountRepo.ListWithFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode)
+	}
 	if err != nil {
 		return nil, 0, err
 	}
@@ -2738,6 +2762,10 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 			filters.Search,
 			groupID,
 			filters.PrivacyMode,
+			nil,
+			"",
+			"",
+			"",
 			"",
 			"",
 		)
@@ -2802,6 +2830,26 @@ func (s *adminServiceImpl) SetAccountSchedulable(ctx context.Context, id int64, 
 		return nil, err
 	}
 	return updated, nil
+}
+
+func (s *adminServiceImpl) SetAccountShareStatus(ctx context.Context, id int64, shareStatus string) (*Account, error) {
+	switch strings.ToLower(strings.TrimSpace(shareStatus)) {
+	case AccountShareStatusNotShared, AccountShareStatusPendingReview, AccountShareStatusActive, AccountShareStatusRejected, AccountShareStatusSuspended:
+	default:
+		return nil, infraerrors.BadRequest("INVALID_SHARE_STATUS", "invalid account share status")
+	}
+	account, err := s.accountRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if account.OwnerUserID == nil || *account.OwnerUserID <= 0 {
+		return nil, infraerrors.BadRequest("ACCOUNT_NOT_USER_OWNED", "only user-owned accounts support share status changes")
+	}
+	account.ShareStatus = strings.ToLower(strings.TrimSpace(shareStatus))
+	if err := s.accountRepo.Update(ctx, account); err != nil {
+		return nil, err
+	}
+	return account, nil
 }
 
 // Proxy management implementations

@@ -266,7 +266,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	for {
 		// Select account supporting the requested model
 		reqLog.Debug("openai.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithScheduler(
+		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForUser(
 			c.Request.Context(),
 			apiKey.GroupID,
 			previousResponseID,
@@ -275,6 +275,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			failedAccountIDs,
 			service.OpenAIUpstreamTransportAny,
 			requireCompact,
+			subject.UserID,
 		)
 		if err != nil {
 			reqLog.Warn("openai.account_select_failed",
@@ -660,7 +661,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			currentRoutingModel = effectiveMappedModel
 		}
 		reqLog.Debug("openai_messages.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithScheduler(
+		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForUser(
 			c.Request.Context(),
 			apiKey.GroupID,
 			"", // no previous_response_id
@@ -669,6 +670,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 			failedAccountIDs,
 			service.OpenAIUpstreamTransportAny,
 			false,
+			subject.UserID,
 		)
 		if err != nil {
 			reqLog.Warn("openai_messages.account_select_failed",
@@ -1219,7 +1221,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		firstMessage,
 		openAIWSIngressFallbackSessionSeed(subject.UserID, apiKey.ID, apiKey.GroupID),
 	)
-	selection, scheduleDecision, err := h.gatewayService.SelectAccountWithScheduler(
+	selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForUser(
 		ctx,
 		apiKey.GroupID,
 		previousResponseID,
@@ -1228,6 +1230,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		nil,
 		service.OpenAIUpstreamTransportResponsesWebsocketV2,
 		false,
+		subject.UserID,
 	)
 	if err != nil {
 		reqLog.Warn("openai.websocket_account_select_failed", zap.Error(err))

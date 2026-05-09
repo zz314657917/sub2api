@@ -88,6 +88,7 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 		SetType(account.Type).
 		SetCredentials(normalizeJSONMap(account.Credentials)).
 		SetExtra(normalizeJSONMap(account.Extra)).
+		SetNillableOwnerUserID(account.OwnerUserID).
 		SetConcurrency(account.Concurrency).
 		SetPriority(account.Priority).
 		SetStatus(account.Status).
@@ -100,6 +101,12 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 	}
 	if account.LoadFactor != nil {
 		builder.SetLoadFactor(*account.LoadFactor)
+	}
+	if account.ShareMode != "" {
+		builder.SetShareMode(account.ShareMode)
+	}
+	if account.ShareStatus != "" {
+		builder.SetShareStatus(account.ShareStatus)
 	}
 
 	if account.ProxyID != nil {
@@ -138,6 +145,8 @@ func (r *accountRepository) Create(ctx context.Context, account *service.Account
 	account.ID = created.ID
 	account.CreatedAt = created.CreatedAt
 	account.UpdatedAt = created.UpdatedAt
+	account.ShareMode = created.ShareMode
+	account.ShareStatus = created.ShareStatus
 	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &account.ID, nil, buildSchedulerGroupPayload(account.GroupIDs)); err != nil {
 		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue account create failed: account=%d err=%v", account.ID, err)
 	}
@@ -325,6 +334,7 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 		SetType(account.Type).
 		SetCredentials(normalizeJSONMap(account.Credentials)).
 		SetExtra(normalizeJSONMap(account.Extra)).
+		SetNillableOwnerUserID(account.OwnerUserID).
 		SetConcurrency(account.Concurrency).
 		SetPriority(account.Priority).
 		SetStatus(account.Status).
@@ -339,6 +349,12 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 		builder.SetLoadFactor(*account.LoadFactor)
 	} else {
 		builder.ClearLoadFactor()
+	}
+	if account.ShareMode != "" {
+		builder.SetShareMode(account.ShareMode)
+	}
+	if account.ShareStatus != "" {
+		builder.SetShareStatus(account.ShareStatus)
 	}
 
 	if account.ProxyID != nil {
@@ -570,6 +586,293 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 		return nil, nil, err
 	}
 
+	outAccounts, err := r.accountsToService(ctx, accounts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return outAccounts, paginationResultFromTotal(int64(total), params), nil
+}
+
+func (r *accountRepository) ListUserOwned(ctx context.Context, userID int64, params pagination.PaginationParams) ([]service.Account, *pagination.PaginationResult, error) {
+	if userID <= 0 {
+		return []service.Account{}, paginationResultFromTotal(0, params), nil
+	}
+	q := r.client.Account.Query().Where(dbaccount.OwnerUserIDEQ(userID))
+	total, err := q.Count(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	accountsQuery := q.Offset(params.Offset()).Limit(params.Limit())
+	for _, order := range accountListOrder(params) {
+		accountsQuery = accountsQuery.Order(order)
+	}
+	accounts, err := accountsQuery.All(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	outAccounts, err := r.accountsToService(ctx, accounts)
+	if err != nil {
+		return nil, nil, err
+	}
+	return outAccounts, paginationResultFromTotal(int64(total), params), nil
+}
+
+func (r *accountRepository) CountUserOwned(ctx context.Context, userID int64) (int64, error) {
+	if userID <= 0 {
+		return 0, nil
+	}
+	total, err := r.client.Account.Query().Where(dbaccount.OwnerUserIDEQ(userID)).Count(ctx)
+	return int64(total), err
+}
+
+func (r *accountRepository) ListShareSummary(ctx context.Context, ownerUserID int64) (*service.UserAccountShareSummary, error) {
+	if ownerUserID <= 0 {
+		return &service.UserAccountShareSummary{OwnerUserID: ownerUserID}, nil
+	}
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT
+			COALESCE(SUM(CASE WHEN status = 'frozen' AND freeze_until > NOW() THEN owner_amount ELSE 0 END), 0)::double precision AS frozen_amount,
+			COALESCE(SUM(CASE WHEN status = 'available' OR (status = 'frozen' AND freeze_until <= NOW()) THEN owner_amount ELSE 0 END), 0)::double precision AS available_amount,
+			COALESCE(SUM(CASE WHEN status = 'transferred' THEN owner_amount ELSE 0 END), 0)::double precision AS transferred_amount,
+			COALESCE(SUM(owner_amount), 0)::double precision AS total_amount,
+			COALESCE(COUNT(*) FILTER (WHERE status = 'frozen' AND freeze_until > NOW()), 0)::bigint AS count_frozen,
+			COALESCE(COUNT(*) FILTER (WHERE status = 'available' OR (status = 'frozen' AND freeze_until <= NOW())), 0)::bigint AS count_available,
+			COALESCE(COUNT(*) FILTER (WHERE status = 'transferred'), 0)::bigint AS count_transferred
+		FROM account_share_ledger
+		WHERE owner_user_id = $1
+	`, ownerUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	summary := &service.UserAccountShareSummary{OwnerUserID: ownerUserID}
+	if rows.Next() {
+		if err := rows.Scan(
+			&summary.FrozenAmount,
+			&summary.AvailableAmount,
+			&summary.TransferredAmount,
+			&summary.TotalAmount,
+			&summary.CountFrozen,
+			&summary.CountAvailable,
+			&summary.CountTransferred,
+		); err != nil {
+			return nil, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return summary, nil
+}
+
+func (r *accountRepository) TransferAvailableShareToBalance(ctx context.Context, ownerUserID int64) (float64, float64, error) {
+	if ownerUserID <= 0 {
+		return 0, 0, nil
+	}
+
+	executor := r.sql
+	var tx *sql.Tx
+	if db, ok := r.sql.(*sql.DB); ok {
+		var err error
+		tx, err = db.BeginTx(ctx, nil)
+		if err != nil {
+			return 0, 0, err
+		}
+		executor = tx
+		defer func() { _ = tx.Rollback() }()
+	}
+
+	var transferred float64
+	ledgerRows, err := executor.QueryContext(ctx, `
+		UPDATE account_share_ledger
+		SET status = 'transferred',
+			transferred_at = NOW(),
+			updated_at = NOW()
+		WHERE owner_user_id = $1
+			AND owner_amount > 0
+			AND (
+				status = 'available'
+				OR (status = 'frozen' AND freeze_until <= NOW())
+			)
+		RETURNING owner_amount
+	`, ownerUserID)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer func() { _ = ledgerRows.Close() }()
+
+	for ledgerRows.Next() {
+		var amount float64
+		if err := ledgerRows.Scan(&amount); err != nil {
+			return 0, 0, err
+		}
+		transferred += amount
+	}
+	if err := ledgerRows.Err(); err != nil {
+		return 0, 0, err
+	}
+	if transferred <= 0 {
+		if tx != nil {
+			if err := tx.Commit(); err != nil {
+				return 0, 0, err
+			}
+		}
+		return 0, 0, nil
+	}
+
+	userRows, err := executor.QueryContext(ctx, `
+		UPDATE users
+		SET balance = balance + $1,
+			updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL
+		RETURNING balance
+	`, transferred, ownerUserID)
+	if err != nil {
+		return 0, 0, err
+	}
+	defer func() { _ = userRows.Close() }()
+
+	var balanceAfter float64
+	if !userRows.Next() {
+		return 0, 0, service.ErrUserNotFound
+	}
+	if err := userRows.Scan(&balanceAfter); err != nil {
+			return 0, 0, err
+	}
+	if err := userRows.Err(); err != nil {
+		return 0, 0, err
+	}
+
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return 0, 0, err
+		}
+	}
+	return transferred, balanceAfter, nil
+}
+
+func (r *accountRepository) ListWithShareFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string) ([]service.Account, *pagination.PaginationResult, error) {
+	q := r.client.Account.Query()
+
+	if platform != "" {
+		q = q.Where(dbaccount.PlatformEQ(platform))
+	}
+	if accountType != "" {
+		q = q.Where(dbaccount.TypeEQ(accountType))
+	}
+	if status != "" {
+		switch status {
+		case service.StatusActive:
+			q = q.Where(
+				dbaccount.StatusEQ(status),
+				dbaccount.SchedulableEQ(true),
+				dbaccount.Or(
+					dbaccount.RateLimitResetAtIsNil(),
+					dbaccount.RateLimitResetAtLTE(time.Now()),
+				),
+				dbpredicate.Account(func(s *entsql.Selector) {
+					col := s.C("temp_unschedulable_until")
+					s.Where(entsql.Or(
+						entsql.IsNull(col),
+						entsql.LTE(col, entsql.Expr("NOW()")),
+					))
+				}),
+			)
+		case "rate_limited":
+			q = q.Where(
+				dbaccount.StatusEQ(service.StatusActive),
+				dbaccount.RateLimitResetAtGT(time.Now()),
+				dbpredicate.Account(func(s *entsql.Selector) {
+					col := s.C("temp_unschedulable_until")
+					s.Where(entsql.Or(
+						entsql.IsNull(col),
+						entsql.LTE(col, entsql.Expr("NOW()")),
+					))
+				}),
+			)
+		case "temp_unschedulable":
+			q = q.Where(
+				dbaccount.StatusEQ(service.StatusActive),
+				dbpredicate.Account(func(s *entsql.Selector) {
+					col := s.C("temp_unschedulable_until")
+					s.Where(entsql.And(
+						entsql.Not(entsql.IsNull(col)),
+						entsql.GT(col, entsql.Expr("NOW()")),
+					))
+				}),
+			)
+		case "unschedulable":
+			q = q.Where(
+				dbaccount.StatusEQ(service.StatusActive),
+				dbaccount.SchedulableEQ(false),
+				dbaccount.Or(
+					dbaccount.RateLimitResetAtIsNil(),
+					dbaccount.RateLimitResetAtLTE(time.Now()),
+				),
+				dbpredicate.Account(func(s *entsql.Selector) {
+					col := s.C("temp_unschedulable_until")
+					s.Where(entsql.Or(
+						entsql.IsNull(col),
+						entsql.LTE(col, entsql.Expr("NOW()")),
+					))
+				}),
+			)
+		default:
+			q = q.Where(dbaccount.StatusEQ(status))
+		}
+	}
+	if search != "" {
+		q = q.Where(dbaccount.NameContainsFold(search))
+	}
+	if groupID == service.AccountListGroupUngrouped {
+		q = q.Where(dbaccount.Not(dbaccount.HasAccountGroups()))
+	} else if groupID > 0 {
+		q = q.Where(dbaccount.HasAccountGroupsWith(dbaccountgroup.GroupIDEQ(groupID)))
+	}
+	if privacyMode != "" {
+		q = q.Where(dbpredicate.Account(func(s *entsql.Selector) {
+			path := sqljson.Path("privacy_mode")
+			switch privacyMode {
+			case service.AccountPrivacyModeUnsetFilter:
+				s.Where(entsql.Or(
+					entsql.Not(sqljson.HasKey(dbaccount.FieldExtra, path)),
+					sqljson.ValueEQ(dbaccount.FieldExtra, "", path),
+				))
+			default:
+				s.Where(sqljson.ValueEQ(dbaccount.FieldExtra, privacyMode, path))
+			}
+		}))
+	}
+	if ownerUserID != nil && *ownerUserID > 0 {
+		q = q.Where(dbaccount.OwnerUserIDEQ(*ownerUserID))
+	} else {
+		switch strings.ToLower(strings.TrimSpace(ownerFilter)) {
+		case "system":
+			q = q.Where(dbaccount.OwnerUserIDIsNil())
+		case "user", "owned":
+			q = q.Where(dbaccount.OwnerUserIDNotNil())
+		}
+	}
+	if shareMode != "" {
+		q = q.Where(dbaccount.ShareModeEQ(shareMode))
+	}
+	if shareStatus != "" {
+		q = q.Where(dbaccount.ShareStatusEQ(shareStatus))
+	}
+
+	total, err := q.Count(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	accountsQuery := q.Offset(params.Offset()).Limit(params.Limit())
+	for _, order := range accountListOrder(params) {
+		accountsQuery = accountsQuery.Order(order)
+	}
+	accounts, err := accountsQuery.All(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
 	outAccounts, err := r.accountsToService(ctx, accounts)
 	if err != nil {
 		return nil, nil, err
@@ -1729,6 +2032,9 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		Type:                    m.Type,
 		Credentials:             copyJSONMap(m.Credentials),
 		Extra:                   copyJSONMap(m.Extra),
+		OwnerUserID:             m.OwnerUserID,
+		ShareMode:               m.ShareMode,
+		ShareStatus:             m.ShareStatus,
 		ProxyID:                 m.ProxyID,
 		Concurrency:             m.Concurrency,
 		Priority:                m.Priority,

@@ -5382,16 +5382,20 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 
 	billingErr := func() error {
+		accountShareSettings := resolveAccountShareBillingSettings(ctx, s.settingService)
 		_, err := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
-			Cost:                  cost,
-			User:                  user,
-			APIKey:                apiKey,
-			Account:               account,
-			Subscription:          subscription,
-			RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
-			IsSubscriptionBill:    isSubscriptionBilling,
-			AccountRateMultiplier: accountRateMultiplier,
-			APIKeyService:         input.APIKeyService,
+			Cost:                         cost,
+			User:                         user,
+			APIKey:                       apiKey,
+			Account:                      account,
+			Subscription:                 subscription,
+			RequestPayloadHash:           resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
+			IsSubscriptionBill:           isSubscriptionBilling,
+			AccountRateMultiplier:        accountRateMultiplier,
+			APIKeyService:                input.APIKeyService,
+			AccountShareEnabled:          accountShareSettings.Enabled,
+			AccountShareOwnerRatePercent: accountShareSettings.OwnerRatePercent,
+			AccountShareFreezeHours:      accountShareSettings.FreezeHours,
 		}, s.billingDeps(), s.usageBillingRepo)
 		return err
 	}()

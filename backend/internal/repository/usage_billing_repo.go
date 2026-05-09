@@ -142,7 +142,65 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 		result.QuotaState = quotaState
 	}
 
+	if cmd.AccountShareOwnerUserID > 0 && cmd.BalanceCost+cmd.SubscriptionCost > 0 {
+		actualCost := cmd.BalanceCost + cmd.SubscriptionCost
+		if err := insertUsageBillingAccountShareLedger(ctx, tx, cmd, actualCost); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func insertUsageBillingAccountShareLedger(ctx context.Context, tx *sql.Tx, cmd *service.UsageBillingCommand, actualCost float64) error {
+	ownerRate := cmd.AccountShareOwnerRatePercent
+	if ownerRate < service.AccountShareOwnerRatePercentMin {
+		ownerRate = service.AccountShareOwnerRatePercentMin
+	}
+	if ownerRate > service.AccountShareOwnerRatePercentMax {
+		ownerRate = service.AccountShareOwnerRatePercentMax
+	}
+	freezeHours := cmd.AccountShareFreezeHours
+	if freezeHours < 0 {
+		freezeHours = service.AccountShareFreezeHoursDefault
+	}
+	if freezeHours > service.AccountShareFreezeHoursMax {
+		freezeHours = service.AccountShareFreezeHoursMax
+	}
+	ownerAmount := actualCost * ownerRate / 100
+	platformAmount := actualCost - ownerAmount
+
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO account_share_ledger (
+			owner_user_id,
+			account_id,
+			request_user_id,
+			request_id,
+			api_key_id,
+			actual_cost,
+			owner_rate_percent,
+			owner_amount,
+			platform_amount,
+			status,
+			freeze_until,
+			created_at,
+			updated_at
+		)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'frozen', NOW() + ($10 * INTERVAL '1 hour'), NOW(), NOW())
+		ON CONFLICT (request_id, api_key_id) DO NOTHING
+	`,
+		cmd.AccountShareOwnerUserID,
+		cmd.AccountID,
+		cmd.UserID,
+		cmd.RequestID,
+		cmd.APIKeyID,
+		actualCost,
+		ownerRate,
+		ownerAmount,
+		platformAmount,
+		freezeHours,
+	)
+	return err
 }
 
 func incrementUsageBillingSubscription(ctx context.Context, tx *sql.Tx, subscriptionID int64, costUSD float64) error {

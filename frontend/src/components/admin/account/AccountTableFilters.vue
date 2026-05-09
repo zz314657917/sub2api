@@ -11,6 +11,9 @@
     <Select :model-value="filters.type" class="w-40" :options="tOpts" @update:model-value="updateType" @change="$emit('change')" />
     <Select :model-value="filters.status" class="w-40" :options="sOpts" @update:model-value="updateStatus" @change="$emit('change')" />
     <Select :model-value="filters.privacy_mode" class="w-40" :options="privacyOpts" @update:model-value="updatePrivacyMode" @change="$emit('change')" />
+    <Select :model-value="filters.owner_filter" class="w-40" :options="ownerOpts" @update:model-value="updateOwnerFilter" @change="$emit('change')" />
+    <Select :model-value="filters.share_mode" class="w-40" :options="shareModeOpts" @update:model-value="updateShareMode" @change="$emit('change')" />
+    <Select :model-value="filters.share_status" class="w-44" :options="shareStatusOpts" @update:model-value="updateShareStatus" @change="$emit('change')" />
     <Select :model-value="filters.group" class="w-40" :options="gOpts" @update:model-value="updateGroup" @change="$emit('change')" />
   </div>
 </template>
@@ -24,6 +27,9 @@ const updatePlatform = (value: string | number | boolean | null) => { emit('upda
 const updateType = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, type: value }) }
 const updateStatus = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, status: value }) }
 const updatePrivacyMode = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, privacy_mode: value }) }
+const updateOwnerFilter = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, owner_filter: value }) }
+const updateShareMode = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, share_mode: value }) }
+const updateShareStatus = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, share_status: value }) }
 const updateGroup = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, group: value }) }
 const pOpts = computed(() => [{ value: '', label: t('admin.accounts.allPlatforms') }, { value: 'anthropic', label: 'Anthropic' }, { value: 'openai', label: 'OpenAI' }, { value: 'gemini', label: 'Gemini' }, { value: 'antigravity', label: 'Antigravity' }])
 const tOpts = computed(() => [{ value: '', label: t('admin.accounts.allTypes') }, { value: 'oauth', label: t('admin.accounts.oauthType') }, { value: 'setup-token', label: t('admin.accounts.setupToken') }, { value: 'apikey', label: t('admin.accounts.apiKey') }, { value: 'bedrock', label: 'AWS Bedrock' }])
@@ -34,6 +40,24 @@ const privacyOpts = computed(() => [
   { value: 'training_off', label: 'Privacy' },
   { value: 'training_set_cf_blocked', label: 'CF' },
   { value: 'training_set_failed', label: 'Fail' }
+])
+const ownerOpts = computed(() => [
+  { value: '', label: t('admin.accounts.share.allOwners') },
+  { value: 'system', label: t('admin.accounts.share.systemAccounts') },
+  { value: 'user', label: t('admin.accounts.share.userAccounts') }
+])
+const shareModeOpts = computed(() => [
+  { value: '', label: t('admin.accounts.share.allModes') },
+  { value: 'private', label: t('admin.accounts.share.private') },
+  { value: 'public', label: t('admin.accounts.share.public') }
+])
+const shareStatusOpts = computed(() => [
+  { value: '', label: t('admin.accounts.share.allStatuses') },
+  { value: 'not_shared', label: t('admin.accounts.share.notShared') },
+  { value: 'pending_review', label: t('admin.accounts.share.pendingReview') },
+  { value: 'active', label: t('admin.accounts.share.active') },
+  { value: 'rejected', label: t('admin.accounts.share.rejected') },
+  { value: 'suspended', label: t('admin.accounts.share.suspended') }
 ])
 const gOpts = computed(() => [
   { value: '', label: t('admin.accounts.allGroups') },

@@ -15,7 +15,20 @@ import type {
   NotifyEmailEntry,
   UserAuthProvider,
   UserAffiliateDetail,
-  AffiliateTransferResponse
+  AffiliateTransferResponse,
+  Account,
+  AccountShareMode,
+  AccountUsageInfo,
+  CreateUserAccountRequest,
+  ImportUserAccountRequest,
+  PaginatedResponse,
+  UpdateUserAccountRequest,
+  UserAccountAuthURLRequest,
+  UserAccountAuthURLResponse,
+  UserAccountExchangeCodeRequest,
+  UserAccountSessionImportRequest,
+  UserAccountShareSummary,
+  UserAccountTransferResponse
 } from '@/types'
 
 /**
@@ -185,6 +198,93 @@ export async function transferAffiliateQuota(): Promise<AffiliateTransferRespons
   return data
 }
 
+export async function listAccounts(
+  page: number = 1,
+  pageSize: number = 20,
+  filters?: {
+    sort_by?: string
+    sort_order?: 'asc' | 'desc'
+  },
+  options?: {
+    signal?: AbortSignal
+  }
+): Promise<PaginatedResponse<Account>> {
+  const { data } = await apiClient.get<PaginatedResponse<Account>>('/user/accounts', {
+    params: { page, page_size: pageSize, ...filters },
+    signal: options?.signal
+  })
+  return data
+}
+
+export async function getAccountById(id: number): Promise<Account> {
+  const { data } = await apiClient.get<Account>(`/user/accounts/${id}`)
+  return data
+}
+
+export async function createAccount(payload: CreateUserAccountRequest): Promise<Account> {
+  const { data } = await apiClient.post<Account>('/user/accounts', payload)
+  return data
+}
+
+export async function importAccount(payload: ImportUserAccountRequest): Promise<Account> {
+  const { data } = await apiClient.post<Account>('/user/accounts/import', payload)
+  return data
+}
+
+export async function updateAccount(id: number, payload: UpdateUserAccountRequest): Promise<Account> {
+  const { data } = await apiClient.put<Account>(`/user/accounts/${id}`, payload)
+  return data
+}
+
+export async function deleteAccount(id: number): Promise<{ message: string }> {
+  const { data } = await apiClient.delete<{ message: string }>(`/user/accounts/${id}`)
+  return data
+}
+
+export async function updateAccountShareMode(id: number, shareMode: AccountShareMode): Promise<Account> {
+  const { data } = await apiClient.post<Account>(`/user/accounts/${id}/share-mode`, {
+    share_mode: shareMode
+  })
+  return data
+}
+
+export async function testAccount(id: number, payload?: { model_id?: string; prompt?: string; mode?: string }): Promise<unknown> {
+  const { data } = await apiClient.post<unknown>(`/user/accounts/${id}/test`, payload ?? {})
+  return data
+}
+
+export async function getAccountUsage(id: number, source: 'active' | 'passive' = 'active'): Promise<AccountUsageInfo> {
+  const { data } = await apiClient.get<AccountUsageInfo>(`/user/accounts/${id}/usage`, {
+    params: { source }
+  })
+  return data
+}
+
+export async function getAccountShareSummary(): Promise<UserAccountShareSummary> {
+  const { data } = await apiClient.get<UserAccountShareSummary>('/user/accounts/share/summary')
+  return data
+}
+
+export async function transferAccountShareToBalance(): Promise<UserAccountTransferResponse> {
+  const { data } = await apiClient.post<UserAccountTransferResponse>('/user/accounts/share/transfer')
+  return data
+}
+
+export async function generateAccountAuthURL(payload: UserAccountAuthURLRequest): Promise<UserAccountAuthURLResponse> {
+  const { data } = await apiClient.post<UserAccountAuthURLResponse>('/user/accounts/oauth/auth-url', payload)
+  return data
+}
+
+export async function exchangeAccountOAuthCode(payload: UserAccountExchangeCodeRequest): Promise<Account> {
+  const { data } = await apiClient.post<Account>('/user/accounts/oauth/exchange-code', payload)
+  return data
+}
+
+export async function importAccountSession(payload: UserAccountSessionImportRequest): Promise<Account> {
+  const { data } = await apiClient.post<Account>('/user/accounts/session-import', payload)
+  return data
+}
+
 export const userAPI = {
   getProfile,
   updateProfile,
@@ -199,7 +299,21 @@ export const userAPI = {
   buildOAuthBindingStartURL,
   startOAuthBinding,
   getAffiliateDetail,
-  transferAffiliateQuota
+  transferAffiliateQuota,
+  listAccounts,
+  getAccountById,
+  createAccount,
+  importAccount,
+  updateAccount,
+  deleteAccount,
+  updateAccountShareMode,
+  testAccount,
+  getAccountUsage,
+  getAccountShareSummary,
+  transferAccountShareToBalance,
+  generateAccountAuthURL,
+  exchangeAccountOAuthCode,
+  importAccountSession
 }
 
 export default userAPI

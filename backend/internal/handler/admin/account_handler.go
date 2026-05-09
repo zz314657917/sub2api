@@ -231,6 +231,9 @@ func (h *AccountHandler) List(c *gin.Context) {
 	status := c.Query("status")
 	search := c.Query("search")
 	privacyMode := strings.TrimSpace(c.Query("privacy_mode"))
+	ownerFilter := strings.TrimSpace(c.Query("owner_filter"))
+	shareMode := strings.TrimSpace(c.Query("share_mode"))
+	shareStatus := strings.TrimSpace(c.Query("share_status"))
 	sortBy := c.DefaultQuery("sort_by", "name")
 	sortOrder := c.DefaultQuery("sort_order", "asc")
 	// 标准化和验证 search 参数
@@ -258,7 +261,17 @@ func (h *AccountHandler) List(c *gin.Context) {
 		}
 	}
 
-	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder)
+	var ownerUserID *int64
+	if ownerUserIDStr := strings.TrimSpace(c.Query("owner_user_id")); ownerUserIDStr != "" {
+		parsedOwnerUserID, parseErr := strconv.ParseInt(ownerUserIDStr, 10, 64)
+		if parseErr != nil || parsedOwnerUserID <= 0 {
+			response.ErrorFrom(c, infraerrors.BadRequest("INVALID_OWNER_FILTER", "invalid owner filter"))
+			return
+		}
+		ownerUserID = &parsedOwnerUserID
+	}
+
+	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, ownerUserID, ownerFilter, shareMode, shareStatus, sortBy, sortOrder)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -391,6 +404,32 @@ func (h *AccountHandler) List(c *gin.Context) {
 	}
 
 	response.Paginated(c, result, total, page, pageSize)
+}
+
+type SetShareStatusRequest struct {
+	ShareStatus string `json:"share_status" binding:"required,oneof=not_shared pending_review active rejected suspended"`
+}
+
+// SetShareStatus handles admin review status changes for user-owned accounts.
+// POST /api/v1/admin/accounts/:id/share-status
+func (h *AccountHandler) SetShareStatus(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+
+	var req SetShareStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	updated, err := h.adminService.SetAccountShareStatus(c.Request.Context(), accountID, req.ShareStatus)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), updated))
 }
 
 func buildAccountsListETag(
@@ -2107,7 +2146,7 @@ func (h *AccountHandler) BatchRefreshTier(c *gin.Context) {
 	accounts := make([]*service.Account, 0)
 
 	if len(req.AccountIDs) == 0 {
-		allAccounts, _, err := h.adminService.ListAccounts(ctx, 1, 10000, "gemini", "oauth", "", "", 0, "", "name", "asc")
+		allAccounts, _, err := h.adminService.ListAccounts(ctx, 1, 10000, "gemini", "oauth", "", "", 0, "", nil, "", "", "", "name", "asc")
 		if err != nil {
 			response.ErrorFrom(c, err)
 			return
