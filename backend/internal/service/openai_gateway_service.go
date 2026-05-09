@@ -5688,13 +5688,24 @@ func (s *OpenAIGatewayService) updateCodexUsageSnapshot(ctx context.Context, acc
 		return
 	}
 	if !s.getCodexSnapshotThrottle().Allow(accountID, now) {
+		if _, ok := resolveOpenAICodex7dResetAt(updates, now); ok {
+			go func() {
+				updateCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				defer cancel()
+				applyOpenAICodex7dTempBlock(updateCtx, s.accountRepo, nil, accountID, updates, time.Now())
+			}()
+		}
 		return
 	}
 
 	go func() {
 		updateCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		_ = s.accountRepo.UpdateExtra(updateCtx, accountID, updates)
+		if err := s.accountRepo.UpdateExtra(updateCtx, accountID, updates); err != nil {
+			slog.Warn("openai_codex_snapshot_persist_failed", "account_id", accountID, "error", err)
+			return
+		}
+		applyOpenAICodex7dTempBlock(updateCtx, s.accountRepo, nil, accountID, updates, time.Now())
 	}()
 }
 

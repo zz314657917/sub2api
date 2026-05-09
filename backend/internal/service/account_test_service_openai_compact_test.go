@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/gin-gonic/gin"
@@ -109,6 +110,117 @@ func TestAccountTestService_TestAccountConnection_OpenAICompactOAuth404MarksUnsu
 	require.Equal(t, false, updates["openai_compact_supported"])
 	require.Equal(t, http.StatusNotFound, updates["openai_compact_last_status"])
 	require.Contains(t, rec.Body.String(), `"type":"error"`)
+}
+
+func TestAccountTestService_TestAccountConnection_OpenAIOAuth4297dExhaustedTempBlocksWithoutRateLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	account := Account{
+		ID:          22,
+		Name:        "openai-oauth-7d",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token": "oauth-token",
+		},
+	}
+	repo := &openAICodexSnapshotAsyncRepo{
+		stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}},
+		updateExtraCh:         make(chan map[string]any, 1),
+		rateLimitCh:           make(chan time.Time, 1),
+		tempUnschedCh:         make(chan codexTempUnschedCall, 1),
+	}
+	headers := exhaustedOpenAICodex7dHeadersForTest()
+	headers.Set("Content-Type", "application/json")
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusTooManyRequests,
+		Header:     headers,
+		Body:       io.NopCloser(strings.NewReader(`{"error":{"type":"rate_limit_exceeded","message":"limit reached"}}`)),
+	}}
+	svc := &AccountTestService{
+		accountRepo:  repo,
+		httpUpstream: upstream,
+	}
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/22/test", bytes.NewReader(nil))
+
+	err := svc.TestAccountConnection(c, account.ID, "gpt-5.4", "", "")
+	require.Error(t, err)
+
+	select {
+	case updates := <-repo.updateExtraCh:
+		require.Equal(t, 100.0, updates["codex_7d_used_percent"])
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected codex snapshot to be persisted")
+	}
+	requireCodexTempBlock(t, repo.tempUnschedCh)
+
+	select {
+	case resetAt := <-repo.rateLimitCh:
+		t.Fatalf("OpenAI OAuth 7d probe should not write rate_limit_reset_at: %v", resetAt)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+func TestAccountTestService_TestAccountConnection_OpenAICompactOAuth4297dExhaustedTempBlocksWithoutRateLimit(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	account := Account{
+		ID:          23,
+		Name:        "openai-oauth-compact-7d",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":       "oauth-token",
+			"chatgpt_account_id": "chatgpt-acc",
+		},
+	}
+	repo := &openAICodexSnapshotAsyncRepo{
+		stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}},
+		updateExtraCh:         make(chan map[string]any, 1),
+		rateLimitCh:           make(chan time.Time, 1),
+		tempUnschedCh:         make(chan codexTempUnschedCall, 1),
+	}
+	headers := exhaustedOpenAICodex7dHeadersForTest()
+	headers.Set("Content-Type", "application/json")
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusTooManyRequests,
+		Header:     headers,
+		Body:       io.NopCloser(strings.NewReader(`{"error":{"type":"rate_limit_exceeded","message":"limit reached"}}`)),
+	}}
+	svc := &AccountTestService{
+		accountRepo:  repo,
+		httpUpstream: upstream,
+	}
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/23/test", bytes.NewReader(nil))
+
+	err := svc.TestAccountConnection(c, account.ID, "gpt-5.4", "", AccountTestModeCompact)
+	require.Error(t, err)
+
+	select {
+	case updates := <-repo.updateExtraCh:
+		require.Equal(t, 100.0, updates["codex_7d_used_percent"])
+	case <-time.After(2 * time.Second):
+		t.Fatal("expected compact probe snapshot to be persisted")
+	}
+	requireCodexTempBlock(t, repo.tempUnschedCh)
+
+	select {
+	case resetAt := <-repo.rateLimitCh:
+		t.Fatalf("OpenAI OAuth compact 7d probe should not write rate_limit_reset_at: %v", resetAt)
+	case <-time.After(200 * time.Millisecond):
+	}
 }
 
 func TestAccountTestService_TestAccountConnection_OpenAICompactAPIKeyUsesCompactPath(t *testing.T) {

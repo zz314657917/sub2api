@@ -615,8 +615,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 
 	if isOAuth && s.accountRepo != nil {
 		if updates, err := extractOpenAICodexProbeUpdates(resp); err == nil && len(updates) > 0 {
-			_ = s.accountRepo.UpdateExtra(ctx, account.ID, updates)
-			mergeAccountExtra(account, updates)
+			s.persistOpenAICodexProbeUpdates(ctx, account, updates)
 		}
 	}
 
@@ -730,8 +729,7 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 			updates = mergeExtraUpdates(updates, codexUpdates)
 		}
 		if len(updates) > 0 {
-			_ = s.accountRepo.UpdateExtra(ctx, account.ID, updates)
-			mergeAccountExtra(account, updates)
+			s.persistOpenAICodexProbeUpdates(ctx, account, updates)
 		}
 		// 探测如返回 429,主动同步限流状态,避免后续短时间内继续选中。
 		if resp.StatusCode == http.StatusTooManyRequests {
@@ -752,9 +750,27 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 	return nil
 }
 
+func (s *AccountTestService) persistOpenAICodexProbeUpdates(ctx context.Context, account *Account, updates map[string]any) {
+	if s == nil || s.accountRepo == nil || account == nil || len(updates) == 0 {
+		return
+	}
+	_ = s.accountRepo.UpdateExtra(ctx, account.ID, updates)
+	mergeAccountExtra(account, updates)
+	applyOpenAICodex7dTempBlock(ctx, s.accountRepo, account, account.ID, updates, time.Now())
+}
+
 func (s *AccountTestService) reconcileOpenAI429State(ctx context.Context, account *Account, headers http.Header, body []byte) {
 	if s == nil || s.accountRepo == nil || account == nil {
 		return
+	}
+
+	if snapshot := ParseCodexRateLimitHeaders(headers); snapshot != nil {
+		now := time.Now()
+		updates := buildCodexUsageExtraUpdates(snapshot, now)
+		if resolveOpenAICodex7dTempBlock(account, updates, now) != nil {
+			s.clearAccountTestStaleError(ctx, account)
+			return
+		}
 	}
 
 	var resetAt *time.Time
@@ -776,13 +792,18 @@ func (s *AccountTestService) reconcileOpenAI429State(ctx context.Context, accoun
 	account.RateLimitedAt = &now
 	account.RateLimitResetAt = resetAt
 
-	if account.Status == StatusError {
-		if err := s.accountRepo.ClearError(ctx, account.ID); err != nil {
-			return
-		}
-		account.Status = StatusActive
-		account.ErrorMessage = ""
+	s.clearAccountTestStaleError(ctx, account)
+}
+
+func (s *AccountTestService) clearAccountTestStaleError(ctx context.Context, account *Account) {
+	if s == nil || s.accountRepo == nil || account == nil || account.Status != StatusError {
+		return
 	}
+	if err := s.accountRepo.ClearError(ctx, account.ID); err != nil {
+		return
+	}
+	account.Status = StatusActive
+	account.ErrorMessage = ""
 }
 
 // testGeminiAccountConnection tests a Gemini account's connection
