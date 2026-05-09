@@ -4695,6 +4695,93 @@
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.features.leaderboardDailyReward.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.features.leaderboardDailyReward.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.leaderboardDailyReward.enabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.leaderboardDailyReward.enabledHint') }}
+                </p>
+              </div>
+              <Toggle
+                v-model="form.leaderboard_daily_reward_enabled"
+                data-testid="leaderboard-daily-reward-enabled"
+              />
+            </div>
+
+            <div class="grid gap-4 md:grid-cols-2">
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.leaderboardDailyReward.minTotalActualCost') }}
+                </label>
+                <input
+                  v-model.number="form.leaderboard_daily_reward_min_total_actual_cost"
+                  data-testid="leaderboard-daily-reward-min-total"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="input"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.leaderboardDailyReward.minTotalActualCostHint') }}
+                </p>
+              </div>
+              <div class="grid grid-cols-3 gap-3">
+                <div>
+                  <label class="input-label">
+                    {{ t('admin.settings.features.leaderboardDailyReward.rank1Amount') }}
+                  </label>
+                  <input
+                    v-model.number="form.leaderboard_daily_reward_rank_1_amount"
+                    data-testid="leaderboard-daily-reward-rank-1"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="input"
+                  />
+                </div>
+                <div>
+                  <label class="input-label">
+                    {{ t('admin.settings.features.leaderboardDailyReward.rank2Amount') }}
+                  </label>
+                  <input
+                    v-model.number="form.leaderboard_daily_reward_rank_2_amount"
+                    data-testid="leaderboard-daily-reward-rank-2"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="input"
+                  />
+                </div>
+                <div>
+                  <label class="input-label">
+                    {{ t('admin.settings.features.leaderboardDailyReward.rank3Amount') }}
+                  </label>
+                  <input
+                    v-model.number="form.leaderboard_daily_reward_rank_3_amount"
+                    data-testid="leaderboard-daily-reward-rank-3"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    class="input"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.features.riskControl.title') }}
             </h2>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -6494,6 +6581,11 @@ const form = reactive<SettingsForm>({
   channel_monitor_default_interval_seconds: 60,
   // Available Channels feature switch
   available_channels_enabled: false,
+  leaderboard_daily_reward_enabled: false,
+  leaderboard_daily_reward_min_total_actual_cost: 0,
+  leaderboard_daily_reward_rank_1_amount: 0,
+  leaderboard_daily_reward_rank_2_amount: 0,
+  leaderboard_daily_reward_rank_3_amount: 0,
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: false,
 });
@@ -7597,6 +7689,23 @@ async function saveSettings() {
         Number(form.channel_monitor_default_interval_seconds) || 60,
       // Available Channels feature switch
       available_channels_enabled: form.available_channels_enabled,
+      leaderboard_daily_reward_enabled: form.leaderboard_daily_reward_enabled,
+      leaderboard_daily_reward_min_total_actual_cost: Math.max(
+        0,
+        Number(form.leaderboard_daily_reward_min_total_actual_cost) || 0,
+      ),
+      leaderboard_daily_reward_rank_1_amount: Math.max(
+        0,
+        Number(form.leaderboard_daily_reward_rank_1_amount) || 0,
+      ),
+      leaderboard_daily_reward_rank_2_amount: Math.max(
+        0,
+        Number(form.leaderboard_daily_reward_rank_2_amount) || 0,
+      ),
+      leaderboard_daily_reward_rank_3_amount: Math.max(
+        0,
+        Number(form.leaderboard_daily_reward_rank_3_amount) || 0,
+      ),
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,
     };

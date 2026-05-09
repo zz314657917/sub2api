@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 )
 
@@ -475,11 +476,11 @@ func TestUsageLogRepositoryGetUserLeaderboardRanksCurrentUserInTop(t *testing.T)
 	end := start.Add(7 * 24 * time.Hour)
 
 	rows := sqlmock.NewRows([]string{
-		"rank", "user_id", "username", "email", "avatar_url", "actual_cost", "requests", "tokens",
+		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "tokens",
 		"total_actual_cost", "total_requests", "total_tokens",
 	}).
-		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 12.5, int64(9), int64(900), 40.0, int64(30), int64(2600)).
-		AddRow(int64(2), int64(1), "", "alpha@example.com", "https://cdn.example.com/a.png", 12.5, int64(8), int64(800), 40.0, int64(30), int64(2600))
+		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 12.5, int64(9), int64(900), 40.0, int64(30), int64(2600)).
+		AddRow(int64(2), int64(1), "", "alpha@example.com", "https://cdn.example.com/a.png", 2.5, 12.5, int64(8), int64(800), 40.0, int64(30), int64(2600))
 
 	mock.ExpectQuery("WITH user_spend AS \\(").
 		WithArgs(start, end, 2, int64(1)).
@@ -492,6 +493,7 @@ func TestUsageLogRepositoryGetUserLeaderboardRanksCurrentUserInTop(t *testing.T)
 	require.False(t, got.Ranking[0].IsCurrentUser)
 	require.Equal(t, int64(2), got.Ranking[1].Rank)
 	require.True(t, got.Ranking[1].IsCurrentUser)
+	require.Equal(t, 2.5, got.Ranking[1].Balance)
 	require.NotNil(t, got.CurrentUserEntry)
 	require.Equal(t, got.Ranking[1], *got.CurrentUserEntry)
 	require.Equal(t, 40.0, got.TotalActualCost)
@@ -508,11 +510,11 @@ func TestUsageLogRepositoryGetUserLeaderboardKeepsCurrentUserEntryOutsideLimit(t
 	end := start.Add(7 * 24 * time.Hour)
 
 	rows := sqlmock.NewRows([]string{
-		"rank", "user_id", "username", "email", "avatar_url", "actual_cost", "requests", "tokens",
+		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "tokens",
 		"total_actual_cost", "total_requests", "total_tokens",
 	}).
-		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 20.0, int64(9), int64(900), 30.0, int64(12), int64(1200)).
-		AddRow(int64(4), int64(9), "", "outside@example.com", nil, 1.0, int64(1), int64(50), 30.0, int64(12), int64(1200))
+		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 20.0, int64(9), int64(900), 30.0, int64(12), int64(1200)).
+		AddRow(int64(4), int64(9), "", "outside@example.com", nil, 0.75, 1.0, int64(1), int64(50), 30.0, int64(12), int64(1200))
 
 	mock.ExpectQuery("WITH user_spend AS \\(").
 		WithArgs(start, end, 1, int64(9)).
@@ -526,6 +528,57 @@ func TestUsageLogRepositoryGetUserLeaderboardKeepsCurrentUserEntryOutsideLimit(t
 	require.Equal(t, int64(4), got.CurrentUserEntry.Rank)
 	require.Equal(t, int64(9), got.CurrentUserEntry.UserID)
 	require.True(t, got.CurrentUserEntry.IsCurrentUser)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUsageLogRepositoryLeaderboardDailyRewardClaimCreateAndRead(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+	createdAt := time.Date(2026, 5, 9, 1, 2, 3, 0, time.UTC)
+
+	mock.ExpectQuery("INSERT INTO leaderboard_daily_reward_claims").
+		WithArgs("2026-05-08", int64(42), 1, 5.0, 101.0, nil).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(99), createdAt))
+
+	claim := &service.LeaderboardDailyRewardClaim{
+		RewardDate:      "2026-05-08",
+		UserID:          42,
+		Rank:            1,
+		Amount:          5,
+		TotalActualCost: 101,
+	}
+	require.NoError(t, repo.CreateLeaderboardDailyRewardClaim(context.Background(), claim))
+	require.Equal(t, int64(99), claim.ID)
+
+	mock.ExpectQuery("SELECT id, reward_date::text, user_id, rank, amount, total_actual_cost, redeem_code_id, created_at").
+		WithArgs("2026-05-08", int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{
+			"id", "reward_date", "user_id", "rank", "amount", "total_actual_cost", "redeem_code_id", "created_at",
+		}).AddRow(int64(99), "2026-05-08", int64(42), 1, 5.0, 101.0, int64(700), createdAt))
+
+	got, err := repo.GetLeaderboardDailyRewardClaim(context.Background(), "2026-05-08", 42)
+	require.NoError(t, err)
+	require.Equal(t, int64(99), got.ID)
+	require.NotNil(t, got.RedeemCodeID)
+	require.Equal(t, int64(700), *got.RedeemCodeID)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUsageLogRepositoryLeaderboardDailyRewardClaimUniqueConflict(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+
+	mock.ExpectQuery("INSERT INTO leaderboard_daily_reward_claims").
+		WillReturnError(&pq.Error{Code: "23505"})
+
+	err := repo.CreateLeaderboardDailyRewardClaim(context.Background(), &service.LeaderboardDailyRewardClaim{
+		RewardDate:      "2026-05-08",
+		UserID:          42,
+		Rank:            1,
+		Amount:          5,
+		TotalActualCost: 101,
+	})
+	require.ErrorIs(t, err, service.ErrLeaderboardDailyRewardAlreadyClaimed)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

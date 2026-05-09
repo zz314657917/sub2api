@@ -161,6 +161,15 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.payment.findProvider": "查看支持的支付方式",
     "admin.settings.openaiExperimentalScheduler.title": "OpenAI 实验调度策略",
     "admin.settings.openaiExperimentalScheduler.description": "默认关闭。开启后仅影响本网关在 OpenAI 账号间的实验性调度选择逻辑，不代表上游 OpenAI 官方能力。",
+    "admin.settings.features.leaderboardDailyReward.title": "排行榜每日奖励",
+    "admin.settings.features.leaderboardDailyReward.description": "按昨日消费榜结算前三名余额奖励。",
+    "admin.settings.features.leaderboardDailyReward.enabled": "启用每日奖励",
+    "admin.settings.features.leaderboardDailyReward.enabledHint": "仅当昨日总消费严格超过最低门槛时可领取。",
+    "admin.settings.features.leaderboardDailyReward.minTotalActualCost": "昨日总消费最低门槛",
+    "admin.settings.features.leaderboardDailyReward.minTotalActualCostHint": "必须严格超过该金额才开启昨日榜奖励。",
+    "admin.settings.features.leaderboardDailyReward.rank1Amount": "第 1 名",
+    "admin.settings.features.leaderboardDailyReward.rank2Amount": "第 2 名",
+    "admin.settings.features.leaderboardDailyReward.rank3Amount": "第 3 名",
     "admin.settings.site.uploadImage": "上传图片",
     "admin.settings.site.remove": "移除",
   };
@@ -399,6 +408,15 @@ const baseSettingsResponse = {
   balance_low_notify_recharge_url: "",
   account_quota_notify_enabled: false,
   account_quota_notify_emails: [],
+  channel_monitor_enabled: true,
+  channel_monitor_default_interval_seconds: 60,
+  available_channels_enabled: false,
+  leaderboard_daily_reward_enabled: false,
+  leaderboard_daily_reward_min_total_actual_cost: 0,
+  leaderboard_daily_reward_rank_1_amount: 0,
+  leaderboard_daily_reward_rank_2_amount: 0,
+  leaderboard_daily_reward_rank_3_amount: 0,
+  affiliate_enabled: false,
 };
 
 function mountView() {
@@ -449,6 +467,16 @@ async function openUsersTab(wrapper: ReturnType<typeof mountView>) {
 
   expect(usersTabButton).toBeDefined();
   await usersTabButton?.trigger("click");
+  await flushPromises();
+}
+
+async function openFeaturesTab(wrapper: ReturnType<typeof mountView>) {
+  const featuresTabButton = wrapper
+    .findAll("button")
+    .find((node) => node.text().includes("admin.settings.tabs.features"));
+
+  expect(featuresTabButton).toBeDefined();
+  await featuresTabButton?.trigger("click");
   await flushPromises();
 }
 
@@ -597,6 +625,51 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         enable_anthropic_cache_ttl_1h_injection: true,
+      }),
+    );
+  });
+
+  it("loads and submits leaderboard daily reward settings", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      leaderboard_daily_reward_enabled: true,
+      leaderboard_daily_reward_min_total_actual_cost: 100,
+      leaderboard_daily_reward_rank_1_amount: 9,
+      leaderboard_daily_reward_rank_2_amount: 6,
+      leaderboard_daily_reward_rank_3_amount: 3,
+    });
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+
+    expect(wrapper.text()).toContain("排行榜每日奖励");
+    expect(
+      (
+        wrapper.get('[data-testid="leaderboard-daily-reward-enabled"]')
+          .element as HTMLInputElement
+      ).checked,
+    ).toBe(true);
+    expect(
+      (
+        wrapper.get('[data-testid="leaderboard-daily-reward-min-total"]')
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("100");
+
+    await wrapper.get('[data-testid="leaderboard-daily-reward-rank-2"]').setValue("-5");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        leaderboard_daily_reward_enabled: true,
+        leaderboard_daily_reward_min_total_actual_cost: 100,
+        leaderboard_daily_reward_rank_1_amount: 9,
+        leaderboard_daily_reward_rank_2_amount: 0,
+        leaderboard_daily_reward_rank_3_amount: 3,
       }),
     );
   });

@@ -125,6 +125,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	userAccountHandler := handler.NewUserAccountHandler(userAccountService, accountUsageService, accountTestService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	usageService := service.NewUsageService(usageLogRepository, userRepository, client, apiKeyAuthCacheInvalidator)
+	usageService.SetLeaderboardRewardDependencies(settingRepository, redeemCodeRepository)
 	usageHandler := handler.NewUsageHandler(usageService, apiKeyService)
 	redeemHandler := handler.NewRedeemHandler(redeemService)
 	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionService)

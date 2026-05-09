@@ -224,6 +224,25 @@ func TestSettingService_UpdateSettings_TablePreferences(t *testing.T) {
 	require.Equal(t, "[20,100]", repo.updates[SettingKeyTablePageSizeOptions])
 }
 
+func TestSettingService_UpdateSettings_LeaderboardDailyRewardNormalizesAmounts(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		LeaderboardDailyRewardEnabled:            true,
+		LeaderboardDailyRewardMinTotalActualCost: -1,
+		LeaderboardDailyRewardRank1Amount:        10.5,
+		LeaderboardDailyRewardRank2Amount:        -2,
+		LeaderboardDailyRewardRank3Amount:        1.25,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "true", repo.updates[SettingKeyLeaderboardDailyRewardEnabled])
+	require.Equal(t, "0.00000000", repo.updates[SettingKeyLeaderboardDailyRewardMinTotalActualCost])
+	require.Equal(t, "10.50000000", repo.updates[SettingKeyLeaderboardDailyRewardRank1Amount])
+	require.Equal(t, "0.00000000", repo.updates[SettingKeyLeaderboardDailyRewardRank2Amount])
+	require.Equal(t, "1.25000000", repo.updates[SettingKeyLeaderboardDailyRewardRank3Amount])
+}
+
 func TestSettingService_UpdateSettings_PaymentVisibleMethodsAndAdvancedScheduler(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	svc := NewSettingService(repo, &config.Config{})

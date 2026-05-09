@@ -213,6 +213,12 @@ type SystemSettings struct {
 	// Available Channels feature switch (user-facing aggregate view)
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
 
+	LeaderboardDailyRewardEnabled            bool    `json:"leaderboard_daily_reward_enabled"`
+	LeaderboardDailyRewardMinTotalActualCost float64 `json:"leaderboard_daily_reward_min_total_actual_cost"`
+	LeaderboardDailyRewardRank1Amount        float64 `json:"leaderboard_daily_reward_rank_1_amount"`
+	LeaderboardDailyRewardRank2Amount        float64 `json:"leaderboard_daily_reward_rank_2_amount"`
+	LeaderboardDailyRewardRank3Amount        float64 `json:"leaderboard_daily_reward_rank_3_amount"`
+
 	// 风控中心功能开关
 	RiskControlEnabled bool `json:"risk_control_enabled"`
 

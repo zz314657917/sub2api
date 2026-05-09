@@ -12,10 +12,11 @@ import type {
   TrendDataPoint,
   ModelStat,
   LeaderboardPeriod,
+  LeaderboardDailyRewards,
   UserLeaderboardResponse
 } from '@/types'
 
-export type { LeaderboardPeriod, UserLeaderboardItem, UserLeaderboardResponse } from '@/types'
+export type { LeaderboardPeriod, LeaderboardDailyRewards, UserLeaderboardItem, UserLeaderboardResponse } from '@/types'
 
 // ==================== Dashboard Types ====================
 
@@ -237,6 +238,18 @@ export async function getDashboardLeaderboard(params: {
   return data
 }
 
+export interface LeaderboardDailyRewardClaimResponse {
+  daily_rewards: LeaderboardDailyRewards
+  claimed_amount: number
+}
+
+export async function claimDashboardLeaderboardDailyReward(): Promise<LeaderboardDailyRewardClaimResponse> {
+  const { data } = await apiClient.post<LeaderboardDailyRewardClaimResponse>(
+    '/usage/dashboard/leaderboard/daily-reward/claim'
+  )
+  return data
+}
+
 export interface BatchApiKeyUsageStats {
   api_key_id: number
   today_actual_cost: number
@@ -283,6 +296,7 @@ export const usageAPI = {
   getDashboardTrend,
   getDashboardModels,
   getDashboardLeaderboard,
+  claimDashboardLeaderboardDailyReward,
   getDashboardApiKeysUsage
 }
 
