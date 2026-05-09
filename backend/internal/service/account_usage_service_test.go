@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -11,6 +12,7 @@ type accountUsageCodexProbeRepo struct {
 	stubOpenAIAccountRepo
 	updateExtraCh chan map[string]any
 	rateLimitCh   chan time.Time
+	tempUnschedCh chan codexTempUnschedCall
 }
 
 func (r *accountUsageCodexProbeRepo) UpdateExtra(_ context.Context, _ int64, updates map[string]any) error {
@@ -29,6 +31,108 @@ func (r *accountUsageCodexProbeRepo) SetRateLimited(_ context.Context, _ int64, 
 		r.rateLimitCh <- resetAt
 	}
 	return nil
+}
+
+func (r *accountUsageCodexProbeRepo) SetTempUnschedulable(_ context.Context, _ int64, until time.Time, reason string) error {
+	if r.tempUnschedCh != nil {
+		r.tempUnschedCh <- codexTempUnschedCall{until: until, reason: reason}
+	}
+	return nil
+}
+
+func TestResolveOpenAICodex7dTempBlock(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 3, 16, 12, 0, 0, 0, time.UTC)
+	resetAt := now.Add(2 * time.Hour).UTC().Format(time.RFC3339)
+
+	tests := []struct {
+		name    string
+		account *Account
+		updates map[string]any
+		want    bool
+	}{
+		{
+			name:    "openai oauth exhausted future reset blocks",
+			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+			updates: map[string]any{
+				"codex_7d_used_percent": 100.0,
+				"codex_7d_reset_at":     resetAt,
+			},
+			want: true,
+		},
+		{
+			name:    "below threshold does not block",
+			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+			updates: map[string]any{
+				"codex_7d_used_percent": 99.9,
+				"codex_7d_reset_at":     resetAt,
+			},
+			want: false,
+		},
+		{
+			name:    "missing reset does not block",
+			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+			updates: map[string]any{
+				"codex_7d_used_percent": 100.0,
+			},
+			want: false,
+		},
+		{
+			name:    "expired reset does not block",
+			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+			updates: map[string]any{
+				"codex_7d_used_percent": 100.0,
+				"codex_7d_reset_at":     now.Add(-time.Minute).UTC().Format(time.RFC3339),
+			},
+			want: false,
+		},
+		{
+			name:    "openai api key does not block",
+			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+			updates: map[string]any{
+				"codex_7d_used_percent": 100.0,
+				"codex_7d_reset_at":     resetAt,
+			},
+			want: false,
+		},
+		{
+			name:    "non openai oauth does not block",
+			account: &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth},
+			updates: map[string]any{
+				"codex_7d_used_percent": 100.0,
+				"codex_7d_reset_at":     resetAt,
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			block := resolveOpenAICodex7dTempBlock(tt.account, tt.updates, now)
+			if tt.want {
+				if block == nil {
+					t.Fatal("expected temp block")
+				}
+				if !block.until.Equal(now.Add(2 * time.Hour)) {
+					t.Fatalf("until = %s, want %s", block.until, now.Add(2*time.Hour))
+				}
+				if block.state == nil || block.state.StatusCode != http.StatusTooManyRequests {
+					t.Fatalf("unexpected state: %#v", block.state)
+				}
+				if block.reason == "" {
+					t.Fatal("expected non-empty reason")
+				}
+				return
+			}
+			if block != nil {
+				t.Fatalf("expected no temp block, got %#v", block)
+			}
+		})
+	}
 }
 
 func TestShouldRefreshOpenAICodexSnapshot(t *testing.T) {
@@ -92,15 +196,22 @@ func TestExtractOpenAICodexProbeUpdatesAccepts429WithCodexHeaders(t *testing.T) 
 	}
 }
 
-func TestAccountUsageService_PersistOpenAICodexProbeSnapshotOnlyUpdatesExtra(t *testing.T) {
+func TestAccountUsageService_PersistOpenAICodexProbeSnapshotBlocksOpenAIOAuth7dExhausted(t *testing.T) {
 	t.Parallel()
 
 	repo := &accountUsageCodexProbeRepo{
+		stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{{
+			ID:       321,
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+		}}},
 		updateExtraCh: make(chan map[string]any, 1),
 		rateLimitCh:   make(chan time.Time, 1),
+		tempUnschedCh: make(chan codexTempUnschedCall, 1),
 	}
 	svc := &AccountUsageService{accountRepo: repo}
-	svc.persistOpenAICodexProbeSnapshot(321, map[string]any{
+	account := &Account{ID: 321, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	svc.persistOpenAICodexProbeSnapshot(account, map[string]any{
 		"codex_7d_used_percent": 100.0,
 		"codex_7d_reset_at":     time.Now().Add(2 * time.Hour).UTC().Truncate(time.Second).Format(time.RFC3339),
 	})
@@ -118,6 +229,18 @@ func TestAccountUsageService_PersistOpenAICodexProbeSnapshotOnlyUpdatesExtra(t *
 	case got := <-repo.rateLimitCh:
 		t.Fatalf("不应将探测快照写入运行时限流状态: %v", got)
 	case <-time.After(200 * time.Millisecond):
+	}
+
+	select {
+	case call := <-repo.tempUnschedCh:
+		if time.Until(call.until) <= 0 {
+			t.Fatalf("expected future temp unschedulable until, got %v", call.until)
+		}
+		if !strings.Contains(call.reason, "OpenAI Codex 7d usage reached 100%") {
+			t.Fatalf("unexpected reason: %s", call.reason)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("应在 OpenAI OAuth 7d 探测耗尽时写入临时不可调度状态")
 	}
 }
 

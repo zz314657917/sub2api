@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -149,8 +150,11 @@ func TestCalculateOpenAI429ResetTime_ReversedWindowOrder(t *testing.T) {
 
 type openAI429SnapshotRepo struct {
 	mockAccountRepoForGemini
-	rateLimitedID int64
-	updatedExtra  map[string]any
+	rateLimitedID     int64
+	updatedExtra      map[string]any
+	tempUnschedID     int64
+	tempUnschedUntil  time.Time
+	tempUnschedReason string
 }
 
 func (r *openAI429SnapshotRepo) SetRateLimited(_ context.Context, id int64, _ time.Time) error {
@@ -163,7 +167,14 @@ func (r *openAI429SnapshotRepo) UpdateExtra(_ context.Context, _ int64, updates 
 	return nil
 }
 
-func TestHandle429_OpenAIPersistsCodexSnapshotImmediately(t *testing.T) {
+func (r *openAI429SnapshotRepo) SetTempUnschedulable(_ context.Context, id int64, until time.Time, reason string) error {
+	r.tempUnschedID = id
+	r.tempUnschedUntil = until
+	r.tempUnschedReason = reason
+	return nil
+}
+
+func TestHandle429_OpenAIOAuth7dExhaustedPersistsSnapshotAndTempBlock(t *testing.T) {
 	repo := &openAI429SnapshotRepo{}
 	svc := NewRateLimitService(repo, nil, nil, nil, nil)
 	account := &Account{ID: 123, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
@@ -178,8 +189,17 @@ func TestHandle429_OpenAIPersistsCodexSnapshotImmediately(t *testing.T) {
 
 	svc.handle429(context.Background(), account, headers, nil)
 
-	if repo.rateLimitedID != account.ID {
-		t.Fatalf("rateLimitedID = %d, want %d", repo.rateLimitedID, account.ID)
+	if repo.rateLimitedID != 0 {
+		t.Fatalf("rateLimitedID = %d, want 0", repo.rateLimitedID)
+	}
+	if repo.tempUnschedID != account.ID {
+		t.Fatalf("tempUnschedID = %d, want %d", repo.tempUnschedID, account.ID)
+	}
+	if time.Until(repo.tempUnschedUntil) <= 0 {
+		t.Fatalf("tempUnschedUntil should be in the future, got %v", repo.tempUnschedUntil)
+	}
+	if !strings.Contains(repo.tempUnschedReason, "OpenAI Codex 7d usage reached 100%") {
+		t.Fatalf("unexpected temp reason: %s", repo.tempUnschedReason)
 	}
 	if len(repo.updatedExtra) == 0 {
 		t.Fatal("expected codex snapshot to be persisted on 429")
@@ -189,6 +209,29 @@ func TestHandle429_OpenAIPersistsCodexSnapshotImmediately(t *testing.T) {
 	}
 	if got := repo.updatedExtra["codex_7d_used_percent"]; got != 100.0 {
 		t.Fatalf("codex_7d_used_percent = %v, want 100", got)
+	}
+}
+
+func TestHandle429_OpenAIAPIKey7dExhaustedDoesNotTempBlock(t *testing.T) {
+	repo := &openAI429SnapshotRepo{}
+	svc := NewRateLimitService(repo, nil, nil, nil, nil)
+	account := &Account{ID: 124, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+
+	headers := http.Header{}
+	headers.Set("x-codex-primary-used-percent", "100")
+	headers.Set("x-codex-primary-reset-after-seconds", "604800")
+	headers.Set("x-codex-primary-window-minutes", "10080")
+	headers.Set("x-codex-secondary-used-percent", "100")
+	headers.Set("x-codex-secondary-reset-after-seconds", "18000")
+	headers.Set("x-codex-secondary-window-minutes", "300")
+
+	svc.handle429(context.Background(), account, headers, nil)
+
+	if repo.rateLimitedID != account.ID {
+		t.Fatalf("rateLimitedID = %d, want %d", repo.rateLimitedID, account.ID)
+	}
+	if repo.tempUnschedID != 0 {
+		t.Fatalf("tempUnschedID = %d, want 0", repo.tempUnschedID)
 	}
 }
 

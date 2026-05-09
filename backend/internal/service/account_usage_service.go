@@ -652,24 +652,29 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 		return nil, err
 	}
 	if len(updates) > 0 {
-		s.persistOpenAICodexProbeSnapshot(account.ID, updates)
+		s.persistOpenAICodexProbeSnapshot(account, updates)
 		return updates, nil
 	}
 	return nil, nil
 }
 
-func (s *AccountUsageService) persistOpenAICodexProbeSnapshot(accountID int64, updates map[string]any) {
-	if s == nil || s.accountRepo == nil || accountID <= 0 {
+func (s *AccountUsageService) persistOpenAICodexProbeSnapshot(account *Account, updates map[string]any) {
+	if s == nil || s.accountRepo == nil || account == nil || account.ID <= 0 {
 		return
 	}
 	if len(updates) == 0 {
 		return
 	}
+	accountID := account.ID
 
 	go func() {
 		updateCtx, updateCancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer updateCancel()
-		_ = s.accountRepo.UpdateExtra(updateCtx, accountID, updates)
+		if err := s.accountRepo.UpdateExtra(updateCtx, accountID, updates); err != nil {
+			slog.Warn("openai_codex_probe_snapshot_persist_failed", "account_id", accountID, "error", err)
+			return
+		}
+		applyOpenAICodex7dTempBlock(updateCtx, s.accountRepo, nil, accountID, updates, time.Now())
 	}()
 }
 

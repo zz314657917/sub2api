@@ -27,11 +27,17 @@ type openAICodexSnapshotAsyncRepo struct {
 	stubOpenAIAccountRepo
 	updateExtraCh chan map[string]any
 	rateLimitCh   chan time.Time
+	tempUnschedCh chan codexTempUnschedCall
 }
 
 type openAICodexExtraListRepo struct {
 	stubOpenAIAccountRepo
 	rateLimitCh chan time.Time
+}
+
+type codexTempUnschedCall struct {
+	until  time.Time
+	reason string
 }
 
 func (r *openAIWSRateLimitSignalRepo) SetRateLimited(_ context.Context, _ int64, resetAt time.Time) error {
@@ -62,6 +68,13 @@ func (r *openAICodexSnapshotAsyncRepo) UpdateExtra(_ context.Context, _ int64, u
 			copied[k] = v
 		}
 		r.updateExtraCh <- copied
+	}
+	return nil
+}
+
+func (r *openAICodexSnapshotAsyncRepo) SetTempUnschedulable(_ context.Context, _ int64, until time.Time, reason string) error {
+	if r.tempUnschedCh != nil {
+		r.tempUnschedCh <- codexTempUnschedCall{until: until, reason: reason}
 	}
 	return nil
 }
@@ -347,8 +360,14 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_ErrorEventUsageL
 
 func TestOpenAIGatewayService_UpdateCodexUsageSnapshot_ExhaustedSnapshotDoesNotSetRateLimit(t *testing.T) {
 	repo := &openAICodexSnapshotAsyncRepo{
+		stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{{
+			ID:       601,
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+		}}},
 		updateExtraCh: make(chan map[string]any, 1),
 		rateLimitCh:   make(chan time.Time, 1),
+		tempUnschedCh: make(chan codexTempUnschedCall, 1),
 	}
 	svc := &OpenAIGatewayService{accountRepo: repo}
 	snapshot := &OpenAICodexUsageSnapshot{
@@ -372,6 +391,14 @@ func TestOpenAIGatewayService_UpdateCodexUsageSnapshot_ExhaustedSnapshotDoesNotS
 	case resetAt := <-repo.rateLimitCh:
 		t.Fatalf("不应因仅写入快照而生成运行时限流时间: %v", resetAt)
 	case <-time.After(2 * time.Second):
+	}
+
+	select {
+	case call := <-repo.tempUnschedCh:
+		require.WithinDuration(t, time.Now().Add(time.Hour), call.until, 3*time.Second)
+		require.Contains(t, call.reason, "OpenAI Codex 7d usage reached 100%")
+	case <-time.After(2 * time.Second):
+		t.Fatal("应在 7d 用量耗尽时写入临时不可调度状态")
 	}
 }
 
@@ -433,6 +460,68 @@ func TestOpenAIGatewayService_UpdateCodexUsageSnapshot_ThrottlesExtraWrites(t *t
 	select {
 	case updates := <-repo.updateExtraCh:
 		t.Fatalf("unexpected second codex snapshot write: %v", updates)
+	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+func TestOpenAIGatewayService_UpdateCodexUsageSnapshot_ExhaustedSnapshotBypassesThrottleForTempBlock(t *testing.T) {
+	repo := &openAICodexSnapshotAsyncRepo{
+		stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{{
+			ID:       778,
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+		}}},
+		updateExtraCh: make(chan map[string]any, 2),
+		tempUnschedCh: make(chan codexTempUnschedCall, 1),
+		rateLimitCh:   make(chan time.Time, 1),
+	}
+	svc := &OpenAIGatewayService{
+		accountRepo:           repo,
+		codexSnapshotThrottle: newAccountWriteThrottle(time.Hour),
+	}
+	firstSnapshot := &OpenAICodexUsageSnapshot{
+		PrimaryUsedPercent:         ptrFloat64WS(94),
+		PrimaryResetAfterSeconds:   ptrIntWS(3600),
+		PrimaryWindowMinutes:       ptrIntWS(10080),
+		SecondaryUsedPercent:       ptrFloat64WS(22),
+		SecondaryResetAfterSeconds: ptrIntWS(1200),
+		SecondaryWindowMinutes:     ptrIntWS(300),
+	}
+	exhaustedSnapshot := &OpenAICodexUsageSnapshot{
+		PrimaryUsedPercent:         ptrFloat64WS(100),
+		PrimaryResetAfterSeconds:   ptrIntWS(3600),
+		PrimaryWindowMinutes:       ptrIntWS(10080),
+		SecondaryUsedPercent:       ptrFloat64WS(22),
+		SecondaryResetAfterSeconds: ptrIntWS(1200),
+		SecondaryWindowMinutes:     ptrIntWS(300),
+	}
+
+	svc.updateCodexUsageSnapshot(context.Background(), 778, firstSnapshot)
+	svc.updateCodexUsageSnapshot(context.Background(), 778, exhaustedSnapshot)
+
+	select {
+	case <-repo.updateExtraCh:
+	case <-time.After(2 * time.Second):
+		t.Fatal("等待第一次 codex 快照落库超时")
+	}
+
+	select {
+	case updates := <-repo.updateExtraCh:
+		t.Fatalf("第二次 extra 写入仍应被 throttle 跳过: %v", updates)
+	case <-time.After(200 * time.Millisecond):
+	}
+
+	select {
+	case call := <-repo.tempUnschedCh:
+		require.WithinDuration(t, time.Now().Add(time.Hour), call.until, 3*time.Second)
+		require.Contains(t, call.reason, "OpenAI Codex 7d usage reached 100%")
+	case <-time.After(2 * time.Second):
+		t.Fatal("耗尽快照即使命中 extra throttle 也应写 temp_unschedulable_until")
+	}
+
+	select {
+	case resetAt := <-repo.rateLimitCh:
+		t.Fatalf("耗尽快照不应写 rate_limit_reset_at: %v", resetAt)
 	case <-time.After(200 * time.Millisecond):
 	}
 }
