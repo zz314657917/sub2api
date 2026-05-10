@@ -4695,6 +4695,30 @@
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.features.accountShare.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.features.accountShare.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.accountShare.enabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.accountShare.enabledHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.account_share_enabled" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.features.leaderboardDailyReward.title') }}
             </h2>
             <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
@@ -6581,6 +6605,7 @@ const form = reactive<SettingsForm>({
   channel_monitor_default_interval_seconds: 60,
   // Available Channels feature switch
   available_channels_enabled: false,
+  account_share_enabled: true,
   leaderboard_daily_reward_enabled: false,
   leaderboard_daily_reward_min_total_actual_cost: 0,
   leaderboard_daily_reward_rank_1_amount: 0,
@@ -7689,6 +7714,7 @@ async function saveSettings() {
         Number(form.channel_monitor_default_interval_seconds) || 60,
       // Available Channels feature switch
       available_channels_enabled: form.available_channels_enabled,
+      account_share_enabled: form.account_share_enabled,
       leaderboard_daily_reward_enabled: form.leaderboard_daily_reward_enabled,
       leaderboard_daily_reward_min_total_actual_cost: Math.max(
         0,

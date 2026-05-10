@@ -49,6 +49,7 @@ type Handlers struct {
 	Subscription     *SubscriptionHandler
 	Announcement     *AnnouncementHandler
 	ChannelMonitor   *ChannelMonitorUserHandler
+	ImageCreator     *ImageCreatorHandler
 	Admin            *AdminHandlers
 	Gateway          *GatewayHandler
 	OpenAIGateway    *OpenAIGatewayHandler

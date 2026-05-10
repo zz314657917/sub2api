@@ -85,6 +85,8 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 
 		AffiliateEnabled: settings.AffiliateEnabled,
 
+		AccountShareEnabled: settings.AccountShareEnabled,
+
 		RiskControlEnabled: settings.RiskControlEnabled,
 	})
 }

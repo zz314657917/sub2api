@@ -427,6 +427,16 @@ func ProvideAPIKeyService(
 	return svc
 }
 
+func ProvideImageCreatorService(
+	repo ImageCreatorRepository,
+	apiKeyService *APIKeyService,
+	cfg *config.Config,
+) *ImageCreatorService {
+	svc := NewImageCreatorService(repo, apiKeyService, cfg)
+	svc.Start()
+	return svc
+}
+
 // ProviderSet is the Wire provider set for all services
 var ProviderSet = wire.NewSet(
 	// Core services
@@ -513,6 +523,7 @@ var ProviderSet = wire.NewSet(
 	NewModelPricingResolver,
 	NewContentModerationService,
 	NewAffiliateService,
+	ProvideImageCreatorService,
 	ProvidePaymentConfigService,
 	NewPaymentService,
 	ProvidePaymentOrderExpiryService,

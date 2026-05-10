@@ -10,6 +10,12 @@
       @refresh="manualReload"
     />
 
+    <AccountCapacityPools
+      v-if="accountShareEnabled"
+      :pools="capacityPools"
+      :loading="capacityLoading"
+    />
+
     <MonitorCardGrid
       :items="items"
       :window="currentWindow"
@@ -39,11 +45,14 @@ import {
   type UserMonitorView,
   type UserMonitorDetail,
 } from '@/api/channelMonitor'
+import { getAccountCapacityPools } from '@/api/user'
+import type { UserAccountCapacityPools } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import MonitorHero, {
   type MonitorWindow,
   type OverallStatus,
 } from '@/components/user/monitor/MonitorHero.vue'
+import AccountCapacityPools from '@/components/user/monitor/AccountCapacityPools.vue'
 import MonitorCardGrid from '@/components/user/monitor/MonitorCardGrid.vue'
 import MonitorDetailDialog from '@/components/user/MonitorDetailDialog.vue'
 import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL } from '@/constants/channelMonitor'
@@ -55,19 +64,24 @@ const appStore = useAppStore()
 // ── State ──
 const items = ref<UserMonitorView[]>([])
 const loading = ref(false)
+const capacityLoading = ref(false)
+const capacityPools = ref<UserAccountCapacityPools | null>(null)
 const currentWindow = ref<MonitorWindow>('7d')
 const detailCache = reactive<Record<number, UserMonitorDetail>>({})
 const showDetail = ref(false)
 const detailTarget = ref<UserMonitorView | null>(null)
 
 let abortController: AbortController | null = null
+let capacityAbortController: AbortController | null = null
 
 const autoRefresh = useAutoRefresh({
   storageKey: 'channel-status-auto-refresh',
   intervals: [30, 60, 120] as const,
   defaultInterval: DEFAULT_INTERVAL_SECONDS,
-  onRefresh: () => reload(true),
-  shouldPause: () => document.hidden || loading.value,
+  onRefresh: async () => {
+    await Promise.all([reload(true), loadCapacityPools(true)])
+  },
+  shouldPause: () => document.hidden || loading.value || capacityLoading.value,
 })
 const countdown = autoRefresh.countdown
 
@@ -84,6 +98,8 @@ const overallStatus = computed<OverallStatus>(() => {
 const detailTitle = computed(() => {
   return detailTarget.value?.name || t('channelStatus.detailTitle')
 })
+
+const accountShareEnabled = computed(() => appStore.cachedPublicSettings?.account_share_enabled !== false)
 
 // ── Loaders ──
 async function reload(silent = false) {
@@ -108,8 +124,35 @@ async function reload(silent = false) {
   }
 }
 
+async function loadCapacityPools(silent = false) {
+  if (!accountShareEnabled.value) {
+    if (capacityAbortController) capacityAbortController.abort()
+    capacityPools.value = null
+    capacityLoading.value = false
+    return
+  }
+  if (capacityAbortController) capacityAbortController.abort()
+  const ctrl = new AbortController()
+  capacityAbortController = ctrl
+  if (!silent) capacityLoading.value = true
+  try {
+    const res = await getAccountCapacityPools({ signal: ctrl.signal })
+    if (ctrl.signal.aborted || capacityAbortController !== ctrl) return
+    capacityPools.value = res
+  } catch (err: unknown) {
+    const e = err as { name?: string; code?: string }
+    if (e?.name === 'AbortError' || e?.code === 'ERR_CANCELED') return
+    appStore.showError(extractApiErrorMessage(err, t('channelStatus.capacityPools.loadError')))
+  } finally {
+    if (capacityAbortController === ctrl) {
+      if (!silent) capacityLoading.value = false
+      capacityAbortController = null
+    }
+  }
+}
+
 async function manualReload() {
-  await reload(false)
+  await Promise.all([reload(false), loadCapacityPools(false)])
   // After base reload, refresh any cached detail records so non-7d availability
   // values stay in sync without forcing the user to switch tabs again.
   if (currentWindow.value !== '7d') {
@@ -159,8 +202,19 @@ watch(
   },
 )
 
+watch(accountShareEnabled, (enabled) => {
+  if (enabled) {
+    void loadCapacityPools(false)
+  } else {
+    if (capacityAbortController) capacityAbortController.abort()
+    capacityPools.value = null
+    capacityLoading.value = false
+  }
+})
+
 onMounted(() => {
   void reload(false)
+  void loadCapacityPools(false)
   if (appStore.cachedPublicSettings?.channel_monitor_enabled !== false) {
     autoRefresh.setEnabled(true)
   }
@@ -168,5 +222,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   if (abortController) abortController.abort()
+  if (capacityAbortController) capacityAbortController.abort()
 })
 </script>

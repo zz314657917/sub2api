@@ -84,6 +84,7 @@ type Config struct {
 	Dashboard               DashboardCacheConfig          `mapstructure:"dashboard_cache"`
 	DashboardAgg            DashboardAggregationConfig    `mapstructure:"dashboard_aggregation"`
 	UsageCleanup            UsageCleanupConfig            `mapstructure:"usage_cleanup"`
+	ImageCreator            ImageCreatorConfig            `mapstructure:"image_creator"`
 	Concurrency             ConcurrencyConfig             `mapstructure:"concurrency"`
 	TokenRefresh            TokenRefreshConfig            `mapstructure:"token_refresh"`
 	RunMode                 string                        `mapstructure:"run_mode" yaml:"run_mode"`
@@ -1217,6 +1218,18 @@ type UsageCleanupConfig struct {
 	TaskTimeoutSeconds int `mapstructure:"task_timeout_seconds"`
 }
 
+// ImageCreatorConfig controls user image creator task persistence.
+type ImageCreatorConfig struct {
+	StorageDir            string `mapstructure:"storage_dir"`
+	MaxSavedImagesPerUser int    `mapstructure:"max_saved_images_per_user"`
+	RetentionDays         int    `mapstructure:"retention_days"`
+	WorkerIntervalSeconds int    `mapstructure:"worker_interval_seconds"`
+	TaskTimeoutSeconds    int    `mapstructure:"task_timeout_seconds"`
+	RequestTimeoutSeconds int    `mapstructure:"request_timeout_seconds"`
+	CleanupBatchSize      int    `mapstructure:"cleanup_batch_size"`
+	LocalGatewayBaseURL   string `mapstructure:"local_gateway_base_url"`
+}
+
 func NormalizeRunMode(value string) string {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	switch normalized {
@@ -1647,6 +1660,16 @@ func setDefaults() {
 	viper.SetDefault("usage_cleanup.batch_size", 5000)
 	viper.SetDefault("usage_cleanup.worker_interval_seconds", 10)
 	viper.SetDefault("usage_cleanup.task_timeout_seconds", 1800)
+
+	// Image creator task persistence
+	viper.SetDefault("image_creator.storage_dir", "data/image-creator")
+	viper.SetDefault("image_creator.max_saved_images_per_user", 3)
+	viper.SetDefault("image_creator.retention_days", 7)
+	viper.SetDefault("image_creator.worker_interval_seconds", 5)
+	viper.SetDefault("image_creator.task_timeout_seconds", 1800)
+	viper.SetDefault("image_creator.request_timeout_seconds", 1800)
+	viper.SetDefault("image_creator.cleanup_batch_size", 100)
+	viper.SetDefault("image_creator.local_gateway_base_url", "")
 
 	// Idempotency
 	viper.SetDefault("idempotency.observe_only", true)
@@ -2250,6 +2273,27 @@ func (c *Config) Validate() error {
 		if c.UsageCleanup.TaskTimeoutSeconds < 0 {
 			return fmt.Errorf("usage_cleanup.task_timeout_seconds must be non-negative")
 		}
+	}
+	if strings.TrimSpace(c.ImageCreator.StorageDir) == "" {
+		return fmt.Errorf("image_creator.storage_dir is required")
+	}
+	if c.ImageCreator.MaxSavedImagesPerUser <= 0 {
+		return fmt.Errorf("image_creator.max_saved_images_per_user must be positive")
+	}
+	if c.ImageCreator.RetentionDays <= 0 {
+		return fmt.Errorf("image_creator.retention_days must be positive")
+	}
+	if c.ImageCreator.WorkerIntervalSeconds <= 0 {
+		return fmt.Errorf("image_creator.worker_interval_seconds must be positive")
+	}
+	if c.ImageCreator.TaskTimeoutSeconds <= 0 {
+		return fmt.Errorf("image_creator.task_timeout_seconds must be positive")
+	}
+	if c.ImageCreator.RequestTimeoutSeconds <= 0 {
+		return fmt.Errorf("image_creator.request_timeout_seconds must be positive")
+	}
+	if c.ImageCreator.CleanupBatchSize <= 0 {
+		return fmt.Errorf("image_creator.cleanup_batch_size must be positive")
 	}
 	if c.Idempotency.DefaultTTLSeconds <= 0 {
 		return fmt.Errorf("idempotency.default_ttl_seconds must be positive")

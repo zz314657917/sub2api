@@ -46,7 +46,7 @@
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
               <span>{{ t('common.refresh') }}</span>
             </button>
-            <button class="btn btn-secondary" @click="openImportModal">
+            <button class="btn btn-secondary" data-testid="my-accounts-open-import" @click="openImportModal">
               <Icon name="upload" size="md" />
               <span>{{ t('myAccounts.import.title') }}</span>
             </button>
@@ -232,6 +232,9 @@
         <div v-else class="mt-5">
           <label class="input-label">{{ t('myAccounts.import.credentials') }}</label>
           <textarea v-model="credentialsJson" class="input min-h-[160px] w-full font-mono text-xs" :placeholder="t('myAccounts.import.credentialsPlaceholder')"></textarea>
+          <p v-if="!editingAccount && form.method === 'json'" class="mt-2 text-xs text-gray-500 dark:text-dark-400">
+            {{ t('myAccounts.tokenJsonHint') }}
+          </p>
         </div>
 
         <div class="mt-6 flex justify-end gap-3">
@@ -266,12 +269,42 @@
           </div>
         </div>
         <div class="mt-4">
-          <label class="input-label">{{ t('myAccounts.import.content') }}</label>
-          <textarea v-model="importContent" class="input min-h-[220px] w-full font-mono text-xs" :placeholder="t('myAccounts.import.contentPlaceholder')"></textarea>
+          <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <label class="input-label mb-0">{{ t('myAccounts.import.content') }}</label>
+            <div class="flex flex-wrap items-center gap-2">
+              <input
+                ref="importFileInput"
+                data-testid="my-accounts-import-file-input"
+                type="file"
+                class="hidden"
+                accept=".json,.txt,.token,.key,application/json,text/plain"
+                @change="handleImportFileChange"
+              />
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                :disabled="importFileReading"
+                @click="openImportFilePicker"
+              >
+                <Icon v-if="importFileReading" name="refresh" size="sm" class="animate-spin" />
+                <Icon v-else name="upload" size="sm" />
+                <span>{{ t('myAccounts.import.chooseFile') }}</span>
+              </button>
+              <span v-if="importFileName" class="max-w-[260px] truncate text-xs text-gray-500 dark:text-dark-400" :title="importFileName">
+                {{ t('myAccounts.import.fileSelected', { name: importFileName }) }}
+              </span>
+            </div>
+          </div>
+          <textarea
+            v-model="importContent"
+            data-testid="my-accounts-import-content"
+            class="input min-h-[220px] w-full font-mono text-xs"
+            :placeholder="t('myAccounts.import.contentPlaceholder')"
+          ></textarea>
         </div>
         <div class="mt-6 flex justify-end gap-3">
           <button class="btn btn-secondary" @click="showImportModal = false">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" :disabled="importing" @click="importFromContent">
+          <button data-testid="my-accounts-import-submit" class="btn btn-primary" :disabled="importing || importFileReading" @click="importFromContent">
             <Icon v-if="importing" name="refresh" size="sm" class="animate-spin" />
             <span>{{ t('myAccounts.import.submit') }}</span>
           </button>
@@ -300,6 +333,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { formatCurrency, formatDateTime, formatNumber, formatRelativeTime } from '@/utils/format'
 import { extractApiErrorMessage } from '@/utils/apiError'
+import { parseOAuthCallbackInput } from '@/utils/oauthCallback'
 import type { Account, AccountPlatform, AccountShareMode, AccountShareStatus, UserAccountShareSummary } from '@/types'
 import type { Column } from '@/components/common/types'
 
@@ -312,6 +346,7 @@ const loading = ref(false)
 const transferring = ref(false)
 const savingAccount = ref(false)
 const importing = ref(false)
+const importFileReading = ref(false)
 const authUrlLoading = ref(false)
 const shareUpdatingId = ref<number | null>(null)
 const shareSummary = ref<UserAccountShareSummary | null>(null)
@@ -320,6 +355,7 @@ const showImportModal = ref(false)
 const editingAccount = ref<Account | null>(null)
 const authUrl = ref('')
 const authSessionId = ref('')
+const authState = ref('')
 const oauthCode = ref('')
 const sessionKey = ref('')
 const credentialsJson = ref('')
@@ -346,6 +382,8 @@ const importForm = reactive({
   format: 'sub2api_oauth_json'
 })
 const importContent = ref('')
+const importFileInput = ref<HTMLInputElement | null>(null)
+const importFileName = ref('')
 
 const columns = computed<Column[]>(() => [
   { key: 'name', label: t('myAccounts.columns.name'), sortable: true },
@@ -446,6 +484,7 @@ function resetForm(): void {
   credentialsJson.value = ''
   authUrl.value = ''
   authSessionId.value = ''
+  authState.value = ''
 }
 
 function openCreateModal(): void {
@@ -466,6 +505,8 @@ function openEditModal(account: Account): void {
 
 function openImportModal(): void {
   importContent.value = ''
+  importFileName.value = ''
+  if (importFileInput.value) importFileInput.value.value = ''
   importForm.platform = 'openai'
   importForm.format = 'sub2api_oauth_json'
   showImportModal.value = true
@@ -506,7 +547,8 @@ async function saveAccount(): Promise<void> {
     }
 
     if (form.method === 'oauth') {
-      if (!authSessionId.value || !oauthCode.value.trim()) {
+      const callback = parseOAuthCallbackInput(oauthCode.value)
+      if (!authSessionId.value || !callback.code) {
         appStore.showError(t('myAccounts.oauthMissing'))
         return
       }
@@ -514,7 +556,8 @@ async function saveAccount(): Promise<void> {
         platform: form.platform,
         method: form.method,
         session_id: authSessionId.value,
-        code: oauthCode.value.trim(),
+        code: callback.code,
+        state: callback.state || authState.value || undefined,
         name: form.name.trim(),
         notes: form.notes.trim() || null
       })
@@ -563,6 +606,7 @@ async function generateAuthUrl(): Promise<void> {
     })
     authUrl.value = String(result.auth_url || result.url || '')
     authSessionId.value = String(result.session_id || '')
+    authState.value = String(result.state || '')
     if (!authUrl.value) {
       appStore.showError(t('myAccounts.authUrlMissing'))
     }
@@ -588,6 +632,112 @@ function buildImportCredentials(format: string, platform: string, content: strin
     : parsed
   const type = typeof parsed.type === 'string' ? parsed.type : (platform === 'anthropic' && format.includes('setup') ? 'setup-token' : 'oauth')
   return { type, credentials }
+}
+
+function openImportFilePicker(): void {
+  importFileInput.value?.click()
+}
+
+async function handleImportFileChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file) return
+  importFileReading.value = true
+  try {
+    const content = await file.text()
+    importContent.value = content
+    importFileName.value = file.name
+    inferImportFileSelection(file.name, content)
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('myAccounts.import.fileReadFailed')))
+  } finally {
+    importFileReading.value = false
+    input.value = ''
+  }
+}
+
+function inferImportFileSelection(fileName: string, content: string): void {
+  const lowerName = fileName.toLowerCase()
+  const trimmed = content.trim()
+  const parsed = tryParseImportObject(trimmed)
+  if (parsed) {
+    const credentials = asRecord(parsed.credentials) ?? parsed
+    const platform = normalizeImportPlatform(
+      stringValue(parsed.platform) ||
+      stringValue(parsed.provider) ||
+      stringValue(parsed.account_platform) ||
+      inferPlatformFromCredentials(credentials)
+    )
+    if (platform) importForm.platform = platform
+    importForm.format = isLikelyCodexManagerToken(lowerName, parsed, credentials)
+      ? 'codex_manager_chatgpt_token_json'
+      : 'sub2api_oauth_json'
+    return
+  }
+
+  if (isLikelyClaudeSession(lowerName, trimmed)) {
+    importForm.platform = 'anthropic'
+    importForm.format = 'claude_session_key'
+    return
+  }
+  importForm.platform = 'openai'
+  importForm.format = 'openai_refresh_token'
+}
+
+function tryParseImportObject(raw: string): Record<string, unknown> | null {
+  if (!raw) return null
+  try {
+    return parseJsonObject(raw)
+  } catch {
+    return null
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function normalizeImportPlatform(value: string): AccountPlatform | '' {
+  const normalized = value.toLowerCase()
+  if (normalized === 'claude' || normalized === 'anthropic') return 'anthropic'
+  if (normalized === 'chatgpt' || normalized === 'openai') return 'openai'
+  if (normalized === 'gemini' || normalized === 'antigravity') return normalized as AccountPlatform
+  return ''
+}
+
+function inferPlatformFromCredentials(credentials: Record<string, unknown>): string {
+  if (stringValue(credentials.session_key) || stringValue(credentials.sessionKey)) return 'anthropic'
+  if (stringValue(credentials.refresh_token) || stringValue(credentials.refreshToken) || stringValue(credentials.access_token) || stringValue(credentials.accessToken)) {
+    return 'openai'
+  }
+  return ''
+}
+
+function isLikelyCodexManagerToken(fileName: string, root: Record<string, unknown>, credentials: Record<string, unknown>): boolean {
+  if (fileName.includes('codex') || fileName.includes('chatgpt')) return true
+  return Boolean(
+    stringValue(root.sessionToken) ||
+    stringValue(root.accessToken) ||
+    stringValue(root.refreshToken) ||
+    stringValue(credentials.sessionToken) ||
+    stringValue(credentials.accessToken) ||
+    stringValue(credentials.refreshToken)
+  )
+}
+
+function isLikelyClaudeSession(fileName: string, content: string): boolean {
+  const lower = content.toLowerCase()
+  return fileName.includes('claude') ||
+    fileName.includes('anthropic') ||
+    fileName.includes('session') ||
+    lower.startsWith('sk-ant') ||
+    lower.includes('sessionkey')
 }
 
 async function importFromContent(): Promise<void> {

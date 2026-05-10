@@ -1,0 +1,223 @@
+package handler
+
+import (
+	"context"
+	"io"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
+	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/gin-gonic/gin"
+)
+
+const imageCreatorMaxReferenceUploadBytes int64 = 25 << 20
+
+type imageCreatorService interface {
+	CreateTask(ctx context.Context, userID int64, input service.ImageCreatorCreateTaskInput) (*service.ImageCreatorTask, error)
+	ListTasks(ctx context.Context, userID int64, limit int) ([]service.ImageCreatorTask, error)
+	GetTask(ctx context.Context, userID int64, taskID int64) (*service.ImageCreatorTask, error)
+	GetImageFile(ctx context.Context, userID int64, imageID int64) (*service.ImageCreatorFile, error)
+}
+
+type ImageCreatorHandler struct {
+	svc imageCreatorService
+}
+
+func NewImageCreatorHandler(svc *service.ImageCreatorService) *ImageCreatorHandler {
+	return &ImageCreatorHandler{svc: svc}
+}
+
+type imageCreatorCreateTaskRequest struct {
+	APIKeyID     int64  `json:"api_key_id"`
+	Model        string `json:"model"`
+	Prompt       string `json:"prompt"`
+	Size         string `json:"size"`
+	Quality      string `json:"quality"`
+	Count        int    `json:"count"`
+	OutputFormat string `json:"output_format"`
+	Background   string `json:"background"`
+}
+
+type imageCreatorListResponse struct {
+	Tasks  []service.ImageCreatorTask  `json:"tasks"`
+	Images []service.ImageCreatorImage `json:"images"`
+}
+
+func (h *ImageCreatorHandler) CreateTask(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	input, err := parseImageCreatorCreateTaskInput(c)
+	if err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	task, err := h.svc.CreateTask(c.Request.Context(), subject.UserID, input)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, task)
+}
+
+func (h *ImageCreatorHandler) ListTasks(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	limit := 20
+	if raw := strings.TrimSpace(c.Query("limit")); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+	tasks, err := h.svc.ListTasks(c.Request.Context(), subject.UserID, limit)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, imageCreatorListResponse{
+		Tasks:  tasks,
+		Images: flattenImageCreatorImages(tasks),
+	})
+}
+
+func (h *ImageCreatorHandler) GetTask(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	taskID, ok := parsePositiveInt64Param(c, "id", "Invalid task ID")
+	if !ok {
+		return
+	}
+	task, err := h.svc.GetTask(c.Request.Context(), subject.UserID, taskID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, task)
+}
+
+func (h *ImageCreatorHandler) GetImageFile(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	imageID, ok := parsePositiveInt64Param(c, "id", "Invalid image ID")
+	if !ok {
+		return
+	}
+	file, err := h.svc.GetImageFile(c.Request.Context(), subject.UserID, imageID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if file.ContentType != "" {
+		c.Header("Content-Type", file.ContentType)
+	}
+	if strings.TrimSpace(file.FileName) != "" {
+		c.FileAttachment(file.Path, file.FileName)
+		return
+	}
+	c.File(file.Path)
+}
+
+func parseImageCreatorCreateTaskInput(c *gin.Context) (service.ImageCreatorCreateTaskInput, error) {
+	contentType := strings.ToLower(c.ContentType())
+	if strings.Contains(contentType, "multipart/form-data") {
+		return parseImageCreatorMultipartInput(c)
+	}
+	var req imageCreatorCreateTaskRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return service.ImageCreatorCreateTaskInput{}, err
+	}
+	return imageCreatorInputFromRequest(req), nil
+}
+
+func parseImageCreatorMultipartInput(c *gin.Context) (service.ImageCreatorCreateTaskInput, error) {
+	if err := c.Request.ParseMultipartForm(imageCreatorMaxReferenceUploadBytes); err != nil {
+		return service.ImageCreatorCreateTaskInput{}, err
+	}
+	req := imageCreatorCreateTaskRequest{
+		APIKeyID:     parseInt64Form(c, "api_key_id"),
+		Model:        c.PostForm("model"),
+		Prompt:       c.PostForm("prompt"),
+		Size:         c.PostForm("size"),
+		Quality:      c.PostForm("quality"),
+		Count:        parseIntForm(c, "count"),
+		OutputFormat: c.PostForm("output_format"),
+		Background:   c.PostForm("background"),
+	}
+	input := imageCreatorInputFromRequest(req)
+	file, header, err := c.Request.FormFile("reference_image")
+	if err == http.ErrMissingFile {
+		file, header, err = c.Request.FormFile("image")
+	}
+	if err == http.ErrMissingFile {
+		return input, nil
+	}
+	if err != nil {
+		return service.ImageCreatorCreateTaskInput{}, err
+	}
+	defer func() { _ = file.Close() }()
+	data, err := io.ReadAll(io.LimitReader(file, imageCreatorMaxReferenceUploadBytes+1))
+	if err != nil {
+		return service.ImageCreatorCreateTaskInput{}, err
+	}
+	if int64(len(data)) > imageCreatorMaxReferenceUploadBytes {
+		return service.ImageCreatorCreateTaskInput{}, http.ErrContentLength
+	}
+	input.ReferenceImage = data
+	input.ReferenceImageMimeType = header.Header.Get("Content-Type")
+	input.ReferenceImageFilename = header.Filename
+	return input, nil
+}
+
+func imageCreatorInputFromRequest(req imageCreatorCreateTaskRequest) service.ImageCreatorCreateTaskInput {
+	return service.ImageCreatorCreateTaskInput{
+		APIKeyID:     req.APIKeyID,
+		Model:        req.Model,
+		Prompt:       req.Prompt,
+		Size:         req.Size,
+		Quality:      req.Quality,
+		Count:        req.Count,
+		OutputFormat: req.OutputFormat,
+		Background:   req.Background,
+	}
+}
+
+func flattenImageCreatorImages(tasks []service.ImageCreatorTask) []service.ImageCreatorImage {
+	images := make([]service.ImageCreatorImage, 0)
+	for i := range tasks {
+		images = append(images, tasks[i].Images...)
+	}
+	return images
+}
+
+func parsePositiveInt64Param(c *gin.Context, name string, message string) (int64, bool) {
+	id, err := strconv.ParseInt(c.Param(name), 10, 64)
+	if err != nil || id <= 0 {
+		response.BadRequest(c, message)
+		return 0, false
+	}
+	return id, true
+}
+
+func parseInt64Form(c *gin.Context, name string) int64 {
+	value, _ := strconv.ParseInt(strings.TrimSpace(c.PostForm(name)), 10, 64)
+	return value
+}
+
+func parseIntForm(c *gin.Context, name string) int {
+	value, _ := strconv.Atoi(strings.TrimSpace(c.PostForm(name)))
+	return value
+}

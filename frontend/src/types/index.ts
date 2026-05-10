@@ -232,6 +232,7 @@ export interface PublicSettings {
   channel_monitor_default_interval_seconds: number
   available_channels_enabled: boolean
   affiliate_enabled: boolean
+  account_share_enabled: boolean
 }
 
 export interface AuthResponse {
@@ -958,6 +959,38 @@ export interface UserAccountShareSummary {
   count_frozen: number
   count_available: number
   count_transferred: number
+}
+
+export interface UserAccountCapacityPools {
+  mine: UserAccountCapacityPool
+  shared: UserAccountCapacityPool
+}
+
+export interface UserAccountCapacityPool {
+  key: 'mine' | 'shared' | string
+  title: string
+  total_accounts: number
+  schedulable_accounts: number
+  configured_quota: number
+  remaining_quota: number
+  sections: UserAccountCapacityPoolSection[]
+}
+
+export interface UserAccountCapacityPoolSection {
+  platform: AccountPlatform | string
+  type: AccountType | string
+  total_accounts: number
+  schedulable_accounts: number
+  configured_quota: number
+  remaining_quota: number
+  windows?: Record<string, UserAccountCapacityWindowSnapshot>
+}
+
+export interface UserAccountCapacityWindowSnapshot {
+  used_percent: number
+  reset_after_seconds?: number
+  reset_at?: string
+  window_minutes?: number
 }
 
 export interface UserAccountTransferResponse {

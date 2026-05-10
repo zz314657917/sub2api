@@ -94,6 +94,7 @@ func provideCleanup(
 	geminiOAuth *service.GeminiOAuthService,
 	antigravityOAuth *service.AntigravityOAuthService,
 	openAIGateway *service.OpenAIGatewayService,
+	imageCreator *service.ImageCreatorService,
 	scheduledTestRunner *service.ScheduledTestRunnerService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
@@ -219,6 +220,12 @@ func provideCleanup(
 			{"OpenAIWSPool", func() error {
 				if openAIGateway != nil {
 					openAIGateway.CloseOpenAIWSPool()
+				}
+				return nil
+			}},
+			{"ImageCreatorService", func() error {
+				if imageCreator != nil {
+					imageCreator.Stop()
 				}
 				return nil
 			}},

@@ -32,6 +32,14 @@ func RegisterUserRoutes(
 			user.DELETE("/account-bindings/:provider", h.User.UnbindIdentity)
 			user.POST("/auth-identities/bind/start", h.User.StartIdentityBinding)
 
+			imageCreator := user.Group("/image-creator")
+			{
+				imageCreator.POST("/tasks", h.ImageCreator.CreateTask)
+				imageCreator.GET("/tasks", h.ImageCreator.ListTasks)
+				imageCreator.GET("/tasks/:id", h.ImageCreator.GetTask)
+				imageCreator.GET("/images/:id/file", h.ImageCreator.GetImageFile)
+			}
+
 			// 通知邮箱管理
 			notifyEmail := user.Group("/notify-email")
 			{
@@ -60,7 +68,7 @@ func RegisterUserRoutes(
 			keys.GET("/:id", h.APIKey.GetByID)
 			keys.POST("", h.APIKey.Create)
 			keys.PUT("/:id", h.APIKey.Update)
-		keys.DELETE("/:id", h.APIKey.Delete)
+			keys.DELETE("/:id", h.APIKey.Delete)
 		}
 
 		// 用户账号共享池
@@ -74,6 +82,7 @@ func RegisterUserRoutes(
 			accounts.POST("/session-import", h.UserAccount.ImportSession)
 			accounts.GET("/share/summary", h.UserAccount.GetShareSummary)
 			accounts.POST("/share/transfer", h.UserAccount.TransferShareToBalance)
+			accounts.GET("/capacity-pools", h.UserAccount.GetCapacityPools)
 			accounts.GET("/:id", h.UserAccount.GetByID)
 			accounts.PUT("/:id", h.UserAccount.Update)
 			accounts.DELETE("/:id", h.UserAccount.Delete)

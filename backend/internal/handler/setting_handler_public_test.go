@@ -82,6 +82,35 @@ func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 	require.True(t, resp.Data.ForceEmailOnThirdPartySignup)
 }
 
+func TestSettingHandler_GetPublicSettings_ExposesAccountShareEnabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	repo := &settingHandlerPublicRepoStub{
+		values: map[string]string{
+			service.SettingKeyAccountShareEnabled: "false",
+		},
+	}
+	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "test-version")
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/settings/public", nil)
+
+	h.GetPublicSettings(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	var resp struct {
+		Code int            `json:"code"`
+		Data map[string]any `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	value, ok := resp.Data["account_share_enabled"]
+	require.True(t, ok)
+	require.False(t, value.(bool))
+}
+
 func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{

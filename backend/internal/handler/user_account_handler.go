@@ -91,24 +91,24 @@ type userAccountGenerateAuthURLRequest struct {
 }
 
 type userAccountExchangeCodeRequest struct {
-	Platform    string `json:"platform" binding:"required"`
-	Method      string `json:"method"`
-	SessionID   string `json:"session_id" binding:"required"`
-	Code        string `json:"code" binding:"required"`
-	State       string `json:"state"`
-	RedirectURI string `json:"redirect_uri"`
-	OAuthType   string `json:"oauth_type"`
-	TierID      string `json:"tier_id"`
-	Name        string `json:"name"`
+	Platform    string  `json:"platform" binding:"required"`
+	Method      string  `json:"method"`
+	SessionID   string  `json:"session_id" binding:"required"`
+	Code        string  `json:"code" binding:"required"`
+	State       string  `json:"state"`
+	RedirectURI string  `json:"redirect_uri"`
+	OAuthType   string  `json:"oauth_type"`
+	TierID      string  `json:"tier_id"`
+	Name        string  `json:"name"`
 	Notes       *string `json:"notes"`
 }
 
 type userAccountSessionImportRequest struct {
-	Platform   string `json:"platform" binding:"required"`
-	Method     string `json:"method"`
-	SessionKey string `json:"session_key"`
-	Code       string `json:"code"`
-	Name       string `json:"name"`
+	Platform   string  `json:"platform" binding:"required"`
+	Method     string  `json:"method"`
+	SessionKey string  `json:"session_key"`
+	Code       string  `json:"code"`
+	Name       string  `json:"name"`
 	Notes      *string `json:"notes"`
 }
 
@@ -344,6 +344,20 @@ func (h *UserAccountHandler) GetShareSummary(c *gin.Context) {
 	response.Success(c, summary)
 }
 
+func (h *UserAccountHandler) GetCapacityPools(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	pools, err := h.userAccountService.GetCapacityPools(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, pools)
+}
+
 func (h *UserAccountHandler) TransferShareToBalance(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
@@ -363,6 +377,10 @@ func (h *UserAccountHandler) TransferShareToBalance(c *gin.Context) {
 }
 
 func (h *UserAccountHandler) GenerateAuthURL(c *gin.Context) {
+	if h.userAccountService != nil && !h.userAccountService.IsEnabled(c.Request.Context()) {
+		response.ErrorFrom(c, service.ErrUserAccountShareDisabled)
+		return
+	}
 	var req userAccountGenerateAuthURLRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		req = userAccountGenerateAuthURLRequest{}

@@ -124,8 +124,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	openAIOAuthService := service.NewOpenAIOAuthService(proxyRepository, openAIOAuthClient)
 	userAccountHandler := handler.NewUserAccountHandler(userAccountService, accountUsageService, accountTestService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
-	usageService := service.NewUsageService(usageLogRepository, userRepository, client, apiKeyAuthCacheInvalidator)
-	usageService.SetLeaderboardRewardDependencies(settingRepository, redeemCodeRepository)
+	usageService := service.ProvideUsageService(usageLogRepository, userRepository, settingRepository, redeemCodeRepository, client, apiKeyAuthCacheInvalidator)
 	usageHandler := handler.NewUsageHandler(usageService, apiKeyService)
 	redeemHandler := handler.NewRedeemHandler(redeemService)
 	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionService)
@@ -136,6 +135,9 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	channelMonitorRepository := repository.NewChannelMonitorRepository(client, db)
 	channelMonitorService := service.ProvideChannelMonitorService(channelMonitorRepository, secretEncryptor)
 	channelMonitorUserHandler := handler.NewChannelMonitorUserHandler(channelMonitorService, settingService)
+	imageCreatorRepository := repository.NewImageCreatorRepository(db)
+	imageCreatorService := service.ProvideImageCreatorService(imageCreatorRepository, apiKeyService, configConfig)
+	imageCreatorHandler := handler.NewImageCreatorHandler(imageCreatorService)
 	dashboardAggregationRepository := repository.NewDashboardAggregationRepository(db)
 	dashboardStatsCache := repository.NewDashboardCache(redisClient, configConfig)
 	dashboardService := service.NewDashboardService(usageLogRepository, dashboardAggregationRepository, dashboardStatsCache, configConfig)
@@ -252,7 +254,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	availableChannelHandler := handler.NewAvailableChannelHandler(channelService, apiKeyService, settingService)
 	idempotencyCoordinator := service.ProvideIdempotencyCoordinator(idempotencyRepository, configConfig)
 	idempotencyCleanupService := service.ProvideIdempotencyCleanupService(idempotencyRepository, configConfig)
-	handlers := handler.ProvideHandlers(authHandler, userHandler, userAccountHandler, apiKeyHandler, usageHandler, redeemHandler, subscriptionHandler, announcementHandler, channelMonitorUserHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler, totpHandler, handlerPaymentHandler, paymentWebhookHandler, availableChannelHandler, idempotencyCoordinator, idempotencyCleanupService)
+	handlers := handler.ProvideHandlers(authHandler, userHandler, userAccountHandler, apiKeyHandler, usageHandler, redeemHandler, subscriptionHandler, announcementHandler, channelMonitorUserHandler, imageCreatorHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler, totpHandler, handlerPaymentHandler, paymentWebhookHandler, availableChannelHandler, idempotencyCoordinator, idempotencyCleanupService)
 	jwtAuthMiddleware := middleware.NewJWTAuthMiddleware(authService, userService)
 	adminAuthMiddleware := middleware.NewAdminAuthMiddleware(authService, userService, settingService)
 	apiKeyAuthMiddleware := middleware.NewAPIKeyAuthMiddleware(apiKeyService, subscriptionService, configConfig)
@@ -269,7 +271,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	scheduledTestRunnerService := service.ProvideScheduledTestRunnerService(scheduledTestPlanRepository, scheduledTestService, accountTestService, rateLimitService, configConfig)
 	paymentOrderExpiryService := service.ProvidePaymentOrderExpiryService(paymentService)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
-	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, openAIGatewayService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner)
+	v := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, openAIGatewayService, imageCreatorService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner)
 	application := &Application{
 		Server:  httpServer,
 		Cleanup: v,
@@ -320,6 +322,7 @@ func provideCleanup(
 	geminiOAuth *service.GeminiOAuthService,
 	antigravityOAuth *service.AntigravityOAuthService,
 	openAIGateway *service.OpenAIGatewayService,
+	imageCreator *service.ImageCreatorService,
 	scheduledTestRunner *service.ScheduledTestRunnerService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
@@ -444,6 +447,12 @@ func provideCleanup(
 			{"OpenAIWSPool", func() error {
 				if openAIGateway != nil {
 					openAIGateway.CloseOpenAIWSPool()
+				}
+				return nil
+			}},
+			{"ImageCreatorService", func() error {
+				if imageCreator != nil {
+					imageCreator.Stop()
 				}
 				return nil
 			}},

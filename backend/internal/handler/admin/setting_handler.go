@@ -267,7 +267,8 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		LeaderboardDailyRewardRank2Amount:        settings.LeaderboardDailyRewardRank2Amount,
 		LeaderboardDailyRewardRank3Amount:        settings.LeaderboardDailyRewardRank3Amount,
 
-		AffiliateEnabled: settings.AffiliateEnabled,
+		AffiliateEnabled:    settings.AffiliateEnabled,
+		AccountShareEnabled: settings.AccountShareEnabled,
 	}
 
 	// OpenAI fast policy (stored under a dedicated setting key)
@@ -576,6 +577,9 @@ type UpdateSettingsRequest struct {
 
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled *bool `json:"affiliate_enabled"`
+
+	// User-owned account sharing pool feature switch
+	AccountShareEnabled *bool `json:"account_share_enabled"`
 
 	// 风控中心功能开关
 	RiskControlEnabled *bool `json:"risk_control_enabled"`
@@ -1520,6 +1524,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.AffiliateEnabled
 		}(),
+		AccountShareEnabled: func() bool {
+			if req.AccountShareEnabled != nil {
+				return *req.AccountShareEnabled
+			}
+			return previousSettings.AccountShareEnabled
+		}(),
 		RiskControlEnabled: func() bool {
 			if req.RiskControlEnabled != nil {
 				return *req.RiskControlEnabled
@@ -1809,7 +1819,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		LeaderboardDailyRewardRank2Amount:        updatedSettings.LeaderboardDailyRewardRank2Amount,
 		LeaderboardDailyRewardRank3Amount:        updatedSettings.LeaderboardDailyRewardRank3Amount,
 
-		AffiliateEnabled: updatedSettings.AffiliateEnabled,
+		AffiliateEnabled:    updatedSettings.AffiliateEnabled,
+		AccountShareEnabled: updatedSettings.AccountShareEnabled,
 
 		RiskControlEnabled: updatedSettings.RiskControlEnabled,
 	}
@@ -2211,6 +2222,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AffiliateEnabled != after.AffiliateEnabled {
 		changed = append(changed, "affiliate_enabled")
+	}
+	if before.AccountShareEnabled != after.AccountShareEnabled {
+		changed = append(changed, "account_share_enabled")
 	}
 	if before.RiskControlEnabled != after.RiskControlEnabled {
 		changed = append(changed, "risk_control_enabled")

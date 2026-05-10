@@ -119,6 +119,11 @@ export const FeatureFlags = {
     mode: 'opt-in',
     label: 'Affiliate',
   }),
+  accountShare: defineFlag({
+    key: 'account_share_enabled',
+    mode: 'opt-out',
+    label: 'Account Sharing',
+  }),
 } as const
 
 export type RegisteredFeatureFlag = keyof typeof FeatureFlags

@@ -3,7 +3,9 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
+	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -21,21 +23,53 @@ type UserAccountShareLedgerRepository interface {
 }
 
 var (
-	ErrUserAccountNotOwned     = infraerrors.Forbidden("USER_ACCOUNT_NOT_OWNED", "account does not belong to current user")
-	ErrUserAccountShareInvalid = infraerrors.BadRequest("USER_ACCOUNT_SHARE_INVALID", "invalid account share state")
+	ErrUserAccountNotOwned      = infraerrors.Forbidden("USER_ACCOUNT_NOT_OWNED", "account does not belong to current user")
+	ErrUserAccountShareInvalid  = infraerrors.BadRequest("USER_ACCOUNT_SHARE_INVALID", "invalid account share state")
 	ErrUserAccountShareDisabled = infraerrors.Forbidden("USER_ACCOUNT_SHARE_DISABLED", "account sharing is disabled")
-	ErrUserAccountLimitReached   = infraerrors.Conflict("USER_ACCOUNT_LIMIT_REACHED", "account limit reached")
+	ErrUserAccountLimitReached  = infraerrors.Conflict("USER_ACCOUNT_LIMIT_REACHED", "account limit reached")
 )
 
 type UserAccountShareSummary struct {
-	OwnerUserID      int64   `json:"owner_user_id"`
-	FrozenAmount     float64 `json:"frozen_amount"`
-	AvailableAmount  float64 `json:"available_amount"`
+	OwnerUserID       int64   `json:"owner_user_id"`
+	FrozenAmount      float64 `json:"frozen_amount"`
+	AvailableAmount   float64 `json:"available_amount"`
 	TransferredAmount float64 `json:"transferred_amount"`
-	TotalAmount      float64 `json:"total_amount"`
-	CountFrozen      int64   `json:"count_frozen"`
-	CountAvailable   int64   `json:"count_available"`
-	CountTransferred int64   `json:"count_transferred"`
+	TotalAmount       float64 `json:"total_amount"`
+	CountFrozen       int64   `json:"count_frozen"`
+	CountAvailable    int64   `json:"count_available"`
+	CountTransferred  int64   `json:"count_transferred"`
+}
+
+type UserAccountCapacityPools struct {
+	Mine   UserAccountCapacityPool `json:"mine"`
+	Shared UserAccountCapacityPool `json:"shared"`
+}
+
+type UserAccountCapacityPool struct {
+	Key                 string                           `json:"key"`
+	Title               string                           `json:"title"`
+	TotalAccounts       int                              `json:"total_accounts"`
+	SchedulableAccounts int                              `json:"schedulable_accounts"`
+	ConfiguredQuota     float64                          `json:"configured_quota"`
+	RemainingQuota      float64                          `json:"remaining_quota"`
+	Sections            []UserAccountCapacityPoolSection `json:"sections"`
+}
+
+type UserAccountCapacityPoolSection struct {
+	Platform            string                                       `json:"platform"`
+	Type                string                                       `json:"type"`
+	TotalAccounts       int                                          `json:"total_accounts"`
+	SchedulableAccounts int                                          `json:"schedulable_accounts"`
+	ConfiguredQuota     float64                                      `json:"configured_quota"`
+	RemainingQuota      float64                                      `json:"remaining_quota"`
+	Windows             map[string]UserAccountCapacityWindowSnapshot `json:"windows,omitempty"`
+}
+
+type UserAccountCapacityWindowSnapshot struct {
+	UsedPercent       float64 `json:"used_percent"`
+	ResetAfterSeconds int     `json:"reset_after_seconds,omitempty"`
+	ResetAt           string  `json:"reset_at,omitempty"`
+	WindowMinutes     int     `json:"window_minutes,omitempty"`
 }
 
 type UserAccountService struct {
@@ -57,6 +91,9 @@ func NewUserAccountService(accountRepo AccountRepository, settings UserAccountSh
 }
 
 func (s *UserAccountService) List(ctx context.Context, userID int64, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error) {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return nil, nil, err
+	}
 	repo, err := s.ownedAccountRepo()
 	if err != nil {
 		return nil, nil, err
@@ -65,6 +102,9 @@ func (s *UserAccountService) List(ctx context.Context, userID int64, params pagi
 }
 
 func (s *UserAccountService) Count(ctx context.Context, userID int64) (int64, error) {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return 0, err
+	}
 	repo, err := s.ownedAccountRepo()
 	if err != nil {
 		return 0, err
@@ -73,6 +113,9 @@ func (s *UserAccountService) Count(ctx context.Context, userID int64) (int64, er
 }
 
 func (s *UserAccountService) Create(ctx context.Context, userID int64, req CreateAccountRequest) (*Account, error) {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return nil, err
+	}
 	repo, err := s.ownedAccountRepo()
 	if err != nil {
 		return nil, err
@@ -120,6 +163,9 @@ func (s *UserAccountService) Create(ctx context.Context, userID int64, req Creat
 }
 
 func (s *UserAccountService) GetByID(ctx context.Context, userID, accountID int64) (*Account, error) {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return nil, err
+	}
 	account, err := s.getOwnedAccount(ctx, userID, accountID)
 	if err != nil {
 		return nil, err
@@ -128,6 +174,9 @@ func (s *UserAccountService) GetByID(ctx context.Context, userID, accountID int6
 }
 
 func (s *UserAccountService) Update(ctx context.Context, userID, accountID int64, req UpdateAccountRequest) (*Account, error) {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return nil, err
+	}
 	account, err := s.getOwnedAccount(ctx, userID, accountID)
 	if err != nil {
 		return nil, err
@@ -162,6 +211,9 @@ func (s *UserAccountService) Update(ctx context.Context, userID, accountID int64
 }
 
 func (s *UserAccountService) Delete(ctx context.Context, userID, accountID int64) error {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return err
+	}
 	_, err := s.getOwnedAccount(ctx, userID, accountID)
 	if err != nil {
 		return err
@@ -174,6 +226,9 @@ func (s *UserAccountService) Delete(ctx context.Context, userID, accountID int64
 }
 
 func (s *UserAccountService) TestCredentials(ctx context.Context, userID, accountID int64) error {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return err
+	}
 	account, err := s.getOwnedAccount(ctx, userID, accountID)
 	if err != nil {
 		return err
@@ -187,6 +242,9 @@ func (s *UserAccountService) TestCredentials(ctx context.Context, userID, accoun
 }
 
 func (s *UserAccountService) UpdateShareMode(ctx context.Context, userID, accountID int64, shareMode string) (*Account, error) {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return nil, err
+	}
 	account, err := s.getOwnedAccount(ctx, userID, accountID)
 	if err != nil {
 		return nil, err
@@ -241,6 +299,9 @@ func (s *UserAccountService) UpdateShareStatus(ctx context.Context, userID, acco
 }
 
 func (s *UserAccountService) GetShareSummary(ctx context.Context, userID int64) (*UserAccountShareSummary, error) {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return nil, err
+	}
 	repo, err := s.shareLedgerRepo()
 	if err != nil {
 		return nil, err
@@ -249,6 +310,9 @@ func (s *UserAccountService) GetShareSummary(ctx context.Context, userID int64) 
 }
 
 func (s *UserAccountService) TransferAvailableShareToBalance(ctx context.Context, userID int64) (float64, float64, error) {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return 0, 0, err
+	}
 	repo, err := s.shareLedgerRepo()
 	if err != nil {
 		return 0, 0, err
@@ -256,7 +320,54 @@ func (s *UserAccountService) TransferAvailableShareToBalance(ctx context.Context
 	return repo.TransferAvailableShareToBalance(ctx, userID)
 }
 
+func (s *UserAccountService) GetCapacityPools(ctx context.Context, userID int64) (*UserAccountCapacityPools, error) {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return nil, err
+	}
+	ownedRepo, err := s.ownedAccountRepo()
+	if err != nil {
+		return nil, err
+	}
+	allRepo, err := s.accountRepoForMutation()
+	if err != nil {
+		return nil, err
+	}
+
+	params := pagination.PaginationParams{
+		Page:      1,
+		PageSize:  1000,
+		SortBy:    "created_at",
+		SortOrder: pagination.SortOrderDesc,
+	}
+	owned, _, err := ownedRepo.ListUserOwned(ctx, userID, params)
+	if err != nil {
+		return nil, err
+	}
+	allAccounts, _, err := allRepo.List(ctx, params)
+	if err != nil {
+		return nil, err
+	}
+
+	shared := make([]Account, 0, len(allAccounts))
+	for _, account := range allAccounts {
+		if account.OwnerUserID != nil && userID > 0 && *account.OwnerUserID == userID {
+			continue
+		}
+		if account.CanBeUsedByUser(userID) {
+			shared = append(shared, account)
+		}
+	}
+
+	return &UserAccountCapacityPools{
+		Mine:   buildUserAccountCapacityPool("mine", "我的账号容量池", owned),
+		Shared: buildUserAccountCapacityPool("shared", "平台共享容量池", shared),
+	}, nil
+}
+
 func (s *UserAccountService) UpdateWithShareTransition(ctx context.Context, userID, accountID int64, req UpdateAccountRequest) (*Account, error) {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return nil, err
+	}
 	account, err := s.Update(ctx, userID, accountID, req)
 	if err != nil {
 		return nil, err
@@ -272,6 +383,17 @@ func (s *UserAccountService) UpdateWithShareTransition(ctx context.Context, user
 		}
 	}
 	return account, nil
+}
+
+func (s *UserAccountService) IsEnabled(ctx context.Context) bool {
+	return s == nil || s.settings == nil || s.settings.IsAccountShareEnabled(ctx)
+}
+
+func (s *UserAccountService) ensureFeatureEnabled(ctx context.Context) error {
+	if !s.IsEnabled(ctx) {
+		return ErrUserAccountShareDisabled
+	}
+	return nil
 }
 
 func (s *UserAccountService) getOwnedAccount(ctx context.Context, userID, accountID int64) (*Account, error) {
@@ -327,4 +449,132 @@ func (s *UserAccountService) accountRepoForMutation() (AccountRepository, error)
 		return nil, fmt.Errorf("account repository not configured")
 	}
 	return s.accountRepo, nil
+}
+
+func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAccountCapacityPool {
+	pool := UserAccountCapacityPool{
+		Key:      key,
+		Title:    title,
+		Sections: []UserAccountCapacityPoolSection{},
+	}
+	sections := make(map[string]*UserAccountCapacityPoolSection)
+	for i := range accounts {
+		account := &accounts[i]
+		pool.TotalAccounts++
+		if account.IsSchedulable() {
+			pool.SchedulableAccounts++
+		}
+		configuredQuota, remainingQuota := accountQuotaTotals(account)
+		pool.ConfiguredQuota += configuredQuota
+		pool.RemainingQuota += remainingQuota
+
+		sectionKey := account.Platform + "/" + account.Type
+		section := sections[sectionKey]
+		if section == nil {
+			section = &UserAccountCapacityPoolSection{
+				Platform: account.Platform,
+				Type:     account.Type,
+				Windows:  map[string]UserAccountCapacityWindowSnapshot{},
+			}
+			sections[sectionKey] = section
+		}
+		section.TotalAccounts++
+		if account.IsSchedulable() {
+			section.SchedulableAccounts++
+		}
+		section.ConfiguredQuota += configuredQuota
+		section.RemainingQuota += remainingQuota
+		snapshot5h, ok5h := accountCapacityWindowSnapshot(account, "codex_5h")
+		mergeCapacityWindowSnapshot(section.Windows, "5h", snapshot5h, ok5h)
+		snapshot7d, ok7d := accountCapacityWindowSnapshot(account, "codex_7d")
+		mergeCapacityWindowSnapshot(section.Windows, "7d", snapshot7d, ok7d)
+	}
+
+	pool.Sections = make([]UserAccountCapacityPoolSection, 0, len(sections))
+	for _, section := range sections {
+		if len(section.Windows) == 0 {
+			section.Windows = nil
+		}
+		pool.Sections = append(pool.Sections, *section)
+	}
+	sort.Slice(pool.Sections, func(i, j int) bool {
+		left := pool.Sections[i].Platform + "/" + pool.Sections[i].Type
+		right := pool.Sections[j].Platform + "/" + pool.Sections[j].Type
+		return left < right
+	})
+	return pool
+}
+
+func accountQuotaTotals(account *Account) (configured, remaining float64) {
+	if account == nil {
+		return 0, 0
+	}
+	addQuota := func(limit, used float64) {
+		if limit <= 0 {
+			return
+		}
+		configured += limit
+		left := limit - used
+		if left > 0 {
+			remaining += left
+		}
+	}
+	addQuota(account.GetQuotaLimit(), account.GetQuotaUsed())
+	addQuota(account.GetQuotaDailyLimit(), account.GetQuotaDailyUsed())
+	addQuota(account.GetQuotaWeeklyLimit(), account.GetQuotaWeeklyUsed())
+	return configured, remaining
+}
+
+func accountCapacityWindowSnapshot(account *Account, prefix string) (UserAccountCapacityWindowSnapshot, bool) {
+	if account == nil || account.Extra == nil {
+		return UserAccountCapacityWindowSnapshot{}, false
+	}
+	usedRaw, ok := account.Extra[prefix+"_used_percent"]
+	if !ok {
+		return UserAccountCapacityWindowSnapshot{}, false
+	}
+	snapshot := UserAccountCapacityWindowSnapshot{
+		UsedPercent: parseExtraFloat64(usedRaw),
+	}
+	if raw, ok := account.Extra[prefix+"_reset_after_seconds"]; ok {
+		snapshot.ResetAfterSeconds = parseExtraInt(raw)
+	}
+	if raw, ok := account.Extra[prefix+"_reset_at"]; ok {
+		snapshot.ResetAt = normalizeCapacityWindowTime(raw)
+	}
+	if raw, ok := account.Extra[prefix+"_window_minutes"]; ok {
+		snapshot.WindowMinutes = parseExtraInt(raw)
+	}
+	return snapshot, true
+}
+
+func mergeCapacityWindowSnapshot(windows map[string]UserAccountCapacityWindowSnapshot, key string, snapshot UserAccountCapacityWindowSnapshot, ok bool) {
+	if !ok {
+		return
+	}
+	current, exists := windows[key]
+	if !exists || snapshot.UsedPercent > current.UsedPercent {
+		windows[key] = snapshot
+	}
+}
+
+func normalizeCapacityWindowTime(raw any) string {
+	switch v := raw.(type) {
+	case time.Time:
+		return v.UTC().Format(time.RFC3339)
+	case string:
+		text := strings.TrimSpace(v)
+		if text == "" {
+			return ""
+		}
+		if parsed, err := time.Parse(time.RFC3339Nano, text); err == nil {
+			return parsed.UTC().Format(time.RFC3339)
+		}
+		if parsed, err := time.Parse(time.RFC3339, text); err == nil {
+			return parsed.UTC().Format(time.RFC3339)
+		}
+		return text
+	default:
+		return ""
+	}
 }

@@ -1,0 +1,1018 @@
+package service
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"mime"
+	"mime/multipart"
+	"net/http"
+	"net/textproto"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
+	"go.uber.org/zap"
+)
+
+const (
+	ImageCreatorTaskStatusPending   = "pending"
+	ImageCreatorTaskStatusRunning   = "running"
+	ImageCreatorTaskStatusSucceeded = "succeeded"
+	ImageCreatorTaskStatusFailed    = "failed"
+
+	defaultImageCreatorStorageDir             = "data/image-creator"
+	defaultImageCreatorMaxSavedImages         = 3
+	defaultImageCreatorRetention              = 7 * 24 * time.Hour
+	defaultImageCreatorWorkerInterval         = 5 * time.Second
+	defaultImageCreatorTaskTimeout            = 30 * time.Minute
+	defaultImageCreatorRequestTimeout         = 30 * time.Minute
+	defaultImageCreatorCleanupBatchSize       = 100
+	defaultImageCreatorListTaskLimit          = 20
+	imageCreatorMaxStoredImageBytes     int64 = 25 << 20
+)
+
+var errImageCreatorTaskNotRunnable = errors.New("image creator task is not runnable")
+
+type ImageCreatorTask struct {
+	ID                     int64               `json:"id"`
+	UserID                 int64               `json:"user_id"`
+	APIKeyID               int64               `json:"api_key_id"`
+	Status                 string              `json:"status"`
+	Model                  string              `json:"model"`
+	Prompt                 string              `json:"prompt"`
+	Size                   string              `json:"size"`
+	Quality                string              `json:"quality"`
+	OutputFormat           string              `json:"output_format"`
+	Background             string              `json:"background"`
+	Count                  int                 `json:"count"`
+	ReferenceImagePath     string              `json:"-"`
+	ReferenceImageMimeType string              `json:"reference_image_mime_type,omitempty"`
+	ReferenceImageFilename string              `json:"reference_image_filename,omitempty"`
+	ErrorMessage           string              `json:"error_message,omitempty"`
+	StartedAt              *time.Time          `json:"started_at,omitempty"`
+	CompletedAt            *time.Time          `json:"completed_at,omitempty"`
+	ExpiresAt              time.Time           `json:"expires_at"`
+	CreatedAt              time.Time           `json:"created_at"`
+	UpdatedAt              time.Time           `json:"updated_at"`
+	Images                 []ImageCreatorImage `json:"images,omitempty"`
+	Metadata               map[string]any      `json:"metadata,omitempty"`
+}
+
+type ImageCreatorImage struct {
+	ID            int64     `json:"id"`
+	TaskID        int64     `json:"task_id"`
+	UserID        int64     `json:"user_id"`
+	FilePath      string    `json:"-"`
+	URL           string    `json:"url,omitempty"`
+	OutputFormat  string    `json:"output_format"`
+	MimeType      string    `json:"mime_type"`
+	ByteSize      int64     `json:"byte_size"`
+	SHA256        string    `json:"sha256"`
+	RevisedPrompt string    `json:"revised_prompt,omitempty"`
+	ExpiresAt     time.Time `json:"expires_at"`
+	CreatedAt     time.Time `json:"created_at"`
+}
+
+type ImageCreatorCreateTaskInput struct {
+	APIKeyID               int64
+	Model                  string
+	Prompt                 string
+	Size                   string
+	Quality                string
+	Count                  int
+	OutputFormat           string
+	Background             string
+	ReferenceImage         []byte
+	ReferenceImageMimeType string
+	ReferenceImageFilename string
+}
+
+type ImageCreatorGenerateRequest struct {
+	Model                  string
+	Prompt                 string
+	Size                   string
+	Quality                string
+	Count                  int
+	OutputFormat           string
+	Background             string
+	ReferenceImagePath     string
+	ReferenceImageMimeType string
+	ReferenceImageFilename string
+}
+
+type GeneratedImageAsset struct {
+	Data          []byte
+	OutputFormat  string
+	MimeType      string
+	RevisedPrompt string
+}
+
+type ImageCreatorFile struct {
+	Path        string
+	ContentType string
+	FileName    string
+}
+
+type ImageCreatorRepository interface {
+	CreateTask(ctx context.Context, task *ImageCreatorTask) error
+	UpdateTaskReferenceImage(ctx context.Context, taskID int64, path string, mimeType string, filename string) error
+	GetTaskByID(ctx context.Context, taskID int64) (*ImageCreatorTask, error)
+	GetTaskForUser(ctx context.Context, userID int64, taskID int64) (*ImageCreatorTask, error)
+	ListTasksForUser(ctx context.Context, userID int64, limit int) ([]ImageCreatorTask, error)
+	GetImageForUser(ctx context.Context, userID int64, imageID int64) (*ImageCreatorImage, error)
+	ClaimNextPendingTask(ctx context.Context, staleRunningAfter time.Duration) (*ImageCreatorTask, error)
+	MarkTaskRunning(ctx context.Context, taskID int64) error
+	MarkTaskSucceeded(ctx context.Context, taskID int64, warning string) error
+	MarkTaskFailed(ctx context.Context, taskID int64, message string) error
+	AddImage(ctx context.Context, image *ImageCreatorImage) error
+	ListPrunableImages(ctx context.Context, userID int64, keep int) ([]ImageCreatorImage, error)
+	DeleteImagesByID(ctx context.Context, ids []int64) error
+	ListExpiredImages(ctx context.Context, before time.Time, limit int) ([]ImageCreatorImage, error)
+	DeleteExpiredTasks(ctx context.Context, before time.Time, limit int) ([]ImageCreatorTask, error)
+	FailStaleRunningTasks(ctx context.Context, staleRunningAfter time.Duration, message string) error
+}
+
+type ImageCreatorAPIKeyLookup interface {
+	GetByID(ctx context.Context, id int64) (*APIKey, error)
+}
+
+type ImageCreatorGenerator interface {
+	GenerateImage(ctx context.Context, input ImageCreatorGenerateRequest, apiKey string) ([]GeneratedImageAsset, error)
+}
+
+type ImageCreatorServiceOptions struct {
+	StorageDir           string
+	MaxSavedImages       int
+	Retention            time.Duration
+	WorkerInterval       time.Duration
+	TaskTimeout          time.Duration
+	RequestTimeout       time.Duration
+	CleanupBatchSize     int
+	AutoStartWorker      bool
+	DisableAsyncOnCreate bool
+}
+
+type ImageCreatorService struct {
+	repo                 ImageCreatorRepository
+	apiKeys              ImageCreatorAPIKeyLookup
+	generator            ImageCreatorGenerator
+	storageDir           string
+	maxSavedImages       int
+	retention            time.Duration
+	workerInterval       time.Duration
+	taskTimeout          time.Duration
+	requestTimeout       time.Duration
+	cleanupBatchSize     int
+	disableAsyncOnCreate bool
+	stopCh               chan struct{}
+	startOnce            sync.Once
+	stopOnce             sync.Once
+}
+
+func NewImageCreatorService(repo ImageCreatorRepository, apiKeyService *APIKeyService, cfg *config.Config) *ImageCreatorService {
+	opts := imageCreatorOptionsFromConfig(cfg)
+	generator := NewImageCreatorHTTPGenerator(cfg, opts.RequestTimeout)
+	return NewImageCreatorServiceWithDeps(repo, apiKeyService, generator, opts)
+}
+
+func NewImageCreatorServiceWithDeps(repo ImageCreatorRepository, apiKeys ImageCreatorAPIKeyLookup, generator ImageCreatorGenerator, opts ImageCreatorServiceOptions) *ImageCreatorService {
+	opts = normalizeImageCreatorOptions(opts)
+	svc := &ImageCreatorService{
+		repo:                 repo,
+		apiKeys:              apiKeys,
+		generator:            generator,
+		storageDir:           opts.StorageDir,
+		maxSavedImages:       opts.MaxSavedImages,
+		retention:            opts.Retention,
+		workerInterval:       opts.WorkerInterval,
+		taskTimeout:          opts.TaskTimeout,
+		requestTimeout:       opts.RequestTimeout,
+		cleanupBatchSize:     opts.CleanupBatchSize,
+		disableAsyncOnCreate: opts.DisableAsyncOnCreate,
+		stopCh:               make(chan struct{}),
+	}
+	if opts.AutoStartWorker {
+		svc.Start()
+	}
+	return svc
+}
+
+func imageCreatorOptionsFromConfig(cfg *config.Config) ImageCreatorServiceOptions {
+	opts := ImageCreatorServiceOptions{
+		AutoStartWorker: true,
+	}
+	if cfg == nil {
+		return normalizeImageCreatorOptions(opts)
+	}
+	ic := cfg.ImageCreator
+	opts.StorageDir = ic.StorageDir
+	opts.MaxSavedImages = ic.MaxSavedImagesPerUser
+	opts.Retention = time.Duration(ic.RetentionDays) * 24 * time.Hour
+	opts.WorkerInterval = time.Duration(ic.WorkerIntervalSeconds) * time.Second
+	opts.TaskTimeout = time.Duration(ic.TaskTimeoutSeconds) * time.Second
+	opts.RequestTimeout = time.Duration(ic.RequestTimeoutSeconds) * time.Second
+	opts.CleanupBatchSize = ic.CleanupBatchSize
+	return normalizeImageCreatorOptions(opts)
+}
+
+func normalizeImageCreatorOptions(opts ImageCreatorServiceOptions) ImageCreatorServiceOptions {
+	if strings.TrimSpace(opts.StorageDir) == "" {
+		opts.StorageDir = defaultImageCreatorStorageDir
+	}
+	if opts.MaxSavedImages <= 0 {
+		opts.MaxSavedImages = defaultImageCreatorMaxSavedImages
+	}
+	if opts.Retention <= 0 {
+		opts.Retention = defaultImageCreatorRetention
+	}
+	if opts.WorkerInterval <= 0 {
+		opts.WorkerInterval = defaultImageCreatorWorkerInterval
+	}
+	if opts.TaskTimeout <= 0 {
+		opts.TaskTimeout = defaultImageCreatorTaskTimeout
+	}
+	if opts.RequestTimeout <= 0 {
+		opts.RequestTimeout = defaultImageCreatorRequestTimeout
+	}
+	if opts.CleanupBatchSize <= 0 {
+		opts.CleanupBatchSize = defaultImageCreatorCleanupBatchSize
+	}
+	return opts
+}
+
+func (s *ImageCreatorService) Start() {
+	if s == nil {
+		return
+	}
+	s.startOnce.Do(func() {
+		go s.workerLoop()
+	})
+}
+
+func (s *ImageCreatorService) Stop() {
+	if s == nil {
+		return
+	}
+	s.stopOnce.Do(func() {
+		close(s.stopCh)
+	})
+}
+
+func (s *ImageCreatorService) CreateTask(ctx context.Context, userID int64, input ImageCreatorCreateTaskInput) (*ImageCreatorTask, error) {
+	if s == nil || s.repo == nil || s.apiKeys == nil {
+		return nil, infraerrors.InternalServer("IMAGE_CREATOR_UNAVAILABLE", "image creator service is unavailable")
+	}
+	if userID <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_USER", "user_id is required")
+	}
+	input = normalizeCreateTaskInput(input)
+	if input.APIKeyID <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_API_KEY", "api_key_id is required")
+	}
+	if strings.TrimSpace(input.Prompt) == "" {
+		return nil, infraerrors.BadRequest("INVALID_PROMPT", "prompt is required")
+	}
+
+	apiKey, err := s.apiKeys.GetByID(ctx, input.APIKeyID)
+	if err != nil || apiKey == nil {
+		return nil, infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
+	}
+	if err := validateImageCreatorAPIKeyForUser(apiKey, userID); err != nil {
+		return nil, err
+	}
+
+	task := &ImageCreatorTask{
+		UserID:       userID,
+		APIKeyID:     input.APIKeyID,
+		Status:       ImageCreatorTaskStatusPending,
+		Model:        input.Model,
+		Prompt:       input.Prompt,
+		Size:         input.Size,
+		Quality:      input.Quality,
+		OutputFormat: input.OutputFormat,
+		Background:   input.Background,
+		Count:        input.Count,
+		ExpiresAt:    time.Now().Add(s.retention),
+	}
+	if err := s.repo.CreateTask(ctx, task); err != nil {
+		return nil, err
+	}
+	if len(input.ReferenceImage) > 0 {
+		path, err := s.saveReferenceImage(userID, task.ID, input.ReferenceImage, input.ReferenceImageMimeType, input.ReferenceImageFilename)
+		if err != nil {
+			_ = s.repo.MarkTaskFailed(context.Background(), task.ID, err.Error())
+			return nil, err
+		}
+		task.ReferenceImagePath = path
+		task.ReferenceImageMimeType = input.ReferenceImageMimeType
+		task.ReferenceImageFilename = input.ReferenceImageFilename
+		if err := s.repo.UpdateTaskReferenceImage(ctx, task.ID, path, input.ReferenceImageMimeType, input.ReferenceImageFilename); err != nil {
+			_ = os.Remove(path)
+			return nil, err
+		}
+	}
+
+	if !s.disableAsyncOnCreate {
+		taskID := task.ID
+		go func() {
+			bg, cancel := context.WithTimeout(context.Background(), s.requestTimeout*time.Duration(maxInt(1, task.Count)))
+			defer cancel()
+			if err := s.ProcessTask(bg, taskID); err != nil && !errors.Is(err, errImageCreatorTaskNotRunnable) {
+				logger.L().Warn("image creator async task failed", zap.Int64("task_id", taskID), zap.Error(err))
+			}
+		}()
+	}
+	return task, nil
+}
+
+func normalizeCreateTaskInput(input ImageCreatorCreateTaskInput) ImageCreatorCreateTaskInput {
+	input.Model = strings.TrimSpace(input.Model)
+	if input.Model == "" {
+		input.Model = "gpt-image-2"
+	}
+	input.Prompt = strings.TrimSpace(input.Prompt)
+	input.Size = strings.TrimSpace(input.Size)
+	input.Quality = strings.TrimSpace(input.Quality)
+	input.OutputFormat = normalizeImageCreatorOutputFormat(input.OutputFormat)
+	input.Background = strings.TrimSpace(input.Background)
+	input.ReferenceImageMimeType = normalizeImageMimeType(input.ReferenceImageMimeType, input.ReferenceImage)
+	input.ReferenceImageFilename = strings.TrimSpace(input.ReferenceImageFilename)
+	if input.Count <= 0 {
+		input.Count = 1
+	}
+	if input.Count > 4 {
+		input.Count = 4
+	}
+	return input
+}
+
+func validateImageCreatorAPIKeyForUser(apiKey *APIKey, userID int64) error {
+	if apiKey == nil {
+		return infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
+	}
+	if apiKey.UserID != userID {
+		return infraerrors.Forbidden("API_KEY_FORBIDDEN", "api key does not belong to current user")
+	}
+	if apiKey.Status != StatusAPIKeyActive && apiKey.Status != StatusActive {
+		return infraerrors.BadRequest("API_KEY_NOT_ACTIVE", "api key is not active")
+	}
+	if apiKey.Group == nil || apiKey.Group.Platform != PlatformOpenAI || !GroupAllowsImageGeneration(apiKey.Group) {
+		return infraerrors.Forbidden("IMAGE_GENERATION_FORBIDDEN", ImageGenerationPermissionMessage())
+	}
+	return nil
+}
+
+func (s *ImageCreatorService) GetTask(ctx context.Context, userID int64, taskID int64) (*ImageCreatorTask, error) {
+	if s == nil || s.repo == nil {
+		return nil, infraerrors.InternalServer("IMAGE_CREATOR_UNAVAILABLE", "image creator service is unavailable")
+	}
+	if taskID <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_TASK", "task id is required")
+	}
+	task, err := s.repo.GetTaskForUser(ctx, userID, taskID)
+	if err != nil {
+		return nil, infraerrors.NotFound("IMAGE_CREATOR_TASK_NOT_FOUND", "image task not found")
+	}
+	attachImageURLs(task)
+	return task, nil
+}
+
+func (s *ImageCreatorService) ListTasks(ctx context.Context, userID int64, limit int) ([]ImageCreatorTask, error) {
+	if s == nil || s.repo == nil {
+		return nil, infraerrors.InternalServer("IMAGE_CREATOR_UNAVAILABLE", "image creator service is unavailable")
+	}
+	if limit <= 0 {
+		limit = defaultImageCreatorListTaskLimit
+	}
+	tasks, err := s.repo.ListTasksForUser(ctx, userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	for i := range tasks {
+		attachImageURLs(&tasks[i])
+	}
+	return tasks, nil
+}
+
+func (s *ImageCreatorService) GetImageFile(ctx context.Context, userID int64, imageID int64) (*ImageCreatorFile, error) {
+	if s == nil || s.repo == nil {
+		return nil, infraerrors.InternalServer("IMAGE_CREATOR_UNAVAILABLE", "image creator service is unavailable")
+	}
+	image, err := s.repo.GetImageForUser(ctx, userID, imageID)
+	if err != nil || image == nil {
+		return nil, infraerrors.NotFound("IMAGE_CREATOR_IMAGE_NOT_FOUND", "image not found")
+	}
+	if strings.TrimSpace(image.FilePath) == "" {
+		return nil, infraerrors.NotFound("IMAGE_CREATOR_IMAGE_NOT_FOUND", "image file not found")
+	}
+	if _, err := os.Stat(image.FilePath); err != nil {
+		return nil, infraerrors.NotFound("IMAGE_CREATOR_IMAGE_NOT_FOUND", "image file not found")
+	}
+	return &ImageCreatorFile{
+		Path:        image.FilePath,
+		ContentType: firstNonEmptyString(image.MimeType, mimeTypeForOutputFormat(image.OutputFormat)),
+		FileName:    fmt.Sprintf("image-%d.%s", image.ID, normalizeImageCreatorOutputFormat(image.OutputFormat)),
+	}, nil
+}
+
+func (s *ImageCreatorService) ProcessTask(ctx context.Context, taskID int64) error {
+	if s == nil || s.repo == nil {
+		return infraerrors.InternalServer("IMAGE_CREATOR_UNAVAILABLE", "image creator service is unavailable")
+	}
+	if err := s.repo.MarkTaskRunning(ctx, taskID); err != nil {
+		return errImageCreatorTaskNotRunnable
+	}
+	task, err := s.findTaskByID(ctx, taskID)
+	if err != nil {
+		return err
+	}
+	return s.processClaimedTask(ctx, task)
+}
+
+func (s *ImageCreatorService) findTaskByID(ctx context.Context, taskID int64) (*ImageCreatorTask, error) {
+	return s.repo.GetTaskByID(ctx, taskID)
+}
+
+func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *ImageCreatorTask) error {
+	if task == nil {
+		return nil
+	}
+	apiKey, err := s.apiKeys.GetByID(ctx, task.APIKeyID)
+	if err != nil || apiKey == nil {
+		msg := "api key not found"
+		_ = s.repo.MarkTaskFailed(context.Background(), task.ID, msg)
+		return errors.New(msg)
+	}
+	if err := validateImageCreatorAPIKeyForUser(apiKey, task.UserID); err != nil {
+		_ = s.repo.MarkTaskFailed(context.Background(), task.ID, imageCreatorTaskErrorMessage(err))
+		return err
+	}
+	successCount := 0
+	var lastErr error
+	for i := 1; i <= maxInt(1, task.Count); i++ {
+		assets, err := s.generator.GenerateImage(ctx, ImageCreatorGenerateRequest{
+			Model:                  task.Model,
+			Prompt:                 task.Prompt,
+			Size:                   task.Size,
+			Quality:                task.Quality,
+			Count:                  1,
+			OutputFormat:           task.OutputFormat,
+			Background:             task.Background,
+			ReferenceImagePath:     task.ReferenceImagePath,
+			ReferenceImageMimeType: task.ReferenceImageMimeType,
+			ReferenceImageFilename: task.ReferenceImageFilename,
+		}, apiKey.Key)
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		for _, asset := range assets {
+			if len(asset.Data) == 0 {
+				continue
+			}
+			outputFormat := normalizeImageCreatorOutputFormat(firstNonEmptyString(asset.OutputFormat, task.OutputFormat))
+			mimeType := firstNonEmptyString(asset.MimeType, mimeTypeForOutputFormat(outputFormat))
+			filePath, hash, byteSize, err := s.saveGeneratedImage(task.UserID, task.ID, successCount+1, outputFormat, asset.Data)
+			if err != nil {
+				lastErr = err
+				continue
+			}
+			image := &ImageCreatorImage{
+				TaskID:        task.ID,
+				UserID:        task.UserID,
+				FilePath:      filePath,
+				OutputFormat:  outputFormat,
+				MimeType:      mimeType,
+				ByteSize:      byteSize,
+				SHA256:        hash,
+				RevisedPrompt: strings.TrimSpace(asset.RevisedPrompt),
+				ExpiresAt:     time.Now().Add(s.retention),
+			}
+			if err := s.repo.AddImage(ctx, image); err != nil {
+				_ = os.Remove(filePath)
+				lastErr = err
+				continue
+			}
+			successCount++
+		}
+	}
+	if pruneErr := s.pruneUserImages(ctx, task.UserID); pruneErr != nil && lastErr == nil {
+		lastErr = pruneErr
+	}
+	if successCount == 0 {
+		msg := "image generation failed"
+		if lastErr != nil {
+			msg = lastErr.Error()
+		}
+		_ = s.repo.MarkTaskFailed(context.Background(), task.ID, msg)
+		return errors.New(msg)
+	}
+	warning := ""
+	if successCount < task.Count {
+		warning = fmt.Sprintf("generated %d of %d images", successCount, task.Count)
+		if lastErr != nil {
+			warning = warning + ": " + lastErr.Error()
+		}
+	}
+	if err := s.repo.MarkTaskSucceeded(ctx, task.ID, warning); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *ImageCreatorService) CleanupExpired(ctx context.Context) error {
+	if s == nil || s.repo == nil {
+		return nil
+	}
+	now := time.Now()
+	images, err := s.repo.ListExpiredImages(ctx, now, s.cleanupBatchSize)
+	if err != nil {
+		return err
+	}
+	if len(images) > 0 {
+		ids := make([]int64, 0, len(images))
+		for _, image := range images {
+			ids = append(ids, image.ID)
+		}
+		if err := s.repo.DeleteImagesByID(ctx, ids); err != nil {
+			return err
+		}
+		for _, image := range images {
+			removeFileQuietly(image.FilePath)
+		}
+	}
+	tasks, err := s.repo.DeleteExpiredTasks(ctx, now, s.cleanupBatchSize)
+	if err != nil {
+		return err
+	}
+	for _, task := range tasks {
+		removeFileQuietly(task.ReferenceImagePath)
+		for _, image := range task.Images {
+			removeFileQuietly(image.FilePath)
+		}
+	}
+	return nil
+}
+
+func (s *ImageCreatorService) workerLoop() {
+	if s.repo == nil {
+		return
+	}
+	if err := s.repo.FailStaleRunningTasks(context.Background(), s.taskTimeout, "server restarted while image generation was running"); err != nil {
+		logger.L().Warn("image creator fail stale tasks failed", zap.Error(err))
+	}
+	ticker := time.NewTicker(s.workerInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-s.stopCh:
+			return
+		default:
+		}
+		s.runWorkerOnce()
+		select {
+		case <-s.stopCh:
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
+func (s *ImageCreatorService) runWorkerOnce() {
+	ctx, cancel := context.WithTimeout(context.Background(), s.requestTimeout)
+	defer cancel()
+	if err := s.repo.FailStaleRunningTasks(ctx, s.taskTimeout, "server restarted while image generation was running"); err != nil {
+		logger.L().Warn("image creator fail stale tasks failed", zap.Error(err))
+	}
+	_ = s.CleanupExpired(ctx)
+	task, err := s.repo.ClaimNextPendingTask(ctx, s.taskTimeout)
+	if err != nil {
+		logger.L().Warn("image creator claim task failed", zap.Error(err))
+		return
+	}
+	if task == nil {
+		return
+	}
+	if err := s.processClaimedTask(ctx, task); err != nil {
+		logger.L().Warn("image creator process task failed", zap.Int64("task_id", task.ID), zap.Error(err))
+	}
+}
+
+func (s *ImageCreatorService) pruneUserImages(ctx context.Context, userID int64) error {
+	if s.maxSavedImages <= 0 {
+		return nil
+	}
+	images, err := s.repo.ListPrunableImages(ctx, userID, s.maxSavedImages)
+	if err != nil {
+		return err
+	}
+	if len(images) == 0 {
+		return nil
+	}
+	ids := make([]int64, 0, len(images))
+	for _, image := range images {
+		ids = append(ids, image.ID)
+	}
+	if err := s.repo.DeleteImagesByID(ctx, ids); err != nil {
+		return err
+	}
+	for _, image := range images {
+		removeFileQuietly(image.FilePath)
+	}
+	return nil
+}
+
+func imageCreatorTaskErrorMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	var appErr *infraerrors.ApplicationError
+	if errors.As(err, &appErr) && strings.TrimSpace(appErr.Message) != "" {
+		return appErr.Message
+	}
+	return err.Error()
+}
+
+func (s *ImageCreatorService) saveReferenceImage(userID int64, taskID int64, data []byte, mimeType string, filename string) (string, error) {
+	if len(data) == 0 {
+		return "", nil
+	}
+	if int64(len(data)) > imageCreatorMaxStoredImageBytes {
+		return "", infraerrors.BadRequest("REFERENCE_IMAGE_TOO_LARGE", "reference image is too large")
+	}
+	ext := imageExtension(normalizeImageMimeType(mimeType, data), filename, "png")
+	dir := filepath.Join(s.storageDir, strconv.FormatInt(userID, 10), "refs")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	path := filepath.Join(dir, fmt.Sprintf("%d-reference.%s", taskID, ext))
+	return path, os.WriteFile(path, data, 0o600)
+}
+
+func (s *ImageCreatorService) saveGeneratedImage(userID int64, taskID int64, index int, outputFormat string, data []byte) (string, string, int64, error) {
+	if len(data) == 0 {
+		return "", "", 0, errors.New("image data is empty")
+	}
+	if int64(len(data)) > imageCreatorMaxStoredImageBytes {
+		return "", "", 0, errors.New("generated image is too large")
+	}
+	outputFormat = normalizeImageCreatorOutputFormat(outputFormat)
+	dir := filepath.Join(s.storageDir, strconv.FormatInt(userID, 10))
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", "", 0, err
+	}
+	path := filepath.Join(dir, fmt.Sprintf("%d-%d.%s", taskID, index, outputFormat))
+	if err := os.WriteFile(path, data, 0o600); err != nil {
+		return "", "", 0, err
+	}
+	sum := sha256.Sum256(data)
+	return path, hex.EncodeToString(sum[:]), int64(len(data)), nil
+}
+
+type ImageCreatorHTTPGenerator struct {
+	client  *http.Client
+	baseURL string
+}
+
+func NewImageCreatorHTTPGenerator(cfg *config.Config, timeout time.Duration) *ImageCreatorHTTPGenerator {
+	if timeout <= 0 {
+		timeout = defaultImageCreatorRequestTimeout
+	}
+	return &ImageCreatorHTTPGenerator{
+		client:  &http.Client{Timeout: timeout},
+		baseURL: resolveImageCreatorGatewayBaseURL(cfg),
+	}
+}
+
+func resolveImageCreatorGatewayBaseURL(cfg *config.Config) string {
+	if cfg != nil {
+		if raw := strings.TrimSpace(cfg.ImageCreator.LocalGatewayBaseURL); raw != "" {
+			return strings.TrimRight(raw, "/")
+		}
+		host := strings.TrimSpace(cfg.Server.Host)
+		if host == "" || host == "0.0.0.0" || host == "::" {
+			host = "127.0.0.1"
+		}
+		port := cfg.Server.Port
+		if port <= 0 {
+			port = 8080
+		}
+		return fmt.Sprintf("http://%s:%d", host, port)
+	}
+	return "http://127.0.0.1:8080"
+}
+
+func (g *ImageCreatorHTTPGenerator) GenerateImage(ctx context.Context, input ImageCreatorGenerateRequest, apiKey string) ([]GeneratedImageAsset, error) {
+	if g == nil || g.client == nil {
+		return nil, errors.New("image generator is unavailable")
+	}
+	endpointMode := "generations"
+	if strings.TrimSpace(input.ReferenceImagePath) != "" {
+		endpointMode = "edits"
+	}
+	endpoint := buildImageCreatorGatewayEndpoint(g.baseURL, endpointMode)
+	var body io.Reader
+	contentType := "application/json"
+	if endpointMode == "edits" {
+		var buffer bytes.Buffer
+		writer := multipart.NewWriter(&buffer)
+		writeMultipartField(writer, "model", input.Model)
+		writeMultipartField(writer, "prompt", input.Prompt)
+		writeMultipartField(writer, "n", "1")
+		writeMultipartField(writer, "response_format", "b64_json")
+		writeMultipartField(writer, "size", input.Size)
+		writeMultipartField(writer, "quality", input.Quality)
+		writeMultipartField(writer, "output_format", normalizeImageCreatorOutputFormat(input.OutputFormat))
+		writeMultipartField(writer, "background", input.Background)
+		if err := addImageCreatorReferencePart(writer, input); err != nil {
+			return nil, err
+		}
+		if err := writer.Close(); err != nil {
+			return nil, err
+		}
+		body = &buffer
+		contentType = writer.FormDataContentType()
+	} else {
+		payload := map[string]any{
+			"model":           input.Model,
+			"prompt":          input.Prompt,
+			"n":               1,
+			"response_format": "b64_json",
+		}
+		if strings.TrimSpace(input.Size) != "" {
+			payload["size"] = input.Size
+		}
+		if strings.TrimSpace(input.Quality) != "" {
+			payload["quality"] = input.Quality
+		}
+		if strings.TrimSpace(input.OutputFormat) != "" {
+			payload["output_format"] = normalizeImageCreatorOutputFormat(input.OutputFormat)
+		}
+		if strings.TrimSpace(input.Background) != "" {
+			payload["background"] = input.Background
+		}
+		data, err := json.Marshal(payload)
+		if err != nil {
+			return nil, err
+		}
+		body = bytes.NewReader(data)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, body)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", contentType)
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, 128<<20))
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("image gateway returned HTTP %d: %s", resp.StatusCode, extractImageCreatorGatewayError(respBody))
+	}
+	return g.assetsFromGatewayResponse(ctx, respBody, normalizeImageCreatorOutputFormat(input.OutputFormat))
+}
+
+func (g *ImageCreatorHTTPGenerator) assetsFromGatewayResponse(ctx context.Context, body []byte, fallbackFormat string) ([]GeneratedImageAsset, error) {
+	var payload struct {
+		Data []struct {
+			B64JSON       string `json:"b64_json"`
+			URL           string `json:"url"`
+			RevisedPrompt string `json:"revised_prompt"`
+			OutputFormat  string `json:"output_format"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return nil, err
+	}
+	assets := make([]GeneratedImageAsset, 0, len(payload.Data))
+	for _, item := range payload.Data {
+		outputFormat := normalizeImageCreatorOutputFormat(firstNonEmptyString(item.OutputFormat, fallbackFormat))
+		var data []byte
+		var err error
+		switch {
+		case strings.TrimSpace(item.B64JSON) != "":
+			data, err = decodeImageCreatorBase64(item.B64JSON)
+		case strings.TrimSpace(item.URL) != "":
+			data, err = g.downloadImage(ctx, item.URL)
+		default:
+			continue
+		}
+		if err != nil {
+			return nil, err
+		}
+		assets = append(assets, GeneratedImageAsset{
+			Data:          data,
+			OutputFormat:  outputFormat,
+			MimeType:      mimeTypeForOutputFormat(outputFormat),
+			RevisedPrompt: strings.TrimSpace(item.RevisedPrompt),
+		})
+	}
+	if len(assets) == 0 {
+		return nil, errors.New("image response did not contain any image data")
+	}
+	return assets, nil
+}
+
+func (g *ImageCreatorHTTPGenerator) downloadImage(ctx context.Context, rawURL string) ([]byte, error) {
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(rawURL)), "data:image/") {
+		return decodeImageCreatorBase64(rawURL)
+	}
+	parsed, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil {
+		return nil, err
+	}
+	if parsed.Scheme != "http" && parsed.Scheme != "https" {
+		return nil, fmt.Errorf("unsupported image url scheme: %s", parsed.Scheme)
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := g.client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("download image returned HTTP %d", resp.StatusCode)
+	}
+	return io.ReadAll(io.LimitReader(resp.Body, imageCreatorMaxStoredImageBytes))
+}
+
+func buildImageCreatorGatewayEndpoint(baseURL string, mode string) string {
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if base == "" {
+		base = "http://127.0.0.1:8080"
+	}
+	if strings.HasSuffix(base, "/v1") {
+		return base + "/images/" + mode
+	}
+	return base + "/v1/images/" + mode
+}
+
+func writeMultipartField(writer *multipart.Writer, name string, value string) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return
+	}
+	_ = writer.WriteField(name, value)
+}
+
+func addImageCreatorReferencePart(writer *multipart.Writer, input ImageCreatorGenerateRequest) error {
+	path := strings.TrimSpace(input.ReferenceImagePath)
+	if path == "" {
+		return nil
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = file.Close() }()
+	header := make(textproto.MIMEHeader)
+	filename := strings.TrimSpace(input.ReferenceImageFilename)
+	if filename == "" {
+		filename = filepath.Base(path)
+	}
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="image"; filename="%s"`, escapeQuotes(filename)))
+	header.Set("Content-Type", firstNonEmptyString(input.ReferenceImageMimeType, "image/png"))
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		return err
+	}
+	_, err = io.Copy(part, file)
+	return err
+}
+
+func escapeQuotes(v string) string {
+	return strings.ReplaceAll(v, `"`, `\"`)
+}
+
+func decodeImageCreatorBase64(raw string) ([]byte, error) {
+	raw = strings.TrimSpace(raw)
+	if idx := strings.Index(raw, ","); strings.HasPrefix(strings.ToLower(raw), "data:") && idx >= 0 {
+		raw = raw[idx+1:]
+	}
+	raw = strings.TrimRight(raw, "=") + strings.Repeat("=", (4-len(raw)%4)%4)
+	return base64.StdEncoding.DecodeString(raw)
+}
+
+func extractImageCreatorGatewayError(body []byte) string {
+	var payload map[string]any
+	if err := json.Unmarshal(body, &payload); err == nil {
+		if errObj, ok := payload["error"].(map[string]any); ok {
+			if msg, ok := errObj["message"].(string); ok && strings.TrimSpace(msg) != "" {
+				return strings.TrimSpace(msg)
+			}
+		}
+		if msg, ok := payload["message"].(string); ok && strings.TrimSpace(msg) != "" {
+			return strings.TrimSpace(msg)
+		}
+	}
+	return strings.TrimSpace(string(body))
+}
+
+func attachImageURLs(task *ImageCreatorTask) {
+	if task == nil {
+		return
+	}
+	for i := range task.Images {
+		task.Images[i].URL = imageCreatorImageURL(task.Images[i].ID)
+	}
+}
+
+func imageCreatorImageURL(imageID int64) string {
+	if imageID <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("/api/v1/user/image-creator/images/%d/file", imageID)
+}
+
+func normalizeImageCreatorOutputFormat(format string) string {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "jpg", "jpeg":
+		return "jpeg"
+	case "webp":
+		return "webp"
+	default:
+		return "png"
+	}
+}
+
+func normalizeImageMimeType(mimeType string, data []byte) string {
+	mimeType = strings.TrimSpace(strings.ToLower(mimeType))
+	if strings.HasPrefix(mimeType, "image/") {
+		return mimeType
+	}
+	if len(data) > 0 {
+		detected := strings.ToLower(http.DetectContentType(data))
+		if strings.HasPrefix(detected, "image/") {
+			return detected
+		}
+	}
+	return "image/png"
+}
+
+func mimeTypeForOutputFormat(format string) string {
+	switch normalizeImageCreatorOutputFormat(format) {
+	case "jpeg":
+		return "image/jpeg"
+	case "webp":
+		return "image/webp"
+	default:
+		return "image/png"
+	}
+}
+
+func imageExtension(mimeType string, filename string, fallback string) string {
+	if ext := strings.TrimPrefix(strings.ToLower(filepath.Ext(filename)), "."); ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "webp" {
+		if ext == "jpg" {
+			return "jpeg"
+		}
+		return ext
+	}
+	exts, _ := mime.ExtensionsByType(mimeType)
+	if len(exts) > 0 {
+		ext := strings.TrimPrefix(strings.ToLower(exts[0]), ".")
+		if ext == "jpg" {
+			return "jpeg"
+		}
+		return ext
+	}
+	return fallback
+}
+
+func removeFileQuietly(path string) {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return
+	}
+	_ = os.Remove(path)
+}
+
+func maxInt(a int, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}

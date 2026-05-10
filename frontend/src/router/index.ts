@@ -9,6 +9,7 @@ import { useAppStore } from '@/stores/app'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
 import { useNavigationLoadingState } from '@/composables/useNavigationLoading'
 import { useRoutePrefetch } from '@/composables/useRoutePrefetch'
+import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 import { resolveDocumentTitle } from './title'
 
 /**
@@ -192,7 +193,8 @@ const routes: RouteRecordRaw[] = [
       requiresAdmin: false,
       title: 'My Accounts',
       titleKey: 'myAccounts.title',
-      descriptionKey: 'myAccounts.description'
+      descriptionKey: 'myAccounts.description',
+      requiresAccountShare: true
     }
   },
   {
@@ -217,6 +219,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Leaderboard',
       titleKey: 'leaderboard.title',
       descriptionKey: 'leaderboard.description'
+    }
+  },
+  {
+    path: '/image-creator',
+    name: 'ImageCreator',
+    component: () => import('@/views/user/ImageCreatorView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Image Creator',
+      titleKey: 'imageCreator.title',
+      descriptionKey: 'imageCreator.subtitle'
     }
   },
   {
@@ -800,6 +814,11 @@ router.beforeEach((to, _from, next) => {
       next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
       return
     }
+  }
+
+  if (to.meta.requiresAccountShare && !isFeatureFlagEnabled(FeatureFlags.accountShare)) {
+    next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
+    return
   }
 
   // 简易模式下限制访问某些页面
