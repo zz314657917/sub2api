@@ -9,14 +9,22 @@ export default {
     dashboard: 'Dashboard',
     login: 'Login',
     getStarted: 'Get Started',
-    goToDashboard: 'Go to Dashboard',
-    // User-focused value proposition
-    heroSubtitle: 'One Key, All AI Models',
-    heroDescription: 'No need to manage multiple subscriptions. Access Claude, GPT, Gemini and more with a single API key',
+    goToDashboard: 'Open Dashboard',
+    heroEyebrow: 'Prepared for Codex and team access',
+    heroTitleTop: 'AI Coding',
+    heroTitleBottom: 'Local Access Solution',
+    heroSubtitle: 'AI coding local access solution',
+    heroDescription: 'Try the latest ChatGPT models. Contact support to claim trial credits.',
+    claimButton: 'Claim Trial',
+    contactSupport: 'Contact Support',
     tags: {
       subscriptionToApi: 'Subscription to API',
       stickySession: 'Session Persistence',
-      realtimeBilling: 'Pay As You Go'
+      realtimeBilling: 'Pay As You Go',
+      directConnect: 'No proxy setup',
+      teamReady: 'Unified team access',
+      clearUsage: 'Stable low latency',
+      routing: 'Ready in minutes'
     },
     // Pain points section
     painPoints: {
@@ -47,11 +55,11 @@ export default {
     },
     features: {
       unifiedGateway: 'One-Click Access',
-      unifiedGatewayDesc: 'Get a single API key to call all connected AI models. No separate applications needed.',
-      multiAccount: 'Always Reliable',
-      multiAccountDesc: 'Smart routing across multiple upstream accounts with automatic failover. Say goodbye to errors.',
-      balanceQuota: 'Pay What You Use',
-      balanceQuotaDesc: 'Usage-based billing with quota limits. Full visibility into team consumption.'
+      unifiedGatewayDesc: 'Use one key for coding models and upstream capabilities without extra proxy setup.',
+      multiAccount: 'Stable Access',
+      multiAccountDesc: 'Coordinate account pools, proxy routing, and session links to reduce single-account disruption.',
+      balanceQuota: 'Clear Usage State',
+      balanceQuotaDesc: 'Track requests, quota, billing, and route status in one place for team cost control.'
     },
     // Comparison section
     comparison: {
@@ -392,8 +400,8 @@ export default {
 
   // Auth
   auth: {
-    welcomeBack: 'Welcome Back',
-    signInToAccount: 'Sign in to your account to continue',
+    welcomeBack: 'Open Dashboard',
+    signInToAccount: 'Sign in with your account and password',
     signIn: 'Sign In',
     signingIn: 'Signing in...',
     createAccount: 'Create Account',
@@ -405,8 +413,8 @@ export default {
     dontHaveAccount: "Don't have an account?",
     alreadyHaveAccount: 'Already have an account?',
     registrationDisabled: 'Registration is currently disabled. Please contact the administrator.',
-    emailLabel: 'Email',
-    emailPlaceholder: 'Enter your email',
+    emailLabel: 'Account',
+    emailPlaceholder: 'Enter account or email',
     passwordLabel: 'Password',
     passwordPlaceholder: 'Enter your password',
     createPasswordPlaceholder: 'Create a strong password',
@@ -655,6 +663,7 @@ export default {
     currentUser: 'You',
     myInfo: 'My Info',
     myRank: 'My Rank',
+    costEfficiencyKing: '⭐ Value King',
     notRanked: 'Not ranked',
     dailyReward: {
       title: 'Daily Ranking Rewards',
@@ -1198,8 +1207,14 @@ export default {
       content: 'Content',
       contentPlaceholder: 'Paste JSON, Refresh Token, or Session Key',
       chooseFile: 'Choose File',
+      chooseFolder: 'Choose Folder',
       fileSelected: 'Selected {name}',
       fileReadFailed: 'Failed to read selected file',
+      folderSelected: '{count} supported files selected',
+      folderNoSupportedFiles: 'No supported account files were found in the selected folder',
+      folderReadFailed: 'Failed to read selected folder',
+      folderImportSuccess: 'Imported {count} account(s)',
+      folderImportPartialFailed: 'Imported {success} account(s), {failed} failed',
       credentials: 'Credentials JSON',
       credentialsPlaceholder: 'Paste token JSON, for example an object containing "refresh_token": "..."',
       submit: 'Import',
@@ -3122,6 +3137,7 @@ export default {
         viewTempUnschedDetails: 'View temp unschedulable details'
       },
       columns: {
+        rowNumber: 'No.',
         name: 'Name',
         platformType: 'Platform/Type',
         platform: 'Platform',

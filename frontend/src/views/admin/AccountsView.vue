@@ -187,7 +187,7 @@
         <DataTable
           ref="dataTableRef"
           :columns="cols"
-          :data="accounts"
+          :data="numberedAccounts"
           :loading="loading"
           row-key="id"
           :server-side-sort="true"
@@ -781,6 +781,13 @@ const {
   getId: (account) => account.id
 })
 
+const numberedAccounts = computed(() =>
+  accounts.value.map((account, index) => ({
+    ...account,
+    row_number: (Math.max(1, pagination.page) - 1) * Math.max(1, pagination.page_size) + index + 1
+  }))
+)
+
 const swipeVirtualContext: SwipeSelectVirtualContext = {
   getVirtualizer: () => dataTableRef.value?.virtualizer ?? null,
   getSortedData: () => dataTableRef.value?.sortedData ?? accounts.value,
@@ -1144,6 +1151,7 @@ function getAntigravityTierClass(row: any): string {
 const allColumns = computed(() => {
   const c = [
     { key: 'select', label: '', sortable: false },
+    { key: 'row_number', label: t('admin.accounts.columns.rowNumber'), sortable: false, class: 'w-16 text-center text-gray-500 dark:text-dark-400' },
     { key: 'name', label: t('admin.accounts.columns.name'), sortable: true },
     { key: 'platform_type', label: t('admin.accounts.columns.platformType'), sortable: false },
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
@@ -1170,13 +1178,13 @@ const allColumns = computed(() => {
 
 // Columns that can be toggled (exclude select, name, and actions)
 const toggleableColumns = computed(() =>
-  allColumns.value.filter(col => col.key !== 'select' && col.key !== 'name' && col.key !== 'actions')
+  allColumns.value.filter(col => col.key !== 'select' && col.key !== 'row_number' && col.key !== 'name' && col.key !== 'actions')
 )
 
 // Filtered columns based on visibility
 const cols = computed(() =>
   allColumns.value.filter(col =>
-    col.key === 'select' || col.key === 'name' || col.key === 'actions' || !hiddenColumns.has(col.key)
+    col.key === 'select' || col.key === 'row_number' || col.key === 'name' || col.key === 'actions' || !hiddenColumns.has(col.key)
   )
 )
 

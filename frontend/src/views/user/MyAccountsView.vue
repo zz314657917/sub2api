@@ -280,6 +280,17 @@
                 accept=".json,.txt,.token,.key,application/json,text/plain"
                 @change="handleImportFileChange"
               />
+              <input
+                ref="importFolderInput"
+                data-testid="my-accounts-import-folder-input"
+                type="file"
+                class="hidden"
+                accept=".json,.txt,.token,.key,application/json,text/plain"
+                multiple
+                webkitdirectory
+                directory
+                @change="handleImportFolderChange"
+              />
               <button
                 type="button"
                 class="btn btn-secondary btn-sm"
@@ -290,7 +301,20 @@
                 <Icon v-else name="upload" size="sm" />
                 <span>{{ t('myAccounts.import.chooseFile') }}</span>
               </button>
-              <span v-if="importFileName" class="max-w-[260px] truncate text-xs text-gray-500 dark:text-dark-400" :title="importFileName">
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                :disabled="importFileReading"
+                @click="openImportFolderPicker"
+              >
+                <Icon v-if="importFileReading" name="refresh" size="sm" class="animate-spin" />
+                <Icon v-else name="upload" size="sm" />
+                <span>{{ t('myAccounts.import.chooseFolder') }}</span>
+              </button>
+              <span v-if="importFolderFiles.length" class="max-w-[260px] truncate text-xs text-gray-500 dark:text-dark-400">
+                {{ t('myAccounts.import.folderSelected', { count: importFolderFiles.length }) }}
+              </span>
+              <span v-else-if="importFileName" class="max-w-[260px] truncate text-xs text-gray-500 dark:text-dark-400" :title="importFileName">
                 {{ t('myAccounts.import.fileSelected', { name: importFileName }) }}
               </span>
             </div>
@@ -383,7 +407,16 @@ const importForm = reactive({
 })
 const importContent = ref('')
 const importFileInput = ref<HTMLInputElement | null>(null)
+const importFolderInput = ref<HTMLInputElement | null>(null)
 const importFileName = ref('')
+const importFolderFiles = ref<ImportFileEntry[]>([])
+
+type ImportFileEntry = {
+  name: string
+  content: string
+  platform: AccountPlatform
+  format: string
+}
 
 const columns = computed<Column[]>(() => [
   { key: 'name', label: t('myAccounts.columns.name'), sortable: true },
@@ -506,7 +539,9 @@ function openEditModal(account: Account): void {
 function openImportModal(): void {
   importContent.value = ''
   importFileName.value = ''
+  importFolderFiles.value = []
   if (importFileInput.value) importFileInput.value.value = ''
+  if (importFolderInput.value) importFolderInput.value.value = ''
   importForm.platform = 'openai'
   importForm.format = 'sub2api_oauth_json'
   showImportModal.value = true
@@ -638,6 +673,10 @@ function openImportFilePicker(): void {
   importFileInput.value?.click()
 }
 
+function openImportFolderPicker(): void {
+  importFolderInput.value?.click()
+}
+
 async function handleImportFileChange(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement
   const file = input.files?.[0]
@@ -647,6 +686,7 @@ async function handleImportFileChange(event: Event): Promise<void> {
     const content = await file.text()
     importContent.value = content
     importFileName.value = file.name
+    importFolderFiles.value = []
     inferImportFileSelection(file.name, content)
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('myAccounts.import.fileReadFailed')))
@@ -656,7 +696,50 @@ async function handleImportFileChange(event: Event): Promise<void> {
   }
 }
 
+async function handleImportFolderChange(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const files = Array.from(input.files || [])
+  if (files.length === 0) return
+  importFileReading.value = true
+  try {
+    const entries: ImportFileEntry[] = []
+    for (const file of files) {
+      if (!isSupportedImportFileName(file.name)) {
+        continue
+      }
+      const content = await file.text()
+      const selection = inferImportFileSelectionValues(file.name, content)
+      entries.push({
+        name: file.webkitRelativePath || file.name,
+        content,
+        platform: selection.platform,
+        format: selection.format,
+      })
+    }
+    if (entries.length === 0) {
+      appStore.showError(t('myAccounts.import.folderNoSupportedFiles'))
+      return
+    }
+    importFolderFiles.value = entries
+    importFileName.value = ''
+    importContent.value = entries.map(entry => `// ${entry.name}\n${entry.content}`).join('\n\n')
+    importForm.platform = entries[0].platform
+    importForm.format = entries[0].format
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('myAccounts.import.folderReadFailed')))
+  } finally {
+    importFileReading.value = false
+    input.value = ''
+  }
+}
+
 function inferImportFileSelection(fileName: string, content: string): void {
+  const selection = inferImportFileSelectionValues(fileName, content)
+  importForm.platform = selection.platform
+  importForm.format = selection.format
+}
+
+function inferImportFileSelectionValues(fileName: string, content: string): { platform: AccountPlatform, format: string } {
   const lowerName = fileName.toLowerCase()
   const trimmed = content.trim()
   const parsed = tryParseImportObject(trimmed)
@@ -668,20 +751,22 @@ function inferImportFileSelection(fileName: string, content: string): void {
       stringValue(parsed.account_platform) ||
       inferPlatformFromCredentials(credentials)
     )
-    if (platform) importForm.platform = platform
-    importForm.format = isLikelyCodexManagerToken(lowerName, parsed, credentials)
-      ? 'codex_manager_chatgpt_token_json'
-      : 'sub2api_oauth_json'
-    return
+    return {
+      platform: platform || 'openai',
+      format: isLikelyCodexManagerToken(lowerName, parsed, credentials)
+        ? 'codex_manager_chatgpt_token_json'
+        : 'sub2api_oauth_json',
+    }
   }
 
   if (isLikelyClaudeSession(lowerName, trimmed)) {
-    importForm.platform = 'anthropic'
-    importForm.format = 'claude_session_key'
-    return
+    return { platform: 'anthropic', format: 'claude_session_key' }
   }
-  importForm.platform = 'openai'
-  importForm.format = 'openai_refresh_token'
+  return { platform: 'openai', format: 'openai_refresh_token' }
+}
+
+function isSupportedImportFileName(fileName: string): boolean {
+  return /\.(json|txt|token|key)$/i.test(fileName)
 }
 
 function tryParseImportObject(raw: string): Record<string, unknown> | null {
@@ -743,6 +828,43 @@ function isLikelyClaudeSession(fileName: string, content: string): boolean {
 async function importFromContent(): Promise<void> {
   importing.value = true
   try {
+    if (importFolderFiles.value.length > 0) {
+      const createdAccounts: Account[] = []
+      const failedNames: string[] = []
+      for (const entry of importFolderFiles.value) {
+        try {
+          const built = buildImportCredentials(entry.format, entry.platform, entry.content)
+          const created = await userAPI.importAccount({
+            format: entry.format,
+            name: '',
+            platform: entry.platform,
+            type: built.type,
+            credentials: built.credentials
+          })
+          createdAccounts.push(created)
+        } catch {
+          failedNames.push(entry.name)
+        }
+      }
+      if (createdAccounts.length > 0) {
+        accounts.value = [...createdAccounts, ...accounts.value]
+      }
+      if (failedNames.length > 0) {
+        appStore.showError(t('myAccounts.import.folderImportPartialFailed', {
+          success: createdAccounts.length,
+          failed: failedNames.length,
+        }))
+        if (createdAccounts.length === 0) {
+          return
+        }
+      } else {
+        appStore.showSuccess(t('myAccounts.import.folderImportSuccess', { count: createdAccounts.length }))
+      }
+      showImportModal.value = false
+      await loadAll()
+      return
+    }
+
     const built = buildImportCredentials(importForm.format, importForm.platform, importContent.value)
     const created = await userAPI.importAccount({
       format: importForm.format,

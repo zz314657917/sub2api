@@ -1,9 +1,9 @@
 <template>
-  <div class="min-h-screen bg-gray-50 text-gray-900 dark:bg-dark-950 dark:text-white">
-    <header class="border-b border-gray-200 bg-white/95 dark:border-dark-800 dark:bg-dark-900/95">
+  <div class="mc-pixel-grid min-h-screen bg-primary-50 text-gray-900 dark:bg-dark-950 dark:text-white">
+    <header class="border-b-2 border-accent-700/20 bg-white/90 backdrop-blur dark:border-accent-400/20 dark:bg-dark-900/90">
       <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
         <RouterLink to="/home" class="flex min-w-0 items-center gap-3">
-          <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-gray-200 dark:bg-dark-800 dark:ring-dark-700">
+          <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-accent-700/25 bg-accent-100 shadow-glass-sm dark:bg-dark-800">
             <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
           </span>
           <span class="truncate text-base font-semibold text-gray-950 dark:text-white">
@@ -12,7 +12,7 @@
         </RouterLink>
         <RouterLink
           to="/login"
-          class="inline-flex flex-shrink-0 items-center justify-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white shadow-sm shadow-primary-600/20 transition hover:bg-primary-700"
+          class="btn btn-primary inline-flex flex-shrink-0 items-center justify-center px-4 py-2 text-sm"
         >
           登录
         </RouterLink>
@@ -34,7 +34,7 @@
 
       <section
         v-else-if="!currentDocument"
-        class="rounded-lg border border-gray-200 bg-white p-6 dark:border-dark-700 dark:bg-dark-900"
+        class="card p-6"
       >
         <div class="flex items-start gap-3">
           <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-600 dark:bg-dark-800 dark:text-dark-300">
@@ -74,7 +74,7 @@
         ></div>
         <div
           v-else
-          class="rounded-lg border border-dashed border-gray-300 bg-white px-6 py-14 text-center text-sm text-gray-500 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-400"
+          class="rounded-lg border border-dashed border-accent-400 bg-white/85 px-6 py-14 text-center text-sm text-gray-500 dark:border-accent-700 dark:bg-dark-900/85 dark:text-dark-400"
         >
           暂无正文内容
         </div>

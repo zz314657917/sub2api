@@ -9,14 +9,22 @@ export default {
     dashboard: '控制台',
     login: '登录',
     getStarted: '立即开始',
-    goToDashboard: '进入控制台',
-    // 新增：面向用户的价值主张
-    heroSubtitle: '一个密钥，畅用多个 AI 模型',
-    heroDescription: '无需管理多个订阅账号，一站式接入 Claude、GPT、Gemini 等主流 AI 服务',
+    goToDashboard: '登录控制台',
+    heroEyebrow: '为 Codex 与团队接入准备',
+    heroTitleTop: '智能编码',
+    heroTitleBottom: '国内解决方案',
+    heroSubtitle: '智能编码国内解决方案',
+    heroDescription: '即刻体验 ChatGPT 最新模型，添加客服领取试用额度。',
+    claimButton: '注册领取试用',
+    contactSupport: '添加客服',
     tags: {
       subscriptionToApi: '订阅转 API',
       stickySession: '会话保持',
-      realtimeBilling: '按量计费'
+      realtimeBilling: '按量计费',
+      directConnect: '无需翻墙',
+      teamReady: '团队统一接入',
+      clearUsage: '稳定低延迟',
+      routing: '即开即用'
     },
     // 用户痛点区块
     painPoints: {
@@ -47,11 +55,11 @@ export default {
     },
     features: {
       unifiedGateway: '一键接入',
-      unifiedGatewayDesc: '获取一个 API 密钥，即可调用所有已接入的 AI 模型，无需分别申请。',
-      multiAccount: '稳定可靠',
-      multiAccountDesc: '智能调度多个上游账号，自动切换和负载均衡，告别频繁报错。',
-      balanceQuota: '用多少付多少',
-      balanceQuotaDesc: '按实际使用量计费，支持设置配额上限，团队用量一目了然。'
+      unifiedGatewayDesc: '无需挂代理翻墙，密钥接入编码模型与上游能力。',
+      multiAccount: '稳定接入体验',
+      multiAccountDesc: '号池、代理与会话链路协同，减少单点异常对编码流程的影响。',
+      balanceQuota: '用量状态清晰',
+      balanceQuotaDesc: '请求、额度、账单和链路状态集中查看，方便团队控制成本。'
     },
     // 优势对比
     comparison: {
@@ -392,8 +400,8 @@ export default {
 
   // Auth
   auth: {
-    welcomeBack: '欢迎回来',
-    signInToAccount: '登录您的账户以继续',
+    welcomeBack: '登录控制台',
+    signInToAccount: '使用账号密码进入控制台',
     signIn: '登录',
     signingIn: '登录中...',
     createAccount: '创建账户',
@@ -405,8 +413,8 @@ export default {
     dontHaveAccount: '还没有账户？',
     alreadyHaveAccount: '已有账户？',
     registrationDisabled: '注册功能暂时关闭，请联系管理员。',
-    emailLabel: '邮箱',
-    emailPlaceholder: '请输入邮箱',
+    emailLabel: '账号',
+    emailPlaceholder: '请输入账号或邮箱',
     passwordLabel: '密码',
     passwordPlaceholder: '请输入密码',
     createPasswordPlaceholder: '创建一个安全的密码',
@@ -654,6 +662,7 @@ export default {
     currentUser: '当前用户',
     myInfo: '我的信息',
     myRank: '我的排名',
+    costEfficiencyKing: '⭐ 性价比之王',
     notRanked: '未上榜',
     dailyReward: {
       title: '每日排名奖励',
@@ -1202,8 +1211,14 @@ export default {
       content: '导入内容',
       contentPlaceholder: '粘贴 JSON、Refresh Token 或 Session Key',
       chooseFile: '选择文件',
+      chooseFolder: '选择文件夹',
       fileSelected: '已选择 {name}',
       fileReadFailed: '读取文件失败',
+      folderSelected: '已选择 {count} 个支持的文件',
+      folderNoSupportedFiles: '所选文件夹中没有支持的账号文件',
+      folderReadFailed: '读取文件夹失败',
+      folderImportSuccess: '已导入 {count} 个账号',
+      folderImportPartialFailed: '已导入 {success} 个账号，{failed} 个失败',
       credentials: '凭据 JSON',
       credentialsPlaceholder: '粘贴令牌 JSON，例如包含 "refresh_token": "..." 的对象',
       submit: '导入',
@@ -3160,6 +3175,7 @@ export default {
       failedToToggleSchedulable: '切换调度状态失败',
       groupCountTotal: '共 {count} 个分组',
       columns: {
+        rowNumber: '编号',
         name: '名称',
         platformType: '平台/类型',
         platform: '平台',

@@ -141,4 +141,69 @@ describe('MyAccountsView import file', () => {
       },
     }))
   })
+
+  it('reads supported files from a selected folder and imports each with inferred settings', async () => {
+    userAPI.importAccount.mockImplementation(async (payload) => ({
+      id: userAPI.importAccount.mock.calls.length,
+      name: 'Imported',
+      platform: payload.platform,
+      type: payload.type,
+      credentials: payload.credentials,
+    }))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="my-accounts-open-import"]').trigger('click')
+
+    const claudeContent = JSON.stringify({
+      platform: 'anthropic',
+      credentials: {
+        session_key: 'claude-folder-session',
+      },
+    })
+    const openAIContent = 'openai-refresh-token'
+    const unsupportedContent = 'ignore me'
+
+    const claudeFile = new File([claudeContent], 'claude.json', { type: 'application/json' })
+    Object.defineProperty(claudeFile, 'text', { value: vi.fn().mockResolvedValue(claudeContent) })
+    Object.defineProperty(claudeFile, 'webkitRelativePath', { value: 'accounts/claude.json' })
+
+    const openAIFile = new File([openAIContent], 'openai.token', { type: 'text/plain' })
+    Object.defineProperty(openAIFile, 'text', { value: vi.fn().mockResolvedValue(openAIContent) })
+    Object.defineProperty(openAIFile, 'webkitRelativePath', { value: 'accounts/openai.token' })
+
+    const ignoredFile = new File([unsupportedContent], 'readme.md', { type: 'text/markdown' })
+    Object.defineProperty(ignoredFile, 'text', { value: vi.fn().mockResolvedValue(unsupportedContent) })
+    Object.defineProperty(ignoredFile, 'webkitRelativePath', { value: 'accounts/readme.md' })
+
+    const input = wrapper.get('[data-testid="my-accounts-import-folder-input"]')
+    Object.defineProperty(input.element, 'files', {
+      configurable: true,
+      value: [claudeFile, openAIFile, ignoredFile],
+    })
+    await input.trigger('change')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('myAccounts.import.folderSelected')
+
+    await wrapper.get('[data-testid="my-accounts-import-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(userAPI.importAccount).toHaveBeenCalledTimes(2)
+    expect(userAPI.importAccount).toHaveBeenCalledWith(expect.objectContaining({
+      format: 'sub2api_oauth_json',
+      platform: 'anthropic',
+      credentials: {
+        session_key: 'claude-folder-session',
+      },
+    }))
+    expect(userAPI.importAccount).toHaveBeenCalledWith(expect.objectContaining({
+      format: 'openai_refresh_token',
+      platform: 'openai',
+      credentials: {
+        refresh_token: openAIContent,
+      },
+    }))
+  })
 })

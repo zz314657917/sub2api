@@ -17,6 +17,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -42,10 +43,41 @@ const (
 	defaultImageCreatorRequestTimeout         = 30 * time.Minute
 	defaultImageCreatorCleanupBatchSize       = 100
 	defaultImageCreatorListTaskLimit          = 20
+	maxImageCreatorTaskCount                  = 8
 	imageCreatorMaxStoredImageBytes     int64 = 25 << 20
 )
 
 var errImageCreatorTaskNotRunnable = errors.New("image creator task is not runnable")
+
+var imageCreatorViewCountPattern = regexp.MustCompile(`(?i)([0-9]{1,5})[[:space:]]*(?:个|张|种|幅)?[[:space:]]*(?:不同的?|different[[:space:]]+)?(?:角度|视角|机位|镜头|angles?|views?|perspectives?)`)
+
+var imageCreatorChineseViewCounts = []struct {
+	word  string
+	count int
+}{
+	{word: "十", count: 10},
+	{word: "九", count: 9},
+	{word: "八", count: 8},
+	{word: "七", count: 7},
+	{word: "六", count: 6},
+	{word: "五", count: 5},
+	{word: "四", count: 4},
+	{word: "三", count: 3},
+	{word: "两", count: 2},
+	{word: "二", count: 2},
+	{word: "一", count: 1},
+}
+
+var imageCreatorAngleLabels = []string{
+	"正面视角",
+	"侧面视角",
+	"背面视角",
+	"俯视远景",
+	"低机位仰视",
+	"近景特写",
+	"广角环境视角",
+	"斜后方三分之四视角",
+}
 
 type ImageCreatorTask struct {
 	ID                     int64               `json:"id"`
@@ -286,6 +318,9 @@ func (s *ImageCreatorService) CreateTask(ctx context.Context, userID int64, inpu
 	if strings.TrimSpace(input.Prompt) == "" {
 		return nil, infraerrors.BadRequest("INVALID_PROMPT", "prompt is required")
 	}
+	if input.Count > maxImageCreatorTaskCount {
+		return nil, infraerrors.BadRequest("INVALID_COUNT", fmt.Sprintf("count must be between 1 and %d", maxImageCreatorTaskCount))
+	}
 
 	apiKey, err := s.apiKeys.GetByID(ctx, input.APIKeyID)
 	if err != nil || apiKey == nil {
@@ -354,8 +389,10 @@ func normalizeCreateTaskInput(input ImageCreatorCreateTaskInput) ImageCreatorCre
 	if input.Count <= 0 {
 		input.Count = 1
 	}
-	if input.Count > 4 {
-		input.Count = 4
+	if input.Count <= 1 {
+		if inferred := inferImageCreatorViewCount(input.Prompt); inferred > input.Count {
+			input.Count = inferred
+		}
 	}
 	return input
 }
@@ -463,10 +500,16 @@ func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *Imag
 	}
 	successCount := 0
 	var lastErr error
-	for i := 1; i <= maxInt(1, task.Count); i++ {
+	generateCount := maxInt(1, task.Count)
+	plannedPrompts := planImageCreatorPrompts(task.Prompt, generateCount)
+	for i := 1; i <= generateCount; i++ {
+		prompt := task.Prompt
+		if i-1 < len(plannedPrompts) {
+			prompt = plannedPrompts[i-1]
+		}
 		assets, err := s.generator.GenerateImage(ctx, ImageCreatorGenerateRequest{
 			Model:                  task.Model,
-			Prompt:                 task.Prompt,
+			Prompt:                 prompt,
 			Size:                   task.Size,
 			Quality:                task.Quality,
 			Count:                  1,
@@ -645,6 +688,78 @@ func imageCreatorTaskErrorMessage(err error) string {
 		return appErr.Message
 	}
 	return err.Error()
+}
+
+func inferImageCreatorViewCount(prompt string) int {
+	text := strings.ToLower(strings.TrimSpace(prompt))
+	if text == "" {
+		return 0
+	}
+	if match := imageCreatorViewCountPattern.FindStringSubmatch(text); len(match) == 2 {
+		n, err := strconv.Atoi(match[1])
+		if err == nil {
+			return n
+		}
+	}
+	viewTerms := []string{"角度", "视角", "机位", "镜头"}
+	countSuffixes := []string{"", "个", "个不同", "个不同的", "种", "种不同", "种不同的", "张", "幅"}
+	for _, candidate := range imageCreatorChineseViewCounts {
+		for _, suffix := range countSuffixes {
+			for _, term := range viewTerms {
+				if strings.Contains(text, candidate.word+suffix+term) {
+					return candidate.count
+				}
+			}
+		}
+	}
+	return 0
+}
+
+func planImageCreatorPrompts(prompt string, count int) []string {
+	count = maxInt(1, count)
+	base := strings.TrimSpace(prompt)
+	prompts := make([]string, count)
+	if count == 1 || !imageCreatorPromptRequestsMultipleViews(base) {
+		for i := range prompts {
+			prompts[i] = base
+		}
+		return prompts
+	}
+	for i := range prompts {
+		label := fmt.Sprintf("第 %d 个角度", i+1)
+		if i < len(imageCreatorAngleLabels) {
+			label = imageCreatorAngleLabels[i]
+		}
+		prompts[i] = fmt.Sprintf("%s\n\n第 %d 张（%s）：只生成一张完整图片，画面只使用这一个镜头角度；不要四宫格、不要拼图、不要分屏、不要在同一张图里展示多个角度。", base, i+1, label)
+	}
+	return prompts
+}
+
+func imageCreatorPromptRequestsMultipleViews(prompt string) bool {
+	text := strings.ToLower(strings.TrimSpace(prompt))
+	if inferImageCreatorViewCount(text) > 1 {
+		return true
+	}
+	triggers := []string{
+		"多个角度",
+		"多个视角",
+		"多角度",
+		"多视角",
+		"不同角度",
+		"不同视角",
+		"不同机位",
+		"multiple angles",
+		"multiple views",
+		"different angles",
+		"different views",
+		"different perspectives",
+	}
+	for _, trigger := range triggers {
+		if strings.Contains(text, trigger) {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *ImageCreatorService) saveReferenceImage(userID int64, taskID int64, data []byte, mimeType string, filename string) (string, error) {

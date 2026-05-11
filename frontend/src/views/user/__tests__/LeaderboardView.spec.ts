@@ -36,6 +36,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.balance': '余额',
     'leaderboard.rank': '排名',
     'leaderboard.myInfo': '我的信息',
+    'leaderboard.costEfficiencyKing': '⭐ 性价比之王',
     'leaderboard.generatedAt': '生成时间',
     'leaderboard.notRanked': '未上榜',
     'leaderboard.dailyReward.title': '每日排名奖励',
@@ -241,6 +242,8 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).toContain('#28')
     expect(wrapper.text()).toContain('Me')
     expect(wrapper.text()).toContain('$7.00')
+    expect(wrapper.text()).not.toContain('$4.25')
+    expect(wrapper.text()).not.toContain('$0.50')
   })
 
   it('shows my info even when the current user is in the top list', async () => {
@@ -259,6 +262,135 @@ describe('LeaderboardView', () => {
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('Alice')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('$11.00')
+  })
+
+  it('hides visible leaderboard spending totals and row amounts', async () => {
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('$3.50')
+    expect(wrapper.text()).not.toContain('$2.50')
+    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('$11.00')
+  })
+
+  it('marks the lowest cost per token user as the value king', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        ranking: [
+          {
+            rank: 1,
+            user_id: 1,
+            display_name: 'Pricey',
+            email_masked: 'p***@example.com',
+            avatar_url: null,
+            actual_cost: 10,
+            requests: 10,
+            tokens: 1000,
+            balance: 1,
+            is_current_user: false,
+          },
+          {
+            rank: 2,
+            user_id: 2,
+            display_name: 'Efficient',
+            email_masked: 'e***@example.com',
+            avatar_url: null,
+            actual_cost: 1,
+            requests: 10,
+            tokens: 2000,
+            balance: 2,
+            is_current_user: false,
+          },
+          {
+            rank: 3,
+            user_id: 3,
+            display_name: 'Free',
+            email_masked: 'f***@example.com',
+            avatar_url: null,
+            actual_cost: 0,
+            requests: 10,
+            tokens: 999999,
+            balance: 3,
+            is_current_user: false,
+          },
+        ],
+        current_user_entry: null,
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const badges = wrapper.findAll('[data-testid="leaderboard-cost-efficiency-king"]')
+    expect(badges).toHaveLength(2)
+    expect(badges.map((badge) => badge.attributes('data-user-id'))).toEqual(['2', '2'])
+    expect(wrapper.text()).toContain('⭐ 性价比之王')
+  })
+
+  it('shows the value king summary in the top stats', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        ranking: [
+          {
+            rank: 1,
+            user_id: 1,
+            display_name: 'Pricey',
+            email_masked: 'p***@example.com',
+            avatar_url: null,
+            actual_cost: 10,
+            requests: 10,
+            tokens: 1000,
+            balance: 1,
+            is_current_user: false,
+          },
+          {
+            rank: 2,
+            user_id: 2,
+            display_name: 'Efficient',
+            email_masked: 'e***@example.com',
+            avatar_url: null,
+            actual_cost: 1,
+            requests: 10,
+            tokens: 2000,
+            balance: 2,
+            is_current_user: false,
+          },
+        ],
+        current_user_entry: null,
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const summary = wrapper.get('[data-testid="leaderboard-cost-efficiency-summary"]')
+    expect(summary.text()).toContain('Efficient')
+    expect(summary.text()).toContain('1M Token = $500.00')
   })
 
   it('renders at most 10 ranking items', async () => {

@@ -32,16 +32,17 @@
 
       <div v-if="leaderboard" class="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div class="card p-5">
-          <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.totalCost') }}</p>
-          <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ formatCurrency(leaderboard.total_actual_cost) }}</p>
-        </div>
-        <div class="card p-5">
           <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.totalRequests') }}</p>
           <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ formatNumber(leaderboard.total_requests) }}</p>
         </div>
         <div class="card p-5">
           <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.totalTokens') }}</p>
           <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ formatNumber(leaderboard.total_tokens) }}</p>
+        </div>
+        <div class="card p-5" data-testid="leaderboard-cost-efficiency-summary">
+          <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.costEfficiencyKing') }}</p>
+          <p class="mt-2 truncate text-2xl font-bold text-gray-900 dark:text-white">{{ costEfficiencyKing?.display_name ?? t('leaderboard.notRanked') }}</p>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ costEfficiencyPerMillionText }}</p>
         </div>
       </div>
 
@@ -72,12 +73,11 @@
           <template v-else>
             <div class="card hidden overflow-hidden md:block">
               <div class="table-wrapper overflow-x-auto">
-                <table class="w-full min-w-[760px] table-fixed">
+                <table class="w-full min-w-[620px] table-fixed">
                   <thead class="bg-gray-50 dark:bg-dark-800">
                     <tr>
                       <th class="w-24 px-5 py-4 text-left text-sm font-medium text-gray-600 dark:text-dark-300">{{ t('leaderboard.rank') }}</th>
                       <th class="px-5 py-4 text-left text-sm font-medium text-gray-600 dark:text-dark-300">{{ t('leaderboard.user') }}</th>
-                      <th class="w-36 px-5 py-4 text-right text-sm font-medium text-gray-600 dark:text-dark-300">{{ t('leaderboard.cost') }}</th>
                       <th class="w-32 px-5 py-4 text-right text-sm font-medium text-gray-600 dark:text-dark-300">{{ t('leaderboard.requests') }}</th>
                       <th class="w-32 px-5 py-4 text-right text-sm font-medium text-gray-600 dark:text-dark-300">{{ t('leaderboard.tokens') }}</th>
                     </tr>
@@ -107,6 +107,14 @@
                           <div class="min-w-0">
                             <div class="flex items-center gap-2">
                               <span class="truncate font-semibold text-gray-900 dark:text-white">{{ item.display_name }}</span>
+                              <span
+                                v-if="isCostEfficiencyKing(item)"
+                                class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:ring-amber-400/40"
+                                data-testid="leaderboard-cost-efficiency-king"
+                                :data-user-id="String(item.user_id)"
+                              >
+                                {{ t('leaderboard.costEfficiencyKing') }}
+                              </span>
                               <span v-if="item.is_current_user" class="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-500/20 dark:text-primary-300">
                                 {{ t('leaderboard.currentUser') }}
                               </span>
@@ -115,7 +123,6 @@
                           </div>
                         </div>
                       </td>
-                      <td class="px-5 py-4 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(item.actual_cost) }}</td>
                       <td class="px-5 py-4 text-right text-gray-700 dark:text-gray-300">{{ formatNumber(item.requests) }}</td>
                       <td class="px-5 py-4 text-right text-gray-700 dark:text-gray-300">{{ formatNumber(item.tokens) }}</td>
                     </tr>
@@ -145,6 +152,14 @@
                           #{{ item.rank }}
                         </span>
                         <p class="truncate font-semibold text-gray-900 dark:text-white">{{ item.display_name }}</p>
+                        <span
+                          v-if="isCostEfficiencyKing(item)"
+                          class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:ring-amber-400/40"
+                          data-testid="leaderboard-cost-efficiency-king"
+                          :data-user-id="String(item.user_id)"
+                        >
+                          {{ t('leaderboard.costEfficiencyKing') }}
+                        </span>
                         <span v-if="item.is_current_user" class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-500/20 dark:text-primary-300">
                           {{ t('leaderboard.currentUser') }}
                         </span>
@@ -152,7 +167,6 @@
                       <p class="truncate text-sm text-gray-500 dark:text-gray-400">{{ item.email_masked }}</p>
                     </div>
                   </div>
-                  <p class="shrink-0 text-right font-semibold text-gray-900 dark:text-white">{{ formatCurrency(item.actual_cost) }}</p>
                 </div>
                 <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div class="rounded-lg bg-gray-50 p-3 dark:bg-dark-800">
@@ -179,10 +193,6 @@
               <p v-if="myEntry" class="truncate text-sm text-gray-500 dark:text-gray-400">{{ myEntry.email_masked }}</p>
             </div>
             <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div class="rounded-lg bg-white/70 p-3 dark:bg-dark-800/70">
-                <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.cost') }}</p>
-                <p class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(myEntry?.actual_cost ?? 0) }}</p>
-              </div>
               <div class="rounded-lg bg-white/70 p-3 dark:bg-dark-800/70">
                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.balance') }}</p>
                 <p class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(myEntry?.balance ?? 0) }}</p>
@@ -297,6 +307,28 @@ const periodOptions = computed(() => [
 ])
 
 const rankingItems = computed<UserLeaderboardItem[]>(() => (leaderboard.value?.ranking ?? []).slice(0, leaderboardLimit))
+const costEfficiencyKing = computed<UserLeaderboardItem | null>(() => {
+  let bestItem: UserLeaderboardItem | null = null
+  let bestCostPerToken = Number.POSITIVE_INFINITY
+
+  for (const item of rankingItems.value) {
+    if (item.actual_cost <= 0 || item.tokens <= 0) continue
+
+    const costPerToken = item.actual_cost / item.tokens
+    if (costPerToken < bestCostPerToken) {
+      bestCostPerToken = costPerToken
+      bestItem = item
+    }
+  }
+
+  return bestItem
+})
+const costEfficiencyKingUserId = computed(() => costEfficiencyKing.value?.user_id ?? null)
+const costEfficiencyPerMillionText = computed(() => {
+  const item = costEfficiencyKing.value
+  if (!item) return '-'
+  return `1M Token = ${formatCurrency((item.actual_cost / item.tokens) * 1_000_000)}`
+})
 const dailyRewards = computed<LeaderboardDailyRewards | null>(() => leaderboard.value?.daily_rewards ?? null)
 const myEntry = computed<UserLeaderboardItem | null>(() => {
   if (leaderboard.value?.current_user_entry) return leaderboard.value.current_user_entry
@@ -418,6 +450,10 @@ function getInitial(name: string): string {
 function formatRewardRankLabel(rank: number): string {
   if (!rank || rank <= 0) return t('leaderboard.notRanked')
   return t('leaderboard.dailyReward.rankLabel', { rank })
+}
+
+function isCostEfficiencyKing(item: UserLeaderboardItem): boolean {
+  return costEfficiencyKingUserId.value === item.user_id
 }
 
 function rankBadgeClass(rank: number): string {

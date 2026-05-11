@@ -136,6 +136,21 @@ describe('ImageCreatorView', () => {
     expect(wrapper.text()).toContain('imageCreator.generatingTitle')
   })
 
+  it('clamps image count to the frontend maximum before creating a task', async () => {
+    const wrapper = mountView()
+
+    await flushPromises()
+    await wrapper.find('textarea').setValue('draw many persisted images')
+    await wrapper.find('input[type="number"]').setValue('100')
+    await wrapper.find('button.btn-primary').trigger('click')
+    await flushPromises()
+
+    expect(createImageTask).toHaveBeenCalledTimes(1)
+    expect(createImageTask.mock.calls[0][0]).toMatchObject({
+      count: 8,
+    })
+  })
+
   it('restores a running task on page load and shows the completed image after polling', async () => {
     const image = makeImage()
     listImageTasks.mockResolvedValue({

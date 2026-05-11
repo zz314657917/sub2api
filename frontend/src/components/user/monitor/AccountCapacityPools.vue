@@ -1,5 +1,5 @@
 <template>
-  <section class="mb-5 grid gap-4 lg:grid-cols-2" data-testid="account-capacity-pools">
+  <section class="mb-5 grid gap-4" data-testid="account-capacity-pools">
     <article
       v-for="pool in orderedPools"
       :key="pool.key"
@@ -98,7 +98,7 @@ const orderedPools = computed<UserAccountCapacityPool[]>(() => {
   if (!props.pools) {
     return []
   }
-  return [props.pools.mine, props.pools.shared].filter(Boolean)
+  return [props.pools.mine].filter(Boolean)
 })
 
 function poolTitle(pool: UserAccountCapacityPool): string {

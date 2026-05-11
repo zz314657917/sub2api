@@ -1,0 +1,81 @@
+.pixel-glyph {
+  --pixel-glyph-on: #f5f3ff;
+  --pixel-glyph-accent: #aab4d8;
+  --pixel-glyph-glow: rgba(124, 92, 255, 0.16);
+  display: inline-block;
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  image-rendering: pixelated;
+  overflow: visible;
+  filter: drop-shadow(0 1px 0 rgba(18, 9, 45, 0.75))
+    drop-shadow(0 0 6px var(--pixel-glyph-glow));
+}
+
+.pixel-glyph--xs {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.pixel-glyph--sm {
+  width: 0.875rem;
+  height: 0.875rem;
+}
+
+.pixel-glyph--md,
+.pixel-glyph--nav {
+  width: 1rem;
+  height: 1rem;
+}
+
+.pixel-glyph--lg {
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.pixel-glyph--xl {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+.pixel-glyph--muted {
+  --pixel-glyph-on: #d8d4ff;
+  --pixel-glyph-accent: #9db4c8;
+  --pixel-glyph-glow: rgba(125, 140, 180, 0.16);
+}
+
+.pixel-glyph--green {
+  --pixel-glyph-on: #eefbf3;
+  --pixel-glyph-accent: #88b99c;
+  --pixel-glyph-glow: rgba(74, 150, 105, 0.16);
+}
+
+.pixel-glyph--yellow {
+  --pixel-glyph-on: #fff8df;
+  --pixel-glyph-accent: #c9a86c;
+  --pixel-glyph-glow: rgba(180, 132, 56, 0.16);
+}
+
+.pixel-glyph--blue {
+  --pixel-glyph-on: #eef6ff;
+  --pixel-glyph-accent: #8aa6ca;
+  --pixel-glyph-glow: rgba(80, 120, 180, 0.16);
+}
+
+.pixel-glyph--danger {
+  --pixel-glyph-on: #fff1f2;
+  --pixel-glyph-accent: #c98a98;
+  --pixel-glyph-glow: rgba(180, 65, 88, 0.14);
+}
+
+.pixel-glyph__pixel {
+  fill: transparent;
+}
+
+.pixel-glyph__pixel--1 {
+  fill: var(--pixel-glyph-on);
+}
+
+.pixel-glyph__pixel--2 {
+  fill: var(--pixel-glyph-accent);
+}

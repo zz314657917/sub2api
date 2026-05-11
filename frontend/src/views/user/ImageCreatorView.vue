@@ -73,7 +73,7 @@
                 v-model.number="count"
                 type="number"
                 min="1"
-                max="4"
+                :max="maxImageCount"
                 class="input"
               />
             </div>
@@ -311,6 +311,7 @@ const model = ref('gpt-image-2')
 const prompt = ref('')
 const size = ref('auto')
 const count = ref(1)
+const maxImageCount = 8
 const quality = ref('auto')
 const outputFormat = ref<ImageCreatorOutputFormat>('png')
 const background = ref('auto')
@@ -424,7 +425,7 @@ function clearPrompt(): void {
 function clampCount(): number {
   const n = Number(count.value)
   if (!Number.isFinite(n)) return 1
-  return Math.min(Math.max(Math.trunc(n), 1), 4)
+  return Math.min(Math.max(Math.trunc(n), 1), maxImageCount)
 }
 
 function startGenerationTimer(): void {

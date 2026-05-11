@@ -254,10 +254,12 @@ type fakeImageGenerator struct {
 	results []GeneratedImageAsset
 	err     error
 	calls   int
+	inputs  []ImageCreatorGenerateRequest
 }
 
 func (g *fakeImageGenerator) GenerateImage(_ context.Context, input ImageCreatorGenerateRequest, _ string) ([]GeneratedImageAsset, error) {
 	g.calls++
+	g.inputs = append(g.inputs, input)
 	if g.err != nil {
 		return nil, g.err
 	}
@@ -310,6 +312,100 @@ func TestImageCreatorServiceCreateTaskRejectsDisabledImageGenerationGroup(t *tes
 	require.Error(t, err)
 	require.True(t, infraerrors.IsForbidden(err), "expected forbidden error, got %v", err)
 	require.Empty(t, repo.tasks)
+}
+
+func TestImageCreatorServiceCreateTaskRejectsTooManyImages(t *testing.T) {
+	repo := newFakeImageCreatorRepo()
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
+		ID:     10,
+		UserID: 42,
+		Status: StatusAPIKeyActive,
+		Group:  &Group{Platform: PlatformOpenAI, Status: StatusActive, AllowImageGeneration: true},
+	}}, &fakeImageGenerator{}, ImageCreatorServiceOptions{})
+
+	_, err := svc.CreateTask(context.Background(), 42, ImageCreatorCreateTaskInput{
+		APIKeyID:     10,
+		Model:        "gpt-image-2",
+		Prompt:       "too many images",
+		Count:        9,
+		OutputFormat: "png",
+	})
+
+	require.Error(t, err)
+	require.True(t, infraerrors.IsBadRequest(err), "expected bad request error, got %v", err)
+	require.Equal(t, "INVALID_COUNT", infraerrors.Reason(err))
+	require.Empty(t, repo.tasks)
+}
+
+func TestImageCreatorServiceCreateTaskInfersMultiAngleCountFromPrompt(t *testing.T) {
+	repo := newFakeImageCreatorRepo()
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
+		ID:     10,
+		UserID: 42,
+		Status: StatusAPIKeyActive,
+		Group:  &Group{Platform: PlatformOpenAI, Status: StatusActive, AllowImageGeneration: true},
+	}}, &fakeImageGenerator{}, ImageCreatorServiceOptions{
+		DisableAsyncOnCreate: true,
+	})
+
+	task, err := svc.CreateTask(context.Background(), 42, ImageCreatorCreateTaskInput{
+		APIKeyID:     10,
+		Model:        "gpt-image-2",
+		Prompt:       "生成特朗普跳河的四个角度的图片",
+		Count:        1,
+		OutputFormat: "png",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 4, task.Count)
+	require.Equal(t, 4, repo.tasks[task.ID].Count)
+}
+
+func TestImageCreatorServiceProcessTaskSplitsMultiAnglePrompt(t *testing.T) {
+	dir := t.TempDir()
+	repo := newFakeImageCreatorRepo()
+	generator := &fakeImageGenerator{results: []GeneratedImageAsset{
+		{Data: []byte("front"), OutputFormat: "png"},
+		{Data: []byte("side"), OutputFormat: "png"},
+		{Data: []byte("rear"), OutputFormat: "png"},
+		{Data: []byte("overhead"), OutputFormat: "png"},
+	}}
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
+		ID:     10,
+		UserID: 42,
+		Key:    "sk-test",
+		Status: StatusAPIKeyActive,
+		Group:  &Group{Platform: PlatformOpenAI, Status: StatusActive, AllowImageGeneration: true},
+	}}, generator, ImageCreatorServiceOptions{
+		StorageDir:           dir,
+		MaxSavedImages:       8,
+		Retention:            7 * 24 * time.Hour,
+		AutoStartWorker:      false,
+		DisableAsyncOnCreate: true,
+	})
+
+	task, err := svc.CreateTask(context.Background(), 42, ImageCreatorCreateTaskInput{
+		APIKeyID:     10,
+		Model:        "gpt-image-2",
+		Prompt:       "生成特朗普跳河的四个角度的图片",
+		Count:        4,
+		OutputFormat: "png",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, svc.ProcessTask(context.Background(), task.ID))
+
+	require.Equal(t, 4, generator.calls)
+	require.Len(t, generator.inputs, 4)
+	require.Contains(t, generator.inputs[0].Prompt, "正面视角")
+	require.Contains(t, generator.inputs[1].Prompt, "侧面视角")
+	require.Contains(t, generator.inputs[2].Prompt, "背面视角")
+	require.Contains(t, generator.inputs[3].Prompt, "俯视远景")
+	for _, input := range generator.inputs {
+		require.Contains(t, input.Prompt, "只生成一张完整图片")
+		require.Contains(t, input.Prompt, "不要四宫格")
+	}
+	require.NotEqual(t, generator.inputs[0].Prompt, generator.inputs[1].Prompt)
 }
 
 func TestImageCreatorServiceProcessTaskPersistsOnlyLatestThreeImages(t *testing.T) {

@@ -83,14 +83,14 @@ describe('ChannelStatusView capacity pools', () => {
     }
   })
 
-  it('loads and renders capacity pools when account sharing is enabled', async () => {
+  it('loads and renders only my capacity pool when account sharing is enabled', async () => {
     const wrapper = mountView()
 
     await flushPromises()
 
     expect(fetchCapacityPools).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('channelStatus.capacityPools.mine')
-    expect(wrapper.text()).toContain('channelStatus.capacityPools.shared')
+    expect(wrapper.text()).not.toContain('channelStatus.capacityPools.shared')
   })
 
   it('does not request or render capacity pools when account sharing is disabled', async () => {

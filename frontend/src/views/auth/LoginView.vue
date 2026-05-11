@@ -1,12 +1,12 @@
 <template>
   <AuthLayout>
-    <div class="space-y-6">
+    <div class="auth-login-form space-y-6">
       <!-- Title -->
       <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+        <h2 class="text-2xl font-black text-white">
           {{ t('auth.welcomeBack') }}
         </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+        <p class="mt-2 text-sm text-violet-100/72">
           {{ t('auth.signInToAccount') }}
         </p>
       </div>
@@ -14,12 +14,12 @@
       <form @submit.prevent="handleLogin" class="space-y-5">
         <!-- Email Input -->
         <div>
-          <label for="email" class="input-label">
+          <label for="email" class="auth-input-label">
             {{ t('auth.emailLabel') }}
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="mail" size="md" class="text-gray-400 dark:text-dark-500" />
+              <Icon name="mail" size="md" class="text-violet-100/62" />
             </div>
             <input
               id="email"
@@ -29,7 +29,7 @@
               autofocus
               autocomplete="email"
               :disabled="authActionDisabled"
-              class="input pl-11"
+              class="auth-input pl-11"
               :class="{ 'input-error': errors.email }"
               :placeholder="t('auth.emailPlaceholder')"
             />
@@ -38,12 +38,12 @@
 
         <!-- Password Input -->
         <div>
-          <label for="password" class="input-label">
+          <label for="password" class="auth-input-label">
             {{ t('auth.passwordLabel') }}
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-gray-400 dark:text-dark-500" />
+              <Icon name="lock" size="md" class="text-violet-100/62" />
             </div>
             <input
               id="password"
@@ -52,7 +52,7 @@
               required
               autocomplete="current-password"
               :disabled="authActionDisabled"
-              class="input pl-11 pr-11"
+              class="auth-input pl-11 pr-11"
               :class="{ 'input-error': errors.password }"
               :placeholder="t('auth.passwordPlaceholder')"
             />
@@ -60,7 +60,7 @@
               type="button"
               @click="showPassword = !showPassword"
               :disabled="authActionDisabled"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-dark-300"
+              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-violet-100/62 transition-colors hover:text-white"
             >
               <Icon v-if="showPassword" name="eyeOff" size="md" />
               <Icon v-else name="eye" size="md" />
@@ -71,7 +71,7 @@
             <router-link
               v-if="passwordResetEnabled && !backendModeEnabled"
               to="/forgot-password"
-              class="text-sm font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+              class="text-sm font-bold text-[#ffd85d] transition-colors hover:text-[#ffec86]"
             >
               {{ t('auth.forgotPassword') }}
             </router-link>
@@ -93,7 +93,7 @@
         <button
           type="submit"
           :disabled="authActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary w-full"
+          class="auth-submit-button w-full"
         >
           <svg
             v-if="isLoading"
@@ -115,7 +115,7 @@
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          <Icon v-else name="login" size="md" class="mr-2" />
+          <PixelIcon v-else name="arrow-right" size="sm" />
           {{ isLoading ? t('auth.signingIn') : t('auth.signIn') }}
         </button>
 
@@ -169,11 +169,11 @@
 
     <!-- Footer -->
     <template v-if="!backendModeEnabled" #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+      <p class="text-violet-100/70">
         {{ t('auth.dontHaveAccount') }}
         <router-link
           to="/register"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="font-black text-[#ffd85d] transition-colors hover:text-[#ffec86]"
         >
           {{ t('auth.signUp') }}
         </router-link>
@@ -204,6 +204,7 @@ import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import TotpLoginModal from '@/components/auth/TotpLoginModal.vue'
 import Icon from '@/components/icons/Icon.vue'
+import PixelIcon from '@/components/icons/PixelIcon.vue'
 import TurnstileWidget from '@/components/TurnstileWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'
 import { getPublicSettings, isTotp2FARequired, isWeChatWebOAuthEnabled } from '@/api/auth'
@@ -544,6 +545,113 @@ function handle2FACancel(): void {
 </script>
 
 <style scoped>
+.auth-input-label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: rgba(245, 239, 255, 0.86);
+  font-size: 0.875rem;
+  font-weight: 800;
+}
+
+.auth-input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 2px solid rgba(255, 255, 255, 0.16);
+  background: rgba(8, 5, 21, 0.34);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.08),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.18);
+  color: white;
+  font-size: 0.875rem;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.auth-input::placeholder {
+  color: rgba(245, 239, 255, 0.42);
+}
+
+.auth-input:focus {
+  border-color: rgba(141, 103, 255, 0.72);
+  background: rgba(8, 5, 21, 0.48);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.1),
+    0 0 0 3px rgba(141, 103, 255, 0.22);
+}
+
+.auth-input.input-error {
+  border-color: rgba(248, 113, 113, 0.9);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 3px rgba(248, 113, 113, 0.18);
+}
+
+.auth-submit-button {
+  display: inline-flex;
+  min-height: 3.1rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 3px solid #153c1e;
+  background: #328033;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
+    0 5px 0 #123118,
+    0 16px 30px rgba(8, 5, 21, 0.32);
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    filter 120ms ease;
+}
+
+.auth-submit-button:hover:not(:disabled) {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
+    0 6px 0 #123118,
+    0 18px 32px rgba(8, 5, 21, 0.36);
+}
+
+.auth-submit-button:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
+    0 2px 0 #123118,
+    0 9px 20px rgba(8, 5, 21, 0.28);
+}
+
+.auth-submit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.auth-submit-button .pixel-glyph {
+  --pixel-glyph-on: rgba(255, 255, 255, 0.94);
+  --pixel-glyph-accent: rgba(205, 231, 214, 0.86);
+  --pixel-glyph-glow: transparent;
+  filter: none;
+}
+
+.auth-login-form :deep(.input-error-text) {
+  color: #fca5a5;
+}
+
+.auth-login-form :deep(.bg-gray-200),
+.auth-login-form :deep(.dark\:bg-dark-700) {
+  background: rgba(255, 255, 255, 0.16);
+}
+
 .fade-enter-active,
 .fade-leave-active {
   transition: all 0.3s ease;

@@ -1,61 +1,40 @@
 <template>
-  <div class="relative flex min-h-screen items-center justify-center overflow-hidden p-4">
-    <!-- Background -->
-    <div
-      class="absolute inset-0 bg-gradient-to-br from-gray-50 via-primary-50/30 to-gray-100 dark:from-dark-950 dark:via-dark-900 dark:to-dark-950"
-    ></div>
-
-    <!-- Decorative Elements -->
-    <div class="pointer-events-none absolute inset-0 overflow-hidden">
-      <!-- Gradient Orbs -->
-      <div
-        class="absolute -right-40 -top-40 h-80 w-80 rounded-full bg-primary-400/20 blur-3xl"
-      ></div>
-      <div
-        class="absolute -bottom-40 -left-40 h-80 w-80 rounded-full bg-primary-500/15 blur-3xl"
-      ></div>
-      <div
-        class="absolute left-1/2 top-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary-300/10 blur-3xl"
-      ></div>
-
-      <!-- Grid Pattern -->
-      <div
-        class="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.03)_1px,transparent_1px)] bg-[size:64px_64px]"
-      ></div>
-    </div>
+  <div class="auth-pixel-bg relative flex min-h-screen items-center justify-center overflow-hidden p-4 text-white">
+    <div class="auth-blur-field pointer-events-none absolute inset-0"></div>
+    <div class="auth-noise pointer-events-none absolute inset-0"></div>
 
     <!-- Content Container -->
     <div class="relative z-10 w-full max-w-md">
       <!-- Logo/Brand -->
-      <div class="mb-8 text-center">
+      <div class="mb-7 text-center">
         <!-- Custom Logo or Default Logo -->
         <template v-if="settingsLoaded">
           <div
-            class="mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden rounded-2xl shadow-lg shadow-primary-500/30"
+            class="mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden border border-white/20 bg-white/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_14px_26px_rgba(8,5,21,0.26)]"
           >
             <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
           </div>
-          <h1 class="text-gradient mb-2 text-3xl font-bold">
+          <h1 class="auth-brand-title mb-2 text-3xl font-black">
             {{ siteName }}
           </h1>
-          <p class="text-sm text-gray-500 dark:text-dark-400">
+          <p class="text-sm font-medium text-violet-100/72">
             {{ siteSubtitle }}
           </p>
         </template>
       </div>
 
       <!-- Card Container -->
-      <div class="card-glass rounded-2xl p-8 shadow-glass">
+      <div class="auth-panel p-8">
         <slot />
       </div>
 
       <!-- Footer Links -->
-      <div class="mt-6 text-center text-sm">
+      <div class="auth-footer mt-6 text-center text-sm">
         <slot name="footer" />
       </div>
 
       <!-- Copyright -->
-      <div class="mt-8 text-center text-xs text-gray-400 dark:text-dark-500">
+      <div class="mt-8 text-center text-xs text-violet-100/48">
         &copy; {{ currentYear }} {{ siteName }}. All rights reserved.
       </div>
     </div>
@@ -71,7 +50,13 @@ const appStore = useAppStore()
 
 const siteName = computed(() => appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
-const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || 'Subscription to API Conversion Platform')
+const siteSubtitle = computed(() => {
+  const subtitle = appStore.cachedPublicSettings?.site_subtitle?.trim()
+  if (!subtitle || subtitle === 'Subscription to API Conversion Platform') {
+    return '智能编码国内解决方案'
+  }
+  return subtitle
+})
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
 
 const currentYear = computed(() => new Date().getFullYear())
@@ -82,7 +67,57 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.text-gradient {
-  @apply bg-gradient-to-r from-primary-600 to-primary-500 bg-clip-text text-transparent;
+.auth-pixel-bg {
+  background:
+    radial-gradient(circle at 50% 38%, rgba(169, 109, 255, 0.16) 0, transparent 34%),
+    radial-gradient(circle at 18% 22%, rgba(105, 86, 255, 0.26) 0, transparent 30%),
+    radial-gradient(circle at 82% 28%, rgba(168, 75, 255, 0.2) 0, transparent 28%),
+    linear-gradient(180deg, #120b35 0%, #160932 48%, #080515 100%);
+}
+
+.auth-blur-field {
+  background:
+    radial-gradient(ellipse at 50% 32%, rgba(197, 118, 255, 0.28), transparent 36%),
+    radial-gradient(ellipse at 34% 22%, rgba(74, 86, 255, 0.22), transparent 28%),
+    radial-gradient(ellipse at 70% 24%, rgba(117, 41, 199, 0.28), transparent 30%),
+    radial-gradient(ellipse at 54% 80%, rgba(77, 223, 255, 0.1), transparent 28%);
+  filter: blur(44px);
+  opacity: 0.94;
+  transform: scale(1.05);
+}
+
+.auth-noise {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+  background-size: 54px 54px;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.56), transparent 80%);
+  opacity: 0.36;
+}
+
+.auth-brand-title {
+  color: transparent;
+  background: linear-gradient(98deg, #ffffff 0%, #c4a5ff 42%, #74d5ff 78%, #ffffff 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.auth-panel {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.09);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 18px 44px rgba(8, 5, 21, 0.32);
+  backdrop-filter: blur(20px);
+}
+
+.auth-footer :deep(a) {
+  color: #ffd85d;
+  font-weight: 800;
+}
+
+.auth-footer :deep(a:hover) {
+  color: #ffec86;
 }
 </style>
