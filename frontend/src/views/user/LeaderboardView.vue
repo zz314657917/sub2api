@@ -119,7 +119,9 @@
                                 {{ t('leaderboard.currentUser') }}
                               </span>
                             </div>
-                            <p class="truncate text-sm text-gray-500 dark:text-gray-400">{{ item.email_masked }}</p>
+                            <p v-if="shouldShowAccountHint(item)" class="truncate text-sm text-gray-500 dark:text-gray-400">
+                              {{ item.email_masked }}
+                            </p>
                           </div>
                         </div>
                       </td>
@@ -164,7 +166,9 @@
                           {{ t('leaderboard.currentUser') }}
                         </span>
                       </div>
-                      <p class="truncate text-sm text-gray-500 dark:text-gray-400">{{ item.email_masked }}</p>
+                      <p v-if="shouldShowAccountHint(item)" class="truncate text-sm text-gray-500 dark:text-gray-400">
+                        {{ item.email_masked }}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -190,7 +194,9 @@
               <p class="truncate text-xl font-bold text-gray-900 dark:text-white">
                 {{ myRankLabel }} {{ myDisplayName }}
               </p>
-              <p v-if="myEntry" class="truncate text-sm text-gray-500 dark:text-gray-400">{{ myEntry.email_masked }}</p>
+              <p v-if="myEntry && shouldShowAccountHint(myEntry)" class="truncate text-sm text-gray-500 dark:text-gray-400">
+                {{ myEntry.email_masked }}
+              </p>
             </div>
             <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
               <div class="rounded-lg bg-white/70 p-3 dark:bg-dark-800/70">
@@ -445,6 +451,16 @@ function dateLabel(value: string): string {
 
 function getInitial(name: string): string {
   return (name || '?').trim().slice(0, 1).toUpperCase()
+}
+
+function normalizeIdentityText(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, '')
+}
+
+function shouldShowAccountHint(item: UserLeaderboardItem): boolean {
+  const displayName = normalizeIdentityText(item.display_name || '')
+  const emailMasked = normalizeIdentityText(item.email_masked || '')
+  return Boolean(emailMasked && displayName !== emailMasked)
 }
 
 function formatRewardRankLabel(rank: number): string {
