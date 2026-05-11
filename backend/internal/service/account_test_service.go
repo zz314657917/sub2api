@@ -764,6 +764,8 @@ func (s *AccountTestService) reconcileOpenAI429State(ctx context.Context, accoun
 		return
 	}
 
+	persistOpenAI429PlanType(ctx, s.accountRepo, account, body)
+
 	if snapshot := ParseCodexRateLimitHeaders(headers); snapshot != nil {
 		now := time.Now()
 		updates := buildCodexUsageExtraUpdates(snapshot, now)

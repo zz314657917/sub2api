@@ -378,6 +378,8 @@ const baseSettingsResponse = {
   enable_metadata_passthrough: false,
   enable_cch_signing: false,
   enable_anthropic_cache_ttl_1h_injection: false,
+  rewrite_message_cache_control: false,
+  antigravity_user_agent_version: "",
   payment_enabled: true,
   payment_min_amount: 1,
   payment_max_amount: 10000,
@@ -670,6 +672,46 @@ describe("admin SettingsView payment visible method controls", () => {
         leaderboard_daily_reward_rank_1_amount: 9,
         leaderboard_daily_reward_rank_2_amount: 0,
         leaderboard_daily_reward_rank_3_amount: 3,
+      }),
+    );
+  });
+
+  it("submits message cache_control rewrite gateway setting", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      rewrite_message_cache_control: true,
+    });
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        rewrite_message_cache_control: true,
+      }),
+    );
+  });
+
+  it("submits Antigravity user agent version gateway setting", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      antigravity_user_agent_version: "1.23.2",
+    });
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        antigravity_user_agent_version: "1.23.2",
       }),
     );
   });
