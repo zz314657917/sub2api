@@ -14,26 +14,42 @@
 
   <!-- Default Home Page -->
   <div v-else class="home-violet-bg relative min-h-screen overflow-hidden text-white">
+    <div class="home-matrix-rain pointer-events-none absolute inset-0" aria-hidden="true">
+      <span
+        v-for="column in matrixColumns"
+        :key="column.left"
+        class="home-matrix-column"
+        :style="{
+          left: column.left,
+          animationDelay: column.delay,
+          animationDuration: column.duration
+        }"
+      >
+        {{ column.text }}
+      </span>
+    </div>
     <div class="home-blur-field pointer-events-none absolute inset-0"></div>
     <div class="home-noise pointer-events-none absolute inset-0"></div>
 
-    <header class="relative z-20 px-4 pt-4 sm:px-6 sm:pt-5">
-      <nav
-        class="mx-auto flex h-14 max-w-6xl items-center justify-between border border-white/14 bg-white/[0.07] px-3 shadow-[0_12px_32px_rgba(13,8,35,0.22)] backdrop-blur-xl sm:px-4"
-      >
-        <div class="flex min-w-0 items-center gap-3">
-          <div
-            class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden border border-white/20 bg-white/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"
-          >
+    <header class="home-top-shell relative z-20">
+      <nav class="home-top-nav mx-auto max-w-6xl">
+        <router-link to="/" class="home-brand">
+          <span class="home-brand-logo">
             <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
-          </div>
-          <span class="truncate text-sm font-bold tracking-normal text-white sm:text-base">
-            {{ siteName }}
           </span>
-        </div>
+          <span class="min-w-0">
+            <span class="block truncate text-sm font-black tracking-normal text-white sm:text-base">
+              {{ siteName }}
+            </span>
+          </span>
+        </router-link>
 
         <div class="flex items-center gap-1.5 sm:gap-2">
-          <LocaleSwitcher />
+          <router-link to="#features" class="home-nav-text hidden lg:inline-flex">
+            {{ t('home.navFeatures') }}
+          </router-link>
+
+          <LocaleSwitcher class="home-locale-switcher" />
 
           <a
             v-if="docUrl"
@@ -58,11 +74,11 @@
           <router-link
             v-if="isAuthenticated"
             :to="dashboardPath"
-            class="home-nav-button hidden sm:inline-flex"
+            class="home-nav-button"
           >
             {{ t('home.dashboard') }}
           </router-link>
-          <router-link v-else to="/login" class="home-nav-button hidden sm:inline-flex">
+          <router-link v-else to="/login" class="home-nav-button">
             {{ t('home.login') }}
           </router-link>
         </div>
@@ -80,8 +96,8 @@
           <h1
             class="home-title-sweep max-w-4xl text-[2.95rem] font-black leading-[0.98] tracking-normal text-white sm:text-[4.45rem] lg:text-[5.75rem]"
           >
-            <span class="home-title-line block">{{ t('home.heroTitleTop') }}</span>
-            <span class="home-title-line home-title-fill block">{{ t('home.heroTitleBottom') }}</span>
+            <span class="home-title-line home-title-fill block">{{ t('home.heroTitleTop') }}</span>
+            <span class="home-title-line block">{{ t('home.heroTitleBottom') }}</span>
           </h1>
 
           <p
@@ -109,15 +125,9 @@
             </a>
           </div>
 
-          <div class="mt-5 flex flex-wrap items-center justify-center gap-2.5 text-xs text-violet-50/78 sm:mt-6">
-            <span v-for="tag in heroTags" :key="tag.label" class="home-chip">
-              <PixelIcon :name="tag.icon" size="xs" />
-              {{ tag.label }}
-            </span>
-          </div>
         </div>
 
-        <div class="grid gap-3 md:grid-cols-3">
+        <div id="features" class="grid scroll-mt-24 gap-3 md:grid-cols-3">
           <article v-for="item in featureCards" :key="item.title" class="home-feature-card">
             <div class="home-feature-icon-frame">
               <PixelIcon :name="item.icon" size="md" />
@@ -153,8 +163,14 @@ import PixelIcon from '@/components/icons/PixelIcon.vue'
 import type { PixelIconName } from '@/components/icons/pixelIconTypes'
 
 type FeatureIconName = Extract<PixelIconName, 'key' | 'shield' | 'usage'>
-type HeroTagIconName = Extract<PixelIconName, 'link' | 'team' | 'usage' | 'spark'>
 type PrimaryActionIconName = Extract<PixelIconName, 'dashboard' | 'gift'>
+
+type MatrixColumn = {
+  left: string
+  delay: string
+  duration: string
+  text: string
+}
 
 const { t } = useI18n()
 
@@ -168,12 +184,23 @@ const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
 const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
 
-const heroTags = computed<Array<{ icon: HeroTagIconName; label: string }>>(() => [
-  { icon: 'link', label: t('home.tags.directConnect') },
-  { icon: 'team', label: t('home.tags.teamReady') },
-  { icon: 'usage', label: t('home.tags.clearUsage') },
-  { icon: 'spark', label: t('home.tags.routing') }
-])
+const matrixSeeds = [
+  '01APIKEYCHATGPTCODEX',
+  'MODELROUTER0101TOKEN',
+  'PROXYDIRECTGPT01010',
+  'TEAMKEYCODE110010',
+  'OPENAIACCESS10101',
+  'STREAMJSON01011',
+  'LATENCYLOW00110',
+  'QUOTAUSAGE10100'
+]
+
+const matrixColumns: MatrixColumn[] = Array.from({ length: 34 }, (_, index) => ({
+  left: `${(index * 3.15) % 101}%`,
+  delay: `${-(index % 11) * 0.72}s`,
+  duration: `${8 + (index % 7) * 1.15}s`,
+  text: matrixSeeds[index % matrixSeeds.length]
+}))
 
 const featureCards = computed<Array<{ icon: FeatureIconName; title: string; description: string }>>(() => [
   {
@@ -259,48 +286,212 @@ onMounted(() => {
 <style scoped>
 .home-violet-bg {
   background:
-    radial-gradient(circle at 50% 42%, rgba(169, 109, 255, 0.18) 0, transparent 34%),
-    radial-gradient(circle at 18% 20%, rgba(105, 86, 255, 0.28) 0, transparent 30%),
-    radial-gradient(circle at 82% 28%, rgba(168, 75, 255, 0.22) 0, transparent 28%),
-    radial-gradient(circle at 48% 88%, rgba(62, 215, 255, 0.13) 0, transparent 32%),
-    linear-gradient(180deg, #120b35 0%, #160932 48%, #080515 100%);
+    radial-gradient(circle at 50% 38%, rgba(74, 255, 147, 0.13) 0, transparent 34%),
+    radial-gradient(circle at 18% 20%, rgba(105, 86, 255, 0.16) 0, transparent 30%),
+    radial-gradient(circle at 82% 28%, rgba(88, 255, 158, 0.12) 0, transparent 30%),
+    radial-gradient(circle at 48% 88%, rgba(62, 215, 255, 0.09) 0, transparent 32%),
+    linear-gradient(180deg, #050914 0%, #08110f 48%, #03060a 100%);
+}
+
+.home-matrix-rain {
+  overflow: hidden;
+  opacity: 0.62;
+  mix-blend-mode: screen;
+  mask-image:
+    linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.92) 10%, rgba(0, 0, 0, 0.74) 46%, rgba(0, 0, 0, 0.22) 78%, transparent 100%),
+    radial-gradient(circle at 50% 32%, transparent 0%, rgba(0, 0, 0, 0.78) 38%, rgba(0, 0, 0, 0.98) 100%);
+  -webkit-mask-image:
+    linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.92) 10%, rgba(0, 0, 0, 0.74) 46%, rgba(0, 0, 0, 0.22) 78%, transparent 100%),
+    radial-gradient(circle at 50% 32%, transparent 0%, rgba(0, 0, 0, 0.78) 38%, rgba(0, 0, 0, 0.98) 100%);
+}
+
+.home-matrix-rain::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(64, 255, 145, 0.1), transparent 38%),
+    linear-gradient(90deg, transparent, rgba(87, 255, 151, 0.06), transparent);
+  filter: blur(18px);
+}
+
+.home-matrix-column {
+  position: absolute;
+  top: -80vh;
+  display: block;
+  width: 1ch;
+  background: linear-gradient(
+    to bottom,
+    rgba(202, 255, 212, 0.96) 0%,
+    rgba(60, 255, 91, 0.82) 18%,
+    rgba(42, 225, 68, 0.48) 56%,
+    rgba(16, 145, 41, 0.14) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', monospace;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.05;
+  text-shadow:
+    0 0 7px rgba(89, 255, 146, 0.62),
+    0 0 18px rgba(24, 206, 94, 0.24);
+  white-space: normal;
+  word-break: break-all;
+  animation: matrix-rain-fall linear infinite;
+}
+
+.home-matrix-column:nth-child(3n) {
+  background-image: linear-gradient(
+    to bottom,
+    rgba(239, 255, 242, 0.98) 0%,
+    rgba(82, 255, 105, 0.86) 22%,
+    rgba(33, 210, 62, 0.42) 62%,
+    rgba(12, 112, 31, 0.1) 100%
+  );
+  font-size: 0.72rem;
+}
+
+.home-matrix-column:nth-child(4n) {
+  opacity: 0.56;
+}
+
+@keyframes matrix-rain-fall {
+  0% {
+    transform: translate3d(0, -10vh, 0);
+  }
+  100% {
+    transform: translate3d(0, 190vh, 0);
+  }
 }
 
 .home-blur-field {
   background:
-    radial-gradient(ellipse at 50% 34%, rgba(197, 118, 255, 0.3), transparent 36%),
-    radial-gradient(ellipse at 35% 22%, rgba(74, 86, 255, 0.24), transparent 28%),
-    radial-gradient(ellipse at 70% 24%, rgba(117, 41, 199, 0.3), transparent 30%),
-    radial-gradient(ellipse at 55% 78%, rgba(77, 223, 255, 0.11), transparent 28%);
-  filter: blur(46px);
-  opacity: 0.92;
+    radial-gradient(ellipse at 50% 34%, rgba(52, 255, 128, 0.18), transparent 34%),
+    radial-gradient(ellipse at 35% 22%, rgba(70, 80, 210, 0.14), transparent 28%),
+    radial-gradient(ellipse at 70% 24%, rgba(45, 178, 105, 0.18), transparent 30%),
+    radial-gradient(ellipse at 55% 78%, rgba(77, 223, 255, 0.07), transparent 28%);
+  filter: blur(52px);
+  opacity: 0.86;
   transform: scale(1.05);
 }
 
 .home-noise {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    linear-gradient(rgba(102, 255, 161, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(102, 255, 161, 0.028) 1px, transparent 1px);
   background-size: 54px 54px;
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent 78%);
   opacity: 0.36;
 }
 
-.home-icon-button {
+.home-top-shell {
+  width: 100%;
+  border-bottom: 1px solid rgba(220, 215, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    rgba(4, 3, 16, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 16px 42px rgba(3, 2, 12, 0.22);
+  backdrop-filter: blur(18px);
+}
+
+.home-top-nav {
+  display: flex;
+  min-height: 3.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 1rem;
+}
+
+.home-brand {
   display: inline-flex;
-  height: 2.25rem;
-  width: 2.25rem;
+  min-width: 0;
+  align-items: center;
+  gap: 0.78rem;
+  color: white;
+}
+
+.home-brand-logo {
+  display: inline-flex;
+  height: 2.2rem;
+  width: 2.2rem;
+  flex: 0 0 2.2rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  overflow: hidden;
+  border: 1px solid rgba(180, 189, 255, 0.34);
+  background:
+    linear-gradient(180deg, rgba(118, 96, 210, 0.48), rgba(35, 29, 84, 0.56)),
+    rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 1px rgba(9, 6, 32, 0.4),
+    0 8px 18px rgba(6, 4, 24, 0.28);
+  padding: 0.22rem;
+}
+
+.home-nav-text {
+  align-items: center;
+  min-height: 2.35rem;
+  color: rgba(226, 221, 247, 0.66);
+  font-size: 0.78rem;
+  font-weight: 800;
+  transition: color 150ms ease;
+}
+
+.home-nav-text:hover {
+  color: white;
+}
+
+.home-locale-switcher :deep(button) {
+  border-radius: 0;
+  min-height: 2.35rem;
+  padding: 0.35rem 0.45rem;
+  color: rgba(232, 228, 255, 0.62);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.home-locale-switcher :deep(button:hover) {
   background: rgba(255, 255, 255, 0.08);
+  color: white;
+}
+
+.home-locale-switcher :deep(.absolute) {
+  border-radius: 0;
+  border-color: rgba(206, 198, 255, 0.22);
+  background: rgba(18, 12, 45, 0.94);
+  color: white;
+  backdrop-filter: blur(16px);
+}
+
+.home-icon-button {
+  display: inline-flex;
+  height: 2.35rem;
+  width: 2.35rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(229, 224, 255, 0.2);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.045)),
+    rgba(97, 79, 171, 0.34);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
+    0 7px 16px rgba(5, 3, 18, 0.22);
   color: rgba(255, 255, 255, 0.82);
   transition: all 160ms ease;
 }
 
 .home-icon-button:hover {
-  border-color: rgba(255, 255, 255, 0.28);
-  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.38);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06)),
+    rgba(118, 97, 196, 0.46);
   color: white;
 }
 
@@ -315,18 +506,42 @@ onMounted(() => {
 .home-nav-button {
   align-items: center;
   justify-content: center;
-  min-height: 2.25rem;
+  min-height: 2.35rem;
   border: 2px solid #153c1e;
   background: linear-gradient(#6fbf43, #328033);
   box-shadow:
     inset 0 2px 0 rgba(255, 255, 255, 0.24),
     inset 0 -3px 0 rgba(0, 0, 0, 0.24),
-    0 4px 0 #123118;
-  padding: 0.35rem 0.85rem;
+    0 3px 0 #123118,
+    0 8px 18px rgba(5, 3, 18, 0.24);
+  padding: 0.35rem 0.9rem;
   color: white;
   font-size: 0.75rem;
   font-weight: 800;
   text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  transition:
+    transform 120ms ease,
+    filter 120ms ease,
+    box-shadow 120ms ease;
+}
+
+.home-nav-button:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
+    0 4px 0 #123118,
+    0 10px 20px rgba(5, 3, 18, 0.28);
+}
+
+.home-nav-button:active {
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -2px 0 rgba(0, 0, 0, 0.22),
+    0 1px 0 #123118,
+    0 6px 14px rgba(5, 3, 18, 0.22);
 }
 
 .home-kicker {
@@ -515,23 +730,6 @@ onMounted(() => {
   filter: none;
 }
 
-.home-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.38rem;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.07);
-  padding: 0.42rem 0.68rem 0.42rem 0.55rem;
-  backdrop-filter: blur(16px);
-}
-
-.home-chip .pixel-glyph {
-  --pixel-glyph-on: rgba(232, 229, 255, 0.86);
-  --pixel-glyph-accent: rgba(174, 183, 214, 0.86);
-  --pixel-glyph-glow: transparent;
-  filter: none;
-}
-
 .home-feature-card {
   display: flex;
   min-height: 6.5rem;
@@ -565,6 +763,43 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
+  .home-top-shell {
+    background:
+      linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
+      rgba(4, 3, 16, 0.7);
+  }
+
+  .home-top-nav {
+    min-height: 3.35rem;
+    gap: 0.55rem;
+    padding: 0.38rem 0.75rem;
+  }
+
+  .home-brand {
+    gap: 0.55rem;
+  }
+
+  .home-brand-logo {
+    height: 2rem;
+    width: 2rem;
+    flex-basis: 2rem;
+  }
+
+  .home-locale-switcher :deep(button) {
+    padding-inline: 0.3rem;
+  }
+
+  .home-icon-button {
+    height: 2.15rem;
+    width: 2.15rem;
+  }
+
+  .home-nav-button {
+    min-height: 2.15rem;
+    padding-inline: 0.62rem;
+    font-size: 0.7rem;
+  }
+
   .home-feature-card {
     min-height: auto;
   }
@@ -583,6 +818,11 @@ onMounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .home-matrix-column {
+    animation: none;
+    transform: translate3d(0, 24vh, 0);
+  }
+
   .home-title-fill {
     animation: none;
     background-position: 54% 50%;

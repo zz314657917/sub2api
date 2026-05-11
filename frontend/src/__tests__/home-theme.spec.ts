@@ -9,8 +9,9 @@ const pixelUi = readFileSync(resolve(process.cwd(), 'src/styles/pixel-ui.css'), 
 
 describe('home page visual direction', () => {
   it('uses the compact coding-solution hero copy', () => {
-    expect(zhLocale).toContain("heroTitleTop: '智能编码'")
-    expect(zhLocale).toContain("heroTitleBottom: '国内解决方案'")
+    expect(zhLocale).toContain("heroEyebrow: '国内直连 · 统一密钥 · 可试用'")
+    expect(zhLocale).toContain("heroTitleTop: 'ChatGPT'")
+    expect(zhLocale).toContain("heroTitleBottom: '国内直连方案'")
     expect(zhLocale).toContain("heroDescription: '即刻体验 ChatGPT 最新模型，添加客服领取试用额度。'")
     expect(zhLocale).toContain("unifiedGatewayDesc: '无需挂代理翻墙，密钥接入编码模型与上游能力。'")
     expect(zhLocale).toContain("claimButton: '注册领取试用'")
@@ -22,12 +23,17 @@ describe('home page visual direction', () => {
     expect(homeView).not.toContain('terminal-container')
     expect(homeView).not.toContain('bg-mesh-gradient')
     expect(homeView).toContain('home-violet-bg')
+    expect(homeView).toContain('home-matrix-rain')
+    expect(homeView).toContain('matrixColumns')
+    expect(homeView).toContain('@keyframes matrix-rain-fall')
     expect(homeView).toContain('home-blur-field')
   })
 
   it('adds a clipped gradient sweep inside the hero title text', () => {
     expect(homeView).toContain('home-title-sweep')
     expect(homeView).toContain('home-title-fill')
+    expect(homeView).toContain('<span class="home-title-line home-title-fill block">{{ t(\'home.heroTitleTop\') }}</span>')
+    expect(homeView).toContain('<span class="home-title-line block">{{ t(\'home.heroTitleBottom\') }}</span>')
     expect(homeView).toContain('background-clip: text')
     expect(homeView).toContain('@keyframes title-fill-sweep')
     expect(homeView).toContain('@media (prefers-reduced-motion: reduce)')
@@ -41,13 +47,26 @@ describe('home page visual direction', () => {
     expect(zhLocale).toContain("contactSupport: '添加客服'")
   })
 
+  it('uses the full-width translucent top navigation treatment', () => {
+    expect(homeView).toContain('home-top-shell')
+    expect(homeView).toContain('home-top-nav')
+    expect(homeView).toContain('home-brand-logo')
+    expect(homeView).toContain("t('home.navFeatures')")
+    expect(homeView).toContain('home-locale-switcher')
+    expect(homeView).toContain('backdrop-filter: blur(18px)')
+    expect(homeView).toContain('width: 100%')
+    expect(homeView).toContain('rgba(4, 3, 16, 0.62)')
+    expect(zhLocale).toContain("navFeatures: '功能特性'")
+  })
+
   it('keeps pixel icons in a shared visual style file', () => {
     expect(mainEntry).toContain("import './styles/pixel-ui.css'")
-    expect(homeView).toContain('<PixelIcon :name="tag.icon" size="xs" />')
     expect(homeView).toContain('home-feature-icon-frame')
     expect(homeView).toContain('<PixelIcon :name="item.icon" size="md" />')
     expect(homeView).toContain('<PixelIcon :name="primaryActionIcon" size="sm" />')
     expect(homeView).toContain('<PixelIcon name="support" size="sm" />')
+    expect(homeView).not.toContain('heroTags')
+    expect(homeView).not.toContain('home-chip')
     expect(homeView).not.toContain('.home-chip-icon')
     expect(homeView).not.toContain('.home-feature-pixel-icon')
     expect(homeView).not.toContain("from '@/components/icons/Icon.vue'")
