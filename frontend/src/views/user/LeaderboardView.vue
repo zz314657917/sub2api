@@ -41,7 +41,9 @@
         </div>
         <div class="card p-5" data-testid="leaderboard-cost-efficiency-summary">
           <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.costEfficiencyKing') }}</p>
-          <p class="mt-2 truncate text-2xl font-bold text-gray-900 dark:text-white">{{ costEfficiencyKing?.display_name ?? t('leaderboard.notRanked') }}</p>
+          <p class="mt-2 truncate text-2xl font-bold text-gray-900 dark:text-white">
+            {{ costEfficiencyKing ? getLeaderboardDisplayName(costEfficiencyKing) : t('leaderboard.notRanked') }}
+          </p>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ costEfficiencyPerMillionText }}</p>
         </div>
       </div>
@@ -101,12 +103,14 @@
                           <div :class="avatarFrameClass(item.rank)">
                             <img v-if="item.avatar_url" :src="item.avatar_url" alt="" class="h-10 w-10 rounded-full object-cover" />
                             <div v-else class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-600 dark:bg-dark-700 dark:text-gray-300">
-                              {{ getInitial(item.display_name) }}
+                              {{ getInitial(getLeaderboardDisplayName(item)) }}
                             </div>
                           </div>
                           <div class="min-w-0">
                             <div class="flex items-center gap-2">
-                              <span class="truncate font-semibold text-gray-900 dark:text-white">{{ item.display_name }}</span>
+                              <span class="truncate font-semibold text-gray-900 dark:text-white">
+                                {{ getLeaderboardDisplayName(item) }}
+                              </span>
                               <span
                                 v-if="isCostEfficiencyKing(item)"
                                 class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:ring-amber-400/40"
@@ -119,9 +123,6 @@
                                 {{ t('leaderboard.currentUser') }}
                               </span>
                             </div>
-                            <p v-if="shouldShowAccountHint(item)" class="truncate text-sm text-gray-500 dark:text-gray-400">
-                              {{ item.email_masked }}
-                            </p>
                           </div>
                         </div>
                       </td>
@@ -145,7 +146,7 @@
                     <div :class="avatarFrameClass(item.rank)">
                       <img v-if="item.avatar_url" :src="item.avatar_url" alt="" class="h-10 w-10 rounded-full object-cover" />
                       <div v-else class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-600 dark:bg-dark-700 dark:text-gray-300">
-                        {{ getInitial(item.display_name) }}
+                        {{ getInitial(getLeaderboardDisplayName(item)) }}
                       </div>
                     </div>
                     <div class="min-w-0">
@@ -153,7 +154,9 @@
                         <span class="inline-flex h-7 min-w-7 items-center justify-center rounded-lg px-2 text-xs font-bold" :class="rankBadgeClass(item.rank)">
                           #{{ item.rank }}
                         </span>
-                        <p class="truncate font-semibold text-gray-900 dark:text-white">{{ item.display_name }}</p>
+                        <p class="truncate font-semibold text-gray-900 dark:text-white">
+                          {{ getLeaderboardDisplayName(item) }}
+                        </p>
                         <span
                           v-if="isCostEfficiencyKing(item)"
                           class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:ring-amber-400/40"
@@ -166,9 +169,6 @@
                           {{ t('leaderboard.currentUser') }}
                         </span>
                       </div>
-                      <p v-if="shouldShowAccountHint(item)" class="truncate text-sm text-gray-500 dark:text-gray-400">
-                        {{ item.email_masked }}
-                      </p>
                     </div>
                   </div>
                 </div>
@@ -193,9 +193,6 @@
             <div class="mt-3 min-w-0">
               <p class="truncate text-xl font-bold text-gray-900 dark:text-white">
                 {{ myRankLabel }} {{ myDisplayName }}
-              </p>
-              <p v-if="myEntry && shouldShowAccountHint(myEntry)" class="truncate text-sm text-gray-500 dark:text-gray-400">
-                {{ myEntry.email_masked }}
               </p>
             </div>
             <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -340,7 +337,7 @@ const myEntry = computed<UserLeaderboardItem | null>(() => {
   if (leaderboard.value?.current_user_entry) return leaderboard.value.current_user_entry
   return rankingItems.value.find((item) => item.is_current_user) ?? null
 })
-const myDisplayName = computed(() => myEntry.value?.display_name ?? t('leaderboard.currentUser'))
+const myDisplayName = computed(() => (myEntry.value ? getLeaderboardDisplayName(myEntry.value) : t('leaderboard.currentUser')))
 const myRankLabel = computed(() => (myEntry.value?.rank ? `#${myEntry.value.rank}` : t('leaderboard.notRanked')))
 
 const rewardTiers = computed(() => {
@@ -453,14 +450,8 @@ function getInitial(name: string): string {
   return (name || '?').trim().slice(0, 1).toUpperCase()
 }
 
-function normalizeIdentityText(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, '')
-}
-
-function shouldShowAccountHint(item: UserLeaderboardItem): boolean {
-  const displayName = normalizeIdentityText(item.display_name || '')
-  const emailMasked = normalizeIdentityText(item.email_masked || '')
-  return Boolean(emailMasked && displayName !== emailMasked)
+function getLeaderboardDisplayName(item: UserLeaderboardItem): string {
+  return item.display_name?.trim() || item.email_masked?.trim() || t('leaderboard.currentUser')
 }
 
 function formatRewardRankLabel(rank: number): string {
