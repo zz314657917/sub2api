@@ -113,16 +113,6 @@
                 {{ isAuthenticated ? t('home.goToDashboard') : t('home.claimButton') }}
               </span>
             </router-link>
-            <a
-              v-if="docUrl"
-              :href="docUrl"
-              target="_blank"
-              rel="noopener noreferrer"
-              class="home-secondary-link"
-            >
-              {{ t('home.docs') }}
-              <PixelIcon name="arrow-right" size="xs" />
-            </a>
           </div>
 
         </div>
@@ -495,8 +485,7 @@ onMounted(() => {
   color: white;
 }
 
-.home-icon-button .pixel-glyph,
-.home-secondary-link .pixel-glyph {
+.home-icon-button .pixel-glyph {
   --pixel-glyph-on: rgba(232, 229, 255, 0.86);
   --pixel-glyph-accent: rgba(174, 183, 214, 0.86);
   --pixel-glyph-glow: transparent;
@@ -660,20 +649,6 @@ onMounted(() => {
   --pixel-glyph-accent: #835b19;
   --pixel-glyph-glow: transparent;
   filter: none;
-}
-
-.home-secondary-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  color: rgba(245, 239, 255, 0.8);
-  font-size: 0.875rem;
-  font-weight: 700;
-  transition: color 150ms ease;
-}
-
-.home-secondary-link:hover {
-  color: white;
 }
 
 .home-support-button {

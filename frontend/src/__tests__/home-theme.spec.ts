@@ -59,6 +59,11 @@ describe('home page visual direction', () => {
     expect(zhLocale).toContain("navFeatures: '功能特性'")
   })
 
+  it('keeps the documentation link out of the primary hero action row', () => {
+    expect(homeView).not.toContain('home-secondary-link')
+    expect(homeView).not.toContain("t('home.docs')")
+  })
+
   it('keeps pixel icons in a shared visual style file', () => {
     expect(mainEntry).toContain("import './styles/pixel-ui.css'")
     expect(homeView).toContain('home-feature-icon-frame')
