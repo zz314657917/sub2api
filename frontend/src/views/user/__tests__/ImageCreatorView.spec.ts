@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import ImageCreatorView from '../ImageCreatorView.vue'
 
@@ -94,6 +94,7 @@ function mountView() {
 
 describe('ImageCreatorView', () => {
   beforeEach(() => {
+    vi.useRealTimers()
     keysList.mockReset().mockResolvedValue({
       items: [
         {
@@ -114,6 +115,10 @@ describe('ImageCreatorView', () => {
     getImageTask.mockReset().mockResolvedValue(makeTask({ status: 'running' }))
     showError.mockReset()
     showSuccess.mockReset()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('creates a server task with the selected api key id and enters waiting state', async () => {
@@ -165,6 +170,25 @@ describe('ImageCreatorView', () => {
     expect(getImageTask).toHaveBeenCalledWith(321)
     expect(wrapper.find('[data-testid="image-result-preview"]').exists()).toBe(true)
     expect(wrapper.find('img').attributes('src')).toBe('/api/v1/user/image-creator/images/9/file')
+  })
+
+  it('keeps elapsed waiting time when restoring an unfinished task after refresh', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-10T00:01:20Z'))
+    listImageTasks.mockResolvedValue({
+      tasks: [makeTask({
+        id: 321,
+        status: 'running',
+        started_at: '2026-05-10T00:00:20Z',
+      })],
+      images: [],
+    })
+    getImageTask.mockResolvedValue(makeTask({ id: 321, status: 'running' }))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('imageCreator.elapsedSeconds:{"seconds":60}')
   })
 
   it('opens and closes a large preview for a stored recent image', async () => {

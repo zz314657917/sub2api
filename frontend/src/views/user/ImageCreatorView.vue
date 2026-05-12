@@ -428,10 +428,10 @@ function clampCount(): number {
   return Math.min(Math.max(Math.trunc(n), 1), maxImageCount)
 }
 
-function startGenerationTimer(): void {
+function startGenerationTimer(startedAtMs = Date.now()): void {
   stopGenerationTimer()
-  const startedAt = Date.now()
-  elapsedSeconds.value = 0
+  const startedAt = Number.isFinite(startedAtMs) ? startedAtMs : Date.now()
+  elapsedSeconds.value = Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
   waitingStepIndex.value = 0
   generationTimerId = setInterval(() => {
     elapsedSeconds.value = Math.max(0, Math.floor((Date.now() - startedAt) / 1000))
@@ -478,23 +478,29 @@ function latestActiveTask(tasks: ImageCreatorTask[]): ImageCreatorTask | null {
   return tasks.find(taskIsActive) ?? null
 }
 
+function taskTimerStartMs(task: ImageCreatorTask | null | undefined): number {
+  const raw = task?.started_at || task?.created_at
+  const parsed = raw ? Date.parse(raw) : NaN
+  return Number.isFinite(parsed) ? parsed : Date.now()
+}
+
 async function loadImageCreatorTasks(): Promise<void> {
   try {
     const response = await listImageTasks()
     applyStoredImages(response.images?.length ? response.images : imagesFromTasks(response.tasks || []))
     const active = latestActiveTask(response.tasks || [])
     if (active) {
-      startTaskPolling(active.id)
+      startTaskPolling(active.id, taskTimerStartMs(active))
     }
   } catch (error: any) {
     appStore.showError(error?.message || t('imageCreator.loadTasksFailed'))
   }
 }
 
-function startTaskPolling(taskId: number): void {
+function startTaskPolling(taskId: number, startedAtMs = Date.now()): void {
   activeTaskId.value = taskId
   generating.value = true
-  startGenerationTimer()
+  startGenerationTimer(startedAtMs)
   stopTaskPolling()
   void pollImageTask(taskId)
   taskPollTimerId = setInterval(() => {
