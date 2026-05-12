@@ -25,6 +25,7 @@ describe('home page visual direction', () => {
     expect(homeView).toContain('home-violet-bg')
     expect(homeView).toContain('home-matrix-rain')
     expect(homeView).toContain('matrixColumns')
+    expect(homeView).toContain('const matrixColumnCount = 51')
     expect(homeView).toContain('@keyframes matrix-rain-fall')
     expect(homeView).toContain('home-blur-field')
   })

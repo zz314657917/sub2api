@@ -185,10 +185,12 @@ const matrixSeeds = [
   'QUOTAUSAGE10100'
 ]
 
-const matrixColumns: MatrixColumn[] = Array.from({ length: 34 }, (_, index) => ({
-  left: `${(index * 3.15) % 101}%`,
-  delay: `${-(index % 11) * 0.72}s`,
-  duration: `${8 + (index % 7) * 1.15}s`,
+const matrixColumnCount = 51
+
+const matrixColumns: MatrixColumn[] = Array.from({ length: matrixColumnCount }, (_, index) => ({
+  left: `${(index * 2.08) % 101}%`,
+  delay: `${-(index % 13) * 0.64}s`,
+  duration: `${8 + (index % 9) * 0.92}s`,
   text: matrixSeeds[index % matrixSeeds.length]
 }))
 
