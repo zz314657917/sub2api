@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-02 02:18 +08:00
+最后更新：2026-06-02 11:30 +08:00
 
 ## 当前仓库状态
 
@@ -39,6 +39,10 @@
   - Ops 设置弹窗会归一化旧响应缺失的 `openai_account_quota_auto_pause`，避免前端直接解引用崩溃。
   - `SettingService` 的 OpenAI quota auto-pause 缓存加入 revision guard，避免后台旧 DB 刷新覆盖刚保存的新阈值。
   - 补测 previous_response sticky 命中 quota 暂停账号时会失效并清理绑定；补测真实 `SettingService` 注入链路读取全局默认阈值。
+- 已按用户要求合入 `664e9fdcd feat(usage): 用户用量按平台拆分 + UsersView 列设置可配置 + 用量列排序`：
+  - 后端用户 Dashboard stats 与 UsersView 批量用量统计增加 `by_platform`，平台口径沿用 `group.platform` 优先、再 fallback `account.platform`。
+  - 前端用户 Dashboard 增加按平台拆分卡；管理端 UsersView 增加平台用量子列、列设置版本迁移和本页用量排序。
+  - 本地 i18n 已拆分，未恢复上游大单文件；新增文案已迁入 `dashboard.ts` 和 `admin/users.ts`。
 
 ### 本批验证记录
 
@@ -66,6 +70,9 @@
 - `cd frontend && npm.cmd run test:run -- OpsSettingsDialog`：通过，新 `OpsSettingsDialog.spec.ts` 覆盖旧响应缺失 OpenAI quota auto-pause 配置时的默认回填与保存。
 - `cd frontend && npm.cmd run typecheck`：通过。当前移植 worktree 未安装 `node_modules`，验证时临时创建 `frontend/node_modules` junction 指向主仓库依赖，命令完成后已删除 junction。
 - `cd backend && go test ./internal/service/...`：通过。
+- `cd backend && go test ./internal/repository ./internal/handler/admin ./internal/pkg/usagestats ./internal/service -run "Test.*Dashboard|Test.*Usage|Test.*User"`：通过。
+- `cd frontend && npm.cmd run test:run -- UsersView Dashboard usage`：通过，17 个文件 65 个测试；`admin UsageView` 测试期间有既有 mock 缺少 `getModelStats` 的 stderr，但测试通过。
+- `cd frontend && npm.cmd run typecheck`：通过。当前移植 worktree 未安装 `node_modules`，验证时临时创建 `frontend/node_modules` junction 指向主仓库依赖，命令完成后已删除 junction。
 - `git diff --check`：通过。
 
 ### 下一步候选
