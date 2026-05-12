@@ -10,7 +10,7 @@ const pixelUi = readFileSync(resolve(process.cwd(), 'src/styles/pixel-ui.css'), 
 
 describe('home page visual direction', () => {
   it('uses the compact coding-solution hero copy', () => {
-    expect(zhLocale).toContain("heroEyebrow: '国内直连 · 统一密钥 · 可试用'")
+    expect(zhLocale).toContain("heroEyebrow: '国内直连，一键接入'")
     expect(zhLocale).toContain("heroTitleTop: 'ChatGPT'")
     expect(zhLocale).toContain("heroTitleBottom: '国内直连方案'")
     expect(zhLocale).toContain("heroDescription: '即刻体验 ChatGPT 最新模型，添加客服领取试用额度。'")
@@ -81,24 +81,28 @@ describe('home page visual direction', () => {
     expect(homeView).toContain('home-main-stage')
     expect(homeView).toContain('home-hero-shell')
     expect(homeView).toContain('home-hero-content')
-    expect(homeView).toContain('home-feature-grid')
+    expect(homeView).not.toContain('home-feature-strip')
+    expect(homeView).not.toContain('home-feature-pill')
+    expect(homeView).not.toContain('home-feature-card')
     expect(homeView).toContain('@media (min-width: 1536px)')
     expect(homeView).toContain('@media (min-width: 1920px)')
-    expect(homeView).toContain('min-height: calc(100vh - 3.75rem)')
+    expect(homeView).toContain('min-height: 100svh')
+    expect(homeView).toContain('flex: 1 1 auto')
     expect(homeView).toContain('width: min(100%, 92rem)')
-    expect(homeView).toContain('gap: clamp(3.5rem, 5.4vh, 5rem)')
-    expect(homeView).toContain('font-size: clamp(6.25rem, 4.35vw, 7.4rem)')
+    expect(homeView).toContain('gap: clamp(1.9rem, 3.2vh, 2.8rem)')
+    expect(homeView).toContain('font-size: clamp(5.8rem, 4vw, 6.85rem)')
   })
 
   it('keeps the documentation link out of the primary hero action row', () => {
     expect(homeView).not.toContain('home-secondary-link')
-    expect(homeView).not.toContain("t('home.docs')")
+    expect(homeView).toContain('home-footer-links')
+    expect(homeView).toContain("t('home.docs')")
   })
 
   it('keeps pixel icons in a shared visual style file', () => {
     expect(mainEntry).toContain("import './styles/pixel-ui.css'")
-    expect(homeView).toContain('home-feature-icon-frame')
-    expect(homeView).toContain('<PixelIcon :name="item.icon" size="md" />')
+    expect(homeView).not.toContain('home-feature-pill-dot')
+    expect(homeView).not.toContain('<PixelIcon :name="item.icon" size="md" />')
     expect(homeView).toContain('<PixelIcon :name="primaryActionIcon" size="sm" />')
     expect(homeView).toContain('<PixelIcon name="support" size="sm" />')
     expect(homeView).not.toContain('heroTags')

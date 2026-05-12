@@ -13,11 +13,13 @@ export default {
     navModels: '模型广场',
     getStarted: '立即开始',
     goToDashboard: '登录控制台',
-    heroEyebrow: '国内直连 · 统一密钥 · 可试用',
+    heroEyebrow: '国内直连，一键接入',
     heroTitleTop: 'ChatGPT',
     heroTitleBottom: '国内直连方案',
     heroSubtitle: 'ChatGPT 国内直连方案',
     heroDescription: '即刻体验 ChatGPT 最新模型，添加客服领取试用额度。',
+    heroDescriptionAltModels: '支持 GPT-5、Claude、Gemini 等主流模型统一接入。',
+    heroDescriptionAltSupport: '国内网络直连使用，注册后即可领取试用额度。',
     claimButton: '注册领取试用',
     contactSupport: '添加客服',
     tags: {
@@ -117,7 +119,11 @@ export default {
       button: '免费注册'
     },
     footer: {
-      allRightsReserved: '保留所有权利。'
+      allRightsReserved: '保留所有权利。',
+      linksLabel: '页脚链接',
+      terms: '服务条款',
+      privacy: '隐私政策',
+      usagePolicy: '使用政策'
     }
   },
 

@@ -13,11 +13,13 @@ export default {
     navModels: 'Model Plaza',
     getStarted: 'Get Started',
     goToDashboard: 'Open Dashboard',
-    heroEyebrow: 'Direct access · Unified key · Trial credits',
+    heroEyebrow: 'Direct access, one-click setup',
     heroTitleTop: 'ChatGPT',
     heroTitleBottom: 'Local Direct Access',
     heroSubtitle: 'ChatGPT with local direct access',
     heroDescription: 'Try the latest ChatGPT models. Contact support to claim trial credits.',
+    heroDescriptionAltModels: 'Use GPT-5, Claude, Gemini, and more through one unified key.',
+    heroDescriptionAltSupport: 'Direct local access with trial credits ready after signup.',
     claimButton: 'Claim Trial',
     contactSupport: 'Contact Support',
     tags: {
@@ -117,7 +119,11 @@ export default {
       button: 'Sign Up Free'
     },
     footer: {
-      allRightsReserved: 'All rights reserved.'
+      allRightsReserved: 'All rights reserved.',
+      linksLabel: 'Footer links',
+      terms: 'Terms',
+      privacy: 'Privacy Policy',
+      usagePolicy: 'Usage Policy'
     }
   },
 
