@@ -70,7 +70,8 @@ describe('home page visual direction', () => {
     expect(homeView).toContain('@media (min-width: 1920px)')
     expect(homeView).toContain('min-height: calc(100vh - 3.75rem)')
     expect(homeView).toContain('width: min(100%, 92rem)')
-    expect(homeView).toContain('font-size: clamp(6.8rem, 4.9vw, 8.2rem)')
+    expect(homeView).toContain('gap: clamp(3.5rem, 5.4vh, 5rem)')
+    expect(homeView).toContain('font-size: clamp(6.25rem, 4.35vw, 7.4rem)')
   })
 
   it('keeps the documentation link out of the primary hero action row', () => {

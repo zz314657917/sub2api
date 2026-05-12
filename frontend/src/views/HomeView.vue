@@ -826,7 +826,7 @@ onMounted(() => {
   }
 
   .home-hero-shell {
-    gap: 2.6rem;
+    gap: clamp(3rem, 5.2vh, 4.4rem);
   }
 
   .home-hero-content {
@@ -836,7 +836,7 @@ onMounted(() => {
 
   .home-title-sweep {
     max-width: 64rem;
-    font-size: clamp(6.2rem, 5.1vw, 7.3rem);
+    font-size: clamp(5.9rem, 4.65vw, 6.9rem);
   }
 
   .home-hero-description {
@@ -856,7 +856,7 @@ onMounted(() => {
   }
 
   .home-hero-shell {
-    gap: 3rem;
+    gap: clamp(3.5rem, 5.4vh, 5rem);
   }
 
   .home-hero-content {
@@ -865,7 +865,7 @@ onMounted(() => {
 
   .home-title-sweep {
     max-width: 72rem;
-    font-size: clamp(6.8rem, 4.9vw, 8.2rem);
+    font-size: clamp(6.25rem, 4.35vw, 7.4rem);
   }
 }
 
