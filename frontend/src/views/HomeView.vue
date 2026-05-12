@@ -13,7 +13,7 @@
   </div>
 
   <!-- Default Home Page -->
-  <div v-else class="home-violet-bg relative min-h-screen overflow-hidden text-white">
+  <div v-else class="home-page-root home-violet-bg relative min-h-screen overflow-hidden text-white">
     <div class="home-matrix-rain pointer-events-none absolute inset-0" aria-hidden="true">
       <span
         v-for="column in matrixColumns"
@@ -32,7 +32,7 @@
     <div class="home-noise pointer-events-none absolute inset-0"></div>
 
     <header class="home-top-shell relative z-20">
-      <nav class="home-top-nav mx-auto max-w-6xl">
+      <nav class="home-top-nav home-page-shell mx-auto">
         <router-link to="/" class="home-brand">
           <span class="home-brand-logo">
             <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
@@ -85,23 +85,23 @@
       </nav>
     </header>
 
-    <main class="relative z-10 px-4 pb-8 pt-8 sm:px-6 sm:pb-10 sm:pt-9 lg:pt-10">
-      <section class="mx-auto flex max-w-6xl flex-col gap-8 sm:gap-9">
-        <div class="mx-auto flex w-full max-w-4xl flex-col items-center pt-5 text-center sm:pt-7 lg:pt-8">
+    <main class="home-main-stage relative z-10 px-4 pb-8 pt-8 sm:px-6 sm:pb-10 sm:pt-9 lg:pt-10">
+      <section class="home-hero-shell mx-auto flex flex-col gap-8 sm:gap-9">
+        <div class="home-hero-content mx-auto flex w-full flex-col items-center pt-5 text-center sm:pt-7 lg:pt-8">
           <div class="home-kicker mb-5">
             <span class="home-kicker-dot"></span>
             {{ t('home.heroEyebrow') }}
           </div>
 
           <h1
-            class="home-title-sweep max-w-4xl text-[2.95rem] font-black leading-[0.98] tracking-normal text-white sm:text-[4.45rem] lg:text-[5.75rem]"
+            class="home-title-sweep text-[2.95rem] font-black leading-[0.98] tracking-normal text-white sm:text-[4.45rem] lg:text-[5.75rem]"
           >
             <span class="home-title-line home-title-fill block">{{ t('home.heroTitleTop') }}</span>
             <span class="home-title-line block">{{ t('home.heroTitleBottom') }}</span>
           </h1>
 
           <p
-            class="mt-5 max-w-2xl text-base leading-7 text-violet-100/88 sm:mt-6 sm:text-lg sm:leading-8"
+            class="home-hero-description mt-5 max-w-2xl text-base leading-7 text-violet-100/88 sm:mt-6 sm:text-lg sm:leading-8"
           >
             {{ t('home.heroDescription') }}
           </p>
@@ -117,7 +117,7 @@
 
         </div>
 
-        <div id="features" class="grid scroll-mt-24 gap-3 md:grid-cols-3">
+        <div id="features" class="home-feature-grid grid scroll-mt-24 gap-3 md:grid-cols-3">
           <article v-for="item in featureCards" :key="item.title" class="home-feature-card">
             <div class="home-feature-icon-frame">
               <PixelIcon :name="item.icon" size="md" />
@@ -390,11 +390,29 @@ onMounted(() => {
 
 .home-top-nav {
   display: flex;
+  width: 100%;
   min-height: 3.75rem;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
   padding: 0.45rem 1rem;
+}
+
+.home-main-stage {
+  min-height: calc(100vh - 3.75rem);
+}
+
+.home-page-shell,
+.home-hero-shell {
+  width: min(100%, 72rem);
+}
+
+.home-hero-content {
+  max-width: 56rem;
+}
+
+.home-feature-grid {
+  width: 100%;
 }
 
 .home-brand {
@@ -556,6 +574,7 @@ onMounted(() => {
 .home-title-sweep {
   position: relative;
   display: inline-block;
+  max-width: 56rem;
   padding: 0.03em 0.06em 0.08em;
 }
 
@@ -789,6 +808,64 @@ onMounted(() => {
     min-height: 2.5rem;
     padding: 0.55rem 0.75rem;
     font-size: 0.75rem;
+  }
+}
+
+@media (min-width: 1536px) {
+  .home-main-stage {
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 3.75rem);
+    padding-top: clamp(2rem, 4vh, 3.75rem);
+    padding-bottom: clamp(3rem, 7vh, 6rem);
+  }
+
+  .home-page-shell,
+  .home-hero-shell {
+    width: min(100%, 82rem);
+  }
+
+  .home-hero-shell {
+    gap: 2.6rem;
+  }
+
+  .home-hero-content {
+    max-width: 64rem;
+    padding-top: 0;
+  }
+
+  .home-title-sweep {
+    max-width: 64rem;
+    font-size: clamp(6.2rem, 5.1vw, 7.3rem);
+  }
+
+  .home-hero-description {
+    max-width: 46rem;
+  }
+
+  .home-feature-card {
+    min-height: 7rem;
+    padding: 1.15rem;
+  }
+}
+
+@media (min-width: 1920px) {
+  .home-page-shell,
+  .home-hero-shell {
+    width: min(100%, 92rem);
+  }
+
+  .home-hero-shell {
+    gap: 3rem;
+  }
+
+  .home-hero-content {
+    max-width: 72rem;
+  }
+
+  .home-title-sweep {
+    max-width: 72rem;
+    font-size: clamp(6.8rem, 4.9vw, 8.2rem);
   }
 }
 

@@ -136,3 +136,5 @@ docs/*
 frontend/coverage/
 aicodex
 output/
+.playwright-cli/
+knowledge/tasks/

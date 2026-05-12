@@ -50,6 +50,7 @@ describe('home page visual direction', () => {
   it('uses the full-width translucent top navigation treatment', () => {
     expect(homeView).toContain('home-top-shell')
     expect(homeView).toContain('home-top-nav')
+    expect(homeView).toContain('home-page-shell')
     expect(homeView).toContain('home-brand-logo')
     expect(homeView).toContain("t('home.navFeatures')")
     expect(homeView).toContain('home-locale-switcher')
@@ -57,6 +58,19 @@ describe('home page visual direction', () => {
     expect(homeView).toContain('width: 100%')
     expect(homeView).toContain('rgba(4, 3, 16, 0.62)')
     expect(zhLocale).toContain("navFeatures: '功能特性'")
+  })
+
+  it('keeps the hero responsive on wide desktop screens', () => {
+    expect(homeView).toContain('home-page-root')
+    expect(homeView).toContain('home-main-stage')
+    expect(homeView).toContain('home-hero-shell')
+    expect(homeView).toContain('home-hero-content')
+    expect(homeView).toContain('home-feature-grid')
+    expect(homeView).toContain('@media (min-width: 1536px)')
+    expect(homeView).toContain('@media (min-width: 1920px)')
+    expect(homeView).toContain('min-height: calc(100vh - 3.75rem)')
+    expect(homeView).toContain('width: min(100%, 92rem)')
+    expect(homeView).toContain('font-size: clamp(6.8rem, 4.9vw, 8.2rem)')
   })
 
   it('keeps the documentation link out of the primary hero action row', () => {
