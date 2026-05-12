@@ -1,0 +1,158 @@
+.public-page-shell {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 48% 28%, rgba(32, 170, 92, 0.22) 0, transparent 34%),
+    radial-gradient(circle at 20% 20%, rgba(87, 86, 210, 0.16) 0, transparent 30%),
+    linear-gradient(180deg, #050914 0%, #08110f 48%, #03060a 100%);
+}
+
+.public-page-header {
+  width: 100%;
+  border-bottom: 1px solid rgba(220, 215, 255, 0.1);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    rgba(4, 3, 16, 0.62);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 16px 42px rgba(3, 2, 12, 0.22);
+  backdrop-filter: blur(18px);
+}
+
+.public-page-nav {
+  display: flex;
+  width: min(100%, 72rem);
+  min-height: 3.75rem;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 1rem;
+}
+
+.public-brand {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.78rem;
+  color: white;
+}
+
+.public-brand-logo {
+  display: inline-flex;
+  height: 2.2rem;
+  width: 2.2rem;
+  flex: 0 0 2.2rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgba(180, 189, 255, 0.34);
+  background:
+    linear-gradient(180deg, rgba(118, 96, 210, 0.48), rgba(35, 29, 84, 0.56)),
+    rgba(255, 255, 255, 0.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 0 0 1px rgba(9, 6, 32, 0.4),
+    0 8px 18px rgba(6, 4, 24, 0.28);
+  padding: 0.22rem;
+}
+
+.public-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.public-nav-link {
+  display: inline-flex;
+  min-height: 2.2rem;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  color: rgba(226, 221, 247, 0.68);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.public-nav-link:hover,
+.public-nav-link.router-link-active {
+  background: rgba(255, 255, 255, 0.075);
+  color: white;
+}
+
+.public-nav-button {
+  display: inline-flex;
+  min-height: 2.35rem;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #153c1e;
+  background: linear-gradient(#6fbf43, #328033);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
+    0 3px 0 #123118,
+    0 8px 18px rgba(5, 3, 18, 0.24);
+  padding: 0.35rem 0.9rem;
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.public-hero {
+  margin: 0 auto 2rem;
+  max-width: 52rem;
+  text-align: center;
+}
+
+.public-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.52rem 0.78rem;
+  color: rgba(245, 239, 255, 0.82);
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(18px);
+}
+
+.public-kicker span {
+  height: 0.45rem;
+  width: 0.45rem;
+  background: #6dff9b;
+  box-shadow: 0 0 16px rgba(109, 255, 155, 0.8);
+}
+
+.public-hero h1 {
+  margin-top: 1.15rem;
+  font-size: clamp(2.5rem, 7vw, 5rem);
+  font-weight: 950;
+  line-height: 0.98;
+  letter-spacing: 0;
+}
+
+.public-hero p {
+  margin: 1rem auto 0;
+  max-width: 44rem;
+  color: rgba(238, 246, 240, 0.76);
+  font-size: 1.02rem;
+  line-height: 1.9;
+}
+
+@media (max-width: 760px) {
+  .public-page-nav {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 0.7rem 0.85rem;
+  }
+
+  .public-nav-links {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .public-nav-link,
+  .public-nav-button {
+    flex: 1 1 auto;
+  }
+}

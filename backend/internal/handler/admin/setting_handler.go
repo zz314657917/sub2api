@@ -188,6 +188,10 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		SiteSubtitle:                           settings.SiteSubtitle,
 		APIBaseURL:                             settings.APIBaseURL,
 		ContactInfo:                            settings.ContactInfo,
+		SupportPopupTitle:                      settings.SupportPopupTitle,
+		SupportPopupDescription:                settings.SupportPopupDescription,
+		SupportPopupFooter:                     settings.SupportPopupFooter,
+		SupportPopupItems:                      dto.ParseSupportPopupItems(settings.SupportPopupItems),
 		DocURL:                                 settings.DocURL,
 		HomeContent:                            settings.HomeContent,
 		HideCcsImportButton:                    settings.HideCcsImportButton,
@@ -441,6 +445,10 @@ type UpdateSettingsRequest struct {
 	SiteSubtitle                string                `json:"site_subtitle"`
 	APIBaseURL                  string                `json:"api_base_url"`
 	ContactInfo                 string                `json:"contact_info"`
+	SupportPopupTitle           string                `json:"support_popup_title"`
+	SupportPopupDescription     string                `json:"support_popup_description"`
+	SupportPopupFooter          string                `json:"support_popup_footer"`
+	SupportPopupItems           *[]dto.SupportPopupItem  `json:"support_popup_items"`
 	DocURL                      string                `json:"doc_url"`
 	HomeContent                 string                `json:"home_content"`
 	HideCcsImportButton         bool                  `json:"hide_ccs_import_button"`
@@ -1235,6 +1243,81 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		customEndpointsJSON = string(endpointBytes)
 	}
 
+	// 客服弹窗图片项验证
+	const (
+		maxSupportPopupItems       = 12
+		maxSupportPopupTitleLen    = 80
+		maxSupportPopupTextLen     = 120
+		maxSupportPopupImageURLLen = 1024 * 1024
+	)
+
+	supportPopupItemsJSON := previousSettings.SupportPopupItems
+	if req.SupportPopupItems != nil {
+		items := *req.SupportPopupItems
+		if len(items) > maxSupportPopupItems {
+			response.BadRequest(c, "Too many support popup items (max 12)")
+			return
+		}
+		for i := range items {
+			items[i].ID = strings.TrimSpace(items[i].ID)
+			items[i].Title = strings.TrimSpace(items[i].Title)
+			items[i].ImageURL = strings.TrimSpace(items[i].ImageURL)
+			items[i].Caption = strings.TrimSpace(items[i].Caption)
+			items[i].Badge = strings.TrimSpace(items[i].Badge)
+			if items[i].ID == "" {
+				id, err := generateMenuItemID()
+				if err != nil {
+					response.Error(c, http.StatusInternalServerError, "Failed to generate support popup item ID")
+					return
+				}
+				items[i].ID = id
+			} else if len(items[i].ID) > maxMenuItemIDLen || !menuItemIDPattern.MatchString(items[i].ID) {
+				response.BadRequest(c, "Support popup item ID contains invalid characters")
+				return
+			}
+			if items[i].Title == "" {
+				response.BadRequest(c, "Support popup item title is required")
+				return
+			}
+			if len(items[i].Title) > maxSupportPopupTitleLen {
+				response.BadRequest(c, "Support popup item title is too long (max 80 characters)")
+				return
+			}
+			if items[i].ImageURL == "" {
+				response.BadRequest(c, "Support popup item image is required")
+				return
+			}
+			if len(items[i].ImageURL) > maxSupportPopupImageURLLen {
+				response.BadRequest(c, "Support popup item image is too large (max 1MB as stored text)")
+				return
+			}
+			if !strings.HasPrefix(items[i].ImageURL, "data:image/") {
+				if err := config.ValidateAbsoluteHTTPURL(items[i].ImageURL); err != nil {
+					response.BadRequest(c, "Support popup item image must be an uploaded image or an absolute http(s) URL")
+					return
+				}
+			}
+			if len(items[i].Caption) > maxSupportPopupTextLen || len(items[i].Badge) > maxSupportPopupTextLen {
+				response.BadRequest(c, "Support popup item caption or badge is too long (max 120 characters)")
+				return
+			}
+		}
+		seen := make(map[string]struct{}, len(items))
+		for _, item := range items {
+			if _, exists := seen[item.ID]; exists {
+				response.BadRequest(c, "Duplicate support popup item ID: "+item.ID)
+				return
+			}
+			seen[item.ID] = struct{}{}
+		}
+		itemBytes, err := json.Marshal(items)
+		if err != nil {
+			response.BadRequest(c, "Failed to serialize support popup items")
+			return
+		}
+		supportPopupItemsJSON = string(itemBytes)
+	}
+
 	// Ops metrics collector interval validation (seconds).
 	if req.OpsMetricsIntervalSeconds != nil {
 		v := *req.OpsMetricsIntervalSeconds
@@ -1366,6 +1449,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SiteSubtitle:                     req.SiteSubtitle,
 		APIBaseURL:                       req.APIBaseURL,
 		ContactInfo:                      req.ContactInfo,
+		SupportPopupTitle:                req.SupportPopupTitle,
+		SupportPopupDescription:          req.SupportPopupDescription,
+		SupportPopupFooter:               req.SupportPopupFooter,
+		SupportPopupItems:                supportPopupItemsJSON,
 		DocURL:                           req.DocURL,
 		HomeContent:                      req.HomeContent,
 		HideCcsImportButton:              req.HideCcsImportButton,
@@ -1766,6 +1853,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SiteSubtitle:                           updatedSettings.SiteSubtitle,
 		APIBaseURL:                             updatedSettings.APIBaseURL,
 		ContactInfo:                            updatedSettings.ContactInfo,
+		SupportPopupTitle:                      updatedSettings.SupportPopupTitle,
+		SupportPopupDescription:                updatedSettings.SupportPopupDescription,
+		SupportPopupFooter:                     updatedSettings.SupportPopupFooter,
+		SupportPopupItems:                      dto.ParseSupportPopupItems(updatedSettings.SupportPopupItems),
 		DocURL:                                 updatedSettings.DocURL,
 		HomeContent:                            updatedSettings.HomeContent,
 		HideCcsImportButton:                    updatedSettings.HideCcsImportButton,
@@ -2100,6 +2191,18 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.ContactInfo != after.ContactInfo {
 		changed = append(changed, "contact_info")
+	}
+	if before.SupportPopupTitle != after.SupportPopupTitle {
+		changed = append(changed, "support_popup_title")
+	}
+	if before.SupportPopupDescription != after.SupportPopupDescription {
+		changed = append(changed, "support_popup_description")
+	}
+	if before.SupportPopupFooter != after.SupportPopupFooter {
+		changed = append(changed, "support_popup_footer")
+	}
+	if before.SupportPopupItems != after.SupportPopupItems {
+		changed = append(changed, "support_popup_items")
 	}
 	if before.DocURL != after.DocURL {
 		changed = append(changed, "doc_url")

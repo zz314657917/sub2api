@@ -9,6 +9,8 @@ export default {
     dashboard: '控制台',
     login: '登录',
     navFeatures: '功能特性',
+    navTutorial: '教程',
+    navModels: '模型广场',
     getStarted: '立即开始',
     goToDashboard: '登录控制台',
     heroEyebrow: '国内直连 · 统一密钥 · 可试用',

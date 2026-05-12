@@ -44,11 +44,22 @@
           </span>
         </router-link>
 
-        <div class="flex items-center gap-1.5 sm:gap-2">
-          <router-link to="#features" class="home-nav-text hidden lg:inline-flex">
+        <div class="home-nav-center hidden lg:inline-flex">
+          <router-link to="#features" class="home-nav-pill">
+            <PixelIcon name="spark" size="xs" />
             {{ t('home.navFeatures') }}
           </router-link>
+          <router-link to="/tutorial" class="home-nav-pill">
+            <PixelIcon name="book" size="xs" />
+            {{ t('home.navTutorial') }}
+          </router-link>
+          <router-link to="/models" class="home-nav-pill">
+            <PixelIcon name="cube" size="xs" />
+            {{ t('home.navModels') }}
+          </router-link>
+        </div>
 
+        <div class="flex items-center gap-1.5 sm:gap-2">
           <LocaleSwitcher class="home-locale-switcher" />
 
           <a
@@ -83,6 +94,21 @@
           </router-link>
         </div>
       </nav>
+
+      <div class="home-mobile-nav home-page-shell mx-auto lg:hidden">
+        <router-link to="#features" class="home-nav-pill">
+          <PixelIcon name="spark" size="xs" />
+          {{ t('home.navFeatures') }}
+        </router-link>
+        <router-link to="/tutorial" class="home-nav-pill">
+          <PixelIcon name="book" size="xs" />
+          {{ t('home.navTutorial') }}
+        </router-link>
+        <router-link to="/models" class="home-nav-pill">
+          <PixelIcon name="cube" size="xs" />
+          {{ t('home.navModels') }}
+        </router-link>
+      </div>
     </header>
 
     <main class="home-main-stage relative z-10 px-4 pb-8 pt-8 sm:px-6 sm:pb-10 sm:pt-9 lg:pt-10">
@@ -132,7 +158,7 @@
     </main>
 
     <a
-      v-if="supportHref"
+      v-if="supportHref && !hasSupportPopupItems"
       :href="supportHref"
       target="_blank"
       rel="noopener noreferrer"
@@ -141,6 +167,16 @@
       <PixelIcon name="support" size="sm" />
       {{ t('home.contactSupport') }}
     </a>
+
+    <button
+      v-else-if="hasSupportPopupItems"
+      type="button"
+      class="home-support-button"
+      @click="openSupportPopup"
+    >
+      <PixelIcon name="support" size="sm" />
+      {{ t('home.contactSupport') }}
+    </button>
   </div>
 </template>
 
@@ -151,6 +187,7 @@ import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import PixelIcon from '@/components/icons/PixelIcon.vue'
 import type { PixelIconName } from '@/components/icons/pixelIconTypes'
+import { openSupportPopup } from '@/utils/supportPopup'
 
 type FeatureIconName = Extract<PixelIconName, 'key' | 'shield' | 'usage'>
 type PrimaryActionIconName = Extract<PixelIconName, 'dashboard' | 'gift'>
@@ -219,6 +256,10 @@ const isHomeContentUrl = computed(() => {
 })
 
 const supportHref = computed(() => normalizeSupportLink(contactInfo.value))
+const hasSupportPopupItems = computed(() => {
+  const items = appStore.cachedPublicSettings?.support_popup_items
+  return Array.isArray(items) && items.some((item) => item.title?.trim() && item.image_url?.trim())
+})
 
 function normalizeSupportLink(value: string): string {
   const trimmed = value.trim()
@@ -444,17 +485,73 @@ onMounted(() => {
   padding: 0.22rem;
 }
 
-.home-nav-text {
+.home-nav-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
   align-items: center;
-  min-height: 2.35rem;
+  gap: 0.2rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid rgba(229, 224, 255, 0.13);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.035)),
+    rgba(7, 8, 22, 0.48);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 14px 32px rgba(3, 2, 12, 0.2);
+  padding: 0.18rem;
+  backdrop-filter: blur(18px);
+}
+
+.home-nav-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  min-height: 2rem;
+  padding: 0.25rem 0.62rem;
   color: rgba(226, 221, 247, 0.66);
   font-size: 0.78rem;
   font-weight: 800;
-  transition: color 150ms ease;
+  transition:
+    background 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
 }
 
-.home-nav-text:hover {
+.home-nav-pill:hover,
+.home-nav-pill.router-link-active {
+  background: rgba(255, 255, 255, 0.075);
   color: white;
+  box-shadow: inset 0 0 0 1px rgba(229, 224, 255, 0.12);
+}
+
+.home-nav-pill .pixel-glyph {
+  --pixel-glyph-on: rgba(232, 229, 255, 0.78);
+  --pixel-glyph-accent: rgba(127, 255, 167, 0.72);
+  --pixel-glyph-glow: transparent;
+  filter: none;
+}
+
+.home-mobile-nav {
+  display: flex;
+  gap: 0.28rem;
+  overflow-x: auto;
+  padding: 0 0.75rem 0.48rem;
+  scrollbar-width: none;
+}
+
+.home-mobile-nav::-webkit-scrollbar {
+  display: none;
+}
+
+.home-mobile-nav .home-nav-pill {
+  flex: 0 0 auto;
+  border: 1px solid rgba(229, 224, 255, 0.13);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.035)),
+    rgba(7, 8, 22, 0.48);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(18px);
 }
 
 .home-locale-switcher :deep(button) {

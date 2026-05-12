@@ -596,6 +596,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeySiteSubtitle,
 		SettingKeyAPIBaseURL,
 		SettingKeyContactInfo,
+		SettingKeySupportPopupTitle,
+		SettingKeySupportPopupDescription,
+		SettingKeySupportPopupFooter,
+		SettingKeySupportPopupItems,
 		SettingKeyDocURL,
 		SettingKeyHomeContent,
 		SettingKeyHideCcsImportButton,
@@ -714,6 +718,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SiteSubtitle:                     s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
 		APIBaseURL:                       settings[SettingKeyAPIBaseURL],
 		ContactInfo:                      settings[SettingKeyContactInfo],
+		SupportPopupTitle:                strings.TrimSpace(settings[SettingKeySupportPopupTitle]),
+		SupportPopupDescription:          strings.TrimSpace(settings[SettingKeySupportPopupDescription]),
+		SupportPopupFooter:               strings.TrimSpace(settings[SettingKeySupportPopupFooter]),
+		SupportPopupItems:                settings[SettingKeySupportPopupItems],
 		DocURL:                           settings[SettingKeyDocURL],
 		HomeContent:                      settings[SettingKeyHomeContent],
 		HideCcsImportButton:              settings[SettingKeyHideCcsImportButton] == "true",
@@ -918,6 +926,10 @@ type PublicSettingsInjectionPayload struct {
 	SiteSubtitle                     string                   `json:"site_subtitle"`
 	APIBaseURL                       string                   `json:"api_base_url"`
 	ContactInfo                      string                   `json:"contact_info"`
+	SupportPopupTitle                string                   `json:"support_popup_title"`
+	SupportPopupDescription          string                   `json:"support_popup_description"`
+	SupportPopupFooter               string                   `json:"support_popup_footer"`
+	SupportPopupItems                json.RawMessage          `json:"support_popup_items"`
 	DocURL                           string                   `json:"doc_url"`
 	HomeContent                      string                   `json:"home_content"`
 	HideCcsImportButton              bool                     `json:"hide_ccs_import_button"`
@@ -983,6 +995,10 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		SiteSubtitle:                     settings.SiteSubtitle,
 		APIBaseURL:                       settings.APIBaseURL,
 		ContactInfo:                      settings.ContactInfo,
+		SupportPopupTitle:                settings.SupportPopupTitle,
+		SupportPopupDescription:          settings.SupportPopupDescription,
+		SupportPopupFooter:               settings.SupportPopupFooter,
+		SupportPopupItems:                safeRawJSONArray(settings.SupportPopupItems),
 		DocURL:                           settings.DocURL,
 		HomeContent:                      settings.HomeContent,
 		HideCcsImportButton:              settings.HideCcsImportButton,
@@ -1554,6 +1570,10 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeySiteSubtitle] = settings.SiteSubtitle
 	updates[SettingKeyAPIBaseURL] = settings.APIBaseURL
 	updates[SettingKeyContactInfo] = settings.ContactInfo
+	updates[SettingKeySupportPopupTitle] = strings.TrimSpace(settings.SupportPopupTitle)
+	updates[SettingKeySupportPopupDescription] = strings.TrimSpace(settings.SupportPopupDescription)
+	updates[SettingKeySupportPopupFooter] = strings.TrimSpace(settings.SupportPopupFooter)
+	updates[SettingKeySupportPopupItems] = settings.SupportPopupItems
 	updates[SettingKeyDocURL] = settings.DocURL
 	updates[SettingKeyHomeContent] = settings.HomeContent
 	updates[SettingKeyHideCcsImportButton] = strconv.FormatBool(settings.HideCcsImportButton)
@@ -2414,6 +2434,10 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyLoginAgreementDocuments:                  loginAgreementDocumentsJSON,
 		SettingKeySiteName:                                 "Sub2API",
 		SettingKeySiteLogo:                                 "",
+		SettingKeySupportPopupTitle:                        "加入客服群",
+		SettingKeySupportPopupDescription:                  "扫码二维码加入我们的交流群",
+		SettingKeySupportPopupFooter:                       "",
+		SettingKeySupportPopupItems:                        "[]",
 		SettingKeyPurchaseSubscriptionEnabled:              "false",
 		SettingKeyPurchaseSubscriptionURL:                  "",
 		SettingKeyTableDefaultPageSize:                     "20",
@@ -2604,6 +2628,10 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		SiteSubtitle:                     s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
 		APIBaseURL:                       settings[SettingKeyAPIBaseURL],
 		ContactInfo:                      settings[SettingKeyContactInfo],
+		SupportPopupTitle:                strings.TrimSpace(settings[SettingKeySupportPopupTitle]),
+		SupportPopupDescription:          strings.TrimSpace(settings[SettingKeySupportPopupDescription]),
+		SupportPopupFooter:               strings.TrimSpace(settings[SettingKeySupportPopupFooter]),
+		SupportPopupItems:                settings[SettingKeySupportPopupItems],
 		DocURL:                           settings[SettingKeyDocURL],
 		HomeContent:                      settings[SettingKeyHomeContent],
 		HideCcsImportButton:              settings[SettingKeyHideCcsImportButton] == "true",

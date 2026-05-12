@@ -9,6 +9,8 @@ export default {
     dashboard: 'Dashboard',
     login: 'Login',
     navFeatures: 'Features',
+    navTutorial: 'Tutorial',
+    navModels: 'Model Plaza',
     getStarted: 'Get Started',
     goToDashboard: 'Open Dashboard',
     heroEyebrow: 'Direct access · Unified key · Trial credits',

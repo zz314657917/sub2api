@@ -4203,6 +4203,166 @@
                 </p>
               </div>
 
+              <!-- Support Popup -->
+              <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+                <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                      {{ localText("客服弹窗", "Support popup") }}
+                    </h3>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ localText("用户点击客服时展示，可添加多个二维码或贴图。", "Shown when users click Support. Add multiple QR codes or image cards.") }}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    @click="addSupportPopupItem"
+                  >
+                    {{ localText("添加图片", "Add image") }}
+                  </button>
+                </div>
+
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                      {{ localText("弹窗标题", "Popup title") }}
+                    </label>
+                    <input
+                      v-model="form.support_popup_title"
+                      type="text"
+                      class="input text-sm"
+                      :placeholder="localText('加入客服群', 'Join support group')"
+                    />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                      {{ localText("副标题", "Subtitle") }}
+                    </label>
+                    <input
+                      v-model="form.support_popup_description"
+                      type="text"
+                      class="input text-sm"
+                      :placeholder="localText('扫码二维码加入我们的交流群', 'Scan a QR code to join us')"
+                    />
+                  </div>
+                  <div>
+                    <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                      {{ localText("底部提示", "Footer note") }}
+                    </label>
+                    <input
+                      v-model="form.support_popup_footer"
+                      type="text"
+                      class="input text-sm"
+                      :placeholder="localText('使用 QQ 扫描二维码即可加入', 'Use QQ to scan the QR code')"
+                    />
+                  </div>
+                </div>
+
+                <div class="mt-4 space-y-3">
+                  <div
+                    v-if="form.support_popup_items.length === 0"
+                    class="rounded-lg border border-dashed border-gray-300 px-4 py-5 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400"
+                  >
+                    {{ localText("还没有客服图片，添加后前台会显示客服按钮。", "No support images yet. Add one to show the support button.") }}
+                  </div>
+
+                  <div
+                    v-for="(item, index) in form.support_popup_items"
+                    :key="item.id || index"
+                    class="rounded-lg border border-gray-200 p-4 dark:border-dark-600"
+                  >
+                    <div class="mb-3 flex items-center justify-between">
+                      <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {{ localText(`客服图片 ${index + 1}`, `Support image ${index + 1}`) }}
+                      </span>
+                      <div class="flex items-center gap-2">
+                        <button
+                          v-if="index > 0"
+                          type="button"
+                          class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700"
+                          :title="localText('上移', 'Move up')"
+                          @click="moveSupportPopupItem(index, -1)"
+                        >
+                          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7" />
+                          </svg>
+                        </button>
+                        <button
+                          v-if="index < form.support_popup_items.length - 1"
+                          type="button"
+                          class="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700"
+                          :title="localText('下移', 'Move down')"
+                          @click="moveSupportPopupItem(index, 1)"
+                        >
+                          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          class="rounded p-1 text-red-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                          :title="localText('删除', 'Remove')"
+                          @click="removeSupportPopupItem(index)"
+                        >
+                          <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+                      <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                            {{ localText("名称", "Name") }}
+                          </label>
+                          <input
+                            v-model="item.title"
+                            type="text"
+                            class="input text-sm"
+                            :placeholder="localText('2 群：1078510185', 'Group 2: 1078510185')"
+                          />
+                        </div>
+                        <div>
+                          <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                            {{ localText("图片下方文字", "Caption") }}
+                          </label>
+                          <input
+                            v-model="item.caption"
+                            type="text"
+                            class="input text-sm"
+                            :placeholder="localText('推荐加入 2 群', 'Recommended')"
+                          />
+                        </div>
+                        <div class="sm:col-span-2">
+                          <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
+                            {{ localText("图片覆盖角标", "Image badge") }}
+                          </label>
+                          <input
+                            v-model="item.badge"
+                            type="text"
+                            class="input text-sm"
+                            :placeholder="localText('已满员 / 推荐 / 维护中，可留空', 'Full / Recommended / Maintenance, optional')"
+                          />
+                        </div>
+                      </div>
+                      <ImageUpload
+                        :model-value="item.image_url"
+                        mode="image"
+                        size="md"
+                        :max-size="1024 * 1024"
+                        :upload-label="localText('上传图片', 'Upload image')"
+                        :remove-label="localText('清除', 'Remove')"
+                        :hint="localText('支持二维码、群截图或其它客服贴图，建议压缩到 1MB 内。', 'Supports QR codes, screenshots, or support images. Keep under 1MB.')"
+                        @update:model-value="(v: string) => (item.image_url = v)"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <!-- Doc URL -->
               <div>
                 <label
@@ -6569,6 +6729,16 @@ const form = reactive<SettingsForm>({
   site_subtitle: "Subscription to API Conversion Platform",
   api_base_url: "",
   contact_info: "",
+  support_popup_title: "加入客服群",
+  support_popup_description: "扫码二维码加入我们的交流群",
+  support_popup_footer: "",
+  support_popup_items: [] as Array<{
+    id: string;
+    title: string;
+    image_url: string;
+    caption: string;
+    badge: string;
+  }>,
   doc_url: "",
   home_content: "",
   backend_mode_enabled: false,
@@ -7236,6 +7406,42 @@ function moveMenuItem(index: number, direction: -1 | 1) {
   });
 }
 
+// Support popup item management
+function addSupportPopupItem() {
+  form.support_popup_items.push({
+    id: "",
+    title: "",
+    image_url: "",
+    caption: "",
+    badge: "",
+  });
+}
+
+function removeSupportPopupItem(index: number) {
+  form.support_popup_items.splice(index, 1);
+}
+
+function moveSupportPopupItem(index: number, direction: -1 | 1) {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= form.support_popup_items.length) return;
+  const items = form.support_popup_items;
+  const temp = items[index];
+  items[index] = items[targetIndex];
+  items[targetIndex] = temp;
+}
+
+function normalizeSupportPopupItemsForSave() {
+  return form.support_popup_items
+    .map((item) => ({
+      id: item.id || "",
+      title: item.title.trim(),
+      image_url: item.image_url.trim(),
+      caption: item.caption.trim(),
+      badge: item.badge.trim(),
+    }))
+    .filter((item) => item.title || item.image_url || item.caption || item.badge);
+}
+
 // Custom endpoint management
 function addEndpoint() {
   form.custom_endpoints.push({ name: "", endpoint: "", description: "" });
@@ -7587,6 +7793,19 @@ async function saveSettings() {
     form.login_agreement_mode =
       form.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
     form.login_agreement_documents = normalizedLoginAgreementDocuments;
+    const normalizedSupportPopupItems = normalizeSupportPopupItemsForSave();
+    const incompleteSupportPopupItem = normalizedSupportPopupItems.find(
+      (item) => !item.title || !item.image_url,
+    );
+    if (incompleteSupportPopupItem) {
+      appStore.showError(
+        localText(
+          "客服弹窗图片项需要填写标题并上传图片。",
+          "Each support popup item needs a title and image.",
+        ),
+      );
+      return;
+    }
 
     const normalizedDefaultSubscriptions = normalizeDefaultSubscriptionSettings(
       form.default_subscriptions,
@@ -7686,6 +7905,10 @@ async function saveSettings() {
       site_subtitle: form.site_subtitle,
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
+      support_popup_title: form.support_popup_title,
+      support_popup_description: form.support_popup_description,
+      support_popup_footer: form.support_popup_footer,
+      support_popup_items: normalizedSupportPopupItems,
       doc_url: form.doc_url,
       home_content: form.home_content,
       backend_mode_enabled: form.backend_mode_enabled,

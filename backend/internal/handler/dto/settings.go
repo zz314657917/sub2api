@@ -23,6 +23,15 @@ type CustomEndpoint struct {
 	Description string `json:"description"`
 }
 
+// SupportPopupItem represents a user-configured support popup image card.
+type SupportPopupItem struct {
+	ID       string `json:"id"`
+	Title    string `json:"title"`
+	ImageURL string `json:"image_url"`
+	Caption  string `json:"caption"`
+	Badge    string `json:"badge"`
+}
+
 // SystemSettings represents the admin settings API response payload.
 type SystemSettings struct {
 	RegistrationEnabled              bool                     `json:"registration_enabled"`
@@ -112,6 +121,10 @@ type SystemSettings struct {
 	SiteSubtitle                string           `json:"site_subtitle"`
 	APIBaseURL                  string           `json:"api_base_url"`
 	ContactInfo                 string           `json:"contact_info"`
+	SupportPopupTitle           string           `json:"support_popup_title"`
+	SupportPopupDescription     string           `json:"support_popup_description"`
+	SupportPopupFooter          string           `json:"support_popup_footer"`
+	SupportPopupItems           []SupportPopupItem `json:"support_popup_items"`
 	DocURL                      string           `json:"doc_url"`
 	HomeContent                 string           `json:"home_content"`
 	HideCcsImportButton         bool             `json:"hide_ccs_import_button"`
@@ -260,6 +273,10 @@ type PublicSettings struct {
 	SiteSubtitle                     string                   `json:"site_subtitle"`
 	APIBaseURL                       string                   `json:"api_base_url"`
 	ContactInfo                      string                   `json:"contact_info"`
+	SupportPopupTitle                string                   `json:"support_popup_title"`
+	SupportPopupDescription          string                   `json:"support_popup_description"`
+	SupportPopupFooter               string                   `json:"support_popup_footer"`
+	SupportPopupItems                []SupportPopupItem       `json:"support_popup_items"`
 	DocURL                           string                   `json:"doc_url"`
 	HomeContent                      string                   `json:"home_content"`
 	HideCcsImportButton              bool                     `json:"hide_ccs_import_button"`
@@ -403,6 +420,20 @@ func ParseCustomEndpoints(raw string) []CustomEndpoint {
 	var items []CustomEndpoint
 	if err := json.Unmarshal([]byte(raw), &items); err != nil {
 		return []CustomEndpoint{}
+	}
+	return items
+}
+
+// ParseSupportPopupItems parses support popup image cards from a JSON string.
+// Returns an empty slice on empty or invalid input.
+func ParseSupportPopupItems(raw string) []SupportPopupItem {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || raw == "[]" {
+		return []SupportPopupItem{}
+	}
+	var items []SupportPopupItem
+	if err := json.Unmarshal([]byte(raw), &items); err != nil {
+		return []SupportPopupItem{}
 	}
 	return items
 }

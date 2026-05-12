@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { RouterView, useRouter, useRoute } from 'vue-router'
-import { onMounted, onBeforeUnmount, watch } from 'vue'
+import { onMounted, onBeforeUnmount, ref, watch } from 'vue'
 import Toast from '@/components/common/Toast.vue'
 import NavigationProgress from '@/components/common/NavigationProgress.vue'
+import SupportPopup from '@/components/common/SupportPopup.vue'
 import { resolveDocumentTitle } from '@/router/title'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore } from '@/stores'
 import { getSetupStatus } from '@/api/setup'
+import { SUPPORT_POPUP_EVENT } from '@/utils/supportPopup'
 
 const router = useRouter()
 const route = useRoute()
@@ -14,6 +16,7 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const subscriptionStore = useSubscriptionStore()
 const announcementStore = useAnnouncementStore()
+const supportPopupVisible = ref(false)
 
 /**
  * Update favicon dynamically
@@ -47,6 +50,14 @@ function onVisibilityChange() {
   if (document.visibilityState === 'visible' && authStore.isAuthenticated) {
     announcementStore.fetchAnnouncements()
   }
+}
+
+function openSupportPopup() {
+  supportPopupVisible.value = true
+}
+
+function closeSupportPopup() {
+  supportPopupVisible.value = false
 }
 
 watch(
@@ -89,9 +100,12 @@ router.afterEach(() => {
 
 onBeforeUnmount(() => {
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  window.removeEventListener(SUPPORT_POPUP_EVENT, openSupportPopup)
 })
 
 onMounted(async () => {
+  window.addEventListener(SUPPORT_POPUP_EVENT, openSupportPopup)
+
   // Check if setup is needed
   try {
     const status = await getSetupStatus()
@@ -116,4 +130,5 @@ onMounted(async () => {
   <RouterView />
   <Toast />
   <AnnouncementPopup />
+  <SupportPopup :show="supportPopupVisible" @close="closeSupportPopup" />
 </template>

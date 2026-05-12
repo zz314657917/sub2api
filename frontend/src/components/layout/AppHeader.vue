@@ -23,6 +23,16 @@
       <div class="flex items-center gap-3">
         <AnnouncementBell v-if="user" />
 
+        <button
+          v-if="hasSupportPopupItems"
+          type="button"
+          class="console-chip flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-semibold transition-colors"
+          @click="openSupportPopup"
+        >
+          <Icon name="chatBubble" size="sm" />
+          <span class="hidden sm:inline">{{ t('common.contactSupport') }}</span>
+        </button>
+
         <a
           v-if="docUrl"
           :href="docUrl"
@@ -154,6 +164,7 @@ import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { openSupportPopup } from '@/utils/supportPopup'
 
 const router = useRouter()
 const route = useRoute()
@@ -169,6 +180,10 @@ const dropdownRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
 const docUrl = computed(() => appStore.docUrl)
 const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
+const hasSupportPopupItems = computed(() => {
+  const items = appStore.cachedPublicSettings?.support_popup_items
+  return Array.isArray(items) && items.some((item) => item.title?.trim() && item.image_url?.trim())
+})
 
 const showOnboardingButton = computed(() => {
   return !authStore.isSimpleMode && user.value?.role === 'admin'
