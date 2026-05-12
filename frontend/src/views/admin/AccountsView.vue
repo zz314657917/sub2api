@@ -7,12 +7,17 @@
             v-model:searchQuery="params.search"
             :filters="params"
             :groups="groups"
+            :show-owner-filter="false"
+            :show-share-mode-filter="false"
+            :show-share-status-filter="isSharedAccountsPage"
+            :show-group-filter="!isSharedAccountsPage"
             @update:filters="(newFilters) => Object.assign(params, newFilters)"
             @change="debouncedReload"
             @update:searchQuery="debouncedReload"
           />
           <AccountTableActions
             :loading="loading"
+            :show-create="!isSharedAccountsPage"
             @refresh="handleManualRefresh"
             @create="showCreate = true"
           >
@@ -173,6 +178,7 @@
       </template>
       <template #table>
         <AccountBulkActionsBar
+          v-if="!isSharedAccountsPage"
           :selected-ids="selIds"
           @delete="handleBulkDelete"
           @reset-status="handleBulkResetStatus"
@@ -399,6 +405,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
@@ -437,8 +444,11 @@ import { formatDateTime, formatRelativeTime } from '@/utils/format'
 import type { Account, AccountPlatform, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel } from '@/types'
 
 const { t } = useI18n()
+const route = useRoute()
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const isSharedAccountsPage = computed(() => route.name === 'AdminSharedAccounts')
+const fixedAccountScope = computed(() => isSharedAccountsPage.value ? 'user' : 'system')
 
 const proxies = ref<AccountProxy[]>([])
 const groups = ref<AdminGroup[]>([])
@@ -520,10 +530,10 @@ const showAccountToolsDropdown = ref(false)
 const accountToolsDropdownRef = ref<HTMLElement | null>(null)
 const hiddenColumns = reactive<Set<string>>(new Set())
 const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'share', 'proxy', 'notes', 'priority', 'rate_multiplier']
-const HIDDEN_COLUMNS_KEY = 'account-hidden-columns'
+const HIDDEN_COLUMNS_KEY = computed(() => isSharedAccountsPage.value ? 'shared-account-hidden-columns' : 'account-hidden-columns')
 
 // Sorting settings
-const ACCOUNT_SORT_STORAGE_KEY = 'account-table-sort'
+const ACCOUNT_SORT_STORAGE_KEY = computed(() => isSharedAccountsPage.value ? 'shared-account-table-sort' : 'account-table-sort')
 type AccountSortOrder = 'asc' | 'desc'
 type AccountSortState = {
   sort_by: string
@@ -541,7 +551,7 @@ const ACCOUNT_SORTABLE_KEYS = new Set([
 const loadInitialAccountSortState = (): AccountSortState => {
   const fallback: AccountSortState = { sort_by: 'name', sort_order: 'asc' }
   try {
-    const raw = localStorage.getItem(ACCOUNT_SORT_STORAGE_KEY)
+    const raw = localStorage.getItem(ACCOUNT_SORT_STORAGE_KEY.value)
     if (!raw) return fallback
     const parsed = JSON.parse(raw) as { key?: string; order?: string }
     const key = typeof parsed.key === 'string' ? parsed.key : ''
@@ -559,7 +569,7 @@ const sortState = reactive<AccountSortState>(loadInitialAccountSortState())
 // Auto refresh settings
 const showAutoRefreshDropdown = ref(false)
 const autoRefreshDropdownRef = ref<HTMLElement | null>(null)
-const AUTO_REFRESH_STORAGE_KEY = 'account-auto-refresh'
+const AUTO_REFRESH_STORAGE_KEY = computed(() => isSharedAccountsPage.value ? 'shared-account-auto-refresh' : 'account-auto-refresh')
 const autoRefreshIntervals = [5, 10, 15, 30] as const
 const autoRefreshEnabled = ref(false)
 const autoRefreshIntervalSeconds = ref<(typeof autoRefreshIntervals)[number]>(30)
@@ -638,7 +648,7 @@ const autoRefreshIntervalLabel = (sec: number) => {
 
 const loadSavedColumns = () => {
   try {
-    const saved = localStorage.getItem(HIDDEN_COLUMNS_KEY)
+    const saved = localStorage.getItem(HIDDEN_COLUMNS_KEY.value)
     if (saved) {
       const parsed = JSON.parse(saved) as string[]
       parsed.forEach(key => {
@@ -646,12 +656,14 @@ const loadSavedColumns = () => {
       })
     } else {
       DEFAULT_HIDDEN_COLUMNS.forEach(key => {
+        if (isSharedAccountsPage.value && key === 'share') return
         hiddenColumns.add(key)
       })
     }
   } catch (e) {
     console.error('Failed to load saved columns:', e)
     DEFAULT_HIDDEN_COLUMNS.forEach(key => {
+      if (isSharedAccountsPage.value && key === 'share') return
       hiddenColumns.add(key)
     })
   }
@@ -659,15 +671,41 @@ const loadSavedColumns = () => {
 
 const saveColumnsToStorage = () => {
   try {
-    localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify([...hiddenColumns]))
+    localStorage.setItem(HIDDEN_COLUMNS_KEY.value, JSON.stringify([...hiddenColumns]))
   } catch (e) {
     console.error('Failed to save columns:', e)
   }
 }
 
+const resetColumnVisibilityForScope = () => {
+  hiddenColumns.clear()
+  loadSavedColumns()
+}
+
+const loadSavedSortForScope = () => {
+  const nextSortState = loadInitialAccountSortState()
+  sortState.sort_by = nextSortState.sort_by
+  sortState.sort_order = nextSortState.sort_order
+  const requestParams = params as any
+  requestParams.sort_by = nextSortState.sort_by
+  requestParams.sort_order = nextSortState.sort_order
+}
+
+const applyFixedAccountScope = () => {
+  const requestParams = params as any
+  requestParams.owner_filter = fixedAccountScope.value
+  if (isSharedAccountsPage.value) {
+    requestParams.share_mode = 'public'
+    requestParams.group = ''
+  } else {
+    requestParams.share_mode = ''
+    requestParams.share_status = ''
+  }
+}
+
 const loadSavedAutoRefresh = () => {
   try {
-    const saved = localStorage.getItem(AUTO_REFRESH_STORAGE_KEY)
+    const saved = localStorage.getItem(AUTO_REFRESH_STORAGE_KEY.value)
     if (!saved) return
     const parsed = JSON.parse(saved) as { enabled?: boolean; interval_seconds?: number }
     autoRefreshEnabled.value = parsed.enabled === true
@@ -683,7 +721,7 @@ const loadSavedAutoRefresh = () => {
 const saveAutoRefreshToStorage = () => {
   try {
     localStorage.setItem(
-      AUTO_REFRESH_STORAGE_KEY,
+      AUTO_REFRESH_STORAGE_KEY.value,
       JSON.stringify({
         enabled: autoRefreshEnabled.value,
         interval_seconds: autoRefreshIntervalSeconds.value
@@ -763,6 +801,8 @@ const {
   }
 })
 
+applyFixedAccountScope()
+
 const {
   selectedIds: selIds,
   allVisibleSelected,
@@ -812,6 +852,7 @@ const load = async () => {
   hasPendingListSync.value = false
   resetAutoRefreshCache()
   pendingTodayStatsRefresh.value = false
+  applyFixedAccountScope()
   if (isFirstLoad.value) {
     requestParams.lite = '1'
   }
@@ -819,6 +860,9 @@ const load = async () => {
   if (isFirstLoad.value) {
     isFirstLoad.value = false
     delete requestParams.lite
+    if (isSharedAccountsPage.value) {
+      hiddenColumns.delete('share')
+    }
   }
   await refreshTodayStatsBatch()
 }
@@ -827,6 +871,7 @@ const reload = async () => {
   hasPendingListSync.value = false
   resetAutoRefreshCache()
   pendingTodayStatsRefresh.value = false
+  applyFixedAccountScope()
   await baseReload()
   await refreshTodayStatsBatch()
 }
@@ -835,6 +880,7 @@ const debouncedReload = () => {
   hasPendingListSync.value = false
   resetAutoRefreshCache()
   pendingTodayStatsRefresh.value = true
+  applyFixedAccountScope()
   baseDebouncedReload()
 }
 
@@ -842,6 +888,7 @@ const handlePageChange = (page: number) => {
   hasPendingListSync.value = false
   resetAutoRefreshCache()
   pendingTodayStatsRefresh.value = true
+  applyFixedAccountScope()
   baseHandlePageChange(page)
 }
 
@@ -849,6 +896,7 @@ const handlePageSizeChange = (size: number) => {
   hasPendingListSync.value = false
   resetAutoRefreshCache()
   pendingTodayStatsRefresh.value = true
+  applyFixedAccountScope()
   baseHandlePageSizeChange(size)
 }
 
@@ -858,6 +906,7 @@ const handleSort = (key: string, order: AccountSortOrder) => {
   const requestParams = params as any
   requestParams.sort_by = key
   requestParams.sort_order = order
+  applyFixedAccountScope()
   pagination.page = 1
   hasPendingListSync.value = false
   resetAutoRefreshCache()
@@ -872,6 +921,16 @@ watch(loading, (isLoading, wasLoading) => {
       console.error('Failed to refresh account today stats after table load:', error)
     })
   }
+})
+
+watch(isSharedAccountsPage, async () => {
+  clearSelection()
+  resetColumnVisibilityForScope()
+  loadSavedSortForScope()
+  applyFixedAccountScope()
+  pagination.page = 1
+  isFirstLoad.value = true
+  await load()
 })
 
 const isAnyModalOpen = computed(() => {
@@ -959,6 +1018,7 @@ const refreshAccountsIncrementally = async () => {
   if (autoRefreshFetching.value) return
   autoRefreshFetching.value = true
   try {
+    applyFixedAccountScope()
     const result = await adminAPI.accounts.listWithEtag(
       pagination.page,
       pagination.page_size,
@@ -1380,6 +1440,7 @@ const handleBulkToggleSchedulable = async (schedulable: boolean) => {
   }
 }
 const buildBulkEditFilterSnapshot = () => {
+  applyFixedAccountScope()
   const rawParams = toRaw(params) as Record<string, unknown>
   const sortOrder: AccountSortOrder = rawParams.sort_order === 'desc' ? 'desc' : 'asc'
   return {
@@ -1437,17 +1498,22 @@ const handleDataImported = () => { showImportData.value = false; reload() }
 const ACCOUNT_UNGROUPED_GROUP_QUERY_VALUE = 'ungrouped'
 const ACCOUNT_PRIVACY_MODE_UNSET_QUERY_VALUE = '__unset__'
 const buildAccountQueryFilters = () => ({
-  platform: params.platform || '',
-  type: params.type || '',
-  status: params.status || '',
-  group: params.group || '',
-  privacy_mode: params.privacy_mode || '',
-  owner_filter: params.owner_filter || '',
-  share_mode: params.share_mode || '',
-  share_status: params.share_status || '',
-  search: params.search || '',
-  sort_by: sortState.sort_by,
-  sort_order: sortState.sort_order
+  ...(() => {
+    applyFixedAccountScope()
+    return {
+      platform: params.platform || '',
+      type: params.type || '',
+      status: params.status || '',
+      group: params.group || '',
+      privacy_mode: params.privacy_mode || '',
+      owner_filter: params.owner_filter || '',
+      share_mode: params.share_mode || '',
+      share_status: params.share_status || '',
+      search: params.search || '',
+      sort_by: sortState.sort_by,
+      sort_order: sortState.sort_order
+    }
+  })()
 })
 const accountMatchesCurrentFilters = (account: Account) => {
   const filters = buildAccountQueryFilters()

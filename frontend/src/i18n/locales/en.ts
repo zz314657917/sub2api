@@ -380,6 +380,7 @@ export default {
     availableChannels: 'Available Channels',
     subscriptions: 'Subscriptions',
     accounts: 'Accounts',
+    sharedAccounts: 'Shared Accounts',
     proxies: 'Proxies',
     redeemCodes: 'Redeem Codes',
     ops: 'Ops',
@@ -3014,7 +3015,7 @@ export default {
     // Accounts
     accounts: {
       title: 'Account Management',
-      description: 'Manage AI platform accounts and credentials',
+      description: 'Manage site-owned AI platform accounts and credentials',
       createAccount: 'Create Account',
       autoRefresh: 'Auto Refresh',
       enableAutoRefresh: 'Enable auto refresh',
@@ -4099,6 +4100,11 @@ export default {
     },
 
     // Scheduled Tests
+    sharedAccounts: {
+      title: 'Shared Account Management',
+      description: 'Review and manage user accounts that become available in the shared capacity pool'
+    },
+
     scheduledTests: {
       title: 'Scheduled Tests',
       addPlan: 'Add Plan',

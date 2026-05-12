@@ -524,6 +524,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/shared-accounts',
+    name: 'AdminSharedAccounts',
+    component: () => import('@/views/admin/AccountsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Shared Account Management',
+      titleKey: 'admin.sharedAccounts.title',
+      descriptionKey: 'admin.sharedAccounts.description',
+      requiresAccountShare: true
+    }
+  },
+  {
     path: '/admin/announcements',
     name: 'AdminAnnouncements',
     component: () => import('@/views/admin/AnnouncementsView.vue'),

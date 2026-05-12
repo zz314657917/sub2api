@@ -283,6 +283,7 @@ const ChannelIcon: IconName = 'terminal'
 const CreditCardIcon: IconName = 'creditCard'
 const RechargeSubscriptionIcon: IconName = 'dollar'
 const GlobeIcon: IconName = 'globe'
+const TeamShareIcon: IconName = 'userPlus'
 const ServerIcon: IconName = 'server'
 const BellIcon: IconName = 'bell'
 const TicketIcon: IconName = 'ticket'
@@ -386,6 +387,7 @@ const adminNavItems = computed((): NavItem[] => {
     },
     { path: '/admin/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },
     { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon },
+    { path: '/admin/shared-accounts', label: t('nav.sharedAccounts'), icon: TeamShareIcon, featureFlag: flagAccountShare },
     { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon },
     { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon },
     { path: '/admin/risk-control', label: t('nav.riskControl'), icon: ShieldIcon, hideInSimpleMode: true, featureFlag: flagRiskControl },
@@ -583,17 +585,27 @@ onMounted(() => {
   white-space: nowrap;
 }
 
+.sidebar-link {
+  min-height: 2.25rem;
+  padding-top: 0.45rem;
+  padding-bottom: 0.45rem;
+}
+
 .sidebar-link-collapsed {
   gap: 0;
   padding-left: 0.875rem;
   padding-right: 0.875rem;
 }
 
+.sidebar-section {
+  margin-bottom: 1rem;
+}
+
 .sidebar-section-title {
   position: relative;
   display: flex;
   align-items: center;
-  min-height: 1.25rem;
+  min-height: 1rem;
   overflow: hidden;
   white-space: nowrap;
 }

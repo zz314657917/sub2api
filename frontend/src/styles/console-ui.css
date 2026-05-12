@@ -231,10 +231,12 @@
 
 .console-sidebar .sidebar-link {
     position: relative;
-    min-height: 2.65rem;
+    min-height: 2.25rem;
     border: 1px solid transparent;
     border-radius: 0.5rem;
     color: #475569;
+    padding-top: 0.45rem;
+    padding-bottom: 0.45rem;
 }
 
 .dark .console-sidebar .sidebar-link {
@@ -285,8 +287,8 @@
 }
 
 .console-nav-icon-frame {
-    width: 1.92rem;
-    height: 1.92rem;
+    width: 1.72rem;
+    height: 1.72rem;
     border: 0;
     background: transparent;
     box-shadow: none;

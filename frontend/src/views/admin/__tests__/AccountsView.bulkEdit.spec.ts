@@ -61,6 +61,12 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
+vi.mock('vue-router', () => ({
+  useRoute: () => ({
+    name: 'AdminAccounts'
+  })
+}))
+
 const DataTableStub = {
   props: ['columns', 'data'],
   template: `

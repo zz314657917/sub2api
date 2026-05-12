@@ -380,6 +380,7 @@ export default {
     availableChannels: '可用渠道',
     subscriptions: '订阅管理',
     accounts: '账号管理',
+    sharedAccounts: '共享账号管理',
     proxies: 'IP管理',
     redeemCodes: '兑换码',
     ops: '运维监控',
@@ -3090,7 +3091,7 @@ export default {
     // Accounts Management
     accounts: {
       title: '账号管理',
-      description: '管理 AI 平台账号和 Cookie',
+      description: '管理主站自有 AI 平台账号和 Cookie',
       createAccount: '添加账号',
       autoRefresh: '自动刷新',
       enableAutoRefresh: '启用自动刷新',
@@ -4194,6 +4195,11 @@ export default {
     },
 
     // Scheduled Tests
+    sharedAccounts: {
+      title: '共享账号管理',
+      description: '审核和管理用户公开后进入共享容量池的账号'
+    },
+
     scheduledTests: {
       title: '定时测试',
       addPlan: '添加计划',
