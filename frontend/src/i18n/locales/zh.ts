@@ -8,7 +8,7 @@ export default {
     switchToDark: '切换到深色模式',
     dashboard: '控制台',
     login: '登录',
-    navFeatures: '功能特性',
+    navHome: '首页',
     navTutorial: '教程',
     navModels: '模型广场',
     getStarted: '立即开始',

@@ -60,7 +60,7 @@ describe('public tutorial and model plaza pages', () => {
     expect(publicTopNav).toContain('public-nav-button')
     expect(publicTopNav).toContain("to: '/tutorial'")
     expect(publicTopNav).toContain("to: '/models'")
-    expect(publicTopNav).toContain("t('home.navFeatures')")
+    expect(publicTopNav).toContain("t('home.navHome')")
     expect(publicCss).not.toContain('.public-page-header')
     expect(modelPlazaView).not.toContain('model-plaza-topbar')
   })

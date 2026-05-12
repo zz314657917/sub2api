@@ -96,7 +96,7 @@ const isDark = ref(
 )
 
 const navItems = computed<Array<{ to: string; label: string; icon: PixelIconName; activePaths: string[] }>>(() => [
-  { to: '/home#features', label: t('home.navFeatures'), icon: 'spark', activePaths: ['/home', '/'] },
+  { to: '/home', label: t('home.navHome'), icon: 'panel', activePaths: ['/home', '/'] },
   { to: '/tutorial', label: t('home.navTutorial'), icon: 'book', activePaths: ['/tutorial'] },
   { to: '/models', label: t('home.navModels'), icon: 'cube', activePaths: ['/models'] }
 ])

@@ -8,7 +8,7 @@ export default {
     switchToDark: 'Switch to Dark Mode',
     dashboard: 'Dashboard',
     login: 'Login',
-    navFeatures: 'Features',
+    navHome: 'Home',
     navTutorial: 'Tutorial',
     navModels: 'Model Plaza',
     getStarted: 'Get Started',
