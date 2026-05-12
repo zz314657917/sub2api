@@ -533,7 +533,7 @@ onMounted(() => {
 }
 
 .home-mobile-nav {
-  display: flex;
+  display: none;
   gap: 0.28rem;
   overflow-x: auto;
   padding: 0 0.75rem 0.48rem;
@@ -552,6 +552,12 @@ onMounted(() => {
     rgba(7, 8, 22, 0.48);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(18px);
+}
+
+@media (max-width: 1023px) {
+  .home-mobile-nav {
+    display: flex;
+  }
 }
 
 .home-locale-switcher :deep(button) {
