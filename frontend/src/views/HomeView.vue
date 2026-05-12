@@ -31,85 +31,7 @@
     <div class="home-blur-field pointer-events-none absolute inset-0"></div>
     <div class="home-noise pointer-events-none absolute inset-0"></div>
 
-    <header class="home-top-shell relative z-20">
-      <nav class="home-top-nav home-page-shell mx-auto">
-        <router-link to="/" class="home-brand">
-          <span class="home-brand-logo">
-            <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
-          </span>
-          <span class="min-w-0">
-            <span class="block truncate text-sm font-black tracking-normal text-white sm:text-base">
-              {{ siteName }}
-            </span>
-          </span>
-        </router-link>
-
-        <div class="home-nav-center hidden lg:inline-flex">
-          <router-link to="#features" class="home-nav-pill">
-            <PixelIcon name="spark" size="xs" />
-            {{ t('home.navFeatures') }}
-          </router-link>
-          <router-link to="/tutorial" class="home-nav-pill">
-            <PixelIcon name="book" size="xs" />
-            {{ t('home.navTutorial') }}
-          </router-link>
-          <router-link to="/models" class="home-nav-pill">
-            <PixelIcon name="cube" size="xs" />
-            {{ t('home.navModels') }}
-          </router-link>
-        </div>
-
-        <div class="flex items-center gap-1.5 sm:gap-2">
-          <LocaleSwitcher class="home-locale-switcher" />
-
-          <a
-            v-if="docUrl"
-            :href="docUrl"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="home-icon-button"
-            :title="t('home.viewDocs')"
-          >
-            <PixelIcon name="book" size="sm" />
-          </a>
-
-          <button
-            @click="toggleTheme"
-            class="home-icon-button"
-            :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
-          >
-            <PixelIcon v-if="isDark" name="sun" size="sm" />
-            <PixelIcon v-else name="moon" size="sm" />
-          </button>
-
-          <router-link
-            v-if="isAuthenticated"
-            :to="dashboardPath"
-            class="home-nav-button"
-          >
-            {{ t('home.dashboard') }}
-          </router-link>
-          <router-link v-else to="/login" class="home-nav-button">
-            {{ t('home.login') }}
-          </router-link>
-        </div>
-      </nav>
-
-      <div class="home-mobile-nav home-page-shell mx-auto lg:hidden">
-        <router-link to="#features" class="home-nav-pill">
-          <PixelIcon name="spark" size="xs" />
-          {{ t('home.navFeatures') }}
-        </router-link>
-        <router-link to="/tutorial" class="home-nav-pill">
-          <PixelIcon name="book" size="xs" />
-          {{ t('home.navTutorial') }}
-        </router-link>
-        <router-link to="/models" class="home-nav-pill">
-          <PixelIcon name="cube" size="xs" />
-          {{ t('home.navModels') }}
-        </router-link>
-      </div>
-    </header>
+    <PublicTopNav />
 
     <main class="home-main-stage relative z-10 px-4 pb-8 pt-8 sm:px-6 sm:pb-10 sm:pt-9 lg:pt-10">
       <section class="home-hero-shell mx-auto flex flex-col gap-8 sm:gap-9">
@@ -181,12 +103,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
-import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import PixelIcon from '@/components/icons/PixelIcon.vue'
 import type { PixelIconName } from '@/components/icons/pixelIconTypes'
+import PublicTopNav from './public/components/PublicTopNav.vue'
 import { openSupportPopup } from '@/utils/supportPopup'
 
 type FeatureIconName = Extract<PixelIconName, 'key' | 'shield' | 'usage'>
@@ -205,9 +127,6 @@ const authStore = useAuthStore()
 const appStore = useAppStore()
 
 // Site settings - directly from appStore (already initialized from injected config)
-const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
-const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
-const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
 const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
 
@@ -273,9 +192,6 @@ function normalizeSupportLink(value: string): string {
   }
 }
 
-// Theme
-const isDark = ref(document.documentElement.classList.contains('dark'))
-
 // Auth state
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const isAdmin = computed(() => authStore.isAdmin)
@@ -284,13 +200,6 @@ const primaryActionIcon = computed<PrimaryActionIconName>(() =>
   isAuthenticated.value ? 'dashboard' : 'gift'
 )
 
-// Toggle theme
-function toggleTheme() {
-  isDark.value = !isDark.value
-  document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
-}
-
 // Initialize theme
 function initTheme() {
   const savedTheme = localStorage.getItem('theme')
@@ -298,7 +207,6 @@ function initTheme() {
     savedTheme === 'dark' ||
     (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
   ) {
-    isDark.value = true
     document.documentElement.classList.add('dark')
   }
 }
@@ -419,33 +327,10 @@ onMounted(() => {
   opacity: 0.36;
 }
 
-.home-top-shell {
-  width: 100%;
-  border-bottom: 1px solid rgba(220, 215, 255, 0.1);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
-    rgba(4, 3, 16, 0.62);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 16px 42px rgba(3, 2, 12, 0.22);
-  backdrop-filter: blur(18px);
-}
-
-.home-top-nav {
-  display: flex;
-  width: 100%;
-  min-height: 3.75rem;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.45rem 1rem;
-}
-
 .home-main-stage {
   min-height: calc(100vh - 3.75rem);
 }
 
-.home-page-shell,
 .home-hero-shell {
   width: min(100%, 72rem);
 }
@@ -456,204 +341,6 @@ onMounted(() => {
 
 .home-feature-grid {
   width: 100%;
-}
-
-.home-brand {
-  display: inline-flex;
-  min-width: 0;
-  align-items: center;
-  gap: 0.78rem;
-  color: white;
-}
-
-.home-brand-logo {
-  display: inline-flex;
-  height: 2.2rem;
-  width: 2.2rem;
-  flex: 0 0 2.2rem;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border: 1px solid rgba(180, 189, 255, 0.34);
-  background:
-    linear-gradient(180deg, rgba(118, 96, 210, 0.48), rgba(35, 29, 84, 0.56)),
-    rgba(255, 255, 255, 0.06);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 0 0 1px rgba(9, 6, 32, 0.4),
-    0 8px 18px rgba(6, 4, 24, 0.28);
-  padding: 0.22rem;
-}
-
-.home-nav-center {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  align-items: center;
-  gap: 0.2rem;
-  transform: translate(-50%, -50%);
-  border: 1px solid rgba(229, 224, 255, 0.13);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.035)),
-    rgba(7, 8, 22, 0.48);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 14px 32px rgba(3, 2, 12, 0.2);
-  padding: 0.18rem;
-  backdrop-filter: blur(18px);
-}
-
-.home-nav-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.38rem;
-  min-height: 2rem;
-  padding: 0.25rem 0.62rem;
-  color: rgba(226, 221, 247, 0.66);
-  font-size: 0.78rem;
-  font-weight: 800;
-  transition:
-    background 150ms ease,
-    color 150ms ease,
-    box-shadow 150ms ease;
-}
-
-.home-nav-pill:hover,
-.home-nav-pill.router-link-active {
-  background: rgba(255, 255, 255, 0.075);
-  color: white;
-  box-shadow: inset 0 0 0 1px rgba(229, 224, 255, 0.12);
-}
-
-.home-nav-pill .pixel-glyph {
-  --pixel-glyph-on: rgba(232, 229, 255, 0.78);
-  --pixel-glyph-accent: rgba(127, 255, 167, 0.72);
-  --pixel-glyph-glow: transparent;
-  filter: none;
-}
-
-.home-mobile-nav {
-  display: none;
-  gap: 0.28rem;
-  overflow-x: auto;
-  padding: 0 0.75rem 0.48rem;
-  scrollbar-width: none;
-}
-
-.home-mobile-nav::-webkit-scrollbar {
-  display: none;
-}
-
-.home-mobile-nav .home-nav-pill {
-  flex: 0 0 auto;
-  border: 1px solid rgba(229, 224, 255, 0.13);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.035)),
-    rgba(7, 8, 22, 0.48);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(18px);
-}
-
-@media (max-width: 1023px) {
-  .home-mobile-nav {
-    display: flex;
-  }
-}
-
-.home-locale-switcher :deep(button) {
-  border-radius: 0;
-  min-height: 2.35rem;
-  padding: 0.35rem 0.45rem;
-  color: rgba(232, 228, 255, 0.62);
-  font-size: 0.75rem;
-  font-weight: 800;
-}
-
-.home-locale-switcher :deep(button:hover) {
-  background: rgba(255, 255, 255, 0.08);
-  color: white;
-}
-
-.home-locale-switcher :deep(.absolute) {
-  border-radius: 0;
-  border-color: rgba(206, 198, 255, 0.22);
-  background: rgba(18, 12, 45, 0.94);
-  color: white;
-  backdrop-filter: blur(16px);
-}
-
-.home-icon-button {
-  display: inline-flex;
-  height: 2.35rem;
-  width: 2.35rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(229, 224, 255, 0.2);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.045)),
-    rgba(97, 79, 171, 0.34);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
-    0 7px 16px rgba(5, 3, 18, 0.22);
-  color: rgba(255, 255, 255, 0.82);
-  transition: all 160ms ease;
-}
-
-.home-icon-button:hover {
-  border-color: rgba(255, 255, 255, 0.38);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06)),
-    rgba(118, 97, 196, 0.46);
-  color: white;
-}
-
-.home-icon-button .pixel-glyph {
-  --pixel-glyph-on: rgba(232, 229, 255, 0.86);
-  --pixel-glyph-accent: rgba(174, 183, 214, 0.86);
-  --pixel-glyph-glow: transparent;
-  filter: none;
-}
-
-.home-nav-button {
-  align-items: center;
-  justify-content: center;
-  min-height: 2.35rem;
-  border: 2px solid #153c1e;
-  background: linear-gradient(#6fbf43, #328033);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
-    0 3px 0 #123118,
-    0 8px 18px rgba(5, 3, 18, 0.24);
-  padding: 0.35rem 0.9rem;
-  color: white;
-  font-size: 0.75rem;
-  font-weight: 800;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
-  transition:
-    transform 120ms ease,
-    filter 120ms ease,
-    box-shadow 120ms ease;
-}
-
-.home-nav-button:hover {
-  filter: brightness(1.06);
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
-    0 4px 0 #123118,
-    0 10px 20px rgba(5, 3, 18, 0.28);
-}
-
-.home-nav-button:active {
-  transform: translateY(2px);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.22),
-    0 1px 0 #123118,
-    0 6px 14px rgba(5, 3, 18, 0.22);
 }
 
 .home-kicker {
@@ -862,43 +549,6 @@ onMounted(() => {
 }
 
 @media (max-width: 640px) {
-  .home-top-shell {
-    background:
-      linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
-      rgba(4, 3, 16, 0.7);
-  }
-
-  .home-top-nav {
-    min-height: 3.35rem;
-    gap: 0.55rem;
-    padding: 0.38rem 0.75rem;
-  }
-
-  .home-brand {
-    gap: 0.55rem;
-  }
-
-  .home-brand-logo {
-    height: 2rem;
-    width: 2rem;
-    flex-basis: 2rem;
-  }
-
-  .home-locale-switcher :deep(button) {
-    padding-inline: 0.3rem;
-  }
-
-  .home-icon-button {
-    height: 2.15rem;
-    width: 2.15rem;
-  }
-
-  .home-nav-button {
-    min-height: 2.15rem;
-    padding-inline: 0.62rem;
-    font-size: 0.7rem;
-  }
-
   .home-feature-card {
     min-height: auto;
   }
@@ -925,7 +575,6 @@ onMounted(() => {
     padding-bottom: clamp(3rem, 7vh, 6rem);
   }
 
-  .home-page-shell,
   .home-hero-shell {
     width: min(100%, 82rem);
   }
@@ -955,7 +604,6 @@ onMounted(() => {
 }
 
 @media (min-width: 1920px) {
-  .home-page-shell,
   .home-hero-shell {
     width: min(100%, 92rem);
   }

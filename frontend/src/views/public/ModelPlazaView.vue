@@ -1,27 +1,6 @@
 <template>
   <div class="model-plaza-page min-h-screen text-slate-900">
-    <header class="model-plaza-topbar">
-      <nav class="model-plaza-nav mx-auto">
-        <router-link to="/home" class="model-plaza-brand">
-          <span class="model-plaza-logo">
-            <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
-          </span>
-          <span>
-            <span class="block text-sm font-black leading-tight sm:text-base">{{ siteName }}</span>
-            <span class="hidden text-[11px] font-semibold text-slate-500 sm:block">模型与价格</span>
-          </span>
-        </router-link>
-
-        <div class="model-plaza-links">
-          <router-link to="/home">首页</router-link>
-          <router-link to="/tutorial">教程</router-link>
-          <router-link to="/models" class="router-link-active">模型广场</router-link>
-          <router-link :to="isAuthenticated ? dashboardPath : '/login'" class="model-plaza-login">
-            {{ isAuthenticated ? '控制台' : '登录' }}
-          </router-link>
-        </div>
-      </nav>
-    </header>
+    <PublicTopNav />
 
     <main class="model-plaza-main mx-auto">
       <section class="model-plaza-title">
@@ -163,11 +142,12 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useAuthStore, useAppStore } from '@/stores'
+import { useAuthStore } from '@/stores'
 import Icon from '@/components/icons/Icon.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import Select from '@/components/common/Select.vue'
 import Toggle from '@/components/common/Toggle.vue'
+import PublicTopNav from './components/PublicTopNav.vue'
 import userChannelsAPI, {
   type UserAvailableChannel,
   type UserAvailableGroup,
@@ -196,13 +176,9 @@ interface ProviderStat {
   sampleModel: string
 }
 
-const appStore = useAppStore()
 const authStore = useAuthStore()
 
-const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || '落叶网络')
-const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
 const isAuthenticated = computed(() => authStore.isAuthenticated)
-const dashboardPath = computed(() => (authStore.isAdmin ? '/admin/dashboard' : '/dashboard'))
 
 const loading = ref(false)
 const searchQuery = ref('')
@@ -475,74 +451,6 @@ onMounted(() => {
     radial-gradient(circle at 42% 10%, rgba(174, 232, 228, 0.52), transparent 34%),
     radial-gradient(circle at 76% 0%, rgba(222, 224, 232, 0.72), transparent 28%),
     linear-gradient(135deg, #e8f4f3 0%, #eef2f2 48%, #dfe9ea 100%);
-}
-
-.model-plaza-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
-  background: rgba(246, 248, 248, 0.82);
-  backdrop-filter: blur(18px);
-}
-
-.model-plaza-nav {
-  display: flex;
-  width: min(100%, 96rem);
-  min-height: 3.25rem;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 0.38rem 1rem;
-}
-
-.model-plaza-brand,
-.model-plaza-links {
-  display: flex;
-  align-items: center;
-}
-
-.model-plaza-brand {
-  min-width: 0;
-  gap: 0.65rem;
-  color: #0f172a;
-}
-
-.model-plaza-logo {
-  display: inline-flex;
-  height: 2rem;
-  width: 2rem;
-  flex: 0 0 2rem;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  border-radius: 0.55rem;
-  background: rgba(255, 255, 255, 0.74);
-  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
-  padding: 0.18rem;
-}
-
-.model-plaza-links {
-  gap: 0.35rem;
-}
-
-.model-plaza-links a {
-  border-radius: 0.55rem;
-  padding: 0.48rem 0.68rem;
-  color: #64748b;
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.model-plaza-links a:hover,
-.model-plaza-links a.router-link-active {
-  background: rgba(15, 118, 110, 0.08);
-  color: #0f766e;
-}
-
-.model-plaza-links .model-plaza-login {
-  background: #0f766e;
-  color: white;
 }
 
 .model-plaza-main {
@@ -886,18 +794,6 @@ onMounted(() => {
 }
 
 @media (max-width: 900px) {
-  .model-plaza-nav {
-    align-items: flex-start;
-    flex-direction: column;
-    padding: 0.7rem 1rem;
-  }
-
-  .model-plaza-links {
-    width: 100%;
-    overflow-x: auto;
-    padding-bottom: 0.1rem;
-  }
-
   .model-plaza-title {
     align-items: stretch;
     flex-direction: column;

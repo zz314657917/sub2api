@@ -2,24 +2,7 @@
   <div class="public-page-shell min-h-screen text-white">
     <PublicMatrixBackdrop />
 
-    <header class="public-page-header relative z-20">
-      <nav class="public-page-nav mx-auto">
-        <router-link to="/home" class="public-brand">
-          <span class="public-brand-logo">
-            <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
-          </span>
-          <span class="font-black">{{ siteName }}</span>
-        </router-link>
-        <div class="public-nav-links">
-          <router-link to="/home" class="public-nav-link">首页</router-link>
-          <router-link to="/tutorial" class="public-nav-link">教程</router-link>
-          <router-link to="/models" class="public-nav-link">模型广场</router-link>
-          <router-link :to="isAuthenticated ? dashboardPath : '/login'" class="public-nav-button">
-            {{ isAuthenticated ? '控制台' : '登录' }}
-          </router-link>
-        </div>
-      </nav>
-    </header>
+    <PublicTopNav />
 
     <main class="relative z-10 mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:py-14">
       <section class="public-hero">
@@ -119,18 +102,9 @@ const response = await client.chat.completions.create({
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useAuthStore, useAppStore } from '@/stores'
 import PixelIcon from '@/components/icons/PixelIcon.vue'
 import PublicMatrixBackdrop from './components/PublicMatrixBackdrop.vue'
-
-const appStore = useAppStore()
-const authStore = useAuthStore()
-
-const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || '落叶网络')
-const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
-const isAuthenticated = computed(() => authStore.isAuthenticated)
-const dashboardPath = computed(() => (authStore.isAdmin ? '/admin/dashboard' : '/dashboard'))
+import PublicTopNav from './components/PublicTopNav.vue'
 
 const sections = [
   { id: 'account', title: '创建账户' },
