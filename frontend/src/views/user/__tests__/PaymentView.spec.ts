@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, shallowMount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import PaymentView from '../PaymentView.vue'
 import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
 
@@ -414,5 +416,37 @@ describe('PaymentView WeChat JSAPI flow', () => {
     expect(showWarning).toHaveBeenCalledWith('payment.errors.mobilePaymentFallbackToQr')
     expect(showError).not.toHaveBeenCalled()
     expect(window.localStorage.getItem(PAYMENT_RECOVERY_STORAGE_KEY)).toContain('weixin://wxpay/bizpayurl?pr=fallback-native')
+  })
+})
+
+describe('PaymentView pricing layout', () => {
+  it('keeps the pricing layout resilient when locale chunks are stale', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/views/user/PaymentView.vue'), 'utf8')
+
+    expect(source).toContain('pricingCatalog')
+    expect(source).toContain("pt('flexibleCredit')")
+    expect(source).toContain("pt('plansTitle')")
+    expect(source).toContain("pt('faqTitle')")
+    expect(source).toContain('pricing-current-chip')
+    expect(source).toContain('pricing-preset--selected')
+    expect(source).toContain('pricing-plan-card--recommended')
+    expect(source).toContain('refreshCheckoutInfo')
+    expect(source).toContain('pricing-refresh-button')
+    expect(source).not.toContain('purchase-pricing-open')
+    expect(source).not.toContain('body.purchase-pricing-open .console-shell')
+    expect(source).toContain('handleSubmitRecharge')
+    expect(source).toContain('confirmSubscribe')
+  })
+
+  it('defines pricing copy in both locale files', () => {
+    const zh = readFileSync(resolve(process.cwd(), 'src/i18n/locales/zh.ts'), 'utf8')
+    const en = readFileSync(resolve(process.cwd(), 'src/i18n/locales/en.ts'), 'utf8')
+
+    for (const source of [zh, en]) {
+      expect(source).toContain('pricing: {')
+      expect(source).toContain('flexibleCredit:')
+      expect(source).toContain('plansTitle:')
+      expect(source).toContain('faqTitle:')
+    }
   })
 })

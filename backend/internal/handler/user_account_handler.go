@@ -9,6 +9,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -344,6 +345,24 @@ func (h *UserAccountHandler) GetShareSummary(c *gin.Context) {
 	response.Success(c, summary)
 }
 
+func (h *UserAccountHandler) GetUsageSummary(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	startTime, endTime, ok := parseUserAccountUsageSummaryRange(c)
+	if !ok {
+		return
+	}
+	summary, err := h.userAccountService.GetUsageSummary(c.Request.Context(), subject.UserID, startTime, endTime)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, summary)
+}
+
 func (h *UserAccountHandler) GetCapacityPools(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
@@ -374,6 +393,38 @@ func (h *UserAccountHandler) TransferShareToBalance(c *gin.Context) {
 			"balance":            balance,
 		}, nil
 	})
+}
+
+func parseUserAccountUsageSummaryRange(c *gin.Context) (time.Time, time.Time, bool) {
+	userTZ := c.Query("timezone")
+	now := timezone.NowInUserLocation(userTZ)
+	startDate := strings.TrimSpace(c.Query("start_date"))
+	endDate := strings.TrimSpace(c.Query("end_date"))
+
+	startTime := timezone.StartOfDayInUserLocation(now.AddDate(0, 0, -6), userTZ)
+	endTime := timezone.StartOfDayInUserLocation(now.AddDate(0, 0, 1), userTZ)
+
+	if startDate != "" {
+		parsed, err := timezone.ParseInUserLocation("2006-01-02", startDate, userTZ)
+		if err != nil {
+			response.BadRequest(c, "Invalid start_date")
+			return time.Time{}, time.Time{}, false
+		}
+		startTime = timezone.StartOfDayInUserLocation(parsed, userTZ)
+	}
+	if endDate != "" {
+		parsed, err := timezone.ParseInUserLocation("2006-01-02", endDate, userTZ)
+		if err != nil {
+			response.BadRequest(c, "Invalid end_date")
+			return time.Time{}, time.Time{}, false
+		}
+		endTime = timezone.StartOfDayInUserLocation(parsed.AddDate(0, 0, 1), userTZ)
+	}
+	if !endTime.After(startTime) {
+		response.BadRequest(c, "end_date must be after or equal to start_date")
+		return time.Time{}, time.Time{}, false
+	}
+	return startTime, endTime, true
 }
 
 func (h *UserAccountHandler) GenerateAuthURL(c *gin.Context) {

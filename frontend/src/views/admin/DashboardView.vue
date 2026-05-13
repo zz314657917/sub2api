@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="space-y-6">
+    <div class="dashboard-overview space-y-6">
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <LoadingSpinner />
@@ -268,7 +268,7 @@
         <!-- Charts Section -->
         <div class="space-y-6">
           <!-- Date Range Filter -->
-          <div class="card p-4">
+          <div class="dashboard-panel dashboard-panel--filters p-4">
             <div class="flex flex-wrap items-center gap-4">
               <div class="flex items-center gap-2">
                 <span class="text-sm font-medium text-gray-700 dark:text-gray-300"
@@ -318,15 +318,23 @@
           </div>
 
           <!-- User Usage Trend (Full Width) -->
-          <div class="card p-4">
-            <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
-              {{ t('admin.dashboard.recentUsage') }} (Top 12)
-            </h3>
-            <div class="h-64">
+          <div class="dashboard-panel p-4">
+            <div class="mb-4 flex items-center justify-between gap-3">
+              <div class="flex items-center gap-2">
+                <span class="dashboard-title-icon dashboard-title-icon--blue">
+                  <Icon name="chartBar" size="sm" />
+                </span>
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                  {{ t('admin.dashboard.recentUsage') }} (Top 12)
+                </h3>
+              </div>
+              <span class="dashboard-panel-chip">{{ t('admin.dashboard.tokens') }}</span>
+            </div>
+            <div class="h-72">
               <div v-if="userTrendLoading" class="flex h-full items-center justify-center">
                 <LoadingSpinner size="md" />
               </div>
-              <Line v-else-if="userTrendChartData" :data="userTrendChartData" :options="lineOptions" />
+              <Bar v-else-if="userTrendChartData" :data="userTrendChartData" :options="barOptions" />
               <div
                 v-else
                 class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-400"
@@ -368,18 +376,20 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
+  BarElement,
   PointElement,
   LineElement,
   Tooltip,
   Legend,
   Filler
 } from 'chart.js'
-import { Line } from 'vue-chartjs'
+import { Bar } from 'vue-chartjs'
 
 // Register Chart.js components
 ChartJS.register(
   CategoryScale,
   LinearScale,
+  BarElement,
   PointElement,
   LineElement,
   Tooltip,
@@ -442,40 +452,45 @@ const isDarkMode = computed(() => {
 
 // Chart colors
 const chartColors = computed(() => ({
-  text: isDarkMode.value ? '#e5e7eb' : '#374151',
-  grid: isDarkMode.value ? '#374151' : '#e5e7eb'
+  text: isDarkMode.value ? '#dbeafe' : '#334155',
+  muted: isDarkMode.value ? '#94a3b8' : '#64748b',
+  grid: isDarkMode.value ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)',
+  tooltipBg: isDarkMode.value ? 'rgba(8, 13, 26, 0.96)' : 'rgba(255, 255, 255, 0.96)',
+  tooltipText: isDarkMode.value ? '#f8fafc' : '#0f172a',
+  blue: '#3b82f6',
+  cyan: '#06b6d4',
+  emerald: '#10b981'
 }))
 
-// Line chart options (for user trend chart)
-const lineOptions = computed(() => ({
+// Bar chart options (for user usage ranking)
+const barOptions = computed(() => ({
+  indexAxis: 'y' as const,
   responsive: true,
   maintainAspectRatio: false,
   interaction: {
     intersect: false,
-    mode: 'index' as const
+    mode: 'nearest' as const
   },
   plugins: {
     legend: {
-      position: 'top' as const,
-      labels: {
-        color: chartColors.value.text,
-        usePointStyle: true,
-        pointStyle: 'circle',
-        padding: 15,
-        font: {
-          size: 11
-        }
-      }
+      display: false
     },
     tooltip: {
-      itemSort: (a: any, b: any) => {
-        const aValue = typeof a?.raw === 'number' ? a.raw : Number(a?.parsed?.y ?? 0)
-        const bValue = typeof b?.raw === 'number' ? b.raw : Number(b?.parsed?.y ?? 0)
-        return bValue - aValue
-      },
+      backgroundColor: chartColors.value.tooltipBg,
+      borderColor: isDarkMode.value ? 'rgba(59, 130, 246, 0.34)' : 'rgba(59, 130, 246, 0.18)',
+      borderWidth: 1,
+      titleColor: chartColors.value.tooltipText,
+      bodyColor: chartColors.value.tooltipText,
+      padding: 10,
+      displayColors: false,
       callbacks: {
+        title: (items: any[]) => {
+          const index = items[0]?.dataIndex ?? 0
+          const labels = userTrendChartData.value?.fullLabels || []
+          return labels[index] || items[0]?.label || ''
+        },
         label: (context: any) => {
-          return `${context.dataset.label}: ${formatTokens(context.raw)}`
+          return `${t('admin.dashboard.tokens')}: ${formatTokens(context.raw)}`
         }
       }
     }
@@ -483,25 +498,29 @@ const lineOptions = computed(() => ({
   scales: {
     x: {
       grid: {
-        color: chartColors.value.grid
+        color: chartColors.value.grid,
+        drawBorder: false
       },
       ticks: {
-        color: chartColors.value.text,
+        color: chartColors.value.muted,
         font: {
-          size: 10
-        }
+          size: 10,
+          weight: 500
+        },
+        callback: (value: string | number) => formatTokens(Number(value))
       }
     },
     y: {
       grid: {
-        color: chartColors.value.grid
+        display: false,
+        drawBorder: false
       },
       ticks: {
         color: chartColors.value.text,
         font: {
-          size: 10
-        },
-        callback: (value: string | number) => formatTokens(Number(value))
+          size: 11,
+          weight: 600
+        }
       }
     }
   }
@@ -538,34 +557,55 @@ const userTrendChartData = computed(() => {
     userGroups.get(key)!.data.set(point.date, point.tokens)
   })
 
-  const sortedDates = Array.from(allDates).sort()
-  const colors = [
-    '#3b82f6',
-    '#10b981',
-    '#f59e0b',
-    '#ef4444',
-    '#8b5cf6',
-    '#ec4899',
-    '#14b8a6',
-    '#f97316',
-    '#6366f1',
-    '#84cc16',
-    '#06b6d4',
-    '#a855f7'
-  ]
+  const totals = Array.from(userGroups.values())
+    .map((group) => ({
+      name: group.name,
+      total: Array.from(group.data.values()).reduce((sum, value) => sum + value, 0)
+    }))
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 12)
 
-  const datasets = Array.from(userGroups.values()).map((group, idx) => ({
-    label: group.name,
-    data: sortedDates.map((date) => group.data.get(date) || 0),
-    borderColor: colors[idx % colors.length],
-    backgroundColor: `${colors[idx % colors.length]}20`,
-    fill: false,
-    tension: 0.3
-  }))
+  const fullLabels = totals.map((item) => item.name)
+  const labels = fullLabels.map((label) => {
+    if (label.length <= 28) return label
+    return `${label.slice(0, 25)}...`
+  })
+
+  const gradients = totals.map((_, idx) => {
+    const palette = [
+      chartColors.value.blue,
+      chartColors.value.emerald,
+      chartColors.value.cyan,
+      '#f59e0b',
+      '#8b5cf6',
+      '#f97316',
+      '#14b8a6',
+      '#6366f1',
+      '#22c55e',
+      '#eab308',
+      '#0ea5e9',
+      '#a855f7'
+    ]
+    return palette[idx % palette.length]
+  })
 
   return {
-    labels: sortedDates,
-    datasets
+    labels,
+    fullLabels,
+    datasets: [
+      {
+        label: t('admin.dashboard.tokens'),
+        data: totals.map((item) => item.total),
+        backgroundColor: gradients.map((color) => `${color}b8`),
+        borderColor: gradients.map((color) => `${color}8a`),
+        borderWidth: 0,
+        hoverBorderWidth: 0,
+        borderRadius: 7,
+        borderSkipped: false,
+        barThickness: 12,
+        maxBarThickness: 16
+      }
+    ]
   }
 })
 
@@ -756,4 +796,100 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.dashboard-overview :deep(.dashboard-panel),
+.dashboard-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.82)),
+    radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.08), transparent 18rem);
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.07);
+  backdrop-filter: blur(16px);
+}
+
+.dark .dashboard-overview :deep(.dashboard-panel),
+.dark .dashboard-panel {
+  border-color: rgba(55, 65, 81, 0.9);
+  background:
+    linear-gradient(135deg, rgba(13, 20, 33, 0.96), rgba(9, 14, 26, 0.9)),
+    radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.08), transparent 19rem);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.25);
+}
+
+.dashboard-panel::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(59, 130, 246, 0.16), transparent 18rem),
+    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: auto, 100% 2.75rem;
+  opacity: 0.28;
+  content: '';
+}
+
+.dark .dashboard-panel::before {
+  background:
+    linear-gradient(90deg, rgba(6, 182, 212, 0.12), transparent 18rem),
+    linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+  opacity: 0.2;
+}
+
+.dashboard-panel > * {
+  position: relative;
+  z-index: 1;
+}
+
+.dashboard-panel--filters {
+  border-radius: 0.625rem;
+}
+
+.dashboard-title-icon {
+  display: inline-flex;
+  width: 1.75rem;
+  height: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 0.5rem;
+  background: rgba(59, 130, 246, 0.09);
+  color: #2563eb;
+}
+
+.dark .dashboard-title-icon {
+  border-color: rgba(96, 165, 250, 0.28);
+  background: rgba(59, 130, 246, 0.14);
+  color: #93c5fd;
+}
+
+.dashboard-title-icon--blue {
+  border-color: rgba(6, 182, 212, 0.22);
+  background: rgba(6, 182, 212, 0.09);
+  color: #0891b2;
+}
+
+.dark .dashboard-title-icon--blue {
+  border-color: rgba(34, 211, 238, 0.26);
+  background: rgba(8, 145, 178, 0.16);
+  color: #67e8f9;
+}
+
+.dashboard-panel-chip {
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  padding: 0.25rem 0.625rem;
+  color: #64748b;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.dark .dashboard-panel-chip {
+  border-color: rgba(71, 85, 105, 0.74);
+  background: rgba(15, 23, 42, 0.64);
+  color: #94a3b8;
+}
 </style>

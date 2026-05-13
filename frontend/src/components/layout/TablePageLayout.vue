@@ -65,6 +65,12 @@ onUnmounted(() => {
   box-shadow: var(--mc-shadow-block);
 }
 
+:global(.dark) .table-scroll-container {
+  background: rgba(8, 15, 29, 0.84);
+  border-color: rgba(51, 65, 85, 0.88);
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+}
+
 .table-scroll-container :deep(.table-wrapper) {
   @apply flex-1 overflow-x-auto overflow-y-auto;
   /* 确保横向滚动条显示在最底部 */
@@ -81,8 +87,16 @@ onUnmounted(() => {
   @apply bg-accent-50/90 backdrop-blur-sm dark:bg-dark-800/90;
 }
 
+:global(.dark) .table-scroll-container :deep(thead) {
+  background: rgb(24 34 50);
+}
+
 .table-scroll-container :deep(tbody) {
   /* 保持默认 table-row-group 显示，不使用 block */
+}
+
+:global(.dark) .table-scroll-container :deep(tbody) {
+  background: rgba(8, 15, 29, 0.9);
 }
 
 .table-scroll-container :deep(th) {

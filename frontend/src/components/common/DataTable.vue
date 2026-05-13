@@ -805,7 +805,7 @@ tbody tr:hover .sticky-col {
   bottom: 0;
   width: 10px;
   transform: translateX(100%);
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.08), transparent);
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.04), transparent);
   pointer-events: none;
 }
 
@@ -818,7 +818,7 @@ tbody tr:hover .sticky-col {
   bottom: 0;
   width: 10px;
   transform: translateX(100%);
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.08), transparent);
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.04), transparent);
   pointer-events: none;
 }
 
@@ -831,18 +831,18 @@ tbody tr:hover .sticky-col {
   bottom: 0;
   width: 10px;
   transform: translateX(-100%);
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.08), transparent);
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.04), transparent);
   pointer-events: none;
 }
 
 /* 暗色模式阴影 */
 .dark .is-scrollable .sticky-col-left::after,
 .dark .is-scrollable .sticky-col-left-second::after {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.2), transparent);
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.08), transparent);
 }
 
 .dark .is-scrollable .sticky-col-right::before {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.2), transparent);
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.08), transparent);
 }
 </style>
 

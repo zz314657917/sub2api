@@ -40,6 +40,14 @@ func RegisterUserRoutes(
 				imageCreator.GET("/images/:id/file", h.ImageCreator.GetImageFile)
 			}
 
+			welfare := user.Group("/welfare")
+			{
+				welfare.GET("/overview", h.Welfare.GetOverview)
+				welfare.GET("/daily-checkin", h.Welfare.GetDailyCheckin)
+				welfare.POST("/daily-checkin/claim", h.Welfare.ClaimDailyCheckin)
+				welfare.POST("/daily-checkin/milestones/:day/claim", h.Welfare.ClaimDailyCheckinMilestone)
+			}
+
 			// 通知邮箱管理
 			notifyEmail := user.Group("/notify-email")
 			{
@@ -82,6 +90,7 @@ func RegisterUserRoutes(
 			accounts.POST("/session-import", h.UserAccount.ImportSession)
 			accounts.GET("/share/summary", h.UserAccount.GetShareSummary)
 			accounts.POST("/share/transfer", h.UserAccount.TransferShareToBalance)
+			accounts.GET("/usage/summary", h.UserAccount.GetUsageSummary)
 			accounts.GET("/capacity-pools", h.UserAccount.GetCapacityPools)
 			accounts.GET("/:id", h.UserAccount.GetByID)
 			accounts.PUT("/:id", h.UserAccount.Update)

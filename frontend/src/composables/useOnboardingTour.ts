@@ -6,6 +6,8 @@ import { useOnboardingStore } from '@/stores/onboarding'
 import { useI18n } from 'vue-i18n'
 import { getAdminSteps, getUserSteps } from '@/components/Guide/steps'
 
+const SIDEBAR_TOUR_TARGET_EVENT = 'sub2api:sidebar-tour-target'
+
 export interface OnboardingOptions {
   storageKey?: string
   autoStart?: boolean
@@ -80,6 +82,8 @@ export function useOnboardingTour(options: OnboardingOptions) {
    * 检查元素是否存在，如果不存在则重试
    */
   const ensureElement = async (selector: string, timeout = 5000): Promise<boolean> => {
+    window.dispatchEvent(new CustomEvent(SIDEBAR_TOUR_TARGET_EVENT, { detail: { selector } }))
+    await nextTick()
     const startTime = Date.now()
     while (Date.now() - startTime < timeout) {
       const element = document.querySelector(selector)

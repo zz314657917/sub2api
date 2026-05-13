@@ -318,6 +318,14 @@
                 }}</span>
               </button>
               <button
+                v-if="row.subscription_type === 'subscription'"
+                @click="handleCreatePlan(row)"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-900/20 dark:hover:text-emerald-400"
+              >
+                <Icon name="tag" size="sm" />
+                <span class="text-xs">{{ t("payment.admin.createPlan") }}</span>
+              </button>
+              <button
                 @click="handleDelete(row)"
                 class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
               >
@@ -2836,6 +2844,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { useRouter } from "vue-router";
 import { useAppStore } from "@/stores/app";
 import { useOnboardingStore } from "@/stores/onboarding";
 import { adminAPI } from "@/api/admin";
@@ -2869,6 +2878,7 @@ import {
 const { t } = useI18n();
 const appStore = useAppStore();
 const onboardingStore = useOnboardingStore();
+const router = useRouter();
 
 const columns = computed<Column[]>(() => [
   { key: "name", label: t("admin.groups.columns.name"), sortable: true },
@@ -3906,6 +3916,13 @@ const handleRateMultipliers = (group: AdminGroup) => {
 const handleRPMOverrides = (group: AdminGroup) => {
   rpmOverridesGroup.value = group;
   showRPMOverridesModal.value = true;
+};
+
+const handleCreatePlan = (group: AdminGroup) => {
+  router.push({
+    path: "/admin/orders/plans",
+    query: { group: String(group.id) },
+  });
 };
 
 const handleDelete = (group: AdminGroup) => {

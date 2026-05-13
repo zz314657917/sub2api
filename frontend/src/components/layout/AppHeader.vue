@@ -23,8 +23,24 @@
       <div class="flex items-center gap-3">
         <AnnouncementBell v-if="user" />
 
+        <router-link
+          to="/tutorial"
+          class="console-chip flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-semibold transition-colors"
+        >
+          <Icon name="book" size="sm" />
+          <span class="hidden xl:inline">{{ t('home.navTutorial') }}</span>
+        </router-link>
+
+        <router-link
+          to="/models"
+          class="console-chip flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-semibold transition-colors"
+        >
+          <Icon name="cube" size="sm" />
+          <span class="hidden xl:inline">{{ t('home.navModels') }}</span>
+        </router-link>
+
         <button
-          v-if="hasSupportPopupItems"
+          v-if="hasSupportButton"
           type="button"
           class="console-chip flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-semibold transition-colors"
           @click="openSupportPopup"
@@ -165,6 +181,7 @@ import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMi
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { openSupportPopup } from '@/utils/supportPopup'
+import { hasSupportContent } from '@/utils/supportContent'
 
 const router = useRouter()
 const route = useRoute()
@@ -180,10 +197,9 @@ const dropdownRef = ref<HTMLElement | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
 const docUrl = computed(() => appStore.docUrl)
 const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
-const hasSupportPopupItems = computed(() => {
-  const items = appStore.cachedPublicSettings?.support_popup_items
-  return Array.isArray(items) && items.some((item) => item.title?.trim() && item.image_url?.trim())
-})
+const hasSupportButton = computed(() =>
+  hasSupportContent(appStore.cachedPublicSettings, appStore.contactInfo)
+)
 
 const showOnboardingButton = computed(() => {
   return !authStore.isSimpleMode && user.value?.role === 'admin'

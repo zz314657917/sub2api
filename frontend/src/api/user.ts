@@ -29,6 +29,7 @@ import type {
   UserAccountExchangeCodeRequest,
   UserAccountSessionImportRequest,
   UserAccountShareSummary,
+  UserAccountUsageSummary,
   UserAccountTransferResponse
 } from '@/types'
 
@@ -266,6 +267,23 @@ export async function getAccountShareSummary(): Promise<UserAccountShareSummary>
   return data
 }
 
+export async function getAccountUsageSummary(
+  params?: {
+    start_date?: string
+    end_date?: string
+    timezone?: string
+  },
+  options?: {
+    signal?: AbortSignal
+  }
+): Promise<UserAccountUsageSummary> {
+  const { data } = await apiClient.get<UserAccountUsageSummary>('/user/accounts/usage/summary', {
+    params,
+    signal: options?.signal
+  })
+  return data
+}
+
 export async function getAccountCapacityPools(options?: { signal?: AbortSignal }): Promise<UserAccountCapacityPools> {
   const { data } = await apiClient.get<UserAccountCapacityPools>('/user/accounts/capacity-pools', {
     signal: options?.signal
@@ -318,6 +336,7 @@ export const userAPI = {
   testAccount,
   getAccountUsage,
   getAccountShareSummary,
+  getAccountUsageSummary,
   getAccountCapacityPools,
   transferAccountShareToBalance,
   generateAccountAuthURL,

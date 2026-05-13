@@ -666,6 +666,98 @@ func (r *accountRepository) ListShareSummary(ctx context.Context, ownerUserID in
 	return summary, nil
 }
 
+func (r *accountRepository) GetUsageSummary(ctx context.Context, ownerUserID int64, startTime, endTime time.Time) (*service.UserAccountUsageSummary, error) {
+	if ownerUserID <= 0 {
+		return &service.UserAccountUsageSummary{OwnerUserID: ownerUserID}, nil
+	}
+	rows, err := r.sql.QueryContext(ctx, `
+		WITH owned_accounts AS (
+			SELECT id, share_mode, share_status
+			FROM accounts
+			WHERE owner_user_id = $1 AND deleted_at IS NULL
+		),
+		account_counts AS (
+			SELECT
+				COUNT(*)::bigint AS total_accounts,
+				COALESCE(COUNT(*) FILTER (WHERE COALESCE(share_mode, 'private') = 'private'), 0)::bigint AS private_accounts,
+				COALESCE(COUNT(*) FILTER (WHERE share_mode = 'public' AND share_status = 'pending_review'), 0)::bigint AS public_pending_accounts,
+				COALESCE(COUNT(*) FILTER (WHERE share_mode = 'public' AND share_status = 'active'), 0)::bigint AS public_active_accounts,
+				COALESCE(COUNT(*) FILTER (WHERE share_mode = 'public' AND share_status = 'suspended'), 0)::bigint AS public_suspended_accounts
+			FROM owned_accounts
+		),
+		usage_totals AS (
+			SELECT
+				COALESCE(SUM(COALESCE(ul.account_stats_cost, ul.total_cost, 0) * COALESCE(ul.account_rate_multiplier, 1)) FILTER (WHERE ul.user_id = $1), 0)::double precision AS own_usage_cost,
+				COALESCE(COUNT(*) FILTER (WHERE ul.user_id = $1), 0)::bigint AS own_usage_requests,
+				COALESCE(SUM(COALESCE(ul.actual_cost, 0)) FILTER (WHERE ul.user_id <> $1), 0)::double precision AS shared_usage_cost,
+				COALESCE(COUNT(*) FILTER (WHERE ul.user_id <> $1), 0)::bigint AS shared_usage_requests,
+				COALESCE(SUM(COALESCE(ul.account_stats_cost, ul.total_cost, 0) * COALESCE(ul.account_rate_multiplier, 1)), 0)::double precision AS account_cost,
+				COALESCE(SUM(COALESCE(ul.actual_cost, 0)) FILTER (
+					WHERE ul.user_id = $1
+						AND ul.billing_type = 0
+						AND COALESCE(oa.share_mode, 'private') <> 'private'
+				), 0)::double precision AS balance_deduction
+			FROM usage_logs ul
+			JOIN owned_accounts oa ON oa.id = ul.account_id
+			WHERE ul.created_at >= $2 AND ul.created_at < $3
+		),
+		ledger_totals AS (
+			SELECT
+				COALESCE(SUM(owner_amount), 0)::double precision AS share_income,
+				COALESCE(SUM(platform_amount), 0)::double precision AS platform_amount
+			FROM account_share_ledger
+			WHERE owner_user_id = $1
+				AND created_at >= $2 AND created_at < $3
+		)
+		SELECT
+			ac.total_accounts,
+			ac.private_accounts,
+			ac.public_pending_accounts,
+			ac.public_active_accounts,
+			ac.public_suspended_accounts,
+			ut.own_usage_cost,
+			ut.own_usage_requests,
+			ut.shared_usage_cost,
+			ut.shared_usage_requests,
+			lt.share_income,
+			lt.platform_amount,
+			ut.account_cost,
+			ut.balance_deduction
+		FROM account_counts ac
+		CROSS JOIN usage_totals ut
+		CROSS JOIN ledger_totals lt
+	`, ownerUserID, startTime, endTime)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	summary := &service.UserAccountUsageSummary{OwnerUserID: ownerUserID}
+	if rows.Next() {
+		if err := rows.Scan(
+			&summary.TotalAccounts,
+			&summary.PrivateAccounts,
+			&summary.PublicPendingAccounts,
+			&summary.PublicActiveAccounts,
+			&summary.PublicSuspendedAccounts,
+			&summary.OwnUsageCost,
+			&summary.OwnUsageRequests,
+			&summary.SharedUsageCost,
+			&summary.SharedUsageRequests,
+			&summary.ShareIncome,
+			&summary.PlatformAmount,
+			&summary.AccountCost,
+			&summary.BalanceDeduction,
+		); err != nil {
+			return nil, err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return summary, nil
+}
+
 func (r *accountRepository) TransferAvailableShareToBalance(ctx context.Context, ownerUserID int64) (float64, float64, error) {
 	if ownerUserID <= 0 {
 		return 0, 0, nil
@@ -738,7 +830,7 @@ func (r *accountRepository) TransferAvailableShareToBalance(ctx context.Context,
 		return 0, 0, service.ErrUserNotFound
 	}
 	if err := userRows.Scan(&balanceAfter); err != nil {
-			return 0, 0, err
+		return 0, 0, err
 	}
 	if err := userRows.Err(); err != nil {
 		return 0, 0, err

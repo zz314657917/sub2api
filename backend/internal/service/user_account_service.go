@@ -19,6 +19,7 @@ type UserOwnedAccountRepository interface {
 
 type UserAccountShareLedgerRepository interface {
 	ListShareSummary(ctx context.Context, ownerUserID int64) (*UserAccountShareSummary, error)
+	GetUsageSummary(ctx context.Context, ownerUserID int64, startTime, endTime time.Time) (*UserAccountUsageSummary, error)
 	TransferAvailableShareToBalance(ctx context.Context, ownerUserID int64) (float64, float64, error)
 }
 
@@ -38,6 +39,26 @@ type UserAccountShareSummary struct {
 	CountFrozen       int64   `json:"count_frozen"`
 	CountAvailable    int64   `json:"count_available"`
 	CountTransferred  int64   `json:"count_transferred"`
+}
+
+type UserAccountUsageSummary struct {
+	OwnerUserID             int64   `json:"owner_user_id"`
+	StartDate               string  `json:"start_date"`
+	EndDate                 string  `json:"end_date"`
+	TotalAccounts           int64   `json:"total_accounts"`
+	PrivateAccounts         int64   `json:"private_accounts"`
+	PublicPendingAccounts   int64   `json:"public_pending_accounts"`
+	PublicActiveAccounts    int64   `json:"public_active_accounts"`
+	PublicSuspendedAccounts int64   `json:"public_suspended_accounts"`
+	OwnUsageCost            float64 `json:"own_usage_cost"`
+	OwnUsageRequests        int64   `json:"own_usage_requests"`
+	SharedUsageCost         float64 `json:"shared_usage_cost"`
+	SharedUsageRequests     int64   `json:"shared_usage_requests"`
+	ShareIncome             float64 `json:"share_income"`
+	PlatformAmount          float64 `json:"platform_amount"`
+	AccountCost             float64 `json:"account_cost"`
+	BalanceDeduction        float64 `json:"balance_deduction"`
+	BalanceNetChange        float64 `json:"balance_net_change"`
 }
 
 type UserAccountCapacityPools struct {
@@ -309,6 +330,30 @@ func (s *UserAccountService) GetShareSummary(ctx context.Context, userID int64) 
 	return repo.ListShareSummary(ctx, userID)
 }
 
+func (s *UserAccountService) GetUsageSummary(ctx context.Context, userID int64, startTime, endTime time.Time) (*UserAccountUsageSummary, error) {
+	if err := s.ensureFeatureEnabled(ctx); err != nil {
+		return nil, err
+	}
+	repo, err := s.shareLedgerRepo()
+	if err != nil {
+		return nil, err
+	}
+	summary, err := repo.GetUsageSummary(ctx, userID, startTime, endTime)
+	if err != nil {
+		return nil, err
+	}
+	if summary == nil {
+		summary = &UserAccountUsageSummary{OwnerUserID: userID}
+	}
+	summary.OwnerUserID = userID
+	summary.StartDate = startTime.Format("2006-01-02")
+	if endTime.After(startTime) {
+		summary.EndDate = endTime.AddDate(0, 0, -1).Format("2006-01-02")
+	}
+	summary.BalanceNetChange = summary.ShareIncome - summary.BalanceDeduction
+	return summary, nil
+}
+
 func (s *UserAccountService) TransferAvailableShareToBalance(ctx context.Context, userID int64) (float64, float64, error) {
 	if err := s.ensureFeatureEnabled(ctx); err != nil {
 		return 0, 0, err
@@ -419,6 +464,7 @@ type userOwnedAccountRepositoryWithShare interface {
 
 type userAccountShareLedgerRepository interface {
 	ListShareSummary(ctx context.Context, ownerUserID int64) (*UserAccountShareSummary, error)
+	GetUsageSummary(ctx context.Context, ownerUserID int64, startTime, endTime time.Time) (*UserAccountUsageSummary, error)
 	TransferAvailableShareToBalance(ctx context.Context, ownerUserID int64) (float64, float64, error)
 }
 

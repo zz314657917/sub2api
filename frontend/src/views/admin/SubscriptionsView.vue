@@ -493,6 +493,16 @@
           </div>
         </div>
         <div>
+          <label class="input-label">{{ t('admin.subscriptions.form.plan') }}</label>
+          <Select
+            v-model="assignForm.plan_id"
+            :options="subscriptionPlanOptions"
+            :placeholder="t('admin.subscriptions.selectPlan')"
+            @change="applySelectedPlan"
+          />
+          <p class="input-hint">{{ t('admin.subscriptions.planHint') }}</p>
+        </div>
+        <div>
           <label class="input-label">{{ t('admin.subscriptions.form.group') }}</label>
           <Select
             v-model="assignForm.group_id"
@@ -742,6 +752,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
+import type { SubscriptionPlan } from '@/types/payment'
 import type { UserSubscription, Group, GroupPlatform, SubscriptionType } from '@/types'
 import type { SimpleUser } from '@/api/admin/usage'
 import type { Column } from '@/components/common/types'
@@ -897,6 +908,7 @@ const statusOptions = computed(() => [
 
 const subscriptions = ref<UserSubscription[]>([])
 const groups = ref<Group[]>([])
+const plans = ref<SubscriptionPlan[]>([])
 const loading = ref(false)
 let abortController: AbortController | null = null
 
@@ -948,6 +960,7 @@ const revokingSubscription = ref<UserSubscription | null>(null)
 
 const assignForm = reactive({
   user_id: null as number | null,
+  plan_id: null as number | null,
   group_id: null as number | null,
   validity_days: 30
 })
@@ -983,6 +996,31 @@ const subscriptionGroupOptions = computed(() =>
       rate: g.rate_multiplier
     }))
 )
+
+const subscriptionPlanOptions = computed(() => [
+  { value: null, label: t('admin.subscriptions.customPlan') },
+  ...plans.value
+    .filter((plan) => plan.for_sale)
+    .map((plan) => ({
+      value: plan.id,
+      label: `${plan.name} / $${plan.price.toFixed(2)} / ${computePlanValidityDays(plan)} ${t('payment.days')}`,
+    })),
+])
+
+function computePlanValidityDays(plan: SubscriptionPlan): number {
+  const unit = plan.validity_unit || 'day'
+  if (unit === 'week' || unit === 'weeks') return plan.validity_days * 7
+  if (unit === 'month' || unit === 'months') return plan.validity_days * 30
+  return plan.validity_days
+}
+
+function applySelectedPlan() {
+  if (!assignForm.plan_id) return
+  const plan = plans.value.find((item) => item.id === assignForm.plan_id)
+  if (!plan) return
+  assignForm.group_id = plan.group_id
+  assignForm.validity_days = computePlanValidityDays(plan)
+}
 
 const applyFilters = () => {
   pagination.page = 1
@@ -1037,6 +1075,20 @@ const loadGroups = async () => {
     groups.value = await adminAPI.groups.getAll()
   } catch (error) {
     console.error('Error loading groups:', error)
+  }
+}
+
+const loadPlans = async () => {
+  try {
+    const res = await adminAPI.payment.getPlans()
+    plans.value = (res.data || []).map((plan: Omit<SubscriptionPlan, 'features'> & { features: string | string[] }) => ({
+      ...plan,
+      features: typeof plan.features === 'string'
+        ? plan.features.split('\n').map((feature: string) => feature.trim()).filter(Boolean)
+        : (plan.features || []),
+    }))
+  } catch (error) {
+    console.error('Error loading subscription plans:', error)
   }
 }
 
@@ -1159,6 +1211,7 @@ const handleSort = (key: string, order: 'asc' | 'desc') => {
 const closeAssignModal = () => {
   showAssignModal.value = false
   assignForm.user_id = null
+  assignForm.plan_id = null
   assignForm.group_id = null
   assignForm.validity_days = 30
   // Clear user search state
@@ -1366,6 +1419,7 @@ onMounted(() => {
   loadSavedColumns()
   loadSubscriptions()
   loadGroups()
+  loadPlans()
   document.addEventListener('click', handleClickOutside)
 })
 
