@@ -2571,7 +2571,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 		),
 		ranked AS (
 			SELECT
-				ROW_NUMBER() OVER (ORDER BY actual_cost DESC, tokens DESC, user_id ASC) as rank,
+				ROW_NUMBER() OVER (ORDER BY tokens DESC, actual_cost DESC, user_id ASC) as rank,
 				user_id,
 				username,
 				email,

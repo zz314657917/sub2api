@@ -482,10 +482,10 @@ func TestUsageLogRepositoryGetUserLeaderboardRanksCurrentUserInTop(t *testing.T)
 		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "tokens",
 		"total_actual_cost", "total_requests", "total_tokens",
 	}).
-		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 12.5, int64(9), int64(900), 40.0, int64(30), int64(2600)).
+		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 8.0, int64(9), int64(900), 40.0, int64(30), int64(2600)).
 		AddRow(int64(2), int64(1), "", "alpha@example.com", "https://cdn.example.com/a.png", 2.5, 12.5, int64(8), int64(800), 40.0, int64(30), int64(2600))
 
-	mock.ExpectQuery("WITH user_spend AS \\(").
+	mock.ExpectQuery("ROW_NUMBER\\(\\) OVER \\(ORDER BY tokens DESC, actual_cost DESC, user_id ASC\\)").
 		WithArgs(start, end, 2, int64(1)).
 		WillReturnRows(rows)
 
@@ -519,7 +519,7 @@ func TestUsageLogRepositoryGetUserLeaderboardKeepsCurrentUserEntryOutsideLimit(t
 		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 20.0, int64(9), int64(900), 30.0, int64(12), int64(1200)).
 		AddRow(int64(4), int64(9), "", "outside@example.com", nil, 0.75, 1.0, int64(1), int64(50), 30.0, int64(12), int64(1200))
 
-	mock.ExpectQuery("WITH user_spend AS \\(").
+	mock.ExpectQuery("ROW_NUMBER\\(\\) OVER \\(ORDER BY tokens DESC, actual_cost DESC, user_id ASC\\)").
 		WithArgs(start, end, 1, int64(9)).
 		WillReturnRows(rows)
 
