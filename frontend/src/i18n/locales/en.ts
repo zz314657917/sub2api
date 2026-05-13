@@ -674,6 +674,16 @@ export default {
     myInfo: 'My Info',
     myRank: 'My Rank',
     costEfficiencyKing: '⭐ Value King',
+    badges: {
+      weeklyTokenKing: 'Most tokens this week',
+      monthlyTokenKing: 'Most tokens this month',
+      totalTokenKing: 'Token grinder',
+      nightOwl: 'Night owl',
+      burstTokenKing: 'Burst grinder',
+      checkinKing: 'Check-in king',
+      costSaver: 'Lowest cost per 1M tokens',
+      costBurner: 'Highest cost per 1M tokens'
+    },
     notRanked: 'Not ranked',
     dailyReward: {
       title: 'Daily Ranking Rewards',

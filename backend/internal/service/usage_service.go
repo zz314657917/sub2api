@@ -4,11 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
+	"sync"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
+	apptimezone "github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 )
 
@@ -60,6 +63,17 @@ type UsageService struct {
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	settingRepo          SettingRepository
 	redeemRepo           RedeemCodeRepository
+	badgeCacheMu         sync.Mutex
+	badgeCache           map[string]leaderboardBadgeCacheEntry
+}
+
+type userLeaderboardBadgeLeaderRepository interface {
+	GetUserLeaderboardBadgeLeaders(ctx context.Context, weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd time.Time, userTZ string) (*usagestats.UserLeaderboardBadgeLeaders, error)
+}
+
+type leaderboardBadgeCacheEntry struct {
+	expiresAt time.Time
+	leaders   *usagestats.UserLeaderboardBadgeLeaders
 }
 
 // NewUsageService 创建使用统计服务实例
@@ -69,6 +83,7 @@ func NewUsageService(usageRepo UsageLogRepository, userRepo UserRepository, entC
 		userRepo:             userRepo,
 		entClient:            entClient,
 		authCacheInvalidator: authCacheInvalidator,
+		badgeCache:           make(map[string]leaderboardBadgeCacheEntry),
 	}
 }
 
@@ -155,6 +170,10 @@ func (s *UsageService) Create(ctx context.Context, req CreateUsageLogRequest) (*
 }
 
 func (s *UsageService) invalidateUsageCaches(ctx context.Context, userID int64, balanceUpdated bool) {
+	s.badgeCacheMu.Lock()
+	s.badgeCache = make(map[string]leaderboardBadgeCacheEntry)
+	s.badgeCacheMu.Unlock()
+
 	if !balanceUpdated || s.authCacheInvalidator == nil {
 		return
 	}
@@ -319,6 +338,125 @@ func (s *UsageService) GetUserLeaderboard(ctx context.Context, startTime, endTim
 		return nil, fmt.Errorf("get user leaderboard: %w", err)
 	}
 	return leaderboard, nil
+}
+
+// GetUserLeaderboardBadgeLeaders returns special badge leader user IDs for the requested windows.
+func (s *UsageService) GetUserLeaderboardBadgeLeaders(ctx context.Context, weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd time.Time, userTZ string) (*usagestats.UserLeaderboardBadgeLeaders, error) {
+	repo, ok := s.usageRepo.(userLeaderboardBadgeLeaderRepository)
+	if !ok {
+		return &usagestats.UserLeaderboardBadgeLeaders{}, nil
+	}
+	now := time.Now()
+	cacheKey := leaderboardBadgeCacheKey(weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd, userTZ)
+	expiresAt := leaderboardBadgeCacheExpiry(userTZ, now)
+	if cached := s.getCachedLeaderboardBadgeLeaders(cacheKey, now); cached != nil {
+		return cached, nil
+	}
+
+	leaders, err := repo.GetUserLeaderboardBadgeLeaders(ctx, weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd, userTZ)
+	if err != nil {
+		return nil, fmt.Errorf("get user leaderboard badge leaders: %w", err)
+	}
+	if leaders == nil {
+		leaders = &usagestats.UserLeaderboardBadgeLeaders{}
+	}
+	if leaderboardBadgeLeadersHasAny(leaders) {
+		s.setCachedLeaderboardBadgeLeaders(cacheKey, leaders, expiresAt, now)
+	}
+	return cloneLeaderboardBadgeLeaders(leaders), nil
+}
+
+func (s *UsageService) getCachedLeaderboardBadgeLeaders(key string, now time.Time) *usagestats.UserLeaderboardBadgeLeaders {
+	s.badgeCacheMu.Lock()
+	defer s.badgeCacheMu.Unlock()
+	entry, ok := s.badgeCache[key]
+	if !ok || entry.leaders == nil || !now.Before(entry.expiresAt) {
+		return nil
+	}
+	return cloneLeaderboardBadgeLeaders(entry.leaders)
+}
+
+func (s *UsageService) setCachedLeaderboardBadgeLeaders(key string, leaders *usagestats.UserLeaderboardBadgeLeaders, expiresAt, now time.Time) {
+	s.badgeCacheMu.Lock()
+	defer s.badgeCacheMu.Unlock()
+	if s.badgeCache == nil {
+		s.badgeCache = make(map[string]leaderboardBadgeCacheEntry)
+	}
+	for existingKey, entry := range s.badgeCache {
+		if !now.Before(entry.expiresAt) {
+			delete(s.badgeCache, existingKey)
+		}
+	}
+	s.badgeCache[key] = leaderboardBadgeCacheEntry{
+		expiresAt: expiresAt,
+		leaders:   cloneLeaderboardBadgeLeaders(leaders),
+	}
+}
+
+func leaderboardBadgeCacheKey(weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd time.Time, userTZ string) string {
+	return strings.Join([]string{
+		normalizeLeaderboardBadgeCacheTimezone(userTZ),
+		leaderboardBadgeTimeKey(weekStart),
+		leaderboardBadgeTimeKey(weekEnd),
+		leaderboardBadgeTimeKey(monthStart),
+		leaderboardBadgeTimeKey(monthEnd),
+		leaderboardBadgeTimeKey(costStart),
+		leaderboardBadgeTimeKey(costEnd),
+	}, "|")
+}
+
+func leaderboardBadgeTimeKey(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339Nano)
+}
+
+func leaderboardBadgeCacheExpiry(userTZ string, now time.Time) time.Time {
+	loc := leaderboardBadgeCacheLocation(userTZ)
+	localNow := now.In(loc)
+	return time.Date(localNow.Year(), localNow.Month(), localNow.Day()+1, 0, 0, 0, 0, loc)
+}
+
+func normalizeLeaderboardBadgeCacheTimezone(userTZ string) string {
+	value := strings.TrimSpace(userTZ)
+	if value == "" {
+		return apptimezone.Name()
+	}
+	if _, err := time.LoadLocation(value); err != nil {
+		return apptimezone.Name()
+	}
+	return value
+}
+
+func leaderboardBadgeCacheLocation(userTZ string) *time.Location {
+	value := normalizeLeaderboardBadgeCacheTimezone(userTZ)
+	if loc, err := time.LoadLocation(value); err == nil {
+		return loc
+	}
+	return apptimezone.Location()
+}
+
+func cloneLeaderboardBadgeLeaders(leaders *usagestats.UserLeaderboardBadgeLeaders) *usagestats.UserLeaderboardBadgeLeaders {
+	if leaders == nil {
+		return &usagestats.UserLeaderboardBadgeLeaders{}
+	}
+	clone := *leaders
+	return &clone
+}
+
+func leaderboardBadgeLeadersHasAny(leaders *usagestats.UserLeaderboardBadgeLeaders) bool {
+	if leaders == nil {
+		return false
+	}
+	return leaders.WeeklyTokenKingUserID > 0 ||
+		leaders.MonthlyTokenKingUserID > 0 ||
+		leaders.TotalTokenKingUserID > 0 ||
+		leaders.NightOwlUserID > 0 ||
+		leaders.BurstTokenKingUserID > 0 ||
+		leaders.CheckinKingUserID > 0 ||
+		leaders.CostSaverUserID > 0 ||
+		leaders.CostBurnerUserID > 0
 }
 
 // GetUserUsageTrendByUserID returns per-user usage trend.

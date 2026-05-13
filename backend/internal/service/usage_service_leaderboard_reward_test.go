@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 	apptimezone "github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/stretchr/testify/require"
@@ -83,10 +84,16 @@ func (r *leaderboardRewardSettingRepo) GetMultiple(_ context.Context, keys []str
 type leaderboardRewardUserRepo struct {
 	UserRepository
 	updates []float64
+	grants  []float64
 }
 
 func (r *leaderboardRewardUserRepo) UpdateBalance(_ context.Context, _ int64, amount float64) error {
 	r.updates = append(r.updates, amount)
+	return nil
+}
+
+func (r *leaderboardRewardUserRepo) AddBalance(_ context.Context, _ int64, amount float64) error {
+	r.grants = append(r.grants, amount)
 	return nil
 }
 
@@ -107,6 +114,10 @@ func leaderboardRewardTestNow(t *testing.T) time.Time {
 	loc, err := time.LoadLocation("Asia/Shanghai")
 	require.NoError(t, err)
 	return time.Date(2026, 5, 9, 10, 0, 0, 0, loc)
+}
+
+func leaderboardRewardTxContext() context.Context {
+	return dbent.NewTxContext(context.Background(), &dbent.Tx{})
 }
 
 func leaderboardRewardResponse(rank int64, total float64) *usagestats.UserLeaderboardResponse {
@@ -163,12 +174,28 @@ func TestLeaderboardDailyRewardWindowUsesServerTimezone(t *testing.T) {
 	require.NoError(t, apptimezone.Init("Asia/Shanghai"))
 	now := time.Date(2026, 5, 8, 16, 30, 0, 0, time.UTC)
 
-	start, end, rewardDate, settlementTZ := leaderboardRewardWindow(now)
+	start, end, rewardDate, settlementTZ, claimAvailableAt := leaderboardRewardWindow(now)
 
 	require.Equal(t, "Asia/Shanghai", settlementTZ)
 	require.Equal(t, "2026-05-08", rewardDate)
 	require.Equal(t, time.Date(2026, 5, 8, 0, 0, 0, 0, apptimezone.Location()), start)
 	require.Equal(t, time.Date(2026, 5, 9, 0, 0, 0, 0, apptimezone.Location()), end)
+	require.Equal(t, time.Date(2026, 5, 9, 0, 30, 0, 0, apptimezone.Location()), claimAvailableAt)
+}
+
+func TestLeaderboardDailyRewardsWaitsForSettlementDelay(t *testing.T) {
+	usageRepo := &leaderboardRewardUsageRepo{response: leaderboardRewardResponse(1, 101)}
+	svc := NewUsageService(usageRepo, nil, nil, nil)
+	svc.SetLeaderboardRewardDependencies(leaderboardRewardSettings(true, 100, 5, 3, 1), nil)
+	now := time.Date(2026, 5, 9, 0, 10, 0, 0, apptimezone.Location())
+
+	got, err := svc.getLeaderboardDailyRewards(context.Background(), 42, now)
+
+	require.NoError(t, err)
+	require.False(t, got.SettlementReady)
+	require.False(t, got.CanClaim)
+	require.Equal(t, leaderboardRewardReasonSettling, got.Reason)
+	require.Equal(t, "2026-05-09T00:30:00+08:00", got.ClaimAvailableAt)
 }
 
 func TestLeaderboardDailyRewardsRequiresStrictlyGreaterThanThreshold(t *testing.T) {
@@ -218,11 +245,12 @@ func TestClaimLeaderboardDailyRewardAddsBalanceAndAuditRecord(t *testing.T) {
 	svc := NewUsageService(usageRepo, userRepo, nil, nil)
 	svc.SetLeaderboardRewardDependencies(leaderboardRewardSettings(true, 100, 5, 3, 1), redeemRepo)
 
-	got, err := svc.claimLeaderboardDailyReward(context.Background(), 42, leaderboardRewardTestNow(t))
+	got, err := svc.claimLeaderboardDailyReward(leaderboardRewardTxContext(), 42, leaderboardRewardTestNow(t))
 
 	require.NoError(t, err)
 	require.Equal(t, 5.0, got.ClaimedAmount)
-	require.Equal(t, []float64{5}, userRepo.updates)
+	require.Empty(t, userRepo.updates)
+	require.Equal(t, []float64{5}, userRepo.grants)
 	require.Len(t, redeemRepo.created, 1)
 	require.Equal(t, RedeemTypeLeaderboardReward, redeemRepo.created[0].Type)
 	require.Equal(t, StatusUsed, redeemRepo.created[0].Status)
@@ -243,9 +271,26 @@ func TestClaimLeaderboardDailyRewardDuplicateClaimConflictsBeforeSideEffects(t *
 	svc := NewUsageService(usageRepo, userRepo, nil, nil)
 	svc.SetLeaderboardRewardDependencies(leaderboardRewardSettings(true, 100, 5, 3, 1), redeemRepo)
 
-	_, err := svc.claimLeaderboardDailyReward(context.Background(), 42, leaderboardRewardTestNow(t))
+	_, err := svc.claimLeaderboardDailyReward(leaderboardRewardTxContext(), 42, leaderboardRewardTestNow(t))
 
 	require.True(t, errors.Is(err, ErrLeaderboardDailyRewardAlreadyClaimed))
 	require.Empty(t, userRepo.updates)
+	require.Empty(t, userRepo.grants)
+	require.Empty(t, redeemRepo.created)
+}
+
+func TestClaimLeaderboardDailyRewardRequiresTransactionProtection(t *testing.T) {
+	usageRepo := &leaderboardRewardUsageRepo{response: leaderboardRewardResponse(1, 101)}
+	userRepo := &leaderboardRewardUserRepo{}
+	redeemRepo := &leaderboardRewardRedeemRepo{}
+	svc := NewUsageService(usageRepo, userRepo, nil, nil)
+	svc.SetLeaderboardRewardDependencies(leaderboardRewardSettings(true, 100, 5, 3, 1), redeemRepo)
+
+	_, err := svc.claimLeaderboardDailyReward(context.Background(), 42, leaderboardRewardTestNow(t))
+
+	require.True(t, errors.Is(err, ErrLeaderboardDailyRewardUnavailable))
+	require.Empty(t, usageRepo.createdClaims)
+	require.Empty(t, userRepo.updates)
+	require.Empty(t, userRepo.grants)
 	require.Empty(t, redeemRepo.created)
 }

@@ -16,7 +16,7 @@ import type {
   UserLeaderboardResponse
 } from '@/types'
 
-export type { LeaderboardPeriod, LeaderboardDailyRewards, UserLeaderboardItem, UserLeaderboardResponse } from '@/types'
+export type { LeaderboardBadge, LeaderboardPeriod, LeaderboardDailyRewards, UserLeaderboardItem, UserLeaderboardResponse } from '@/types'
 
 // ==================== Dashboard Types ====================
 

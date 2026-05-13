@@ -37,6 +37,14 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.rank': '排名',
     'leaderboard.myInfo': '我的信息',
     'leaderboard.costEfficiencyKing': '⭐ 性价比之王',
+    'leaderboard.badges.weeklyTokenKing': '周榜 Token 最多',
+    'leaderboard.badges.monthlyTokenKing': '月榜 Token 最多',
+    'leaderboard.badges.totalTokenKing': '肝帝',
+    'leaderboard.badges.nightOwl': '夜猫',
+    'leaderboard.badges.burstTokenKing': '爆肝王',
+    'leaderboard.badges.checkinKing': '打卡王',
+    'leaderboard.badges.costSaver': '1M Token 成本最低',
+    'leaderboard.badges.costBurner': '1M Token 成本最高',
     'leaderboard.generatedAt': '生成时间',
     'leaderboard.notRanked': '未上榜',
     'leaderboard.dailyReward.title': '每日排名奖励',
@@ -45,6 +53,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.rewardAmount': '可领额度',
     'leaderboard.dailyReward.progress': '{current} / {target}',
     'leaderboard.dailyReward.disabled': '奖励功能暂未开启',
+    'leaderboard.dailyReward.settling': '昨日榜结算中，{time} 后可领取',
     'leaderboard.dailyReward.thresholdNotMet': '昨日总消费未超过最低开启门槛',
     'leaderboard.dailyReward.notTopThree': '只有昨日榜前三名可以领取',
     'leaderboard.dailyReward.notRanked': '你昨日暂无上榜消费',
@@ -101,6 +110,8 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
     daily_rewards: {
       reward_date: '2026-05-06',
       settlement_timezone: 'Asia/Shanghai',
+      settlement_ready: true,
+      claim_available_at: '2026-05-07T00:30:00+08:00',
       enabled: false,
       min_total_actual_cost: 0,
       yesterday_total_actual_cost: 0,
@@ -241,9 +252,11 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).toContain('我的信息')
     expect(wrapper.text()).toContain('#28')
     expect(wrapper.text()).toContain('Me')
-    expect(wrapper.text()).toContain('$7.00')
+    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$7.00')
     expect(wrapper.text()).not.toContain('$4.25')
     expect(wrapper.text()).not.toContain('$0.50')
+    expect(wrapper.text()).not.toContain('b***@example.com')
+    expect(wrapper.text()).not.toContain('m***@example.com')
   })
 
   it('shows my info even when the current user is in the top list', async () => {
@@ -261,7 +274,11 @@ describe('LeaderboardView', () => {
 
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('Alice')
-    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('$11.00')
+    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('8')
+    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('900')
+    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$11.00')
+    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('余额')
+    expect(wrapper.find('[data-testid="leaderboard-my-info"]').findAll('.rounded-lg.bg-gray-50')).toHaveLength(2)
   })
 
   it('hides visible leaderboard spending totals and row amounts', async () => {
@@ -279,7 +296,7 @@ describe('LeaderboardView', () => {
 
     expect(wrapper.text()).not.toContain('$3.50')
     expect(wrapper.text()).not.toContain('$2.50')
-    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('$11.00')
+    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$11.00')
   })
 
   it('marks the lowest cost per token user as the value king', async () => {
@@ -308,6 +325,7 @@ describe('LeaderboardView', () => {
             requests: 10,
             tokens: 2000,
             balance: 2,
+            badges: ['cost_saver'],
             is_current_user: false,
           },
           {
@@ -338,9 +356,12 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    const badges = wrapper.findAll('[data-testid="leaderboard-cost-efficiency-king"]')
-    expect(badges).toHaveLength(2)
-    expect(badges.map((badge) => badge.attributes('data-user-id'))).toEqual(['2', '2'])
+    const badges = wrapper.findAll('[data-testid="leaderboard-badge-icon"]')
+    expect(badges).toHaveLength(4)
+    expect(badges.map((badge) => badge.attributes('data-user-id'))).toEqual(['1', '2', '1', '2'])
+    expect(badges.map((badge) => badge.attributes('data-badge'))).toEqual(['cost_burner', 'cost_saver', 'cost_burner', 'cost_saver'])
+    expect(badges.map((badge) => badge.text())).toEqual(['豪', '省', '豪', '省'])
+    expect(badges[1].attributes('title')).toBe('1M Token 成本最低')
     expect(wrapper.text()).toContain('⭐ 性价比之王')
   })
 
@@ -391,6 +412,49 @@ describe('LeaderboardView', () => {
     const summary = wrapper.get('[data-testid="leaderboard-cost-efficiency-summary"]')
     expect(summary.text()).toContain('Efficient')
     expect(summary.text()).toContain('1M Token = $500.00')
+  })
+
+  it('renders compact leaderboard badge icons and collapses overflow badges', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        ranking: [
+          {
+            rank: 1,
+            user_id: 1,
+            display_name: 'Decorated',
+            email_masked: 'd***@example.com',
+            avatar_url: null,
+            actual_cost: 10,
+            requests: 10,
+            tokens: 1000,
+            balance: 1,
+            badges: ['weekly_token_king', 'monthly_token_king', 'total_token_king', 'night_owl', 'burst_token_king', 'checkin_king', 'cost_saver', 'cost_burner'],
+            is_current_user: false,
+          },
+        ],
+        current_user_entry: null,
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const badges = wrapper.findAll('[data-testid="leaderboard-badge-icon"]').slice(0, 3)
+    expect(badges.map((badge) => badge.text())).toEqual(['周', '月', '肝'])
+    expect(badges.map((badge) => badge.attributes('data-badge'))).toEqual([
+      'weekly_token_king',
+      'monthly_token_king',
+      'total_token_king',
+    ])
+    expect(wrapper.find('.leaderboard-badge-overflow').text()).toBe('+5')
   })
 
   it('renders at most 10 ranking items', async () => {
@@ -452,6 +516,8 @@ describe('LeaderboardView', () => {
         daily_rewards: {
           reward_date: '2026-05-06',
           settlement_timezone: 'Asia/Shanghai',
+          settlement_ready: true,
+          claim_available_at: '2026-05-07T00:30:00+08:00',
           enabled: true,
           min_total_actual_cost: 100,
           yesterday_total_actual_cost: 80,
@@ -488,10 +554,53 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).toContain('$5.00')
   })
 
+  it('shows settling state before daily rewards can be claimed', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        daily_rewards: {
+          reward_date: '2026-05-06',
+          settlement_timezone: 'Asia/Shanghai',
+          settlement_ready: false,
+          claim_available_at: '2026-05-07T00:30:00+08:00',
+          enabled: true,
+          min_total_actual_cost: 100,
+          yesterday_total_actual_cost: 120,
+          threshold_met: true,
+          rewards: [
+            { rank: 1, amount: 5 },
+            { rank: 2, amount: 3 },
+            { rank: 3, amount: 1 },
+          ],
+          current_user_rank: 1,
+          current_user_reward_amount: 5,
+          can_claim: false,
+          claimed: false,
+          reason: 'settling',
+        },
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('昨日榜结算中')
+    expect(wrapper.get('[data-testid="leaderboard-daily-reward-claim"]').attributes('disabled')).toBeDefined()
+  })
+
   it('claims an eligible daily reward and shows claimed state', async () => {
     const claimRewards = {
       reward_date: '2026-05-06',
       settlement_timezone: 'Asia/Shanghai',
+      settlement_ready: true,
+      claim_available_at: '2026-05-07T00:30:00+08:00',
       enabled: true,
       min_total_actual_cost: 100,
       yesterday_total_actual_cost: 120,
@@ -534,7 +643,7 @@ describe('LeaderboardView', () => {
     expect(claimDashboardLeaderboardDailyReward).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('昨日奖励已领取')
     expect(wrapper.get('[data-testid="leaderboard-daily-reward-claim"]').text()).toContain('已领取')
-    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('$16.00')
+    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$16.00')
   })
 
   it('adds top-three avatar frame classes', async () => {

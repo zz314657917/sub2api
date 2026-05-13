@@ -673,6 +673,16 @@ export default {
     myInfo: '我的信息',
     myRank: '我的排名',
     costEfficiencyKing: '⭐ 性价比之王',
+    badges: {
+      weeklyTokenKing: '周榜 Token 最多',
+      monthlyTokenKing: '月榜 Token 最多',
+      totalTokenKing: '肝帝',
+      nightOwl: '夜猫',
+      burstTokenKing: '爆肝王',
+      checkinKing: '打卡王',
+      costSaver: '1M Token 成本最低',
+      costBurner: '1M Token 成本最高'
+    },
     notRanked: '未上榜',
     dailyReward: {
       title: '每日排名奖励',

@@ -368,6 +368,69 @@ func parseDashboardLeaderboardPeriod(rawPeriod, userTZ string, now time.Time) (s
 	}
 }
 
+func dashboardLeaderboardWeekWindow(userTZ string, now time.Time) (time.Time, time.Time) {
+	loc := userLocation(userTZ)
+	now = now.In(loc)
+	weekday := int(now.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	start := startOfDayInLocation(now.AddDate(0, 0, -weekday+1), loc)
+	return start, start.AddDate(0, 0, 7)
+}
+
+func dashboardLeaderboardMonthWindow(userTZ string, now time.Time) (time.Time, time.Time) {
+	loc := userLocation(userTZ)
+	now = now.In(loc)
+	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+	return start, start.AddDate(0, 1, 0)
+}
+
+func applyUserLeaderboardBadges(payload *usagestats.UserLeaderboardResponse, leaders *usagestats.UserLeaderboardBadgeLeaders) {
+	if payload == nil || leaders == nil {
+		return
+	}
+	apply := func(item *usagestats.UserLeaderboardItem) {
+		if item == nil {
+			return
+		}
+		item.Badges = leaderboardBadgesForUser(item.UserID, leaders)
+	}
+	for i := range payload.Ranking {
+		apply(&payload.Ranking[i])
+	}
+	apply(payload.CurrentUserEntry)
+}
+
+func leaderboardBadgesForUser(userID int64, leaders *usagestats.UserLeaderboardBadgeLeaders) []string {
+	badges := make([]string, 0, 4)
+	if userID > 0 && leaders.WeeklyTokenKingUserID == userID {
+		badges = append(badges, usagestats.LeaderboardBadgeWeeklyTokenKing)
+	}
+	if userID > 0 && leaders.MonthlyTokenKingUserID == userID {
+		badges = append(badges, usagestats.LeaderboardBadgeMonthlyTokenKing)
+	}
+	if userID > 0 && leaders.TotalTokenKingUserID == userID {
+		badges = append(badges, usagestats.LeaderboardBadgeTotalTokenKing)
+	}
+	if userID > 0 && leaders.NightOwlUserID == userID {
+		badges = append(badges, usagestats.LeaderboardBadgeNightOwl)
+	}
+	if userID > 0 && leaders.BurstTokenKingUserID == userID {
+		badges = append(badges, usagestats.LeaderboardBadgeBurstTokenKing)
+	}
+	if userID > 0 && leaders.CheckinKingUserID == userID {
+		badges = append(badges, usagestats.LeaderboardBadgeCheckinKing)
+	}
+	if userID > 0 && leaders.CostSaverUserID == userID {
+		badges = append(badges, usagestats.LeaderboardBadgeCostSaver)
+	}
+	if userID > 0 && leaders.CostBurnerUserID == userID {
+		badges = append(badges, usagestats.LeaderboardBadgeCostBurner)
+	}
+	return badges
+}
+
 func finalizeUserLeaderboardItem(item *usagestats.UserLeaderboardItem) {
 	if item == nil {
 		return
@@ -545,6 +608,14 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	now := timezone.NowInUserLocation(userTZ)
+	weekStart, weekEnd := dashboardLeaderboardWeekWindow(userTZ, now)
+	monthStart, monthEnd := dashboardLeaderboardMonthWindow(userTZ, now)
+	leaders, err := h.usageService.GetUserLeaderboardBadgeLeaders(c.Request.Context(), weekStart, weekEnd, monthStart, monthEnd, startTime, endTime, userTZ)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	if leaderboard == nil {
 		leaderboard = &usagestats.UserLeaderboardResponse{}
 	}
@@ -555,6 +626,7 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 	if leaderboard.Ranking == nil {
 		leaderboard.Ranking = []usagestats.UserLeaderboardItem{}
 	}
+	applyUserLeaderboardBadges(leaderboard, leaders)
 	dailyRewards, err := h.usageService.GetLeaderboardDailyRewards(c.Request.Context(), subject.UserID, userTZ)
 	if err != nil {
 		response.ErrorFrom(c, err)

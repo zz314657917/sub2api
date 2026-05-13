@@ -1573,6 +1573,7 @@ export interface UserSpendingRankingResponse {
 }
 
 export type LeaderboardPeriod = 'day' | 'week' | 'month' | 'all'
+export type LeaderboardBadge = 'weekly_token_king' | 'monthly_token_king' | 'total_token_king' | 'night_owl' | 'burst_token_king' | 'checkin_king' | 'cost_saver' | 'cost_burner'
 
 export interface UserLeaderboardItem {
   rank: number
@@ -1584,6 +1585,7 @@ export interface UserLeaderboardItem {
   requests: number
   tokens: number
   balance: number
+  badges?: LeaderboardBadge[]
   is_current_user: boolean
 }
 
@@ -1595,6 +1597,8 @@ export interface LeaderboardDailyRewardTier {
 export interface LeaderboardDailyRewards {
   reward_date: string
   settlement_timezone: string
+  settlement_ready: boolean
+  claim_available_at: string
   enabled: boolean
   min_total_actual_cost: number
   yesterday_total_actual_cost: number

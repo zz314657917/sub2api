@@ -17,11 +17,14 @@ import (
 const (
 	leaderboardRewardReasonEligible        = "eligible"
 	leaderboardRewardReasonDisabled        = "disabled"
+	leaderboardRewardReasonSettling        = "settling"
 	leaderboardRewardReasonThresholdNotMet = "threshold_not_met"
 	leaderboardRewardReasonNotRanked       = "not_ranked"
 	leaderboardRewardReasonNotTopThree     = "not_top_three"
 	leaderboardRewardReasonZeroReward      = "zero_reward"
 	leaderboardRewardReasonAlreadyClaimed  = "already_claimed"
+
+	leaderboardRewardSettlementDelay = 30 * time.Minute
 )
 
 var (
@@ -62,6 +65,10 @@ type LeaderboardDailyRewardClaimResult struct {
 	ClaimedAmount float64                             `json:"claimed_amount"`
 }
 
+type leaderboardRewardBalanceGrantRepository interface {
+	AddBalance(ctx context.Context, id int64, amount float64) error
+}
+
 // GetLeaderboardDailyRewards returns yesterday's leaderboard reward status.
 // The reward settlement window is intentionally based on the server timezone,
 // so clients cannot change reward dates or ranking windows by changing timezone.
@@ -70,7 +77,7 @@ func (s *UsageService) GetLeaderboardDailyRewards(ctx context.Context, userID in
 }
 
 func (s *UsageService) getLeaderboardDailyRewards(ctx context.Context, userID int64, now time.Time) (*usagestats.LeaderboardDailyRewards, error) {
-	start, end, rewardDate, settlementTZ := leaderboardRewardWindow(now)
+	start, end, rewardDate, settlementTZ, claimAvailableAt := leaderboardRewardWindow(now)
 	leaderboard, err := s.GetUserLeaderboard(ctx, start, end, 3, userID)
 	if err != nil {
 		return nil, err
@@ -87,6 +94,8 @@ func (s *UsageService) getLeaderboardDailyRewards(ctx context.Context, userID in
 	status := &usagestats.LeaderboardDailyRewards{
 		RewardDate:               rewardDate,
 		SettlementTimezone:       settlementTZ,
+		SettlementReady:          !now.Before(claimAvailableAt),
+		ClaimAvailableAt:         claimAvailableAt.Format(time.RFC3339),
 		Enabled:                  settings.Enabled,
 		MinTotalActualCost:       settings.MinTotalActualCost,
 		YesterdayTotalActualCost: leaderboard.TotalActualCost,
@@ -121,6 +130,9 @@ func (s *UsageService) ClaimLeaderboardDailyReward(ctx context.Context, userID i
 
 func (s *UsageService) claimLeaderboardDailyReward(ctx context.Context, userID int64, now time.Time) (*LeaderboardDailyRewardClaimResult, error) {
 	if s.userRepo == nil || s.redeemRepo == nil || s.leaderboardDailyRewardClaimStore() == nil {
+		return nil, ErrLeaderboardDailyRewardUnavailable
+	}
+	if s.entClient == nil && dbent.TxFromContext(ctx) == nil {
 		return nil, ErrLeaderboardDailyRewardUnavailable
 	}
 
@@ -176,7 +188,7 @@ func (s *UsageService) claimLeaderboardDailyReward(ctx context.Context, userID i
 	if err := s.redeemRepo.Create(claimCtx, redeemCode); err != nil {
 		return nil, fmt.Errorf("create leaderboard reward audit record: %w", err)
 	}
-	if err := s.userRepo.UpdateBalance(claimCtx, userID, status.CurrentUserRewardAmount); err != nil {
+	if err := grantLeaderboardRewardBalance(claimCtx, s.userRepo, userID, status.CurrentUserRewardAmount); err != nil {
 		return nil, fmt.Errorf("update leaderboard reward balance: %w", err)
 	}
 	if err := store.AttachLeaderboardDailyRewardClaimRedeemCode(claimCtx, claim.ID, redeemCode.ID); err != nil {
@@ -230,12 +242,19 @@ func (s *UsageService) leaderboardDailyRewardClaimStore() LeaderboardDailyReward
 	return store
 }
 
-func leaderboardRewardWindow(now time.Time) (time.Time, time.Time, string, string) {
+func grantLeaderboardRewardBalance(ctx context.Context, userRepo UserRepository, userID int64, amount float64) error {
+	if grantRepo, ok := userRepo.(leaderboardRewardBalanceGrantRepository); ok {
+		return grantRepo.AddBalance(ctx, userID, amount)
+	}
+	return userRepo.UpdateBalance(ctx, userID, amount)
+}
+
+func leaderboardRewardWindow(now time.Time) (time.Time, time.Time, string, string, time.Time) {
 	loc := timezone.Location()
 	settlementTZ := timezone.Name()
 	today := time.Date(now.In(loc).Year(), now.In(loc).Month(), now.In(loc).Day(), 0, 0, 0, 0, loc)
 	start := today.AddDate(0, 0, -1)
-	return start, today, start.Format("2006-01-02"), settlementTZ
+	return start, today, start.Format("2006-01-02"), settlementTZ, today.Add(leaderboardRewardSettlementDelay)
 }
 
 func leaderboardDailyRewardTiers(settings leaderboardDailyRewardSettings) []usagestats.LeaderboardDailyRewardTier {
@@ -255,6 +274,9 @@ func resolveLeaderboardDailyRewardClaimState(status *usagestats.LeaderboardDaily
 	}
 	if !status.Enabled {
 		return false, leaderboardRewardReasonDisabled
+	}
+	if !status.SettlementReady {
+		return false, leaderboardRewardReasonSettling
 	}
 	if !status.ThresholdMet {
 		return false, leaderboardRewardReasonThresholdNotMet

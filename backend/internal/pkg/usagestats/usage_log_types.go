@@ -7,6 +7,15 @@ const (
 	ModelSourceRequested = "requested"
 	ModelSourceUpstream  = "upstream"
 	ModelSourceMapping   = "mapping"
+
+	LeaderboardBadgeWeeklyTokenKing  = "weekly_token_king"
+	LeaderboardBadgeMonthlyTokenKing = "monthly_token_king"
+	LeaderboardBadgeTotalTokenKing   = "total_token_king"
+	LeaderboardBadgeNightOwl         = "night_owl"
+	LeaderboardBadgeBurstTokenKing   = "burst_token_king"
+	LeaderboardBadgeCheckinKing      = "checkin_king"
+	LeaderboardBadgeCostSaver        = "cost_saver"
+	LeaderboardBadgeCostBurner       = "cost_burner"
 )
 
 func IsValidModelSource(source string) bool {
@@ -164,18 +173,31 @@ type UserSpendingRankingResponse struct {
 
 // UserLeaderboardItem represents one user-visible leaderboard row.
 type UserLeaderboardItem struct {
-	Rank          int64   `json:"rank"`
-	UserID        int64   `json:"user_id"`
-	DisplayName   string  `json:"display_name"`
-	EmailMasked   string  `json:"email_masked"`
-	AvatarURL     *string `json:"avatar_url,omitempty"`
-	ActualCost    float64 `json:"actual_cost"`
-	Requests      int64   `json:"requests"`
-	Tokens        int64   `json:"tokens"`
-	Balance       float64 `json:"balance"`
-	IsCurrentUser bool    `json:"is_current_user"`
-	Username      string  `json:"-"`
-	Email         string  `json:"-"`
+	Rank          int64    `json:"rank"`
+	UserID        int64    `json:"user_id"`
+	DisplayName   string   `json:"display_name"`
+	EmailMasked   string   `json:"email_masked"`
+	AvatarURL     *string  `json:"avatar_url,omitempty"`
+	ActualCost    float64  `json:"actual_cost"`
+	Requests      int64    `json:"requests"`
+	Tokens        int64    `json:"tokens"`
+	Balance       float64  `json:"balance"`
+	Badges        []string `json:"badges,omitempty"`
+	IsCurrentUser bool     `json:"is_current_user"`
+	Username      string   `json:"-"`
+	Email         string   `json:"-"`
+}
+
+// UserLeaderboardBadgeLeaders represents users that should receive special leaderboard badges.
+type UserLeaderboardBadgeLeaders struct {
+	WeeklyTokenKingUserID  int64
+	MonthlyTokenKingUserID int64
+	TotalTokenKingUserID   int64
+	NightOwlUserID         int64
+	BurstTokenKingUserID   int64
+	CheckinKingUserID      int64
+	CostSaverUserID        int64
+	CostBurnerUserID       int64
 }
 
 // LeaderboardDailyRewardTier represents the configured balance reward for one rank.
@@ -188,6 +210,8 @@ type LeaderboardDailyRewardTier struct {
 type LeaderboardDailyRewards struct {
 	RewardDate               string                       `json:"reward_date"`
 	SettlementTimezone       string                       `json:"settlement_timezone"`
+	SettlementReady          bool                         `json:"settlement_ready"`
+	ClaimAvailableAt         string                       `json:"claim_available_at"`
 	Enabled                  bool                         `json:"enabled"`
 	MinTotalActualCost       float64                      `json:"min_total_actual_cost"`
 	YesterdayTotalActualCost float64                      `json:"yesterday_total_actual_cost"`

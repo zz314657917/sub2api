@@ -23,6 +23,7 @@ type userLeaderboardUsageRepo struct {
 	response       *usagestats.UserLeaderboardResponse
 	limits         []int
 	currentUserIDs []int64
+	badgeLeaders   *usagestats.UserLeaderboardBadgeLeaders
 }
 
 func (r *userLeaderboardUsageRepo) GetUserLeaderboard(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (*usagestats.UserLeaderboardResponse, error) {
@@ -36,6 +37,13 @@ func (r *userLeaderboardUsageRepo) GetUserLeaderboard(ctx context.Context, start
 		return r.response, nil
 	}
 	return &usagestats.UserLeaderboardResponse{}, nil
+}
+
+func (r *userLeaderboardUsageRepo) GetUserLeaderboardBadgeLeaders(ctx context.Context, weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd time.Time, userTZ string) (*usagestats.UserLeaderboardBadgeLeaders, error) {
+	if r.badgeLeaders != nil {
+		return r.badgeLeaders, nil
+	}
+	return &usagestats.UserLeaderboardBadgeLeaders{}, nil
 }
 
 func newUserLeaderboardRouter(repo *userLeaderboardUsageRepo, userID int64) *gin.Engine {
@@ -148,4 +156,60 @@ func TestUsageHandlerDashboardLeaderboardMasksPhoneAndQQDisplayName(t *testing.T
 	require.NotContains(t, body, "1234567890")
 	require.Contains(t, body, `"display_name":"138****5678"`)
 	require.Contains(t, body, `"display_name":"QQ:12******90"`)
+}
+
+func TestUsageHandlerDashboardLeaderboardAddsBadges(t *testing.T) {
+	repo := &userLeaderboardUsageRepo{
+		response: &usagestats.UserLeaderboardResponse{
+			Ranking: []usagestats.UserLeaderboardItem{
+				{Rank: 1, UserID: 42, Username: "saver", ActualCost: 1, Requests: 2, Tokens: 100},
+				{Rank: 2, UserID: 99, Username: "burner", ActualCost: 9, Requests: 1, Tokens: 20, IsCurrentUser: true},
+			},
+			CurrentUserEntry: &usagestats.UserLeaderboardItem{Rank: 2, UserID: 99, Username: "burner", ActualCost: 9, Requests: 1, Tokens: 20, IsCurrentUser: true},
+		},
+		badgeLeaders: &usagestats.UserLeaderboardBadgeLeaders{
+			WeeklyTokenKingUserID:  42,
+			MonthlyTokenKingUserID: 99,
+			TotalTokenKingUserID:   42,
+			NightOwlUserID:         99,
+			BurstTokenKingUserID:   42,
+			CheckinKingUserID:      99,
+			CostSaverUserID:        42,
+			CostBurnerUserID:       99,
+		},
+	}
+	router := newUserLeaderboardRouter(repo, 99)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?period=week&timezone=Asia/Shanghai", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	body := rec.Body.String()
+	require.Contains(t, body, `"badges":["weekly_token_king","total_token_king","burst_token_king","cost_saver"]`)
+	require.Contains(t, body, `"badges":["monthly_token_king","night_owl","checkin_king","cost_burner"]`)
+}
+
+func TestLeaderboardBadgesForUserOrder(t *testing.T) {
+	got := leaderboardBadgesForUser(42, &usagestats.UserLeaderboardBadgeLeaders{
+		WeeklyTokenKingUserID:  42,
+		MonthlyTokenKingUserID: 42,
+		TotalTokenKingUserID:   42,
+		NightOwlUserID:         42,
+		BurstTokenKingUserID:   42,
+		CheckinKingUserID:      42,
+		CostSaverUserID:        42,
+		CostBurnerUserID:       42,
+	})
+
+	require.Equal(t, []string{
+		usagestats.LeaderboardBadgeWeeklyTokenKing,
+		usagestats.LeaderboardBadgeMonthlyTokenKing,
+		usagestats.LeaderboardBadgeTotalTokenKing,
+		usagestats.LeaderboardBadgeNightOwl,
+		usagestats.LeaderboardBadgeBurstTokenKing,
+		usagestats.LeaderboardBadgeCheckinKing,
+		usagestats.LeaderboardBadgeCostSaver,
+		usagestats.LeaderboardBadgeCostBurner,
+	}, got)
 }

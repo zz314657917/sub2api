@@ -88,6 +88,7 @@ func TestUsageLogRepositoryCreateSyncRequestTypeAndLegacyFields(t *testing.T) {
 			sqlmock.AnyArg(), // billing_mode
 			sqlmock.AnyArg(), // account_stats_cost
 			createdAt,
+			sqlmock.AnyArg(), // usage stats timezone
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(99), createdAt))
 
@@ -167,6 +168,7 @@ func TestUsageLogRepositoryCreate_PersistsServiceTier(t *testing.T) {
 			sqlmock.AnyArg(), // billing_mode
 			sqlmock.AnyArg(), // account_stats_cost
 			createdAt,
+			sqlmock.AnyArg(), // usage stats timezone
 		).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(100), createdAt))
 
@@ -192,8 +194,9 @@ func TestBuildUsageLogBestEffortInsertQuery_IncludesRequestedModelColumn(t *test
 	require.Contains(t, query, "INSERT INTO usage_logs (")
 	require.Contains(t, query, "\n\t\t\tmodel,\n\t\t\trequested_model,\n\t\t\tupstream_model,")
 	require.Contains(t, query, "\n\t\t\trequest_id,\n\t\t\tmodel,\n\t\t\trequested_model,\n\t\t\tupstream_model,")
-	require.Len(t, args, len(prepared.args))
+	require.Len(t, args, len(prepared.args)+1)
 	require.Equal(t, prepared.args[5], args[5])
+	require.Equal(t, usageStatsTimezoneName(), args[len(args)-1])
 }
 
 func TestExecUsageLogInsertNoResult_PersistsRequestedModel(t *testing.T) {
@@ -209,7 +212,7 @@ func TestExecUsageLogInsertNoResult_PersistsRequestedModel(t *testing.T) {
 	})
 
 	mock.ExpectExec("INSERT INTO usage_logs").
-		WithArgs(anySliceToDriverValues(prepared.args)...).
+		WithArgs(anySliceToDriverValues(appendUsageStatsTimezoneArg(prepared.args))...).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 
 	err := execUsageLogInsertNoResult(context.Background(), db, prepared)
@@ -528,6 +531,45 @@ func TestUsageLogRepositoryGetUserLeaderboardKeepsCurrentUserEntryOutsideLimit(t
 	require.Equal(t, int64(4), got.CurrentUserEntry.Rank)
 	require.Equal(t, int64(9), got.CurrentUserEntry.UserID)
 	require.True(t, got.CurrentUserEntry.IsCurrentUser)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUsageLogRepositoryGetUserLeaderboardBadgeLeaders(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+
+	weekStart := time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC)
+	weekEnd := weekStart.Add(7 * 24 * time.Hour)
+	monthStart := time.Date(2026, 5, 1, 0, 0, 0, 0, time.UTC)
+	monthEnd := monthStart.AddDate(0, 1, 0)
+	costStart := weekStart
+	costEnd := weekEnd
+
+	rows := sqlmock.NewRows([]string{
+		"weekly_token_king_user_id",
+		"monthly_token_king_user_id",
+		"total_token_king_user_id",
+		"night_owl_user_id",
+		"burst_token_king_user_id",
+		"checkin_king_user_id",
+		"cost_saver_user_id",
+		"cost_burner_user_id",
+	}).AddRow(int64(2), int64(9), int64(8), int64(7), int64(6), int64(5), int64(9), int64(2))
+
+	mock.ExpectQuery("WITH weekly_tokens AS").
+		WithArgs("2026-05-04", "2026-05-11", "2026-05-01", "2026-06-01", "2026-05-04", "2026-05-11", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
+		WillReturnRows(rows)
+
+	got, err := repo.GetUserLeaderboardBadgeLeaders(context.Background(), weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd, "Asia/Shanghai")
+	require.NoError(t, err)
+	require.Equal(t, int64(2), got.WeeklyTokenKingUserID)
+	require.Equal(t, int64(9), got.MonthlyTokenKingUserID)
+	require.Equal(t, int64(8), got.TotalTokenKingUserID)
+	require.Equal(t, int64(7), got.NightOwlUserID)
+	require.Equal(t, int64(6), got.BurstTokenKingUserID)
+	require.Equal(t, int64(5), got.CheckinKingUserID)
+	require.Equal(t, int64(9), got.CostSaverUserID)
+	require.Equal(t, int64(2), got.CostBurnerUserID)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

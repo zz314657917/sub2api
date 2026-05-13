@@ -111,13 +111,28 @@
                               <span class="truncate font-semibold text-gray-900 dark:text-white">
                                 {{ getLeaderboardDisplayName(item) }}
                               </span>
-                              <span
-                                v-if="isCostEfficiencyKing(item)"
-                                class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:ring-amber-400/40"
-                                data-testid="leaderboard-cost-efficiency-king"
-                                :data-user-id="String(item.user_id)"
-                              >
-                                {{ t('leaderboard.costEfficiencyKing') }}
+                              <span v-if="item.badges?.length" class="flex shrink-0 items-center gap-1">
+                                <span
+                                  v-for="badge in visibleLeaderboardBadges(item.badges)"
+                                  :key="badge"
+                                  class="leaderboard-badge-icon"
+                                  :class="leaderboardBadgeClass(badge)"
+                                  :title="leaderboardBadgeTitle(badge)"
+                                  :aria-label="leaderboardBadgeTitle(badge)"
+                                  data-testid="leaderboard-badge-icon"
+                                  :data-badge="badge"
+                                  :data-user-id="String(item.user_id)"
+                                >
+                                  {{ leaderboardBadgeLabel(badge) }}
+                                </span>
+                                <span
+                                  v-if="hiddenLeaderboardBadgeCount(item.badges) > 0"
+                                  class="leaderboard-badge-overflow"
+                                  :title="hiddenLeaderboardBadgeTitle(item.badges)"
+                                  :aria-label="hiddenLeaderboardBadgeTitle(item.badges)"
+                                >
+                                  +{{ hiddenLeaderboardBadgeCount(item.badges) }}
+                                </span>
                               </span>
                               <span v-if="item.is_current_user" class="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-500/20 dark:text-primary-300">
                                 {{ t('leaderboard.currentUser') }}
@@ -157,16 +172,31 @@
                         <p class="truncate font-semibold text-gray-900 dark:text-white">
                           {{ getLeaderboardDisplayName(item) }}
                         </p>
-                        <span
-                          v-if="isCostEfficiencyKing(item)"
-                          class="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800 ring-1 ring-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:ring-amber-400/40"
-                          data-testid="leaderboard-cost-efficiency-king"
-                          :data-user-id="String(item.user_id)"
-                        >
-                          {{ t('leaderboard.costEfficiencyKing') }}
-                        </span>
                         <span v-if="item.is_current_user" class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-500/20 dark:text-primary-300">
                           {{ t('leaderboard.currentUser') }}
+                        </span>
+                      </div>
+                      <div v-if="item.badges?.length" class="mt-1 flex flex-wrap items-center gap-1">
+                        <span
+                          v-for="badge in visibleLeaderboardBadges(item.badges)"
+                          :key="badge"
+                          class="leaderboard-badge-icon"
+                          :class="leaderboardBadgeClass(badge)"
+                          :title="leaderboardBadgeTitle(badge)"
+                          :aria-label="leaderboardBadgeTitle(badge)"
+                          data-testid="leaderboard-badge-icon"
+                          :data-badge="badge"
+                          :data-user-id="String(item.user_id)"
+                        >
+                          {{ leaderboardBadgeLabel(badge) }}
+                        </span>
+                        <span
+                          v-if="hiddenLeaderboardBadgeCount(item.badges) > 0"
+                          class="leaderboard-badge-overflow"
+                          :title="hiddenLeaderboardBadgeTitle(item.badges)"
+                          :aria-label="hiddenLeaderboardBadgeTitle(item.badges)"
+                        >
+                          +{{ hiddenLeaderboardBadgeCount(item.badges) }}
                         </span>
                       </div>
                     </div>
@@ -188,25 +218,43 @@
         </div>
 
         <aside class="space-y-5 xl:sticky xl:top-20 xl:self-start">
-          <section class="card border-primary-200 bg-primary-50/60 p-5 dark:border-primary-500/30 dark:bg-primary-500/10" data-testid="leaderboard-my-info">
+          <section class="card p-5" data-testid="leaderboard-my-info">
             <p class="text-sm font-semibold text-primary-700 dark:text-primary-300">{{ t('leaderboard.myInfo') }}</p>
-            <div class="mt-3 min-w-0">
+            <div v-if="myEntry?.badges?.length" class="mt-3 flex flex-wrap items-center gap-1.5">
+              <span
+                v-for="badge in visibleLeaderboardBadges(myEntry?.badges)"
+                :key="badge"
+                class="leaderboard-badge-icon"
+                :class="leaderboardBadgeClass(badge)"
+                :title="leaderboardBadgeTitle(badge)"
+                :aria-label="leaderboardBadgeTitle(badge)"
+                data-testid="leaderboard-my-badge-icon"
+                :data-badge="badge"
+              >
+                {{ leaderboardBadgeLabel(badge) }}
+              </span>
+              <span
+                v-if="hiddenLeaderboardBadgeCount(myEntry?.badges) > 0"
+                class="leaderboard-badge-overflow"
+                :title="hiddenLeaderboardBadgeTitle(myEntry?.badges)"
+                :aria-label="hiddenLeaderboardBadgeTitle(myEntry?.badges)"
+              >
+                +{{ hiddenLeaderboardBadgeCount(myEntry?.badges) }}
+              </span>
+            </div>
+            <div class="mt-4 min-w-0">
               <p class="truncate text-xl font-bold text-gray-900 dark:text-white">
                 {{ myRankLabel }} {{ myDisplayName }}
               </p>
             </div>
             <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div class="rounded-lg bg-white/70 p-3 dark:bg-dark-800/70">
-                <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.balance') }}</p>
-                <p class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(myEntry?.balance ?? 0) }}</p>
-              </div>
-              <div class="rounded-lg bg-white/70 p-3 dark:bg-dark-800/70">
+              <div class="min-w-0 rounded-lg bg-gray-50 p-3 dark:bg-dark-800">
                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.requests') }}</p>
-                <p class="font-semibold text-gray-900 dark:text-white">{{ formatNumber(myEntry?.requests ?? 0) }}</p>
+                <p class="truncate font-semibold text-gray-900 dark:text-white">{{ formatNumber(myEntry?.requests ?? 0) }}</p>
               </div>
-              <div class="rounded-lg bg-white/70 p-3 dark:bg-dark-800/70">
+              <div class="min-w-0 rounded-lg bg-gray-50 p-3 dark:bg-dark-800">
                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.tokens') }}</p>
-                <p class="font-semibold text-gray-900 dark:text-white">{{ formatNumber(myEntry?.tokens ?? 0) }}</p>
+                <p class="truncate font-semibold text-gray-900 dark:text-white">{{ formatNumber(myEntry?.tokens ?? 0) }}</p>
               </div>
             </div>
           </section>
@@ -286,7 +334,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usageAPI } from '@/api'
-import type { LeaderboardDailyRewards, LeaderboardPeriod, UserLeaderboardItem, UserLeaderboardResponse } from '@/api/usage'
+import type { LeaderboardBadge, LeaderboardDailyRewards, LeaderboardPeriod, UserLeaderboardItem, UserLeaderboardResponse } from '@/api/usage'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { formatCurrency, formatDateTime, formatNumber } from '@/utils/format'
@@ -300,6 +348,7 @@ const error = ref(false)
 const claimingReward = ref(false)
 const claimError = ref('')
 const leaderboardLimit = 10
+const visibleBadgeLimit = 3
 let loadSeq = 0
 
 const periodOptions = computed(() => [
@@ -309,8 +358,20 @@ const periodOptions = computed(() => [
   { value: 'all' as const, label: t('leaderboard.period.all') },
 ])
 
-const rankingItems = computed<UserLeaderboardItem[]>(() => (leaderboard.value?.ranking ?? []).slice(0, leaderboardLimit))
+const rankingItems = computed<UserLeaderboardItem[]>(() => {
+  const visibleItems = (leaderboard.value?.ranking ?? []).slice(0, leaderboardLimit)
+  const costSaverUserID = selectVisibleCostEfficiencyUserID(visibleItems, 'lowest')
+  const costBurnerUserID = selectVisibleCostEfficiencyUserID(visibleItems, 'highest')
+
+  return visibleItems.map((item) => ({
+    ...item,
+    badges: orderedLeaderboardBadges(item, costSaverUserID, costBurnerUserID),
+  }))
+})
+const costSaverFromBadges = computed(() => rankingItems.value.find((item) => item.badges?.includes('cost_saver')) ?? null)
 const costEfficiencyKing = computed<UserLeaderboardItem | null>(() => {
+  if (costSaverFromBadges.value) return costSaverFromBadges.value
+
   let bestItem: UserLeaderboardItem | null = null
   let bestCostPerToken = Number.POSITIVE_INFINITY
 
@@ -326,7 +387,6 @@ const costEfficiencyKing = computed<UserLeaderboardItem | null>(() => {
 
   return bestItem
 })
-const costEfficiencyKingUserId = computed(() => costEfficiencyKing.value?.user_id ?? null)
 const costEfficiencyPerMillionText = computed(() => {
   const item = costEfficiencyKing.value
   if (!item) return '-'
@@ -356,6 +416,7 @@ const dailyRewardReasonText = computed(() => {
   const reason = dailyRewards.value?.reason
   if (reason === 'eligible') return t('leaderboard.dailyReward.eligible')
   if (reason === 'already_claimed') return t('leaderboard.dailyReward.alreadyClaimed')
+  if (reason === 'settling') return t('leaderboard.dailyReward.settling', { time: formatDateTime(dailyRewards.value?.claim_available_at || '') })
   if (reason === 'threshold_not_met') return t('leaderboard.dailyReward.thresholdNotMet')
   if (reason === 'not_top_three') return t('leaderboard.dailyReward.notTopThree')
   if (reason === 'not_ranked') return t('leaderboard.dailyReward.notRanked')
@@ -459,8 +520,97 @@ function formatRewardRankLabel(rank: number): string {
   return t('leaderboard.dailyReward.rankLabel', { rank })
 }
 
-function isCostEfficiencyKing(item: UserLeaderboardItem): boolean {
-  return costEfficiencyKingUserId.value === item.user_id
+function selectVisibleCostEfficiencyUserID(items: UserLeaderboardItem[], mode: 'lowest' | 'highest'): number | null {
+  let selected: UserLeaderboardItem | null = null
+  let selectedCostPerToken = mode === 'lowest' ? Number.POSITIVE_INFINITY : Number.NEGATIVE_INFINITY
+
+  for (const item of items) {
+    if (item.actual_cost <= 0 || item.tokens <= 0) continue
+
+    const costPerToken = item.actual_cost / item.tokens
+    const isBetter = mode === 'lowest'
+      ? costPerToken < selectedCostPerToken
+      : costPerToken > selectedCostPerToken
+    const isTieBreaker = selected != null
+      && costPerToken === selectedCostPerToken
+      && (item.tokens > selected.tokens || (item.tokens === selected.tokens && item.user_id < selected.user_id))
+
+    if (isBetter || isTieBreaker) {
+      selected = item
+      selectedCostPerToken = costPerToken
+    }
+  }
+
+  return selected?.user_id ?? null
+}
+
+function orderedLeaderboardBadges(item: UserLeaderboardItem, costSaverUserID: number | null, costBurnerUserID: number | null): LeaderboardBadge[] {
+  const badgeSet = new Set<LeaderboardBadge>(item.badges ?? [])
+  if (item.user_id === costSaverUserID) badgeSet.add('cost_saver')
+  if (item.user_id === costBurnerUserID) badgeSet.add('cost_burner')
+
+  return ([
+    'weekly_token_king',
+    'monthly_token_king',
+    'total_token_king',
+    'night_owl',
+    'burst_token_king',
+    'checkin_king',
+    'cost_saver',
+    'cost_burner',
+  ] as LeaderboardBadge[]).filter((badge) => badgeSet.has(badge))
+}
+
+function visibleLeaderboardBadges(badges: LeaderboardBadge[] = []): LeaderboardBadge[] {
+  return badges.slice(0, visibleBadgeLimit)
+}
+
+function hiddenLeaderboardBadges(badges: LeaderboardBadge[] = []): LeaderboardBadge[] {
+  return badges.slice(visibleBadgeLimit)
+}
+
+function hiddenLeaderboardBadgeCount(badges: LeaderboardBadge[] = []): number {
+  return hiddenLeaderboardBadges(badges).length
+}
+
+function hiddenLeaderboardBadgeTitle(badges: LeaderboardBadge[] = []): string {
+  return hiddenLeaderboardBadges(badges).map((badge) => leaderboardBadgeTitle(badge)).join(' / ')
+}
+
+function leaderboardBadgeLabel(badge: LeaderboardBadge): string {
+  if (badge === 'weekly_token_king') return '周'
+  if (badge === 'monthly_token_king') return '月'
+  if (badge === 'total_token_king') return '肝'
+  if (badge === 'night_owl') return '夜'
+  if (badge === 'burst_token_king') return '爆'
+  if (badge === 'checkin_king') return '勤'
+  if (badge === 'cost_saver') return '省'
+  if (badge === 'cost_burner') return '豪'
+  return ''
+}
+
+function leaderboardBadgeTitle(badge: LeaderboardBadge): string {
+  if (badge === 'weekly_token_king') return t('leaderboard.badges.weeklyTokenKing')
+  if (badge === 'monthly_token_king') return t('leaderboard.badges.monthlyTokenKing')
+  if (badge === 'total_token_king') return t('leaderboard.badges.totalTokenKing')
+  if (badge === 'night_owl') return t('leaderboard.badges.nightOwl')
+  if (badge === 'burst_token_king') return t('leaderboard.badges.burstTokenKing')
+  if (badge === 'checkin_king') return t('leaderboard.badges.checkinKing')
+  if (badge === 'cost_saver') return t('leaderboard.badges.costSaver')
+  if (badge === 'cost_burner') return t('leaderboard.badges.costBurner')
+  return ''
+}
+
+function leaderboardBadgeClass(badge: LeaderboardBadge): string {
+  if (badge === 'weekly_token_king') return 'leaderboard-badge-week'
+  if (badge === 'monthly_token_king') return 'leaderboard-badge-month'
+  if (badge === 'total_token_king') return 'leaderboard-badge-total'
+  if (badge === 'night_owl') return 'leaderboard-badge-night'
+  if (badge === 'burst_token_king') return 'leaderboard-badge-burst'
+  if (badge === 'checkin_king') return 'leaderboard-badge-checkin'
+  if (badge === 'cost_saver') return 'leaderboard-badge-save'
+  if (badge === 'cost_burner') return 'leaderboard-badge-fire'
+  return ''
 }
 
 function rankBadgeClass(rank: number): string {
@@ -555,5 +705,121 @@ onMounted(() => {
 
 .leaderboard-avatar-frame-bronze::after {
   background: rgb(194 120 54 / 0.58);
+}
+
+.leaderboard-badge-icon {
+  display: inline-flex;
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid currentColor;
+  border-radius: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.45);
+}
+
+.leaderboard-badge-overflow {
+  display: inline-flex;
+  height: 1.25rem;
+  min-width: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.25rem;
+  background: rgb(248 250 252);
+  padding: 0 0.25rem;
+  color: rgb(71 85 105);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: inset 0 0 0 1px rgb(203 213 225);
+}
+
+.leaderboard-badge-week {
+  background: rgb(239 246 255);
+  color: rgb(37 99 235);
+}
+
+.leaderboard-badge-month {
+  background: rgb(245 243 255);
+  color: rgb(124 58 237);
+}
+
+.leaderboard-badge-total {
+  background: rgb(254 249 195);
+  color: rgb(161 98 7);
+}
+
+.leaderboard-badge-night {
+  background: rgb(238 242 255);
+  color: rgb(67 56 202);
+}
+
+.leaderboard-badge-burst {
+  background: rgb(255 241 242);
+  color: rgb(225 29 72);
+}
+
+.leaderboard-badge-checkin {
+  background: rgb(240 253 250);
+  color: rgb(13 148 136);
+}
+
+.leaderboard-badge-save {
+  background: rgb(240 253 244);
+  color: rgb(22 163 74);
+}
+
+.leaderboard-badge-fire {
+  background: rgb(255 247 237);
+  color: rgb(234 88 12);
+}
+
+:global(.dark) .leaderboard-badge-overflow {
+  background: rgb(30 41 59);
+  color: rgb(203 213 225);
+  box-shadow: inset 0 0 0 1px rgb(71 85 105);
+}
+
+:global(.dark) .leaderboard-badge-week {
+  background: rgb(37 99 235 / 0.16);
+  color: rgb(147 197 253);
+}
+
+:global(.dark) .leaderboard-badge-month {
+  background: rgb(124 58 237 / 0.16);
+  color: rgb(196 181 253);
+}
+
+:global(.dark) .leaderboard-badge-total {
+  background: rgb(202 138 4 / 0.16);
+  color: rgb(253 224 71);
+}
+
+:global(.dark) .leaderboard-badge-night {
+  background: rgb(79 70 229 / 0.16);
+  color: rgb(165 180 252);
+}
+
+:global(.dark) .leaderboard-badge-burst {
+  background: rgb(225 29 72 / 0.16);
+  color: rgb(253 164 175);
+}
+
+:global(.dark) .leaderboard-badge-checkin {
+  background: rgb(13 148 136 / 0.16);
+  color: rgb(94 234 212);
+}
+
+:global(.dark) .leaderboard-badge-save {
+  background: rgb(22 163 74 / 0.16);
+  color: rgb(134 239 172);
+}
+
+:global(.dark) .leaderboard-badge-fire {
+  background: rgb(234 88 12 / 0.16);
+  color: rgb(253 186 116);
 }
 </style>

@@ -316,7 +316,8 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 	}
 
 	query := `
-		INSERT INTO usage_logs (
+		WITH inserted AS (
+			INSERT INTO usage_logs (
 			user_id,
 			api_key_id,
 			account_id,
@@ -372,10 +373,44 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			$24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46
 		)
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
-		RETURNING id, created_at
+		RETURNING id, created_at, user_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, actual_cost
+		),
+		daily_stats AS (
+			INSERT INTO user_usage_daily_stats (
+				user_id,
+				usage_date,
+				requests,
+				tokens,
+				actual_cost,
+				night_requests,
+				updated_at
+			)
+			SELECT
+				user_id,
+				(created_at AT TIME ZONE $47)::date AS usage_date,
+				1 AS requests,
+				COALESCE(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens, 0) AS tokens,
+				actual_cost,
+				CASE
+					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $47) >= 0
+						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $47) < 6 THEN 1
+					ELSE 0
+				END AS night_requests,
+				NOW() AS updated_at
+			FROM inserted
+			ON CONFLICT (user_id, usage_date) DO UPDATE SET
+				requests = user_usage_daily_stats.requests + EXCLUDED.requests,
+				tokens = user_usage_daily_stats.tokens + EXCLUDED.tokens,
+				actual_cost = user_usage_daily_stats.actual_cost + EXCLUDED.actual_cost,
+				night_requests = user_usage_daily_stats.night_requests + EXCLUDED.night_requests,
+				updated_at = NOW()
+			RETURNING 1
+		)
+		SELECT id, created_at FROM inserted
 	`
 
-	if err := scanSingleRow(ctx, sqlq, query, prepared.args, &log.ID, &log.CreatedAt); err != nil {
+	args := appendUsageStatsTimezoneArg(prepared.args)
+	if err := scanSingleRow(ctx, sqlq, query, args, &log.ID, &log.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) && prepared.requestID != "" {
 			selectQuery := "SELECT id, created_at FROM usage_logs WHERE request_id = $1 AND api_key_id = $2"
 			if err := scanSingleRow(ctx, sqlq, selectQuery, []any{prepared.requestID, log.APIKeyID}, &log.ID, &log.CreatedAt); err != nil {
@@ -803,7 +838,7 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 			created_at
 		) AS (VALUES `)
 
-	args := make([]any, 0, len(keys)*46)
+	args := make([]any, 0, len(keys)*47+1)
 	argPos := 1
 	for idx, key := range keys {
 		if idx > 0 {
@@ -928,7 +963,47 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				created_at
 			FROM input
 			ON CONFLICT (request_id, api_key_id) DO NOTHING
-			RETURNING request_id, api_key_id, id, created_at
+			RETURNING request_id, api_key_id, id, created_at, user_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, actual_cost
+		),
+		daily_stats AS (
+			INSERT INTO user_usage_daily_stats (
+				user_id,
+				usage_date,
+				requests,
+				tokens,
+				actual_cost,
+				night_requests,
+				updated_at
+			)
+			SELECT
+				user_id,
+				(created_at AT TIME ZONE $`)
+	_, _ = query.WriteString(strconv.Itoa(argPos))
+	_, _ = query.WriteString(`)::date AS usage_date,
+				COUNT(*) AS requests,
+				COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS tokens,
+				COALESCE(SUM(actual_cost), 0) AS actual_cost,
+				COALESCE(SUM(CASE
+					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $`)
+	_, _ = query.WriteString(strconv.Itoa(argPos))
+	_, _ = query.WriteString(`) >= 0
+						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $`)
+	_, _ = query.WriteString(strconv.Itoa(argPos))
+	_, _ = query.WriteString(`) < 6 THEN 1
+					ELSE 0
+				END), 0) AS night_requests,
+				NOW() AS updated_at
+			FROM inserted
+			GROUP BY user_id, (created_at AT TIME ZONE $`)
+	_, _ = query.WriteString(strconv.Itoa(argPos))
+	_, _ = query.WriteString(`)::date
+			ON CONFLICT (user_id, usage_date) DO UPDATE SET
+				requests = user_usage_daily_stats.requests + EXCLUDED.requests,
+				tokens = user_usage_daily_stats.tokens + EXCLUDED.tokens,
+				actual_cost = user_usage_daily_stats.actual_cost + EXCLUDED.actual_cost,
+				night_requests = user_usage_daily_stats.night_requests + EXCLUDED.night_requests,
+				updated_at = NOW()
+			RETURNING 1
 		),
 		resolved AS (
 			SELECT
@@ -961,6 +1036,7 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 		)
 		FROM resolved
 	`)
+	args = append(args, usageStatsTimezoneName())
 	return query.String(), args
 }
 
@@ -1016,7 +1092,7 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			created_at
 		) AS (VALUES `)
 
-	args := make([]any, 0, len(preparedList)*46)
+	args := make([]any, 0, len(preparedList)*46+1)
 	argPos := 1
 	for idx, prepared := range preparedList {
 		if idx > 0 {
@@ -1040,8 +1116,9 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 	}
 
 	_, _ = query.WriteString(`
-		)
-		INSERT INTO usage_logs (
+		),
+		inserted AS (
+			INSERT INTO usage_logs (
 			user_id,
 			api_key_id,
 			account_id,
@@ -1138,14 +1215,60 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			created_at
 		FROM input
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
+		RETURNING request_id, api_key_id, id, created_at, user_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, actual_cost
+		),
+		daily_stats AS (
+			INSERT INTO user_usage_daily_stats (
+				user_id,
+				usage_date,
+				requests,
+				tokens,
+				actual_cost,
+				night_requests,
+				updated_at
+			)
+			SELECT
+				user_id,
+				(created_at AT TIME ZONE $`)
+	_, _ = query.WriteString(strconv.Itoa(argPos))
+	_, _ = query.WriteString(`)::date AS usage_date,
+				COUNT(*) AS requests,
+				COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS tokens,
+				COALESCE(SUM(actual_cost), 0) AS actual_cost,
+				COALESCE(SUM(CASE
+					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $`)
+	_, _ = query.WriteString(strconv.Itoa(argPos))
+	_, _ = query.WriteString(`) >= 0
+						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $`)
+	_, _ = query.WriteString(strconv.Itoa(argPos))
+	_, _ = query.WriteString(`) < 6 THEN 1
+					ELSE 0
+				END), 0) AS night_requests,
+				NOW() AS updated_at
+			FROM inserted
+			GROUP BY user_id, (created_at AT TIME ZONE $`)
+	_, _ = query.WriteString(strconv.Itoa(argPos))
+	_, _ = query.WriteString(`)::date
+			ON CONFLICT (user_id, usage_date) DO UPDATE SET
+				requests = user_usage_daily_stats.requests + EXCLUDED.requests,
+				tokens = user_usage_daily_stats.tokens + EXCLUDED.tokens,
+				actual_cost = user_usage_daily_stats.actual_cost + EXCLUDED.actual_cost,
+				night_requests = user_usage_daily_stats.night_requests + EXCLUDED.night_requests,
+				updated_at = NOW()
+			RETURNING 1
+		)
+		SELECT COUNT(*) FROM inserted
 	`)
+	args = append(args, usageStatsTimezoneName())
 
 	return query.String(), args
 }
 
 func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared usageLogInsertPrepared) error {
+	args := appendUsageStatsTimezoneArg(prepared.args)
 	_, err := sqlq.ExecContext(ctx, `
-		INSERT INTO usage_logs (
+		WITH inserted AS (
+			INSERT INTO usage_logs (
 			user_id,
 			api_key_id,
 			account_id,
@@ -1201,7 +1324,41 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			$24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46
 		)
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
-	`, prepared.args...)
+		RETURNING id, created_at, user_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, actual_cost
+		),
+		daily_stats AS (
+			INSERT INTO user_usage_daily_stats (
+				user_id,
+				usage_date,
+				requests,
+				tokens,
+				actual_cost,
+				night_requests,
+				updated_at
+			)
+			SELECT
+				user_id,
+				(created_at AT TIME ZONE $47)::date AS usage_date,
+				1 AS requests,
+				COALESCE(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens, 0) AS tokens,
+				actual_cost,
+				CASE
+					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $47) >= 0
+						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $47) < 6 THEN 1
+					ELSE 0
+				END AS night_requests,
+				NOW() AS updated_at
+			FROM inserted
+			ON CONFLICT (user_id, usage_date) DO UPDATE SET
+				requests = user_usage_daily_stats.requests + EXCLUDED.requests,
+				tokens = user_usage_daily_stats.tokens + EXCLUDED.tokens,
+				actual_cost = user_usage_daily_stats.actual_cost + EXCLUDED.actual_cost,
+				night_requests = user_usage_daily_stats.night_requests + EXCLUDED.night_requests,
+				updated_at = NOW()
+			RETURNING 1
+		)
+		SELECT COUNT(*) FROM inserted
+	`, args...)
 	return err
 }
 
@@ -1298,6 +1455,21 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 			createdAt,
 		},
 	}
+}
+
+func appendUsageStatsTimezoneArg(args []any) []any {
+	out := make([]any, 0, len(args)+1)
+	out = append(out, args...)
+	out = append(out, usageStatsTimezoneName())
+	return out
+}
+
+func usageStatsTimezoneName() string {
+	name := timezone.Name()
+	if name == "Local" || strings.TrimSpace(name) == "" {
+		return "UTC"
+	}
+	return name
 }
 
 func usageLogBatchKey(requestID string, apiKeyID int64) string {
@@ -2154,6 +2326,7 @@ type UserSpendingRankingItem = usagestats.UserSpendingRankingItem
 type UserSpendingRankingResponse = usagestats.UserSpendingRankingResponse
 type UserLeaderboardItem = usagestats.UserLeaderboardItem
 type UserLeaderboardResponse = usagestats.UserLeaderboardResponse
+type UserLeaderboardBadgeLeaders = usagestats.UserLeaderboardBadgeLeaders
 
 // APIKeyUsageTrendPoint represents API key usage trend data point
 type APIKeyUsageTrendPoint = usagestats.APIKeyUsageTrendPoint
@@ -2496,7 +2669,222 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 	}, nil
 }
 
-// GetUserDashboardStats 获取用户专属的仪表盘统计
+// GetUserLeaderboardBadgeLeaders returns user IDs that should receive special leaderboard badges.
+func (r *usageLogRepository) GetUserLeaderboardBadgeLeaders(ctx context.Context, weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd time.Time, userTZ string) (*UserLeaderboardBadgeLeaders, error) {
+	query := `
+		WITH weekly_tokens AS (
+			SELECT
+				user_id,
+				COALESCE(SUM(tokens), 0) AS tokens
+			FROM user_usage_daily_stats
+			WHERE usage_date >= $1::date AND usage_date < $2::date
+			GROUP BY user_id
+			HAVING COALESCE(SUM(tokens), 0) > 0
+			ORDER BY tokens DESC, user_id ASC
+			LIMIT 1
+		),
+		monthly_tokens AS (
+			SELECT
+				user_id,
+				COALESCE(SUM(tokens), 0) AS tokens
+			FROM user_usage_daily_stats
+			WHERE usage_date >= $3::date AND usage_date < $4::date
+			GROUP BY user_id
+			HAVING COALESCE(SUM(tokens), 0) > 0
+			ORDER BY tokens DESC, user_id ASC
+			LIMIT 1
+		),
+		total_tokens AS (
+			SELECT
+				user_id,
+				COALESCE(SUM(tokens), 0) AS tokens
+			FROM user_usage_daily_stats
+			GROUP BY user_id
+			HAVING COALESCE(SUM(tokens), 0) > 0
+			ORDER BY tokens DESC, user_id ASC
+			LIMIT 1
+		),
+		daily_tokens AS (
+			SELECT
+				user_id,
+				usage_date,
+				COALESCE(tokens, 0) AS tokens
+			FROM user_usage_daily_stats
+			WHERE usage_date >= $7::date AND usage_date < $9::date
+		),
+		burst_candidates AS (
+			SELECT
+				yesterday.user_id,
+				yesterday.tokens AS yesterday_tokens,
+				COALESCE(SUM(previous.tokens), 0) / 7.0 AS previous_avg_tokens,
+				yesterday.tokens - (COALESCE(SUM(previous.tokens), 0) / 7.0) AS token_gain
+			FROM daily_tokens yesterday
+			LEFT JOIN daily_tokens previous
+				ON previous.user_id = yesterday.user_id
+				AND previous.usage_date >= $7::date
+				AND previous.usage_date < $8::date
+			WHERE yesterday.usage_date = $8::date
+				AND yesterday.tokens > 0
+			GROUP BY yesterday.user_id, yesterday.tokens
+			HAVING yesterday.tokens > COALESCE(SUM(previous.tokens), 0) / 7.0
+		),
+		burst_token_king AS (
+			SELECT user_id
+			FROM burst_candidates
+			ORDER BY token_gain DESC, yesterday_tokens DESC, user_id ASC
+			LIMIT 1
+		),
+		active_dates AS (
+			SELECT
+				user_id,
+				usage_date
+			FROM user_usage_daily_stats
+			WHERE usage_date <= $8::date
+				AND requests > 0
+		),
+		checkin_streaks AS (
+			SELECT
+				user_id,
+				COUNT(*) AS streak_days
+			FROM (
+				SELECT user_id, usage_date
+				FROM (
+					SELECT
+						user_id,
+						usage_date,
+						$8::date - usage_date AS day_gap,
+						ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY usage_date DESC) - 1 AS rn
+					FROM active_dates
+					WHERE usage_date <= $8::date
+				) ranked_dates
+				WHERE day_gap = rn
+			) consecutive_dates
+			GROUP BY user_id
+			ORDER BY streak_days DESC, user_id ASC
+			LIMIT 1
+		),
+		cost_efficiency AS (
+			SELECT
+				user_id,
+				COALESCE(SUM(actual_cost), 0) AS actual_cost,
+				COALESCE(SUM(tokens), 0) AS tokens
+			FROM user_usage_daily_stats
+			WHERE ($5::date IS NULL OR usage_date >= $5::date)
+				AND ($6::date IS NULL OR usage_date < $6::date)
+			GROUP BY user_id
+			HAVING COALESCE(SUM(actual_cost), 0) > 0
+				AND COALESCE(SUM(tokens), 0) > 0
+		),
+		night_owl AS (
+			SELECT
+				user_id,
+				COALESCE(SUM(night_requests), 0) AS night_requests
+			FROM user_usage_daily_stats
+			WHERE ($5::date IS NULL OR usage_date >= $5::date)
+				AND ($6::date IS NULL OR usage_date < $6::date)
+			GROUP BY user_id
+			HAVING COALESCE(SUM(night_requests), 0) > 0
+			ORDER BY night_requests DESC, user_id ASC
+			LIMIT 1
+		),
+		cost_saver AS (
+			SELECT user_id
+			FROM cost_efficiency
+			ORDER BY (actual_cost / tokens) ASC, tokens DESC, user_id ASC
+			LIMIT 1
+		),
+		cost_burner AS (
+			SELECT user_id
+			FROM cost_efficiency
+			ORDER BY (actual_cost / tokens) DESC, tokens DESC, user_id ASC
+			LIMIT 1
+		)
+		SELECT
+			(SELECT user_id FROM weekly_tokens) AS weekly_token_king_user_id,
+			(SELECT user_id FROM monthly_tokens) AS monthly_token_king_user_id,
+			(SELECT user_id FROM total_tokens) AS total_token_king_user_id,
+			(SELECT user_id FROM night_owl) AS night_owl_user_id,
+			(SELECT user_id FROM burst_token_king) AS burst_token_king_user_id,
+			(SELECT user_id FROM checkin_streaks) AS checkin_king_user_id,
+			(SELECT user_id FROM cost_saver) AS cost_saver_user_id,
+			(SELECT user_id FROM cost_burner) AS cost_burner_user_id
+	`
+
+	var weekly sql.NullInt64
+	var monthly sql.NullInt64
+	var totalToken sql.NullInt64
+	var nightOwl sql.NullInt64
+	var burstToken sql.NullInt64
+	var checkin sql.NullInt64
+	var saver sql.NullInt64
+	var burner sql.NullInt64
+	badgeLoc := leaderboardBadgeStatsLocation()
+	yesterdayDate, todayDate, burstLookbackDate := leaderboardBadgeDailyDates(badgeLoc)
+	if err := scanSingleRow(ctx, r.sql, query, []any{
+		leaderboardBadgeDateArg(weekStart, badgeLoc),
+		leaderboardBadgeDateArg(weekEnd, badgeLoc),
+		leaderboardBadgeDateArg(monthStart, badgeLoc),
+		leaderboardBadgeDateArg(monthEnd, badgeLoc),
+		leaderboardBadgeDateArg(costStart, badgeLoc),
+		leaderboardBadgeDateArg(costEnd, badgeLoc),
+		burstLookbackDate,
+		yesterdayDate,
+		todayDate,
+	},
+		&weekly,
+		&monthly,
+		&totalToken,
+		&nightOwl,
+		&burstToken,
+		&checkin,
+		&saver,
+		&burner,
+	); err != nil {
+		return nil, err
+	}
+
+	return &UserLeaderboardBadgeLeaders{
+		WeeklyTokenKingUserID:  int64FromNull(weekly),
+		MonthlyTokenKingUserID: int64FromNull(monthly),
+		TotalTokenKingUserID:   int64FromNull(totalToken),
+		NightOwlUserID:         int64FromNull(nightOwl),
+		BurstTokenKingUserID:   int64FromNull(burstToken),
+		CheckinKingUserID:      int64FromNull(checkin),
+		CostSaverUserID:        int64FromNull(saver),
+		CostBurnerUserID:       int64FromNull(burner),
+	}, nil
+}
+
+func leaderboardBadgeDailyDates(loc *time.Location) (string, string, string) {
+	now := time.Now().In(loc)
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, loc)
+	yesterdayStart := todayStart.AddDate(0, 0, -1)
+	burstLookbackStart := yesterdayStart.AddDate(0, 0, -7)
+	return yesterdayStart.Format("2006-01-02"), todayStart.Format("2006-01-02"), burstLookbackStart.Format("2006-01-02")
+}
+
+func leaderboardBadgeStatsLocation() *time.Location {
+	loc, err := time.LoadLocation(usageStatsTimezoneName())
+	if err == nil {
+		return loc
+	}
+	return timezone.Location()
+}
+
+func leaderboardBadgeDateArg(value time.Time, loc *time.Location) any {
+	if value.IsZero() {
+		return nil
+	}
+	return value.In(loc).Format("2006-01-02")
+}
+
+func int64FromNull(value sql.NullInt64) int64 {
+	if !value.Valid {
+		return 0
+	}
+	return value.Int64
+}
+
 func (r *usageLogRepository) leaderboardRewardClaimExecutor(ctx context.Context) (sqlExecutor, error) {
 	if tx := dbent.TxFromContext(ctx); tx != nil {
 		return tx.Client(), nil
