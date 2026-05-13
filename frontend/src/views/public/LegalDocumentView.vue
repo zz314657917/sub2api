@@ -1,83 +1,74 @@
 <template>
-  <div class="mc-pixel-grid min-h-screen bg-primary-50 text-gray-900 dark:bg-dark-950 dark:text-white">
-    <header class="border-b-2 border-accent-700/20 bg-white/90 backdrop-blur dark:border-accent-400/20 dark:bg-dark-900/90">
-      <div class="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-        <RouterLink to="/home" class="flex min-w-0 items-center gap-3">
-          <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center overflow-hidden rounded-md border border-accent-700/25 bg-accent-100 shadow-glass-sm dark:bg-dark-800">
-            <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
-          </span>
-          <span class="truncate text-base font-semibold text-gray-950 dark:text-white">
-            {{ siteName }}
-          </span>
-        </RouterLink>
-        <RouterLink
-          to="/login"
-          class="btn btn-primary inline-flex flex-shrink-0 items-center justify-center px-4 py-2 text-sm"
-        >
-          登录
-        </RouterLink>
-      </div>
-    </header>
+  <div class="legal-document-page public-page-shell min-h-screen text-white">
+    <PublicMatrixBackdrop />
 
-    <main class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:py-10">
-      <div v-if="loading" class="flex min-h-[320px] items-center justify-center">
-        <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-600"></div>
-      </div>
+    <PublicTopNav />
 
-      <section
-        v-else-if="loadError"
-        class="rounded-lg border border-red-200 bg-red-50 p-6 text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200"
-      >
-        <h1 class="text-lg font-semibold">文档加载失败</h1>
-        <p class="mt-2 text-sm">请稍后刷新页面重试。</p>
-      </section>
-
-      <section
-        v-else-if="!currentDocument"
-        class="card p-6"
-      >
-        <div class="flex items-start gap-3">
-          <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-gray-100 text-gray-600 dark:bg-dark-800 dark:text-dark-300">
-            <Icon name="document" size="sm" />
-          </span>
-          <div>
-            <h1 class="text-lg font-semibold text-gray-900 dark:text-white">文档不存在</h1>
-            <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-dark-300">
-              当前条款文档不存在或已被管理员移除。
-            </p>
-          </div>
+    <main class="legal-document-main relative z-10 mx-auto w-full px-4 py-8 sm:px-6 lg:py-10">
+      <section v-if="loading" class="legal-document-card legal-document-state" aria-live="polite">
+        <span class="legal-document-spinner" aria-hidden="true"></span>
+        <div>
+          <h1>正在加载文档</h1>
+          <p>正在读取登录条款配置，请稍候。</p>
         </div>
       </section>
 
-      <article v-else>
-        <div class="mb-8 border-b border-gray-200 pb-6 dark:border-dark-700">
-          <div class="flex items-start gap-4">
-            <span class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">
-              <Icon :name="documentIcon" size="md" />
-            </span>
-            <div class="min-w-0">
-              <p class="text-sm font-medium text-primary-700 dark:text-primary-300">登录条款</p>
-              <h1 class="mt-2 break-words text-2xl font-bold tracking-normal text-gray-950 dark:text-white sm:text-3xl">
-                {{ currentDocument.title }}
-              </h1>
-              <p v-if="updatedAt" class="mt-3 text-sm text-gray-500 dark:text-dark-400">
+      <section v-else-if="loadError" class="legal-document-card legal-document-state legal-document-state--danger">
+        <span class="legal-document-state-icon">
+          <Icon name="exclamationTriangle" size="md" />
+        </span>
+        <div>
+          <h1>文档加载失败</h1>
+          <p>请稍后刷新页面重试。</p>
+        </div>
+      </section>
+
+      <section v-else-if="!currentDocument" class="legal-document-card legal-document-state">
+        <span class="legal-document-state-icon">
+          <Icon name="document" size="md" />
+        </span>
+        <div>
+          <h1>文档不存在</h1>
+          <p>当前条款文档不存在或已被管理员移除。</p>
+        </div>
+      </section>
+
+      <article v-else class="legal-document-card">
+        <header class="legal-document-header">
+          <span class="legal-document-icon">
+            <Icon :name="documentIcon" size="lg" />
+          </span>
+
+          <div class="min-w-0">
+            <p class="legal-document-eyebrow">登录条款</p>
+            <h1>{{ currentDocument.title }}</h1>
+            <div class="legal-document-meta">
+              <span v-if="updatedAt">
+                <Icon name="calendar" size="xs" />
                 更新日期：{{ updatedAt }}
-              </p>
+              </span>
+              <span>
+                <Icon name="shield" size="xs" />
+                阅读后可返回登录继续
+              </span>
             </div>
           </div>
-        </div>
+        </header>
 
-        <div
-          v-if="hasContent"
-          class="legal-document-content"
-          v-html="renderedHtml"
-        ></div>
-        <div
-          v-else
-          class="rounded-lg border border-dashed border-accent-400 bg-white/85 px-6 py-14 text-center text-sm text-gray-500 dark:border-accent-700 dark:bg-dark-900/85 dark:text-dark-400"
-        >
+        <div v-if="hasContent" class="legal-document-content" v-html="renderedHtml"></div>
+
+        <div v-else class="legal-document-empty">
           暂无正文内容
         </div>
+
+        <footer class="legal-document-actions" aria-label="文档操作">
+          <RouterLink to="/login" class="legal-document-action legal-document-action--primary">
+            返回登录
+          </RouterLink>
+          <RouterLink to="/home" class="legal-document-action">
+            返回首页
+          </RouterLink>
+        </footer>
       </article>
     </main>
   </div>
@@ -89,15 +80,16 @@ import { useRoute } from 'vue-router'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import Icon from '@/components/icons/Icon.vue'
-import { getPublicSettings } from '@/api/auth'
-import { sanitizeUrl } from '@/utils/url'
-import type { LoginAgreementDocument, PublicSettings } from '@/types'
+import { useAppStore } from '@/stores'
+import PublicMatrixBackdrop from './components/PublicMatrixBackdrop.vue'
+import PublicTopNav from './components/PublicTopNav.vue'
+import type { LoginAgreementDocument } from '@/types'
 
 type LegalDocumentIcon = 'document' | 'shield' | 'globe' | 'cog'
 
 const route = useRoute()
-const settings = ref<PublicSettings | null>(null)
-const loading = ref(true)
+const appStore = useAppStore()
+const loading = ref(!appStore.cachedPublicSettings && !appStore.publicSettingsLoaded)
 const loadError = ref(false)
 
 marked.setOptions({
@@ -105,13 +97,9 @@ marked.setOptions({
   gfm: true,
 })
 
+const settings = computed(() => appStore.cachedPublicSettings ?? null)
 const documentId = computed(() => String(route.params.documentId || ''))
 const documents = computed(() => settings.value?.login_agreement_documents ?? [])
-const siteName = computed(() => settings.value?.site_name || 'Sub2API')
-const siteLogo = computed(() => sanitizeUrl(settings.value?.site_logo || '', {
-  allowRelative: true,
-  allowDataUrl: true,
-}))
 const updatedAt = computed(() => settings.value?.login_agreement_updated_at || '')
 
 const currentDocument = computed<LoginAgreementDocument | null>(() => {
@@ -122,10 +110,32 @@ const currentDocument = computed<LoginAgreementDocument | null>(() => {
   return documents.value.find((doc) => (doc.id || doc.title) === id) ?? null
 })
 
-const hasContent = computed(() => Boolean(currentDocument.value?.content_md?.trim()))
+const documentBodyMarkdown = computed(() => {
+  const content = currentDocument.value?.content_md?.trim() || ''
+  const title = currentDocument.value?.title?.trim() || ''
+  if (!content || !title) {
+    return content
+  }
+
+  const lines = content.split(/\r?\n/)
+  const firstContentLineIndex = lines.findIndex((line) => line.trim().length > 0)
+  if (firstContentLineIndex === -1) {
+    return ''
+  }
+
+  const firstLine = lines[firstContentLineIndex].trim().replace(/^#{1,6}\s+/, '').trim()
+  if (firstLine === title) {
+    lines.splice(firstContentLineIndex, 1)
+    return lines.join('\n').trim()
+  }
+
+  return content
+})
+
+const hasContent = computed(() => Boolean(documentBodyMarkdown.value))
 
 const renderedHtml = computed(() => {
-  const content = currentDocument.value?.content_md?.trim() || ''
+  const content = documentBodyMarkdown.value
   if (!content) {
     return ''
   }
@@ -148,10 +158,13 @@ const documentIcon = computed<LegalDocumentIcon>(() => {
 })
 
 onMounted(async () => {
-  loading.value = true
+  loading.value = !appStore.cachedPublicSettings && !appStore.publicSettingsLoaded
   loadError.value = false
   try {
-    settings.value = await getPublicSettings()
+    await appStore.fetchPublicSettings()
+    if (!appStore.cachedPublicSettings) {
+      loadError.value = true
+    }
   } catch {
     loadError.value = true
   } finally {
@@ -161,81 +174,360 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+@import './public-page.css';
+
+.legal-document-page {
+  position: relative;
+  min-height: 100vh;
+}
+
+.legal-document-main {
+  max-width: min(64rem, calc(100vw - 1rem));
+}
+
+.legal-document-card {
+  border: 1px solid var(--public-border-strong);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.055)),
+    rgba(6, 13, 18, 0.72);
+  box-shadow: var(--public-shadow);
+  padding: clamp(1.35rem, 3vw, 2.25rem);
+  backdrop-filter: blur(20px);
+}
+
+.legal-document-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+  border-bottom: 1px solid var(--public-border);
+  padding-bottom: 1.35rem;
+}
+
+.legal-document-icon,
+.legal-document-state-icon {
+  display: inline-flex;
+  height: 2.75rem;
+  width: 2.75rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(119, 255, 173, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.18), rgba(99, 102, 241, 0.1)),
+    rgba(255, 255, 255, 0.07);
+  color: #b7ffd0;
+  box-shadow: var(--public-shadow-soft);
+}
+
+.legal-document-eyebrow {
+  margin: 0;
+  color: var(--public-accent);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+}
+
+.legal-document-header h1,
+.legal-document-state h1 {
+  margin: 0.4rem 0 0;
+  color: #f8fafc;
+  font-size: clamp(1.85rem, 4vw, 3rem);
+  font-weight: 950;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.legal-document-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.95rem;
+  color: var(--public-muted);
+  font-size: 0.84rem;
+}
+
+.legal-document-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.85rem;
+  border: 1px solid var(--public-border);
+  border-radius: 8px;
+  background: var(--public-surface-soft);
+  padding: 0.25rem 0.55rem;
+}
+
 .legal-document-content {
-  line-height: 1.75;
+  margin-top: 1.65rem;
+  line-height: 1.85;
   overflow-wrap: anywhere;
-  color: inherit;
+  color: rgba(226, 232, 240, 0.86);
 }
 
 .legal-document-content :deep(h1) {
-  @apply mb-4 mt-8 border-b border-gray-200 pb-3 text-3xl font-bold dark:border-dark-700;
+  margin: 2rem 0 1rem;
+  border-bottom: 1px solid var(--public-border);
+  padding-bottom: 0.9rem;
+  color: #ffffff;
+  font-size: clamp(1.6rem, 3vw, 2.15rem);
+  font-weight: 900;
+  line-height: 1.2;
 }
 
 .legal-document-content :deep(h2) {
-  @apply mb-3 mt-7 text-2xl font-bold;
+  margin: 1.85rem 0 0.75rem;
+  color: #f8fafc;
+  font-size: clamp(1.25rem, 2vw, 1.55rem);
+  font-weight: 850;
+  line-height: 1.28;
 }
 
 .legal-document-content :deep(h3) {
-  @apply mb-2 mt-6 text-xl font-semibold;
+  margin: 1.5rem 0 0.55rem;
+  color: #eef2ff;
+  font-size: 1.1rem;
+  font-weight: 800;
 }
 
 .legal-document-content :deep(h4) {
-  @apply mb-2 mt-5 text-lg font-semibold;
+  margin: 1.25rem 0 0.45rem;
+  color: #eef2ff;
+  font-size: 1rem;
+  font-weight: 800;
 }
 
 .legal-document-content :deep(p) {
-  @apply mb-4 text-gray-700 dark:text-dark-200;
+  margin: 0 0 1rem;
+  color: rgba(226, 232, 240, 0.84);
+  font-size: 0.96rem;
 }
 
 .legal-document-content :deep(a) {
-  @apply text-primary-600 underline underline-offset-4 hover:text-primary-700 dark:text-primary-300 dark:hover:text-primary-200;
+  color: #98ffbd;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+  transition: color 150ms ease;
+}
+
+.legal-document-content :deep(a:hover) {
+  color: #ffffff;
+}
+
+.legal-document-content :deep(ul),
+.legal-document-content :deep(ol) {
+  margin: 0 0 1rem;
+  padding-left: 1.35rem;
+  color: rgba(226, 232, 240, 0.84);
 }
 
 .legal-document-content :deep(ul) {
-  @apply mb-4 list-disc pl-6;
+  list-style: disc;
 }
 
 .legal-document-content :deep(ol) {
-  @apply mb-4 list-decimal pl-6;
+  list-style: decimal;
 }
 
 .legal-document-content :deep(li) {
-  @apply mb-1 text-gray-700 dark:text-dark-200;
+  margin: 0.35rem 0;
+  padding-left: 0.1rem;
 }
 
 .legal-document-content :deep(blockquote) {
-  @apply my-5 border-l-4 border-gray-300 pl-4 text-gray-600 dark:border-dark-600 dark:text-dark-300;
+  margin: 1.35rem 0;
+  border-left: 3px solid rgba(119, 255, 173, 0.52);
+  border-radius: 0 8px 8px 0;
+  background: rgba(119, 255, 173, 0.08);
+  padding: 0.85rem 1rem;
+  color: rgba(238, 246, 240, 0.82);
 }
 
 .legal-document-content :deep(code) {
-  @apply rounded bg-gray-100 px-1.5 py-0.5 font-mono text-sm dark:bg-dark-800;
+  border: 1px solid var(--public-border);
+  border-radius: 6px;
+  background: rgba(2, 8, 10, 0.64);
+  padding: 0.12rem 0.35rem;
+  color: #d9ffe7;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.86em;
 }
 
 .legal-document-content :deep(pre) {
-  @apply my-5 overflow-x-auto rounded-lg bg-gray-950 p-4 text-gray-100;
+  margin: 1.35rem 0;
+  overflow-x: auto;
+  border: 1px solid var(--public-border);
+  border-radius: 8px;
+  background: rgba(2, 8, 10, 0.82);
+  padding: 1rem;
+  color: #f8fafc;
 }
 
 .legal-document-content :deep(pre code) {
-  @apply bg-transparent p-0 text-inherit;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  color: inherit;
 }
 
 .legal-document-content :deep(table) {
-  @apply my-5 block w-full overflow-x-auto border-collapse;
+  display: block;
+  width: 100%;
+  margin: 1.35rem 0;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.legal-document-content :deep(th),
+.legal-document-content :deep(td) {
+  border: 1px solid var(--public-border);
+  padding: 0.65rem 0.75rem;
+  text-align: left;
 }
 
 .legal-document-content :deep(th) {
-  @apply border border-gray-300 bg-gray-50 px-3 py-2 text-left font-semibold dark:border-dark-600 dark:bg-dark-800;
-}
-
-.legal-document-content :deep(td) {
-  @apply border border-gray-300 px-3 py-2 dark:border-dark-600;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+  font-weight: 800;
 }
 
 .legal-document-content :deep(img) {
-  @apply my-5 h-auto max-w-full rounded-lg;
+  height: auto;
+  max-width: 100%;
+  margin: 1.35rem 0;
+  border-radius: 8px;
 }
 
 .legal-document-content :deep(hr) {
-  @apply my-7 border-gray-200 dark:border-dark-700;
+  margin: 1.75rem 0;
+  border: 0;
+  border-top: 1px solid var(--public-border);
+}
+
+.legal-document-empty {
+  margin-top: 1.65rem;
+  border: 1px dashed var(--public-border-strong);
+  border-radius: 8px;
+  background: var(--public-surface-soft);
+  padding: 3rem 1rem;
+  text-align: center;
+  color: var(--public-muted);
+  font-size: 0.92rem;
+}
+
+.legal-document-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 2rem;
+  border-top: 1px solid var(--public-border);
+  padding-top: 1.2rem;
+}
+
+.legal-document-action {
+  display: inline-flex;
+  min-height: 2.35rem;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--public-border-strong);
+  border-radius: 8px;
+  background: var(--public-surface-soft);
+  padding: 0.5rem 0.85rem;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 0.86rem;
+  font-weight: 850;
+  transition:
+    border-color 150ms ease,
+    background 150ms ease,
+    color 150ms ease,
+    transform 150ms ease;
+}
+
+.legal-document-action:hover {
+  border-color: var(--public-ring);
+  background: var(--public-surface-hover);
+  color: #ffffff;
+  transform: translateY(-1px);
+}
+
+.legal-document-action--primary {
+  border-color: rgba(119, 255, 173, 0.38);
+  background: linear-gradient(180deg, rgba(119, 255, 173, 0.22), rgba(119, 255, 173, 0.12));
+  color: #eafff1;
+}
+
+.legal-document-state {
+  display: flex;
+  min-height: 18rem;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  text-align: left;
+}
+
+.legal-document-state p {
+  margin: 0.55rem 0 0;
+  color: var(--public-muted);
+  line-height: 1.7;
+}
+
+.legal-document-state--danger .legal-document-state-icon {
+  border-color: rgba(248, 113, 113, 0.36);
+  background: rgba(248, 113, 113, 0.12);
+  color: #fecaca;
+}
+
+.legal-document-spinner {
+  height: 2.6rem;
+  width: 2.6rem;
+  flex: 0 0 auto;
+  border: 2px solid rgba(255, 255, 255, 0.14);
+  border-top-color: var(--public-accent);
+  border-radius: 999px;
+  animation: legal-document-spin 0.82s linear infinite;
+}
+
+@keyframes legal-document-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 640px) {
+  .legal-document-main {
+    padding-top: 1.25rem;
+    padding-bottom: 2rem;
+  }
+
+  .legal-document-card {
+    padding: 1rem;
+  }
+
+  .legal-document-header,
+  .legal-document-state {
+    grid-template-columns: 1fr;
+  }
+
+  .legal-document-header {
+    gap: 0.85rem;
+  }
+
+  .legal-document-state {
+    align-items: flex-start;
+    justify-content: flex-start;
+    min-height: 14rem;
+    text-align: left;
+  }
+
+  .legal-document-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .legal-document-action {
+    width: 100%;
+  }
 }
 </style>
