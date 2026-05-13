@@ -570,6 +570,7 @@ type GatewayService struct {
 	debugGatewayBodyFile  atomic.Pointer[os.File] // non-nil when SUB2API_DEBUG_GATEWAY_BODY is set
 	tlsFPProfileService   *TLSFingerprintProfileService
 	balanceNotifyService  *BalanceNotifyService
+	welfareService        *WelfareService
 }
 
 // NewGatewayService creates a new GatewayService
@@ -600,6 +601,7 @@ func NewGatewayService(
 	channelService *ChannelService,
 	resolver *ModelPricingResolver,
 	balanceNotifyService *BalanceNotifyService,
+	welfareService *WelfareService,
 ) *GatewayService {
 	userGroupRateTTL := resolveUserGroupRateCacheTTL(cfg)
 	modelsListTTL := resolveModelsListCacheTTL(cfg)
@@ -635,6 +637,7 @@ func NewGatewayService(
 		channelService:       channelService,
 		resolver:             resolver,
 		balanceNotifyService: balanceNotifyService,
+		welfareService:       welfareService,
 	}
 	svc.userGroupRateResolver = newUserGroupRateResolver(
 		userGroupRateRepo,
@@ -7949,6 +7952,8 @@ type postUsageBillingParams struct {
 	AccountShareEnabled          bool
 	AccountShareOwnerRatePercent float64
 	AccountShareFreezeHours      int
+	NewUserTrial                 *NewUserTrialSession
+	SkipUsageCounters            bool
 }
 
 type accountShareBillingSettings struct {
@@ -7973,6 +7978,9 @@ func resolveAccountShareBillingSettings(ctx context.Context, settingService *Set
 }
 
 func (p *postUsageBillingParams) shouldDeductAPIKeyQuota() bool {
+	if p == nil || p.SkipUsageCounters {
+		return false
+	}
 	if p.shouldSkipSelfOwnedPrivateBilling() {
 		return false
 	}
@@ -7980,6 +7988,9 @@ func (p *postUsageBillingParams) shouldDeductAPIKeyQuota() bool {
 }
 
 func (p *postUsageBillingParams) shouldUpdateRateLimits() bool {
+	if p == nil || p.SkipUsageCounters {
+		return false
+	}
 	if p.shouldSkipSelfOwnedPrivateBilling() {
 		return false
 	}
@@ -7987,7 +7998,14 @@ func (p *postUsageBillingParams) shouldUpdateRateLimits() bool {
 }
 
 func (p *postUsageBillingParams) shouldUpdateAccountQuota() bool {
+	if p == nil || p.SkipUsageCounters {
+		return false
+	}
 	return p.Cost.TotalCost > 0 && p.Account.IsAPIKeyOrBedrock() && p.Account.HasAnyQuotaLimit()
+}
+
+func (p *postUsageBillingParams) isNewUserTrialBilling() bool {
+	return p != nil && p.NewUserTrial != nil
 }
 
 func (p *postUsageBillingParams) shouldSkipSelfOwnedPrivateBilling() bool {
@@ -8006,7 +8024,9 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 
 	cost := p.Cost
 
-	if p.IsSubscriptionBill && !p.shouldSkipSelfOwnedPrivateBilling() {
+	if p.isNewUserTrialBilling() {
+		// Trial billing never touches wallet or subscription quota.
+	} else if p.IsSubscriptionBill && !p.shouldSkipSelfOwnedPrivateBilling() {
 		// Subscription usage tracked by ActualCost so group rate multiplier
 		// consumes the quota at the expected speed.
 		if cost.ActualCost > 0 {
@@ -8117,6 +8137,8 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		// Owner using their own private upstream account does not consume platform
 		// balance, subscription quota, or API key quota. Account quota stats remain
 		// active below so the owner can still see upstream-account consumption.
+	} else if p.isNewUserTrialBilling() {
+		// Trial pool is charged separately after the unified ledger accepts request_id.
 	} else if p.IsSubscriptionBill && p.Subscription != nil && p.Cost.TotalCost > 0 {
 		cmd.SubscriptionID = &p.Subscription.ID
 		cmd.SubscriptionCost = p.Cost.ActualCost
@@ -8190,12 +8212,122 @@ func applyUsageBilling(ctx context.Context, requestID string, usageLog *UsageLog
 	return true, nil
 }
 
+const (
+	usageBillingRequestIDMaxLength     = 255
+	newUserTrialOverageRequestIDSuffix = ":trial-overage"
+)
+
+func applyUsageBillingWithNewUserTrialOverage(ctx context.Context, requestID string, usageLog *UsageLog, p *postUsageBillingParams, deps *billingDeps, repo UsageBillingRepository, welfareService *WelfareService) (bool, error) {
+	applied, err := applyUsageBilling(ctx, requestID, usageLog, p, deps, repo)
+	if err != nil || p == nil || p.NewUserTrial == nil || p.Cost == nil {
+		return applied, err
+	}
+	trialAmount := newUserTrialCoveredAmount(p.Cost, p.NewUserTrial)
+	overageCost := newUserTrialOverageCost(p.Cost, trialAmount)
+	if overageCost != nil && overageCost.ActualCost > 0 {
+		overageParams := *p
+		overageParams.Cost = overageCost
+		overageParams.NewUserTrial = nil
+		overageParams.SkipUsageCounters = true
+		overageLog := usageLogWithBillingType(usageLog, p.IsSubscriptionBill)
+		if _, err := applyUsageBilling(ctx, newUserTrialOverageRequestID(requestID), overageLog, &overageParams, deps, repo); err != nil {
+			return applied, err
+		}
+	}
+
+	if welfareService != nil && trialAmount > 0 {
+		apiKeyID := int64(0)
+		if p.APIKey != nil {
+			apiKeyID = p.APIKey.ID
+		}
+		model := ""
+		if usageLog != nil {
+			model = usageLog.Model
+		}
+		if err := welfareService.ConsumeNewUserTrial(ctx, p.NewUserTrial, requestID, trialAmount, model, apiKeyID); err != nil {
+			return applied, err
+		}
+	}
+
+	return applied, nil
+}
+
+func newUserTrialCoveredAmount(cost *CostBreakdown, session *NewUserTrialSession) float64 {
+	if cost == nil || session == nil {
+		return 0
+	}
+	actualCost := normalizeNonNegativeFloat(cost.ActualCost)
+	quotaLeft := normalizeNonNegativeFloat(session.QuotaLeft)
+	if actualCost <= 0 || quotaLeft <= 0 {
+		return 0
+	}
+	if quotaLeft < actualCost {
+		return quotaLeft
+	}
+	return actualCost
+}
+
+func newUserTrialOverageCost(cost *CostBreakdown, trialAmount float64) *CostBreakdown {
+	if cost == nil {
+		return nil
+	}
+	actualCost := normalizeNonNegativeFloat(cost.ActualCost)
+	overage := actualCost - normalizeNonNegativeFloat(trialAmount)
+	if overage <= 0 {
+		return nil
+	}
+	result := *cost
+	if actualCost > 0 {
+		ratio := overage / actualCost
+		result.InputCost *= ratio
+		result.OutputCost *= ratio
+		result.ImageOutputCost *= ratio
+		result.CacheCreationCost *= ratio
+		result.CacheReadCost *= ratio
+		result.TotalCost *= ratio
+	}
+	result.ActualCost = overage
+	return &result
+}
+
+func usageLogWithBillingType(usageLog *UsageLog, isSubscriptionBill bool) *UsageLog {
+	if usageLog == nil {
+		return nil
+	}
+	clone := *usageLog
+	if isSubscriptionBill {
+		clone.BillingType = BillingTypeSubscription
+	} else {
+		clone.BillingType = BillingTypeBalance
+	}
+	return &clone
+}
+
+func newUserTrialOverageRequestID(requestID string) string {
+	base := strings.TrimSpace(requestID)
+	if base == "" {
+		base = "generated:" + generateRequestID()
+	}
+	if len(base)+len(newUserTrialOverageRequestIDSuffix) <= usageBillingRequestIDMaxLength {
+		return base + newUserTrialOverageRequestIDSuffix
+	}
+	sum := sha256.Sum256([]byte(base))
+	hash := fmt.Sprintf("%x", sum[:8])
+	maxBaseLen := usageBillingRequestIDMaxLength - len(newUserTrialOverageRequestIDSuffix) - len(hash) - 1
+	if maxBaseLen <= 0 {
+		return hash + newUserTrialOverageRequestIDSuffix
+	}
+	return base[:maxBaseLen] + "-" + hash + newUserTrialOverageRequestIDSuffix
+}
+
 func finalizePostUsageBilling(p *postUsageBillingParams, deps *billingDeps, result *UsageBillingApplyResult) {
 	if p == nil || p.Cost == nil || deps == nil {
 		return
 	}
 
-	if p.IsSubscriptionBill {
+	if p.isNewUserTrialBilling() {
+		// Trial billing does not update wallet or subscription cache.
+	} else if p.IsSubscriptionBill {
 		if p.Cost.ActualCost > 0 && p.User != nil && p.APIKey != nil && p.APIKey.GroupID != nil {
 			deps.billingCacheService.QueueUpdateSubscriptionUsage(p.User.ID, *p.APIKey.GroupID, p.Cost.ActualCost)
 		}
@@ -8224,7 +8356,7 @@ func notifyBalanceLow(p *postUsageBillingParams, deps *billingDeps, result *Usag
 			slog.Error("panic in notifyBalanceLow", "recover", r)
 		}
 	}()
-	if p.IsSubscriptionBill || p.Cost.ActualCost <= 0 || p.User == nil || deps.balanceNotifyService == nil {
+	if p.IsSubscriptionBill || p.isNewUserTrialBilling() || p.Cost.ActualCost <= 0 || p.User == nil || deps.balanceNotifyService == nil {
 		slog.Debug("notifyBalanceLow: skipped",
 			"is_subscription", p.IsSubscriptionBill,
 			"actual_cost", p.Cost.ActualCost,
@@ -8515,6 +8647,10 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	if isSubscriptionBilling {
 		billingType = BillingTypeSubscription
 	}
+	trialSession, trialBilling := NewUserTrialSessionFromContext(ctx)
+	if trialBilling {
+		billingType = BillingTypeNewUserTrial
+	}
 
 	// 创建使用日志
 	accountRateMultiplier := account.BillingRateMultiplier()
@@ -8547,20 +8683,21 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 
 	requestID := usageLog.RequestID
 	accountShareSettings := resolveAccountShareBillingSettings(ctx, s.settingService)
-	_, billingErr := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
-		Cost:                  cost,
-		User:                  user,
-		APIKey:                apiKey,
-		Account:               account,
-		Subscription:          subscription,
-		RequestPayloadHash:    resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
-		IsSubscriptionBill:    isSubscriptionBilling,
-		AccountRateMultiplier: accountRateMultiplier,
-		APIKeyService:         input.APIKeyService,
+	_, billingErr := applyUsageBillingWithNewUserTrialOverage(ctx, requestID, usageLog, &postUsageBillingParams{
+		Cost:                         cost,
+		User:                         user,
+		APIKey:                       apiKey,
+		Account:                      account,
+		Subscription:                 subscription,
+		RequestPayloadHash:           resolveUsageBillingPayloadFingerprint(ctx, input.RequestPayloadHash),
+		IsSubscriptionBill:           isSubscriptionBilling,
+		AccountRateMultiplier:        accountRateMultiplier,
+		APIKeyService:                input.APIKeyService,
 		AccountShareEnabled:          accountShareSettings.Enabled,
 		AccountShareOwnerRatePercent: accountShareSettings.OwnerRatePercent,
 		AccountShareFreezeHours:      accountShareSettings.FreezeHours,
-	}, s.billingDeps(), s.usageBillingRepo)
+		NewUserTrial:                 trialSession,
+	}, s.billingDeps(), s.usageBillingRepo, s.welfareService)
 
 	if billingErr != nil {
 		return billingErr

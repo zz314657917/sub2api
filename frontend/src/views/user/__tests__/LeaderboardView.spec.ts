@@ -1,5 +1,5 @@
-import { flushPromises, mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { getDashboardLeaderboard, claimDashboardLeaderboardDailyReward } = vi.hoisted(() => ({
   getDashboardLeaderboard: vi.fn(),
@@ -29,6 +29,8 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.totalCost': '总消费',
     'leaderboard.totalRequests': '总请求',
     'leaderboard.totalTokens': '总 Token',
+    'leaderboard.tokenRankingTitle': 'Token Top {count}',
+    'leaderboard.tokenRankingDescription': '当前周期用量排行。',
     'leaderboard.user': '用户',
     'leaderboard.cost': '消费',
     'leaderboard.requests': '请求',
@@ -45,7 +47,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.badges.checkinKing': '打卡王',
     'leaderboard.badges.costSaver': '1M Token 成本最低',
     'leaderboard.badges.costBurner': '1M Token 成本最高',
-    'leaderboard.generatedAt': '生成时间',
+    'leaderboard.generatedAt': '更新',
     'leaderboard.notRanked': '未上榜',
     'leaderboard.dailyReward.title': '每日排名奖励',
     'leaderboard.dailyReward.settlementDate': '结算日期',
@@ -77,6 +79,12 @@ vi.mock('vue-i18n', async (importOriginal) => {
         (messages[key] ?? key).replace(/\{(\w+)\}/g, (_, token) => String(params?.[token] ?? `{${token}}`)),
     }),
   }
+})
+
+enableAutoUnmount(afterEach)
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 const AppLayoutStub = {
@@ -177,11 +185,11 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
     expect(wrapper.text()).toContain('Alice')
-    expect(wrapper.text()).toContain('2026-05-01')
+    expect(wrapper.text()).toContain('更新')
+    expect(wrapper.text()).not.toContain('2026-05-01')
 
     await wrapper.findAll('button').find((button) => button.text() === '周榜')?.trigger('click')
     expect(wrapper.text()).not.toContain('Alice')
-    expect(wrapper.text()).not.toContain('2026-05-01')
     expect(wrapper.text()).toContain('加载中')
 
     resolveWeek(makeResponse({
@@ -274,11 +282,10 @@ describe('LeaderboardView', () => {
 
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('Alice')
-    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('8')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('900')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$11.00')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('余额')
-    expect(wrapper.find('[data-testid="leaderboard-my-info"]').findAll('.rounded-lg.bg-gray-50')).toHaveLength(2)
+    expect(wrapper.find('[data-testid="leaderboard-my-info"]').findAll('[data-testid="leaderboard-my-token"]')).toHaveLength(1)
   })
 
   it('hides visible leaderboard spending totals and row amounts', async () => {
@@ -299,7 +306,7 @@ describe('LeaderboardView', () => {
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$11.00')
   })
 
-  it('marks the lowest cost per token user as the value king', async () => {
+  it('keeps the token leaderboard focused on token usage only', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
         ranking: [
@@ -356,16 +363,12 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    const badges = wrapper.findAll('[data-testid="leaderboard-badge-icon"]')
-    expect(badges).toHaveLength(4)
-    expect(badges.map((badge) => badge.attributes('data-user-id'))).toEqual(['1', '2', '1', '2'])
-    expect(badges.map((badge) => badge.attributes('data-badge'))).toEqual(['cost_burner', 'cost_saver', 'cost_burner', 'cost_saver'])
-    expect(badges.map((badge) => badge.text())).toEqual(['豪', '省', '豪', '省'])
-    expect(badges[1].attributes('title')).toBe('1M Token 成本最低')
-    expect(wrapper.text()).toContain('⭐ 性价比之王')
+    expect(wrapper.findAll('[data-testid="leaderboard-badge-icon"]')).toHaveLength(0)
+    expect(wrapper.get('[data-testid="leaderboard-token-ranking"]').text()).toContain('1M')
+    expect(wrapper.text()).not.toContain('⭐ 性价比之王')
   })
 
-  it('shows the value king summary in the top stats', async () => {
+  it('renders token usage ranking bars as the main leaderboard', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
         ranking: [
@@ -395,6 +398,7 @@ describe('LeaderboardView', () => {
           },
         ],
         current_user_entry: null,
+        total_tokens: 3000,
       })
     )
     const { default: LeaderboardView } = await import('../LeaderboardView.vue')
@@ -409,12 +413,43 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    const summary = wrapper.get('[data-testid="leaderboard-cost-efficiency-summary"]')
-    expect(summary.text()).toContain('Efficient')
-    expect(summary.text()).toContain('1M Token = $500.00')
+    const ranking = wrapper.get('[data-testid="leaderboard-token-ranking"]')
+    expect(ranking.text()).toContain('Token Top 2')
+    expect(ranking.text()).toContain('Pricey')
+    expect(ranking.text()).toContain('Efficient')
+    expect(ranking.text()).toContain('2,000')
+    expect(ranking.findAll('.leaderboard-token-bar-fill')).toHaveLength(2)
+    expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-bar-width: 84%')
+    expect(wrapper.find('[data-testid="leaderboard-cost-efficiency-summary"]').exists()).toBe(false)
   })
 
-  it('renders compact leaderboard badge icons and collapses overflow badges', async () => {
+  it('keeps the total token display increasing visually between refreshes', async () => {
+    vi.useFakeTimers()
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false })
+    getDashboardLeaderboard.mockResolvedValue(makeResponse({ total_tokens: 1200 }))
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const odometer = wrapper.get('[data-testid="leaderboard-total-token-odometer"]')
+    expect(odometer.attributes('aria-label')).toBe('1,200')
+
+    await vi.advanceTimersByTimeAsync(3000)
+    await flushPromises()
+
+    expect(odometer.attributes('aria-label')).toBe('1,237')
+    expect(wrapper.get('[data-testid="leaderboard-token-ranking"]').text()).not.toContain('1,200 Token')
+  })
+
+  it('shows lightweight rank titles without restoring old row badges', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
         ranking: [
@@ -426,9 +461,9 @@ describe('LeaderboardView', () => {
             avatar_url: null,
             actual_cost: 10,
             requests: 10,
-            tokens: 1000,
+            tokens: 3000,
             balance: 1,
-            badges: ['weekly_token_king', 'monthly_token_king', 'total_token_king', 'night_owl', 'burst_token_king', 'checkin_king', 'cost_saver', 'cost_burner'],
+            badges: ['weekly_token_king', 'total_token_king', 'cost_saver'],
             is_current_user: false,
           },
         ],
@@ -447,7 +482,58 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    const badges = wrapper.findAll('[data-testid="leaderboard-badge-icon"]').slice(0, 3)
+    const titles = wrapper.findAll('[data-testid="leaderboard-rank-title"]')
+    expect(titles.map((title) => title.text())).toEqual(['周榜王', '肝帝'])
+    expect(titles.map((title) => title.attributes('data-badge'))).toEqual(['weekly_token_king', 'total_token_king'])
+    expect(wrapper.findAll('[data-testid="leaderboard-badge-icon"]')).toHaveLength(0)
+  })
+
+  it('renders compact personal badge icons and collapses overflow badges in my info', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        ranking: [
+          {
+            rank: 1,
+            user_id: 1,
+            display_name: 'Decorated',
+            email_masked: 'd***@example.com',
+            avatar_url: null,
+            actual_cost: 10,
+            requests: 10,
+            tokens: 1000,
+            balance: 1,
+            badges: ['weekly_token_king', 'monthly_token_king', 'total_token_king', 'night_owl', 'burst_token_king', 'checkin_king', 'cost_saver', 'cost_burner'],
+            is_current_user: false,
+          },
+        ],
+        current_user_entry: {
+          rank: 16,
+          user_id: 1,
+          display_name: 'Decorated',
+          email_masked: 'd***@example.com',
+          avatar_url: null,
+          actual_cost: 10,
+          requests: 10,
+          tokens: 1000,
+          balance: 1,
+          badges: ['weekly_token_king', 'monthly_token_king', 'total_token_king', 'night_owl', 'burst_token_king', 'checkin_king', 'cost_saver', 'cost_burner'],
+          is_current_user: true,
+        },
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const badges = wrapper.findAll('[data-testid="leaderboard-my-badge-icon"]').slice(0, 3)
     expect(badges.map((badge) => badge.text())).toEqual(['周', '月', '肝'])
     expect(badges.map((badge) => badge.attributes('data-badge'))).toEqual([
       'weekly_token_king',
@@ -463,7 +549,7 @@ describe('LeaderboardView', () => {
         ranking: Array.from({ length: 12 }, (_, index) => ({
           rank: index + 1,
           user_id: index + 1,
-          display_name: `User ${index + 1}`,
+          display_name: `Ranked User ${String(index + 1).padStart(2, '0')}`,
           email_masked: `u***${index + 1}@example.com`,
           avatar_url: null,
           actual_cost: 12 - index,
@@ -487,9 +573,9 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('User 10')
-    expect(wrapper.text()).not.toContain('User 11')
-    expect(wrapper.text()).not.toContain('User 12')
+    expect(wrapper.text()).toContain('Ranked User 10')
+    expect(wrapper.text()).not.toContain('Ranked User 11')
+    expect(wrapper.text()).not.toContain('Ranked User 12')
   })
 
   it('renders an empty state when there are no ranking items', async () => {
@@ -646,7 +732,7 @@ describe('LeaderboardView', () => {
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$16.00')
   })
 
-  it('adds top-three avatar frame classes', async () => {
+  it('colors token bars by rank without row background frames', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
         ranking: [1, 2, 3].map((rank) => ({
@@ -675,8 +761,11 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('.leaderboard-avatar-frame-gold').exists()).toBe(true)
-    expect(wrapper.find('.leaderboard-avatar-frame-silver').exists()).toBe(true)
-    expect(wrapper.find('.leaderboard-avatar-frame-bronze').exists()).toBe(true)
+    const rows = wrapper.findAll('.leaderboard-token-rank-row')
+    expect(rows).toHaveLength(3)
+    expect(rows[0].attributes('style')).toContain('--token-bar-color: rgb(217 119 6)')
+    expect(rows[1].attributes('style')).toContain('--token-bar-color: rgb(5 150 105)')
+    expect(rows[2].attributes('style')).toContain('--token-bar-color: rgb(37 99 235)')
+    expect(wrapper.find('.leaderboard-avatar-frame-gold').exists()).toBe(false)
   })
 })

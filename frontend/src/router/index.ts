@@ -240,6 +240,31 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/welfare',
+    name: 'Welfare',
+    component: () => import('@/views/user/WelfareView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Welfare',
+      titleKey: 'welfare.title',
+      descriptionKey: 'welfare.subtitle',
+      requiresWelfare: true
+    }
+  },
+  {
+    path: '/chat',
+    name: 'ChatStudio',
+    component: () => import('@/views/user/ChatStudioView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'AI Chat',
+      titleKey: 'chatStudio.title',
+      descriptionKey: 'chatStudio.subtitle'
+    }
+  },
+  {
     path: '/image-creator',
     name: 'ImageCreator',
     component: () => import('@/views/user/ImageCreatorView.vue'),
@@ -864,6 +889,11 @@ router.beforeEach((to, _from, next) => {
     return
   }
 
+  if (to.meta.requiresWelfare && !isFeatureFlagEnabled(FeatureFlags.welfare)) {
+    next(authStore.isAdmin ? '/admin/settings' : '/dashboard')
+    return
+  }
+
   // 简易模式下限制访问某些页面
   if (authStore.isSimpleMode) {
     const restrictedPaths = [
@@ -872,6 +902,7 @@ router.beforeEach((to, _from, next) => {
       '/admin/redeem',
       '/subscriptions',
       '/redeem',
+      '/welfare',
       '/leaderboard'
     ]
 

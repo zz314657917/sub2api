@@ -211,6 +211,9 @@ export interface PublicSettings {
   site_name: string
   site_logo: string
   site_subtitle: string
+  home_hero_title_top?: string
+  home_hero_title_bottom?: string
+  home_hero_subtitles?: string
   api_base_url: string
   contact_info: string
   support_popup_title?: string
@@ -245,6 +248,11 @@ export interface PublicSettings {
   available_channels_enabled: boolean
   affiliate_enabled: boolean
   account_share_enabled: boolean
+  welfare_enabled?: boolean
+  welfare_daily_checkin_enabled?: boolean
+  welfare_recharge_enabled?: boolean
+  welfare_vip_enabled?: boolean
+  welfare_new_user_trial_enabled?: boolean
 }
 
 export interface AuthResponse {
@@ -973,9 +981,93 @@ export interface UserAccountShareSummary {
   count_transferred: number
 }
 
+export interface UserAccountUsageSummary {
+  owner_user_id: number
+  start_date: string
+  end_date: string
+  total_accounts: number
+  private_accounts: number
+  public_pending_accounts: number
+  public_active_accounts: number
+  public_suspended_accounts: number
+  own_usage_cost: number
+  own_usage_requests: number
+  shared_usage_cost: number
+  shared_usage_requests: number
+  share_income: number
+  platform_amount: number
+  account_cost: number
+  balance_deduction: number
+  balance_net_change: number
+}
+
 export interface UserAccountCapacityPools {
   mine: UserAccountCapacityPool
   shared: UserAccountCapacityPool
+}
+
+// ==================== Welfare Types ====================
+
+export interface WelfareOverview {
+  enabled: boolean
+  modules: {
+    daily_checkin: boolean
+    new_user_trial: boolean
+    recharge: boolean
+    vip: boolean
+  }
+  daily_checkin?: WelfareDailyCheckin | null
+  new_user_trial?: WelfareNewUserTrial | null
+}
+
+export interface WelfareNewUserTrial {
+  enabled: boolean
+  quota_amount: number
+  quota_used: number
+  remaining_quota: number
+  status: 'available' | 'active' | 'in_progress' | 'exhausted' | string
+  can_use: boolean
+  reason: string
+  first_started_at?: string | null
+  first_success_at?: string | null
+}
+
+export interface WelfareDailyCheckinMilestone {
+  day: number
+  amount: number
+  claimed: boolean
+  claimable: boolean
+  reason: string
+  claimed_at?: string | null
+  redeem_code_id?: number | null
+}
+
+export interface WelfareDailyCheckin {
+  enabled: boolean
+  today: string
+  reward_month: string
+  checked_today: boolean
+  today_reward_amount: number
+  reward_min: number
+  reward_max: number
+  current_streak_days: number
+  month_checkin_days: number
+  checkin_dates: string[]
+  milestones: WelfareDailyCheckinMilestone[]
+  can_claim_today: boolean
+  reason: string
+  settlement_timezone: string
+}
+
+export interface WelfareDailyCheckinClaimResponse {
+  daily_checkin: WelfareDailyCheckin
+  claimed_amount: number
+}
+
+export interface WelfareMilestoneClaimResponse {
+  daily_checkin: WelfareDailyCheckin
+  milestone: WelfareDailyCheckinMilestone
+  claimed_amount: number
 }
 
 export interface UserAccountCapacityPool {
@@ -1281,7 +1373,14 @@ export interface CodexSessionImportResult {
 
 // ==================== Usage & Redeem Types ====================
 
-export type RedeemCodeType = 'balance' | 'concurrency' | 'subscription' | 'invitation' | 'leaderboard_reward'
+export type RedeemCodeType =
+  | 'balance'
+  | 'concurrency'
+  | 'subscription'
+  | 'invitation'
+  | 'leaderboard_reward'
+  | 'daily_checkin'
+  | 'checkin_milestone'
 export type UsageRequestType = 'unknown' | 'sync' | 'stream' | 'ws_v2'
 
 export interface UsageLog {

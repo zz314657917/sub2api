@@ -41,6 +41,8 @@ const (
 	RedeemTypeSubscription      = "subscription"
 	RedeemTypeInvitation        = "invitation"
 	RedeemTypeLeaderboardReward = "leaderboard_reward"
+	RedeemTypeDailyCheckin      = "daily_checkin"
+	RedeemTypeCheckinMilestone  = "checkin_milestone"
 )
 
 // PromoCode status constants

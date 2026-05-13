@@ -140,7 +140,14 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	}
 
 	// 2. Re-check billing
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	trialSession, trialRelease, err := h.checkBillingEligibilityOrBeginTrial(c, apiKey, subscription, reqLog, "gateway.cc")
+	trialReleasedByUsage := false
+	defer func() {
+		if trialRelease != nil && !trialReleasedByUsage {
+			trialRelease()
+		}
+	}()
+	if err != nil {
 		reqLog.Info("gateway.cc.billing_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -258,7 +265,15 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 
-		h.submitUsageRecordTask(func(ctx context.Context) {
+		capturedTrialSession := trialSession
+		capturedTrialRelease := trialRelease
+		submitMode := h.submitUsageRecordTask(func(ctx context.Context) {
+			if capturedTrialRelease != nil {
+				defer capturedTrialRelease()
+			}
+			if capturedTrialSession != nil {
+				ctx = service.WithNewUserTrialSession(ctx, capturedTrialSession)
+			}
 			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 				Result:             result,
 				APIKey:             apiKey,
@@ -279,6 +294,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				)
 			}
 		})
+		trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
 		return
 	}
 }

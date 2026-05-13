@@ -260,6 +260,21 @@ func TestSettingService_UpdateSettings_TablePreferences(t *testing.T) {
 	require.Equal(t, "[20,100]", repo.updates[SettingKeyTablePageSizeOptions])
 }
 
+func TestSettingService_UpdateSettings_NormalizesHomeHeroSubtitles(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		HomeHeroTitleTop:    " ChatGPT ",
+		HomeHeroTitleBottom: " 国内直连方案 ",
+		HomeHeroSubtitles:   " 即刻体验 ChatGPT 最新模型 \r\n\r\n 添加客服领取试用额度 \n  ",
+	})
+	require.NoError(t, err)
+	require.Equal(t, "ChatGPT", repo.updates[SettingKeyHomeHeroTitleTop])
+	require.Equal(t, "国内直连方案", repo.updates[SettingKeyHomeHeroTitleBottom])
+	require.Equal(t, "即刻体验 ChatGPT 最新模型\n添加客服领取试用额度", repo.updates[SettingKeyHomeHeroSubtitles])
+}
+
 func TestSettingService_UpdateSettings_LeaderboardDailyRewardNormalizesAmounts(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	svc := NewSettingService(repo, &config.Config{})
@@ -277,6 +292,25 @@ func TestSettingService_UpdateSettings_LeaderboardDailyRewardNormalizesAmounts(t
 	require.Equal(t, "10.50000000", repo.updates[SettingKeyLeaderboardDailyRewardRank1Amount])
 	require.Equal(t, "0.00000000", repo.updates[SettingKeyLeaderboardDailyRewardRank2Amount])
 	require.Equal(t, "1.25000000", repo.updates[SettingKeyLeaderboardDailyRewardRank3Amount])
+}
+
+func TestSettingService_UpdateSettings_WelfareDailyRewardNormalizesToOneDecimal(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		WelfareEnabled:                      true,
+		WelfareDailyCheckinEnabled:          true,
+		WelfareDailyCheckinRewardMin:        1.25,
+		WelfareDailyCheckinRewardMax:        2.74,
+		WelfareDailyCheckinMilestone7Amount: 7.5,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "true", repo.updates[SettingKeyWelfareEnabled])
+	require.Equal(t, "true", repo.updates[SettingKeyWelfareDailyCheckinEnabled])
+	require.Equal(t, "1.30000000", repo.updates[SettingKeyWelfareDailyCheckinRewardMin])
+	require.Equal(t, "2.70000000", repo.updates[SettingKeyWelfareDailyCheckinRewardMax])
+	require.Equal(t, "7.50000000", repo.updates[SettingKeyWelfareDailyCheckinMilestone7Amount])
 }
 
 func TestSettingService_UpdateSettings_PaymentVisibleMethodsAndAdvancedScheduler(t *testing.T) {

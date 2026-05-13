@@ -375,6 +375,9 @@ export interface SystemSettings {
   site_name: string;
   site_logo: string;
   site_subtitle: string;
+  home_hero_title_top: string;
+  home_hero_title_bottom: string;
+  home_hero_subtitles: string;
   api_base_url: string;
   contact_info: string;
   support_popup_title: string;
@@ -546,6 +549,22 @@ export interface SystemSettings {
   affiliate_enabled: boolean;
   account_share_enabled: boolean;
 
+  // Welfare feature switches and daily check-in reward settings
+  welfare_enabled: boolean;
+  welfare_daily_checkin_enabled: boolean;
+  welfare_recharge_enabled: boolean;
+  welfare_vip_enabled: boolean;
+  welfare_daily_checkin_reward_min: number;
+  welfare_daily_checkin_reward_max: number;
+  welfare_daily_checkin_milestone_7_amount: number;
+  welfare_daily_checkin_milestone_14_amount: number;
+  welfare_daily_checkin_milestone_21_amount: number;
+  welfare_daily_checkin_milestone_28_amount: number;
+  welfare_new_user_trial_enabled: boolean;
+  welfare_new_user_trial_quota_amount: number;
+  welfare_new_user_trial_daily_site_quota_amount: number;
+  welfare_new_user_trial_daily_ip_activation_limit: number;
+
   // OpenAI fast/flex policy
   openai_fast_policy_settings?: OpenAIFastPolicySettings;
 }
@@ -605,6 +624,9 @@ export interface UpdateSettingsRequest {
   site_name?: string;
   site_logo?: string;
   site_subtitle?: string;
+  home_hero_title_top?: string;
+  home_hero_title_bottom?: string;
+  home_hero_subtitles?: string;
   api_base_url?: string;
   contact_info?: string;
   support_popup_title?: string;
@@ -752,6 +774,22 @@ export interface UpdateSettingsRequest {
   // Affiliate (邀请返利) feature switch
   affiliate_enabled?: boolean;
   account_share_enabled?: boolean;
+
+  // Welfare feature switches and daily check-in reward settings
+  welfare_enabled?: boolean;
+  welfare_daily_checkin_enabled?: boolean;
+  welfare_recharge_enabled?: boolean;
+  welfare_vip_enabled?: boolean;
+  welfare_daily_checkin_reward_min?: number;
+  welfare_daily_checkin_reward_max?: number;
+  welfare_daily_checkin_milestone_7_amount?: number;
+  welfare_daily_checkin_milestone_14_amount?: number;
+  welfare_daily_checkin_milestone_21_amount?: number;
+  welfare_daily_checkin_milestone_28_amount?: number;
+  welfare_new_user_trial_enabled?: boolean;
+  welfare_new_user_trial_quota_amount?: number;
+  welfare_new_user_trial_daily_site_quota_amount?: number;
+  welfare_new_user_trial_daily_ip_activation_limit?: number;
 
   // OpenAI fast/flex policy
   openai_fast_policy_settings?: OpenAIFastPolicySettings;

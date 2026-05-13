@@ -79,6 +79,8 @@ const (
 	RedeemTypeInvitation        = domain.RedeemTypeInvitation
 	RedeemTypeAffiliateBalance  = "affiliate_balance"
 	RedeemTypeLeaderboardReward = domain.RedeemTypeLeaderboardReward
+	RedeemTypeDailyCheckin      = domain.RedeemTypeDailyCheckin
+	RedeemTypeCheckinMilestone  = domain.RedeemTypeCheckinMilestone
 )
 
 // PromoCode status constants
@@ -226,6 +228,9 @@ const (
 	SettingKeySiteName                    = "site_name"                     // 网站名称
 	SettingKeySiteLogo                    = "site_logo"                     // 网站Logo (base64)
 	SettingKeySiteSubtitle                = "site_subtitle"                 // 网站副标题
+	SettingKeyHomeHeroTitleTop            = "home_hero_title_top"           // 首页首屏标题第一行
+	SettingKeyHomeHeroTitleBottom         = "home_hero_title_bottom"        // 首页首屏标题第二行
+	SettingKeyHomeHeroSubtitles           = "home_hero_subtitles"           // 首页首屏轮播副标题（换行分隔）
 	SettingKeyAPIBaseURL                  = "api_base_url"                  // API端点地址（用于客户端配置和导入）
 	SettingKeyContactInfo                 = "contact_info"                  // 客服联系方式
 	SettingKeySupportPopupTitle           = "support_popup_title"           // 客服弹窗标题
@@ -349,6 +354,22 @@ const (
 	SettingKeyLeaderboardDailyRewardRank1Amount        = "leaderboard_daily_reward_rank_1_amount"
 	SettingKeyLeaderboardDailyRewardRank2Amount        = "leaderboard_daily_reward_rank_2_amount"
 	SettingKeyLeaderboardDailyRewardRank3Amount        = "leaderboard_daily_reward_rank_3_amount"
+
+	// Welfare system settings. Recharge/VIP are feature placeholders for later phases.
+	SettingKeyWelfareEnabled                          = "welfare_enabled"
+	SettingKeyWelfareDailyCheckinEnabled              = "welfare_daily_checkin_enabled"
+	SettingKeyWelfareRechargeEnabled                  = "welfare_recharge_enabled"
+	SettingKeyWelfareVIPEnabled                       = "welfare_vip_enabled"
+	SettingKeyWelfareDailyCheckinRewardMin            = "welfare_daily_checkin_reward_min"
+	SettingKeyWelfareDailyCheckinRewardMax            = "welfare_daily_checkin_reward_max"
+	SettingKeyWelfareDailyCheckinMilestone7Amount     = "welfare_daily_checkin_milestone_7_amount"
+	SettingKeyWelfareDailyCheckinMilestone14Amount    = "welfare_daily_checkin_milestone_14_amount"
+	SettingKeyWelfareDailyCheckinMilestone21Amount    = "welfare_daily_checkin_milestone_21_amount"
+	SettingKeyWelfareDailyCheckinMilestone28Amount    = "welfare_daily_checkin_milestone_28_amount"
+	SettingKeyWelfareNewUserTrialEnabled              = "welfare_new_user_trial_enabled"
+	SettingKeyWelfareNewUserTrialQuotaAmount          = "welfare_new_user_trial_quota_amount"
+	SettingKeyWelfareNewUserTrialDailySiteQuotaAmount   = "welfare_new_user_trial_daily_site_quota_amount"
+	SettingKeyWelfareNewUserTrialDailyIPActivationLimit = "welfare_new_user_trial_daily_ip_activation_limit"
 
 	// =========================
 	// Overload Cooldown (529)

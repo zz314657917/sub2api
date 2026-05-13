@@ -106,7 +106,14 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		defer userReleaseFunc()
 	}
 
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	trialSession, trialRelease, err := h.checkBillingEligibilityOrBeginTrial(c, apiKey, subscription, reqLog, "openai_chat_completions")
+	trialReleasedByUsage := false
+	defer func() {
+		if trialRelease != nil && !trialReleasedByUsage {
+			trialRelease()
+		}
+	}()
+	if err != nil {
 		reqLog.Info("openai_chat_completions.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -259,7 +266,15 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := resolveRawCCUpstreamEndpoint(c, account)
 
-		h.submitOpenAIUsageRecordTask(result, func(ctx context.Context) {
+		capturedTrialSession := trialSession
+		capturedTrialRelease := trialRelease
+		submitMode := h.submitOpenAIUsageRecordTask(result, func(ctx context.Context) {
+			if capturedTrialRelease != nil {
+				defer capturedTrialRelease()
+			}
+			if capturedTrialSession != nil {
+				ctx = service.WithNewUserTrialSession(ctx, capturedTrialSession)
+			}
 			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 				Result:             result,
 				APIKey:             apiKey,
@@ -283,6 +298,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 				).Error("openai_chat_completions.record_usage_failed", zap.Error(err))
 			}
 		})
+		trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
 		reqLog.Debug("openai_chat_completions.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),

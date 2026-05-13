@@ -41,6 +41,7 @@ type GatewayHandler struct {
 	antigravityGatewayService *service.AntigravityGatewayService
 	userService               *service.UserService
 	billingCacheService       *service.BillingCacheService
+	welfareService            *service.WelfareService
 	usageService              *service.UsageService
 	apiKeyService             *service.APIKeyService
 	usageRecordWorkerPool     *service.UsageRecordWorkerPool
@@ -62,6 +63,7 @@ func NewGatewayHandler(
 	userService *service.UserService,
 	concurrencyService *service.ConcurrencyService,
 	billingCacheService *service.BillingCacheService,
+	welfareService *service.WelfareService,
 	usageService *service.UsageService,
 	apiKeyService *service.APIKeyService,
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
@@ -96,6 +98,7 @@ func NewGatewayHandler(
 		antigravityGatewayService: antigravityGatewayService,
 		userService:               userService,
 		billingCacheService:       billingCacheService,
+		welfareService:            welfareService,
 		usageService:              usageService,
 		apiKeyService:             apiKeyService,
 		usageRecordWorkerPool:     usageRecordWorkerPool,
@@ -249,7 +252,14 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	}
 
 	// 2. 【新增】Wait后二次检查余额/订阅
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	trialSession, trialRelease, err := h.checkBillingEligibilityOrBeginTrial(c, apiKey, subscription, reqLog, "gateway")
+	trialReleasedByUsage := false
+	defer func() {
+		if trialRelease != nil && !trialReleasedByUsage {
+			trialRelease()
+		}
+	}()
+	if err != nil {
 		reqLog.Info("gateway.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -505,7 +515,15 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 
 			// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
-			h.submitUsageRecordTask(func(ctx context.Context) {
+			capturedTrialSession := trialSession
+			capturedTrialRelease := trialRelease
+			submitMode := h.submitUsageRecordTask(func(ctx context.Context) {
+				if capturedTrialRelease != nil {
+					defer capturedTrialRelease()
+				}
+				if capturedTrialSession != nil {
+					ctx = service.WithNewUserTrialSession(ctx, capturedTrialSession)
+				}
 				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 					Result:             result,
 					ParsedRequest:      parsedReq,
@@ -532,6 +550,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					).Error("gateway.record_usage_failed", zap.Error(err))
 				}
 			})
+			trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
 			return
 		}
 	}
@@ -893,7 +912,15 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 
 			// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
-			h.submitUsageRecordTask(func(ctx context.Context) {
+			capturedTrialSession := trialSession
+			capturedTrialRelease := trialRelease
+			submitMode := h.submitUsageRecordTask(func(ctx context.Context) {
+				if capturedTrialRelease != nil {
+					defer capturedTrialRelease()
+				}
+				if capturedTrialSession != nil {
+					ctx = service.WithNewUserTrialSession(ctx, capturedTrialSession)
+				}
 				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 					Result:             result,
 					ParsedRequest:      parsedReq,
@@ -920,6 +947,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					).Error("gateway.record_usage_failed", zap.Error(err))
 				}
 			})
+			trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
 			return
 		}
 		if !retryWithFallback {
@@ -1830,13 +1858,12 @@ func (h *GatewayHandler) maybeLogCompatibilityFallbackMetrics(reqLog *zap.Logger
 	)
 }
 
-func (h *GatewayHandler) submitUsageRecordTask(task service.UsageRecordTask) {
+func (h *GatewayHandler) submitUsageRecordTask(task service.UsageRecordTask) service.UsageRecordSubmitMode {
 	if task == nil {
-		return
+		return service.UsageRecordSubmitModeDropped
 	}
 	if h.usageRecordWorkerPool != nil {
-		h.usageRecordWorkerPool.Submit(task)
-		return
+		return h.usageRecordWorkerPool.Submit(task)
 	}
 	// 回退路径：worker 池未注入时同步执行，避免退回到无界 goroutine 模式。
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -1850,6 +1877,7 @@ func (h *GatewayHandler) submitUsageRecordTask(task service.UsageRecordTask) {
 		}
 	}()
 	task(ctx)
+	return service.UsageRecordSubmitModeSync
 }
 
 // getUserMsgQueueMode 获取当前请求的 UMQ 模式
@@ -1871,4 +1899,42 @@ func (h *GatewayHandler) getUserMsgQueueMode(account *service.Account, parsed *s
 		mode = h.cfg.Gateway.UserMessageQueue.GetEffectiveMode()
 	}
 	return mode
+}
+
+func (h *GatewayHandler) checkBillingEligibilityOrBeginTrial(c *gin.Context, apiKey *service.APIKey, subscription *service.UserSubscription, reqLog *zap.Logger, logPrefix string) (*service.NewUserTrialSession, func(), error) {
+	if h == nil || h.billingCacheService == nil {
+		return nil, nil, nil
+	}
+	if apiKey == nil || apiKey.User == nil {
+		return nil, nil, service.ErrAPIKeyNotFound
+	}
+	err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription)
+	if err == nil {
+		return nil, nil, nil
+	}
+	if !errors.Is(err, service.ErrInsufficientBalance) || h.welfareService == nil {
+		return nil, nil, err
+	}
+	session, trialErr := h.welfareService.BeginNewUserTrial(c.Request.Context(), apiKey.User.ID, ip.GetClientIP(c))
+	if trialErr != nil {
+		if reqLog != nil {
+			reqLog.Info(logPrefix+".new_user_trial_unavailable", zap.Error(trialErr))
+		}
+		return nil, nil, err
+	}
+	if reqLog != nil {
+		reqLog.Info(logPrefix+".new_user_trial_started",
+			zap.Int64("trial_id", session.TrialID),
+			zap.String("trial_request_id", session.RequestID),
+			zap.Float64("trial_quota_left", session.QuotaLeft),
+		)
+	}
+	ctx := service.WithNewUserTrialSession(c.Request.Context(), session)
+	c.Request = c.Request.WithContext(ctx)
+	release := func() {
+		cancelCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		h.welfareService.CancelNewUserTrial(cancelCtx, session)
+	}
+	return session, release, nil
 }

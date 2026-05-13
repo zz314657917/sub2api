@@ -186,6 +186,9 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		SiteName:                               settings.SiteName,
 		SiteLogo:                               settings.SiteLogo,
 		SiteSubtitle:                           settings.SiteSubtitle,
+		HomeHeroTitleTop:                       settings.HomeHeroTitleTop,
+		HomeHeroTitleBottom:                    settings.HomeHeroTitleBottom,
+		HomeHeroSubtitles:                      settings.HomeHeroSubtitles,
 		APIBaseURL:                             settings.APIBaseURL,
 		ContactInfo:                            settings.ContactInfo,
 		SupportPopupTitle:                      settings.SupportPopupTitle,
@@ -272,6 +275,20 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		LeaderboardDailyRewardRank1Amount:        settings.LeaderboardDailyRewardRank1Amount,
 		LeaderboardDailyRewardRank2Amount:        settings.LeaderboardDailyRewardRank2Amount,
 		LeaderboardDailyRewardRank3Amount:        settings.LeaderboardDailyRewardRank3Amount,
+		WelfareEnabled:                           settings.WelfareEnabled,
+		WelfareDailyCheckinEnabled:               settings.WelfareDailyCheckinEnabled,
+		WelfareRechargeEnabled:                   settings.WelfareRechargeEnabled,
+		WelfareVIPEnabled:                        settings.WelfareVIPEnabled,
+		WelfareDailyCheckinRewardMin:             settings.WelfareDailyCheckinRewardMin,
+		WelfareDailyCheckinRewardMax:             settings.WelfareDailyCheckinRewardMax,
+		WelfareDailyCheckinMilestone7Amount:      settings.WelfareDailyCheckinMilestone7Amount,
+		WelfareDailyCheckinMilestone14Amount:     settings.WelfareDailyCheckinMilestone14Amount,
+		WelfareDailyCheckinMilestone21Amount:     settings.WelfareDailyCheckinMilestone21Amount,
+		WelfareDailyCheckinMilestone28Amount:     settings.WelfareDailyCheckinMilestone28Amount,
+		WelfareNewUserTrialEnabled:                settings.WelfareNewUserTrialEnabled,
+		WelfareNewUserTrialQuotaAmount:            settings.WelfareNewUserTrialQuotaAmount,
+		WelfareNewUserTrialDailySiteQuotaAmount:   settings.WelfareNewUserTrialDailySiteQuotaAmount,
+		WelfareNewUserTrialDailyIPActivationLimit: settings.WelfareNewUserTrialDailyIPActivationLimit,
 
 		AffiliateEnabled:    settings.AffiliateEnabled,
 		AccountShareEnabled: settings.AccountShareEnabled,
@@ -443,6 +460,9 @@ type UpdateSettingsRequest struct {
 	SiteName                    string                `json:"site_name"`
 	SiteLogo                    string                `json:"site_logo"`
 	SiteSubtitle                string                `json:"site_subtitle"`
+	HomeHeroTitleTop            string                `json:"home_hero_title_top"`
+	HomeHeroTitleBottom         string                `json:"home_hero_title_bottom"`
+	HomeHeroSubtitles           string                `json:"home_hero_subtitles"`
 	APIBaseURL                  string                `json:"api_base_url"`
 	ContactInfo                 string                `json:"contact_info"`
 	SupportPopupTitle           string                `json:"support_popup_title"`
@@ -586,6 +606,21 @@ type UpdateSettingsRequest struct {
 	LeaderboardDailyRewardRank1Amount        *float64 `json:"leaderboard_daily_reward_rank_1_amount"`
 	LeaderboardDailyRewardRank2Amount        *float64 `json:"leaderboard_daily_reward_rank_2_amount"`
 	LeaderboardDailyRewardRank3Amount        *float64 `json:"leaderboard_daily_reward_rank_3_amount"`
+
+	WelfareEnabled                       *bool    `json:"welfare_enabled"`
+	WelfareDailyCheckinEnabled           *bool    `json:"welfare_daily_checkin_enabled"`
+	WelfareRechargeEnabled               *bool    `json:"welfare_recharge_enabled"`
+	WelfareVIPEnabled                    *bool    `json:"welfare_vip_enabled"`
+	WelfareDailyCheckinRewardMin         *float64 `json:"welfare_daily_checkin_reward_min"`
+	WelfareDailyCheckinRewardMax         *float64 `json:"welfare_daily_checkin_reward_max"`
+	WelfareDailyCheckinMilestone7Amount  *float64 `json:"welfare_daily_checkin_milestone_7_amount"`
+	WelfareDailyCheckinMilestone14Amount *float64 `json:"welfare_daily_checkin_milestone_14_amount"`
+	WelfareDailyCheckinMilestone21Amount *float64 `json:"welfare_daily_checkin_milestone_21_amount"`
+	WelfareDailyCheckinMilestone28Amount *float64 `json:"welfare_daily_checkin_milestone_28_amount"`
+	WelfareNewUserTrialEnabled                *bool    `json:"welfare_new_user_trial_enabled"`
+	WelfareNewUserTrialQuotaAmount            *float64 `json:"welfare_new_user_trial_quota_amount"`
+	WelfareNewUserTrialDailySiteQuotaAmount   *float64 `json:"welfare_new_user_trial_daily_site_quota_amount"`
+	WelfareNewUserTrialDailyIPActivationLimit *int     `json:"welfare_new_user_trial_daily_ip_activation_limit"`
 
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled *bool `json:"affiliate_enabled"`
@@ -1447,6 +1482,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SiteName:                         req.SiteName,
 		SiteLogo:                         req.SiteLogo,
 		SiteSubtitle:                     req.SiteSubtitle,
+		HomeHeroTitleTop:                 req.HomeHeroTitleTop,
+		HomeHeroTitleBottom:              req.HomeHeroTitleBottom,
+		HomeHeroSubtitles:                req.HomeHeroSubtitles,
 		APIBaseURL:                       req.APIBaseURL,
 		ContactInfo:                      req.ContactInfo,
 		SupportPopupTitle:                req.SupportPopupTitle,
@@ -1629,6 +1667,40 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		LeaderboardDailyRewardRank1Amount:        float64ValueOrDefault(req.LeaderboardDailyRewardRank1Amount, previousSettings.LeaderboardDailyRewardRank1Amount),
 		LeaderboardDailyRewardRank2Amount:        float64ValueOrDefault(req.LeaderboardDailyRewardRank2Amount, previousSettings.LeaderboardDailyRewardRank2Amount),
 		LeaderboardDailyRewardRank3Amount:        float64ValueOrDefault(req.LeaderboardDailyRewardRank3Amount, previousSettings.LeaderboardDailyRewardRank3Amount),
+		WelfareEnabled: func() bool {
+			if req.WelfareEnabled != nil {
+				return *req.WelfareEnabled
+			}
+			return previousSettings.WelfareEnabled
+		}(),
+		WelfareDailyCheckinEnabled: func() bool {
+			if req.WelfareDailyCheckinEnabled != nil {
+				return *req.WelfareDailyCheckinEnabled
+			}
+			return previousSettings.WelfareDailyCheckinEnabled
+		}(),
+		WelfareRechargeEnabled: func() bool {
+			if req.WelfareRechargeEnabled != nil {
+				return *req.WelfareRechargeEnabled
+			}
+			return previousSettings.WelfareRechargeEnabled
+		}(),
+		WelfareVIPEnabled: func() bool {
+			if req.WelfareVIPEnabled != nil {
+				return *req.WelfareVIPEnabled
+			}
+			return previousSettings.WelfareVIPEnabled
+		}(),
+		WelfareDailyCheckinRewardMin:         float64ValueOrDefault(req.WelfareDailyCheckinRewardMin, previousSettings.WelfareDailyCheckinRewardMin),
+		WelfareDailyCheckinRewardMax:         float64ValueOrDefault(req.WelfareDailyCheckinRewardMax, previousSettings.WelfareDailyCheckinRewardMax),
+		WelfareDailyCheckinMilestone7Amount:  float64ValueOrDefault(req.WelfareDailyCheckinMilestone7Amount, previousSettings.WelfareDailyCheckinMilestone7Amount),
+		WelfareDailyCheckinMilestone14Amount: float64ValueOrDefault(req.WelfareDailyCheckinMilestone14Amount, previousSettings.WelfareDailyCheckinMilestone14Amount),
+		WelfareDailyCheckinMilestone21Amount: float64ValueOrDefault(req.WelfareDailyCheckinMilestone21Amount, previousSettings.WelfareDailyCheckinMilestone21Amount),
+		WelfareDailyCheckinMilestone28Amount: float64ValueOrDefault(req.WelfareDailyCheckinMilestone28Amount, previousSettings.WelfareDailyCheckinMilestone28Amount),
+		WelfareNewUserTrialEnabled:                boolValueOrDefault(req.WelfareNewUserTrialEnabled, previousSettings.WelfareNewUserTrialEnabled),
+		WelfareNewUserTrialQuotaAmount:            float64ValueOrDefault(req.WelfareNewUserTrialQuotaAmount, previousSettings.WelfareNewUserTrialQuotaAmount),
+		WelfareNewUserTrialDailySiteQuotaAmount:   float64ValueOrDefault(req.WelfareNewUserTrialDailySiteQuotaAmount, previousSettings.WelfareNewUserTrialDailySiteQuotaAmount),
+		WelfareNewUserTrialDailyIPActivationLimit: intValueOrDefault(req.WelfareNewUserTrialDailyIPActivationLimit, previousSettings.WelfareNewUserTrialDailyIPActivationLimit),
 		AffiliateEnabled: func() bool {
 			if req.AffiliateEnabled != nil {
 				return *req.AffiliateEnabled
@@ -1851,6 +1923,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		SiteName:                               updatedSettings.SiteName,
 		SiteLogo:                               updatedSettings.SiteLogo,
 		SiteSubtitle:                           updatedSettings.SiteSubtitle,
+		HomeHeroTitleTop:                       updatedSettings.HomeHeroTitleTop,
+		HomeHeroTitleBottom:                    updatedSettings.HomeHeroTitleBottom,
+		HomeHeroSubtitles:                      updatedSettings.HomeHeroSubtitles,
 		APIBaseURL:                             updatedSettings.APIBaseURL,
 		ContactInfo:                            updatedSettings.ContactInfo,
 		SupportPopupTitle:                      updatedSettings.SupportPopupTitle,
@@ -1935,6 +2010,20 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		LeaderboardDailyRewardRank1Amount:        updatedSettings.LeaderboardDailyRewardRank1Amount,
 		LeaderboardDailyRewardRank2Amount:        updatedSettings.LeaderboardDailyRewardRank2Amount,
 		LeaderboardDailyRewardRank3Amount:        updatedSettings.LeaderboardDailyRewardRank3Amount,
+		WelfareEnabled:                           updatedSettings.WelfareEnabled,
+		WelfareDailyCheckinEnabled:               updatedSettings.WelfareDailyCheckinEnabled,
+		WelfareRechargeEnabled:                   updatedSettings.WelfareRechargeEnabled,
+		WelfareVIPEnabled:                        updatedSettings.WelfareVIPEnabled,
+		WelfareDailyCheckinRewardMin:             updatedSettings.WelfareDailyCheckinRewardMin,
+		WelfareDailyCheckinRewardMax:             updatedSettings.WelfareDailyCheckinRewardMax,
+		WelfareDailyCheckinMilestone7Amount:      updatedSettings.WelfareDailyCheckinMilestone7Amount,
+		WelfareDailyCheckinMilestone14Amount:     updatedSettings.WelfareDailyCheckinMilestone14Amount,
+		WelfareDailyCheckinMilestone21Amount:     updatedSettings.WelfareDailyCheckinMilestone21Amount,
+		WelfareDailyCheckinMilestone28Amount:     updatedSettings.WelfareDailyCheckinMilestone28Amount,
+		WelfareNewUserTrialEnabled:                updatedSettings.WelfareNewUserTrialEnabled,
+		WelfareNewUserTrialQuotaAmount:            updatedSettings.WelfareNewUserTrialQuotaAmount,
+		WelfareNewUserTrialDailySiteQuotaAmount:   updatedSettings.WelfareNewUserTrialDailySiteQuotaAmount,
+		WelfareNewUserTrialDailyIPActivationLimit: updatedSettings.WelfareNewUserTrialDailyIPActivationLimit,
 
 		AffiliateEnabled:    updatedSettings.AffiliateEnabled,
 		AccountShareEnabled: updatedSettings.AccountShareEnabled,
@@ -2186,6 +2275,15 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.SiteSubtitle != after.SiteSubtitle {
 		changed = append(changed, "site_subtitle")
 	}
+	if before.HomeHeroTitleTop != after.HomeHeroTitleTop {
+		changed = append(changed, "home_hero_title_top")
+	}
+	if before.HomeHeroTitleBottom != after.HomeHeroTitleBottom {
+		changed = append(changed, "home_hero_title_bottom")
+	}
+	if before.HomeHeroSubtitles != after.HomeHeroSubtitles {
+		changed = append(changed, "home_hero_subtitles")
+	}
 	if before.APIBaseURL != after.APIBaseURL {
 		changed = append(changed, "api_base_url")
 	}
@@ -2354,6 +2452,63 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AvailableChannelsEnabled != after.AvailableChannelsEnabled {
 		changed = append(changed, "available_channels_enabled")
+	}
+	if before.LeaderboardDailyRewardEnabled != after.LeaderboardDailyRewardEnabled {
+		changed = append(changed, "leaderboard_daily_reward_enabled")
+	}
+	if before.LeaderboardDailyRewardMinTotalActualCost != after.LeaderboardDailyRewardMinTotalActualCost {
+		changed = append(changed, "leaderboard_daily_reward_min_total_actual_cost")
+	}
+	if before.LeaderboardDailyRewardRank1Amount != after.LeaderboardDailyRewardRank1Amount {
+		changed = append(changed, "leaderboard_daily_reward_rank_1_amount")
+	}
+	if before.LeaderboardDailyRewardRank2Amount != after.LeaderboardDailyRewardRank2Amount {
+		changed = append(changed, "leaderboard_daily_reward_rank_2_amount")
+	}
+	if before.LeaderboardDailyRewardRank3Amount != after.LeaderboardDailyRewardRank3Amount {
+		changed = append(changed, "leaderboard_daily_reward_rank_3_amount")
+	}
+	if before.WelfareEnabled != after.WelfareEnabled {
+		changed = append(changed, "welfare_enabled")
+	}
+	if before.WelfareDailyCheckinEnabled != after.WelfareDailyCheckinEnabled {
+		changed = append(changed, "welfare_daily_checkin_enabled")
+	}
+	if before.WelfareRechargeEnabled != after.WelfareRechargeEnabled {
+		changed = append(changed, "welfare_recharge_enabled")
+	}
+	if before.WelfareVIPEnabled != after.WelfareVIPEnabled {
+		changed = append(changed, "welfare_vip_enabled")
+	}
+	if before.WelfareDailyCheckinRewardMin != after.WelfareDailyCheckinRewardMin {
+		changed = append(changed, "welfare_daily_checkin_reward_min")
+	}
+	if before.WelfareDailyCheckinRewardMax != after.WelfareDailyCheckinRewardMax {
+		changed = append(changed, "welfare_daily_checkin_reward_max")
+	}
+	if before.WelfareDailyCheckinMilestone7Amount != after.WelfareDailyCheckinMilestone7Amount {
+		changed = append(changed, "welfare_daily_checkin_milestone_7_amount")
+	}
+	if before.WelfareDailyCheckinMilestone14Amount != after.WelfareDailyCheckinMilestone14Amount {
+		changed = append(changed, "welfare_daily_checkin_milestone_14_amount")
+	}
+	if before.WelfareDailyCheckinMilestone21Amount != after.WelfareDailyCheckinMilestone21Amount {
+		changed = append(changed, "welfare_daily_checkin_milestone_21_amount")
+	}
+	if before.WelfareDailyCheckinMilestone28Amount != after.WelfareDailyCheckinMilestone28Amount {
+		changed = append(changed, "welfare_daily_checkin_milestone_28_amount")
+	}
+	if before.WelfareNewUserTrialEnabled != after.WelfareNewUserTrialEnabled {
+		changed = append(changed, "welfare_new_user_trial_enabled")
+	}
+	if before.WelfareNewUserTrialQuotaAmount != after.WelfareNewUserTrialQuotaAmount {
+		changed = append(changed, "welfare_new_user_trial_quota_amount")
+	}
+	if before.WelfareNewUserTrialDailySiteQuotaAmount != after.WelfareNewUserTrialDailySiteQuotaAmount {
+		changed = append(changed, "welfare_new_user_trial_daily_site_quota_amount")
+	}
+	if before.WelfareNewUserTrialDailyIPActivationLimit != after.WelfareNewUserTrialDailyIPActivationLimit {
+		changed = append(changed, "welfare_new_user_trial_daily_ip_activation_limit")
 	}
 	if before.AffiliateEnabled != after.AffiliateEnabled {
 		changed = append(changed, "affiliate_enabled")

@@ -29,6 +29,7 @@ import (
 type OpenAIGatewayHandler struct {
 	gatewayService           *service.OpenAIGatewayService
 	billingCacheService      *service.BillingCacheService
+	welfareService           *service.WelfareService
 	apiKeyService            *service.APIKeyService
 	usageRecordWorkerPool    *service.UsageRecordWorkerPool
 	errorPassthroughService  *service.ErrorPassthroughService
@@ -51,6 +52,7 @@ func NewOpenAIGatewayHandler(
 	gatewayService *service.OpenAIGatewayService,
 	concurrencyService *service.ConcurrencyService,
 	billingCacheService *service.BillingCacheService,
+	welfareService *service.WelfareService,
 	apiKeyService *service.APIKeyService,
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
 	errorPassthroughService *service.ErrorPassthroughService,
@@ -68,6 +70,7 @@ func NewOpenAIGatewayHandler(
 	return &OpenAIGatewayHandler{
 		gatewayService:           gatewayService,
 		billingCacheService:      billingCacheService,
+		welfareService:           welfareService,
 		apiKeyService:            apiKeyService,
 		usageRecordWorkerPool:    usageRecordWorkerPool,
 		errorPassthroughService:  errorPassthroughService,
@@ -243,7 +246,14 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	}
 
 	// 2. Re-check billing eligibility after wait
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	trialSession, trialRelease, err := h.checkBillingEligibilityOrBeginTrial(c, apiKey, subscription, reqLog, "openai")
+	trialReleasedByUsage := false
+	defer func() {
+		if trialRelease != nil && !trialReleasedByUsage {
+			trialRelease()
+		}
+	}()
+	if err != nil {
 		reqLog.Info("openai.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -423,7 +433,15 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 
 		// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
-		h.submitOpenAIUsageRecordTask(result, func(ctx context.Context) {
+		capturedTrialSession := trialSession
+		capturedTrialRelease := trialRelease
+		submitMode := h.submitOpenAIUsageRecordTask(result, func(ctx context.Context) {
+			if capturedTrialRelease != nil {
+				defer capturedTrialRelease()
+			}
+			if capturedTrialSession != nil {
+				ctx = service.WithNewUserTrialSession(ctx, capturedTrialSession)
+			}
 			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 				Result:             result,
 				APIKey:             apiKey,
@@ -448,6 +466,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 				).Error("openai.record_usage_failed", zap.Error(err))
 			}
 		})
+		trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
 		reqLog.Debug("openai.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),
@@ -634,7 +653,14 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		defer userReleaseFunc()
 	}
 
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	trialSession, trialRelease, err := h.checkBillingEligibilityOrBeginTrial(c, apiKey, subscription, reqLog, "openai_messages")
+	trialReleasedByUsage := false
+	defer func() {
+		if trialRelease != nil && !trialReleasedByUsage {
+			trialRelease()
+		}
+	}()
+	if err != nil {
 		reqLog.Info("openai_messages.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -798,7 +824,15 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 
-		h.submitOpenAIUsageRecordTask(result, func(ctx context.Context) {
+		capturedTrialSession := trialSession
+		capturedTrialRelease := trialRelease
+		submitMode := h.submitOpenAIUsageRecordTask(result, func(ctx context.Context) {
+			if capturedTrialRelease != nil {
+				defer capturedTrialRelease()
+			}
+			if capturedTrialSession != nil {
+				ctx = service.WithNewUserTrialSession(ctx, capturedTrialSession)
+			}
 			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
 				Result:             result,
 				APIKey:             apiKey,
@@ -823,6 +857,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 				).Error("openai_messages.record_usage_failed", zap.Error(err))
 			}
 		})
+		trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
 		reqLog.Debug("openai_messages.request_completed",
 			zap.Int64("account_id", account.ID),
 			zap.Int("switch_count", switchCount),
@@ -1210,10 +1245,20 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	currentUserRelease = wrapReleaseOnDone(ctx, userReleaseFunc)
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	if err := h.billingCacheService.CheckBillingEligibility(ctx, apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	trialSession, trialRelease, err := h.checkBillingEligibilityOrBeginTrial(c, apiKey, subscription, reqLog, "openai.websocket")
+	trialReleasedByUsage := false
+	defer func() {
+		if trialRelease != nil && !trialReleasedByUsage {
+			trialRelease()
+		}
+	}()
+	if err != nil {
 		reqLog.Info("openai.websocket_billing_eligibility_check_failed", zap.Error(err))
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "billing check failed")
 		return
+	}
+	if trialSession != nil {
+		ctx = service.WithNewUserTrialSession(ctx, trialSession)
 	}
 
 	sessionHash := h.gatewayService.GenerateSessionHashWithFallback(
@@ -1362,7 +1407,15 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, result.FirstTokenMs)
 			inboundEndpoint := GetInboundEndpoint(c)
 			upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
-			h.submitOpenAIUsageRecordTask(result, func(taskCtx context.Context) {
+			capturedTrialSession := trialSession
+			capturedTrialRelease := trialRelease
+			submitMode := h.submitOpenAIUsageRecordTask(result, func(taskCtx context.Context) {
+				if capturedTrialRelease != nil {
+					defer capturedTrialRelease()
+				}
+				if capturedTrialSession != nil {
+					taskCtx = service.WithNewUserTrialSession(taskCtx, capturedTrialSession)
+				}
 				if err := h.gatewayService.RecordUsage(taskCtx, &service.OpenAIRecordUsageInput{
 					Result:             result,
 					APIKey:             apiKey,
@@ -1384,6 +1437,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 					)
 				}
 			})
+			trialReleasedByUsage = capturedTrialRelease != nil && submitMode != service.UsageRecordSubmitModeDropped
 		},
 	}
 
@@ -1516,13 +1570,12 @@ func getContextInt64(c *gin.Context, key string) (int64, bool) {
 	}
 }
 
-func (h *OpenAIGatewayHandler) submitUsageRecordTask(task service.UsageRecordTask) {
+func (h *OpenAIGatewayHandler) submitUsageRecordTask(task service.UsageRecordTask) service.UsageRecordSubmitMode {
 	if task == nil {
-		return
+		return service.UsageRecordSubmitModeDropped
 	}
 	if h.usageRecordWorkerPool != nil {
-		h.usageRecordWorkerPool.Submit(task)
-		return
+		return h.usageRecordWorkerPool.Submit(task)
 	}
 	// 回退路径：worker 池未注入时同步执行，避免退回到无界 goroutine 模式。
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -1536,23 +1589,23 @@ func (h *OpenAIGatewayHandler) submitUsageRecordTask(task service.UsageRecordTas
 		}
 	}()
 	task(ctx)
+	return service.UsageRecordSubmitModeSync
 }
 
-func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(result *service.OpenAIForwardResult, task service.UsageRecordTask) {
+func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(result *service.OpenAIForwardResult, task service.UsageRecordTask) service.UsageRecordSubmitMode {
 	if result != nil && result.ImageCount > 0 {
-		h.submitMandatoryUsageRecordTask(task)
-		return
+		return h.submitMandatoryUsageRecordTask(task)
 	}
-	h.submitUsageRecordTask(task)
+	return h.submitUsageRecordTask(task)
 }
 
-func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(task service.UsageRecordTask) {
+func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(task service.UsageRecordTask) service.UsageRecordSubmitMode {
 	if task == nil {
-		return
+		return service.UsageRecordSubmitModeDropped
 	}
 	if h.usageRecordWorkerPool != nil {
 		if mode := h.usageRecordWorkerPool.Submit(task); mode != service.UsageRecordSubmitModeDropped {
-			return
+			return mode
 		}
 		logger.L().With(
 			zap.String("component", "handler.openai_gateway.usage"),
@@ -1569,6 +1622,45 @@ func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(task service.Usage
 		}
 	}()
 	task(ctx)
+	return service.UsageRecordSubmitModeSync
+}
+
+func (h *OpenAIGatewayHandler) checkBillingEligibilityOrBeginTrial(c *gin.Context, apiKey *service.APIKey, subscription *service.UserSubscription, reqLog *zap.Logger, logPrefix string) (*service.NewUserTrialSession, func(), error) {
+	if h == nil || h.billingCacheService == nil {
+		return nil, nil, nil
+	}
+	if apiKey == nil || apiKey.User == nil {
+		return nil, nil, service.ErrAPIKeyNotFound
+	}
+	err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription)
+	if err == nil {
+		return nil, nil, nil
+	}
+	if !errors.Is(err, service.ErrInsufficientBalance) || h.welfareService == nil {
+		return nil, nil, err
+	}
+	session, trialErr := h.welfareService.BeginNewUserTrial(c.Request.Context(), apiKey.User.ID, ip.GetClientIP(c))
+	if trialErr != nil {
+		if reqLog != nil {
+			reqLog.Info(logPrefix+".new_user_trial_unavailable", zap.Error(trialErr))
+		}
+		return nil, nil, err
+	}
+	if reqLog != nil {
+		reqLog.Info(logPrefix+".new_user_trial_started",
+			zap.Int64("trial_id", session.TrialID),
+			zap.String("trial_request_id", session.RequestID),
+			zap.Float64("trial_quota_left", session.QuotaLeft),
+		)
+	}
+	ctx := service.WithNewUserTrialSession(c.Request.Context(), session)
+	c.Request = c.Request.WithContext(ctx)
+	release := func() {
+		cancelCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		h.welfareService.CancelNewUserTrial(cancelCtx, session)
+	}
+	return session, release, nil
 }
 
 func (h *OpenAIGatewayHandler) acquireImageGenerationSlot(c *gin.Context, streamStarted bool) (func(), bool) {

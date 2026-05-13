@@ -594,6 +594,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeySiteName,
 		SettingKeySiteLogo,
 		SettingKeySiteSubtitle,
+		SettingKeyHomeHeroTitleTop,
+		SettingKeyHomeHeroTitleBottom,
+		SettingKeyHomeHeroSubtitles,
 		SettingKeyAPIBaseURL,
 		SettingKeyContactInfo,
 		SettingKeySupportPopupTitle,
@@ -646,6 +649,11 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAffiliateEnabled,
 		SettingKeyAccountShareEnabled,
 		SettingKeyRiskControlEnabled,
+		SettingKeyWelfareEnabled,
+		SettingKeyWelfareDailyCheckinEnabled,
+		SettingKeyWelfareRechargeEnabled,
+		SettingKeyWelfareVIPEnabled,
+		SettingKeyWelfareNewUserTrialEnabled,
 	}
 
 	settings, err := s.settingRepo.GetMultiple(ctx, keys)
@@ -716,6 +724,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SiteName:                         s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
 		SiteLogo:                         settings[SettingKeySiteLogo],
 		SiteSubtitle:                     s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
+		HomeHeroTitleTop:                 strings.TrimSpace(settings[SettingKeyHomeHeroTitleTop]),
+		HomeHeroTitleBottom:              strings.TrimSpace(settings[SettingKeyHomeHeroTitleBottom]),
+		HomeHeroSubtitles:                strings.TrimSpace(settings[SettingKeyHomeHeroSubtitles]),
 		APIBaseURL:                       settings[SettingKeyAPIBaseURL],
 		ContactInfo:                      settings[SettingKeyContactInfo],
 		SupportPopupTitle:                strings.TrimSpace(settings[SettingKeySupportPopupTitle]),
@@ -756,6 +767,12 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		AccountShareEnabled: settings[SettingKeyAccountShareEnabled] != "false",
 
 		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
+
+		WelfareEnabled:             settings[SettingKeyWelfareEnabled] == "true",
+		WelfareDailyCheckinEnabled: settings[SettingKeyWelfareDailyCheckinEnabled] == "true",
+		WelfareRechargeEnabled:     settings[SettingKeyWelfareRechargeEnabled] == "true",
+		WelfareVIPEnabled:          settings[SettingKeyWelfareVIPEnabled] == "true",
+		WelfareNewUserTrialEnabled: settings[SettingKeyWelfareNewUserTrialEnabled] == "true",
 	}, nil
 }
 
@@ -924,6 +941,9 @@ type PublicSettingsInjectionPayload struct {
 	SiteName                         string                   `json:"site_name"`
 	SiteLogo                         string                   `json:"site_logo"`
 	SiteSubtitle                     string                   `json:"site_subtitle"`
+	HomeHeroTitleTop                 string                   `json:"home_hero_title_top"`
+	HomeHeroTitleBottom              string                   `json:"home_hero_title_bottom"`
+	HomeHeroSubtitles                string                   `json:"home_hero_subtitles"`
 	APIBaseURL                       string                   `json:"api_base_url"`
 	ContactInfo                      string                   `json:"contact_info"`
 	SupportPopupTitle                string                   `json:"support_popup_title"`
@@ -965,6 +985,11 @@ type PublicSettingsInjectionPayload struct {
 	AffiliateEnabled                     bool `json:"affiliate_enabled"`
 	AccountShareEnabled                  bool `json:"account_share_enabled"`
 	RiskControlEnabled                   bool `json:"risk_control_enabled"`
+	WelfareEnabled                       bool `json:"welfare_enabled"`
+	WelfareDailyCheckinEnabled           bool `json:"welfare_daily_checkin_enabled"`
+	WelfareRechargeEnabled               bool `json:"welfare_recharge_enabled"`
+	WelfareVIPEnabled                    bool `json:"welfare_vip_enabled"`
+	WelfareNewUserTrialEnabled           bool `json:"welfare_new_user_trial_enabled"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.
@@ -993,6 +1018,9 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		SiteName:                         settings.SiteName,
 		SiteLogo:                         settings.SiteLogo,
 		SiteSubtitle:                     settings.SiteSubtitle,
+		HomeHeroTitleTop:                 settings.HomeHeroTitleTop,
+		HomeHeroTitleBottom:              settings.HomeHeroTitleBottom,
+		HomeHeroSubtitles:                settings.HomeHeroSubtitles,
 		APIBaseURL:                       settings.APIBaseURL,
 		ContactInfo:                      settings.ContactInfo,
 		SupportPopupTitle:                settings.SupportPopupTitle,
@@ -1031,6 +1059,11 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		AccountShareEnabled:                  settings.AccountShareEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
+		WelfareEnabled:                       settings.WelfareEnabled,
+		WelfareDailyCheckinEnabled:           settings.WelfareDailyCheckinEnabled,
+		WelfareRechargeEnabled:               settings.WelfareRechargeEnabled,
+		WelfareVIPEnabled:                    settings.WelfareVIPEnabled,
+		WelfareNewUserTrialEnabled:           settings.WelfareNewUserTrialEnabled,
 	}, nil
 }
 
@@ -1568,6 +1601,9 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeySiteName] = settings.SiteName
 	updates[SettingKeySiteLogo] = settings.SiteLogo
 	updates[SettingKeySiteSubtitle] = settings.SiteSubtitle
+	updates[SettingKeyHomeHeroTitleTop] = strings.TrimSpace(settings.HomeHeroTitleTop)
+	updates[SettingKeyHomeHeroTitleBottom] = strings.TrimSpace(settings.HomeHeroTitleBottom)
+	updates[SettingKeyHomeHeroSubtitles] = normalizeMultilineSetting(settings.HomeHeroSubtitles)
 	updates[SettingKeyAPIBaseURL] = settings.APIBaseURL
 	updates[SettingKeyContactInfo] = settings.ContactInfo
 	updates[SettingKeySupportPopupTitle] = strings.TrimSpace(settings.SupportPopupTitle)
@@ -1660,6 +1696,35 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyLeaderboardDailyRewardRank1Amount] = strconv.FormatFloat(settings.LeaderboardDailyRewardRank1Amount, 'f', 8, 64)
 	updates[SettingKeyLeaderboardDailyRewardRank2Amount] = strconv.FormatFloat(settings.LeaderboardDailyRewardRank2Amount, 'f', 8, 64)
 	updates[SettingKeyLeaderboardDailyRewardRank3Amount] = strconv.FormatFloat(settings.LeaderboardDailyRewardRank3Amount, 'f', 8, 64)
+
+	settings.WelfareDailyCheckinRewardMin = normalizeDailyRewardAmount(settings.WelfareDailyCheckinRewardMin)
+	settings.WelfareDailyCheckinRewardMax = normalizeDailyRewardAmount(settings.WelfareDailyCheckinRewardMax)
+	if settings.WelfareDailyCheckinRewardMax < settings.WelfareDailyCheckinRewardMin {
+		settings.WelfareDailyCheckinRewardMax = settings.WelfareDailyCheckinRewardMin
+	}
+	settings.WelfareDailyCheckinMilestone7Amount = normalizeNonNegativeFloat(settings.WelfareDailyCheckinMilestone7Amount)
+	settings.WelfareDailyCheckinMilestone14Amount = normalizeNonNegativeFloat(settings.WelfareDailyCheckinMilestone14Amount)
+	settings.WelfareDailyCheckinMilestone21Amount = normalizeNonNegativeFloat(settings.WelfareDailyCheckinMilestone21Amount)
+	settings.WelfareDailyCheckinMilestone28Amount = normalizeNonNegativeFloat(settings.WelfareDailyCheckinMilestone28Amount)
+	updates[SettingKeyWelfareEnabled] = strconv.FormatBool(settings.WelfareEnabled)
+	updates[SettingKeyWelfareDailyCheckinEnabled] = strconv.FormatBool(settings.WelfareDailyCheckinEnabled)
+	updates[SettingKeyWelfareRechargeEnabled] = strconv.FormatBool(settings.WelfareRechargeEnabled)
+	updates[SettingKeyWelfareVIPEnabled] = strconv.FormatBool(settings.WelfareVIPEnabled)
+	updates[SettingKeyWelfareDailyCheckinRewardMin] = strconv.FormatFloat(settings.WelfareDailyCheckinRewardMin, 'f', 8, 64)
+	updates[SettingKeyWelfareDailyCheckinRewardMax] = strconv.FormatFloat(settings.WelfareDailyCheckinRewardMax, 'f', 8, 64)
+	updates[SettingKeyWelfareDailyCheckinMilestone7Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone7Amount, 'f', 8, 64)
+	updates[SettingKeyWelfareDailyCheckinMilestone14Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone14Amount, 'f', 8, 64)
+	updates[SettingKeyWelfareDailyCheckinMilestone21Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone21Amount, 'f', 8, 64)
+	updates[SettingKeyWelfareDailyCheckinMilestone28Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone28Amount, 'f', 8, 64)
+	settings.WelfareNewUserTrialQuotaAmount = normalizeNonNegativeFloat(settings.WelfareNewUserTrialQuotaAmount)
+	settings.WelfareNewUserTrialDailySiteQuotaAmount = normalizeNonNegativeFloat(settings.WelfareNewUserTrialDailySiteQuotaAmount)
+	if settings.WelfareNewUserTrialDailyIPActivationLimit < 0 {
+		settings.WelfareNewUserTrialDailyIPActivationLimit = 0
+	}
+	updates[SettingKeyWelfareNewUserTrialEnabled] = strconv.FormatBool(settings.WelfareNewUserTrialEnabled)
+	updates[SettingKeyWelfareNewUserTrialQuotaAmount] = strconv.FormatFloat(settings.WelfareNewUserTrialQuotaAmount, 'f', 8, 64)
+	updates[SettingKeyWelfareNewUserTrialDailySiteQuotaAmount] = strconv.FormatFloat(settings.WelfareNewUserTrialDailySiteQuotaAmount, 'f', 8, 64)
+	updates[SettingKeyWelfareNewUserTrialDailyIPActivationLimit] = strconv.Itoa(settings.WelfareNewUserTrialDailyIPActivationLimit)
 
 	updates[SettingKeyAffiliateEnabled] = strconv.FormatBool(settings.AffiliateEnabled)
 
@@ -2434,6 +2499,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyLoginAgreementDocuments:                  loginAgreementDocumentsJSON,
 		SettingKeySiteName:                                 "Sub2API",
 		SettingKeySiteLogo:                                 "",
+		SettingKeyHomeHeroTitleTop:                         "",
+		SettingKeyHomeHeroTitleBottom:                      "",
+		SettingKeyHomeHeroSubtitles:                        "",
 		SettingKeySupportPopupTitle:                        "加入客服群",
 		SettingKeySupportPopupDescription:                  "扫码二维码加入我们的交流群",
 		SettingKeySupportPopupFooter:                       "",
@@ -2554,12 +2622,26 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyChannelMonitorDefaultIntervalSeconds: "60",
 
 		// Available channels feature (default disabled; opt-in)
-		SettingKeyAvailableChannelsEnabled:                 "false",
-		SettingKeyLeaderboardDailyRewardEnabled:            "false",
-		SettingKeyLeaderboardDailyRewardMinTotalActualCost: "0",
-		SettingKeyLeaderboardDailyRewardRank1Amount:        "0",
-		SettingKeyLeaderboardDailyRewardRank2Amount:        "0",
-		SettingKeyLeaderboardDailyRewardRank3Amount:        "0",
+		SettingKeyAvailableChannelsEnabled:                  "false",
+		SettingKeyLeaderboardDailyRewardEnabled:             "false",
+		SettingKeyLeaderboardDailyRewardMinTotalActualCost:  "0",
+		SettingKeyLeaderboardDailyRewardRank1Amount:         "0",
+		SettingKeyLeaderboardDailyRewardRank2Amount:         "0",
+		SettingKeyLeaderboardDailyRewardRank3Amount:         "0",
+		SettingKeyWelfareEnabled:                            "false",
+		SettingKeyWelfareDailyCheckinEnabled:                "false",
+		SettingKeyWelfareRechargeEnabled:                    "false",
+		SettingKeyWelfareVIPEnabled:                         "false",
+		SettingKeyWelfareDailyCheckinRewardMin:              "0",
+		SettingKeyWelfareDailyCheckinRewardMax:              "0",
+		SettingKeyWelfareDailyCheckinMilestone7Amount:       "0",
+		SettingKeyWelfareDailyCheckinMilestone14Amount:      "0",
+		SettingKeyWelfareDailyCheckinMilestone21Amount:      "0",
+		SettingKeyWelfareDailyCheckinMilestone28Amount:      "0",
+		SettingKeyWelfareNewUserTrialEnabled:                "false",
+		SettingKeyWelfareNewUserTrialQuotaAmount:            "0.1",
+		SettingKeyWelfareNewUserTrialDailySiteQuotaAmount:   "5",
+		SettingKeyWelfareNewUserTrialDailyIPActivationLimit: "3",
 
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
 		SettingKeyAffiliateEnabled: "false",
@@ -2626,6 +2708,9 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		SiteName:                         s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
 		SiteLogo:                         settings[SettingKeySiteLogo],
 		SiteSubtitle:                     s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
+		HomeHeroTitleTop:                 strings.TrimSpace(settings[SettingKeyHomeHeroTitleTop]),
+		HomeHeroTitleBottom:              strings.TrimSpace(settings[SettingKeyHomeHeroTitleBottom]),
+		HomeHeroSubtitles:                strings.TrimSpace(settings[SettingKeyHomeHeroSubtitles]),
 		APIBaseURL:                       settings[SettingKeyAPIBaseURL],
 		ContactInfo:                      settings[SettingKeyContactInfo],
 		SupportPopupTitle:                strings.TrimSpace(settings[SettingKeySupportPopupTitle]),
@@ -2947,6 +3032,28 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.LeaderboardDailyRewardRank2Amount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardRank2Amount], 0)
 	result.LeaderboardDailyRewardRank3Amount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardRank3Amount], 0)
 
+	result.WelfareEnabled = settings[SettingKeyWelfareEnabled] == "true"
+	result.WelfareDailyCheckinEnabled = settings[SettingKeyWelfareDailyCheckinEnabled] == "true"
+	result.WelfareRechargeEnabled = settings[SettingKeyWelfareRechargeEnabled] == "true"
+	result.WelfareVIPEnabled = settings[SettingKeyWelfareVIPEnabled] == "true"
+	result.WelfareDailyCheckinRewardMin = normalizeDailyRewardAmount(parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinRewardMin], 0))
+	result.WelfareDailyCheckinRewardMax = normalizeDailyRewardAmount(parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinRewardMax], result.WelfareDailyCheckinRewardMin))
+	if result.WelfareDailyCheckinRewardMax < result.WelfareDailyCheckinRewardMin {
+		result.WelfareDailyCheckinRewardMax = result.WelfareDailyCheckinRewardMin
+	}
+	result.WelfareDailyCheckinMilestone7Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone7Amount], 0)
+	result.WelfareDailyCheckinMilestone14Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone14Amount], 0)
+	result.WelfareDailyCheckinMilestone21Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone21Amount], 0)
+	result.WelfareDailyCheckinMilestone28Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone28Amount], 0)
+	result.WelfareNewUserTrialEnabled = settings[SettingKeyWelfareNewUserTrialEnabled] == "true"
+	result.WelfareNewUserTrialQuotaAmount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareNewUserTrialQuotaAmount], defaultNewUserTrialQuotaAmount)
+	result.WelfareNewUserTrialDailySiteQuotaAmount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareNewUserTrialDailySiteQuotaAmount], 5)
+	if ipLimit, err := strconv.Atoi(strings.TrimSpace(settings[SettingKeyWelfareNewUserTrialDailyIPActivationLimit])); err == nil && ipLimit >= 0 {
+		result.WelfareNewUserTrialDailyIPActivationLimit = ipLimit
+	} else {
+		result.WelfareNewUserTrialDailyIPActivationLimit = 3
+	}
+
 	// Affiliate (邀请返利) feature (default: disabled; strict true)
 	result.AffiliateEnabled = settings[SettingKeyAffiliateEnabled] == "true"
 
@@ -3169,6 +3276,21 @@ func parseTablePreferences(defaultPageSizeRaw, optionsRaw string) (int, []int) {
 	}
 
 	return normalizeTablePreferences(defaultPageSize, options)
+}
+
+func normalizeMultilineSetting(raw string) string {
+	lines := strings.FieldsFunc(raw, func(r rune) bool {
+		return r == '\n' || r == '\r'
+	})
+	normalized := make([]string, 0, len(lines))
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		normalized = append(normalized, line)
+	}
+	return strings.Join(normalized, "\n")
 }
 
 func normalizeTablePreferences(defaultPageSize int, options []int) (int, []int) {

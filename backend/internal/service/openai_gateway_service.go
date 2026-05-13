@@ -336,6 +336,7 @@ type OpenAIGatewayService struct {
 	channelService        *ChannelService
 	balanceNotifyService  *BalanceNotifyService
 	settingService        *SettingService
+	welfareService        *WelfareService
 
 	openaiWSPoolOnce              sync.Once
 	openaiWSStateStoreOnce        sync.Once
@@ -377,6 +378,7 @@ func NewOpenAIGatewayService(
 	channelService *ChannelService,
 	balanceNotifyService *BalanceNotifyService,
 	settingService *SettingService,
+	welfareService *WelfareService,
 ) *OpenAIGatewayService {
 	svc := &OpenAIGatewayService{
 		accountRepo:         accountRepo,
@@ -408,6 +410,7 @@ func NewOpenAIGatewayService(
 		channelService:        channelService,
 		balanceNotifyService:  balanceNotifyService,
 		settingService:        settingService,
+		welfareService:        welfareService,
 		responseHeaderFilter:  compileResponseHeaderFilter(cfg),
 		codexSnapshotThrottle: newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
 	}
@@ -5294,6 +5297,10 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if isSubscriptionBilling {
 		billingType = BillingTypeSubscription
 	}
+	trialSession, trialBilling := NewUserTrialSessionFromContext(ctx)
+	if trialBilling {
+		billingType = BillingTypeNewUserTrial
+	}
 
 	// Create usage log
 	durationMs := int(result.Duration.Milliseconds())
@@ -5395,7 +5402,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	billingErr := func() error {
 		accountShareSettings := resolveAccountShareBillingSettings(ctx, s.settingService)
-		_, err := applyUsageBilling(ctx, requestID, usageLog, &postUsageBillingParams{
+		_, err := applyUsageBillingWithNewUserTrialOverage(ctx, requestID, usageLog, &postUsageBillingParams{
 			Cost:                         cost,
 			User:                         user,
 			APIKey:                       apiKey,
@@ -5408,7 +5415,8 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			AccountShareEnabled:          accountShareSettings.Enabled,
 			AccountShareOwnerRatePercent: accountShareSettings.OwnerRatePercent,
 			AccountShareFreezeHours:      accountShareSettings.FreezeHours,
-		}, s.billingDeps(), s.usageBillingRepo)
+			NewUserTrial:                 trialSession,
+		}, s.billingDeps(), s.usageBillingRepo, s.welfareService)
 		return err
 	}()
 

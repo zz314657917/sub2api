@@ -36,12 +36,14 @@ type openAIRecordUsageBillingRepoStub struct {
 	err        error
 	calls      int
 	lastCmd    *UsageBillingCommand
+	commands   []*UsageBillingCommand
 	lastCtxErr error
 }
 
 func (s *openAIRecordUsageBillingRepoStub) Apply(ctx context.Context, cmd *UsageBillingCommand) (*UsageBillingApplyResult, error) {
 	s.calls++
 	s.lastCmd = cmd
+	s.commands = append(s.commands, cmd)
 	s.lastCtxErr = ctx.Err()
 	if s.err != nil {
 		return nil, s.err
@@ -150,6 +152,7 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 		&BillingCacheService{},
 		nil,
 		&DeferredService{},
+		nil,
 		nil,
 		nil,
 		nil,

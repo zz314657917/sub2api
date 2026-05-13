@@ -2805,7 +2805,7 @@
                     v-model.number="form.default_user_rpm_limit"
                     type="number"
                     min="0"
-                    step="1"
+                    step="0.1"
                     class="input"
                     placeholder="0"
                   />
@@ -3986,6 +3986,60 @@
                     {{ t("admin.settings.site.siteSubtitleHint") }}
                   </p>
                 </div>
+                <div>
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{ t("admin.settings.site.homeHeroTitleTop") }}
+                  </label>
+                  <input
+                    v-model="form.home_hero_title_top"
+                    type="text"
+                    class="input"
+                    :placeholder="
+                      t('admin.settings.site.homeHeroTitleTopPlaceholder')
+                    "
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.site.homeHeroTitleTopHint") }}
+                  </p>
+                </div>
+                <div>
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{ t("admin.settings.site.homeHeroTitleBottom") }}
+                  </label>
+                  <input
+                    v-model="form.home_hero_title_bottom"
+                    type="text"
+                    class="input"
+                    :placeholder="
+                      t('admin.settings.site.homeHeroTitleBottomPlaceholder')
+                    "
+                  />
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.site.homeHeroTitleBottomHint") }}
+                  </p>
+                </div>
+                <div class="md:col-span-2">
+                  <label
+                    class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                  >
+                    {{ t("admin.settings.site.homeHeroSubtitles") }}
+                  </label>
+                  <textarea
+                    v-model="form.home_hero_subtitles"
+                    rows="4"
+                    class="input min-h-[7rem] resize-y"
+                    :placeholder="
+                      t('admin.settings.site.homeHeroSubtitlesPlaceholder')
+                    "
+                  ></textarea>
+                  <p class="mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t("admin.settings.site.homeHeroSubtitlesHint") }}
+                  </p>
+                </div>
               </div>
 
               <!-- API Base URL -->
@@ -4211,7 +4265,7 @@
                       {{ localText("客服弹窗", "Support popup") }}
                     </h3>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {{ localText("用户点击客服时展示，可添加多个二维码或贴图。", "Shown when users click Support. Add multiple QR codes or image cards.") }}
+                      {{ localText("用户点击客服时弹出，可添加多个二维码，并分别设置二维码下方说明。", "Shown when users click Support. Add multiple QR codes and captions.") }}
                     </p>
                   </div>
                   <button
@@ -4219,7 +4273,7 @@
                     class="btn btn-secondary btn-sm"
                     @click="addSupportPopupItem"
                   >
-                    {{ localText("添加图片", "Add image") }}
+                    {{ localText("添加二维码", "Add QR code") }}
                   </button>
                 </div>
 
@@ -4264,7 +4318,7 @@
                     v-if="form.support_popup_items.length === 0"
                     class="rounded-lg border border-dashed border-gray-300 px-4 py-5 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400"
                   >
-                    {{ localText("还没有客服图片，添加后前台会显示客服按钮。", "No support images yet. Add one to show the support button.") }}
+                    {{ localText("还没有客服二维码，添加后前台会显示客服按钮。", "No support QR code yet. Add one to show the support button.") }}
                   </div>
 
                   <div
@@ -4274,7 +4328,7 @@
                   >
                     <div class="mb-3 flex items-center justify-between">
                       <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ localText(`客服图片 ${index + 1}`, `Support image ${index + 1}`) }}
+                        {{ localText(`客服二维码 ${index + 1}`, `Support QR code ${index + 1}`) }}
                       </span>
                       <div class="flex items-center gap-2">
                         <button
@@ -4316,7 +4370,7 @@
                       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div>
                           <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                            {{ localText("名称", "Name") }}
+                            {{ localText("二维码标题", "QR code title") }}
                           </label>
                           <input
                             v-model="item.title"
@@ -4327,7 +4381,7 @@
                         </div>
                         <div>
                           <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                            {{ localText("图片下方文字", "Caption") }}
+                            {{ localText("二维码下方说明", "Caption below QR code") }}
                           </label>
                           <input
                             v-model="item.caption"
@@ -4338,7 +4392,7 @@
                         </div>
                         <div class="sm:col-span-2">
                           <label class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">
-                            {{ localText("图片覆盖角标", "Image badge") }}
+                            {{ localText("二维码覆盖角标", "QR code badge") }}
                           </label>
                           <input
                             v-model="item.badge"
@@ -4355,7 +4409,7 @@
                         :max-size="1024 * 1024"
                         :upload-label="localText('上传图片', 'Upload image')"
                         :remove-label="localText('清除', 'Remove')"
-                        :hint="localText('支持二维码、群截图或其它客服贴图，建议压缩到 1MB 内。', 'Supports QR codes, screenshots, or support images. Keep under 1MB.')"
+                        :hint="localText('上传客服二维码，建议压缩到 1MB 内。', 'Upload a support QR code. Keep under 1MB.')"
                         @update:model-value="(v: string) => (item.image_url = v)"
                       />
                     </div>
@@ -4938,6 +4992,198 @@
                 </p>
               </div>
               <Toggle v-model="form.account_share_enabled" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.features.welfare.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.features.welfare.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.welfare.enabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.welfare.enabledHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.welfare_enabled" />
+            </div>
+
+            <div class="grid gap-3 md:grid-cols-4">
+              <div class="rounded-md bg-gray-50 p-3 dark:bg-dark-800">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t('admin.settings.features.welfare.dailyEnabled') }}
+                    </label>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t('admin.settings.features.welfare.dailyEnabledHint') }}
+                    </p>
+                  </div>
+                  <Toggle v-model="form.welfare_daily_checkin_enabled" />
+                </div>
+              </div>
+              <div class="rounded-md bg-gray-50 p-3 dark:bg-dark-800">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t('admin.settings.features.welfare.newUserTrialEnabled') }}
+                    </label>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t('admin.settings.features.welfare.newUserTrialEnabledHint') }}
+                    </p>
+                  </div>
+                  <Toggle v-model="form.welfare_new_user_trial_enabled" />
+                </div>
+              </div>
+              <div class="rounded-md bg-gray-50 p-3 dark:bg-dark-800">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {{ t('admin.settings.features.welfare.rechargeEnabled') }}
+                      </label>
+                      <span class="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-dark-700 dark:text-gray-300">
+                        {{ t('admin.settings.features.welfare.reservedBadge') }}
+                      </span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t('admin.settings.features.welfare.rechargeEnabledHint') }}
+                    </p>
+                  </div>
+                  <Toggle v-model="form.welfare_recharge_enabled" />
+                </div>
+              </div>
+              <div class="rounded-md bg-gray-50 p-3 dark:bg-dark-800">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {{ t('admin.settings.features.welfare.vipEnabled') }}
+                      </label>
+                      <span class="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-dark-700 dark:text-gray-300">
+                        {{ t('admin.settings.features.welfare.reservedBadge') }}
+                      </span>
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t('admin.settings.features.welfare.vipEnabledHint') }}
+                    </p>
+                  </div>
+                  <Toggle v-model="form.welfare_vip_enabled" />
+                </div>
+              </div>
+            </div>
+
+            <div v-if="form.welfare_new_user_trial_enabled" class="space-y-4 rounded-md border border-gray-200 p-4 dark:border-dark-700">
+              <div>
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                  {{ t('admin.settings.features.welfare.newUserTrial') }}
+                </h3>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.welfare.newUserTrialHint') }}
+                </p>
+              </div>
+              <div class="grid gap-4 md:grid-cols-3">
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.newUserTrialQuota') }}</label>
+                  <input
+                    v-model.number="form.welfare_new_user_trial_quota_amount"
+                    type="number"
+                    min="0"
+                    step="0.00000001"
+                    class="input"
+                  />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.newUserTrialSiteLimit') }}</label>
+                  <input
+                    v-model.number="form.welfare_new_user_trial_daily_site_quota_amount"
+                    type="number"
+                    min="0"
+                    step="0.00000001"
+                    class="input"
+                  />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.newUserTrialIpLimit') }}</label>
+                  <input
+                    v-model.number="form.welfare_new_user_trial_daily_ip_activation_limit"
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    class="input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div v-if="form.welfare_daily_checkin_enabled" class="space-y-4">
+              <div>
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                  {{ t('admin.settings.features.welfare.randomReward') }}
+                </h3>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.welfare.rewardHint') }}
+                </p>
+              </div>
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.rewardMin') }}</label>
+                  <input
+                    v-model.number="form.welfare_daily_checkin_reward_min"
+                    type="number"
+                    min="0"
+                    step="1"
+                    class="input"
+                  />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.rewardMax') }}</label>
+                  <input
+                    v-model.number="form.welfare_daily_checkin_reward_max"
+                    type="number"
+                    min="0"
+                    step="1"
+                    class="input"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                  {{ t('admin.settings.features.welfare.milestoneRewards') }}
+                </h3>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.welfare.milestoneHint') }}
+                </p>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.milestone7') }}</label>
+                  <input v-model.number="form.welfare_daily_checkin_milestone_7_amount" type="number" min="0" step="0.00000001" class="input" />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.milestone14') }}</label>
+                  <input v-model.number="form.welfare_daily_checkin_milestone_14_amount" type="number" min="0" step="0.00000001" class="input" />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.milestone21') }}</label>
+                  <input v-model.number="form.welfare_daily_checkin_milestone_21_amount" type="number" min="0" step="0.00000001" class="input" />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.milestone28') }}</label>
+                  <input v-model.number="form.welfare_daily_checkin_milestone_28_amount" type="number" min="0" step="0.00000001" class="input" />
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -6727,6 +6973,9 @@ const form = reactive<SettingsForm>({
   site_name: "Sub2API",
   site_logo: "",
   site_subtitle: "Subscription to API Conversion Platform",
+  home_hero_title_top: "",
+  home_hero_title_bottom: "",
+  home_hero_subtitles: "",
   api_base_url: "",
   contact_info: "",
   support_popup_title: "加入客服群",
@@ -6895,6 +7144,20 @@ const form = reactive<SettingsForm>({
   // Available Channels feature switch
   available_channels_enabled: false,
   account_share_enabled: true,
+  welfare_enabled: false,
+  welfare_daily_checkin_enabled: false,
+  welfare_recharge_enabled: false,
+  welfare_vip_enabled: false,
+  welfare_daily_checkin_reward_min: 0,
+  welfare_daily_checkin_reward_max: 0,
+  welfare_daily_checkin_milestone_7_amount: 0,
+  welfare_daily_checkin_milestone_14_amount: 0,
+  welfare_daily_checkin_milestone_21_amount: 0,
+  welfare_daily_checkin_milestone_28_amount: 0,
+  welfare_new_user_trial_enabled: false,
+  welfare_new_user_trial_quota_amount: 0.1,
+  welfare_new_user_trial_daily_site_quota_amount: 5,
+  welfare_new_user_trial_daily_ip_activation_limit: 3,
   leaderboard_daily_reward_enabled: false,
   leaderboard_daily_reward_min_total_actual_cost: 0,
   leaderboard_daily_reward_rank_1_amount: 0,
@@ -7873,6 +8136,27 @@ async function saveSettings() {
       form.wechat_connect_mode,
     );
 
+    const welfareDailyRewardMin = Math.max(
+      0,
+      Math.round((Number(form.welfare_daily_checkin_reward_min) || 0) * 10) / 10,
+    );
+    const welfareDailyRewardMax = Math.max(
+      welfareDailyRewardMin,
+      Math.round((Number(form.welfare_daily_checkin_reward_max) || 0) * 10) / 10,
+    );
+    const welfareNewUserTrialQuotaAmount = Math.max(
+      0,
+      Number(form.welfare_new_user_trial_quota_amount) || 0,
+    );
+    const welfareNewUserTrialDailySiteQuotaAmount = Math.max(
+      0,
+      Number(form.welfare_new_user_trial_daily_site_quota_amount) || 0,
+    );
+    const welfareNewUserTrialDailyIPActivationLimit = Math.max(
+      0,
+      Math.floor(Number(form.welfare_new_user_trial_daily_ip_activation_limit) || 0),
+    );
+
     const payload: UpdateSettingsRequest = {
       registration_enabled: form.registration_enabled,
       email_verify_enabled: form.email_verify_enabled,
@@ -7903,6 +8187,9 @@ async function saveSettings() {
       site_name: form.site_name,
       site_logo: form.site_logo,
       site_subtitle: form.site_subtitle,
+      home_hero_title_top: form.home_hero_title_top,
+      home_hero_title_bottom: form.home_hero_title_bottom,
+      home_hero_subtitles: form.home_hero_subtitles,
       api_base_url: form.api_base_url,
       contact_info: form.contact_info,
       support_popup_title: form.support_popup_title,
@@ -8060,6 +8347,34 @@ async function saveSettings() {
       // Available Channels feature switch
       available_channels_enabled: form.available_channels_enabled,
       account_share_enabled: form.account_share_enabled,
+      welfare_enabled: form.welfare_enabled,
+      welfare_daily_checkin_enabled: form.welfare_daily_checkin_enabled,
+      welfare_recharge_enabled: form.welfare_recharge_enabled,
+      welfare_vip_enabled: form.welfare_vip_enabled,
+      welfare_daily_checkin_reward_min: welfareDailyRewardMin,
+      welfare_daily_checkin_reward_max: welfareDailyRewardMax,
+      welfare_daily_checkin_milestone_7_amount: Math.max(
+        0,
+        Number(form.welfare_daily_checkin_milestone_7_amount) || 0,
+      ),
+      welfare_daily_checkin_milestone_14_amount: Math.max(
+        0,
+        Number(form.welfare_daily_checkin_milestone_14_amount) || 0,
+      ),
+      welfare_daily_checkin_milestone_21_amount: Math.max(
+        0,
+        Number(form.welfare_daily_checkin_milestone_21_amount) || 0,
+      ),
+      welfare_daily_checkin_milestone_28_amount: Math.max(
+        0,
+        Number(form.welfare_daily_checkin_milestone_28_amount) || 0,
+      ),
+      welfare_new_user_trial_enabled: form.welfare_new_user_trial_enabled,
+      welfare_new_user_trial_quota_amount: welfareNewUserTrialQuotaAmount,
+      welfare_new_user_trial_daily_site_quota_amount:
+        welfareNewUserTrialDailySiteQuotaAmount,
+      welfare_new_user_trial_daily_ip_activation_limit:
+        welfareNewUserTrialDailyIPActivationLimit,
       leaderboard_daily_reward_enabled: form.leaderboard_daily_reward_enabled,
       leaderboard_daily_reward_min_total_actual_cost: Math.max(
         0,
@@ -9371,10 +9686,12 @@ watch(
 }
 
 :global(.dark) .settings-tabs-shell {
-  border-color: rgb(51 65 85 / 0.65);
-  background: rgb(15 23 42 / 0.86);
+  border-color: rgb(51 65 85 / 0.78);
+  background:
+    linear-gradient(180deg, rgb(15 23 42 / 0.96), rgb(2 6 23 / 0.9)),
+    rgb(2 6 23 / 0.92) !important;
   box-shadow:
-    0 16px 36px rgb(0 0 0 / 0.28),
+    0 16px 36px rgb(0 0 0 / 0.34),
     0 1px 0 rgb(255 255 255 / 0.06) inset;
 }
 
@@ -9394,6 +9711,10 @@ watch(
 
 .settings-tab {
   @apply relative isolate flex h-10 min-w-[6.75rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-transparent px-3 text-sm font-medium text-gray-600 outline-none transition-colors duration-200 ease-out dark:text-gray-300;
+}
+
+:global(.dark) .settings-tab {
+  color: rgb(148 163 184);
 }
 
 @media (min-width: 768px) {
@@ -9422,7 +9743,12 @@ watch(
 }
 
 :global(.dark) .settings-tab::before {
-  background: linear-gradient(135deg, rgb(30 41 59 / 0.9), rgb(51 65 85 / 0.62));
+  background: linear-gradient(135deg, rgb(30 41 59 / 0.86), rgb(15 23 42 / 0.7));
+}
+
+:global(.dark) .settings-tab:hover,
+:global(.dark) .settings-tab:focus-visible {
+  color: rgb(226 232 240);
 }
 
 .settings-tab:focus-visible {
@@ -9437,9 +9763,14 @@ watch(
 }
 
 :global(.dark) .settings-tab-active {
+  border-color: rgb(20 184 166 / 0.55);
+  background:
+    linear-gradient(180deg, rgb(20 184 166 / 0.18), rgb(15 23 42 / 0.92)),
+    rgb(15 23 42 / 0.96) !important;
+  color: rgb(236 253 245);
   box-shadow:
-    0 12px 26px rgb(0 0 0 / 0.22),
-    0 1px 0 rgb(255 255 255 / 0.08) inset;
+    0 14px 30px rgb(0 0 0 / 0.32),
+    0 1px 0 rgb(255 255 255 / 0.1) inset;
 }
 
 .settings-tab-active::before {
@@ -9468,6 +9799,11 @@ watch(
 
 .settings-tab-active .settings-tab-icon {
   @apply bg-primary-50 text-primary-600 dark:bg-primary-400/10 dark:text-primary-300;
+}
+
+:global(.dark) .settings-tab-active .settings-tab-icon {
+  background: rgb(20 184 166 / 0.16);
+  color: rgb(134 239 172);
 }
 
 .settings-tab-label {

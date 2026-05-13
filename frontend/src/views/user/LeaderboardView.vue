@@ -1,16 +1,6 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
-      <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div>
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ t('leaderboard.title') }}</h1>
-          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.description') }}</p>
-        </div>
-        <button class="btn btn-secondary h-10 shrink-0" type="button" :disabled="loading" @click="loadLeaderboard">
-          {{ t('common.refresh') }}
-        </button>
-      </div>
-
       <div class="card p-4">
         <div class="grid grid-cols-2 gap-2 sm:grid-cols-4" role="tablist" :aria-label="t('leaderboard.periodLabel')">
           <button
@@ -30,28 +20,45 @@
         </div>
       </div>
 
-      <div v-if="leaderboard" class="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div class="card p-5">
-          <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.totalRequests') }}</p>
-          <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ formatNumber(leaderboard.total_requests) }}</p>
+      <section v-if="leaderboard" class="card leaderboard-token-card leaderboard-token-summary p-5">
+        <div class="leaderboard-token-summary-inner relative z-10">
+          <div class="mx-auto min-w-0">
+            <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.totalTokens') }}</p>
+            <div
+              :key="rollingTokenAnimationKey"
+              class="leaderboard-token-odometer"
+              data-testid="leaderboard-total-token-odometer"
+              role="text"
+              aria-live="polite"
+              :aria-label="formatRollingTokenNumber(displayedTotalTokens)"
+            >
+              <span class="sr-only">{{ formatRollingTokenNumber(displayedTotalTokens) }}</span>
+              <span
+                v-for="(part, index) in rollingTokenParts"
+                :key="`${rollingTokenAnimationKey}-${index}-${part.type}`"
+                class="leaderboard-token-part"
+                :class="part.type === 'digit' ? 'leaderboard-token-reel' : 'leaderboard-token-separator'"
+                :style="part.type === 'digit' ? digitReelStyle(part.value, index) : undefined"
+                aria-hidden="true"
+              >
+                <span v-if="part.type === 'digit'" class="leaderboard-token-strip">
+                  <span
+                    v-for="(digit, digitIndex) in rollingTokenDigitCells"
+                    :key="digitIndex"
+                    class="leaderboard-token-cell"
+                  >
+                    {{ digit }}
+                  </span>
+                </span>
+                <span v-else>{{ part.value }}</span>
+              </span>
+            </div>
+          </div>
+          <div class="leaderboard-token-summary-meta text-sm text-gray-500 dark:text-gray-400">
+            <span>{{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}</span>
+          </div>
         </div>
-        <div class="card p-5">
-          <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.totalTokens') }}</p>
-          <p class="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{{ formatNumber(leaderboard.total_tokens) }}</p>
-        </div>
-        <div class="card p-5" data-testid="leaderboard-cost-efficiency-summary">
-          <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.costEfficiencyKing') }}</p>
-          <p class="mt-2 truncate text-2xl font-bold text-gray-900 dark:text-white">
-            {{ costEfficiencyKing ? getLeaderboardDisplayName(costEfficiencyKing) : t('leaderboard.notRanked') }}
-          </p>
-          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ costEfficiencyPerMillionText }}</p>
-        </div>
-      </div>
-
-      <div v-if="leaderboard" class="flex flex-col gap-2 text-sm text-gray-500 dark:text-gray-400 md:flex-row md:items-center md:justify-between">
-        <span>{{ formatDateRange(leaderboard.start_date, leaderboard.end_date) }}</span>
-        <span>{{ t('leaderboard.generatedAt') }}: {{ formatDateTime(leaderboard.generated_at) }}</span>
-      </div>
+      </section>
 
       <div v-if="loading" class="card flex min-h-[280px] items-center justify-center p-8">
         <div class="text-center">
@@ -73,147 +80,69 @@
           </div>
 
           <template v-else>
-            <div class="card hidden overflow-hidden md:block">
-              <div class="table-wrapper overflow-x-auto">
-                <table class="w-full min-w-[620px] table-fixed">
-                  <thead class="bg-gray-50 dark:bg-dark-800">
-                    <tr>
-                      <th class="w-24 px-5 py-4 text-left text-sm font-medium text-gray-600 dark:text-dark-300">{{ t('leaderboard.rank') }}</th>
-                      <th class="px-5 py-4 text-left text-sm font-medium text-gray-600 dark:text-dark-300">{{ t('leaderboard.user') }}</th>
-                      <th class="w-32 px-5 py-4 text-right text-sm font-medium text-gray-600 dark:text-dark-300">{{ t('leaderboard.requests') }}</th>
-                      <th class="w-32 px-5 py-4 text-right text-sm font-medium text-gray-600 dark:text-dark-300">{{ t('leaderboard.tokens') }}</th>
-                    </tr>
-                  </thead>
-                  <tbody class="divide-y divide-gray-100 bg-white dark:divide-dark-800 dark:bg-dark-900">
-                    <tr
-                      v-for="item in rankingItems"
-                      :key="item.user_id"
-                      :class="[
-                        item.is_current_user ? 'bg-primary-50/70 dark:bg-primary-500/10' : '',
-                        rankRowClass(item.rank),
-                      ]"
-                    >
-                      <td class="px-5 py-4">
-                        <span class="inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-sm font-bold" :class="rankBadgeClass(item.rank)">
-                          #{{ item.rank }}
-                        </span>
-                      </td>
-                      <td class="px-5 py-4">
-                        <div class="flex min-w-0 items-center gap-3">
-                          <div :class="avatarFrameClass(item.rank)">
-                            <img v-if="item.avatar_url" :src="item.avatar_url" alt="" class="h-10 w-10 rounded-full object-cover" />
-                            <div v-else class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-600 dark:bg-dark-700 dark:text-gray-300">
-                              {{ getInitial(getLeaderboardDisplayName(item)) }}
-                            </div>
-                          </div>
-                          <div class="min-w-0">
-                            <div class="flex items-center gap-2">
-                              <span class="truncate font-semibold text-gray-900 dark:text-white">
-                                {{ getLeaderboardDisplayName(item) }}
-                              </span>
-                              <span v-if="item.badges?.length" class="flex shrink-0 items-center gap-1">
-                                <span
-                                  v-for="badge in visibleLeaderboardBadges(item.badges)"
-                                  :key="badge"
-                                  class="leaderboard-badge-icon"
-                                  :class="leaderboardBadgeClass(badge)"
-                                  :title="leaderboardBadgeTitle(badge)"
-                                  :aria-label="leaderboardBadgeTitle(badge)"
-                                  data-testid="leaderboard-badge-icon"
-                                  :data-badge="badge"
-                                  :data-user-id="String(item.user_id)"
-                                >
-                                  {{ leaderboardBadgeLabel(badge) }}
-                                </span>
-                                <span
-                                  v-if="hiddenLeaderboardBadgeCount(item.badges) > 0"
-                                  class="leaderboard-badge-overflow"
-                                  :title="hiddenLeaderboardBadgeTitle(item.badges)"
-                                  :aria-label="hiddenLeaderboardBadgeTitle(item.badges)"
-                                >
-                                  +{{ hiddenLeaderboardBadgeCount(item.badges) }}
-                                </span>
-                              </span>
-                              <span v-if="item.is_current_user" class="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-500/20 dark:text-primary-300">
-                                {{ t('leaderboard.currentUser') }}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td class="px-5 py-4 text-right text-gray-700 dark:text-gray-300">{{ formatNumber(item.requests) }}</td>
-                      <td class="px-5 py-4 text-right text-gray-700 dark:text-gray-300">{{ formatNumber(item.tokens) }}</td>
-                    </tr>
-                  </tbody>
-                </table>
+            <section class="leaderboard-token-ranking-card" data-testid="leaderboard-token-ranking">
+              <div class="leaderboard-token-ranking-header">
+                <div class="min-w-0">
+                  <h2 class="leaderboard-token-ranking-title text-base font-semibold text-gray-900 dark:text-white">
+                    <span>{{ t('leaderboard.tokenRankingTitle', { count: rankingItems.length }) }}</span>
+                    <span class="leaderboard-token-ranking-period">{{ currentPeriodLabel }}</span>
+                  </h2>
+                </div>
+                <span class="leaderboard-token-ranking-updated">
+                  {{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}
+                </span>
               </div>
-            </div>
 
-            <div class="space-y-3 md:hidden">
-              <div
-                v-for="item in rankingItems"
-                :key="item.user_id"
-                class="card p-4"
-                :class="[item.is_current_user ? 'border-primary-200 bg-primary-50/70 dark:border-primary-500/30 dark:bg-primary-500/10' : '', rankRowClass(item.rank)]"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <div class="flex min-w-0 items-center gap-3">
-                    <div :class="avatarFrameClass(item.rank)">
-                      <img v-if="item.avatar_url" :src="item.avatar_url" alt="" class="h-10 w-10 rounded-full object-cover" />
-                      <div v-else class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-600 dark:bg-dark-700 dark:text-gray-300">
-                        {{ getInitial(getLeaderboardDisplayName(item)) }}
-                      </div>
+              <div class="leaderboard-token-rank-list">
+                <article
+                  v-for="item in rankingItems"
+                  :key="item.user_id"
+                  class="leaderboard-token-rank-row"
+                  :class="item.is_current_user ? 'leaderboard-token-rank-row-current' : ''"
+                  :style="tokenBarStyle(item)"
+                >
+                  <div class="leaderboard-token-rank-user">
+                    <div class="leaderboard-token-rank-main">
+                      <span class="leaderboard-token-rank-index">#{{ item.rank }}</span>
+                      <span class="leaderboard-token-rank-name" :title="getLeaderboardDisplayName(item)">
+                        {{ getLeaderboardDisplayName(item) }}
+                      </span>
+                      <span v-if="item.is_current_user" class="leaderboard-token-current-tag">
+                        {{ t('leaderboard.currentUser') }}
+                      </span>
                     </div>
-                    <div class="min-w-0">
-                      <div class="flex min-w-0 items-center gap-2">
-                        <span class="inline-flex h-7 min-w-7 items-center justify-center rounded-lg px-2 text-xs font-bold" :class="rankBadgeClass(item.rank)">
-                          #{{ item.rank }}
-                        </span>
-                        <p class="truncate font-semibold text-gray-900 dark:text-white">
-                          {{ getLeaderboardDisplayName(item) }}
-                        </p>
-                        <span v-if="item.is_current_user" class="shrink-0 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-500/20 dark:text-primary-300">
-                          {{ t('leaderboard.currentUser') }}
-                        </span>
-                      </div>
-                      <div v-if="item.badges?.length" class="mt-1 flex flex-wrap items-center gap-1">
-                        <span
-                          v-for="badge in visibleLeaderboardBadges(item.badges)"
-                          :key="badge"
-                          class="leaderboard-badge-icon"
-                          :class="leaderboardBadgeClass(badge)"
-                          :title="leaderboardBadgeTitle(badge)"
-                          :aria-label="leaderboardBadgeTitle(badge)"
-                          data-testid="leaderboard-badge-icon"
-                          :data-badge="badge"
-                          :data-user-id="String(item.user_id)"
-                        >
-                          {{ leaderboardBadgeLabel(badge) }}
-                        </span>
-                        <span
-                          v-if="hiddenLeaderboardBadgeCount(item.badges) > 0"
-                          class="leaderboard-badge-overflow"
-                          :title="hiddenLeaderboardBadgeTitle(item.badges)"
-                          :aria-label="hiddenLeaderboardBadgeTitle(item.badges)"
-                        >
-                          +{{ hiddenLeaderboardBadgeCount(item.badges) }}
-                        </span>
-                      </div>
+                    <div v-if="visibleLeaderboardTitleBadges(item.badges).length" class="leaderboard-token-title-list">
+                      <span
+                        v-for="badge in visibleLeaderboardTitleBadges(item.badges)"
+                        :key="badge"
+                        class="leaderboard-token-title-badge"
+                        :title="leaderboardBadgeTitle(badge)"
+                        :aria-label="leaderboardBadgeTitle(badge)"
+                        data-testid="leaderboard-rank-title"
+                        :data-badge="badge"
+                      >
+                        {{ leaderboardTitleLabel(badge) }}
+                      </span>
+                      <span
+                        v-if="hiddenLeaderboardTitleBadgeCount(item.badges) > 0"
+                        class="leaderboard-token-title-more"
+                        :title="hiddenLeaderboardBadgeTitle(item.badges)"
+                        :aria-label="hiddenLeaderboardBadgeTitle(item.badges)"
+                      >
+                        +{{ hiddenLeaderboardTitleBadgeCount(item.badges) }}
+                      </span>
                     </div>
                   </div>
-                </div>
-                <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
-                  <div class="rounded-lg bg-gray-50 p-3 dark:bg-dark-800">
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.requests') }}</p>
-                    <p class="font-semibold text-gray-900 dark:text-white">{{ formatNumber(item.requests) }}</p>
+
+                  <div class="leaderboard-token-bar-area">
+                    <div class="leaderboard-token-bar-track" :aria-label="`${getLeaderboardDisplayName(item)} ${formatNumber(item.tokens)} Token`">
+                      <div class="leaderboard-token-bar-fill"></div>
+                      <span class="leaderboard-token-bar-value">{{ formatNumber(item.tokens) }}</span>
+                    </div>
                   </div>
-                  <div class="rounded-lg bg-gray-50 p-3 dark:bg-dark-800">
-                    <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.tokens') }}</p>
-                    <p class="font-semibold text-gray-900 dark:text-white">{{ formatNumber(item.tokens) }}</p>
-                  </div>
-                </div>
+                </article>
               </div>
-            </div>
+            </section>
           </template>
         </div>
 
@@ -247,15 +176,9 @@
                 {{ myRankLabel }} {{ myDisplayName }}
               </p>
             </div>
-            <div class="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <div class="min-w-0 rounded-lg bg-gray-50 p-3 dark:bg-dark-800">
-                <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.requests') }}</p>
-                <p class="truncate font-semibold text-gray-900 dark:text-white">{{ formatNumber(myEntry?.requests ?? 0) }}</p>
-              </div>
-              <div class="min-w-0 rounded-lg bg-gray-50 p-3 dark:bg-dark-800">
-                <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.tokens') }}</p>
-                <p class="truncate font-semibold text-gray-900 dark:text-white">{{ formatNumber(myEntry?.tokens ?? 0) }}</p>
-              </div>
+            <div class="leaderboard-my-token-card mt-4 rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-800" data-testid="leaderboard-my-token">
+              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.tokens') }}</p>
+              <p class="mt-1 truncate text-xl font-bold text-gray-900 dark:text-white">{{ formatNumber(myEntry?.tokens ?? 0) }}</p>
             </div>
           </section>
 
@@ -331,13 +254,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usageAPI } from '@/api'
 import type { LeaderboardBadge, LeaderboardDailyRewards, LeaderboardPeriod, UserLeaderboardItem, UserLeaderboardResponse } from '@/api/usage'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import { formatCurrency, formatDateTime, formatNumber } from '@/utils/format'
+import { formatCurrency, formatDateTime, formatNumber, formatTime } from '@/utils/format'
 
 const { t } = useI18n()
 
@@ -347,9 +270,31 @@ const loading = ref(false)
 const error = ref(false)
 const claimingReward = ref(false)
 const claimError = ref('')
+const tokenTickerSeed = ref(0)
+const visualTokenIncrement = ref(0)
+const visualTokenTick = ref(0)
 const leaderboardLimit = 10
 const visibleBadgeLimit = 3
+const visibleRankTitleLimit = 2
+const visualTokenTickerIntervalMs = 3000
+const visualTokenTickerSteps = [37, 54, 62, 81, 95, 128, 143, 166, 218]
 let loadSeq = 0
+let visualTokenTickerID: number | null = null
+
+type RollingTokenPart = {
+  type: 'digit' | 'separator'
+  value: string
+}
+
+const rollingTokenDigitCells = Array.from({ length: 20 }, (_, index) => String(index % 10))
+const leaderboardTitleBadges: LeaderboardBadge[] = [
+  'weekly_token_king',
+  'monthly_token_king',
+  'total_token_king',
+  'night_owl',
+  'burst_token_king',
+  'checkin_king',
+]
 
 const periodOptions = computed(() => [
   { value: 'day' as const, label: t('leaderboard.period.day') },
@@ -357,6 +302,7 @@ const periodOptions = computed(() => [
   { value: 'month' as const, label: t('leaderboard.period.month') },
   { value: 'all' as const, label: t('leaderboard.period.all') },
 ])
+const currentPeriodLabel = computed(() => periodOptions.value.find((option) => option.value === period.value)?.label ?? '')
 
 const rankingItems = computed<UserLeaderboardItem[]>(() => {
   const visibleItems = (leaderboard.value?.ranking ?? []).slice(0, leaderboardLimit)
@@ -368,30 +314,7 @@ const rankingItems = computed<UserLeaderboardItem[]>(() => {
     badges: orderedLeaderboardBadges(item, costSaverUserID, costBurnerUserID),
   }))
 })
-const costSaverFromBadges = computed(() => rankingItems.value.find((item) => item.badges?.includes('cost_saver')) ?? null)
-const costEfficiencyKing = computed<UserLeaderboardItem | null>(() => {
-  if (costSaverFromBadges.value) return costSaverFromBadges.value
-
-  let bestItem: UserLeaderboardItem | null = null
-  let bestCostPerToken = Number.POSITIVE_INFINITY
-
-  for (const item of rankingItems.value) {
-    if (item.actual_cost <= 0 || item.tokens <= 0) continue
-
-    const costPerToken = item.actual_cost / item.tokens
-    if (costPerToken < bestCostPerToken) {
-      bestCostPerToken = costPerToken
-      bestItem = item
-    }
-  }
-
-  return bestItem
-})
-const costEfficiencyPerMillionText = computed(() => {
-  const item = costEfficiencyKing.value
-  if (!item) return '-'
-  return `1M Token = ${formatCurrency((item.actual_cost / item.tokens) * 1_000_000)}`
-})
+const maxRankingTokens = computed(() => Math.max(0, ...rankingItems.value.map((item) => item.tokens)))
 const dailyRewards = computed<LeaderboardDailyRewards | null>(() => leaderboard.value?.daily_rewards ?? null)
 const myEntry = computed<UserLeaderboardItem | null>(() => {
   if (leaderboard.value?.current_user_entry) return leaderboard.value.current_user_entry
@@ -399,6 +322,19 @@ const myEntry = computed<UserLeaderboardItem | null>(() => {
 })
 const myDisplayName = computed(() => (myEntry.value ? getLeaderboardDisplayName(myEntry.value) : t('leaderboard.currentUser')))
 const myRankLabel = computed(() => (myEntry.value?.rank ? `#${myEntry.value.rank}` : t('leaderboard.notRanked')))
+const rollingTokenParts = computed<RollingTokenPart[]>(() => {
+  return formatRollingTokenNumber(displayedTotalTokens.value)
+    .split('')
+    .map((value) => ({
+      type: /^\d$/.test(value) ? 'digit' : 'separator',
+      value,
+    }))
+})
+const displayedTotalTokens = computed(() => {
+  const baseTokens = leaderboard.value?.total_tokens ?? 0
+  return Math.max(0, Math.floor(baseTokens + visualTokenIncrement.value))
+})
+const rollingTokenAnimationKey = computed(() => `${period.value}-${tokenTickerSeed.value}-${leaderboard.value?.total_tokens ?? 0}`)
 
 const rewardTiers = computed(() => {
   const tiers = new Map((dailyRewards.value?.rewards ?? []).map((tier) => [tier.rank, tier.amount]))
@@ -448,6 +384,8 @@ async function loadLeaderboard() {
     const response = await usageAPI.getDashboardLeaderboard({ period: period.value, limit: leaderboardLimit })
     if (currentSeq !== loadSeq) return
     leaderboard.value = response
+    visualTokenIncrement.value = 0
+    tokenTickerSeed.value += 1
   } catch (err) {
     if (currentSeq !== loadSeq) return
     console.error('Failed to load leaderboard:', err)
@@ -496,19 +434,64 @@ function selectPeriod(value: LeaderboardPeriod) {
   loadLeaderboard()
 }
 
-function formatDateRange(start: string, end: string): string {
-  if (!start && !end) return ''
-  if (!start) return dateLabel(end)
-  if (!end || start === end) return dateLabel(start)
-  return `${dateLabel(start)} - ${dateLabel(end)}`
+function formatRollingTokenNumber(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  return Math.max(0, Math.floor(value)).toLocaleString('en-US')
 }
 
-function dateLabel(value: string): string {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : value
+function startVisualTokenTicker() {
+  stopVisualTokenTicker()
+  visualTokenTickerID = window.setInterval(() => {
+    if (!leaderboard.value || loading.value || error.value || document.hidden) return
+
+    const baseTokens = Math.max(0, leaderboard.value.total_tokens)
+    const step = visualTokenTickerSteps[visualTokenTick.value % visualTokenTickerSteps.length]
+    const scale = baseTokens >= 10_000_000 ? 4 : baseTokens >= 1_000_000 ? 2 : 1
+    visualTokenTick.value += 1
+    visualTokenIncrement.value += step * scale
+  }, visualTokenTickerIntervalMs)
 }
 
-function getInitial(name: string): string {
-  return (name || '?').trim().slice(0, 1).toUpperCase()
+function stopVisualTokenTicker() {
+  if (visualTokenTickerID == null) return
+  window.clearInterval(visualTokenTickerID)
+  visualTokenTickerID = null
+}
+
+function tokenBarWidth(item: UserLeaderboardItem): string {
+  if (maxRankingTokens.value <= 0 || item.tokens <= 0) return '0%'
+  return `${Math.min(84, Math.max(4, (item.tokens / maxRankingTokens.value) * 84))}%`
+}
+
+function tokenBarStyle(item: UserLeaderboardItem): Record<string, string> {
+  const palette = tokenBarPalette(item.rank)
+  const widthText = tokenBarWidth(item)
+
+  return {
+    '--token-bar-width': widthText,
+    '--token-bar-value-left': `calc(${widthText} + 0.55rem)`,
+    '--token-bar-value-x': '0',
+    '--token-bar-color': palette.color,
+    '--token-bar-glow': palette.glow,
+    '--token-rank-color': palette.text,
+    '--token-value-color': palette.text,
+  }
+}
+
+function tokenBarPalette(rank: number): { color: string; glow: string; text: string } {
+  if (rank === 1) return { color: 'rgb(217 119 6)', glow: 'rgb(217 119 6 / 0.22)', text: 'rgb(146 64 14)' }
+  if (rank === 2) return { color: 'rgb(5 150 105)', glow: 'rgb(5 150 105 / 0.2)', text: 'rgb(4 120 87)' }
+  if (rank === 3) return { color: 'rgb(37 99 235)', glow: 'rgb(37 99 235 / 0.18)', text: 'rgb(29 78 216)' }
+  return { color: 'rgb(100 116 139)', glow: 'rgb(100 116 139 / 0.14)', text: 'rgb(71 85 105)' }
+}
+
+function digitReelStyle(value: string, _index: number): Record<string, string> {
+  const digit = Number.parseInt(value, 10)
+  const targetIndex = Number.isFinite(digit) ? 10 + digit : 10
+
+  return {
+    '--target-offset': `${targetIndex * -1.08}em`,
+  }
 }
 
 function getLeaderboardDisplayName(item: UserLeaderboardItem): string {
@@ -577,6 +560,14 @@ function hiddenLeaderboardBadgeTitle(badges: LeaderboardBadge[] = []): string {
   return hiddenLeaderboardBadges(badges).map((badge) => leaderboardBadgeTitle(badge)).join(' / ')
 }
 
+function visibleLeaderboardTitleBadges(badges: LeaderboardBadge[] = []): LeaderboardBadge[] {
+  return badges.filter((badge) => leaderboardTitleBadges.includes(badge)).slice(0, visibleRankTitleLimit)
+}
+
+function hiddenLeaderboardTitleBadgeCount(badges: LeaderboardBadge[] = []): number {
+  return badges.filter((badge) => leaderboardTitleBadges.includes(badge)).slice(visibleRankTitleLimit).length
+}
+
 function leaderboardBadgeLabel(badge: LeaderboardBadge): string {
   if (badge === 'weekly_token_king') return '周'
   if (badge === 'monthly_token_king') return '月'
@@ -587,6 +578,16 @@ function leaderboardBadgeLabel(badge: LeaderboardBadge): string {
   if (badge === 'cost_saver') return '省'
   if (badge === 'cost_burner') return '豪'
   return ''
+}
+
+function leaderboardTitleLabel(badge: LeaderboardBadge): string {
+  if (badge === 'weekly_token_king') return '周榜王'
+  if (badge === 'monthly_token_king') return '月榜王'
+  if (badge === 'total_token_king') return '肝帝'
+  if (badge === 'night_owl') return '夜猫'
+  if (badge === 'burst_token_king') return '爆肝'
+  if (badge === 'checkin_king') return '打卡王'
+  return leaderboardBadgeLabel(badge)
 }
 
 function leaderboardBadgeTitle(badge: LeaderboardBadge): string {
@@ -613,98 +614,464 @@ function leaderboardBadgeClass(badge: LeaderboardBadge): string {
   return ''
 }
 
-function rankBadgeClass(rank: number): string {
-  if (rank === 1) return 'bg-amber-100 text-amber-800 ring-1 ring-amber-300 dark:bg-amber-500/20 dark:text-amber-200 dark:ring-amber-400/50'
-  if (rank === 2) return 'bg-slate-100 text-slate-800 ring-1 ring-slate-300 dark:bg-slate-400/20 dark:text-slate-100 dark:ring-slate-300/50'
-  if (rank === 3) return 'bg-orange-100 text-orange-800 ring-1 ring-orange-300 dark:bg-orange-500/20 dark:text-orange-200 dark:ring-orange-400/50'
-  return 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
-}
-
-function rankRowClass(rank: number): string {
-  if (rank === 1) return 'top-rank-row top-rank-row-gold'
-  if (rank === 2) return 'top-rank-row top-rank-row-silver'
-  if (rank === 3) return 'top-rank-row top-rank-row-bronze'
-  return ''
-}
-
-function avatarFrameClass(rank: number): string {
-  if (rank === 1) return 'leaderboard-avatar-frame leaderboard-avatar-frame-gold'
-  if (rank === 2) return 'leaderboard-avatar-frame leaderboard-avatar-frame-silver'
-  if (rank === 3) return 'leaderboard-avatar-frame leaderboard-avatar-frame-bronze'
-  return 'shrink-0'
-}
-
 onMounted(() => {
+  startVisualTokenTicker()
   loadLeaderboard()
+})
+
+onUnmounted(() => {
+  stopVisualTokenTicker()
 })
 </script>
 
 <style scoped>
-.top-rank-row {
-  box-shadow: inset 3px 0 0 rgb(148 163 184 / 0.4);
+.leaderboard-token-summary {
+  min-height: 9.6rem;
 }
 
-.top-rank-row-gold {
-  box-shadow: inset 3px 0 0 rgb(245 158 11 / 0.85);
+.leaderboard-token-summary-inner {
+  display: grid;
+  min-height: 7.35rem;
+  align-content: center;
+  justify-items: center;
+  gap: 0.72rem;
+  text-align: center;
 }
 
-.top-rank-row-silver {
-  box-shadow: inset 3px 0 0 rgb(148 163 184 / 0.85);
+.leaderboard-token-summary-meta {
+  justify-items: center;
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
+  letter-spacing: 0;
 }
 
-.top-rank-row-bronze {
-  box-shadow: inset 3px 0 0 rgb(194 120 54 / 0.85);
-}
-
-.leaderboard-avatar-frame {
+.leaderboard-token-card {
   position: relative;
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  padding: 3px;
+  overflow: hidden;
+  border-color: rgb(148 163 184 / 0.18);
+  background:
+    radial-gradient(circle at 50% 8%, rgb(251 191 36 / 0.22), transparent 34%),
+    linear-gradient(180deg, rgb(255 251 235 / 0.76), rgb(255 255 255 / 0.94));
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7);
 }
 
-.leaderboard-avatar-frame::after {
+.leaderboard-token-card::after {
   position: absolute;
-  inset: -3px;
-  border-radius: inherit;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, rgb(148 163 184 / 0.09) 1px, transparent 1px),
+    linear-gradient(rgb(148 163 184 / 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, transparent, rgb(251 191 36 / 0.1), transparent);
+  background-size: 5.5rem 100%, 100% 1rem, 100% 100%;
   content: "";
-  opacity: 0.55;
-  filter: blur(5px);
+  opacity: 0.58;
 }
 
-.leaderboard-avatar-frame > * {
+.leaderboard-token-odometer {
   position: relative;
   z-index: 1;
+  display: flex;
+  min-height: 4.15rem;
+  max-width: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-top: 0.42rem;
+  color: rgb(92 39 8);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: clamp(2.05rem, 6.6vw, 3.45rem);
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1;
+  scrollbar-width: none;
 }
 
-.leaderboard-avatar-frame-gold {
-  background: linear-gradient(135deg, #fef3c7, #f59e0b 45%, #92400e);
-  box-shadow: 0 0 0 1px rgb(245 158 11 / 0.35), 0 8px 22px rgb(245 158 11 / 0.24);
+.leaderboard-token-odometer::-webkit-scrollbar {
+  display: none;
 }
 
-.leaderboard-avatar-frame-gold::after {
-  background: rgb(245 158 11 / 0.65);
+.leaderboard-token-part {
+  flex: 0 0 auto;
 }
 
-.leaderboard-avatar-frame-silver {
-  background: linear-gradient(135deg, #f8fafc, #94a3b8 45%, #475569);
-  box-shadow: 0 0 0 1px rgb(148 163 184 / 0.35), 0 8px 22px rgb(148 163 184 / 0.22);
+.leaderboard-token-reel {
+  position: relative;
+  width: 0.7em;
+  height: 1.08em;
+  margin-right: 0.04em;
+  overflow: hidden;
+  border: 1px solid rgb(180 83 9 / 0.2);
+  border-radius: 0.28rem;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.98), rgb(254 243 199 / 0.74)),
+    radial-gradient(circle at 50% 0%, rgb(253 224 71 / 0.34), transparent 60%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.8),
+    inset 0 -0.18rem 0 rgb(120 53 15 / 0.06),
+    0 0.34rem 0.95rem rgb(180 83 9 / 0.12);
 }
 
-.leaderboard-avatar-frame-silver::after {
-  background: rgb(148 163 184 / 0.62);
+.leaderboard-token-ranking-card {
+  overflow: hidden;
+  border: 1px solid rgb(148 163 184 / 0.16);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.58), rgb(255 255 255 / 0.2)),
+    rgb(255 255 255 / 0.34);
+  padding: 1.25rem;
+  box-shadow: 0 1rem 2.6rem rgb(15 23 42 / 0.05);
 }
 
-.leaderboard-avatar-frame-bronze {
-  background: linear-gradient(135deg, #ffedd5, #c27836 45%, #7c2d12);
-  box-shadow: 0 0 0 1px rgb(194 120 54 / 0.35), 0 8px 22px rgb(194 120 54 / 0.2);
+.leaderboard-token-ranking-card {
+  overflow: hidden;
 }
 
-.leaderboard-avatar-frame-bronze::after {
-  background: rgb(194 120 54 / 0.58);
+.leaderboard-token-ranking-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgb(148 163 184 / 0.18);
+  padding-bottom: 0.8rem;
+}
+
+.leaderboard-token-ranking-title {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  letter-spacing: 0;
+}
+
+.leaderboard-token-ranking-period {
+  display: inline-flex;
+  align-items: center;
+  border-left: 1px solid rgb(148 163 184 / 0.45);
+  padding-left: 0.45rem;
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.leaderboard-token-ranking-updated {
+  flex: 0 0 auto;
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
+  white-space: nowrap;
+}
+
+.leaderboard-token-rank-list {
+  display: grid;
+  gap: 0.82rem;
+  padding-top: 1rem;
+}
+
+.leaderboard-token-rank-row {
+  display: grid;
+  grid-template-columns: minmax(11.5rem, 13.5rem) minmax(14rem, 1fr);
+  align-items: center;
+  gap: 1rem;
+  min-height: 2.22rem;
+  padding: 0.08rem 0;
+}
+
+.leaderboard-token-rank-row-current {
+  border-radius: 0.45rem;
+  background: rgb(34 197 94 / 0.07);
+}
+
+.leaderboard-token-rank-user {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 2.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.leaderboard-token-rank-main {
+  display: contents;
+}
+
+.leaderboard-token-rank-name {
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--token-rank-color);
+  font-size: 0.875rem;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-token-bar-area {
+  display: block;
+  min-width: 0;
+}
+
+.leaderboard-token-bar-track {
+  position: relative;
+  height: 1.32rem;
+  overflow: visible;
+  border-radius: 0;
+  background:
+    linear-gradient(90deg, rgb(148 163 184 / 0.13) 1px, transparent 1px),
+    transparent;
+  background-size: 10% 100%;
+}
+
+.leaderboard-token-bar-fill {
+  width: var(--token-bar-width);
+  height: 100%;
+  min-width: 0.7rem;
+  border-radius: 0.08rem 0.28rem 0.28rem 0.08rem;
+  background: var(--token-bar-color);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.26),
+    0 0.35rem 1.1rem var(--token-bar-glow);
+  transition: width 520ms cubic-bezier(0.22, 0.72, 0.2, 1);
+}
+
+.leaderboard-token-rank-index {
+  min-width: 0;
+  color: rgb(100 116 139);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.leaderboard-token-current-tag {
+  flex: 0 0 auto;
+  justify-self: start;
+  grid-column: 2;
+  border-radius: 9999px;
+  background: rgb(34 197 94 / 0.12);
+  padding: 0.1rem 0.45rem;
+  color: rgb(22 163 74);
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.leaderboard-token-title-list {
+  display: flex;
+  grid-column: 2;
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 0.25rem;
+}
+
+.leaderboard-token-title-badge,
+.leaderboard-token-title-more {
+  display: inline-flex;
+  max-width: 5.5rem;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid currentColor;
+  border-radius: 9999px;
+  background: rgb(255 255 255 / 0.55);
+  padding: 0.08rem 0.4rem;
+  color: var(--token-rank-color);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1.15;
+  opacity: 0.84;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-token-title-more {
+  max-width: none;
+  color: rgb(100 116 139);
+}
+
+.leaderboard-token-bar-value {
+  position: absolute;
+  top: 50%;
+  left: var(--token-bar-value-left);
+  transform: translate(var(--token-bar-value-x), -50%);
+  color: var(--token-value-color);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.95rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.leaderboard-my-token-card {
+  border: 1px solid rgb(148 163 184 / 0.16);
+}
+
+.leaderboard-token-reel::before,
+.leaderboard-token-reel::after {
+  position: absolute;
+  left: 0;
+  z-index: 2;
+  width: 100%;
+  height: 30%;
+  pointer-events: none;
+  content: "";
+}
+
+.leaderboard-token-reel::before {
+  top: 0;
+  background: linear-gradient(180deg, rgb(255 247 237 / 0.96), transparent);
+}
+
+.leaderboard-token-reel::after {
+  bottom: 0;
+  background: linear-gradient(0deg, rgb(120 53 15 / 0.16), transparent);
+}
+
+.leaderboard-token-strip {
+  display: flex;
+  flex-direction: column;
+  transform: translateY(var(--target-offset));
+  transition: transform 620ms cubic-bezier(0.17, 0.84, 0.29, 1);
+  will-change: transform;
+}
+
+.leaderboard-token-cell {
+  display: flex;
+  height: 1.08em;
+  align-items: center;
+  justify-content: center;
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.8);
+}
+
+.leaderboard-token-separator {
+  display: inline-flex;
+  height: 1.08em;
+  align-items: flex-end;
+  padding: 0 0.026em 0.08em;
+  color: rgb(180 83 9);
+  text-shadow: 0 1px 0 rgb(255 255 255 / 0.78);
+}
+
+:global(.dark) .leaderboard-token-card {
+  border-color: rgb(71 85 105 / 0.34);
+  background:
+    radial-gradient(circle at 50% 8%, rgb(251 191 36 / 0.16), transparent 34%),
+    linear-gradient(180deg, rgb(30 41 59 / 0.92), rgb(15 23 42 / 0.94));
+  box-shadow: none;
+}
+
+:global(.dark) .leaderboard-token-card::after {
+  background:
+    linear-gradient(90deg, rgb(148 163 184 / 0.12) 1px, transparent 1px),
+    linear-gradient(rgb(148 163 184 / 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, transparent, rgb(251 191 36 / 0.08), transparent);
+  background-size: 5.5rem 100%, 100% 1rem, 100% 100%;
+}
+
+:global(.dark) .leaderboard-token-summary-meta {
+  color: rgb(148 163 184);
+}
+
+:global(.dark) .leaderboard-token-odometer {
+  color: rgb(254 240 138);
+}
+
+:global(.dark) .leaderboard-token-reel {
+  border-color: rgb(251 191 36 / 0.3);
+  background:
+    linear-gradient(180deg, rgb(30 41 59 / 0.96), rgb(15 23 42 / 0.92)),
+    radial-gradient(circle at 50% 0%, rgb(251 191 36 / 0.3), transparent 58%);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.1),
+    inset 0 -0.22rem 0 rgb(0 0 0 / 0.24),
+    0 0.35rem 1rem rgb(251 191 36 / 0.12);
+}
+
+:global(.dark) .leaderboard-token-reel::before {
+  background: linear-gradient(180deg, rgb(30 41 59 / 0.96), transparent);
+}
+
+:global(.dark) .leaderboard-token-reel::after {
+  background: linear-gradient(0deg, rgb(0 0 0 / 0.28), transparent);
+}
+
+:global(.dark) .leaderboard-token-cell {
+  text-shadow: 0 0 0.55rem rgb(251 191 36 / 0.24);
+}
+
+:global(.dark) .leaderboard-token-separator {
+  color: rgb(252 211 77);
+  text-shadow: 0 0 0.55rem rgb(251 191 36 / 0.2);
+}
+
+:global(html.dark) .leaderboard-token-ranking-card {
+  border-color: rgb(71 85 105 / 0.34);
+  background:
+    linear-gradient(180deg, rgb(15 23 42 / 0.45), rgb(15 23 42 / 0.16)),
+    rgb(15 23 42 / 0.2);
+  box-shadow: none;
+}
+
+:global(html.dark) .leaderboard-token-rank-row-current {
+  background: rgb(34 197 94 / 0.1);
+}
+
+:global(html.dark) .leaderboard-token-title-badge,
+:global(html.dark) .leaderboard-token-title-more {
+  background: rgb(15 23 42 / 0.28);
+}
+
+:global(html.dark) .leaderboard-token-title-more {
+  color: rgb(148 163 184);
+}
+
+:global(html.dark) .leaderboard-token-bar-track {
+  background:
+    linear-gradient(90deg, rgb(148 163 184 / 0.1) 1px, transparent 1px),
+    transparent;
+  background-size: 10% 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .leaderboard-token-strip {
+    transition: none;
+    will-change: auto;
+  }
+
+  .leaderboard-token-bar-fill {
+    transition: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .leaderboard-token-ranking-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+  }
+
+  .leaderboard-token-rank-row {
+    grid-template-columns: 1fr;
+    gap: 0.35rem;
+    padding: 0.25rem 0;
+  }
+
+  .leaderboard-token-rank-user {
+    grid-template-columns: 2.35rem minmax(0, 1fr);
+  }
+
+  .leaderboard-token-bar-track {
+    height: 1.35rem;
+  }
+
+  .leaderboard-token-bar-value {
+    font-size: 0.8rem;
+  }
+
+  .leaderboard-token-odometer {
+    font-size: clamp(1.72rem, 10.6vw, 2.45rem);
+  }
 }
 
 .leaderboard-badge-icon {

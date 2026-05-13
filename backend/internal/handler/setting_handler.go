@@ -92,6 +92,12 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		AccountShareEnabled: settings.AccountShareEnabled,
 
 		RiskControlEnabled: settings.RiskControlEnabled,
+
+		WelfareEnabled:             settings.WelfareEnabled,
+		WelfareDailyCheckinEnabled: settings.WelfareDailyCheckinEnabled,
+		WelfareRechargeEnabled:     settings.WelfareRechargeEnabled,
+		WelfareVIPEnabled:          settings.WelfareVIPEnabled,
+		WelfareNewUserTrialEnabled: settings.WelfareNewUserTrialEnabled,
 	})
 }
 

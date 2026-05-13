@@ -44,6 +44,7 @@ func newGatewayRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo 
 		nil,
 		nil,
 		nil,
+		nil,
 	)
 }
 
@@ -398,6 +399,100 @@ func TestGatewayServiceRecordUsage_BillingErrorSkipsUsageLogWrite(t *testing.T) 
 	require.Error(t, err)
 	require.Equal(t, 1, billingRepo.calls)
 	require.Equal(t, 0, usageRepo.calls)
+}
+
+func TestGatewayServiceRecordUsage_NewUserTrialOverageBillsBalanceRemainder(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{}
+	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
+	svc := newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+
+	ctx := WithNewUserTrialSession(context.Background(), &NewUserTrialSession{
+		TrialID:   11,
+		UserID:    601,
+		RequestID: "trial:req-balance",
+		QuotaLeft: 0.01,
+	})
+	err := svc.RecordUsage(ctx, &RecordUsageInput{
+		Result: &ForwardResult{
+			RequestID: "trial_balance_overage",
+			Usage: ClaudeUsage{
+				InputTokens:  100000,
+				OutputTokens: 100000,
+			},
+			Model:    "claude-sonnet-4",
+			Duration: time.Second,
+		},
+		APIKey:        &APIKey{ID: 601, Quota: 100, RateLimit1d: 1000},
+		User:          &User{ID: 601},
+		Account:       &Account{ID: 701, Type: AccountTypeAPIKey},
+		APIKeyService: &openAIRecordUsageAPIKeyQuotaStub{},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, billingRepo.commands, 2)
+	trialCmd := billingRepo.commands[0]
+	require.Equal(t, BillingTypeNewUserTrial, trialCmd.BillingType)
+	require.Zero(t, trialCmd.BalanceCost)
+	require.Greater(t, trialCmd.APIKeyQuotaCost, 0.0)
+	require.Equal(t, trialCmd.APIKeyQuotaCost, trialCmd.APIKeyRateLimitCost)
+	require.Zero(t, trialCmd.AccountQuotaCost)
+
+	overageCmd := billingRepo.commands[1]
+	require.Equal(t, "trial_balance_overage:trial-overage", overageCmd.RequestID)
+	require.Equal(t, BillingTypeBalance, overageCmd.BillingType)
+	require.InDelta(t, trialCmd.APIKeyQuotaCost-0.01, overageCmd.BalanceCost, 1e-12)
+	require.Zero(t, overageCmd.APIKeyQuotaCost)
+	require.Zero(t, overageCmd.APIKeyRateLimitCost)
+	require.Zero(t, overageCmd.AccountQuotaCost)
+}
+
+func TestGatewayServiceRecordUsage_NewUserTrialOverageBillsSubscriptionRemainder(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{}
+	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
+	svc := newGatewayRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+	groupID := int64(88)
+
+	ctx := WithNewUserTrialSession(context.Background(), &NewUserTrialSession{
+		TrialID:   12,
+		UserID:    602,
+		RequestID: "trial:req-sub",
+		QuotaLeft: 0.01,
+	})
+	err := svc.RecordUsage(ctx, &RecordUsageInput{
+		Result: &ForwardResult{
+			RequestID: "trial_subscription_overage",
+			Usage: ClaudeUsage{
+				InputTokens:  100000,
+				OutputTokens: 100000,
+			},
+			Model:    "claude-sonnet-4",
+			Duration: time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      602,
+			Quota:   100,
+			GroupID: &groupID,
+			Group:   &Group{ID: groupID, SubscriptionType: SubscriptionTypeSubscription, RateMultiplier: 1.1},
+		},
+		User:          &User{ID: 602},
+		Account:       &Account{ID: 702, Type: AccountTypeAPIKey},
+		Subscription:  &UserSubscription{ID: 990, UserID: 602, GroupID: groupID},
+		APIKeyService: &openAIRecordUsageAPIKeyQuotaStub{},
+	})
+
+	require.NoError(t, err)
+	require.Len(t, billingRepo.commands, 2)
+	require.Equal(t, BillingTypeNewUserTrial, billingRepo.commands[0].BillingType)
+
+	overageCmd := billingRepo.commands[1]
+	require.Equal(t, "trial_subscription_overage:trial-overage", overageCmd.RequestID)
+	require.Equal(t, BillingTypeSubscription, overageCmd.BillingType)
+	require.NotNil(t, overageCmd.SubscriptionID)
+	require.Equal(t, int64(990), *overageCmd.SubscriptionID)
+	require.InDelta(t, billingRepo.commands[0].APIKeyQuotaCost-0.01, overageCmd.SubscriptionCost, 1e-12)
+	require.Zero(t, overageCmd.BalanceCost)
+	require.Zero(t, overageCmd.APIKeyQuotaCost)
+	require.Zero(t, overageCmd.AccountQuotaCost)
 }
 
 func TestGatewayServiceRecordUsage_ReasoningEffortPersisted(t *testing.T) {

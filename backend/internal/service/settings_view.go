@@ -110,6 +110,9 @@ type SystemSettings struct {
 	SiteName                    string
 	SiteLogo                    string
 	SiteSubtitle                string
+	HomeHeroTitleTop            string
+	HomeHeroTitleBottom         string
+	HomeHeroSubtitles           string
 	APIBaseURL                  string
 	ContactInfo                 string
 	SupportPopupTitle           string
@@ -172,6 +175,22 @@ type SystemSettings struct {
 	LeaderboardDailyRewardRank1Amount        float64 `json:"leaderboard_daily_reward_rank_1_amount"`
 	LeaderboardDailyRewardRank2Amount        float64 `json:"leaderboard_daily_reward_rank_2_amount"`
 	LeaderboardDailyRewardRank3Amount        float64 `json:"leaderboard_daily_reward_rank_3_amount"`
+
+	// Welfare system feature flags and daily check-in configuration
+	WelfareEnabled                            bool    `json:"welfare_enabled"`
+	WelfareDailyCheckinEnabled                bool    `json:"welfare_daily_checkin_enabled"`
+	WelfareRechargeEnabled                    bool    `json:"welfare_recharge_enabled"`
+	WelfareVIPEnabled                         bool    `json:"welfare_vip_enabled"`
+	WelfareDailyCheckinRewardMin              float64 `json:"welfare_daily_checkin_reward_min"`
+	WelfareDailyCheckinRewardMax              float64 `json:"welfare_daily_checkin_reward_max"`
+	WelfareDailyCheckinMilestone7Amount       float64 `json:"welfare_daily_checkin_milestone_7_amount"`
+	WelfareDailyCheckinMilestone14Amount      float64 `json:"welfare_daily_checkin_milestone_14_amount"`
+	WelfareDailyCheckinMilestone21Amount      float64 `json:"welfare_daily_checkin_milestone_21_amount"`
+	WelfareDailyCheckinMilestone28Amount      float64 `json:"welfare_daily_checkin_milestone_28_amount"`
+	WelfareNewUserTrialEnabled                bool    `json:"welfare_new_user_trial_enabled"`
+	WelfareNewUserTrialQuotaAmount            float64 `json:"welfare_new_user_trial_quota_amount"`
+	WelfareNewUserTrialDailySiteQuotaAmount   float64 `json:"welfare_new_user_trial_daily_site_quota_amount"`
+	WelfareNewUserTrialDailyIPActivationLimit int     `json:"welfare_new_user_trial_daily_ip_activation_limit"`
 
 	// Claude Code version check
 	MinClaudeCodeVersion string
@@ -237,6 +256,9 @@ type PublicSettings struct {
 	SiteName                         string
 	SiteLogo                         string
 	SiteSubtitle                     string
+	HomeHeroTitleTop                 string
+	HomeHeroTitleBottom              string
+	HomeHeroSubtitles                string
 	APIBaseURL                       string
 	ContactInfo                      string
 	SupportPopupTitle                string
@@ -287,6 +309,13 @@ type PublicSettings struct {
 
 	// 风控中心功能开关
 	RiskControlEnabled bool `json:"risk_control_enabled"`
+
+	// Welfare system feature flags
+	WelfareEnabled             bool `json:"welfare_enabled"`
+	WelfareDailyCheckinEnabled bool `json:"welfare_daily_checkin_enabled"`
+	WelfareRechargeEnabled     bool `json:"welfare_recharge_enabled"`
+	WelfareVIPEnabled          bool `json:"welfare_vip_enabled"`
+	WelfareNewUserTrialEnabled bool `json:"welfare_new_user_trial_enabled"`
 }
 
 type LoginAgreementDocument struct {

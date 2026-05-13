@@ -124,6 +124,11 @@ export const FeatureFlags = {
     mode: 'opt-out',
     label: 'Account Sharing',
   }),
+  welfare: defineFlag({
+    key: 'welfare_enabled',
+    mode: 'opt-in',
+    label: 'Welfare',
+  }),
 } as const
 
 export type RegisteredFeatureFlag = keyof typeof FeatureFlags

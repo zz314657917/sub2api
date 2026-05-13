@@ -330,6 +330,9 @@ export const useAppStore = defineStore('app', () => {
         site_name: siteName.value,
         site_logo: siteLogo.value,
         site_subtitle: '',
+        home_hero_title_top: '',
+        home_hero_title_bottom: '',
+        home_hero_subtitles: '',
         api_base_url: apiBaseUrl.value,
         contact_info: contactInfo.value,
         support_popup_title: '',
@@ -364,6 +367,11 @@ export const useAppStore = defineStore('app', () => {
         risk_control_enabled: false,
         account_share_enabled: true,
         affiliate_enabled: false,
+        welfare_enabled: false,
+        welfare_daily_checkin_enabled: false,
+        welfare_recharge_enabled: false,
+        welfare_vip_enabled: false,
+        welfare_new_user_trial_enabled: false,
       }
     }
 
