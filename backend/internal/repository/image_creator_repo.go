@@ -28,10 +28,16 @@ func (r *imageCreatorRepository) CreateTask(ctx context.Context, task *service.I
 		INSERT INTO image_creator_tasks (
 			user_id, api_key_id, status, model, prompt, size, quality,
 			output_format, background, image_count, expires_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+		)
+		SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
+		WHERE NOT EXISTS (
+			SELECT 1
+			FROM image_creator_tasks
+			WHERE user_id = $1 AND status IN ($12, $13)
+		)
 		RETURNING id, created_at, updated_at
 	`
-	return scanSingleRow(ctx, r.sql, query, []any{
+	err := scanSingleRow(ctx, r.sql, query, []any{
 		task.UserID,
 		task.APIKeyID,
 		task.Status,
@@ -43,7 +49,13 @@ func (r *imageCreatorRepository) CreateTask(ctx context.Context, task *service.I
 		task.Background,
 		task.Count,
 		task.ExpiresAt,
+		service.ImageCreatorTaskStatusPending,
+		service.ImageCreatorTaskStatusRunning,
 	}, &task.ID, &task.CreatedAt, &task.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) || isUniqueConstraintViolation(err) {
+		return service.ErrImageCreatorActiveTaskExists
+	}
+	return err
 }
 
 func (r *imageCreatorRepository) UpdateTaskReferenceImage(ctx context.Context, taskID int64, path string, mimeType string, filename string) error {

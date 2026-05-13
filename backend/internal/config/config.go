@@ -1220,14 +1220,15 @@ type UsageCleanupConfig struct {
 
 // ImageCreatorConfig controls user image creator task persistence.
 type ImageCreatorConfig struct {
-	StorageDir            string `mapstructure:"storage_dir"`
-	MaxSavedImagesPerUser int    `mapstructure:"max_saved_images_per_user"`
-	RetentionDays         int    `mapstructure:"retention_days"`
-	WorkerIntervalSeconds int    `mapstructure:"worker_interval_seconds"`
-	TaskTimeoutSeconds    int    `mapstructure:"task_timeout_seconds"`
-	RequestTimeoutSeconds int    `mapstructure:"request_timeout_seconds"`
-	CleanupBatchSize      int    `mapstructure:"cleanup_batch_size"`
-	LocalGatewayBaseURL   string `mapstructure:"local_gateway_base_url"`
+	StorageDir             string `mapstructure:"storage_dir"`
+	MaxSavedImagesPerUser  int    `mapstructure:"max_saved_images_per_user"`
+	RetentionDays          int    `mapstructure:"retention_days"`
+	WorkerIntervalSeconds  int    `mapstructure:"worker_interval_seconds"`
+	TaskTimeoutSeconds     int    `mapstructure:"task_timeout_seconds"`
+	RequestTimeoutSeconds  int    `mapstructure:"request_timeout_seconds"`
+	CleanupBatchSize       int    `mapstructure:"cleanup_batch_size"`
+	DownloadBytesPerSecond int64  `mapstructure:"download_bytes_per_second"`
+	LocalGatewayBaseURL    string `mapstructure:"local_gateway_base_url"`
 }
 
 func NormalizeRunMode(value string) string {
@@ -1663,12 +1664,13 @@ func setDefaults() {
 
 	// Image creator task persistence
 	viper.SetDefault("image_creator.storage_dir", "data/image-creator")
-	viper.SetDefault("image_creator.max_saved_images_per_user", 3)
+	viper.SetDefault("image_creator.max_saved_images_per_user", 4)
 	viper.SetDefault("image_creator.retention_days", 7)
 	viper.SetDefault("image_creator.worker_interval_seconds", 5)
 	viper.SetDefault("image_creator.task_timeout_seconds", 1800)
 	viper.SetDefault("image_creator.request_timeout_seconds", 1800)
 	viper.SetDefault("image_creator.cleanup_batch_size", 100)
+	viper.SetDefault("image_creator.download_bytes_per_second", 262144)
 	viper.SetDefault("image_creator.local_gateway_base_url", "")
 
 	// Idempotency
@@ -2294,6 +2296,9 @@ func (c *Config) Validate() error {
 	}
 	if c.ImageCreator.CleanupBatchSize <= 0 {
 		return fmt.Errorf("image_creator.cleanup_batch_size must be positive")
+	}
+	if c.ImageCreator.DownloadBytesPerSecond < 0 {
+		return fmt.Errorf("image_creator.download_bytes_per_second must be non-negative")
 	}
 	if c.Idempotency.DefaultTTLSeconds <= 0 {
 		return fmt.Errorf("idempotency.default_ttl_seconds must be positive")

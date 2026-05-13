@@ -97,6 +97,17 @@ const emit = defineEmits<{
 const error = ref('')
 
 const acceptTypes = computed(() => props.mode === 'svg' ? '.svg' : 'image/*')
+const fallbackImageMimeTypes: Record<string, string> = {
+  avif: 'image/avif',
+  bmp: 'image/bmp',
+  gif: 'image/gif',
+  ico: 'image/x-icon',
+  jpeg: 'image/jpeg',
+  jpg: 'image/jpeg',
+  png: 'image/png',
+  svg: 'image/svg+xml',
+  webp: 'image/webp',
+}
 
 const sanitizedValue = computed(() =>
   props.mode === 'svg' ? sanitizeSvg(props.modelValue ?? '') : ''
@@ -105,6 +116,30 @@ const sanitizedValue = computed(() =>
 const previewSizeClass = computed(() => props.size === 'sm' ? 'h-14 w-14' : 'h-20 w-20')
 const innerSizeClass = computed(() => props.size === 'sm' ? 'h-7 w-7' : 'h-12 w-12')
 const placeholderSizeClass = computed(() => props.size === 'sm' ? 'h-5 w-5' : 'h-8 w-8')
+
+function getFileExtension(fileName: string) {
+  const match = /\.([a-z0-9]+)$/i.exec(fileName.trim())
+  return match?.[1]?.toLowerCase() ?? ''
+}
+
+function resolveImageMimeType(file: File) {
+  const declaredType = file.type.trim().toLowerCase()
+  if (declaredType.startsWith('image/')) return declaredType
+  return fallbackImageMimeTypes[getFileExtension(file.name)] ?? ''
+}
+
+function normalizeImageDataUrl(dataUrl: string, mimeType: string) {
+  if (!mimeType || !dataUrl.startsWith('data:')) return dataUrl
+
+  const base64Marker = ';base64,'
+  const base64Index = dataUrl.indexOf(base64Marker)
+  if (base64Index < 0) return dataUrl
+
+  const mediaType = dataUrl.slice(5, base64Index).toLowerCase()
+  if (mediaType && mediaType !== 'application/octet-stream') return dataUrl
+
+  return `data:${mimeType}${dataUrl.slice(base64Index)}`
+}
 
 function handleUpload(event: Event) {
   const input = event.target as HTMLInputElement
@@ -127,13 +162,14 @@ function handleUpload(event: Event) {
     }
     reader.readAsText(file)
   } else {
-    if (!file.type.startsWith('image/')) {
+    const imageMimeType = resolveImageMimeType(file)
+    if (!imageMimeType) {
       error.value = 'Please select an image file'
       input.value = ''
       return
     }
     reader.onload = (e) => {
-      emit('update:modelValue', e.target?.result as string)
+      emit('update:modelValue', normalizeImageDataUrl(e.target?.result as string, imageMimeType))
     }
     reader.readAsDataURL(file)
   }

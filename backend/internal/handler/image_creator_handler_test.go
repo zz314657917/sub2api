@@ -135,9 +135,10 @@ func TestImageCreatorHandlerServesImageFileForAuthenticatedOwner(t *testing.T) {
 	path := filepath.Join(dir, "generated.png")
 	require.NoError(t, os.WriteFile(path, []byte("pngdata"), 0o600))
 	fake := &fakeImageCreatorHandlerService{file: &service.ImageCreatorFile{
-		Path:        path,
-		ContentType: "image/png",
-		FileName:    "image-9.png",
+		Path:                   path,
+		ContentType:            "image/png",
+		FileName:               "image-9.png",
+		DownloadBytesPerSecond: 1024 * 1024,
 	}}
 	router := imageCreatorTestRouter(&ImageCreatorHandler{svc: fake})
 	recorder := httptest.NewRecorder()

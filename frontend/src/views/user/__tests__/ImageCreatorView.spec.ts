@@ -83,7 +83,18 @@ function mountView() {
         AppLayout: { template: '<div><slot /></div>' },
         Select: {
           props: ['modelValue', 'options', 'placeholder', 'disabled', 'searchable'],
-          template: '<div />',
+          emits: ['update:modelValue'],
+          template: `
+            <select
+              :value="modelValue"
+              :disabled="disabled"
+              @change="$emit('update:modelValue', $event.target.value)"
+            >
+              <option v-for="option in options" :key="String(option.value)" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          `,
         },
         EmptyState: { template: '<div />' },
         Icon: { template: '<span />' },
@@ -136,6 +147,7 @@ describe('ImageCreatorView', () => {
       model: 'gpt-image-2',
       prompt: 'draw a persisted image',
       count: 1,
+      outputFormat: 'webp',
     })
     expect(payload).not.toHaveProperty('apiKey')
     expect(wrapper.text()).toContain('imageCreator.generatingTitle')
@@ -152,7 +164,25 @@ describe('ImageCreatorView', () => {
 
     expect(createImageTask).toHaveBeenCalledTimes(1)
     expect(createImageTask.mock.calls[0][0]).toMatchObject({
-      count: 8,
+      count: 4,
+    })
+  })
+
+  it('normalizes transparent background when switching to gpt-image-1.5', async () => {
+    const wrapper = mountView()
+
+    await flushPromises()
+    const selects = wrapper.findAll('select')
+    await selects[5].setValue('transparent')
+    await selects[1].setValue('gpt-image-1.5')
+    await wrapper.find('textarea').setValue('draw without transparent background')
+    await wrapper.find('button.btn-primary').trigger('click')
+    await flushPromises()
+
+    expect(createImageTask).toHaveBeenCalledTimes(1)
+    expect(createImageTask.mock.calls[0][0]).toMatchObject({
+      model: 'gpt-image-1.5',
+      background: 'auto',
     })
   })
 

@@ -75,6 +75,8 @@
                 min="1"
                 :max="maxImageCount"
                 class="input"
+                @change="count = clampCount()"
+                @blur="count = clampCount()"
               />
             </div>
             <div>
@@ -275,7 +277,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Select from '@/components/common/Select.vue'
@@ -311,9 +313,9 @@ const model = ref('gpt-image-2')
 const prompt = ref('')
 const size = ref('auto')
 const count = ref(1)
-const maxImageCount = 8
+const maxImageCount = 4
 const quality = ref('auto')
-const outputFormat = ref<ImageCreatorOutputFormat>('png')
+const outputFormat = ref<ImageCreatorOutputFormat>('webp')
 const background = ref('auto')
 const referenceImage = ref<File | null>(null)
 const referencePreviewUrl = ref('')
@@ -327,6 +329,7 @@ let taskPollTimerId: ReturnType<typeof setInterval> | null = null
 
 const modelOptions = [
   { value: 'gpt-image-2', label: 'gpt-image-2' },
+  { value: 'gpt-image-1.5', label: 'gpt-image-1.5' },
   { value: 'gpt-image-1', label: 'gpt-image-1' },
 ]
 
@@ -348,16 +351,24 @@ const qualityOptions = [
 ]
 
 const outputFormatOptions = [
-  { value: 'png', label: 'PNG' },
-  { value: 'jpeg', label: 'JPEG' },
   { value: 'webp', label: 'WEBP' },
+  { value: 'jpeg', label: 'JPEG' },
 ]
 
-const backgroundOptions = [
+const transparentUnsupportedImageModels = new Set(['gpt-image-1.5'])
+
+const allBackgroundOptions = [
   { value: 'auto', label: 'auto' },
   { value: 'transparent', label: 'transparent' },
   { value: 'opaque', label: 'opaque' },
 ]
+
+const backgroundOptions = computed(() => {
+  if (!modelSupportsTransparentBackground(model.value)) {
+    return allBackgroundOptions.filter((option) => option.value !== 'transparent')
+  }
+  return allBackgroundOptions
+})
 
 const waitingStepKeys = [
   'imageCreator.waitingSteps.routing',
@@ -427,6 +438,21 @@ function clampCount(): number {
   if (!Number.isFinite(n)) return 1
   return Math.min(Math.max(Math.trunc(n), 1), maxImageCount)
 }
+
+function modelSupportsTransparentBackground(value: string): boolean {
+  return !transparentUnsupportedImageModels.has(value.trim().toLowerCase())
+}
+
+function normalizeBackgroundForModel(value: string, modelValue = model.value): string {
+  if (value.trim().toLowerCase() === 'transparent' && !modelSupportsTransparentBackground(modelValue)) {
+    return 'auto'
+  }
+  return value.trim()
+}
+
+watch(model, () => {
+  background.value = normalizeBackgroundForModel(background.value)
+})
 
 function startGenerationTimer(startedAtMs = Date.now()): void {
   stopGenerationTimer()
@@ -563,6 +589,7 @@ async function handleGenerate(): Promise<void> {
   startGenerationTimer()
   try {
     count.value = clampCount()
+    background.value = normalizeBackgroundForModel(background.value)
     const task = await createImageTask({
       apiKeyId: selectedKey.value.id,
       model: model.value,

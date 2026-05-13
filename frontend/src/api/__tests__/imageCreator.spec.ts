@@ -30,7 +30,7 @@ describe('imageCreator api', () => {
       size: '1024x1024',
       quality: 'auto',
       count: 4,
-      outputFormat: 'png',
+      outputFormat: 'webp',
       background: 'auto',
     })
 
@@ -42,7 +42,7 @@ describe('imageCreator api', () => {
       model: 'gpt-image-2',
       prompt: 'draw cats',
       count: 4,
-      output_format: 'png',
+      output_format: 'webp',
     })
     expect(payload).not.toHaveProperty('api_key')
     expect(payload).not.toHaveProperty('apiKey')

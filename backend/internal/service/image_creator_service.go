@@ -36,18 +36,20 @@ const (
 	ImageCreatorTaskStatusFailed    = "failed"
 
 	defaultImageCreatorStorageDir             = "data/image-creator"
-	defaultImageCreatorMaxSavedImages         = 3
+	defaultImageCreatorMaxSavedImages         = 4
 	defaultImageCreatorRetention              = 7 * 24 * time.Hour
 	defaultImageCreatorWorkerInterval         = 5 * time.Second
 	defaultImageCreatorTaskTimeout            = 30 * time.Minute
 	defaultImageCreatorRequestTimeout         = 30 * time.Minute
 	defaultImageCreatorCleanupBatchSize       = 100
 	defaultImageCreatorListTaskLimit          = 20
-	maxImageCreatorTaskCount                  = 8
+	maxImageCreatorTaskCount                  = 4
 	imageCreatorMaxStoredImageBytes     int64 = 25 << 20
 )
 
 var errImageCreatorTaskNotRunnable = errors.New("image creator task is not runnable")
+
+var ErrImageCreatorActiveTaskExists = errors.New("image creator active task already exists")
 
 var imageCreatorViewCountPattern = regexp.MustCompile(`(?i)([0-9]{1,5})[[:space:]]*(?:个|张|种|幅)?[[:space:]]*(?:不同的?|different[[:space:]]+)?(?:角度|视角|机位|镜头|angles?|views?|perspectives?)`)
 
@@ -154,9 +156,10 @@ type GeneratedImageAsset struct {
 }
 
 type ImageCreatorFile struct {
-	Path        string
-	ContentType string
-	FileName    string
+	Path                   string
+	ContentType            string
+	FileName               string
+	DownloadBytesPerSecond int64
 }
 
 type ImageCreatorRepository interface {
@@ -187,32 +190,35 @@ type ImageCreatorGenerator interface {
 }
 
 type ImageCreatorServiceOptions struct {
-	StorageDir           string
-	MaxSavedImages       int
-	Retention            time.Duration
-	WorkerInterval       time.Duration
-	TaskTimeout          time.Duration
-	RequestTimeout       time.Duration
-	CleanupBatchSize     int
-	AutoStartWorker      bool
-	DisableAsyncOnCreate bool
+	StorageDir             string
+	MaxSavedImages         int
+	Retention              time.Duration
+	WorkerInterval         time.Duration
+	TaskTimeout            time.Duration
+	RequestTimeout         time.Duration
+	CleanupBatchSize       int
+	DownloadBytesPerSecond int64
+	AutoStartWorker        bool
+	DisableAsyncOnCreate   bool
 }
 
 type ImageCreatorService struct {
-	repo                 ImageCreatorRepository
-	apiKeys              ImageCreatorAPIKeyLookup
-	generator            ImageCreatorGenerator
-	storageDir           string
-	maxSavedImages       int
-	retention            time.Duration
-	workerInterval       time.Duration
-	taskTimeout          time.Duration
-	requestTimeout       time.Duration
-	cleanupBatchSize     int
-	disableAsyncOnCreate bool
-	stopCh               chan struct{}
-	startOnce            sync.Once
-	stopOnce             sync.Once
+	repo                   ImageCreatorRepository
+	apiKeys                ImageCreatorAPIKeyLookup
+	generator              ImageCreatorGenerator
+	storageDir             string
+	maxSavedImages         int
+	retention              time.Duration
+	workerInterval         time.Duration
+	taskTimeout            time.Duration
+	requestTimeout         time.Duration
+	cleanupBatchSize       int
+	downloadBytesPerSecond int64
+	processOnCreate        bool
+	disableAsyncOnCreate   bool
+	stopCh                 chan struct{}
+	startOnce              sync.Once
+	stopOnce               sync.Once
 }
 
 func NewImageCreatorService(repo ImageCreatorRepository, apiKeyService *APIKeyService, cfg *config.Config) *ImageCreatorService {
@@ -224,18 +230,20 @@ func NewImageCreatorService(repo ImageCreatorRepository, apiKeyService *APIKeySe
 func NewImageCreatorServiceWithDeps(repo ImageCreatorRepository, apiKeys ImageCreatorAPIKeyLookup, generator ImageCreatorGenerator, opts ImageCreatorServiceOptions) *ImageCreatorService {
 	opts = normalizeImageCreatorOptions(opts)
 	svc := &ImageCreatorService{
-		repo:                 repo,
-		apiKeys:              apiKeys,
-		generator:            generator,
-		storageDir:           opts.StorageDir,
-		maxSavedImages:       opts.MaxSavedImages,
-		retention:            opts.Retention,
-		workerInterval:       opts.WorkerInterval,
-		taskTimeout:          opts.TaskTimeout,
-		requestTimeout:       opts.RequestTimeout,
-		cleanupBatchSize:     opts.CleanupBatchSize,
-		disableAsyncOnCreate: opts.DisableAsyncOnCreate,
-		stopCh:               make(chan struct{}),
+		repo:                   repo,
+		apiKeys:                apiKeys,
+		generator:              generator,
+		storageDir:             opts.StorageDir,
+		maxSavedImages:         opts.MaxSavedImages,
+		retention:              opts.Retention,
+		workerInterval:         opts.WorkerInterval,
+		taskTimeout:            opts.TaskTimeout,
+		requestTimeout:         opts.RequestTimeout,
+		cleanupBatchSize:       opts.CleanupBatchSize,
+		downloadBytesPerSecond: opts.DownloadBytesPerSecond,
+		processOnCreate:        !opts.AutoStartWorker,
+		disableAsyncOnCreate:   opts.DisableAsyncOnCreate,
+		stopCh:                 make(chan struct{}),
 	}
 	if opts.AutoStartWorker {
 		svc.Start()
@@ -258,6 +266,7 @@ func imageCreatorOptionsFromConfig(cfg *config.Config) ImageCreatorServiceOption
 	opts.TaskTimeout = time.Duration(ic.TaskTimeoutSeconds) * time.Second
 	opts.RequestTimeout = time.Duration(ic.RequestTimeoutSeconds) * time.Second
 	opts.CleanupBatchSize = ic.CleanupBatchSize
+	opts.DownloadBytesPerSecond = ic.DownloadBytesPerSecond
 	return normalizeImageCreatorOptions(opts)
 }
 
@@ -282,6 +291,9 @@ func normalizeImageCreatorOptions(opts ImageCreatorServiceOptions) ImageCreatorS
 	}
 	if opts.CleanupBatchSize <= 0 {
 		opts.CleanupBatchSize = defaultImageCreatorCleanupBatchSize
+	}
+	if opts.DownloadBytesPerSecond < 0 {
+		opts.DownloadBytesPerSecond = 0
 	}
 	return opts
 }
@@ -344,6 +356,9 @@ func (s *ImageCreatorService) CreateTask(ctx context.Context, userID int64, inpu
 		ExpiresAt:    time.Now().Add(s.retention),
 	}
 	if err := s.repo.CreateTask(ctx, task); err != nil {
+		if errors.Is(err, ErrImageCreatorActiveTaskExists) {
+			return nil, infraerrors.TooManyRequests("IMAGE_CREATOR_TASK_ALREADY_RUNNING", "please wait for the current image generation task to finish")
+		}
 		return nil, err
 	}
 	if len(input.ReferenceImage) > 0 {
@@ -361,7 +376,7 @@ func (s *ImageCreatorService) CreateTask(ctx context.Context, userID int64, inpu
 		}
 	}
 
-	if !s.disableAsyncOnCreate {
+	if !s.disableAsyncOnCreate && s.processOnCreate {
 		taskID := task.ID
 		go func() {
 			bg, cancel := context.WithTimeout(context.Background(), s.requestTimeout*time.Duration(maxInt(1, task.Count)))
@@ -382,8 +397,8 @@ func normalizeCreateTaskInput(input ImageCreatorCreateTaskInput) ImageCreatorCre
 	input.Prompt = strings.TrimSpace(input.Prompt)
 	input.Size = strings.TrimSpace(input.Size)
 	input.Quality = strings.TrimSpace(input.Quality)
-	input.OutputFormat = normalizeImageCreatorOutputFormat(input.OutputFormat)
-	input.Background = strings.TrimSpace(input.Background)
+	input.OutputFormat = normalizeImageCreatorRequestedOutputFormat(input.OutputFormat)
+	input.Background = normalizeImageCreatorBackground(input.Model, input.Background)
 	input.ReferenceImageMimeType = normalizeImageMimeType(input.ReferenceImageMimeType, input.ReferenceImage)
 	input.ReferenceImageFilename = strings.TrimSpace(input.ReferenceImageFilename)
 	if input.Count <= 0 {
@@ -460,9 +475,10 @@ func (s *ImageCreatorService) GetImageFile(ctx context.Context, userID int64, im
 		return nil, infraerrors.NotFound("IMAGE_CREATOR_IMAGE_NOT_FOUND", "image file not found")
 	}
 	return &ImageCreatorFile{
-		Path:        image.FilePath,
-		ContentType: firstNonEmptyString(image.MimeType, mimeTypeForOutputFormat(image.OutputFormat)),
-		FileName:    fmt.Sprintf("image-%d.%s", image.ID, normalizeImageCreatorOutputFormat(image.OutputFormat)),
+		Path:                   image.FilePath,
+		ContentType:            firstNonEmptyString(image.MimeType, mimeTypeForOutputFormat(image.OutputFormat)),
+		FileName:               fmt.Sprintf("image-%d.%s", image.ID, normalizeImageCreatorStoredOutputFormat(image.OutputFormat)),
+		DownloadBytesPerSecond: s.downloadBytesPerSecond,
 	}, nil
 }
 
@@ -527,7 +543,7 @@ func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *Imag
 			if len(asset.Data) == 0 {
 				continue
 			}
-			outputFormat := normalizeImageCreatorOutputFormat(firstNonEmptyString(asset.OutputFormat, task.OutputFormat))
+			outputFormat := normalizeImageCreatorStoredOutputFormat(firstNonEmptyString(asset.OutputFormat, task.OutputFormat))
 			mimeType := firstNonEmptyString(asset.MimeType, mimeTypeForOutputFormat(outputFormat))
 			filePath, hash, byteSize, err := s.saveGeneratedImage(task.UserID, task.ID, successCount+1, outputFormat, asset.Data)
 			if err != nil {
@@ -553,7 +569,7 @@ func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *Imag
 			successCount++
 		}
 	}
-	if pruneErr := s.pruneUserImages(ctx, task.UserID); pruneErr != nil && lastErr == nil {
+	if pruneErr := s.pruneUserImages(ctx, task.UserID, successCount); pruneErr != nil && lastErr == nil {
 		lastErr = pruneErr
 	}
 	if successCount == 0 {
@@ -655,11 +671,12 @@ func (s *ImageCreatorService) runWorkerOnce() {
 	}
 }
 
-func (s *ImageCreatorService) pruneUserImages(ctx context.Context, userID int64) error {
+func (s *ImageCreatorService) pruneUserImages(ctx context.Context, userID int64, keepAtLeast int) error {
 	if s.maxSavedImages <= 0 {
 		return nil
 	}
-	images, err := s.repo.ListPrunableImages(ctx, userID, s.maxSavedImages)
+	keep := maxInt(s.maxSavedImages, keepAtLeast)
+	images, err := s.repo.ListPrunableImages(ctx, userID, keep)
 	if err != nil {
 		return err
 	}
@@ -785,7 +802,7 @@ func (s *ImageCreatorService) saveGeneratedImage(userID int64, taskID int64, ind
 	if int64(len(data)) > imageCreatorMaxStoredImageBytes {
 		return "", "", 0, errors.New("generated image is too large")
 	}
-	outputFormat = normalizeImageCreatorOutputFormat(outputFormat)
+	outputFormat = normalizeImageCreatorStoredOutputFormat(outputFormat)
 	dir := filepath.Join(s.storageDir, strconv.FormatInt(userID, 10))
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", "", 0, err
@@ -835,6 +852,7 @@ func (g *ImageCreatorHTTPGenerator) GenerateImage(ctx context.Context, input Ima
 	if g == nil || g.client == nil {
 		return nil, errors.New("image generator is unavailable")
 	}
+	input.Background = normalizeImageCreatorBackground(input.Model, input.Background)
 	endpointMode := "generations"
 	if strings.TrimSpace(input.ReferenceImagePath) != "" {
 		endpointMode = "edits"
@@ -851,7 +869,7 @@ func (g *ImageCreatorHTTPGenerator) GenerateImage(ctx context.Context, input Ima
 		writeMultipartField(writer, "response_format", "b64_json")
 		writeMultipartField(writer, "size", input.Size)
 		writeMultipartField(writer, "quality", input.Quality)
-		writeMultipartField(writer, "output_format", normalizeImageCreatorOutputFormat(input.OutputFormat))
+		writeMultipartField(writer, "output_format", normalizeImageCreatorRequestedOutputFormat(input.OutputFormat))
 		writeMultipartField(writer, "background", input.Background)
 		if err := addImageCreatorReferencePart(writer, input); err != nil {
 			return nil, err
@@ -875,7 +893,7 @@ func (g *ImageCreatorHTTPGenerator) GenerateImage(ctx context.Context, input Ima
 			payload["quality"] = input.Quality
 		}
 		if strings.TrimSpace(input.OutputFormat) != "" {
-			payload["output_format"] = normalizeImageCreatorOutputFormat(input.OutputFormat)
+			payload["output_format"] = normalizeImageCreatorRequestedOutputFormat(input.OutputFormat)
 		}
 		if strings.TrimSpace(input.Background) != "" {
 			payload["background"] = input.Background
@@ -905,7 +923,7 @@ func (g *ImageCreatorHTTPGenerator) GenerateImage(ctx context.Context, input Ima
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return nil, fmt.Errorf("image gateway returned HTTP %d: %s", resp.StatusCode, extractImageCreatorGatewayError(respBody))
 	}
-	return g.assetsFromGatewayResponse(ctx, respBody, normalizeImageCreatorOutputFormat(input.OutputFormat))
+	return g.assetsFromGatewayResponse(ctx, respBody, normalizeImageCreatorRequestedOutputFormat(input.OutputFormat))
 }
 
 func (g *ImageCreatorHTTPGenerator) assetsFromGatewayResponse(ctx context.Context, body []byte, fallbackFormat string) ([]GeneratedImageAsset, error) {
@@ -922,7 +940,7 @@ func (g *ImageCreatorHTTPGenerator) assetsFromGatewayResponse(ctx context.Contex
 	}
 	assets := make([]GeneratedImageAsset, 0, len(payload.Data))
 	for _, item := range payload.Data {
-		outputFormat := normalizeImageCreatorOutputFormat(firstNonEmptyString(item.OutputFormat, fallbackFormat))
+		outputFormat := normalizeImageCreatorStoredOutputFormat(firstNonEmptyString(item.OutputFormat, fallbackFormat))
 		var data []byte
 		var err error
 		switch {
@@ -1025,11 +1043,33 @@ func escapeQuotes(v string) string {
 
 func decodeImageCreatorBase64(raw string) ([]byte, error) {
 	raw = strings.TrimSpace(raw)
-	if idx := strings.Index(raw, ","); strings.HasPrefix(strings.ToLower(raw), "data:") && idx >= 0 {
+	if idx := strings.Index(raw, ","); idx >= 0 && len(raw) >= len("data:") && strings.EqualFold(raw[:len("data:")], "data:") {
 		raw = raw[idx+1:]
 	}
-	raw = strings.TrimRight(raw, "=") + strings.Repeat("=", (4-len(raw)%4)%4)
-	return base64.StdEncoding.DecodeString(raw)
+	raw = strings.Map(func(r rune) rune {
+		switch r {
+		case ' ', '\n', '\r', '\t':
+			return -1
+		default:
+			return r
+		}
+	}, raw)
+	if raw == "" {
+		return nil, errors.New("image data is empty")
+	}
+	unpadded := strings.TrimRight(raw, "=")
+	padded := unpadded + strings.Repeat("=", (4-len(unpadded)%4)%4)
+
+	if data, err := base64.StdEncoding.DecodeString(padded); err == nil {
+		return data, nil
+	}
+	if data, err := base64.URLEncoding.DecodeString(padded); err == nil {
+		return data, nil
+	}
+	if data, err := base64.RawStdEncoding.DecodeString(unpadded); err == nil {
+		return data, nil
+	}
+	return base64.RawURLEncoding.DecodeString(unpadded)
 }
 
 func extractImageCreatorGatewayError(body []byte) string {
@@ -1063,15 +1103,36 @@ func imageCreatorImageURL(imageID int64) string {
 	return fmt.Sprintf("/api/v1/user/image-creator/images/%d/file", imageID)
 }
 
-func normalizeImageCreatorOutputFormat(format string) string {
+func normalizeImageCreatorRequestedOutputFormat(format string) string {
 	switch strings.ToLower(strings.TrimSpace(format)) {
 	case "jpg", "jpeg":
 		return "jpeg"
 	case "webp":
 		return "webp"
 	default:
-		return "png"
+		return "webp"
 	}
+}
+
+func normalizeImageCreatorStoredOutputFormat(format string) string {
+	switch strings.ToLower(strings.TrimSpace(format)) {
+	case "jpg", "jpeg":
+		return "jpeg"
+	case "png":
+		return "png"
+	case "webp":
+		return "webp"
+	default:
+		return "webp"
+	}
+}
+
+func normalizeImageCreatorBackground(model string, background string) string {
+	background = strings.TrimSpace(background)
+	if strings.EqualFold(strings.TrimSpace(model), "gpt-image-1.5") && strings.EqualFold(background, "transparent") {
+		return "auto"
+	}
+	return background
 }
 
 func normalizeImageMimeType(mimeType string, data []byte) string {
@@ -1089,7 +1150,7 @@ func normalizeImageMimeType(mimeType string, data []byte) string {
 }
 
 func mimeTypeForOutputFormat(format string) string {
-	switch normalizeImageCreatorOutputFormat(format) {
+	switch normalizeImageCreatorStoredOutputFormat(format) {
 	case "jpeg":
 		return "image/jpeg"
 	case "webp":

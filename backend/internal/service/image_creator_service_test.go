@@ -33,6 +33,11 @@ func newFakeImageCreatorRepo() *fakeImageCreatorRepo {
 }
 
 func (r *fakeImageCreatorRepo) CreateTask(_ context.Context, task *ImageCreatorTask) error {
+	for _, existing := range r.tasks {
+		if existing.UserID == task.UserID && (existing.Status == ImageCreatorTaskStatusPending || existing.Status == ImageCreatorTaskStatusRunning) {
+			return ErrImageCreatorActiveTaskExists
+		}
+	}
 	task.ID = r.nextTaskID
 	r.nextTaskID++
 	now := time.Now()
@@ -270,6 +275,82 @@ func (g *fakeImageGenerator) GenerateImage(_ context.Context, input ImageCreator
 	return []GeneratedImageAsset{result}, nil
 }
 
+func TestDecodeImageCreatorBase64AcceptsDataURLWhitespaceAndURLSafeInput(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want []byte
+	}{
+		{
+			name: "data url with whitespace",
+			raw:  "data:image/png;base64, aG Vs\n bG8=",
+			want: []byte("hello"),
+		},
+		{
+			name: "url safe without padding",
+			raw:  "-_8",
+			want: []byte{0xfb, 0xff},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := decodeImageCreatorBase64(tc.raw)
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
+		})
+	}
+}
+
+func TestImageCreatorServiceCreateTaskNormalizesUnsupportedTransparentBackground(t *testing.T) {
+	repo := newFakeImageCreatorRepo()
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
+		ID:     10,
+		UserID: 42,
+		Status: StatusAPIKeyActive,
+		Group:  &Group{Platform: PlatformOpenAI, Status: StatusActive, AllowImageGeneration: true},
+	}}, &fakeImageGenerator{}, ImageCreatorServiceOptions{
+		DisableAsyncOnCreate: true,
+	})
+
+	task, err := svc.CreateTask(context.Background(), 42, ImageCreatorCreateTaskInput{
+		APIKeyID:     10,
+		Model:        "gpt-image-1.5",
+		Prompt:       "a neon city",
+		Count:        1,
+		OutputFormat: "png",
+		Background:   "transparent",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "auto", task.Background)
+	require.Equal(t, "auto", repo.tasks[task.ID].Background)
+}
+
+func TestImageCreatorServiceCreateTaskDefaultsRequestedOutputFormatToWebP(t *testing.T) {
+	repo := newFakeImageCreatorRepo()
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
+		ID:     10,
+		UserID: 42,
+		Status: StatusAPIKeyActive,
+		Group:  &Group{Platform: PlatformOpenAI, Status: StatusActive, AllowImageGeneration: true},
+	}}, &fakeImageGenerator{}, ImageCreatorServiceOptions{
+		DisableAsyncOnCreate: true,
+	})
+
+	task, err := svc.CreateTask(context.Background(), 42, ImageCreatorCreateTaskInput{
+		APIKeyID:     10,
+		Model:        "gpt-image-2",
+		Prompt:       "a compressed image",
+		Count:        1,
+		OutputFormat: "png",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, "webp", task.OutputFormat)
+	require.Equal(t, "webp", repo.tasks[task.ID].OutputFormat)
+}
+
 func TestImageCreatorServiceCreateTaskRejectsForeignAPIKey(t *testing.T) {
 	repo := newFakeImageCreatorRepo()
 	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
@@ -327,7 +408,7 @@ func TestImageCreatorServiceCreateTaskRejectsTooManyImages(t *testing.T) {
 		APIKeyID:     10,
 		Model:        "gpt-image-2",
 		Prompt:       "too many images",
-		Count:        9,
+		Count:        5,
 		OutputFormat: "png",
 	})
 
@@ -335,6 +416,36 @@ func TestImageCreatorServiceCreateTaskRejectsTooManyImages(t *testing.T) {
 	require.True(t, infraerrors.IsBadRequest(err), "expected bad request error, got %v", err)
 	require.Equal(t, "INVALID_COUNT", infraerrors.Reason(err))
 	require.Empty(t, repo.tasks)
+}
+
+func TestImageCreatorServiceCreateTaskRejectsWhenUserAlreadyHasActiveTask(t *testing.T) {
+	repo := newFakeImageCreatorRepo()
+	repo.tasks[1] = &ImageCreatorTask{
+		ID:        1,
+		UserID:    42,
+		APIKeyID:  10,
+		Status:    ImageCreatorTaskStatusRunning,
+		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+	}
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
+		ID:     10,
+		UserID: 42,
+		Status: StatusAPIKeyActive,
+		Group:  &Group{Platform: PlatformOpenAI, Status: StatusActive, AllowImageGeneration: true},
+	}}, &fakeImageGenerator{}, ImageCreatorServiceOptions{})
+
+	_, err := svc.CreateTask(context.Background(), 42, ImageCreatorCreateTaskInput{
+		APIKeyID:     10,
+		Model:        "gpt-image-2",
+		Prompt:       "wait for current task",
+		Count:        1,
+		OutputFormat: "png",
+	})
+
+	require.Error(t, err)
+	require.True(t, infraerrors.IsTooManyRequests(err), "expected too many requests error, got %v", err)
+	require.Equal(t, "IMAGE_CREATOR_TASK_ALREADY_RUNNING", infraerrors.Reason(err))
+	require.Len(t, repo.tasks, 1)
 }
 
 func TestImageCreatorServiceCreateTaskInfersMultiAngleCountFromPrompt(t *testing.T) {
@@ -378,7 +489,7 @@ func TestImageCreatorServiceProcessTaskSplitsMultiAnglePrompt(t *testing.T) {
 		Group:  &Group{Platform: PlatformOpenAI, Status: StatusActive, AllowImageGeneration: true},
 	}}, generator, ImageCreatorServiceOptions{
 		StorageDir:           dir,
-		MaxSavedImages:       8,
+		MaxSavedImages:       4,
 		Retention:            7 * 24 * time.Hour,
 		AutoStartWorker:      false,
 		DisableAsyncOnCreate: true,
@@ -408,7 +519,7 @@ func TestImageCreatorServiceProcessTaskSplitsMultiAnglePrompt(t *testing.T) {
 	require.NotEqual(t, generator.inputs[0].Prompt, generator.inputs[1].Prompt)
 }
 
-func TestImageCreatorServiceProcessTaskPersistsOnlyLatestThreeImages(t *testing.T) {
+func TestImageCreatorServiceProcessTaskKeepsAllImagesFromCurrentTask(t *testing.T) {
 	dir := t.TempDir()
 	repo := newFakeImageCreatorRepo()
 	generator := &fakeImageGenerator{results: []GeneratedImageAsset{
@@ -443,11 +554,55 @@ func TestImageCreatorServiceProcessTaskPersistsOnlyLatestThreeImages(t *testing.
 	require.NoError(t, svc.ProcessTask(context.Background(), task.ID))
 
 	require.Equal(t, 4, generator.calls)
-	require.Len(t, repo.images, 3)
-	require.Equal(t, []byte("two"), mustReadFile(t, repo.images[0].FilePath))
-	require.Equal(t, []byte("three"), mustReadFile(t, repo.images[1].FilePath))
-	require.Equal(t, []byte("four"), mustReadFile(t, repo.images[2].FilePath))
-	require.NoFileExists(t, filepath.Join(dir, "42", "1-1.png"))
+	require.Len(t, repo.images, 4)
+	require.Equal(t, []byte("one"), mustReadFile(t, repo.images[0].FilePath))
+	require.Equal(t, []byte("two"), mustReadFile(t, repo.images[1].FilePath))
+	require.Equal(t, []byte("three"), mustReadFile(t, repo.images[2].FilePath))
+	require.Equal(t, []byte("four"), mustReadFile(t, repo.images[3].FilePath))
+	require.FileExists(t, filepath.Join(dir, "42", "1-1.png"))
+	require.Equal(t, ImageCreatorTaskStatusSucceeded, repo.tasks[task.ID].Status)
+}
+
+func TestImageCreatorServiceProcessTaskKeepsFourImageBatchWhenSavedLimitIsLower(t *testing.T) {
+	dir := t.TempDir()
+	repo := newFakeImageCreatorRepo()
+	generator := &fakeImageGenerator{results: []GeneratedImageAsset{
+		{Data: []byte("image-1"), OutputFormat: "png"},
+		{Data: []byte("image-2"), OutputFormat: "png"},
+		{Data: []byte("image-3"), OutputFormat: "png"},
+		{Data: []byte("image-4"), OutputFormat: "png"},
+	}}
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
+		ID:     10,
+		UserID: 42,
+		Key:    "sk-test",
+		Status: StatusAPIKeyActive,
+		Group:  &Group{Platform: PlatformOpenAI, Status: StatusActive, AllowImageGeneration: true},
+	}}, generator, ImageCreatorServiceOptions{
+		StorageDir:           dir,
+		MaxSavedImages:       3,
+		Retention:            7 * 24 * time.Hour,
+		AutoStartWorker:      false,
+		DisableAsyncOnCreate: true,
+	})
+
+	task, err := svc.CreateTask(context.Background(), 42, ImageCreatorCreateTaskInput{
+		APIKeyID:     10,
+		Model:        "gpt-image-2",
+		Prompt:       "four versions",
+		Count:        4,
+		OutputFormat: "png",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, svc.ProcessTask(context.Background(), task.ID))
+
+	require.Equal(t, 4, generator.calls)
+	require.Len(t, repo.images, 4)
+	expected := [][]byte{[]byte("image-1"), []byte("image-2"), []byte("image-3"), []byte("image-4")}
+	for i, image := range repo.images {
+		require.Equal(t, expected[i], mustReadFile(t, image.FilePath))
+	}
 	require.Equal(t, ImageCreatorTaskStatusSucceeded, repo.tasks[task.ID].Status)
 }
 

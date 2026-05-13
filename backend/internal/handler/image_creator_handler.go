@@ -4,8 +4,10 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
@@ -125,10 +127,63 @@ func (h *ImageCreatorHandler) GetImageFile(c *gin.Context) {
 		c.Header("Content-Type", file.ContentType)
 	}
 	if strings.TrimSpace(file.FileName) != "" {
-		c.FileAttachment(file.Path, file.FileName)
+		c.Header("Content-Disposition", `inline; filename="`+strings.ReplaceAll(file.FileName, `"`, `\"`)+`"`)
+	}
+	serveImageCreatorFile(c, file)
+}
+
+func serveImageCreatorFile(c *gin.Context, file *service.ImageCreatorFile) {
+	f, err := os.Open(file.Path)
+	if err != nil {
+		response.NotFound(c, "image file not found")
 		return
 	}
-	c.File(file.Path)
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		response.NotFound(c, "image file not found")
+		return
+	}
+	reader := io.Reader(f)
+	if file.DownloadBytesPerSecond > 0 {
+		reader = newThrottledReader(reader, file.DownloadBytesPerSecond)
+	}
+	c.Header("Accept-Ranges", "none")
+	c.Writer.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
+	c.Writer.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
+	c.Status(http.StatusOK)
+	if c.Request.Method == http.MethodHead {
+		return
+	}
+	_, _ = io.Copy(c.Writer, reader)
+}
+
+type throttledReader struct {
+	reader         io.Reader
+	bytesPerSecond int64
+	lastRead       time.Time
+}
+
+func newThrottledReader(reader io.Reader, bytesPerSecond int64) io.Reader {
+	if bytesPerSecond <= 0 {
+		return reader
+	}
+	return &throttledReader{reader: reader, bytesPerSecond: bytesPerSecond}
+}
+
+func (r *throttledReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	if n <= 0 || r.bytesPerSecond <= 0 {
+		return n, err
+	}
+	expected := time.Duration(int64(n) * int64(time.Second) / r.bytesPerSecond)
+	if !r.lastRead.IsZero() {
+		if sleepFor := r.lastRead.Add(expected).Sub(time.Now()); sleepFor > 0 {
+			time.Sleep(sleepFor)
+		}
+	}
+	r.lastRead = time.Now()
+	return n, err
 }
 
 func parseImageCreatorCreateTaskInput(c *gin.Context) (service.ImageCreatorCreateTaskInput, error) {
