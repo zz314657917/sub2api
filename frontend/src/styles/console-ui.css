@@ -259,8 +259,10 @@
 .console-sidebar .sidebar-link {
     position: relative;
     min-height: 2.25rem;
+    width: 100%;
     border: 1px solid transparent;
     border-radius: 0.5rem;
+    box-sizing: border-box;
     color: #475569;
     padding-top: 0.45rem;
     padding-bottom: 0.45rem;
@@ -298,6 +300,10 @@
 
 .console-sidebar .sidebar-section-title {
     color: #94a3b8;
+}
+
+.console-sidebar .sidebar-section {
+    width: 100%;
 }
 
 .dark .console-sidebar .sidebar-section-title {

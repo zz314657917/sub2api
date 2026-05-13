@@ -8,6 +8,8 @@ const componentPath = resolve(dirname(fileURLToPath(import.meta.url)), '../AppSi
 const componentSource = readFileSync(componentPath, 'utf8')
 const stylePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../style.css')
 const styleSource = readFileSync(stylePath, 'utf8')
+const consoleUiPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../styles/console-ui.css')
+const consoleUiSource = readFileSync(consoleUiPath, 'utf8')
 const onboardingTourPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../composables/useOnboardingTour.ts')
 const onboardingTourSource = readFileSync(onboardingTourPath, 'utf8')
 
@@ -77,6 +79,17 @@ describe('AppSidebar creation center navigation', () => {
     expect(componentSource.indexOf("path: '/chat'")).toBeLessThan(
       componentSource.indexOf("path: '/image-creator'")
     )
+  })
+
+  it('keeps creation links aligned with regular sidebar links in the console shell', () => {
+    const sidebarLinkBlock = consoleUiSource.match(/\.console-sidebar \.sidebar-link\s*\{[\s\S]*?\n\}/)?.[0] ?? ''
+    const sidebarSectionBlock = consoleUiSource.match(/\.console-sidebar \.sidebar-section\s*\{[\s\S]*?\n\}/)?.[0] ?? ''
+
+    expect(sidebarLinkBlock).toContain('width: 100%;')
+    expect(sidebarLinkBlock).toContain('box-sizing: border-box;')
+    expect(sidebarSectionBlock).toContain('width: 100%;')
+    expect(componentSource).toContain("path: '/image-creator'")
+    expect(componentSource).toContain("path: '/dashboard'")
   })
 })
 
