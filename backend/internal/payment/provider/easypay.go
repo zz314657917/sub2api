@@ -209,18 +209,21 @@ func (e *EasyPay) QueryOrder(ctx context.Context, tradeNo string) (*payment.Quer
 		"act": "order", "pid": e.config["pid"],
 		"key": e.config["pkey"], "out_trade_no": tradeNo,
 	}
-	body, err := e.post(ctx, e.apiBase()+"/api.php", params)
+	endpoint := e.apiBase() + "/api.php"
+	body, statusCode, err := e.getRaw(ctx, endpoint, params)
 	if err != nil {
-		return nil, fmt.Errorf("easypay query: %w", err)
+		return nil, fmt.Errorf("easypay query GET: %w", err)
 	}
-	var resp struct {
-		Code   int    `json:"code"`
-		Msg    string `json:"msg"`
-		Status int    `json:"status"`
-		Money  string `json:"money"`
+	if isEasyPayEmptyResponse(body) {
+		body, statusCode, err = e.postRaw(ctx, endpoint, params)
+		if err != nil {
+			return nil, fmt.Errorf("easypay query POST fallback: %w", err)
+		}
 	}
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("easypay parse query: %w", err)
+
+	resp, err := parseEasyPayQueryResponse(statusCode, body)
+	if err != nil {
+		return nil, err
 	}
 	status := payment.ProviderStatusPending
 	if resp.Status == easypayStatusPaid {
@@ -339,6 +342,41 @@ func isEasyPayRefundOrderNotFound(err error) bool {
 		strings.Contains(lower, "not exist")
 }
 
+type easyPayQueryAPIResponse struct {
+	Code   any    `json:"code"`
+	Msg    string `json:"msg"`
+	Status int    `json:"status"`
+	Money  string `json:"money"`
+}
+
+func parseEasyPayQueryResponse(status int, body []byte) (*easyPayQueryAPIResponse, error) {
+	summary := summarizeEasyPayResponse(body)
+	if status < http.StatusOK || status >= http.StatusMultipleChoices {
+		return nil, fmt.Errorf("easypay query HTTP %d: %s", status, summary)
+	}
+
+	trimmed := strings.TrimSpace(string(body))
+	if trimmed == "" {
+		return nil, fmt.Errorf("easypay query empty response (HTTP %d): %s", status, summary)
+	}
+	if isEasyPayHTMLResponse(trimmed) {
+		return nil, fmt.Errorf("easypay query non-JSON response (HTTP %d): %s", status, summary)
+	}
+
+	var resp easyPayQueryAPIResponse
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return nil, fmt.Errorf("easypay query non-JSON response (HTTP %d): %s", status, summary)
+	}
+	if !easyPayResponseCodeIsSuccess(resp.Code) {
+		msg := strings.TrimSpace(resp.Msg)
+		if msg == "" {
+			msg = summary
+		}
+		return nil, fmt.Errorf("easypay query failed (HTTP %d): %s", status, msg)
+	}
+	return &resp, nil
+}
+
 func parseEasyPayRefundResponse(status int, body []byte) error {
 	summary := summarizeEasyPayResponse(body)
 	if status < http.StatusOK || status >= http.StatusMultipleChoices {
@@ -350,9 +388,7 @@ func parseEasyPayRefundResponse(status int, body []byte) error {
 		return fmt.Errorf("easypay refund empty response (HTTP %d): %s", status, summary)
 	}
 
-	lower := strings.ToLower(trimmed)
-	if strings.HasPrefix(lower, "<!doctype html") || strings.HasPrefix(lower, "<html") ||
-		(strings.HasPrefix(lower, "<") && strings.Contains(lower, "html")) {
+	if isEasyPayHTMLResponse(trimmed) {
 		return fmt.Errorf("easypay refund non-JSON response (HTTP %d): %s", status, summary)
 	}
 
@@ -385,6 +421,17 @@ func easyPayResponseCodeIsSuccess(code any) bool {
 	}
 }
 
+func isEasyPayEmptyResponse(body []byte) bool {
+	return strings.TrimSpace(string(body)) == ""
+}
+
+func isEasyPayHTMLResponse(trimmed string) bool {
+	lower := strings.ToLower(trimmed)
+	return strings.HasPrefix(lower, "<!doctype html") ||
+		strings.HasPrefix(lower, "<html") ||
+		(strings.HasPrefix(lower, "<") && strings.Contains(lower, "html"))
+}
+
 func summarizeEasyPayResponse(body []byte) string {
 	summary := strings.Join(strings.Fields(string(body)), " ")
 	if summary == "" {
@@ -414,6 +461,26 @@ func (e *EasyPay) post(ctx context.Context, endpoint string, params map[string]s
 	return body, err
 }
 
+func (e *EasyPay) getRaw(ctx context.Context, endpoint string, params map[string]string) ([]byte, int, error) {
+	q := url.Values{}
+	for k, v := range params {
+		q.Set(k, v)
+	}
+	reqURL := endpoint
+	if encoded := q.Encode(); encoded != "" {
+		separator := "?"
+		if strings.Contains(reqURL, "?") {
+			separator = "&"
+		}
+		reqURL += separator + encoded
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, 0, err
+	}
+	return e.doRaw(req)
+}
+
 func (e *EasyPay) postRaw(ctx context.Context, endpoint string, params map[string]string) ([]byte, int, error) {
 	form := url.Values{}
 	for k, v := range params {
@@ -424,6 +491,10 @@ func (e *EasyPay) postRaw(ctx context.Context, endpoint string, params map[strin
 		return nil, 0, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	return e.doRaw(req)
+}
+
+func (e *EasyPay) doRaw(req *http.Request) ([]byte, int, error) {
 	client := e.httpClient
 	if client == nil {
 		client = &http.Client{Timeout: easypayHTTPTimeout}

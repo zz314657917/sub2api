@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -33,6 +34,101 @@ func TestNormalizeEasyPayAPIBase(t *testing.T) {
 				t.Fatalf("normalizeEasyPayAPIBase(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestEasyPayQueryOrderUsesGET(t *testing.T) {
+	t.Parallel()
+
+	var gotMethod string
+	var gotPath string
+	var gotQuery url.Values
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotPath = r.URL.Path
+		gotQuery = r.URL.Query()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":1,"msg":"ok","status":1,"money":"12.34"}`))
+	}))
+	defer server.Close()
+
+	provider := newTestEasyPay(t, server.URL+"/mapi.php")
+	resp, err := provider.QueryOrder(context.Background(), "out-123")
+	if err != nil {
+		t.Fatalf("QueryOrder returned error: %v", err)
+	}
+	if gotMethod != http.MethodGet {
+		t.Fatalf("query method = %q, want GET", gotMethod)
+	}
+	if gotPath != "/api.php" {
+		t.Fatalf("query path = %q, want /api.php", gotPath)
+	}
+	for key, want := range map[string]string{
+		"act":          "order",
+		"pid":          "pid-1",
+		"key":          "pkey-1",
+		"out_trade_no": "out-123",
+	} {
+		if got := gotQuery.Get(key); got != want {
+			t.Fatalf("query[%s] = %q, want %q (query=%v)", key, got, want, gotQuery)
+		}
+	}
+	if resp == nil || resp.TradeNo != "out-123" || resp.Status != payment.ProviderStatusPaid {
+		t.Fatalf("QueryOrder response = %+v, want paid out-123", resp)
+	}
+	if math.Abs(resp.Amount-12.34) > 0.000001 {
+		t.Fatalf("QueryOrder amount = %v, want 12.34", resp.Amount)
+	}
+}
+
+func TestEasyPayQueryOrderFallsBackToPOSTWhenGETEmpty(t *testing.T) {
+	t.Parallel()
+
+	var gotMethods []string
+	var gotPostForm url.Values
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotMethods = append(gotMethods, r.Method)
+		if len(gotMethods) == 1 {
+			if r.Method != http.MethodGet {
+				t.Errorf("first query method = %q, want GET", r.Method)
+			}
+			return
+		}
+		if r.Method != http.MethodPost {
+			t.Errorf("fallback query method = %q, want POST", r.Method)
+		}
+		if err := r.ParseForm(); err != nil {
+			t.Errorf("ParseForm: %v", err)
+		}
+		gotPostForm = r.PostForm
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"code":1,"msg":"ok","status":1,"money":"9.99"}`))
+	}))
+	defer server.Close()
+
+	provider := newTestEasyPay(t, server.URL+"/api.php")
+	resp, err := provider.QueryOrder(context.Background(), "out-456")
+	if err != nil {
+		t.Fatalf("QueryOrder returned error: %v", err)
+	}
+	if len(gotMethods) != 2 {
+		t.Fatalf("query attempts = %d, want 2 (methods=%v)", len(gotMethods), gotMethods)
+	}
+	for key, want := range map[string]string{
+		"act":          "order",
+		"pid":          "pid-1",
+		"key":          "pkey-1",
+		"out_trade_no": "out-456",
+	} {
+		if got := gotPostForm.Get(key); got != want {
+			t.Fatalf("fallback form[%s] = %q, want %q (form=%v)", key, got, want, gotPostForm)
+		}
+	}
+	if resp == nil || resp.TradeNo != "out-456" || resp.Status != payment.ProviderStatusPaid {
+		t.Fatalf("QueryOrder response = %+v, want paid out-456", resp)
+	}
+	if math.Abs(resp.Amount-9.99) > 0.000001 {
+		t.Fatalf("QueryOrder amount = %v, want 9.99", resp.Amount)
 	}
 }
 
