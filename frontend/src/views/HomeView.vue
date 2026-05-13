@@ -17,12 +17,15 @@
     <div class="home-matrix-rain pointer-events-none absolute inset-0" aria-hidden="true">
       <span
         v-for="column in matrixColumns"
-        :key="column.left"
+        :key="column.id"
         class="home-matrix-column"
         :style="{
           left: column.left,
           animationDelay: column.delay,
-          animationDuration: column.duration
+          animationDuration: column.duration,
+          opacity: column.opacity,
+          fontSize: column.fontSize,
+          lineHeight: column.lineHeight
         }"
       >
         {{ column.text }}
@@ -43,9 +46,26 @@
 
           <h1
             class="home-title-sweep text-[2.95rem] font-black leading-[0.98] tracking-normal text-white sm:text-[4.45rem] lg:text-[5.75rem]"
-          >
-            <span class="home-title-line home-title-fill block">{{ t('home.heroTitleTop') }}</span>
-            <span class="home-title-line block">{{ t('home.heroTitleBottom') }}</span>
+            >
+            <span class="home-title-line home-title-line-top block" :aria-label="heroTitleTop" role="text">
+              <span class="home-title-top-fill home-title-letter-row" aria-hidden="true">
+                <span
+                  v-for="letter in heroTitleLetters"
+                  :key="letter.id"
+                  class="home-title-letter"
+                  :class="letter.variant"
+                  :style="{
+                    '--letter-delay': letter.delay,
+                    '--letter-duration': letter.duration
+                  }"
+                >
+                  {{ letter.value }}
+                </span>
+              </span>
+            </span>
+            <span class="home-title-line home-title-line-bottom block">
+              <span class="home-title-bottom-fill">{{ heroTitleBottom }}</span>
+            </span>
           </h1>
 
           <p
@@ -93,9 +113,13 @@
             <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer">
               {{ t('home.docs') }}
             </a>
-            <router-link to="/legal/terms">{{ t('home.footer.terms') }}</router-link>
-            <router-link to="/legal/privacy">{{ t('home.footer.privacy') }}</router-link>
-            <router-link to="/legal/usage-policy">{{ t('home.footer.usagePolicy') }}</router-link>
+            <router-link
+              v-for="doc in footerLegalDocuments"
+              :key="doc.documentId"
+              :to="{ name: 'LegalDocument', params: { documentId: doc.documentId } }"
+            >
+              {{ doc.title }}
+            </router-link>
           </nav>
         </div>
       </div>
@@ -113,7 +137,7 @@
     </a>
 
     <button
-      v-else-if="hasSupportPopupItems"
+      v-else-if="hasSupportButton"
       type="button"
       class="home-support-button"
       @click="openSupportPopup"
@@ -130,16 +154,16 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import PixelIcon from '@/components/icons/PixelIcon.vue'
 import type { PixelIconName } from '@/components/icons/pixelIconTypes'
+import type { LoginAgreementDocument } from '@/types'
+import { useMatrixRain } from './public/components/matrixRain'
 import PublicTopNav from './public/components/PublicTopNav.vue'
 import { openSupportPopup } from '@/utils/supportPopup'
+import { hasSupportContent, hasSupportPopupImages } from '@/utils/supportContent'
 
 type PrimaryActionIconName = Extract<PixelIconName, 'dashboard' | 'gift'>
-
-type MatrixColumn = {
-  left: string
-  delay: string
-  duration: string
-  text: string
+type FooterLegalDocument = {
+  documentId: string
+  title: string
 }
 
 const { t } = useI18n()
@@ -152,37 +176,57 @@ const homeContent = computed(() => appStore.cachedPublicSettings?.home_content |
 const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
+const heroTitleTop = computed(() =>
+  appStore.cachedPublicSettings?.home_hero_title_top?.trim() || t('home.heroTitleTop')
+)
+const heroTitleLetters = computed(() =>
+  Array.from(heroTitleTop.value).map((letter, index) => ({
+    id: `${index}-${letter}`,
+    value: letter === ' ' ? '\u00A0' : letter,
+    variant: `home-title-letter--${(index % 7) + 1}`,
+    delay: `${index * 0.16}s`,
+    duration: `${4.2 + (index % 3) * 0.34}s`
+  }))
+)
+const heroTitleBottom = computed(() =>
+  appStore.cachedPublicSettings?.home_hero_title_bottom?.trim() || t('home.heroTitleBottom')
+)
 const currentYear = new Date().getFullYear()
 
-const matrixSeeds = [
-  '01APIKEYCHATGPTCODEX',
-  'MODELROUTER0101TOKEN',
-  'PROXYDIRECTGPT01010',
-  'TEAMKEYCODE110010',
-  'OPENAIACCESS10101',
-  'STREAMJSON01011',
-  'LATENCYLOW00110',
-  'QUOTAUSAGE10100'
-]
-
 const matrixColumnCount = 51
-
-const matrixColumns: MatrixColumn[] = Array.from({ length: matrixColumnCount }, (_, index) => ({
-  left: `${(index * 2.08) % 101}%`,
-  delay: `${-(index % 13) * 0.64}s`,
-  duration: `${8 + (index % 9) * 0.92}s`,
-  text: matrixSeeds[index % matrixSeeds.length]
-}))
+const { columns: matrixColumns } = useMatrixRain(matrixColumnCount, 540)
 
 const footerModelBadges = [
   { label: 'Claude', color: '#f97316' },
-  { label: 'GPT', color: '#22c55e' },
-  { label: 'Gemini', color: '#38bdf8' },
-  { label: 'DeepSeek', color: '#a78bfa' },
-  { label: 'Qwen', color: '#818cf8' }
+  { label: 'CHATGPT', color: '#22c55e' },
+  { label: 'Gemini', color: '#38bdf8' }
 ]
 
-const heroDescriptionTexts = computed(() =>
+function toFooterLegalDocument(doc: LoginAgreementDocument): FooterLegalDocument | null {
+  const title = doc.title?.trim()
+  const documentId = (doc.id || title || '').trim()
+
+  if (!title || !documentId) {
+    return null
+  }
+
+  return { documentId, title }
+}
+
+const footerLegalDocuments = computed(() =>
+  (appStore.cachedPublicSettings?.login_agreement_documents ?? [])
+    .map(toFooterLegalDocument)
+    .filter((doc): doc is FooterLegalDocument => doc !== null)
+)
+
+function splitHeroSubtitles(value: string | null | undefined): string[] {
+  return (value || '')
+    .split(/\r?\n/)
+    .map((text) => text.trim())
+    .filter(Boolean)
+}
+
+const defaultHeroDescriptionTexts = computed(() =>
   [
     t('home.heroDescription'),
     t('home.heroDescriptionAltModels'),
@@ -191,6 +235,11 @@ const heroDescriptionTexts = computed(() =>
     .map((text) => text.trim())
     .filter(Boolean)
 )
+
+const heroDescriptionTexts = computed(() => {
+  const configured = splitHeroSubtitles(appStore.cachedPublicSettings?.home_hero_subtitles)
+  return configured.length > 0 ? configured : defaultHeroDescriptionTexts.value
+})
 
 const typedHeroDescription = ref('')
 const currentHeroDescription = computed(() => heroDescriptionTexts.value[heroDescriptionIndex] || '')
@@ -302,8 +351,10 @@ const isHomeContentUrl = computed(() => {
 
 const supportHref = computed(() => normalizeSupportLink(contactInfo.value))
 const hasSupportPopupItems = computed(() => {
-  const items = appStore.cachedPublicSettings?.support_popup_items
-  return Array.isArray(items) && items.some((item) => item.title?.trim() && item.image_url?.trim())
+  return hasSupportPopupImages(appStore.cachedPublicSettings)
+})
+const hasSupportButton = computed(() => {
+  return hasSupportContent(appStore.cachedPublicSettings, contactInfo.value)
 })
 
 function normalizeSupportLink(value: string): string {
@@ -329,10 +380,7 @@ const primaryActionIcon = computed<PrimaryActionIconName>(() =>
 // Initialize theme
 function initTheme() {
   const savedTheme = localStorage.getItem('theme')
-  if (
-    savedTheme === 'dark' ||
-    (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  ) {
+  if (savedTheme !== 'light') {
     document.documentElement.classList.add('dark')
   }
 }
@@ -382,11 +430,9 @@ watch(heroDescriptionTexts, () => {
   opacity: 0.62;
   mix-blend-mode: screen;
   mask-image:
-    linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.92) 10%, rgba(0, 0, 0, 0.74) 46%, rgba(0, 0, 0, 0.22) 78%, transparent 100%),
-    radial-gradient(circle at 50% 32%, transparent 0%, rgba(0, 0, 0, 0.78) 38%, rgba(0, 0, 0, 0.98) 100%);
+    linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.14) 10%, rgba(0, 0, 0, 0.58) 42%, rgba(0, 0, 0, 0.96) 100%);
   -webkit-mask-image:
-    linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.92) 10%, rgba(0, 0, 0, 0.74) 46%, rgba(0, 0, 0, 0.22) 78%, transparent 100%),
-    radial-gradient(circle at 50% 32%, transparent 0%, rgba(0, 0, 0, 0.78) 38%, rgba(0, 0, 0, 0.98) 100%);
+    linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.14) 10%, rgba(0, 0, 0, 0.58) 42%, rgba(0, 0, 0, 0.96) 100%);
 }
 
 .home-matrix-rain::before {
@@ -406,10 +452,10 @@ watch(heroDescriptionTexts, () => {
   width: 1ch;
   background: linear-gradient(
     to bottom,
-    rgba(202, 255, 212, 0.96) 0%,
-    rgba(60, 255, 91, 0.82) 18%,
-    rgba(42, 225, 68, 0.48) 56%,
-    rgba(16, 145, 41, 0.14) 100%
+    rgba(202, 255, 212, 0.02) 0%,
+    rgba(128, 255, 167, 0.18) 16%,
+    rgba(60, 255, 91, 0.72) 54%,
+    rgba(16, 145, 41, 0.98) 100%
   );
   -webkit-background-clip: text;
   background-clip: text;
@@ -419,8 +465,8 @@ watch(heroDescriptionTexts, () => {
   font-weight: 800;
   line-height: 1.05;
   text-shadow:
-    0 0 7px rgba(89, 255, 146, 0.62),
-    0 0 18px rgba(24, 206, 94, 0.24);
+    0 0 6px rgba(89, 255, 146, 0.52),
+    0 0 18px rgba(24, 206, 94, 0.2);
   white-space: normal;
   word-break: break-all;
   animation: matrix-rain-fall linear infinite;
@@ -429,10 +475,10 @@ watch(heroDescriptionTexts, () => {
 .home-matrix-column:nth-child(3n) {
   background-image: linear-gradient(
     to bottom,
-    rgba(239, 255, 242, 0.98) 0%,
-    rgba(82, 255, 105, 0.86) 22%,
-    rgba(33, 210, 62, 0.42) 62%,
-    rgba(12, 112, 31, 0.1) 100%
+    rgba(239, 255, 242, 0.02) 0%,
+    rgba(140, 255, 166, 0.22) 20%,
+    rgba(82, 255, 105, 0.82) 58%,
+    rgba(12, 112, 31, 1) 100%
   );
   font-size: 0.72rem;
 }
@@ -515,7 +561,12 @@ watch(heroDescriptionTexts, () => {
   z-index: 1;
 }
 
-.home-title-fill {
+.home-title-line-top {
+  display: inline-block;
+  perspective: 900px;
+}
+
+.home-title-bottom-fill {
   color: transparent;
   background: linear-gradient(
     98deg,
@@ -531,7 +582,70 @@ watch(heroDescriptionTexts, () => {
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  animation: title-fill-sweep 7.2s ease-in-out infinite;
+  filter: drop-shadow(0 0 18px rgba(107, 198, 255, 0.12));
+}
+
+.home-title-top-fill {
+  color: #ffffff;
+  text-shadow:
+    0 0 14px rgba(255, 255, 255, 0.1),
+    0 0 28px rgba(109, 255, 155, 0.06);
+}
+
+.home-title-bottom-fill {
+  display: inline-block;
+  animation:
+    title-fill-sweep 7.2s ease-in-out infinite,
+    home-title-glow 6.8s ease-in-out infinite;
+}
+
+.home-title-letter-row {
+  display: inline-flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.01em;
+  line-height: 1;
+}
+
+.home-title-letter {
+  display: inline-block;
+  min-width: 0.48em;
+  margin-inline: 0;
+  transform-origin: 50% 76%;
+  animation-duration: var(--letter-duration);
+  animation-delay: var(--letter-delay);
+  animation-iteration-count: infinite;
+  animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation-fill-mode: both;
+  will-change: transform, margin-inline, filter;
+}
+
+.home-title-letter--1 {
+  animation-name: home-title-letter-rise;
+}
+
+.home-title-letter--2 {
+  animation-name: home-title-letter-stretch;
+}
+
+.home-title-letter--3 {
+  animation-name: home-title-letter-nudge-left;
+}
+
+.home-title-letter--4 {
+  animation-name: home-title-letter-pop;
+}
+
+.home-title-letter--5 {
+  animation-name: home-title-letter-nudge-right;
+}
+
+.home-title-letter--6 {
+  animation-name: home-title-letter-tall;
+}
+
+.home-title-letter--7 {
+  animation-name: home-title-letter-hop;
 }
 
 @keyframes title-fill-sweep {
@@ -545,6 +659,146 @@ watch(heroDescriptionTexts, () => {
   82%,
   100% {
     background-position: 0% 50%;
+  }
+}
+
+@keyframes home-title-letter-rise {
+  0%,
+  16%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(0.98);
+    margin-inline: 0;
+  }
+  25% {
+    transform: translate3d(0.012em, -0.13em, 0) scaleX(0.98) scaleY(1.1);
+    filter: brightness(1.08);
+    margin-inline: 0.012em;
+  }
+  34% {
+    transform: translate3d(-0.006em, 0.018em, 0) scaleX(1.02) scaleY(0.96);
+    margin-inline: 0.006em;
+  }
+}
+
+@keyframes home-title-letter-stretch {
+  0%,
+  20%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(1);
+    margin-inline: 0;
+  }
+  30% {
+    transform: translate3d(0, -0.04em, 0) scaleX(0.9) scaleY(1.22);
+    filter: brightness(1.1);
+    margin-inline: 0.012em;
+  }
+  39% {
+    transform: translate3d(0, 0.01em, 0) scaleX(1.08) scaleY(0.93);
+    margin-inline: 0.024em;
+  }
+}
+
+@keyframes home-title-letter-nudge-left {
+  0%,
+  18%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    margin-inline: 0;
+  }
+  29% {
+    transform: translate3d(-0.1em, -0.04em, 0) scaleX(1.08) scaleY(0.97);
+    filter: brightness(1.08);
+    margin-inline: 0.08em;
+  }
+  38% {
+    transform: translate3d(0.024em, 0.008em, 0) scale(0.99);
+    margin-inline: 0.018em;
+  }
+}
+
+@keyframes home-title-letter-pop {
+  0%,
+  22%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(0.98);
+    margin-inline: 0;
+  }
+  31% {
+    transform: translate3d(0.028em, -0.105em, 0) scale(1.13);
+    filter: brightness(1.13);
+    margin-inline: 0.045em;
+  }
+  41% {
+    transform: translate3d(-0.018em, 0.014em, 0) scale(0.98);
+    margin-inline: 0.014em;
+  }
+}
+
+@keyframes home-title-letter-nudge-right {
+  0%,
+  20%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    margin-inline: 0;
+  }
+  30% {
+    transform: translate3d(0.11em, -0.035em, 0) scaleX(1.06) scaleY(0.98);
+    filter: brightness(1.08);
+    margin-inline: 0.085em;
+  }
+  39% {
+    transform: translate3d(-0.02em, 0.01em, 0) scale(0.99);
+    margin-inline: 0.018em;
+  }
+}
+
+@keyframes home-title-letter-tall {
+  0%,
+  24%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    filter: brightness(1);
+    margin-inline: 0;
+  }
+  34% {
+    transform: translate3d(-0.012em, -0.07em, 0) scaleX(0.86) scaleY(1.28);
+    filter: brightness(1.14);
+    margin-inline: 0.012em;
+  }
+  44% {
+    transform: translate3d(0.012em, 0.012em, 0) scaleX(1.08) scaleY(0.94);
+    margin-inline: 0.024em;
+  }
+}
+
+@keyframes home-title-letter-hop {
+  0%,
+  26%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    margin-inline: 0;
+  }
+  35% {
+    transform: translate3d(0.04em, -0.16em, 0) rotate(1.4deg) scaleY(1.08);
+    filter: brightness(1.12);
+    margin-inline: 0.035em;
+  }
+  46% {
+    transform: translate3d(-0.018em, 0.02em, 0) rotate(-0.6deg) scaleY(0.96);
+    margin-inline: 0.014em;
+  }
+}
+
+@keyframes home-title-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 16px rgba(107, 198, 255, 0.1));
+  }
+  50% {
+    filter: drop-shadow(0 0 26px rgba(127, 222, 255, 0.2));
   }
 }
 
@@ -786,12 +1040,16 @@ watch(heroDescriptionTexts, () => {
   }
 
   .home-footer-bar {
-    align-items: flex-start;
+    align-items: center;
     flex-direction: column;
+    gap: 0.55rem;
+    text-align: center;
   }
 
   .home-footer-links {
-    justify-content: flex-start;
+    justify-content: center;
+    gap: 0.58rem 0.72rem;
+    font-size: 0.78rem;
   }
 }
 
@@ -851,9 +1109,16 @@ watch(heroDescriptionTexts, () => {
     transform: translate3d(0, 24vh, 0);
   }
 
-  .home-title-fill {
+  .home-title-bottom-fill {
     animation: none;
     background-position: 54% 50%;
+    filter: none;
+  }
+
+  .home-title-letter {
+    animation: none;
+    transform: none;
+    filter: none;
   }
 
   .home-typewriter-cursor {

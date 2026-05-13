@@ -527,7 +527,10 @@ function applyLoginAgreementSettings(settings: {
     settings.login_agreement_revision ||
     `${loginAgreementUpdatedAt.value}:${documents.map((doc) => `${doc.id}:${doc.title}`).join('|')}`
 
-  agreementAccepted.value = !loginAgreementEnabled.value || hasAcceptedLoginAgreement(loginAgreementRevision.value)
+  agreementAccepted.value =
+    !loginAgreementEnabled.value ||
+    loginAgreementMode.value === 'checkbox' ||
+    hasAcceptedLoginAgreement(loginAgreementRevision.value)
   showAgreementModal.value =
     loginAgreementEnabled.value && !agreementAccepted.value && loginAgreementMode.value !== 'checkbox'
 }

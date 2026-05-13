@@ -32,17 +32,17 @@ export default {
           950: '#1d130d'
         },
         dark: {
-          50: '#f5f4ed',
-          100: '#e5e1d4',
-          200: '#c9c2ad',
-          300: '#aaa085',
-          400: '#86795f',
-          500: '#675b47',
-          600: '#4b4337',
-          700: '#36322b',
-          800: '#24231f',
-          900: '#171914',
-          950: '#0b0f0d'
+          50: '#f8fafc',
+          100: '#f1f5f9',
+          200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          500: '#64748b',
+          600: '#475569',
+          700: '#334155',
+          800: '#1e293b',
+          900: '#0f172a',
+          950: '#020617'
         }
       },
       fontFamily: {
@@ -75,7 +75,7 @@ export default {
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
         'gradient-primary': 'linear-gradient(135deg, #74a84a 0%, #2f6f34 100%)',
-        'gradient-dark': 'linear-gradient(135deg, #24231f 0%, #0b0f0d 100%)',
+        'gradient-dark': 'linear-gradient(135deg, #1e293b 0%, #020617 100%)',
         'gradient-glass':
           'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
         'mesh-gradient':

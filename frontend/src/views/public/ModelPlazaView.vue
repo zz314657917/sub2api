@@ -1,8 +1,10 @@
 <template>
-  <div class="model-plaza-page min-h-screen text-slate-900">
+  <div class="model-plaza-page relative min-h-screen overflow-hidden text-white">
+    <PublicMatrixBackdrop />
+
     <PublicTopNav />
 
-    <main class="model-plaza-main mx-auto">
+    <main class="model-plaza-main relative z-10 mx-auto">
       <section class="model-plaza-title">
         <div>
           <h1>模型广场</h1>
@@ -48,15 +50,19 @@
 
         <div class="model-filter-actions">
           <Icon name="cube" size="sm" class="text-slate-400" />
+          <span class="model-rate-group-label">倍率分组</span>
           <Select
             v-model="selectedGroupId"
             :options="groupOptions"
             class="model-group-select"
             :searchable="groupOptions.length > 8"
           />
-          <label class="model-rate-toggle">
-            <Toggle v-model="showRatePrices" />
-            <span>显示倍率价格</span>
+          <label class="model-rate-toggle" :class="{ 'is-disabled': !canUseRatePrices }">
+            <Toggle
+              :model-value="showRatePrices && canUseRatePrices"
+              @update:model-value="updateShowRatePrices"
+            />
+            <span>{{ canUseRatePrices ? '显示倍率价格' : '先选择倍率分组' }}</span>
           </label>
         </div>
       </section>
@@ -84,9 +90,6 @@
               <h2>{{ model.name }}</h2>
               <p>{{ providerLabel(model.platform) }}</p>
             </div>
-            <span class="model-rate-badge">
-              充值 ¥1 = $1
-            </span>
           </div>
 
           <div v-if="hasPromptCaching(model)" class="model-cache-badge">
@@ -97,30 +100,32 @@
           <dl class="model-price-list">
             <div>
               <dt><Icon name="upload" size="xs" />输入</dt>
-              <dd>
-                {{ formatModelPrice(model.pricing?.input_price, model) }}
-                <small v-if="showRatePrices">{{ rateSuffix(model) }}</small>
+              <dd :class="{ 'is-rate-price': isRatePriceActive(model) }">
+                <span>{{ formatModelPrice(model.pricing?.input_price, model) }}</span>
+                <small v-if="isRatePriceActive(model)">
+                  基础 {{ formatBaseModelPrice(model.pricing?.input_price) }} · x{{ formatRate(effectiveRate(model) ?? 1) }}
+                </small>
               </dd>
             </div>
             <div>
               <dt><Icon name="download" size="xs" />输出</dt>
-              <dd>
-                {{ formatModelPrice(model.pricing?.output_price, model) }}
-                <small v-if="showRatePrices">{{ rateSuffix(model) }}</small>
+              <dd :class="{ 'is-rate-price': isRatePriceActive(model) }">
+                <span>{{ formatModelPrice(model.pricing?.output_price, model) }}</span>
+                <small v-if="isRatePriceActive(model)">
+                  基础 {{ formatBaseModelPrice(model.pricing?.output_price) }} · x{{ formatRate(effectiveRate(model) ?? 1) }}
+                </small>
               </dd>
             </div>
             <div class="model-price-muted">
               <dt><Icon name="document" size="xs" />缓存写入</dt>
               <dd>
-                {{ formatModelPrice(model.pricing?.cache_write_price, model) }}
-                <small v-if="showRatePrices && model.pricing?.cache_write_price != null">{{ rateSuffix(model) }}</small>
+                <span>{{ formatModelPrice(model.pricing?.cache_write_price, model) }}</span>
               </dd>
             </div>
             <div class="model-price-muted">
               <dt><Icon name="sync" size="xs" />缓存读取</dt>
               <dd>
-                {{ formatModelPrice(model.pricing?.cache_read_price, model) }}
-                <small v-if="showRatePrices && model.pricing?.cache_read_price != null">{{ rateSuffix(model) }}</small>
+                <span>{{ formatModelPrice(model.pricing?.cache_read_price, model) }}</span>
               </dd>
             </div>
           </dl>
@@ -129,7 +134,7 @@
 
       <section v-else class="model-empty-card">
         <Icon name="search" size="lg" />
-        <p>没有找到匹配的模型</p>
+        <p>{{ emptyStateMessage }}</p>
         <button type="button" @click="resetFilters">清空筛选</button>
       </section>
 
@@ -147,6 +152,7 @@ import Icon from '@/components/icons/Icon.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import Select from '@/components/common/Select.vue'
 import Toggle from '@/components/common/Toggle.vue'
+import PublicMatrixBackdrop from './components/PublicMatrixBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
 import userChannelsAPI, {
   type UserAvailableChannel,
@@ -155,6 +161,7 @@ import userChannelsAPI, {
 } from '@/api/channels'
 import userGroupsAPI from '@/api/groups'
 import { BILLING_MODE_TOKEN } from '@/constants/channel'
+import type { Group } from '@/types'
 
 interface ModelGroupMeta extends UserAvailableGroup {
   channelName: string
@@ -186,6 +193,7 @@ const selectedProvider = ref('all')
 const selectedGroupId = ref<string | number | boolean | null>('all')
 const showRatePrices = ref(false)
 const channels = ref<UserAvailableChannel[]>([])
+const availableGroups = ref<UserAvailableGroup[]>([])
 const userGroupRates = ref<Record<number, number>>({})
 
 const sourceChannels = computed(() => channels.value.length > 0 ? channels.value : fallbackChannels)
@@ -252,40 +260,54 @@ const providerTabs = computed(() => [
 ])
 
 const groupOptions = computed(() => {
-  const groups = new Map<number, ModelGroupMeta>()
-  for (const model of modelCards.value) {
-    for (const group of model.groups) {
-      if (!groups.has(group.id)) groups.set(group.id, group)
-    }
-  }
-
   return [
-    { value: 'all', label: '全部分组' },
-    ...Array.from(groups.values())
+    { value: 'all', label: '不使用倍率' },
+    ...[...rateGroups.value]
       .sort((a, b) => a.name.localeCompare(b.name))
       .map((group) => ({
         value: String(group.id),
-        label: `${group.name} (x${formatRate(group.effectiveRate)})`
+        label: `${providerLabel(group.platform)} · ${group.name} · x${formatRate(effectiveGroupRate(group))}`
       }))
   ]
 })
 
+const rateGroups = computed<UserAvailableGroup[]>(() => {
+  if (isAuthenticated.value) return availableGroups.value
+
+  const groups = new Map<number, UserAvailableGroup>()
+  for (const channel of fallbackChannels) {
+    for (const section of channel.platforms) {
+      for (const group of section.groups) {
+        if (!groups.has(group.id)) groups.set(group.id, group)
+      }
+    }
+  }
+  return Array.from(groups.values())
+})
+
+const selectedRateGroup = computed(() => {
+  const groupId = selectedGroupKey()
+  if (groupId === 'all') return null
+  return rateGroups.value.find((group) => String(group.id) === groupId) ?? null
+})
+
+const canUseRatePrices = computed(() => selectedRateGroup.value != null)
+
 const filteredModels = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
-  const groupId = selectedGroupKey()
 
   return modelCards.value.filter((model) => {
     if (selectedProvider.value !== 'all' && model.platform !== selectedProvider.value) return false
-    if (groupId !== 'all' && !model.groups.some((group) => String(group.id) === groupId)) return false
     if (!query) return true
 
     return (
       model.name.toLowerCase().includes(query) ||
-      providerLabel(model.platform).toLowerCase().includes(query) ||
-      model.groups.some((group) => group.name.toLowerCase().includes(query))
+      providerLabel(model.platform).toLowerCase().includes(query)
     )
   })
 })
+
+const emptyStateMessage = computed(() => modelCards.value.length === 0 ? '暂无可用模型' : '没有找到匹配的模型')
 
 async function loadChannels(force = false): Promise<void> {
   if (!isAuthenticated.value) {
@@ -297,11 +319,13 @@ async function loadChannels(force = false): Promise<void> {
 
   loading.value = true
   try {
-    const [list, rates] = await Promise.all([
+    const [list, groups, rates] = await Promise.all([
       userChannelsAPI.getAvailable(),
+      userGroupsAPI.getAvailable().catch(() => [] as Group[]),
       userGroupsAPI.getUserGroupRates().catch(() => ({} as Record<number, number>))
     ])
-    channels.value = list.length > 0 ? list : fallbackChannels
+    channels.value = list
+    availableGroups.value = groups.map(toAvailableGroup)
     userGroupRates.value = rates
   } catch (error) {
     console.warn('Failed to load model plaza data, fallback models will be shown.', error)
@@ -321,19 +345,17 @@ function selectedGroupKey(): string {
   return String(selectedGroupId.value ?? 'all')
 }
 
-function effectiveRate(model: PlazaModel): number {
-  const groupId = selectedGroupKey()
-  if (groupId !== 'all') {
-    const selected = model.groups.find((group) => String(group.id) === groupId)
-    return selected?.effectiveRate ?? 1
-  }
-
-  const rates = model.groups.map((group) => group.effectiveRate).filter((rate) => Number.isFinite(rate) && rate > 0)
-  return rates.length > 0 ? Math.min(...rates) : 1
+function updateShowRatePrices(value: boolean): void {
+  showRatePrices.value = canUseRatePrices.value ? value : false
 }
 
-function rateSuffix(model: PlazaModel): string {
-  return `x${formatRate(effectiveRate(model))}`
+function effectiveRate(model: PlazaModel): number | null {
+  const group = selectedRateGroup.value
+  if (!group) return null
+  if (!samePlatform(group.platform, model.platform)) return null
+
+  const rate = effectiveGroupRate(group)
+  return Number.isFinite(rate) && rate > 0 ? rate : null
 }
 
 function formatRate(rate: number): string {
@@ -342,10 +364,42 @@ function formatRate(rate: number): string {
 
 function formatModelPrice(value: number | null | undefined, model: PlazaModel): string {
   if (value == null) return '-'
-  const rate = showRatePrices.value ? effectiveRate(model) : 1
-  const perMillion = value * 1_000_000 * rate
+  const rate = showRatePrices.value && selectedGroupKey() !== 'all' ? effectiveRate(model) ?? 1 : 1
+  return formatPricePerMillion(value * rate)
+}
+
+function formatBaseModelPrice(value: number | null | undefined): string {
+  if (value == null) return '-'
+  return formatPricePerMillion(value)
+}
+
+function formatPricePerMillion(value: number): string {
+  const perMillion = value * 1_000_000
   const digits = perMillion > 0 && perMillion < 1 ? 3 : 2
   return `$${perMillion.toFixed(digits)}/M`
+}
+
+function isRatePriceActive(model: PlazaModel): boolean {
+  return showRatePrices.value && selectedGroupKey() !== 'all' && effectiveRate(model) != null
+}
+
+function effectiveGroupRate(group: UserAvailableGroup): number {
+  return userGroupRates.value[group.id] ?? group.rate_multiplier ?? 1
+}
+
+function samePlatform(a: string, b: string): boolean {
+  return a.trim().toLowerCase() === b.trim().toLowerCase()
+}
+
+function toAvailableGroup(group: Group): UserAvailableGroup {
+  return {
+    id: group.id,
+    name: group.name,
+    platform: group.platform,
+    subscription_type: group.subscription_type,
+    rate_multiplier: group.rate_multiplier,
+    is_exclusive: group.is_exclusive
+  }
 }
 
 function hasPromptCaching(model: PlazaModel): boolean {
@@ -448,13 +502,14 @@ onMounted(() => {
 <style scoped>
 .model-plaza-page {
   background:
-    radial-gradient(circle at 42% 10%, rgba(174, 232, 228, 0.52), transparent 34%),
-    radial-gradient(circle at 76% 0%, rgba(222, 224, 232, 0.72), transparent 28%),
-    linear-gradient(135deg, #e8f4f3 0%, #eef2f2 48%, #dfe9ea 100%);
+    radial-gradient(circle at 50% 18%, rgba(32, 170, 92, 0.22) 0, transparent 34%),
+    radial-gradient(circle at 18% 24%, rgba(87, 86, 210, 0.16) 0, transparent 30%),
+    radial-gradient(circle at 82% 36%, rgba(45, 178, 105, 0.14) 0, transparent 32%),
+    linear-gradient(180deg, #050914 0%, #08110f 48%, #03060a 100%);
 }
 
 .model-plaza-main {
-  width: min(100%, 96rem);
+  width: min(100%, 92rem);
   padding: 1.2rem 1rem 3rem;
 }
 
@@ -467,6 +522,7 @@ onMounted(() => {
 }
 
 .model-plaza-title h1 {
+  color: rgba(255, 255, 255, 0.96);
   font-size: 1.55rem;
   font-weight: 950;
   line-height: 1;
@@ -474,7 +530,7 @@ onMounted(() => {
 
 .model-plaza-title p {
   margin-top: 0.28rem;
-  color: #64748b;
+  color: rgba(238, 246, 240, 0.68);
   font-size: 0.82rem;
   font-weight: 700;
 }
@@ -483,21 +539,22 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  border-radius: 0.72rem;
-  border: 1px solid rgba(148, 163, 184, 0.34);
-  background: rgba(255, 255, 255, 0.78);
-  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(221, 230, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
   padding: 0.65rem 0.9rem;
-  color: #334155;
+  color: rgba(238, 246, 240, 0.84);
   font-size: 0.82rem;
   font-weight: 800;
+  backdrop-filter: blur(18px);
 }
 
 .model-stat-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
-  max-width: 64rem;
+  max-width: none;
 }
 
 .model-stat-card {
@@ -505,15 +562,20 @@ onMounted(() => {
   align-items: center;
   gap: 1rem;
   min-height: 4.9rem;
-  border-radius: 0.85rem;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(255, 255, 255, 0.66);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(221, 230, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.055)),
+    rgba(6, 13, 18, 0.48);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 42px rgba(0, 0, 0, 0.2);
   padding: 1rem;
+  backdrop-filter: blur(18px);
 }
 
 .model-stat-card p {
-  color: #64748b;
+  color: rgba(222, 232, 255, 0.58);
   font-size: 0.78rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -521,7 +583,7 @@ onMounted(() => {
 
 .model-stat-card strong {
   display: block;
-  color: #0f172a;
+  color: rgba(255, 255, 255, 0.96);
   font-size: 1.7rem;
   font-weight: 950;
   line-height: 1.05;
@@ -534,24 +596,24 @@ onMounted(() => {
   flex: 0 0 2.65rem;
   align-items: center;
   justify-content: center;
-  border-radius: 0.8rem;
+  border-radius: 8px;
 }
 
 .model-stat-icon-total {
-  background: #eee5ff;
-  color: #8b5cf6;
+  background: rgba(139, 92, 246, 0.18);
+  color: #b79cff;
 }
 
 .model-stat-icon-openai {
-  background: #dcf8ed;
+  background: rgba(39, 220, 132, 0.16);
 }
 
 .model-stat-icon-anthropic {
-  background: #f9e8db;
+  background: rgba(249, 115, 22, 0.16);
 }
 
 .model-stat-icon-gemini {
-  background: #dbeafe;
+  background: rgba(56, 189, 248, 0.16);
 }
 
 .model-filter-panel {
@@ -560,11 +622,16 @@ onMounted(() => {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 1rem;
   align-items: center;
-  border-radius: 0.9rem;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(255, 255, 255, 0.68);
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(221, 230, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.055)),
+    rgba(6, 13, 18, 0.5);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 42px rgba(0, 0, 0, 0.2);
   padding: 1rem;
+  backdrop-filter: blur(18px);
 }
 
 .model-search-box {
@@ -572,27 +639,38 @@ onMounted(() => {
   min-height: 2.7rem;
   align-items: center;
   gap: 0.7rem;
-  border-radius: 0.72rem;
-  border: 1px solid rgba(148, 163, 184, 0.34);
-  background: rgba(248, 250, 252, 0.72);
+  border-radius: 8px;
+  border: 1px solid rgba(221, 230, 255, 0.16);
+  background: rgba(2, 8, 10, 0.46);
   padding: 0 0.85rem;
-  color: #94a3b8;
+  color: rgba(222, 232, 255, 0.62);
 }
 
 .model-search-box input {
   min-width: 0;
   width: 100%;
   background: transparent;
-  color: #0f172a;
+  color: rgba(255, 255, 255, 0.92);
   font-size: 0.86rem;
   font-weight: 700;
   outline: none;
+}
+
+.model-search-box input::placeholder {
+  color: rgba(222, 232, 255, 0.46);
 }
 
 .model-filter-actions {
   display: flex;
   align-items: center;
   gap: 0.7rem;
+}
+
+.model-rate-group-label {
+  color: rgba(238, 246, 240, 0.7);
+  font-size: 0.8rem;
+  font-weight: 850;
+  white-space: nowrap;
 }
 
 .model-group-select {
@@ -603,10 +681,20 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.48rem;
-  color: #475569;
+  color: rgba(238, 246, 240, 0.76);
   font-size: 0.82rem;
   font-weight: 800;
   white-space: nowrap;
+}
+
+.model-rate-toggle.is-disabled {
+  cursor: not-allowed;
+  color: rgba(222, 232, 255, 0.42);
+}
+
+.model-rate-toggle.is-disabled :deep(button) {
+  pointer-events: none;
+  opacity: 0.48;
 }
 
 .model-provider-tabs {
@@ -620,23 +708,24 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.46rem;
-  border-radius: 0.72rem;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: rgba(255, 255, 255, 0.72);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+  border-radius: 8px;
+  border: 1px solid rgba(221, 230, 255, 0.14);
+  background: rgba(255, 255, 255, 0.07);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
   padding: 0.55rem 0.85rem;
-  color: #475569;
+  color: rgba(238, 246, 240, 0.72);
   font-weight: 850;
+  backdrop-filter: blur(14px);
 }
 
 .model-provider-tabs button.is-active {
-  border-color: rgba(20, 184, 166, 0.42);
-  background: rgba(240, 253, 250, 0.92);
-  color: #0f766e;
+  border-color: rgba(119, 255, 173, 0.34);
+  background: rgba(119, 255, 173, 0.12);
+  color: rgba(220, 255, 230, 0.94);
 }
 
 .model-provider-tabs small {
-  color: #64748b;
+  color: rgba(222, 232, 255, 0.68);
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -650,23 +739,28 @@ onMounted(() => {
 
 .model-price-card {
   min-height: 14.2rem;
-  border-radius: 0.9rem;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(255, 255, 255, 0.7);
-  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(221, 230, 255, 0.14);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.058)),
+    rgba(6, 13, 18, 0.54);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 18px 44px rgba(0, 0, 0, 0.2);
   padding: 1rem;
+  backdrop-filter: blur(18px);
 }
 
 .model-card-head {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: 0.72rem;
   align-items: start;
 }
 
 .model-card-head h2 {
   overflow: hidden;
-  color: #111827;
+  color: rgba(255, 255, 255, 0.95);
   font-size: 1rem;
   font-weight: 950;
   line-height: 1.2;
@@ -676,22 +770,11 @@ onMounted(() => {
 
 .model-card-head p {
   margin-top: 0.16rem;
-  color: #94a3b8;
+  color: rgba(222, 232, 255, 0.72);
   font-size: 0.68rem;
   font-weight: 900;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.model-rate-badge {
-  border-radius: 999px;
-  border: 1px solid rgba(139, 92, 246, 0.24);
-  background: rgba(237, 233, 254, 0.8);
-  padding: 0.18rem 0.45rem;
-  color: #7c3aed;
-  font-size: 0.68rem;
-  font-weight: 900;
-  white-space: nowrap;
 }
 
 .model-cache-badge {
@@ -700,9 +783,9 @@ onMounted(() => {
   align-items: center;
   gap: 0.32rem;
   border-radius: 0.42rem;
-  background: rgba(254, 243, 199, 0.72);
+  background: rgba(251, 191, 36, 0.13);
   padding: 0.28rem 0.5rem;
-  color: #d97706;
+  color: #f8d36d;
   font-size: 0.72rem;
   font-weight: 850;
 }
@@ -728,32 +811,39 @@ onMounted(() => {
 
 .model-price-list dt {
   gap: 0.38rem;
-  color: #64748b;
+  color: rgba(222, 232, 255, 0.58);
   font-size: 0.78rem;
   font-weight: 800;
 }
 
 .model-price-list dd {
-  gap: 0.25rem;
-  color: #111827;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.12rem;
+  color: rgba(255, 255, 255, 0.94);
   font-size: 0.9rem;
   font-weight: 950;
+  text-align: right;
+}
+
+.model-price-list dd.is-rate-price {
+  color: #7dffaa;
 }
 
 .model-price-list dd small {
-  color: #ea580c;
-  font-size: 0.64rem;
-  font-weight: 950;
+  color: rgba(222, 232, 255, 0.68);
+  font-size: 0.68rem;
+  font-weight: 800;
 }
 
 .model-price-muted {
-  border-top: 1px dashed rgba(148, 163, 184, 0.2);
+  border-top: 1px dashed rgba(221, 230, 255, 0.14);
   padding-top: 0.72rem;
 }
 
 .model-price-muted dt,
 .model-price-muted dd {
-  color: #64748b;
+  color: rgba(222, 232, 255, 0.7);
 }
 
 .model-empty-card {
@@ -762,16 +852,17 @@ onMounted(() => {
   place-items: center;
   gap: 0.7rem;
   min-height: 16rem;
-  border-radius: 0.9rem;
-  border: 1px dashed rgba(148, 163, 184, 0.5);
-  background: rgba(255, 255, 255, 0.48);
-  color: #64748b;
+  border-radius: 8px;
+  border: 1px dashed rgba(221, 230, 255, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(238, 246, 240, 0.72);
   text-align: center;
+  backdrop-filter: blur(18px);
 }
 
 .model-empty-card button {
   border-radius: 0.55rem;
-  background: #0f766e;
+  background: #15803d;
   padding: 0.52rem 0.8rem;
   color: white;
   font-size: 0.8rem;
@@ -780,7 +871,7 @@ onMounted(() => {
 
 .model-plaza-note {
   padding: 1.35rem 0 0.25rem;
-  color: #94a3b8;
+  color: rgba(222, 232, 255, 0.68);
   text-align: center;
   font-size: 0.78rem;
   font-weight: 700;
@@ -788,9 +879,16 @@ onMounted(() => {
 
 :deep(.select-trigger) {
   min-height: 2.7rem;
-  border-color: rgba(148, 163, 184, 0.34);
-  background: rgba(248, 250, 252, 0.72);
-  color: #0f172a;
+  border-color: rgba(221, 230, 255, 0.16);
+  background: rgba(2, 8, 10, 0.46);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+:deep(.select-dropdown) {
+  border-color: rgba(221, 230, 255, 0.16);
+  background: rgba(9, 16, 24, 0.96);
+  color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(18px);
 }
 
 @media (max-width: 900px) {

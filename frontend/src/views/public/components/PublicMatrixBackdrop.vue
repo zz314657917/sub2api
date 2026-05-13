@@ -2,12 +2,15 @@
   <div class="public-matrix-rain pointer-events-none absolute inset-0" aria-hidden="true">
     <span
       v-for="column in columns"
-      :key="column.left"
+      :key="column.id"
       class="public-matrix-column"
       :style="{
         left: column.left,
         animationDelay: column.delay,
-        animationDuration: column.duration
+        animationDuration: column.duration,
+        opacity: column.opacity,
+        fontSize: column.fontSize,
+        lineHeight: column.lineHeight
       }"
     >
       {{ column.text }}
@@ -18,28 +21,10 @@
 </template>
 
 <script setup lang="ts">
-interface MatrixColumn {
-  left: string
-  delay: string
-  duration: string
-  text: string
-}
+import { useMatrixRain } from './matrixRain'
 
-const matrixSeeds = [
-  'OPENAIACCESS10101',
-  'MODELROUTER0101',
-  'TEAMKEYCODE110',
-  'STREAMJSON01011',
-  'CODEXCHATGPT010',
-  'LATENCYLOW00110',
-]
-
-const columns: MatrixColumn[] = Array.from({ length: 42 }, (_, index) => ({
-  left: `${(index * 2.52) % 101}%`,
-  delay: `${-(index % 13) * 0.72}s`,
-  duration: `${9 + (index % 8) * 0.95}s`,
-  text: matrixSeeds[index % matrixSeeds.length],
-}))
+const matrixColumnCount = 42
+const { columns } = useMatrixRain(matrixColumnCount, 620)
 </script>
 
 <style scoped>
@@ -47,8 +32,8 @@ const columns: MatrixColumn[] = Array.from({ length: 42 }, (_, index) => ({
   overflow: hidden;
   opacity: 0.56;
   mix-blend-mode: screen;
-  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.9) 12%, rgba(0, 0, 0, 0.38) 82%, transparent 100%);
-  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.9) 12%, rgba(0, 0, 0, 0.38) 82%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.14) 10%, rgba(0, 0, 0, 0.58) 42%, rgba(0, 0, 0, 0.96) 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, rgba(0, 0, 0, 0.14) 10%, rgba(0, 0, 0, 0.58) 42%, rgba(0, 0, 0, 0.96) 100%);
 }
 
 .public-matrix-column {
@@ -56,7 +41,13 @@ const columns: MatrixColumn[] = Array.from({ length: 42 }, (_, index) => ({
   top: -80vh;
   display: block;
   width: 1ch;
-  background: linear-gradient(to bottom, rgba(210, 255, 220, 0.9), rgba(45, 255, 85, 0.72), rgba(10, 130, 40, 0.14));
+  background: linear-gradient(
+    to bottom,
+    rgba(210, 255, 220, 0.02) 0%,
+    rgba(142, 255, 171, 0.2) 18%,
+    rgba(45, 255, 85, 0.72) 58%,
+    rgba(10, 130, 40, 0.98) 100%
+  );
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -64,7 +55,7 @@ const columns: MatrixColumn[] = Array.from({ length: 42 }, (_, index) => ({
   font-size: 0.78rem;
   font-weight: 800;
   line-height: 1.05;
-  text-shadow: 0 0 8px rgba(89, 255, 146, 0.52);
+  text-shadow: 0 0 8px rgba(89, 255, 146, 0.42);
   white-space: normal;
   word-break: break-all;
   animation: public-matrix-rain-fall linear infinite;

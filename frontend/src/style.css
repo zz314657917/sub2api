@@ -27,17 +27,20 @@
     --mc-grass: #74a84a;
     --mc-grass-light: #9fc85e;
     --mc-leaf: #3f7f3f;
-    --mc-dirt: #b4894b;
-    --mc-dirt-dark: #33251b;
-    --mc-stone: #9d9a8a;
-    --mc-stone-light: #36322b;
+    --mc-dirt: #64748b;
+    --mc-dirt-dark: #0f172a;
+    --mc-stone: #94a3b8;
+    --mc-stone-light: #1e293b;
     --mc-sky: #28445a;
     --mc-sun: #f1c453;
-    --mc-cream: #171914;
+    --mc-cream: #0f172a;
     --mc-ink: #f5f0dc;
-    --mc-border: rgba(202, 168, 107, 0.28);
+    --mc-border: rgba(100, 116, 139, 0.32);
     --mc-shadow-block: 0 4px 0 rgba(0, 0, 0, 0.34), 0 18px 32px rgba(0, 0, 0, 0.28);
     --mc-shadow-pressed: 0 2px 0 rgba(0, 0, 0, 0.36), 0 10px 20px rgba(0, 0, 0, 0.24);
+    --mc-grid:
+      linear-gradient(rgba(148, 163, 184, 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(148, 163, 184, 0.055) 1px, transparent 1px);
   }
 
   * {

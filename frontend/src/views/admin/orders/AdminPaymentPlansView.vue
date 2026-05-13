@@ -67,7 +67,14 @@
     </div>
 
     <!-- Plan Edit Dialog -->
-    <PlanEditDialog :show="showPlanDialog" :plan="editingPlan" :groups="groups" @close="showPlanDialog = false" @saved="loadPlans" />
+    <PlanEditDialog
+      :show="showPlanDialog"
+      :plan="editingPlan"
+      :groups="groups"
+      :initial-group-id="initialGroupId"
+      @close="handlePlanDialogClose"
+      @saved="handlePlanSaved"
+    />
 
     <ConfirmDialog :show="showDeletePlanDialog" :title="t('payment.admin.deletePlan')" :message="t('payment.admin.deletePlanConfirm')" :confirm-text="t('common.delete')" danger @confirm="handleDeletePlan" @cancel="showDeletePlanDialog = false" />
   </AppLayout>
@@ -76,6 +83,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute, useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
@@ -93,6 +101,8 @@ import { platformTextClass } from '@/utils/platformColors'
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const route = useRoute()
+const router = useRouter()
 
 // ==================== Groups ====================
 
@@ -126,6 +136,7 @@ const showPlanDialog = ref(false)
 const showDeletePlanDialog = ref(false)
 const editingPlan = ref<SubscriptionPlan | null>(null)
 const deletingPlanId = ref<number | null>(null)
+const initialGroupId = ref<number | null>(null)
 
 const planColumns = computed((): Column[] => [
   { key: 'id', label: 'ID' },
@@ -156,9 +167,25 @@ async function loadPlans() {
 
 function openPlanEdit(plan: SubscriptionPlan | null) {
   editingPlan.value = plan
+  initialGroupId.value = null
   showPlanDialog.value = true
 }
 
+function openPlanCreateForGroup(groupId: number) {
+  editingPlan.value = null
+  initialGroupId.value = groupId
+  showPlanDialog.value = true
+}
+
+function handlePlanDialogClose() {
+  showPlanDialog.value = false
+  initialGroupId.value = null
+}
+
+function handlePlanSaved() {
+  initialGroupId.value = null
+  loadPlans()
+}
 
 /** Quick toggle for_sale from the list */
 async function toggleForSale(plan: SubscriptionPlan) {
@@ -182,5 +209,10 @@ async function handleDeletePlan() {
 onMounted(() => {
   loadGroups()
   loadPlans()
+  const queryGroupId = Number(route.query.group)
+  if (Number.isFinite(queryGroupId) && queryGroupId > 0) {
+    openPlanCreateForGroup(queryGroupId)
+    router.replace({ path: route.path, query: { ...route.query, group: undefined } }).catch(() => {})
+  }
 })
 </script>

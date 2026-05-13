@@ -119,7 +119,7 @@ const currentDocument = computed<LoginAgreementDocument | null>(() => {
   if (!id) {
     return null
   }
-  return documents.value.find((doc) => doc.id === id) ?? null
+  return documents.value.find((doc) => (doc.id || doc.title) === id) ?? null
 })
 
 const hasContent = computed(() => Boolean(currentDocument.value?.content_md?.trim()))

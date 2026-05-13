@@ -22,6 +22,20 @@ const supportPopupVisible = ref(false)
  * Update favicon dynamically
  * @param logoUrl - URL of the logo to use as favicon
  */
+function getFaviconType(logoUrl: string) {
+  const lowerUrl = logoUrl.trim().toLowerCase()
+  const dataUrlMatch = /^data:([^;,]+)/.exec(lowerUrl)
+  if (dataUrlMatch?.[1]?.startsWith('image/')) return dataUrlMatch[1]
+
+  const urlWithoutQuery = lowerUrl.split(/[?#]/)[0]
+  if (urlWithoutQuery.endsWith('.svg')) return 'image/svg+xml'
+  if (urlWithoutQuery.endsWith('.webp')) return 'image/webp'
+  if (urlWithoutQuery.endsWith('.png')) return 'image/png'
+  if (urlWithoutQuery.endsWith('.jpg') || urlWithoutQuery.endsWith('.jpeg')) return 'image/jpeg'
+  if (urlWithoutQuery.endsWith('.gif')) return 'image/gif'
+  return 'image/x-icon'
+}
+
 function updateFavicon(logoUrl: string) {
   // Find existing favicon link or create new one
   let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
@@ -30,7 +44,7 @@ function updateFavicon(logoUrl: string) {
     link.rel = 'icon'
     document.head.appendChild(link)
   }
-  link.type = logoUrl.endsWith('.svg') ? 'image/svg+xml' : 'image/x-icon'
+  link.type = getFaviconType(logoUrl)
   link.href = logoUrl
 }
 

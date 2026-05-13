@@ -9,9 +9,9 @@
 
 .dark .console-shell {
     background:
-      radial-gradient(circle at 16% -8%, rgba(59, 130, 246, 0.18), transparent 30rem),
-      radial-gradient(circle at 88% 4%, rgba(129, 140, 248, 0.16), transparent 26rem),
-      linear-gradient(180deg, #020617 0%, #0f172a 56%, #111827 100%);
+      radial-gradient(circle at 18% -10%, rgba(59, 130, 246, 0.16), transparent 30rem),
+      radial-gradient(circle at 88% 4%, rgba(20, 184, 166, 0.1), transparent 26rem),
+      linear-gradient(180deg, #020617 0%, #07111f 54%, #020617 100%);
     color: #e5e7eb;
 }
 
@@ -41,14 +41,12 @@
 
 .console-shell::after {
     background:
-      linear-gradient(90deg, rgba(248, 250, 252, 0.88), transparent 18%, transparent 84%, rgba(248, 250, 252, 0.72)),
       radial-gradient(circle at 50% 110%, rgba(148, 163, 184, 0.2), transparent 34rem);
 }
 
 .dark .console-shell::after {
     background:
-      linear-gradient(90deg, rgba(2, 6, 23, 0.76), transparent 20%, transparent 84%, rgba(2, 6, 23, 0.72)),
-      radial-gradient(circle at 50% 112%, rgba(30, 41, 59, 0.62), transparent 34rem);
+      radial-gradient(circle at 50% 112%, rgba(15, 23, 42, 0.68), transparent 34rem);
 }
 
 .console-main {
@@ -84,7 +82,7 @@
 
 .dark .console-header {
     border-bottom-color: rgba(51, 65, 85, 0.78);
-    background: rgba(15, 23, 42, 0.9);
+    background: rgba(10, 18, 32, 0.92);
     box-shadow: 0 14px 34px rgba(0, 0, 0, 0.28);
     color: #e5e7eb;
 }
@@ -184,7 +182,7 @@
 
 .dark .console-sidebar {
     border-right-color: rgba(51, 65, 85, 0.82);
-    background: rgba(15, 23, 42, 0.95);
+    background: rgba(9, 17, 31, 0.96);
     box-shadow: 14px 0 36px rgba(0, 0, 0, 0.26);
     color: #cbd5e1;
 }
@@ -196,7 +194,7 @@
 
 .dark .console-sidebar-header {
     border-bottom-color: rgba(51, 65, 85, 0.82);
-    background: rgba(15, 23, 42, 0.62);
+    background: rgba(9, 17, 31, 0.7);
 }
 
 .console-sidebar-footer {
@@ -456,7 +454,7 @@
 .dark .console-shell .card-glass,
 .dark .console-shell .table-container {
     border-color: rgba(51, 65, 85, 0.88);
-    background: rgba(15, 23, 42, 0.72);
+    background: rgba(8, 15, 29, 0.82);
     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
     color: #e5e7eb;
 }
@@ -488,7 +486,7 @@
 
 .dark .console-shell .table th {
     border-color: rgba(51, 65, 85, 0.82);
-    background: rgba(30, 41, 59, 0.86);
+    background: rgba(24, 34, 50, 0.94);
     color: #cbd5e1;
 }
 
@@ -510,6 +508,35 @@
     background: rgba(129, 140, 248, 0.1);
 }
 
+.console-shell .table-scroll-container,
+.console-shell .table-wrapper {
+    background: rgba(255, 255, 255, 0.82);
+}
+
+.dark .console-shell .table-scroll-container,
+.dark .console-shell .table-wrapper {
+    border-color: rgba(51, 65, 85, 0.88);
+    background: rgba(8, 15, 29, 0.84);
+}
+
+.dark .console-shell .table-body,
+.dark .console-shell .table tbody {
+    background: rgba(8, 15, 29, 0.9);
+}
+
+.dark .console-shell .sticky-header-cell,
+.dark .console-shell .table-wrapper .table-header {
+    background: rgb(24 34 50);
+}
+
+.dark .console-shell tbody .sticky-col {
+    background: rgb(10 18 32);
+}
+
+.dark .console-shell tbody tr:hover .sticky-col {
+    background: rgb(20 30 46);
+}
+
 .console-shell .input {
     border-color: rgba(148, 163, 184, 0.32);
     background: rgba(255, 255, 255, 0.92);
@@ -519,7 +546,7 @@
 
 .dark .console-shell .input {
     border-color: rgba(71, 85, 105, 0.82);
-    background: rgba(15, 23, 42, 0.8);
+    background: rgba(10, 18, 32, 0.86);
     color: #f8fafc;
     box-shadow: none;
 }
@@ -575,8 +602,55 @@
 .dark .console-shell .btn-secondary,
 .dark .console-shell .btn-ghost {
     border-color: rgba(71, 85, 105, 0.78);
-    background: rgba(30, 41, 59, 0.72);
+    background: rgba(16, 24, 39, 0.78);
     color: #e5e7eb;
+}
+
+.dark .console-shell .select-trigger {
+    border-color: rgba(71, 85, 105, 0.82);
+    background: rgba(10, 18, 32, 0.86);
+    color: #f8fafc;
+}
+
+.dark .console-shell .select-trigger:hover,
+.dark .console-shell .select-trigger-open {
+    border-color: rgba(129, 140, 248, 0.58);
+    background: rgba(16, 24, 39, 0.94);
+}
+
+.dark .select-dropdown-portal {
+    border-color: rgba(71, 85, 105, 0.82);
+    background: rgba(10, 18, 32, 0.98);
+    color: #e5e7eb;
+}
+
+.dark .select-dropdown-portal .select-option {
+    color: #cbd5e1;
+}
+
+.dark .select-dropdown-portal .select-option:hover,
+.dark .select-dropdown-portal .select-option-focused {
+    background: rgba(51, 65, 85, 0.76);
+    color: #f8fafc;
+}
+
+.dark .select-dropdown-portal .select-option-selected {
+    background: rgba(79, 70, 229, 0.24);
+    color: #e0e7ff;
+}
+
+.dark .console-shell [class*="bg-dark-800"],
+.dark .console-shell [class*="bg-dark-900"] {
+    background-color: rgba(8, 15, 29, 0.86);
+}
+
+.dark .console-shell [class*="dark:bg-dark-800"],
+.dark .console-shell [class*="dark:bg-dark-900"] {
+    background-color: rgba(8, 15, 29, 0.86);
+}
+
+.dark .console-shell [class*="dark:bg-dark-700"] {
+    background-color: rgba(30, 41, 59, 0.78);
 }
 
 .console-shell .dropdown {

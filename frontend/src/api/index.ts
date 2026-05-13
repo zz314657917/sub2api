@@ -17,6 +17,27 @@ export { redeemAPI, type RedeemHistoryItem } from './redeem'
 export { paymentAPI } from './payment'
 export { userGroupsAPI } from './groups'
 export { userChannelsAPI } from './channels'
+export {
+  welfareAPI,
+  type WelfareDailyCheckin,
+  type WelfareDailyCheckinClaimResponse,
+  type WelfareDailyCheckinMilestone,
+  type WelfareMilestoneClaimResponse,
+  type WelfareNewUserTrial,
+  type WelfareOverview,
+} from './welfare'
+export {
+  CHAT_STUDIO_DEFAULT_MODEL,
+  CHAT_STUDIO_STORAGE_KEY,
+  ChatStudioError,
+  createChatCompletionStream,
+  extractChatStudioDelta,
+  isAbortError,
+  type ChatStudioCompletionInput,
+  type ChatStudioCompletionResult,
+  type ChatStudioMessage,
+  type ChatStudioRole,
+} from './chatStudio'
 export { totpAPI } from './totp'
 export { default as announcementsAPI } from './announcements'
 export { channelMonitorUserAPI } from './channelMonitor'

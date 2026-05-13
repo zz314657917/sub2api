@@ -2,7 +2,7 @@
   <Teleport to="body">
     <Transition name="support-popup-fade">
       <div
-        v-if="show && hasItems"
+        v-if="show && hasContent"
         class="support-popup-overlay"
         role="dialog"
         aria-modal="true"
@@ -34,11 +34,22 @@
                 <img :src="item.image_url" :alt="item.title" class="support-popup-image" />
                 <span v-if="item.badge" class="support-popup-badge">{{ item.badge }}</span>
               </div>
-              <h3>{{ item.title }}</h3>
-              <p v-if="item.caption">{{ item.caption }}</p>
+              <p class="support-popup-card-caption">
+                <span>{{ item.title }}</span>
+                <span v-if="item.caption">{{ item.caption }}</span>
+              </p>
+            </article>
+
+            <article v-if="contactCardText" class="support-popup-card support-popup-contact-card">
+              <div class="support-popup-contact-icon">
+                <Icon name="chatBubble" size="xl" />
+              </div>
+              <h3>{{ t('common.contactSupport') }}</h3>
+              <p>{{ contactCardText }}</p>
             </article>
           </div>
 
+          <p v-if="contactTextBelowImages" class="support-popup-contact-text">{{ contactTextBelowImages }}</p>
           <p v-if="popupFooter" class="support-popup-footer">{{ popupFooter }}</p>
         </div>
       </div>
@@ -73,6 +84,19 @@ const popupDescription = computed(() =>
 const popupFooter = computed(() =>
   (appStore.cachedPublicSettings?.support_popup_footer || '').trim()
 )
+const contactInfo = computed(() =>
+  (appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '').trim()
+)
+const contactCardText = computed(() => {
+  if (popupItems.value.length > 0) return ''
+  return contactInfo.value
+})
+const contactTextBelowImages = computed(() => {
+  if (popupItems.value.length === 0) return ''
+  const allCardsHaveCaption = popupItems.value.every((item) => item.caption)
+  if (allCardsHaveCaption) return ''
+  return (appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '').trim()
+})
 
 const popupItems = computed<SupportPopupItem[]>(() => {
   const raw = appStore.cachedPublicSettings?.support_popup_items
@@ -89,6 +113,7 @@ const popupItems = computed<SupportPopupItem[]>(() => {
 })
 
 const hasItems = computed(() => popupItems.value.length > 0)
+const hasContent = computed(() => hasItems.value || Boolean(contactCardText.value))
 
 function close() {
   emit('close')
@@ -101,7 +126,7 @@ function handleKeydown(event: KeyboardEvent) {
 }
 
 watch(
-  () => props.show && hasItems.value,
+  () => props.show && hasContent.value,
   (visible) => {
     if (typeof document === 'undefined') return
     document.body.classList.toggle('support-popup-open', visible)
@@ -110,7 +135,7 @@ watch(
 )
 
 watch(
-  hasItems,
+  hasContent,
   (available) => {
     if (!available && props.show) {
       close()
@@ -137,7 +162,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(17, 24, 39, 0.58);
+  background: rgba(15, 23, 42, 0.58);
   padding: 1.25rem;
   backdrop-filter: blur(8px);
 }
@@ -147,10 +172,11 @@ onBeforeUnmount(() => {
   width: min(100%, 42rem);
   max-height: min(88vh, 46rem);
   overflow-y: auto;
-  border-radius: 1rem;
-  background: rgba(248, 250, 252, 0.96);
-  padding: 1.75rem;
-  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.36);
+  border: 1px solid rgba(226, 232, 240, 0.78);
+  border-radius: 0.95rem;
+  background: rgba(248, 250, 252, 0.98);
+  padding: 1.5rem 1.75rem 1.65rem;
+  box-shadow: 0 28px 76px rgba(15, 23, 42, 0.34);
 }
 
 .dark .support-popup-panel {
@@ -161,7 +187,7 @@ onBeforeUnmount(() => {
 .support-popup-close {
   position: absolute;
   right: 1rem;
-  top: 1rem;
+  top: 0.92rem;
   display: inline-flex;
   height: 2rem;
   width: 2rem;
@@ -182,14 +208,14 @@ onBeforeUnmount(() => {
 }
 
 .support-popup-header {
-  padding: 0.25rem 2.5rem 1rem;
+  padding: 0.1rem 2.5rem 1rem;
   text-align: center;
 }
 
 .support-popup-header h2 {
-  color: #111827;
+  color: #0f172a;
   font-size: 1.32rem;
-  font-weight: 800;
+  font-weight: 900;
   line-height: 1.2;
 }
 
@@ -198,7 +224,7 @@ onBeforeUnmount(() => {
 }
 
 .support-popup-header p {
-  margin-top: 0.45rem;
+  margin-top: 0.48rem;
   color: #64748b;
   font-size: 0.9rem;
 }
@@ -209,8 +235,9 @@ onBeforeUnmount(() => {
 
 .support-popup-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-  gap: 1.1rem;
+  grid-template-columns: repeat(auto-fit, minmax(12.5rem, 14.2rem));
+  justify-content: center;
+  gap: 1.35rem 1.45rem;
 }
 
 .support-popup-card {
@@ -225,14 +252,22 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.42);
-  border-radius: 0.65rem;
-  background: white;
+  border: 2px solid rgba(203, 213, 225, 0.9);
+  border-radius: 0.78rem;
+  background: #f8fafc;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.9), 0 12px 28px rgba(15, 23, 42, 0.06);
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.support-popup-image-wrap:hover {
+  border-color: rgba(59, 130, 246, 0.86);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2), 0 16px 34px rgba(37, 99, 235, 0.14);
+  transform: translateY(-1px);
 }
 
 .support-popup-image {
-  height: 100%;
-  width: 100%;
+  height: calc(100% - 1.25rem);
+  width: calc(100% - 1.25rem);
   object-fit: contain;
 }
 
@@ -243,8 +278,8 @@ onBeforeUnmount(() => {
   max-width: calc(100% - 2rem);
   transform: translate(-50%, -50%);
   border-radius: 999px;
-  background: rgba(220, 38, 38, 0.92);
-  padding: 0.3rem 0.7rem;
+  background: rgba(220, 38, 38, 0.94);
+  padding: 0.34rem 0.72rem;
   color: white;
   font-size: 0.8rem;
   font-weight: 800;
@@ -252,25 +287,83 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.support-popup-card h3 {
-  margin-top: 0.55rem;
+.support-popup-card-caption {
+  display: grid;
+  gap: 0.1rem;
+  margin-top: 0.56rem;
   color: #2563eb;
-  font-size: 0.88rem;
-  font-weight: 700;
+  font-size: 0.86rem;
+  font-weight: 800;
   line-height: 1.35;
   overflow-wrap: anywhere;
 }
 
-.dark .support-popup-card h3 {
+.support-popup-card-caption span + span {
+  color: #64748b;
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.dark .support-popup-card-caption {
   color: #93c5fd;
 }
 
+.dark .support-popup-card-caption span + span {
+  color: #cbd5e1;
+}
+
 .support-popup-card p {
-  margin-top: 0.25rem;
   color: #64748b;
   font-size: 0.78rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
+}
+
+.support-popup-contact-card {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 12rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.65rem;
+  padding: 1rem;
+}
+
+.support-popup-contact-text {
+  margin-top: 1rem;
+  color: #475569;
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.5;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.dark .support-popup-contact-text {
+  color: #dbeafe;
+}
+
+.support-popup-contact-icon {
+  display: inline-flex;
+  height: 3.5rem;
+  width: 3.5rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+}
+
+.support-popup-contact-card h3 {
+  margin-top: 0.7rem;
+  color: #2563eb;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.dark .support-popup-contact-icon {
+  background: rgba(147, 197, 253, 0.14);
+  color: #93c5fd;
 }
 
 .dark .support-popup-card p {

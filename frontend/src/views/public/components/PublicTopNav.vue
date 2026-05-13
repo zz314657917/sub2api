@@ -1,5 +1,5 @@
 <template>
-  <header class="public-top-shell relative z-20">
+  <header class="public-top-shell">
     <nav class="public-top-nav public-page-shell mx-auto">
       <router-link to="/home" class="public-brand">
         <span class="public-brand-logo">
@@ -111,6 +111,9 @@ function toggleTheme(): void {
 
 <style scoped>
 .public-top-shell {
+  position: sticky;
+  top: 0;
+  z-index: 40;
   width: 100%;
   border-bottom: 1px solid rgba(220, 215, 255, 0.1);
   background:
@@ -270,6 +273,28 @@ function toggleTheme(): void {
   background: rgba(18, 12, 45, 0.94);
   color: white;
   backdrop-filter: blur(16px);
+}
+
+.public-locale-switcher :deep(.absolute button) {
+  background: transparent;
+  color: rgba(237, 234, 255, 0.82);
+}
+
+.public-locale-switcher :deep(.absolute button:hover) {
+  background: rgba(124, 102, 214, 0.24);
+  color: white;
+}
+
+.public-locale-switcher :deep(.absolute button[class*="bg-primary-50"]) {
+  border-left: 2px solid rgba(112, 255, 169, 0.84);
+  background:
+    linear-gradient(90deg, rgba(56, 172, 104, 0.24), rgba(66, 51, 143, 0.18)),
+    rgba(24, 18, 58, 0.96);
+  color: #f1fff5;
+}
+
+.public-locale-switcher :deep(.absolute button[class*="bg-primary-50"] svg) {
+  color: rgba(112, 255, 169, 0.92);
 }
 
 .public-nav-button {

@@ -68,17 +68,20 @@ describe('SupportPopup', () => {
     expect(document.body.textContent).toContain('Group 1')
     expect(document.body.textContent).toContain('Group 2')
     expect(document.body.textContent).toContain('Full')
+    expect(document.body.textContent).toContain('1078510185')
     expect(document.body.textContent).toContain('Group 2 is recommended')
+    expect(document.body.querySelectorAll('.support-popup-card-caption')).toHaveLength(2)
     expect(document.body.querySelectorAll('.support-popup-image')).toHaveLength(2)
     expect(document.body.classList.contains('support-popup-open')).toBe(true)
 
     wrapper.unmount()
   })
 
-  it('does not open without valid image items', async () => {
+  it('renders contact text when no image item is configured', async () => {
     const appStore = useAppStore()
     appStore.cachedPublicSettings = {
       support_popup_title: 'Join support group',
+      contact_info: 'QQ: 123456789',
       support_popup_items: [
         { id: 'empty-image', title: 'Empty image', image_url: '', caption: '', badge: '' },
       ],
@@ -91,8 +94,9 @@ describe('SupportPopup', () => {
 
     await nextTick()
 
-    expect(document.body.querySelector('[role="dialog"]')).toBeNull()
-    expect(document.body.classList.contains('support-popup-open')).toBe(false)
+    expect(document.body.querySelector('[role="dialog"]')).not.toBeNull()
+    expect(document.body.textContent).toContain('QQ: 123456789')
+    expect(document.body.classList.contains('support-popup-open')).toBe(true)
   })
 
   it('emits close from the close button and Escape key', async () => {
