@@ -177,6 +177,21 @@ describe('decidePaymentLaunch', () => {
     expect(decision.paymentState.qrCode).toBe('https://pay.example.com/qr/session')
   })
 
+  it('treats WeChat native pay_url as QR content instead of a browser redirect', () => {
+    const decision = decidePaymentLaunch(createOrderResult({
+      pay_url: 'weixin://wxpay/bizpayurl?pr=native-token',
+      payment_mode: 'popup',
+    }), {
+      visibleMethod: 'wxpay',
+      orderType: 'balance',
+      isMobile: false,
+    })
+
+    expect(decision.kind).toBe('qr_waiting')
+    expect(decision.paymentState.qrCode).toBe('weixin://wxpay/bizpayurl?pr=native-token')
+    expect(decision.paymentState.payUrl).toBe('')
+  })
+
   it('returns wechat oauth launch when backend requires in-app authorization', () => {
     const decision = decidePaymentLaunch(createOrderResult({
       result_type: 'oauth_required',

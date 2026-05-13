@@ -91,6 +91,10 @@ export function normalizeVisibleMethod(method: string): VisiblePaymentMethod | '
   return normalized ?? ''
 }
 
+function isWechatNativePayUrl(url: string): boolean {
+  return url.trim().toLowerCase().startsWith('weixin://wxpay/')
+}
+
 export function getVisibleMethods(methods: Record<string, MethodLimit>): Record<string, MethodLimit> {
   const visible: Record<string, MethodLimit> = {}
 
@@ -136,13 +140,17 @@ export function decidePaymentLaunch(
   context: PaymentLaunchContext,
 ): PaymentLaunchDecision {
   const visibleMethod = normalizeVisibleMethod(context.visibleMethod) || context.visibleMethod
+  const rawPayUrl = result.pay_url || ''
+  const wxpayNativePayUrl = visibleMethod === 'wxpay' && isWechatNativePayUrl(rawPayUrl)
+  const qrCode = result.qr_code || (wxpayNativePayUrl ? rawPayUrl : '')
+  const payUrl = wxpayNativePayUrl ? '' : rawPayUrl
   const baseState = createPaymentRecoverySnapshot({
     orderId: result.order_id,
     amount: result.amount,
-    qrCode: result.qr_code || '',
+    qrCode,
     expiresAt: result.expires_at || '',
     paymentType: visibleMethod,
-    payUrl: result.pay_url || '',
+    payUrl,
     outTradeNo: result.out_trade_no || '',
     clientSecret: result.client_secret || '',
     intentId: result.intent_id || '',
@@ -195,7 +203,7 @@ export function decidePaymentLaunch(
     || (context.isMobile && !!baseState.payUrl)
   const prefersQr = normalizedPaymentMode === 'qrcode'
     || normalizedPaymentMode === 'native'
-    || (!prefersRedirect && !!baseState.qrCode)
+    || (!!baseState.qrCode && (!prefersRedirect || !baseState.payUrl))
 
   if (visibleMethod === 'wxpay' && context.isWechatBrowser && baseState.payUrl && !baseState.qrCode) {
     return { kind: 'redirect_waiting', paymentState: baseState, recovery: baseState }

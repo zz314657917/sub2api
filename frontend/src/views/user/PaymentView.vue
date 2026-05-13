@@ -78,7 +78,7 @@
                           :disabled="!rechargePresetAvailable(preset)"
                           @click="selectRechargeAmount(preset)"
                         >
-                          <span v-if="preset === recommendedRechargeAmount" class="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                          <span v-if="showRecommendedRechargeBadge && preset === recommendedRechargeAmount" class="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold text-white">
                             {{ pt('newUserDeal') }}
                           </span>
                           <span class="block text-2xl font-black">{{ formatSelectedPaymentAmount(preset) }}</span>
@@ -455,7 +455,7 @@ const pricingCatalog = {
     rechargeStep: '第一步：选择或输入充值金额',
     newUserDeal: '新人专享',
     customUnits: '自定义购买份数',
-    unitHint: '每份包含 {amount}',
+    unitHint: '每份按 {amount} 递增',
     orderSummary: '订单摘要',
     rechargeAmount: '充值额度',
     purchaseUnits: '购买份数',
@@ -796,9 +796,10 @@ const balanceRechargeMultiplier = computed(() => {
   const multiplier = checkout.value.balance_recharge_multiplier
   return multiplier > 0 ? multiplier : 1
 })
-const rechargeUnitAmount = 50
+const rechargeUnitAmount = 1
 const rechargeAmountPresets = [5, 50, 200, 300, 500, 1000]
 const recommendedRechargeAmount = 5
+const showRecommendedRechargeBadge = false
 
 // Check if an amount fits a method's [min, max]. 0 = no limit.
 function amountFitsMethod(amt: number, methodType: string): boolean {
