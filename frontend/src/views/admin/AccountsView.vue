@@ -218,13 +218,13 @@
           </template>
           <template #cell-name="{ row, value }">
             <div class="flex flex-col">
-              <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+              <span class="font-medium text-gray-900 dark:text-white">{{ displayAccountName(row, value) }}</span>
               <span
-                v-if="row.extra?.email_address"
+                v-if="accountNameSubtitle(row)"
                 class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]"
-                :title="row.extra.email_address"
+                :title="accountNameSubtitle(row)"
               >
-                {{ row.extra.email_address }}
+                {{ accountNameSubtitle(row) }}
               </span>
             </div>
           </template>
@@ -1195,6 +1195,39 @@ function getOpenAICompactTitle(row: any): string {
   const label = getOpenAICompactMeta(row)?.label || ''
   if (!checkedAt) return label
   return `${label} | ${t('admin.accounts.openai.compactLastChecked')}: ${formatDateTime(new Date(checkedAt))}`
+}
+
+const sharedAccountNameKeys = ['account_name', 'display_name', 'email', 'email_address', 'project_id', 'name', 'client_email']
+
+function firstStringField(source: Record<string, unknown> | null | undefined, keys: string[]): string {
+  if (!source) return ''
+  for (const key of keys) {
+    const value = source[key]
+    if (typeof value !== 'string') continue
+    const trimmed = value.trim()
+    if (trimmed) return trimmed
+  }
+  return ''
+}
+
+function resolveSharedAccountName(row: Account): string {
+  return (
+    firstStringField(row.credentials, sharedAccountNameKeys) ||
+    firstStringField(row.extra, sharedAccountNameKeys) ||
+    row.name
+  )
+}
+
+function displayAccountName(row: Account, fallback?: unknown): string {
+  if (isSharedAccountsPage.value) {
+    return resolveSharedAccountName(row)
+  }
+  return typeof fallback === 'string' && fallback.trim() ? fallback : row.name
+}
+
+function accountNameSubtitle(row: Account): string {
+  if (isSharedAccountsPage.value) return ''
+  return firstStringField(row.extra, ['email_address'])
 }
 
 function getAntigravityTierClass(row: any): string {

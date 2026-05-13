@@ -4,75 +4,96 @@
 
     <PublicTopNav />
 
-    <main class="relative z-10 mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
-      <section id="quick-start" class="tutorial-overview">
-        <div class="tutorial-intro">
-          <div class="public-kicker">
-            <span></span>
-            QUICK START
-          </div>
-          <h1>AI 接入教程</h1>
-          <p>
-            先准备 Token 和代理地址。账号管理工具可选，实际使用入口是 Codex 或 Claude Code。
-          </p>
-
-          <div class="overview-checklist" aria-label="接入步骤概览">
-            <a href="#prepare" class="overview-row">
-              <span>01</span>
-              <strong>准备环境</strong>
-              <em>安装 Git、Node.js，准备 Token 和代理地址。</em>
-            </a>
-            <a href="#cc-switch" class="overview-row">
-              <span>02</span>
-              <strong>CC Switch 账号管理</strong>
-              <em>桌面端统一管理 Codex 和 Claude Code 账号。</em>
-            </a>
-            <a href="#cockpit-tools" class="overview-row">
-              <span>03</span>
-              <strong>Cockpit Tools 账号管理</strong>
-              <em>网页面板管理 Codex 账号和会话。</em>
-            </a>
-            <a href="#codex" class="overview-row">
-              <span>04</span>
-              <strong>配置 Codex</strong>
-              <em>推荐一键配置，失败再手动设置。</em>
-            </a>
-            <a href="#claude" class="overview-row">
-              <span>05</span>
-              <strong>配置 Claude Code</strong>
-              <em>写入 ANTHROPIC 变量，重启终端后启动。</em>
-            </a>
-          </div>
-        </div>
-
-        <aside class="route-map" aria-label="接入路线图">
-          <p>接入路线图</p>
-          <div class="route-step" v-for="item in routeSteps" :key="item.id">
-            <span>{{ item.step }}</span>
-            <div>
+    <main class="tutorial-main relative z-10 mx-auto w-full px-4 py-8 sm:px-6 lg:py-10">
+      <div class="tutorial-reader">
+        <aside class="tutorial-sidebar" aria-label="接入 Agent 工具目录">
+          <p class="tutorial-sidebar-title">接入 Agent 工具</p>
+          <nav class="tutorial-tabs" aria-label="接入教程目录">
+            <a
+              v-for="item in sections"
+              :key="item.id"
+              :href="`#${item.id}`"
+              :ref="(element) => setTabLink(item.id, element)"
+              :class="{ 'is-active': activeSection === item.id }"
+              :aria-current="activeSection === item.id ? 'true' : undefined"
+              @click="handleIndexClick(item.id)"
+            >
               <strong>{{ item.title }}</strong>
-              <em>{{ item.desc }}</em>
-            </div>
-          </div>
+              <span>{{ item.desc }}</span>
+            </a>
+          </nav>
         </aside>
-      </section>
 
-      <nav class="tutorial-tabs" aria-label="接入教程目录">
-        <a
-          v-for="item in sections"
-          :key="item.id"
-          :href="`#${item.id}`"
-          :ref="(element) => setTabLink(item.id, element)"
-          :class="{ 'is-active': activeSection === item.id }"
-          :aria-current="activeSection === item.id ? 'true' : undefined"
-          @click="handleIndexClick(item.id)"
-        >
-          <strong>{{ item.title }}</strong>
-          <span>{{ item.desc }}</span>
-        </a>
-      </nav>
+        <div class="tutorial-main-column">
+          <section id="quick-start" class="tutorial-overview">
+            <div class="tutorial-intro">
+              <div class="doc-pills" aria-label="教程分类">
+                <span>使用指南</span>
+                <span>API 文档</span>
+                <strong>接入 Agent 工具</strong>
+              </div>
+              <h1>AI 接入教程</h1>
+              <p>
+                先准备 Token 和代理地址。Windows、Linux、macOS 都可以接入，实际使用入口是 Codex、Claude Code、OpenClaw 或 Hermes-Agent。
+              </p>
 
-      <section class="tutorial-content">
+              <div class="overview-checklist" aria-label="接入步骤概览">
+                <a href="#prepare" class="overview-row">
+                  <span>01</span>
+                  <strong>准备环境</strong>
+                  <em>按系统安装 Git、Node.js，准备 Token 和代理地址。</em>
+                </a>
+                <a href="#platforms" class="overview-row">
+                  <span>02</span>
+                  <strong>Linux / macOS</strong>
+                  <em>写入 Shell 环境变量，重开终端后生效。</em>
+                </a>
+                <a href="#cc-switch" class="overview-row">
+                  <span>03</span>
+                  <strong>CC Switch 账号管理</strong>
+                  <em>桌面端统一管理 Codex 和 Claude Code 账号。</em>
+                </a>
+                <a href="#cockpit-tools" class="overview-row">
+                  <span>04</span>
+                  <strong>Cockpit Tools 账号管理</strong>
+                  <em>网页面板管理 Codex 账号和会话。</em>
+                </a>
+                <a href="#codex" class="overview-row">
+                  <span>05</span>
+                  <strong>配置 Codex</strong>
+                  <em>推荐一键配置，失败再手动设置。</em>
+                </a>
+                <a href="#claude" class="overview-row">
+                  <span>06</span>
+                  <strong>配置 Claude Code</strong>
+                  <em>写入 ANTHROPIC 变量，重启终端后启动。</em>
+                </a>
+                <a href="#openclaw" class="overview-row">
+                  <span>07</span>
+                  <strong>配置 OpenClaw</strong>
+                  <em>自托管助手平台，使用 OpenAI 兼容 provider 接入。</em>
+                </a>
+                <a href="#hermes-agent" class="overview-row">
+                  <span>08</span>
+                  <strong>配置 Hermes-Agent</strong>
+                  <em>终端 Agent，通过 Custom Endpoint 接入。</em>
+                </a>
+              </div>
+            </div>
+
+            <aside class="route-map" aria-label="接入路线图">
+              <p>接入路线图</p>
+              <div class="route-step" v-for="item in routeSteps" :key="item.id">
+                <span>{{ item.step }}</span>
+                <div>
+                  <strong>{{ item.title }}</strong>
+                  <em>{{ item.desc }}</em>
+                </div>
+              </div>
+            </aside>
+          </section>
+
+          <section class="tutorial-content">
         <section id="prepare" class="guide-panel">
           <div class="guide-heading">
             <span>准备工作</span>
@@ -88,7 +109,7 @@
               </div>
               <h3>你需要准备</h3>
               <ul>
-                <li>Windows 电脑；Claude Code 建议 Windows 10 1809+。</li>
+                <li>Windows、Linux 或 macOS 电脑；Claude Code 在 Windows 上建议 Windows 10 1809+。</li>
                 <li>Node.js v18 或更高；教程链接为 v24。</li>
                 <li>落叶网络 API Token 和 Base URL。</li>
               </ul>
@@ -99,8 +120,8 @@
                 <span>02</span>
                 <PixelIcon name="folder" size="sm" tone="green" />
               </div>
-              <h3>安装 Git / Node.js</h3>
-              <p>安装时一路下一步，路径保持默认。</p>
+              <h3>Windows 安装 Git / Node.js</h3>
+              <p>Windows 安装时一路下一步，路径保持默认。Linux 和 macOS 看下一节。</p>
               <ul class="tutorial-link-list">
                 <li>
                   <a href="https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.1/Git-2.53.0-64-bit.exe" target="_blank" rel="noopener noreferrer">
@@ -166,61 +187,251 @@
           </div>
         </section>
 
+        <section id="platforms" class="guide-panel">
+          <div class="guide-heading">
+            <span>Linux / macOS</span>
+            <h2>Linux 和 macOS 环境配置</h2>
+            <p>Linux 默认示例使用 Bash，macOS 默认示例使用 Zsh。Token 换成控制台生成的值即可。</p>
+          </div>
+
+          <div class="guide-grid">
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>L1</span>
+                <PixelIcon name="cube" size="sm" tone="green" />
+              </div>
+              <h3>Linux 基础环境</h3>
+              <p>Ubuntu / Debian 可用以下命令准备 Git、Node.js，并安装 Codex 与 Claude Code。</p>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 Linux 基础环境命令"
+                  @click="copyCommand('linux-install', commands.linuxInstall)"
+                >
+                  {{ copiedCommand === 'linux-install' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.linuxInstall }}</code></pre>
+              </div>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>L2</span>
+                <PixelIcon name="key" size="sm" tone="green" />
+              </div>
+              <h3>Linux Shell 配置</h3>
+              <p>写入 <code>~/.bashrc</code> 后执行 <code>source ~/.bashrc</code>，新终端也会自动生效。</p>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 Linux Shell 配置命令"
+                  @click="copyCommand('linux-env', commands.linuxEnv)"
+                >
+                  {{ copiedCommand === 'linux-env' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.linuxEnv }}</code></pre>
+              </div>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>M1</span>
+                <PixelIcon name="folder" size="sm" tone="green" />
+              </div>
+              <h3>macOS 基础环境</h3>
+              <p>如果已经安装 Homebrew，直接用 Brew 准备 Git、Node.js，再安装两个命令行工具。</p>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 macOS 基础环境命令"
+                  @click="copyCommand('mac-install', commands.macInstall)"
+                >
+                  {{ copiedCommand === 'mac-install' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.macInstall }}</code></pre>
+              </div>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>M2</span>
+                <PixelIcon name="settings" size="sm" tone="green" />
+              </div>
+              <h3>macOS Shell 配置</h3>
+              <p>macOS 默认使用 Zsh，写入 <code>~/.zshrc</code> 后重新打开终端。</p>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 macOS Shell 配置命令"
+                  @click="copyCommand('mac-env', commands.macEnv)"
+                >
+                  {{ copiedCommand === 'mac-env' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.macEnv }}</code></pre>
+              </div>
+            </article>
+          </div>
+        </section>
+
         <section id="cc-switch" class="guide-panel">
           <div class="guide-heading">
             <span>CC Switch</span>
             <h2>CC Switch 账号管理</h2>
-            <p>用于统一管理 Codex、Claude Code 的账号配置。已经会手动配置的用户可以跳过。</p>
+            <p>推荐从落叶网络控制台一键导入 Provider。手动配置保留为兜底方案。</p>
           </div>
 
-          <div class="guide-grid">
-            <article class="guide-card guide-card--wide">
-              <div class="guide-card-head">
-                <span>S1</span>
-                <PixelIcon name="panel" size="sm" tone="green" />
-              </div>
-              <h3>下载 CC Switch</h3>
-              <p>Windows 用户下载最新版 <code>.msi</code> 安装包，或下载 Portable 免安装版。</p>
-              <ul class="tutorial-link-list">
-                <li>
-                  <a href="https://ccswitch.ai/" target="_blank" rel="noopener noreferrer">
-                    官方介绍
-                  </a>
-                </li>
-                <li>
-                  <a href="https://github.com/farion1231/cc-switch/releases" target="_blank" rel="noopener noreferrer">
-                    Windows 下载
-                  </a>
-                </li>
+          <div id="cc-switch-features" class="doc-feature-stack" aria-label="CC Switch 核心特性">
+            <article class="doc-feature">
+              <h3>Provider 管理</h3>
+              <ul>
+                <li>在 Claude Code、Codex、Gemini CLI 的 Provider 配置之间切换。</li>
+                <li>每个 Provider 可维护多个端点，适合多账号和多模型入口。</li>
+                <li>模型配置可区分主模型、轻量模型、均衡模型和高能力模型。</li>
               </ul>
             </article>
 
-            <article class="guide-card">
-              <div class="guide-card-head">
-                <span>S2</span>
-                <PixelIcon name="key" size="sm" tone="green" />
-              </div>
-              <h3>添加账号配置</h3>
+            <article class="doc-feature">
+              <h3>MCP 服务器管理</h3>
               <ul>
-                <li>打开 CC Switch，点击 <code>Add Provider</code>。</li>
-                <li>选择要管理的工具：<code>Codex</code> 或 <code>Claude Code</code>。</li>
-                <li>填入 API Token 和代理地址。</li>
-                <li>保存后点击 <code>Enable</code> 启用。</li>
+                <li>统一管理 Claude、Codex、Gemini 三端可用的 MCP 服务。</li>
+                <li>适合把本地工具、HTTP 服务和 SSE 服务集中维护。</li>
+                <li>多端同步后，不需要在每个工具里重复编辑配置。</li>
               </ul>
             </article>
 
-            <article class="guide-card">
-              <div class="guide-card-head">
-                <span>S3</span>
-                <PixelIcon name="cursor" size="sm" tone="green" />
-              </div>
-              <h3>验证账号是否生效</h3>
+            <article class="doc-feature">
+              <h3>Prompts 管理</h3>
               <ul>
-                <li>启用账号配置后，重新打开对应终端或工具。</li>
-                <li>启动 <code>codex</code> 或 <code>claude</code>。</li>
-                <li>能正常对话，就说明账号配置成功。</li>
+                <li>集中管理系统提示词和项目提示词。</li>
+                <li>覆盖 Claude 的 <code>CLAUDE.md</code>、Codex 的 <code>AGENTS.md</code>、Gemini 的 <code>GEMINI.md</code>。</li>
+                <li>适合多套工作流提示词快速切换。</li>
               </ul>
             </article>
+
+            <article class="doc-feature">
+              <h3>多平台支持</h3>
+              <ul>
+                <li>Windows、macOS、Linux 都有桌面安装方案。</li>
+                <li>无头服务器或 SSH 环境可使用 Web 版本。</li>
+                <li>熟悉终端的用户也可以选择 CLI 方式管理。</li>
+              </ul>
+            </article>
+          </div>
+
+          <div id="cc-switch-import" class="doc-subsection">
+            <h3>落叶网络接入方法</h3>
+            <p>CC Switch 支持 <code>ccswitch://</code> Deep Link。落叶网络控制台的 API 密钥页已经提供导入入口，适合新手优先使用。</p>
+            <ol class="doc-steps">
+              <li>进入「API 密钥」页面，找到要使用的密钥。</li>
+              <li>点击该密钥右侧的「导入 CC Switch」。</li>
+              <li>系统会唤起 CC Switch，并弹出 Provider 配置窗口。</li>
+              <li>在弹窗里确认应用类型、名称和模型选择，然后打开 CC Switch 完成导入。</li>
+            </ol>
+            <router-link :to="apiKeysLink" class="guide-action-link">
+              <PixelIcon name="key" size="xs" />
+              {{ authStore.isAuthenticated ? '打开 API 密钥页面' : '登录后打开 API 密钥页面' }}
+            </router-link>
+          </div>
+
+          <div id="cc-switch-install" class="doc-subsection">
+            <h3>安装方式</h3>
+            <div class="install-grid">
+              <article class="guide-card">
+                <div class="guide-card-head">
+                  <span>M1</span>
+                  <PixelIcon name="settings" size="sm" tone="green" />
+                </div>
+                <h4>macOS 推荐 Homebrew</h4>
+                <div class="command-block">
+                  <button
+                    type="button"
+                    class="copy-command-button"
+                    aria-label="复制 CC Switch macOS 安装命令"
+                    @click="copyCommand('cc-switch-mac-install', commands.ccSwitchMacInstall)"
+                  >
+                    {{ copiedCommand === 'cc-switch-mac-install' ? '已复制' : '复制' }}
+                  </button>
+                  <pre><code>{{ commands.ccSwitchMacInstall }}</code></pre>
+                </div>
+              </article>
+
+              <article class="guide-card">
+                <div class="guide-card-head">
+                  <span>W1</span>
+                  <PixelIcon name="folder" size="sm" tone="green" />
+                </div>
+                <h4>Windows</h4>
+                <p>下载 <code>.msi</code> 安装包，或下载 Portable / <code>.zip</code> 免安装版。</p>
+                <ul class="tutorial-link-list">
+                  <li>
+                    <a href="https://ccswitch.ai/" target="_blank" rel="noopener noreferrer">
+                      官方介绍
+                    </a>
+                  </li>
+                  <li>
+                    <a href="https://github.com/farion1231/cc-switch/releases" target="_blank" rel="noopener noreferrer">
+                      Releases 下载
+                    </a>
+                  </li>
+                </ul>
+              </article>
+
+              <article class="guide-card">
+                <div class="guide-card-head">
+                  <span>L1</span>
+                  <PixelIcon name="cube" size="sm" tone="green" />
+                </div>
+                <h4>Linux</h4>
+                <p>从 Releases 下载 <code>.deb</code> 或 <code>.AppImage</code>。ArchLinux 可用以下命令。</p>
+                <div class="command-block">
+                  <button
+                    type="button"
+                    class="copy-command-button"
+                    aria-label="复制 CC Switch ArchLinux 安装命令"
+                    @click="copyCommand('cc-switch-arch-install', commands.ccSwitchArchInstall)"
+                  >
+                    {{ copiedCommand === 'cc-switch-arch-install' ? '已复制' : '复制' }}
+                  </button>
+                  <pre><code>{{ commands.ccSwitchArchInstall }}</code></pre>
+                </div>
+              </article>
+
+              <article class="guide-card">
+                <div class="guide-card-head">
+                  <span>WEB</span>
+                  <PixelIcon name="panel" size="sm" tone="green" />
+                </div>
+                <h4>Web 版本</h4>
+                <p>适合无头服务器、SSH 远程环境，启动后默认访问 <code>http://localhost:17666</code>。</p>
+                <div class="command-block">
+                  <button
+                    type="button"
+                    class="copy-command-button"
+                    aria-label="复制 CC Switch Web 版本启动命令"
+                    @click="copyCommand('cc-switch-web-install', commands.ccSwitchWebInstall)"
+                  >
+                    {{ copiedCommand === 'cc-switch-web-install' ? '已复制' : '复制' }}
+                  </button>
+                  <pre><code>{{ commands.ccSwitchWebInstall }}</code></pre>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <div id="cc-switch-fallback" class="doc-subsection">
+            <h3>手动配置兜底</h3>
+            <p>如果浏览器没有唤起 CC Switch，再手动添加 Provider。</p>
+            <ul>
+              <li>打开 CC Switch，点击 <code>Add Provider</code>。</li>
+              <li>应用选择 <code>Codex</code>、<code>Claude Code</code> 或 <code>Gemini CLI</code>。</li>
+              <li>API Key 填落叶网络控制台生成的 Token。</li>
+              <li>Base URL 填 <code>https://ai.3zapi.top</code>。</li>
+              <li>保存后点击 <code>Enable</code>，重启对应终端或工具。</li>
+            </ul>
           </div>
         </section>
 
@@ -363,7 +574,7 @@
                 <span>C2</span>
                 <PixelIcon name="settings" size="sm" tone="green" />
               </div>
-              <h3>备用：手动配置</h3>
+              <h3>备用：Windows 手动配置</h3>
               <div class="command-block">
                 <button
                   type="button"
@@ -500,7 +711,7 @@
                 <span>A3</span>
                 <PixelIcon name="panel" size="sm" tone="green" />
               </div>
-              <h3>备用：手动配置</h3>
+              <h3>备用：Windows 手动配置</h3>
               <ul>
                 <li><code>Win + R</code> 输入 <code>sysdm.cpl</code>。</li>
                 <li>打开“高级” → “环境变量”。</li>
@@ -551,6 +762,188 @@
           </div>
         </section>
 
+        <section id="openclaw" class="guide-panel">
+          <div class="guide-heading">
+            <span>OpenClaw</span>
+            <h2>OpenClaw 接入</h2>
+            <p>OpenClaw 通过 <code>models.providers</code> 接入 OpenAI 兼容网关。把落叶网络作为 provider 写入 <code>openclaw.json</code> 后即可使用。</p>
+          </div>
+
+          <div class="guide-grid">
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>O1</span>
+                <PixelIcon name="folder" size="sm" tone="green" />
+              </div>
+              <h3>安装或启动 OpenClaw</h3>
+              <p>按 OpenClaw 官方文档完成安装，先跑完 onboard，并确认 Gateway 与 Control UI 可以打开。</p>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 OpenClaw 初始化命令"
+                  @click="copyCommand('openclaw-setup', commands.openclawSetup)"
+                >
+                  {{ copiedCommand === 'openclaw-setup' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.openclawSetup }}</code></pre>
+              </div>
+              <ul class="tutorial-link-list">
+                <li>
+                  <a href="https://docs.easyrouter.io/zh/docs/apps/openclaw" target="_blank" rel="noopener noreferrer">
+                    OpenClaw 接入文档
+                  </a>
+                </li>
+              </ul>
+            </article>
+
+            <article class="guide-card guide-card--wide">
+              <div class="guide-card-head">
+                <span>O2</span>
+                <PixelIcon name="settings" size="sm" tone="green" />
+              </div>
+              <h3>配置 OpenAI 兼容 provider</h3>
+              <p>在 <code>~/.openclaw/openclaw.json</code> 中新增 provider。API Key 推荐用环境变量注入，Base URL 需要带 <code>/v1</code>。</p>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 OpenClaw provider 配置"
+                  @click="copyCommand('openclaw-config', commands.openclawConfig)"
+                >
+                  {{ copiedCommand === 'openclaw-config' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.openclawConfig }}</code></pre>
+              </div>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>O3</span>
+                <PixelIcon name="key" size="sm" tone="green" />
+              </div>
+              <h3>选择模型</h3>
+              <ul>
+                <li><code>models.providers.luoye.models</code> 里列出你准备使用的模型。</li>
+                <li><code>agents.defaults.model.primary</code> 使用 <code>luoye/模型ID</code> 格式。</li>
+                <li>模型名建议先选 <code>gpt-5.3-codex</code> 或控制台模型广场里可用的 OpenAI 兼容模型。</li>
+                <li>如果模型返回不可用，先到模型广场确认当前分组是否支持该模型。</li>
+              </ul>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>O4</span>
+                <PixelIcon name="signal" size="sm" tone="green" />
+              </div>
+              <h3>验证连接</h3>
+              <p>保存配置后重启 OpenClaw，打开 dashboard 或列出模型。能看到 <code>luoye/</code> 前缀模型并收到回复即代表接入成功。</p>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 OpenClaw 验证命令"
+                  @click="copyCommand('openclaw-check', commands.openclawCheck)"
+                >
+                  {{ copiedCommand === 'openclaw-check' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.openclawCheck }}</code></pre>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section id="hermes-agent" class="guide-panel">
+          <div class="guide-heading">
+            <span>Hermes-Agent</span>
+            <h2>Hermes-Agent 接入</h2>
+            <p>Hermes-Agent 通过 <code>hermes model</code> 交互式配置模型，选择 Custom Endpoint 后填入落叶网络地址和 Token。</p>
+          </div>
+
+          <div class="guide-grid">
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>H1</span>
+                <PixelIcon name="cube" size="sm" tone="green" />
+              </div>
+              <h3>安装 Hermes-Agent</h3>
+              <p>按官方脚本安装 Hermes-Agent，确认 <code>hermes</code> 命令可用。Windows 原生环境不支持，建议先进入 WSL2。</p>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 Hermes-Agent 安装命令"
+                  @click="copyCommand('hermes-install', commands.hermesInstall)"
+                >
+                  {{ copiedCommand === 'hermes-install' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.hermesInstall }}</code></pre>
+              </div>
+              <ul class="tutorial-link-list">
+                <li>
+                  <a href="https://docs.easyrouter.io/zh/docs/apps/hermes-agent" target="_blank" rel="noopener noreferrer">
+                    Hermes-Agent 接入文档
+                  </a>
+                </li>
+              </ul>
+            </article>
+
+            <article class="guide-card guide-card--wide">
+              <div class="guide-card-head">
+                <span>H2</span>
+                <PixelIcon name="settings" size="sm" tone="green" />
+              </div>
+              <h3>启动模型配置向导</h3>
+              <p>运行 <code>hermes model</code>，在交互中选择自定义 OpenAI 兼容接口。</p>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 Hermes-Agent 模型配置命令"
+                  @click="copyCommand('hermes-model', commands.hermesModel)"
+                >
+                  {{ copiedCommand === 'hermes-model' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.hermesModel }}</code></pre>
+              </div>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>H3</span>
+                <PixelIcon name="key" size="sm" tone="green" />
+              </div>
+              <h3>填写 Custom Endpoint</h3>
+              <ul>
+                <li>Provider 选择 <code>Custom Endpoint</code>。</li>
+                <li>Base URL 填 <code>https://ai.3zapi.top</code>。</li>
+                <li>API Key 填落叶网络控制台生成的 Token。</li>
+                <li>Model 填 <code>gpt-5.3-codex</code> 或模型广场中可用的模型名。</li>
+              </ul>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>H4</span>
+                <PixelIcon name="cursor" size="sm" tone="green" />
+              </div>
+              <h3>启动并验证</h3>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 Hermes-Agent 启动命令"
+                  @click="copyCommand('hermes-start', commands.hermesStart)"
+                >
+                  {{ copiedCommand === 'hermes-start' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.hermesStart }}</code></pre>
+              </div>
+              <p>发起一次简单任务，能收到模型回复即接入成功。</p>
+            </article>
+          </div>
+        </section>
+
         <section id="faq" class="guide-panel">
           <div class="guide-heading">
             <span>FAQ</span>
@@ -565,7 +958,10 @@
             </article>
           </div>
         </section>
-      </section>
+          </section>
+        </div>
+
+      </div>
     </main>
   </div>
 </template>
@@ -586,19 +982,25 @@ const apiKeysLink = computed(() =>
 
 const sections = [
   { id: 'prepare', title: '准备工作', desc: '安装必备软件' },
+  { id: 'platforms', title: 'Linux / macOS', desc: '跨平台配置' },
   { id: 'cc-switch', title: 'CC Switch', desc: '桌面账号管理' },
   { id: 'cockpit-tools', title: 'Cockpit Tools', desc: '网页账号管理' },
   { id: 'codex', title: 'Codex', desc: '命令行使用' },
   { id: 'claude', title: 'Claude', desc: '命令行使用' },
+  { id: 'openclaw', title: 'OpenClaw', desc: '自托管助手' },
+  { id: 'hermes-agent', title: 'Hermes', desc: '终端 Agent' },
   { id: 'faq', title: '常见问题', desc: '快速排查' },
 ]
 
 const routeSteps = [
   { id: 'prepare', step: '01', title: '装好基础软件', desc: 'Git、Node.js、Token 和代理地址准备好。' },
-  { id: 'cc-switch', step: '02', title: '可选：CC Switch', desc: '桌面端管理多个工具账号。' },
-  { id: 'cockpit-tools', step: '03', title: '可选：Cockpit Tools', desc: '网页面板管理 Codex 账号和会话。' },
-  { id: 'codex', step: '04', title: '使用 Codex', desc: '一键配置优先，失败再手动设置。' },
-  { id: 'claude', step: '05', title: '使用 Claude', desc: '写入 ANTHROPIC 变量后重启终端。' },
+  { id: 'platforms', step: '02', title: 'Linux / macOS', desc: '按 Shell 写入环境变量。' },
+  { id: 'cc-switch', step: '03', title: '可选：CC Switch', desc: '控制台一键导入 Provider。' },
+  { id: 'cockpit-tools', step: '04', title: '可选：Cockpit Tools', desc: '网页面板管理 Codex 账号和会话。' },
+  { id: 'codex', step: '05', title: '使用 Codex', desc: '一键配置优先，失败再手动设置。' },
+  { id: 'claude', step: '06', title: '使用 Claude', desc: '写入 ANTHROPIC 变量后重启终端。' },
+  { id: 'openclaw', step: '07', title: '使用 OpenClaw', desc: '写入 OpenAI 兼容 provider。' },
+  { id: 'hermes-agent', step: '08', title: '使用 Hermes-Agent', desc: '选择 Custom Endpoint 后填入地址和 Token。' },
 ]
 
 const faqItems = [
@@ -617,9 +1019,44 @@ npm -v`,
   codexInstall: 'npm install -g @openai/codex',
   codexInstallMirror: 'npm install -g @openai/codex --registry=https://registry.npmmirror.com',
   codexConfig: `codex config set token "你的API Token"
-codex config set base_url "你的代理地址"`,
+codex config set base_url "https://ai.3zapi.top"`,
   codexCheck: 'codex check',
-  cockpitBaseUrl: 'https://ai.3zapi.top/',
+  cockpitBaseUrl: 'https://ai.3zapi.top',
+  linuxInstall: `sudo apt update
+sudo apt install -y git nodejs npm
+npm install -g @openai/codex @anthropic-ai/claude-code --registry=https://registry.npmmirror.com
+git --version
+node -v
+npm -v`,
+  linuxEnv: `cat >> ~/.bashrc <<'EOF'
+export CODEX_TOKEN="你的API Token"
+export CODEX_BASE_URL="https://ai.3zapi.top"
+export ANTHROPIC_AUTH_TOKEN="你的令牌"
+export ANTHROPIC_BASE_URL="https://ai.3zapi.top"
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+EOF
+source ~/.bashrc`,
+  macInstall: `brew install git node
+npm install -g @openai/codex @anthropic-ai/claude-code --registry=https://registry.npmmirror.com
+git --version
+node -v
+npm -v`,
+  macEnv: `cat >> ~/.zshrc <<'EOF'
+export CODEX_TOKEN="你的API Token"
+export CODEX_BASE_URL="https://ai.3zapi.top"
+export ANTHROPIC_AUTH_TOKEN="你的令牌"
+export ANTHROPIC_BASE_URL="https://ai.3zapi.top"
+export CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1
+EOF
+source ~/.zshrc`,
+  ccSwitchMacInstall: `brew tap farion1231/ccswitch
+brew install --cask cc-switch`,
+  ccSwitchArchInstall: 'paru -S cc-switch-bin',
+  ccSwitchWebInstall: `wget https://github.com/farion1231/cc-switch/releases/latest/download/cc-switch-web-linux-x64.tar.gz
+tar -xzf cc-switch-web-linux-x64.tar.gz
+cd cc-switch-web/
+./cc-switch-web
+# open http://localhost:17666`,
   codexStart: 'codex',
   codexCommon: `codex chat
 codex run
@@ -629,18 +1066,54 @@ codex update`,
   claudeInstallMirror: 'npm install -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com',
   claudeVersion: 'claude --version',
   claudeEnv: `$env:ANTHROPIC_AUTH_TOKEN="你的令牌"
-$env:ANTHROPIC_BASE_URL="你的接口地址"
+$env:ANTHROPIC_BASE_URL="https://ai.3zapi.top"
 
 [Environment]::SetEnvironmentVariable("ANTHROPIC_AUTH_TOKEN","你的令牌","User")
-[Environment]::SetEnvironmentVariable("ANTHROPIC_BASE_URL","你的接口地址","User")`,
+[Environment]::SetEnvironmentVariable("ANTHROPIC_BASE_URL","https://ai.3zapi.top","User")`,
   claudeSettings: `{
   "env": {
     "ANTHROPIC_AUTH_TOKEN": "你的令牌",
-    "ANTHROPIC_BASE_URL": "你的接口地址",
+    "ANTHROPIC_BASE_URL": "https://ai.3zapi.top",
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1"
   }
 }`,
   claudeStart: 'claude',
+  openclawSetup: `openclaw onboard
+openclaw dashboard`,
+  openclawConfig: `{
+  "models": {
+    "providers": {
+      "luoye": {
+        "api": "openai-completions",
+        "name": "luoye",
+        "baseURL": "https://ai.3zapi.top/v1",
+        "envKey": "LUOYE_API_KEY",
+        "models": [
+          {
+            "id": "gpt-5.3-codex",
+            "contextWindow": 400000
+          }
+        ]
+      }
+    }
+  },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "luoye/gpt-5.3-codex"
+      }
+    }
+  }
+}`,
+  openclawCheck: `openclaw models
+openclaw dashboard`,
+  hermesInstall: 'curl -fsSL https://raw.githubusercontent.com/terryso/hermes-agent/main/install.sh | bash',
+  hermesModel: `hermes model
+# Provider: Custom Endpoint
+# Base URL: https://ai.3zapi.top/v1
+# API Key: 你的API Token
+# Model: gpt-5.3-codex`,
+  hermesStart: 'hermes',
 }
 
 const activeSection = ref(sections[0].id)
@@ -724,6 +1197,7 @@ onMounted(() => {
         observer?.observe(element)
       }
     })
+
   })
 })
 
@@ -750,11 +1224,9 @@ onBeforeUnmount(() => {
   position: relative;
   overflow: visible;
   background:
-    radial-gradient(circle at 50% 18%, rgba(32, 170, 92, 0.22) 0, transparent 34%),
-    radial-gradient(circle at 18% 24%, rgba(87, 86, 210, 0.16) 0, transparent 30%),
-    radial-gradient(circle at 82% 36%, rgba(45, 178, 105, 0.14) 0, transparent 32%),
-    linear-gradient(180deg, #050914 0%, #08110f 48%, #03060a 100%);
-  color: rgba(255, 255, 255, 0.94);
+    radial-gradient(circle at 50% 0%, rgba(69, 125, 255, 0.1) 0, transparent 24rem),
+    linear-gradient(180deg, #eef1f4 0%, #e9ecef 46%, #e5e8eb 100%);
+  color: #20242a;
 }
 
 .tutorial-page::before {
@@ -764,70 +1236,102 @@ onBeforeUnmount(() => {
   inset: 0 0 auto;
   z-index: 0;
   height: 18rem;
-  background: linear-gradient(180deg, rgba(5, 7, 18, 0.76), rgba(5, 7, 18, 0));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.54), rgba(255, 255, 255, 0));
 }
 
 .tutorial-page :deep(.public-matrix-rain) {
   display: block;
-  opacity: 0.54;
-  mix-blend-mode: screen;
+  opacity: 0.08;
+  mix-blend-mode: multiply;
 }
 
 .tutorial-page :deep(.public-blur-field) {
   display: block;
-  opacity: 0.64;
-  filter: blur(68px);
-  mix-blend-mode: screen;
+  opacity: 0.22;
+  filter: blur(74px);
+  mix-blend-mode: multiply;
 }
 
 .tutorial-page :deep(.public-noise) {
   display: block;
-  opacity: 0.2;
-  mix-blend-mode: screen;
+  opacity: 0.08;
+  mix-blend-mode: multiply;
 }
 
 .tutorial-page :deep(.public-top-shell) {
-  box-shadow: 0 12px 34px rgba(35, 43, 52, 0.14);
+  border-bottom-color: rgba(17, 24, 39, 0.1);
+  background: rgba(236, 239, 242, 0.86);
+  box-shadow: 0 10px 24px rgba(24, 34, 48, 0.08);
 }
 
-.tutorial-page .public-kicker {
-  border-color: rgba(221, 230, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(209, 255, 224, 0.9);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16);
-  backdrop-filter: blur(18px);
+.tutorial-page :deep(.public-brand),
+.tutorial-page :deep(.public-brand span),
+.tutorial-page :deep(.public-nav-button) {
+  color: #111827;
+}
+
+.tutorial-page :deep(.public-nav-pill) {
+  color: #46505d;
+}
+
+.tutorial-page :deep(.public-nav-pill.router-link-active),
+.tutorial-page :deep(.public-nav-pill:hover) {
+  color: #0755dd;
+}
+
+.tutorial-page :deep(.public-nav-center),
+.tutorial-page :deep(.public-icon-button),
+.tutorial-page :deep(.public-nav-button),
+.tutorial-page :deep(.public-brand-logo) {
+  border-color: rgba(15, 23, 42, 0.12);
+  background: rgba(255, 255, 255, 0.54);
+  box-shadow: 0 8px 20px rgba(24, 34, 48, 0.08);
+}
+
+.doc-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+}
+
+.doc-pills span,
+.doc-pills strong {
+  display: inline-flex;
+  min-height: 2.15rem;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.35rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 850;
+}
+
+.doc-pills span {
+  background: rgba(17, 24, 39, 0.07);
+  color: #343a42;
+}
+
+.doc-pills strong {
+  background: linear-gradient(135deg, #1e75ff, #1748d4);
+  color: white;
+  box-shadow: 0 8px 20px rgba(23, 72, 212, 0.22);
+}
+
+.tutorial-main {
+  max-width: min(128rem, calc(100vw - 1rem));
 }
 
 .tutorial-overview {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(20rem, 23rem);
-  gap: 1.6rem;
-  align-items: stretch;
-  overflow: hidden;
-  border: 1px solid rgba(221, 230, 255, 0.14);
-  border-radius: 8px;
-  background:
-    radial-gradient(circle at 76% 24%, rgba(119, 255, 173, 0.12), transparent 34%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.058)),
-    rgba(6, 13, 18, 0.56);
-  padding: clamp(1.2rem, 3vw, 2rem);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 18px 44px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(22px);
+  gap: 1.5rem;
+  align-items: start;
+  border-bottom: 1px solid rgba(17, 24, 39, 0.12);
+  padding: 0 0 1.4rem;
 }
 
 .tutorial-overview::after {
-  content: '';
-  pointer-events: none;
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(119, 255, 173, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(167, 139, 250, 0.04) 1px, transparent 1px);
-  background-size: 3rem 3rem;
-  opacity: 0.55;
+  content: none;
 }
 
 .tutorial-intro,
@@ -838,25 +1342,24 @@ onBeforeUnmount(() => {
 
 .tutorial-intro h1 {
   margin-top: 1rem;
-  max-width: 48rem;
-  color: rgba(255, 255, 255, 0.98);
-  font-size: clamp(2.6rem, 6.2vw, 4.75rem);
+  max-width: 42rem;
+  color: #151922;
+  font-size: clamp(2.5rem, 5.8vw, 4rem);
   font-weight: 950;
-  line-height: 0.98;
+  line-height: 1.03;
   letter-spacing: 0;
 }
 
 .tutorial-intro > p {
   margin-top: 1rem;
-  max-width: 48rem;
-  color: rgba(222, 232, 255, 0.68);
+  max-width: 50rem;
+  color: #5f6673;
   font-size: 1.02rem;
   line-height: 1.8;
 }
 
 .overview-checklist {
-  margin-top: 1.3rem;
-  border-top: 1px solid rgba(221, 230, 255, 0.12);
+  display: none;
 }
 
 .overview-row {
@@ -865,7 +1368,7 @@ onBeforeUnmount(() => {
   gap: 1rem;
   align-items: center;
   min-height: 4.2rem;
-  border-bottom: 1px solid rgba(221, 230, 255, 0.12);
+  border-bottom: 1px solid rgba(17, 24, 39, 0.12);
   color: inherit;
 }
 
@@ -893,39 +1396,27 @@ onBeforeUnmount(() => {
 }
 
 .overview-row strong {
-  color: rgba(255, 255, 255, 0.94);
+  color: #151922;
   font-size: 0.94rem;
   font-weight: 950;
 }
 
 .overview-row em {
-  color: rgba(222, 232, 255, 0.6);
+  color: #6f7682;
   font-size: 0.86rem;
   font-style: normal;
   line-height: 1.6;
 }
 
 .route-step em {
-  color: rgba(220, 232, 244, 0.76);
+  color: #6f7682;
   font-size: 0.86rem;
   font-style: normal;
   line-height: 1.6;
 }
 
 .route-map {
-  display: grid;
-  align-content: center;
-  gap: 0.75rem;
-  overflow: hidden;
-  border: 1px solid rgba(45, 212, 191, 0.16);
-  border-radius: 8px;
-  background:
-    linear-gradient(90deg, rgba(45, 212, 191, 0.08) 1px, transparent 1px),
-    linear-gradient(180deg, rgba(45, 212, 191, 0.06) 1px, transparent 1px),
-    linear-gradient(135deg, #112434, #111831 72%);
-  background-size: 3rem 3rem, 3rem 3rem, auto;
-  padding: 1.25rem;
-  box-shadow: 0 24px 48px rgba(20, 27, 40, 0.22);
+  display: none;
 }
 
 .route-map p {
@@ -956,85 +1447,88 @@ onBeforeUnmount(() => {
   font-weight: 950;
 }
 
-.tutorial-tabs {
-  --tutorial-tabs-gutter: clamp(1rem, 2vw, 1.75rem);
-  --tutorial-tabs-sticky-top: 4.45rem;
+.tutorial-reader {
+  --tutorial-index-sticky-top: 4.15rem;
 
-  position: sticky;
-  top: var(--tutorial-tabs-sticky-top);
-  z-index: 30;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.25rem;
-  margin: 1.15rem var(--tutorial-tabs-gutter) 0;
-  border: 1px solid rgba(221, 230, 255, 0.14);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.055)),
-    rgba(6, 13, 18, 0.58);
-  padding: 0.35rem;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 14px 32px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(20px);
+  grid-template-columns: minmax(13rem, 16rem) minmax(0, 72rem);
+  gap: 2rem;
+  align-items: start;
+}
+
+.tutorial-sidebar {
+  position: sticky;
+  top: var(--tutorial-index-sticky-top);
+  z-index: 28;
+  border-right: 1px solid rgba(17, 24, 39, 0.12);
+  padding: 4.8rem 1rem 1rem 0.5rem;
+}
+
+.tutorial-main-column {
+  display: grid;
+  gap: 1.2rem;
+  min-width: 0;
+  padding-top: 1.2rem;
+}
+
+.tutorial-sidebar-title {
+  margin: 0 0 0.58rem;
+  color: #1f2937;
+  font-size: 0.95rem;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.tutorial-tabs {
+  display: grid;
+  gap: 0.28rem;
 }
 
 .tutorial-tabs a {
   display: grid;
   gap: 0.18rem;
-  min-height: 3.6rem;
+  min-height: 2.75rem;
   align-content: center;
-  border: 1px solid transparent;
+  border-left: 3px solid transparent;
   border-radius: 6px;
-  padding: 0.58rem 0.75rem;
-  color: rgba(222, 232, 255, 0.62);
+  padding: 0.42rem 0.7rem;
+  color: #3f4652;
   transition: background 160ms ease, border-color 160ms ease, color 160ms ease;
 }
 
 .tutorial-tabs a:hover,
 .tutorial-tabs a.is-active {
-  border-color: rgba(15, 118, 110, 0.18);
-  background: rgba(119, 255, 173, 0.12);
-  color: white;
+  border-left-color: #1e75ff;
+  background: rgba(30, 117, 255, 0.1);
+  color: #0755dd;
 }
 
 .tutorial-tabs strong {
   font-size: 0.9rem;
-  font-weight: 950;
+  font-weight: 850;
 }
 
 .tutorial-tabs span {
-  color: rgba(222, 232, 255, 0.5);
+  color: #747b86;
   font-size: 0.78rem;
   line-height: 1.35;
 }
 
 .tutorial-tabs a.is-active span,
 .tutorial-tabs a:hover span {
-  color: rgba(229, 245, 241, 0.78);
+  color: #3869b9;
 }
 
 .tutorial-content {
   display: grid;
   gap: 1.4rem;
-  margin-top: 1.4rem;
+  min-width: 0;
 }
 
 .guide-panel {
-  scroll-margin-top: calc(var(--tutorial-tabs-sticky-top) + 5rem);
-  border-top: 3px solid rgba(20, 184, 166, 0.72);
-  border-radius: 8px;
-  border-right: 1px solid rgba(221, 230, 255, 0.14);
-  border-bottom: 1px solid rgba(221, 230, 255, 0.14);
-  border-left: 1px solid rgba(221, 230, 255, 0.14);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.058)),
-    rgba(6, 13, 18, 0.54);
-  padding: clamp(1rem, 2.5vw, 1.5rem);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 16px 34px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(20px);
+  scroll-margin-top: calc(var(--tutorial-index-sticky-top) + 1rem);
+  border-bottom: 1px solid rgba(17, 24, 39, 0.1);
+  padding: 1.2rem 0 1.8rem;
 }
 
 .guide-heading {
@@ -1042,7 +1536,7 @@ onBeforeUnmount(() => {
 }
 
 .guide-heading span {
-  color: #77ffad;
+  color: #0755dd;
   font-size: 0.76rem;
   font-weight: 950;
   letter-spacing: 0.08em;
@@ -1050,14 +1544,14 @@ onBeforeUnmount(() => {
 
 .guide-heading h2 {
   margin-top: 0.28rem;
-  color: rgba(255, 255, 255, 0.96);
-  font-size: clamp(1.55rem, 3vw, 2.15rem);
+  color: #151922;
+  font-size: clamp(1.65rem, 3vw, 2.35rem);
   font-weight: 950;
 }
 
 .guide-heading p {
   margin-top: 0.45rem;
-  color: rgba(222, 232, 255, 0.66);
+  color: #626a76;
   line-height: 1.75;
 }
 
@@ -1075,13 +1569,11 @@ onBeforeUnmount(() => {
   gap: 0.65rem;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid rgba(221, 230, 255, 0.14);
+  border: 1px solid rgba(17, 24, 39, 0.12);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.052)),
-    rgba(6, 13, 18, 0.5);
+  background: rgba(255, 255, 255, 0.36);
   padding: 1rem;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 10px 22px rgba(24, 34, 48, 0.06);
 }
 
 .guide-card::before {
@@ -1090,7 +1582,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
-  background: linear-gradient(180deg, #14b8a6, #5638d7);
+  background: linear-gradient(180deg, #1e75ff, #14b8a6);
   opacity: 0.58;
 }
 
@@ -1106,15 +1598,21 @@ onBeforeUnmount(() => {
 }
 
 .guide-card h3 {
-  color: rgba(255, 255, 255, 0.95);
+  color: #151922;
   font-size: 1.05rem;
   font-weight: 950;
+}
+
+.guide-card h4 {
+  color: #151922;
+  font-size: 1rem;
+  font-weight: 900;
 }
 
 .guide-card p,
 .guide-card li,
 .faq-card p {
-  color: rgba(222, 232, 255, 0.66);
+  color: #626a76;
   line-height: 1.72;
 }
 
@@ -1125,8 +1623,83 @@ onBeforeUnmount(() => {
 
 .guide-card code,
 .faq-card code {
-  color: #77ffad;
+  color: #0755dd;
   font-size: 0.9em;
+}
+
+.doc-feature-stack {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.doc-feature,
+.doc-subsection {
+  scroll-margin-top: calc(var(--tutorial-index-sticky-top) + 1rem);
+}
+
+.doc-feature,
+.doc-subsection:not(#cc-switch-install) {
+  position: relative;
+  display: grid;
+  align-content: start;
+  gap: 0.65rem;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.36);
+  padding: 1rem;
+  box-shadow: 0 10px 22px rgba(24, 34, 48, 0.06);
+}
+
+.doc-feature::before,
+.doc-subsection:not(#cc-switch-install)::before {
+  content: '';
+  pointer-events: none;
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, #1e75ff, #14b8a6);
+  opacity: 0.58;
+}
+
+.doc-feature h3,
+.doc-subsection h3 {
+  color: #151922;
+  font-size: 1.05rem;
+  font-weight: 950;
+}
+
+.doc-feature ul,
+.doc-subsection ul,
+.doc-steps {
+  margin: 0;
+  padding-left: 1.28rem;
+}
+
+.doc-feature li,
+.doc-subsection li,
+.doc-subsection p,
+.doc-steps li {
+  color: #3f4652;
+  line-height: 1.9;
+}
+
+.doc-subsection {
+  margin-top: 1rem;
+}
+
+.doc-subsection p {
+  margin-top: 0;
+}
+
+.install-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 1rem;
 }
 
 .command-block {
@@ -1192,18 +1765,18 @@ onBeforeUnmount(() => {
 
 .tutorial-link-list a {
   display: block;
-  border: 1px solid rgba(15, 118, 110, 0.14);
+  border: 1px solid rgba(30, 117, 255, 0.16);
   border-radius: 6px;
-  background: rgba(20, 184, 166, 0.08);
+  background: rgba(30, 117, 255, 0.08);
   padding: 0.55rem 0.65rem;
-  color: #baf7cb;
+  color: #0755dd;
   font-size: 0.86rem;
   font-weight: 900;
 }
 
 .tutorial-link-list a:hover {
-  border-color: rgba(119, 255, 173, 0.42);
-  color: white;
+  border-color: rgba(30, 117, 255, 0.42);
+  color: #003fbd;
 }
 
 .guide-action-link {
@@ -1215,13 +1788,13 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(119, 255, 173, 0.34);
   border-radius: 6px;
   background:
-    linear-gradient(180deg, rgba(119, 255, 173, 0.2), rgba(20, 184, 166, 0.08)),
-    rgba(5, 15, 18, 0.72);
+    linear-gradient(180deg, rgba(30, 117, 255, 0.18), rgba(20, 184, 166, 0.08)),
+    rgba(255, 255, 255, 0.68);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
     0 10px 22px rgba(0, 0, 0, 0.18);
   padding: 0.58rem 0.75rem;
-  color: #d9ffe6;
+  color: #0755dd;
   font-size: 0.84rem;
   font-weight: 950;
   transition:
@@ -1232,11 +1805,11 @@ onBeforeUnmount(() => {
 }
 
 .guide-action-link:hover {
-  border-color: rgba(119, 255, 173, 0.62);
+  border-color: rgba(30, 117, 255, 0.52);
   background:
-    linear-gradient(180deg, rgba(119, 255, 173, 0.28), rgba(20, 184, 166, 0.14)),
-    rgba(6, 28, 24, 0.86);
-  color: white;
+    linear-gradient(180deg, rgba(30, 117, 255, 0.2), rgba(20, 184, 166, 0.1)),
+    rgba(255, 255, 255, 0.84);
+  color: #003fbd;
   transform: translateY(-1px);
 }
 
@@ -1257,13 +1830,11 @@ onBeforeUnmount(() => {
 .faq-card {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(221, 230, 255, 0.14);
+  border: 1px solid rgba(17, 24, 39, 0.12);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.052)),
-    rgba(6, 13, 18, 0.5);
+  background: rgba(255, 255, 255, 0.36);
   padding: 1rem;
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+  box-shadow: var(--public-shadow-soft);
 }
 
 .faq-card::before {
@@ -1272,12 +1843,12 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
-  background: linear-gradient(180deg, #14b8a6, #5638d7);
+  background: linear-gradient(180deg, #1e75ff, #14b8a6);
   opacity: 0.5;
 }
 
 .faq-card strong {
-  color: rgba(255, 255, 255, 0.95);
+  color: #151922;
   font-size: 0.98rem;
   font-weight: 950;
 }
@@ -1286,25 +1857,61 @@ onBeforeUnmount(() => {
   margin-top: 0.45rem;
 }
 
+@media (max-width: 1180px) {
+  .tutorial-main {
+    max-width: 100%;
+  }
+
+  .tutorial-reader {
+    grid-template-columns: minmax(12rem, 14rem) minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 980px) {
   .tutorial-overview {
     grid-template-columns: 1fr;
   }
 
-  .route-map {
-    align-content: start;
+  .tutorial-reader {
+    --tutorial-index-sticky-top: 6.55rem;
+
+    display: block;
+  }
+
+  .tutorial-sidebar {
+    top: var(--tutorial-index-sticky-top);
+    margin: 1.15rem 0.5rem 0;
+    padding: 0.35rem;
+    border-right: 0;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.62);
+    box-shadow: 0 10px 22px rgba(24, 34, 48, 0.08);
+    backdrop-filter: blur(18px);
+  }
+
+  .tutorial-sidebar-title {
+    display: none;
   }
 
   .tutorial-tabs {
-    --tutorial-tabs-gutter: 0.5rem;
-    --tutorial-tabs-sticky-top: 6.55rem;
-
     overflow-x: auto;
-    grid-template-columns: repeat(6, minmax(8.5rem, 1fr));
+    grid-template-columns: repeat(9, minmax(8.5rem, 1fr));
+  }
+
+  .tutorial-content {
+    margin-top: 1.4rem;
+  }
+
+  .tutorial-main-column {
+    padding-top: 1rem;
   }
 
   .faq-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .doc-feature-stack {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -1353,13 +1960,17 @@ onBeforeUnmount(() => {
     display: none;
   }
 
-  .tutorial-tabs {
-    --tutorial-tabs-gutter: 0.25rem;
-    --tutorial-tabs-sticky-top: 6.35rem;
+  .tutorial-reader {
+    --tutorial-index-sticky-top: 6.35rem;
+  }
 
-    margin-inline: var(--tutorial-tabs-gutter);
-    grid-template-columns: repeat(6, minmax(8rem, 1fr));
+  .tutorial-sidebar {
+    margin-inline: 0.25rem;
     padding: 0.28rem;
+  }
+
+  .tutorial-tabs {
+    grid-template-columns: repeat(9, minmax(8rem, 1fr));
   }
 
   .tutorial-tabs a {
@@ -1368,7 +1979,9 @@ onBeforeUnmount(() => {
   }
 
   .guide-grid,
-  .faq-grid {
+  .faq-grid,
+  .doc-feature-stack,
+  .install-grid {
     grid-template-columns: 1fr;
   }
 

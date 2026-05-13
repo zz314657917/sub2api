@@ -22,18 +22,19 @@
 .driver-active-element {
   position: relative !important;
   z-index: 99999999 !important;
-  outline: 4px solid rgba(20, 184, 166, 0.2) !important;
-  border-radius: 4px !important;
+  outline: 2px solid rgba(129, 140, 248, 0.34) !important;
+  outline-offset: 2px !important;
+  border-radius: 8px !important;
 }
 
 /* 2. Popover Container */
 .driver-popover.theme-tour-popover {
   position: fixed !important;
   z-index: 100000000 !important;
-  background-color: #ffffff !important;
-  border: 1px solid #e5e7eb !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
-  border-radius: 12px !important;
+  background-color: rgba(255, 255, 255, 0.98) !important;
+  border: 1px solid rgba(148, 163, 184, 0.28) !important;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.14) !important;
+  border-radius: 8px !important;
   padding: 0 !important;
   max-width: min(440px, 90vw) !important; /* Responsive on small screens */
   color: #1f2937 !important;
@@ -42,8 +43,8 @@
 }
 
 .dark .driver-popover.theme-tour-popover {
-  background-color: #1e293b !important;
-  border-color: #334155 !important;
+  background-color: rgba(15, 23, 42, 0.98) !important;
+  border-color: rgba(71, 85, 105, 0.78) !important;
   color: #f3f4f6 !important;
 }
 
@@ -105,13 +106,13 @@
   align-items: center !important;
   justify-content: space-between !important; /* Push Left and Right apart */
   padding: 16px 24px !important;
-  background-color: #f9fafb !important;
-  border-top: 1px solid #f3f4f6 !important;
+  background-color: rgba(248, 250, 252, 0.92) !important;
+  border-top: 1px solid rgba(148, 163, 184, 0.18) !important;
   margin: 0 !important;
 }
 .dark .theme-tour-popover .driver-popover-footer {
-  background-color: #0f172a !important;
-  border-top-color: #1e293b !important;
+  background-color: rgba(8, 15, 29, 0.92) !important;
+  border-top-color: rgba(51, 65, 85, 0.82) !important;
 }
 
 /* Left Container: Progress + Shortcuts */
@@ -187,7 +188,7 @@
   padding: 8px 16px !important;
   font-size: 13px !important;
   font-weight: 500 !important;
-  border-radius: 6px !important;
+  border-radius: 8px !important;
   cursor: pointer !important;
   transition: all 0.2s !important;
   border: 1px solid transparent !important;

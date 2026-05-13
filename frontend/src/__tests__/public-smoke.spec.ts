@@ -1,0 +1,60 @@
+import { describe, expect, it } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+
+const router = readFileSync(resolve(process.cwd(), 'src/router/index.ts'), 'utf8')
+const homeView = readFileSync(resolve(process.cwd(), 'src/views/HomeView.vue'), 'utf8')
+const tutorialView = readFileSync(resolve(process.cwd(), 'src/views/public/TutorialView.vue'), 'utf8')
+const modelPlazaView = readFileSync(resolve(process.cwd(), 'src/views/public/ModelPlazaView.vue'), 'utf8')
+const publicTopNav = readFileSync(resolve(process.cwd(), 'src/views/public/components/PublicTopNav.vue'), 'utf8')
+const publicBackdrop = readFileSync(resolve(process.cwd(), 'src/views/public/components/PublicMatrixBackdrop.vue'), 'utf8')
+const publicCss = readFileSync(resolve(process.cwd(), 'src/views/public/public-page.css'), 'utf8')
+
+describe('public page smoke contracts', () => {
+  it('keeps the three public entry routes available', () => {
+    expect(router).toContain("path: '/home'")
+    expect(router).toContain("path: '/tutorial'")
+    expect(router).toContain("path: '/models'")
+    expect(router).toContain("name: 'Home'")
+    expect(router).toContain("name: 'Tutorial'")
+    expect(router).toContain("name: 'ModelPlaza'")
+  })
+
+  it('uses one shared navigation and matrix surface across public pages', () => {
+    expect(homeView).toContain('<PublicTopNav />')
+    expect(tutorialView).toContain('<PublicTopNav />')
+    expect(modelPlazaView).toContain('<PublicTopNav />')
+    expect(tutorialView).toContain('<PublicMatrixBackdrop />')
+    expect(modelPlazaView).toContain('<PublicMatrixBackdrop />')
+    expect(publicTopNav).toContain('public-top-shell')
+    expect(publicTopNav).toContain('public-nav-button')
+    expect(publicTopNav).toContain("to: '/home'")
+    expect(publicTopNav).toContain("to: '/tutorial'")
+    expect(publicTopNav).toContain("to: '/models'")
+    expect(publicTopNav).not.toContain('navFeatures')
+    expect(publicBackdrop).toContain('public-matrix-rain')
+    expect(publicCss).toContain('--public-surface')
+    expect(publicCss).toContain('--public-border')
+  })
+
+  it('keeps the homepage primary actions and tutorial reader structure stable', () => {
+    expect(homeView).toContain('home-claim-button')
+    expect(homeView).toContain('home-support-button')
+    expect(tutorialView).toContain('class="tutorial-sidebar"')
+    expect(tutorialView).toContain('class="tutorial-main-column"')
+    expect(tutorialView).not.toContain('class="tutorial-toc"')
+    expect(tutorialView).toContain('IntersectionObserver')
+    expect(tutorialView).toContain("title: 'OpenClaw'")
+    expect(tutorialView).toContain("title: 'Hermes'")
+  })
+
+  it('keeps model plaza discovery controls mounted on the public surface', () => {
+    expect(modelPlazaView).toContain('model-filter-panel')
+    expect(modelPlazaView).toContain('model-card-grid')
+    expect(modelPlazaView).toContain('model-search-box')
+    expect(modelPlazaView).toContain('v-model="searchQuery"')
+    expect(modelPlazaView).toContain('selectedRateGroup')
+    expect(modelPlazaView).toContain('formatModelPrice')
+    expect(modelPlazaView).toContain('userChannelsAPI.getAvailable')
+  })
+})

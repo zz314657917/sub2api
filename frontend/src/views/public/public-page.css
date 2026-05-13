@@ -1,3 +1,27 @@
+.public-page-shell,
+.public-top-shell,
+.home-page-root,
+.tutorial-page,
+.model-plaza-page {
+  --public-border: rgba(226, 232, 240, 0.14);
+  --public-border-strong: rgba(226, 232, 240, 0.22);
+  --public-surface: rgba(6, 13, 18, 0.58);
+  --public-surface-soft: rgba(255, 255, 255, 0.07);
+  --public-surface-hover: rgba(255, 255, 255, 0.11);
+  --public-surface-raised:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.055)),
+    rgba(6, 13, 18, 0.56);
+  --public-input-surface: rgba(2, 8, 10, 0.5);
+  --public-text: rgba(255, 255, 255, 0.94);
+  --public-muted: rgba(222, 232, 255, 0.66);
+  --public-muted-strong: rgba(238, 246, 240, 0.78);
+  --public-accent: #77ffad;
+  --public-accent-soft: rgba(119, 255, 173, 0.12);
+  --public-ring: rgba(119, 255, 173, 0.32);
+  --public-shadow: 0 18px 42px rgba(0, 0, 0, 0.2);
+  --public-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.14);
+}
+
 .public-page-shell {
   position: relative;
   overflow: hidden;
@@ -17,10 +41,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--public-border-strong);
+  border-radius: 999px;
+  background: var(--public-surface-soft);
   padding: 0.52rem 0.78rem;
-  color: rgba(245, 239, 255, 0.82);
+  color: var(--public-muted-strong);
   font-size: 0.75rem;
   font-weight: 900;
   letter-spacing: 0.04em;

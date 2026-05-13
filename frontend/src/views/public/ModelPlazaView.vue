@@ -500,6 +500,8 @@ onMounted(() => {
 </script>
 
 <style scoped>
+@import './public-page.css';
+
 .model-plaza-page {
   background:
     radial-gradient(circle at 50% 18%, rgba(32, 170, 92, 0.22) 0, transparent 34%),
@@ -540,9 +542,9 @@ onMounted(() => {
   align-items: center;
   gap: 0.45rem;
   border-radius: 8px;
-  border: 1px solid rgba(221, 230, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
-  box-shadow: 0 12px 26px rgba(0, 0, 0, 0.18);
+  border: 1px solid var(--public-border-strong);
+  background: var(--public-surface-soft);
+  box-shadow: var(--public-shadow-soft);
   padding: 0.65rem 0.9rem;
   color: rgba(238, 246, 240, 0.84);
   font-size: 0.82rem;
@@ -563,13 +565,11 @@ onMounted(() => {
   gap: 1rem;
   min-height: 4.9rem;
   border-radius: 8px;
-  border: 1px solid rgba(221, 230, 255, 0.14);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.055)),
-    rgba(6, 13, 18, 0.48);
+  border: 1px solid var(--public-border);
+  background: var(--public-surface-raised);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 18px 42px rgba(0, 0, 0, 0.2);
+    var(--public-shadow);
   padding: 1rem;
   backdrop-filter: blur(18px);
 }
@@ -623,13 +623,11 @@ onMounted(() => {
   gap: 1rem;
   align-items: center;
   border-radius: 8px;
-  border: 1px solid rgba(221, 230, 255, 0.14);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.055)),
-    rgba(6, 13, 18, 0.5);
+  border: 1px solid var(--public-border);
+  background: var(--public-surface-raised);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 18px 42px rgba(0, 0, 0, 0.2);
+    var(--public-shadow);
   padding: 1rem;
   backdrop-filter: blur(18px);
 }
@@ -640,8 +638,8 @@ onMounted(() => {
   align-items: center;
   gap: 0.7rem;
   border-radius: 8px;
-  border: 1px solid rgba(221, 230, 255, 0.16);
-  background: rgba(2, 8, 10, 0.46);
+  border: 1px solid var(--public-border);
+  background: var(--public-input-surface);
   padding: 0 0.85rem;
   color: rgba(222, 232, 255, 0.62);
 }
@@ -709,9 +707,9 @@ onMounted(() => {
   align-items: center;
   gap: 0.46rem;
   border-radius: 8px;
-  border: 1px solid rgba(221, 230, 255, 0.14);
-  background: rgba(255, 255, 255, 0.07);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+  border: 1px solid var(--public-border);
+  background: var(--public-surface-soft);
+  box-shadow: var(--public-shadow-soft);
   padding: 0.55rem 0.85rem;
   color: rgba(238, 246, 240, 0.72);
   font-weight: 850;
@@ -720,7 +718,7 @@ onMounted(() => {
 
 .model-provider-tabs button.is-active {
   border-color: rgba(119, 255, 173, 0.34);
-  background: rgba(119, 255, 173, 0.12);
+  background: var(--public-accent-soft);
   color: rgba(220, 255, 230, 0.94);
 }
 
@@ -740,13 +738,11 @@ onMounted(() => {
 .model-price-card {
   min-height: 14.2rem;
   border-radius: 8px;
-  border: 1px solid rgba(221, 230, 255, 0.14);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.058)),
-    rgba(6, 13, 18, 0.54);
+  border: 1px solid var(--public-border);
+  background: var(--public-surface-raised);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 18px 44px rgba(0, 0, 0, 0.2);
+    var(--public-shadow);
   padding: 1rem;
   backdrop-filter: blur(18px);
 }
@@ -853,18 +849,21 @@ onMounted(() => {
   gap: 0.7rem;
   min-height: 16rem;
   border-radius: 8px;
-  border: 1px dashed rgba(221, 230, 255, 0.22);
-  background: rgba(255, 255, 255, 0.06);
+  border: 1px dashed var(--public-border-strong);
+  background: var(--public-surface-soft);
   color: rgba(238, 246, 240, 0.72);
   text-align: center;
   backdrop-filter: blur(18px);
 }
 
 .model-empty-card button {
-  border-radius: 0.55rem;
-  background: #15803d;
+  border: 1px solid rgba(119, 255, 173, 0.34);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.22), rgba(20, 184, 166, 0.1)),
+    rgba(5, 15, 18, 0.82);
   padding: 0.52rem 0.8rem;
-  color: white;
+  color: #eafff0;
   font-size: 0.8rem;
   font-weight: 850;
 }
@@ -879,16 +878,15 @@ onMounted(() => {
 
 :deep(.select-trigger) {
   min-height: 2.7rem;
-  border-color: rgba(221, 230, 255, 0.16);
-  background: rgba(2, 8, 10, 0.46);
+  border-color: var(--public-border);
+  background: var(--public-input-surface);
   color: rgba(255, 255, 255, 0.9);
 }
 
-:deep(.select-dropdown) {
-  border-color: rgba(221, 230, 255, 0.16);
-  background: rgba(9, 16, 24, 0.96);
-  color: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(18px);
+:deep(.select-trigger:hover),
+:deep(.select-trigger-open) {
+  border-color: rgba(119, 255, 173, 0.36);
+  background: rgba(5, 15, 18, 0.74);
 }
 
 @media (max-width: 900px) {

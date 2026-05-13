@@ -8,13 +8,15 @@ const {
   listWithEtag,
   getBatchTodayStats,
   getAllProxies,
-  getAllGroups
+  getAllGroups,
+  routeName
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
   getAllProxies: vi.fn(),
-  getAllGroups: vi.fn()
+  getAllGroups: vi.fn(),
+  routeName: { value: 'AdminAccounts' }
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -63,7 +65,9 @@ vi.mock('vue-i18n', async () => {
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({
-    name: 'AdminAccounts'
+    get name() {
+      return routeName.value
+    }
   })
 }))
 
@@ -71,7 +75,14 @@ const DataTableStub = {
   props: ['columns', 'data'],
   template: `
     <div data-test="data-table" :data-column-keys="columns.map(column => column.key).join(',')">
-      <span v-for="row in data" :key="row.id" data-test="row-number">{{ row.row_number }}</span>
+      <div v-for="row in data" :key="row.id">
+        <span data-test="row-number">{{ row.row_number }}</span>
+        <div data-test="name-cell">
+          <slot name="cell-name" :row="row" :value="row.name">
+            <span>{{ row.name }}</span>
+          </slot>
+        </div>
+      </div>
     </div>
   `
 }
@@ -96,6 +107,7 @@ describe('admin AccountsView bulk edit scope', () => {
     getBatchTodayStats.mockReset()
     getAllProxies.mockReset()
     getAllGroups.mockReset()
+    routeName.value = 'AdminAccounts'
 
     listAccounts.mockResolvedValue({
       items: [],
@@ -231,5 +243,72 @@ describe('admin AccountsView bulk edit scope', () => {
       'name'
     ])
     expect(wrapper.findAll('[data-test="row-number"]').map(item => item.text())).toEqual(['41', '42'])
+  })
+
+  it('shows the shared upstream account name instead of the saved alias on the shared account page', async () => {
+    routeName.value = 'AdminSharedAccounts'
+    listAccounts.mockResolvedValueOnce({
+      items: [
+        {
+          id: 1,
+          name: '1',
+          platform: 'openai',
+          type: 'oauth',
+          status: 'active',
+          schedulable: true,
+          owner_user_id: 10,
+          share_mode: 'public',
+          share_status: 'active',
+          groups: [],
+          credentials: { email: 'shared-openai@example.com' },
+          extra: {}
+        }
+      ],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+
+    const wrapper = mount(AccountsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: true,
+          AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
+          AccountTableFilters: { template: '<div></div>' },
+          AccountBulkActionsBar: AccountBulkActionsBarStub,
+          AccountActionMenu: true,
+          ImportDataModal: true,
+          ReAuthAccountModal: true,
+          AccountTestModal: true,
+          AccountStatsModal: true,
+          ScheduledTestsPanel: true,
+          SyncFromCrsModal: true,
+          TempUnschedStatusModal: true,
+          ErrorPassthroughRulesModal: true,
+          TLSFingerprintProfilesModal: true,
+          CreateAccountModal: true,
+          EditAccountModal: true,
+          BulkEditAccountModal: BulkEditAccountModalStub,
+          PlatformTypeBadge: true,
+          AccountCapacityCell: true,
+          AccountStatusIndicator: true,
+          AccountTodayStatsCell: true,
+          AccountGroupsCell: true,
+          AccountUsageCell: true,
+          Icon: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="name-cell"]').text()).toBe('shared-openai@example.com')
   })
 })

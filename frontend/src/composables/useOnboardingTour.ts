@@ -120,7 +120,10 @@ export function useOnboardingTour(options: OnboardingOptions) {
       steps,
       animate: true,
       allowClose: false, // 禁止点击遮罩关闭
+      overlayColor: '#020617',
+      overlayOpacity: 0.18,
       stagePadding: 4,
+      stageRadius: 8,
       popoverClass: 'theme-tour-popover',
       nextBtnText: t('common.next'),
       prevBtnText: t('common.back'),

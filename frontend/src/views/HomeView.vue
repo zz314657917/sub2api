@@ -411,6 +411,8 @@ watch(heroDescriptionTexts, () => {
 </script>
 
 <style scoped>
+@import './public/public-page.css';
+
 .home-violet-bg {
   background:
     radial-gradient(circle at 50% 38%, rgba(74, 255, 147, 0.13) 0, transparent 34%),
@@ -533,12 +535,13 @@ watch(heroDescriptionTexts, () => {
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--public-border-strong);
+  border-radius: 999px;
+  background: var(--public-surface-soft);
   padding: 0.45rem 0.8rem;
   font-size: 0.75rem;
   font-weight: 700;
-  color: rgba(245, 239, 255, 0.82);
+  color: var(--public-muted-strong);
   backdrop-filter: blur(18px);
 }
 
@@ -843,31 +846,46 @@ watch(heroDescriptionTexts, () => {
 .home-claim-button {
   display: inline-flex;
   min-width: min(18rem, calc(100vw - 2rem));
-  border: 3px solid #5f4814;
-  background: #9d6b19;
+  overflow: hidden;
+  border: 1px solid rgba(119, 255, 173, 0.42);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.2), rgba(20, 184, 166, 0.1)),
+    rgba(5, 15, 18, 0.72);
   box-shadow:
-    0 5px 0 #4f360f,
-    0 18px 34px rgba(13, 8, 35, 0.34);
-  color: #2b1900;
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 18px 38px rgba(0, 0, 0, 0.24);
+  color: #eafff0;
   transition:
     transform 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease,
     box-shadow 120ms ease,
     filter 120ms ease;
 }
 
 .home-claim-button:hover {
-  filter: brightness(1.04);
+  border-color: rgba(119, 255, 173, 0.62);
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.28), rgba(20, 184, 166, 0.14)),
+    rgba(6, 28, 24, 0.86);
+  filter: brightness(1.03);
   transform: translateY(-1px);
   box-shadow:
-    0 6px 0 #4f360f,
-    0 20px 38px rgba(13, 8, 35, 0.38);
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 22px 44px rgba(0, 0, 0, 0.28);
 }
 
 .home-claim-button:active {
-  transform: translateY(3px);
+  transform: translateY(1px);
   box-shadow:
-    0 2px 0 #4f360f,
-    0 10px 22px rgba(13, 8, 35, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 10px 22px rgba(0, 0, 0, 0.22);
+}
+
+.home-claim-button:focus-visible {
+  outline: 2px solid var(--public-ring);
+  outline-offset: 3px;
 }
 
 .home-button-inner {
@@ -877,19 +895,17 @@ watch(heroDescriptionTexts, () => {
   align-items: center;
   justify-content: center;
   gap: 0.6rem;
-  border: 2px solid rgba(255, 245, 168, 0.45);
-  background:
-    linear-gradient(rgba(255, 255, 255, 0.22), transparent 42%),
-    linear-gradient(180deg, #ffd95d 0%, #e6a72c 100%);
+  border: 0;
+  background: transparent;
   padding: 0.8rem 1.3rem;
-  font-weight: 900;
+  font-weight: 850;
   letter-spacing: 0;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.38);
+  text-shadow: none;
 }
 
 .home-button-inner .pixel-glyph {
-  --pixel-glyph-on: #2b1900;
-  --pixel-glyph-accent: #835b19;
+  --pixel-glyph-on: rgba(234, 255, 240, 0.95);
+  --pixel-glyph-accent: rgba(119, 255, 173, 0.78);
   --pixel-glyph-glow: transparent;
   filter: none;
 }
@@ -904,46 +920,55 @@ watch(heroDescriptionTexts, () => {
   justify-content: center;
   gap: 0.45rem;
   min-height: 2.65rem;
-  border: 2px solid #153c1e;
-  background: linear-gradient(#6fbf43, #328033);
+  border: 1px solid rgba(119, 255, 173, 0.34);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.18), rgba(20, 184, 166, 0.08)),
+    rgba(5, 15, 18, 0.82);
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
-    0 4px 0 #123118,
-    0 14px 28px rgba(8, 5, 21, 0.32);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    0 14px 28px rgba(0, 0, 0, 0.24);
   padding: 0.6rem 0.9rem;
-  color: white;
+  color: #eafff0;
   font-size: 0.8rem;
-  font-weight: 900;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  font-weight: 850;
+  text-shadow: none;
+  backdrop-filter: blur(18px);
   transition:
     transform 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease,
     box-shadow 120ms ease,
     filter 120ms ease;
 }
 
 .home-support-button:hover {
+  border-color: rgba(119, 255, 173, 0.58);
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.26), rgba(20, 184, 166, 0.14)),
+    rgba(6, 28, 24, 0.9);
   filter: brightness(1.05);
   transform: translateY(-1px);
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
-    0 5px 0 #123118,
-    0 16px 30px rgba(8, 5, 21, 0.36);
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 16px 30px rgba(0, 0, 0, 0.28);
 }
 
 .home-support-button:active {
-  transform: translateY(3px);
+  transform: translateY(1px);
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
-    0 1px 0 #123118,
-    0 8px 18px rgba(8, 5, 21, 0.26);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.home-support-button:focus-visible {
+  outline: 2px solid var(--public-ring);
+  outline-offset: 3px;
 }
 
 .home-support-button .pixel-glyph {
-  --pixel-glyph-on: rgba(255, 255, 255, 0.94);
-  --pixel-glyph-accent: rgba(205, 231, 214, 0.86);
+  --pixel-glyph-on: rgba(234, 255, 240, 0.95);
+  --pixel-glyph-accent: rgba(119, 255, 173, 0.78);
   --pixel-glyph-glow: transparent;
   filter: none;
 }

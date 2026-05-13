@@ -111,17 +111,25 @@ function toggleTheme(): void {
 
 <style scoped>
 .public-top-shell {
+  --public-border: rgba(226, 232, 240, 0.14);
+  --public-border-strong: rgba(226, 232, 240, 0.22);
+  --public-surface-soft: rgba(255, 255, 255, 0.07);
+  --public-surface-hover: rgba(255, 255, 255, 0.11);
+  --public-surface-raised:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.055)),
+    rgba(6, 13, 18, 0.56);
+  --public-muted: rgba(222, 232, 255, 0.66);
+  --public-ring: rgba(119, 255, 173, 0.32);
+  --public-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.14);
   position: sticky;
   top: 0;
   z-index: 40;
   width: 100%;
-  border-bottom: 1px solid rgba(220, 215, 255, 0.1);
+  border-bottom: 1px solid var(--public-border);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.02)),
     rgba(4, 3, 16, 0.88);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.07),
-    0 16px 42px rgba(3, 2, 12, 0.22);
+  box-shadow: 0 12px 30px rgba(3, 7, 18, 0.18);
   backdrop-filter: blur(18px);
 }
 
@@ -155,14 +163,12 @@ function toggleTheme(): void {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 1px solid rgba(180, 189, 255, 0.34);
+  border: 1px solid var(--public-border-strong);
+  border-radius: 8px;
   background:
-    linear-gradient(180deg, rgba(118, 96, 210, 0.48), rgba(35, 29, 84, 0.56)),
-    rgba(255, 255, 255, 0.06);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    0 0 0 1px rgba(9, 6, 32, 0.4),
-    0 8px 18px rgba(6, 4, 24, 0.28);
+    linear-gradient(180deg, rgba(119, 255, 173, 0.14), rgba(99, 102, 241, 0.1)),
+    var(--public-surface-soft);
+  box-shadow: var(--public-shadow-soft);
   padding: 0.22rem;
 }
 
@@ -174,13 +180,10 @@ function toggleTheme(): void {
   align-items: center;
   gap: 0.2rem;
   transform: translate(-50%, -50%);
-  border: 1px solid rgba(229, 224, 255, 0.13);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.035)),
-    rgba(7, 8, 22, 0.48);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 14px 32px rgba(3, 2, 12, 0.2);
+  border: 1px solid var(--public-border);
+  border-radius: 8px;
+  background: var(--public-surface-raised);
+  box-shadow: var(--public-shadow-soft);
   padding: 0.18rem;
   backdrop-filter: blur(18px);
 }
@@ -190,8 +193,9 @@ function toggleTheme(): void {
   align-items: center;
   gap: 0.38rem;
   min-height: 2rem;
+  border-radius: 6px;
   padding: 0.25rem 0.62rem;
-  color: rgba(226, 221, 247, 0.66);
+  color: var(--public-muted);
   font-size: 0.78rem;
   font-weight: 800;
   transition:
@@ -202,9 +206,9 @@ function toggleTheme(): void {
 
 .public-nav-pill:hover,
 .public-nav-pill.router-link-active {
-  background: rgba(255, 255, 255, 0.075);
+  background: var(--public-surface-hover);
   color: white;
-  box-shadow: inset 0 0 0 1px rgba(229, 224, 255, 0.12);
+  box-shadow: inset 0 0 0 1px var(--public-border);
 }
 
 .public-nav-pill .pixel-glyph {
@@ -226,24 +230,33 @@ function toggleTheme(): void {
   width: 2.35rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(229, 224, 255, 0.2);
+  border: 1px solid var(--public-border-strong);
+  border-radius: 8px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.045)),
-    rgba(97, 79, 171, 0.34);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.18),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.2),
-    0 7px 16px rgba(5, 3, 18, 0.22);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.04)),
+    var(--public-surface-soft);
+  box-shadow: var(--public-shadow-soft);
   color: rgba(255, 255, 255, 0.82);
-  transition: all 160ms ease;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
 }
 
 .public-icon-button:hover {
-  border-color: rgba(255, 255, 255, 0.38);
+  border-color: rgba(119, 255, 173, 0.34);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.06)),
-    rgba(118, 97, 196, 0.46);
+    linear-gradient(180deg, rgba(119, 255, 173, 0.16), rgba(20, 184, 166, 0.06)),
+    var(--public-surface-hover);
   color: white;
+  transform: translateY(-1px);
+}
+
+.public-icon-button:focus-visible,
+.public-nav-button:focus-visible {
+  outline: 2px solid var(--public-ring);
+  outline-offset: 3px;
 }
 
 .public-icon-button .pixel-glyph {
@@ -255,7 +268,7 @@ function toggleTheme(): void {
 
 .public-locale-switcher :deep(button) {
   min-height: 2.35rem;
-  border-radius: 0;
+  border-radius: 8px;
   padding: 0.35rem 0.45rem;
   color: rgba(232, 228, 255, 0.62);
   font-size: 0.75rem;
@@ -268,9 +281,9 @@ function toggleTheme(): void {
 }
 
 .public-locale-switcher :deep(.absolute) {
-  border-radius: 0;
-  border-color: rgba(206, 198, 255, 0.22);
-  background: rgba(18, 12, 45, 0.94);
+  border-radius: 8px;
+  border-color: var(--public-border-strong);
+  background: rgba(8, 15, 29, 0.96);
   color: white;
   backdrop-filter: blur(16px);
 }
@@ -302,41 +315,44 @@ function toggleTheme(): void {
   min-height: 2.35rem;
   align-items: center;
   justify-content: center;
-  border: 2px solid #153c1e;
-  background: linear-gradient(#6fbf43, #328033);
+  border: 1px solid rgba(119, 255, 173, 0.34);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.18), rgba(20, 184, 166, 0.08)),
+    rgba(5, 15, 18, 0.72);
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
-    0 3px 0 #123118,
-    0 8px 18px rgba(5, 3, 18, 0.24);
+    inset 0 1px 0 rgba(255, 255, 255, 0.12),
+    var(--public-shadow-soft);
   padding: 0.35rem 0.9rem;
-  color: white;
+  color: #eafff0;
   font-size: 0.75rem;
   font-weight: 800;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  text-shadow: none;
   transition:
     transform 120ms ease,
+    border-color 120ms ease,
+    background 120ms ease,
     filter 120ms ease,
     box-shadow 120ms ease;
 }
 
 .public-nav-button:hover {
+  border-color: rgba(119, 255, 173, 0.58);
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.26), rgba(20, 184, 166, 0.13)),
+    rgba(6, 28, 24, 0.86);
   filter: brightness(1.06);
   transform: translateY(-1px);
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
-    0 4px 0 #123118,
-    0 10px 20px rgba(5, 3, 18, 0.28);
+    inset 0 1px 0 rgba(255, 255, 255, 0.14),
+    0 12px 24px rgba(0, 0, 0, 0.24);
 }
 
 .public-nav-button:active {
-  transform: translateY(2px);
+  transform: translateY(1px);
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.2),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.22),
-    0 1px 0 #123118,
-    0 6px 14px rgba(5, 3, 18, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 6px 14px rgba(0, 0, 0, 0.2);
 }
 
 .public-mobile-nav {
@@ -353,11 +369,8 @@ function toggleTheme(): void {
 
 .public-mobile-nav .public-nav-pill {
   flex: 0 0 auto;
-  border: 1px solid rgba(229, 224, 255, 0.13);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.095), rgba(255, 255, 255, 0.035)),
-    rgba(7, 8, 22, 0.48);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--public-border);
+  background: var(--public-surface-raised);
   backdrop-filter: blur(18px);
 }
 
