@@ -997,11 +997,11 @@ watch(heroDescriptionTexts, () => {
   align-items: center;
   gap: 0.42rem;
   min-height: 1.75rem;
-  border: 1px solid rgba(222, 232, 255, 0.15);
+  border: 1px solid var(--public-border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--public-surface-soft);
   padding: 0.28rem 0.72rem;
-  color: rgba(235, 241, 255, 0.76);
+  color: var(--public-muted-strong);
   font-size: 0.82rem;
   font-weight: 700;
   line-height: 1;
