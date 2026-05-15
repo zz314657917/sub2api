@@ -108,3 +108,11 @@ export async function getImageTask(id: number): Promise<ImageCreatorTask> {
   const { data } = await apiClient.get<ImageCreatorTask>(`/user/image-creator/tasks/${id}`)
   return data
 }
+
+export async function downloadImageFile(url: string): Promise<Blob> {
+  const { data } = await apiClient.get<Blob>(url, {
+    baseURL: '',
+    responseType: 'blob',
+  })
+  return data
+}

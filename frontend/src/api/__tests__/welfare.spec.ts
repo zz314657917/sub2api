@@ -15,6 +15,7 @@ vi.mock('@/api/client', () => ({
 import {
   claimWelfareDailyCheckin,
   claimWelfareDailyCheckinMilestone,
+  claimWelfareNewUserTrialReward,
   getWelfareDailyCheckin,
   getWelfareOverview,
 } from '@/api/welfare'
@@ -50,6 +51,10 @@ describe('welfare api', () => {
           quota_amount: 0.1,
           quota_used: 0.04,
           remaining_quota: 0.06,
+          success_reward_amount: 2,
+          success_reward_claimable: true,
+          success_reward_claimed: false,
+          success_reward_reason: 'available',
           status: 'active',
           can_use: true,
           reason: 'available',
@@ -62,6 +67,8 @@ describe('welfare api', () => {
     expect(overview.modules.new_user_trial).toBe(true)
     expect(overview.new_user_trial?.quota_amount).toBe(0.1)
     expect(overview.new_user_trial?.remaining_quota).toBe(0.06)
+    expect(overview.new_user_trial?.success_reward_amount).toBe(2)
+    expect(overview.new_user_trial?.success_reward_claimable).toBe(true)
     expect(overview.new_user_trial?.status).toBe('active')
   })
 
@@ -83,5 +90,11 @@ describe('welfare api', () => {
     await claimWelfareDailyCheckinMilestone(14)
 
     expect(post).toHaveBeenCalledWith('/user/welfare/daily-checkin/milestones/14/claim')
+  })
+
+  it('claims new user trial success reward', async () => {
+    await claimWelfareNewUserTrialReward()
+
+    expect(post).toHaveBeenCalledWith('/user/welfare/new-user-trial/reward/claim')
   })
 })

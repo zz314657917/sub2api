@@ -34,4 +34,11 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).toContain('leaderboard.tokenRankingTitle')
     expect(leaderboardView).not.toContain('data-testid="leaderboard-cost-efficiency-summary"')
   })
+
+  it('keeps the ranking panel bound to a scoped-css-safe dark descendant selector', () => {
+    expect(leaderboardView).toContain(':global(.dark .leaderboard-token-ranking-card)')
+    expect(leaderboardView).toContain(':global(.dark .leaderboard-token-bar-track)')
+    expect(leaderboardView).not.toContain(':global(html.dark) .leaderboard-token-ranking-card')
+    expect(leaderboardView).not.toContain(':global(.dark) .leaderboard-token-ranking-card')
+  })
 })

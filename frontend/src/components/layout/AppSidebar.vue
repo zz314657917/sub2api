@@ -86,7 +86,7 @@
                         :key="grandchild.path"
                         :to="grandchild.path"
                         class="sidebar-link mb-0.5 py-1.5 text-sm"
-                        :class="{ 'sidebar-link-active': isActive(grandchild.path) }"
+                        :class="{ 'sidebar-link-active': isNavItemActive(grandchild) }"
                         :id="getAdminMenuItemId(grandchild.path)"
                         @click="handleMenuItemClick(grandchild.path)"
                       >
@@ -101,7 +101,7 @@
                     v-else
                     :to="child.path"
                     class="sidebar-link mb-0.5 py-1.5 text-sm"
-                    :class="{ 'sidebar-link-active': isActive(child.path) }"
+                    :class="{ 'sidebar-link-active': isNavItemActive(child) }"
                     :id="getAdminMenuItemId(child.path)"
                     @click="handleMenuItemClick(child.path)"
                   >
@@ -118,7 +118,7 @@
               v-else
               :to="item.path"
               class="sidebar-link mb-1"
-              :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
+              :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
               :id="getAdminMenuItemId(item.path)"
               @click="handleMenuItemClick(item.path)"
@@ -130,30 +130,6 @@
               <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
             </router-link>
           </template>
-        </div>
-
-        <!-- Creation Section for Admin (hidden in simple mode) -->
-        <div v-if="creationNavItems.length" class="sidebar-section">
-          <div class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
-            <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
-              {{ t('nav.creationCenter') }}
-            </span>
-          </div>
-
-          <router-link
-            v-for="item in creationNavItems"
-            :key="item.path"
-            :to="item.path"
-            class="sidebar-link mb-1"
-            :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
-            :title="sidebarCollapsed ? item.label : undefined"
-            @click="handleMenuItemClick(item.path)"
-          >
-            <span class="console-nav-icon-frame">
-              <Icon :name="item.icon ?? 'document'" size="sm" />
-            </span>
-            <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-          </router-link>
         </div>
 
         <!-- Personal Section for Admin (hidden in simple mode) -->
@@ -199,7 +175,7 @@
                   :key="child.path"
                   :to="child.path"
                   class="sidebar-link mb-0.5 py-1.5 text-sm"
-                  :class="{ 'sidebar-link-active': isActive(child.path) }"
+                  :class="{ 'sidebar-link-active': isNavItemActive(child) }"
                   :data-tour="getSelfMenuItemTour(child.path)"
                   @click="handleMenuItemClick(child.path)"
                 >
@@ -214,7 +190,7 @@
               v-else
               :to="item.path"
               class="sidebar-link mb-1"
-              :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
+              :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
               :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
               @click="handleMenuItemClick(item.path)"
@@ -231,29 +207,6 @@
 
       <!-- Regular User View -->
       <template v-else-if="!appStore.backendModeEnabled">
-        <div v-if="creationNavItems.length" class="sidebar-section">
-          <div class="sidebar-section-title" :class="{ 'sidebar-section-title-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
-            <span class="sidebar-section-title-text" :class="{ 'sidebar-section-title-text-collapsed': sidebarCollapsed }">
-              {{ t('nav.creationCenter') }}
-            </span>
-          </div>
-
-          <router-link
-            v-for="item in creationNavItems"
-            :key="item.path"
-            :to="item.path"
-            class="sidebar-link mb-1"
-            :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
-            :title="sidebarCollapsed ? item.label : undefined"
-            @click="handleMenuItemClick(item.path)"
-          >
-            <span class="console-nav-icon-frame">
-              <Icon :name="item.icon ?? 'document'" size="sm" />
-            </span>
-            <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
-          </router-link>
-        </div>
-
         <div class="sidebar-section">
           <template v-for="item in userNavItems" :key="item.path">
             <template v-if="item.children?.length">
@@ -290,7 +243,7 @@
                   :key="child.path"
                   :to="child.path"
                   class="sidebar-link mb-0.5 py-1.5 text-sm"
-                  :class="{ 'sidebar-link-active': isActive(child.path) }"
+                  :class="{ 'sidebar-link-active': isNavItemActive(child) }"
                   :data-tour="getSelfMenuItemTour(child.path)"
                   @click="handleMenuItemClick(child.path)"
                 >
@@ -305,7 +258,7 @@
               v-else
               :to="item.path"
               class="sidebar-link mb-1"
-              :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
+              :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
               :data-tour="getSelfMenuItemTour(item.path)"
               @click="handleMenuItemClick(item.path)"
@@ -384,6 +337,7 @@ interface NavItem {
   iconSvg?: string
   hideInSimpleMode?: boolean
   children?: NavItem[]
+  exactActive?: boolean
   /**
    * When true, the parent item only toggles the expand/collapse state and
    * does NOT navigate to its `path`. The `path` is purely a stable key.
@@ -462,7 +416,6 @@ const UsageIcon: IconName = 'chartBar'
 const TrophyIcon: IconName = 'trendingUp'
 const GiftIcon: IconName = 'gift'
 const WelfareIcon: IconName = 'sparkles'
-const ImageIcon: IconName = 'image'
 const ChatIcon: IconName = 'chatBubble'
 const UserIcon: IconName = 'user'
 const UsersIcon: IconName = 'users'
@@ -499,21 +452,11 @@ const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const SIDEBAR_TOUR_TARGET_EVENT = 'sub2api:sidebar-tour-target'
 const sidebarTourTargetGroups: Record<string, string[]> = {
   '#sidebar-group-manage': ['/admin/basic-management'],
-  '#sidebar-channel-manage': ['/admin/resource-access'],
+  '#sidebar-channel-manage': ['/admin/basic-management'],
   '#sidebar-wallet': ['/admin/business-operations'],
 }
 
-// buildSelfNavItems 构造用户自己的导航项（用户端主菜单和管理员的"我的账户"子菜单共享这组声明）。
-// withDashboard=true 时包含仪表盘（用户端），false 时不含（管理员的个人区已经有独立仪表盘入口）。
-//
-// 条目顺序：创作中心 → 关键入口 → 账户中心 → 状态入口。
-function buildCreationNavItems(): NavItem[] {
-  return [
-    { path: '/chat', label: t('nav.chatCreator'), icon: ChatIcon, hideInSimpleMode: true },
-    { path: '/image-creator', label: t('nav.imageCreator'), icon: ImageIcon, hideInSimpleMode: true },
-  ]
-}
-
+// buildSelfNavItems builds user navigation; admin personal navigation reuses it.
 function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   const items: NavItem[] = []
   if (withDashboard) {
@@ -536,6 +479,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/monitor', label: t('nav.channelStatus'), icon: SignalIcon, featureFlag: flagChannelMonitor },
   ]
   const primarySelfItems: NavItem[] = [
+    { path: '/chat-images', label: t('nav.chatImageCreator'), icon: ChatIcon, hideInSimpleMode: true },
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/usage', label: t('nav.usage'), icon: UsageIcon, hideInSimpleMode: true },
     { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
@@ -575,7 +519,6 @@ function finalizeNav(items: NavItem[]): NavItem[] {
 }
 
 // User navigation items (for regular users)
-const creationNavItems = computed((): NavItem[] => finalizeNav(buildCreationNavItems()))
 const userNavItems = computed((): NavItem[] => finalizeNav(buildSelfNavItems(true)))
 
 // Personal navigation items (for admin's "My Account" section, without Dashboard).
@@ -610,28 +553,28 @@ const adminNavItems = computed((): NavItem[] => {
       children: [
         { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
         { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon, hideInSimpleMode: true },
+        { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon },
+        { path: '/admin/shared-accounts', label: t('nav.sharedAccounts'), icon: TeamShareIcon, featureFlag: flagAccountShare },
+        { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon },
+      ],
+    },
+    {
+      path: '/admin/channels',
+      label: t('nav.channelManagement'),
+      icon: ChannelIcon,
+      hideInSimpleMode: true,
+      expandOnly: true,
+      children: [
+        { path: '/admin/channels/pricing', label: t('nav.channelPricing'), icon: PriceTagIcon },
+        { path: '/admin/channels/monitor', label: t('nav.channelMonitor'), icon: SignalIcon, featureFlag: flagChannelMonitor },
       ],
     },
     {
       path: '/admin/resource-access',
       label: t('nav.resourceAccess'),
-      icon: ChannelIcon,
+      icon: ShieldIcon,
       expandOnly: true,
       children: [
-        {
-          path: '/admin/channels',
-          label: t('nav.channelManagement'),
-          icon: ChannelIcon,
-          hideInSimpleMode: true,
-          expandOnly: true,
-          children: [
-            { path: '/admin/channels/pricing', label: t('nav.channelPricing'), icon: PriceTagIcon },
-            { path: '/admin/channels/monitor', label: t('nav.channelMonitor'), icon: SignalIcon, featureFlag: flagChannelMonitor },
-          ],
-        },
-        { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon },
-        { path: '/admin/shared-accounts', label: t('nav.sharedAccounts'), icon: TeamShareIcon, featureFlag: flagAccountShare },
-        { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon },
         { path: '/admin/risk-control', label: t('nav.riskControl'), icon: ShieldIcon, hideInSimpleMode: true, featureFlag: flagRiskControl },
       ],
     },
@@ -652,7 +595,7 @@ const adminNavItems = computed((): NavItem[] => {
           featureFlag: flagAdminPayment,
           children: [
             { path: '/admin/orders/dashboard', label: t('nav.paymentDashboard'), icon: ChartIcon },
-            { path: '/admin/orders', label: t('nav.orderList'), icon: OrderIcon },
+            { path: '/admin/orders', label: t('nav.orderList'), icon: OrderIcon, exactActive: true },
           ],
         },
         { path: '/admin/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
@@ -765,13 +708,18 @@ function getAdminMenuItemId(path: string): string | undefined {
   return undefined
 }
 
-function isActive(path: string): boolean {
+function isActive(path: string, exact = false): boolean {
+  if (exact) return route.path === path
   return route.path === path || route.path.startsWith(path + '/')
+}
+
+function isNavItemActive(item: NavItem): boolean {
+  return isActive(item.path, item.exactActive)
 }
 
 function isGroupActive(item: NavItem): boolean {
   if (!item.children) return false
-  return item.children.some(child => isActive(child.path) || isGroupActive(child))
+  return item.children.some(child => isNavItemActive(child) || isGroupActive(child))
 }
 
 function isGroupExpanded(item: NavItem): boolean {

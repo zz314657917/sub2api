@@ -4,6 +4,7 @@ import ImageCreatorView from '../ImageCreatorView.vue'
 
 const keysList = vi.hoisted(() => vi.fn())
 const createImageTask = vi.hoisted(() => vi.fn())
+const downloadImageFile = vi.hoisted(() => vi.fn())
 const listImageTasks = vi.hoisted(() => vi.fn())
 const getImageTask = vi.hoisted(() => vi.fn())
 const showError = vi.hoisted(() => vi.fn())
@@ -27,6 +28,7 @@ vi.mock('@/api', () => ({
 
 vi.mock('@/api/imageCreator', () => ({
   createImageTask,
+  downloadImageFile,
   listImageTasks,
   getImageTask,
 }))
@@ -122,14 +124,28 @@ describe('ImageCreatorView', () => {
       ],
     })
     createImageTask.mockReset().mockResolvedValue(makeTask({ status: 'pending' }))
+    downloadImageFile.mockReset().mockResolvedValue(new Blob(['pngdata'], { type: 'image/png' }))
     listImageTasks.mockReset().mockResolvedValue({ tasks: [], images: [] })
     getImageTask.mockReset().mockResolvedValue(makeTask({ status: 'running' }))
     showError.mockReset()
     showSuccess.mockReset()
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      writable: true,
+      value: vi.fn(),
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      writable: true,
+      value: vi.fn(),
+    })
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:image-preview')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined)
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
   it('creates a server task with the selected api key id and enters waiting state', async () => {
@@ -199,7 +215,8 @@ describe('ImageCreatorView', () => {
 
     expect(getImageTask).toHaveBeenCalledWith(321)
     expect(wrapper.find('[data-testid="image-result-preview"]').exists()).toBe(true)
-    expect(wrapper.find('img').attributes('src')).toBe('/api/v1/user/image-creator/images/9/file')
+    expect(downloadImageFile).toHaveBeenCalledWith('/api/v1/user/image-creator/images/9/file')
+    expect(wrapper.find('img').attributes('src')).toBe('blob:image-preview')
   })
 
   it('keeps elapsed waiting time when restoring an unfinished task after refresh', async () => {
@@ -238,7 +255,7 @@ describe('ImageCreatorView', () => {
 
     const overlay = wrapper.find('[data-testid="image-preview-overlay"]')
     expect(overlay.exists()).toBe(true)
-    expect(overlay.find('img').attributes('src')).toBe('/api/v1/user/image-creator/images/9/file')
+    expect(overlay.find('img').attributes('src')).toBe('blob:image-preview')
 
     await wrapper.find('[data-testid="image-preview-close"]').trigger('click')
     await wrapper.vm.$nextTick()

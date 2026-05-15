@@ -104,6 +104,15 @@
                   <div class="leaderboard-token-rank-user">
                     <div class="leaderboard-token-rank-main">
                       <span class="leaderboard-token-rank-index">#{{ item.rank }}</span>
+                      <span class="leaderboard-token-rank-avatar" data-testid="leaderboard-rank-avatar" aria-hidden="true">
+                        <img
+                          v-if="leaderboardAvatarUrl(item)"
+                          :src="leaderboardAvatarUrl(item)"
+                          alt=""
+                          loading="lazy"
+                        >
+                        <span v-else>{{ leaderboardAvatarInitial(item) }}</span>
+                      </span>
                       <span class="leaderboard-token-rank-name" :title="getLeaderboardDisplayName(item)">
                         {{ getLeaderboardDisplayName(item) }}
                       </span>
@@ -498,6 +507,14 @@ function getLeaderboardDisplayName(item: UserLeaderboardItem): string {
   return item.display_name?.trim() || item.email_masked?.trim() || t('leaderboard.currentUser')
 }
 
+function leaderboardAvatarUrl(item: UserLeaderboardItem): string {
+  return item.avatar_url?.trim() || ''
+}
+
+function leaderboardAvatarInitial(item: UserLeaderboardItem): string {
+  return Array.from(getLeaderboardDisplayName(item).trim())[0]?.toUpperCase() || 'U'
+}
+
 function formatRewardRankLabel(rank: number): string {
   if (!rank || rank <= 0) return t('leaderboard.notRanked')
   return t('leaderboard.dailyReward.rankLabel', { rank })
@@ -787,7 +804,7 @@ onUnmounted(() => {
 .leaderboard-token-rank-user {
   display: grid;
   min-width: 0;
-  grid-template-columns: 2.5rem minmax(0, 1fr);
+  grid-template-columns: 2.5rem 1.45rem minmax(0, 1fr);
   align-items: center;
   gap: 0.5rem;
 }
@@ -844,10 +861,39 @@ onUnmounted(() => {
   text-align: right;
 }
 
+.leaderboard-token-rank-avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 1.45rem;
+  height: 1.45rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 2px solid rgb(255 255 255 / 0.9);
+  border-radius: 9999px;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.96), rgb(226 232 240 / 0.84)),
+    var(--token-bar-color);
+  box-shadow:
+    0 0 0 1px rgb(15 23 42 / 0.08),
+    0 0.32rem 0.72rem var(--token-bar-glow);
+  color: var(--token-rank-color);
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.leaderboard-token-rank-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .leaderboard-token-current-tag {
   flex: 0 0 auto;
   justify-self: start;
-  grid-column: 2;
+  grid-column: 3;
   border-radius: 9999px;
   background: rgb(34 197 94 / 0.12);
   padding: 0.1rem 0.45rem;
@@ -858,7 +904,7 @@ onUnmounted(() => {
 
 .leaderboard-token-title-list {
   display: flex;
-  grid-column: 2;
+  grid-column: 3;
   max-width: 100%;
   min-width: 0;
   flex-wrap: wrap;
@@ -894,6 +940,7 @@ onUnmounted(() => {
   position: absolute;
   top: 50%;
   left: var(--token-bar-value-left);
+  min-width: 0;
   transform: translate(var(--token-bar-value-x), -50%);
   color: var(--token-value-color);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -953,7 +1000,7 @@ onUnmounted(() => {
   text-shadow: 0 1px 0 rgb(255 255 255 / 0.78);
 }
 
-:global(.dark) .leaderboard-token-card {
+:global(.dark .leaderboard-token-card) {
   border-color: rgb(71 85 105 / 0.34);
   background:
     radial-gradient(circle at 50% 8%, rgb(251 191 36 / 0.16), transparent 34%),
@@ -961,7 +1008,7 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-:global(.dark) .leaderboard-token-card::after {
+:global(.dark .leaderboard-token-card::after) {
   background:
     linear-gradient(90deg, rgb(148 163 184 / 0.12) 1px, transparent 1px),
     linear-gradient(rgb(148 163 184 / 0.1) 1px, transparent 1px),
@@ -969,15 +1016,15 @@ onUnmounted(() => {
   background-size: 5.5rem 100%, 100% 1rem, 100% 100%;
 }
 
-:global(.dark) .leaderboard-token-summary-meta {
+:global(.dark .leaderboard-token-summary-meta) {
   color: rgb(148 163 184);
 }
 
-:global(.dark) .leaderboard-token-odometer {
+:global(.dark .leaderboard-token-odometer) {
   color: rgb(254 240 138);
 }
 
-:global(.dark) .leaderboard-token-reel {
+:global(.dark .leaderboard-token-reel) {
   border-color: rgb(251 191 36 / 0.3);
   background:
     linear-gradient(180deg, rgb(30 41 59 / 0.96), rgb(15 23 42 / 0.92)),
@@ -988,24 +1035,24 @@ onUnmounted(() => {
     0 0.35rem 1rem rgb(251 191 36 / 0.12);
 }
 
-:global(.dark) .leaderboard-token-reel::before {
+:global(.dark .leaderboard-token-reel::before) {
   background: linear-gradient(180deg, rgb(30 41 59 / 0.96), transparent);
 }
 
-:global(.dark) .leaderboard-token-reel::after {
+:global(.dark .leaderboard-token-reel::after) {
   background: linear-gradient(0deg, rgb(0 0 0 / 0.28), transparent);
 }
 
-:global(.dark) .leaderboard-token-cell {
+:global(.dark .leaderboard-token-cell) {
   text-shadow: 0 0 0.55rem rgb(251 191 36 / 0.24);
 }
 
-:global(.dark) .leaderboard-token-separator {
+:global(.dark .leaderboard-token-separator) {
   color: rgb(252 211 77);
   text-shadow: 0 0 0.55rem rgb(251 191 36 / 0.2);
 }
 
-:global(html.dark) .leaderboard-token-ranking-card {
+:global(.dark .leaderboard-token-ranking-card) {
   border-color: rgb(71 85 105 / 0.34);
   background:
     linear-gradient(180deg, rgb(15 23 42 / 0.45), rgb(15 23 42 / 0.16)),
@@ -1013,20 +1060,30 @@ onUnmounted(() => {
   box-shadow: none;
 }
 
-:global(html.dark) .leaderboard-token-rank-row-current {
+:global(.dark .leaderboard-token-rank-row-current) {
   background: rgb(34 197 94 / 0.1);
 }
 
-:global(html.dark) .leaderboard-token-title-badge,
-:global(html.dark) .leaderboard-token-title-more {
+:global(.dark .leaderboard-token-title-badge),
+:global(.dark .leaderboard-token-title-more) {
   background: rgb(15 23 42 / 0.28);
 }
 
-:global(html.dark) .leaderboard-token-title-more {
+:global(.dark .leaderboard-token-title-more) {
   color: rgb(148 163 184);
 }
 
-:global(html.dark) .leaderboard-token-bar-track {
+:global(.dark .leaderboard-token-rank-avatar) {
+  border-color: rgb(15 23 42 / 0.92);
+  background:
+    linear-gradient(135deg, rgb(30 41 59 / 0.96), rgb(15 23 42 / 0.9)),
+    var(--token-bar-color);
+  box-shadow:
+    0 0 0 1px rgb(148 163 184 / 0.18),
+    0 0.32rem 0.8rem var(--token-bar-glow);
+}
+
+:global(.dark .leaderboard-token-bar-track) {
   background:
     linear-gradient(90deg, rgb(148 163 184 / 0.1) 1px, transparent 1px),
     transparent;
@@ -1058,7 +1115,7 @@ onUnmounted(() => {
   }
 
   .leaderboard-token-rank-user {
-    grid-template-columns: 2.35rem minmax(0, 1fr);
+    grid-template-columns: 2.35rem 1.28rem minmax(0, 1fr);
   }
 
   .leaderboard-token-bar-track {
@@ -1067,6 +1124,13 @@ onUnmounted(() => {
 
   .leaderboard-token-bar-value {
     font-size: 0.8rem;
+  }
+
+  .leaderboard-token-rank-avatar {
+    width: 1.28rem;
+    height: 1.28rem;
+    border-width: 1px;
+    font-size: 0.62rem;
   }
 
   .leaderboard-token-odometer {
@@ -1144,48 +1208,48 @@ onUnmounted(() => {
   color: rgb(234 88 12);
 }
 
-:global(.dark) .leaderboard-badge-overflow {
+:global(.dark .leaderboard-badge-overflow) {
   background: rgb(30 41 59);
   color: rgb(203 213 225);
   box-shadow: inset 0 0 0 1px rgb(71 85 105);
 }
 
-:global(.dark) .leaderboard-badge-week {
+:global(.dark .leaderboard-badge-week) {
   background: rgb(37 99 235 / 0.16);
   color: rgb(147 197 253);
 }
 
-:global(.dark) .leaderboard-badge-month {
+:global(.dark .leaderboard-badge-month) {
   background: rgb(124 58 237 / 0.16);
   color: rgb(196 181 253);
 }
 
-:global(.dark) .leaderboard-badge-total {
+:global(.dark .leaderboard-badge-total) {
   background: rgb(202 138 4 / 0.16);
   color: rgb(253 224 71);
 }
 
-:global(.dark) .leaderboard-badge-night {
+:global(.dark .leaderboard-badge-night) {
   background: rgb(79 70 229 / 0.16);
   color: rgb(165 180 252);
 }
 
-:global(.dark) .leaderboard-badge-burst {
+:global(.dark .leaderboard-badge-burst) {
   background: rgb(225 29 72 / 0.16);
   color: rgb(253 164 175);
 }
 
-:global(.dark) .leaderboard-badge-checkin {
+:global(.dark .leaderboard-badge-checkin) {
   background: rgb(13 148 136 / 0.16);
   color: rgb(94 234 212);
 }
 
-:global(.dark) .leaderboard-badge-save {
+:global(.dark .leaderboard-badge-save) {
   background: rgb(22 163 74 / 0.16);
   color: rgb(134 239 172);
 }
 
-:global(.dark) .leaderboard-badge-fire {
+:global(.dark .leaderboard-badge-fire) {
   background: rgb(234 88 12 / 0.16);
   color: rgb(253 186 116);
 }

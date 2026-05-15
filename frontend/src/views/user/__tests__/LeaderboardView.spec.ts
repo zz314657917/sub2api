@@ -768,4 +768,54 @@ describe('LeaderboardView', () => {
     expect(rows[2].attributes('style')).toContain('--token-bar-color: rgb(37 99 235)')
     expect(wrapper.find('.leaderboard-avatar-frame-gold').exists()).toBe(false)
   })
+
+  it('shows a round user avatar before each display name', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        ranking: [
+          {
+            rank: 1,
+            user_id: 1,
+            display_name: 'Alice',
+            email_masked: 'a***@example.com',
+            avatar_url: 'https://cdn.example.com/alice.png',
+            actual_cost: 9,
+            requests: 10,
+            tokens: 1200,
+            balance: 1,
+            is_current_user: false,
+          },
+          {
+            rank: 2,
+            user_id: 2,
+            display_name: 'Bob',
+            email_masked: 'b***@example.com',
+            avatar_url: null,
+            actual_cost: 8,
+            requests: 9,
+            tokens: 900,
+            balance: 2,
+            is_current_user: true,
+          },
+        ],
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const avatars = wrapper.findAll('[data-testid="leaderboard-rank-avatar"]')
+    expect(avatars).toHaveLength(2)
+    expect(avatars[0].find('img').attributes('src')).toBe('https://cdn.example.com/alice.png')
+    expect(avatars[1].text()).toBe('B')
+    expect(wrapper.find('.leaderboard-token-bar-track [data-testid="leaderboard-rank-avatar"]').exists()).toBe(false)
+  })
 })

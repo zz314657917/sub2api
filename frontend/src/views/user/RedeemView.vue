@@ -383,6 +383,7 @@ const isBalanceType = (type: string) => {
     'balance',
     'admin_balance',
     'leaderboard_reward',
+    'new_user_reward',
     'daily_checkin',
     'checkin_milestone',
   ].includes(type)
@@ -401,6 +402,8 @@ const getHistoryItemTitle = (item: RedeemHistoryItem) => {
     return t('redeem.balanceAddedRedeem')
   } else if (item.type === 'admin_balance') {
     return item.value >= 0 ? t('redeem.balanceAddedAdmin') : t('redeem.balanceDeductedAdmin')
+  } else if (item.type === 'new_user_reward') {
+    return t('redeem.balanceAddedNewUserReward')
   } else if (
     item.type === 'leaderboard_reward' ||
     item.type === 'daily_checkin' ||

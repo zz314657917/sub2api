@@ -4,6 +4,7 @@ import {
   createChatCompletionStream,
   extractChatStudioDelta,
   isAbortError,
+  listChatModels,
 } from '@/api/chatStudio'
 
 function streamFromChunks(chunks: string[]): ReadableStream<Uint8Array> {
@@ -65,6 +66,34 @@ describe('chatStudio api', () => {
         stream: true,
       }),
     }))
+  })
+
+  it('loads model ids from the OpenAI-compatible models endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({
+      object: 'list',
+      data: [
+        { id: 'gpt-5.5', display_name: 'GPT-5.5' },
+        'gpt-5.4',
+        { display_name: 'missing id' },
+      ],
+    }), { status: 200 }))
+
+    const models = await listChatModels('sk-test')
+
+    expect(models.map((model) => model.id)).toEqual(['gpt-5.5', 'gpt-5.4'])
+    expect(fetchMock).toHaveBeenCalledWith('/v1/models', expect.objectContaining({
+      method: 'GET',
+      headers: expect.objectContaining({
+        Authorization: 'Bearer sk-test',
+      }),
+    }))
+  })
+
+  it('returns no model options when no API key is selected', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch')
+
+    await expect(listChatModels('')).resolves.toEqual([])
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('handles SSE events split across transport chunks', async () => {

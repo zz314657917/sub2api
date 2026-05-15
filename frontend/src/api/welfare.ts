@@ -3,6 +3,7 @@ import type {
   WelfareDailyCheckin,
   WelfareDailyCheckinClaimResponse,
   WelfareMilestoneClaimResponse,
+  WelfareNewUserTrialRewardClaimResponse,
   WelfareOverview
 } from '@/types'
 
@@ -12,6 +13,7 @@ export type {
   WelfareDailyCheckinMilestone,
   WelfareMilestoneClaimResponse,
   WelfareNewUserTrial,
+  WelfareNewUserTrialRewardClaimResponse,
   WelfareOverview
 } from '@/types'
 
@@ -39,11 +41,17 @@ export async function claimWelfareDailyCheckinMilestone(day: number): Promise<We
   return data
 }
 
+export async function claimWelfareNewUserTrialReward(): Promise<WelfareNewUserTrialRewardClaimResponse> {
+  const { data } = await apiClient.post<WelfareNewUserTrialRewardClaimResponse>('/user/welfare/new-user-trial/reward/claim')
+  return data
+}
+
 export const welfareAPI = {
   getWelfareOverview,
   getWelfareDailyCheckin,
   claimWelfareDailyCheckin,
-  claimWelfareDailyCheckinMilestone
+  claimWelfareDailyCheckinMilestone,
+  claimWelfareNewUserTrialReward
 }
 
 export default welfareAPI

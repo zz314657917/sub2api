@@ -19,11 +19,18 @@ describe('admin support popup settings', () => {
 
 describe('admin settings tabs dark theme', () => {
   it('keeps the settings tabs on a dark surface in dark mode', () => {
-    expect(settingsView).toContain(':global(.dark) .settings-tabs-shell')
+    expect(settingsView).not.toContain(':global(.dark) .settings-tabs')
+    expect(settingsView).not.toContain(':global(.dark) .settings-tab')
+    expect(settingsView).toContain('.settings-tabs-shell:is(.dark *)')
+    expect(settingsView).toContain('dark:bg-slate-950/95')
     expect(settingsView).toContain('rgb(15 23 42 / 0.96)')
     expect(settingsView).toContain('rgb(2 6 23 / 0.9)')
-    expect(settingsView).toContain(':global(.dark) .settings-tab-active')
+    expect(settingsView).toContain('.settings-tabs-scroll:is(.dark *)')
+    expect(settingsView).toContain('rgb(2 6 23 / 0.42)')
+    expect(settingsView).toContain('dark:text-slate-400')
+    expect(settingsView).toContain('.settings-tab:is(.dark *)::before')
+    expect(settingsView).toContain('.settings-tab-active:is(.dark *)')
     expect(settingsView).toContain('rgb(20 184 166 / 0.18)')
-    expect(settingsView).toContain(':global(.dark) .settings-tab:hover')
+    expect(settingsView).toContain('.settings-tab:is(.dark *):hover')
   })
 })

@@ -12,7 +12,7 @@ vi.mock('@/api/client', () => ({
   },
 }))
 
-import { createImageTask, getImageTask, listImageTasks } from '@/api/imageCreator'
+import { createImageTask, downloadImageFile, getImageTask, listImageTasks } from '@/api/imageCreator'
 
 describe('imageCreator api', () => {
   beforeEach(() => {
@@ -54,5 +54,17 @@ describe('imageCreator api', () => {
 
     expect(get).toHaveBeenNthCalledWith(1, '/user/image-creator/tasks')
     expect(get).toHaveBeenNthCalledWith(2, '/user/image-creator/tasks/123')
+  })
+
+  it('downloads generated image files as blobs without duplicating the API base path', async () => {
+    const blob = new Blob(['webp'], { type: 'image/webp' })
+    get.mockResolvedValueOnce({ data: blob })
+
+    await expect(downloadImageFile('/api/v1/user/image-creator/images/9/file')).resolves.toBe(blob)
+
+    expect(get).toHaveBeenCalledWith('/api/v1/user/image-creator/images/9/file', {
+      baseURL: '',
+      responseType: 'blob',
+    })
   })
 })

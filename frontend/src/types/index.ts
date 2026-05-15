@@ -1025,11 +1025,16 @@ export interface WelfareNewUserTrial {
   quota_amount: number
   quota_used: number
   remaining_quota: number
+  success_reward_amount: number
+  success_reward_claimable: boolean
+  success_reward_claimed: boolean
+  success_reward_reason: string
   status: 'available' | 'active' | 'in_progress' | 'exhausted' | string
   can_use: boolean
   reason: string
   first_started_at?: string | null
   first_success_at?: string | null
+  success_reward_claimed_at?: string | null
 }
 
 export interface WelfareDailyCheckinMilestone {
@@ -1056,11 +1061,17 @@ export interface WelfareDailyCheckin {
   milestones: WelfareDailyCheckinMilestone[]
   can_claim_today: boolean
   reason: string
+  can_claim_after?: string | null
   settlement_timezone: string
 }
 
 export interface WelfareDailyCheckinClaimResponse {
   daily_checkin: WelfareDailyCheckin
+  claimed_amount: number
+}
+
+export interface WelfareNewUserTrialRewardClaimResponse {
+  new_user_trial: WelfareNewUserTrial
   claimed_amount: number
 }
 
@@ -1074,10 +1085,16 @@ export interface UserAccountCapacityPool {
   key: 'mine' | 'shared' | string
   title: string
   total_accounts: number
+  active_accounts?: number
   schedulable_accounts: number
+  rate_limited_accounts?: number
+  error_accounts?: number
+  disabled_accounts?: number
+  abnormal_accounts?: number
   configured_quota: number
   remaining_quota: number
   sections: UserAccountCapacityPoolSection[]
+  groups?: UserAccountCapacityPoolGroup[]
 }
 
 export interface UserAccountCapacityPoolSection {
@@ -1095,6 +1112,35 @@ export interface UserAccountCapacityWindowSnapshot {
   reset_after_seconds?: number
   reset_at?: string
   window_minutes?: number
+}
+
+export interface UserAccountCapacityPoolGroup {
+  key: string
+  group_id?: number | null
+  group_name: string
+  platform?: AccountPlatform | string
+  sort_order?: number
+  total_accounts: number
+  active_accounts: number
+  schedulable_accounts: number
+  rate_limited_accounts: number
+  error_accounts: number
+  disabled_accounts: number
+  abnormal_accounts: number
+  configured_quota: number
+  remaining_quota: number
+  status: 'healthy' | 'degraded' | 'unavailable' | string
+  windows?: Record<string, UserAccountCapacityWindowSummary>
+}
+
+export interface UserAccountCapacityWindowSummary {
+  used_percent: number
+  reset_after_seconds?: number
+  reset_at?: string
+  window_minutes?: number
+  snapshot_accounts: number
+  schedulable_snapshot_accounts: number
+  remaining_units: number
 }
 
 export interface UserAccountTransferResponse {
@@ -1379,6 +1425,7 @@ export type RedeemCodeType =
   | 'subscription'
   | 'invitation'
   | 'leaderboard_reward'
+  | 'new_user_reward'
   | 'daily_checkin'
   | 'checkin_milestone'
 export type UsageRequestType = 'unknown' | 'sync' | 'stream' | 'ws_v2'

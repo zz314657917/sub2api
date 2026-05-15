@@ -48,6 +48,13 @@ describe('console visual direction', () => {
     expect(consoleUi).toContain('.dark .console-header')
   })
 
+  it('keeps decorative console backdrop layers behind content', () => {
+    expect(consoleUi).toContain('isolation: isolate')
+    expect(consoleUi).toContain('z-index: -1')
+    expect(consoleUi).toContain('z-index: -2')
+    expect(consoleUi).toContain('z-index: 0')
+  })
+
   it('defaults new visitors to dark mode unless they explicitly chose light', () => {
     expect(mainEntry).toContain("const shouldUseDark = savedTheme !== 'light'")
     expect(appSidebar).toContain("if (savedTheme !== 'light')")

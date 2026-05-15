@@ -1,11 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import ChatStudioView from '../ChatStudioView.vue'
 import { CHAT_STUDIO_STORAGE_KEY } from '@/api/chatStudio'
+
+const chatStudioSource = readFileSync(resolve(process.cwd(), 'src/views/user/ChatStudioView.vue'), 'utf8')
 
 const keysList = vi.hoisted(() => vi.fn())
 const getAvailable = vi.hoisted(() => vi.fn())
 const createChatCompletionStream = vi.hoisted(() => vi.fn())
+const listChatModels = vi.hoisted(() => vi.fn())
 const showError = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
 const copyToClipboard = vi.hoisted(() => vi.fn())
@@ -34,6 +39,7 @@ vi.mock('@/api/chatStudio', async () => {
   return {
     ...actual,
     createChatCompletionStream,
+    listChatModels,
   }
 })
 
@@ -113,6 +119,22 @@ function mountView() {
           `,
         },
         Icon: { template: '<span />' },
+        ConfirmDialog: {
+          props: ['show', 'title', 'message', 'confirmText', 'cancelText', 'danger'],
+          emits: ['confirm', 'cancel'],
+          template: `
+            <div v-if="show" data-testid="chat-delete-confirm-dialog">
+              <p>{{ title }}</p>
+              <p>{{ message }}</p>
+              <button type="button" data-testid="chat-delete-confirm-cancel" @click="$emit('cancel')">
+                {{ cancelText }}
+              </button>
+              <button type="button" data-testid="chat-delete-confirm-submit" @click="$emit('confirm')">
+                {{ confirmText }}
+              </button>
+            </div>
+          `,
+        },
       },
     },
   })
@@ -145,6 +167,10 @@ describe('ChatStudioView', () => {
       onDelta?.('好')
       return { content: '你好' }
     })
+    listChatModels.mockReset().mockResolvedValue([
+      { id: 'gpt-5.5', display_name: 'GPT-5.5' },
+      { id: 'gpt-5.4', display_name: 'GPT-5.4' },
+    ])
     showError.mockReset()
     showWarning.mockReset()
     copyToClipboard.mockReset().mockResolvedValue(true)
@@ -153,6 +179,12 @@ describe('ChatStudioView', () => {
   afterEach(() => {
     document.body.innerHTML = ''
     localStorage.clear()
+  })
+
+  it('keeps the chat workspace height constrained so the composer stays visible', () => {
+    expect(chatStudioSource).toContain('height: var(--chat-studio-height)')
+    expect(chatStudioSource).toMatch(/\.chat-messages\s*\{[\s\S]*flex:\s*1;[\s\S]*overflow-y:\s*auto/)
+    expect(chatStudioSource).toMatch(/\.chat-composer\s*\{[\s\S]*flex-shrink:\s*0/)
   })
 
   it('loads keys, sends a message, appends streamed assistant text, and stores local history', async () => {
@@ -178,6 +210,21 @@ describe('ChatStudioView', () => {
     ]))
   })
 
+  it('loads model options from the selected API key even when available channels are empty', async () => {
+    getAvailable.mockResolvedValue([])
+    const wrapper = mountView()
+
+    await flushPromises()
+
+    expect(listChatModels).toHaveBeenCalledWith('sk-chat')
+    const modelOptions = wrapper.findAll('[data-testid="chat-model-select"] option').map((option) => option.text())
+    expect(modelOptions).toEqual(expect.arrayContaining([
+      'gpt-5.5',
+      'gpt-5.4',
+      'gpt-5.4-mini',
+    ]))
+  })
+
   it('restores local sessions from browser storage', async () => {
     localStorage.setItem(CHAT_STUDIO_STORAGE_KEY, JSON.stringify({
       currentSessionId: 'chat_old',
@@ -197,6 +244,56 @@ describe('ChatStudioView', () => {
 
     expect(wrapper.text()).toContain('历史会话')
     expect(wrapper.text()).toContain('旧回复')
+  })
+
+  it('deletes a local session from the session list and keeps another session selected', async () => {
+    localStorage.setItem(CHAT_STUDIO_STORAGE_KEY, JSON.stringify({
+      currentSessionId: 'chat_two',
+      sessions: [
+        {
+          id: 'chat_one',
+          title: 'Older chat',
+          messages: [{ id: 'msg_1', role: 'assistant', content: 'kept', createdAt: '2026-05-10T00:00:00Z' }],
+          createdAt: '2026-05-10T00:00:00Z',
+          updatedAt: '2026-05-10T00:00:00Z',
+        },
+        {
+          id: 'chat_two',
+          title: 'Current chat',
+          messages: [{ id: 'msg_2', role: 'user', content: 'remove me', createdAt: '2026-05-11T00:00:00Z' }],
+          createdAt: '2026-05-11T00:00:00Z',
+          updatedAt: '2026-05-11T00:00:00Z',
+        },
+      ],
+    }))
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-testid="chat-delete-session"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="chat-delete-confirm-dialog"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('chatStudio.deleteConfirmMessage')
+    expect(wrapper.text()).toContain('Current chat')
+
+    await wrapper.find('[data-testid="chat-delete-confirm-cancel"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="chat-delete-confirm-dialog"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Current chat')
+    expect(JSON.parse(localStorage.getItem(CHAT_STUDIO_STORAGE_KEY) || '{}').sessions).toHaveLength(2)
+
+    await wrapper.find('[data-testid="chat-delete-session"]').trigger('click')
+    await wrapper.find('[data-testid="chat-delete-confirm-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('Current chat')
+    expect(wrapper.text()).toContain('Older chat')
+
+    const stored = JSON.parse(localStorage.getItem(CHAT_STUDIO_STORAGE_KEY) || '{}')
+    expect(stored.currentSessionId).toBe('chat_one')
+    expect(stored.sessions).toHaveLength(1)
+    expect(stored.sessions[0]).toMatchObject({ id: 'chat_one', title: 'Older chat' })
   })
 
   it('does not send when no usable key is available', async () => {

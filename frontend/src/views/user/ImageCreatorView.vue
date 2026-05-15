@@ -286,6 +286,7 @@ import Icon from '@/components/icons/Icon.vue'
 import { keysAPI } from '@/api'
 import {
   createImageTask,
+  downloadImageFile,
   getImageTask,
   listImageTasks,
   type ImageCreatorOutputFormat,
@@ -298,8 +299,10 @@ import type { ApiKey } from '@/types'
 interface GeneratedImage {
   id: string
   url: string
+  sourceUrl: string
   revisedPrompt: string
   outputFormat: ImageCreatorOutputFormat | string
+  mimeType: string
 }
 
 const { t } = useI18n()
@@ -326,6 +329,8 @@ const waitingStepIndex = ref(0)
 const activeTaskId = ref<number | null>(null)
 let generationTimerId: ReturnType<typeof setInterval> | null = null
 let taskPollTimerId: ReturnType<typeof setInterval> | null = null
+let imagePreviewLoadToken = 0
+const generatedImageObjectUrls = new Set<string>()
 
 const modelOptions = [
   { value: 'gpt-image-2', label: 'gpt-image-2' },
@@ -485,8 +490,10 @@ function storedImageToResult(image: ImageCreatorStoredImage, index: number): Gen
   return {
     id: String(image.id || `${Date.now()}-${index}`),
     url: image.url,
+    sourceUrl: image.url,
     revisedPrompt: image.revised_prompt || '',
     outputFormat: image.output_format || outputFormat.value,
+    mimeType: image.mime_type || '',
   }
 }
 
@@ -495,9 +502,83 @@ function imagesFromTasks(tasks: ImageCreatorTask[]): ImageCreatorStoredImage[] {
 }
 
 function applyStoredImages(images: ImageCreatorStoredImage[]): void {
+  imagePreviewLoadToken += 1
+  revokeGeneratedImageObjectUrls()
   results.value = images
     .filter((image) => typeof image.url === 'string' && image.url.trim().length > 0)
     .map(storedImageToResult)
+  void hydrateGeneratedImagePreviews(imagePreviewLoadToken)
+}
+
+function revokeGeneratedImageObjectUrls(): void {
+  for (const url of generatedImageObjectUrls) {
+    URL.revokeObjectURL(url)
+  }
+  generatedImageObjectUrls.clear()
+}
+
+function revokeGeneratedImageObjectUrl(url: string): void {
+  if (!url.startsWith('blob:')) return
+  if (!generatedImageObjectUrls.delete(url)) return
+  URL.revokeObjectURL(url)
+}
+
+function shouldFetchImageUrl(url: string): boolean {
+  const value = url.trim().toLowerCase()
+  return value !== '' && !value.startsWith('data:') && !value.startsWith('blob:')
+}
+
+async function createObjectUrlForImage(item: GeneratedImage): Promise<string> {
+  const sourceUrl = item.sourceUrl || item.url
+  if (!shouldFetchImageUrl(sourceUrl)) {
+    return sourceUrl
+  }
+  const blob = await downloadImageFile(sourceUrl)
+  const objectUrl = URL.createObjectURL(blob)
+  generatedImageObjectUrls.add(objectUrl)
+  return objectUrl
+}
+
+async function ensureImageDisplayUrl(item: GeneratedImage): Promise<string> {
+  if (!shouldFetchImageUrl(item.url)) {
+    return item.url
+  }
+  const objectUrl = await createObjectUrlForImage(item)
+  const current = results.value.find((result) => result.id === item.id)
+  if (current) {
+    revokeGeneratedImageObjectUrl(current.url)
+    current.url = objectUrl
+  }
+  if (previewImage.value?.id === item.id) {
+    previewImage.value.url = objectUrl
+  }
+  return objectUrl
+}
+
+async function hydrateGeneratedImagePreviews(token: number): Promise<void> {
+  const items = results.value.slice()
+  await Promise.all(items.map(async (item) => {
+    if (!shouldFetchImageUrl(item.url)) return
+    try {
+      const objectUrl = await createObjectUrlForImage(item)
+      if (token !== imagePreviewLoadToken) {
+        revokeGeneratedImageObjectUrl(objectUrl)
+        return
+      }
+      const current = results.value.find((result) => result.id === item.id)
+      if (!current) {
+        revokeGeneratedImageObjectUrl(objectUrl)
+        return
+      }
+      revokeGeneratedImageObjectUrl(current.url)
+      current.url = objectUrl
+      if (previewImage.value?.id === current.id) {
+        previewImage.value.url = objectUrl
+      }
+    } catch {
+      // Keep the original URL as a fallback for cookie-based sessions.
+    }
+  }))
 }
 
 function latestActiveTask(tasks: ImageCreatorTask[]): ImageCreatorTask | null {
@@ -628,15 +709,18 @@ function clearReferenceImage(): void {
 }
 
 function clearResults(): void {
+  imagePreviewLoadToken += 1
+  revokeGeneratedImageObjectUrls()
   results.value = []
   closePreview()
 }
 
-function downloadImage(item: GeneratedImage, index: number): void {
+async function downloadImage(item: GeneratedImage, index: number): Promise<void> {
+  const href = await ensureImageDisplayUrl(item)
   const link = document.createElement('a')
-  link.href = item.url
+  link.href = href
   link.download = `image-${Date.now()}-${index + 1}.${String(item.outputFormat || outputFormat.value).toLowerCase()}`
-  if (!item.url.startsWith('data:')) {
+  if (!href.startsWith('data:') && !href.startsWith('blob:')) {
     link.target = '_blank'
     link.rel = 'noopener'
   }
@@ -656,7 +740,7 @@ function closePreview(): void {
 function downloadPreviewImage(): void {
   if (!previewImage.value) return
   const index = results.value.findIndex((item) => item.id === previewImage.value?.id)
-  downloadImage(previewImage.value, index >= 0 ? index : 0)
+  void downloadImage(previewImage.value, index >= 0 ? index : 0)
 }
 
 function onPreviewKeydown(event: KeyboardEvent): void {
@@ -675,6 +759,8 @@ onUnmounted(() => {
   window.removeEventListener('keydown', onPreviewKeydown)
   stopTaskPolling()
   stopGenerationTimer()
+  imagePreviewLoadToken += 1
+  revokeGeneratedImageObjectUrls()
   clearReferenceImage()
 })
 </script>

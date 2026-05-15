@@ -78,7 +78,7 @@
                 type="button"
                 class="text-xs font-medium text-primary-600 hover:text-primary-700 disabled:cursor-not-allowed disabled:text-gray-400 dark:text-primary-400"
                 :disabled="loadingChannels"
-                @click="loadChannels"
+                @click="loadModels"
               >
                 {{ t('common.refresh') }}
               </button>
@@ -97,24 +97,41 @@
         </div>
 
         <div class="chat-session-list">
-          <button
+          <div
             v-for="session in sessions"
             :key="session.id"
-            type="button"
             class="chat-session-item"
             :class="{ 'chat-session-item-active': session.id === currentSessionId }"
             data-testid="chat-session-item"
-            @click="selectSession(session.id)"
           >
-            <Icon name="chatBubble" size="sm" class="mt-0.5 flex-shrink-0" />
-            <span class="min-w-0 flex-1">
-              <span class="block truncate text-sm font-medium">{{ session.title }}</span>
-              <span class="mt-0.5 block truncate text-xs text-gray-500 dark:text-dark-300">
-                {{ sessionPreview(session) }}
+            <button
+              type="button"
+              class="chat-session-select"
+              @click="selectSession(session.id)"
+            >
+              <Icon name="chatBubble" size="sm" class="mt-0.5 flex-shrink-0" />
+              <span class="min-w-0 flex-1">
+                <span class="block truncate text-sm font-medium">{{ session.title }}</span>
+                <span class="mt-0.5 block truncate text-xs text-gray-500 dark:text-dark-300">
+                  {{ sessionPreview(session) }}
+                </span>
               </span>
-            </span>
-            <span class="text-[11px] text-gray-400 dark:text-dark-400">{{ messageCountLabel(session) }}</span>
-          </button>
+              <span class="flex-shrink-0 text-[11px] text-gray-400 dark:text-dark-400">
+                {{ messageCountLabel(session) }}
+              </span>
+            </button>
+            <button
+              type="button"
+              class="chat-session-delete"
+              :title="t('chatStudio.deleteChat')"
+              :aria-label="t('chatStudio.deleteChat')"
+              :disabled="sending"
+              data-testid="chat-delete-session"
+              @click="requestDeleteSession(session.id)"
+            >
+              <Icon name="trash" size="sm" />
+            </button>
+          </div>
         </div>
       </section>
 
@@ -174,7 +191,8 @@
               type="button"
               class="btn btn-secondary btn-icon text-red-600 hover:text-red-700 dark:text-red-300"
               :title="t('chatStudio.deleteChat')"
-              :disabled="sessions.length <= 1 || sending"
+              :disabled="!currentSession || sending"
+              data-testid="chat-delete-current-session"
               @click="deleteCurrentSession"
             >
               <Icon name="trash" size="sm" />
@@ -284,6 +302,17 @@
         </footer>
       </section>
     </div>
+
+    <ConfirmDialog
+      :show="showDeleteDialog"
+      :title="t('chatStudio.deleteChat')"
+      :message="t('chatStudio.deleteConfirmMessage', { title: deletingSession?.title || t('chatStudio.defaultSessionTitle') })"
+      :confirm-text="t('common.delete')"
+      :cancel-text="t('common.cancel')"
+      :danger="true"
+      @confirm="confirmDeleteSession"
+      @cancel="cancelDeleteSession"
+    />
   </AppLayout>
 </template>
 
@@ -292,6 +321,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { keysAPI, userChannelsAPI } from '@/api'
 import type { UserAvailableChannel } from '@/api/channels'
@@ -300,7 +330,9 @@ import {
   CHAT_STUDIO_STORAGE_KEY,
   createChatCompletionStream,
   isAbortError,
+  listChatModels,
   type ChatStudioMessage,
+  type ChatStudioModel,
   type ChatStudioRole,
 } from '@/api/chatStudio'
 import { useAppStore } from '@/stores'
@@ -337,6 +369,7 @@ const { copyToClipboard } = useClipboard()
 
 const apiKeys = ref<ApiKey[]>([])
 const channels = ref<UserAvailableChannel[]>([])
+const keyModels = ref<ChatStudioModel[]>([])
 const selectedKeyId = ref<number | null>(null)
 const model = ref(CHAT_STUDIO_DEFAULT_MODEL)
 const prompt = ref('')
@@ -348,16 +381,23 @@ const sending = ref(false)
 const sessionsPanelOpen = ref(false)
 const renaming = ref(false)
 const renameDraft = ref('')
+const showDeleteDialog = ref(false)
+const deletingSessionId = ref<string | null>(null)
 const messagesRef = ref<HTMLElement | null>(null)
 const renameInputRef = ref<HTMLInputElement | null>(null)
 
 let abortController: AbortController | null = null
+let loadModelsRequestId = 0
 
 const currentSession = computed(() =>
   sessions.value.find((session) => session.id === currentSessionId.value) ?? null
 )
 
 const currentMessages = computed(() => currentSession.value?.messages ?? [])
+
+const deletingSession = computed(() =>
+  sessions.value.find((session) => session.id === deletingSessionId.value) ?? null
+)
 
 const selectedKey = computed(() =>
   apiKeys.value.find((key) => key.id === selectedKeyId.value) ?? null
@@ -375,6 +415,10 @@ const apiKeyOptions = computed<SelectOption[]>(() =>
 const modelOptions = computed<SelectOption[]>(() => {
   const groupId = selectedKey.value?.group_id
   const names = new Set<string>()
+
+  for (const keyModel of keyModels.value) {
+    if (keyModel.id) names.add(keyModel.id)
+  }
 
   for (const channel of channels.value) {
     for (const section of channel.platforms || []) {
@@ -406,13 +450,13 @@ watch([sessions, currentSessionId], () => {
 }, { deep: true })
 
 watch(selectedKeyId, () => {
-  ensureModelForSelectedKey()
+  keyModels.value = []
+  void loadModels()
 })
 
 onMounted(() => {
   restoreSessions()
   void loadApiKeys()
-  void loadChannels()
 })
 
 onBeforeUnmount(() => {
@@ -545,13 +589,47 @@ function selectSession(id: string): void {
   void scrollToBottom()
 }
 
-function deleteCurrentSession(): void {
-  if (!currentSession.value || sessions.value.length <= 1) return
+function requestDeleteSession(id: string): void {
+  if (sending.value || !sessions.value.some((session) => session.id === id)) return
+  deletingSessionId.value = id
+  showDeleteDialog.value = true
+}
+
+function cancelDeleteSession(): void {
+  showDeleteDialog.value = false
+  deletingSessionId.value = null
+}
+
+function confirmDeleteSession(): void {
+  const id = deletingSessionId.value
+  cancelDeleteSession()
+  if (!id) return
+  deleteSession(id)
+}
+
+function deleteSession(id: string): void {
+  const index = sessions.value.findIndex((session) => session.id === id)
+  if (index < 0) return
   if (sending.value) stopGenerating()
 
-  const index = sessions.value.findIndex((session) => session.id === currentSessionId.value)
   sessions.value.splice(index, 1)
-  currentSessionId.value = sessions.value[Math.max(0, index - 1)]?.id ?? sessions.value[0]?.id ?? null
+  if (sessions.value.length === 0) {
+    const session = createEmptySession()
+    sessions.value = [session]
+    currentSessionId.value = session.id
+    sessionsPanelOpen.value = false
+    return
+  }
+
+  if (id === currentSessionId.value) {
+    currentSessionId.value = sessions.value[Math.max(0, index - 1)]?.id ?? sessions.value[0]?.id ?? null
+  }
+  sessionsPanelOpen.value = false
+}
+
+function deleteCurrentSession(): void {
+  if (!currentSession.value) return
+  requestDeleteSession(currentSession.value.id)
 }
 
 function clearCurrentSession(): void {
@@ -618,7 +696,11 @@ async function loadApiKeys(): Promise<void> {
       sort_order: 'desc',
     })
     apiKeys.value = response.items.filter(isUsableChatKey)
+    const previousSelectedKeyId = selectedKeyId.value
     selectedKeyId.value = pickDefaultKey(apiKeys.value)?.id ?? null
+    if (selectedKeyId.value === previousSelectedKeyId) {
+      void loadModels()
+    }
   } catch {
     appStore.showError(t('chatStudio.loadKeysFailed'))
   } finally {
@@ -626,17 +708,29 @@ async function loadApiKeys(): Promise<void> {
   }
 }
 
-async function loadChannels(): Promise<void> {
+async function loadModels(): Promise<void> {
   loadingChannels.value = true
+  const key = selectedKey.value?.key || ''
+  const requestId = ++loadModelsRequestId
   try {
-    channels.value = await userChannelsAPI.getAvailable()
+    const [models, availableChannels] = await Promise.all([
+      key ? listChatModels(key).catch((): ChatStudioModel[] => []) : Promise.resolve<ChatStudioModel[]>([]),
+      userChannelsAPI.getAvailable().catch((): UserAvailableChannel[] => []),
+    ])
+    if (requestId !== loadModelsRequestId) return
+    keyModels.value = models
+    channels.value = availableChannels
     ensureModelForSelectedKey()
   } catch {
+    if (requestId !== loadModelsRequestId) return
+    keyModels.value = []
     channels.value = []
     model.value = model.value.trim() || CHAT_STUDIO_DEFAULT_MODEL
     appStore.showWarning(t('chatStudio.loadModelsFailed'))
   } finally {
-    loadingChannels.value = false
+    if (requestId === loadModelsRequestId) {
+      loadingChannels.value = false
+    }
   }
 }
 
@@ -761,9 +855,12 @@ async function copyReply(text: string): Promise<void> {
 
 <style scoped>
 .chat-studio {
+  --chat-studio-height: calc(100vh - 6rem);
+  --chat-studio-height: calc(100dvh - 6rem);
   display: grid;
   position: relative;
-  min-height: calc(100vh - 7rem);
+  height: var(--chat-studio-height);
+  min-height: 32rem;
   grid-template-columns: 320px minmax(0, 1fr);
   gap: 1rem;
 }
@@ -774,6 +871,7 @@ async function copyReply(text: string): Promise<void> {
 
 .chat-sessions,
 .chat-main {
+  height: 100%;
   min-height: 0;
   overflow: hidden;
   border: 1px solid rgb(229 231 235);
@@ -794,6 +892,7 @@ async function copyReply(text: string): Promise<void> {
 
 .chat-sessions-header,
 .chat-main-header {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -808,6 +907,7 @@ async function copyReply(text: string): Promise<void> {
 }
 
 .chat-settings {
+  flex-shrink: 0;
   display: grid;
   gap: 0.875rem;
   border-bottom: 1px solid rgb(243 244 246);
@@ -829,12 +929,44 @@ async function copyReply(text: string): Promise<void> {
   display: flex;
   width: 100%;
   align-items: flex-start;
-  gap: 0.75rem;
+  gap: 0.5rem;
   border-radius: 0.5rem;
-  padding: 0.75rem;
+  padding: 0.25rem;
   text-align: left;
   color: rgb(55 65 81);
   transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.chat-session-select {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  text-align: left;
+}
+
+.chat-session-delete {
+  display: inline-flex;
+  height: 2.25rem;
+  width: 2.25rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  color: rgb(148 163 184);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.chat-session-delete:hover:not(:disabled) {
+  background: rgb(254 226 226);
+  color: rgb(220 38 38);
+}
+
+.chat-session-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 .chat-session-item:hover,
@@ -845,6 +977,15 @@ async function copyReply(text: string): Promise<void> {
 
 .dark .chat-session-item {
   color: rgb(209 213 219);
+}
+
+.dark .chat-session-delete {
+  color: rgb(148 163 184);
+}
+
+.dark .chat-session-delete:hover:not(:disabled) {
+  background: rgb(127 29 29 / 0.35);
+  color: rgb(252 165 165);
 }
 
 .dark .chat-session-item:hover,
@@ -1016,6 +1157,7 @@ async function copyReply(text: string): Promise<void> {
 }
 
 .chat-composer {
+  flex-shrink: 0;
   padding: 0.75rem 1rem 1rem;
 }
 
@@ -1062,9 +1204,22 @@ async function copyReply(text: string): Promise<void> {
   padding-top: 0.5rem;
 }
 
+@media (min-width: 768px) {
+  .chat-studio {
+    --chat-studio-height: calc(100vh - 6.7rem);
+    --chat-studio-height: calc(100dvh - 6.7rem);
+  }
+}
+
+@media (min-width: 1024px) {
+  .chat-studio {
+    --chat-studio-height: calc(100vh - 7.2rem);
+    --chat-studio-height: calc(100dvh - 7.2rem);
+  }
+}
+
 @media (max-width: 1023px) {
   .chat-studio {
-    min-height: calc(100vh - 6rem);
     grid-template-columns: 1fr;
   }
 

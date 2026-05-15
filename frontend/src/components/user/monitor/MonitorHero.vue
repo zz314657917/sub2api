@@ -1,6 +1,5 @@
 <template>
-  <section class="py-3 md:py-4">
-    <div class="flex items-center justify-end gap-3 flex-wrap">
+  <div class="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
       <div
         role="tablist"
         class="inline-flex p-0.5 rounded-xl bg-gray-100 dark:bg-dark-800 border border-gray-200/60 dark:border-dark-700/60 text-xs"
@@ -51,8 +50,7 @@
         @update:enabled="autoRefresh.setEnabled"
         @update:interval="autoRefresh.setInterval"
       />
-    </div>
-  </section>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -65,7 +63,6 @@ export type OverallStatus = 'operational' | 'degraded'
 
 const props = defineProps<{
   overallStatus: OverallStatus
-  intervalSeconds: number
   window: MonitorWindow
   loading: boolean
   autoRefresh?: {

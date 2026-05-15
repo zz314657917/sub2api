@@ -5092,11 +5092,21 @@
                   {{ t('admin.settings.features.welfare.newUserTrialHint') }}
                 </p>
               </div>
-              <div class="grid gap-4 md:grid-cols-3">
+              <div class="grid gap-4 md:grid-cols-4">
                 <div>
                   <label class="input-label">{{ t('admin.settings.features.welfare.newUserTrialQuota') }}</label>
                   <input
                     v-model.number="form.welfare_new_user_trial_quota_amount"
+                    type="number"
+                    min="0"
+                    step="0.00000001"
+                    class="input"
+                  />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.newUserTrialSuccessReward') }}</label>
+                  <input
+                    v-model.number="form.welfare_new_user_trial_success_reward_amount"
                     type="number"
                     min="0"
                     step="0.00000001"
@@ -5155,6 +5165,22 @@
                     step="1"
                     class="input"
                   />
+                </div>
+              </div>
+
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.minAccountAgeHours') }}</label>
+                  <input
+                    v-model.number="form.welfare_daily_checkin_min_account_age_hours"
+                    type="number"
+                    min="0"
+                    step="1"
+                    class="input"
+                  />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.features.welfare.minAccountAgeHoursHint') }}
+                  </p>
                 </div>
               </div>
 
@@ -7294,12 +7320,14 @@ const form = reactive<SettingsForm>({
   welfare_vip_enabled: false,
   welfare_daily_checkin_reward_min: 0,
   welfare_daily_checkin_reward_max: 0,
+  welfare_daily_checkin_min_account_age_hours: 24,
   welfare_daily_checkin_milestone_7_amount: 0,
   welfare_daily_checkin_milestone_14_amount: 0,
   welfare_daily_checkin_milestone_21_amount: 0,
   welfare_daily_checkin_milestone_28_amount: 0,
   welfare_new_user_trial_enabled: false,
   welfare_new_user_trial_quota_amount: 0.1,
+  welfare_new_user_trial_success_reward_amount: 0,
   welfare_new_user_trial_daily_site_quota_amount: 5,
   welfare_new_user_trial_daily_ip_activation_limit: 3,
   leaderboard_daily_reward_enabled: false,
@@ -8401,6 +8429,10 @@ async function saveSettings() {
       0,
       Number(form.welfare_new_user_trial_quota_amount) || 0,
     );
+    const welfareNewUserTrialSuccessRewardAmount = Math.max(
+      0,
+      Number(form.welfare_new_user_trial_success_reward_amount) || 0,
+    );
     const welfareNewUserTrialDailySiteQuotaAmount = Math.max(
       0,
       Number(form.welfare_new_user_trial_daily_site_quota_amount) || 0,
@@ -8408,6 +8440,10 @@ async function saveSettings() {
     const welfareNewUserTrialDailyIPActivationLimit = Math.max(
       0,
       Math.floor(Number(form.welfare_new_user_trial_daily_ip_activation_limit) || 0),
+    );
+    const welfareDailyCheckinMinAccountAgeHours = Math.max(
+      0,
+      Math.floor(Number(form.welfare_daily_checkin_min_account_age_hours) || 0),
     );
 
     const payload: UpdateSettingsRequest = {
@@ -8606,6 +8642,8 @@ async function saveSettings() {
       welfare_vip_enabled: form.welfare_vip_enabled,
       welfare_daily_checkin_reward_min: welfareDailyRewardMin,
       welfare_daily_checkin_reward_max: welfareDailyRewardMax,
+      welfare_daily_checkin_min_account_age_hours:
+        welfareDailyCheckinMinAccountAgeHours,
       welfare_daily_checkin_milestone_7_amount: Math.max(
         0,
         Number(form.welfare_daily_checkin_milestone_7_amount) || 0,
@@ -8624,6 +8662,8 @@ async function saveSettings() {
       ),
       welfare_new_user_trial_enabled: form.welfare_new_user_trial_enabled,
       welfare_new_user_trial_quota_amount: welfareNewUserTrialQuotaAmount,
+      welfare_new_user_trial_success_reward_amount:
+        welfareNewUserTrialSuccessRewardAmount,
       welfare_new_user_trial_daily_site_quota_amount:
         welfareNewUserTrialDailySiteQuotaAmount,
       welfare_new_user_trial_daily_ip_activation_limit:
@@ -9932,15 +9972,16 @@ watch(
 
 /* ============ 系统设置 Tab 导航 ============ */
 .settings-tabs-shell {
-  @apply sticky z-20 -mx-1 rounded-2xl border border-white/80 bg-white/90 p-1.5 backdrop-blur-xl;
+  @apply sticky z-20 -mx-1 rounded-2xl border border-white/80 bg-white/90 p-1.5 backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-950/95;
   top: 4.75rem;
   box-shadow:
     0 12px 28px rgb(15 23 42 / 0.07),
     0 1px 0 rgb(255 255 255 / 0.9) inset;
 }
 
-:global(.dark) .settings-tabs-shell {
+.settings-tabs-shell:is(.dark *) {
   border-color: rgb(51 65 85 / 0.78);
+  background-color: rgb(2 6 23 / 0.95);
   background:
     linear-gradient(180deg, rgb(15 23 42 / 0.96), rgb(2 6 23 / 0.9)),
     rgb(2 6 23 / 0.92) !important;
@@ -9951,8 +9992,13 @@ watch(
 
 .settings-tabs-scroll {
   @apply overflow-x-auto;
+  border-radius: 0.875rem;
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+.settings-tabs-scroll:is(.dark *) {
+  background: rgb(2 6 23 / 0.42);
 }
 
 .settings-tabs-scroll::-webkit-scrollbar {
@@ -9964,10 +10010,11 @@ watch(
 }
 
 .settings-tab {
-  @apply relative isolate flex h-10 min-w-[6.75rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-transparent px-3 text-sm font-medium text-gray-600 outline-none transition-colors duration-200 ease-out dark:text-gray-300;
+  @apply relative isolate flex h-10 min-w-[6.75rem] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-transparent px-3 text-sm font-medium text-gray-600 outline-none transition-colors duration-200 ease-out dark:text-slate-400;
 }
 
-:global(.dark) .settings-tab {
+.settings-tab:is(.dark *) {
+  background: transparent;
   color: rgb(148 163 184);
 }
 
@@ -9996,12 +10043,12 @@ watch(
   opacity: 1;
 }
 
-:global(.dark) .settings-tab::before {
+.settings-tab:is(.dark *)::before {
   background: linear-gradient(135deg, rgb(30 41 59 / 0.86), rgb(15 23 42 / 0.7));
 }
 
-:global(.dark) .settings-tab:hover,
-:global(.dark) .settings-tab:focus-visible {
+.settings-tab:is(.dark *):hover,
+.settings-tab:is(.dark *):focus-visible {
   color: rgb(226 232 240);
 }
 
@@ -10016,7 +10063,7 @@ watch(
     0 1px 0 rgb(255 255 255 / 0.92) inset;
 }
 
-:global(.dark) .settings-tab-active {
+.settings-tab-active:is(.dark *) {
   border-color: rgb(20 184 166 / 0.55);
   background:
     linear-gradient(180deg, rgb(20 184 166 / 0.18), rgb(15 23 42 / 0.92)),
@@ -10055,7 +10102,7 @@ watch(
   @apply bg-primary-50 text-primary-600 dark:bg-primary-400/10 dark:text-primary-300;
 }
 
-:global(.dark) .settings-tab-active .settings-tab-icon {
+.settings-tab-active:is(.dark *) .settings-tab-icon {
   background: rgb(20 184 166 / 0.16);
   color: rgb(134 239 172);
 }

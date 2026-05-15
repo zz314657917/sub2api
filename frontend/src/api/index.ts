@@ -17,6 +17,7 @@ export { redeemAPI, type RedeemHistoryItem } from './redeem'
 export { paymentAPI } from './payment'
 export { userGroupsAPI } from './groups'
 export { userChannelsAPI } from './channels'
+export { openWebUIAPI, type OpenWebUILaunchResponse } from './openWebUI'
 export {
   welfareAPI,
   type WelfareDailyCheckin,
@@ -24,6 +25,7 @@ export {
   type WelfareDailyCheckinMilestone,
   type WelfareMilestoneClaimResponse,
   type WelfareNewUserTrial,
+  type WelfareNewUserTrialRewardClaimResponse,
   type WelfareOverview,
 } from './welfare'
 export {
@@ -33,8 +35,10 @@ export {
   createChatCompletionStream,
   extractChatStudioDelta,
   isAbortError,
+  listChatModels,
   type ChatStudioCompletionInput,
   type ChatStudioCompletionResult,
+  type ChatStudioModel,
   type ChatStudioMessage,
   type ChatStudioRole,
 } from './chatStudio'

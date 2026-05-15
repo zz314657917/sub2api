@@ -66,6 +66,27 @@
               <div class="h-full rounded-full bg-primary-600 transition-all" :style="{ width: `${trialProgressPercent}%` }"></div>
             </div>
             <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">{{ t('welfare.trial.walletNotice') }}</p>
+            <div v-if="trial.success_reward_amount > 0" class="mt-4 flex flex-col gap-3 rounded-md border border-emerald-100 bg-emerald-50 px-4 py-3 dark:border-emerald-500/20 dark:bg-emerald-500/10 sm:flex-row sm:items-center sm:justify-between">
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+                  {{ t('welfare.trial.successRewardTitle', { amount: formatAmount(trial.success_reward_amount) }) }}
+                </p>
+                <p class="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+                  {{ trialSuccessRewardDescription }}
+                </p>
+              </div>
+              <button
+                class="btn h-10 w-full shrink-0 sm:w-auto"
+                :class="trial.success_reward_claimable ? 'btn-primary' : 'btn-secondary'"
+                type="button"
+                :disabled="!trial.success_reward_claimable || claimingTrialReward"
+                data-testid="welfare-trial-reward-claim"
+                @click="claimTrialReward"
+              >
+                {{ trialRewardButtonText }}
+              </button>
+            </div>
+            <p v-if="trialClaimError" class="mt-3 text-sm text-red-600 dark:text-red-400">{{ trialClaimError }}</p>
           </div>
         </section>
 
@@ -215,7 +236,7 @@ import { useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { welfareAPI } from '@/api/welfare'
-import type { WelfareDailyCheckin, WelfareDailyCheckinMilestone, WelfareOverview } from '@/types'
+import type { WelfareDailyCheckin, WelfareDailyCheckinMilestone, WelfareNewUserTrial, WelfareOverview } from '@/types'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -224,8 +245,10 @@ const overview = ref<WelfareOverview | null>(null)
 const loading = ref(false)
 const error = ref('')
 const claimError = ref('')
+const trialClaimError = ref('')
 const claimingDaily = ref(false)
 const claimingMilestoneDay = ref<number | null>(null)
+const claimingTrialReward = ref(false)
 
 const daily = computed(() => overview.value?.daily_checkin ?? null)
 const trial = computed(() => overview.value?.new_user_trial ?? null)
@@ -320,6 +343,20 @@ const dailyButtonText = computed(() => {
   return daily.value?.can_claim_today ? t('welfare.daily.claim') : reasonText(daily.value?.reason)
 })
 
+const trialRewardButtonText = computed(() => {
+  if (claimingTrialReward.value) return t('welfare.trial.rewardClaiming')
+  if (trial.value?.success_reward_claimed) return t('welfare.trial.rewardClaimed')
+  return trial.value?.success_reward_claimable ? t('welfare.trial.rewardClaim') : reasonText(trial.value?.success_reward_reason)
+})
+
+const trialSuccessRewardDescription = computed(() => {
+  const state = trial.value
+  if (!state) return t('welfare.trial.successRewardPending')
+  if (state.success_reward_claimed) return t('welfare.trial.successRewardClaimed')
+  if (state.success_reward_claimable) return t('welfare.trial.successRewardClaimable')
+  return t('welfare.trial.successRewardPending')
+})
+
 const trialStatusText = computed(() => {
   const state = trial.value
   if (!state) return t('welfare.notOpen')
@@ -368,6 +405,8 @@ function reasonText(reason?: string): string {
       return t('welfare.reason.exhausted')
     case 'daily_limit':
       return t('welfare.reason.dailyLimit')
+    case 'registration_too_new':
+      return t('welfare.reason.registrationTooNew')
     default:
       return t('welfare.reason.unavailable')
   }
@@ -413,6 +452,7 @@ async function loadOverview(): Promise<void> {
   loading.value = true
   error.value = ''
   claimError.value = ''
+  trialClaimError.value = ''
   try {
     overview.value = await welfareAPI.getWelfareOverview()
   } catch (err) {
@@ -452,11 +492,33 @@ async function claimMilestone(day: number): Promise<void> {
   }
 }
 
+async function claimTrialReward(): Promise<void> {
+  if (!trial.value?.success_reward_claimable || claimingTrialReward.value) return
+  claimingTrialReward.value = true
+  trialClaimError.value = ''
+  try {
+    const result = await welfareAPI.claimWelfareNewUserTrialReward()
+    updateTrial(result.new_user_trial)
+  } catch (err) {
+    trialClaimError.value = extractErrorMessage(err, t('welfare.trial.rewardClaimFailed'))
+  } finally {
+    claimingTrialReward.value = false
+  }
+}
+
 function updateDaily(nextDaily: WelfareDailyCheckin): void {
   if (!overview.value) return
   overview.value = {
     ...overview.value,
     daily_checkin: nextDaily,
+  }
+}
+
+function updateTrial(nextTrial: WelfareNewUserTrial): void {
+  if (!overview.value) return
+  overview.value = {
+    ...overview.value,
+    new_user_trial: nextTrial,
   }
 }
 

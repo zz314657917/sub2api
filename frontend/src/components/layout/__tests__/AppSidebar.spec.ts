@@ -38,12 +38,32 @@ describe('AppSidebar header styles', () => {
 describe('AppSidebar admin navigation groups', () => {
   it('keeps admin management entries inside grouped sidebar sections', () => {
     expect(componentSource).toContain("label: t('nav.basicManagement')")
-    expect(componentSource).toContain("label: t('nav.resourceAccess')")
+    expect(componentSource).toContain("label: t('nav.channelManagement')")
     expect(componentSource).toContain("label: t('nav.businessOperations')")
     expect(componentSource).toContain("label: t('nav.contentRecords')")
     expect(componentSource).toContain("path: '/admin/users'")
     expect(componentSource).toContain("path: '/admin/accounts'")
+    expect(componentSource).toContain("path: '/admin/shared-accounts'")
+    expect(componentSource).toContain("path: '/admin/proxies'")
     expect(componentSource).toContain("path: '/admin/redeem'")
+  })
+
+  it('places account and proxy management under basic management while channels stay standalone', () => {
+    const basicStart = componentSource.indexOf("label: t('nav.basicManagement')")
+    const channelStart = componentSource.indexOf("label: t('nav.channelManagement')", basicStart)
+    const resourceStart = componentSource.indexOf("label: t('nav.resourceAccess')", channelStart)
+    const basicBlock = componentSource.slice(basicStart, channelStart)
+    const channelBlock = componentSource.slice(channelStart, resourceStart)
+
+    expect(basicStart).toBeGreaterThan(-1)
+    expect(channelStart).toBeGreaterThan(-1)
+    expect(resourceStart).toBeGreaterThan(-1)
+    expect(basicBlock).toContain("path: '/admin/accounts'")
+    expect(basicBlock).toContain("path: '/admin/shared-accounts'")
+    expect(basicBlock).toContain("path: '/admin/proxies'")
+    expect(channelBlock).toContain("path: '/admin/channels/pricing'")
+    expect(channelBlock).toContain("path: '/admin/channels/monitor'")
+    expect(channelBlock).not.toContain("path: '/admin/accounts'")
   })
 
   it('keeps subscription plans beside subscription management instead of inside orders', () => {
@@ -59,6 +79,12 @@ describe('AppSidebar admin navigation groups', () => {
     expect(componentSource.slice(ordersChildrenStart, ordersChildrenEnd)).not.toContain("path: '/admin/orders/plans'")
   })
 
+  it('keeps the order list leaf exact so payment dashboard is not double highlighted', () => {
+    expect(componentSource).toContain('exactActive?: boolean')
+    expect(componentSource).toContain('function isNavItemActive')
+    expect(componentSource).toContain("path: '/admin/orders', label: t('nav.orderList'), icon: OrderIcon, exactActive: true")
+  })
+
   it('preserves admin onboarding anchors after grouping', () => {
     expect(componentSource).toContain('function getAdminMenuItemId')
     expect(componentSource).toContain('sidebarTourTargetGroups')
@@ -69,16 +95,15 @@ describe('AppSidebar admin navigation groups', () => {
   })
 })
 
-describe('AppSidebar creation center navigation', () => {
-  it('shows creation center as a section title without a collapsible parent', () => {
-    expect(componentSource).toContain("t('nav.creationCenter')")
-    expect(componentSource).not.toContain("path: '/studio'")
-    expect(componentSource).toContain("label: t('nav.chatCreator')")
-    expect(componentSource).toContain("path: '/chat'")
-    expect(componentSource).toContain("path: '/image-creator'")
-    expect(componentSource.indexOf("path: '/chat'")).toBeLessThan(
-      componentSource.indexOf("path: '/image-creator'")
-    )
+describe('AppSidebar chat and image navigation', () => {
+  it('uses a single chat and image entry instead of the creation center section', () => {
+    expect(componentSource).not.toContain("t('nav.creationCenter')")
+    expect(componentSource).not.toContain("label: t('nav.chatCreator')")
+    expect(componentSource).not.toContain("label: t('nav.imageCreator')")
+    expect(componentSource).not.toContain("path: '/chat'")
+    expect(componentSource).not.toContain("path: '/image-creator'")
+    expect(componentSource).toContain("label: t('nav.chatImageCreator')")
+    expect(componentSource).toContain("path: '/chat-images'")
   })
 
   it('keeps creation links aligned with regular sidebar links in the console shell', () => {
@@ -88,7 +113,7 @@ describe('AppSidebar creation center navigation', () => {
     expect(sidebarLinkBlock).toContain('width: 100%;')
     expect(sidebarLinkBlock).toContain('box-sizing: border-box;')
     expect(sidebarSectionBlock).toContain('width: 100%;')
-    expect(componentSource).toContain("path: '/image-creator'")
+    expect(componentSource).toContain("path: '/chat-images'")
     expect(componentSource).toContain("path: '/dashboard'")
   })
 })
@@ -112,6 +137,7 @@ describe('AppSidebar self navigation groups', () => {
     expect(componentSource.slice(accountStart, usageStart)).not.toContain("path: '/welfare'")
     expect(componentSource).toContain('...usageStatusItems')
     expect(componentSource).toContain("path: '/keys'")
+    expect(componentSource).toContain("path: '/chat-images'")
     expect(componentSource).toContain("path: '/usage'")
     expect(componentSource).toContain("path: '/purchase'")
     expect(componentSource).toContain("path: '/leaderboard'")

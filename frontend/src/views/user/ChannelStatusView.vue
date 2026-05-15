@@ -1,29 +1,41 @@
 <template>
   <AppLayout>
-    <MonitorHero
-      :overall-status="overallStatus"
-      :interval-seconds="DEFAULT_INTERVAL_SECONDS"
-      :window="currentWindow"
-      :loading="loading"
-      :auto-refresh="autoRefresh"
-      @update:window="handleWindowChange"
-      @refresh="manualReload"
-    />
-
     <AccountCapacityPools
       v-if="accountShareEnabled"
       :pools="capacityPools"
       :loading="capacityLoading"
     />
 
-    <MonitorCardGrid
-      :items="items"
-      :window="currentWindow"
-      :countdown-seconds="countdown"
-      :loading="loading"
-      :detail-cache="detailCache"
-      @card-click="openDetail"
-    />
+    <section class="space-y-3" data-testid="channel-monitor-panel">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="min-w-0">
+          <h2 class="text-base font-bold text-gray-900 dark:text-white">
+            {{ t('channelStatus.monitorTitle') }}
+          </h2>
+          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('channelStatus.monitorDescription') }}
+          </p>
+        </div>
+
+        <MonitorHero
+          :overall-status="overallStatus"
+          :window="currentWindow"
+          :loading="loading"
+          :auto-refresh="autoRefresh"
+          @update:window="handleWindowChange"
+          @refresh="manualReload"
+        />
+      </div>
+
+      <MonitorCardGrid
+        :items="items"
+        :window="currentWindow"
+        :countdown-seconds="countdown"
+        :loading="loading"
+        :detail-cache="detailCache"
+        @card-click="openDetail"
+      />
+    </section>
 
     <MonitorDetailDialog
       :show="showDetail"

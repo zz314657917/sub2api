@@ -34,8 +34,37 @@
               </div>
               <h1>AI 接入教程</h1>
               <p>
-                先准备 Token 和代理地址。Windows、Linux、macOS 都可以接入，实际使用入口是 Codex、Claude Code、OpenClaw 或 Hermes-Agent。
+                第一次接入先按“新手最快路线”走，只需要准备账号、创建 Codex 密钥、写入配置并启动。CC Switch、Cockpit Tools 和其他工具都可以先跳过。
               </p>
+
+              <div class="beginner-path" aria-label="新手最快路线">
+                <div class="beginner-path-head">
+                  <span>新手最快路线</span>
+                  <strong>只想先把 Codex 跑起来，看这 4 步</strong>
+                </div>
+                <div class="beginner-path-grid">
+                  <a href="#prepare" class="beginner-step">
+                    <span>1</span>
+                    <strong>准备账号和环境</strong>
+                    <em>安装 Git / Node.js，登录后打开 API 密钥页。</em>
+                  </a>
+                  <a href="#codex" class="beginner-step">
+                    <span>2</span>
+                    <strong>创建 Codex 密钥</strong>
+                    <em>新建密钥时类型选 codex，复制 API Key。</em>
+                  </a>
+                  <a href="#codex" class="beginner-step">
+                    <span>3</span>
+                    <strong>写入两个配置文件</strong>
+                    <em>按 Codex 段的 1-8 步写 config.toml 和 auth.json。</em>
+                  </a>
+                  <a href="#faq" class="beginner-step">
+                    <span>4</span>
+                    <strong>启动并排查</strong>
+                    <em>打开 Codex，失败时先看常见问题。</em>
+                  </a>
+                </div>
+              </div>
 
               <div class="overview-checklist" aria-label="接入步骤概览">
                 <a href="#prepare" class="overview-row">
@@ -61,7 +90,7 @@
                 <a href="#codex" class="overview-row">
                   <span>05</span>
                   <strong>配置 Codex</strong>
-                  <em>推荐一键配置，失败再手动设置。</em>
+                  <em>按 1-8 步写入配置文件并启动。</em>
                 </a>
                 <a href="#claude" class="overview-row">
                   <span>06</span>
@@ -121,26 +150,26 @@
                 <PixelIcon name="folder" size="sm" tone="green" />
               </div>
               <h3>Windows 安装 Git / Node.js</h3>
-              <p>Windows 安装时一路下一步，路径保持默认。Linux 和 macOS 看下一节。</p>
+              <p>Windows 选择 64 位安装包：Git 下载 <code>Git-2.53.0-64-bit.exe</code>，Node.js 下载 <code>node-v24.13.1-x64.msi</code>。安装时一路下一步，路径保持默认。Linux 和 macOS 看下一节。</p>
               <ul class="tutorial-link-list">
                 <li>
                   <a href="https://github.com/git-for-windows/git/releases/download/v2.53.0.windows.1/Git-2.53.0-64-bit.exe" target="_blank" rel="noopener noreferrer">
-                    Git 官方下载
+                    Git 2.53.0 64 位官方
                   </a>
                 </li>
                 <li>
                   <a href="https://registry.npmmirror.com/-/binary/git-for-windows/v2.51.0.windows.1/Git-2.51.0-64-bit.exe" target="_blank" rel="noopener noreferrer">
-                    Git 镜像下载
+                    Git 2.51.0 64 位镜像
                   </a>
                 </li>
                 <li>
                   <a href="https://nodejs.org/dist/v24.13.1/node-v24.13.1-x64.msi" target="_blank" rel="noopener noreferrer">
-                    Node 官方下载
+                    Node.js 24.13.1 x64 官方
                   </a>
                 </li>
                 <li>
                   <a href="https://npmmirror.com/mirrors/node/v24.13.0/node-v24.13.0-x64.msi" target="_blank" rel="noopener noreferrer">
-                    Node 镜像下载
+                    Node.js 24.13.0 x64 镜像
                   </a>
                 </li>
               </ul>
@@ -523,94 +552,126 @@
           <div class="guide-heading">
             <span>Codex</span>
             <h2>Codex 配置</h2>
-            <p>先用镜像源一键安装，再写入 Token 和代理地址。</p>
+            <p>参考 Codex App 配置教程：新手优先使用桌面端，配置文件和 VSCode 插件走同一套 <code>.codex</code> 目录。</p>
           </div>
 
-          <div class="guide-grid">
-            <article class="guide-card guide-card--wide">
+          <div class="guide-grid guide-grid--single">
+            <article class="guide-card">
               <div class="guide-card-head">
-                <span>C1</span>
-                <PixelIcon name="spark" size="sm" tone="green" />
+                <span>1</span>
+                <PixelIcon name="key" size="sm" tone="green" />
               </div>
-              <h3>推荐：一键配置</h3>
-              <div class="command-block">
-                <button
-                  type="button"
-                  class="copy-command-button"
-                  aria-label="复制 Codex 镜像安装命令"
-                  @click="copyCommand('codex-install-mirror', commands.codexInstallMirror)"
-                >
-                  {{ copiedCommand === 'codex-install-mirror' ? '已复制' : '复制' }}
-                </button>
-                <pre><code>{{ commands.codexInstallMirror }}</code></pre>
-              </div>
-              <div class="command-block">
-                <button
-                  type="button"
-                  class="copy-command-button"
-                  aria-label="复制 Codex 一键配置命令"
-                  @click="copyCommand('codex-config', commands.codexConfig)"
-                >
-                  {{ copiedCommand === 'codex-config' ? '已复制' : '复制' }}
-                </button>
-                <pre><code>{{ commands.codexConfig }}</code></pre>
-              </div>
-              <div class="command-block">
-                <button
-                  type="button"
-                  class="copy-command-button"
-                  aria-label="复制 Codex 检查命令"
-                  @click="copyCommand('codex-check', commands.codexCheck)"
-                >
-                  {{ copiedCommand === 'codex-check' ? '已复制' : '复制' }}
-                </button>
-                <pre><code>{{ commands.codexCheck }}</code></pre>
-              </div>
-              <p>看到“配置正常”就可以启动 Codex。</p>
+              <h3>先创建 Codex 类型 API 密钥</h3>
+              <ul>
+                <li>登录落叶AI 控制台，进入「API 密钥」。</li>
+                <li>点击右上角「创建密钥」。</li>
+                <li>名称可以自定义，密钥类型选择 <code>codex</code>。</li>
+                <li>额度、分组、速率限制等保持默认即可。</li>
+                <li>创建后复制 API Key，后面写入 <code>auth.json</code>。</li>
+              </ul>
+              <router-link :to="apiKeysLink" class="guide-action-link">
+                <PixelIcon name="key" size="xs" />
+                {{ authStore.isAuthenticated ? '打开 API 密钥页面' : '登录后打开 API 密钥页面' }}
+              </router-link>
             </article>
 
             <article class="guide-card">
               <div class="guide-card-head">
-                <span>C2</span>
-                <PixelIcon name="settings" size="sm" tone="green" />
+                <span>2</span>
+                <PixelIcon name="folder" size="sm" tone="green" />
               </div>
-              <h3>备用：Windows 手动配置</h3>
+              <h3>安装 Codex App</h3>
+              <p>Windows 用户推荐从 Microsoft Store 安装；打不开商店时可用 <code>winget</code>，也可以访问 Codex 官网下载。</p>
               <div class="command-block">
                 <button
                   type="button"
                   class="copy-command-button"
-                  aria-label="复制 Codex 常规安装命令"
-                  @click="copyCommand('codex-install', commands.codexInstall)"
+                  aria-label="复制 Codex App 安装命令"
+                  @click="copyCommand('codex-app-install', commands.codexAppInstall)"
                 >
-                  {{ copiedCommand === 'codex-install' ? '已复制' : '复制' }}
+                  {{ copiedCommand === 'codex-app-install' ? '已复制' : '复制' }}
                 </button>
-                <pre><code>{{ commands.codexInstall }}</code></pre>
+                <pre><code>{{ commands.codexAppInstall }}</code></pre>
               </div>
-              <div class="command-block">
-                <button
-                  type="button"
-                  class="copy-command-button"
-                  aria-label="复制 Codex 镜像安装命令"
-                  @click="copyCommand('codex-install-mirror-manual', commands.codexInstallMirror)"
-                >
-                  {{ copiedCommand === 'codex-install-mirror-manual' ? '已复制' : '复制' }}
-                </button>
-                <pre><code>{{ commands.codexInstallMirror }}</code></pre>
-              </div>
-              <ul>
-                <li><code>Win + R</code> 输入 <code>sysdm.cpl</code>。</li>
-                <li>打开“高级” → “环境变量”。</li>
-                <li>新增 <code>CODEX_TOKEN</code> 和 <code>CODEX_BASE_URL</code>。</li>
-                <li>保存后重新打开终端。</li>
+              <ul class="tutorial-link-list">
+                <li>
+                  <a href="https://chatgpt.com/codex" target="_blank" rel="noopener noreferrer">
+                    Codex 官网
+                  </a>
+                </li>
+                <li>
+                  <a href="https://apps.microsoft.com/detail/9ntx2k95jp4w" target="_blank" rel="noopener noreferrer">
+                    Microsoft Store
+                  </a>
+                </li>
               </ul>
             </article>
 
             <article class="guide-card">
               <div class="guide-card-head">
-                <span>C3</span>
+                <span>3</span>
+                <PixelIcon name="settings" size="sm" tone="green" />
+              </div>
+              <h3>打开 Codex 配置文件</h3>
+              <ul>
+                <li>首次启动 Codex App 时选择 API 方式进入主界面。</li>
+                <li>打开设置，进入配置区域，点击打开 <code>config.toml</code>。</li>
+                <li>也可以直接编辑 <code>C:\Users\用户名\.codex\config.toml</code>。</li>
+                <li>CLI 和 VSCode 插件也会读取同一份配置。</li>
+              </ul>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>4</span>
+                <PixelIcon name="settings" size="sm" tone="green" />
+              </div>
+              <h3>写入 config.toml</h3>
+              <p>把下面内容复制到 <code>config.toml</code>。模型名可按控制台可用模型调整，代理地址固定使用落叶网络 Base URL。</p>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 Codex config.toml 配置"
+                  @click="copyCommand('codex-config-toml', commands.codexConfigToml)"
+                >
+                  {{ copiedCommand === 'codex-config-toml' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.codexConfigToml }}</code></pre>
+              </div>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>5</span>
+                <PixelIcon name="shield" size="sm" tone="green" />
+              </div>
+              <h3>写入 auth.json</h3>
+              <p>编辑 <code>C:\Users\用户名\.codex\auth.json</code>，把「输入你的key」替换为刚刚创建的 Codex 类型 API Key。</p>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 Codex auth.json 配置"
+                  @click="copyCommand('codex-auth-json', commands.codexAuthJson)"
+                >
+                  {{ copiedCommand === 'codex-auth-json' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.codexAuthJson }}</code></pre>
+              </div>
+              <ul>
+                <li>如果文件不存在，就新建 <code>.codex</code> 文件夹和 <code>auth.json</code>。</li>
+                <li>不要把真实 API Key 发给别人，也不要提交到仓库。</li>
+                <li>保存后重启 Codex App 或重新打开 VSCode。</li>
+              </ul>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>6</span>
                 <PixelIcon name="cursor" size="sm" tone="green" />
               </div>
-              <h3>启动与常用命令</h3>
+              <h3>启动 Codex</h3>
               <div class="command-block">
                 <button
                   type="button"
@@ -622,18 +683,41 @@
                 </button>
                 <pre><code>{{ commands.codexStart }}</code></pre>
               </div>
+              <p>桌面端重新打开应用即可使用；命令行用户可以在项目目录运行 <code>codex</code>。</p>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>7</span>
+                <PixelIcon name="book" size="sm" tone="green" />
+              </div>
+              <h3>VSCode 集成 Codex</h3>
+              <ul>
+                <li>在 VSCode 扩展市场安装 <code>Codex - OpenAI's coding agent</code>。</li>
+                <li>确认插件读取的是同一个 <code>.codex</code> 目录。</li>
+                <li>如果 Codex App 闪退或系统暂不兼容，可先使用 VSCode 插件。</li>
+                <li>修改配置后重启 VSCode，再打开 Codex 面板测试。</li>
+              </ul>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>8</span>
+                <PixelIcon name="cursor" size="sm" tone="green" />
+              </div>
+              <h3>CLI 用户可选安装</h3>
+              <p>只想用命令行时，再安装 <code>@openai/codex</code>。配置仍然读取上面的 <code>config.toml</code> 和 <code>auth.json</code>。</p>
               <div class="command-block">
                 <button
                   type="button"
                   class="copy-command-button"
-                  aria-label="复制 Codex 常用命令"
-                  @click="copyCommand('codex-common', commands.codexCommon)"
+                  aria-label="复制 Codex CLI 镜像安装命令"
+                  @click="copyCommand('codex-install-mirror', commands.codexInstallMirror)"
                 >
-                  {{ copiedCommand === 'codex-common' ? '已复制' : '复制' }}
+                  {{ copiedCommand === 'codex-install-mirror' ? '已复制' : '复制' }}
                 </button>
-                <pre><code>{{ commands.codexCommon }}</code></pre>
+                <pre><code>{{ commands.codexInstallMirror }}</code></pre>
               </div>
-              <p>VS Code / Cursor 安装 Codex 插件后，选择本地 Codex 服务即可。</p>
             </article>
           </div>
         </section>
@@ -981,11 +1065,12 @@ const apiKeysLink = computed(() =>
 )
 
 const sections = [
+  { id: 'quick-start', title: '最快路线', desc: '新手先看' },
   { id: 'prepare', title: '准备工作', desc: '安装必备软件' },
   { id: 'platforms', title: 'Linux / macOS', desc: '跨平台配置' },
-  { id: 'cc-switch', title: 'CC Switch', desc: '桌面账号管理' },
-  { id: 'cockpit-tools', title: 'Cockpit Tools', desc: '网页账号管理' },
-  { id: 'codex', title: 'Codex', desc: '命令行使用' },
+  { id: 'cc-switch', title: 'CC Switch', desc: '可选账号管理' },
+  { id: 'cockpit-tools', title: 'Cockpit Tools', desc: '可选网页面板' },
+  { id: 'codex', title: 'Codex', desc: 'App / 插件配置' },
   { id: 'claude', title: 'Claude', desc: '命令行使用' },
   { id: 'openclaw', title: 'OpenClaw', desc: '自托管助手' },
   { id: 'hermes-agent', title: 'Hermes', desc: '终端 Agent' },
@@ -993,14 +1078,14 @@ const sections = [
 ]
 
 const routeSteps = [
-  { id: 'prepare', step: '01', title: '装好基础软件', desc: 'Git、Node.js、Token 和代理地址准备好。' },
-  { id: 'platforms', step: '02', title: 'Linux / macOS', desc: '按 Shell 写入环境变量。' },
-  { id: 'cc-switch', step: '03', title: '可选：CC Switch', desc: '控制台一键导入 Provider。' },
-  { id: 'cockpit-tools', step: '04', title: '可选：Cockpit Tools', desc: '网页面板管理 Codex 账号和会话。' },
-  { id: 'codex', step: '05', title: '使用 Codex', desc: '一键配置优先，失败再手动设置。' },
-  { id: 'claude', step: '06', title: '使用 Claude', desc: '写入 ANTHROPIC 变量后重启终端。' },
-  { id: 'openclaw', step: '07', title: '使用 OpenClaw', desc: '写入 OpenAI 兼容 provider。' },
-  { id: 'hermes-agent', step: '08', title: '使用 Hermes-Agent', desc: '选择 Custom Endpoint 后填入地址和 Token。' },
+  { id: 'quick-start', step: '01', title: '先走最快路线', desc: '新手只按 4 步把 Codex 跑起来。' },
+  { id: 'prepare', step: '02', title: '装好基础软件', desc: 'Git、Node.js、Token 和代理地址准备好。' },
+  { id: 'codex', step: '03', title: '使用 Codex', desc: '创建 codex 密钥，写入 config.toml 和 auth.json。' },
+  { id: 'cc-switch', step: '04', title: '可选：CC Switch', desc: '需要多工具切换账号时再用。' },
+  { id: 'cockpit-tools', step: '05', title: '可选：Cockpit Tools', desc: '需要网页面板管理会话时再用。' },
+  { id: 'claude', step: '06', title: '可选：Claude', desc: '写入 ANTHROPIC 变量后重启终端。' },
+  { id: 'openclaw', step: '07', title: '可选：OpenClaw', desc: '写入 OpenAI 兼容 provider。' },
+  { id: 'hermes-agent', step: '08', title: '可选：Hermes-Agent', desc: '选择 Custom Endpoint 后填入地址和 Token。' },
 ]
 
 const faqItems = [
@@ -1016,11 +1101,19 @@ const commands = {
   verifyInstall: `git --version
 node -v
 npm -v`,
-  codexInstall: 'npm install -g @openai/codex',
   codexInstallMirror: 'npm install -g @openai/codex --registry=https://registry.npmmirror.com',
-  codexConfig: `codex config set token "你的API Token"
-codex config set base_url "https://ai.3zapi.top"`,
-  codexCheck: 'codex check',
+  codexAppInstall: 'winget install --id OpenAI.Codex -e',
+  codexConfigToml: `model = "gpt-5.5"
+model_provider = "luoye"
+
+[model_providers.luoye]
+name = "luoye"
+base_url = "https://ai.3zapi.top/v1"
+env_key = "OPENAI_API_KEY"
+wire_api = "responses"`,
+  codexAuthJson: `{
+  "OPENAI_API_KEY": "输入你的key"
+}`,
   cockpitBaseUrl: 'https://ai.3zapi.top',
   linuxInstall: `sudo apt update
 sudo apt install -y git nodejs npm
@@ -1317,6 +1410,93 @@ onBeforeUnmount(() => {
   box-shadow: 0 8px 20px rgba(23, 72, 212, 0.22);
 }
 
+.beginner-path {
+  margin-top: 1.2rem;
+  border: 1px solid rgba(30, 117, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.46);
+  padding: 1rem;
+  box-shadow: 0 10px 22px rgba(24, 34, 48, 0.06);
+}
+
+.beginner-path-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  align-items: baseline;
+  margin-bottom: 0.85rem;
+}
+
+.beginner-path-head span {
+  color: #0755dd;
+  font-size: 0.76rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+}
+
+.beginner-path-head strong {
+  color: #151922;
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.beginner-path-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.7rem;
+}
+
+.beginner-step {
+  display: grid;
+  gap: 0.45rem;
+  align-content: start;
+  min-height: 8.2rem;
+  border: 1px solid rgba(17, 24, 39, 0.1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.5);
+  padding: 0.75rem;
+  color: inherit;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.beginner-step:hover,
+.beginner-step:focus-visible {
+  border-color: rgba(30, 117, 255, 0.38);
+  background: rgba(255, 255, 255, 0.7);
+  transform: translateY(-1px);
+}
+
+.beginner-step:focus-visible {
+  outline: 2px solid rgba(30, 117, 255, 0.35);
+  outline-offset: 3px;
+}
+
+.beginner-step span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #1e75ff, #14b8a6);
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 950;
+}
+
+.beginner-step strong {
+  color: #151922;
+  font-size: 0.92rem;
+  font-weight: 950;
+}
+
+.beginner-step em {
+  color: #626a76;
+  font-size: 0.82rem;
+  font-style: normal;
+  line-height: 1.55;
+}
+
 .tutorial-main {
   max-width: min(128rem, calc(100vw - 1rem));
 }
@@ -1560,6 +1740,10 @@ onBeforeUnmount(() => {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.9rem;
   margin-top: 1rem;
+}
+
+.guide-grid--single {
+  grid-template-columns: 1fr;
 }
 
 .guide-card {
@@ -1872,6 +2056,10 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
+  .beginner-path-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .tutorial-reader {
     --tutorial-index-sticky-top: 6.55rem;
 
@@ -1895,7 +2083,7 @@ onBeforeUnmount(() => {
 
   .tutorial-tabs {
     overflow-x: auto;
-    grid-template-columns: repeat(9, minmax(8.5rem, 1fr));
+    grid-template-columns: repeat(10, minmax(8.5rem, 1fr));
   }
 
   .tutorial-content {
@@ -1970,7 +2158,7 @@ onBeforeUnmount(() => {
   }
 
   .tutorial-tabs {
-    grid-template-columns: repeat(9, minmax(8rem, 1fr));
+    grid-template-columns: repeat(10, minmax(8rem, 1fr));
   }
 
   .tutorial-tabs a {
@@ -1981,7 +2169,8 @@ onBeforeUnmount(() => {
   .guide-grid,
   .faq-grid,
   .doc-feature-stack,
-  .install-grid {
+  .install-grid,
+  .beginner-path-grid {
     grid-template-columns: 1fr;
   }
 

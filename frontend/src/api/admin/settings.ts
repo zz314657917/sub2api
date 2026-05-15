@@ -557,12 +557,14 @@ export interface SystemSettings {
   welfare_vip_enabled: boolean;
   welfare_daily_checkin_reward_min: number;
   welfare_daily_checkin_reward_max: number;
+  welfare_daily_checkin_min_account_age_hours: number;
   welfare_daily_checkin_milestone_7_amount: number;
   welfare_daily_checkin_milestone_14_amount: number;
   welfare_daily_checkin_milestone_21_amount: number;
   welfare_daily_checkin_milestone_28_amount: number;
   welfare_new_user_trial_enabled: boolean;
   welfare_new_user_trial_quota_amount: number;
+  welfare_new_user_trial_success_reward_amount: number;
   welfare_new_user_trial_daily_site_quota_amount: number;
   welfare_new_user_trial_daily_ip_activation_limit: number;
 
@@ -783,12 +785,14 @@ export interface UpdateSettingsRequest {
   welfare_vip_enabled?: boolean;
   welfare_daily_checkin_reward_min?: number;
   welfare_daily_checkin_reward_max?: number;
+  welfare_daily_checkin_min_account_age_hours?: number;
   welfare_daily_checkin_milestone_7_amount?: number;
   welfare_daily_checkin_milestone_14_amount?: number;
   welfare_daily_checkin_milestone_21_amount?: number;
   welfare_daily_checkin_milestone_28_amount?: number;
   welfare_new_user_trial_enabled?: boolean;
   welfare_new_user_trial_quota_amount?: number;
+  welfare_new_user_trial_success_reward_amount?: number;
   welfare_new_user_trial_daily_site_quota_amount?: number;
   welfare_new_user_trial_daily_ip_activation_limit?: number;
 

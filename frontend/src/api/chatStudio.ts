@@ -20,6 +20,16 @@ export interface ChatStudioCompletionResult {
   content: string
 }
 
+export interface ChatStudioModel {
+  id: string
+  display_name?: string
+  object?: string
+  type?: string
+  owned_by?: string
+  created?: number
+  created_at?: string
+}
+
 export class ChatStudioError extends Error {
   status?: number
   code?: string
@@ -148,6 +158,53 @@ async function throwGatewayError(response: Response): Promise<never> {
       raw: parsed.raw ?? text,
     }
   )
+}
+
+export async function listChatModels(
+  apiKey: string,
+  options: { signal?: AbortSignal } = {}
+): Promise<ChatStudioModel[]> {
+  const trimmedKey = apiKey.trim()
+  if (!trimmedKey) return []
+
+  const response = await fetch('/v1/models', {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${trimmedKey}`,
+    },
+    signal: options.signal,
+  })
+
+  if (!response.ok) {
+    await throwGatewayError(response)
+  }
+
+  const payload = await response.json().catch(() => ({}))
+  const record = payload && typeof payload === 'object'
+    ? payload as Record<string, unknown>
+    : {}
+  const data = Array.isArray(record.data) ? record.data : []
+
+  return data
+    .map((item): ChatStudioModel | null => {
+      if (typeof item === 'string') return { id: item }
+      if (!item || typeof item !== 'object') return null
+
+      const model = item as Record<string, unknown>
+      const id = typeof model.id === 'string' ? model.id.trim() : ''
+      if (!id) return null
+
+      return {
+        id,
+        display_name: typeof model.display_name === 'string' ? model.display_name : undefined,
+        object: typeof model.object === 'string' ? model.object : undefined,
+        type: typeof model.type === 'string' ? model.type : undefined,
+        owned_by: typeof model.owned_by === 'string' ? model.owned_by : undefined,
+        created: typeof model.created === 'number' ? model.created : undefined,
+        created_at: typeof model.created_at === 'string' ? model.created_at : undefined,
+      }
+    })
+    .filter((model): model is ChatStudioModel => !!model)
 }
 
 function readSseEvent(eventText: string): string[] {

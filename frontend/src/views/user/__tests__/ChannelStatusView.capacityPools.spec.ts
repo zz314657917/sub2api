@@ -61,19 +61,57 @@ describe('ChannelStatusView capacity pools', () => {
         key: 'mine',
         title: 'My Account Capacity Pool',
         total_accounts: 1,
+        active_accounts: 1,
         schedulable_accounts: 1,
+        rate_limited_accounts: 0,
+        error_accounts: 0,
+        disabled_accounts: 0,
+        abnormal_accounts: 0,
         configured_quota: 0,
         remaining_quota: 0,
         sections: [],
+        groups: [],
       },
       shared: {
         key: 'shared',
         title: 'Shared Platform Capacity Pool',
         total_accounts: 2,
+        active_accounts: 2,
         schedulable_accounts: 2,
+        rate_limited_accounts: 1,
+        error_accounts: 0,
+        disabled_accounts: 0,
+        abnormal_accounts: 1,
         configured_quota: 0,
         remaining_quota: 0,
         sections: [],
+        groups: [
+          {
+            key: 'group:10',
+            group_id: 10,
+            group_name: 'PLUS共享号池',
+            platform: 'openai',
+            sort_order: 0,
+            total_accounts: 2,
+            active_accounts: 2,
+            schedulable_accounts: 1,
+            rate_limited_accounts: 1,
+            error_accounts: 0,
+            disabled_accounts: 0,
+            abnormal_accounts: 1,
+            configured_quota: 0,
+            remaining_quota: 0,
+            status: 'degraded',
+            windows: {
+              '5h': {
+                used_percent: 40.3,
+                snapshot_accounts: 2,
+                schedulable_snapshot_accounts: 1,
+                remaining_units: 0.6,
+              },
+            },
+          },
+        ],
       },
     })
     showError.mockReset()
@@ -83,14 +121,15 @@ describe('ChannelStatusView capacity pools', () => {
     }
   })
 
-  it('loads and renders only my capacity pool when account sharing is enabled', async () => {
+  it('loads and renders my and shared capacity pools when account sharing is enabled', async () => {
     const wrapper = mountView()
 
     await flushPromises()
 
     expect(fetchCapacityPools).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('channelStatus.capacityPools.mine')
-    expect(wrapper.text()).not.toContain('channelStatus.capacityPools.shared')
+    expect(wrapper.text()).toContain('channelStatus.capacityPools.shared')
+    expect(wrapper.text()).toContain('PLUS共享号池')
   })
 
   it('does not request or render capacity pools when account sharing is disabled', async () => {

@@ -328,6 +328,15 @@
                 <Icon name="upload" size="sm" />
                 <span class="text-xs">{{ t('keys.importToCcSwitch') }}</span>
               </button>
+              <!-- Import to Cockpit Tools Button -->
+              <button
+                @click="importToCockpitTools(row)"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-900/20 dark:hover:text-cyan-400"
+                :title="t('keys.importToCockpitToolsHint')"
+              >
+                <Icon name="upload" size="sm" />
+                <span class="text-xs">{{ t('keys.importToCockpitTools') }}</span>
+              </button>
               <!-- Toggle Status Button -->
               <button
                 @click="toggleKeyStatus(row)"
@@ -977,6 +986,43 @@
       </template>
     </BaseDialog>
 
+    <!-- Cockpit Tools Install / Fallback Dialog -->
+    <BaseDialog
+      :show="showCockpitToolsInstallDialog"
+      :title="t('keys.cockpitToolsInstall.title')"
+      width="narrow"
+      @close="closeCockpitToolsInstallDialog"
+    >
+      <div class="space-y-4">
+        <p class="text-sm leading-6 text-gray-600 dark:text-gray-400">
+          {{ t('keys.cockpitToolsInstall.description') }}
+        </p>
+        <div class="rounded-lg border border-cyan-100 bg-cyan-50 p-3 text-sm text-cyan-800 dark:border-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-200">
+          {{ t('keys.cockpitToolsInstall.fallbackHint') }}
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex flex-wrap justify-end gap-3">
+          <button
+            type="button"
+            class="btn btn-secondary"
+            @click="downloadPendingCockpitToolsImport"
+          >
+            <Icon name="download" size="sm" class="mr-2" />
+            {{ t('keys.cockpitToolsInstall.downloadJson') }}
+          </button>
+          <a
+            href="https://github.com/jlcodes99/cockpit-tools/releases/latest"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="btn btn-primary"
+          >
+            {{ t('keys.cockpitToolsInstall.downloadApp') }}
+          </a>
+        </div>
+      </template>
+    </BaseDialog>
+
     <!-- Group Selector Dropdown (Teleported to body to avoid overflow clipping) -->
     <Teleport to="body">
       <div
@@ -1085,6 +1131,8 @@ const formatDateTimeLocal = (isoDate: string): string => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
+const INVALID_FILE_CHARS_REGEX = /[<>:"/\\|?*\x00-\x1F]/g
+
 interface GroupOption {
   value: number
   label: string
@@ -1144,7 +1192,9 @@ const showResetQuotaDialog = ref(false)
 const showResetRateLimitDialog = ref(false)
 const showUseKeyModal = ref(false)
 const showCcsClientSelect = ref(false)
+const showCockpitToolsInstallDialog = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
+const pendingCockpitToolsRow = ref<ApiKey | null>(null)
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
@@ -1760,6 +1810,96 @@ const handleCcsClientSelect = (clientType: CcSwitchClientType) => {
 const closeCcsClientSelect = () => {
   showCcsClientSelect.value = false
   pendingCcsRow.value = null
+}
+
+function resolveApiBaseUrl(): string {
+  return (publicSettings.value?.api_base_url || window.location.origin).trim().replace(/\/+$/, '')
+}
+
+function sanitizeFileNameSegment(input: string | undefined, fallback: string): string {
+  const normalized = (input || '')
+    .trim()
+    .replace(INVALID_FILE_CHARS_REGEX, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '')
+  return normalized || fallback
+}
+
+function buildCockpitToolsCodexImportPayload(row: ApiKey) {
+  const baseUrl = resolveApiBaseUrl()
+  const siteName = (publicSettings.value?.site_name || 'Sub2API').trim() || 'Sub2API'
+  const accountName = row.name?.trim() || siteName
+
+  return {
+    auth_mode: 'apikey',
+    OPENAI_API_KEY: row.key,
+    api_base_url: baseUrl,
+    api_provider_mode: 'custom',
+    api_provider_id: sanitizeFileNameSegment(siteName.toLowerCase(), 'sub2api'),
+    api_provider_name: siteName,
+    email: `api-key-${row.id}@sub2api.local`,
+    account_name: accountName,
+    account_note: t('keys.cockpitToolsImportNote', { siteName }),
+    plan_type: 'API Key',
+    created_at: Math.floor(Date.now() / 1000),
+    last_used: Math.floor(Date.now() / 1000),
+  }
+}
+
+function buildCockpitToolsImportDeeplink(row: ApiKey): string {
+  const params = new URLSearchParams([
+    ['provider', 'codex'],
+    ['payload', JSON.stringify(buildCockpitToolsCodexImportPayload(row))],
+    ['auto_import', 'true'],
+    ['activate', 'true'],
+    ['source', 'sub2api']
+  ])
+  return `cockpit-tools://import?${params.toString()}`
+}
+
+function downloadJsonFile(fileName: string, payload: unknown) {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
+function downloadCockpitToolsImportFile(row: ApiKey) {
+  const name = sanitizeFileNameSegment(row.name, `key-${row.id}`)
+  downloadJsonFile(
+    `cockpit-tools-codex-${name}.json`,
+    buildCockpitToolsCodexImportPayload(row)
+  )
+}
+
+function downloadPendingCockpitToolsImport() {
+  if (!pendingCockpitToolsRow.value) return
+  downloadCockpitToolsImportFile(pendingCockpitToolsRow.value)
+}
+
+function closeCockpitToolsInstallDialog() {
+  showCockpitToolsInstallDialog.value = false
+  pendingCockpitToolsRow.value = null
+}
+
+function importToCockpitTools(row: ApiKey) {
+  try {
+    window.open(buildCockpitToolsImportDeeplink(row), '_self')
+    setTimeout(() => {
+      if (document.hasFocus()) {
+        pendingCockpitToolsRow.value = row
+        showCockpitToolsInstallDialog.value = true
+      }
+    }, 300)
+  } catch (error) {
+    appStore.showError(t('keys.cockpitToolsImportFailed'))
+  }
 }
 
 function formatResetTime(resetAt: string | null): string {
