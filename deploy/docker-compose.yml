@@ -94,7 +94,7 @@ services:
       # =======================================================================
       # Open WebUI Launch Integration
       # =======================================================================
-      - OPEN_WEBUI_ENABLED=${OPEN_WEBUI_ENABLED:-true}
+      - OPEN_WEBUI_ENABLED=${OPEN_WEBUI_ENABLED:-false}
       - OPEN_WEBUI_CHAT_URL=${OPEN_WEBUI_CHAT_URL:-http://127.0.0.1:8080}
       - OPEN_WEBUI_LAUNCH_PATH=${OPEN_WEBUI_LAUNCH_PATH:-/api/v1/auths/sub2api/launch}
       - OPEN_WEBUI_REDEEM_SECRET=${OPEN_WEBUI_REDEEM_SECRET:-}

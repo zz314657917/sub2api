@@ -1704,7 +1704,7 @@ func setDefaults() {
 	viper.SetDefault("image_creator.local_gateway_base_url", "")
 
 	// Open WebUI launch integration
-	viper.SetDefault("open_webui.enabled", true)
+	viper.SetDefault("open_webui.enabled", false)
 	viper.SetDefault("open_webui.chat_url", "http://127.0.0.1:8080")
 	viper.SetDefault("open_webui.launch_path", "/api/v1/auths/sub2api/launch")
 	viper.SetDefault("open_webui.redeem_secret", "")

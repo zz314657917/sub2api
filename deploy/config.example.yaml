@@ -858,8 +858,9 @@ totp:
 # LinuxDo Connect OAuth 登录（用于 Sub2API 用户登录）
 # =============================================================================
 open_webui:
-  # Enable Sub2API -> Open WebUI launch flow.
-  enabled: true
+  # Enable the legacy Sub2API -> Open WebUI launch flow.
+  # Disabled by default because Sub2API now uses the native /chat-images workspace.
+  enabled: false
   # Open WebUI public chat domain.
   # Production example: "https://chat.example.com"
   chat_url: "http://127.0.0.1:8080"
