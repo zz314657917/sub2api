@@ -861,6 +861,7 @@ func TestAPIContracts(t *testing.T) {
 					"welfare_daily_checkin_enabled": false,
 					"welfare_daily_checkin_reward_min": 0,
 					"welfare_daily_checkin_reward_max": 0,
+					"welfare_daily_checkin_min_account_age_hours": 24,
 					"welfare_daily_checkin_milestone_7_amount": 0,
 					"welfare_daily_checkin_milestone_14_amount": 0,
 					"welfare_daily_checkin_milestone_21_amount": 0,
@@ -869,6 +870,7 @@ func TestAPIContracts(t *testing.T) {
 					"welfare_vip_enabled": false,
 					"welfare_new_user_trial_enabled": false,
 					"welfare_new_user_trial_quota_amount": 0.1,
+					"welfare_new_user_trial_success_reward_amount": 0,
 					"welfare_new_user_trial_daily_site_quota_amount": 5,
 					"welfare_new_user_trial_daily_ip_activation_limit": 3
 				}
@@ -1132,6 +1134,7 @@ func TestAPIContracts(t *testing.T) {
 					"welfare_daily_checkin_enabled": false,
 					"welfare_daily_checkin_reward_min": 0,
 					"welfare_daily_checkin_reward_max": 0,
+					"welfare_daily_checkin_min_account_age_hours": 24,
 					"welfare_daily_checkin_milestone_7_amount": 0,
 					"welfare_daily_checkin_milestone_14_amount": 0,
 					"welfare_daily_checkin_milestone_21_amount": 0,
@@ -1140,6 +1143,7 @@ func TestAPIContracts(t *testing.T) {
 					"welfare_vip_enabled": false,
 					"welfare_new_user_trial_enabled": false,
 					"welfare_new_user_trial_quota_amount": 0.1,
+					"welfare_new_user_trial_success_reward_amount": 0,
 					"welfare_new_user_trial_daily_site_quota_amount": 5,
 					"welfare_new_user_trial_daily_ip_activation_limit": 3
 				}

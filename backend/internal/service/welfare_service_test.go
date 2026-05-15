@@ -31,6 +31,7 @@ type welfareRepoStub struct {
 	attachedMilestoneRedeemID int64
 
 	siteUsageSince float64
+	firstUsageAt   *time.Time
 	ipActivations  map[string]int
 }
 
@@ -200,7 +201,7 @@ func (r *welfareRepoStub) ConsumeNewUserTrial(_ context.Context, input WelfareNe
 		trial, err := r.GetNewUserTrial(context.Background(), existing.UserID)
 		return trial, false, err
 	}
-	now := time.Date(2026, 5, 13, 1, 2, 3, 0, time.UTC)
+	now := welfareTestRewardEnabledAt().Add(25 * time.Hour)
 	for i := range r.trials {
 		if r.trials[i].ID == input.TrialID && r.trials[i].UserID == input.UserID {
 			r.trials[i].QuotaUsed = minFloat64(r.trials[i].QuotaAmount, r.trials[i].QuotaUsed+input.Amount)
@@ -235,6 +236,19 @@ func (r *welfareRepoStub) CountNewUserTrialActivationsByIPSince(_ context.Contex
 	return count, nil
 }
 
+func (r *welfareRepoStub) FirstSuccessfulUsageAt(_ context.Context, userID int64) (*time.Time, error) {
+	if r.firstUsageAt != nil {
+		firstUsageAt := *r.firstUsageAt
+		return &firstUsageAt, nil
+	}
+	for _, input := range r.trialUsage {
+		if input.UserID == userID {
+			return nil, nil
+		}
+	}
+	return nil, nil
+}
+
 type welfareSettingRepoStub struct {
 	SettingRepository
 	values map[string]string
@@ -250,8 +264,17 @@ func (r *welfareSettingRepoStub) GetMultiple(_ context.Context, keys []string) (
 
 type welfareUserRepoStub struct {
 	UserRepository
-	updates []float64
-	grants  []float64
+	createdAt time.Time
+	updates   []float64
+	grants    []float64
+}
+
+func (r *welfareUserRepoStub) GetByID(_ context.Context, id int64) (*User, error) {
+	createdAt := r.createdAt
+	if createdAt.IsZero() {
+		createdAt = time.Date(2026, 5, 11, 0, 0, 0, 0, time.UTC)
+	}
+	return &User{ID: id, CreatedAt: createdAt}, nil
 }
 
 func (r *welfareUserRepoStub) UpdateBalance(_ context.Context, _ int64, amount float64) error {
@@ -273,6 +296,15 @@ func (r *welfareRedeemRepoStub) Create(_ context.Context, code *RedeemCode) erro
 	code.ID = int64(len(r.created) + 700)
 	r.created = append(r.created, *code)
 	return nil
+}
+
+func (r *welfareRedeemRepoStub) GetByCode(_ context.Context, code string) (*RedeemCode, error) {
+	for i := range r.created {
+		if r.created[i].Code == code {
+			return &r.created[i], nil
+		}
+	}
+	return nil, ErrRedeemCodeNotFound
 }
 
 type welfareAuthInvalidatorStub struct {
@@ -314,12 +346,15 @@ func welfareSettingRepo(enabled, daily bool, min, max float64) *welfareSettingRe
 		SettingKeyWelfareVIPEnabled:                         "true",
 		SettingKeyWelfareDailyCheckinRewardMin:              welfareFloat(min),
 		SettingKeyWelfareDailyCheckinRewardMax:              welfareFloat(max),
+		SettingKeyWelfareDailyCheckinMinAccountAgeHours:     strconv.Itoa(defaultDailyCheckinMinAccountAgeHours),
 		SettingKeyWelfareDailyCheckinMilestone7Amount:       "7.00000000",
 		SettingKeyWelfareDailyCheckinMilestone14Amount:      "14.00000000",
 		SettingKeyWelfareDailyCheckinMilestone21Amount:      "21.00000000",
 		SettingKeyWelfareDailyCheckinMilestone28Amount:      "28.00000000",
 		SettingKeyWelfareNewUserTrialEnabled:                "false",
 		SettingKeyWelfareNewUserTrialQuotaAmount:            "0.10000000",
+		SettingKeyWelfareNewUserTrialSuccessRewardAmount:    "0.00000000",
+		SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt: "",
 		SettingKeyWelfareNewUserTrialDailySiteQuotaAmount:   "5.00000000",
 		SettingKeyWelfareNewUserTrialDailyIPActivationLimit: "3",
 	}}
@@ -331,6 +366,25 @@ func welfareTrialSettingRepo(enabled bool, quota, siteLimit float64, ipLimit int
 	repo.values[SettingKeyWelfareNewUserTrialQuotaAmount] = welfareFloat(quota)
 	repo.values[SettingKeyWelfareNewUserTrialDailySiteQuotaAmount] = welfareFloat(siteLimit)
 	repo.values[SettingKeyWelfareNewUserTrialDailyIPActivationLimit] = strconv.Itoa(ipLimit)
+	return repo
+}
+
+func welfareTrialSettingRepoWithReward(enabled bool, quota, reward, siteLimit float64, ipLimit int) *welfareSettingRepoStub {
+	repo := welfareTrialSettingRepo(enabled, quota, siteLimit, ipLimit)
+	repo.values[SettingKeyWelfareNewUserTrialSuccessRewardAmount] = welfareFloat(reward)
+	if reward > 0 {
+		repo.values[SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt] = welfareTestRewardEnabledAt().Format(time.RFC3339)
+	}
+	return repo
+}
+
+func welfareTestRewardEnabledAt() time.Time {
+	return time.Date(2026, 5, 12, 0, 0, 0, 0, time.UTC)
+}
+
+func welfareSettingRepoWithDailyMinAccountAgeHours(enabled, daily bool, min, max float64, hours int) *welfareSettingRepoStub {
+	repo := welfareSettingRepo(enabled, daily, min, max)
+	repo.values[SettingKeyWelfareDailyCheckinMinAccountAgeHours] = strconv.Itoa(hours)
 	return repo
 }
 
@@ -450,6 +504,80 @@ func TestClaimWelfareDailyCheckinDuplicateReturnsConflict(t *testing.T) {
 	require.ErrorIs(t, err, ErrWelfareDailyCheckinAlreadyClaimed)
 }
 
+func TestWelfareDailyCheckinRequiresAccountAgeInStatus(t *testing.T) {
+	now := welfareTestNow(t)
+	repo := &welfareRepoStub{}
+	userRepo := &welfareUserRepoStub{createdAt: now.Add(-23 * time.Hour)}
+	svc := NewWelfareService(repo, userRepo, nil, welfareSettingRepo(true, true, 1, 1), nil, nil, nil)
+
+	got, err := svc.buildDailyCheckinView(context.Background(), 42, now, welfareSettingsStruct(t, true, true, 1, 1))
+
+	require.NoError(t, err)
+	require.False(t, got.CanClaimToday)
+	require.Equal(t, welfareReasonRegistrationTooNew, got.Reason)
+	require.Equal(t, now.Add(time.Hour).UTC().Format(time.RFC3339), got.CanClaimAfter)
+	require.Empty(t, repo.createdDaily)
+}
+
+func TestClaimWelfareDailyCheckinRequiresAccountAge(t *testing.T) {
+	now := welfareTestNow(t)
+	repo := &welfareRepoStub{}
+	userRepo := &welfareUserRepoStub{createdAt: now.Add(-23 * time.Hour)}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(repo, userRepo, redeemRepo, welfareSettingRepo(true, true, 1, 1), nil, nil, nil)
+	svc.now = func() time.Time { return now }
+
+	_, err := svc.ClaimDailyCheckin(welfareTxContext(), 42)
+
+	require.ErrorIs(t, err, ErrWelfareDailyCheckinNotClaimable)
+	require.Contains(t, err.Error(), welfareReasonRegistrationTooNew)
+	require.Empty(t, repo.createdDaily)
+	require.Empty(t, userRepo.grants)
+	require.Empty(t, redeemRepo.created)
+}
+
+func TestClaimWelfareDailyCheckinAllowsAccountAt24Hours(t *testing.T) {
+	now := welfareTestNow(t)
+	repo := &welfareRepoStub{}
+	userRepo := &welfareUserRepoStub{createdAt: now.Add(-24 * time.Hour)}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(repo, userRepo, redeemRepo, welfareSettingRepo(true, true, 1, 1), nil, nil, nil)
+	svc.now = func() time.Time { return now }
+
+	got, err := svc.ClaimDailyCheckin(welfareTxContext(), 42)
+
+	require.NoError(t, err)
+	require.Equal(t, 1.0, got.ClaimedAmount)
+	require.Len(t, repo.createdDaily, 1)
+	require.Equal(t, []float64{1}, userRepo.grants)
+}
+
+func TestClaimWelfareDailyCheckinUsesConfiguredMinimumAccountAgeHours(t *testing.T) {
+	now := welfareTestNow(t)
+	repo := &welfareRepoStub{}
+	userRepo := &welfareUserRepoStub{createdAt: now.Add(-5 * time.Hour)}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(repo, userRepo, redeemRepo, welfareSettingRepoWithDailyMinAccountAgeHours(true, true, 1, 1, 6), nil, nil, nil)
+	svc.now = func() time.Time { return now }
+
+	_, err := svc.ClaimDailyCheckin(welfareTxContext(), 42)
+
+	require.ErrorIs(t, err, ErrWelfareDailyCheckinNotClaimable)
+	require.Empty(t, repo.createdDaily)
+
+	repo = &welfareRepoStub{}
+	userRepo = &welfareUserRepoStub{createdAt: now.Add(-5 * time.Hour)}
+	redeemRepo = &welfareRedeemRepoStub{}
+	svc = NewWelfareService(repo, userRepo, redeemRepo, welfareSettingRepoWithDailyMinAccountAgeHours(true, true, 1, 1, 0), nil, nil, nil)
+	svc.now = func() time.Time { return now }
+
+	got, err := svc.ClaimDailyCheckin(welfareTxContext(), 42)
+
+	require.NoError(t, err)
+	require.Equal(t, 1.0, got.ClaimedAmount)
+	require.Len(t, repo.createdDaily, 1)
+}
+
 func TestClaimWelfareMilestoneRequiresReachedStreak(t *testing.T) {
 	repo := &welfareRepoStub{daily: []WelfareDailyCheckinRecord{
 		welfareDaily(42, "2026-05-11", 1),
@@ -564,6 +692,111 @@ func TestConsumeNewUserTrialDeductsPoolOnly(t *testing.T) {
 	require.Equal(t, 0.04, repo.trials[0].QuotaUsed)
 	require.Equal(t, "active", repo.trials[0].Status)
 	require.Equal(t, 0.04, repo.siteUsageSince)
+}
+
+func TestClaimNewUserTrialSuccessRewardGrantsConfiguredRewardOnce(t *testing.T) {
+	repo := &welfareRepoStub{}
+	userRepo := &welfareUserRepoStub{createdAt: welfareTestRewardEnabledAt().Add(time.Hour)}
+	redeemRepo := &welfareRedeemRepoStub{}
+	balanceInvalidator := &welfareBalanceInvalidatorStub{}
+	authInvalidator := &welfareAuthInvalidatorStub{}
+	svc := NewWelfareService(repo, userRepo, redeemRepo, welfareTrialSettingRepoWithReward(true, 0.1, 2.5, 5, 3), nil, authInvalidator, nil)
+	svc.now = func() time.Time { return welfareTestNow(t) }
+	svc.billingCacheInvalidator = balanceInvalidator
+	session, err := svc.BeginNewUserTrial(context.Background(), 42, "203.0.113.8")
+	require.NoError(t, err)
+
+	err = svc.ConsumeNewUserTrial(welfareTxContext(), session, "usage-1", 0.04, "claude-sonnet", 9)
+	require.NoError(t, err)
+	require.Empty(t, userRepo.grants)
+	require.Empty(t, redeemRepo.created)
+
+	result, err := svc.ClaimNewUserTrialSuccessReward(welfareTxContext(), 42)
+	require.NoError(t, err)
+	require.Equal(t, 2.5, result.ClaimedAmount)
+	require.NotNil(t, result.NewUserTrial)
+	require.True(t, result.NewUserTrial.SuccessRewardClaimed)
+	require.False(t, result.NewUserTrial.SuccessRewardClaimable)
+	require.Equal(t, []float64{2.5}, userRepo.grants)
+	require.Empty(t, userRepo.updates)
+	require.Len(t, redeemRepo.created, 1)
+	require.Equal(t, RedeemTypeNewUserReward, redeemRepo.created[0].Type)
+	require.Equal(t, "NUTR16", redeemRepo.created[0].Code)
+	require.Equal(t, StatusUsed, redeemRepo.created[0].Status)
+	require.Equal(t, int64(42), *redeemRepo.created[0].UsedBy)
+	require.Equal(t, []int64{42}, authInvalidator.userIDs)
+	require.Equal(t, []int64{42}, balanceInvalidator.userIDs)
+
+	_, err = svc.ClaimNewUserTrialSuccessReward(welfareTxContext(), 42)
+	require.ErrorIs(t, err, ErrWelfareNewUserTrialRewardClaimed)
+	require.Equal(t, []float64{2.5}, userRepo.grants)
+	require.Len(t, redeemRepo.created, 1)
+}
+
+func TestClaimNewUserTrialSuccessRewardRequiresSuccessfulTrialCall(t *testing.T) {
+	repo := &welfareRepoStub{}
+	userRepo := &welfareUserRepoStub{createdAt: welfareTestRewardEnabledAt().Add(time.Hour)}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(repo, userRepo, redeemRepo, welfareTrialSettingRepoWithReward(true, 0.1, 2.5, 5, 3), nil, nil, nil)
+	svc.now = func() time.Time { return welfareTestNow(t) }
+	_, err := svc.BeginNewUserTrial(context.Background(), 42, "203.0.113.8")
+	require.NoError(t, err)
+
+	_, err = svc.ClaimNewUserTrialSuccessReward(welfareTxContext(), 42)
+
+	require.ErrorIs(t, err, ErrWelfareNewUserTrialNotAvailable)
+	require.Empty(t, userRepo.grants)
+	require.Empty(t, redeemRepo.created)
+}
+
+func TestClaimNewUserTrialSuccessRewardAllowsExistingSuccessfulUsage(t *testing.T) {
+	firstUsageAt := welfareTestRewardEnabledAt().Add(2 * time.Hour)
+	repo := &welfareRepoStub{firstUsageAt: &firstUsageAt}
+	userRepo := &welfareUserRepoStub{createdAt: welfareTestRewardEnabledAt().Add(time.Hour)}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(repo, userRepo, redeemRepo, welfareTrialSettingRepoWithReward(true, 0.1, 2.5, 5, 3), nil, nil, nil)
+	svc.now = func() time.Time { return welfareTestNow(t) }
+
+	result, err := svc.ClaimNewUserTrialSuccessReward(welfareTxContext(), 42)
+
+	require.NoError(t, err)
+	require.Equal(t, 2.5, result.ClaimedAmount)
+	require.NotNil(t, result.NewUserTrial)
+	require.True(t, result.NewUserTrial.SuccessRewardClaimed)
+	require.Equal(t, []float64{2.5}, userRepo.grants)
+	require.Len(t, redeemRepo.created, 1)
+	require.Equal(t, "NUTR16", redeemRepo.created[0].Code)
+	require.Equal(t, "new user trial success reward", redeemRepo.created[0].Notes)
+}
+
+func TestClaimNewUserTrialSuccessRewardRejectsUserRegisteredBeforeRewardEnabled(t *testing.T) {
+	firstUsageAt := welfareTestRewardEnabledAt().Add(2 * time.Hour)
+	repo := &welfareRepoStub{firstUsageAt: &firstUsageAt}
+	userRepo := &welfareUserRepoStub{createdAt: welfareTestRewardEnabledAt().Add(-time.Minute)}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(repo, userRepo, redeemRepo, welfareTrialSettingRepoWithReward(true, 0.1, 2.5, 5, 3), nil, nil, nil)
+	svc.now = func() time.Time { return welfareTestNow(t) }
+
+	_, err := svc.ClaimNewUserTrialSuccessReward(welfareTxContext(), 42)
+
+	require.ErrorIs(t, err, ErrWelfareNewUserTrialNotAvailable)
+	require.Empty(t, userRepo.grants)
+	require.Empty(t, redeemRepo.created)
+}
+
+func TestClaimNewUserTrialSuccessRewardRejectsFirstUsageBeforeRewardEnabled(t *testing.T) {
+	firstUsageAt := welfareTestRewardEnabledAt().Add(-time.Minute)
+	repo := &welfareRepoStub{firstUsageAt: &firstUsageAt}
+	userRepo := &welfareUserRepoStub{createdAt: welfareTestRewardEnabledAt().Add(time.Hour)}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(repo, userRepo, redeemRepo, welfareTrialSettingRepoWithReward(true, 0.1, 2.5, 5, 3), nil, nil, nil)
+	svc.now = func() time.Time { return welfareTestNow(t) }
+
+	_, err := svc.ClaimNewUserTrialSuccessReward(welfareTxContext(), 42)
+
+	require.ErrorIs(t, err, ErrWelfareNewUserTrialNotAvailable)
+	require.Empty(t, userRepo.grants)
+	require.Empty(t, redeemRepo.created)
 }
 
 func TestConsumeNewUserTrialCapsCostAboveRemainingQuota(t *testing.T) {

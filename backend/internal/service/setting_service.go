@@ -1712,17 +1712,28 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyWelfareVIPEnabled] = strconv.FormatBool(settings.WelfareVIPEnabled)
 	updates[SettingKeyWelfareDailyCheckinRewardMin] = strconv.FormatFloat(settings.WelfareDailyCheckinRewardMin, 'f', 8, 64)
 	updates[SettingKeyWelfareDailyCheckinRewardMax] = strconv.FormatFloat(settings.WelfareDailyCheckinRewardMax, 'f', 8, 64)
+	if settings.WelfareDailyCheckinMinAccountAgeHours < 0 {
+		settings.WelfareDailyCheckinMinAccountAgeHours = 0
+	}
+	updates[SettingKeyWelfareDailyCheckinMinAccountAgeHours] = strconv.Itoa(settings.WelfareDailyCheckinMinAccountAgeHours)
 	updates[SettingKeyWelfareDailyCheckinMilestone7Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone7Amount, 'f', 8, 64)
 	updates[SettingKeyWelfareDailyCheckinMilestone14Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone14Amount, 'f', 8, 64)
 	updates[SettingKeyWelfareDailyCheckinMilestone21Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone21Amount, 'f', 8, 64)
 	updates[SettingKeyWelfareDailyCheckinMilestone28Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone28Amount, 'f', 8, 64)
 	settings.WelfareNewUserTrialQuotaAmount = normalizeNonNegativeFloat(settings.WelfareNewUserTrialQuotaAmount)
+	settings.WelfareNewUserTrialSuccessRewardAmount = normalizeNonNegativeFloat(settings.WelfareNewUserTrialSuccessRewardAmount)
 	settings.WelfareNewUserTrialDailySiteQuotaAmount = normalizeNonNegativeFloat(settings.WelfareNewUserTrialDailySiteQuotaAmount)
 	if settings.WelfareNewUserTrialDailyIPActivationLimit < 0 {
 		settings.WelfareNewUserTrialDailyIPActivationLimit = 0
 	}
 	updates[SettingKeyWelfareNewUserTrialEnabled] = strconv.FormatBool(settings.WelfareNewUserTrialEnabled)
 	updates[SettingKeyWelfareNewUserTrialQuotaAmount] = strconv.FormatFloat(settings.WelfareNewUserTrialQuotaAmount, 'f', 8, 64)
+	updates[SettingKeyWelfareNewUserTrialSuccessRewardAmount] = strconv.FormatFloat(settings.WelfareNewUserTrialSuccessRewardAmount, 'f', 8, 64)
+	enabledAt, err := s.nextNewUserTrialSuccessRewardEnabledAt(ctx, settings.WelfareNewUserTrialSuccessRewardAmount)
+	if err != nil {
+		return nil, err
+	}
+	updates[SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt] = enabledAt
 	updates[SettingKeyWelfareNewUserTrialDailySiteQuotaAmount] = strconv.FormatFloat(settings.WelfareNewUserTrialDailySiteQuotaAmount, 'f', 8, 64)
 	updates[SettingKeyWelfareNewUserTrialDailyIPActivationLimit] = strconv.Itoa(settings.WelfareNewUserTrialDailyIPActivationLimit)
 
@@ -1772,6 +1783,23 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyAccountQuotaNotifyEmails] = MarshalNotifyEmails(settings.AccountQuotaNotifyEmails)
 
 	return updates, nil
+}
+
+func (s *SettingService) nextNewUserTrialSuccessRewardEnabledAt(ctx context.Context, amount float64) (string, error) {
+	if amount <= 0 {
+		return "", nil
+	}
+	if s == nil || s.settingRepo == nil {
+		return time.Now().UTC().Format(time.RFC3339), nil
+	}
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt)
+	if err == nil && strings.TrimSpace(raw) != "" {
+		return strings.TrimSpace(raw), nil
+	}
+	if err != nil && !errors.Is(err, ErrSettingNotFound) {
+		return "", err
+	}
+	return time.Now().UTC().Format(time.RFC3339), nil
 }
 
 func (s *SettingService) buildAuthSourceDefaultUpdates(ctx context.Context, settings *AuthSourceDefaultSettings) (map[string]string, error) {
@@ -2634,12 +2662,15 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyWelfareVIPEnabled:                         "false",
 		SettingKeyWelfareDailyCheckinRewardMin:              "0",
 		SettingKeyWelfareDailyCheckinRewardMax:              "0",
+		SettingKeyWelfareDailyCheckinMinAccountAgeHours:     strconv.Itoa(defaultDailyCheckinMinAccountAgeHours),
 		SettingKeyWelfareDailyCheckinMilestone7Amount:       "0",
 		SettingKeyWelfareDailyCheckinMilestone14Amount:      "0",
 		SettingKeyWelfareDailyCheckinMilestone21Amount:      "0",
 		SettingKeyWelfareDailyCheckinMilestone28Amount:      "0",
 		SettingKeyWelfareNewUserTrialEnabled:                "false",
 		SettingKeyWelfareNewUserTrialQuotaAmount:            "0.1",
+		SettingKeyWelfareNewUserTrialSuccessRewardAmount:    "0",
+		SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt: "",
 		SettingKeyWelfareNewUserTrialDailySiteQuotaAmount:   "5",
 		SettingKeyWelfareNewUserTrialDailyIPActivationLimit: "3",
 
@@ -3041,12 +3072,14 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	if result.WelfareDailyCheckinRewardMax < result.WelfareDailyCheckinRewardMin {
 		result.WelfareDailyCheckinRewardMax = result.WelfareDailyCheckinRewardMin
 	}
+	result.WelfareDailyCheckinMinAccountAgeHours = parseNonNegativeIntSetting(settings[SettingKeyWelfareDailyCheckinMinAccountAgeHours], defaultDailyCheckinMinAccountAgeHours)
 	result.WelfareDailyCheckinMilestone7Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone7Amount], 0)
 	result.WelfareDailyCheckinMilestone14Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone14Amount], 0)
 	result.WelfareDailyCheckinMilestone21Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone21Amount], 0)
 	result.WelfareDailyCheckinMilestone28Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone28Amount], 0)
 	result.WelfareNewUserTrialEnabled = settings[SettingKeyWelfareNewUserTrialEnabled] == "true"
 	result.WelfareNewUserTrialQuotaAmount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareNewUserTrialQuotaAmount], defaultNewUserTrialQuotaAmount)
+	result.WelfareNewUserTrialSuccessRewardAmount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareNewUserTrialSuccessRewardAmount], 0)
 	result.WelfareNewUserTrialDailySiteQuotaAmount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareNewUserTrialDailySiteQuotaAmount], 5)
 	if ipLimit, err := strconv.Atoi(strings.TrimSpace(settings[SettingKeyWelfareNewUserTrialDailyIPActivationLimit])); err == nil && ipLimit >= 0 {
 		result.WelfareNewUserTrialDailyIPActivationLimit = ipLimit

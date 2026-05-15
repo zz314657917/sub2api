@@ -81,6 +81,7 @@ const (
 	RedeemTypeLeaderboardReward = domain.RedeemTypeLeaderboardReward
 	RedeemTypeDailyCheckin      = domain.RedeemTypeDailyCheckin
 	RedeemTypeCheckinMilestone  = domain.RedeemTypeCheckinMilestone
+	RedeemTypeNewUserReward     = domain.RedeemTypeNewUserReward
 )
 
 // PromoCode status constants
@@ -356,18 +357,21 @@ const (
 	SettingKeyLeaderboardDailyRewardRank3Amount        = "leaderboard_daily_reward_rank_3_amount"
 
 	// Welfare system settings. Recharge/VIP are feature placeholders for later phases.
-	SettingKeyWelfareEnabled                          = "welfare_enabled"
-	SettingKeyWelfareDailyCheckinEnabled              = "welfare_daily_checkin_enabled"
-	SettingKeyWelfareRechargeEnabled                  = "welfare_recharge_enabled"
-	SettingKeyWelfareVIPEnabled                       = "welfare_vip_enabled"
-	SettingKeyWelfareDailyCheckinRewardMin            = "welfare_daily_checkin_reward_min"
-	SettingKeyWelfareDailyCheckinRewardMax            = "welfare_daily_checkin_reward_max"
-	SettingKeyWelfareDailyCheckinMilestone7Amount     = "welfare_daily_checkin_milestone_7_amount"
-	SettingKeyWelfareDailyCheckinMilestone14Amount    = "welfare_daily_checkin_milestone_14_amount"
-	SettingKeyWelfareDailyCheckinMilestone21Amount    = "welfare_daily_checkin_milestone_21_amount"
-	SettingKeyWelfareDailyCheckinMilestone28Amount    = "welfare_daily_checkin_milestone_28_amount"
-	SettingKeyWelfareNewUserTrialEnabled              = "welfare_new_user_trial_enabled"
-	SettingKeyWelfareNewUserTrialQuotaAmount          = "welfare_new_user_trial_quota_amount"
+	SettingKeyWelfareEnabled                            = "welfare_enabled"
+	SettingKeyWelfareDailyCheckinEnabled                = "welfare_daily_checkin_enabled"
+	SettingKeyWelfareRechargeEnabled                    = "welfare_recharge_enabled"
+	SettingKeyWelfareVIPEnabled                         = "welfare_vip_enabled"
+	SettingKeyWelfareDailyCheckinRewardMin              = "welfare_daily_checkin_reward_min"
+	SettingKeyWelfareDailyCheckinRewardMax              = "welfare_daily_checkin_reward_max"
+	SettingKeyWelfareDailyCheckinMinAccountAgeHours     = "welfare_daily_checkin_min_account_age_hours"
+	SettingKeyWelfareDailyCheckinMilestone7Amount       = "welfare_daily_checkin_milestone_7_amount"
+	SettingKeyWelfareDailyCheckinMilestone14Amount      = "welfare_daily_checkin_milestone_14_amount"
+	SettingKeyWelfareDailyCheckinMilestone21Amount      = "welfare_daily_checkin_milestone_21_amount"
+	SettingKeyWelfareDailyCheckinMilestone28Amount      = "welfare_daily_checkin_milestone_28_amount"
+	SettingKeyWelfareNewUserTrialEnabled                = "welfare_new_user_trial_enabled"
+	SettingKeyWelfareNewUserTrialQuotaAmount            = "welfare_new_user_trial_quota_amount"
+	SettingKeyWelfareNewUserTrialSuccessRewardAmount    = "welfare_new_user_trial_success_reward_amount"
+	SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt = "welfare_new_user_trial_success_reward_enabled_at"
 	SettingKeyWelfareNewUserTrialDailySiteQuotaAmount   = "welfare_new_user_trial_daily_site_quota_amount"
 	SettingKeyWelfareNewUserTrialDailyIPActivationLimit = "welfare_new_user_trial_daily_ip_activation_limit"
 

@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
@@ -15,6 +16,7 @@ import (
 
 type settingUpdateRepoStub struct {
 	updates map[string]string
+	values  map[string]string
 }
 
 func (s *settingUpdateRepoStub) Get(ctx context.Context, key string) (*Setting, error) {
@@ -22,7 +24,12 @@ func (s *settingUpdateRepoStub) Get(ctx context.Context, key string) (*Setting, 
 }
 
 func (s *settingUpdateRepoStub) GetValue(ctx context.Context, key string) (string, error) {
-	panic("unexpected GetValue call")
+	if s.values != nil {
+		if value, ok := s.values[key]; ok {
+			return value, nil
+		}
+	}
+	return "", ErrSettingNotFound
 }
 
 func (s *settingUpdateRepoStub) Set(ctx context.Context, key, value string) error {
@@ -299,18 +306,74 @@ func TestSettingService_UpdateSettings_WelfareDailyRewardNormalizesToOneDecimal(
 	svc := NewSettingService(repo, &config.Config{})
 
 	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		WelfareEnabled:                      true,
-		WelfareDailyCheckinEnabled:          true,
-		WelfareDailyCheckinRewardMin:        1.25,
-		WelfareDailyCheckinRewardMax:        2.74,
-		WelfareDailyCheckinMilestone7Amount: 7.5,
+		WelfareEnabled:                        true,
+		WelfareDailyCheckinEnabled:            true,
+		WelfareDailyCheckinRewardMin:          1.25,
+		WelfareDailyCheckinRewardMax:          2.74,
+		WelfareDailyCheckinMinAccountAgeHours: -3,
+		WelfareDailyCheckinMilestone7Amount:   7.5,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "true", repo.updates[SettingKeyWelfareEnabled])
 	require.Equal(t, "true", repo.updates[SettingKeyWelfareDailyCheckinEnabled])
 	require.Equal(t, "1.30000000", repo.updates[SettingKeyWelfareDailyCheckinRewardMin])
 	require.Equal(t, "2.70000000", repo.updates[SettingKeyWelfareDailyCheckinRewardMax])
+	require.Equal(t, "0", repo.updates[SettingKeyWelfareDailyCheckinMinAccountAgeHours])
 	require.Equal(t, "7.50000000", repo.updates[SettingKeyWelfareDailyCheckinMilestone7Amount])
+
+	err = svc.UpdateSettings(context.Background(), &SystemSettings{
+		WelfareDailyCheckinMinAccountAgeHours: 6,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "6", repo.updates[SettingKeyWelfareDailyCheckinMinAccountAgeHours])
+}
+
+func TestSettingService_UpdateSettings_WelfareNewUserTrialSuccessRewardNormalizes(t *testing.T) {
+	existingEnabledAt := "2026-05-12T00:00:00Z"
+	repo := &settingUpdateRepoStub{values: map[string]string{
+		SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt: existingEnabledAt,
+	}}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		WelfareEnabled:                         true,
+		WelfareNewUserTrialEnabled:             true,
+		WelfareNewUserTrialQuotaAmount:         0.1,
+		WelfareNewUserTrialSuccessRewardAmount: -2,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "true", repo.updates[SettingKeyWelfareNewUserTrialEnabled])
+	require.Equal(t, "0.10000000", repo.updates[SettingKeyWelfareNewUserTrialQuotaAmount])
+	require.Equal(t, "0.00000000", repo.updates[SettingKeyWelfareNewUserTrialSuccessRewardAmount])
+	require.Equal(t, "", repo.updates[SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt])
+
+	err = svc.UpdateSettings(context.Background(), &SystemSettings{
+		WelfareEnabled:                         true,
+		WelfareNewUserTrialEnabled:             true,
+		WelfareNewUserTrialQuotaAmount:         0.1,
+		WelfareNewUserTrialSuccessRewardAmount: 3.25,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "3.25000000", repo.updates[SettingKeyWelfareNewUserTrialSuccessRewardAmount])
+	require.Equal(t, existingEnabledAt, repo.updates[SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt])
+}
+
+func TestSettingService_UpdateSettings_WelfareNewUserTrialSuccessRewardSetsEnabledAtOnFirstEnable(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		WelfareEnabled:                         true,
+		WelfareNewUserTrialEnabled:             true,
+		WelfareNewUserTrialQuotaAmount:         0.1,
+		WelfareNewUserTrialSuccessRewardAmount: 1,
+	})
+	require.NoError(t, err)
+
+	enabledAt := repo.updates[SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt]
+	require.NotEmpty(t, enabledAt)
+	_, err = time.Parse(time.RFC3339, enabledAt)
+	require.NoError(t, err)
 }
 
 func TestSettingService_UpdateSettings_PaymentVisibleMethodsAndAdvancedScheduler(t *testing.T) {

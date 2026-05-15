@@ -1005,6 +1005,40 @@ func TestValidateJWTSecret_UTF8Bytes(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultImageCreatorObjectStorageConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	require.NoError(t, err)
+
+	require.Equal(t, "auto", cfg.ImageCreator.StorageBackend)
+	require.Equal(t, "image-creator", cfg.ImageCreator.ObjectStorage.Prefix)
+}
+
+func TestLoadImageCreatorObjectStorageConfigFromEnv(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("IMAGE_CREATOR_STORAGE_BACKEND", "cos")
+	t.Setenv("IMAGE_CREATOR_OBJECT_STORAGE_ENDPOINT", "https://cos.example.com")
+	t.Setenv("IMAGE_CREATOR_OBJECT_STORAGE_REGION", "ap-guangzhou")
+	t.Setenv("IMAGE_CREATOR_OBJECT_STORAGE_BUCKET", "bucket-appid")
+	t.Setenv("IMAGE_CREATOR_OBJECT_STORAGE_ACCESS_KEY_ID", "secret-id")
+	t.Setenv("IMAGE_CREATOR_OBJECT_STORAGE_SECRET_ACCESS_KEY", "secret-key")
+	t.Setenv("IMAGE_CREATOR_OBJECT_STORAGE_PREFIX", "creator-images")
+	t.Setenv("IMAGE_CREATOR_OBJECT_STORAGE_FORCE_PATH_STYLE", "true")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+
+	require.Equal(t, "cos", cfg.ImageCreator.StorageBackend)
+	require.Equal(t, "https://cos.example.com", cfg.ImageCreator.ObjectStorage.Endpoint)
+	require.Equal(t, "ap-guangzhou", cfg.ImageCreator.ObjectStorage.Region)
+	require.Equal(t, "bucket-appid", cfg.ImageCreator.ObjectStorage.Bucket)
+	require.Equal(t, "secret-id", cfg.ImageCreator.ObjectStorage.AccessKeyID)
+	require.Equal(t, "secret-key", cfg.ImageCreator.ObjectStorage.SecretAccessKey)
+	require.Equal(t, "creator-images", cfg.ImageCreator.ObjectStorage.Prefix)
+	require.True(t, cfg.ImageCreator.ObjectStorage.ForcePathStyle)
+}
+
 func TestValidateConfigErrors(t *testing.T) {
 	buildValid := func(t *testing.T) *Config {
 		t.Helper()
@@ -1055,6 +1089,32 @@ func TestValidateConfigErrors(t *testing.T) {
 			name:    "jwt access token expire minutes non-negative",
 			mutate:  func(c *Config) { c.JWT.AccessTokenExpireMinutes = -1 },
 			wantErr: "jwt.access_token_expire_minutes must be non-negative",
+		},
+		{
+			name:    "image creator storage backend invalid",
+			mutate:  func(c *Config) { c.ImageCreator.StorageBackend = "ftp" },
+			wantErr: "image_creator.storage_backend",
+		},
+		{
+			name: "image creator object storage bucket required",
+			mutate: func(c *Config) {
+				c.ImageCreator.StorageBackend = "s3"
+				c.ImageCreator.ObjectStorage.Bucket = ""
+				c.ImageCreator.ObjectStorage.AccessKeyID = "sid"
+				c.ImageCreator.ObjectStorage.SecretAccessKey = "secret"
+			},
+			wantErr: "image_creator.object_storage.bucket",
+		},
+		{
+			name: "image creator cos endpoint required",
+			mutate: func(c *Config) {
+				c.ImageCreator.StorageBackend = "cos"
+				c.ImageCreator.ObjectStorage.Endpoint = ""
+				c.ImageCreator.ObjectStorage.Bucket = "bucket-appid"
+				c.ImageCreator.ObjectStorage.AccessKeyID = "sid"
+				c.ImageCreator.ObjectStorage.SecretAccessKey = "secret"
+			},
+			wantErr: "image_creator.object_storage.endpoint",
 		},
 		{
 			name:    "csp policy required",

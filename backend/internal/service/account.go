@@ -87,7 +87,7 @@ func (a *Account) CanBeUsedByUser(userID int64) bool {
 	if a.OwnerUserID == nil {
 		return true
 	}
-	if userID > 0 && *a.OwnerUserID == userID {
+	if userID > 0 && *a.OwnerUserID == userID && a.ShareMode != AccountShareModePublic {
 		return true
 	}
 	return a.ShareMode == AccountShareModePublic && a.ShareStatus == AccountShareStatusActive

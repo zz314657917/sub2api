@@ -15,6 +15,11 @@ func RegisterUserRoutes(
 	jwtAuth middleware.JWTAuthMiddleware,
 	settingService *service.SettingService,
 ) {
+	internalOpenWebUI := v1.Group("/internal/open-webui")
+	{
+		internalOpenWebUI.POST("/redeem", h.OpenWebUI.Redeem)
+	}
+
 	authenticated := v1.Group("")
 	authenticated.Use(gin.HandlerFunc(jwtAuth))
 	authenticated.Use(middleware.BackendModeUserGuard(settingService))
@@ -32,6 +37,11 @@ func RegisterUserRoutes(
 			user.DELETE("/account-bindings/:provider", h.User.UnbindIdentity)
 			user.POST("/auth-identities/bind/start", h.User.StartIdentityBinding)
 
+			openWebUI := user.Group("/open-webui")
+			{
+				openWebUI.POST("/launch", h.OpenWebUI.Launch)
+			}
+
 			imageCreator := user.Group("/image-creator")
 			{
 				imageCreator.POST("/tasks", h.ImageCreator.CreateTask)
@@ -46,6 +56,7 @@ func RegisterUserRoutes(
 				welfare.GET("/daily-checkin", h.Welfare.GetDailyCheckin)
 				welfare.POST("/daily-checkin/claim", h.Welfare.ClaimDailyCheckin)
 				welfare.POST("/daily-checkin/milestones/:day/claim", h.Welfare.ClaimDailyCheckinMilestone)
+				welfare.POST("/new-user-trial/reward/claim", h.Welfare.ClaimNewUserTrialSuccessReward)
 			}
 
 			// 通知邮箱管理

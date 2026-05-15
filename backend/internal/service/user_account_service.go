@@ -70,10 +70,16 @@ type UserAccountCapacityPool struct {
 	Key                 string                           `json:"key"`
 	Title               string                           `json:"title"`
 	TotalAccounts       int                              `json:"total_accounts"`
+	ActiveAccounts      int                              `json:"active_accounts"`
 	SchedulableAccounts int                              `json:"schedulable_accounts"`
+	RateLimitedAccounts int                              `json:"rate_limited_accounts"`
+	ErrorAccounts       int                              `json:"error_accounts"`
+	DisabledAccounts    int                              `json:"disabled_accounts"`
+	AbnormalAccounts    int                              `json:"abnormal_accounts"`
 	ConfiguredQuota     float64                          `json:"configured_quota"`
 	RemainingQuota      float64                          `json:"remaining_quota"`
 	Sections            []UserAccountCapacityPoolSection `json:"sections"`
+	Groups              []UserAccountCapacityPoolGroup   `json:"groups,omitempty"`
 }
 
 type UserAccountCapacityPoolSection struct {
@@ -91,6 +97,35 @@ type UserAccountCapacityWindowSnapshot struct {
 	ResetAfterSeconds int     `json:"reset_after_seconds,omitempty"`
 	ResetAt           string  `json:"reset_at,omitempty"`
 	WindowMinutes     int     `json:"window_minutes,omitempty"`
+}
+
+type UserAccountCapacityPoolGroup struct {
+	Key                 string                                      `json:"key"`
+	GroupID             *int64                                      `json:"group_id,omitempty"`
+	GroupName           string                                      `json:"group_name"`
+	Platform            string                                      `json:"platform,omitempty"`
+	SortOrder           int                                         `json:"sort_order,omitempty"`
+	TotalAccounts       int                                         `json:"total_accounts"`
+	ActiveAccounts      int                                         `json:"active_accounts"`
+	SchedulableAccounts int                                         `json:"schedulable_accounts"`
+	RateLimitedAccounts int                                         `json:"rate_limited_accounts"`
+	ErrorAccounts       int                                         `json:"error_accounts"`
+	DisabledAccounts    int                                         `json:"disabled_accounts"`
+	AbnormalAccounts    int                                         `json:"abnormal_accounts"`
+	ConfiguredQuota     float64                                     `json:"configured_quota"`
+	RemainingQuota      float64                                     `json:"remaining_quota"`
+	Status              string                                      `json:"status"`
+	Windows             map[string]UserAccountCapacityWindowSummary `json:"windows,omitempty"`
+}
+
+type UserAccountCapacityWindowSummary struct {
+	UsedPercent                float64 `json:"used_percent"`
+	ResetAfterSeconds          int     `json:"reset_after_seconds,omitempty"`
+	ResetAt                    string  `json:"reset_at,omitempty"`
+	WindowMinutes              int     `json:"window_minutes,omitempty"`
+	SnapshotAccounts           int     `json:"snapshot_accounts"`
+	SchedulableSnapshotAccounts int     `json:"schedulable_snapshot_accounts"`
+	RemainingUnits             float64 `json:"remaining_units"`
 }
 
 type UserAccountService struct {
@@ -378,27 +413,19 @@ func (s *UserAccountService) GetCapacityPools(ctx context.Context, userID int64)
 		return nil, err
 	}
 
-	params := pagination.PaginationParams{
-		Page:      1,
-		PageSize:  1000,
-		SortBy:    "created_at",
-		SortOrder: pagination.SortOrderDesc,
-	}
-	owned, _, err := ownedRepo.ListUserOwned(ctx, userID, params)
+	params := userAccountCapacityPaginationParams(1)
+	owned, err := listAllUserOwnedAccounts(ctx, ownedRepo, userID, params)
 	if err != nil {
 		return nil, err
 	}
-	allAccounts, _, err := allRepo.List(ctx, params)
+	allAccounts, err := listAllCapacityAccounts(ctx, allRepo, params)
 	if err != nil {
 		return nil, err
 	}
 
 	shared := make([]Account, 0, len(allAccounts))
 	for _, account := range allAccounts {
-		if account.OwnerUserID != nil && userID > 0 && *account.OwnerUserID == userID {
-			continue
-		}
-		if account.CanBeUsedByUser(userID) {
+		if isSharedCapacityPoolAccount(&account, userID) {
 			shared = append(shared, account)
 		}
 	}
@@ -407,6 +434,61 @@ func (s *UserAccountService) GetCapacityPools(ctx context.Context, userID int64)
 		Mine:   buildUserAccountCapacityPool("mine", "我的账号容量池", owned),
 		Shared: buildUserAccountCapacityPool("shared", "平台共享容量池", shared),
 	}, nil
+}
+
+func isSharedCapacityPoolAccount(account *Account, userID int64) bool {
+	if account == nil {
+		return false
+	}
+	if account.OwnerUserID != nil && userID > 0 && *account.OwnerUserID == userID {
+		return false
+	}
+	return account.ShareMode == AccountShareModePublic && account.ShareStatus == AccountShareStatusActive
+}
+
+func userAccountCapacityPaginationParams(page int) pagination.PaginationParams {
+	return pagination.PaginationParams{
+		Page:      page,
+		PageSize:  1000,
+		SortBy:    "created_at",
+		SortOrder: pagination.SortOrderDesc,
+	}
+}
+
+func listAllUserOwnedAccounts(ctx context.Context, repo userOwnedAccountRepositoryWithShare, userID int64, firstPage pagination.PaginationParams) ([]Account, error) {
+	accounts, result, err := repo.ListUserOwned(ctx, userID, firstPage)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil || result.Pages <= firstPage.Page {
+		return accounts, nil
+	}
+	for page := firstPage.Page + 1; page <= result.Pages; page++ {
+		next, _, err := repo.ListUserOwned(ctx, userID, userAccountCapacityPaginationParams(page))
+		if err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, next...)
+	}
+	return accounts, nil
+}
+
+func listAllCapacityAccounts(ctx context.Context, repo AccountRepository, firstPage pagination.PaginationParams) ([]Account, error) {
+	accounts, result, err := repo.List(ctx, firstPage)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil || result.Pages <= firstPage.Page {
+		return accounts, nil
+	}
+	for page := firstPage.Page + 1; page <= result.Pages; page++ {
+		next, _, err := repo.List(ctx, userAccountCapacityPaginationParams(page))
+		if err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, next...)
+	}
+	return accounts, nil
 }
 
 func (s *UserAccountService) UpdateWithShareTransition(ctx context.Context, userID, accountID int64, req UpdateAccountRequest) (*Account, error) {
@@ -504,11 +586,34 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAcc
 		Sections: []UserAccountCapacityPoolSection{},
 	}
 	sections := make(map[string]*UserAccountCapacityPoolSection)
+	groups := make(map[string]*UserAccountCapacityPoolGroup)
 	for i := range accounts {
 		account := &accounts[i]
+		active := account.IsActive()
+		schedulable := account.IsSchedulable()
+		rateLimited := account.IsRateLimited() || account.IsOverloaded() || isAccountTempUnschedulable(account)
+		errorState := account.Status == StatusError || strings.TrimSpace(account.ErrorMessage) != ""
+		disabled := account.Status == StatusDisabled || account.Status == StatusExpired || account.Status == StatusUnused
+		abnormal := rateLimited || errorState || disabled || !schedulable
+
 		pool.TotalAccounts++
-		if account.IsSchedulable() {
+		if active {
+			pool.ActiveAccounts++
+		}
+		if schedulable {
 			pool.SchedulableAccounts++
+		}
+		if rateLimited {
+			pool.RateLimitedAccounts++
+		}
+		if errorState {
+			pool.ErrorAccounts++
+		}
+		if disabled {
+			pool.DisabledAccounts++
+		}
+		if abnormal {
+			pool.AbnormalAccounts++
 		}
 		configuredQuota, remainingQuota := accountQuotaTotals(account)
 		pool.ConfiguredQuota += configuredQuota
@@ -525,7 +630,7 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAcc
 			sections[sectionKey] = section
 		}
 		section.TotalAccounts++
-		if account.IsSchedulable() {
+		if schedulable {
 			section.SchedulableAccounts++
 		}
 		section.ConfiguredQuota += configuredQuota
@@ -534,6 +639,47 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAcc
 		mergeCapacityWindowSnapshot(section.Windows, "5h", snapshot5h, ok5h)
 		snapshot7d, ok7d := accountCapacityWindowSnapshot(account, "codex_7d")
 		mergeCapacityWindowSnapshot(section.Windows, "7d", snapshot7d, ok7d)
+
+		for _, groupRef := range accountCapacityGroupRefs(account) {
+			group := groups[groupRef.key]
+			if group == nil {
+				group = &UserAccountCapacityPoolGroup{
+					Key:       groupRef.key,
+					GroupName: groupRef.name,
+					Platform:  groupRef.platform,
+					SortOrder: groupRef.sortOrder,
+					Windows:   map[string]UserAccountCapacityWindowSummary{},
+				}
+				if groupRef.id != nil {
+					id := *groupRef.id
+					group.GroupID = &id
+				}
+				groups[groupRef.key] = group
+			}
+			group.TotalAccounts++
+			if active {
+				group.ActiveAccounts++
+			}
+			if schedulable {
+				group.SchedulableAccounts++
+			}
+			if rateLimited {
+				group.RateLimitedAccounts++
+			}
+			if errorState {
+				group.ErrorAccounts++
+			}
+			if disabled {
+				group.DisabledAccounts++
+			}
+			if abnormal {
+				group.AbnormalAccounts++
+			}
+			group.ConfiguredQuota += configuredQuota
+			group.RemainingQuota += remainingQuota
+			mergeCapacityWindowSummary(group.Windows, "5h", snapshot5h, ok5h, schedulable)
+			mergeCapacityWindowSummary(group.Windows, "7d", snapshot7d, ok7d, schedulable)
+		}
 	}
 
 	pool.Sections = make([]UserAccountCapacityPoolSection, 0, len(sections))
@@ -548,7 +694,125 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAcc
 		right := pool.Sections[j].Platform + "/" + pool.Sections[j].Type
 		return left < right
 	})
+	pool.Groups = make([]UserAccountCapacityPoolGroup, 0, len(groups))
+	for _, group := range groups {
+		if len(group.Windows) == 0 {
+			group.Windows = nil
+		}
+		group.Status = accountCapacityGroupStatus(group)
+		pool.Groups = append(pool.Groups, *group)
+	}
+	sort.Slice(pool.Groups, func(i, j int) bool {
+		left := pool.Groups[i]
+		right := pool.Groups[j]
+		if left.SortOrder != right.SortOrder {
+			return left.SortOrder < right.SortOrder
+		}
+		if left.Platform != right.Platform {
+			return left.Platform < right.Platform
+		}
+		if left.GroupName != right.GroupName {
+			return left.GroupName < right.GroupName
+		}
+		return left.Key < right.Key
+	})
 	return pool
+}
+
+type accountCapacityGroupRef struct {
+	key       string
+	id        *int64
+	name      string
+	platform  string
+	sortOrder int
+}
+
+func accountCapacityGroupRefs(account *Account) []accountCapacityGroupRef {
+	if account == nil {
+		return nil
+	}
+	seen := make(map[string]struct{})
+	refs := make([]accountCapacityGroupRef, 0, len(account.Groups)+len(account.AccountGroups))
+	addGroup := func(group *Group) {
+		if group == nil {
+			return
+		}
+		id := group.ID
+		key := fmt.Sprintf("group:%d", id)
+		if _, ok := seen[key]; ok {
+			return
+		}
+		seen[key] = struct{}{}
+		name := strings.TrimSpace(group.Name)
+		if name == "" {
+			name = fmt.Sprintf("Group %d", id)
+		}
+		refs = append(refs, accountCapacityGroupRef{
+			key:       key,
+			id:        &id,
+			name:      name,
+			platform:  group.Platform,
+			sortOrder: group.SortOrder,
+		})
+	}
+	for _, group := range account.Groups {
+		addGroup(group)
+	}
+	for i := range account.AccountGroups {
+		addGroup(account.AccountGroups[i].Group)
+	}
+	if len(refs) == 0 {
+		key := "ungrouped:" + account.Platform
+		refs = append(refs, accountCapacityGroupRef{
+			key:      key,
+			name:     "未分组共享池",
+			platform: account.Platform,
+		})
+	}
+	return refs
+}
+
+func isAccountTempUnschedulable(account *Account) bool {
+	return account != nil && account.TempUnschedulableUntil != nil && time.Now().Before(*account.TempUnschedulableUntil)
+}
+
+func mergeCapacityWindowSummary(windows map[string]UserAccountCapacityWindowSummary, key string, snapshot UserAccountCapacityWindowSnapshot, ok bool, schedulable bool) {
+	if !ok {
+		return
+	}
+	current := windows[key]
+	current.SnapshotAccounts++
+	if schedulable {
+		current.SchedulableSnapshotAccounts++
+	}
+	if snapshot.UsedPercent > current.UsedPercent {
+		current.UsedPercent = snapshot.UsedPercent
+		current.ResetAfterSeconds = snapshot.ResetAfterSeconds
+		current.ResetAt = snapshot.ResetAt
+		current.WindowMinutes = snapshot.WindowMinutes
+	}
+	if schedulable {
+		remaining := 1 - snapshot.UsedPercent/100
+		if remaining > 0 {
+			current.RemainingUnits += remaining
+		}
+	}
+	windows[key] = current
+}
+
+func accountCapacityGroupStatus(group *UserAccountCapacityPoolGroup) string {
+	if group == nil || group.TotalAccounts == 0 || group.SchedulableAccounts == 0 {
+		return "unavailable"
+	}
+	if group.RateLimitedAccounts > 0 || group.ErrorAccounts > 0 || group.DisabledAccounts > 0 {
+		return "degraded"
+	}
+	for _, window := range group.Windows {
+		if window.UsedPercent >= 80 {
+			return "degraded"
+		}
+	}
+	return "healthy"
 }
 
 func accountQuotaTotals(account *Account) (configured, remaining float64) {

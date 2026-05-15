@@ -2842,10 +2842,20 @@ func (s *adminServiceImpl) SetAccountShareStatus(ctx context.Context, id int64, 
 	if err != nil {
 		return nil, err
 	}
+	normalizedStatus := strings.ToLower(strings.TrimSpace(shareStatus))
 	if account.OwnerUserID == nil || *account.OwnerUserID <= 0 {
-		return nil, infraerrors.BadRequest("ACCOUNT_NOT_USER_OWNED", "only user-owned accounts support share status changes")
+		switch normalizedStatus {
+		case AccountShareStatusActive:
+			account.ShareMode = AccountShareModePublic
+		case AccountShareStatusNotShared, AccountShareStatusRejected, AccountShareStatusSuspended:
+			account.ShareMode = AccountShareModePrivate
+		case AccountShareStatusPendingReview:
+			return nil, infraerrors.BadRequest("SYSTEM_ACCOUNT_SHARE_STATUS_UNSUPPORTED", "system accounts can only be enabled or disabled for the shared pool")
+		}
+	} else if normalizedStatus == AccountShareStatusActive {
+		account.ShareMode = AccountShareModePublic
 	}
-	account.ShareStatus = strings.ToLower(strings.TrimSpace(shareStatus))
+	account.ShareStatus = normalizedStatus
 	if err := s.accountRepo.Update(ctx, account); err != nil {
 		return nil, err
 	}

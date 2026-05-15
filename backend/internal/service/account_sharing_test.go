@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -43,16 +44,24 @@ func TestAccountCanBeUsedByUser_PublicRequiresActiveReview(t *testing.T) {
 		ShareStatus: AccountShareStatusPendingReview,
 	}
 
-	if !account.CanBeUsedByUser(ownerID) {
-		t.Fatal("owner should keep access while public account is pending review")
+	if account.CanBeUsedByUser(ownerID) {
+		t.Fatal("owner must not use public account before review approval")
 	}
 	if account.CanBeUsedByUser(11) {
 		t.Fatal("other users must not use public account before review approval")
 	}
 
 	account.ShareStatus = AccountShareStatusActive
+	if !account.CanBeUsedByUser(ownerID) {
+		t.Fatal("owner should use active public account through the shared pool")
+	}
 	if !account.CanBeUsedByUser(11) {
 		t.Fatal("other users should use active public account")
+	}
+
+	account.ShareStatus = AccountShareStatusSuspended
+	if account.CanBeUsedByUser(ownerID) {
+		t.Fatal("owner must not self-use suspended public account")
 	}
 }
 
@@ -283,8 +292,14 @@ func TestUserAccountService_GetCapacityPoolsSummarizesMineAndSharedPools(t *test
 	if pools.Mine.TotalAccounts != 2 {
 		t.Fatalf("expected 2 owned accounts, got %d", pools.Mine.TotalAccounts)
 	}
+	if pools.Mine.ActiveAccounts != 1 {
+		t.Fatalf("expected 1 active owned account, got %d", pools.Mine.ActiveAccounts)
+	}
 	if pools.Mine.SchedulableAccounts != 1 {
 		t.Fatalf("expected 1 owned schedulable account, got %d", pools.Mine.SchedulableAccounts)
+	}
+	if pools.Mine.AbnormalAccounts != 1 || pools.Mine.DisabledAccounts != 1 {
+		t.Fatalf("unexpected owned abnormal counters: abnormal=%d disabled=%d", pools.Mine.AbnormalAccounts, pools.Mine.DisabledAccounts)
 	}
 	if pools.Mine.ConfiguredQuota != 100 || pools.Mine.RemainingQuota != 75 {
 		t.Fatalf("unexpected owned quota totals: configured=%v remaining=%v", pools.Mine.ConfiguredQuota, pools.Mine.RemainingQuota)
@@ -297,21 +312,129 @@ func TestUserAccountService_GetCapacityPoolsSummarizesMineAndSharedPools(t *test
 		t.Fatalf("unexpected owned OpenAI OAuth section: %#v", openAIMine)
 	}
 
-	if pools.Shared.TotalAccounts != 2 {
-		t.Fatalf("expected 2 shared accounts, got %d", pools.Shared.TotalAccounts)
+	if pools.Shared.TotalAccounts != 1 {
+		t.Fatalf("expected 1 shared account, got %d", pools.Shared.TotalAccounts)
 	}
-	if pools.Shared.SchedulableAccounts != 2 {
-		t.Fatalf("expected 2 shared schedulable accounts, got %d", pools.Shared.SchedulableAccounts)
+	if pools.Shared.SchedulableAccounts != 1 {
+		t.Fatalf("expected 1 shared schedulable account, got %d", pools.Shared.SchedulableAccounts)
+	}
+	sharedGroup := findCapacityPoolGroup(pools.Shared.Groups, 0, "未分组共享池")
+	if sharedGroup == nil {
+		t.Fatalf("expected ungrouped shared capacity group, got %#v", pools.Shared.Groups)
+	}
+	if sharedGroup.TotalAccounts != 1 || sharedGroup.SchedulableAccounts != 1 || sharedGroup.Status != "healthy" {
+		t.Fatalf("unexpected shared group summary: %#v", sharedGroup)
 	}
 	sharedOpenAI := findCapacityPoolSection(pools.Shared.Sections, PlatformOpenAI, AccountTypeOAuth)
 	if sharedOpenAI == nil {
 		t.Fatal("expected shared OpenAI OAuth section")
 	}
-	if sharedOpenAI.TotalAccounts != 2 || sharedOpenAI.SchedulableAccounts != 2 {
+	if sharedOpenAI.TotalAccounts != 1 || sharedOpenAI.SchedulableAccounts != 1 {
 		t.Fatalf("unexpected shared OpenAI totals: %#v", sharedOpenAI)
 	}
-	if sharedOpenAI.Windows["5h"].UsedPercent != 12 || sharedOpenAI.Windows["7d"].UsedPercent != 60 {
+	if _, ok := sharedOpenAI.Windows["5h"]; ok {
+		t.Fatalf("expected system account 5h window to be excluded, got %#v", sharedOpenAI.Windows)
+	}
+	if sharedOpenAI.Windows["7d"].UsedPercent != 60 {
 		t.Fatalf("unexpected shared OpenAI windows: %#v", sharedOpenAI.Windows)
+	}
+}
+
+func TestUserAccountService_GetCapacityPoolsIncludesOnlyMarkedSystemSharedAccounts(t *testing.T) {
+	ownerID := int64(10)
+	repo := &capacityPoolAccountRepoStub{
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "system-default-openai",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				Status:      StatusActive,
+				Schedulable: true,
+			},
+			{
+				ID:          2,
+				Name:        "system-shared-openai",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusActive,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"codex_5h_used_percent": 42,
+				},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	if pools.Shared.TotalAccounts != 1 {
+		t.Fatalf("expected only marked system account in shared pool, got %d", pools.Shared.TotalAccounts)
+	}
+	sharedOpenAI := findCapacityPoolSection(pools.Shared.Sections, PlatformOpenAI, AccountTypeOAuth)
+	if sharedOpenAI == nil || sharedOpenAI.TotalAccounts != 1 || sharedOpenAI.Windows["5h"].UsedPercent != 42 {
+		t.Fatalf("unexpected marked system shared section: %#v", sharedOpenAI)
+	}
+}
+
+func TestUserAccountService_GetCapacityPoolsPaginatesAllAccounts(t *testing.T) {
+	ownerID := int64(10)
+	otherOwnerID := int64(11)
+	owned := make([]Account, 0, 1002)
+	for i := 0; i < 1002; i++ {
+		owned = append(owned, Account{
+			ID:          int64(i + 1),
+			Name:        fmt.Sprintf("owned-%d", i),
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeOAuth,
+			OwnerUserID: &ownerID,
+			Status:      StatusActive,
+			Schedulable: true,
+		})
+	}
+	shared := make([]Account, 0, 1003)
+	for i := 0; i < 1003; i++ {
+		shared = append(shared, Account{
+			ID:          int64(2000 + i),
+			Name:        fmt.Sprintf("shared-%d", i),
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeOAuth,
+			OwnerUserID: &otherOwnerID,
+			ShareMode:   AccountShareModePublic,
+			ShareStatus: AccountShareStatusActive,
+			Status:      StatusActive,
+			Schedulable: true,
+			Groups: []*Group{{
+				ID:       99,
+				Name:     "PLUS共享号池",
+				Platform: PlatformOpenAI,
+			}},
+		})
+	}
+	repo := &capacityPoolAccountRepoStub{
+		owned:       owned,
+		schedulable: shared,
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	if pools.Mine.TotalAccounts != len(owned) {
+		t.Fatalf("expected all owned accounts, got %d want %d", pools.Mine.TotalAccounts, len(owned))
+	}
+	if pools.Shared.TotalAccounts != len(shared) {
+		t.Fatalf("expected all shared accounts, got %d want %d", pools.Shared.TotalAccounts, len(shared))
+	}
+	sharedGroup := findCapacityPoolGroup(pools.Shared.Groups, 99, "PLUS共享号池")
+	if sharedGroup == nil || sharedGroup.TotalAccounts != len(shared) {
+		t.Fatalf("unexpected shared group pagination result: %#v", pools.Shared.Groups)
 	}
 }
 
@@ -319,6 +442,21 @@ func findCapacityPoolSection(sections []UserAccountCapacityPoolSection, platform
 	for i := range sections {
 		if sections[i].Platform == platform && sections[i].Type == accountType {
 			return &sections[i]
+		}
+	}
+	return nil
+}
+
+func findCapacityPoolGroup(groups []UserAccountCapacityPoolGroup, groupID int64, groupName string) *UserAccountCapacityPoolGroup {
+	for i := range groups {
+		if groupID > 0 {
+			if groups[i].GroupID != nil && *groups[i].GroupID == groupID {
+				return &groups[i]
+			}
+			continue
+		}
+		if groups[i].GroupName == groupName {
+			return &groups[i]
 		}
 	}
 	return nil
@@ -362,21 +500,43 @@ func (s *capacityPoolAccountRepoStub) List(ctx context.Context, params paginatio
 	if all == nil {
 		all = append(append([]Account(nil), s.owned...), s.schedulable...)
 	}
-	return append([]Account(nil), all...), &pagination.PaginationResult{
+	pageItems, pages := paginateCapacityPoolStubItems(all, params)
+	return pageItems, &pagination.PaginationResult{
 		Total:    int64(len(all)),
 		Page:     params.Page,
 		PageSize: params.PageSize,
-		Pages:    1,
+		Pages:    pages,
 	}, nil
 }
 
 func (s *capacityPoolAccountRepoStub) ListUserOwned(ctx context.Context, userID int64, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error) {
-	return append([]Account(nil), s.owned...), &pagination.PaginationResult{
+	pageItems, pages := paginateCapacityPoolStubItems(s.owned, params)
+	return pageItems, &pagination.PaginationResult{
 		Total:    int64(len(s.owned)),
 		Page:     params.Page,
 		PageSize: params.PageSize,
-		Pages:    1,
+		Pages:    pages,
 	}, nil
+}
+
+func paginateCapacityPoolStubItems(items []Account, params pagination.PaginationParams) ([]Account, int) {
+	limit := params.Limit()
+	if limit <= 0 {
+		limit = 20
+	}
+	pages := 0
+	if len(items) > 0 {
+		pages = (len(items) + limit - 1) / limit
+	}
+	start := params.Offset()
+	if start >= len(items) {
+		return []Account{}, pages
+	}
+	end := start + limit
+	if end > len(items) {
+		end = len(items)
+	}
+	return append([]Account(nil), items[start:end]...), pages
 }
 
 func (s *capacityPoolAccountRepoStub) CountUserOwned(ctx context.Context, userID int64) (int64, error) {

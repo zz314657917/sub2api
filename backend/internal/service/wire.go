@@ -434,8 +434,9 @@ func ProvideImageCreatorService(
 	apiKeyService *APIKeyService,
 	membershipService *MembershipService,
 	cfg *config.Config,
+	storeFactory BackupObjectStoreFactory,
 ) *ImageCreatorService {
-	svc := NewImageCreatorService(repo, apiKeyService, membershipService, cfg)
+	svc := NewImageCreatorService(repo, apiKeyService, membershipService, cfg, storeFactory)
 	svc.Start()
 	return svc
 }
@@ -528,6 +529,7 @@ var ProviderSet = wire.NewSet(
 	NewContentModerationService,
 	NewAffiliateService,
 	ProvideImageCreatorService,
+	NewOpenWebUILaunchService,
 	NewWelfareService,
 	ProvidePaymentConfigService,
 	NewPaymentService,

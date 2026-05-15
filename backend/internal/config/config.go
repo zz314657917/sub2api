@@ -85,6 +85,7 @@ type Config struct {
 	DashboardAgg            DashboardAggregationConfig    `mapstructure:"dashboard_aggregation"`
 	UsageCleanup            UsageCleanupConfig            `mapstructure:"usage_cleanup"`
 	ImageCreator            ImageCreatorConfig            `mapstructure:"image_creator"`
+	OpenWebUI               OpenWebUIConfig               `mapstructure:"open_webui"`
 	Concurrency             ConcurrencyConfig             `mapstructure:"concurrency"`
 	TokenRefresh            TokenRefreshConfig            `mapstructure:"token_refresh"`
 	RunMode                 string                        `mapstructure:"run_mode" yaml:"run_mode"`
@@ -1220,15 +1221,36 @@ type UsageCleanupConfig struct {
 
 // ImageCreatorConfig controls user image creator task persistence.
 type ImageCreatorConfig struct {
-	StorageDir             string `mapstructure:"storage_dir"`
-	MaxSavedImagesPerUser  int    `mapstructure:"max_saved_images_per_user"`
-	RetentionDays          int    `mapstructure:"retention_days"`
-	WorkerIntervalSeconds  int    `mapstructure:"worker_interval_seconds"`
-	TaskTimeoutSeconds     int    `mapstructure:"task_timeout_seconds"`
-	RequestTimeoutSeconds  int    `mapstructure:"request_timeout_seconds"`
-	CleanupBatchSize       int    `mapstructure:"cleanup_batch_size"`
-	DownloadBytesPerSecond int64  `mapstructure:"download_bytes_per_second"`
-	LocalGatewayBaseURL    string `mapstructure:"local_gateway_base_url"`
+	StorageDir             string                          `mapstructure:"storage_dir"`
+	StorageBackend         string                          `mapstructure:"storage_backend"`
+	ObjectStorage          ImageCreatorObjectStorageConfig `mapstructure:"object_storage"`
+	MaxSavedImagesPerUser  int                             `mapstructure:"max_saved_images_per_user"`
+	RetentionDays          int                             `mapstructure:"retention_days"`
+	WorkerIntervalSeconds  int                             `mapstructure:"worker_interval_seconds"`
+	TaskTimeoutSeconds     int                             `mapstructure:"task_timeout_seconds"`
+	RequestTimeoutSeconds  int                             `mapstructure:"request_timeout_seconds"`
+	CleanupBatchSize       int                             `mapstructure:"cleanup_batch_size"`
+	DownloadBytesPerSecond int64                           `mapstructure:"download_bytes_per_second"`
+	LocalGatewayBaseURL    string                          `mapstructure:"local_gateway_base_url"`
+}
+
+type ImageCreatorObjectStorageConfig struct {
+	Endpoint        string `mapstructure:"endpoint"`
+	Region          string `mapstructure:"region"`
+	Bucket          string `mapstructure:"bucket"`
+	AccessKeyID     string `mapstructure:"access_key_id"`
+	SecretAccessKey string `mapstructure:"secret_access_key"`
+	Prefix          string `mapstructure:"prefix"`
+	ForcePathStyle  bool   `mapstructure:"force_path_style"`
+}
+
+type OpenWebUIConfig struct {
+	Enabled         bool   `mapstructure:"enabled"`
+	ChatURL         string `mapstructure:"chat_url"`
+	LaunchPath      string `mapstructure:"launch_path"`
+	RedeemSecret    string `mapstructure:"redeem_secret"`
+	TokenTTLSeconds int    `mapstructure:"token_ttl_seconds"`
+	GatewayBaseURL  string `mapstructure:"gateway_base_url"`
 }
 
 func NormalizeRunMode(value string) string {
@@ -1664,14 +1686,30 @@ func setDefaults() {
 
 	// Image creator task persistence
 	viper.SetDefault("image_creator.storage_dir", "data/image-creator")
-	viper.SetDefault("image_creator.max_saved_images_per_user", 4)
+	viper.SetDefault("image_creator.storage_backend", "auto")
+	viper.SetDefault("image_creator.object_storage.endpoint", "")
+	viper.SetDefault("image_creator.object_storage.region", "")
+	viper.SetDefault("image_creator.object_storage.bucket", "")
+	viper.SetDefault("image_creator.object_storage.access_key_id", "")
+	viper.SetDefault("image_creator.object_storage.secret_access_key", "")
+	viper.SetDefault("image_creator.object_storage.prefix", "image-creator")
+	viper.SetDefault("image_creator.object_storage.force_path_style", false)
+	viper.SetDefault("image_creator.max_saved_images_per_user", 16)
 	viper.SetDefault("image_creator.retention_days", 7)
-	viper.SetDefault("image_creator.worker_interval_seconds", 5)
+	viper.SetDefault("image_creator.worker_interval_seconds", 30)
 	viper.SetDefault("image_creator.task_timeout_seconds", 1800)
 	viper.SetDefault("image_creator.request_timeout_seconds", 1800)
 	viper.SetDefault("image_creator.cleanup_batch_size", 100)
 	viper.SetDefault("image_creator.download_bytes_per_second", 262144)
 	viper.SetDefault("image_creator.local_gateway_base_url", "")
+
+	// Open WebUI launch integration
+	viper.SetDefault("open_webui.enabled", true)
+	viper.SetDefault("open_webui.chat_url", "http://127.0.0.1:8080")
+	viper.SetDefault("open_webui.launch_path", "/api/v1/auths/sub2api/launch")
+	viper.SetDefault("open_webui.redeem_secret", "")
+	viper.SetDefault("open_webui.token_ttl_seconds", 120)
+	viper.SetDefault("open_webui.gateway_base_url", "")
 
 	// Idempotency
 	viper.SetDefault("idempotency.observe_only", true)
@@ -2276,7 +2314,28 @@ func (c *Config) Validate() error {
 			return fmt.Errorf("usage_cleanup.task_timeout_seconds must be non-negative")
 		}
 	}
-	if strings.TrimSpace(c.ImageCreator.StorageDir) == "" {
+	imageStorageBackend := normalizeImageCreatorStorageBackendConfig(c.ImageCreator)
+	switch imageStorageBackend {
+	case "local":
+	case "auto":
+	case "s3", "cos":
+		objectStorage := c.ImageCreator.ObjectStorage
+		if imageStorageBackend == "cos" && strings.TrimSpace(objectStorage.Endpoint) == "" {
+			return fmt.Errorf("image_creator.object_storage.endpoint is required when storage_backend is cos")
+		}
+		if strings.TrimSpace(objectStorage.Bucket) == "" {
+			return fmt.Errorf("image_creator.object_storage.bucket is required when storage_backend is %s", imageStorageBackend)
+		}
+		if strings.TrimSpace(objectStorage.AccessKeyID) == "" {
+			return fmt.Errorf("image_creator.object_storage.access_key_id is required when storage_backend is %s", imageStorageBackend)
+		}
+		if strings.TrimSpace(objectStorage.SecretAccessKey) == "" {
+			return fmt.Errorf("image_creator.object_storage.secret_access_key is required when storage_backend is %s", imageStorageBackend)
+		}
+	default:
+		return fmt.Errorf("image_creator.storage_backend must be one of: auto/local/s3/cos")
+	}
+	if imageStorageBackend == "local" && strings.TrimSpace(c.ImageCreator.StorageDir) == "" {
 		return fmt.Errorf("image_creator.storage_dir is required")
 	}
 	if c.ImageCreator.MaxSavedImagesPerUser <= 0 {
@@ -2299,6 +2358,22 @@ func (c *Config) Validate() error {
 	}
 	if c.ImageCreator.DownloadBytesPerSecond < 0 {
 		return fmt.Errorf("image_creator.download_bytes_per_second must be non-negative")
+	}
+	if c.OpenWebUI.TokenTTLSeconds <= 0 {
+		return fmt.Errorf("open_webui.token_ttl_seconds must be positive")
+	}
+	if c.OpenWebUI.ChatURL != "" {
+		if err := ValidateAbsoluteHTTPURL(c.OpenWebUI.ChatURL); err != nil {
+			return fmt.Errorf("open_webui.chat_url invalid: %w", err)
+		}
+	}
+	if c.OpenWebUI.LaunchPath == "" || !strings.HasPrefix(c.OpenWebUI.LaunchPath, "/") || strings.HasPrefix(c.OpenWebUI.LaunchPath, "//") {
+		return fmt.Errorf("open_webui.launch_path must be an absolute path")
+	}
+	if c.OpenWebUI.GatewayBaseURL != "" {
+		if err := ValidateAbsoluteHTTPURL(c.OpenWebUI.GatewayBaseURL); err != nil {
+			return fmt.Errorf("open_webui.gateway_base_url invalid: %w", err)
+		}
 	}
 	if c.Idempotency.DefaultTTLSeconds <= 0 {
 		return fmt.Errorf("idempotency.default_ttl_seconds must be positive")
@@ -2754,6 +2829,24 @@ func ValidateAbsoluteHTTPURL(raw string) error {
 		return fmt.Errorf("must not include fragment")
 	}
 	return nil
+}
+
+func normalizeImageCreatorStorageBackendConfig(cfg ImageCreatorConfig) string {
+	backend := strings.ToLower(strings.TrimSpace(cfg.StorageBackend))
+	if backend == "" {
+		backend = "auto"
+	}
+	if backend != "auto" {
+		return backend
+	}
+	objectStorage := cfg.ObjectStorage
+	if strings.TrimSpace(objectStorage.Endpoint) != "" &&
+		strings.TrimSpace(objectStorage.Bucket) != "" &&
+		strings.TrimSpace(objectStorage.AccessKeyID) != "" &&
+		strings.TrimSpace(objectStorage.SecretAccessKey) != "" {
+		return "cos"
+	}
+	return "auto"
 }
 
 // ValidateFrontendRedirectURL 验证前端重定向 URL（可以是绝对 URL 或相对路径）

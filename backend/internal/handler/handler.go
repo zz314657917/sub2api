@@ -50,6 +50,7 @@ type Handlers struct {
 	Announcement     *AnnouncementHandler
 	ChannelMonitor   *ChannelMonitorUserHandler
 	ImageCreator     *ImageCreatorHandler
+	OpenWebUI        *OpenWebUIHandler
 	Welfare          *WelfareHandler
 	Admin            *AdminHandlers
 	Gateway          *GatewayHandler

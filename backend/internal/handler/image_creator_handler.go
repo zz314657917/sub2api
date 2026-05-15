@@ -133,24 +133,38 @@ func (h *ImageCreatorHandler) GetImageFile(c *gin.Context) {
 }
 
 func serveImageCreatorFile(c *gin.Context, file *service.ImageCreatorFile) {
-	f, err := os.Open(file.Path)
-	if err != nil {
-		response.NotFound(c, "image file not found")
-		return
+	var reader io.Reader
+	size := file.SizeBytes
+	var modTime time.Time
+	if file.Body != nil {
+		defer func() { _ = file.Body.Close() }()
+		reader = file.Body
+	} else {
+		f, err := os.Open(file.Path)
+		if err != nil {
+			response.NotFound(c, "image file not found")
+			return
+		}
+		defer func() { _ = f.Close() }()
+		info, err := f.Stat()
+		if err != nil {
+			response.NotFound(c, "image file not found")
+			return
+		}
+		reader = f
+		size = info.Size()
+		modTime = info.ModTime()
 	}
-	defer func() { _ = f.Close() }()
-	info, err := f.Stat()
-	if err != nil {
-		response.NotFound(c, "image file not found")
-		return
-	}
-	reader := io.Reader(f)
 	if file.DownloadBytesPerSecond > 0 {
 		reader = newThrottledReader(reader, file.DownloadBytesPerSecond)
 	}
 	c.Header("Accept-Ranges", "none")
-	c.Writer.Header().Set("Content-Length", strconv.FormatInt(info.Size(), 10))
-	c.Writer.Header().Set("Last-Modified", info.ModTime().UTC().Format(http.TimeFormat))
+	if size > 0 {
+		c.Writer.Header().Set("Content-Length", strconv.FormatInt(size, 10))
+	}
+	if !modTime.IsZero() {
+		c.Writer.Header().Set("Last-Modified", modTime.UTC().Format(http.TimeFormat))
+	}
 	c.Status(http.StatusOK)
 	if c.Request.Method == http.MethodHead {
 		return

@@ -56,6 +56,19 @@ func (h *WelfareHandler) ClaimDailyCheckin(c *gin.Context) {
 	response.Success(c, result)
 }
 
+func (h *WelfareHandler) ClaimNewUserTrialSuccessReward(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+	result, err := h.welfareService.ClaimNewUserTrialSuccessReward(c.Request.Context(), subject.UserID)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	response.Success(c, result)
+}
+
 func (h *WelfareHandler) ClaimDailyCheckinMilestone(c *gin.Context) {
 	subject, ok := middleware.GetAuthSubjectFromContext(c)
 	if !ok || subject.UserID <= 0 {

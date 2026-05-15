@@ -243,12 +243,14 @@ type SystemSettings struct {
 	WelfareVIPEnabled                    bool    `json:"welfare_vip_enabled"`
 	WelfareDailyCheckinRewardMin         float64 `json:"welfare_daily_checkin_reward_min"`
 	WelfareDailyCheckinRewardMax         float64 `json:"welfare_daily_checkin_reward_max"`
+	WelfareDailyCheckinMinAccountAgeHours int    `json:"welfare_daily_checkin_min_account_age_hours"`
 	WelfareDailyCheckinMilestone7Amount  float64 `json:"welfare_daily_checkin_milestone_7_amount"`
 	WelfareDailyCheckinMilestone14Amount float64 `json:"welfare_daily_checkin_milestone_14_amount"`
 	WelfareDailyCheckinMilestone21Amount float64 `json:"welfare_daily_checkin_milestone_21_amount"`
 	WelfareDailyCheckinMilestone28Amount float64 `json:"welfare_daily_checkin_milestone_28_amount"`
 	WelfareNewUserTrialEnabled                bool    `json:"welfare_new_user_trial_enabled"`
 	WelfareNewUserTrialQuotaAmount            float64 `json:"welfare_new_user_trial_quota_amount"`
+	WelfareNewUserTrialSuccessRewardAmount    float64 `json:"welfare_new_user_trial_success_reward_amount"`
 	WelfareNewUserTrialDailySiteQuotaAmount   float64 `json:"welfare_new_user_trial_daily_site_quota_amount"`
 	WelfareNewUserTrialDailyIPActivationLimit int     `json:"welfare_new_user_trial_daily_ip_activation_limit"`
 

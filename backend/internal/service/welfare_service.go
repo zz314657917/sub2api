@@ -21,24 +21,26 @@ const (
 	welfareRewardScale          = int64(100000000)
 	welfareDailyRewardStepScale = int64(10)
 
-	welfareReasonAvailable      = "available"
-	welfareReasonDisabled       = "disabled"
-	welfareReasonAlreadyClaimed = "already_claimed"
-	welfareReasonNotReached     = "not_reached"
-	welfareReasonZeroReward     = "zero_reward"
-	welfareReasonAlreadyChecked = "already_checked"
-	welfareReasonNotConfigured  = "not_configured"
-	welfareReasonInProgress     = "in_progress"
-	welfareReasonExhausted      = "exhausted"
-	welfareReasonDailyLimit     = "daily_limit"
-	welfareMilestoneDay7        = 7
-	welfareMilestoneDay14       = 14
-	welfareMilestoneDay21       = 21
-	welfareMilestoneDay28       = 28
+	welfareReasonAvailable          = "available"
+	welfareReasonDisabled           = "disabled"
+	welfareReasonAlreadyClaimed     = "already_claimed"
+	welfareReasonNotReached         = "not_reached"
+	welfareReasonZeroReward         = "zero_reward"
+	welfareReasonAlreadyChecked     = "already_checked"
+	welfareReasonNotConfigured      = "not_configured"
+	welfareReasonInProgress         = "in_progress"
+	welfareReasonExhausted          = "exhausted"
+	welfareReasonDailyLimit         = "daily_limit"
+	welfareReasonRegistrationTooNew = "registration_too_new"
+	welfareMilestoneDay7            = 7
+	welfareMilestoneDay14           = 14
+	welfareMilestoneDay21           = 21
+	welfareMilestoneDay28           = 28
 
 	defaultNewUserTrialQuotaAmount            = 0.1
 	defaultNewUserTrialDailySiteQuotaAmount   = 5.0
 	defaultNewUserTrialDailyIPActivationLimit = 3
+	defaultDailyCheckinMinAccountAgeHours     = 24
 )
 
 var (
@@ -58,6 +60,7 @@ var (
 	ErrWelfareNewUserTrialExhausted          = infraerrors.Forbidden("WELFARE_NEW_USER_TRIAL_EXHAUSTED", "new user trial quota is exhausted")
 	ErrWelfareNewUserTrialDailyLimitExceeded = infraerrors.TooManyRequests("WELFARE_NEW_USER_TRIAL_DAILY_LIMIT", "new user trial daily limit exceeded")
 	ErrWelfareNewUserTrialNotFound           = infraerrors.NotFound("WELFARE_NEW_USER_TRIAL_NOT_FOUND", "new user trial not found")
+	ErrWelfareNewUserTrialRewardClaimed      = infraerrors.Conflict("WELFARE_NEW_USER_TRIAL_REWARD_CLAIMED", "new user trial reward already claimed")
 )
 
 type WelfareService struct {
@@ -79,6 +82,10 @@ type welfareBalanceGrantRepository interface {
 	AddBalance(ctx context.Context, id int64, amount float64) error
 }
 
+type welfareRedeemCodeLookupRepository interface {
+	GetByCode(ctx context.Context, code string) (*RedeemCode, error)
+}
+
 type WelfareRepository interface {
 	GetDailyCheckin(ctx context.Context, checkinDate string, userID int64) (*WelfareDailyCheckinRecord, error)
 	ListDailyCheckins(ctx context.Context, userID int64, month string) ([]WelfareDailyCheckinRecord, error)
@@ -94,6 +101,7 @@ type WelfareRepository interface {
 	ConsumeNewUserTrial(ctx context.Context, input WelfareNewUserTrialConsumeInput) (*WelfareNewUserTrial, bool, error)
 	SumNewUserTrialUsageSince(ctx context.Context, since time.Time) (float64, error)
 	CountNewUserTrialActivationsByIPSince(ctx context.Context, clientIP string, since time.Time) (int, error)
+	FirstSuccessfulUsageAt(ctx context.Context, userID int64) (*time.Time, error)
 }
 
 type WelfareDailyCheckinRecord struct {
@@ -168,6 +176,7 @@ type WelfareDailyCheckinView struct {
 	Milestones         []WelfareDailyCheckinMilestone `json:"milestones"`
 	CanClaimToday      bool                           `json:"can_claim_today"`
 	Reason             string                         `json:"reason"`
+	CanClaimAfter      string                         `json:"can_claim_after,omitempty"`
 	SettlementTimezone string                         `json:"settlement_timezone"`
 }
 
@@ -182,19 +191,29 @@ type WelfareDailyCheckinMilestone struct {
 }
 
 type WelfareNewUserTrialView struct {
-	Enabled        bool    `json:"enabled"`
-	QuotaAmount    float64 `json:"quota_amount"`
-	QuotaUsed      float64 `json:"quota_used"`
-	RemainingQuota float64 `json:"remaining_quota"`
-	Status         string  `json:"status"`
-	CanUse         bool    `json:"can_use"`
-	Reason         string  `json:"reason"`
-	FirstStartedAt string  `json:"first_started_at,omitempty"`
-	FirstSuccessAt string  `json:"first_success_at,omitempty"`
+	Enabled                bool    `json:"enabled"`
+	QuotaAmount            float64 `json:"quota_amount"`
+	QuotaUsed              float64 `json:"quota_used"`
+	RemainingQuota         float64 `json:"remaining_quota"`
+	SuccessRewardAmount    float64 `json:"success_reward_amount"`
+	SuccessRewardClaimable bool    `json:"success_reward_claimable"`
+	SuccessRewardClaimed   bool    `json:"success_reward_claimed"`
+	SuccessRewardReason    string  `json:"success_reward_reason"`
+	Status                 string  `json:"status"`
+	CanUse                 bool    `json:"can_use"`
+	Reason                 string  `json:"reason"`
+	FirstStartedAt         string  `json:"first_started_at,omitempty"`
+	FirstSuccessAt         string  `json:"first_success_at,omitempty"`
+	SuccessRewardClaimedAt string  `json:"success_reward_claimed_at,omitempty"`
 }
 
 type WelfareDailyCheckinClaimResult struct {
 	DailyCheckin  *WelfareDailyCheckinView `json:"daily_checkin"`
+	ClaimedAmount float64                  `json:"claimed_amount"`
+}
+
+type WelfareNewUserTrialRewardClaimResult struct {
+	NewUserTrial  *WelfareNewUserTrialView `json:"new_user_trial"`
 	ClaimedAmount float64                  `json:"claimed_amount"`
 }
 
@@ -212,8 +231,11 @@ type welfareSettings struct {
 	VIPEnabled                         bool
 	RewardMin                          float64
 	RewardMax                          float64
+	DailyCheckinMinAccountAgeHours     int
 	MilestoneAmounts                   map[int]float64
 	NewUserTrialQuotaAmount            float64
+	NewUserTrialSuccessRewardAmount    float64
+	NewUserTrialSuccessRewardEnabledAt *time.Time
 	NewUserTrialDailySiteQuotaAmount   float64
 	NewUserTrialDailyIPActivationLimit int
 }
@@ -371,6 +393,130 @@ func (s *WelfareService) ConsumeNewUserTrial(ctx context.Context, session *NewUs
 	return err
 }
 
+func (s *WelfareService) ClaimNewUserTrialSuccessReward(ctx context.Context, userID int64) (*WelfareNewUserTrialRewardClaimResult, error) {
+	if s == nil || s.repo == nil || s.userRepo == nil || s.redeemRepo == nil {
+		return nil, ErrWelfareNewUserTrialUnavailable
+	}
+	if s.entClient == nil && dbent.TxFromContext(ctx) == nil {
+		return nil, ErrWelfareNewUserTrialUnavailable
+	}
+	settings, err := s.getSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !settings.Enabled || !settings.NewUserTrialEnabled {
+		return nil, ErrWelfareNewUserTrialDisabled.WithMetadata(map[string]string{"reason": welfareReasonDisabled})
+	}
+	if settings.NewUserTrialSuccessRewardAmount <= 0 {
+		return nil, ErrWelfareNewUserTrialNotAvailable.WithMetadata(map[string]string{"reason": welfareReasonZeroReward})
+	}
+	trial, err := s.repo.GetNewUserTrial(ctx, userID)
+	if err != nil {
+		if !errors.Is(err, ErrWelfareNewUserTrialNotFound) {
+			return nil, err
+		}
+		trial = nil
+	}
+	qualified, err := s.hasNewUserTrialRewardQualifyingUsage(ctx, userID, trial, settings.NewUserTrialSuccessRewardEnabledAt)
+	if err != nil {
+		return nil, err
+	}
+	if !qualified {
+		return nil, ErrWelfareNewUserTrialNotAvailable.WithMetadata(map[string]string{"reason": welfareReasonNotReached})
+	}
+	if reward, err := s.getNewUserTrialSuccessReward(ctx, userID); err != nil {
+		return nil, err
+	} else if reward != nil {
+		return nil, ErrWelfareNewUserTrialRewardClaimed.WithMetadata(map[string]string{"reason": welfareReasonAlreadyClaimed})
+	}
+
+	if trial == nil {
+		trial = &WelfareNewUserTrial{UserID: userID}
+	}
+	if err := s.grantNewUserTrialSuccessReward(ctx, trial, settings.NewUserTrialSuccessRewardAmount); err != nil {
+		return nil, err
+	}
+	view, err := s.buildNewUserTrialView(ctx, userID, settings)
+	if err != nil {
+		return nil, err
+	}
+	return &WelfareNewUserTrialRewardClaimResult{
+		NewUserTrial:  view,
+		ClaimedAmount: settings.NewUserTrialSuccessRewardAmount,
+	}, nil
+}
+
+func (s *WelfareService) grantNewUserTrialSuccessReward(ctx context.Context, trial *WelfareNewUserTrial, amount float64) error {
+	amount = normalizeNonNegativeFloat(amount)
+	if amount <= 0 || trial == nil || trial.UserID <= 0 {
+		return nil
+	}
+	if s.userRepo == nil || s.redeemRepo == nil {
+		return ErrWelfareNewUserTrialUnavailable
+	}
+	if s.entClient == nil && dbent.TxFromContext(ctx) == nil {
+		return ErrWelfareNewUserTrialUnavailable
+	}
+	code := newUserTrialRewardRedeemCode(trial.UserID)
+	if lookup, ok := s.redeemRepo.(welfareRedeemCodeLookupRepository); ok {
+		existing, err := lookup.GetByCode(ctx, code)
+		if err == nil && existing != nil {
+			return nil
+		}
+		if err != nil && !errors.Is(err, ErrRedeemCodeNotFound) {
+			return err
+		}
+	}
+
+	now := s.nowTime().UTC()
+	redeemCode := &RedeemCode{
+		Code:   code,
+		Type:   RedeemTypeNewUserReward,
+		Value:  amount,
+		Status: StatusUsed,
+		UsedBy: &trial.UserID,
+		UsedAt: &now,
+		Notes:  "new user trial success reward",
+	}
+	if trial.ID > 0 {
+		redeemCode.Notes = fmt.Sprintf("new user trial success reward trial %d", trial.ID)
+	}
+
+	grantCtx := ctx
+	var tx *dbent.Tx
+	if s.entClient != nil && dbent.TxFromContext(ctx) == nil {
+		txCandidate, txErr := s.entClient.Tx(ctx)
+		if txErr != nil {
+			return fmt.Errorf("begin new user trial reward transaction: %w", txErr)
+		}
+		tx = txCandidate
+		defer func() { _ = tx.Rollback() }()
+		grantCtx = dbent.NewTxContext(ctx, tx)
+	}
+
+	if err := s.redeemRepo.Create(grantCtx, redeemCode); err != nil {
+		if lookup, ok := s.redeemRepo.(welfareRedeemCodeLookupRepository); ok {
+			if existing, getErr := lookup.GetByCode(ctx, code); getErr == nil && existing != nil {
+				return nil
+			}
+		}
+		if isRedeemCodeConflict(err) {
+			return nil
+		}
+		return fmt.Errorf("create new user trial reward audit record: %w", err)
+	}
+	if err := grantWelfareBalance(grantCtx, s.userRepo, trial.UserID, amount); err != nil {
+		return fmt.Errorf("update new user trial reward balance: %w", err)
+	}
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit new user trial reward transaction: %w", err)
+		}
+	}
+	s.invalidateBalanceCaches(ctx, trial.UserID)
+	return nil
+}
+
 func (s *WelfareService) ClaimDailyCheckin(ctx context.Context, userID int64) (*WelfareDailyCheckinClaimResult, error) {
 	if s.repo == nil || s.userRepo == nil || s.redeemRepo == nil {
 		return nil, ErrWelfareDailyCheckinUnavailable
@@ -392,6 +538,16 @@ func (s *WelfareService) ClaimDailyCheckin(ctx context.Context, userID int64) (*
 	}
 	if settings.RewardMax <= 0 {
 		return nil, ErrWelfareDailyCheckinNotClaimable.WithMetadata(map[string]string{"reason": welfareReasonZeroReward})
+	}
+	canClaim, eligibleAt, err := s.canClaimDailyCheckinByAccountAge(ctx, userID, now, settings.DailyCheckinMinAccountAgeHours)
+	if err != nil {
+		return nil, err
+	}
+	if !canClaim {
+		return nil, ErrWelfareDailyCheckinNotClaimable.WithMetadata(map[string]string{
+			"reason":          welfareReasonRegistrationTooNew,
+			"can_claim_after": eligibleAt.UTC().Format(time.RFC3339),
+		})
 	}
 
 	amount, err := randomRewardAmount(settings.RewardMin, settings.RewardMax)
@@ -630,6 +786,17 @@ func (s *WelfareService) buildDailyCheckinView(ctx context.Context, userID int64
 	} else if settings.RewardMax <= 0 {
 		view.Reason = welfareReasonZeroReward
 	}
+	if view.CanClaimToday {
+		canClaim, eligibleAt, err := s.canClaimDailyCheckinByAccountAge(ctx, userID, now, settings.DailyCheckinMinAccountAgeHours)
+		if err != nil {
+			return nil, err
+		}
+		if !canClaim {
+			view.CanClaimToday = false
+			view.Reason = welfareReasonRegistrationTooNew
+			view.CanClaimAfter = eligibleAt.UTC().Format(time.RFC3339)
+		}
+	}
 
 	claims, err := s.repo.ListDailyCheckinMilestoneClaims(ctx, month, userID)
 	if err != nil {
@@ -671,23 +838,27 @@ func (s *WelfareService) buildNewUserTrialView(ctx context.Context, userID int64
 		quota = defaultNewUserTrialQuotaAmount
 	}
 	view := &WelfareNewUserTrialView{
-		Enabled:     settings.Enabled && settings.NewUserTrialEnabled,
-		QuotaAmount: quota,
-		Reason:      welfareReasonAvailable,
-		Status:      "available",
-		CanUse:      settings.Enabled && settings.NewUserTrialEnabled,
+		Enabled:             settings.Enabled && settings.NewUserTrialEnabled,
+		QuotaAmount:         quota,
+		SuccessRewardAmount: settings.NewUserTrialSuccessRewardAmount,
+		SuccessRewardReason: welfareReasonNotReached,
+		Reason:              welfareReasonAvailable,
+		Status:              "available",
+		CanUse:              settings.Enabled && settings.NewUserTrialEnabled,
 	}
 	if !settings.Enabled || !settings.NewUserTrialEnabled {
 		view.CanUse = false
 		view.Reason = welfareReasonDisabled
 	}
 	if s.repo == nil || !view.Enabled {
+		s.applyNewUserTrialSuccessRewardState(ctx, userID, view, nil, settings.NewUserTrialSuccessRewardEnabledAt)
 		view.RemainingQuota = normalizeTrialRemaining(view.QuotaAmount, view.QuotaUsed)
 		return view, nil
 	}
 	trial, err := s.repo.GetNewUserTrial(ctx, userID)
 	if err != nil {
 		if errors.Is(err, ErrWelfareNewUserTrialNotFound) {
+			s.applyNewUserTrialSuccessRewardState(ctx, userID, view, nil, settings.NewUserTrialSuccessRewardEnabledAt)
 			view.RemainingQuota = normalizeTrialRemaining(view.QuotaAmount, view.QuotaUsed)
 			return view, nil
 		}
@@ -708,7 +879,104 @@ func (s *WelfareService) buildNewUserTrialView(ctx context.Context, userID int64
 	if trial.FirstSuccessAt != nil {
 		view.FirstSuccessAt = trial.FirstSuccessAt.UTC().Format(time.RFC3339)
 	}
+	s.applyNewUserTrialSuccessRewardState(ctx, userID, view, trial, settings.NewUserTrialSuccessRewardEnabledAt)
 	return view, nil
+}
+
+func (s *WelfareService) applyNewUserTrialSuccessRewardState(ctx context.Context, userID int64, view *WelfareNewUserTrialView, trial *WelfareNewUserTrial, enabledAt *time.Time) {
+	if view == nil {
+		return
+	}
+	view.SuccessRewardClaimable = false
+	view.SuccessRewardClaimed = false
+	if view.SuccessRewardAmount <= 0 {
+		view.SuccessRewardReason = welfareReasonZeroReward
+		return
+	}
+	if !view.Enabled {
+		view.SuccessRewardReason = welfareReasonDisabled
+		return
+	}
+	qualified, err := s.hasNewUserTrialRewardQualifyingUsage(ctx, userID, trial, enabledAt)
+	if err != nil {
+		view.SuccessRewardReason = welfareReasonNotConfigured
+		return
+	}
+	if !qualified {
+		view.SuccessRewardReason = welfareReasonNotReached
+		return
+	}
+	reward, err := s.getNewUserTrialSuccessReward(ctx, userID)
+	if err != nil {
+		view.SuccessRewardReason = welfareReasonNotConfigured
+		return
+	}
+	if reward != nil {
+		view.SuccessRewardClaimed = true
+		view.SuccessRewardReason = welfareReasonAlreadyClaimed
+		if reward.UsedAt != nil {
+			view.SuccessRewardClaimedAt = reward.UsedAt.UTC().Format(time.RFC3339)
+		}
+		return
+	}
+	view.SuccessRewardClaimable = true
+	view.SuccessRewardReason = welfareReasonAvailable
+}
+
+func (s *WelfareService) hasNewUserTrialRewardQualifyingUsage(ctx context.Context, userID int64, trial *WelfareNewUserTrial, enabledAt *time.Time) (bool, error) {
+	if s == nil || s.repo == nil || s.userRepo == nil || userID <= 0 || enabledAt == nil || enabledAt.IsZero() {
+		return false, nil
+	}
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return false, err
+	}
+	if user == nil || user.CreatedAt.IsZero() || !user.CreatedAt.After(*enabledAt) {
+		return false, nil
+	}
+	var firstSuccessAt *time.Time
+	if trial != nil && trial.FirstSuccessAt != nil {
+		firstSuccessAt = trial.FirstSuccessAt
+	} else {
+		firstSuccessAt, err = s.repo.FirstSuccessfulUsageAt(ctx, userID)
+		if err != nil {
+			return false, err
+		}
+	}
+	return firstSuccessAt != nil && firstSuccessAt.After(*enabledAt), nil
+}
+
+func (s *WelfareService) getNewUserTrialSuccessReward(ctx context.Context, userID int64) (*RedeemCode, error) {
+	if s == nil || s.redeemRepo == nil || userID <= 0 {
+		return nil, nil
+	}
+	lookup, ok := s.redeemRepo.(welfareRedeemCodeLookupRepository)
+	if !ok {
+		return nil, nil
+	}
+	reward, err := lookup.GetByCode(ctx, newUserTrialRewardRedeemCode(userID))
+	if err != nil {
+		if errors.Is(err, ErrRedeemCodeNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return reward, nil
+}
+
+func (s *WelfareService) canClaimDailyCheckinByAccountAge(ctx context.Context, userID int64, now time.Time, minAgeHours int) (bool, time.Time, error) {
+	if s == nil || s.userRepo == nil || userID <= 0 || minAgeHours <= 0 {
+		return true, time.Time{}, nil
+	}
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return false, time.Time{}, err
+	}
+	if user == nil || user.CreatedAt.IsZero() {
+		return true, time.Time{}, nil
+	}
+	eligibleAt := user.CreatedAt.Add(time.Duration(minAgeHours) * time.Hour)
+	return !now.Before(eligibleAt), eligibleAt, nil
 }
 
 func normalizeTrialRemaining(quotaAmount, quotaUsed float64) float64 {
@@ -780,12 +1048,15 @@ func (s *WelfareService) getSettings(ctx context.Context) (welfareSettings, erro
 		SettingKeyWelfareVIPEnabled,
 		SettingKeyWelfareDailyCheckinRewardMin,
 		SettingKeyWelfareDailyCheckinRewardMax,
+		SettingKeyWelfareDailyCheckinMinAccountAgeHours,
 		SettingKeyWelfareDailyCheckinMilestone7Amount,
 		SettingKeyWelfareDailyCheckinMilestone14Amount,
 		SettingKeyWelfareDailyCheckinMilestone21Amount,
 		SettingKeyWelfareDailyCheckinMilestone28Amount,
 		SettingKeyWelfareNewUserTrialEnabled,
 		SettingKeyWelfareNewUserTrialQuotaAmount,
+		SettingKeyWelfareNewUserTrialSuccessRewardAmount,
+		SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt,
 		SettingKeyWelfareNewUserTrialDailySiteQuotaAmount,
 		SettingKeyWelfareNewUserTrialDailyIPActivationLimit,
 	})
@@ -802,6 +1073,7 @@ func (s *WelfareService) getSettings(ctx context.Context) (welfareSettings, erro
 	if result.RewardMax < result.RewardMin {
 		result.RewardMax = result.RewardMin
 	}
+	result.DailyCheckinMinAccountAgeHours = parseNonNegativeIntSetting(values[SettingKeyWelfareDailyCheckinMinAccountAgeHours], defaultDailyCheckinMinAccountAgeHours)
 	result.MilestoneAmounts[welfareMilestoneDay7] = parseNonNegativeFloatSetting(values[SettingKeyWelfareDailyCheckinMilestone7Amount], 0)
 	result.MilestoneAmounts[welfareMilestoneDay14] = parseNonNegativeFloatSetting(values[SettingKeyWelfareDailyCheckinMilestone14Amount], 0)
 	result.MilestoneAmounts[welfareMilestoneDay21] = parseNonNegativeFloatSetting(values[SettingKeyWelfareDailyCheckinMilestone21Amount], 0)
@@ -810,6 +1082,8 @@ func (s *WelfareService) getSettings(ctx context.Context) (welfareSettings, erro
 	if result.NewUserTrialQuotaAmount <= 0 {
 		result.NewUserTrialQuotaAmount = defaultNewUserTrialQuotaAmount
 	}
+	result.NewUserTrialSuccessRewardAmount = parseNonNegativeFloatSetting(values[SettingKeyWelfareNewUserTrialSuccessRewardAmount], 0)
+	result.NewUserTrialSuccessRewardEnabledAt = parseOptionalRFC3339Setting(values[SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt])
 	result.NewUserTrialDailySiteQuotaAmount = parseNonNegativeFloatSetting(values[SettingKeyWelfareNewUserTrialDailySiteQuotaAmount], defaultNewUserTrialDailySiteQuotaAmount)
 	if ipLimit, err := strconv.Atoi(strings.TrimSpace(values[SettingKeyWelfareNewUserTrialDailyIPActivationLimit])); err == nil && ipLimit >= 0 {
 		result.NewUserTrialDailyIPActivationLimit = ipLimit
@@ -902,4 +1176,19 @@ func dailyCheckinRedeemCode(checkinDate string, userID int64) string {
 
 func dailyCheckinMilestoneRedeemCode(month string, day int, userID int64) string {
 	return "DCM" + strings.ReplaceAll(month, "-", "") + "D" + strconv.Itoa(day) + "U" + strings.ToUpper(strconv.FormatInt(userID, 36))
+}
+
+func newUserTrialRewardRedeemCode(userID int64) string {
+	return "NUTR" + strings.ToUpper(strconv.FormatInt(userID, 36))
+}
+
+func isRedeemCodeConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, ErrRedeemCodeUsed) {
+		return true
+	}
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "unique") || strings.Contains(message, "duplicate")
 }

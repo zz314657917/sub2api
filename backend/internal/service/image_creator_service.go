@@ -35,17 +35,23 @@ const (
 	ImageCreatorTaskStatusSucceeded = "succeeded"
 	ImageCreatorTaskStatusFailed    = "failed"
 
-	defaultImageCreatorStorageDir             = "data/image-creator"
-	defaultImageCreatorMaxSavedImages         = 4
-	defaultImageCreatorRetention              = 7 * 24 * time.Hour
-	defaultImageCreatorWorkerInterval         = 5 * time.Second
-	defaultImageCreatorTaskTimeout            = 30 * time.Minute
-	defaultImageCreatorRequestTimeout         = 30 * time.Minute
-	defaultImageCreatorCleanupBatchSize       = 100
-	defaultImageCreatorListTaskLimit          = 20
-	defaultImageCreatorActiveTaskLimit        = 2
-	maxImageCreatorTaskCount                  = 4
-	imageCreatorMaxStoredImageBytes     int64 = 25 << 20
+	defaultImageCreatorStorageDir                = "data/image-creator"
+	defaultImageCreatorMaxSavedImages            = 16
+	defaultImageCreatorRetention                 = 7 * 24 * time.Hour
+	defaultImageCreatorWorkerInterval            = 30 * time.Second
+	defaultImageCreatorTaskTimeout               = 30 * time.Minute
+	defaultImageCreatorRequestTimeout            = 30 * time.Minute
+	defaultImageCreatorCleanupBatchSize          = 100
+	defaultImageCreatorListTaskLimit             = 20
+	defaultImageCreatorActiveTaskLimit           = 2
+	defaultImageCreatorObjectStoragePrefix       = "image-creator"
+	imageCreatorStorageBackendLocal              = "local"
+	imageCreatorStorageBackendAuto               = "auto"
+	imageCreatorStorageBackendS3                 = "s3"
+	imageCreatorStorageBackendCOS                = "cos"
+	imageCreatorObjectStoragePathPrefix          = "s3://"
+	maxImageCreatorTaskCount                     = 4
+	imageCreatorMaxStoredImageBytes        int64 = 25 << 20
 )
 
 var errImageCreatorTaskNotRunnable = errors.New("image creator task is not runnable")
@@ -158,6 +164,8 @@ type GeneratedImageAsset struct {
 
 type ImageCreatorFile struct {
 	Path                   string
+	Body                   io.ReadCloser
+	SizeBytes              int64
 	ContentType            string
 	FileName               string
 	DownloadBytesPerSecond int64
@@ -192,6 +200,9 @@ type ImageCreatorGenerator interface {
 
 type ImageCreatorServiceOptions struct {
 	StorageDir             string
+	StorageBackend         string
+	ObjectStorage          *BackupS3Config
+	ObjectStoreFactory     BackupObjectStoreFactory
 	MaxSavedImages         int
 	Retention              time.Duration
 	WorkerInterval         time.Duration
@@ -209,6 +220,11 @@ type ImageCreatorService struct {
 	membershipService      *MembershipService
 	generator              ImageCreatorGenerator
 	storageDir             string
+	storageBackend         string
+	objectStoreCfg         *BackupS3Config
+	objectStoreFactory     BackupObjectStoreFactory
+	objectStore            BackupObjectStore
+	objectStoreMu          sync.Mutex
 	maxSavedImages         int
 	retention              time.Duration
 	workerInterval         time.Duration
@@ -223,8 +239,11 @@ type ImageCreatorService struct {
 	stopOnce               sync.Once
 }
 
-func NewImageCreatorService(repo ImageCreatorRepository, apiKeyService *APIKeyService, membershipService *MembershipService, cfg *config.Config) *ImageCreatorService {
+func NewImageCreatorService(repo ImageCreatorRepository, apiKeyService *APIKeyService, membershipService *MembershipService, cfg *config.Config, storeFactories ...BackupObjectStoreFactory) *ImageCreatorService {
 	opts := imageCreatorOptionsFromConfig(cfg)
+	if len(storeFactories) > 0 {
+		opts.ObjectStoreFactory = storeFactories[0]
+	}
 	generator := NewImageCreatorHTTPGenerator(cfg, opts.RequestTimeout)
 	svc := NewImageCreatorServiceWithDeps(repo, apiKeyService, generator, opts)
 	svc.membershipService = membershipService
@@ -242,6 +261,9 @@ func NewImageCreatorServiceWithDeps(repo ImageCreatorRepository, apiKeys ImageCr
 		apiKeys:                apiKeys,
 		generator:              generator,
 		storageDir:             opts.StorageDir,
+		storageBackend:         opts.StorageBackend,
+		objectStoreCfg:         opts.ObjectStorage,
+		objectStoreFactory:     opts.ObjectStoreFactory,
 		maxSavedImages:         opts.MaxSavedImages,
 		retention:              opts.Retention,
 		workerInterval:         opts.WorkerInterval,
@@ -268,6 +290,16 @@ func imageCreatorOptionsFromConfig(cfg *config.Config) ImageCreatorServiceOption
 	}
 	ic := cfg.ImageCreator
 	opts.StorageDir = ic.StorageDir
+	opts.StorageBackend = ic.StorageBackend
+	opts.ObjectStorage = &BackupS3Config{
+		Endpoint:        strings.TrimSpace(ic.ObjectStorage.Endpoint),
+		Region:          strings.TrimSpace(ic.ObjectStorage.Region),
+		Bucket:          strings.TrimSpace(ic.ObjectStorage.Bucket),
+		AccessKeyID:     strings.TrimSpace(ic.ObjectStorage.AccessKeyID),
+		SecretAccessKey: strings.TrimSpace(ic.ObjectStorage.SecretAccessKey),
+		Prefix:          strings.Trim(strings.TrimSpace(ic.ObjectStorage.Prefix), "/"),
+		ForcePathStyle:  ic.ObjectStorage.ForcePathStyle,
+	}
 	opts.MaxSavedImages = ic.MaxSavedImagesPerUser
 	opts.Retention = time.Duration(ic.RetentionDays) * 24 * time.Hour
 	opts.WorkerInterval = time.Duration(ic.WorkerIntervalSeconds) * time.Second
@@ -282,6 +314,13 @@ func normalizeImageCreatorOptions(opts ImageCreatorServiceOptions) ImageCreatorS
 	if strings.TrimSpace(opts.StorageDir) == "" {
 		opts.StorageDir = defaultImageCreatorStorageDir
 	}
+	if opts.ObjectStorage != nil {
+		opts.ObjectStorage.Prefix = strings.Trim(strings.TrimSpace(opts.ObjectStorage.Prefix), "/")
+		if opts.ObjectStorage.Prefix == "" {
+			opts.ObjectStorage.Prefix = defaultImageCreatorObjectStoragePrefix
+		}
+	}
+	opts.StorageBackend = normalizeImageCreatorStorageBackend(opts.StorageBackend, opts.ObjectStorage)
 	if opts.MaxSavedImages <= 0 {
 		opts.MaxSavedImages = defaultImageCreatorMaxSavedImages
 	}
@@ -304,6 +343,34 @@ func normalizeImageCreatorOptions(opts ImageCreatorServiceOptions) ImageCreatorS
 		opts.DownloadBytesPerSecond = 0
 	}
 	return opts
+}
+
+func normalizeImageCreatorStorageBackend(raw string, objectStorage *BackupS3Config) string {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "":
+		return normalizeImageCreatorAutoStorageBackend(objectStorage)
+	case imageCreatorStorageBackendAuto:
+		return normalizeImageCreatorAutoStorageBackend(objectStorage)
+	case imageCreatorStorageBackendLocal:
+		return imageCreatorStorageBackendLocal
+	case imageCreatorStorageBackendS3:
+		return imageCreatorStorageBackendS3
+	case imageCreatorStorageBackendCOS:
+		return imageCreatorStorageBackendCOS
+	default:
+		return strings.ToLower(strings.TrimSpace(raw))
+	}
+}
+
+func normalizeImageCreatorAutoStorageBackend(objectStorage *BackupS3Config) string {
+	if objectStorage != nil &&
+		strings.TrimSpace(objectStorage.Endpoint) != "" &&
+		strings.TrimSpace(objectStorage.Bucket) != "" &&
+		strings.TrimSpace(objectStorage.AccessKeyID) != "" &&
+		strings.TrimSpace(objectStorage.SecretAccessKey) != "" {
+		return imageCreatorStorageBackendCOS
+	}
+	return imageCreatorStorageBackendLocal
 }
 
 func (s *ImageCreatorService) Start() {
@@ -483,6 +550,19 @@ func (s *ImageCreatorService) GetImageFile(ctx context.Context, userID int64, im
 	if strings.TrimSpace(image.FilePath) == "" {
 		return nil, infraerrors.NotFound("IMAGE_CREATOR_IMAGE_NOT_FOUND", "image file not found")
 	}
+	if isImageCreatorObjectStoragePath(image.FilePath) {
+		body, err := s.openStoredImage(ctx, image.FilePath)
+		if err != nil {
+			return nil, infraerrors.NotFound("IMAGE_CREATOR_IMAGE_NOT_FOUND", "image file not found")
+		}
+		return &ImageCreatorFile{
+			Body:                   body,
+			SizeBytes:              image.ByteSize,
+			ContentType:            firstNonEmptyString(image.MimeType, mimeTypeForOutputFormat(image.OutputFormat)),
+			FileName:               fmt.Sprintf("image-%d.%s", image.ID, normalizeImageCreatorStoredOutputFormat(image.OutputFormat)),
+			DownloadBytesPerSecond: s.downloadBytesPerSecond,
+		}, nil
+	}
 	if _, err := os.Stat(image.FilePath); err != nil {
 		return nil, infraerrors.NotFound("IMAGE_CREATOR_IMAGE_NOT_FOUND", "image file not found")
 	}
@@ -557,7 +637,7 @@ func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *Imag
 			}
 			outputFormat := normalizeImageCreatorStoredOutputFormat(firstNonEmptyString(asset.OutputFormat, task.OutputFormat))
 			mimeType := firstNonEmptyString(asset.MimeType, mimeTypeForOutputFormat(outputFormat))
-			filePath, hash, byteSize, err := s.saveGeneratedImage(task.UserID, task.ID, successCount+1, outputFormat, asset.Data)
+			filePath, hash, byteSize, err := s.saveGeneratedImage(ctx, task.UserID, task.ID, successCount+1, outputFormat, asset.Data)
 			if err != nil {
 				lastErr = err
 				continue
@@ -574,7 +654,7 @@ func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *Imag
 				ExpiresAt:     time.Now().Add(s.retention),
 			}
 			if err := s.repo.AddImage(ctx, image); err != nil {
-				_ = os.Remove(filePath)
+				_ = s.removeStoredImage(context.Background(), filePath)
 				lastErr = err
 				continue
 			}
@@ -623,7 +703,7 @@ func (s *ImageCreatorService) CleanupExpired(ctx context.Context) error {
 			return err
 		}
 		for _, image := range images {
-			removeFileQuietly(image.FilePath)
+			s.removeStoredImageQuietly(ctx, image.FilePath)
 		}
 	}
 	tasks, err := s.repo.DeleteExpiredTasks(ctx, now, s.cleanupBatchSize)
@@ -633,7 +713,7 @@ func (s *ImageCreatorService) CleanupExpired(ctx context.Context) error {
 	for _, task := range tasks {
 		removeFileQuietly(task.ReferenceImagePath)
 		for _, image := range task.Images {
-			removeFileQuietly(image.FilePath)
+			s.removeStoredImageQuietly(ctx, image.FilePath)
 		}
 	}
 	return nil
@@ -703,7 +783,7 @@ func (s *ImageCreatorService) pruneUserImages(ctx context.Context, userID int64,
 		return err
 	}
 	for _, image := range images {
-		removeFileQuietly(image.FilePath)
+		s.removeStoredImageQuietly(ctx, image.FilePath)
 	}
 	return nil
 }
@@ -807,7 +887,7 @@ func (s *ImageCreatorService) saveReferenceImage(userID int64, taskID int64, dat
 	return path, os.WriteFile(path, data, 0o600)
 }
 
-func (s *ImageCreatorService) saveGeneratedImage(userID int64, taskID int64, index int, outputFormat string, data []byte) (string, string, int64, error) {
+func (s *ImageCreatorService) saveGeneratedImage(ctx context.Context, userID int64, taskID int64, index int, outputFormat string, data []byte) (string, string, int64, error) {
 	if len(data) == 0 {
 		return "", "", 0, errors.New("image data is empty")
 	}
@@ -815,6 +895,23 @@ func (s *ImageCreatorService) saveGeneratedImage(userID int64, taskID int64, ind
 		return "", "", 0, errors.New("generated image is too large")
 	}
 	outputFormat = normalizeImageCreatorStoredOutputFormat(outputFormat)
+	sum := sha256.Sum256(data)
+	hash := hex.EncodeToString(sum[:])
+	if s != nil && s.usesObjectStorage() {
+		store, err := s.getImageObjectStore(ctx)
+		if err != nil {
+			return "", "", 0, err
+		}
+		key := s.generatedImageObjectKey(userID, taskID, index, outputFormat)
+		size, err := store.Upload(ctx, key, bytes.NewReader(data), mimeTypeForOutputFormat(outputFormat))
+		if err != nil {
+			return "", "", 0, err
+		}
+		if size <= 0 {
+			size = int64(len(data))
+		}
+		return imageCreatorObjectStoragePathPrefix + key, hash, size, nil
+	}
 	dir := filepath.Join(s.storageDir, strconv.FormatInt(userID, 10))
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return "", "", 0, err
@@ -823,8 +920,88 @@ func (s *ImageCreatorService) saveGeneratedImage(userID int64, taskID int64, ind
 	if err := os.WriteFile(path, data, 0o600); err != nil {
 		return "", "", 0, err
 	}
-	sum := sha256.Sum256(data)
-	return path, hex.EncodeToString(sum[:]), int64(len(data)), nil
+	return path, hash, int64(len(data)), nil
+}
+
+func (s *ImageCreatorService) usesObjectStorage() bool {
+	if s == nil {
+		return false
+	}
+	return s.storageBackend == imageCreatorStorageBackendS3 || s.storageBackend == imageCreatorStorageBackendCOS
+}
+
+func (s *ImageCreatorService) getImageObjectStore(ctx context.Context) (BackupObjectStore, error) {
+	if s == nil {
+		return nil, errors.New("image creator service is unavailable")
+	}
+	if !s.usesObjectStorage() {
+		return nil, errors.New("image object storage is not enabled")
+	}
+	if s.objectStoreFactory == nil {
+		return nil, errors.New("image object storage factory is unavailable")
+	}
+	if s.objectStoreCfg == nil || !s.objectStoreCfg.IsConfigured() {
+		return nil, errors.New("image object storage is not configured")
+	}
+	s.objectStoreMu.Lock()
+	defer s.objectStoreMu.Unlock()
+	if s.objectStore != nil {
+		return s.objectStore, nil
+	}
+	store, err := s.objectStoreFactory(ctx, s.objectStoreCfg)
+	if err != nil {
+		return nil, err
+	}
+	s.objectStore = store
+	return store, nil
+}
+
+func (s *ImageCreatorService) generatedImageObjectKey(userID int64, taskID int64, index int, outputFormat string) string {
+	prefix := defaultImageCreatorObjectStoragePrefix
+	if s != nil && s.objectStoreCfg != nil && strings.TrimSpace(s.objectStoreCfg.Prefix) != "" {
+		prefix = strings.Trim(strings.TrimSpace(s.objectStoreCfg.Prefix), "/")
+	}
+	return fmt.Sprintf("%s/%d/%s/%d-%d.%s", prefix, userID, time.Now().UTC().Format("2006/01/02"), taskID, index, normalizeImageCreatorStoredOutputFormat(outputFormat))
+}
+
+func (s *ImageCreatorService) openStoredImage(ctx context.Context, path string) (io.ReadCloser, error) {
+	if !isImageCreatorObjectStoragePath(path) {
+		return os.Open(path)
+	}
+	store, err := s.getImageObjectStore(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return store.Download(ctx, imageCreatorObjectStorageKey(path))
+}
+
+func (s *ImageCreatorService) removeStoredImage(ctx context.Context, path string) error {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return nil
+	}
+	if !isImageCreatorObjectStoragePath(path) {
+		return os.Remove(path)
+	}
+	store, err := s.getImageObjectStore(ctx)
+	if err != nil {
+		return err
+	}
+	return store.Delete(ctx, imageCreatorObjectStorageKey(path))
+}
+
+func (s *ImageCreatorService) removeStoredImageQuietly(ctx context.Context, path string) {
+	if err := s.removeStoredImage(ctx, path); err != nil && !errors.Is(err, os.ErrNotExist) {
+		logger.L().Warn("image creator remove stored image failed", zap.String("path", path), zap.Error(err))
+	}
+}
+
+func isImageCreatorObjectStoragePath(path string) bool {
+	return strings.HasPrefix(strings.TrimSpace(path), imageCreatorObjectStoragePathPrefix)
+}
+
+func imageCreatorObjectStorageKey(path string) string {
+	return strings.TrimPrefix(strings.TrimSpace(path), imageCreatorObjectStoragePathPrefix)
 }
 
 type ImageCreatorHTTPGenerator struct {

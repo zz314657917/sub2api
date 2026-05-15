@@ -281,12 +281,14 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		WelfareVIPEnabled:                        settings.WelfareVIPEnabled,
 		WelfareDailyCheckinRewardMin:             settings.WelfareDailyCheckinRewardMin,
 		WelfareDailyCheckinRewardMax:             settings.WelfareDailyCheckinRewardMax,
+		WelfareDailyCheckinMinAccountAgeHours:    settings.WelfareDailyCheckinMinAccountAgeHours,
 		WelfareDailyCheckinMilestone7Amount:      settings.WelfareDailyCheckinMilestone7Amount,
 		WelfareDailyCheckinMilestone14Amount:     settings.WelfareDailyCheckinMilestone14Amount,
 		WelfareDailyCheckinMilestone21Amount:     settings.WelfareDailyCheckinMilestone21Amount,
 		WelfareDailyCheckinMilestone28Amount:     settings.WelfareDailyCheckinMilestone28Amount,
 		WelfareNewUserTrialEnabled:                settings.WelfareNewUserTrialEnabled,
 		WelfareNewUserTrialQuotaAmount:            settings.WelfareNewUserTrialQuotaAmount,
+		WelfareNewUserTrialSuccessRewardAmount:    settings.WelfareNewUserTrialSuccessRewardAmount,
 		WelfareNewUserTrialDailySiteQuotaAmount:   settings.WelfareNewUserTrialDailySiteQuotaAmount,
 		WelfareNewUserTrialDailyIPActivationLimit: settings.WelfareNewUserTrialDailyIPActivationLimit,
 
@@ -613,12 +615,14 @@ type UpdateSettingsRequest struct {
 	WelfareVIPEnabled                    *bool    `json:"welfare_vip_enabled"`
 	WelfareDailyCheckinRewardMin         *float64 `json:"welfare_daily_checkin_reward_min"`
 	WelfareDailyCheckinRewardMax         *float64 `json:"welfare_daily_checkin_reward_max"`
+	WelfareDailyCheckinMinAccountAgeHours *int    `json:"welfare_daily_checkin_min_account_age_hours"`
 	WelfareDailyCheckinMilestone7Amount  *float64 `json:"welfare_daily_checkin_milestone_7_amount"`
 	WelfareDailyCheckinMilestone14Amount *float64 `json:"welfare_daily_checkin_milestone_14_amount"`
 	WelfareDailyCheckinMilestone21Amount *float64 `json:"welfare_daily_checkin_milestone_21_amount"`
 	WelfareDailyCheckinMilestone28Amount *float64 `json:"welfare_daily_checkin_milestone_28_amount"`
 	WelfareNewUserTrialEnabled                *bool    `json:"welfare_new_user_trial_enabled"`
 	WelfareNewUserTrialQuotaAmount            *float64 `json:"welfare_new_user_trial_quota_amount"`
+	WelfareNewUserTrialSuccessRewardAmount    *float64 `json:"welfare_new_user_trial_success_reward_amount"`
 	WelfareNewUserTrialDailySiteQuotaAmount   *float64 `json:"welfare_new_user_trial_daily_site_quota_amount"`
 	WelfareNewUserTrialDailyIPActivationLimit *int     `json:"welfare_new_user_trial_daily_ip_activation_limit"`
 
@@ -1693,12 +1697,14 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}(),
 		WelfareDailyCheckinRewardMin:         float64ValueOrDefault(req.WelfareDailyCheckinRewardMin, previousSettings.WelfareDailyCheckinRewardMin),
 		WelfareDailyCheckinRewardMax:         float64ValueOrDefault(req.WelfareDailyCheckinRewardMax, previousSettings.WelfareDailyCheckinRewardMax),
+		WelfareDailyCheckinMinAccountAgeHours: intValueOrDefault(req.WelfareDailyCheckinMinAccountAgeHours, previousSettings.WelfareDailyCheckinMinAccountAgeHours),
 		WelfareDailyCheckinMilestone7Amount:  float64ValueOrDefault(req.WelfareDailyCheckinMilestone7Amount, previousSettings.WelfareDailyCheckinMilestone7Amount),
 		WelfareDailyCheckinMilestone14Amount: float64ValueOrDefault(req.WelfareDailyCheckinMilestone14Amount, previousSettings.WelfareDailyCheckinMilestone14Amount),
 		WelfareDailyCheckinMilestone21Amount: float64ValueOrDefault(req.WelfareDailyCheckinMilestone21Amount, previousSettings.WelfareDailyCheckinMilestone21Amount),
 		WelfareDailyCheckinMilestone28Amount: float64ValueOrDefault(req.WelfareDailyCheckinMilestone28Amount, previousSettings.WelfareDailyCheckinMilestone28Amount),
 		WelfareNewUserTrialEnabled:                boolValueOrDefault(req.WelfareNewUserTrialEnabled, previousSettings.WelfareNewUserTrialEnabled),
 		WelfareNewUserTrialQuotaAmount:            float64ValueOrDefault(req.WelfareNewUserTrialQuotaAmount, previousSettings.WelfareNewUserTrialQuotaAmount),
+		WelfareNewUserTrialSuccessRewardAmount:    float64ValueOrDefault(req.WelfareNewUserTrialSuccessRewardAmount, previousSettings.WelfareNewUserTrialSuccessRewardAmount),
 		WelfareNewUserTrialDailySiteQuotaAmount:   float64ValueOrDefault(req.WelfareNewUserTrialDailySiteQuotaAmount, previousSettings.WelfareNewUserTrialDailySiteQuotaAmount),
 		WelfareNewUserTrialDailyIPActivationLimit: intValueOrDefault(req.WelfareNewUserTrialDailyIPActivationLimit, previousSettings.WelfareNewUserTrialDailyIPActivationLimit),
 		AffiliateEnabled: func() bool {
@@ -2016,12 +2022,14 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		WelfareVIPEnabled:                        updatedSettings.WelfareVIPEnabled,
 		WelfareDailyCheckinRewardMin:             updatedSettings.WelfareDailyCheckinRewardMin,
 		WelfareDailyCheckinRewardMax:             updatedSettings.WelfareDailyCheckinRewardMax,
+		WelfareDailyCheckinMinAccountAgeHours:    updatedSettings.WelfareDailyCheckinMinAccountAgeHours,
 		WelfareDailyCheckinMilestone7Amount:      updatedSettings.WelfareDailyCheckinMilestone7Amount,
 		WelfareDailyCheckinMilestone14Amount:     updatedSettings.WelfareDailyCheckinMilestone14Amount,
 		WelfareDailyCheckinMilestone21Amount:     updatedSettings.WelfareDailyCheckinMilestone21Amount,
 		WelfareDailyCheckinMilestone28Amount:     updatedSettings.WelfareDailyCheckinMilestone28Amount,
 		WelfareNewUserTrialEnabled:                updatedSettings.WelfareNewUserTrialEnabled,
 		WelfareNewUserTrialQuotaAmount:            updatedSettings.WelfareNewUserTrialQuotaAmount,
+		WelfareNewUserTrialSuccessRewardAmount:    updatedSettings.WelfareNewUserTrialSuccessRewardAmount,
 		WelfareNewUserTrialDailySiteQuotaAmount:   updatedSettings.WelfareNewUserTrialDailySiteQuotaAmount,
 		WelfareNewUserTrialDailyIPActivationLimit: updatedSettings.WelfareNewUserTrialDailyIPActivationLimit,
 
@@ -2486,6 +2494,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.WelfareDailyCheckinRewardMax != after.WelfareDailyCheckinRewardMax {
 		changed = append(changed, "welfare_daily_checkin_reward_max")
 	}
+	if before.WelfareDailyCheckinMinAccountAgeHours != after.WelfareDailyCheckinMinAccountAgeHours {
+		changed = append(changed, "welfare_daily_checkin_min_account_age_hours")
+	}
 	if before.WelfareDailyCheckinMilestone7Amount != after.WelfareDailyCheckinMilestone7Amount {
 		changed = append(changed, "welfare_daily_checkin_milestone_7_amount")
 	}
@@ -2503,6 +2514,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.WelfareNewUserTrialQuotaAmount != after.WelfareNewUserTrialQuotaAmount {
 		changed = append(changed, "welfare_new_user_trial_quota_amount")
+	}
+	if before.WelfareNewUserTrialSuccessRewardAmount != after.WelfareNewUserTrialSuccessRewardAmount {
+		changed = append(changed, "welfare_new_user_trial_success_reward_amount")
 	}
 	if before.WelfareNewUserTrialDailySiteQuotaAmount != after.WelfareNewUserTrialDailySiteQuotaAmount {
 		changed = append(changed, "welfare_new_user_trial_daily_site_quota_amount")

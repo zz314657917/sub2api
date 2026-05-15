@@ -114,6 +114,7 @@ var ProviderSet = wire.NewSet(
 	NewEmailCache,
 	NewIdentityCache,
 	NewRedeemCache,
+	NewOpenWebUILaunchTokenStore,
 	NewUpdateCache,
 	NewGeminiTokenCache,
 	ProvideSchedulerCache,

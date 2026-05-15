@@ -524,6 +524,32 @@ func (r *welfareRepository) CountNewUserTrialActivationsByIPSince(ctx context.Co
 	return count, rows.Err()
 }
 
+func (r *welfareRepository) FirstSuccessfulUsageAt(ctx context.Context, userID int64) (*time.Time, error) {
+	exec, err := r.executor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := exec.QueryContext(ctx, `
+		SELECT created_at
+		FROM usage_logs
+		WHERE user_id = $1
+		ORDER BY created_at ASC
+		LIMIT 1
+	`, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	if rows.Next() {
+		var firstSuccessAt time.Time
+		if err := rows.Scan(&firstSuccessAt); err != nil {
+			return nil, err
+		}
+		return &firstSuccessAt, rows.Err()
+	}
+	return nil, rows.Err()
+}
+
 type welfareDailyCheckinScanner interface {
 	Scan(dest ...any) error
 }

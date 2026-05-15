@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -267,6 +269,46 @@ type fakeImageGenerator struct {
 	err     error
 	calls   int
 	inputs  []ImageCreatorGenerateRequest
+}
+
+type fakeImageCreatorObjectStore struct {
+	objects map[string][]byte
+	deleted []string
+}
+
+func newFakeImageCreatorObjectStore() *fakeImageCreatorObjectStore {
+	return &fakeImageCreatorObjectStore{objects: make(map[string][]byte)}
+}
+
+func (s *fakeImageCreatorObjectStore) Upload(_ context.Context, key string, body io.Reader, _ string) (int64, error) {
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return 0, err
+	}
+	s.objects[key] = append([]byte(nil), data...)
+	return int64(len(data)), nil
+}
+
+func (s *fakeImageCreatorObjectStore) Download(_ context.Context, key string) (io.ReadCloser, error) {
+	data, ok := s.objects[key]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return io.NopCloser(bytes.NewReader(data)), nil
+}
+
+func (s *fakeImageCreatorObjectStore) Delete(_ context.Context, key string) error {
+	s.deleted = append(s.deleted, key)
+	delete(s.objects, key)
+	return nil
+}
+
+func (s *fakeImageCreatorObjectStore) PresignURL(_ context.Context, _ string, _ time.Duration) (string, error) {
+	return "", nil
+}
+
+func (s *fakeImageCreatorObjectStore) HeadBucket(_ context.Context) error {
+	return nil
 }
 
 func (g *fakeImageGenerator) GenerateImage(_ context.Context, input ImageCreatorGenerateRequest, _ string) ([]GeneratedImageAsset, error) {
@@ -620,6 +662,63 @@ func TestImageCreatorServiceProcessTaskKeepsFourImageBatchWhenSavedLimitIsLower(
 	require.Equal(t, ImageCreatorTaskStatusSucceeded, repo.tasks[task.ID].Status)
 }
 
+func TestImageCreatorServiceProcessTaskStoresGeneratedImagesInObjectStorage(t *testing.T) {
+	repo := newFakeImageCreatorRepo()
+	store := newFakeImageCreatorObjectStore()
+	generator := &fakeImageGenerator{results: []GeneratedImageAsset{{Data: []byte("object image"), OutputFormat: "png"}}}
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
+		ID:     10,
+		UserID: 42,
+		Key:    "sk-test",
+		Status: StatusAPIKeyActive,
+		Group:  &Group{Platform: PlatformOpenAI, Status: StatusActive, AllowImageGeneration: true},
+	}}, generator, ImageCreatorServiceOptions{
+		StorageDir:     t.TempDir(),
+		StorageBackend: imageCreatorStorageBackendCOS,
+		ObjectStorage:  &BackupS3Config{Bucket: "bucket-appid", AccessKeyID: "sid", SecretAccessKey: "secret", Prefix: "creator"},
+		ObjectStoreFactory: func(context.Context, *BackupS3Config) (BackupObjectStore, error) {
+			return store, nil
+		},
+		MaxSavedImages:       3,
+		Retention:            7 * 24 * time.Hour,
+		AutoStartWorker:      false,
+		DisableAsyncOnCreate: true,
+	})
+
+	task, err := svc.CreateTask(context.Background(), 42, ImageCreatorCreateTaskInput{
+		APIKeyID:     10,
+		Model:        "gpt-image-2",
+		Prompt:       "one version",
+		Count:        1,
+		OutputFormat: "png",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, svc.ProcessTask(context.Background(), task.ID))
+
+	require.Len(t, repo.images, 1)
+	require.True(t, isImageCreatorObjectStoragePath(repo.images[0].FilePath))
+	key := imageCreatorObjectStorageKey(repo.images[0].FilePath)
+	require.Contains(t, key, "creator/42/")
+	require.Equal(t, []byte("object image"), store.objects[key])
+	file, err := svc.GetImageFile(context.Background(), 42, repo.images[0].ID)
+	require.NoError(t, err)
+	defer func() { _ = file.Body.Close() }()
+	data, err := io.ReadAll(file.Body)
+	require.NoError(t, err)
+	require.Equal(t, []byte("object image"), data)
+	require.Equal(t, int64(len("object image")), file.SizeBytes)
+}
+
+func TestImageCreatorServiceAutoStorageBackendUsesObjectStorageWhenConfigured(t *testing.T) {
+	opts := normalizeImageCreatorOptions(ImageCreatorServiceOptions{
+		StorageBackend: "",
+		ObjectStorage:  &BackupS3Config{Endpoint: "https://cos.example.com", Bucket: "bucket-appid", AccessKeyID: "sid", SecretAccessKey: "secret"},
+	})
+
+	require.Equal(t, imageCreatorStorageBackendCOS, opts.StorageBackend)
+}
+
 func TestImageCreatorServiceProcessTaskRevalidatesAPIKeyPermission(t *testing.T) {
 	dir := t.TempDir()
 	repo := newFakeImageCreatorRepo()
@@ -752,6 +851,37 @@ func TestImageCreatorServiceCleanupExpiredTaskDeletesCascadedImageFiles(t *testi
 	require.NoError(t, svc.CleanupExpired(context.Background()))
 
 	require.NoFileExists(t, imagePath)
+}
+
+func TestImageCreatorServiceCleanupExpiredDeletesObjectStorageImages(t *testing.T) {
+	repo := newFakeImageCreatorRepo()
+	store := newFakeImageCreatorObjectStore()
+	store.objects["creator/42/old.png"] = []byte("old object")
+	repo.images = append(repo.images, ImageCreatorImage{
+		ID:        1,
+		TaskID:    1,
+		UserID:    42,
+		FilePath:  imageCreatorObjectStoragePathPrefix + "creator/42/old.png",
+		ExpiresAt: time.Now().Add(-time.Hour),
+	})
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{}, &fakeImageGenerator{}, ImageCreatorServiceOptions{
+		StorageDir:     t.TempDir(),
+		StorageBackend: imageCreatorStorageBackendS3,
+		ObjectStorage:  &BackupS3Config{Bucket: "bucket", AccessKeyID: "access", SecretAccessKey: "secret", Prefix: "creator"},
+		ObjectStoreFactory: func(context.Context, *BackupS3Config) (BackupObjectStore, error) {
+			return store, nil
+		},
+		MaxSavedImages:       3,
+		Retention:            7 * 24 * time.Hour,
+		AutoStartWorker:      false,
+		DisableAsyncOnCreate: true,
+	})
+
+	require.NoError(t, svc.CleanupExpired(context.Background()))
+
+	require.Empty(t, repo.images)
+	require.NotContains(t, store.objects, "creator/42/old.png")
+	require.Equal(t, []string{"creator/42/old.png"}, store.deleted)
 }
 
 func mustReadFile(t *testing.T, path string) []byte {
