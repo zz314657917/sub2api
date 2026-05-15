@@ -857,6 +857,47 @@ totp:
 # LinuxDo Connect OAuth Login (SSO)
 # LinuxDo Connect OAuth 登录（用于 Sub2API 用户登录）
 # =============================================================================
+open_webui:
+  # Enable Sub2API -> Open WebUI launch flow.
+  enabled: true
+  # Open WebUI public chat domain.
+  # Production example: "https://chat.example.com"
+  chat_url: "http://127.0.0.1:8080"
+  # Open WebUI backend callback path that receives launch_token.
+  launch_path: "/api/v1/auths/sub2api/launch"
+  # Shared secret used only between Sub2API and Open WebUI backends.
+  # Generate with: openssl rand -hex 32
+  redeem_secret: ""
+  # Short-lived one-time launch token TTL.
+  token_ttl_seconds: 120
+  # Public Sub2API gateway base URL exposed to Open WebUI after redeem.
+  # Production example: "https://sub2api.example.com/v1"
+  # Leave empty to use server.frontend_url + "/v1" when configured.
+  gateway_base_url: ""
+
+image_creator:
+  # local keeps generated images on disk. Use cos/s3 to store new generated images in object storage.
+  storage_backend: "auto"
+  storage_dir: "data/image-creator"
+  object_storage:
+    # Tencent Cloud COS S3-compatible endpoint, for example: https://cos.ap-guangzhou.myqcloud.com
+    endpoint: ""
+    region: ""
+    # Tencent COS bucket name usually includes the APPID suffix, for example: my-bucket-1250000000
+    bucket: ""
+    access_key_id: ""
+    secret_access_key: ""
+    prefix: "image-creator"
+    force_path_style: false
+  max_saved_images_per_user: 16
+  retention_days: 7
+  worker_interval_seconds: 30
+  task_timeout_seconds: 1800
+  request_timeout_seconds: 1800
+  cleanup_batch_size: 100
+  download_bytes_per_second: 262144
+  local_gateway_base_url: ""
+
 linuxdo_connect:
   enabled: false
   client_id: ""
