@@ -1,0 +1,1 @@
+DROP INDEX CONCURRENTLY IF EXISTS idx_image_creator_tasks_user_active_unique;

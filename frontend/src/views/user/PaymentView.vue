@@ -48,6 +48,59 @@
               </div>
             </div>
 
+            <section v-if="membershipStatus?.enabled" class="pricing-card rounded-3xl p-5 sm:p-6">
+              <div class="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <div class="flex flex-wrap items-center gap-3">
+                    <Icon name="shield" size="lg" class="text-emerald-500" />
+                    <h2 class="pricing-section-title text-xl font-black tracking-normal">{{ pt('membership.title') }}</h2>
+                    <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">{{ membershipCurrentLabel }}</span>
+                  </div>
+                  <p class="pricing-muted mt-2 text-sm">{{ membershipProgressText }}</p>
+                </div>
+                <div v-if="membershipStatus.expires_at" class="pricing-summary rounded-xl px-4 py-3 text-right text-sm">
+                  <p class="pricing-muted">{{ pt('membership.expiresAt') }}</p>
+                  <p class="pricing-strong mt-1 font-semibold">{{ formatMembershipDate(membershipStatus.expires_at) }}</p>
+                </div>
+              </div>
+
+              <div class="mt-5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                <div class="h-full rounded-full bg-emerald-500 transition-all" :style="{ width: `${membershipProgressPercent}%` }"></div>
+              </div>
+
+              <div class="mt-5 grid gap-3 md:grid-cols-3">
+                <article
+                  v-for="tier in membershipStatus.tiers"
+                  :key="tier.level"
+                  class="pricing-membership-tier rounded-xl border p-4"
+                  :class="tier.level === membershipStatus.current_tier ? 'pricing-membership-tier--active' : ''"
+                >
+                  <div class="flex items-center justify-between gap-3">
+                    <h3 class="pricing-strong text-base font-black">{{ tier.label }}</h3>
+                    <span class="pricing-caption text-xs">{{ membershipThresholdText(tier) }}</span>
+                  </div>
+                  <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
+                    <div class="pricing-subpanel rounded-lg p-2">
+                      <p class="pricing-strong font-semibold">{{ tier.rate_multiplier }}x</p>
+                      <p class="pricing-caption mt-0.5">{{ pt('membership.rate') }}</p>
+                    </div>
+                    <div class="pricing-subpanel rounded-lg p-2">
+                      <p class="pricing-strong font-semibold">{{ tier.rpm_limit }} RPM</p>
+                      <p class="pricing-caption mt-0.5">{{ pt('membership.rpm') }}</p>
+                    </div>
+                    <div class="pricing-subpanel rounded-lg p-2">
+                      <p class="pricing-strong font-semibold">{{ formatNumber(tier.tpm_limit) }} TPM</p>
+                      <p class="pricing-caption mt-0.5">{{ pt('membership.tpm') }}</p>
+                    </div>
+                    <div class="pricing-subpanel rounded-lg p-2">
+                      <p class="pricing-strong font-semibold">{{ tier.image_active_tasks }}</p>
+                      <p class="pricing-caption mt-0.5">{{ pt('membership.imageTasks') }}</p>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
             <section v-if="!checkout.balance_disabled" class="space-y-6">
               <div class="flex flex-wrap items-center gap-3">
                 <Icon name="creditCard" size="lg" class="text-sky-400" />
@@ -405,7 +458,7 @@ import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
-import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
+import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, MembershipStatus, MembershipTierConfig } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { METHOD_ORDER, getPaymentPopupFeatures } from '@/components/payment/providerConfig'
 import {
@@ -471,6 +524,19 @@ const pricingCatalog = {
     selectedPlan: '已选套餐',
     subtotal: '套餐金额',
     faqTitle: '常见问题',
+    membership: {
+      title: '会员权益',
+      current: '当前等级：{level}',
+      progressNext: '本月净实付 {paid}，距离 {next} 还差 {amount}',
+      progressTop: '本月净实付 {paid}，已达到最高等级',
+      threshold: '满 {amount}',
+      thresholdFree: '默认',
+      expiresAt: '权益到期',
+      rate: '计费倍率',
+      rpm: '请求频率',
+      tpm: 'Token 频率',
+      imageTasks: '图片并发',
+    },
     feature: {
       weeklyQuota: '周额度 {amount}',
       monthlyQuota: '月额度 {amount}',
@@ -533,6 +599,19 @@ const pricingCatalog = {
     selectedPlan: 'Selected plan',
     subtotal: 'Subtotal',
     faqTitle: 'FAQ',
+    membership: {
+      title: 'Membership',
+      current: 'Current tier: {level}',
+      progressNext: 'Monthly net paid {paid}. {amount} more to {next}.',
+      progressTop: 'Monthly net paid {paid}. Highest tier reached.',
+      threshold: 'Spend {amount}',
+      thresholdFree: 'Default',
+      expiresAt: 'Expires at',
+      rate: 'Rate',
+      rpm: 'RPM',
+      tpm: 'TPM',
+      imageTasks: 'Image tasks',
+    },
     feature: {
       weeklyQuota: 'Weekly quota {amount}',
       monthlyQuota: 'Monthly quota {amount}',
@@ -601,6 +680,7 @@ function getDaysRemaining(expiresAt: string): number {
 const loading = ref(true)
 const submitting = ref(false)
 const checkoutRefreshing = ref(false)
+const membershipStatus = ref<MembershipStatus | null>(null)
 const errorMessage = ref('')
 const errorHintMessage = ref('')
 const amount = ref<number | null>(null)
@@ -841,6 +921,24 @@ function formatSelectedPaymentAmount(value: number): string {
   return formatPaymentAmount(value, selectedCurrency.value, localeCode.value)
 }
 
+function formatNumber(value: number): string {
+  return new Intl.NumberFormat(localeCode.value || undefined).format(value)
+}
+
+function formatMembershipMoney(value: number): string {
+  return formatPaymentAmount(value, selectedCurrency.value, localeCode.value)
+}
+
+function formatMembershipDate(value: string): string {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat(localeCode.value || undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date)
+}
+
 function formatCreditAmount(value: number): string {
   const credited = Math.round((value * balanceRechargeMultiplier.value) * 100) / 100
   return `$${credited.toFixed(2)} USD`
@@ -850,6 +948,35 @@ const currentBalanceText = computed(() => `$${(user.value?.balance ?? 0).toFixed
 const currentPlanName = computed(() => {
   const subscription = activeSubscriptions.value[0]
   return subscription?.group?.name || pt('freePlan')
+})
+
+const membershipCurrentLabel = computed(() => {
+  if (!membershipStatus.value) return ''
+  return pt('membership.current', {
+    level: membershipStatus.value.current_tier_label || membershipStatus.value.current_tier.toUpperCase(),
+  })
+})
+
+const membershipProgressText = computed(() => {
+  const status = membershipStatus.value
+  if (!status) return ''
+  const paid = formatMembershipMoney(status.current_month_paid)
+  if (status.next_tier) {
+    return pt('membership.progressNext', {
+      paid,
+      next: status.next_tier.label,
+      amount: formatMembershipMoney(status.amount_to_next),
+    })
+  }
+  return pt('membership.progressTop', { paid })
+})
+
+const membershipProgressPercent = computed(() => {
+  const status = membershipStatus.value
+  if (!status || status.tiers.length === 0) return 0
+  const maxThreshold = Math.max(...status.tiers.map(tier => tier.threshold_amount), 0)
+  if (maxThreshold <= 0) return 100
+  return Math.min(100, Math.max(0, Math.round((status.current_month_paid / maxThreshold) * 100)))
 })
 
 const rechargeAmountOptions = computed(() =>
@@ -929,12 +1056,21 @@ function selectDefaultMethodIfNeeded(force = false) {
 
 async function loadCheckoutInfo(preservePlan = true) {
   const previousPlanId = preservePlan ? selectedPlan.value?.id : undefined
-  const res = await paymentAPI.getCheckoutInfo()
-  checkout.value = res.data
+  const [checkoutRes, membershipRes] = await Promise.all([
+    paymentAPI.getCheckoutInfo(),
+    paymentAPI.getMembershipStatus().catch(() => null),
+  ])
+  checkout.value = checkoutRes.data
+  membershipStatus.value = membershipRes?.data ?? null
   selectDefaultMethodIfNeeded()
   if (previousPlanId) {
     selectedPlan.value = checkout.value.plans.find(plan => plan.id === previousPlanId) ?? null
   }
+}
+
+function membershipThresholdText(tier: MembershipTierConfig): string {
+  if (tier.threshold_amount <= 0) return pt('membership.thresholdFree')
+  return pt('membership.threshold', { amount: formatMembershipMoney(tier.threshold_amount) })
 }
 
 async function refreshCheckoutInfo() {

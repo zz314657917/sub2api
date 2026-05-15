@@ -71,6 +71,54 @@ export interface CheckoutInfoResponse {
   stripe_publishable_key: string
 }
 
+export type MembershipTierLevel = 'normal' | 'vip' | 'svip'
+
+export interface MembershipTierConfig {
+  level: MembershipTierLevel
+  label: string
+  threshold_amount: number
+  rate_multiplier: number
+  rpm_limit: number
+  tpm_limit: number
+  image_active_tasks: number
+  subscription_group_id: number
+}
+
+export interface MembershipSettings {
+  enabled: boolean
+  validity_days: number
+  tiers: MembershipTierConfig[]
+}
+
+export interface MembershipGrant {
+  id: number
+  user_id: number
+  tier: MembershipTierLevel
+  source: string
+  period_key: string
+  qualified_amount: number
+  starts_at: string
+  expires_at: string
+  status: string
+  subscription_id?: number
+  subscription_group_id?: number
+}
+
+export interface MembershipStatus {
+  enabled: boolean
+  current_tier: MembershipTierLevel
+  current_tier_label: string
+  benefits: MembershipTierConfig
+  expires_at?: string
+  current_month_paid: number
+  month_period_start: string
+  month_period_end: string
+  next_tier?: MembershipTierConfig
+  amount_to_next: number
+  tiers: MembershipTierConfig[]
+  grant?: MembershipGrant
+}
+
 // ==================== Orders ====================
 
 export interface PaymentOrder {

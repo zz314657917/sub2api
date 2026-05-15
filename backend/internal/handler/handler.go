@@ -58,6 +58,7 @@ type Handlers struct {
 	Totp             *TotpHandler
 	Payment          *PaymentHandler
 	PaymentWebhook   *PaymentWebhookHandler
+	Membership       *MembershipHandler
 	AvailableChannel *AvailableChannelHandler
 }
 

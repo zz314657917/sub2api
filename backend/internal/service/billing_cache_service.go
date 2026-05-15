@@ -21,8 +21,10 @@ var (
 	ErrSubscriptionInvalid       = infraerrors.Forbidden("SUBSCRIPTION_INVALID", "subscription is invalid or expired")
 	ErrBillingServiceUnavailable = infraerrors.ServiceUnavailable("BILLING_SERVICE_ERROR", "Billing service temporarily unavailable. Please retry later.")
 	// RPM 超限错误。gateway_handler 负责映射为 HTTP 429。
-	ErrGroupRPMExceeded = infraerrors.TooManyRequests("GROUP_RPM_EXCEEDED", "group requests-per-minute limit exceeded")
-	ErrUserRPMExceeded  = infraerrors.TooManyRequests("USER_RPM_EXCEEDED", "user requests-per-minute limit exceeded")
+	ErrGroupRPMExceeded      = infraerrors.TooManyRequests("GROUP_RPM_EXCEEDED", "group requests-per-minute limit exceeded")
+	ErrUserRPMExceeded       = infraerrors.TooManyRequests("USER_RPM_EXCEEDED", "user requests-per-minute limit exceeded")
+	ErrMembershipRPMExceeded = infraerrors.TooManyRequests("MEMBERSHIP_RPM_EXCEEDED", "membership requests-per-minute limit exceeded")
+	ErrMembershipTPMExceeded = infraerrors.TooManyRequests("MEMBERSHIP_TPM_EXCEEDED", "membership tokens-per-minute limit exceeded")
 )
 
 // subscriptionCacheData 订阅缓存数据结构（内部使用）
@@ -92,6 +94,7 @@ type BillingCacheService struct {
 	apiKeyRateLimitLoader apiKeyRateLimitLoader
 	userRPMCache          UserRPMCache
 	userGroupRateRepo     UserGroupRateRepository
+	membershipResolver    MembershipBenefitResolver
 	cfg                   *config.Config
 	circuitBreaker        *billingCircuitBreaker
 
@@ -130,6 +133,13 @@ func NewBillingCacheService(
 	svc.circuitBreaker = newBillingCircuitBreaker(cfg.Billing.CircuitBreaker)
 	svc.startCacheWriteWorkers()
 	return svc
+}
+
+func (s *BillingCacheService) SetMembershipBenefitResolver(resolver MembershipBenefitResolver) {
+	if s == nil {
+		return
+	}
+	s.membershipResolver = resolver
 }
 
 // Stop 关闭缓存写入工作池
@@ -695,6 +705,9 @@ func (s *BillingCacheService) CheckBillingEligibility(ctx context.Context, user 
 	if err := s.checkRPM(ctx, user, group); err != nil {
 		return err
 	}
+	if err := s.checkMembershipTPM(ctx, user); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -765,7 +778,17 @@ func (s *BillingCacheService) checkRPM(ctx context.Context, user *User, group *G
 	}
 
 	// ── 第二层：用户级全局硬上限（始终生效） ──
-	if user.RPMLimit > 0 {
+	membershipRPM := 0
+	if s.membershipResolver != nil {
+		benefits, err := s.membershipResolver.GetEffectiveBenefits(ctx, user.ID)
+		if err != nil {
+			logger.LegacyPrintf("service.billing_cache", "Warning: membership rpm lookup failed for user=%d: %v", user.ID, err)
+		} else {
+			membershipRPM = benefits.RPMLimit
+		}
+	}
+
+	if user.RPMLimit > 0 || membershipRPM > 0 {
 		count, err := s.userRPMCache.IncrementUserRPM(ctx, user.ID)
 		if err != nil {
 			logger.LegacyPrintf(
@@ -775,8 +798,11 @@ func (s *BillingCacheService) checkRPM(ctx context.Context, user *User, group *G
 			)
 			return nil // fail-open
 		}
-		if count > user.RPMLimit {
+		if user.RPMLimit > 0 && count > user.RPMLimit {
 			return ErrUserRPMExceeded
+		}
+		if membershipRPM > 0 && count > membershipRPM {
+			return ErrMembershipRPMExceeded
 		}
 	}
 
@@ -784,6 +810,46 @@ func (s *BillingCacheService) checkRPM(ctx context.Context, user *User, group *G
 }
 
 // checkBalanceEligibility 检查余额模式资格
+func (s *BillingCacheService) checkMembershipTPM(ctx context.Context, user *User) error {
+	if s == nil || s.userRPMCache == nil || s.membershipResolver == nil || user == nil {
+		return nil
+	}
+	benefits, err := s.membershipResolver.GetEffectiveBenefits(ctx, user.ID)
+	if err != nil {
+		logger.LegacyPrintf("service.billing_cache", "Warning: membership tpm lookup failed for user=%d: %v", user.ID, err)
+		return nil
+	}
+	if benefits.TPMLimit <= 0 {
+		return nil
+	}
+	count, err := s.userRPMCache.GetUserTPM(ctx, user.ID)
+	if err != nil {
+		logger.LegacyPrintf("service.billing_cache", "Warning: tpm get failed for user=%d: %v", user.ID, err)
+		return nil
+	}
+	if count >= benefits.TPMLimit {
+		return ErrMembershipTPMExceeded
+	}
+	return nil
+}
+
+func (s *BillingCacheService) RecordMembershipTokenUsage(ctx context.Context, userID int64, tokens int) {
+	if s == nil || s.userRPMCache == nil || s.membershipResolver == nil || userID <= 0 || tokens <= 0 {
+		return
+	}
+	benefits, err := s.membershipResolver.GetEffectiveBenefits(ctx, userID)
+	if err != nil {
+		logger.LegacyPrintf("service.billing_cache", "Warning: membership tpm record lookup failed for user=%d: %v", userID, err)
+		return
+	}
+	if benefits.TPMLimit <= 0 {
+		return
+	}
+	if _, err := s.userRPMCache.IncrementUserTPM(ctx, userID, tokens); err != nil {
+		logger.LegacyPrintf("service.billing_cache", "Warning: tpm increment failed for user=%d tokens=%d: %v", userID, tokens, err)
+	}
+}
+
 func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userID int64) error {
 	balance, err := s.GetUserBalance(ctx, userID)
 	if err != nil {

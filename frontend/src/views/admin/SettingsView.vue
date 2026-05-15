@@ -6152,6 +6152,112 @@
             </div>
           </div>
 
+          <div class="card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <div class="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    {{ localText("会员等级配置", "Membership tiers") }}
+                  </h2>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    {{ localText("按自然月净实付自动授予 30 天会员权益，VIP/SVIP 需要绑定现有订阅分组。", "Automatically grant 30-day membership by monthly net paid amount. VIP/SVIP must bind subscription groups.") }}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-primary btn-sm"
+                  :disabled="membershipSaving || membershipLoading"
+                  @click="saveMembershipSettings"
+                >
+                  <span v-if="membershipSaving" class="mr-1 inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                  {{ membershipSaving ? t("common.saving") : t("common.save") }}
+                </button>
+              </div>
+            </div>
+            <div class="space-y-5 p-6">
+              <div v-if="membershipLoading" class="flex items-center gap-2 text-gray-500">
+                <div class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"></div>
+                {{ t("common.loading") }}
+              </div>
+              <template v-else>
+                <div class="flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">
+                      {{ localText("启用自动会员等级", "Enable automatic membership") }}
+                    </label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ localText("关闭后仍保留配置，但不会按消费自动授予。", "Disabling keeps settings but stops automatic grants.") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="membershipSettings.enabled" />
+                </div>
+
+                <div class="grid gap-4 md:grid-cols-[160px_minmax(0,1fr)]">
+                  <div>
+                    <label class="input-label">{{ localText("有效天数", "Validity days") }}</label>
+                    <input v-model.number="membershipSettings.validity_days" type="number" min="1" max="36500" class="input" />
+                  </div>
+                  <div class="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-300">
+                    {{ localText("退款或部分退款成功后会按当月净实付重算；低于门槛会撤销或降级自动授予的权益，不影响管理员手动订阅。", "Successful refunds recalculate the current month; falling below a threshold revokes or downgrades automatic grants without touching manual admin subscriptions.") }}
+                  </div>
+                </div>
+
+                <div class="grid gap-4 xl:grid-cols-3">
+                  <article
+                    v-for="tier in membershipSettings.tiers"
+                    :key="tier.level"
+                    class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-600 dark:bg-dark-800"
+                  >
+                    <div class="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ membershipTierLabel(tier) }}</h3>
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ tier.level.toUpperCase() }}</p>
+                      </div>
+                      <span class="rounded-md bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 dark:bg-primary-400/10 dark:text-primary-200">
+                        {{ tier.rate_multiplier }}x
+                      </span>
+                    </div>
+
+                    <div class="mt-4 grid grid-cols-2 gap-3">
+                      <label class="block">
+                        <span class="input-label">{{ localText("门槛金额", "Threshold") }}</span>
+                        <input v-model.number="tier.threshold_amount" type="number" min="0" step="0.01" class="input" :disabled="tier.level === 'normal'" />
+                      </label>
+                      <label class="block">
+                        <span class="input-label">{{ localText("计费倍率", "Rate") }}</span>
+                        <input v-model.number="tier.rate_multiplier" type="number" min="0.01" step="0.01" class="input" />
+                      </label>
+                      <label class="block">
+                        <span class="input-label">RPM</span>
+                        <input v-model.number="tier.rpm_limit" type="number" min="0" step="1" class="input" />
+                      </label>
+                      <label class="block">
+                        <span class="input-label">TPM</span>
+                        <input v-model.number="tier.tpm_limit" type="number" min="0" step="1" class="input" />
+                      </label>
+                      <label class="block">
+                        <span class="input-label">{{ localText("图片并发", "Image tasks") }}</span>
+                        <input v-model.number="tier.image_active_tasks" type="number" min="0" step="1" class="input" />
+                      </label>
+                      <label class="block">
+                        <span class="input-label">{{ localText("订阅分组", "Group") }}</span>
+                        <Select
+                          v-model="tier.subscription_group_id"
+                          :options="membershipSubscriptionGroupOptions"
+                          class="w-full"
+                          :disabled="tier.level === 'normal'"
+                        />
+                      </label>
+                    </div>
+                    <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                      {{ localText("绑定分组", "Bound group") }}: {{ membershipGroupName(tier.subscription_group_id) }}
+                    </p>
+                  </article>
+                </div>
+              </template>
+            </div>
+          </div>
+
           <!-- Provider Management -->
           <PaymentProviderList
             v-if="form.payment_enabled"
@@ -6666,7 +6772,7 @@ import type {
   NotifyEmailEntry,
   Proxy,
 } from "@/types";
-import type { ProviderInstance } from "@/types/payment";
+import type { MembershipSettings, MembershipTierConfig, ProviderInstance } from "@/types/payment";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import Icon from "@/components/icons/Icon.vue";
 import Select from "@/components/common/Select.vue";
@@ -6806,6 +6912,44 @@ const adminApiKeyMasked = ref("");
 const adminApiKeyOperating = ref(false);
 const newAdminApiKey = ref("");
 const subscriptionGroups = ref<AdminGroup[]>([]);
+const membershipLoading = ref(true);
+const membershipSaving = ref(false);
+const membershipSettings = reactive<MembershipSettings>({
+  enabled: true,
+  validity_days: 30,
+  tiers: [
+    {
+      level: "normal",
+      label: "普通用户",
+      threshold_amount: 0,
+      rate_multiplier: 1,
+      rpm_limit: 60,
+      tpm_limit: 60000,
+      image_active_tasks: 2,
+      subscription_group_id: 0,
+    },
+    {
+      level: "vip",
+      label: "VIP",
+      threshold_amount: 50,
+      rate_multiplier: 0.8,
+      rpm_limit: 300,
+      tpm_limit: 300000,
+      image_active_tasks: 5,
+      subscription_group_id: 0,
+    },
+    {
+      level: "svip",
+      label: "SVIP",
+      threshold_amount: 100,
+      rate_multiplier: 0.6,
+      rpm_limit: 600,
+      tpm_limit: 600000,
+      image_active_tasks: 10,
+      subscription_group_id: 0,
+    },
+  ],
+});
 
 // Overload Cooldown (529) 状态
 const overloadCooldownLoading = ref(true);
@@ -7399,6 +7543,115 @@ const defaultSubscriptionGroupOptions = computed<
     rate: group.rate_multiplier,
   })),
 );
+
+const membershipSubscriptionGroupOptions = computed(() => [
+  { value: 0, label: localText("请选择订阅分组", "Select a subscription group") },
+  ...defaultSubscriptionGroupOptions.value,
+]);
+
+function normalizeMembershipSettingsForForm(settings: MembershipSettings): MembershipSettings {
+  const defaults = membershipSettings.tiers.map((tier) => ({ ...tier }));
+  const byLevel = new Map<string, MembershipTierConfig>();
+  defaults.forEach((tier) => byLevel.set(tier.level, tier));
+  settings.tiers?.forEach((tier) => {
+    byLevel.set(tier.level, {
+      ...byLevel.get(tier.level),
+      ...tier,
+      level: tier.level,
+    } as MembershipTierConfig);
+  });
+  return {
+    enabled: settings.enabled !== false,
+    validity_days: Math.max(1, Math.floor(Number(settings.validity_days) || 30)),
+    tiers: ["normal", "vip", "svip"].map((level) => byLevel.get(level)!).filter(Boolean),
+  };
+}
+
+function applyMembershipSettings(settings: MembershipSettings) {
+  const normalized = normalizeMembershipSettingsForForm(settings);
+  membershipSettings.enabled = normalized.enabled;
+  membershipSettings.validity_days = normalized.validity_days;
+  membershipSettings.tiers.splice(0, membershipSettings.tiers.length, ...normalized.tiers);
+}
+
+function membershipTierLabel(tier: MembershipTierConfig): string {
+  if (tier.level === "normal") return localText("普通用户", "Normal");
+  return tier.label || tier.level.toUpperCase();
+}
+
+function membershipGroupName(groupID: number): string {
+  return subscriptionGroups.value.find((group) => group.id === groupID)?.name || localText("未绑定", "Not bound");
+}
+
+function validateMembershipSettings(): boolean {
+  const normal = membershipSettings.tiers.find((tier) => tier.level === "normal");
+  const vip = membershipSettings.tiers.find((tier) => tier.level === "vip");
+  const svip = membershipSettings.tiers.find((tier) => tier.level === "svip");
+  if (!normal || !vip || !svip) {
+    appStore.showError(localText("会员配置缺少普通/VIP/SVIP 档位。", "Membership settings require normal, VIP and SVIP tiers."));
+    return false;
+  }
+  if (normal.threshold_amount !== 0 || vip.threshold_amount <= 0 || svip.threshold_amount <= vip.threshold_amount) {
+    appStore.showError(localText("会员门槛必须满足普通=0 < VIP < SVIP。", "Tier thresholds must satisfy normal=0 < VIP < SVIP."));
+    return false;
+  }
+  if (membershipSettings.enabled && (vip.subscription_group_id <= 0 || svip.subscription_group_id <= 0)) {
+    appStore.showError(localText("VIP 和 SVIP 必须绑定订阅分组。", "VIP and SVIP must bind subscription groups."));
+    return false;
+  }
+  const invalid = membershipSettings.tiers.find(
+    (tier) =>
+      tier.rate_multiplier <= 0 ||
+      tier.rpm_limit < 0 ||
+      tier.tpm_limit < 0 ||
+      tier.image_active_tasks < 0,
+  );
+  if (invalid) {
+    appStore.showError(localText("会员权益数值必须为有效非负数，计费倍率必须大于 0。", "Membership limits must be valid non-negative values and rate must be greater than 0."));
+    return false;
+  }
+  return true;
+}
+
+async function loadMembershipSettings() {
+  membershipLoading.value = true;
+  try {
+    const settings = await adminAPI.settings.getMembershipSettings();
+    applyMembershipSettings(settings);
+  } catch (err) {
+    appStore.showError(extractApiErrorMessage(err, localText("会员配置加载失败", "Failed to load membership settings")));
+  } finally {
+    membershipLoading.value = false;
+  }
+}
+
+async function saveMembershipSettings() {
+  if (!validateMembershipSettings()) return;
+  membershipSaving.value = true;
+  try {
+    const payload: MembershipSettings = {
+      enabled: membershipSettings.enabled,
+      validity_days: Math.max(1, Math.floor(Number(membershipSettings.validity_days) || 30)),
+      tiers: membershipSettings.tiers.map((tier) => ({
+        ...tier,
+        label: tier.label || membershipTierLabel(tier),
+        threshold_amount: Math.max(0, Number(tier.threshold_amount) || 0),
+        rate_multiplier: Number(tier.rate_multiplier) || 1,
+        rpm_limit: Math.max(0, Math.floor(Number(tier.rpm_limit) || 0)),
+        tpm_limit: Math.max(0, Math.floor(Number(tier.tpm_limit) || 0)),
+        image_active_tasks: Math.max(0, Math.floor(Number(tier.image_active_tasks) || 0)),
+        subscription_group_id: Math.max(0, Math.floor(Number(tier.subscription_group_id) || 0)),
+      })),
+    };
+    const updated = await adminAPI.settings.updateMembershipSettings(payload);
+    applyMembershipSettings(updated);
+    appStore.showSuccess(t("common.saved"));
+  } catch (err) {
+    appStore.showError(extractApiErrorMessage(err, localText("会员配置保存失败", "Failed to save membership settings")));
+  } finally {
+    membershipSaving.value = false;
+  }
+}
 
 const registrationEmailSuffixWhitelistSeparatorKeys = new Set([
   " ",
@@ -9304,6 +9557,7 @@ async function handleDeleteProvider() {
 onMounted(() => {
   loadSettings();
   loadSubscriptionGroups();
+  loadMembershipSettings();
   loadAdminApiKey();
   loadOverloadCooldownSettings();
   loadRateLimit429CooldownSettings();

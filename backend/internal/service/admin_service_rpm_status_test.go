@@ -60,12 +60,20 @@ func (s *rpmStatusCacheStub) IncrementUserRPM(context.Context, int64) (int, erro
 	return 0, nil
 }
 
+func (s *rpmStatusCacheStub) IncrementUserTPM(context.Context, int64, int) (int, error) {
+	return 0, nil
+}
+
 func (s *rpmStatusCacheStub) GetUserGroupRPM(_ context.Context, _, groupID int64) (int, error) {
 	return s.groupUsed[groupID], nil
 }
 
 func (s *rpmStatusCacheStub) GetUserRPM(context.Context, int64) (int, error) {
 	return s.userUsed, nil
+}
+
+func (s *rpmStatusCacheStub) GetUserTPM(context.Context, int64) (int, error) {
+	return 0, nil
 }
 
 func TestAdminService_GetUserRPMStatus_AggregatesUserAndGroupLimits(t *testing.T) {

@@ -337,6 +337,7 @@ type OpenAIGatewayService struct {
 	balanceNotifyService  *BalanceNotifyService
 	settingService        *SettingService
 	welfareService        *WelfareService
+	membershipService     *MembershipService
 
 	openaiWSPoolOnce              sync.Once
 	openaiWSStateStoreOnce        sync.Once
@@ -379,7 +380,12 @@ func NewOpenAIGatewayService(
 	balanceNotifyService *BalanceNotifyService,
 	settingService *SettingService,
 	welfareService *WelfareService,
+	membershipService ...*MembershipService,
 ) *OpenAIGatewayService {
+	var membership *MembershipService
+	if len(membershipService) > 0 {
+		membership = membershipService[0]
+	}
 	svc := &OpenAIGatewayService{
 		accountRepo:         accountRepo,
 		usageLogRepo:        usageLogRepo,
@@ -411,6 +417,7 @@ func NewOpenAIGatewayService(
 		balanceNotifyService:  balanceNotifyService,
 		settingService:        settingService,
 		welfareService:        welfareService,
+		membershipService:     membership,
 		responseHeaderFilter:  compileResponseHeaderFilter(cfg),
 		codexSnapshotThrottle: newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
 	}
@@ -5248,6 +5255,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		}
 		multiplier = resolver.Resolve(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
 	}
+	if s.membershipService != nil {
+		multiplier = s.membershipService.ApplyRateMultiplier(ctx, user.ID, multiplier)
+	}
 	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
 
 	var cost *CostBreakdown
@@ -5400,9 +5410,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		return nil
 	}
 
+	applied := false
 	billingErr := func() error {
 		accountShareSettings := resolveAccountShareBillingSettings(ctx, s.settingService)
-		_, err := applyUsageBillingWithNewUserTrialOverage(ctx, requestID, usageLog, &postUsageBillingParams{
+		var err error
+		applied, err = applyUsageBillingWithNewUserTrialOverage(ctx, requestID, usageLog, &postUsageBillingParams{
 			Cost:                         cost,
 			User:                         user,
 			APIKey:                       apiKey,
@@ -5422,6 +5434,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 
 	if billingErr != nil {
 		return billingErr
+	}
+	if applied && s.billingCacheService != nil {
+		s.billingCacheService.RecordMembershipTokenUsage(ctx, user.ID, usageLog.TotalTokens())
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
 

@@ -301,7 +301,7 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder) e
 
 func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrder, auditAction string) error {
 	now := time.Now()
-	_, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(o.ID), paymentorder.StatusEQ(OrderStatusRecharging)).SetStatus(OrderStatusCompleted).SetCompletedAt(now).Save(ctx)
+	updated, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(o.ID), paymentorder.StatusEQ(OrderStatusRecharging)).SetStatus(OrderStatusCompleted).SetCompletedAt(now).Save(ctx)
 	if err != nil {
 		return fmt.Errorf("mark completed: %w", err)
 	}
@@ -310,7 +310,39 @@ func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrde
 		"creditedAmount": o.Amount,
 		"payAmount":      o.PayAmount,
 	})
+	if updated > 0 {
+		completedAt := now
+		o.CompletedAt = &completedAt
+		s.recalculateMembershipBestEffort(ctx, o, "payment_completed")
+	}
 	return nil
+}
+
+func (s *PaymentService) recalculateMembershipBestEffort(ctx context.Context, o *dbent.PaymentOrder, reason string) {
+	if s == nil || s.membershipSvc == nil || o == nil {
+		return
+	}
+	periodAt := membershipRecalculationPeriodTime(o)
+	if err := s.membershipSvc.RecalculateForUserAt(ctx, o.UserID, o.ID, reason, periodAt); err != nil {
+		s.writeAuditLog(ctx, o.ID, "MEMBERSHIP_RECALC_FAILED", "system", map[string]any{
+			"reason": reason,
+			"error":  err.Error(),
+		})
+		slog.Warn("membership recalculation failed", "orderID", o.ID, "userID", o.UserID, "reason", reason, "error", err)
+	}
+}
+
+func membershipRecalculationPeriodTime(o *dbent.PaymentOrder) time.Time {
+	if o == nil {
+		return time.Time{}
+	}
+	if o.CompletedAt != nil && !o.CompletedAt.IsZero() {
+		return *o.CompletedAt
+	}
+	if o.PaidAt != nil && !o.PaidAt.IsZero() {
+		return *o.PaidAt
+	}
+	return o.CreatedAt
 }
 
 func (s *PaymentService) ExecuteSubscriptionFulfillment(ctx context.Context, oid int64) error {

@@ -43,6 +43,7 @@ const (
 	defaultImageCreatorRequestTimeout         = 30 * time.Minute
 	defaultImageCreatorCleanupBatchSize       = 100
 	defaultImageCreatorListTaskLimit          = 20
+	defaultImageCreatorActiveTaskLimit        = 2
 	maxImageCreatorTaskCount                  = 4
 	imageCreatorMaxStoredImageBytes     int64 = 25 << 20
 )
@@ -163,7 +164,7 @@ type ImageCreatorFile struct {
 }
 
 type ImageCreatorRepository interface {
-	CreateTask(ctx context.Context, task *ImageCreatorTask) error
+	CreateTask(ctx context.Context, task *ImageCreatorTask, maxActiveTasks int) error
 	UpdateTaskReferenceImage(ctx context.Context, taskID int64, path string, mimeType string, filename string) error
 	GetTaskByID(ctx context.Context, taskID int64) (*ImageCreatorTask, error)
 	GetTaskForUser(ctx context.Context, userID int64, taskID int64) (*ImageCreatorTask, error)
@@ -205,6 +206,7 @@ type ImageCreatorServiceOptions struct {
 type ImageCreatorService struct {
 	repo                   ImageCreatorRepository
 	apiKeys                ImageCreatorAPIKeyLookup
+	membershipService      *MembershipService
 	generator              ImageCreatorGenerator
 	storageDir             string
 	maxSavedImages         int
@@ -221,10 +223,16 @@ type ImageCreatorService struct {
 	stopOnce               sync.Once
 }
 
-func NewImageCreatorService(repo ImageCreatorRepository, apiKeyService *APIKeyService, cfg *config.Config) *ImageCreatorService {
+func NewImageCreatorService(repo ImageCreatorRepository, apiKeyService *APIKeyService, membershipService *MembershipService, cfg *config.Config) *ImageCreatorService {
 	opts := imageCreatorOptionsFromConfig(cfg)
 	generator := NewImageCreatorHTTPGenerator(cfg, opts.RequestTimeout)
-	return NewImageCreatorServiceWithDeps(repo, apiKeyService, generator, opts)
+	svc := NewImageCreatorServiceWithDeps(repo, apiKeyService, generator, opts)
+	svc.membershipService = membershipService
+	return svc
+}
+
+func NewImageCreatorServiceLegacy(repo ImageCreatorRepository, apiKeyService *APIKeyService, cfg *config.Config) *ImageCreatorService {
+	return NewImageCreatorService(repo, apiKeyService, nil, cfg)
 }
 
 func NewImageCreatorServiceWithDeps(repo ImageCreatorRepository, apiKeys ImageCreatorAPIKeyLookup, generator ImageCreatorGenerator, opts ImageCreatorServiceOptions) *ImageCreatorService {
@@ -341,6 +349,10 @@ func (s *ImageCreatorService) CreateTask(ctx context.Context, userID int64, inpu
 	if err := validateImageCreatorAPIKeyForUser(apiKey, userID); err != nil {
 		return nil, err
 	}
+	maxActiveTasks := defaultImageCreatorActiveTaskLimit
+	if s.membershipService != nil {
+		maxActiveTasks = s.membershipService.ImageActiveTaskLimit(ctx, userID)
+	}
 
 	task := &ImageCreatorTask{
 		UserID:       userID,
@@ -355,9 +367,9 @@ func (s *ImageCreatorService) CreateTask(ctx context.Context, userID int64, inpu
 		Count:        input.Count,
 		ExpiresAt:    time.Now().Add(s.retention),
 	}
-	if err := s.repo.CreateTask(ctx, task); err != nil {
+	if err := s.repo.CreateTask(ctx, task, maxActiveTasks); err != nil {
 		if errors.Is(err, ErrImageCreatorActiveTaskExists) {
-			return nil, infraerrors.TooManyRequests("IMAGE_CREATOR_TASK_ALREADY_RUNNING", "please wait for the current image generation task to finish")
+			return nil, infraerrors.TooManyRequests("IMAGE_CREATOR_TASK_LIMIT_EXCEEDED", fmt.Sprintf("active image generation task limit exceeded (%d)", maxActiveTasks))
 		}
 		return nil, err
 	}

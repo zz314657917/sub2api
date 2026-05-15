@@ -12,7 +12,8 @@ import type {
   CheckoutInfoResponse,
   CreateOrderRequest,
   CreateOrderResult,
-  PaymentOrder
+  PaymentOrder,
+  MembershipStatus
 } from '@/types/payment'
 import type { BasePaginationResponse } from '@/types'
 
@@ -35,6 +36,11 @@ export const paymentAPI = {
   /** Get all checkout page data in a single call */
   getCheckoutInfo() {
     return apiClient.get<CheckoutInfoResponse>('/payment/checkout-info')
+  },
+
+  /** Get current user's membership status */
+  getMembershipStatus() {
+    return apiClient.get<MembershipStatus>('/membership/status')
   },
 
   /** Get payment method limits and fee rates */

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"math"
 	"testing"
+	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
@@ -217,6 +218,32 @@ func TestExpectedNotificationProviderKeyUsesRegistryMappingForLegacyOrders(t *te
 		payment.TypeEasyPay,
 		expectedNotificationProviderKey(registry, payment.TypeAlipay, "", ""),
 	)
+}
+
+func TestMembershipRecalculationPeriodTimePrefersCompletedAt(t *testing.T) {
+	createdAt := time.Date(2026, 3, 1, 8, 0, 0, 0, time.UTC)
+	paidAt := time.Date(2026, 4, 2, 8, 0, 0, 0, time.UTC)
+	completedAt := time.Date(2026, 5, 3, 8, 0, 0, 0, time.UTC)
+
+	got := membershipRecalculationPeriodTime(&dbent.PaymentOrder{
+		CreatedAt:   createdAt,
+		PaidAt:      &paidAt,
+		CompletedAt: &completedAt,
+	})
+
+	assert.Equal(t, completedAt, got)
+}
+
+func TestMembershipRecalculationPeriodTimeFallsBackToPaidAt(t *testing.T) {
+	createdAt := time.Date(2026, 3, 1, 8, 0, 0, 0, time.UTC)
+	paidAt := time.Date(2026, 4, 2, 8, 0, 0, 0, time.UTC)
+
+	got := membershipRecalculationPeriodTime(&dbent.PaymentOrder{
+		CreatedAt: createdAt,
+		PaidAt:    &paidAt,
+	})
+
+	assert.Equal(t, paidAt, got)
 }
 
 func TestExpectedNotificationProviderKeyFallsBackToPaymentType(t *testing.T) {

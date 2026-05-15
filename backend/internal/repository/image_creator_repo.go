@@ -14,30 +14,63 @@ import (
 
 type imageCreatorRepository struct {
 	sql sqlExecutor
+	db  *sql.DB
 }
 
 func NewImageCreatorRepository(sqlDB *sql.DB) service.ImageCreatorRepository {
-	return &imageCreatorRepository{sql: sqlDB}
+	return &imageCreatorRepository{sql: sqlDB, db: sqlDB}
 }
 
-func (r *imageCreatorRepository) CreateTask(ctx context.Context, task *service.ImageCreatorTask) error {
+func (r *imageCreatorRepository) CreateTask(ctx context.Context, task *service.ImageCreatorTask, maxActiveTasks int) error {
 	if task == nil {
 		return nil
 	}
+	if maxActiveTasks <= 0 {
+		maxActiveTasks = 1
+	}
+	if r.db != nil {
+		tx, err := r.db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		committed := false
+		defer func() {
+			if !committed {
+				_ = tx.Rollback()
+			}
+		}()
+		if err := r.createTaskWithLimit(ctx, tx, task, maxActiveTasks); err != nil {
+			return err
+		}
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+		committed = true
+		return nil
+	}
+	return r.createTaskWithLimit(ctx, r.sql, task, maxActiveTasks)
+}
+
+func (r *imageCreatorRepository) createTaskWithLimit(ctx context.Context, exec sqlExecutor, task *service.ImageCreatorTask, maxActiveTasks int) error {
+	if _, err := exec.ExecContext(ctx, `SELECT pg_advisory_xact_lock($1)`, task.UserID); err != nil {
+		return err
+	}
 	query := `
+		WITH active AS (
+			SELECT COUNT(*) AS count
+			FROM image_creator_tasks
+			WHERE user_id = $1 AND status IN ($12, $13)
+		)
 		INSERT INTO image_creator_tasks (
 			user_id, api_key_id, status, model, prompt, size, quality,
 			output_format, background, image_count, expires_at
 		)
 		SELECT $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11
-		WHERE NOT EXISTS (
-			SELECT 1
-			FROM image_creator_tasks
-			WHERE user_id = $1 AND status IN ($12, $13)
-		)
+		FROM active
+		WHERE active.count < $14
 		RETURNING id, created_at, updated_at
 	`
-	err := scanSingleRow(ctx, r.sql, query, []any{
+	err := scanSingleRow(ctx, exec, query, []any{
 		task.UserID,
 		task.APIKeyID,
 		task.Status,
@@ -51,6 +84,7 @@ func (r *imageCreatorRepository) CreateTask(ctx context.Context, task *service.I
 		task.ExpiresAt,
 		service.ImageCreatorTaskStatusPending,
 		service.ImageCreatorTaskStatusRunning,
+		maxActiveTasks,
 	}, &task.ID, &task.CreatedAt, &task.UpdatedAt)
 	if errors.Is(err, sql.ErrNoRows) || isUniqueConstraintViolation(err) {
 		return service.ErrImageCreatorActiveTaskExists

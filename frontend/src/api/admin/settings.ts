@@ -11,6 +11,7 @@ import type {
   NotifyEmailEntry,
   SupportPopupItem,
 } from "@/types";
+import type { MembershipSettings } from "@/types/payment";
 
 export interface DefaultSubscriptionSetting {
   group_id: number;
@@ -819,6 +820,23 @@ export async function updateSettings(
   return data;
 }
 
+export async function getMembershipSettings(): Promise<MembershipSettings> {
+  const { data } = await apiClient.get<MembershipSettings>(
+    "/admin/settings/membership",
+  );
+  return data;
+}
+
+export async function updateMembershipSettings(
+  settings: MembershipSettings,
+): Promise<MembershipSettings> {
+  const { data } = await apiClient.put<MembershipSettings>(
+    "/admin/settings/membership",
+    settings,
+  );
+  return data;
+}
+
 /**
  * Test SMTP connection request
  */
@@ -1178,6 +1196,8 @@ export async function resetWebSearchUsage(payload: {
 export const settingsAPI = {
   getSettings,
   updateSettings,
+  getMembershipSettings,
+  updateMembershipSettings,
   testSmtpConnection,
   sendTestEmail,
   getAdminApiKey,

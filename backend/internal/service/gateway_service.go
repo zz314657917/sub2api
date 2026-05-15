@@ -571,6 +571,7 @@ type GatewayService struct {
 	tlsFPProfileService   *TLSFingerprintProfileService
 	balanceNotifyService  *BalanceNotifyService
 	welfareService        *WelfareService
+	membershipService     *MembershipService
 }
 
 // NewGatewayService creates a new GatewayService
@@ -602,9 +603,14 @@ func NewGatewayService(
 	resolver *ModelPricingResolver,
 	balanceNotifyService *BalanceNotifyService,
 	welfareService *WelfareService,
+	membershipService ...*MembershipService,
 ) *GatewayService {
 	userGroupRateTTL := resolveUserGroupRateCacheTTL(cfg)
 	modelsListTTL := resolveModelsListCacheTTL(cfg)
+	var membership *MembershipService
+	if len(membershipService) > 0 {
+		membership = membershipService[0]
+	}
 
 	svc := &GatewayService{
 		accountRepo:          accountRepo,
@@ -638,6 +644,7 @@ func NewGatewayService(
 		resolver:             resolver,
 		balanceNotifyService: balanceNotifyService,
 		welfareService:       welfareService,
+		membershipService:    membership,
 	}
 	svc.userGroupRateResolver = newUserGroupRateResolver(
 		userGroupRateRepo,
@@ -8621,6 +8628,9 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		groupDefault := apiKey.Group.RateMultiplier
 		multiplier = s.getUserGroupRateMultiplier(ctx, user.ID, *apiKey.GroupID, groupDefault)
 	}
+	if s.membershipService != nil {
+		multiplier = s.membershipService.ApplyRateMultiplier(ctx, user.ID, multiplier)
+	}
 	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
 
 	// 确定计费模型
@@ -8683,7 +8693,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 
 	requestID := usageLog.RequestID
 	accountShareSettings := resolveAccountShareBillingSettings(ctx, s.settingService)
-	_, billingErr := applyUsageBillingWithNewUserTrialOverage(ctx, requestID, usageLog, &postUsageBillingParams{
+	applied, billingErr := applyUsageBillingWithNewUserTrialOverage(ctx, requestID, usageLog, &postUsageBillingParams{
 		Cost:                         cost,
 		User:                         user,
 		APIKey:                       apiKey,
@@ -8701,6 +8711,9 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 
 	if billingErr != nil {
 		return billingErr
+	}
+	if applied && s.billingCacheService != nil {
+		s.billingCacheService.RecordMembershipTokenUsage(ctx, user.ID, usageLog.TotalTokens())
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
 

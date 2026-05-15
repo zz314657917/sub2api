@@ -20,6 +20,7 @@ import (
 const (
 	userGroupRPMKeyPrefix = "rpm:ug:"
 	userRPMKeyPrefix      = "rpm:u:"
+	userTPMKeyPrefix      = "tpm:u:"
 
 	userRPMKeyTTL = 120 * time.Second
 )
@@ -44,11 +45,15 @@ func (c *userRPMCacheImpl) minuteTS(ctx context.Context) (int64, error) {
 
 // atomicIncr 原子 INCR+EXPIRE。
 func (c *userRPMCacheImpl) atomicIncr(ctx context.Context, key string) (int, error) {
+	return c.atomicIncrBy(ctx, key, 1)
+}
+
+func (c *userRPMCacheImpl) atomicIncrBy(ctx context.Context, key string, delta int64) (int, error) {
 	pipe := c.rdb.TxPipeline()
-	incr := pipe.Incr(ctx, key)
+	incr := pipe.IncrBy(ctx, key, delta)
 	pipe.Expire(ctx, key, userRPMKeyTTL)
 	if _, err := pipe.Exec(ctx); err != nil {
-		return 0, fmt.Errorf("user rpm increment: %w", err)
+		return 0, fmt.Errorf("user rate counter increment: %w", err)
 	}
 	return int(incr.Val()), nil
 }
@@ -71,6 +76,18 @@ func (c *userRPMCacheImpl) IncrementUserRPM(ctx context.Context, userID int64) (
 	}
 	key := fmt.Sprintf("%s%d:%d", userRPMKeyPrefix, userID, minute)
 	return c.atomicIncr(ctx, key)
+}
+
+func (c *userRPMCacheImpl) IncrementUserTPM(ctx context.Context, userID int64, tokens int) (int, error) {
+	if tokens <= 0 {
+		return c.GetUserTPM(ctx, userID)
+	}
+	minute, err := c.minuteTS(ctx)
+	if err != nil {
+		return 0, err
+	}
+	key := fmt.Sprintf("%s%d:%d", userTPMKeyPrefix, userID, minute)
+	return c.atomicIncrBy(ctx, key, int64(tokens))
 }
 
 // GetUserGroupRPM 获取 (user, group) 当前分钟已用 RPM（只读）。
@@ -103,6 +120,22 @@ func (c *userRPMCacheImpl) GetUserRPM(ctx context.Context, userID int64) (int, e
 	}
 	if err != nil {
 		return 0, fmt.Errorf("user rpm get: %w", err)
+	}
+	return val, nil
+}
+
+func (c *userRPMCacheImpl) GetUserTPM(ctx context.Context, userID int64) (int, error) {
+	minute, err := c.minuteTS(ctx)
+	if err != nil {
+		return 0, err
+	}
+	key := fmt.Sprintf("%s%d:%d", userTPMKeyPrefix, userID, minute)
+	val, err := c.rdb.Get(ctx, key).Int()
+	if err == redis.Nil {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("user tpm get: %w", err)
 	}
 	return val, nil
 }

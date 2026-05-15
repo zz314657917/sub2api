@@ -45,11 +45,19 @@ func (s *userRPMCacheStub) IncrementUserRPM(_ context.Context, _ int64) (int, er
 	return 1, nil
 }
 
+func (s *userRPMCacheStub) IncrementUserTPM(_ context.Context, _ int64, _ int) (int, error) {
+	return 0, nil
+}
+
 func (s *userRPMCacheStub) GetUserGroupRPM(_ context.Context, _, _ int64) (int, error) {
 	return 0, nil
 }
 
 func (s *userRPMCacheStub) GetUserRPM(_ context.Context, _ int64) (int, error) {
+	return 0, nil
+}
+
+func (s *userRPMCacheStub) GetUserTPM(_ context.Context, _ int64) (int, error) {
 	return 0, nil
 }
 

@@ -32,10 +32,17 @@ func newFakeImageCreatorRepo() *fakeImageCreatorRepo {
 	}
 }
 
-func (r *fakeImageCreatorRepo) CreateTask(_ context.Context, task *ImageCreatorTask) error {
+func (r *fakeImageCreatorRepo) CreateTask(_ context.Context, task *ImageCreatorTask, maxActiveTasks int) error {
+	if maxActiveTasks <= 0 {
+		maxActiveTasks = 1
+	}
+	active := 0
 	for _, existing := range r.tasks {
 		if existing.UserID == task.UserID && (existing.Status == ImageCreatorTaskStatusPending || existing.Status == ImageCreatorTaskStatusRunning) {
-			return ErrImageCreatorActiveTaskExists
+			active++
+			if active >= maxActiveTasks {
+				return ErrImageCreatorActiveTaskExists
+			}
 		}
 	}
 	task.ID = r.nextTaskID
@@ -418,13 +425,20 @@ func TestImageCreatorServiceCreateTaskRejectsTooManyImages(t *testing.T) {
 	require.Empty(t, repo.tasks)
 }
 
-func TestImageCreatorServiceCreateTaskRejectsWhenUserAlreadyHasActiveTask(t *testing.T) {
+func TestImageCreatorServiceCreateTaskRejectsWhenUserReachedActiveTaskLimit(t *testing.T) {
 	repo := newFakeImageCreatorRepo()
 	repo.tasks[1] = &ImageCreatorTask{
 		ID:        1,
 		UserID:    42,
 		APIKeyID:  10,
 		Status:    ImageCreatorTaskStatusRunning,
+		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
+	}
+	repo.tasks[2] = &ImageCreatorTask{
+		ID:        2,
+		UserID:    42,
+		APIKeyID:  10,
+		Status:    ImageCreatorTaskStatusPending,
 		ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
 	}
 	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
@@ -444,8 +458,8 @@ func TestImageCreatorServiceCreateTaskRejectsWhenUserAlreadyHasActiveTask(t *tes
 
 	require.Error(t, err)
 	require.True(t, infraerrors.IsTooManyRequests(err), "expected too many requests error, got %v", err)
-	require.Equal(t, "IMAGE_CREATOR_TASK_ALREADY_RUNNING", infraerrors.Reason(err))
-	require.Len(t, repo.tasks, 1)
+	require.Equal(t, "IMAGE_CREATOR_TASK_LIMIT_EXCEEDED", infraerrors.Reason(err))
+	require.Len(t, repo.tasks, 2)
 }
 
 func TestImageCreatorServiceCreateTaskInfersMultiAngleCountFromPrompt(t *testing.T) {

@@ -432,9 +432,10 @@ func ProvideAPIKeyService(
 func ProvideImageCreatorService(
 	repo ImageCreatorRepository,
 	apiKeyService *APIKeyService,
+	membershipService *MembershipService,
 	cfg *config.Config,
 ) *ImageCreatorService {
-	svc := NewImageCreatorService(repo, apiKeyService, cfg)
+	svc := NewImageCreatorService(repo, apiKeyService, membershipService, cfg)
 	svc.Start()
 	return svc
 }
@@ -494,6 +495,7 @@ var ProviderSet = wire.NewSet(
 	NewTurnstileService,
 	NewSubscriptionService,
 	wire.Bind(new(DefaultSubscriptionAssigner), new(*SubscriptionService)),
+	NewMembershipService,
 	ProvideConcurrencyService,
 	ProvideUserMessageQueueService,
 	NewUsageRecordWorkerPool,
