@@ -144,6 +144,17 @@ function formatPercent(value: number): string {
   return `${value.toFixed(1)}%`
 }
 
+function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) {
+    return 0
+  }
+  return Math.min(100, Math.max(0, value))
+}
+
+function remainingPercent(value: number): number {
+  return 100 - clampPercent(value)
+}
+
 function formatRemainingUnits(value: number): string {
   if (!Number.isFinite(value) || value <= 0) {
     return '0'
@@ -207,7 +218,7 @@ function chipClass(tone: 'success' | 'warning' | 'danger' | 'neutral'): string {
 
 function windowSummaries(group: UserAccountCapacityPoolGroup): Array<{ key: string; data: UserAccountCapacityWindowSummary }> {
   const windows = group.windows ?? {}
-  return ['1d', '7d_quota', '30d', '5h', '7d']
+  return ['1d', '7d_quota', '5h', '7d']
     .map((key) => {
       const data = windows[key]
       return data ? { key, data } : null
@@ -217,7 +228,7 @@ function windowSummaries(group: UserAccountCapacityPoolGroup): Array<{ key: stri
 
 function windowBadges(section: UserAccountCapacityPoolSection): Array<{ key: string; data: UserAccountCapacityWindowSnapshot }> {
   const windows = section.windows ?? {}
-  return ['1d', '7d_quota', '30d', '5h', '7d']
+  return ['1d', '7d_quota', '5h', '7d']
     .map((key) => {
       const data = windows[key]
       return data ? { key, data } : null
@@ -384,16 +395,18 @@ const SharedGroupGrid = defineComponent({
               )),
             ])
             : null,
-          h('div', { class: 'mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2' }, windowSummaries(group).map((item) => (
-            h('div', { key: item.key, class: 'rounded-md bg-white/65 p-2 dark:bg-dark-900/35' }, [
+          h('div', { class: 'mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2' }, windowSummaries(group).map((item) => {
+            const percentOnlyQuota = componentProps.pool.percent_only_quota || group.percent_only_quota
+            const displayPercent = percentOnlyQuota ? remainingPercent(item.data.used_percent) : clampPercent(item.data.used_percent)
+            return h('div', { key: item.key, class: 'rounded-md bg-white/65 p-2 dark:bg-dark-900/35' }, [
               h('div', { class: 'flex items-center justify-between gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100' }, [
                 h('span', windowLabel(item.key)),
-                h('span', formatPercent(item.data.used_percent)),
+                h('span', formatPercent(displayPercent)),
               ]),
               h('div', { class: 'mt-1 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700' }, [
                 h('div', {
                   class: 'h-full rounded-full bg-emerald-500',
-                  style: { width: `${Math.min(100, Math.max(0, item.data.used_percent))}%` },
+                  style: { width: `${displayPercent}%` },
                 }),
               ]),
               h('div', { class: 'mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400' }, [
@@ -402,16 +415,14 @@ const SharedGroupGrid = defineComponent({
                   h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, `${formatInteger(item.data.schedulable_snapshot_accounts)}/${formatInteger(item.data.snapshot_accounts)}`),
                 ]),
                 h('div', [
-              componentProps.pool.percent_only_quota || group.percent_only_quota
-                ? h('p', t('channelStatus.capacityPools.percentOnly'))
-                : h('p', t('channelStatus.capacityPools.schedulableRemaining')),
-              componentProps.pool.percent_only_quota || group.percent_only_quota
-                ? h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, formatPercent(item.data.used_percent))
+              h('p', t('channelStatus.capacityPools.schedulableRemaining')),
+              percentOnlyQuota
+                ? h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, formatPercent(displayPercent))
                 : h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, formatRemainingUnits(item.data.remaining_units)),
             ]),
           ]),
         ])
-          ))),
+          })),
         ])
       ))),
     ])

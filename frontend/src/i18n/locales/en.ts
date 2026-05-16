@@ -1438,9 +1438,9 @@ export default {
       unavailable: 'Unavailable',
       window: '{window} window',
       quotaWindow: '{window} quota',
-      schedulableSnapshot: 'Schedulable snapshots',
-      schedulableRemaining: 'Schedulable remaining',
-      percentOnly: 'Percent only',
+      schedulableSnapshot: 'Schedulable',
+      schedulableRemaining: 'Remaining',
+      percentOnly: 'Remaining',
       ownContributed: 'Mine',
       unavailableReason: 'Not schedulable',
       unavailableReasons: {

@@ -1442,9 +1442,9 @@ export default {
       unavailable: '不可用',
       window: '{window} 窗口',
       quotaWindow: '{window} 额度',
-      schedulableSnapshot: '可调度快照',
-      schedulableRemaining: '可调度剩余',
-      percentOnly: '只显示百分比',
+      schedulableSnapshot: '可调度',
+      schedulableRemaining: '剩余',
+      percentOnly: '剩余',
       ownContributed: '我贡献的',
       unavailableReason: '不可调度原因',
       unavailableReasons: {
