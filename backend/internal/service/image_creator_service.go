@@ -50,7 +50,8 @@ const (
 	imageCreatorStorageBackendS3                 = "s3"
 	imageCreatorStorageBackendCOS                = "cos"
 	imageCreatorObjectStoragePathPrefix          = "s3://"
-	maxImageCreatorTaskCount                     = 4
+	maxImageCreatorTaskCount                     = 8
+	maxImageCreatorUpstreamBatchCount            = 4
 	imageCreatorMaxStoredImageBytes        int64 = 25 << 20
 )
 
@@ -610,17 +611,18 @@ func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *Imag
 	var lastErr error
 	generateCount := maxInt(1, task.Count)
 	plannedPrompts := planImageCreatorPrompts(task.Prompt, generateCount)
-	for i := 1; i <= generateCount; i++ {
+	for i := 0; i < generateCount && successCount < generateCount; {
 		prompt := task.Prompt
-		if i-1 < len(plannedPrompts) {
-			prompt = plannedPrompts[i-1]
+		if i < len(plannedPrompts) {
+			prompt = plannedPrompts[i]
 		}
+		batchCount := imageCreatorBatchCountForPlannedPrompts(plannedPrompts, i, generateCount)
 		assets, err := s.generator.GenerateImage(ctx, ImageCreatorGenerateRequest{
 			Model:                  task.Model,
 			Prompt:                 prompt,
 			Size:                   task.Size,
 			Quality:                task.Quality,
-			Count:                  1,
+			Count:                  batchCount,
 			OutputFormat:           task.OutputFormat,
 			Background:             task.Background,
 			ReferenceImagePath:     task.ReferenceImagePath,
@@ -629,9 +631,13 @@ func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *Imag
 		}, apiKey.Key)
 		if err != nil {
 			lastErr = err
+			i += batchCount
 			continue
 		}
 		for _, asset := range assets {
+			if successCount >= generateCount {
+				break
+			}
 			if len(asset.Data) == 0 {
 				continue
 			}
@@ -660,6 +666,7 @@ func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *Imag
 			}
 			successCount++
 		}
+		i += batchCount
 	}
 	if pruneErr := s.pruneUserImages(ctx, task.UserID, successCount); pruneErr != nil && lastErr == nil {
 		lastErr = pruneErr
@@ -758,9 +765,26 @@ func (s *ImageCreatorService) runWorkerOnce() {
 	if task == nil {
 		return
 	}
-	if err := s.processClaimedTask(ctx, task); err != nil {
+	processCtx, processCancel := s.taskProcessContext(ctx, task)
+	defer processCancel()
+	if err := s.processClaimedTask(processCtx, task); err != nil {
 		logger.L().Warn("image creator process task failed", zap.Int64("task_id", task.ID), zap.Error(err))
 	}
+}
+
+func (s *ImageCreatorService) taskProcessContext(parent context.Context, task *ImageCreatorTask) (context.Context, context.CancelFunc) {
+	if parent == nil {
+		parent = context.Background()
+	}
+	timeout := s.requestTimeout
+	if timeout <= 0 {
+		timeout = defaultImageCreatorRequestTimeout
+	}
+	count := 1
+	if task != nil {
+		count = maxInt(1, task.Count)
+	}
+	return context.WithTimeout(context.WithoutCancel(parent), timeout*time.Duration(count))
 }
 
 func (s *ImageCreatorService) pruneUserImages(ctx context.Context, userID int64, keepAtLeast int) error {
@@ -842,6 +866,32 @@ func planImageCreatorPrompts(prompt string, count int) []string {
 		prompts[i] = fmt.Sprintf("%s\n\n第 %d 张（%s）：只生成一张完整图片，画面只使用这一个镜头角度；不要四宫格、不要拼图、不要分屏、不要在同一张图里展示多个角度。", base, i+1, label)
 	}
 	return prompts
+}
+
+func imageCreatorBatchCountForPlannedPrompts(prompts []string, start int, total int) int {
+	if start < 0 || start >= total {
+		return 1
+	}
+	limit := minInt(maxImageCreatorUpstreamBatchCount, total-start)
+	if limit <= 1 {
+		return 1
+	}
+	prompt := ""
+	if start < len(prompts) {
+		prompt = prompts[start]
+	}
+	count := 1
+	for count < limit {
+		next := ""
+		if start+count < len(prompts) {
+			next = prompts[start+count]
+		}
+		if next != prompt {
+			break
+		}
+		count++
+	}
+	return count
 }
 
 func imageCreatorPromptRequestsMultipleViews(prompt string) bool {
@@ -1046,6 +1096,7 @@ func (g *ImageCreatorHTTPGenerator) GenerateImage(ctx context.Context, input Ima
 	if strings.TrimSpace(input.ReferenceImagePath) != "" {
 		endpointMode = "edits"
 	}
+	count := minInt(maxInt(1, input.Count), maxImageCreatorUpstreamBatchCount)
 	endpoint := buildImageCreatorGatewayEndpoint(g.baseURL, endpointMode)
 	var body io.Reader
 	contentType := "application/json"
@@ -1054,7 +1105,7 @@ func (g *ImageCreatorHTTPGenerator) GenerateImage(ctx context.Context, input Ima
 		writer := multipart.NewWriter(&buffer)
 		writeMultipartField(writer, "model", input.Model)
 		writeMultipartField(writer, "prompt", input.Prompt)
-		writeMultipartField(writer, "n", "1")
+		writeMultipartField(writer, "n", strconv.Itoa(count))
 		writeMultipartField(writer, "response_format", "b64_json")
 		writeMultipartField(writer, "size", input.Size)
 		writeMultipartField(writer, "quality", input.Quality)
@@ -1072,7 +1123,7 @@ func (g *ImageCreatorHTTPGenerator) GenerateImage(ctx context.Context, input Ima
 		payload := map[string]any{
 			"model":           input.Model,
 			"prompt":          input.Prompt,
-			"n":               1,
+			"n":               count,
 			"response_format": "b64_json",
 		}
 		if strings.TrimSpace(input.Size) != "" {
@@ -1377,6 +1428,13 @@ func removeFileQuietly(path string) {
 
 func maxInt(a int, b int) int {
 	if a > b {
+		return a
+	}
+	return b
+}
+
+func minInt(a int, b int) int {
+	if a < b {
 		return a
 	}
 	return b

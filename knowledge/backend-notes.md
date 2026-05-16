@@ -1,6 +1,6 @@
 # 后端开发笔记
 
-最后更新：2026-05-13
+最后更新：2026-05-15
 
 ## 分层约定
 
@@ -54,6 +54,7 @@ OpenAI / Codex / provider 兼容：
 - service：`image_creator_service.go`
 - repository：`image_creator_repo.go`
 - 前端：`frontend/src/views/user/ImageCreatorView.vue`、`frontend/src/api/imageCreator.ts`
+- 聊天生图工作台复用同一后端任务链路；当前用户侧没有图片任务取消/删除接口，删除 `/chat-images` 本地会话不会取消后端 `pending` / `running` 任务，详见 `knowledge/chat-image-studio.md`。
 
 ## 测试策略
 

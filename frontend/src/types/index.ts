@@ -894,6 +894,11 @@ export interface Account {
   quota_daily_used?: number | null
   quota_weekly_limit?: number | null
   quota_weekly_used?: number | null
+  quota_monthly_limit?: number | null
+  quota_monthly_used?: number | null
+  share_display_name?: string | null
+  share_display_tier?: string | null
+  share_display_percent_only?: boolean | null
 
   // 配额固定时间重置配置
   quota_daily_reset_mode?: 'rolling' | 'fixed' | null
@@ -1087,12 +1092,15 @@ export interface UserAccountCapacityPool {
   total_accounts: number
   active_accounts?: number
   schedulable_accounts: number
+  own_contributed_accounts?: number
   rate_limited_accounts?: number
   error_accounts?: number
   disabled_accounts?: number
   abnormal_accounts?: number
   configured_quota: number
   remaining_quota: number
+  percent_only_quota?: boolean
+  unavailable_reasons?: Record<string, number>
   sections: UserAccountCapacityPoolSection[]
   groups?: UserAccountCapacityPoolGroup[]
 }
@@ -1102,8 +1110,11 @@ export interface UserAccountCapacityPoolSection {
   type: AccountType | string
   total_accounts: number
   schedulable_accounts: number
+  own_contributed_accounts?: number
   configured_quota: number
   remaining_quota: number
+  percent_only_quota?: boolean
+  unavailable_reasons?: Record<string, number>
   windows?: Record<string, UserAccountCapacityWindowSnapshot>
 }
 
@@ -1123,12 +1134,15 @@ export interface UserAccountCapacityPoolGroup {
   total_accounts: number
   active_accounts: number
   schedulable_accounts: number
+  own_contributed_accounts?: number
   rate_limited_accounts: number
   error_accounts: number
   disabled_accounts: number
   abnormal_accounts: number
   configured_quota: number
   remaining_quota: number
+  percent_only_quota?: boolean
+  unavailable_reasons?: Record<string, number>
   status: 'healthy' | 'degraded' | 'unavailable' | string
   windows?: Record<string, UserAccountCapacityWindowSummary>
 }

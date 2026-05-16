@@ -178,8 +178,10 @@
       </template>
       <template #table>
         <AccountBulkActionsBar
-          v-if="!isSharedAccountsPage"
           :selected-ids="selIds"
+          :show-system-actions="!isSharedAccountsPage"
+          :show-share-review-actions="isSharedAccountsPage"
+          :loading="bulkReviewingShare"
           @delete="handleBulkDelete"
           @reset-status="handleBulkResetStatus"
           @refresh-token="handleBulkRefreshToken"
@@ -188,6 +190,8 @@
           @clear="clearSelection"
           @select-page="selectPage"
           @toggle-schedulable="handleBulkToggleSchedulable"
+          @share-status="handleBulkSetShareStatus"
+          @share-status-filtered="handleBulkSetShareStatusFiltered"
         />
         <div ref="accountTableRef" class="flex min-h-0 flex-1 flex-col overflow-hidden">
         <DataTable
@@ -235,7 +239,7 @@
           <template #cell-platform_type="{ row }">
             <div class="flex min-w-0 flex-col gap-1">
               <div class="flex flex-wrap items-center gap-1">
-                <PlatformTypeBadge :platform="row.platform" :type="row.type" :plan-type="row.credentials?.plan_type" :privacy-mode="row.extra?.privacy_mode" :subscription-expires-at="row.credentials?.subscription_expires_at" />
+                <PlatformTypeBadge :platform="row.platform" :type="row.type" :plan-type="row.share_display_tier || row.credentials?.plan_type" :privacy-mode="row.extra?.privacy_mode" :subscription-expires-at="row.credentials?.subscription_expires_at" />
                 <span
                   v-if="getAntigravityTierLabel(row)"
                   :class="['inline-block rounded px-1.5 py-0.5 text-[10px] font-medium', getAntigravityTierClass(row)]"
@@ -390,7 +394,115 @@
       @close="showBulkEdit = false"
       @updated="handleBulkUpdated"
     />
+    <BaseDialog
+      :show="bulkShareResultDialog.show"
+      :title="t('admin.accounts.bulkActions.shareStatusResultTitle')"
+      width="wide"
+      @close="closeBulkShareResultDialog"
+    >
+      <div class="space-y-4">
+        <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300">
+          {{ t('admin.accounts.bulkActions.shareStatusResultSummary', {
+            mode: bulkShareResultModeLabel,
+            success: bulkShareResultDialog.success,
+            failed: bulkShareResultDialog.failed,
+            skipped: bulkShareResultDialog.skipped
+          }) }}
+        </div>
+        <div class="max-h-[60vh] overflow-auto rounded-lg border border-gray-200 dark:border-dark-700">
+          <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-dark-700">
+            <thead class="bg-gray-50 dark:bg-dark-800">
+              <tr>
+                <th class="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
+                  {{ t('admin.accounts.bulkActions.shareStatusResultAccount') }}
+                </th>
+                <th class="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
+                  {{ t('admin.accounts.bulkActions.shareStatusResultStatus') }}
+                </th>
+                <th class="px-4 py-3 text-left font-medium text-gray-600 dark:text-gray-300">
+                  {{ t('admin.accounts.bulkActions.shareStatusResultReason') }}
+                </th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 bg-white dark:divide-dark-700 dark:bg-dark-900">
+              <tr v-for="item in bulkShareResultDialog.items" :key="`${item.accountId}-${item.status}`">
+                <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                  {{ item.accountName }}
+                </td>
+                <td class="px-4 py-3">
+                  <span :class="['inline-flex rounded-full px-2 py-0.5 text-xs font-medium', getBulkShareResultStatusClass(item.status)]">
+                    {{ getBulkShareResultStatusLabel(item.status) }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-gray-600 dark:text-gray-300">
+                  {{ item.reason || '-' }}
+                </td>
+              </tr>
+              <tr v-if="bulkShareResultDialog.items.length === 0">
+                <td colspan="3" class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                  {{ t('admin.accounts.bulkActions.shareStatusNoTargets') }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <template #footer>
+        <button
+          class="btn btn-secondary"
+          :disabled="bulkShareResultDialog.items.length === 0"
+          @click="copyBulkShareResult('all')"
+        >
+          {{ t('admin.accounts.bulkActions.shareStatusResultCopyAll') }}
+        </button>
+        <button
+          class="btn btn-secondary"
+          :disabled="bulkShareResultFailedItems.length === 0"
+          @click="copyBulkShareResult('failed')"
+        >
+          {{ t('admin.accounts.bulkActions.shareStatusResultCopyFailed') }}
+        </button>
+        <button
+          class="btn btn-secondary"
+          :disabled="bulkShareResultSkippedItems.length === 0"
+          @click="copyBulkShareResult('skipped')"
+        >
+          {{ t('admin.accounts.bulkActions.shareStatusResultCopySkipped') }}
+        </button>
+        <button
+          class="btn btn-primary"
+          :disabled="bulkReviewingShare || bulkShareResultFailedItems.length === 0 || !bulkShareResultDialog.retryStatus"
+          @click="retryBulkShareFailed"
+        >
+          {{ t('admin.accounts.bulkActions.shareStatusResultRetryFailed') }}
+        </button>
+        <button class="btn btn-primary" @click="closeBulkShareResultDialog">
+          {{ t('admin.accounts.bulkActions.shareStatusResultClose') }}
+        </button>
+      </template>
+    </BaseDialog>
     <TempUnschedStatusModal :show="showTempUnsched" :account="tempUnschedAcc" @close="showTempUnsched = false" @reset="handleTempUnschedReset" />
+    <ConfirmDialog
+      :show="bulkShareFilteredConfirm.show"
+      :title="t('admin.accounts.bulkActions.shareStatusConfirmTitle')"
+      :message="bulkShareFilteredConfirmMessage"
+      :confirm-text="bulkShareFilteredConfirmActionLabel"
+      :cancel-text="t('common.cancel')"
+      :danger="bulkShareFilteredConfirm.status !== 'active'"
+      @confirm="confirmBulkSetShareStatusFiltered"
+      @cancel="closeBulkShareFilteredConfirm"
+    >
+      <div v-if="bulkShareFilteredConfirm.sampleItems.length > 0" class="space-y-2">
+        <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
+          {{ t('admin.accounts.bulkActions.shareStatusConfirmSampleTitle') }}
+        </p>
+        <ul class="max-h-40 space-y-1 overflow-auto rounded-lg border border-gray-200 bg-gray-50 p-2 text-sm text-gray-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300">
+          <li v-for="item in bulkShareFilteredConfirm.sampleItems" :key="item.accountId">
+            {{ item.accountName }}
+          </li>
+        </ul>
+      </div>
+    </ConfirmDialog>
     <ConfirmDialog :show="showDeleteDialog" :title="t('admin.accounts.deleteAccount')" :message="t('admin.accounts.deleteConfirm', { name: deletingAcc?.name })" :confirm-text="t('common.delete')" :cancel-text="t('common.cancel')" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
     <ConfirmDialog :show="showExportDataDialog" :title="t('admin.accounts.dataExport')" :message="t('admin.accounts.dataExportConfirmMessage')" :confirm-text="t('admin.accounts.dataExportConfirm')" :cancel-text="t('common.cancel')" @confirm="handleExportData" @cancel="showExportDataDialog = false">
       <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -418,6 +530,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { CreateAccountModal, EditAccountModal, BulkEditAccountModal, SyncFromCrsModal, TempUnschedStatusModal } from '@/components/account'
 import AccountTableActions from '@/components/admin/account/AccountTableActions.vue'
@@ -441,7 +554,7 @@ import ErrorPassthroughRulesModal from '@/components/admin/ErrorPassthroughRules
 import TLSFingerprintProfilesModal from '@/components/admin/TLSFingerprintProfilesModal.vue'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
-import type { Account, AccountPlatform, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel } from '@/types'
+import type { Account, AccountPlatform, AccountShareStatus, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel } from '@/types'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -522,6 +635,71 @@ const scheduleAcc = ref<Account | null>(null)
 const scheduleModelOptions = ref<SelectOption[]>([])
 const togglingSchedulable = ref<number | null>(null)
 const reviewingShareAccountId = ref<number | null>(null)
+const bulkReviewingShare = ref(false)
+type BulkShareReviewStatus = Extract<AccountShareStatus, 'active' | 'rejected' | 'suspended'>
+type BulkShareResultItem = {
+  accountId: number
+  accountName: string
+  status: 'success' | 'failed' | 'skipped'
+  reason?: string
+}
+type BulkShareFilteredConfirmState = {
+  show: boolean
+  loading: boolean
+  status: BulkShareReviewStatus
+  filters: Record<string, unknown> | null
+  previewCount: number
+  sampleItems: Array<{ accountId: number; accountName: string }>
+}
+const bulkShareResultDialog = reactive<{
+  show: boolean
+  mode: 'selected' | 'filtered'
+  retryStatus: BulkShareReviewStatus | null
+  success: number
+  failed: number
+  skipped: number
+  items: BulkShareResultItem[]
+}>({
+  show: false,
+  mode: 'selected',
+  retryStatus: null,
+  success: 0,
+  failed: 0,
+  skipped: 0,
+  items: []
+})
+const bulkShareFilteredConfirm = reactive<BulkShareFilteredConfirmState>({
+  show: false,
+  loading: false,
+  status: 'active',
+  filters: null,
+  previewCount: 0,
+  sampleItems: []
+})
+const bulkShareResultModeLabel = computed(() => t(
+  bulkShareResultDialog.mode === 'filtered'
+    ? 'admin.accounts.bulkActions.shareStatusResultModeFiltered'
+    : 'admin.accounts.bulkActions.shareStatusResultModeSelected'
+))
+const bulkShareResultFailedItems = computed(() =>
+  bulkShareResultDialog.items.filter(item => item.status === 'failed')
+)
+const bulkShareResultSkippedItems = computed(() =>
+  bulkShareResultDialog.items.filter(item => item.status === 'skipped')
+)
+const bulkShareFilteredConfirmActionLabel = computed(() => {
+  if (bulkShareFilteredConfirm.status === 'active') {
+    return t('admin.accounts.bulkActions.approveFilteredShare')
+  }
+  if (bulkShareFilteredConfirm.status === 'rejected') {
+    return t('admin.accounts.bulkActions.rejectFilteredShare')
+  }
+  return t('admin.accounts.bulkActions.suspendFilteredShare')
+})
+const bulkShareFilteredConfirmMessage = computed(() => t('admin.accounts.bulkActions.shareStatusConfirmMessage', {
+  count: bulkShareFilteredConfirm.previewCount,
+  action: bulkShareFilteredConfirmActionLabel.value
+}))
 const menu = reactive<{show:boolean, acc:Account|null, pos:{top:number, left:number}|null}>({ show: false, acc: null, pos: null })
 const exportingData = ref(false)
 
@@ -1769,7 +1947,7 @@ const shareStatusClass = (status: string | null | undefined) => {
 }
 const handleSetShareStatus = async (
   a: Account,
-  status: 'not_shared' | 'pending_review' | 'active' | 'rejected' | 'suspended'
+  status: AccountShareStatus
 ) => {
   reviewingShareAccountId.value = a.id
   try {
@@ -1783,6 +1961,323 @@ const handleSetShareStatus = async (
   } finally {
     reviewingShareAccountId.value = null
   }
+}
+const getBulkShareReviewAllowedStatus = (status: BulkShareReviewStatus) => {
+  return status === 'suspended' ? 'active' : 'pending_review'
+}
+const getAccountDisplayName = (account: Account | undefined) => {
+  if (!account) return ''
+  return displayAccountName(account, account.name)
+}
+const formatBulkShareDetail = (ids: number[], fallbackPrefix: string) => {
+  const idSet = new Set(ids)
+  const samples = accounts.value
+    .filter(account => idSet.has(account.id))
+    .slice(0, 3)
+    .map(account => `${getAccountDisplayName(account)}(#${account.id})`)
+  const missingSamples = ids
+    .filter(id => !accounts.value.some(account => account.id === id))
+    .slice(0, Math.max(0, 3 - samples.length))
+    .map(id => `${fallbackPrefix} #${id}`)
+  return [...samples, ...missingSamples].join(', ')
+}
+const getBulkShareAccountLabel = (id: number) => {
+  const account = accounts.value.find(item => item.id === id)
+  return account ? `${getAccountDisplayName(account)} (#${id})` : `Account #${id}`
+}
+const normalizeBulkShareStatusResult = (
+  result: {
+    success?: number
+    failed?: number
+    success_ids?: number[]
+    failed_ids?: number[]
+    results?: Array<{ account_id: number; success: boolean; error?: string }>
+  },
+  submittedIds: number[]
+) => {
+  const resultItems = Array.isArray(result.results) ? result.results : []
+  const successIds = Array.isArray(result.success_ids)
+    ? result.success_ids
+    : resultItems.filter(item => item.success).map(item => item.account_id)
+  const failedIds = Array.isArray(result.failed_ids)
+    ? result.failed_ids
+    : resultItems.filter(item => !item.success).map(item => item.account_id)
+  const successCount = typeof result.success === 'number' ? result.success : successIds.length
+  const failedCount = typeof result.failed === 'number' ? result.failed : failedIds.length
+
+  return {
+    successIds: successIds.length > 0 ? successIds : (failedCount === 0 && successCount === submittedIds.length ? submittedIds : []),
+    failedIds,
+    successCount,
+    failedCount,
+    failedDetails: resultItems.filter(item => !item.success && item.error)
+  }
+}
+const openBulkShareResultDialog = (payload: {
+  mode: 'selected' | 'filtered'
+  retryStatus?: BulkShareReviewStatus | null
+  success: number
+  failed: number
+  skipped: number
+  items: BulkShareResultItem[]
+}) => {
+  bulkShareResultDialog.mode = payload.mode
+  bulkShareResultDialog.retryStatus = payload.retryStatus ?? null
+  bulkShareResultDialog.success = payload.success
+  bulkShareResultDialog.failed = payload.failed
+  bulkShareResultDialog.skipped = payload.skipped
+  bulkShareResultDialog.items = payload.items
+  bulkShareResultDialog.show = true
+}
+const closeBulkShareResultDialog = () => {
+  bulkShareResultDialog.show = false
+}
+const closeBulkShareFilteredConfirm = () => {
+  bulkShareFilteredConfirm.show = false
+  bulkShareFilteredConfirm.filters = null
+  bulkShareFilteredConfirm.previewCount = 0
+  bulkShareFilteredConfirm.sampleItems = []
+}
+const getBulkShareResultStatusClass = (status: BulkShareResultItem['status']) => {
+  switch (status) {
+    case 'success':
+      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+    case 'failed':
+      return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
+    case 'skipped':
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+  }
+}
+const getBulkShareResultStatusLabel = (status: BulkShareResultItem['status']) => {
+  if (status === 'success') return t('admin.accounts.bulkActions.shareStatusResultSuccess')
+  if (status === 'failed') return t('admin.accounts.bulkActions.shareStatusResultFailed')
+  return t('admin.accounts.bulkActions.shareStatusResultSkipped')
+}
+const formatBulkShareResultForCopy = (items: BulkShareResultItem[]) => {
+  return items
+    .map(item => [
+      item.accountId,
+      item.accountName,
+      getBulkShareResultStatusLabel(item.status),
+      item.reason || '-'
+    ].join('\t'))
+    .join('\n')
+}
+const formatBulkShareResultIdsForCopy = (items: BulkShareResultItem[]) => {
+  return items.map(item => String(item.accountId)).join('\n')
+}
+const copyTextToClipboard = async (text: string) => {
+  if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+    throw new Error('Clipboard API unavailable')
+  }
+  await navigator.clipboard.writeText(text)
+}
+const copyBulkShareResult = async (scope: 'all' | 'failed' | 'skipped') => {
+  const items = scope === 'failed'
+    ? bulkShareResultFailedItems.value
+    : scope === 'skipped'
+      ? bulkShareResultSkippedItems.value
+      : bulkShareResultDialog.items
+  if (items.length === 0) return
+  try {
+    const text = scope === 'all'
+      ? formatBulkShareResultForCopy(items)
+      : formatBulkShareResultIdsForCopy(items)
+    await copyTextToClipboard(text)
+    appStore.showSuccess(t('common.copiedToClipboard'))
+  } catch (error) {
+    console.error('Failed to copy bulk share result:', error)
+    appStore.showError(t('common.copyFailed'))
+  }
+}
+const retryBulkShareFailed = async () => {
+  const retryStatus = bulkShareResultDialog.retryStatus
+  const failedIds = bulkShareResultFailedItems.value.map(item => item.accountId)
+  if (!retryStatus || failedIds.length === 0) return
+  closeBulkShareResultDialog()
+  await executeBulkShareStatus({
+    mode: 'selected',
+    status: retryStatus,
+    targetIds: failedIds
+  })
+}
+const executeBulkShareStatus = async (options: {
+  mode: 'selected' | 'filtered'
+  status: BulkShareReviewStatus
+  targetIds?: number[]
+  filters?: Record<string, unknown>
+  skippedItems?: BulkShareResultItem[]
+}) => {
+  const targetIds = options.targetIds ?? []
+  const skippedItems = options.skippedItems ?? []
+  bulkReviewingShare.value = true
+  try {
+    const result = await adminAPI.accounts.batchSetShareStatus(
+      options.mode === 'filtered' ? { filters: options.filters ?? {} } : targetIds,
+      options.status
+    )
+    const { successIds, failedIds, successCount, failedCount, failedDetails } = normalizeBulkShareStatusResult(result, targetIds)
+
+    if (successIds.length > 0) {
+      const successIdSet = new Set(successIds)
+      accounts.value = accounts.value.map(account => successIdSet.has(account.id) ? { ...account, share_status: options.status } : account)
+    }
+    enterAutoRefreshSilentWindow()
+
+    const resultRows = Array.isArray(result.results) ? result.results : []
+    const resultItems: BulkShareResultItem[] = resultRows.map(item => ({
+      accountId: item.account_id,
+      accountName: getBulkShareAccountLabel(item.account_id),
+      status: item.success ? 'success' : 'failed',
+      reason: item.error
+    }))
+    const reportedIds = new Set(resultRows.map(item => item.account_id))
+    const inferredSuccessItems = successIds
+      .filter(id => !reportedIds.has(id))
+      .map(id => ({
+        accountId: id,
+        accountName: getBulkShareAccountLabel(id),
+        status: 'success' as const
+      }))
+    openBulkShareResultDialog({
+      mode: options.mode,
+      retryStatus: options.status,
+      success: successCount,
+      failed: failedCount,
+      skipped: skippedItems.length,
+      items: [...resultItems, ...inferredSuccessItems, ...skippedItems]
+    })
+
+    if (successCount === 0 && failedCount === 0 && skippedItems.length === 0) {
+      appStore.showInfo(t('admin.accounts.bulkActions.shareStatusNoTargets'))
+      return
+    }
+
+    const failedDetail = failedDetails
+      .slice(0, 3)
+      .map(item => `${formatBulkShareDetail([item.account_id], 'Account')}: ${item.error}`)
+      .join('; ')
+    const skippedDetail = skippedItems.length > 0 ? skippedItems.slice(0, 3).map(item => item.accountName).join(', ') : ''
+    const partialDetail = [failedDetail || formatBulkShareDetail(failedIds, 'Account'), skippedDetail]
+      .filter(Boolean)
+      .join('; ')
+
+    if (failedCount > 0) {
+      if (options.mode === 'selected') setSelectedIds(failedIds)
+      appStore.showError(t('admin.accounts.bulkActions.shareStatusPartial', {
+        success: successCount,
+        failed: failedCount,
+        skipped: skippedItems.length,
+        detail: partialDetail
+      }))
+    } else {
+      if (options.mode === 'selected') clearSelection()
+      const messageKey = skippedItems.length > 0
+        ? 'admin.accounts.bulkActions.shareStatusSuccessWithSkipped'
+        : 'admin.accounts.bulkActions.shareStatusSuccess'
+      appStore.showSuccess(t(messageKey, {
+        count: successCount,
+        skipped: skippedItems.length,
+        detail: skippedDetail
+      }))
+    }
+
+    if (successCount > 0) {
+      await reload()
+    }
+  } catch (error: any) {
+    console.error('Failed to bulk update account share status:', error)
+    appStore.showError(error?.message || t('admin.accounts.share.reviewFailed'))
+  } finally {
+    bulkReviewingShare.value = false
+  }
+}
+const handleBulkSetShareStatus = async (status: BulkShareReviewStatus) => {
+  const accountIds = [...selIds.value]
+  if (accountIds.length === 0) {
+    appStore.showError(t('admin.accounts.bulkEdit.noSelection'))
+    return
+  }
+
+  const allowedStatus = getBulkShareReviewAllowedStatus(status)
+  const selectedAccounts = accounts.value.filter(account => accountIds.includes(account.id))
+  const targetAccounts = selectedAccounts.filter(account => account.share_status === allowedStatus)
+  const targetIds = targetAccounts.map(account => account.id)
+  const skippedIds = accountIds.filter(accountId => !targetIds.includes(accountId))
+  const skippedItems = skippedIds.map(id => ({
+    accountId: id,
+    accountName: getBulkShareAccountLabel(id),
+    status: 'skipped' as const,
+    reason: t('admin.accounts.bulkActions.shareStatusResultSkippedReason')
+  }))
+
+  if (targetIds.length === 0) {
+    setSelectedIds([])
+    openBulkShareResultDialog({
+      mode: 'selected',
+      success: 0,
+      failed: 0,
+      skipped: skippedItems.length,
+      items: skippedItems
+    })
+    appStore.showError(t('admin.accounts.bulkActions.shareStatusSkippedAll', {
+      skipped: skippedIds.length,
+      detail: formatBulkShareDetail(skippedIds, 'Account')
+    }))
+    return
+  }
+
+  await executeBulkShareStatus({
+    mode: 'selected',
+    status,
+    targetIds,
+    skippedItems
+  })
+}
+const handleBulkSetShareStatusFiltered = async (status: BulkShareReviewStatus) => {
+  const filters = {
+    ...buildBulkEditFilterSnapshot(),
+    share_status: getBulkShareReviewAllowedStatus(status)
+  }
+  bulkShareFilteredConfirm.loading = true
+  try {
+    const preview = await adminAPI.accounts.list(1, 5, filters)
+    if (preview.total <= 0) {
+      openBulkShareResultDialog({
+        mode: 'filtered',
+        success: 0,
+        failed: 0,
+        skipped: 0,
+        items: []
+      })
+      appStore.showInfo(t('admin.accounts.bulkActions.shareStatusNoTargets'))
+      return
+    }
+    bulkShareFilteredConfirm.status = status
+    bulkShareFilteredConfirm.filters = filters
+    bulkShareFilteredConfirm.previewCount = preview.total
+    bulkShareFilteredConfirm.sampleItems = preview.items.map(account => ({
+      accountId: account.id,
+      accountName: `${getAccountDisplayName(account)} (#${account.id})`
+    }))
+    bulkShareFilteredConfirm.show = true
+  } catch (error: any) {
+    console.error('Failed to preview bulk share status targets:', error)
+    appStore.showError(error?.message || t('common.error'))
+  } finally {
+    bulkShareFilteredConfirm.loading = false
+  }
+}
+const confirmBulkSetShareStatusFiltered = async () => {
+  if (!bulkShareFilteredConfirm.filters) return
+  const status = bulkShareFilteredConfirm.status
+  const filters = { ...bulkShareFilteredConfirm.filters }
+  closeBulkShareFilteredConfirm()
+  await executeBulkShareStatus({
+    mode: 'filtered',
+    status,
+    filters
+  })
 }
 const handleDelete = (a: Account) => { deletingAcc.value = a; showDeleteDialog.value = true }
 const confirmDelete = async () => { if(!deletingAcc.value) return; try { await adminAPI.accounts.delete(deletingAcc.value.id); showDeleteDialog.value = false; deletingAcc.value = null; reload() } catch (error) { console.error('Failed to delete account:', error) } }

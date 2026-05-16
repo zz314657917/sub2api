@@ -20,6 +20,7 @@ func setupAccountMixedChannelRouter(adminSvc *stubAdminService) *gin.Engine {
 	router.POST("/api/v1/admin/accounts", accountHandler.Create)
 	router.PUT("/api/v1/admin/accounts/:id", accountHandler.Update)
 	router.POST("/api/v1/admin/accounts/bulk-update", accountHandler.BulkUpdate)
+	router.POST("/api/v1/admin/accounts/batch-share-status", accountHandler.BulkSetShareStatus)
 	return router
 }
 
@@ -221,4 +222,62 @@ func TestBulkUpdateAcceptsFilterTargetRequest(t *testing.T) {
 	var resp map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
 	require.Equal(t, float64(0), resp["code"])
+}
+
+func TestBulkSetShareStatusAcceptsFilterTargetRequest(t *testing.T) {
+	adminSvc := newStubAdminService()
+	router := setupAccountMixedChannelRouter(adminSvc)
+
+	body, _ := json.Marshal(map[string]any{
+		"filters": map[string]any{
+			"platform":     "openai",
+			"type":         "oauth",
+			"status":       "active",
+			"group":        "12",
+			"privacy_mode": "blocked",
+			"search":       "bulk-target",
+			"owner_filter": "user_owned",
+			"share_mode":   "public",
+			"share_status": "pending_review",
+		},
+		"share_status": "active",
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/batch-share-status", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, float64(0), resp["code"])
+	require.Empty(t, adminSvc.lastBulkSetShareStatus.accountIDs)
+	require.Equal(t, "active", adminSvc.lastBulkSetShareStatus.shareStatus)
+	require.NotNil(t, adminSvc.lastBulkSetShareStatus.filters)
+	require.Equal(t, "openai", adminSvc.lastBulkSetShareStatus.filters.Platform)
+	require.Equal(t, "oauth", adminSvc.lastBulkSetShareStatus.filters.Type)
+	require.Equal(t, "active", adminSvc.lastBulkSetShareStatus.filters.Status)
+	require.Equal(t, "12", adminSvc.lastBulkSetShareStatus.filters.Group)
+	require.Equal(t, "blocked", adminSvc.lastBulkSetShareStatus.filters.PrivacyMode)
+	require.Equal(t, "bulk-target", adminSvc.lastBulkSetShareStatus.filters.Search)
+	require.Equal(t, "user_owned", adminSvc.lastBulkSetShareStatus.filters.OwnerFilter)
+	require.Equal(t, "public", adminSvc.lastBulkSetShareStatus.filters.ShareMode)
+	require.Equal(t, "pending_review", adminSvc.lastBulkSetShareStatus.filters.ShareStatus)
+}
+
+func TestBulkSetShareStatusRequiresTarget(t *testing.T) {
+	adminSvc := newStubAdminService()
+	router := setupAccountMixedChannelRouter(adminSvc)
+
+	body, _ := json.Marshal(map[string]any{
+		"share_status": "active",
+	})
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/batch-share-status", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Empty(t, adminSvc.lastBulkSetShareStatus.accountIDs)
+	require.Nil(t, adminSvc.lastBulkSetShareStatus.filters)
 }

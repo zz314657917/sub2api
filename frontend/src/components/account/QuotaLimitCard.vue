@@ -10,6 +10,7 @@ const props = withDefaults(defineProps<{
   totalLimit: number | null
   dailyLimit: number | null
   weeklyLimit: number | null
+  monthlyLimit?: number | null
   dailyResetMode: QuotaResetMode | null
   dailyResetHour: number | null
   weeklyResetMode: QuotaResetMode | null
@@ -43,6 +44,7 @@ const emit = defineEmits<{
   'update:totalLimit': [value: number | null]
   'update:dailyLimit': [value: number | null]
   'update:weeklyLimit': [value: number | null]
+  'update:monthlyLimit': [value: number | null]
   'update:dailyResetMode': [value: QuotaResetMode | null]
   'update:dailyResetHour': [value: number | null]
   'update:weeklyResetMode': [value: QuotaResetMode | null]
@@ -63,7 +65,8 @@ const emit = defineEmits<{
 const enabled = computed(() =>
   (props.totalLimit != null && props.totalLimit > 0) ||
   (props.dailyLimit != null && props.dailyLimit > 0) ||
-  (props.weeklyLimit != null && props.weeklyLimit > 0)
+  (props.weeklyLimit != null && props.weeklyLimit > 0) ||
+  (props.monthlyLimit != null && props.monthlyLimit > 0)
 )
 
 const localEnabled = ref(enabled.value)
@@ -81,6 +84,7 @@ watch(localEnabled, (val) => {
     emit('update:totalLimit', null)
     emit('update:dailyLimit', null)
     emit('update:weeklyLimit', null)
+    emit('update:monthlyLimit', null)
     emit('update:dailyResetMode', null)
     emit('update:dailyResetHour', null)
     emit('update:weeklyResetMode', null)
@@ -240,6 +244,26 @@ const dailyFixedHint = computed(() =>
           @update:notify-enabled="emit('update:quotaNotifyTotalEnabled', $event)"
           @update:notify-threshold="emit('update:quotaNotifyTotalThreshold', $event)"
           @update:notify-threshold-type="emit('update:quotaNotifyTotalThresholdType', $event)"
+        />
+
+        <!-- Monthly quota -->
+        <QuotaDimensionRow
+          dim="monthly"
+          :label="t('admin.accounts.quotaMonthlyLimit')"
+          :limit="monthlyLimit ?? null"
+          :quota-notify-global-enabled="false"
+          :notify-enabled="null"
+          :notify-threshold="null"
+          :notify-threshold-type="null"
+          :reset-mode="null"
+          :reset-hour="null"
+          :reset-day="null"
+          :reset-timezone="null"
+          :hint-rolling="t('admin.accounts.quotaMonthlyLimitHint')"
+          hint-fixed=""
+          :hour-options="hourOptions"
+          :day-options="dayOptions"
+          @update:limit="emit('update:monthlyLimit', $event)"
         />
       </div>
   </div>

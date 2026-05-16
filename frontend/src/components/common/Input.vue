@@ -23,6 +23,7 @@
         :placeholder="placeholderText"
         :autocomplete="autocomplete"
         :readonly="readonly"
+        :data-testid="dataTestid"
         :class="[
           'input w-full transition-all duration-200',
           $slots.prefix ? 'pl-11' : '',
@@ -70,6 +71,7 @@ interface Props {
   hint?: string
   id?: string
   autocomplete?: string
+  dataTestid?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {

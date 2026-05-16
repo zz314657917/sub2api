@@ -50,7 +50,7 @@
               <Icon name="upload" size="md" />
               <span>{{ t('myAccounts.import.title') }}</span>
             </button>
-            <button class="btn btn-primary" @click="openCreateModal">
+            <button class="btn btn-primary" data-testid="my-accounts-open-create" @click="openCreateModal">
               <Icon name="plus" size="md" />
               <span>{{ t('myAccounts.addAccount') }}</span>
             </button>
@@ -58,6 +58,54 @@
         </template>
 
         <template #table>
+          <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-primary-50 p-3 dark:bg-primary-900/20">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-sm font-medium text-primary-900 dark:text-primary-100">
+                {{ selectedIds.length > 0 ? t('myAccounts.bulk.selected', { count: selectedIds.length }) : t('myAccounts.bulk.title') }}
+              </span>
+              <template v-if="selectedIds.length > 0">
+                <button
+                  type="button"
+                  class="text-xs font-medium text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200"
+                  @click="selectCurrentPage"
+                >
+                  {{ t('myAccounts.bulk.selectCurrentPage') }}
+                </button>
+                <span class="text-gray-300 dark:text-primary-800">•</span>
+                <button
+                  type="button"
+                  class="text-xs font-medium text-primary-700 hover:text-primary-800 dark:text-primary-300 dark:hover:text-primary-200"
+                  @click="clearSelection"
+                >
+                  {{ t('myAccounts.bulk.clear') }}
+                </button>
+              </template>
+            </div>
+            <div class="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                data-testid="my-accounts-bulk-apply-public"
+                class="btn btn-primary btn-sm"
+                :disabled="bulkSharing || selectedShareableCount === 0"
+                @click="bulkApplyPublic"
+              >
+                <Icon v-if="bulkSharing" name="refresh" size="sm" class="animate-spin" />
+                <Icon v-else name="upload" size="sm" />
+                <span>{{ t('myAccounts.bulk.applyPublic', { count: selectedShareableCount }) }}</span>
+              </button>
+              <button
+                type="button"
+                data-testid="my-accounts-bulk-make-private"
+                class="btn btn-secondary btn-sm"
+                :disabled="bulkSharing || selectedPublicCount === 0"
+                @click="bulkMakePrivate"
+              >
+                <Icon v-if="bulkSharing" name="refresh" size="sm" class="animate-spin" />
+                <Icon v-else name="lock" size="sm" />
+                <span>{{ t('myAccounts.bulk.makePrivate', { count: selectedPublicCount }) }}</span>
+              </button>
+            </div>
+          </div>
           <DataTable
             :columns="columns"
             :data="accounts"
@@ -67,6 +115,29 @@
             default-sort-order="desc"
             @sort="handleSort"
           >
+            <template #header-select>
+              <input
+                type="checkbox"
+                class="h-4 w-4 cursor-pointer rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                :checked="allVisibleSelected"
+                :disabled="accounts.length === 0 || bulkSharing"
+                :aria-label="t('myAccounts.bulk.selectCurrentPage')"
+                @change="toggleSelectAllVisible"
+                @click.stop
+              />
+            </template>
+
+            <template #cell-select="{ row }">
+              <input
+                type="checkbox"
+                class="h-4 w-4 cursor-pointer rounded border-gray-300 text-primary-600 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-40"
+                :checked="isSelected(row.id)"
+                :disabled="bulkSharing"
+                :aria-label="t('myAccounts.bulk.selectAccount', { name: row.name })"
+                @change="toggleSelection(row.id)"
+              />
+            </template>
+
             <template #cell-name="{ row }">
               <div class="flex min-w-[180px] flex-col">
                 <span class="font-medium text-gray-900 dark:text-white">{{ row.name }}</span>
@@ -80,7 +151,7 @@
               <PlatformTypeBadge
                 :platform="row.platform"
                 :type="row.type"
-                :plan-type="row.credentials?.plan_type"
+                :plan-type="row.share_display_tier || row.credentials?.plan_type"
                 :privacy-mode="row.extra?.privacy_mode"
                 :subscription-expires-at="row.credentials?.subscription_expires_at"
               />
@@ -98,7 +169,7 @@
                 </div>
                 <button
                   class="btn btn-xs btn-secondary"
-                  :disabled="shareUpdatingId === row.id"
+                  :disabled="shareUpdatingId === row.id || bulkSharing"
                   @click="toggleShareMode(row)"
                 >
                   {{ row.share_mode === 'public' ? t('myAccounts.makePrivate') : t('myAccounts.applyPublic') }}
@@ -178,7 +249,7 @@
     </div>
 
     <div v-if="showAccountModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div class="w-full max-w-3xl rounded-2xl bg-white p-6 shadow-xl dark:bg-dark-800">
+      <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-dark-800">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -203,7 +274,7 @@
         </div>
 
         <div class="mt-5 grid gap-4 md:grid-cols-2">
-          <Input v-model="form.name" :label="t('myAccounts.name')" :placeholder="t('myAccounts.namePlaceholder')" />
+          <Input v-model="form.name" :label="t('myAccounts.name')" :placeholder="t('myAccounts.namePlaceholder')" data-testid="my-accounts-name" />
           <Input v-model="form.notes" :label="t('myAccounts.notes')" :placeholder="t('myAccounts.notesPlaceholder')" />
         </div>
 
@@ -229,6 +300,11 @@
           <textarea v-model="sessionKey" class="input min-h-[120px] w-full" :placeholder="t('myAccounts.sessionKeyPlaceholder')"></textarea>
         </div>
 
+        <div v-else-if="!editingAccount && form.method === 'apikey'" class="mt-5 grid gap-4 md:grid-cols-2">
+          <Input v-model="apiKeyBaseUrl" :label="t('admin.accounts.baseUrl')" placeholder="https://api.openai.com" data-testid="my-accounts-apikey-base-url" />
+          <Input v-model="apiKeyValue" :label="t('admin.accounts.apiKeyRequired')" type="password" placeholder="sk-proj-..." data-testid="my-accounts-apikey-value" />
+        </div>
+
         <div v-else class="mt-5">
           <label class="input-label">{{ t('myAccounts.import.credentials') }}</label>
           <textarea v-model="credentialsJson" class="input min-h-[160px] w-full font-mono text-xs" :placeholder="t('myAccounts.import.credentialsPlaceholder')"></textarea>
@@ -237,9 +313,45 @@
           </p>
         </div>
 
+        <div v-if="isAccountQuotaConfigVisible" class="mt-5 space-y-4 rounded-xl border border-gray-200 p-4 dark:border-dark-700">
+          <div>
+            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.accounts.quotaControl.title') }}</h4>
+            <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.accounts.quotaLimitHint') }}</p>
+          </div>
+          <div class="grid gap-4 md:grid-cols-4">
+            <div>
+              <label class="input-label">{{ t('admin.accounts.quotaDailyLimit') }}</label>
+              <input v-model.number="quotaDailyLimit" data-testid="my-accounts-quota-daily" type="number" min="0" step="0.01" class="input" />
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.accounts.quotaWeeklyLimit') }}</label>
+              <input v-model.number="quotaWeeklyLimit" data-testid="my-accounts-quota-weekly" type="number" min="0" step="0.01" class="input" />
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.accounts.quotaMonthlyLimit') }}</label>
+              <input v-model.number="quotaMonthlyLimit" data-testid="my-accounts-quota-monthly" type="number" min="0" step="0.01" class="input" />
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.accounts.quotaTotalLimit') }}</label>
+              <input v-model.number="quotaTotalLimit" data-testid="my-accounts-quota-total" type="number" min="0" step="0.01" class="input" />
+            </div>
+          </div>
+          <ShareDisplayCard
+            v-if="form.platform === 'openai'"
+            :enabled="shareDisplayEnabled"
+            :display-name="shareDisplayName"
+            :display-tier="shareDisplayTier"
+            :percent-only="shareDisplayPercentOnly"
+            @update:enabled="shareDisplayEnabled = $event"
+            @update:displayName="shareDisplayName = $event"
+            @update:displayTier="shareDisplayTier = $event"
+            @update:percentOnly="shareDisplayPercentOnly = $event"
+          />
+        </div>
+
         <div class="mt-6 flex justify-end gap-3">
           <button class="btn btn-secondary" @click="closeAccountModal">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" :disabled="savingAccount" @click="saveAccount">
+          <button class="btn btn-primary" data-testid="my-accounts-save" :disabled="savingAccount" @click="saveAccount">
             <Icon v-if="savingAccount" name="refresh" size="sm" class="animate-spin" />
             <span>{{ t('common.save') }}</span>
           </button>
@@ -339,7 +451,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -352,12 +464,14 @@ import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import AccountCapacityCell from '@/components/account/AccountCapacityCell.vue'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
+import ShareDisplayCard from '@/components/account/ShareDisplayCard.vue'
 import userAPI from '@/api/user'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { formatCurrency, formatDateTime, formatNumber, formatRelativeTime } from '@/utils/format'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { parseOAuthCallbackInput } from '@/utils/oauthCallback'
+import { useTableSelection } from '@/composables/useTableSelection'
 import type { Account, AccountPlatform, AccountShareMode, AccountShareStatus, UserAccountShareSummary } from '@/types'
 import type { Column } from '@/components/common/types'
 
@@ -372,6 +486,7 @@ const savingAccount = ref(false)
 const importing = ref(false)
 const importFileReading = ref(false)
 const authUrlLoading = ref(false)
+const bulkSharing = ref(false)
 const shareUpdatingId = ref<number | null>(null)
 const shareSummary = ref<UserAccountShareSummary | null>(null)
 const showAccountModal = ref(false)
@@ -383,6 +498,16 @@ const authState = ref('')
 const oauthCode = ref('')
 const sessionKey = ref('')
 const credentialsJson = ref('')
+const apiKeyBaseUrl = ref('https://api.openai.com')
+const apiKeyValue = ref('')
+const quotaDailyLimit = ref<number | null>(null)
+const quotaWeeklyLimit = ref<number | null>(null)
+const quotaMonthlyLimit = ref<number | null>(null)
+const quotaTotalLimit = ref<number | null>(null)
+const shareDisplayEnabled = ref(false)
+const shareDisplayName = ref('')
+const shareDisplayTier = ref('pro')
+const shareDisplayPercentOnly = ref(true)
 
 const pagination = reactive({
   page: 1,
@@ -418,7 +543,23 @@ type ImportFileEntry = {
   format: string
 }
 
+const {
+  selectedIds,
+  allVisibleSelected,
+  isSelected,
+  setSelectedIds,
+  toggle: toggleSelection,
+  clear: clearSelection,
+  removeMany: removeSelectedAccounts,
+  toggleVisible,
+  selectVisible: selectCurrentPage
+} = useTableSelection<Account>({
+  rows: accounts,
+  getId: (account) => account.id
+})
+
 const columns = computed<Column[]>(() => [
+  { key: 'select', label: '', sortable: false, class: 'w-12' },
   { key: 'name', label: t('myAccounts.columns.name'), sortable: true },
   { key: 'platform_type', label: t('myAccounts.columns.platformType'), sortable: false },
   { key: 'share', label: t('myAccounts.columns.share'), sortable: false },
@@ -451,8 +592,28 @@ const methodOptions = computed(() => {
   }
   return [
     { value: 'oauth', label: t('myAccounts.oauth') },
+    ...(form.platform === 'openai' ? [{ value: 'apikey', label: 'OpenAI API Key' }] : []),
     { value: 'json', label: t('myAccounts.import.jsonToken') }
   ]
+})
+
+watch(
+  () => form.platform,
+  (platform) => {
+    if (platform !== 'openai' && form.method === 'apikey') {
+      form.method = 'oauth'
+    }
+    if (!editingAccount.value) {
+      apiKeyBaseUrl.value = platform === 'openai' ? 'https://api.openai.com' : ''
+    }
+  }
+)
+
+const isAccountQuotaConfigVisible = computed(() => {
+  if (editingAccount.value) {
+    return editingAccount.value.type === 'apikey' || editingAccount.value.type === 'bedrock'
+  }
+  return form.method === 'apikey'
 })
 
 const importFormatOptions = computed(() => [
@@ -462,6 +623,23 @@ const importFormatOptions = computed(() => [
   { value: 'claude_session_key', label: 'Claude Session Key' },
   { value: 'advanced_json', label: t('myAccounts.import.advancedJson') }
 ])
+
+const selectedAccounts = computed(() => {
+  const selected = new Set(selectedIds.value)
+  return accounts.value.filter(account => selected.has(account.id))
+})
+
+const selectedShareableAccounts = computed(() =>
+  selectedAccounts.value.filter(account => account.share_mode !== 'public')
+)
+
+const selectedShareableCount = computed(() => selectedShareableAccounts.value.length)
+
+const selectedPublicAccounts = computed(() =>
+  selectedAccounts.value.filter(account => account.share_mode === 'public')
+)
+
+const selectedPublicCount = computed(() => selectedPublicAccounts.value.length)
 
 async function loadAccounts(): Promise<void> {
   loading.value = true
@@ -491,12 +669,14 @@ async function loadAll(): Promise<void> {
 
 function handlePageChange(page: number): void {
   pagination.page = page
+  clearSelection()
   loadAccounts()
 }
 
 function handlePageSizeChange(size: number): void {
   pagination.page_size = size
   pagination.page = 1
+  clearSelection()
   loadAccounts()
 }
 
@@ -504,7 +684,13 @@ function handleSort(key: string, order: 'asc' | 'desc'): void {
   sort.sort_by = key
   sort.sort_order = order
   pagination.page = 1
+  clearSelection()
   loadAccounts()
+}
+
+function toggleSelectAllVisible(event: Event): void {
+  const target = event.target as HTMLInputElement
+  toggleVisible(target.checked)
 }
 
 function resetForm(): void {
@@ -515,6 +701,9 @@ function resetForm(): void {
   oauthCode.value = ''
   sessionKey.value = ''
   credentialsJson.value = ''
+  apiKeyBaseUrl.value = form.platform === 'openai' ? 'https://api.openai.com' : ''
+  apiKeyValue.value = ''
+  resetAccountExtraForm()
   authUrl.value = ''
   authSessionId.value = ''
   authState.value = ''
@@ -533,6 +722,10 @@ function openEditModal(account: Account): void {
   form.platform = account.platform
   form.method = 'json'
   credentialsJson.value = JSON.stringify(account.credentials ?? {}, null, 2)
+  const credentials = account.credentials ?? {}
+  apiKeyBaseUrl.value = String(credentials.base_url || (account.platform === 'openai' ? 'https://api.openai.com' : ''))
+  apiKeyValue.value = ''
+  loadAccountExtraForm(account.extra ?? {})
   showAccountModal.value = true
 }
 
@@ -561,18 +754,89 @@ function parseJsonObject(raw: string): Record<string, unknown> {
 }
 
 function inferTypeFromForm(): string {
+  if (form.method === 'apikey') return 'apikey'
   if (form.method === 'setup-token') return 'setup-token'
   return 'oauth'
+}
+
+function normalizePositiveNumber(value: number | null): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
+}
+
+function resetAccountExtraForm(): void {
+  quotaDailyLimit.value = null
+  quotaWeeklyLimit.value = null
+  quotaMonthlyLimit.value = null
+  quotaTotalLimit.value = null
+  shareDisplayEnabled.value = false
+  shareDisplayName.value = ''
+  shareDisplayTier.value = 'pro'
+  shareDisplayPercentOnly.value = true
+}
+
+function loadAccountExtraForm(extra: Record<string, unknown>): void {
+  quotaDailyLimit.value = typeof extra.quota_daily_limit === 'number' && extra.quota_daily_limit > 0 ? extra.quota_daily_limit : null
+  quotaWeeklyLimit.value = typeof extra.quota_weekly_limit === 'number' && extra.quota_weekly_limit > 0 ? extra.quota_weekly_limit : null
+  quotaMonthlyLimit.value = typeof extra.quota_monthly_limit === 'number' && extra.quota_monthly_limit > 0 ? extra.quota_monthly_limit : null
+  quotaTotalLimit.value = typeof extra.quota_limit === 'number' && extra.quota_limit > 0 ? extra.quota_limit : null
+  shareDisplayEnabled.value = typeof extra.share_display_name === 'string' || typeof extra.share_display_tier === 'string' || extra.share_display_percent_only === true
+  shareDisplayName.value = typeof extra.share_display_name === 'string' ? extra.share_display_name : ''
+  shareDisplayTier.value = typeof extra.share_display_tier === 'string' && extra.share_display_tier ? extra.share_display_tier : 'pro'
+  shareDisplayPercentOnly.value = extra.share_display_percent_only !== false
+}
+
+function buildAccountExtra(base?: Record<string, unknown>): Record<string, unknown> | undefined {
+  const extra: Record<string, unknown> = { ...(base || {}) }
+  const daily = normalizePositiveNumber(quotaDailyLimit.value)
+  const weekly = normalizePositiveNumber(quotaWeeklyLimit.value)
+  const monthly = normalizePositiveNumber(quotaMonthlyLimit.value)
+  const total = normalizePositiveNumber(quotaTotalLimit.value)
+
+  if (daily != null) extra.quota_daily_limit = daily
+  else {
+    delete extra.quota_daily_limit
+    delete extra.quota_daily_used
+    delete extra.quota_daily_start
+  }
+  if (weekly != null) extra.quota_weekly_limit = weekly
+  else {
+    delete extra.quota_weekly_limit
+    delete extra.quota_weekly_used
+    delete extra.quota_weekly_start
+  }
+  if (monthly != null) extra.quota_monthly_limit = monthly
+  else {
+    delete extra.quota_monthly_limit
+    delete extra.quota_monthly_used
+    delete extra.quota_monthly_start
+  }
+  if (total != null) extra.quota_limit = total
+  else delete extra.quota_limit
+
+  if (form.platform === 'openai' && shareDisplayEnabled.value) {
+    const displayName = shareDisplayName.value.trim()
+    if (displayName) extra.share_display_name = displayName
+    else delete extra.share_display_name
+    extra.share_display_tier = shareDisplayTier.value || 'pro'
+    extra.share_display_percent_only = shareDisplayPercentOnly.value
+  } else {
+    delete extra.share_display_name
+    delete extra.share_display_tier
+    delete extra.share_display_percent_only
+  }
+  return Object.keys(extra).length > 0 ? extra : undefined
 }
 
 async function saveAccount(): Promise<void> {
   savingAccount.value = true
   try {
     if (editingAccount.value) {
+      const baseExtra = (editingAccount.value.extra ?? {}) as Record<string, unknown>
       const payload = {
         name: form.name.trim(),
         notes: form.notes.trim() || null,
-        credentials: credentialsJson.value.trim() ? parseJsonObject(credentialsJson.value) : undefined
+        credentials: credentialsJson.value.trim() ? parseJsonObject(credentialsJson.value) : undefined,
+        extra: isAccountQuotaConfigVisible.value ? buildAccountExtra(baseExtra) ?? {} : undefined
       }
       const updated = await userAPI.updateAccount(editingAccount.value.id, payload)
       patchAccount(updated)
@@ -606,13 +870,31 @@ async function saveAccount(): Promise<void> {
         notes: form.notes.trim() || null
       })
       accounts.value = [created, ...accounts.value]
+    } else if (form.method === 'apikey') {
+      if (!apiKeyValue.value.trim()) {
+        appStore.showError(t('admin.accounts.pleaseEnterApiKey'))
+        return
+      }
+      const created = await userAPI.createAccount({
+        name: form.name.trim() || defaultAccountName(),
+        notes: form.notes.trim() || null,
+        platform: form.platform,
+        type: 'apikey',
+        credentials: {
+          base_url: apiKeyBaseUrl.value.trim() || 'https://api.openai.com',
+          api_key: apiKeyValue.value.trim()
+        },
+        extra: buildAccountExtra()
+      })
+      accounts.value = [created, ...accounts.value]
     } else {
       const created = await userAPI.createAccount({
         name: form.name.trim() || defaultAccountName(),
         notes: form.notes.trim() || null,
         platform: form.platform,
         type: inferTypeFromForm(),
-        credentials: parseJsonObject(credentialsJson.value)
+        credentials: parseJsonObject(credentialsJson.value),
+        extra: isAccountQuotaConfigVisible.value ? buildAccountExtra() : undefined
       })
       accounts.value = [created, ...accounts.value]
     }
@@ -891,6 +1173,71 @@ function patchAccount(updated: Account): void {
     next[index] = { ...next[index], ...updated }
     accounts.value = next
   }
+}
+
+async function bulkUpdateShareMode(
+  targets: Account[],
+  shareMode: AccountShareMode,
+  messages: {
+    empty: string
+    partial: string
+    success: string
+  }
+): Promise<void> {
+  if (targets.length === 0) {
+    appStore.showError(t(messages.empty))
+    return
+  }
+
+  bulkSharing.value = true
+  const succeeded: Account[] = []
+  const failedIds: number[] = []
+  try {
+    for (const account of targets) {
+      try {
+        const updated = await userAPI.updateAccountShareMode(account.id, shareMode)
+        succeeded.push(updated)
+        patchAccount(updated)
+      } catch {
+        failedIds.push(account.id)
+      }
+    }
+
+    if (succeeded.length > 0) {
+      removeSelectedAccounts(succeeded.map(account => account.id))
+    }
+
+    if (failedIds.length > 0) {
+      setSelectedIds(failedIds)
+      appStore.showError(t(messages.partial, {
+        success: succeeded.length,
+        failed: failedIds.length
+      }))
+      return
+    }
+
+    clearSelection()
+    appStore.showSuccess(t(messages.success, { count: succeeded.length }))
+    await loadShareSummary()
+  } finally {
+    bulkSharing.value = false
+  }
+}
+
+async function bulkApplyPublic(): Promise<void> {
+  await bulkUpdateShareMode([...selectedShareableAccounts.value], 'public', {
+    empty: 'myAccounts.bulk.noShareableSelection',
+    partial: 'myAccounts.bulk.applyPublicPartial',
+    success: 'myAccounts.bulk.applyPublicSuccess'
+  })
+}
+
+async function bulkMakePrivate(): Promise<void> {
+  await bulkUpdateShareMode([...selectedPublicAccounts.value], 'private', {
+    empty: 'myAccounts.bulk.noPublicSelection',
+    partial: 'myAccounts.bulk.makePrivatePartial',
+    success: 'myAccounts.bulk.makePrivateSuccess'
+  })
 }
 
 async function toggleShareMode(account: Account): Promise<void> {

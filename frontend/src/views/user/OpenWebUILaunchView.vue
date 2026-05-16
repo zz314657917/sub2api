@@ -158,7 +158,7 @@ async function loadApiKeys() {
       selectedKeyId.value = preferredKeyId()
     }
   } catch (error) {
-    console.error('Failed to load Open WebUI API keys:', error)
+    console.error('Failed to load image workspace API keys:', error)
     appStore.showError(t('openWebUI.loadKeysFailed'))
   } finally {
     loadingKeys.value = false
@@ -183,7 +183,7 @@ async function handleLaunch() {
     const result = await openWebUIAPI.launch(selectedKeyId.value)
     popup.location.replace(result.launch_url)
   } catch (error) {
-    console.error('Failed to launch Open WebUI:', error)
+    console.error('Failed to launch image workspace:', error)
     popup.close()
     appStore.showError(t('openWebUI.launchFailed'))
   } finally {

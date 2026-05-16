@@ -1673,7 +1673,7 @@ onMounted(async () => {
   color: #0f172a;
 }
 
-:global(.dark) .purchase-pricing-page {
+:global(.dark .purchase-pricing-page) {
   background:
     radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12), transparent 30rem),
     #0c0d10;
@@ -1694,7 +1694,7 @@ onMounted(async () => {
   mask-image: linear-gradient(to bottom, black, transparent 78%);
 }
 
-:global(.dark) .purchase-pricing-page::before {
+:global(.dark .purchase-pricing-page::before) {
   opacity: 0.22;
   background-image:
     linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px),
@@ -1708,10 +1708,10 @@ onMounted(async () => {
   color: #0f172a;
 }
 
-:global(.dark) .pricing-title,
-:global(.dark) .pricing-section-title,
-:global(.dark) .pricing-strong,
-:global(.dark) .pricing-faq-button {
+:global(.dark .pricing-title),
+:global(.dark .pricing-section-title),
+:global(.dark .pricing-strong),
+:global(.dark .pricing-faq-button) {
   color: #f8fafc;
 }
 
@@ -1721,9 +1721,9 @@ onMounted(async () => {
   color: #475569;
 }
 
-:global(.dark) .pricing-subtitle,
-:global(.dark) .pricing-muted,
-:global(.dark) .pricing-caption {
+:global(.dark .pricing-subtitle),
+:global(.dark .pricing-muted),
+:global(.dark .pricing-caption) {
   color: #94a3b8;
 }
 
@@ -1731,7 +1731,7 @@ onMounted(async () => {
   color: #64748b;
 }
 
-:global(.dark) .pricing-caption {
+:global(.dark .pricing-caption) {
   color: #94a3b8;
 }
 
@@ -1739,7 +1739,7 @@ onMounted(async () => {
   color: #64748b;
 }
 
-:global(.dark) .pricing-muted-icon {
+:global(.dark .pricing-muted-icon) {
   color: #94a3b8;
 }
 
@@ -1748,8 +1748,8 @@ onMounted(async () => {
   color: #94a3b8;
 }
 
-:global(.dark) .pricing-separator,
-:global(.dark) .pricing-strike {
+:global(.dark .pricing-separator),
+:global(.dark .pricing-strike) {
   color: #64748b;
 }
 
@@ -1766,13 +1766,13 @@ onMounted(async () => {
   backdrop-filter: blur(16px);
 }
 
-:global(.dark) .pricing-current-chip,
-:global(.dark) .pricing-card,
-:global(.dark) .pricing-plan-card,
-:global(.dark) .pricing-subpanel,
-:global(.dark) .pricing-summary,
-:global(.dark) .pricing-subscription-card,
-:global(.dark) .pricing-confirm-panel {
+:global(.dark .pricing-current-chip),
+:global(.dark .pricing-card),
+:global(.dark .pricing-plan-card),
+:global(.dark .pricing-subpanel),
+:global(.dark .pricing-summary),
+:global(.dark .pricing-subscription-card),
+:global(.dark .pricing-confirm-panel) {
   border-color: rgba(51, 65, 85, 0.9);
   background: rgba(17, 24, 39, 0.84);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
@@ -1782,7 +1782,7 @@ onMounted(async () => {
   color: #475569;
 }
 
-:global(.dark) .pricing-current-chip {
+:global(.dark .pricing-current-chip) {
   color: #cbd5e1;
 }
 
@@ -1791,7 +1791,7 @@ onMounted(async () => {
   color: #1d4ed8;
 }
 
-:global(.dark) .pricing-section-tag {
+:global(.dark .pricing-section-tag) {
   background: rgba(30, 41, 59, 0.94);
   color: #cbd5e1;
 }
@@ -1808,14 +1808,14 @@ onMounted(async () => {
   color: #2563eb;
 }
 
-:global(.dark) .pricing-refresh-button {
+:global(.dark .pricing-refresh-button) {
   border-color: rgba(148, 163, 184, 0.22);
   background: rgba(15, 23, 42, 0.72);
   color: #cbd5e1;
   box-shadow: none;
 }
 
-:global(.dark) .pricing-refresh-button:hover:not(:disabled) {
+:global(.dark .pricing-refresh-button:hover:not(:disabled)) {
   border-color: rgba(96, 165, 250, 0.5);
   color: #93c5fd;
 }
@@ -1844,24 +1844,24 @@ onMounted(async () => {
   box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.28);
 }
 
-:global(.dark) .pricing-preset,
-:global(.dark) .pricing-method-option,
-:global(.dark) .pricing-stepper,
-:global(.dark) .pricing-input {
+:global(.dark .pricing-preset),
+:global(.dark .pricing-method-option),
+:global(.dark .pricing-stepper),
+:global(.dark .pricing-input) {
   border-color: rgba(51, 65, 85, 0.94);
   background: rgba(15, 23, 42, 0.82);
   color: #f8fafc;
 }
 
-:global(.dark) .pricing-preset--idle:hover,
-:global(.dark) .pricing-method-option--idle:hover,
-:global(.dark) .pricing-stepper-button:hover {
+:global(.dark .pricing-preset--idle:hover),
+:global(.dark .pricing-method-option--idle:hover),
+:global(.dark .pricing-stepper-button:hover) {
   border-color: rgba(100, 116, 139, 0.92);
   background: rgba(30, 41, 59, 0.86);
 }
 
-:global(.dark) .pricing-preset--selected,
-:global(.dark) .pricing-method-option--selected {
+:global(.dark .pricing-preset--selected),
+:global(.dark .pricing-method-option--selected) {
   border-color: rgba(96, 165, 250, 0.9);
   background: rgba(59, 130, 246, 0.16);
   color: #f8fafc;
@@ -1872,7 +1872,7 @@ onMounted(async () => {
   color: #0f172a;
 }
 
-:global(.dark) .pricing-stepper-value {
+:global(.dark .pricing-stepper-value) {
   color: #f8fafc;
 }
 
@@ -1880,7 +1880,7 @@ onMounted(async () => {
   color: #64748b;
 }
 
-:global(.dark) .pricing-stepper-button {
+:global(.dark .pricing-stepper-button) {
   color: #94a3b8;
 }
 
@@ -1888,7 +1888,7 @@ onMounted(async () => {
   color: #94a3b8;
 }
 
-:global(.dark) .pricing-input::placeholder {
+:global(.dark .pricing-input::placeholder) {
   color: #475569;
 }
 
@@ -1896,7 +1896,7 @@ onMounted(async () => {
   background: rgba(239, 246, 255, 0.86);
 }
 
-:global(.dark) .pricing-summary {
+:global(.dark .pricing-summary) {
   background: rgba(18, 28, 43, 0.92);
 }
 
@@ -1905,8 +1905,8 @@ onMounted(async () => {
   border-color: rgba(148, 163, 184, 0.3);
 }
 
-:global(.dark) .pricing-divider,
-:global(.dark) .pricing-section-divider {
+:global(.dark .pricing-divider),
+:global(.dark .pricing-section-divider) {
   border-color: rgba(51, 65, 85, 0.9);
 }
 
@@ -1924,16 +1924,16 @@ onMounted(async () => {
   box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2), 0 18px 44px rgba(99, 102, 241, 0.1);
 }
 
-:global(.dark) .pricing-plan-card--idle:hover {
+:global(.dark .pricing-plan-card--idle:hover) {
   border-color: rgba(100, 116, 139, 0.9);
 }
 
-:global(.dark) .pricing-plan-card--selected {
+:global(.dark .pricing-plan-card--selected) {
   border-color: rgba(96, 165, 250, 0.9);
   box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.55), 0 18px 48px rgba(0, 0, 0, 0.22);
 }
 
-:global(.dark) .pricing-plan-card--recommended {
+:global(.dark .pricing-plan-card--recommended) {
   border-color: rgba(129, 140, 248, 0.9);
   box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.45), 0 18px 48px rgba(0, 0, 0, 0.22);
 }
@@ -1942,7 +1942,7 @@ onMounted(async () => {
   color: #0f172a;
 }
 
-:global(.dark) .pricing-plan-price {
+:global(.dark .pricing-plan-price) {
   color: #f8fafc;
 }
 
@@ -1951,8 +1951,8 @@ onMounted(async () => {
   border-top: 1px solid rgba(148, 163, 184, 0.28);
 }
 
-:global(.dark) .pricing-plan-divider,
-:global(.dark) .pricing-faq-list > div + div {
+:global(.dark .pricing-plan-divider),
+:global(.dark .pricing-faq-list > div + div) {
   border-top-color: rgba(51, 65, 85, 0.9);
 }
 
@@ -1960,7 +1960,7 @@ onMounted(async () => {
   color: #334155;
 }
 
-:global(.dark) .pricing-feature-list {
+:global(.dark .pricing-feature-list) {
   color: #e2e8f0;
 }
 
@@ -1969,7 +1969,7 @@ onMounted(async () => {
   background: rgba(219, 234, 254, 0.56);
 }
 
-:global(.dark) .pricing-confirm-panel {
+:global(.dark .pricing-confirm-panel) {
   border-color: rgba(96, 165, 250, 0.42);
   background: rgba(59, 130, 246, 0.12);
 }
@@ -1978,7 +1978,7 @@ onMounted(async () => {
   color: #94a3b8;
 }
 
-:global(.dark) .pricing-empty-icon {
+:global(.dark .pricing-empty-icon) {
   color: #475569;
 }
 </style>

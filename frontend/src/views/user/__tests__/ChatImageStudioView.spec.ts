@@ -490,6 +490,75 @@ describe('ChatImageStudioView', () => {
     expect(wrapper.find('.studio-image-card img').attributes('src')).toBe('blob:image-preview')
   })
 
+  it('restores an active image message and applies the final failed task state', async () => {
+    localStorage.setItem('sub2api:chat-image-studio:v1', JSON.stringify({
+      currentSessionId: 'studio_restore',
+      sessions: [{
+        id: 'studio_restore',
+        title: 'Restore image',
+        createdAt: '2026-05-10T00:00:00Z',
+        updatedAt: '2026-05-10T00:00:00Z',
+        messages: [
+          {
+            id: 'msg_restore',
+            role: 'user',
+            kind: 'text',
+            content: 'draw a restored image',
+            createdAt: '2026-05-10T00:00:00Z',
+          },
+          {
+            id: 'img_restore',
+            role: 'assistant',
+            kind: 'image',
+            content: 'chatImageStudio.generatingHint',
+            createdAt: '2026-05-10T00:00:01Z',
+            taskId: 321,
+            status: 'running',
+            images: [],
+          },
+        ],
+      }],
+    }))
+    listImageTasks.mockResolvedValueOnce({
+      tasks: [makeTask({ id: 321, status: 'running', prompt: 'draw a restored image', images: [] })],
+      images: [],
+    })
+    getImageTask.mockResolvedValueOnce(makeTask({
+      id: 321,
+      status: 'failed',
+      prompt: 'draw a restored image',
+      error_message: 'image gateway returned HTTP 502',
+      images: [],
+    }))
+
+    const wrapper = mountView()
+
+    await flushPromises()
+    await flushPromises()
+
+    expect(getImageTask).toHaveBeenCalledWith(321)
+    expect(wrapper.text()).toContain('chatImageStudio.status.failed')
+    expect(wrapper.text()).toContain('image gateway returned HTTP 502')
+  })
+
+  it('does not render protected image file URLs directly when preview hydration fails', async () => {
+    downloadImageFile.mockRejectedValueOnce(new Error('unauthorized'))
+    listImageTasks.mockResolvedValueOnce({
+      tasks: [],
+      images: [makeImage({ id: 91, url: '/api/v1/user/image-creator/images/91/file' })],
+    })
+    const wrapper = mountView()
+
+    await flushPromises()
+    await wrapper.findAll('.studio-tab')[1].trigger('click')
+    await flushPromises()
+
+    const src = wrapper.find('.studio-gallery-preview img').attributes('src')
+    expect(downloadImageFile).toHaveBeenCalledWith('/api/v1/user/image-creator/images/91/file')
+    expect(src).toContain('data:image/gif;base64')
+    expect(src).not.toContain('/api/v1/user/image-creator/images/91/file')
+  })
+
   it('uses the count dropdown value when creating image tasks', async () => {
     const wrapper = mountView()
 

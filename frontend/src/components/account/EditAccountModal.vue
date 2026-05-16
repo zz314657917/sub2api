@@ -1463,6 +1463,7 @@
           :totalLimit="editQuotaLimit"
           :dailyLimit="editQuotaDailyLimit"
           :weeklyLimit="editQuotaWeeklyLimit"
+          :monthlyLimit="editQuotaMonthlyLimit"
           :dailyResetMode="editDailyResetMode"
           :dailyResetHour="editDailyResetHour"
           :weeklyResetMode="editWeeklyResetMode"
@@ -1482,6 +1483,7 @@
           @update:totalLimit="editQuotaLimit = $event"
           @update:dailyLimit="editQuotaDailyLimit = $event"
           @update:weeklyLimit="editQuotaWeeklyLimit = $event"
+          @update:monthlyLimit="editQuotaMonthlyLimit = $event"
           @update:dailyResetMode="editDailyResetMode = $event"
           @update:dailyResetHour="editDailyResetHour = $event"
           @update:weeklyResetMode="editWeeklyResetMode = $event"
@@ -1514,6 +1516,7 @@
           :totalLimit="editQuotaLimit"
           :dailyLimit="editQuotaDailyLimit"
           :weeklyLimit="editQuotaWeeklyLimit"
+          :monthlyLimit="editQuotaMonthlyLimit"
           :dailyResetMode="editDailyResetMode"
           :dailyResetHour="editDailyResetHour"
           :weeklyResetMode="editWeeklyResetMode"
@@ -1533,6 +1536,7 @@
           @update:totalLimit="editQuotaLimit = $event"
           @update:dailyLimit="editQuotaDailyLimit = $event"
           @update:weeklyLimit="editQuotaWeeklyLimit = $event"
+          @update:monthlyLimit="editQuotaMonthlyLimit = $event"
           @update:dailyResetMode="editDailyResetMode = $event"
           @update:dailyResetHour="editDailyResetHour = $event"
           @update:weeklyResetMode="editWeeklyResetMode = $event"
@@ -1548,6 +1552,17 @@
           @update:quotaNotifyTotalEnabled="quotaNotifyState.total.enabled = $event"
           @update:quotaNotifyTotalThreshold="quotaNotifyState.total.threshold = $event"
           @update:quotaNotifyTotalThresholdType="quotaNotifyState.total.thresholdType = $event"
+        />
+        <ShareDisplayCard
+          v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+          :enabled="shareDisplayEnabled"
+          :display-name="shareDisplayName"
+          :display-tier="shareDisplayTier"
+          :percent-only="shareDisplayPercentOnly"
+          @update:enabled="shareDisplayEnabled = $event"
+          @update:displayName="shareDisplayName = $event"
+          @update:displayTier="shareDisplayTier = $event"
+          @update:percentOnly="shareDisplayPercentOnly = $event"
         />
       </div>
 
@@ -2191,6 +2206,7 @@ import ProxySelector from '@/components/common/ProxySelector.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
+import ShareDisplayCard from '@/components/account/ShareDisplayCard.vue'
 import { applyInterceptWarmup } from '@/components/account/credentialsBuilder'
 import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
@@ -2358,12 +2374,17 @@ loadQuotaNotifyGlobal()
 const editQuotaLimit = ref<number | null>(null)
 const editQuotaDailyLimit = ref<number | null>(null)
 const editQuotaWeeklyLimit = ref<number | null>(null)
+const editQuotaMonthlyLimit = ref<number | null>(null)
 const editDailyResetMode = ref<'rolling' | 'fixed' | null>(null)
 const editDailyResetHour = ref<number | null>(null)
 const editWeeklyResetMode = ref<'rolling' | 'fixed' | null>(null)
 const editWeeklyResetDay = ref<number | null>(null)
 const editWeeklyResetHour = ref<number | null>(null)
 const editResetTimezone = ref<string | null>(null)
+const shareDisplayEnabled = ref(false)
+const shareDisplayName = ref('')
+const shareDisplayTier = ref('pro')
+const shareDisplayPercentOnly = ref(true)
 const openAIWSModeOptions = computed(() => [
   { value: OPENAI_WS_MODE_OFF, label: t('admin.accounts.openai.wsModeOff') },
   { value: OPENAI_WS_MODE_CTX_POOL, label: t('admin.accounts.openai.wsModeCtxPool') },
@@ -2642,6 +2663,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     editQuotaDailyLimit.value = (dailyVal && dailyVal > 0) ? dailyVal : null
     const weeklyVal = extra?.quota_weekly_limit as number | undefined
     editQuotaWeeklyLimit.value = (weeklyVal && weeklyVal > 0) ? weeklyVal : null
+    const monthlyVal = extra?.quota_monthly_limit as number | undefined
+    editQuotaMonthlyLimit.value = (monthlyVal && monthlyVal > 0) ? monthlyVal : null
     // Load quota reset mode config
     editDailyResetMode.value = (extra?.quota_daily_reset_mode as 'rolling' | 'fixed') || null
     editDailyResetHour.value = (extra?.quota_daily_reset_hour as number) ?? null
@@ -2655,6 +2678,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     editQuotaLimit.value = null
     editQuotaDailyLimit.value = null
     editQuotaWeeklyLimit.value = null
+    editQuotaMonthlyLimit.value = null
     editDailyResetMode.value = null
     editDailyResetHour.value = null
     editWeeklyResetMode.value = null
@@ -2662,6 +2686,20 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     editWeeklyResetHour.value = null
     editResetTimezone.value = null
     resetQuotaNotify()
+  }
+  shareDisplayEnabled.value = newAccount.platform === 'openai' && newAccount.type === 'apikey' && (
+    typeof extra?.share_display_name === 'string' ||
+    typeof extra?.share_display_tier === 'string' ||
+    extra?.share_display_percent_only === true
+  )
+  shareDisplayName.value = typeof extra?.share_display_name === 'string' ? extra.share_display_name : ''
+  shareDisplayTier.value = typeof extra?.share_display_tier === 'string' && extra.share_display_tier ? extra.share_display_tier : 'pro'
+  shareDisplayPercentOnly.value = extra?.share_display_percent_only !== false
+  if (newAccount.platform !== 'openai' || newAccount.type !== 'apikey') {
+    shareDisplayEnabled.value = false
+    shareDisplayName.value = ''
+    shareDisplayTier.value = 'pro'
+    shareDisplayPercentOnly.value = true
   }
 
   // Load antigravity model mapping (Antigravity 只支持映射模式)
@@ -2776,6 +2814,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     editQuotaLimit.value = typeof bedrockExtra.quota_limit === 'number' ? bedrockExtra.quota_limit : null
     editQuotaDailyLimit.value = typeof bedrockExtra.quota_daily_limit === 'number' ? bedrockExtra.quota_daily_limit : null
     editQuotaWeeklyLimit.value = typeof bedrockExtra.quota_weekly_limit === 'number' ? bedrockExtra.quota_weekly_limit : null
+    editQuotaMonthlyLimit.value = typeof bedrockExtra.quota_monthly_limit === 'number' ? bedrockExtra.quota_monthly_limit : null
     // Load quota notify for bedrock
     loadQuotaNotifyFromExtra(bedrockExtra)
 
@@ -3769,6 +3808,28 @@ const handleSubmit = async () => {
         delete newExtra.quota_weekly_limit
         delete newExtra.quota_weekly_used
         delete newExtra.quota_weekly_start
+      }
+      // Monthly quota
+      if (editQuotaMonthlyLimit.value != null && editQuotaMonthlyLimit.value > 0) {
+        newExtra.quota_monthly_limit = editQuotaMonthlyLimit.value
+      } else {
+        delete newExtra.quota_monthly_limit
+        delete newExtra.quota_monthly_used
+        delete newExtra.quota_monthly_start
+      }
+      if (props.account.platform === 'openai' && props.account.type === 'apikey' && shareDisplayEnabled.value) {
+        const displayName = shareDisplayName.value.trim()
+        if (displayName) {
+          newExtra.share_display_name = displayName
+        } else {
+          delete newExtra.share_display_name
+        }
+        newExtra.share_display_tier = shareDisplayTier.value || 'pro'
+        newExtra.share_display_percent_only = shareDisplayPercentOnly.value
+      } else {
+        delete newExtra.share_display_name
+        delete newExtra.share_display_tier
+        delete newExtra.share_display_percent_only
       }
       // Quota reset mode config
       if (editDailyResetMode.value === 'fixed') {

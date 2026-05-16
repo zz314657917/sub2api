@@ -312,6 +312,24 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 			}
 			out.QuotaWeeklyUsed = &used
 		}
+		if limit := a.GetQuotaMonthlyLimit(); limit > 0 {
+			out.QuotaMonthlyLimit = &limit
+			used := a.GetQuotaMonthlyUsed()
+			if a.IsMonthlyQuotaPeriodExpired() {
+				used = 0
+			}
+			out.QuotaMonthlyUsed = &used
+		}
+		if displayName := a.GetShareDisplayName(); displayName != "" {
+			out.ShareDisplayName = &displayName
+		}
+		if displayTier := a.GetShareDisplayTier(); displayTier != "" {
+			out.ShareDisplayTier = &displayTier
+		}
+		if a.IsShareDisplayPercentOnly() {
+			percentOnly := true
+			out.ShareDisplayPercentOnly = &percentOnly
+		}
 		// 固定时间重置配置
 		if mode := a.GetQuotaDailyResetMode(); mode == "fixed" {
 			out.QuotaDailyResetMode = &mode

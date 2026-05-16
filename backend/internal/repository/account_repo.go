@@ -2260,6 +2260,11 @@ const weeklyExpiredExpr = `(
 	END
 )`
 
+const monthlyExpiredExpr = `(
+	COALESCE((extra->>'quota_monthly_start')::timestamptz, '1970-01-01'::timestamptz)
+		+ '720 hours'::interval <= NOW()
+)`
+
 // nextDailyResetAtExpr is a SQL expression to compute the next daily reset_at when a reset occurs.
 // For fixed mode: computes the next future reset time based on NOW(), timezone, and configured hour.
 // This correctly handles long-inactive accounts by jumping directly to the next valid reset point.
@@ -2371,20 +2376,39 @@ func (r *accountRepository) IncrementQuotaUsed(ctx context.Context, id int64, am
 				   THEN jsonb_build_object('quota_weekly_reset_at', `+nextWeeklyResetAtExpr+`)
 				   ELSE '{}'::jsonb END
 			ELSE '{}'::jsonb END
+			-- 月额度：仅在 quota_monthly_limit > 0 时处理，滚动 30 天窗口
+			|| CASE WHEN COALESCE((extra->>'quota_monthly_limit')::numeric, 0) > 0 THEN
+				jsonb_build_object(
+					'quota_monthly_used',
+					CASE WHEN `+monthlyExpiredExpr+`
+					THEN $1
+					ELSE COALESCE((extra->>'quota_monthly_used')::numeric, 0) + $1 END,
+					'quota_monthly_start',
+					CASE WHEN `+monthlyExpiredExpr+`
+					THEN `+nowUTC+`
+					ELSE COALESCE(extra->>'quota_monthly_start', `+nowUTC+`) END
+				)
+			ELSE '{}'::jsonb END
 		), updated_at = NOW()
 		WHERE id = $2 AND deleted_at IS NULL
 		RETURNING
 			COALESCE((extra->>'quota_used')::numeric, 0),
-			COALESCE((extra->>'quota_limit')::numeric, 0)`,
+			COALESCE((extra->>'quota_limit')::numeric, 0),
+			COALESCE((extra->>'quota_daily_used')::numeric, 0),
+			COALESCE((extra->>'quota_daily_limit')::numeric, 0),
+			COALESCE((extra->>'quota_weekly_used')::numeric, 0),
+			COALESCE((extra->>'quota_weekly_limit')::numeric, 0),
+			COALESCE((extra->>'quota_monthly_used')::numeric, 0),
+			COALESCE((extra->>'quota_monthly_limit')::numeric, 0)`,
 		amount, id)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = rows.Close() }()
 
-	var newUsed, limit float64
+	var newUsed, limit, dailyUsed, dailyLimit, weeklyUsed, weeklyLimit, monthlyUsed, monthlyLimit float64
 	if rows.Next() {
-		if err := rows.Scan(&newUsed, &limit); err != nil {
+		if err := rows.Scan(&newUsed, &limit, &dailyUsed, &dailyLimit, &weeklyUsed, &weeklyLimit, &monthlyUsed, &monthlyLimit); err != nil {
 			return err
 		}
 	}
@@ -2393,7 +2417,11 @@ func (r *accountRepository) IncrementQuotaUsed(ctx context.Context, id int64, am
 	}
 
 	// 任一维度配额刚超限时触发调度快照刷新
-	if limit > 0 && newUsed >= limit && (newUsed-amount) < limit {
+	crossedTotal := limit > 0 && newUsed >= limit && (newUsed-amount) < limit
+	crossedDaily := dailyLimit > 0 && dailyUsed >= dailyLimit && (dailyUsed-amount) < dailyLimit
+	crossedWeekly := weeklyLimit > 0 && weeklyUsed >= weeklyLimit && (weeklyUsed-amount) < weeklyLimit
+	crossedMonthly := monthlyLimit > 0 && monthlyUsed >= monthlyLimit && (monthlyUsed-amount) < monthlyLimit
+	if crossedTotal || crossedDaily || crossedWeekly || crossedMonthly {
 		if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
 			logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue quota exceeded failed: account=%d err=%v", id, err)
 		}
@@ -2407,8 +2435,8 @@ func (r *accountRepository) ResetQuotaUsed(ctx context.Context, id int64) error 
 	_, err := r.sql.ExecContext(ctx,
 		`UPDATE accounts SET extra = (
 			COALESCE(extra, '{}'::jsonb)
-			|| '{"quota_used": 0, "quota_daily_used": 0, "quota_weekly_used": 0}'::jsonb
-		) - 'quota_daily_start' - 'quota_weekly_start' - 'quota_daily_reset_at' - 'quota_weekly_reset_at', updated_at = NOW()
+			|| '{"quota_used": 0, "quota_daily_used": 0, "quota_weekly_used": 0, "quota_monthly_used": 0}'::jsonb
+		) - 'quota_daily_start' - 'quota_weekly_start' - 'quota_monthly_start' - 'quota_daily_reset_at' - 'quota_weekly_reset_at', updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL`,
 		id)
 	if err != nil {

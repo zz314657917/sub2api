@@ -1,6 +1,6 @@
 # Sub2API 知识库入口
 
-最后更新：2026-05-13
+最后更新：2026-05-15
 
 ## 项目定位
 
@@ -21,7 +21,8 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 5. 需要跑测试或构建：读 `knowledge/build-and-verify.md`。
 6. 改后端：读 `knowledge/backend-notes.md`。
 7. 改前端或公共页面：读 `knowledge/frontend-notes.md`。
-8. 遇到老坑或环境差异：读 `knowledge/known-pitfalls.md`。
+8. 改聊天生图工作台或图片任务体验：读 `knowledge/chat-image-studio.md`。
+9. 遇到老坑或环境差异：读 `knowledge/known-pitfalls.md`。
 
 ## 事实源分工
 
@@ -35,6 +36,7 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 ## 当前仓库状态提示
 
 - 截至 2026-05-13，工作区存在大量未提交业务改动，涉及后端账号/设置/图片生成服务，以及前端公共页、控制台、客服弹窗、ChatStudio 等。
+- 截至 2026-05-15，聊天生图主线已转为 Sub2API 原生 `/chat-images` 工作台；会话删除与后端图片任务的关系见 `knowledge/chat-image-studio.md`。
 - 新任务开始前先执行 `git status --short`，确认当前改动是否属于本轮任务。
 - 不要清理、回滚或格式化与当前目标无关的文件。
 

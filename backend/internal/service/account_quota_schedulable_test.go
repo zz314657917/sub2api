@@ -59,6 +59,20 @@ func TestAccountIsSchedulable_QuotaExceeded(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "apikey monthly quota exceeded",
+			account: &Account{
+				Status:      StatusActive,
+				Schedulable: true,
+				Type:        AccountTypeAPIKey,
+				Extra: map[string]any{
+					"quota_monthly_limit": 100.0,
+					"quota_monthly_used":  100.0,
+					"quota_monthly_start": now.Add(-10 * 24 * time.Hour).Format(time.RFC3339),
+				},
+			},
+			want: false,
+		},
+		{
 			name: "apikey quota not exceeded",
 			account: &Account{
 				Status:      StatusActive,
@@ -82,6 +96,20 @@ func TestAccountIsSchedulable_QuotaExceeded(t *testing.T) {
 					"quota_daily_limit": 10.0,
 					"quota_daily_used":  10.0,
 					"quota_daily_start": now.Add(-25 * time.Hour).Format(time.RFC3339),
+				},
+			},
+			want: true,
+		},
+		{
+			name: "apikey expired monthly period restores schedulable",
+			account: &Account{
+				Status:      StatusActive,
+				Schedulable: true,
+				Type:        AccountTypeAPIKey,
+				Extra: map[string]any{
+					"quota_monthly_limit": 100.0,
+					"quota_monthly_used":  100.0,
+					"quota_monthly_start": now.Add(-31 * 24 * time.Hour).Format(time.RFC3339),
 				},
 			},
 			want: true,

@@ -157,6 +157,9 @@ type BulkUpdateAccountFilters struct {
 	Group       string `json:"group"`
 	Search      string `json:"search"`
 	PrivacyMode string `json:"privacy_mode"`
+	OwnerFilter string `json:"owner_filter"`
+	ShareMode   string `json:"share_mode"`
+	ShareStatus string `json:"share_status"`
 }
 
 // CheckMixedChannelRequest represents check mixed channel risk request
@@ -410,6 +413,12 @@ type SetShareStatusRequest struct {
 	ShareStatus string `json:"share_status" binding:"required,oneof=not_shared pending_review active rejected suspended"`
 }
 
+type BulkSetShareStatusRequest struct {
+	AccountIDs  []int64                   `json:"account_ids"`
+	Filters     *BulkUpdateAccountFilters `json:"filters"`
+	ShareStatus string                    `json:"share_status" binding:"required,oneof=not_shared pending_review active rejected suspended"`
+}
+
 // SetShareStatus handles admin review status changes for user-owned accounts.
 // POST /api/v1/admin/accounts/:id/share-status
 func (h *AccountHandler) SetShareStatus(c *gin.Context) {
@@ -430,6 +439,27 @@ func (h *AccountHandler) SetShareStatus(c *gin.Context) {
 		return
 	}
 	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), updated))
+}
+
+// BulkSetShareStatus handles admin review status changes for multiple accounts.
+// POST /api/v1/admin/accounts/batch-share-status
+func (h *AccountHandler) BulkSetShareStatus(c *gin.Context) {
+	var req BulkSetShareStatusRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if len(req.AccountIDs) == 0 && req.Filters == nil {
+		response.BadRequest(c, "account_ids or filters is required")
+		return
+	}
+
+	result, err := h.adminService.BulkSetAccountShareStatus(c.Request.Context(), req.AccountIDs, toServiceBulkUpdateAccountFilters(req.Filters), req.ShareStatus)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
 }
 
 func buildAccountsListETag(
@@ -1534,6 +1564,9 @@ func toServiceBulkUpdateAccountFilters(filters *BulkUpdateAccountFilters) *servi
 		Group:       filters.Group,
 		Search:      filters.Search,
 		PrivacyMode: filters.PrivacyMode,
+		OwnerFilter: filters.OwnerFilter,
+		ShareMode:   filters.ShareMode,
+		ShareStatus: filters.ShareStatus,
 	}
 }
 

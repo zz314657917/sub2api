@@ -25,6 +25,8 @@ type accountRepoStubForBulkUpdate struct {
 	getByIDAccounts  map[int64]*Account
 	getByIDErrByID   map[int64]error
 	getByIDCalled    []int64
+	updateErrByID    map[int64]error
+	updatedAccounts  []*Account
 	listByGroupData  map[int64][]Account
 	listByGroupErr   map[int64]error
 	listData         []Account
@@ -39,6 +41,9 @@ type accountRepoStubForBulkUpdate struct {
 		search      string
 		groupID     int64
 		privacyMode string
+		ownerFilter string
+		shareMode   string
+		shareStatus string
 	}
 }
 
@@ -78,6 +83,16 @@ func (s *accountRepoStubForBulkUpdate) GetByID(_ context.Context, id int64) (*Ac
 	return nil, errors.New("account not found")
 }
 
+func (s *accountRepoStubForBulkUpdate) Update(_ context.Context, account *Account) error {
+	if account != nil {
+		s.updatedAccounts = append(s.updatedAccounts, account)
+		if err, ok := s.updateErrByID[account.ID]; ok {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *accountRepoStubForBulkUpdate) ListByGroup(_ context.Context, groupID int64) ([]Account, error) {
 	if err, ok := s.listByGroupErr[groupID]; ok {
 		return nil, err
@@ -97,6 +112,27 @@ func (s *accountRepoStubForBulkUpdate) ListWithFilters(_ context.Context, params
 	s.lastListFilters.search = search
 	s.lastListFilters.groupID = groupID
 	s.lastListFilters.privacyMode = privacyMode
+	if s.listErr != nil {
+		return nil, nil, s.listErr
+	}
+	if s.listResult != nil {
+		return s.listData, s.listResult, nil
+	}
+	return s.listData, &pagination.PaginationResult{Total: int64(len(s.listData))}, nil
+}
+
+func (s *accountRepoStubForBulkUpdate) ListWithShareFilters(_ context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, _ *int64, ownerFilter, shareMode, shareStatus string) ([]Account, *pagination.PaginationResult, error) {
+	s.listCalled = true
+	s.lastListParams = params
+	s.lastListFilters.platform = platform
+	s.lastListFilters.accountType = accountType
+	s.lastListFilters.status = status
+	s.lastListFilters.search = search
+	s.lastListFilters.groupID = groupID
+	s.lastListFilters.privacyMode = privacyMode
+	s.lastListFilters.ownerFilter = ownerFilter
+	s.lastListFilters.shareMode = shareMode
+	s.lastListFilters.shareStatus = shareStatus
 	if s.listErr != nil {
 		return nil, nil, s.listErr
 	}
@@ -230,6 +266,9 @@ func TestAdminServiceBulkUpdateAccounts_ResolvesIDsFromFilters(t *testing.T) {
 	filtersValue.Elem().FieldByName("Group").SetString("12")
 	filtersValue.Elem().FieldByName("PrivacyMode").SetString(PrivacyModeCFBlocked)
 	filtersValue.Elem().FieldByName("Search").SetString("bulk-target")
+	filtersValue.Elem().FieldByName("OwnerFilter").SetString("user_owned")
+	filtersValue.Elem().FieldByName("ShareMode").SetString(AccountShareModePublic)
+	filtersValue.Elem().FieldByName("ShareStatus").SetString(AccountShareStatusPendingReview)
 	filtersField.Set(filtersValue)
 
 	result, err := svc.BulkUpdateAccounts(context.Background(), input)
@@ -241,8 +280,90 @@ func TestAdminServiceBulkUpdateAccounts_ResolvesIDsFromFilters(t *testing.T) {
 	require.Equal(t, "bulk-target", repo.lastListFilters.search)
 	require.Equal(t, int64(12), repo.lastListFilters.groupID)
 	require.Equal(t, PrivacyModeCFBlocked, repo.lastListFilters.privacyMode)
+	require.Equal(t, "user_owned", repo.lastListFilters.ownerFilter)
+	require.Equal(t, AccountShareModePublic, repo.lastListFilters.shareMode)
+	require.Equal(t, AccountShareStatusPendingReview, repo.lastListFilters.shareStatus)
 	require.Equal(t, []int64{7, 11}, repo.bulkUpdateIDs)
 	require.Equal(t, 2, result.Success)
 	require.Equal(t, 0, result.Failed)
 	require.Equal(t, []int64{7, 11}, result.SuccessIDs)
+}
+
+func TestAdminService_BulkSetAccountShareStatus_PartialFailure(t *testing.T) {
+	ownerID := int64(42)
+	repo := &accountRepoStubForBulkUpdate{
+		getByIDAccounts: map[int64]*Account{
+			1: {ID: 1, OwnerUserID: &ownerID, ShareStatus: AccountShareStatusPendingReview, ShareMode: AccountShareModePrivate},
+			2: {ID: 2, OwnerUserID: &ownerID, ShareStatus: AccountShareStatusPendingReview, ShareMode: AccountShareModePrivate},
+			3: {ID: 3, ShareStatus: AccountShareStatusNotShared, ShareMode: AccountShareModePrivate},
+		},
+		updateErrByID: map[int64]error{
+			2: errors.New("update failed"),
+		},
+	}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	result, err := svc.BulkSetAccountShareStatus(context.Background(), []int64{1, 2, 3, 4}, nil, AccountShareStatusActive)
+	require.NoError(t, err)
+	require.Equal(t, 2, result.Success)
+	require.Equal(t, 2, result.Failed)
+	require.Equal(t, []int64{1, 3}, result.SuccessIDs)
+	require.Equal(t, []int64{2, 4}, result.FailedIDs)
+	require.Len(t, result.Results, 4)
+	require.Equal(t, []int64{1, 2, 3, 4}, repo.getByIDCalled)
+	require.Len(t, repo.updatedAccounts, 3)
+	require.Equal(t, AccountShareStatusActive, repo.getByIDAccounts[1].ShareStatus)
+	require.Equal(t, AccountShareModePublic, repo.getByIDAccounts[1].ShareMode)
+	require.Equal(t, AccountShareStatusActive, repo.getByIDAccounts[3].ShareStatus)
+	require.Equal(t, AccountShareModePublic, repo.getByIDAccounts[3].ShareMode)
+	require.Contains(t, result.Results[1].Error, "update failed")
+	require.Contains(t, result.Results[3].Error, "account not found")
+}
+
+func TestAdminService_BulkSetAccountShareStatus_ResolvesIDsFromFilters(t *testing.T) {
+	ownerID := int64(42)
+	repo := &accountRepoStubForBulkUpdate{
+		listData: []Account{
+			{ID: 7},
+			{ID: 11},
+		},
+		listResult: &pagination.PaginationResult{Total: 2},
+		getByIDAccounts: map[int64]*Account{
+			7:  {ID: 7, OwnerUserID: &ownerID, ShareStatus: AccountShareStatusPendingReview, ShareMode: AccountShareModePrivate},
+			11: {ID: 11, OwnerUserID: &ownerID, ShareStatus: AccountShareStatusPendingReview, ShareMode: AccountShareModePrivate},
+		},
+	}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	result, err := svc.BulkSetAccountShareStatus(context.Background(), nil, &BulkUpdateAccountFilters{
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Group:       "12",
+		Search:      "bulk-target",
+		PrivacyMode: PrivacyModeCFBlocked,
+		OwnerFilter: "user_owned",
+		ShareMode:   AccountShareModePublic,
+		ShareStatus: AccountShareStatusPendingReview,
+	}, AccountShareStatusActive)
+
+	require.NoError(t, err)
+	require.True(t, repo.listCalled, "expected filters to resolve matching IDs via account list filters")
+	require.Equal(t, PlatformOpenAI, repo.lastListFilters.platform)
+	require.Equal(t, AccountTypeOAuth, repo.lastListFilters.accountType)
+	require.Equal(t, StatusActive, repo.lastListFilters.status)
+	require.Equal(t, "bulk-target", repo.lastListFilters.search)
+	require.Equal(t, int64(12), repo.lastListFilters.groupID)
+	require.Equal(t, PrivacyModeCFBlocked, repo.lastListFilters.privacyMode)
+	require.Equal(t, "user_owned", repo.lastListFilters.ownerFilter)
+	require.Equal(t, AccountShareModePublic, repo.lastListFilters.shareMode)
+	require.Equal(t, AccountShareStatusPendingReview, repo.lastListFilters.shareStatus)
+	require.Equal(t, []int64{7, 11}, repo.getByIDCalled)
+	require.Equal(t, 2, result.Success)
+	require.Equal(t, 0, result.Failed)
+	require.Equal(t, []int64{7, 11}, result.SuccessIDs)
+	require.Equal(t, AccountShareStatusActive, repo.getByIDAccounts[7].ShareStatus)
+	require.Equal(t, AccountShareModePublic, repo.getByIDAccounts[7].ShareMode)
+	require.Equal(t, AccountShareStatusActive, repo.getByIDAccounts[11].ShareStatus)
+	require.Equal(t, AccountShareModePublic, repo.getByIDAccounts[11].ShareMode)
 }

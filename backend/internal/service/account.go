@@ -1618,6 +1618,163 @@ func (a *Account) GetQuotaWeeklyUsed() float64 {
 	return a.getExtraFloat64("quota_weekly_used")
 }
 
+// GetQuotaMonthlyLimit 获取月额度限制（美元），0 表示未启用。
+func (a *Account) GetQuotaMonthlyLimit() float64 {
+	return a.getExtraFloat64("quota_monthly_limit")
+}
+
+// GetQuotaMonthlyUsed 获取本月窗口已用额度（美元）。
+func (a *Account) GetQuotaMonthlyUsed() float64 {
+	return a.getExtraFloat64("quota_monthly_used")
+}
+
+func (a *Account) GetShareDisplayName() string {
+	return strings.TrimSpace(a.getExtraString("share_display_name"))
+}
+
+func (a *Account) GetShareDisplayTier() string {
+	return strings.TrimSpace(a.getExtraString("share_display_tier"))
+}
+
+func (a *Account) IsShareDisplayPercentOnly() bool {
+	return a.getExtraBool("share_display_percent_only")
+}
+
+func accountQuotaPercent(used, limit float64) float64 {
+	if limit <= 0 {
+		return 0
+	}
+	percent := used / limit * 100
+	if percent < 0 {
+		return 0
+	}
+	return percent
+}
+
+func accountQuotaResetAt(start time.Time, duration time.Duration) string {
+	if start.IsZero() {
+		return ""
+	}
+	return start.Add(duration).UTC().Format(time.RFC3339)
+}
+
+func accountQuotaRemainingSeconds(start time.Time, duration time.Duration) int {
+	if start.IsZero() {
+		return 0
+	}
+	remaining := time.Until(start.Add(duration))
+	if remaining <= 0 {
+		return 0
+	}
+	return int(remaining.Seconds())
+}
+
+func accountQuotaSecondsUntil(resetAt time.Time) int {
+	if resetAt.IsZero() {
+		return 0
+	}
+	remaining := time.Until(resetAt)
+	if remaining <= 0 {
+		return 0
+	}
+	return int(remaining.Seconds())
+}
+
+func (a *Account) nextFixedQuotaResetAt(key string) time.Time {
+	tz, err := time.LoadLocation(a.GetQuotaResetTimezone())
+	if err != nil {
+		tz = time.UTC
+	}
+	now := time.Now()
+	if key == "quota_daily" {
+		return nextFixedDailyReset(a.GetQuotaDailyResetHour(), tz, now).UTC()
+	}
+	if key == "quota_weekly" {
+		return nextFixedWeeklyReset(a.GetQuotaWeeklyResetDay(), a.GetQuotaWeeklyResetHour(), tz, now).UTC()
+	}
+	return time.Time{}
+}
+
+// PopulateQuotaWindowSnapshots exposes account quota windows as percent-only snapshots.
+// These values are safe for shared-capacity views because they do not reveal absolute USD limits.
+func (a *Account) PopulateQuotaWindowSnapshots() {
+	if a == nil {
+		return
+	}
+	if a.Extra == nil {
+		a.Extra = make(map[string]any)
+	}
+	type quotaWindow struct {
+		key     string
+		limit   float64
+		used    float64
+		start   time.Time
+		expired bool
+		dur     time.Duration
+	}
+	windows := []quotaWindow{
+		{
+			key:     "quota_daily",
+			limit:   a.GetQuotaDailyLimit(),
+			used:    a.GetQuotaDailyUsed(),
+			start:   a.getExtraTime("quota_daily_start"),
+			expired: a.IsDailyQuotaPeriodExpired(),
+			dur:     24 * time.Hour,
+		},
+		{
+			key:     "quota_weekly",
+			limit:   a.GetQuotaWeeklyLimit(),
+			used:    a.GetQuotaWeeklyUsed(),
+			start:   a.getExtraTime("quota_weekly_start"),
+			expired: a.IsWeeklyQuotaPeriodExpired(),
+			dur:     7 * 24 * time.Hour,
+		},
+		{
+			key:     "quota_monthly",
+			limit:   a.GetQuotaMonthlyLimit(),
+			used:    a.GetQuotaMonthlyUsed(),
+			start:   a.getExtraTime("quota_monthly_start"),
+			expired: a.IsMonthlyQuotaPeriodExpired(),
+			dur:     30 * 24 * time.Hour,
+		},
+	}
+	for _, window := range windows {
+		if window.limit <= 0 {
+			delete(a.Extra, window.key+"_used_percent")
+			delete(a.Extra, window.key+"_reset_after_seconds")
+			delete(a.Extra, window.key+"_reset_at")
+			delete(a.Extra, window.key+"_window_minutes")
+			continue
+		}
+		used := window.used
+		if window.expired {
+			used = 0
+		}
+		a.Extra[window.key+"_used_percent"] = accountQuotaPercent(used, window.limit)
+		a.Extra[window.key+"_window_minutes"] = int(window.dur.Minutes())
+		if !window.start.IsZero() && !window.expired {
+			if window.key == "quota_daily" && a.GetQuotaDailyResetMode() == "fixed" {
+				resetAt := a.nextFixedQuotaResetAt(window.key)
+				a.Extra[window.key+"_reset_after_seconds"] = accountQuotaSecondsUntil(resetAt)
+				a.Extra[window.key+"_reset_at"] = resetAt.Format(time.RFC3339)
+			} else if window.key == "quota_weekly" && a.GetQuotaWeeklyResetMode() == "fixed" {
+				resetAt := a.nextFixedQuotaResetAt(window.key)
+				a.Extra[window.key+"_reset_after_seconds"] = accountQuotaSecondsUntil(resetAt)
+				a.Extra[window.key+"_reset_at"] = resetAt.Format(time.RFC3339)
+			} else {
+				a.Extra[window.key+"_reset_after_seconds"] = accountQuotaRemainingSeconds(window.start, window.dur)
+				a.Extra[window.key+"_reset_at"] = accountQuotaResetAt(window.start, window.dur)
+			}
+		} else {
+			delete(a.Extra, window.key+"_reset_after_seconds")
+			if !(window.key == "quota_daily" && a.GetQuotaDailyResetMode() == "fixed") &&
+				!(window.key == "quota_weekly" && a.GetQuotaWeeklyResetMode() == "fixed") {
+				delete(a.Extra, window.key+"_reset_at")
+			}
+		}
+	}
+}
+
 // getExtraFloat64 从 Extra 中读取指定 key 的 float64 值
 func (a *Account) getExtraFloat64(key string) float64 {
 	if a.Extra == nil {
@@ -1960,7 +2117,7 @@ func ValidateQuotaResetConfig(extra map[string]any) error {
 
 // HasAnyQuotaLimit 检查是否配置了任一维度的配额限制
 func (a *Account) HasAnyQuotaLimit() bool {
-	return a.GetQuotaLimit() > 0 || a.GetQuotaDailyLimit() > 0 || a.GetQuotaWeeklyLimit() > 0
+	return a.GetQuotaLimit() > 0 || a.GetQuotaDailyLimit() > 0 || a.GetQuotaWeeklyLimit() > 0 || a.GetQuotaMonthlyLimit() > 0
 }
 
 // isPeriodExpired 检查指定周期（自 periodStart 起经过 dur）是否已过期
@@ -1987,6 +2144,12 @@ func (a *Account) IsWeeklyQuotaPeriodExpired() bool {
 		return a.isFixedWeeklyPeriodExpired(start)
 	}
 	return isPeriodExpired(start, 7*24*time.Hour)
+}
+
+// IsMonthlyQuotaPeriodExpired 检查月配额窗口是否已过期。账号级月额度使用滚动 30 天窗口。
+func (a *Account) IsMonthlyQuotaPeriodExpired() bool {
+	start := a.getExtraTime("quota_monthly_start")
+	return isPeriodExpired(start, 30*24*time.Hour)
 }
 
 // IsQuotaExceeded 检查 API Key 账号配额是否已超限（任一维度超限即返回 true）
@@ -2018,6 +2181,13 @@ func (a *Account) IsQuotaExceeded() bool {
 			expired = isPeriodExpired(start, 7*24*time.Hour)
 		}
 		if !expired && a.GetQuotaWeeklyUsed() >= limit {
+			return true
+		}
+	}
+	// 月额度（滚动 30 天窗口）
+	if limit := a.GetQuotaMonthlyLimit(); limit > 0 {
+		start := a.getExtraTime("quota_monthly_start")
+		if !isPeriodExpired(start, 30*24*time.Hour) && a.GetQuotaMonthlyUsed() >= limit {
 			return true
 		}
 	}

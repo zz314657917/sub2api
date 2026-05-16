@@ -6,7 +6,7 @@ import type { QuotaThresholdType, QuotaResetMode } from '@/constants/account'
 const { t } = useI18n()
 
 const props = defineProps<{
-  dim: 'daily' | 'weekly' | 'total'
+  dim: 'daily' | 'weekly' | 'monthly' | 'total'
   label: string
   limit: number | null
   quotaNotifyGlobalEnabled: boolean
@@ -37,7 +37,7 @@ const emit = defineEmits<{
   'update:resetTimezone': [value: string | null]
 }>()
 
-const hasResetMode = props.dim !== 'total'
+const hasResetMode = props.dim === 'daily' || props.dim === 'weekly'
 
 const onLimitInput = (e: Event) => {
   const raw = (e.target as HTMLInputElement).valueAsNumber

@@ -340,6 +340,89 @@ func TestUserAccountService_GetCapacityPoolsSummarizesMineAndSharedPools(t *test
 	}
 }
 
+func TestUserAccountService_GetCapacityPoolsIncludesOwnApprovedSharedAccounts(t *testing.T) {
+	ownerID := int64(10)
+	groupID := int64(77)
+	now := time.Now()
+	rateLimitResetAt := now.Add(30 * time.Minute)
+	repo := &capacityPoolAccountRepoStub{
+		owned: []Account{
+			{
+				ID:          1,
+				Name:        "my-approved-shared-openai",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				OwnerUserID: &ownerID,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusActive,
+				Status:      StatusActive,
+				Schedulable: true,
+				Groups: []*Group{{
+					ID:       groupID,
+					Name:     "Owner Shared Pool",
+					Platform: PlatformOpenAI,
+				}},
+				Extra: map[string]any{
+					"codex_5h_used_percent": 25,
+				},
+			},
+			{
+				ID:               3,
+				Name:             "my-approved-limited-openai",
+				Platform:         PlatformOpenAI,
+				Type:             AccountTypeAPIKey,
+				OwnerUserID:      &ownerID,
+				ShareMode:        AccountShareModePublic,
+				ShareStatus:      AccountShareStatusActive,
+				Status:           StatusActive,
+				Schedulable:      true,
+				RateLimitResetAt: &rateLimitResetAt,
+				Groups: []*Group{{
+					ID:       groupID,
+					Name:     "Owner Shared Pool",
+					Platform: PlatformOpenAI,
+				}},
+			},
+			{
+				ID:          2,
+				Name:        "my-pending-shared-openai",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				OwnerUserID: &ownerID,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusPendingReview,
+				Status:      StatusActive,
+				Schedulable: true,
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	if pools.Mine.TotalAccounts != 3 {
+		t.Fatalf("expected all owned accounts in mine pool, got %d", pools.Mine.TotalAccounts)
+	}
+	if pools.Shared.TotalAccounts != 2 {
+		t.Fatalf("expected own approved shared account in shared pool, got %d", pools.Shared.TotalAccounts)
+	}
+	if pools.Shared.OwnContributedAccounts != 2 {
+		t.Fatalf("expected own contributed shared account count 2, got %d", pools.Shared.OwnContributedAccounts)
+	}
+	sharedGroup := findCapacityPoolGroup(pools.Shared.Groups, groupID, "Owner Shared Pool")
+	if sharedGroup == nil {
+		t.Fatalf("expected owner shared group, got %#v", pools.Shared.Groups)
+	}
+	if sharedGroup.TotalAccounts != 2 || sharedGroup.OwnContributedAccounts != 2 || sharedGroup.Windows["5h"].UsedPercent != 25 {
+		t.Fatalf("unexpected owner shared group summary: %#v", sharedGroup)
+	}
+	if sharedGroup.UnavailableReasons["rate_limited"] != 1 {
+		t.Fatalf("expected rate-limited reason summary, got %#v", sharedGroup.UnavailableReasons)
+	}
+}
+
 func TestUserAccountService_GetCapacityPoolsIncludesOnlyMarkedSystemSharedAccounts(t *testing.T) {
 	ownerID := int64(10)
 	repo := &capacityPoolAccountRepoStub{
@@ -435,6 +518,100 @@ func TestUserAccountService_GetCapacityPoolsPaginatesAllAccounts(t *testing.T) {
 	sharedGroup := findCapacityPoolGroup(pools.Shared.Groups, 99, "PLUS共享号池")
 	if sharedGroup == nil || sharedGroup.TotalAccounts != len(shared) {
 		t.Fatalf("unexpected shared group pagination result: %#v", pools.Shared.Groups)
+	}
+}
+
+func TestUserAccountService_GetCapacityPoolsAggregatesQuotaWindowPercent(t *testing.T) {
+	ownerID := int64(10)
+	otherOwnerID := int64(11)
+	groupID := int64(88)
+	repo := &capacityPoolAccountRepoStub{
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "shared-pro-a",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				OwnerUserID: &otherOwnerID,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusActive,
+				Status:      StatusActive,
+				Schedulable: true,
+				Groups: []*Group{{
+					ID:       groupID,
+					Name:     "Pro APIKey Pool",
+					Platform: PlatformOpenAI,
+				}},
+				Extra: map[string]any{
+					"quota_daily_limit":          100.0,
+					"quota_daily_used":           10.0,
+					"quota_daily_start":          time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
+					"share_display_percent_only": true,
+				},
+			},
+			{
+				ID:          2,
+				Name:        "shared-pro-b",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				OwnerUserID: &otherOwnerID,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusActive,
+				Status:      StatusActive,
+				Schedulable: true,
+				Groups: []*Group{{
+					ID:       groupID,
+					Name:     "Pro APIKey Pool",
+					Platform: PlatformOpenAI,
+				}},
+				Extra: map[string]any{
+					"quota_daily_limit": 200.0,
+					"quota_daily_used":  80.0,
+					"quota_daily_start": time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+				},
+			},
+			{
+				ID:          3,
+				Name:        "shared-pro-limited",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				OwnerUserID: &otherOwnerID,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusActive,
+				Status:      StatusActive,
+				Schedulable: false,
+				Groups: []*Group{{
+					ID:       groupID,
+					Name:     "Pro APIKey Pool",
+					Platform: PlatformOpenAI,
+				}},
+				Extra: map[string]any{
+					"quota_daily_limit": 100.0,
+					"quota_daily_used":  100.0,
+					"quota_daily_start": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
+				},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, groupID, "Pro APIKey Pool")
+	if group == nil {
+		t.Fatalf("expected shared group, got %#v", pools.Shared.Groups)
+	}
+	window := group.Windows["1d"]
+	if window.UsedPercent != 30 {
+		t.Fatalf("expected aggregate daily percent 30, got %#v", window)
+	}
+	if window.RemainingUnits != 210 {
+		t.Fatalf("expected aggregate remaining quota 210, got %#v", window)
+	}
+	if !group.PercentOnlyQuota || !pools.Shared.PercentOnlyQuota {
+		t.Fatalf("expected percent-only marker to propagate: pool=%v group=%v", pools.Shared.PercentOnlyQuota, group.PercentOnlyQuota)
 	}
 }
 

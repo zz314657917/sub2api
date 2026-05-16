@@ -33,6 +33,11 @@ type stubAdminService struct {
 		platform  string
 		groupIDs  []int64
 	}
+	lastBulkSetShareStatus struct {
+		accountIDs  []int64
+		filters     *service.BulkUpdateAccountFilters
+		shareStatus string
+	}
 	lastListAccounts struct {
 		platform    string
 		accountType string
@@ -40,6 +45,9 @@ type stubAdminService struct {
 		search      string
 		groupID     int64
 		privacyMode string
+		ownerFilter string
+		shareMode   string
+		shareStatus string
 		sortBy      string
 		sortOrder   string
 		calls       int
@@ -306,6 +314,9 @@ func (s *stubAdminService) ListAccounts(ctx context.Context, page, pageSize int,
 	s.lastListAccounts.search = search
 	s.lastListAccounts.groupID = groupID
 	s.lastListAccounts.privacyMode = privacyMode
+	s.lastListAccounts.ownerFilter = ownerFilter
+	s.lastListAccounts.shareMode = shareMode
+	s.lastListAccounts.shareStatus = shareStatus
 	if ownerUserID != nil {
 		s.lastListAccounts.search = s.lastListAccounts.search
 	}
@@ -374,6 +385,23 @@ func (s *stubAdminService) SetAccountSchedulable(ctx context.Context, id int64, 
 func (s *stubAdminService) SetAccountShareStatus(ctx context.Context, id int64, shareStatus string) (*service.Account, error) {
 	account := service.Account{ID: id, Name: "account", Status: service.StatusActive, ShareStatus: shareStatus}
 	return &account, nil
+}
+
+func (s *stubAdminService) BulkSetAccountShareStatus(ctx context.Context, accountIDs []int64, filters *service.BulkUpdateAccountFilters, shareStatus string) (*service.BulkUpdateAccountsResult, error) {
+	s.lastBulkSetShareStatus.accountIDs = append([]int64(nil), accountIDs...)
+	s.lastBulkSetShareStatus.filters = filters
+	s.lastBulkSetShareStatus.shareStatus = shareStatus
+	results := make([]service.BulkUpdateAccountResult, 0, len(accountIDs))
+	for _, id := range accountIDs {
+		results = append(results, service.BulkUpdateAccountResult{AccountID: id, Success: true})
+	}
+	return &service.BulkUpdateAccountsResult{
+		Success:    len(accountIDs),
+		Failed:     0,
+		SuccessIDs: append([]int64(nil), accountIDs...),
+		FailedIDs:  []int64{},
+		Results:    results,
+	}, nil
 }
 
 func (s *stubAdminService) BulkUpdateAccounts(ctx context.Context, input *service.BulkUpdateAccountsInput) (*service.BulkUpdateAccountsResult, error) {

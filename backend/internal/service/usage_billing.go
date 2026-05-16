@@ -108,12 +108,14 @@ func valueOrZero(v *int64) int64 {
 // AccountQuotaState holds the post-increment quota state returned by the DB transaction.
 // All values are post-update (i.e., already include the increment).
 type AccountQuotaState struct {
-	TotalUsed   float64
-	TotalLimit  float64
-	DailyUsed   float64
-	DailyLimit  float64
-	WeeklyUsed  float64
-	WeeklyLimit float64
+	TotalUsed    float64
+	TotalLimit   float64
+	DailyUsed    float64
+	DailyLimit   float64
+	WeeklyUsed   float64
+	WeeklyLimit  float64
+	MonthlyUsed  float64
+	MonthlyLimit float64
 }
 
 type UsageBillingApplyResult struct {

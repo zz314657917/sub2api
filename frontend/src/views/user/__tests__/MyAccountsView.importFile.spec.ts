@@ -11,6 +11,8 @@ const { userAPI, showError, showSuccess, refreshUser } = vi.hoisted(() => ({
     testAccount: vi.fn(),
     deleteAccount: vi.fn(),
     transferAccountShareToBalance: vi.fn(),
+    createAccount: vi.fn(),
+    updateAccount: vi.fn(),
   },
   showError: vi.fn(),
   showSuccess: vi.fn(),
@@ -47,6 +49,24 @@ vi.mock('@/stores/auth', () => ({
   }),
 }))
 
+const makeAccount = (overrides: Record<string, unknown> = {}) => ({
+  id: 1,
+  name: 'Private Account',
+  notes: null,
+  platform: 'openai',
+  type: 'oauth',
+  credentials: {},
+  extra: {},
+  share_mode: 'private',
+  share_status: 'not_shared',
+  schedulable: true,
+  current_rpm: 0,
+  current_window_cost: 0,
+  last_used_at: null,
+  expires_at: null,
+  ...overrides,
+})
+
 function mountView() {
   return mount(MyAccountsView, {
     global: {
@@ -55,7 +75,30 @@ function mountView() {
         TablePageLayout: {
           template: '<div><slot name="actions" /><slot name="table" /><slot name="pagination" /></div>',
         },
-        DataTable: { template: '<div />' },
+        DataTable: {
+          props: ['columns', 'data', 'loading'],
+          emits: ['sort'],
+          template: `
+            <table>
+              <thead>
+                <tr>
+                  <th v-for="column in columns" :key="column.key">
+                    <slot :name="'header-' + column.key" :column="column">{{ column.label }}</slot>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="row in data" :key="row.id">
+                  <td v-for="column in columns" :key="column.key">
+                    <slot :name="'cell-' + column.key" :row="row" :value="row[column.key]">
+                      {{ row[column.key] }}
+                    </slot>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          `,
+        },
         Pagination: { template: '<div />' },
         Icon: { template: '<span />' },
         Select: {
@@ -68,9 +111,9 @@ function mountView() {
           `,
         },
         Input: {
-          props: ['modelValue', 'label', 'placeholder'],
+          props: ['modelValue', 'label', 'placeholder', 'dataTestid'],
           emits: ['update:modelValue'],
-          template: '<input :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+          template: '<input :data-testid="dataTestid" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
         },
         PlatformTypeBadge: { template: '<span />' },
         AccountCapacityCell: { template: '<span />' },
@@ -97,6 +140,9 @@ describe('MyAccountsView import file', () => {
       type: 'oauth',
       credentials: {},
     })
+    userAPI.updateAccountShareMode.mockReset()
+    userAPI.createAccount.mockReset()
+    userAPI.updateAccount.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
     refreshUser.mockReset()
@@ -204,6 +250,137 @@ describe('MyAccountsView import file', () => {
       credentials: {
         refresh_token: openAIContent,
       },
+    }))
+  })
+
+  it('bulk applies public sharing only for selected non-public accounts', async () => {
+    userAPI.listAccounts.mockResolvedValue({
+      items: [
+        makeAccount({ id: 1, name: 'Private One', share_mode: 'private', share_status: 'not_shared' }),
+        makeAccount({ id: 2, name: 'Already Public', share_mode: 'public', share_status: 'active' }),
+        makeAccount({ id: 3, name: 'Private Two', share_mode: 'private', share_status: 'not_shared' }),
+      ],
+      total: 3,
+      pages: 1,
+    })
+    userAPI.updateAccountShareMode.mockImplementation(async (id, shareMode) => ({
+      ...makeAccount({
+        id,
+        name: `Account ${id}`,
+        share_mode: shareMode,
+        share_status: 'pending_review',
+      }),
+    }))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const checkboxes = wrapper.findAll('input[type="checkbox"]')
+    expect(checkboxes.length).toBeGreaterThanOrEqual(4)
+
+    await checkboxes[1].setValue(true)
+    await checkboxes[2].setValue(true)
+    await checkboxes[3].setValue(true)
+
+    await wrapper.get('[data-testid="my-accounts-bulk-apply-public"]').trigger('click')
+    await flushPromises()
+
+    expect(userAPI.updateAccountShareMode).toHaveBeenCalledTimes(2)
+    expect(userAPI.updateAccountShareMode).toHaveBeenCalledWith(1, 'public')
+    expect(userAPI.updateAccountShareMode).toHaveBeenCalledWith(3, 'public')
+    expect(userAPI.updateAccountShareMode).not.toHaveBeenCalledWith(2, 'public')
+    expect(showSuccess).toHaveBeenCalledWith('myAccounts.bulk.applyPublicSuccess')
+  })
+
+  it('bulk makes selected public accounts private without touching private accounts', async () => {
+    userAPI.listAccounts.mockResolvedValue({
+      items: [
+        makeAccount({ id: 1, name: 'Private One', share_mode: 'private', share_status: 'not_shared' }),
+        makeAccount({ id: 2, name: 'Public One', share_mode: 'public', share_status: 'active' }),
+        makeAccount({ id: 3, name: 'Public Two', share_mode: 'public', share_status: 'pending_review' }),
+      ],
+      total: 3,
+      pages: 1,
+    })
+    userAPI.updateAccountShareMode.mockImplementation(async (id, shareMode) => ({
+      ...makeAccount({
+        id,
+        name: `Account ${id}`,
+        share_mode: shareMode,
+        share_status: 'not_shared',
+      }),
+    }))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const checkboxes = wrapper.findAll('input[type="checkbox"]')
+    expect(checkboxes.length).toBeGreaterThanOrEqual(4)
+
+    await checkboxes[1].setValue(true)
+    await checkboxes[2].setValue(true)
+    await checkboxes[3].setValue(true)
+
+    await wrapper.get('[data-testid="my-accounts-bulk-make-private"]').trigger('click')
+    await flushPromises()
+
+    expect(userAPI.updateAccountShareMode).toHaveBeenCalledTimes(2)
+    expect(userAPI.updateAccountShareMode).toHaveBeenCalledWith(2, 'private')
+    expect(userAPI.updateAccountShareMode).toHaveBeenCalledWith(3, 'private')
+    expect(userAPI.updateAccountShareMode).not.toHaveBeenCalledWith(1, 'private')
+    expect(showSuccess).toHaveBeenCalledWith('myAccounts.bulk.makePrivateSuccess')
+  })
+
+  it('creates an OpenAI API key account with quota limits and shared display wrapper', async () => {
+    userAPI.createAccount.mockResolvedValue(makeAccount({
+      id: 88,
+      name: 'Virtual Pro',
+      type: 'apikey',
+      credentials: {},
+      extra: {},
+    }))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="my-accounts-open-create"]').trigger('click')
+    const selects = wrapper.findAll('select')
+    await selects[1].setValue('apikey')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="my-accounts-name"]').setValue('Virtual Pro')
+    await wrapper.get('[data-testid="my-accounts-apikey-base-url"]').setValue('https://api.openai.com')
+    await wrapper.get('[data-testid="my-accounts-apikey-value"]').setValue('sk-test')
+    await wrapper.get('[data-testid="my-accounts-quota-daily"]').setValue('10')
+    await wrapper.get('[data-testid="my-accounts-quota-weekly"]').setValue('50')
+    await wrapper.get('[data-testid="my-accounts-quota-monthly"]').setValue('150')
+    await wrapper.get('[data-testid="my-accounts-quota-total"]').setValue('300')
+
+    await wrapper.get('[data-testid="share-display-toggle"]').trigger('click')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="share-display-name"]').setValue('OpenAI Pro 容量')
+
+    await wrapper.get('[data-testid="my-accounts-save"]').trigger('click')
+    await flushPromises()
+
+    expect(userAPI.createAccount).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'Virtual Pro',
+      platform: 'openai',
+      type: 'apikey',
+      credentials: {
+        base_url: 'https://api.openai.com',
+        api_key: 'sk-test',
+      },
+      extra: expect.objectContaining({
+        quota_daily_limit: 10,
+        quota_weekly_limit: 50,
+        quota_monthly_limit: 150,
+        quota_limit: 300,
+        share_display_name: 'OpenAI Pro 容量',
+        share_display_tier: 'pro',
+        share_display_percent_only: true,
+      }),
     }))
   })
 })

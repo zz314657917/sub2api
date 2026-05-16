@@ -335,6 +335,18 @@ func incrementUsageBillingAccountQuota(ctx context.Context, tx *sql.Tx, accountI
 				   THEN jsonb_build_object('quota_weekly_reset_at', `+nextWeeklyResetAtExpr+`)
 				   ELSE '{}'::jsonb END
 			ELSE '{}'::jsonb END
+			|| CASE WHEN COALESCE((extra->>'quota_monthly_limit')::numeric, 0) > 0 THEN
+				jsonb_build_object(
+					'quota_monthly_used',
+					CASE WHEN `+monthlyExpiredExpr+`
+					THEN $1
+					ELSE COALESCE((extra->>'quota_monthly_used')::numeric, 0) + $1 END,
+					'quota_monthly_start',
+					CASE WHEN `+monthlyExpiredExpr+`
+					THEN `+nowUTC+`
+					ELSE COALESCE(extra->>'quota_monthly_start', `+nowUTC+`) END
+				)
+			ELSE '{}'::jsonb END
 		), updated_at = NOW()
 		WHERE id = $2 AND deleted_at IS NULL
 		RETURNING
@@ -343,7 +355,9 @@ func incrementUsageBillingAccountQuota(ctx context.Context, tx *sql.Tx, accountI
 			COALESCE((extra->>'quota_daily_used')::numeric, 0),
 			COALESCE((extra->>'quota_daily_limit')::numeric, 0),
 			COALESCE((extra->>'quota_weekly_used')::numeric, 0),
-			COALESCE((extra->>'quota_weekly_limit')::numeric, 0)`,
+			COALESCE((extra->>'quota_weekly_limit')::numeric, 0),
+			COALESCE((extra->>'quota_monthly_used')::numeric, 0),
+			COALESCE((extra->>'quota_monthly_limit')::numeric, 0)`,
 		amount, accountID)
 	if err != nil {
 		return nil, err
@@ -355,6 +369,7 @@ func incrementUsageBillingAccountQuota(ctx context.Context, tx *sql.Tx, accountI
 			&state.TotalUsed, &state.TotalLimit,
 			&state.DailyUsed, &state.DailyLimit,
 			&state.WeeklyUsed, &state.WeeklyLimit,
+			&state.MonthlyUsed, &state.MonthlyLimit,
 		); err != nil {
 			_ = rows.Close()
 			return nil, err
@@ -385,7 +400,8 @@ func incrementUsageBillingAccountQuota(ctx context.Context, tx *sql.Tx, accountI
 	crossedTotal := state.TotalLimit > 0 && state.TotalUsed >= state.TotalLimit && (state.TotalUsed-amount) < state.TotalLimit
 	crossedDaily := state.DailyLimit > 0 && state.DailyUsed >= state.DailyLimit && (state.DailyUsed-amount) < state.DailyLimit
 	crossedWeekly := state.WeeklyLimit > 0 && state.WeeklyUsed >= state.WeeklyLimit && (state.WeeklyUsed-amount) < state.WeeklyLimit
-	if crossedTotal || crossedDaily || crossedWeekly {
+	crossedMonthly := state.MonthlyLimit > 0 && state.MonthlyUsed >= state.MonthlyLimit && (state.MonthlyUsed-amount) < state.MonthlyLimit
+	if crossedTotal || crossedDaily || crossedWeekly || crossedMonthly {
 		if err := enqueueSchedulerOutbox(ctx, tx, service.SchedulerOutboxEventAccountChanged, &accountID, nil, nil); err != nil {
 			logger.LegacyPrintf("repository.usage_billing", "[SchedulerOutbox] enqueue quota exceeded failed: account=%d err=%v", accountID, err)
 			return nil, err

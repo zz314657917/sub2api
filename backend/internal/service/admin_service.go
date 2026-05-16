@@ -86,6 +86,7 @@ type AdminService interface {
 	ForceAntigravityPrivacy(ctx context.Context, account *Account) string
 	SetAccountSchedulable(ctx context.Context, id int64, schedulable bool) (*Account, error)
 	SetAccountShareStatus(ctx context.Context, id int64, shareStatus string) (*Account, error)
+	BulkSetAccountShareStatus(ctx context.Context, accountIDs []int64, filters *BulkUpdateAccountFilters, shareStatus string) (*BulkUpdateAccountsResult, error)
 	BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error)
 	CheckMixedChannelRisk(ctx context.Context, currentAccountID int64, currentAccountPlatform string, groupIDs []int64) error
 
@@ -326,6 +327,9 @@ type BulkUpdateAccountFilters struct {
 	Group       string
 	Search      string
 	PrivacyMode string
+	OwnerFilter string
+	ShareMode   string
+	ShareStatus string
 }
 
 // BulkUpdateAccountResult captures the result for a single account update.
@@ -2500,7 +2504,7 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	// 关闭配额限制时前端会删除 quota_* 键并提交 extra:{}，此时也必须落库。
 	if input.Extra != nil {
 		// 保留配额用量字段，防止编辑账号时意外重置
-		for _, key := range []string{"quota_used", "quota_daily_used", "quota_daily_start", "quota_weekly_used", "quota_weekly_start"} {
+		for _, key := range []string{"quota_used", "quota_daily_used", "quota_daily_start", "quota_weekly_used", "quota_weekly_start", "quota_monthly_used", "quota_monthly_start"} {
 			if v, ok := account.Extra[key]; ok {
 				input.Extra[key] = v
 			}
@@ -2763,9 +2767,9 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 			groupID,
 			filters.PrivacyMode,
 			nil,
-			"",
-			"",
-			"",
+			filters.OwnerFilter,
+			filters.ShareMode,
+			filters.ShareStatus,
 			"",
 			"",
 		)
@@ -2860,6 +2864,41 @@ func (s *adminServiceImpl) SetAccountShareStatus(ctx context.Context, id int64, 
 		return nil, err
 	}
 	return account, nil
+}
+
+func (s *adminServiceImpl) BulkSetAccountShareStatus(ctx context.Context, accountIDs []int64, filters *BulkUpdateAccountFilters, shareStatus string) (*BulkUpdateAccountsResult, error) {
+	if len(accountIDs) == 0 && filters != nil {
+		resolvedIDs, err := s.resolveBulkUpdateTargetIDs(ctx, filters)
+		if err != nil {
+			return nil, err
+		}
+		accountIDs = resolvedIDs
+	}
+
+	result := &BulkUpdateAccountsResult{
+		SuccessIDs: make([]int64, 0, len(accountIDs)),
+		FailedIDs:  make([]int64, 0, len(accountIDs)),
+		Results:    make([]BulkUpdateAccountResult, 0, len(accountIDs)),
+	}
+
+	for _, accountID := range accountIDs {
+		entry := BulkUpdateAccountResult{AccountID: accountID}
+		if _, err := s.SetAccountShareStatus(ctx, accountID, shareStatus); err != nil {
+			entry.Success = false
+			entry.Error = err.Error()
+			result.Failed++
+			result.FailedIDs = append(result.FailedIDs, accountID)
+			result.Results = append(result.Results, entry)
+			continue
+		}
+
+		entry.Success = true
+		result.Success++
+		result.SuccessIDs = append(result.SuccessIDs, accountID)
+		result.Results = append(result.Results, entry)
+	}
+
+	return result, nil
 }
 
 // Proxy management implementations

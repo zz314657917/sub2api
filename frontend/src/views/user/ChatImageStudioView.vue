@@ -839,6 +839,7 @@ const SESSION_TITLE_LIMIT = 28
 const maxImageCount = 8
 const minPreviewZoom = 0.25
 const maxPreviewZoom = 4
+const imagePreviewFallbackSrc = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -1740,9 +1741,11 @@ async function loadImageTasks(): Promise<void> {
     const images = (response.images?.length ? response.images : imagesFromTasks(response.tasks || [])).map(storedImageToResult)
     galleryImages.value = images
     await hydrateImages(images)
+    await syncImageMessagesFromTasks(imageTasks.value)
     const active = imageTasks.value.find(taskIsActive)
     if (active && !generating.value) {
-      startTaskPolling(active.id, null, taskTimerStartMs(active))
+      const activeMessage = findImageMessageByTaskId(active.id)
+      startTaskPolling(active.id, activeMessage?.id ?? null, taskTimerStartMs(active))
     }
   } catch (error: any) {
     appStore.showError(error?.message || t('chatImageStudio.loadTasksFailed'))
@@ -1788,13 +1791,55 @@ function imagesFromSessions(): GeneratedImage[] {
   )
 }
 
+async function syncImageMessagesFromTasks(tasks: ImageCreatorTask[]): Promise<void> {
+  const imagesToHydrate: GeneratedImage[] = []
+  for (const task of tasks) {
+    const message = findImageMessageByTaskId(task.id)
+    if (!message) continue
+
+    message.taskId = task.id
+    message.status = task.status
+
+    if (task.status === 'succeeded') {
+      const images = (task.images || []).map(storedImageToResult)
+      message.content = task.prompt
+      message.images = images
+      mergeGalleryImages(images)
+      imagesToHydrate.push(...images)
+    } else if (task.status === 'failed') {
+      message.content = task.error_message || t('chatImageStudio.generateFailed')
+      message.images = []
+    } else if (!message.content) {
+      message.content = t('chatImageStudio.generatingHint')
+    }
+
+    const session = sessionForMessage(message.id)
+    if (session) touchSession(session)
+  }
+
+  if (imagesToHydrate.length > 0) {
+    await hydrateImages(imagesToHydrate)
+  }
+}
+
+function findImageMessageByTaskId(taskId: number): StudioMessage | null {
+  for (const session of sessions.value) {
+    const message = session.messages.find((item) => item.kind === 'image' && item.taskId === taskId)
+    if (message) return message
+  }
+  return null
+}
+
 function shouldFetchImageUrl(url: string): boolean {
   const value = url.trim().toLowerCase()
   return value !== '' && !value.startsWith('data:') && !value.startsWith('blob:')
 }
 
 function imageSrc(image: GeneratedImage): string {
-  return imageDisplayUrls.value[image.id] || image.url
+  const displayUrl = imageDisplayUrls.value[image.id]
+  if (displayUrl) return displayUrl
+  const sourceUrl = image.sourceUrl || image.url
+  return shouldFetchImageUrl(sourceUrl) ? imagePreviewFallbackSrc : sourceUrl
 }
 
 function isImageSelected(image: GeneratedImage): boolean {
@@ -1860,10 +1905,9 @@ async function hydrateImages(images: GeneratedImage[]): Promise<void> {
         [image.id]: objectUrl,
       }
     } catch {
-      imageDisplayUrls.value = {
-        ...imageDisplayUrls.value,
-        [image.id]: sourceUrl,
-      }
+      const next = { ...imageDisplayUrls.value }
+      delete next[image.id]
+      imageDisplayUrls.value = next
     }
   }))
 }
@@ -1876,10 +1920,12 @@ function revokeGeneratedImageObjectUrls(): void {
 }
 
 async function ensureImageDownloadUrl(image: GeneratedImage): Promise<string> {
-  const current = imageSrc(image)
-  if (current.startsWith('blob:') || current.startsWith('data:')) return current
+  const current = imageDisplayUrls.value[image.id]
+  if (current?.startsWith('blob:') || current?.startsWith('data:')) return current
   await hydrateImages([image])
-  return imageSrc(image)
+  const hydrated = imageDisplayUrls.value[image.id]
+  if (hydrated?.startsWith('blob:') || hydrated?.startsWith('data:')) return hydrated
+  return image.sourceUrl || image.url
 }
 
 async function downloadImage(image: GeneratedImage, index: number, notify = true): Promise<void> {

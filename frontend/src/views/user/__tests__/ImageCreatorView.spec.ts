@@ -180,7 +180,7 @@ describe('ImageCreatorView', () => {
 
     expect(createImageTask).toHaveBeenCalledTimes(1)
     expect(createImageTask.mock.calls[0][0]).toMatchObject({
-      count: 4,
+      count: 8,
     })
   })
 

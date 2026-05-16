@@ -38,6 +38,12 @@
           <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <MetricTile :label="t('channelStatus.capacityPools.total')" :value="formatInteger(pool.total_accounts)" />
             <MetricTile
+              v-if="pool.key === 'shared' && positiveCount(pool.own_contributed_accounts) > 0"
+              :label="t('channelStatus.capacityPools.ownContributed')"
+              :value="formatInteger(pool.own_contributed_accounts ?? 0)"
+              tone="success"
+            />
+            <MetricTile
               :label="t('channelStatus.capacityPools.schedulable')"
               :value="formatInteger(pool.schedulable_accounts)"
               tone="success"
@@ -142,6 +148,13 @@ function formatRemainingUnits(value: number): string {
   })
 }
 
+function positiveCount(value?: number | null): number {
+  if (!Number.isFinite(value ?? 0)) {
+    return 0
+  }
+  return Math.max(0, Math.round(value ?? 0))
+}
+
 function platformLabel(platform?: string): string {
   if (!platform) return ''
   const key = `myAccounts.platforms.${platform}`
@@ -189,7 +202,7 @@ function chipClass(tone: 'success' | 'warning' | 'danger' | 'neutral'): string {
 
 function windowSummaries(group: UserAccountCapacityPoolGroup): Array<{ key: string; data: UserAccountCapacityWindowSummary }> {
   const windows = group.windows ?? {}
-  return ['5h', '7d']
+  return ['1d', '7d_quota', '30d', '5h', '7d']
     .map((key) => {
       const data = windows[key]
       return data ? { key, data } : null
@@ -199,12 +212,78 @@ function windowSummaries(group: UserAccountCapacityPoolGroup): Array<{ key: stri
 
 function windowBadges(section: UserAccountCapacityPoolSection): Array<{ key: string; data: UserAccountCapacityWindowSnapshot }> {
   const windows = section.windows ?? {}
-  return ['5h', '7d']
+  return ['1d', '7d_quota', '30d', '5h', '7d']
     .map((key) => {
       const data = windows[key]
       return data ? { key, data } : null
     })
     .filter((item): item is { key: string; data: UserAccountCapacityWindowSnapshot } => item !== null)
+}
+
+function windowLabel(key: string): string {
+  switch (key) {
+    case '1d':
+      return t('channelStatus.capacityPools.quotaWindow', { window: '1d' })
+    case '7d_quota':
+      return t('channelStatus.capacityPools.quotaWindow', { window: '7d' })
+    case '30d':
+      return t('channelStatus.capacityPools.quotaWindow', { window: '30d' })
+    default:
+      return t('channelStatus.capacityPools.window', { window: key })
+  }
+}
+
+const unavailableReasonOrder = [
+  'daily_quota_exceeded',
+  'weekly_quota_exceeded',
+  'monthly_quota_exceeded',
+  'quota_exceeded',
+  'rate_limited',
+  'overloaded',
+  'temp_unschedulable',
+  'manual_unschedulable',
+  'error',
+  'disabled',
+  'expired',
+  'unused',
+  'inactive',
+  'unschedulable',
+]
+
+function unavailableReasonLabel(key: string): string {
+  const messageKey = `channelStatus.capacityPools.unavailableReasons.${key}`
+  const label = t(messageKey)
+  return label === messageKey ? key : label
+}
+
+function unavailableReasonTone(key: string): 'warning' | 'danger' | 'neutral' {
+  if (key.includes('quota') || key === 'rate_limited' || key === 'overloaded' || key === 'temp_unschedulable') {
+    return 'warning'
+  }
+  if (key === 'error' || key === 'disabled' || key === 'expired') {
+    return 'danger'
+  }
+  return 'neutral'
+}
+
+function unavailableReasonEntries(reasons?: Record<string, number>): Array<{ key: string; label: string; count: number; tone: 'warning' | 'danger' | 'neutral' }> {
+  if (!reasons) return []
+  return Object.entries(reasons)
+    .map(([key, value]) => ({
+      key,
+      label: unavailableReasonLabel(key),
+      count: positiveCount(value),
+      tone: unavailableReasonTone(key),
+    }))
+    .filter((item) => item.count > 0)
+    .sort((a, b) => {
+      const left = unavailableReasonOrder.indexOf(a.key)
+      const right = unavailableReasonOrder.indexOf(b.key)
+      const normalizedLeft = left === -1 ? unavailableReasonOrder.length : left
+      const normalizedRight = right === -1 ? unavailableReasonOrder.length : right
+      if (normalizedLeft !== normalizedRight) return normalizedLeft - normalizedRight
+      return a.key.localeCompare(b.key)
+    })
 }
 
 const MetricTile = defineComponent({
@@ -263,7 +342,12 @@ const SharedGroupGrid = defineComponent({
         }, [
           h('div', { class: 'flex items-start justify-between gap-3' }, [
             h('div', { class: 'min-w-0' }, [
-              h('p', { class: 'truncate text-sm font-bold text-gray-900 dark:text-white' }, group.group_name),
+              h('div', { class: 'flex min-w-0 flex-wrap items-center gap-1.5' }, [
+                h('p', { class: 'min-w-0 truncate text-sm font-bold text-gray-900 dark:text-white' }, group.group_name),
+                componentProps.pool.key === 'shared' && positiveCount(group.own_contributed_accounts) > 0
+                  ? h('span', { class: ['shrink-0 rounded px-2 py-0.5 text-xs font-semibold', chipClass('success')] }, `${t('channelStatus.capacityPools.ownContributed')} ${formatInteger(group.own_contributed_accounts ?? 0)}`)
+                  : null,
+              ]),
               h('p', { class: 'mt-0.5 text-xs text-gray-500 dark:text-gray-400' }, [
                 platformLabel(group.platform),
                 platformLabel(group.platform) ? ' · ' : '',
@@ -287,10 +371,18 @@ const SharedGroupGrid = defineComponent({
               ? h('span', { class: ['rounded px-2 py-0.5 text-xs', chipClass('neutral')] }, `${t('channelStatus.capacityPools.disabled')} ${formatInteger(group.disabled_accounts)}`)
               : null,
           ]),
+          unavailableReasonEntries(group.unavailable_reasons).length > 0
+            ? h('div', { class: 'mt-2 flex flex-wrap items-center gap-1.5' }, [
+              h('span', { class: 'text-xs font-medium text-gray-500 dark:text-gray-400' }, t('channelStatus.capacityPools.unavailableReason')),
+              ...unavailableReasonEntries(group.unavailable_reasons).map((reason) => (
+                h('span', { key: reason.key, class: ['rounded px-2 py-0.5 text-xs', chipClass(reason.tone)] }, `${reason.label} ${formatInteger(reason.count)}`)
+              )),
+            ])
+            : null,
           h('div', { class: 'mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2' }, windowSummaries(group).map((item) => (
             h('div', { key: item.key, class: 'rounded-md bg-white/65 p-2 dark:bg-dark-900/35' }, [
               h('div', { class: 'flex items-center justify-between gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100' }, [
-                h('span', t('channelStatus.capacityPools.window', { window: item.key })),
+                h('span', windowLabel(item.key)),
                 h('span', formatPercent(item.data.used_percent)),
               ]),
               h('div', { class: 'mt-1 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700' }, [
@@ -305,11 +397,15 @@ const SharedGroupGrid = defineComponent({
                   h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, `${formatInteger(item.data.schedulable_snapshot_accounts)}/${formatInteger(item.data.snapshot_accounts)}`),
                 ]),
                 h('div', [
-                  h('p', t('channelStatus.capacityPools.schedulableRemaining')),
-                  h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, formatRemainingUnits(item.data.remaining_units)),
-                ]),
-              ]),
-            ])
+              componentProps.pool.percent_only_quota || group.percent_only_quota
+                ? h('p', t('channelStatus.capacityPools.percentOnly'))
+                : h('p', t('channelStatus.capacityPools.schedulableRemaining')),
+              componentProps.pool.percent_only_quota || group.percent_only_quota
+                ? h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, formatPercent(item.data.used_percent))
+                : h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, formatRemainingUnits(item.data.remaining_units)),
+            ]),
+          ]),
+        ])
           ))),
         ])
       ))),
@@ -330,18 +426,31 @@ const SectionFallback = defineComponent({
       }, [
         h('div', { class: 'flex items-center justify-between gap-3' }, [
           h('div', [
-            h('p', { class: 'text-sm font-semibold text-gray-900 dark:text-white' }, `${platformLabel(section.platform)} / ${typeLabel(section.type)}`),
+            h('div', { class: 'flex flex-wrap items-center gap-1.5' }, [
+              h('p', { class: 'text-sm font-semibold text-gray-900 dark:text-white' }, `${platformLabel(section.platform)} / ${typeLabel(section.type)}`),
+              componentProps.pool.key === 'shared' && positiveCount(section.own_contributed_accounts) > 0
+                ? h('span', { class: ['rounded px-2 py-0.5 text-xs font-semibold', chipClass('success')] }, `${t('channelStatus.capacityPools.ownContributed')} ${formatInteger(section.own_contributed_accounts ?? 0)}`)
+                : null,
+            ]),
             h('p', { class: 'mt-0.5 text-xs text-gray-500 dark:text-gray-400' }, `${section.schedulable_accounts}/${section.total_accounts} ${t('channelStatus.capacityPools.schedulable')}`),
           ]),
           h('div', { class: 'flex flex-wrap justify-end gap-1.5' }, windowBadges(section).map((item) => (
-            h('span', { key: item.key, class: 'rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700 dark:bg-dark-700 dark:text-gray-200' }, `${item.key} ${Math.round(item.data.used_percent)}%`)
+            h('span', { key: item.key, class: 'rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700 dark:bg-dark-700 dark:text-gray-200' }, `${windowLabel(item.key)} ${Math.round(item.data.used_percent)}%`)
           ))),
         ]),
+        unavailableReasonEntries(section.unavailable_reasons).length > 0
+          ? h('div', { class: 'mt-2 flex flex-wrap items-center gap-1.5' }, [
+            h('span', { class: 'text-xs font-medium text-gray-500 dark:text-gray-400' }, t('channelStatus.capacityPools.unavailableReason')),
+            ...unavailableReasonEntries(section.unavailable_reasons).map((reason) => (
+              h('span', { key: reason.key, class: ['rounded px-2 py-0.5 text-xs', chipClass(reason.tone)] }, `${reason.label} ${formatInteger(reason.count)}`)
+            )),
+          ])
+          : null,
       ])),
       componentProps.pool.sections.length === 0
         ? h('p', { class: 'rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400' }, t('channelStatus.capacityPools.empty'))
         : null,
-      componentProps.pool.sections.length > 0 && componentProps.pool.configured_quota > 0
+      componentProps.pool.sections.length > 0 && componentProps.pool.configured_quota > 0 && !componentProps.pool.percent_only_quota
         ? h('div', { class: 'grid grid-cols-2 gap-2 pt-1' }, [
           h('div', { class: 'rounded-lg bg-gray-50 p-3 dark:bg-dark-900/40' }, [
             h('p', { class: 'text-xs text-gray-500 dark:text-gray-400' }, t('channelStatus.capacityPools.configuredQuota')),

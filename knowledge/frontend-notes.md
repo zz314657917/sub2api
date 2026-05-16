@@ -1,6 +1,6 @@
 # 前端开发笔记
 
-最后更新：2026-05-13
+最后更新：2026-05-15
 
 ## 技术入口
 
@@ -76,6 +76,7 @@ pnpm.cmd exec vitest run src/__tests__/public-pages.spec.ts
 
 - `frontend/src/views/user/DashboardView.vue`
 - `frontend/src/components/user/dashboard/UserDashboardAccountUsage.vue`
+- `frontend/src/views/user/ChatImageStudioView.vue`
 - `frontend/src/views/user/ChatStudioView.vue`
 - `frontend/src/views/user/ImageCreatorView.vue`
 - `frontend/src/views/user/PaymentView.vue`
@@ -84,6 +85,7 @@ pnpm.cmd exec vitest run src/__tests__/public-pages.spec.ts
 
 - 用户侧 API 变更要同步 `frontend/src/api/user.ts`、`frontend/src/types/index.ts` 和页面测试。
 - ChatStudio / ImageCreator 属于交互复杂页面，改动后至少跑对应 Vitest。
+- ChatImageStudio 的会话是 `localStorage` 本地状态，key 为 `sub2api:chat-image-studio:v1`；删除会话不会删除或取消服务端图片任务，详见 `knowledge/chat-image-studio.md`。
 - Payment 页面历史上出现过并行改动导致 typecheck 噪声，遇到时先查 `git diff` 确认责任范围。
 
 ## 前端验证建议

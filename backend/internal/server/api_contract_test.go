@@ -1173,6 +1173,36 @@ func TestAPIContracts(t *testing.T) {
 				}
 			}`,
 		},
+		{
+			name: "POST /api/v1/admin/accounts/batch-share-status",
+			setup: func(t *testing.T, deps *contractDeps) {
+				deps.accountRepo.accounts = map[int64]*service.Account{
+					201: {ID: 201, ShareMode: service.AccountShareModePublic, ShareStatus: service.AccountShareStatusPendingReview},
+					202: {ID: 202, ShareMode: service.AccountShareModePublic, ShareStatus: service.AccountShareStatusPendingReview},
+				}
+			},
+			method: http.MethodPost,
+			path:   "/api/v1/admin/accounts/batch-share-status",
+			body:   `{"account_ids":[201,202],"share_status":"active"}`,
+			headers: map[string]string{
+				"Content-Type": "application/json",
+			},
+			wantStatus: http.StatusOK,
+			wantJSON: `{
+				"code": 0,
+				"message": "success",
+				"data": {
+					"success": 2,
+					"failed": 0,
+					"success_ids": [201, 202],
+					"failed_ids": [],
+					"results": [
+						{"account_id": 201, "success": true},
+						{"account_id": 202, "success": true}
+					]
+				}
+			}`,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1195,6 +1225,7 @@ type contractDeps struct {
 	cfg         *config.Config
 	apiKeyRepo  *stubApiKeyRepo
 	groupRepo   *stubGroupRepo
+	accountRepo *stubAccountRepo
 	userSubRepo *stubUserSubscriptionRepo
 	usageRepo   *stubUsageLogRepo
 	settingRepo *stubSettingRepo
@@ -1309,6 +1340,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	v1Admin.Use(adminAuth)
 	v1Admin.GET("/settings", adminSettingHandler.GetSettings)
 	v1Admin.POST("/accounts/bulk-update", adminAccountHandler.BulkUpdate)
+	v1Admin.POST("/accounts/batch-share-status", adminAccountHandler.BulkSetShareStatus)
 
 	return &contractDeps{
 		now:         now,
@@ -1316,6 +1348,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 		cfg:         cfg,
 		apiKeyRepo:  apiKeyRepo,
 		groupRepo:   groupRepo,
+		accountRepo: &accountRepo,
 		userSubRepo: userSubRepo,
 		usageRepo:   usageRepo,
 		settingRepo: settingRepo,
@@ -1593,6 +1626,7 @@ func (stubGroupRepo) UpdateSortOrders(ctx context.Context, updates []service.Gro
 
 type stubAccountRepo struct {
 	bulkUpdateIDs []int64
+	accounts      map[int64]*service.Account
 }
 
 func (s *stubAccountRepo) Create(ctx context.Context, account *service.Account) error {
@@ -1600,6 +1634,11 @@ func (s *stubAccountRepo) Create(ctx context.Context, account *service.Account) 
 }
 
 func (s *stubAccountRepo) GetByID(ctx context.Context, id int64) (*service.Account, error) {
+	if s.accounts != nil {
+		if account, ok := s.accounts[id]; ok {
+			return account, nil
+		}
+	}
 	return nil, service.ErrAccountNotFound
 }
 
@@ -1620,7 +1659,11 @@ func (s *stubAccountRepo) FindByExtraField(ctx context.Context, key string, valu
 }
 
 func (s *stubAccountRepo) Update(ctx context.Context, account *service.Account) error {
-	return errors.New("not implemented")
+	if s.accounts == nil {
+		s.accounts = map[int64]*service.Account{}
+	}
+	s.accounts[account.ID] = account
+	return nil
 }
 
 func (s *stubAccountRepo) Delete(ctx context.Context, id int64) error {

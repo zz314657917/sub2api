@@ -655,6 +655,39 @@ export async function setShareStatus(
   return data
 }
 
+export interface BatchShareStatusResult {
+  success: number
+  failed: number
+  success_ids?: number[]
+  failed_ids?: number[]
+  results: Array<{ account_id: number; success: boolean; error?: string }>
+}
+
+export type BatchShareStatusTarget =
+  | number[]
+  | {
+      filters: Record<string, unknown>
+    }
+
+export async function batchSetShareStatus(
+  target: BatchShareStatusTarget,
+  shareStatus: 'active' | 'rejected' | 'suspended'
+): Promise<BatchShareStatusResult> {
+  const payload = Array.isArray(target)
+    ? {
+        account_ids: target,
+        share_status: shareStatus
+      }
+    : {
+        filters: target.filters,
+        share_status: shareStatus
+      }
+  const { data } = await apiClient.post<BatchShareStatusResult>('/admin/accounts/batch-share-status', {
+    ...payload
+  })
+  return data
+}
+
 export const accountsAPI = {
   list,
   listWithEtag,
@@ -693,7 +726,8 @@ export const accountsAPI = {
   batchClearError,
   batchRefresh,
   setPrivacy,
-  setShareStatus
+  setShareStatus,
+  batchSetShareStatus
 }
 
 export default accountsAPI

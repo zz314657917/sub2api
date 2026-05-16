@@ -67,29 +67,35 @@ type UserAccountCapacityPools struct {
 }
 
 type UserAccountCapacityPool struct {
-	Key                 string                           `json:"key"`
-	Title               string                           `json:"title"`
-	TotalAccounts       int                              `json:"total_accounts"`
-	ActiveAccounts      int                              `json:"active_accounts"`
-	SchedulableAccounts int                              `json:"schedulable_accounts"`
-	RateLimitedAccounts int                              `json:"rate_limited_accounts"`
-	ErrorAccounts       int                              `json:"error_accounts"`
-	DisabledAccounts    int                              `json:"disabled_accounts"`
-	AbnormalAccounts    int                              `json:"abnormal_accounts"`
-	ConfiguredQuota     float64                          `json:"configured_quota"`
-	RemainingQuota      float64                          `json:"remaining_quota"`
-	Sections            []UserAccountCapacityPoolSection `json:"sections"`
-	Groups              []UserAccountCapacityPoolGroup   `json:"groups,omitempty"`
+	Key                    string                           `json:"key"`
+	Title                  string                           `json:"title"`
+	TotalAccounts          int                              `json:"total_accounts"`
+	ActiveAccounts         int                              `json:"active_accounts"`
+	SchedulableAccounts    int                              `json:"schedulable_accounts"`
+	OwnContributedAccounts int                              `json:"own_contributed_accounts,omitempty"`
+	RateLimitedAccounts    int                              `json:"rate_limited_accounts"`
+	ErrorAccounts          int                              `json:"error_accounts"`
+	DisabledAccounts       int                              `json:"disabled_accounts"`
+	AbnormalAccounts       int                              `json:"abnormal_accounts"`
+	ConfiguredQuota        float64                          `json:"configured_quota"`
+	RemainingQuota         float64                          `json:"remaining_quota"`
+	PercentOnlyQuota       bool                             `json:"percent_only_quota,omitempty"`
+	UnavailableReasons     map[string]int                   `json:"unavailable_reasons,omitempty"`
+	Sections               []UserAccountCapacityPoolSection `json:"sections"`
+	Groups                 []UserAccountCapacityPoolGroup   `json:"groups,omitempty"`
 }
 
 type UserAccountCapacityPoolSection struct {
-	Platform            string                                       `json:"platform"`
-	Type                string                                       `json:"type"`
-	TotalAccounts       int                                          `json:"total_accounts"`
-	SchedulableAccounts int                                          `json:"schedulable_accounts"`
-	ConfiguredQuota     float64                                      `json:"configured_quota"`
-	RemainingQuota      float64                                      `json:"remaining_quota"`
-	Windows             map[string]UserAccountCapacityWindowSnapshot `json:"windows,omitempty"`
+	Platform               string                                       `json:"platform"`
+	Type                   string                                       `json:"type"`
+	TotalAccounts          int                                          `json:"total_accounts"`
+	SchedulableAccounts    int                                          `json:"schedulable_accounts"`
+	OwnContributedAccounts int                                          `json:"own_contributed_accounts,omitempty"`
+	ConfiguredQuota        float64                                      `json:"configured_quota"`
+	RemainingQuota         float64                                      `json:"remaining_quota"`
+	PercentOnlyQuota       bool                                         `json:"percent_only_quota,omitempty"`
+	UnavailableReasons     map[string]int                               `json:"unavailable_reasons,omitempty"`
+	Windows                map[string]UserAccountCapacityWindowSnapshot `json:"windows,omitempty"`
 }
 
 type UserAccountCapacityWindowSnapshot struct {
@@ -97,35 +103,42 @@ type UserAccountCapacityWindowSnapshot struct {
 	ResetAfterSeconds int     `json:"reset_after_seconds,omitempty"`
 	ResetAt           string  `json:"reset_at,omitempty"`
 	WindowMinutes     int     `json:"window_minutes,omitempty"`
+	UsedAmount        float64 `json:"-"`
+	LimitAmount       float64 `json:"-"`
 }
 
 type UserAccountCapacityPoolGroup struct {
-	Key                 string                                      `json:"key"`
-	GroupID             *int64                                      `json:"group_id,omitempty"`
-	GroupName           string                                      `json:"group_name"`
-	Platform            string                                      `json:"platform,omitempty"`
-	SortOrder           int                                         `json:"sort_order,omitempty"`
-	TotalAccounts       int                                         `json:"total_accounts"`
-	ActiveAccounts      int                                         `json:"active_accounts"`
-	SchedulableAccounts int                                         `json:"schedulable_accounts"`
-	RateLimitedAccounts int                                         `json:"rate_limited_accounts"`
-	ErrorAccounts       int                                         `json:"error_accounts"`
-	DisabledAccounts    int                                         `json:"disabled_accounts"`
-	AbnormalAccounts    int                                         `json:"abnormal_accounts"`
-	ConfiguredQuota     float64                                     `json:"configured_quota"`
-	RemainingQuota      float64                                     `json:"remaining_quota"`
-	Status              string                                      `json:"status"`
-	Windows             map[string]UserAccountCapacityWindowSummary `json:"windows,omitempty"`
+	Key                    string                                      `json:"key"`
+	GroupID                *int64                                      `json:"group_id,omitempty"`
+	GroupName              string                                      `json:"group_name"`
+	Platform               string                                      `json:"platform,omitempty"`
+	SortOrder              int                                         `json:"sort_order,omitempty"`
+	TotalAccounts          int                                         `json:"total_accounts"`
+	ActiveAccounts         int                                         `json:"active_accounts"`
+	SchedulableAccounts    int                                         `json:"schedulable_accounts"`
+	OwnContributedAccounts int                                         `json:"own_contributed_accounts,omitempty"`
+	RateLimitedAccounts    int                                         `json:"rate_limited_accounts"`
+	ErrorAccounts          int                                         `json:"error_accounts"`
+	DisabledAccounts       int                                         `json:"disabled_accounts"`
+	AbnormalAccounts       int                                         `json:"abnormal_accounts"`
+	ConfiguredQuota        float64                                     `json:"configured_quota"`
+	RemainingQuota         float64                                     `json:"remaining_quota"`
+	PercentOnlyQuota       bool                                        `json:"percent_only_quota,omitempty"`
+	UnavailableReasons     map[string]int                              `json:"unavailable_reasons,omitempty"`
+	Status                 string                                      `json:"status"`
+	Windows                map[string]UserAccountCapacityWindowSummary `json:"windows,omitempty"`
 }
 
 type UserAccountCapacityWindowSummary struct {
-	UsedPercent                float64 `json:"used_percent"`
-	ResetAfterSeconds          int     `json:"reset_after_seconds,omitempty"`
-	ResetAt                    string  `json:"reset_at,omitempty"`
-	WindowMinutes              int     `json:"window_minutes,omitempty"`
-	SnapshotAccounts           int     `json:"snapshot_accounts"`
+	UsedPercent                 float64 `json:"used_percent"`
+	ResetAfterSeconds           int     `json:"reset_after_seconds,omitempty"`
+	ResetAt                     string  `json:"reset_at,omitempty"`
+	WindowMinutes               int     `json:"window_minutes,omitempty"`
+	SnapshotAccounts            int     `json:"snapshot_accounts"`
 	SchedulableSnapshotAccounts int     `json:"schedulable_snapshot_accounts"`
-	RemainingUnits             float64 `json:"remaining_units"`
+	RemainingUnits              float64 `json:"remaining_units"`
+	UsedAmount                  float64 `json:"-"`
+	LimitAmount                 float64 `json:"-"`
 }
 
 type UserAccountService struct {
@@ -431,16 +444,13 @@ func (s *UserAccountService) GetCapacityPools(ctx context.Context, userID int64)
 	}
 
 	return &UserAccountCapacityPools{
-		Mine:   buildUserAccountCapacityPool("mine", "我的账号容量池", owned),
-		Shared: buildUserAccountCapacityPool("shared", "平台共享容量池", shared),
+		Mine:   buildUserAccountCapacityPool("mine", "我的账号容量池", owned, userID),
+		Shared: buildUserAccountCapacityPool("shared", "平台共享容量池", shared, userID),
 	}, nil
 }
 
-func isSharedCapacityPoolAccount(account *Account, userID int64) bool {
+func isSharedCapacityPoolAccount(account *Account, _ int64) bool {
 	if account == nil {
-		return false
-	}
-	if account.OwnerUserID != nil && userID > 0 && *account.OwnerUserID == userID {
 		return false
 	}
 	return account.ShareMode == AccountShareModePublic && account.ShareStatus == AccountShareStatusActive
@@ -579,7 +589,7 @@ func (s *UserAccountService) accountRepoForMutation() (AccountRepository, error)
 	return s.accountRepo, nil
 }
 
-func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAccountCapacityPool {
+func buildUserAccountCapacityPool(key, title string, accounts []Account, currentUserID int64) UserAccountCapacityPool {
 	pool := UserAccountCapacityPool{
 		Key:      key,
 		Title:    title,
@@ -591,10 +601,14 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAcc
 		account := &accounts[i]
 		active := account.IsActive()
 		schedulable := account.IsSchedulable()
+		ownContributed := accountIsOwnedByUser(account, currentUserID) &&
+			account.ShareMode == AccountShareModePublic &&
+			account.ShareStatus == AccountShareStatusActive
 		rateLimited := account.IsRateLimited() || account.IsOverloaded() || isAccountTempUnschedulable(account)
 		errorState := account.Status == StatusError || strings.TrimSpace(account.ErrorMessage) != ""
 		disabled := account.Status == StatusDisabled || account.Status == StatusExpired || account.Status == StatusUnused
 		abnormal := rateLimited || errorState || disabled || !schedulable
+		unavailableReason := accountCapacityUnavailableReason(account)
 
 		pool.TotalAccounts++
 		if active {
@@ -602,6 +616,9 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAcc
 		}
 		if schedulable {
 			pool.SchedulableAccounts++
+		}
+		if ownContributed {
+			pool.OwnContributedAccounts++
 		}
 		if rateLimited {
 			pool.RateLimitedAccounts++
@@ -615,9 +632,15 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAcc
 		if abnormal {
 			pool.AbnormalAccounts++
 		}
+		pool.UnavailableReasons = addCapacityUnavailableReason(pool.UnavailableReasons, unavailableReason)
 		configuredQuota, remainingQuota := accountQuotaTotals(account)
+		account.PopulateQuotaWindowSnapshots()
+		percentOnlyQuota := account.IsShareDisplayPercentOnly()
 		pool.ConfiguredQuota += configuredQuota
 		pool.RemainingQuota += remainingQuota
+		if percentOnlyQuota {
+			pool.PercentOnlyQuota = true
+		}
 
 		sectionKey := account.Platform + "/" + account.Type
 		section := sections[sectionKey]
@@ -633,12 +656,25 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAcc
 		if schedulable {
 			section.SchedulableAccounts++
 		}
+		if ownContributed {
+			section.OwnContributedAccounts++
+		}
 		section.ConfiguredQuota += configuredQuota
 		section.RemainingQuota += remainingQuota
+		if percentOnlyQuota {
+			section.PercentOnlyQuota = true
+		}
+		section.UnavailableReasons = addCapacityUnavailableReason(section.UnavailableReasons, unavailableReason)
 		snapshot5h, ok5h := accountCapacityWindowSnapshot(account, "codex_5h")
 		mergeCapacityWindowSnapshot(section.Windows, "5h", snapshot5h, ok5h)
 		snapshot7d, ok7d := accountCapacityWindowSnapshot(account, "codex_7d")
 		mergeCapacityWindowSnapshot(section.Windows, "7d", snapshot7d, ok7d)
+		quotaDaily, okQuotaDaily := accountCapacityWindowSnapshot(account, "quota_daily")
+		mergeCapacityWindowSnapshot(section.Windows, "1d", quotaDaily, okQuotaDaily)
+		quotaWeekly, okQuotaWeekly := accountCapacityWindowSnapshot(account, "quota_weekly")
+		mergeCapacityWindowSnapshot(section.Windows, "7d_quota", quotaWeekly, okQuotaWeekly)
+		quotaMonthly, okQuotaMonthly := accountCapacityWindowSnapshot(account, "quota_monthly")
+		mergeCapacityWindowSnapshot(section.Windows, "30d", quotaMonthly, okQuotaMonthly)
 
 		for _, groupRef := range accountCapacityGroupRefs(account) {
 			group := groups[groupRef.key]
@@ -663,6 +699,9 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAcc
 			if schedulable {
 				group.SchedulableAccounts++
 			}
+			if ownContributed {
+				group.OwnContributedAccounts++
+			}
 			if rateLimited {
 				group.RateLimitedAccounts++
 			}
@@ -675,10 +714,17 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account) UserAcc
 			if abnormal {
 				group.AbnormalAccounts++
 			}
+			group.UnavailableReasons = addCapacityUnavailableReason(group.UnavailableReasons, unavailableReason)
 			group.ConfiguredQuota += configuredQuota
 			group.RemainingQuota += remainingQuota
+			if percentOnlyQuota {
+				group.PercentOnlyQuota = true
+			}
 			mergeCapacityWindowSummary(group.Windows, "5h", snapshot5h, ok5h, schedulable)
 			mergeCapacityWindowSummary(group.Windows, "7d", snapshot7d, ok7d, schedulable)
+			mergeCapacityWindowSummary(group.Windows, "1d", quotaDaily, okQuotaDaily, schedulable)
+			mergeCapacityWindowSummary(group.Windows, "7d_quota", quotaWeekly, okQuotaWeekly, schedulable)
+			mergeCapacityWindowSummary(group.Windows, "30d", quotaMonthly, okQuotaMonthly, schedulable)
 		}
 	}
 
@@ -772,8 +818,81 @@ func accountCapacityGroupRefs(account *Account) []accountCapacityGroupRef {
 	return refs
 }
 
+func accountIsOwnedByUser(account *Account, userID int64) bool {
+	return account != nil && account.OwnerUserID != nil && userID > 0 && *account.OwnerUserID == userID
+}
+
 func isAccountTempUnschedulable(account *Account) bool {
 	return account != nil && account.TempUnschedulableUntil != nil && time.Now().Before(*account.TempUnschedulableUntil)
+}
+
+func accountCapacityUnavailableReason(account *Account) string {
+	if account == nil || account.IsSchedulable() {
+		return ""
+	}
+	now := time.Now()
+	switch {
+	case account.Status == StatusError:
+		return "error"
+	case account.Status == StatusDisabled:
+		return "disabled"
+	case account.Status == StatusExpired:
+		return "expired"
+	case account.Status == StatusUnused:
+		return "unused"
+	case account.AutoPauseOnExpired && account.ExpiresAt != nil && !now.Before(*account.ExpiresAt):
+		return "expired"
+	case !account.IsActive():
+		return "inactive"
+	case !account.Schedulable:
+		return "manual_unschedulable"
+	case account.OverloadUntil != nil && now.Before(*account.OverloadUntil):
+		return "overloaded"
+	case account.RateLimitResetAt != nil && now.Before(*account.RateLimitResetAt):
+		return "rate_limited"
+	case account.TempUnschedulableUntil != nil && now.Before(*account.TempUnschedulableUntil):
+		return "temp_unschedulable"
+	case account.IsAPIKeyOrBedrock() && account.IsQuotaExceeded():
+		return accountCapacityQuotaExceededReason(account)
+	default:
+		return "unschedulable"
+	}
+}
+
+func accountCapacityQuotaExceededReason(account *Account) string {
+	if account == nil {
+		return "quota_exceeded"
+	}
+	if account.GetQuotaLimit() > 0 && account.GetQuotaUsed() >= account.GetQuotaLimit() {
+		return "quota_exceeded"
+	}
+	if account.GetQuotaDailyLimit() > 0 &&
+		!account.IsDailyQuotaPeriodExpired() &&
+		account.GetQuotaDailyUsed() >= account.GetQuotaDailyLimit() {
+		return "daily_quota_exceeded"
+	}
+	if account.GetQuotaWeeklyLimit() > 0 &&
+		!account.IsWeeklyQuotaPeriodExpired() &&
+		account.GetQuotaWeeklyUsed() >= account.GetQuotaWeeklyLimit() {
+		return "weekly_quota_exceeded"
+	}
+	if account.GetQuotaMonthlyLimit() > 0 &&
+		!account.IsMonthlyQuotaPeriodExpired() &&
+		account.GetQuotaMonthlyUsed() >= account.GetQuotaMonthlyLimit() {
+		return "monthly_quota_exceeded"
+	}
+	return "quota_exceeded"
+}
+
+func addCapacityUnavailableReason(current map[string]int, reason string) map[string]int {
+	if reason == "" {
+		return current
+	}
+	if current == nil {
+		current = make(map[string]int)
+	}
+	current[reason]++
+	return current
 }
 
 func mergeCapacityWindowSummary(windows map[string]UserAccountCapacityWindowSummary, key string, snapshot UserAccountCapacityWindowSnapshot, ok bool, schedulable bool) {
@@ -784,6 +903,23 @@ func mergeCapacityWindowSummary(windows map[string]UserAccountCapacityWindowSumm
 	current.SnapshotAccounts++
 	if schedulable {
 		current.SchedulableSnapshotAccounts++
+	}
+	if snapshot.LimitAmount > 0 {
+		if schedulable {
+			current.UsedAmount += snapshot.UsedAmount
+			current.LimitAmount += snapshot.LimitAmount
+			current.RemainingUnits += maxFloat64(snapshot.LimitAmount-snapshot.UsedAmount, 0)
+		}
+		if current.LimitAmount > 0 {
+			current.UsedPercent = current.UsedAmount / current.LimitAmount * 100
+		}
+		if !currentHasReset(current) || snapshotResetEarlier(snapshot, current) {
+			current.ResetAfterSeconds = snapshot.ResetAfterSeconds
+			current.ResetAt = snapshot.ResetAt
+			current.WindowMinutes = snapshot.WindowMinutes
+		}
+		windows[key] = current
+		return
 	}
 	if snapshot.UsedPercent > current.UsedPercent {
 		current.UsedPercent = snapshot.UsedPercent
@@ -798,6 +934,27 @@ func mergeCapacityWindowSummary(windows map[string]UserAccountCapacityWindowSumm
 		}
 	}
 	windows[key] = current
+}
+
+func maxFloat64(a, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func currentHasReset(current UserAccountCapacityWindowSummary) bool {
+	return current.ResetAfterSeconds > 0 || strings.TrimSpace(current.ResetAt) != ""
+}
+
+func snapshotResetEarlier(snapshot UserAccountCapacityWindowSnapshot, current UserAccountCapacityWindowSummary) bool {
+	if snapshot.ResetAfterSeconds <= 0 {
+		return false
+	}
+	if current.ResetAfterSeconds <= 0 {
+		return true
+	}
+	return snapshot.ResetAfterSeconds < current.ResetAfterSeconds
 }
 
 func accountCapacityGroupStatus(group *UserAccountCapacityPoolGroup) string {
@@ -830,8 +987,21 @@ func accountQuotaTotals(account *Account) (configured, remaining float64) {
 		}
 	}
 	addQuota(account.GetQuotaLimit(), account.GetQuotaUsed())
-	addQuota(account.GetQuotaDailyLimit(), account.GetQuotaDailyUsed())
-	addQuota(account.GetQuotaWeeklyLimit(), account.GetQuotaWeeklyUsed())
+	dailyUsed := account.GetQuotaDailyUsed()
+	if account.IsDailyQuotaPeriodExpired() {
+		dailyUsed = 0
+	}
+	addQuota(account.GetQuotaDailyLimit(), dailyUsed)
+	weeklyUsed := account.GetQuotaWeeklyUsed()
+	if account.IsWeeklyQuotaPeriodExpired() {
+		weeklyUsed = 0
+	}
+	addQuota(account.GetQuotaWeeklyLimit(), weeklyUsed)
+	monthlyUsed := account.GetQuotaMonthlyUsed()
+	if account.IsMonthlyQuotaPeriodExpired() {
+		monthlyUsed = 0
+	}
+	addQuota(account.GetQuotaMonthlyLimit(), monthlyUsed)
 	return configured, remaining
 }
 
@@ -855,7 +1025,46 @@ func accountCapacityWindowSnapshot(account *Account, prefix string) (UserAccount
 	if raw, ok := account.Extra[prefix+"_window_minutes"]; ok {
 		snapshot.WindowMinutes = parseExtraInt(raw)
 	}
+	populateQuotaWindowAmounts(account, prefix, &snapshot)
 	return snapshot, true
+}
+
+func populateQuotaWindowAmounts(account *Account, prefix string, snapshot *UserAccountCapacityWindowSnapshot) {
+	if account == nil || snapshot == nil {
+		return
+	}
+	var limit, used float64
+	switch prefix {
+	case "quota_daily":
+		limit = account.GetQuotaDailyLimit()
+		used = account.GetQuotaDailyUsed()
+		if account.IsDailyQuotaPeriodExpired() {
+			used = 0
+		}
+	case "quota_weekly":
+		limit = account.GetQuotaWeeklyLimit()
+		used = account.GetQuotaWeeklyUsed()
+		if account.IsWeeklyQuotaPeriodExpired() {
+			used = 0
+		}
+	case "quota_monthly":
+		limit = account.GetQuotaMonthlyLimit()
+		used = account.GetQuotaMonthlyUsed()
+		if account.IsMonthlyQuotaPeriodExpired() {
+			used = 0
+		}
+	default:
+		return
+	}
+	if limit <= 0 {
+		return
+	}
+	snapshot.LimitAmount = limit
+	snapshot.UsedAmount = maxFloat64(used, 0)
+	if snapshot.UsedAmount > snapshot.LimitAmount {
+		snapshot.UsedAmount = snapshot.LimitAmount
+	}
+	snapshot.UsedPercent = snapshot.UsedAmount / snapshot.LimitAmount * 100
 }
 
 func mergeCapacityWindowSnapshot(windows map[string]UserAccountCapacityWindowSnapshot, key string, snapshot UserAccountCapacityWindowSnapshot, ok bool) {

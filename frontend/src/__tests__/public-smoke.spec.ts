@@ -20,6 +20,17 @@ describe('public page smoke contracts', () => {
     expect(router).toContain("name: 'ModelPlaza'")
   })
 
+  it('routes chat image entry to the external image workspace launcher', () => {
+    expect(router).toContain("path: '/chat-images'")
+    expect(router).toContain("name: 'ChatImageStudioLaunch'")
+    expect(router).toContain("import('@/views/user/OpenWebUILaunchView.vue')")
+    expect(router).toContain("path: '/chat-images/native'")
+    expect(router).toContain("name: 'ChatImageStudioNative'")
+    expect(router).toContain("import('@/views/user/ChatImageStudioView.vue')")
+    expect(router).toContain("path: '/open-webui/launch'")
+    expect(router).toContain("redirect: '/chat-images'")
+  })
+
   it('uses one shared navigation and matrix surface across public pages', () => {
     expect(homeView).toContain('<PublicTopNav />')
     expect(tutorialView).toContain('<PublicTopNav />')
