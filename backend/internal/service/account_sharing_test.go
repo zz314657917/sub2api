@@ -615,6 +615,101 @@ func TestUserAccountService_GetCapacityPoolsAggregatesQuotaWindowPercent(t *test
 	}
 }
 
+func TestUserAccountService_GetCapacityPoolsUsesShareDisplayGroupName(t *testing.T) {
+	ownerID := int64(10)
+	otherOwnerID := int64(11)
+	repo := &capacityPoolAccountRepoStub{
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "internal-key-name",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				OwnerUserID: &otherOwnerID,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusActive,
+				Status:      StatusActive,
+				Schedulable: true,
+				Groups: []*Group{{
+					ID:       88,
+					Name:     "Internal Pool",
+					Platform: PlatformOpenAI,
+				}},
+				Extra: map[string]any{
+					"share_display_tier":         "pro",
+					"share_display_percent_only": true,
+				},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Pro")
+	if group == nil {
+		t.Fatalf("expected OpenAI Pro display group, got %#v", pools.Shared.Groups)
+	}
+	if group.GroupID != nil {
+		t.Fatalf("share display group must not expose internal group id, got %v", *group.GroupID)
+	}
+	if !group.PercentOnlyQuota {
+		t.Fatalf("expected percent-only marker on display group")
+	}
+}
+
+func TestUserAccountService_CreateBlocksAPIKeyUpload(t *testing.T) {
+	svc := NewUserAccountService(&capacityPoolAccountRepoStub{}, accountShareSettingsStub{enabled: true})
+
+	for _, tc := range []struct {
+		name        string
+		accountType string
+		credentials map[string]any
+	}{
+		{name: "apikey", accountType: AccountTypeAPIKey, credentials: map[string]any{"api_key": "sk-test"}},
+		{name: "upstream", accountType: AccountTypeUpstream, credentials: map[string]any{"api_key": "sk-test"}},
+		{name: "oauth api key credential", accountType: AccountTypeOAuth, credentials: map[string]any{"api_key": "sk-test"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := svc.Create(context.Background(), 10, CreateAccountRequest{
+				Name:        "user-openai-key",
+				Platform:    PlatformOpenAI,
+				Type:        tc.accountType,
+				Credentials: tc.credentials,
+			})
+			if !errors.Is(err, ErrUserAccountAPIKeyBlocked) {
+				t.Fatalf("expected ErrUserAccountAPIKeyBlocked, got %v", err)
+			}
+		})
+	}
+}
+
+func TestUserAccountService_UpdateBlocksAPIKeyCredentials(t *testing.T) {
+	ownerID := int64(10)
+	repo := &capacityPoolAccountRepoStub{
+		owned: []Account{{
+			ID:          1,
+			Name:        "user-openai-key",
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeAPIKey,
+			OwnerUserID: &ownerID,
+			Status:      StatusActive,
+			Schedulable: true,
+		}},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+	credentials := map[string]any{"api_key": "sk-new"}
+
+	_, err := svc.Update(context.Background(), ownerID, 1, UpdateAccountRequest{
+		Credentials: &credentials,
+	})
+	if !errors.Is(err, ErrUserAccountAPIKeyBlocked) {
+		t.Fatalf("expected ErrUserAccountAPIKeyBlocked, got %v", err)
+	}
+}
+
 func findCapacityPoolSection(sections []UserAccountCapacityPoolSection, platform, accountType string) *UserAccountCapacityPoolSection {
 	for i := range sections {
 		if sections[i].Platform == platform && sections[i].Type == accountType {
@@ -684,6 +779,20 @@ func (s *capacityPoolAccountRepoStub) List(ctx context.Context, params paginatio
 		PageSize: params.PageSize,
 		Pages:    pages,
 	}, nil
+}
+
+func (s *capacityPoolAccountRepoStub) GetByID(ctx context.Context, id int64) (*Account, error) {
+	all := s.all
+	if all == nil {
+		all = append(append([]Account(nil), s.owned...), s.schedulable...)
+	}
+	for i := range all {
+		if all[i].ID == id {
+			account := all[i]
+			return &account, nil
+		}
+	}
+	return nil, fmt.Errorf("account %d not found", id)
 }
 
 func (s *capacityPoolAccountRepoStub) ListUserOwned(ctx context.Context, userID int64, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error) {

@@ -28,6 +28,7 @@ var (
 	ErrUserAccountShareInvalid  = infraerrors.BadRequest("USER_ACCOUNT_SHARE_INVALID", "invalid account share state")
 	ErrUserAccountShareDisabled = infraerrors.Forbidden("USER_ACCOUNT_SHARE_DISABLED", "account sharing is disabled")
 	ErrUserAccountLimitReached  = infraerrors.Conflict("USER_ACCOUNT_LIMIT_REACHED", "account limit reached")
+	ErrUserAccountAPIKeyBlocked = infraerrors.Forbidden("USER_ACCOUNT_APIKEY_BLOCKED", "API Key and custom upstream account uploads are disabled for normal users")
 )
 
 type UserAccountShareSummary struct {
@@ -159,6 +160,51 @@ func NewUserAccountService(accountRepo AccountRepository, settings UserAccountSh
 	}
 }
 
+func isUserUploadedAPIKeyAccount(accountType string) bool {
+	switch strings.ToLower(strings.TrimSpace(accountType)) {
+	case AccountTypeAPIKey, AccountTypeUpstream:
+		return true
+	default:
+		return false
+	}
+}
+
+func containsUserUploadedAPIKeyCredential(value any) bool {
+	switch v := value.(type) {
+	case map[string]any:
+		for key, nested := range v {
+			if isUserUploadedAPIKeyCredentialKey(key) || containsUserUploadedAPIKeyCredential(nested) {
+				return true
+			}
+		}
+	case map[string]string:
+		for key := range v {
+			if isUserUploadedAPIKeyCredentialKey(key) {
+				return true
+			}
+		}
+	case []any:
+		for _, nested := range v {
+			if containsUserUploadedAPIKeyCredential(nested) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func isUserUploadedAPIKeyCredentialKey(key string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(key))
+	normalized = strings.ReplaceAll(normalized, "-", "_")
+	normalized = strings.ReplaceAll(normalized, " ", "_")
+	switch normalized {
+	case "api_key", "apikey", "x_api_key", "xapikey":
+		return true
+	default:
+		return false
+	}
+}
+
 func (s *UserAccountService) List(ctx context.Context, userID int64, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error) {
 	if err := s.ensureFeatureEnabled(ctx); err != nil {
 		return nil, nil, err
@@ -184,6 +230,9 @@ func (s *UserAccountService) Count(ctx context.Context, userID int64) (int64, er
 func (s *UserAccountService) Create(ctx context.Context, userID int64, req CreateAccountRequest) (*Account, error) {
 	if err := s.ensureFeatureEnabled(ctx); err != nil {
 		return nil, err
+	}
+	if isUserUploadedAPIKeyAccount(req.Type) || containsUserUploadedAPIKeyCredential(req.Credentials) {
+		return nil, ErrUserAccountAPIKeyBlocked
 	}
 	repo, err := s.ownedAccountRepo()
 	if err != nil {
@@ -258,6 +307,9 @@ func (s *UserAccountService) Update(ctx context.Context, userID, accountID int64
 		account.Notes = normalizeAccountNotes(req.Notes)
 	}
 	if req.Credentials != nil {
+		if isUserUploadedAPIKeyAccount(account.Type) || containsUserUploadedAPIKeyCredential(*req.Credentials) {
+			return nil, ErrUserAccountAPIKeyBlocked
+		}
 		account.Credentials = *req.Credentials
 	}
 	if req.Extra != nil {
@@ -777,6 +829,13 @@ func accountCapacityGroupRefs(account *Account) []accountCapacityGroupRef {
 	if account == nil {
 		return nil
 	}
+	if displayName := accountShareDisplayGroupName(account); displayName != "" {
+		return []accountCapacityGroupRef{{
+			key:      "share-display:" + account.Platform + ":" + strings.ToLower(displayName),
+			name:     displayName,
+			platform: account.Platform,
+		}}
+	}
 	seen := make(map[string]struct{})
 	refs := make([]accountCapacityGroupRef, 0, len(account.Groups)+len(account.AccountGroups))
 	addGroup := func(group *Group) {
@@ -816,6 +875,26 @@ func accountCapacityGroupRefs(account *Account) []accountCapacityGroupRef {
 		})
 	}
 	return refs
+}
+
+func accountShareDisplayGroupName(account *Account) string {
+	if account == nil {
+		return ""
+	}
+	displayName := strings.TrimSpace(account.GetShareDisplayName())
+	if displayName != "" {
+		return displayName
+	}
+	switch strings.ToLower(strings.TrimSpace(account.GetShareDisplayTier())) {
+	case "plus":
+		return "OpenAI Plus"
+	case "pro":
+		return "OpenAI Pro"
+	case "team":
+		return "OpenAI Team"
+	default:
+		return ""
+	}
 }
 
 func accountIsOwnedByUser(account *Account, userID int64) bool {

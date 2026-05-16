@@ -35,7 +35,12 @@
         </p>
 
         <template v-else>
-          <div class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div
+            :class="[
+              'mt-4 grid grid-cols-2 gap-2',
+              pool.key === 'shared' && positiveCount(pool.own_contributed_accounts) > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4',
+            ]"
+          >
             <MetricTile :label="t('channelStatus.capacityPools.total')" :value="formatInteger(pool.total_accounts)" />
             <MetricTile
               v-if="pool.key === 'shared' && positiveCount(pool.own_contributed_accounts) > 0"

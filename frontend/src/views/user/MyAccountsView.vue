@@ -305,7 +305,7 @@
           <Input v-model="apiKeyValue" :label="t('admin.accounts.apiKeyRequired')" type="password" placeholder="sk-proj-..." data-testid="my-accounts-apikey-value" />
         </div>
 
-        <div v-else class="mt-5">
+        <div v-else-if="!editingAccount || !isUserManagedKeyBackedType(editingAccount.type)" class="mt-5">
           <label class="input-label">{{ t('myAccounts.import.credentials') }}</label>
           <textarea v-model="credentialsJson" class="input min-h-[160px] w-full font-mono text-xs" :placeholder="t('myAccounts.import.credentialsPlaceholder')"></textarea>
           <p v-if="!editingAccount && form.method === 'json'" class="mt-2 text-xs text-gray-500 dark:text-dark-400">
@@ -592,7 +592,6 @@ const methodOptions = computed(() => {
   }
   return [
     { value: 'oauth', label: t('myAccounts.oauth') },
-    ...(form.platform === 'openai' ? [{ value: 'apikey', label: 'OpenAI API Key' }] : []),
     { value: 'json', label: t('myAccounts.import.jsonToken') }
   ]
 })
@@ -611,9 +610,9 @@ watch(
 
 const isAccountQuotaConfigVisible = computed(() => {
   if (editingAccount.value) {
-    return editingAccount.value.type === 'apikey' || editingAccount.value.type === 'bedrock'
+    return isUserManagedKeyBackedType(editingAccount.value.type) || editingAccount.value.type === 'bedrock'
   }
-  return form.method === 'apikey'
+  return false
 })
 
 const importFormatOptions = computed(() => [
@@ -754,9 +753,28 @@ function parseJsonObject(raw: string): Record<string, unknown> {
 }
 
 function inferTypeFromForm(): string {
-  if (form.method === 'apikey') return 'apikey'
   if (form.method === 'setup-token') return 'setup-token'
   return 'oauth'
+}
+
+function isUserManagedKeyBackedType(type?: string | null): boolean {
+  const normalized = String(type || '').trim().toLowerCase()
+  return normalized === 'apikey' || normalized === 'upstream'
+}
+
+function containsUserManagedApiKeyCredential(value: unknown): boolean {
+  if (!value || typeof value !== 'object') return false
+  if (Array.isArray(value)) {
+    return value.some(item => containsUserManagedApiKeyCredential(item))
+  }
+  return Object.entries(value as Record<string, unknown>).some(([key, nested]) =>
+    isUserManagedApiKeyCredentialKey(key) || containsUserManagedApiKeyCredential(nested)
+  )
+}
+
+function isUserManagedApiKeyCredentialKey(key: string): boolean {
+  const normalized = key.trim().toLowerCase().replace(/[\s-]+/g, '_')
+  return normalized === 'api_key' || normalized === 'apikey' || normalized === 'x_api_key' || normalized === 'xapikey'
 }
 
 function normalizePositiveNumber(value: number | null): number | null {
@@ -835,7 +853,7 @@ async function saveAccount(): Promise<void> {
       const payload = {
         name: form.name.trim(),
         notes: form.notes.trim() || null,
-        credentials: credentialsJson.value.trim() ? parseJsonObject(credentialsJson.value) : undefined,
+        credentials: isUserManagedKeyBackedType(editingAccount.value.type) ? undefined : (credentialsJson.value.trim() ? parseJsonObject(credentialsJson.value) : undefined),
         extra: isAccountQuotaConfigVisible.value ? buildAccountExtra(baseExtra) ?? {} : undefined
       }
       const updated = await userAPI.updateAccount(editingAccount.value.id, payload)
@@ -948,6 +966,9 @@ function buildImportCredentials(format: string, platform: string, content: strin
     ? parsed.credentials as Record<string, unknown>
     : parsed
   const type = typeof parsed.type === 'string' ? parsed.type : (platform === 'anthropic' && format.includes('setup') ? 'setup-token' : 'oauth')
+  if (isUserManagedKeyBackedType(type) || containsUserManagedApiKeyCredential(credentials)) {
+    throw new Error(t('myAccounts.apiKeyUploadDisabled'))
+  }
   return { type, credentials }
 }
 

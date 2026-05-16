@@ -331,56 +331,36 @@ describe('MyAccountsView import file', () => {
     expect(showSuccess).toHaveBeenCalledWith('myAccounts.bulk.makePrivateSuccess')
   })
 
-  it('creates an OpenAI API key account with quota limits and shared display wrapper', async () => {
-    userAPI.createAccount.mockResolvedValue(makeAccount({
-      id: 88,
-      name: 'Virtual Pro',
-      type: 'apikey',
-      credentials: {},
-      extra: {},
-    }))
-
+  it('does not expose API key upload controls for normal users', async () => {
     const wrapper = mountView()
     await flushPromises()
 
     await wrapper.get('[data-testid="my-accounts-open-create"]').trigger('click')
     const selects = wrapper.findAll('select')
-    await selects[1].setValue('apikey')
+
+    const methodValues = selects[1].findAll('option').map(option => (option.element as HTMLOptionElement).value)
+    expect(methodValues).not.toContain('apikey')
+    expect(wrapper.find('[data-testid="my-accounts-apikey-base-url"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="my-accounts-apikey-value"]').exists()).toBe(false)
+  })
+
+  it('blocks imported API key and upstream credentials before upload', async () => {
+    const wrapper = mountView()
     await flushPromises()
 
-    await wrapper.get('[data-testid="my-accounts-name"]').setValue('Virtual Pro')
-    await wrapper.get('[data-testid="my-accounts-apikey-base-url"]').setValue('https://api.openai.com')
-    await wrapper.get('[data-testid="my-accounts-apikey-value"]').setValue('sk-test')
-    await wrapper.get('[data-testid="my-accounts-quota-daily"]').setValue('10')
-    await wrapper.get('[data-testid="my-accounts-quota-weekly"]').setValue('50')
-    await wrapper.get('[data-testid="my-accounts-quota-monthly"]').setValue('150')
-    await wrapper.get('[data-testid="my-accounts-quota-total"]').setValue('300')
-
-    await wrapper.get('[data-testid="share-display-toggle"]').trigger('click')
-    await flushPromises()
-
-    await wrapper.get('[data-testid="share-display-name"]').setValue('OpenAI Pro 容量')
-
-    await wrapper.get('[data-testid="my-accounts-save"]').trigger('click')
-    await flushPromises()
-
-    expect(userAPI.createAccount).toHaveBeenCalledWith(expect.objectContaining({
-      name: 'Virtual Pro',
-      platform: 'openai',
-      type: 'apikey',
+    await wrapper.get('[data-testid="my-accounts-open-import"]').trigger('click')
+    await wrapper.get('[data-testid="my-accounts-import-content"]').setValue(JSON.stringify({
+      type: 'upstream',
       credentials: {
         base_url: 'https://api.openai.com',
         api_key: 'sk-test',
       },
-      extra: expect.objectContaining({
-        quota_daily_limit: 10,
-        quota_weekly_limit: 50,
-        quota_monthly_limit: 150,
-        quota_limit: 300,
-        share_display_name: 'OpenAI Pro 容量',
-        share_display_tier: 'pro',
-        share_display_percent_only: true,
-      }),
     }))
+
+    await wrapper.get('[data-testid="my-accounts-import-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(userAPI.importAccount).not.toHaveBeenCalled()
+    expect(showError).toHaveBeenCalledWith('myAccounts.apiKeyUploadDisabled')
   })
 })
