@@ -94,9 +94,9 @@ describe('ChannelStatusView capacity pools', () => {
         sections: [],
         groups: [
           {
-            key: 'group:10',
-            group_id: 10,
-            group_name: 'PLUS共享号池',
+            key: 'share-display:openai:openai pro',
+            group_id: undefined,
+            group_name: 'OpenAI Pro',
             platform: 'openai',
             sort_order: 0,
             total_accounts: 2,
@@ -140,6 +140,12 @@ describe('ChannelStatusView capacity pools', () => {
                 schedulable_snapshot_accounts: 1,
                 remaining_units: 0.6,
               },
+              '7d': {
+                used_percent: 20,
+                snapshot_accounts: 2,
+                schedulable_snapshot_accounts: 1,
+                remaining_units: 0.8,
+              },
             },
           },
         ],
@@ -160,13 +166,13 @@ describe('ChannelStatusView capacity pools', () => {
     expect(fetchCapacityPools).toHaveBeenCalledTimes(1)
     expect(wrapper.text()).toContain('channelStatus.capacityPools.mine')
     expect(wrapper.text()).toContain('channelStatus.capacityPools.shared')
-    expect(wrapper.text()).toContain('PLUS共享号池')
-    expect(wrapper.text()).toContain('1d 额度')
-    expect(wrapper.text()).toContain('7d 额度')
+    expect(wrapper.text()).toContain('OpenAI Pro')
+    expect(wrapper.text()).not.toContain('1d 额度')
+    expect(wrapper.text()).not.toContain('7d 额度')
     expect(wrapper.text()).not.toContain('30d 额度')
     expect(wrapper.text()).toContain('channelStatus.capacityPools.schedulableRemaining')
-    expect(wrapper.text()).toContain('87.5%')
     expect(wrapper.text()).toContain('59.7%')
+    expect(wrapper.text()).toContain('80.0%')
     expect(wrapper.text()).toContain('channelStatus.capacityPools.ownContributed')
     expect(wrapper.text()).toContain('channelStatus.capacityPools.unavailableReason')
     expect(wrapper.text()).toContain('日额度用完 1')
@@ -186,5 +192,151 @@ describe('ChannelStatusView capacity pools', () => {
     expect(fetchCapacityPools).not.toHaveBeenCalled()
     expect(wrapper.text()).not.toContain('channelStatus.capacityPools.mine')
     expect(wrapper.text()).not.toContain('channelStatus.capacityPools.shared')
+  })
+
+  it('hides capacity pools and groups without accounts', async () => {
+    fetchCapacityPools.mockResolvedValueOnce({
+      mine: {
+        key: 'mine',
+        title: 'My Account Capacity Pool',
+        total_accounts: 0,
+        active_accounts: 0,
+        schedulable_accounts: 0,
+        rate_limited_accounts: 0,
+        error_accounts: 0,
+        disabled_accounts: 0,
+        abnormal_accounts: 0,
+        configured_quota: 0,
+        remaining_quota: 0,
+        sections: [],
+        groups: [],
+      },
+      shared: {
+        key: 'shared',
+        title: 'Shared Platform Capacity Pool',
+        total_accounts: 1,
+        active_accounts: 1,
+        schedulable_accounts: 1,
+        own_contributed_accounts: 0,
+        rate_limited_accounts: 0,
+        error_accounts: 0,
+        disabled_accounts: 0,
+        abnormal_accounts: 0,
+        configured_quota: 0,
+        remaining_quota: 0,
+        sections: [
+          {
+            platform: 'openai',
+            type: 'apikey',
+            total_accounts: 0,
+            schedulable_accounts: 0,
+            configured_quota: 0,
+            remaining_quota: 0,
+          },
+        ],
+        groups: [
+          {
+            key: 'share-display:openai:openai plus',
+            group_name: 'OpenAI Plus',
+            platform: 'openai',
+            sort_order: 0,
+            total_accounts: 0,
+            active_accounts: 0,
+            schedulable_accounts: 0,
+            rate_limited_accounts: 0,
+            error_accounts: 0,
+            disabled_accounts: 0,
+            abnormal_accounts: 0,
+            configured_quota: 0,
+            remaining_quota: 0,
+            status: 'unavailable',
+          },
+          {
+            key: 'share-display:openai:openai pro',
+            group_name: 'OpenAI Pro',
+            platform: 'openai',
+            sort_order: 1,
+            total_accounts: 1,
+            active_accounts: 1,
+            schedulable_accounts: 1,
+            rate_limited_accounts: 0,
+            error_accounts: 0,
+            disabled_accounts: 0,
+            abnormal_accounts: 0,
+            configured_quota: 0,
+            remaining_quota: 0,
+            status: 'healthy',
+          },
+        ],
+      },
+    })
+
+    const wrapper = mountView()
+
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('channelStatus.capacityPools.mine')
+    expect(wrapper.text()).toContain('channelStatus.capacityPools.shared')
+    expect(wrapper.text()).not.toContain('OpenAI Plus')
+    expect(wrapper.text()).toContain('OpenAI Pro')
+    expect(wrapper.text()).not.toContain('openai / apikey')
+  })
+
+  it('keeps quota windows and remaining percentages in non-plan fallback sections', async () => {
+    fetchCapacityPools.mockResolvedValueOnce({
+      mine: {
+        key: 'mine',
+        title: 'My Account Capacity Pool',
+        total_accounts: 1,
+        active_accounts: 1,
+        schedulable_accounts: 1,
+        rate_limited_accounts: 0,
+        error_accounts: 0,
+        disabled_accounts: 0,
+        abnormal_accounts: 0,
+        configured_quota: 0,
+        remaining_quota: 0,
+        percent_only_quota: true,
+        sections: [
+          {
+            platform: 'openai',
+            type: 'apikey',
+            total_accounts: 1,
+            schedulable_accounts: 1,
+            configured_quota: 0,
+            remaining_quota: 0,
+            windows: {
+              '1d': { used_percent: 25, reset_after_seconds: 3600, window_minutes: 1440 },
+              '7d_quota': { used_percent: 40, reset_after_seconds: 7200, window_minutes: 10080 },
+            },
+          },
+        ],
+        groups: [],
+      },
+      shared: {
+        key: 'shared',
+        title: 'Shared Platform Capacity Pool',
+        total_accounts: 0,
+        active_accounts: 0,
+        schedulable_accounts: 0,
+        rate_limited_accounts: 0,
+        error_accounts: 0,
+        disabled_accounts: 0,
+        abnormal_accounts: 0,
+        configured_quota: 0,
+        remaining_quota: 0,
+        sections: [],
+        groups: [],
+      },
+    })
+
+    const wrapper = mountView()
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('channelStatus.capacityPools.mine')
+    expect(wrapper.text()).not.toContain('channelStatus.capacityPools.shared')
+    expect(wrapper.text()).toContain('1d 额度 75.0%')
+    expect(wrapper.text()).toContain('7d 额度 60.0%')
   })
 })

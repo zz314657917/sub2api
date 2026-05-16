@@ -98,7 +98,7 @@ const orderedPools = computed<UserAccountCapacityPool[]>(() => {
   if (!props.pools) {
     return []
   }
-  return [props.pools.mine, props.pools.shared].filter(Boolean)
+  return [props.pools.mine, props.pools.shared].filter(hasVisiblePoolAccounts)
 })
 
 function poolTitle(pool: UserAccountCapacityPool): string {
@@ -114,11 +114,30 @@ function poolDescription(pool: UserAccountCapacityPool): string {
 }
 
 function sharedGroups(pool: UserAccountCapacityPool): UserAccountCapacityPoolGroup[] {
-  return pool.groups ?? []
+  return (pool.groups ?? []).filter(hasGroupAccounts)
+}
+
+function visibleSections(pool: UserAccountCapacityPool): UserAccountCapacityPoolSection[] {
+  return (pool.sections ?? []).filter(hasSectionAccounts)
+}
+
+function hasVisiblePoolAccounts(pool: UserAccountCapacityPool | null | undefined): pool is UserAccountCapacityPool {
+  if (!pool) return false
+  return positiveCount(pool.total_accounts) > 0
+    || visibleSections(pool).length > 0
+    || sharedGroups(pool).length > 0
+}
+
+function hasGroupAccounts(group: UserAccountCapacityPoolGroup): boolean {
+  return positiveCount(group.total_accounts) > 0
+}
+
+function hasSectionAccounts(section: UserAccountCapacityPoolSection): boolean {
+  return positiveCount(section.total_accounts) > 0
 }
 
 function isEmptyPool(pool: UserAccountCapacityPool): boolean {
-  return pool.total_accounts <= 0 && (pool.sections?.length ?? 0) === 0 && sharedGroups(pool).length === 0
+  return !hasVisiblePoolAccounts(pool)
 }
 
 function formatInteger(value: number): string {
@@ -216,9 +235,24 @@ function chipClass(tone: 'success' | 'warning' | 'danger' | 'neutral'): string {
   }
 }
 
+const quotaWindowOrder = ['1d', '7d_quota', '5h', '7d'] as const
+const openAIPlanWindowOrder = ['5h', '7d'] as const
+type CapacityWindowKey = (typeof quotaWindowOrder)[number]
+const openAIPlanGroupNames = new Set(['openai plus', 'openai pro', 'openai team', 'openai free'])
+
+function isOpenAIPlanDisplayGroup(group: UserAccountCapacityPoolGroup): boolean {
+  return group.platform === 'openai'
+    && group.key.startsWith('share-display:openai:')
+    && openAIPlanGroupNames.has(group.group_name.trim().toLowerCase())
+}
+
+function windowSummaryKeys(group: UserAccountCapacityPoolGroup): readonly string[] {
+  return isOpenAIPlanDisplayGroup(group) ? openAIPlanWindowOrder : quotaWindowOrder
+}
+
 function windowSummaries(group: UserAccountCapacityPoolGroup): Array<{ key: string; data: UserAccountCapacityWindowSummary }> {
   const windows = group.windows ?? {}
-  return ['1d', '7d_quota', '5h', '7d']
+  return windowSummaryKeys(group)
     .map((key) => {
       const data = windows[key]
       return data ? { key, data } : null
@@ -228,12 +262,12 @@ function windowSummaries(group: UserAccountCapacityPoolGroup): Array<{ key: stri
 
 function windowBadges(section: UserAccountCapacityPoolSection): Array<{ key: string; data: UserAccountCapacityWindowSnapshot }> {
   const windows = section.windows ?? {}
-  return ['1d', '7d_quota', '5h', '7d']
-    .map((key) => {
+  return quotaWindowOrder
+    .map<{ key: CapacityWindowKey; data: UserAccountCapacityWindowSnapshot } | null>((key) => {
       const data = windows[key]
       return data ? { key, data } : null
     })
-    .filter((item): item is { key: string; data: UserAccountCapacityWindowSnapshot } => item !== null)
+    .filter((item): item is { key: CapacityWindowKey; data: UserAccountCapacityWindowSnapshot } => item !== null)
 }
 
 function windowLabel(key: string): string {
@@ -337,21 +371,23 @@ const SharedGroupGrid = defineComponent({
     pool: { type: Object as PropType<UserAccountCapacityPool>, required: true },
   },
   setup(componentProps) {
-    return () => h('div', {
-      class: 'mt-4 rounded-lg border border-gray-200/80 p-3 dark:border-dark-700/70',
-    }, [
+    return () => {
+      const groups = sharedGroups(componentProps.pool)
+      return h('div', {
+        class: 'mt-4 rounded-lg border border-gray-200/80 p-3 dark:border-dark-700/70',
+      }, [
       h('div', { class: 'mb-3 flex flex-wrap items-center justify-between gap-2' }, [
         h('div', [
           h('p', { class: 'text-sm font-semibold text-gray-900 dark:text-white' }, t('channelStatus.capacityPools.groupCapacity')),
           h('p', { class: 'mt-0.5 text-xs text-gray-500 dark:text-gray-400' }, t('channelStatus.capacityPools.groupCapacityHint')),
         ]),
         h('div', { class: 'flex flex-wrap gap-1.5' }, [
-          h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('success')] }, `${t('channelStatus.capacityPools.healthy')} ${componentProps.pool.groups?.filter(g => g.status === 'healthy').length ?? 0}`),
-          h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('warning')] }, `${t('channelStatus.capacityPools.degraded')} ${componentProps.pool.groups?.filter(g => g.status === 'degraded').length ?? 0}`),
-          h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('danger')] }, `${t('channelStatus.capacityPools.unavailable')} ${componentProps.pool.groups?.filter(g => g.status === 'unavailable').length ?? 0}`),
+          h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('success')] }, `${t('channelStatus.capacityPools.healthy')} ${groups.filter(g => g.status === 'healthy').length}`),
+          h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('warning')] }, `${t('channelStatus.capacityPools.degraded')} ${groups.filter(g => g.status === 'degraded').length}`),
+          h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('danger')] }, `${t('channelStatus.capacityPools.unavailable')} ${groups.filter(g => g.status === 'unavailable').length}`),
         ]),
       ]),
-      h('div', { class: 'grid grid-cols-1 gap-2 2xl:grid-cols-2' }, (componentProps.pool.groups ?? []).map((group) => (
+      h('div', { class: 'grid grid-cols-1 gap-2 2xl:grid-cols-2' }, groups.map((group) => (
         h('div', {
           key: group.key,
           class: ['rounded-lg border p-3', groupBorderClass(group.status)],
@@ -426,6 +462,7 @@ const SharedGroupGrid = defineComponent({
         ])
       ))),
     ])
+    }
   },
 })
 
@@ -435,8 +472,10 @@ const SectionFallback = defineComponent({
     pool: { type: Object as PropType<UserAccountCapacityPool>, required: true },
   },
   setup(componentProps) {
-    return () => h('div', { class: 'mt-4 space-y-2' }, [
-      ...(componentProps.pool.sections ?? []).map((section) => h('div', {
+    return () => {
+      const sections = visibleSections(componentProps.pool)
+      return h('div', { class: 'mt-4 space-y-2' }, [
+      ...sections.map((section) => h('div', {
         key: `${componentProps.pool.key}-${section.platform}-${section.type}`,
         class: 'rounded-lg border border-gray-100 bg-white/70 p-3 dark:border-dark-700/70 dark:bg-dark-900/30',
       }, [
@@ -450,9 +489,11 @@ const SectionFallback = defineComponent({
             ]),
             h('p', { class: 'mt-0.5 text-xs text-gray-500 dark:text-gray-400' }, `${section.schedulable_accounts}/${section.total_accounts} ${t('channelStatus.capacityPools.schedulable')}`),
           ]),
-          h('div', { class: 'flex flex-wrap justify-end gap-1.5' }, windowBadges(section).map((item) => (
-            h('span', { key: item.key, class: 'rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700 dark:bg-dark-700 dark:text-gray-200' }, `${windowLabel(item.key)} ${Math.round(item.data.used_percent)}%`)
-          ))),
+          h('div', { class: 'flex flex-wrap justify-end gap-1.5' }, windowBadges(section).map((item) => {
+            const percentOnlyQuota = componentProps.pool.percent_only_quota || section.percent_only_quota
+            const displayPercent = percentOnlyQuota ? remainingPercent(item.data.used_percent) : clampPercent(item.data.used_percent)
+            return h('span', { key: item.key, class: 'rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700 dark:bg-dark-700 dark:text-gray-200' }, `${windowLabel(item.key)} ${formatPercent(displayPercent)}`)
+          })),
         ]),
         unavailableReasonEntries(section.unavailable_reasons).length > 0
           ? h('div', { class: 'mt-2 flex flex-wrap items-center gap-1.5' }, [
@@ -463,10 +504,10 @@ const SectionFallback = defineComponent({
           ])
           : null,
       ])),
-      componentProps.pool.sections.length === 0
+      sections.length === 0
         ? h('p', { class: 'rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400' }, t('channelStatus.capacityPools.empty'))
         : null,
-      componentProps.pool.sections.length > 0 && componentProps.pool.configured_quota > 0 && !componentProps.pool.percent_only_quota
+      sections.length > 0 && componentProps.pool.configured_quota > 0 && !componentProps.pool.percent_only_quota
         ? h('div', { class: 'grid grid-cols-2 gap-2 pt-1' }, [
           h('div', { class: 'rounded-lg bg-gray-50 p-3 dark:bg-dark-900/40' }, [
             h('p', { class: 'text-xs text-gray-500 dark:text-gray-400' }, t('channelStatus.capacityPools.configuredQuota')),
@@ -479,6 +520,7 @@ const SectionFallback = defineComponent({
         ])
         : null,
     ])
+    }
   },
 })
 </script>
