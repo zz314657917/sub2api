@@ -423,7 +423,7 @@ func TestUserAccountService_GetCapacityPoolsIncludesOwnApprovedSharedAccounts(t 
 	}
 }
 
-func TestUserAccountService_GetCapacityPoolsIncludesOnlyMarkedSystemSharedAccounts(t *testing.T) {
+func TestUserAccountService_GetCapacityPoolsIncludesOnlyPublicOrWrappedSystemSharedAccounts(t *testing.T) {
 	ownerID := int64(10)
 	repo := &capacityPoolAccountRepoStub{
 		schedulable: []Account{
@@ -448,6 +448,20 @@ func TestUserAccountService_GetCapacityPoolsIncludesOnlyMarkedSystemSharedAccoun
 					"codex_5h_used_percent": 42,
 				},
 			},
+			{
+				ID:          3,
+				Name:        "hosted-pro-key",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				ShareMode:   AccountShareModePrivate,
+				ShareStatus: AccountShareStatusNotShared,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"share_display_tier":         "pro",
+					"share_display_percent_only": true,
+				},
+			},
 		},
 	}
 	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
@@ -456,12 +470,16 @@ func TestUserAccountService_GetCapacityPoolsIncludesOnlyMarkedSystemSharedAccoun
 	if err != nil {
 		t.Fatalf("GetCapacityPools returned error: %v", err)
 	}
-	if pools.Shared.TotalAccounts != 1 {
-		t.Fatalf("expected only marked system account in shared pool, got %d", pools.Shared.TotalAccounts)
+	if pools.Shared.TotalAccounts != 2 {
+		t.Fatalf("expected public and wrapped system accounts in shared pool, got %d", pools.Shared.TotalAccounts)
 	}
 	sharedOpenAI := findCapacityPoolSection(pools.Shared.Sections, PlatformOpenAI, AccountTypeOAuth)
 	if sharedOpenAI == nil || sharedOpenAI.TotalAccounts != 1 || sharedOpenAI.Windows["5h"].UsedPercent != 42 {
 		t.Fatalf("unexpected marked system shared section: %#v", sharedOpenAI)
+	}
+	wrappedPro := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Pro")
+	if wrappedPro == nil || wrappedPro.TotalAccounts != 1 || !wrappedPro.PercentOnlyQuota {
+		t.Fatalf("unexpected wrapped system shared group: %#v", pools.Shared.Groups)
 	}
 }
 

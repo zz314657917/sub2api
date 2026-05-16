@@ -505,7 +505,18 @@ func isSharedCapacityPoolAccount(account *Account, _ int64) bool {
 	if account == nil {
 		return false
 	}
+	if isSystemShareDisplayCapacityAccount(account) {
+		return true
+	}
 	return account.ShareMode == AccountShareModePublic && account.ShareStatus == AccountShareStatusActive
+}
+
+func isSystemShareDisplayCapacityAccount(account *Account) bool {
+	return account != nil &&
+		account.OwnerUserID == nil &&
+		account.Platform == PlatformOpenAI &&
+		account.Type == AccountTypeAPIKey &&
+		accountShareDisplayGroupName(account) != ""
 }
 
 func userAccountCapacityPaginationParams(page int) pagination.PaginationParams {
