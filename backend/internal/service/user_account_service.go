@@ -516,7 +516,16 @@ func isSystemShareDisplayCapacityAccount(account *Account) bool {
 		account.OwnerUserID == nil &&
 		account.Platform == PlatformOpenAI &&
 		account.Type == AccountTypeAPIKey &&
-		accountShareDisplayGroupName(account) != ""
+		accountShareDisplayConfigured(account)
+}
+
+func accountShareDisplayConfigured(account *Account) bool {
+	if account == nil {
+		return false
+	}
+	return strings.TrimSpace(account.GetShareDisplayName()) != "" ||
+		openAIPlanCapacityGroupName(account.GetShareDisplayTier()) != "" ||
+		(account.Platform == PlatformOpenAI && openAIPlanCapacityGroupName(account.GetCredential("plan_type")) != "")
 }
 
 func userAccountCapacityPaginationParams(page int) pagination.PaginationParams {
@@ -892,17 +901,32 @@ func accountShareDisplayGroupName(account *Account) string {
 	if account == nil {
 		return ""
 	}
-	displayName := strings.TrimSpace(account.GetShareDisplayName())
-	if displayName != "" {
+	if displayName := openAIPlanCapacityGroupName(account.GetShareDisplayTier()); displayName != "" {
 		return displayName
 	}
-	switch strings.ToLower(strings.TrimSpace(account.GetShareDisplayTier())) {
+	if account.Platform == PlatformOpenAI {
+		if displayName := openAIPlanCapacityGroupName(account.GetCredential("plan_type")); displayName != "" {
+			return displayName
+		}
+	}
+	if displayName := strings.TrimSpace(account.GetShareDisplayName()); displayName != "" {
+		return displayName
+	}
+	return ""
+}
+
+func openAIPlanCapacityGroupName(planType string) string {
+	switch strings.ToLower(strings.TrimSpace(planType)) {
 	case "plus":
 		return "OpenAI Plus"
 	case "pro":
 		return "OpenAI Pro"
+	case "chatgptpro":
+		return "OpenAI Pro"
 	case "team":
 		return "OpenAI Team"
+	case "free":
+		return "OpenAI Free"
 	default:
 		return ""
 	}

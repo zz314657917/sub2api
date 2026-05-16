@@ -678,6 +678,137 @@ func TestUserAccountService_GetCapacityPoolsUsesShareDisplayGroupName(t *testing
 	}
 }
 
+func TestUserAccountService_GetCapacityPoolsGroupsSharedOpenAIAPIKeysByPlan(t *testing.T) {
+	ownerID := int64(10)
+	otherOwnerID := int64(11)
+	repo := &capacityPoolAccountRepoStub{
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "plus-by-plan",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				OwnerUserID: &otherOwnerID,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusActive,
+				Status:      StatusActive,
+				Schedulable: true,
+				Credentials: map[string]any{
+					"plan_type": "plus",
+				},
+				Groups: []*Group{{
+					ID:       88,
+					Name:     "GPT-低价号池",
+					Platform: PlatformOpenAI,
+				}},
+			},
+			{
+				ID:          2,
+				Name:        "plus-by-display",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				OwnerUserID: &otherOwnerID,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusActive,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"share_display_tier": "plus",
+				},
+				Groups: []*Group{{
+					ID:       89,
+					Name:     "OpenAI Plus",
+					Platform: PlatformOpenAI,
+				}},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	if len(pools.Shared.Groups) != 1 {
+		t.Fatalf("expected plan-based grouping, got %#v", pools.Shared.Groups)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Plus")
+	if group == nil {
+		t.Fatalf("expected OpenAI Plus group, got %#v", pools.Shared.Groups)
+	}
+	if group.TotalAccounts != 2 || group.SchedulableAccounts != 2 {
+		t.Fatalf("unexpected OpenAI Plus totals: %#v", group)
+	}
+	if group.GroupID != nil {
+		t.Fatalf("plan display group must not expose internal group id, got %v", *group.GroupID)
+	}
+}
+
+func TestUserAccountService_GetCapacityPoolsGroupsSystemOpenAIAPIKeysByPlan(t *testing.T) {
+	ownerID := int64(10)
+	repo := &capacityPoolAccountRepoStub{
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "system-pro-a",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				ShareMode:   AccountShareModePrivate,
+				ShareStatus: AccountShareStatusNotShared,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"share_display_tier": "pro",
+					"share_display_name": "8000",
+				},
+				Groups: []*Group{{
+					ID:       88,
+					Name:     "codex",
+					Platform: PlatformOpenAI,
+				}},
+			},
+			{
+				ID:          2,
+				Name:        "system-pro-b",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				ShareMode:   AccountShareModePrivate,
+				ShareStatus: AccountShareStatusNotShared,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"share_display_tier": "pro",
+					"share_display_name": "1",
+				},
+				Groups: []*Group{{
+					ID:       89,
+					Name:     "8000",
+					Platform: PlatformOpenAI,
+				}},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	if len(pools.Shared.Groups) != 1 {
+		t.Fatalf("expected system plan grouping, got %#v", pools.Shared.Groups)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Pro")
+	if group == nil {
+		t.Fatalf("expected OpenAI Pro group, got %#v", pools.Shared.Groups)
+	}
+	if group.TotalAccounts != 2 || group.SchedulableAccounts != 2 {
+		t.Fatalf("unexpected OpenAI Pro totals: %#v", group)
+	}
+	if group.GroupID != nil {
+		t.Fatalf("system plan display group must not expose internal group id, got %v", *group.GroupID)
+	}
+}
+
 func TestUserAccountService_CreateBlocksAPIKeyUpload(t *testing.T) {
 	svc := NewUserAccountService(&capacityPoolAccountRepoStub{}, accountShareSettingsStub{enabled: true})
 
