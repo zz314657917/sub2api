@@ -499,12 +499,17 @@
                 <PixelIcon name="settings" size="sm" tone="green" />
               </div>
               <h3>添加 Codex 账号</h3>
+              <p>已创建 Codex 类型 API 密钥后，可以从控制台一键添加到 Cockpit Tools。</p>
               <ul>
                 <li>打开 Cockpit Tools 面板。</li>
                 <li>选择 <code>Codex</code>。</li>
-                <li>点击“添加账号”。</li>
-                <li><code>APIKEY</code> 填入你的落叶网络秘钥。</li>
+                <li>在落叶网络 API 密钥页点击该密钥右侧的「导入 Cockpit」。</li>
+                <li>浏览器会唤起 Cockpit Tools，并自动填入 <code>APIKEY</code> 和接口地址。</li>
               </ul>
+              <router-link :to="apiKeysLink" class="guide-action-link">
+                <PixelIcon name="link" size="xs" />
+                {{ authStore.isAuthenticated ? '一键添加到 Cockpit Tools' : '登录后一键添加到 Cockpit Tools' }}
+              </router-link>
             </article>
 
             <article class="guide-card">
