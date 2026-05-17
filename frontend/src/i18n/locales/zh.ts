@@ -708,14 +708,14 @@ export default {
     myRank: '我的排名',
     costEfficiencyKing: '⭐ 性价比之王',
     badges: {
-      weeklyTokenKing: '周榜 Token 最多',
-      monthlyTokenKing: '月榜 Token 最多',
-      totalTokenKing: '肝帝',
-      nightOwl: '夜猫',
-      burstTokenKing: '爆肝王',
-      checkinKing: '打卡王',
-      costSaver: '1M Token 成本最低',
-      costBurner: '1M Token 成本最高'
+      weeklyTokenKing: '周榜王：本周 Token 使用量最高的用户。',
+      monthlyTokenKing: '月榜王：本月 Token 使用量最高的用户。',
+      totalTokenKing: '肝帝：历史累计 Token 使用量最高的用户。',
+      nightOwl: '夜猫：当前排行周期内夜间请求次数最多的用户。',
+      burstTokenKing: '爆肝王：昨日 Token 用量相对前 7 天平均值增长最多的用户。',
+      checkinKing: '打卡王：截至昨日连续有请求记录天数最多的用户。',
+      costSaver: '省钱王：当前排行周期内每 1M Token 实际成本最低的用户。',
+      costBurner: '豪气王：当前排行周期内每 1M Token 实际成本最高的用户。'
     },
     notRanked: '未上榜',
     dailyReward: {

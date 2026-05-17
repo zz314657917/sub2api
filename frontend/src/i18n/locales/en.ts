@@ -709,14 +709,14 @@ export default {
     myRank: 'My Rank',
     costEfficiencyKing: '⭐ Value King',
     badges: {
-      weeklyTokenKing: 'Most tokens this week',
-      monthlyTokenKing: 'Most tokens this month',
-      totalTokenKing: 'Token grinder',
-      nightOwl: 'Night owl',
-      burstTokenKing: 'Burst grinder',
-      checkinKing: 'Check-in king',
-      costSaver: 'Lowest cost per 1M tokens',
-      costBurner: 'Highest cost per 1M tokens'
+      weeklyTokenKing: 'Weekly King: the user with the most tokens used this week.',
+      monthlyTokenKing: 'Monthly King: the user with the most tokens used this month.',
+      totalTokenKing: 'Token Grinder: the user with the highest all-time token usage.',
+      nightOwl: 'Night Owl: the user with the most night-time requests in the current ranking period.',
+      burstTokenKing: 'Burst King: the user whose yesterday token usage increased the most versus the previous 7-day average.',
+      checkinKing: 'Check-in King: the user with the longest consecutive request-day streak through yesterday.',
+      costSaver: 'Cost Saver: the user with the lowest actual cost per 1M tokens in the current ranking period.',
+      costBurner: 'High Spender: the user with the highest actual cost per 1M tokens in the current ranking period.'
     },
     notRanked: 'Not ranked',
     dailyReward: {
