@@ -1309,6 +1309,7 @@ func (r *accountRepository) ListSchedulable(ctx context.Context) ([]service.Acco
 		Where(
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
+			notDemoFakeAccountPredicate(),
 			tempUnschedulablePredicate(),
 			notExpiredPredicate(now),
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
@@ -1336,6 +1337,7 @@ func (r *accountRepository) ListSchedulableByPlatform(ctx context.Context, platf
 			dbaccount.PlatformEQ(platform),
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
+			notDemoFakeAccountPredicate(),
 			tempUnschedulablePredicate(),
 			notExpiredPredicate(now),
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
@@ -1370,6 +1372,7 @@ func (r *accountRepository) ListSchedulableByPlatforms(ctx context.Context, plat
 			dbaccount.PlatformIn(platforms...),
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
+			notDemoFakeAccountPredicate(),
 			tempUnschedulablePredicate(),
 			notExpiredPredicate(now),
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
@@ -1391,6 +1394,7 @@ func (r *accountRepository) ListSchedulableUngroupedByPlatform(ctx context.Conte
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
 			dbaccount.Not(dbaccount.HasAccountGroups()),
+			notDemoFakeAccountPredicate(),
 			tempUnschedulablePredicate(),
 			notExpiredPredicate(now),
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
@@ -1415,6 +1419,7 @@ func (r *accountRepository) ListSchedulableUngroupedByPlatforms(ctx context.Cont
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
 			dbaccount.Not(dbaccount.HasAccountGroups()),
+			notDemoFakeAccountPredicate(),
 			tempUnschedulablePredicate(),
 			notExpiredPredicate(now),
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
@@ -1895,6 +1900,7 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 		now := time.Now()
 		preds = append(preds,
 			dbaccount.SchedulableEQ(true),
+			notDemoFakeAccountPredicate(),
 			tempUnschedulablePredicate(),
 			notExpiredPredicate(now),
 			dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
@@ -1995,6 +2001,16 @@ func tempUnschedulablePredicate() dbpredicate.Account {
 		s.Where(entsql.Or(
 			entsql.IsNull(col),
 			entsql.LTE(col, entsql.Expr("NOW()")),
+		))
+	})
+}
+
+func notDemoFakeAccountPredicate() dbpredicate.Account {
+	return dbpredicate.Account(func(s *entsql.Selector) {
+		path := sqljson.Path("demo_fake_account")
+		s.Where(entsql.Or(
+			entsql.Not(sqljson.HasKey(dbaccount.FieldExtra, path)),
+			entsql.Not(sqljson.ValueEQ(dbaccount.FieldExtra, true, path)),
 		))
 	})
 }
