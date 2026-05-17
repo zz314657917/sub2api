@@ -1640,6 +1640,14 @@ func (a *Account) IsShareDisplayPercentOnly() bool {
 	return a.getExtraBool("share_display_percent_only")
 }
 
+func (a *Account) GetShareDisplayAccountCount() int {
+	count := a.getExtraInt("share_display_account_count")
+	if count <= 0 {
+		return 1
+	}
+	return count
+}
+
 func accountQuotaPercent(used, limit float64) float64 {
 	if limit <= 0 {
 		return 0

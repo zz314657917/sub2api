@@ -330,6 +330,9 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 			percentOnly := true
 			out.ShareDisplayPercentOnly = &percentOnly
 		}
+		if count := a.GetShareDisplayAccountCount(); count > 1 {
+			out.ShareDisplayAccountCount = &count
+		}
 		// 固定时间重置配置
 		if mode := a.GetQuotaDailyResetMode(); mode == "fixed" {
 			out.QuotaDailyResetMode = &mode

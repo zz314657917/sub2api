@@ -1559,10 +1559,12 @@
           :display-name="shareDisplayName"
           :display-tier="shareDisplayTier"
           :percent-only="shareDisplayPercentOnly"
+          :account-count="shareDisplayAccountCount"
           @update:enabled="shareDisplayEnabled = $event"
           @update:displayName="shareDisplayName = $event"
           @update:displayTier="shareDisplayTier = $event"
           @update:percentOnly="shareDisplayPercentOnly = $event"
+          @update:accountCount="shareDisplayAccountCount = $event"
         />
       </div>
 
@@ -2385,6 +2387,7 @@ const shareDisplayEnabled = ref(false)
 const shareDisplayName = ref('')
 const shareDisplayTier = ref('pro')
 const shareDisplayPercentOnly = ref(true)
+const shareDisplayAccountCount = ref(1)
 const openAIWSModeOptions = computed(() => [
   { value: OPENAI_WS_MODE_OFF, label: t('admin.accounts.openai.wsModeOff') },
   { value: OPENAI_WS_MODE_CTX_POOL, label: t('admin.accounts.openai.wsModeCtxPool') },
@@ -2690,16 +2693,21 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   shareDisplayEnabled.value = newAccount.platform === 'openai' && newAccount.type === 'apikey' && (
     typeof extra?.share_display_name === 'string' ||
     typeof extra?.share_display_tier === 'string' ||
-    extra?.share_display_percent_only === true
+    extra?.share_display_percent_only === true ||
+    typeof extra?.share_display_account_count === 'number'
   )
   shareDisplayName.value = typeof extra?.share_display_name === 'string' ? extra.share_display_name : ''
   shareDisplayTier.value = typeof extra?.share_display_tier === 'string' && extra.share_display_tier ? extra.share_display_tier : 'pro'
   shareDisplayPercentOnly.value = extra?.share_display_percent_only !== false
+  shareDisplayAccountCount.value = typeof extra?.share_display_account_count === 'number' && extra.share_display_account_count > 0
+    ? Math.trunc(extra.share_display_account_count)
+    : 1
   if (newAccount.platform !== 'openai' || newAccount.type !== 'apikey') {
     shareDisplayEnabled.value = false
     shareDisplayName.value = ''
     shareDisplayTier.value = 'pro'
     shareDisplayPercentOnly.value = true
+    shareDisplayAccountCount.value = 1
   }
 
   // Load antigravity model mapping (Antigravity 只支持映射模式)
@@ -3826,10 +3834,12 @@ const handleSubmit = async () => {
         }
         newExtra.share_display_tier = shareDisplayTier.value || 'pro'
         newExtra.share_display_percent_only = shareDisplayPercentOnly.value
+        newExtra.share_display_account_count = Math.max(1, Math.trunc(shareDisplayAccountCount.value || 1))
       } else {
         delete newExtra.share_display_name
         delete newExtra.share_display_tier
         delete newExtra.share_display_percent_only
+        delete newExtra.share_display_account_count
       }
       // Quota reset mode config
       if (editDailyResetMode.value === 'fixed') {

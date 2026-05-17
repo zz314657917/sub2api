@@ -147,6 +147,30 @@ type UserAccountService struct {
 	settings    UserAccountShareSettings
 }
 
+type accountCapacityDisplayWindows struct {
+	fiveHour   UserAccountCapacityWindowSnapshot
+	has5h      bool
+	sevenDay   UserAccountCapacityWindowSnapshot
+	has7d      bool
+	dailyQuota UserAccountCapacityWindowSnapshot
+	hasDaily   bool
+	weekQuota  UserAccountCapacityWindowSnapshot
+	hasWeek    bool
+	monthQuota UserAccountCapacityWindowSnapshot
+	hasMonth   bool
+}
+
+type accountCapacityDisplayCounts struct {
+	total          int
+	active         int
+	schedulable    int
+	ownContributed int
+	rateLimited    int
+	error          int
+	disabled       int
+	abnormal       int
+}
+
 type UserAccountShareSettings interface {
 	IsAccountShareEnabled(ctx context.Context) bool
 	IsAccountShareAutoReview(ctx context.Context) bool
@@ -681,30 +705,17 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account, current
 		disabled := account.Status == StatusDisabled || account.Status == StatusExpired || account.Status == StatusUnused
 		abnormal := rateLimited || errorState || disabled || !schedulable
 		unavailableReason := accountCapacityUnavailableReason(account)
+		counts := accountCapacityDisplayCountsFor(account, active, schedulable, ownContributed, rateLimited, errorState, disabled, abnormal)
 
-		pool.TotalAccounts++
-		if active {
-			pool.ActiveAccounts++
-		}
-		if schedulable {
-			pool.SchedulableAccounts++
-		}
-		if ownContributed {
-			pool.OwnContributedAccounts++
-		}
-		if rateLimited {
-			pool.RateLimitedAccounts++
-		}
-		if errorState {
-			pool.ErrorAccounts++
-		}
-		if disabled {
-			pool.DisabledAccounts++
-		}
-		if abnormal {
-			pool.AbnormalAccounts++
-		}
-		pool.UnavailableReasons = addCapacityUnavailableReason(pool.UnavailableReasons, unavailableReason)
+		pool.TotalAccounts += counts.total
+		pool.ActiveAccounts += counts.active
+		pool.SchedulableAccounts += counts.schedulable
+		pool.OwnContributedAccounts += counts.ownContributed
+		pool.RateLimitedAccounts += counts.rateLimited
+		pool.ErrorAccounts += counts.error
+		pool.DisabledAccounts += counts.disabled
+		pool.AbnormalAccounts += counts.abnormal
+		pool.UnavailableReasons = addCapacityUnavailableReason(pool.UnavailableReasons, unavailableReason, counts.total)
 		configuredQuota, remainingQuota := accountQuotaTotals(account)
 		account.PopulateQuotaWindowSnapshots()
 		percentOnlyQuota := account.IsShareDisplayPercentOnly()
@@ -724,29 +735,21 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account, current
 			}
 			sections[sectionKey] = section
 		}
-		section.TotalAccounts++
-		if schedulable {
-			section.SchedulableAccounts++
-		}
-		if ownContributed {
-			section.OwnContributedAccounts++
-		}
+		section.TotalAccounts += counts.total
+		section.SchedulableAccounts += counts.schedulable
+		section.OwnContributedAccounts += counts.ownContributed
 		section.ConfiguredQuota += configuredQuota
 		section.RemainingQuota += remainingQuota
 		if percentOnlyQuota {
 			section.PercentOnlyQuota = true
 		}
-		section.UnavailableReasons = addCapacityUnavailableReason(section.UnavailableReasons, unavailableReason)
-		snapshot5h, ok5h := accountCapacityWindowSnapshot(account, "codex_5h")
-		mergeCapacityWindowSnapshot(section.Windows, "5h", snapshot5h, ok5h)
-		snapshot7d, ok7d := accountCapacityWindowSnapshot(account, "codex_7d")
-		mergeCapacityWindowSnapshot(section.Windows, "7d", snapshot7d, ok7d)
-		quotaDaily, okQuotaDaily := accountCapacityWindowSnapshot(account, "quota_daily")
-		mergeCapacityWindowSnapshot(section.Windows, "1d", quotaDaily, okQuotaDaily)
-		quotaWeekly, okQuotaWeekly := accountCapacityWindowSnapshot(account, "quota_weekly")
-		mergeCapacityWindowSnapshot(section.Windows, "7d_quota", quotaWeekly, okQuotaWeekly)
-		quotaMonthly, okQuotaMonthly := accountCapacityWindowSnapshot(account, "quota_monthly")
-		mergeCapacityWindowSnapshot(section.Windows, "30d", quotaMonthly, okQuotaMonthly)
+		section.UnavailableReasons = addCapacityUnavailableReason(section.UnavailableReasons, unavailableReason, counts.total)
+		windows := accountCapacityDisplayWindowSnapshots(account)
+		mergeCapacityWindowSnapshot(section.Windows, "5h", windows.fiveHour, windows.has5h)
+		mergeCapacityWindowSnapshot(section.Windows, "7d", windows.sevenDay, windows.has7d)
+		mergeCapacityWindowSnapshot(section.Windows, "1d", windows.dailyQuota, windows.hasDaily)
+		mergeCapacityWindowSnapshot(section.Windows, "7d_quota", windows.weekQuota, windows.hasWeek)
+		mergeCapacityWindowSnapshot(section.Windows, "30d", windows.monthQuota, windows.hasMonth)
 
 		for _, groupRef := range accountCapacityGroupRefs(account) {
 			group := groups[groupRef.key]
@@ -764,39 +767,25 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account, current
 				}
 				groups[groupRef.key] = group
 			}
-			group.TotalAccounts++
-			if active {
-				group.ActiveAccounts++
-			}
-			if schedulable {
-				group.SchedulableAccounts++
-			}
-			if ownContributed {
-				group.OwnContributedAccounts++
-			}
-			if rateLimited {
-				group.RateLimitedAccounts++
-			}
-			if errorState {
-				group.ErrorAccounts++
-			}
-			if disabled {
-				group.DisabledAccounts++
-			}
-			if abnormal {
-				group.AbnormalAccounts++
-			}
-			group.UnavailableReasons = addCapacityUnavailableReason(group.UnavailableReasons, unavailableReason)
+			group.TotalAccounts += counts.total
+			group.ActiveAccounts += counts.active
+			group.SchedulableAccounts += counts.schedulable
+			group.OwnContributedAccounts += counts.ownContributed
+			group.RateLimitedAccounts += counts.rateLimited
+			group.ErrorAccounts += counts.error
+			group.DisabledAccounts += counts.disabled
+			group.AbnormalAccounts += counts.abnormal
+			group.UnavailableReasons = addCapacityUnavailableReason(group.UnavailableReasons, unavailableReason, counts.total)
 			group.ConfiguredQuota += configuredQuota
 			group.RemainingQuota += remainingQuota
 			if percentOnlyQuota {
 				group.PercentOnlyQuota = true
 			}
-			mergeCapacityWindowSummary(group.Windows, "5h", snapshot5h, ok5h, schedulable)
-			mergeCapacityWindowSummary(group.Windows, "7d", snapshot7d, ok7d, schedulable)
-			mergeCapacityWindowSummary(group.Windows, "1d", quotaDaily, okQuotaDaily, schedulable)
-			mergeCapacityWindowSummary(group.Windows, "7d_quota", quotaWeekly, okQuotaWeekly, schedulable)
-			mergeCapacityWindowSummary(group.Windows, "30d", quotaMonthly, okQuotaMonthly, schedulable)
+			mergeCapacityWindowSummary(group.Windows, "5h", windows.fiveHour, windows.has5h, schedulable, counts.total)
+			mergeCapacityWindowSummary(group.Windows, "7d", windows.sevenDay, windows.has7d, schedulable, counts.total)
+			mergeCapacityWindowSummary(group.Windows, "1d", windows.dailyQuota, windows.hasDaily, schedulable, counts.total)
+			mergeCapacityWindowSummary(group.Windows, "7d_quota", windows.weekQuota, windows.hasWeek, schedulable, counts.total)
+			mergeCapacityWindowSummary(group.Windows, "30d", windows.monthQuota, windows.hasMonth, schedulable, counts.total)
 		}
 	}
 
@@ -835,6 +824,69 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account, current
 		return left.Key < right.Key
 	})
 	return pool
+}
+
+func accountCapacityDisplayWindowSnapshots(account *Account) accountCapacityDisplayWindows {
+	var windows accountCapacityDisplayWindows
+	windows.fiveHour, windows.has5h = accountCapacityWindowSnapshot(account, "codex_5h")
+	windows.sevenDay, windows.has7d = accountCapacityWindowSnapshot(account, "codex_7d")
+	windows.dailyQuota, windows.hasDaily = accountCapacityWindowSnapshot(account, "quota_daily")
+	windows.weekQuota, windows.hasWeek = accountCapacityWindowSnapshot(account, "quota_weekly")
+	windows.monthQuota, windows.hasMonth = accountCapacityWindowSnapshot(account, "quota_monthly")
+
+	if accountUsesShareDisplayWindowMask(account) {
+		if !windows.has5h && windows.hasDaily {
+			windows.fiveHour = windows.dailyQuota
+			windows.fiveHour.WindowMinutes = int((5 * time.Hour).Minutes())
+			windows.has5h = true
+		}
+		if !windows.has7d && windows.hasWeek {
+			windows.sevenDay = windows.weekQuota
+			windows.sevenDay.WindowMinutes = int((7 * 24 * time.Hour).Minutes())
+			windows.has7d = true
+		}
+		windows.hasDaily = false
+		windows.hasWeek = false
+	}
+
+	return windows
+}
+
+func accountCapacityDisplayCountsFor(account *Account, active, schedulable, ownContributed, rateLimited, errorState, disabled, abnormal bool) accountCapacityDisplayCounts {
+	weight := 1
+	if accountUsesShareDisplayWindowMask(account) {
+		weight = account.GetShareDisplayAccountCount()
+	}
+	counts := accountCapacityDisplayCounts{total: weight}
+	if active {
+		counts.active = weight
+	}
+	if schedulable {
+		counts.schedulable = weight
+	}
+	if ownContributed {
+		counts.ownContributed = weight
+	}
+	if rateLimited {
+		counts.rateLimited = weight
+	}
+	if errorState {
+		counts.error = weight
+	}
+	if disabled {
+		counts.disabled = weight
+	}
+	if abnormal {
+		counts.abnormal = weight
+	}
+	return counts
+}
+
+func accountUsesShareDisplayWindowMask(account *Account) bool {
+	return account != nil &&
+		account.Platform == PlatformOpenAI &&
+		account.Type == AccountTypeAPIKey &&
+		accountShareDisplayConfigured(account)
 }
 
 type accountCapacityGroupRef struct {
@@ -998,25 +1050,31 @@ func accountCapacityQuotaExceededReason(account *Account) string {
 	return "quota_exceeded"
 }
 
-func addCapacityUnavailableReason(current map[string]int, reason string) map[string]int {
+func addCapacityUnavailableReason(current map[string]int, reason string, count int) map[string]int {
 	if reason == "" {
 		return current
+	}
+	if count <= 0 {
+		count = 1
 	}
 	if current == nil {
 		current = make(map[string]int)
 	}
-	current[reason]++
+	current[reason] += count
 	return current
 }
 
-func mergeCapacityWindowSummary(windows map[string]UserAccountCapacityWindowSummary, key string, snapshot UserAccountCapacityWindowSnapshot, ok bool, schedulable bool) {
+func mergeCapacityWindowSummary(windows map[string]UserAccountCapacityWindowSummary, key string, snapshot UserAccountCapacityWindowSnapshot, ok bool, schedulable bool, accountCount int) {
 	if !ok {
 		return
 	}
+	if accountCount <= 0 {
+		accountCount = 1
+	}
 	current := windows[key]
-	current.SnapshotAccounts++
+	current.SnapshotAccounts += accountCount
 	if schedulable {
-		current.SchedulableSnapshotAccounts++
+		current.SchedulableSnapshotAccounts += accountCount
 	}
 	if snapshot.LimitAmount > 0 {
 		if schedulable {

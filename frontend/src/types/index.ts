@@ -899,6 +899,7 @@ export interface Account {
   share_display_name?: string | null
   share_display_tier?: string | null
   share_display_percent_only?: boolean | null
+  share_display_account_count?: number | null
 
   // 配额固定时间重置配置
   quota_daily_reset_mode?: 'rolling' | 'fixed' | null

@@ -3677,6 +3677,8 @@ export default {
         displayName: '展示名称',
         displayNamePlaceholder: '例如 OpenAI Pro 容量',
         displayTier: '展示套餐',
+        accountCount: '展示账号数',
+        accountCountHint: '这个 API 账号在共享容量池中按多少个同套餐账号计数，只影响前台展示。',
         percentOnly: '共享池只显示消耗百分比',
         percentOnlyHint: '开启后共享容量池隐藏绝对额度，只展示日、周、月额度百分比。'
       },

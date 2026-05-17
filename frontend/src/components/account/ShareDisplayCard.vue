@@ -10,10 +10,12 @@ const props = withDefaults(defineProps<{
   displayName?: string | null
   displayTier?: string | null
   percentOnly?: boolean | null
+  accountCount?: number | null
 }>(), {
   displayName: '',
   displayTier: 'pro',
   percentOnly: true,
+  accountCount: 1,
 })
 
 const emit = defineEmits<{
@@ -21,6 +23,7 @@ const emit = defineEmits<{
   'update:displayName': [value: string]
   'update:displayTier': [value: string]
   'update:percentOnly': [value: boolean]
+  'update:accountCount': [value: number]
 }>()
 
 const enabledModel = computed({
@@ -41,6 +44,14 @@ const displayTierModel = computed({
 const percentOnlyModel = computed({
   get: () => props.percentOnly !== false,
   set: (value: boolean) => emit('update:percentOnly', value),
+})
+
+const accountCountModel = computed({
+  get: () => String(Math.max(1, Math.trunc(props.accountCount ?? 1))),
+  set: (value: string) => {
+    const parsed = Number.parseInt(value, 10)
+    emit('update:accountCount', Number.isFinite(parsed) && parsed > 0 ? parsed : 1)
+  },
 })
 
 const tierOptions = computed(() => [
@@ -92,6 +103,13 @@ const tierOptions = computed(() => [
           </option>
         </select>
       </div>
+      <Input
+        data-testid="share-display-account-count"
+        v-model="accountCountModel"
+        type="number"
+        :label="t('admin.accounts.shareDisplay.accountCount')"
+        :hint="t('admin.accounts.shareDisplay.accountCountHint')"
+      />
       <label class="flex items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-dark-600 md:col-span-2">
         <input v-model="percentOnlyModel" type="checkbox" class="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
         <span>

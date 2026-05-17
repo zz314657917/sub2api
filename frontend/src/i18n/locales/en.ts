@@ -3682,6 +3682,8 @@ export default {
         displayName: 'Display Name',
         displayNamePlaceholder: 'Example: OpenAI Pro Capacity',
         displayTier: 'Display Plan',
+        accountCount: 'Displayed Account Count',
+        accountCountHint: 'Counts this API key as this many accounts of the selected plan in shared capacity views only.',
         percentOnly: 'Show percentages only in shared pool',
         percentOnlyHint: 'When enabled, the shared capacity pool hides absolute quota numbers and shows daily, weekly, and monthly percentages.'
       },

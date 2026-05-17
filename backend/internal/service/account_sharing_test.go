@@ -633,6 +633,103 @@ func TestUserAccountService_GetCapacityPoolsAggregatesQuotaWindowPercent(t *test
 	}
 }
 
+func TestUserAccountService_GetCapacityPoolsMasksShareDisplayAPIKeyQuotaAsCodexWindows(t *testing.T) {
+	ownerID := int64(10)
+	now := time.Now()
+	repo := &capacityPoolAccountRepoStub{
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "hosted-pro-key",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				ShareMode:   AccountShareModePrivate,
+				ShareStatus: AccountShareStatusNotShared,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"quota_daily_limit":          100.0,
+					"quota_daily_used":           25.0,
+					"quota_daily_start":          now.Add(-1 * time.Hour).Format(time.RFC3339),
+					"quota_weekly_limit":         500.0,
+					"quota_weekly_used":          300.0,
+					"quota_weekly_start":         now.Add(-24 * time.Hour).Format(time.RFC3339),
+					"share_display_tier":         "pro",
+					"share_display_percent_only": true,
+				},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Pro")
+	if group == nil {
+		t.Fatalf("expected OpenAI Pro display group, got %#v", pools.Shared.Groups)
+	}
+	if _, ok := group.Windows["1d"]; ok {
+		t.Fatalf("share-display API key must not expose quota daily window: %#v", group.Windows)
+	}
+	if _, ok := group.Windows["7d_quota"]; ok {
+		t.Fatalf("share-display API key must not expose quota weekly window: %#v", group.Windows)
+	}
+	if window := group.Windows["5h"]; window.UsedPercent != 25 || window.WindowMinutes != 300 {
+		t.Fatalf("expected daily quota to be masked as 5h window, got %#v", window)
+	}
+	if window := group.Windows["7d"]; window.UsedPercent != 60 || window.WindowMinutes != 10080 {
+		t.Fatalf("expected weekly quota to be masked as 7d window, got %#v", window)
+	}
+}
+
+func TestUserAccountService_GetCapacityPoolsUsesShareDisplayAccountCount(t *testing.T) {
+	ownerID := int64(10)
+	now := time.Now()
+	repo := &capacityPoolAccountRepoStub{
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "hosted-pro-key",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				ShareMode:   AccountShareModePrivate,
+				ShareStatus: AccountShareStatusNotShared,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"quota_weekly_limit":          100.0,
+					"quota_weekly_used":           20.0,
+					"quota_weekly_start":          now.Add(-24 * time.Hour).Format(time.RFC3339),
+					"share_display_tier":          "pro",
+					"share_display_percent_only":  true,
+					"share_display_account_count": 8,
+				},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	if pools.Shared.TotalAccounts != 8 || pools.Shared.ActiveAccounts != 8 || pools.Shared.SchedulableAccounts != 8 {
+		t.Fatalf("expected weighted shared pool counters, got %#v", pools.Shared)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Pro")
+	if group == nil {
+		t.Fatalf("expected OpenAI Pro display group, got %#v", pools.Shared.Groups)
+	}
+	if group.TotalAccounts != 8 || group.ActiveAccounts != 8 || group.SchedulableAccounts != 8 {
+		t.Fatalf("expected weighted group counters, got %#v", group)
+	}
+	if window := group.Windows["7d"]; window.SnapshotAccounts != 8 || window.SchedulableSnapshotAccounts != 8 {
+		t.Fatalf("expected weighted window snapshot counters, got %#v", window)
+	}
+}
+
 func TestUserAccountService_GetCapacityPoolsUsesShareDisplayGroupName(t *testing.T) {
 	ownerID := int64(10)
 	otherOwnerID := int64(11)

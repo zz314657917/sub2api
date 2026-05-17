@@ -1750,10 +1750,12 @@
           :display-name="shareDisplayName"
           :display-tier="shareDisplayTier"
           :percent-only="shareDisplayPercentOnly"
+          :account-count="shareDisplayAccountCount"
           @update:enabled="shareDisplayEnabled = $event"
           @update:displayName="shareDisplayName = $event"
           @update:displayTier="shareDisplayTier = $event"
           @update:percentOnly="shareDisplayPercentOnly = $event"
+          @update:accountCount="shareDisplayAccountCount = $event"
         />
       </div>
 
@@ -3298,6 +3300,7 @@ const shareDisplayEnabled = ref(false)
 const shareDisplayName = ref('')
 const shareDisplayTier = ref('pro')
 const shareDisplayPercentOnly = ref(true)
+const shareDisplayAccountCount = ref(1)
 const openaiPassthroughEnabled = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
@@ -4066,6 +4069,7 @@ const resetForm = () => {
   shareDisplayName.value = ''
   shareDisplayTier.value = 'pro'
   shareDisplayPercentOnly.value = true
+  shareDisplayAccountCount.value = 1
   openaiPassthroughEnabled.value = false
   openAICompactMode.value = 'auto'
   openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
@@ -4163,10 +4167,12 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     }
     extra.share_display_tier = shareDisplayTier.value || 'pro'
     extra.share_display_percent_only = shareDisplayPercentOnly.value
+    extra.share_display_account_count = Math.max(1, Math.trunc(shareDisplayAccountCount.value || 1))
   } else {
     delete extra.share_display_name
     delete extra.share_display_tier
     delete extra.share_display_percent_only
+    delete extra.share_display_account_count
   }
 
   return Object.keys(extra).length > 0 ? extra : undefined
@@ -4558,6 +4564,7 @@ const createAccountAndFinish = async (
       }
       quotaExtra.share_display_tier = shareDisplayTier.value || 'pro'
       quotaExtra.share_display_percent_only = shareDisplayPercentOnly.value
+      quotaExtra.share_display_account_count = Math.max(1, Math.trunc(shareDisplayAccountCount.value || 1))
     }
     // Quota reset mode config
     if (editDailyResetMode.value === 'fixed') {

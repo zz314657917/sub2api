@@ -222,17 +222,18 @@ type Account struct {
 	CustomBaseURL        *string `json:"custom_base_url,omitempty"`
 
 	// API Key 账号配额限制
-	QuotaLimit              *float64 `json:"quota_limit,omitempty"`
-	QuotaUsed               *float64 `json:"quota_used,omitempty"`
-	QuotaDailyLimit         *float64 `json:"quota_daily_limit,omitempty"`
-	QuotaDailyUsed          *float64 `json:"quota_daily_used,omitempty"`
-	QuotaWeeklyLimit        *float64 `json:"quota_weekly_limit,omitempty"`
-	QuotaWeeklyUsed         *float64 `json:"quota_weekly_used,omitempty"`
-	QuotaMonthlyLimit       *float64 `json:"quota_monthly_limit,omitempty"`
-	QuotaMonthlyUsed        *float64 `json:"quota_monthly_used,omitempty"`
-	ShareDisplayName        *string  `json:"share_display_name,omitempty"`
-	ShareDisplayTier        *string  `json:"share_display_tier,omitempty"`
-	ShareDisplayPercentOnly *bool    `json:"share_display_percent_only,omitempty"`
+	QuotaLimit               *float64 `json:"quota_limit,omitempty"`
+	QuotaUsed                *float64 `json:"quota_used,omitempty"`
+	QuotaDailyLimit          *float64 `json:"quota_daily_limit,omitempty"`
+	QuotaDailyUsed           *float64 `json:"quota_daily_used,omitempty"`
+	QuotaWeeklyLimit         *float64 `json:"quota_weekly_limit,omitempty"`
+	QuotaWeeklyUsed          *float64 `json:"quota_weekly_used,omitempty"`
+	QuotaMonthlyLimit        *float64 `json:"quota_monthly_limit,omitempty"`
+	QuotaMonthlyUsed         *float64 `json:"quota_monthly_used,omitempty"`
+	ShareDisplayName         *string  `json:"share_display_name,omitempty"`
+	ShareDisplayTier         *string  `json:"share_display_tier,omitempty"`
+	ShareDisplayPercentOnly  *bool    `json:"share_display_percent_only,omitempty"`
+	ShareDisplayAccountCount *int     `json:"share_display_account_count,omitempty"`
 
 	// 配额固定时间重置配置
 	QuotaDailyResetMode  *string `json:"quota_daily_reset_mode,omitempty"`
