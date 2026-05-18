@@ -98,7 +98,9 @@ const isDark = ref(
 const navItems = computed<Array<{ to: string; label: string; icon: PixelIconName; activePaths: string[] }>>(() => [
   { to: '/home', label: t('home.navHome'), icon: 'panel', activePaths: ['/home', '/'] },
   { to: '/tutorial', label: t('home.navTutorial'), icon: 'book', activePaths: ['/tutorial'] },
-  { to: '/models', label: t('home.navModels'), icon: 'cube', activePaths: ['/models'] }
+  ...(isAuthenticated.value
+    ? [{ to: '/models', label: t('home.navModels'), icon: 'cube' as const, activePaths: ['/models'] }]
+    : [])
 ])
 
 function toggleTheme(): void {

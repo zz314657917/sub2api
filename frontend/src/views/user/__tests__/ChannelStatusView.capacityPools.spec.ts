@@ -22,6 +22,7 @@ vi.mock('vue-i18n', async () => {
       t: (key: string, params?: Record<string, unknown>) => {
         if (key === 'channelStatus.capacityPools.quotaWindow') return `${params?.window} 额度`
         if (key === 'channelStatus.capacityPools.window') return `${params?.window} 窗口`
+        if (key === 'channelStatus.capacityPools.percentOnly') return '剩余'
         if (key === 'channelStatus.capacityPools.unavailableReasons.daily_quota_exceeded') return '日额度用完'
         if (key === 'channelStatus.capacityPools.unavailableReasons.rate_limited') return '限流中'
         return key

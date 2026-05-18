@@ -272,14 +272,14 @@ func TestSettingService_UpdateSettings_NormalizesHomeHeroSubtitles(t *testing.T)
 	svc := NewSettingService(repo, &config.Config{})
 
 	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		HomeHeroTitleTop:    " ChatGPT ",
-		HomeHeroTitleBottom: " 国内直连方案 ",
-		HomeHeroSubtitles:   " 即刻体验 ChatGPT 最新模型 \r\n\r\n 添加客服领取试用额度 \n  ",
+		HomeHeroTitleTop:    " mapleAI ",
+		HomeHeroTitleBottom: " 一键接入方案 ",
+		HomeHeroSubtitles:   " 即刻体验 mapleAI 模型 \r\n\r\n 添加客服领取试用额度 \n  ",
 	})
 	require.NoError(t, err)
-	require.Equal(t, "ChatGPT", repo.updates[SettingKeyHomeHeroTitleTop])
-	require.Equal(t, "国内直连方案", repo.updates[SettingKeyHomeHeroTitleBottom])
-	require.Equal(t, "即刻体验 ChatGPT 最新模型\n添加客服领取试用额度", repo.updates[SettingKeyHomeHeroSubtitles])
+	require.Equal(t, "mapleAI", repo.updates[SettingKeyHomeHeroTitleTop])
+	require.Equal(t, "一键接入方案", repo.updates[SettingKeyHomeHeroTitleBottom])
+	require.Equal(t, "即刻体验 mapleAI 模型\n添加客服领取试用额度", repo.updates[SettingKeyHomeHeroSubtitles])
 }
 
 func TestSettingService_UpdateSettings_LeaderboardDailyRewardNormalizesAmounts(t *testing.T) {

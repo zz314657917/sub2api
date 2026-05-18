@@ -93,17 +93,6 @@
 
     <footer class="home-footer relative z-10 mx-auto px-4 pb-6 sm:px-6">
       <div class="home-footer-inner mx-auto">
-        <div class="home-footer-models" aria-label="Supported models">
-          <span
-            v-for="item in footerModelBadges"
-            :key="item.label"
-            class="home-footer-badge"
-          >
-            <span class="home-footer-badge-dot" :style="{ backgroundColor: item.color }"></span>
-            {{ item.label }}
-          </span>
-        </div>
-
         <div class="home-footer-bar">
           <p class="home-footer-copy">
             &copy; {{ currentYear }} {{ siteName }}. {{ t('home.footer.allRightsReserved') }}
@@ -195,12 +184,6 @@ const currentYear = new Date().getFullYear()
 
 const matrixColumnCount = 51
 const { columns: matrixColumns } = useMatrixRain(matrixColumnCount, 540)
-
-const footerModelBadges = [
-  { label: 'Claude', color: '#f97316' },
-  { label: 'CHATGPT', color: '#22c55e' },
-  { label: 'Gemini', color: '#38bdf8' }
-]
 
 function toFooterLegalDocument(doc: LoginAgreementDocument): FooterLegalDocument | null {
   const title = doc.title?.trim()
@@ -984,43 +967,11 @@ watch(heroDescriptionTexts, () => {
   color: rgba(222, 232, 255, 0.62);
 }
 
-.home-footer-models {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.7rem 0 0.62rem;
-}
-
-.home-footer-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.42rem;
-  min-height: 1.75rem;
-  border: 1px solid var(--public-border);
-  border-radius: 999px;
-  background: var(--public-surface-soft);
-  padding: 0.28rem 0.72rem;
-  color: var(--public-muted-strong);
-  font-size: 0.82rem;
-  font-weight: 700;
-  line-height: 1;
-  backdrop-filter: blur(14px);
-}
-
-.home-footer-badge-dot {
-  width: 0.38rem;
-  height: 0.38rem;
-  border-radius: 999px;
-  box-shadow: 0 0 12px currentColor;
-}
-
 .home-footer-bar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-top: 1px solid rgba(221, 230, 255, 0.1);
   padding: 0.72rem 0 0;
 }
 

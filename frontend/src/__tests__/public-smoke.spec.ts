@@ -11,13 +11,16 @@ const publicBackdrop = readFileSync(resolve(process.cwd(), 'src/views/public/com
 const publicCss = readFileSync(resolve(process.cwd(), 'src/views/public/public-page.css'), 'utf8')
 
 describe('public page smoke contracts', () => {
-  it('keeps the three public entry routes available', () => {
+  it('keeps public entry routes and protects model plaza behind login', () => {
     expect(router).toContain("path: '/home'")
     expect(router).toContain("path: '/tutorial'")
     expect(router).toContain("path: '/models'")
     expect(router).toContain("name: 'Home'")
     expect(router).toContain("name: 'Tutorial'")
     expect(router).toContain("name: 'ModelPlaza'")
+    expect(router).toMatch(/path: '\/models'[\s\S]*?requiresAuth: true/)
+    expect(router).not.toContain("'/tutorial', '/models'")
+    expect(router).not.toMatch(/BACKEND_MODE_ALLOWED_PATHS[\s\S]*?'\/models'/)
   })
 
   it('routes chat image entry to the external image workspace launcher', () => {
@@ -42,6 +45,7 @@ describe('public page smoke contracts', () => {
     expect(publicTopNav).toContain("to: '/home'")
     expect(publicTopNav).toContain("to: '/tutorial'")
     expect(publicTopNav).toContain("to: '/models'")
+    expect(publicTopNav).toContain('isAuthenticated.value')
     expect(publicTopNav).not.toContain('navFeatures')
     expect(publicBackdrop).toContain('public-matrix-rain')
     expect(publicCss).toContain('--public-surface')
@@ -51,6 +55,8 @@ describe('public page smoke contracts', () => {
   it('keeps the homepage primary actions and tutorial reader structure stable', () => {
     expect(homeView).toContain('home-claim-button')
     expect(homeView).toContain('home-support-button')
+    expect(homeView).not.toContain('home-footer-models')
+    expect(homeView).not.toContain('footerModelBadges')
     expect(tutorialView).toContain('class="tutorial-sidebar"')
     expect(tutorialView).toContain('class="tutorial-main-column"')
     expect(tutorialView).not.toContain('class="tutorial-toc"')

@@ -235,6 +235,25 @@ function chipClass(tone: 'success' | 'warning' | 'danger' | 'neutral'): string {
   }
 }
 
+function windowTone(usedPercent: number): 'success' | 'warning' | 'danger' | 'neutral' {
+  const used = clampPercent(usedPercent)
+  if (used >= 100) return 'danger'
+  if (used >= 80) return 'warning'
+  return 'neutral'
+}
+
+function windowProgressClass(usedPercent: number, percentOnlyQuota: boolean): string {
+  const used = clampPercent(usedPercent)
+  if (percentOnlyQuota) {
+    if (used >= 100) return 'bg-rose-500'
+    if (used >= 80) return 'bg-amber-500'
+    return 'bg-emerald-500'
+  }
+  if (used >= 100) return 'bg-rose-500'
+  if (used >= 80) return 'bg-amber-500'
+  return 'bg-cyan-500'
+}
+
 const quotaWindowOrder = ['1d', '7d_quota', '5h', '7d'] as const
 const openAIPlanWindowOrder = ['5h', '7d'] as const
 type CapacityWindowKey = (typeof quotaWindowOrder)[number]
@@ -279,8 +298,12 @@ function windowLabel(key: string): string {
     case '30d':
       return t('channelStatus.capacityPools.quotaWindow', { window: '30d' })
     default:
-      return t('channelStatus.capacityPools.window', { window: key })
+      return key
   }
+}
+
+function windowBadgeText(key: string, percent: number): string {
+  return `${windowLabel(key)} ${formatPercent(percent)}`
 }
 
 const unavailableReasonOrder = [
@@ -432,7 +455,7 @@ const SharedGroupGrid = defineComponent({
             ])
             : null,
           h('div', { class: 'mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2' }, windowSummaries(group).map((item) => {
-            const percentOnlyQuota = componentProps.pool.percent_only_quota || group.percent_only_quota
+            const percentOnlyQuota = Boolean(componentProps.pool.percent_only_quota || group.percent_only_quota)
             const displayPercent = percentOnlyQuota ? remainingPercent(item.data.used_percent) : clampPercent(item.data.used_percent)
             return h('div', { key: item.key, class: 'rounded-md bg-white/65 p-2 dark:bg-dark-900/35' }, [
               h('div', { class: 'flex items-center justify-between gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100' }, [
@@ -441,7 +464,7 @@ const SharedGroupGrid = defineComponent({
               ]),
               h('div', { class: 'mt-1 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700' }, [
                 h('div', {
-                  class: 'h-full rounded-full bg-emerald-500',
+                  class: ['h-full rounded-full', windowProgressClass(item.data.used_percent, percentOnlyQuota)],
                   style: { width: `${displayPercent}%` },
                 }),
               ]),
@@ -490,9 +513,9 @@ const SectionFallback = defineComponent({
             h('p', { class: 'mt-0.5 text-xs text-gray-500 dark:text-gray-400' }, `${section.schedulable_accounts}/${section.total_accounts} ${t('channelStatus.capacityPools.schedulable')}`),
           ]),
           h('div', { class: 'flex flex-wrap justify-end gap-1.5' }, windowBadges(section).map((item) => {
-            const percentOnlyQuota = componentProps.pool.percent_only_quota || section.percent_only_quota
+            const percentOnlyQuota = Boolean(componentProps.pool.percent_only_quota || section.percent_only_quota)
             const displayPercent = percentOnlyQuota ? remainingPercent(item.data.used_percent) : clampPercent(item.data.used_percent)
-            return h('span', { key: item.key, class: 'rounded-full bg-gray-100 px-2 py-1 text-xs font-semibold text-gray-700 dark:bg-dark-700 dark:text-gray-200' }, `${windowLabel(item.key)} ${formatPercent(displayPercent)}`)
+            return h('span', { key: item.key, class: ['rounded-full px-2 py-1 text-xs font-semibold', chipClass(windowTone(item.data.used_percent))] }, windowBadgeText(item.key, displayPercent))
           })),
         ]),
         unavailableReasonEntries(section.unavailable_reasons).length > 0

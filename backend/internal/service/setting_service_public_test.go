@@ -81,18 +81,18 @@ func TestSettingService_GetPublicSettings_ExposesTablePreferences(t *testing.T) 
 func TestSettingService_GetPublicSettings_ExposesHomeHeroCopy(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{
-			SettingKeyHomeHeroTitleTop:    " ChatGPT ",
-			SettingKeyHomeHeroTitleBottom: " 国内直连方案 ",
-			SettingKeyHomeHeroSubtitles:   " 即刻体验 ChatGPT 最新模型 \n 添加客服领取试用额度 ",
+			SettingKeyHomeHeroTitleTop:    " mapleAI ",
+			SettingKeyHomeHeroTitleBottom: " 一键接入方案 ",
+			SettingKeyHomeHeroSubtitles:   " 即刻体验 mapleAI 模型 \n 添加客服领取试用额度 ",
 		},
 	}
 	svc := NewSettingService(repo, &config.Config{})
 
 	settings, err := svc.GetPublicSettings(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, "ChatGPT", settings.HomeHeroTitleTop)
-	require.Equal(t, "国内直连方案", settings.HomeHeroTitleBottom)
-	require.Equal(t, "即刻体验 ChatGPT 最新模型 \n 添加客服领取试用额度", settings.HomeHeroSubtitles)
+	require.Equal(t, "mapleAI", settings.HomeHeroTitleTop)
+	require.Equal(t, "一键接入方案", settings.HomeHeroTitleBottom)
+	require.Equal(t, "即刻体验 mapleAI 模型 \n 添加客服领取试用额度", settings.HomeHeroSubtitles)
 }
 
 func TestSettingService_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t *testing.T) {

@@ -13,13 +13,15 @@ const publicCss = readFileSync(resolve(process.cwd(), 'src/views/public/public-p
 const sourceSiteBrandPattern = new RegExp(['Ti', 'Mi|TIM', 'ICC|tim', 'icc'].join(''), 'i')
 
 describe('public tutorial and model plaza pages', () => {
-  it('registers tutorial and model plaza as public routes', () => {
+  it('registers tutorial publicly and protects model plaza behind login', () => {
     expect(router).toContain("path: '/tutorial'")
     expect(router).toContain("name: 'Tutorial'")
     expect(router).toContain("path: '/models'")
     expect(router).toContain("name: 'ModelPlaza'")
+    expect(router).toMatch(/path: '\/models'[\s\S]*?requiresAuth: true/)
     expect(router).toContain("'/tutorial'")
-    expect(router).toContain("'/models'")
+    expect(router).not.toContain("'/tutorial', '/models'")
+    expect(router).not.toMatch(/BACKEND_MODE_ALLOWED_PATHS[\s\S]*?'\/models'/)
   })
 
   it('uses original Luoye Network tutorial content instead of copied source-site branding', () => {
@@ -258,6 +260,7 @@ describe('public tutorial and model plaza pages', () => {
     expect(publicTopNav).toContain("isAuthenticated ? dashboardPath : '/login'")
     expect(publicTopNav).toContain("to: '/tutorial'")
     expect(publicTopNav).toContain("to: '/models'")
+    expect(publicTopNav).toContain('isAuthenticated.value')
     expect(publicTopNav).toContain("t('home.navHome')")
     expect(publicTopNav).not.toContain('navFeatures')
     expect(publicTopNav).not.toContain('功能特性')

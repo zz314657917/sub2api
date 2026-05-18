@@ -1,6 +1,6 @@
 # 构建与验证
 
-最后更新：2026-05-13
+最后更新：2026-05-18
 
 ## 基本原则
 
@@ -84,6 +84,37 @@ npm.cmd run build
 - 改 package 依赖：确认 `pnpm-lock.yaml`
 - 改 Ent schema：确认生成代码
 - 改跨端 API contract：同时检查后端 DTO/路由、前端 API client、类型和测试
+
+## 当前高频验证入口
+
+- 账号共享、容量池、排行榜或用户侧展示改动：
+
+```powershell
+cd frontend
+npm.cmd run test:run -- ChannelStatusView.capacityPools
+npm.cmd run typecheck
+npm.cmd run build
+```
+
+- 后端共享池、调度过滤、repository 查询改动：
+
+```powershell
+cd backend
+go test ./internal/service/...
+go test ./internal/repository/...
+```
+
+- 双仓库聊天生图链路、COS、launch/redeem 相关改动：
+  这类改动通常要同时回看 `F:/java/chatgpt2api` 的 `go test ./...`、`corepack.cmd pnpm --dir web lint`、`corepack.cmd pnpm --dir web build`，不要只验证 `sub2api` 单仓库。
+
+## 近期稳定结论
+
+- 2026-05-16~2026-05-17 的高频改动面已经从早期 `/chat-images` 跳转闭环，转向账号共享展示、容量池聚合展示、排行榜文案和 cockpit 导入。
+- 容量池相关展示验证至少要覆盖：
+  - OpenAI Free/Plus/Pro/Team 是否按套餐聚合，而不是按 display name 散开。
+  - 只展示有账号的池子/分组。
+  - 剩余百分比、`5h`/`7d` 窗口和 i18n 文案是否正确。
+- 本地 fake 演示账号只用于页面预览，生产调度查询必须排除；涉及该逻辑时，要同步检查后端过滤和前端展示，不要只看 UI。
 
 ## 已知验证噪声
 

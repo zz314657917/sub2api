@@ -12,9 +12,9 @@ const pixelUi = readFileSync(resolve(process.cwd(), 'src/styles/pixel-ui.css'), 
 
 describe('home page visual direction', () => {
   it('uses the compact coding-solution hero copy', () => {
-    expect(zhLocale).toContain("heroEyebrow: '国内直连，一键接入'")
-    expect(zhLocale).toContain("heroTitleTop: 'ChatGPT'")
-    expect(zhLocale).toContain("heroTitleBottom: '国内直连方案'")
+    expect(zhLocale).toContain("heroEyebrow: '一键接入'")
+    expect(zhLocale).toContain("heroTitleTop: 'mapleAI'")
+    expect(zhLocale).toContain("heroTitleBottom: '一键接入方案'")
     expect(zhLocale).toContain("heroDescription: '按需付费，随用随停'")
     expect(zhLocale).toContain("unifiedGatewayDesc: '无需挂代理翻墙，密钥接入编码模型与上游能力。'")
     expect(zhLocale).toContain("claimButton: '注册领取试用'")
@@ -104,6 +104,7 @@ describe('home page visual direction', () => {
     expect(publicTopNav).toContain("t('home.navHome')")
     expect(publicTopNav).toContain("t('home.navTutorial')")
     expect(publicTopNav).toContain("t('home.navModels')")
+    expect(publicTopNav).toContain('isAuthenticated.value')
     expect(publicTopNav).not.toContain('navFeatures')
     expect(publicTopNav).not.toContain('功能特性')
     expect(publicTopNav).not.toContain('#features')
@@ -121,6 +122,13 @@ describe('home page visual direction', () => {
     expect(zhLocale).toContain("navHome: '首页'")
     expect(zhLocale).toContain("navTutorial: '教程'")
     expect(zhLocale).toContain("navModels: '模型广场'")
+  })
+
+  it('removes the homepage footer model badge strip', () => {
+    expect(homeView).not.toContain('home-footer-models')
+    expect(homeView).not.toContain('footerModelBadges')
+    expect(homeView).not.toContain('home-footer-badge')
+    expect(homeView).not.toContain('CHATGPT')
   })
 
   it('keeps the hero responsive on wide desktop screens', () => {

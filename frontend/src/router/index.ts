@@ -51,7 +51,7 @@ const routes: RouteRecordRaw[] = [
     name: 'ModelPlaza',
     component: () => import('@/views/public/ModelPlazaView.vue'),
     meta: {
-      requiresAuth: false,
+      requiresAuth: true,
       title: 'Model Plaza'
     }
   },
@@ -790,7 +790,7 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/tutorial', '/models']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/tutorial']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',
