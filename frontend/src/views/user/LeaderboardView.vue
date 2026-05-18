@@ -215,24 +215,6 @@
               </div>
             </div>
 
-            <div class="mt-4">
-              <div class="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
-                <span>{{ t('leaderboard.dailyReward.threshold') }}</span>
-                <span>
-                  {{ t('leaderboard.dailyReward.progress', {
-                    current: formatCurrency(dailyRewards.yesterday_total_actual_cost),
-                    target: formatCurrency(dailyRewards.min_total_actual_cost),
-                  }) }}
-                </span>
-              </div>
-              <div class="mt-2 h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
-                <div
-                  class="h-full rounded-full bg-primary-500 transition-all"
-                  :style="{ width: `${rewardThresholdPercent}%` }"
-                ></div>
-              </div>
-            </div>
-
             <div class="mt-4 rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-800">
               <div class="flex items-center justify-between gap-3">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('leaderboard.myRank') }}</span>
@@ -348,13 +330,6 @@ const rollingTokenAnimationKey = computed(() => `${period.value}-${tokenTickerSe
 const rewardTiers = computed(() => {
   const tiers = new Map((dailyRewards.value?.rewards ?? []).map((tier) => [tier.rank, tier.amount]))
   return [1, 2, 3].map((rank) => ({ rank, amount: tiers.get(rank) ?? 0 }))
-})
-
-const rewardThresholdPercent = computed(() => {
-  const reward = dailyRewards.value
-  if (!reward) return 0
-  if (reward.min_total_actual_cost <= 0) return reward.threshold_met ? 100 : 0
-  return Math.min(100, Math.max(0, (reward.yesterday_total_actual_cost / reward.min_total_actual_cost) * 100))
 })
 
 const dailyRewardReasonText = computed(() => {

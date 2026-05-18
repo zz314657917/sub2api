@@ -636,6 +636,8 @@ describe('LeaderboardView', () => {
     expect(wrapper.find('[data-testid="leaderboard-daily-reward"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('每日排名奖励')
     expect(wrapper.text()).toContain('昨日总消费未超过最低开启门槛')
+    expect(wrapper.text()).not.toContain('昨日总消费门槛')
+    expect(wrapper.text()).not.toContain('$80.00 / $100.00')
     expect(wrapper.text()).toContain('第 1 名奖励')
     expect(wrapper.text()).toContain('$5.00')
   })
