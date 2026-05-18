@@ -7,6 +7,7 @@ const {
   listAccounts,
   listWithEtag,
   getBatchTodayStats,
+  getById,
   getAllProxies,
   getAllGroups,
   setShareStatus,
@@ -18,6 +19,7 @@ const {
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
+  getById: vi.fn(),
   getAllProxies: vi.fn(),
   getAllGroups: vi.fn(),
   setShareStatus: vi.fn(),
@@ -36,6 +38,7 @@ vi.mock('@/api/admin', () => ({
     accounts: {
       list: listAccounts,
       listWithEtag,
+      getById,
       getBatchTodayStats,
       delete: vi.fn(),
       batchClearError: vi.fn(),
@@ -96,6 +99,11 @@ const DataTableStub = {
         <div data-test="name-cell">
           <slot name="cell-name" :row="row" :value="row.name">
             <span>{{ row.name }}</span>
+          </slot>
+        </div>
+        <div data-test="status-cell">
+          <slot name="cell-status" :row="row" :value="row.status">
+            <span>{{ row.status }}</span>
           </slot>
         </div>
       </div>
@@ -162,6 +170,7 @@ describe('admin AccountsView bulk edit scope', () => {
     listAccounts.mockReset()
     listWithEtag.mockReset()
     getBatchTodayStats.mockReset()
+    getById.mockReset()
     getAllProxies.mockReset()
     getAllGroups.mockReset()
     setShareStatus.mockReset()
@@ -403,6 +412,98 @@ describe('admin AccountsView bulk edit scope', () => {
     await flushPromises()
 
     expect(wrapper.get('[data-test="name-cell"]').text()).toBe('shared-openai@example.com')
+  })
+
+  it('refreshes a single shared account status from the status column', async () => {
+    routeName.value = 'AdminSharedAccounts'
+    listAccounts.mockResolvedValueOnce({
+      items: [
+        {
+          id: 1,
+          name: 'Shared 1',
+          platform: 'openai',
+          type: 'oauth',
+          status: 'error',
+          schedulable: true,
+          owner_user_id: 10,
+          share_mode: 'public',
+          share_status: 'active',
+          groups: [],
+          credentials: {},
+          extra: {}
+        }
+      ],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    })
+    getById.mockResolvedValueOnce({
+      id: 1,
+      name: 'Shared 1',
+      platform: 'openai',
+      type: 'oauth',
+      status: 'active',
+      schedulable: true,
+      owner_user_id: 10,
+      share_mode: 'public',
+      share_status: 'active',
+      groups: [],
+      credentials: {},
+      extra: {}
+    })
+
+    const wrapper = mount(AccountsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: ConfirmDialogStub,
+          BaseDialog: BaseDialogStub,
+          AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
+          AccountTableFilters: { template: '<div></div>' },
+          AccountBulkActionsBar: AccountBulkActionsBarStub,
+          AccountActionMenu: true,
+          ImportDataModal: true,
+          ReAuthAccountModal: true,
+          AccountTestModal: true,
+          AccountStatsModal: true,
+          ScheduledTestsPanel: true,
+          SyncFromCrsModal: true,
+          TempUnschedStatusModal: true,
+          ErrorPassthroughRulesModal: true,
+          TLSFingerprintProfilesModal: true,
+          CreateAccountModal: true,
+          EditAccountModal: true,
+          BulkEditAccountModal: BulkEditAccountModalStub,
+          PlatformTypeBadge: true,
+          AccountCapacityCell: true,
+          AccountStatusIndicator: {
+            props: ['account'],
+            template: '<span data-test="status-indicator">{{ account.status }}</span>'
+          },
+          AccountTodayStatsCell: true,
+          AccountGroupsCell: true,
+          AccountUsageCell: true,
+          Icon: true
+        }
+      }
+    })
+
+    await flushPromises()
+    expect(wrapper.get('[data-test="status-indicator"]').text()).toBe('error')
+
+    await wrapper.get('[data-test="refresh-shared-account-status"]').trigger('click')
+    await flushPromises()
+
+    expect(getById).toHaveBeenCalledTimes(1)
+    expect(getById).toHaveBeenCalledWith(1)
+    expect(wrapper.get('[data-test="status-indicator"]').text()).toBe('active')
+    expect(appStore.showSuccess).toHaveBeenCalledWith('common.success')
   })
 
   it('enables filtered bulk editing on the shared account page with shared account scope', async () => {

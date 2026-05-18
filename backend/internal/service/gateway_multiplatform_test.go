@@ -195,6 +195,10 @@ func (m *mockAccountRepoForPlatform) ResetQuotaUsed(ctx context.Context, id int6
 	return nil
 }
 
+func (m *mockAccountRepoForPlatform) RefreshQuotaWindows(ctx context.Context, id int64) error {
+	return nil
+}
+
 // Verify interface implementation
 var _ AccountRepository = (*mockAccountRepoForPlatform)(nil)
 

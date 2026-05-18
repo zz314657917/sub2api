@@ -266,6 +266,22 @@
           <template #cell-status="{ row }">
             <div class="flex items-center gap-1.5">
               <AccountStatusIndicator :account="row" @show-temp-unsched="handleShowTempUnsched" />
+              <button
+                v-if="isSharedAccountsPage"
+                type="button"
+                class="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 transition-colors hover:bg-gray-100 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-dark-700 dark:hover:text-primary-400"
+                :disabled="statusRefreshingId === row.id"
+                :title="t('admin.accounts.refreshStatus')"
+                :aria-label="t('admin.accounts.refreshStatus')"
+                data-test="refresh-shared-account-status"
+                @click.stop="handleRefreshAccountStatus(row)"
+              >
+                <Icon
+                  name="refresh"
+                  size="xs"
+                  :class="{ 'animate-spin': statusRefreshingId === row.id }"
+                />
+              </button>
             </div>
           </template>
           <template #cell-schedulable="{ row }">
@@ -312,6 +328,9 @@
               :today-stats="todayStatsByAccountId[String(row.id)] ?? null"
               :today-stats-loading="todayStatsLoading"
               :manual-refresh-token="usageManualRefreshToken"
+              :show-quota-refresh="canRefreshAccountQuota(row)"
+              :quota-refresh-loading="quotaRefreshingId === row.id"
+              @refresh-quota="handleRefreshQuota"
             />
           </template>
           <template #cell-proxy="{ row }">
@@ -763,6 +782,8 @@ const todayStatsError = ref<string | null>(null)
 const todayStatsReqSeq = ref(0)
 const pendingTodayStatsRefresh = ref(false)
 const usageManualRefreshToken = ref(0)
+const quotaRefreshingId = ref<number | null>(null)
+const statusRefreshingId = ref<number | null>(null)
 
 const buildDefaultTodayStats = (): WindowStats => ({
   requests: 0,
@@ -1813,6 +1834,16 @@ const patchAccountInList = (updatedAccount: Account) => {
   accounts.value = nextAccounts
   syncAccountRefs(mergedAccount)
 }
+
+const canRefreshAccountQuota = (account: Account): boolean => {
+  if (account.type !== 'apikey' && account.type !== 'bedrock') return false
+  return (
+    (account.quota_daily_limit ?? 0) > 0 ||
+    (account.quota_weekly_limit ?? 0) > 0 ||
+    (account.quota_monthly_limit ?? 0) > 0
+  )
+}
+
 const handleAccountUpdated = (updatedAccount: Account) => {
   patchAccountInList(updatedAccount)
   enterAutoRefreshSilentWindow()
@@ -1893,6 +1924,21 @@ const handleRecoverState = async (a: Account) => {
     appStore.showError(error?.message || t('admin.accounts.recoverStateFailed'))
   }
 }
+const handleRefreshAccountStatus = async (a: Account) => {
+  if (statusRefreshingId.value !== null) return
+  statusRefreshingId.value = a.id
+  try {
+    const updated = await adminAPI.accounts.getById(a.id)
+    patchAccountInList(updated)
+    enterAutoRefreshSilentWindow()
+    appStore.showSuccess(t('common.success'))
+  } catch (error: any) {
+    console.error('Failed to refresh account status:', error)
+    appStore.showError(error?.response?.data?.message || error?.message || t('admin.accounts.refreshStatusFailed'))
+  } finally {
+    statusRefreshingId.value = null
+  }
+}
 const handleResetQuota = async (a: Account) => {
   try {
     const updated = await adminAPI.accounts.resetAccountQuota(a.id)
@@ -1901,6 +1947,22 @@ const handleResetQuota = async (a: Account) => {
     appStore.showSuccess(t('common.success'))
   } catch (error) {
     console.error('Failed to reset quota:', error)
+  }
+}
+const handleRefreshQuota = async (a: Account) => {
+  if (quotaRefreshingId.value) return
+  quotaRefreshingId.value = a.id
+  try {
+    const updated = await adminAPI.accounts.refreshQuota(a.id)
+    patchAccountInList(updated)
+    enterAutoRefreshSilentWindow()
+    usageManualRefreshToken.value += 1
+    appStore.showSuccess(t('common.success'))
+  } catch (error: any) {
+    console.error('Failed to refresh quota:', error)
+    appStore.showError(error?.response?.data?.message || error?.message || t('common.unknownError'))
+  } finally {
+    quotaRefreshingId.value = null
   }
 }
 const handleSetPrivacy = async (a: Account) => {

@@ -282,6 +282,16 @@ export async function resetAccountQuota(id: number): Promise<Account> {
 }
 
 /**
+ * Refresh expired account quota windows
+ * @param id - Account ID
+ * @returns Updated account
+ */
+export async function refreshQuota(id: number): Promise<Account> {
+  const { data } = await apiClient.post<Account>(`/admin/accounts/${id}/refresh-quota`)
+  return data
+}
+
+/**
  * Get temporary unschedulable status
  * @param id - Account ID
  * @returns Status with detail state if active
@@ -707,6 +717,7 @@ export const accountsAPI = {
   clearRateLimit,
   recoverState,
   resetAccountQuota,
+  refreshQuota,
   getTempUnschedulableStatus,
   resetTempUnschedulable,
   setSchedulable,

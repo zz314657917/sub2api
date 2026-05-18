@@ -325,6 +325,7 @@ export default {
     saving: 'Saving...',
     selectedCount: '({count} selected)',
     refresh: 'Refresh',
+    refreshQuota: 'Refresh quota',
     clear: 'Clear',
     remove: 'Remove',
     autoRefresh: {
@@ -3792,6 +3793,8 @@ export default {
       recoverStateHint: 'Used to recover error, rate-limit, and temporary unschedulable runtime state.',
       recoverStateSuccess: 'Account state recovered successfully',
       recoverStateFailed: 'Failed to recover account state',
+      refreshStatus: 'Refresh Status',
+      refreshStatusFailed: 'Failed to refresh account status',
       resetStatus: 'Reset Status',
       statusReset: 'Account status reset successfully',
       failedToResetStatus: 'Failed to reset account status',

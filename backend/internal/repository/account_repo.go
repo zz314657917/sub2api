@@ -2464,3 +2464,49 @@ func (r *accountRepository) ResetQuotaUsed(ctx context.Context, id int64) error 
 	}
 	return nil
 }
+
+func (r *accountRepository) RefreshQuotaWindows(ctx context.Context, id int64) error {
+	nowUTC := "to_jsonb(NOW() AT TIME ZONE 'UTC')"
+	result, err := r.sql.ExecContext(ctx, `
+		UPDATE accounts
+		SET extra = COALESCE(extra, '{}'::jsonb)
+			|| CASE
+				WHEN COALESCE((extra->>'quota_daily_limit')::numeric, 0) > 0 AND `+dailyExpiredExpr+` THEN
+					jsonb_build_object('quota_daily_used', 0, 'quota_daily_start', `+nowUTC+`)
+					|| CASE WHEN `+nextDailyResetAtExpr+` IS NOT NULL
+						THEN jsonb_build_object('quota_daily_reset_at', `+nextDailyResetAtExpr+`)
+						ELSE '{}'::jsonb
+					END
+				ELSE '{}'::jsonb
+			END
+			|| CASE
+				WHEN COALESCE((extra->>'quota_weekly_limit')::numeric, 0) > 0 AND `+weeklyExpiredExpr+` THEN
+					jsonb_build_object('quota_weekly_used', 0, 'quota_weekly_start', `+nowUTC+`)
+					|| CASE WHEN `+nextWeeklyResetAtExpr+` IS NOT NULL
+						THEN jsonb_build_object('quota_weekly_reset_at', `+nextWeeklyResetAtExpr+`)
+						ELSE '{}'::jsonb
+					END
+				ELSE '{}'::jsonb
+			END
+			|| CASE
+				WHEN COALESCE((extra->>'quota_monthly_limit')::numeric, 0) > 0 AND `+monthlyExpiredExpr+` THEN
+					jsonb_build_object('quota_monthly_used', 0, 'quota_monthly_start', `+nowUTC+`)
+				ELSE '{}'::jsonb
+			END,
+			updated_at = NOW()
+		WHERE id = $1 AND deleted_at IS NULL`, id)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrAccountNotFound
+	}
+	if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountChanged, &id, nil, nil); err != nil {
+		logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue quota refresh failed: account=%d err=%v", id, err)
+	}
+	return nil
+}

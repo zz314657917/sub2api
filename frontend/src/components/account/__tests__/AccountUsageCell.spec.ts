@@ -655,4 +655,37 @@ describe('AccountUsageCell', () => {
 		expect(wrapper.text()).toContain('A $0.00')
 		expect(wrapper.text()).toContain('U $0.00')
   })
+
+  it('Key quota row emits a manual refresh event', async () => {
+		const account = makeAccount({
+		  id: 3004,
+		  platform: 'openai',
+		  type: 'apikey',
+		  quota_daily_limit: 10,
+		  quota_daily_used: 3,
+		  extra: {
+		    quota_daily_start: '2026-03-15T00:00:00Z'
+		  }
+		})
+		const wrapper = mount(AccountUsageCell, {
+		  props: {
+		    account,
+		    showQuotaRefresh: true
+		  },
+		  global: {
+		    stubs: {
+		      UsageProgressBar: {
+		        props: ['label'],
+		        template: '<div class="usage-bar">{{ label }}</div>'
+		      },
+		      AccountQuotaInfo: true
+		    }
+		  }
+		})
+
+		await flushPromises()
+		await wrapper.get('button[aria-label="common.refreshQuota"]').trigger('click')
+
+		expect(wrapper.emitted('refresh-quota')?.[0]?.[0]).toEqual(account)
+  })
 })

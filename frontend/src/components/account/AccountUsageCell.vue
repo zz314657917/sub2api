@@ -442,33 +442,48 @@
       </div>
 
       <!-- API Key accounts with quota limits: show progress bars -->
-      <UsageProgressBar
-        v-if="quotaDailyBar"
-        label="1d"
-        :utilization="quotaDailyBar.utilization"
-        :resets-at="quotaDailyBar.resetsAt"
-        color="indigo"
-      />
-      <UsageProgressBar
-        v-if="quotaWeeklyBar"
-        label="7d"
-        :utilization="quotaWeeklyBar.utilization"
-        :resets-at="quotaWeeklyBar.resetsAt"
-        color="emerald"
-      />
-      <UsageProgressBar
-        v-if="quotaMonthlyBar"
-        label="30d"
-        :utilization="quotaMonthlyBar.utilization"
-        :resets-at="quotaMonthlyBar.resetsAt"
-        color="amber"
-      />
-      <UsageProgressBar
-        v-if="quotaTotalBar"
-        label="total"
-        :utilization="quotaTotalBar.utilization"
-        color="purple"
-      />
+      <div v-if="hasApiKeyQuota" class="flex items-start gap-1">
+        <div class="min-w-0 space-y-1">
+          <UsageProgressBar
+            v-if="quotaDailyBar"
+            label="1d"
+            :utilization="quotaDailyBar.utilization"
+            :resets-at="quotaDailyBar.resetsAt"
+            color="indigo"
+          />
+          <UsageProgressBar
+            v-if="quotaWeeklyBar"
+            label="7d"
+            :utilization="quotaWeeklyBar.utilization"
+            :resets-at="quotaWeeklyBar.resetsAt"
+            color="emerald"
+          />
+          <UsageProgressBar
+            v-if="quotaMonthlyBar"
+            label="30d"
+            :utilization="quotaMonthlyBar.utilization"
+            :resets-at="quotaMonthlyBar.resetsAt"
+            color="amber"
+          />
+          <UsageProgressBar
+            v-if="quotaTotalBar"
+            label="total"
+            :utilization="quotaTotalBar.utilization"
+            color="purple"
+          />
+        </div>
+        <button
+          v-if="hasQuotaRefreshButton"
+          type="button"
+          class="mt-0.5 inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-gray-400 hover:bg-gray-100 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-dark-700 dark:hover:text-primary-400"
+          :disabled="quotaRefreshLoading"
+          :title="quotaRefreshTitle"
+          :aria-label="quotaRefreshTitle"
+          @click.stop="emit('refresh-quota', account)"
+        >
+          <Icon name="refresh" size="xs" :class="{ 'animate-spin': quotaRefreshLoading }" />
+        </button>
+      </div>
 
       <!-- No data at all -->
       <div v-if="!todayStats && !todayStatsLoading && !hasApiKeyQuota" class="text-xs text-gray-400">-</div>
@@ -485,6 +500,7 @@ import type { Account, AccountUsageInfo, GeminiCredentials, WindowStats } from '
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { enqueueUsageRequest } from '@/utils/usageLoadQueue'
 import { formatCompactNumber } from '@/utils/format'
+import Icon from '@/components/icons/Icon.vue'
 import UsageProgressBar from './UsageProgressBar.vue'
 import AccountQuotaInfo from './AccountQuotaInfo.vue'
 
@@ -499,14 +515,22 @@ const props = withDefaults(
     todayStatsLoading?: boolean
     manualRefreshToken?: number
     usageApiScope?: 'admin' | 'user'
+    showQuotaRefresh?: boolean
+    quotaRefreshLoading?: boolean
   }>(),
   {
     todayStats: null,
     todayStatsLoading: false,
     manualRefreshToken: 0,
-    usageApiScope: 'admin'
+    usageApiScope: 'admin',
+    showQuotaRefresh: false,
+    quotaRefreshLoading: false
   }
 )
+
+const emit = defineEmits<{
+  (event: 'refresh-quota', account: Account): void
+}>()
 
 const { t } = useI18n()
 const desktopViewportQuery = '(min-width: 768px)'
@@ -1155,6 +1179,15 @@ const hasApiKeyQuota = computed(() => {
   )
 })
 
+const hasRefreshableQuotaWindow = computed(() => {
+  if (props.account.type !== 'apikey' && props.account.type !== 'bedrock') return false
+  return (
+    (props.account.quota_daily_limit ?? 0) > 0 ||
+    (props.account.quota_weekly_limit ?? 0) > 0 ||
+    (props.account.quota_monthly_limit ?? 0) > 0
+  )
+})
+
 const quotaDailyBar = computed((): QuotaBarInfo | null => {
   const limit = props.account.quota_daily_limit ?? 0
   if (limit <= 0) return null
@@ -1178,6 +1211,9 @@ const quotaTotalBar = computed((): QuotaBarInfo | null => {
   if (limit <= 0) return null
   return makeQuotaBar(props.account.quota_used ?? 0, limit)
 })
+
+const hasQuotaRefreshButton = computed(() => props.showQuotaRefresh && hasRefreshableQuotaWindow.value)
+const quotaRefreshTitle = computed(() => t('common.refreshQuota'))
 
 // ===== Key account today stats formatters =====
 

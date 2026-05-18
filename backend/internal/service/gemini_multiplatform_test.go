@@ -184,6 +184,10 @@ func (m *mockAccountRepoForGemini) ResetQuotaUsed(ctx context.Context, id int64)
 	return nil
 }
 
+func (m *mockAccountRepoForGemini) RefreshQuotaWindows(ctx context.Context, id int64) error {
+	return nil
+}
+
 // Verify interface implementation
 var _ AccountRepository = (*mockAccountRepoForGemini)(nil)
 

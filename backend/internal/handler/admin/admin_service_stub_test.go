@@ -625,6 +625,10 @@ func (s *stubAdminService) ResetAccountQuota(ctx context.Context, id int64) erro
 	return nil
 }
 
+func (s *stubAdminService) RefreshAccountQuota(ctx context.Context, id int64) (*service.Account, error) {
+	return &service.Account{ID: id, Name: "account", Status: service.StatusActive}, nil
+}
+
 func (s *stubAdminService) EnsureOpenAIPrivacy(ctx context.Context, account *service.Account) string {
 	return ""
 }

@@ -325,6 +325,7 @@ export default {
     saving: '保存中...',
     selectedCount: '（已选 {count} 个）',
     refresh: '刷新',
+    refreshQuota: '刷新额度',
     clear: '清空',
     remove: '移除',
     autoRefresh: {
@@ -3938,6 +3939,8 @@ export default {
       recoverStateHint: '用于恢复错误、限流和临时不可调度等可恢复状态。',
       recoverStateSuccess: '账号状态已恢复',
       recoverStateFailed: '恢复账号状态失败',
+      refreshStatus: '刷新状态',
+      refreshStatusFailed: '刷新账号状态失败',
       resetStatus: '重置状态',
       statusReset: '账号状态已重置',
       failedToResetStatus: '重置账号状态失败',

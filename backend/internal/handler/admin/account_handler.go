@@ -1786,6 +1786,24 @@ func (h *AccountHandler) ResetQuota(c *gin.Context) {
 	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
 }
 
+// RefreshQuota handles refreshing expired account quota windows.
+// POST /api/v1/admin/accounts/:id/refresh-quota
+func (h *AccountHandler) RefreshQuota(c *gin.Context) {
+	accountID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid account ID")
+		return
+	}
+
+	account, err := h.adminService.RefreshAccountQuota(c.Request.Context(), accountID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
+}
+
 // GetTempUnschedulable handles getting temporary unschedulable status
 // GET /api/v1/admin/accounts/:id/temp-unschedulable
 func (h *AccountHandler) GetTempUnschedulable(c *gin.Context) {

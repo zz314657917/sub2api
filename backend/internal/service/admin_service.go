@@ -114,6 +114,7 @@ type AdminService interface {
 	BatchDeleteRedeemCodes(ctx context.Context, ids []int64) (int64, error)
 	ExpireRedeemCode(ctx context.Context, id int64) (*RedeemCode, error)
 	ResetAccountQuota(ctx context.Context, id int64) error
+	RefreshAccountQuota(ctx context.Context, id int64) (*Account, error)
 }
 
 // CreateUserInput represents input for creating a new user via admin operations.
@@ -3648,6 +3649,13 @@ func (e *MixedChannelError) Error() string {
 
 func (s *adminServiceImpl) ResetAccountQuota(ctx context.Context, id int64) error {
 	return s.accountRepo.ResetQuotaUsed(ctx, id)
+}
+
+func (s *adminServiceImpl) RefreshAccountQuota(ctx context.Context, id int64) (*Account, error) {
+	if err := s.accountRepo.RefreshQuotaWindows(ctx, id); err != nil {
+		return nil, err
+	}
+	return s.accountRepo.GetByID(ctx, id)
 }
 
 // EnsureOpenAIPrivacy 检查 OpenAI OAuth 账号是否已设置 privacy_mode，
