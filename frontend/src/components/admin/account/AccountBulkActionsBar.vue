@@ -27,10 +27,10 @@
     </div>
     <div class="flex flex-wrap gap-2">
       <template v-if="selectedIds.length > 0">
+        <button v-if="showDeleteAction" :disabled="loading" class="btn btn-danger btn-sm" @click="$emit('delete')">
+          {{ t('admin.accounts.bulkActions.delete') }}
+        </button>
         <template v-if="showSystemActions">
-          <button :disabled="loading" class="btn btn-danger btn-sm" @click="$emit('delete')">
-            {{ t('admin.accounts.bulkActions.delete') }}
-          </button>
           <button :disabled="loading" class="btn btn-secondary btn-sm" @click="$emit('reset-status')">
             {{ t('admin.accounts.bulkActions.resetStatus') }}
           </button>
@@ -82,10 +82,12 @@ import { useI18n } from 'vue-i18n'
 
 withDefaults(defineProps<{
   selectedIds: number[]
+  showDeleteAction?: boolean
   showSystemActions?: boolean
   showShareReviewActions?: boolean
   loading?: boolean
 }>(), {
+  showDeleteAction: true,
   showSystemActions: true,
   showShareReviewActions: false,
   loading: false

@@ -196,15 +196,16 @@ func (h *UserAccountHandler) Import(c *gin.Context) {
 	}
 	name := strings.TrimSpace(req.Name)
 	if name == "" {
-		name = defaultUserAccountName(req.Platform, req.Type, req.Credentials)
+		name = defaultUserAccountName(req.Platform, req.Type, req.Credentials, req.Extra)
 	}
+	extra := mergeUserImportExtra(req.Extra, req.Credentials, req.Platform, name)
 	svcReq := service.CreateAccountRequest{
 		Name:               name,
 		Notes:              req.Notes,
 		Platform:           strings.ToLower(strings.TrimSpace(req.Platform)),
 		Type:               strings.ToLower(strings.TrimSpace(req.Type)),
 		Credentials:        req.Credentials,
-		Extra:              req.Extra,
+		Extra:              extra,
 		ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
 		AutoPauseOnExpired: req.AutoPauseOnExpired,
 	}
@@ -713,13 +714,56 @@ func defaultName(primary, fallback, final string) string {
 	return final
 }
 
-func defaultUserAccountName(platform, accountType string, credentials map[string]any) string {
-	for _, key := range []string{"email", "email_address", "project_id", "name"} {
-		if value, ok := credentials[key].(string); ok && strings.TrimSpace(value) != "" {
-			return strings.TrimSpace(value)
+func defaultUserAccountName(platform, accountType string, credentials map[string]any, extra map[string]any) string {
+	for _, source := range []map[string]any{credentials, extra} {
+		for _, key := range []string{"email", "email_address", "project_id", "name"} {
+			if value, ok := source[key].(string); ok && strings.TrimSpace(value) != "" {
+				return strings.TrimSpace(value)
+			}
 		}
 	}
 	return strings.TrimSpace(platform) + " " + strings.TrimSpace(accountType) + " Account"
+}
+
+func mergeUserImportExtra(extra, credentials map[string]any, platform, name string) map[string]any {
+	merged := map[string]any{}
+	for key, value := range extra {
+		merged[key] = value
+	}
+	for _, key := range []string{"email", "email_address"} {
+		if _, exists := merged["email"]; exists {
+			break
+		}
+		if value, ok := credentials[key].(string); ok && strings.TrimSpace(value) != "" {
+			merged["email"] = strings.TrimSpace(value)
+		}
+	}
+	if _, exists := merged["share_display_tier"]; !exists && strings.EqualFold(strings.TrimSpace(platform), service.PlatformOpenAI) {
+		if tier := inferOpenAIShareDisplayTierFromText(name); tier != "" {
+			merged["share_display_tier"] = tier
+			if _, exists := merged["share_display_percent_only"]; !exists {
+				merged["share_display_percent_only"] = true
+			}
+		}
+	}
+	return emptyMapToNil(merged)
+}
+
+func inferOpenAIShareDisplayTierFromText(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	normalized = strings.NewReplacer("_", "-", " ", "-").Replace(normalized)
+	parts := strings.FieldsFunc(normalized, func(r rune) bool {
+		return r == '-' || r == '.' || r == '@' || r == '+' || r == ':'
+	})
+	for _, part := range parts {
+		switch part {
+		case "chatgptpro", "pro":
+			return "pro"
+		case "plus":
+			return "plus"
+		}
+	}
+	return ""
 }
 
 func emptyMapToNil(value map[string]any) map[string]any {

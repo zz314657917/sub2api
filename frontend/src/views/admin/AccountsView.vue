@@ -179,9 +179,10 @@
       <template #table>
         <AccountBulkActionsBar
           :selected-ids="selIds"
+          :show-delete-action="true"
           :show-system-actions="!isSharedAccountsPage"
           :show-share-review-actions="isSharedAccountsPage"
-          :loading="bulkReviewingShare"
+          :loading="bulkOperationLoading"
           @delete="handleBulkDelete"
           @reset-status="handleBulkResetStatus"
           @refresh-token="handleBulkRefreshToken"
@@ -523,6 +524,16 @@
       </div>
     </ConfirmDialog>
     <ConfirmDialog :show="showDeleteDialog" :title="t('admin.accounts.deleteAccount')" :message="t('admin.accounts.deleteConfirm', { name: deletingAcc?.name })" :confirm-text="t('common.delete')" :cancel-text="t('common.cancel')" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
+    <ConfirmDialog
+      :show="showBulkDeleteDialog"
+      :title="t('admin.accounts.bulkDeleteTitle')"
+      :message="t('admin.accounts.bulkDeleteConfirm', { count: bulkDeleteIds.length })"
+      :confirm-text="t('common.delete')"
+      :cancel-text="t('common.cancel')"
+      :danger="true"
+      @confirm="confirmBulkDelete"
+      @cancel="closeBulkDeleteDialog"
+    />
     <ConfirmDialog :show="showExportDataDialog" :title="t('admin.accounts.dataExport')" :message="t('admin.accounts.dataExportConfirmMessage')" :confirm-text="t('admin.accounts.dataExportConfirm')" :cancel-text="t('common.cancel')" @confirm="handleExportData" @cancel="showExportDataDialog = false">
       <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
         <input type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" v-model="includeProxyOnExport" />
@@ -638,6 +649,7 @@ const showBulkEdit = ref(false)
 const bulkEditTarget = ref<AccountBulkEditTarget | null>(null)
 const showTempUnsched = ref(false)
 const showDeleteDialog = ref(false)
+const showBulkDeleteDialog = ref(false)
 const showReAuth = ref(false)
 const showTest = ref(false)
 const showStats = ref(false)
@@ -655,6 +667,9 @@ const scheduleModelOptions = ref<SelectOption[]>([])
 const togglingSchedulable = ref<number | null>(null)
 const reviewingShareAccountId = ref<number | null>(null)
 const bulkReviewingShare = ref(false)
+const bulkDeleting = ref(false)
+const bulkDeleteIds = ref<number[]>([])
+const bulkOperationLoading = computed(() => bulkReviewingShare.value || bulkDeleting.value)
 type BulkShareReviewStatus = Extract<AccountShareStatus, 'active' | 'rejected' | 'suspended'>
 type BulkShareResultItem = {
   accountId: number
@@ -1142,6 +1157,7 @@ const isAnyModalOpen = computed(() => {
     showBulkEdit.value ||
     showTempUnsched.value ||
     showDeleteDialog.value ||
+    showBulkDeleteDialog.value ||
     showReAuth.value ||
     showTest.value ||
     showStats.value ||
@@ -1536,7 +1552,63 @@ const toggleSelectAllVisible = (event: Event) => {
   const target = event.target as HTMLInputElement
   toggleVisible(target.checked)
 }
-const handleBulkDelete = async () => { if(!confirm(t('common.confirm'))) return; try { await Promise.all(selIds.value.map(id => adminAPI.accounts.delete(id))); clearSelection(); reload() } catch (error) { console.error('Failed to bulk delete accounts:', error) } }
+const handleBulkDelete = () => {
+  const accountIds = [...selIds.value]
+  if (accountIds.length === 0) {
+    appStore.showError(t('admin.accounts.bulkEdit.noSelection'))
+    return
+  }
+  bulkDeleteIds.value = accountIds
+  showBulkDeleteDialog.value = true
+}
+const closeBulkDeleteDialog = () => {
+  showBulkDeleteDialog.value = false
+  if (!bulkDeleting.value) {
+    bulkDeleteIds.value = []
+  }
+}
+const confirmBulkDelete = async () => {
+  const accountIds = [...bulkDeleteIds.value]
+  if (accountIds.length === 0 || bulkDeleting.value) return
+  bulkDeleting.value = true
+  try {
+    const results = await Promise.allSettled(accountIds.map(id => adminAPI.accounts.delete(id)))
+    const failedIds = accountIds.filter((_, index) => results[index].status === 'rejected')
+    const successIds = accountIds.filter((_, index) => results[index].status === 'fulfilled')
+
+    if (successIds.length > 0) {
+      removeSelectedAccounts(successIds)
+      accounts.value = accounts.value.filter(account => !successIds.includes(account.id))
+    }
+
+    showBulkDeleteDialog.value = false
+    bulkDeleteIds.value = []
+    enterAutoRefreshSilentWindow()
+
+    if (failedIds.length > 0) {
+      setSelectedIds(failedIds)
+      const message = successIds.length > 0
+        ? t('admin.accounts.bulkDeletePartial', {
+            success: successIds.length,
+            failed: failedIds.length
+          })
+        : t('admin.accounts.bulkDeleteFailed')
+      appStore.showError(message)
+    } else {
+      clearSelection()
+      appStore.showSuccess(t('admin.accounts.bulkDeleteSuccess', { count: successIds.length }))
+    }
+
+    await reload().catch((error) => {
+      console.error('Failed to refresh accounts after bulk delete:', error)
+    })
+  } catch (error: any) {
+    console.error('Failed to bulk delete accounts:', error)
+    appStore.showError(error?.message || t('admin.accounts.bulkDeleteFailed'))
+  } finally {
+    bulkDeleting.value = false
+  }
+}
 const handleBulkResetStatus = async () => {
   if (!confirm(t('common.confirm'))) return
   try {

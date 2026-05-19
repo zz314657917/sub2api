@@ -318,12 +318,8 @@ func TestUserAccountService_GetCapacityPoolsSummarizesMineAndSharedPools(t *test
 	if pools.Shared.SchedulableAccounts != 1 {
 		t.Fatalf("expected 1 shared schedulable account, got %d", pools.Shared.SchedulableAccounts)
 	}
-	sharedGroup := findCapacityPoolGroup(pools.Shared.Groups, 0, "未分组共享池")
-	if sharedGroup == nil {
-		t.Fatalf("expected ungrouped shared capacity group, got %#v", pools.Shared.Groups)
-	}
-	if sharedGroup.TotalAccounts != 1 || sharedGroup.SchedulableAccounts != 1 || sharedGroup.Status != "healthy" {
-		t.Fatalf("unexpected shared group summary: %#v", sharedGroup)
+	if len(pools.Shared.Groups) != 0 {
+		t.Fatalf("shared pool must not expose raw internal groups, got %#v", pools.Shared.Groups)
 	}
 	sharedOpenAI := findCapacityPoolSection(pools.Shared.Sections, PlatformOpenAI, AccountTypeOAuth)
 	if sharedOpenAI == nil {
@@ -364,6 +360,7 @@ func TestUserAccountService_GetCapacityPoolsIncludesOwnApprovedSharedAccounts(t 
 				}},
 				Extra: map[string]any{
 					"codex_5h_used_percent": 25,
+					"share_display_tier":    "plus",
 				},
 			},
 			{
@@ -382,6 +379,9 @@ func TestUserAccountService_GetCapacityPoolsIncludesOwnApprovedSharedAccounts(t 
 					Name:     "Owner Shared Pool",
 					Platform: PlatformOpenAI,
 				}},
+				Credentials: map[string]any{
+					"plan_type": "plus",
+				},
 			},
 			{
 				ID:          2,
@@ -411,7 +411,7 @@ func TestUserAccountService_GetCapacityPoolsIncludesOwnApprovedSharedAccounts(t 
 	if pools.Shared.OwnContributedAccounts != 2 {
 		t.Fatalf("expected own contributed shared account count 2, got %d", pools.Shared.OwnContributedAccounts)
 	}
-	sharedGroup := findCapacityPoolGroup(pools.Shared.Groups, groupID, "Owner Shared Pool")
+	sharedGroup := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Plus")
 	if sharedGroup == nil {
 		t.Fatalf("expected owner shared group, got %#v", pools.Shared.Groups)
 	}
@@ -515,6 +515,9 @@ func TestUserAccountService_GetCapacityPoolsPaginatesAllAccounts(t *testing.T) {
 				Name:     "PLUS共享号池",
 				Platform: PlatformOpenAI,
 			}},
+			Credentials: map[string]any{
+				"plan_type": "plus",
+			},
 		})
 	}
 	repo := &capacityPoolAccountRepoStub{
@@ -533,7 +536,7 @@ func TestUserAccountService_GetCapacityPoolsPaginatesAllAccounts(t *testing.T) {
 	if pools.Shared.TotalAccounts != len(shared) {
 		t.Fatalf("expected all shared accounts, got %d want %d", pools.Shared.TotalAccounts, len(shared))
 	}
-	sharedGroup := findCapacityPoolGroup(pools.Shared.Groups, 99, "PLUS共享号池")
+	sharedGroup := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Plus")
 	if sharedGroup == nil || sharedGroup.TotalAccounts != len(shared) {
 		t.Fatalf("unexpected shared group pagination result: %#v", pools.Shared.Groups)
 	}
@@ -565,6 +568,7 @@ func TestUserAccountService_GetCapacityPoolsAggregatesQuotaWindowPercent(t *test
 					"quota_daily_used":           10.0,
 					"quota_daily_start":          time.Now().Add(-1 * time.Hour).Format(time.RFC3339),
 					"share_display_percent_only": true,
+					"share_display_tier":         "pro",
 				},
 			},
 			{
@@ -583,9 +587,10 @@ func TestUserAccountService_GetCapacityPoolsAggregatesQuotaWindowPercent(t *test
 					Platform: PlatformOpenAI,
 				}},
 				Extra: map[string]any{
-					"quota_daily_limit": 200.0,
-					"quota_daily_used":  80.0,
-					"quota_daily_start": time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+					"quota_daily_limit":  200.0,
+					"quota_daily_used":   80.0,
+					"quota_daily_start":  time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+					"share_display_tier": "pro",
 				},
 			},
 			{
@@ -604,9 +609,10 @@ func TestUserAccountService_GetCapacityPoolsAggregatesQuotaWindowPercent(t *test
 					Platform: PlatformOpenAI,
 				}},
 				Extra: map[string]any{
-					"quota_daily_limit": 100.0,
-					"quota_daily_used":  100.0,
-					"quota_daily_start": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
+					"quota_daily_limit":  100.0,
+					"quota_daily_used":   100.0,
+					"quota_daily_start":  time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
+					"share_display_tier": "pro",
 				},
 			},
 		},
@@ -617,19 +623,86 @@ func TestUserAccountService_GetCapacityPoolsAggregatesQuotaWindowPercent(t *test
 	if err != nil {
 		t.Fatalf("GetCapacityPools returned error: %v", err)
 	}
-	group := findCapacityPoolGroup(pools.Shared.Groups, groupID, "Pro APIKey Pool")
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Pro")
 	if group == nil {
 		t.Fatalf("expected shared group, got %#v", pools.Shared.Groups)
 	}
-	window := group.Windows["1d"]
+	window := group.Windows["5h"]
 	if window.UsedPercent != 30 {
-		t.Fatalf("expected aggregate daily percent 30, got %#v", window)
+		t.Fatalf("expected aggregate 5h display percent 30, got %#v", window)
 	}
 	if window.RemainingUnits != 210 {
 		t.Fatalf("expected aggregate remaining quota 210, got %#v", window)
 	}
+	if _, ok := group.Windows["1d"]; ok {
+		t.Fatalf("shared OpenAI plan group must not expose raw quota daily window: %#v", group.Windows)
+	}
 	if !group.PercentOnlyQuota || !pools.Shared.PercentOnlyQuota {
 		t.Fatalf("expected percent-only marker to propagate: pool=%v group=%v", pools.Shared.PercentOnlyQuota, group.PercentOnlyQuota)
+	}
+}
+
+func TestUserAccountService_GetCapacityPoolsHidesRawSharedGroupsWithoutPlan(t *testing.T) {
+	ownerID := int64(10)
+	otherOwnerID := int64(11)
+	repo := &capacityPoolAccountRepoStub{
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "image2-shared",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				OwnerUserID: &otherOwnerID,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusActive,
+				Status:      StatusActive,
+				Schedulable: true,
+				Groups: []*Group{{
+					ID:       88,
+					Name:     "chatgpt-image2图片生成专用",
+					Platform: PlatformOpenAI,
+				}},
+			},
+			{
+				ID:          2,
+				Name:        "j92wqgddr0@kairo.edu.kg-plus",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				OwnerUserID: &otherOwnerID,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusActive,
+				Status:      StatusActive,
+				Schedulable: true,
+				Credentials: map[string]any{
+					"plan_type": "plus",
+				},
+				Groups: []*Group{{
+					ID:       89,
+					Name:     "GPT-低价号池",
+					Platform: PlatformOpenAI,
+				}},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	if pools.Shared.TotalAccounts != 2 {
+		t.Fatalf("expected both shared accounts counted in pool summary, got %#v", pools.Shared)
+	}
+	if len(pools.Shared.Groups) != 1 {
+		t.Fatalf("expected only one public plan display group, got %#v", pools.Shared.Groups)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Plus")
+	if group == nil || group.TotalAccounts != 1 {
+		t.Fatalf("expected only plus account in display group, got %#v", pools.Shared.Groups)
+	}
+	if findCapacityPoolGroup(pools.Shared.Groups, 88, "chatgpt-image2图片生成专用") != nil ||
+		findCapacityPoolGroup(pools.Shared.Groups, 89, "GPT-低价号池") != nil {
+		t.Fatalf("shared pool leaked raw internal groups: %#v", pools.Shared.Groups)
 	}
 }
 

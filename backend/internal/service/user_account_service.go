@@ -751,7 +751,7 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account, current
 		mergeCapacityWindowSnapshot(section.Windows, "7d_quota", windows.weekQuota, windows.hasWeek)
 		mergeCapacityWindowSnapshot(section.Windows, "30d", windows.monthQuota, windows.hasMonth)
 
-		for _, groupRef := range accountCapacityGroupRefs(account) {
+		for _, groupRef := range accountCapacityGroupRefs(key, account) {
 			group := groups[groupRef.key]
 			if group == nil {
 				group = &UserAccountCapacityPoolGroup{
@@ -897,16 +897,19 @@ type accountCapacityGroupRef struct {
 	sortOrder int
 }
 
-func accountCapacityGroupRefs(account *Account) []accountCapacityGroupRef {
+func accountCapacityGroupRefs(poolKey string, account *Account) []accountCapacityGroupRef {
 	if account == nil {
 		return nil
 	}
-	if displayName := accountShareDisplayGroupName(account); displayName != "" {
+	if displayName := accountShareDisplayGroupName(poolKey, account); displayName != "" {
 		return []accountCapacityGroupRef{{
 			key:      "share-display:" + account.Platform + ":" + strings.ToLower(displayName),
 			name:     displayName,
 			platform: account.Platform,
 		}}
+	}
+	if poolKey == "shared" {
+		return nil
 	}
 	seen := make(map[string]struct{})
 	refs := make([]accountCapacityGroupRef, 0, len(account.Groups)+len(account.AccountGroups))
@@ -949,17 +952,20 @@ func accountCapacityGroupRefs(account *Account) []accountCapacityGroupRef {
 	return refs
 }
 
-func accountShareDisplayGroupName(account *Account) string {
+func accountShareDisplayGroupName(poolKey string, account *Account) string {
 	if account == nil {
 		return ""
 	}
-	if displayName := openAIPlanCapacityGroupName(account.GetShareDisplayTier()); displayName != "" {
+	if displayName := openAISharedCapacityGroupName(account.GetShareDisplayTier()); displayName != "" {
 		return displayName
 	}
 	if account.Platform == PlatformOpenAI {
-		if displayName := openAIPlanCapacityGroupName(account.GetCredential("plan_type")); displayName != "" {
+		if displayName := openAISharedCapacityGroupName(account.GetCredential("plan_type")); displayName != "" {
 			return displayName
 		}
+	}
+	if poolKey == "shared" {
+		return ""
 	}
 	if displayName := strings.TrimSpace(account.GetShareDisplayName()); displayName != "" {
 		return displayName
@@ -979,6 +985,17 @@ func openAIPlanCapacityGroupName(planType string) string {
 		return "OpenAI Team"
 	case "free":
 		return "OpenAI Free"
+	default:
+		return ""
+	}
+}
+
+func openAISharedCapacityGroupName(planType string) string {
+	switch strings.ToLower(strings.TrimSpace(planType)) {
+	case "plus":
+		return "OpenAI Plus"
+	case "pro", "chatgptpro":
+		return "OpenAI Pro"
 	default:
 		return ""
 	}

@@ -952,14 +952,14 @@ async function generateAuthUrl(): Promise<void> {
   }
 }
 
-function buildImportCredentials(format: string, platform: string, content: string): { type: string; credentials: Record<string, unknown> } {
+function buildImportPayload(format: string, platform: string, content: string): { type: string; name: string; credentials: Record<string, unknown>; extra: Record<string, unknown> | null } {
   const trimmed = content.trim()
   if (!trimmed) throw new Error(t('myAccounts.import.emptyContent'))
   if (format === 'openai_refresh_token') {
-    return { type: 'oauth', credentials: { refresh_token: trimmed } }
+    return { type: 'oauth', name: '', credentials: { refresh_token: trimmed }, extra: null }
   }
   if (format === 'claude_session_key') {
-    return { type: 'oauth', credentials: { session_key: trimmed } }
+    return { type: 'oauth', name: '', credentials: { session_key: trimmed }, extra: null }
   }
   const parsed = parseJsonObject(trimmed)
   const credentials = (parsed.credentials && typeof parsed.credentials === 'object')
@@ -969,7 +969,13 @@ function buildImportCredentials(format: string, platform: string, content: strin
   if (isUserManagedKeyBackedType(type) || containsUserManagedApiKeyCredential(credentials)) {
     throw new Error(t('myAccounts.apiKeyUploadDisabled'))
   }
-  return { type, credentials }
+  const extra = asRecord(parsed.extra)
+  return {
+    type,
+    name: stringValue(parsed.name),
+    credentials,
+    extra: extra ? { ...extra } : null,
+  }
 }
 
 function openImportFilePicker(): void {
@@ -1136,13 +1142,14 @@ async function importFromContent(): Promise<void> {
       const failedNames: string[] = []
       for (const entry of importFolderFiles.value) {
         try {
-          const built = buildImportCredentials(entry.format, entry.platform, entry.content)
+          const built = buildImportPayload(entry.format, entry.platform, entry.content)
           const created = await userAPI.importAccount({
             format: entry.format,
-            name: '',
+            name: built.name,
             platform: entry.platform,
             type: built.type,
-            credentials: built.credentials
+            credentials: built.credentials,
+            extra: built.extra ?? undefined,
           })
           createdAccounts.push(created)
         } catch {
@@ -1168,13 +1175,14 @@ async function importFromContent(): Promise<void> {
       return
     }
 
-    const built = buildImportCredentials(importForm.format, importForm.platform, importContent.value)
+    const built = buildImportPayload(importForm.format, importForm.platform, importContent.value)
     const created = await userAPI.importAccount({
       format: importForm.format,
-      name: '',
+      name: built.name,
       platform: importForm.platform as AccountPlatform,
       type: built.type,
-      credentials: built.credentials
+      credentials: built.credentials,
+      extra: built.extra ?? undefined,
     })
     accounts.value = [created, ...accounts.value]
     appStore.showSuccess(t('common.success'))

@@ -188,6 +188,56 @@ describe('MyAccountsView import file', () => {
     }))
   })
 
+  it('preserves exported sub2api account name and extra metadata on import', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="my-accounts-open-import"]').trigger('click')
+
+    const content = JSON.stringify({
+      name: 'j92wqgddr0@kairo.edu.kg-plus',
+      platform: 'openai',
+      type: 'oauth',
+      credentials: {
+        access_token: 'access-token',
+        id_token: 'id-token',
+        chatgpt_account_id: 'chatgpt-account-id',
+      },
+      extra: {
+        email: 'j92wqgddr0@kairo.edu.kg',
+      },
+    })
+    const file = new File([content], 'sub2api-4accounts-1.user-import.json', { type: 'application/json' })
+    Object.defineProperty(file, 'text', {
+      value: vi.fn().mockResolvedValue(content),
+    })
+
+    const input = wrapper.get('[data-testid="my-accounts-import-file-input"]')
+    Object.defineProperty(input.element, 'files', {
+      configurable: true,
+      value: [file],
+    })
+    await input.trigger('change')
+    await flushPromises()
+
+    await wrapper.get('[data-testid="my-accounts-import-submit"]').trigger('click')
+    await flushPromises()
+
+    expect(userAPI.importAccount).toHaveBeenCalledWith(expect.objectContaining({
+      name: 'j92wqgddr0@kairo.edu.kg-plus',
+      platform: 'openai',
+      type: 'oauth',
+      credentials: expect.objectContaining({
+        access_token: 'access-token',
+        id_token: 'id-token',
+        chatgpt_account_id: 'chatgpt-account-id',
+      }),
+      extra: {
+        email: 'j92wqgddr0@kairo.edu.kg',
+      },
+    }))
+  })
+
   it('reads supported files from a selected folder and imports each with inferred settings', async () => {
     userAPI.importAccount.mockImplementation(async (payload) => ({
       id: userAPI.importAccount.mock.calls.length,

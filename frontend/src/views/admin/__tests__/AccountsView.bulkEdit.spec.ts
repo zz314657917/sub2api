@@ -8,6 +8,7 @@ const {
   listWithEtag,
   getBatchTodayStats,
   getById,
+  deleteAccount,
   getAllProxies,
   getAllGroups,
   setShareStatus,
@@ -20,6 +21,7 @@ const {
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
   getById: vi.fn(),
+  deleteAccount: vi.fn(),
   getAllProxies: vi.fn(),
   getAllGroups: vi.fn(),
   setShareStatus: vi.fn(),
@@ -40,7 +42,7 @@ vi.mock('@/api/admin', () => ({
       listWithEtag,
       getById,
       getBatchTodayStats,
-      delete: vi.fn(),
+      delete: deleteAccount,
       batchClearError: vi.fn(),
       batchRefresh: vi.fn(),
       toggleSchedulable: vi.fn(),
@@ -112,15 +114,23 @@ const DataTableStub = {
 }
 
 const AccountBulkActionsBarStub = {
-  props: ['selectedIds', 'showSystemActions', 'showShareReviewActions', 'loading'],
-  emits: ['edit-filtered', 'share-status', 'share-status-filtered'],
+  props: ['selectedIds', 'showDeleteAction', 'showSystemActions', 'showShareReviewActions', 'loading'],
+  emits: ['delete', 'edit-filtered', 'share-status', 'share-status-filtered'],
   template: `
     <div
       data-test="bulk-actions"
+      :data-show-delete-action="String(showDeleteAction)"
       :data-show-system-actions="String(showSystemActions)"
       :data-show-share-review-actions="String(showShareReviewActions)"
       :data-selected-count="String(selectedIds.length)"
     >
+      <button
+        v-if="showDeleteAction && selectedIds.length > 0"
+        data-test="bulk-delete"
+        @click="$emit('delete')"
+      >
+        delete
+      </button>
       <button data-test="edit-filtered" @click="$emit('edit-filtered')">edit filtered</button>
       <button
         v-if="showShareReviewActions && selectedIds.length > 0"
@@ -171,6 +181,7 @@ describe('admin AccountsView bulk edit scope', () => {
     listWithEtag.mockReset()
     getBatchTodayStats.mockReset()
     getById.mockReset()
+    deleteAccount.mockReset()
     getAllProxies.mockReset()
     getAllGroups.mockReset()
     setShareStatus.mockReset()
@@ -200,6 +211,7 @@ describe('admin AccountsView bulk edit scope', () => {
       data: null
     })
     getBatchTodayStats.mockResolvedValue({ stats: {} })
+    deleteAccount.mockResolvedValue({ message: 'ok' })
     getAllProxies.mockResolvedValue([])
     getAllGroups.mockResolvedValue([])
     setShareStatus.mockImplementation(async (id: number, shareStatus: string) => ({
@@ -827,6 +839,113 @@ describe('admin AccountsView bulk edit scope', () => {
     expect(appStore.showSuccess).toHaveBeenCalledWith(
       'admin.accounts.bulkActions.shareStatusSuccessWithSkipped'
     )
+  })
+
+  it('bulk deletes selected shared accounts from the shared account page', async () => {
+    routeName.value = 'AdminSharedAccounts'
+    listAccounts.mockResolvedValueOnce({
+      items: [
+        {
+          id: 1,
+          name: 'Shared 1',
+          platform: 'openai',
+          type: 'oauth',
+          status: 'active',
+          schedulable: true,
+          owner_user_id: 10,
+          share_mode: 'public',
+          share_status: 'active',
+          groups: [],
+          credentials: {},
+          extra: {}
+        },
+        {
+          id: 2,
+          name: 'Shared 2',
+          platform: 'openai',
+          type: 'oauth',
+          status: 'active',
+          schedulable: true,
+          owner_user_id: 11,
+          share_mode: 'public',
+          share_status: 'pending_review',
+          groups: [],
+          credentials: {},
+          extra: {}
+        }
+      ],
+      total: 2,
+      page: 1,
+      page_size: 20,
+      pages: 1
+    }).mockResolvedValueOnce({
+      items: [],
+      total: 0,
+      page: 1,
+      page_size: 20,
+      pages: 0
+    })
+
+    const wrapper = mount(AccountsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: {
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: ConfirmDialogStub,
+          BaseDialog: BaseDialogStub,
+          AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
+          AccountTableFilters: { template: '<div></div>' },
+          AccountBulkActionsBar: AccountBulkActionsBarStub,
+          AccountActionMenu: true,
+          ImportDataModal: true,
+          ReAuthAccountModal: true,
+          AccountTestModal: true,
+          AccountStatsModal: true,
+          ScheduledTestsPanel: true,
+          SyncFromCrsModal: true,
+          TempUnschedStatusModal: true,
+          ErrorPassthroughRulesModal: true,
+          TLSFingerprintProfilesModal: true,
+          CreateAccountModal: true,
+          EditAccountModal: true,
+          BulkEditAccountModal: BulkEditAccountModalStub,
+          PlatformTypeBadge: true,
+          AccountCapacityCell: true,
+          AccountStatusIndicator: true,
+          AccountTodayStatsCell: true,
+          AccountGroupsCell: true,
+          AccountUsageCell: true,
+          Icon: true
+        }
+      }
+    })
+
+    await flushPromises()
+    const checkboxes = wrapper.findAll('[data-test="select-cell"] input[type="checkbox"]')
+    await checkboxes[0].trigger('change')
+    await checkboxes[1].trigger('change')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="bulk-actions"]').attributes('data-show-delete-action')).toBe('true')
+    expect(wrapper.get('[data-test="bulk-actions"]').attributes('data-show-system-actions')).toBe('false')
+
+    await wrapper.get('[data-test="bulk-delete"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="confirm-dialog"]').attributes('data-title')).toBe('admin.accounts.bulkDeleteTitle')
+    expect(wrapper.get('[data-test="confirm-dialog"]').attributes('data-message')).toBe('admin.accounts.bulkDeleteConfirm')
+
+    await wrapper.get('[data-test="confirm-dialog-confirm"]').trigger('click')
+    await flushPromises()
+
+    expect(deleteAccount).toHaveBeenCalledTimes(2)
+    expect(deleteAccount).toHaveBeenNthCalledWith(1, 1)
+    expect(deleteAccount).toHaveBeenNthCalledWith(2, 2)
+    expect(appStore.showSuccess).toHaveBeenCalledWith('admin.accounts.bulkDeleteSuccess')
   })
 
   it('keeps failed shared account selected after a bulk review failure result', async () => {
