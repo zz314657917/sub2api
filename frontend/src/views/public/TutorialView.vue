@@ -34,7 +34,7 @@
               </div>
               <h1>AI 接入教程</h1>
               <p>
-                第一次接入先按“新手最快路线”走，只需要准备账号、创建 Codex 密钥、写入配置并启动。CC Switch、Cockpit Tools 和其他工具都可以先跳过。
+                第一次接入先按“新手最快路线”走，只需要准备账号、创建 Codex 密钥、写入配置并启动。CC Switch、Cockpit Tools、MinePilotQA 和其他工具都可以先跳过。
               </p>
 
               <div class="beginner-path" aria-label="新手最快路线">
@@ -87,23 +87,28 @@
                   <strong>Cockpit Tools 账号管理</strong>
                   <em>网页面板管理 Codex 账号和会话。</em>
                 </a>
-                <a href="#codex" class="overview-row">
+                <a href="#minepilotqa" class="overview-row">
                   <span>05</span>
+                  <strong>MinePilotQA 接入</strong>
+                  <em>在 AI 配置里添加 3zapi 服务商，测试 HTTP 200 即成功。</em>
+                </a>
+                <a href="#codex" class="overview-row">
+                  <span>06</span>
                   <strong>配置 Codex</strong>
                   <em>按 1-8 步写入配置文件并启动。</em>
                 </a>
                 <a href="#claude" class="overview-row">
-                  <span>06</span>
+                  <span>07</span>
                   <strong>配置 Claude Code</strong>
                   <em>写入 ANTHROPIC 变量，重启终端后启动。</em>
                 </a>
                 <a href="#openclaw" class="overview-row">
-                  <span>07</span>
+                  <span>08</span>
                   <strong>配置 OpenClaw</strong>
                   <em>自托管助手平台，使用 OpenAI 兼容 provider 接入。</em>
                 </a>
                 <a href="#hermes-agent" class="overview-row">
-                  <span>08</span>
+                  <span>09</span>
                   <strong>配置 Hermes-Agent</strong>
                   <em>终端 Agent，通过 Custom Endpoint 接入。</em>
                 </a>
@@ -550,6 +555,99 @@
                 <li>点击“修复可见性”，即可恢复会话显示。</li>
               </ul>
             </article>
+          </div>
+        </section>
+
+        <section id="minepilotqa" class="guide-panel">
+          <div class="guide-heading">
+            <span>MinePilotQA</span>
+            <h2>MinePilotQA 接入</h2>
+            <p>MinePilot QA 可以把落叶网络作为 OpenAI 兼容服务商添加到 AI 配置里。看到 <code>Core 正常</code>，并且服务商测试返回 <code>HTTP 200</code>，就代表已经联通成功。</p>
+          </div>
+
+          <div class="guide-grid">
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>Q1</span>
+                <PixelIcon name="settings" size="sm" tone="green" />
+              </div>
+              <h3>打开 AI 配置</h3>
+              <ul>
+                <li>启动 MinePilot QA，确认右上角显示 <code>Core 正常</code>。</li>
+                <li>点击左侧导航里的 AI 配置入口。</li>
+                <li>在上方切到「服务商」标签。</li>
+                <li>点击右侧「添加服务商」。</li>
+              </ul>
+            </article>
+
+            <article class="guide-card">
+              <div class="guide-card-head">
+                <span>Q2</span>
+                <PixelIcon name="key" size="sm" tone="green" />
+              </div>
+              <h3>填写 3zapi 服务商</h3>
+              <ul>
+                <li>预设选择 <code>3zapi</code>。</li>
+                <li>名称保持 <code>3zapi</code> 或自定义为易识别名称。</li>
+                <li>接口地址填写落叶网络 Base URL。</li>
+                <li>API 密钥填写控制台生成的 API Key。</li>
+                <li>接口格式选择 <code>OpenAI 对话</code>，推理强度可保持 <code>自动</code>。</li>
+              </ul>
+              <div class="command-block">
+                <button
+                  type="button"
+                  class="copy-command-button"
+                  aria-label="复制 MinePilotQA 接口地址"
+                  @click="copyCommand('minepilotqa-base-url', commands.minepilotQaBaseUrl)"
+                >
+                  {{ copiedCommand === 'minepilotqa-base-url' ? '已复制' : '复制' }}
+                </button>
+                <pre><code>{{ commands.minepilotQaBaseUrl }}</code></pre>
+              </div>
+            </article>
+
+            <article class="guide-card guide-card--wide">
+              <div class="guide-card-head">
+                <span>Q3</span>
+                <PixelIcon name="signal" size="sm" tone="green" />
+              </div>
+              <h3>保存并测试</h3>
+              <ul>
+                <li>模型可以先填 <code>gpt-5.5</code>，也可以按模型广场里的可用模型调整。</li>
+                <li>保存后回到服务商列表，点击该服务商右侧的「测试」。</li>
+                <li>看到类似 <code>连通 · HTTP 200 · Provider models endpoint reachable</code> 的提示，说明 MinePilotQA 已经能访问落叶网络服务商。</li>
+                <li>提示里显示找到模型数量即可，不需要一定发起 chat completion。</li>
+              </ul>
+            </article>
+          </div>
+
+          <div class="tutorial-screenshot-grid" aria-label="MinePilotQA 接入截图">
+            <figure class="tutorial-screenshot-card tutorial-screenshot-card--wide">
+              <img
+                src="/tutorial/minepilotqa/provider-list.png"
+                alt="MinePilotQA AI 配置服务商页面，右侧有添加服务商按钮，右上角显示 Core 正常"
+                loading="lazy"
+              />
+              <figcaption>进入 AI 配置的「服务商」页，确认右上角是 <code>Core 正常</code>，然后点击「添加服务商」。</figcaption>
+            </figure>
+
+            <figure class="tutorial-screenshot-card">
+              <img
+                src="/tutorial/minepilotqa/add-provider.png"
+                alt="MinePilotQA 添加服务商弹窗，预设选择 3zapi，填写接口地址和 API 密钥"
+                loading="lazy"
+              />
+              <figcaption>预设选择 <code>3zapi</code>，接口地址填落叶网络 Base URL，API 密钥填控制台生成的 Key。</figcaption>
+            </figure>
+
+            <figure class="tutorial-screenshot-card">
+              <img
+                src="/tutorial/minepilotqa/connection-success.png"
+                alt="MinePilotQA 测试提示 3z 连通，HTTP 200，Provider models endpoint reachable"
+                loading="lazy"
+              />
+              <figcaption>测试提示 <code>HTTP 200</code> 且 models endpoint reachable，就算联通成功。</figcaption>
+            </figure>
           </div>
         </section>
 
@@ -1075,6 +1173,7 @@ const sections = [
   { id: 'platforms', title: 'Linux / macOS', desc: '跨平台配置' },
   { id: 'cc-switch', title: 'CC Switch', desc: '可选账号管理' },
   { id: 'cockpit-tools', title: 'Cockpit Tools', desc: '可选网页面板' },
+  { id: 'minepilotqa', title: 'MinePilotQA', desc: '可选桌面配置' },
   { id: 'codex', title: 'Codex', desc: 'App / 插件配置' },
   { id: 'claude', title: 'Claude', desc: '命令行使用' },
   { id: 'openclaw', title: 'OpenClaw', desc: '自托管助手' },
@@ -1088,9 +1187,10 @@ const routeSteps = [
   { id: 'codex', step: '03', title: '使用 Codex', desc: '创建 codex 密钥，写入 config.toml 和 auth.json。' },
   { id: 'cc-switch', step: '04', title: '可选：CC Switch', desc: '需要多工具切换账号时再用。' },
   { id: 'cockpit-tools', step: '05', title: '可选：Cockpit Tools', desc: '需要网页面板管理会话时再用。' },
-  { id: 'claude', step: '06', title: '可选：Claude', desc: '写入 ANTHROPIC 变量后重启终端。' },
-  { id: 'openclaw', step: '07', title: '可选：OpenClaw', desc: '写入 OpenAI 兼容 provider。' },
-  { id: 'hermes-agent', step: '08', title: '可选：Hermes-Agent', desc: '选择 Custom Endpoint 后填入地址和 Token。' },
+  { id: 'minepilotqa', step: '06', title: '可选：MinePilotQA', desc: 'AI 配置里添加 3zapi 服务商并测试。' },
+  { id: 'claude', step: '07', title: '可选：Claude', desc: '写入 ANTHROPIC 变量后重启终端。' },
+  { id: 'openclaw', step: '08', title: '可选：OpenClaw', desc: '写入 OpenAI 兼容 provider。' },
+  { id: 'hermes-agent', step: '09', title: '可选：Hermes-Agent', desc: '选择 Custom Endpoint 后填入地址和 Token。' },
 ]
 
 const faqItems = [
@@ -1120,6 +1220,7 @@ wire_api = "responses"`,
   "OPENAI_API_KEY": "输入你的key"
 }`,
   cockpitBaseUrl: 'https://ai.3zapi.top',
+  minepilotQaBaseUrl: 'https://ai.3zapi.top/',
   linuxInstall: `sudo apt update
 sudo apt install -y git nodejs npm
 npm install -g @openai/codex @anthropic-ai/claude-code --registry=https://registry.npmmirror.com
@@ -1968,6 +2069,52 @@ onBeforeUnmount(() => {
   color: #003fbd;
 }
 
+.tutorial-screenshot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-top: 1rem;
+}
+
+.tutorial-screenshot-card {
+  display: grid;
+  gap: 0.72rem;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.42);
+  padding: 0.72rem;
+  box-shadow: 0 10px 22px rgba(24, 34, 48, 0.06);
+}
+
+.tutorial-screenshot-card--wide {
+  grid-column: span 2;
+}
+
+.tutorial-screenshot-card img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 28rem;
+  object-fit: contain;
+  border: 1px solid rgba(17, 24, 39, 0.12);
+  border-radius: 6px;
+  background: #101418;
+}
+
+.tutorial-screenshot-card figcaption {
+  color: #4f5867;
+  font-size: 0.86rem;
+  line-height: 1.65;
+}
+
+.tutorial-screenshot-card code {
+  color: #0755dd;
+  font-size: 0.9em;
+}
+
 .guide-action-link {
   display: inline-flex;
   width: fit-content;
@@ -2088,7 +2235,7 @@ onBeforeUnmount(() => {
 
   .tutorial-tabs {
     overflow-x: auto;
-    grid-template-columns: repeat(10, minmax(8.5rem, 1fr));
+    grid-template-columns: repeat(11, minmax(8.5rem, 1fr));
   }
 
   .tutorial-content {
@@ -2105,6 +2252,14 @@ onBeforeUnmount(() => {
 
   .doc-feature-stack {
     grid-template-columns: 1fr;
+  }
+
+  .tutorial-screenshot-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tutorial-screenshot-card--wide {
+    grid-column: auto;
   }
 }
 
@@ -2163,7 +2318,7 @@ onBeforeUnmount(() => {
   }
 
   .tutorial-tabs {
-    grid-template-columns: repeat(10, minmax(8rem, 1fr));
+    grid-template-columns: repeat(11, minmax(8rem, 1fr));
   }
 
   .tutorial-tabs a {
@@ -2175,11 +2330,13 @@ onBeforeUnmount(() => {
   .faq-grid,
   .doc-feature-stack,
   .install-grid,
+  .tutorial-screenshot-grid,
   .beginner-path-grid {
     grid-template-columns: 1fr;
   }
 
-  .guide-card--wide {
+  .guide-card--wide,
+  .tutorial-screenshot-card--wide {
     grid-column: auto;
   }
 
