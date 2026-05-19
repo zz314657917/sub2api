@@ -208,8 +208,10 @@
               <h3>先拿到 Token / Base URL</h3>
               <ul>
                 <li>登录落叶网络控制台。</li>
-                <li>打开「API 密钥」。</li>
-                <li>点击「新建密钥」。</li>
+                <li>点击左侧「API 密钥」。</li>
+                <li>点击右上角「创建密钥」。</li>
+                <li>名称随意填写；分组选择可用套餐；不需要自定义密钥时保持默认关闭。</li>
+                <li>点击弹窗右下角「创建」。</li>
                 <li>复制生成的 Token，并复制页面提供的 Base URL。</li>
                 <li>后面所有工具里，Token 填 API Key，Base URL 填代理地址。</li>
               </ul>
@@ -217,6 +219,34 @@
                 <PixelIcon name="key" size="xs" />
                 {{ authStore.isAuthenticated ? '打开 API 密钥页面' : '登录后打开 API 密钥页面' }}
               </router-link>
+              <div class="tutorial-screenshot-grid tutorial-screenshot-grid--compact" aria-label="创建 API 密钥截图">
+                <figure class="tutorial-screenshot-card">
+                  <img
+                    src="/tutorial/api-key/sidebar-api-key.png"
+                    alt="控制台左侧导航中的 API 密钥入口"
+                    loading="lazy"
+                  />
+                  <figcaption>先点击左侧「API 密钥」。</figcaption>
+                </figure>
+
+                <figure class="tutorial-screenshot-card">
+                  <img
+                    src="/tutorial/api-key/create-key-button.png"
+                    alt="API 密钥页面右上角的创建密钥按钮"
+                    loading="lazy"
+                  />
+                  <figcaption>再点击右上角「创建密钥」。</figcaption>
+                </figure>
+
+                <figure class="tutorial-screenshot-card tutorial-screenshot-card--wide">
+                  <img
+                    src="/tutorial/api-key/create-key-dialog.png"
+                    alt="创建密钥弹窗，填写名称、选择分组并点击创建"
+                    loading="lazy"
+                  />
+                  <figcaption>名称随意填写，分组选择可用套餐，最后点击「创建」。创建后复制生成的 Key。</figcaption>
+                </figure>
+              </div>
             </article>
           </div>
         </section>
@@ -2076,6 +2106,10 @@ onBeforeUnmount(() => {
   margin-top: 1rem;
 }
 
+.tutorial-screenshot-grid--compact {
+  gap: 0.72rem;
+}
+
 .tutorial-screenshot-card {
   display: grid;
   gap: 0.72rem;
@@ -2102,6 +2136,10 @@ onBeforeUnmount(() => {
   border: 1px solid rgba(17, 24, 39, 0.12);
   border-radius: 6px;
   background: #101418;
+}
+
+.tutorial-screenshot-grid--compact .tutorial-screenshot-card img {
+  max-height: 18rem;
 }
 
 .tutorial-screenshot-card figcaption {
