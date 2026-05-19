@@ -48,20 +48,7 @@
             class="home-title-sweep text-[2.95rem] font-black leading-[0.98] tracking-normal text-white sm:text-[4.45rem] lg:text-[5.75rem]"
             >
             <span class="home-title-line home-title-line-top block" :aria-label="heroTitleTop" role="text">
-              <span class="home-title-top-fill home-title-letter-row" aria-hidden="true">
-                <span
-                  v-for="letter in heroTitleLetters"
-                  :key="letter.id"
-                  class="home-title-letter"
-                  :class="letter.variant"
-                  :style="{
-                    '--letter-delay': letter.delay,
-                    '--letter-duration': letter.duration
-                  }"
-                >
-                  {{ letter.value }}
-                </span>
-              </span>
+              <span class="home-title-top-fill">{{ heroTitleTop }}</span>
             </span>
             <span class="home-title-line home-title-line-bottom block">
               <span class="home-title-bottom-fill">{{ heroTitleBottom }}</span>
@@ -84,6 +71,17 @@
                 {{ isAuthenticated ? t('home.goToDashboard') : t('home.claimButton') }}
               </span>
             </router-link>
+          </div>
+
+          <div class="home-proof-row" aria-label="mapleAI summary">
+            <span
+              v-for="item in heroProofItems"
+              :key="item"
+              class="home-proof-item"
+            >
+              <span class="home-proof-dot" aria-hidden="true"></span>
+              {{ item }}
+            </span>
           </div>
 
         </div>
@@ -168,15 +166,6 @@ const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appS
 const heroTitleTop = computed(() =>
   appStore.cachedPublicSettings?.home_hero_title_top?.trim() || t('home.heroTitleTop')
 )
-const heroTitleLetters = computed(() =>
-  Array.from(heroTitleTop.value).map((letter, index) => ({
-    id: `${index}-${letter}`,
-    value: letter === ' ' ? '\u00A0' : letter,
-    variant: `home-title-letter--${(index % 7) + 1}`,
-    delay: `${index * 0.16}s`,
-    duration: `${4.2 + (index % 3) * 0.34}s`
-  }))
-)
 const heroTitleBottom = computed(() =>
   appStore.cachedPublicSettings?.home_hero_title_bottom?.trim() || t('home.heroTitleBottom')
 )
@@ -210,10 +199,16 @@ function splitHeroSubtitles(value: string | null | undefined): string[] {
 }
 
 const defaultHeroDescriptionTexts = computed(() =>
+  [t('home.heroDescription')]
+    .map((text) => text.trim())
+    .filter(Boolean)
+)
+
+const heroProofItems = computed(() =>
   [
-    t('home.heroDescription'),
-    t('home.heroDescriptionAltModels'),
-    t('home.heroDescriptionAltSupport')
+    t('home.heroProofGateway'),
+    t('home.heroProofBilling'),
+    t('home.heroProofVisibility')
   ]
     .map((text) => text.trim())
     .filter(Boolean)
@@ -549,6 +544,7 @@ watch(heroDescriptionTexts, () => {
 
 .home-title-line-top {
   display: inline-block;
+  margin-bottom: 0.08em;
   perspective: 900px;
 }
 
@@ -572,10 +568,12 @@ watch(heroDescriptionTexts, () => {
 }
 
 .home-title-top-fill {
+  display: inline-block;
   color: #ffffff;
   text-shadow:
     0 0 14px rgba(255, 255, 255, 0.1),
     0 0 28px rgba(109, 255, 155, 0.06);
+  animation: home-title-top-breathe 7.2s ease-in-out infinite;
 }
 
 .home-title-bottom-fill {
@@ -583,55 +581,6 @@ watch(heroDescriptionTexts, () => {
   animation:
     title-fill-sweep 7.2s ease-in-out infinite,
     home-title-glow 6.8s ease-in-out infinite;
-}
-
-.home-title-letter-row {
-  display: inline-flex;
-  align-items: baseline;
-  justify-content: center;
-  gap: 0.01em;
-  line-height: 1;
-}
-
-.home-title-letter {
-  display: inline-block;
-  min-width: 0.48em;
-  margin-inline: 0;
-  transform-origin: 50% 76%;
-  animation-duration: var(--letter-duration);
-  animation-delay: var(--letter-delay);
-  animation-iteration-count: infinite;
-  animation-timing-function: cubic-bezier(0.34, 1.56, 0.64, 1);
-  animation-fill-mode: both;
-  will-change: transform, margin-inline, filter;
-}
-
-.home-title-letter--1 {
-  animation-name: home-title-letter-rise;
-}
-
-.home-title-letter--2 {
-  animation-name: home-title-letter-stretch;
-}
-
-.home-title-letter--3 {
-  animation-name: home-title-letter-nudge-left;
-}
-
-.home-title-letter--4 {
-  animation-name: home-title-letter-pop;
-}
-
-.home-title-letter--5 {
-  animation-name: home-title-letter-nudge-right;
-}
-
-.home-title-letter--6 {
-  animation-name: home-title-letter-tall;
-}
-
-.home-title-letter--7 {
-  animation-name: home-title-letter-hop;
 }
 
 @keyframes title-fill-sweep {
@@ -648,133 +597,15 @@ watch(heroDescriptionTexts, () => {
   }
 }
 
-@keyframes home-title-letter-rise {
+@keyframes home-title-top-breathe {
   0%,
-  16%,
   100% {
     transform: translate3d(0, 0, 0) scale(1);
     filter: brightness(0.98);
-    margin-inline: 0;
   }
-  25% {
-    transform: translate3d(0.012em, -0.13em, 0) scaleX(0.98) scaleY(1.1);
+  48% {
+    transform: translate3d(0, -0.018em, 0) scale(1.012);
     filter: brightness(1.08);
-    margin-inline: 0.012em;
-  }
-  34% {
-    transform: translate3d(-0.006em, 0.018em, 0) scaleX(1.02) scaleY(0.96);
-    margin-inline: 0.006em;
-  }
-}
-
-@keyframes home-title-letter-stretch {
-  0%,
-  20%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-    filter: brightness(1);
-    margin-inline: 0;
-  }
-  30% {
-    transform: translate3d(0, -0.04em, 0) scaleX(0.9) scaleY(1.22);
-    filter: brightness(1.1);
-    margin-inline: 0.012em;
-  }
-  39% {
-    transform: translate3d(0, 0.01em, 0) scaleX(1.08) scaleY(0.93);
-    margin-inline: 0.024em;
-  }
-}
-
-@keyframes home-title-letter-nudge-left {
-  0%,
-  18%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-    margin-inline: 0;
-  }
-  29% {
-    transform: translate3d(-0.1em, -0.04em, 0) scaleX(1.08) scaleY(0.97);
-    filter: brightness(1.08);
-    margin-inline: 0.08em;
-  }
-  38% {
-    transform: translate3d(0.024em, 0.008em, 0) scale(0.99);
-    margin-inline: 0.018em;
-  }
-}
-
-@keyframes home-title-letter-pop {
-  0%,
-  22%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-    filter: brightness(0.98);
-    margin-inline: 0;
-  }
-  31% {
-    transform: translate3d(0.028em, -0.105em, 0) scale(1.13);
-    filter: brightness(1.13);
-    margin-inline: 0.045em;
-  }
-  41% {
-    transform: translate3d(-0.018em, 0.014em, 0) scale(0.98);
-    margin-inline: 0.014em;
-  }
-}
-
-@keyframes home-title-letter-nudge-right {
-  0%,
-  20%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-    margin-inline: 0;
-  }
-  30% {
-    transform: translate3d(0.11em, -0.035em, 0) scaleX(1.06) scaleY(0.98);
-    filter: brightness(1.08);
-    margin-inline: 0.085em;
-  }
-  39% {
-    transform: translate3d(-0.02em, 0.01em, 0) scale(0.99);
-    margin-inline: 0.018em;
-  }
-}
-
-@keyframes home-title-letter-tall {
-  0%,
-  24%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-    filter: brightness(1);
-    margin-inline: 0;
-  }
-  34% {
-    transform: translate3d(-0.012em, -0.07em, 0) scaleX(0.86) scaleY(1.28);
-    filter: brightness(1.14);
-    margin-inline: 0.012em;
-  }
-  44% {
-    transform: translate3d(0.012em, 0.012em, 0) scaleX(1.08) scaleY(0.94);
-    margin-inline: 0.024em;
-  }
-}
-
-@keyframes home-title-letter-hop {
-  0%,
-  26%,
-  100% {
-    transform: translate3d(0, 0, 0) scale(1);
-    margin-inline: 0;
-  }
-  35% {
-    transform: translate3d(0.04em, -0.16em, 0) rotate(1.4deg) scaleY(1.08);
-    filter: brightness(1.12);
-    margin-inline: 0.035em;
-  }
-  46% {
-    transform: translate3d(-0.018em, 0.02em, 0) rotate(-0.6deg) scaleY(0.96);
-    margin-inline: 0.014em;
   }
 }
 
@@ -891,6 +722,40 @@ watch(heroDescriptionTexts, () => {
   --pixel-glyph-accent: rgba(119, 255, 173, 0.78);
   --pixel-glyph-glow: transparent;
   filter: none;
+}
+
+.home-proof-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  max-width: min(100%, 34rem);
+}
+
+.home-proof-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  min-height: 2rem;
+  border: 1px solid rgba(221, 230, 255, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.035)),
+    rgba(5, 15, 18, 0.46);
+  padding: 0.38rem 0.72rem;
+  color: rgba(238, 246, 240, 0.78);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  backdrop-filter: blur(14px);
+}
+
+.home-proof-dot {
+  width: 0.36rem;
+  height: 0.36rem;
+  background: #77ffad;
+  box-shadow: 0 0 13px rgba(119, 255, 173, 0.68);
 }
 
 .home-support-button {
@@ -1091,7 +956,7 @@ watch(heroDescriptionTexts, () => {
     filter: none;
   }
 
-  .home-title-letter {
+  .home-title-top-fill {
     animation: none;
     transform: none;
     filter: none;

@@ -62,7 +62,7 @@
               :model-value="showRatePrices && canUseRatePrices"
               @update:model-value="updateShowRatePrices"
             />
-            <span>{{ canUseRatePrices ? '显示倍率价格' : '先选择倍率分组' }}</span>
+            <span>{{ canUseRatePrices ? '显示倍率价格' : '暂无倍率分组' }}</span>
           </label>
         </div>
       </section>
@@ -103,7 +103,7 @@
               <dd :class="{ 'is-rate-price': isRatePriceActive(model) }">
                 <span>{{ formatModelPrice(model.pricing?.input_price, model) }}</span>
                 <small v-if="isRatePriceActive(model)">
-                  基础 {{ formatBaseModelPrice(model.pricing?.input_price) }} · x{{ formatRate(effectiveRate(model) ?? 1) }}
+                  基础 {{ formatBaseModelPrice(model.pricing?.input_price) }} · {{ effectiveRateLabel(model) }}
                 </small>
               </dd>
             </div>
@@ -112,7 +112,7 @@
               <dd :class="{ 'is-rate-price': isRatePriceActive(model) }">
                 <span>{{ formatModelPrice(model.pricing?.output_price, model) }}</span>
                 <small v-if="isRatePriceActive(model)">
-                  基础 {{ formatBaseModelPrice(model.pricing?.output_price) }} · x{{ formatRate(effectiveRate(model) ?? 1) }}
+                  基础 {{ formatBaseModelPrice(model.pricing?.output_price) }} · {{ effectiveRateLabel(model) }}
                 </small>
               </dd>
             </div>
@@ -190,13 +190,13 @@ const isAuthenticated = computed(() => authStore.isAuthenticated)
 const loading = ref(false)
 const searchQuery = ref('')
 const selectedProvider = ref('all')
-const selectedGroupId = ref<string | number | boolean | null>('all')
-const showRatePrices = ref(false)
+const selectedGroupId = ref<string | number | boolean | null>(null)
+const showRatePrices = ref(true)
 const channels = ref<UserAvailableChannel[]>([])
 const availableGroups = ref<UserAvailableGroup[]>([])
 const userGroupRates = ref<Record<number, number>>({})
 
-const sourceChannels = computed(() => channels.value.length > 0 ? channels.value : fallbackChannels)
+const sourceChannels = computed(() => isAuthenticated.value ? channels.value : fallbackChannels)
 
 const modelCards = computed<PlazaModel[]>(() => {
   const map = new Map<string, PlazaModel>()
@@ -227,10 +227,7 @@ const modelCards = computed<PlazaModel[]>(() => {
     }
   }
 
-  return Array.from(map.values()).sort((a, b) => {
-    const providerCompare = providerLabel(a.platform).localeCompare(providerLabel(b.platform))
-    return providerCompare || a.name.localeCompare(b.name)
-  })
+  return Array.from(map.values()).sort(compareModelCardsByCost)
 })
 
 const providerStats = computed<ProviderStat[]>(() => {
@@ -261,20 +258,35 @@ const providerTabs = computed(() => [
 
 const groupOptions = computed(() => {
   return [
+    { value: 'cheapest', label: '最低倍率优先' },
     { value: 'all', label: '不使用倍率' },
-    ...[...rateGroups.value]
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map((group) => ({
+    ...sortedRateGroups.value
+      .map((group, index) => ({
         value: String(group.id),
-        label: `${providerLabel(group.platform)} · ${group.name} · x${formatRate(effectiveGroupRate(group))}`
+        label: `${providerLabel(group.platform)} · ${group.name} · x${formatRate(effectiveGroupRate(group))}${index === 0 ? ' · 最低倍率' : ''}`
       }))
   ]
 })
 
 const rateGroups = computed<UserAvailableGroup[]>(() => {
-  if (isAuthenticated.value) return availableGroups.value
-
   const groups = new Map<number, UserAvailableGroup>()
+
+  if (isAuthenticated.value) {
+    for (const group of availableGroups.value) {
+      groups.set(group.id, group)
+    }
+
+    for (const channel of sourceChannels.value) {
+      for (const section of channel.platforms) {
+        for (const group of section.groups) {
+          if (!groups.has(group.id)) groups.set(group.id, group)
+        }
+      }
+    }
+
+    return Array.from(groups.values())
+  }
+
   for (const channel of fallbackChannels) {
     for (const section of channel.platforms) {
       for (const group of section.groups) {
@@ -285,13 +297,17 @@ const rateGroups = computed<UserAvailableGroup[]>(() => {
   return Array.from(groups.values())
 })
 
+const sortedRateGroups = computed<UserAvailableGroup[]>(() =>
+  [...rateGroups.value].sort(compareRateGroupsByCost)
+)
+
 const selectedRateGroup = computed(() => {
   const groupId = selectedGroupKey()
-  if (groupId === 'all') return null
+  if (groupId === 'all' || groupId === 'cheapest') return null
   return rateGroups.value.find((group) => String(group.id) === groupId) ?? null
 })
 
-const canUseRatePrices = computed(() => selectedRateGroup.value != null)
+const canUseRatePrices = computed(() => sortedRateGroups.value.length > 0 && selectedGroupKey() !== 'all')
 
 const filteredModels = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()
@@ -314,6 +330,7 @@ async function loadChannels(force = false): Promise<void> {
     if (force) {
       channels.value = fallbackChannels
     }
+    selectCheapestRateMode()
     return
   }
 
@@ -328,9 +345,12 @@ async function loadChannels(force = false): Promise<void> {
     availableGroups.value = groups.map(toAvailableGroup)
     userGroupRates.value = rates
   } catch (error) {
-    console.warn('Failed to load model plaza data, fallback models will be shown.', error)
-    channels.value = fallbackChannels
+    console.warn('Failed to load model plaza data.', error)
+    channels.value = []
+    availableGroups.value = []
+    userGroupRates.value = {}
   } finally {
+    selectCheapestRateMode()
     loading.value = false
   }
 }
@@ -338,11 +358,11 @@ async function loadChannels(force = false): Promise<void> {
 function resetFilters(): void {
   searchQuery.value = ''
   selectedProvider.value = 'all'
-  selectedGroupId.value = 'all'
+  selectCheapestRateMode()
 }
 
 function selectedGroupKey(): string {
-  return String(selectedGroupId.value ?? 'all')
+  return String(selectedGroupId.value ?? 'cheapest')
 }
 
 function updateShowRatePrices(value: boolean): void {
@@ -350,6 +370,14 @@ function updateShowRatePrices(value: boolean): void {
 }
 
 function effectiveRate(model: PlazaModel): number | null {
+  if (selectedGroupKey() === 'cheapest') {
+    const group = cheapestRateGroupForPlatform(model.platform)
+    if (!group) return null
+
+    const rate = effectiveGroupRate(group)
+    return Number.isFinite(rate) && rate > 0 ? rate : null
+  }
+
   const group = selectedRateGroup.value
   if (!group) return null
   if (!samePlatform(group.platform, model.platform)) return null
@@ -364,7 +392,7 @@ function formatRate(rate: number): string {
 
 function formatModelPrice(value: number | null | undefined, model: PlazaModel): string {
   if (value == null) return '-'
-  const rate = showRatePrices.value && selectedGroupKey() !== 'all' ? effectiveRate(model) ?? 1 : 1
+  const rate = showRatePrices.value ? effectiveRate(model) ?? 1 : 1
   return formatPricePerMillion(value * rate)
 }
 
@@ -379,12 +407,75 @@ function formatPricePerMillion(value: number): string {
   return `$${perMillion.toFixed(digits)}/M`
 }
 
+function modelBasePriceScore(model: PlazaModel): number {
+  const inputPrice = model.pricing?.input_price
+  const outputPrice = model.pricing?.output_price
+  const cacheWritePrice = model.pricing?.cache_write_price ?? 0
+  const cacheReadPrice = model.pricing?.cache_read_price ?? 0
+  const knownPrices = [inputPrice, outputPrice].filter((value): value is number => value != null)
+  if (knownPrices.length === 0) return Number.POSITIVE_INFINITY
+
+  return knownPrices.reduce((sum, value) => sum + value, 0) + cacheWritePrice + cacheReadPrice
+}
+
 function isRatePriceActive(model: PlazaModel): boolean {
   return showRatePrices.value && selectedGroupKey() !== 'all' && effectiveRate(model) != null
 }
 
 function effectiveGroupRate(group: UserAvailableGroup): number {
   return userGroupRates.value[group.id] ?? group.rate_multiplier ?? 1
+}
+
+function compareRateGroupsByCost(a: UserAvailableGroup, b: UserAvailableGroup): number {
+  const rateCompare = effectiveGroupRate(a) - effectiveGroupRate(b)
+  if (rateCompare !== 0) return rateCompare
+
+  const providerCompare = providerLabel(a.platform).localeCompare(providerLabel(b.platform))
+  return providerCompare || a.name.localeCompare(b.name)
+}
+
+function cheapestRateGroupForPlatform(platform: string): UserAvailableGroup | null {
+  return sortedRateGroups.value.find((group) => samePlatform(group.platform, platform)) ?? null
+}
+
+function cheapestPlatformRate(platform: string): number {
+  const group = cheapestRateGroupForPlatform(platform)
+  return group ? effectiveGroupRate(group) : Number.POSITIVE_INFINITY
+}
+
+function modelEffectivePriceScore(model: PlazaModel): number {
+  const rate = selectedGroupKey() === 'all' ? 1 : cheapestPlatformRate(model.platform)
+  return modelBasePriceScore(model) * (Number.isFinite(rate) ? rate : 1)
+}
+
+function compareModelCardsByCost(a: PlazaModel, b: PlazaModel): number {
+  const rateCompare = cheapestPlatformRate(a.platform) - cheapestPlatformRate(b.platform)
+  if (rateCompare !== 0) return rateCompare
+
+  const priceCompare = modelEffectivePriceScore(a) - modelEffectivePriceScore(b)
+  if (priceCompare !== 0) return priceCompare
+
+  const providerCompare = providerLabel(a.platform).localeCompare(providerLabel(b.platform))
+  return providerCompare || a.name.localeCompare(b.name)
+}
+
+function effectiveRateLabel(model: PlazaModel): string {
+  const rate = effectiveRate(model) ?? 1
+  if (selectedGroupKey() !== 'cheapest') return `x${formatRate(rate)}`
+
+  const group = cheapestRateGroupForPlatform(model.platform)
+  return group ? `${group.name} · x${formatRate(rate)}` : `x${formatRate(rate)}`
+}
+
+function selectCheapestRateMode(): void {
+  if (sortedRateGroups.value.length === 0) {
+    selectedGroupId.value = 'all'
+    showRatePrices.value = false
+    return
+  }
+
+  selectedGroupId.value = 'cheapest'
+  showRatePrices.value = true
 }
 
 function samePlatform(a: string, b: string): boolean {
