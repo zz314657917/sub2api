@@ -1442,7 +1442,8 @@ function displayAccountName(row: Account, fallback?: unknown): string {
 
 function accountNameSubtitle(row: Account): string {
   if (isSharedAccountsPage.value) return ''
-  return firstStringField(row.extra, ['email_address'])
+  return firstStringField(row.extra, ['email_address', 'email']) ||
+    firstStringField(row.credentials, ['email'])
 }
 
 function getAntigravityTierClass(row: any): string {
