@@ -2,6 +2,7 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -61,6 +62,39 @@ type DataAccount struct {
 type DataImportRequest struct {
 	Data                 DataPayload `json:"data"`
 	SkipDefaultGroupBind *bool       `json:"skip_default_group_bind"`
+}
+
+func (r *DataImportRequest) UnmarshalJSON(data []byte) error {
+	type alias DataImportRequest
+	var wrapped alias
+	if err := json.Unmarshal(data, &wrapped); err != nil {
+		return err
+	}
+	if wrapped.Data.Accounts != nil ||
+		wrapped.Data.Proxies != nil ||
+		wrapped.Data.Type != "" ||
+		wrapped.Data.Version != 0 ||
+		wrapped.Data.ExportedAt != "" {
+		*r = DataImportRequest(wrapped)
+		return nil
+	}
+
+	var rawPayload DataPayload
+	if err := json.Unmarshal(data, &rawPayload); err != nil {
+		return err
+	}
+	if rawPayload.Accounts != nil ||
+		rawPayload.Proxies != nil ||
+		rawPayload.Type != "" ||
+		rawPayload.Version != 0 ||
+		rawPayload.ExportedAt != "" {
+		r.Data = rawPayload
+		r.SkipDefaultGroupBind = wrapped.SkipDefaultGroupBind
+		return nil
+	}
+
+	*r = DataImportRequest(wrapped)
+	return nil
 }
 
 type DataImportResult struct {
@@ -179,6 +213,7 @@ func (h *AccountHandler) ImportData(c *gin.Context) {
 		return
 	}
 
+	normalizeDataImportRequest(&req)
 	if err := validateDataHeader(req.Data); err != nil {
 		response.BadRequest(c, err.Error())
 		return
@@ -187,6 +222,15 @@ func (h *AccountHandler) ImportData(c *gin.Context) {
 	executeAdminIdempotentJSON(c, "admin.accounts.import_data", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		return h.importData(ctx, req)
 	})
+}
+
+func normalizeDataImportRequest(req *DataImportRequest) {
+	if req == nil {
+		return
+	}
+	if req.Data.Proxies == nil && req.Data.Accounts != nil {
+		req.Data.Proxies = []DataProxy{}
+	}
 }
 
 func (h *AccountHandler) importData(ctx context.Context, req DataImportRequest) (DataImportResult, error) {

@@ -275,3 +275,87 @@ func TestImportDataReusesProxyAndSkipsDefaultGroup(t *testing.T) {
 	require.Len(t, adminSvc.createdAccounts, 1)
 	require.True(t, adminSvc.createdAccounts[0].SkipDefaultGroupBind)
 }
+
+func TestImportDataAcceptsWrappedAccountsOnlyPayload(t *testing.T) {
+	router, adminSvc := setupAccountDataRouter()
+
+	dataPayload := map[string]any{
+		"data": map[string]any{
+			"accounts": []map[string]any{
+				{
+					"name":     "openai-oauth-1",
+					"platform": service.PlatformOpenAI,
+					"type":     service.AccountTypeOAuth,
+					"credentials": map[string]any{
+						"access_token":       "access-1",
+						"refresh_token":      "refresh-1",
+						"chatgpt_account_id": "chatgpt-1",
+						"id_token":           "id-1",
+						"session_token":      "session-1",
+					},
+					"extra": map[string]any{
+						"email": "user1@example.com",
+					},
+					"priority":              10,
+					"group":                 "default-pool",
+					"concurrency":           3,
+					"status":                "active",
+					"auto_pause_on_expired": true,
+				},
+			},
+		},
+		"skip_default_group_bind": true,
+	}
+
+	body, _ := json.Marshal(dataPayload)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/data", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	require.Len(t, adminSvc.createdProxies, 0)
+	require.Len(t, adminSvc.createdAccounts, 1)
+	created := adminSvc.createdAccounts[0]
+	require.Equal(t, "openai-oauth-1", created.Name)
+	require.Equal(t, service.PlatformOpenAI, created.Platform)
+	require.Equal(t, service.AccountTypeOAuth, created.Type)
+	require.Equal(t, "refresh-1", created.Credentials["refresh_token"])
+	require.Equal(t, "user1@example.com", created.Extra["email"])
+	require.Equal(t, 3, created.Concurrency)
+	require.Equal(t, 10, created.Priority)
+	require.NotNil(t, created.AutoPauseOnExpired)
+	require.True(t, *created.AutoPauseOnExpired)
+	require.True(t, created.SkipDefaultGroupBind)
+}
+
+func TestImportDataAcceptsRawAccountsOnlyPayload(t *testing.T) {
+	router, adminSvc := setupAccountDataRouter()
+
+	dataPayload := map[string]any{
+		"accounts": []map[string]any{
+			{
+				"name":        "openai-oauth-raw",
+				"platform":    service.PlatformOpenAI,
+				"type":        service.AccountTypeOAuth,
+				"credentials": map[string]any{"refresh_token": "refresh-raw"},
+				"concurrency": 1,
+				"priority":    5,
+			},
+		},
+	}
+
+	body, _ := json.Marshal(dataPayload)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/data", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	require.Len(t, adminSvc.createdProxies, 0)
+	require.Len(t, adminSvc.createdAccounts, 1)
+	created := adminSvc.createdAccounts[0]
+	require.Equal(t, "openai-oauth-raw", created.Name)
+	require.Equal(t, "refresh-raw", created.Credentials["refresh_token"])
+	require.True(t, created.SkipDefaultGroupBind)
+}
