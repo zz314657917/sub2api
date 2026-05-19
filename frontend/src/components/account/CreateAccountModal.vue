@@ -4235,6 +4235,12 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     delete extra.openai_responses_mode
   }
 
+  if (accountCategory.value === 'apikey' && openAIResponsesMode.value !== 'auto') {
+    extra.openai_responses_mode = openAIResponsesMode.value
+  } else {
+    delete extra.openai_responses_mode
+  }
+
   return Object.keys(extra).length > 0 ? extra : undefined
 }
 
