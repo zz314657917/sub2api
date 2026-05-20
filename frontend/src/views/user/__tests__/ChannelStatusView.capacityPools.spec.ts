@@ -23,6 +23,9 @@ vi.mock('vue-i18n', async () => {
         if (key === 'channelStatus.capacityPools.quotaWindow') return `${params?.window} 额度`
         if (key === 'channelStatus.capacityPools.window') return `${params?.window} 窗口`
         if (key === 'channelStatus.capacityPools.percentOnly') return '剩余'
+        if (key === 'channelStatus.capacityPools.accountStatus') return '账号状态'
+        if (key === 'channelStatus.capacityPools.degraded') return '部分可用'
+        if (key === 'channelStatus.capacityPools.schedulableSnapshot') return '可用账号'
         if (key === 'channelStatus.capacityPools.unavailableReasons.daily_quota_exceeded') return '日额度用完'
         if (key === 'channelStatus.capacityPools.unavailableReasons.rate_limited') return '限流中'
         return key
@@ -171,6 +174,12 @@ describe('ChannelStatusView capacity pools', () => {
     expect(wrapper.text()).not.toContain('1d 额度')
     expect(wrapper.text()).not.toContain('7d 额度')
     expect(wrapper.text()).not.toContain('30d 额度')
+    expect(wrapper.text()).toContain('5h 窗口')
+    expect(wrapper.text()).toContain('7d 窗口')
+    expect(wrapper.text()).toContain('账号状态')
+    expect(wrapper.text()).toContain('部分可用')
+    expect(wrapper.text()).not.toContain('降级')
+    expect(wrapper.text()).toContain('可用账号')
     expect(wrapper.text()).toContain('channelStatus.capacityPools.schedulableRemaining')
     expect(wrapper.text()).toContain('59.7%')
     expect(wrapper.text()).toContain('80.0%')

@@ -254,6 +254,68 @@ function windowProgressClass(usedPercent: number, percentOnlyQuota: boolean): st
   return 'bg-cyan-500'
 }
 
+type AccountStatusEntry = {
+  key: string
+  label: string
+  count: number
+  barClass: string
+  dotClass: string
+  showLegend: boolean
+}
+
+function accountStatusEntries(group: UserAccountCapacityPoolGroup): AccountStatusEntry[] {
+  const schedulable = positiveCount(group.schedulable_accounts)
+  const rateLimited = positiveCount(group.rate_limited_accounts)
+  const error = positiveCount(group.error_accounts)
+  const disabled = positiveCount(group.disabled_accounts)
+  const total = positiveCount(group.total_accounts)
+  const known = schedulable + rateLimited + error + disabled
+  const other = Math.max(0, total - known)
+
+  return [
+    {
+      key: 'schedulable',
+      label: t('channelStatus.capacityPools.schedulable'),
+      count: schedulable,
+      barClass: 'bg-teal-400',
+      dotClass: 'bg-teal-400',
+      showLegend: false,
+    },
+    {
+      key: 'rateLimited',
+      label: t('channelStatus.capacityPools.rateLimited'),
+      count: rateLimited,
+      barClass: 'bg-amber-500',
+      dotClass: 'bg-amber-500',
+      showLegend: true,
+    },
+    {
+      key: 'error',
+      label: t('channelStatus.capacityPools.error'),
+      count: error,
+      barClass: 'bg-rose-500',
+      dotClass: 'bg-rose-500',
+      showLegend: true,
+    },
+    {
+      key: 'disabled',
+      label: t('channelStatus.capacityPools.disabled'),
+      count: disabled,
+      barClass: 'bg-slate-400',
+      dotClass: 'bg-slate-400',
+      showLegend: true,
+    },
+    {
+      key: 'other',
+      label: t('channelStatus.capacityPools.other'),
+      count: other,
+      barClass: 'bg-gray-300 dark:bg-dark-600',
+      dotClass: 'bg-gray-300 dark:bg-dark-600',
+      showLegend: true,
+    },
+  ].filter((entry) => entry.count > 0)
+}
+
 const quotaWindowOrder = ['1d', '7d_quota', '5h', '7d'] as const
 const openAIPlanWindowOrder = ['5h', '7d'] as const
 type CapacityWindowKey = (typeof quotaWindowOrder)[number]
@@ -297,6 +359,10 @@ function windowLabel(key: string): string {
       return t('channelStatus.capacityPools.quotaWindow', { window: '7d' })
     case '30d':
       return t('channelStatus.capacityPools.quotaWindow', { window: '30d' })
+    case '5h':
+      return t('channelStatus.capacityPools.window', { window: '5h' })
+    case '7d':
+      return t('channelStatus.capacityPools.window', { window: '7d' })
     default:
       return key
   }
@@ -359,6 +425,39 @@ function unavailableReasonEntries(reasons?: Record<string, number>): Array<{ key
     })
 }
 
+function renderAccountStatusBar(group: UserAccountCapacityPoolGroup) {
+  const entries = accountStatusEntries(group)
+  const visibleEntries = entries.filter((entry) => entry.showLegend)
+  if (entries.length === 0) {
+    return null
+  }
+
+  return h('div', { class: 'mt-3' }, [
+    h('div', { class: 'mb-2 flex items-center justify-between gap-3' }, [
+      h('span', { class: 'text-xs font-semibold text-gray-900 dark:text-white' }, t('channelStatus.capacityPools.accountStatus')),
+      h('span', { class: 'text-xs font-bold text-gray-900 dark:text-white' }, `${t('channelStatus.capacityPools.total')} ${formatInteger(group.total_accounts)}`),
+    ]),
+    h('div', { class: 'flex h-2.5 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700' }, entries.map((entry) => h('div', {
+      key: entry.key,
+      class: ['h-full', entry.barClass],
+      style: {
+        flexBasis: '0%',
+        flexGrow: entry.count,
+        minWidth: '4px',
+      },
+    }))),
+    visibleEntries.length > 0
+      ? h('div', { class: 'mt-2 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-4' }, visibleEntries.map((entry) => h('div', {
+        key: `${entry.key}-label`,
+        class: 'flex min-w-0 items-center gap-2 text-xs text-gray-600 dark:text-gray-300',
+      }, [
+        h('span', { class: ['h-3 w-3 shrink-0 rounded', entry.dotClass] }),
+        h('span', { class: 'min-w-0 truncate' }, `${entry.label} ${formatInteger(entry.count)}`),
+      ])))
+      : null,
+  ])
+}
+
 const MetricTile = defineComponent({
   name: 'MetricTile',
   props: {
@@ -399,92 +498,83 @@ const SharedGroupGrid = defineComponent({
       return h('div', {
         class: 'mt-4 rounded-lg border border-gray-200/80 p-3 dark:border-dark-700/70',
       }, [
-      h('div', { class: 'mb-3 flex flex-wrap items-center justify-between gap-2' }, [
-        h('div', [
-          h('p', { class: 'text-sm font-semibold text-gray-900 dark:text-white' }, t('channelStatus.capacityPools.groupCapacity')),
-          h('p', { class: 'mt-0.5 text-xs text-gray-500 dark:text-gray-400' }, t('channelStatus.capacityPools.groupCapacityHint')),
-        ]),
-        h('div', { class: 'flex flex-wrap gap-1.5' }, [
-          h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('success')] }, `${t('channelStatus.capacityPools.healthy')} ${groups.filter(g => g.status === 'healthy').length}`),
-          h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('warning')] }, `${t('channelStatus.capacityPools.degraded')} ${groups.filter(g => g.status === 'degraded').length}`),
-          h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('danger')] }, `${t('channelStatus.capacityPools.unavailable')} ${groups.filter(g => g.status === 'unavailable').length}`),
-        ]),
-      ]),
-      h('div', { class: 'grid grid-cols-1 gap-2 2xl:grid-cols-2' }, groups.map((group) => (
-        h('div', {
-          key: group.key,
-          class: ['rounded-lg border p-3', groupBorderClass(group.status)],
-        }, [
-          h('div', { class: 'flex items-start justify-between gap-3' }, [
-            h('div', { class: 'min-w-0' }, [
-              h('div', { class: 'flex min-w-0 flex-wrap items-center gap-1.5' }, [
-                h('p', { class: 'min-w-0 truncate text-sm font-bold text-gray-900 dark:text-white' }, group.group_name),
-                componentProps.pool.key === 'shared' && positiveCount(group.own_contributed_accounts) > 0
-                  ? h('span', { class: ['shrink-0 rounded px-2 py-0.5 text-xs font-semibold', chipClass('success')] }, `${t('channelStatus.capacityPools.ownContributed')} ${formatInteger(group.own_contributed_accounts ?? 0)}`)
-                  : null,
-              ]),
-              h('p', { class: 'mt-0.5 text-xs text-gray-500 dark:text-gray-400' }, [
-                platformLabel(group.platform),
-                platformLabel(group.platform) ? ' · ' : '',
-                `${t('channelStatus.capacityPools.total')} ${formatInteger(group.total_accounts)}`,
-                `, ${t('channelStatus.capacityPools.active')} ${formatInteger(group.active_accounts)}`,
-                `, ${t('channelStatus.capacityPools.schedulable')} ${formatInteger(group.schedulable_accounts)}`,
-              ]),
-            ]),
-            h('span', {
-              class: ['shrink-0 rounded-md px-2 py-1 text-xs font-semibold', chipClass(groupStatusTone(group.status))],
-            }, groupStatusLabel(group.status)),
+        h('div', { class: 'mb-3 flex flex-wrap items-center justify-between gap-2' }, [
+          h('div', [
+            h('p', { class: 'text-sm font-semibold text-gray-900 dark:text-white' }, t('channelStatus.capacityPools.groupCapacity')),
+            h('p', { class: 'mt-0.5 text-xs text-gray-500 dark:text-gray-400' }, t('channelStatus.capacityPools.groupCapacityHint')),
           ]),
-          h('div', { class: 'mt-2 flex flex-wrap gap-1.5' }, [
-            group.rate_limited_accounts > 0
-              ? h('span', { class: ['rounded px-2 py-0.5 text-xs', chipClass('warning')] }, `${t('channelStatus.capacityPools.rateLimited')} ${formatInteger(group.rate_limited_accounts)}`)
-              : null,
-            group.error_accounts > 0
-              ? h('span', { class: ['rounded px-2 py-0.5 text-xs', chipClass('danger')] }, `${t('channelStatus.capacityPools.error')} ${formatInteger(group.error_accounts)}`)
-              : null,
-            group.disabled_accounts > 0
-              ? h('span', { class: ['rounded px-2 py-0.5 text-xs', chipClass('neutral')] }, `${t('channelStatus.capacityPools.disabled')} ${formatInteger(group.disabled_accounts)}`)
-              : null,
+          h('div', { class: 'flex flex-wrap gap-1.5' }, [
+            h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('success')] }, `${t('channelStatus.capacityPools.healthy')} ${groups.filter(g => g.status === 'healthy').length}`),
+            h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('warning')] }, `${t('channelStatus.capacityPools.degraded')} ${groups.filter(g => g.status === 'degraded').length}`),
+            h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('danger')] }, `${t('channelStatus.capacityPools.unavailable')} ${groups.filter(g => g.status === 'unavailable').length}`),
           ]),
-          unavailableReasonEntries(group.unavailable_reasons).length > 0
-            ? h('div', { class: 'mt-2 flex flex-wrap items-center gap-1.5' }, [
-              h('span', { class: 'text-xs font-medium text-gray-500 dark:text-gray-400' }, t('channelStatus.capacityPools.unavailableReason')),
-              ...unavailableReasonEntries(group.unavailable_reasons).map((reason) => (
-                h('span', { key: reason.key, class: ['rounded px-2 py-0.5 text-xs', chipClass(reason.tone)] }, `${reason.label} ${formatInteger(reason.count)}`)
-              )),
-            ])
-            : null,
-          h('div', { class: 'mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2' }, windowSummaries(group).map((item) => {
-            const percentOnlyQuota = Boolean(componentProps.pool.percent_only_quota || group.percent_only_quota)
-            const displayPercent = percentOnlyQuota ? remainingPercent(item.data.used_percent) : clampPercent(item.data.used_percent)
-            return h('div', { key: item.key, class: 'rounded-md bg-white/65 p-2 dark:bg-dark-900/35' }, [
-              h('div', { class: 'flex items-center justify-between gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100' }, [
-                h('span', windowLabel(item.key)),
-                h('span', formatPercent(displayPercent)),
-              ]),
-              h('div', { class: 'mt-1 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700' }, [
-                h('div', {
-                  class: ['h-full rounded-full', windowProgressClass(item.data.used_percent, percentOnlyQuota)],
-                  style: { width: `${displayPercent}%` },
-                }),
-              ]),
-              h('div', { class: 'mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400' }, [
-                h('div', [
-                  h('p', t('channelStatus.capacityPools.schedulableSnapshot')),
-                  h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, `${formatInteger(item.data.schedulable_snapshot_accounts)}/${formatInteger(item.data.snapshot_accounts)}`),
+        ]),
+        h('div', { class: 'grid grid-cols-1 gap-2 2xl:grid-cols-2' }, groups.map((group) => {
+          const reasons = unavailableReasonEntries(group.unavailable_reasons)
+          return h('div', {
+            key: group.key,
+            class: ['rounded-lg border p-3 sm:p-4', groupBorderClass(group.status)],
+          }, [
+            h('div', { class: 'flex items-start justify-between gap-3' }, [
+              h('div', { class: 'min-w-0' }, [
+                h('div', { class: 'flex min-w-0 flex-wrap items-center gap-1.5' }, [
+                  h('p', { class: 'min-w-0 truncate text-sm font-bold text-gray-900 dark:text-white' }, group.group_name),
+                  componentProps.pool.key === 'shared' && positiveCount(group.own_contributed_accounts) > 0
+                    ? h('span', { class: ['shrink-0 rounded px-2 py-0.5 text-xs font-semibold', chipClass('success')] }, `${t('channelStatus.capacityPools.ownContributed')} ${formatInteger(group.own_contributed_accounts ?? 0)}`)
+                    : null,
                 ]),
-                h('div', [
-              h('p', t('channelStatus.capacityPools.schedulableRemaining')),
-              percentOnlyQuota
-                ? h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, formatPercent(displayPercent))
-                : h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, formatRemainingUnits(item.data.remaining_units)),
+                h('p', { class: 'mt-0.5 text-xs text-gray-500 dark:text-gray-400' }, [
+                  platformLabel(group.platform),
+                  platformLabel(group.platform) ? ' · ' : '',
+                  `${t('channelStatus.capacityPools.total')} ${formatInteger(group.total_accounts)}`,
+                  `, ${t('channelStatus.capacityPools.active')} ${formatInteger(group.active_accounts)}`,
+                  `, ${t('channelStatus.capacityPools.schedulable')} ${formatInteger(group.schedulable_accounts)}`,
+                ]),
+              ]),
+              h('span', {
+                class: ['shrink-0 rounded-md px-2 py-1 text-xs font-semibold', chipClass(groupStatusTone(group.status))],
+              }, groupStatusLabel(group.status)),
             ]),
-          ]),
-        ])
-          })),
-        ])
-      ))),
-    ])
+            renderAccountStatusBar(group),
+            reasons.length > 0
+              ? h('div', { class: 'mt-2 flex flex-wrap items-center gap-1.5' }, [
+                h('span', { class: 'text-xs font-medium text-gray-500 dark:text-gray-400' }, t('channelStatus.capacityPools.unavailableReason')),
+                ...reasons.map((reason) => (
+                  h('span', { key: reason.key, class: ['rounded px-2 py-0.5 text-xs', chipClass(reason.tone)] }, `${reason.label} ${formatInteger(reason.count)}`)
+                )),
+              ])
+              : null,
+            h('div', { class: 'mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2' }, windowSummaries(group).map((item) => {
+              const percentOnlyQuota = Boolean(componentProps.pool.percent_only_quota || group.percent_only_quota)
+              const displayPercent = percentOnlyQuota ? remainingPercent(item.data.used_percent) : clampPercent(item.data.used_percent)
+              return h('div', { key: item.key, class: 'rounded-md bg-white/65 p-2 dark:bg-dark-900/35' }, [
+                h('div', { class: 'flex items-center justify-between gap-2 text-xs font-semibold text-gray-800 dark:text-gray-100' }, [
+                  h('span', windowLabel(item.key)),
+                  h('span', formatPercent(displayPercent)),
+                ]),
+                h('div', { class: 'mt-1 h-1.5 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700' }, [
+                  h('div', {
+                    class: ['h-full rounded-full', windowProgressClass(item.data.used_percent, percentOnlyQuota)],
+                    style: { width: `${displayPercent}%` },
+                  }),
+                ]),
+                h('div', { class: 'mt-2 grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400' }, [
+                  h('div', [
+                    h('p', t('channelStatus.capacityPools.schedulableSnapshot')),
+                    h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, `${formatInteger(item.data.schedulable_snapshot_accounts)}/${formatInteger(item.data.snapshot_accounts)}`),
+                  ]),
+                  h('div', [
+                    h('p', t('channelStatus.capacityPools.schedulableRemaining')),
+                    percentOnlyQuota
+                      ? h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, formatPercent(displayPercent))
+                      : h('p', { class: 'font-medium text-gray-700 dark:text-gray-200' }, formatRemainingUnits(item.data.remaining_units)),
+                  ]),
+                ]),
+              ])
+            })),
+          ])
+        })),
+      ])
     }
   },
 })
