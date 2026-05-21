@@ -818,7 +818,12 @@ export interface Account {
   notes?: string | null
   platform: AccountPlatform
   type: AccountType
+  // 后端响应里 credentials 已脱敏：access_token / refresh_token / id_token /
+  // api_key / session_key / cookie / aws_secret_access_key / aws_session_token /
+  // service_account_json / service_account / private_key 不会出现，
+  // 改为通过 credentials_status.has_<key> 暴露存在性。
   credentials?: Record<string, unknown>
+  credentials_status?: Record<string, boolean>
   // Extra fields including Codex usage, OpenAI compact capability, and model-level rate limits.
   extra?: (CodexUsageSnapshot & OpenAICompactState & {
     model_rate_limits?: Record<string, { rate_limited_at: string; rate_limit_reset_at: string }>
@@ -1252,6 +1257,7 @@ export interface CodexUsageSnapshot {
 }
 
 export type OpenAICompactMode = 'auto' | 'force_on' | 'force_off'
+export type OpenAIResponsesMode = 'auto' | 'force_responses' | 'force_chat_completions'
 
 export interface OpenAICompactState {
   openai_compact_mode?: OpenAICompactMode
@@ -1259,6 +1265,11 @@ export interface OpenAICompactState {
   openai_compact_checked_at?: string
   openai_compact_last_status?: number
   openai_compact_last_error?: string
+}
+
+export interface OpenAIResponsesState {
+  openai_responses_mode?: OpenAIResponsesMode
+  openai_responses_supported?: boolean
 }
 
 export interface CreateAccountRequest {

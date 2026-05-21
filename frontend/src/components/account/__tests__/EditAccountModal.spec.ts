@@ -124,11 +124,13 @@ function buildAccount() {
     platform: 'openai',
     type: 'apikey',
     credentials: {
-      api_key: 'sk-test',
       base_url: 'https://api.openai.com',
       model_mapping: {
         'gpt-5.2': 'gpt-5.2'
       }
+    },
+    credentials_status: {
+      has_api_key: true
     },
     extra: {},
     proxy_id: null,
@@ -221,6 +223,48 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.compact_model_mapping).toEqual({
       'gpt-5.4': 'gpt-5.4-openai-compact'
     })
+  })
+
+  it('submits OpenAI APIKey Responses support override mode', async () => {
+    const account = buildAccount()
+    account.extra = {
+      openai_responses_mode: 'force_chat_completions',
+      openai_responses_supported: false
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    await wrapper.get('[data-testid="openai-responses-mode-select"]').setValue('force_responses')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_responses_mode).toBe('force_responses')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_responses_supported).toBe(false)
+  })
+
+  it('clears OpenAI APIKey Responses override when set back to auto', async () => {
+    const account = buildAccount()
+    account.extra = {
+      openai_responses_mode: 'force_chat_completions',
+      openai_responses_supported: true
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    await wrapper.get('[data-testid="openai-responses-mode-select"]').setValue('auto')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('openai_responses_mode')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_responses_supported).toBe(true)
   })
 
   it('submits account-level Codex image generation bridge override', async () => {
