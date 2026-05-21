@@ -1553,20 +1553,22 @@
           @update:quotaNotifyTotalThreshold="quotaNotifyState.total.threshold = $event"
           @update:quotaNotifyTotalThresholdType="quotaNotifyState.total.thresholdType = $event"
         />
-        <ShareDisplayCard
-          v-if="account?.platform === 'openai' && account?.type === 'apikey'"
-          :enabled="shareDisplayEnabled"
-          :display-name="shareDisplayName"
-          :display-tier="shareDisplayTier"
-          :percent-only="shareDisplayPercentOnly"
-          :account-count="shareDisplayAccountCount"
-          @update:enabled="shareDisplayEnabled = $event"
-          @update:displayName="shareDisplayName = $event"
-          @update:displayTier="shareDisplayTier = $event"
-          @update:percentOnly="shareDisplayPercentOnly = $event"
-          @update:accountCount="shareDisplayAccountCount = $event"
-        />
       </div>
+
+      <ShareDisplayCard
+        v-if="isOpenAIShareDisplaySupportedAccount(account)"
+        :enabled="shareDisplayEnabled"
+        :display-name="shareDisplayName"
+        :display-tier="shareDisplayTier"
+        :percent-only="shareDisplayPercentOnly"
+        :account-count="shareDisplayAccountCount"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        @update:enabled="shareDisplayEnabled = $event"
+        @update:displayName="shareDisplayName = $event"
+        @update:displayTier="shareDisplayTier = $event"
+        @update:percentOnly="shareDisplayPercentOnly = $event"
+        @update:accountCount="shareDisplayAccountCount = $event"
+      />
 
       <!-- OpenAI OAuth Codex 官方客户端限制开关 -->
       <div
@@ -2388,6 +2390,51 @@ const shareDisplayName = ref('')
 const shareDisplayTier = ref('pro')
 const shareDisplayPercentOnly = ref(true)
 const shareDisplayAccountCount = ref(1)
+function isOpenAIShareDisplaySupportedAccount(account?: Pick<Account, 'platform' | 'type'> | null): boolean {
+  return account?.platform === 'openai' && (account.type === 'apikey' || account.type === 'oauth')
+}
+function getAccountStringField(account: Account, extra: Record<string, unknown> | undefined, key: string): string {
+  const extraValue = extra?.[key]
+  if (typeof extraValue === 'string') {
+    return extraValue
+  }
+  const accountValue = (account as unknown as Record<string, unknown>)[key]
+  return typeof accountValue === 'string' ? accountValue : ''
+}
+function getAccountBoolField(account: Account, extra: Record<string, unknown> | undefined, key: string): boolean | undefined {
+  const extraValue = extra?.[key]
+  if (typeof extraValue === 'boolean') {
+    return extraValue
+  }
+  const accountValue = (account as unknown as Record<string, unknown>)[key]
+  return typeof accountValue === 'boolean' ? accountValue : undefined
+}
+function getAccountNumberField(account: Account, extra: Record<string, unknown> | undefined, key: string): number | undefined {
+  const extraValue = extra?.[key]
+  if (typeof extraValue === 'number') {
+    return extraValue
+  }
+  const accountValue = (account as unknown as Record<string, unknown>)[key]
+  return typeof accountValue === 'number' ? accountValue : undefined
+}
+function writeShareDisplayToExtra(extra: Record<string, unknown>): void {
+  if (isOpenAIShareDisplaySupportedAccount(props.account) && shareDisplayEnabled.value) {
+    const displayName = shareDisplayName.value.trim()
+    if (displayName) {
+      extra.share_display_name = displayName
+    } else {
+      delete extra.share_display_name
+    }
+    extra.share_display_tier = shareDisplayTier.value || 'pro'
+    extra.share_display_percent_only = shareDisplayPercentOnly.value
+    extra.share_display_account_count = Math.max(1, Math.trunc(shareDisplayAccountCount.value || 1))
+  } else {
+    delete extra.share_display_name
+    delete extra.share_display_tier
+    delete extra.share_display_percent_only
+    delete extra.share_display_account_count
+  }
+}
 const openAIWSModeOptions = computed(() => [
   { value: OPENAI_WS_MODE_OFF, label: t('admin.accounts.openai.wsModeOff') },
   { value: OPENAI_WS_MODE_CTX_POOL, label: t('admin.accounts.openai.wsModeCtxPool') },
@@ -2690,19 +2737,23 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     editResetTimezone.value = null
     resetQuotaNotify()
   }
-  shareDisplayEnabled.value = newAccount.platform === 'openai' && newAccount.type === 'apikey' && (
-    typeof extra?.share_display_name === 'string' ||
-    typeof extra?.share_display_tier === 'string' ||
-    extra?.share_display_percent_only === true ||
-    typeof extra?.share_display_account_count === 'number'
+  const accountShareDisplayName = getAccountStringField(newAccount, extra, 'share_display_name')
+  const accountShareDisplayTier = getAccountStringField(newAccount, extra, 'share_display_tier')
+  const accountShareDisplayPercentOnly = getAccountBoolField(newAccount, extra, 'share_display_percent_only')
+  const accountShareDisplayAccountCount = getAccountNumberField(newAccount, extra, 'share_display_account_count')
+  shareDisplayEnabled.value = isOpenAIShareDisplaySupportedAccount(newAccount) && (
+    accountShareDisplayName !== '' ||
+    accountShareDisplayTier !== '' ||
+    accountShareDisplayPercentOnly === true ||
+    typeof accountShareDisplayAccountCount === 'number'
   )
-  shareDisplayName.value = typeof extra?.share_display_name === 'string' ? extra.share_display_name : ''
-  shareDisplayTier.value = typeof extra?.share_display_tier === 'string' && extra.share_display_tier ? extra.share_display_tier : 'pro'
-  shareDisplayPercentOnly.value = extra?.share_display_percent_only !== false
-  shareDisplayAccountCount.value = typeof extra?.share_display_account_count === 'number' && extra.share_display_account_count > 0
-    ? Math.trunc(extra.share_display_account_count)
+  shareDisplayName.value = accountShareDisplayName
+  shareDisplayTier.value = accountShareDisplayTier || 'pro'
+  shareDisplayPercentOnly.value = accountShareDisplayPercentOnly !== false
+  shareDisplayAccountCount.value = typeof accountShareDisplayAccountCount === 'number' && accountShareDisplayAccountCount > 0
+    ? Math.trunc(accountShareDisplayAccountCount)
     : 1
-  if (newAccount.platform !== 'openai' || newAccount.type !== 'apikey') {
+  if (!isOpenAIShareDisplaySupportedAccount(newAccount)) {
     shareDisplayEnabled.value = false
     shareDisplayName.value = ''
     shareDisplayTier.value = 'pro'
@@ -3790,6 +3841,14 @@ const handleSubmit = async () => {
       updatePayload.extra = newExtra
     }
 
+    if (isOpenAIShareDisplaySupportedAccount(props.account)) {
+      const currentExtra = (updatePayload.extra as Record<string, unknown>) ||
+        (props.account.extra as Record<string, unknown>) || {}
+      const newExtra: Record<string, unknown> = { ...currentExtra }
+      writeShareDisplayToExtra(newExtra)
+      updatePayload.extra = newExtra
+    }
+
     // For apikey/bedrock accounts, handle quota_limit in extra
     if (props.account.type === 'apikey' || props.account.type === 'bedrock') {
       const currentExtra = (updatePayload.extra as Record<string, unknown>) ||
@@ -3825,22 +3884,7 @@ const handleSubmit = async () => {
         delete newExtra.quota_monthly_used
         delete newExtra.quota_monthly_start
       }
-      if (props.account.platform === 'openai' && props.account.type === 'apikey' && shareDisplayEnabled.value) {
-        const displayName = shareDisplayName.value.trim()
-        if (displayName) {
-          newExtra.share_display_name = displayName
-        } else {
-          delete newExtra.share_display_name
-        }
-        newExtra.share_display_tier = shareDisplayTier.value || 'pro'
-        newExtra.share_display_percent_only = shareDisplayPercentOnly.value
-        newExtra.share_display_account_count = Math.max(1, Math.trunc(shareDisplayAccountCount.value || 1))
-      } else {
-        delete newExtra.share_display_name
-        delete newExtra.share_display_tier
-        delete newExtra.share_display_percent_only
-        delete newExtra.share_display_account_count
-      }
+      writeShareDisplayToExtra(newExtra)
       // Quota reset mode config
       if (editDailyResetMode.value === 'fixed') {
         newExtra.quota_daily_reset_mode = 'fixed'

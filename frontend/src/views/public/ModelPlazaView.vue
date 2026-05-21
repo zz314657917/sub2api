@@ -196,7 +196,11 @@ const channels = ref<UserAvailableChannel[]>([])
 const availableGroups = ref<UserAvailableGroup[]>([])
 const userGroupRates = ref<Record<number, number>>({})
 
-const sourceChannels = computed(() => isAuthenticated.value ? channels.value : fallbackChannels)
+const usingFallbackCatalog = computed(() => !isAuthenticated.value || channels.value.length === 0)
+const usingAuthenticatedFallbackCatalog = computed(
+  () => isAuthenticated.value && channels.value.length === 0
+)
+const sourceChannels = computed(() => (usingFallbackCatalog.value ? fallbackChannels : channels.value))
 
 const modelCards = computed<PlazaModel[]>(() => {
   const map = new Map<string, PlazaModel>()
@@ -271,6 +275,10 @@ const groupOptions = computed(() => {
 const rateGroups = computed<UserAvailableGroup[]>(() => {
   const groups = new Map<number, UserAvailableGroup>()
 
+  if (usingAuthenticatedFallbackCatalog.value) {
+    return []
+  }
+
   if (isAuthenticated.value) {
     for (const group of availableGroups.value) {
       groups.set(group.id, group)
@@ -307,7 +315,9 @@ const selectedRateGroup = computed(() => {
   return rateGroups.value.find((group) => String(group.id) === groupId) ?? null
 })
 
-const canUseRatePrices = computed(() => sortedRateGroups.value.length > 0 && selectedGroupKey() !== 'all')
+const canUseRatePrices = computed(
+  () => !usingAuthenticatedFallbackCatalog.value && sortedRateGroups.value.length > 0 && selectedGroupKey() !== 'all'
+)
 
 const filteredModels = computed(() => {
   const query = searchQuery.value.trim().toLowerCase()

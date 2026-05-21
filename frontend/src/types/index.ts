@@ -1744,10 +1744,18 @@ export interface UserLeaderboardItem {
   avatar_url?: string | null
   actual_cost: number
   requests: number
+  input_tokens: number
+  output_tokens: number
   tokens: number
+  cost_per_1m_tokens: number
   balance: number
   badges?: LeaderboardBadge[]
   is_current_user: boolean
+}
+
+export interface UserLeaderboardTokenTrendPoint {
+  date: string
+  total_tokens: number
 }
 
 export interface LeaderboardDailyRewardTier {
@@ -1783,6 +1791,7 @@ export interface UserLeaderboardResponse {
   ranking: UserLeaderboardItem[]
   current_user_entry: UserLeaderboardItem | null
   daily_rewards?: LeaderboardDailyRewards | null
+  recent_token_trend?: UserLeaderboardTokenTrendPoint[]
 }
 
 export interface ApiKeyUsageTrendPoint {

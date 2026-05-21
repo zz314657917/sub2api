@@ -16,14 +16,19 @@ import (
 
 type userLeaderboardUsageRepo struct {
 	service.UsageLogRepository
-	start          time.Time
-	end            time.Time
-	limit          int
-	currentUserID  int64
-	response       *usagestats.UserLeaderboardResponse
-	limits         []int
-	currentUserIDs []int64
-	badgeLeaders   *usagestats.UserLeaderboardBadgeLeaders
+	start            time.Time
+	end              time.Time
+	trendStart       time.Time
+	trendEnd         time.Time
+	trendGranularity string
+	limit            int
+	currentUserID    int64
+	response         *usagestats.UserLeaderboardResponse
+	trend            []usagestats.TrendDataPoint
+	trendFromWindow  bool
+	limits           []int
+	currentUserIDs   []int64
+	badgeLeaders     *usagestats.UserLeaderboardBadgeLeaders
 }
 
 func (r *userLeaderboardUsageRepo) GetUserLeaderboard(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (*usagestats.UserLeaderboardResponse, error) {
@@ -37,6 +42,19 @@ func (r *userLeaderboardUsageRepo) GetUserLeaderboard(ctx context.Context, start
 		return r.response, nil
 	}
 	return &usagestats.UserLeaderboardResponse{}, nil
+}
+
+func (r *userLeaderboardUsageRepo) GetUsageTrendWithFilters(ctx context.Context, startTime, endTime time.Time, granularity string, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]usagestats.TrendDataPoint, error) {
+	r.trendStart = startTime
+	r.trendEnd = endTime
+	r.trendGranularity = granularity
+	if r.trendFromWindow {
+		return []usagestats.TrendDataPoint{
+			{Date: startTime.AddDate(0, 0, 8).Format("2006-01-02"), TotalTokens: 180},
+			{Date: startTime.AddDate(0, 0, 9).Format("2006-01-02"), TotalTokens: 420},
+		}, nil
+	}
+	return r.trend, nil
 }
 
 func (r *userLeaderboardUsageRepo) GetUserLeaderboardBadgeLeaders(ctx context.Context, weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd time.Time, userTZ string) (*usagestats.UserLeaderboardBadgeLeaders, error) {
@@ -109,9 +127,9 @@ func TestUsageHandlerDashboardLeaderboardMasksEmailAndDisplayName(t *testing.T) 
 	repo := &userLeaderboardUsageRepo{
 		response: &usagestats.UserLeaderboardResponse{
 			Ranking: []usagestats.UserLeaderboardItem{
-				{Rank: 1, UserID: 42, Username: "raw-username@example.com", Email: "alice@example.com", ActualCost: 9.5, Requests: 2, Tokens: 100, IsCurrentUser: true},
+				{Rank: 1, UserID: 42, Username: "raw-username@example.com", Email: "alice@example.com", ActualCost: 9.5, Requests: 2, InputTokens: 80, OutputTokens: 20, Tokens: 100, CostPer1M: 95000, IsCurrentUser: true},
 			},
-			CurrentUserEntry: &usagestats.UserLeaderboardItem{Rank: 1, UserID: 42, Username: "raw-username@example.com", Email: "alice@example.com", ActualCost: 9.5, Requests: 2, Tokens: 100, IsCurrentUser: true},
+			CurrentUserEntry: &usagestats.UserLeaderboardItem{Rank: 1, UserID: 42, Username: "raw-username@example.com", Email: "alice@example.com", ActualCost: 9.5, Requests: 2, InputTokens: 80, OutputTokens: 20, Tokens: 100, CostPer1M: 95000, IsCurrentUser: true},
 			TotalActualCost:  9.5,
 			TotalRequests:    2,
 			TotalTokens:      100,
@@ -129,6 +147,31 @@ func TestUsageHandlerDashboardLeaderboardMasksEmailAndDisplayName(t *testing.T) 
 	require.NotContains(t, body, "raw-username@example.com")
 	require.Contains(t, body, `"email_masked":"a***e@example.com"`)
 	require.Contains(t, body, `"display_name":"a***e@example.com"`)
+	require.Contains(t, body, `"input_tokens":80`)
+	require.Contains(t, body, `"output_tokens":20`)
+	require.Contains(t, body, `"cost_per_1m_tokens":95000`)
+}
+
+func TestUsageHandlerDashboardLeaderboardIncludesRecentTokenTrend(t *testing.T) {
+	repo := &userLeaderboardUsageRepo{
+		trendFromWindow: true,
+	}
+	router := newUserLeaderboardRouter(repo, 42)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?timezone=Asia/Shanghai", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "day", repo.trendGranularity)
+	require.False(t, repo.trendStart.IsZero())
+	require.False(t, repo.trendEnd.IsZero())
+	firstTrendDate := repo.trendStart.AddDate(0, 0, 8).Format("2006-01-02")
+	secondTrendDate := repo.trendStart.AddDate(0, 0, 9).Format("2006-01-02")
+	body := rec.Body.String()
+	require.Contains(t, body, `"recent_token_trend"`)
+	require.Contains(t, body, `{"date":"`+firstTrendDate+`","total_tokens":180}`)
+	require.Contains(t, body, `{"date":"`+secondTrendDate+`","total_tokens":420}`)
 }
 
 func TestUsageHandlerDashboardLeaderboardMasksPhoneAndQQDisplayName(t *testing.T) {

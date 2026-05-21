@@ -22,7 +22,7 @@
 
       <section v-if="leaderboard" class="card leaderboard-token-card leaderboard-token-summary p-5">
         <div class="leaderboard-token-summary-inner relative z-10">
-          <div class="mx-auto min-w-0">
+          <div class="leaderboard-token-summary-main min-w-0">
             <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.totalTokens') }}</p>
             <div
               :key="rollingTokenAnimationKey"
@@ -53,9 +53,22 @@
                 <span v-else>{{ part.value }}</span>
               </span>
             </div>
+            <div class="leaderboard-token-summary-meta text-sm text-gray-500 dark:text-gray-400">
+              <span>{{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}</span>
+            </div>
           </div>
-          <div class="leaderboard-token-summary-meta text-sm text-gray-500 dark:text-gray-400">
-            <span>{{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}</span>
+
+          <div class="leaderboard-token-trend-panel" data-testid="leaderboard-recent-token-trend">
+            <div class="leaderboard-token-trend-header">
+              <span>{{ t('leaderboard.recentTokenTrend.title') }}</span>
+              <span class="leaderboard-token-trend-legend">{{ t('leaderboard.recentTokenTrend.unit') }}</span>
+            </div>
+            <div v-if="recentTokenTrendChartData" class="leaderboard-token-trend-chart">
+              <Line :data="recentTokenTrendChartData" :options="recentTokenTrendChartOptions" />
+            </div>
+            <div v-else class="leaderboard-token-trend-empty">
+              {{ t('leaderboard.recentTokenTrend.empty') }}
+            </div>
           </div>
         </div>
       </section>
@@ -144,7 +157,11 @@
                   </div>
 
                   <div class="leaderboard-token-bar-area">
-                    <div class="leaderboard-token-bar-track" :aria-label="`${getLeaderboardDisplayName(item)} ${formatNumber(item.tokens)} Token`">
+                    <div
+                      class="leaderboard-token-bar-track"
+                      :aria-label="leaderboardTokenMetricsLabel(item)"
+                      :title="leaderboardTokenMetricsLabel(item)"
+                    >
                       <div class="leaderboard-token-bar-fill"></div>
                       <span class="leaderboard-token-bar-value">{{ formatNumber(item.tokens) }}</span>
                     </div>
@@ -211,7 +228,7 @@
                 class="rounded-lg border border-gray-100 bg-gray-50 p-3 text-center dark:border-dark-700 dark:bg-dark-800"
               >
                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.dailyReward.rankReward', { rank: tier.rank }) }}</p>
-                <p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ formatCurrency(tier.amount) }}</p>
+                <p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ t('leaderboard.dailyReward.rewardAmountHidden') }}</p>
               </div>
             </div>
 
@@ -221,8 +238,17 @@
                 <span class="font-semibold text-gray-900 dark:text-white">{{ formatRewardRankLabel(dailyRewards.current_user_rank) }}</span>
               </div>
               <div class="mt-2 flex items-center justify-between gap-3">
-                <span class="text-gray-500 dark:text-gray-400">{{ t('leaderboard.dailyReward.rewardAmount') }}</span>
-                <span class="font-semibold text-gray-900 dark:text-white">{{ formatCurrency(dailyRewards.current_user_reward_amount) }}</span>
+                <span class="text-gray-500 dark:text-gray-400">{{ t('leaderboard.dailyReward.targetProgress') }}</span>
+                <span class="font-semibold text-gray-900 dark:text-white">{{ dailyRewardGoalProgressText }}</span>
+              </div>
+              <div
+                class="mt-3 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700"
+                :aria-label="`${t('leaderboard.dailyReward.targetProgress')} ${dailyRewardGoalProgressText}`"
+              >
+                <div
+                  class="h-full rounded-full bg-primary-600 transition-all duration-300 dark:bg-primary-400"
+                  :style="{ width: dailyRewardGoalProgressWidth }"
+                ></div>
               </div>
             </div>
 
@@ -247,11 +273,24 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Tooltip,
+  Filler,
+} from 'chart.js'
+import { Line } from 'vue-chartjs'
 import { usageAPI } from '@/api'
 import type { LeaderboardBadge, LeaderboardDailyRewards, LeaderboardPeriod, UserLeaderboardItem, UserLeaderboardResponse } from '@/api/usage'
+import type { UserLeaderboardTokenTrendPoint } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { formatCurrency, formatDateTime, formatNumber, formatTime } from '@/utils/format'
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
 const { t } = useI18n()
 
@@ -294,6 +333,7 @@ const periodOptions = computed(() => [
   { value: 'all' as const, label: t('leaderboard.period.all') },
 ])
 const currentPeriodLabel = computed(() => periodOptions.value.find((option) => option.value === period.value)?.label ?? '')
+const recentTokenTrendPoints = computed<UserLeaderboardTokenTrendPoint[]>(() => leaderboard.value?.recent_token_trend ?? [])
 
 const rankingItems = computed<UserLeaderboardItem[]>(() => {
   const visibleItems = (leaderboard.value?.ranking ?? []).slice(0, leaderboardLimit)
@@ -327,10 +367,122 @@ const displayedTotalTokens = computed(() => {
 })
 const rollingTokenAnimationKey = computed(() => `${period.value}-${tokenTickerSeed.value}-${leaderboard.value?.total_tokens ?? 0}`)
 
-const rewardTiers = computed(() => {
-  const tiers = new Map((dailyRewards.value?.rewards ?? []).map((tier) => [tier.rank, tier.amount]))
-  return [1, 2, 3].map((rank) => ({ rank, amount: tiers.get(rank) ?? 0 }))
+const recentTokenTrendChartColors = computed(() => {
+  const isDark = document.documentElement.classList.contains('dark')
+  return {
+    line: isDark ? '#60a5fa' : '#2563eb',
+    fill: isDark ? 'rgba(37, 99, 235, 0.24)' : 'rgba(37, 99, 235, 0.16)',
+    text: isDark ? '#dbeafe' : '#1e293b',
+    muted: isDark ? '#94a3b8' : '#64748b',
+    grid: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(100, 116, 139, 0.16)',
+    tooltipBg: isDark ? 'rgba(8, 13, 26, 0.96)' : 'rgba(255, 255, 255, 0.96)',
+    tooltipBorder: isDark ? 'rgba(96, 165, 250, 0.34)' : 'rgba(37, 99, 235, 0.18)',
+  }
 })
+
+const recentTokenTrendChartData = computed(() => {
+  const points = recentTokenTrendPoints.value
+  if (!points.length || !points.some((point) => point.total_tokens > 0)) return null
+
+  return {
+    labels: points.map((point) => formatTrendDateLabel(point.date)),
+    datasets: [
+      {
+        label: t('leaderboard.recentTokenTrend.tokens'),
+        data: points.map((point) => point.total_tokens),
+        borderColor: recentTokenTrendChartColors.value.line,
+        backgroundColor: recentTokenTrendChartColors.value.fill,
+        fill: true,
+        borderWidth: 2.2,
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        tension: 0.36,
+      },
+    ],
+  }
+})
+
+const recentTokenTrendChartOptions = computed(() => ({
+  responsive: true,
+  maintainAspectRatio: false,
+  interaction: {
+    intersect: false,
+    mode: 'index' as const,
+  },
+  plugins: {
+    legend: {
+      display: false,
+    },
+    tooltip: {
+      backgroundColor: recentTokenTrendChartColors.value.tooltipBg,
+      borderColor: recentTokenTrendChartColors.value.tooltipBorder,
+      borderWidth: 1,
+      titleColor: recentTokenTrendChartColors.value.text,
+      bodyColor: recentTokenTrendChartColors.value.text,
+      displayColors: false,
+      padding: 9,
+      callbacks: {
+        title: (items: any[]) => {
+          const index = items[0]?.dataIndex
+          return recentTokenTrendPoints.value[index]?.date ?? ''
+        },
+        label: (context: any) => `${t('leaderboard.recentTokenTrend.tokens')}: ${formatNumber(Number(context.raw ?? 0))}`,
+      },
+    },
+  },
+  scales: {
+    x: {
+      grid: {
+        color: recentTokenTrendChartColors.value.grid,
+      },
+      ticks: {
+        color: recentTokenTrendChartColors.value.muted,
+        maxRotation: 0,
+        font: {
+          size: 10,
+          weight: 600,
+        },
+      },
+    },
+    y: {
+      beginAtZero: true,
+      grid: {
+        color: recentTokenTrendChartColors.value.grid,
+      },
+      ticks: {
+        color: recentTokenTrendChartColors.value.muted,
+        font: {
+          size: 10,
+          weight: 600,
+        },
+        callback: (value: string | number) => formatCompactTokens(Number(value)),
+      },
+    },
+  },
+}))
+
+const rewardTiers = computed(() => {
+  return [1, 2, 3].map((rank) => ({ rank }))
+})
+
+const dailyRewardGoalProgressPercent = computed(() => {
+  const reward = dailyRewards.value
+  if (!reward) return 0
+
+  const target = Number(reward.min_total_actual_cost)
+  const current = Number(reward.yesterday_total_actual_cost)
+  if (!Number.isFinite(target) || target <= 0) {
+    return reward.threshold_met ? 100 : 0
+  }
+  if (reward.threshold_met) return 100
+  if (!Number.isFinite(current) || current <= 0) return 0
+
+  return Math.min(99, Math.max(0, Math.floor((current / target) * 100)))
+})
+const dailyRewardGoalProgressText = computed(() =>
+  t('leaderboard.dailyReward.progressPercent', { percent: dailyRewardGoalProgressPercent.value })
+)
+const dailyRewardGoalProgressWidth = computed(() => `${dailyRewardGoalProgressPercent.value}%`)
 
 const dailyRewardReasonText = computed(() => {
   const reason = dailyRewards.value?.reason
@@ -423,6 +575,21 @@ function formatRollingTokenNumber(value: number): string {
   return Math.max(0, Math.floor(value)).toLocaleString('en-US')
 }
 
+function formatTrendDateLabel(value: string): string {
+  const [, month = '', day = ''] = value.match(/^\d{4}-(\d{2})-(\d{2})/) ?? []
+  if (!month || !day) return value
+  return `${Number(month)}/${Number(day)}`
+}
+
+function formatCompactTokens(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  const abs = Math.abs(value)
+  if (abs >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(1)}B`
+  if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+  if (abs >= 1_000) return `${(value / 1_000).toFixed(1)}K`
+  return Math.round(value).toLocaleString('en-US')
+}
+
 function startVisualTokenTicker() {
   stopVisualTokenTicker()
   visualTokenTickerID = window.setInterval(() => {
@@ -480,6 +647,23 @@ function digitReelStyle(value: string, _index: number): Record<string, string> {
 
 function getLeaderboardDisplayName(item: UserLeaderboardItem): string {
   return item.display_name?.trim() || item.email_masked?.trim() || t('leaderboard.currentUser')
+}
+
+function formatLeaderboardCostPerMillion(item: UserLeaderboardItem): string {
+  const value = Number.isFinite(item.cost_per_1m_tokens) && item.cost_per_1m_tokens > 0
+    ? item.cost_per_1m_tokens
+    : item.tokens > 0
+      ? (item.actual_cost / item.tokens) * 1_000_000
+      : 0
+  return formatCurrency(value)
+}
+
+function leaderboardTokenMetricsLabel(item: UserLeaderboardItem): string {
+  return [
+    `${t('leaderboard.inputTokensShort')} ${formatNumber(item.input_tokens ?? 0)}`,
+    `${t('leaderboard.outputTokensShort')} ${formatNumber(item.output_tokens ?? 0)}`,
+    `${t('leaderboard.costPerMillionShort')} ${formatLeaderboardCostPerMillion(item)} / 1M Token`,
+  ].join(' / ')
 }
 
 function leaderboardAvatarUrl(item: UserLeaderboardItem): string {
@@ -618,15 +802,23 @@ onUnmounted(() => {
 
 <style scoped>
 .leaderboard-token-summary {
-  min-height: 9.6rem;
+  min-height: 10.8rem;
 }
 
 .leaderboard-token-summary-inner {
   display: grid;
-  min-height: 7.35rem;
-  align-content: center;
+  min-height: 8.6rem;
+  grid-template-columns: minmax(18rem, 0.92fr) minmax(20rem, 1.08fr);
+  align-items: center;
+  gap: 1.35rem;
+  text-align: left;
+}
+
+.leaderboard-token-summary-main {
+  display: grid;
+  min-width: 0;
+  gap: 0.28rem;
   justify-items: center;
-  gap: 0.72rem;
   text-align: center;
 }
 
@@ -645,6 +837,63 @@ onUnmounted(() => {
     radial-gradient(circle at 50% 8%, rgb(251 191 36 / 0.22), transparent 34%),
     linear-gradient(180deg, rgb(255 251 235 / 0.76), rgb(255 255 255 / 0.94));
   box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7);
+}
+
+.leaderboard-token-trend-panel {
+  display: grid;
+  min-width: 0;
+  gap: 0.52rem;
+  border-left: 1px solid rgb(148 163 184 / 0.22);
+  padding-left: 1.35rem;
+}
+
+.leaderboard-token-trend-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: rgb(71 85 105);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.leaderboard-token-trend-legend {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: rgb(37 99 235);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.leaderboard-token-trend-legend::before {
+  width: 0.55rem;
+  height: 0.55rem;
+  border: 1px solid currentColor;
+  border-radius: 9999px;
+  background: rgb(37 99 235 / 0.12);
+  content: "";
+}
+
+.leaderboard-token-trend-chart,
+.leaderboard-token-trend-empty {
+  height: 6.7rem;
+  min-width: 0;
+}
+
+.leaderboard-token-trend-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(148 163 184 / 0.16);
+  background:
+    linear-gradient(90deg, rgb(148 163 184 / 0.08) 1px, transparent 1px),
+    linear-gradient(rgb(148 163 184 / 0.08) 1px, transparent 1px);
+  background-size: 12.5% 100%, 100% 1.65rem;
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
 }
 
 .leaderboard-token-card::after {
@@ -995,6 +1244,31 @@ onUnmounted(() => {
   color: rgb(148 163 184);
 }
 
+:global(.dark .leaderboard-token-trend-panel) {
+  border-left-color: rgb(71 85 105 / 0.42);
+}
+
+:global(.dark .leaderboard-token-trend-header) {
+  color: rgb(203 213 225);
+}
+
+:global(.dark .leaderboard-token-trend-legend) {
+  color: rgb(96 165 250);
+}
+
+:global(.dark .leaderboard-token-trend-legend::before) {
+  background: rgb(96 165 250 / 0.16);
+}
+
+:global(.dark .leaderboard-token-trend-empty) {
+  border-color: rgb(71 85 105 / 0.34);
+  background:
+    linear-gradient(90deg, rgb(148 163 184 / 0.1) 1px, transparent 1px),
+    linear-gradient(rgb(148 163 184 / 0.1) 1px, transparent 1px);
+  background-size: 12.5% 100%, 100% 1.65rem;
+  color: rgb(148 163 184);
+}
+
 :global(.dark .leaderboard-token-odometer) {
   color: rgb(254 240 138);
 }
@@ -1109,7 +1383,35 @@ onUnmounted(() => {
   }
 
   .leaderboard-token-odometer {
+    justify-content: center;
     font-size: clamp(1.72rem, 10.6vw, 2.45rem);
+  }
+
+  .leaderboard-token-summary-inner {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    text-align: center;
+  }
+
+  .leaderboard-token-summary-main {
+    justify-items: center;
+  }
+
+  .leaderboard-token-summary-meta {
+    justify-items: center;
+  }
+
+  .leaderboard-token-trend-panel {
+    width: 100%;
+    border-left: 0;
+    border-top: 1px solid rgb(148 163 184 / 0.22);
+    padding-top: 1rem;
+    padding-left: 0;
+  }
+
+  .leaderboard-token-trend-chart,
+  .leaderboard-token-trend-empty {
+    height: 6.1rem;
   }
 }
 

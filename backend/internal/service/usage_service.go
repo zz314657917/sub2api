@@ -340,6 +340,23 @@ func (s *UsageService) GetUserLeaderboard(ctx context.Context, startTime, endTim
 	return leaderboard, nil
 }
 
+// GetLeaderboardRecentTokenTrend returns global daily token totals for the leaderboard summary.
+func (s *UsageService) GetLeaderboardRecentTokenTrend(ctx context.Context, startTime, endTime time.Time) ([]usagestats.UserLeaderboardTokenTrendPoint, error) {
+	trend, err := s.usageRepo.GetUsageTrendWithFilters(ctx, startTime, endTime, "day", 0, 0, 0, 0, "", nil, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("get leaderboard recent token trend: %w", err)
+	}
+
+	points := make([]usagestats.UserLeaderboardTokenTrendPoint, 0, len(trend))
+	for _, item := range trend {
+		points = append(points, usagestats.UserLeaderboardTokenTrendPoint{
+			Date:        item.Date,
+			TotalTokens: item.TotalTokens,
+		})
+	}
+	return points, nil
+}
+
 // GetUserLeaderboardBadgeLeaders returns special badge leader user IDs for the requested windows.
 func (s *UsageService) GetUserLeaderboardBadgeLeaders(ctx context.Context, weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd time.Time, userTZ string) (*usagestats.UserLeaderboardBadgeLeaders, error) {
 	repo, ok := s.usageRepo.(userLeaderboardBadgeLeaderRepository)

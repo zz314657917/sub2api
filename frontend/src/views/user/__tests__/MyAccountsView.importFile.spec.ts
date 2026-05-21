@@ -394,6 +394,50 @@ describe('MyAccountsView import file', () => {
     expect(wrapper.find('[data-testid="my-accounts-apikey-value"]').exists()).toBe(false)
   })
 
+  it('persists share display account count when editing an OpenAI API key account', async () => {
+    userAPI.listAccounts.mockResolvedValue({
+      items: [
+        makeAccount({
+          id: 8,
+          name: 'OpenAI API key',
+          type: 'apikey',
+          credentials: { base_url: 'https://api.openai.com' },
+          extra: {},
+        }),
+      ],
+      total: 1,
+      pages: 1,
+    })
+    userAPI.updateAccount.mockResolvedValue(makeAccount({
+      id: 8,
+      name: 'OpenAI API key',
+      type: 'apikey',
+      credentials: { base_url: 'https://api.openai.com' },
+      extra: {
+        share_display_tier: 'pro',
+        share_display_percent_only: true,
+        share_display_account_count: 3,
+      },
+    }))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('button').find(button => button.classes().includes('hover:text-primary-600'))?.trigger('click')
+    await wrapper.get('[data-testid="share-display-target-pool"]').setValue('pro')
+    await wrapper.get('[data-testid="share-display-account-count"]').setValue('3')
+    await wrapper.get('[data-testid="my-accounts-save"]').trigger('click')
+    await flushPromises()
+
+    expect(userAPI.updateAccount).toHaveBeenCalledWith(8, expect.objectContaining({
+      extra: expect.objectContaining({
+        share_display_tier: 'pro',
+        share_display_percent_only: true,
+        share_display_account_count: 3,
+      }),
+    }))
+  })
+
   it('blocks imported API key and upstream credentials before upload', async () => {
     const wrapper = mountView()
     await flushPromises()

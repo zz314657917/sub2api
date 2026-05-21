@@ -13,6 +13,14 @@ vi.mock('@/api', () => ({
   },
 }))
 
+vi.mock('vue-chartjs', () => ({
+  Line: {
+    name: 'Line',
+    props: ['data', 'options'],
+    template: '<div data-testid="leaderboard-recent-token-line">{{ data?.datasets?.[0]?.data?.join(\',\') }}</div>',
+  },
+}))
+
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
   const messages: Record<string, string> = {
@@ -35,6 +43,13 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.cost': '消费',
     'leaderboard.requests': '请求',
     'leaderboard.tokens': 'Token',
+    'leaderboard.inputTokensShort': '输入',
+    'leaderboard.outputTokensShort': '输出',
+    'leaderboard.costPerMillionShort': '费用',
+    'leaderboard.recentTokenTrend.title': '最近 10 天 Token',
+    'leaderboard.recentTokenTrend.unit': '每日消耗',
+    'leaderboard.recentTokenTrend.tokens': 'Token',
+    'leaderboard.recentTokenTrend.empty': '暂无趋势数据',
     'leaderboard.balance': '余额',
     'leaderboard.rank': '排名',
     'leaderboard.myInfo': '我的信息',
@@ -53,7 +68,10 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.settlementDate': '结算日期',
     'leaderboard.dailyReward.threshold': '昨日总消费门槛',
     'leaderboard.dailyReward.rewardAmount': '可领额度',
+    'leaderboard.dailyReward.rewardAmountHidden': '按名次发放',
+    'leaderboard.dailyReward.targetProgress': '奖励目标进度',
     'leaderboard.dailyReward.progress': '{current} / {target}',
+    'leaderboard.dailyReward.progressPercent': '{percent}%',
     'leaderboard.dailyReward.disabled': '奖励功能暂未开启',
     'leaderboard.dailyReward.settling': '昨日榜结算中，{time} 后可领取',
     'leaderboard.dailyReward.thresholdNotMet': '昨日总消费未超过最低开启门槛',
@@ -115,6 +133,18 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
       },
     ],
     current_user_entry: null,
+    recent_token_trend: [
+      { date: '2026-04-28', total_tokens: 120 },
+      { date: '2026-04-29', total_tokens: 0 },
+      { date: '2026-04-30', total_tokens: 340 },
+      { date: '2026-05-01', total_tokens: 180 },
+      { date: '2026-05-02', total_tokens: 260 },
+      { date: '2026-05-03', total_tokens: 420 },
+      { date: '2026-05-04', total_tokens: 390 },
+      { date: '2026-05-05', total_tokens: 510 },
+      { date: '2026-05-06', total_tokens: 470 },
+      { date: '2026-05-07', total_tokens: 640 },
+    ],
     daily_rewards: {
       reward_date: '2026-05-06',
       settlement_timezone: 'Asia/Shanghai',
@@ -318,7 +348,10 @@ describe('LeaderboardView', () => {
             avatar_url: null,
             actual_cost: 10,
             requests: 10,
+            input_tokens: 700,
+            output_tokens: 200,
             tokens: 1000,
+            cost_per_1m_tokens: 10000,
             balance: 1,
             is_current_user: false,
           },
@@ -380,7 +413,10 @@ describe('LeaderboardView', () => {
             avatar_url: null,
             actual_cost: 10,
             requests: 10,
+            input_tokens: 700,
+            output_tokens: 200,
             tokens: 1000,
+            cost_per_1m_tokens: 10000,
             balance: 1,
             is_current_user: false,
           },
@@ -392,7 +428,10 @@ describe('LeaderboardView', () => {
             avatar_url: null,
             actual_cost: 1,
             requests: 10,
+            input_tokens: 1500,
+            output_tokens: 300,
             tokens: 2000,
+            cost_per_1m_tokens: 500,
             balance: 2,
             is_current_user: false,
           },
@@ -419,6 +458,11 @@ describe('LeaderboardView', () => {
     expect(ranking.text()).toContain('Efficient')
     expect(ranking.text()).toContain('2,000')
     expect(ranking.findAll('.leaderboard-token-bar-fill')).toHaveLength(2)
+    const tokenBars = ranking.findAll('.leaderboard-token-bar-track')
+    expect(tokenBars[0].attributes('title')).toBe('输入 700 / 输出 200 / 费用 $10,000.00 / 1M Token')
+    expect(tokenBars[0].attributes('aria-label')).toBe('输入 700 / 输出 200 / 费用 $10,000.00 / 1M Token')
+    expect(tokenBars[1].attributes('title')).toBe('输入 1,500 / 输出 300 / 费用 $500.00 / 1M Token')
+    expect(tokenBars[1].attributes('aria-label')).toBe('输入 1,500 / 输出 300 / 费用 $500.00 / 1M Token')
     expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-bar-width: 84%')
     expect(wrapper.find('[data-testid="leaderboard-cost-efficiency-summary"]').exists()).toBe(false)
   })
@@ -447,6 +491,25 @@ describe('LeaderboardView', () => {
 
     expect(odometer.attributes('aria-label')).toBe('1,237')
     expect(wrapper.get('[data-testid="leaderboard-token-ranking"]').text()).not.toContain('1,200 Token')
+  })
+
+  it('renders recent daily token trend next to the total token summary', async () => {
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const trendPanel = wrapper.get('[data-testid="leaderboard-recent-token-trend"]')
+    expect(trendPanel.text()).toContain('最近 10 天 Token')
+    expect(trendPanel.text()).toContain('每日消耗')
+    expect(wrapper.get('[data-testid="leaderboard-recent-token-line"]').text()).toBe('120,0,340,180,260,420,390,510,470,640')
   })
 
   it('shows lightweight rank titles without restoring old row badges', async () => {
@@ -639,7 +702,10 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).not.toContain('昨日总消费门槛')
     expect(wrapper.text()).not.toContain('$80.00 / $100.00')
     expect(wrapper.text()).toContain('第 1 名奖励')
-    expect(wrapper.text()).toContain('$5.00')
+    expect(wrapper.text()).toContain('按名次发放')
+    expect(wrapper.text()).toContain('奖励目标进度')
+    expect(wrapper.text()).toContain('80%')
+    expect(wrapper.text()).not.toContain('$5.00')
   })
 
   it('shows settling state before daily rewards can be claimed', async () => {

@@ -52,6 +52,7 @@ vi.mock('vue-i18n', async () => {
 })
 
 import EditAccountModal from '../EditAccountModal.vue'
+import ShareDisplayCard from '../ShareDisplayCard.vue'
 
 const BaseDialogStub = defineComponent({
   name: 'BaseDialog',
@@ -156,7 +157,12 @@ function mountModal(account = buildAccount()) {
         Icon: true,
         ProxySelector: true,
         GroupSelector: true,
-        ModelWhitelistSelector: ModelWhitelistSelectorStub
+        ModelWhitelistSelector: ModelWhitelistSelectorStub,
+        Input: {
+          props: ['modelValue', 'label', 'placeholder', 'dataTestid'],
+          emits: ['update:modelValue'],
+          template: '<input v-bind="$attrs" :data-testid="dataTestid" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />'
+        }
       }
     }
   })
@@ -236,5 +242,41 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.codex_image_generation_bridge).toBe(true)
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_image_generation_bridge_enabled')
+  })
+
+  it('moves a shared OpenAI OAuth account to the selected capacity pool', async () => {
+    const account = {
+      ...buildAccount(),
+      id: 9,
+      name: 'openai oauth Account',
+      type: 'oauth',
+      owner_user_id: 10,
+      share_mode: 'public',
+      share_status: 'active',
+      credentials: {
+        access_token: 'token',
+        refresh_token: 'refresh'
+      },
+      extra: {}
+    } as any
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    expect(wrapper.getComponent(ShareDisplayCard).exists()).toBe(true)
+
+    await wrapper.get('[data-testid="share-display-target-pool"]').setValue('plus')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock).toHaveBeenCalledWith(9, expect.objectContaining({
+      extra: expect.objectContaining({
+        share_display_tier: 'plus',
+        share_display_percent_only: true,
+        share_display_account_count: 1
+      })
+    }))
   })
 })

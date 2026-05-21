@@ -386,6 +386,29 @@ func dashboardLeaderboardMonthWindow(userTZ string, now time.Time) (time.Time, t
 	return start, start.AddDate(0, 1, 0)
 }
 
+func dashboardLeaderboardRecentTrendWindow(userTZ string, now time.Time) (time.Time, time.Time) {
+	loc := userLocation(userTZ)
+	todayStart := startOfDayInLocation(now, loc)
+	return todayStart.AddDate(0, 0, -9), todayStart.AddDate(0, 0, 1)
+}
+
+func fillLeaderboardRecentTokenTrend(points []usagestats.UserLeaderboardTokenTrendPoint, startTime, endTime time.Time) []usagestats.UserLeaderboardTokenTrendPoint {
+	byDate := make(map[string]int64, len(points))
+	for _, point := range points {
+		byDate[point.Date] = point.TotalTokens
+	}
+
+	result := make([]usagestats.UserLeaderboardTokenTrendPoint, 0, 10)
+	for cursor := startOfDayInLocation(startTime, startTime.Location()); cursor.Before(endTime); cursor = cursor.AddDate(0, 0, 1) {
+		date := cursor.Format("2006-01-02")
+		result = append(result, usagestats.UserLeaderboardTokenTrendPoint{
+			Date:        date,
+			TotalTokens: byDate[date],
+		})
+	}
+	return result
+}
+
 func applyUserLeaderboardBadges(payload *usagestats.UserLeaderboardResponse, leaders *usagestats.UserLeaderboardBadgeLeaders) {
 	if payload == nil || leaders == nil {
 		return
@@ -619,10 +642,18 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 	if leaderboard == nil {
 		leaderboard = &usagestats.UserLeaderboardResponse{}
 	}
+	recentTrendStart, recentTrendEnd := dashboardLeaderboardRecentTrendWindow(userTZ, now)
+	recentTrend, err := h.usageService.GetLeaderboardRecentTokenTrend(c.Request.Context(), recentTrendStart, recentTrendEnd)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	recentTrend = fillLeaderboardRecentTokenTrend(recentTrend, recentTrendStart, recentTrendEnd)
 	leaderboard.Period = period
 	leaderboard.StartDate = startDate
 	leaderboard.EndDate = endDate
 	leaderboard.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
+	leaderboard.RecentTokenTrend = recentTrend
 	if leaderboard.Ranking == nil {
 		leaderboard.Ranking = []usagestats.UserLeaderboardItem{}
 	}

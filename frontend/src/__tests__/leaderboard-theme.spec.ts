@@ -16,6 +16,10 @@ describe('leaderboard visual identity', () => {
   it('uses a lightweight rolling odometer for total token volume', () => {
     expect(leaderboardView).toContain('leaderboard-token-odometer')
     expect(leaderboardView).toContain('leaderboard-token-summary-inner')
+    expect(leaderboardView).toContain('leaderboard-token-summary-main')
+    expect(leaderboardView).toContain('data-testid="leaderboard-recent-token-trend"')
+    expect(leaderboardView).toContain('recentTokenTrendChartData')
+    expect(leaderboardView).toContain('leaderboard.recentTokenTrend.title')
     expect(leaderboardView).toContain('rollingTokenParts')
     expect(leaderboardView).toContain('function digitReelStyle(value: string')
     expect(leaderboardView).toContain('transform: translateY(var(--target-offset))')
@@ -32,6 +36,12 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).toContain('data-testid="leaderboard-rank-title"')
     expect(leaderboardView).toContain('function visibleLeaderboardTitleBadges')
     expect(leaderboardView).toContain('leaderboard.tokenRankingTitle')
+    expect(leaderboardView).toContain(':title="leaderboardTokenMetricsLabel(item)"')
+    expect(leaderboardView).toContain(':aria-label="leaderboardTokenMetricsLabel(item)"')
+    expect(leaderboardView).toContain('leaderboard.inputTokensShort')
+    expect(leaderboardView).toContain('leaderboard.outputTokensShort')
+    expect(leaderboardView).toContain('leaderboard.costPerMillionShort')
+    expect(leaderboardView).toContain('function formatLeaderboardCostPerMillion(item: UserLeaderboardItem): string')
     expect(leaderboardView).not.toContain('data-testid="leaderboard-cost-efficiency-summary"')
   })
 

@@ -479,11 +479,11 @@ func TestUsageLogRepositoryGetUserLeaderboardRanksCurrentUserInTop(t *testing.T)
 	end := start.Add(7 * 24 * time.Hour)
 
 	rows := sqlmock.NewRows([]string{
-		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "tokens",
+		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "input_tokens", "output_tokens", "tokens", "cost_per_1m_tokens",
 		"total_actual_cost", "total_requests", "total_tokens",
 	}).
-		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 8.0, int64(9), int64(900), 40.0, int64(30), int64(2600)).
-		AddRow(int64(2), int64(1), "", "alpha@example.com", "https://cdn.example.com/a.png", 2.5, 12.5, int64(8), int64(800), 40.0, int64(30), int64(2600))
+		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 8.0, int64(9), int64(500), int64(350), int64(900), 8888.888888, 40.0, int64(30), int64(2600)).
+		AddRow(int64(2), int64(1), "", "alpha@example.com", "https://cdn.example.com/a.png", 2.5, 12.5, int64(8), int64(600), int64(150), int64(800), 15625.0, 40.0, int64(30), int64(2600))
 
 	mock.ExpectQuery("ROW_NUMBER\\(\\) OVER \\(ORDER BY tokens DESC, actual_cost DESC, user_id ASC\\)").
 		WithArgs(start, end, 2, int64(1)).
@@ -497,6 +497,9 @@ func TestUsageLogRepositoryGetUserLeaderboardRanksCurrentUserInTop(t *testing.T)
 	require.Equal(t, int64(2), got.Ranking[1].Rank)
 	require.True(t, got.Ranking[1].IsCurrentUser)
 	require.Equal(t, 2.5, got.Ranking[1].Balance)
+	require.Equal(t, int64(600), got.Ranking[1].InputTokens)
+	require.Equal(t, int64(150), got.Ranking[1].OutputTokens)
+	require.Equal(t, 15625.0, got.Ranking[1].CostPer1M)
 	require.NotNil(t, got.CurrentUserEntry)
 	require.Equal(t, got.Ranking[1], *got.CurrentUserEntry)
 	require.Equal(t, 40.0, got.TotalActualCost)
@@ -513,11 +516,11 @@ func TestUsageLogRepositoryGetUserLeaderboardKeepsCurrentUserEntryOutsideLimit(t
 	end := start.Add(7 * 24 * time.Hour)
 
 	rows := sqlmock.NewRows([]string{
-		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "tokens",
+		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "input_tokens", "output_tokens", "tokens", "cost_per_1m_tokens",
 		"total_actual_cost", "total_requests", "total_tokens",
 	}).
-		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 20.0, int64(9), int64(900), 30.0, int64(12), int64(1200)).
-		AddRow(int64(4), int64(9), "", "outside@example.com", nil, 0.75, 1.0, int64(1), int64(50), 30.0, int64(12), int64(1200))
+		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 20.0, int64(9), int64(450), int64(400), int64(900), 22222.222222, 30.0, int64(12), int64(1200)).
+		AddRow(int64(4), int64(9), "", "outside@example.com", nil, 0.75, 1.0, int64(1), int64(30), int64(15), int64(50), 20000.0, 30.0, int64(12), int64(1200))
 
 	mock.ExpectQuery("ROW_NUMBER\\(\\) OVER \\(ORDER BY tokens DESC, actual_cost DESC, user_id ASC\\)").
 		WithArgs(start, end, 1, int64(9)).
@@ -530,6 +533,9 @@ func TestUsageLogRepositoryGetUserLeaderboardKeepsCurrentUserEntryOutsideLimit(t
 	require.NotNil(t, got.CurrentUserEntry)
 	require.Equal(t, int64(4), got.CurrentUserEntry.Rank)
 	require.Equal(t, int64(9), got.CurrentUserEntry.UserID)
+	require.Equal(t, int64(30), got.CurrentUserEntry.InputTokens)
+	require.Equal(t, int64(15), got.CurrentUserEntry.OutputTokens)
+	require.Equal(t, 20000.0, got.CurrentUserEntry.CostPer1M)
 	require.True(t, got.CurrentUserEntry.IsCurrentUser)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
