@@ -172,7 +172,7 @@
       <p class="text-violet-100/70">
         {{ t('auth.dontHaveAccount') }}
         <router-link
-          to="/register"
+          :to="registerLinkTarget"
           class="font-black text-[#ffd85d] transition-colors hover:text-[#ffec86]"
         >
           {{ t('auth.signUp') }}
@@ -194,7 +194,7 @@
 
 <script setup lang="ts">
 import { computed, ref, reactive, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import LinuxDoOAuthSection from '@/components/auth/LinuxDoOAuthSection.vue'
@@ -218,6 +218,7 @@ const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
 // ==================== Router & Stores ====================
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const appStore = useAppStore()
 
@@ -289,6 +290,18 @@ const showOAuthLogin = computed(
       githubOAuthEnabled.value ||
       googleOAuthEnabled.value)
 )
+
+const redirectPath = computed(() => sanitizeInternalRedirect(route.query.redirect))
+
+const registerLinkTarget = computed(() => {
+  if (!redirectPath.value) {
+    return '/register'
+  }
+  return {
+    path: '/register',
+    query: { redirect: redirectPath.value }
+  }
+})
 
 watch(validationToastMessage, (value, previousValue) => {
   if (value && value !== previousValue) {
@@ -395,6 +408,18 @@ function rejectLoginAgreement(): void {
   appStore.showWarning('未同意最新条款前，无法输入账号密码或使用快捷登录。')
 }
 
+function sanitizeInternalRedirect(value: unknown): string {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (typeof raw !== 'string') {
+    return ''
+  }
+  const trimmed = raw.trim()
+  if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//')) {
+    return ''
+  }
+  return trimmed
+}
+
 // ==================== Turnstile Handlers ====================
 
 function onTurnstileVerify(token: string): void {
@@ -493,7 +518,7 @@ async function handleLogin(): Promise<void> {
     appStore.showSuccess(t('auth.loginSuccess'))
 
     // Redirect to dashboard or intended route
-    const redirectTo = (router.currentRoute.value.query.redirect as string) || '/dashboard'
+    const redirectTo = redirectPath.value || '/dashboard'
     await router.push(redirectTo)
   } catch (error: unknown) {
     // Reset Turnstile on error
@@ -527,7 +552,7 @@ async function handle2FAVerify(code: string): Promise<void> {
     appStore.showSuccess(t('auth.loginSuccess'))
 
     // Redirect to dashboard or intended route
-    const redirectTo = (router.currentRoute.value.query.redirect as string) || '/dashboard'
+    const redirectTo = redirectPath.value || '/dashboard'
     await router.push(redirectTo)
   } catch (error: unknown) {
     const err = error as { message?: string; response?: { data?: { message?: string } } }

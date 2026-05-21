@@ -30,7 +30,7 @@
             <Icon name="key" size="xl" class="mb-4 text-gray-400" />
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('openWebUI.noKeysTitle') }}</h2>
             <p class="mt-2 max-w-md text-sm text-gray-500 dark:text-dark-300">{{ t('openWebUI.noKeysHint') }}</p>
-            <RouterLink to="/keys" class="btn btn-primary mt-5">
+            <RouterLink :to="createKeyTarget" class="btn btn-primary mt-5">
               <Icon name="plus" size="md" class="mr-2" />
               {{ t('openWebUI.createKey') }}
             </RouterLink>
@@ -99,7 +99,7 @@
                 type="button"
                 class="btn btn-primary mt-6 w-full justify-center"
                 :disabled="!selectedKeyId || launching"
-                @click="handleLaunch"
+                @click="handleLaunch('popup')"
               >
                 <Icon name="externalLink" size="md" class="mr-2" />
                 {{ launching ? t('openWebUI.opening') : t('openWebUI.launch') }}
@@ -114,7 +114,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -125,12 +125,26 @@ import type { ApiKey } from '@/types'
 import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
+const route = useRoute()
 const appStore = useAppStore()
 
 const loadingKeys = ref(false)
 const launching = ref(false)
 const selectedKeyId = ref<number | null>(null)
 const apiKeys = ref<ApiKey[]>([])
+const autoLaunchAttempted = ref(false)
+
+const autoLaunchEnabled = computed(() => route.query.auto_launch === '1' || route.query.auto_launch === 'true')
+
+const createKeyTarget = computed(() => {
+  if (!autoLaunchEnabled.value) {
+    return '/keys'
+  }
+  return {
+    path: '/keys',
+    query: { redirect: '/open-webui/launch?auto_launch=1' },
+  }
+})
 
 const usableKeys = computed(() =>
   apiKeys.value.filter((key) => key.status === 'active' && Boolean(key.key) && key.group_id !== null && Boolean(key.group))
@@ -157,6 +171,10 @@ async function loadApiKeys() {
     if (!selectedKeyId.value || !usableKeys.value.some((key) => key.id === selectedKeyId.value)) {
       selectedKeyId.value = preferredKeyId()
     }
+    if (autoLaunchEnabled.value && selectedKeyId.value && !autoLaunchAttempted.value) {
+      autoLaunchAttempted.value = true
+      await handleLaunch('redirect')
+    }
   } catch (error) {
     console.error('Failed to load image workspace API keys:', error)
     appStore.showError(t('openWebUI.loadKeysFailed'))
@@ -170,21 +188,28 @@ function preferredKeyId(): number | null {
   return imageReady?.id ?? usableKeys.value[0]?.id ?? null
 }
 
-async function handleLaunch() {
+async function handleLaunch(mode: 'popup' | 'redirect' = 'popup') {
   if (!selectedKeyId.value || launching.value) return
-  const popup = window.open('about:blank', '_blank')
-  if (!popup) {
-    appStore.showError(t('openWebUI.popupBlocked'))
-    return
+  let popup: Window | null = null
+  if (mode === 'popup') {
+    popup = window.open('about:blank', '_blank')
+    if (!popup) {
+      appStore.showError(t('openWebUI.popupBlocked'))
+      return
+    }
+    popup.opener = null
   }
-  popup.opener = null
   launching.value = true
   try {
     const result = await openWebUIAPI.launch(selectedKeyId.value)
-    popup.location.replace(result.launch_url)
+    if (mode === 'redirect') {
+      window.location.href = result.launch_url
+      return
+    }
+    popup?.location.replace(result.launch_url)
   } catch (error) {
     console.error('Failed to launch image workspace:', error)
-    popup.close()
+    popup?.close()
     appStore.showError(t('openWebUI.launchFailed'))
   } finally {
     launching.value = false

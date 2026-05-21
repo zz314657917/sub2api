@@ -63,7 +63,8 @@ interface MockAuthState {
 function simulateGuard(
   toPath: string,
   toMeta: Record<string, any>,
-  authState: MockAuthState
+  authState: MockAuthState,
+  query: Record<string, unknown> = {}
 ): string | null {
   const requiresAuth = toMeta.requiresAuth !== false
   const requiresAdmin = toMeta.requiresAdmin === true
@@ -80,6 +81,10 @@ function simulateGuard(
     ) {
       if (authState.backendModeEnabled && !authState.isAdmin) {
         return null
+      }
+      const redirectTo = sanitizeInternalRedirectPath(query.redirect)
+      if (redirectTo) {
+        return redirectTo
       }
       return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
     }
@@ -154,6 +159,18 @@ function simulateGuard(
   return null // 允许通过
 }
 
+function sanitizeInternalRedirectPath(value: unknown): string {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (typeof raw !== 'string') {
+    return ''
+  }
+  const trimmed = raw.trim()
+  if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//')) {
+    return ''
+  }
+  return trimmed
+}
+
 describe('路由守卫逻辑', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -209,6 +226,20 @@ describe('路由守卫逻辑', () => {
 
     it('访问 /register 重定向到 /dashboard', () => {
       const redirect = simulateGuard('/register', { requiresAuth: false }, authState)
+      expect(redirect).toBe('/dashboard')
+    })
+
+    it('访问带 redirect 的 /login 重定向到目标页面', () => {
+      const redirect = simulateGuard('/login', { requiresAuth: false }, authState, {
+        redirect: '/open-webui/launch'
+      })
+      expect(redirect).toBe('/open-webui/launch')
+    })
+
+    it('忽略外部 redirect 并回到默认页面', () => {
+      const redirect = simulateGuard('/login', { requiresAuth: false }, authState, {
+        redirect: '//evil.example'
+      })
       expect(redirect).toBe('/dashboard')
     })
 

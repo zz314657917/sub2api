@@ -147,7 +147,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { AuthLayout } from '@/components/layout'
 import Icon from '@/components/icons/Icon.vue'
@@ -178,6 +178,7 @@ const { t, locale } = useI18n()
 // ==================== Router & Stores ====================
 
 const router = useRouter()
+const route = useRoute()
 const authStore = useAuthStore()
 const appStore = useAppStore()
 
@@ -245,6 +246,8 @@ const validationToastMessage = computed(
   () => errors.value.code || errors.value.turnstile || ''
 )
 
+const redirectPath = computed(() => sanitizeInternalRedirect(route.query.redirect))
+
 watch(validationToastMessage, (value, previousValue) => {
   if (value && value !== previousValue) {
     appStore.showError(value)
@@ -271,6 +274,9 @@ onMounted(async () => {
       pendingAuthTokenField.value = registerData.pending_auth_token_field || activePendingSession?.token_field || 'pending_auth_token'
       pendingProvider.value = registerData.pending_provider || activePendingSession?.provider || ''
       pendingRedirect.value = registerData.pending_redirect || activePendingSession?.redirect || ''
+      if (!pendingRedirect.value) {
+        pendingRedirect.value = redirectPath.value
+      }
       pendingAdoptionDecision.value = registerData.pending_adoption_decision
         ? {
             adoptDisplayName: registerData.pending_adoption_decision.adopt_display_name === true,
@@ -286,6 +292,9 @@ onMounted(async () => {
     pendingAuthTokenField.value = activePendingSession.token_field
     pendingProvider.value = activePendingSession.provider
     pendingRedirect.value = activePendingSession.redirect || ''
+    if (!pendingRedirect.value) {
+      pendingRedirect.value = redirectPath.value
+    }
   }
 
   // Load public settings
@@ -333,6 +342,18 @@ function startCountdown(seconds: number): void {
       }
     }
   }, 1000)
+}
+
+function sanitizeInternalRedirect(value: unknown): string {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (typeof raw !== 'string') {
+    return ''
+  }
+  const trimmed = raw.trim()
+  if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//')) {
+    return ''
+  }
+  return trimmed
 }
 
 // ==================== Turnstile Handlers ====================
@@ -545,7 +566,7 @@ async function handleVerify(): Promise<void> {
     appStore.showSuccess(t('auth.accountCreatedSuccess', { siteName: siteName.value }))
 
     // Redirect to dashboard
-    await router.push(pendingRedirect.value || '/dashboard')
+    await router.push(sanitizeInternalRedirect(pendingRedirect.value) || '/dashboard')
   } catch (error: unknown) {
     errorMessage.value = buildAuthErrorMessage(error, {
       fallback: t('auth.verifyFailed')
@@ -562,7 +583,11 @@ function handleBack(): void {
   sessionStorage.removeItem('register_data')
 
   // Go back to registration
-  router.push('/register')
+  router.push(
+    sanitizeInternalRedirect(pendingRedirect.value)
+      ? { path: '/register', query: { redirect: sanitizeInternalRedirect(pendingRedirect.value) } }
+      : '/register'
+  )
 }
 
 function buildEmailSuffixNotAllowedMessage(): string {

@@ -5,6 +5,9 @@ import OpenWebUILaunchView from '../OpenWebUILaunchView.vue'
 const keysList = vi.hoisted(() => vi.fn())
 const launch = vi.hoisted(() => vi.fn())
 const showError = vi.hoisted(() => vi.fn())
+const routeState = vi.hoisted(() => ({
+  query: {} as Record<string, unknown>,
+}))
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
@@ -31,12 +34,19 @@ vi.mock('@/stores', () => ({
   }),
 }))
 
+vi.mock('vue-router', () => ({
+  RouterLink: {
+    props: ['to'],
+    template: '<a :data-to="typeof to === `string` ? to : JSON.stringify(to)"><slot /></a>',
+  },
+  useRoute: () => routeState,
+}))
+
 function mountView() {
   return mount(OpenWebUILaunchView, {
     global: {
       stubs: {
         AppLayout: { template: '<div><slot /></div>' },
-        RouterLink: { template: '<a><slot /></a>' },
         Select: {
           props: ['modelValue', 'options', 'placeholder', 'disabled', 'searchable'],
           emits: ['update:modelValue'],
@@ -60,6 +70,7 @@ function mountView() {
 
 describe('OpenWebUILaunchView', () => {
   beforeEach(() => {
+    routeState.query = {}
     keysList.mockReset().mockResolvedValue({
       items: [
         {
@@ -124,5 +135,43 @@ describe('OpenWebUILaunchView', () => {
 
     expect(launch).not.toHaveBeenCalled()
     expect(showError).toHaveBeenCalledWith('openWebUI.popupBlocked')
+  })
+
+  it('auto-launches in the current tab when auto_launch is requested', async () => {
+    routeState.query = { auto_launch: '1' }
+    const originalLocation = window.location
+    const locationState = { href: 'http://localhost/open-webui/launch?auto_launch=1' }
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: locationState,
+    })
+
+    mountView()
+    await flushPromises()
+    await flushPromises()
+
+    expect(launch).toHaveBeenCalledWith(1)
+    expect(locationState.href).toBe('https://chat.example.com/auth/sub2api/callback?launch_token=one-time')
+
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: originalLocation,
+    })
+  })
+
+  it('keeps the launch intent when the user needs to create a key first', async () => {
+    routeState.query = { auto_launch: '1' }
+    keysList.mockResolvedValue({ items: [] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(launch).not.toHaveBeenCalled()
+    expect(wrapper.find('a.btn-primary').attributes('data-to')).toBe(
+      JSON.stringify({
+        path: '/keys',
+        query: { redirect: '/open-webui/launch?auto_launch=1' },
+      })
+    )
   })
 })

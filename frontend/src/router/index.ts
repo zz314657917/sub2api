@@ -280,7 +280,11 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/open-webui/launch',
-    redirect: '/chat-images'
+    redirect: (to) => ({
+      path: '/chat-images',
+      query: to.query,
+      hash: to.hash,
+    })
   },
   {
     path: '/chat',
@@ -802,6 +806,18 @@ const BACKEND_MODE_CALLBACK_PATHS = [
 ]
 const BACKEND_MODE_PENDING_AUTH_PATHS = ['/register', '/email-verify']
 
+function sanitizeInternalRedirectPath(value: unknown): string {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (typeof raw !== 'string') {
+    return ''
+  }
+  const trimmed = raw.trim()
+  if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//')) {
+    return ''
+  }
+  return trimmed
+}
+
 function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: boolean): boolean {
   if (BACKEND_MODE_ALLOWED_PATHS.some((allowedPath) => path === allowedPath || path.startsWith(allowedPath))) {
     return true
@@ -873,6 +889,11 @@ router.beforeEach(async (to, _from, next) => {
       // (they are blocked from all protected routes, so redirecting would cause a loop)
       if (appStore.backendModeEnabled && !authStore.isAdmin) {
         next()
+        return
+      }
+      const redirectTo = sanitizeInternalRedirectPath(to.query.redirect)
+      if (redirectTo) {
+        next(redirectTo)
         return
       }
       // Admin users go to admin dashboard, regular users go to user dashboard

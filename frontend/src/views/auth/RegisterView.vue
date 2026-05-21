@@ -287,7 +287,7 @@
       <p class="text-gray-500 dark:text-dark-400">
         {{ t('auth.alreadyHaveAccount') }}
         <router-link
-          to="/login"
+          :to="loginLinkTarget"
           class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
         >
           {{ t('auth.signIn') }}
@@ -433,6 +433,18 @@ const registrationActionDisabled = computed(
   () => isLoading.value || !settingsLoaded.value || agreementGateActive.value
 )
 
+const redirectPath = computed(() => sanitizeInternalRedirect(route.query.redirect))
+
+const loginLinkTarget = computed(() => {
+  if (!redirectPath.value) {
+    return '/login'
+  }
+  return {
+    path: '/login',
+    query: { redirect: redirectPath.value }
+  }
+})
+
 watch(validationToastMessage, (value, previousValue) => {
   if (value && value !== previousValue) {
     appStore.showError(value)
@@ -570,6 +582,18 @@ function rejectLoginAgreement(): void {
   agreementAccepted.value = false
   showAgreementModal.value = false
   appStore.showWarning('未同意最新条款前，无法注册或使用快捷登录。')
+}
+
+function sanitizeInternalRedirect(value: unknown): string {
+  const raw = Array.isArray(value) ? value[0] : value
+  if (typeof raw !== 'string') {
+    return ''
+  }
+  const trimmed = raw.trim()
+  if (!trimmed || !trimmed.startsWith('/') || trimmed.startsWith('//')) {
+    return ''
+  }
+  return trimmed
 }
 
 // ==================== Promo Code Validation ====================
@@ -871,12 +895,17 @@ async function handleRegister(): Promise<void> {
           turnstile_token: turnstileToken.value,
           promo_code: formData.promo_code || undefined,
           invitation_code: formData.invitation_code || undefined,
+          pending_redirect: redirectPath.value || undefined,
           ...(affCode ? { aff_code: affCode } : {})
         })
       )
 
       // Navigate to email verification page
-      await router.push('/email-verify')
+      await router.push(
+        redirectPath.value
+          ? { path: '/email-verify', query: { redirect: redirectPath.value } }
+          : '/email-verify'
+      )
       return
     }
 
@@ -894,8 +923,8 @@ async function handleRegister(): Promise<void> {
     // Show success toast
     appStore.showSuccess(t('auth.accountCreatedSuccess', { siteName: siteName.value }))
 
-    // Redirect to dashboard
-    await router.push('/dashboard')
+    // Redirect to dashboard or intended route
+    await router.push(redirectPath.value || '/dashboard')
   } catch (error: unknown) {
     // Reset Turnstile on error
     if (turnstileRef.value) {
