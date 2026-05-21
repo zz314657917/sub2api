@@ -335,6 +335,16 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		if count := a.GetShareDisplayAccountCount(); count > 1 {
 			out.ShareDisplayAccountCount = &count
 		}
+		if limit := a.GetShareDisplay5hLimit(); limit > 0 {
+			out.ShareDisplay5hLimit = &limit
+			used := a.GetShareDisplay5hUsed()
+			out.ShareDisplay5hUsed = &used
+		}
+		if limit := a.GetShareDisplay7dLimit(); limit > 0 {
+			out.ShareDisplay7dLimit = &limit
+			used := a.GetShareDisplay7dUsed()
+			out.ShareDisplay7dUsed = &used
+		}
 		// 固定时间重置配置
 		if mode := a.GetQuotaDailyResetMode(); mode == "fixed" {
 			out.QuotaDailyResetMode = &mode

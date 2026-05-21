@@ -3710,7 +3710,17 @@ export default {
         accountCount: 'Count As Accounts',
         accountCountHint: 'Counts this account as this many accounts in the target pool display.',
         percentOnly: 'Show remaining percentages only',
-        percentOnlyHint: 'Hide absolute quota numbers and show remaining window percentages in the capacity pool.'
+        percentOnlyHint: 'Hide absolute quota numbers and show remaining window percentages in the capacity pool.',
+        display5hLimit: 'Display 5h Limit',
+        display5hUsed: 'Display 5h Used',
+        display7dLimit: 'Display 7d Limit',
+        display7dUsed: 'Display 7d Used',
+        windowLimitPlaceholder: 'e.g. 500',
+        windowUsedPlaceholder: 'e.g. 95.17',
+        display5hLimitHint: 'When set, this is preferred for the OpenAI Pro/Plus 5h window display.',
+        display5hUsedHint: 'Use the recent 5-hour usage; empty is treated as 0.',
+        display7dLimitHint: 'When set, this is preferred for the OpenAI Pro/Plus 7d window display.',
+        display7dUsedHint: 'Use the recent 7-day usage; empty is treated as 0.'
       },
       quotaResetMode: 'Reset Mode',
       quotaResetModeRolling: 'Rolling Window',

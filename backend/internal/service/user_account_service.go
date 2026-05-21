@@ -835,12 +835,18 @@ func accountCapacityDisplayWindowSnapshots(account *Account) accountCapacityDisp
 	windows.monthQuota, windows.hasMonth = accountCapacityWindowSnapshot(account, "quota_monthly")
 
 	if accountUsesShareDisplayWindowMask(account) {
-		if !windows.has5h && windows.hasDaily {
+		if display5h, ok := accountShareDisplayUsageWindowSnapshot(account, "5h", int((5 * time.Hour).Minutes())); ok {
+			windows.fiveHour = display5h
+			windows.has5h = true
+		} else if !windows.has5h && windows.hasDaily {
 			windows.fiveHour = windows.dailyQuota
 			windows.fiveHour.WindowMinutes = int((5 * time.Hour).Minutes())
 			windows.has5h = true
 		}
-		if !windows.has7d && windows.hasWeek {
+		if display7d, ok := accountShareDisplayUsageWindowSnapshot(account, "7d", int((7 * 24 * time.Hour).Minutes())); ok {
+			windows.sevenDay = display7d
+			windows.has7d = true
+		} else if !windows.has7d && windows.hasWeek {
 			windows.sevenDay = windows.weekQuota
 			windows.sevenDay.WindowMinutes = int((7 * 24 * time.Hour).Minutes())
 			windows.has7d = true
@@ -850,6 +856,39 @@ func accountCapacityDisplayWindowSnapshots(account *Account) accountCapacityDisp
 	}
 
 	return windows
+}
+
+func accountShareDisplayUsageWindowSnapshot(account *Account, suffix string, defaultWindowMinutes int) (UserAccountCapacityWindowSnapshot, bool) {
+	if account == nil || account.Extra == nil {
+		return UserAccountCapacityWindowSnapshot{}, false
+	}
+	prefix := "share_display_" + suffix
+	limit := parseExtraFloat64(account.Extra[prefix+"_limit"])
+	if limit <= 0 {
+		return UserAccountCapacityWindowSnapshot{}, false
+	}
+	used := maxFloat64(parseExtraFloat64(account.Extra[prefix+"_used"]), 0)
+	if used > limit {
+		used = limit
+	}
+	snapshot := UserAccountCapacityWindowSnapshot{
+		UsedPercent:   used / limit * 100,
+		UsedAmount:    used,
+		LimitAmount:   limit,
+		WindowMinutes: defaultWindowMinutes,
+	}
+	if raw, ok := account.Extra[prefix+"_reset_after_seconds"]; ok {
+		snapshot.ResetAfterSeconds = parseExtraInt(raw)
+	}
+	if raw, ok := account.Extra[prefix+"_reset_at"]; ok {
+		snapshot.ResetAt = normalizeCapacityWindowTime(raw)
+	}
+	if raw, ok := account.Extra[prefix+"_window_minutes"]; ok {
+		if minutes := parseExtraInt(raw); minutes > 0 {
+			snapshot.WindowMinutes = minutes
+		}
+	}
+	return snapshot, true
 }
 
 func accountCapacityDisplayCountsFor(account *Account, active, schedulable, ownContributed, rateLimited, errorState, disabled, abnormal bool) accountCapacityDisplayCounts {

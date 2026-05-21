@@ -1648,6 +1648,22 @@ func (a *Account) GetShareDisplayAccountCount() int {
 	return count
 }
 
+func (a *Account) GetShareDisplay5hLimit() float64 {
+	return a.getExtraFloat64("share_display_5h_limit")
+}
+
+func (a *Account) GetShareDisplay5hUsed() float64 {
+	return a.getExtraFloat64("share_display_5h_used")
+}
+
+func (a *Account) GetShareDisplay7dLimit() float64 {
+	return a.getExtraFloat64("share_display_7d_limit")
+}
+
+func (a *Account) GetShareDisplay7dUsed() float64 {
+	return a.getExtraFloat64("share_display_7d_used")
+}
+
 func accountQuotaPercent(used, limit float64) float64 {
 	if limit <= 0 {
 		return 0

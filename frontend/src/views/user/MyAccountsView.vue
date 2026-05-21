@@ -343,11 +343,19 @@
             :display-tier="shareDisplayTier"
             :percent-only="shareDisplayPercentOnly"
             :account-count="shareDisplayAccountCount"
+            :display-5h-limit="shareDisplay5hLimit"
+            :display-5h-used="shareDisplay5hUsed"
+            :display-7d-limit="shareDisplay7dLimit"
+            :display-7d-used="shareDisplay7dUsed"
             @update:enabled="shareDisplayEnabled = $event"
             @update:displayName="shareDisplayName = $event"
             @update:displayTier="shareDisplayTier = $event"
             @update:percentOnly="shareDisplayPercentOnly = $event"
             @update:accountCount="shareDisplayAccountCount = $event"
+            @update:display5hLimit="shareDisplay5hLimit = $event"
+            @update:display5hUsed="shareDisplay5hUsed = $event"
+            @update:display7dLimit="shareDisplay7dLimit = $event"
+            @update:display7dUsed="shareDisplay7dUsed = $event"
           />
         </div>
 
@@ -511,6 +519,10 @@ const shareDisplayName = ref('')
 const shareDisplayTier = ref('pro')
 const shareDisplayPercentOnly = ref(true)
 const shareDisplayAccountCount = ref(1)
+const shareDisplay5hLimit = ref<number | null>(null)
+const shareDisplay5hUsed = ref<number | null>(null)
+const shareDisplay7dLimit = ref<number | null>(null)
+const shareDisplay7dUsed = ref<number | null>(null)
 
 const pagination = reactive({
   page: 1,
@@ -794,6 +806,10 @@ function resetAccountExtraForm(): void {
   shareDisplayTier.value = 'pro'
   shareDisplayPercentOnly.value = true
   shareDisplayAccountCount.value = 1
+  shareDisplay5hLimit.value = null
+  shareDisplay5hUsed.value = null
+  shareDisplay7dLimit.value = null
+  shareDisplay7dUsed.value = null
 }
 
 function loadAccountExtraForm(extra: Record<string, unknown>): void {
@@ -801,13 +817,17 @@ function loadAccountExtraForm(extra: Record<string, unknown>): void {
   quotaWeeklyLimit.value = typeof extra.quota_weekly_limit === 'number' && extra.quota_weekly_limit > 0 ? extra.quota_weekly_limit : null
   quotaMonthlyLimit.value = typeof extra.quota_monthly_limit === 'number' && extra.quota_monthly_limit > 0 ? extra.quota_monthly_limit : null
   quotaTotalLimit.value = typeof extra.quota_limit === 'number' && extra.quota_limit > 0 ? extra.quota_limit : null
-  shareDisplayEnabled.value = typeof extra.share_display_name === 'string' || typeof extra.share_display_tier === 'string' || extra.share_display_percent_only === true || typeof extra.share_display_account_count === 'number'
+  shareDisplayEnabled.value = typeof extra.share_display_name === 'string' || typeof extra.share_display_tier === 'string' || extra.share_display_percent_only === true || typeof extra.share_display_account_count === 'number' || typeof extra.share_display_5h_limit === 'number' || typeof extra.share_display_7d_limit === 'number'
   shareDisplayName.value = typeof extra.share_display_name === 'string' ? extra.share_display_name : ''
   shareDisplayTier.value = typeof extra.share_display_tier === 'string' && extra.share_display_tier ? extra.share_display_tier : 'pro'
   shareDisplayPercentOnly.value = extra.share_display_percent_only !== false
   shareDisplayAccountCount.value = typeof extra.share_display_account_count === 'number' && extra.share_display_account_count > 0
     ? Math.trunc(extra.share_display_account_count)
     : 1
+  shareDisplay5hLimit.value = typeof extra.share_display_5h_limit === 'number' && extra.share_display_5h_limit > 0 ? extra.share_display_5h_limit : null
+  shareDisplay5hUsed.value = typeof extra.share_display_5h_used === 'number' && extra.share_display_5h_used >= 0 ? extra.share_display_5h_used : null
+  shareDisplay7dLimit.value = typeof extra.share_display_7d_limit === 'number' && extra.share_display_7d_limit > 0 ? extra.share_display_7d_limit : null
+  shareDisplay7dUsed.value = typeof extra.share_display_7d_used === 'number' && extra.share_display_7d_used >= 0 ? extra.share_display_7d_used : null
 }
 
 function buildAccountExtra(base?: Record<string, unknown>): Record<string, unknown> | undefined {
@@ -845,13 +865,29 @@ function buildAccountExtra(base?: Record<string, unknown>): Record<string, unkno
     extra.share_display_tier = shareDisplayTier.value || 'pro'
     extra.share_display_percent_only = shareDisplayPercentOnly.value
     extra.share_display_account_count = Math.max(1, Math.trunc(shareDisplayAccountCount.value || 1))
+    writeOptionalShareDisplayNumber(extra, 'share_display_5h_limit', shareDisplay5hLimit.value, true)
+    writeOptionalShareDisplayNumber(extra, 'share_display_5h_used', shareDisplay5hUsed.value, false)
+    writeOptionalShareDisplayNumber(extra, 'share_display_7d_limit', shareDisplay7dLimit.value, true)
+    writeOptionalShareDisplayNumber(extra, 'share_display_7d_used', shareDisplay7dUsed.value, false)
   } else {
     delete extra.share_display_name
     delete extra.share_display_tier
     delete extra.share_display_percent_only
     delete extra.share_display_account_count
+    delete extra.share_display_5h_limit
+    delete extra.share_display_5h_used
+    delete extra.share_display_7d_limit
+    delete extra.share_display_7d_used
   }
   return Object.keys(extra).length > 0 ? extra : undefined
+}
+
+function writeOptionalShareDisplayNumber(extra: Record<string, unknown>, key: string, value: number | null, requirePositive: boolean): void {
+  if (typeof value === 'number' && Number.isFinite(value) && (requirePositive ? value > 0 : value >= 0)) {
+    extra[key] = value
+  } else {
+    delete extra[key]
+  }
 }
 
 async function saveAccount(): Promise<void> {

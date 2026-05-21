@@ -777,6 +777,55 @@ func TestUserAccountService_GetCapacityPoolsMasksShareDisplayAPIKeyQuotaAsCodexW
 	}
 }
 
+func TestUserAccountService_GetCapacityPoolsUsesShareDisplayDedicatedWindows(t *testing.T) {
+	ownerID := int64(10)
+	now := time.Now()
+	repo := &capacityPoolAccountRepoStub{
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "hosted-pro-key",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				ShareMode:   AccountShareModePrivate,
+				ShareStatus: AccountShareStatusNotShared,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"quota_daily_limit":          100.0,
+					"quota_daily_used":           0.0,
+					"quota_daily_start":          now.Add(-1 * time.Hour).Format(time.RFC3339),
+					"quota_weekly_limit":         500.0,
+					"quota_weekly_used":          0.0,
+					"quota_weekly_start":         now.Add(-24 * time.Hour).Format(time.RFC3339),
+					"share_display_tier":         "pro",
+					"share_display_percent_only": true,
+					"share_display_5h_limit":     500.0,
+					"share_display_5h_used":      95.17,
+					"share_display_7d_limit":     2160.0,
+					"share_display_7d_used":      95.17,
+				},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Pro")
+	if group == nil {
+		t.Fatalf("expected OpenAI Pro display group, got %#v", pools.Shared.Groups)
+	}
+	if window := group.Windows["5h"]; fmt.Sprintf("%.2f", window.UsedPercent) != "19.03" || window.WindowMinutes != 300 {
+		t.Fatalf("expected dedicated 5h display window, got %#v", window)
+	}
+	if window := group.Windows["7d"]; fmt.Sprintf("%.2f", window.UsedPercent) != "4.41" || window.WindowMinutes != 10080 {
+		t.Fatalf("expected dedicated 7d display window, got %#v", window)
+	}
+}
+
 func TestUserAccountService_GetCapacityPoolsUsesShareDisplayAccountCount(t *testing.T) {
 	ownerID := int64(10)
 	now := time.Now()

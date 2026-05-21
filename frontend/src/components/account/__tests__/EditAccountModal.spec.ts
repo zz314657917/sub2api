@@ -161,7 +161,7 @@ function mountModal(account = buildAccount()) {
         GroupSelector: true,
         ModelWhitelistSelector: ModelWhitelistSelectorStub,
         Input: {
-          props: ['modelValue', 'label', 'placeholder', 'dataTestid'],
+          props: ['modelValue', 'label', 'placeholder', 'dataTestid', 'type', 'hint'],
           emits: ['update:modelValue'],
           template: '<input v-bind="$attrs" :data-testid="dataTestid" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />'
         }
@@ -312,6 +312,10 @@ describe('EditAccountModal', () => {
     expect(wrapper.getComponent(ShareDisplayCard).exists()).toBe(true)
 
     await wrapper.get('[data-testid="share-display-target-pool"]').setValue('plus')
+    await wrapper.get('[data-testid="share-display-5h-limit"]').setValue('500')
+    await wrapper.get('[data-testid="share-display-5h-used"]').setValue('95.17')
+    await wrapper.get('[data-testid="share-display-7d-limit"]').setValue('2160')
+    await wrapper.get('[data-testid="share-display-7d-used"]').setValue('95.17')
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
@@ -319,7 +323,11 @@ describe('EditAccountModal', () => {
       extra: expect.objectContaining({
         share_display_tier: 'plus',
         share_display_percent_only: true,
-        share_display_account_count: 1
+        share_display_account_count: 1,
+        share_display_5h_limit: 500,
+        share_display_5h_used: 95.17,
+        share_display_7d_limit: 2160,
+        share_display_7d_used: 95.17
       })
     }))
   })

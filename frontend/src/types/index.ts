@@ -905,6 +905,10 @@ export interface Account {
   share_display_tier?: string | null
   share_display_percent_only?: boolean | null
   share_display_account_count?: number | null
+  share_display_5h_limit?: number | null
+  share_display_5h_used?: number | null
+  share_display_7d_limit?: number | null
+  share_display_7d_used?: number | null
 
   // 配额固定时间重置配置
   quota_daily_reset_mode?: 'rolling' | 'fixed' | null

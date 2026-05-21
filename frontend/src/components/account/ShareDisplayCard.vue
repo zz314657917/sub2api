@@ -11,11 +11,19 @@ const props = withDefaults(defineProps<{
   displayTier?: string | null
   percentOnly?: boolean | null
   accountCount?: number | null
+  display5hLimit?: number | null
+  display5hUsed?: number | null
+  display7dLimit?: number | null
+  display7dUsed?: number | null
 }>(), {
   displayName: '',
   displayTier: 'pro',
   percentOnly: true,
   accountCount: 1,
+  display5hLimit: null,
+  display5hUsed: null,
+  display7dLimit: null,
+  display7dUsed: null,
 })
 
 const emit = defineEmits<{
@@ -24,6 +32,10 @@ const emit = defineEmits<{
   'update:displayTier': [value: string]
   'update:percentOnly': [value: boolean]
   'update:accountCount': [value: number]
+  'update:display5hLimit': [value: number | null]
+  'update:display5hUsed': [value: number | null]
+  'update:display7dLimit': [value: number | null]
+  'update:display7dUsed': [value: number | null]
 }>()
 
 const displayNameModel = computed({
@@ -43,6 +55,51 @@ const accountCountModel = computed({
     emit('update:accountCount', Number.isFinite(parsed) && parsed > 0 ? parsed : 1)
   },
 })
+
+function normalizeOptionalNumber(value: string): number | null {
+  const trimmed = value.trim()
+  if (!trimmed) return null
+  const parsed = Number.parseFloat(trimmed)
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null
+}
+
+function emitOptionalNumber(
+  update: 'update:display5hLimit' | 'update:display5hUsed' | 'update:display7dLimit' | 'update:display7dUsed',
+  value: number | null,
+): void {
+  switch (update) {
+    case 'update:display5hLimit':
+      emit('update:display5hLimit', value)
+      return
+    case 'update:display5hUsed':
+      emit('update:display5hUsed', value)
+      return
+    case 'update:display7dLimit':
+      emit('update:display7dLimit', value)
+      return
+    case 'update:display7dUsed':
+      emit('update:display7dUsed', value)
+      return
+  }
+}
+
+function optionalNumberModel(
+  getValue: () => number | null | undefined,
+  update: 'update:display5hLimit' | 'update:display5hUsed' | 'update:display7dLimit' | 'update:display7dUsed',
+) {
+  return computed({
+    get: () => {
+      const value = getValue()
+      return typeof value === 'number' && Number.isFinite(value) ? String(value) : ''
+    },
+    set: (value: string) => emitOptionalNumber(update, normalizeOptionalNumber(value)),
+  })
+}
+
+const display5hLimitModel = optionalNumberModel(() => props.display5hLimit, 'update:display5hLimit')
+const display5hUsedModel = optionalNumberModel(() => props.display5hUsed, 'update:display5hUsed')
+const display7dLimitModel = optionalNumberModel(() => props.display7dLimit, 'update:display7dLimit')
+const display7dUsedModel = optionalNumberModel(() => props.display7dUsed, 'update:display7dUsed')
 
 const tierOptions = computed(() => [
   { value: '', label: t('admin.accounts.shareDisplay.autoPool') },
@@ -97,6 +154,40 @@ const targetPoolModel = computed({
         :label="t('admin.accounts.shareDisplay.accountCount')"
         :hint="t('admin.accounts.shareDisplay.accountCountHint')"
       />
+      <template v-if="props.enabled">
+        <Input
+          data-testid="share-display-5h-limit"
+          v-model="display5hLimitModel"
+          type="number"
+          :label="t('admin.accounts.shareDisplay.display5hLimit')"
+          :placeholder="t('admin.accounts.shareDisplay.windowLimitPlaceholder')"
+          :hint="t('admin.accounts.shareDisplay.display5hLimitHint')"
+        />
+        <Input
+          data-testid="share-display-5h-used"
+          v-model="display5hUsedModel"
+          type="number"
+          :label="t('admin.accounts.shareDisplay.display5hUsed')"
+          :placeholder="t('admin.accounts.shareDisplay.windowUsedPlaceholder')"
+          :hint="t('admin.accounts.shareDisplay.display5hUsedHint')"
+        />
+        <Input
+          data-testid="share-display-7d-limit"
+          v-model="display7dLimitModel"
+          type="number"
+          :label="t('admin.accounts.shareDisplay.display7dLimit')"
+          :placeholder="t('admin.accounts.shareDisplay.windowLimitPlaceholder')"
+          :hint="t('admin.accounts.shareDisplay.display7dLimitHint')"
+        />
+        <Input
+          data-testid="share-display-7d-used"
+          v-model="display7dUsedModel"
+          type="number"
+          :label="t('admin.accounts.shareDisplay.display7dUsed')"
+          :placeholder="t('admin.accounts.shareDisplay.windowUsedPlaceholder')"
+          :hint="t('admin.accounts.shareDisplay.display7dUsedHint')"
+        />
+      </template>
       <label v-if="props.enabled" class="flex items-start gap-3 rounded-lg border border-gray-200 p-3 dark:border-dark-600 md:col-span-2">
         <input v-model="percentOnlyModel" type="checkbox" class="mt-1 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
         <span>

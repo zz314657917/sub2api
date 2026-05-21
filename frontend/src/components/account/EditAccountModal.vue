@@ -1587,12 +1587,20 @@
         :display-tier="shareDisplayTier"
         :percent-only="shareDisplayPercentOnly"
         :account-count="shareDisplayAccountCount"
+        :display-5h-limit="shareDisplay5hLimit"
+        :display-5h-used="shareDisplay5hUsed"
+        :display-7d-limit="shareDisplay7dLimit"
+        :display-7d-used="shareDisplay7dUsed"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
         @update:enabled="shareDisplayEnabled = $event"
         @update:displayName="shareDisplayName = $event"
         @update:displayTier="shareDisplayTier = $event"
         @update:percentOnly="shareDisplayPercentOnly = $event"
         @update:accountCount="shareDisplayAccountCount = $event"
+        @update:display5hLimit="shareDisplay5hLimit = $event"
+        @update:display5hUsed="shareDisplay5hUsed = $event"
+        @update:display7dLimit="shareDisplay7dLimit = $event"
+        @update:display7dUsed="shareDisplay7dUsed = $event"
       />
 
       <!-- OpenAI OAuth Codex 官方客户端限制开关 -->
@@ -2416,6 +2424,10 @@ const shareDisplayName = ref('')
 const shareDisplayTier = ref('pro')
 const shareDisplayPercentOnly = ref(true)
 const shareDisplayAccountCount = ref(1)
+const shareDisplay5hLimit = ref<number | null>(null)
+const shareDisplay5hUsed = ref<number | null>(null)
+const shareDisplay7dLimit = ref<number | null>(null)
+const shareDisplay7dUsed = ref<number | null>(null)
 function isOpenAIShareDisplaySupportedAccount(account?: Pick<Account, 'platform' | 'type'> | null): boolean {
   return account?.platform === 'openai' && (account.type === 'apikey' || account.type === 'oauth')
 }
@@ -2454,11 +2466,26 @@ function writeShareDisplayToExtra(extra: Record<string, unknown>): void {
     extra.share_display_tier = shareDisplayTier.value || 'pro'
     extra.share_display_percent_only = shareDisplayPercentOnly.value
     extra.share_display_account_count = Math.max(1, Math.trunc(shareDisplayAccountCount.value || 1))
+    writeOptionalShareDisplayNumber(extra, 'share_display_5h_limit', shareDisplay5hLimit.value, true)
+    writeOptionalShareDisplayNumber(extra, 'share_display_5h_used', shareDisplay5hUsed.value, false)
+    writeOptionalShareDisplayNumber(extra, 'share_display_7d_limit', shareDisplay7dLimit.value, true)
+    writeOptionalShareDisplayNumber(extra, 'share_display_7d_used', shareDisplay7dUsed.value, false)
   } else {
     delete extra.share_display_name
     delete extra.share_display_tier
     delete extra.share_display_percent_only
     delete extra.share_display_account_count
+    delete extra.share_display_5h_limit
+    delete extra.share_display_5h_used
+    delete extra.share_display_7d_limit
+    delete extra.share_display_7d_used
+  }
+}
+function writeOptionalShareDisplayNumber(extra: Record<string, unknown>, key: string, value: number | null, requirePositive: boolean): void {
+  if (typeof value === 'number' && Number.isFinite(value) && (requirePositive ? value > 0 : value >= 0)) {
+    extra[key] = value
+  } else {
+    delete extra[key]
   }
 }
 const openAIWSModeOptions = computed(() => [
@@ -2798,11 +2825,17 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   const accountShareDisplayTier = getAccountStringField(newAccount, extra, 'share_display_tier')
   const accountShareDisplayPercentOnly = getAccountBoolField(newAccount, extra, 'share_display_percent_only')
   const accountShareDisplayAccountCount = getAccountNumberField(newAccount, extra, 'share_display_account_count')
+  const accountShareDisplay5hLimit = getAccountNumberField(newAccount, extra, 'share_display_5h_limit')
+  const accountShareDisplay5hUsed = getAccountNumberField(newAccount, extra, 'share_display_5h_used')
+  const accountShareDisplay7dLimit = getAccountNumberField(newAccount, extra, 'share_display_7d_limit')
+  const accountShareDisplay7dUsed = getAccountNumberField(newAccount, extra, 'share_display_7d_used')
   shareDisplayEnabled.value = isOpenAIShareDisplaySupportedAccount(newAccount) && (
     accountShareDisplayName !== '' ||
     accountShareDisplayTier !== '' ||
     accountShareDisplayPercentOnly === true ||
-    typeof accountShareDisplayAccountCount === 'number'
+    typeof accountShareDisplayAccountCount === 'number' ||
+    typeof accountShareDisplay5hLimit === 'number' ||
+    typeof accountShareDisplay7dLimit === 'number'
   )
   shareDisplayName.value = accountShareDisplayName
   shareDisplayTier.value = accountShareDisplayTier || 'pro'
@@ -2810,12 +2843,20 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   shareDisplayAccountCount.value = typeof accountShareDisplayAccountCount === 'number' && accountShareDisplayAccountCount > 0
     ? Math.trunc(accountShareDisplayAccountCount)
     : 1
+  shareDisplay5hLimit.value = typeof accountShareDisplay5hLimit === 'number' && accountShareDisplay5hLimit > 0 ? accountShareDisplay5hLimit : null
+  shareDisplay5hUsed.value = typeof accountShareDisplay5hUsed === 'number' && accountShareDisplay5hUsed >= 0 ? accountShareDisplay5hUsed : null
+  shareDisplay7dLimit.value = typeof accountShareDisplay7dLimit === 'number' && accountShareDisplay7dLimit > 0 ? accountShareDisplay7dLimit : null
+  shareDisplay7dUsed.value = typeof accountShareDisplay7dUsed === 'number' && accountShareDisplay7dUsed >= 0 ? accountShareDisplay7dUsed : null
   if (!isOpenAIShareDisplaySupportedAccount(newAccount)) {
     shareDisplayEnabled.value = false
     shareDisplayName.value = ''
     shareDisplayTier.value = 'pro'
     shareDisplayPercentOnly.value = true
     shareDisplayAccountCount.value = 1
+    shareDisplay5hLimit.value = null
+    shareDisplay5hUsed.value = null
+    shareDisplay7dLimit.value = null
+    shareDisplay7dUsed.value = null
   }
 
   // Load antigravity model mapping (Antigravity 只支持映射模式)

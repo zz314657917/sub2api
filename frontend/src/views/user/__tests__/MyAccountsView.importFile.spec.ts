@@ -417,6 +417,10 @@ describe('MyAccountsView import file', () => {
         share_display_tier: 'pro',
         share_display_percent_only: true,
         share_display_account_count: 3,
+        share_display_5h_limit: 500,
+        share_display_5h_used: 95.17,
+        share_display_7d_limit: 2160,
+        share_display_7d_used: 95.17,
       },
     }))
 
@@ -426,6 +430,10 @@ describe('MyAccountsView import file', () => {
     await wrapper.findAll('button').find(button => button.classes().includes('hover:text-primary-600'))?.trigger('click')
     await wrapper.get('[data-testid="share-display-target-pool"]').setValue('pro')
     await wrapper.get('[data-testid="share-display-account-count"]').setValue('3')
+    await wrapper.get('[data-testid="share-display-5h-limit"]').setValue('500')
+    await wrapper.get('[data-testid="share-display-5h-used"]').setValue('95.17')
+    await wrapper.get('[data-testid="share-display-7d-limit"]').setValue('2160')
+    await wrapper.get('[data-testid="share-display-7d-used"]').setValue('95.17')
     await wrapper.get('[data-testid="my-accounts-save"]').trigger('click')
     await flushPromises()
 
@@ -434,6 +442,10 @@ describe('MyAccountsView import file', () => {
         share_display_tier: 'pro',
         share_display_percent_only: true,
         share_display_account_count: 3,
+        share_display_5h_limit: 500,
+        share_display_5h_used: 95.17,
+        share_display_7d_limit: 2160,
+        share_display_7d_used: 95.17,
       }),
     }))
   })

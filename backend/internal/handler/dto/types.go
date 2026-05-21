@@ -237,6 +237,10 @@ type Account struct {
 	ShareDisplayTier         *string  `json:"share_display_tier,omitempty"`
 	ShareDisplayPercentOnly  *bool    `json:"share_display_percent_only,omitempty"`
 	ShareDisplayAccountCount *int     `json:"share_display_account_count,omitempty"`
+	ShareDisplay5hLimit      *float64 `json:"share_display_5h_limit,omitempty"`
+	ShareDisplay5hUsed       *float64 `json:"share_display_5h_used,omitempty"`
+	ShareDisplay7dLimit      *float64 `json:"share_display_7d_limit,omitempty"`
+	ShareDisplay7dUsed       *float64 `json:"share_display_7d_used,omitempty"`
 
 	// 配额固定时间重置配置
 	QuotaDailyResetMode  *string `json:"quota_daily_reset_mode,omitempty"`

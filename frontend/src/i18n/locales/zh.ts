@@ -3705,7 +3705,17 @@ export default {
         accountCount: '按账号数计入',
         accountCountHint: '这个账号在目标池子里按多少个账号计数，只影响容量池展示。',
         percentOnly: '只显示剩余百分比',
-        percentOnlyHint: '开启后容量池隐藏绝对额度，只显示窗口剩余百分比。'
+        percentOnlyHint: '开启后容量池隐藏绝对额度，只显示窗口剩余百分比。',
+        display5hLimit: '展示 5h 上限',
+        display5hUsed: '展示 5h 已用',
+        display7dLimit: '展示 7d 上限',
+        display7dUsed: '展示 7d 已用',
+        windowLimitPlaceholder: '例如 500',
+        windowUsedPlaceholder: '例如 95.17',
+        display5hLimitHint: '填写后优先用于 OpenAI Pro/Plus 池的 5h 窗口展示。',
+        display5hUsedHint: '按最近 5 小时实际用量填写；留空时按 0 处理。',
+        display7dLimitHint: '填写后优先用于 OpenAI Pro/Plus 池的 7d 窗口展示。',
+        display7dUsedHint: '按最近 7 天实际用量填写；留空时按 0 处理。'
       },
       quotaResetMode: '重置方式',
       quotaResetModeRolling: '滚动窗口',

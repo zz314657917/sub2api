@@ -1751,11 +1751,19 @@
           :display-tier="shareDisplayTier"
           :percent-only="shareDisplayPercentOnly"
           :account-count="shareDisplayAccountCount"
+          :display-5h-limit="shareDisplay5hLimit"
+          :display-5h-used="shareDisplay5hUsed"
+          :display-7d-limit="shareDisplay7dLimit"
+          :display-7d-used="shareDisplay7dUsed"
           @update:enabled="shareDisplayEnabled = $event"
           @update:displayName="shareDisplayName = $event"
           @update:displayTier="shareDisplayTier = $event"
           @update:percentOnly="shareDisplayPercentOnly = $event"
           @update:accountCount="shareDisplayAccountCount = $event"
+          @update:display5hLimit="shareDisplay5hLimit = $event"
+          @update:display5hUsed="shareDisplay5hUsed = $event"
+          @update:display7dLimit="shareDisplay7dLimit = $event"
+          @update:display7dUsed="shareDisplay7dUsed = $event"
         />
       </div>
 
@@ -3324,6 +3332,10 @@ const shareDisplayName = ref('')
 const shareDisplayTier = ref('pro')
 const shareDisplayPercentOnly = ref(true)
 const shareDisplayAccountCount = ref(1)
+const shareDisplay5hLimit = ref<number | null>(null)
+const shareDisplay5hUsed = ref<number | null>(null)
+const shareDisplay7dLimit = ref<number | null>(null)
+const shareDisplay7dUsed = ref<number | null>(null)
 const openaiPassthroughEnabled = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
@@ -4099,6 +4111,10 @@ const resetForm = () => {
   shareDisplayTier.value = 'pro'
   shareDisplayPercentOnly.value = true
   shareDisplayAccountCount.value = 1
+  shareDisplay5hLimit.value = null
+  shareDisplay5hUsed.value = null
+  shareDisplay7dLimit.value = null
+  shareDisplay7dUsed.value = null
   openaiPassthroughEnabled.value = false
   openAICompactMode.value = 'auto'
   openAIResponsesMode.value = 'auto'
@@ -4198,11 +4214,19 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     extra.share_display_tier = shareDisplayTier.value || 'pro'
     extra.share_display_percent_only = shareDisplayPercentOnly.value
     extra.share_display_account_count = Math.max(1, Math.trunc(shareDisplayAccountCount.value || 1))
+    writeOptionalShareDisplayNumber(extra, 'share_display_5h_limit', shareDisplay5hLimit.value, true)
+    writeOptionalShareDisplayNumber(extra, 'share_display_5h_used', shareDisplay5hUsed.value, false)
+    writeOptionalShareDisplayNumber(extra, 'share_display_7d_limit', shareDisplay7dLimit.value, true)
+    writeOptionalShareDisplayNumber(extra, 'share_display_7d_used', shareDisplay7dUsed.value, false)
   } else {
     delete extra.share_display_name
     delete extra.share_display_tier
     delete extra.share_display_percent_only
     delete extra.share_display_account_count
+    delete extra.share_display_5h_limit
+    delete extra.share_display_5h_used
+    delete extra.share_display_7d_limit
+    delete extra.share_display_7d_used
   }
 
   if (accountCategory.value === 'apikey' && openAIResponsesMode.value !== 'auto') {
@@ -4212,6 +4236,14 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
   }
 
   return Object.keys(extra).length > 0 ? extra : undefined
+}
+
+function writeOptionalShareDisplayNumber(extra: Record<string, unknown>, key: string, value: number | null, requirePositive: boolean): void {
+  if (typeof value === 'number' && Number.isFinite(value) && (requirePositive ? value > 0 : value >= 0)) {
+    extra[key] = value
+  } else {
+    delete extra[key]
+  }
 }
 
 const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
@@ -4601,6 +4633,10 @@ const createAccountAndFinish = async (
       quotaExtra.share_display_tier = shareDisplayTier.value || 'pro'
       quotaExtra.share_display_percent_only = shareDisplayPercentOnly.value
       quotaExtra.share_display_account_count = Math.max(1, Math.trunc(shareDisplayAccountCount.value || 1))
+      writeOptionalShareDisplayNumber(quotaExtra, 'share_display_5h_limit', shareDisplay5hLimit.value, true)
+      writeOptionalShareDisplayNumber(quotaExtra, 'share_display_5h_used', shareDisplay5hUsed.value, false)
+      writeOptionalShareDisplayNumber(quotaExtra, 'share_display_7d_limit', shareDisplay7dLimit.value, true)
+      writeOptionalShareDisplayNumber(quotaExtra, 'share_display_7d_used', shareDisplay7dUsed.value, false)
     }
     // Quota reset mode config
     if (editDailyResetMode.value === 'fixed') {
