@@ -45,7 +45,7 @@ describe('public page smoke contracts', () => {
     expect(publicTopNav).toContain("to: '/home'")
     expect(publicTopNav).toContain("to: '/tutorial'")
     expect(publicTopNav).toContain("to: '/models'")
-    expect(publicTopNav).toContain('isAuthenticated.value')
+    expect(publicTopNav).toContain('isAuthenticated ? dashboardPath : \'/login\'')
     expect(publicTopNav).not.toContain('navFeatures')
     expect(publicBackdrop).toContain('public-matrix-rain')
     expect(publicCss).toContain('--public-surface')
