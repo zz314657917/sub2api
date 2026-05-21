@@ -430,7 +430,6 @@ describe('PaymentView pricing layout', () => {
     expect(source).toContain("pt('flexibleCredit')")
     expect(source).toContain("pt('plansTitle')")
     expect(source).toContain("pt('faqTitle')")
-    expect(source).toContain('pricing-current-chip')
     expect(source).toContain('pricing-preset--selected')
     expect(source).toContain('pricing-plan-card--recommended')
     expect(source).toContain('refreshCheckoutInfo')

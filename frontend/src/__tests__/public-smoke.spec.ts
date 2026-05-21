@@ -14,6 +14,7 @@ describe('public page smoke contracts', () => {
   it('keeps public entry routes and protects model plaza behind login', () => {
     expect(router).toContain("path: '/home'")
     expect(router).toContain("path: '/tutorial'")
+    expect(router).toContain("path: '/tutorial/:slug'")
     expect(router).toContain("path: '/models'")
     expect(router).toContain("name: 'Home'")
     expect(router).toContain("name: 'Tutorial'")
@@ -31,7 +32,10 @@ describe('public page smoke contracts', () => {
     expect(router).toContain("name: 'ChatImageStudioNative'")
     expect(router).toContain("import('@/views/user/ChatImageStudioView.vue')")
     expect(router).toContain("path: '/open-webui/launch'")
-    expect(router).toContain("redirect: '/chat-images'")
+    expect(router).toContain('redirect: (to) => ({')
+    expect(router).toContain("path: '/chat-images'")
+    expect(router).toContain('query: to.query')
+    expect(router).toContain('hash: to.hash')
   })
 
   it('uses one shared navigation and matrix surface across public pages', () => {
@@ -59,10 +63,11 @@ describe('public page smoke contracts', () => {
     expect(homeView).not.toContain('footerModelBadges')
     expect(tutorialView).toContain('class="tutorial-sidebar"')
     expect(tutorialView).toContain('class="tutorial-main-column"')
-    expect(tutorialView).not.toContain('class="tutorial-toc"')
+    expect(tutorialView).toContain('class="tutorial-toc"')
+    expect(tutorialView).toContain('tutorial-directory-grid')
     expect(tutorialView).toContain('IntersectionObserver')
-    expect(tutorialView).toContain("title: 'OpenClaw'")
-    expect(tutorialView).toContain("title: 'Hermes'")
+    expect(tutorialView).toContain('tutorialFallbackPages')
+    expect(tutorialView).toContain('renderTutorialMarkdown(page.content_md)')
   })
 
   it('keeps model plaza discovery controls mounted on the public surface', () => {

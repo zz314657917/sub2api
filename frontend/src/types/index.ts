@@ -193,6 +193,49 @@ export interface LoginAgreementDocument {
   content_md: string
 }
 
+export type TutorialPageStatus = 'draft' | 'published'
+
+export interface TutorialPageSummary {
+  id: number
+  slug: string
+  title: string
+  description: string
+  category: string
+  sort_order: number
+  status: TutorialPageStatus
+  created_at: string
+  updated_at: string
+  published_at?: string | null
+}
+
+export interface TutorialPage extends TutorialPageSummary {
+  content_md: string
+}
+
+export interface CreateTutorialPageRequest {
+  slug: string
+  title: string
+  description?: string
+  category?: string
+  sort_order?: number
+  status?: TutorialPageStatus
+  content_md: string
+}
+
+export interface UpdateTutorialPageRequest {
+  slug?: string
+  title?: string
+  description?: string
+  category?: string
+  sort_order?: number
+  status?: TutorialPageStatus
+  content_md?: string
+}
+
+export interface UpdateTutorialPageStatusRequest {
+  status: TutorialPageStatus
+}
+
 export interface PublicSettings {
   registration_enabled: boolean
   email_verify_enabled: boolean

@@ -28,14 +28,6 @@
                 <h1 class="pricing-title text-3xl font-black tracking-normal sm:text-4xl">{{ pt('title') }}</h1>
                 <p class="pricing-subtitle mt-3 text-sm leading-6 sm:text-base">{{ pt('subtitle') }}</p>
               </div>
-              <div class="pricing-current-chip inline-flex max-w-full flex-wrap items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm">
-                <Icon name="infoCircle" size="sm" class="pricing-muted-icon" />
-                <span>{{ pt('currentPlan') }}:</span>
-                <strong class="pricing-strong">{{ currentPlanName }}</strong>
-                <span class="pricing-separator">&middot;</span>
-                <span>{{ pt('balance') }}:</span>
-                <strong class="pricing-strong">{{ currentBalanceText }}</strong>
-              </div>
             </header>
 
             <div v-if="errorMessage" class="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
@@ -490,7 +482,6 @@ const paymentStore = usePaymentStore()
 const subscriptionStore = useSubscriptionStore()
 const appStore = useAppStore()
 
-const user = computed(() => authStore.user)
 const activeSubscriptions = computed(() => subscriptionStore.activeSubscriptions)
 
 type PricingLocale = 'en' | 'zh'
@@ -500,9 +491,7 @@ const pricingCatalog = {
   zh: {
     title: '定价方案',
     subtitle: '按需充值或选择超值订阅，以更低成本调用全网大模型。',
-    currentPlan: '当前套餐',
     balance: '灵活额度',
-    freePlan: 'Free Plan',
     flexibleCredit: '灵活额度',
     creditTag: '额度用完前，永久有效',
     rechargeStep: '第一步：选择或输入充值金额',
@@ -542,7 +531,7 @@ const pricingCatalog = {
       monthlyQuota: '月额度 {amount}',
       dailyQuota: '日额度 {amount}',
       discountRate: '相当于全站 API 计费额外尊享 {rate} 折',
-      modelScopes: '覆盖 {count} 个模型范围',
+      gptModels: '支持 GPT 主流模型',
       unlimitedQuota: '不限制套餐内额度',
     },
     faq: {
@@ -575,9 +564,7 @@ const pricingCatalog = {
   en: {
     title: 'Pricing',
     subtitle: 'Top up as needed or choose a subscription to call all available models at a lower cost.',
-    currentPlan: 'Current plan',
     balance: 'Flexible credit',
-    freePlan: 'Free Plan',
     flexibleCredit: 'Flexible Credit',
     creditTag: 'Valid until used up',
     rechargeStep: 'Step 1: choose or enter a recharge amount',
@@ -617,7 +604,7 @@ const pricingCatalog = {
       monthlyQuota: 'Monthly quota {amount}',
       dailyQuota: 'Daily quota {amount}',
       discountRate: 'Effective API billing rate: {rate}x',
-      modelScopes: 'Covers {count} model scopes',
+      gptModels: 'Supports mainstream GPT models',
       unlimitedQuota: 'No quota limit inside this plan',
     },
     faq: {
@@ -944,12 +931,6 @@ function formatCreditAmount(value: number): string {
   return `$${credited.toFixed(2)} USD`
 }
 
-const currentBalanceText = computed(() => `$${(user.value?.balance ?? 0).toFixed(2)}`)
-const currentPlanName = computed(() => {
-  const subscription = activeSubscriptions.value[0]
-  return subscription?.group?.name || pt('freePlan')
-})
-
 const membershipCurrentLabel = computed(() => {
   if (!membershipStatus.value) return ''
   return pt('membership.current', {
@@ -1133,14 +1114,18 @@ function planFeatureList(plan: SubscriptionPlan): string[] {
   if (plan.rate_multiplier != null && plan.rate_multiplier !== 1) {
     features.push(pt('feature.discountRate', { rate: plan.rate_multiplier }))
   }
-  if (plan.supported_model_scopes?.length) {
-    features.push(pt('feature.modelScopes', { count: plan.supported_model_scopes.length }))
-  }
-  features.push(...(plan.features || []).filter(Boolean))
+  features.push(...(plan.features || []).filter(Boolean).map(normalizePlanFeature))
   if (features.length === 0) {
     features.push(pt('feature.unlimitedQuota'))
   }
   return features.slice(0, 6)
+}
+
+function normalizePlanFeature(feature: string): string {
+  if (/覆盖\s*\d+\s*个模型范围/.test(feature) || /covers\s+\d+\s+model\s+scopes/i.test(feature)) {
+    return pt('feature.gptModels')
+  }
+  return feature
 }
 
 const methodOptions = computed<PaymentMethodOption[]>(() =>
@@ -1743,17 +1728,14 @@ onMounted(async () => {
   color: #94a3b8;
 }
 
-.pricing-separator,
 .pricing-strike {
   color: #94a3b8;
 }
 
-:global(.dark .pricing-separator),
 :global(.dark .pricing-strike) {
   color: #64748b;
 }
 
-.pricing-current-chip,
 .pricing-card,
 .pricing-plan-card,
 .pricing-subpanel,
@@ -1766,7 +1748,6 @@ onMounted(async () => {
   backdrop-filter: blur(16px);
 }
 
-:global(.dark .pricing-current-chip),
 :global(.dark .pricing-card),
 :global(.dark .pricing-plan-card),
 :global(.dark .pricing-subpanel),
@@ -1776,14 +1757,6 @@ onMounted(async () => {
   border-color: rgba(51, 65, 85, 0.9);
   background: rgba(17, 24, 39, 0.84);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
-}
-
-.pricing-current-chip {
-  color: #475569;
-}
-
-:global(.dark .pricing-current-chip) {
-  color: #cbd5e1;
 }
 
 .pricing-section-tag {

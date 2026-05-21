@@ -371,6 +371,7 @@ export default {
   nav: {
     dashboard: '仪表盘',
     announcements: '公告',
+    tutorials: '教程管理',
     apiKeys: 'API 密钥',
     myAccounts: '我的共享账号',
     usage: '使用记录',
@@ -667,6 +668,19 @@ export default {
     checkDetailedLogs: '查看详细的使用日志',
     redeemCode: '兑换码',
     addBalanceWithCode: '使用兑换码充值',
+    onboarding: {
+      title: '先创建一个 API 密钥',
+      description: 'API 密钥是接入 Codex、Claude Code、OpenWebUI 等工具的凭证。创建后可以复制密钥和 Base URL，按教程写入对应工具配置。',
+      createKey: '创建 API 密钥',
+      viewTutorial: '查看教程',
+      skip: '暂时跳过',
+      stepKeyTitle: '创建密钥',
+      stepKeyDescription: '选择可用分组，生成你的第一个 API 密钥。',
+      stepToolTitle: '接入工具',
+      stepToolDescription: '按教程配置 Codex、Claude Code 或其他兼容工具。',
+      stepUsageTitle: '查看用量',
+      stepUsageDescription: '请求开始后，在控制台查看消费、Token 和调用记录。'
+    },
     personalAccountUsage: {
       title: '个人账号用量',
       settlementLedger: '结算流水',
@@ -3439,7 +3453,7 @@ export default {
       selectPlan: '选择订阅套餐',
       selectGroup: '选择订阅分组',
       customPlan: '自定义分配（手动选择分组和天数）',
-      planHint: '选择套餐后会自动带出订阅分组和有效期；不选套餐可手动分配权益',
+      planHint: '选择套餐后直接按套餐权益分配；选择自定义分配时可手动设置分组和天数',
       groupHint: '仅显示订阅计费类型的分组',
       validityHint: '订阅的有效天数',
       adjustingFor: '为以下用户调整订阅',
@@ -5098,6 +5112,11 @@ export default {
       failedToDelete: '删除公告失败',
       failedToLoadReadStatus: '加载已读情况失败',
       deleteConfirm: '确定要删除该公告吗？此操作无法撤销。'
+    },
+
+    tutorials: {
+      title: '教程管理',
+      description: '管理公共教程目录、正文和发布状态'
     },
 
     // Promo Codes
@@ -7443,9 +7462,7 @@ export default {
     pricing: {
       title: '定价方案',
       subtitle: '按需充值或选择超值订阅，以更低成本调用全网大模型。',
-      currentPlan: '当前套餐',
       balance: '灵活额度',
-      freePlan: 'Free Plan',
       flexibleCredit: '灵活额度',
       creditTag: '额度用完前，永久有效',
       rechargeStep: '第一步：选择或输入充值金额',
@@ -7472,7 +7489,7 @@ export default {
         monthlyQuota: '月额度 {amount}',
         dailyQuota: '日额度 {amount}',
         discountRate: '相当于全站 API 计费额外尊享 {rate} 折',
-        modelScopes: '覆盖 {count} 个模型范围',
+        gptModels: '支持 GPT 主流模型',
         unlimitedQuota: '不限制套餐内额度',
       },
       faq: {

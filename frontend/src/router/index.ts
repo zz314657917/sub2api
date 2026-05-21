@@ -49,6 +49,15 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/tutorial/:slug',
+    name: 'TutorialPage',
+    component: () => import('@/views/public/TutorialView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Tutorial'
+    }
+  },
+  {
     path: '/models',
     name: 'ModelPlaza',
     component: () => import('@/views/public/ModelPlazaView.vue'),
@@ -605,6 +614,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Announcements',
       titleKey: 'admin.announcements.title',
       descriptionKey: 'admin.announcements.description'
+    }
+  },
+  {
+    path: '/admin/tutorials',
+    name: 'AdminTutorialPages',
+    component: () => import('@/views/admin/TutorialPagesView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Tutorial Management',
+      titleKey: 'admin.tutorials.title',
+      descriptionKey: 'admin.tutorials.description'
     }
   },
   {

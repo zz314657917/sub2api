@@ -622,6 +622,7 @@ const adminNavItems = computed((): NavItem[] => {
       expandOnly: true,
       children: [
         { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon },
+        { path: '/admin/tutorials', label: t('nav.tutorials'), icon: ContentIcon },
         { path: '/admin/usage', label: t('nav.usage'), icon: UsageIcon },
       ],
     },

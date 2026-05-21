@@ -371,6 +371,7 @@ export default {
   nav: {
     dashboard: 'Dashboard',
     announcements: 'Announcements',
+    tutorials: 'Tutorials',
     apiKeys: 'API Keys',
     myAccounts: 'My Accounts',
     usage: 'Usage',
@@ -668,6 +669,19 @@ export default {
     checkDetailedLogs: 'Check detailed usage logs',
     redeemCode: 'Redeem Code',
     addBalanceWithCode: 'Add balance with a code',
+    onboarding: {
+      title: 'Create an API key first',
+      description: 'An API key lets you connect Codex, Claude Code, OpenWebUI and other compatible tools. After creating one, copy the key and Base URL into your tool config.',
+      createKey: 'Create API Key',
+      viewTutorial: 'View tutorial',
+      skip: 'Skip for now',
+      stepKeyTitle: 'Create a key',
+      stepKeyDescription: 'Choose an available group and generate your first API key.',
+      stepToolTitle: 'Connect a tool',
+      stepToolDescription: 'Follow the tutorial for Codex, Claude Code or another compatible tool.',
+      stepUsageTitle: 'Check usage',
+      stepUsageDescription: 'After requests start, review spending, tokens and logs in the console.'
+    },
     personalAccountUsage: {
       title: 'Personal Account Usage',
       settlementLedger: 'Settlement ledger',
@@ -3362,7 +3376,7 @@ export default {
       selectPlan: 'Select a subscription plan',
       selectGroup: 'Select a subscription group',
       customPlan: 'Custom assignment (choose group and days manually)',
-      planHint: 'Selecting a plan automatically fills the subscription group and validity; leave it custom to grant manually',
+      planHint: 'Selecting a plan assigns its bundled entitlement directly; choose custom assignment to set the group and days manually',
       groupHint: 'Only groups with subscription billing type are shown',
       validityHint: 'Number of days the subscription will be valid',
       adjustingFor: 'Adjusting subscription for',
@@ -4942,6 +4956,11 @@ export default {
       failedToDelete: 'Failed to delete announcement',
       failedToLoadReadStatus: 'Failed to load read status',
       deleteConfirm: 'Are you sure you want to delete this announcement? This action cannot be undone.'
+    },
+
+    tutorials: {
+      title: 'Tutorial Management',
+      description: 'Manage public tutorial index, Markdown content, and publish status'
     },
 
     // Promo Codes
@@ -7259,9 +7278,7 @@ export default {
     pricing: {
       title: 'Pricing',
       subtitle: 'Top up as needed or choose a subscription to call all available models at a lower cost.',
-      currentPlan: 'Current plan',
       balance: 'Flexible credit',
-      freePlan: 'Free Plan',
       flexibleCredit: 'Flexible Credit',
       creditTag: 'Valid until used up',
       rechargeStep: 'Step 1: choose or enter a recharge amount',
@@ -7288,7 +7305,7 @@ export default {
         monthlyQuota: 'Monthly quota {amount}',
         dailyQuota: 'Daily quota {amount}',
         discountRate: 'Effective API billing rate: {rate}x',
-        modelScopes: 'Covers {count} model scopes',
+        gptModels: 'Supports mainstream GPT models',
         unlimitedQuota: 'No quota limit inside this plan',
       },
       faq: {

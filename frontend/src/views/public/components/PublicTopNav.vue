@@ -18,7 +18,7 @@
           :key="item.to"
           :to="item.to"
           class="public-nav-pill"
-          :class="{ 'router-link-active': item.activePaths.includes(route.path) }"
+          :class="{ 'router-link-active': isNavItemActive(item) }"
         >
           <PixelIcon :name="item.icon" size="xs" />
           {{ item.label }}
@@ -61,7 +61,7 @@
         :key="item.to"
         :to="item.to"
         class="public-nav-pill"
-        :class="{ 'router-link-active': item.activePaths.includes(route.path) }"
+        :class="{ 'router-link-active': isNavItemActive(item) }"
       >
         <PixelIcon :name="item.icon" size="xs" />
         {{ item.label }}
@@ -100,6 +100,10 @@ const navItems = computed<Array<{ to: string; label: string; icon: PixelIconName
   { to: '/tutorial', label: t('home.navTutorial'), icon: 'book', activePaths: ['/tutorial'] },
   { to: '/models', label: t('home.navModels'), icon: 'cube', activePaths: ['/models'] }
 ])
+
+function isNavItemActive(item: { activePaths: string[] }): boolean {
+  return item.activePaths.some((path) => route.path === path || (path !== '/' && route.path.startsWith(`${path}/`)))
+}
 
 function toggleTheme(): void {
   isDark.value = !isDark.value

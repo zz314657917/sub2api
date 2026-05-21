@@ -502,41 +502,43 @@
           />
           <p class="input-hint">{{ t('admin.subscriptions.planHint') }}</p>
         </div>
-        <div>
-          <label class="input-label">{{ t('admin.subscriptions.form.group') }}</label>
-          <Select
-            v-model="assignForm.group_id"
-            :options="subscriptionGroupOptions"
-            :placeholder="t('admin.subscriptions.selectGroup')"
-          >
-            <template #selected="{ option }">
-              <GroupBadge
-                v-if="option"
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-              />
-              <span v-else class="text-gray-400">{{ t('admin.subscriptions.selectGroup') }}</span>
-            </template>
-            <template #option="{ option, selected }">
-              <GroupOptionItem
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-                :description="(option as unknown as GroupOption).description"
-                :selected="selected"
-              />
-            </template>
-          </Select>
-          <p class="input-hint">{{ t('admin.subscriptions.groupHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.subscriptions.form.validityDays') }}</label>
-          <input v-model.number="assignForm.validity_days" type="number" min="1" class="input" />
-          <p class="input-hint">{{ t('admin.subscriptions.validityHint') }}</p>
-        </div>
+        <template v-if="isCustomAssignment">
+          <div>
+            <label class="input-label">{{ t('admin.subscriptions.form.group') }}</label>
+            <Select
+              v-model="assignForm.group_id"
+              :options="subscriptionGroupOptions"
+              :placeholder="t('admin.subscriptions.selectGroup')"
+            >
+              <template #selected="{ option }">
+                <GroupBadge
+                  v-if="option"
+                  :name="(option as unknown as GroupOption).label"
+                  :platform="(option as unknown as GroupOption).platform"
+                  :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                  :rate-multiplier="(option as unknown as GroupOption).rate"
+                />
+                <span v-else class="text-gray-400">{{ t('admin.subscriptions.selectGroup') }}</span>
+              </template>
+              <template #option="{ option, selected }">
+                <GroupOptionItem
+                  :name="(option as unknown as GroupOption).label"
+                  :platform="(option as unknown as GroupOption).platform"
+                  :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                  :rate-multiplier="(option as unknown as GroupOption).rate"
+                  :description="(option as unknown as GroupOption).description"
+                  :selected="selected"
+                />
+              </template>
+            </Select>
+            <p class="input-hint">{{ t('admin.subscriptions.groupHint') }}</p>
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.subscriptions.form.validityDays') }}</label>
+            <input v-model.number="assignForm.validity_days" type="number" min="1" class="input" />
+            <p class="input-hint">{{ t('admin.subscriptions.validityHint') }}</p>
+          </div>
+        </template>
       </form>
       <template #footer>
         <div class="flex justify-end gap-3">
@@ -965,6 +967,8 @@ const assignForm = reactive({
   validity_days: 30
 })
 
+const isCustomAssignment = computed(() => assignForm.plan_id === null)
+
 const extendForm = reactive({
   days: 30
 })
@@ -1015,7 +1019,11 @@ function computePlanValidityDays(plan: SubscriptionPlan): number {
 }
 
 function applySelectedPlan() {
-  if (!assignForm.plan_id) return
+  if (!assignForm.plan_id) {
+    assignForm.group_id = null
+    assignForm.validity_days = 30
+    return
+  }
   const plan = plans.value.find((item) => item.id === assignForm.plan_id)
   if (!plan) return
   assignForm.group_id = plan.group_id

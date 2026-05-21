@@ -34,7 +34,7 @@
               >
                 <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
               </button>
-              <button @click="showCreateModal = true" class="btn btn-primary" data-tour="keys-create-btn">
+              <button @click="openCreateModal" class="btn btn-primary" data-tour="keys-create-btn">
                 <Icon name="plus" size="md" class="mr-2" />
                 {{ t('keys.createKey') }}
               </button>
@@ -375,7 +375,7 @@
               :title="t('keys.noKeysYet')"
               :description="t('keys.createFirstKey')"
               :action-text="t('keys.createKey')"
-              @action="showCreateModal = true"
+              @action="openCreateModal"
             />
           </template>
         </DataTable>
@@ -1540,6 +1540,13 @@ const confirmDelete = (key: ApiKey) => {
   showDeleteDialog.value = true
 }
 
+const openCreateModal = () => {
+  selectedKey.value = null
+  showEditModal.value = false
+  closeModals()
+  showCreateModal.value = true
+}
+
 const handleSubmit = async () => {
   // Validate group_id is required
   if (formData.value.group_id === null) {
@@ -1941,6 +1948,10 @@ onMounted(() => {
   loadGroups()
   loadUserGroupRates()
   loadPublicSettings()
+  if (route.query.create === '1') {
+    openCreateModal()
+    router.replace({ path: route.path, query: { ...route.query, create: undefined } })
+  }
   document.addEventListener('click', closeGroupSelector)
   resetTimer = setInterval(() => { now.value = new Date() }, 60000)
 })
