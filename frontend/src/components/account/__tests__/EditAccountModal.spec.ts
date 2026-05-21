@@ -124,11 +124,13 @@ function buildAccount() {
     platform: 'openai',
     type: 'apikey',
     credentials: {
-      api_key: 'sk-test',
       base_url: 'https://api.openai.com',
       model_mapping: {
         'gpt-5.2': 'gpt-5.2'
       }
+    },
+    credentials_status: {
+      has_api_key: true
     },
     extra: {},
     proxy_id: null,
