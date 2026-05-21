@@ -539,7 +539,7 @@ func isSystemShareDisplayCapacityAccount(account *Account) bool {
 	return account != nil &&
 		account.OwnerUserID == nil &&
 		account.Platform == PlatformOpenAI &&
-		account.Type == AccountTypeAPIKey &&
+		(account.Type == AccountTypeAPIKey || account.Type == AccountTypeOAuth) &&
 		accountShareDisplayConfigured(account)
 }
 
@@ -854,7 +854,7 @@ func accountCapacityDisplayWindowSnapshots(account *Account) accountCapacityDisp
 
 func accountCapacityDisplayCountsFor(account *Account, active, schedulable, ownContributed, rateLimited, errorState, disabled, abnormal bool) accountCapacityDisplayCounts {
 	weight := 1
-	if accountUsesShareDisplayWindowMask(account) {
+	if accountUsesShareDisplayAccountCount(account) {
 		weight = account.GetShareDisplayAccountCount()
 	}
 	counts := accountCapacityDisplayCounts{total: weight}
@@ -880,6 +880,10 @@ func accountCapacityDisplayCountsFor(account *Account, active, schedulable, ownC
 		counts.abnormal = weight
 	}
 	return counts
+}
+
+func accountUsesShareDisplayAccountCount(account *Account) bool {
+	return isSystemShareDisplayCapacityAccount(account)
 }
 
 func accountUsesShareDisplayWindowMask(account *Account) bool {

@@ -462,6 +462,22 @@ func TestUserAccountService_GetCapacityPoolsIncludesOnlyPublicOrWrappedSystemSha
 					"share_display_percent_only": true,
 				},
 			},
+			{
+				ID:          4,
+				Name:        "hosted-plus-oauth",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				ShareMode:   AccountShareModePrivate,
+				ShareStatus: AccountShareStatusNotShared,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"codex_5h_used_percent":       18,
+					"share_display_tier":          "plus",
+					"share_display_percent_only":  true,
+					"share_display_account_count": 2,
+				},
+			},
 		},
 	}
 	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
@@ -470,12 +486,16 @@ func TestUserAccountService_GetCapacityPoolsIncludesOnlyPublicOrWrappedSystemSha
 	if err != nil {
 		t.Fatalf("GetCapacityPools returned error: %v", err)
 	}
-	if pools.Shared.TotalAccounts != 2 {
+	if pools.Shared.TotalAccounts != 4 {
 		t.Fatalf("expected public and wrapped system accounts in shared pool, got %d", pools.Shared.TotalAccounts)
 	}
 	sharedOpenAI := findCapacityPoolSection(pools.Shared.Sections, PlatformOpenAI, AccountTypeOAuth)
-	if sharedOpenAI == nil || sharedOpenAI.TotalAccounts != 1 || sharedOpenAI.Windows["5h"].UsedPercent != 42 {
+	if sharedOpenAI == nil || sharedOpenAI.TotalAccounts != 3 || sharedOpenAI.Windows["5h"].UsedPercent != 42 {
 		t.Fatalf("unexpected marked system shared section: %#v", sharedOpenAI)
+	}
+	wrappedPlus := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Plus")
+	if wrappedPlus == nil || wrappedPlus.TotalAccounts != 2 || !wrappedPlus.PercentOnlyQuota {
+		t.Fatalf("unexpected wrapped system oauth group: %#v", pools.Shared.Groups)
 	}
 	wrappedPro := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Pro")
 	if wrappedPro == nil || wrappedPro.TotalAccounts != 1 || !wrappedPro.PercentOnlyQuota {
