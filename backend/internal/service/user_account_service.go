@@ -867,7 +867,11 @@ func accountShareDisplayUsageWindowSnapshot(account *Account, suffix string, def
 	if limit <= 0 {
 		return UserAccountCapacityWindowSnapshot{}, false
 	}
-	used := maxFloat64(parseExtraFloat64(account.Extra[prefix+"_used"]), 0)
+	usedRaw, ok := account.Extra[prefix+"_used"]
+	if !ok {
+		return UserAccountCapacityWindowSnapshot{}, false
+	}
+	used := maxFloat64(parseExtraFloat64(usedRaw), 0)
 	if used > limit {
 		used = limit
 	}

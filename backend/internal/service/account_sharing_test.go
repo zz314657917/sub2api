@@ -826,6 +826,53 @@ func TestUserAccountService_GetCapacityPoolsUsesShareDisplayDedicatedWindows(t *
 	}
 }
 
+func TestUserAccountService_GetCapacityPoolsIgnoresIncompleteShareDisplayDedicatedWindows(t *testing.T) {
+	ownerID := int64(10)
+	now := time.Now()
+	repo := &capacityPoolAccountRepoStub{
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "hosted-plus-key",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				ShareMode:   AccountShareModePrivate,
+				ShareStatus: AccountShareStatusNotShared,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"quota_daily_limit":          100.0,
+					"quota_daily_used":           30.0,
+					"quota_daily_start":          now.Add(-1 * time.Hour).Format(time.RFC3339),
+					"quota_weekly_limit":         500.0,
+					"quota_weekly_used":          100.0,
+					"quota_weekly_start":         now.Add(-24 * time.Hour).Format(time.RFC3339),
+					"share_display_tier":         "plus",
+					"share_display_percent_only": true,
+					"share_display_5h_limit":     200.0,
+					"share_display_7d_limit":     1000.0,
+				},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Plus")
+	if group == nil {
+		t.Fatalf("expected OpenAI Plus display group, got %#v", pools.Shared.Groups)
+	}
+	if window := group.Windows["5h"]; window.UsedPercent != 30 || window.WindowMinutes != 300 {
+		t.Fatalf("expected incomplete dedicated 5h window to fall back to daily quota, got %#v", window)
+	}
+	if window := group.Windows["7d"]; window.UsedPercent != 20 || window.WindowMinutes != 10080 {
+		t.Fatalf("expected incomplete dedicated 7d window to fall back to weekly quota, got %#v", window)
+	}
+}
+
 func TestUserAccountService_GetCapacityPoolsUsesShareDisplayAccountCount(t *testing.T) {
 	ownerID := int64(10)
 	now := time.Now()
