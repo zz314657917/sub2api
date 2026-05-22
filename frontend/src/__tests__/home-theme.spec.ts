@@ -109,6 +109,8 @@ describe('home page visual direction', () => {
     expect(publicTopNav).toContain("t('home.navHome')")
     expect(publicTopNav).toContain("t('home.navTutorial')")
     expect(publicTopNav).toContain("t('home.navModels')")
+    expect(publicTopNav).toContain("t('home.navContact')")
+    expect(publicTopNav).toContain('openSupportPopup')
     expect(publicTopNav).not.toContain('isAuthenticated.value')
     expect(publicTopNav).not.toContain('navFeatures')
     expect(publicTopNav).not.toContain('功能特性')
@@ -127,6 +129,7 @@ describe('home page visual direction', () => {
     expect(zhLocale).toContain("navHome: '首页'")
     expect(zhLocale).toContain("navTutorial: '教程'")
     expect(zhLocale).toContain("navModels: '模型广场'")
+    expect(zhLocale).toContain("navContact: '联系管理'")
   })
 
   it('removes the homepage footer model badge strip', () => {

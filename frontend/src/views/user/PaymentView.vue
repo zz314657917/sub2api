@@ -375,7 +375,7 @@
                       </div>
                       <div class="pricing-caption flex flex-wrap gap-x-3 text-[11px]">
                         <span>{{ t('payment.planCard.rate') }}: ×{{ sub.group?.rate_multiplier ?? 1 }}</span>
-                        <span v-if="sub.group?.daily_limit_usd == null && sub.group?.weekly_limit_usd == null && sub.group?.monthly_limit_usd == null">{{ t('payment.planCard.quota') }}: {{ t('payment.planCard.unlimited') }}</span>
+                        <span v-if="!hasAnySubscriptionLimit(sub.group)">{{ t('payment.planCard.quota') }}: {{ t('payment.planCard.unlimited') }}</span>
                         <span v-if="sub.expires_at">{{ t('userSubscriptions.daysRemaining', { days: getDaysRemaining(sub.expires_at) }) }}</span>
                         <span v-else>{{ t('userSubscriptions.noExpiration') }}</span>
                       </div>
@@ -472,6 +472,7 @@ import Icon from '@/components/icons/Icon.vue'
 import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
+import { displaySubscriptionLimit, hasAnySubscriptionLimit } from '@/utils/subscriptionLimits'
 
 const i18n = useI18n()
 const { t } = i18n
@@ -1108,9 +1109,12 @@ function isPlanRenewal(plan: SubscriptionPlan): boolean {
 
 function planFeatureList(plan: SubscriptionPlan): string[] {
   const features: string[] = []
-  if (plan.weekly_limit_usd != null) features.push(pt('feature.weeklyQuota', { amount: `$${plan.weekly_limit_usd}` }))
-  if (plan.monthly_limit_usd != null) features.push(pt('feature.monthlyQuota', { amount: `$${plan.monthly_limit_usd}` }))
-  if (plan.daily_limit_usd != null) features.push(pt('feature.dailyQuota', { amount: `$${plan.daily_limit_usd}` }))
+  const weeklyLimit = displaySubscriptionLimit(plan.weekly_limit_usd)
+  const monthlyLimit = displaySubscriptionLimit(plan.monthly_limit_usd)
+  const dailyLimit = displaySubscriptionLimit(plan.daily_limit_usd)
+  if (weeklyLimit != null) features.push(pt('feature.weeklyQuota', { amount: `$${weeklyLimit}` }))
+  if (monthlyLimit != null) features.push(pt('feature.monthlyQuota', { amount: `$${monthlyLimit}` }))
+  if (dailyLimit != null) features.push(pt('feature.dailyQuota', { amount: `$${dailyLimit}` }))
   if (plan.rate_multiplier != null && plan.rate_multiplier !== 1) {
     features.push(pt('feature.discountRate', { rate: plan.rate_multiplier }))
   }

@@ -49,6 +49,8 @@ describe('public page smoke contracts', () => {
     expect(publicTopNav).toContain("to: '/home'")
     expect(publicTopNav).toContain("to: '/tutorial'")
     expect(publicTopNav).toContain("to: '/models'")
+    expect(publicTopNav).toContain("t('home.navContact')")
+    expect(publicTopNav).toContain('openSupportPopup')
     expect(publicTopNav).toContain('isAuthenticated ? dashboardPath : \'/login\'')
     expect(publicTopNav).not.toContain('navFeatures')
     expect(publicBackdrop).toContain('public-matrix-rain')
@@ -67,7 +69,7 @@ describe('public page smoke contracts', () => {
     expect(tutorialView).toContain('tutorial-directory-grid')
     expect(tutorialView).toContain('IntersectionObserver')
     expect(tutorialView).toContain('tutorialFallbackPages')
-    expect(tutorialView).toContain('renderTutorialMarkdown(page.content_md)')
+    expect(tutorialView).toContain('renderTutorialMarkdown(page.content_md, { skipTitle: page.title })')
   })
 
   it('keeps model plaza discovery controls mounted on the public surface', () => {

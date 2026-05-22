@@ -246,9 +246,11 @@ func (s *groupRepoStub) UpdateSortOrders(ctx context.Context, updates []GroupSor
 
 type deleteGroupAPIKeyRepoStub struct {
 	apiKeyRepoStubForGroupUpdate
-	keys         []string
-	listErr      error
-	listGroupIDs []int64
+	keys            []string
+	listErr         error
+	clearErr        error
+	listGroupIDs    []int64
+	clearedGroupIDs []int64
 }
 
 func (s *deleteGroupAPIKeyRepoStub) ListKeysByGroupID(ctx context.Context, groupID int64) ([]string, error) {
@@ -257,6 +259,14 @@ func (s *deleteGroupAPIKeyRepoStub) ListKeysByGroupID(ctx context.Context, group
 		return nil, s.listErr
 	}
 	return s.keys, nil
+}
+
+func (s *deleteGroupAPIKeyRepoStub) ClearGroupIDByGroupID(ctx context.Context, groupID int64) (int64, error) {
+	s.clearedGroupIDs = append(s.clearedGroupIDs, groupID)
+	if s.clearErr != nil {
+		return 0, s.clearErr
+	}
+	return 0, nil
 }
 
 type proxyRepoStub struct {
@@ -499,14 +509,17 @@ func TestAdminService_DeleteUser_DeleteError(t *testing.T) {
 func TestAdminService_DeleteGroup_Success_WithCacheInvalidation(t *testing.T) {
 	cache := newBillingCacheStub(2)
 	repo := &groupRepoStub{affectedUserIDs: []int64{11, 12}}
+	apiKeyRepo := &deleteGroupAPIKeyRepoStub{}
 	svc := &adminServiceImpl{
 		groupRepo:           repo,
+		apiKeyRepo:          apiKeyRepo,
 		billingCacheService: &BillingCacheService{cache: cache},
 	}
 
 	err := svc.DeleteGroup(context.Background(), 5)
 	require.NoError(t, err)
 	require.Equal(t, []int64{5}, repo.deleteCalls)
+	require.Equal(t, []int64{5}, apiKeyRepo.clearedGroupIDs)
 
 	calls := waitForInvalidations(t, cache.invalidations, 2)
 	require.ElementsMatch(t, []subscriptionInvalidateCall{
@@ -529,7 +542,23 @@ func TestAdminService_DeleteGroup_InvalidatesAuthCacheForBoundKeys(t *testing.T)
 	require.NoError(t, err)
 	require.Equal(t, []int64{5}, repo.deleteCalls)
 	require.Equal(t, []int64{5}, apiKeyRepo.listGroupIDs)
+	require.Equal(t, []int64{5}, apiKeyRepo.clearedGroupIDs)
 	require.Equal(t, []string{"k1", "k2"}, invalidator.keys)
+}
+
+func TestAdminService_DeleteGroup_ReturnsErrorWhenAPIKeyRouteCleanupFails(t *testing.T) {
+	clearErr := errors.New("clear routes failed")
+	repo := &groupRepoStub{}
+	apiKeyRepo := &deleteGroupAPIKeyRepoStub{clearErr: clearErr}
+	svc := &adminServiceImpl{
+		groupRepo:  repo,
+		apiKeyRepo: apiKeyRepo,
+	}
+
+	err := svc.DeleteGroup(context.Background(), 5)
+	require.ErrorIs(t, err, clearErr)
+	require.Equal(t, []int64{5}, repo.deleteCalls)
+	require.Equal(t, []int64{5}, apiKeyRepo.clearedGroupIDs)
 }
 
 func TestAdminService_DeleteGroup_NotFound(t *testing.T) {

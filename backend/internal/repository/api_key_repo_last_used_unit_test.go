@@ -8,6 +8,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/enttest"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 
@@ -30,7 +31,10 @@ func newAPIKeyRepoSQLite(t *testing.T) (*apiKeyRepository, *dbent.Client) {
 	client := enttest.NewClient(t, enttest.WithOptions(dbent.Driver(drv)))
 	t.Cleanup(func() { _ = client.Close() })
 
-	return &apiKeyRepository{client: client}, client
+	_, err = db.Exec("ALTER TABLE api_keys ADD COLUMN multi_group_routes TEXT NOT NULL DEFAULT '[]'")
+	require.NoError(t, err)
+
+	return &apiKeyRepository{client: client, dialect: dialect.SQLite}, client
 }
 
 func mustCreateAPIKeyRepoUser(t *testing.T, ctx context.Context, client *dbent.Client, email string) *service.User {
@@ -43,6 +47,17 @@ func mustCreateAPIKeyRepoUser(t *testing.T, ctx context.Context, client *dbent.C
 		Save(ctx)
 	require.NoError(t, err)
 	return userEntityToService(u)
+}
+
+func mustCreateAPIKeyRepoGroup(t *testing.T, ctx context.Context, client *dbent.Client, name string) *service.Group {
+	t.Helper()
+	g, err := client.Group.Create().
+		SetName(name).
+		SetStatus(service.StatusActive).
+		SetPlatform(service.PlatformOpenAI).
+		Save(ctx)
+	require.NoError(t, err)
+	return groupEntityToService(g)
 }
 
 func TestAPIKeyRepository_CreateWithLastUsedAt(t *testing.T) {
@@ -153,4 +168,49 @@ func TestAPIKeyRepository_CreateDuplicateKey(t *testing.T) {
 	require.NoError(t, repo.Create(ctx, first))
 	err := repo.Create(ctx, second)
 	require.ErrorIs(t, err, service.ErrAPIKeyExists)
+}
+
+func TestAPIKeyRepository_ClearGroupIDByGroupIDClearsMultiGroupRoutes_SQLite(t *testing.T) {
+	repo, client := newAPIKeyRepoSQLite(t)
+	ctx := context.Background()
+	user := mustCreateAPIKeyRepoUser(t, ctx, client, "clear-route-group@test.com")
+	primary := mustCreateAPIKeyRepoGroup(t, ctx, client, "clear-route-primary")
+	fallback := mustCreateAPIKeyRepoGroup(t, ctx, client, "clear-route-fallback")
+
+	key := &service.APIKey{
+		UserID:  user.ID,
+		Key:     "sk-clear-route-group",
+		Name:    "ClearRouteGroup",
+		GroupID: &primary.ID,
+		Status:  service.StatusActive,
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: primary.ID, Priority: 100, Weight: 1, CooldownSeconds: 30, Enabled: true},
+			{GroupID: fallback.ID, Priority: 110, Weight: 1, CooldownSeconds: 30, Enabled: true},
+		},
+	}
+	require.NoError(t, repo.Create(ctx, key))
+
+	beforeKeys, err := repo.ListKeysByGroupID(ctx, primary.ID)
+	require.NoError(t, err)
+	require.Contains(t, beforeKeys, key.Key)
+
+	affected, err := repo.ClearGroupIDByGroupID(ctx, primary.ID)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, affected, int64(1))
+
+	got, err := repo.GetByID(ctx, key.ID)
+	require.NoError(t, err)
+	require.Nil(t, got.GroupID)
+	require.Len(t, got.MultiGroupRoutes, 1)
+	require.Equal(t, fallback.ID, got.MultiGroupRoutes[0].GroupID)
+	require.Len(t, got.MultiGroupRouteGroups, 1)
+	require.Equal(t, fallback.ID, got.MultiGroupRouteGroups[0].ID)
+
+	primaryKeys, err := repo.ListKeysByGroupID(ctx, primary.ID)
+	require.NoError(t, err)
+	require.NotContains(t, primaryKeys, key.Key)
+
+	fallbackKeys, err := repo.ListKeysByGroupID(ctx, fallback.ID)
+	require.NoError(t, err)
+	require.Contains(t, fallbackKeys, key.Key)
 }

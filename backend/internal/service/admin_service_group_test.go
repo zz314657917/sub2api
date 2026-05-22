@@ -198,6 +198,68 @@ func TestAdminService_CreateGroup_NilImagePricing(t *testing.T) {
 	require.Nil(t, repo.created.ImagePrice4K)
 }
 
+func TestAdminService_CreateGroup_TreatsNonPositiveSubscriptionLimitAsUnlimited(t *testing.T) {
+	repo := &groupRepoStubForAdmin{}
+	svc := &adminServiceImpl{groupRepo: repo}
+
+	zero := 0.0
+	negative := -1.0
+	weekly := 350.0
+
+	group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
+		Name:             "subscription-group",
+		Description:      "Test group",
+		Platform:         PlatformOpenAI,
+		RateMultiplier:   1.0,
+		SubscriptionType: SubscriptionTypeSubscription,
+		DailyLimitUSD:    &zero,
+		WeeklyLimitUSD:   &weekly,
+		MonthlyLimitUSD:  &negative,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.NotNil(t, repo.created)
+	require.Nil(t, repo.created.DailyLimitUSD)
+	require.Nil(t, repo.created.MonthlyLimitUSD)
+	require.NotNil(t, repo.created.WeeklyLimitUSD)
+	require.InDelta(t, weekly, *repo.created.WeeklyLimitUSD, 0.0001)
+}
+
+func TestAdminService_UpdateGroup_TreatsNonPositiveSubscriptionLimitAsUnlimited(t *testing.T) {
+	daily := 25.0
+	monthly := 700.0
+	existingGroup := &Group{
+		ID:               1,
+		Name:             "existing-group",
+		Platform:         PlatformOpenAI,
+		Status:           StatusActive,
+		RateMultiplier:   1.0,
+		SubscriptionType: SubscriptionTypeSubscription,
+		DailyLimitUSD:    &daily,
+		MonthlyLimitUSD:  &monthly,
+	}
+	repo := &groupRepoStubForAdmin{getByID: existingGroup}
+	svc := &adminServiceImpl{groupRepo: repo}
+
+	zero := 0.0
+	negative := -1.0
+	weekly := 350.0
+	group, err := svc.UpdateGroup(context.Background(), 1, &UpdateGroupInput{
+		DailyLimitUSD:   &zero,
+		WeeklyLimitUSD:  &weekly,
+		MonthlyLimitUSD: &negative,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, group)
+	require.NotNil(t, repo.updated)
+	require.Nil(t, repo.updated.DailyLimitUSD)
+	require.Nil(t, repo.updated.MonthlyLimitUSD)
+	require.NotNil(t, repo.updated.WeeklyLimitUSD)
+	require.InDelta(t, weekly, *repo.updated.WeeklyLimitUSD, 0.0001)
+}
+
 // TestAdminService_UpdateGroup_WithImagePricing 测试更新分组时 ImagePrice 字段正确更新
 func TestAdminService_UpdateGroup_WithImagePricing(t *testing.T) {
 	existingGroup := &Group{

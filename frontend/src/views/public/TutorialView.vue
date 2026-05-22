@@ -1,5 +1,5 @@
 <template>
-  <div class="tutorial-page relative min-h-screen overflow-hidden text-white">
+  <div class="tutorial-page relative min-h-screen text-white">
     <PublicMatrixBackdrop />
     <PublicTopNav />
 
@@ -12,7 +12,7 @@
           <span class="tutorial-kicker">AI 接入教程</span>
           <h1>从快速开始到工具配置</h1>
           <p>
-            教程内容现在由后台发布，前台自动读取已发布文章；后台没有内容时使用内置默认教程兜底。
+            最快路线是先安装 Codex App，再创建专用密钥并写入配置。
           </p>
           <div class="tutorial-actions">
             <router-link v-if="firstPage" :to="`/tutorial/${firstPage.slug}`" class="guide-action-link">
@@ -59,6 +59,7 @@
                 v-for="page in orderedPages"
                 :key="page.slug"
                 :to="`/tutorial/${page.slug}`"
+                class="tutorial-tab-link"
                 :class="{ 'is-active': activeSlug === page.slug }"
               >
                 <strong>{{ page.title }}</strong>
@@ -72,7 +73,7 @@
               <div>
                 <span>目录</span>
                 <h2>选择一篇教程开始</h2>
-                <p>先按快速开始创建密钥，再根据你使用的工具进入对应配置页。</p>
+                <p>先按最快路线安装 Codex App 并创建专用密钥，再根据需要进入其他工具配置页。</p>
               </div>
               <button type="button" class="tutorial-refresh" :disabled="loading" @click="refreshPages">
                 刷新
@@ -138,6 +139,23 @@
         </section>
       </template>
     </main>
+
+    <div
+      v-if="imagePreview"
+      class="tutorial-image-lightbox"
+      role="dialog"
+      aria-modal="true"
+      :aria-label="imagePreview.alt || '教程截图预览'"
+      @click.self="closeImagePreview"
+    >
+      <button type="button" class="tutorial-image-lightbox__close" @click="closeImagePreview">
+        关闭
+      </button>
+      <figure>
+        <img :src="imagePreview.src" :alt="imagePreview.alt" />
+        <figcaption v-if="imagePreview.caption">{{ imagePreview.caption }}</figcaption>
+      </figure>
+    </div>
   </div>
 </template>
 
@@ -184,6 +202,7 @@ const renderedHtml = ref('')
 const tocItems = ref<TutorialTocItem[]>([])
 const activeHeadingId = ref('')
 const contentRef = ref<HTMLElement | null>(null)
+const imagePreview = ref<{ src: string; alt: string; caption: string } | null>(null)
 let observer: IntersectionObserver | null = null
 
 const orderedPages = computed(() => {
@@ -232,6 +251,10 @@ function setFallbackPages(reason: 'empty' | 'error', message = '') {
 
 function normalizeHash(hash: string): string {
   return hash.replace(/^#/, '').trim().toLowerCase()
+}
+
+function resolveLegacyHashTarget(): string {
+  return legacyHashRedirects[normalizeHash(route.hash)] ?? ''
 }
 
 async function loadPages(force = false) {
@@ -288,9 +311,9 @@ async function renderActivePage() {
     activeHeadingId.value = ''
     return
   }
-  const result = renderTutorialMarkdown(page.content_md)
+  const result = renderTutorialMarkdown(page.content_md, { skipTitle: page.title })
   renderedHtml.value = result.html
-  tocItems.value = result.toc.filter((item) => item.level <= 3)
+  tocItems.value = result.toc.filter((item) => item.level >= 2 && item.level <= 3)
   activeHeadingId.value = tocItems.value[0]?.id ?? ''
   await nextTick()
   setupHeadingObserver()
@@ -301,7 +324,7 @@ function setupHeadingObserver() {
   observer = null
   const root = contentRef.value
   if (!root) return
-  const headings = Array.from(root.querySelectorAll<HTMLElement>('h1[id], h2[id], h3[id]'))
+  const headings = Array.from(root.querySelectorAll<HTMLElement>('h2[id], h3[id]'))
   if (!headings.length) return
   if (!('IntersectionObserver' in window)) return
   observer = new IntersectionObserver(
@@ -327,34 +350,53 @@ function scrollToHeading(id: string) {
 async function handleContentClick(event: MouseEvent) {
   const target = event.target as HTMLElement | null
   const copyButton = target?.closest<HTMLButtonElement>('[data-copy-code]')
-  if (!copyButton) return
-  const encoded = copyButton.dataset.copyCode || ''
-  const text = decodeURIComponent(encoded)
-  try {
-    await navigator.clipboard.writeText(text)
-    appStore.showSuccess('已复制命令')
-  } catch {
-    appStore.showError('复制失败，请手动选择命令')
+  if (copyButton) {
+    const encoded = copyButton.dataset.copyCode || ''
+    const text = decodeURIComponent(encoded)
+    try {
+      await navigator.clipboard.writeText(text)
+      appStore.showSuccess('已复制命令')
+    } catch {
+      appStore.showError('复制失败，请手动选择命令')
+    }
+    return
+  }
+
+  const screenshotCard = target?.closest<HTMLElement>('.tutorial-screenshot-card')
+  const image = screenshotCard?.querySelector<HTMLImageElement>('img')
+  if (!screenshotCard || !image) return
+  imagePreview.value = {
+    src: image.currentSrc || image.src,
+    alt: image.alt || '教程截图',
+    caption: screenshotCard.querySelector('figcaption')?.textContent?.trim() || image.alt || ''
   }
 }
 
+function closeImagePreview() {
+  imagePreview.value = null
+}
+
+function handleGlobalKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeImagePreview()
+}
+
 function handleLegacyHashRedirect() {
-  const hash = normalizeHash(route.hash)
-  if (!hash || routeSlug.value) return
-  const target = legacyHashRedirects[hash]
+  const target = resolveLegacyHashTarget()
+  if (!target || routeSlug.value === target) return
   if (target) {
-    router.replace({ path: `/tutorial/${target}` })
+    router.replace({ path: `/tutorial/${target}`, hash: '' })
   }
 }
 
 watch(
-  () => route.hash,
+  () => [route.hash, routeSlug.value],
   () => handleLegacyHashRedirect()
 )
 
 watch(
   activeSlug,
   async (slug) => {
+    closeImagePreview()
     await ensurePage(slug)
     await renderActivePage()
   }
@@ -365,6 +407,7 @@ watch(activePage, () => {
 })
 
 onMounted(async () => {
+  window.addEventListener('keydown', handleGlobalKeydown)
   handleLegacyHashRedirect()
   await loadPages()
   await ensurePage(activeSlug.value)
@@ -372,12 +415,14 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('keydown', handleGlobalKeydown)
   observer?.disconnect()
 })
 </script>
 
 <style scoped>
 .tutorial-page {
+  overflow-x: clip;
   --tutorial-panel: rgba(8, 13, 26, 0.78);
   --tutorial-panel-strong: rgba(11, 18, 32, 0.92);
   --tutorial-border: rgba(185, 209, 255, 0.16);
@@ -391,13 +436,13 @@ onUnmounted(() => {
 }
 
 .tutorial-main {
-  width: min(100%, 80rem);
-  padding: 1.25rem 1rem 4rem;
+  width: min(100%, 104rem);
+  padding: 1.25rem clamp(1rem, 2vw, 2rem) 4rem;
 }
 
 .tutorial-overview {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(20rem, 0.8fr);
+  grid-template-columns: minmax(0, 1.35fr) minmax(26rem, 0.85fr);
   gap: 1rem;
   margin-bottom: 1rem;
 }
@@ -552,17 +597,19 @@ onUnmounted(() => {
 
 .tutorial-reader {
   display: grid;
-  grid-template-columns: 17rem minmax(0, 1fr);
+  grid-template-columns: 18rem minmax(0, 1fr);
   gap: 1rem;
 }
 
 .tutorial-sidebar {
   position: sticky;
-  top: 5rem;
+  top: var(--tutorial-sticky-top, 5rem);
+  z-index: 12;
   align-self: start;
-  max-height: calc(100vh - 6rem);
+  max-height: calc(100vh - var(--tutorial-sticky-top, 5rem) - 1rem);
   padding: 0.85rem;
   overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .tutorial-sidebar-title,
@@ -642,7 +689,7 @@ onUnmounted(() => {
 
 .tutorial-content-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 15rem;
+  grid-template-columns: minmax(0, 1fr) 12rem;
   gap: 1rem;
   align-items: start;
   margin-top: 1rem;
@@ -717,6 +764,33 @@ onUnmounted(() => {
   line-height: 1.82;
 }
 
+.tutorial-content :deep(a) {
+  color: #86efac;
+  font-weight: 800;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.tutorial-content :deep(a:hover) {
+  color: #bbf7d0;
+  text-decoration-thickness: 2px;
+}
+
+.tutorial-content :deep(.guide-action-link) {
+  display: inline;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #86efac;
+  font-weight: 900;
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
 .tutorial-content :deep(ul),
 .tutorial-content :deep(ol) {
   padding-left: 1.25rem;
@@ -788,13 +862,21 @@ onUnmounted(() => {
 
 .tutorial-content :deep(.tutorial-screenshot-card) {
   display: inline-grid;
-  width: min(100%, 28rem);
+  width: min(100%, 48rem);
   margin: 0.75rem 0.5rem 0.75rem 0;
   overflow: hidden;
   border: 1px solid rgba(148, 163, 184, 0.16);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.055);
+  cursor: zoom-in;
   vertical-align: top;
+  transition: border-color 0.16s ease, transform 0.16s ease, background 0.16s ease;
+}
+
+.tutorial-content :deep(.tutorial-screenshot-card:hover) {
+  border-color: rgba(134, 239, 172, 0.42);
+  background: rgba(34, 197, 94, 0.08);
+  transform: translateY(-1px);
 }
 
 .tutorial-content :deep(.tutorial-screenshot-card img) {
@@ -811,10 +893,68 @@ onUnmounted(() => {
   font-size: 0.82rem;
 }
 
+.tutorial-image-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 3vw, 2rem);
+  background: rgba(2, 6, 23, 0.86);
+  backdrop-filter: blur(12px);
+}
+
+.tutorial-image-lightbox figure {
+  display: grid;
+  gap: 0.75rem;
+  max-width: min(96vw, 76rem);
+  max-height: 92vh;
+  margin: 0;
+}
+
+.tutorial-image-lightbox img {
+  display: block;
+  max-width: 100%;
+  max-height: min(82vh, calc(100vh - 7rem));
+  object-fit: contain;
+  border: 1px solid rgba(226, 232, 240, 0.22);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
+}
+
+.tutorial-image-lightbox figcaption {
+  max-width: min(96vw, 76rem);
+  color: rgba(226, 232, 240, 0.86);
+  text-align: center;
+  font-size: 0.92rem;
+}
+
+.tutorial-image-lightbox__close {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  min-height: 2.35rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid rgba(134, 239, 172, 0.36);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.86);
+  color: #dcfce7;
+  font-weight: 900;
+}
+
+.tutorial-image-lightbox__close:hover {
+  border-color: rgba(134, 239, 172, 0.7);
+  background: rgba(22, 163, 74, 0.18);
+}
+
 .tutorial-toc {
   position: sticky;
-  top: 5rem;
+  top: var(--tutorial-sticky-top, 5rem);
+  z-index: 11;
   display: grid;
+  max-height: calc(100vh - var(--tutorial-sticky-top, 5rem) - 1rem);
+  overflow: auto;
   gap: 0.25rem;
   padding: 0.85rem;
   border: 1px solid var(--tutorial-border);

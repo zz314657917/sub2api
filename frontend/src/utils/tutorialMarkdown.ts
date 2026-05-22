@@ -12,6 +12,10 @@ export interface TutorialRenderResult {
   toc: TutorialTocItem[]
 }
 
+export interface TutorialRenderOptions {
+  skipTitle?: string
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -33,6 +37,12 @@ function parseAttributes(raw: string): Record<string, string> {
 
 function renderShortcodes(markdown: string): string {
   let next = markdown
+  const blocks: string[] = []
+  const preserveBlock = (html: string): string => {
+    const token = `\n\n@@TUTORIAL_SHORTCODE_${blocks.length}@@\n\n`
+    blocks.push(html)
+    return token
+  }
 
   next = next.replace(
     /\[\[command([^\]]*)\]\]([\s\S]*?)\[\[\/command\]\]/g,
@@ -42,7 +52,9 @@ function renderShortcodes(markdown: string): string {
       const lang = escapeHtml(attrs.lang || '')
       const code = escapeHtml(body.replace(/^\n|\n$/g, ''))
       const codeClass = lang ? ` class="language-${lang}"` : ''
-      return `<div class="tutorial-command-block command-block"><div class="command-block-header"><span>${title}</span><button type="button" class="copy-command-button" data-copy-code="${encodeURIComponent(body.replace(/^\n|\n$/g, ''))}">复制</button></div><pre><code${codeClass}>${code}</code></pre></div>`
+      return preserveBlock(
+        `<div class="tutorial-command-block command-block"><div class="command-block-header"><span>${title}</span><button type="button" class="copy-command-button" data-copy-code="${encodeURIComponent(body.replace(/^\n|\n$/g, ''))}">复制</button></div><pre><code${codeClass}>${code}</code></pre></div>`
+      )
     }
   )
 
@@ -53,7 +65,7 @@ function renderShortcodes(markdown: string): string {
       const type = escapeHtml(attrs.type || 'tip')
       const title = escapeHtml(attrs.title || '提示')
       const content = marked.parse(body.trim()) as string
-      return `<div class="tutorial-callout tutorial-callout-${type}"><strong>${title}</strong>${content}</div>`
+      return preserveBlock(`<div class="tutorial-callout tutorial-callout-${type}"><strong>${title}</strong>${content}</div>`)
     }
   )
 
@@ -65,7 +77,9 @@ function renderShortcodes(markdown: string): string {
       const alt = escapeHtml(attrs.alt || attrs.caption || '教程截图')
       const caption = escapeHtml(attrs.caption || alt)
       if (!src) return ''
-      return `<figure class="tutorial-screenshot-card"><img src="${src}" alt="${alt}" loading="lazy" /><figcaption>${caption}</figcaption></figure>`
+      return preserveBlock(
+        `<figure class="tutorial-screenshot-card"><img src="${src}" alt="${alt}" loading="lazy" /><figcaption>${caption}</figcaption></figure>`
+      )
     }
   )
 
@@ -75,11 +89,11 @@ function renderShortcodes(markdown: string): string {
       const attrs = parseAttributes(rawAttrs)
       const href = escapeHtml(attrs.href || '#')
       const label = escapeHtml(attrs.label || attrs.href || '打开链接')
-      return `<a class="guide-action-link" href="${href}">${label}</a>`
+      return preserveBlock(`<a class="guide-action-link" href="${href}">${label}</a>`)
     }
   )
 
-  return next
+  return next.replace(/@@TUTORIAL_SHORTCODE_(\d+)@@/g, (_match, index: string) => blocks[Number(index)] || '')
 }
 
 function generateHeadingId(text: string, index: number): string {
@@ -90,7 +104,7 @@ function generateHeadingId(text: string, index: number): string {
   return base ? `${base}-${index}` : `heading-${index}`
 }
 
-export function renderTutorialMarkdown(markdown: string): TutorialRenderResult {
+export function renderTutorialMarkdown(markdown: string, options: TutorialRenderOptions = {}): TutorialRenderResult {
   const rendered = marked.parse(renderShortcodes(markdown || '')) as string
   const sanitized = DOMPurify.sanitize(rendered, {
     ADD_ATTR: ['target', 'rel', 'loading', 'data-copy-code']
@@ -98,11 +112,17 @@ export function renderTutorialMarkdown(markdown: string): TutorialRenderResult {
 
   const toc: TutorialTocItem[] = []
   let headingIndex = 0
+  let skippedPageTitle = false
+  const skipTitle = (options.skipTitle || '').trim()
   const html = sanitized.replace(
     /<(h[1-3])[^>]*>(.*?)<\/h[1-3]>/gi,
     (_match, tag: string, content: string) => {
       const level = Number(tag[1])
       const text = content.replace(/<[^>]+>/g, '').trim()
+      if (!skippedPageTitle && skipTitle && level <= 2 && text === skipTitle) {
+        skippedPageTitle = true
+        return ''
+      }
       const id = generateHeadingId(text, headingIndex++)
       toc.push({ id, text, level })
       return `<${tag} id="${id}">${content}</${tag}>`

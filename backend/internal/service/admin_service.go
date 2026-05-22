@@ -1598,7 +1598,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		subscriptionType = SubscriptionTypeStandard
 	}
 
-	// 限额字段：nil/负数 表示"无限制"，0 表示"不允许用量"，正数表示具体限额
+	// 限额字段：nil/0/负数 表示"无限制"，正数表示具体限额
 	dailyLimit := normalizeLimit(input.DailyLimitUSD)
 	weeklyLimit := normalizeLimit(input.WeeklyLimitUSD)
 	monthlyLimit := normalizeLimit(input.MonthlyLimitUSD)
@@ -1737,9 +1737,9 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	return group, nil
 }
 
-// normalizeLimit 将负数转换为 nil（表示无限制），0 保留（表示限额为零）
+// normalizeLimit 将 nil、0、负数转换为 nil（表示无限制）
 func normalizeLimit(limit *float64) *float64 {
-	if limit == nil || *limit < 0 {
+	if limit == nil || *limit <= 0 {
 		return nil
 	}
 	return limit
@@ -1854,7 +1854,7 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if input.SubscriptionType != "" {
 		group.SubscriptionType = input.SubscriptionType
 	}
-	// 限额字段：nil/负数 表示"无限制"，0 表示"不允许用量"，正数表示具体限额
+	// 限额字段：nil/0/负数 表示"无限制"，正数表示具体限额
 	// 前端始终发送这三个字段，无需 nil 守卫
 	group.DailyLimitUSD = normalizeLimit(input.DailyLimitUSD)
 	group.WeeklyLimitUSD = normalizeLimit(input.WeeklyLimitUSD)
@@ -2041,6 +2041,11 @@ func (s *adminServiceImpl) DeleteGroup(ctx context.Context, id int64) error {
 	affectedUserIDs, err := s.groupRepo.DeleteCascade(ctx, id)
 	if err != nil {
 		return err
+	}
+	if s.apiKeyRepo != nil {
+		if _, err := s.apiKeyRepo.ClearGroupIDByGroupID(ctx, id); err != nil {
+			return fmt.Errorf("clear api key group references: %w", err)
+		}
 	}
 	// 注意：user_group_rate_multipliers 表通过外键 ON DELETE CASCADE 自动清理
 

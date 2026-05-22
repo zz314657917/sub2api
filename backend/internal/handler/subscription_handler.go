@@ -151,13 +151,13 @@ func (h *SubscriptionHandler) GetSummary(c *gin.Context) {
 		// Add group info if preloaded
 		if sub.Group != nil {
 			item.GroupName = sub.Group.Name
-			if sub.Group.DailyLimitUSD != nil {
+			if sub.Group.HasDailyLimit() {
 				item.DailyLimitUSD = *sub.Group.DailyLimitUSD
 			}
-			if sub.Group.WeeklyLimitUSD != nil {
+			if sub.Group.HasWeeklyLimit() {
 				item.WeeklyLimitUSD = *sub.Group.WeeklyLimitUSD
 			}
-			if sub.Group.MonthlyLimitUSD != nil {
+			if sub.Group.HasMonthlyLimit() {
 				item.MonthlyLimitUSD = *sub.Group.MonthlyLimitUSD
 			}
 		}

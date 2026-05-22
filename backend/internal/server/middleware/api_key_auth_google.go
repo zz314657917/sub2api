@@ -54,6 +54,7 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			abortWithGoogleError(c, 401, "User account is not active")
 			return
 		}
+		apiKey = resolveAPIKeyForRequest(c, apiKeyService, apiKey)
 		if _, message, ok := validateAPIKeyGroupAvailable(apiKey); !ok {
 			abortWithGoogleError(c, 403, message)
 			return

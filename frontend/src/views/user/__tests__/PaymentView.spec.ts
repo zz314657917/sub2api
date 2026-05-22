@@ -438,6 +438,8 @@ describe('PaymentView pricing layout', () => {
     expect(source).not.toContain('body.purchase-pricing-open .console-shell')
     expect(source).toContain('handleSubmitRecharge')
     expect(source).toContain('confirmSubscribe')
+    expect(source).toContain('displaySubscriptionLimit(plan.daily_limit_usd)')
+    expect(source).toContain('hasAnySubscriptionLimit(sub.group)')
   })
 
   it('defines pricing copy in both locale files', () => {

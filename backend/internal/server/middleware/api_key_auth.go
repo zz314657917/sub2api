@@ -109,6 +109,7 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			AbortWithError(c, 401, "USER_INACTIVE", "User account is not active")
 			return
 		}
+		apiKey = resolveAPIKeyForRequest(c, apiKeyService, apiKey)
 		if abortIfAPIKeyGroupUnavailable(c, apiKey) {
 			return
 		}
@@ -276,4 +277,12 @@ func validateAPIKeyGroupAvailable(apiKey *service.APIKey) (string, string, bool)
 		return "GROUP_DISABLED", "API Key 所属分组已停用", false
 	}
 	return "", "", true
+}
+
+func resolveAPIKeyForRequest(c *gin.Context, apiKeyService *service.APIKeyService, apiKey *service.APIKey) *service.APIKey {
+	if apiKeyService == nil || apiKey == nil {
+		return apiKey
+	}
+	forcePlatform, _ := GetForcePlatformFromContext(c)
+	return apiKeyService.ResolveForRequest(c.Request.Context(), apiKey, c.Request.URL.Path, forcePlatform)
 }

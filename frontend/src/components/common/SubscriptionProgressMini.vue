@@ -72,7 +72,7 @@
 
               <!-- Progress bars for limited subscriptions -->
               <template v-else>
-                <div v-if="subscription.group?.daily_limit_usd" class="flex items-center gap-2">
+                <div v-if="displaySubscriptionLimit(subscription.group?.daily_limit_usd) != null" class="flex items-center gap-2">
                   <span class="w-8 flex-shrink-0 text-[10px] text-gray-500">{{
                     t('subscriptionProgress.daily')
                   }}</span>
@@ -100,7 +100,7 @@
                   </span>
                 </div>
 
-                <div v-if="subscription.group?.weekly_limit_usd" class="flex items-center gap-2">
+                <div v-if="displaySubscriptionLimit(subscription.group?.weekly_limit_usd) != null" class="flex items-center gap-2">
                   <span class="w-8 flex-shrink-0 text-[10px] text-gray-500">{{
                     t('subscriptionProgress.weekly')
                   }}</span>
@@ -128,7 +128,7 @@
                   </span>
                 </div>
 
-                <div v-if="subscription.group?.monthly_limit_usd" class="flex items-center gap-2">
+                <div v-if="displaySubscriptionLimit(subscription.group?.monthly_limit_usd) != null" class="flex items-center gap-2">
                   <span class="w-8 flex-shrink-0 text-[10px] text-gray-500">{{
                     t('subscriptionProgress.monthly')
                   }}</span>
@@ -183,6 +183,7 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { useSubscriptionStore } from '@/stores'
 import type { UserSubscription } from '@/types'
+import { displaySubscriptionLimit, hasAnySubscriptionLimit } from '@/utils/subscriptionLimits'
 
 const { t } = useI18n()
 
@@ -206,24 +207,23 @@ const displaySubscriptions = computed(() => {
 
 function getMaxUsagePercentage(sub: UserSubscription): number {
   const percentages: number[] = []
-  if (sub.group?.daily_limit_usd) {
-    percentages.push(((sub.daily_usage_usd || 0) / sub.group.daily_limit_usd) * 100)
+  const dailyLimit = displaySubscriptionLimit(sub.group?.daily_limit_usd)
+  const weeklyLimit = displaySubscriptionLimit(sub.group?.weekly_limit_usd)
+  const monthlyLimit = displaySubscriptionLimit(sub.group?.monthly_limit_usd)
+  if (dailyLimit != null) {
+    percentages.push(((sub.daily_usage_usd || 0) / dailyLimit) * 100)
   }
-  if (sub.group?.weekly_limit_usd) {
-    percentages.push(((sub.weekly_usage_usd || 0) / sub.group.weekly_limit_usd) * 100)
+  if (weeklyLimit != null) {
+    percentages.push(((sub.weekly_usage_usd || 0) / weeklyLimit) * 100)
   }
-  if (sub.group?.monthly_limit_usd) {
-    percentages.push(((sub.monthly_usage_usd || 0) / sub.group.monthly_limit_usd) * 100)
+  if (monthlyLimit != null) {
+    percentages.push(((sub.monthly_usage_usd || 0) / monthlyLimit) * 100)
   }
   return percentages.length > 0 ? Math.max(...percentages) : 0
 }
 
 function isUnlimited(sub: UserSubscription): boolean {
-  return (
-    !sub.group?.daily_limit_usd &&
-    !sub.group?.weekly_limit_usd &&
-    !sub.group?.monthly_limit_usd
-  )
+  return !hasAnySubscriptionLimit(sub.group)
 }
 
 function getProgressDotClass(sub: UserSubscription): string {
@@ -238,22 +238,24 @@ function getProgressDotClass(sub: UserSubscription): string {
 }
 
 function getProgressBarClass(used: number | undefined, limit: number | null | undefined): string {
-  if (!limit || limit === 0) return 'bg-gray-400'
-  const percentage = ((used || 0) / limit) * 100
+  const normalizedLimit = displaySubscriptionLimit(limit)
+  if (normalizedLimit == null) return 'bg-gray-400'
+  const percentage = ((used || 0) / normalizedLimit) * 100
   if (percentage >= 90) return 'bg-red-500'
   if (percentage >= 70) return 'bg-orange-500'
   return 'bg-green-500'
 }
 
 function getProgressWidth(used: number | undefined, limit: number | null | undefined): string {
-  if (!limit || limit === 0) return '0%'
-  const percentage = Math.min(((used || 0) / limit) * 100, 100)
+  const normalizedLimit = displaySubscriptionLimit(limit)
+  if (normalizedLimit == null) return '0%'
+  const percentage = Math.min(((used || 0) / normalizedLimit) * 100, 100)
   return `${percentage}%`
 }
 
 function formatUsage(used: number | undefined, limit: number | null | undefined): string {
   const usedValue = (used || 0).toFixed(2)
-  const limitValue = limit?.toFixed(2) || '∞'
+  const limitValue = displaySubscriptionLimit(limit)?.toFixed(2) || '∞'
   return `$${usedValue}/$${limitValue}`
 }
 

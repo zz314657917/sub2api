@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
 
@@ -77,32 +78,45 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 	if k == nil {
 		return nil
 	}
+	multiGroupRoutes := k.MultiGroupRoutes
+	if multiGroupRoutes == nil {
+		multiGroupRoutes = []domain.APIKeyMultiGroupRoute{}
+	}
 	out := &APIKey{
-		ID:            k.ID,
-		UserID:        k.UserID,
-		Key:           k.Key,
-		Name:          k.Name,
-		GroupID:       k.GroupID,
-		Status:        k.Status,
-		IPWhitelist:   k.IPWhitelist,
-		IPBlacklist:   k.IPBlacklist,
-		LastUsedAt:    k.LastUsedAt,
-		Quota:         k.Quota,
-		QuotaUsed:     k.QuotaUsed,
-		ExpiresAt:     k.ExpiresAt,
-		CreatedAt:     k.CreatedAt,
-		UpdatedAt:     k.UpdatedAt,
-		RateLimit5h:   k.RateLimit5h,
-		RateLimit1d:   k.RateLimit1d,
-		RateLimit7d:   k.RateLimit7d,
-		Usage5h:       k.EffectiveUsage5h(),
-		Usage1d:       k.EffectiveUsage1d(),
-		Usage7d:       k.EffectiveUsage7d(),
-		Window5hStart: k.Window5hStart,
-		Window1dStart: k.Window1dStart,
-		Window7dStart: k.Window7dStart,
-		User:          UserFromServiceShallow(k.User),
-		Group:         GroupFromServiceShallow(k.Group),
+		ID:               k.ID,
+		UserID:           k.UserID,
+		Key:              k.Key,
+		Name:             k.Name,
+		GroupID:          k.GroupID,
+		MultiGroupRoutes: multiGroupRoutes,
+		Status:           k.Status,
+		IPWhitelist:      k.IPWhitelist,
+		IPBlacklist:      k.IPBlacklist,
+		LastUsedAt:       k.LastUsedAt,
+		Quota:            k.Quota,
+		QuotaUsed:        k.QuotaUsed,
+		ExpiresAt:        k.ExpiresAt,
+		CreatedAt:        k.CreatedAt,
+		UpdatedAt:        k.UpdatedAt,
+		RateLimit5h:      k.RateLimit5h,
+		RateLimit1d:      k.RateLimit1d,
+		RateLimit7d:      k.RateLimit7d,
+		Usage5h:          k.EffectiveUsage5h(),
+		Usage1d:          k.EffectiveUsage1d(),
+		Usage7d:          k.EffectiveUsage7d(),
+		Window5hStart:    k.Window5hStart,
+		Window1dStart:    k.Window1dStart,
+		Window7dStart:    k.Window7dStart,
+		User:             UserFromServiceShallow(k.User),
+		Group:            GroupFromServiceShallow(k.Group),
+	}
+	if len(k.MultiGroupRouteGroups) > 0 {
+		out.RouteGroups = make([]Group, 0, len(k.MultiGroupRouteGroups))
+		for _, group := range k.MultiGroupRouteGroups {
+			if dtoGroup := GroupFromServiceShallow(group); dtoGroup != nil {
+				out.RouteGroups = append(out.RouteGroups, *dtoGroup)
+			}
+		}
 	}
 	if k.Window5hStart != nil && !service.IsWindowExpired(k.Window5hStart, service.RateLimitWindow5h) {
 		t := k.Window5hStart.Add(service.RateLimitWindow5h)

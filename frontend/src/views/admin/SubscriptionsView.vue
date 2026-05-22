@@ -214,7 +214,7 @@
           <template #cell-usage="{ row }">
             <div class="min-w-[280px] space-y-2">
               <!-- Daily Usage -->
-              <div v-if="row.group?.daily_limit_usd" class="usage-row">
+              <div v-if="displaySubscriptionLimit(row.group?.daily_limit_usd) != null" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.daily') }}</span>
                   <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
@@ -229,7 +229,7 @@
                   <span class="usage-amount">
                     ${{ row.daily_usage_usd?.toFixed(2) || '0.00' }}
                     <span class="text-gray-400">/</span>
-                    ${{ row.group?.daily_limit_usd?.toFixed(2) }}
+                    ${{ formatLimitAmount(row.group?.daily_limit_usd) }}
                   </span>
                 </div>
                 <div class="reset-info" v-if="row.daily_window_start">
@@ -251,7 +251,7 @@
               </div>
 
               <!-- Weekly Usage -->
-              <div v-if="row.group?.weekly_limit_usd" class="usage-row">
+              <div v-if="displaySubscriptionLimit(row.group?.weekly_limit_usd) != null" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.weekly') }}</span>
                   <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
@@ -266,7 +266,7 @@
                   <span class="usage-amount">
                     ${{ row.weekly_usage_usd?.toFixed(2) || '0.00' }}
                     <span class="text-gray-400">/</span>
-                    ${{ row.group?.weekly_limit_usd?.toFixed(2) }}
+                    ${{ formatLimitAmount(row.group?.weekly_limit_usd) }}
                   </span>
                 </div>
                 <div class="reset-info" v-if="row.weekly_window_start">
@@ -288,7 +288,7 @@
               </div>
 
               <!-- Monthly Usage -->
-              <div v-if="row.group?.monthly_limit_usd" class="usage-row">
+              <div v-if="displaySubscriptionLimit(row.group?.monthly_limit_usd) != null" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.monthly') }}</span>
                   <div class="h-1.5 flex-1 rounded-full bg-gray-200 dark:bg-dark-600">
@@ -303,7 +303,7 @@
                   <span class="usage-amount">
                     ${{ row.monthly_usage_usd?.toFixed(2) || '0.00' }}
                     <span class="text-gray-400">/</span>
-                    ${{ row.group?.monthly_limit_usd?.toFixed(2) }}
+                    ${{ formatLimitAmount(row.group?.monthly_limit_usd) }}
                   </span>
                 </div>
                 <div class="reset-info" v-if="row.monthly_window_start">
@@ -327,9 +327,7 @@
               <!-- No Limits - Unlimited badge -->
               <div
                 v-if="
-                  !row.group?.daily_limit_usd &&
-                  !row.group?.weekly_limit_usd &&
-                  !row.group?.monthly_limit_usd
+                  !hasAnySubscriptionLimit(row.group)
                 "
                 class="flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-2 dark:from-emerald-900/20 dark:to-teal-900/20"
               >
@@ -771,6 +769,7 @@ import Select from '@/components/common/Select.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { displaySubscriptionLimit, hasAnySubscriptionLimit } from '@/utils/subscriptionLimits'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -1358,21 +1357,26 @@ const isExpiringSoon = (expiresAt: string): boolean => {
   return days !== null && days <= 7
 }
 
-const getProgressWidth = (used: number | null | undefined, limit: number | null): string => {
-  if (!limit || limit === 0) return '0%'
+const getProgressWidth = (used: number | null | undefined, limit: number | null | undefined): string => {
+  const normalizedLimit = displaySubscriptionLimit(limit)
+  if (normalizedLimit == null) return '0%'
   const usedValue = used ?? 0
-  const percentage = Math.min((usedValue / limit) * 100, 100)
+  const percentage = Math.min((usedValue / normalizedLimit) * 100, 100)
   return `${percentage}%`
 }
 
-const getProgressClass = (used: number | null | undefined, limit: number | null): string => {
-  if (!limit || limit === 0) return 'bg-gray-400'
+const getProgressClass = (used: number | null | undefined, limit: number | null | undefined): string => {
+  const normalizedLimit = displaySubscriptionLimit(limit)
+  if (normalizedLimit == null) return 'bg-gray-400'
   const usedValue = used ?? 0
-  const percentage = (usedValue / limit) * 100
+  const percentage = (usedValue / normalizedLimit) * 100
   if (percentage >= 90) return 'bg-red-500'
   if (percentage >= 70) return 'bg-orange-500'
   return 'bg-green-500'
 }
+
+const formatLimitAmount = (limit: number | null | undefined): string =>
+  (displaySubscriptionLimit(limit) ?? 0).toFixed(2)
 
 // Format reset time based on window start and period type
 const formatResetTime = (windowStart: string, period: 'daily' | 'weekly' | 'monthly'): string => {

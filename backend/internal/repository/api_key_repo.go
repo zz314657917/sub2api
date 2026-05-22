@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -12,16 +13,19 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 
+	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 )
 
 type apiKeyRepository struct {
-	client *dbent.Client
-	sql    sqlExecutor
+	client  *dbent.Client
+	sql     sqlExecutor
+	dialect string
 }
 
 func NewAPIKeyRepository(client *dbent.Client, sqlDB *sql.DB) service.APIKeyRepository {
@@ -29,7 +33,21 @@ func NewAPIKeyRepository(client *dbent.Client, sqlDB *sql.DB) service.APIKeyRepo
 }
 
 func newAPIKeyRepositoryWithSQL(client *dbent.Client, sqlq sqlExecutor) *apiKeyRepository {
-	return &apiKeyRepository{client: client, sql: sqlq}
+	return &apiKeyRepository{client: client, sql: sqlq, dialect: dialect.Postgres}
+}
+
+func (r *apiKeyRepository) executor(ctx context.Context) sqlExecutor {
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		return tx.Client()
+	}
+	if r.sql != nil {
+		return r.sql
+	}
+	return r.client
+}
+
+func (r *apiKeyRepository) isSQLite() bool {
+	return r.dialect == dialect.SQLite
 }
 
 func (r *apiKeyRepository) activeQuery() *dbent.APIKeyQuery {
@@ -38,7 +56,12 @@ func (r *apiKeyRepository) activeQuery() *dbent.APIKeyQuery {
 }
 
 func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) error {
-	builder := r.client.APIKey.Create().
+	routeJSON, err := marshalAPIKeyMultiGroupRoutes(key.MultiGroupRoutes)
+	if err != nil {
+		return err
+	}
+	client := clientFromContext(ctx, r.client)
+	builder := client.APIKey.Create().
 		SetUserID(key.UserID).
 		SetKey(key.Key).
 		SetName(key.Name).
@@ -65,8 +88,12 @@ func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) erro
 		key.LastUsedAt = created.LastUsedAt
 		key.CreatedAt = created.CreatedAt
 		key.UpdatedAt = created.UpdatedAt
+		err = r.setAPIKeyMultiGroupRoutes(ctx, key.ID, routeJSON)
 	}
-	return translatePersistenceError(err, nil, service.ErrAPIKeyExists)
+	if err != nil {
+		return translatePersistenceError(err, nil, service.ErrAPIKeyExists)
+	}
+	return nil
 }
 
 func (r *apiKeyRepository) GetByID(ctx context.Context, id int64) (*service.APIKey, error) {
@@ -81,7 +108,14 @@ func (r *apiKeyRepository) GetByID(ctx context.Context, id int64) (*service.APIK
 		}
 		return nil, err
 	}
-	return apiKeyEntityToService(m), nil
+	out := apiKeyEntityToService(m)
+	if err := r.loadAPIKeyMultiGroupRoutes(ctx, out); err != nil {
+		return nil, err
+	}
+	if err := r.hydrateAPIKeyMultiGroupRouteGroups(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // GetKeyAndOwnerID 根据 API Key ID 获取其 key 与所有者（用户）ID。
@@ -115,7 +149,14 @@ func (r *apiKeyRepository) GetByKey(ctx context.Context, key string) (*service.A
 		}
 		return nil, err
 	}
-	return apiKeyEntityToService(m), nil
+	out := apiKeyEntityToService(m)
+	if err := r.loadAPIKeyMultiGroupRoutes(ctx, out); err != nil {
+		return nil, err
+	}
+	if err := r.hydrateAPIKeyMultiGroupRouteGroups(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*service.APIKey, error) {
@@ -193,10 +234,21 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 		}
 		return nil, err
 	}
-	return apiKeyEntityToService(m), nil
+	out := apiKeyEntityToService(m)
+	if err := r.loadAPIKeyMultiGroupRoutes(ctx, out); err != nil {
+		return nil, err
+	}
+	if err := r.hydrateAPIKeyMultiGroupRouteGroups(ctx, out); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) error {
+	routeJSON, err := marshalAPIKeyMultiGroupRoutes(key.MultiGroupRoutes)
+	if err != nil {
+		return err
+	}
 	// 使用原子操作：将软删除检查与更新合并到同一语句，避免竞态条件。
 	// 之前的实现先检查 Exist 再 UpdateOneID，若在两步之间发生软删除，
 	// 则会更新已删除的记录。
@@ -267,6 +319,9 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) erro
 		// 更新影响行数为 0，说明记录不存在或已被软删除。
 		return service.ErrAPIKeyNotFound
 	}
+	if err := r.setAPIKeyMultiGroupRoutes(ctx, key.ID, routeJSON); err != nil {
+		return err
+	}
 
 	// 使用同一时间戳回填，避免并发删除导致二次查询失败。
 	key.UpdatedAt = now
@@ -320,7 +375,14 @@ func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, param
 		if *filters.GroupID == 0 {
 			q = q.Where(apikey.GroupIDIsNil())
 		} else {
-			q = q.Where(apikey.GroupIDEQ(*filters.GroupID))
+			ids, err := r.apiKeyIDsByRelatedGroup(ctx, *filters.GroupID)
+			if err != nil {
+				return nil, nil, err
+			}
+			if len(ids) == 0 {
+				return []service.APIKey{}, paginationResultFromTotal(0, params), nil
+			}
+			q = q.Where(apikey.IDIn(ids...))
 		}
 	}
 
@@ -344,7 +406,14 @@ func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, param
 
 	outKeys := make([]service.APIKey, 0, len(keys))
 	for i := range keys {
-		outKeys = append(outKeys, *apiKeyEntityToService(keys[i]))
+		out := apiKeyEntityToService(keys[i])
+		if err := r.loadAPIKeyMultiGroupRoutes(ctx, out); err != nil {
+			return nil, nil, err
+		}
+		if err := r.hydrateAPIKeyMultiGroupRouteGroups(ctx, out); err != nil {
+			return nil, nil, err
+		}
+		outKeys = append(outKeys, *out)
 	}
 
 	return outKeys, paginationResultFromTotal(int64(total), params), nil
@@ -375,7 +444,14 @@ func (r *apiKeyRepository) ExistsByKey(ctx context.Context, key string) (bool, e
 }
 
 func (r *apiKeyRepository) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.APIKey, *pagination.PaginationResult, error) {
-	q := r.activeQuery().Where(apikey.GroupIDEQ(groupID))
+	ids, err := r.apiKeyIDsByRelatedGroup(ctx, groupID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(ids) == 0 {
+		return []service.APIKey{}, paginationResultFromTotal(0, params), nil
+	}
+	q := r.activeQuery().Where(apikey.IDIn(ids...))
 
 	total, err := q.Count(ctx)
 	if err != nil {
@@ -397,7 +473,14 @@ func (r *apiKeyRepository) ListByGroupID(ctx context.Context, groupID int64, par
 
 	outKeys := make([]service.APIKey, 0, len(keys))
 	for i := range keys {
-		outKeys = append(outKeys, *apiKeyEntityToService(keys[i]))
+		out := apiKeyEntityToService(keys[i])
+		if err := r.loadAPIKeyMultiGroupRoutes(ctx, out); err != nil {
+			return nil, nil, err
+		}
+		if err := r.hydrateAPIKeyMultiGroupRouteGroups(ctx, out); err != nil {
+			return nil, nil, err
+		}
+		outKeys = append(outKeys, *out)
 	}
 
 	return outKeys, paginationResultFromTotal(int64(total), params), nil
@@ -447,7 +530,14 @@ func (r *apiKeyRepository) SearchAPIKeys(ctx context.Context, userID int64, keyw
 
 	outKeys := make([]service.APIKey, 0, len(keys))
 	for i := range keys {
-		outKeys = append(outKeys, *apiKeyEntityToService(keys[i]))
+		out := apiKeyEntityToService(keys[i])
+		if err := r.loadAPIKeyMultiGroupRoutes(ctx, out); err != nil {
+			return nil, err
+		}
+		if err := r.hydrateAPIKeyMultiGroupRouteGroups(ctx, out); err != nil {
+			return nil, err
+		}
+		outKeys = append(outKeys, *out)
 	}
 	return outKeys, nil
 }
@@ -458,7 +548,53 @@ func (r *apiKeyRepository) ClearGroupIDByGroupID(ctx context.Context, groupID in
 		Where(apikey.GroupIDEQ(groupID), apikey.DeletedAtIsNil()).
 		ClearGroupID().
 		Save(ctx)
-	return int64(n), err
+	if err != nil {
+		return int64(n), err
+	}
+	contains, err := apiKeyRouteContainsJSON(groupID)
+	if err != nil {
+		return int64(n), err
+	}
+	if r.isSQLite() {
+		res, err := r.executor(ctx).ExecContext(ctx, `
+			UPDATE api_keys
+			SET
+				multi_group_routes = COALESCE((
+					SELECT json_group_array(value)
+					FROM json_each(multi_group_routes)
+					WHERE CAST(json_extract(value, '$.group_id') AS INTEGER) <> ?
+				), '[]'),
+				updated_at = CURRENT_TIMESTAMP
+			WHERE deleted_at IS NULL
+			  AND EXISTS (
+				SELECT 1
+				FROM json_each(multi_group_routes)
+				WHERE CAST(json_extract(value, '$.group_id') AS INTEGER) = ?
+			  )`,
+			groupID, groupID)
+		if err != nil {
+			return int64(n), err
+		}
+		routeAffected, _ := res.RowsAffected()
+		return int64(n) + routeAffected, nil
+	}
+	res, err := r.executor(ctx).ExecContext(ctx, `
+		UPDATE api_keys
+		SET
+			multi_group_routes = COALESCE((
+				SELECT jsonb_agg(elem)
+				FROM jsonb_array_elements(multi_group_routes) elem
+				WHERE (elem->>'group_id')::bigint <> $1
+			), '[]'::jsonb),
+			updated_at = NOW()
+		WHERE deleted_at IS NULL
+		  AND multi_group_routes @> $2::jsonb`,
+		groupID, contains)
+	if err != nil {
+		return int64(n), err
+	}
+	routeAffected, _ := res.RowsAffected()
+	return int64(n) + routeAffected, nil
 }
 
 // UpdateGroupIDByUserAndGroup 将用户下绑定 oldGroupID 的所有 Key 迁移到 newGroupID
@@ -473,8 +609,11 @@ func (r *apiKeyRepository) UpdateGroupIDByUserAndGroup(ctx context.Context, user
 
 // CountByGroupID 获取分组的 API Key 数量
 func (r *apiKeyRepository) CountByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	count, err := r.activeQuery().Where(apikey.GroupIDEQ(groupID)).Count(ctx)
-	return int64(count), err
+	ids, err := r.apiKeyIDsByRelatedGroup(ctx, groupID)
+	if err != nil {
+		return 0, err
+	}
+	return int64(len(ids)), nil
 }
 
 func (r *apiKeyRepository) ListKeysByUserID(ctx context.Context, userID int64) ([]string, error) {
@@ -489,14 +628,61 @@ func (r *apiKeyRepository) ListKeysByUserID(ctx context.Context, userID int64) (
 }
 
 func (r *apiKeyRepository) ListKeysByGroupID(ctx context.Context, groupID int64) ([]string, error) {
-	keys, err := r.activeQuery().
-		Where(apikey.GroupIDEQ(groupID)).
-		Select(apikey.FieldKey).
-		Strings(ctx)
+	contains, err := apiKeyRouteContainsJSON(groupID)
 	if err != nil {
 		return nil, err
 	}
-	return keys, nil
+	if r.isSQLite() {
+		rows, err := r.executor(ctx).QueryContext(ctx, `
+			SELECT key
+			FROM api_keys
+			WHERE deleted_at IS NULL
+			  AND (
+				group_id = ?
+				OR EXISTS (
+					SELECT 1
+					FROM json_each(multi_group_routes)
+					WHERE CAST(json_extract(value, '$.group_id') AS INTEGER) = ?
+				)
+			  )
+			ORDER BY id DESC`,
+			groupID, groupID)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		keys := make([]string, 0)
+		for rows.Next() {
+			var key string
+			if err := rows.Scan(&key); err != nil {
+				return nil, err
+			}
+			keys = append(keys, key)
+		}
+		return keys, rows.Err()
+	}
+	rows, err := r.executor(ctx).QueryContext(ctx, `
+		SELECT key
+		FROM api_keys
+		WHERE deleted_at IS NULL
+		  AND (group_id = $1 OR multi_group_routes @> $2::jsonb)
+		ORDER BY id DESC`,
+		groupID, contains)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	keys := make([]string, 0)
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	return keys, rows.Err()
 }
 
 // IncrementQuotaUsed 使用 Ent 原子递增 quota_used 字段并返回新值
@@ -649,6 +835,177 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		out.Group = groupEntityToService(m.Edges.Group)
 	}
 	return out
+}
+
+func marshalAPIKeyMultiGroupRoutes(routes []domain.APIKeyMultiGroupRoute) (string, error) {
+	if routes == nil {
+		routes = []domain.APIKeyMultiGroupRoute{}
+	}
+	data, err := json.Marshal(routes)
+	if err != nil {
+		return "", fmt.Errorf("marshal api key multi-group routes: %w", err)
+	}
+	return string(data), nil
+}
+
+func apiKeyRouteContainsJSON(groupID int64) (string, error) {
+	data, err := json.Marshal([]map[string]int64{{"group_id": groupID}})
+	if err != nil {
+		return "", fmt.Errorf("marshal api key route contains predicate: %w", err)
+	}
+	return string(data), nil
+}
+
+func (r *apiKeyRepository) setAPIKeyMultiGroupRoutes(ctx context.Context, id int64, routeJSON string) error {
+	if r.isSQLite() {
+		res, err := r.executor(ctx).ExecContext(ctx, `
+			UPDATE api_keys
+			SET multi_group_routes = ?, updated_at = CURRENT_TIMESTAMP
+			WHERE id = ? AND deleted_at IS NULL`,
+			routeJSON, id)
+		if err != nil {
+			return err
+		}
+		if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+			return service.ErrAPIKeyNotFound
+		}
+		return nil
+	}
+	res, err := r.executor(ctx).ExecContext(ctx, `
+		UPDATE api_keys
+		SET multi_group_routes = $1::jsonb, updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL`,
+		routeJSON, id)
+	if err != nil {
+		return err
+	}
+	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+		return service.ErrAPIKeyNotFound
+	}
+	return nil
+}
+
+func (r *apiKeyRepository) loadAPIKeyMultiGroupRoutes(ctx context.Context, out *service.APIKey) error {
+	if out == nil || out.ID <= 0 {
+		return nil
+	}
+	var raw []byte
+	err := scanSingleRow(ctx, r.executor(ctx), `
+		SELECT multi_group_routes
+		FROM api_keys
+		WHERE id = $1 AND deleted_at IS NULL`,
+		[]any{out.ID}, &raw)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return service.ErrAPIKeyNotFound
+		}
+		return err
+	}
+	if len(raw) == 0 {
+		out.MultiGroupRoutes = []domain.APIKeyMultiGroupRoute{}
+		return nil
+	}
+	if err := json.Unmarshal(raw, &out.MultiGroupRoutes); err != nil {
+		return fmt.Errorf("unmarshal api key multi-group routes: %w", err)
+	}
+	return nil
+}
+
+func (r *apiKeyRepository) hydrateAPIKeyMultiGroupRouteGroups(ctx context.Context, out *service.APIKey) error {
+	if out == nil || len(out.MultiGroupRoutes) == 0 {
+		return nil
+	}
+	ids := make([]int64, 0, len(out.MultiGroupRoutes))
+	seen := make(map[int64]struct{}, len(out.MultiGroupRoutes))
+	for _, route := range out.MultiGroupRoutes {
+		if route.GroupID <= 0 {
+			continue
+		}
+		if _, ok := seen[route.GroupID]; ok {
+			continue
+		}
+		seen[route.GroupID] = struct{}{}
+		ids = append(ids, route.GroupID)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	groups, err := clientFromContext(ctx, r.client).Group.Query().
+		Where(group.IDIn(ids...)).
+		All(ctx)
+	if err != nil {
+		return err
+	}
+	byID := make(map[int64]*service.Group, len(groups))
+	for i := range groups {
+		g := groupEntityToService(groups[i])
+		byID[g.ID] = g
+	}
+	out.MultiGroupRouteGroups = make([]*service.Group, 0, len(ids))
+	for _, id := range ids {
+		if g := byID[id]; g != nil {
+			out.MultiGroupRouteGroups = append(out.MultiGroupRouteGroups, g)
+		}
+	}
+	return nil
+}
+
+func (r *apiKeyRepository) apiKeyIDsByRelatedGroup(ctx context.Context, groupID int64) ([]int64, error) {
+	contains, err := apiKeyRouteContainsJSON(groupID)
+	if err != nil {
+		return nil, err
+	}
+	if r.isSQLite() {
+		rows, err := r.executor(ctx).QueryContext(ctx, `
+			SELECT id
+			FROM api_keys
+			WHERE deleted_at IS NULL
+			  AND (
+				group_id = ?
+				OR EXISTS (
+					SELECT 1
+					FROM json_each(multi_group_routes)
+					WHERE CAST(json_extract(value, '$.group_id') AS INTEGER) = ?
+				)
+			  )
+			ORDER BY id DESC`,
+			groupID, groupID)
+		if err != nil {
+			return nil, err
+		}
+		defer rows.Close()
+
+		ids := make([]int64, 0)
+		for rows.Next() {
+			var id int64
+			if err := rows.Scan(&id); err != nil {
+				return nil, err
+			}
+			ids = append(ids, id)
+		}
+		return ids, rows.Err()
+	}
+	rows, err := r.executor(ctx).QueryContext(ctx, `
+		SELECT id
+		FROM api_keys
+		WHERE deleted_at IS NULL
+		  AND (group_id = $1 OR multi_group_routes @> $2::jsonb)
+		ORDER BY id DESC`,
+		groupID, contains)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]int64, 0)
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
 }
 
 func userEntityToService(u *dbent.User) *service.User {

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
@@ -36,13 +37,17 @@ var (
 	ErrAPIKeyRateLimit5hExceeded = infraerrors.TooManyRequests("API_KEY_RATE_5H_EXCEEDED", "api key 5小时限额已用完")
 	ErrAPIKeyRateLimit1dExceeded = infraerrors.TooManyRequests("API_KEY_RATE_1D_EXCEEDED", "api key 日限额已用完")
 	ErrAPIKeyRateLimit7dExceeded = infraerrors.TooManyRequests("API_KEY_RATE_7D_EXCEEDED", "api key 7天限额已用完")
+	ErrAPIKeyRouteInvalid        = infraerrors.BadRequest("API_KEY_ROUTE_INVALID", "api key multi-group route is invalid")
 )
 
 const (
 	apiKeyMaxErrorsPerHour = 20
 	apiKeyLastUsedMinTouch = 30 * time.Second
 	// DB 写失败后的短退避，避免请求路径持续同步重试造成写风暴与高延迟。
-	apiKeyLastUsedFailBackoff = 5 * time.Second
+	apiKeyLastUsedFailBackoff  = 5 * time.Second
+	apiKeyRouteDefaultPriority = 100
+	apiKeyRouteDefaultWeight   = 1
+	apiKeyRouteDefaultCooldown = 30
 )
 
 type APIKeyRepository interface {
@@ -149,11 +154,12 @@ type APIKeyAuthCacheInvalidator interface {
 
 // CreateAPIKeyRequest 创建API Key请求
 type CreateAPIKeyRequest struct {
-	Name        string   `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	CustomKey   *string  `json:"custom_key"`   // 可选的自定义key
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
+	Name             string                         `json:"name"`
+	GroupID          *int64                         `json:"group_id"`
+	MultiGroupRoutes []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // 多分组路由配置
+	CustomKey        *string                        `json:"custom_key"`         // 可选的自定义key
+	IPWhitelist      []string                       `json:"ip_whitelist"`       // IP 白名单
+	IPBlacklist      []string                       `json:"ip_blacklist"`       // IP 黑名单
 
 	// Quota fields
 	Quota         float64 `json:"quota"`           // Quota limit in USD (0 = unlimited)
@@ -167,11 +173,12 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest 更新API Key请求
 type UpdateAPIKeyRequest struct {
-	Name        *string  `json:"name"`
-	GroupID     *int64   `json:"group_id"`
-	Status      *string  `json:"status"`
-	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单（空数组清空）
-	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单（空数组清空）
+	Name             *string                        `json:"name"`
+	GroupID          *int64                         `json:"group_id"`
+	MultiGroupRoutes []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // nil=不修改, 空数组=清空
+	Status           *string                        `json:"status"`
+	IPWhitelist      []string                       `json:"ip_whitelist"` // IP 白名单（空数组清空）
+	IPBlacklist      []string                       `json:"ip_blacklist"` // IP 黑名单（空数组清空）
 
 	// Quota fields
 	Quota           *float64   `json:"quota"`       // Quota limit in USD (nil = no change, 0 = unlimited)
@@ -243,6 +250,23 @@ func (s *APIKeyService) compileAPIKeyIPRules(apiKey *APIKey) {
 	}
 	apiKey.CompiledIPWhitelist = ip.CompileIPRules(apiKey.IPWhitelist)
 	apiKey.CompiledIPBlacklist = ip.CompileIPRules(apiKey.IPBlacklist)
+}
+
+// ResolveForRequest selects the effective group for a gateway request and
+// refreshes per-user group RPM override when the selected group differs from the
+// cached default group.
+func (s *APIKeyService) ResolveForRequest(ctx context.Context, apiKey *APIKey, path, forcePlatform string) *APIKey {
+	resolved := apiKey.ResolveForRequest(path, forcePlatform)
+	if resolved == nil || resolved.User == nil || resolved.Group == nil || s.userGroupRateRepo == nil {
+		return resolved
+	}
+	if apiKey == nil || apiKey.Group == nil || apiKey.Group.ID != resolved.Group.ID {
+		override, err := s.userGroupRateRepo.GetRPMOverrideByUserAndGroup(ctx, resolved.UserID, resolved.Group.ID)
+		if err == nil {
+			resolved.User.UserGroupRPMOverride = override
+		}
+	}
+	return resolved
 }
 
 // GenerateKey 生成随机API Key
@@ -325,6 +349,54 @@ func (s *APIKeyService) canUserBindGroup(ctx context.Context, user *User, group 
 	return user.CanBindGroup(group.ID, group.IsExclusive)
 }
 
+func normalizeAPIKeyMultiGroupRoutes(routes []domain.APIKeyMultiGroupRoute) []domain.APIKeyMultiGroupRoute {
+	if routes == nil {
+		return nil
+	}
+	out := make([]domain.APIKeyMultiGroupRoute, 0, len(routes))
+	seen := make(map[int64]struct{}, len(routes))
+	for _, route := range routes {
+		if route.GroupID <= 0 {
+			out = append(out, route)
+			continue
+		}
+		if _, ok := seen[route.GroupID]; ok {
+			continue
+		}
+		seen[route.GroupID] = struct{}{}
+		if route.Priority <= 0 {
+			route.Priority = apiKeyRouteDefaultPriority
+		}
+		if route.Weight <= 0 {
+			route.Weight = apiKeyRouteDefaultWeight
+		}
+		if route.CooldownSeconds <= 0 {
+			route.CooldownSeconds = apiKeyRouteDefaultCooldown
+		}
+		out = append(out, route)
+	}
+	return out
+}
+
+func (s *APIKeyService) validateAPIKeyRouteGroups(ctx context.Context, user *User, routes []domain.APIKeyMultiGroupRoute) error {
+	if len(routes) == 0 {
+		return nil
+	}
+	for _, route := range routes {
+		if route.GroupID <= 0 {
+			return ErrAPIKeyRouteInvalid
+		}
+		group, err := s.groupRepo.GetByID(ctx, route.GroupID)
+		if err != nil {
+			return fmt.Errorf("get route group: %w", err)
+		}
+		if !s.canUserBindGroup(ctx, user, group) {
+			return ErrGroupNotAllowed
+		}
+	}
+	return nil
+}
+
 // Create 创建API Key
 func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIKeyRequest) (*APIKey, error) {
 	// 验证用户存在
@@ -358,6 +430,10 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		if !s.canUserBindGroup(ctx, user, group) {
 			return nil, ErrGroupNotAllowed
 		}
+	}
+	multiGroupRoutes := normalizeAPIKeyMultiGroupRoutes(req.MultiGroupRoutes)
+	if err := s.validateAPIKeyRouteGroups(ctx, user, multiGroupRoutes); err != nil {
+		return nil, err
 	}
 
 	var key string
@@ -397,18 +473,19 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 
 	// 创建API Key记录
 	apiKey := &APIKey{
-		UserID:      userID,
-		Key:         key,
-		Name:        req.Name,
-		GroupID:     req.GroupID,
-		Status:      StatusActive,
-		IPWhitelist: req.IPWhitelist,
-		IPBlacklist: req.IPBlacklist,
-		Quota:       req.Quota,
-		QuotaUsed:   0,
-		RateLimit5h: req.RateLimit5h,
-		RateLimit1d: req.RateLimit1d,
-		RateLimit7d: req.RateLimit7d,
+		UserID:           userID,
+		Key:              key,
+		Name:             req.Name,
+		GroupID:          req.GroupID,
+		MultiGroupRoutes: multiGroupRoutes,
+		Status:           StatusActive,
+		IPWhitelist:      req.IPWhitelist,
+		IPBlacklist:      req.IPBlacklist,
+		Quota:            req.Quota,
+		QuotaUsed:        0,
+		RateLimit5h:      req.RateLimit5h,
+		RateLimit1d:      req.RateLimit1d,
+		RateLimit7d:      req.RateLimit7d,
 	}
 
 	// Set expiration time if specified
@@ -558,6 +635,17 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		}
 
 		apiKey.GroupID = req.GroupID
+	}
+	if req.MultiGroupRoutes != nil {
+		user, err := s.userRepo.GetByID(ctx, userID)
+		if err != nil {
+			return nil, fmt.Errorf("get user: %w", err)
+		}
+		routes := normalizeAPIKeyMultiGroupRoutes(req.MultiGroupRoutes)
+		if err := s.validateAPIKeyRouteGroups(ctx, user, routes); err != nil {
+			return nil, err
+		}
+		apiKey.MultiGroupRoutes = routes
 	}
 
 	if req.Status != nil {

@@ -99,38 +99,46 @@
 
           <template #cell-group="{ row }">
             <div class="group/dropdown relative">
-              <button
-                :ref="(el) => setGroupButtonRef(row.id, el)"
-                @click="openGroupSelector(row)"
-                class="-mx-2 -my-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
-                :title="t('keys.clickToChangeGroup')"
-              >
-                <GroupBadge
-                  v-if="row.group"
-                  :name="row.group.name"
-                  :platform="row.group.platform"
-                  :subscription-type="row.group.subscription_type"
-                  :rate-multiplier="row.group.rate_multiplier"
-                  :user-rate-multiplier="userGroupRates[row.group.id]"
-                />
-                <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
-                  t('keys.noGroup')
-                }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.selectGroup') }}</span>
-                <svg
-                  class="h-3.5 w-3.5 text-gray-400 opacity-60 transition-opacity group-hover/dropdown:opacity-100"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                  stroke-width="2"
+              <div class="flex flex-col items-start gap-1.5">
+                <button
+                  :ref="(el) => setGroupButtonRef(row.id, el)"
+                  @click="openGroupSelector(row)"
+                  class="-mx-2 -my-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
+                  :title="t('keys.clickToChangeGroup')"
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"
+                  <GroupBadge
+                    v-if="row.group"
+                    :name="row.group.name"
+                    :platform="row.group.platform"
+                    :subscription-type="row.group.subscription_type"
+                    :rate-multiplier="row.group.rate_multiplier"
+                    :user-rate-multiplier="userGroupRates[row.group.id]"
                   />
-                </svg>
-              </button>
+                  <span v-else class="text-sm text-gray-400 dark:text-dark-500">{{
+                    t('keys.noGroup')
+                  }}</span>
+                  <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('keys.selectGroup') }}</span>
+                  <svg
+                    class="h-3.5 w-3.5 text-gray-400 opacity-60 transition-opacity group-hover/dropdown:opacity-100"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                    stroke-width="2"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"
+                    />
+                  </svg>
+                </button>
+                <span
+                  v-if="row.multi_group_routes?.length"
+                  class="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                >
+                  {{ t('keys.multiGroupRouteCount', { count: row.multi_group_routes.length }) }}
+                </span>
+              </div>
             </div>
           </template>
 
@@ -397,7 +405,7 @@
     <BaseDialog
       :show="showCreateModal || showEditModal"
       :title="showEditModal ? t('keys.editKey') : t('keys.createKey')"
-      width="normal"
+      width="wide"
       @close="closeModals"
     >
       <form id="key-form" @submit.prevent="handleSubmit" class="space-y-5">
@@ -414,7 +422,13 @@
         </div>
 
         <div>
-          <label class="input-label">{{ t('keys.groupLabel') }}</label>
+          <label class="input-label">
+            {{
+              formData.enable_multi_group_routing
+                ? t('keys.defaultGroupLabel')
+                : t('keys.groupLabel')
+            }}
+          </label>
           <Select
             v-model="formData.group_id"
             :options="groupOptions"
@@ -446,6 +460,145 @@
               />
             </template>
           </Select>
+          <p
+            v-if="formData.enable_multi_group_routing"
+            class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400"
+          >
+            {{ t('keys.defaultGroupHint') }}
+          </p>
+        </div>
+
+        <div class="space-y-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-800/40">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <label class="input-label mb-1">{{ t('keys.multiGroupRouting') }}</label>
+              <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                {{ t('keys.multiGroupRoutingHint') }}
+              </p>
+            </div>
+            <button
+              type="button"
+              @click="toggleMultiGroupRouting"
+              :class="[
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                formData.enable_multi_group_routing
+                  ? 'bg-primary-600'
+                  : 'bg-gray-200 dark:bg-dark-600'
+              ]"
+            >
+              <span
+                :class="[
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  formData.enable_multi_group_routing ? 'translate-x-5' : 'translate-x-0'
+                ]"
+              />
+            </button>
+          </div>
+
+          <div v-if="formData.enable_multi_group_routing" class="space-y-3">
+            <div
+              v-for="(route, index) in formData.multi_group_routes"
+              :key="index"
+              class="rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900/40"
+            >
+              <div class="mb-3 flex items-center justify-between gap-3">
+                <div class="flex items-center gap-2">
+                  <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+                    {{ index + 1 }}
+                  </span>
+                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                    t('keys.routeConfig')
+                  }}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                  <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-dark-600 dark:text-gray-300">
+                    <input
+                      v-model="route.enabled"
+                      type="checkbox"
+                      class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                    <span>{{ t('keys.routeEnabled') }}</span>
+                  </label>
+                  <button
+                    type="button"
+                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-dark-600 dark:text-gray-400 dark:hover:border-red-900/60 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+                    :title="t('keys.removeRoute')"
+                    @click="removeMultiGroupRoute(index)"
+                  >
+                    <Icon name="trash" size="sm" />
+                  </button>
+                </div>
+              </div>
+
+              <div class="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_minmax(8rem,1fr)]">
+                <div>
+                  <label class="input-label">{{ t('keys.groupLabel') }}</label>
+                  <Select
+                    v-model="route.group_id"
+                    :options="groupOptions"
+                    :placeholder="t('keys.selectGroup')"
+                    :searchable="true"
+                    :search-placeholder="t('keys.searchGroup')"
+                  >
+                    <template #selected="{ option }">
+                      <GroupBadge
+                        v-if="option"
+                        :name="(option as unknown as GroupOption).label"
+                        :platform="(option as unknown as GroupOption).platform"
+                        :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                        :rate-multiplier="(option as unknown as GroupOption).rate"
+                        :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                      />
+                      <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
+                    </template>
+                    <template #option="{ option, selected }">
+                      <GroupOptionItem
+                        :name="(option as unknown as GroupOption).label"
+                        :platform="(option as unknown as GroupOption).platform"
+                        :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                        :rate-multiplier="(option as unknown as GroupOption).rate"
+                        :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                        :description="(option as unknown as GroupOption).description"
+                        :selected="selected"
+                      />
+                    </template>
+                  </Select>
+                </div>
+                <div>
+                  <label class="input-label">{{ t('keys.priority') }}</label>
+                  <input
+                    v-model.number="route.priority"
+                    type="number"
+                    min="0"
+                    class="input"
+                  />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('keys.weight') }}</label>
+                  <input
+                    v-model.number="route.weight"
+                    type="number"
+                    min="1"
+                    class="input"
+                  />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('keys.cooldownSeconds') }}</label>
+                  <input
+                    v-model.number="route.cooldown_seconds"
+                    type="number"
+                    min="0"
+                    class="input"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button type="button" class="btn btn-secondary" @click="addMultiGroupRoute">
+              <Icon name="plus" size="sm" class="mr-2" />
+              {{ t('keys.addRoute') }}
+            </button>
+          </div>
         </div>
 
         <!-- Custom Key Section (only for create) -->
@@ -1113,7 +1266,14 @@ import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useAppStore } from '@/stores/app'
 import { useOnboardingStore } from '@/stores/onboarding'
 import { useClipboard } from '@/composables/useClipboard'
-import type { ApiKey, Group, PublicSettings, SubscriptionType, GroupPlatform } from '@/types'
+import type {
+  ApiKey,
+  ApiKeyMultiGroupRoute,
+  Group,
+  PublicSettings,
+  SubscriptionType,
+  GroupPlatform
+} from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
@@ -1144,6 +1304,14 @@ interface GroupOption {
   userRate: number | null
   subscriptionType: SubscriptionType
   platform: GroupPlatform
+}
+
+interface ApiKeyMultiGroupRouteForm {
+  group_id: number | null
+  priority: number
+  weight: number
+  cooldown_seconds: number
+  enabled: boolean
 }
 
 const appStore = useAppStore()
@@ -1226,6 +1394,8 @@ const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance 
 const formData = ref({
   name: '',
   group_id: null as number | null,
+  enable_multi_group_routing: false,
+  multi_group_routes: [] as ApiKeyMultiGroupRouteForm[],
   status: 'active' as 'active' | 'inactive',
   use_custom_key: false,
   custom_key: '',
@@ -1265,6 +1435,74 @@ const statusOptions = computed(() => [
   { value: 'active', label: t('common.active') },
   { value: 'inactive', label: t('common.inactive') }
 ])
+
+const createDefaultRoute = (groupId: number | null = formData.value.group_id): ApiKeyMultiGroupRouteForm => ({
+  group_id: groupId,
+  priority: 100,
+  weight: 1,
+  cooldown_seconds: 30,
+  enabled: true
+})
+
+const getNextRouteGroupId = () => {
+  const used = new Set(formData.value.multi_group_routes.map((route) => route.group_id))
+  return groups.value.find((group) => !used.has(group.id))?.id ?? formData.value.group_id
+}
+
+const toggleMultiGroupRouting = () => {
+  formData.value.enable_multi_group_routing = !formData.value.enable_multi_group_routing
+  if (formData.value.enable_multi_group_routing && formData.value.multi_group_routes.length === 0) {
+    formData.value.multi_group_routes = [createDefaultRoute()]
+  }
+}
+
+const addMultiGroupRoute = () => {
+  formData.value.multi_group_routes.push(createDefaultRoute(getNextRouteGroupId()))
+}
+
+const removeMultiGroupRoute = (index: number) => {
+  formData.value.multi_group_routes.splice(index, 1)
+}
+
+const normalizeRouteForm = (route: ApiKeyMultiGroupRoute): ApiKeyMultiGroupRouteForm => ({
+  group_id: route.group_id,
+  priority: route.priority || 100,
+  weight: route.weight > 0 ? route.weight : 1,
+  cooldown_seconds: route.cooldown_seconds >= 0 ? route.cooldown_seconds : 30,
+  enabled: route.enabled
+})
+
+const buildMultiGroupRoutes = (): ApiKeyMultiGroupRoute[] => {
+  return formData.value.multi_group_routes.map((route) => ({
+    group_id: route.group_id as number,
+    priority: Number.isFinite(route.priority) ? Math.max(0, Number(route.priority)) : 100,
+    weight: Number.isFinite(route.weight) ? Math.max(1, Number(route.weight)) : 1,
+    cooldown_seconds: Number.isFinite(route.cooldown_seconds)
+      ? Math.max(0, Number(route.cooldown_seconds))
+      : 30,
+    enabled: route.enabled
+  }))
+}
+
+const validateMultiGroupRoutes = (): ApiKeyMultiGroupRoute[] | null => {
+  if (!formData.value.enable_multi_group_routing) {
+    return []
+  }
+  if (formData.value.multi_group_routes.length === 0) {
+    appStore.showError(t('keys.routeRequired'))
+    return null
+  }
+  if (formData.value.multi_group_routes.some((route) => route.group_id === null)) {
+    appStore.showError(t('keys.routeGroupRequired'))
+    return null
+  }
+  const groupIds = formData.value.multi_group_routes.map((route) => route.group_id)
+  if (new Set(groupIds).size !== groupIds.length) {
+    appStore.showError(t('keys.routeDuplicateGroup'))
+    return null
+  }
+  return buildMultiGroupRoutes()
+}
 
 // Filter dropdown options
 const groupFilterOptions = computed(() => [
@@ -1446,9 +1684,12 @@ const editKey = (key: ApiKey) => {
   selectedKey.value = key
   const hasIPRestriction = (key.ip_whitelist?.length > 0) || (key.ip_blacklist?.length > 0)
   const hasExpiration = !!key.expires_at
+  const multiGroupRoutes = (key.multi_group_routes || []).map(normalizeRouteForm)
   formData.value = {
     name: key.name,
     group_id: key.group_id,
+    enable_multi_group_routing: multiGroupRoutes.length > 0,
+    multi_group_routes: multiGroupRoutes,
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
     use_custom_key: false,
     custom_key: '',
@@ -1553,6 +1794,10 @@ const handleSubmit = async () => {
     appStore.showError(t('keys.groupRequired'))
     return
   }
+  const multiGroupRoutes = validateMultiGroupRoutes()
+  if (multiGroupRoutes === null) {
+    return
+  }
 
   // Validate custom key if enabled
   if (!showEditModal.value && formData.value.use_custom_key) {
@@ -1607,6 +1852,7 @@ const handleSubmit = async () => {
       await keysAPI.update(selectedKey.value.id, {
         name: formData.value.name,
         group_id: formData.value.group_id,
+        multi_group_routes: multiGroupRoutes,
         status: formData.value.status,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
@@ -1627,7 +1873,8 @@ const handleSubmit = async () => {
         ipBlacklist,
         quota,
         expiresInDays,
-        rateLimitData
+        rateLimitData,
+        multiGroupRoutes
       )
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
@@ -1690,6 +1937,8 @@ const closeModals = () => {
   formData.value = {
     name: '',
     group_id: null,
+    enable_multi_group_routing: false,
+    multi_group_routes: [],
     status: 'active',
     use_custom_key: false,
     custom_key: '',

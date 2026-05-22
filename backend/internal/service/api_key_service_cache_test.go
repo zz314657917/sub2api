@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -271,6 +272,70 @@ func TestAPIKeyService_SnapshotRoundTrip_PreservesMessagesDispatchModelConfig(t 
 	require.Equal(t, apiKey.Name, roundTrip.Name)
 	require.NotNil(t, roundTrip.Group)
 	require.Equal(t, apiKey.Group.MessagesDispatchModelConfig, roundTrip.Group.MessagesDispatchModelConfig)
+}
+
+func TestAPIKeyService_SnapshotRoundTrip_PreservesMultiGroupRoutes(t *testing.T) {
+	svc := NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{})
+	defaultGroupID := int64(9)
+	openAIGroupID := int64(10)
+	geminiGroupID := int64(11)
+	apiKey := &APIKey{
+		ID:      1,
+		UserID:  2,
+		GroupID: &defaultGroupID,
+		Key:     "k-routes",
+		Name:    "Route Key",
+		Status:  StatusActive,
+		User: &User{
+			ID:          2,
+			Status:      StatusActive,
+			Role:        RoleUser,
+			Balance:     10,
+			Concurrency: 3,
+		},
+		Group: &Group{
+			ID:               defaultGroupID,
+			Name:             "default",
+			Platform:         PlatformAnthropic,
+			Status:           StatusActive,
+			SubscriptionType: SubscriptionTypeStandard,
+			RateMultiplier:   1,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: defaultGroupID, Priority: 200, Weight: 1, CooldownSeconds: 30, Enabled: true},
+			{GroupID: openAIGroupID, Priority: 100, Weight: 2, CooldownSeconds: 15, Enabled: true},
+			{GroupID: geminiGroupID, Priority: 100, Weight: 1, CooldownSeconds: 20, Enabled: false},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{
+				ID:               openAIGroupID,
+				Name:             "openai",
+				Platform:         PlatformOpenAI,
+				Status:           StatusActive,
+				SubscriptionType: SubscriptionTypeStandard,
+				RateMultiplier:   0.6,
+			},
+			{
+				ID:               geminiGroupID,
+				Name:             "gemini",
+				Platform:         PlatformGemini,
+				Status:           StatusActive,
+				SubscriptionType: SubscriptionTypeStandard,
+				RateMultiplier:   0.8,
+			},
+		},
+	}
+
+	snapshot := svc.snapshotFromAPIKey(context.Background(), apiKey)
+	roundTrip := svc.snapshotToAPIKey(apiKey.Key, snapshot)
+
+	require.NotNil(t, roundTrip)
+	require.Equal(t, apiKey.MultiGroupRoutes, roundTrip.MultiGroupRoutes)
+	require.Len(t, roundTrip.MultiGroupRouteGroups, 2)
+	require.Equal(t, openAIGroupID, roundTrip.MultiGroupRouteGroups[0].ID)
+	require.Equal(t, PlatformOpenAI, roundTrip.MultiGroupRouteGroups[0].Platform)
+	require.Equal(t, geminiGroupID, roundTrip.MultiGroupRouteGroups[1].ID)
+	require.Equal(t, PlatformGemini, roundTrip.MultiGroupRouteGroups[1].Platform)
 }
 
 func TestAPIKeyService_GetByKey_IgnoresLegacyAuthCacheSnapshotWithoutMessagesDispatchConfig(t *testing.T) {

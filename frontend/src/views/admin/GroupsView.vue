@@ -137,37 +137,37 @@
                 class="text-xs text-gray-500 dark:text-gray-400"
               >
                 <template
-                  v-if="
-                    row.daily_limit_usd ||
-                    row.weekly_limit_usd ||
-                    row.monthly_limit_usd
-                  "
+                  v-if="hasAnySubscriptionLimit(row)"
                 >
-                  <span v-if="row.daily_limit_usd"
-                    >${{ row.daily_limit_usd }}/{{
+                  <span v-if="displaySubscriptionLimit(row.daily_limit_usd) != null"
+                    >${{ formatSubscriptionLimit(row.daily_limit_usd) }}/{{
                       t("admin.groups.limitDay")
                     }}</span
                   >
                   <span
                     v-if="
-                      row.daily_limit_usd &&
-                      (row.weekly_limit_usd || row.monthly_limit_usd)
+                      displaySubscriptionLimit(row.daily_limit_usd) != null &&
+                      (displaySubscriptionLimit(row.weekly_limit_usd) != null ||
+                        displaySubscriptionLimit(row.monthly_limit_usd) != null)
                     "
                     class="mx-1 text-gray-300 dark:text-gray-600"
                     >·</span
                   >
-                  <span v-if="row.weekly_limit_usd"
-                    >${{ row.weekly_limit_usd }}/{{
+                  <span v-if="displaySubscriptionLimit(row.weekly_limit_usd) != null"
+                    >${{ formatSubscriptionLimit(row.weekly_limit_usd) }}/{{
                       t("admin.groups.limitWeek")
                     }}</span
                   >
                   <span
-                    v-if="row.weekly_limit_usd && row.monthly_limit_usd"
+                    v-if="
+                      displaySubscriptionLimit(row.weekly_limit_usd) != null &&
+                      displaySubscriptionLimit(row.monthly_limit_usd) != null
+                    "
                     class="mx-1 text-gray-300 dark:text-gray-600"
                     >·</span
                   >
-                  <span v-if="row.monthly_limit_usd"
-                    >${{ row.monthly_limit_usd }}/{{
+                  <span v-if="displaySubscriptionLimit(row.monthly_limit_usd) != null"
+                    >${{ formatSubscriptionLimit(row.monthly_limit_usd) }}/{{
                       t("admin.groups.limitMonth")
                     }}</span
                   >
@@ -2865,6 +2865,10 @@ import { createStableObjectKeyResolver } from "@/utils/stableObjectKey";
 import { useKeyedDebouncedSearch } from "@/composables/useKeyedDebouncedSearch";
 import { getPersistedPageSize } from "@/composables/usePersistedPageSize";
 import {
+  displaySubscriptionLimit,
+  hasAnySubscriptionLimit,
+} from "@/utils/subscriptionLimits";
+import {
   createDefaultMessagesDispatchFormState,
   messagesDispatchConfigToFormState,
   messagesDispatchFormStateToConfig,
@@ -3684,6 +3688,9 @@ const normalizeOptionalLimit = (
 
   return Number.isFinite(value) && value > 0 ? value : null;
 };
+
+const formatSubscriptionLimit = (value: number | null | undefined): string =>
+  `${displaySubscriptionLimit(value) ?? 0}`;
 
 const normalizeImageRateMultiplier = (
   value: number | string | null | undefined,

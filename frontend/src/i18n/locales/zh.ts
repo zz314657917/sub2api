@@ -11,6 +11,7 @@ export default {
     navHome: '首页',
     navTutorial: '教程',
     navModels: '模型广场',
+    navContact: '联系管理',
     getStarted: '立即开始',
     goToDashboard: '登录控制台',
     heroEyebrow: 'AI 接入中枢',
@@ -927,6 +928,8 @@ export default {
     nameLabel: '名称',
     namePlaceholder: '我的 API 密钥',
     groupLabel: '分组',
+    defaultGroupLabel: '默认分组（兜底）',
+    defaultGroupHint: '开启多分组路由后，请求优先按下方路由配置选择分组；没有匹配或可用路由时，才使用这个默认分组。',
     selectGroup: '选择分组',
     statusLabel: '状态',
     selectStatus: '选择状态',
@@ -946,6 +949,19 @@ export default {
     groupChangedSuccess: '分组更换成功',
     failedToChangeGroup: '更换分组失败',
     groupRequired: '请选择分组',
+    multiGroupRouting: '多分组路由',
+    multiGroupRoutingHint: '开启后可按优先级和权重为同一个 Key 配置多个分组；上方默认分组仅作为兜底使用',
+    routeConfig: '路由配置',
+    priority: '优先级',
+    weight: '权重',
+    cooldownSeconds: '冷却秒数',
+    addRoute: '添加路由',
+    removeRoute: '删除路由',
+    routeEnabled: '启用',
+    routeGroupRequired: '请选择每条路由的分组',
+    routeDuplicateGroup: '路由分组不能重复',
+    routeRequired: '请至少添加一条路由',
+    multiGroupRouteCount: '多分组 {count}',
     usage: '用量',
     today: '今日',
     total: '近30天',
@@ -1381,7 +1397,7 @@ export default {
   monitorCommon: {
     status: {
       operational: '正常',
-      degraded: '降级',
+      degraded: '部分可用',
       failed: '失败',
       error: '错误',
       unknown: '-'
@@ -1429,9 +1445,9 @@ export default {
       '30d': '30 天'
     },
     overall: {
-      operational: 'OPERATIONAL',
-      degraded: 'DEGRADED',
-      unavailable: 'UNAVAILABLE'
+      operational: '全部正常',
+      degraded: '部分可用',
+      unavailable: '不可用'
     },
     columns: {
       name: '名称',

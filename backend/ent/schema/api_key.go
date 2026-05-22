@@ -115,6 +115,9 @@ func (APIKey) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			Comment("Start time of the current 7d rate limit window"),
+		field.JSON("multi_group_routes", []domain.APIKeyMultiGroupRoute{}).
+			Optional().
+			Comment("API key multi-group routing configuration"),
 	}
 }
 

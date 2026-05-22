@@ -23,6 +23,15 @@
           <PixelIcon :name="item.icon" size="xs" />
           {{ item.label }}
         </router-link>
+        <button
+          v-if="hasSupportButton"
+          type="button"
+          class="public-nav-pill public-nav-action-pill"
+          @click="openSupportPopup"
+        >
+          <PixelIcon name="support" size="xs" />
+          {{ t('home.navContact') }}
+        </button>
       </div>
 
       <div class="public-nav-actions">
@@ -66,6 +75,15 @@
         <PixelIcon :name="item.icon" size="xs" />
         {{ item.label }}
       </router-link>
+      <button
+        v-if="hasSupportButton"
+        type="button"
+        class="public-nav-pill public-nav-action-pill"
+        @click="openSupportPopup"
+      >
+        <PixelIcon name="support" size="xs" />
+        {{ t('home.navContact') }}
+      </button>
     </div>
   </header>
 </template>
@@ -78,6 +96,8 @@ import { useAuthStore, useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import PixelIcon from '@/components/icons/PixelIcon.vue'
 import type { PixelIconName } from '@/components/icons/pixelIconTypes'
+import { openSupportPopup } from '@/utils/supportPopup'
+import { hasSupportContent } from '@/utils/supportContent'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
@@ -87,8 +107,12 @@ const { t } = useI18n()
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
 const siteLogo = computed(() => appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '')
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
+const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const dashboardPath = computed(() => (authStore.isAdmin ? '/admin/dashboard' : '/dashboard'))
+const hasSupportButton = computed(() =>
+  hasSupportContent(appStore.cachedPublicSettings, contactInfo.value)
+)
 const isDark = ref(
   typeof document !== 'undefined'
     ? document.documentElement.classList.contains('dark')
@@ -213,6 +237,18 @@ function toggleTheme(): void {
   background: var(--public-surface-hover);
   color: white;
   box-shadow: inset 0 0 0 1px var(--public-border);
+}
+
+.public-nav-action-pill {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.public-nav-action-pill:focus-visible {
+  outline: 2px solid var(--public-ring);
+  outline-offset: 3px;
 }
 
 .public-nav-pill .pixel-glyph {
