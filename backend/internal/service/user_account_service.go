@@ -160,6 +160,11 @@ type accountCapacityDisplayWindows struct {
 	hasMonth   bool
 }
 
+type accountCapacityDisplayUsageDelta struct {
+	fiveHourCost float64
+	sevenDayCost float64
+}
+
 type accountCapacityDisplayCounts struct {
 	total          int
 	active         int
@@ -175,6 +180,10 @@ type UserAccountShareSettings interface {
 	IsAccountShareEnabled(ctx context.Context) bool
 	IsAccountShareAutoReview(ctx context.Context) bool
 	GetAccountShareUserAccountLimit(ctx context.Context) int
+}
+
+type accountUsageCostWindowRepository interface {
+	GetAccountUsageCostsSince(ctx context.Context, accountIDs []int64, startTime time.Time) (map[int64]float64, error)
 }
 
 func NewUserAccountService(accountRepo AccountRepository, settings UserAccountShareSettings) *UserAccountService {
@@ -519,10 +528,69 @@ func (s *UserAccountService) GetCapacityPools(ctx context.Context, userID int64)
 		}
 	}
 
+	displayUsageDeltas, err := s.accountCapacityDisplayUsageDeltas(ctx, append(append([]Account(nil), owned...), shared...), time.Now())
+	if err != nil {
+		return nil, err
+	}
+
 	return &UserAccountCapacityPools{
-		Mine:   buildUserAccountCapacityPool("mine", "我的账号容量池", owned, userID),
-		Shared: buildUserAccountCapacityPool("shared", "平台共享容量池", shared, userID),
+		Mine:   buildUserAccountCapacityPool("mine", "我的账号容量池", owned, userID, displayUsageDeltas),
+		Shared: buildUserAccountCapacityPool("shared", "平台共享容量池", shared, userID, displayUsageDeltas),
 	}, nil
+}
+
+func (s *UserAccountService) accountCapacityDisplayUsageDeltas(ctx context.Context, accounts []Account, now time.Time) (map[int64]accountCapacityDisplayUsageDelta, error) {
+	reader, ok := s.accountRepo.(accountUsageCostWindowRepository)
+	if !ok {
+		return nil, nil
+	}
+	accountIDs := shareDisplayUsageWindowAccountIDs(accounts)
+	if len(accountIDs) == 0 {
+		return nil, nil
+	}
+	fiveHourCosts, err := reader.GetAccountUsageCostsSince(ctx, accountIDs, now.Add(-5*time.Hour))
+	if err != nil {
+		return nil, fmt.Errorf("load 5h account display usage: %w", err)
+	}
+	sevenDayCosts, err := reader.GetAccountUsageCostsSince(ctx, accountIDs, now.Add(-7*24*time.Hour))
+	if err != nil {
+		return nil, fmt.Errorf("load 7d account display usage: %w", err)
+	}
+	deltas := make(map[int64]accountCapacityDisplayUsageDelta, len(accountIDs))
+	for _, accountID := range accountIDs {
+		deltas[accountID] = accountCapacityDisplayUsageDelta{
+			fiveHourCost: maxFloat64(fiveHourCosts[accountID], 0),
+			sevenDayCost: maxFloat64(sevenDayCosts[accountID], 0),
+		}
+	}
+	return deltas, nil
+}
+
+func shareDisplayUsageWindowAccountIDs(accounts []Account) []int64 {
+	seen := make(map[int64]struct{})
+	accountIDs := make([]int64, 0)
+	for i := range accounts {
+		account := &accounts[i]
+		if account.ID <= 0 || !accountUsesShareDisplayWindowMask(account) {
+			continue
+		}
+		if !accountHasShareDisplayWindowLimit(account, "5h") && !accountHasShareDisplayWindowLimit(account, "7d") {
+			continue
+		}
+		if _, ok := seen[account.ID]; ok {
+			continue
+		}
+		seen[account.ID] = struct{}{}
+		accountIDs = append(accountIDs, account.ID)
+	}
+	return accountIDs
+}
+
+func accountHasShareDisplayWindowLimit(account *Account, suffix string) bool {
+	if account == nil || account.Extra == nil {
+		return false
+	}
+	return parseExtraFloat64(account.Extra["share_display_"+suffix+"_limit"]) > 0
 }
 
 func isSharedCapacityPoolAccount(account *Account, _ int64) bool {
@@ -685,7 +753,7 @@ func (s *UserAccountService) accountRepoForMutation() (AccountRepository, error)
 	return s.accountRepo, nil
 }
 
-func buildUserAccountCapacityPool(key, title string, accounts []Account, currentUserID int64) UserAccountCapacityPool {
+func buildUserAccountCapacityPool(key, title string, accounts []Account, currentUserID int64, displayUsageDeltas map[int64]accountCapacityDisplayUsageDelta) UserAccountCapacityPool {
 	pool := UserAccountCapacityPool{
 		Key:      key,
 		Title:    title,
@@ -693,6 +761,7 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account, current
 	}
 	sections := make(map[string]*UserAccountCapacityPoolSection)
 	groups := make(map[string]*UserAccountCapacityPoolGroup)
+	groupWindowAvailabilityOnly := make(map[string]map[string]accountCapacityDisplayCounts)
 	for i := range accounts {
 		account := &accounts[i]
 		active := account.IsActive()
@@ -744,7 +813,7 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account, current
 			section.PercentOnlyQuota = true
 		}
 		section.UnavailableReasons = addCapacityUnavailableReason(section.UnavailableReasons, unavailableReason, counts.total)
-		windows := accountCapacityDisplayWindowSnapshots(account)
+		windows := accountCapacityDisplayWindowSnapshots(account, displayUsageDeltas[account.ID])
 		mergeCapacityWindowSnapshot(section.Windows, "5h", windows.fiveHour, windows.has5h)
 		mergeCapacityWindowSnapshot(section.Windows, "7d", windows.sevenDay, windows.has7d)
 		mergeCapacityWindowSnapshot(section.Windows, "1d", windows.dailyQuota, windows.hasDaily)
@@ -786,6 +855,14 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account, current
 			mergeCapacityWindowSummary(group.Windows, "1d", windows.dailyQuota, windows.hasDaily, schedulable, counts.total)
 			mergeCapacityWindowSummary(group.Windows, "7d_quota", windows.weekQuota, windows.hasWeek, schedulable, counts.total)
 			mergeCapacityWindowSummary(group.Windows, "30d", windows.monthQuota, windows.hasMonth, schedulable, counts.total)
+			if accountCapacityGroupRefIsOpenAIPlanDisplay(groupRef) {
+				if !windows.has5h {
+					addCapacityGroupWindowAvailabilityOnly(groupWindowAvailabilityOnly, groupRef.key, "5h", counts)
+				}
+				if !windows.has7d {
+					addCapacityGroupWindowAvailabilityOnly(groupWindowAvailabilityOnly, groupRef.key, "7d", counts)
+				}
+			}
 		}
 	}
 
@@ -803,6 +880,7 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account, current
 	})
 	pool.Groups = make([]UserAccountCapacityPoolGroup, 0, len(groups))
 	for _, group := range groups {
+		applyCapacityGroupWindowAvailabilityOnly(group, groupWindowAvailabilityOnly[group.Key])
 		if len(group.Windows) == 0 {
 			group.Windows = nil
 		}
@@ -826,7 +904,43 @@ func buildUserAccountCapacityPool(key, title string, accounts []Account, current
 	return pool
 }
 
-func accountCapacityDisplayWindowSnapshots(account *Account) accountCapacityDisplayWindows {
+func accountCapacityGroupRefIsOpenAIPlanDisplay(ref accountCapacityGroupRef) bool {
+	return ref.platform == PlatformOpenAI &&
+		strings.HasPrefix(ref.key, "share-display:openai:") &&
+		openAISharedCapacityGroupName(ref.name) != ""
+}
+
+func addCapacityGroupWindowAvailabilityOnly(target map[string]map[string]accountCapacityDisplayCounts, groupKey, windowKey string, counts accountCapacityDisplayCounts) {
+	if counts.total <= 0 {
+		return
+	}
+	byWindow := target[groupKey]
+	if byWindow == nil {
+		byWindow = make(map[string]accountCapacityDisplayCounts)
+		target[groupKey] = byWindow
+	}
+	current := byWindow[windowKey]
+	current.total += counts.total
+	current.schedulable += counts.schedulable
+	byWindow[windowKey] = current
+}
+
+func applyCapacityGroupWindowAvailabilityOnly(group *UserAccountCapacityPoolGroup, byWindow map[string]accountCapacityDisplayCounts) {
+	if group == nil || len(byWindow) == 0 || len(group.Windows) == 0 {
+		return
+	}
+	for key, counts := range byWindow {
+		window, ok := group.Windows[key]
+		if !ok {
+			continue
+		}
+		window.SnapshotAccounts += counts.total
+		window.SchedulableSnapshotAccounts += counts.schedulable
+		group.Windows[key] = window
+	}
+}
+
+func accountCapacityDisplayWindowSnapshots(account *Account, displayUsage accountCapacityDisplayUsageDelta) accountCapacityDisplayWindows {
 	var windows accountCapacityDisplayWindows
 	windows.fiveHour, windows.has5h = accountCapacityWindowSnapshot(account, "codex_5h")
 	windows.sevenDay, windows.has7d = accountCapacityWindowSnapshot(account, "codex_7d")
@@ -835,7 +949,7 @@ func accountCapacityDisplayWindowSnapshots(account *Account) accountCapacityDisp
 	windows.monthQuota, windows.hasMonth = accountCapacityWindowSnapshot(account, "quota_monthly")
 
 	if accountUsesShareDisplayWindowMask(account) {
-		if display5h, ok := accountShareDisplayUsageWindowSnapshot(account, "5h", int((5 * time.Hour).Minutes())); ok {
+		if display5h, ok := accountShareDisplayUsageWindowSnapshot(account, "5h", int((5 * time.Hour).Minutes()), displayUsage.fiveHourCost); ok {
 			windows.fiveHour = display5h
 			windows.has5h = true
 		} else if !windows.has5h && windows.hasDaily {
@@ -843,7 +957,7 @@ func accountCapacityDisplayWindowSnapshots(account *Account) accountCapacityDisp
 			windows.fiveHour.WindowMinutes = int((5 * time.Hour).Minutes())
 			windows.has5h = true
 		}
-		if display7d, ok := accountShareDisplayUsageWindowSnapshot(account, "7d", int((7 * 24 * time.Hour).Minutes())); ok {
+		if display7d, ok := accountShareDisplayUsageWindowSnapshot(account, "7d", int((7 * 24 * time.Hour).Minutes()), displayUsage.sevenDayCost); ok {
 			windows.sevenDay = display7d
 			windows.has7d = true
 		} else if !windows.has7d && windows.hasWeek {
@@ -858,7 +972,7 @@ func accountCapacityDisplayWindowSnapshots(account *Account) accountCapacityDisp
 	return windows
 }
 
-func accountShareDisplayUsageWindowSnapshot(account *Account, suffix string, defaultWindowMinutes int) (UserAccountCapacityWindowSnapshot, bool) {
+func accountShareDisplayUsageWindowSnapshot(account *Account, suffix string, defaultWindowMinutes int, actualUsed float64) (UserAccountCapacityWindowSnapshot, bool) {
 	if account == nil || account.Extra == nil {
 		return UserAccountCapacityWindowSnapshot{}, false
 	}
@@ -868,10 +982,10 @@ func accountShareDisplayUsageWindowSnapshot(account *Account, suffix string, def
 		return UserAccountCapacityWindowSnapshot{}, false
 	}
 	usedRaw, ok := account.Extra[prefix+"_used"]
-	if !ok {
+	if !ok && actualUsed <= 0 {
 		return UserAccountCapacityWindowSnapshot{}, false
 	}
-	used := maxFloat64(parseExtraFloat64(usedRaw), 0)
+	used := maxFloat64(parseExtraFloat64(usedRaw), 0) + maxFloat64(actualUsed, 0)
 	if used > limit {
 		used = limit
 	}
@@ -1012,6 +1126,11 @@ func accountShareDisplayGroupName(poolKey string, account *Account) string {
 		}
 	}
 	if poolKey == "shared" {
+		if account.Platform == PlatformOpenAI {
+			if displayName := openAISharedCapacityGroupNameFromAccountGroups(account); displayName != "" {
+				return displayName
+			}
+		}
 		return ""
 	}
 	if displayName := strings.TrimSpace(account.GetShareDisplayName()); displayName != "" {
@@ -1039,13 +1158,37 @@ func openAIPlanCapacityGroupName(planType string) string {
 
 func openAISharedCapacityGroupName(planType string) string {
 	switch strings.ToLower(strings.TrimSpace(planType)) {
-	case "plus":
+	case "plus", "openai plus", "chatgpt plus":
 		return "OpenAI Plus"
-	case "pro", "chatgptpro":
+	case "pro", "chatgptpro", "openai pro", "chatgpt pro":
 		return "OpenAI Pro"
 	default:
 		return ""
 	}
+}
+
+func openAISharedCapacityGroupNameFromAccountGroups(account *Account) string {
+	if account == nil {
+		return ""
+	}
+	for _, group := range account.Groups {
+		if group == nil {
+			continue
+		}
+		if displayName := openAISharedCapacityGroupName(group.Name); displayName != "" {
+			return displayName
+		}
+	}
+	for i := range account.AccountGroups {
+		group := account.AccountGroups[i].Group
+		if group == nil {
+			continue
+		}
+		if displayName := openAISharedCapacityGroupName(group.Name); displayName != "" {
+			return displayName
+		}
+	}
+	return ""
 }
 
 func accountIsOwnedByUser(account *Account, userID int64) bool {

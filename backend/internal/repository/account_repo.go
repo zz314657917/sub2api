@@ -763,6 +763,44 @@ func (r *accountRepository) GetUsageSummary(ctx context.Context, ownerUserID int
 	return summary, nil
 }
 
+func (r *accountRepository) GetAccountUsageCostsSince(ctx context.Context, accountIDs []int64, startTime time.Time) (map[int64]float64, error) {
+	result := make(map[int64]float64, len(accountIDs))
+	if len(accountIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT
+			account_id,
+			COALESCE(SUM(COALESCE(account_stats_cost, total_cost, 0) * COALESCE(account_rate_multiplier, 1)), 0)::double precision AS account_cost
+		FROM usage_logs
+		WHERE account_id = ANY($1) AND created_at >= $2
+		GROUP BY account_id
+	`, pq.Array(accountIDs), startTime)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var accountID int64
+		var cost float64
+		if err := rows.Scan(&accountID, &cost); err != nil {
+			return nil, err
+		}
+		result[accountID] = cost
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	for _, accountID := range accountIDs {
+		if _, ok := result[accountID]; !ok {
+			result[accountID] = 0
+		}
+	}
+	return result, nil
+}
+
 func (r *accountRepository) TransferAvailableShareToBalance(ctx context.Context, ownerUserID int64) (float64, float64, error) {
 	if ownerUserID <= 0 {
 		return 0, 0, nil
