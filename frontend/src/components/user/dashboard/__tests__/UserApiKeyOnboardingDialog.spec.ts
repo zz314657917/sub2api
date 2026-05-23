@@ -42,6 +42,11 @@ describe('UserApiKeyOnboardingDialog', () => {
     expect(wrapper.text()).toContain('创建密钥')
     expect(wrapper.text()).toContain('接入工具')
     expect(wrapper.text()).toContain('查看用量')
+    expect(wrapper.find('.pointer-events-none').exists()).toBe(true)
+    expect(wrapper.find('.items-center.justify-center').exists()).toBe(true)
+    expect(wrapper.find('.from-blue-600.to-sky-500').exists()).toBe(true)
+    expect(wrapper.find('.bg-blue-50').exists()).toBe(true)
+    expect(wrapper.find('.modal-overlay').exists()).toBe(false)
 
     await wrapper.get('button.btn-primary').trigger('click')
     expect(wrapper.emitted('create')).toHaveLength(1)

@@ -1,6 +1,10 @@
 /* Sub2API Interactive Tour Styles - DOM Restructured Version */
 
 /* 1. Overlay & Highlight */
+.driver-active * {
+  pointer-events: auto !important;
+}
+
 .driver-overlay {
   position: fixed !important;
   inset: 0 !important;
@@ -15,7 +19,8 @@
   pointer-events: none !important;
 }
 
-.driver-overlay svg {
+.driver-overlay svg,
+.driver-overlay path {
   pointer-events: none !important;
 }
 

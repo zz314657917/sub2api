@@ -78,6 +78,14 @@ export function useOnboardingTour(options: OnboardingOptions) {
     localStorage.removeItem(getStorageKey())
   }
 
+  const destroyActiveTour = () => {
+    const activeDriver = onboardingStore.getDriverInstance()
+    if (activeDriver?.isActive?.()) {
+      activeDriver.destroy()
+    }
+    onboardingStore.setDriverInstance(null)
+  }
+
   /**
    * 检查元素是否存在，如果不存在则重试
    */
@@ -533,19 +541,15 @@ export function useOnboardingTour(options: OnboardingOptions) {
       isCurrentStep
     })
 
+    // 只允许管理员标准模式使用全局 driver 引导。普通用户使用 dashboard 里的非阻塞提示卡。
+    const isAdmin = userStore.user?.role === 'admin'
+    if (userStore.isSimpleMode || !isAdmin) {
+      destroyActiveTour()
+      return
+    }
+
     if (onboardingStore.isDriverActive()) {
       driverInstance = onboardingStore.getDriverInstance()
-      return
-    }
-
-    // 简易模式下禁用新手引导
-    if (userStore.isSimpleMode) {
-      return
-    }
-
-    // 只在管理员+标准模式下自动启动
-    const isAdmin = userStore.user?.role === 'admin'
-    if (!isAdmin) {
       return
     }
 

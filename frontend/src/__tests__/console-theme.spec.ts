@@ -55,11 +55,11 @@ describe('console visual direction', () => {
     expect(consoleUi).toContain('z-index: 0')
   })
 
-  it('defaults new visitors to dark mode unless they explicitly chose light', () => {
-    expect(mainEntry).toContain("const shouldUseDark = savedTheme !== 'light'")
-    expect(appSidebar).toContain("if (savedTheme !== 'light')")
-    expect(homeView).toContain("if (savedTheme !== 'light')")
-    expect(keyUsageView).toContain("if (savedTheme !== 'light')")
+  it('defaults new visitors to light mode unless they explicitly chose dark', () => {
+    expect(mainEntry).toContain("const shouldUseDark = savedTheme === 'dark'")
+    expect(appSidebar).toContain("if (savedTheme === 'dark')")
+    expect(homeView).toContain("if (savedTheme === 'dark')")
+    expect(keyUsageView).toContain("if (savedTheme === 'dark')")
     expect(homeView).not.toContain("prefers-color-scheme: dark")
     expect(keyUsageView).not.toContain("prefers-color-scheme: dark")
   })

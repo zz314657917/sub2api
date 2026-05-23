@@ -10,7 +10,7 @@ import './styles/console-ui.css'
 
 function initThemeClass() {
   const savedTheme = localStorage.getItem('theme')
-  const shouldUseDark = savedTheme !== 'light'
+  const shouldUseDark = savedTheme === 'dark'
   document.documentElement.classList.toggle('dark', shouldUseDark)
 }
 

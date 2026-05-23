@@ -12,6 +12,8 @@ const consoleUiPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../..
 const consoleUiSource = readFileSync(consoleUiPath, 'utf8')
 const onboardingTourPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../composables/useOnboardingTour.ts')
 const onboardingTourSource = readFileSync(onboardingTourPath, 'utf8')
+const onboardingStylePath = resolve(dirname(fileURLToPath(import.meta.url)), '../../../styles/onboarding.css')
+const onboardingStyleSource = readFileSync(onboardingStylePath, 'utf8')
 
 describe('AppSidebar custom SVG styles', () => {
   it('does not override uploaded SVG fill or stroke colors', () => {
@@ -92,6 +94,13 @@ describe('AppSidebar admin navigation groups', () => {
     expect(componentSource).toContain("'sidebar-channel-manage'")
     expect(componentSource).toContain("'sidebar-wallet'")
     expect(onboardingTourSource).toContain("'sub2api:sidebar-tour-target'")
+  })
+
+  it('keeps driver onboarding from blocking normal user clicks', () => {
+    expect(onboardingTourSource).toContain('普通用户使用 dashboard 里的非阻塞提示卡')
+    expect(onboardingTourSource).toContain('destroyActiveTour()')
+    expect(onboardingStyleSource).toContain('.driver-active *')
+    expect(onboardingStyleSource).toContain('pointer-events: auto !important;')
   })
 })
 

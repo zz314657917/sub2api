@@ -358,7 +358,7 @@ const primaryActionIcon = computed<PrimaryActionIconName>(() =>
 // Initialize theme
 function initTheme() {
   const savedTheme = localStorage.getItem('theme')
-  if (savedTheme !== 'light') {
+  if (savedTheme === 'dark') {
     document.documentElement.classList.add('dark')
   }
 }
