@@ -13,6 +13,12 @@ export interface MatrixColumn {
   mutateOffset: number
 }
 
+export interface MatrixRainOptions {
+  mobileColumnCount?: number
+  mobileRefreshEveryMs?: number
+  mobileQuery?: string
+}
+
 const matrixSeeds = [
   'OPENAIACCESS',
   'MODELROUTER',
@@ -116,11 +122,16 @@ function refreshMatrixColumns(columns: MatrixColumn[], tick: number): MatrixColu
   })
 }
 
-export function useMatrixRain(columnCount: number, refreshEveryMs = 560): { columns: Ref<MatrixColumn[]> } {
+export function useMatrixRain(
+  columnCount: number,
+  refreshEveryMs = 560,
+  options: MatrixRainOptions = {}
+): { columns: Ref<MatrixColumn[]> } {
   const columns = ref<MatrixColumn[]>(createMatrixColumns(columnCount))
   let tick = 0
   let timer: number | null = null
   let reducedMotionQuery: MediaQueryList | null = null
+  let mobileQuery: MediaQueryList | null = null
 
   function stopTimer() {
     if (timer !== null) {
@@ -129,29 +140,42 @@ export function useMatrixRain(columnCount: number, refreshEveryMs = 560): { colu
     }
   }
 
+  function getActiveColumnCount(): number {
+    return mobileQuery?.matches && options.mobileColumnCount ? options.mobileColumnCount : columnCount
+  }
+
+  function getActiveRefreshEveryMs(): number {
+    return mobileQuery?.matches && options.mobileRefreshEveryMs !== undefined
+      ? options.mobileRefreshEveryMs
+      : refreshEveryMs
+  }
+
   function startTimer() {
     stopTimer()
     tick = 0
-    columns.value = createMatrixColumns(columnCount)
+    columns.value = createMatrixColumns(getActiveColumnCount())
 
-    if (reducedMotionQuery?.matches) {
+    const activeRefreshEveryMs = getActiveRefreshEveryMs()
+    if (reducedMotionQuery?.matches || activeRefreshEveryMs <= 0) {
       return
     }
 
     timer = window.setInterval(() => {
       tick += 1
       columns.value = refreshMatrixColumns(columns.value, tick)
-    }, refreshEveryMs)
+    }, activeRefreshEveryMs)
   }
 
-  function handleReducedMotionChange() {
+  function handleMotionSettingChange() {
     startTimer()
   }
 
   onMounted(() => {
     if (typeof window !== 'undefined' && typeof window.matchMedia === 'function') {
       reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)')
-      reducedMotionQuery.addEventListener('change', handleReducedMotionChange)
+      reducedMotionQuery.addEventListener('change', handleMotionSettingChange)
+      mobileQuery = window.matchMedia(options.mobileQuery || '(max-width: 640px)')
+      mobileQuery.addEventListener('change', handleMotionSettingChange)
     }
 
     startTimer()
@@ -159,7 +183,8 @@ export function useMatrixRain(columnCount: number, refreshEveryMs = 560): { colu
 
   onBeforeUnmount(() => {
     stopTimer()
-    reducedMotionQuery?.removeEventListener('change', handleReducedMotionChange)
+    reducedMotionQuery?.removeEventListener('change', handleMotionSettingChange)
+    mobileQuery?.removeEventListener('change', handleMotionSettingChange)
   })
 
   return { columns }

@@ -31,7 +31,10 @@ describe('home page visual direction', () => {
     expect(homeView).toContain('home-matrix-rain')
     expect(homeView).toContain('matrixColumns')
     expect(homeView).toContain('const matrixColumnCount = 51')
-    expect(homeView).toContain('useMatrixRain(matrixColumnCount, 540)')
+    expect(homeView).toContain('const mobileMatrixColumnCount = 20')
+    expect(homeView).toContain('useMatrixRain(matrixColumnCount, 540, {')
+    expect(homeView).toContain('mobileColumnCount: mobileMatrixColumnCount')
+    expect(homeView).toContain('mobileRefreshEveryMs: 0')
     expect(homeView).toContain('@keyframes matrix-rain-fall')
     expect(homeView).toContain('home-blur-field')
     expect(homeView).toContain('transparent 0%')
@@ -154,6 +157,17 @@ describe('home page visual direction', () => {
     expect(homeView).toContain('width: min(100%, 92rem)')
     expect(homeView).toContain('gap: clamp(1.9rem, 3.2vh, 2.8rem)')
     expect(homeView).toContain('font-size: clamp(5.8rem, 4vw, 6.85rem)')
+  })
+
+  it('keeps the mobile homepage animation budget low', () => {
+    expect(homeView).toContain('@media (max-width: 640px)')
+    expect(homeView).toContain('.home-matrix-column')
+    expect(homeView).toContain('animation: none;')
+    expect(homeView).toContain('mix-blend-mode: normal')
+    expect(homeView).toContain('.home-matrix-rain::before')
+    expect(homeView).toContain('display: none;')
+    expect(homeView).toContain('filter: none;')
+    expect(homeView).toContain('text-shadow: none;')
   })
 
   it('keeps the documentation link out of the primary hero action row', () => {

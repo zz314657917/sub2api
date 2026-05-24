@@ -172,7 +172,11 @@ const heroTitleBottom = computed(() =>
 const currentYear = new Date().getFullYear()
 
 const matrixColumnCount = 51
-const { columns: matrixColumns } = useMatrixRain(matrixColumnCount, 540)
+const mobileMatrixColumnCount = 20
+const { columns: matrixColumns } = useMatrixRain(matrixColumnCount, 540, {
+  mobileColumnCount: mobileMatrixColumnCount,
+  mobileRefreshEveryMs: 0
+})
 
 function toFooterLegalDocument(doc: LoginAgreementDocument): FooterLegalDocument | null {
   const title = doc.title?.trim()
@@ -866,6 +870,52 @@ watch(heroDescriptionTexts, () => {
 @media (max-width: 640px) {
   .home-page-root {
     overflow-y: auto;
+  }
+
+  .home-matrix-rain {
+    opacity: 0.4;
+    mix-blend-mode: normal;
+  }
+
+  .home-matrix-rain::before {
+    display: none;
+  }
+
+  .home-matrix-column {
+    animation: none;
+    font-size: 0.68rem;
+    text-shadow: none;
+    transform: translate3d(0, 12vh, 0);
+  }
+
+  .home-matrix-column:nth-child(2n) {
+    transform: translate3d(0, 42vh, 0);
+  }
+
+  .home-blur-field {
+    filter: none;
+    opacity: 0.48;
+    transform: none;
+  }
+
+  .home-noise {
+    opacity: 0.2;
+  }
+
+  .home-title-top-fill,
+  .home-title-bottom-fill,
+  .home-typewriter-cursor {
+    animation: none;
+  }
+
+  .home-title-top-fill {
+    transform: none;
+    filter: none;
+  }
+
+  .home-title-bottom-fill {
+    background-position: 54% 50%;
+    filter: none;
   }
 
   .home-button-inner {
