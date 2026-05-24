@@ -98,51 +98,54 @@ const (
 // APIKeyMutation represents an operation that mutates the APIKey nodes in the graph.
 type APIKeyMutation struct {
 	config
-	op                 Op
-	typ                string
-	id                 *int64
-	created_at         *time.Time
-	updated_at         *time.Time
-	deleted_at         *time.Time
-	key                *string
-	name               *string
-	status             *string
-	last_used_at       *time.Time
-	ip_whitelist       *[]string
-	appendip_whitelist []string
-	ip_blacklist       *[]string
-	appendip_blacklist []string
-	quota              *float64
-	addquota           *float64
-	quota_used         *float64
-	addquota_used      *float64
-	expires_at         *time.Time
-	rate_limit_5h      *float64
-	addrate_limit_5h   *float64
-	rate_limit_1d      *float64
-	addrate_limit_1d   *float64
-	rate_limit_7d      *float64
-	addrate_limit_7d   *float64
-	usage_5h           *float64
-	addusage_5h        *float64
-	usage_1d           *float64
-	addusage_1d        *float64
-	usage_7d           *float64
-	addusage_7d        *float64
-	window_5h_start    *time.Time
-	window_1d_start    *time.Time
-	window_7d_start    *time.Time
-	clearedFields      map[string]struct{}
-	user               *int64
-	cleareduser        bool
-	group              *int64
-	clearedgroup       bool
-	usage_logs         map[int64]struct{}
-	removedusage_logs  map[int64]struct{}
-	clearedusage_logs  bool
-	done               bool
-	oldValue           func(context.Context) (*APIKey, error)
-	predicates         []predicate.APIKey
+	op                       Op
+	typ                      string
+	id                       *int64
+	created_at               *time.Time
+	updated_at               *time.Time
+	deleted_at               *time.Time
+	key                      *string
+	name                     *string
+	account_pool_strategy    *string
+	status                   *string
+	last_used_at             *time.Time
+	ip_whitelist             *[]string
+	appendip_whitelist       []string
+	ip_blacklist             *[]string
+	appendip_blacklist       []string
+	quota                    *float64
+	addquota                 *float64
+	quota_used               *float64
+	addquota_used            *float64
+	expires_at               *time.Time
+	rate_limit_5h            *float64
+	addrate_limit_5h         *float64
+	rate_limit_1d            *float64
+	addrate_limit_1d         *float64
+	rate_limit_7d            *float64
+	addrate_limit_7d         *float64
+	usage_5h                 *float64
+	addusage_5h              *float64
+	usage_1d                 *float64
+	addusage_1d              *float64
+	usage_7d                 *float64
+	addusage_7d              *float64
+	window_5h_start          *time.Time
+	window_1d_start          *time.Time
+	window_7d_start          *time.Time
+	multi_group_routes       *[]domain.APIKeyMultiGroupRoute
+	appendmulti_group_routes []domain.APIKeyMultiGroupRoute
+	clearedFields            map[string]struct{}
+	user                     *int64
+	cleareduser              bool
+	group                    *int64
+	clearedgroup             bool
+	usage_logs               map[int64]struct{}
+	removedusage_logs        map[int64]struct{}
+	clearedusage_logs        bool
+	done                     bool
+	oldValue                 func(context.Context) (*APIKey, error)
+	predicates               []predicate.APIKey
 }
 
 var _ ent.Mutation = (*APIKeyMutation)(nil)
@@ -519,6 +522,42 @@ func (m *APIKeyMutation) GroupIDCleared() bool {
 func (m *APIKeyMutation) ResetGroupID() {
 	m.group = nil
 	delete(m.clearedFields, apikey.FieldGroupID)
+}
+
+// SetAccountPoolStrategy sets the "account_pool_strategy" field.
+func (m *APIKeyMutation) SetAccountPoolStrategy(s string) {
+	m.account_pool_strategy = &s
+}
+
+// AccountPoolStrategy returns the value of the "account_pool_strategy" field in the mutation.
+func (m *APIKeyMutation) AccountPoolStrategy() (r string, exists bool) {
+	v := m.account_pool_strategy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAccountPoolStrategy returns the old "account_pool_strategy" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldAccountPoolStrategy(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAccountPoolStrategy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAccountPoolStrategy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAccountPoolStrategy: %w", err)
+	}
+	return oldValue.AccountPoolStrategy, nil
+}
+
+// ResetAccountPoolStrategy resets all changes to the "account_pool_strategy" field.
+func (m *APIKeyMutation) ResetAccountPoolStrategy() {
+	m.account_pool_strategy = nil
 }
 
 // SetStatus sets the "status" field.
@@ -1380,6 +1419,71 @@ func (m *APIKeyMutation) ResetWindow7dStart() {
 	delete(m.clearedFields, apikey.FieldWindow7dStart)
 }
 
+// SetMultiGroupRoutes sets the "multi_group_routes" field.
+func (m *APIKeyMutation) SetMultiGroupRoutes(dkmgr []domain.APIKeyMultiGroupRoute) {
+	m.multi_group_routes = &dkmgr
+	m.appendmulti_group_routes = nil
+}
+
+// MultiGroupRoutes returns the value of the "multi_group_routes" field in the mutation.
+func (m *APIKeyMutation) MultiGroupRoutes() (r []domain.APIKeyMultiGroupRoute, exists bool) {
+	v := m.multi_group_routes
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMultiGroupRoutes returns the old "multi_group_routes" field's value of the APIKey entity.
+// If the APIKey object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *APIKeyMutation) OldMultiGroupRoutes(ctx context.Context) (v []domain.APIKeyMultiGroupRoute, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMultiGroupRoutes is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMultiGroupRoutes requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMultiGroupRoutes: %w", err)
+	}
+	return oldValue.MultiGroupRoutes, nil
+}
+
+// AppendMultiGroupRoutes adds dkmgr to the "multi_group_routes" field.
+func (m *APIKeyMutation) AppendMultiGroupRoutes(dkmgr []domain.APIKeyMultiGroupRoute) {
+	m.appendmulti_group_routes = append(m.appendmulti_group_routes, dkmgr...)
+}
+
+// AppendedMultiGroupRoutes returns the list of values that were appended to the "multi_group_routes" field in this mutation.
+func (m *APIKeyMutation) AppendedMultiGroupRoutes() ([]domain.APIKeyMultiGroupRoute, bool) {
+	if len(m.appendmulti_group_routes) == 0 {
+		return nil, false
+	}
+	return m.appendmulti_group_routes, true
+}
+
+// ClearMultiGroupRoutes clears the value of the "multi_group_routes" field.
+func (m *APIKeyMutation) ClearMultiGroupRoutes() {
+	m.multi_group_routes = nil
+	m.appendmulti_group_routes = nil
+	m.clearedFields[apikey.FieldMultiGroupRoutes] = struct{}{}
+}
+
+// MultiGroupRoutesCleared returns if the "multi_group_routes" field was cleared in this mutation.
+func (m *APIKeyMutation) MultiGroupRoutesCleared() bool {
+	_, ok := m.clearedFields[apikey.FieldMultiGroupRoutes]
+	return ok
+}
+
+// ResetMultiGroupRoutes resets all changes to the "multi_group_routes" field.
+func (m *APIKeyMutation) ResetMultiGroupRoutes() {
+	m.multi_group_routes = nil
+	m.appendmulti_group_routes = nil
+	delete(m.clearedFields, apikey.FieldMultiGroupRoutes)
+}
+
 // ClearUser clears the "user" edge to the User entity.
 func (m *APIKeyMutation) ClearUser() {
 	m.cleareduser = true
@@ -1522,7 +1626,7 @@ func (m *APIKeyMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *APIKeyMutation) Fields() []string {
-	fields := make([]string, 0, 23)
+	fields := make([]string, 0, 25)
 	if m.created_at != nil {
 		fields = append(fields, apikey.FieldCreatedAt)
 	}
@@ -1543,6 +1647,9 @@ func (m *APIKeyMutation) Fields() []string {
 	}
 	if m.group != nil {
 		fields = append(fields, apikey.FieldGroupID)
+	}
+	if m.account_pool_strategy != nil {
+		fields = append(fields, apikey.FieldAccountPoolStrategy)
 	}
 	if m.status != nil {
 		fields = append(fields, apikey.FieldStatus)
@@ -1592,6 +1699,9 @@ func (m *APIKeyMutation) Fields() []string {
 	if m.window_7d_start != nil {
 		fields = append(fields, apikey.FieldWindow7dStart)
 	}
+	if m.multi_group_routes != nil {
+		fields = append(fields, apikey.FieldMultiGroupRoutes)
+	}
 	return fields
 }
 
@@ -1614,6 +1724,8 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.Name()
 	case apikey.FieldGroupID:
 		return m.GroupID()
+	case apikey.FieldAccountPoolStrategy:
+		return m.AccountPoolStrategy()
 	case apikey.FieldStatus:
 		return m.Status()
 	case apikey.FieldLastUsedAt:
@@ -1646,6 +1758,8 @@ func (m *APIKeyMutation) Field(name string) (ent.Value, bool) {
 		return m.Window1dStart()
 	case apikey.FieldWindow7dStart:
 		return m.Window7dStart()
+	case apikey.FieldMultiGroupRoutes:
+		return m.MultiGroupRoutes()
 	}
 	return nil, false
 }
@@ -1669,6 +1783,8 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldName(ctx)
 	case apikey.FieldGroupID:
 		return m.OldGroupID(ctx)
+	case apikey.FieldAccountPoolStrategy:
+		return m.OldAccountPoolStrategy(ctx)
 	case apikey.FieldStatus:
 		return m.OldStatus(ctx)
 	case apikey.FieldLastUsedAt:
@@ -1701,6 +1817,8 @@ func (m *APIKeyMutation) OldField(ctx context.Context, name string) (ent.Value, 
 		return m.OldWindow1dStart(ctx)
 	case apikey.FieldWindow7dStart:
 		return m.OldWindow7dStart(ctx)
+	case apikey.FieldMultiGroupRoutes:
+		return m.OldMultiGroupRoutes(ctx)
 	}
 	return nil, fmt.Errorf("unknown APIKey field %s", name)
 }
@@ -1758,6 +1876,13 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetGroupID(v)
+		return nil
+	case apikey.FieldAccountPoolStrategy:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountPoolStrategy(v)
 		return nil
 	case apikey.FieldStatus:
 		v, ok := value.(string)
@@ -1870,6 +1995,13 @@ func (m *APIKeyMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetWindow7dStart(v)
+		return nil
+	case apikey.FieldMultiGroupRoutes:
+		v, ok := value.([]domain.APIKeyMultiGroupRoute)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMultiGroupRoutes(v)
 		return nil
 	}
 	return fmt.Errorf("unknown APIKey field %s", name)
@@ -2027,6 +2159,9 @@ func (m *APIKeyMutation) ClearedFields() []string {
 	if m.FieldCleared(apikey.FieldWindow7dStart) {
 		fields = append(fields, apikey.FieldWindow7dStart)
 	}
+	if m.FieldCleared(apikey.FieldMultiGroupRoutes) {
+		fields = append(fields, apikey.FieldMultiGroupRoutes)
+	}
 	return fields
 }
 
@@ -2068,6 +2203,9 @@ func (m *APIKeyMutation) ClearField(name string) error {
 	case apikey.FieldWindow7dStart:
 		m.ClearWindow7dStart()
 		return nil
+	case apikey.FieldMultiGroupRoutes:
+		m.ClearMultiGroupRoutes()
+		return nil
 	}
 	return fmt.Errorf("unknown APIKey nullable field %s", name)
 }
@@ -2096,6 +2234,9 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldGroupID:
 		m.ResetGroupID()
+		return nil
+	case apikey.FieldAccountPoolStrategy:
+		m.ResetAccountPoolStrategy()
 		return nil
 	case apikey.FieldStatus:
 		m.ResetStatus()
@@ -2144,6 +2285,9 @@ func (m *APIKeyMutation) ResetField(name string) error {
 		return nil
 	case apikey.FieldWindow7dStart:
 		m.ResetWindow7dStart()
+		return nil
+	case apikey.FieldMultiGroupRoutes:
+		m.ResetMultiGroupRoutes()
 		return nil
 	}
 	return fmt.Errorf("unknown APIKey field %s", name)

@@ -12,6 +12,8 @@ type OpsSystemLog struct {
 	ClientRequestID string         `json:"client_request_id"`
 	UserID          *int64         `json:"user_id"`
 	AccountID       *int64         `json:"account_id"`
+	AccountName     string         `json:"account_name"`
+	AccountNotes    string         `json:"account_notes,omitempty"`
 	Platform        string         `json:"platform"`
 	Model           string         `json:"model"`
 	Extra           map[string]any `json:"extra,omitempty"`
@@ -51,13 +53,14 @@ type OpsErrorLog struct {
 	RequestID       string `json:"request_id"`
 	Message         string `json:"message"`
 
-	UserID      *int64 `json:"user_id"`
-	UserEmail   string `json:"user_email"`
-	APIKeyID    *int64 `json:"api_key_id"`
-	AccountID   *int64 `json:"account_id"`
-	AccountName string `json:"account_name"`
-	GroupID     *int64 `json:"group_id"`
-	GroupName   string `json:"group_name"`
+	UserID       *int64 `json:"user_id"`
+	UserEmail    string `json:"user_email"`
+	APIKeyID     *int64 `json:"api_key_id"`
+	AccountID    *int64 `json:"account_id"`
+	AccountName  string `json:"account_name"`
+	AccountNotes string `json:"account_notes,omitempty"`
+	GroupID      *int64 `json:"group_id"`
+	GroupName    string `json:"group_name"`
 
 	ClientIP    *string `json:"client_ip"`
 	RequestPath string  `json:"request_path"`

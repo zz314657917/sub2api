@@ -38,6 +38,7 @@ var (
 	ErrAPIKeyRateLimit1dExceeded = infraerrors.TooManyRequests("API_KEY_RATE_1D_EXCEEDED", "api key 日限额已用完")
 	ErrAPIKeyRateLimit7dExceeded = infraerrors.TooManyRequests("API_KEY_RATE_7D_EXCEEDED", "api key 7天限额已用完")
 	ErrAPIKeyRouteInvalid        = infraerrors.BadRequest("API_KEY_ROUTE_INVALID", "api key multi-group route is invalid")
+	ErrAPIKeyPoolStrategyInvalid = infraerrors.BadRequest("API_KEY_POOL_STRATEGY_INVALID", "api key account pool strategy is invalid")
 )
 
 const (
@@ -49,6 +50,11 @@ const (
 	apiKeyRouteDefaultWeight   = 1
 	apiKeyRouteDefaultCooldown = 30
 )
+
+type apiKeyRouteCooldownKey struct {
+	apiKeyID int64
+	groupID  int64
+}
 
 type APIKeyRepository interface {
 	Create(ctx context.Context, key *APIKey) error
@@ -133,6 +139,10 @@ type APIKeyCache interface {
 	IncrementCreateAttemptCount(ctx context.Context, userID int64) error
 	DeleteCreateAttemptCount(ctx context.Context, userID int64) error
 
+	IsRouteGroupCooling(ctx context.Context, apiKeyID, groupID int64) (bool, error)
+	SetRouteGroupCooldown(ctx context.Context, apiKeyID, groupID int64, ttl time.Duration) error
+	DeleteRouteGroupCooldown(ctx context.Context, apiKeyID, groupID int64) error
+
 	IncrementDailyUsage(ctx context.Context, apiKey string) error
 	SetDailyUsageExpiry(ctx context.Context, apiKey string, ttl time.Duration) error
 
@@ -154,12 +164,13 @@ type APIKeyAuthCacheInvalidator interface {
 
 // CreateAPIKeyRequest 创建API Key请求
 type CreateAPIKeyRequest struct {
-	Name             string                         `json:"name"`
-	GroupID          *int64                         `json:"group_id"`
-	MultiGroupRoutes []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // 多分组路由配置
-	CustomKey        *string                        `json:"custom_key"`         // 可选的自定义key
-	IPWhitelist      []string                       `json:"ip_whitelist"`       // IP 白名单
-	IPBlacklist      []string                       `json:"ip_blacklist"`       // IP 黑名单
+	Name                string                         `json:"name"`
+	GroupID             *int64                         `json:"group_id"`
+	MultiGroupRoutes    []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // 多分组路由配置
+	AccountPoolStrategy string                         `json:"account_pool_strategy"`
+	CustomKey           *string                        `json:"custom_key"`   // 可选的自定义key
+	IPWhitelist         []string                       `json:"ip_whitelist"` // IP 白名单
+	IPBlacklist         []string                       `json:"ip_blacklist"` // IP 黑名单
 
 	// Quota fields
 	Quota         float64 `json:"quota"`           // Quota limit in USD (0 = unlimited)
@@ -173,12 +184,13 @@ type CreateAPIKeyRequest struct {
 
 // UpdateAPIKeyRequest 更新API Key请求
 type UpdateAPIKeyRequest struct {
-	Name             *string                        `json:"name"`
-	GroupID          *int64                         `json:"group_id"`
-	MultiGroupRoutes []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // nil=不修改, 空数组=清空
-	Status           *string                        `json:"status"`
-	IPWhitelist      []string                       `json:"ip_whitelist"` // IP 白名单（空数组清空）
-	IPBlacklist      []string                       `json:"ip_blacklist"` // IP 黑名单（空数组清空）
+	Name                *string                        `json:"name"`
+	GroupID             *int64                         `json:"group_id"`
+	MultiGroupRoutes    []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // nil=不修改, 空数组=清空
+	AccountPoolStrategy *string                        `json:"account_pool_strategy"`
+	Status              *string                        `json:"status"`
+	IPWhitelist         []string                       `json:"ip_whitelist"` // IP 白名单（空数组清空）
+	IPBlacklist         []string                       `json:"ip_blacklist"` // IP 黑名单（空数组清空）
 
 	// Quota fields
 	Quota           *float64   `json:"quota"`       // Quota limit in USD (nil = no change, 0 = unlimited)
@@ -213,6 +225,7 @@ type APIKeyService struct {
 	authGroup             singleflight.Group
 	lastUsedTouchL1       sync.Map // keyID -> nextAllowedAt(time.Time)
 	lastUsedTouchSF       singleflight.Group
+	routeCooldownL1       sync.Map // apiKeyRouteCooldownKey -> until(time.Time)
 }
 
 // NewAPIKeyService 创建API Key服务实例
@@ -256,8 +269,16 @@ func (s *APIKeyService) compileAPIKeyIPRules(apiKey *APIKey) {
 // refreshes per-user group RPM override when the selected group differs from the
 // cached default group.
 func (s *APIKeyService) ResolveForRequest(ctx context.Context, apiKey *APIKey, path, forcePlatform string) *APIKey {
-	resolved := apiKey.ResolveForRequest(path, forcePlatform)
-	if resolved == nil || resolved.User == nil || resolved.Group == nil || s.userGroupRateRepo == nil {
+	if apiKey == nil {
+		return nil
+	}
+	resolved := apiKey.ResolveForRequestWithGroupSkipper(path, forcePlatform, func(groupID int64) bool {
+		if s == nil {
+			return false
+		}
+		return s.isRouteGroupCooling(ctx, apiKey, groupID)
+	})
+	if resolved == nil || resolved.User == nil || resolved.Group == nil || s == nil || s.userGroupRateRepo == nil {
 		return resolved
 	}
 	if apiKey == nil || apiKey.Group == nil || apiKey.Group.ID != resolved.Group.ID {
@@ -267,6 +288,75 @@ func (s *APIKeyService) ResolveForRequest(ctx context.Context, apiKey *APIKey, p
 		}
 	}
 	return resolved
+}
+
+func (s *APIKeyService) routeCooldownKey(apiKeyID, groupID int64) apiKeyRouteCooldownKey {
+	return apiKeyRouteCooldownKey{apiKeyID: apiKeyID, groupID: groupID}
+}
+
+func (s *APIKeyService) routeCooldownTTL(routeCooldownSeconds int) time.Duration {
+	if routeCooldownSeconds <= 0 {
+		routeCooldownSeconds = apiKeyRouteDefaultCooldown
+	}
+	return time.Duration(routeCooldownSeconds) * time.Second
+}
+
+func (s *APIKeyService) isRouteGroupCooling(ctx context.Context, apiKey *APIKey, groupID int64) bool {
+	if apiKey == nil || apiKey.ID <= 0 || groupID <= 0 {
+		return false
+	}
+	key := s.routeCooldownKey(apiKey.ID, groupID)
+	if until, ok := s.routeCooldownL1.Load(key); ok {
+		if ts, ok := until.(time.Time); ok && !ts.IsZero() {
+			if time.Now().Before(ts) {
+				return true
+			}
+			s.routeCooldownL1.Delete(key)
+		}
+	}
+	if s.cache == nil {
+		return false
+	}
+	cooling, err := s.cache.IsRouteGroupCooling(ctx, apiKey.ID, groupID)
+	if err != nil {
+		return false
+	}
+	if !cooling {
+		return false
+	}
+	// Redis key is still live, but local L1 has not observed the exact expiry.
+	// Keep the L1 marker short-lived so repeated cache hits do not spam Redis.
+	s.routeCooldownL1.Store(key, time.Now().Add(5*time.Second))
+	return true
+}
+
+func (s *APIKeyService) MarkRouteGroupCooldown(ctx context.Context, apiKey *APIKey, groupID int64, routeCooldownSeconds int) {
+	if s == nil || apiKey == nil || apiKey.ID <= 0 || groupID <= 0 {
+		return
+	}
+	ttl := s.routeCooldownTTL(routeCooldownSeconds)
+	until := time.Now().Add(ttl)
+	key := s.routeCooldownKey(apiKey.ID, groupID)
+	s.routeCooldownL1.Store(key, until)
+	if s.cache == nil {
+		return
+	}
+	if err := s.cache.SetRouteGroupCooldown(ctx, apiKey.ID, groupID, ttl); err != nil {
+		// Keep the local cooldown even if Redis write fails.
+		return
+	}
+}
+
+func (s *APIKeyService) ClearRouteGroupCooldown(ctx context.Context, apiKey *APIKey, groupID int64) {
+	if s == nil || apiKey == nil || apiKey.ID <= 0 || groupID <= 0 {
+		return
+	}
+	key := s.routeCooldownKey(apiKey.ID, groupID)
+	s.routeCooldownL1.Delete(key)
+	if s.cache == nil {
+		return
+	}
+	_ = s.cache.DeleteRouteGroupCooldown(ctx, apiKey.ID, groupID)
 }
 
 // GenerateKey 生成随机API Key
@@ -435,6 +525,10 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 	if err := s.validateAPIKeyRouteGroups(ctx, user, multiGroupRoutes); err != nil {
 		return nil, err
 	}
+	if !IsValidAccountPoolStrategy(req.AccountPoolStrategy) {
+		return nil, ErrAPIKeyPoolStrategyInvalid
+	}
+	accountPoolStrategy := NormalizeAccountPoolStrategy(req.AccountPoolStrategy)
 
 	var key string
 
@@ -473,19 +567,20 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 
 	// 创建API Key记录
 	apiKey := &APIKey{
-		UserID:           userID,
-		Key:              key,
-		Name:             req.Name,
-		GroupID:          req.GroupID,
-		MultiGroupRoutes: multiGroupRoutes,
-		Status:           StatusActive,
-		IPWhitelist:      req.IPWhitelist,
-		IPBlacklist:      req.IPBlacklist,
-		Quota:            req.Quota,
-		QuotaUsed:        0,
-		RateLimit5h:      req.RateLimit5h,
-		RateLimit1d:      req.RateLimit1d,
-		RateLimit7d:      req.RateLimit7d,
+		UserID:              userID,
+		Key:                 key,
+		Name:                req.Name,
+		GroupID:             req.GroupID,
+		MultiGroupRoutes:    multiGroupRoutes,
+		AccountPoolStrategy: accountPoolStrategy,
+		Status:              StatusActive,
+		IPWhitelist:         req.IPWhitelist,
+		IPBlacklist:         req.IPBlacklist,
+		Quota:               req.Quota,
+		QuotaUsed:           0,
+		RateLimit5h:         req.RateLimit5h,
+		RateLimit1d:         req.RateLimit1d,
+		RateLimit7d:         req.RateLimit7d,
 	}
 
 	// Set expiration time if specified
@@ -646,6 +741,12 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 			return nil, err
 		}
 		apiKey.MultiGroupRoutes = routes
+	}
+	if req.AccountPoolStrategy != nil {
+		if !IsValidAccountPoolStrategy(*req.AccountPoolStrategy) {
+			return nil, ErrAPIKeyPoolStrategyInvalid
+		}
+		apiKey.AccountPoolStrategy = NormalizeAccountPoolStrategy(*req.AccountPoolStrategy)
 	}
 
 	if req.Status != nil {

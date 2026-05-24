@@ -291,6 +291,7 @@ export interface PublicSettings {
   available_channels_enabled: boolean
   affiliate_enabled: boolean
   account_share_enabled: boolean
+  external_capacity_reference_enabled?: boolean
   welfare_enabled?: boolean
   welfare_daily_checkin_enabled?: boolean
   welfare_recharge_enabled?: boolean
@@ -623,6 +624,7 @@ export interface ApiKey {
   name: string
   group_id: number | null
   multi_group_routes: ApiKeyMultiGroupRoute[]
+  account_pool_strategy: AccountPoolStrategy
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
   ip_whitelist: string[]
   ip_blacklist: string[]
@@ -647,6 +649,8 @@ export interface ApiKey {
   reset_7d_at: string | null
 }
 
+export type AccountPoolStrategy = 'shared_only' | 'private_first' | 'private_only'
+
 export interface ApiKeyMultiGroupRoute {
   group_id: number
   priority: number
@@ -659,6 +663,7 @@ export interface CreateApiKeyRequest {
   name: string
   group_id?: number | null
   multi_group_routes?: ApiKeyMultiGroupRoute[]
+  account_pool_strategy?: AccountPoolStrategy
   custom_key?: string // Optional custom API Key
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -673,6 +678,7 @@ export interface UpdateApiKeyRequest {
   name?: string
   group_id?: number | null
   multi_group_routes?: ApiKeyMultiGroupRoute[]
+  account_pool_strategy?: AccountPoolStrategy
   status?: 'active' | 'inactive'
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -1073,6 +1079,7 @@ export interface UserAccountUsageSummary {
 export interface UserAccountCapacityPools {
   mine: UserAccountCapacityPool
   shared: UserAccountCapacityPool
+  external?: UserAccountCapacityPool | null
 }
 
 // ==================== Welfare Types ====================

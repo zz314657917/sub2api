@@ -31,9 +31,6 @@ func newAPIKeyRepoSQLite(t *testing.T) (*apiKeyRepository, *dbent.Client) {
 	client := enttest.NewClient(t, enttest.WithOptions(dbent.Driver(drv)))
 	t.Cleanup(func() { _ = client.Close() })
 
-	_, err = db.Exec("ALTER TABLE api_keys ADD COLUMN multi_group_routes TEXT NOT NULL DEFAULT '[]'")
-	require.NoError(t, err)
-
 	return &apiKeyRepository{client: client, dialect: dialect.SQLite}, client
 }
 

@@ -10,15 +10,19 @@ import (
 func TestSettingService_ParseAccountShareSettings(t *testing.T) {
 	svc := NewSettingService(nil, &config.Config{})
 	settings := svc.parseSettings(map[string]string{
-		SettingKeyAccountShareEnabled:          "true",
-		SettingKeyAccountShareOwnerRate:        "85.5",
-		SettingKeyAccountShareFreezeHours:      "24",
-		SettingKeyAccountShareAutoReview:       "true",
-		SettingKeyAccountShareUserAccountLimit: "8",
+		SettingKeyAccountShareEnabled:              "true",
+		SettingKeyExternalCapacityReferenceEnabled: "true",
+		SettingKeyAccountShareOwnerRate:            "85.5",
+		SettingKeyAccountShareFreezeHours:          "24",
+		SettingKeyAccountShareAutoReview:           "true",
+		SettingKeyAccountShareUserAccountLimit:     "8",
 	})
 
 	if !settings.AccountShareEnabled {
 		t.Fatal("expected account sharing enabled")
+	}
+	if settings.ExternalCapacityReferenceEnabled {
+		t.Fatal("expected external capacity reference sealed off")
 	}
 	if settings.AccountShareOwnerRatePercent != 85.5 {
 		t.Fatalf("owner rate = %v", settings.AccountShareOwnerRatePercent)
@@ -37,11 +41,12 @@ func TestSettingService_ParseAccountShareSettings(t *testing.T) {
 func TestSettingService_BuildAccountShareSettingsUpdatesClampsValues(t *testing.T) {
 	svc := NewSettingService(nil, &config.Config{})
 	updates, err := svc.buildSystemSettingsUpdates(context.Background(), &SystemSettings{
-		AccountShareEnabled:          true,
-		AccountShareOwnerRatePercent: 150,
-		AccountShareFreezeHours:      AccountShareFreezeHoursMax + 1,
-		AccountShareAutoReview:       true,
-		AccountShareUserAccountLimit: AccountShareUserAccountLimitMax + 1,
+		AccountShareEnabled:              true,
+		ExternalCapacityReferenceEnabled: true,
+		AccountShareOwnerRatePercent:     150,
+		AccountShareFreezeHours:          AccountShareFreezeHoursMax + 1,
+		AccountShareAutoReview:           true,
+		AccountShareUserAccountLimit:     AccountShareUserAccountLimitMax + 1,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -49,6 +54,9 @@ func TestSettingService_BuildAccountShareSettingsUpdatesClampsValues(t *testing.
 
 	if updates[SettingKeyAccountShareEnabled] != "true" {
 		t.Fatalf("share enabled update = %q", updates[SettingKeyAccountShareEnabled])
+	}
+	if updates[SettingKeyExternalCapacityReferenceEnabled] != "false" {
+		t.Fatalf("external capacity reference update = %q", updates[SettingKeyExternalCapacityReferenceEnabled])
 	}
 	if updates[SettingKeyAccountShareOwnerRate] != "100.00000000" {
 		t.Fatalf("owner rate update = %q", updates[SettingKeyAccountShareOwnerRate])

@@ -68,9 +68,11 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 				Concurrency: apiKey.User.Concurrency,
 			})
 			c.Set(string(ContextKeyUserRole), apiKey.User.Role)
+			setAPIKeyAccountPoolContext(c, apiKey)
 			setGroupContext(c, apiKey.Group)
 			_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
 			c.Next()
+			applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, apiKey)
 			return
 		}
 
@@ -117,9 +119,11 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			Concurrency: apiKey.User.Concurrency,
 		})
 		c.Set(string(ContextKeyUserRole), apiKey.User.Role)
+		setAPIKeyAccountPoolContext(c, apiKey)
 		setGroupContext(c, apiKey.Group)
 		_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
 		c.Next()
+		applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, apiKey)
 	}
 }
 

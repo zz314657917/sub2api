@@ -44,6 +44,10 @@ func (APIKey) Fields() []ent.Field {
 		field.Int64("group_id").
 			Optional().
 			Nillable(),
+		field.String("account_pool_strategy").
+			MaxLen(32).
+			Default("shared_only").
+			Comment("API key account pool strategy: shared_only, private_first, private_only"),
 		field.String("status").
 			MaxLen(20).
 			Default(domain.StatusActive),

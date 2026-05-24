@@ -1517,6 +1517,18 @@ func (stubApiKeyCache) DeleteCreateAttemptCount(ctx context.Context, userID int6
 	return nil
 }
 
+func (stubApiKeyCache) IsRouteGroupCooling(ctx context.Context, apiKeyID, groupID int64) (bool, error) {
+	return false, nil
+}
+
+func (stubApiKeyCache) SetRouteGroupCooldown(ctx context.Context, apiKeyID, groupID int64, ttl time.Duration) error {
+	return nil
+}
+
+func (stubApiKeyCache) DeleteRouteGroupCooldown(ctx context.Context, apiKeyID, groupID int64) error {
+	return nil
+}
+
 func (stubApiKeyCache) IncrementDailyUsage(ctx context.Context, apiKey string) error {
 	return nil
 }

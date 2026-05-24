@@ -9,6 +9,7 @@ const { listChannelMonitors, fetchCapacityPools, showError, appStoreState } = vi
   appStoreState: {
     cachedPublicSettings: {
       account_share_enabled: true,
+      external_capacity_reference_enabled: false,
       channel_monitor_enabled: true,
     } as Record<string, unknown> | null,
   },
@@ -25,6 +26,8 @@ vi.mock('vue-i18n', async () => {
         if (key === 'channelStatus.capacityPools.percentOnly') return '剩余'
         if (key === 'channelStatus.capacityPools.accountStatus') return '账号状态'
         if (key === 'channelStatus.capacityPools.degraded') return '部分可用'
+        if (key === 'channelStatus.capacityPools.externalTitle') return '公开共享容量参考'
+        if (key === 'channelStatus.capacityPools.externalDescription') return '公开共享账号池状态参考。'
         if (key === 'channelStatus.capacityPools.schedulableSnapshot') return '可用账号'
         if (key === 'channelStatus.capacityPools.unavailableReasons.daily_quota_exceeded') return '日额度用完'
         if (key === 'channelStatus.capacityPools.unavailableReasons.rate_limited') return '限流中'
@@ -154,10 +157,12 @@ describe('ChannelStatusView capacity pools', () => {
           },
         ],
       },
+      external: null,
     })
     showError.mockReset()
     appStoreState.cachedPublicSettings = {
       account_share_enabled: true,
+      external_capacity_reference_enabled: false,
       channel_monitor_enabled: true,
     }
   })
@@ -192,6 +197,7 @@ describe('ChannelStatusView capacity pools', () => {
   it('does not request or render capacity pools when account sharing is disabled', async () => {
     appStoreState.cachedPublicSettings = {
       account_share_enabled: false,
+      external_capacity_reference_enabled: false,
       channel_monitor_enabled: true,
     }
 
@@ -279,6 +285,7 @@ describe('ChannelStatusView capacity pools', () => {
           },
         ],
       },
+      external: null,
     })
 
     const wrapper = mountView()
@@ -290,6 +297,217 @@ describe('ChannelStatusView capacity pools', () => {
     expect(wrapper.text()).not.toContain('OpenAI Plus')
     expect(wrapper.text()).toContain('OpenAI Pro')
     expect(wrapper.text()).not.toContain('openai / apikey')
+  })
+
+  it('seals off public shared capacity reference even when the stale flag is true', async () => {
+    appStoreState.cachedPublicSettings = {
+      account_share_enabled: true,
+      external_capacity_reference_enabled: true,
+      channel_monitor_enabled: true,
+    }
+    fetchCapacityPools.mockResolvedValueOnce({
+      mine: {
+        key: 'mine',
+        title: 'My Account Capacity Pool',
+        total_accounts: 0,
+        active_accounts: 0,
+        schedulable_accounts: 0,
+        rate_limited_accounts: 0,
+        error_accounts: 0,
+        disabled_accounts: 0,
+        abnormal_accounts: 0,
+        configured_quota: 0,
+        remaining_quota: 0,
+        sections: [],
+        groups: [],
+      },
+      shared: {
+        key: 'shared',
+        title: 'Shared Platform Capacity Pool',
+        total_accounts: 2,
+        active_accounts: 2,
+        schedulable_accounts: 2,
+        rate_limited_accounts: 0,
+        error_accounts: 0,
+        disabled_accounts: 0,
+        abnormal_accounts: 0,
+        configured_quota: 0,
+        remaining_quota: 0,
+        sections: [],
+        groups: [],
+      },
+      external: {
+        key: 'public_shared_capacity_reference',
+        title: '公开共享容量参考',
+        total_accounts: 10464,
+        active_accounts: 8608,
+        schedulable_accounts: 4583,
+        rate_limited_accounts: 3954,
+        error_accounts: 1826,
+        disabled_accounts: 26,
+        abnormal_accounts: 1852,
+        configured_quota: 0,
+        remaining_quota: 0,
+        sections: [],
+        groups: [
+          {
+            key: 'public_shared_capacity_reference:openai:pro共享号池',
+            group_name: 'PRO共享号池',
+            platform: 'openai',
+            sort_order: 0,
+            total_accounts: 4,
+            active_accounts: 4,
+            schedulable_accounts: 4,
+            rate_limited_accounts: 0,
+            error_accounts: 0,
+            disabled_accounts: 0,
+            abnormal_accounts: 0,
+            configured_quota: 0,
+            remaining_quota: 0,
+            status: 'healthy',
+          },
+          {
+            key: 'public_shared_capacity_reference:openai:free共享号池',
+            group_name: 'FREE共享号池',
+            platform: 'openai',
+            sort_order: 1,
+            total_accounts: 6624,
+            active_accounts: 5979,
+            schedulable_accounts: 2510,
+            rate_limited_accounts: 3457,
+            error_accounts: 623,
+            disabled_accounts: 22,
+            abnormal_accounts: 645,
+            configured_quota: 0,
+            remaining_quota: 0,
+            status: 'healthy',
+          },
+          {
+            key: 'public_shared_capacity_reference:openai:plus共享号池',
+            group_name: 'PLUS共享号池',
+            platform: 'openai',
+            sort_order: 2,
+            total_accounts: 3826,
+            active_accounts: 2625,
+            schedulable_accounts: 2091,
+            rate_limited_accounts: 478,
+            error_accounts: 1198,
+            disabled_accounts: 3,
+            abnormal_accounts: 1201,
+            configured_quota: 0,
+            remaining_quota: 0,
+            status: 'healthy',
+            windows: {
+              '5h': {
+                used_percent: 11.2,
+                snapshot_accounts: 2081,
+                schedulable_snapshot_accounts: 2081,
+                remaining_units: 1848.64,
+              },
+              '7d': {
+                used_percent: 15.7,
+                snapshot_accounts: 2081,
+                schedulable_snapshot_accounts: 2081,
+                remaining_units: 1753.43,
+              },
+            },
+          },
+        ],
+      },
+    })
+
+    const wrapper = mountView()
+
+    await flushPromises()
+
+    const poolCards = wrapper.findAll('[data-testid="account-capacity-pools"] > article')
+    expect(poolCards).toHaveLength(1)
+    expect(wrapper.text()).toContain('channelStatus.capacityPools.shared')
+    expect(wrapper.text()).not.toContain('公开共享容量参考')
+    expect(wrapper.text()).not.toContain('公开共享账号池状态参考。')
+    expect(wrapper.text()).not.toContain('FREE共享号池')
+    expect(wrapper.text()).not.toContain('PLUS共享号池')
+    expect(wrapper.text()).not.toContain('PRO共享号池')
+    expect(wrapper.text()).not.toContain('10,450')
+    expect(wrapper.text()).not.toContain('5h 窗口')
+    expect(wrapper.text()).not.toContain('7d 窗口')
+    expect(wrapper.text()).not.toContain('1,849')
+    expect(wrapper.text()).not.toContain('1,753')
+  })
+
+  it('hides public shared capacity reference when the feature flag is off', async () => {
+    fetchCapacityPools.mockResolvedValueOnce({
+      mine: {
+        key: 'mine',
+        title: 'My Account Capacity Pool',
+        total_accounts: 0,
+        active_accounts: 0,
+        schedulable_accounts: 0,
+        rate_limited_accounts: 0,
+        error_accounts: 0,
+        disabled_accounts: 0,
+        abnormal_accounts: 0,
+        configured_quota: 0,
+        remaining_quota: 0,
+        sections: [],
+        groups: [],
+      },
+      shared: {
+        key: 'shared',
+        title: 'Shared Platform Capacity Pool',
+        total_accounts: 1,
+        active_accounts: 1,
+        schedulable_accounts: 1,
+        rate_limited_accounts: 0,
+        error_accounts: 0,
+        disabled_accounts: 0,
+        abnormal_accounts: 0,
+        configured_quota: 0,
+        remaining_quota: 0,
+        sections: [],
+        groups: [],
+      },
+      external: {
+        key: 'public_shared_capacity_reference',
+        title: '公开共享容量参考',
+        total_accounts: 6624,
+        active_accounts: 5979,
+        schedulable_accounts: 2510,
+        rate_limited_accounts: 3457,
+        error_accounts: 623,
+        disabled_accounts: 22,
+        abnormal_accounts: 645,
+        configured_quota: 0,
+        remaining_quota: 0,
+        sections: [],
+        groups: [
+          {
+            key: 'public_shared_capacity_reference:openai:free共享号池',
+            group_name: 'FREE共享号池',
+            platform: 'openai',
+            sort_order: 1,
+            total_accounts: 6624,
+            active_accounts: 5979,
+            schedulable_accounts: 2510,
+            rate_limited_accounts: 3457,
+            error_accounts: 623,
+            disabled_accounts: 22,
+            abnormal_accounts: 645,
+            configured_quota: 0,
+            remaining_quota: 0,
+            status: 'healthy',
+          },
+        ],
+      },
+    })
+
+    const wrapper = mountView()
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('channelStatus.capacityPools.shared')
+    expect(wrapper.text()).not.toContain('公开共享容量参考')
+    expect(wrapper.text()).not.toContain('FREE共享号池')
   })
 
   it('keeps quota windows and remaining percentages in non-plan fallback sections', async () => {
@@ -338,6 +556,7 @@ describe('ChannelStatusView capacity pools', () => {
         sections: [],
         groups: [],
       },
+      external: null,
     })
 
     const wrapper = mountView()

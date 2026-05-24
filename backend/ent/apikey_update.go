@@ -17,6 +17,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // APIKeyUpdate is the builder for updating APIKey entities.
@@ -117,6 +118,20 @@ func (_u *APIKeyUpdate) SetNillableGroupID(v *int64) *APIKeyUpdate {
 // ClearGroupID clears the value of the "group_id" field.
 func (_u *APIKeyUpdate) ClearGroupID() *APIKeyUpdate {
 	_u.mutation.ClearGroupID()
+	return _u
+}
+
+// SetAccountPoolStrategy sets the "account_pool_strategy" field.
+func (_u *APIKeyUpdate) SetAccountPoolStrategy(v string) *APIKeyUpdate {
+	_u.mutation.SetAccountPoolStrategy(v)
+	return _u
+}
+
+// SetNillableAccountPoolStrategy sets the "account_pool_strategy" field if the given value is not nil.
+func (_u *APIKeyUpdate) SetNillableAccountPoolStrategy(v *string) *APIKeyUpdate {
+	if v != nil {
+		_u.SetAccountPoolStrategy(*v)
+	}
 	return _u
 }
 
@@ -438,6 +453,24 @@ func (_u *APIKeyUpdate) ClearWindow7dStart() *APIKeyUpdate {
 	return _u
 }
 
+// SetMultiGroupRoutes sets the "multi_group_routes" field.
+func (_u *APIKeyUpdate) SetMultiGroupRoutes(v []domain.APIKeyMultiGroupRoute) *APIKeyUpdate {
+	_u.mutation.SetMultiGroupRoutes(v)
+	return _u
+}
+
+// AppendMultiGroupRoutes appends value to the "multi_group_routes" field.
+func (_u *APIKeyUpdate) AppendMultiGroupRoutes(v []domain.APIKeyMultiGroupRoute) *APIKeyUpdate {
+	_u.mutation.AppendMultiGroupRoutes(v)
+	return _u
+}
+
+// ClearMultiGroupRoutes clears the value of the "multi_group_routes" field.
+func (_u *APIKeyUpdate) ClearMultiGroupRoutes() *APIKeyUpdate {
+	_u.mutation.ClearMultiGroupRoutes()
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *APIKeyUpdate) SetUser(v *User) *APIKeyUpdate {
 	return _u.SetUserID(v.ID)
@@ -555,6 +588,11 @@ func (_u *APIKeyUpdate) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AccountPoolStrategy(); ok {
+		if err := apikey.AccountPoolStrategyValidator(v); err != nil {
+			return &ValidationError{Name: "account_pool_strategy", err: fmt.Errorf(`ent: validator failed for field "APIKey.account_pool_strategy": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
@@ -592,6 +630,9 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AccountPoolStrategy(); ok {
+		_spec.SetField(apikey.FieldAccountPoolStrategy, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
@@ -695,6 +736,17 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if _u.mutation.Window7dStartCleared() {
 		_spec.ClearField(apikey.FieldWindow7dStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.MultiGroupRoutes(); ok {
+		_spec.SetField(apikey.FieldMultiGroupRoutes, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedMultiGroupRoutes(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, apikey.FieldMultiGroupRoutes, value)
+		})
+	}
+	if _u.mutation.MultiGroupRoutesCleared() {
+		_spec.ClearField(apikey.FieldMultiGroupRoutes, field.TypeJSON)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -904,6 +956,20 @@ func (_u *APIKeyUpdateOne) SetNillableGroupID(v *int64) *APIKeyUpdateOne {
 // ClearGroupID clears the value of the "group_id" field.
 func (_u *APIKeyUpdateOne) ClearGroupID() *APIKeyUpdateOne {
 	_u.mutation.ClearGroupID()
+	return _u
+}
+
+// SetAccountPoolStrategy sets the "account_pool_strategy" field.
+func (_u *APIKeyUpdateOne) SetAccountPoolStrategy(v string) *APIKeyUpdateOne {
+	_u.mutation.SetAccountPoolStrategy(v)
+	return _u
+}
+
+// SetNillableAccountPoolStrategy sets the "account_pool_strategy" field if the given value is not nil.
+func (_u *APIKeyUpdateOne) SetNillableAccountPoolStrategy(v *string) *APIKeyUpdateOne {
+	if v != nil {
+		_u.SetAccountPoolStrategy(*v)
+	}
 	return _u
 }
 
@@ -1225,6 +1291,24 @@ func (_u *APIKeyUpdateOne) ClearWindow7dStart() *APIKeyUpdateOne {
 	return _u
 }
 
+// SetMultiGroupRoutes sets the "multi_group_routes" field.
+func (_u *APIKeyUpdateOne) SetMultiGroupRoutes(v []domain.APIKeyMultiGroupRoute) *APIKeyUpdateOne {
+	_u.mutation.SetMultiGroupRoutes(v)
+	return _u
+}
+
+// AppendMultiGroupRoutes appends value to the "multi_group_routes" field.
+func (_u *APIKeyUpdateOne) AppendMultiGroupRoutes(v []domain.APIKeyMultiGroupRoute) *APIKeyUpdateOne {
+	_u.mutation.AppendMultiGroupRoutes(v)
+	return _u
+}
+
+// ClearMultiGroupRoutes clears the value of the "multi_group_routes" field.
+func (_u *APIKeyUpdateOne) ClearMultiGroupRoutes() *APIKeyUpdateOne {
+	_u.mutation.ClearMultiGroupRoutes()
+	return _u
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_u *APIKeyUpdateOne) SetUser(v *User) *APIKeyUpdateOne {
 	return _u.SetUserID(v.ID)
@@ -1355,6 +1439,11 @@ func (_u *APIKeyUpdateOne) check() error {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.AccountPoolStrategy(); ok {
+		if err := apikey.AccountPoolStrategyValidator(v); err != nil {
+			return &ValidationError{Name: "account_pool_strategy", err: fmt.Errorf(`ent: validator failed for field "APIKey.account_pool_strategy": %w`, err)}
+		}
+	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := apikey.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "APIKey.status": %w`, err)}
@@ -1409,6 +1498,9 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	}
 	if value, ok := _u.mutation.Name(); ok {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.AccountPoolStrategy(); ok {
+		_spec.SetField(apikey.FieldAccountPoolStrategy, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
@@ -1512,6 +1604,17 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 	}
 	if _u.mutation.Window7dStartCleared() {
 		_spec.ClearField(apikey.FieldWindow7dStart, field.TypeTime)
+	}
+	if value, ok := _u.mutation.MultiGroupRoutes(); ok {
+		_spec.SetField(apikey.FieldMultiGroupRoutes, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedMultiGroupRoutes(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, apikey.FieldMultiGroupRoutes, value)
+		})
+	}
+	if _u.mutation.MultiGroupRoutesCleared() {
+		_spec.ClearField(apikey.FieldMultiGroupRoutes, field.TypeJSON)
 	}
 	if _u.mutation.UserCleared() {
 		edge := &sqlgraph.EdgeSpec{

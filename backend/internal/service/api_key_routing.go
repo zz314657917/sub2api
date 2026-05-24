@@ -9,10 +9,17 @@ import (
 // ResolveForRequest returns an API key copy whose Group/GroupID matches the best
 // enabled multi-group route for this request. If no route matches, it returns k.
 func (k *APIKey) ResolveForRequest(path, forcePlatform string) *APIKey {
+	return k.ResolveForRequestWithGroupSkipper(path, forcePlatform, nil)
+}
+
+// ResolveForRequestWithGroupSkipper behaves like ResolveForRequest, but skips
+// route candidates whose group ID matches skipGroup. It is used by the service
+// layer to apply short-lived route cooldowns without mutating route config.
+func (k *APIKey) ResolveForRequestWithGroupSkipper(path, forcePlatform string, skipGroup func(groupID int64) bool) *APIKey {
 	if k == nil || len(k.MultiGroupRoutes) == 0 {
 		return k
 	}
-	selected := k.selectRouteGroup(path, forcePlatform)
+	selected := k.selectRouteGroup(path, forcePlatform, skipGroup)
 	if selected == nil {
 		return k
 	}
@@ -31,14 +38,14 @@ func (k *APIKey) ResolveForRequest(path, forcePlatform string) *APIKey {
 	return &clone
 }
 
-func (k *APIKey) selectRouteGroup(path, forcePlatform string) *Group {
+func (k *APIKey) selectRouteGroup(path, forcePlatform string, skipGroup func(groupID int64) bool) *Group {
 	groups := k.routeGroupsByID()
 	if len(groups) == 0 {
 		return nil
 	}
-	candidates := k.routeCandidates(groups, preferredPlatformsForPath(path, forcePlatform))
+	candidates := k.routeCandidates(groups, preferredPlatformsForPath(path, forcePlatform), skipGroup)
 	if len(candidates) == 0 {
-		candidates = k.routeCandidates(groups, nil)
+		candidates = k.routeCandidates(groups, nil, skipGroup)
 	}
 	if len(candidates) == 0 {
 		return nil
@@ -70,13 +77,32 @@ func (k *APIKey) routeGroupsByID() map[int64]*Group {
 	return groups
 }
 
+func (k *APIKey) RouteCooldownSeconds(groupID int64) (int, bool) {
+	if k == nil || groupID <= 0 {
+		return 0, false
+	}
+	for _, route := range k.MultiGroupRoutes {
+		if route.GroupID != groupID {
+			continue
+		}
+		if !route.Enabled {
+			return 0, false
+		}
+		if route.CooldownSeconds <= 0 {
+			return apiKeyRouteDefaultCooldown, true
+		}
+		return route.CooldownSeconds, true
+	}
+	return 0, false
+}
+
 type apiKeyRouteCandidate struct {
 	group    *Group
 	priority int
 	weight   int
 }
 
-func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string) []apiKeyRouteCandidate {
+func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, skipGroup func(groupID int64) bool) []apiKeyRouteCandidate {
 	platformSet := make(map[string]struct{}, len(platforms))
 	for _, platform := range platforms {
 		if platform != "" {
@@ -86,6 +112,9 @@ func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string) []
 	candidates := make([]apiKeyRouteCandidate, 0, len(k.MultiGroupRoutes))
 	for _, route := range k.MultiGroupRoutes {
 		if !route.Enabled {
+			continue
+		}
+		if skipGroup != nil && skipGroup(route.GroupID) {
 			continue
 		}
 		group := groups[route.GroupID]

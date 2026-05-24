@@ -5,14 +5,12 @@
       :key="pool.key"
       class="overflow-hidden rounded-lg border border-gray-200/80 bg-white/85 shadow-sm dark:border-dark-700/70 dark:bg-dark-800/70"
     >
-      <div :class="isEmptyPool(pool) ? 'p-3 sm:p-4' : 'p-4 sm:p-5'">
+      <div :class="isEmptyDashboardPool(pool) ? 'p-3 sm:p-4' : 'p-4 sm:p-5'">
         <div class="flex flex-wrap items-start justify-between gap-3">
           <div class="flex min-w-0 items-start gap-3">
             <div
               class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg"
-              :class="pool.key === 'mine'
-                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
-                : 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300'"
+              :class="poolIconClass(pool)"
             >
               <Icon name="calculator" size="sm" />
             </div>
@@ -28,7 +26,7 @@
         </div>
 
         <p
-          v-if="isEmptyPool(pool)"
+          v-if="isEmptyDashboardPool(pool)"
           class="mt-3 rounded-lg border border-dashed border-gray-200 px-3 py-2 text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400"
         >
           {{ t('channelStatus.capacityPools.empty') }}
@@ -36,6 +34,7 @@
 
         <template v-else>
           <div
+            v-if="hasPrimaryPoolData(pool)"
             :class="[
               'mt-4 grid grid-cols-2 gap-2',
               pool.key === 'shared' && positiveCount(pool.own_contributed_accounts) > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4',
@@ -65,8 +64,16 @@
             />
           </div>
 
-          <SharedGroupGrid v-if="pool.key === 'shared' && sharedGroups(pool).length > 0" :pool="pool" />
-          <SectionFallback v-else :pool="pool" />
+          <template v-if="hasPrimaryPoolData(pool)">
+            <SharedGroupGrid v-if="sharedGroups(pool).length > 0" :pool="pool" />
+            <SectionFallback v-else :pool="pool" />
+          </template>
+
+          <ExternalReferencePanel
+            v-if="pool.key === 'shared' && externalReferencePool"
+            :pool="externalReferencePool"
+            :separated="hasPrimaryPoolData(pool)"
+          />
         </template>
       </div>
     </article>
@@ -98,23 +105,73 @@ const orderedPools = computed<UserAccountCapacityPool[]>(() => {
   if (!props.pools) {
     return []
   }
-  return [props.pools.mine, props.pools.shared].filter(hasVisiblePoolAccounts)
+  const pools: UserAccountCapacityPool[] = [props.pools.mine, props.pools.shared]
+  return pools.filter(hasVisibleDashboardPool)
+})
+
+const externalReferencePool = computed<UserAccountCapacityPool | null>(() => {
+  const pool = props.pools?.external
+  if (!hasVisiblePoolAccounts(pool)) {
+    return null
+  }
+  const groups = sharedGroups(pool)
+  if (groups.length === 0) {
+    return null
+  }
+  return {
+    ...pool,
+    groups,
+    sections: [],
+    total_accounts: sumGroupCount(groups, 'total_accounts'),
+    active_accounts: sumGroupCount(groups, 'active_accounts'),
+    schedulable_accounts: sumGroupCount(groups, 'schedulable_accounts'),
+    rate_limited_accounts: sumGroupCount(groups, 'rate_limited_accounts'),
+    error_accounts: sumGroupCount(groups, 'error_accounts'),
+    disabled_accounts: sumGroupCount(groups, 'disabled_accounts'),
+    abnormal_accounts: sumGroupCount(groups, 'abnormal_accounts'),
+  }
 })
 
 function poolTitle(pool: UserAccountCapacityPool): string {
   if (pool.key === 'mine') return t('channelStatus.capacityPools.mineTitle')
   if (pool.key === 'shared') return t('channelStatus.capacityPools.sharedTitle')
+  if (isExternalPool(pool)) return t('channelStatus.capacityPools.externalTitle')
   return pool.title
 }
 
 function poolDescription(pool: UserAccountCapacityPool): string {
   if (pool.key === 'mine') return t('channelStatus.capacityPools.mineDescription')
   if (pool.key === 'shared') return t('channelStatus.capacityPools.sharedDescription')
-  return ''
+  if (isExternalPool(pool)) return t('channelStatus.capacityPools.externalDescription')
+  return pool.title
+}
+
+function poolIconClass(pool: UserAccountCapacityPool): string {
+  if (pool.key === 'mine') {
+    return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+  }
+  if (isExternalPool(pool)) {
+    return 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
+  }
+  return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300'
+}
+
+function hasVisibleDashboardPool(pool: UserAccountCapacityPool | null | undefined): pool is UserAccountCapacityPool {
+  if (!pool) return false
+  if (hasPoolAccounts(pool)) {
+    return true
+  }
+  return pool.key === 'shared' && externalReferencePool.value !== null
 }
 
 function sharedGroups(pool: UserAccountCapacityPool): UserAccountCapacityPoolGroup[] {
-  return (pool.groups ?? []).filter(hasGroupAccounts)
+  const groups = (pool.groups ?? []).filter(hasGroupAccounts)
+  if (!isExternalPool(pool)) {
+    return groups
+  }
+  return groups
+    .filter(isVisibleExternalReferenceGroup)
+    .sort((left, right) => externalReferenceGroupRank(left.group_name) - externalReferenceGroupRank(right.group_name))
 }
 
 function visibleSections(pool: UserAccountCapacityPool): UserAccountCapacityPoolSection[] {
@@ -123,6 +180,10 @@ function visibleSections(pool: UserAccountCapacityPool): UserAccountCapacityPool
 
 function hasVisiblePoolAccounts(pool: UserAccountCapacityPool | null | undefined): pool is UserAccountCapacityPool {
   if (!pool) return false
+  return hasPoolAccounts(pool)
+}
+
+function hasPoolAccounts(pool: UserAccountCapacityPool): boolean {
   return positiveCount(pool.total_accounts) > 0
     || visibleSections(pool).length > 0
     || sharedGroups(pool).length > 0
@@ -132,12 +193,40 @@ function hasGroupAccounts(group: UserAccountCapacityPoolGroup): boolean {
   return positiveCount(group.total_accounts) > 0
 }
 
+type GroupCountKey =
+  | 'total_accounts'
+  | 'active_accounts'
+  | 'schedulable_accounts'
+  | 'rate_limited_accounts'
+  | 'error_accounts'
+  | 'disabled_accounts'
+  | 'abnormal_accounts'
+
+function sumGroupCount(groups: UserAccountCapacityPoolGroup[], key: GroupCountKey): number {
+  return groups.reduce((total, group) => total + positiveCount(group[key] ?? 0), 0)
+}
+
+function isVisibleExternalReferenceGroup(group: UserAccountCapacityPoolGroup): boolean {
+  return externalReferenceGroupRank(group.group_name) < 2
+}
+
+function externalReferenceGroupRank(groupName: string): number {
+  const normalized = groupName.trim().replace(/\s+/g, '').toUpperCase()
+  if (normalized.startsWith('FREE') && normalized.includes('共享号池')) return 0
+  if (normalized.startsWith('PLUS') && normalized.includes('共享号池')) return 1
+  return 99
+}
+
 function hasSectionAccounts(section: UserAccountCapacityPoolSection): boolean {
   return positiveCount(section.total_accounts) > 0
 }
 
-function isEmptyPool(pool: UserAccountCapacityPool): boolean {
-  return !hasVisiblePoolAccounts(pool)
+function hasPrimaryPoolData(pool: UserAccountCapacityPool): boolean {
+  return hasPoolAccounts(pool)
+}
+
+function isEmptyDashboardPool(pool: UserAccountCapacityPool): boolean {
+  return !hasPrimaryPoolData(pool) && !(pool.key === 'shared' && externalReferencePool.value !== null)
 }
 
 function formatInteger(value: number): string {
@@ -503,13 +592,15 @@ const SharedGroupGrid = defineComponent({
             h('p', { class: 'text-sm font-semibold text-gray-900 dark:text-white' }, t('channelStatus.capacityPools.groupCapacity')),
             h('p', { class: 'mt-0.5 text-xs text-gray-500 dark:text-gray-400' }, t('channelStatus.capacityPools.groupCapacityHint')),
           ]),
-          h('div', { class: 'flex flex-wrap gap-1.5' }, [
-            h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('success')] }, `${t('channelStatus.capacityPools.healthy')} ${groups.filter(g => g.status === 'healthy').length}`),
-            h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('warning')] }, `${t('channelStatus.capacityPools.degraded')} ${groups.filter(g => g.status === 'degraded').length}`),
-            h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('danger')] }, `${t('channelStatus.capacityPools.unavailable')} ${groups.filter(g => g.status === 'unavailable').length}`),
-          ]),
+          isExternalPool(componentProps.pool)
+            ? null
+            : h('div', { class: 'flex flex-wrap gap-1.5' }, [
+              h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('success')] }, `${t('channelStatus.capacityPools.healthy')} ${groups.filter(g => g.status === 'healthy').length}`),
+              h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('warning')] }, `${t('channelStatus.capacityPools.degraded')} ${groups.filter(g => g.status === 'degraded').length}`),
+              h('span', { class: ['rounded-md px-2 py-1 text-xs font-semibold', chipClass('danger')] }, `${t('channelStatus.capacityPools.unavailable')} ${groups.filter(g => g.status === 'unavailable').length}`),
+            ]),
         ]),
-        h('div', { class: 'grid grid-cols-1 gap-2 2xl:grid-cols-2' }, groups.map((group) => {
+        h('div', { class: groupGridClass(componentProps.pool) }, groups.map((group) => {
           const reasons = unavailableReasonEntries(group.unavailable_reasons)
           return h('div', {
             key: group.key,
@@ -576,6 +667,41 @@ const SharedGroupGrid = defineComponent({
         })),
       ])
     }
+  },
+})
+
+function isExternalPool(pool: UserAccountCapacityPool): boolean {
+  return pool.key === 'public_shared_capacity_reference' || pool.key === 'external_ai_pixel'
+}
+
+function groupGridClass(pool: UserAccountCapacityPool): string {
+  return isExternalPool(pool)
+    ? 'grid grid-cols-1 gap-3 md:grid-cols-2'
+    : 'grid grid-cols-1 gap-2 2xl:grid-cols-2'
+}
+
+const ExternalReferencePanel = defineComponent({
+  name: 'ExternalReferencePanel',
+  props: {
+    pool: { type: Object as PropType<UserAccountCapacityPool>, required: true },
+    separated: { type: Boolean, default: false },
+  },
+  setup(componentProps) {
+    return () => h('div', {
+      class: [
+        componentProps.separated ? 'mt-4 border-t border-gray-200/80 pt-4 dark:border-dark-700/70' : 'mt-4',
+      ],
+    }, [
+      h('div', { class: 'flex flex-wrap items-start justify-between gap-3' }, [
+        h('div', { class: 'min-w-0' }, [
+          h('p', { class: 'text-sm font-bold text-gray-900 dark:text-white' }, poolTitle(componentProps.pool)),
+          h('p', { class: 'mt-0.5 text-xs leading-5 text-gray-500 dark:text-gray-400' }, poolDescription(componentProps.pool)),
+        ]),
+      ]),
+      sharedGroups(componentProps.pool).length > 0
+        ? h(SharedGroupGrid, { pool: componentProps.pool })
+        : h(SectionFallback, { pool: componentProps.pool }),
+    ])
   },
 })
 

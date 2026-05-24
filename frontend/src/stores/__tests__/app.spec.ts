@@ -324,6 +324,7 @@ describe('useAppStore', () => {
         custom_endpoints: [],
         linuxdo_oauth_enabled: false,
         backend_mode_enabled: false,
+        external_capacity_reference_enabled: false,
         version: '1.0.0'
       })
 

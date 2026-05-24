@@ -129,21 +129,22 @@ type SystemSettings struct {
 	CustomMenuItems             string // JSON array of custom menu items
 	CustomEndpoints             string // JSON array of custom endpoints
 
-	DefaultConcurrency           int
-	DefaultBalance               float64
-	RiskControlEnabled           bool
-	AffiliateEnabled             bool
-	AffiliateRebateRate          float64
-	AffiliateRebateFreezeHours   int
-	AffiliateRebateDurationDays  int
-	AffiliateRebatePerInviteeCap float64
-	AccountShareEnabled          bool
-	AccountShareOwnerRatePercent float64
-	AccountShareFreezeHours      int
-	AccountShareAutoReview       bool
-	AccountShareUserAccountLimit int
-	DefaultUserRPMLimit          int
-	DefaultSubscriptions         []DefaultSubscriptionSetting
+	DefaultConcurrency               int
+	DefaultBalance                   float64
+	RiskControlEnabled               bool
+	AffiliateEnabled                 bool
+	AffiliateRebateRate              float64
+	AffiliateRebateFreezeHours       int
+	AffiliateRebateDurationDays      int
+	AffiliateRebatePerInviteeCap     float64
+	AccountShareEnabled              bool
+	ExternalCapacityReferenceEnabled bool
+	AccountShareOwnerRatePercent     float64
+	AccountShareFreezeHours          int
+	AccountShareAutoReview           bool
+	AccountShareUserAccountLimit     int
+	DefaultUserRPMLimit              int
+	DefaultSubscriptions             []DefaultSubscriptionSetting
 
 	// Model fallback configuration
 	EnableModelFallback      bool   `json:"enable_model_fallback"`
@@ -308,6 +309,9 @@ type PublicSettings struct {
 
 	// User-owned account sharing feature toggle
 	AccountShareEnabled bool `json:"account_share_enabled"`
+
+	// Public shared capacity reference feature toggle
+	ExternalCapacityReferenceEnabled bool `json:"external_capacity_reference_enabled"`
 
 	// 风控中心功能开关
 	RiskControlEnabled bool `json:"risk_control_enabled"`

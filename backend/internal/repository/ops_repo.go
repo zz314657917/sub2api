@@ -237,6 +237,7 @@ SELECT
   e.api_key_id,
   e.account_id,
   COALESCE(a.name, ''),
+  COALESCE(a.notes, ''),
   e.group_id,
   COALESCE(g.name, ''),
   CASE WHEN e.client_ip IS NULL THEN NULL ELSE e.client_ip::text END,
@@ -271,6 +272,7 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 		var apiKeyID sql.NullInt64
 		var accountID sql.NullInt64
 		var accountName string
+		var accountNotes string
 		var groupID sql.NullInt64
 		var groupName string
 		var userEmail string
@@ -305,6 +307,7 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 			&apiKeyID,
 			&accountID,
 			&accountName,
+			&accountNotes,
 			&groupID,
 			&groupName,
 			&clientIP,
@@ -350,6 +353,7 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 			item.AccountID = &v
 		}
 		item.AccountName = accountName
+		item.AccountNotes = accountNotes
 		if groupID.Valid {
 			v := groupID.Int64
 			item.GroupID = &v
@@ -413,6 +417,7 @@ SELECT
   e.api_key_id,
   e.account_id,
   COALESCE(a.name, ''),
+  COALESCE(a.notes, ''),
   e.group_id,
   COALESCE(g.name, ''),
   CASE WHEN e.client_ip IS NULL THEN NULL ELSE e.client_ip::text END,
@@ -490,6 +495,7 @@ LIMIT 1`
 		&apiKeyID,
 		&accountID,
 		&out.AccountName,
+		&out.AccountNotes,
 		&groupID,
 		&out.GroupName,
 		&clientIP,
@@ -1157,10 +1163,13 @@ SELECT
   COALESCE(l.client_request_id, ''),
   l.user_id,
   l.account_id,
+  COALESCE(a.name, ''),
+  COALESCE(a.notes, ''),
   COALESCE(l.platform, ''),
   COALESCE(l.model, ''),
   COALESCE(l.extra::text, '{}')
 FROM ops_system_logs l
+LEFT JOIN accounts a ON l.account_id = a.id
 ` + where + `
 ORDER BY l.created_at DESC, l.id DESC
 LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
@@ -1176,6 +1185,8 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 		item := &service.OpsSystemLog{}
 		var userID sql.NullInt64
 		var accountID sql.NullInt64
+		var accountName string
+		var accountNotes string
 		var extraRaw string
 		if err := rows.Scan(
 			&item.ID,
@@ -1187,6 +1198,8 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 			&item.ClientRequestID,
 			&userID,
 			&accountID,
+			&accountName,
+			&accountNotes,
 			&item.Platform,
 			&item.Model,
 			&extraRaw,
@@ -1201,6 +1214,8 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 			v := accountID.Int64
 			item.AccountID = &v
 		}
+		item.AccountName = accountName
+		item.AccountNotes = accountNotes
 		extraRaw = strings.TrimSpace(extraRaw)
 		if extraRaw != "" && extraRaw != "null" && extraRaw != "{}" {
 			extra := make(map[string]any)

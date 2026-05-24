@@ -91,6 +91,17 @@ func (s *GeminiMessagesCompatService) SelectAccountForModel(ctx context.Context,
 }
 
 func (s *GeminiMessagesCompatService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	if accountPoolStrategyIsPrivateFirst(ctx) {
+		account, err := s.SelectAccountForModelWithExclusions(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, sessionHash, requestedModel, excludedIDs)
+		if err == nil {
+			return account, nil
+		}
+		if !isAccountPoolNoAvailableError(err) {
+			return nil, err
+		}
+		return s.SelectAccountForModelWithExclusions(withAccountPoolStrategy(ctx, AccountPoolStrategySharedOnly), groupID, sessionHash, requestedModel, excludedIDs)
+	}
+
 	// 1. 确定目标平台和调度模式
 	// Determine target platform and scheduling mode
 	platform, useMixedScheduling, hasForcePlatform, err := s.resolvePlatformAndSchedulingMode(ctx, groupID)
@@ -119,6 +130,7 @@ func (s *GeminiMessagesCompatService) SelectAccountForModelWithExclusions(ctx co
 			return nil, fmt.Errorf("query accounts failed: %w", err)
 		}
 	}
+	accounts = filterAccountsForAPIKeyPoolStrategy(ctx, accounts, 0)
 
 	// 4. 按优先级 + LRU 选择最佳账号
 	// Select best account by priority + LRU
@@ -205,6 +217,10 @@ func (s *GeminiMessagesCompatService) tryStickySessionHit(
 	// 检查账号是否需要清理粘性会话
 	// Check if sticky session should be cleared
 	if shouldClearStickySession(account, requestedModel) {
+		_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), cacheKey)
+		return nil
+	}
+	if !accountAllowedByAPIKeyPoolStrategy(ctx, account, 0) {
 		_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), cacheKey)
 		return nil
 	}
@@ -431,15 +447,18 @@ func (s *GeminiMessagesCompatService) hydrateSelectedAccount(ctx context.Context
 }
 
 func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Context, groupID *int64, platform string, hasForcePlatform bool) ([]Account, error) {
-	if s.schedulerSnapshot != nil {
-		accounts, _, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, platform, hasForcePlatform)
-		return accounts, err
-	}
-
+	strategy, configured := accountPoolStrategyFromContext(ctx)
 	useMixedScheduling := platform == PlatformGemini && !hasForcePlatform
 	queryPlatforms := []string{platform}
 	if useMixedScheduling {
 		queryPlatforms = []string{platform, PlatformAntigravity}
+	}
+	if configured && strategy == AccountPoolStrategyPrivateOnly {
+		return listPrivatePoolSchedulableAccounts(ctx, s.accountRepo, accountPoolUserIDFromContext(ctx, 0), queryPlatforms)
+	}
+	if s.schedulerSnapshot != nil {
+		accounts, _, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, platform, hasForcePlatform)
+		return accounts, err
 	}
 
 	if groupID != nil {

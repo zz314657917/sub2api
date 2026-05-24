@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // APIKeyCreate is the builder for creating a APIKey entity.
@@ -95,6 +96,20 @@ func (_c *APIKeyCreate) SetGroupID(v int64) *APIKeyCreate {
 func (_c *APIKeyCreate) SetNillableGroupID(v *int64) *APIKeyCreate {
 	if v != nil {
 		_c.SetGroupID(*v)
+	}
+	return _c
+}
+
+// SetAccountPoolStrategy sets the "account_pool_strategy" field.
+func (_c *APIKeyCreate) SetAccountPoolStrategy(v string) *APIKeyCreate {
+	_c.mutation.SetAccountPoolStrategy(v)
+	return _c
+}
+
+// SetNillableAccountPoolStrategy sets the "account_pool_strategy" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableAccountPoolStrategy(v *string) *APIKeyCreate {
+	if v != nil {
+		_c.SetAccountPoolStrategy(*v)
 	}
 	return _c
 }
@@ -307,6 +322,12 @@ func (_c *APIKeyCreate) SetNillableWindow7dStart(v *time.Time) *APIKeyCreate {
 	return _c
 }
 
+// SetMultiGroupRoutes sets the "multi_group_routes" field.
+func (_c *APIKeyCreate) SetMultiGroupRoutes(v []domain.APIKeyMultiGroupRoute) *APIKeyCreate {
+	_c.mutation.SetMultiGroupRoutes(v)
+	return _c
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_c *APIKeyCreate) SetUser(v *User) *APIKeyCreate {
 	return _c.SetUserID(v.ID)
@@ -383,6 +404,10 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultUpdatedAt()
 		_c.mutation.SetUpdatedAt(v)
 	}
+	if _, ok := _c.mutation.AccountPoolStrategy(); !ok {
+		v := apikey.DefaultAccountPoolStrategy
+		_c.mutation.SetAccountPoolStrategy(v)
+	}
 	if _, ok := _c.mutation.Status(); !ok {
 		v := apikey.DefaultStatus
 		_c.mutation.SetStatus(v)
@@ -447,6 +472,14 @@ func (_c *APIKeyCreate) check() error {
 	if v, ok := _c.mutation.Name(); ok {
 		if err := apikey.NameValidator(v); err != nil {
 			return &ValidationError{Name: "name", err: fmt.Errorf(`ent: validator failed for field "APIKey.name": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.AccountPoolStrategy(); !ok {
+		return &ValidationError{Name: "account_pool_strategy", err: errors.New(`ent: missing required field "APIKey.account_pool_strategy"`)}
+	}
+	if v, ok := _c.mutation.AccountPoolStrategy(); ok {
+		if err := apikey.AccountPoolStrategyValidator(v); err != nil {
+			return &ValidationError{Name: "account_pool_strategy", err: fmt.Errorf(`ent: validator failed for field "APIKey.account_pool_strategy": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.Status(); !ok {
@@ -531,6 +564,10 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 		_spec.SetField(apikey.FieldName, field.TypeString, value)
 		_node.Name = value
 	}
+	if value, ok := _c.mutation.AccountPoolStrategy(); ok {
+		_spec.SetField(apikey.FieldAccountPoolStrategy, field.TypeString, value)
+		_node.AccountPoolStrategy = value
+	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(apikey.FieldStatus, field.TypeString, value)
 		_node.Status = value
@@ -594,6 +631,10 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Window7dStart(); ok {
 		_spec.SetField(apikey.FieldWindow7dStart, field.TypeTime, value)
 		_node.Window7dStart = &value
+	}
+	if value, ok := _c.mutation.MultiGroupRoutes(); ok {
+		_spec.SetField(apikey.FieldMultiGroupRoutes, field.TypeJSON, value)
+		_node.MultiGroupRoutes = value
 	}
 	if nodes := _c.mutation.UserIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -778,6 +819,18 @@ func (u *APIKeyUpsert) UpdateGroupID() *APIKeyUpsert {
 // ClearGroupID clears the value of the "group_id" field.
 func (u *APIKeyUpsert) ClearGroupID() *APIKeyUpsert {
 	u.SetNull(apikey.FieldGroupID)
+	return u
+}
+
+// SetAccountPoolStrategy sets the "account_pool_strategy" field.
+func (u *APIKeyUpsert) SetAccountPoolStrategy(v string) *APIKeyUpsert {
+	u.Set(apikey.FieldAccountPoolStrategy, v)
+	return u
+}
+
+// UpdateAccountPoolStrategy sets the "account_pool_strategy" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateAccountPoolStrategy() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldAccountPoolStrategy)
 	return u
 }
 
@@ -1063,6 +1116,24 @@ func (u *APIKeyUpsert) ClearWindow7dStart() *APIKeyUpsert {
 	return u
 }
 
+// SetMultiGroupRoutes sets the "multi_group_routes" field.
+func (u *APIKeyUpsert) SetMultiGroupRoutes(v []domain.APIKeyMultiGroupRoute) *APIKeyUpsert {
+	u.Set(apikey.FieldMultiGroupRoutes, v)
+	return u
+}
+
+// UpdateMultiGroupRoutes sets the "multi_group_routes" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateMultiGroupRoutes() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldMultiGroupRoutes)
+	return u
+}
+
+// ClearMultiGroupRoutes clears the value of the "multi_group_routes" field.
+func (u *APIKeyUpsert) ClearMultiGroupRoutes() *APIKeyUpsert {
+	u.SetNull(apikey.FieldMultiGroupRoutes)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1203,6 +1274,20 @@ func (u *APIKeyUpsertOne) UpdateGroupID() *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) ClearGroupID() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetAccountPoolStrategy sets the "account_pool_strategy" field.
+func (u *APIKeyUpsertOne) SetAccountPoolStrategy(v string) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetAccountPoolStrategy(v)
+	})
+}
+
+// UpdateAccountPoolStrategy sets the "account_pool_strategy" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateAccountPoolStrategy() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateAccountPoolStrategy()
 	})
 }
 
@@ -1535,6 +1620,27 @@ func (u *APIKeyUpsertOne) ClearWindow7dStart() *APIKeyUpsertOne {
 	})
 }
 
+// SetMultiGroupRoutes sets the "multi_group_routes" field.
+func (u *APIKeyUpsertOne) SetMultiGroupRoutes(v []domain.APIKeyMultiGroupRoute) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetMultiGroupRoutes(v)
+	})
+}
+
+// UpdateMultiGroupRoutes sets the "multi_group_routes" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateMultiGroupRoutes() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateMultiGroupRoutes()
+	})
+}
+
+// ClearMultiGroupRoutes clears the value of the "multi_group_routes" field.
+func (u *APIKeyUpsertOne) ClearMultiGroupRoutes() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearMultiGroupRoutes()
+	})
+}
+
 // Exec executes the query.
 func (u *APIKeyUpsertOne) Exec(ctx context.Context) error {
 	if len(u.create.conflict) == 0 {
@@ -1841,6 +1947,20 @@ func (u *APIKeyUpsertBulk) UpdateGroupID() *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) ClearGroupID() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearGroupID()
+	})
+}
+
+// SetAccountPoolStrategy sets the "account_pool_strategy" field.
+func (u *APIKeyUpsertBulk) SetAccountPoolStrategy(v string) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetAccountPoolStrategy(v)
+	})
+}
+
+// UpdateAccountPoolStrategy sets the "account_pool_strategy" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateAccountPoolStrategy() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateAccountPoolStrategy()
 	})
 }
 
@@ -2170,6 +2290,27 @@ func (u *APIKeyUpsertBulk) UpdateWindow7dStart() *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) ClearWindow7dStart() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearWindow7dStart()
+	})
+}
+
+// SetMultiGroupRoutes sets the "multi_group_routes" field.
+func (u *APIKeyUpsertBulk) SetMultiGroupRoutes(v []domain.APIKeyMultiGroupRoute) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetMultiGroupRoutes(v)
+	})
+}
+
+// UpdateMultiGroupRoutes sets the "multi_group_routes" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateMultiGroupRoutes() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateMultiGroupRoutes()
+	})
+}
+
+// ClearMultiGroupRoutes clears the value of the "multi_group_routes" field.
+func (u *APIKeyUpsertBulk) ClearMultiGroupRoutes() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearMultiGroupRoutes()
 	})
 }
 

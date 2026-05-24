@@ -90,6 +90,11 @@ func GroupID(v int64) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldGroupID, v))
 }
 
+// AccountPoolStrategy applies equality check predicate on the "account_pool_strategy" field. It's identical to AccountPoolStrategyEQ.
+func AccountPoolStrategy(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldAccountPoolStrategy, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldStatus, v))
@@ -468,6 +473,71 @@ func GroupIDIsNil() predicate.APIKey {
 // GroupIDNotNil applies the NotNil predicate on the "group_id" field.
 func GroupIDNotNil() predicate.APIKey {
 	return predicate.APIKey(sql.FieldNotNull(FieldGroupID))
+}
+
+// AccountPoolStrategyEQ applies the EQ predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldAccountPoolStrategy, v))
+}
+
+// AccountPoolStrategyNEQ applies the NEQ predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyNEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldAccountPoolStrategy, v))
+}
+
+// AccountPoolStrategyIn applies the In predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldAccountPoolStrategy, vs...))
+}
+
+// AccountPoolStrategyNotIn applies the NotIn predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyNotIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldAccountPoolStrategy, vs...))
+}
+
+// AccountPoolStrategyGT applies the GT predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyGT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldAccountPoolStrategy, v))
+}
+
+// AccountPoolStrategyGTE applies the GTE predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyGTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldAccountPoolStrategy, v))
+}
+
+// AccountPoolStrategyLT applies the LT predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyLT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldAccountPoolStrategy, v))
+}
+
+// AccountPoolStrategyLTE applies the LTE predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyLTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldAccountPoolStrategy, v))
+}
+
+// AccountPoolStrategyContains applies the Contains predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyContains(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContains(FieldAccountPoolStrategy, v))
+}
+
+// AccountPoolStrategyHasPrefix applies the HasPrefix predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyHasPrefix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasPrefix(FieldAccountPoolStrategy, v))
+}
+
+// AccountPoolStrategyHasSuffix applies the HasSuffix predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyHasSuffix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasSuffix(FieldAccountPoolStrategy, v))
+}
+
+// AccountPoolStrategyEqualFold applies the EqualFold predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyEqualFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEqualFold(FieldAccountPoolStrategy, v))
+}
+
+// AccountPoolStrategyContainsFold applies the ContainsFold predicate on the "account_pool_strategy" field.
+func AccountPoolStrategyContainsFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContainsFold(FieldAccountPoolStrategy, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.
@@ -1123,6 +1193,16 @@ func Window7dStartIsNil() predicate.APIKey {
 // Window7dStartNotNil applies the NotNil predicate on the "window_7d_start" field.
 func Window7dStartNotNil() predicate.APIKey {
 	return predicate.APIKey(sql.FieldNotNull(FieldWindow7dStart))
+}
+
+// MultiGroupRoutesIsNil applies the IsNil predicate on the "multi_group_routes" field.
+func MultiGroupRoutesIsNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldIsNull(FieldMultiGroupRoutes))
+}
+
+// MultiGroupRoutesNotNil applies the NotNil predicate on the "multi_group_routes" field.
+func MultiGroupRoutesNotNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotNull(FieldMultiGroupRoutes))
 }
 
 // HasUser applies the HasEdge predicate on the "user" edge.
