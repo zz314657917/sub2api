@@ -46,6 +46,18 @@ func (s *quotaStateCacheStub) DeleteCreateAttemptCount(context.Context, int64) e
 	return nil
 }
 
+func (s *quotaStateCacheStub) IsRouteGroupCooling(context.Context, int64, int64) (bool, error) {
+	return false, nil
+}
+
+func (s *quotaStateCacheStub) SetRouteGroupCooldown(context.Context, int64, int64, time.Duration) error {
+	return nil
+}
+
+func (s *quotaStateCacheStub) DeleteRouteGroupCooldown(context.Context, int64, int64) error {
+	return nil
+}
+
 func (s *quotaStateCacheStub) IncrementDailyUsage(context.Context, string) error {
 	return nil
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // APIKey is the model entity for the APIKey schema.
@@ -34,6 +35,8 @@ type APIKey struct {
 	Name string `json:"name,omitempty"`
 	// GroupID holds the value of the "group_id" field.
 	GroupID *int64 `json:"group_id,omitempty"`
+	// API key account pool strategy: shared_only, private_first, private_only
+	AccountPoolStrategy string `json:"account_pool_strategy,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
 	// Last usage time of this API key
@@ -66,6 +69,8 @@ type APIKey struct {
 	Window1dStart *time.Time `json:"window_1d_start,omitempty"`
 	// Start time of the current 7d rate limit window
 	Window7dStart *time.Time `json:"window_7d_start,omitempty"`
+	// API key multi-group routing configuration
+	MultiGroupRoutes []domain.APIKeyMultiGroupRoute `json:"multi_group_routes,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the APIKeyQuery when eager-loading is set.
 	Edges        APIKeyEdges `json:"edges"`
@@ -121,13 +126,13 @@ func (*APIKey) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case apikey.FieldIPWhitelist, apikey.FieldIPBlacklist:
+		case apikey.FieldIPWhitelist, apikey.FieldIPBlacklist, apikey.FieldMultiGroupRoutes:
 			values[i] = new([]byte)
 		case apikey.FieldQuota, apikey.FieldQuotaUsed, apikey.FieldRateLimit5h, apikey.FieldRateLimit1d, apikey.FieldRateLimit7d, apikey.FieldUsage5h, apikey.FieldUsage1d, apikey.FieldUsage7d:
 			values[i] = new(sql.NullFloat64)
 		case apikey.FieldID, apikey.FieldUserID, apikey.FieldGroupID:
 			values[i] = new(sql.NullInt64)
-		case apikey.FieldKey, apikey.FieldName, apikey.FieldStatus:
+		case apikey.FieldKey, apikey.FieldName, apikey.FieldAccountPoolStrategy, apikey.FieldStatus:
 			values[i] = new(sql.NullString)
 		case apikey.FieldCreatedAt, apikey.FieldUpdatedAt, apikey.FieldDeletedAt, apikey.FieldLastUsedAt, apikey.FieldExpiresAt, apikey.FieldWindow5hStart, apikey.FieldWindow1dStart, apikey.FieldWindow7dStart:
 			values[i] = new(sql.NullTime)
@@ -195,6 +200,12 @@ func (_m *APIKey) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.GroupID = new(int64)
 				*_m.GroupID = value.Int64
+			}
+		case apikey.FieldAccountPoolStrategy:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field account_pool_strategy", values[i])
+			} else if value.Valid {
+				_m.AccountPoolStrategy = value.String
 			}
 		case apikey.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -301,6 +312,14 @@ func (_m *APIKey) assignValues(columns []string, values []any) error {
 				_m.Window7dStart = new(time.Time)
 				*_m.Window7dStart = value.Time
 			}
+		case apikey.FieldMultiGroupRoutes:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field multi_group_routes", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.MultiGroupRoutes); err != nil {
+					return fmt.Errorf("unmarshal field multi_group_routes: %w", err)
+				}
+			}
 		default:
 			_m.selectValues.Set(columns[i], values[i])
 		}
@@ -377,6 +396,9 @@ func (_m *APIKey) String() string {
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
+	builder.WriteString("account_pool_strategy=")
+	builder.WriteString(_m.AccountPoolStrategy)
+	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
 	builder.WriteString(", ")
@@ -434,6 +456,9 @@ func (_m *APIKey) String() string {
 		builder.WriteString("window_7d_start=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
+	builder.WriteString(", ")
+	builder.WriteString("multi_group_routes=")
+	builder.WriteString(fmt.Sprintf("%v", _m.MultiGroupRoutes))
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -123,9 +124,11 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				Concurrency: apiKey.User.Concurrency,
 			})
 			c.Set(string(ContextKeyUserRole), apiKey.User.Role)
+			setAPIKeyAccountPoolContext(c, apiKey)
 			setGroupContext(c, apiKey.Group)
 			_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
 			c.Next()
+			applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, apiKey)
 			return
 		}
 
@@ -218,10 +221,12 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			Concurrency: apiKey.User.Concurrency,
 		})
 		c.Set(string(ContextKeyUserRole), apiKey.User.Role)
+		setAPIKeyAccountPoolContext(c, apiKey)
 		setGroupContext(c, apiKey.Group)
 		_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
 
 		c.Next()
+		applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, apiKey)
 	}
 }
 
@@ -256,6 +261,19 @@ func setGroupContext(c *gin.Context, group *service.Group) {
 	c.Request = c.Request.WithContext(ctx)
 }
 
+func setAPIKeyAccountPoolContext(c *gin.Context, apiKey *service.APIKey) {
+	if c == nil || apiKey == nil || c.Request == nil {
+		return
+	}
+	userID := apiKey.UserID
+	if userID <= 0 && apiKey.User != nil {
+		userID = apiKey.User.ID
+	}
+	ctx := context.WithValue(c.Request.Context(), ctxkey.APIKeyAccountPoolStrategy, service.NormalizeAccountPoolStrategy(apiKey.AccountPoolStrategy))
+	ctx = context.WithValue(ctx, ctxkey.APIKeyUserID, userID)
+	c.Request = c.Request.WithContext(ctx)
+}
+
 func abortIfAPIKeyGroupUnavailable(c *gin.Context, apiKey *service.APIKey) bool {
 	code, message, ok := validateAPIKeyGroupAvailable(apiKey)
 	if ok {
@@ -285,4 +303,26 @@ func resolveAPIKeyForRequest(c *gin.Context, apiKeyService *service.APIKeyServic
 	}
 	forcePlatform, _ := GetForcePlatformFromContext(c)
 	return apiKeyService.ResolveForRequest(c.Request.Context(), apiKey, c.Request.URL.Path, forcePlatform)
+}
+
+func applyAPIKeyRouteCooldownAfterRequest(c *gin.Context, apiKeyService *service.APIKeyService, apiKey *service.APIKey) {
+	if c == nil || apiKeyService == nil || apiKey == nil || apiKey.GroupID == nil || len(apiKey.MultiGroupRoutes) == 0 {
+		return
+	}
+	groupID := *apiKey.GroupID
+	cooldownSeconds, ok := apiKey.RouteCooldownSeconds(groupID)
+	if !ok {
+		return
+	}
+	if shouldCooldownAPIKeyRoute(c.Writer.Status()) {
+		apiKeyService.MarkRouteGroupCooldown(c.Request.Context(), apiKey, groupID, cooldownSeconds)
+		return
+	}
+	if c.Writer.Status() < http.StatusBadRequest {
+		apiKeyService.ClearRouteGroupCooldown(c.Request.Context(), apiKey, groupID)
+	}
+}
+
+func shouldCooldownAPIKeyRoute(status int) bool {
+	return status == http.StatusTooManyRequests || status == 529 || status >= http.StatusInternalServerError
 }

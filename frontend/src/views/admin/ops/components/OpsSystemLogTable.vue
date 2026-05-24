@@ -112,6 +112,24 @@ const getExtraString = (extra: Record<string, any> | undefined, key: string) => 
   return ''
 }
 
+const formatAccountLabel = (row: Pick<OpsSystemLog, 'account_id' | 'account_name' | 'account_notes'>) => {
+  if (row.account_id == null) return ''
+  const name = String(row.account_name || '').trim()
+  const notes = String(row.account_notes || '').trim()
+  const label = name || notes
+  return label ? `${label} (#${row.account_id})` : `#${row.account_id}`
+}
+
+const formatAccountTitle = (row: Pick<OpsSystemLog, 'account_id' | 'account_name' | 'account_notes'>) => {
+  if (row.account_id == null) return ''
+  const parts = [`account_id=${row.account_id}`]
+  const name = String(row.account_name || '').trim()
+  const notes = String(row.account_notes || '').trim()
+  if (name) parts.push(`name=${name}`)
+  if (notes) parts.push(`notes=${notes}`)
+  return parts.join('\n')
+}
+
 const formatSystemLogDetail = (row: OpsSystemLog) => {
   const parts: string[] = []
   const msg = String(row.message || '').trim()
@@ -138,7 +156,8 @@ const formatSystemLogDetail = (row: OpsSystemLog) => {
   if (row.request_id) corrParts.push(`req=${row.request_id}`)
   if (row.client_request_id) corrParts.push(`client_req=${row.client_request_id}`)
   if (row.user_id != null) corrParts.push(`user=${row.user_id}`)
-  if (row.account_id != null) corrParts.push(`acc=${row.account_id}`)
+  const accountLabel = formatAccountLabel(row)
+  if (accountLabel) corrParts.push(`acc=${accountLabel}`)
   if (row.platform) corrParts.push(`platform=${row.platform}`)
   if (row.model) corrParts.push(`model=${row.model}`)
   if (corrParts.length > 0) parts.push(corrParts.join(' '))
@@ -502,7 +521,7 @@ onMounted(async () => {
                 </span>
               </td>
               <td class="px-3 py-2 text-xs text-gray-700 dark:text-gray-300 whitespace-normal break-all">
-                {{ formatSystemLogDetail(row) }}
+                <span :title="formatAccountTitle(row)">{{ formatSystemLogDetail(row) }}</span>
               </td>
             </tr>
           </tbody>

@@ -425,7 +425,8 @@ func TestOpenAISelectAccountWithSchedulerForUser_ClearsStickyOtherUsersPrivateAc
 	require.NotNil(t, selection)
 	require.NotNil(t, selection.Account)
 	require.Equal(t, int64(2), selection.Account.ID)
-	require.NotContains(t, cache.sessionBindings, cacheKey)
+	require.Equal(t, 1, cache.deletedSessions[cacheKey])
+	require.Equal(t, int64(2), cache.sessionBindings[cacheKey])
 }
 
 func (c stubConcurrencyCache) GetAccountWaitingCount(ctx context.Context, accountID int64) (int, error) {

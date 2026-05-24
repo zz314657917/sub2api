@@ -421,6 +421,8 @@ const baseSettingsResponse = {
   leaderboard_daily_reward_rank_1_amount: 0,
   leaderboard_daily_reward_rank_2_amount: 0,
   leaderboard_daily_reward_rank_3_amount: 0,
+  account_share_enabled: true,
+  external_capacity_reference_enabled: false,
   affiliate_enabled: false,
 };
 

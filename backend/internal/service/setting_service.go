@@ -648,6 +648,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyAccountShareEnabled,
+		SettingKeyExternalCapacityReferenceEnabled,
 		SettingKeyRiskControlEnabled,
 		SettingKeyWelfareEnabled,
 		SettingKeyWelfareDailyCheckinEnabled,
@@ -763,8 +764,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
 
-		AffiliateEnabled:    settings[SettingKeyAffiliateEnabled] == "true",
-		AccountShareEnabled: settings[SettingKeyAccountShareEnabled] != "false",
+		AffiliateEnabled:                 settings[SettingKeyAffiliateEnabled] == "true",
+		AccountShareEnabled:              settings[SettingKeyAccountShareEnabled] != "false",
+		ExternalCapacityReferenceEnabled: ExternalCapacityReferenceFeatureEnabled && settings[SettingKeyExternalCapacityReferenceEnabled] == "true",
 
 		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
 
@@ -984,6 +986,7 @@ type PublicSettingsInjectionPayload struct {
 	AvailableChannelsEnabled             bool `json:"available_channels_enabled"`
 	AffiliateEnabled                     bool `json:"affiliate_enabled"`
 	AccountShareEnabled                  bool `json:"account_share_enabled"`
+	ExternalCapacityReferenceEnabled     bool `json:"external_capacity_reference_enabled"`
 	RiskControlEnabled                   bool `json:"risk_control_enabled"`
 	WelfareEnabled                       bool `json:"welfare_enabled"`
 	WelfareDailyCheckinEnabled           bool `json:"welfare_daily_checkin_enabled"`
@@ -1058,6 +1061,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		AccountShareEnabled:                  settings.AccountShareEnabled,
+		ExternalCapacityReferenceEnabled:     ExternalCapacityReferenceFeatureEnabled && settings.ExternalCapacityReferenceEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
 		WelfareEnabled:                       settings.WelfareEnabled,
 		WelfareDailyCheckinEnabled:           settings.WelfareDailyCheckinEnabled,
@@ -1741,6 +1745,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 
 	// User-owned account sharing pool.
 	updates[SettingKeyAccountShareEnabled] = strconv.FormatBool(settings.AccountShareEnabled)
+	updates[SettingKeyExternalCapacityReferenceEnabled] = strconv.FormatBool(ExternalCapacityReferenceFeatureEnabled && settings.ExternalCapacityReferenceEnabled)
 	settings.AccountShareOwnerRatePercent = clampAccountShareOwnerRate(settings.AccountShareOwnerRatePercent)
 	updates[SettingKeyAccountShareOwnerRate] = strconv.FormatFloat(settings.AccountShareOwnerRatePercent, 'f', 8, 64)
 	settings.AccountShareFreezeHours = normalizeAccountShareFreezeHours(settings.AccountShareFreezeHours)
@@ -2191,6 +2196,20 @@ func (s *SettingService) IsAccountShareEnabled(ctx context.Context) bool {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyAccountShareEnabled)
 	if err != nil || strings.TrimSpace(value) == "" {
 		return true
+	}
+	return strings.TrimSpace(value) == "true"
+}
+
+func (s *SettingService) IsExternalCapacityReferenceEnabled(ctx context.Context) bool {
+	if !ExternalCapacityReferenceFeatureEnabled {
+		return false
+	}
+	if s == nil || s.settingRepo == nil {
+		return false
+	}
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyExternalCapacityReferenceEnabled)
+	if err != nil {
+		return false
 	}
 	return strings.TrimSpace(value) == "true"
 }
@@ -2678,11 +2697,12 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAffiliateEnabled: "false",
 
 		// User-owned account sharing pool.
-		SettingKeyAccountShareEnabled:          "true",
-		SettingKeyAccountShareOwnerRate:        strconv.FormatFloat(AccountShareOwnerRatePercentDefault, 'f', 8, 64),
-		SettingKeyAccountShareFreezeHours:      strconv.Itoa(AccountShareFreezeHoursDefault),
-		SettingKeyAccountShareAutoReview:       "false",
-		SettingKeyAccountShareUserAccountLimit: strconv.Itoa(AccountShareUserAccountLimitDefault),
+		SettingKeyAccountShareEnabled:              "true",
+		SettingKeyExternalCapacityReferenceEnabled: "false",
+		SettingKeyAccountShareOwnerRate:            strconv.FormatFloat(AccountShareOwnerRatePercentDefault, 'f', 8, 64),
+		SettingKeyAccountShareFreezeHours:          strconv.Itoa(AccountShareFreezeHoursDefault),
+		SettingKeyAccountShareAutoReview:           "false",
+		SettingKeyAccountShareUserAccountLimit:     strconv.Itoa(AccountShareUserAccountLimitDefault),
 
 		// 风控中心功能（默认关闭，显式启用）
 		SettingKeyRiskControlEnabled: "false",
@@ -3091,6 +3111,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.AffiliateEnabled = settings[SettingKeyAffiliateEnabled] == "true"
 
 	result.AccountShareEnabled = settings[SettingKeyAccountShareEnabled] != "false"
+	result.ExternalCapacityReferenceEnabled = ExternalCapacityReferenceFeatureEnabled && settings[SettingKeyExternalCapacityReferenceEnabled] == "true"
 	if ownerRate, err := strconv.ParseFloat(settings[SettingKeyAccountShareOwnerRate], 64); err == nil {
 		result.AccountShareOwnerRatePercent = clampAccountShareOwnerRate(ownerRate)
 	} else {

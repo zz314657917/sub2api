@@ -883,6 +883,8 @@ export interface OpsSystemLog {
   client_request_id?: string
   user_id?: number | null
   account_id?: number | null
+  account_name?: string
+  account_notes?: string
   platform?: string
   model?: string
   extra?: Record<string, any>
@@ -963,6 +965,7 @@ export interface OpsErrorLog {
   api_key_id?: number | null
   account_id?: number | null
   account_name: string
+  account_notes?: string
   group_id?: number | null
   group_name: string
 

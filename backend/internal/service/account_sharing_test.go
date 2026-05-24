@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 )
 
@@ -89,6 +90,39 @@ func TestShouldSkipBillingForSelfOwnedPrivateAccount(t *testing.T) {
 	if ShouldSkipBillingForSelfOwnedPrivateAccount(ownerID, publicAccount) {
 		t.Fatal("public shared account usage should stay billable")
 	}
+}
+
+func TestFilterAccountsForAPIKeyPoolStrategy(t *testing.T) {
+	ownerID := int64(10)
+	otherOwnerID := int64(11)
+	accounts := []Account{
+		{ID: 1},
+		{ID: 2, OwnerUserID: &ownerID, ShareMode: AccountShareModePrivate, ShareStatus: AccountShareStatusNotShared},
+		{ID: 3, OwnerUserID: &ownerID, ShareMode: AccountShareModePublic, ShareStatus: AccountShareStatusActive},
+		{ID: 4, OwnerUserID: &ownerID, ShareMode: AccountShareModePublic, ShareStatus: AccountShareStatusPendingReview},
+		{ID: 5, OwnerUserID: &otherOwnerID, ShareMode: AccountShareModePrivate, ShareStatus: AccountShareStatusNotShared},
+	}
+
+	sharedCtx := context.WithValue(context.Background(), ctxkey.APIKeyAccountPoolStrategy, AccountPoolStrategySharedOnly)
+	privateCtx := context.WithValue(context.Background(), ctxkey.APIKeyAccountPoolStrategy, AccountPoolStrategyPrivateOnly)
+
+	shared := filterAccountsForAPIKeyPoolStrategy(sharedCtx, append([]Account(nil), accounts...), ownerID)
+	if got := accountIDsForTest(shared); fmt.Sprint(got) != "[1 3]" {
+		t.Fatalf("shared pool should include only system/public active accounts, got %v", got)
+	}
+
+	private := filterAccountsForAPIKeyPoolStrategy(privateCtx, append([]Account(nil), accounts...), ownerID)
+	if got := accountIDsForTest(private); fmt.Sprint(got) != "[2]" {
+		t.Fatalf("private pool should include only current user's private accounts, got %v", got)
+	}
+}
+
+func accountIDsForTest(accounts []Account) []int64 {
+	out := make([]int64, 0, len(accounts))
+	for _, account := range accounts {
+		out = append(out, account.ID)
+	}
+	return out
 }
 
 func TestBuildUsageBillingCommand_SelfOwnedPrivateSkipsUserAndAPIKeyBilling(t *testing.T) {
@@ -1201,6 +1235,101 @@ func TestUserAccountService_GetCapacityPoolsGroupsSystemOpenAIAPIKeysByPlan(t *t
 	}
 }
 
+func TestBuildExternalAIPixelCapacityPoolMapsUsageWindows(t *testing.T) {
+	pool := buildExternalAIPixelCapacityPool(aiPixelCapacityPlatform{
+		Totals: aiPixelCapacitySummary{
+			AccountCount:            10460,
+			ActiveAccountCount:      8608,
+			SchedulableAccountCount: 4583,
+			RateLimitedAccountCount: 3954,
+			ErrorAccountCount:       1826,
+			DisabledAccountCount:    26,
+		},
+		GroupSummaries: []aiPixelCapacityGroupSummary{{
+			GroupName:               "PRO共享号池",
+			GroupStatus:             "active",
+			Platform:                PlatformOpenAI,
+			AccountCount:            4,
+			ActiveAccountCount:      4,
+			SchedulableAccountCount: 4,
+		}, {
+			GroupName:               "FREE共享号池",
+			GroupStatus:             "active",
+			Platform:                PlatformOpenAI,
+			AccountCount:            6624,
+			ActiveAccountCount:      5979,
+			SchedulableAccountCount: 2510,
+			RateLimitedAccountCount: 3457,
+			ErrorAccountCount:       623,
+			DisabledAccountCount:    22,
+		}, {
+			GroupName:               "PLUS共享号池",
+			GroupStatus:             "active",
+			Platform:                PlatformOpenAI,
+			AccountCount:            3826,
+			ActiveAccountCount:      2625,
+			SchedulableAccountCount: 2091,
+			RateLimitedAccountCount: 478,
+			ErrorAccountCount:       1198,
+			DisabledAccountCount:    3,
+			UsageWindows: []aiPixelCapacityUsageWindow{
+				{
+					Window:                   "5h",
+					AccountCount:             2081,
+					KnownAccountCount:        2081,
+					AverageUtilization:       11.2,
+					RemainingCapacityPercent: 184864,
+				},
+				{
+					Window:                   "7d",
+					AccountCount:             2081,
+					KnownAccountCount:        2081,
+					AverageUtilization:       15.7,
+					RemainingCapacityPercent: 175343,
+					NextResetAt:              "2026-05-23T09:13:33+08:00",
+				},
+			},
+		}},
+	})
+
+	if pool == nil {
+		t.Fatal("expected external capacity pool")
+	}
+	if pool.Key != externalAIPixelCapacityPoolKey {
+		t.Fatalf("unexpected pool key: %s", pool.Key)
+	}
+	if pool.Title != "公开共享容量参考" {
+		t.Fatalf("unexpected pool title: %s", pool.Title)
+	}
+	if pool.TotalAccounts != 10450 || pool.SchedulableAccounts != 4601 || pool.AbnormalAccounts != 1846 {
+		t.Fatalf("unexpected pool totals: %#v", pool)
+	}
+	if len(pool.Groups) != 2 {
+		t.Fatalf("expected two external groups, got %#v", pool.Groups)
+	}
+	if pool.Groups[0].GroupName != "FREE共享号池" {
+		t.Fatalf("expected FREE group first, got %#v", pool.Groups)
+	}
+	group := pool.Groups[1]
+	if group.GroupName != "PLUS共享号池" || group.Platform != PlatformOpenAI || group.Status != "healthy" {
+		t.Fatalf("unexpected external group metadata: %#v", group)
+	}
+	if group.TotalAccounts != 3826 || group.SchedulableAccounts != 2091 || group.AbnormalAccounts != 1201 {
+		t.Fatalf("unexpected external group totals: %#v", group)
+	}
+	fiveHour := group.Windows["5h"]
+	if fiveHour.WindowMinutes != 300 || fiveHour.UsedPercent != 11.2 ||
+		fiveHour.SnapshotAccounts != 2081 || fiveHour.SchedulableSnapshotAccounts != 2081 ||
+		fiveHour.RemainingUnits != 1848.64 {
+		t.Fatalf("unexpected 5h window: %#v", fiveHour)
+	}
+	sevenDay := group.Windows["7d"]
+	if sevenDay.WindowMinutes != 10080 || sevenDay.UsedPercent != 15.7 ||
+		sevenDay.RemainingUnits != 1753.43 || sevenDay.ResetAt != "2026-05-23T01:13:33Z" {
+		t.Fatalf("unexpected 7d window: %#v", sevenDay)
+	}
+}
+
 func TestUserAccountService_CreateBlocksAPIKeyUpload(t *testing.T) {
 	svc := NewUserAccountService(&capacityPoolAccountRepoStub{}, accountShareSettingsStub{enabled: true})
 
@@ -1276,11 +1405,16 @@ func findCapacityPoolGroup(groups []UserAccountCapacityPoolGroup, groupID int64,
 }
 
 type accountShareSettingsStub struct {
-	enabled bool
+	enabled                          bool
+	externalCapacityReferenceEnabled bool
 }
 
 func (s accountShareSettingsStub) IsAccountShareEnabled(context.Context) bool {
 	return s.enabled
+}
+
+func (s accountShareSettingsStub) IsExternalCapacityReferenceEnabled(context.Context) bool {
+	return s.externalCapacityReferenceEnabled
 }
 
 func (s accountShareSettingsStub) IsAccountShareAutoReview(context.Context) bool {

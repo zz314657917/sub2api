@@ -119,12 +119,15 @@ const OIDCConnectSyntheticEmailDomain = "@oidc-connect.invalid"
 const WeChatConnectSyntheticEmailDomain = "@wechat-connect.invalid"
 
 const (
-	SettingKeyAccountShareEnabled          = "account_share_enabled"
-	SettingKeyAccountShareOwnerRate        = "account_share_owner_rate"
-	SettingKeyAccountShareFreezeHours      = "account_share_freeze_hours"
-	SettingKeyAccountShareAutoReview       = "account_share_auto_review"
-	SettingKeyAccountShareUserAccountLimit = "account_share_user_account_limit"
+	SettingKeyAccountShareEnabled              = "account_share_enabled"
+	SettingKeyExternalCapacityReferenceEnabled = "external_capacity_reference_enabled"
+	SettingKeyAccountShareOwnerRate            = "account_share_owner_rate"
+	SettingKeyAccountShareFreezeHours          = "account_share_freeze_hours"
+	SettingKeyAccountShareAutoReview           = "account_share_auto_review"
+	SettingKeyAccountShareUserAccountLimit     = "account_share_user_account_limit"
 )
+
+const ExternalCapacityReferenceFeatureEnabled = false
 
 // Setting keys
 const (

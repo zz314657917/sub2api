@@ -269,31 +269,32 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 
-		AvailableChannelsEnabled:                 settings.AvailableChannelsEnabled,
-		LeaderboardDailyRewardEnabled:            settings.LeaderboardDailyRewardEnabled,
-		LeaderboardDailyRewardMinTotalActualCost: settings.LeaderboardDailyRewardMinTotalActualCost,
-		LeaderboardDailyRewardRank1Amount:        settings.LeaderboardDailyRewardRank1Amount,
-		LeaderboardDailyRewardRank2Amount:        settings.LeaderboardDailyRewardRank2Amount,
-		LeaderboardDailyRewardRank3Amount:        settings.LeaderboardDailyRewardRank3Amount,
-		WelfareEnabled:                           settings.WelfareEnabled,
-		WelfareDailyCheckinEnabled:               settings.WelfareDailyCheckinEnabled,
-		WelfareRechargeEnabled:                   settings.WelfareRechargeEnabled,
-		WelfareVIPEnabled:                        settings.WelfareVIPEnabled,
-		WelfareDailyCheckinRewardMin:             settings.WelfareDailyCheckinRewardMin,
-		WelfareDailyCheckinRewardMax:             settings.WelfareDailyCheckinRewardMax,
-		WelfareDailyCheckinMinAccountAgeHours:    settings.WelfareDailyCheckinMinAccountAgeHours,
-		WelfareDailyCheckinMilestone7Amount:      settings.WelfareDailyCheckinMilestone7Amount,
-		WelfareDailyCheckinMilestone14Amount:     settings.WelfareDailyCheckinMilestone14Amount,
-		WelfareDailyCheckinMilestone21Amount:     settings.WelfareDailyCheckinMilestone21Amount,
-		WelfareDailyCheckinMilestone28Amount:     settings.WelfareDailyCheckinMilestone28Amount,
+		AvailableChannelsEnabled:                  settings.AvailableChannelsEnabled,
+		LeaderboardDailyRewardEnabled:             settings.LeaderboardDailyRewardEnabled,
+		LeaderboardDailyRewardMinTotalActualCost:  settings.LeaderboardDailyRewardMinTotalActualCost,
+		LeaderboardDailyRewardRank1Amount:         settings.LeaderboardDailyRewardRank1Amount,
+		LeaderboardDailyRewardRank2Amount:         settings.LeaderboardDailyRewardRank2Amount,
+		LeaderboardDailyRewardRank3Amount:         settings.LeaderboardDailyRewardRank3Amount,
+		WelfareEnabled:                            settings.WelfareEnabled,
+		WelfareDailyCheckinEnabled:                settings.WelfareDailyCheckinEnabled,
+		WelfareRechargeEnabled:                    settings.WelfareRechargeEnabled,
+		WelfareVIPEnabled:                         settings.WelfareVIPEnabled,
+		WelfareDailyCheckinRewardMin:              settings.WelfareDailyCheckinRewardMin,
+		WelfareDailyCheckinRewardMax:              settings.WelfareDailyCheckinRewardMax,
+		WelfareDailyCheckinMinAccountAgeHours:     settings.WelfareDailyCheckinMinAccountAgeHours,
+		WelfareDailyCheckinMilestone7Amount:       settings.WelfareDailyCheckinMilestone7Amount,
+		WelfareDailyCheckinMilestone14Amount:      settings.WelfareDailyCheckinMilestone14Amount,
+		WelfareDailyCheckinMilestone21Amount:      settings.WelfareDailyCheckinMilestone21Amount,
+		WelfareDailyCheckinMilestone28Amount:      settings.WelfareDailyCheckinMilestone28Amount,
 		WelfareNewUserTrialEnabled:                settings.WelfareNewUserTrialEnabled,
 		WelfareNewUserTrialQuotaAmount:            settings.WelfareNewUserTrialQuotaAmount,
 		WelfareNewUserTrialSuccessRewardAmount:    settings.WelfareNewUserTrialSuccessRewardAmount,
 		WelfareNewUserTrialDailySiteQuotaAmount:   settings.WelfareNewUserTrialDailySiteQuotaAmount,
 		WelfareNewUserTrialDailyIPActivationLimit: settings.WelfareNewUserTrialDailyIPActivationLimit,
 
-		AffiliateEnabled:    settings.AffiliateEnabled,
-		AccountShareEnabled: settings.AccountShareEnabled,
+		AffiliateEnabled:                 settings.AffiliateEnabled,
+		AccountShareEnabled:              settings.AccountShareEnabled,
+		ExternalCapacityReferenceEnabled: settings.ExternalCapacityReferenceEnabled,
 	}
 
 	// OpenAI fast policy (stored under a dedicated setting key)
@@ -459,27 +460,27 @@ type UpdateSettingsRequest struct {
 	GoogleOAuthFrontendRedirectURL string `json:"google_oauth_frontend_redirect_url"`
 
 	// OEM设置
-	SiteName                    string                `json:"site_name"`
-	SiteLogo                    string                `json:"site_logo"`
-	SiteSubtitle                string                `json:"site_subtitle"`
-	HomeHeroTitleTop            string                `json:"home_hero_title_top"`
-	HomeHeroTitleBottom         string                `json:"home_hero_title_bottom"`
-	HomeHeroSubtitles           string                `json:"home_hero_subtitles"`
-	APIBaseURL                  string                `json:"api_base_url"`
-	ContactInfo                 string                `json:"contact_info"`
-	SupportPopupTitle           string                `json:"support_popup_title"`
-	SupportPopupDescription     string                `json:"support_popup_description"`
-	SupportPopupFooter          string                `json:"support_popup_footer"`
-	SupportPopupItems           *[]dto.SupportPopupItem  `json:"support_popup_items"`
-	DocURL                      string                `json:"doc_url"`
-	HomeContent                 string                `json:"home_content"`
-	HideCcsImportButton         bool                  `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled *bool                 `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL     *string               `json:"purchase_subscription_url"`
-	TableDefaultPageSize        int                   `json:"table_default_page_size"`
-	TablePageSizeOptions        []int                 `json:"table_page_size_options"`
-	CustomMenuItems             *[]dto.CustomMenuItem `json:"custom_menu_items"`
-	CustomEndpoints             *[]dto.CustomEndpoint `json:"custom_endpoints"`
+	SiteName                    string                  `json:"site_name"`
+	SiteLogo                    string                  `json:"site_logo"`
+	SiteSubtitle                string                  `json:"site_subtitle"`
+	HomeHeroTitleTop            string                  `json:"home_hero_title_top"`
+	HomeHeroTitleBottom         string                  `json:"home_hero_title_bottom"`
+	HomeHeroSubtitles           string                  `json:"home_hero_subtitles"`
+	APIBaseURL                  string                  `json:"api_base_url"`
+	ContactInfo                 string                  `json:"contact_info"`
+	SupportPopupTitle           string                  `json:"support_popup_title"`
+	SupportPopupDescription     string                  `json:"support_popup_description"`
+	SupportPopupFooter          string                  `json:"support_popup_footer"`
+	SupportPopupItems           *[]dto.SupportPopupItem `json:"support_popup_items"`
+	DocURL                      string                  `json:"doc_url"`
+	HomeContent                 string                  `json:"home_content"`
+	HideCcsImportButton         bool                    `json:"hide_ccs_import_button"`
+	PurchaseSubscriptionEnabled *bool                   `json:"purchase_subscription_enabled"`
+	PurchaseSubscriptionURL     *string                 `json:"purchase_subscription_url"`
+	TableDefaultPageSize        int                     `json:"table_default_page_size"`
+	TablePageSizeOptions        []int                   `json:"table_page_size_options"`
+	CustomMenuItems             *[]dto.CustomMenuItem   `json:"custom_menu_items"`
+	CustomEndpoints             *[]dto.CustomEndpoint   `json:"custom_endpoints"`
 
 	// 默认配置
 	DefaultConcurrency                       int                               `json:"default_concurrency"`
@@ -609,17 +610,17 @@ type UpdateSettingsRequest struct {
 	LeaderboardDailyRewardRank2Amount        *float64 `json:"leaderboard_daily_reward_rank_2_amount"`
 	LeaderboardDailyRewardRank3Amount        *float64 `json:"leaderboard_daily_reward_rank_3_amount"`
 
-	WelfareEnabled                       *bool    `json:"welfare_enabled"`
-	WelfareDailyCheckinEnabled           *bool    `json:"welfare_daily_checkin_enabled"`
-	WelfareRechargeEnabled               *bool    `json:"welfare_recharge_enabled"`
-	WelfareVIPEnabled                    *bool    `json:"welfare_vip_enabled"`
-	WelfareDailyCheckinRewardMin         *float64 `json:"welfare_daily_checkin_reward_min"`
-	WelfareDailyCheckinRewardMax         *float64 `json:"welfare_daily_checkin_reward_max"`
-	WelfareDailyCheckinMinAccountAgeHours *int    `json:"welfare_daily_checkin_min_account_age_hours"`
-	WelfareDailyCheckinMilestone7Amount  *float64 `json:"welfare_daily_checkin_milestone_7_amount"`
-	WelfareDailyCheckinMilestone14Amount *float64 `json:"welfare_daily_checkin_milestone_14_amount"`
-	WelfareDailyCheckinMilestone21Amount *float64 `json:"welfare_daily_checkin_milestone_21_amount"`
-	WelfareDailyCheckinMilestone28Amount *float64 `json:"welfare_daily_checkin_milestone_28_amount"`
+	WelfareEnabled                            *bool    `json:"welfare_enabled"`
+	WelfareDailyCheckinEnabled                *bool    `json:"welfare_daily_checkin_enabled"`
+	WelfareRechargeEnabled                    *bool    `json:"welfare_recharge_enabled"`
+	WelfareVIPEnabled                         *bool    `json:"welfare_vip_enabled"`
+	WelfareDailyCheckinRewardMin              *float64 `json:"welfare_daily_checkin_reward_min"`
+	WelfareDailyCheckinRewardMax              *float64 `json:"welfare_daily_checkin_reward_max"`
+	WelfareDailyCheckinMinAccountAgeHours     *int     `json:"welfare_daily_checkin_min_account_age_hours"`
+	WelfareDailyCheckinMilestone7Amount       *float64 `json:"welfare_daily_checkin_milestone_7_amount"`
+	WelfareDailyCheckinMilestone14Amount      *float64 `json:"welfare_daily_checkin_milestone_14_amount"`
+	WelfareDailyCheckinMilestone21Amount      *float64 `json:"welfare_daily_checkin_milestone_21_amount"`
+	WelfareDailyCheckinMilestone28Amount      *float64 `json:"welfare_daily_checkin_milestone_28_amount"`
 	WelfareNewUserTrialEnabled                *bool    `json:"welfare_new_user_trial_enabled"`
 	WelfareNewUserTrialQuotaAmount            *float64 `json:"welfare_new_user_trial_quota_amount"`
 	WelfareNewUserTrialSuccessRewardAmount    *float64 `json:"welfare_new_user_trial_success_reward_amount"`
@@ -631,6 +632,9 @@ type UpdateSettingsRequest struct {
 
 	// User-owned account sharing pool feature switch
 	AccountShareEnabled *bool `json:"account_share_enabled"`
+
+	// Public shared capacity reference feature switch
+	ExternalCapacityReferenceEnabled *bool `json:"external_capacity_reference_enabled"`
 
 	// 风控中心功能开关
 	RiskControlEnabled *bool `json:"risk_control_enabled"`
@@ -1695,13 +1699,13 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.WelfareVIPEnabled
 		}(),
-		WelfareDailyCheckinRewardMin:         float64ValueOrDefault(req.WelfareDailyCheckinRewardMin, previousSettings.WelfareDailyCheckinRewardMin),
-		WelfareDailyCheckinRewardMax:         float64ValueOrDefault(req.WelfareDailyCheckinRewardMax, previousSettings.WelfareDailyCheckinRewardMax),
-		WelfareDailyCheckinMinAccountAgeHours: intValueOrDefault(req.WelfareDailyCheckinMinAccountAgeHours, previousSettings.WelfareDailyCheckinMinAccountAgeHours),
-		WelfareDailyCheckinMilestone7Amount:  float64ValueOrDefault(req.WelfareDailyCheckinMilestone7Amount, previousSettings.WelfareDailyCheckinMilestone7Amount),
-		WelfareDailyCheckinMilestone14Amount: float64ValueOrDefault(req.WelfareDailyCheckinMilestone14Amount, previousSettings.WelfareDailyCheckinMilestone14Amount),
-		WelfareDailyCheckinMilestone21Amount: float64ValueOrDefault(req.WelfareDailyCheckinMilestone21Amount, previousSettings.WelfareDailyCheckinMilestone21Amount),
-		WelfareDailyCheckinMilestone28Amount: float64ValueOrDefault(req.WelfareDailyCheckinMilestone28Amount, previousSettings.WelfareDailyCheckinMilestone28Amount),
+		WelfareDailyCheckinRewardMin:              float64ValueOrDefault(req.WelfareDailyCheckinRewardMin, previousSettings.WelfareDailyCheckinRewardMin),
+		WelfareDailyCheckinRewardMax:              float64ValueOrDefault(req.WelfareDailyCheckinRewardMax, previousSettings.WelfareDailyCheckinRewardMax),
+		WelfareDailyCheckinMinAccountAgeHours:     intValueOrDefault(req.WelfareDailyCheckinMinAccountAgeHours, previousSettings.WelfareDailyCheckinMinAccountAgeHours),
+		WelfareDailyCheckinMilestone7Amount:       float64ValueOrDefault(req.WelfareDailyCheckinMilestone7Amount, previousSettings.WelfareDailyCheckinMilestone7Amount),
+		WelfareDailyCheckinMilestone14Amount:      float64ValueOrDefault(req.WelfareDailyCheckinMilestone14Amount, previousSettings.WelfareDailyCheckinMilestone14Amount),
+		WelfareDailyCheckinMilestone21Amount:      float64ValueOrDefault(req.WelfareDailyCheckinMilestone21Amount, previousSettings.WelfareDailyCheckinMilestone21Amount),
+		WelfareDailyCheckinMilestone28Amount:      float64ValueOrDefault(req.WelfareDailyCheckinMilestone28Amount, previousSettings.WelfareDailyCheckinMilestone28Amount),
 		WelfareNewUserTrialEnabled:                boolValueOrDefault(req.WelfareNewUserTrialEnabled, previousSettings.WelfareNewUserTrialEnabled),
 		WelfareNewUserTrialQuotaAmount:            float64ValueOrDefault(req.WelfareNewUserTrialQuotaAmount, previousSettings.WelfareNewUserTrialQuotaAmount),
 		WelfareNewUserTrialSuccessRewardAmount:    float64ValueOrDefault(req.WelfareNewUserTrialSuccessRewardAmount, previousSettings.WelfareNewUserTrialSuccessRewardAmount),
@@ -1718,6 +1722,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 				return *req.AccountShareEnabled
 			}
 			return previousSettings.AccountShareEnabled
+		}(),
+		ExternalCapacityReferenceEnabled: func() bool {
+			if req.ExternalCapacityReferenceEnabled != nil {
+				return *req.ExternalCapacityReferenceEnabled
+			}
+			return previousSettings.ExternalCapacityReferenceEnabled
 		}(),
 		RiskControlEnabled: func() bool {
 			if req.RiskControlEnabled != nil {
@@ -2010,31 +2020,32 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ChannelMonitorEnabled:                updatedSettings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
 
-		AvailableChannelsEnabled:                 updatedSettings.AvailableChannelsEnabled,
-		LeaderboardDailyRewardEnabled:            updatedSettings.LeaderboardDailyRewardEnabled,
-		LeaderboardDailyRewardMinTotalActualCost: updatedSettings.LeaderboardDailyRewardMinTotalActualCost,
-		LeaderboardDailyRewardRank1Amount:        updatedSettings.LeaderboardDailyRewardRank1Amount,
-		LeaderboardDailyRewardRank2Amount:        updatedSettings.LeaderboardDailyRewardRank2Amount,
-		LeaderboardDailyRewardRank3Amount:        updatedSettings.LeaderboardDailyRewardRank3Amount,
-		WelfareEnabled:                           updatedSettings.WelfareEnabled,
-		WelfareDailyCheckinEnabled:               updatedSettings.WelfareDailyCheckinEnabled,
-		WelfareRechargeEnabled:                   updatedSettings.WelfareRechargeEnabled,
-		WelfareVIPEnabled:                        updatedSettings.WelfareVIPEnabled,
-		WelfareDailyCheckinRewardMin:             updatedSettings.WelfareDailyCheckinRewardMin,
-		WelfareDailyCheckinRewardMax:             updatedSettings.WelfareDailyCheckinRewardMax,
-		WelfareDailyCheckinMinAccountAgeHours:    updatedSettings.WelfareDailyCheckinMinAccountAgeHours,
-		WelfareDailyCheckinMilestone7Amount:      updatedSettings.WelfareDailyCheckinMilestone7Amount,
-		WelfareDailyCheckinMilestone14Amount:     updatedSettings.WelfareDailyCheckinMilestone14Amount,
-		WelfareDailyCheckinMilestone21Amount:     updatedSettings.WelfareDailyCheckinMilestone21Amount,
-		WelfareDailyCheckinMilestone28Amount:     updatedSettings.WelfareDailyCheckinMilestone28Amount,
+		AvailableChannelsEnabled:                  updatedSettings.AvailableChannelsEnabled,
+		LeaderboardDailyRewardEnabled:             updatedSettings.LeaderboardDailyRewardEnabled,
+		LeaderboardDailyRewardMinTotalActualCost:  updatedSettings.LeaderboardDailyRewardMinTotalActualCost,
+		LeaderboardDailyRewardRank1Amount:         updatedSettings.LeaderboardDailyRewardRank1Amount,
+		LeaderboardDailyRewardRank2Amount:         updatedSettings.LeaderboardDailyRewardRank2Amount,
+		LeaderboardDailyRewardRank3Amount:         updatedSettings.LeaderboardDailyRewardRank3Amount,
+		WelfareEnabled:                            updatedSettings.WelfareEnabled,
+		WelfareDailyCheckinEnabled:                updatedSettings.WelfareDailyCheckinEnabled,
+		WelfareRechargeEnabled:                    updatedSettings.WelfareRechargeEnabled,
+		WelfareVIPEnabled:                         updatedSettings.WelfareVIPEnabled,
+		WelfareDailyCheckinRewardMin:              updatedSettings.WelfareDailyCheckinRewardMin,
+		WelfareDailyCheckinRewardMax:              updatedSettings.WelfareDailyCheckinRewardMax,
+		WelfareDailyCheckinMinAccountAgeHours:     updatedSettings.WelfareDailyCheckinMinAccountAgeHours,
+		WelfareDailyCheckinMilestone7Amount:       updatedSettings.WelfareDailyCheckinMilestone7Amount,
+		WelfareDailyCheckinMilestone14Amount:      updatedSettings.WelfareDailyCheckinMilestone14Amount,
+		WelfareDailyCheckinMilestone21Amount:      updatedSettings.WelfareDailyCheckinMilestone21Amount,
+		WelfareDailyCheckinMilestone28Amount:      updatedSettings.WelfareDailyCheckinMilestone28Amount,
 		WelfareNewUserTrialEnabled:                updatedSettings.WelfareNewUserTrialEnabled,
 		WelfareNewUserTrialQuotaAmount:            updatedSettings.WelfareNewUserTrialQuotaAmount,
 		WelfareNewUserTrialSuccessRewardAmount:    updatedSettings.WelfareNewUserTrialSuccessRewardAmount,
 		WelfareNewUserTrialDailySiteQuotaAmount:   updatedSettings.WelfareNewUserTrialDailySiteQuotaAmount,
 		WelfareNewUserTrialDailyIPActivationLimit: updatedSettings.WelfareNewUserTrialDailyIPActivationLimit,
 
-		AffiliateEnabled:    updatedSettings.AffiliateEnabled,
-		AccountShareEnabled: updatedSettings.AccountShareEnabled,
+		AffiliateEnabled:                 updatedSettings.AffiliateEnabled,
+		AccountShareEnabled:              updatedSettings.AccountShareEnabled,
+		ExternalCapacityReferenceEnabled: updatedSettings.ExternalCapacityReferenceEnabled,
 
 		RiskControlEnabled: updatedSettings.RiskControlEnabled,
 	}
@@ -2529,6 +2540,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AccountShareEnabled != after.AccountShareEnabled {
 		changed = append(changed, "account_share_enabled")
+	}
+	if before.ExternalCapacityReferenceEnabled != after.ExternalCapacityReferenceEnabled {
+		changed = append(changed, "external_capacity_reference_enabled")
 	}
 	if before.RiskControlEnabled != after.RiskControlEnabled {
 		changed = append(changed, "risk_control_enabled")

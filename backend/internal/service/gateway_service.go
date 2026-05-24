@@ -1360,6 +1360,17 @@ func (s *GatewayService) SelectAccountForModel(ctx context.Context, groupID *int
 
 // SelectAccountForModelWithExclusions selects an account supporting the requested model while excluding specified accounts.
 func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	if accountPoolStrategyIsPrivateFirst(ctx) {
+		account, err := s.SelectAccountForModelWithExclusions(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, sessionHash, requestedModel, excludedIDs)
+		if err == nil {
+			return account, nil
+		}
+		if !isAccountPoolNoAvailableError(err) {
+			return nil, err
+		}
+		return s.SelectAccountForModelWithExclusions(withAccountPoolStrategy(ctx, AccountPoolStrategySharedOnly), groupID, sessionHash, requestedModel, excludedIDs)
+	}
+
 	// 优先检查 context 中的强制平台（/antigravity 路由）
 	var platform string
 	forcePlatform, hasForcePlatform := ctx.Value(ctxkey.ForcePlatform).(string)
@@ -1411,6 +1422,18 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 // metadataUserID: 用于客户端亲和调度，从中提取客户端 ID
 // sub2apiUserID: 系统用户 ID，用于二维亲和调度
 func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, metadataUserID string, sub2apiUserID int64) (*AccountSelectionResult, error) {
+	ctx = withAccountPoolUserID(ctx, sub2apiUserID)
+	if accountPoolStrategyIsPrivateFirst(ctx) {
+		result, err := s.SelectAccountWithLoadAwareness(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, sessionHash, requestedModel, excludedIDs, metadataUserID, sub2apiUserID)
+		if err == nil {
+			return result, nil
+		}
+		if !isAccountPoolNoAvailableError(err) {
+			return nil, err
+		}
+		return s.SelectAccountWithLoadAwareness(withAccountPoolStrategy(ctx, AccountPoolStrategySharedOnly), groupID, sessionHash, requestedModel, excludedIDs, metadataUserID, sub2apiUserID)
+	}
+
 	// 调试日志：记录调度入口参数
 	excludedIDsList := make([]int64, 0, len(excludedIDs))
 	for id := range excludedIDs {
@@ -1477,7 +1500,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		if account == nil || account.ID <= 0 || stickyAccountID <= 0 || account.ID != stickyAccountID {
 			return false
 		}
-		if account.CanBeUsedByUser(sub2apiUserID) {
+		if accountAllowedByAPIKeyPoolStrategy(ctx, account, sub2apiUserID) {
 			return false
 		}
 		if sessionHash != "" && s.cache != nil {
@@ -1498,7 +1521,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			if err != nil {
 				return nil, err
 			}
-			if !account.CanBeUsedByUser(sub2apiUserID) {
+			if !accountAllowedByAPIKeyPoolStrategy(ctx, account, sub2apiUserID) {
 				if account.ID > 0 {
 					localExcluded[account.ID] = struct{}{}
 					if stickyAccountID == account.ID && sessionHash != "" && s.cache != nil {
@@ -1561,7 +1584,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	if len(accounts) == 0 {
 		return nil, ErrNoAvailableAccounts
 	}
-	accounts = filterAccountsForUser(accounts, sub2apiUserID)
+	accounts = filterAccountsForAPIKeyPoolStrategy(ctx, accounts, sub2apiUserID)
 	if len(accounts) == 0 {
 		return nil, ErrNoAvailableAccounts
 	}
@@ -2265,6 +2288,29 @@ func (s *GatewayService) resolvePlatform(ctx context.Context, groupID *int64, gr
 }
 
 func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *int64, platform string, hasForcePlatform bool) ([]Account, bool, error) {
+	strategy, configured := accountPoolStrategyFromContext(ctx)
+	if configured && strategy == AccountPoolStrategyPrivateOnly {
+		useMixed := (platform == PlatformAnthropic || platform == PlatformGemini) && !hasForcePlatform
+		platforms := []string{platform}
+		if useMixed {
+			platforms = []string{platform, PlatformAntigravity}
+		}
+		accounts, err := listPrivatePoolSchedulableAccounts(ctx, s.accountRepo, accountPoolUserIDFromContext(ctx, 0), platforms)
+		if err != nil {
+			return nil, useMixed, err
+		}
+		if useMixed {
+			filtered := accounts[:0]
+			for _, acc := range accounts {
+				if acc.Platform == PlatformAntigravity && !acc.IsMixedSchedulingEnabled() {
+					continue
+				}
+				filtered = append(filtered, acc)
+			}
+			accounts = filtered
+		}
+		return accounts, useMixed, nil
+	}
 	if s.schedulerSnapshot != nil {
 		accounts, useMixed, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, platform, hasForcePlatform)
 		if err == nil {
@@ -3066,7 +3112,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 						}
-						if !clearSticky && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+						if !clearSticky && accountAllowedByAPIKeyPoolStrategy(ctx, account, 0) && (accountPoolStrategyUsesPrivateOnly(ctx) || s.isAccountInGroup(account, groupID)) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 							if s.debugModelRoutingEnabled() {
 								logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
 							}
@@ -3087,6 +3133,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		if err != nil {
 			return nil, fmt.Errorf("query accounts failed: %w", err)
 		}
+		accounts = filterAccountsForAPIKeyPoolStrategy(ctx, accounts, 0)
 		accountsLoaded = true
 
 		// 提前预取窗口费用+RPM 计数，确保 routing 段内的调度检查调用能命中缓存
@@ -3185,7 +3232,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 					}
-					if !clearSticky && s.isAccountInGroup(account, groupID) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
+					if !clearSticky && accountAllowedByAPIKeyPoolStrategy(ctx, account, 0) && (accountPoolStrategyUsesPrivateOnly(ctx) || s.isAccountInGroup(account, groupID)) && account.Platform == platform && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
 						return account, nil
 					}
 				}
@@ -3205,6 +3252,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			return nil, fmt.Errorf("query accounts failed: %w", err)
 		}
 	}
+	accounts = filterAccountsForAPIKeyPoolStrategy(ctx, accounts, 0)
 
 	// 批量预取窗口费用+RPM 计数，避免逐个账号查询（N+1）
 	ctx = s.withWindowCostPrefetch(ctx, accounts)
@@ -3324,7 +3372,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 						}
-						if !clearSticky && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
+						if !clearSticky && accountAllowedByAPIKeyPoolStrategy(ctx, account, 0) && (accountPoolStrategyUsesPrivateOnly(ctx) || s.isAccountInGroup(account, groupID)) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
 							if account.Platform == nativePlatform || (account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()) {
 								if s.debugModelRoutingEnabled() {
 									logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy mixed routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
@@ -3343,6 +3391,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		if err != nil {
 			return nil, fmt.Errorf("query accounts failed: %w", err)
 		}
+		accounts = filterAccountsForAPIKeyPoolStrategy(ctx, accounts, 0)
 		accountsLoaded = true
 
 		// 提前预取窗口费用+RPM 计数，确保 routing 段内的调度检查调用能命中缓存
@@ -3445,7 +3494,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 					}
-					if !clearSticky && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+					if !clearSticky && accountAllowedByAPIKeyPoolStrategy(ctx, account, 0) && (accountPoolStrategyUsesPrivateOnly(ctx) || s.isAccountInGroup(account, groupID)) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 						if account.Platform == nativePlatform || (account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()) {
 							return account, nil
 						}
@@ -3463,6 +3512,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			return nil, fmt.Errorf("query accounts failed: %w", err)
 		}
 	}
+	accounts = filterAccountsForAPIKeyPoolStrategy(ctx, accounts, 0)
 
 	// 批量预取窗口费用+RPM 计数，避免逐个账号查询（N+1）
 	ctx = s.withWindowCostPrefetch(ctx, accounts)

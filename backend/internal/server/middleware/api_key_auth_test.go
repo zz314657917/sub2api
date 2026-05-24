@@ -601,6 +601,28 @@ func TestAPIKeyAuthTouchesLastUsedInStandardMode(t *testing.T) {
 	require.Equal(t, 1, touchCalls)
 }
 
+func TestShouldCooldownAPIKeyRoute(t *testing.T) {
+	cases := []struct {
+		name string
+		code int
+		want bool
+	}{
+		{name: "ok", code: http.StatusOK, want: false},
+		{name: "bad_request", code: http.StatusBadRequest, want: false},
+		{name: "unauthorized", code: http.StatusUnauthorized, want: false},
+		{name: "too_many_requests", code: http.StatusTooManyRequests, want: true},
+		{name: "overload", code: 529, want: true},
+		{name: "internal_server_error", code: http.StatusInternalServerError, want: true},
+		{name: "bad_gateway", code: http.StatusBadGateway, want: true},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, shouldCooldownAPIKeyRoute(tc.code))
+		})
+	}
+}
+
 func newAuthTestRouter(apiKeyService *service.APIKeyService, subscriptionService *service.SubscriptionService, cfg *config.Config) *gin.Engine {
 	router := gin.New()
 	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, subscriptionService, cfg)))

@@ -75,6 +75,64 @@ func TestAPIKeyResolveForRequestFallsBackToPriorityWhenPathHasNoPlatform(t *test
 	require.Equal(t, PlatformOpenAI, resolved.Group.Platform)
 }
 
+func TestAPIKeyResolveForRequestSkipsCoolingRoute(t *testing.T) {
+	defaultGroupID := int64(1)
+	fallbackGroupID := int64(2)
+	key := &APIKey{
+		GroupID: &defaultGroupID,
+		Group: &Group{
+			ID:       defaultGroupID,
+			Platform: PlatformOpenAI,
+			Status:   StatusActive,
+			Hydrated: true,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: defaultGroupID, Priority: 1, Weight: 1, CooldownSeconds: 30, Enabled: true},
+			{GroupID: fallbackGroupID, Priority: 2, Weight: 1, CooldownSeconds: 30, Enabled: true},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{ID: fallbackGroupID, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true},
+		},
+	}
+
+	resolved := key.ResolveForRequestWithGroupSkipper("/unknown", "", func(groupID int64) bool {
+		return groupID == defaultGroupID
+	})
+
+	require.NotNil(t, resolved)
+	require.Equal(t, fallbackGroupID, *resolved.GroupID)
+	require.Equal(t, PlatformOpenAI, resolved.Group.Platform)
+}
+
+func TestAPIKeyRouteCooldownSeconds(t *testing.T) {
+	configuredGroupID := int64(1)
+	defaultGroupID := int64(2)
+	disabledGroupID := int64(3)
+	key := &APIKey{
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: configuredGroupID, CooldownSeconds: 45, Enabled: true},
+			{GroupID: defaultGroupID, CooldownSeconds: 0, Enabled: true},
+			{GroupID: disabledGroupID, CooldownSeconds: 60, Enabled: false},
+		},
+	}
+
+	cooldown, ok := key.RouteCooldownSeconds(configuredGroupID)
+	require.True(t, ok)
+	require.Equal(t, 45, cooldown)
+
+	cooldown, ok = key.RouteCooldownSeconds(defaultGroupID)
+	require.True(t, ok)
+	require.Equal(t, apiKeyRouteDefaultCooldown, cooldown)
+
+	cooldown, ok = key.RouteCooldownSeconds(disabledGroupID)
+	require.False(t, ok)
+	require.Zero(t, cooldown)
+
+	cooldown, ok = key.RouteCooldownSeconds(99)
+	require.False(t, ok)
+	require.Zero(t, cooldown)
+}
+
 func apiKeyRoutingIntPtr(v int) *int {
 	return &v
 }

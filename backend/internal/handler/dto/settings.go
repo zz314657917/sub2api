@@ -116,27 +116,27 @@ type SystemSettings struct {
 	GoogleOAuthRedirectURL            string `json:"google_oauth_redirect_url"`
 	GoogleOAuthFrontendRedirectURL    string `json:"google_oauth_frontend_redirect_url"`
 
-	SiteName                    string           `json:"site_name"`
-	SiteLogo                    string           `json:"site_logo"`
-	SiteSubtitle                string           `json:"site_subtitle"`
-	HomeHeroTitleTop            string           `json:"home_hero_title_top"`
-	HomeHeroTitleBottom         string           `json:"home_hero_title_bottom"`
-	HomeHeroSubtitles           string           `json:"home_hero_subtitles"`
-	APIBaseURL                  string           `json:"api_base_url"`
-	ContactInfo                 string           `json:"contact_info"`
-	SupportPopupTitle           string           `json:"support_popup_title"`
-	SupportPopupDescription     string           `json:"support_popup_description"`
-	SupportPopupFooter          string           `json:"support_popup_footer"`
+	SiteName                    string             `json:"site_name"`
+	SiteLogo                    string             `json:"site_logo"`
+	SiteSubtitle                string             `json:"site_subtitle"`
+	HomeHeroTitleTop            string             `json:"home_hero_title_top"`
+	HomeHeroTitleBottom         string             `json:"home_hero_title_bottom"`
+	HomeHeroSubtitles           string             `json:"home_hero_subtitles"`
+	APIBaseURL                  string             `json:"api_base_url"`
+	ContactInfo                 string             `json:"contact_info"`
+	SupportPopupTitle           string             `json:"support_popup_title"`
+	SupportPopupDescription     string             `json:"support_popup_description"`
+	SupportPopupFooter          string             `json:"support_popup_footer"`
 	SupportPopupItems           []SupportPopupItem `json:"support_popup_items"`
-	DocURL                      string           `json:"doc_url"`
-	HomeContent                 string           `json:"home_content"`
-	HideCcsImportButton         bool             `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled bool             `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL     string           `json:"purchase_subscription_url"`
-	TableDefaultPageSize        int              `json:"table_default_page_size"`
-	TablePageSizeOptions        []int            `json:"table_page_size_options"`
-	CustomMenuItems             []CustomMenuItem `json:"custom_menu_items"`
-	CustomEndpoints             []CustomEndpoint `json:"custom_endpoints"`
+	DocURL                      string             `json:"doc_url"`
+	HomeContent                 string             `json:"home_content"`
+	HideCcsImportButton         bool               `json:"hide_ccs_import_button"`
+	PurchaseSubscriptionEnabled bool               `json:"purchase_subscription_enabled"`
+	PurchaseSubscriptionURL     string             `json:"purchase_subscription_url"`
+	TableDefaultPageSize        int                `json:"table_default_page_size"`
+	TablePageSizeOptions        []int              `json:"table_page_size_options"`
+	CustomMenuItems             []CustomMenuItem   `json:"custom_menu_items"`
+	CustomEndpoints             []CustomEndpoint   `json:"custom_endpoints"`
 
 	DefaultConcurrency           int                          `json:"default_concurrency"`
 	DefaultBalance               float64                      `json:"default_balance"`
@@ -237,17 +237,17 @@ type SystemSettings struct {
 	LeaderboardDailyRewardRank2Amount        float64 `json:"leaderboard_daily_reward_rank_2_amount"`
 	LeaderboardDailyRewardRank3Amount        float64 `json:"leaderboard_daily_reward_rank_3_amount"`
 
-	WelfareEnabled                       bool    `json:"welfare_enabled"`
-	WelfareDailyCheckinEnabled           bool    `json:"welfare_daily_checkin_enabled"`
-	WelfareRechargeEnabled               bool    `json:"welfare_recharge_enabled"`
-	WelfareVIPEnabled                    bool    `json:"welfare_vip_enabled"`
-	WelfareDailyCheckinRewardMin         float64 `json:"welfare_daily_checkin_reward_min"`
-	WelfareDailyCheckinRewardMax         float64 `json:"welfare_daily_checkin_reward_max"`
-	WelfareDailyCheckinMinAccountAgeHours int    `json:"welfare_daily_checkin_min_account_age_hours"`
-	WelfareDailyCheckinMilestone7Amount  float64 `json:"welfare_daily_checkin_milestone_7_amount"`
-	WelfareDailyCheckinMilestone14Amount float64 `json:"welfare_daily_checkin_milestone_14_amount"`
-	WelfareDailyCheckinMilestone21Amount float64 `json:"welfare_daily_checkin_milestone_21_amount"`
-	WelfareDailyCheckinMilestone28Amount float64 `json:"welfare_daily_checkin_milestone_28_amount"`
+	WelfareEnabled                            bool    `json:"welfare_enabled"`
+	WelfareDailyCheckinEnabled                bool    `json:"welfare_daily_checkin_enabled"`
+	WelfareRechargeEnabled                    bool    `json:"welfare_recharge_enabled"`
+	WelfareVIPEnabled                         bool    `json:"welfare_vip_enabled"`
+	WelfareDailyCheckinRewardMin              float64 `json:"welfare_daily_checkin_reward_min"`
+	WelfareDailyCheckinRewardMax              float64 `json:"welfare_daily_checkin_reward_max"`
+	WelfareDailyCheckinMinAccountAgeHours     int     `json:"welfare_daily_checkin_min_account_age_hours"`
+	WelfareDailyCheckinMilestone7Amount       float64 `json:"welfare_daily_checkin_milestone_7_amount"`
+	WelfareDailyCheckinMilestone14Amount      float64 `json:"welfare_daily_checkin_milestone_14_amount"`
+	WelfareDailyCheckinMilestone21Amount      float64 `json:"welfare_daily_checkin_milestone_21_amount"`
+	WelfareDailyCheckinMilestone28Amount      float64 `json:"welfare_daily_checkin_milestone_28_amount"`
 	WelfareNewUserTrialEnabled                bool    `json:"welfare_new_user_trial_enabled"`
 	WelfareNewUserTrialQuotaAmount            float64 `json:"welfare_new_user_trial_quota_amount"`
 	WelfareNewUserTrialSuccessRewardAmount    float64 `json:"welfare_new_user_trial_success_reward_amount"`
@@ -262,6 +262,9 @@ type SystemSettings struct {
 
 	// User-owned account sharing pool feature switch
 	AccountShareEnabled bool `json:"account_share_enabled"`
+
+	// Public shared capacity reference feature switch
+	ExternalCapacityReferenceEnabled bool `json:"external_capacity_reference_enabled"`
 
 	// OpenAI fast/flex policy
 	OpenAIFastPolicySettings *OpenAIFastPolicySettings `json:"openai_fast_policy_settings,omitempty"`
@@ -335,6 +338,8 @@ type PublicSettings struct {
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 
 	AccountShareEnabled bool `json:"account_share_enabled"`
+
+	ExternalCapacityReferenceEnabled bool `json:"external_capacity_reference_enabled"`
 
 	RiskControlEnabled bool `json:"risk_control_enabled"`
 

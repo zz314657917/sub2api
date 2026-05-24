@@ -2,9 +2,14 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -63,8 +68,9 @@ type UserAccountUsageSummary struct {
 }
 
 type UserAccountCapacityPools struct {
-	Mine   UserAccountCapacityPool `json:"mine"`
-	Shared UserAccountCapacityPool `json:"shared"`
+	Mine     UserAccountCapacityPool  `json:"mine"`
+	Shared   UserAccountCapacityPool  `json:"shared"`
+	External *UserAccountCapacityPool `json:"external,omitempty"`
 }
 
 type UserAccountCapacityPool struct {
@@ -143,8 +149,15 @@ type UserAccountCapacityWindowSummary struct {
 }
 
 type UserAccountService struct {
-	accountRepo AccountRepository
-	settings    UserAccountShareSettings
+	accountRepo             AccountRepository
+	settings                UserAccountShareSettings
+	externalCapacityCacheMu sync.Mutex
+	externalCapacityCache   externalCapacityPoolCache
+}
+
+type externalCapacityPoolCache struct {
+	pool      *UserAccountCapacityPool
+	expiresAt time.Time
 }
 
 type accountCapacityDisplayWindows struct {
@@ -178,6 +191,7 @@ type accountCapacityDisplayCounts struct {
 
 type UserAccountShareSettings interface {
 	IsAccountShareEnabled(ctx context.Context) bool
+	IsExternalCapacityReferenceEnabled(ctx context.Context) bool
 	IsAccountShareAutoReview(ctx context.Context) bool
 	GetAccountShareUserAccountLimit(ctx context.Context) int
 }
@@ -533,10 +547,386 @@ func (s *UserAccountService) GetCapacityPools(ctx context.Context, userID int64)
 		return nil, err
 	}
 
-	return &UserAccountCapacityPools{
+	pools := &UserAccountCapacityPools{
 		Mine:   buildUserAccountCapacityPool("mine", "我的账号容量池", owned, userID, displayUsageDeltas),
 		Shared: buildUserAccountCapacityPool("shared", "平台共享容量池", shared, userID, displayUsageDeltas),
-	}, nil
+	}
+	if ExternalCapacityReferenceFeatureEnabled && s.settings != nil && s.settings.IsExternalCapacityReferenceEnabled(ctx) {
+		pools.External = s.getExternalCapacityPool(ctx, time.Now())
+	}
+	return pools, nil
+}
+
+const (
+	externalAIPixelCapacityDefaultURL       = "https://ai-pixel.online/api/v1/accounts/quota-dashboard"
+	externalAIPixelCapacityPoolKey          = "public_shared_capacity_reference"
+	externalAIPixelCapacityDefaultTokenFile = "/app/data/ai_pixel_capacity_token.txt"
+	externalAIPixelCapacityDefaultTimeout   = 8 * time.Second
+	externalAIPixelCapacityDefaultTTL       = 60 * time.Second
+)
+
+type aiPixelCapacityDashboardEnvelope struct {
+	Code    int                          `json:"code"`
+	Message string                       `json:"message"`
+	Data    aiPixelCapacityDashboardData `json:"data"`
+}
+
+type aiPixelCapacityDashboardData struct {
+	Platform aiPixelCapacityPlatform `json:"platform"`
+}
+
+type aiPixelCapacityPlatform struct {
+	GeneratedAt     string                        `json:"generated_at"`
+	Totals          aiPixelCapacitySummary        `json:"totals"`
+	GroupSummaries  []aiPixelCapacityGroupSummary `json:"group_summaries"`
+	Summaries       []aiPixelCapacitySummary      `json:"summaries"`
+	UsageWindowRows []aiPixelCapacityUsageWindow  `json:"usage_windows"`
+}
+
+type aiPixelCapacitySummary struct {
+	Platform                string                       `json:"platform"`
+	Type                    string                       `json:"type"`
+	AccountCount            int                          `json:"account_count"`
+	ActiveAccountCount      int                          `json:"active_account_count"`
+	SchedulableAccountCount int                          `json:"schedulable_account_count"`
+	RateLimitedAccountCount int                          `json:"rate_limited_account_count"`
+	ErrorAccountCount       int                          `json:"error_account_count"`
+	DisabledAccountCount    int                          `json:"disabled_account_count"`
+	Total                   aiPixelQuotaUsage            `json:"total"`
+	Daily                   aiPixelQuotaUsage            `json:"daily"`
+	Weekly                  aiPixelQuotaUsage            `json:"weekly"`
+	UsageWindows            []aiPixelCapacityUsageWindow `json:"usage_windows"`
+}
+
+type aiPixelCapacityGroupSummary struct {
+	GroupID                 json.RawMessage              `json:"group_id"`
+	GroupName               string                       `json:"group_name"`
+	GroupStatus             string                       `json:"group_status"`
+	Platform                string                       `json:"platform"`
+	AccountCount            int                          `json:"account_count"`
+	ActiveAccountCount      int                          `json:"active_account_count"`
+	SchedulableAccountCount int                          `json:"schedulable_account_count"`
+	RateLimitedAccountCount int                          `json:"rate_limited_account_count"`
+	ErrorAccountCount       int                          `json:"error_account_count"`
+	DisabledAccountCount    int                          `json:"disabled_account_count"`
+	Total                   aiPixelQuotaUsage            `json:"total"`
+	Daily                   aiPixelQuotaUsage            `json:"daily"`
+	Weekly                  aiPixelQuotaUsage            `json:"weekly"`
+	UsageWindows            []aiPixelCapacityUsageWindow `json:"usage_windows"`
+}
+
+type aiPixelQuotaUsage struct {
+	EnabledAccountCount   int     `json:"enabled_account_count"`
+	ExhaustedAccountCount int     `json:"exhausted_account_count"`
+	Limit                 float64 `json:"limit"`
+	Used                  float64 `json:"used"`
+	Remaining             float64 `json:"remaining"`
+	Utilization           float64 `json:"utilization"`
+}
+
+type aiPixelCapacityUsageWindow struct {
+	Window                   string  `json:"window"`
+	AccountCount             int     `json:"account_count"`
+	KnownAccountCount        int     `json:"known_account_count"`
+	AverageUtilization       float64 `json:"average_utilization"`
+	RemainingCapacityPercent float64 `json:"remaining_capacity_percent"`
+	EstimatedSupportHours    float64 `json:"estimated_support_hours"`
+	MinRemainingSeconds      int     `json:"min_remaining_seconds"`
+	NextResetAt              string  `json:"next_reset_at"`
+}
+
+func (s *UserAccountService) getExternalCapacityPool(ctx context.Context, now time.Time) *UserAccountCapacityPool {
+	authorization, ok := externalAIPixelCapacityAuthorization()
+	if !ok {
+		return nil
+	}
+
+	s.externalCapacityCacheMu.Lock()
+	if s.externalCapacityCache.pool != nil && now.Before(s.externalCapacityCache.expiresAt) {
+		pool := s.externalCapacityCache.pool
+		s.externalCapacityCacheMu.Unlock()
+		return pool
+	}
+	s.externalCapacityCacheMu.Unlock()
+
+	pool, err := fetchExternalAIPixelCapacityPool(ctx, authorization)
+	if err != nil {
+		return nil
+	}
+	s.externalCapacityCacheMu.Lock()
+	s.externalCapacityCache = externalCapacityPoolCache{
+		pool:      pool,
+		expiresAt: now.Add(externalAIPixelCapacityCacheTTL()),
+	}
+	s.externalCapacityCacheMu.Unlock()
+	return pool
+}
+
+func fetchExternalAIPixelCapacityPool(ctx context.Context, authorization string) (*UserAccountCapacityPool, error) {
+	endpoint := strings.TrimSpace(os.Getenv("AI_PIXEL_CAPACITY_URL"))
+	if endpoint == "" {
+		endpoint = externalAIPixelCapacityDefaultURL
+	}
+	requestCtx, cancel := context.WithTimeout(ctx, externalAIPixelCapacityTimeout())
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(requestCtx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Authorization", authorization)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1024))
+		return nil, fmt.Errorf("external AI Pixel capacity request failed: status %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
+	if err != nil {
+		return nil, err
+	}
+	var envelope aiPixelCapacityDashboardEnvelope
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return nil, err
+	}
+	if envelope.Code != 0 {
+		return nil, fmt.Errorf("external AI Pixel capacity request failed: %s", envelope.Message)
+	}
+	return buildExternalAIPixelCapacityPool(envelope.Data.Platform), nil
+}
+
+func buildExternalAIPixelCapacityPool(platform aiPixelCapacityPlatform) *UserAccountCapacityPool {
+	pool := &UserAccountCapacityPool{
+		Key:      externalAIPixelCapacityPoolKey,
+		Title:    "公开共享容量参考",
+		Sections: []UserAccountCapacityPoolSection{},
+		Groups:   make([]UserAccountCapacityPoolGroup, 0, len(platform.GroupSummaries)),
+	}
+
+	for index, summary := range platform.GroupSummaries {
+		if !externalAIPixelCapacityGroupVisible(summary.GroupName) {
+			continue
+		}
+		group := buildExternalAIPixelCapacityGroup(summary, index)
+		pool.Groups = append(pool.Groups, group)
+		pool.TotalAccounts += group.TotalAccounts
+		pool.ActiveAccounts += group.ActiveAccounts
+		pool.SchedulableAccounts += group.SchedulableAccounts
+		pool.RateLimitedAccounts += group.RateLimitedAccounts
+		pool.ErrorAccounts += group.ErrorAccounts
+		pool.DisabledAccounts += group.DisabledAccounts
+		pool.AbnormalAccounts += group.AbnormalAccounts
+		pool.ConfiguredQuota += group.ConfiguredQuota
+		pool.RemainingQuota += group.RemainingQuota
+	}
+	sort.SliceStable(pool.Groups, func(i, j int) bool {
+		left := externalAIPixelCapacityGroupRank(pool.Groups[i].GroupName)
+		right := externalAIPixelCapacityGroupRank(pool.Groups[j].GroupName)
+		if left != right {
+			return left < right
+		}
+		return pool.Groups[i].SortOrder < pool.Groups[j].SortOrder
+	})
+	for index := range pool.Groups {
+		pool.Groups[index].SortOrder = index
+	}
+	return pool
+}
+
+func externalAIPixelCapacityGroupVisible(groupName string) bool {
+	return externalAIPixelCapacityGroupRank(groupName) < 2
+}
+
+func externalAIPixelCapacityGroupRank(groupName string) int {
+	normalized := strings.ToUpper(strings.ReplaceAll(strings.TrimSpace(groupName), " ", ""))
+	switch {
+	case strings.HasPrefix(normalized, "FREE") && strings.Contains(normalized, "共享号池"):
+		return 0
+	case strings.HasPrefix(normalized, "PLUS") && strings.Contains(normalized, "共享号池"):
+		return 1
+	default:
+		return 99
+	}
+}
+
+func buildExternalAIPixelCapacityGroup(summary aiPixelCapacityGroupSummary, index int) UserAccountCapacityPoolGroup {
+	groupName := strings.TrimSpace(summary.GroupName)
+	if groupName == "" {
+		groupName = fmt.Sprintf("公开共享分组 %d", index+1)
+	}
+	windows := externalAIPixelCapacityWindows(summary.UsageWindows)
+	group := UserAccountCapacityPoolGroup{
+		Key:                 fmt.Sprintf("%s:%s:%s", externalAIPixelCapacityPoolKey, strings.TrimSpace(summary.Platform), strings.ToLower(groupName)),
+		GroupName:           groupName,
+		Platform:            strings.TrimSpace(summary.Platform),
+		SortOrder:           index,
+		TotalAccounts:       positiveCapacityCount(summary.AccountCount),
+		ActiveAccounts:      positiveCapacityCount(summary.ActiveAccountCount),
+		SchedulableAccounts: positiveCapacityCount(summary.SchedulableAccountCount),
+		RateLimitedAccounts: positiveCapacityCount(summary.RateLimitedAccountCount),
+		ErrorAccounts:       positiveCapacityCount(summary.ErrorAccountCount),
+		DisabledAccounts:    positiveCapacityCount(summary.DisabledAccountCount),
+		AbnormalAccounts:    positiveCapacityCount(summary.ErrorAccountCount + summary.DisabledAccountCount),
+		ConfiguredQuota:     summary.Total.Limit + summary.Daily.Limit + summary.Weekly.Limit,
+		RemainingQuota:      summary.Total.Remaining + summary.Daily.Remaining + summary.Weekly.Remaining,
+		Windows:             windows,
+	}
+	if id := externalAIPixelGroupID(summary.GroupID); id != nil {
+		group.GroupID = id
+	}
+	if len(group.Windows) == 0 {
+		group.Windows = nil
+	}
+	group.Status = externalAIPixelCapacityGroupStatus(summary, group.Windows)
+	return group
+}
+
+func externalAIPixelCapacityWindows(rows []aiPixelCapacityUsageWindow) map[string]UserAccountCapacityWindowSummary {
+	if len(rows) == 0 {
+		return nil
+	}
+	windows := make(map[string]UserAccountCapacityWindowSummary, len(rows))
+	for _, row := range rows {
+		key := strings.TrimSpace(row.Window)
+		if key == "" {
+			continue
+		}
+		snapshotAccounts := positiveCapacityCount(row.KnownAccountCount)
+		if snapshotAccounts == 0 {
+			snapshotAccounts = positiveCapacityCount(row.AccountCount)
+		}
+		windows[key] = UserAccountCapacityWindowSummary{
+			UsedPercent:                 clampCapacityPercent(row.AverageUtilization),
+			ResetAfterSeconds:           positiveCapacityCount(row.MinRemainingSeconds),
+			ResetAt:                     normalizeCapacityWindowTime(row.NextResetAt),
+			WindowMinutes:               externalAIPixelWindowMinutes(key),
+			SnapshotAccounts:            snapshotAccounts,
+			SchedulableSnapshotAccounts: positiveCapacityCount(row.AccountCount),
+			RemainingUnits:              maxFloat64(row.RemainingCapacityPercent/100, 0),
+		}
+	}
+	if len(windows) == 0 {
+		return nil
+	}
+	return windows
+}
+
+func externalAIPixelCapacityGroupStatus(summary aiPixelCapacityGroupSummary, windows map[string]UserAccountCapacityWindowSummary) string {
+	if summary.AccountCount <= 0 || summary.SchedulableAccountCount <= 0 {
+		return "unavailable"
+	}
+	switch strings.ToLower(strings.TrimSpace(summary.GroupStatus)) {
+	case "", "active", "normal", "healthy":
+	default:
+		return "unavailable"
+	}
+	for _, window := range windows {
+		if window.UsedPercent >= 80 {
+			return "degraded"
+		}
+	}
+	return "healthy"
+}
+
+func externalAIPixelGroupID(raw json.RawMessage) *int64 {
+	text := strings.TrimSpace(string(raw))
+	if text == "" || text == "null" {
+		return nil
+	}
+	text = strings.Trim(text, `"`)
+	var id int64
+	if _, err := fmt.Sscan(text, &id); err != nil {
+		return nil
+	}
+	return &id
+}
+
+func externalAIPixelWindowMinutes(key string) int {
+	switch strings.ToLower(strings.TrimSpace(key)) {
+	case "5h":
+		return int((5 * time.Hour).Minutes())
+	case "7d":
+		return int((7 * 24 * time.Hour).Minutes())
+	default:
+		return 0
+	}
+}
+
+func externalAIPixelCapacityAuthorization() (string, bool) {
+	if tokenFile := strings.TrimSpace(os.Getenv("AI_PIXEL_CAPACITY_TOKEN_FILE")); tokenFile != "" {
+		content, err := os.ReadFile(tokenFile)
+		if err == nil {
+			return normalizeExternalAIPixelAuthorization(string(content))
+		}
+	}
+	if content, err := os.ReadFile(externalAIPixelCapacityDefaultTokenFile); err == nil {
+		return normalizeExternalAIPixelAuthorization(string(content))
+	}
+	return normalizeExternalAIPixelAuthorization(os.Getenv("AI_PIXEL_CAPACITY_TOKEN"))
+}
+
+func normalizeExternalAIPixelAuthorization(raw string) (string, bool) {
+	selected := strings.TrimSpace(raw)
+	for _, line := range strings.Split(raw, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		lower := strings.ToLower(line)
+		if strings.HasPrefix(lower, "authorization:") {
+			selected = strings.TrimSpace(line[len("authorization:"):])
+			break
+		}
+		selected = line
+		if strings.HasPrefix(lower, "bearer ") {
+			break
+		}
+	}
+	selected = strings.Trim(strings.TrimSpace(selected), `"'`)
+	lower := strings.ToLower(selected)
+	if strings.HasPrefix(lower, "authorization:") {
+		selected = strings.TrimSpace(selected[len("authorization:"):])
+		lower = strings.ToLower(selected)
+	}
+	if strings.HasPrefix(lower, "bearer ") {
+		selected = strings.TrimSpace(selected[len("bearer "):])
+	}
+	selected = strings.Trim(strings.TrimSpace(selected), `"'`)
+	if selected == "" {
+		return "", false
+	}
+	return "Bearer " + selected, true
+}
+
+func externalAIPixelCapacityTimeout() time.Duration {
+	return externalAIPixelCapacityDefaultTimeout
+}
+
+func externalAIPixelCapacityCacheTTL() time.Duration {
+	return externalAIPixelCapacityDefaultTTL
+}
+
+func positiveCapacityCount(value int) int {
+	if value < 0 {
+		return 0
+	}
+	return value
+}
+
+func clampCapacityPercent(value float64) float64 {
+	if value < 0 {
+		return 0
+	}
+	if value > 100 {
+		return 100
+	}
+	return value
 }
 
 func (s *UserAccountService) accountCapacityDisplayUsageDeltas(ctx context.Context, accounts []Account, now time.Time) (map[int64]accountCapacityDisplayUsageDelta, error) {

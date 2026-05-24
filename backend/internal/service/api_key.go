@@ -36,6 +36,7 @@ type APIKey struct {
 	GroupID               *int64
 	MultiGroupRoutes      []domain.APIKeyMultiGroupRoute
 	MultiGroupRouteGroups []*Group
+	AccountPoolStrategy   string
 	Status                string
 	IPWhitelist           []string
 	IPBlacklist           []string
@@ -143,4 +144,28 @@ type APIKeyListFilters struct {
 	Search  string
 	Status  string
 	GroupID *int64 // nil=不筛选, 0=无分组, >0=指定分组
+}
+
+const (
+	AccountPoolStrategySharedOnly   = "shared_only"
+	AccountPoolStrategyPrivateFirst = "private_first"
+	AccountPoolStrategyPrivateOnly  = "private_only"
+)
+
+func NormalizeAccountPoolStrategy(value string) string {
+	switch value {
+	case AccountPoolStrategyPrivateFirst, AccountPoolStrategyPrivateOnly:
+		return value
+	default:
+		return AccountPoolStrategySharedOnly
+	}
+}
+
+func IsValidAccountPoolStrategy(value string) bool {
+	switch value {
+	case "", AccountPoolStrategySharedOnly, AccountPoolStrategyPrivateFirst, AccountPoolStrategyPrivateOnly:
+		return true
+	default:
+		return false
+	}
 }

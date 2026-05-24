@@ -47,6 +47,7 @@ type OpenAIAccountScheduleRequest struct {
 	RequiredImageCapability OpenAIImagesCapability
 	RequireCompact          bool
 	ExcludedIDs             map[int64]struct{}
+	Sub2APIUserID           int64
 }
 
 type OpenAIAccountScheduleDecision struct {
@@ -349,6 +350,10 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	if !s.isAccountRequestCompatible(ctx, account, req) {
 		return nil, nil
 	}
+	if !accountAllowedByAPIKeyPoolStrategy(ctx, account, req.Sub2APIUserID) {
+		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
+		return nil, nil
+	}
 	if !s.isAccountTransportCompatible(account, req.RequiredTransport) {
 		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
 		return nil, nil
@@ -614,6 +619,9 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 			}
 		}
 		if !account.IsSchedulable() || !account.IsOpenAI() {
+			continue
+		}
+		if !accountAllowedByAPIKeyPoolStrategy(ctx, account, req.Sub2APIUserID) {
 			continue
 		}
 		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
@@ -1038,6 +1046,17 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForUser(
 	requireCompact bool,
 	sub2apiUserID int64,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	ctx = withAccountPoolUserID(ctx, sub2apiUserID)
+	if accountPoolStrategyIsPrivateFirst(ctx) {
+		selection, decision, err := s.selectAccountWithSchedulerForUser(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, "", requireCompact, sub2apiUserID)
+		if err == nil {
+			return selection, decision, nil
+		}
+		if !isAccountPoolNoAvailableError(err) {
+			return nil, decision, err
+		}
+		return s.selectAccountWithSchedulerForUser(withAccountPoolStrategy(ctx, AccountPoolStrategySharedOnly), groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, "", requireCompact, sub2apiUserID)
+	}
 	return s.selectAccountWithSchedulerForUser(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, "", requireCompact, sub2apiUserID)
 }
 
@@ -1069,6 +1088,17 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImagesForUser(
 	requiredCapability OpenAIImagesCapability,
 	sub2apiUserID int64,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	ctx = withAccountPoolUserID(ctx, sub2apiUserID)
+	if accountPoolStrategyIsPrivateFirst(ctx) {
+		selection, decision, err := s.SelectAccountWithSchedulerForImagesForUser(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, sessionHash, requestedModel, excludedIDs, requiredCapability, sub2apiUserID)
+		if err == nil {
+			return selection, decision, nil
+		}
+		if !isAccountPoolNoAvailableError(err) {
+			return nil, decision, err
+		}
+		return s.SelectAccountWithSchedulerForImagesForUser(withAccountPoolStrategy(ctx, AccountPoolStrategySharedOnly), groupID, sessionHash, requestedModel, excludedIDs, requiredCapability, sub2apiUserID)
+	}
 	selection, decision, err := s.selectAccountWithSchedulerForUser(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, requiredCapability, false, sub2apiUserID)
 	if err == nil && selection != nil && selection.Account != nil {
 		return selection, decision, nil
@@ -1097,7 +1127,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 		if requiredTransport == OpenAIUpstreamTransportAny || requiredTransport == OpenAIUpstreamTransportHTTPSSE {
 			effectiveExcludedIDs := cloneExcludedAccountIDs(excludedIDs)
 			for {
-				selection, err := s.selectAccountWithLoadAwareness(ctx, groupID, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact)
+				selection, err := s.selectAccountWithLoadAwarenessForUser(ctx, groupID, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact, accountPoolUserIDFromContext(ctx, 0))
 				if err != nil {
 					return nil, decision, err
 				}
@@ -1122,7 +1152,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 
 		effectiveExcludedIDs := cloneExcludedAccountIDs(excludedIDs)
 		for {
-			selection, err := s.selectAccountWithLoadAwareness(ctx, groupID, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact)
+			selection, err := s.selectAccountWithLoadAwarenessForUser(ctx, groupID, sessionHash, requestedModel, effectiveExcludedIDs, requireCompact, accountPoolUserIDFromContext(ctx, 0))
 			if err != nil {
 				return nil, decision, err
 			}
@@ -1169,6 +1199,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 		RequiredImageCapability: requiredImageCapability,
 		RequireCompact:          requireCompact,
 		ExcludedIDs:             excludedIDs,
+		Sub2APIUserID:           accountPoolUserIDFromContext(ctx, 0),
 	})
 }
 
@@ -1195,7 +1226,7 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerForUser(
 		if selection == nil || selection.Account == nil {
 			return selection, decision, nil
 		}
-		if selection.Account.CanBeUsedByUser(sub2apiUserID) {
+		if accountAllowedByAPIKeyPoolStrategy(ctx, selection.Account, sub2apiUserID) {
 			return selection, decision, nil
 		}
 		if selection.ReleaseFunc != nil {

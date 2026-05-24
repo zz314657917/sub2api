@@ -6,6 +6,7 @@
 import { apiClient } from './client'
 import type {
   ApiKey,
+  AccountPoolStrategy,
   ApiKeyMultiGroupRoute,
   CreateApiKeyRequest,
   UpdateApiKeyRequest,
@@ -62,6 +63,7 @@ export async function getById(id: number): Promise<ApiKey> {
  * @param expiresInDays - Optional days until expiry (undefined = never expires)
  * @param rateLimitData - Optional rate limit fields
  * @param multiGroupRoutes - Optional multi-group routing fields
+ * @param accountPoolStrategy - Optional account pool scheduling strategy
  * @returns Created API key
  */
 export async function create(
@@ -73,7 +75,8 @@ export async function create(
   quota?: number,
   expiresInDays?: number,
   rateLimitData?: { rate_limit_5h?: number; rate_limit_1d?: number; rate_limit_7d?: number },
-  multiGroupRoutes?: ApiKeyMultiGroupRoute[]
+  multiGroupRoutes?: ApiKeyMultiGroupRoute[],
+  accountPoolStrategy?: AccountPoolStrategy
 ): Promise<ApiKey> {
   const payload: CreateApiKeyRequest = { name }
   if (groupId !== undefined) {
@@ -105,6 +108,9 @@ export async function create(
   }
   if (multiGroupRoutes) {
     payload.multi_group_routes = multiGroupRoutes
+  }
+  if (accountPoolStrategy) {
+    payload.account_pool_strategy = accountPoolStrategy
   }
 
   const { data } = await apiClient.post<ApiKey>('/keys', payload)

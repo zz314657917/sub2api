@@ -176,6 +176,18 @@ func (s *apiKeyCacheStub) DeleteCreateAttemptCount(ctx context.Context, userID i
 	return nil
 }
 
+func (s *apiKeyCacheStub) IsRouteGroupCooling(ctx context.Context, apiKeyID, groupID int64) (bool, error) {
+	return false, nil
+}
+
+func (s *apiKeyCacheStub) SetRouteGroupCooldown(ctx context.Context, apiKeyID, groupID int64, ttl time.Duration) error {
+	return nil
+}
+
+func (s *apiKeyCacheStub) DeleteRouteGroupCooldown(ctx context.Context, apiKeyID, groupID int64) error {
+	return nil
+}
+
 // IncrementDailyUsage 空实现，本测试不验证此行为
 func (s *apiKeyCacheStub) IncrementDailyUsage(ctx context.Context, apiKey string) error {
 	return nil

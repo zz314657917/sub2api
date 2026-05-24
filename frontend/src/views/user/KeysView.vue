@@ -138,6 +138,12 @@
                 >
                   {{ t('keys.multiGroupRouteCount', { count: row.multi_group_routes.length }) }}
                 </span>
+                <span
+                  v-if="row.account_pool_strategy && row.account_pool_strategy !== 'shared_only'"
+                  class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                >
+                  {{ accountPoolStrategyLabel(row.account_pool_strategy) }}
+                </span>
               </div>
             </div>
           </template>
@@ -468,6 +474,17 @@
           </p>
         </div>
 
+        <div>
+          <label class="input-label">{{ t('keys.accountPoolStrategyLabel') }}</label>
+          <Select
+            v-model="formData.account_pool_strategy"
+            :options="accountPoolStrategyOptions"
+          />
+          <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
+            {{ t('keys.accountPoolStrategyHint') }}
+          </p>
+        </div>
+
         <div class="space-y-3 rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-800/40">
           <div class="flex items-start justify-between gap-4">
             <div>
@@ -496,103 +513,115 @@
           </div>
 
           <div v-if="formData.enable_multi_group_routing" class="space-y-3">
-            <div
-              v-for="(route, index) in formData.multi_group_routes"
-              :key="index"
-              class="rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900/40"
+            <VueDraggable
+              v-model="formData.multi_group_routes"
+              :animation="200"
+              handle=".route-drag-handle"
+              class="space-y-3"
+              @end="renumberMultiGroupRoutePriorities"
             >
-              <div class="mb-3 flex items-center justify-between gap-3">
-                <div class="flex items-center gap-2">
-                  <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
-                    {{ index + 1 }}
-                  </span>
-                  <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
-                    t('keys.routeConfig')
-                  }}</span>
+              <div
+                v-for="(route, index) in formData.multi_group_routes"
+                :key="route.client_id"
+                class="rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900/40"
+              >
+                <div class="mb-3 flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      class="route-drag-handle inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 active:cursor-grabbing dark:text-gray-500 dark:hover:bg-dark-700 dark:hover:text-gray-300"
+                      :title="t('keys.dragRoute')"
+                    >
+                      <Icon name="menu" size="sm" />
+                    </button>
+                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+                      {{ index + 1 }}
+                    </span>
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                      t('keys.routeConfig')
+                    }}</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-dark-600 dark:text-gray-300">
+                      <input
+                        v-model="route.enabled"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span>{{ t('keys.routeEnabled') }}</span>
+                    </label>
+                    <button
+                      type="button"
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-dark-600 dark:text-gray-400 dark:hover:border-red-900/60 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+                      :title="t('keys.removeRoute')"
+                      @click="removeMultiGroupRoute(index)"
+                    >
+                      <Icon name="trash" size="sm" />
+                    </button>
+                  </div>
                 </div>
-                <div class="flex items-center gap-2">
-                  <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-dark-600 dark:text-gray-300">
-                    <input
-                      v-model="route.enabled"
-                      type="checkbox"
-                      class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                    />
-                    <span>{{ t('keys.routeEnabled') }}</span>
-                  </label>
-                  <button
-                    type="button"
-                    class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-dark-600 dark:text-gray-400 dark:hover:border-red-900/60 dark:hover:bg-red-900/20 dark:hover:text-red-300"
-                    :title="t('keys.removeRoute')"
-                    @click="removeMultiGroupRoute(index)"
-                  >
-                    <Icon name="trash" size="sm" />
-                  </button>
-                </div>
-              </div>
 
-              <div class="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_minmax(8rem,1fr)]">
-                <div>
-                  <label class="input-label">{{ t('keys.groupLabel') }}</label>
-                  <Select
-                    v-model="route.group_id"
-                    :options="groupOptions"
-                    :placeholder="t('keys.selectGroup')"
-                    :searchable="true"
-                    :search-placeholder="t('keys.searchGroup')"
-                  >
-                    <template #selected="{ option }">
-                      <GroupBadge
-                        v-if="option"
-                        :name="(option as unknown as GroupOption).label"
-                        :platform="(option as unknown as GroupOption).platform"
-                        :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                        :rate-multiplier="(option as unknown as GroupOption).rate"
-                        :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                      />
-                      <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
-                    </template>
-                    <template #option="{ option, selected }">
-                      <GroupOptionItem
-                        :name="(option as unknown as GroupOption).label"
-                        :platform="(option as unknown as GroupOption).platform"
-                        :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                        :rate-multiplier="(option as unknown as GroupOption).rate"
-                        :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                        :description="(option as unknown as GroupOption).description"
-                        :selected="selected"
-                      />
-                    </template>
-                  </Select>
-                </div>
-                <div>
-                  <label class="input-label">{{ t('keys.priority') }}</label>
-                  <input
-                    v-model.number="route.priority"
-                    type="number"
-                    min="0"
-                    class="input"
-                  />
-                </div>
-                <div>
-                  <label class="input-label">{{ t('keys.weight') }}</label>
-                  <input
-                    v-model.number="route.weight"
-                    type="number"
-                    min="1"
-                    class="input"
-                  />
-                </div>
-                <div>
-                  <label class="input-label">{{ t('keys.cooldownSeconds') }}</label>
-                  <input
-                    v-model.number="route.cooldown_seconds"
-                    type="number"
-                    min="0"
-                    class="input"
-                  />
+                <div class="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_minmax(8rem,1fr)]">
+                  <div>
+                    <label class="input-label">{{ t('keys.groupLabel') }}</label>
+                    <Select
+                      v-model="route.group_id"
+                      :options="groupOptions"
+                      :placeholder="t('keys.selectGroup')"
+                      :searchable="true"
+                      :search-placeholder="t('keys.searchGroup')"
+                    >
+                      <template #selected="{ option }">
+                        <GroupBadge
+                          v-if="option"
+                          :name="(option as unknown as GroupOption).label"
+                          :platform="(option as unknown as GroupOption).platform"
+                          :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                          :rate-multiplier="(option as unknown as GroupOption).rate"
+                          :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                        />
+                        <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
+                      </template>
+                      <template #option="{ option, selected }">
+                        <GroupOptionItem
+                          :name="(option as unknown as GroupOption).label"
+                          :platform="(option as unknown as GroupOption).platform"
+                          :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                          :rate-multiplier="(option as unknown as GroupOption).rate"
+                          :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                          :description="(option as unknown as GroupOption).description"
+                          :selected="selected"
+                        />
+                      </template>
+                    </Select>
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('keys.priority') }}</label>
+                    <div class="flex h-10 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200">
+                      {{ index + 1 }}
+                    </div>
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('keys.weight') }}</label>
+                    <input
+                      v-model.number="route.weight"
+                      type="number"
+                      min="1"
+                      class="input"
+                    />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('keys.cooldownSeconds') }}</label>
+                    <input
+                      v-model.number="route.cooldown_seconds"
+                      type="number"
+                      min="0"
+                      class="input"
+                    />
+                  </div>
                 </div>
               </div>
-            </div>
+            </VueDraggable>
 
             <button type="button" class="btn btn-secondary" @click="addMultiGroupRoute">
               <Icon name="plus" size="sm" class="mr-2" />
@@ -1247,6 +1276,7 @@
 import { ref, computed, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
+import { VueDraggable } from 'vue-draggable-plus'
 import { keysAPI, authAPI, usageAPI, userGroupsAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -1267,6 +1297,7 @@ import { useAppStore } from '@/stores/app'
 import { useOnboardingStore } from '@/stores/onboarding'
 import { useClipboard } from '@/composables/useClipboard'
 import type {
+  AccountPoolStrategy,
   ApiKey,
   ApiKeyMultiGroupRoute,
   Group,
@@ -1295,6 +1326,7 @@ const formatDateTimeLocal = (isoDate: string): string => {
 }
 
 const INVALID_FILE_CHARS_REGEX = new RegExp(`[<>:"/\\\\|?*\\u0000-\\u001F]`, 'g')
+let routeClientIdSeed = 0
 
 interface GroupOption {
   value: number
@@ -1307,6 +1339,7 @@ interface GroupOption {
 }
 
 interface ApiKeyMultiGroupRouteForm {
+  client_id: string
   group_id: number | null
   priority: number
   weight: number
@@ -1396,6 +1429,7 @@ const formData = ref({
   group_id: null as number | null,
   enable_multi_group_routing: false,
   multi_group_routes: [] as ApiKeyMultiGroupRouteForm[],
+  account_pool_strategy: 'shared_only' as AccountPoolStrategy,
   status: 'active' as 'active' | 'inactive',
   use_custom_key: false,
   custom_key: '',
@@ -1436,9 +1470,18 @@ const statusOptions = computed(() => [
   { value: 'inactive', label: t('common.inactive') }
 ])
 
+const createRouteClientId = () => `route-${Date.now()}-${routeClientIdSeed++}`
+
+const renumberMultiGroupRoutePriorities = () => {
+  formData.value.multi_group_routes.forEach((route, index) => {
+    route.priority = index + 1
+  })
+}
+
 const createDefaultRoute = (groupId: number | null = formData.value.group_id): ApiKeyMultiGroupRouteForm => ({
+  client_id: createRouteClientId(),
   group_id: groupId,
-  priority: 100,
+  priority: formData.value.multi_group_routes.length + 1,
   weight: 1,
   cooldown_seconds: 30,
   enabled: true
@@ -1454,17 +1497,21 @@ const toggleMultiGroupRouting = () => {
   if (formData.value.enable_multi_group_routing && formData.value.multi_group_routes.length === 0) {
     formData.value.multi_group_routes = [createDefaultRoute()]
   }
+  renumberMultiGroupRoutePriorities()
 }
 
 const addMultiGroupRoute = () => {
   formData.value.multi_group_routes.push(createDefaultRoute(getNextRouteGroupId()))
+  renumberMultiGroupRoutePriorities()
 }
 
 const removeMultiGroupRoute = (index: number) => {
   formData.value.multi_group_routes.splice(index, 1)
+  renumberMultiGroupRoutePriorities()
 }
 
 const normalizeRouteForm = (route: ApiKeyMultiGroupRoute): ApiKeyMultiGroupRouteForm => ({
+  client_id: createRouteClientId(),
   group_id: route.group_id,
   priority: route.priority || 100,
   weight: route.weight > 0 ? route.weight : 1,
@@ -1472,10 +1519,26 @@ const normalizeRouteForm = (route: ApiKeyMultiGroupRoute): ApiKeyMultiGroupRoute
   enabled: route.enabled
 })
 
+const normalizeRouteForms = (routes: ApiKeyMultiGroupRoute[]): ApiKeyMultiGroupRouteForm[] => {
+  const normalized = routes
+    .map((route, index) => ({ route, index }))
+    .sort((a, b) => {
+      const priorityA = a.route.priority > 0 ? a.route.priority : 100
+      const priorityB = b.route.priority > 0 ? b.route.priority : 100
+      return priorityA === priorityB ? a.index - b.index : priorityA - priorityB
+    })
+    .map(({ route }) => normalizeRouteForm(route))
+  normalized.forEach((route, index) => {
+    route.priority = index + 1
+  })
+  return normalized
+}
+
 const buildMultiGroupRoutes = (): ApiKeyMultiGroupRoute[] => {
+  renumberMultiGroupRoutePriorities()
   return formData.value.multi_group_routes.map((route) => ({
     group_id: route.group_id as number,
-    priority: Number.isFinite(route.priority) ? Math.max(0, Number(route.priority)) : 100,
+    priority: route.priority,
     weight: Number.isFinite(route.weight) ? Math.max(1, Number(route.weight)) : 1,
     cooldown_seconds: Number.isFinite(route.cooldown_seconds)
       ? Math.max(0, Number(route.cooldown_seconds))
@@ -1518,6 +1581,23 @@ const statusFilterOptions = computed(() => [
   { value: 'quota_exhausted', label: t('keys.status.quota_exhausted') },
   { value: 'expired', label: t('keys.status.expired') }
 ])
+
+const accountPoolStrategyOptions = computed(() => [
+  { value: 'shared_only', label: t('keys.accountPoolStrategy.sharedOnly') },
+  { value: 'private_first', label: t('keys.accountPoolStrategy.privateFirst') },
+  { value: 'private_only', label: t('keys.accountPoolStrategy.privateOnly') }
+])
+
+const accountPoolStrategyLabel = (strategy: AccountPoolStrategy | string) => {
+  switch (strategy) {
+    case 'private_first':
+      return t('keys.accountPoolStrategy.privateFirst')
+    case 'private_only':
+      return t('keys.accountPoolStrategy.privateOnly')
+    default:
+      return t('keys.accountPoolStrategy.sharedOnly')
+  }
+}
 
 const onFilterChange = () => {
   pagination.value.page = 1
@@ -1684,12 +1764,13 @@ const editKey = (key: ApiKey) => {
   selectedKey.value = key
   const hasIPRestriction = (key.ip_whitelist?.length > 0) || (key.ip_blacklist?.length > 0)
   const hasExpiration = !!key.expires_at
-  const multiGroupRoutes = (key.multi_group_routes || []).map(normalizeRouteForm)
+  const multiGroupRoutes = normalizeRouteForms(key.multi_group_routes || [])
   formData.value = {
     name: key.name,
     group_id: key.group_id,
     enable_multi_group_routing: multiGroupRoutes.length > 0,
     multi_group_routes: multiGroupRoutes,
+    account_pool_strategy: key.account_pool_strategy || 'shared_only',
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
     use_custom_key: false,
     custom_key: '',
@@ -1853,6 +1934,7 @@ const handleSubmit = async () => {
         name: formData.value.name,
         group_id: formData.value.group_id,
         multi_group_routes: multiGroupRoutes,
+        account_pool_strategy: formData.value.account_pool_strategy,
         status: formData.value.status,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
@@ -1874,7 +1956,8 @@ const handleSubmit = async () => {
         quota,
         expiresInDays,
         rateLimitData,
-        multiGroupRoutes
+        multiGroupRoutes,
+        formData.value.account_pool_strategy
       )
       appStore.showSuccess(t('keys.keyCreatedSuccess'))
       // Only advance tour if active, on submit step, and creation succeeded
@@ -1939,6 +2022,7 @@ const closeModals = () => {
     group_id: null,
     enable_multi_group_routing: false,
     multi_group_routes: [],
+    account_pool_strategy: 'shared_only',
     status: 'active',
     use_custom_key: false,
     custom_key: '',

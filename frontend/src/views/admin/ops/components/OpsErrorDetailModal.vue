@@ -34,7 +34,10 @@
           </div>
           <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
             <template v-if="isUpstreamError(detail)">
-              {{ detail.account_name || (detail.account_id != null ? String(detail.account_id) : '—') }}
+              {{ accountDisplay }}
+              <div v-if="detail.account_notes" class="mt-1 truncate text-xs font-normal text-gray-500 dark:text-gray-400" :title="detail.account_notes">
+                {{ detail.account_notes }}
+              </div>
             </template>
             <template v-else>
               {{ detail.user_email || (detail.user_id != null ? String(detail.user_id) : '—') }}
@@ -233,6 +236,15 @@ const title = computed(() => {
 })
 
 const emptyText = computed(() => t('admin.ops.errorDetail.noErrorSelected'))
+
+const accountDisplay = computed(() => {
+  const d = detail.value
+  if (!d || d.account_id == null) return '—'
+  const name = String(d.account_name || '').trim()
+  const notes = String(d.account_notes || '').trim()
+  const label = name || notes
+  return label ? `${label} (#${d.account_id})` : String(d.account_id)
+})
 
 function isUpstreamError(d: OpsErrorDetail | null): boolean {
   if (!d) return false

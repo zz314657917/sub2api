@@ -8,6 +8,7 @@ const routeState = vi.hoisted(() => ({
 }))
 const routerReplace = vi.hoisted(() => vi.fn())
 const keysList = vi.hoisted(() => vi.fn())
+const keysCreate = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -33,6 +34,7 @@ vi.mock('vue-i18n', async () => {
 vi.mock('@/api', () => ({
   keysAPI: {
     list: keysList,
+    create: keysCreate,
   },
   authAPI: {
     getPublicSettings: vi.fn().mockResolvedValue({}),
@@ -86,6 +88,7 @@ function mountView() {
           emits: ['update:modelValue', 'change'],
           template: '<select @change="$emit(`update:modelValue`, null)" />',
         },
+        VueDraggable: { template: '<div><slot /></div>' },
         SearchInput: { template: '<input />' },
         Pagination: true,
         ConfirmDialog: true,
@@ -106,6 +109,7 @@ describe('KeysView create query', () => {
     routeState.path = '/keys'
     routeState.query = {}
     routerReplace.mockReset()
+    keysCreate.mockReset().mockResolvedValue({ id: 1 })
     keysList.mockReset().mockResolvedValue({
       items: [],
       total: 0,
@@ -124,5 +128,32 @@ describe('KeysView create query', () => {
       path: '/keys',
       query: { create: undefined },
     })
+  })
+
+  it('submits multi-group route priorities from the current row order', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.openCreateModal()
+    setupState.formData.group_id = 1
+    setupState.formData.enable_multi_group_routing = true
+    setupState.formData.multi_group_routes = [
+      { client_id: 'route-b', group_id: 2, priority: 100, weight: 2, cooldown_seconds: 30, enabled: true },
+      { client_id: 'route-a', group_id: 1, priority: 100, weight: 1, cooldown_seconds: 30, enabled: true },
+      { client_id: 'route-c', group_id: 3, priority: 100, weight: 3, cooldown_seconds: 30, enabled: true },
+    ]
+
+    await setupState.handleSubmit()
+
+    const routes = keysCreate.mock.calls[0][8]
+    expect(routes.map((route: { group_id: number; priority: number }) => ({
+      group_id: route.group_id,
+      priority: route.priority,
+    }))).toEqual([
+      { group_id: 2, priority: 1 },
+      { group_id: 1, priority: 2 },
+      { group_id: 3, priority: 3 },
+    ])
   })
 })

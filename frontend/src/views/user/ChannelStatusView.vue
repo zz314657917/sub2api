@@ -2,7 +2,7 @@
   <AppLayout>
     <AccountCapacityPools
       v-if="accountShareEnabled"
-      :pools="capacityPools"
+      :pools="visibleCapacityPools"
       :loading="capacityLoading"
     />
 
@@ -112,6 +112,19 @@ const detailTitle = computed(() => {
 })
 
 const accountShareEnabled = computed(() => appStore.cachedPublicSettings?.account_share_enabled !== false)
+const externalCapacityReferenceFeatureEnabled = false
+const externalCapacityReferenceEnabled = computed(
+  () => externalCapacityReferenceFeatureEnabled
+    && appStore.cachedPublicSettings?.external_capacity_reference_enabled === true,
+)
+const visibleCapacityPools = computed<UserAccountCapacityPools | null>(() => {
+  if (!capacityPools.value) return null
+  if (externalCapacityReferenceEnabled.value) return capacityPools.value
+  return {
+    ...capacityPools.value,
+    external: null,
+  }
+})
 
 // ── Loaders ──
 async function reload(silent = false) {

@@ -3984,6 +3984,9 @@ func (s *OpenAIGatewayService) SelectAccountByPreviousResponseID(
 		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
 		return nil, nil
 	}
+	if !accountAllowedByAPIKeyPoolStrategy(ctx, account, 0) {
+		return nil, nil
+	}
 	if requestedModel != "" && !account.IsModelSupported(requestedModel) {
 		return nil, nil
 	}

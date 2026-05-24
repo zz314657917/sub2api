@@ -1267,6 +1267,16 @@ func (s *OpenAIGatewayService) SelectAccountForModel(ctx context.Context, groupI
 // SelectAccountForModelWithExclusions selects an account supporting the requested model while excluding specified accounts.
 // SelectAccountForModelWithExclusions 选择支持指定模型的账号，同时排除指定的账号。
 func (s *OpenAIGatewayService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	if accountPoolStrategyIsPrivateFirst(ctx) {
+		account, err := s.selectAccountForModelWithExclusions(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, sessionHash, requestedModel, excludedIDs, false, 0)
+		if err == nil {
+			return account, nil
+		}
+		if !isAccountPoolNoAvailableError(err) {
+			return nil, err
+		}
+		return s.selectAccountForModelWithExclusions(withAccountPoolStrategy(ctx, AccountPoolStrategySharedOnly), groupID, sessionHash, requestedModel, excludedIDs, false, 0)
+	}
 	return s.selectAccountForModelWithExclusions(ctx, groupID, sessionHash, requestedModel, excludedIDs, false, 0)
 }
 
@@ -1374,6 +1384,7 @@ func (s *OpenAIGatewayService) selectAccountForModelWithExclusions(ctx context.C
 	if err != nil {
 		return nil, fmt.Errorf("query accounts failed: %w", err)
 	}
+	accounts = filterAccountsForAPIKeyPoolStrategy(ctx, accounts, 0)
 
 	// 3. 按优先级 + LRU 选择最佳账号
 	// Select by priority + LRU
@@ -1423,6 +1434,10 @@ func (s *OpenAIGatewayService) tryStickySessionHit(ctx context.Context, groupID 
 	// 检查账号是否需要清理粘性会话
 	// Check if sticky session should be cleared
 	if shouldClearStickySession(account, requestedModel) {
+		_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+		return nil
+	}
+	if !accountAllowedByAPIKeyPoolStrategy(ctx, account, 0) {
 		_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 		return nil
 	}
@@ -1552,7 +1567,32 @@ func (s *OpenAIGatewayService) isBetterAccount(candidate, current *Account) bool
 
 // SelectAccountWithLoadAwareness selects an account with load-awareness and wait plan.
 func (s *OpenAIGatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
+	if accountPoolStrategyIsPrivateFirst(ctx) {
+		result, err := s.selectAccountWithLoadAwareness(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, sessionHash, requestedModel, excludedIDs, false)
+		if err == nil {
+			return result, nil
+		}
+		if !isAccountPoolNoAvailableError(err) {
+			return nil, err
+		}
+		return s.selectAccountWithLoadAwareness(withAccountPoolStrategy(ctx, AccountPoolStrategySharedOnly), groupID, sessionHash, requestedModel, excludedIDs, false)
+	}
 	return s.selectAccountWithLoadAwareness(ctx, groupID, sessionHash, requestedModel, excludedIDs, false)
+}
+
+func (s *OpenAIGatewayService) selectAccountWithLoadAwarenessForUser(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool, sub2apiUserID int64) (*AccountSelectionResult, error) {
+	ctx = withAccountPoolUserID(ctx, sub2apiUserID)
+	if accountPoolStrategyIsPrivateFirst(ctx) {
+		result, err := s.selectAccountWithLoadAwareness(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, sessionHash, requestedModel, excludedIDs, requireCompact)
+		if err == nil {
+			return result, nil
+		}
+		if !isAccountPoolNoAvailableError(err) {
+			return nil, err
+		}
+		return s.selectAccountWithLoadAwareness(withAccountPoolStrategy(ctx, AccountPoolStrategySharedOnly), groupID, sessionHash, requestedModel, excludedIDs, requireCompact)
+	}
+	return s.selectAccountWithLoadAwareness(ctx, groupID, sessionHash, requestedModel, excludedIDs, requireCompact)
 }
 
 func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, requireCompact bool) (*AccountSelectionResult, error) {
@@ -1603,6 +1643,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 	if err != nil {
 		return nil, err
 	}
+	accounts = filterAccountsForAPIKeyPoolStrategy(ctx, accounts, 0)
 	if len(accounts) == 0 {
 		return nil, ErrNoAvailableAccounts
 	}
@@ -1625,7 +1666,10 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				if clearSticky {
 					_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 				}
-				if !clearSticky && isOpenAIAccountEligibleForRequest(account, requestedModel, false) {
+				if !clearSticky && !accountAllowedByAPIKeyPoolStrategy(ctx, account, 0) {
+					_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+				}
+				if !clearSticky && accountAllowedByAPIKeyPoolStrategy(ctx, account, 0) && isOpenAIAccountEligibleForRequest(account, requestedModel, false) {
 					account = s.recheckSelectedOpenAIAccountFromDB(ctx, account, requestedModel, requireCompact)
 					if account == nil {
 						_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
@@ -1827,6 +1871,10 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 }
 
 func (s *OpenAIGatewayService) listSchedulableAccounts(ctx context.Context, groupID *int64) ([]Account, error) {
+	strategy, configured := accountPoolStrategyFromContext(ctx)
+	if configured && strategy == AccountPoolStrategyPrivateOnly {
+		return listPrivatePoolSchedulableAccounts(ctx, s.accountRepo, accountPoolUserIDFromContext(ctx, 0), []string{PlatformOpenAI})
+	}
 	if s.schedulerSnapshot != nil {
 		accounts, _, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, PlatformOpenAI, false)
 		return accounts, err

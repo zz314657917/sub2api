@@ -89,6 +89,9 @@ func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) erro
 		key.CreatedAt = created.CreatedAt
 		key.UpdatedAt = created.UpdatedAt
 		err = r.setAPIKeyMultiGroupRoutes(ctx, key.ID, routeJSON)
+		if err == nil {
+			err = r.setAPIKeyAccountPoolStrategy(ctx, key.ID, service.NormalizeAccountPoolStrategy(key.AccountPoolStrategy))
+		}
 	}
 	if err != nil {
 		return translatePersistenceError(err, nil, service.ErrAPIKeyExists)
@@ -320,6 +323,9 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) erro
 		return service.ErrAPIKeyNotFound
 	}
 	if err := r.setAPIKeyMultiGroupRoutes(ctx, key.ID, routeJSON); err != nil {
+		return err
+	}
+	if err := r.setAPIKeyAccountPoolStrategy(ctx, key.ID, service.NormalizeAccountPoolStrategy(key.AccountPoolStrategy)); err != nil {
 		return err
 	}
 
@@ -804,29 +810,30 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		return nil
 	}
 	out := &service.APIKey{
-		ID:            m.ID,
-		UserID:        m.UserID,
-		Key:           m.Key,
-		Name:          m.Name,
-		Status:        m.Status,
-		IPWhitelist:   m.IPWhitelist,
-		IPBlacklist:   m.IPBlacklist,
-		LastUsedAt:    m.LastUsedAt,
-		CreatedAt:     m.CreatedAt,
-		UpdatedAt:     m.UpdatedAt,
-		GroupID:       m.GroupID,
-		Quota:         m.Quota,
-		QuotaUsed:     m.QuotaUsed,
-		ExpiresAt:     m.ExpiresAt,
-		RateLimit5h:   m.RateLimit5h,
-		RateLimit1d:   m.RateLimit1d,
-		RateLimit7d:   m.RateLimit7d,
-		Usage5h:       m.Usage5h,
-		Usage1d:       m.Usage1d,
-		Usage7d:       m.Usage7d,
-		Window5hStart: m.Window5hStart,
-		Window1dStart: m.Window1dStart,
-		Window7dStart: m.Window7dStart,
+		ID:                  m.ID,
+		UserID:              m.UserID,
+		Key:                 m.Key,
+		Name:                m.Name,
+		Status:              m.Status,
+		IPWhitelist:         m.IPWhitelist,
+		IPBlacklist:         m.IPBlacklist,
+		LastUsedAt:          m.LastUsedAt,
+		CreatedAt:           m.CreatedAt,
+		UpdatedAt:           m.UpdatedAt,
+		GroupID:             m.GroupID,
+		AccountPoolStrategy: service.AccountPoolStrategySharedOnly,
+		Quota:               m.Quota,
+		QuotaUsed:           m.QuotaUsed,
+		ExpiresAt:           m.ExpiresAt,
+		RateLimit5h:         m.RateLimit5h,
+		RateLimit1d:         m.RateLimit1d,
+		RateLimit7d:         m.RateLimit7d,
+		Usage5h:             m.Usage5h,
+		Usage1d:             m.Usage1d,
+		Usage7d:             m.Usage7d,
+		Window5hStart:       m.Window5hStart,
+		Window1dStart:       m.Window1dStart,
+		Window7dStart:       m.Window7dStart,
 	}
 	if m.Edges.User != nil {
 		out.User = userEntityToService(m.Edges.User)
@@ -903,11 +910,61 @@ func (r *apiKeyRepository) loadAPIKeyMultiGroupRoutes(ctx context.Context, out *
 	}
 	if len(raw) == 0 {
 		out.MultiGroupRoutes = []domain.APIKeyMultiGroupRoute{}
-		return nil
+		return r.loadAPIKeyAccountPoolStrategy(ctx, out)
 	}
 	if err := json.Unmarshal(raw, &out.MultiGroupRoutes); err != nil {
 		return fmt.Errorf("unmarshal api key multi-group routes: %w", err)
 	}
+	return r.loadAPIKeyAccountPoolStrategy(ctx, out)
+}
+
+func (r *apiKeyRepository) setAPIKeyAccountPoolStrategy(ctx context.Context, id int64, strategy string) error {
+	strategy = service.NormalizeAccountPoolStrategy(strategy)
+	if r.isSQLite() {
+		res, err := r.executor(ctx).ExecContext(ctx, `
+			UPDATE api_keys
+			SET account_pool_strategy = ?, updated_at = CURRENT_TIMESTAMP
+			WHERE id = ? AND deleted_at IS NULL`,
+			strategy, id)
+		if err != nil {
+			return err
+		}
+		if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+			return service.ErrAPIKeyNotFound
+		}
+		return nil
+	}
+	res, err := r.executor(ctx).ExecContext(ctx, `
+		UPDATE api_keys
+		SET account_pool_strategy = $1, updated_at = NOW()
+		WHERE id = $2 AND deleted_at IS NULL`,
+		strategy, id)
+	if err != nil {
+		return err
+	}
+	if affected, err := res.RowsAffected(); err == nil && affected == 0 {
+		return service.ErrAPIKeyNotFound
+	}
+	return nil
+}
+
+func (r *apiKeyRepository) loadAPIKeyAccountPoolStrategy(ctx context.Context, out *service.APIKey) error {
+	if out == nil || out.ID <= 0 {
+		return nil
+	}
+	var raw string
+	err := scanSingleRow(ctx, r.executor(ctx), `
+		SELECT account_pool_strategy
+		FROM api_keys
+		WHERE id = $1 AND deleted_at IS NULL`,
+		[]any{out.ID}, &raw)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return service.ErrAPIKeyNotFound
+		}
+		return err
+	}
+	out.AccountPoolStrategy = service.NormalizeAccountPoolStrategy(raw)
 	return nil
 }
 

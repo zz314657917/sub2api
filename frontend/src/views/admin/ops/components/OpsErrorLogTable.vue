@@ -130,9 +130,9 @@
               <!-- User / Account -->
               <td class="px-4 py-2">
                 <template v-if="isUpstreamRow(log)">
-                  <el-tooltip v-if="log.account_id" :content="t('admin.ops.errorLog.accountId') + ' ' + log.account_id" placement="top" :show-after="500">
+                  <el-tooltip v-if="log.account_id" :content="formatAccountTooltip(log)" placement="top" :show-after="500">
                     <span class="max-w-[100px] truncate text-xs font-medium text-gray-900 dark:text-gray-200">
-                      {{ log.account_name || '-' }}
+                      {{ formatAccountLabel(log) }}
                     </span>
                   </el-tooltip>
                   <span v-else class="text-xs text-gray-400">-</span>
@@ -222,6 +222,24 @@ function isUpstreamRow(log: OpsErrorLog): boolean {
   const phase = String(log.phase || '').toLowerCase()
   const owner = String(log.error_owner || '').toLowerCase()
   return phase === 'upstream' && owner === 'provider'
+}
+
+function formatAccountLabel(log: Pick<OpsErrorLog, 'account_id' | 'account_name' | 'account_notes'>): string {
+  if (log.account_id == null) return ''
+  const name = String(log.account_name || '').trim()
+  const notes = String(log.account_notes || '').trim()
+  const label = name || notes
+  return label ? `${label} (#${log.account_id})` : `#${log.account_id}`
+}
+
+function formatAccountTooltip(log: Pick<OpsErrorLog, 'account_id' | 'account_name' | 'account_notes'>): string {
+  if (log.account_id == null) return ''
+  const parts = [`${t('admin.ops.errorLog.accountId')} ${log.account_id}`]
+  const name = String(log.account_name || '').trim()
+  const notes = String(log.account_notes || '').trim()
+  if (name) parts.push(`name: ${name}`)
+  if (notes) parts.push(`notes: ${notes}`)
+  return parts.join('\n')
 }
 
 function formatEndpointTooltip(log: OpsErrorLog): string {

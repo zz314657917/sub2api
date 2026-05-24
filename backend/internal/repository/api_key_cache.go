@@ -16,6 +16,7 @@ const (
 	apiKeyRateLimitKeyPrefix   = "apikey:ratelimit:"
 	apiKeyRateLimitDuration    = 24 * time.Hour
 	apiKeyAuthCachePrefix      = "apikey:auth:"
+	apiKeyRouteCooldownPrefix  = "apikey:route:cooldown:"
 	authCacheInvalidateChannel = "auth:cache:invalidate"
 )
 
@@ -26,6 +27,10 @@ func apiKeyRateLimitKey(userID int64) string {
 
 func apiKeyAuthCacheKey(key string) string {
 	return fmt.Sprintf("%s%s", apiKeyAuthCachePrefix, key)
+}
+
+func apiKeyRouteCooldownKey(apiKeyID, groupID int64) string {
+	return fmt.Sprintf("%s%d:%d", apiKeyRouteCooldownPrefix, apiKeyID, groupID)
 }
 
 type apiKeyCache struct {
@@ -57,6 +62,31 @@ func (c *apiKeyCache) IncrementCreateAttemptCount(ctx context.Context, userID in
 func (c *apiKeyCache) DeleteCreateAttemptCount(ctx context.Context, userID int64) error {
 	key := apiKeyRateLimitKey(userID)
 	return c.rdb.Del(ctx, key).Err()
+}
+
+func (c *apiKeyCache) IsRouteGroupCooling(ctx context.Context, apiKeyID, groupID int64) (bool, error) {
+	if apiKeyID <= 0 || groupID <= 0 {
+		return false, nil
+	}
+	exists, err := c.rdb.Exists(ctx, apiKeyRouteCooldownKey(apiKeyID, groupID)).Result()
+	if err != nil {
+		return false, err
+	}
+	return exists > 0, nil
+}
+
+func (c *apiKeyCache) SetRouteGroupCooldown(ctx context.Context, apiKeyID, groupID int64, ttl time.Duration) error {
+	if apiKeyID <= 0 || groupID <= 0 || ttl <= 0 {
+		return nil
+	}
+	return c.rdb.Set(ctx, apiKeyRouteCooldownKey(apiKeyID, groupID), "1", ttl).Err()
+}
+
+func (c *apiKeyCache) DeleteRouteGroupCooldown(ctx context.Context, apiKeyID, groupID int64) error {
+	if apiKeyID <= 0 || groupID <= 0 {
+		return nil
+	}
+	return c.rdb.Del(ctx, apiKeyRouteCooldownKey(apiKeyID, groupID)).Err()
 }
 
 func (c *apiKeyCache) IncrementDailyUsage(ctx context.Context, apiKey string) error {
