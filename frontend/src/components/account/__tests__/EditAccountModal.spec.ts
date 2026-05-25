@@ -384,6 +384,52 @@ describe('EditAccountModal', () => {
     }))
   })
 
+  it('rehydrates OpenAI OAuth capacity pool settings from flattened response fields', async () => {
+    const account = {
+      ...buildAccount(),
+      id: 10,
+      name: 'openai oauth Account',
+      type: 'oauth',
+      credentials: {
+        access_token: 'token',
+        refresh_token: 'refresh'
+      },
+      share_display_tier: 'plus',
+      share_display_percent_only: true,
+      share_display_account_count: 2,
+      share_display_5h_limit: 500,
+      share_display_5h_used: 95.17,
+      share_display_7d_limit: 2160,
+      share_display_7d_used: 95.17,
+      extra: {}
+    } as any
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    expect((wrapper.get('[data-testid="share-display-target-pool"]').element as HTMLSelectElement).value).toBe('plus')
+    expect((wrapper.get('[data-testid="share-display-account-count"]').element as HTMLInputElement).value).toBe('2')
+    expect((wrapper.get('[data-testid="share-display-5h-limit"]').element as HTMLInputElement).value).toBe('500')
+    expect((wrapper.get('[data-testid="share-display-5h-used"]').element as HTMLInputElement).value).toBe('95.17')
+    expect((wrapper.get('[data-testid="share-display-7d-limit"]').element as HTMLInputElement).value).toBe('2160')
+    expect((wrapper.get('[data-testid="share-display-7d-used"]').element as HTMLInputElement).value).toBe('95.17')
+
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledWith(10, expect.objectContaining({
+      extra: expect.objectContaining({
+        share_display_tier: 'plus',
+        share_display_account_count: 2,
+        share_display_5h_limit: 500,
+        share_display_5h_used: 95.17,
+        share_display_7d_limit: 2160,
+        share_display_7d_used: 95.17
+      })
+    }))
+  })
+
   it('allows saving apikey account when backend redacted api_key but credentials_status reports it exists', async () => {
     // 新前端 + 新后端：响应已脱敏，credentials 里没有 api_key，credentials_status.has_api_key=true
     const account = buildAccount()

@@ -863,6 +863,51 @@ func TestUserAccountService_GetCapacityPoolsUsesShareDisplayDedicatedWindows(t *
 	}
 }
 
+func TestUserAccountService_GetCapacityPoolsUsesOAuthShareDisplayDedicatedWindows(t *testing.T) {
+	ownerID := int64(10)
+	repo := &capacityPoolAccountRepoStub{
+		usageCosts: map[int64]float64{
+			1: 4.83,
+		},
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "hosted-plus-oauth",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				ShareMode:   AccountShareModePrivate,
+				ShareStatus: AccountShareStatusNotShared,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"share_display_tier":         "plus",
+					"share_display_percent_only": true,
+					"share_display_5h_limit":     500.0,
+					"share_display_5h_used":      95.17,
+					"share_display_7d_limit":     2160.0,
+					"share_display_7d_used":      95.17,
+				},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Plus")
+	if group == nil {
+		t.Fatalf("expected OpenAI Plus display group, got %#v", pools.Shared.Groups)
+	}
+	if window := group.Windows["5h"]; fmt.Sprintf("%.2f", window.UsedPercent) != "20.00" || fmt.Sprintf("%.2f", window.UsedAmount) != "100.00" || window.WindowMinutes != 300 {
+		t.Fatalf("expected OAuth dedicated 5h display window, got %#v", window)
+	}
+	if window := group.Windows["7d"]; fmt.Sprintf("%.2f", window.UsedPercent) != "4.63" || fmt.Sprintf("%.2f", window.UsedAmount) != "100.00" || window.WindowMinutes != 10080 {
+		t.Fatalf("expected OAuth dedicated 7d display window, got %#v", window)
+	}
+}
+
 func TestUserAccountService_GetCapacityPoolsUsesActualUsageForDisplayWindowWithoutBase(t *testing.T) {
 	ownerID := int64(10)
 	repo := &capacityPoolAccountRepoStub{

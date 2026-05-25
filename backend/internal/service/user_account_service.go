@@ -1436,7 +1436,7 @@ func accountUsesShareDisplayAccountCount(account *Account) bool {
 func accountUsesShareDisplayWindowMask(account *Account) bool {
 	return account != nil &&
 		account.Platform == PlatformOpenAI &&
-		account.Type == AccountTypeAPIKey &&
+		(account.Type == AccountTypeAPIKey || account.Type == AccountTypeOAuth) &&
 		accountShareDisplayConfigured(account)
 }
 
