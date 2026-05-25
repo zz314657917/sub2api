@@ -435,6 +435,7 @@ describe('EditAccountModal', () => {
     account.credentials = {
       base_url: 'https://api.openai.com'
     }
+    delete account.credentials_status
     // 既没有 credentials_status 也没有旧的 api_key
     updateAccountMock.mockReset()
     checkMixedChannelRiskMock.mockReset()
