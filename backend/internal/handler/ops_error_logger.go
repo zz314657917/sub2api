@@ -1176,7 +1176,7 @@ func classifyOpsPhase(errType, message, code string) string {
 	case "upstream_error", "overloaded_error":
 		return "upstream"
 	case "api_error":
-		if strings.Contains(msg, opsErrNoAvailableAccounts) {
+		if isOpsNoAvailableAccountMessage(msg) {
 			return "routing"
 		}
 		return "internal"
