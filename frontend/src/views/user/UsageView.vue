@@ -365,9 +365,14 @@
 
           <template #cell-cost="{ row }">
             <div class="flex items-center gap-1.5 text-sm">
-              <span class="font-medium text-green-600 dark:text-green-400">
-                ${{ row.actual_cost.toFixed(6) }}
-              </span>
+              <div class="flex flex-col items-start leading-tight">
+                <span class="text-xs text-gray-400 line-through dark:text-gray-500">
+                  ${{ row.total_cost.toFixed(6) }}
+                </span>
+                <span class="font-medium text-green-600 dark:text-green-400">
+                  ${{ row.actual_cost.toFixed(6) }}
+                </span>
+              </div>
               <!-- Cost Detail Tooltip -->
               <div
                 class="group relative"

@@ -395,6 +395,20 @@ describe('user UsageView', () => {
     expect(groupCell.text()).toContain('1.25x')
   })
 
+  it('shows original and billed cost in the cost column', async () => {
+    const wrapper = await mountUsageView([
+      baseUsageLog({
+        total_cost: 0.0134,
+        actual_cost: 0.01072,
+      }),
+    ])
+
+    const costCell = wrapper.find('.table-cell[data-column="cost"]')
+    expect(costCell.text()).toContain('$0.013400')
+    expect(costCell.text()).toContain('$0.010720')
+    expect(costCell.find('.line-through').text()).toContain('$0.013400')
+  })
+
   it('passes group filter to usage list and stats requests', async () => {
     const wrapper = await mountUsageView()
 
