@@ -160,7 +160,8 @@ const pills = computed(() => (
       ? [
         t('dashboard.onboarding.pillGpt55'),
         t('dashboard.onboarding.pillImage2'),
-        t('dashboard.onboarding.pillClaudeCode')
+        t('dashboard.onboarding.pillClaude'),
+        t('dashboard.onboarding.pillOpenClaw')
       ]
       : [
         quotaLabel.value,
