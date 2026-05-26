@@ -50,8 +50,8 @@
 
               <div class="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 text-sm text-gray-600 dark:border-dark-700 dark:bg-dark-900/50 dark:text-dark-200">
                 <div class="flex gap-2">
-                  <Icon name="shield" size="sm" class="mt-0.5 flex-shrink-0 text-primary-500" />
-                  <span>{{ t('openWebUI.keyPrivacyHint') }}</span>
+                  <Icon name="key" size="sm" class="mt-0.5 flex-shrink-0 text-primary-500" />
+                  <span>{{ t('openWebUI.multiGroupRouteHint') }}</span>
                 </div>
               </div>
 
@@ -62,7 +62,13 @@
                     {{ t('openWebUI.active') }}
                   </span>
                   <span
-                    v-if="selectedKey.group?.platform === 'openai' && selectedKey.group?.allow_image_generation"
+                    v-if="supportsChat(selectedKey)"
+                    class="rounded bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700 dark:bg-sky-900/30 dark:text-sky-300"
+                  >
+                    {{ t('openWebUI.chatReady') }}
+                  </span>
+                  <span
+                    v-if="supportsImageGeneration(selectedKey)"
                     class="rounded bg-primary-50 px-2 py-0.5 text-xs font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300"
                   >
                     {{ t('openWebUI.imageReady') }}
@@ -184,8 +190,29 @@ async function loadApiKeys() {
 }
 
 function preferredKeyId(): number | null {
-  const imageReady = usableKeys.value.find((key) => key.group?.platform === 'openai' && key.group?.allow_image_generation)
+  const imageReady = usableKeys.value.find((key) => supportsImageGeneration(key))
   return imageReady?.id ?? usableKeys.value[0]?.id ?? null
+}
+
+function keyGroups(key: ApiKey): NonNullable<ApiKey['group']>[] {
+  const groups = key.group ? [key.group] : []
+  if (Array.isArray(key.route_groups)) {
+    groups.push(...key.route_groups)
+  }
+  return groups
+}
+
+function supportsChat(key: ApiKey): boolean {
+  return keyGroups(key).some((group) =>
+    group.platform === 'openai' ||
+    group.platform === 'anthropic' ||
+    group.platform === 'gemini' ||
+    group.platform === 'antigravity'
+  )
+}
+
+function supportsImageGeneration(key: ApiKey): boolean {
+  return keyGroups(key).some((group) => group.platform === 'openai' && group.allow_image_generation === true)
 }
 
 async function handleLaunch(mode: 'popup' | 'redirect' = 'popup') {

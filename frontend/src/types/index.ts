@@ -635,6 +635,7 @@ export interface ApiKey {
   created_at: string
   updated_at: string
   group?: Group
+  route_groups?: Group[]
   rate_limit_5h: number
   rate_limit_1d: number
   rate_limit_7d: number

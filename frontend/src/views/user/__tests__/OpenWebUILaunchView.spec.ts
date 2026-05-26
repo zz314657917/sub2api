@@ -174,4 +174,41 @@ describe('OpenWebUILaunchView', () => {
       })
     )
   })
+
+  it('shows chat and image capability badges across multi-group routes', async () => {
+    keysList.mockResolvedValue({
+      items: [
+        {
+          id: 1,
+          key: 'sk-test',
+          name: 'mc',
+          status: 'active',
+          quota: 0,
+          quota_used: 0,
+          expires_at: null,
+          group_id: 10,
+          group: {
+            id: 10,
+            name: 'chat',
+            platform: 'anthropic',
+            allow_image_generation: false,
+          },
+          route_groups: [
+            {
+              id: 11,
+              name: 'image',
+              platform: 'openai',
+              allow_image_generation: true,
+            },
+          ],
+        },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('openWebUI.chatReady')
+    expect(wrapper.text()).toContain('openWebUI.imageReady')
+  })
 })

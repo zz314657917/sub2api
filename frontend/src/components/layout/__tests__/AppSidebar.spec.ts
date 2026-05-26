@@ -50,6 +50,22 @@ describe('AppSidebar admin navigation groups', () => {
     expect(componentSource).toContain("path: '/admin/redeem'")
   })
 
+  it('keeps admin usage records as a top-level sidebar entry', () => {
+    const businessStart = componentSource.indexOf("label: t('nav.businessOperations')")
+    const usageStart = componentSource.indexOf("path: '/admin/usage'", businessStart)
+    const contentStart = componentSource.indexOf("label: t('nav.contentRecords')", usageStart)
+    const contentChildrenStart = componentSource.indexOf('children: [', contentStart)
+    const contentChildrenEnd = componentSource.indexOf('],', contentChildrenStart)
+
+    expect(businessStart).toBeGreaterThan(-1)
+    expect(usageStart).toBeGreaterThan(-1)
+    expect(contentStart).toBeGreaterThan(-1)
+    expect(contentChildrenStart).toBeGreaterThan(-1)
+    expect(contentChildrenEnd).toBeGreaterThan(contentChildrenStart)
+    expect(usageStart).toBeLessThan(contentStart)
+    expect(componentSource.slice(contentChildrenStart, contentChildrenEnd)).not.toContain("path: '/admin/usage'")
+  })
+
   it('places account and proxy management under basic management while channels stay standalone', () => {
     const basicStart = componentSource.indexOf("label: t('nav.basicManagement')")
     const channelStart = componentSource.indexOf("label: t('nav.channelManagement')", basicStart)
