@@ -28,6 +28,9 @@ vi.mock('vue-i18n', () => ({
         'dashboard.onboarding.walletBalanceNotice': '可在钱包余额中查看，调用时按实际消耗扣减。',
         'dashboard.onboarding.pillAutoActivate': '首调用自动抵扣',
         'dashboard.onboarding.pillBalanceDeduct': '调用自动扣减',
+        'dashboard.onboarding.pillGpt55': 'GPT-5.5',
+        'dashboard.onboarding.pillImage2': 'Image2',
+        'dashboard.onboarding.pillClaudeCode': 'Claude Code',
         'dashboard.onboarding.pillWelfareClaim': '福利中心领取',
         'dashboard.onboarding.pillNoRecharge': '无需充值体验',
         'dashboard.onboarding.createKey': '创建 API 密钥',
@@ -82,7 +85,10 @@ describe('UserApiKeyOnboardingDialog', () => {
 
     expect(wrapper.text()).toContain('首次调用后领免费额度')
     expect(wrapper.text()).toContain('创建 API 密钥并完成一次真实调用后，到福利中心领取免费额度')
-    expect(wrapper.text()).toContain('1 免费额度')
+    expect(wrapper.text()).toContain('GPT-5.5')
+    expect(wrapper.text()).toContain('Image2')
+    expect(wrapper.text()).toContain('Claude Code')
+    expect(wrapper.text()).not.toContain('1 免费额度')
     expect(wrapper.text()).not.toContain('首次调用成功后')
     expect(wrapper.text()).toContain('创建密钥')
     expect(wrapper.text()).toContain('发起首次调用')

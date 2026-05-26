@@ -158,7 +158,9 @@ const pills = computed(() => (
   hasBenefit.value
     ? isRewardBenefit.value
       ? [
-        quotaLabel.value
+        t('dashboard.onboarding.pillGpt55'),
+        t('dashboard.onboarding.pillImage2'),
+        t('dashboard.onboarding.pillClaudeCode')
       ]
       : [
         quotaLabel.value,
