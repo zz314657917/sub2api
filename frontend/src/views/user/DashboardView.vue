@@ -106,23 +106,26 @@ const hasTrialBenefit = computed(() => {
   return Boolean(trial?.enabled && trial.can_use && Number(trial.quota_amount) > 0)
 })
 
-const hasWalletBenefit = computed(() => Number(user.value?.balance) > 0)
-const hasOnboardingBenefit = computed(() => hasWalletBenefit.value || hasTrialBenefit.value)
-const onboardingBenefitKind = computed<'wallet' | 'trial'>(() => hasWalletBenefit.value ? 'wallet' : 'trial')
+const hasRewardBenefit = computed(() => {
+  const trial = welfareTrial.value
+  return Boolean(trial?.enabled && !trial.success_reward_claimed && Number(trial.success_reward_amount) > 0)
+})
+const hasOnboardingBenefit = computed(() => hasRewardBenefit.value || hasTrialBenefit.value)
+const onboardingBenefitKind = computed<'reward' | 'trial'>(() => hasRewardBenefit.value ? 'reward' : 'trial')
 
 const onboardingBenefitLabel = computed(() => {
-  if (hasWalletBenefit.value) {
-    return t('dashboard.onboarding.balanceAmount', { amount: formatOnboardingAmount(user.value?.balance) })
-  }
   const trial = welfareTrial.value
+  if (hasRewardBenefit.value) {
+    return t('dashboard.onboarding.rewardAmount', { amount: formatOnboardingAmount(trial?.success_reward_amount) })
+  }
   return hasTrialBenefit.value
     ? t('dashboard.onboarding.trialQuotaAmount', { amount: formatOnboardingAmount(trial?.quota_amount) })
     : ''
 })
 
 const onboardingBenefitRewardLabel = computed(() => {
-  if (hasWalletBenefit.value) {
-    return ''
+  if (hasRewardBenefit.value) {
+    return onboardingBenefitLabel.value
   }
   const trial = welfareTrial.value
   return hasTrialBenefit.value && Number(trial?.success_reward_amount) > 0

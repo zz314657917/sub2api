@@ -14,17 +14,23 @@ vi.mock('vue-i18n', () => ({
         'dashboard.onboarding.description': 'API 密钥是接入工具的凭证。',
         'dashboard.onboarding.badge': '新用户接入引导',
         'dashboard.onboarding.trialBadge': '新人福利',
-        'dashboard.onboarding.trialTitle': '新人福利已到账',
+        'dashboard.onboarding.trialTitle': '完成首次调用，领取免费额度',
         'dashboard.onboarding.trialDescription': '创建 API 密钥后发起首次调用，API 专用试用额度会自动启用并抵扣，无需先充值。',
         'dashboard.onboarding.balanceDescription': '账户余额已发放到账号，创建 API 密钥后即可开始调用，系统会按实际消耗自动扣减。',
+        'dashboard.onboarding.rewardDescription': '创建 API 密钥并发起一次真实 API 调用后，可在福利中心领取免费额度。',
         'dashboard.onboarding.trialQuotaFallback': 'API 试用额度',
         'dashboard.onboarding.trialQuotaAmount': '0.1 API 试用额度',
         'dashboard.onboarding.balanceFallback': '账户余额',
         'dashboard.onboarding.balanceAmount': '0.1 账户余额',
+        'dashboard.onboarding.rewardFallback': '免费额度',
+        'dashboard.onboarding.rewardAmount': '1 免费额度',
         'dashboard.onboarding.walletNotice': 'API 专用试用额度仅用于调用，不会显示为钱包余额。',
         'dashboard.onboarding.walletBalanceNotice': '可在钱包余额中查看，调用时按实际消耗扣减。',
+        'dashboard.onboarding.rewardNotice': '首次调用成功后，进入福利中心领取；领取后可用于 API 调用。',
         'dashboard.onboarding.pillAutoActivate': '首调用自动抵扣',
         'dashboard.onboarding.pillBalanceDeduct': '调用自动扣减',
+        'dashboard.onboarding.pillFirstCallReward': '首次调用后领取',
+        'dashboard.onboarding.pillWelfareClaim': '福利中心领取',
         'dashboard.onboarding.pillNoRecharge': '无需充值体验',
         'dashboard.onboarding.createKey': '创建 API 密钥',
         'dashboard.onboarding.joinGroup': '联系客服',
@@ -37,8 +43,9 @@ vi.mock('vue-i18n', () => ({
         'dashboard.onboarding.stepTrialTitle': '发起首次调用',
         'dashboard.onboarding.stepTrialDescription': '发送一次真实请求，试用额度会自动启用并抵扣。',
         'dashboard.onboarding.stepBalanceDescription': '使用新密钥发送一次真实请求，费用会从账户余额中扣减。',
-        'dashboard.onboarding.stepRewardTitle': '再领 2 余额',
-        'dashboard.onboarding.stepRewardDescription': '首次调用成功后，可到福利中心领取到钱包。',
+        'dashboard.onboarding.stepRewardCallDescription': '发送一次真实请求，完成新人福利领取条件。',
+        'dashboard.onboarding.stepRewardTitle': '领取 1 免费额度',
+        'dashboard.onboarding.stepRewardDescription': '首次调用成功后，进入福利中心领取免费额度。',
         'dashboard.onboarding.stepUsageTitle': '查看用量',
         'dashboard.onboarding.stepUsageDescription': '查看消费和调用记录。',
       }
@@ -61,9 +68,9 @@ describe('UserApiKeyOnboardingDialog', () => {
       props: {
         show: true,
         hasBenefit: true,
-        benefitKind: 'wallet',
-        benefitLabel: '0.1 账户余额',
-        benefitRewardLabel: '2',
+        benefitKind: 'reward',
+        benefitLabel: '1 免费额度',
+        benefitRewardLabel: '1 免费额度',
       },
       global: {
         stubs: {
@@ -74,15 +81,14 @@ describe('UserApiKeyOnboardingDialog', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('新人福利已到账')
-    expect(wrapper.text()).toContain('0.1 账户余额')
-    expect(wrapper.text()).toContain('账户余额已发放到账号')
-    expect(wrapper.text()).toContain('可在钱包余额中查看')
-    expect(wrapper.text()).toContain('调用自动扣减')
+    expect(wrapper.text()).toContain('完成首次调用，领取免费额度')
+    expect(wrapper.text()).toContain('创建 API 密钥并发起一次真实 API 调用后，可在福利中心领取免费额度')
+    expect(wrapper.text()).toContain('1 免费额度')
+    expect(wrapper.text()).toContain('首次调用后领取')
+    expect(wrapper.text()).toContain('福利中心领取')
     expect(wrapper.text()).toContain('创建密钥')
     expect(wrapper.text()).toContain('发起首次调用')
-    expect(wrapper.text()).toContain('查看用量')
-    expect(wrapper.text()).not.toContain('再领 2 余额')
+    expect(wrapper.text()).toContain('领取 1 免费额度')
     expect(wrapper.find('.pointer-events-none').exists()).toBe(true)
     expect(wrapper.find('.items-center.justify-center').exists()).toBe(true)
     expect(wrapper.find('img[src="/onboarding/new-user-trial-popup-header.png"]').exists()).toBe(true)

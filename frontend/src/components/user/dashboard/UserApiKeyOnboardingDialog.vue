@@ -103,7 +103,7 @@ const props = defineProps<{
   hasBenefit?: boolean
   benefitLabel?: string
   benefitRewardLabel?: string
-  benefitKind?: 'wallet' | 'trial'
+  benefitKind?: 'reward' | 'trial' | 'wallet'
 }>()
 
 const emit = defineEmits<{
@@ -116,10 +116,19 @@ const { t } = useI18n()
 
 const hasBenefit = computed(() => Boolean(props.hasBenefit))
 const isWalletBenefit = computed(() => props.benefitKind === 'wallet')
-const quotaLabel = computed(() => props.benefitLabel || t(isWalletBenefit.value ? 'dashboard.onboarding.balanceFallback' : 'dashboard.onboarding.trialQuotaFallback'))
+const isRewardBenefit = computed(() => props.benefitKind === 'reward')
+const quotaLabel = computed(() => props.benefitLabel || t(
+  isRewardBenefit.value
+    ? 'dashboard.onboarding.rewardFallback'
+    : isWalletBenefit.value
+      ? 'dashboard.onboarding.balanceFallback'
+      : 'dashboard.onboarding.trialQuotaFallback'
+))
 const rewardLabel = computed(() => props.benefitRewardLabel || '')
 const benefitNotice = computed(() => (
-  isWalletBenefit.value
+  isRewardBenefit.value
+    ? t('dashboard.onboarding.rewardNotice')
+    : isWalletBenefit.value
     ? t('dashboard.onboarding.walletBalanceNotice')
     : t('dashboard.onboarding.walletNotice')
 ))
@@ -131,7 +140,13 @@ const dialogTitle = computed(() => (
 ))
 const dialogDescription = computed(() => (
   hasBenefit.value
-    ? t(isWalletBenefit.value ? 'dashboard.onboarding.balanceDescription' : 'dashboard.onboarding.trialDescription')
+    ? t(
+      isRewardBenefit.value
+        ? 'dashboard.onboarding.rewardDescription'
+        : isWalletBenefit.value
+          ? 'dashboard.onboarding.balanceDescription'
+          : 'dashboard.onboarding.trialDescription'
+    )
     : t('dashboard.onboarding.description')
 ))
 const badgeText = computed(() => (
@@ -142,11 +157,17 @@ const badgeText = computed(() => (
 
 const pills = computed(() => (
   hasBenefit.value
-    ? [
-      quotaLabel.value,
-      t(isWalletBenefit.value ? 'dashboard.onboarding.pillBalanceDeduct' : 'dashboard.onboarding.pillAutoActivate'),
-      t('dashboard.onboarding.pillNoRecharge')
-    ]
+    ? isRewardBenefit.value
+      ? [
+        quotaLabel.value,
+        t('dashboard.onboarding.pillFirstCallReward'),
+        t('dashboard.onboarding.pillWelfareClaim')
+      ]
+      : [
+        quotaLabel.value,
+        t(isWalletBenefit.value ? 'dashboard.onboarding.pillBalanceDeduct' : 'dashboard.onboarding.pillAutoActivate'),
+        t('dashboard.onboarding.pillNoRecharge')
+      ]
     : [
       t('dashboard.onboarding.stepKeyTitle'),
       t('dashboard.onboarding.stepToolTitle'),
@@ -166,15 +187,25 @@ const steps = computed(() => [
       ? t('dashboard.onboarding.stepTrialTitle')
       : t('dashboard.onboarding.stepToolTitle'),
     description: hasBenefit.value
-      ? t(isWalletBenefit.value ? 'dashboard.onboarding.stepBalanceDescription' : 'dashboard.onboarding.stepTrialDescription')
+      ? t(
+        isRewardBenefit.value
+          ? 'dashboard.onboarding.stepRewardCallDescription'
+          : isWalletBenefit.value
+            ? 'dashboard.onboarding.stepBalanceDescription'
+            : 'dashboard.onboarding.stepTrialDescription'
+      )
       : t('dashboard.onboarding.stepToolDescription')
   },
   {
     icon: 'creditCard' as const,
-    title: hasBenefit.value && !isWalletBenefit.value && rewardLabel.value
-      ? t('dashboard.onboarding.stepRewardTitle', { amount: rewardLabel.value })
+    title: hasBenefit.value && isRewardBenefit.value
+      ? t('dashboard.onboarding.stepRewardTitle', { amount: rewardLabel.value || quotaLabel.value })
+      : hasBenefit.value && !isWalletBenefit.value && rewardLabel.value
+        ? t('dashboard.onboarding.stepRewardTitle', { amount: rewardLabel.value })
       : t('dashboard.onboarding.stepUsageTitle'),
-    description: hasBenefit.value && !isWalletBenefit.value && rewardLabel.value
+    description: hasBenefit.value && isRewardBenefit.value
+      ? t('dashboard.onboarding.stepRewardDescription')
+      : hasBenefit.value && !isWalletBenefit.value && rewardLabel.value
       ? t('dashboard.onboarding.stepRewardDescription')
       : t('dashboard.onboarding.stepUsageDescription')
   }
