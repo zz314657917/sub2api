@@ -174,11 +174,13 @@ type OpenAIResponsesImageBillingConfig struct {
 	Model     string
 	SizeTier  string
 	InputSize string
+	Quality   string
 }
 
 func resolveOpenAIResponsesImageBillingConfigDetailed(reqBody map[string]any, fallbackModel string) (OpenAIResponsesImageBillingConfig, error) {
 	imageModel := ""
 	imageSize := ""
+	imageQuality := ""
 	hasImageTool := false
 	if reqBody != nil {
 		rawTools, _ := reqBody["tools"].([]any)
@@ -190,10 +192,14 @@ func resolveOpenAIResponsesImageBillingConfigDetailed(reqBody map[string]any, fa
 			hasImageTool = true
 			imageModel = strings.TrimSpace(firstNonEmptyString(toolMap["model"]))
 			imageSize = strings.TrimSpace(firstNonEmptyString(toolMap["size"]))
+			imageQuality = NormalizeImageQuality(firstNonEmptyString(toolMap["quality"]))
 			break
 		}
 		if imageSize == "" {
 			imageSize = strings.TrimSpace(firstNonEmptyString(reqBody["size"]))
+		}
+		if imageQuality == "" {
+			imageQuality = NormalizeImageQuality(firstNonEmptyString(reqBody["quality"]))
 		}
 	}
 	if imageModel == "" && reqBody != nil {
@@ -213,6 +219,7 @@ func resolveOpenAIResponsesImageBillingConfigDetailed(reqBody map[string]any, fa
 		Model:     imageModel,
 		SizeTier:  sizeTier,
 		InputSize: imageSize,
+		Quality:   imageQuality,
 	}, nil
 }
 

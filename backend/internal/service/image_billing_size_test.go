@@ -35,6 +35,13 @@ func TestClassifyImageBillingTier(t *testing.T) {
 	}
 }
 
+func TestImageBillingTierWithQuality(t *testing.T) {
+	require.Equal(t, "1K:high", ImageBillingTierWithQuality("1024x1024", "HIGH"))
+	require.Equal(t, "2K:medium", ImageBillingTierWithQuality("", " medium "))
+	require.Equal(t, "4K", ImageBillingTierWithQuality("3840x2160", "standard"))
+	require.Equal(t, "2K", ImageBillingTierWithQuality("auto", ""))
+}
+
 func TestResolveImageBillingSize(t *testing.T) {
 	tests := []struct {
 		name          string

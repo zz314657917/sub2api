@@ -503,6 +503,7 @@ type ForwardResult struct {
 	// 图片生成计费字段（图片生成模型使用）
 	ImageCount         int    // 生成的图片数量
 	ImageSize          string // 最终计费尺寸 "1K", "2K", "4K"
+	ImageQuality       string // 图片质量 "low", "medium", "high"
 	ImageInputSize     string // 请求中的原始图片尺寸
 	ImageOutputSize    string // 上游响应中的图片尺寸
 	ImageOutputSizes   []string
@@ -8862,6 +8863,7 @@ func (s *GatewayService) calculateImageCost(
 	multiplier float64,
 ) *CostBreakdown {
 	sizeTier := NormalizeImageBillingTierOrDefault(result.ImageSize)
+	billingTier := ImageBillingTierWithQuality(sizeTier, result.ImageQuality)
 	if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil {
 		tokens := UsageTokens{
 			InputTokens:       result.Usage.InputTokens,
@@ -8875,7 +8877,7 @@ func (s *GatewayService) calculateImageCost(
 			GroupID:        &gid,
 			Tokens:         tokens,
 			RequestCount:   result.ImageCount,
-			SizeTier:       sizeTier,
+			SizeTier:       billingTier,
 			RateMultiplier: multiplier,
 			Resolver:       s.resolver,
 			Resolved:       resolved,
@@ -9011,6 +9013,7 @@ func (s *GatewayService) buildRecordUsageLog(
 	}
 	if result.ImageCount > 0 {
 		usageLog.RateMultiplier = imageMultiplier
+		usageLog.BillingTier = optionalTrimmedStringPtr(ImageBillingTierWithQuality(result.ImageSize, result.ImageQuality))
 	}
 	if cost != nil {
 		usageLog.InputCost = cost.InputCost

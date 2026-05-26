@@ -84,6 +84,27 @@ func TestResolveOpenAIResponsesImageBillingConfigToolModelWins(t *testing.T) {
 	require.Equal(t, "2K", imageSize)
 }
 
+func TestResolveOpenAIResponsesImageBillingConfigCapturesQuality(t *testing.T) {
+	cfg, err := resolveOpenAIResponsesImageBillingConfigDetailedFromBody(
+		[]byte(`{"model":"gpt-image-2","quality":"low","tools":[{"type":"image_generation","model":"gpt-image-2","size":"1024x1024","quality":"HIGH"}]}`),
+		"requested-model",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "gpt-image-2", cfg.Model)
+	require.Equal(t, "1K", cfg.SizeTier)
+	require.Equal(t, "1024x1024", cfg.InputSize)
+	require.Equal(t, "high", cfg.Quality)
+}
+
+func TestResolveOpenAIResponsesImageBillingConfigUsesTopLevelQuality(t *testing.T) {
+	cfg, err := resolveOpenAIResponsesImageBillingConfigDetailedFromBody(
+		[]byte(`{"model":"gpt-image-2","size":"1024x1024","quality":"medium","tools":[{"type":"image_generation"}]}`),
+		"requested-model",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "medium", cfg.Quality)
+}
+
 func TestResolveOpenAIResponsesImageBillingConfigSupportsOfficialAndCustomSizes(t *testing.T) {
 	tests := []struct {
 		name     string

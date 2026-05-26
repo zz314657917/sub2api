@@ -68,6 +68,24 @@ func NormalizeImageBillingTierOrDefault(size string) string {
 	return ImageBillingSize2K
 }
 
+func NormalizeImageQuality(quality string) string {
+	quality = strings.ToLower(strings.TrimSpace(quality))
+	switch quality {
+	case "low", "medium", "high":
+		return quality
+	default:
+		return ""
+	}
+}
+
+func ImageBillingTierWithQuality(sizeTier string, quality string) string {
+	tier := NormalizeImageBillingTierOrDefault(sizeTier)
+	if normalizedQuality := NormalizeImageQuality(quality); normalizedQuality != "" {
+		return tier + ":" + normalizedQuality
+	}
+	return tier
+}
+
 func ResolveImageBillingSize(inputSize string, outputSizes []string) ImageBillingSizeResolution {
 	inputSize = strings.TrimSpace(inputSize)
 	outputSizes = compactTrimmedStrings(outputSizes)

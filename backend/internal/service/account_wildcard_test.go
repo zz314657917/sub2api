@@ -173,6 +173,30 @@ func TestAccountIsModelSupported(t *testing.T) {
 			requestedModel: "claude-opus-4-5",
 			expected:       false,
 		},
+		{
+			name:     "apimart gpt image official uses regular image mapping for compatibility",
+			platform: PlatformOpenAI,
+			credentials: map[string]any{
+				"base_url": "https://api.apimart.ai",
+				"model_mapping": map[string]any{
+					"gpt-image-2": "gpt-image-2",
+				},
+			},
+			requestedModel: "gpt-image-2-official",
+			expected:       true,
+		},
+		{
+			name:     "non apimart gpt image official still requires explicit mapping",
+			platform: PlatformOpenAI,
+			credentials: map[string]any{
+				"base_url": "https://api.openai.com",
+				"model_mapping": map[string]any{
+					"gpt-image-2": "gpt-image-2",
+				},
+			},
+			requestedModel: "gpt-image-2-official",
+			expected:       false,
+		},
 
 		// 通配符匹配
 		{

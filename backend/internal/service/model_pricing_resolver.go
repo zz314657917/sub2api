@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"log/slog"
+	"strings"
 )
 
 // PricingSource 定价来源标识
@@ -235,9 +236,18 @@ func intervalToModelPricing(iv *PricingInterval, supportsCacheBreakdown bool) *M
 
 // GetRequestTierPrice 根据层级标签获取按次价格
 func (r *ModelPricingResolver) GetRequestTierPrice(resolved *ResolvedPricing, tierLabel string) float64 {
+	tierLabel = strings.TrimSpace(tierLabel)
 	for _, tier := range resolved.RequestTiers {
 		if tier.TierLabel == tierLabel && tier.PerRequestPrice != nil {
 			return *tier.PerRequestPrice
+		}
+	}
+	if baseTier, _, ok := strings.Cut(tierLabel, ":"); ok {
+		baseTier = strings.TrimSpace(baseTier)
+		for _, tier := range resolved.RequestTiers {
+			if tier.TierLabel == baseTier && tier.PerRequestPrice != nil {
+				return *tier.PerRequestPrice
+			}
 		}
 	}
 	return 0

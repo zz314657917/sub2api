@@ -6,6 +6,7 @@ import (
 	"errors"
 	"hash/fnv"
 	"log/slog"
+	"net/url"
 	"reflect"
 	"sort"
 	"strconv"
@@ -664,6 +665,27 @@ func mappingSupportsRequestedModel(mapping map[string]string, requestedModel str
 	return false
 }
 
+func apimartImageMappingSupportsRequestedModel(account *Account, mapping map[string]string, requestedModel string) bool {
+	if account == nil || len(mapping) == 0 {
+		return false
+	}
+	if !strings.EqualFold(strings.TrimSpace(requestedModel), "gpt-image-2-official") {
+		return false
+	}
+	if !account.IsOpenAIApiKey() || !strings.EqualFold(openAIBaseURLHost(account.GetOpenAIBaseURL()), "api.apimart.ai") {
+		return false
+	}
+	return mappingSupportsRequestedModel(mapping, "gpt-image-2")
+}
+
+func openAIBaseURLHost(rawBaseURL string) string {
+	parsed, err := url.Parse(strings.TrimSpace(rawBaseURL))
+	if err != nil {
+		return ""
+	}
+	return parsed.Hostname()
+}
+
 func resolveRequestedModelInMapping(mapping map[string]string, requestedModel string) (mappedModel string, matched bool) {
 	if requestedModel == "" {
 		return "", false
@@ -682,6 +704,9 @@ func (a *Account) IsModelSupported(requestedModel string) bool {
 		return true // 无映射 = 允许所有
 	}
 	if mappingSupportsRequestedModel(mapping, requestedModel) {
+		return true
+	}
+	if apimartImageMappingSupportsRequestedModel(a, mapping, requestedModel) {
 		return true
 	}
 	normalized := normalizeRequestedModelForLookup(a.Platform, requestedModel)

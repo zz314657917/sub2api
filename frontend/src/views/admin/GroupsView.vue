@@ -671,6 +671,11 @@
           <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
             {{ t("admin.groups.imagePricing.description") }}
           </p>
+          <div class="mb-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
+            <p>
+              {{ t("admin.groups.imagePricing.qualityTierHint") }}
+            </p>
+          </div>
           <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
@@ -743,6 +748,89 @@
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t("admin.groups.imagePricing.modeHint") }}
           </p>
+          <div
+            v-if="createForm.platform === 'openai'"
+            class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/20"
+          >
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div class="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+                  {{ t("admin.groups.imagePricing.qualityTierTitle") }}
+                </div>
+                <p class="mt-1 text-xs text-emerald-700 dark:text-emerald-200/80">
+                  {{ t("admin.groups.imagePricing.qualityTierDescription") }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="rounded-md border border-emerald-300 px-2.5 py-1 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-100 dark:border-emerald-800 dark:text-emerald-100 dark:hover:bg-emerald-900/40"
+                @click="fillQualityPricesFromBase(createImageQualityPrices, createForm)"
+              >
+                {{ t("admin.groups.imagePricing.copyBasePrices") }}
+              </button>
+              <button
+                type="button"
+                class="rounded-md border border-emerald-300 px-2.5 py-1 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-100 dark:border-emerald-800 dark:text-emerald-100 dark:hover:bg-emerald-900/40"
+                @click="fillQualityPricesFromOfficial(createImageQualityPrices)"
+              >
+                {{ t("admin.groups.imagePricing.copyOfficialPrices") }}
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-xs">
+                <thead>
+                  <tr class="text-left text-emerald-800 dark:text-emerald-200">
+                    <th class="w-16 py-1 pr-2 font-medium">
+                      {{ t("admin.groups.imagePricing.qualitySize") }}
+                    </th>
+                    <th
+                      v-for="quality in imageQualityLevels"
+                      :key="quality"
+                      class="px-2 py-1 font-medium"
+                    >
+                      {{ t(`admin.groups.imagePricing.qualities.${quality}`) }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="size in imageQualitySizes"
+                    :key="size"
+                  >
+                    <td class="py-1.5 pr-2 font-medium text-emerald-900 dark:text-emerald-100">
+                      {{ size }}
+                    </td>
+                    <td
+                      v-for="quality in imageQualityLevels"
+                      :key="quality"
+                      class="px-2 py-1.5"
+                    >
+                      <div
+                        class="mb-1 text-[11px] text-emerald-700 dark:text-emerald-200/80"
+                        :title="officialImageQualityPriceTitle(size, quality)"
+                      >
+                        {{ officialImageQualityPriceText(size, quality) }}
+                      </div>
+                      <input
+                        v-model.number="createImageQualityPrices[`${size}:${quality}`]"
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        class="input h-9"
+                        :placeholder="officialImageQualityPricePlaceholder(size, quality)"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-2 text-xs text-emerald-700 dark:text-emerald-200/80">
+              {{ t("admin.groups.imagePricing.qualityTierSaveHint") }}
+            </p>
+            <p class="mt-1 text-[11px] text-emerald-700 dark:text-emerald-200/70">
+              {{ t("admin.groups.imagePricing.officialReferenceHint") }}
+            </p>
+          </div>
           <div class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
             <div class="mb-1 font-medium">
               {{ t("admin.groups.imagePricing.finalPricePreview") }}
@@ -1856,6 +1944,11 @@
           <p class="text-xs text-gray-500 dark:text-gray-400 mb-3">
             {{ t("admin.groups.imagePricing.description") }}
           </p>
+          <div class="mb-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-xs text-blue-800 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-200">
+            <p>
+              {{ t("admin.groups.imagePricing.qualityTierHint") }}
+            </p>
+          </div>
           <div class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2">
             <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
               <input
@@ -1928,6 +2021,89 @@
           <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
             {{ t("admin.groups.imagePricing.modeHint") }}
           </p>
+          <div
+            v-if="editForm.platform === 'openai'"
+            class="mt-4 rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/20"
+          >
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div class="text-sm font-medium text-emerald-900 dark:text-emerald-100">
+                  {{ t("admin.groups.imagePricing.qualityTierTitle") }}
+                </div>
+                <p class="mt-1 text-xs text-emerald-700 dark:text-emerald-200/80">
+                  {{ t("admin.groups.imagePricing.qualityTierDescription") }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="rounded-md border border-emerald-300 px-2.5 py-1 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-100 dark:border-emerald-800 dark:text-emerald-100 dark:hover:bg-emerald-900/40"
+                @click="fillQualityPricesFromBase(editImageQualityPrices, editForm)"
+              >
+                {{ t("admin.groups.imagePricing.copyBasePrices") }}
+              </button>
+              <button
+                type="button"
+                class="rounded-md border border-emerald-300 px-2.5 py-1 text-xs font-medium text-emerald-800 transition-colors hover:bg-emerald-100 dark:border-emerald-800 dark:text-emerald-100 dark:hover:bg-emerald-900/40"
+                @click="fillQualityPricesFromOfficial(editImageQualityPrices)"
+              >
+                {{ t("admin.groups.imagePricing.copyOfficialPrices") }}
+              </button>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-xs">
+                <thead>
+                  <tr class="text-left text-emerald-800 dark:text-emerald-200">
+                    <th class="w-16 py-1 pr-2 font-medium">
+                      {{ t("admin.groups.imagePricing.qualitySize") }}
+                    </th>
+                    <th
+                      v-for="quality in imageQualityLevels"
+                      :key="quality"
+                      class="px-2 py-1 font-medium"
+                    >
+                      {{ t(`admin.groups.imagePricing.qualities.${quality}`) }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="size in imageQualitySizes"
+                    :key="size"
+                  >
+                    <td class="py-1.5 pr-2 font-medium text-emerald-900 dark:text-emerald-100">
+                      {{ size }}
+                    </td>
+                    <td
+                      v-for="quality in imageQualityLevels"
+                      :key="quality"
+                      class="px-2 py-1.5"
+                    >
+                      <div
+                        class="mb-1 text-[11px] text-emerald-700 dark:text-emerald-200/80"
+                        :title="officialImageQualityPriceTitle(size, quality)"
+                      >
+                        {{ officialImageQualityPriceText(size, quality) }}
+                      </div>
+                      <input
+                        v-model.number="editImageQualityPrices[`${size}:${quality}`]"
+                        type="number"
+                        step="0.001"
+                        min="0"
+                        class="input h-9"
+                        :placeholder="officialImageQualityPricePlaceholder(size, quality)"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p class="mt-2 text-xs text-emerald-700 dark:text-emerald-200/80">
+              {{ t("admin.groups.imagePricing.qualityTierSaveHint") }}
+            </p>
+            <p class="mt-1 text-[11px] text-emerald-700 dark:text-emerald-200/70">
+              {{ t("admin.groups.imagePricing.officialReferenceHint") }}
+            </p>
+          </div>
           <div class="mt-2 rounded-lg bg-gray-50 p-3 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-300">
             <div class="mb-1 font-medium">
               {{ t("admin.groups.imagePricing.finalPricePreview") }}
@@ -2845,6 +3021,11 @@ import { useRouter } from "vue-router";
 import { useAppStore } from "@/stores/app";
 import { useOnboardingStore } from "@/stores/onboarding";
 import { adminAPI } from "@/api/admin";
+import type {
+  Channel,
+  ChannelModelPricing,
+  PricingInterval,
+} from "@/api/admin/channels";
 import type { AdminGroup, GroupPlatform, SubscriptionType } from "@/types";
 import type { Column } from "@/components/common/types";
 import AppLayout from "@/components/layout/AppLayout.vue";
@@ -3454,6 +3635,348 @@ const imagePricingTiers = [
   { key: "image_price_4k", label: "4K" },
 ] as const;
 
+const imageQualitySizes = ["1K", "2K", "4K"] as const;
+const imageQualityLevels = ["low", "medium", "high"] as const;
+type ImageQualitySize = (typeof imageQualitySizes)[number];
+type ImageQualityLevel = (typeof imageQualityLevels)[number];
+type ImageQualityTierLabel = `${ImageQualitySize}:${ImageQualityLevel}`;
+type ImageQualityPriceState = Record<ImageQualityTierLabel, number | string | null>;
+
+const defaultImageQualityPrices: Record<ImageQualitySize, number> = {
+  "1K": 0.05,
+  "2K": 0.1,
+  "4K": 0.15,
+};
+
+const officialImageQualityReferencePrices: Record<ImageQualityTierLabel, number> = {
+  "1K:low": 0.006,
+  "1K:medium": 0.053,
+  "1K:high": 0.211,
+  "2K:low": 0.012,
+  "2K:medium": 0.107,
+  "2K:high": 0.428,
+  "4K:low": 0.011,
+  "4K:medium": 0.1,
+  "4K:high": 0.4,
+};
+
+const officialImageQualityReferenceNotes: Record<ImageQualitySize, string> = {
+  "1K": "1024x1024",
+  "2K": "2048x2048",
+  "4K": "3840x2160",
+};
+
+const openAIImageQualityPricingModels = ["gpt-image-*"] as const;
+const managedImageQualityPricingFlag = "managed_group_image_quality_pricing";
+
+const buildDefaultImageQualityPrices = (): ImageQualityPriceState => {
+  const prices = {} as ImageQualityPriceState;
+  for (const size of imageQualitySizes) {
+    for (const quality of imageQualityLevels) {
+      prices[`${size}:${quality}`] = defaultImageQualityPrices[size];
+    }
+  }
+  return prices;
+};
+
+const createImageQualityPrices = reactive<ImageQualityPriceState>(
+  buildDefaultImageQualityPrices(),
+);
+const editImageQualityPrices = reactive<ImageQualityPriceState>(
+  buildDefaultImageQualityPrices(),
+);
+
+const resetImageQualityPrices = (
+  target: ImageQualityPriceState,
+  source: ImageQualityPriceState = buildDefaultImageQualityPrices(),
+) => {
+  for (const size of imageQualitySizes) {
+    for (const quality of imageQualityLevels) {
+      const label: ImageQualityTierLabel = `${size}:${quality}`;
+      target[label] = source[label];
+    }
+  }
+};
+
+const normalizeQualityPrice = (
+  value: number | string | null | undefined,
+): number | null => {
+  if (value === null || value === undefined || value === "") {
+    return null;
+  }
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+};
+
+const firstConfiguredBaseImagePrice = (
+  form: ImagePricingFormState,
+  size: ImageQualitySize,
+): number => {
+  const key =
+    size === "1K"
+      ? "image_price_1k"
+      : size === "2K"
+        ? "image_price_2k"
+        : "image_price_4k";
+  return normalizeQualityPrice(form[key]) ?? defaultImageQualityPrices[size];
+};
+
+const fillQualityPricesFromBase = (
+  target: ImageQualityPriceState,
+  form: ImagePricingFormState,
+) => {
+  for (const size of imageQualitySizes) {
+    const price = firstConfiguredBaseImagePrice(form, size);
+    for (const quality of imageQualityLevels) {
+      target[`${size}:${quality}`] = price;
+    }
+  }
+};
+
+const formatCompactPrice = (price: number): string =>
+  price.toFixed(3).replace(/0+$/, "").replace(/\.$/, "");
+
+const officialImageQualityPrice = (
+  size: ImageQualitySize,
+  quality: ImageQualityLevel,
+): number => officialImageQualityReferencePrices[`${size}:${quality}`];
+
+const officialImageQualityPriceText = (
+  size: ImageQualitySize,
+  quality: ImageQualityLevel,
+) => t(
+  "admin.groups.imagePricing.officialReferencePrice",
+  { price: formatCompactPrice(officialImageQualityPrice(size, quality)) },
+);
+
+const officialImageQualityPriceTitle = (
+  size: ImageQualitySize,
+  quality: ImageQualityLevel,
+) => t(
+  "admin.groups.imagePricing.officialReferenceTitle",
+  {
+    size: officialImageQualityReferenceNotes[size],
+    quality: t(`admin.groups.imagePricing.qualities.${quality}`),
+    price: formatCompactPrice(officialImageQualityPrice(size, quality)),
+  },
+);
+
+const officialImageQualityPricePlaceholder = (
+  size: ImageQualitySize,
+  quality: ImageQualityLevel,
+): string => formatCompactPrice(officialImageQualityPrice(size, quality));
+
+const fillQualityPricesFromOfficial = (target: ImageQualityPriceState) => {
+  for (const size of imageQualitySizes) {
+    for (const quality of imageQualityLevels) {
+      target[`${size}:${quality}`] = officialImageQualityPrice(size, quality);
+    }
+  }
+};
+
+const buildImageQualityIntervals = (
+  prices: ImageQualityPriceState,
+): PricingInterval[] => {
+  const intervals: PricingInterval[] = [];
+  let sortOrder = 0;
+  for (const size of imageQualitySizes) {
+    for (const quality of imageQualityLevels) {
+      const label: ImageQualityTierLabel = `${size}:${quality}`;
+      const perRequestPrice = normalizeQualityPrice(prices[label]);
+      if (perRequestPrice === null) {
+        continue;
+      }
+      intervals.push({
+        min_tokens: 0,
+        max_tokens: null,
+        tier_label: label,
+        input_price: null,
+        output_price: null,
+        cache_write_price: null,
+        cache_read_price: null,
+        per_request_price: perRequestPrice,
+        sort_order: sortOrder,
+      });
+      sortOrder += 1;
+    }
+  }
+  return intervals;
+};
+
+const isOpenAIImagePricingEntry = (entry: ChannelModelPricing): boolean => {
+  if (entry.platform !== "openai" || entry.billing_mode !== "image") {
+    return false;
+  }
+  return (entry.models || []).some((model) => {
+    const normalized = model.trim().toLowerCase();
+    return (
+      normalized === "gpt-image-*" ||
+      normalized.startsWith("gpt-image-")
+    );
+  });
+};
+
+const hasOpenAIImageModelConflict = (entry: ChannelModelPricing): boolean => {
+  if (entry.platform !== "openai") {
+    return false;
+  }
+  return (entry.models || []).some((model) => {
+    const normalized = model.trim().toLowerCase();
+    return (
+      normalized === "gpt-image-*" ||
+      normalized.startsWith("gpt-image-")
+    );
+  });
+};
+
+const createOpenAIImageQualityPricingEntry = (
+  intervals: PricingInterval[],
+): ChannelModelPricing => ({
+  platform: "openai",
+  models: [...openAIImageQualityPricingModels],
+  billing_mode: "image",
+  input_price: null,
+  output_price: null,
+  cache_write_price: null,
+  cache_read_price: null,
+  image_output_price: null,
+  per_request_price: null,
+  intervals,
+});
+
+const mergeOpenAIImageQualityPricing = (
+  pricing: ChannelModelPricing[] = [],
+  intervals: PricingInterval[],
+): ChannelModelPricing[] => {
+  const next = pricing.map((entry) => ({
+    ...entry,
+    models: [...(entry.models || [])],
+    intervals: [...(entry.intervals || [])],
+  }));
+  const existingIndex = next.findIndex(isOpenAIImagePricingEntry);
+  const updatedEntry = createOpenAIImageQualityPricingEntry(intervals);
+  if (existingIndex >= 0) {
+    return next.map((entry, index) =>
+      index === existingIndex
+        ? {
+            ...entry,
+            ...updatedEntry,
+          }
+        : entry,
+    ).filter((entry, index) =>
+      index === existingIndex || !hasOpenAIImageModelConflict(entry),
+    );
+  }
+  return [
+    ...next.filter((entry) => !hasOpenAIImageModelConflict(entry)),
+    updatedEntry,
+  ];
+};
+
+const findChannelForGroup = async (groupId: number): Promise<Channel | null> => {
+  const response = await adminAPI.channels.list(1, 1000);
+  return (
+    response.items.find((channel) =>
+      (channel.group_ids || []).includes(groupId),
+    ) || null
+  );
+};
+
+const readImageQualityPricesFromChannel = async (
+  group: AdminGroup,
+  target: ImageQualityPriceState,
+) => {
+  resetImageQualityPrices(target);
+  if (group.platform !== "openai") {
+    return;
+  }
+  try {
+    const channel = await findChannelForGroup(group.id);
+    const pricingEntry = channel?.model_pricing?.find(isOpenAIImagePricingEntry);
+    if (!pricingEntry) {
+      fillQualityPricesFromBase(target, {
+        rate_multiplier: group.rate_multiplier,
+        image_rate_independent: group.image_rate_independent ?? false,
+        image_rate_multiplier: group.image_rate_multiplier ?? 1,
+        image_price_1k: group.image_price_1k,
+        image_price_2k: group.image_price_2k,
+        image_price_4k: group.image_price_4k,
+      });
+      return;
+    }
+    const loaded = buildDefaultImageQualityPrices();
+    for (const interval of pricingEntry.intervals || []) {
+      const label = interval.tier_label?.trim() as ImageQualityTierLabel;
+      if (label in loaded && interval.per_request_price !== null) {
+        loaded[label] = interval.per_request_price;
+      }
+    }
+    resetImageQualityPrices(target, loaded);
+  } catch (error) {
+    console.error("Error loading group image quality pricing:", error);
+    appStore.showWarning(t("admin.groups.imagePricing.qualityTierLoadFailed"));
+  }
+};
+
+const buildChannelUpdatePayload = (
+  channel: Channel,
+  modelPricing: ChannelModelPricing[],
+) => ({
+  name: channel.name,
+  description: channel.description,
+  status: channel.status,
+  group_ids: channel.group_ids || [],
+  model_pricing: modelPricing,
+  model_mapping: channel.model_mapping || {},
+  billing_model_source: channel.billing_model_source || "channel_mapped",
+  restrict_models: channel.restrict_models,
+  features_config: {
+    ...(channel.features_config || {}),
+    [managedImageQualityPricingFlag]: true,
+  },
+  apply_pricing_to_account_stats: channel.apply_pricing_to_account_stats,
+  account_stats_pricing_rules: channel.account_stats_pricing_rules || [],
+});
+
+const syncGroupImageQualityPricing = async (
+  group: AdminGroup,
+  prices: ImageQualityPriceState,
+) => {
+  if (group.platform !== "openai" || !group.allow_image_generation) {
+    return;
+  }
+  const intervals = buildImageQualityIntervals(prices);
+  if (intervals.length === 0) {
+    return;
+  }
+  const existingChannel = await findChannelForGroup(group.id);
+  if (existingChannel) {
+    await adminAPI.channels.update(
+      existingChannel.id,
+      buildChannelUpdatePayload(
+        existingChannel,
+        mergeOpenAIImageQualityPricing(existingChannel.model_pricing || [], intervals),
+      ),
+    );
+    return;
+  }
+
+  await adminAPI.channels.create({
+    name: `分组图片质量档 #${group.id} - ${group.name}`.slice(0, 100),
+    description: "由分组图片计费自动生成；用于 gpt-image 质量档扣费。",
+    group_ids: [group.id],
+    model_pricing: [createOpenAIImageQualityPricingEntry(intervals)],
+    model_mapping: {},
+    billing_model_source: "requested",
+    restrict_models: false,
+    features_config: {
+      [managedImageQualityPricingFlag]: true,
+    },
+    apply_pricing_to_account_stats: false,
+    account_stats_pricing_rules: [],
+  });
+};
+
 const normalizePreviewNumber = (value: number | string | null | undefined, fallback = 0) => {
   if (value === null || value === undefined || value === "") {
     return fallback;
@@ -3659,6 +4182,7 @@ const closeCreateModal = () => {
   createForm.image_price_1k = null;
   createForm.image_price_2k = null;
   createForm.image_price_4k = null;
+  resetImageQualityPrices(createImageQualityPrices);
   createForm.claude_code_only = false;
   createForm.fallback_group_id = null;
   createForm.fallback_group_id_on_invalid_request = null;
@@ -3748,7 +4272,15 @@ const handleCreateGroup = async () => {
     requestData.image_rate_multiplier = normalizeImageRateMultiplier(
       requestData.image_rate_multiplier,
     );
-    await adminAPI.groups.create(requestData);
+    const createdGroup = await adminAPI.groups.create(requestData);
+    try {
+      await syncGroupImageQualityPricing(createdGroup, createImageQualityPrices);
+    } catch (syncError) {
+      console.error("Error syncing group image quality pricing:", syncError);
+      appStore.showWarning(
+        t("admin.groups.imagePricing.qualityTierSyncFailed"),
+      );
+    }
     appStore.showSuccess(t("admin.groups.groupCreated"));
     closeCreateModal();
     loadGroups();
@@ -3785,6 +4317,7 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.image_price_1k = group.image_price_1k;
   editForm.image_price_2k = group.image_price_2k;
   editForm.image_price_4k = group.image_price_4k;
+  await readImageQualityPricesFromChannel(group, editImageQualityPrices);
   editForm.claude_code_only = group.claude_code_only || false;
   editForm.fallback_group_id = group.fallback_group_id;
   editForm.fallback_group_id_on_invalid_request =
@@ -3826,6 +4359,7 @@ const closeEditModal = () => {
   showEditModal.value = false;
   editingGroup.value = null;
   editModelRoutingRules.value = [];
+  resetImageQualityPrices(editImageQualityPrices);
   editForm.copy_accounts_from_group_ids = [];
   resetMessagesDispatchFormState(editForm);
 };
@@ -3883,7 +4417,15 @@ const handleUpdateGroup = async () => {
     payload.image_rate_multiplier = normalizeImageRateMultiplier(
       payload.image_rate_multiplier,
     );
-    await adminAPI.groups.update(editingGroup.value.id, payload);
+    const updatedGroup = await adminAPI.groups.update(editingGroup.value.id, payload);
+    try {
+      await syncGroupImageQualityPricing(updatedGroup, editImageQualityPrices);
+    } catch (syncError) {
+      console.error("Error syncing group image quality pricing:", syncError);
+      appStore.showWarning(
+        t("admin.groups.imagePricing.qualityTierSyncFailed"),
+      );
+    }
     appStore.showSuccess(t("admin.groups.groupUpdated"));
     closeEditModal();
     loadGroups();

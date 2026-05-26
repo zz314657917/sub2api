@@ -2481,6 +2481,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		originalModel      string
 		imageBillingModel  string
 		imageSizeTier      string
+		imageQuality       string
 		imageInputSize     string
 		payloadBytes       int
 	}
@@ -2585,6 +2586,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 		imageBillingModel := ""
 		imageSizeTier := ""
+		imageQuality := ""
 		imageInputSize := ""
 		if imageIntent {
 			var imageCfgErr error
@@ -2594,6 +2596,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			imageBillingModel = imageCfg.Model
 			imageSizeTier = imageCfg.SizeTier
+			imageQuality = imageCfg.Quality
 			imageInputSize = imageCfg.InputSize
 		}
 
@@ -2643,6 +2646,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			originalModel:      originalModel,
 			imageBillingModel:  imageBillingModel,
 			imageSizeTier:      imageSizeTier,
+			imageQuality:       imageQuality,
 			imageInputSize:     imageInputSize,
 			payloadBytes:       len(normalized),
 		}, nil
@@ -2845,7 +2849,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		return payload, nil
 	}
 
-	sendAndRelay := func(turn int, lease *openAIWSConnLease, payload []byte, payloadBytes int, originalModel string, imageBillingModel string, imageSizeTier string, imageInputSize string) (*OpenAIForwardResult, error) {
+	sendAndRelay := func(turn int, lease *openAIWSConnLease, payload []byte, payloadBytes int, originalModel string, imageBillingModel string, imageSizeTier string, imageQuality string, imageInputSize string) (*OpenAIForwardResult, error) {
 		if lease == nil {
 			return nil, errors.New("upstream websocket lease is nil")
 		}
@@ -3069,6 +3073,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				if imageCount > 0 {
 					result.ImageCount = imageCount
 					result.ImageSize = imageSizeTier
+					result.ImageQuality = imageQuality
 					result.ImageInputSize = imageInputSize
 					result.ImageOutputSizes = imageCounter.Sizes()
 					result.BillingModel = imageBillingModel
@@ -3082,6 +3087,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	currentOriginalModel := firstPayload.originalModel
 	currentImageBillingModel := firstPayload.imageBillingModel
 	currentImageSizeTier := firstPayload.imageSizeTier
+	currentImageQuality := firstPayload.imageQuality
 	currentImageInputSize := firstPayload.imageInputSize
 	currentPayloadBytes := firstPayload.payloadBytes
 	isStrictAffinityTurn := func(payload []byte) bool {
@@ -3560,7 +3566,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			)
 		}
 
-		result, relayErr := sendAndRelay(turn, sessionLease, currentPayload, currentPayloadBytes, currentOriginalModel, currentImageBillingModel, currentImageSizeTier, currentImageInputSize)
+		result, relayErr := sendAndRelay(turn, sessionLease, currentPayload, currentPayloadBytes, currentOriginalModel, currentImageBillingModel, currentImageSizeTier, currentImageQuality, currentImageInputSize)
 		if relayErr != nil {
 			lastTurnClean = false
 			if recoverIngressPrevResponseNotFound(relayErr, turn, connID) {
@@ -3684,6 +3690,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		currentOriginalModel = nextPayload.originalModel
 		currentImageBillingModel = nextPayload.imageBillingModel
 		currentImageSizeTier = nextPayload.imageSizeTier
+		currentImageQuality = nextPayload.imageQuality
 		currentImageInputSize = nextPayload.imageInputSize
 		currentPayloadBytes = nextPayload.payloadBytes
 		storeDisabled = s.isOpenAIWSStoreDisabledInRequestRaw(currentPayload, account)

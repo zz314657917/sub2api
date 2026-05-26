@@ -422,6 +422,8 @@
                   :key="idx"
                   :entry="entry"
                   :platform="section.platform"
+                  :model-suggestions="getModelSuggestions(section)"
+                  :loading-model-suggestions="isLoadingModelSuggestions(section.platform)"
                   @update="updatePricingEntry(sIdx, idx, $event)"
                   @remove="removePricingEntry(sIdx, idx)"
                 />
@@ -552,6 +554,8 @@
                       :key="pIdx"
                       :entry="entry"
                       :platform="section.platform"
+                      :model-suggestions="getModelSuggestions(section)"
+                      :loading-model-suggestions="isLoadingModelSuggestions(section.platform)"
                       @update="rule.pricing.splice(pIdx, 1, $event)"
                       @remove="removeRulePricingEntry(sIdx, ruleIndex, pIdx)"
                     />
@@ -716,6 +720,9 @@ const activeTab = ref<string>('basic')
 // Groups
 const allGroups = ref<AdminGroup[]>([])
 const groupsLoading = ref(false)
+const modelSuggestionsByPlatform = ref<Record<string, string[]>>({})
+const modelSuggestionLoadingByPlatform = ref<Record<string, boolean>>({})
+const modelSuggestionLoadedKeyByPlatform = ref<Record<string, string>>({})
 
 // All channels for group-conflict detection (independent of current page)
 const allChannelsForConflict = ref<Channel[]>([])
@@ -736,6 +743,42 @@ let abortController: AbortController | null = null
 // ── Platform config ──
 const platformOrder: GroupPlatform[] = ['anthropic', 'openai', 'gemini', 'antigravity']
 
+const fallbackModelSuggestions: Record<GroupPlatform, string[]> = {
+  anthropic: [
+    'claude-opus-4-7',
+    'claude-opus-4-6',
+    'claude-sonnet-4-6',
+    'claude-haiku-4-5-20251001',
+    'claude-*',
+  ],
+  openai: [
+    'gpt-5.5',
+    'gpt-5.4',
+    'gpt-5.4-mini',
+    'gpt-5.3-codex',
+    'gpt-image-2',
+    'gpt-image-1.5',
+    'gpt-image-*',
+  ],
+  gemini: [
+    'gemini-3.5-flash',
+    'gemini-3.1-pro-preview',
+    'gemini-3-pro-preview',
+    'gemini-2.5-pro',
+    'gemini-2.5-flash',
+    'gemini-2.5-flash-image',
+    'gemini-*',
+  ],
+  antigravity: [
+    'gemini-3.1-pro-preview',
+    'gemini-3-pro-preview',
+    'gemini-2.5-pro',
+    'claude-sonnet-4-6',
+    'claude-*',
+    'gemini-*',
+  ],
+}
+
 // ── Helpers ──
 function formatDate(value: string): string {
   if (!value) return '-'
@@ -746,7 +789,7 @@ function formatDate(value: string): string {
 const activePlatforms = computed(() => form.platforms.filter(s => s.enabled).map(s => s.platform))
 
 function addPlatformSection(platform: GroupPlatform) {
-  form.platforms.push({
+  const section: PlatformSection = {
     platform,
     enabled: true,
     collapsed: false,
@@ -756,13 +799,18 @@ function addPlatformSection(platform: GroupPlatform) {
     web_search_emulation: false,
     codex_image_generation_bridge: false,
     account_stats_pricing_rules: [],
-  })
+  }
+  form.platforms.push(section)
+  void loadModelSuggestionsForSection(section)
 }
 
 function togglePlatform(platform: GroupPlatform) {
   const section = form.platforms.find(s => s.platform === platform)
   if (section) {
     section.enabled = !section.enabled
+    if (section.enabled) {
+      void loadModelSuggestionsForSection(section)
+    }
     if (!section.enabled && activeTab.value === platform) {
       activeTab.value = 'basic'
     }
@@ -773,6 +821,130 @@ function togglePlatform(platform: GroupPlatform) {
 
 function getGroupsForPlatform(platform: GroupPlatform): AdminGroup[] {
   return allGroups.value.filter(g => g.platform === platform)
+}
+
+function modelSuggestionKey(section: PlatformSection): string {
+  const groupIds = [...section.group_ids].sort((a, b) => a - b).join(',')
+  return `${section.platform}:${groupIds}`
+}
+
+function mergeModelSuggestions(models: string[]): string[] {
+  const seen = new Set<string>()
+  const result: string[] = []
+  for (const model of models) {
+    const normalized = model.trim()
+    if (!normalized || seen.has(normalized)) continue
+    seen.add(normalized)
+    result.push(normalized)
+  }
+  return result
+}
+
+function extractModelId(model: unknown): string {
+  if (typeof model === 'string') return model
+  if (model && typeof model === 'object') {
+    const obj = model as { id?: unknown; name?: unknown; display_name?: unknown }
+    if (typeof obj.id === 'string') return obj.id
+    if (typeof obj.name === 'string') return obj.name
+    if (typeof obj.display_name === 'string') return obj.display_name
+  }
+  return ''
+}
+
+function getModelSuggestions(section: PlatformSection): string[] {
+  return mergeModelSuggestions([
+    ...(modelSuggestionsByPlatform.value[section.platform] || []),
+    ...(fallbackModelSuggestions[section.platform] || []),
+  ])
+}
+
+function isLoadingModelSuggestions(platform: GroupPlatform): boolean {
+  return modelSuggestionLoadingByPlatform.value[platform] === true
+}
+
+async function loadModelSuggestionsForSection(section: PlatformSection) {
+  const key = modelSuggestionKey(section)
+  const platform = section.platform
+  if (modelSuggestionLoadedKeyByPlatform.value[platform] === key) return
+
+  modelSuggestionLoadedKeyByPlatform.value = {
+    ...modelSuggestionLoadedKeyByPlatform.value,
+    [platform]: key,
+  }
+  modelSuggestionsByPlatform.value = {
+    ...modelSuggestionsByPlatform.value,
+    [platform]: [],
+  }
+  modelSuggestionLoadingByPlatform.value = {
+    ...modelSuggestionLoadingByPlatform.value,
+    [platform]: true,
+  }
+
+  try {
+    const accountIds = new Set<number>()
+    const groupIds = [...section.group_ids]
+
+    if (groupIds.length > 0) {
+      const accountResponses = await Promise.allSettled(
+        groupIds.slice(0, 8).map(groupId => adminAPI.accounts.list(1, 8, {
+          platform,
+          group: String(groupId),
+          status: 'active',
+          lite: '1',
+        }))
+      )
+      for (const response of accountResponses) {
+        if (response.status !== 'fulfilled') continue
+        for (const account of response.value.items || []) {
+          accountIds.add(account.id)
+        }
+      }
+    } else {
+      const response = await adminAPI.accounts.list(1, 8, {
+        platform,
+        status: 'active',
+        lite: '1',
+      })
+      for (const account of response.items || []) {
+        accountIds.add(account.id)
+      }
+    }
+
+    const modelResponses = await Promise.allSettled(
+      [...accountIds].slice(0, 8).map(accountId => adminAPI.accounts.getAvailableModels(accountId))
+    )
+    const fetchedModels: string[] = []
+    for (const response of modelResponses) {
+      if (response.status !== 'fulfilled') continue
+      for (const model of response.value || []) {
+        const modelId = extractModelId(model)
+        if (modelId) fetchedModels.push(modelId)
+      }
+    }
+
+    if (modelSuggestionLoadedKeyByPlatform.value[platform] !== key) return
+    modelSuggestionsByPlatform.value = {
+      ...modelSuggestionsByPlatform.value,
+      [platform]: mergeModelSuggestions(fetchedModels),
+    }
+  } catch (error) {
+    console.warn('Failed to load model suggestions:', error)
+  } finally {
+    if (modelSuggestionLoadedKeyByPlatform.value[platform] === key) {
+      modelSuggestionLoadingByPlatform.value = {
+        ...modelSuggestionLoadingByPlatform.value,
+        [platform]: false,
+      }
+    }
+  }
+}
+
+function loadModelSuggestionsForEnabledSections() {
+  for (const section of form.platforms) {
+    if (section.enabled) {
+      void loadModelSuggestionsForSection(section)
+    }
+  }
 }
 
 // ── Group helpers ──
@@ -817,6 +989,7 @@ function toggleGroupInSection(sectionIdx: number, groupId: number) {
   } else {
     section.group_ids.push(groupId)
   }
+  void loadModelSuggestionsForSection(section)
 }
 
 // ── Pricing helpers ──
@@ -1232,6 +1405,9 @@ function resetForm() {
   form.platforms = []
   form.apply_pricing_to_account_stats = false
   activeTab.value = 'basic'
+  modelSuggestionsByPlatform.value = {}
+  modelSuggestionLoadingByPlatform.value = {}
+  modelSuggestionLoadedKeyByPlatform.value = {}
   ruleAccountSearchRunner.clearAll()
   clearAllRuleAccountSearchState()
   ruleAccountNameCache.value = {}
@@ -1261,6 +1437,7 @@ async function openEditDialog(channel: Channel) {
 
   // Populate ruleAccountNameCache for existing rule accounts
   await populateRuleAccountNameCache()
+  loadModelSuggestionsForEnabledSections()
 
   showDialog.value = true
 }

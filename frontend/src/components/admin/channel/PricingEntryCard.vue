@@ -76,6 +76,8 @@
             <ModelTagInput
               :models="entry.models"
               :platform="props.platform"
+              :suggestions="props.modelSuggestions"
+              :loading-suggestions="props.loadingModelSuggestions"
               @update:models="onModelsUpdate($event)"
               :placeholder="t('admin.channels.form.modelsPlaceholder', '输入模型名后按回车添加，支持通配符 *')"
               class="mt-1"
@@ -200,15 +202,23 @@
             <input :value="entry.per_request_price" @input="emitField('per_request_price', ($event.target as HTMLInputElement).value)"
               type="number" step="any" min="0" class="input text-sm" :placeholder="t('admin.channels.form.pricePlaceholder', '默认')" />
           </div>
+          <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.channels.form.imageQualityTierHint', '按 quality 扣费时使用 1K:low / 1K:medium / 1K:high 这类层级；未配置精确质量档时会自动回退到 1K / 2K / 4K。') }}
+          </p>
 
           <!-- Image tiers -->
           <div class="mt-3 flex items-center justify-between">
             <label class="text-xs font-medium text-gray-500 dark:text-gray-400">
               {{ t('admin.channels.form.imageTiers', '图片计费层级（按次）') }}
             </label>
-            <button type="button" @click="addImageTier" class="text-xs text-primary-600 hover:text-primary-700">
-              + {{ t('admin.channels.form.addTier', '添加层级') }}
-            </button>
+            <div class="flex items-center gap-2">
+              <button type="button" @click="addImageQualityTiers" class="text-xs text-primary-600 hover:text-primary-700">
+                + {{ t('admin.channels.form.addImageQualityTiers', '添加质量档') }}
+              </button>
+              <button type="button" @click="addImageTier" class="text-xs text-primary-600 hover:text-primary-700">
+                + {{ t('admin.channels.form.addTier', '添加层级') }}
+              </button>
+            </div>
           </div>
           <div v-if="entry.intervals && entry.intervals.length > 0" class="mt-2 space-y-2">
             <IntervalRow
@@ -219,6 +229,9 @@
               @update="updateInterval(idx, $event)"
               @remove="removeInterval(idx)"
             />
+          </div>
+          <div v-else class="mt-2 rounded border border-dashed border-gray-300 p-3 text-center text-xs text-gray-400 dark:border-dark-500">
+            {{ t('admin.channels.form.noImageTiersYet', '暂无图片层级，点击“添加质量档”生成 1K/2K/4K × low/medium/high。') }}
           </div>
         </div>
       </div>
@@ -243,6 +256,8 @@ const { t } = useI18n()
 const props = defineProps<{
   entry: PricingFormEntry
   platform?: string
+  modelSuggestions?: string[]
+  loadingModelSuggestions?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -281,13 +296,32 @@ function addInterval() {
 
 function addImageTier() {
   const intervals = [...(props.entry.intervals || [])]
-  const labels = ['1K', '2K', '4K', 'HD']
+  const labels = ['1K', '2K', '4K']
   intervals.push({
     min_tokens: 0, max_tokens: null, tier_label: labels[intervals.length] || '',
     input_price: null, output_price: null, cache_write_price: null,
     cache_read_price: null, per_request_price: null,
     sort_order: intervals.length
   })
+  emit('update', { ...props.entry, intervals })
+}
+
+function addImageQualityTiers() {
+  const intervals = [...(props.entry.intervals || [])]
+  const existingLabels = new Set(intervals.map(iv => (iv.tier_label || '').trim()))
+  const defaultPrices: Record<string, string> = { '1K': '0.05', '2K': '0.1', '4K': '0.15' }
+  const labels = ['1K', '2K', '4K'].flatMap(size => ['low', 'medium', 'high'].map(quality => `${size}:${quality}`))
+
+  for (const label of labels) {
+    if (existingLabels.has(label)) continue
+    const size = label.split(':')[0]
+    intervals.push({
+      min_tokens: 0, max_tokens: null, tier_label: label,
+      input_price: null, output_price: null, cache_write_price: null,
+      cache_read_price: null, per_request_price: defaultPrices[size] ?? null,
+      sort_order: intervals.length
+    })
+  }
   emit('update', { ...props.entry, intervals })
 }
 

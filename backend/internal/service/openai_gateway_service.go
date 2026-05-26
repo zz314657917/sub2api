@@ -238,6 +238,7 @@ type OpenAIForwardResult struct {
 	FirstTokenMs       *int
 	ImageCount         int
 	ImageSize          string
+	ImageQuality       string
 	ImageInputSize     string
 	ImageOutputSize    string
 	ImageOutputSizes   []string
@@ -2490,6 +2491,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	imageBillingModel := ""
 	imageSizeTier := ""
 	imageInputSize := ""
+	imageQuality := ""
 	if IsImageGenerationIntentMap(openAIResponsesEndpoint, reqModel, reqBody) {
 		var imageCfgErr error
 		imageCfg, imageCfgErr := resolveOpenAIResponsesImageBillingConfigDetailed(reqBody, billingModel)
@@ -2507,6 +2509,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		imageBillingModel = imageCfg.Model
 		imageSizeTier = imageCfg.SizeTier
 		imageInputSize = imageCfg.InputSize
+		imageQuality = imageCfg.Quality
 	}
 
 	// Re-serialize body only if modified
@@ -2749,6 +2752,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			if wsResult.ImageCount > 0 {
 				wsResult.ImageSize = imageSizeTier
 				wsResult.ImageInputSize = imageInputSize
+				wsResult.ImageQuality = imageQuality
 				wsResult.BillingModel = imageBillingModel
 			}
 			return wsResult, nil
@@ -2905,6 +2909,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 			forwardResult.ImageCount = imageCount
 			forwardResult.ImageSize = imageSizeTier
 			forwardResult.ImageInputSize = imageInputSize
+			forwardResult.ImageQuality = imageQuality
 			forwardResult.ImageOutputSizes = imageOutputSizes
 			forwardResult.BillingModel = imageBillingModel
 		}
@@ -3011,6 +3016,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	imageBillingModel := ""
 	imageSizeTier := ""
 	imageInputSize := ""
+	imageQuality := ""
 	if IsImageGenerationIntent(openAIResponsesEndpoint, reqModel, body) {
 		var imageCfgErr error
 		imageCfg, imageCfgErr := resolveOpenAIResponsesImageBillingConfigDetailedFromBody(body, reqModel)
@@ -3028,6 +3034,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		imageBillingModel = imageCfg.Model
 		imageSizeTier = imageCfg.SizeTier
 		imageInputSize = imageCfg.InputSize
+		imageQuality = imageCfg.Quality
 	}
 
 	logger.LegacyPrintf("service.openai_gateway",
@@ -3157,6 +3164,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		forwardResult.ImageCount = imageCount
 		forwardResult.ImageSize = imageSizeTier
 		forwardResult.ImageInputSize = imageInputSize
+		forwardResult.ImageQuality = imageQuality
 		forwardResult.ImageOutputSizes = imageOutputSizes
 		forwardResult.BillingModel = imageBillingModel
 	}
@@ -5545,6 +5553,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 	if result.ImageCount > 0 {
 		usageLog.RateMultiplier = imageMultiplier
+		usageLog.BillingTier = optionalTrimmedStringPtr(ImageBillingTierWithQuality(result.ImageSize, result.ImageQuality))
 	} else {
 		usageLog.RateMultiplier = multiplier
 	}
@@ -5712,6 +5721,7 @@ func (s *OpenAIGatewayService) calculateOpenAIImageCost(
 	multiplier float64,
 ) *CostBreakdown {
 	sizeTier := NormalizeImageBillingTierOrDefault(result.ImageSize)
+	billingTier := ImageBillingTierWithQuality(sizeTier, result.ImageQuality)
 	if resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey); resolved != nil &&
 		(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
 		gid := apiKey.Group.ID
@@ -5720,7 +5730,7 @@ func (s *OpenAIGatewayService) calculateOpenAIImageCost(
 			Model:          billingModel,
 			GroupID:        &gid,
 			RequestCount:   result.ImageCount,
-			SizeTier:       sizeTier,
+			SizeTier:       billingTier,
 			RateMultiplier: multiplier,
 			Resolver:       s.resolver,
 			Resolved:       resolved,

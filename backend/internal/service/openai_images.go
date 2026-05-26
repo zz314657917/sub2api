@@ -14,6 +14,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -33,6 +34,15 @@ const (
 
 	openAIImagesGenerationsURL = "https://api.openai.com/v1/images/generations"
 	openAIImagesEditsURL       = "https://api.openai.com/v1/images/edits"
+
+	apimartImagesGenerationsEndpoint = openAIImagesGenerationsEndpoint
+	apimartImagesUploadEndpoint      = "/v1/uploads/images"
+	apimartImagesTaskEndpointPrefix  = "/v1/tasks/"
+	apimartImagesPollInterval        = 3 * time.Second
+	apimartImagesMaxPolls            = 80
+	apimartImagesMaxResponseBytes    = 8 << 20
+	apimartImagesMaxErrorBytes       = 2 << 20
+	apimartImagesDefaultResolution   = "1k"
 
 	openAIChatGPTStartURL          = "https://chatgpt.com/"
 	openAIChatGPTFilesURL          = "https://chatgpt.com/backend-api/files"
@@ -68,6 +78,7 @@ type OpenAIImagesRequest struct {
 	Stream             bool
 	N                  int
 	Size               string
+	Resolution         string
 	ExplicitSize       bool
 	SizeTier           string
 	ResponseFormat     string
@@ -251,6 +262,9 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		req.Size = strings.TrimSpace(sizeResult.String())
 		req.ExplicitSize = req.Size != ""
 	}
+	if resolutionResult := gjson.GetBytes(body, "resolution"); resolutionResult.Exists() {
+		req.Resolution = strings.TrimSpace(resolutionResult.String())
+	}
 	req.ResponseFormat = strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "response_format").String()))
 	req.Quality = strings.TrimSpace(gjson.GetBytes(body, "quality").String())
 	req.Background = strings.TrimSpace(gjson.GetBytes(body, "background").String())
@@ -377,6 +391,8 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 		case "size":
 			req.Size = value
 			req.ExplicitSize = value != ""
+		case "resolution":
+			req.Resolution = value
 		case "response_format":
 			req.ResponseFormat = strings.ToLower(value)
 		case "stream":
@@ -599,6 +615,9 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if err != nil {
 		return nil, err
 	}
+	if isAPIMartImagesHost(account) && isAPIMartImagesAsyncModel(upstreamModel) {
+		return s.forwardAPIMartImages(upstreamCtx, c, account, parsed, token, requestModel, upstreamModel, startTime)
+	}
 	upstreamReq, err := s.buildOpenAIImagesRequest(upstreamCtx, c, account, forwardBody, forwardContentType, token, parsed.Endpoint)
 	if err != nil {
 		return nil, err
@@ -671,6 +690,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 					FirstTokenMs:     ttft,
 					ImageCount:       streamCount,
 					ImageSize:        parsed.SizeTier,
+					ImageQuality:     NormalizeImageQuality(parsed.Quality),
 					ImageInputSize:   parsed.Size,
 					ImageOutputSizes: streamSizes,
 				}, err
@@ -692,6 +712,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			FirstTokenMs:     firstTokenMs,
 			ImageCount:       imageCount,
 			ImageSize:        parsed.SizeTier,
+			ImageQuality:     NormalizeImageQuality(parsed.Quality),
 			ImageInputSize:   parsed.Size,
 			ImageOutputSizes: imageOutputSizes,
 		}, nil
@@ -715,6 +736,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 			FirstTokenMs:     firstTokenMs,
 			ImageCount:       imageCount,
 			ImageSize:        parsed.SizeTier,
+			ImageQuality:     NormalizeImageQuality(parsed.Quality),
 			ImageInputSize:   parsed.Size,
 			ImageOutputSizes: nonStreamSizes,
 		}, nil
@@ -768,6 +790,501 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 
 func buildOpenAIImagesURL(base string, endpoint string) string {
 	return buildOpenAIEndpointURL(base, endpoint)
+}
+
+func isAPIMartImagesHost(account *Account) bool {
+	if account == nil || !account.IsOpenAIApiKey() {
+		return false
+	}
+	rawBase := strings.TrimSpace(account.GetOpenAIBaseURL())
+	if rawBase == "" {
+		return false
+	}
+	parsed, err := url.Parse(rawBase)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(parsed.Hostname(), "api.apimart.ai")
+}
+
+func isAPIMartImagesAsyncModel(model string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(model))
+	return normalized == "gpt-image-2" || normalized == "gpt-image-2-official"
+}
+
+func (s *OpenAIGatewayService) forwardAPIMartImages(
+	ctx context.Context,
+	c *gin.Context,
+	account *Account,
+	parsed *OpenAIImagesRequest,
+	token string,
+	requestModel string,
+	upstreamModel string,
+	startTime time.Time,
+) (*OpenAIForwardResult, error) {
+	baseURL, err := s.validateUpstreamBaseURL(account.GetOpenAIBaseURL())
+	if err != nil {
+		return nil, err
+	}
+	proxyURL := ""
+	if account.ProxyID != nil && account.Proxy != nil {
+		proxyURL = account.Proxy.URL()
+	}
+
+	upstreamStart := time.Now()
+	imageURLs := append([]string(nil), parsed.InputImageURLs...)
+	for _, upload := range parsed.Uploads {
+		uploadedURL, uploadErr := s.uploadAPIMartImage(ctx, account, token, proxyURL, baseURL, upload)
+		if uploadErr != nil {
+			SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
+			s.recordAPIMartImagesUpstreamError(c, account, uploadErr)
+			return nil, uploadErr
+		}
+		imageURLs = append(imageURLs, uploadedURL)
+	}
+
+	maskURL := strings.TrimSpace(parsed.MaskImageURL)
+	if parsed.MaskUpload != nil {
+		uploadedURL, uploadErr := s.uploadAPIMartImage(ctx, account, token, proxyURL, baseURL, *parsed.MaskUpload)
+		if uploadErr != nil {
+			SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
+			s.recordAPIMartImagesUpstreamError(c, account, uploadErr)
+			return nil, uploadErr
+		}
+		maskURL = uploadedURL
+	}
+
+	submitBody, err := buildAPIMartImagesPayload(parsed, upstreamModel, imageURLs, maskURL)
+	if err != nil {
+		return nil, err
+	}
+	setOpsUpstreamRequestBody(c, submitBody)
+
+	taskID, submitReqID, err := s.submitAPIMartImageTask(ctx, account, token, proxyURL, baseURL, submitBody)
+	if err != nil {
+		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
+		s.recordAPIMartImagesUpstreamError(c, account, err)
+		return nil, err
+	}
+	images, err := s.pollAPIMartImageTask(ctx, account, token, proxyURL, baseURL, taskID)
+	SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
+	if err != nil {
+		s.recordAPIMartImagesUpstreamError(c, account, err)
+		return nil, err
+	}
+	if len(images) == 0 {
+		return nil, fmt.Errorf("apimart image task completed without image urls")
+	}
+
+	body, err := buildAPIMartOpenAIImagesResponse(images, parsed)
+	if err != nil {
+		return nil, err
+	}
+	c.Data(http.StatusOK, "application/json", body)
+
+	return &OpenAIForwardResult{
+		RequestID:      submitReqID,
+		Usage:          OpenAIUsage{},
+		Model:          requestModel,
+		UpstreamModel:  upstreamModel,
+		Stream:         false,
+		Duration:       time.Since(startTime),
+		ImageCount:     len(images),
+		ImageSize:      parsed.SizeTier,
+		ImageQuality:   NormalizeImageQuality(parsed.Quality),
+		ImageInputSize: parsed.Size,
+	}, nil
+}
+
+func buildAPIMartImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string, imageURLs []string, maskURL string) ([]byte, error) {
+	if parsed == nil {
+		return nil, fmt.Errorf("parsed images request is required")
+	}
+	payload := map[string]any{
+		"model":      strings.TrimSpace(upstreamModel),
+		"prompt":     strings.TrimSpace(parsed.Prompt),
+		"n":          parsed.N,
+		"resolution": apimartImagesResolution(parsed),
+	}
+	if size := strings.TrimSpace(parsed.Size); size != "" {
+		payload["size"] = size
+	}
+	if quality := strings.TrimSpace(parsed.Quality); quality != "" {
+		payload["quality"] = quality
+	}
+	if background := strings.TrimSpace(parsed.Background); background != "" {
+		payload["background"] = background
+	}
+	if moderation := strings.TrimSpace(parsed.Moderation); moderation != "" {
+		payload["moderation"] = moderation
+	}
+	if outputFormat := strings.TrimSpace(parsed.OutputFormat); outputFormat != "" {
+		payload["output_format"] = outputFormat
+	}
+	if parsed.OutputCompression != nil {
+		payload["output_compression"] = *parsed.OutputCompression
+	}
+	if strings.EqualFold(strings.TrimSpace(upstreamModel), "gpt-image-2") {
+		payload["official_fallback"] = false
+	}
+	imageURLs = compactTrimmedStrings(imageURLs)
+	if len(imageURLs) > 0 {
+		payload["image_urls"] = imageURLs
+	}
+	if maskURL := strings.TrimSpace(maskURL); maskURL != "" {
+		payload["mask_url"] = maskURL
+	}
+	return json.Marshal(payload)
+}
+
+func apimartImagesResolution(parsed *OpenAIImagesRequest) string {
+	if parsed == nil {
+		return apimartImagesDefaultResolution
+	}
+	switch strings.ToLower(strings.TrimSpace(parsed.Resolution)) {
+	case "1k":
+		return "1k"
+	case "2k":
+		return "2k"
+	case "4k":
+		return "4k"
+	}
+	size := strings.TrimSpace(parsed.Size)
+	if size == "" {
+		return apimartImagesDefaultResolution
+	}
+	if strings.Contains(size, ":") {
+		return apimartImagesDefaultResolution
+	}
+	if tier, ok := apimartKnownImageResolution(size); ok {
+		return tier
+	}
+	switch strings.ToUpper(strings.TrimSpace(parsed.SizeTier)) {
+	case ImageBillingSize1K:
+		return "1k"
+	case ImageBillingSize2K:
+		return "2k"
+	case ImageBillingSize4K:
+		return "4k"
+	default:
+		return apimartImagesDefaultResolution
+	}
+}
+
+func apimartKnownImageResolution(size string) (string, bool) {
+	normalized := strings.ToLower(strings.ReplaceAll(strings.TrimSpace(size), "×", "x"))
+	switch normalized {
+	case "1024x1024", "1254x1254", "1536x1024", "1024x1536", "1024x768", "768x1024",
+		"1280x1024", "1448x1086", "1024x1280", "1122x1402", "1536x864", "1672x941",
+		"864x1536", "941x1672", "2048x1024", "1774x887", "1024x2048", "887x1774",
+		"1881x836", "1536x512", "512x1536", "2016x864", "1915x821", "864x2016", "821x1915":
+		return "1k", true
+	case "2048x2048", "2048x1360", "1360x2048", "2048x1536", "1536x2048", "2560x2048",
+		"2048x2560", "2048x1152", "1152x2048", "2688x1344", "1344x2688", "3072x1024",
+		"1024x3072", "2688x1152", "1152x2688":
+		return "2k", true
+	case "2880x2880", "3520x2336", "2336x3520", "3312x2480", "2480x3312", "3216x2576",
+		"2576x3216", "3840x2160", "2160x3840", "3840x1920", "1920x3840", "3840x1280",
+		"1280x3840", "3840x1648", "1648x3840":
+		return "4k", true
+	default:
+		return "", false
+	}
+}
+
+func (s *OpenAIGatewayService) uploadAPIMartImage(
+	ctx context.Context,
+	account *Account,
+	token string,
+	proxyURL string,
+	baseURL string,
+	upload OpenAIImagesUpload,
+) (string, error) {
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	header := make(textproto.MIMEHeader)
+	header.Set("Content-Disposition", fmt.Sprintf(`form-data; name="file"; filename="%s"`, escapeQuotes(firstNonEmptyString(upload.FileName, "image.png"))))
+	if contentType := strings.TrimSpace(upload.ContentType); contentType != "" {
+		header.Set("Content-Type", contentType)
+	}
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		return "", fmt.Errorf("create apimart image upload part: %w", err)
+	}
+	if _, err := part.Write(upload.Data); err != nil {
+		return "", fmt.Errorf("write apimart image upload part: %w", err)
+	}
+	if err := writer.Close(); err != nil {
+		return "", fmt.Errorf("finalize apimart image upload: %w", err)
+	}
+
+	targetURL := buildOpenAIEndpointURL(baseURL, apimartImagesUploadEndpoint)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body.Bytes()))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+
+	respBody, _, err := s.doAPIMartImagesRequest(req, proxyURL, account)
+	if err != nil {
+		return "", err
+	}
+	uploadedURL := strings.TrimSpace(gjson.GetBytes(respBody, "url").String())
+	if uploadedURL == "" {
+		uploadedURL = strings.TrimSpace(gjson.GetBytes(respBody, "data.url").String())
+	}
+	if uploadedURL == "" {
+		return "", fmt.Errorf("apimart image upload response missing url")
+	}
+	return uploadedURL, nil
+}
+
+func (s *OpenAIGatewayService) submitAPIMartImageTask(
+	ctx context.Context,
+	account *Account,
+	token string,
+	proxyURL string,
+	baseURL string,
+	body []byte,
+) (string, string, error) {
+	targetURL := buildOpenAIEndpointURL(baseURL, apimartImagesGenerationsEndpoint)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
+	if err != nil {
+		return "", "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Content-Type", "application/json")
+
+	respBody, requestID, err := s.doAPIMartImagesRequest(req, proxyURL, account)
+	if err != nil {
+		return "", "", err
+	}
+	taskID := extractAPIMartImageTaskID(respBody)
+	if taskID == "" {
+		return "", requestID, fmt.Errorf("apimart image generation response missing task_id")
+	}
+	return taskID, requestID, nil
+}
+
+func (s *OpenAIGatewayService) pollAPIMartImageTask(
+	ctx context.Context,
+	account *Account,
+	token string,
+	proxyURL string,
+	baseURL string,
+	taskID string,
+) ([]string, error) {
+	targetURL := buildOpenAIEndpointURL(baseURL, apimartImagesTaskEndpointPrefix+url.PathEscape(taskID)) + "?language=zh"
+	var lastStatus string
+	var lastMessage string
+	for attempt := 0; attempt < apimartImagesMaxPolls; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, targetURL, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Accept", "application/json")
+
+		respBody, _, err := s.doAPIMartImagesRequest(req, proxyURL, account)
+		if err != nil {
+			return nil, err
+		}
+		status := strings.ToLower(strings.TrimSpace(firstNonEmptyString(
+			gjson.GetBytes(respBody, "data.status").String(),
+			gjson.GetBytes(respBody, "status").String(),
+		)))
+		lastStatus = status
+		lastMessage = extractAPIMartImageMessage(respBody)
+		switch status {
+		case "completed", "succeeded", "success":
+			images := extractAPIMartImageResultURLs(respBody)
+			if len(images) == 0 {
+				return nil, fmt.Errorf("apimart image task completed without image urls")
+			}
+			return images, nil
+		case "failed", "cancelled", "canceled":
+			if lastMessage == "" {
+				lastMessage = "task failed"
+			}
+			return nil, fmt.Errorf("apimart image task %s: %s", status, sanitizeUpstreamErrorMessage(lastMessage))
+		}
+
+		timer := time.NewTimer(apimartImagesPollInterval)
+		select {
+		case <-ctx.Done():
+			if !timer.Stop() {
+				<-timer.C
+			}
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	if lastStatus == "" {
+		lastStatus = "unknown"
+	}
+	if lastMessage == "" {
+		lastMessage = "task polling timed out"
+	}
+	return nil, fmt.Errorf("apimart image task timeout: status=%s message=%s", lastStatus, sanitizeUpstreamErrorMessage(lastMessage))
+}
+
+func (s *OpenAIGatewayService) doAPIMartImagesRequest(req *http.Request, proxyURL string, account *Account) ([]byte, string, error) {
+	resp, err := s.httpUpstream.Do(req, proxyURL, account.ID, account.Concurrency)
+	if err != nil {
+		safeErr := sanitizeUpstreamErrorMessage(err.Error())
+		return nil, "", fmt.Errorf("apimart upstream request failed: %s", safeErr)
+	}
+	if resp == nil {
+		return nil, "", fmt.Errorf("apimart upstream request failed: empty response")
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, readErr := io.ReadAll(io.LimitReader(resp.Body, apimartImagesMaxResponseBytes))
+	if readErr != nil {
+		return nil, resp.Header.Get("x-request-id"), readErr
+	}
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		message := sanitizeUpstreamErrorMessage(extractUpstreamErrorMessage(body))
+		if message == "" {
+			message = fmt.Sprintf("HTTP %d", resp.StatusCode)
+		}
+		limitedBody := body
+		if len(limitedBody) > apimartImagesMaxErrorBytes {
+			limitedBody = limitedBody[:apimartImagesMaxErrorBytes]
+		}
+		return nil, resp.Header.Get("x-request-id"), &openAIImageStatusError{
+			StatusCode:      resp.StatusCode,
+			Message:         message,
+			ResponseBody:    limitedBody,
+			ResponseHeaders: resp.Header.Clone(),
+			RequestID:       resp.Header.Get("x-request-id"),
+			URL:             safeUpstreamURL(req.URL.String()),
+		}
+	}
+	if code := gjson.GetBytes(body, "code"); code.Exists() && code.Int() != 0 && code.Int() != 200 {
+		message := sanitizeUpstreamErrorMessage(extractAPIMartImageMessage(body))
+		if message == "" {
+			message = fmt.Sprintf("code %d", code.Int())
+		}
+		return nil, resp.Header.Get("x-request-id"), &openAIImageStatusError{
+			StatusCode:      http.StatusBadGateway,
+			Message:         message,
+			ResponseBody:    body,
+			ResponseHeaders: resp.Header.Clone(),
+			RequestID:       resp.Header.Get("x-request-id"),
+			URL:             safeUpstreamURL(req.URL.String()),
+		}
+	}
+	return body, resp.Header.Get("x-request-id"), nil
+}
+
+func extractAPIMartImageTaskID(body []byte) string {
+	for _, path := range []string{"data.0.task_id", "data.task_id", "task_id", "id"} {
+		if value := strings.TrimSpace(gjson.GetBytes(body, path).String()); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func extractAPIMartImageMessage(body []byte) string {
+	for _, path := range []string{
+		"message",
+		"error.message",
+		"data.message",
+		"data.error",
+		"data.error.message",
+	} {
+		if value := strings.TrimSpace(gjson.GetBytes(body, path).String()); value != "" {
+			return value
+		}
+	}
+	return ""
+}
+
+func extractAPIMartImageResultURLs(body []byte) []string {
+	var out []string
+	for _, path := range []string{
+		"data.result.images",
+		"result.images",
+		"data.images",
+		"images",
+	} {
+		items := gjson.GetBytes(body, path)
+		if !items.IsArray() {
+			continue
+		}
+		for _, item := range items.Array() {
+			if item.Type == gjson.String {
+				out = append(out, strings.TrimSpace(item.String()))
+				continue
+			}
+			urls := item.Get("url")
+			if urls.IsArray() {
+				for _, u := range urls.Array() {
+					out = append(out, strings.TrimSpace(u.String()))
+				}
+			} else if urls.Type == gjson.String {
+				out = append(out, strings.TrimSpace(urls.String()))
+			}
+			if value := strings.TrimSpace(item.Get("image_url").String()); value != "" {
+				out = append(out, value)
+			}
+		}
+		if len(out) > 0 {
+			break
+		}
+	}
+	return compactTrimmedStrings(out)
+}
+
+func buildAPIMartOpenAIImagesResponse(images []string, parsed *OpenAIImagesRequest) ([]byte, error) {
+	out := []byte(`{"created":0,"data":[]}`)
+	out, _ = sjson.SetBytes(out, "created", time.Now().Unix())
+	prompt := ""
+	if parsed != nil {
+		prompt = strings.TrimSpace(parsed.Prompt)
+	}
+	for _, imageURL := range compactTrimmedStrings(images) {
+		item := []byte(`{}`)
+		item, _ = sjson.SetBytes(item, "url", imageURL)
+		if prompt != "" {
+			item, _ = sjson.SetBytes(item, "revised_prompt", prompt)
+		}
+		out, _ = sjson.SetRawBytes(out, "data.-1", item)
+	}
+	return out, nil
+}
+
+func (s *OpenAIGatewayService) recordAPIMartImagesUpstreamError(c *gin.Context, account *Account, err error) {
+	if err == nil {
+		return
+	}
+	statusCode := 0
+	requestID := ""
+	upstreamURL := ""
+	body := []byte(nil)
+	if statusErr, ok := err.(*openAIImageStatusError); ok && statusErr != nil {
+		statusCode = statusErr.StatusCode
+		requestID = statusErr.RequestID
+		upstreamURL = statusErr.URL
+		body = statusErr.ResponseBody
+	}
+	message := sanitizeUpstreamErrorMessage(err.Error())
+	setOpsUpstreamError(c, statusCode, message, "")
+	appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+		Platform:             account.Platform,
+		AccountID:            account.ID,
+		AccountName:          account.Name,
+		UpstreamStatusCode:   statusCode,
+		UpstreamRequestID:    requestID,
+		UpstreamURL:          upstreamURL,
+		Kind:                 "request_error",
+		Message:              message,
+		UpstreamResponseBody: truncateString(string(body), 2048),
+	})
 }
 
 func rewriteOpenAIImagesModel(body []byte, contentType string, model string) ([]byte, string, error) {
