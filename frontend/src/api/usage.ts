@@ -157,15 +157,33 @@ export async function getStats(
 export async function getStatsByDateRange(
   startDate: string,
   endDate: string,
-  apiKeyId?: number
+  filters: Pick<UsageQueryParams, 'api_key_id' | 'group_id' | 'model' | 'request_type' | 'stream' | 'billing_type' | 'billing_mode'> = {}
 ): Promise<UsageStatsResponse> {
   const params: Record<string, unknown> = {
     start_date: startDate,
     end_date: endDate
   }
 
-  if (apiKeyId !== undefined) {
-    params.api_key_id = apiKeyId
+  if (filters.api_key_id !== undefined) {
+    params.api_key_id = filters.api_key_id
+  }
+  if (filters.group_id !== undefined) {
+    params.group_id = filters.group_id
+  }
+  if (filters.model) {
+    params.model = filters.model
+  }
+  if (filters.request_type) {
+    params.request_type = filters.request_type
+  }
+  if (filters.stream !== undefined) {
+    params.stream = filters.stream
+  }
+  if (filters.billing_type !== undefined && filters.billing_type !== null) {
+    params.billing_type = filters.billing_type
+  }
+  if (filters.billing_mode) {
+    params.billing_mode = filters.billing_mode
   }
 
   const { data } = await apiClient.get<UsageStatsResponse>('/usage/stats', {

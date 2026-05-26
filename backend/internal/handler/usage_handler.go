@@ -67,6 +67,17 @@ func (h *UsageHandler) List(c *gin.Context) {
 
 	// Parse additional filters
 	model := c.Query("model")
+	billingMode := strings.TrimSpace(c.Query("billing_mode"))
+
+	var groupID int64
+	if groupIDStr := c.Query("group_id"); groupIDStr != "" {
+		id, err := strconv.ParseInt(groupIDStr, 10, 64)
+		if err != nil {
+			response.BadRequest(c, "Invalid group_id")
+			return
+		}
+		groupID = id
+	}
 
 	var requestType *int16
 	var stream *bool
@@ -130,10 +141,12 @@ func (h *UsageHandler) List(c *gin.Context) {
 	filters := usagestats.UsageLogFilters{
 		UserID:      subject.UserID, // Always filter by current user for security
 		APIKeyID:    apiKeyID,
+		GroupID:     groupID,
 		Model:       model,
 		RequestType: requestType,
 		Stream:      stream,
 		BillingType: billingType,
+		BillingMode: billingMode,
 		StartTime:   startTime,
 		EndTime:     endTime,
 	}
@@ -212,6 +225,49 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		apiKeyID = id
 	}
 
+	var groupID int64
+	if groupIDStr := c.Query("group_id"); groupIDStr != "" {
+		id, err := strconv.ParseInt(groupIDStr, 10, 64)
+		if err != nil {
+			response.BadRequest(c, "Invalid group_id")
+			return
+		}
+		groupID = id
+	}
+
+	model := c.Query("model")
+	billingMode := strings.TrimSpace(c.Query("billing_mode"))
+
+	var requestType *int16
+	var stream *bool
+	if requestTypeStr := strings.TrimSpace(c.Query("request_type")); requestTypeStr != "" {
+		parsed, err := service.ParseUsageRequestType(requestTypeStr)
+		if err != nil {
+			response.BadRequest(c, err.Error())
+			return
+		}
+		value := int16(parsed)
+		requestType = &value
+	} else if streamStr := c.Query("stream"); streamStr != "" {
+		val, err := strconv.ParseBool(streamStr)
+		if err != nil {
+			response.BadRequest(c, "Invalid stream value, use true or false")
+			return
+		}
+		stream = &val
+	}
+
+	var billingType *int8
+	if billingTypeStr := c.Query("billing_type"); billingTypeStr != "" {
+		val, err := strconv.ParseInt(billingTypeStr, 10, 8)
+		if err != nil {
+			response.BadRequest(c, "Invalid billing_type")
+			return
+		}
+		bt := int8(val)
+		billingType = &bt
+	}
+
 	// 获取时间范围参数
 	userTZ := c.Query("timezone") // Get user's timezone from request
 	now := timezone.NowInUserLocation(userTZ)
@@ -252,13 +308,19 @@ func (h *UsageHandler) Stats(c *gin.Context) {
 		endTime = now
 	}
 
-	var stats *service.UsageStats
-	var err error
-	if apiKeyID > 0 {
-		stats, err = h.usageService.GetStatsByAPIKey(c.Request.Context(), apiKeyID, startTime, endTime)
-	} else {
-		stats, err = h.usageService.GetStatsByUser(c.Request.Context(), subject.UserID, startTime, endTime)
+	filters := usagestats.UsageLogFilters{
+		UserID:      subject.UserID,
+		APIKeyID:    apiKeyID,
+		GroupID:     groupID,
+		Model:       model,
+		RequestType: requestType,
+		Stream:      stream,
+		BillingType: billingType,
+		BillingMode: billingMode,
+		StartTime:   &startTime,
+		EndTime:     &endTime,
 	}
+	stats, err := h.usageService.GetStatsWithFilters(c.Request.Context(), filters)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return

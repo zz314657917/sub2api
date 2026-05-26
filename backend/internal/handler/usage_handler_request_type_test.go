@@ -16,8 +16,9 @@ import (
 
 type userUsageRepoCapture struct {
 	service.UsageLogRepository
-	listParams  pagination.PaginationParams
-	listFilters usagestats.UsageLogFilters
+	listParams   pagination.PaginationParams
+	listFilters  usagestats.UsageLogFilters
+	statsFilters usagestats.UsageLogFilters
 }
 
 func (s *userUsageRepoCapture) ListWithFilters(ctx context.Context, params pagination.PaginationParams, filters usagestats.UsageLogFilters) ([]service.UsageLog, *pagination.PaginationResult, error) {
@@ -31,6 +32,11 @@ func (s *userUsageRepoCapture) ListWithFilters(ctx context.Context, params pagin
 	}, nil
 }
 
+func (s *userUsageRepoCapture) GetStatsWithFilters(ctx context.Context, filters usagestats.UsageLogFilters) (*usagestats.UsageStats, error) {
+	s.statsFilters = filters
+	return &usagestats.UsageStats{}, nil
+}
+
 func newUserUsageRequestTypeTestRouter(repo *userUsageRepoCapture) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	usageSvc := service.NewUsageService(repo, nil, nil, nil)
@@ -41,6 +47,7 @@ func newUserUsageRequestTypeTestRouter(repo *userUsageRepoCapture) *gin.Engine {
 		c.Next()
 	})
 	router.GET("/usage", handler.List)
+	router.GET("/usage/stats", handler.Stats)
 	return router
 }
 
@@ -79,4 +86,47 @@ func TestUserUsageListInvalidStream(t *testing.T) {
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestUserUsageListGroupAndBillingModeFilters(t *testing.T) {
+	repo := &userUsageRepoCapture{}
+	router := newUserUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage?group_id=7&billing_mode=image", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, int64(42), repo.listFilters.UserID)
+	require.Equal(t, int64(7), repo.listFilters.GroupID)
+	require.Equal(t, "image", repo.listFilters.BillingMode)
+}
+
+func TestUserUsageListInvalidGroupID(t *testing.T) {
+	repo := &userUsageRepoCapture{}
+	router := newUserUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage?group_id=bad", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestUserUsageStatsGroupBillingAndRequestTypeFilters(t *testing.T) {
+	repo := &userUsageRepoCapture{}
+	router := newUserUsageRequestTypeTestRouter(repo)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage/stats?group_id=7&billing_mode=token&request_type=stream&start_date=2026-05-01&end_date=2026-05-02", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, int64(42), repo.statsFilters.UserID)
+	require.Equal(t, int64(7), repo.statsFilters.GroupID)
+	require.Equal(t, "token", repo.statsFilters.BillingMode)
+	require.NotNil(t, repo.statsFilters.RequestType)
+	require.Equal(t, int16(service.RequestTypeStream), *repo.statsFilters.RequestType)
+	require.NotNil(t, repo.statsFilters.StartTime)
+	require.NotNil(t, repo.statsFilters.EndTime)
 }

@@ -54,12 +54,15 @@
               <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
                 {{ t('usage.totalCost') }}
               </p>
-              <p class="text-xl font-bold text-green-600 dark:text-green-400">
-                ${{ (usageStats?.total_actual_cost || 0).toFixed(4) }}
+              <p
+                class="text-xl font-bold text-green-600 dark:text-green-400"
+                :title="formatCostExact(usageStats?.total_actual_cost || 0)"
+              >
+                {{ formatCostCompact(usageStats?.total_actual_cost || 0) }}
               </p>
               <p class="text-xs text-gray-500 dark:text-gray-400">
                 {{ t('usage.actualCost') }} /
-                <span class="line-through">${{ (usageStats?.total_cost || 0).toFixed(4) }}</span>
+                <span class="line-through" :title="formatCostExact(usageStats?.total_cost || 0)">{{ formatCostCompact(usageStats?.total_cost || 0) }}</span>
                 {{ t('usage.standardCost') }}
               </p>
             </div>
@@ -83,6 +86,9 @@
             </div>
           </div>
         </div>
+          <div class="col-span-2 rounded-lg border border-gray-200 bg-white/70 px-4 py-2 text-xs text-gray-600 dark:border-dark-700 dark:bg-dark-900/70 dark:text-gray-400 lg:col-span-4">
+            {{ activeScopeSummary }}
+          </div>
         </div>
       </template>
 
@@ -101,6 +107,21 @@
               />
             </div>
 
+            <!-- Group Filter -->
+            <div class="min-w-[190px]">
+              <label class="input-label">{{ t('usage.group') }}</label>
+              <Select
+                v-model="filters.group_id"
+                :options="groupOptions"
+                :placeholder="t('usage.allGroups')"
+                @change="applyFilters"
+              >
+                <template #selected="{ option }">
+                  <span class="truncate">{{ option?.label || t('usage.allGroups') }}</span>
+                </template>
+              </Select>
+            </div>
+
             <!-- Date Range Filter -->
             <div>
               <label class="input-label">{{ t('usage.timeRange') }}</label>
@@ -113,6 +134,10 @@
 
             <!-- Actions -->
             <div class="ml-auto flex items-center gap-3">
+              <button @click="showMoreFilters = !showMoreFilters" class="btn btn-secondary">
+                <Icon name="filter" size="sm" class="mr-1.5" />
+                {{ t('usage.moreFilters') }}
+              </button>
               <button @click="applyFilters" :disabled="loading" class="btn btn-secondary">
                 {{ t('common.refresh') }}
               </button>
@@ -142,6 +167,55 @@
                 </svg>
                 {{ exporting ? t('usage.exporting') : t('usage.exportCsv') }}
               </button>
+              <div class="relative" ref="columnMenuRef">
+                <button @click="showColumnMenu = !showColumnMenu" class="btn btn-secondary px-2" :title="t('usage.columnSettings')">
+                  <Icon name="cog" size="sm" />
+                </button>
+                <div
+                  v-if="showColumnMenu"
+                  class="absolute right-0 top-full z-50 mt-2 max-h-80 w-52 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
+                >
+                  <button
+                    v-for="column in toggleableColumns"
+                    :key="column.key"
+                    @click="toggleColumn(column.key)"
+                    class="flex w-full items-center justify-between px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
+                  >
+                    <span>{{ column.label }}</span>
+                    <Icon v-if="isColumnVisible(column.key)" name="check" size="sm" class="text-primary-500" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-if="showMoreFilters" class="mt-4 grid gap-4 border-t border-gray-200 pt-4 dark:border-dark-700 md:grid-cols-3">
+            <div>
+              <label class="input-label">{{ t('usage.modelFilter') }}</label>
+              <input
+                v-model.trim="filters.model"
+                type="text"
+                class="input"
+                :placeholder="t('usage.modelFilterPlaceholder')"
+                @keydown.enter="applyFilters"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t('usage.type') }}</label>
+              <Select
+                v-model="filters.request_type"
+                :options="requestTypeOptions"
+                :placeholder="t('usage.allTypes')"
+                @change="applyFilters"
+              />
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.usage.billingMode') }}</label>
+              <Select
+                v-model="filters.billing_mode"
+                :options="billingModeOptions"
+                :placeholder="t('usage.allBillingModes')"
+                @change="applyFilters"
+              />
             </div>
           </div>
         </div>
@@ -150,7 +224,7 @@
 
       <template #table>
         <DataTable
-          :columns="columns"
+          :columns="visibleColumns"
           :data="usageLogs"
           :loading="loading"
           :server-side-sort="true"
@@ -162,6 +236,18 @@
             <span class="text-sm text-gray-900 dark:text-white">{{
               row.api_key?.name || '-'
             }}</span>
+          </template>
+
+          <template #cell-group="{ row }">
+            <GroupBadge
+              v-if="row.group"
+              :name="row.group.name"
+              :platform="row.group.platform"
+              :subscription-type="row.group.subscription_type"
+              :rate-multiplier="row.rate_multiplier"
+            />
+            <span v-else-if="row.group_id" class="text-sm text-gray-500 dark:text-gray-400">#{{ row.group_id }}</span>
+            <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
           </template>
 
           <template #cell-model="{ value }">
@@ -324,8 +410,19 @@
           </template>
 
           <template #cell-user_agent="{ row }">
-            <span v-if="row.user_agent" class="text-sm text-gray-600 dark:text-gray-400 block max-w-[320px] whitespace-normal break-all" :title="row.user_agent">{{ formatUserAgent(row.user_agent) }}</span>
+            <span v-if="row.user_agent" class="block max-w-[260px] truncate text-sm text-gray-600 dark:text-gray-400" :title="row.user_agent">{{ formatUserAgent(row.user_agent) }}</span>
             <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
+          </template>
+
+          <template #cell-actions="{ row }">
+            <button
+              type="button"
+              class="inline-flex h-8 w-8 items-center justify-center rounded-md text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-700 dark:hover:text-white"
+              :title="t('usage.details')"
+              @click="openUsageDetails(row)"
+            >
+              <Icon name="eye" size="sm" />
+            </button>
           </template>
 
           <template #empty>
@@ -535,13 +632,127 @@
       </div>
     </div>
   </Teleport>
+
+  <Teleport to="body">
+    <div
+      v-if="detailsVisible && selectedUsageLog"
+      class="fixed inset-0 z-[9998] flex items-stretch justify-end bg-black/40"
+      @click.self="closeUsageDetails"
+    >
+      <aside class="h-full w-full max-w-2xl overflow-y-auto border-l border-gray-200 bg-white shadow-2xl dark:border-dark-700 dark:bg-dark-900">
+        <div class="sticky top-0 z-10 flex items-start justify-between border-b border-gray-200 bg-white px-6 py-4 dark:border-dark-700 dark:bg-dark-900">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('usage.details') }}</h2>
+            <p class="mt-1 max-w-xl break-all text-xs text-gray-500 dark:text-gray-400">
+              {{ selectedUsageLog.request_id || '-' }}
+            </p>
+          </div>
+          <button
+            type="button"
+            class="rounded-md p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 dark:text-gray-400 dark:hover:bg-dark-700 dark:hover:text-white"
+            @click="closeUsageDetails"
+          >
+            <Icon name="x" size="sm" />
+          </button>
+        </div>
+
+        <div class="space-y-5 px-6 py-5">
+          <section class="space-y-3">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('usage.routeInfo') }}</h3>
+            <div class="grid gap-3 rounded-lg border border-gray-200 p-4 text-sm dark:border-dark-700 md:grid-cols-2">
+              <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.apiKeyFilter') }}</div>
+                <div class="mt-1 font-medium text-gray-900 dark:text-white">{{ selectedUsageLog.api_key?.name || '-' }}</div>
+              </div>
+              <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.group') }}</div>
+                <div class="mt-1">
+                  <GroupBadge
+                    v-if="selectedUsageLog.group"
+                    :name="selectedUsageLog.group.name"
+                    :platform="selectedUsageLog.group.platform"
+                    :subscription-type="selectedUsageLog.group.subscription_type"
+                    :rate-multiplier="selectedUsageLog.rate_multiplier"
+                  />
+                  <span v-else-if="selectedUsageLog.group_id" class="text-gray-600 dark:text-gray-300">#{{ selectedUsageLog.group_id }}</span>
+                  <span v-else class="text-gray-400">-</span>
+                </div>
+              </div>
+              <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Group ID</div>
+                <div class="mt-1 font-mono text-gray-900 dark:text-white">{{ selectedUsageLog.group_id ?? '-' }}</div>
+              </div>
+              <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.rate') }}</div>
+                <div class="mt-1 font-medium text-gray-900 dark:text-white">{{ formatMultiplier(selectedUsageLog.rate_multiplier || 1) }}x</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('usage.requestInfo') }}</h3>
+            <div class="grid gap-3 rounded-lg border border-gray-200 p-4 text-sm dark:border-dark-700 md:grid-cols-2">
+              <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">Request ID</div>
+                <div class="mt-1 break-all font-mono text-gray-900 dark:text-white">{{ selectedUsageLog.request_id || '-' }}</div>
+              </div>
+              <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.model') }}</div>
+                <div class="mt-1 break-all font-medium text-gray-900 dark:text-white">{{ selectedUsageLog.model }}</div>
+              </div>
+              <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.endpoint') }}</div>
+                <div class="mt-1 break-all text-gray-900 dark:text-white">{{ formatUsageEndpoints(selectedUsageLog) }}</div>
+              </div>
+              <div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.type') }}</div>
+                <div class="mt-1">{{ getRequestTypeLabel(selectedUsageLog) }}</div>
+              </div>
+              <div class="md:col-span-2">
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.userAgent') }}</div>
+                <div class="mt-1 break-all text-gray-900 dark:text-white">{{ selectedUsageLog.user_agent || '-' }}</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('usage.tokenDetails') }}</h3>
+            <div class="grid gap-3 rounded-lg border border-gray-200 p-4 text-sm dark:border-dark-700 md:grid-cols-2">
+              <div>{{ t('usage.in') }}: <span class="font-medium">{{ selectedUsageLog.input_tokens.toLocaleString() }}</span></div>
+              <div>{{ t('usage.out') }}: <span class="font-medium">{{ selectedUsageLog.output_tokens.toLocaleString() }}</span></div>
+              <div>{{ t('usage.cacheRead') }}: <span class="font-medium">{{ selectedUsageLog.cache_read_tokens.toLocaleString() }}</span></div>
+              <div>{{ t('usage.cacheWrite') }}: <span class="font-medium">{{ selectedUsageLog.cache_creation_tokens.toLocaleString() }}</span></div>
+              <div v-if="isImageUsage(selectedUsageLog)">
+                {{ t('usage.imageCount') }}: <span class="font-medium">{{ selectedUsageLog.image_count }}{{ t('usage.imageUnit') }}</span>
+              </div>
+              <div v-if="isImageUsage(selectedUsageLog)">
+                {{ t('usage.imageBillingSize') }}: <span class="font-medium">{{ formatImageBillingSize(selectedUsageLog, t) }}</span>
+              </div>
+            </div>
+          </section>
+
+          <section class="space-y-3">
+            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('usage.costDetails') }}</h3>
+            <div class="grid gap-3 rounded-lg border border-gray-200 p-4 text-sm dark:border-dark-700 md:grid-cols-2">
+              <div>{{ t('usage.billed') }}: <span class="font-medium text-green-600 dark:text-green-400">${{ selectedUsageLog.actual_cost.toFixed(6) }}</span></div>
+              <div>{{ t('usage.original') }}: <span class="font-medium">${{ selectedUsageLog.total_cost.toFixed(6) }}</span></div>
+              <div>{{ t('admin.usage.inputCost') }}: <span class="font-medium">${{ selectedUsageLog.input_cost.toFixed(6) }}</span></div>
+              <div>{{ t('admin.usage.outputCost') }}: <span class="font-medium">${{ selectedUsageLog.output_cost.toFixed(6) }}</span></div>
+              <div>{{ t('usage.firstToken') }}: <span class="font-medium">{{ selectedUsageLog.first_token_ms != null ? formatDuration(selectedUsageLog.first_token_ms) : '-' }}</span></div>
+              <div>{{ t('usage.duration') }}: <span class="font-medium">{{ formatDuration(selectedUsageLog.duration_ms) }}</span></div>
+            </div>
+          </section>
+        </div>
+      </aside>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { usageAPI, keysAPI } from '@/api'
+import { usageAPI, keysAPI, userGroupsAPI } from '@/api'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -550,7 +761,8 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import Select from '@/components/common/Select.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import Icon from '@/components/icons/Icon.vue'
-import type { UsageLog, ApiKey, UsageQueryParams, UsageStatsResponse } from '@/types'
+import GroupBadge from '@/components/common/GroupBadge.vue'
+import type { UsageLog, ApiKey, Group, UsageQueryParams, UsageStatsResponse } from '@/types'
 import type { Column } from '@/components/common/types'
 import { formatDateTime, formatReasoningEffort } from '@/utils/format'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
@@ -560,6 +772,7 @@ import { getUsageServiceTierLabel } from '@/utils/usageServiceTier'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'
 import {
   BILLING_MODE_IMAGE,
+  BILLING_MODE_PER_REQUEST,
   BILLING_MODE_TOKEN,
   getBillingModeBadgeClass,
   getBillingModeLabel,
@@ -590,8 +803,25 @@ const tokenTooltipData = ref<UsageLog | null>(null)
 // Usage stats from API
 const usageStats = ref<UsageStatsResponse | null>(null)
 
-const columns = computed<Column[]>(() => [
+const COLUMN_VISIBILITY_KEY = 'usage-visible-columns:v1'
+const DEFAULT_VISIBLE_COLUMNS = [
+  'api_key',
+  'group',
+  'model',
+  'stream',
+  'billing_mode',
+  'tokens',
+  'cost',
+  'first_token',
+  'duration',
+  'created_at',
+  'actions'
+]
+const ALWAYS_VISIBLE_COLUMNS = ['api_key', 'created_at', 'actions']
+
+const allColumns = computed<Column[]>(() => [
   { key: 'api_key', label: t('usage.apiKeyFilter'), sortable: false },
+  { key: 'group', label: t('usage.group'), sortable: false },
   { key: 'model', label: t('usage.model'), sortable: true },
   { key: 'reasoning_effort', label: t('usage.reasoningEffort'), sortable: false },
   { key: 'endpoint', label: t('usage.endpoint'), sortable: false },
@@ -602,11 +832,28 @@ const columns = computed<Column[]>(() => [
   { key: 'first_token', label: t('usage.firstToken'), sortable: false },
   { key: 'duration', label: t('usage.duration'), sortable: false },
   { key: 'created_at', label: t('usage.time'), sortable: true },
-  { key: 'user_agent', label: t('usage.userAgent'), sortable: false }
+  { key: 'user_agent', label: t('usage.userAgent'), sortable: false },
+  { key: 'actions', label: t('usage.details'), sortable: false }
 ])
+
+const visibleColumnKeys = ref<Set<string>>(new Set(DEFAULT_VISIBLE_COLUMNS))
+const showColumnMenu = ref(false)
+const columnMenuRef = ref<HTMLElement | null>(null)
+const showMoreFilters = ref(false)
+const selectedUsageLog = ref<UsageLog | null>(null)
+const detailsVisible = ref(false)
+
+const visibleColumns = computed<Column[]>(() =>
+  allColumns.value.filter((column) => visibleColumnKeys.value.has(column.key))
+)
+
+const toggleableColumns = computed(() =>
+  allColumns.value.filter((column) => !ALWAYS_VISIBLE_COLUMNS.includes(column.key))
+)
 
 const usageLogs = ref<UsageLog[]>([])
 const apiKeys = ref<ApiKey[]>([])
+const groups = ref<Group[]>([])
 const loading = ref(false)
 const exporting = ref(false)
 
@@ -619,6 +866,28 @@ const apiKeyOptions = computed(() => {
     }))
   ]
 })
+
+const groupOptions = computed(() => [
+  { value: null, label: t('usage.allGroups') },
+  ...groups.value.map((group) => ({
+    value: group.id,
+    label: group.name
+  }))
+])
+
+const requestTypeOptions = computed(() => [
+  { value: null, label: t('usage.allTypes') },
+  { value: 'sync', label: t('usage.sync') },
+  { value: 'stream', label: t('usage.stream') },
+  { value: 'ws_v2', label: t('usage.ws') }
+])
+
+const billingModeOptions = computed(() => [
+  { value: null, label: t('usage.allBillingModes') },
+  { value: BILLING_MODE_TOKEN, label: getBillingModeLabel(BILLING_MODE_TOKEN, t) },
+  { value: BILLING_MODE_PER_REQUEST, label: getBillingModeLabel(BILLING_MODE_PER_REQUEST, t) },
+  { value: BILLING_MODE_IMAGE, label: getBillingModeLabel(BILLING_MODE_IMAGE, t) }
+])
 
 // Helper function to format date in local timezone
 const formatLocalDate = (date: Date): string => {
@@ -636,6 +905,10 @@ const endDate = ref(formatLocalDate(now))
 
 const filters = ref<UsageQueryParams>({
   api_key_id: undefined,
+  group_id: undefined,
+  model: undefined,
+  request_type: undefined,
+  billing_mode: undefined,
   start_date: undefined,
   end_date: undefined
 })
@@ -671,6 +944,15 @@ const formatDuration = (ms: number): string => {
   return `${(ms / 1000).toFixed(2)}s`
 }
 
+const formatCostCompact = (value: number): string => {
+  if (!Number.isFinite(value)) return '$0.00'
+  if (Math.abs(value) >= 100) return `$${value.toFixed(2)}`
+  if (Math.abs(value) >= 1) return `$${value.toFixed(4)}`
+  return `$${value.toFixed(6)}`
+}
+
+const formatCostExact = (value: number): string => `$${(Number.isFinite(value) ? value : 0).toFixed(8)}`
+
 const imageUnitPrice = (row: UsageLog | null): number => {
   if (!row || row.image_count <= 0) return 0
   const total = row.total_cost ?? 0
@@ -691,6 +973,77 @@ const getDisplayBillingMode = (row: Pick<UsageLog, 'billing_mode' | 'image_count
 
 const formatUserAgent = (ua: string): string => {
   return ua
+}
+
+const selectedAPIKeyLabel = computed(() => {
+  const id = filters.value.api_key_id
+  if (!id) return t('usage.allApiKeys')
+  return apiKeys.value.find((key) => key.id === Number(id))?.name || `#${id}`
+})
+
+const selectedGroupLabel = computed(() => {
+  const id = filters.value.group_id
+  if (!id) return t('usage.allGroups')
+  return groups.value.find((group) => group.id === Number(id))?.name || `#${id}`
+})
+
+const selectedRequestTypeLabel = computed(() => {
+  const requestType = filters.value.request_type
+  if (!requestType) return t('usage.allTypes')
+  if (requestType === 'ws_v2') return t('usage.ws')
+  if (requestType === 'stream') return t('usage.stream')
+  if (requestType === 'sync') return t('usage.sync')
+  return t('usage.unknown')
+})
+
+const activeScopeSummary = computed(() => {
+  const parts = [
+    `${startDate.value} - ${endDate.value}`,
+    selectedAPIKeyLabel.value,
+    selectedGroupLabel.value
+  ]
+  if (filters.value.model) parts.push(filters.value.model)
+  if (filters.value.request_type) parts.push(selectedRequestTypeLabel.value)
+  if (filters.value.billing_mode) parts.push(getBillingModeLabel(filters.value.billing_mode, t))
+  return parts.join(' / ')
+})
+
+const isColumnVisible = (key: string): boolean => visibleColumnKeys.value.has(key)
+
+const persistVisibleColumns = () => {
+  try {
+    localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify([...visibleColumnKeys.value]))
+  } catch (error) {
+    console.error('Failed to save usage visible columns:', error)
+  }
+}
+
+const loadVisibleColumns = () => {
+  try {
+    const raw = localStorage.getItem(COLUMN_VISIBILITY_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw) as string[]
+    const valid = new Set(allColumns.value.map((column) => column.key))
+    const next = parsed.filter((key) => valid.has(key))
+    if (next.length > 0) {
+      visibleColumnKeys.value = new Set([...ALWAYS_VISIBLE_COLUMNS, ...next])
+    }
+  } catch (error) {
+    console.error('Failed to load usage visible columns:', error)
+  }
+}
+
+const toggleColumn = (key: string) => {
+  if (ALWAYS_VISIBLE_COLUMNS.includes(key)) return
+  const next = new Set(visibleColumnKeys.value)
+  if (next.has(key)) {
+    next.delete(key)
+  } else {
+    next.add(key)
+  }
+  ALWAYS_VISIBLE_COLUMNS.forEach((column) => next.add(column))
+  visibleColumnKeys.value = next
+  persistVisibleColumns()
 }
 
 const getRequestTypeLabel = (log: UsageLog): string => {
@@ -739,13 +1092,34 @@ type UsageTableQueryParams = UsageQueryParams & {
   sort_order?: 'asc' | 'desc'
 }
 
-const buildUsageQueryParams = (page: number, pageSize: number): UsageTableQueryParams => ({
-  page,
-  page_size: pageSize,
-  ...filters.value,
-  sort_by: sortState.sort_by,
-  sort_order: sortState.sort_order
-})
+const buildUsageQueryParams = (page: number, pageSize: number): UsageTableQueryParams => {
+  const params: UsageTableQueryParams = {
+    page,
+    page_size: pageSize,
+    start_date: filters.value.start_date,
+    end_date: filters.value.end_date,
+    sort_by: sortState.sort_by,
+    sort_order: sortState.sort_order
+  }
+
+  if (filters.value.api_key_id) {
+    params.api_key_id = Number(filters.value.api_key_id)
+  }
+  if (filters.value.group_id) {
+    params.group_id = Number(filters.value.group_id)
+  }
+  if (filters.value.model) {
+    params.model = filters.value.model
+  }
+  if (filters.value.request_type) {
+    params.request_type = filters.value.request_type
+  }
+  if (filters.value.billing_mode) {
+    params.billing_mode = filters.value.billing_mode
+  }
+
+  return params
+}
 
 const loadUsageLogs = async () => {
   if (abortController) {
@@ -791,13 +1165,26 @@ const loadApiKeys = async () => {
   }
 }
 
+const loadGroups = async () => {
+  try {
+    groups.value = await userGroupsAPI.getAvailable()
+  } catch (error) {
+    console.error('Failed to load groups:', error)
+  }
+}
+
 const loadUsageStats = async () => {
   try {
-    const apiKeyId = filters.value.api_key_id ? Number(filters.value.api_key_id) : undefined
     const stats = await usageAPI.getStatsByDateRange(
       filters.value.start_date || startDate.value,
       filters.value.end_date || endDate.value,
-      apiKeyId
+      {
+        api_key_id: filters.value.api_key_id ? Number(filters.value.api_key_id) : undefined,
+        group_id: filters.value.group_id ? Number(filters.value.group_id) : undefined,
+        model: filters.value.model || undefined,
+        request_type: filters.value.request_type,
+        billing_mode: filters.value.billing_mode || undefined
+      }
     )
     usageStats.value = stats
   } catch (error) {
@@ -814,6 +1201,10 @@ const applyFilters = () => {
 const resetFilters = () => {
   filters.value = {
     api_key_id: undefined,
+    group_id: undefined,
+    model: undefined,
+    request_type: undefined,
+    billing_mode: undefined,
     start_date: undefined,
     end_date: undefined
   }
@@ -897,6 +1288,9 @@ const exportToCSV = async () => {
     const headers = [
       'Time',
       'API Key Name',
+      'Group Name',
+      'Group ID',
+      'Request ID',
       'Model',
       'Reasoning Effort',
       'Inbound Endpoint',
@@ -910,12 +1304,16 @@ const exportToCSV = async () => {
       'Billed Cost',
       'Original Cost',
       'First Token (ms)',
-      'Duration (ms)'
+      'Duration (ms)',
+      'User-Agent'
     ]
     const rows = allLogs.map((log) =>
       [
         log.created_at,
         log.api_key?.name || '',
+        log.group?.name || '',
+        log.group_id ?? '',
+        log.request_id,
         log.model,
         formatReasoningEffort(log.reasoning_effort),
         log.inbound_endpoint || '',
@@ -929,7 +1327,8 @@ const exportToCSV = async () => {
         log.actual_cost.toFixed(8),
         log.total_cost.toFixed(8),
         log.first_token_ms ?? '',
-        log.duration_ms
+        log.duration_ms,
+        log.user_agent || ''
       ].map(escapeCSVValue)
     )
 
@@ -988,8 +1387,20 @@ const hideTokenTooltip = () => {
   tokenTooltipData.value = null
 }
 
+const openUsageDetails = (row: UsageLog) => {
+  selectedUsageLog.value = row
+  detailsVisible.value = true
+}
+
+const closeUsageDetails = () => {
+  detailsVisible.value = false
+  selectedUsageLog.value = null
+}
+
 onMounted(() => {
+  loadVisibleColumns()
   loadApiKeys()
+  loadGroups()
   loadUsageLogs()
   loadUsageStats()
 })
