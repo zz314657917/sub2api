@@ -38,7 +38,7 @@
               <p class="mt-3 text-sm leading-6 text-slate-200 sm:text-base">
                 {{ dialogDescription }}
               </p>
-              <p v-if="hasBenefit" class="mt-3 text-xs leading-5 text-cyan-100/80">
+              <p v-if="showBenefitNotice" class="mt-3 text-xs leading-5 text-cyan-100/80">
                 {{ benefitNotice }}
               </p>
             </div>
@@ -117,6 +117,7 @@ const { t } = useI18n()
 const hasBenefit = computed(() => Boolean(props.hasBenefit))
 const isWalletBenefit = computed(() => props.benefitKind === 'wallet')
 const isRewardBenefit = computed(() => props.benefitKind === 'reward')
+const showBenefitNotice = computed(() => hasBenefit.value && !isRewardBenefit.value)
 const quotaLabel = computed(() => props.benefitLabel || t(
   isRewardBenefit.value
     ? 'dashboard.onboarding.rewardFallback'
@@ -126,9 +127,7 @@ const quotaLabel = computed(() => props.benefitLabel || t(
 ))
 const rewardLabel = computed(() => props.benefitRewardLabel || '')
 const benefitNotice = computed(() => (
-  isRewardBenefit.value
-    ? t('dashboard.onboarding.rewardNotice')
-    : isWalletBenefit.value
+  isWalletBenefit.value
     ? t('dashboard.onboarding.walletBalanceNotice')
     : t('dashboard.onboarding.walletNotice')
 ))
@@ -159,9 +158,7 @@ const pills = computed(() => (
   hasBenefit.value
     ? isRewardBenefit.value
       ? [
-        quotaLabel.value,
-        t('dashboard.onboarding.pillFirstCallReward'),
-        t('dashboard.onboarding.pillWelfareClaim')
+        quotaLabel.value
       ]
       : [
         quotaLabel.value,
@@ -199,7 +196,7 @@ const steps = computed(() => [
   {
     icon: 'creditCard' as const,
     title: hasBenefit.value && isRewardBenefit.value
-      ? t('dashboard.onboarding.stepRewardTitle', { amount: rewardLabel.value || quotaLabel.value })
+      ? t('dashboard.onboarding.stepRewardClaimTitle')
       : hasBenefit.value && !isWalletBenefit.value && rewardLabel.value
         ? t('dashboard.onboarding.stepRewardTitle', { amount: rewardLabel.value })
       : t('dashboard.onboarding.stepUsageTitle'),
