@@ -2318,6 +2318,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	apiKeyID := getAPIKeyIDFromContext(c)
 	logCodexCLIOnlyDetection(ctx, c, account, apiKeyID, restrictionResult, body)
 	if restrictionResult.Enabled && !restrictionResult.Matched {
+		MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalPolicyDenied)
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": gin.H{
 				"type":    "forbidden_error",
@@ -2361,6 +2362,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	// 当前仅支持 WSv2；WSv1 命中时直接返回错误，避免出现“配置可开但行为不确定”。
 	if wsDecision.Transport == OpenAIUpstreamTransportResponsesWebsocket {
 		if c != nil {
+			MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalFeatureGate)
 			c.JSON(http.StatusBadRequest, gin.H{
 				"error": gin.H{
 					"type":    "invalid_request_error",
@@ -2401,7 +2403,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	codexImageGenerationBridgeEnabled := isCodexCLI && imageGenerationAllowed && s.isCodexImageGenerationBridgeEnabled(ctx, account, apiKey)
 	if IsImageGenerationIntentMap(openAIResponsesEndpoint, reqModel, reqBody) && !imageGenerationAllowed {
-		setOpsUpstreamError(c, http.StatusForbidden, ImageGenerationPermissionMessage(), "")
+		MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalFeatureGate)
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": gin.H{
 				"type":    "permission_error",
@@ -2730,7 +2732,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	if IsImageGenerationIntentMap(openAIResponsesEndpoint, reqModel, reqBody) && !imageGenerationAllowed {
-		setOpsUpstreamError(c, http.StatusForbidden, ImageGenerationPermissionMessage(), "")
+		MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalFeatureGate)
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": gin.H{
 				"type":    "permission_error",
@@ -3199,17 +3201,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	if account != nil && account.Type == AccountTypeOAuth {
 		if rejectReason := detectOpenAIPassthroughInstructionsRejectReason(reqModel, body); rejectReason != "" {
 			rejectMsg := "OpenAI codex passthrough requires a non-empty instructions field"
-			setOpsUpstreamError(c, http.StatusForbidden, rejectMsg, "")
-			appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
-				Platform:           account.Platform,
-				AccountID:          account.ID,
-				AccountName:        account.Name,
-				UpstreamStatusCode: http.StatusForbidden,
-				Passthrough:        true,
-				Kind:               "request_error",
-				Message:            rejectMsg,
-				Detail:             rejectReason,
-			})
+			MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalPolicyDenied)
 			logOpenAIPassthroughInstructionsRejected(ctx, c, account, reqModel, rejectReason, body)
 			c.JSON(http.StatusForbidden, gin.H{
 				"error": gin.H{
@@ -3260,7 +3252,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 
 	apiKey := getAPIKeyFromContext(c)
 	if IsImageGenerationIntent(openAIResponsesEndpoint, reqModel, body) && !GroupAllowsImageGeneration(apiKeyGroup(apiKey)) {
-		setOpsUpstreamError(c, http.StatusForbidden, ImageGenerationPermissionMessage(), "")
+		MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalFeatureGate)
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": gin.H{
 				"type":    "permission_error",
