@@ -237,17 +237,40 @@ func intervalToModelPricing(iv *PricingInterval, supportsCacheBreakdown bool) *M
 // GetRequestTierPrice 根据层级标签获取按次价格
 func (r *ModelPricingResolver) GetRequestTierPrice(resolved *ResolvedPricing, tierLabel string) float64 {
 	tierLabel = strings.TrimSpace(tierLabel)
-	for _, tier := range resolved.RequestTiers {
-		if tier.TierLabel == tierLabel && tier.PerRequestPrice != nil {
-			return *tier.PerRequestPrice
-		}
+	if resolved == nil || tierLabel == "" {
+		return 0
 	}
-	if baseTier, _, ok := strings.Cut(tierLabel, ":"); ok {
-		baseTier = strings.TrimSpace(baseTier)
+
+	findTierPrice := func(label string) (float64, bool) {
+		label = strings.TrimSpace(label)
+		if label == "" {
+			return 0, false
+		}
 		for _, tier := range resolved.RequestTiers {
-			if tier.TierLabel == baseTier && tier.PerRequestPrice != nil {
-				return *tier.PerRequestPrice
+			if strings.TrimSpace(tier.TierLabel) == label && tier.PerRequestPrice != nil {
+				return *tier.PerRequestPrice, true
 			}
+		}
+		return 0, false
+	}
+
+	if price, ok := findTierPrice(tierLabel); ok {
+		return price
+	}
+
+	// quality 档未命中时，回退到基础尺寸档，例如 2K:high -> 2K。
+	if baseTier, _, ok := strings.Cut(tierLabel, ":"); ok {
+		if price, ok := findTierPrice(baseTier); ok {
+			return price
+		}
+		return 0
+	}
+
+	// 部分 OpenAI 兼容上游不传 quality，只能识别出 1K/2K/4K。
+	// 如果渠道只配置了质量档，按 medium 作为无 quality 请求的默认兜底。
+	if _, ok := ClassifyImageBillingTier(tierLabel); ok {
+		if price, ok := findTierPrice(tierLabel + ":medium"); ok {
+			return price
 		}
 	}
 	return 0

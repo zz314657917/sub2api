@@ -310,7 +310,7 @@ function addImageQualityTiers() {
   const intervals = [...(props.entry.intervals || [])]
   const existingLabels = new Set(intervals.map(iv => (iv.tier_label || '').trim()))
   const defaultPrices: Record<string, string> = { '1K': '0.05', '2K': '0.1', '4K': '0.15' }
-  const labels = ['1K', '2K', '4K'].flatMap(size => ['low', 'medium', 'high'].map(quality => `${size}:${quality}`))
+  const labels = ['1K', '2K', '4K'].flatMap(size => [size, ...['low', 'medium', 'high'].map(quality => `${size}:${quality}`)])
 
   for (const label of labels) {
     if (existingLabels.has(label)) continue

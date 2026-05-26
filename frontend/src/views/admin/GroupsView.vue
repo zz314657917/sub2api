@@ -3780,6 +3780,21 @@ const buildImageQualityIntervals = (
   const intervals: PricingInterval[] = [];
   let sortOrder = 0;
   for (const size of imageQualitySizes) {
+    const mediumPrice = normalizeQualityPrice(prices[`${size}:medium`]);
+    if (mediumPrice !== null) {
+      intervals.push({
+        min_tokens: 0,
+        max_tokens: null,
+        tier_label: size,
+        input_price: null,
+        output_price: null,
+        cache_write_price: null,
+        cache_read_price: null,
+        per_request_price: mediumPrice,
+        sort_order: sortOrder,
+      });
+      sortOrder += 1;
+    }
     for (const quality of imageQualityLevels) {
       const label: ImageQualityTierLabel = `${size}:${quality}`;
       const perRequestPrice = normalizeQualityPrice(prices[label]);

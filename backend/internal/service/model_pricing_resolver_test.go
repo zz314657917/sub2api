@@ -134,6 +134,22 @@ func TestGetRequestTierPrice(t *testing.T) {
 	require.InDelta(t, 0.0, r.GetRequestTierPrice(resolved, "4K"), 1e-12)
 }
 
+func TestGetRequestTierPrice_SizeTierFallsBackToMediumQualityTier(t *testing.T) {
+	bs := newTestBillingServiceForResolver()
+	r := NewModelPricingResolver(&ChannelService{}, bs)
+
+	resolved := &ResolvedPricing{
+		Mode: BillingModeImage,
+		RequestTiers: []PricingInterval{
+			{TierLabel: "2K:low", PerRequestPrice: testPtrFloat64(0.06)},
+			{TierLabel: "2K:medium", PerRequestPrice: testPtrFloat64(0.10)},
+			{TierLabel: "2K:high", PerRequestPrice: testPtrFloat64(0.15)},
+		},
+	}
+
+	require.InDelta(t, 0.10, r.GetRequestTierPrice(resolved, "2K"), 1e-12)
+}
+
 func TestGetRequestTierPriceByContext(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
 	r := NewModelPricingResolver(&ChannelService{}, bs)
