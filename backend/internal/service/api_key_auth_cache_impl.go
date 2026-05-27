@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 12 // v12: API key account pool strategy
+const apiKeyAuthSnapshotVersion = 13 // v13: reload snapshots for custom models_list_config
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -294,6 +294,7 @@ func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
 		AllowMessagesDispatch:           group.AllowMessagesDispatch,
 		DefaultMappedModel:              group.DefaultMappedModel,
 		MessagesDispatchModelConfig:     group.MessagesDispatchModelConfig,
+		ModelsListConfig:                group.ModelsListConfig,
 		RPMLimit:                        group.RPMLimit,
 	}
 }
@@ -380,6 +381,7 @@ func groupFromAPIKeyAuthSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
 		AllowMessagesDispatch:           snapshot.AllowMessagesDispatch,
 		DefaultMappedModel:              snapshot.DefaultMappedModel,
 		MessagesDispatchModelConfig:     snapshot.MessagesDispatchModelConfig,
+		ModelsListConfig:                snapshot.ModelsListConfig,
 		RPMLimit:                        snapshot.RPMLimit,
 	}
 }
