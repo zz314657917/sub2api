@@ -28,6 +28,20 @@ type gatewayModelItemForTest struct {
 	ID string `json:"id"`
 }
 
+type gatewayModelCatalogResponseForTest struct {
+	Object      string                           `json:"object"`
+	Items       []gatewayModelCatalogItemForTest `json:"items"`
+	ChatModels  []string                         `json:"chat_models"`
+	ImageModels []string                         `json:"image_models"`
+	VideoModels []string                         `json:"video_models"`
+}
+
+type gatewayModelCatalogItemForTest struct {
+	ID           string   `json:"id"`
+	Capabilities []string `json:"capabilities"`
+	Enabled      bool     `json:"enabled"`
+}
+
 func (s *gatewayModelsAccountRepoStub) ListSchedulableByGroupID(ctx context.Context, groupID int64) ([]service.Account, error) {
 	accounts, ok := s.byGroup[groupID]
 	if !ok {
@@ -127,10 +141,68 @@ func TestGatewayModels_GeminiGroupFiltersMappedModelsByPlatform(t *testing.T) {
 	require.Equal(t, []string{"gemini-2.5-flash"}, modelIDsForTest(got.Data))
 }
 
+func TestGatewayModelCatalog_GroupsMappedModelsByCapability(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	groupID := int64(22)
+	h := newGatewayModelsHandlerForTest(
+		&gatewayModelsAccountRepoStub{
+			byGroup: map[int64][]service.Account{
+				groupID: {
+					{
+						ID:       1,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"gpt-5.4":     "gpt-5.4",
+								"gpt-image-2": "gpt-image-2",
+								"sora-2":      "sora-2",
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/model-catalog", nil)
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		Group: &service.Group{ID: groupID, Platform: service.PlatformOpenAI},
+	})
+
+	h.ModelCatalog(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var got gatewayModelCatalogResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.Equal(t, "model_catalog", got.Object)
+	require.Equal(t, []string{"gpt-5.4"}, got.ChatModels)
+	require.Equal(t, []string{"gpt-image-2"}, got.ImageModels)
+	require.Equal(t, []string{"sora-2"}, got.VideoModels)
+
+	byID := modelCatalogItemsByIDForTest(got.Items)
+	require.Equal(t, []string{service.ModelCapabilityChat}, byID["gpt-5.4"].Capabilities)
+	require.Equal(t, []string{service.ModelCapabilityImage}, byID["gpt-image-2"].Capabilities)
+	require.True(t, byID["gpt-image-2"].Enabled)
+	require.Equal(t, []string{service.ModelCapabilityVideo}, byID["sora-2"].Capabilities)
+	require.False(t, byID["sora-2"].Enabled)
+}
+
 func modelIDsForTest(models []gatewayModelItemForTest) []string {
 	ids := make([]string, 0, len(models))
 	for _, model := range models {
 		ids = append(ids, model.ID)
 	}
 	return ids
+}
+
+func modelCatalogItemsByIDForTest(models []gatewayModelCatalogItemForTest) map[string]gatewayModelCatalogItemForTest {
+	out := make(map[string]gatewayModelCatalogItemForTest, len(models))
+	for _, model := range models {
+		out[model.ID] = model
+	}
+	return out
 }
