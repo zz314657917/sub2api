@@ -276,6 +276,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/image-manager',
+    name: 'ImageManager',
+    component: () => import('@/views/user/ImageManagerView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Image Manager',
+      titleKey: 'imageManager.title',
+      descriptionKey: 'imageManager.subtitle'
+    }
+  },
+  {
     path: '/chat-images/native',
     redirect: (to) => ({
       path: '/chat-images',

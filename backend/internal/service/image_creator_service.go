@@ -129,6 +129,14 @@ type ImageCreatorImage struct {
 	CreatedAt     time.Time `json:"created_at"`
 }
 
+type ImageCreatorManagedImage struct {
+	ImageCreatorImage
+	TaskPrompt  string `json:"task_prompt,omitempty"`
+	TaskModel   string `json:"task_model,omitempty"`
+	TaskSize    string `json:"task_size,omitempty"`
+	TaskQuality string `json:"task_quality,omitempty"`
+}
+
 type ImageCreatorCreateTaskInput struct {
 	APIKeyID               int64
 	Model                  string
@@ -184,6 +192,8 @@ type ImageCreatorRepository interface {
 	MarkTaskSucceeded(ctx context.Context, taskID int64, warning string) error
 	MarkTaskFailed(ctx context.Context, taskID int64, message string) error
 	AddImage(ctx context.Context, image *ImageCreatorImage) error
+	ListImagesForUser(ctx context.Context, userID int64, limit int, offset int) ([]ImageCreatorManagedImage, int, error)
+	ListImagesForUserByIDs(ctx context.Context, userID int64, ids []int64) ([]ImageCreatorImage, error)
 	ListPrunableImages(ctx context.Context, userID int64, keep int) ([]ImageCreatorImage, error)
 	DeleteImagesByID(ctx context.Context, ids []int64) error
 	ListExpiredImages(ctx context.Context, before time.Time, limit int) ([]ImageCreatorImage, error)
@@ -538,6 +548,63 @@ func (s *ImageCreatorService) ListTasks(ctx context.Context, userID int64, limit
 		attachImageURLs(&tasks[i])
 	}
 	return tasks, nil
+}
+
+func (s *ImageCreatorService) ListImages(ctx context.Context, userID int64, limit int, offset int) ([]ImageCreatorManagedImage, int, error) {
+	if s == nil || s.repo == nil {
+		return nil, 0, infraerrors.InternalServer("IMAGE_CREATOR_UNAVAILABLE", "image creator service is unavailable")
+	}
+	if userID <= 0 {
+		return nil, 0, infraerrors.BadRequest("INVALID_USER", "user_id is required")
+	}
+	if limit <= 0 {
+		limit = defaultImageCreatorListTaskLimit
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	images, total, err := s.repo.ListImagesForUser(ctx, userID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	for i := range images {
+		images[i].URL = imageCreatorImageURL(images[i].ID)
+	}
+	return images, total, nil
+}
+
+func (s *ImageCreatorService) DeleteImages(ctx context.Context, userID int64, ids []int64) (int, error) {
+	if s == nil || s.repo == nil {
+		return 0, infraerrors.InternalServer("IMAGE_CREATOR_UNAVAILABLE", "image creator service is unavailable")
+	}
+	if userID <= 0 {
+		return 0, infraerrors.BadRequest("INVALID_USER", "user_id is required")
+	}
+	ids = normalizeImageCreatorImageIDs(ids)
+	if len(ids) == 0 {
+		return 0, infraerrors.BadRequest("INVALID_IMAGE_IDS", "image ids are required")
+	}
+	images, err := s.repo.ListImagesForUserByIDs(ctx, userID, ids)
+	if err != nil {
+		return 0, err
+	}
+	if len(images) == 0 {
+		return 0, infraerrors.NotFound("IMAGE_CREATOR_IMAGE_NOT_FOUND", "image not found")
+	}
+	deleteIDs := make([]int64, 0, len(images))
+	for _, image := range images {
+		deleteIDs = append(deleteIDs, image.ID)
+	}
+	if err := s.repo.DeleteImagesByID(ctx, deleteIDs); err != nil {
+		return 0, err
+	}
+	for _, image := range images {
+		s.removeStoredImageQuietly(ctx, image.FilePath)
+	}
+	return len(images), nil
 }
 
 func (s *ImageCreatorService) GetImageFile(ctx context.Context, userID int64, imageID int64) (*ImageCreatorFile, error) {
@@ -1341,6 +1408,22 @@ func imageCreatorImageURL(imageID int64) string {
 		return ""
 	}
 	return fmt.Sprintf("/api/v1/user/image-creator/images/%d/file", imageID)
+}
+
+func normalizeImageCreatorImageIDs(ids []int64) []int64 {
+	seen := make(map[int64]struct{}, len(ids))
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
 }
 
 func normalizeImageCreatorRequestedOutputFormat(format string) string {

@@ -382,6 +382,7 @@ export default {
     chatCreator: 'AI 聊天',
     imageCreator: '图片创作',
     chatImageCreator: '聊天生图',
+    imageManager: '图片库',
     accountCenter: '账户中心',
     usageAndStatus: '使用与状态',
     redeem: '兑换',
@@ -1346,6 +1347,33 @@ export default {
     loadTasksFailed: '加载图片任务失败',
     generateFailed: '图片生成失败',
     generateSuccess: '已生成 {count} 张图片'
+  },
+
+  imageManager: {
+    title: '图片库',
+    subtitle: '管理站内生图工作台保存的图片结果',
+    openStudio: '继续创作',
+    totalImages: '共 {count} 张图片',
+    selectedImages: '已选 {count} 张',
+    downloadSelected: '下载已选',
+    deleteSelected: '删除已选',
+    clearSelection: '清空选择',
+    loading: '正在加载图片',
+    emptyTitle: '图片库还是空的',
+    emptyDescription: '在聊天生图工作台生成成功后，图片会自动保存到这里。',
+    loadMore: '加载更多',
+    selectImage: '选中图片',
+    deselectImage: '取消选中图片',
+    previewImage: '预览图片',
+    closePreview: '关闭预览',
+    download: '下载',
+    copyPrompt: '复制提示词',
+    reusePrompt: '用提示词继续创作',
+    delete: '删除图片',
+    noPrompt: '暂无提示词',
+    loadFailed: '加载图片库失败',
+    deleteSuccess: '已删除 {count} 张图片',
+    deleteFailed: '删除图片失败'
   },
 
   // Usage

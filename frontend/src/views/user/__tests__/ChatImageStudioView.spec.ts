@@ -14,6 +14,13 @@ const showError = vi.hoisted(() => vi.fn())
 const showSuccess = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
 const copyToClipboard = vi.hoisted(() => vi.fn())
+const routeQuery = vi.hoisted(() => ({} as Record<string, unknown>))
+
+vi.mock('vue-router', () => ({
+  useRoute: () => ({
+    query: routeQuery,
+  }),
+}))
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
@@ -202,6 +209,9 @@ function mountView() {
 describe('ChatImageStudioView', () => {
   beforeEach(() => {
     localStorage.clear()
+    for (const key of Object.keys(routeQuery)) {
+      delete routeQuery[key]
+    }
     keysList.mockReset().mockResolvedValue({ items: [makeKey()] })
     getAvailable.mockReset().mockResolvedValue([])
     createChatCompletionStream.mockReset().mockImplementation(async ({ onDelta }) => {
@@ -502,6 +512,16 @@ describe('ChatImageStudioView', () => {
     expect(getImageTask).toHaveBeenCalledWith(123)
     expect(downloadImageFile).toHaveBeenCalledWith('/api/v1/user/image-creator/images/9/file')
     expect(wrapper.find('.studio-image-card img').attributes('src')).toBe('blob:image-preview')
+  })
+
+  it('prefills image mode from the image manager reuse query', async () => {
+    routeQuery.prompt = 'reuse this prompt'
+    routeQuery.mode = 'image'
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect((wrapper.find('.studio-input').element as HTMLTextAreaElement).value).toBe('reuse this prompt')
   })
 
   it('restores an active image message and applies the final failed task state', async () => {

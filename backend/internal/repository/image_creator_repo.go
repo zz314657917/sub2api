@@ -285,6 +285,56 @@ func (r *imageCreatorRepository) AddImage(ctx context.Context, image *service.Im
 	}, &image.ID, &image.CreatedAt)
 }
 
+func (r *imageCreatorRepository) ListImagesForUser(ctx context.Context, userID int64, limit int, offset int) ([]service.ImageCreatorManagedImage, int, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	query := `
+		SELECT images.id, images.task_id, images.user_id, images.file_path, images.output_format, images.mime_type,
+			images.byte_size, images.sha256, images.revised_prompt, images.expires_at, images.created_at,
+			tasks.prompt, tasks.model, tasks.size, tasks.quality,
+			COUNT(*) OVER() AS total
+		FROM image_creator_images AS images
+		INNER JOIN image_creator_tasks AS tasks ON tasks.id = images.task_id
+		WHERE images.user_id = $1
+		ORDER BY images.created_at DESC, images.id DESC
+		LIMIT $2 OFFSET $3
+	`
+	rows, err := r.sql.QueryContext(ctx, query, userID, limit, offset)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() { _ = rows.Close() }()
+	images := make([]service.ImageCreatorManagedImage, 0)
+	total := 0
+	for rows.Next() {
+		image, rowTotal, err := scanImageCreatorManagedImage(rows)
+		if err != nil {
+			return nil, 0, err
+		}
+		total = rowTotal
+		images = append(images, image)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	return images, total, nil
+}
+
+func (r *imageCreatorRepository) ListImagesForUserByIDs(ctx context.Context, userID int64, ids []int64) ([]service.ImageCreatorImage, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	query := imageCreatorImageSelectSQL() + `
+		WHERE user_id = $1 AND id = ANY($2)
+		ORDER BY created_at DESC, id DESC
+	`
+	return r.queryImages(ctx, query, userID, pq.Array(ids))
+}
+
 func (r *imageCreatorRepository) ListPrunableImages(ctx context.Context, userID int64, keep int) ([]service.ImageCreatorImage, error) {
 	if keep <= 0 {
 		keep = 3
@@ -516,6 +566,35 @@ func scanImageCreatorImage(row imageCreatorTaskScanner) (service.ImageCreatorIma
 	}
 	image.RevisedPrompt = nullStringValue(revisedPrompt)
 	return image, nil
+}
+
+func scanImageCreatorManagedImage(row imageCreatorTaskScanner) (service.ImageCreatorManagedImage, int, error) {
+	var image service.ImageCreatorManagedImage
+	var revisedPrompt sql.NullString
+	var total int
+	err := row.Scan(
+		&image.ID,
+		&image.TaskID,
+		&image.UserID,
+		&image.FilePath,
+		&image.OutputFormat,
+		&image.MimeType,
+		&image.ByteSize,
+		&image.SHA256,
+		&revisedPrompt,
+		&image.ExpiresAt,
+		&image.CreatedAt,
+		&image.TaskPrompt,
+		&image.TaskModel,
+		&image.TaskSize,
+		&image.TaskQuality,
+		&total,
+	)
+	if err != nil {
+		return image, 0, err
+	}
+	image.RevisedPrompt = nullStringValue(revisedPrompt)
+	return image, total, nil
 }
 
 func nullableString(value string) any {

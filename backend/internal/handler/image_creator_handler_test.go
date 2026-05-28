@@ -23,6 +23,8 @@ type fakeImageCreatorHandlerService struct {
 	createInput  service.ImageCreatorCreateTaskInput
 	task         *service.ImageCreatorTask
 	tasks        []service.ImageCreatorTask
+	images       []service.ImageCreatorManagedImage
+	deletedIDs   []int64
 	file         *service.ImageCreatorFile
 }
 
@@ -46,6 +48,22 @@ func (s *fakeImageCreatorHandlerService) GetTask(_ context.Context, userID int64
 	return &service.ImageCreatorTask{ID: taskID, UserID: userID, Status: service.ImageCreatorTaskStatusRunning}, nil
 }
 
+func (s *fakeImageCreatorHandlerService) ListImages(_ context.Context, _ int64, limit int, offset int) ([]service.ImageCreatorManagedImage, int, error) {
+	if offset >= len(s.images) {
+		return []service.ImageCreatorManagedImage{}, len(s.images), nil
+	}
+	end := offset + limit
+	if end > len(s.images) {
+		end = len(s.images)
+	}
+	return s.images[offset:end], len(s.images), nil
+}
+
+func (s *fakeImageCreatorHandlerService) DeleteImages(_ context.Context, _ int64, ids []int64) (int, error) {
+	s.deletedIDs = append([]int64(nil), ids...)
+	return len(ids), nil
+}
+
 func (s *fakeImageCreatorHandlerService) GetImageFile(_ context.Context, _ int64, _ int64) (*service.ImageCreatorFile, error) {
 	return s.file, nil
 }
@@ -59,6 +77,8 @@ func imageCreatorTestRouter(h *ImageCreatorHandler) *gin.Engine {
 	router.POST("/tasks", h.CreateTask)
 	router.GET("/tasks", h.ListTasks)
 	router.GET("/tasks/:id", h.GetTask)
+	router.GET("/images", h.ListImages)
+	router.DELETE("/images", h.DeleteImages)
 	router.GET("/images/:id/file", h.GetImageFile)
 	return router
 }
@@ -128,6 +148,45 @@ func TestImageCreatorHandlerListTasksReturnsTasksAndFlattenedImages(t *testing.T
 	images := data["images"].([]any)
 	require.Len(t, images, 1)
 	require.Equal(t, float64(9), images[0].(map[string]any)["id"])
+}
+
+func TestImageCreatorHandlerListImagesReturnsPagedManagedImages(t *testing.T) {
+	expires := time.Now().Add(7 * 24 * time.Hour)
+	fake := &fakeImageCreatorHandlerService{images: []service.ImageCreatorManagedImage{
+		{
+			ImageCreatorImage: service.ImageCreatorImage{ID: 9, TaskID: 123, UserID: 42, URL: "/api/v1/user/image-creator/images/9/file", ExpiresAt: expires},
+			TaskPrompt:        "draw image",
+			TaskModel:         "gpt-image-2",
+		},
+	}}
+	router := imageCreatorTestRouter(&ImageCreatorHandler{svc: fake})
+	recorder := httptest.NewRecorder()
+
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/images?limit=20&offset=0", nil))
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	envelope := decodeHandlerResponse(t, recorder)
+	data := envelope.Data.(map[string]any)
+	require.Equal(t, float64(1), data["total"])
+	items := data["items"].([]any)
+	require.Len(t, items, 1)
+	require.Equal(t, "draw image", items[0].(map[string]any)["task_prompt"])
+}
+
+func TestImageCreatorHandlerDeleteImagesUsesAuthenticatedUser(t *testing.T) {
+	fake := &fakeImageCreatorHandlerService{}
+	router := imageCreatorTestRouter(&ImageCreatorHandler{svc: fake})
+	recorder := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodDelete, "/images", strings.NewReader(`{"ids":[9,10]}`))
+	req.Header.Set("Content-Type", "application/json")
+
+	router.ServeHTTP(recorder, req)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, []int64{9, 10}, fake.deletedIDs)
+	envelope := decodeHandlerResponse(t, recorder)
+	data := envelope.Data.(map[string]any)
+	require.Equal(t, float64(2), data["deleted"])
 }
 
 func TestImageCreatorHandlerServesImageFileForAuthenticatedOwner(t *testing.T) {

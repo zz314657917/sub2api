@@ -49,6 +49,8 @@ func RegisterUserRoutes(
 				imageCreator.POST("/tasks", h.ImageCreator.CreateTask)
 				imageCreator.GET("/tasks", h.ImageCreator.ListTasks)
 				imageCreator.GET("/tasks/:id", h.ImageCreator.GetTask)
+				imageCreator.GET("/images", h.ImageCreator.ListImages)
+				imageCreator.DELETE("/images", h.ImageCreator.DeleteImages)
 				imageCreator.GET("/images/:id/file", h.ImageCreator.GetImageFile)
 			}
 

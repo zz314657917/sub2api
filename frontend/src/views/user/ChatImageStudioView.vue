@@ -753,6 +753,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import StudioLayout from '@/components/layout/StudioLayout.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
@@ -842,6 +843,7 @@ const maxPreviewZoom = 4
 const imagePreviewFallbackSrc = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=='
 
 const { t } = useI18n()
+const route = useRoute()
 const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 
@@ -1067,12 +1069,18 @@ watch(selectedKeyId, () => {
 
 onMounted(() => {
   restoreSessions()
+  applyRouteDraft()
   void loadApiKeys()
   void loadImageTasks()
   void nextTick(updateGalleryColumnCount)
   window.addEventListener('resize', updateGalleryColumnCount)
   window.addEventListener('keydown', onPreviewKeydown)
 })
+
+watch(
+  () => [route.query.prompt, route.query.mode],
+  () => applyRouteDraft(),
+)
 
 watch(activeTab, async (tab) => {
   if (tab !== 'gallery') return
@@ -1144,6 +1152,21 @@ function restoreSessions(): void {
     const session = createEmptySession()
     sessions.value = [session]
     currentSessionId.value = session.id
+  }
+}
+
+function applyRouteDraft(): void {
+  const rawPrompt = Array.isArray(route.query.prompt) ? route.query.prompt[0] : route.query.prompt
+  const draft = typeof rawPrompt === 'string' ? rawPrompt.trim() : ''
+  if (draft) {
+    prompt.value = draft
+    activeTab.value = 'studio'
+  }
+  const rawMode = Array.isArray(route.query.mode) ? route.query.mode[0] : route.query.mode
+  if (rawMode === 'chat' || rawMode === 'image') {
+    mode.value = rawMode
+  } else if (draft) {
+    mode.value = 'image'
   }
 }
 

@@ -29,6 +29,13 @@ export interface ImageCreatorStoredImage {
   created_at: string
 }
 
+export interface ImageCreatorManagedImage extends ImageCreatorStoredImage {
+  task_prompt?: string
+  task_model?: string
+  task_size?: string
+  task_quality?: string
+}
+
 export interface ImageCreatorTask {
   id: number
   user_id: number
@@ -55,6 +62,13 @@ export interface ImageCreatorTask {
 export interface ImageCreatorTaskListResponse {
   tasks: ImageCreatorTask[]
   images: ImageCreatorStoredImage[]
+}
+
+export interface ImageCreatorImageListResponse {
+  items: ImageCreatorManagedImage[]
+  total: number
+  limit: number
+  offset: number
 }
 
 function appendIfPresent(form: FormData, key: string, value: string | number | undefined): void {
@@ -101,6 +115,20 @@ export async function createImageTask(input: ImageCreatorCreateTaskInput): Promi
 
 export async function listImageTasks(): Promise<ImageCreatorTaskListResponse> {
   const { data } = await apiClient.get<ImageCreatorTaskListResponse>('/user/image-creator/tasks')
+  return data
+}
+
+export async function listManagedImages(params: { limit?: number; offset?: number } = {}): Promise<ImageCreatorImageListResponse> {
+  const { data } = await apiClient.get<ImageCreatorImageListResponse>('/user/image-creator/images', {
+    params,
+  })
+  return data
+}
+
+export async function deleteManagedImages(ids: number[]): Promise<{ deleted: number }> {
+  const { data } = await apiClient.delete<{ deleted: number }>('/user/image-creator/images', {
+    data: { ids },
+  })
   return data
 }
 

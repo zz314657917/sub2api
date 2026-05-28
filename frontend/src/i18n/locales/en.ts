@@ -382,6 +382,7 @@ export default {
     chatCreator: 'AI Chat',
     imageCreator: 'Image Creator',
     chatImageCreator: 'Chat & Images',
+    imageManager: 'Image Library',
     accountCenter: 'Account Center',
     usageAndStatus: 'Usage & Status',
     redeem: 'Redeem',
@@ -1342,6 +1343,33 @@ export default {
     loadTasksFailed: 'Failed to load image tasks',
     generateFailed: 'Image generation failed',
     generateSuccess: 'Generated {count} image(s)'
+  },
+
+  imageManager: {
+    title: 'Image Library',
+    subtitle: 'Manage images saved by the built-in image workspace',
+    openStudio: 'Continue creating',
+    totalImages: '{count} image(s)',
+    selectedImages: '{count} selected',
+    downloadSelected: 'Download selected',
+    deleteSelected: 'Delete selected',
+    clearSelection: 'Clear selection',
+    loading: 'Loading images',
+    emptyTitle: 'No images yet',
+    emptyDescription: 'Generated images from the chat image workspace will be saved here.',
+    loadMore: 'Load more',
+    selectImage: 'Select image',
+    deselectImage: 'Deselect image',
+    previewImage: 'Preview image',
+    closePreview: 'Close preview',
+    download: 'Download',
+    copyPrompt: 'Copy prompt',
+    reusePrompt: 'Reuse prompt',
+    delete: 'Delete image',
+    noPrompt: 'No prompt',
+    loadFailed: 'Failed to load image library',
+    deleteSuccess: 'Deleted {count} image(s)',
+    deleteFailed: 'Failed to delete image'
   },
 
   // Usage
