@@ -854,23 +854,33 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 		maskURL = uploadedURL
 	}
 
-	submitBody, err := buildAPIMartImagesPayload(parsed, upstreamModel, imageURLs, maskURL)
-	if err != nil {
-		return nil, err
-	}
-	setOpsUpstreamRequestBody(c, submitBody)
+	requestID := ""
+	images := make([]string, 0, maxInt(1, parsed.N))
+	submitCount := apimartImagesSubmitCount(parsed, upstreamModel)
+	for i := 0; i < submitCount; i++ {
+		submitParsed := apimartImagesSubmitRequest(parsed, upstreamModel)
+		submitBody, err := buildAPIMartImagesPayload(submitParsed, upstreamModel, imageURLs, maskURL)
+		if err != nil {
+			return nil, err
+		}
+		setOpsUpstreamRequestBody(c, submitBody)
 
-	taskID, submitReqID, err := s.submitAPIMartImageTask(ctx, account, token, proxyURL, baseURL, submitBody)
-	if err != nil {
+		taskID, submitReqID, err := s.submitAPIMartImageTask(ctx, account, token, proxyURL, baseURL, submitBody)
+		if err != nil {
+			SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
+			s.recordAPIMartImagesUpstreamError(c, account, err)
+			return nil, err
+		}
+		if requestID == "" {
+			requestID = submitReqID
+		}
+		taskImages, err := s.pollAPIMartImageTask(ctx, account, token, proxyURL, baseURL, taskID)
 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
-		s.recordAPIMartImagesUpstreamError(c, account, err)
-		return nil, err
-	}
-	images, err := s.pollAPIMartImageTask(ctx, account, token, proxyURL, baseURL, taskID)
-	SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
-	if err != nil {
-		s.recordAPIMartImagesUpstreamError(c, account, err)
-		return nil, err
+		if err != nil {
+			s.recordAPIMartImagesUpstreamError(c, account, err)
+			return nil, err
+		}
+		images = append(images, taskImages...)
 	}
 	if len(images) == 0 {
 		return nil, fmt.Errorf("apimart image task completed without image urls")
@@ -883,7 +893,7 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 	c.Data(http.StatusOK, "application/json", body)
 
 	return &OpenAIForwardResult{
-		RequestID:      submitReqID,
+		RequestID:      requestID,
 		Usage:          OpenAIUsage{},
 		Model:          requestModel,
 		UpstreamModel:  upstreamModel,
@@ -894,6 +904,29 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 		ImageQuality:   NormalizeImageQuality(parsed.Quality),
 		ImageInputSize: parsed.Size,
 	}, nil
+}
+
+func apimartImagesSubmitCount(parsed *OpenAIImagesRequest, upstreamModel string) int {
+	if parsed == nil || parsed.N <= 1 {
+		return 1
+	}
+	if apimartImagesOneImagePerTaskModel(upstreamModel) {
+		return parsed.N
+	}
+	return 1
+}
+
+func apimartImagesSubmitRequest(parsed *OpenAIImagesRequest, upstreamModel string) *OpenAIImagesRequest {
+	if parsed == nil || !apimartImagesOneImagePerTaskModel(upstreamModel) || parsed.N == 1 {
+		return parsed
+	}
+	cloned := *parsed
+	cloned.N = 1
+	return &cloned
+}
+
+func apimartImagesOneImagePerTaskModel(model string) bool {
+	return strings.EqualFold(strings.TrimSpace(model), "gpt-image-2")
 }
 
 func buildAPIMartImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string, imageURLs []string, maskURL string) ([]byte, error) {

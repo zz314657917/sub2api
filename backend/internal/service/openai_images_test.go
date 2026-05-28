@@ -949,6 +949,71 @@ func TestOpenAIGatewayServiceForwardImages_APIMartEditUploadsAndPollsTask(t *tes
 	require.Equal(t, "replace background", gjson.Get(rec.Body.String(), "data.0.revised_prompt").String())
 }
 
+func TestOpenAIGatewayServiceForwardImages_APIMartRegularImageSplitsMultiImageRequests(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw posters","n":3,"size":"1024x1024"}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_1"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_1","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-1.png"]}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_2"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_2","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-2.png"]}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_3"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_3","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-3.png"]}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{
+		cfg:          &config.Config{},
+		httpUpstream: upstream,
+	}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       13,
+		Name:     "apimart-regular",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai",
+			"model_mapping": map[string]any{
+				"gpt-image-2": "gpt-image-2",
+			},
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 3, result.ImageCount)
+	require.Equal(t, "gpt-image-2", result.Model)
+	require.Equal(t, "gpt-image-2", result.UpstreamModel)
+	require.Len(t, upstream.requests, 6)
+	require.Equal(t, "https://api.apimart.ai/v1/images/generations", upstream.requests[0].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/tasks/task_1?language=zh", upstream.requests[1].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/images/generations", upstream.requests[2].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/tasks/task_2?language=zh", upstream.requests[3].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/images/generations", upstream.requests[4].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/tasks/task_3?language=zh", upstream.requests[5].URL.String())
+	require.Len(t, upstream.bodies, 3)
+	for _, bodyIndex := range []int{0, 1, 2} {
+		require.Equal(t, "gpt-image-2", gjson.GetBytes(upstream.bodies[bodyIndex], "model").String())
+		require.Equal(t, int64(1), gjson.GetBytes(upstream.bodies[bodyIndex], "n").Int())
+		require.False(t, gjson.GetBytes(upstream.bodies[bodyIndex], "official_fallback").Bool())
+	}
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Len(t, gjson.Get(rec.Body.String(), "data").Array(), 3)
+	require.Equal(t, "https://upload.apimart.ai/output-1.png", gjson.Get(rec.Body.String(), "data.0.url").String())
+	require.Equal(t, "https://upload.apimart.ai/output-2.png", gjson.Get(rec.Body.String(), "data.1.url").String())
+	require.Equal(t, "https://upload.apimart.ai/output-3.png", gjson.Get(rec.Body.String(), "data.2.url").String())
+}
+
 func TestAPIMartImagesPayloadPreservesOfficialModelAndResolution(t *testing.T) {
 	body, err := buildAPIMartImagesPayload(&OpenAIImagesRequest{
 		Prompt:     "draw poster",
