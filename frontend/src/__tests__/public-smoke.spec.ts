@@ -58,7 +58,7 @@ describe('public page smoke contracts', () => {
 
   it('keeps the homepage primary actions and tutorial reader structure stable', () => {
     expect(homeView).toContain('home-claim-button')
-    expect(homeView).toContain('home-support-button')
+    expect(homeView).not.toContain('home-support-button')
     expect(homeView).not.toContain('home-footer-models')
     expect(homeView).not.toContain('footerModelBadges')
     expect(tutorialView).toContain('class="tutorial-sidebar"')
