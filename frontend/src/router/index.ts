@@ -265,27 +265,23 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/chat-images',
-    name: 'ChatImageStudioLaunch',
-    component: () => import('@/views/user/OpenWebUILaunchView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'Chat & Images',
-      titleKey: 'openWebUI.title',
-      descriptionKey: 'openWebUI.subtitle'
-    }
-  },
-  {
-    path: '/chat-images/native',
-    name: 'ChatImageStudioNative',
+    name: 'ChatImageStudio',
     component: () => import('@/views/user/ChatImageStudioView.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Native Chat & Images',
+      title: 'Chat & Images',
       titleKey: 'chatImageStudio.title',
       descriptionKey: 'chatImageStudio.subtitle'
     }
+  },
+  {
+    path: '/chat-images/native',
+    redirect: (to) => ({
+      path: '/chat-images',
+      query: to.query,
+      hash: to.hash,
+    })
   },
   {
     path: '/open-webui/launch',

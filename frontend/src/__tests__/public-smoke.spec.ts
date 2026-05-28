@@ -24,15 +24,13 @@ describe('public page smoke contracts', () => {
     expect(router).not.toMatch(/BACKEND_MODE_ALLOWED_PATHS[\s\S]*?'\/models'/)
   })
 
-  it('routes chat image entry to the external image workspace launcher', () => {
+  it('routes chat image entry to the embedded studio workspace', () => {
     expect(router).toContain("path: '/chat-images'")
-    expect(router).toContain("name: 'ChatImageStudioLaunch'")
-    expect(router).toContain("import('@/views/user/OpenWebUILaunchView.vue')")
-    expect(router).toContain("path: '/chat-images/native'")
-    expect(router).toContain("name: 'ChatImageStudioNative'")
+    expect(router).toContain("name: 'ChatImageStudio'")
     expect(router).toContain("import('@/views/user/ChatImageStudioView.vue')")
+    expect(router).toContain("path: '/chat-images/native'")
+    expect(router).toContain("redirect: (to) => ({")
     expect(router).toContain("path: '/open-webui/launch'")
-    expect(router).toContain('redirect: (to) => ({')
     expect(router).toContain("path: '/chat-images'")
     expect(router).toContain('query: to.query')
     expect(router).toContain('hash: to.hash')

@@ -1,5 +1,5 @@
 <template>
-  <AppLayout>
+  <StudioLayout>
     <div
       class="chat-image-studio"
       :class="{ 'chat-image-studio-rail-open': railOpen }"
@@ -643,7 +643,7 @@
       </section>
     </div>
 
-  </AppLayout>
+  </StudioLayout>
 
   <Teleport to="body">
     <div
@@ -754,7 +754,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AppLayout from '@/components/layout/AppLayout.vue'
+import StudioLayout from '@/components/layout/StudioLayout.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { keysAPI, userChannelsAPI } from '@/api'
@@ -2182,12 +2182,11 @@ function formatDuration(seconds: number): string {
 
 <style scoped>
 .chat-image-studio {
-  --studio-height: calc(100vh - 6rem);
-  --studio-height: calc(100dvh - 6rem);
+  --studio-height: 100%;
   display: grid;
   position: relative;
   height: var(--studio-height);
-  min-height: 36rem;
+  min-height: 0;
   grid-template-columns: 320px minmax(0, 1fr);
   gap: 1rem;
 }
@@ -3759,20 +3758,6 @@ function formatDuration(seconds: number): string {
   transition: transform 0.15s ease;
 }
 
-@media (min-width: 768px) {
-  .chat-image-studio {
-    --studio-height: calc(100vh - 6.7rem);
-    --studio-height: calc(100dvh - 6.7rem);
-  }
-}
-
-@media (min-width: 1024px) {
-  .chat-image-studio {
-    --studio-height: calc(100vh - 7.2rem);
-    --studio-height: calc(100dvh - 7.2rem);
-  }
-}
-
 @media (max-width: 1180px) {
   .studio-topbar {
     grid-template-columns: minmax(12rem, 1fr) auto minmax(12rem, 1fr);
@@ -3835,9 +3820,7 @@ function formatDuration(seconds: number): string {
 
 @media (max-width: 767px) {
   .chat-image-studio {
-    --studio-height: calc(100vh - 5.25rem);
-    --studio-height: calc(100dvh - 5.25rem);
-    min-height: 30rem;
+    min-height: 0;
   }
 
   .studio-topbar {
@@ -4037,11 +4020,6 @@ function formatDuration(seconds: number): string {
 }
 
 @media (max-width: 480px) {
-  .chat-image-studio {
-    --studio-height: calc(100vh - 4.5rem);
-    --studio-height: calc(100dvh - 4.5rem);
-  }
-
   .studio-topbar {
     gap: 0.45rem;
     padding: 0.5rem 0.5rem 0;

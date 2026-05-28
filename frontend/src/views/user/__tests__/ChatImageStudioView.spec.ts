@@ -55,6 +55,20 @@ vi.mock('@/stores', () => ({
     showError,
     showSuccess,
     showWarning,
+    siteName: 'Sub2API',
+    siteLogo: '',
+  }),
+  useAuthStore: () => ({
+    isAdmin: false,
+    user: {
+      id: 1,
+      username: 'studio',
+      email: 'studio@example.test',
+      role: 'user',
+      balance: 12.2,
+      avatar_url: null,
+    },
+    logout: vi.fn(),
   }),
 }))
 
@@ -157,7 +171,7 @@ function mountView() {
     attachTo: document.body,
     global: {
       stubs: {
-        AppLayout: { template: '<div><slot /></div>' },
+        StudioLayout: { template: '<div><slot /></div>' },
         Select: {
           props: ['modelValue', 'options', 'placeholder', 'disabled'],
           emits: ['update:modelValue'],
