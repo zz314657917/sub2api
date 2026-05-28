@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-05-29 03:50 +08:00 - sub2api 生图能力迁移阶段收口
+
+- 当前阶段：在 `codex/sub2api-studio-layout` 上完成一轮旧版生图能力向 sub2api 的分批迁移，使用多 worker 并行推进存储治理、Canvas 后端和 Canvas 前端。
+- 本段重点：补齐当前用户图片库高级筛选、图片库参考图复用、提示词市场/收藏、生图存储治理，以及 Canvas 后端 API/表和前端工作台骨架。
+- 已完成：提交 `47e0b5489 feat(images): enhance image library filters`、`b03e09354 feat(images): add prompt market favorites`、`d810a93bf feat(canvas): add backend canvas and storage governance APIs`、`ce961c84a feat(canvas): add canvas workspace UI`；更新 `knowledge/tasks/current-task.md` 作为下一轮继续入口。
+- 关键决策：本轮只使用 sub2api 用户体系，不迁旧 `chatgpt2api` 账号/RBAC；不做公开图库、发布/取消公开或 visibility/share 字段；Canvas 先落可保存/打开/排队记录的骨架，完整运行引擎和高级图像编辑拆后续阶段。
+- 验证记录：`go test ./internal/service ./internal/handler -run "ImageCreator" -count=1`、`npm.cmd run test:run -- ImageManagerView ChatImageStudioView public-smoke AppSidebar`、`go test ./internal/service ./internal/handler ./internal/repository -run "ImageCreator|PromptFavorite" -count=1`、`npm.cmd run test:run -- promptMarket ChatImageStudioView`、`go test ./internal/service ./internal/handler ./internal/repository -run "ImageCreator|PromptFavorite|Canvas" -count=1`、`go test ./cmd/server -count=1`、`npm.cmd run test:run -- canvas CanvasView AppSidebar public-smoke`、`go test ./...`、`npm.cmd run lint:check`、`npm.cmd run build`、`git diff --check` 均通过；前端 build 仅有既有 Vite dynamic import/chunk size 警告。
+- 遗留问题：未做真实登录态浏览器人工验收；Canvas 尚未接入真实 API Key、模型目录、计费、并发和图片任务服务；节点拖拽连线、模板、裁剪/外扩/mask、历史等旧版完整 Canvas 能力仍待迁移。
+- 下一步：优先实现 Canvas 真实运行链路并做文生图/图生图手动验收；随后补节点交互编辑、模板库和高级图像编辑。
+
 ## 2026-05-28 11:58 +08:00 - 共享展示窗口重置与顶部公告轮播提交整理
 
 - 当前阶段：最近一组共享展示窗口口径和控制台 header 公告轮播改动已完成提交前整理与窄范围验证。

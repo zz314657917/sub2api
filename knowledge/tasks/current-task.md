@@ -1,60 +1,76 @@
 # 当前任务快照
 
-最后更新：2026-05-28 11:58 +08:00
+最后更新：2026-05-29 03:50 +08:00
 
 ## 背景
 
 - 项目主仓库：`F:/mcplugins/sub2api`。
-- 用户要求：整理最近更新并提交。
-- 当前工作区已有一组后端共享展示窗口重置/用量口径改动，以及一组前端控制台顶部公告轮播改动。
-- 本轮目标是复核改动范围、跑相关验证、同步任务记录并创建提交。
+- 当前分支：`codex/sub2api-studio-layout`。
+- 用户要求：继续把旧版 `chatgpt2api /image` 生图能力迁入 sub2api，并起多个智能体并行开发迁移。
+- 本轮明确范围：只使用 sub2api 用户体系，不迁旧账号/RBAC；不做公开图库、发布/取消公开或 visibility/share 字段。
 
 ## 当前目标
 
-- 后端：账号配额重置时同步重置共享展示 5h/7d 伪装窗口基线，并让容量池展示用量可按每个窗口自己的起始时间统计。
-- 前端：控制台顶部在已登录且有公告时展示最多 3 条公告轮播，点击复用公告铃详情弹窗。
-- 提交前保持改动范围收敛，不混入无关文件。
+- 补齐图片库高级筛选、图片库参考图复用、提示词市场/收藏、生图存储治理，以及 Canvas 的后端/API 和前端工作台骨架。
+- 保持迁移分批提交，避免一个不可验收的大提交。
 
 ## 本次已完成
 
-- 后端新增 `GetAccountUsageCostsSinceByWindow`，支持按账号和窗口起点批量统计 `usage_logs` 成本。
-- 容量池展示用量读取 `share_display_5h_start` / `share_display_7d_start`；缺失时回退到固定 5h / 7d 窗口。
-- `ResetQuotaUsed` 清零本地配额时同步清零 `share_display_5h_used` / `share_display_7d_used` 并刷新对应 start 字段，同时保留 `codex_*` 真实上游快照。
-- 账号创建、编辑和用户侧导入保存时，关闭共享展示会清理 `share_display_*_start` 残留字段。
-- 前端新增 `HeaderAnnouncementCarousel.vue`，接入 `AppHeader.vue`，并通过 `AnnouncementBell` 暴露的 `openDetail` 打开公告详情。
-- 已补后端 repository/service 测试和前端 header 公告轮播测试。
+- 图片库增强已提交：扩展当前用户图片列表筛选、返回宽高/比例/格式/任务元数据，`/image-manager` 增加搜索、日期、比例、格式、分辨率等筛选。
+- 参考图复用已提交：图片库“用作参考图”跳转 `/chat-images?mode=image&reference_image_id=...`，`/chat-images` 通过后端校验后的引用文件接口加载 reference image。
+- 提示词市场/收藏已提交：迁移 `banana-prompt-quicker`、`awesome-gpt-image-2-prompts` 拉取/搜索/预览/套用，并新增当前用户收藏 API `GET/POST/DELETE /api/v1/user/prompt-favorites`。
+- 生图存储治理已提交：新增管理员 API `GET/POST /api/v1/admin/image-creator/storage-governance`，统计图片、过期图片、孤儿文件、预览缓存、缩略缓存，并支持清理动作。
+- Canvas 后端已提交：新增 `canvas_documents`、`canvas_nodes`、`canvas_edges`、`canvas_runs` 表和 `/api/v1/user/canvases`、`/api/v1/user/canvas-runs`、`/api/v1/user/canvas/models` API。
+- Canvas 前端已提交：新增 `/canvas`、侧边栏入口、Canvas API 适配层、基础节点画布、节点列表、模型选择、保存、运行队列/历史骨架、模板入口占位。
 
 ## 已确认事实
 
-- 当前改动文件集中在 `backend/internal/repository/account_repo.go`、`backend/internal/service/user_account_service.go`、共享展示相关测试、账号弹窗/用户账号页 extra 清理、`AnnouncementBell`、`AppHeader` 和新增公告轮播组件。
-- `knowledge/tasks/current-task.md` 与 `knowledge/tasks/timeline.md` 是 tracked 文件，本轮作为最近更新整理一起提交。
-- `git diff --check` 已通过，没有发现空白错误。
+- 当前提交序列包含：
+  - `47e0b5489 feat(images): enhance image library filters`
+  - `b03e09354 feat(images): add prompt market favorites`
+  - `d810a93bf feat(canvas): add backend canvas and storage governance APIs`
+  - `ce961c84a feat(canvas): add canvas workspace UI`
+- Canvas 当前是可保存/打开/排队记录的工作台骨架；真实图像运行引擎、节点拖拽连线编辑器、模板库和高级图像编辑还未完整实现。
+- 存储治理对象存储场景仅支持过期图片走既有删除逻辑；本地孤儿文件/缓存遍历在对象存储后端返回 `unsupported`。
+- `wire_gen.go` 因仓库既有 Wire 生成阻塞，仍采用手工同步方式；`go test ./cmd/server` 已验证当前注入可编译。
 
 ## 待验证点
 
-- 动作：如需要视觉验收，用真实登录态打开控制台宽屏页面。
-  验证：顶部中间显示公告轮播，hover/focus 暂停，点击后打开公告详情，不挤压右侧操作区。
-- 动作：如需要运行时数据验收，准备带共享展示窗口的账号，执行配额重置后刷新容量池。
-  验证：展示窗口从重置时间重新累计，本地伪装用量归零，`codex_*` 上游快照不被清除。
+- 动作：用真实登录态打开 `/image-manager`。
+  验证：筛选、搜索、加载更多、删除、下载、复制提示词、继续创作、用作参考图都按当前用户隔离。
+- 动作：从 `/image-manager` 选择“用作参考图”进入 `/chat-images`。
+  验证：参考图自动带入，能发起图生图，且无法跨用户引用图片。
+- 动作：打开 `/chat-images` 提示词市场。
+  验证：市场搜索、收藏/取消收藏、套用提示词、带参考图套用均正常。
+- 动作：管理员打开设置页的“生图存储治理”卡片。
+  验证：统计展示正确，清理动作有结果反馈；对象存储本地遍历动作显示不支持。
+- 动作：打开 `/canvas`。
+  验证：能新建/保存/打开 Canvas，添加/删除节点，提交运行记录；确认当前只是骨架，不包含完整旧版 Canvas 编辑能力。
 
 ## 当前结论
 
-- 当前代码和文档整理已通过相关窄范围自动化验证。
-- 尚未做真实浏览器视觉复核，也未连真实数据库做共享展示窗口重置后的运行时验收。
+- 本轮迁移的图片库、参考图复用、提示词市场/收藏、存储治理和 Canvas 基础能力已经完成代码实现并通过自动化验证。
+- 完整旧版 Canvas 能力尚未全部迁完，下一阶段应继续做真实运行编排、节点交互编辑、模板和高级图像编辑。
 
 ## 下一步
 
-- 动作：暂存本轮源码、测试和任务记录并创建提交。
-  验证：`git status --short --branch` 显示工作区干净或仅剩用户未纳入的无关改动。
-- 动作：如继续收口，做一次真实登录态宽屏控制台截图和一次共享展示窗口重置数据验收。
-  验证：公告轮播交互和容量池窗口口径与预期一致。
+- 动作：实现 Canvas 真实运行链路，接入 sub2api API Key、模型目录、计费、并发和图片任务服务。
+  验证：`go test ./internal/service ./internal/handler ./internal/repository -run "Canvas" -count=1`，并手动运行文生图/图生图流程。
+- 动作：补 Canvas 前端交互编辑能力，包括拖拽、连线、节点参数面板、运行结果回填。
+  验证：`npm.cmd run test:run -- CanvasView`，并用浏览器检查桌面/移动端布局。
+- 动作：迁移 Canvas 图像编辑能力，包括裁剪、外扩、mask、历史和模板。
+  验证：用旧版典型流程逐项对照验收。
 
 ## 验证记录
 
-- 已执行检查：
-  - `gofmt -w backend/internal/repository/account_repo.go backend/internal/repository/account_repo_quota_reset_test.go backend/internal/service/user_account_service.go backend/internal/service/account_sharing_test.go`
-  - `go test ./internal/repository -run "ResetQuotaUsed|GetAccountUsageCostsSinceByWindow" -count=1`，工作目录 `F:/mcplugins/sub2api/backend`，通过。
-  - `go test ./internal/service -run "CapacityPools|ShareDisplay" -count=1`，工作目录 `F:/mcplugins/sub2api/backend`，通过。
-  - `corepack.cmd pnpm exec vitest run src/components/layout/__tests__/HeaderAnnouncementCarousel.spec.ts src/components/layout/__tests__/AppHeader.spec.ts`，工作目录 `F:/mcplugins/sub2api/frontend`，2 个测试文件 6 个测试通过。
-  - `npm.cmd run typecheck`，工作目录 `F:/mcplugins/sub2api/frontend`，通过。
-  - `git diff --check`，通过。
+- `go test ./internal/service ./internal/handler -run "ImageCreator" -count=1`，通过。
+- `npm.cmd run test:run -- ImageManagerView ChatImageStudioView public-smoke AppSidebar`，通过。
+- `go test ./internal/service ./internal/handler ./internal/repository -run "ImageCreator|PromptFavorite" -count=1`，通过。
+- `npm.cmd run test:run -- promptMarket ChatImageStudioView`，通过。
+- `go test ./internal/service ./internal/handler ./internal/repository -run "ImageCreator|PromptFavorite|Canvas" -count=1`，通过。
+- `go test ./cmd/server -count=1`，通过。
+- `npm.cmd run test:run -- canvas CanvasView AppSidebar public-smoke`，通过。
+- `go test ./...`，通过。
+- `npm.cmd run lint:check`，通过。
+- `npm.cmd run build`，通过；仅有既有 Vite dynamic import/chunk size 警告。
+- `git diff --check`，通过。
