@@ -1740,7 +1740,8 @@ export default {
 
   affiliate: {
     title: 'Affiliate Rebates',
-    description: 'Invite new users and convert your rebate quota into account balance',
+    description: 'Invite new users; after their first API call, both sides can claim 0 rebate quota',
+    descriptionWithReward: 'Invite new users; after their first API call, both sides can claim {amount} rebate quota',
     yourCode: 'Your Affiliate Code',
     inviteLink: 'Invite Link',
     copyCode: 'Copy Code',
@@ -1772,14 +1773,29 @@ export default {
       columns: {
         email: 'Email',
         username: 'Username',
+        apiStatus: 'API Call',
         rebate: 'Rebate',
-        joinedAt: 'Joined At'
+        joinedAt: 'Joined At',
+        action: 'Action'
+      },
+      apiStatus: {
+        used: 'Called',
+        pending: 'Pending'
+      },
+      actions: {
+        claim: 'Claim',
+        claiming: 'Claiming...',
+        claimed: 'Claimed',
+        waiting: 'Waiting',
+        notConfigured: 'Not configured',
+        claimSuccess: 'First API call rebate claimed: {amount}',
+        claimFailed: 'Failed to claim rebate'
       }
     },
     tips: {
       title: 'How It Works',
       line1: 'Share your affiliate code or invite link with new users.',
-      line2: 'When invitees recharge, you receive {rate} of the recharge as rebate quota.',
+      line2: 'After an invitee makes the first API call, you can claim the fixed reward here. Recharge rebate rate: {rate}.',
       line3: 'Transfer rebate quota to balance at any time.',
       line4: 'Newly earned rebates may have a waiting period before they can be transferred.'
     }
@@ -6126,11 +6142,13 @@ export default {
         },
         affiliate: {
           title: 'Affiliate (Invite Rebate)',
-          description: 'Existing users invite new ones; the inviter earns a percentage rebate on the invitee’s recharges. Disabled by default.',
+          description: 'Existing users invite new ones; the inviter can claim a fixed reward after the invitee’s first API call, while recharge percentage rebates remain available. Disabled by default.',
           enabled: 'Enable Affiliate',
           enabledHint: 'When off, the affiliate menu is hidden, the aff parameter is ignored at signup, and new recharges generate no rebate. Existing rebate balances can still be transferred.',
           rebateRate: 'Global Rebate Rate',
           rebateRateHint: 'Default percentage given back to the inviter on recharges (0-100, e.g. 10 = 10%).',
+          apiCallRewardAmount: 'First API Call Reward',
+          apiCallRewardAmountHint: 'Fixed rebate amount the inviter can claim after an invitee makes the first API call. 0 = disabled.',
           freezeHours: 'Rebate Freeze Period (hours)',
           freezeHoursDesc: 'New rebates will be frozen for this period before becoming available for withdrawal. 0 = no freeze.',
           durationDays: 'Rebate Duration (days)',

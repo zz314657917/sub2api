@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
@@ -197,6 +198,32 @@ func (h *UserHandler) TransferAffiliateQuota(c *gin.Context) {
 	response.Success(c, gin.H{
 		"transferred_quota": transferred,
 		"balance":           balance,
+	})
+}
+
+// ClaimAffiliateAPICallReward claims the first-API-call reward for an invited user.
+// POST /api/v1/user/aff/invitees/:invitee_id/api-call-reward/claim
+func (h *UserHandler) ClaimAffiliateAPICallReward(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+
+	inviteeID, err := strconv.ParseInt(strings.TrimSpace(c.Param("invitee_id")), 10, 64)
+	if err != nil || inviteeID <= 0 {
+		response.BadRequest(c, "Invalid invitee ID")
+		return
+	}
+
+	amount, err := h.affiliateService.ClaimInviteeAPICallReward(c.Request.Context(), subject.UserID, inviteeID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, gin.H{
+		"reward_amount": amount,
 	})
 }
 

@@ -4,8 +4,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"math"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -55,6 +57,42 @@ func TestIsEnabled_NilSettingServiceReturnsDefault(t *testing.T) {
 	svc := &AffiliateService{}
 	require.False(t, svc.IsEnabled(context.Background()))
 	require.Equal(t, AffiliateEnabledDefault, svc.IsEnabled(context.Background()))
+}
+
+func TestClaimInviteeAPICallReward_UsesConfiguredReward(t *testing.T) {
+	t.Parallel()
+
+	repo := &affiliateRewardRepoStub{}
+	settings := NewSettingService(settingRepoMapStub{
+		SettingKeyAffiliateEnabled:             "true",
+		SettingKeyAffiliateAPICallRewardAmount: "2.5",
+		SettingKeyAffiliateRebateFreezeHours:   "6",
+	}, nil)
+	svc := NewAffiliateService(repo, settings, nil, nil)
+
+	amount, err := svc.ClaimInviteeAPICallReward(context.Background(), 100, 200)
+	require.NoError(t, err)
+	require.Equal(t, 2.5, amount)
+	require.Equal(t, int64(100), repo.inviterID)
+	require.Equal(t, int64(200), repo.inviteeID)
+	require.Equal(t, 2.5, repo.amount)
+	require.Equal(t, 6, repo.freezeHours)
+}
+
+func TestClaimInviteeAPICallReward_DisabledWhenRewardAmountZero(t *testing.T) {
+	t.Parallel()
+
+	repo := &affiliateRewardRepoStub{}
+	settings := NewSettingService(settingRepoMapStub{
+		SettingKeyAffiliateEnabled:             "true",
+		SettingKeyAffiliateAPICallRewardAmount: "0",
+	}, nil)
+	svc := NewAffiliateService(repo, settings, nil, nil)
+
+	amount, err := svc.ClaimInviteeAPICallReward(context.Background(), 100, 200)
+	require.ErrorIs(t, err, ErrAffiliateAPICallRewardNotEligible)
+	require.Zero(t, amount)
+	require.False(t, repo.called)
 }
 
 // TestValidateExclusiveRate_BoundaryAndInvalid covers the validator used by
@@ -128,4 +166,141 @@ func TestIsValidAffiliateCodeFormat(t *testing.T) {
 			require.Equal(t, tc.want, isValidAffiliateCodeFormat(tc.in))
 		})
 	}
+}
+
+type affiliateRewardRepoStub struct {
+	called      bool
+	inviterID   int64
+	inviteeID   int64
+	amount      float64
+	freezeHours int
+}
+
+func (r *affiliateRewardRepoStub) EnsureUserAffiliate(_ context.Context, userID int64) (*AffiliateSummary, error) {
+	return &AffiliateSummary{UserID: userID}, nil
+}
+
+func (r *affiliateRewardRepoStub) GetAffiliateByCode(context.Context, string) (*AffiliateSummary, error) {
+	panic("unexpected GetAffiliateByCode call")
+}
+
+func (r *affiliateRewardRepoStub) BindInviter(context.Context, int64, int64) (bool, error) {
+	panic("unexpected BindInviter call")
+}
+
+func (r *affiliateRewardRepoStub) AccrueQuota(context.Context, int64, int64, float64, int, *int64) (bool, error) {
+	panic("unexpected AccrueQuota call")
+}
+
+func (r *affiliateRewardRepoStub) GetAccruedRebateFromInvitee(context.Context, int64, int64) (float64, error) {
+	panic("unexpected GetAccruedRebateFromInvitee call")
+}
+
+func (r *affiliateRewardRepoStub) ThawFrozenQuota(context.Context, int64) (float64, error) {
+	panic("unexpected ThawFrozenQuota call")
+}
+
+func (r *affiliateRewardRepoStub) TransferQuotaToBalance(context.Context, int64) (float64, float64, error) {
+	panic("unexpected TransferQuotaToBalance call")
+}
+
+func (r *affiliateRewardRepoStub) ListInvitees(context.Context, int64, int) ([]AffiliateInvitee, error) {
+	panic("unexpected ListInvitees call")
+}
+
+func (r *affiliateRewardRepoStub) ClaimAPICallReward(_ context.Context, inviterID, inviteeUserID int64, amount float64, freezeHours int) (bool, error) {
+	r.called = true
+	r.inviterID = inviterID
+	r.inviteeID = inviteeUserID
+	r.amount = amount
+	r.freezeHours = freezeHours
+	return true, nil
+}
+
+func (r *affiliateRewardRepoStub) UpdateUserAffCode(context.Context, int64, string) error {
+	panic("unexpected UpdateUserAffCode call")
+}
+
+func (r *affiliateRewardRepoStub) ResetUserAffCode(context.Context, int64) (string, error) {
+	panic("unexpected ResetUserAffCode call")
+}
+
+func (r *affiliateRewardRepoStub) SetUserRebateRate(context.Context, int64, *float64) error {
+	panic("unexpected SetUserRebateRate call")
+}
+
+func (r *affiliateRewardRepoStub) BatchSetUserRebateRate(context.Context, []int64, *float64) error {
+	panic("unexpected BatchSetUserRebateRate call")
+}
+
+func (r *affiliateRewardRepoStub) ListUsersWithCustomSettings(context.Context, AffiliateAdminFilter) ([]AffiliateAdminEntry, int64, error) {
+	panic("unexpected ListUsersWithCustomSettings call")
+}
+
+func (r *affiliateRewardRepoStub) ListAffiliateInviteRecords(context.Context, AffiliateRecordFilter) ([]AffiliateInviteRecord, int64, error) {
+	panic("unexpected ListAffiliateInviteRecords call")
+}
+
+func (r *affiliateRewardRepoStub) ListAffiliateRebateRecords(context.Context, AffiliateRecordFilter) ([]AffiliateRebateRecord, int64, error) {
+	panic("unexpected ListAffiliateRebateRecords call")
+}
+
+func (r *affiliateRewardRepoStub) ListAffiliateTransferRecords(context.Context, AffiliateRecordFilter) ([]AffiliateTransferRecord, int64, error) {
+	panic("unexpected ListAffiliateTransferRecords call")
+}
+
+func (r *affiliateRewardRepoStub) GetAffiliateUserOverview(context.Context, int64) (*AffiliateUserOverview, error) {
+	panic("unexpected GetAffiliateUserOverview call")
+}
+
+type settingRepoMapStub map[string]string
+
+func (r settingRepoMapStub) Get(ctx context.Context, key string) (*Setting, error) {
+	value, err := r.GetValue(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	return &Setting{Key: key, Value: value, UpdatedAt: now}, nil
+}
+
+func (r settingRepoMapStub) GetValue(_ context.Context, key string) (string, error) {
+	value, ok := r[key]
+	if !ok {
+		return "", errors.New("setting not found")
+	}
+	return value, nil
+}
+
+func (r settingRepoMapStub) Set(_ context.Context, key, value string) error {
+	r[key] = value
+	return nil
+}
+
+func (r settingRepoMapStub) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
+	out := make(map[string]string, len(keys))
+	for _, key := range keys {
+		out[key] = r[key]
+	}
+	return out, nil
+}
+
+func (r settingRepoMapStub) SetMultiple(_ context.Context, settings map[string]string) error {
+	for key, value := range settings {
+		r[key] = value
+	}
+	return nil
+}
+
+func (r settingRepoMapStub) GetAll(context.Context) (map[string]string, error) {
+	out := make(map[string]string, len(r))
+	for key, value := range r {
+		out[key] = value
+	}
+	return out, nil
+}
+
+func (r settingRepoMapStub) Delete(_ context.Context, key string) error {
+	delete(r, key)
+	return nil
 }

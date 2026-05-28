@@ -1744,7 +1744,8 @@ export default {
 
   affiliate: {
     title: '邀请返利',
-    description: '邀请新用户注册，并将返利额度转入账户余额',
+    description: '邀请新用户注册，被邀请人首次调用 API 后双方可领 0 返利额度',
+    descriptionWithReward: '邀请新用户注册，被邀请人首次调用 API 后双方可领 {amount} 返利额度',
     yourCode: '我的邀请码',
     inviteLink: '邀请链接',
     copyCode: '复制邀请码',
@@ -1776,14 +1777,29 @@ export default {
       columns: {
         email: '邮箱',
         username: '用户名',
+        apiStatus: 'API 调用',
         rebate: '返利明细',
-        joinedAt: '注册时间'
+        joinedAt: '注册时间',
+        action: '操作'
+      },
+      apiStatus: {
+        used: '已调用',
+        pending: '未调用'
+      },
+      actions: {
+        claim: '领取返利',
+        claiming: '领取中...',
+        claimed: '已领取',
+        waiting: '待调用',
+        notConfigured: '未配置',
+        claimSuccess: '已领取首次 API 调用返利：{amount}',
+        claimFailed: '领取返利失败'
       }
     },
     tips: {
       title: '使用说明',
       line1: '将邀请码或邀请链接分享给新用户。',
-      line2: '被邀请用户充值后，你可获得 {rate} 的返利额度。',
+      line2: '被邀请用户首次调用 API 后，可在列表中领取固定返利；充值返利比例为 {rate}。',
       line3: '返利额度可随时转入账户余额。',
       line4: '新产生的返利需要经过冻结期后才能提现。'
     }
@@ -6289,11 +6305,13 @@ export default {
         },
         affiliate: {
           title: '邀请返利',
-          description: '老用户邀请新用户注册，新用户充值后老用户按比例获得返利额度。默认关闭。',
+          description: '老用户邀请新用户注册，被邀请人首次调用 API 后可领取固定返利；充值返利仍可按比例发放。默认关闭。',
           enabled: '启用邀请返利',
           enabledHint: '关闭后用户菜单中的邀请页面入口隐藏、注册时忽略邀请码、新充值不再产生返利。已有返利额度仍可转入余额。',
           rebateRate: '全局返利比例',
           rebateRateHint: '充值后返给邀请人的默认比例（0-100%，例如填写 10 表示返利 10%）。',
+          apiCallRewardAmount: '首次 API 调用返利金额',
+          apiCallRewardAmountHint: '被邀请用户首次调用 API 后，邀请人可领取的固定返利金额。0 = 不启用该奖励。',
           freezeHours: '返利冻结期（小时）',
           freezeHoursDesc: '新产生的返利将在冻结期内无法提现。0 = 不冻结。',
           durationDays: '返利有效期（天）',

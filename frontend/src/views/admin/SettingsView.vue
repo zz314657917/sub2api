@@ -5387,6 +5387,23 @@
 
               <div>
                 <label class="input-label">
+                  {{ t('admin.settings.features.affiliate.apiCallRewardAmount') }}
+                </label>
+                <input
+                  v-model.number="form.affiliate_api_call_reward_amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="input"
+                  placeholder="0"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.affiliate.apiCallRewardAmountHint') }}
+                </p>
+              </div>
+
+              <div>
+                <label class="input-label">
                   {{ t('admin.settings.features.affiliate.freezeHours') }}
                 </label>
                 <input
@@ -6930,6 +6947,7 @@ const { copyToClipboard } = useClipboard();
 const loading = ref(true);
 const loadFailed = ref(false);
 const saving = ref(false);
+const affiliateApiCallRewardAmountOverride = ref<number | null>(null);
 const testingSmtp = ref(false);
 const sendingTestEmail = ref(false);
 const smtpPasswordManuallyEdited = ref(false);
@@ -7143,6 +7161,7 @@ const form = reactive<SettingsForm>({
   affiliate_rebate_freeze_hours: 0,
   affiliate_rebate_duration_days: 0,
   affiliate_rebate_per_invitee_cap: 0,
+  affiliate_api_call_reward_amount: 0,
   default_concurrency: 1,
   default_subscriptions: [],
   force_email_on_third_party_signup: false,
@@ -8076,6 +8095,10 @@ async function loadSettings() {
   loadFailed.value = false;
   try {
     const settings = await adminAPI.settings.getSettings();
+    const backendHasAffiliateApiCallRewardAmount = Object.prototype.hasOwnProperty.call(
+      settings,
+      "affiliate_api_call_reward_amount",
+    );
     settings.payment_load_balance_strategy =
       settings.payment_load_balance_strategy || "round-robin";
     // Only assign non-null values from backend (null means unconfigured, keep defaults)
@@ -8083,6 +8106,9 @@ async function loadSettings() {
       if (value !== null && value !== undefined) {
         (form as Record<string, unknown>)[key] = value;
       }
+    }
+    if (!backendHasAffiliateApiCallRewardAmount && affiliateApiCallRewardAmountOverride.value !== null) {
+      form.affiliate_api_call_reward_amount = affiliateApiCallRewardAmountOverride.value;
     }
     form.login_agreement_mode =
       settings.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
@@ -8477,6 +8503,7 @@ async function saveSettings() {
       affiliate_rebate_freeze_hours: Math.max(0, Math.min(720, Number(form.affiliate_rebate_freeze_hours) || 0)),
       affiliate_rebate_duration_days: Math.max(0, Math.min(3650, Math.floor(Number(form.affiliate_rebate_duration_days) || 0))),
       affiliate_rebate_per_invitee_cap: Math.max(0, Number(form.affiliate_rebate_per_invitee_cap) || 0),
+      affiliate_api_call_reward_amount: Math.max(0, Number(form.affiliate_api_call_reward_amount) || 0),
       default_concurrency: form.default_concurrency,
       default_subscriptions: normalizedDefaultSubscriptions,
       force_email_on_third_party_signup: form.force_email_on_third_party_signup,
@@ -8729,12 +8756,23 @@ async function saveSettings() {
 
     appendAuthSourceDefaultsToUpdateRequest(payload, authSourceDefaults);
 
+    const affiliateApiCallRewardAmountPayload = payload.affiliate_api_call_reward_amount ?? 0;
     const updated = await adminAPI.settings.updateSettings(payload);
+    const backendReturnedAffiliateApiCallRewardAmount = Object.prototype.hasOwnProperty.call(
+      updated,
+      "affiliate_api_call_reward_amount",
+    );
     for (const [key, value] of Object.entries(updated)) {
       if (key === "openai_fast_policy_settings") continue;
       if (value !== null && value !== undefined) {
         (form as Record<string, unknown>)[key] = value;
       }
+    }
+    if (backendReturnedAffiliateApiCallRewardAmount) {
+      affiliateApiCallRewardAmountOverride.value = null;
+    } else {
+      affiliateApiCallRewardAmountOverride.value = affiliateApiCallRewardAmountPayload;
+      form.affiliate_api_call_reward_amount = affiliateApiCallRewardAmountPayload;
     }
     Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(updated));
     registrationEmailSuffixWhitelistTags.value =

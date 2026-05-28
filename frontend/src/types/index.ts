@@ -131,6 +131,11 @@ export interface AffiliateInvitee {
   username: string
   created_at?: string
   total_rebate: number
+  api_used: boolean
+  api_used_at?: string
+  api_call_reward_claimed: boolean
+  api_call_reward_claimed_at?: string
+  api_call_reward_amount: number
 }
 
 export interface UserAffiliateDetail {
@@ -143,12 +148,17 @@ export interface UserAffiliateDetail {
   aff_history_quota: number
   /** 当前用户作为邀请人时实际生效的返利比例（专属覆盖全局）。0-100。 */
   effective_rebate_rate_percent: number
+  api_call_reward_amount: number
   invitees: AffiliateInvitee[]
 }
 
 export interface AffiliateTransferResponse {
   transferred_quota: number
   balance: number
+}
+
+export interface AffiliateApiCallRewardClaimResponse {
+  reward_amount: number
 }
 
 export interface SendVerifyCodeRequest {
