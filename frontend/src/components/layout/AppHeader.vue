@@ -1,7 +1,7 @@
 <template>
   <header class="console-header sticky top-0 z-30">
-    <div class="flex h-16 items-center justify-between px-4 md:px-6">
-      <div class="flex items-center gap-4">
+    <div class="flex h-16 items-center justify-between gap-4 px-4 md:px-6">
+      <div class="flex min-w-0 items-center gap-4">
         <button
           @click="toggleMobileSidebar"
           class="console-icon-button inline-flex h-10 w-10 items-center justify-center lg:hidden"
@@ -10,7 +10,7 @@
           <Icon name="menu" size="md" />
         </button>
 
-        <div class="hidden lg:block">
+        <div class="hidden min-w-0 lg:block">
           <h1 class="console-page-title text-lg font-semibold">
             {{ pageTitle }}
           </h1>
@@ -20,8 +20,16 @@
         </div>
       </div>
 
-      <div class="flex items-center gap-3">
-        <AnnouncementBell v-if="user" />
+      <div class="mx-2 hidden min-w-0 flex-1 justify-center xl:flex">
+        <HeaderAnnouncementCarousel
+          v-if="user && headerAnnouncements.length > 0"
+          :announcements="headerAnnouncements"
+          @select="openAnnouncementDetail"
+        />
+      </div>
+
+      <div class="flex shrink-0 items-center gap-3">
+        <AnnouncementBell v-if="user" ref="announcementBellRef" />
 
         <router-link
           to="/tutorial"
@@ -179,9 +187,12 @@ import { useAdminSettingsStore } from '@/stores/adminSettings'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
+import HeaderAnnouncementCarousel from '@/components/layout/HeaderAnnouncementCarousel.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { openSupportPopup } from '@/utils/supportPopup'
 import { hasSupportContent } from '@/utils/supportContent'
+import { useAnnouncementStore } from '@/stores/announcements'
+import type { UserAnnouncement } from '@/types'
 
 const router = useRouter()
 const route = useRoute()
@@ -190,16 +201,19 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const adminSettingsStore = useAdminSettingsStore()
 const onboardingStore = useOnboardingStore()
+const announcementStore = useAnnouncementStore()
 
 const user = computed(() => authStore.user)
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
+const announcementBellRef = ref<InstanceType<typeof AnnouncementBell> | null>(null)
 const contactInfo = computed(() => appStore.contactInfo)
 const docUrl = computed(() => appStore.docUrl)
 const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
 const hasSupportButton = computed(() =>
   hasSupportContent(appStore.cachedPublicSettings, appStore.contactInfo)
 )
+const headerAnnouncements = computed(() => announcementStore.announcements)
 
 const showOnboardingButton = computed(() => {
   return !authStore.isSimpleMode && user.value?.role === 'admin'
@@ -273,6 +287,10 @@ async function handleLogout() {
 function handleReplayGuide() {
   closeDropdown()
   onboardingStore.replay()
+}
+
+function openAnnouncementDetail(announcement: UserAnnouncement) {
+  announcementBellRef.value?.openDetail(announcement)
 }
 
 function handleClickOutside(event: MouseEvent) {

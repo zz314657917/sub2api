@@ -418,6 +418,10 @@ watch(
     document.body.style.overflow = (modal || detail || popup) ? 'hidden' : ''
   }
 )
+
+defineExpose({
+  openDetail,
+})
 </script>
 
 <style scoped>

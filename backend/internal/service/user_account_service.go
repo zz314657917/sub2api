@@ -178,6 +178,12 @@ type accountCapacityDisplayUsageDelta struct {
 	sevenDayCost float64
 }
 
+type accountCapacityDisplayUsageWindow struct {
+	accountID int64
+	suffix    string
+	startTime time.Time
+}
+
 type accountCapacityDisplayCounts struct {
 	total          int
 	active         int
@@ -198,6 +204,21 @@ type UserAccountShareSettings interface {
 
 type accountUsageCostWindowRepository interface {
 	GetAccountUsageCostsSince(ctx context.Context, accountIDs []int64, startTime time.Time) (map[int64]float64, error)
+}
+
+type accountUsageCostWindowBatchRepository interface {
+	GetAccountUsageCostsSinceByWindow(ctx context.Context, windows []AccountUsageCostWindowRequest) (map[AccountUsageCostWindowRequestKey]float64, error)
+}
+
+type AccountUsageCostWindowRequest struct {
+	AccountID int64
+	Suffix    string
+	StartTime time.Time
+}
+
+type AccountUsageCostWindowRequestKey struct {
+	AccountID int64
+	Suffix    string
 }
 
 func NewUserAccountService(accountRepo AccountRepository, settings UserAccountShareSettings) *UserAccountService {
@@ -934,46 +955,84 @@ func (s *UserAccountService) accountCapacityDisplayUsageDeltas(ctx context.Conte
 	if !ok {
 		return nil, nil
 	}
-	accountIDs := shareDisplayUsageWindowAccountIDs(accounts)
-	if len(accountIDs) == 0 {
+	windows := shareDisplayUsageWindows(accounts, now)
+	if len(windows) == 0 {
 		return nil, nil
 	}
-	fiveHourCosts, err := reader.GetAccountUsageCostsSince(ctx, accountIDs, now.Add(-5*time.Hour))
-	if err != nil {
-		return nil, fmt.Errorf("load 5h account display usage: %w", err)
-	}
-	sevenDayCosts, err := reader.GetAccountUsageCostsSince(ctx, accountIDs, now.Add(-7*24*time.Hour))
-	if err != nil {
-		return nil, fmt.Errorf("load 7d account display usage: %w", err)
-	}
-	deltas := make(map[int64]accountCapacityDisplayUsageDelta, len(accountIDs))
-	for _, accountID := range accountIDs {
-		deltas[accountID] = accountCapacityDisplayUsageDelta{
-			fiveHourCost: maxFloat64(fiveHourCosts[accountID], 0),
-			sevenDayCost: maxFloat64(sevenDayCosts[accountID], 0),
+	deltas := make(map[int64]accountCapacityDisplayUsageDelta, len(windows))
+	if reader, ok := s.accountRepo.(accountUsageCostWindowBatchRepository); ok {
+		requests := make([]AccountUsageCostWindowRequest, 0, len(windows))
+		for _, window := range windows {
+			requests = append(requests, AccountUsageCostWindowRequest{
+				AccountID: window.accountID,
+				Suffix:    window.suffix,
+				StartTime: window.startTime,
+			})
 		}
+		costs, err := reader.GetAccountUsageCostsSinceByWindow(ctx, requests)
+		if err != nil {
+			return nil, fmt.Errorf("load account display usage: %w", err)
+		}
+		for _, window := range windows {
+			delta := deltas[window.accountID]
+			switch window.suffix {
+			case "5h":
+				delta.fiveHourCost = maxFloat64(costs[AccountUsageCostWindowRequestKey{AccountID: window.accountID, Suffix: window.suffix}], 0)
+			case "7d":
+				delta.sevenDayCost = maxFloat64(costs[AccountUsageCostWindowRequestKey{AccountID: window.accountID, Suffix: window.suffix}], 0)
+			}
+			deltas[window.accountID] = delta
+		}
+		return deltas, nil
+	}
+	for _, window := range windows {
+		costs, err := reader.GetAccountUsageCostsSince(ctx, []int64{window.accountID}, window.startTime)
+		if err != nil {
+			return nil, fmt.Errorf("load %s account display usage: %w", window.suffix, err)
+		}
+		delta := deltas[window.accountID]
+		switch window.suffix {
+		case "5h":
+			delta.fiveHourCost = maxFloat64(costs[window.accountID], 0)
+		case "7d":
+			delta.sevenDayCost = maxFloat64(costs[window.accountID], 0)
+		}
+		deltas[window.accountID] = delta
 	}
 	return deltas, nil
 }
 
-func shareDisplayUsageWindowAccountIDs(accounts []Account) []int64 {
-	seen := make(map[int64]struct{})
-	accountIDs := make([]int64, 0)
+func shareDisplayUsageWindows(accounts []Account, now time.Time) []accountCapacityDisplayUsageWindow {
+	seen := make(map[string]struct{})
+	windows := make([]accountCapacityDisplayUsageWindow, 0)
 	for i := range accounts {
 		account := &accounts[i]
 		if account.ID <= 0 || !accountUsesShareDisplayWindowMask(account) {
 			continue
 		}
-		if !accountHasShareDisplayWindowLimit(account, "5h") && !accountHasShareDisplayWindowLimit(account, "7d") {
-			continue
+		appendWindow := func(suffix string, fallbackStart time.Time) {
+			if !accountHasShareDisplayWindowLimit(account, suffix) {
+				return
+			}
+			key := fmt.Sprintf("%d:%s", account.ID, suffix)
+			if _, ok := seen[key]; ok {
+				return
+			}
+			seen[key] = struct{}{}
+			start := account.getExtraTime("share_display_" + suffix + "_start")
+			if start.IsZero() {
+				start = fallbackStart
+			}
+			windows = append(windows, accountCapacityDisplayUsageWindow{
+				accountID: account.ID,
+				suffix:    suffix,
+				startTime: start,
+			})
 		}
-		if _, ok := seen[account.ID]; ok {
-			continue
-		}
-		seen[account.ID] = struct{}{}
-		accountIDs = append(accountIDs, account.ID)
+		appendWindow("5h", now.Add(-5*time.Hour))
+		appendWindow("7d", now.Add(-7*24*time.Hour))
 	}
-	return accountIDs
+	return windows
 }
 
 func accountHasShareDisplayWindowLimit(account *Account, suffix string) bool {

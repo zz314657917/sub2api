@@ -4225,8 +4225,10 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     delete extra.share_display_account_count
     delete extra.share_display_5h_limit
     delete extra.share_display_5h_used
+    delete extra.share_display_5h_start
     delete extra.share_display_7d_limit
     delete extra.share_display_7d_used
+    delete extra.share_display_7d_start
   }
 
   if (accountCategory.value === 'apikey' && openAIResponsesMode.value !== 'auto') {

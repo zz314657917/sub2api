@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-05-28 11:58 +08:00 - 共享展示窗口重置与顶部公告轮播提交整理
+
+- 当前阶段：最近一组共享展示窗口口径和控制台 header 公告轮播改动已完成提交前整理与窄范围验证。
+- 本段重点：后端账号配额重置会同步重置 `share_display_5h/7d` 伪装展示窗口基线，容量池展示用量改为按每个窗口自己的 start 查询；前端控制台顶部新增最多 3 条公告轮播，点击复用公告铃详情。
+- 已完成：新增 per-window usage cost 批量查询；容量池读取 `share_display_5h_start` / `share_display_7d_start`，缺失时回退固定 5h / 7d；关闭共享展示时清理 start 残留；新增 `HeaderAnnouncementCarousel` 和相关测试。
+- 关键决策：配额重置只清零本地用量和共享展示伪装窗口，不清理 `codex_*` 真实上游快照；公告轮播只在 `xl` 宽屏 header 中间展示，保留原公告铃作为详情入口和窄屏入口。
+- 验证记录：`go test ./internal/repository -run "ResetQuotaUsed|GetAccountUsageCostsSinceByWindow" -count=1`、`go test ./internal/service -run "CapacityPools|ShareDisplay" -count=1`、`corepack.cmd pnpm exec vitest run src/components/layout/__tests__/HeaderAnnouncementCarousel.spec.ts src/components/layout/__tests__/AppHeader.spec.ts`、`npm.cmd run typecheck`、`git diff --check` 均通过。
+- 遗留问题：未做真实登录态浏览器视觉验收；未连真实数据库验证配额重置后容量池窗口从新 start 重新累计。
+- 下一步：提交本轮源码、测试和任务记录；后续用真实登录态宽屏控制台检查公告轮播交互，并用真实共享展示账号做一次重置后窗口口径验收。
+
 ## 2026-05-27 01:56 +08:00 - 用户使用记录与新人引导收口复核
 
 - 当前阶段：用户侧使用记录运维视图已提交推送，新人 API Key 引导弹窗完成后续文案与模型标签细化，并完成一次多智能体代码审查。

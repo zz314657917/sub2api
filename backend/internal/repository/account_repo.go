@@ -15,6 +15,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -797,6 +798,60 @@ func (r *accountRepository) GetAccountUsageCostsSince(ctx context.Context, accou
 		if _, ok := result[accountID]; !ok {
 			result[accountID] = 0
 		}
+	}
+	return result, nil
+}
+
+func (r *accountRepository) GetAccountUsageCostsSinceByWindow(ctx context.Context, windows []service.AccountUsageCostWindowRequest) (map[service.AccountUsageCostWindowRequestKey]float64, error) {
+	result := make(map[service.AccountUsageCostWindowRequestKey]float64, len(windows))
+	if len(windows) == 0 {
+		return result, nil
+	}
+
+	values := make([]string, 0, len(windows))
+	args := make([]any, 0, len(windows)*3)
+	for _, window := range windows {
+		if window.AccountID <= 0 || strings.TrimSpace(window.Suffix) == "" {
+			continue
+		}
+		values = append(values, fmt.Sprintf("($%d::bigint, $%d::text, $%d::timestamptz)", len(args)+1, len(args)+2, len(args)+3))
+		args = append(args, window.AccountID, strings.TrimSpace(window.Suffix), window.StartTime)
+		result[service.AccountUsageCostWindowRequestKey{AccountID: window.AccountID, Suffix: strings.TrimSpace(window.Suffix)}] = 0
+	}
+	if len(values) == 0 {
+		return result, nil
+	}
+
+	rows, err := r.sql.QueryContext(ctx, `
+		WITH windows(account_id, suffix, start_time) AS (
+			VALUES `+strings.Join(values, ", ")+`
+		)
+		SELECT
+			windows.account_id,
+			windows.suffix,
+			COALESCE(SUM(COALESCE(usage_logs.account_stats_cost, usage_logs.total_cost, 0) * COALESCE(usage_logs.account_rate_multiplier, 1)), 0)::double precision AS account_cost
+		FROM windows
+		LEFT JOIN usage_logs
+			ON usage_logs.account_id = windows.account_id
+			AND usage_logs.created_at >= windows.start_time
+		GROUP BY windows.account_id, windows.suffix
+	`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var accountID int64
+		var suffix string
+		var cost float64
+		if err := rows.Scan(&accountID, &suffix, &cost); err != nil {
+			return nil, err
+		}
+		result[service.AccountUsageCostWindowRequestKey{AccountID: accountID, Suffix: suffix}] = cost
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -2498,13 +2553,24 @@ func (r *accountRepository) IncrementQuotaUsed(ctx context.Context, id int64, am
 	return nil
 }
 
-// ResetQuotaUsed 重置账号所有维度的配额用量为 0
-// 保留固定重置模式的配置字段（quota_daily_reset_mode 等），仅清零用量和窗口起始时间
+// ResetQuotaUsed 重置账号所有维度的配额用量为 0。
+// 保留固定重置模式的配置字段（quota_daily_reset_mode 等）和真实上游窗口快照（codex_*），
+// 仅清零本地用量、伪装展示窗口基线用量和窗口起始时间。
 func (r *accountRepository) ResetQuotaUsed(ctx context.Context, id int64) error {
 	_, err := r.sql.ExecContext(ctx,
 		`UPDATE accounts SET extra = (
 			COALESCE(extra, '{}'::jsonb)
 			|| '{"quota_used": 0, "quota_daily_used": 0, "quota_weekly_used": 0, "quota_monthly_used": 0}'::jsonb
+			|| CASE
+				WHEN COALESCE((extra->>'share_display_5h_limit')::numeric, 0) > 0 OR extra ? 'share_display_5h_used'
+				THEN jsonb_build_object('share_display_5h_used', 0, 'share_display_5h_start', `+nowUTC+`)
+				ELSE '{}'::jsonb
+			END
+			|| CASE
+				WHEN COALESCE((extra->>'share_display_7d_limit')::numeric, 0) > 0 OR extra ? 'share_display_7d_used'
+				THEN jsonb_build_object('share_display_7d_used', 0, 'share_display_7d_start', `+nowUTC+`)
+				ELSE '{}'::jsonb
+			END
 		) - 'quota_daily_start' - 'quota_weekly_start' - 'quota_monthly_start' - 'quota_daily_reset_at' - 'quota_weekly_reset_at', updated_at = NOW()
 		WHERE id = $1 AND deleted_at IS NULL`,
 		id)

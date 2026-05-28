@@ -951,6 +951,62 @@ func TestUserAccountService_GetCapacityPoolsUsesActualUsageForDisplayWindowWitho
 	}
 }
 
+func TestUserAccountService_GetCapacityPoolsUsesShareDisplayResetStartForActualUsage(t *testing.T) {
+	ownerID := int64(10)
+	reset5h := time.Now().Add(-30 * time.Minute).UTC().Truncate(time.Second)
+	reset7d := time.Now().Add(-2 * time.Hour).UTC().Truncate(time.Second)
+	repo := &capacityPoolAccountRepoStub{
+		usageCostsByWindow: map[string]float64{
+			"1:5h": 2.5,
+			"1:7d": 4.0,
+		},
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "hosted-pro-key",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeAPIKey,
+				ShareMode:   AccountShareModePrivate,
+				ShareStatus: AccountShareStatusNotShared,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"share_display_tier":         "pro",
+					"share_display_percent_only": true,
+					"share_display_5h_limit":     10.0,
+					"share_display_5h_used":      0.0,
+					"share_display_5h_start":     reset5h.Format(time.RFC3339),
+					"share_display_7d_limit":     20.0,
+					"share_display_7d_used":      0.0,
+					"share_display_7d_start":     reset7d.Format(time.RFC3339),
+				},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Pro")
+	if group == nil {
+		t.Fatalf("expected OpenAI Pro display group, got %#v", pools.Shared.Groups)
+	}
+	if window := group.Windows["5h"]; window.UsedPercent != 25 || window.UsedAmount != 2.5 {
+		t.Fatalf("expected 5h display window to use reset-start usage, got %#v", window)
+	}
+	if window := group.Windows["7d"]; window.UsedPercent != 20 || window.UsedAmount != 4.0 {
+		t.Fatalf("expected 7d display window to use reset-start usage, got %#v", window)
+	}
+	if got := repo.usageWindowStarts["1:5h"]; !got.Equal(reset5h) {
+		t.Fatalf("5h usage query start = %s, want %s", got.Format(time.RFC3339), reset5h.Format(time.RFC3339))
+	}
+	if got := repo.usageWindowStarts["1:7d"]; !got.Equal(reset7d) {
+		t.Fatalf("7d usage query start = %s, want %s", got.Format(time.RFC3339), reset7d.Format(time.RFC3339))
+	}
+}
+
 func TestUserAccountService_GetCapacityPoolsIgnoresIncompleteShareDisplayDedicatedWindows(t *testing.T) {
 	ownerID := int64(10)
 	now := time.Now()
@@ -1482,10 +1538,12 @@ func (noopAPIKeyQuotaUpdater) UpdateRateLimitUsage(context.Context, int64, float
 
 type capacityPoolAccountRepoStub struct {
 	AccountRepository
-	all         []Account
-	owned       []Account
-	schedulable []Account
-	usageCosts  map[int64]float64
+	all                []Account
+	owned              []Account
+	schedulable        []Account
+	usageCosts         map[int64]float64
+	usageCostsByWindow map[string]float64
+	usageWindowStarts  map[string]time.Time
 }
 
 func (s *capacityPoolAccountRepoStub) List(ctx context.Context, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error) {
@@ -1558,6 +1616,23 @@ func (s *capacityPoolAccountRepoStub) GetAccountUsageCostsSince(ctx context.Cont
 	result := make(map[int64]float64, len(accountIDs))
 	for _, accountID := range accountIDs {
 		result[accountID] = s.usageCosts[accountID]
+	}
+	return result, nil
+}
+
+func (s *capacityPoolAccountRepoStub) GetAccountUsageCostsSinceByWindow(ctx context.Context, windows []AccountUsageCostWindowRequest) (map[AccountUsageCostWindowRequestKey]float64, error) {
+	result := make(map[AccountUsageCostWindowRequestKey]float64, len(windows))
+	if s.usageWindowStarts == nil {
+		s.usageWindowStarts = make(map[string]time.Time, len(windows))
+	}
+	for _, window := range windows {
+		mapKey := fmt.Sprintf("%d:%s", window.AccountID, window.Suffix)
+		s.usageWindowStarts[mapKey] = window.StartTime
+		cost := s.usageCostsByWindow[mapKey]
+		if s.usageCostsByWindow == nil {
+			cost = s.usageCosts[window.AccountID]
+		}
+		result[AccountUsageCostWindowRequestKey{AccountID: window.AccountID, Suffix: window.Suffix}] = cost
 	}
 	return result, nil
 }
