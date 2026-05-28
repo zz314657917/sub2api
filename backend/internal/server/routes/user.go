@@ -55,6 +55,25 @@ func RegisterUserRoutes(
 				imageCreator.GET("/images/:id/reference-file", h.ImageCreator.GetReferenceImageFile)
 			}
 
+			canvases := user.Group("/canvases")
+			{
+				canvases.GET("", h.Canvas.ListCanvases)
+				canvases.POST("", h.Canvas.SaveCanvas)
+				canvases.GET("/:id", h.Canvas.GetCanvas)
+				canvases.PUT("/:id", h.Canvas.UpdateCanvas)
+				canvases.DELETE("/:id", h.Canvas.DeleteCanvas)
+			}
+
+			canvasRuns := user.Group("/canvas-runs")
+			{
+				canvasRuns.GET("", h.Canvas.ListRuns)
+				canvasRuns.POST("", h.Canvas.CreateRun)
+				canvasRuns.GET("/:id", h.Canvas.GetRun)
+				canvasRuns.POST("/:id/cancel", h.Canvas.CancelRun)
+			}
+
+			user.GET("/canvas/models", h.Canvas.ListModels)
+
 			user.GET("/prompt-favorites", h.PromptFavorite.List)
 			user.POST("/prompt-favorites", h.PromptFavorite.Save)
 			user.DELETE("/prompt-favorites/:id", h.PromptFavorite.Delete)

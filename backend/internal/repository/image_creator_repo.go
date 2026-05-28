@@ -596,7 +596,11 @@ func (r *imageCreatorRepository) attachImages(ctx context.Context, task *service
 }
 
 func (r *imageCreatorRepository) queryImages(ctx context.Context, query string, args ...any) ([]service.ImageCreatorImage, error) {
-	rows, err := r.sql.QueryContext(ctx, query, args...)
+	return queryImageCreatorImages(ctx, r.sql, query, args...)
+}
+
+func queryImageCreatorImages(ctx context.Context, exec sqlExecutor, query string, args ...any) ([]service.ImageCreatorImage, error) {
+	rows, err := exec.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
