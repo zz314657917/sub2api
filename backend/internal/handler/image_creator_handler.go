@@ -21,9 +21,10 @@ type imageCreatorService interface {
 	CreateTask(ctx context.Context, userID int64, input service.ImageCreatorCreateTaskInput) (*service.ImageCreatorTask, error)
 	ListTasks(ctx context.Context, userID int64, limit int) ([]service.ImageCreatorTask, error)
 	GetTask(ctx context.Context, userID int64, taskID int64) (*service.ImageCreatorTask, error)
-	ListImages(ctx context.Context, userID int64, limit int, offset int) ([]service.ImageCreatorManagedImage, int, error)
+	ListImages(ctx context.Context, userID int64, filters service.ImageCreatorImageListFilters) ([]service.ImageCreatorManagedImage, int, error)
 	DeleteImages(ctx context.Context, userID int64, ids []int64) (int, error)
 	GetImageFile(ctx context.Context, userID int64, imageID int64) (*service.ImageCreatorFile, error)
+	GetReferenceImageForUser(ctx context.Context, userID int64, imageID int64) (*service.ImageCreatorFile, error)
 }
 
 type ImageCreatorHandler struct {
@@ -113,9 +114,20 @@ func (h *ImageCreatorHandler) ListImages(c *gin.Context) {
 		response.Unauthorized(c, "User not authenticated")
 		return
 	}
-	limit := parseBoundedQueryInt(c, "limit", 40, 1, 100)
-	offset := parseBoundedQueryInt(c, "offset", 0, 0, 100000)
-	images, total, err := h.svc.ListImages(c.Request.Context(), subject.UserID, limit, offset)
+	filters := service.ImageCreatorImageListFilters{
+		Limit:       parseBoundedQueryInt(c, "limit", 40, 1, 100),
+		Offset:      parseBoundedQueryInt(c, "offset", 0, 0, 100000),
+		Search:      c.Query("q"),
+		StartDate:   c.Query("start_date"),
+		EndDate:     c.Query("end_date"),
+		Format:      c.Query("format"),
+		Orientation: c.Query("orientation"),
+		Resolution:  c.Query("resolution"),
+		AspectRatio: c.Query("aspect_ratio"),
+		MinWidth:    parseBoundedQueryInt(c, "min_width", 0, 0, 100000),
+		MinHeight:   parseBoundedQueryInt(c, "min_height", 0, 0, 100000),
+	}
+	images, total, err := h.svc.ListImages(c.Request.Context(), subject.UserID, filters)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -123,8 +135,8 @@ func (h *ImageCreatorHandler) ListImages(c *gin.Context) {
 	response.Success(c, imageCreatorImageListResponse{
 		Items:  images,
 		Total:  total,
-		Limit:  limit,
-		Offset: offset,
+		Limit:  filters.Limit,
+		Offset: filters.Offset,
 	})
 }
 
@@ -185,6 +197,30 @@ func (h *ImageCreatorHandler) GetImageFile(c *gin.Context) {
 	}
 	if strings.TrimSpace(file.FileName) != "" {
 		c.Header("Content-Disposition", `inline; filename="`+strings.ReplaceAll(file.FileName, `"`, `\"`)+`"`)
+	}
+	serveImageCreatorFile(c, file)
+}
+
+func (h *ImageCreatorHandler) GetReferenceImageFile(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	imageID, ok := parsePositiveInt64Param(c, "id", "Invalid image ID")
+	if !ok {
+		return
+	}
+	file, err := h.svc.GetReferenceImageForUser(c.Request.Context(), subject.UserID, imageID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if file.ContentType != "" {
+		c.Header("Content-Type", file.ContentType)
+	}
+	if strings.TrimSpace(file.FileName) != "" {
+		c.Header("Content-Disposition", `inline; filename="reference-`+strings.ReplaceAll(file.FileName, `"`, `\"`)+`"`)
 	}
 	serveImageCreatorFile(c, file)
 }

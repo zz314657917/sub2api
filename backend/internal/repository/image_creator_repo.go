@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -268,8 +269,8 @@ func (r *imageCreatorRepository) AddImage(ctx context.Context, image *service.Im
 	query := `
 		INSERT INTO image_creator_images (
 			task_id, user_id, file_path, output_format, mime_type,
-			byte_size, sha256, revised_prompt, expires_at
-		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+			byte_size, width, height, sha256, revised_prompt, expires_at
+		) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
 		RETURNING id, created_at
 	`
 	return scanSingleRow(ctx, r.sql, query, []any{
@@ -279,31 +280,37 @@ func (r *imageCreatorRepository) AddImage(ctx context.Context, image *service.Im
 		image.OutputFormat,
 		image.MimeType,
 		image.ByteSize,
+		image.Width,
+		image.Height,
 		image.SHA256,
 		nullableString(image.RevisedPrompt),
 		image.ExpiresAt,
 	}, &image.ID, &image.CreatedAt)
 }
 
-func (r *imageCreatorRepository) ListImagesForUser(ctx context.Context, userID int64, limit int, offset int) ([]service.ImageCreatorManagedImage, int, error) {
-	if limit <= 0 {
-		limit = 20
+func (r *imageCreatorRepository) ListImagesForUser(ctx context.Context, userID int64, filters service.ImageCreatorImageListFilters) ([]service.ImageCreatorManagedImage, int, error) {
+	if filters.Limit <= 0 {
+		filters.Limit = 20
 	}
-	if offset < 0 {
-		offset = 0
+	if filters.Offset < 0 {
+		filters.Offset = 0
 	}
-	query := `
+	where, args := buildImageCreatorImageListWhere(userID, filters)
+	args = append(args, filters.Limit, filters.Offset)
+	limitArg := len(args) - 1
+	offsetArg := len(args)
+	query := fmt.Sprintf(`
 		SELECT images.id, images.task_id, images.user_id, images.file_path, images.output_format, images.mime_type,
-			images.byte_size, images.sha256, images.revised_prompt, images.expires_at, images.created_at,
+			images.byte_size, images.width, images.height, images.sha256, images.revised_prompt, images.expires_at, images.created_at,
 			tasks.prompt, tasks.model, tasks.size, tasks.quality,
 			COUNT(*) OVER() AS total
 		FROM image_creator_images AS images
 		INNER JOIN image_creator_tasks AS tasks ON tasks.id = images.task_id
-		WHERE images.user_id = $1
+		WHERE `+where+`
 		ORDER BY images.created_at DESC, images.id DESC
-		LIMIT $2 OFFSET $3
-	`
-	rows, err := r.sql.QueryContext(ctx, query, userID, limit, offset)
+		LIMIT $%d OFFSET $%d
+	`, limitArg, offsetArg)
+	rows, err := r.sql.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -322,6 +329,120 @@ func (r *imageCreatorRepository) ListImagesForUser(ctx context.Context, userID i
 		return nil, 0, err
 	}
 	return images, total, nil
+}
+
+func buildImageCreatorImageListWhere(userID int64, filters service.ImageCreatorImageListFilters) (string, []any) {
+	clauses := []string{"images.user_id = $1"}
+	args := []any{userID}
+	addArg := func(value any) string {
+		args = append(args, value)
+		return "$" + strconv.Itoa(len(args))
+	}
+	if filters.Search != "" {
+		value := "%" + strings.ToLower(filters.Search) + "%"
+		arg := addArg(value)
+		clauses = append(clauses, fmt.Sprintf(`(
+			LOWER(tasks.prompt) LIKE %s OR
+			LOWER(COALESCE(images.revised_prompt, '')) LIKE %s OR
+			LOWER(tasks.model) LIKE %s OR
+			LOWER(images.output_format) LIKE %s OR
+			LOWER(images.mime_type) LIKE %s OR
+			LOWER(images.sha256) LIKE %s
+		)`, arg, arg, arg, arg, arg, arg))
+	}
+	if filters.StartDate != "" {
+		if start, err := time.Parse("2006-01-02", filters.StartDate); err == nil {
+			clauses = append(clauses, "images.created_at >= "+addArg(start))
+		}
+	}
+	if filters.EndDate != "" {
+		if end, err := time.Parse("2006-01-02", filters.EndDate); err == nil {
+			clauses = append(clauses, "images.created_at < "+addArg(end.Add(24*time.Hour)))
+		}
+	}
+	if filters.Format != "" {
+		if filters.Format == "other" {
+			clauses = append(clauses, "images.output_format NOT IN ('png', 'jpeg', 'jpg', 'webp')")
+		} else if filters.Format == "jpeg" {
+			clauses = append(clauses, "images.output_format IN ('jpeg', 'jpg')")
+		} else {
+			clauses = append(clauses, "images.output_format = "+addArg(filters.Format))
+		}
+	}
+	if filters.MinWidth > 0 {
+		clauses = append(clauses, "images.width >= "+addArg(filters.MinWidth))
+	}
+	if filters.MinHeight > 0 {
+		clauses = append(clauses, "images.height >= "+addArg(filters.MinHeight))
+	}
+	if filters.Orientation != "" {
+		clauses = append(clauses, imageCreatorOrientationWhere(filters.Orientation))
+	}
+	if filters.Resolution != "" {
+		clauses = append(clauses, imageCreatorResolutionWhere(filters.Resolution))
+	}
+	if filters.AspectRatio != "" {
+		clauses = append(clauses, imageCreatorAspectRatioWhere(filters.AspectRatio))
+	}
+	return strings.Join(clauses, " AND "), args
+}
+
+func imageCreatorOrientationWhere(value string) string {
+	switch value {
+	case "landscape":
+		return "images.width > images.height"
+	case "portrait":
+		return "images.height > images.width"
+	case "square":
+		return "images.width > 0 AND images.width = images.height"
+	case "unknown":
+		return "(images.width <= 0 OR images.height <= 0)"
+	default:
+		return "TRUE"
+	}
+}
+
+func imageCreatorResolutionWhere(value string) string {
+	longSide := "GREATEST(images.width, images.height)"
+	shortSide := "LEAST(images.width, images.height)"
+	switch value {
+	case "4k":
+		return fmt.Sprintf("images.width > 0 AND images.height > 0 AND (%s >= 3200 OR %s >= 2400)", longSide, shortSide)
+	case "2k":
+		return fmt.Sprintf("images.width > 0 AND images.height > 0 AND (%s >= 1600 OR %s >= 1400) AND NOT (%s >= 3200 OR %s >= 2400)", longSide, shortSide, longSide, shortSide)
+	case "1080p":
+		return fmt.Sprintf("images.width > 0 AND images.height > 0 AND NOT (%s >= 1600 OR %s >= 1400)", longSide, shortSide)
+	case "unknown":
+		return "(images.width <= 0 OR images.height <= 0)"
+	default:
+		return "TRUE"
+	}
+}
+
+func imageCreatorAspectRatioWhere(value string) string {
+	switch value {
+	case "1:1":
+		return "images.width > 0 AND images.width = images.height"
+	case "4:3":
+		return "images.width > 0 AND images.height > 0 AND images.width * 3 = images.height * 4"
+	case "3:4":
+		return "images.width > 0 AND images.height > 0 AND images.width * 4 = images.height * 3"
+	case "16:9":
+		return "images.width > 0 AND images.height > 0 AND images.width * 9 = images.height * 16"
+	case "9:16":
+		return "images.width > 0 AND images.height > 0 AND images.width * 16 = images.height * 9"
+	case "other":
+		return `images.width > 0 AND images.height > 0
+			AND images.width <> images.height
+			AND images.width * 3 <> images.height * 4
+			AND images.width * 4 <> images.height * 3
+			AND images.width * 9 <> images.height * 16
+			AND images.width * 16 <> images.height * 9`
+	case "unknown":
+		return "(images.width <= 0 OR images.height <= 0)"
+	default:
+		return "TRUE"
+	}
 }
 
 func (r *imageCreatorRepository) ListImagesForUserByIDs(ctx context.Context, userID int64, ids []int64) ([]service.ImageCreatorImage, error) {
@@ -540,7 +661,7 @@ func scanImageCreatorTask(row imageCreatorTaskScanner) (service.ImageCreatorTask
 func imageCreatorImageSelectSQL() string {
 	return `
 		SELECT id, task_id, user_id, file_path, output_format, mime_type,
-			byte_size, sha256, revised_prompt, expires_at, created_at
+			byte_size, width, height, sha256, revised_prompt, expires_at, created_at
 		FROM image_creator_images
 	`
 }
@@ -556,6 +677,8 @@ func scanImageCreatorImage(row imageCreatorTaskScanner) (service.ImageCreatorIma
 		&image.OutputFormat,
 		&image.MimeType,
 		&image.ByteSize,
+		&image.Width,
+		&image.Height,
 		&image.SHA256,
 		&revisedPrompt,
 		&image.ExpiresAt,
@@ -580,6 +703,8 @@ func scanImageCreatorManagedImage(row imageCreatorTaskScanner) (service.ImageCre
 		&image.OutputFormat,
 		&image.MimeType,
 		&image.ByteSize,
+		&image.Width,
+		&image.Height,
 		&image.SHA256,
 		&revisedPrompt,
 		&image.ExpiresAt,

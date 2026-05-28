@@ -64,6 +64,10 @@ function makeImage(overrides: Record<string, unknown> = {}) {
     task_quality: 'auto',
     expires_at: '2026-05-17T00:00:00Z',
     created_at: '2026-05-10T00:00:00Z',
+    width: 1920,
+    height: 1080,
+    resolution: '1920x1080',
+    aspect_ratio: '16:9',
     ...overrides,
   }
 }
@@ -127,6 +131,40 @@ describe('ImageManagerView', () => {
         mode: 'image',
       },
     })
+
+    await actionButtons[3].trigger('click')
+    expect(push).toHaveBeenCalledWith({
+      path: '/chat-images',
+      query: {
+        mode: 'image',
+        reference_image_id: '9',
+        prompt: 'draw a useful image',
+      },
+    })
+  })
+
+  it('applies image library filters to the list request', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('input[type="search"]').setValue('useful')
+    const selects = wrapper.findAll('select')
+    await selects[0].setValue('webp')
+    await selects[1].setValue('landscape')
+    await selects[2].setValue('2k')
+    await selects[3].setValue('16:9')
+    await wrapper.find('[data-testid="image-manager-filters"] .btn-primary').trigger('click')
+    await flushPromises()
+
+    expect(listManagedImages).toHaveBeenLastCalledWith(expect.objectContaining({
+      limit: 40,
+      offset: 0,
+      q: 'useful',
+      format: 'webp',
+      orientation: 'landscape',
+      resolution: '2k',
+      aspect_ratio: '16:9',
+    }))
   })
 
   it('deletes selected images and updates the gallery', async () => {

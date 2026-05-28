@@ -52,6 +52,7 @@ func RegisterUserRoutes(
 				imageCreator.GET("/images", h.ImageCreator.ListImages)
 				imageCreator.DELETE("/images", h.ImageCreator.DeleteImages)
 				imageCreator.GET("/images/:id/file", h.ImageCreator.GetImageFile)
+				imageCreator.GET("/images/:id/reference-file", h.ImageCreator.GetReferenceImageFile)
 			}
 
 			welfare := user.Group("/welfare")

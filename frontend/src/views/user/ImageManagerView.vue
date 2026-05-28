@@ -38,6 +38,73 @@
         </div>
       </section>
 
+      <section class="image-manager-filters" data-testid="image-manager-filters">
+        <label class="image-manager-field image-manager-field-wide">
+          <span>{{ t('imageManager.search') }}</span>
+          <input v-model.trim="filters.q" type="search" class="input" :placeholder="t('imageManager.searchPlaceholder')" @keyup.enter="applyFilters" />
+        </label>
+        <label class="image-manager-field">
+          <span>{{ t('imageManager.startDate') }}</span>
+          <input v-model="filters.start_date" type="date" class="input" />
+        </label>
+        <label class="image-manager-field">
+          <span>{{ t('imageManager.endDate') }}</span>
+          <input v-model="filters.end_date" type="date" class="input" />
+        </label>
+        <label class="image-manager-field">
+          <span>{{ t('imageManager.format') }}</span>
+          <select v-model="filters.format" class="input">
+            <option value="">{{ t('imageManager.allFormats') }}</option>
+            <option value="png">PNG</option>
+            <option value="jpeg">JPG</option>
+            <option value="webp">WEBP</option>
+            <option value="other">{{ t('imageManager.other') }}</option>
+          </select>
+        </label>
+        <label class="image-manager-field">
+          <span>{{ t('imageManager.orientation') }}</span>
+          <select v-model="filters.orientation" class="input">
+            <option value="">{{ t('imageManager.allOrientations') }}</option>
+            <option value="landscape">{{ t('imageManager.landscape') }}</option>
+            <option value="portrait">{{ t('imageManager.portrait') }}</option>
+            <option value="square">{{ t('imageManager.square') }}</option>
+            <option value="unknown">{{ t('imageManager.unknownSize') }}</option>
+          </select>
+        </label>
+        <label class="image-manager-field">
+          <span>{{ t('imageManager.resolution') }}</span>
+          <select v-model="filters.resolution" class="input">
+            <option value="">{{ t('imageManager.allResolutions') }}</option>
+            <option value="1080p">1080P</option>
+            <option value="2k">2K</option>
+            <option value="4k">4K</option>
+            <option value="unknown">{{ t('imageManager.unknownSize') }}</option>
+          </select>
+        </label>
+        <label class="image-manager-field">
+          <span>{{ t('imageManager.aspectRatio') }}</span>
+          <select v-model="filters.aspect_ratio" class="input">
+            <option value="">{{ t('imageManager.allAspectRatios') }}</option>
+            <option value="1:1">1:1</option>
+            <option value="4:3">4:3</option>
+            <option value="3:4">3:4</option>
+            <option value="16:9">16:9</option>
+            <option value="9:16">9:16</option>
+            <option value="other">{{ t('imageManager.other') }}</option>
+            <option value="unknown">{{ t('imageManager.unknownSize') }}</option>
+          </select>
+        </label>
+        <div class="image-manager-filter-actions">
+          <button type="button" class="btn btn-primary btn-sm" :disabled="loading" @click="applyFilters">
+            <Icon name="search" size="sm" />
+            <span>{{ t('imageManager.applyFilters') }}</span>
+          </button>
+          <button type="button" class="btn btn-secondary btn-sm" :disabled="loading || !hasActiveFilters" @click="resetFilters">
+            {{ t('imageManager.resetFilters') }}
+          </button>
+        </div>
+      </section>
+
       <section v-if="loading && images.length === 0" class="image-manager-state">
         <Icon name="sync" size="xl" class="animate-spin text-primary-500" />
         <span>{{ t('imageManager.loading') }}</span>
@@ -83,6 +150,7 @@
             <p class="image-manager-prompt">{{ item.task_prompt || item.revised_prompt || t('imageManager.noPrompt') }}</p>
             <div class="image-manager-meta">
               <span>{{ item.task_model || 'gpt-image-2' }}</span>
+              <span v-if="dimensionSummary(item)">{{ dimensionSummary(item) }}</span>
               <span>{{ formatTime(item.created_at) }}</span>
             </div>
             <div class="image-manager-card-actions">
@@ -94,6 +162,9 @@
               </button>
               <button type="button" class="image-manager-icon-button" :title="t('imageManager.reusePrompt')" @click="reusePrompt(item)">
                 <Icon name="sparkles" size="sm" />
+              </button>
+              <button type="button" class="image-manager-icon-button" :title="t('imageManager.useAsReference')" @click="useAsReference(item)">
+                <Icon name="image" size="sm" />
               </button>
               <button type="button" class="image-manager-icon-button danger" :title="t('imageManager.delete')" @click="deleteOne(item)">
                 <Icon name="trash" size="sm" />
@@ -136,7 +207,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -145,6 +216,7 @@ import {
   deleteManagedImages,
   downloadImageFile,
   listManagedImages,
+  type ImageCreatorImageListParams,
   type ImageCreatorManagedImage,
 } from '@/api/imageCreator'
 import { useClipboard } from '@/composables/useClipboard'
@@ -165,9 +237,19 @@ const selectedIds = ref<number[]>([])
 const previewImage = ref<ImageCreatorManagedImage | null>(null)
 const imageDisplayUrls = ref<Record<number, string>>({})
 const objectUrls = new Set<string>()
+const filters = reactive({
+  q: '',
+  start_date: '',
+  end_date: '',
+  format: '',
+  orientation: '',
+  resolution: '',
+  aspect_ratio: '',
+})
 
 const hasMore = computed(() => images.value.length < total.value)
 const previewPrompt = computed(() => previewImage.value?.task_prompt || previewImage.value?.revised_prompt || '')
+const hasActiveFilters = computed(() => Object.values(filters).some((value) => String(value || '').trim() !== ''))
 
 onMounted(() => {
   void loadImages()
@@ -180,7 +262,7 @@ onUnmounted(() => {
 async function loadImages(): Promise<void> {
   loading.value = true
   try {
-    const response = await listManagedImages({ limit: PAGE_SIZE, offset: 0 })
+    const response = await listManagedImages(buildListParams(0))
     images.value = response.items || []
     total.value = response.total || images.value.length
     selectedIds.value = selectedIds.value.filter((id) => images.value.some((image) => image.id === id))
@@ -196,7 +278,7 @@ async function loadMore(): Promise<void> {
   if (loading.value || !hasMore.value) return
   loading.value = true
   try {
-    const response = await listManagedImages({ limit: PAGE_SIZE, offset: images.value.length })
+    const response = await listManagedImages(buildListParams(images.value.length))
     const nextImages = response.items || []
     images.value = [...images.value, ...nextImages]
     total.value = response.total || images.value.length
@@ -206,6 +288,37 @@ async function loadMore(): Promise<void> {
   } finally {
     loading.value = false
   }
+}
+
+function buildListParams(offset: number): ImageCreatorImageListParams {
+  const params: ImageCreatorImageListParams = {
+    limit: PAGE_SIZE,
+    offset,
+  }
+  for (const [key, value] of Object.entries(filters)) {
+    const text = String(value || '').trim()
+    if (text) {
+      const writableParams = params as Record<string, string | number>
+      writableParams[key] = text
+    }
+  }
+  return params
+}
+
+function applyFilters(): void {
+  selectedIds.value = []
+  void loadImages()
+}
+
+function resetFilters(): void {
+  filters.q = ''
+  filters.start_date = ''
+  filters.end_date = ''
+  filters.format = ''
+  filters.orientation = ''
+  filters.resolution = ''
+  filters.aspect_ratio = ''
+  applyFilters()
 }
 
 function isSelected(id: number): boolean {
@@ -322,6 +435,18 @@ function reusePrompt(item: ImageCreatorManagedImage): void {
   })
 }
 
+function useAsReference(item: ImageCreatorManagedImage): void {
+  const prompt = item.task_prompt || item.revised_prompt || ''
+  void router.push({
+    path: '/chat-images',
+    query: {
+      mode: 'image',
+      reference_image_id: String(item.id),
+      ...(prompt ? { prompt } : {}),
+    },
+  })
+}
+
 function openPreview(item: ImageCreatorManagedImage): void {
   previewImage.value = item
   void hydrateImages([item])
@@ -350,6 +475,23 @@ function formatFileSize(value: number): string {
   return `${(size / 1024 / 1024).toFixed(1)} MB`
 }
 
+function dimensionSummary(item: ImageCreatorManagedImage): string {
+  const width = Number(item.width)
+  const height = Number(item.height)
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+    return ''
+  }
+  return [item.resolution || `${width}x${height}`, item.aspect_ratio || '', formatMegapixels(width, height)]
+    .filter(Boolean)
+    .join(' · ')
+}
+
+function formatMegapixels(width: number, height: number): string {
+  const mp = width * height / 1_000_000
+  if (!Number.isFinite(mp) || mp <= 0) return ''
+  return `${mp >= 10 ? mp.toFixed(1) : mp.toFixed(2)}MP`
+}
+
 function revokeObjectUrls(): void {
   for (const url of objectUrls) {
     URL.revokeObjectURL(url)
@@ -372,6 +514,46 @@ function revokeObjectUrls(): void {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+}
+
+.image-manager-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(255 255 255 / 0.84);
+  padding: 0.85rem;
+}
+
+.dark .image-manager-filters {
+  border-color: rgb(55 65 81);
+  background: rgb(17 24 39 / 0.72);
+}
+
+.image-manager-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgb(100 116 139);
+}
+
+.dark .image-manager-field {
+  color: rgb(148 163 184);
+}
+
+.image-manager-field-wide {
+  grid-column: span 2;
+}
+
+.image-manager-filter-actions {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .image-manager-header {
@@ -627,6 +809,10 @@ function revokeObjectUrls(): void {
   .image-manager-toolbar {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .image-manager-field-wide {
+    grid-column: span 1;
   }
 }
 </style>

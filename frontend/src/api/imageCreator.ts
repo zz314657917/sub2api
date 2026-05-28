@@ -23,6 +23,12 @@ export interface ImageCreatorStoredImage {
   output_format: ImageCreatorOutputFormat | string
   mime_type: string
   byte_size: number
+  width?: number
+  height?: number
+  resolution?: string
+  aspect_ratio?: string
+  orientation?: string
+  megapixels?: number
   sha256: string
   revised_prompt?: string
   expires_at: string
@@ -69,6 +75,20 @@ export interface ImageCreatorImageListResponse {
   total: number
   limit: number
   offset: number
+}
+
+export interface ImageCreatorImageListParams {
+  limit?: number
+  offset?: number
+  q?: string
+  start_date?: string
+  end_date?: string
+  format?: string
+  orientation?: string
+  resolution?: string
+  aspect_ratio?: string
+  min_width?: number
+  min_height?: number
 }
 
 function appendIfPresent(form: FormData, key: string, value: string | number | undefined): void {
@@ -118,7 +138,7 @@ export async function listImageTasks(): Promise<ImageCreatorTaskListResponse> {
   return data
 }
 
-export async function listManagedImages(params: { limit?: number; offset?: number } = {}): Promise<ImageCreatorImageListResponse> {
+export async function listManagedImages(params: ImageCreatorImageListParams = {}): Promise<ImageCreatorImageListResponse> {
   const { data } = await apiClient.get<ImageCreatorImageListResponse>('/user/image-creator/images', {
     params,
   })

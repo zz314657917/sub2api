@@ -24,6 +24,7 @@ type fakeImageCreatorHandlerService struct {
 	task         *service.ImageCreatorTask
 	tasks        []service.ImageCreatorTask
 	images       []service.ImageCreatorManagedImage
+	listFilters  service.ImageCreatorImageListFilters
 	deletedIDs   []int64
 	file         *service.ImageCreatorFile
 }
@@ -48,7 +49,10 @@ func (s *fakeImageCreatorHandlerService) GetTask(_ context.Context, userID int64
 	return &service.ImageCreatorTask{ID: taskID, UserID: userID, Status: service.ImageCreatorTaskStatusRunning}, nil
 }
 
-func (s *fakeImageCreatorHandlerService) ListImages(_ context.Context, _ int64, limit int, offset int) ([]service.ImageCreatorManagedImage, int, error) {
+func (s *fakeImageCreatorHandlerService) ListImages(_ context.Context, _ int64, filters service.ImageCreatorImageListFilters) ([]service.ImageCreatorManagedImage, int, error) {
+	s.listFilters = filters
+	limit := filters.Limit
+	offset := filters.Offset
 	if offset >= len(s.images) {
 		return []service.ImageCreatorManagedImage{}, len(s.images), nil
 	}
@@ -68,6 +72,10 @@ func (s *fakeImageCreatorHandlerService) GetImageFile(_ context.Context, _ int64
 	return s.file, nil
 }
 
+func (s *fakeImageCreatorHandlerService) GetReferenceImageForUser(_ context.Context, _ int64, _ int64) (*service.ImageCreatorFile, error) {
+	return s.file, nil
+}
+
 func imageCreatorTestRouter(h *ImageCreatorHandler) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -80,6 +88,7 @@ func imageCreatorTestRouter(h *ImageCreatorHandler) *gin.Engine {
 	router.GET("/images", h.ListImages)
 	router.DELETE("/images", h.DeleteImages)
 	router.GET("/images/:id/file", h.GetImageFile)
+	router.GET("/images/:id/reference-file", h.GetReferenceImageFile)
 	return router
 }
 
@@ -162,9 +171,22 @@ func TestImageCreatorHandlerListImagesReturnsPagedManagedImages(t *testing.T) {
 	router := imageCreatorTestRouter(&ImageCreatorHandler{svc: fake})
 	recorder := httptest.NewRecorder()
 
-	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/images?limit=20&offset=0", nil))
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/images?limit=20&offset=0&q=draw&start_date=2026-05-01&end_date=2026-05-29&format=webp&orientation=landscape&resolution=2k&aspect_ratio=16:9&min_width=1600&min_height=900", nil))
 
 	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, service.ImageCreatorImageListFilters{
+		Limit:       20,
+		Offset:      0,
+		Search:      "draw",
+		StartDate:   "2026-05-01",
+		EndDate:     "2026-05-29",
+		Format:      "webp",
+		Orientation: "landscape",
+		Resolution:  "2k",
+		AspectRatio: "16:9",
+		MinWidth:    1600,
+		MinHeight:   900,
+	}, fake.listFilters)
 	envelope := decodeHandlerResponse(t, recorder)
 	data := envelope.Data.(map[string]any)
 	require.Equal(t, float64(1), data["total"])

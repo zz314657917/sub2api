@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -173,11 +174,17 @@ func (r *fakeImageCreatorRepo) AddImage(_ context.Context, image *ImageCreatorIm
 	return nil
 }
 
-func (r *fakeImageCreatorRepo) ListImagesForUser(_ context.Context, userID int64, limit int, offset int) ([]ImageCreatorManagedImage, int, error) {
+func (r *fakeImageCreatorRepo) ListImagesForUser(_ context.Context, userID int64, filters ImageCreatorImageListFilters) ([]ImageCreatorManagedImage, int, error) {
 	var userImages []ImageCreatorManagedImage
 	for _, image := range r.images {
 		if image.UserID != userID {
 			continue
+		}
+		if filters.Search != "" && !strings.Contains(strings.ToLower(image.RevisedPrompt), strings.ToLower(filters.Search)) {
+			task := r.tasks[image.TaskID]
+			if task == nil || !strings.Contains(strings.ToLower(task.Prompt), strings.ToLower(filters.Search)) {
+				continue
+			}
 		}
 		item := ImageCreatorManagedImage{ImageCreatorImage: image}
 		if task := r.tasks[image.TaskID]; task != nil {
@@ -189,6 +196,8 @@ func (r *fakeImageCreatorRepo) ListImagesForUser(_ context.Context, userID int64
 		userImages = append(userImages, item)
 	}
 	total := len(userImages)
+	offset := filters.Offset
+	limit := filters.Limit
 	if offset >= total {
 		return []ImageCreatorManagedImage{}, total, nil
 	}
@@ -864,7 +873,7 @@ func TestImageCreatorServiceListImagesAttachesURLsAndTaskMetadata(t *testing.T) 
 	})
 	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{}, &fakeImageGenerator{}, ImageCreatorServiceOptions{})
 
-	images, total, err := svc.ListImages(context.Background(), 42, 20, 0)
+	images, total, err := svc.ListImages(context.Background(), 42, ImageCreatorImageListFilters{Limit: 20})
 
 	require.NoError(t, err)
 	require.Equal(t, 1, total)

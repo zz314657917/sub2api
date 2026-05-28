@@ -1078,7 +1078,7 @@ onMounted(() => {
 })
 
 watch(
-  () => [route.query.prompt, route.query.mode],
+  () => [route.query.prompt, route.query.mode, route.query.reference_image_id],
   () => applyRouteDraft(),
 )
 
@@ -1167,6 +1167,40 @@ function applyRouteDraft(): void {
     mode.value = rawMode
   } else if (draft) {
     mode.value = 'image'
+  }
+  const rawReferenceID = Array.isArray(route.query.reference_image_id) ? route.query.reference_image_id[0] : route.query.reference_image_id
+  if (typeof rawReferenceID === 'string' && rawReferenceID.trim()) {
+    void attachManagedReferenceImage(rawReferenceID.trim())
+  }
+}
+
+async function attachManagedReferenceImage(rawID: string): Promise<void> {
+  const id = Number(rawID)
+  if (!Number.isFinite(id) || id <= 0) {
+    return
+  }
+  const url = `/api/v1/user/image-creator/images/${Math.trunc(id)}/reference-file`
+  try {
+    const blob = await downloadImageFile(url)
+    const mimeType = blob.type || 'image/png'
+    const ext = referenceImageExtension(mimeType)
+    setReferenceImage(new File([blob], `managed-reference-${Math.trunc(id)}.${ext}`, { type: mimeType }))
+    mode.value = 'image'
+    activeTab.value = 'studio'
+    appStore.showSuccess(t('chatImageStudio.referenceAttachedFromLibrary'))
+  } catch (error: any) {
+    appStore.showError(error?.message || t('chatImageStudio.referenceAttachFailed'))
+  }
+}
+
+function referenceImageExtension(mimeType: string): string {
+  switch (mimeType.toLowerCase()) {
+    case 'image/jpeg':
+      return 'jpg'
+    case 'image/webp':
+      return 'webp'
+    default:
+      return 'png'
   }
 }
 

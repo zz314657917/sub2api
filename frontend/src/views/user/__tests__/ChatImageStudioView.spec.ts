@@ -524,6 +524,18 @@ describe('ChatImageStudioView', () => {
     expect((wrapper.find('.studio-input').element as HTMLTextAreaElement).value).toBe('reuse this prompt')
   })
 
+  it('attaches a managed image as reference from the image manager query', async () => {
+    routeQuery.prompt = 'reuse as reference'
+    routeQuery.mode = 'image'
+    routeQuery.reference_image_id = '9'
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(downloadImageFile).toHaveBeenCalledWith('/api/v1/user/image-creator/images/9/reference-file')
+    expect(wrapper.find('[data-testid="studio-reference-bubble"]').exists()).toBe(true)
+  })
+
   it('restores an active image message and applies the final failed task state', async () => {
     localStorage.setItem('sub2api:chat-image-studio:v1', JSON.stringify({
       currentSessionId: 'studio_restore',
