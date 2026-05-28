@@ -524,6 +524,16 @@
                       <Icon name="filter" size="sm" />
                       <span class="studio-params-label">{{ t('chatImageStudio.imageParams') }}</span>
                     </button>
+                    <button
+                      type="button"
+                      class="studio-tool-button studio-prompt-market-button"
+                      :aria-expanded="promptMarketOpen"
+                      data-testid="studio-prompt-market-button"
+                      @click="openPromptMarket"
+                    >
+                      <Icon name="book" size="sm" />
+                      <span class="studio-params-label">{{ t('chatImageStudio.promptMarket') }}</span>
+                    </button>
                   </div>
                 </template>
               </div>
@@ -644,6 +654,108 @@
     </div>
 
   </StudioLayout>
+
+  <Teleport to="body">
+    <div
+      v-if="promptMarketOpen"
+      class="studio-prompt-market-overlay"
+      data-testid="studio-prompt-market-overlay"
+      @click.self="closePromptMarket"
+    >
+      <section class="studio-prompt-market-panel" role="dialog" aria-modal="true" :aria-label="t('chatImageStudio.promptMarket')">
+        <header class="studio-prompt-market-header">
+          <div>
+            <h2>{{ t('chatImageStudio.promptMarket') }}</h2>
+            <p>{{ t('chatImageStudio.promptMarketSubtitle') }}</p>
+          </div>
+          <button type="button" class="studio-circle-action" :title="t('common.close')" @click="closePromptMarket">
+            <Icon name="x" size="sm" />
+          </button>
+        </header>
+
+        <div class="studio-prompt-market-filters">
+          <label class="studio-prompt-market-search">
+            <Icon name="search" size="sm" />
+            <input
+              v-model="promptMarketQuery"
+              type="search"
+              :placeholder="t('chatImageStudio.promptMarketSearch')"
+              data-testid="studio-prompt-market-search"
+            />
+          </label>
+          <Select
+            v-model="promptMarketSource"
+            :options="promptMarketSourceOptions"
+            :searchable="false"
+            class="studio-prompt-market-source"
+            data-testid="studio-prompt-market-source"
+          />
+          <button type="button" class="studio-tool-button" :disabled="promptMarketLoading" @click="reloadPromptMarket">
+            <Icon name="refresh" size="sm" />
+            <span>{{ t('common.refresh') }}</span>
+          </button>
+        </div>
+
+        <div v-if="promptMarketError" class="studio-prompt-market-error">
+          {{ promptMarketError }}
+        </div>
+
+        <div v-if="promptMarketLoading" class="studio-prompt-market-empty">
+          {{ t('common.loading') }}
+        </div>
+        <div v-else-if="filteredPromptMarketItems.length === 0" class="studio-prompt-market-empty">
+          {{ t('chatImageStudio.promptMarketEmpty') }}
+        </div>
+        <div v-else class="studio-prompt-market-list">
+          <article
+            v-for="item in filteredPromptMarketItems"
+            :key="promptFavoriteKey(item)"
+            class="studio-prompt-market-card"
+            data-testid="studio-prompt-market-card"
+          >
+            <img :src="item.preview" alt="" loading="lazy" />
+            <div class="studio-prompt-market-card-body">
+              <div class="studio-prompt-market-card-title-row">
+                <h3>{{ item.title }}</h3>
+                <button
+                  type="button"
+                  class="studio-prompt-market-favorite"
+                  :class="{ 'studio-prompt-market-favorite-active': isPromptFavorited(item) }"
+                  :title="isPromptFavorited(item) ? t('chatImageStudio.removeFavorite') : t('chatImageStudio.addFavorite')"
+                  data-testid="studio-prompt-market-favorite"
+                  @click="togglePromptFavorite(item)"
+                >
+                  <Icon name="sparkles" size="sm" />
+                </button>
+              </div>
+              <div class="studio-prompt-market-meta">
+                <span>{{ item.category }}</span>
+                <span>{{ item.sourceLabel }}</span>
+                <span v-if="item.isNsfw">{{ t('chatImageStudio.nsfwPrompt') }}</span>
+              </div>
+              <p>{{ item.prompt }}</p>
+              <div class="studio-prompt-market-actions">
+                <button type="button" class="studio-tool-button" data-testid="studio-prompt-market-apply" @click="applyPromptMarketItem(item, false)">
+                  <Icon name="check" size="sm" />
+                  <span>{{ t('chatImageStudio.applyPrompt') }}</span>
+                </button>
+                <button
+                  v-if="item.referenceImageUrls.length > 0"
+                  type="button"
+                  class="studio-tool-button"
+                  data-testid="studio-prompt-market-apply-reference"
+                  @click="applyPromptMarketItem(item, true)"
+                >
+                  <Icon name="image" size="sm" />
+                  <span>{{ t('chatImageStudio.applyPromptWithReference') }}</span>
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </div>
+  </Teleport>
 
   <Teleport to="body">
     <div
@@ -779,6 +891,19 @@ import {
   type ImageCreatorTask,
   type ImageCreatorTaskStatus,
 } from '@/api/imageCreator'
+import {
+  PROMPT_MARKET_SOURCE_OPTIONS,
+  createPromptFavorite,
+  deletePromptFavorite,
+  fetchPromptFavorites,
+  fetchPromptMarketPrompts,
+  promptFavoriteKey,
+  promptFavoriteRecordKey,
+  promptFavoriteToBananaPrompt,
+  type BananaPrompt,
+  type PromptFavorite,
+  type PromptMarketSourceId,
+} from '@/api/promptMarket'
 import { useClipboard } from '@/composables/useClipboard'
 import { useAppStore } from '@/stores'
 import type { ApiKey } from '@/types'
@@ -890,8 +1015,16 @@ const elapsedSeconds = ref(0)
 const waitingStepIndex = ref(0)
 const activeTaskId = ref<number | null>(null)
 const galleryColumnCount = ref(4)
+const promptMarketOpen = ref(false)
+const promptMarketLoading = ref(false)
+const promptMarketError = ref('')
+const promptMarketItems = ref<BananaPrompt[]>([])
+const promptMarketFavorites = ref<PromptFavorite[]>([])
+const promptMarketQuery = ref('')
+const promptMarketSource = ref<PromptMarketSourceId | 'all' | 'favorites'>('all')
 
 let abortController: AbortController | null = null
+let promptMarketAbortController: AbortController | null = null
 let taskPollTimerId: ReturnType<typeof setInterval> | null = null
 let generationTimerId: ReturnType<typeof setInterval> | null = null
 let activePollMessageId: string | null = null
@@ -944,6 +1077,17 @@ const studioTabs = computed<Array<{ value: StudioTab; label: string; icon: 'chat
   { value: 'studio', label: t('chatImageStudio.studio'), icon: 'chatBubble' },
   { value: 'gallery', label: t('chatImageStudio.gallery'), icon: 'image' },
 ])
+
+const promptMarketSourceOptions = computed(() =>
+  PROMPT_MARKET_SOURCE_OPTIONS.map((option) => ({
+    value: option.value,
+    label: option.value === 'all'
+      ? t('chatImageStudio.allPrompts')
+      : option.value === 'favorites'
+        ? t('chatImageStudio.favoritePrompts')
+        : option.label,
+  }))
+)
 
 const currentSession = computed(() =>
   sessions.value.find((session) => session.id === currentSessionId.value) ?? null
@@ -1016,6 +1160,39 @@ const selectedGalleryImages = computed<DownloadableImage[]>(() =>
     .map((image, index) => ({ image, index }))
     .filter(({ image }) => isImageSelected(image))
 )
+
+const promptFavoriteRecords = computed(() => {
+  const records = new Map<string, PromptFavorite>()
+  for (const favorite of promptMarketFavorites.value) {
+    records.set(promptFavoriteRecordKey(favorite), favorite)
+  }
+  return records
+})
+
+const promptMarketVisibleItems = computed<BananaPrompt[]>(() => {
+  if (promptMarketSource.value === 'favorites') {
+    return promptMarketFavorites.value.map(promptFavoriteToBananaPrompt)
+  }
+  if (promptMarketSource.value === 'all') {
+    return promptMarketItems.value
+  }
+  return promptMarketItems.value.filter((item) => item.source === promptMarketSource.value)
+})
+
+const filteredPromptMarketItems = computed<BananaPrompt[]>(() => {
+  const query = promptMarketQuery.value.trim().toLowerCase()
+  if (!query) return promptMarketVisibleItems.value
+  return promptMarketVisibleItems.value.filter((item) =>
+    [
+      item.title,
+      item.prompt,
+      item.category,
+      item.subCategory || '',
+      item.sourceLabel,
+      item.author,
+    ].join('\n').toLowerCase().includes(query)
+  )
+})
 
 const galleryColumns = computed<GalleryColumnItem[][]>(() => {
   const count = Math.max(1, galleryColumnCount.value)
@@ -1096,6 +1273,7 @@ watch(galleryImages, async () => {
 
 onBeforeUnmount(() => {
   abortController?.abort()
+  promptMarketAbortController?.abort()
   stopTaskPolling()
   stopGenerationTimer()
   revokeGeneratedImageObjectUrls()
@@ -2095,7 +2273,105 @@ function onPreviewKeydown(event: KeyboardEvent): void {
       imageParamsOpen.value = false
       return
     }
+    if (promptMarketOpen.value) {
+      closePromptMarket()
+      return
+    }
     queueOpen.value = false
+  }
+}
+
+async function openPromptMarket(): Promise<void> {
+  promptMarketOpen.value = true
+  mode.value = 'image'
+  activeTab.value = 'studio'
+  if (promptMarketItems.value.length === 0 && !promptMarketLoading.value) {
+    await reloadPromptMarket()
+    return
+  }
+  if (promptMarketFavorites.value.length === 0) {
+    await loadPromptFavorites()
+  }
+}
+
+function closePromptMarket(): void {
+  promptMarketOpen.value = false
+}
+
+async function reloadPromptMarket(): Promise<void> {
+  promptMarketAbortController?.abort()
+  const controller = new AbortController()
+  promptMarketAbortController = controller
+  promptMarketLoading.value = true
+  promptMarketError.value = ''
+  try {
+    const [items] = await Promise.all([
+      fetchPromptMarketPrompts(controller.signal),
+      loadPromptFavorites(controller.signal),
+    ])
+    promptMarketItems.value = items
+  } catch (error: unknown) {
+    if (isAbortError(error)) return
+    const message = error instanceof Error ? error.message : t('chatImageStudio.promptMarketLoadFailed')
+    promptMarketError.value = message
+    appStore.showError(promptMarketError.value)
+  } finally {
+    if (promptMarketAbortController === controller) {
+      promptMarketAbortController = null
+      promptMarketLoading.value = false
+    }
+  }
+}
+
+async function loadPromptFavorites(signal?: AbortSignal): Promise<void> {
+  const response = await fetchPromptFavorites(signal)
+  promptMarketFavorites.value = response.items || []
+}
+
+function isPromptFavorited(item: BananaPrompt): boolean {
+  return promptFavoriteRecords.value.has(promptFavoriteKey(item))
+}
+
+async function togglePromptFavorite(item: BananaPrompt): Promise<void> {
+  try {
+    const favorite = promptFavoriteRecords.value.get(promptFavoriteKey(item))
+    if (favorite) {
+      const response = await deletePromptFavorite(favorite.id)
+      promptMarketFavorites.value = response.items || []
+      return
+    }
+    const response = await createPromptFavorite(item)
+    promptMarketFavorites.value = response.items || []
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : t('chatImageStudio.promptFavoriteFailed')
+    appStore.showError(message)
+  }
+}
+
+async function applyPromptMarketItem(item: BananaPrompt, withReference: boolean): Promise<void> {
+  prompt.value = item.prompt
+  mode.value = 'image'
+  activeTab.value = 'studio'
+  closePromptMarket()
+  if (withReference && item.referenceImageUrls.length > 0) {
+    await attachPromptMarketReference(item.referenceImageUrls[0])
+  }
+}
+
+async function attachPromptMarketReference(url: string): Promise<void> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok) throw new Error(`reference image ${response.status}`)
+    const blob = await response.blob()
+    const mimeType = blob.type || 'image/png'
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(mimeType.toLowerCase())) {
+      throw new Error('unsupported reference image')
+    }
+    const ext = referenceImageExtension(mimeType)
+    setReferenceImage(new File([blob], `prompt-reference.${ext}`, { type: mimeType }))
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : t('chatImageStudio.promptReferenceAttachFailed')
+    appStore.showWarning(message)
   }
 }
 
@@ -3169,6 +3445,280 @@ function formatDuration(seconds: number): string {
   min-height: 0;
   flex: 1;
   overflow-y: auto;
+}
+
+.studio-prompt-market-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(3rem, 7vh, 5rem) 1rem 1rem;
+  background: rgb(15 23 42 / 0.2);
+  backdrop-filter: blur(2px);
+}
+
+.studio-prompt-market-panel {
+  display: flex;
+  width: min(100%, 58rem);
+  max-height: min(82vh, 44rem);
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 0.98);
+  box-shadow: 0 24px 90px rgb(15 23 42 / 0.22);
+}
+
+.dark .studio-prompt-market-panel {
+  border-color: rgb(55 65 81);
+  background: rgb(17 24 39 / 0.98);
+}
+
+.studio-prompt-market-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgb(243 244 246);
+  padding: 1rem;
+}
+
+.studio-prompt-market-header h2 {
+  font-size: 1rem;
+  font-weight: 800;
+  color: rgb(15 23 42);
+}
+
+.studio-prompt-market-header p {
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: rgb(100 116 139);
+}
+
+.dark .studio-prompt-market-header {
+  border-color: rgb(55 65 81);
+}
+
+.dark .studio-prompt-market-header h2 {
+  color: rgb(248 250 252);
+}
+
+.dark .studio-prompt-market-header p {
+  color: rgb(148 163 184);
+}
+
+.studio-prompt-market-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid rgb(243 244 246);
+  padding: 0.75rem 1rem;
+}
+
+.dark .studio-prompt-market-filters {
+  border-color: rgb(55 65 81);
+}
+
+.studio-prompt-market-search {
+  display: inline-flex;
+  min-width: min(100%, 18rem);
+  flex: 1 1 18rem;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgb(209 213 219);
+  border-radius: 9999px;
+  background: rgb(255 255 255);
+  padding: 0 0.75rem;
+  color: rgb(100 116 139);
+}
+
+.studio-prompt-market-search input {
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  padding: 0.55rem 0;
+  font-size: 0.875rem;
+  color: rgb(15 23 42);
+  outline: none;
+}
+
+.dark .studio-prompt-market-search {
+  border-color: rgb(75 85 99);
+  background: rgb(15 23 42 / 0.7);
+  color: rgb(148 163 184);
+}
+
+.dark .studio-prompt-market-search input {
+  color: rgb(248 250 252);
+}
+
+.studio-prompt-market-source {
+  min-width: 13rem;
+}
+
+.studio-prompt-market-error {
+  margin: 0.75rem 1rem 0;
+  border: 1px solid rgb(254 202 202);
+  border-radius: 0.5rem;
+  background: rgb(254 242 242);
+  padding: 0.65rem 0.75rem;
+  font-size: 0.8125rem;
+  color: rgb(185 28 28);
+}
+
+.dark .studio-prompt-market-error {
+  border-color: rgb(127 29 29);
+  background: rgb(127 29 29 / 0.25);
+  color: rgb(254 202 202);
+}
+
+.studio-prompt-market-empty {
+  display: flex;
+  min-height: 16rem;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  font-size: 0.875rem;
+  color: rgb(100 116 139);
+}
+
+.dark .studio-prompt-market-empty {
+  color: rgb(148 163 184);
+}
+
+.studio-prompt-market-list {
+  display: grid;
+  min-height: 0;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: 0.75rem;
+  overflow-y: auto;
+  padding: 1rem;
+}
+
+.studio-prompt-market-card {
+  display: grid;
+  grid-template-columns: 5.75rem minmax(0, 1fr);
+  gap: 0.75rem;
+  overflow: hidden;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 0.75rem;
+}
+
+.dark .studio-prompt-market-card {
+  border-color: rgb(55 65 81);
+  background: rgb(15 23 42 / 0.55);
+}
+
+.studio-prompt-market-card img {
+  aspect-ratio: 1 / 1;
+  width: 5.75rem;
+  border-radius: 0.45rem;
+  object-fit: cover;
+  background: rgb(226 232 240);
+}
+
+.studio-prompt-market-card-body {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.studio-prompt-market-card-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.studio-prompt-market-card h3 {
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 800;
+  line-height: 1.35;
+  color: rgb(15 23 42);
+}
+
+.dark .studio-prompt-market-card h3 {
+  color: rgb(248 250 252);
+}
+
+.studio-prompt-market-favorite {
+  display: inline-flex;
+  height: 1.9rem;
+  width: 1.9rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgb(209 213 219);
+  border-radius: 9999px;
+  color: rgb(100 116 139);
+}
+
+.studio-prompt-market-favorite-active,
+.studio-prompt-market-favorite:hover {
+  border-color: rgb(37 99 235);
+  background: rgb(219 234 254);
+  color: rgb(37 99 235);
+}
+
+.dark .studio-prompt-market-favorite {
+  border-color: rgb(75 85 99);
+  color: rgb(148 163 184);
+}
+
+.dark .studio-prompt-market-favorite-active,
+.dark .studio-prompt-market-favorite:hover {
+  border-color: rgb(59 130 246);
+  background: rgb(30 64 175 / 0.35);
+  color: rgb(147 197 253);
+}
+
+.studio-prompt-market-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.studio-prompt-market-meta span {
+  border-radius: 9999px;
+  background: rgb(226 232 240);
+  padding: 0.1rem 0.4rem;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  color: rgb(71 85 105);
+}
+
+.dark .studio-prompt-market-meta span {
+  background: rgb(51 65 85 / 0.75);
+  color: rgb(203 213 225);
+}
+
+.studio-prompt-market-card p {
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgb(71 85 105);
+  font-size: 0.8125rem;
+  line-height: 1.55;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.dark .studio-prompt-market-card p {
+  color: rgb(203 213 225);
+}
+
+.studio-prompt-market-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  padding-top: 0.1rem;
 }
 
 .studio-queue-empty {

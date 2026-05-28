@@ -52,6 +52,7 @@ type Handlers struct {
 	TutorialPage     *TutorialPageHandler
 	ChannelMonitor   *ChannelMonitorUserHandler
 	ImageCreator     *ImageCreatorHandler
+	PromptFavorite   *PromptFavoriteHandler
 	OpenWebUI        *OpenWebUIHandler
 	Welfare          *WelfareHandler
 	Admin            *AdminHandlers

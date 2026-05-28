@@ -55,6 +55,10 @@ func RegisterUserRoutes(
 				imageCreator.GET("/images/:id/reference-file", h.ImageCreator.GetReferenceImageFile)
 			}
 
+			user.GET("/prompt-favorites", h.PromptFavorite.List)
+			user.POST("/prompt-favorites", h.PromptFavorite.Save)
+			user.DELETE("/prompt-favorites/:id", h.PromptFavorite.Delete)
+
 			welfare := user.Group("/welfare")
 			{
 				welfare.GET("/overview", h.Welfare.GetOverview)
