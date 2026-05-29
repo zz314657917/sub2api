@@ -93,14 +93,22 @@
             >
               <Icon name="menu" size="md" />
             </button>
-            <div class="studio-chat-title">
-              <span class="studio-chat-title-label">{{ currentSession?.title || t('chatImageStudio.defaultSessionTitle') }}</span>
-              <span class="studio-chat-title-meta">
-                {{ mode === 'image' ? t('chatImageStudio.imageMode') : t('chatImageStudio.chatMode') }}
-                ·
-                {{ selectedKey ? apiKeyLabel(selectedKey) : t('chatImageStudio.selectKey') }}
-              </span>
-            </div>
+          </div>
+
+          <div class="studio-tabs" role="tablist" :aria-label="t('chatImageStudio.tabsLabel')">
+            <button
+              v-for="tab in studioTabs"
+              :key="tab.value"
+              type="button"
+              class="studio-tab"
+              :class="{ 'studio-tab-active': activeTab === tab.value }"
+              role="tab"
+              :aria-selected="activeTab === tab.value"
+              @click="activeTab = tab.value"
+            >
+              <Icon :name="tab.icon" size="sm" />
+              <span>{{ tab.label }}</span>
+            </button>
           </div>
 
           <div class="studio-status">
@@ -119,32 +127,15 @@
           </div>
         </header>
 
-        <section ref="messagesRef" class="studio-messages custom-scrollbar">
+        <section v-if="activeTab === 'studio'" ref="messagesRef" class="studio-messages custom-scrollbar">
           <div v-if="currentMessages.length === 0" class="studio-empty">
-            <div class="studio-empty-intro">
-              <div class="studio-empty-kicker">
-                <Icon name="sparkles" size="sm" />
-                <span>{{ t('chatImageStudio.studio') }}</span>
-              </div>
-              <h2>{{ t('chatImageStudio.emptyTitle') }}</h2>
-              <p>
-                {{ t('chatImageStudio.emptyDescription') }}
-              </p>
+            <div class="studio-empty-icon">
+              <Icon name="sparkles" size="xl" />
             </div>
-
-            <div class="studio-preset-grid" aria-label="image starter presets">
-              <button
-                v-for="preset in starterPresets"
-                :key="preset.title"
-                type="button"
-                class="studio-preset-card"
-                @click="applyStarterPreset(preset)"
-              >
-                <span class="studio-preset-badge">{{ preset.badge }}</span>
-                <strong>{{ preset.title }}</strong>
-                <span>{{ preset.hint }}</span>
-              </button>
-            </div>
+            <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('chatImageStudio.emptyTitle') }}</h2>
+            <p class="mt-2 max-w-md text-sm leading-6 text-gray-500 dark:text-dark-300">
+              {{ t('chatImageStudio.emptyDescription') }}
+            </p>
           </div>
 
           <div v-else class="studio-message-stack">
@@ -337,7 +328,72 @@
           </div>
         </section>
 
-        <footer class="studio-composer">
+        <section v-else-if="activeTab === 'gallery'" class="studio-gallery custom-scrollbar" data-testid="studio-gallery">
+          <div class="studio-section-head">
+            <div>
+              <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('chatImageStudio.gallery') }}</h2>
+            </div>
+            <div class="studio-section-actions">
+              <div v-if="selectedImageCount > 0" class="studio-gallery-batchbar" data-testid="studio-gallery-batchbar">
+                <span>{{ t('chatImageStudio.selectedImages', { count: selectedImageCount }) }}</span>
+                <button type="button" class="studio-text-action" @click="downloadSelectedImages">
+                  <Icon name="download" size="xs" />
+                  <span>{{ t('chatImageStudio.downloadSelected') }}</span>
+                </button>
+                <button type="button" class="studio-text-action" @click="clearImageSelection()">
+                  {{ t('chatImageStudio.clearSelection') }}
+                </button>
+              </div>
+              <button type="button" class="btn btn-secondary btn-sm" :disabled="loadingImages" @click="loadImageTasks">
+                <Icon name="refresh" size="sm" />
+                <span>{{ t('common.refresh') }}</span>
+              </button>
+            </div>
+          </div>
+
+          <div v-if="galleryImages.length === 0" class="studio-empty studio-empty-compact">
+            <div class="studio-empty-icon">
+              <Icon name="image" size="xl" />
+            </div>
+            <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('chatImageStudio.emptyGalleryTitle') }}</h3>
+            <p class="mt-2 text-sm text-gray-500 dark:text-dark-300">{{ t('chatImageStudio.emptyGalleryDescription') }}</p>
+          </div>
+
+          <div v-else ref="galleryGridRef" class="studio-gallery-grid" :style="galleryGridStyle">
+            <div
+              v-for="(column, columnIndex) in galleryColumns"
+              :key="`gallery-column-${columnIndex}`"
+              class="studio-gallery-column"
+            >
+              <article
+                v-for="{ image, index } in column"
+                :key="image.id"
+                class="studio-gallery-card"
+                :class="{ 'studio-image-card-selected': isImageSelected(image) }"
+              >
+                <button
+                  type="button"
+                  class="studio-image-select-toggle"
+                  :class="{ 'studio-image-select-toggle-active': isImageSelected(image) }"
+                  :aria-label="isImageSelected(image) ? t('chatImageStudio.deselectImage') : t('chatImageStudio.selectImage')"
+                  data-testid="studio-gallery-image-select"
+                  @click.stop="toggleImageSelection(image)"
+                >
+                  <Icon v-if="isImageSelected(image)" name="check" size="xs" />
+                  <span v-else class="studio-image-select-dot"></span>
+                </button>
+                <button type="button" class="studio-gallery-preview" :aria-label="t('chatImageStudio.previewImage')" @click="openPreview(image, galleryImages)">
+                  <img :src="imageSrc(image)" alt="" />
+                </button>
+                <button type="button" class="studio-gallery-download" :title="t('chatImageStudio.download')" @click.stop="downloadImage(image, index)">
+                  <Icon name="download" size="sm" />
+                </button>
+              </article>
+            </div>
+          </div>
+        </section>
+
+        <footer v-if="activeTab === 'studio'" class="studio-composer">
           <div class="studio-composer-shell">
             <div
               v-if="referencePreviewUrl"
@@ -563,7 +619,7 @@
             </div>
             <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('chatImageStudio.emptyQueueTitle') }}</h3>
             <p class="mt-2 max-w-xs text-sm leading-6 text-gray-500 dark:text-dark-300">{{ t('chatImageStudio.emptyQueueDescription') }}</p>
-            <button type="button" class="btn btn-primary btn-sm mt-4" @click="queueOpen = false">
+            <button type="button" class="btn btn-primary btn-sm mt-4" @click="queueOpen = false; activeTab = 'studio'">
               <Icon name="sparkles" size="sm" />
               <span>{{ t('chatImageStudio.openStudio') }}</span>
             </button>
@@ -853,7 +909,13 @@ import { useAppStore } from '@/stores'
 import type { ApiKey } from '@/types'
 
 type StudioMode = 'chat' | 'image'
+type StudioTab = 'studio' | 'gallery'
 type StudioMessageKind = 'text' | 'image'
+
+interface GalleryColumnItem {
+  image: GeneratedImage
+  index: number
+}
 
 interface GeneratedImage {
   id: string
@@ -910,6 +972,7 @@ const route = useRoute()
 const appStore = useAppStore()
 const { copyToClipboard } = useClipboard()
 
+const activeTab = ref<StudioTab>('studio')
 const mode = ref<StudioMode>('image')
 const railOpen = ref(false)
 const queueOpen = ref(false)
@@ -919,6 +982,7 @@ const editingMessageId = ref<string | null>(null)
 const sessions = ref<StudioSession[]>([])
 const currentSessionId = ref<string | null>(null)
 const messagesRef = ref<HTMLElement | null>(null)
+const galleryGridRef = ref<HTMLElement | null>(null)
 
 const apiKeys = ref<ApiKey[]>([])
 const channels = ref<UserAvailableChannel[]>([])
@@ -950,6 +1014,7 @@ const selectedImageIds = ref<string[]>([])
 const elapsedSeconds = ref(0)
 const waitingStepIndex = ref(0)
 const activeTaskId = ref<number | null>(null)
+const galleryColumnCount = ref(4)
 const promptMarketOpen = ref(false)
 const promptMarketLoading = ref(false)
 const promptMarketError = ref('')
@@ -1008,32 +1073,10 @@ const waitingStepKeys = [
   'chatImageStudio.waitingSteps.finishing',
 ]
 
-const starterPresets = [
-  {
-    badge: 'Poster',
-    title: '赛博产品海报',
-    hint: '霓虹灯、玻璃材质、强对比光影',
-    prompt: '生成一张赛博风产品海报，主体为透明玻璃质感的未来设备，霓虹蓝绿色边缘光，背景是干净的暗色城市天际线，商业摄影，细节丰富。',
-  },
-  {
-    badge: 'Character',
-    title: '角色设定图',
-    hint: '完整设定、服装、道具和氛围',
-    prompt: '生成一张角色设定图，年轻探险家，轻量机械装备，户外披风，背包和发光罗盘，道具细节清晰，半写实插画风。',
-  },
-  {
-    badge: 'Scene',
-    title: '电影感场景',
-    hint: '宽画幅、真实光线、空间层次',
-    prompt: '生成一张电影感场景图，雨夜街角的小咖啡店，暖色窗光洒到湿润路面，远处有轻雾和车灯，真实摄影质感，宽画幅构图。',
-  },
-  {
-    badge: 'Icon',
-    title: 'App 图标概念',
-    hint: '简洁符号、柔和渐变、可落地',
-    prompt: '生成一枚现代 App 图标概念，主题是 AI 创作工具，简洁几何符号，柔和蓝绿渐变，白色背景，立体但不过度复杂。',
-  },
-]
+const studioTabs = computed<Array<{ value: StudioTab; label: string; icon: 'chatBubble' | 'image' }>>(() => [
+  { value: 'studio', label: t('chatImageStudio.studio'), icon: 'chatBubble' },
+  { value: 'gallery', label: t('chatImageStudio.gallery'), icon: 'image' },
+])
 
 const promptMarketSourceOptions = computed(() =>
   PROMPT_MARKET_SOURCE_OPTIONS.map((option) => ({
@@ -1110,6 +1153,14 @@ const waitingStepText = computed(() => t(waitingStepKeys[waitingStepIndex.value]
 
 const formattedElapsedTime = computed(() => formatDuration(elapsedSeconds.value))
 
+const selectedImageCount = computed(() => selectedImageIds.value.length)
+
+const selectedGalleryImages = computed<DownloadableImage[]>(() =>
+  galleryImages.value
+    .map((image, index) => ({ image, index }))
+    .filter(({ image }) => isImageSelected(image))
+)
+
 const promptFavoriteRecords = computed(() => {
   const records = new Map<string, PromptFavorite>()
   for (const favorite of promptMarketFavorites.value) {
@@ -1142,6 +1193,19 @@ const filteredPromptMarketItems = computed<BananaPrompt[]>(() => {
     ].join('\n').toLowerCase().includes(query)
   )
 })
+
+const galleryColumns = computed<GalleryColumnItem[][]>(() => {
+  const count = Math.max(1, galleryColumnCount.value)
+  const columns = Array.from({ length: count }, () => [] as GalleryColumnItem[])
+  galleryImages.value.forEach((image, index) => {
+    columns[index % count].push({ image, index })
+  })
+  return columns.filter((column) => column.length > 0)
+})
+
+const galleryGridStyle = computed(() => ({
+  gridTemplateColumns: `repeat(${Math.max(1, galleryColumns.value.length)}, minmax(0, 220px))`,
+}))
 
 const previewZoomPercent = computed(() => `${Math.round(previewZoom.value * 100)}%`)
 
@@ -1185,6 +1249,8 @@ onMounted(() => {
   applyRouteDraft()
   void loadApiKeys()
   void loadImageTasks()
+  void nextTick(updateGalleryColumnCount)
+  window.addEventListener('resize', updateGalleryColumnCount)
   window.addEventListener('keydown', onPreviewKeydown)
 })
 
@@ -1193,6 +1259,18 @@ watch(
   () => applyRouteDraft(),
 )
 
+watch(activeTab, async (tab) => {
+  if (tab !== 'gallery') return
+  await nextTick()
+  updateGalleryColumnCount()
+})
+
+watch(galleryImages, async () => {
+  if (activeTab.value !== 'gallery') return
+  await nextTick()
+  updateGalleryColumnCount()
+})
+
 onBeforeUnmount(() => {
   abortController?.abort()
   promptMarketAbortController?.abort()
@@ -1200,6 +1278,7 @@ onBeforeUnmount(() => {
   stopGenerationTimer()
   revokeGeneratedImageObjectUrls()
   clearReferenceImage()
+  window.removeEventListener('resize', updateGalleryColumnCount)
   window.removeEventListener('keydown', onPreviewKeydown)
 })
 
@@ -1259,6 +1338,7 @@ function applyRouteDraft(): void {
   const draft = typeof rawPrompt === 'string' ? rawPrompt.trim() : ''
   if (draft) {
     prompt.value = draft
+    activeTab.value = 'studio'
   }
   const rawMode = Array.isArray(route.query.mode) ? route.query.mode[0] : route.query.mode
   if (rawMode === 'chat' || rawMode === 'image') {
@@ -1284,6 +1364,7 @@ async function attachManagedReferenceImage(rawID: string): Promise<void> {
     const ext = referenceImageExtension(mimeType)
     setReferenceImage(new File([blob], `managed-reference-${Math.trunc(id)}.${ext}`, { type: mimeType }))
     mode.value = 'image'
+    activeTab.value = 'studio'
     appStore.showSuccess(t('chatImageStudio.referenceAttachedFromLibrary'))
   } catch (error: any) {
     appStore.showError(error?.message || t('chatImageStudio.referenceAttachFailed'))
@@ -1410,12 +1491,14 @@ function startNewSession(): void {
   currentSessionId.value = session.id
   prompt.value = ''
   railOpen.value = false
+  activeTab.value = 'studio'
   trimSessions()
 }
 
 function selectSession(id: string): void {
   currentSessionId.value = id
   railOpen.value = false
+  activeTab.value = 'studio'
   void scrollToBottom()
 }
 
@@ -1586,6 +1669,7 @@ async function appendChatExchange(session: StudioSession, text: string, apiKey: 
   }
   session.messages.push(userMessage, assistantMessage)
   touchSession(session)
+  activeTab.value = 'studio'
   void scrollToBottom()
 
   abortController = new AbortController()
@@ -1634,6 +1718,7 @@ function editUserMessage(message: StudioMessage): void {
   mode.value = 'chat'
   prompt.value = message.content
   editingMessageId.value = message.id
+  activeTab.value = 'studio'
 }
 
 async function resendUserMessage(message: StudioMessage): Promise<void> {
@@ -1677,6 +1762,7 @@ function trimConversationAfterMessage(session: StudioSession, messageId: string)
   if (index < 0) return
   session.messages = session.messages.slice(0, index)
   currentSessionId.value = session.id
+  activeTab.value = 'studio'
   touchSession(session)
 }
 
@@ -1718,6 +1804,7 @@ async function generateImage(): Promise<void> {
   }
   session.messages.push(userMessage, assistantMessage)
   touchSession(session)
+  activeTab.value = 'studio'
   generating.value = true
   startGenerationTimer()
   void scrollToBottom()
@@ -2101,6 +2188,10 @@ async function downloadImages(items: DownloadableImage[]): Promise<void> {
   }
 }
 
+async function downloadSelectedImages(): Promise<void> {
+  await downloadImages(selectedGalleryImages.value)
+}
+
 function openTaskPreview(task: ImageCreatorTask): void {
   if (!task.images?.length) return
   const images = task.images.map(storedImageToResult)
@@ -2193,6 +2284,7 @@ function onPreviewKeydown(event: KeyboardEvent): void {
 async function openPromptMarket(): Promise<void> {
   promptMarketOpen.value = true
   mode.value = 'image'
+  activeTab.value = 'studio'
   if (promptMarketItems.value.length === 0 && !promptMarketLoading.value) {
     await reloadPromptMarket()
     return
@@ -2259,6 +2351,7 @@ async function togglePromptFavorite(item: BananaPrompt): Promise<void> {
 async function applyPromptMarketItem(item: BananaPrompt, withReference: boolean): Promise<void> {
   prompt.value = item.prompt
   mode.value = 'image'
+  activeTab.value = 'studio'
   closePromptMarket()
   if (withReference && item.referenceImageUrls.length > 0) {
     await attachPromptMarketReference(item.referenceImageUrls[0])
@@ -2337,14 +2430,6 @@ function clearReferenceImage(): void {
   }
 }
 
-async function applyStarterPreset(preset: { prompt: string }): Promise<void> {
-  prompt.value = preset.prompt
-  mode.value = 'image'
-  await nextTick()
-  const textarea = document.querySelector<HTMLTextAreaElement>('[data-testid="studio-message-input"]')
-  textarea?.focus()
-}
-
 async function scrollToBottom(): Promise<void> {
   await nextTick()
   const el = messagesRef.value
@@ -2413,6 +2498,13 @@ function greatestCommonDivisor(a: number, b: number): number {
   return x || 1
 }
 
+function updateGalleryColumnCount(): void {
+  const width = galleryGridRef.value?.clientWidth || window.innerWidth || 0
+  const available = Math.max(160, width - 32)
+  const idealCardWidth = available < 720 ? 160 : 220
+  galleryColumnCount.value = Math.max(1, Math.min(6, Math.floor(available / idealCardWidth)))
+}
+
 function formatDuration(seconds: number): string {
   const value = Math.max(0, Math.floor(seconds))
   const minutes = Math.floor(value / 60)
@@ -2427,7 +2519,7 @@ function formatDuration(seconds: number): string {
   position: relative;
   min-height: calc(100vh - 7rem);
   min-height: calc(100dvh - 7rem);
-  grid-template-columns: minmax(14.5rem, 15.75rem) minmax(0, 1fr);
+  grid-template-columns: minmax(15rem, 16.5rem) minmax(0, 1fr);
   gap: 0.75rem;
 }
 
@@ -2441,12 +2533,12 @@ function formatDuration(seconds: number): string {
   min-height: 0;
   overflow: hidden;
   border: 1px solid rgb(229 231 235);
-  border-radius: 0.75rem;
-  background: rgb(250 251 253 / 0.78);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252 / 0.94);
 }
 
 .studio-rail {
-  background: rgb(255 255 255 / 0.9);
+  background: rgb(255 255 255 / 0.92);
 }
 
 .dark .studio-rail,
@@ -2476,13 +2568,14 @@ function formatDuration(seconds: number): string {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  border-bottom: 1px solid rgb(243 244 246 / 0.9);
-  padding: 0.75rem 1rem;
+  border-bottom: 1px solid rgb(243 244 246);
+  padding: 0.6rem 0.75rem;
 }
 
 .studio-topbar {
   position: relative;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(15rem, 1fr) auto minmax(15rem, 1fr);
 }
 
 .dark .studio-topbar,
@@ -2531,39 +2624,6 @@ function formatDuration(seconds: number): string {
   min-width: 0;
   align-items: center;
   gap: 0.75rem;
-  flex: 1 1 auto;
-}
-
-.studio-chat-title {
-  display: grid;
-  min-width: 0;
-  gap: 0.1rem;
-}
-
-.studio-chat-title-label {
-  overflow: hidden;
-  color: rgb(17 24 39);
-  font-size: 0.95rem;
-  font-weight: 800;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.studio-chat-title-meta {
-  overflow: hidden;
-  color: rgb(100 116 139);
-  font-size: 0.72rem;
-  font-weight: 600;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.dark .studio-chat-title-label {
-  color: rgb(248 250 252);
-}
-
-.dark .studio-chat-title-meta {
-  color: rgb(148 163 184);
 }
 
 .studio-rail-actions {
@@ -2589,8 +2649,7 @@ function formatDuration(seconds: number): string {
   width: 100%;
   align-items: flex-start;
   gap: 0.5rem;
-  border: 1px solid transparent;
-  border-radius: 1rem;
+  border-radius: 0.5rem;
   padding: 0.25rem;
   color: rgb(55 65 81);
   transition: background-color 0.15s ease, color 0.15s ease;
@@ -2679,10 +2738,8 @@ function formatDuration(seconds: number): string {
 
 .studio-session-item:hover,
 .studio-session-item-active {
-  border-color: rgb(242 243 245);
-  background: rgb(255 255 255);
-  color: rgb(15 23 42);
-  box-shadow: 0 8px 18px rgb(15 23 42 / 0.06);
+  background: rgb(236 253 245);
+  color: rgb(4 120 87);
 }
 
 .dark .studio-session-item {
@@ -2708,9 +2765,8 @@ function formatDuration(seconds: number): string {
 
 .dark .studio-session-item:hover,
 .dark .studio-session-item-active {
-  border-color: rgb(55 65 81);
-  background: rgb(15 23 42 / 0.72);
-  color: rgb(248 250 252);
+  background: rgb(20 83 45 / 0.32);
+  color: rgb(167 243 208);
 }
 
 .dark .studio-queue-button {
@@ -2737,12 +2793,6 @@ function formatDuration(seconds: number): string {
   border-radius: 9999px;
   background: rgb(248 250 252);
   padding: 0.25rem;
-}
-
-.studio-mode-cluster {
-  max-width: 100%;
-  border-color: rgb(236 237 241);
-  background: rgb(248 250 252 / 0.72);
 }
 
 .studio-topbar > .studio-tabs {
@@ -2843,10 +2893,8 @@ function formatDuration(seconds: number): string {
 }
 
 .studio-messages {
-  background:
-    linear-gradient(180deg, rgb(250 251 253 / 0.78), rgb(246 248 251 / 0.86)),
-    radial-gradient(circle at 50% 0%, rgb(219 234 254 / 0.28), transparent 34rem);
-  padding: 0 1.25rem 0.35rem;
+  background: rgb(241 245 249 / 0.62);
+  padding: 0 1rem 0.5rem;
 }
 
 .dark .studio-messages {
@@ -2859,99 +2907,12 @@ function formatDuration(seconds: number): string {
 
 .studio-empty {
   display: flex;
-  min-height: min(390px, 100%);
+  min-height: 420px;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem 2rem;
+  padding: 2rem;
   text-align: center;
-}
-
-.studio-empty-intro {
-  margin-inline: auto;
-  max-width: 42rem;
-}
-
-.studio-empty-kicker {
-  margin: 0 auto 0.75rem;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  border-radius: 9999px;
-  background: rgb(240 240 240);
-  padding: 0.35rem 0.75rem;
-  color: rgb(69 81 94);
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.studio-empty h2 {
-  color: rgb(34 34 34);
-  font-size: 2.85rem;
-  font-weight: 650;
-  line-height: 1.05;
-  letter-spacing: 0;
-}
-
-.studio-empty p {
-  margin: 0.875rem auto 0;
-  max-width: 30rem;
-  color: rgb(69 81 94);
-  font-size: 0.95rem;
-  line-height: 1.7;
-}
-
-.studio-preset-grid {
-  margin-top: 1.25rem;
-  display: grid;
-  width: min(100%, 62rem);
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.studio-preset-card {
-  display: flex;
-  min-height: 7.25rem;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-end;
-  gap: 0.45rem;
-  overflow: hidden;
-  border: 1px solid rgb(242 243 245);
-  border-radius: 1.375rem;
-  background:
-    linear-gradient(180deg, transparent 0%, rgb(0 0 0 / 0.66) 100%),
-    linear-gradient(135deg, rgb(219 234 254), rgb(209 250 229) 45%, rgb(252 231 243));
-  padding: 0.9rem;
-  text-align: left;
-  color: rgb(255 255 255);
-  box-shadow: 0 16px 34px rgb(15 23 42 / 0.08);
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
-}
-
-.studio-preset-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 20px 42px rgb(15 23 42 / 0.14);
-}
-
-.studio-preset-badge {
-  border-radius: 9999px;
-  background: rgb(255 255 255 / 0.88);
-  padding: 0.18rem 0.5rem;
-  color: rgb(24 24 27);
-  font-size: 0.66rem;
-  font-weight: 800;
-}
-
-.studio-preset-card strong {
-  font-size: 0.95rem;
-  line-height: 1.25;
-}
-
-.studio-preset-card span:last-child {
-  color: rgb(255 255 255 / 0.86);
-  font-size: 0.78rem;
-  line-height: 1.45;
 }
 
 .studio-empty-compact {
@@ -2974,11 +2935,11 @@ function formatDuration(seconds: number): string {
 .studio-message-stack {
   display: flex;
   width: 100%;
-  max-width: 76rem;
+  max-width: 70rem;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.875rem;
   margin: 0 auto;
-  padding: 1.25rem 0 0.75rem;
+  padding: 0.875rem 0;
 }
 
 .studio-message-user {
@@ -2999,45 +2960,35 @@ function formatDuration(seconds: number): string {
 
 .studio-assistant-body {
   min-width: 0;
-  width: min(760px, calc(82% - 3rem));
-  border: 1px solid rgb(242 243 245);
-  border-radius: 1.25rem;
-  background: rgb(255 255 255 / 0.92);
-  padding: 0.875rem 1rem;
-  box-shadow: 0 12px 30px rgb(15 23 42 / 0.04);
+  width: min(720px, calc(72% - 3rem));
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(255 255 255);
+  padding: 0.75rem 0.875rem;
 }
 
 .studio-message-kind-image .studio-assistant-body {
-  width: min(1040px, calc(100% - 3rem));
-  border-color: transparent;
-  background: transparent;
-  padding: 0;
-  box-shadow: none;
+  width: min(860px, calc(100% - 3rem));
 }
 
 .dark .studio-assistant-body {
   border-color: rgb(55 65 81);
-  background: rgb(17 24 39 / 0.62);
-  box-shadow: none;
+  background: rgb(17 24 39 / 0.5);
 }
 
 .studio-user-bubble {
   width: fit-content;
-  min-width: min(20rem, 58%);
-  max-width: min(760px, 86%);
-  border: 1px solid rgb(226 232 240);
-  border-radius: 1.5rem;
-  background: rgb(255 255 255 / 0.96);
-  padding: 0.72rem 1rem;
+  min-width: min(34rem, 58%);
+  max-width: min(900px, 84%);
+  border-radius: 0.5rem;
+  background: rgb(236 253 245);
+  padding: 0.625rem 0.875rem;
   color: rgb(30 41 59);
-  box-shadow: 0 14px 34px rgb(15 23 42 / 0.06);
 }
 
 .dark .studio-user-bubble {
-  border-color: rgb(55 65 81);
-  background: rgb(17 24 39 / 0.72);
+  background: rgb(20 83 45 / 0.35);
   color: rgb(240 253 244);
-  box-shadow: none;
 }
 
 .studio-message-toolbar,
@@ -3066,19 +3017,17 @@ function formatDuration(seconds: number): string {
 .studio-gallery-batchbar {
   flex-wrap: wrap;
   border-radius: 9999px;
-  background: rgb(255 255 255 / 0.9);
-  padding: 0.45rem 0.55rem 0.45rem 0.75rem;
+  background: rgb(248 250 252);
+  padding: 0.35rem 0.5rem 0.35rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 700;
   color: rgb(71 85 105);
-  box-shadow: 0 12px 28px rgb(15 23 42 / 0.06);
 }
 
 .studio-image-batchbar {
   justify-content: space-between;
-  border: 1px solid rgb(242 243 245);
-  border-radius: 1rem;
-  margin-bottom: 0.85rem;
+  border-radius: 0.5rem;
+  margin-bottom: 0.75rem;
 }
 
 .studio-image-batch-actions {
@@ -3107,14 +3056,10 @@ function formatDuration(seconds: number): string {
 }
 
 .studio-message-toolbar {
-  margin-bottom: 0.55rem;
+  margin-bottom: 0.5rem;
   font-size: 0.75rem;
   font-weight: 600;
   color: rgb(100 116 139);
-}
-
-.studio-message-kind-image .studio-message-toolbar {
-  margin-bottom: 0.65rem;
 }
 
 .studio-message-toolbar-user {
@@ -3198,11 +3143,11 @@ function formatDuration(seconds: number): string {
 
 .studio-image-grid {
   display: grid;
-  gap: 1rem;
+  gap: 0.875rem;
 }
 
 .studio-image-grid {
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
 }
 
 .studio-gallery-grid {
@@ -3225,15 +3170,14 @@ function formatDuration(seconds: number): string {
 .studio-task-row {
   position: relative;
   overflow: hidden;
-  border: 1px solid transparent;
-  border-radius: 1.375rem;
-  background: rgb(240 240 240);
-  box-shadow: 0 0 15px rgb(44 30 116 / 0.16);
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.5rem;
+  background: rgb(255 255 255);
 }
 
 .studio-image-card-selected {
   border-color: rgb(37 99 235);
-  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.2), 0 0 15px rgb(44 30 116 / 0.16);
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.18);
 }
 
 .studio-gallery-card {
@@ -3251,10 +3195,9 @@ function formatDuration(seconds: number): string {
 .studio-image-preview {
   display: flex;
   width: 100%;
-  min-height: 11rem;
   align-items: center;
   justify-content: center;
-  background: rgb(240 240 240);
+  background: rgb(241 245 249);
 }
 
 .studio-gallery-preview {
@@ -3299,7 +3242,7 @@ function formatDuration(seconds: number): string {
 }
 
 .studio-image-preview {
-  aspect-ratio: auto;
+  aspect-ratio: 1 / 1;
 }
 
 .dark .studio-image-preview,
@@ -3308,9 +3251,8 @@ function formatDuration(seconds: number): string {
 }
 
 .studio-image-preview img {
-  height: auto;
+  height: 100%;
   width: 100%;
-  max-height: 30rem;
   object-fit: contain;
 }
 
@@ -3351,30 +3293,16 @@ function formatDuration(seconds: number): string {
 }
 
 .studio-image-card-footer {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  z-index: 1;
-  background: linear-gradient(180deg, rgb(15 23 42 / 0), rgb(15 23 42 / 0.72));
   padding: 0.65rem 0.75rem;
   font-size: 0.75rem;
   font-weight: 600;
-  color: rgb(255 255 255);
-  opacity: 0;
-  transition: opacity 0.16s ease;
-}
-
-.studio-image-card:hover .studio-image-card-footer,
-.studio-image-card:focus-within .studio-image-card-footer {
-  opacity: 1;
+  color: rgb(100 116 139);
 }
 
 .studio-image-card-footer > span {
   border-radius: 9999px;
-  background: rgb(255 255 255 / 0.18);
+  background: rgb(241 245 249);
   padding: 0.15rem 0.45rem;
-  backdrop-filter: blur(8px);
 }
 
 .dark .studio-image-card-footer > span {
@@ -3804,38 +3732,33 @@ function formatDuration(seconds: number): string {
 
 .studio-composer {
   flex-shrink: 0;
-  border-top: 1px solid rgb(243 244 246 / 0.9);
-  background: linear-gradient(180deg, rgb(250 251 253 / 0.5), rgb(250 251 253));
-  padding: 0.65rem 1.25rem 0.8rem;
+  padding: 0.75rem 1rem 1rem;
 }
 
 .studio-composer-shell {
-  position: relative;
   margin: 0 auto;
-  width: min(100%, 56rem);
-  border: 1px solid rgb(222 222 227);
-  border-radius: 1.6rem;
-  background: rgb(255 252 255 / 0.96);
-  padding: 0.15rem 0.75rem 0.65rem;
-  box-shadow: 0 24px 70px -42px rgb(15 23 42 / 0.68);
+  width: min(100%, 58rem);
+  border: 1px solid rgb(209 213 219);
+  border-radius: 0.5rem;
+  background: rgb(255 255 255);
+  padding: 0.75rem 0.875rem;
+  position: relative;
 }
 
 .dark .studio-composer-shell {
   border-color: rgb(75 85 99);
   background: rgb(17 24 39 / 0.65);
-  box-shadow: 0 24px 70px -42px rgb(0 0 0 / 0.9);
 }
 
 .studio-input {
   width: 100%;
-  min-height: 78px;
-  max-height: 260px;
-  resize: none;
+  min-height: 66px;
+  max-height: 180px;
+  resize: vertical;
   border: 0;
   background: transparent;
-  padding: 0.85rem 0.75rem 0.55rem;
-  font-size: 1rem;
-  line-height: 1.7;
+  font-size: 0.925rem;
+  line-height: 1.6;
   color: rgb(17 24 39);
   outline: none;
 }
@@ -3848,8 +3771,7 @@ function formatDuration(seconds: number): string {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  border-top: 1px solid rgb(242 243 245);
-  padding-top: 0.65rem;
+  padding-top: 0.5rem;
 }
 
 .studio-submit-group {
@@ -3914,11 +3836,11 @@ function formatDuration(seconds: number): string {
 .studio-image-params-popover {
   position: absolute;
   right: 4.5rem;
-  bottom: calc(100% + 0.65rem);
+  bottom: calc(100% - 0.25rem);
   z-index: 12;
   width: min(100% - 2rem, 32rem);
   border: 1px solid rgb(209 213 219);
-  border-radius: 1.25rem;
+  border-radius: 0.75rem;
   background: rgb(248 250 252 / 0.98);
   padding: 0.75rem;
   box-shadow: 0 20px 70px rgb(15 23 42 / 0.18);
@@ -4111,7 +4033,7 @@ function formatDuration(seconds: number): string {
 
 .studio-tool-button {
   display: inline-flex;
-  min-height: 2rem;
+  height: 2.25rem;
   flex-shrink: 0;
   align-items: center;
   justify-content: center;
@@ -4119,7 +4041,7 @@ function formatDuration(seconds: number): string {
   border: 1px solid rgb(209 213 219);
   border-radius: 9999px;
   background: rgb(255 255 255);
-  padding: 0.25rem 0.65rem;
+  padding: 0 0.7rem;
   font-size: 0.8125rem;
   font-weight: 700;
   color: rgb(71 85 105);
@@ -4573,10 +4495,6 @@ function formatDuration(seconds: number): string {
 
   .studio-messages {
     padding-inline: 0.75rem;
-  }
-
-  .studio-empty h2 {
-    font-size: 2.25rem;
   }
 
   .studio-message {

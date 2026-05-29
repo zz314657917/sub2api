@@ -485,7 +485,7 @@ describe('ChatImageStudioView', () => {
     expect(wrapper.find('[data-testid="studio-message-input"]').exists()).toBe(true)
   })
 
-  it('keeps the chat page focused on the conversation instead of rendering an embedded gallery tab', async () => {
+  it('renders the gallery as image-only masonry cards with click preview', async () => {
     listImageTasks.mockResolvedValueOnce({
       tasks: [],
       images: [
@@ -500,12 +500,24 @@ describe('ChatImageStudioView', () => {
     const wrapper = mountView()
 
     await flushPromises()
+    await wrapper.findAll('.studio-tab')[1].trigger('click')
+    await flushPromises()
 
-    expect(wrapper.find('[data-testid="studio-gallery"]').exists()).toBe(false)
-    expect(wrapper.find('.studio-tabs').exists()).toBe(false)
-    expect(wrapper.find('.studio-composer').exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('hidden gallery prompt')
-    expect(wrapper.text()).not.toContain('WEBP')
+    const gallery = wrapper.find('[data-testid="studio-gallery"]')
+    expect(gallery.exists()).toBe(true)
+    expect(gallery.find('.studio-gallery-grid').exists()).toBe(true)
+    expect(gallery.find('.studio-gallery-column').exists()).toBe(true)
+    expect(gallery.find('.studio-gallery-preview img').exists()).toBe(true)
+    expect(gallery.find('.studio-gallery-download').exists()).toBe(true)
+    expect(gallery.find('.studio-gallery-meta').exists()).toBe(false)
+    expect(gallery.text()).not.toContain('hidden gallery prompt')
+    expect(gallery.text()).not.toContain('WEBP')
+    expect(wrapper.find('.studio-composer').exists()).toBe(false)
+
+    await gallery.find('.studio-gallery-preview').trigger('click')
+    await flushPromises()
+
+    expect(document.body.querySelector('[data-testid="studio-image-preview-overlay"]')).not.toBeNull()
   })
 
   it('sends a chat message from the unified studio', async () => {
@@ -661,20 +673,17 @@ describe('ChatImageStudioView', () => {
 
   it('does not render protected image file URLs directly when preview hydration fails', async () => {
     downloadImageFile.mockRejectedValueOnce(new Error('unauthorized'))
-    getImageTask.mockResolvedValueOnce(makeTask({
-      id: 123,
-      status: 'succeeded',
-      prompt: 'safe preview',
+    listImageTasks.mockResolvedValueOnce({
+      tasks: [],
       images: [makeImage({ id: 91, url: '/api/v1/user/image-creator/images/91/file' })],
-    }))
+    })
     const wrapper = mountView()
 
     await flushPromises()
-    await wrapper.find('[data-testid="studio-message-input"]').setValue('safe preview')
-    await wrapper.find('[data-testid="studio-submit-button"]').trigger('click')
+    await wrapper.findAll('.studio-tab')[1].trigger('click')
     await flushPromises()
 
-    const src = wrapper.find('.studio-image-preview img').attributes('src')
+    const src = wrapper.find('.studio-gallery-preview img').attributes('src')
     expect(downloadImageFile).toHaveBeenCalledWith('/api/v1/user/image-creator/images/91/file')
     expect(src).toContain('data:image/gif;base64')
     expect(src).not.toContain('/api/v1/user/image-creator/images/91/file')
