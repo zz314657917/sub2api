@@ -166,6 +166,48 @@ func (r *canvasRepository) CreateCanvasRun(ctx context.Context, userID int64, in
 	)
 }
 
+func (r *canvasRepository) MarkCanvasRunRunning(ctx context.Context, userID int64, runID int64) (*service.CanvasRun, error) {
+	query := `
+		UPDATE canvas_runs
+		SET status = $3,
+			started_at = COALESCE(started_at, NOW()),
+			updated_at = NOW()
+		WHERE id = $1 AND user_id = $2 AND status = $4
+		RETURNING id, user_id, canvas_id, status, trigger_type, api_key_id, model,
+			input, output, error_message, metadata, started_at, completed_at,
+			canceled_at, created_at, updated_at
+	`
+	return scanCanvasRunRow(ctx, r.sql, query, runID, userID, service.CanvasRunStatusRunning, service.CanvasRunStatusPending)
+}
+
+func (r *canvasRepository) CompleteCanvasRun(ctx context.Context, userID int64, runID int64, input service.CanvasRunCompleteInput) (*service.CanvasRun, error) {
+	outputJSON, err := marshalCanvasJSON(input.Output)
+	if err != nil {
+		return nil, err
+	}
+	query := `
+		UPDATE canvas_runs
+		SET status = $3,
+			output = $4::jsonb,
+			error_message = $5,
+			completed_at = COALESCE(completed_at, NOW()),
+			updated_at = NOW()
+		WHERE id = $1 AND user_id = $2 AND status IN ($6, $7)
+		RETURNING id, user_id, canvas_id, status, trigger_type, api_key_id, model,
+			input, output, error_message, metadata, started_at, completed_at,
+			canceled_at, created_at, updated_at
+	`
+	return scanCanvasRunRow(ctx, r.sql, query,
+		runID,
+		userID,
+		input.Status,
+		string(outputJSON),
+		strings.TrimSpace(input.ErrorMessage),
+		service.CanvasRunStatusPending,
+		service.CanvasRunStatusRunning,
+	)
+}
+
 func (r *canvasRepository) ListCanvasRuns(ctx context.Context, userID int64, filters service.CanvasRunListFilters) ([]service.CanvasRun, int, error) {
 	clauses := []string{"user_id = $1"}
 	args := []any{userID}

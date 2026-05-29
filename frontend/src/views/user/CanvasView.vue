@@ -70,18 +70,30 @@
               type="button"
               class="canvas-icon-button"
               :title="t('common.refresh')"
-              :disabled="loadingModels"
-              @click="loadModels"
+              :disabled="loadingModels || loadingKeys"
+              @click="refreshRunOptions"
             >
-              <Icon name="refresh" size="sm" :class="{ 'animate-spin': loadingModels }" />
+              <Icon name="refresh" size="sm" :class="{ 'animate-spin': loadingModels || loadingKeys }" />
             </button>
           </div>
+          <label class="canvas-field canvas-field-tight">
+            <span>{{ t('canvas.apiKey') }}</span>
+            <select v-model.number="selectedKeyId" class="input text-sm" data-testid="canvas-api-key-select">
+              <option :value="null">{{ t('canvas.selectApiKey') }}</option>
+              <option v-for="key in apiKeys" :key="key.id" :value="key.id">
+                {{ apiKeyLabel(key) }}
+              </option>
+            </select>
+          </label>
           <select v-model="selectedModel" class="input text-sm" data-testid="canvas-model-select">
             <option value="">{{ t('canvas.defaultModel') }}</option>
             <option v-for="modelItem in models" :key="modelItem.id" :value="modelItem.id">
               {{ modelLabel(modelItem) }}
             </option>
           </select>
+          <p v-if="!loadingKeys && apiKeys.length === 0" class="mt-2 text-xs leading-5 text-rose-600 dark:text-rose-300">
+            {{ t('canvas.noUsableApiKey') }}
+          </p>
           <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-dark-300">{{ t('canvas.modelHint') }}</p>
         </div>
       </aside>
@@ -127,6 +139,17 @@
           </div>
         </header>
 
+        <div v-if="latestRun" class="canvas-latest-run" data-testid="canvas-latest-run">
+          <span class="canvas-run-status" :class="`canvas-run-status-${latestRun.status}`"></span>
+          <span class="min-w-0 flex-1 truncate">
+            {{ t('canvas.latestRun') }} · {{ runStatusLabel(latestRun.status) }} · {{ formatDate(latestRun.updated_at) }}
+          </span>
+          <span v-if="runOutputSummary(latestRun)" class="truncate">{{ runOutputSummary(latestRun) }}</span>
+          <span v-if="latestRun.error_message" class="truncate text-rose-600 dark:text-rose-300">
+            {{ latestRun.error_message }}
+          </span>
+        </div>
+
         <section class="canvas-stage-shell">
           <div class="canvas-stage-header">
             <span>{{ t('canvas.stage') }}</span>
@@ -153,7 +176,27 @@
             >
               <span class="canvas-node-kind">{{ nodeTypeLabel(node.type) }}</span>
               <span class="canvas-node-title">{{ node.title }}</span>
-              <span class="canvas-node-status">{{ t(`canvas.nodeStatus.${node.status || 'idle'}`) }}</span>
+              <span class="canvas-node-status">
+                <span class="canvas-node-status-dot" :class="`canvas-node-status-${nodeDisplayStatus(node)}`"></span>
+                {{ t(`canvas.nodeStatus.${nodeDisplayStatus(node)}`) }}
+              </span>
+              <span v-if="nodeResultImageUrl(node)" class="canvas-node-preview">
+                <img
+                  :src="nodeResultImageUrl(node)"
+                  :alt="t('canvas.resultPreview')"
+                  data-testid="canvas-node-preview-image"
+                />
+              </span>
+              <span
+                v-else-if="nodeResultSummary(node)"
+                class="canvas-node-result-summary"
+                data-testid="canvas-node-result-summary"
+              >
+                {{ nodeResultSummary(node) }}
+              </span>
+              <span v-if="nodeErrorSummary(node)" class="canvas-node-error" data-testid="canvas-node-error">
+                {{ nodeErrorSummary(node) }}
+              </span>
             </button>
 
             <div v-if="canvasDocument.nodes.length === 0" class="canvas-stage-empty">
@@ -219,6 +262,81 @@
 
         <div class="canvas-section">
           <div class="canvas-section-title">
+            <span>{{ t('canvas.nodeInspector') }}</span>
+          </div>
+          <div v-if="selectedNode" class="canvas-node-editor" data-testid="canvas-node-editor">
+            <label class="canvas-field">
+              <span>{{ t('canvas.nodeTitle') }}</span>
+              <input
+                :value="selectedNode.title"
+                type="text"
+                class="input text-sm"
+                data-testid="canvas-node-title-input"
+                @input="updateSelectedNodeTitleFromEvent"
+              />
+            </label>
+
+            <div class="canvas-node-editor-status">
+              <span class="canvas-run-status" :class="`canvas-run-status-${nodeDisplayStatus(selectedNode)}`"></span>
+              <span>{{ t(`canvas.nodeStatus.${nodeDisplayStatus(selectedNode)}`) }}</span>
+            </div>
+
+            <datalist id="canvas-model-options">
+              <option v-for="modelItem in models" :key="modelItem.id" :value="modelItem.id">
+                {{ modelLabel(modelItem) }}
+              </option>
+            </datalist>
+
+            <label
+              v-for="field in selectedNodeConfigFields"
+              :key="field.key"
+              class="canvas-field"
+            >
+              <span>{{ t(field.labelKey) }}</span>
+              <textarea
+                v-if="field.kind === 'textarea'"
+                :value="selectedNodeConfigValue(field.key)"
+                class="input canvas-textarea"
+                rows="3"
+                :placeholder="t(field.placeholderKey)"
+                :data-testid="`canvas-node-config-${field.key}`"
+                @input="updateSelectedNodeConfigFromEvent(field.key, $event)"
+              ></textarea>
+              <select
+                v-else-if="field.kind === 'select'"
+                :value="selectedNodeConfigValue(field.key)"
+                class="input text-sm"
+                :data-testid="`canvas-node-config-${field.key}`"
+                @change="updateSelectedNodeConfigFromEvent(field.key, $event)"
+              >
+                <option value="">{{ t('canvas.nodeConfigDefault') }}</option>
+                <option v-for="option in field.options" :key="option.value" :value="option.value">
+                  {{ t(option.labelKey) }}
+                </option>
+              </select>
+              <input
+                v-else
+                :value="selectedNodeConfigValue(field.key)"
+                type="text"
+                class="input text-sm"
+                :list="field.key === 'model' ? 'canvas-model-options' : undefined"
+                :placeholder="t(field.placeholderKey)"
+                :data-testid="`canvas-node-config-${field.key}`"
+                @input="updateSelectedNodeConfigFromEvent(field.key, $event)"
+              />
+            </label>
+
+            <div v-if="selectedNodeConfigFields.length === 0" class="canvas-placeholder canvas-compact-placeholder">
+              <span>{{ t('canvas.noConfigFields') }}</span>
+            </div>
+          </div>
+          <div v-else class="canvas-placeholder canvas-compact-placeholder">
+            <span>{{ t('canvas.selectedNodePlaceholder') }}</span>
+          </div>
+        </div>
+
+        <div class="canvas-section">
+          <div class="canvas-section-title">
             <span>{{ t('canvas.runHistory') }}</span>
           </div>
           <div class="canvas-run-list custom-scrollbar" data-testid="canvas-run-list">
@@ -227,6 +345,12 @@
               <span class="min-w-0 flex-1">
                 <span class="block truncate text-sm font-medium">{{ runStatusLabel(run.status) }}</span>
                 <span class="block truncate text-xs text-gray-500 dark:text-dark-300">{{ formatDate(run.created_at) }}</span>
+                <span v-if="runOutputSummary(run)" class="block truncate text-xs text-emerald-600 dark:text-emerald-300">
+                  {{ runOutputSummary(run) }}
+                </span>
+                <span v-if="run.error_message" class="block truncate text-xs text-rose-600 dark:text-rose-300">
+                  {{ run.error_message }}
+                </span>
               </span>
             </div>
             <div v-if="runs.length === 0" class="canvas-placeholder">
@@ -259,6 +383,7 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores'
+import { keysAPI } from '@/api/keys'
 import {
   createCanvas,
   createCanvasRun,
@@ -276,6 +401,7 @@ import {
   type UserCanvas,
   type UserCanvasSummary,
 } from '@/api/canvas'
+import type { ApiKey } from '@/types'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
 
@@ -290,20 +416,40 @@ interface EdgeLine {
   path: string
 }
 
+type CanvasNodeStatus = NonNullable<CanvasNode['status']>
+type NodeConfigKey = 'prompt' | 'text' | 'model' | 'size' | 'quality' | 'referenceImageId'
+type NodeConfigFieldKind = 'input' | 'textarea' | 'select'
+
+interface NodeConfigOption {
+  value: string
+  labelKey: string
+}
+
+interface NodeConfigField {
+  key: NodeConfigKey
+  kind: NodeConfigFieldKind
+  labelKey: string
+  placeholderKey: string
+  options: NodeConfigOption[]
+}
+
 const { t } = useI18n()
 const appStore = useAppStore()
 
 const canvases = ref<UserCanvasSummary[]>([])
 const models = ref<CanvasModel[]>([])
 const runs = ref<CanvasRun[]>([])
+const apiKeys = ref<ApiKey[]>([])
 const selectedCanvasId = ref<string | null>(null)
 const selectedNodeId = ref<string | null>(null)
+const selectedKeyId = ref<number | null>(null)
 const draftName = ref('')
 const draftDescription = ref('')
 const selectedModel = ref('')
 const canvasDocument = ref<CanvasDocument>(createDefaultDocument())
 const loadingCanvases = ref(false)
 const loadingCanvas = ref(false)
+const loadingKeys = ref(false)
 const loadingModels = ref(false)
 const saving = ref(false)
 const queuingRun = ref(false)
@@ -320,6 +466,50 @@ const nodeTypes: Array<{ type: CanvasNodeType, icon: IconName }> = [
   { type: 'result', icon: 'checkCircle' },
 ]
 
+const sizeOptions: NodeConfigOption[] = [
+  { value: '1024x1024', labelKey: 'canvas.nodeConfigOptions.size.square' },
+  { value: '1024x1536', labelKey: 'canvas.nodeConfigOptions.size.portrait' },
+  { value: '1536x1024', labelKey: 'canvas.nodeConfigOptions.size.landscape' },
+]
+
+const qualityOptions: NodeConfigOption[] = [
+  { value: 'auto', labelKey: 'canvas.nodeConfigOptions.quality.auto' },
+  { value: 'standard', labelKey: 'canvas.nodeConfigOptions.quality.standard' },
+  { value: 'high', labelKey: 'canvas.nodeConfigOptions.quality.high' },
+]
+
+const nodeConfigFields: Record<CanvasNodeType, NodeConfigField[]> = {
+  prompt: [
+    makeConfigField('prompt', 'textarea'),
+    makeConfigField('model', 'input'),
+  ],
+  text: [
+    makeConfigField('text', 'textarea'),
+    makeConfigField('model', 'input'),
+  ],
+  image: [
+    makeConfigField('referenceImageId', 'input'),
+  ],
+  text_to_image: [
+    makeConfigField('prompt', 'textarea'),
+    makeConfigField('model', 'input'),
+    makeConfigField('size', 'select', sizeOptions),
+    makeConfigField('quality', 'select', qualityOptions),
+  ],
+  image_to_image: [
+    makeConfigField('prompt', 'textarea'),
+    makeConfigField('referenceImageId', 'input'),
+    makeConfigField('model', 'input'),
+    makeConfigField('size', 'select', sizeOptions),
+    makeConfigField('quality', 'select', qualityOptions),
+  ],
+  loop: [
+    makeConfigField('text', 'input'),
+  ],
+  group: [],
+  result: [],
+}
+
 const nodeTypeItems = computed<NodeTypeItem[]>(() =>
   nodeTypes.map((item) => ({
     ...item,
@@ -329,6 +519,16 @@ const nodeTypeItems = computed<NodeTypeItem[]>(() =>
 
 const selectedNode = computed(() =>
   canvasDocument.value.nodes.find((node) => node.id === selectedNodeId.value) ?? null
+)
+
+const selectedNodeConfigFields = computed(() =>
+  selectedNode.value ? nodeConfigFields[selectedNode.value.type] : []
+)
+
+const latestRun = computed(() => runs.value[0] ?? null)
+
+const selectedKey = computed(() =>
+  apiKeys.value.find((key) => key.id === selectedKeyId.value) ?? null
 )
 
 const canSave = computed(() =>
@@ -341,7 +541,8 @@ const canSave = computed(() =>
 const canQueueRun = computed(() =>
   !queuingRun.value &&
   !saving.value &&
-  !!selectedCanvasId.value &&
+  !loadingCanvas.value &&
+  draftName.value.trim().length > 0 &&
   canvasDocument.value.nodes.length > 0
 )
 
@@ -367,6 +568,7 @@ const edgeLines = computed<EdgeLine[]>(() => {
 
 onMounted(() => {
   void loadCanvases()
+  void loadApiKeys()
   void loadModels()
 })
 
@@ -393,6 +595,20 @@ function createDefaultDocument(): CanvasDocument {
       makeEdge(nodes[6], nodes[7]),
     ],
     viewport: { x: 0, y: 0, zoom: 1 },
+  }
+}
+
+function makeConfigField(
+  key: NodeConfigKey,
+  kind: NodeConfigFieldKind,
+  options: NodeConfigOption[] = []
+): NodeConfigField {
+  return {
+    key,
+    kind,
+    labelKey: `canvas.nodeConfig.${key}`,
+    placeholderKey: `canvas.nodeConfigPlaceholders.${key}`,
+    options,
   }
 }
 
@@ -469,6 +685,29 @@ async function loadModels(): Promise<void> {
   }
 }
 
+async function refreshRunOptions(): Promise<void> {
+  await Promise.all([loadApiKeys(), loadModels()])
+}
+
+async function loadApiKeys(): Promise<void> {
+  loadingKeys.value = true
+  try {
+    const response = await keysAPI.list(1, 100, {
+      status: 'active',
+      sort_by: 'created_at',
+      sort_order: 'desc',
+    })
+    apiKeys.value = response.items.filter(isUsableImageKey)
+    selectedKeyId.value = pickDefaultApiKey(apiKeys.value)?.id ?? null
+  } catch {
+    apiKeys.value = []
+    selectedKeyId.value = null
+    appStore.showError(t('canvas.loadKeysFailed'))
+  } finally {
+    loadingKeys.value = false
+  }
+}
+
 async function openCanvas(id: string): Promise<void> {
   loadingCanvas.value = true
   selectedCanvasId.value = id
@@ -493,7 +732,11 @@ async function loadRuns(canvasId: string): Promise<void> {
 }
 
 async function saveCanvas(): Promise<void> {
-  if (!canSave.value) return
+  await persistCanvas(true)
+}
+
+async function persistCanvas(notify: boolean): Promise<UserCanvas | null> {
+  if (!canSave.value) return null
   saving.value = true
   try {
     const payload = {
@@ -507,23 +750,36 @@ async function saveCanvas(): Promise<void> {
       : await createCanvas(payload)
     applyCanvas(saved)
     upsertCanvasSummary(saved)
-    appStore.showSuccess(t('canvas.saveSuccess'))
+    if (notify) {
+      appStore.showSuccess(t('canvas.saveSuccess'))
+    }
+    return saved
   } catch (error: unknown) {
     appStore.showError(errorMessage(error, t('canvas.saveFailed')))
+    return null
   } finally {
     saving.value = false
   }
 }
 
 async function queueCanvasRun(): Promise<void> {
-  if (!selectedCanvasId.value || !canQueueRun.value) return
+  if (!selectedKey.value) {
+    appStore.showError(t('canvas.selectApiKeyFirst'))
+    return
+  }
+  if (!canQueueRun.value) return
   queuingRun.value = true
   try {
+    const saved = await persistCanvas(false)
+    if (!saved) return
+    const canvasId = saved.id
     const run = await createCanvasRun({
-      canvas_id: selectedCanvasId.value,
+      canvas_id: canvasId,
+      api_key_id: selectedKey.value.id,
       model: selectedModel.value || undefined,
     })
     runs.value = [run, ...runs.value].slice(0, 8)
+    await loadRuns(canvasId)
     appStore.showSuccess(t('canvas.runQueued'))
   } catch (error: unknown) {
     appStore.showError(errorMessage(error, t('canvas.queueFailed')))
@@ -533,12 +789,15 @@ async function queueCanvasRun(): Promise<void> {
 }
 
 function applyCanvas(item: UserCanvas): void {
+  const previousNodeId = selectedNodeId.value
   selectedCanvasId.value = item.id
   draftName.value = item.name
   draftDescription.value = item.description || ''
   selectedModel.value = item.model || selectedModel.value
   canvasDocument.value = normalizeDocument(item.document)
-  selectedNodeId.value = canvasDocument.value.nodes[0]?.id ?? null
+  selectedNodeId.value = canvasDocument.value.nodes.some((node) => node.id === previousNodeId)
+    ? previousNodeId
+    : canvasDocument.value.nodes[0]?.id ?? null
 }
 
 function normalizeDocument(document: CanvasDocument | null | undefined): CanvasDocument {
@@ -547,7 +806,11 @@ function normalizeDocument(document: CanvasDocument | null | undefined): CanvasD
   }
   return {
     ...document,
-    nodes: document.nodes,
+    nodes: document.nodes.map((node) => ({
+      ...node,
+      status: normalizeNodeStatus(node.status),
+      config: isRecord(node.config) ? node.config : {},
+    })),
     edges: document.edges,
   }
 }
@@ -588,6 +851,37 @@ function removeSelectedNode(): void {
   selectedNodeId.value = canvasDocument.value.nodes[0]?.id ?? null
 }
 
+function updateSelectedNodeTitleFromEvent(event: Event): void {
+  const node = selectedNode.value
+  if (!node) return
+  const value = inputValue(event)
+  node.title = value
+}
+
+function selectedNodeConfigValue(key: NodeConfigKey): string {
+  const value = selectedNode.value?.config?.[key]
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return ''
+}
+
+function updateSelectedNodeConfigFromEvent(key: NodeConfigKey, event: Event): void {
+  updateSelectedNodeConfig(key, inputValue(event))
+}
+
+function updateSelectedNodeConfig(key: NodeConfigKey, value: string): void {
+  const node = selectedNode.value
+  if (!node) return
+  const nextConfig = { ...(node.config ?? {}) }
+  const normalized = value.trim()
+  if (normalized) {
+    nextConfig[key] = normalized
+  } else {
+    delete nextConfig[key]
+  }
+  node.config = nextConfig
+}
+
 function nodeTypeLabel(type: CanvasNodeType): string {
   return t(`canvas.nodeTypes.${type}`)
 }
@@ -600,9 +894,123 @@ function nodeStyle(node: CanvasNode): Record<string, string> {
   return {
     left: `${node.x}px`,
     top: `${node.y}px`,
-    width: `${node.width || 170}px`,
-    minHeight: `${node.height || 86}px`,
+    width: `${Math.max(node.width || 190, 190)}px`,
+    minHeight: `${node.height || 112}px`,
   }
+}
+
+function nodeDisplayStatus(node: CanvasNode): CanvasNodeStatus {
+  if (node.status && node.status !== 'idle') return normalizeNodeStatus(node.status)
+  if (nodeErrorSummary(node)) return 'failed'
+  if (node.result !== undefined || outputForNode(node) !== undefined) return 'done'
+  return 'idle'
+}
+
+function nodeResultImageUrl(node: CanvasNode): string {
+  return firstImageUrl(node.result) || firstImageUrl(outputForNode(node))
+}
+
+function nodeResultSummary(node: CanvasNode): string {
+  const result = node.result ?? outputForNode(node)
+  return summarizeUnknown(result)
+}
+
+function nodeErrorSummary(node: CanvasNode): string {
+  const output = outputForNode(node)
+  return summarizeUnknown(node.error) || summarizeUnknown(node.config?.error) ||
+    (isRecord(output) ? summarizeUnknown(output.error) : '')
+}
+
+function outputForNode(node: CanvasNode): unknown {
+  const outputs = latestRun.value ? runOutputs(latestRun.value) : {}
+  if (!outputs) return undefined
+  return outputs[node.id]
+}
+
+function runOutputSummary(run: CanvasRun): string {
+  if (run.error_message) return ''
+  const outputs = runOutputs(run)
+  const resultNodeId = run.result_node_ids?.[0]
+  if (resultNodeId && outputs[resultNodeId] !== undefined) {
+    return summarizeUnknown(outputs[resultNodeId])
+  }
+  return summarizeUnknown(outputs)
+}
+
+function runOutputs(run: CanvasRun): Record<string, unknown> {
+  if (run.outputs && Object.keys(run.outputs).length > 0) return run.outputs
+  return isRecord(run.output) ? run.output : {}
+}
+
+function firstImageUrl(value: unknown): string {
+  if (typeof value === 'string') {
+    return isImageLikeUrl(value) ? value : ''
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const found = firstImageUrl(item)
+      if (found) return found
+    }
+    return ''
+  }
+  if (!isRecord(value)) return ''
+  for (const key of ['thumbnail_url', 'thumbnailUrl', 'image_url', 'imageUrl', 'url', 'src']) {
+    const raw = value[key]
+    if (typeof raw === 'string' && isImageLikeUrl(raw)) {
+      return raw
+    }
+  }
+  for (const key of ['images', 'items', 'output', 'result']) {
+    const found = firstImageUrl(value[key])
+    if (found) return found
+  }
+  return ''
+}
+
+function isImageLikeUrl(value: string): boolean {
+  return /^(https?:|data:image\/|blob:)/i.test(value) || /\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(value)
+}
+
+function summarizeUnknown(value: unknown): string {
+  if (value === undefined || value === null || value === '') return ''
+  if (typeof value === 'string') return truncateText(value)
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  if (Array.isArray(value)) {
+    const text = value.map((item) => summarizeUnknown(item)).filter(Boolean).join(' · ')
+    return truncateText(text)
+  }
+  if (!isRecord(value)) return ''
+  for (const key of ['summary', 'message', 'error', 'text', 'prompt', 'title', 'id']) {
+    const raw = value[key]
+    if (typeof raw === 'string' && raw.trim()) {
+      return truncateText(raw)
+    }
+  }
+  const imageUrl = firstImageUrl(value)
+  if (imageUrl) return t('canvas.imageResult')
+  const keys = Object.keys(value)
+  return keys.length > 0 ? truncateText(keys.slice(0, 3).join(', ')) : ''
+}
+
+function truncateText(value: string): string {
+  const normalized = value.replace(/\s+/g, ' ').trim()
+  return normalized.length > 72 ? `${normalized.slice(0, 69)}...` : normalized
+}
+
+function normalizeNodeStatus(status: CanvasNode['status']): CanvasNodeStatus {
+  return status === 'queued' || status === 'running' || status === 'done' || status === 'failed' ? status : 'idle'
+}
+
+function inputValue(event: Event): string {
+  return event.target instanceof HTMLInputElement ||
+    event.target instanceof HTMLTextAreaElement ||
+    event.target instanceof HTMLSelectElement
+    ? event.target.value
+    : ''
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }
 
 function canvasMeta(item: UserCanvasSummary): string {
@@ -615,6 +1023,21 @@ function canvasMeta(item: UserCanvasSummary): string {
 
 function modelLabel(modelItem: CanvasModel): string {
   return [modelItem.name || modelItem.id, modelItem.provider].filter(Boolean).join(' · ')
+}
+
+function apiKeyLabel(key: ApiKey): string {
+  return [key.name, key.group?.name, 'OpenAI'].filter(Boolean).join(' · ')
+}
+
+function isUsableImageKey(key: ApiKey): boolean {
+  if (key.status !== 'active') return false
+  if (!key.group) return true
+  return key.group.platform === 'openai' && key.group.allow_image_generation === true
+}
+
+function pickDefaultApiKey(keys: ApiKey[]): ApiKey | null {
+  const current = keys.find((key) => key.id === selectedKeyId.value)
+  return current ?? keys[0] ?? null
 }
 
 function runStatusLabel(status: CanvasRunStatus): string {
@@ -832,6 +1255,10 @@ function errorMessage(error: unknown, fallback: string): string {
   font-size: 0.8125rem;
 }
 
+.canvas-compact-placeholder {
+  min-height: 4.5rem;
+}
+
 .dark .canvas-empty-list,
 .dark .canvas-placeholder {
   border-color: rgb(75 85 99);
@@ -877,6 +1304,22 @@ function errorMessage(error: unknown, fallback: string): string {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.canvas-latest-run {
+  display: flex;
+  min-height: 2.5rem;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid rgb(243 244 246);
+  padding: 0.625rem 1rem;
+  font-size: 0.75rem;
+  color: rgb(71 85 105);
+}
+
+.dark .canvas-latest-run {
+  border-color: rgb(55 65 81);
+  color: rgb(203 213 225);
 }
 
 .canvas-stage-shell {
@@ -981,12 +1424,65 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 .canvas-node-status {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.375rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.75rem;
   color: rgb(100 116 139);
 }
 
+.canvas-node-status-dot {
+  height: 0.5rem;
+  width: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: rgb(148 163 184);
+}
+
+.canvas-node-preview {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 0.375rem;
+  border: 1px solid rgb(226 232 240);
+  background: rgb(248 250 252);
+}
+
+.canvas-node-preview img {
+  display: block;
+  height: 3rem;
+  width: 100%;
+  object-fit: cover;
+}
+
+.canvas-node-result-summary,
+.canvas-node-error {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.6875rem;
+}
+
+.canvas-node-result-summary {
+  color: rgb(5 150 105);
+}
+
+.canvas-node-error {
+  color: rgb(220 38 38);
+}
+
 .dark .canvas-node-status {
   color: rgb(148 163 184);
+}
+
+.dark .canvas-node-preview {
+  border-color: rgb(55 65 81);
+  background: rgb(15 23 42);
 }
 
 .canvas-stage-empty {
@@ -1012,6 +1508,41 @@ function errorMessage(error: unknown, fallback: string): string {
   font-size: 0.8125rem;
   font-weight: 700;
   text-align: left;
+}
+
+.canvas-node-editor {
+  display: grid;
+  gap: 0.625rem;
+}
+
+.canvas-field {
+  display: grid;
+  gap: 0.375rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: rgb(71 85 105);
+}
+
+.canvas-field-tight {
+  margin-bottom: 0.5rem;
+}
+
+.canvas-textarea {
+  min-height: 4.75rem;
+  resize: vertical;
+}
+
+.canvas-node-editor-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: rgb(100 116 139);
+}
+
+.dark .canvas-field,
+.dark .canvas-node-editor-status {
+  color: rgb(148 163 184);
 }
 
 .canvas-node-list-dot,
@@ -1081,6 +1612,11 @@ function errorMessage(error: unknown, fallback: string): string {
   background: rgb(59 130 246);
 }
 
+.canvas-run-status-idle,
+.canvas-node-status-idle {
+  background: rgb(148 163 184);
+}
+
 .canvas-run-status-running {
   background: rgb(245 158 11);
 }
@@ -1089,8 +1625,21 @@ function errorMessage(error: unknown, fallback: string): string {
   background: rgb(34 197 94);
 }
 
+.canvas-node-status-done {
+  background: rgb(34 197 94);
+}
+
+.canvas-node-status-queued {
+  background: rgb(59 130 246);
+}
+
+.canvas-node-status-running {
+  background: rgb(245 158 11);
+}
+
 .canvas-run-status-failed,
-.canvas-run-status-canceled {
+.canvas-run-status-canceled,
+.canvas-node-status-failed {
   background: rgb(239 68 68);
 }
 

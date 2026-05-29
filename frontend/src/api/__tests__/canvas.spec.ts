@@ -69,7 +69,13 @@ describe('canvas api', () => {
                 id: 'node_prompt',
                 type: 'prompt',
                 position: { x: 80, y: 90, width: 170, height: 86 },
-                data: { title: 'Prompt', status: 'queued', config: { prompt: 'draw' } },
+                data: {
+                  title: 'Prompt',
+                  status: 'queued',
+                  config: { prompt: 'draw' },
+                  result: { summary: 'done' },
+                  error: { message: 'provider failed' },
+                },
               },
             ],
             edges: [
@@ -101,6 +107,8 @@ describe('canvas api', () => {
             y: 90,
             status: 'queued',
             config: { prompt: 'draw' },
+            result: { summary: 'done' },
+            error: { message: 'provider failed' },
           },
         ],
         edges: [
@@ -213,8 +221,13 @@ describe('canvas api', () => {
             {
               id: 30,
               canvas_id: 20,
+              api_key_id: 44,
               status: 'pending',
               model: 'gpt-image-2',
+              input: { nodes: 1 },
+              output: { node_result: { summary: 'created' } },
+              outputs: { node_result: { summary: 'created' } },
+              result_node_ids: ['node_result'],
               created_at: '2026-05-20T00:00:00Z',
               updated_at: '2026-05-20T00:00:00Z',
             },
@@ -227,7 +240,9 @@ describe('canvas api', () => {
           item: {
             id: 30,
             canvas_id: 20,
+            api_key_id: 44,
             status: 'pending',
+            output: { node_result: { summary: 'created' } },
             created_at: '2026-05-20T00:00:00Z',
             updated_at: '2026-05-20T00:00:00Z',
           },
@@ -249,6 +264,7 @@ describe('canvas api', () => {
         item: {
           id: 31,
           canvas_id: 20,
+          api_key_id: 44,
           status: 'pending',
           model: 'gpt-image-2',
           created_at: '2026-05-20T00:00:00Z',
@@ -258,9 +274,21 @@ describe('canvas api', () => {
     })
 
     await expect(listCanvasRuns({ canvas_id: '20', limit: 8 })).resolves.toMatchObject({
-      items: [{ id: '30', canvas_id: '20', status: 'queued' }],
+      items: [{
+        id: '30',
+        canvas_id: '20',
+        api_key_id: 44,
+        status: 'queued',
+        output: { node_result: { summary: 'created' } },
+        outputs: { node_result: { summary: 'created' } },
+      }],
     })
-    await expect(getCanvasRun('30')).resolves.toMatchObject({ id: '30', status: 'queued' })
+    await expect(getCanvasRun('30')).resolves.toMatchObject({
+      id: '30',
+      api_key_id: 44,
+      status: 'queued',
+      output: { node_result: { summary: 'created' } },
+    })
     await expect(listCanvasModels()).resolves.toMatchObject({
       items: [
         {
@@ -271,14 +299,16 @@ describe('canvas api', () => {
         },
       ],
     })
-    await expect(createCanvasRun({ canvas_id: '20', model: 'gpt-image-2' })).resolves.toMatchObject({
+    await expect(createCanvasRun({ canvas_id: '20', api_key_id: 44, model: 'gpt-image-2' })).resolves.toMatchObject({
       id: '31',
       canvas_id: '20',
+      api_key_id: 44,
       status: 'queued',
     })
 
     expect(post).toHaveBeenCalledWith('/user/canvas-runs', {
       canvas_id: 20,
+      api_key_id: 44,
       model: 'gpt-image-2',
     })
   })

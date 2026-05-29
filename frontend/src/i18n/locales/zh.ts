@@ -1421,6 +1421,11 @@ export default {
     emptyList: '暂无 Canvas，先创建一个草稿',
     models: '模型',
     defaultModel: '默认模型',
+    apiKey: 'API Key',
+    selectApiKey: '选择可用 Key',
+    noUsableApiKey: '没有可用于 OpenAI 生图的 active API Key',
+    loadKeysFailed: '加载 API Key 失败',
+    selectApiKeyFirst: '请先选择可用于 OpenAI 生图的 API Key',
     modelHint: '模型列表来自后端 Canvas 模型接口；后端未就绪时可先保存结构草稿。',
     namePlaceholder: 'Canvas 名称',
     descriptionPlaceholder: '描述这个工作流（可选）',
@@ -1437,6 +1442,42 @@ export default {
     queuing: '排队中...',
     runQueued: '运行已加入队列',
     queueFailed: '提交运行失败',
+    latestRun: '最近运行',
+    nodeInspector: '节点参数',
+    nodeTitle: '节点名称',
+    nodeConfigDefault: '默认',
+    selectedNodePlaceholder: '选择一个节点后编辑参数',
+    noConfigFields: '该节点暂无可编辑参数',
+    resultPreview: '结果预览',
+    imageResult: '图片结果',
+    nodeConfig: {
+      prompt: 'Prompt',
+      text: 'Text',
+      model: 'Model',
+      size: 'Size',
+      quality: 'Quality',
+      referenceImageId: 'Reference Image ID'
+    },
+    nodeConfigPlaceholders: {
+      prompt: '输入提示词',
+      text: '输入文本内容',
+      model: '默认使用 Canvas 模型',
+      size: '选择图片尺寸',
+      quality: '选择图片质量',
+      referenceImageId: '输入图片资源 ID'
+    },
+    nodeConfigOptions: {
+      size: {
+        square: '1024 x 1024',
+        portrait: '1024 x 1536',
+        landscape: '1536 x 1024'
+      },
+      quality: {
+        auto: '自动',
+        standard: '标准',
+        high: '高质量'
+      }
+    },
     nodeTypes: {
       text: '文本',
       image: '图片',

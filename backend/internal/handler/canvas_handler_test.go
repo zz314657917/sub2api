@@ -216,13 +216,22 @@ func TestCanvasHandlerRunRoutesUseAuthenticatedUser(t *testing.T) {
 	router := canvasTestRouter(&CanvasHandler{svc: fake})
 
 	createRecorder := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/canvas-runs", strings.NewReader(`{"canvas_id": 12, "model": "gpt-image-2"}`))
+	req := httptest.NewRequest(http.MethodPost, "/canvas-runs", strings.NewReader(`{
+		"canvas_id": 12,
+		"api_key_id": 10,
+		"model": "gpt-image-2",
+		"input": {"source": "manual"},
+		"metadata": {"trace": "test"}
+	}`))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(createRecorder, req)
 
 	require.Equal(t, http.StatusOK, createRecorder.Code)
 	require.Equal(t, int64(42), fake.lastRunUserID)
 	require.Equal(t, int64(12), fake.lastRunInput.CanvasID)
+	require.Equal(t, int64(10), fake.lastRunInput.APIKeyID)
+	require.Equal(t, "manual", fake.lastRunInput.Input["source"])
+	require.Equal(t, "test", fake.lastRunInput.Metadata["trace"])
 
 	getRecorder := httptest.NewRecorder()
 	router.ServeHTTP(getRecorder, httptest.NewRequest(http.MethodGet, "/canvas-runs/30", nil))

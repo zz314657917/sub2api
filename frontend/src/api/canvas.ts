@@ -22,6 +22,8 @@ export interface CanvasNode {
   height?: number
   status?: 'idle' | 'queued' | 'running' | 'done' | 'failed'
   config?: Record<string, unknown>
+  result?: unknown
+  error?: unknown
 }
 
 export interface CanvasEdge {
@@ -84,12 +86,16 @@ export interface CanvasRun {
   id: string
   canvas_id: string
   status: CanvasRunStatus
+  api_key_id?: number
   model?: string
   queued_at?: string
   started_at?: string
   completed_at?: string
   error_message?: string
   result_node_ids?: string[]
+  input?: unknown
+  output?: unknown
+  outputs?: Record<string, unknown>
   created_at: string
   updated_at: string
 }
@@ -109,6 +115,7 @@ export interface CanvasRunListResponse {
 
 export interface CanvasRunCreatePayload {
   canvas_id: string
+  api_key_id: number
   model?: string
 }
 
@@ -171,8 +178,13 @@ interface BackendCanvasRun {
   id: number
   canvas_id?: number
   status: CanvasRunStatus
+  api_key_id?: number
   model?: string
   error_message?: string
+  result_node_ids?: string[]
+  input?: unknown
+  output?: unknown
+  outputs?: unknown
   started_at?: string
   completed_at?: string
   canceled_at?: string
@@ -230,6 +242,8 @@ function toBackendNode(node: CanvasNode): BackendCanvasNode {
       title: node.title,
       status: node.status,
       config: node.config ?? {},
+      result: node.result,
+      error: node.error,
     },
   }
 }
@@ -247,6 +261,8 @@ function fromBackendNode(node: BackendCanvasNode): CanvasNode {
     height: numberFromRecord(position, 'height', 86),
     status: nodeStatusFromRecord(data),
     config: recordFromUnknown(data.config),
+    result: data.result,
+    error: data.error,
   }
 }
 
@@ -323,10 +339,15 @@ function fromBackendRun(run: BackendCanvasRun): CanvasRun {
     id: String(run.id),
     canvas_id: run.canvas_id ? String(run.canvas_id) : '',
     status: normalizeRunStatus(run.status),
+    api_key_id: run.api_key_id,
     model: run.model,
     started_at: run.started_at,
     completed_at: run.completed_at,
     error_message: run.error_message,
+    result_node_ids: run.result_node_ids,
+    input: run.input,
+    output: run.output,
+    outputs: recordFromUnknown(run.outputs),
     created_at: run.created_at,
     updated_at: run.updated_at,
   }
@@ -381,6 +402,7 @@ export async function listCanvasRuns(params: CanvasRunListParams = {}): Promise<
 export async function createCanvasRun(payload: CanvasRunCreatePayload): Promise<CanvasRun> {
   const { data } = await apiClient.post<{ item: BackendCanvasRun }>('/user/canvas-runs', {
     canvas_id: Number(payload.canvas_id),
+    api_key_id: payload.api_key_id,
     model: payload.model,
   })
   return fromBackendRun(data.item)

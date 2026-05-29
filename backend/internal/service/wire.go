@@ -530,7 +530,7 @@ var ProviderSet = wire.NewSet(
 	NewContentModerationService,
 	NewAffiliateService,
 	NewPromptFavoriteService,
-	NewCanvasService,
+	NewCanvasServiceWithDeps,
 	ProvideImageCreatorService,
 	NewImageCreatorStorageGovernanceService,
 	NewOpenWebUILaunchService,

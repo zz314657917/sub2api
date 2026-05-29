@@ -1417,6 +1417,11 @@ export default {
     emptyList: 'No canvases yet. Start with a draft.',
     models: 'Models',
     defaultModel: 'Default model',
+    apiKey: 'API Key',
+    selectApiKey: 'Select a usable key',
+    noUsableApiKey: 'No active API Key supports OpenAI image generation',
+    loadKeysFailed: 'Failed to load API keys',
+    selectApiKeyFirst: 'Select an API Key that supports OpenAI image generation first',
     modelHint: 'Models come from the Canvas model endpoint. You can still save structure drafts while the backend is pending.',
     namePlaceholder: 'Canvas name',
     descriptionPlaceholder: 'Describe this workflow (optional)',
@@ -1433,6 +1438,42 @@ export default {
     queuing: 'Queuing...',
     runQueued: 'Run queued',
     queueFailed: 'Failed to queue run',
+    latestRun: 'Latest run',
+    nodeInspector: 'Node Parameters',
+    nodeTitle: 'Node name',
+    nodeConfigDefault: 'Default',
+    selectedNodePlaceholder: 'Select a node to edit parameters',
+    noConfigFields: 'No editable parameters for this node',
+    resultPreview: 'Result preview',
+    imageResult: 'Image result',
+    nodeConfig: {
+      prompt: 'Prompt',
+      text: 'Text',
+      model: 'Model',
+      size: 'Size',
+      quality: 'Quality',
+      referenceImageId: 'Reference Image ID'
+    },
+    nodeConfigPlaceholders: {
+      prompt: 'Enter prompt',
+      text: 'Enter text',
+      model: 'Use canvas model by default',
+      size: 'Select image size',
+      quality: 'Select image quality',
+      referenceImageId: 'Enter image asset ID'
+    },
+    nodeConfigOptions: {
+      size: {
+        square: '1024 x 1024',
+        portrait: '1024 x 1536',
+        landscape: '1536 x 1024'
+      },
+      quality: {
+        auto: 'Auto',
+        standard: 'Standard',
+        high: 'High'
+      }
+    },
     nodeTypes: {
       text: 'Text',
       image: 'Image',

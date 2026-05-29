@@ -3,6 +3,8 @@ package service
 import (
 	"context"
 	"database/sql"
+	"io"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +20,7 @@ type fakeCanvasRepo struct {
 	lastSaveUserID   int64
 	lastRunUserID    int64
 	lastRunInput     CanvasRunCreateInput
+	lastRunCompleted CanvasRunCompleteInput
 	lastCancelUserID int64
 }
 
@@ -155,6 +158,35 @@ func (r *fakeCanvasRepo) CreateCanvasRun(_ context.Context, userID int64, input 
 	return &run, nil
 }
 
+func (r *fakeCanvasRepo) MarkCanvasRunRunning(_ context.Context, userID int64, runID int64) (*CanvasRun, error) {
+	run, ok := r.runs[runID]
+	if !ok || run.UserID != userID || run.Status != CanvasRunStatusPending {
+		return nil, sql.ErrNoRows
+	}
+	now := time.Now()
+	run.Status = CanvasRunStatusRunning
+	run.StartedAt = &now
+	run.UpdatedAt = now
+	r.runs[runID] = run
+	return &run, nil
+}
+
+func (r *fakeCanvasRepo) CompleteCanvasRun(_ context.Context, userID int64, runID int64, input CanvasRunCompleteInput) (*CanvasRun, error) {
+	r.lastRunCompleted = input
+	run, ok := r.runs[runID]
+	if !ok || run.UserID != userID || (run.Status != CanvasRunStatusPending && run.Status != CanvasRunStatusRunning) {
+		return nil, sql.ErrNoRows
+	}
+	now := time.Now()
+	run.Status = input.Status
+	run.Output = input.Output
+	run.ErrorMessage = input.ErrorMessage
+	run.CompletedAt = &now
+	run.UpdatedAt = now
+	r.runs[runID] = run
+	return &run, nil
+}
+
 func (r *fakeCanvasRepo) ListCanvasRuns(_ context.Context, userID int64, filters CanvasRunListFilters) ([]CanvasRun, int, error) {
 	items := make([]CanvasRun, 0)
 	for _, run := range r.runs {
@@ -187,6 +219,44 @@ func (r *fakeCanvasRepo) CancelCanvasRun(_ context.Context, userID int64, runID 
 	run.Status = CanvasRunStatusCanceled
 	r.runs[runID] = run
 	return &run, nil
+}
+
+type fakeCanvasImageCreator struct {
+	tasks          []ImageCreatorCreateTaskInput
+	referenceFiles map[int64]*ImageCreatorFile
+	err            error
+}
+
+func (c *fakeCanvasImageCreator) CreateTask(_ context.Context, userID int64, input ImageCreatorCreateTaskInput) (*ImageCreatorTask, error) {
+	if c.err != nil {
+		return nil, c.err
+	}
+	c.tasks = append(c.tasks, input)
+	id := int64(100 + len(c.tasks))
+	return &ImageCreatorTask{
+		ID:       id,
+		UserID:   userID,
+		APIKeyID: input.APIKeyID,
+		Status:   ImageCreatorTaskStatusPending,
+		Model:    input.Model,
+		Prompt:   input.Prompt,
+		Size:     input.Size,
+		Quality:  input.Quality,
+		Count:    input.Count,
+	}, nil
+}
+
+func (c *fakeCanvasImageCreator) GetReferenceImageForUser(_ context.Context, _ int64, imageID int64) (*ImageCreatorFile, error) {
+	if c.referenceFiles != nil {
+		if file := c.referenceFiles[imageID]; file != nil {
+			return file, nil
+		}
+	}
+	return &ImageCreatorFile{
+		Body:        io.NopCloser(strings.NewReader("reference")),
+		ContentType: "image/png",
+		FileName:    "reference.png",
+	}, nil
 }
 
 func TestCanvasServiceSaveValidatesNodesEdgesAndUsesCurrentUser(t *testing.T) {
@@ -242,6 +312,70 @@ func TestCanvasServiceCreateRunChecksCanvasOwnershipAndNormalizesDefaults(t *tes
 	_, err = svc.CreateRun(context.Background(), 99, CanvasRunCreateInput{CanvasID: 12})
 	require.Error(t, err)
 	require.True(t, infraerrors.IsNotFound(err))
+}
+
+func TestCanvasServiceCreateRunQueuesImageCreatorTasks(t *testing.T) {
+	repo := newFakeCanvasRepo()
+	repo.documents[12] = CanvasDocument{
+		ID:     12,
+		UserID: 42,
+		Title:  "Campaign",
+		Nodes: []CanvasNode{
+			{ID: "prompt", Type: CanvasNodeTypePrompt, Data: map[string]any{"config": map[string]any{"prompt": "draw a clean product shot"}}},
+			{ID: "txt2img", Type: CanvasNodeTypeTextToImage, Data: map[string]any{"config": map[string]any{"size": "1024x1024", "quality": "high"}}},
+			{ID: "source", Type: CanvasNodeTypeImage, Data: map[string]any{"config": map[string]any{"imageId": float64(91)}}},
+			{ID: "img2img", Type: CanvasNodeTypeImageToImage, Data: map[string]any{"config": map[string]any{"prompt": "make it cinematic"}}},
+		},
+		Edges: []CanvasEdge{
+			{ID: "e1", Source: "prompt", Target: "txt2img"},
+			{ID: "e2", Source: "source", Target: "img2img"},
+		},
+		Viewport: map[string]any{},
+		Metadata: map[string]any{},
+	}
+	imageCreator := &fakeCanvasImageCreator{}
+	svc := NewCanvasServiceWithDeps(repo, imageCreator)
+
+	run, err := svc.CreateRun(context.Background(), 42, CanvasRunCreateInput{
+		CanvasID: 12,
+		APIKeyID: 10,
+		Model:    "gpt-image-2",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, CanvasRunStatusSucceeded, run.Status)
+	require.Len(t, imageCreator.tasks, 2)
+	require.Equal(t, int64(10), imageCreator.tasks[0].APIKeyID)
+	require.Equal(t, "draw a clean product shot", imageCreator.tasks[0].Prompt)
+	require.Equal(t, "1024x1024", imageCreator.tasks[0].Size)
+	require.Equal(t, "high", imageCreator.tasks[0].Quality)
+	require.Equal(t, []byte("reference"), imageCreator.tasks[1].ReferenceImage)
+	require.Equal(t, "make it cinematic", imageCreator.tasks[1].Prompt)
+	require.Equal(t, CanvasRunStatusSucceeded, repo.lastRunCompleted.Status)
+	tasks, ok := run.Output["image_tasks"].([]map[string]any)
+	require.True(t, ok)
+	require.Len(t, tasks, 2)
+	require.Equal(t, "txt2img", tasks[0]["node_id"])
+	require.Equal(t, int64(101), tasks[0]["task_id"])
+}
+
+func TestCanvasServiceCreateRunFailsWhenImageNodeRequiresAPIKey(t *testing.T) {
+	repo := newFakeCanvasRepo()
+	repo.documents[12] = CanvasDocument{
+		ID:     12,
+		UserID: 42,
+		Title:  "Campaign",
+		Nodes:  []CanvasNode{{ID: "txt2img", Type: CanvasNodeTypeTextToImage, Data: map[string]any{"config": map[string]any{"prompt": "draw"}}}},
+		Edges:  []CanvasEdge{},
+	}
+	svc := NewCanvasServiceWithDeps(repo, &fakeCanvasImageCreator{})
+
+	run, err := svc.CreateRun(context.Background(), 42, CanvasRunCreateInput{CanvasID: 12})
+
+	require.NoError(t, err)
+	require.Equal(t, CanvasRunStatusFailed, run.Status)
+	require.Equal(t, "api_key_id is required to run image nodes", run.ErrorMessage)
+	require.Equal(t, CanvasRunStatusFailed, repo.lastRunCompleted.Status)
 }
 
 func TestCanvasServiceGetAndCancelRunUseCurrentUser(t *testing.T) {

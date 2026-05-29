@@ -148,7 +148,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	imageCreatorStorageGovernanceRepository := repository.NewImageCreatorStorageGovernanceRepository(db)
 	imageCreatorStorageGovernanceService := service.NewImageCreatorStorageGovernanceService(imageCreatorStorageGovernanceRepository, imageCreatorService, configConfig)
 	canvasRepository := repository.NewCanvasRepository(db)
-	canvasService := service.NewCanvasService(canvasRepository)
+	canvasService := service.NewCanvasServiceWithDeps(canvasRepository, imageCreatorService)
 	canvasHandler := handler.NewCanvasHandler(canvasService)
 	promptFavoriteRepository := repository.NewPromptFavoriteRepository(db)
 	promptFavoriteService := service.NewPromptFavoriteService(promptFavoriteRepository)

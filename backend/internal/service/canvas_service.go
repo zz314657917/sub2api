@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -148,6 +151,12 @@ type CanvasRunCreateInput struct {
 	Metadata    map[string]any `json:"metadata"`
 }
 
+type CanvasRunCompleteInput struct {
+	Status       string
+	Output       map[string]any
+	ErrorMessage string
+}
+
 type CanvasRunListFilters struct {
 	CanvasID int64
 	Limit    int
@@ -170,17 +179,29 @@ type CanvasRepository interface {
 	SaveCanvas(ctx context.Context, userID int64, input CanvasSaveInput) (*CanvasDocument, error)
 	DeleteCanvas(ctx context.Context, userID int64, canvasID int64) error
 	CreateCanvasRun(ctx context.Context, userID int64, input CanvasRunCreateInput) (*CanvasRun, error)
+	MarkCanvasRunRunning(ctx context.Context, userID int64, runID int64) (*CanvasRun, error)
+	CompleteCanvasRun(ctx context.Context, userID int64, runID int64, input CanvasRunCompleteInput) (*CanvasRun, error)
 	ListCanvasRuns(ctx context.Context, userID int64, filters CanvasRunListFilters) ([]CanvasRun, int, error)
 	GetCanvasRun(ctx context.Context, userID int64, runID int64) (*CanvasRun, error)
 	CancelCanvasRun(ctx context.Context, userID int64, runID int64) (*CanvasRun, error)
 }
 
+type CanvasImageTaskCreator interface {
+	CreateTask(ctx context.Context, userID int64, input ImageCreatorCreateTaskInput) (*ImageCreatorTask, error)
+	GetReferenceImageForUser(ctx context.Context, userID int64, imageID int64) (*ImageCreatorFile, error)
+}
+
 type CanvasService struct {
-	repo CanvasRepository
+	repo         CanvasRepository
+	imageCreator CanvasImageTaskCreator
 }
 
 func NewCanvasService(repo CanvasRepository) *CanvasService {
 	return &CanvasService{repo: repo}
+}
+
+func NewCanvasServiceWithDeps(repo CanvasRepository, imageCreator CanvasImageTaskCreator) *CanvasService {
+	return &CanvasService{repo: repo, imageCreator: imageCreator}
 }
 
 func (s *CanvasService) ListCanvases(ctx context.Context, userID int64, filters CanvasListFilters) ([]CanvasListItem, int, error) {
@@ -259,13 +280,15 @@ func (s *CanvasService) CreateRun(ctx context.Context, userID int64, input Canva
 	if err != nil {
 		return nil, err
 	}
-	if _, err := s.GetCanvas(ctx, userID, normalized.CanvasID); err != nil {
+	doc, err := s.GetCanvas(ctx, userID, normalized.CanvasID)
+	if err != nil {
 		return nil, err
 	}
 	run, err := s.repo.CreateCanvasRun(ctx, userID, normalized)
 	if err != nil {
 		return nil, err
 	}
+	run = s.executeCanvasRun(ctx, userID, run, doc, normalized)
 	normalizeCanvasRunJSON(run)
 	return run, nil
 }
@@ -283,6 +306,283 @@ func (s *CanvasService) ListRuns(ctx context.Context, userID int64, filters Canv
 		normalizeCanvasRunJSON(&runs[i])
 	}
 	return runs, total, nil
+}
+
+func (s *CanvasService) executeCanvasRun(ctx context.Context, userID int64, run *CanvasRun, doc *CanvasDocument, input CanvasRunCreateInput) *CanvasRun {
+	if run == nil || doc == nil || s == nil || s.imageCreator == nil {
+		return run
+	}
+	running, err := s.repo.MarkCanvasRunRunning(ctx, userID, run.ID)
+	if err == nil && running != nil {
+		run = running
+	}
+	output, err := s.queueCanvasImageTasks(ctx, userID, doc, input)
+	status := CanvasRunStatusSucceeded
+	message := ""
+	if err != nil {
+		status = CanvasRunStatusFailed
+		message = imageCreatorTaskErrorMessage(err)
+		output["failed"] = true
+		output["error_message"] = message
+	}
+	completed, completeErr := s.repo.CompleteCanvasRun(ctx, userID, run.ID, CanvasRunCompleteInput{
+		Status:       status,
+		Output:       output,
+		ErrorMessage: message,
+	})
+	if completeErr != nil {
+		if err != nil {
+			run.Status = CanvasRunStatusFailed
+			run.ErrorMessage = message
+			run.Output = output
+		}
+		return run
+	}
+	return completed
+}
+
+func (s *CanvasService) queueCanvasImageTasks(ctx context.Context, userID int64, doc *CanvasDocument, input CanvasRunCreateInput) (map[string]any, error) {
+	output := map[string]any{
+		"mode":        "image_creator_tasks",
+		"canvas_id":   doc.ID,
+		"image_tasks": []map[string]any{},
+	}
+	executableNodes := canvasExecutableImageNodes(doc.Nodes)
+	if len(executableNodes) == 0 {
+		output["message"] = "no executable image nodes"
+		return output, nil
+	}
+	if input.APIKeyID <= 0 {
+		return output, infraerrors.BadRequest("CANVAS_API_KEY_REQUIRED", "api_key_id is required to run image nodes")
+	}
+	tasks := make([]map[string]any, 0, len(executableNodes))
+	for _, node := range executableNodes {
+		taskInput, err := s.canvasNodeImageTaskInput(ctx, userID, doc, node, input)
+		if err != nil {
+			output["image_tasks"] = tasks
+			output["failed_node_id"] = node.ID
+			return output, err
+		}
+		task, err := s.imageCreator.CreateTask(ctx, userID, taskInput)
+		if err != nil {
+			output["image_tasks"] = tasks
+			output["failed_node_id"] = node.ID
+			return output, err
+		}
+		tasks = append(tasks, map[string]any{
+			"node_id":     node.ID,
+			"node_type":   node.Type,
+			"task_id":     task.ID,
+			"task_status": task.Status,
+			"model":       task.Model,
+			"prompt":      task.Prompt,
+		})
+	}
+	output["image_tasks"] = tasks
+	output["task_count"] = len(tasks)
+	return output, nil
+}
+
+func (s *CanvasService) canvasNodeImageTaskInput(ctx context.Context, userID int64, doc *CanvasDocument, node CanvasNode, runInput CanvasRunCreateInput) (ImageCreatorCreateTaskInput, error) {
+	config := canvasNodeConfig(node)
+	prompt := firstNonEmptyString(
+		canvasString(config, "prompt"),
+		canvasString(config, "text"),
+		canvasString(node.Data, "prompt"),
+		canvasString(node.Data, "text"),
+		canvasUpstreamPrompt(doc, node.ID),
+	)
+	if strings.TrimSpace(prompt) == "" {
+		return ImageCreatorCreateTaskInput{}, infraerrors.BadRequest("CANVAS_NODE_PROMPT_REQUIRED", "image node prompt is required")
+	}
+	apiKeyID := firstPositiveInt64(canvasInt64(config, "apiKeyId"), canvasInt64(config, "api_key_id"), runInput.APIKeyID)
+	input := ImageCreatorCreateTaskInput{
+		APIKeyID:     apiKeyID,
+		Model:        firstNonEmptyString(canvasString(config, "model"), runInput.Model),
+		Prompt:       prompt,
+		Size:         canvasString(config, "size"),
+		Quality:      canvasString(config, "quality"),
+		Count:        int(firstPositiveInt64(canvasInt64(config, "count"), 1)),
+		OutputFormat: canvasString(config, "outputFormat"),
+		Background:   canvasString(config, "background"),
+	}
+	if input.OutputFormat == "" {
+		input.OutputFormat = canvasString(config, "output_format")
+	}
+	if node.Type != CanvasNodeTypeImageToImage {
+		return input, nil
+	}
+	referenceImageID := firstPositiveInt64(
+		canvasInt64(config, "referenceImageId"),
+		canvasInt64(config, "reference_image_id"),
+		canvasInt64(config, "imageId"),
+		canvasInt64(config, "image_id"),
+		canvasUpstreamReferenceImageID(doc, node.ID),
+	)
+	if referenceImageID <= 0 {
+		return ImageCreatorCreateTaskInput{}, infraerrors.BadRequest("CANVAS_REFERENCE_IMAGE_REQUIRED", "image_to_image node reference image is required")
+	}
+	file, err := s.imageCreator.GetReferenceImageForUser(ctx, userID, referenceImageID)
+	if err != nil {
+		return ImageCreatorCreateTaskInput{}, err
+	}
+	data, err := readCanvasReferenceImage(file)
+	if err != nil {
+		return ImageCreatorCreateTaskInput{}, err
+	}
+	input.ReferenceImage = data
+	input.ReferenceImageMimeType = file.ContentType
+	input.ReferenceImageFilename = file.FileName
+	return input, nil
+}
+
+func canvasExecutableImageNodes(nodes []CanvasNode) []CanvasNode {
+	out := make([]CanvasNode, 0)
+	for _, node := range nodes {
+		if node.Type == CanvasNodeTypeTextToImage || node.Type == CanvasNodeTypeImageToImage {
+			out = append(out, node)
+		}
+	}
+	return out
+}
+
+func canvasNodeConfig(node CanvasNode) map[string]any {
+	if config, ok := node.Data["config"].(map[string]any); ok {
+		return normalizeCanvasJSONMap(config)
+	}
+	return map[string]any{}
+}
+
+func canvasUpstreamPrompt(doc *CanvasDocument, nodeID string) string {
+	if doc == nil {
+		return ""
+	}
+	parts := make([]string, 0)
+	for _, edge := range doc.Edges {
+		if edge.Target != nodeID {
+			continue
+		}
+		if source := canvasFindNode(doc.Nodes, edge.Source); source != nil {
+			if text := canvasNodeText(*source); text != "" {
+				parts = append(parts, text)
+			}
+		}
+	}
+	return strings.TrimSpace(strings.Join(parts, "\n\n"))
+}
+
+func canvasUpstreamReferenceImageID(doc *CanvasDocument, nodeID string) int64 {
+	if doc == nil {
+		return 0
+	}
+	for _, edge := range doc.Edges {
+		if edge.Target != nodeID {
+			continue
+		}
+		source := canvasFindNode(doc.Nodes, edge.Source)
+		if source == nil || source.Type != CanvasNodeTypeImage {
+			continue
+		}
+		config := canvasNodeConfig(*source)
+		if id := firstPositiveInt64(
+			canvasInt64(config, "referenceImageId"),
+			canvasInt64(config, "reference_image_id"),
+			canvasInt64(config, "imageId"),
+			canvasInt64(config, "image_id"),
+		); id > 0 {
+			return id
+		}
+	}
+	return 0
+}
+
+func canvasFindNode(nodes []CanvasNode, id string) *CanvasNode {
+	for i := range nodes {
+		if nodes[i].ID == id {
+			return &nodes[i]
+		}
+	}
+	return nil
+}
+
+func canvasNodeText(node CanvasNode) string {
+	config := canvasNodeConfig(node)
+	return firstNonEmptyString(
+		canvasString(config, "prompt"),
+		canvasString(config, "text"),
+		canvasString(node.Data, "prompt"),
+		canvasString(node.Data, "text"),
+		canvasString(node.Data, "title"),
+	)
+}
+
+func canvasString(values map[string]any, key string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	if value, ok := values[key].(string); ok {
+		return strings.TrimSpace(value)
+	}
+	return ""
+}
+
+func canvasInt64(values map[string]any, key string) int64 {
+	if len(values) == 0 {
+		return 0
+	}
+	switch value := values[key].(type) {
+	case int:
+		return int64(value)
+	case int64:
+		return value
+	case float64:
+		return int64(value)
+	case json.Number:
+		n, _ := value.Int64()
+		return n
+	case string:
+		n, _ := strconv.ParseInt(strings.TrimSpace(value), 10, 64)
+		return n
+	default:
+		return 0
+	}
+}
+
+func firstPositiveInt64(values ...int64) int64 {
+	for _, value := range values {
+		if value > 0 {
+			return value
+		}
+	}
+	return 0
+}
+
+func readCanvasReferenceImage(file *ImageCreatorFile) ([]byte, error) {
+	if file == nil {
+		return nil, infraerrors.NotFound("IMAGE_CREATOR_IMAGE_NOT_FOUND", "image not found")
+	}
+	var reader io.ReadCloser
+	var err error
+	switch {
+	case file.Body != nil:
+		reader = file.Body
+	case strings.TrimSpace(file.Path) != "":
+		reader, err = os.Open(file.Path)
+	default:
+		return nil, infraerrors.NotFound("IMAGE_CREATOR_IMAGE_NOT_FOUND", "image file not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = reader.Close() }()
+	data, err := io.ReadAll(io.LimitReader(reader, imageCreatorMaxStoredImageBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(data)) > imageCreatorMaxStoredImageBytes {
+		return nil, infraerrors.BadRequest("REFERENCE_IMAGE_TOO_LARGE", "reference image is too large")
+	}
+	return data, nil
 }
 
 func (s *CanvasService) GetRun(ctx context.Context, userID int64, runID int64) (*CanvasRun, error) {

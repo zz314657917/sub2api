@@ -9,6 +9,7 @@ const updateCanvas = vi.hoisted(() => vi.fn())
 const listCanvasRuns = vi.hoisted(() => vi.fn())
 const createCanvasRun = vi.hoisted(() => vi.fn())
 const listCanvasModels = vi.hoisted(() => vi.fn())
+const keysList = vi.hoisted(() => vi.fn())
 const showError = vi.hoisted(() => vi.fn())
 const showSuccess = vi.hoisted(() => vi.fn())
 
@@ -30,6 +31,12 @@ vi.mock('@/api/canvas', () => ({
   listCanvasRuns,
   createCanvasRun,
   listCanvasModels,
+}))
+
+vi.mock('@/api/keys', () => ({
+  keysAPI: {
+    list: keysList,
+  },
 }))
 
 vi.mock('@/stores', () => ({
@@ -60,7 +67,7 @@ function makeCanvas(overrides: Record<string, unknown> = {}) {
           width: 170,
           height: 86,
           status: 'idle',
-          config: {},
+          config: { prompt: 'old prompt' },
         },
         {
           id: 'node_result',
@@ -70,8 +77,12 @@ function makeCanvas(overrides: Record<string, unknown> = {}) {
           y: 90,
           width: 170,
           height: 86,
-          status: 'idle',
+          status: 'done',
           config: {},
+          result: {
+            thumbnail_url: 'https://example.test/result.png',
+            summary: 'rendered result',
+          },
         },
       ],
       edges: [
@@ -130,7 +141,14 @@ describe('CanvasView', () => {
         {
           id: 'run_1',
           canvas_id: 'canvas_1',
-          status: 'queued',
+          status: 'succeeded',
+          api_key_id: 101,
+          result_node_ids: ['node_result'],
+          outputs: {
+            node_result: {
+              summary: 'latest output',
+            },
+          },
           created_at: '2026-05-20T00:11:00Z',
           updated_at: '2026-05-20T00:11:00Z',
         },
@@ -141,6 +159,7 @@ describe('CanvasView', () => {
       id: 'run_2',
       canvas_id: 'canvas_1',
       status: 'queued',
+      api_key_id: 101,
       created_at: '2026-05-20T00:12:00Z',
       updated_at: '2026-05-20T00:12:00Z',
     })
@@ -151,6 +170,77 @@ describe('CanvasView', () => {
           name: 'gpt-image-2',
           provider: 'openai',
           capabilities: ['text_to_image', 'image_to_image'],
+        },
+      ],
+    })
+    keysList.mockReset().mockResolvedValue({
+      items: [
+        {
+          id: 101,
+          user_id: 1,
+          key: 'sk-redacted',
+          name: 'Image Key',
+          group_id: 7,
+          multi_group_routes: [],
+          account_pool_strategy: 'shared_only',
+          status: 'active',
+          ip_whitelist: [],
+          ip_blacklist: [],
+          last_used_at: null,
+          quota: 0,
+          quota_used: 0,
+          expires_at: null,
+          created_at: '2026-05-20T00:00:00Z',
+          updated_at: '2026-05-20T00:00:00Z',
+          group: {
+            id: 7,
+            name: 'OpenAI Images',
+            description: null,
+            platform: 'openai',
+            rate_multiplier: 1,
+            is_exclusive: false,
+            status: 'active',
+            subscription_type: 'standard',
+            daily_limit_usd: null,
+            weekly_limit_usd: null,
+            monthly_limit_usd: null,
+            allow_image_generation: true,
+            image_rate_independent: false,
+            image_rate_multiplier: 1,
+            image_price_1k: null,
+            image_price_2k: null,
+            image_price_4k: null,
+            claude_code_only: false,
+            fallback_group_id: null,
+            fallback_group_id_on_invalid_request: null,
+            require_oauth_only: false,
+            require_privacy_set: false,
+            created_at: '2026-05-20T00:00:00Z',
+            updated_at: '2026-05-20T00:00:00Z',
+          },
+          route_groups: [],
+          rate_limit_5h: 0,
+          rate_limit_1d: 0,
+          rate_limit_7d: 0,
+          usage_5h: 0,
+          usage_1d: 0,
+          usage_7d: 0,
+          window_5h_start: null,
+          window_1d_start: null,
+          window_7d_start: null,
+          reset_5h_at: null,
+          reset_1d_at: null,
+          reset_7d_at: null,
+        },
+        {
+          id: 102,
+          name: 'Disabled Image Key',
+          status: 'active',
+          group_id: 8,
+          group: {
+            platform: 'openai',
+            allow_image_generation: false,
+          },
         },
       ],
     })
@@ -166,8 +256,15 @@ describe('CanvasView', () => {
     expect(getCanvas).toHaveBeenCalledWith('canvas_1')
     expect(listCanvasRuns).toHaveBeenCalledWith({ canvas_id: 'canvas_1', limit: 8, offset: 0 })
     expect(listCanvasModels).toHaveBeenCalled()
+    expect(keysList).toHaveBeenCalledWith(1, 100, {
+      status: 'active',
+      sort_by: 'created_at',
+      sort_order: 'desc',
+    })
     expect(wrapper.find('[data-testid="canvas-view"]').exists()).toBe(true)
     expect(wrapper.findAll('[data-testid="canvas-node"]')).toHaveLength(2)
+    expect(wrapper.find('[data-testid="canvas-node-preview-image"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="canvas-latest-run"]').text()).toContain('canvas.latestRun')
 
     for (const type of ['text', 'image', 'prompt', 'loop', 'group', 'text_to_image', 'image_to_image', 'result']) {
       expect(wrapper.find(`[data-testid="canvas-node-type-${type}"]`).exists()).toBe(true)
@@ -197,7 +294,34 @@ describe('CanvasView', () => {
     expect(showSuccess).toHaveBeenCalledWith('canvas.saveSuccess')
   })
 
-  it('updates an existing canvas and queues a run', async () => {
+  it('edits selected node config and saves it in the document payload', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="canvas-node-editor"]').exists()).toBe(true)
+    await wrapper.find('[data-testid="canvas-node-title-input"]').setValue('Edited Prompt')
+    await wrapper.find('[data-testid="canvas-node-config-prompt"]').setValue('draw a small robot')
+    await wrapper.find('[data-testid="canvas-node-config-model"]').setValue('gpt-image-2')
+    await wrapper.find('[data-testid="canvas-save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(updateCanvas).toHaveBeenCalledWith('canvas_1', expect.objectContaining({
+      document: expect.objectContaining({
+        nodes: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'node_prompt',
+            title: 'Edited Prompt',
+            config: expect.objectContaining({
+              prompt: 'draw a small robot',
+              model: 'gpt-image-2',
+            }),
+          }),
+        ]),
+      }),
+    }))
+  })
+
+  it('updates an existing canvas, saves before queueing, and refreshes runs', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -214,8 +338,11 @@ describe('CanvasView', () => {
 
     expect(createCanvasRun).toHaveBeenCalledWith({
       canvas_id: 'canvas_1',
+      api_key_id: 101,
       model: 'gpt-image-2',
     })
+    expect(updateCanvas).toHaveBeenCalledTimes(2)
+    expect(listCanvasRuns).toHaveBeenLastCalledWith({ canvas_id: 'canvas_1', limit: 8, offset: 0 })
     expect(showSuccess).toHaveBeenCalledWith('canvas.runQueued')
   })
 })
