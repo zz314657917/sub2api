@@ -10,7 +10,7 @@
         <Icon name="exclamationTriangle" size="xl" class="text-amber-500" />
         <h2>{{ t('chatImageStudio.embeddedOpenFailedTitle') }}</h2>
         <p>{{ workspaceError }}</p>
-        <button type="button" class="btn btn-primary" @click="openWorkspace">
+        <button type="button" class="btn btn-primary" @click="openWorkspace({ force: true })">
           <Icon name="refresh" size="sm" />
           <span>{{ t('chatImageStudio.reloadWorkspace') }}</span>
         </button>
@@ -62,6 +62,7 @@ const pageTheme = ref<'light' | 'dark'>(detectTheme())
 
 let themeObserver: MutationObserver | null = null
 let launchRequestId = 0
+let activeLaunchSignature = ''
 
 watch(
   () => route.fullPath,
@@ -92,7 +93,11 @@ onUnmounted(() => {
   }
 })
 
-async function openWorkspace(): Promise<void> {
+async function openWorkspace(options: { force?: boolean } = {}): Promise<void> {
+  const signature = buildLaunchSignature()
+  if (!options.force && embeddedUrl.value && activeLaunchSignature === signature) {
+    return
+  }
   const requestId = ++launchRequestId
   loadingWorkspace.value = true
   workspaceError.value = ''
@@ -100,10 +105,12 @@ async function openWorkspace(): Promise<void> {
   try {
     const result = await openWebUIAPI.launch()
     if (requestId !== launchRequestId) return
+    activeLaunchSignature = signature
     embeddedUrl.value = buildLaunchFrameUrl(result.launch_url)
     iframeKey.value += 1
   } catch (error) {
     if (requestId !== launchRequestId) return
+    activeLaunchSignature = ''
     console.error('Failed to open embedded chat image workspace:', error)
     workspaceError.value = t('chatImageStudio.embeddedOpenFailedDescription')
     appStore.showError(t('openWebUI.launchFailed'))
@@ -112,6 +119,14 @@ async function openWorkspace(): Promise<void> {
       loadingWorkspace.value = false
     }
   }
+}
+
+function buildLaunchSignature(): string {
+  return [
+    route.fullPath,
+    pageTheme.value,
+    String(locale.value),
+  ].join('|')
 }
 
 function buildLaunchFrameUrl(launchUrl: string): string {
