@@ -10,6 +10,7 @@ const listCanvasRuns = vi.hoisted(() => vi.fn())
 const createCanvasRun = vi.hoisted(() => vi.fn())
 const listCanvasModels = vi.hoisted(() => vi.fn())
 const keysList = vi.hoisted(() => vi.fn())
+const getImageTask = vi.hoisted(() => vi.fn())
 const showError = vi.hoisted(() => vi.fn())
 const showSuccess = vi.hoisted(() => vi.fn())
 
@@ -37,6 +38,10 @@ vi.mock('@/api/keys', () => ({
   keysAPI: {
     list: keysList,
   },
+}))
+
+vi.mock('@/api/imageCreator', () => ({
+  getImageTask,
 }))
 
 vi.mock('@/stores', () => ({
@@ -173,6 +178,7 @@ describe('CanvasView', () => {
         },
       ],
     })
+    getImageTask.mockReset()
     keysList.mockReset().mockResolvedValue({
       items: [
         {
@@ -344,5 +350,176 @@ describe('CanvasView', () => {
     expect(updateCanvas).toHaveBeenCalledTimes(2)
     expect(listCanvasRuns).toHaveBeenLastCalledWith({ canvas_id: 'canvas_1', limit: 8, offset: 0 })
     expect(showSuccess).toHaveBeenCalledWith('canvas.runQueued')
+  })
+
+  it('polls canvas image tasks and renders the generated node image', async () => {
+    getCanvas.mockResolvedValue(makeCanvas({
+      document: {
+        nodes: [
+          {
+            id: 'node_prompt',
+            type: 'prompt',
+            title: 'Prompt',
+            x: 80,
+            y: 90,
+            width: 170,
+            height: 86,
+            status: 'idle',
+            config: { prompt: 'old prompt' },
+          },
+          {
+            id: 'node_result',
+            type: 'text_to_image',
+            title: 'Text to image',
+            x: 320,
+            y: 90,
+            width: 170,
+            height: 86,
+            status: 'idle',
+            config: {},
+          },
+        ],
+        edges: [
+          {
+            id: 'edge_1',
+            source_node_id: 'node_prompt',
+            target_node_id: 'node_result',
+          },
+        ],
+      },
+    }))
+    listCanvasRuns.mockResolvedValue({
+      items: [
+        {
+          id: 'run_1',
+          canvas_id: 'canvas_1',
+          status: 'running',
+          api_key_id: 101,
+          output: {
+            mode: 'image_creator_tasks',
+            image_tasks: [
+              {
+                node_id: 'node_result',
+                task_id: 501,
+                task_status: 'running',
+              },
+            ],
+          },
+          created_at: '2026-05-20T00:11:00Z',
+          updated_at: '2026-05-20T00:11:00Z',
+        },
+      ],
+      total: 1,
+    })
+    getImageTask.mockResolvedValue({
+      id: 501,
+      user_id: 1,
+      api_key_id: 101,
+      status: 'succeeded',
+      model: 'gpt-image-2',
+      prompt: 'paint a city',
+      size: '1024x1024',
+      quality: 'standard',
+      output_format: 'png',
+      background: 'auto',
+      count: 1,
+      expires_at: '2026-05-21T00:00:00Z',
+      created_at: '2026-05-20T00:11:00Z',
+      updated_at: '2026-05-20T00:12:00Z',
+      images: [
+        {
+          id: 9001,
+          task_id: 501,
+          user_id: 1,
+          url: '/api/v1/user/image-creator/images/9001/file',
+          output_format: 'png',
+          mime_type: 'image/png',
+          byte_size: 1200,
+          sha256: 'sha',
+          expires_at: '2026-05-21T00:00:00Z',
+          created_at: '2026-05-20T00:12:00Z',
+        },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    expect(getImageTask).toHaveBeenCalledWith(501)
+    expect(wrapper.find('[data-testid="canvas-node-preview-image"]').attributes('src')).toBe('/api/v1/user/image-creator/images/9001/file')
+    expect(wrapper.find('[data-testid="canvas-latest-run"]').text()).toContain('canvas.imageTaskSummary')
+
+    wrapper.unmount()
+  })
+
+  it('renders canvas image task failures on the mapped node', async () => {
+    getCanvas.mockResolvedValue(makeCanvas({
+      document: {
+        nodes: [
+          {
+            id: 'node_result',
+            type: 'text_to_image',
+            title: 'Text to image',
+            x: 80,
+            y: 90,
+            width: 170,
+            height: 86,
+            status: 'idle',
+            config: {},
+          },
+        ],
+        edges: [],
+      },
+    }))
+    listCanvasRuns.mockResolvedValue({
+      items: [
+        {
+          id: 'run_1',
+          canvas_id: 'canvas_1',
+          status: 'running',
+          api_key_id: 101,
+          output: {
+            image_tasks: [
+              {
+                node_id: 'node_result',
+                task_id: 502,
+                task_status: 'pending',
+              },
+            ],
+          },
+          created_at: '2026-05-20T00:11:00Z',
+          updated_at: '2026-05-20T00:11:00Z',
+        },
+      ],
+      total: 1,
+    })
+    getImageTask.mockResolvedValue({
+      id: 502,
+      user_id: 1,
+      api_key_id: 101,
+      status: 'failed',
+      model: 'gpt-image-2',
+      prompt: 'paint a city',
+      size: '1024x1024',
+      quality: 'standard',
+      output_format: 'png',
+      background: 'auto',
+      count: 1,
+      error_message: 'upstream refused the request',
+      expires_at: '2026-05-21T00:00:00Z',
+      created_at: '2026-05-20T00:11:00Z',
+      updated_at: '2026-05-20T00:12:00Z',
+      images: [],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+    await flushPromises()
+
+    expect(getImageTask).toHaveBeenCalledWith(502)
+    expect(wrapper.find('[data-testid="canvas-node-error"]').text()).toContain('upstream refused the request')
+
+    wrapper.unmount()
   })
 })

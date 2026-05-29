@@ -1443,6 +1443,15 @@ export default {
     runQueued: '运行已加入队列',
     queueFailed: '提交运行失败',
     latestRun: '最近运行',
+    imageTaskSummary: '{count} 个生图任务',
+    imageTaskDone: '已生成 {count} 张图片',
+    imageTaskStatusSummary: '图片任务：{status}',
+    imageTaskStatus: {
+      pending: '等待中',
+      running: '生成中',
+      succeeded: '已完成',
+      failed: '失败'
+    },
     nodeInspector: '节点参数',
     nodeTitle: '节点名称',
     nodeConfigDefault: '默认',

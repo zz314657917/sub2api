@@ -1439,6 +1439,15 @@ export default {
     runQueued: 'Run queued',
     queueFailed: 'Failed to queue run',
     latestRun: 'Latest run',
+    imageTaskSummary: '{count} image task(s)',
+    imageTaskDone: '{count} image(s) generated',
+    imageTaskStatusSummary: 'Image task: {status}',
+    imageTaskStatus: {
+      pending: 'Pending',
+      running: 'Generating',
+      succeeded: 'Succeeded',
+      failed: 'Failed'
+    },
     nodeInspector: 'Node Parameters',
     nodeTitle: 'Node name',
     nodeConfigDefault: 'Default',

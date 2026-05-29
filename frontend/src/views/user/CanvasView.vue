@@ -378,7 +378,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -401,6 +401,11 @@ import {
   type UserCanvas,
   type UserCanvasSummary,
 } from '@/api/canvas'
+import {
+  getImageTask,
+  type ImageCreatorTask,
+  type ImageCreatorTaskStatus,
+} from '@/api/imageCreator'
 import type { ApiKey } from '@/types'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
@@ -433,6 +438,12 @@ interface NodeConfigField {
   options: NodeConfigOption[]
 }
 
+interface CanvasRunImageTaskLink {
+  nodeId: string
+  taskId: number
+  taskStatus?: ImageCreatorTaskStatus
+}
+
 const { t } = useI18n()
 const appStore = useAppStore()
 
@@ -440,6 +451,8 @@ const canvases = ref<UserCanvasSummary[]>([])
 const models = ref<CanvasModel[]>([])
 const runs = ref<CanvasRun[]>([])
 const apiKeys = ref<ApiKey[]>([])
+const canvasTaskLinks = ref<CanvasRunImageTaskLink[]>([])
+const canvasTasksById = ref<Record<string, ImageCreatorTask>>({})
 const selectedCanvasId = ref<string | null>(null)
 const selectedNodeId = ref<string | null>(null)
 const selectedKeyId = ref<number | null>(null)
@@ -454,6 +467,10 @@ const loadingModels = ref(false)
 const saving = ref(false)
 const queuingRun = ref(false)
 const canvasLoadError = ref('')
+const canvasTaskPollIntervalMs = 4000
+let canvasTaskPollTimerId: ReturnType<typeof setInterval> | null = null
+let pollingCanvasTasks = false
+let canvasTaskSyncVersion = 0
 
 const nodeTypes: Array<{ type: CanvasNodeType, icon: IconName }> = [
   { type: 'text', icon: 'document' },
@@ -572,6 +589,10 @@ onMounted(() => {
   void loadModels()
 })
 
+onBeforeUnmount(() => {
+  stopCanvasTaskPolling()
+})
+
 function createDefaultDocument(): CanvasDocument {
   const nodes: CanvasNode[] = [
     makeNode('prompt', 'canvas.sampleNodes.prompt', 70, 70),
@@ -646,6 +667,7 @@ function beginNewCanvas(): void {
   canvasDocument.value = createDefaultDocument()
   selectedNodeId.value = canvasDocument.value.nodes[0]?.id ?? null
   runs.value = []
+  resetCanvasTaskState()
 }
 
 async function loadCanvases(): Promise<void> {
@@ -711,6 +733,7 @@ async function loadApiKeys(): Promise<void> {
 async function openCanvas(id: string): Promise<void> {
   loadingCanvas.value = true
   selectedCanvasId.value = id
+  resetCanvasTaskState()
   try {
     const item = await getCanvas(id)
     applyCanvas(item)
@@ -726,8 +749,10 @@ async function loadRuns(canvasId: string): Promise<void> {
   try {
     const response = await listCanvasRuns({ canvas_id: canvasId, limit: 8, offset: 0 })
     runs.value = response.items
+    syncCanvasImageTasksFromRuns(response.items)
   } catch {
     runs.value = []
+    syncCanvasImageTasksFromRuns([])
   }
 }
 
@@ -779,6 +804,7 @@ async function queueCanvasRun(): Promise<void> {
       model: selectedModel.value || undefined,
     })
     runs.value = [run, ...runs.value].slice(0, 8)
+    syncCanvasImageTasksFromRuns(runs.value)
     await loadRuns(canvasId)
     appStore.showSuccess(t('canvas.runQueued'))
   } catch (error: unknown) {
@@ -900,6 +926,10 @@ function nodeStyle(node: CanvasNode): Record<string, string> {
 }
 
 function nodeDisplayStatus(node: CanvasNode): CanvasNodeStatus {
+  const taskLink = imageTaskLinkForNode(node.id)
+  if (taskLink) {
+    return canvasNodeStatusFromTaskStatus(imageTaskStatusForNode(node.id) ?? 'pending')
+  }
   if (node.status && node.status !== 'idle') return normalizeNodeStatus(node.status)
   if (nodeErrorSummary(node)) return 'failed'
   if (node.result !== undefined || outputForNode(node) !== undefined) return 'done'
@@ -907,21 +937,29 @@ function nodeDisplayStatus(node: CanvasNode): CanvasNodeStatus {
 }
 
 function nodeResultImageUrl(node: CanvasNode): string {
+  const taskOutput = canvasTaskOutputForNode(node)
+  if (taskOutput !== undefined) return firstImageUrl(taskOutput)
   return firstImageUrl(node.result) || firstImageUrl(outputForNode(node))
 }
 
 function nodeResultSummary(node: CanvasNode): string {
+  const taskOutput = canvasTaskOutputForNode(node)
+  if (taskOutput !== undefined) return summarizeUnknown(taskOutput)
   const result = node.result ?? outputForNode(node)
   return summarizeUnknown(result)
 }
 
 function nodeErrorSummary(node: CanvasNode): string {
+  const task = imageTaskForNode(node.id)
+  if (task?.error_message) return task.error_message
   const output = outputForNode(node)
   return summarizeUnknown(node.error) || summarizeUnknown(node.config?.error) ||
     (isRecord(output) ? summarizeUnknown(output.error) : '')
 }
 
 function outputForNode(node: CanvasNode): unknown {
+  const taskOutput = canvasTaskOutputForNode(node)
+  if (taskOutput !== undefined) return taskOutput
   const outputs = latestRun.value ? runOutputs(latestRun.value) : {}
   if (!outputs) return undefined
   return outputs[node.id]
@@ -929,6 +967,10 @@ function outputForNode(node: CanvasNode): unknown {
 
 function runOutputSummary(run: CanvasRun): string {
   if (run.error_message) return ''
+  const imageTaskLinks = canvasImageTaskLinksFromRun(run)
+  if (imageTaskLinks.length > 0) {
+    return t('canvas.imageTaskSummary', { count: imageTaskLinks.length })
+  }
   const outputs = runOutputs(run)
   const resultNodeId = run.result_node_ids?.[0]
   if (resultNodeId && outputs[resultNodeId] !== undefined) {
@@ -968,7 +1010,9 @@ function firstImageUrl(value: unknown): string {
 }
 
 function isImageLikeUrl(value: string): boolean {
-  return /^(https?:|data:image\/|blob:)/i.test(value) || /\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(value)
+  return /^(https?:|data:image\/|blob:)/i.test(value) ||
+    value.startsWith('/api/v1/user/image-creator/images/') ||
+    /\.(png|jpe?g|webp|gif)(\?.*)?$/i.test(value)
 }
 
 function summarizeUnknown(value: unknown): string {
@@ -999,6 +1043,214 @@ function truncateText(value: string): string {
 
 function normalizeNodeStatus(status: CanvasNode['status']): CanvasNodeStatus {
   return status === 'queued' || status === 'running' || status === 'done' || status === 'failed' ? status : 'idle'
+}
+
+function resetCanvasTaskState(): void {
+  canvasTaskSyncVersion += 1
+  canvasTaskLinks.value = []
+  canvasTasksById.value = {}
+  stopCanvasTaskPolling()
+}
+
+function syncCanvasImageTasksFromRuns(sourceRuns: CanvasRun[]): void {
+  canvasTaskSyncVersion += 1
+  const nextLinks = canvasImageTaskLinksFromRuns(sourceRuns)
+  canvasTaskLinks.value = nextLinks
+  const taskIds = new Set(nextLinks.map((link) => String(link.taskId)))
+  const retainedTasks: Record<string, ImageCreatorTask> = {}
+  for (const [taskId, task] of Object.entries(canvasTasksById.value)) {
+    if (taskIds.has(taskId)) retainedTasks[taskId] = task
+  }
+  canvasTasksById.value = retainedTasks
+
+  const idsToFetch = Array.from(taskIds).map((taskId) => Number(taskId))
+  if (idsToFetch.length > 0) {
+    void pollCanvasImageTasks(idsToFetch)
+  } else {
+    stopCanvasTaskPolling()
+  }
+  refreshCanvasTaskPolling()
+}
+
+function canvasImageTaskLinksFromRuns(sourceRuns: CanvasRun[]): CanvasRunImageTaskLink[] {
+  const links: CanvasRunImageTaskLink[] = []
+  const seenNodeIds = new Set<string>()
+  for (const run of sourceRuns) {
+    for (const link of canvasImageTaskLinksFromRun(run)) {
+      if (seenNodeIds.has(link.nodeId)) continue
+      seenNodeIds.add(link.nodeId)
+      links.push(link)
+    }
+  }
+  return links
+}
+
+function canvasImageTaskLinksFromRun(run: CanvasRun): CanvasRunImageTaskLink[] {
+  const links: CanvasRunImageTaskLink[] = []
+  for (const candidate of [run.output, run.outputs]) {
+    if (!isRecord(candidate)) continue
+    const items = Array.isArray(candidate.image_tasks)
+      ? candidate.image_tasks
+      : Array.isArray(candidate.imageTasks)
+        ? candidate.imageTasks
+        : []
+    for (const item of items) {
+      const link = canvasImageTaskLinkFromUnknown(item)
+      if (link) links.push(link)
+    }
+  }
+  return links
+}
+
+function canvasImageTaskLinkFromUnknown(value: unknown): CanvasRunImageTaskLink | null {
+  if (!isRecord(value)) return null
+  const nodeId = stringFromUnknown(value.node_id) || stringFromUnknown(value.nodeId)
+  const taskId = positiveIntegerFromUnknown(value.task_id ?? value.taskId)
+  if (!nodeId || taskId === null) return null
+  return {
+    nodeId,
+    taskId,
+    taskStatus: normalizeImageCreatorTaskStatus(value.task_status ?? value.taskStatus ?? value.status),
+  }
+}
+
+async function pollCanvasImageTasks(taskIds = activeCanvasTaskIds()): Promise<void> {
+  const ids = Array.from(new Set(taskIds.filter((taskId) => Number.isFinite(taskId) && taskId > 0)))
+  if (ids.length === 0 || pollingCanvasTasks) {
+    refreshCanvasTaskPolling()
+    return
+  }
+  const syncVersion = canvasTaskSyncVersion
+  pollingCanvasTasks = true
+  try {
+    const tasks = await Promise.all(ids.map(async (taskId) => {
+      try {
+        return await getImageTask(taskId)
+      } catch {
+        return null
+      }
+    }))
+    if (syncVersion !== canvasTaskSyncVersion) return
+    const nextTasks = { ...canvasTasksById.value }
+    for (const task of tasks) {
+      if (!task) continue
+      nextTasks[String(task.id)] = task
+    }
+    canvasTasksById.value = nextTasks
+  } finally {
+    pollingCanvasTasks = false
+    refreshCanvasTaskPolling()
+  }
+}
+
+function refreshCanvasTaskPolling(): void {
+  if (activeCanvasTaskIds().length > 0) {
+    startCanvasTaskPolling()
+  } else {
+    stopCanvasTaskPolling()
+  }
+}
+
+function startCanvasTaskPolling(): void {
+  if (canvasTaskPollTimerId !== null) return
+  canvasTaskPollTimerId = setInterval(() => {
+    void pollCanvasImageTasks()
+  }, canvasTaskPollIntervalMs)
+}
+
+function stopCanvasTaskPolling(): void {
+  if (canvasTaskPollTimerId === null) return
+  clearInterval(canvasTaskPollTimerId)
+  canvasTaskPollTimerId = null
+}
+
+function activeCanvasTaskIds(): number[] {
+  const taskIds = new Set<number>()
+  for (const link of canvasTaskLinks.value) {
+    const task = canvasTasksById.value[String(link.taskId)]
+    const status = task?.status ?? link.taskStatus
+    if (!status || taskIsActiveStatus(status)) {
+      taskIds.add(link.taskId)
+    }
+  }
+  return Array.from(taskIds)
+}
+
+function imageTaskLinkForNode(nodeId: string): CanvasRunImageTaskLink | null {
+  return canvasTaskLinks.value.find((link) => link.nodeId === nodeId) ?? null
+}
+
+function imageTaskForNode(nodeId: string): ImageCreatorTask | null {
+  const link = imageTaskLinkForNode(nodeId)
+  return link ? canvasTasksById.value[String(link.taskId)] ?? null : null
+}
+
+function imageTaskStatusForNode(nodeId: string): ImageCreatorTaskStatus | undefined {
+  const link = imageTaskLinkForNode(nodeId)
+  if (!link) return undefined
+  return canvasTasksById.value[String(link.taskId)]?.status ?? link.taskStatus
+}
+
+function canvasTaskOutputForNode(node: CanvasNode): unknown {
+  const task = imageTaskForNode(node.id)
+  if (task) return imageTaskToNodeOutput(task)
+  const link = imageTaskLinkForNode(node.id)
+  if (!link) return undefined
+  return {
+    task_id: link.taskId,
+    status: link.taskStatus,
+    message: t('canvas.imageTaskStatusSummary', {
+      status: link.taskStatus ? t(`canvas.imageTaskStatus.${link.taskStatus}`) : t('canvas.nodeStatus.queued'),
+    }),
+  }
+}
+
+function imageTaskToNodeOutput(task: ImageCreatorTask): Record<string, unknown> {
+  const images = task.images ?? []
+  if (task.status === 'failed') {
+    return {
+      task_id: task.id,
+      status: task.status,
+      error: task.error_message || t('canvas.imageTaskStatusSummary', { status: t('canvas.nodeStatus.failed') }),
+    }
+  }
+  return {
+    task_id: task.id,
+    status: task.status,
+    images,
+    summary: images.length > 0
+      ? t('canvas.imageTaskDone', { count: images.length })
+      : t('canvas.imageTaskStatusSummary', { status: t(`canvas.imageTaskStatus.${task.status}`) }),
+    prompt: task.prompt,
+    model: task.model,
+  }
+}
+
+function canvasNodeStatusFromTaskStatus(status: ImageCreatorTaskStatus): CanvasNodeStatus {
+  if (status === 'succeeded') return 'done'
+  if (status === 'failed') return 'failed'
+  if (status === 'running') return 'running'
+  return 'queued'
+}
+
+function taskIsActiveStatus(status: ImageCreatorTaskStatus | undefined): boolean {
+  return status === 'pending' || status === 'running'
+}
+
+function normalizeImageCreatorTaskStatus(status: unknown): ImageCreatorTaskStatus | undefined {
+  return status === 'pending' || status === 'running' || status === 'succeeded' || status === 'failed'
+    ? status
+    : undefined
+}
+
+function positiveIntegerFromUnknown(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isInteger(value) && value > 0) return value
+  if (typeof value === 'string' && /^\d+$/.test(value.trim())) return Number(value.trim())
+  return null
+}
+
+function stringFromUnknown(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 
 function inputValue(event: Event): string {

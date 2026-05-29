@@ -1,5 +1,14 @@
 # 项目时间轴
 
+## 2026-05-29 09:45 +08:00 - Canvas ImageCreator 任务轮询与节点结果回填
+
+- 当前阶段：在 `codex/sub2api-studio-layout` 上继续补 Canvas 真实运行闭环，把上一阶段写入 `canvas_runs.output.image_tasks` 的 node -> ImageCreator task 映射接到前端展示。
+- 本段重点：`/canvas` 解析 run output 中的 `image_tasks`，调用现有 `getImageTask` 轮询任务状态，并按节点展示 queued/running/done/failed、生成图片预览和失败错误；轮询结果作为展示层 overlay，不自动写回 Canvas 文档保存 payload。
+- 关键决策：不新增后端轮询接口，不绕过现有受保护图片 URL；轮询只使用当前用户的 `/user/image-creator/tasks/:id` 权限链路。切换画布时用版本号丢弃旧请求结果，组件卸载时清理 timer。
+- 验证记录：`npm.cmd run test:run -- CanvasView canvas`、`npm.cmd run lint:check`、`npm.cmd run build`、`git diff --check` 均通过；前端 build 仅有既有 Vite dynamic import/chunk size 警告。
+- 遗留问题：未做真实登录态浏览器手工验收；Canvas 仍缺旧版完整拖拽连线编辑器、模板、裁剪/外扩/mask 和历史。
+- 下一步：继续补 Canvas 节点交互编辑器和模板/高级图像编辑；若要更强一致性，可后续让后端 Canvas run 聚合 ImageCreator task 终态。
+
 ## 2026-05-29 09:25 +08:00 - Canvas 真实运行最小闭环落地
 
 - 当前阶段：在 `codex/sub2api-studio-layout` 上继续迁移旧版生图 Canvas 能力，完成 Canvas run 到现有 ImageCreator task 队列的最小真实运行链路。

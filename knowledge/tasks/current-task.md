@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-05-29 09:25 +08:00
+最后更新：2026-05-29 09:45 +08:00
 
 ## 背景
 
@@ -12,7 +12,7 @@
 ## 当前目标
 
 - 继续补齐图片库高级筛选、图片库参考图复用、提示词市场/收藏、生图存储治理，以及 Canvas 的后端/API 和前端工作台骨架。
-- 本轮聚焦 Canvas 真实运行最小闭环：Canvas run 复用现有 ImageCreator task 队列和 API Key 权限链路。
+- 本轮聚焦 Canvas 真实运行最小闭环和前端结果回填：Canvas run 复用现有 ImageCreator task 队列和 API Key 权限链路，前端轮询 task 状态并展示节点结果。
 - 保持迁移分批提交，避免一个不可验收的大提交。
 
 ## 本次已完成
@@ -25,6 +25,7 @@
 - Canvas 前端已提交：新增 `/canvas`、侧边栏入口、Canvas API 适配层、基础节点画布、节点列表、模型选择、保存、运行队列/历史骨架、模板入口占位。
 - Canvas 运行链路已完成：CanvasService 注入 ImageCreatorService，`CreateRun` 会解析 `text_to_image` / `image_to_image` 节点，创建现有 ImageCreator task，并把 node -> task 映射写入 `canvas_runs.output`。
 - Canvas 前端交互已增强：`/canvas` 支持选择可用 API Key、编辑节点 `prompt/text/model/size/quality/referenceImageId`，运行前保存画布，并展示最近运行状态、节点结果摘要/缩略和错误摘要。
+- Canvas 运行结果回填已完成：`/canvas` 会解析 `canvas_runs.output.image_tasks`，调用现有 `/user/image-creator/tasks/:id` 轮询任务，并在节点上展示排队/运行/成功/失败、图片预览和错误信息；结果仅作为展示层 overlay，不自动写回 Canvas 文档。
 
 ## 已确认事实
 
@@ -33,7 +34,10 @@
   - `b03e09354 feat(images): add prompt market favorites`
   - `d810a93bf feat(canvas): add backend canvas and storage governance APIs`
   - `ce961c84a feat(canvas): add canvas workspace UI`
+  - `c0f0c8af9 feat(canvas): queue image creator tasks from canvas runs`
+  - `403baa41c docs(workflow): record canvas run chain progress`
 - Canvas 当前可把图片节点运行提交到现有 ImageCreator task；图片实际生成、API Key 校验、分组生图权限、并发限制、gateway 计费和图片保存继续复用 ImageCreator 链路。
+- Canvas 前端现在可轮询 ImageCreator task 结果并回填展示；为了避免隐藏持久化，轮询结果不修改保存 payload 中的 Canvas 文档。
 - Canvas 还不是完整旧版节点执行引擎：取消 run 不会级联取消 ImageCreator task，节点拖拽连线编辑器、模板库和高级图像编辑还未完整实现。
 - 存储治理对象存储场景仅支持过期图片走既有删除逻辑；本地孤儿文件/缓存遍历在对象存储后端返回 `unsupported`。
 - `wire_gen.go` 因仓库既有 Wire 生成阻塞，仍采用手工同步方式；`go test ./cmd/server` 已验证当前注入可编译。
@@ -49,16 +53,16 @@
 - 动作：管理员打开设置页的“生图存储治理”卡片。
   验证：统计展示正确，清理动作有结果反馈；对象存储本地遍历动作显示不支持。
 - 动作：打开 `/canvas`。
-  验证：能新建/保存/打开 Canvas，选择 API Key，编辑节点参数，提交运行后生成 ImageCreator task 映射；确认当前不包含完整旧版 Canvas 编辑能力。
+  验证：能新建/保存/打开 Canvas，选择 API Key，编辑节点参数，提交运行后生成 ImageCreator task 映射，随后节点能显示 ImageCreator task 状态、预览图和失败错误；确认当前不包含完整旧版 Canvas 编辑能力。
 
 ## 当前结论
 
-- 本轮迁移的图片库、参考图复用、提示词市场/收藏、存储治理、Canvas 基础能力和 Canvas 运行最小闭环已经完成代码实现并通过自动化验证。
-- 完整旧版 Canvas 能力尚未全部迁完，下一阶段应继续做节点交互编辑器、运行轮询/结果回填、模板和高级图像编辑。
+- 本轮迁移的图片库、参考图复用、提示词市场/收藏、存储治理、Canvas 基础能力、Canvas 运行最小闭环和 Canvas 结果轮询回填已经完成代码实现并通过自动化验证。
+- 完整旧版 Canvas 能力尚未全部迁完，下一阶段应继续做节点交互编辑器、模板和高级图像编辑。
 
 ## 下一步
 
-- 动作：补 Canvas 前端交互编辑能力，包括拖拽、连线、节点参数面板细化、运行轮询和结果回填。
+- 动作：补 Canvas 前端交互编辑能力，包括拖拽、连线、节点参数面板细化和运行队列交互。
   验证：`npm.cmd run test:run -- CanvasView`，并用浏览器检查桌面/移动端布局。
 - 动作：迁移 Canvas 图像编辑能力，包括裁剪、外扩、mask、历史和模板。
   验证：用旧版典型流程逐项对照验收。
@@ -76,6 +80,10 @@
 - `go test ./cmd/server -count=1`，通过。
 - `npm.cmd run test:run -- CanvasView canvas AppSidebar public-smoke`，通过。
 - `go test ./...`，通过。
+- `npm.cmd run lint:check`，通过。
+- `npm.cmd run build`，通过；仅有既有 Vite dynamic import/chunk size 警告。
+- `git diff --check`，通过。
+- `npm.cmd run test:run -- CanvasView canvas`，通过。
 - `npm.cmd run lint:check`，通过。
 - `npm.cmd run build`，通过；仅有既有 Vite dynamic import/chunk size 警告。
 - `git diff --check`，通过。
