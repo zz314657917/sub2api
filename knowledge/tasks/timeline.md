@@ -261,3 +261,12 @@
 - 验证记录：`npm.cmd run test:run -- public-pages` 通过；`npm.cmd run build` 通过但仍有既有 Vite chunk/DEP0190 警告；`git diff --check` 通过；Playwright CLI 验证教程目录滚动后仍在视口内。
 - 遗留问题：本地仍有 6 个未提交文件，提交前需要复核是否拆分公共页面改动与控制台侧栏/i18n 改动；模型广场还建议人工看一次真实数据下的筛选和卡片拥挤度。
 - 下一步：复核 `/tutorial#quick-start`、`/models` 和相关控制台侧栏效果；确认后按主题拆分或合并提交并推送。
+
+## 2026-05-29 10:55 +08:00 - Canvas 核心多智能体迁移验收
+
+- 当前阶段：在 `codex/sub2api-studio-layout` 按 P/G/E 多智能体完成 Canvas 核心可用性第一批。
+- 本段重点：Worker A 补 Canvas run 取消 API client 与后端测试；Worker B 补节点拖拽、连线编辑、缩放、平移、适配视图；主 Codex 集成取消按钮和响应式拖拽细节；QA Worker 独立验收。
+- 已完成：`/canvas` 支持节点拖拽、节点选择、边选择、创建/删除连线、删除节点清理边、viewport 保存、运行队列取消 `queued/running/pending` run；`CanvasRun` 映射 `canceled_at`，前端新增 `cancelCanvasRun`。
+- 关键决策：Canvas run 取消仍只取消 Canvas run 本身，不级联取消 ImageCreator task；模板库、高级图像编辑、裁剪、外扩、mask 继续后置。
+- 验证记录：后端目标测试、`go test ./cmd/server -count=1`、`npm.cmd run test:run -- CanvasView canvas`、`npm.cmd run lint:check`、`npm.cmd run build`、`git diff --check` 全部通过；QA 报告为 `### PASS: sub2api-canvas-core`。
+- 遗留问题：真实登录态浏览器 UI 仅做了受保护路由 smoke，未做完整人工拖拽/取消链路；下一批迁移模板库和高级图像编辑。

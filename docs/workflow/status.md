@@ -1,7 +1,7 @@
 ---
 phase: done
-current_sprint: 3
-total_sprints: 3
+current_sprint: 4
+total_sprints: 4
 pending_action: none
 project_type: generic
 qa_mode: runtime
@@ -12,6 +12,6 @@ last_verified: 2026-05-29
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前任务：`sub2api-canvas-image-task-polling`
-- 下一合法动作：无。本轮已实现并通过目标测试。
+- 当前任务：`sub2api-canvas-core`
+- 下一合法动作：无。本轮已实现并通过目标测试与 QA worker 验收。
 - 状态推进规则：先 `spec-approved`，再进入当前 Sprint 的 `contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。

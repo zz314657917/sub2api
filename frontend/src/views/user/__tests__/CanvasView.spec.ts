@@ -8,6 +8,7 @@ const createCanvas = vi.hoisted(() => vi.fn())
 const updateCanvas = vi.hoisted(() => vi.fn())
 const listCanvasRuns = vi.hoisted(() => vi.fn())
 const createCanvasRun = vi.hoisted(() => vi.fn())
+const cancelCanvasRun = vi.hoisted(() => vi.fn())
 const listCanvasModels = vi.hoisted(() => vi.fn())
 const keysList = vi.hoisted(() => vi.fn())
 const getImageTask = vi.hoisted(() => vi.fn())
@@ -31,6 +32,7 @@ vi.mock('@/api/canvas', () => ({
   updateCanvas,
   listCanvasRuns,
   createCanvasRun,
+  cancelCanvasRun,
   listCanvasModels,
 }))
 
@@ -97,6 +99,7 @@ function makeCanvas(overrides: Record<string, unknown> = {}) {
           target_node_id: 'node_result',
         },
       ],
+      viewport: { x: 0, y: 0, zoom: 1 },
     },
     ...overrides,
   }
@@ -167,6 +170,16 @@ describe('CanvasView', () => {
       api_key_id: 101,
       created_at: '2026-05-20T00:12:00Z',
       updated_at: '2026-05-20T00:12:00Z',
+    })
+    cancelCanvasRun.mockReset().mockResolvedValue({
+      id: 'run_2',
+      canvas_id: 'canvas_1',
+      status: 'canceled',
+      api_key_id: 101,
+      canceled_at: '2026-05-20T00:13:00Z',
+      completed_at: '2026-05-20T00:13:00Z',
+      created_at: '2026-05-20T00:12:00Z',
+      updated_at: '2026-05-20T00:13:00Z',
     })
     listCanvasModels.mockReset().mockResolvedValue({
       items: [
@@ -327,6 +340,119 @@ describe('CanvasView', () => {
     }))
   })
 
+  it('drags a node and saves the updated node coordinates', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const firstNode = wrapper.findAll('[data-testid="canvas-node"]')[0]
+    await firstNode.trigger('mousedown', { button: 0, clientX: 100, clientY: 100 })
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 150, clientY: 130 }))
+    window.dispatchEvent(new MouseEvent('mouseup'))
+    await wrapper.find('[data-testid="canvas-save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(updateCanvas).toHaveBeenCalledWith('canvas_1', expect.objectContaining({
+      document: expect.objectContaining({
+        nodes: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'node_prompt',
+            x: 130,
+            y: 120,
+          }),
+        ]),
+      }),
+    }))
+
+    wrapper.unmount()
+  })
+
+  it('creates and deletes selected edges without duplicating the same edge', async () => {
+    getCanvas.mockResolvedValue(makeCanvas({
+      document: {
+        nodes: [
+          {
+            id: 'node_prompt',
+            type: 'prompt',
+            title: 'Prompt',
+            x: 80,
+            y: 90,
+            width: 170,
+            height: 86,
+            status: 'idle',
+            config: {},
+          },
+          {
+            id: 'node_result',
+            type: 'result',
+            title: 'Result',
+            x: 320,
+            y: 90,
+            width: 170,
+            height: 86,
+            status: 'idle',
+            config: {},
+          },
+        ],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+      },
+    }))
+    const wrapper = mountView()
+    await flushPromises()
+
+    const nodes = wrapper.findAll('[data-testid="canvas-node"]')
+    await nodes[0].trigger('click')
+    await wrapper.find('[data-testid="canvas-create-edge-button"]').trigger('click')
+    await nodes[1].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="canvas-edge"]')).toHaveLength(1)
+
+    await nodes[0].trigger('click')
+    await wrapper.find('[data-testid="canvas-create-edge-button"]').trigger('click')
+    await nodes[1].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="canvas-edge"]')).toHaveLength(1)
+
+    await wrapper.find('[data-testid="canvas-edge"]').trigger('click')
+    await wrapper.find('[data-testid="canvas-remove-edge-button"]').trigger('click')
+    await wrapper.find('[data-testid="canvas-save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(updateCanvas).toHaveBeenCalledWith('canvas_1', expect.objectContaining({
+      document: expect.objectContaining({
+        edges: [],
+      }),
+    }))
+
+    wrapper.unmount()
+  })
+
+  it('saves viewport after zooming and panning the canvas', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-testid="canvas-zoom-in-button"]').trigger('click')
+    await wrapper.find('[data-testid="canvas-stage"]').trigger('mousedown', { button: 0, clientX: 20, clientY: 30 })
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 70, clientY: 90 }))
+    window.dispatchEvent(new MouseEvent('mouseup'))
+    await wrapper.find('[data-testid="canvas-save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(updateCanvas).toHaveBeenCalledWith('canvas_1', expect.objectContaining({
+      document: expect.objectContaining({
+        viewport: {
+          x: 50,
+          y: 60,
+          zoom: 1.1,
+        },
+      }),
+    }))
+
+    wrapper.unmount()
+  })
+
   it('updates an existing canvas, saves before queueing, and refreshes runs', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -350,6 +476,33 @@ describe('CanvasView', () => {
     expect(updateCanvas).toHaveBeenCalledTimes(2)
     expect(listCanvasRuns).toHaveBeenLastCalledWith({ canvas_id: 'canvas_1', limit: 8, offset: 0 })
     expect(showSuccess).toHaveBeenCalledWith('canvas.runQueued')
+  })
+
+  it('cancels queued canvas runs from the run list', async () => {
+    listCanvasRuns.mockResolvedValue({
+      items: [
+        {
+          id: 'run_2',
+          canvas_id: 'canvas_1',
+          status: 'queued',
+          api_key_id: 101,
+          created_at: '2026-05-20T00:12:00Z',
+          updated_at: '2026-05-20T00:12:00Z',
+        },
+      ],
+      total: 1,
+    })
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-testid="canvas-cancel-run-button"]').trigger('click')
+    await flushPromises()
+
+    expect(cancelCanvasRun).toHaveBeenCalledWith('run_2')
+    expect(wrapper.find('[data-testid="canvas-run-list"]').text()).toContain('canvas.runStatus.canceled')
+    expect(showSuccess).toHaveBeenCalledWith('canvas.runCanceled')
+
+    wrapper.unmount()
   })
 
   it('polls canvas image tasks and renders the generated node image', async () => {

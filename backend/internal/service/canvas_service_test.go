@@ -65,6 +65,44 @@ func newFakeCanvasRepo() *fakeCanvasRepo {
 				CreatedAt:   now,
 				UpdatedAt:   now,
 			},
+			9: {
+				ID:          9,
+				UserID:      42,
+				CanvasID:    12,
+				Status:      CanvasRunStatusRunning,
+				TriggerType: defaultCanvasRunTriggerType,
+				Input:       map[string]any{},
+				Output:      map[string]any{},
+				Metadata:    map[string]any{},
+				StartedAt:   &now,
+				CreatedAt:   now,
+				UpdatedAt:   now,
+			},
+			10: {
+				ID:          10,
+				UserID:      42,
+				CanvasID:    12,
+				Status:      CanvasRunStatusCanceled,
+				TriggerType: defaultCanvasRunTriggerType,
+				Input:       map[string]any{},
+				Output:      map[string]any{},
+				Metadata:    map[string]any{},
+				CanceledAt:  &now,
+				CreatedAt:   now,
+				UpdatedAt:   now,
+			},
+			11: {
+				ID:          11,
+				UserID:      42,
+				CanvasID:    12,
+				Status:      CanvasRunStatusFailed,
+				TriggerType: defaultCanvasRunTriggerType,
+				Input:       map[string]any{},
+				Output:      map[string]any{},
+				Metadata:    map[string]any{},
+				CreatedAt:   now,
+				UpdatedAt:   now,
+			},
 		},
 	}
 }
@@ -217,6 +255,10 @@ func (r *fakeCanvasRepo) CancelCanvasRun(_ context.Context, userID int64, runID 
 		return nil, sql.ErrNoRows
 	}
 	run.Status = CanvasRunStatusCanceled
+	now := time.Now()
+	run.CanceledAt = &now
+	run.CompletedAt = &now
+	run.UpdatedAt = now
 	r.runs[runID] = run
 	return &run, nil
 }
@@ -390,8 +432,41 @@ func TestCanvasServiceGetAndCancelRunUseCurrentUser(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(42), repo.lastCancelUserID)
 	require.Equal(t, CanvasRunStatusCanceled, canceled.Status)
+	require.NotNil(t, canceled.CanceledAt)
 
 	_, err = svc.CancelRun(context.Background(), 42, 8)
 	require.Error(t, err)
 	require.True(t, infraerrors.IsConflict(err))
+}
+
+func TestCanvasServiceCancelRunSupportsRunningAndCanceledIdempotency(t *testing.T) {
+	repo := newFakeCanvasRepo()
+	svc := NewCanvasService(repo)
+
+	running, err := svc.CancelRun(context.Background(), 42, 9)
+	require.NoError(t, err)
+	require.Equal(t, CanvasRunStatusCanceled, running.Status)
+	require.NotNil(t, running.CanceledAt)
+
+	canceled, err := svc.CancelRun(context.Background(), 42, 10)
+	require.NoError(t, err)
+	require.Equal(t, CanvasRunStatusCanceled, canceled.Status)
+	require.NotNil(t, canceled.CanceledAt)
+}
+
+func TestCanvasServiceCancelRunRejectsTerminalAndOtherUsers(t *testing.T) {
+	repo := newFakeCanvasRepo()
+	svc := NewCanvasService(repo)
+
+	_, err := svc.CancelRun(context.Background(), 42, 8)
+	require.Error(t, err)
+	require.True(t, infraerrors.IsConflict(err))
+
+	_, err = svc.CancelRun(context.Background(), 42, 11)
+	require.Error(t, err)
+	require.True(t, infraerrors.IsConflict(err))
+
+	_, err = svc.CancelRun(context.Background(), 99, 7)
+	require.Error(t, err)
+	require.True(t, infraerrors.IsNotFound(err))
 }

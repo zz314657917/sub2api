@@ -91,6 +91,7 @@ export interface CanvasRun {
   queued_at?: string
   started_at?: string
   completed_at?: string
+  canceled_at?: string
   error_message?: string
   result_node_ids?: string[]
   input?: unknown
@@ -343,6 +344,7 @@ function fromBackendRun(run: BackendCanvasRun): CanvasRun {
     model: run.model,
     started_at: run.started_at,
     completed_at: run.completed_at,
+    canceled_at: run.canceled_at,
     error_message: run.error_message,
     result_node_ids: run.result_node_ids,
     input: run.input,
@@ -410,6 +412,11 @@ export async function createCanvasRun(payload: CanvasRunCreatePayload): Promise<
 
 export async function getCanvasRun(id: string): Promise<CanvasRun> {
   const { data } = await apiClient.get<{ item: BackendCanvasRun }>(`/user/canvas-runs/${id}`)
+  return fromBackendRun(data.item)
+}
+
+export async function cancelCanvasRun(id: string): Promise<CanvasRun> {
+  const { data } = await apiClient.post<{ item: BackendCanvasRun }>(`/user/canvas-runs/${id}/cancel`)
   return fromBackendRun(data.item)
 }
 
