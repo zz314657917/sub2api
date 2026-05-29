@@ -1,5 +1,14 @@
 # 项目时间轴
 
+## 2026-05-29 09:25 +08:00 - Canvas 真实运行最小闭环落地
+
+- 当前阶段：在 `codex/sub2api-studio-layout` 上继续迁移旧版生图 Canvas 能力，完成 Canvas run 到现有 ImageCreator task 队列的最小真实运行链路。
+- 本段重点：后端 CanvasService 注入 ImageCreatorService，`text_to_image` / `image_to_image` 节点会创建现有 ImageCreator task，并把 node -> task 映射写入 `canvas_runs.output`；前端 `/canvas` 增加 API Key 选择、节点参数面板、运行前保存和最近运行/节点结果展示。
+- 关键决策：不绕过 ImageCreatorService，不直接调用 generator 或上游；继续复用现有 API Key 归属校验、OpenAI 分组生图权限、并发限制、gateway 计费和图片保存。Canvas run 取消暂不级联取消 ImageCreator task，完整节点引擎和高级图像编辑拆后续阶段。
+- 验证记录：`go test ./internal/service ./internal/handler ./internal/repository -run "Canvas" -count=1`、`go test ./internal/service ./internal/handler ./internal/repository -run "ImageCreator|Canvas" -count=1`、`go test ./cmd/server -count=1`、`npm.cmd run test:run -- CanvasView canvas`、`npm.cmd run test:run -- CanvasView canvas AppSidebar public-smoke`、`go test ./...`、`npm.cmd run lint:check`、`npm.cmd run build`、`git diff --check` 均通过；前端 build 仅有既有 Vite dynamic import/chunk size 警告。
+- 遗留问题：未做真实登录态浏览器手工验收；Canvas 尚未实现拖拽连线编辑器、运行轮询结果回填、模板、裁剪/外扩/mask 和历史。
+- 下一步：优先补 Canvas 交互编辑器与运行轮询/结果回填，再迁移旧版高级图像编辑和模板能力。
+
 ## 2026-05-29 03:50 +08:00 - sub2api 生图能力迁移阶段收口
 
 - 当前阶段：在 `codex/sub2api-studio-layout` 上完成一轮旧版生图能力向 sub2api 的分批迁移，使用多 worker 并行推进存储治理、Canvas 后端和 Canvas 前端。
