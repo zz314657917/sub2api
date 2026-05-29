@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-05-29 12:44 +08:00 - /chat-images 原版化 UI 试验封存并还原
+
+- 当前阶段：在 `codex/sub2api-studio-layout` 上试做一批 `/chat-images` 原版化聊天生图界面后，按用户要求暂停采用并恢复到试验前页面。
+- 本段重点：试验提交 `e5aaf0c3b refactor(images): reshape chat image studio page` 改成左侧会话、中央创作空态、预设提示词卡片和底部大 composer；已创建封存分支 `codex/archive-chat-images-studio-reshape` 指向该提交，方便后续找回。
+- 已完成：主分支追加还原提交 `16e08d779 Revert "refactor(images): reshape chat image studio page"`，恢复 `/chat-images` 到试验前状态；未触碰其他未提交工作区改动。
+- 关键决策：此 UI 试验不作为当前迁移主线继续推进；如果后续再做聊天生图界面，应从封存分支/提交挑选思路，而不是默认沿用该版本。
+- 验证记录：试验提交前通过 `npm.cmd run test:run -- ChatImageStudioView AppSidebar public-smoke`、`npm.cmd run lint:check`、`npm.cmd run build` 和浏览器打开 `http://127.0.0.1:62080/chat-images`；还原后重新执行 `npm.cmd run test:run -- ChatImageStudioView AppSidebar public-smoke` 通过。
+- 遗留问题：当前仍有其他未提交改动来自别的任务线，未纳入本次封存或还原。
+- 下一步：继续迁移主线时优先处理既定 Canvas/图片库剩余能力；聊天生图 UI 若要重启，需要先重新确认目标交互和是否采用原版风格。
+
 ## 2026-05-29 09:45 +08:00 - Canvas ImageCreator 任务轮询与节点结果回填
 
 - 当前阶段：在 `codex/sub2api-studio-layout` 上继续补 Canvas 真实运行闭环，把上一阶段写入 `canvas_runs.output.image_tasks` 的 node -> ImageCreator task 映射接到前端展示。

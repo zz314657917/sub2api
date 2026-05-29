@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-05-29 10:55 +08:00
+最后更新：2026-05-29 12:44 +08:00
 
 ## 背景
 
@@ -29,6 +29,7 @@
 - Canvas 核心编辑已完成：`/canvas` 支持节点拖拽、节点选择、边选择、连线创建、重复边抑制、删除边、删除节点时清理相关边、缩放、滚轮缩放、平移和适配视图；保存 payload 会带上节点坐标、边和 viewport。
 - Canvas run 取消已完成：前端 API 新增 `cancelCanvasRun`，`CanvasRun` 映射 `canceled_at`；运行队列对 queued/running/pending run 显示取消按钮，取消后本地队列状态变为 canceled。取消仅作用 Canvas run，不级联取消 ImageCreator task。
 - P/G/E 多智能体执行已完成：Worker A 负责 run cancel/API-client/后端测试，Worker B 负责前端编辑器，QA Worker 独立验收并写入 `docs/workflow/qa-reports/sub2api-canvas-core-qa.md`。
+- `/chat-images` 原版化 UI 试验已封存但不采用：试验提交 `e5aaf0c3b refactor(images): reshape chat image studio page` 已保留在分支 `codex/archive-chat-images-studio-reshape`，主分支已用 `16e08d779 Revert "refactor(images): reshape chat image studio page"` 还原到试验前状态。
 
 ## 已确认事实
 
@@ -40,6 +41,7 @@
   - `c0f0c8af9 feat(canvas): queue image creator tasks from canvas runs`
   - `403baa41c docs(workflow): record canvas run chain progress`
   - `b8dec861e feat(canvas): poll image task results`
+- `/chat-images` 视觉重排试验不属于当前主线落地结果；后续如果要继续做聊天生图界面，需要从 `codex/archive-chat-images-studio-reshape` 或 `e5aaf0c3b` 单独评估，不默认沿用。
 - Canvas 当前可把图片节点运行提交到现有 ImageCreator task；图片实际生成、API Key 校验、分组生图权限、并发限制、gateway 计费和图片保存继续复用 ImageCreator 链路。
 - Canvas 前端现在可轮询 ImageCreator task 结果并回填展示；为了避免隐藏持久化，轮询结果不修改保存 payload 中的 Canvas 文档。
 - Canvas 还不是完整旧版节点执行引擎：取消 run 不会级联取消 ImageCreator task，模板库和高级图像编辑还未完整实现。
@@ -63,6 +65,7 @@
 
 - 本轮迁移的图片库、参考图复用、提示词市场/收藏、存储治理、Canvas 基础能力、Canvas 运行最小闭环、Canvas 结果轮询回填、Canvas 核心编辑和 Canvas run 取消已经完成代码实现并通过自动化验证。
 - 完整旧版 Canvas 能力尚未全部迁完，下一阶段应继续做模板库和高级图像编辑。
+- `/chat-images` 页面原版化重排试验已经暂停采用并还原；当前主线状态以还原后的页面为准。
 
 ## 下一步
 
@@ -99,3 +102,4 @@
 - `npm.cmd run lint:check`，通过。
 - `npm.cmd run build`，通过；仅有既有 Vite dynamic import/chunk size 警告。
 - `git diff --check`，通过。
+- `/chat-images` 原版化 UI 试验提交前执行 `npm.cmd run test:run -- ChatImageStudioView AppSidebar public-smoke`、`npm.cmd run lint:check`、`npm.cmd run build`，均通过；浏览器打开 `http://127.0.0.1:62080/chat-images` 确认首屏完整。随后按用户要求用 `git revert` 还原，还原后重新执行 `npm.cmd run test:run -- ChatImageStudioView AppSidebar public-smoke` 通过。
