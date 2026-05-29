@@ -1,5 +1,5 @@
 <template>
-  <StudioLayout>
+  <AppLayout>
     <div
       class="chat-image-studio"
       :class="{ 'chat-image-studio-rail-open': railOpen }"
@@ -653,7 +653,7 @@
       </section>
     </div>
 
-  </StudioLayout>
+  </AppLayout>
 
   <Teleport to="body">
     <div
@@ -867,7 +867,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import StudioLayout from '@/components/layout/StudioLayout.vue'
+import AppLayout from '@/components/layout/AppLayout.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { keysAPI, userChannelsAPI } from '@/api'
@@ -2515,13 +2515,12 @@ function formatDuration(seconds: number): string {
 
 <style scoped>
 .chat-image-studio {
-  --studio-height: 100%;
   display: grid;
   position: relative;
-  height: var(--studio-height);
-  min-height: 0;
-  grid-template-columns: 320px minmax(0, 1fr);
-  gap: 1rem;
+  min-height: calc(100vh - 7rem);
+  min-height: calc(100dvh - 7rem);
+  grid-template-columns: minmax(15rem, 16.5rem) minmax(0, 1fr);
+  gap: 0.75rem;
 }
 
 .studio-mobile-backdrop {

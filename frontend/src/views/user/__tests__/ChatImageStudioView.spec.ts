@@ -210,7 +210,7 @@ function mountView() {
     attachTo: document.body,
     global: {
       stubs: {
-        StudioLayout: { template: '<div><slot /></div>' },
+        AppLayout: { template: '<div><slot /></div>' },
         Select: {
           props: ['modelValue', 'options', 'placeholder', 'disabled'],
           emits: ['update:modelValue'],
