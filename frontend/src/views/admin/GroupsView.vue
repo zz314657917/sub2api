@@ -3648,16 +3648,18 @@ const defaultImageQualityPrices: Record<ImageQualitySize, number> = {
   "4K": 0.15,
 };
 
+// APIMart gpt-image-2-official after_discount USD, converted to local
+// CNY-equivalent billing units with 7 CNY/USD and a 20% margin.
 const officialImageQualityReferencePrices: Record<ImageQualityTierLabel, number> = {
-  "1K:low": 0.006,
-  "1K:medium": 0.053,
-  "1K:high": 0.211,
-  "2K:low": 0.012,
-  "2K:medium": 0.107,
-  "2K:high": 0.428,
-  "4K:low": 0.011,
-  "4K:medium": 0.1,
-  "4K:high": 0.4,
+  "1K:low": 0.040992,
+  "1K:medium": 0.355488,
+  "1K:high": 1.417248,
+  "2K:low": 0.081312,
+  "2K:medium": 0.720384,
+  "2K:high": 2.878176,
+  "4K:low": 0.075936,
+  "4K:medium": 0.674016,
+  "4K:high": 2.690688,
 };
 
 const officialImageQualityReferenceNotes: Record<ImageQualitySize, string> = {

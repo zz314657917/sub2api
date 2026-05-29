@@ -111,27 +111,6 @@
         </div>
       </div>
     </footer>
-
-    <a
-      v-if="supportHref && !hasSupportPopupItems"
-      :href="supportHref"
-      target="_blank"
-      rel="noopener noreferrer"
-      class="home-support-button"
-    >
-      <PixelIcon name="support" size="sm" />
-      {{ t('home.contactSupport') }}
-    </a>
-
-    <button
-      v-else-if="hasSupportButton"
-      type="button"
-      class="home-support-button"
-      @click="openSupportPopup"
-    >
-      <PixelIcon name="support" size="sm" />
-      {{ t('home.contactSupport') }}
-    </button>
   </div>
 </template>
 
@@ -144,8 +123,6 @@ import type { PixelIconName } from '@/components/icons/pixelIconTypes'
 import type { LoginAgreementDocument } from '@/types'
 import { useMatrixRain } from './public/components/matrixRain'
 import PublicTopNav from './public/components/PublicTopNav.vue'
-import { openSupportPopup } from '@/utils/supportPopup'
-import { hasSupportContent, hasSupportPopupImages } from '@/utils/supportContent'
 
 type PrimaryActionIconName = Extract<PixelIconName, 'dashboard' | 'gift'>
 type FooterLegalDocument = {
@@ -160,7 +137,6 @@ const appStore = useAppStore()
 
 // Site settings - directly from appStore (already initialized from injected config)
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
-const contactInfo = computed(() => appStore.cachedPublicSettings?.contact_info || appStore.contactInfo || '')
 const docUrl = computed(() => appStore.cachedPublicSettings?.doc_url || appStore.docUrl || '')
 const siteName = computed(() => appStore.cachedPublicSettings?.site_name || appStore.siteName || 'Sub2API')
 const heroTitleTop = computed(() =>
@@ -330,26 +306,6 @@ const isHomeContentUrl = computed(() => {
   const content = homeContent.value.trim()
   return content.startsWith('http://') || content.startsWith('https://')
 })
-
-const supportHref = computed(() => normalizeSupportLink(contactInfo.value))
-const hasSupportPopupItems = computed(() => {
-  return hasSupportPopupImages(appStore.cachedPublicSettings)
-})
-const hasSupportButton = computed(() => {
-  return hasSupportContent(appStore.cachedPublicSettings, contactInfo.value)
-})
-
-function normalizeSupportLink(value: string): string {
-  const trimmed = value.trim()
-  if (!trimmed) return ''
-
-  try {
-    const url = new URL(trimmed)
-    return ['http:', 'https:', 'mailto:', 'tel:'].includes(url.protocol) ? url.href : ''
-  } catch {
-    return ''
-  }
-}
 
 // Auth state
 const isAuthenticated = computed(() => authStore.isAuthenticated)
@@ -762,69 +718,6 @@ watch(heroDescriptionTexts, () => {
   box-shadow: 0 0 13px rgba(119, 255, 173, 0.68);
 }
 
-.home-support-button {
-  position: fixed;
-  right: 1.25rem;
-  bottom: 1.25rem;
-  z-index: 30;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.45rem;
-  min-height: 2.65rem;
-  border: 1px solid rgba(119, 255, 173, 0.34);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(119, 255, 173, 0.18), rgba(20, 184, 166, 0.08)),
-    rgba(5, 15, 18, 0.82);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 14px 28px rgba(0, 0, 0, 0.24);
-  padding: 0.6rem 0.9rem;
-  color: #eafff0;
-  font-size: 0.8rem;
-  font-weight: 850;
-  text-shadow: none;
-  backdrop-filter: blur(18px);
-  transition:
-    transform 120ms ease,
-    border-color 120ms ease,
-    background 120ms ease,
-    box-shadow 120ms ease,
-    filter 120ms ease;
-}
-
-.home-support-button:hover {
-  border-color: rgba(119, 255, 173, 0.58);
-  background:
-    linear-gradient(180deg, rgba(119, 255, 173, 0.26), rgba(20, 184, 166, 0.14)),
-    rgba(6, 28, 24, 0.9);
-  filter: brightness(1.05);
-  transform: translateY(-1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.14),
-    0 16px 30px rgba(0, 0, 0, 0.28);
-}
-
-.home-support-button:active {
-  transform: translateY(1px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.1),
-    0 8px 18px rgba(0, 0, 0, 0.22);
-}
-
-.home-support-button:focus-visible {
-  outline: 2px solid var(--public-ring);
-  outline-offset: 3px;
-}
-
-.home-support-button .pixel-glyph {
-  --pixel-glyph-on: rgba(234, 255, 240, 0.95);
-  --pixel-glyph-accent: rgba(119, 255, 173, 0.78);
-  --pixel-glyph-glow: transparent;
-  filter: none;
-}
-
 .home-footer {
   flex: 0 0 auto;
   width: min(100%, 72rem);
@@ -920,14 +813,6 @@ watch(heroDescriptionTexts, () => {
 
   .home-button-inner {
     min-height: 3rem;
-  }
-
-  .home-support-button {
-    right: 1rem;
-    bottom: 1rem;
-    min-height: 2.5rem;
-    padding: 0.55rem 0.75rem;
-    font-size: 0.75rem;
   }
 
   .home-footer-bar {

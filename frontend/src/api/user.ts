@@ -16,6 +16,7 @@ import type {
   UserAuthProvider,
   UserAffiliateDetail,
   AffiliateTransferResponse,
+  AffiliateApiCallRewardClaimResponse,
   Account,
   AccountShareMode,
   AccountUsageInfo,
@@ -200,6 +201,13 @@ export async function transferAffiliateQuota(): Promise<AffiliateTransferRespons
   return data
 }
 
+export async function claimAffiliateApiCallReward(inviteeId: number): Promise<AffiliateApiCallRewardClaimResponse> {
+  const { data } = await apiClient.post<AffiliateApiCallRewardClaimResponse>(
+    `/user/aff/invitees/${inviteeId}/api-call-reward/claim`
+  )
+  return data
+}
+
 export async function listAccounts(
   page: number = 1,
   pageSize: number = 20,
@@ -326,6 +334,7 @@ export const userAPI = {
   startOAuthBinding,
   getAffiliateDetail,
   transferAffiliateQuota,
+  claimAffiliateApiCallReward,
   listAccounts,
   getAccountById,
   createAccount,

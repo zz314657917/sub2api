@@ -2490,8 +2490,10 @@ function writeShareDisplayToExtra(extra: Record<string, unknown>): void {
     delete extra.share_display_account_count
     delete extra.share_display_5h_limit
     delete extra.share_display_5h_used
+    delete extra.share_display_5h_start
     delete extra.share_display_7d_limit
     delete extra.share_display_7d_used
+    delete extra.share_display_7d_start
   }
 }
 function writeOptionalShareDisplayNumber(extra: Record<string, unknown>, key: string, value: number | null, requirePositive: boolean): void {

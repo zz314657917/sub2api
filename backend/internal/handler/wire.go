@@ -40,6 +40,7 @@ func ProvideAdminHandlers(
 	contentModerationHandler *admin.ContentModerationHandler,
 	paymentHandler *admin.PaymentHandler,
 	affiliateHandler *admin.AffiliateHandler,
+	imageCreatorStorageHandler *admin.ImageCreatorStorageGovernanceHandler,
 ) *AdminHandlers {
 	return &AdminHandlers{
 		Dashboard:              dashboardHandler,
@@ -73,6 +74,7 @@ func ProvideAdminHandlers(
 		ContentModeration:      contentModerationHandler,
 		Payment:                paymentHandler,
 		Affiliate:              affiliateHandler,
+		ImageCreatorStorage:    imageCreatorStorageHandler,
 	}
 }
 
@@ -99,6 +101,8 @@ func ProvideHandlers(
 	tutorialPageHandler *TutorialPageHandler,
 	channelMonitorUserHandler *ChannelMonitorUserHandler,
 	imageCreatorHandler *ImageCreatorHandler,
+	canvasHandler *CanvasHandler,
+	promptFavoriteHandler *PromptFavoriteHandler,
 	openWebUIHandler *OpenWebUIHandler,
 	welfareHandler *WelfareHandler,
 	adminHandlers *AdminHandlers,
@@ -125,6 +129,8 @@ func ProvideHandlers(
 		TutorialPage:     tutorialPageHandler,
 		ChannelMonitor:   channelMonitorUserHandler,
 		ImageCreator:     imageCreatorHandler,
+		Canvas:           canvasHandler,
+		PromptFavorite:   promptFavoriteHandler,
 		OpenWebUI:        openWebUIHandler,
 		Welfare:          welfareHandler,
 		Admin:            adminHandlers,
@@ -153,6 +159,8 @@ var ProviderSet = wire.NewSet(
 	NewTutorialPageHandler,
 	NewChannelMonitorUserHandler,
 	NewImageCreatorHandler,
+	NewCanvasHandler,
+	NewPromptFavoriteHandler,
 	NewOpenWebUIHandler,
 	NewWelfareHandler,
 	NewGatewayHandler,
@@ -196,6 +204,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewContentModerationHandler,
 	admin.NewPaymentHandler,
 	admin.NewAffiliateHandler,
+	admin.NewImageCreatorStorageGovernanceHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

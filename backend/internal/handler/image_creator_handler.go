@@ -21,7 +21,10 @@ type imageCreatorService interface {
 	CreateTask(ctx context.Context, userID int64, input service.ImageCreatorCreateTaskInput) (*service.ImageCreatorTask, error)
 	ListTasks(ctx context.Context, userID int64, limit int) ([]service.ImageCreatorTask, error)
 	GetTask(ctx context.Context, userID int64, taskID int64) (*service.ImageCreatorTask, error)
+	ListImages(ctx context.Context, userID int64, filters service.ImageCreatorImageListFilters) ([]service.ImageCreatorManagedImage, int, error)
+	DeleteImages(ctx context.Context, userID int64, ids []int64) (int, error)
 	GetImageFile(ctx context.Context, userID int64, imageID int64) (*service.ImageCreatorFile, error)
+	GetReferenceImageForUser(ctx context.Context, userID int64, imageID int64) (*service.ImageCreatorFile, error)
 }
 
 type ImageCreatorHandler struct {
@@ -46,6 +49,21 @@ type imageCreatorCreateTaskRequest struct {
 type imageCreatorListResponse struct {
 	Tasks  []service.ImageCreatorTask  `json:"tasks"`
 	Images []service.ImageCreatorImage `json:"images"`
+}
+
+type imageCreatorImageListResponse struct {
+	Items  []service.ImageCreatorManagedImage `json:"items"`
+	Total  int                                `json:"total"`
+	Limit  int                                `json:"limit"`
+	Offset int                                `json:"offset"`
+}
+
+type imageCreatorDeleteImagesRequest struct {
+	IDs []int64 `json:"ids"`
+}
+
+type imageCreatorDeleteImagesResponse struct {
+	Deleted int `json:"deleted"`
 }
 
 func (h *ImageCreatorHandler) CreateTask(c *gin.Context) {
@@ -90,6 +108,57 @@ func (h *ImageCreatorHandler) ListTasks(c *gin.Context) {
 	})
 }
 
+func (h *ImageCreatorHandler) ListImages(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	filters := service.ImageCreatorImageListFilters{
+		Limit:       parseBoundedQueryInt(c, "limit", 40, 1, 100),
+		Offset:      parseBoundedQueryInt(c, "offset", 0, 0, 100000),
+		Search:      c.Query("q"),
+		StartDate:   c.Query("start_date"),
+		EndDate:     c.Query("end_date"),
+		Format:      c.Query("format"),
+		Orientation: c.Query("orientation"),
+		Resolution:  c.Query("resolution"),
+		AspectRatio: c.Query("aspect_ratio"),
+		MinWidth:    parseBoundedQueryInt(c, "min_width", 0, 0, 100000),
+		MinHeight:   parseBoundedQueryInt(c, "min_height", 0, 0, 100000),
+	}
+	images, total, err := h.svc.ListImages(c.Request.Context(), subject.UserID, filters)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, imageCreatorImageListResponse{
+		Items:  images,
+		Total:  total,
+		Limit:  filters.Limit,
+		Offset: filters.Offset,
+	})
+}
+
+func (h *ImageCreatorHandler) DeleteImages(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	var req imageCreatorDeleteImagesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
+	deleted, err := h.svc.DeleteImages(c.Request.Context(), subject.UserID, req.IDs)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, imageCreatorDeleteImagesResponse{Deleted: deleted})
+}
+
 func (h *ImageCreatorHandler) GetTask(c *gin.Context) {
 	subject, ok := middleware.GetAuthSubjectFromContext(c)
 	if !ok {
@@ -128,6 +197,30 @@ func (h *ImageCreatorHandler) GetImageFile(c *gin.Context) {
 	}
 	if strings.TrimSpace(file.FileName) != "" {
 		c.Header("Content-Disposition", `inline; filename="`+strings.ReplaceAll(file.FileName, `"`, `\"`)+`"`)
+	}
+	serveImageCreatorFile(c, file)
+}
+
+func (h *ImageCreatorHandler) GetReferenceImageFile(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	imageID, ok := parsePositiveInt64Param(c, "id", "Invalid image ID")
+	if !ok {
+		return
+	}
+	file, err := h.svc.GetReferenceImageForUser(c.Request.Context(), subject.UserID, imageID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	if file.ContentType != "" {
+		c.Header("Content-Type", file.ContentType)
+	}
+	if strings.TrimSpace(file.FileName) != "" {
+		c.Header("Content-Disposition", `inline; filename="reference-`+strings.ReplaceAll(file.FileName, `"`, `\"`)+`"`)
 	}
 	serveImageCreatorFile(c, file)
 }
@@ -288,5 +381,21 @@ func parseInt64Form(c *gin.Context, name string) int64 {
 
 func parseIntForm(c *gin.Context, name string) int {
 	value, _ := strconv.Atoi(strings.TrimSpace(c.PostForm(name)))
+	return value
+}
+
+func parseBoundedQueryInt(c *gin.Context, name string, fallback int, minValue int, maxValue int) int {
+	value := fallback
+	if raw := strings.TrimSpace(c.Query(name)); raw != "" {
+		if parsed, err := strconv.Atoi(raw); err == nil {
+			value = parsed
+		}
+	}
+	if value < minValue {
+		return minValue
+	}
+	if maxValue >= minValue && value > maxValue {
+		return maxValue
+	}
 	return value
 }

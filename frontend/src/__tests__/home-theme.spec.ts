@@ -77,11 +77,11 @@ describe('home page visual direction', () => {
     expect(homeView).toContain('@media (prefers-reduced-motion: reduce)')
   })
 
-  it('uses public contact info for a safe support shortcut', () => {
-    expect(homeView).toContain('contactInfo')
-    expect(homeView).toContain('supportHref')
-    expect(homeView).toContain('home-support-button')
-    expect(homeView).toContain("['http:', 'https:', 'mailto:', 'tel:']")
+  it('does not render the old fixed homepage support shortcut', () => {
+    expect(homeView).not.toContain('contactInfo')
+    expect(homeView).not.toContain('supportHref')
+    expect(homeView).not.toContain('home-support-button')
+    expect(homeView).not.toContain("['http:', 'https:', 'mailto:', 'tel:']")
     expect(zhLocale).toContain("contactSupport: '添加客服'")
   })
 
@@ -128,6 +128,12 @@ describe('home page visual direction', () => {
     expect(publicTopNav).toContain('top: 0')
     expect(publicTopNav).toContain('backdrop-filter: blur(18px)')
     expect(publicTopNav).toContain('width: 100%')
+    expect(publicTopNav).toContain('<nav class="public-top-nav">')
+    expect(publicTopNav).toContain('padding: 0.45rem clamp(1rem, 3vw, 3rem)')
+    expect(publicTopNav).toContain('justify-content: flex-end')
+    expect(publicTopNav).not.toContain('toggleTheme')
+    expect(publicTopNav).not.toContain('switchToLight')
+    expect(publicTopNav).not.toContain('switchToDark')
     expect(publicTopNav).toContain('rgba(4, 3, 16, 0.88)')
     expect(zhLocale).toContain("navHome: '首页'")
     expect(zhLocale).toContain("navTutorial: '教程'")
@@ -187,7 +193,7 @@ describe('home page visual direction', () => {
     expect(homeView).not.toContain('home-feature-pill-dot')
     expect(homeView).not.toContain('<PixelIcon :name="item.icon" size="md" />')
     expect(homeView).toContain('<PixelIcon :name="primaryActionIcon" size="sm" />')
-    expect(homeView).toContain('<PixelIcon name="support" size="sm" />')
+    expect(homeView).not.toContain('<PixelIcon name="support" size="sm" />')
     expect(homeView).not.toContain('heroTags')
     expect(homeView).not.toContain('home-chip')
     expect(homeView).not.toContain('.home-chip-icon')

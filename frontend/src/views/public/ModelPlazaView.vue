@@ -451,12 +451,31 @@ function modelEffectivePriceScore(model: PlazaModel): number {
   return modelBasePriceScore(model) * (Number.isFinite(rate) ? rate : 1)
 }
 
+function modelVersionScore(modelName: string): number {
+  const normalized = modelName.toLowerCase()
+  const familyMatch = normalized.match(/^(claude|gpt|gemini)-[a-z]+-(\d+(?:[.-]\d+)*)/)
+  if (!familyMatch) return 0
+
+  return familyMatch[2]
+    .split(/[.-]/)
+    .reduce((score, part) => score * 100 + Number(part || 0), 0)
+}
+
+function isOpenAIModel(model: PlazaModel): boolean {
+  return providerLabel(model.platform) === 'Openai' || model.name.toLowerCase().startsWith('gpt-')
+}
+
 function compareModelCardsByCost(a: PlazaModel, b: PlazaModel): number {
   const rateCompare = cheapestPlatformRate(a.platform) - cheapestPlatformRate(b.platform)
   if (rateCompare !== 0) return rateCompare
 
-  const priceCompare = modelEffectivePriceScore(a) - modelEffectivePriceScore(b)
+  const aPrice = modelEffectivePriceScore(a)
+  const bPrice = modelEffectivePriceScore(b)
+  const priceCompare = isOpenAIModel(a) && isOpenAIModel(b) ? bPrice - aPrice : aPrice - bPrice
   if (priceCompare !== 0) return priceCompare
+
+  const versionCompare = modelVersionScore(b.name) - modelVersionScore(a.name)
+  if (versionCompare !== 0) return versionCompare
 
   const providerCompare = providerLabel(a.platform).localeCompare(providerLabel(b.platform))
   return providerCompare || a.name.localeCompare(b.name)
@@ -558,12 +577,12 @@ const fallbackChannels: UserAvailableChannel[] = [
         platform: 'openai',
         groups: openaiGroups,
         supported_models: [
-          { name: 'gpt-5.2', platform: 'openai', pricing: tokenPricing(1.75, 14, 0, 0.175) },
-          { name: 'gpt-5.2-codex', platform: 'openai', pricing: tokenPricing(1.75, 14, 0, 0.175) },
-          { name: 'gpt-5.3-codex', platform: 'openai', pricing: tokenPricing(1.75, 14, 0, 0.175) },
+          { name: 'gpt-5.5', platform: 'openai', pricing: tokenPricing(5, 30, 0, 0.5) },
           { name: 'gpt-5.4', platform: 'openai', pricing: tokenPricing(2.5, 15, 0, 0.25) },
-          { name: 'gpt-5.4-mini', platform: 'openai', pricing: tokenPricing(0.75, 4.5, 0, 0.075) },
-          { name: 'gpt-5.5', platform: 'openai', pricing: tokenPricing(5, 30, 0, 0.5) }
+          { name: 'gpt-5.3-codex', platform: 'openai', pricing: tokenPricing(1.75, 14, 0, 0.175) },
+          { name: 'gpt-5.2-codex', platform: 'openai', pricing: tokenPricing(1.75, 14, 0, 0.175) },
+          { name: 'gpt-5.2', platform: 'openai', pricing: tokenPricing(1.75, 14, 0, 0.175) },
+          { name: 'gpt-5.4-mini', platform: 'openai', pricing: tokenPricing(0.75, 4.5, 0, 0.075) }
         ]
       }
     ]
@@ -576,12 +595,17 @@ const fallbackChannels: UserAvailableChannel[] = [
         platform: 'anthropic',
         groups: anthropicGroups,
         supported_models: [
-          { name: 'claude-haiku-4', platform: 'anthropic', pricing: tokenPricing(1, 5, 1.25, 0.1) },
-          { name: 'claude-opus-4', platform: 'anthropic', pricing: tokenPricing(5, 25, 6.25, 0.5) },
-          { name: 'claude-opus-4.1', platform: 'anthropic', pricing: tokenPricing(5, 25, 6.25, 0.5) },
+          { name: 'claude-opus-4.8', platform: 'anthropic', pricing: tokenPricing(5, 25, 6.25, 0.5) },
+          { name: 'claude-opus-4.7', platform: 'anthropic', pricing: tokenPricing(5, 25, 6.25, 0.5) },
+          { name: 'claude-opus-4.6', platform: 'anthropic', pricing: tokenPricing(5, 25, 6.25, 0.5) },
           { name: 'claude-opus-4.5', platform: 'anthropic', pricing: tokenPricing(5, 25, 6.25, 0.5) },
+          { name: 'claude-opus-4.1', platform: 'anthropic', pricing: tokenPricing(5, 25, 6.25, 0.5) },
+          { name: 'claude-opus-4', platform: 'anthropic', pricing: tokenPricing(5, 25, 6.25, 0.5) },
+          { name: 'claude-sonnet-4.6', platform: 'anthropic', pricing: tokenPricing(3, 15, 3.75, 0.3) },
+          { name: 'claude-sonnet-4.5', platform: 'anthropic', pricing: tokenPricing(3, 15, 3.75, 0.3) },
           { name: 'claude-sonnet-4', platform: 'anthropic', pricing: tokenPricing(3, 15, 3.75, 0.3) },
-          { name: 'claude-sonnet-4.5', platform: 'anthropic', pricing: tokenPricing(3, 15, 3.75, 0.3) }
+          { name: 'claude-haiku-4.5', platform: 'anthropic', pricing: tokenPricing(1, 5, 1.25, 0.1) },
+          { name: 'claude-haiku-4', platform: 'anthropic', pricing: tokenPricing(1, 5, 1.25, 0.1) }
         ]
       }
     ]

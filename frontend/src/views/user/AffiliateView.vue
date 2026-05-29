@@ -46,7 +46,7 @@
 
         <div class="card p-6">
           <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('affiliate.title') }}</h3>
-          <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.description') }}</p>
+          <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ affiliateDescription }}</p>
 
           <div class="mt-5 grid gap-4 md:grid-cols-2">
             <div class="space-y-2">
@@ -110,13 +110,15 @@
             {{ t('affiliate.invitees.empty') }}
           </div>
           <div v-else class="mt-4 overflow-x-auto">
-            <table class="w-full min-w-[560px] text-left text-sm">
+            <table class="w-full min-w-[760px] text-left text-sm">
               <thead>
                 <tr class="border-b border-gray-200 text-gray-500 dark:border-dark-700 dark:text-dark-400">
                   <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.email') }}</th>
                   <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.username') }}</th>
+                  <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.apiStatus') }}</th>
                   <th class="px-3 py-2 font-medium text-right">{{ t('affiliate.invitees.columns.rebate') }}</th>
                   <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.joinedAt') }}</th>
+                  <th class="px-3 py-2 font-medium text-right">{{ t('affiliate.invitees.columns.action') }}</th>
                 </tr>
               </thead>
               <tbody>
@@ -127,8 +129,38 @@
                 >
                   <td class="px-3 py-3 text-gray-900 dark:text-white">{{ item.email || '-' }}</td>
                   <td class="px-3 py-3 text-gray-700 dark:text-gray-300">{{ item.username || '-' }}</td>
+                  <td class="px-3 py-3">
+                    <span
+                      class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                      :class="item.api_used
+                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                        : 'bg-gray-100 text-gray-500 dark:bg-dark-800 dark:text-dark-400'"
+                    >
+                      {{ item.api_used ? t('affiliate.invitees.apiStatus.used') : t('affiliate.invitees.apiStatus.pending') }}
+                    </span>
+                    <p v-if="item.api_used_at" class="mt-1 text-xs text-gray-400">
+                      {{ formatDateTime(item.api_used_at) }}
+                    </p>
+                  </td>
                   <td class="px-3 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">{{ formatCurrency(item.total_rebate) }}</td>
                   <td class="px-3 py-3 text-gray-700 dark:text-gray-300">{{ formatDateTime(item.created_at) || '-' }}</td>
+                  <td class="px-3 py-3 text-right">
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm whitespace-nowrap"
+                      :disabled="!canClaimApiCallReward(item) || claimingInviteeId === item.user_id"
+                      @click="claimApiCallReward(item)"
+                    >
+                      <Icon
+                        v-if="claimingInviteeId === item.user_id"
+                        name="refresh"
+                        size="sm"
+                        class="animate-spin"
+                      />
+                      <Icon v-else name="dollar" size="sm" />
+                      <span>{{ claimButtonLabel(item) }}</span>
+                    </button>
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -145,7 +177,7 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import userAPI from '@/api/user'
-import type { UserAffiliateDetail } from '@/types'
+import type { AffiliateInvitee, UserAffiliateDetail } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
@@ -159,6 +191,7 @@ const { copyToClipboard } = useClipboard()
 
 const loading = ref(true)
 const transferring = ref(false)
+const claimingInviteeId = ref<number | null>(null)
 const detail = ref<UserAffiliateDetail | null>(null)
 
 const inviteLink = computed(() => {
@@ -173,6 +206,16 @@ const formattedRebateRate = computed(() => {
   const v = detail.value?.effective_rebate_rate_percent ?? 0
   const rounded = Math.round(v * 100) / 100
   return Number.isInteger(rounded) ? String(rounded) : rounded.toString()
+})
+
+const formattedApiCallRewardAmount = computed(() => {
+  const amount = detail.value?.api_call_reward_amount ?? 0
+  const rounded = Math.round(amount * 100) / 100
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toString()
+})
+
+const affiliateDescription = computed(() => {
+  return t('affiliate.descriptionWithReward', { amount: formattedApiCallRewardAmount.value })
 })
 
 function formatCount(value: number): string {
@@ -218,6 +261,48 @@ async function transferQuota(): Promise<void> {
     appStore.showError(extractApiErrorMessage(error, t('affiliate.transferFailed')))
   } finally {
     transferring.value = false
+  }
+}
+
+function canClaimApiCallReward(item: AffiliateInvitee): boolean {
+  return Boolean(
+    detail.value &&
+    detail.value.api_call_reward_amount > 0 &&
+    item.api_used &&
+    !item.api_call_reward_claimed
+  )
+}
+
+function claimButtonLabel(item: AffiliateInvitee): string {
+  if (claimingInviteeId.value === item.user_id) {
+    return t('affiliate.invitees.actions.claiming')
+  }
+  if (item.api_call_reward_claimed) {
+    return t('affiliate.invitees.actions.claimed')
+  }
+  if ((detail.value?.api_call_reward_amount ?? 0) <= 0) {
+    return t('affiliate.invitees.actions.notConfigured')
+  }
+  if (!item.api_used) {
+    return t('affiliate.invitees.actions.waiting')
+  }
+  return t('affiliate.invitees.actions.claim')
+}
+
+async function claimApiCallReward(item: AffiliateInvitee): Promise<void> {
+  if (!canClaimApiCallReward(item) || claimingInviteeId.value !== null) return
+  claimingInviteeId.value = item.user_id
+  try {
+    const resp = await userAPI.claimAffiliateApiCallReward(item.user_id)
+    appStore.showSuccess(t('affiliate.invitees.actions.claimSuccess', { amount: formatCurrency(resp.reward_amount) }))
+    await Promise.all([
+      loadAffiliateDetail(true),
+      authStore.refreshUser().catch(() => undefined),
+    ])
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, t('affiliate.invitees.actions.claimFailed')))
+  } finally {
+    claimingInviteeId.value = null
   }
 }
 

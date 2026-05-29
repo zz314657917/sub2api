@@ -17,4 +17,12 @@ describe('AppHeader public shortcuts', () => {
     expect(componentSource).toContain('hasSupportContent')
     expect(componentSource).toContain('@click="openSupportPopup"')
   })
+
+  it('mounts the header announcement carousel between page title and actions', () => {
+    expect(componentSource).toContain('HeaderAnnouncementCarousel')
+    expect(componentSource).toContain('<AnnouncementBell v-if="user" ref="announcementBellRef" />')
+    expect(componentSource).toContain(':announcements="headerAnnouncements"')
+    expect(componentSource).toContain('@select="openAnnouncementDetail"')
+    expect(componentSource).toContain('announcementBellRef.value?.openDetail(announcement)')
+  })
 })

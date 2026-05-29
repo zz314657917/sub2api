@@ -21,6 +21,17 @@ func (s *openWebUILaunchTokenStore) Set(ctx context.Context, key string, payload
 	return s.rdb.Set(ctx, key, payload, ttl).Err()
 }
 
+func (s *openWebUILaunchTokenStore) Get(ctx context.Context, key string) ([]byte, bool, error) {
+	raw, err := s.rdb.Get(ctx, key).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, err
+	}
+	return raw, true, nil
+}
+
 func (s *openWebUILaunchTokenStore) GetDel(ctx context.Context, key string) ([]byte, bool, error) {
 	raw, err := s.rdb.GetDel(ctx, key).Bytes()
 	if errors.Is(err, redis.Nil) {

@@ -10,10 +10,21 @@ const createImageTask = vi.hoisted(() => vi.fn())
 const downloadImageFile = vi.hoisted(() => vi.fn())
 const listImageTasks = vi.hoisted(() => vi.fn())
 const getImageTask = vi.hoisted(() => vi.fn())
+const fetchPromptMarketPrompts = vi.hoisted(() => vi.fn())
+const fetchPromptFavorites = vi.hoisted(() => vi.fn())
+const createPromptFavorite = vi.hoisted(() => vi.fn())
+const deletePromptFavorite = vi.hoisted(() => vi.fn())
 const showError = vi.hoisted(() => vi.fn())
 const showSuccess = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
 const copyToClipboard = vi.hoisted(() => vi.fn())
+const routeQuery = vi.hoisted(() => ({} as Record<string, unknown>))
+
+vi.mock('vue-router', () => ({
+  useRoute: () => ({
+    query: routeQuery,
+  }),
+}))
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
@@ -50,11 +61,36 @@ vi.mock('@/api/imageCreator', () => ({
   getImageTask,
 }))
 
+vi.mock('@/api/promptMarket', async () => {
+  const actual = await vi.importActual<typeof import('@/api/promptMarket')>('@/api/promptMarket')
+  return {
+    ...actual,
+    fetchPromptMarketPrompts,
+    fetchPromptFavorites,
+    createPromptFavorite,
+    deletePromptFavorite,
+  }
+})
+
 vi.mock('@/stores', () => ({
   useAppStore: () => ({
     showError,
     showSuccess,
     showWarning,
+    siteName: 'Sub2API',
+    siteLogo: '',
+  }),
+  useAuthStore: () => ({
+    isAdmin: false,
+    user: {
+      id: 1,
+      username: 'studio',
+      email: 'studio@example.test',
+      role: 'user',
+      balance: 12.2,
+      avatar_url: null,
+    },
+    logout: vi.fn(),
   }),
 }))
 
@@ -152,6 +188,23 @@ function makeTask(overrides: Record<string, unknown> = {}) {
   }
 }
 
+function makePromptMarketItem(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'banana-prompt-quicker:poster:maker:0',
+    source: 'banana-prompt-quicker',
+    title: 'Poster prompt',
+    preview: 'https://example.com/preview.png',
+    referenceImageUrls: ['https://example.com/reference.png'],
+    prompt: 'draw a vivid poster',
+    author: 'maker',
+    mode: 'generate',
+    category: 'Poster',
+    sourceLabel: 'banana-prompt-quicker',
+    isNsfw: false,
+    ...overrides,
+  }
+}
+
 function mountView() {
   return mount(ChatImageStudioView, {
     attachTo: document.body,
@@ -188,6 +241,9 @@ function mountView() {
 describe('ChatImageStudioView', () => {
   beforeEach(() => {
     localStorage.clear()
+    for (const key of Object.keys(routeQuery)) {
+      delete routeQuery[key]
+    }
     keysList.mockReset().mockResolvedValue({ items: [makeKey()] })
     getAvailable.mockReset().mockResolvedValue([])
     createChatCompletionStream.mockReset().mockImplementation(async ({ onDelta }) => {
@@ -203,6 +259,27 @@ describe('ChatImageStudioView', () => {
       images: [makeImage()],
     }))
     downloadImageFile.mockReset().mockResolvedValue(new Blob(['pngdata'], { type: 'image/png' }))
+    fetchPromptMarketPrompts.mockReset().mockResolvedValue([makePromptMarketItem()])
+    fetchPromptFavorites.mockReset().mockResolvedValue({ items: [] })
+    createPromptFavorite.mockReset().mockResolvedValue({
+      item: { id: 1 },
+      items: [{
+        id: 1,
+        prompt_id: 'banana-prompt-quicker:poster:maker:0',
+        source: 'banana-prompt-quicker',
+        title: 'Poster prompt',
+        preview: 'https://example.com/preview.png',
+        reference_image_urls: ['https://example.com/reference.png'],
+        prompt: 'draw a vivid poster',
+        author: 'maker',
+        mode: 'generate',
+        category: 'Poster',
+        source_label: 'banana-prompt-quicker',
+        is_nsfw: false,
+        favorited_at: '2026-05-10T00:00:00Z',
+      }],
+    })
+    deletePromptFavorite.mockReset().mockResolvedValue({ items: [] })
     showError.mockReset()
     showSuccess.mockReset()
     showWarning.mockReset()
@@ -256,6 +333,7 @@ describe('ChatImageStudioView', () => {
     expect(wrapper.find('[data-testid="studio-model-market-link"]').exists()).toBe(false)
     expect(wrapper.find('.studio-mode-cluster').element.contains(wrapper.find('[data-testid="studio-image-model-select"]').element)).toBe(true)
     expect(wrapper.find('[data-testid="studio-reference-upload-button"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="studio-prompt-market-button"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="studio-image-params-popover"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('mc · codex · openai')
     expect(wrapper.find('[data-testid="studio-chat-controls"]').exists()).toBe(false)
@@ -287,6 +365,7 @@ describe('ChatImageStudioView', () => {
     expect(wrapper.find('[data-testid="studio-chat-model-select"]').exists()).toBe(true)
     expect(wrapper.find('.studio-mode-cluster').element.contains(wrapper.find('[data-testid="studio-chat-model-select"]').element)).toBe(true)
     expect(wrapper.find('[data-testid="studio-image-controls"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="studio-prompt-market-button"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="studio-reference-upload-button"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="studio-image-params-popover"]').exists()).toBe(false)
     expect(wrapper.find('.studio-refresh-action').exists()).toBe(false)
@@ -325,6 +404,35 @@ describe('ChatImageStudioView', () => {
 
     expect(wrapper.find('[data-testid="studio-reference-bubble"]').exists()).toBe(false)
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:image-preview')
+  })
+
+  it('opens prompt market, applies a prompt, and toggles favorites', async () => {
+    const wrapper = mountView()
+
+    await flushPromises()
+    await wrapper.find('[data-testid="studio-prompt-market-button"]').trigger('click')
+    await flushPromises()
+
+    expect(fetchPromptMarketPrompts).toHaveBeenCalledTimes(1)
+    expect(fetchPromptFavorites).toHaveBeenCalledTimes(1)
+    expect(document.body.querySelector('[data-testid="studio-prompt-market-overlay"]')).not.toBeNull()
+    expect(document.body.textContent).toContain('Poster prompt')
+
+    const favoriteButton = document.body.querySelector('[data-testid="studio-prompt-market-favorite"]') as HTMLButtonElement
+    favoriteButton.click()
+    await flushPromises()
+
+    expect(createPromptFavorite).toHaveBeenCalledWith(expect.objectContaining({
+      id: 'banana-prompt-quicker:poster:maker:0',
+      prompt: 'draw a vivid poster',
+    }))
+
+    const applyButton = document.body.querySelector('[data-testid="studio-prompt-market-apply"]') as HTMLButtonElement
+    applyButton.click()
+    await flushPromises()
+
+    expect((wrapper.find('[data-testid="studio-message-input"]').element as HTMLTextAreaElement).value).toBe('draw a vivid poster')
+    expect(document.body.querySelector('[data-testid="studio-prompt-market-overlay"]')).toBeNull()
   })
 
   it('shows elapsed time while an image task is running', async () => {
@@ -488,6 +596,28 @@ describe('ChatImageStudioView', () => {
     expect(getImageTask).toHaveBeenCalledWith(123)
     expect(downloadImageFile).toHaveBeenCalledWith('/api/v1/user/image-creator/images/9/file')
     expect(wrapper.find('.studio-image-card img').attributes('src')).toBe('blob:image-preview')
+  })
+
+  it('prefills image mode from the image manager reuse query', async () => {
+    routeQuery.prompt = 'reuse this prompt'
+    routeQuery.mode = 'image'
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect((wrapper.find('.studio-input').element as HTMLTextAreaElement).value).toBe('reuse this prompt')
+  })
+
+  it('attaches a managed image as reference from the image manager query', async () => {
+    routeQuery.prompt = 'reuse as reference'
+    routeQuery.mode = 'image'
+    routeQuery.reference_image_id = '9'
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(downloadImageFile).toHaveBeenCalledWith('/api/v1/user/image-creator/images/9/reference-file')
+    expect(wrapper.find('[data-testid="studio-reference-bubble"]').exists()).toBe(true)
   })
 
   it('restores an active image message and applies the final failed task state', async () => {

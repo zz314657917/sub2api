@@ -24,3 +24,15 @@ func TestDefaultAntigravityModelMapping_ImageCompatibilityAliases(t *testing.T) 
 		}
 	}
 }
+
+func TestDefaultBedrockModelMapping_ClaudeOpus48(t *testing.T) {
+	t.Parallel()
+
+	got, ok := DefaultBedrockModelMapping["claude-opus-4-8"]
+	if !ok {
+		t.Fatal("expected Bedrock mapping for claude-opus-4-8 to exist")
+	}
+	if got != "us.anthropic.claude-opus-4-8" {
+		t.Fatalf("unexpected Bedrock mapping for claude-opus-4-8: got %q", got)
+	}
+}

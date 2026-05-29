@@ -32,6 +32,7 @@ import adminPaymentAPI from './payment'
 import affiliatesAPI from './affiliates'
 import riskControlAPI from './riskControl'
 import tutorialsAPI from './tutorials'
+import imageCreatorStorageAPI from './imageCreatorStorage'
 
 /**
  * Unified admin API object for convenient access
@@ -65,7 +66,8 @@ export const adminAPI = {
   payment: adminPaymentAPI,
   affiliates: affiliatesAPI,
   riskControl: riskControlAPI,
-  tutorials: tutorialsAPI
+  tutorials: tutorialsAPI,
+  imageCreatorStorage: imageCreatorStorageAPI
 }
 
 export {
@@ -97,7 +99,8 @@ export {
   adminPaymentAPI,
   affiliatesAPI,
   riskControlAPI,
-  tutorialsAPI
+  tutorialsAPI,
+  imageCreatorStorageAPI
 }
 
 export default adminAPI

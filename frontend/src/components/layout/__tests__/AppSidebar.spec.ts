@@ -120,8 +120,8 @@ describe('AppSidebar admin navigation groups', () => {
   })
 })
 
-describe('AppSidebar chat and image navigation', () => {
-  it('uses a single chat and image entry instead of the creation center section', () => {
+describe('AppSidebar chat image navigation', () => {
+  it('uses a single chat entry and hides the image manager from the sidebar', () => {
     expect(componentSource).not.toContain("t('nav.creationCenter')")
     expect(componentSource).not.toContain("label: t('nav.chatCreator')")
     expect(componentSource).not.toContain("label: t('nav.imageCreator')")
@@ -129,6 +129,8 @@ describe('AppSidebar chat and image navigation', () => {
     expect(componentSource).not.toContain("path: '/image-creator'")
     expect(componentSource).toContain("label: t('nav.chatImageCreator')")
     expect(componentSource).toContain("path: '/chat-images'")
+    expect(componentSource).not.toContain("label: t('nav.imageManager')")
+    expect(componentSource).not.toContain("path: '/image-manager'")
   })
 
   it('keeps creation links aligned with regular sidebar links in the console shell', () => {
@@ -159,7 +161,10 @@ describe('AppSidebar self navigation groups', () => {
     expect(usageStart).toBeGreaterThan(-1)
     expect(primaryEnd).toBeGreaterThan(primaryStart)
     expect(componentSource.slice(primaryStart, primaryEnd)).toContain('welfareItem')
+    expect(componentSource.slice(primaryStart, primaryEnd)).toContain("path: '/affiliate'")
+    const accountCenterBlock = componentSource.slice(accountStart, usageStart)
     expect(componentSource.slice(accountStart, usageStart)).not.toContain("path: '/welfare'")
+    expect(accountCenterBlock).not.toContain("path: '/affiliate'")
     expect(componentSource).toContain('...usageStatusItems')
     expect(componentSource).toContain("path: '/keys'")
     expect(componentSource).toContain("path: '/chat-images'")

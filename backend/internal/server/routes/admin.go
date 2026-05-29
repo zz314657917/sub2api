@@ -100,6 +100,9 @@ func RegisterAdminRoutes(
 
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
+
+		// 生图存储治理
+		registerImageCreatorStorageGovernanceRoutes(admin, h)
 	}
 }
 
@@ -121,6 +124,14 @@ func registerAdminAPIKeyRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	apiKeys := admin.Group("/api-keys")
 	{
 		apiKeys.PUT("/:id", h.Admin.APIKey.UpdateGroup)
+	}
+}
+
+func registerImageCreatorStorageGovernanceRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	imageCreator := admin.Group("/image-creator")
+	{
+		imageCreator.GET("/storage-governance", h.Admin.ImageCreatorStorage.GetStats)
+		imageCreator.POST("/storage-governance", h.Admin.ImageCreatorStorage.Cleanup)
 	}
 }
 

@@ -6,10 +6,9 @@ export interface OpenWebUILaunchResponse {
 }
 
 export const openWebUIAPI = {
-  async launch(apiKeyId: number): Promise<OpenWebUILaunchResponse> {
-    const response = await apiClient.post<OpenWebUILaunchResponse>('/user/open-webui/launch', {
-      api_key_id: apiKeyId,
-    })
+  async launch(apiKeyId?: number): Promise<OpenWebUILaunchResponse> {
+    const body = typeof apiKeyId === 'number' && apiKeyId > 0 ? { api_key_id: apiKeyId } : {}
+    const response = await apiClient.post<OpenWebUILaunchResponse>('/user/open-webui/launch', body)
     return response.data
   },
 }

@@ -1023,6 +1023,30 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	})
 }
 
+// ModelCatalog handles listing available models with capability groups.
+// GET /v1/model-catalog
+func (h *GatewayHandler) ModelCatalog(c *gin.Context) {
+	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
+
+	var groupID *int64
+	var platform string
+
+	if apiKey != nil && apiKey.Group != nil {
+		groupID = &apiKey.Group.ID
+		platform = apiKey.Group.Platform
+	}
+	if forcedPlatform, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(forcedPlatform) != "" {
+		platform = forcedPlatform
+	}
+
+	if h.gatewayService == nil {
+		c.JSON(http.StatusOK, service.BuildModelCatalog(platform, nil))
+		return
+	}
+
+	c.JSON(http.StatusOK, h.gatewayService.GetAvailableModelCatalog(c.Request.Context(), groupID, platform))
+}
+
 // AntigravityModels 返回 Antigravity 支持的全部模型
 // GET /antigravity/models
 func (h *GatewayHandler) AntigravityModels(c *gin.Context) {

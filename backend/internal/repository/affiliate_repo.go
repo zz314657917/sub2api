@@ -341,6 +341,107 @@ VALUES ($1, 'transfer', $2, NULL, $3, $4, $5, $6, NOW(), NOW())`,
 	return transferred, newBalance, nil
 }
 
+func (r *affiliateRepository) ClaimAPICallReward(ctx context.Context, inviterID, inviteeUserID int64, amount float64, freezeHours int) (bool, error) {
+	if amount <= 0 {
+		return false, nil
+	}
+
+	var applied bool
+	err := r.withTx(ctx, func(txCtx context.Context, txClient *dbent.Client) error {
+		if _, err := ensureUserAffiliateWithClient(txCtx, txClient, inviterID); err != nil {
+			return err
+		}
+
+		rows, err := txClient.QueryContext(txCtx, `
+SELECT EXISTS(
+           SELECT 1
+           FROM user_affiliates ua
+           WHERE ua.user_id = $2 AND ua.inviter_id = $1
+       ) AS is_invitee,
+       EXISTS(
+           SELECT 1
+           FROM usage_logs ul
+           WHERE ul.user_id = $2
+           LIMIT 1
+       ) AS api_used,
+       EXISTS(
+           SELECT 1
+           FROM user_affiliate_ledger ual
+           WHERE ual.user_id = $1
+             AND ual.source_user_id = $2
+             AND ual.action = 'api_call_reward'
+           LIMIT 1
+       ) AS reward_claimed`,
+			inviterID, inviteeUserID,
+		)
+		if err != nil {
+			return fmt.Errorf("query affiliate api call reward eligibility: %w", err)
+		}
+
+		var isInvitee, apiUsed, rewardClaimed bool
+		if rows.Next() {
+			if err := rows.Scan(&isInvitee, &apiUsed, &rewardClaimed); err != nil {
+				_ = rows.Close()
+				return err
+			}
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if !isInvitee {
+			return service.ErrAffiliateInviteeNotFound
+		}
+		if !apiUsed {
+			return service.ErrAffiliateAPICallRewardNotEligible
+		}
+		if rewardClaimed {
+			return service.ErrAffiliateAPICallRewardAlreadyClaimed
+		}
+
+		var updateSQL string
+		if freezeHours > 0 {
+			updateSQL = "UPDATE user_affiliates SET aff_frozen_quota = aff_frozen_quota + $1, aff_history_quota = aff_history_quota + $1, updated_at = NOW() WHERE user_id = $2"
+		} else {
+			updateSQL = "UPDATE user_affiliates SET aff_quota = aff_quota + $1, aff_history_quota = aff_history_quota + $1, updated_at = NOW() WHERE user_id = $2"
+		}
+		res, err := txClient.ExecContext(txCtx, updateSQL, amount, inviterID)
+		if err != nil {
+			return fmt.Errorf("credit affiliate api call reward: %w", err)
+		}
+		affected, _ := res.RowsAffected()
+		if affected == 0 {
+			return service.ErrAffiliateProfileNotFound
+		}
+
+		if freezeHours > 0 {
+			_, err = txClient.ExecContext(txCtx, `
+INSERT INTO user_affiliate_ledger (user_id, action, amount, source_user_id, frozen_until, created_at, updated_at)
+VALUES ($1, 'api_call_reward', $2, $3, NOW() + make_interval(hours => $4), NOW(), NOW())`,
+				inviterID, amount, inviteeUserID, freezeHours,
+			)
+		} else {
+			_, err = txClient.ExecContext(txCtx, `
+INSERT INTO user_affiliate_ledger (user_id, action, amount, source_user_id, created_at, updated_at)
+VALUES ($1, 'api_call_reward', $2, $3, NOW(), NOW())`,
+				inviterID, amount, inviteeUserID,
+			)
+		}
+		if err != nil {
+			if isAffiliateUniqueViolation(err) {
+				return service.ErrAffiliateAPICallRewardAlreadyClaimed
+			}
+			return fmt.Errorf("insert affiliate api call reward ledger: %w", err)
+		}
+
+		applied = true
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+	return applied, nil
+}
+
 func (r *affiliateRepository) ListInvitees(ctx context.Context, inviterID int64, limit int) ([]service.AffiliateInvitee, error) {
 	if limit <= 0 {
 		limit = 100
@@ -351,15 +452,33 @@ SELECT ua.user_id,
        COALESCE(u.email, ''),
        COALESCE(u.username, ''),
        ua.created_at,
-       COALESCE(SUM(ual.amount), 0)::double precision AS total_rebate
+       COALESCE(rebate.total_rebate, 0)::double precision AS total_rebate,
+       first_usage.first_api_called_at,
+       api_reward.claimed_at
 FROM user_affiliates ua
 LEFT JOIN users u ON u.id = ua.user_id
-LEFT JOIN user_affiliate_ledger ual
-       ON ual.user_id = $1
-      AND ual.source_user_id = ua.user_id
-      AND ual.action = 'accrue'
+LEFT JOIN (
+    SELECT source_user_id, COALESCE(SUM(amount), 0)::double precision AS total_rebate
+    FROM user_affiliate_ledger
+    WHERE user_id = $1
+      AND source_user_id IS NOT NULL
+      AND action IN ('accrue', 'api_call_reward')
+    GROUP BY source_user_id
+) rebate ON rebate.source_user_id = ua.user_id
+LEFT JOIN LATERAL (
+    SELECT MIN(ul.created_at) AS first_api_called_at
+    FROM usage_logs ul
+    WHERE ul.user_id = ua.user_id
+) first_usage ON TRUE
+LEFT JOIN (
+    SELECT source_user_id, MIN(created_at) AS claimed_at
+    FROM user_affiliate_ledger
+    WHERE user_id = $1
+      AND source_user_id IS NOT NULL
+      AND action = 'api_call_reward'
+    GROUP BY source_user_id
+) api_reward ON api_reward.source_user_id = ua.user_id
 WHERE ua.inviter_id = $1
-GROUP BY ua.user_id, u.email, u.username, ua.created_at
 ORDER BY ua.created_at DESC
 LIMIT $2`, inviterID, limit)
 	if err != nil {
@@ -371,10 +490,30 @@ LIMIT $2`, inviterID, limit)
 	for rows.Next() {
 		var item service.AffiliateInvitee
 		var createdAt time.Time
-		if err := rows.Scan(&item.UserID, &item.Email, &item.Username, &createdAt, &item.TotalRebate); err != nil {
+		var apiUsedAt sql.NullTime
+		var apiRewardClaimedAt sql.NullTime
+		if err := rows.Scan(
+			&item.UserID,
+			&item.Email,
+			&item.Username,
+			&createdAt,
+			&item.TotalRebate,
+			&apiUsedAt,
+			&apiRewardClaimedAt,
+		); err != nil {
 			return nil, err
 		}
 		item.CreatedAt = &createdAt
+		if apiUsedAt.Valid {
+			t := apiUsedAt.Time
+			item.APIUsed = true
+			item.APIUsedAt = &t
+		}
+		if apiRewardClaimedAt.Valid {
+			t := apiRewardClaimedAt.Time
+			item.APICallRewardClaimed = true
+			item.APICallRewardClaimedAt = &t
+		}
 		invitees = append(invitees, item)
 	}
 	if err := rows.Err(); err != nil {

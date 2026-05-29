@@ -8,6 +8,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -171,6 +172,56 @@ func (r *fakeImageCreatorRepo) AddImage(_ context.Context, image *ImageCreatorIm
 	cp := *image
 	r.images = append(r.images, cp)
 	return nil
+}
+
+func (r *fakeImageCreatorRepo) ListImagesForUser(_ context.Context, userID int64, filters ImageCreatorImageListFilters) ([]ImageCreatorManagedImage, int, error) {
+	var userImages []ImageCreatorManagedImage
+	for _, image := range r.images {
+		if image.UserID != userID {
+			continue
+		}
+		if filters.Search != "" && !strings.Contains(strings.ToLower(image.RevisedPrompt), strings.ToLower(filters.Search)) {
+			task := r.tasks[image.TaskID]
+			if task == nil || !strings.Contains(strings.ToLower(task.Prompt), strings.ToLower(filters.Search)) {
+				continue
+			}
+		}
+		item := ImageCreatorManagedImage{ImageCreatorImage: image}
+		if task := r.tasks[image.TaskID]; task != nil {
+			item.TaskPrompt = task.Prompt
+			item.TaskModel = task.Model
+			item.TaskSize = task.Size
+			item.TaskQuality = task.Quality
+		}
+		userImages = append(userImages, item)
+	}
+	total := len(userImages)
+	offset := filters.Offset
+	limit := filters.Limit
+	if offset >= total {
+		return []ImageCreatorManagedImage{}, total, nil
+	}
+	if limit <= 0 || offset+limit > total {
+		limit = total - offset
+	}
+	return append([]ImageCreatorManagedImage(nil), userImages[offset:offset+limit]...), total, nil
+}
+
+func (r *fakeImageCreatorRepo) ListImagesForUserByIDs(_ context.Context, userID int64, ids []int64) ([]ImageCreatorImage, error) {
+	idSet := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		idSet[id] = struct{}{}
+	}
+	var out []ImageCreatorImage
+	for _, image := range r.images {
+		if image.UserID != userID {
+			continue
+		}
+		if _, ok := idSet[image.ID]; ok {
+			out = append(out, image)
+		}
+	}
+	return out, nil
 }
 
 func (r *fakeImageCreatorRepo) ListPrunableImages(_ context.Context, userID int64, keep int) ([]ImageCreatorImage, error) {
@@ -801,6 +852,58 @@ func TestImageCreatorServiceAutoStorageBackendUsesObjectStorageWhenConfigured(t 
 	})
 
 	require.Equal(t, imageCreatorStorageBackendCOS, opts.StorageBackend)
+}
+
+func TestImageCreatorServiceListImagesAttachesURLsAndTaskMetadata(t *testing.T) {
+	repo := newFakeImageCreatorRepo()
+	repo.tasks[1] = &ImageCreatorTask{
+		ID:      1,
+		UserID:  42,
+		Prompt:  "draw reusable image",
+		Model:   "gpt-image-2",
+		Size:    "1024x1024",
+		Quality: "auto",
+	}
+	repo.images = append(repo.images, ImageCreatorImage{
+		ID:           9,
+		TaskID:       1,
+		UserID:       42,
+		OutputFormat: "png",
+		ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
+	})
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{}, &fakeImageGenerator{}, ImageCreatorServiceOptions{})
+
+	images, total, err := svc.ListImages(context.Background(), 42, ImageCreatorImageListFilters{Limit: 20})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, total)
+	require.Len(t, images, 1)
+	require.Equal(t, "/api/v1/user/image-creator/images/9/file", images[0].URL)
+	require.Equal(t, "draw reusable image", images[0].TaskPrompt)
+	require.Equal(t, "gpt-image-2", images[0].TaskModel)
+}
+
+func TestImageCreatorServiceDeleteImagesOnlyDeletesCurrentUserImages(t *testing.T) {
+	dir := t.TempDir()
+	ownImage := filepath.Join(dir, "own.png")
+	otherImage := filepath.Join(dir, "other.png")
+	require.NoError(t, os.WriteFile(ownImage, []byte("own"), 0o600))
+	require.NoError(t, os.WriteFile(otherImage, []byte("other"), 0o600))
+	repo := newFakeImageCreatorRepo()
+	repo.images = append(repo.images,
+		ImageCreatorImage{ID: 9, TaskID: 1, UserID: 42, FilePath: ownImage, ExpiresAt: time.Now().Add(7 * 24 * time.Hour)},
+		ImageCreatorImage{ID: 10, TaskID: 2, UserID: 99, FilePath: otherImage, ExpiresAt: time.Now().Add(7 * 24 * time.Hour)},
+	)
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{}, &fakeImageGenerator{}, ImageCreatorServiceOptions{})
+
+	deleted, err := svc.DeleteImages(context.Background(), 42, []int64{9, 10, 9})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, deleted)
+	require.NoFileExists(t, ownImage)
+	require.FileExists(t, otherImage)
+	require.Len(t, repo.images, 1)
+	require.Equal(t, int64(10), repo.images[0].ID)
 }
 
 func TestImageCreatorServiceProcessTaskRevalidatesAPIKeyPermission(t *testing.T) {

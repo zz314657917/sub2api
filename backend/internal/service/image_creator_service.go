@@ -5,10 +5,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"mime"
 	"mime/multipart"
@@ -123,10 +127,38 @@ type ImageCreatorImage struct {
 	OutputFormat  string    `json:"output_format"`
 	MimeType      string    `json:"mime_type"`
 	ByteSize      int64     `json:"byte_size"`
+	Width         int       `json:"width,omitempty"`
+	Height        int       `json:"height,omitempty"`
+	Resolution    string    `json:"resolution,omitempty"`
+	AspectRatio   string    `json:"aspect_ratio,omitempty"`
+	Orientation   string    `json:"orientation,omitempty"`
+	Megapixels    float64   `json:"megapixels,omitempty"`
 	SHA256        string    `json:"sha256"`
 	RevisedPrompt string    `json:"revised_prompt,omitempty"`
 	ExpiresAt     time.Time `json:"expires_at"`
 	CreatedAt     time.Time `json:"created_at"`
+}
+
+type ImageCreatorManagedImage struct {
+	ImageCreatorImage
+	TaskPrompt  string `json:"task_prompt,omitempty"`
+	TaskModel   string `json:"task_model,omitempty"`
+	TaskSize    string `json:"task_size,omitempty"`
+	TaskQuality string `json:"task_quality,omitempty"`
+}
+
+type ImageCreatorImageListFilters struct {
+	Limit       int
+	Offset      int
+	Search      string
+	StartDate   string
+	EndDate     string
+	Format      string
+	Orientation string
+	Resolution  string
+	AspectRatio string
+	MinWidth    int
+	MinHeight   int
 }
 
 type ImageCreatorCreateTaskInput struct {
@@ -184,6 +216,8 @@ type ImageCreatorRepository interface {
 	MarkTaskSucceeded(ctx context.Context, taskID int64, warning string) error
 	MarkTaskFailed(ctx context.Context, taskID int64, message string) error
 	AddImage(ctx context.Context, image *ImageCreatorImage) error
+	ListImagesForUser(ctx context.Context, userID int64, filters ImageCreatorImageListFilters) ([]ImageCreatorManagedImage, int, error)
+	ListImagesForUserByIDs(ctx context.Context, userID int64, ids []int64) ([]ImageCreatorImage, error)
 	ListPrunableImages(ctx context.Context, userID int64, keep int) ([]ImageCreatorImage, error)
 	DeleteImagesByID(ctx context.Context, ids []int64) error
 	ListExpiredImages(ctx context.Context, before time.Time, limit int) ([]ImageCreatorImage, error)
@@ -540,6 +574,132 @@ func (s *ImageCreatorService) ListTasks(ctx context.Context, userID int64, limit
 	return tasks, nil
 }
 
+func (s *ImageCreatorService) ListImages(ctx context.Context, userID int64, filters ImageCreatorImageListFilters) ([]ImageCreatorManagedImage, int, error) {
+	if s == nil || s.repo == nil {
+		return nil, 0, infraerrors.InternalServer("IMAGE_CREATOR_UNAVAILABLE", "image creator service is unavailable")
+	}
+	if userID <= 0 {
+		return nil, 0, infraerrors.BadRequest("INVALID_USER", "user_id is required")
+	}
+	filters = normalizeImageCreatorImageListFilters(filters)
+	images, total, err := s.repo.ListImagesForUser(ctx, userID, filters)
+	if err != nil {
+		return nil, 0, err
+	}
+	for i := range images {
+		attachImageCreatorImageDisplayFields(&images[i].ImageCreatorImage)
+	}
+	return images, total, nil
+}
+
+func normalizeImageCreatorImageListFilters(filters ImageCreatorImageListFilters) ImageCreatorImageListFilters {
+	if filters.Limit <= 0 {
+		filters.Limit = defaultImageCreatorListTaskLimit
+	}
+	if filters.Limit > 100 {
+		filters.Limit = 100
+	}
+	if filters.Offset < 0 {
+		filters.Offset = 0
+	}
+	filters.Search = strings.TrimSpace(filters.Search)
+	filters.StartDate = normalizeImageCreatorDateFilter(filters.StartDate)
+	filters.EndDate = normalizeImageCreatorDateFilter(filters.EndDate)
+	filters.Format = normalizeImageCreatorFormatFilter(filters.Format)
+	filters.Orientation = normalizeImageCreatorOrientationFilter(filters.Orientation)
+	filters.Resolution = normalizeImageCreatorResolutionFilter(filters.Resolution)
+	filters.AspectRatio = normalizeImageCreatorAspectRatioFilter(filters.AspectRatio)
+	if filters.MinWidth < 0 {
+		filters.MinWidth = 0
+	}
+	if filters.MinHeight < 0 {
+		filters.MinHeight = 0
+	}
+	return filters
+}
+
+func normalizeImageCreatorDateFilter(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+	if _, err := time.Parse("2006-01-02", value); err != nil {
+		return ""
+	}
+	return value
+}
+
+func normalizeImageCreatorFormatFilter(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "png", "webp":
+		return strings.ToLower(strings.TrimSpace(value))
+	case "jpg", "jpeg":
+		return "jpeg"
+	case "other":
+		return "other"
+	default:
+		return ""
+	}
+}
+
+func normalizeImageCreatorOrientationFilter(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "landscape", "portrait", "square", "unknown":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return ""
+	}
+}
+
+func normalizeImageCreatorResolutionFilter(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1080p", "2k", "4k", "unknown":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return ""
+	}
+}
+
+func normalizeImageCreatorAspectRatioFilter(value string) string {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "1:1", "4:3", "3:4", "16:9", "9:16", "other", "unknown":
+		return strings.ToLower(strings.TrimSpace(value))
+	default:
+		return ""
+	}
+}
+
+func (s *ImageCreatorService) DeleteImages(ctx context.Context, userID int64, ids []int64) (int, error) {
+	if s == nil || s.repo == nil {
+		return 0, infraerrors.InternalServer("IMAGE_CREATOR_UNAVAILABLE", "image creator service is unavailable")
+	}
+	if userID <= 0 {
+		return 0, infraerrors.BadRequest("INVALID_USER", "user_id is required")
+	}
+	ids = normalizeImageCreatorImageIDs(ids)
+	if len(ids) == 0 {
+		return 0, infraerrors.BadRequest("INVALID_IMAGE_IDS", "image ids are required")
+	}
+	images, err := s.repo.ListImagesForUserByIDs(ctx, userID, ids)
+	if err != nil {
+		return 0, err
+	}
+	if len(images) == 0 {
+		return 0, infraerrors.NotFound("IMAGE_CREATOR_IMAGE_NOT_FOUND", "image not found")
+	}
+	deleteIDs := make([]int64, 0, len(images))
+	for _, image := range images {
+		deleteIDs = append(deleteIDs, image.ID)
+	}
+	if err := s.repo.DeleteImagesByID(ctx, deleteIDs); err != nil {
+		return 0, err
+	}
+	for _, image := range images {
+		s.removeStoredImageQuietly(ctx, image.FilePath)
+	}
+	return len(images), nil
+}
+
 func (s *ImageCreatorService) GetImageFile(ctx context.Context, userID int64, imageID int64) (*ImageCreatorFile, error) {
 	if s == nil || s.repo == nil {
 		return nil, infraerrors.InternalServer("IMAGE_CREATOR_UNAVAILABLE", "image creator service is unavailable")
@@ -573,6 +733,10 @@ func (s *ImageCreatorService) GetImageFile(ctx context.Context, userID int64, im
 		FileName:               fmt.Sprintf("image-%d.%s", image.ID, normalizeImageCreatorStoredOutputFormat(image.OutputFormat)),
 		DownloadBytesPerSecond: s.downloadBytesPerSecond,
 	}, nil
+}
+
+func (s *ImageCreatorService) GetReferenceImageForUser(ctx context.Context, userID int64, imageID int64) (*ImageCreatorFile, error) {
+	return s.GetImageFile(ctx, userID, imageID)
 }
 
 func (s *ImageCreatorService) ProcessTask(ctx context.Context, taskID int64) error {
@@ -643,6 +807,7 @@ func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *Imag
 			}
 			outputFormat := normalizeImageCreatorStoredOutputFormat(firstNonEmptyString(asset.OutputFormat, task.OutputFormat))
 			mimeType := firstNonEmptyString(asset.MimeType, mimeTypeForOutputFormat(outputFormat))
+			width, height := imageCreatorImageDimensions(asset.Data)
 			filePath, hash, byteSize, err := s.saveGeneratedImage(ctx, task.UserID, task.ID, successCount+1, outputFormat, asset.Data)
 			if err != nil {
 				lastErr = err
@@ -655,6 +820,8 @@ func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *Imag
 				OutputFormat:  outputFormat,
 				MimeType:      mimeType,
 				ByteSize:      byteSize,
+				Width:         width,
+				Height:        height,
 				SHA256:        hash,
 				RevisedPrompt: strings.TrimSpace(asset.RevisedPrompt),
 				ExpiresAt:     time.Now().Add(s.retention),
@@ -1332,7 +1499,20 @@ func attachImageURLs(task *ImageCreatorTask) {
 		return
 	}
 	for i := range task.Images {
-		task.Images[i].URL = imageCreatorImageURL(task.Images[i].ID)
+		attachImageCreatorImageDisplayFields(&task.Images[i])
+	}
+}
+
+func attachImageCreatorImageDisplayFields(image *ImageCreatorImage) {
+	if image == nil {
+		return
+	}
+	image.URL = imageCreatorImageURL(image.ID)
+	if image.Width > 0 && image.Height > 0 {
+		image.Resolution = fmt.Sprintf("%dx%d", image.Width, image.Height)
+		image.AspectRatio = simplifiedImageCreatorAspectRatio(image.Width, image.Height)
+		image.Orientation = imageCreatorOrientation(image.Width, image.Height)
+		image.Megapixels = float64(image.Width) * float64(image.Height) / 1_000_000
 	}
 }
 
@@ -1341,6 +1521,105 @@ func imageCreatorImageURL(imageID int64) string {
 		return ""
 	}
 	return fmt.Sprintf("/api/v1/user/image-creator/images/%d/file", imageID)
+}
+
+func normalizeImageCreatorImageIDs(ids []int64) []int64 {
+	seen := make(map[int64]struct{}, len(ids))
+	out := make([]int64, 0, len(ids))
+	for _, id := range ids {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		out = append(out, id)
+	}
+	return out
+}
+
+func imageCreatorImageDimensions(data []byte) (int, int) {
+	if len(data) == 0 {
+		return 0, 0
+	}
+	config, _, err := image.DecodeConfig(bytes.NewReader(data))
+	if err == nil && config.Width > 0 && config.Height > 0 {
+		return config.Width, config.Height
+	}
+	return imageCreatorWebPDimensions(data)
+}
+
+func imageCreatorWebPDimensions(data []byte) (int, int) {
+	if len(data) < 30 || string(data[0:4]) != "RIFF" || string(data[8:12]) != "WEBP" {
+		return 0, 0
+	}
+	chunk := string(data[12:16])
+	switch chunk {
+	case "VP8 ":
+		if len(data) < 30 {
+			return 0, 0
+		}
+		width := int(binary.LittleEndian.Uint16(data[26:28]) & 0x3fff)
+		height := int(binary.LittleEndian.Uint16(data[28:30]) & 0x3fff)
+		if width > 0 && height > 0 {
+			return width, height
+		}
+	case "VP8L":
+		if len(data) < 25 || data[20] != 0x2f {
+			return 0, 0
+		}
+		b0, b1, b2, b3 := uint32(data[21]), uint32(data[22]), uint32(data[23]), uint32(data[24])
+		width := int(1 + (((b1 & 0x3f) << 8) | b0))
+		height := int(1 + (((b3 & 0x0f) << 10) | (b2 << 2) | ((b1 & 0xc0) >> 6)))
+		if width > 0 && height > 0 {
+			return width, height
+		}
+	case "VP8X":
+		if len(data) < 30 {
+			return 0, 0
+		}
+		width := 1 + int(uint32(data[24])|uint32(data[25])<<8|uint32(data[26])<<16)
+		height := 1 + int(uint32(data[27])|uint32(data[28])<<8|uint32(data[29])<<16)
+		if width > 0 && height > 0 {
+			return width, height
+		}
+	}
+	return 0, 0
+}
+
+func simplifiedImageCreatorAspectRatio(width int, height int) string {
+	divisor := imageCreatorGCD(width, height)
+	if divisor <= 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d:%d", width/divisor, height/divisor)
+}
+
+func imageCreatorGCD(a int, b int) int {
+	if a < 0 {
+		a = -a
+	}
+	if b < 0 {
+		b = -b
+	}
+	for b != 0 {
+		a, b = b, a%b
+	}
+	return a
+}
+
+func imageCreatorOrientation(width int, height int) string {
+	if width <= 0 || height <= 0 {
+		return ""
+	}
+	if width == height {
+		return "square"
+	}
+	if width > height {
+		return "landscape"
+	}
+	return "portrait"
 }
 
 func normalizeImageCreatorRequestedOutputFormat(format string) string {

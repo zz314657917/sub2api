@@ -137,6 +137,7 @@ type SystemSettings struct {
 	AffiliateRebateFreezeHours       int
 	AffiliateRebateDurationDays      int
 	AffiliateRebatePerInviteeCap     float64
+	AffiliateAPICallRewardAmount     float64
 	AccountShareEnabled              bool
 	ExternalCapacityReferenceEnabled bool
 	AccountShareOwnerRatePercent     float64

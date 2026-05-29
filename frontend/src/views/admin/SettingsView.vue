@@ -4886,6 +4886,102 @@
 
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                  {{ t('admin.settings.features.imageStorageGovernance.title') }}
+                </h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.imageStorageGovernance.description') }}
+                </p>
+              </div>
+              <button
+                type="button"
+                class="btn btn-secondary btn-sm"
+                :disabled="imageStorageGovernance.loading"
+                @click="loadImageStorageGovernance"
+              >
+                <Icon name="refresh" size="sm" />
+                {{ t('common.refresh') }}
+              </button>
+            </div>
+          </div>
+          <div class="space-y-5 p-6">
+            <div
+              v-if="imageStorageGovernance.loading"
+              class="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400"
+            >
+              <div class="h-4 w-4 animate-spin rounded-full border-b-2 border-primary-600"></div>
+              {{ t('common.loading') }}
+            </div>
+            <template v-else-if="imageStorageGovernance.stats">
+              <div class="grid gap-3 md:grid-cols-3">
+                <div class="rounded-md bg-gray-50 p-3 dark:bg-dark-800">
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.features.imageStorageGovernance.storageBackend') }}
+                  </p>
+                  <p class="mt-1 text-sm font-semibold text-gray-900 dark:text-white">
+                    {{ imageStorageGovernance.stats.storage_backend }}
+                  </p>
+                </div>
+                <div class="rounded-md bg-gray-50 p-3 dark:bg-dark-800 md:col-span-2">
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.features.imageStorageGovernance.storageDir') }}
+                  </p>
+                  <p class="mt-1 break-all font-mono text-xs text-gray-700 dark:text-gray-200">
+                    {{ imageStorageGovernance.stats.storage_dir || '-' }}
+                  </p>
+                </div>
+              </div>
+
+              <div class="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div
+                  v-for="item in imageStorageGovernanceItems"
+                  :key="item.key"
+                  class="rounded-md border border-gray-200 p-3 dark:border-dark-700"
+                >
+                  <div class="flex items-start justify-between gap-2">
+                    <div>
+                      <p class="text-sm font-medium text-gray-900 dark:text-white">
+                        {{ item.label }}
+                      </p>
+                      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {{ item.unsupported ? t('admin.settings.features.imageStorageGovernance.unsupported') : formatImageStorageBytes(item.byteSize) }}
+                      </p>
+                    </div>
+                    <span class="text-lg font-semibold text-gray-900 dark:text-white">
+                      {{ item.unsupported ? '-' : item.count }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid gap-2 md:grid-cols-4">
+                <button
+                  v-for="action in imageStorageGovernanceActions"
+                  :key="action.action"
+                  type="button"
+                  class="btn btn-secondary btn-sm justify-center"
+                  :disabled="imageStorageGovernance.cleaningAction !== null || action.unsupported"
+                  @click="cleanupImageStorageGovernance(action.action)"
+                >
+                  <Icon name="trash" size="sm" />
+                  {{
+                    imageStorageGovernance.cleaningAction === action.action
+                      ? t('admin.settings.features.imageStorageGovernance.cleaning')
+                      : action.label
+                  }}
+                </button>
+              </div>
+            </template>
+            <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.features.imageStorageGovernance.loadFailed') }}
+            </p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
               {{ t('admin.settings.features.channelMonitor.title') }}
             </h2>
@@ -5382,6 +5478,23 @@
                 </div>
                 <p class="mt-1 text-xs text-gray-400">
                   {{ t('admin.settings.features.affiliate.rebateRateHint') }}
+                </p>
+              </div>
+
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.affiliate.apiCallRewardAmount') }}
+                </label>
+                <input
+                  v-model.number="form.affiliate_api_call_reward_amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  class="input"
+                  placeholder="0"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.affiliate.apiCallRewardAmountHint') }}
                 </p>
               </div>
 
@@ -6787,6 +6900,11 @@ import {
   resolveWeChatConnectModeCapabilities,
 } from "@/api/admin/settings";
 import type {
+  ImageCreatorStorageGovernanceAction,
+  ImageCreatorStorageGovernanceItem,
+  ImageCreatorStorageGovernanceStats,
+} from "@/api/admin/imageCreatorStorage";
+import type {
   AuthSourceDefaultsState,
   AuthSourceType,
   SystemSettings,
@@ -6884,6 +7002,24 @@ const settingsTabKeyboardActions = {
   End: "last",
 } as const;
 
+const imageStorageGovernanceActionLabels: Record<
+  ImageCreatorStorageGovernanceAction,
+  string
+> = {
+  expired_images: "admin.settings.features.imageStorageGovernance.cleanExpiredImages",
+  orphan_files: "admin.settings.features.imageStorageGovernance.cleanOrphanFiles",
+  preview_cache: "admin.settings.features.imageStorageGovernance.cleanPreviewCache",
+  thumb_cache: "admin.settings.features.imageStorageGovernance.cleanThumbCache",
+};
+
+const imageStorageGovernanceMetricLabels = {
+  images: "admin.settings.features.imageStorageGovernance.images",
+  expired_images: "admin.settings.features.imageStorageGovernance.expiredImages",
+  orphan_files: "admin.settings.features.imageStorageGovernance.orphanFiles",
+  preview_cache: "admin.settings.features.imageStorageGovernance.previewCache",
+  thumb_cache: "admin.settings.features.imageStorageGovernance.thumbCache",
+} as const;
+
 function selectSettingsTab(tab: SettingsTab): void {
   activeTab.value = tab;
 }
@@ -6930,6 +7066,7 @@ const { copyToClipboard } = useClipboard();
 const loading = ref(true);
 const loadFailed = ref(false);
 const saving = ref(false);
+const affiliateApiCallRewardAmountOverride = ref<number | null>(null);
 const testingSmtp = ref(false);
 const sendingTestEmail = ref(false);
 const smtpPasswordManuallyEdited = ref(false);
@@ -6937,6 +7074,132 @@ const testEmailAddress = ref("");
 const registrationEmailSuffixWhitelistTags = ref<string[]>([]);
 const registrationEmailSuffixWhitelistDraft = ref("");
 const tablePageSizeOptionsInput = ref("10, 20, 50, 100");
+
+const imageStorageGovernance = reactive<{
+  loading: boolean;
+  cleaningAction: ImageCreatorStorageGovernanceAction | null;
+  stats: ImageCreatorStorageGovernanceStats | null;
+}>({
+  loading: false,
+  cleaningAction: null,
+  stats: null,
+});
+
+const imageStorageGovernanceItems = computed(() => {
+  const stats = imageStorageGovernance.stats;
+  if (!stats) return [];
+  return [
+    makeImageStorageGovernanceItem("images", stats.images),
+    makeImageStorageGovernanceItem("expired_images", stats.expired_images),
+    makeImageStorageGovernanceItem("orphan_files", stats.orphan_files),
+    makeImageStorageGovernanceItem("preview_cache", stats.preview_cache),
+    makeImageStorageGovernanceItem("thumb_cache", stats.thumb_cache),
+  ];
+});
+
+const imageStorageGovernanceActions = computed(() => {
+  const stats = imageStorageGovernance.stats;
+  return ([
+    "expired_images",
+    "orphan_files",
+    "preview_cache",
+    "thumb_cache",
+  ] as ImageCreatorStorageGovernanceAction[]).map((action) => ({
+    action,
+    label: t(imageStorageGovernanceActionLabels[action]),
+    unsupported: storageGovernanceActionUnsupported(stats, action),
+  }));
+});
+
+function makeImageStorageGovernanceItem(
+  key: keyof typeof imageStorageGovernanceMetricLabels,
+  item: ImageCreatorStorageGovernanceItem,
+): {
+  key: string;
+  label: string;
+  count: number;
+  byteSize: number;
+  unsupported: boolean;
+} {
+  return {
+    key,
+    label: t(imageStorageGovernanceMetricLabels[key]),
+    count: item?.count ?? 0,
+    byteSize: item?.byte_size ?? 0,
+    unsupported: item?.unsupported === true,
+  };
+}
+
+function storageGovernanceActionUnsupported(
+  stats: ImageCreatorStorageGovernanceStats | null,
+  action: ImageCreatorStorageGovernanceAction,
+): boolean {
+  if (!stats) return true;
+  if (action === "expired_images") return false;
+  return stats[action]?.unsupported === true;
+}
+
+function formatImageStorageBytes(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let size = value;
+  let index = 0;
+  while (size >= 1024 && index < units.length - 1) {
+    size /= 1024;
+    index += 1;
+  }
+  return `${size.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
+}
+
+async function loadImageStorageGovernance(): Promise<void> {
+  imageStorageGovernance.loading = true;
+  try {
+    imageStorageGovernance.stats =
+      await adminAPI.imageCreatorStorage.getStorageGovernanceStats();
+  } catch (err: unknown) {
+    imageStorageGovernance.stats = null;
+    appStore.showError(
+      extractApiErrorMessage(
+        err,
+        t("admin.settings.features.imageStorageGovernance.loadFailed"),
+      ),
+    );
+  } finally {
+    imageStorageGovernance.loading = false;
+  }
+}
+
+async function cleanupImageStorageGovernance(
+  action: ImageCreatorStorageGovernanceAction,
+): Promise<void> {
+  imageStorageGovernance.cleaningAction = action;
+  try {
+    const result =
+      await adminAPI.imageCreatorStorage.cleanupStorageGovernance(action);
+    if (result.unsupported) {
+      appStore.showError(
+        t("admin.settings.features.imageStorageGovernance.unsupported"),
+      );
+    } else {
+      appStore.showSuccess(
+        t("admin.settings.features.imageStorageGovernance.cleaned", {
+          count: result.deleted,
+          size: formatImageStorageBytes(result.deleted_bytes),
+        }),
+      );
+    }
+    await loadImageStorageGovernance();
+  } catch (err: unknown) {
+    appStore.showError(
+      extractApiErrorMessage(
+        err,
+        t("admin.settings.features.imageStorageGovernance.cleanFailed"),
+      ),
+    );
+  } finally {
+    imageStorageGovernance.cleaningAction = null;
+  }
+}
 
 // Admin API Key 状态
 const adminApiKeyLoading = ref(true);
@@ -7143,6 +7406,7 @@ const form = reactive<SettingsForm>({
   affiliate_rebate_freeze_hours: 0,
   affiliate_rebate_duration_days: 0,
   affiliate_rebate_per_invitee_cap: 0,
+  affiliate_api_call_reward_amount: 0,
   default_concurrency: 1,
   default_subscriptions: [],
   force_email_on_third_party_signup: false,
@@ -8076,6 +8340,10 @@ async function loadSettings() {
   loadFailed.value = false;
   try {
     const settings = await adminAPI.settings.getSettings();
+    const backendHasAffiliateApiCallRewardAmount = Object.prototype.hasOwnProperty.call(
+      settings,
+      "affiliate_api_call_reward_amount",
+    );
     settings.payment_load_balance_strategy =
       settings.payment_load_balance_strategy || "round-robin";
     // Only assign non-null values from backend (null means unconfigured, keep defaults)
@@ -8083,6 +8351,9 @@ async function loadSettings() {
       if (value !== null && value !== undefined) {
         (form as Record<string, unknown>)[key] = value;
       }
+    }
+    if (!backendHasAffiliateApiCallRewardAmount && affiliateApiCallRewardAmountOverride.value !== null) {
+      form.affiliate_api_call_reward_amount = affiliateApiCallRewardAmountOverride.value;
     }
     form.login_agreement_mode =
       settings.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
@@ -8477,6 +8748,7 @@ async function saveSettings() {
       affiliate_rebate_freeze_hours: Math.max(0, Math.min(720, Number(form.affiliate_rebate_freeze_hours) || 0)),
       affiliate_rebate_duration_days: Math.max(0, Math.min(3650, Math.floor(Number(form.affiliate_rebate_duration_days) || 0))),
       affiliate_rebate_per_invitee_cap: Math.max(0, Number(form.affiliate_rebate_per_invitee_cap) || 0),
+      affiliate_api_call_reward_amount: Math.max(0, Number(form.affiliate_api_call_reward_amount) || 0),
       default_concurrency: form.default_concurrency,
       default_subscriptions: normalizedDefaultSubscriptions,
       force_email_on_third_party_signup: form.force_email_on_third_party_signup,
@@ -8729,12 +9001,23 @@ async function saveSettings() {
 
     appendAuthSourceDefaultsToUpdateRequest(payload, authSourceDefaults);
 
+    const affiliateApiCallRewardAmountPayload = payload.affiliate_api_call_reward_amount ?? 0;
     const updated = await adminAPI.settings.updateSettings(payload);
+    const backendReturnedAffiliateApiCallRewardAmount = Object.prototype.hasOwnProperty.call(
+      updated,
+      "affiliate_api_call_reward_amount",
+    );
     for (const [key, value] of Object.entries(updated)) {
       if (key === "openai_fast_policy_settings") continue;
       if (value !== null && value !== undefined) {
         (form as Record<string, unknown>)[key] = value;
       }
+    }
+    if (backendReturnedAffiliateApiCallRewardAmount) {
+      affiliateApiCallRewardAmountOverride.value = null;
+    } else {
+      affiliateApiCallRewardAmountOverride.value = affiliateApiCallRewardAmountPayload;
+      form.affiliate_api_call_reward_amount = affiliateApiCallRewardAmountPayload;
     }
     Object.assign(authSourceDefaults, buildAuthSourceDefaultsState(updated));
     registrationEmailSuffixWhitelistTags.value =
@@ -9614,6 +9897,7 @@ onMounted(() => {
   loadStreamTimeoutSettings();
   loadRectifierSettings();
   loadBetaPolicySettings();
+  loadImageStorageGovernance();
   loadProviders();
 });
 

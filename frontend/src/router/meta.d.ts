@@ -70,5 +70,17 @@ declare module 'vue-router' {
      * i18n key for the page description
      */
     descriptionKey?: string
+
+    /**
+     * Whether the console header should hide the title block
+     * @default false
+     */
+    hideHeaderTitle?: boolean
+
+    /**
+     * Whether the route should use a dense workspace layout.
+     * @default false
+     */
+    denseWorkspace?: boolean
   }
 }

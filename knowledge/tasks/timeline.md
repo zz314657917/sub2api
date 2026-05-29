@@ -1,5 +1,53 @@
 # 项目时间轴
 
+## 2026-05-29 12:44 +08:00 - /chat-images 原版化 UI 试验封存并还原
+
+- 当前阶段：在 `codex/sub2api-studio-layout` 上试做一批 `/chat-images` 原版化聊天生图界面后，按用户要求暂停采用并恢复到试验前页面。
+- 本段重点：试验提交 `e5aaf0c3b refactor(images): reshape chat image studio page` 改成左侧会话、中央创作空态、预设提示词卡片和底部大 composer；已创建封存分支 `codex/archive-chat-images-studio-reshape` 指向该提交，方便后续找回。
+- 已完成：主分支追加还原提交 `16e08d779 Revert "refactor(images): reshape chat image studio page"`，恢复 `/chat-images` 到试验前状态；未触碰其他未提交工作区改动。
+- 关键决策：此 UI 试验不作为当前迁移主线继续推进；如果后续再做聊天生图界面，应从封存分支/提交挑选思路，而不是默认沿用该版本。
+- 验证记录：试验提交前通过 `npm.cmd run test:run -- ChatImageStudioView AppSidebar public-smoke`、`npm.cmd run lint:check`、`npm.cmd run build` 和浏览器打开 `http://127.0.0.1:62080/chat-images`；还原后重新执行 `npm.cmd run test:run -- ChatImageStudioView AppSidebar public-smoke` 通过。
+- 遗留问题：当前仍有其他未提交改动来自别的任务线，未纳入本次封存或还原。
+- 下一步：继续迁移主线时优先处理既定 Canvas/图片库剩余能力；聊天生图 UI 若要重启，需要先重新确认目标交互和是否采用原版风格。
+
+## 2026-05-29 09:45 +08:00 - Canvas ImageCreator 任务轮询与节点结果回填
+
+- 当前阶段：在 `codex/sub2api-studio-layout` 上继续补 Canvas 真实运行闭环，把上一阶段写入 `canvas_runs.output.image_tasks` 的 node -> ImageCreator task 映射接到前端展示。
+- 本段重点：`/canvas` 解析 run output 中的 `image_tasks`，调用现有 `getImageTask` 轮询任务状态，并按节点展示 queued/running/done/failed、生成图片预览和失败错误；轮询结果作为展示层 overlay，不自动写回 Canvas 文档保存 payload。
+- 关键决策：不新增后端轮询接口，不绕过现有受保护图片 URL；轮询只使用当前用户的 `/user/image-creator/tasks/:id` 权限链路。切换画布时用版本号丢弃旧请求结果，组件卸载时清理 timer。
+- 验证记录：`npm.cmd run test:run -- CanvasView canvas`、`npm.cmd run lint:check`、`npm.cmd run build`、`git diff --check` 均通过；前端 build 仅有既有 Vite dynamic import/chunk size 警告。
+- 遗留问题：未做真实登录态浏览器手工验收；Canvas 仍缺旧版完整拖拽连线编辑器、模板、裁剪/外扩/mask 和历史。
+- 下一步：继续补 Canvas 节点交互编辑器和模板/高级图像编辑；若要更强一致性，可后续让后端 Canvas run 聚合 ImageCreator task 终态。
+
+## 2026-05-29 09:25 +08:00 - Canvas 真实运行最小闭环落地
+
+- 当前阶段：在 `codex/sub2api-studio-layout` 上继续迁移旧版生图 Canvas 能力，完成 Canvas run 到现有 ImageCreator task 队列的最小真实运行链路。
+- 本段重点：后端 CanvasService 注入 ImageCreatorService，`text_to_image` / `image_to_image` 节点会创建现有 ImageCreator task，并把 node -> task 映射写入 `canvas_runs.output`；前端 `/canvas` 增加 API Key 选择、节点参数面板、运行前保存和最近运行/节点结果展示。
+- 关键决策：不绕过 ImageCreatorService，不直接调用 generator 或上游；继续复用现有 API Key 归属校验、OpenAI 分组生图权限、并发限制、gateway 计费和图片保存。Canvas run 取消暂不级联取消 ImageCreator task，完整节点引擎和高级图像编辑拆后续阶段。
+- 验证记录：`go test ./internal/service ./internal/handler ./internal/repository -run "Canvas" -count=1`、`go test ./internal/service ./internal/handler ./internal/repository -run "ImageCreator|Canvas" -count=1`、`go test ./cmd/server -count=1`、`npm.cmd run test:run -- CanvasView canvas`、`npm.cmd run test:run -- CanvasView canvas AppSidebar public-smoke`、`go test ./...`、`npm.cmd run lint:check`、`npm.cmd run build`、`git diff --check` 均通过；前端 build 仅有既有 Vite dynamic import/chunk size 警告。
+- 遗留问题：未做真实登录态浏览器手工验收；Canvas 尚未实现拖拽连线编辑器、运行轮询结果回填、模板、裁剪/外扩/mask 和历史。
+- 下一步：优先补 Canvas 交互编辑器与运行轮询/结果回填，再迁移旧版高级图像编辑和模板能力。
+
+## 2026-05-29 03:50 +08:00 - sub2api 生图能力迁移阶段收口
+
+- 当前阶段：在 `codex/sub2api-studio-layout` 上完成一轮旧版生图能力向 sub2api 的分批迁移，使用多 worker 并行推进存储治理、Canvas 后端和 Canvas 前端。
+- 本段重点：补齐当前用户图片库高级筛选、图片库参考图复用、提示词市场/收藏、生图存储治理，以及 Canvas 后端 API/表和前端工作台骨架。
+- 已完成：提交 `47e0b5489 feat(images): enhance image library filters`、`b03e09354 feat(images): add prompt market favorites`、`d810a93bf feat(canvas): add backend canvas and storage governance APIs`、`ce961c84a feat(canvas): add canvas workspace UI`；更新 `knowledge/tasks/current-task.md` 作为下一轮继续入口。
+- 关键决策：本轮只使用 sub2api 用户体系，不迁旧 `chatgpt2api` 账号/RBAC；不做公开图库、发布/取消公开或 visibility/share 字段；Canvas 先落可保存/打开/排队记录的骨架，完整运行引擎和高级图像编辑拆后续阶段。
+- 验证记录：`go test ./internal/service ./internal/handler -run "ImageCreator" -count=1`、`npm.cmd run test:run -- ImageManagerView ChatImageStudioView public-smoke AppSidebar`、`go test ./internal/service ./internal/handler ./internal/repository -run "ImageCreator|PromptFavorite" -count=1`、`npm.cmd run test:run -- promptMarket ChatImageStudioView`、`go test ./internal/service ./internal/handler ./internal/repository -run "ImageCreator|PromptFavorite|Canvas" -count=1`、`go test ./cmd/server -count=1`、`npm.cmd run test:run -- canvas CanvasView AppSidebar public-smoke`、`go test ./...`、`npm.cmd run lint:check`、`npm.cmd run build`、`git diff --check` 均通过；前端 build 仅有既有 Vite dynamic import/chunk size 警告。
+- 遗留问题：未做真实登录态浏览器人工验收；Canvas 尚未接入真实 API Key、模型目录、计费、并发和图片任务服务；节点拖拽连线、模板、裁剪/外扩/mask、历史等旧版完整 Canvas 能力仍待迁移。
+- 下一步：优先实现 Canvas 真实运行链路并做文生图/图生图手动验收；随后补节点交互编辑、模板库和高级图像编辑。
+
+## 2026-05-28 11:58 +08:00 - 共享展示窗口重置与顶部公告轮播提交整理
+
+- 当前阶段：最近一组共享展示窗口口径和控制台 header 公告轮播改动已完成提交前整理与窄范围验证。
+- 本段重点：后端账号配额重置会同步重置 `share_display_5h/7d` 伪装展示窗口基线，容量池展示用量改为按每个窗口自己的 start 查询；前端控制台顶部新增最多 3 条公告轮播，点击复用公告铃详情。
+- 已完成：新增 per-window usage cost 批量查询；容量池读取 `share_display_5h_start` / `share_display_7d_start`，缺失时回退固定 5h / 7d；关闭共享展示时清理 start 残留；新增 `HeaderAnnouncementCarousel` 和相关测试。
+- 关键决策：配额重置只清零本地用量和共享展示伪装窗口，不清理 `codex_*` 真实上游快照；公告轮播只在 `xl` 宽屏 header 中间展示，保留原公告铃作为详情入口和窄屏入口。
+- 验证记录：`go test ./internal/repository -run "ResetQuotaUsed|GetAccountUsageCostsSinceByWindow" -count=1`、`go test ./internal/service -run "CapacityPools|ShareDisplay" -count=1`、`corepack.cmd pnpm exec vitest run src/components/layout/__tests__/HeaderAnnouncementCarousel.spec.ts src/components/layout/__tests__/AppHeader.spec.ts`、`npm.cmd run typecheck`、`git diff --check` 均通过。
+- 遗留问题：未做真实登录态浏览器视觉验收；未连真实数据库验证配额重置后容量池窗口从新 start 重新累计。
+- 下一步：提交本轮源码、测试和任务记录；后续用真实登录态宽屏控制台检查公告轮播交互，并用真实共享展示账号做一次重置后窗口口径验收。
+
 ## 2026-05-27 01:56 +08:00 - 用户使用记录与新人引导收口复核
 
 - 当前阶段：用户侧使用记录运维视图已提交推送，新人 API Key 引导弹窗完成后续文案与模型标签细化，并完成一次多智能体代码审查。
@@ -223,3 +271,12 @@
 - 验证记录：`npm.cmd run test:run -- public-pages` 通过；`npm.cmd run build` 通过但仍有既有 Vite chunk/DEP0190 警告；`git diff --check` 通过；Playwright CLI 验证教程目录滚动后仍在视口内。
 - 遗留问题：本地仍有 6 个未提交文件，提交前需要复核是否拆分公共页面改动与控制台侧栏/i18n 改动；模型广场还建议人工看一次真实数据下的筛选和卡片拥挤度。
 - 下一步：复核 `/tutorial#quick-start`、`/models` 和相关控制台侧栏效果；确认后按主题拆分或合并提交并推送。
+
+## 2026-05-29 10:55 +08:00 - Canvas 核心多智能体迁移验收
+
+- 当前阶段：在 `codex/sub2api-studio-layout` 按 P/G/E 多智能体完成 Canvas 核心可用性第一批。
+- 本段重点：Worker A 补 Canvas run 取消 API client 与后端测试；Worker B 补节点拖拽、连线编辑、缩放、平移、适配视图；主 Codex 集成取消按钮和响应式拖拽细节；QA Worker 独立验收。
+- 已完成：`/canvas` 支持节点拖拽、节点选择、边选择、创建/删除连线、删除节点清理边、viewport 保存、运行队列取消 `queued/running/pending` run；`CanvasRun` 映射 `canceled_at`，前端新增 `cancelCanvasRun`。
+- 关键决策：Canvas run 取消仍只取消 Canvas run 本身，不级联取消 ImageCreator task；模板库、高级图像编辑、裁剪、外扩、mask 继续后置。
+- 验证记录：后端目标测试、`go test ./cmd/server -count=1`、`npm.cmd run test:run -- CanvasView canvas`、`npm.cmd run lint:check`、`npm.cmd run build`、`git diff --check` 全部通过；QA 报告为 `### PASS: sub2api-canvas-core`。
+- 遗留问题：真实登录态浏览器 UI 仅做了受保护路由 smoke，未做完整人工拖拽/取消链路；下一批迁移模板库和高级图像编辑。

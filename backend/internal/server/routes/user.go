@@ -18,6 +18,8 @@ func RegisterUserRoutes(
 	internalOpenWebUI := v1.Group("/internal/open-webui")
 	{
 		internalOpenWebUI.POST("/redeem", h.OpenWebUI.Redeem)
+		internalOpenWebUI.POST("/api-keys", h.OpenWebUI.APIKeys)
+		internalOpenWebUI.POST("/api-key-binding", h.OpenWebUI.BindAPIKey)
 	}
 
 	authenticated := v1.Group("")
@@ -32,6 +34,7 @@ func RegisterUserRoutes(
 			user.PUT("", h.User.UpdateProfile)
 			user.GET("/aff", h.User.GetAffiliate)
 			user.POST("/aff/transfer", h.User.TransferAffiliateQuota)
+			user.POST("/aff/invitees/:invitee_id/api-call-reward/claim", h.User.ClaimAffiliateAPICallReward)
 			user.POST("/account-bindings/email/send-code", h.User.SendEmailBindingCode)
 			user.POST("/account-bindings/email", h.User.BindEmailIdentity)
 			user.DELETE("/account-bindings/:provider", h.User.UnbindIdentity)
@@ -48,8 +51,34 @@ func RegisterUserRoutes(
 				imageCreator.POST("/tasks", h.ImageCreator.CreateTask)
 				imageCreator.GET("/tasks", h.ImageCreator.ListTasks)
 				imageCreator.GET("/tasks/:id", h.ImageCreator.GetTask)
+				imageCreator.GET("/images", h.ImageCreator.ListImages)
+				imageCreator.DELETE("/images", h.ImageCreator.DeleteImages)
 				imageCreator.GET("/images/:id/file", h.ImageCreator.GetImageFile)
+				imageCreator.GET("/images/:id/reference-file", h.ImageCreator.GetReferenceImageFile)
 			}
+
+			canvases := user.Group("/canvases")
+			{
+				canvases.GET("", h.Canvas.ListCanvases)
+				canvases.POST("", h.Canvas.SaveCanvas)
+				canvases.GET("/:id", h.Canvas.GetCanvas)
+				canvases.PUT("/:id", h.Canvas.UpdateCanvas)
+				canvases.DELETE("/:id", h.Canvas.DeleteCanvas)
+			}
+
+			canvasRuns := user.Group("/canvas-runs")
+			{
+				canvasRuns.GET("", h.Canvas.ListRuns)
+				canvasRuns.POST("", h.Canvas.CreateRun)
+				canvasRuns.GET("/:id", h.Canvas.GetRun)
+				canvasRuns.POST("/:id/cancel", h.Canvas.CancelRun)
+			}
+
+			user.GET("/canvas/models", h.Canvas.ListModels)
+
+			user.GET("/prompt-favorites", h.PromptFavorite.List)
+			user.POST("/prompt-favorites", h.PromptFavorite.Save)
+			user.DELETE("/prompt-favorites/:id", h.PromptFavorite.Delete)
 
 			welfare := user.Group("/welfare")
 			{

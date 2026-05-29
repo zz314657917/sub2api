@@ -12,11 +12,14 @@ import (
 )
 
 var (
-	ErrAffiliateProfileNotFound = infraerrors.NotFound("AFFILIATE_PROFILE_NOT_FOUND", "affiliate profile not found")
-	ErrAffiliateCodeInvalid     = infraerrors.BadRequest("AFFILIATE_CODE_INVALID", "invalid affiliate code")
-	ErrAffiliateCodeTaken       = infraerrors.Conflict("AFFILIATE_CODE_TAKEN", "affiliate code already in use")
-	ErrAffiliateAlreadyBound    = infraerrors.Conflict("AFFILIATE_ALREADY_BOUND", "affiliate inviter already bound")
-	ErrAffiliateQuotaEmpty      = infraerrors.BadRequest("AFFILIATE_QUOTA_EMPTY", "no affiliate quota available to transfer")
+	ErrAffiliateProfileNotFound             = infraerrors.NotFound("AFFILIATE_PROFILE_NOT_FOUND", "affiliate profile not found")
+	ErrAffiliateCodeInvalid                 = infraerrors.BadRequest("AFFILIATE_CODE_INVALID", "invalid affiliate code")
+	ErrAffiliateCodeTaken                   = infraerrors.Conflict("AFFILIATE_CODE_TAKEN", "affiliate code already in use")
+	ErrAffiliateAlreadyBound                = infraerrors.Conflict("AFFILIATE_ALREADY_BOUND", "affiliate inviter already bound")
+	ErrAffiliateQuotaEmpty                  = infraerrors.BadRequest("AFFILIATE_QUOTA_EMPTY", "no affiliate quota available to transfer")
+	ErrAffiliateInviteeNotFound             = infraerrors.NotFound("AFFILIATE_INVITEE_NOT_FOUND", "affiliate invitee not found")
+	ErrAffiliateAPICallRewardNotEligible    = infraerrors.Forbidden("AFFILIATE_API_CALL_REWARD_NOT_ELIGIBLE", "affiliate API call reward is not claimable")
+	ErrAffiliateAPICallRewardAlreadyClaimed = infraerrors.Conflict("AFFILIATE_API_CALL_REWARD_ALREADY_CLAIMED", "affiliate API call reward already claimed")
 )
 
 const (
@@ -72,11 +75,16 @@ type AffiliateSummary struct {
 }
 
 type AffiliateInvitee struct {
-	UserID      int64      `json:"user_id"`
-	Email       string     `json:"email"`
-	Username    string     `json:"username"`
-	CreatedAt   *time.Time `json:"created_at,omitempty"`
-	TotalRebate float64    `json:"total_rebate"`
+	UserID                 int64      `json:"user_id"`
+	Email                  string     `json:"email"`
+	Username               string     `json:"username"`
+	CreatedAt              *time.Time `json:"created_at,omitempty"`
+	TotalRebate            float64    `json:"total_rebate"`
+	APIUsed                bool       `json:"api_used"`
+	APIUsedAt              *time.Time `json:"api_used_at,omitempty"`
+	APICallRewardClaimed   bool       `json:"api_call_reward_claimed"`
+	APICallRewardClaimedAt *time.Time `json:"api_call_reward_claimed_at,omitempty"`
+	APICallRewardAmount    float64    `json:"api_call_reward_amount"`
 }
 
 type AffiliateDetail struct {
@@ -91,6 +99,7 @@ type AffiliateDetail struct {
 	// 优先用户自己的专属比例（aff_rebate_rate_percent），否则回退到全局比例。
 	// 用于在用户的 /affiliate 页面直观展示「分享后能拿到多少」。
 	EffectiveRebateRatePercent float64            `json:"effective_rebate_rate_percent"`
+	APICallRewardAmount        float64            `json:"api_call_reward_amount"`
 	Invitees                   []AffiliateInvitee `json:"invitees"`
 }
 
@@ -103,6 +112,7 @@ type AffiliateRepository interface {
 	ThawFrozenQuota(ctx context.Context, userID int64) (float64, error)
 	TransferQuotaToBalance(ctx context.Context, userID int64) (float64, float64, error)
 	ListInvitees(ctx context.Context, inviterID int64, limit int) ([]AffiliateInvitee, error)
+	ClaimAPICallReward(ctx context.Context, inviterID, inviteeUserID int64, amount float64, freezeHours int) (bool, error)
 
 	// 管理端：用户级专属配置
 	UpdateUserAffCode(ctx context.Context, userID int64, newCode string) error
@@ -253,6 +263,10 @@ func (s *AffiliateService) GetAffiliateDetail(ctx context.Context, userID int64)
 	if err != nil {
 		return nil, err
 	}
+	apiCallRewardAmount := s.affiliateAPICallRewardAmount(ctx)
+	for i := range invitees {
+		invitees[i].APICallRewardAmount = apiCallRewardAmount
+	}
 	return &AffiliateDetail{
 		UserID:                     summary.UserID,
 		AffCode:                    summary.AffCode,
@@ -262,6 +276,7 @@ func (s *AffiliateService) GetAffiliateDetail(ctx context.Context, userID int64)
 		AffFrozenQuota:             summary.AffFrozenQuota,
 		AffHistoryQuota:            summary.AffHistoryQuota,
 		EffectiveRebateRatePercent: s.resolveRebateRatePercent(ctx, summary),
+		APICallRewardAmount:        apiCallRewardAmount,
 		Invitees:                   invitees,
 	}, nil
 }
@@ -423,6 +438,35 @@ func (s *AffiliateService) TransferAffiliateQuota(ctx context.Context, userID in
 	return transferred, balance, nil
 }
 
+func (s *AffiliateService) ClaimInviteeAPICallReward(ctx context.Context, inviterID, inviteeUserID int64) (float64, error) {
+	if inviterID <= 0 || inviteeUserID <= 0 || inviterID == inviteeUserID {
+		return 0, infraerrors.BadRequest("INVALID_AFFILIATE_INVITEE", "invalid affiliate invitee")
+	}
+	if s == nil || s.repo == nil {
+		return 0, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate service unavailable")
+	}
+	if !s.IsEnabled(ctx) {
+		return 0, ErrAffiliateAPICallRewardNotEligible
+	}
+	amount := s.affiliateAPICallRewardAmount(ctx)
+	if amount <= 0 || math.IsNaN(amount) || math.IsInf(amount, 0) {
+		return 0, ErrAffiliateAPICallRewardNotEligible
+	}
+	var freezeHours int
+	if s.settingService != nil {
+		freezeHours = s.settingService.GetAffiliateRebateFreezeHours(ctx)
+	}
+	applied, err := s.repo.ClaimAPICallReward(ctx, inviterID, inviteeUserID, amount, freezeHours)
+	if err != nil {
+		return 0, err
+	}
+	if !applied {
+		return 0, ErrAffiliateAPICallRewardAlreadyClaimed
+	}
+	s.invalidateAffiliateCaches(ctx, inviterID)
+	return amount, nil
+}
+
 func (s *AffiliateService) listInvitees(ctx context.Context, inviterID int64) ([]AffiliateInvitee, error) {
 	if s == nil || s.repo == nil {
 		return nil, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate service unavailable")
@@ -435,6 +479,13 @@ func (s *AffiliateService) listInvitees(ctx context.Context, inviterID int64) ([
 		invitees[i].Email = maskEmail(invitees[i].Email)
 	}
 	return invitees, nil
+}
+
+func (s *AffiliateService) affiliateAPICallRewardAmount(ctx context.Context) float64 {
+	if s == nil || s.settingService == nil {
+		return AffiliateAPICallRewardAmountDefault
+	}
+	return s.settingService.GetAffiliateAPICallRewardAmount(ctx)
 }
 
 func roundTo(v float64, scale int) float64 {

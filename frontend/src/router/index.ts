@@ -265,14 +265,28 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/chat-images',
-    name: 'ChatImageStudioLaunch',
-    component: () => import('@/views/user/OpenWebUILaunchView.vue'),
+    name: 'ChatImageStudio',
+    component: () => import('@/views/user/ChatImageEmbeddedView.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
       title: 'Chat & Images',
-      titleKey: 'openWebUI.title',
-      descriptionKey: 'openWebUI.subtitle'
+      titleKey: 'chatImageStudio.title',
+      descriptionKey: 'chatImageStudio.subtitle',
+      hideHeaderTitle: true,
+      denseWorkspace: true
+    }
+  },
+  {
+    path: '/image-manager',
+    name: 'ImageManager',
+    component: () => import('@/views/user/ImageManagerView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Image Manager',
+      titleKey: 'imageManager.title',
+      descriptionKey: 'imageManager.subtitle'
     }
   },
   {
@@ -282,7 +296,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Native Chat & Images',
+      title: 'Chat & Images',
       titleKey: 'chatImageStudio.title',
       descriptionKey: 'chatImageStudio.subtitle'
     }

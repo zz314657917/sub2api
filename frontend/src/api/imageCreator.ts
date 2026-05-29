@@ -23,10 +23,23 @@ export interface ImageCreatorStoredImage {
   output_format: ImageCreatorOutputFormat | string
   mime_type: string
   byte_size: number
+  width?: number
+  height?: number
+  resolution?: string
+  aspect_ratio?: string
+  orientation?: string
+  megapixels?: number
   sha256: string
   revised_prompt?: string
   expires_at: string
   created_at: string
+}
+
+export interface ImageCreatorManagedImage extends ImageCreatorStoredImage {
+  task_prompt?: string
+  task_model?: string
+  task_size?: string
+  task_quality?: string
 }
 
 export interface ImageCreatorTask {
@@ -55,6 +68,27 @@ export interface ImageCreatorTask {
 export interface ImageCreatorTaskListResponse {
   tasks: ImageCreatorTask[]
   images: ImageCreatorStoredImage[]
+}
+
+export interface ImageCreatorImageListResponse {
+  items: ImageCreatorManagedImage[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface ImageCreatorImageListParams {
+  limit?: number
+  offset?: number
+  q?: string
+  start_date?: string
+  end_date?: string
+  format?: string
+  orientation?: string
+  resolution?: string
+  aspect_ratio?: string
+  min_width?: number
+  min_height?: number
 }
 
 function appendIfPresent(form: FormData, key: string, value: string | number | undefined): void {
@@ -101,6 +135,20 @@ export async function createImageTask(input: ImageCreatorCreateTaskInput): Promi
 
 export async function listImageTasks(): Promise<ImageCreatorTaskListResponse> {
   const { data } = await apiClient.get<ImageCreatorTaskListResponse>('/user/image-creator/tasks')
+  return data
+}
+
+export async function listManagedImages(params: ImageCreatorImageListParams = {}): Promise<ImageCreatorImageListResponse> {
+  const { data } = await apiClient.get<ImageCreatorImageListResponse>('/user/image-creator/images', {
+    params,
+  })
+  return data
+}
+
+export async function deleteManagedImages(ids: number[]): Promise<{ deleted: number }> {
+  const { data } = await apiClient.delete<{ deleted: number }>('/user/image-creator/images', {
+    data: { ids },
+  })
   return data
 }
 
