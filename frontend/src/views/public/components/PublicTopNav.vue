@@ -1,6 +1,6 @@
 <template>
   <header class="public-top-shell">
-    <nav class="public-top-nav public-page-shell mx-auto">
+    <nav class="public-top-nav">
       <router-link to="/home" class="public-brand">
         <span class="public-brand-logo">
           <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
@@ -48,16 +48,6 @@
           <PixelIcon name="book" size="sm" />
         </a>
 
-        <button
-          type="button"
-          class="public-icon-button"
-          :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
-          @click="toggleTheme"
-        >
-          <PixelIcon v-if="isDark" name="sun" size="sm" />
-          <PixelIcon v-else name="moon" size="sm" />
-        </button>
-
         <router-link :to="isAuthenticated ? dashboardPath : '/login'" class="public-nav-button">
           {{ isAuthenticated ? t('home.dashboard') : t('home.login') }}
         </router-link>
@@ -89,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useAuthStore, useAppStore } from '@/stores'
@@ -113,11 +103,6 @@ const dashboardPath = computed(() => (authStore.isAdmin ? '/admin/dashboard' : '
 const hasSupportButton = computed(() =>
   hasSupportContent(appStore.cachedPublicSettings, contactInfo.value)
 )
-const isDark = ref(
-  typeof document !== 'undefined'
-    ? document.documentElement.classList.contains('dark')
-    : false
-)
 
 const navItems = computed<Array<{ to: string; label: string; icon: PixelIconName; activePaths: string[] }>>(() => [
   { to: '/home', label: t('home.navHome'), icon: 'panel', activePaths: ['/home', '/'] },
@@ -127,13 +112,6 @@ const navItems = computed<Array<{ to: string; label: string; icon: PixelIconName
 
 function isNavItemActive(item: { activePaths: string[] }): boolean {
   return item.activePaths.some((path) => route.path === path || (path !== '/' && route.path.startsWith(`${path}/`)))
-}
-
-function toggleTheme(): void {
-  isDark.value = !isDark.value
-  if (typeof document === 'undefined') return
-  document.documentElement.classList.toggle('dark', isDark.value)
-  localStorage.setItem('theme', isDark.value ? 'dark' : 'light')
 }
 </script>
 
@@ -162,13 +140,14 @@ function toggleTheme(): void {
 }
 
 .public-top-nav {
+  position: relative;
   display: flex;
   width: 100%;
   min-height: 3.75rem;
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 0.45rem 1rem;
+  padding: 0.45rem clamp(1rem, 3vw, 3rem);
 }
 
 .public-page-shell {
@@ -177,6 +156,7 @@ function toggleTheme(): void {
 
 .public-brand {
   display: inline-flex;
+  flex: 1 1 0;
   min-width: 0;
   align-items: center;
   gap: 0.78rem;
@@ -260,7 +240,9 @@ function toggleTheme(): void {
 
 .public-nav-actions {
   display: flex;
+  flex: 1 1 0;
   align-items: center;
+  justify-content: flex-end;
   gap: 0.4rem;
 }
 

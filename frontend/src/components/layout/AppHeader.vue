@@ -10,7 +10,7 @@
           <Icon name="menu" size="md" />
         </button>
 
-        <div class="hidden min-w-0 lg:block">
+        <div v-if="!route.meta.hideHeaderTitle" class="hidden min-w-0 lg:block">
           <h1 class="console-page-title text-lg font-semibold">
             {{ pageTitle }}
           </h1>

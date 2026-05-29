@@ -417,7 +417,6 @@ const TrophyIcon: IconName = 'trendingUp'
 const GiftIcon: IconName = 'gift'
 const WelfareIcon: IconName = 'sparkles'
 const ChatIcon: IconName = 'chatBubble'
-const ImageIcon: IconName = 'image'
 const UserIcon: IconName = 'user'
 const UsersIcon: IconName = 'users'
 const TeamIcon: IconName = 'userPlus'
@@ -480,7 +479,6 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   ]
   const primarySelfItems: NavItem[] = [
     { path: '/chat-images', label: t('nav.chatImageCreator'), icon: ChatIcon, hideInSimpleMode: true },
-    { path: '/image-manager', label: t('nav.imageManager'), icon: ImageIcon, hideInSimpleMode: true },
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/usage', label: t('nav.usage'), icon: UsageIcon, hideInSimpleMode: true },
     { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },

@@ -95,15 +95,27 @@
     padding: 1rem;
 }
 
+.console-content-dense {
+    padding: 0.75rem;
+}
+
 @media (min-width: 768px) {
     .console-content {
       padding: 1.35rem;
+    }
+
+    .console-content-dense {
+      padding: 0.75rem;
     }
 }
 
 @media (min-width: 1024px) {
     .console-content {
       padding: 1.6rem;
+    }
+
+    .console-content-dense {
+      padding: 0.75rem;
     }
 }
 

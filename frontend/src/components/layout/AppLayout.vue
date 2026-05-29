@@ -13,7 +13,7 @@
       <AppHeader />
 
       <!-- Main Content -->
-      <main class="console-content">
+      <main class="console-content" :class="{ 'console-content-dense': route.meta.denseWorkspace }">
         <slot />
       </main>
     </div>
@@ -23,6 +23,7 @@
 <script setup lang="ts">
 import '@/styles/onboarding.css'
 import { computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { useOnboardingTour } from '@/composables/useOnboardingTour'
@@ -32,6 +33,7 @@ import AppHeader from './AppHeader.vue'
 
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const route = useRoute()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const isAdmin = computed(() => authStore.user?.role === 'admin')
 

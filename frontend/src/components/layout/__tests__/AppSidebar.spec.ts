@@ -120,8 +120,8 @@ describe('AppSidebar admin navigation groups', () => {
   })
 })
 
-describe('AppSidebar chat and image navigation', () => {
-  it('uses a single chat and image entry instead of the creation center section', () => {
+describe('AppSidebar chat image navigation', () => {
+  it('uses a single chat entry and hides the image manager from the sidebar', () => {
     expect(componentSource).not.toContain("t('nav.creationCenter')")
     expect(componentSource).not.toContain("label: t('nav.chatCreator')")
     expect(componentSource).not.toContain("label: t('nav.imageCreator')")
@@ -129,8 +129,8 @@ describe('AppSidebar chat and image navigation', () => {
     expect(componentSource).not.toContain("path: '/image-creator'")
     expect(componentSource).toContain("label: t('nav.chatImageCreator')")
     expect(componentSource).toContain("path: '/chat-images'")
-    expect(componentSource).toContain("label: t('nav.imageManager')")
-    expect(componentSource).toContain("path: '/image-manager'")
+    expect(componentSource).not.toContain("label: t('nav.imageManager')")
+    expect(componentSource).not.toContain("path: '/image-manager'")
   })
 
   it('keeps creation links aligned with regular sidebar links in the console shell', () => {
@@ -141,7 +141,6 @@ describe('AppSidebar chat and image navigation', () => {
     expect(sidebarLinkBlock).toContain('box-sizing: border-box;')
     expect(sidebarSectionBlock).toContain('width: 100%;')
     expect(componentSource).toContain("path: '/chat-images'")
-    expect(componentSource).toContain("path: '/image-manager'")
     expect(componentSource).toContain("path: '/dashboard'")
   })
 })
@@ -169,7 +168,6 @@ describe('AppSidebar self navigation groups', () => {
     expect(componentSource).toContain('...usageStatusItems')
     expect(componentSource).toContain("path: '/keys'")
     expect(componentSource).toContain("path: '/chat-images'")
-    expect(componentSource).toContain("path: '/image-manager'")
     expect(componentSource).toContain("path: '/usage'")
     expect(componentSource).toContain("path: '/purchase'")
     expect(componentSource).toContain("path: '/leaderboard'")

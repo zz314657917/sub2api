@@ -332,8 +332,20 @@ Cockpit Tools 适合用网页面板管理 Codex 账号和会话。项目地址�
 https://ai.3zapi.top
 [[/command]]
 
+导入账号后，在 Cockpit Tools 左侧点击 Codex 图标，确认当前账号已经切到落叶网络 Provider。
+
+## 恢复历史对话
+
+如果 Codex App 已经登录但历史对话没有显示，可以用 Cockpit Tools 修复可见性。
+
+1. 打开 Cockpit Tools。
+2. 点击左侧 Codex 图标。
+3. 点击顶部的会话管理。
+4. 点击修复可见性。
+5. 回到 Codex App，刷新或重新打开会话列表。
+
 [[callout type="tip" title="恢复 Codex 会话"]]
-导入账号后，如果 Codex 会话不可见，优先检查账号可见性和当前 Provider 是否选中。
+导入账号后，如果 Codex 会话不可见，先确认当前 Provider 已选中落叶网络，再进入会话管理点击修复可见性。
 [[/callout]]
 `.trim()
   },

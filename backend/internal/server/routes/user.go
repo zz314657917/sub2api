@@ -18,6 +18,8 @@ func RegisterUserRoutes(
 	internalOpenWebUI := v1.Group("/internal/open-webui")
 	{
 		internalOpenWebUI.POST("/redeem", h.OpenWebUI.Redeem)
+		internalOpenWebUI.POST("/api-keys", h.OpenWebUI.APIKeys)
+		internalOpenWebUI.POST("/api-key-binding", h.OpenWebUI.BindAPIKey)
 	}
 
 	authenticated := v1.Group("")

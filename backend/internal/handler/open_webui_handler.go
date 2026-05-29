@@ -20,11 +20,20 @@ func NewOpenWebUIHandler(launchService *service.OpenWebUILaunchService) *OpenWeb
 }
 
 type openWebUILaunchRequest struct {
-	APIKeyID int64 `json:"api_key_id" binding:"required"`
+	APIKeyID int64 `json:"api_key_id"`
 }
 
 type openWebUIRedeemRequest struct {
 	Token string `json:"token" binding:"required"`
+}
+
+type openWebUIAPIKeysRequest struct {
+	SessionToken string `json:"session_token" binding:"required"`
+}
+
+type openWebUIBindingRequest struct {
+	SessionToken string `json:"session_token" binding:"required"`
+	APIKeyID     int64  `json:"api_key_id" binding:"required"`
 }
 
 func (h *OpenWebUIHandler) Launch(c *gin.Context) {
@@ -63,6 +72,48 @@ func (h *OpenWebUIHandler) Redeem(c *gin.Context) {
 	}
 
 	response.Success(c, result)
+}
+
+func (h *OpenWebUIHandler) APIKeys(c *gin.Context) {
+	if !h.requireInternalSecret(c) {
+		return
+	}
+	var req openWebUIAPIKeysRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	items, err := h.launchService.ListAPIKeysBySession(c.Request.Context(), req.SessionToken)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"items": items})
+}
+
+func (h *OpenWebUIHandler) BindAPIKey(c *gin.Context) {
+	if !h.requireInternalSecret(c) {
+		return
+	}
+	var req openWebUIBindingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	result, err := h.launchService.BindAPIKeyBySession(c.Request.Context(), req.SessionToken, req.APIKeyID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, result)
+}
+
+func (h *OpenWebUIHandler) requireInternalSecret(c *gin.Context) bool {
+	if h == nil || h.launchService == nil || !h.launchService.ValidRedeemSecret(redeemSecretFromRequest(c)) {
+		response.ErrorFrom(c, service.ErrOpenWebUIInvalidSecret)
+		return false
+	}
+	return true
 }
 
 func redeemSecretFromRequest(c *gin.Context) string {
