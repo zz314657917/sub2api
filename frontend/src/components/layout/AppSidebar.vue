@@ -418,7 +418,6 @@ const GiftIcon: IconName = 'gift'
 const WelfareIcon: IconName = 'sparkles'
 const ChatIcon: IconName = 'chatBubble'
 const ImageIcon: IconName = 'image'
-const CanvasIcon: IconName = 'cube'
 const UserIcon: IconName = 'user'
 const UsersIcon: IconName = 'users'
 const TeamIcon: IconName = 'userPlus'
@@ -481,7 +480,6 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   ]
   const primarySelfItems: NavItem[] = [
     { path: '/chat-images', label: t('nav.chatImageCreator'), icon: ChatIcon, hideInSimpleMode: true },
-    { path: '/canvas', label: t('nav.canvas'), icon: CanvasIcon, hideInSimpleMode: true },
     { path: '/image-manager', label: t('nav.imageManager'), icon: ImageIcon, hideInSimpleMode: true },
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/usage', label: t('nav.usage'), icon: UsageIcon, hideInSimpleMode: true },

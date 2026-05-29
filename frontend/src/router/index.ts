@@ -276,18 +276,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/canvas',
-    name: 'CanvasStudio',
-    component: () => import('@/views/user/CanvasView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'Canvas',
-      titleKey: 'canvas.title',
-      descriptionKey: 'canvas.subtitle'
-    }
-  },
-  {
     path: '/image-manager',
     name: 'ImageManager',
     component: () => import('@/views/user/ImageManagerView.vue'),
