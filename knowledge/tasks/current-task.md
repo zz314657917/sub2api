@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-01 21:25 +08:00
+最后更新：2026-06-01 23:14 +08:00
 
 ## 当前仓库状态
 
@@ -25,6 +25,9 @@
 - 已确认 `32ea9cfe1` API key Responses SSE body fallback 与 `cae93ae13` Responses force chat completions fallback 已在本地完整存在，未重复提交。
 - 已确认 `aae20ef43` OIDC verified-email fast path 加固已在本地完整存在，并通过定向测试。
 - 本批继续移植 OpenAI endpoint capability gate 后端逻辑：新增 `OpenAIEndpointCapability` 与 `openai_capabilities` credentials 解析，OpenAI Responses/Chat/Messages/WS 路由要求 `chat_completions`，Embeddings 路由要求 `embeddings`；调度器、粘性会话、previous_response sticky 和本地用户池路径都会过滤不匹配账号。未配置 `openai_capabilities` 时保持默认兼容行为；本轮不合并账号弹窗 UI 改动。
+- 本批继续移植 Antigravity 低风险 usage 修复：`5a317eed5 fix: capture antigravity message_start usage` 让流式透传同时读取 `message_start.message.usage` 和 `message_delta.usage`，避免输入侧 token 丢失。
+- OpenAI Images `n` 参数修复在本地已按策略等价存在：非 `dall-e-3`、非一图模型会透传 `tools.0.n`；`gpt-image-2` 继续按本地拆分为多次单图请求。新增 `9c8192485 test: cover openai images n passthrough` 固化正向回归测试。
+- Channel Monitor Responses reasoning 输出修复当前不适合本批直接移植：本地尚未引入上游 `MonitorAPIMode` / `providerOpenAIResponsesPath` / API mode 持久化与前端配置链路，单独套用文本提取函数没有调用入口；应与 Channel Monitor API 模式专题一起评估。
 
 ### 本批验证记录
 
@@ -37,11 +40,17 @@
 - `cd backend && go test ./internal/service -run 'TestAccountSupportsOpenAIEndpointCapability|TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_EmbeddingsSkipsChatOnlyAccount|TestOpenAIGatewayService_SelectAccountByPreviousResponseID_CapabilityMismatchKeepsSticky' -count=1`：通过。
 - `cd backend && go test ./internal/service -run 'TestOpenAIGatewayService_SelectAccountWithScheduler|TestOpenAIGatewayService_SelectAccountByPreviousResponseID|TestAccountSupportsOpenAIEndpointCapability|TestOpenAISelectAccountWithLoadAwareness' -count=1`：通过。
 - `cd backend && go test ./internal/handler -run 'Test.*Embeddings|Test.*OpenAI.*Responses|Test.*OpenAI.*ChatCompletions' -count=1`：通过。
+- `cd backend && go test ./internal/service -run "TestExtractSSEUsage|TestAntigravity.*Passthrough|Test.*Passthrough"`：通过。
+- `cd backend && go test ./internal/service -run "TestOpenAIGatewayService.*Images|TestBuildOpenAIImagesResponsesRequest|Test.*Image"`：通过。
+- `cd backend && go test -tags unit ./internal/service -run "TestRunCheckForModel|Test.*ChannelMonitor"`：通过。
+- `cd backend && go test ./internal/service/...`：通过。
+- `cd backend && go test ./internal/handler/...`：通过。
 - `git diff --check`：通过。
 
 ### 下一步候选
 
-- 继续合低风险网关安全修复时，优先看剩余 OpenAI/Anthropic API compatibility、ops 指标、认证状态处理这类不引入数据库模型的补丁。
+- 继续合低风险网关安全修复时，优先看剩余 OpenAI/Anthropic API compatibility、ops 指标、认证状态处理这类不引入数据库模型的补丁；不要再按 `git cherry +` 盲合，先判断是否已由本地手工实现等价覆盖。
+- Channel Monitor Responses API 模式、邮件模板/通知系统、user-platform quota、账号 5h/7d 自动暂停、风控运行态、DingTalk OAuth 都应按单独专题做 schema/UI/迁移影响评估。
 - 账号配额 5h/7d 自动暂停、风控运行态、DingTalk OAuth、迁移编号重排仍保持排除，除非用户明确切到该主题。
 
 ## 当前默认主线分流
