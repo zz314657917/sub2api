@@ -280,3 +280,19 @@
 - 关键决策：Canvas run 取消仍只取消 Canvas run 本身，不级联取消 ImageCreator task；模板库、高级图像编辑、裁剪、外扩、mask 继续后置。
 - 验证记录：后端目标测试、`go test ./cmd/server -count=1`、`npm.cmd run test:run -- CanvasView canvas`、`npm.cmd run lint:check`、`npm.cmd run build`、`git diff --check` 全部通过；QA 报告为 `### PASS: sub2api-canvas-core`。
 - 遗留问题：真实登录态浏览器 UI 仅做了受保护路由 smoke，未做完整人工拖拽/取消链路；下一批迁移模板库和高级图像编辑。
+
+## 2026-05-30 13:59 +08:00 - 首页下方内容定为 AI-Native 网关风格
+
+- 当前阶段：公共首页在 hero 下方补充产品说明内容，并从参考站价格/工具介绍截图转为本项目自己的设计语言。
+- 本段重点：参考 `nextlevelbuilder/ui-ux-pro-max-skill` 的设计系统思路，采纳 `Enterprise Gateway` 信息架构与 `AI-Native / Bento / HUD` 视觉方向；不复制 `xcode.best` 的四步公式卡和 Claude/Codex 双卡。
+- 已完成：`HomeView.vue` 新增 `AI-Native Command Center` 和 `Bento Workflow` 两块；前者包含 `gateway.config` 终端预览、API Key/分组路由/账单回放链路、稳定分组倍率样例；后者用 bento 面板说明本地开发入口、长任务 Agent、团队额度和模型策略。
+- 关键决策：公共首页继续使用深色 Matrix、`PublicTopNav`、`PixelIcon`、8px 卡片半径和紧凑控制台式面板；后续新增区块应延续 `Enterprise Gateway + AI-Native Bento`，避免回到浅色价格说明页。
+- 验证记录：`npm.cmd run test:run -- home-theme public-smoke`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过；Playwright 截图为 `output/playwright/home-command-center-desktop.png`、`output/playwright/home-command-center-mobile.png`。
+
+## 2026-05-30 14:18 +08:00 - i18n locale 大文件维护性拆分
+
+- 当前阶段：首页文案新增后，用户指出 `zh.ts` 过大，转为处理 locale 可维护性。
+- 本段重点：不改变 `i18n/index.ts` 的动态语言加载入口，只把 `frontend/src/i18n/locales/zh.ts` 与 `en.ts` 拆成聚合入口；顶层 domain 拆到 `locales/{zh,en}/*.ts`，`admin` 继续拆到 `locales/{zh,en}/admin/*.ts`。
+- 已完成：`zh.ts` / `en.ts` 从约 385KB/388KB 降到约 2KB；每个语言目录新增 63 个分片文件；`home-theme` 和 `PaymentView` 测试改为读取 locale 对象，不再依赖大文件文本搜索。
+- 关键决策：这是维护性拆分，不是运行时按页面分包；因为聚合入口仍静态 import 所有分片，最终 zh/en 语言包 chunk 体积基本不会下降。后续如要减包，需要设计按模块/路由动态加载局部翻译。
+- 验证记录：`npm.cmd run test:run -- home-theme usageServiceTierLocales PaymentView public-smoke`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过；Node AST 检查确认 zh/en 顶层 39 个 key 对齐，admin 子 key 24 个对齐。

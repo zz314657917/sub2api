@@ -160,12 +160,10 @@ func (s *Stripe) QueryOrder(ctx context.Context, tradeNo string) (*payment.Query
 
 	currency := stripeIntentCurrency(pi.Currency, s.currency())
 	return &payment.QueryOrderResponse{
-		TradeNo: pi.ID,
-		Status:  status,
-		Amount:  payment.MinorUnitToAmount(pi.Amount, currency),
-		Metadata: map[string]string{
-			"currency": currency,
-		},
+		TradeNo:  pi.ID,
+		Status:   status,
+		Amount:   payment.MinorUnitToAmount(pi.Amount, currency),
+		Metadata: stripePaymentIntentMetadata(pi, currency),
 	}, nil
 }
 
@@ -205,15 +203,26 @@ func parseStripePaymentIntent(event *stripe.Event, status string, rawBody string
 	}
 	currency := stripeIntentCurrency(pi.Currency, payment.DefaultPaymentCurrency)
 	return &payment.PaymentNotification{
-		TradeNo: pi.ID,
-		OrderID: pi.Metadata["orderId"],
-		Amount:  payment.MinorUnitToAmount(pi.Amount, currency),
-		Status:  status,
-		RawData: rawBody,
-		Metadata: map[string]string{
-			"currency": currency,
-		},
+		TradeNo:  pi.ID,
+		OrderID:  pi.Metadata["orderId"],
+		Amount:   payment.MinorUnitToAmount(pi.Amount, currency),
+		Status:   status,
+		RawData:  rawBody,
+		Metadata: stripePaymentIntentMetadata(&pi, currency),
 	}, nil
+}
+
+func stripePaymentIntentMetadata(pi *stripe.PaymentIntent, currency string) map[string]string {
+	metadata := map[string]string{
+		"currency": currency,
+	}
+	if pi == nil || pi.PaymentMethod == nil || pi.PaymentMethod.Card == nil {
+		return metadata
+	}
+	if fingerprint := strings.TrimSpace(pi.PaymentMethod.Card.Fingerprint); fingerprint != "" {
+		metadata["card_fingerprint"] = fingerprint
+	}
+	return metadata
 }
 
 // Refund creates a Stripe refund.

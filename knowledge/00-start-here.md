@@ -1,6 +1,6 @@
 # Sub2API 知识库入口
 
-最后更新：2026-05-15
+最后更新：2026-05-30
 
 ## 项目定位
 
@@ -21,8 +21,8 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 5. 需要跑测试或构建：读 `knowledge/build-and-verify.md`。
 6. 改后端：读 `knowledge/backend-notes.md`。
 7. 改前端或公共页面：读 `knowledge/frontend-notes.md`。
-8. 改聊天生图工作台或图片任务体验：读 `knowledge/chat-image-studio.md`。
-9. 遇到老坑或环境差异：读 `knowledge/known-pitfalls.md`。
+8. 改聊天生图工作台、Canvas、嵌入式登录或图片任务体验：先读 `knowledge/tasks/current-task.md` 与 `knowledge/tasks/timeline.md`，再补读 `knowledge/chat-image-embedded-workspace.md` 和 `knowledge/chat-image-studio.md`。
+9. 遇到老坑、环境差异或旧入口语义：读 `knowledge/known-pitfalls.md`。
 
 ## 事实源分工
 
@@ -35,10 +35,17 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 
 ## 当前仓库状态提示
 
-- 截至 2026-05-13，工作区存在大量未提交业务改动，涉及后端账号/设置/图片生成服务，以及前端公共页、控制台、客服弹窗、ChatStudio 等。
-- 截至 2026-05-15，聊天生图主线已转为 Sub2API 原生 `/chat-images` 工作台；会话删除与后端图片任务的关系见 `knowledge/chat-image-studio.md`。
-- 新任务开始前先执行 `git status --short`，确认当前改动是否属于本轮任务。
+- 当前默认续做主线已不再是 5 月中旬那组“教程 CMS / 登录跳转 / 共享额度窗口”收口；近几天更靠近默认产品入口的高频改动已经变成 chat image workspace migration、OpenWebUI launch / redeem、嵌入式会话恢复，以及公共页/模型广场的小范围同步。
+- `knowledge/tasks/current-task.md` 现在同时记录“当前会话正在处理的局部任务”和“仓库默认主线分流”。如果你看到它在讲首页、文案或 i18n 整理，不要误判成仓库整体重心已经从聊天生图/嵌入工作区转移。
+- 遇到入口摘要与任务快照冲突时，先用 `knowledge/05-current-focus.md` 判断稳定主线，再用 `knowledge/tasks/current-task.md` 判断当前会话具体在做哪一条线。
+- 当前工作区仍可能同时存在并行主线的未提交改动，开始新任务前先执行 `git status --short`，确认哪些文件属于本轮目标。
 - 不要清理、回滚或格式化与当前目标无关的文件。
+
+## 当前默认心智
+
+- `/tutorial` 仍是公共入口的一部分，但已不是最近几天最容易影响续做成本的主线；它更多是稳定公共内容面，不再代表当前全部产品重心。
+- 用户侧更值得优先理解的是 `/chat-images`、`/canvas`、OpenWebUI / ChatImage launch、嵌入式登录态恢复，以及模型目录/定价这几条会互相牵动的链路。
+- 继续做聊天生图或嵌入工作区时，不要只看单个前端页面；通常要把 launch token、会话恢复、计费/模型映射、图片任务与公共入口文案当成一条链路理解。
 
 ## 知识维护规则
 

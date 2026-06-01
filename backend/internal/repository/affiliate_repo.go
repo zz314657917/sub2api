@@ -18,9 +18,18 @@ import (
 const (
 	affiliateCodeLength      = 12
 	affiliateCodeMaxAttempts = 12
+
+	affiliateLedgerActionRevoke             = "revoke"
+	affiliateRevokedReasonSamePaymentMethod = "same_payment_method"
 )
 
 var affiliateCodeCharset = []byte("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
+
+var affiliatePaidOrderStatuses = []string{
+	service.OrderStatusPaid,
+	service.OrderStatusRecharging,
+	service.OrderStatusCompleted,
+}
 
 const affiliateUserOverviewSQL = `
 SELECT ua.user_id,
@@ -87,7 +96,14 @@ func (r *affiliateRepository) BindInviter(ctx context.Context, userID, inviterID
 		}
 
 		res, err := txClient.ExecContext(txCtx,
-			"UPDATE user_affiliates SET inviter_id = $1, updated_at = NOW() WHERE user_id = $2 AND inviter_id IS NULL",
+			`UPDATE user_affiliates
+SET inviter_id = $1,
+    affiliate_revoked_at = NULL,
+    affiliate_revoked_reason = '',
+    affiliate_revoked_order_id = NULL,
+    updated_at = NOW()
+WHERE user_id = $2
+  AND inviter_id IS NULL`,
 			inviterID, userID,
 		)
 		if err != nil {
@@ -121,6 +137,15 @@ func (r *affiliateRepository) AccrueQuota(ctx context.Context, inviterID, invite
 
 	var applied bool
 	err := r.withTx(ctx, func(txCtx context.Context, txClient *dbent.Client) error {
+		active, err := activeInviteRelationExists(txCtx, txClient, inviterID, inviteeUserID)
+		if err != nil {
+			return err
+		}
+		if !active {
+			applied = false
+			return nil
+		}
+
 		// freezeHours > 0: add to frozen quota; == 0: add to available quota directly
 		var updateSQL string
 		if freezeHours > 0 {
@@ -357,6 +382,7 @@ SELECT EXISTS(
            SELECT 1
            FROM user_affiliates ua
            WHERE ua.user_id = $2 AND ua.inviter_id = $1
+             AND ua.affiliate_revoked_at IS NULL
        ) AS is_invitee,
        EXISTS(
            SELECT 1
@@ -442,6 +468,215 @@ VALUES ($1, 'api_call_reward', $2, $3, NOW(), NOW())`,
 	return applied, nil
 }
 
+func (r *affiliateRepository) RevokeSelfReferralByPaymentMethod(ctx context.Context, inviterID, inviteeUserID int64, sourceOrderID *int64) (bool, error) {
+	if inviterID <= 0 || inviteeUserID <= 0 || inviterID == inviteeUserID {
+		return false, nil
+	}
+
+	var revoked bool
+	err := r.withTx(ctx, func(txCtx context.Context, txClient *dbent.Client) error {
+		alreadyRevoked, found, err := lockAffiliateRelation(txCtx, txClient, inviterID, inviteeUserID)
+		if err != nil {
+			return err
+		}
+		if !found {
+			return nil
+		}
+		if alreadyRevoked {
+			revoked = true
+			return nil
+		}
+
+		matched, err := matchingPaymentMethodExists(txCtx, txClient, inviterID, inviteeUserID, sourceOrderID)
+		if err != nil {
+			return err
+		}
+		if !matched {
+			return nil
+		}
+
+		if err := revokeAffiliateRelationForSamePaymentMethod(txCtx, txClient, inviterID, inviteeUserID, sourceOrderID); err != nil {
+			return err
+		}
+		revoked = true
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+	return revoked, nil
+}
+
+func lockAffiliateRelation(ctx context.Context, client affiliateQueryExecer, inviterID, inviteeUserID int64) (bool, bool, error) {
+	rows, err := client.QueryContext(ctx, `
+SELECT affiliate_revoked_at
+FROM user_affiliates
+WHERE user_id = $1
+  AND inviter_id = $2
+FOR UPDATE`, inviteeUserID, inviterID)
+	if err != nil {
+		return false, false, fmt.Errorf("lock affiliate relation: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return false, false, err
+		}
+		return false, false, nil
+	}
+	var revokedAt sql.NullTime
+	if err := rows.Scan(&revokedAt); err != nil {
+		return false, false, err
+	}
+	return revokedAt.Valid, true, rows.Err()
+}
+
+func activeInviteRelationExists(ctx context.Context, client affiliateQueryExecer, inviterID, inviteeUserID int64) (bool, error) {
+	rows, err := client.QueryContext(ctx, `
+SELECT EXISTS(
+    SELECT 1
+    FROM user_affiliates
+    WHERE user_id = $1
+      AND inviter_id = $2
+      AND affiliate_revoked_at IS NULL
+)`, inviteeUserID, inviterID)
+	if err != nil {
+		return false, fmt.Errorf("query active affiliate relation: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var exists bool
+	if rows.Next() {
+		if err := rows.Scan(&exists); err != nil {
+			return false, err
+		}
+	}
+	if err := rows.Close(); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func matchingPaymentMethodExists(ctx context.Context, client affiliateQueryExecer, inviterID, inviteeUserID int64, sourceOrderID *int64) (bool, error) {
+	var (
+		rows *sql.Rows
+		err  error
+	)
+	if sourceOrderID != nil && *sourceOrderID > 0 {
+		rows, err = client.QueryContext(ctx, `
+SELECT EXISTS(
+    SELECT 1
+    FROM payment_orders invitee_po
+    JOIN payment_orders inviter_po
+      ON inviter_po.payment_method_fingerprint = invitee_po.payment_method_fingerprint
+    WHERE invitee_po.id = $1
+      AND invitee_po.user_id = $2
+      AND inviter_po.user_id = $3
+      AND invitee_po.payment_method_fingerprint <> ''
+      AND invitee_po.status = ANY($4)
+      AND inviter_po.status = ANY($4)
+)`, *sourceOrderID, inviteeUserID, inviterID, pq.Array(affiliatePaidOrderStatuses))
+	} else {
+		rows, err = client.QueryContext(ctx, `
+SELECT EXISTS(
+    SELECT 1
+    FROM payment_orders invitee_po
+    JOIN payment_orders inviter_po
+      ON inviter_po.payment_method_fingerprint = invitee_po.payment_method_fingerprint
+    WHERE invitee_po.user_id = $1
+      AND inviter_po.user_id = $2
+      AND invitee_po.payment_method_fingerprint <> ''
+      AND invitee_po.status = ANY($3)
+      AND inviter_po.status = ANY($3)
+)`, inviteeUserID, inviterID, pq.Array(affiliatePaidOrderStatuses))
+	}
+	if err != nil {
+		return false, fmt.Errorf("query matching payment method: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var exists bool
+	if rows.Next() {
+		if err := rows.Scan(&exists); err != nil {
+			return false, err
+		}
+	}
+	if err := rows.Close(); err != nil {
+		return false, err
+	}
+	return exists, nil
+}
+
+func revokeAffiliateRelationForSamePaymentMethod(ctx context.Context, client affiliateQueryExecer, inviterID, inviteeUserID int64, sourceOrderID *int64) error {
+	rows, err := client.QueryContext(ctx, `
+SELECT COALESCE(SUM(CASE WHEN action IN ('accrue', 'api_call_reward') AND frozen_until IS NOT NULL THEN amount ELSE 0 END), 0)::double precision,
+       COALESCE(SUM(CASE WHEN action IN ('accrue', 'api_call_reward') AND frozen_until IS NULL THEN amount ELSE 0 END), 0)::double precision,
+       COALESCE(SUM(CASE WHEN action IN ('accrue', 'api_call_reward') THEN amount ELSE 0 END), 0)::double precision
+FROM user_affiliate_ledger
+WHERE user_id = $1
+  AND source_user_id = $2`, inviterID, inviteeUserID)
+	if err != nil {
+		return fmt.Errorf("query affiliate rewards to revoke: %w", err)
+	}
+
+	var frozenReward float64
+	var availableReward float64
+	var totalReward float64
+	if rows.Next() {
+		if err := rows.Scan(&frozenReward, &availableReward, &totalReward); err != nil {
+			_ = rows.Close()
+			return err
+		}
+	}
+	if err := rows.Close(); err != nil {
+		return err
+	}
+
+	res, err := client.ExecContext(ctx, `
+UPDATE user_affiliates
+SET affiliate_revoked_at = NOW(),
+    affiliate_revoked_reason = $1,
+    affiliate_revoked_order_id = $2,
+    updated_at = NOW()
+WHERE user_id = $3
+  AND inviter_id = $4
+  AND affiliate_revoked_at IS NULL`, affiliateRevokedReasonSamePaymentMethod, nullableInt64Arg(sourceOrderID), inviteeUserID, inviterID)
+	if err != nil {
+		return fmt.Errorf("mark affiliate relation revoked: %w", err)
+	}
+	affected, _ := res.RowsAffected()
+	if affected == 0 {
+		return nil
+	}
+
+	if _, err := client.ExecContext(ctx, `
+UPDATE user_affiliates
+SET aff_count = GREATEST(aff_count - 1, 0),
+    aff_frozen_quota = GREATEST(aff_frozen_quota - $1, 0),
+    aff_quota = GREATEST(aff_quota - $2, 0),
+    aff_history_quota = GREATEST(aff_history_quota - $3, 0),
+    updated_at = NOW()
+WHERE user_id = $4`, frozenReward, availableReward, totalReward, inviterID); err != nil {
+		return fmt.Errorf("deduct revoked affiliate quota: %w", err)
+	}
+
+	if totalReward > 0 {
+		if _, err := client.ExecContext(ctx, `
+INSERT INTO user_affiliate_ledger (user_id, action, amount, source_user_id, source_order_id, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+			inviterID,
+			affiliateLedgerActionRevoke,
+			-totalReward,
+			inviteeUserID,
+			nullableInt64Arg(sourceOrderID),
+		); err != nil {
+			return fmt.Errorf("insert affiliate revoke ledger: %w", err)
+		}
+	}
+	return nil
+}
+
 func (r *affiliateRepository) ListInvitees(ctx context.Context, inviterID int64, limit int) ([]service.AffiliateInvitee, error) {
 	if limit <= 0 {
 		limit = 100
@@ -462,7 +697,7 @@ LEFT JOIN (
     FROM user_affiliate_ledger
     WHERE user_id = $1
       AND source_user_id IS NOT NULL
-      AND action IN ('accrue', 'api_call_reward')
+      AND action IN ('accrue', 'api_call_reward', 'revoke')
     GROUP BY source_user_id
 ) rebate ON rebate.source_user_id = ua.user_id
 LEFT JOIN LATERAL (
@@ -928,6 +1163,8 @@ SELECT user_id,
        aff_quota::double precision,
        aff_frozen_quota::double precision,
        aff_history_quota::double precision,
+       affiliate_revoked_at,
+       affiliate_revoked_reason,
        created_at,
        updated_at
 FROM user_affiliates
@@ -946,6 +1183,8 @@ WHERE user_id = $1`, userID)
 	var out service.AffiliateSummary
 	var inviterID sql.NullInt64
 	var rebateRate sql.NullFloat64
+	var revokedAt sql.NullTime
+	var revokedReason string
 	if err := rows.Scan(
 		&out.UserID,
 		&out.AffCode,
@@ -956,6 +1195,8 @@ WHERE user_id = $1`, userID)
 		&out.AffQuota,
 		&out.AffFrozenQuota,
 		&out.AffHistoryQuota,
+		&revokedAt,
+		&revokedReason,
 		&out.CreatedAt,
 		&out.UpdatedAt,
 	); err != nil {
@@ -967,6 +1208,11 @@ WHERE user_id = $1`, userID)
 	if rebateRate.Valid {
 		v := rebateRate.Float64
 		out.AffRebateRatePercent = &v
+	}
+	if revokedAt.Valid {
+		t := revokedAt.Time
+		out.AffiliateRevokedAt = &t
+		out.AffiliateRevokedReason = revokedReason
 	}
 	return &out, nil
 }
@@ -982,6 +1228,8 @@ SELECT user_id,
        aff_quota::double precision,
        aff_frozen_quota::double precision,
        aff_history_quota::double precision,
+       affiliate_revoked_at,
+       affiliate_revoked_reason,
        created_at,
        updated_at
 FROM user_affiliates
@@ -1002,6 +1250,8 @@ LIMIT 1`, strings.ToUpper(strings.TrimSpace(code)))
 	var out service.AffiliateSummary
 	var inviterID sql.NullInt64
 	var rebateRate sql.NullFloat64
+	var revokedAt sql.NullTime
+	var revokedReason string
 	if err := rows.Scan(
 		&out.UserID,
 		&out.AffCode,
@@ -1012,6 +1262,8 @@ LIMIT 1`, strings.ToUpper(strings.TrimSpace(code)))
 		&out.AffQuota,
 		&out.AffFrozenQuota,
 		&out.AffHistoryQuota,
+		&revokedAt,
+		&revokedReason,
 		&out.CreatedAt,
 		&out.UpdatedAt,
 	); err != nil {
@@ -1023,6 +1275,11 @@ LIMIT 1`, strings.ToUpper(strings.TrimSpace(code)))
 	if rebateRate.Valid {
 		v := rebateRate.Float64
 		out.AffRebateRatePercent = &v
+	}
+	if revokedAt.Valid {
+		t := revokedAt.Time
+		out.AffiliateRevokedAt = &t
+		out.AffiliateRevokedReason = revokedReason
 	}
 	return &out, nil
 }

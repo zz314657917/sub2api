@@ -13,7 +13,7 @@
   </div>
 
   <!-- Default Home Page -->
-  <div v-else class="home-page-root home-violet-bg relative flex min-h-screen flex-col overflow-hidden text-white">
+  <div v-else class="home-page-root home-violet-bg relative flex min-h-screen flex-col overflow-x-hidden text-white">
     <div class="home-matrix-rain pointer-events-none absolute inset-0" aria-hidden="true">
       <span
         v-for="column in matrixColumns"
@@ -89,6 +89,129 @@
       </section>
     </main>
 
+    <section class="home-content-sections relative z-10 mx-auto px-4 pb-10 sm:px-6 sm:pb-12">
+      <div class="home-content-stack">
+        <section class="home-info-section home-pricing-section" aria-labelledby="home-pricing-title">
+          <div class="home-formula-panel" :aria-label="t('home.pricing.formula.label')">
+            <div class="home-formula-header">
+              <div>
+                <span class="home-formula-kicker">{{ t('home.pricing.formula.kicker') }}</span>
+                <h2 id="home-pricing-title">{{ t('home.pricing.formula.title') }}</h2>
+              </div>
+              <div class="home-formula-sample">
+                <span>{{ t('home.pricing.formula.sampleGroupLabel') }}</span>
+                <strong>{{ t('home.pricing.formula.sampleGroupValue') }}</strong>
+                <em>{{ t('home.pricing.formula.sampleRateLabel') }} {{ t('home.pricing.formula.sampleRateValue') }}</em>
+              </div>
+            </div>
+
+            <p class="home-formula-lead">{{ t('home.pricing.formula.lead') }}</p>
+
+            <div class="home-formula-steps" :aria-label="t('home.pricing.formula.stepsLabel')">
+              <article class="home-formula-step">
+                <span class="home-panel-icon">
+                  <PixelIcon name="dollar" size="xs" />
+                </span>
+                <div>
+                  <span>{{ t('home.pricing.formula.steps.base.badge') }}</span>
+                  <strong>{{ t('home.pricing.formula.steps.base.value') }}</strong>
+                  <p>{{ t('home.pricing.formula.steps.base.desc') }}</p>
+                </div>
+              </article>
+
+              <span class="home-formula-operator" aria-hidden="true">x</span>
+
+              <article class="home-formula-step">
+                <span class="home-panel-icon">
+                  <PixelIcon name="channel" size="xs" />
+                </span>
+                <div>
+                  <span>{{ t('home.pricing.formula.steps.rate.badge') }}</span>
+                  <strong>{{ t('home.pricing.formula.steps.rate.value') }}</strong>
+                  <p>{{ t('home.pricing.formula.steps.rate.desc') }}</p>
+                </div>
+              </article>
+
+              <span class="home-formula-operator" aria-hidden="true">=</span>
+
+              <article class="home-formula-step home-formula-step-cost">
+                <span class="home-panel-icon home-panel-icon-hot">
+                  <PixelIcon name="wallet" size="xs" />
+                </span>
+                <div>
+                  <span>{{ t('home.pricing.formula.steps.cost.badge') }}</span>
+                  <strong>{{ t('home.pricing.formula.steps.cost.value') }}</strong>
+                  <p>{{ t('home.pricing.formula.steps.cost.desc') }}</p>
+                </div>
+              </article>
+
+              <span class="home-formula-operator" aria-hidden="true">~</span>
+
+              <article class="home-formula-step home-formula-step-usage">
+                <span class="home-panel-icon">
+                  <PixelIcon name="usage" size="xs" />
+                </span>
+                <div>
+                  <span>{{ t('home.pricing.formula.steps.usage.badge') }}</span>
+                  <strong>{{ t('home.pricing.formula.steps.usage.value') }}</strong>
+                  <p>{{ t('home.pricing.formula.steps.usage.desc') }}</p>
+                </div>
+              </article>
+            </div>
+
+            <div class="home-formula-footer">
+              <p>{{ t('home.pricing.formula.note') }}</p>
+              <div class="home-formula-actions">
+                <router-link :to="isAuthenticated ? '/keys' : '/register'" class="home-compact-action">
+                  <PixelIcon name="key" size="xs" />
+                  {{ t('home.pricing.ctaKey') }}
+                </router-link>
+                <router-link :to="isAuthenticated ? '/payment' : '/register'" class="home-compact-action home-compact-action-secondary">
+                  <PixelIcon name="wallet" size="xs" />
+                  {{ t('home.pricing.ctaRecharge') }}
+                </router-link>
+              </div>
+              <div class="home-signal-list" :aria-label="t('home.pricing.signals.label')">
+                <article class="home-signal-pill">
+                  <PixelIcon name="speed" size="xs" />
+                  <div>
+                    <strong>{{ t('home.pricing.signals.recharge.title') }}</strong>
+                    <span>{{ t('home.pricing.signals.recharge.desc') }}</span>
+                  </div>
+                </article>
+                <article class="home-signal-pill">
+                  <PixelIcon name="shield" size="xs" />
+                  <div>
+                    <strong>{{ t('home.pricing.signals.groups.title') }}</strong>
+                    <span>{{ t('home.pricing.signals.groups.desc') }}</span>
+                  </div>
+                </article>
+                <article class="home-signal-pill">
+                  <PixelIcon name="chart" size="xs" />
+                  <div>
+                    <strong>{{ t('home.pricing.signals.usage.title') }}</strong>
+                    <span>{{ t('home.pricing.signals.usage.desc') }}</span>
+                  </div>
+                </article>
+              </div>
+              <div class="home-official-links" :aria-label="t('home.pricing.formula.references')">
+                <span>{{ t('home.pricing.formula.references') }}</span>
+                <a
+                  v-for="link in officialPricingLinks"
+                  :key="link.key"
+                  :href="link.href"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {{ t(`home.pricing.formula.links.${link.key}`) }}
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
     <footer class="home-footer relative z-10 mx-auto px-4 pb-6 sm:px-6">
       <div class="home-footer-inner mx-auto">
         <div class="home-footer-bar">
@@ -146,6 +269,20 @@ const heroTitleBottom = computed(() =>
   appStore.cachedPublicSettings?.home_hero_title_bottom?.trim() || t('home.heroTitleBottom')
 )
 const currentYear = new Date().getFullYear()
+const officialPricingLinks = [
+  {
+    key: 'claude',
+    href: 'https://docs.anthropic.com/en/docs/about-claude/pricing'
+  },
+  {
+    key: 'openai',
+    href: 'https://openai.com/api/pricing/'
+  },
+  {
+    key: 'gemini',
+    href: 'https://ai.google.dev/gemini-api/docs/pricing'
+  }
+] as const
 
 const matrixColumnCount = 51
 const mobileMatrixColumnCount = 20
@@ -457,8 +594,10 @@ watch(heroDescriptionTexts, () => {
 }
 
 .home-main-stage {
-  flex: 1 1 auto;
-  min-height: 0;
+  align-items: center;
+  flex: 0 0 auto;
+  min-height: 100vh;
+  min-height: 100svh;
 }
 
 .home-hero-shell {
@@ -718,6 +857,355 @@ watch(heroDescriptionTexts, () => {
   box-shadow: 0 0 13px rgba(119, 255, 173, 0.68);
 }
 
+.home-content-sections {
+  width: min(100%, 76rem);
+}
+
+.home-content-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.home-info-section {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--public-border);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(119, 255, 173, 0.105), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.044)),
+    rgba(5, 15, 18, 0.72);
+  box-shadow: var(--public-shadow);
+  padding: clamp(1.1rem, 2.6vw, 2rem);
+  backdrop-filter: blur(18px);
+}
+
+.home-info-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(221, 230, 255, 0.045) 0 1px, transparent 1px 4rem),
+    repeating-linear-gradient(180deg, rgba(221, 230, 255, 0.035) 0 1px, transparent 1px 4rem);
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.72), transparent 82%);
+}
+
+.home-formula-panel {
+  position: relative;
+  z-index: 1;
+}
+
+.home-compact-action .pixel-glyph,
+.home-signal-pill .pixel-glyph,
+.home-panel-icon .pixel-glyph {
+  --pixel-glyph-on: rgba(232, 229, 255, 0.88);
+  --pixel-glyph-accent: rgba(119, 255, 173, 0.8);
+  --pixel-glyph-glow: transparent;
+  filter: none;
+}
+
+.home-signal-pill {
+  border: 1px solid rgba(221, 230, 255, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.038)),
+    rgba(6, 13, 18, 0.58);
+}
+
+.home-panel-icon {
+  display: inline-flex;
+  height: 2.1rem;
+  width: 2.1rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(119, 255, 173, 0.24);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.15), rgba(87, 213, 255, 0.07)),
+    rgba(255, 255, 255, 0.055);
+}
+
+.home-panel-icon-hot {
+  border-color: rgba(168, 132, 255, 0.34);
+  background:
+    linear-gradient(180deg, rgba(168, 132, 255, 0.17), rgba(119, 255, 173, 0.08)),
+    rgba(255, 255, 255, 0.055);
+}
+
+.home-signal-pill strong {
+  color: #f8fbff;
+  font-weight: 950;
+  line-height: 1.15;
+}
+
+.home-formula-panel {
+  display: grid;
+  gap: 1rem;
+  border: 1px solid rgba(119, 255, 173, 0.18);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(119, 255, 173, 0.13), transparent 34%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.088), rgba(255, 255, 255, 0.036)),
+    rgba(3, 12, 15, 0.72);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.065);
+  padding: clamp(1rem, 2.2vw, 1.35rem);
+}
+
+.home-formula-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.home-formula-kicker {
+  display: inline-flex;
+  margin-bottom: 0.42rem;
+  color: rgba(119, 255, 173, 0.82);
+  font-size: 0.74rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.home-formula-header h2 {
+  max-width: 34rem;
+  color: #f8fbff;
+  font-size: clamp(1.28rem, 2.4vw, 1.85rem);
+  font-weight: 950;
+  letter-spacing: 0;
+  line-height: 1.15;
+}
+
+.home-formula-sample {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  max-width: 22rem;
+}
+
+.home-formula-sample span,
+.home-formula-sample strong,
+.home-formula-sample em {
+  display: inline-flex;
+  min-height: 2rem;
+  align-items: center;
+  border: 1px solid rgba(221, 230, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  padding: 0.36rem 0.6rem;
+  color: rgba(222, 232, 255, 0.68);
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.home-formula-sample strong,
+.home-formula-sample em {
+  border-color: rgba(119, 255, 173, 0.25);
+  color: #eafff0;
+}
+
+.home-formula-lead {
+  max-width: 57rem;
+  margin: 0;
+  color: rgba(238, 246, 240, 0.76);
+  font-size: 0.95rem;
+  line-height: 1.82;
+}
+
+.home-formula-steps {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1.12fr);
+  gap: 0.58rem;
+  align-items: stretch;
+}
+
+.home-formula-step {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 0.72rem;
+  min-height: 9.8rem;
+  border: 1px solid rgba(221, 230, 255, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.078), rgba(255, 255, 255, 0.034)),
+    rgba(6, 13, 18, 0.58);
+  padding: 0.9rem;
+}
+
+.home-formula-step-cost {
+  border-color: rgba(119, 255, 173, 0.3);
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.12), rgba(255, 255, 255, 0.035)),
+    rgba(4, 21, 17, 0.66);
+}
+
+.home-formula-step-usage {
+  border-color: rgba(87, 213, 255, 0.3);
+  background:
+    linear-gradient(180deg, rgba(87, 213, 255, 0.115), rgba(255, 255, 255, 0.035)),
+    rgba(5, 15, 22, 0.66);
+}
+
+.home-formula-step span {
+  color: rgba(222, 232, 255, 0.58);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.home-formula-step strong {
+  display: block;
+  margin-top: 0.42rem;
+  overflow-wrap: anywhere;
+  color: #f8fbff;
+  font-size: clamp(1.05rem, 1.8vw, 1.38rem);
+  font-weight: 950;
+  line-height: 1.18;
+}
+
+.home-formula-step p {
+  margin: 0.48rem 0 0;
+  color: rgba(222, 232, 255, 0.62);
+  font-size: 0.8rem;
+  line-height: 1.58;
+}
+
+.home-formula-operator {
+  display: inline-flex;
+  height: 2.1rem;
+  width: 2.1rem;
+  align-self: center;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(221, 230, 255, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.055);
+  color: rgba(119, 255, 173, 0.86);
+  font-size: 1rem;
+  font-weight: 950;
+}
+
+.home-formula-footer {
+  display: grid;
+  gap: 0.72rem;
+}
+
+.home-formula-footer p {
+  margin: 0;
+  color: rgba(238, 246, 240, 0.78);
+  line-height: 1.78;
+}
+
+.home-official-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.44rem 0.7rem;
+  align-items: center;
+}
+
+.home-official-links span {
+  color: rgba(222, 232, 255, 0.58);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.home-official-links a {
+  border-bottom: 1px solid rgba(119, 255, 173, 0.32);
+  color: rgba(119, 255, 173, 0.86);
+  font-size: 0.8rem;
+  font-weight: 900;
+  transition:
+    border-color 140ms ease,
+    color 140ms ease;
+}
+
+.home-official-links a:hover {
+  border-color: rgba(255, 255, 255, 0.62);
+  color: #f8fbff;
+}
+
+.home-formula-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.home-compact-action {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(119, 255, 173, 0.38);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.2), rgba(20, 184, 166, 0.08)),
+    rgba(5, 15, 18, 0.72);
+  padding: 0.55rem 1rem;
+  color: #eafff0;
+  font-size: 0.86rem;
+  font-weight: 900;
+  transition:
+    border-color 140ms ease,
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+.home-compact-action:hover {
+  border-color: rgba(119, 255, 173, 0.6);
+  background:
+    linear-gradient(180deg, rgba(119, 255, 173, 0.27), rgba(20, 184, 166, 0.12)),
+    rgba(6, 28, 24, 0.86);
+  transform: translateY(-1px);
+}
+
+.home-compact-action-secondary {
+  border-color: rgba(221, 230, 255, 0.16);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
+    rgba(5, 15, 18, 0.58);
+  color: rgba(238, 246, 240, 0.82);
+}
+
+.home-signal-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.62rem;
+}
+
+.home-signal-pill {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.58rem;
+  padding: 0.75rem;
+}
+
+.home-signal-pill .pixel-glyph {
+  flex: 0 0 auto;
+  margin-top: 0.05rem;
+}
+
+.home-signal-pill strong {
+  display: block;
+  margin-bottom: 0.18rem;
+  font-size: 0.96rem;
+}
+
+.home-signal-pill span {
+  display: block;
+  color: rgba(222, 232, 255, 0.62);
+  font-size: 0.83rem;
+  line-height: 1.62;
+}
+
 .home-footer {
   flex: 0 0 auto;
   width: min(100%, 72rem);
@@ -758,6 +1246,17 @@ watch(heroDescriptionTexts, () => {
 
 .home-footer-links a:hover {
   color: rgba(255, 255, 255, 0.92);
+}
+
+@media (max-width: 1023px) {
+  .home-formula-steps,
+  .home-signal-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-formula-operator {
+    display: none;
+  }
 }
 
 @media (max-width: 640px) {
@@ -813,6 +1312,44 @@ watch(heroDescriptionTexts, () => {
 
   .home-button-inner {
     min-height: 3rem;
+  }
+
+  .home-content-sections {
+    padding-top: 0.25rem;
+  }
+
+  .home-info-section {
+    padding: 1rem;
+  }
+
+  .home-formula-panel {
+    margin-top: 1rem;
+  }
+
+  .home-formula-header {
+    display: grid;
+  }
+
+  .home-formula-sample {
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .home-formula-steps,
+  .home-signal-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-formula-actions {
+    flex-direction: column;
+  }
+
+  .home-compact-action {
+    width: 100%;
+  }
+
+  .home-formula-step {
+    min-height: auto;
   }
 
   .home-footer-bar {
