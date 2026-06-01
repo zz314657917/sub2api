@@ -221,14 +221,20 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	setOpsRequestContext(c, reqModel, reqStream, body)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
 
+	imageIntent := service.IsImageGenerationIntent("/v1/responses", reqModel, body)
+	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, reqModel, imageIntent); !ok {
+		return
+	} else {
+		apiKey = resolved
+		reqLog = reqLog.With(zap.Any("resolved_group_id", apiKey.GroupID))
+	}
+
 	if decision := h.checkContentModeration(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIResponses, reqModel, body); decision != nil && decision.Blocked {
 		h.errorResponse(c, contentModerationStatus(decision), contentModerationErrorCode(decision), decision.Message)
 		return
 	}
 
-	imageIntent := service.IsImageGenerationIntent("/v1/responses", reqModel, body)
-	if imageIntent && !service.GroupAllowsImageGeneration(apiKey.Group) {
-		h.errorResponse(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
+	if imageIntent && !h.ensureImageGenerationAllowed(c, apiKey) {
 		return
 	}
 	var imageReleaseFunc func()
@@ -659,6 +665,14 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 
 	setOpsRequestContext(c, reqModel, reqStream, body)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
+
+	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, reqModel, false); !ok {
+		return
+	} else {
+		apiKey = resolved
+		preferredMappedModel = resolveOpenAIMessagesDispatchMappedModel(apiKey, reqModel)
+		reqLog = reqLog.With(zap.Any("resolved_group_id", apiKey.GroupID))
+	}
 
 	if decision := h.checkContentModeration(c, reqLog, apiKey, subject, service.ContentModerationProtocolAnthropicMessages, reqModel, body); decision != nil && decision.Blocked {
 		h.anthropicErrorResponse(c, contentModerationStatus(decision), contentModerationErrorCode(decision), decision.Message)
@@ -1240,13 +1254,23 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	setOpsRequestContext(c, reqModel, true, firstMessage)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeWSV2))
 
+	imageIntent := service.IsImageGenerationIntent("/v1/responses", reqModel, firstMessage)
+	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, reqModel, imageIntent); !ok {
+		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "API key group is unavailable")
+		return
+	} else {
+		apiKey = resolved
+		ctx = c.Request.Context()
+		reqLog = reqLog.With(zap.Any("resolved_group_id", apiKey.GroupID))
+	}
+
 	if decision := h.checkContentModeration(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIResponses, reqModel, firstMessage); decision != nil && decision.Blocked {
 		writeContentModerationWSError(ctx, wsConn, decision)
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, decision.Message)
 		return
 	}
 
-	if service.IsImageGenerationIntent("/v1/responses", reqModel, firstMessage) && !service.GroupAllowsImageGeneration(apiKey.Group) {
+	if imageIntent && !service.GroupAllowsImageGeneration(apiKey.Group) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, service.ImageGenerationPermissionMessage())
 		return
 	}

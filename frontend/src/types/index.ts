@@ -662,12 +662,17 @@ export interface ApiKey {
 
 export type AccountPoolStrategy = 'shared_only' | 'private_first' | 'private_only'
 
+export type ApiKeyRoutingPreset = 'auto' | 'cost' | 'speed' | 'stability' | 'manual'
+
 export interface ApiKeyMultiGroupRoute {
   group_id: number
   priority: number
   weight: number
   cooldown_seconds: number
   enabled: boolean
+  model_patterns?: string[]
+  image_only?: boolean
+  text_only?: boolean
 }
 
 export interface CreateApiKeyRequest {

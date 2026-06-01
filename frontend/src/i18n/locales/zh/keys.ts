@@ -39,12 +39,40 @@ export default {
     },
     enable: '启用',
     disable: '禁用',
+    basicInfo: '基本信息',
+    basicInfoHint: '设置令牌名称、智能路由模式和默认兜底分组。',
     nameLabel: '名称',
     namePlaceholder: '我的 API 密钥',
     groupLabel: '分组',
     defaultGroupLabel: '默认分组（兜底）',
     defaultGroupHint: '开启多分组路由后，请求优先按下方路由配置选择分组；没有匹配或可用路由时，才使用这个默认分组。',
     selectGroup: '选择分组',
+    routingPresetLabel: '智能路由',
+    routingPresetAutoApplied: '系统已按所选模式生成运行时路由规则',
+    routingPresetHint: '这些模式会保存按请求模型和生图意图匹配的多分组规则；同一个 Key 可自动把普通模型和生图请求路由到不同分组。',
+    groupPrioritySelection: '分组优先级选择',
+    manualRouteSelection: '手动选择分组',
+    routingPreset: {
+      auto: {
+        title: '智能自动',
+        description: '普通模型走通用分组，生图走允许生图的分组'
+      },
+      cost: {
+        title: '价格优先',
+        description: '文本按通用倍率，生图按生图倍率优先'
+      },
+      speed: {
+        title: '速度优先',
+        description: '给靠前分组更高权重，减少切换等待'
+      },
+      stability: {
+        title: '成功率优先',
+        description: '使用更保守冷却，优先近期稳定分组'
+      },
+      manual: {
+        label: '手动配置'
+      }
+    },
     statusLabel: '状态',
     selectStatus: '选择状态',
     saving: '保存中...',
@@ -71,7 +99,7 @@ export default {
       privateOnly: '只用我的账号池'
     },
     multiGroupRouting: '多分组路由',
-    multiGroupRoutingHint: '开启后可按优先级和权重为同一个 Key 配置多个分组；上方默认分组仅作为兜底使用',
+    multiGroupRoutingHint: '开启后可按模型、是否生图、优先级和权重为同一个 Key 配置多个分组；上方默认分组仅作为兜底使用',
     routeConfig: '路由配置',
     priority: '优先级',
     weight: '权重',
@@ -81,7 +109,13 @@ export default {
     removeRoute: '删除路由',
     routeEnabled: '启用',
     routeGroupRequired: '请选择每条路由的分组',
-    routeDuplicateGroup: '路由分组不能重复',
+    routeDuplicateGroup: '同一分组的路由匹配范围不能重复',
+    routeScopeConflict: '同一条路由不能同时设置为仅生图和排除生图',
+    modelPatterns: '模型匹配',
+    modelPatternsPlaceholder: 'gpt-image-*\nclaude-*',
+    modelPatternsHint: '支持精确模型名和 * 通配符；可用逗号或换行分隔。留空表示不限制模型。',
+    routeImageOnly: '仅生图',
+    routeTextOnly: '排除生图',
     routeRequired: '请至少添加一条路由',
     multiGroupRouteCount: '多分组 {count}',
     usage: '用量',
@@ -159,6 +193,11 @@ export default {
       geminiCliDesc: '导入为 Gemini CLI 配置'
     },
     // 配额和有效期
+    quotaSettings: '额度设置',
+    quotaSettingsHint: '设置令牌可用额度和已用额度管理。',
+    unlimitedQuota: '无限额度',
+    advancedSettings: '高级设置',
+    advancedSettingsHint: '配置账号池、手动路由、IP、限速和过期时间。',
     quotaLimit: '额度限制',
     quotaAmount: '额度金额 (USD)',
     quotaAmountPlaceholder: '输入 USD 额度限制',

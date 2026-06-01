@@ -62,22 +62,21 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 
 		// 简易模式：跳过余额和订阅检查
 		if cfg.RunMode == config.RunModeSimple {
-			c.Set(string(ContextKeyAPIKey), apiKey)
+			SetAPIKeyContext(c, apiKey)
 			c.Set(string(ContextKeyUser), AuthSubject{
 				UserID:      apiKey.User.ID,
 				Concurrency: apiKey.User.Concurrency,
 			})
 			c.Set(string(ContextKeyUserRole), apiKey.User.Role)
-			setAPIKeyAccountPoolContext(c, apiKey)
-			setGroupContext(c, apiKey.Group)
 			_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
 			c.Next()
-			applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, apiKey)
+			applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, currentAPIKeyFromContext(c, apiKey))
 			return
 		}
 
+		deferGroupBilling := shouldDeferGroupBilling(c, apiKey)
 		isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
-		if isSubscriptionType && subscriptionService != nil {
+		if !deferGroupBilling && isSubscriptionType && subscriptionService != nil {
 			subscription, err := subscriptionService.GetActiveSubscription(
 				c.Request.Context(),
 				apiKey.User.ID,
@@ -100,30 +99,37 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 				return
 			}
 
+			if subscriptionService != nil {
+				c.Set(string(ContextKeySubscriptionService), subscriptionService)
+			}
 			c.Set(string(ContextKeySubscription), subscription)
 
 			if needsMaintenance {
 				maintenanceCopy := *subscription
 				subscriptionService.DoWindowMaintenance(&maintenanceCopy)
 			}
-		} else {
+		} else if !deferGroupBilling {
 			if apiKey.User.Balance <= 0 {
 				abortWithGoogleError(c, 403, "Insufficient account balance")
 				return
 			}
 		}
 
-		c.Set(string(ContextKeyAPIKey), apiKey)
+		if subscriptionService != nil {
+			c.Set(string(ContextKeySubscriptionService), subscriptionService)
+		}
+		if deferGroupBilling {
+			c.Set(string(ContextKeyDeferredGroupBilling), true)
+		}
+		SetAPIKeyContext(c, apiKey)
 		c.Set(string(ContextKeyUser), AuthSubject{
 			UserID:      apiKey.User.ID,
 			Concurrency: apiKey.User.Concurrency,
 		})
 		c.Set(string(ContextKeyUserRole), apiKey.User.Role)
-		setAPIKeyAccountPoolContext(c, apiKey)
-		setGroupContext(c, apiKey.Group)
 		_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
 		c.Next()
-		applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, apiKey)
+		applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, currentAPIKeyFromContext(c, apiKey))
 	}
 }
 

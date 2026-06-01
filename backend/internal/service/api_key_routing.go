@@ -4,6 +4,8 @@ import (
 	"math/rand/v2"
 	"sort"
 	"strings"
+
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // ResolveForRequest returns an API key copy whose Group/GroupID matches the best
@@ -16,10 +18,27 @@ func (k *APIKey) ResolveForRequest(path, forcePlatform string) *APIKey {
 // route candidates whose group ID matches skipGroup. It is used by the service
 // layer to apply short-lived route cooldowns without mutating route config.
 func (k *APIKey) ResolveForRequestWithGroupSkipper(path, forcePlatform string, skipGroup func(groupID int64) bool) *APIKey {
+	return k.resolveForRequest(path, forcePlatform, "", false, false, skipGroup)
+}
+
+// ResolveForModelRequest returns an API key copy whose Group/GroupID matches
+// the best route for the already-parsed request model and image intent.
+func (k *APIKey) ResolveForModelRequest(path, forcePlatform, requestedModel string, imageIntent bool) *APIKey {
+	return k.ResolveForModelRequestWithGroupSkipper(path, forcePlatform, requestedModel, imageIntent, nil)
+}
+
+// ResolveForModelRequestWithGroupSkipper is the model-aware variant used after
+// gateway handlers parse the request body. If no model-specific route matches,
+// it falls back to the same priority/weight behavior as ResolveForRequest.
+func (k *APIKey) ResolveForModelRequestWithGroupSkipper(path, forcePlatform, requestedModel string, imageIntent bool, skipGroup func(groupID int64) bool) *APIKey {
+	return k.resolveForRequest(path, forcePlatform, requestedModel, imageIntent, true, skipGroup)
+}
+
+func (k *APIKey) resolveForRequest(path, forcePlatform, requestedModel string, imageIntent bool, modelAware bool, skipGroup func(groupID int64) bool) *APIKey {
 	if k == nil || len(k.MultiGroupRoutes) == 0 {
 		return k
 	}
-	selected := k.selectRouteGroup(path, forcePlatform, skipGroup)
+	selected := k.selectRouteGroup(path, forcePlatform, requestedModel, imageIntent, modelAware, skipGroup)
 	if selected == nil {
 		return k
 	}
@@ -38,18 +57,41 @@ func (k *APIKey) ResolveForRequestWithGroupSkipper(path, forcePlatform string, s
 	return &clone
 }
 
-func (k *APIKey) selectRouteGroup(path, forcePlatform string, skipGroup func(groupID int64) bool) *Group {
+func (k *APIKey) selectRouteGroup(path, forcePlatform, requestedModel string, imageIntent bool, modelAware bool, skipGroup func(groupID int64) bool) *Group {
 	groups := k.routeGroupsByID()
 	if len(groups) == 0 {
 		return nil
 	}
-	candidates := k.routeCandidates(groups, preferredPlatformsForPath(path, forcePlatform), skipGroup)
+	platforms := preferredPlatformsForPath(path, forcePlatform)
+	if modelAware && (strings.TrimSpace(requestedModel) != "" || imageIntent) {
+		if imageIntent {
+			candidates := k.routeCandidates(groups, platforms, skipGroup, requestedModel, imageIntent, true, true, true)
+			if len(candidates) == 0 {
+				candidates = k.routeCandidates(groups, nil, skipGroup, requestedModel, imageIntent, true, true, true)
+			}
+			if len(candidates) > 0 {
+				return selectBestRouteGroup(candidates)
+			}
+		}
+		candidates := k.routeCandidates(groups, platforms, skipGroup, requestedModel, imageIntent, true, true, false)
+		if len(candidates) == 0 {
+			candidates = k.routeCandidates(groups, nil, skipGroup, requestedModel, imageIntent, true, true, false)
+		}
+		if len(candidates) > 0 {
+			return selectBestRouteGroup(candidates)
+		}
+	}
+	candidates := k.routeCandidates(groups, platforms, skipGroup, requestedModel, imageIntent, modelAware, false, false)
 	if len(candidates) == 0 {
-		candidates = k.routeCandidates(groups, nil, skipGroup)
+		candidates = k.routeCandidates(groups, nil, skipGroup, requestedModel, imageIntent, modelAware, false, false)
 	}
 	if len(candidates) == 0 {
 		return nil
 	}
+	return selectBestRouteGroup(candidates)
+}
+
+func selectBestRouteGroup(candidates []apiKeyRouteCandidate) *Group {
 	sort.SliceStable(candidates, func(i, j int) bool {
 		return candidates[i].priority < candidates[j].priority
 	})
@@ -81,19 +123,26 @@ func (k *APIKey) RouteCooldownSeconds(groupID int64) (int, bool) {
 	if k == nil || groupID <= 0 {
 		return 0, false
 	}
+	cooldownSeconds := 0
+	found := false
 	for _, route := range k.MultiGroupRoutes {
 		if route.GroupID != groupID {
 			continue
 		}
 		if !route.Enabled {
-			return 0, false
+			continue
 		}
+		found = true
 		if route.CooldownSeconds <= 0 {
-			return apiKeyRouteDefaultCooldown, true
+			cooldownSeconds = max(cooldownSeconds, apiKeyRouteDefaultCooldown)
+			continue
 		}
-		return route.CooldownSeconds, true
+		cooldownSeconds = max(cooldownSeconds, route.CooldownSeconds)
 	}
-	return 0, false
+	if !found {
+		return 0, false
+	}
+	return cooldownSeconds, true
 }
 
 type apiKeyRouteCandidate struct {
@@ -102,7 +151,7 @@ type apiKeyRouteCandidate struct {
 	weight   int
 }
 
-func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, skipGroup func(groupID int64) bool) []apiKeyRouteCandidate {
+func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, skipGroup func(groupID int64) bool, requestedModel string, imageIntent bool, modelAware bool, explicitRulesOnly bool, imageOnlyRulesOnly bool) []apiKeyRouteCandidate {
 	platformSet := make(map[string]struct{}, len(platforms))
 	for _, platform := range platforms {
 		if platform != "" {
@@ -126,6 +175,18 @@ func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, sk
 				continue
 			}
 		}
+		if modelAware {
+			hasModelRules := apiKeyRouteHasModelRules(route)
+			if explicitRulesOnly && !hasModelRules {
+				continue
+			}
+			if imageOnlyRulesOnly && !route.ImageOnly {
+				continue
+			}
+			if !apiKeyRouteMatchesModelRequest(route, group, requestedModel, imageIntent) {
+				continue
+			}
+		}
 		priority := route.Priority
 		if priority <= 0 {
 			priority = apiKeyRouteDefaultPriority
@@ -141,6 +202,70 @@ func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, sk
 		})
 	}
 	return candidates
+}
+
+func apiKeyRouteHasModelRules(route domain.APIKeyMultiGroupRoute) bool {
+	return len(route.ModelPatterns) > 0 || route.ImageOnly || route.TextOnly
+}
+
+func apiKeyRouteMatchesModelRequest(route domain.APIKeyMultiGroupRoute, group *Group, requestedModel string, imageIntent bool) bool {
+	if route.ImageOnly && !imageIntent {
+		return false
+	}
+	if route.TextOnly && imageIntent {
+		return false
+	}
+	if imageIntent && (group == nil || group.Platform != PlatformOpenAI || !group.AllowImageGeneration) {
+		return false
+	}
+	if len(route.ModelPatterns) == 0 {
+		return true
+	}
+	for _, pattern := range route.ModelPatterns {
+		if matchAPIKeyRouteModelPattern(pattern, requestedModel) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchAPIKeyRouteModelPattern(pattern, model string) bool {
+	pattern = strings.ToLower(strings.TrimSpace(pattern))
+	model = strings.ToLower(strings.TrimSpace(model))
+	if pattern == "" {
+		return false
+	}
+	if pattern == "*" {
+		return true
+	}
+	if !strings.Contains(pattern, "*") {
+		return pattern == model
+	}
+	segments := strings.Split(pattern, "*")
+	remaining := model
+	if first := segments[0]; first != "" {
+		if !strings.HasPrefix(remaining, first) {
+			return false
+		}
+		remaining = remaining[len(first):]
+	}
+	lastIndex := len(segments) - 1
+	for i := 1; i < lastIndex; i++ {
+		segment := segments[i]
+		if segment == "" {
+			continue
+		}
+		index := strings.Index(remaining, segment)
+		if index < 0 {
+			return false
+		}
+		remaining = remaining[index+len(segment):]
+	}
+	last := segments[lastIndex]
+	if last == "" {
+		return true
+	}
+	return strings.HasSuffix(remaining, last)
 }
 
 func pickWeightedRouteGroup(candidates []apiKeyRouteCandidate) *Group {

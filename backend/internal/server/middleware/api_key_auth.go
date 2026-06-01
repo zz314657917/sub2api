@@ -118,17 +118,15 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		// ── 4. SimpleMode → early return ─────────────────────────────
 
 		if cfg.RunMode == config.RunModeSimple {
-			c.Set(string(ContextKeyAPIKey), apiKey)
+			SetAPIKeyContext(c, apiKey)
 			c.Set(string(ContextKeyUser), AuthSubject{
 				UserID:      apiKey.User.ID,
 				Concurrency: apiKey.User.Concurrency,
 			})
 			c.Set(string(ContextKeyUserRole), apiKey.User.Role)
-			setAPIKeyAccountPoolContext(c, apiKey)
-			setGroupContext(c, apiKey.Group)
 			_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
 			c.Next()
-			applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, apiKey)
+			applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, currentAPIKeyFromContext(c, apiKey))
 			return
 		}
 
@@ -138,9 +136,10 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		skipBilling := c.Request.URL.Path == "/v1/usage"
 
 		var subscription *service.UserSubscription
+		deferGroupBilling := shouldDeferGroupBilling(c, apiKey)
 		isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
 
-		if isSubscriptionType && subscriptionService != nil {
+		if !deferGroupBilling && isSubscriptionType && subscriptionService != nil {
 			sub, subErr := subscriptionService.GetActiveSubscription(
 				c.Request.Context(),
 				apiKey.User.ID,
@@ -180,54 +179,44 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				return
 			}
 
-			// 订阅模式：验证订阅限额
-			if subscription != nil {
-				needsMaintenance, validateErr := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
-				if validateErr != nil {
-					code := "SUBSCRIPTION_INVALID"
-					status := 403
-					if errors.Is(validateErr, service.ErrDailyLimitExceeded) ||
-						errors.Is(validateErr, service.ErrWeeklyLimitExceeded) ||
-						errors.Is(validateErr, service.ErrMonthlyLimitExceeded) {
-						code = "USAGE_LIMIT_EXCEEDED"
-						status = 429
-					}
-					AbortWithError(c, status, code, validateErr.Error())
-					return
-				}
-
-				// 窗口维护异步化（不阻塞请求）
-				if needsMaintenance {
-					maintenanceCopy := *subscription
-					subscriptionService.DoWindowMaintenance(&maintenanceCopy)
-				}
-			} else {
-				// 非订阅模式 或 订阅模式但 subscriptionService 未注入：回退到余额检查
-				if apiKey.User.Balance <= 0 {
-					AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")
-					return
-				}
+			if !deferGroupBilling && !enforceGroupBilling(c, apiKey, subscription, subscriptionService, skipBilling) {
+				return
 			}
 		}
 
 		// ── 7. 设置上下文 → Next ─────────────────────────────────────
 
+		if subscriptionService != nil {
+			c.Set(string(ContextKeySubscriptionService), subscriptionService)
+		}
+		if deferGroupBilling {
+			c.Set(string(ContextKeyDeferredGroupBilling), true)
+		}
 		if subscription != nil {
 			c.Set(string(ContextKeySubscription), subscription)
 		}
-		c.Set(string(ContextKeyAPIKey), apiKey)
+		SetAPIKeyContext(c, apiKey)
 		c.Set(string(ContextKeyUser), AuthSubject{
 			UserID:      apiKey.User.ID,
 			Concurrency: apiKey.User.Concurrency,
 		})
 		c.Set(string(ContextKeyUserRole), apiKey.User.Role)
-		setAPIKeyAccountPoolContext(c, apiKey)
-		setGroupContext(c, apiKey.Group)
 		_ = apiKeyService.TouchLastUsed(c.Request.Context(), apiKey.ID)
 
 		c.Next()
-		applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, apiKey)
+		applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, currentAPIKeyFromContext(c, apiKey))
 	}
+}
+
+// SetAPIKeyContext stores the effective API key and updates request-scoped
+// group/account-pool context used by downstream services.
+func SetAPIKeyContext(c *gin.Context, apiKey *service.APIKey) {
+	if c == nil || apiKey == nil {
+		return
+	}
+	c.Set(string(ContextKeyAPIKey), apiKey)
+	setAPIKeyAccountPoolContext(c, apiKey)
+	setGroupContext(c, apiKey.Group)
 }
 
 // GetAPIKeyFromContext 从上下文中获取API key
@@ -248,6 +237,193 @@ func GetSubscriptionFromContext(c *gin.Context) (*service.UserSubscription, bool
 	}
 	subscription, ok := value.(*service.UserSubscription)
 	return subscription, ok
+}
+
+func setSubscriptionContext(c *gin.Context, subscription *service.UserSubscription) {
+	if c == nil {
+		return
+	}
+	if subscription == nil {
+		c.Set(string(ContextKeySubscription), nil)
+		return
+	}
+	c.Set(string(ContextKeySubscription), subscription)
+}
+
+// ResolveAPIKeyForModelRequest re-routes an API key after a handler has parsed
+// the request model/body. It updates gin.Context and reloads subscription
+// context when the effective group changes.
+func ResolveAPIKeyForModelRequest(c *gin.Context, apiKeyService *service.APIKeyService, apiKey *service.APIKey, requestedModel string, imageIntent bool) (*service.APIKey, bool) {
+	if c == nil || apiKeyService == nil || apiKey == nil || len(apiKey.MultiGroupRoutes) == 0 {
+		return apiKey, true
+	}
+	forcePlatform, _ := GetForcePlatformFromContext(c)
+	resolved := apiKeyService.ResolveForModelRequest(c.Request.Context(), apiKey, c.Request.URL.Path, forcePlatform, requestedModel, imageIntent)
+	if resolved == nil {
+		resolved = apiKey
+	}
+	if abortIfAPIKeyGroupUnavailable(c, resolved) {
+		return nil, false
+	}
+	SetAPIKeyContext(c, resolved)
+	deferredBilling := shouldEnforceDeferredGroupBilling(c)
+	if deferredBilling {
+		subscriptionService, _ := subscriptionServiceFromContext(c)
+		if !enforceGroupBilling(c, resolved, nil, subscriptionService, false) {
+			return nil, false
+		}
+	}
+	if !deferredBilling && !refreshSubscriptionContextForResolvedAPIKey(c, resolved) {
+		return nil, false
+	}
+	return resolved, true
+}
+
+func refreshSubscriptionContextForResolvedAPIKey(c *gin.Context, apiKey *service.APIKey) bool {
+	if c == nil || apiKey == nil || apiKey.Group == nil || !apiKey.Group.IsSubscriptionType() {
+		setSubscriptionContext(c, nil)
+		return true
+	}
+	subscriptionService, ok := subscriptionServiceFromContext(c)
+	if !ok {
+		return true
+	}
+	userID := apiKey.UserID
+	if userID <= 0 && apiKey.User != nil {
+		userID = apiKey.User.ID
+	}
+	subscription, err := subscriptionService.GetActiveSubscription(c.Request.Context(), userID, apiKey.Group.ID)
+	if err != nil {
+		if c.Request != nil && c.Request.URL != nil && c.Request.URL.Path == "/v1/usage" {
+			setSubscriptionContext(c, nil)
+			return true
+		}
+		AbortWithError(c, 403, "SUBSCRIPTION_NOT_FOUND", "No active subscription found for this group")
+		return false
+	}
+	if needsMaintenance, validateErr := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group); validateErr != nil {
+		code := "SUBSCRIPTION_INVALID"
+		status := 403
+		if errors.Is(validateErr, service.ErrDailyLimitExceeded) ||
+			errors.Is(validateErr, service.ErrWeeklyLimitExceeded) ||
+			errors.Is(validateErr, service.ErrMonthlyLimitExceeded) {
+			code = "USAGE_LIMIT_EXCEEDED"
+			status = 429
+		}
+		AbortWithError(c, status, code, validateErr.Error())
+		return false
+	} else if needsMaintenance {
+		maintenanceCopy := *subscription
+		subscriptionService.DoWindowMaintenance(&maintenanceCopy)
+	}
+	setSubscriptionContext(c, subscription)
+	return true
+}
+
+func shouldDeferGroupBilling(c *gin.Context, apiKey *service.APIKey) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil || apiKey == nil || len(apiKey.MultiGroupRoutes) == 0 {
+		return false
+	}
+	if c.Request.URL.Path == "/v1/usage" {
+		return false
+	}
+	return isModelAwareBillingEndpoint(c.Request.URL.Path)
+}
+
+func shouldEnforceDeferredGroupBilling(c *gin.Context) bool {
+	if c == nil {
+		return false
+	}
+	value, exists := c.Get(string(ContextKeyDeferredGroupBilling))
+	if !exists {
+		return false
+	}
+	enabled, _ := value.(bool)
+	return enabled
+}
+
+func isModelAwareBillingEndpoint(path string) bool {
+	path = strings.TrimRight(strings.ToLower(strings.TrimSpace(path)), "/")
+	switch {
+	case path == "/v1/messages":
+		return true
+	case path == "/v1/messages/count_tokens":
+		return true
+	case strings.HasPrefix(path, "/v1/responses"), strings.HasPrefix(path, "/responses"), strings.HasPrefix(path, "/backend-api/codex/responses"):
+		return true
+	case path == "/v1/chat/completions" || path == "/chat/completions":
+		return true
+	case path == "/v1/embeddings" || path == "/embeddings":
+		return true
+	case path == "/v1/images/generations" || path == "/images/generations":
+		return true
+	case path == "/v1/images/edits" || path == "/images/edits":
+		return true
+	case strings.HasPrefix(path, "/v1beta/models/") || strings.HasPrefix(path, "/antigravity/v1beta/models/"):
+		return true
+	default:
+		return false
+	}
+}
+
+func subscriptionServiceFromContext(c *gin.Context) (*service.SubscriptionService, bool) {
+	if c == nil {
+		return nil, false
+	}
+	value, exists := c.Get(string(ContextKeySubscriptionService))
+	if !exists {
+		return nil, false
+	}
+	subscriptionService, ok := value.(*service.SubscriptionService)
+	return subscriptionService, ok && subscriptionService != nil
+}
+
+func enforceGroupBilling(c *gin.Context, apiKey *service.APIKey, subscription *service.UserSubscription, subscriptionService *service.SubscriptionService, skipBilling bool) bool {
+	if skipBilling {
+		return true
+	}
+	if apiKey == nil || apiKey.User == nil {
+		return true
+	}
+	if apiKey.Group != nil && apiKey.Group.IsSubscriptionType() && subscriptionService != nil {
+		if subscription == nil {
+			userID := apiKey.UserID
+			if userID <= 0 {
+				userID = apiKey.User.ID
+			}
+			sub, err := subscriptionService.GetActiveSubscription(c.Request.Context(), userID, apiKey.Group.ID)
+			if err != nil {
+				AbortWithError(c, 403, "SUBSCRIPTION_NOT_FOUND", "No active subscription found for this group")
+				return false
+			}
+			subscription = sub
+		}
+		needsMaintenance, validateErr := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
+		if validateErr != nil {
+			code := "SUBSCRIPTION_INVALID"
+			status := 403
+			if errors.Is(validateErr, service.ErrDailyLimitExceeded) ||
+				errors.Is(validateErr, service.ErrWeeklyLimitExceeded) ||
+				errors.Is(validateErr, service.ErrMonthlyLimitExceeded) {
+				code = "USAGE_LIMIT_EXCEEDED"
+				status = 429
+			}
+			AbortWithError(c, status, code, validateErr.Error())
+			return false
+		}
+		if needsMaintenance {
+			maintenanceCopy := *subscription
+			subscriptionService.DoWindowMaintenance(&maintenanceCopy)
+		}
+		setSubscriptionContext(c, subscription)
+		return true
+	}
+	setSubscriptionContext(c, nil)
+	if apiKey.User.Balance <= 0 {
+		AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")
+		return false
+	}
+	return true
 }
 
 func setGroupContext(c *gin.Context, group *service.Group) {
@@ -321,6 +497,13 @@ func applyAPIKeyRouteCooldownAfterRequest(c *gin.Context, apiKeyService *service
 	if c.Writer.Status() < http.StatusBadRequest {
 		apiKeyService.ClearRouteGroupCooldown(c.Request.Context(), apiKey, groupID)
 	}
+}
+
+func currentAPIKeyFromContext(c *gin.Context, fallback *service.APIKey) *service.APIKey {
+	if current, ok := GetAPIKeyFromContext(c); ok && current != nil {
+		return current
+	}
+	return fallback
 }
 
 func shouldCooldownAPIKeyRoute(status int) bool {
