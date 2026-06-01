@@ -22,6 +22,7 @@ import ops from './ops'
 import settings from './settings'
 import errorPassthrough from './errorPassthrough'
 import tlsFingerprintProfiles from './tlsFingerprintProfiles'
+import tickets from './tickets'
 
 export default {
   dashboard,
@@ -48,4 +49,5 @@ export default {
   settings,
   errorPassthrough,
   tlsFingerprintProfiles,
+  tickets,
 }

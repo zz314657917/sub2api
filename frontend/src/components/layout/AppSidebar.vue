@@ -127,7 +127,11 @@
                 <span v-if="item.iconSvg" class="sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
                 <Icon v-else :name="item.icon ?? 'document'" size="sm" />
               </span>
-              <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+              <span class="sidebar-label sidebar-label-flex" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+                <span class="min-w-0 truncate">{{ item.label }}</span>
+                <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
+                <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
+              </span>
             </router-link>
           </template>
         </div>
@@ -182,7 +186,11 @@
                   <span class="console-nav-icon-frame">
                     <Icon :name="child.icon ?? 'document'" size="sm" />
                   </span>
-                  <span>{{ child.label }}</span>
+                  <span class="sidebar-label-flex min-w-0 flex-1">
+                    <span class="min-w-0 truncate">{{ child.label }}</span>
+                    <span v-if="showWelfareClaimBadge(child)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
+                    <span v-if="showTicketUnreadBadge(child)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
+                  </span>
                 </router-link>
               </div>
             </template>
@@ -199,7 +207,11 @@
                 <span v-if="item.iconSvg" class="sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
                 <Icon v-else :name="item.icon ?? 'document'" size="sm" />
               </span>
-              <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+              <span class="sidebar-label sidebar-label-flex" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+                <span class="min-w-0 truncate">{{ item.label }}</span>
+                <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
+                <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
+              </span>
             </router-link>
           </template>
         </div>
@@ -250,7 +262,11 @@
                   <span class="console-nav-icon-frame">
                     <Icon :name="child.icon ?? 'document'" size="sm" />
                   </span>
-                  <span>{{ child.label }}</span>
+                  <span class="sidebar-label-flex min-w-0 flex-1">
+                    <span class="min-w-0 truncate">{{ child.label }}</span>
+                    <span v-if="showWelfareClaimBadge(child)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
+                    <span v-if="showTicketUnreadBadge(child)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
+                  </span>
                 </router-link>
               </div>
             </template>
@@ -267,7 +283,11 @@
                 <span v-if="item.iconSvg" class="sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
                 <Icon v-else :name="item.icon ?? 'document'" size="sm" />
               </span>
-              <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
+              <span class="sidebar-label sidebar-label-flex" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+                <span class="min-w-0 truncate">{{ item.label }}</span>
+                <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
+                <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
+              </span>
             </router-link>
           </template>
         </div>
@@ -322,9 +342,10 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
+import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore, useWelfareStore } from '@/stores'
 import VersionBadge from '@/components/common/VersionBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { ticketsAPI } from '@/api/tickets'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 
@@ -392,6 +413,7 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const onboardingStore = useOnboardingStore()
 const adminSettingsStore = useAdminSettingsStore()
+const welfareStore = useWelfareStore()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
@@ -447,9 +469,15 @@ const flagAffiliate = makeSidebarFlag(FeatureFlags.affiliate)
 const flagAccountShare = makeSidebarFlag(FeatureFlags.accountShare)
 const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagWelfare = makeSidebarFlag(FeatureFlags.welfare)
+const welfareClaimBadgeVisible = computed(() => welfareStore.hasClaimableReward)
+const ticketUnreadTotal = ref(0)
+const ticketUnreadBadgeLabel = computed(() => (ticketUnreadTotal.value > 99 ? '99+' : String(ticketUnreadTotal.value)))
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
+const WELFARE_BADGE_REFRESH_MS = 60_000
+const TICKET_UNREAD_BADGE_REFRESH_MS = 60_000
 const SIDEBAR_TOUR_TARGET_EVENT = 'sub2api:sidebar-tour-target'
+const TICKET_UNREAD_BADGE_REFRESH_EVENT = 'sub2api:ticket-unread-updated'
 const sidebarTourTargetGroups: Record<string, string[]> = {
   '#sidebar-group-manage': ['/admin/basic-management'],
   '#sidebar-channel-manage': ['/admin/basic-management'],
@@ -481,6 +509,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/chat-images', label: t('nav.chatImageCreator'), icon: ChatIcon, hideInSimpleMode: true },
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/usage', label: t('nav.usage'), icon: UsageIcon, hideInSimpleMode: true },
+    { path: '/tickets', label: t('nav.tickets'), icon: TicketIcon, hideInSimpleMode: true },
     { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/affiliate', label: t('nav.affiliate'), icon: TeamIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
     welfareItem,
@@ -616,6 +645,7 @@ const adminNavItems = computed((): NavItem[] => {
       ],
     },
     { path: '/admin/usage', label: t('nav.usage'), icon: UsageIcon },
+    { path: '/admin/tickets', label: t('nav.supportTickets'), icon: TicketIcon, hideInSimpleMode: true },
     {
       path: '/admin/content-records',
       label: t('nav.contentRecords'),
@@ -709,6 +739,79 @@ function getAdminMenuItemId(path: string): string | undefined {
   return undefined
 }
 
+function showWelfareClaimBadge(item: NavItem): boolean {
+  return item.path === '/welfare' && welfareClaimBadgeVisible.value
+}
+
+function showTicketUnreadBadge(item: NavItem): boolean {
+  return item.path === '/tickets' && ticketUnreadTotal.value > 0
+}
+
+function canRefreshWelfareBadge(): boolean {
+  return authStore.isAuthenticated && flagWelfare() && !authStore.isSimpleMode
+}
+
+function refreshWelfareBadge(force = false): void {
+  if (!canRefreshWelfareBadge()) {
+    welfareStore.reset()
+    return
+  }
+  void welfareStore.fetchOverview(force)
+}
+
+let welfareBadgeRefreshTimer: ReturnType<typeof setInterval> | null = null
+let ticketUnreadBadgeRefreshTimer: ReturnType<typeof setInterval> | null = null
+
+function startWelfareBadgeRefreshTimer(): void {
+  if (welfareBadgeRefreshTimer) return
+  welfareBadgeRefreshTimer = setInterval(() => {
+    refreshWelfareBadge(true)
+  }, WELFARE_BADGE_REFRESH_MS)
+}
+
+function stopWelfareBadgeRefreshTimer(): void {
+  if (!welfareBadgeRefreshTimer) return
+  clearInterval(welfareBadgeRefreshTimer)
+  welfareBadgeRefreshTimer = null
+}
+
+function handleWelfareBadgeVisibilityChange(): void {
+  if (document.visibilityState === 'visible') {
+    refreshWelfareBadge(true)
+    void refreshTicketUnreadBadge()
+  }
+}
+
+function canRefreshTicketUnreadBadge(): boolean {
+  return authStore.isAuthenticated && !authStore.isAdmin && !authStore.isSimpleMode
+}
+
+async function refreshTicketUnreadBadge(): Promise<void> {
+  if (!canRefreshTicketUnreadBadge()) {
+    ticketUnreadTotal.value = 0
+    return
+  }
+  try {
+    const summary = await ticketsAPI.unreadSummary()
+    ticketUnreadTotal.value = Math.max(0, Number(summary.total_unread) || 0)
+  } catch {
+    ticketUnreadTotal.value = 0
+  }
+}
+
+function startTicketUnreadBadgeRefreshTimer(): void {
+  if (ticketUnreadBadgeRefreshTimer) return
+  ticketUnreadBadgeRefreshTimer = setInterval(() => {
+    void refreshTicketUnreadBadge()
+  }, TICKET_UNREAD_BADGE_REFRESH_MS)
+}
+
+function stopTicketUnreadBadgeRefreshTimer(): void {
+  if (!ticketUnreadBadgeRefreshTimer) return
+  clearInterval(ticketUnreadBadgeRefreshTimer)
+  ticketUnreadBadgeRefreshTimer = null
+}
+
 function isActive(path: string, exact = false): boolean {
   if (exact) return route.path === path
   return route.path === path || route.path.startsWith(path + '/')
@@ -775,15 +878,43 @@ watch(
   { immediate: true }
 )
 
+watch(
+  () => [authStore.isAuthenticated, flagWelfare(), authStore.isSimpleMode, route.path] as const,
+  ([authenticated, welfareEnabled, simpleMode]) => {
+    if (!authenticated || !welfareEnabled || simpleMode) {
+      refreshWelfareBadge()
+      return
+    }
+    refreshWelfareBadge()
+  },
+  { immediate: true }
+)
+
+watch(
+  () => [authStore.isAuthenticated, authStore.isAdmin, authStore.isSimpleMode, route.path] as const,
+  () => {
+    void refreshTicketUnreadBadge()
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
   if (isAdmin.value) {
     adminSettingsStore.fetch()
   }
+  startWelfareBadgeRefreshTimer()
+  startTicketUnreadBadgeRefreshTimer()
+  document.addEventListener('visibilitychange', handleWelfareBadgeVisibilityChange)
   window.addEventListener(SIDEBAR_TOUR_TARGET_EVENT, handleSidebarTourTarget)
+  window.addEventListener(TICKET_UNREAD_BADGE_REFRESH_EVENT, refreshTicketUnreadBadge)
 })
 
 onUnmounted(() => {
+  stopWelfareBadgeRefreshTimer()
+  stopTicketUnreadBadgeRefreshTimer()
+  document.removeEventListener('visibilitychange', handleWelfareBadgeVisibilityChange)
   window.removeEventListener(SIDEBAR_TOUR_TARGET_EVENT, handleSidebarTourTarget)
+  window.removeEventListener(TICKET_UNREAD_BADGE_REFRESH_EVENT, refreshTicketUnreadBadge)
 })
 </script>
 
@@ -905,6 +1036,43 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.sidebar-claim-badge {
+  flex: 0 0 auto;
+  max-width: 4rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgb(220 252 231);
+  padding: 0.125rem 0.375rem;
+  color: rgb(22 101 52);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dark .sidebar-claim-badge {
+  background: rgba(34, 197, 94, 0.16);
+  color: rgb(134 239 172);
+}
+
+.sidebar-unread-badge {
+  flex: 0 0 auto;
+  min-width: 1.25rem;
+  max-width: 2.5rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: rgb(239 68 68);
+  padding: 0.125rem 0.375rem;
+  color: white;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1rem;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-label-collapsed {

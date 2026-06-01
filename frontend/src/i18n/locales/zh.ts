@@ -37,6 +37,7 @@ import announcements from './zh/announcements'
 import userSubscriptions from './zh/userSubscriptions'
 import onboarding from './zh/onboarding'
 import payment from './zh/payment'
+import tickets from './zh/tickets'
 
 export default {
   home,
@@ -78,4 +79,5 @@ export default {
   userSubscriptions,
   onboarding,
   payment,
+  tickets,
 }
