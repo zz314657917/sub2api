@@ -17,6 +17,7 @@ vi.mock('@/api/client', () => ({
 }))
 
 import {
+  cancelCanvasRun,
   createCanvas,
   createCanvasRun,
   getCanvas,
@@ -228,6 +229,7 @@ describe('canvas api', () => {
               output: { node_result: { summary: 'created' } },
               outputs: { node_result: { summary: 'created' } },
               result_node_ids: ['node_result'],
+              canceled_at: '2026-05-20T00:03:00Z',
               created_at: '2026-05-20T00:00:00Z',
               updated_at: '2026-05-20T00:00:00Z',
             },
@@ -281,6 +283,7 @@ describe('canvas api', () => {
         status: 'queued',
         output: { node_result: { summary: 'created' } },
         outputs: { node_result: { summary: 'created' } },
+        canceled_at: '2026-05-20T00:03:00Z',
       }],
     })
     await expect(getCanvasRun('30')).resolves.toMatchObject({
@@ -311,5 +314,32 @@ describe('canvas api', () => {
       api_key_id: 44,
       model: 'gpt-image-2',
     })
+  })
+
+  it('cancels canvas runs and maps canceled timestamps', async () => {
+    post.mockResolvedValueOnce({
+      data: {
+        item: {
+          id: 30,
+          canvas_id: 20,
+          api_key_id: 44,
+          status: 'canceled',
+          canceled_at: '2026-05-20T00:03:00Z',
+          completed_at: '2026-05-20T00:03:00Z',
+          created_at: '2026-05-20T00:00:00Z',
+          updated_at: '2026-05-20T00:03:00Z',
+        },
+      },
+    })
+
+    await expect(cancelCanvasRun('30')).resolves.toMatchObject({
+      id: '30',
+      canvas_id: '20',
+      status: 'canceled',
+      canceled_at: '2026-05-20T00:03:00Z',
+      completed_at: '2026-05-20T00:03:00Z',
+    })
+
+    expect(post).toHaveBeenCalledWith('/user/canvas-runs/30/cancel')
   })
 })
