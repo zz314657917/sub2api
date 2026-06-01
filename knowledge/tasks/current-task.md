@@ -1,12 +1,35 @@
 # 当前任务快照
 
-最后更新：2026-05-31 13:30 +08:00
+最后更新：2026-06-01 18:45 +08:00
 
 ## 当前仓库状态
 
 - 项目主仓库：`F:/mcplugins/sub2api`。
+- 当前上游关键修复移植工作区：`F:/mcplugins/.codex-worktrees/sub2api-v0133-batch3`，分支 `codex/upstream-v0.1.133-batch3`。
+- 本轮目标仍是按主题小步移植 `v0.1.133` 风险/安全修复，不做整包 merge。
 - `docs/workflow/status.md` 当前是 `done`，对应 `sub2api-canvas-core` 已收口；仓库没有正在推进中的单一 Sprint。
 - 当前工作区同时存在多条并行改动线，`knowledge/tasks/current-task.md` 需要同时说明“本次正在做的局部任务”和“仓库默认稳定主线”，避免误把一次性首页任务当成整个仓库的默认续做方向。
+
+## 当前上游移植进度
+
+### 已完成 checkpoint
+
+- `codex/upstream-v0.1.133-batch3` 已有 checkpoint commit：`fix: port auth and oauth account safety fixes`。
+- 本批继续移植模型 404 风险修复：上游模型不存在 404 不再直接走账号级临时不可调度，改为写账号+模型维度 `model_rate_limits`，默认冷却 30 分钟。
+- OpenAI Responses、Chat Completions、Anthropic Messages 兼容路径，以及原生 Anthropic/Gateway/Bedrock 错误路径，已把当前请求的上游模型传入 `RateLimitService.HandleUpstreamError`。
+- 新增 `model_not_found_error.go` 识别模型不存在 404 body，避免普通 endpoint 404 被误判为模型级冷却。
+- 新增 unit 测试覆盖模型 404 写模型级冷却、写入失败仍触发 failover、普通 404 仍走既有临时不可调度规则。
+
+### 本批验证记录
+
+- `cd backend && go test -tags unit ./internal/service -run TestIsUpstreamModelNotFoundError|TestRateLimitService_HandleUpstreamError_ModelNotFound|TestRateLimitService_HandleUpstreamError_NonModel404 -count=1`：通过。
+- `cd backend && go test ./internal/service -run TestIsUpstreamModelNotFoundError -count=1`：通过，确认非 unit service 包可编译。
+- `git diff --check`：通过。
+
+### 下一步候选
+
+- 继续合低风险网关安全修复时，优先看 `count_tokens`、WS compatibility、usage context 这类不引入数据库模型的补丁。
+- 账号配额 5h/7d 自动暂停、风控运行态、DingTalk OAuth、迁移编号重排仍保持排除，除非用户明确切到该主题。
 
 ## 当前默认主线分流
 
