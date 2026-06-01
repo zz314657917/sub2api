@@ -5,6 +5,7 @@ export default {
       searchUserPlaceholder: '按邮箱搜索用户...',
       searchApiKeyPlaceholder: '按名称搜索 API 密钥...',
       searchAccountPlaceholder: '按名称搜索账号...',
+      filterByUserId: '按用户 ID 筛选',
       selectedUser: '已选择',
       user: '用户',
       account: '账户',
