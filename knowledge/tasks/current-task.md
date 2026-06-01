@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-01 19:13 +08:00
+最后更新：2026-06-01 21:25 +08:00
 
 ## 当前仓库状态
 
@@ -23,6 +23,8 @@
 - 已确认多项候选修复本地已存在：OpenAI `response.failed` 流式终态补偿、`count_tokens` generation-only 字段过滤、`context_management` sanitize、Gemini Messages `tool_use` 后接 `text` 的内容块关闭、系统更新 `already_up_to_date`、并发 acquire 失败分类、usage request context、敏感 credentials redaction、OIDC compat email、setup 初始化后拦截。
 - 本批继续移植 pool-mode 同账号重试状态码可配置后端逻辑：新增 `pool_mode_retry_status_codes` credentials 解析和 `Account.IsPoolModeRetryableStatus`，所有本地 Anthropic/OpenAI/Embeddings/Images 相关 failover 路径统一使用账号级判断；未配置时仍保持默认 `401/403/429`。
 - 已确认 `32ea9cfe1` API key Responses SSE body fallback 与 `cae93ae13` Responses force chat completions fallback 已在本地完整存在，未重复提交。
+- 已确认 `aae20ef43` OIDC verified-email fast path 加固已在本地完整存在，并通过定向测试。
+- 本批继续移植 OpenAI endpoint capability gate 后端逻辑：新增 `OpenAIEndpointCapability` 与 `openai_capabilities` credentials 解析，OpenAI Responses/Chat/Messages/WS 路由要求 `chat_completions`，Embeddings 路由要求 `embeddings`；调度器、粘性会话、previous_response sticky 和本地用户池路径都会过滤不匹配账号。未配置 `openai_capabilities` 时保持默认兼容行为；本轮不合并账号弹窗 UI 改动。
 
 ### 本批验证记录
 
@@ -31,6 +33,10 @@
 - `cd backend && go test ./internal/service -run TestOpsMetricsCollectorQueryErrorCountsExcludesCountTokens -count=1`：通过。
 - `cd backend && go test -tags unit ./internal/service -run 'Test(GetPoolModeRetryStatusCodes|IsPoolModeRetryableStatus_Account)' -count=1`：通过。
 - `cd backend && go test ./internal/service -run TestOpenAI.*Pool -count=1`：通过。
+- `cd backend && go test ./internal/handler -run 'TestOIDCOAuthCallbackVerifiedEmailFastPath|TestTryOIDCVerifiedEmailFastPath' -count=1`：通过，确认 OIDC 加固已存在。
+- `cd backend && go test ./internal/service -run 'TestAccountSupportsOpenAIEndpointCapability|TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_EmbeddingsSkipsChatOnlyAccount|TestOpenAIGatewayService_SelectAccountByPreviousResponseID_CapabilityMismatchKeepsSticky' -count=1`：通过。
+- `cd backend && go test ./internal/service -run 'TestOpenAIGatewayService_SelectAccountWithScheduler|TestOpenAIGatewayService_SelectAccountByPreviousResponseID|TestAccountSupportsOpenAIEndpointCapability|TestOpenAISelectAccountWithLoadAwareness' -count=1`：通过。
+- `cd backend && go test ./internal/handler -run 'Test.*Embeddings|Test.*OpenAI.*Responses|Test.*OpenAI.*ChatCompletions' -count=1`：通过。
 - `git diff --check`：通过。
 
 ### 下一步候选
