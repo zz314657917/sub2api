@@ -16,6 +16,7 @@ export type {
   OpsAlertRuntimeSettings,
   OpsMetricThresholds,
   OpsAdvancedSettings,
+  OpsOpenAIAccountQuotaAutoPauseSettings,
   OpsDataRetentionSettings,
   OpsAggregationSettings,
   OpsRuntimeLogConfig,

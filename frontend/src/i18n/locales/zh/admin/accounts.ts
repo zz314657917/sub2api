@@ -576,6 +576,14 @@ export default {
         compactModelMapping: 'Compact 专属模型映射',
         compactModelMappingDesc:
           '仅在 /responses/compact 请求中生效。当上游 compact 端点需要特殊 compact 模型时使用。',
+        quotaAutoPause: 'Codex 配额自动暂停',
+        quotaAutoPauseDesc:
+          '按 Codex 5 小时 / 7 天窗口用量自动跳过该账号调度。阈值范围 0-1，留空跟随全局默认；勾选禁用可豁免该窗口。',
+        quotaAutoPause5h: '5 小时阈值',
+        quotaAutoPause7d: '7 天阈值',
+        quotaAutoPauseInherit: '跟随全局默认',
+        quotaAutoPauseDisable5h: '禁用 5 小时自动暂停',
+        quotaAutoPauseDisable7d: '禁用 7 天自动暂停',
         compactSupported: '支持 Compact',
         compactUnsupported: '不支持 Compact',
         compactAuto: 'Compact Auto',

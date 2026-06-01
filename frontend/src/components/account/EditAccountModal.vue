@@ -1648,6 +1648,47 @@
         v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
+        <div>
+          <label class="input-label">{{ t('admin.accounts.openai.quotaAutoPause') }}</label>
+          <p class="input-hint">{{ t('admin.accounts.openai.quotaAutoPauseDesc') }}</p>
+          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <div>
+              <label class="input-label text-xs">{{ t('admin.accounts.openai.quotaAutoPause5h') }}</label>
+              <input
+                v-model.number="openAIQuotaAutoPause5hThreshold"
+                type="number"
+                min="0"
+                max="1"
+                step="0.01"
+                class="input"
+                :placeholder="t('admin.accounts.openai.quotaAutoPauseInherit')"
+                :disabled="openAIQuotaAutoPause5hDisabled"
+              />
+              <label class="mt-2 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                <input v-model="openAIQuotaAutoPause5hDisabled" type="checkbox" class="rounded border-gray-300" />
+                <span>{{ t('admin.accounts.openai.quotaAutoPauseDisable5h') }}</span>
+              </label>
+            </div>
+            <div>
+              <label class="input-label text-xs">{{ t('admin.accounts.openai.quotaAutoPause7d') }}</label>
+              <input
+                v-model.number="openAIQuotaAutoPause7dThreshold"
+                type="number"
+                min="0"
+                max="1"
+                step="0.01"
+                class="input"
+                :placeholder="t('admin.accounts.openai.quotaAutoPauseInherit')"
+                :disabled="openAIQuotaAutoPause7dDisabled"
+              />
+              <label class="mt-2 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                <input v-model="openAIQuotaAutoPause7dDisabled" type="checkbox" class="rounded border-gray-300" />
+                <span>{{ t('admin.accounts.openai.quotaAutoPauseDisable7d') }}</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.compactMode') }}</label>
@@ -2402,6 +2443,10 @@ const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const codexCLIOnlyEnabled = ref(false)
+const openAIQuotaAutoPause5hThreshold = ref<number | null>(null)
+const openAIQuotaAutoPause7dThreshold = ref<number | null>(null)
+const openAIQuotaAutoPause5hDisabled = ref(false)
+const openAIQuotaAutoPause7dDisabled = ref(false)
 type CodexImageGenerationBridgeMode = 'inherit' | 'enabled' | 'disabled'
 const codexImageGenerationBridgeMode = ref<CodexImageGenerationBridgeMode>('inherit')
 const anthropicPassthroughEnabled = ref(false)
@@ -2502,6 +2547,12 @@ function writeOptionalShareDisplayNumber(extra: Record<string, unknown>, key: st
   } else {
     delete extra[key]
   }
+}
+function normalizeOpenAIQuotaAutoPauseThreshold(value: number | null): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    return null
+  }
+  return Math.min(1, Math.max(0, value))
 }
 const openAIWSModeOptions = computed(() => [
   { value: OPENAI_WS_MODE_OFF, label: t('admin.accounts.openai.wsModeOff') },
@@ -2766,6 +2817,10 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
   openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
   codexCLIOnlyEnabled.value = false
+  openAIQuotaAutoPause5hThreshold.value = null
+  openAIQuotaAutoPause7dThreshold.value = null
+  openAIQuotaAutoPause5hDisabled.value = false
+  openAIQuotaAutoPause7dDisabled.value = false
   codexImageGenerationBridgeMode.value = 'inherit'
   anthropicPassthroughEnabled.value = false
   webSearchEmulationMode.value = 'default'
@@ -2798,6 +2853,14 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     if (newAccount.type === 'oauth') {
       codexCLIOnlyEnabled.value = extra?.codex_cli_only === true
     }
+    openAIQuotaAutoPause5hThreshold.value = typeof extra?.auto_pause_5h_threshold === 'number'
+      ? extra.auto_pause_5h_threshold
+      : null
+    openAIQuotaAutoPause7dThreshold.value = typeof extra?.auto_pause_7d_threshold === 'number'
+      ? extra.auto_pause_7d_threshold
+      : null
+    openAIQuotaAutoPause5hDisabled.value = extra?.auto_pause_5h_disabled === true
+    openAIQuotaAutoPause7dDisabled.value = extra?.auto_pause_7d_disabled === true
     const credentials = newAccount.credentials as Record<string, unknown> | undefined
     const compactMappings = credentials?.compact_model_mapping as Record<string, string> | undefined
     if (compactMappings && typeof compactMappings === 'object') {
@@ -3939,6 +4002,28 @@ const handleSubmit = async () => {
         } else {
           delete newExtra.codex_cli_only
         }
+      }
+      const autoPause5h = normalizeOpenAIQuotaAutoPauseThreshold(openAIQuotaAutoPause5hThreshold.value)
+      const autoPause7d = normalizeOpenAIQuotaAutoPauseThreshold(openAIQuotaAutoPause7dThreshold.value)
+      if (autoPause5h != null) {
+        newExtra.auto_pause_5h_threshold = autoPause5h
+      } else {
+        delete newExtra.auto_pause_5h_threshold
+      }
+      if (autoPause7d != null) {
+        newExtra.auto_pause_7d_threshold = autoPause7d
+      } else {
+        delete newExtra.auto_pause_7d_threshold
+      }
+      if (openAIQuotaAutoPause5hDisabled.value) {
+        newExtra.auto_pause_5h_disabled = true
+      } else {
+        delete newExtra.auto_pause_5h_disabled
+      }
+      if (openAIQuotaAutoPause7dDisabled.value) {
+        newExtra.auto_pause_7d_disabled = true
+      } else {
+        delete newExtra.auto_pause_7d_disabled
       }
 
       updatePayload.extra = newExtra

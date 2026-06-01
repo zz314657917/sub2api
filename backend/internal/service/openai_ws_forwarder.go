@@ -4027,6 +4027,7 @@ func (s *OpenAIGatewayService) SelectAccountByPreviousResponseIDForCapability(
 	if s == nil {
 		return nil, nil
 	}
+	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	responseID := strings.TrimSpace(previousResponseID)
 	if responseID == "" {
 		return nil, nil
@@ -4057,6 +4058,10 @@ func (s *OpenAIGatewayService) SelectAccountByPreviousResponseIDForCapability(
 		return nil, nil
 	}
 	if shouldClearStickySession(account, requestedModel) || !account.IsOpenAI() || !account.IsSchedulable() {
+		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+		return nil, nil
+	}
+	if paused, _ := shouldAutoPauseOpenAIAccountByQuota(ctx, account); paused {
 		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
 		return nil, nil
 	}

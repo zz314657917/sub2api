@@ -683,6 +683,11 @@ export default {
         aggregation: '预聚合任务',
         enableAggregation: '启用预聚合任务',
         aggregationHint: '预聚合可提升长时间窗口查询性能',
+        openAIQuotaAutoPause: 'OpenAI 账号配额自动暂停',
+        openAIQuotaAutoPauseHint:
+          '设置全局默认阈值，范围 0-1。填 0 表示不启用全局默认，单个账号可覆盖或禁用对应窗口。',
+        openAIQuotaAutoPause5h: '5 小时窗口默认阈值',
+        openAIQuotaAutoPause7d: '7 天窗口默认阈值',
         errorFiltering: '错误过滤',
         ignoreCountTokensErrors: '忽略 count_tokens 错误',
         ignoreCountTokensErrorsHint: '启用后，count_tokens 请求的错误将不会写入错误日志。',
@@ -711,6 +716,7 @@ export default {
         validation: {
           title: '请先修正以下问题',
           retentionDaysRange: '保留天数必须在 0-365 天之间（0 = 每次清理时清空所有）',
+          openAIQuotaAutoPauseThresholdRange: 'OpenAI 账号配额自动暂停阈值必须在 0-1 之间',
           slaMinPercentRange: 'SLA最低百分比必须在0-100之间',
           ttftP99MaxRange: 'TTFT P99最大值必须大于等于0',
           requestErrorRateMaxRange: '请求错误率最大值必须在0-100之间',

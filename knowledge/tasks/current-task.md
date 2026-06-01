@@ -28,6 +28,13 @@
 - 本批继续移植 Antigravity 低风险 usage 修复：`5a317eed5 fix: capture antigravity message_start usage` 让流式透传同时读取 `message_start.message.usage` 和 `message_delta.usage`，避免输入侧 token 丢失。
 - OpenAI Images `n` 参数修复在本地已按策略等价存在：非 `dall-e-3`、非一图模型会透传 `tools.0.n`；`gpt-image-2` 继续按本地拆分为多次单图请求。新增 `9c8192485 test: cover openai images n passthrough` 固化正向回归测试。
 - Channel Monitor Responses reasoning 输出修复当前不适合本批直接移植：本地尚未引入上游 `MonitorAPIMode` / `providerOpenAIResponsesPath` / API mode 持久化与前端配置链路，单独套用文本提取函数没有调用入口；应与 Channel Monitor API 模式专题一起评估。
+- 本批已按用户确认移植 OpenAI/Codex 账号 5h/7d 用量阈值自动暂停专题：
+  - 后端使用现有 `accounts.extra` 和 `ops_advanced_settings` JSON，不新增数据库表/字段，不引入 `user_platform_quota` 数据模型。
+  - 支持账号级 `auto_pause_5h_threshold` / `auto_pause_7d_threshold`，支持全局默认 `openai_account_quota_auto_pause.default_threshold_5h/default_threshold_7d`。
+  - 支持账号级 `auto_pause_5h_disabled` / `auto_pause_7d_disabled` 覆盖全局默认，实现单账号、单窗口豁免。
+  - 调度接入覆盖普通 OpenAI 账号选择、load-aware、advanced scheduler TopK 初筛、session sticky recheck、previous_response sticky。
+  - scheduler snapshot 保留 Codex 用量快照字段和 auto-pause 配置字段，避免缓存瘦身导致调度层看不到阈值/用量。
+  - 前端已补 Ops 高级设置入口和 OpenAI 账号编辑入口，可配置全局默认阈值、账号级阈值和单窗口禁用。
 
 ### 本批验证记录
 
@@ -45,13 +52,20 @@
 - `cd backend && go test -tags unit ./internal/service -run "TestRunCheckForModel|Test.*ChannelMonitor"`：通过。
 - `cd backend && go test ./internal/service/...`：通过。
 - `cd backend && go test ./internal/handler/...`：通过。
+- `cd backend && go test -tags unit ./internal/repository -run TestBuildSchedulerMetadataAccount_KeepsQuotaAutoPauseFields -count=1`：通过。
+- `cd backend && go test ./internal/service -run "TestOpenAIGatewayService_SelectAccountForModelWithExclusions_.*(AutoPause|Threshold|Global|Disable|Window)|TestOpenAIGatewayService_SelectAccountWithScheduler_LoadBalanceTopKExcludesQuotaPaused|TestGetOpenAIQuotaAutoPauseSettings|TestSetOpenAIQuotaAutoPauseSettings|TestUpdateOpsAdvancedSettings_PushesQuotaAutoPauseSink" -count=1`：通过。
+- `cd backend && go test ./internal/pkg/apicompat/...`：通过。
+- `cd backend && go test ./internal/server/...`：通过。
+- `cd frontend && npm.cmd run typecheck`：通过。当前移植 worktree 未安装 `node_modules`，验证时临时创建 `frontend/node_modules` junction 指向主仓库依赖，命令完成后已删除 junction。
+- `cd frontend && npm.cmd run test:run -- EditAccountModal OpsSettingsDialog`：通过，实际匹配并运行 `EditAccountModal.spec.ts` 与 `BulkEditAccountModal.spec.ts` 共 26 个测试；当前没有单独的 `OpsSettingsDialog` spec。
 - `git diff --check`：通过。
 
 ### 下一步候选
 
 - 继续合低风险网关安全修复时，优先看剩余 OpenAI/Anthropic API compatibility、ops 指标、认证状态处理这类不引入数据库模型的补丁；不要再按 `git cherry +` 盲合，先判断是否已由本地手工实现等价覆盖。
-- Channel Monitor Responses API 模式、邮件模板/通知系统、user-platform quota、账号 5h/7d 自动暂停、风控运行态、DingTalk OAuth 都应按单独专题做 schema/UI/迁移影响评估。
-- 账号配额 5h/7d 自动暂停、风控运行态、DingTalk OAuth、迁移编号重排仍保持排除，除非用户明确切到该主题。
+- Channel Monitor Responses API 模式、邮件模板/通知系统、user-platform quota、风控运行态、DingTalk OAuth 都应按单独专题做 schema/UI/迁移影响评估。
+- 账号 5h/7d 自动暂停已完成本轮最小闭环；仍未合并 user-platform quota 数据模型和账号配额自动暂停以外的大范围配额体系。
+- 风控运行态、DingTalk OAuth、迁移编号重排仍保持排除，除非用户明确切到该主题。
 
 ## 当前默认主线分流
 
