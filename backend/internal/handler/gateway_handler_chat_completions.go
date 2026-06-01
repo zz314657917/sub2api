@@ -300,7 +300,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 
 		capturedTrialSession := trialSession
 		capturedTrialRelease := trialRelease
-		submitMode := h.submitUsageRecordTask(func(ctx context.Context) {
+		submitMode := h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 			if capturedTrialRelease != nil {
 				defer capturedTrialRelease()
 			}

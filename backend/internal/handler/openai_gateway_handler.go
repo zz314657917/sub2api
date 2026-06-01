@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	pkghttputil "github.com/Wei-Shaw/sub2api/internal/pkg/httputil"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
@@ -45,6 +46,31 @@ func resolveOpenAIMessagesDispatchMappedModel(apiKey *service.APIKey, requestedM
 		return ""
 	}
 	return strings.TrimSpace(apiKey.Group.ResolveMessagesDispatchModel(requestedModel))
+}
+
+func usageRecordContext(parent context.Context, base context.Context) context.Context {
+	if base == nil {
+		base = context.Background()
+	}
+	if parent == nil {
+		return base
+	}
+	if clientRequestID, _ := parent.Value(ctxkey.ClientRequestID).(string); strings.TrimSpace(clientRequestID) != "" {
+		base = context.WithValue(base, ctxkey.ClientRequestID, strings.TrimSpace(clientRequestID))
+	}
+	if requestID, _ := parent.Value(ctxkey.RequestID).(string); strings.TrimSpace(requestID) != "" {
+		base = context.WithValue(base, ctxkey.RequestID, strings.TrimSpace(requestID))
+	}
+	return base
+}
+
+func wrapUsageRecordTaskContext(parent context.Context, task service.UsageRecordTask) service.UsageRecordTask {
+	if task == nil {
+		return nil
+	}
+	return func(ctx context.Context) {
+		task(usageRecordContext(parent, ctx))
+	}
 }
 
 // NewOpenAIGatewayHandler creates a new OpenAIGatewayHandler
@@ -442,7 +468,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
 		capturedTrialSession := trialSession
 		capturedTrialRelease := trialRelease
-		submitMode := h.submitOpenAIUsageRecordTask(result, func(ctx context.Context) {
+		submitMode := h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
 			if capturedTrialRelease != nil {
 				defer capturedTrialRelease()
 			}
@@ -835,7 +861,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 
 		capturedTrialSession := trialSession
 		capturedTrialRelease := trialRelease
-		submitMode := h.submitOpenAIUsageRecordTask(result, func(ctx context.Context) {
+		submitMode := h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
 			if capturedTrialRelease != nil {
 				defer capturedTrialRelease()
 			}
@@ -1420,7 +1446,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 			capturedTrialSession := trialSession
 			capturedTrialRelease := trialRelease
-			submitMode := h.submitOpenAIUsageRecordTask(result, func(taskCtx context.Context) {
+			submitMode := h.submitOpenAIUsageRecordTask(ctx, result, func(taskCtx context.Context) {
 				if capturedTrialRelease != nil {
 					defer capturedTrialRelease()
 				}
@@ -1581,10 +1607,11 @@ func getContextInt64(c *gin.Context, key string) (int64, bool) {
 	}
 }
 
-func (h *OpenAIGatewayHandler) submitUsageRecordTask(task service.UsageRecordTask) service.UsageRecordSubmitMode {
+func (h *OpenAIGatewayHandler) submitUsageRecordTask(parent context.Context, task service.UsageRecordTask) service.UsageRecordSubmitMode {
 	if task == nil {
 		return service.UsageRecordSubmitModeDropped
 	}
+	task = wrapUsageRecordTaskContext(parent, task)
 	if h.usageRecordWorkerPool != nil {
 		return h.usageRecordWorkerPool.Submit(task)
 	}
@@ -1603,17 +1630,18 @@ func (h *OpenAIGatewayHandler) submitUsageRecordTask(task service.UsageRecordTas
 	return service.UsageRecordSubmitModeSync
 }
 
-func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(result *service.OpenAIForwardResult, task service.UsageRecordTask) service.UsageRecordSubmitMode {
+func (h *OpenAIGatewayHandler) submitOpenAIUsageRecordTask(parent context.Context, result *service.OpenAIForwardResult, task service.UsageRecordTask) service.UsageRecordSubmitMode {
 	if result != nil && result.ImageCount > 0 {
-		return h.submitMandatoryUsageRecordTask(task)
+		return h.submitMandatoryUsageRecordTask(parent, task)
 	}
-	return h.submitUsageRecordTask(task)
+	return h.submitUsageRecordTask(parent, task)
 }
 
-func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(task service.UsageRecordTask) service.UsageRecordSubmitMode {
+func (h *OpenAIGatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, task service.UsageRecordTask) service.UsageRecordSubmitMode {
 	if task == nil {
 		return service.UsageRecordSubmitModeDropped
 	}
+	task = wrapUsageRecordTaskContext(parent, task)
 	if h.usageRecordWorkerPool != nil {
 		if mode := h.usageRecordWorkerPool.Submit(task); mode != service.UsageRecordSubmitModeDropped {
 			return mode

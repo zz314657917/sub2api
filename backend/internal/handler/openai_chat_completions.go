@@ -275,7 +275,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 
 		capturedTrialSession := trialSession
 		capturedTrialRelease := trialRelease
-		submitMode := h.submitOpenAIUsageRecordTask(result, func(ctx context.Context) {
+		submitMode := h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
 			if capturedTrialRelease != nil {
 				defer capturedTrialRelease()
 			}
