@@ -39,10 +39,12 @@ const (
 
 	// Client-side configuration denials should remain visible in ops_error_logs,
 	// but should be excluded from SLA/error-rate calculations.
-	OpsClientBusinessLimitedKey                    = "ops_client_business_limited"
-	OpsClientBusinessLimitedReasonKey              = "ops_client_business_limited_reason"
-	OpsClientBusinessLimitedReasonIPRestriction    = "api_key_ip_restriction"
-	OpsClientBusinessLimitedReasonLocalFeatureGate = "local_feature_gate"
+	OpsClientBusinessLimitedKey                          = "ops_client_business_limited"
+	OpsClientBusinessLimitedReasonKey                    = "ops_client_business_limited_reason"
+	OpsClientBusinessLimitedReasonIPRestriction          = "api_key_ip_restriction"
+	OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable = "api_key_group_unavailable"
+	OpsClientBusinessLimitedReasonAPIKeyGroupUnassigned  = "api_key_group_unassigned"
+	OpsClientBusinessLimitedReasonLocalFeatureGate       = "local_feature_gate"
 )
 
 func setOpsUpstreamRequestBody(c *gin.Context, body []byte) {
