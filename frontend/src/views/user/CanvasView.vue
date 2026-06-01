@@ -152,52 +152,112 @@
 
         <section class="canvas-stage-shell">
           <div class="canvas-stage-header">
-            <span>{{ t('canvas.stage') }}</span>
-            <span>{{ t('canvas.nodeCount', { count: canvasDocument.nodes.length }) }}</span>
-          </div>
-          <div class="canvas-stage custom-scrollbar" data-testid="canvas-stage">
-            <svg class="canvas-edges" viewBox="0 0 980 620" preserveAspectRatio="none" aria-hidden="true">
-              <path
-                v-for="edge in edgeLines"
-                :key="edge.id"
-                :d="edge.path"
-                class="canvas-edge"
-              />
-            </svg>
-            <button
-              v-for="node in canvasDocument.nodes"
-              :key="node.id"
-              type="button"
-              class="canvas-node"
-              :class="[nodeKindClass(node.type), { 'canvas-node-selected': node.id === selectedNodeId }]"
-              :style="nodeStyle(node)"
-              data-testid="canvas-node"
-              @click="selectedNodeId = node.id"
-            >
-              <span class="canvas-node-kind">{{ nodeTypeLabel(node.type) }}</span>
-              <span class="canvas-node-title">{{ node.title }}</span>
-              <span class="canvas-node-status">
-                <span class="canvas-node-status-dot" :class="`canvas-node-status-${nodeDisplayStatus(node)}`"></span>
-                {{ t(`canvas.nodeStatus.${nodeDisplayStatus(node)}`) }}
-              </span>
-              <span v-if="nodeResultImageUrl(node)" class="canvas-node-preview">
-                <img
-                  :src="nodeResultImageUrl(node)"
-                  :alt="t('canvas.resultPreview')"
-                  data-testid="canvas-node-preview-image"
-                />
-              </span>
-              <span
-                v-else-if="nodeResultSummary(node)"
-                class="canvas-node-result-summary"
-                data-testid="canvas-node-result-summary"
+            <div class="canvas-stage-title">
+              <span>{{ t('canvas.stage') }}</span>
+              <span>{{ t('canvas.nodeCount', { count: canvasDocument.nodes.length }) }}</span>
+              <span>{{ t('canvas.edgeCount', { count: canvasDocument.edges.length }) }}</span>
+            </div>
+            <div class="canvas-stage-tools">
+              <button
+                type="button"
+                class="canvas-icon-button"
+                :title="t('canvas.zoomOut')"
+                data-testid="canvas-zoom-out-button"
+                @click="zoomCanvasBy(0.9)"
               >
-                {{ nodeResultSummary(node) }}
-              </span>
-              <span v-if="nodeErrorSummary(node)" class="canvas-node-error" data-testid="canvas-node-error">
-                {{ nodeErrorSummary(node) }}
-              </span>
-            </button>
+                <Icon name="zoomOut" size="sm" />
+              </button>
+              <span class="canvas-zoom-value" data-testid="canvas-zoom-value">{{ viewportZoomLabel }}</span>
+              <button
+                type="button"
+                class="canvas-icon-button"
+                :title="t('canvas.zoomIn')"
+                data-testid="canvas-zoom-in-button"
+                @click="zoomCanvasBy(1.1)"
+              >
+                <Icon name="zoomIn" size="sm" />
+              </button>
+              <button
+                type="button"
+                class="canvas-icon-button"
+                :title="t('canvas.fitView')"
+                data-testid="canvas-fit-view-button"
+                @click="fitCanvasView"
+              >
+                <Icon name="grid" size="sm" />
+              </button>
+            </div>
+          </div>
+          <div
+            ref="stageRef"
+            class="canvas-stage custom-scrollbar"
+            :class="{ 'canvas-stage-panning': canvasPanState !== null }"
+            :style="stageGridStyle"
+            data-testid="canvas-stage"
+            @mousedown="startCanvasPan"
+            @wheel.prevent="handleCanvasWheel"
+          >
+            <div class="canvas-stage-content" :style="stageContentStyle">
+              <svg
+                class="canvas-edges"
+                :viewBox="`0 0 ${canvasWorldSize.width} ${canvasWorldSize.height}`"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
+                <path
+                  v-for="edge in edgeLines"
+                  :key="edge.id"
+                  :d="edge.path"
+                  class="canvas-edge"
+                  :class="{ 'canvas-edge-selected': edge.id === selectedEdgeId }"
+                  data-testid="canvas-edge"
+                  @mousedown.stop
+                  @click.stop="selectEdge(edge.id)"
+                />
+              </svg>
+              <button
+                v-for="node in canvasDocument.nodes"
+                :key="node.id"
+                type="button"
+                class="canvas-node"
+                :class="[
+                  nodeKindClass(node.type),
+                  {
+                    'canvas-node-selected': node.id === selectedNodeId,
+                    'canvas-node-link-source': node.id === linkSourceNodeId,
+                  }
+                ]"
+                :style="nodeStyle(node)"
+                data-testid="canvas-node"
+                @mousedown.stop="startNodeDrag(node, $event)"
+                @click.stop="selectOrConnectNode(node.id)"
+              >
+                <span class="canvas-node-kind">{{ nodeTypeLabel(node.type) }}</span>
+                <span class="canvas-node-title">{{ node.title }}</span>
+                <span class="canvas-node-status">
+                  <span class="canvas-node-status-dot" :class="`canvas-node-status-${nodeDisplayStatus(node)}`"></span>
+                  {{ t(`canvas.nodeStatus.${nodeDisplayStatus(node)}`) }}
+                </span>
+                <span v-if="nodeResultImageUrl(node)" class="canvas-node-preview">
+                  <img
+                    :src="nodeResultImageUrl(node)"
+                    :alt="t('canvas.resultPreview')"
+                    data-testid="canvas-node-preview-image"
+                    draggable="false"
+                  />
+                </span>
+                <span
+                  v-else-if="nodeResultSummary(node)"
+                  class="canvas-node-result-summary"
+                  data-testid="canvas-node-result-summary"
+                >
+                  {{ nodeResultSummary(node) }}
+                </span>
+                <span v-if="nodeErrorSummary(node)" class="canvas-node-error" data-testid="canvas-node-error">
+                  {{ nodeErrorSummary(node) }}
+                </span>
+              </button>
+            </div>
 
             <div v-if="canvasDocument.nodes.length === 0" class="canvas-stage-empty">
               <Icon name="cube" size="xl" />
@@ -231,16 +291,39 @@
         <div class="canvas-section">
           <div class="canvas-section-title">
             <span>{{ t('canvas.nodeList') }}</span>
-            <button
-              type="button"
-              class="canvas-icon-button"
-              :title="t('canvas.removeNode')"
-              :disabled="!selectedNode"
-              data-testid="canvas-remove-node-button"
-              @click="removeSelectedNode"
-            >
-              <Icon name="trash" size="sm" />
-            </button>
+            <span class="canvas-section-actions">
+              <button
+                type="button"
+                class="canvas-icon-button"
+                :class="{ 'canvas-icon-button-active': linkSourceNodeId }"
+                :title="linkSourceNodeId ? t('canvas.cancelLink') : t('canvas.createEdge')"
+                :disabled="!selectedNode"
+                data-testid="canvas-create-edge-button"
+                @click="toggleEdgeCreation"
+              >
+                <Icon name="link" size="sm" />
+              </button>
+              <button
+                type="button"
+                class="canvas-icon-button"
+                :title="t('canvas.removeEdge')"
+                :disabled="!selectedEdge"
+                data-testid="canvas-remove-edge-button"
+                @click="removeSelectedEdge"
+              >
+                <Icon name="x" size="sm" />
+              </button>
+              <button
+                type="button"
+                class="canvas-icon-button"
+                :title="t('canvas.removeNode')"
+                :disabled="!selectedNode"
+                data-testid="canvas-remove-node-button"
+                @click="removeSelectedNode"
+              >
+                <Icon name="trash" size="sm" />
+              </button>
+            </span>
           </div>
           <div class="canvas-node-list custom-scrollbar" data-testid="canvas-node-list">
             <button
@@ -421,6 +504,27 @@ interface EdgeLine {
   path: string
 }
 
+interface CanvasViewport {
+  x: number
+  y: number
+  zoom: number
+}
+
+interface CanvasDragState {
+  nodeId: string
+  startClientX: number
+  startClientY: number
+  startNodeX: number
+  startNodeY: number
+}
+
+interface CanvasPanState {
+  startClientX: number
+  startClientY: number
+  startViewportX: number
+  startViewportY: number
+}
+
 type CanvasNodeStatus = NonNullable<CanvasNode['status']>
 type NodeConfigKey = 'prompt' | 'text' | 'model' | 'size' | 'quality' | 'referenceImageId'
 type NodeConfigFieldKind = 'input' | 'textarea' | 'select'
@@ -453,8 +557,11 @@ const runs = ref<CanvasRun[]>([])
 const apiKeys = ref<ApiKey[]>([])
 const canvasTaskLinks = ref<CanvasRunImageTaskLink[]>([])
 const canvasTasksById = ref<Record<string, ImageCreatorTask>>({})
+const stageRef = ref<HTMLElement | null>(null)
 const selectedCanvasId = ref<string | null>(null)
 const selectedNodeId = ref<string | null>(null)
+const selectedEdgeId = ref<string | null>(null)
+const linkSourceNodeId = ref<string | null>(null)
 const selectedKeyId = ref<number | null>(null)
 const draftName = ref('')
 const draftDescription = ref('')
@@ -471,6 +578,19 @@ const canvasTaskPollIntervalMs = 4000
 let canvasTaskPollTimerId: ReturnType<typeof setInterval> | null = null
 let pollingCanvasTasks = false
 let canvasTaskSyncVersion = 0
+let canvasDragState: CanvasDragState | null = null
+let canvasPanState: CanvasPanState | null = null
+
+const canvasWorldSize = {
+  width: 1400,
+  height: 900,
+}
+
+const canvasViewportDefaults: CanvasViewport = {
+  x: 0,
+  y: 0,
+  zoom: 1,
+}
 
 const nodeTypes: Array<{ type: CanvasNodeType, icon: IconName }> = [
   { type: 'text', icon: 'document' },
@@ -538,6 +658,10 @@ const selectedNode = computed(() =>
   canvasDocument.value.nodes.find((node) => node.id === selectedNodeId.value) ?? null
 )
 
+const selectedEdge = computed(() =>
+  canvasDocument.value.edges.find((edge) => edge.id === selectedEdgeId.value) ?? null
+)
+
 const selectedNodeConfigFields = computed(() =>
   selectedNode.value ? nodeConfigFields[selectedNode.value.type] : []
 )
@@ -562,6 +686,25 @@ const canQueueRun = computed(() =>
   draftName.value.trim().length > 0 &&
   canvasDocument.value.nodes.length > 0
 )
+
+const viewportZoomLabel = computed(() => `${Math.round(currentViewport().zoom * 100)}%`)
+
+const stageContentStyle = computed<Record<string, string>>(() => {
+  const viewport = currentViewport()
+  return {
+    height: `${canvasWorldSize.height}px`,
+    width: `${canvasWorldSize.width}px`,
+    transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+  }
+})
+
+const stageGridStyle = computed<Record<string, string>>(() => {
+  const viewport = currentViewport()
+  return {
+    backgroundPosition: `${viewport.x}px ${viewport.y}px`,
+    backgroundSize: `${28 * viewport.zoom}px ${28 * viewport.zoom}px`,
+  }
+})
 
 const edgeLines = computed<EdgeLine[]>(() => {
   const nodeById = new Map(canvasDocument.value.nodes.map((node) => [node.id, node]))
@@ -590,6 +733,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  removeCanvasPointerListeners()
   stopCanvasTaskPolling()
 })
 
@@ -666,6 +810,8 @@ function beginNewCanvas(): void {
   selectedModel.value = models.value[0]?.id ?? ''
   canvasDocument.value = createDefaultDocument()
   selectedNodeId.value = canvasDocument.value.nodes[0]?.id ?? null
+  selectedEdgeId.value = null
+  linkSourceNodeId.value = null
   runs.value = []
   resetCanvasTaskState()
 }
@@ -824,6 +970,8 @@ function applyCanvas(item: UserCanvas): void {
   selectedNodeId.value = canvasDocument.value.nodes.some((node) => node.id === previousNodeId)
     ? previousNodeId
     : canvasDocument.value.nodes[0]?.id ?? null
+  selectedEdgeId.value = null
+  linkSourceNodeId.value = null
 }
 
 function normalizeDocument(document: CanvasDocument | null | undefined): CanvasDocument {
@@ -838,6 +986,7 @@ function normalizeDocument(document: CanvasDocument | null | undefined): CanvasD
       config: isRecord(node.config) ? node.config : {},
     })),
     edges: document.edges,
+    viewport: normalizeViewport(document.viewport),
   }
 }
 
@@ -865,6 +1014,7 @@ function addNode(type: CanvasNodeType): void {
   const node = makeNode(type, `canvas.nodeTypes.${type}`, 80 + (index % 4) * 210, 90 + Math.floor(index / 4) * 140)
   canvasDocument.value.nodes.push(node)
   selectedNodeId.value = node.id
+  selectedEdgeId.value = null
 }
 
 function removeSelectedNode(): void {
@@ -874,7 +1024,56 @@ function removeSelectedNode(): void {
   canvasDocument.value.edges = canvasDocument.value.edges.filter((edge) =>
     edge.source_node_id !== id && edge.target_node_id !== id
   )
+  if (linkSourceNodeId.value === id) linkSourceNodeId.value = null
+  selectedEdgeId.value = null
   selectedNodeId.value = canvasDocument.value.nodes[0]?.id ?? null
+}
+
+function toggleEdgeCreation(): void {
+  if (!selectedNode.value) return
+  linkSourceNodeId.value = linkSourceNodeId.value === selectedNode.value.id ? null : selectedNode.value.id
+  selectedEdgeId.value = null
+}
+
+function selectOrConnectNode(nodeId: string): void {
+  if (linkSourceNodeId.value && linkSourceNodeId.value !== nodeId) {
+    createEdge(linkSourceNodeId.value, nodeId)
+    selectedNodeId.value = nodeId
+    linkSourceNodeId.value = null
+    return
+  }
+  selectedNodeId.value = nodeId
+  selectedEdgeId.value = null
+}
+
+function createEdge(sourceNodeId: string, targetNodeId: string): void {
+  if (sourceNodeId === targetNodeId) return
+  const source = canvasDocument.value.nodes.find((node) => node.id === sourceNodeId)
+  const target = canvasDocument.value.nodes.find((node) => node.id === targetNodeId)
+  if (!source || !target) return
+  const existing = canvasDocument.value.edges.find((edge) =>
+    edge.source_node_id === sourceNodeId && edge.target_node_id === targetNodeId
+  )
+  if (existing) {
+    selectedEdgeId.value = existing.id
+    return
+  }
+  const edge = makeEdge(source, target)
+  canvasDocument.value.edges.push(edge)
+  selectedEdgeId.value = edge.id
+}
+
+function selectEdge(edgeId: string): void {
+  selectedEdgeId.value = edgeId
+  selectedNodeId.value = null
+  linkSourceNodeId.value = null
+}
+
+function removeSelectedEdge(): void {
+  const id = selectedEdgeId.value
+  if (!id) return
+  canvasDocument.value.edges = canvasDocument.value.edges.filter((edge) => edge.id !== id)
+  selectedEdgeId.value = null
 }
 
 function updateSelectedNodeTitleFromEvent(event: Event): void {
@@ -923,6 +1122,140 @@ function nodeStyle(node: CanvasNode): Record<string, string> {
     width: `${Math.max(node.width || 190, 190)}px`,
     minHeight: `${node.height || 112}px`,
   }
+}
+
+function startNodeDrag(node: CanvasNode, event: MouseEvent): void {
+  if (event.button !== 0) return
+  selectedNodeId.value = node.id
+  selectedEdgeId.value = null
+  canvasDragState = {
+    nodeId: node.id,
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    startNodeX: node.x,
+    startNodeY: node.y,
+  }
+  addCanvasPointerListeners()
+}
+
+function startCanvasPan(event: MouseEvent): void {
+  if (event.button !== 0) return
+  const viewport = currentViewport()
+  selectedEdgeId.value = null
+  canvasPanState = {
+    startClientX: event.clientX,
+    startClientY: event.clientY,
+    startViewportX: viewport.x,
+    startViewportY: viewport.y,
+  }
+  addCanvasPointerListeners()
+}
+
+function handleCanvasPointerMove(event: MouseEvent): void {
+  if (canvasDragState) {
+    const node = canvasDocument.value.nodes.find((item) => item.id === canvasDragState?.nodeId)
+    if (!node) return
+    const zoom = currentViewport().zoom
+    node.x = clampNumber(Math.round(canvasDragState.startNodeX + ((event.clientX - canvasDragState.startClientX) / zoom)), 0, canvasWorldSize.width - (node.width || 190))
+    node.y = clampNumber(Math.round(canvasDragState.startNodeY + ((event.clientY - canvasDragState.startClientY) / zoom)), 0, canvasWorldSize.height - (node.height || 112))
+    return
+  }
+  if (canvasPanState) {
+    const viewport = currentViewport()
+    viewport.x = Math.round(canvasPanState.startViewportX + event.clientX - canvasPanState.startClientX)
+    viewport.y = Math.round(canvasPanState.startViewportY + event.clientY - canvasPanState.startClientY)
+  }
+}
+
+function handleCanvasPointerUp(): void {
+  canvasDragState = null
+  canvasPanState = null
+  removeCanvasPointerListeners()
+}
+
+function addCanvasPointerListeners(): void {
+  window.addEventListener('mousemove', handleCanvasPointerMove)
+  window.addEventListener('mouseup', handleCanvasPointerUp)
+}
+
+function removeCanvasPointerListeners(): void {
+  window.removeEventListener('mousemove', handleCanvasPointerMove)
+  window.removeEventListener('mouseup', handleCanvasPointerUp)
+}
+
+function handleCanvasWheel(event: WheelEvent): void {
+  const nextZoom = currentViewport().zoom * (event.deltaY > 0 ? 0.9 : 1.1)
+  setCanvasZoom(nextZoom)
+}
+
+function zoomCanvasBy(multiplier: number): void {
+  setCanvasZoom(currentViewport().zoom * multiplier)
+}
+
+function setCanvasZoom(zoom: number): void {
+  currentViewport().zoom = clampNumber(Number(zoom.toFixed(2)), 0.35, 2)
+}
+
+function fitCanvasView(): void {
+  const stage = stageRef.value
+  const viewport = currentViewport()
+  const bounds = canvasNodeBounds()
+  if (!stage || !bounds) {
+    viewport.x = 0
+    viewport.y = 0
+    viewport.zoom = 1
+    return
+  }
+  const padding = 48
+  const width = Math.max(bounds.maxX - bounds.minX, 1)
+  const height = Math.max(bounds.maxY - bounds.minY, 1)
+  const zoom = clampNumber(Math.min(
+    (stage.clientWidth - padding * 2) / width,
+    (stage.clientHeight - padding * 2) / height,
+    1
+  ), 0.35, 1.4)
+  viewport.zoom = Number(zoom.toFixed(2))
+  viewport.x = Math.round((stage.clientWidth - width * viewport.zoom) / 2 - bounds.minX * viewport.zoom)
+  viewport.y = Math.round((stage.clientHeight - height * viewport.zoom) / 2 - bounds.minY * viewport.zoom)
+}
+
+function canvasNodeBounds(): { minX: number, minY: number, maxX: number, maxY: number } | null {
+  if (canvasDocument.value.nodes.length === 0) return null
+  return canvasDocument.value.nodes.reduce((bounds, node) => ({
+    minX: Math.min(bounds.minX, node.x),
+    minY: Math.min(bounds.minY, node.y),
+    maxX: Math.max(bounds.maxX, node.x + (node.width || 190)),
+    maxY: Math.max(bounds.maxY, node.y + (node.height || 112)),
+  }), {
+    minX: Number.POSITIVE_INFINITY,
+    minY: Number.POSITIVE_INFINITY,
+    maxX: Number.NEGATIVE_INFINITY,
+    maxY: Number.NEGATIVE_INFINITY,
+  })
+}
+
+function currentViewport(): CanvasViewport {
+  if (!canvasDocument.value.viewport) {
+    canvasDocument.value.viewport = { ...canvasViewportDefaults }
+  }
+  return canvasDocument.value.viewport
+}
+
+function normalizeViewport(viewport: CanvasDocument['viewport']): CanvasViewport {
+  if (!viewport) return { ...canvasViewportDefaults }
+  return {
+    x: finiteNumberOrDefault(viewport.x, canvasViewportDefaults.x),
+    y: finiteNumberOrDefault(viewport.y, canvasViewportDefaults.y),
+    zoom: clampNumber(finiteNumberOrDefault(viewport.zoom, canvasViewportDefaults.zoom), 0.35, 2),
+  }
+}
+
+function finiteNumberOrDefault(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max)
 }
 
 function nodeDisplayStatus(node: CanvasNode): CanvasNodeStatus {
@@ -1395,6 +1728,23 @@ function errorMessage(error: unknown, fallback: string): string {
   color: rgb(148 163 184);
 }
 
+.canvas-section-actions,
+.canvas-stage-title,
+.canvas-stage-tools {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.canvas-stage-title {
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.canvas-stage-tools {
+  flex-shrink: 0;
+}
+
 .canvas-icon-button {
   display: inline-flex;
   height: 1.875rem;
@@ -1416,6 +1766,11 @@ function errorMessage(error: unknown, fallback: string): string {
   opacity: 0.5;
 }
 
+.canvas-icon-button-active {
+  background: rgb(204 251 241);
+  color: rgb(15 118 110);
+}
+
 .dark .canvas-icon-button {
   color: rgb(148 163 184);
 }
@@ -1423,6 +1778,23 @@ function errorMessage(error: unknown, fallback: string): string {
 .dark .canvas-icon-button:hover:not(:disabled) {
   background: rgb(55 65 81 / 0.72);
   color: rgb(243 244 246);
+}
+
+.dark .canvas-icon-button-active {
+  background: rgb(20 184 166 / 0.2);
+  color: rgb(94 234 212);
+}
+
+.canvas-zoom-value {
+  min-width: 3rem;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: rgb(71 85 105);
+}
+
+.dark .canvas-zoom-value {
+  color: rgb(203 213 225);
 }
 
 .canvas-list,
@@ -1597,12 +1969,18 @@ function errorMessage(error: unknown, fallback: string): string {
   position: relative;
   min-height: 620px;
   flex: 1;
-  overflow: auto;
+  overflow: hidden;
   background-color: rgb(248 250 252);
   background-image:
     linear-gradient(rgb(226 232 240 / 0.72) 1px, transparent 1px),
     linear-gradient(90deg, rgb(226 232 240 / 0.72) 1px, transparent 1px);
   background-size: 28px 28px;
+  cursor: grab;
+  user-select: none;
+}
+
+.canvas-stage-panning {
+  cursor: grabbing;
 }
 
 .dark .canvas-stage {
@@ -1613,12 +1991,19 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 .canvas-edges {
-  pointer-events: none;
   position: absolute;
   left: 0;
   top: 0;
-  height: 620px;
-  width: 980px;
+  height: 100%;
+  width: 100%;
+  overflow: visible;
+}
+
+.canvas-stage-content {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
 }
 
 .canvas-edge {
@@ -1626,6 +2011,14 @@ function errorMessage(error: unknown, fallback: string): string {
   stroke: rgb(20 184 166);
   stroke-linecap: round;
   stroke-width: 2;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+
+.canvas-edge:hover,
+.canvas-edge-selected {
+  stroke: rgb(236 72 153);
+  stroke-width: 3;
 }
 
 .canvas-node {
@@ -1641,13 +2034,20 @@ function errorMessage(error: unknown, fallback: string): string {
   padding: 0.75rem;
   text-align: left;
   box-shadow: 0 12px 28px rgb(15 23 42 / 0.1);
+  cursor: move;
   transition: box-shadow 0.15s ease, transform 0.15s ease;
 }
 
 .canvas-node:hover,
-.canvas-node-selected {
+.canvas-node-selected,
+.canvas-node-link-source {
   box-shadow: 0 18px 38px rgb(15 23 42 / 0.16);
   transform: translateY(-1px);
+}
+
+.canvas-node-link-source {
+  outline: 2px solid rgb(20 184 166);
+  outline-offset: 3px;
 }
 
 .dark .canvas-node {

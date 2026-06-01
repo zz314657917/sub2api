@@ -97,6 +97,7 @@ function makeCanvas(overrides: Record<string, unknown> = {}) {
           target_node_id: 'node_result',
         },
       ],
+      viewport: { x: 0, y: 0, zoom: 1 },
     },
     ...overrides,
   }
@@ -325,6 +326,119 @@ describe('CanvasView', () => {
         ]),
       }),
     }))
+  })
+
+  it('drags a node and saves the updated node coordinates', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const firstNode = wrapper.findAll('[data-testid="canvas-node"]')[0]
+    await firstNode.trigger('mousedown', { button: 0, clientX: 100, clientY: 100 })
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 150, clientY: 130 }))
+    window.dispatchEvent(new MouseEvent('mouseup'))
+    await wrapper.find('[data-testid="canvas-save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(updateCanvas).toHaveBeenCalledWith('canvas_1', expect.objectContaining({
+      document: expect.objectContaining({
+        nodes: expect.arrayContaining([
+          expect.objectContaining({
+            id: 'node_prompt',
+            x: 130,
+            y: 120,
+          }),
+        ]),
+      }),
+    }))
+
+    wrapper.unmount()
+  })
+
+  it('creates and deletes selected edges without duplicating the same edge', async () => {
+    getCanvas.mockResolvedValue(makeCanvas({
+      document: {
+        nodes: [
+          {
+            id: 'node_prompt',
+            type: 'prompt',
+            title: 'Prompt',
+            x: 80,
+            y: 90,
+            width: 170,
+            height: 86,
+            status: 'idle',
+            config: {},
+          },
+          {
+            id: 'node_result',
+            type: 'result',
+            title: 'Result',
+            x: 320,
+            y: 90,
+            width: 170,
+            height: 86,
+            status: 'idle',
+            config: {},
+          },
+        ],
+        edges: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+      },
+    }))
+    const wrapper = mountView()
+    await flushPromises()
+
+    const nodes = wrapper.findAll('[data-testid="canvas-node"]')
+    await nodes[0].trigger('click')
+    await wrapper.find('[data-testid="canvas-create-edge-button"]').trigger('click')
+    await nodes[1].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="canvas-edge"]')).toHaveLength(1)
+
+    await nodes[0].trigger('click')
+    await wrapper.find('[data-testid="canvas-create-edge-button"]').trigger('click')
+    await nodes[1].trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('[data-testid="canvas-edge"]')).toHaveLength(1)
+
+    await wrapper.find('[data-testid="canvas-edge"]').trigger('click')
+    await wrapper.find('[data-testid="canvas-remove-edge-button"]').trigger('click')
+    await wrapper.find('[data-testid="canvas-save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(updateCanvas).toHaveBeenCalledWith('canvas_1', expect.objectContaining({
+      document: expect.objectContaining({
+        edges: [],
+      }),
+    }))
+
+    wrapper.unmount()
+  })
+
+  it('saves viewport after zooming and panning the canvas', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.find('[data-testid="canvas-zoom-in-button"]').trigger('click')
+    await wrapper.find('[data-testid="canvas-stage"]').trigger('mousedown', { button: 0, clientX: 20, clientY: 30 })
+    window.dispatchEvent(new MouseEvent('mousemove', { clientX: 70, clientY: 90 }))
+    window.dispatchEvent(new MouseEvent('mouseup'))
+    await wrapper.find('[data-testid="canvas-save-button"]').trigger('click')
+    await flushPromises()
+
+    expect(updateCanvas).toHaveBeenCalledWith('canvas_1', expect.objectContaining({
+      document: expect.objectContaining({
+        viewport: {
+          x: 50,
+          y: 60,
+          zoom: 1.1,
+        },
+      }),
+    }))
+
+    wrapper.unmount()
   })
 
   it('updates an existing canvas, saves before queueing, and refreshes runs', async () => {
