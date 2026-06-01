@@ -384,7 +384,9 @@ type ResponsesStreamEvent struct {
 
 	// response.created / response.completed / response.done / response.failed / response.incomplete
 	Response *ResponsesResponse `json:"response,omitempty"`
-	Usage    *ResponsesUsage    `json:"usage,omitempty"`
+	// Some OpenAI-compatible upstreams put usage on the terminal event top level
+	// instead of response.usage.
+	Usage *ResponsesUsage `json:"usage,omitempty"`
 
 	// response.output_item.added / response.output_item.done
 	Item *ResponsesOutput `json:"item,omitempty"`

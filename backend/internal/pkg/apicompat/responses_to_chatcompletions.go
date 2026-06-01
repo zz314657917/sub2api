@@ -370,7 +370,6 @@ func completionDetailsFromResponses(src *ResponsesOutputTokensDetails) *ChatToke
 		RejectedPredictionTokens: src.RejectedPredictionTokens,
 	}
 }
-
 func makeChatDeltaChunk(state *ResponsesEventToChatState, delta ChatDelta) ChatCompletionsChunk {
 	return ChatCompletionsChunk{
 		ID:      state.ID,

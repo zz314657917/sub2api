@@ -2800,6 +2800,10 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			var dialErr *openAIWSDialError
 			if errors.As(acquireErr, &dialErr) && dialErr != nil && dialErr.StatusCode == http.StatusTooManyRequests {
 				s.persistOpenAIWSRateLimitSignal(ctx, account, dialErr.ResponseHeaders, nil, "rate_limit_exceeded", "rate_limit_error", strings.TrimSpace(acquireErr.Error()))
+				return nil, &UpstreamFailoverError{
+					StatusCode:      http.StatusTooManyRequests,
+					ResponseHeaders: cloneHeader(dialErr.ResponseHeaders),
+				}
 			}
 			if errors.Is(acquireErr, errOpenAIWSPreferredConnUnavailable) {
 				return nil, NewOpenAIWSClientCloseError(
@@ -2994,6 +2998,14 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 						errors.New(errMsg),
 						false,
 					)
+				}
+				if !wroteDownstream && isOpenAIWSRateLimitError(errCodeRaw, errTypeRaw, errMsgRaw) {
+					lease.MarkBroken()
+					return nil, &UpstreamFailoverError{
+						StatusCode:      http.StatusTooManyRequests,
+						ResponseBody:    append([]byte(nil), upstreamMessage...),
+						ResponseHeaders: cloneHeader(lease.HandshakeHeaders()),
+					}
 				}
 			}
 			isTokenEvent := isOpenAIWSTokenEvent(eventType)
@@ -4141,6 +4153,7 @@ func (s *OpenAIGatewayService) persistOpenAIWSRateLimitSignal(ctx context.Contex
 	if !isOpenAIWSRateLimitError(codeRaw, errTypeRaw, msgRaw) {
 		return
 	}
+	s.recordOpenAIOAuth429(account)
 	s.rateLimitService.HandleUpstreamError(ctx, account, http.StatusTooManyRequests, headers, responseBody)
 }
 
