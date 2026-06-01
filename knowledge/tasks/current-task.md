@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-01 18:59 +08:00
+最后更新：2026-06-01 19:13 +08:00
 
 ## 当前仓库状态
 
@@ -21,12 +21,16 @@
 - 新增 unit 测试覆盖模型 404 写模型级冷却、写入失败仍触发 failover、普通 404 仍走既有临时不可调度规则。
 - 本批继续补齐低风险 ops 指标修复：`ops_metrics_collector.queryErrorCounts` 现在排除 `is_count_tokens = FALSE`，避免 `count_tokens` 非生成类计数错误污染管理端错误率、SLA 错误和上游 429/529 指标。
 - 已确认多项候选修复本地已存在：OpenAI `response.failed` 流式终态补偿、`count_tokens` generation-only 字段过滤、`context_management` sanitize、Gemini Messages `tool_use` 后接 `text` 的内容块关闭、系统更新 `already_up_to_date`、并发 acquire 失败分类、usage request context、敏感 credentials redaction、OIDC compat email、setup 初始化后拦截。
+- 本批继续移植 pool-mode 同账号重试状态码可配置后端逻辑：新增 `pool_mode_retry_status_codes` credentials 解析和 `Account.IsPoolModeRetryableStatus`，所有本地 Anthropic/OpenAI/Embeddings/Images 相关 failover 路径统一使用账号级判断；未配置时仍保持默认 `401/403/429`。
+- 已确认 `32ea9cfe1` API key Responses SSE body fallback 与 `cae93ae13` Responses force chat completions fallback 已在本地完整存在，未重复提交。
 
 ### 本批验证记录
 
 - `cd backend && go test -tags unit ./internal/service -run TestIsUpstreamModelNotFoundError|TestRateLimitService_HandleUpstreamError_ModelNotFound|TestRateLimitService_HandleUpstreamError_NonModel404 -count=1`：通过。
 - `cd backend && go test ./internal/service -run TestIsUpstreamModelNotFoundError -count=1`：通过，确认非 unit service 包可编译。
 - `cd backend && go test ./internal/service -run TestOpsMetricsCollectorQueryErrorCountsExcludesCountTokens -count=1`：通过。
+- `cd backend && go test -tags unit ./internal/service -run 'Test(GetPoolModeRetryStatusCodes|IsPoolModeRetryableStatus_Account)' -count=1`：通过。
+- `cd backend && go test ./internal/service -run TestOpenAI.*Pool -count=1`：通过。
 - `git diff --check`：通过。
 
 ### 下一步候选
