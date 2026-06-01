@@ -1301,6 +1301,16 @@ func TestExtractSSEUsage(t *testing.T) {
 			line:     `data: {"usage":{"input_tokens":10,"output_tokens":20,"cache_read_input_tokens":5,"cache_creation_input_tokens":3}}`,
 			expected: ClaudeUsage{InputTokens: 10, OutputTokens: 20, CacheReadInputTokens: 5, CacheCreationInputTokens: 3},
 		},
+		{
+			name:     "message_start nested usage with input/cache tokens",
+			line:     `data: {"type":"message_start","message":{"id":"msg_01","usage":{"input_tokens":35576,"cache_creation_input_tokens":0,"cache_read_input_tokens":12000,"output_tokens":1}}}`,
+			expected: ClaudeUsage{InputTokens: 35576, OutputTokens: 1, CacheReadInputTokens: 12000},
+		},
+		{
+			name:     "message_start nested usage with cache_creation breakdown",
+			line:     `data: {"type":"message_start","message":{"usage":{"input_tokens":100,"cache_creation":{"ephemeral_5m_input_tokens":30,"ephemeral_1h_input_tokens":70}}}}`,
+			expected: ClaudeUsage{InputTokens: 100, CacheCreation5mTokens: 30, CacheCreation1hTokens: 70},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -1309,6 +1319,24 @@ func TestExtractSSEUsage(t *testing.T) {
 			require.Equal(t, tt.expected, *usage)
 		})
 	}
+}
+
+func TestExtractSSEUsage_StreamingSequence(t *testing.T) {
+	svc := &AntigravityGatewayService{}
+	usage := &ClaudeUsage{}
+
+	svc.extractSSEUsage(
+		`data: {"type":"message_start","message":{"id":"msg_01","type":"message","role":"assistant","content":[],"model":"claude-opus-4-6","stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":35576,"cache_creation_input_tokens":0,"cache_read_input_tokens":12000,"output_tokens":1}}}`,
+		usage,
+	)
+	svc.extractSSEUsage(
+		`data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":816}}`,
+		usage,
+	)
+
+	require.Equal(t, 35576, usage.InputTokens)
+	require.Equal(t, 12000, usage.CacheReadInputTokens)
+	require.Equal(t, 816, usage.OutputTokens)
 }
 
 // TestAntigravityClientWriter 验证 antigravityClientWriter 的断开检测

@@ -4473,7 +4473,11 @@ func (s *AntigravityGatewayService) streamUpstreamResponse(c *gin.Context, resp 
 	}
 }
 
-// extractSSEUsage 从 SSE data 行中提取 Claude usage（用于流式透传场景）
+// extractSSEUsage 从 SSE data 行中提取 Claude usage（用于流式透传场景）。
+//
+// Anthropic streaming 的 usage 字段分布在两类事件中：
+//   - message_start：嵌套在 event.message.usage，携带输入侧字段
+//   - message_delta：位于顶层 event.usage，携带最终 output_tokens
 func (s *AntigravityGatewayService) extractSSEUsage(line string, usage *ClaudeUsage) {
 	if !strings.HasPrefix(line, "data: ") {
 		return
@@ -4483,8 +4487,15 @@ func (s *AntigravityGatewayService) extractSSEUsage(line string, usage *ClaudeUs
 	if json.Unmarshal([]byte(dataStr), &event) != nil {
 		return
 	}
-	u, ok := event["usage"].(map[string]any)
-	if !ok {
+	var u map[string]any
+	if eventType, _ := event["type"].(string); eventType == "message_start" {
+		if msg, ok := event["message"].(map[string]any); ok {
+			u, _ = msg["usage"].(map[string]any)
+		}
+	} else {
+		u, _ = event["usage"].(map[string]any)
+	}
+	if u == nil {
 		return
 	}
 	if v, ok := u["input_tokens"].(float64); ok && int(v) > 0 {
