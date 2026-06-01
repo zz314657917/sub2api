@@ -142,6 +142,7 @@ type SettingService struct {
 	antigravityUAVersionSF            singleflight.Group
 	openAIQuotaAutoPauseSettingsCache atomic.Value // *cachedOpenAIQuotaAutoPauseSettings
 	openAIQuotaAutoPauseSettingsSF    singleflight.Group
+	openAIQuotaAutoPauseSettingsRev   atomic.Uint64
 }
 
 type ProviderDefaultGrantSettings struct {
@@ -1894,6 +1895,7 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 		expiresAt: time.Now().Add(openAIAdvancedSchedulerSettingCacheTTL).UnixNano(),
 	})
 	s.openAIQuotaAutoPauseSettingsSF.Forget(openAIQuotaAutoPauseSettingsRefreshKey)
+	s.openAIQuotaAutoPauseSettingsRev.Add(1)
 	if cached, _ := s.openAIQuotaAutoPauseSettingsCache.Load().(*cachedOpenAIQuotaAutoPauseSettings); cached != nil {
 		s.openAIQuotaAutoPauseSettingsCache.Store(&cachedOpenAIQuotaAutoPauseSettings{
 			settings:  cached.settings,
@@ -4219,6 +4221,7 @@ func (s *SettingService) refreshOpenAIQuotaAutoPauseSettings(ctx context.Context
 	if s == nil || s.settingRepo == nil {
 		return
 	}
+	revision := s.openAIQuotaAutoPauseSettingsRev.Load()
 	dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), openAIQuotaAutoPauseSettingsDBTimeout)
 	defer cancel()
 
@@ -4240,6 +4243,9 @@ func (s *SettingService) refreshOpenAIQuotaAutoPauseSettings(ctx context.Context
 		ttl = openAIQuotaAutoPauseSettingsErrorTTL
 	}
 
+	if s.openAIQuotaAutoPauseSettingsRev.Load() != revision {
+		return
+	}
 	s.openAIQuotaAutoPauseSettingsCache.Store(&cachedOpenAIQuotaAutoPauseSettings{
 		settings:  settings,
 		expiresAt: time.Now().Add(ttl).UnixNano(),
@@ -4254,6 +4260,7 @@ func (s *SettingService) SetOpenAIQuotaAutoPauseSettings(settings OpsOpenAIAccou
 	}
 	settings.DefaultThreshold5h = clampOpsQuotaAutoPauseThreshold(settings.DefaultThreshold5h)
 	settings.DefaultThreshold7d = clampOpsQuotaAutoPauseThreshold(settings.DefaultThreshold7d)
+	s.openAIQuotaAutoPauseSettingsRev.Add(1)
 	s.openAIQuotaAutoPauseSettingsCache.Store(&cachedOpenAIQuotaAutoPauseSettings{
 		settings:  settings,
 		expiresAt: time.Now().Add(openAIQuotaAutoPauseSettingsCacheTTL).UnixNano(),

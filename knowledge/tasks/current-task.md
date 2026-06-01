@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-01 23:14 +08:00
+最后更新：2026-06-02 02:18 +08:00
 
 ## 当前仓库状态
 
@@ -35,6 +35,10 @@
   - 调度接入覆盖普通 OpenAI 账号选择、load-aware、advanced scheduler TopK 初筛、session sticky recheck、previous_response sticky。
   - scheduler snapshot 保留 Codex 用量快照字段和 auto-pause 配置字段，避免缓存瘦身导致调度层看不到阈值/用量。
   - 前端已补 Ops 高级设置入口和 OpenAI 账号编辑入口，可配置全局默认阈值、账号级阈值和单窗口禁用。
+- 多智能体自检后已补一轮 hardening：
+  - Ops 设置弹窗会归一化旧响应缺失的 `openai_account_quota_auto_pause`，避免前端直接解引用崩溃。
+  - `SettingService` 的 OpenAI quota auto-pause 缓存加入 revision guard，避免后台旧 DB 刷新覆盖刚保存的新阈值。
+  - 补测 previous_response sticky 命中 quota 暂停账号时会失效并清理绑定；补测真实 `SettingService` 注入链路读取全局默认阈值。
 
 ### 本批验证记录
 
@@ -58,6 +62,10 @@
 - `cd backend && go test ./internal/server/...`：通过。
 - `cd frontend && npm.cmd run typecheck`：通过。当前移植 worktree 未安装 `node_modules`，验证时临时创建 `frontend/node_modules` junction 指向主仓库依赖，命令完成后已删除 junction。
 - `cd frontend && npm.cmd run test:run -- EditAccountModal OpsSettingsDialog`：通过，实际匹配并运行 `EditAccountModal.spec.ts` 与 `BulkEditAccountModal.spec.ts` 共 26 个测试；当前没有单独的 `OpsSettingsDialog` spec。
+- `cd backend && go test ./internal/service -run "TestOpenAIGatewayService_SelectAccountForModelWithExclusions_UsesSettingServiceGlobalDefaultThreshold|TestOpenAIGatewayService_SelectAccountByPreviousResponseID_QuotaAutoPausedMiss|TestRefreshOpenAIQuotaAutoPauseSettings_DoesNotOverwriteNewerSinkValue|TestGetOpenAIQuotaAutoPauseSettings|TestSetOpenAIQuotaAutoPauseSettings|TestUpdateOpsAdvancedSettings_PushesQuotaAutoPauseSink" -count=1`：通过。
+- `cd frontend && npm.cmd run test:run -- OpsSettingsDialog`：通过，新 `OpsSettingsDialog.spec.ts` 覆盖旧响应缺失 OpenAI quota auto-pause 配置时的默认回填与保存。
+- `cd frontend && npm.cmd run typecheck`：通过。当前移植 worktree 未安装 `node_modules`，验证时临时创建 `frontend/node_modules` junction 指向主仓库依赖，命令完成后已删除 junction。
+- `cd backend && go test ./internal/service/...`：通过。
 - `git diff --check`：通过。
 
 ### 下一步候选

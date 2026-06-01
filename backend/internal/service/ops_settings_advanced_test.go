@@ -134,6 +134,40 @@ func TestGetOpenAIQuotaAutoPauseSettings_ColdCacheNonBlocking(t *testing.T) {
 	}
 }
 
+func TestRefreshOpenAIQuotaAutoPauseSettings_DoesNotOverwriteNewerSinkValue(t *testing.T) {
+	repo := newRuntimeSettingRepoStub()
+	started := make(chan struct{})
+	release := make(chan struct{})
+	repo.getValueFn = func(key string) (string, error) {
+		if key != SettingKeyOpsAdvancedSettings {
+			return "", ErrSettingNotFound
+		}
+		close(started)
+		<-release
+		return `{"openai_account_quota_auto_pause":{"default_threshold_5h":0.2,"default_threshold_7d":0.3}}`, nil
+	}
+	svc := NewSettingService(repo, &config.Config{})
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		svc.refreshOpenAIQuotaAutoPauseSettings(context.Background())
+	}()
+
+	<-started
+	svc.SetOpenAIQuotaAutoPauseSettings(OpsOpenAIAccountQuotaAutoPauseSettings{
+		DefaultThreshold5h: 0.88,
+		DefaultThreshold7d: 0.77,
+	})
+	close(release)
+	<-done
+
+	got := svc.GetOpenAIQuotaAutoPauseSettings(context.Background())
+	if got.DefaultThreshold5h != 0.88 || got.DefaultThreshold7d != 0.77 {
+		t.Fatalf("after overlapping refresh, Get = %+v, want newer sink value {0.88, 0.77}", got)
+	}
+}
+
 func TestSetOpenAIQuotaAutoPauseSettings_VisibleImmediately(t *testing.T) {
 	svc := NewSettingService(newRuntimeSettingRepoStub(), &config.Config{})
 

@@ -37,6 +37,21 @@ const metricThresholds = ref<OpsMetricThresholds>({
   upstream_error_rate_percent_max: 5
 })
 
+function finiteNumberOrDefault(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function normalizeAdvancedSettings(settings: OpsAdvancedSettings): OpsAdvancedSettings {
+  const quotaAutoPause = settings.openai_account_quota_auto_pause as Partial<OpsAdvancedSettings['openai_account_quota_auto_pause']> | undefined
+  return {
+    ...settings,
+    openai_account_quota_auto_pause: {
+      default_threshold_5h: finiteNumberOrDefault(quotaAutoPause?.default_threshold_5h, 0),
+      default_threshold_7d: finiteNumberOrDefault(quotaAutoPause?.default_threshold_7d, 0)
+    }
+  }
+}
+
 // 加载所有配置
 async function loadAllSettings() {
   loading.value = true
@@ -49,7 +64,7 @@ async function loadAllSettings() {
     ])
     runtimeSettings.value = runtime
     emailConfig.value = email
-    advancedSettings.value = advanced
+    advancedSettings.value = normalizeAdvancedSettings(advanced)
     // 如果后端返回了阈值，使用后端的值；否则保持默认值
     if (thresholds && Object.keys(thresholds).length > 0) {
         metricThresholds.value = {
