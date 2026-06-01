@@ -1549,6 +1549,21 @@ func TestBuildOpenAIImagesResponsesRequest_DoesNotPassNForOneImagePerRequestMode
 	require.Equal(t, "draw a cat", gjson.GetBytes(body, "input.0.content.0.text").String())
 }
 
+func TestBuildOpenAIImagesResponsesRequest_PassesThroughNForMultiImageModels(t *testing.T) {
+	parsed := &OpenAIImagesRequest{
+		Endpoint: openAIImagesGenerationsEndpoint,
+		Model:    "gpt-image-1",
+		Prompt:   "draw a cat",
+		N:        2,
+	}
+
+	body, err := buildOpenAIImagesResponsesRequest(parsed, "gpt-image-1")
+	require.NoError(t, err)
+	require.NotNil(t, body)
+	require.Equal(t, int64(2), gjson.GetBytes(body, "tools.0.n").Int())
+	require.Equal(t, "gpt-image-1", gjson.GetBytes(body, "tools.0.model").String())
+}
+
 func TestBuildOpenAIImagesResponsesRequest_DoesNotPassNForDallE3(t *testing.T) {
 	parsed := &OpenAIImagesRequest{
 		Endpoint: openAIImagesGenerationsEndpoint,
