@@ -122,3 +122,74 @@ func TestOpenAICodexClientRestrictionDetector_Detect(t *testing.T) {
 		require.Equal(t, CodexClientRestrictionReasonForceCodexCLI, result.Reason)
 	})
 }
+
+func TestOpenAICodexClientRestrictionDetector_Detect_AllowedClients(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	const (
+		claudeCodeUA         = "Claude Code/0.5.0 (Macos 15.5; arm64) iTerm2.app (Claude Code; 1.0.4)"
+		claudeCodeOriginator = "Claude Code"
+	)
+
+	t.Run("account preset allows Claude Code Codex plugin", func(t *testing.T) {
+		detector := NewOpenAICodexClientRestrictionDetector(nil)
+		account := &Account{
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+			Extra: map[string]any{
+				"codex_cli_only":                 true,
+				"codex_cli_only_allowed_clients": []any{"claude_code"},
+			},
+		}
+
+		result := detector.Detect(newCodexDetectorTestContext(claudeCodeUA, claudeCodeOriginator), account)
+		require.True(t, result.Enabled)
+		require.True(t, result.Matched)
+		require.Equal(t, CodexClientRestrictionReasonMatchedAllowedClient, result.Reason)
+	})
+
+	t.Run("configured preset still rejects spoofed originator", func(t *testing.T) {
+		detector := NewOpenAICodexClientRestrictionDetector(nil)
+		account := &Account{
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+			Extra: map[string]any{
+				"codex_cli_only":                 true,
+				"codex_cli_only_allowed_clients": []any{"claude_code"},
+			},
+		}
+
+		result := detector.Detect(newCodexDetectorTestContext(claudeCodeUA, "my_client"), account)
+		require.True(t, result.Enabled)
+		require.False(t, result.Matched)
+		require.Equal(t, CodexClientRestrictionReasonNotMatchedUA, result.Reason)
+	})
+
+	t.Run("missing preset keeps Claude Code signature rejected", func(t *testing.T) {
+		detector := NewOpenAICodexClientRestrictionDetector(nil)
+		account := &Account{
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+			Extra:    map[string]any{"codex_cli_only": true},
+		}
+
+		result := detector.Detect(newCodexDetectorTestContext(claudeCodeUA, claudeCodeOriginator), account)
+		require.True(t, result.Enabled)
+		require.False(t, result.Matched)
+		require.Equal(t, CodexClientRestrictionReasonNotMatchedUA, result.Reason)
+	})
+
+	t.Run("disabled codex_cli_only bypasses allowed clients", func(t *testing.T) {
+		detector := NewOpenAICodexClientRestrictionDetector(nil)
+		account := &Account{
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeOAuth,
+			Extra:    map[string]any{"codex_cli_only_allowed_clients": []any{"claude_code"}},
+		}
+
+		result := detector.Detect(newCodexDetectorTestContext(claudeCodeUA, claudeCodeOriginator), account)
+		require.False(t, result.Enabled)
+		require.False(t, result.Matched)
+		require.Equal(t, CodexClientRestrictionReasonDisabled, result.Reason)
+	})
+}
