@@ -530,6 +530,8 @@ var ProviderSet = wire.NewSet(
 	NewContentModerationService,
 	NewAffiliateService,
 	NewPromptFavoriteService,
+	NewTicketService,
+	NewSystemTicketService,
 	NewCanvasServiceWithDeps,
 	ProvideImageCreatorService,
 	NewImageCreatorStorageGovernanceService,

@@ -72,6 +72,7 @@ type WelfareService struct {
 	authCacheInvalidator    APIKeyAuthCacheInvalidator
 	billingCacheInvalidator welfareBalanceCacheInvalidator
 	now                     func() time.Time
+	systemTicketSvc         *SystemTicketService
 }
 
 type welfareBalanceCacheInvalidator interface {
@@ -265,6 +266,12 @@ func NewWelfareService(
 	}
 }
 
+func (s *WelfareService) SetSystemTicketService(systemTicketSvc *SystemTicketService) {
+	if s != nil {
+		s.systemTicketSvc = systemTicketSvc
+	}
+}
+
 func (s *WelfareService) GetOverview(ctx context.Context, userID int64) (*WelfareOverview, error) {
 	settings, err := s.getSettings(ctx)
 	if err != nil {
@@ -381,7 +388,7 @@ func (s *WelfareService) ConsumeNewUserTrial(ctx context.Context, session *NewUs
 	if requestID == "" || amount <= 0 {
 		return nil
 	}
-	_, _, err := s.repo.ConsumeNewUserTrial(ctx, WelfareNewUserTrialConsumeInput{
+	trial, applied, err := s.repo.ConsumeNewUserTrial(ctx, WelfareNewUserTrialConsumeInput{
 		TrialID:        session.TrialID,
 		UserID:         session.UserID,
 		TrialRequestID: session.RequestID,
@@ -390,7 +397,33 @@ func (s *WelfareService) ConsumeNewUserTrial(ctx context.Context, session *NewUs
 		Model:          model,
 		APIKeyID:       apiKeyID,
 	})
+	if err == nil && applied {
+		s.notifyNewUserTrialSuccessRewardBestEffort(ctx, trial, model, apiKeyID)
+	}
 	return err
+}
+
+func (s *WelfareService) notifyNewUserTrialSuccessRewardBestEffort(ctx context.Context, trial *WelfareNewUserTrial, model string, apiKeyID int64) {
+	if s == nil || s.systemTicketSvc == nil || trial == nil || trial.UserID <= 0 || trial.FirstSuccessAt == nil {
+		return
+	}
+	settings, err := s.getSettings(ctx)
+	if err != nil {
+		logger.LegacyPrintf("service.welfare", "load settings for system ticket notification failed: user_id=%d err=%v", trial.UserID, err)
+		return
+	}
+	if !settings.Enabled || !settings.NewUserTrialEnabled || settings.NewUserTrialSuccessRewardAmount <= 0 {
+		return
+	}
+	qualified, err := s.hasNewUserTrialRewardQualifyingUsage(ctx, trial.UserID, trial, settings.NewUserTrialSuccessRewardEnabledAt)
+	if err != nil || !qualified {
+		if err != nil {
+			logger.LegacyPrintf("service.welfare", "check trial reward notification eligibility failed: user_id=%d err=%v", trial.UserID, err)
+		}
+		return
+	}
+	event := NewWelfareFirstAPIUnclaimedSystemTicketNotification(trial.UserID, trial.ID, settings.NewUserTrialSuccessRewardAmount, model, apiKeyID, *trial.FirstSuccessAt)
+	s.systemTicketSvc.NotifyEventBestEffort(ctx, "service.welfare", trial.UserID, event)
 }
 
 func (s *WelfareService) ClaimNewUserTrialSuccessReward(ctx context.Context, userID int64) (*WelfareNewUserTrialRewardClaimResult, error) {

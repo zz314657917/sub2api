@@ -578,6 +578,7 @@ type GatewayService struct {
 	balanceNotifyService  *BalanceNotifyService
 	welfareService        *WelfareService
 	membershipService     *MembershipService
+	affiliateService      *AffiliateService
 }
 
 // NewGatewayService creates a new GatewayService
@@ -665,6 +666,12 @@ func NewGatewayService(
 		svc.initDebugGatewayBodyFile(path)
 	}
 	return svc
+}
+
+func (s *GatewayService) SetAffiliateService(affiliateService *AffiliateService) {
+	if s != nil {
+		s.affiliateService = affiliateService
+	}
 }
 
 // GenerateSessionHash 从预解析请求计算粘性会话 hash
@@ -8952,6 +8959,9 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 	if applied && s.billingCacheService != nil {
 		s.billingCacheService.RecordMembershipTokenUsage(ctx, user.ID, usageLog.TotalTokens())
+	}
+	if applied && s.affiliateService != nil && user != nil {
+		s.affiliateService.NotifyInviteeFirstAPIRewardIfEligible(ctx, user.ID)
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
 

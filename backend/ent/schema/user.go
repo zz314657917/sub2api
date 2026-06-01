@@ -131,6 +131,8 @@ func (User) Edges() []ent.Edge {
 		edge.To("auth_identities", AuthIdentity.Type).
 			Annotations(entsql.OnDelete(entsql.Cascade)),
 		edge.To("pending_auth_sessions", PendingAuthSession.Type),
+		edge.To("support_tickets", SupportTicket.Type).
+			Annotations(entsql.OnDelete(entsql.Cascade)),
 	}
 }
 

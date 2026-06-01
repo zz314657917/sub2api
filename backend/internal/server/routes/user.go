@@ -80,6 +80,17 @@ func RegisterUserRoutes(
 			user.POST("/prompt-favorites", h.PromptFavorite.Save)
 			user.DELETE("/prompt-favorites/:id", h.PromptFavorite.Delete)
 
+			tickets := user.Group("/tickets")
+			{
+				tickets.GET("/unread-summary", h.Ticket.UnreadSummary)
+				tickets.GET("", h.Ticket.List)
+				tickets.POST("", h.Ticket.Create)
+				tickets.GET("/:id", h.Ticket.Get)
+				tickets.POST("/:id/messages", h.Ticket.AddMessage)
+				tickets.POST("/:id/read", h.Ticket.MarkRead)
+				tickets.POST("/:id/close", h.Ticket.Close)
+			}
+
 			welfare := user.Group("/welfare")
 			{
 				welfare.GET("/overview", h.Welfare.GetOverview)

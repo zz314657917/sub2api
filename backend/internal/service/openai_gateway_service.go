@@ -346,6 +346,7 @@ type OpenAIGatewayService struct {
 	settingService        *SettingService
 	welfareService        *WelfareService
 	membershipService     *MembershipService
+	affiliateService      *AffiliateService
 
 	openaiWSPoolOnce              sync.Once
 	openaiWSStateStoreOnce        sync.Once
@@ -431,6 +432,12 @@ func NewOpenAIGatewayService(
 	}
 	svc.logOpenAIWSModeBootstrap()
 	return svc
+}
+
+func (s *OpenAIGatewayService) SetAffiliateService(affiliateService *AffiliateService) {
+	if s != nil {
+		s.affiliateService = affiliateService
+	}
 }
 
 // ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）
@@ -5637,6 +5644,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 	if applied && s.billingCacheService != nil {
 		s.billingCacheService.RecordMembershipTokenUsage(ctx, user.ID, usageLog.TotalTokens())
+	}
+	if applied && s.affiliateService != nil && user != nil {
+		s.affiliateService.NotifyInviteeFirstAPIRewardIfEligible(ctx, user.ID)
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
 

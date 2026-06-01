@@ -187,6 +187,7 @@ type PaymentService struct {
 	resumeService    *PaymentResumeService
 	affiliateService *AffiliateService
 	membershipSvc    *MembershipService
+	systemTicketSvc  *SystemTicketService
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService, membershipSvc ...*MembershipService) *PaymentService {
@@ -197,6 +198,12 @@ func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, load
 	svc := &PaymentService{entClient: entClient, registry: registry, loadBalancer: newVisibleMethodLoadBalancer(loadBalancer, configService), redeemService: redeemService, subscriptionSvc: subscriptionSvc, configService: configService, userRepo: userRepo, groupRepo: groupRepo, affiliateService: affiliateService, membershipSvc: membership}
 	svc.resumeService = psNewPaymentResumeService(configService)
 	return svc
+}
+
+func (s *PaymentService) SetSystemTicketService(systemTicketSvc *SystemTicketService) {
+	if s != nil {
+		s.systemTicketSvc = systemTicketSvc
+	}
 }
 
 // --- Provider Registry ---

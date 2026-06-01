@@ -85,6 +85,8 @@ const (
 	EdgeAuthIdentities = "auth_identities"
 	// EdgePendingAuthSessions holds the string denoting the pending_auth_sessions edge name in mutations.
 	EdgePendingAuthSessions = "pending_auth_sessions"
+	// EdgeSupportTickets holds the string denoting the support_tickets edge name in mutations.
+	EdgeSupportTickets = "support_tickets"
 	// EdgeUserAllowedGroups holds the string denoting the user_allowed_groups edge name in mutations.
 	EdgeUserAllowedGroups = "user_allowed_groups"
 	// Table holds the table name of the user in the database.
@@ -171,6 +173,13 @@ const (
 	PendingAuthSessionsInverseTable = "pending_auth_sessions"
 	// PendingAuthSessionsColumn is the table column denoting the pending_auth_sessions relation/edge.
 	PendingAuthSessionsColumn = "target_user_id"
+	// SupportTicketsTable is the table that holds the support_tickets relation/edge.
+	SupportTicketsTable = "support_tickets"
+	// SupportTicketsInverseTable is the table name for the SupportTicket entity.
+	// It exists in this package in order to avoid circular dependency with the "supportticket" package.
+	SupportTicketsInverseTable = "support_tickets"
+	// SupportTicketsColumn is the table column denoting the support_tickets relation/edge.
+	SupportTicketsColumn = "user_id"
 	// UserAllowedGroupsTable is the table that holds the user_allowed_groups relation/edge.
 	UserAllowedGroupsTable = "user_allowed_groups"
 	// UserAllowedGroupsInverseTable is the table name for the UserAllowedGroup entity.
@@ -569,6 +578,20 @@ func ByPendingAuthSessions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOpti
 	}
 }
 
+// BySupportTicketsCount orders the results by support_tickets count.
+func BySupportTicketsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSupportTicketsStep(), opts...)
+	}
+}
+
+// BySupportTickets orders the results by support_tickets terms.
+func BySupportTickets(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSupportTicketsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByUserAllowedGroupsCount orders the results by user_allowed_groups count.
 func ByUserAllowedGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -664,6 +687,13 @@ func newPendingAuthSessionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PendingAuthSessionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, PendingAuthSessionsTable, PendingAuthSessionsColumn),
+	)
+}
+func newSupportTicketsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SupportTicketsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, SupportTicketsTable, SupportTicketsColumn),
 	)
 }
 func newUserAllowedGroupsStep() *sqlgraph.Step {

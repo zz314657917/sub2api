@@ -222,6 +222,7 @@ type AffiliateService struct {
 	settingService       *SettingService
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	billingCacheService  *BillingCacheService
+	systemTicketSvc      *SystemTicketService
 }
 
 func NewAffiliateService(repo AffiliateRepository, settingService *SettingService, authCacheInvalidator APIKeyAuthCacheInvalidator, billingCacheService *BillingCacheService) *AffiliateService {
@@ -230,6 +231,12 @@ func NewAffiliateService(repo AffiliateRepository, settingService *SettingServic
 		settingService:       settingService,
 		authCacheInvalidator: authCacheInvalidator,
 		billingCacheService:  billingCacheService,
+	}
+}
+
+func (s *AffiliateService) SetSystemTicketService(systemTicketSvc *SystemTicketService) {
+	if s != nil {
+		s.systemTicketSvc = systemTicketSvc
 	}
 }
 
@@ -486,7 +493,39 @@ func (s *AffiliateService) ClaimInviteeAPICallReward(ctx context.Context, invite
 		return 0, ErrAffiliateAPICallRewardAlreadyClaimed
 	}
 	s.invalidateAffiliateCaches(ctx, inviterID)
+	s.notifyAffiliateFirstAPIRewardBestEffort(ctx, inviterID, inviteeUserID, amount)
 	return amount, nil
+}
+
+func (s *AffiliateService) NotifyInviteeFirstAPIRewardIfEligible(ctx context.Context, inviteeUserID int64) {
+	if s == nil || s.repo == nil || s.systemTicketSvc == nil || inviteeUserID <= 0 {
+		return
+	}
+	if !s.IsEnabled(ctx) {
+		return
+	}
+	amount := s.affiliateAPICallRewardAmount(ctx)
+	if amount <= 0 || math.IsNaN(amount) || math.IsInf(amount, 0) {
+		return
+	}
+	summary, err := s.repo.EnsureUserAffiliate(ctx, inviteeUserID)
+	if err != nil || summary == nil || summary.InviterID == nil || *summary.InviterID <= 0 {
+		if err != nil {
+			logger.LegacyPrintf("service.affiliate", "load invitee affiliate for system notification failed: invitee_user_id=%d err=%v", inviteeUserID, err)
+		}
+		return
+	}
+	inviterID := *summary.InviterID
+	event := NewAffiliateFirstAPIRewardSystemTicketNotification(inviteeUserID, amount, true)
+	s.systemTicketSvc.NotifyEventBestEffort(ctx, "service.affiliate", inviterID, event)
+}
+
+func (s *AffiliateService) notifyAffiliateFirstAPIRewardBestEffort(ctx context.Context, inviterID int64, inviteeUserID int64, amount float64) {
+	if s == nil || s.systemTicketSvc == nil || inviterID <= 0 || inviteeUserID <= 0 {
+		return
+	}
+	event := NewAffiliateFirstAPIRewardSystemTicketNotification(inviteeUserID, amount, false)
+	s.systemTicketSvc.NotifyEventBestEffort(ctx, "service.affiliate", inviterID, event)
 }
 
 func (s *AffiliateService) listInvitees(ctx context.Context, inviterID int64) ([]AffiliateInvitee, error) {
