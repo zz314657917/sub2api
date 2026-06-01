@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-06-01 17:34 +08:00 - v0.1.133 关键修复 batch2 选择性移植完成
+
+- 当前阶段：在独立 worktree `F:/mcplugins/.codex-worktrees/sub2api-v0133-batch2` 上继续 v0.1.133 关键修复移植，不执行整体 merge。
+- 本段重点：移植 OpenAI WebSocket/Responses 兼容和 rate-limit failover；补长上下文 cache_read/cache_creation 计费倍率；修正已存在 Opus 4.8 支持里的 Bedrock 默认模型 ID。
+- 已完成：提交 `d41955c69 fix: port upstream websocket compatibility fixes`、`e6aa3a150 fix: apply long context multipliers to cache billing`、`e676580b1 fix: correct bedrock opus 4.8 model id`。
+- 关键决策：`b34cc71be` / `cff2f291b` 行为已等效存在，不重复 cherry-pick；`68901cbff` pricing JSON 大替换暂不纳入；`514ac5c6a` 只吸收 Bedrock Opus 4.8 ID 小修，不纳入迁移、前端和 Bedrock beta 大测试语义变化。
+- 验证记录：`git diff --check`、`git diff HEAD~3..HEAD --check`、`go test ./internal/pkg/apicompat/... ./internal/service/... ./internal/handler/... ./internal/server/...`、计费 `go test -tags unit ./internal/service -run "TestCalculateCost_(...)"`、Bedrock `go test ./internal/domain ./internal/service -run "TestDefaultBedrockModelMapping_ClaudeOpus48|TestResolveBedrockModelID"` 均通过。
+- 遗留问题：账号配额自动暂停、风控运行态、DingTalk OAuth、迁移重排、整包定价 JSON 和前端大页替换仍按计划留到后续独立批次。
+- 下一步：如继续追 v0.1.133，继续从 clean worktree 按主题筛小修；如合入主线，优先 review/merge `d41955c69..e676580b1`。
+
 ## 2026-05-29 12:44 +08:00 - /chat-images 原版化 UI 试验封存并还原
 
 - 当前阶段：在 `codex/sub2api-studio-layout` 上试做一批 `/chat-images` 原版化聊天生图界面后，按用户要求暂停采用并恢复到试验前页面。

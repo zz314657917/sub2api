@@ -1,72 +1,47 @@
 # 当前任务快照
 
-最后更新：2026-05-31 13:30 +08:00
+最后更新：2026-06-01 17:34 +08:00
 
-## 当前仓库状态
+## 背景
 
-- 项目主仓库：`F:/mcplugins/sub2api`。
-- `docs/workflow/status.md` 当前是 `done`，对应 `sub2api-canvas-core` 已收口；仓库没有正在推进中的单一 Sprint。
-- 当前工作区同时存在多条并行改动线，`knowledge/tasks/current-task.md` 需要同时说明“本次正在做的局部任务”和“仓库默认稳定主线”，避免误把一次性首页任务当成整个仓库的默认续做方向。
+用户要求继续按“v0.1.133 关键修复移植计划”做下一批，不执行 `v0.1.133` 整体 merge。主工作区 `F:/mcplugins/sub2api` 仍有并行未提交改动，因此本批在独立 worktree `F:/mcplugins/.codex-worktrees/sub2api-v0133-batch2` 和分支 `codex/upstream-v0.1.133-batch2` 完成。
 
-## 当前默认主线分流
+## 当前目标
 
-1. 稳定主线仍以聊天生图/嵌入工作区链路为主
-   - 近 2026-05-29 的高频提交仍集中在 `chat image workspace migration`、`/canvas`、OpenWebUI launch / redeem、用户图片库、prompt market、模型目录与定价同步。
-   - 继续做这条线时，优先读 `knowledge/05-current-focus.md`、`knowledge/chat-image-embedded-workspace.md` 和 `knowledge/tasks/timeline.md`，不要只看本文件后半段的首页任务记录。
+选择性移植上游 v0.1.133 的第二批低/中风险关键修复，重点是 OpenAI WebSocket/Responses 兼容、计费长上下文 cache 价格修复，以及已存在 Opus 4.8 支持中的 Bedrock 模型 ID 小修。继续避开账号配额自动暂停、风控运行态、DingTalk OAuth、大迁移和前端大替换。
 
-2. 当前会话层面的活跃任务是公共首页与多语言维护
-   - 最近一次明确在做的单项任务，是默认首页信息架构/视觉重排，以及 `zh.ts` / `en.ts` 的维护性拆分。
-   - 这属于当前工作区里的局部前端任务，不代表仓库整体主线已经从聊天生图/嵌入工作区切回公共首页。
+## 本次已完成
 
-## 当前局部任务
+- 提交 `d41955c69 fix: port upstream websocket compatibility fixes`：移植 OpenAI WS rate-limit failover、Responses/Chat/Anthropic 兼容、`response.failed` 流式错误终态、裸 `/responses` 路由识别和最小 OAuth 429 storm 停止换号逻辑。
+- 提交 `e6aa3a150 fix: apply long context multipliers to cache billing`：移植长上下文计费对 `cache_read` 和 `cache_creation` 的倍率修复及回归测试。
+- 提交 `e676580b1 fix: correct bedrock opus 4.8 model id`：手工修正 `claude-opus-4-8` Bedrock 默认模型 ID 为 `us.anthropic.claude-opus-4-8-v1`，并补 regional resolve 测试。
 
-### 首页重排与价格公式模块
+## 已确认事实
 
-- 用户要求：参考 `https://xcode.best/` 首页截图，在当前首页下方增加更多内容；随后调整版式和文案，避免借鉴痕迹过重，并增加小图标；最新要求参考 `nextlevelbuilder/ui-ux-pro-max-skill` 设定一个设计风格。
-- 后续要求：在首页明确加入“价格计算公式”部分，说明余额如何换算和消耗；把第一屏空出来，不让下方新增内容露进首屏；移除“模型接入，像控制台一样清晰 / gateway.config / 一把密钥、分组路由、账单回放”那段；再按 UI 设计师检查结果继续压缩高空卡区域。
-- 当前工作区存在多项本轮前或并行的未提交改动；本轮首页任务只改默认首页和首页文案，不处理其他 payment / affiliate / tutorial 相关线。
+- `b34cc71be` 和 `cff2f291b` 的核心行为已在当前分支等效存在：`ensureForwardErrorResponse` 在 `Writer.Written()` 后继续追加 SSE，`inboundIsResponses` 覆盖 `/v1/responses`、裸 `/responses` 和 `/backend-api/codex/responses`。
+- `68901cbff` 是整份 `backend/resources/model-pricing/model_prices_and_context_window.json` 大规模替换，包含大量模型元数据删除/重排，本批未纳入。
+- `514ac5c6a` 整体包含迁移 `144`、前端账号/用量页和 Bedrock beta 测试语义变化；本批只吸收已确认的小修，不 cherry-pick 整包。
 
-### 本轮已完成
+## 待验证点
 
-- `frontend/src/views/HomeView.vue` 默认首页新增价格公式模块，保留 `homeContent` 自定义首页分支不变。
-- 视觉方向采用 `Enterprise Gateway` 信息架构 + `AI-Native / HUD` 语言，未引入外部依赖。
-- 已移除旧 `AI-Native Command Center` 说明区，不再展示 `gateway.config` 终端预览和“一把密钥 / 分组路由 / 账单回放”三段卡片。
-- 独立价格公式模块用 `1 人民币 = 1 美元`、分组倍率 `0.15x`、得到 `0.150 元人民币`、对应官方 `$1 API 用量` 的四步表达解释费用换算，并补充 Claude / OpenAI / Gemini 官方价目表入口。
-- 已删除价格公式下方重复费用大卡和三张高空卡，把 CTA 和说明压缩进公式模块底部紧凑区。
-- 已按用户要求删除 `Bento Workflow / 开发工具、Agent 和团队额度走同一套规则` 整块展示区，并清理对应 `codingTools` 文案、bento/workflow 样式和回归测试断言。
-- 默认首页首屏改为独立 hero 视口：`home-main-stage` 使用 `100svh`，价格公式和后续内容从第二屏开始出现。
+- 后续如果要继续追模型/定价元数据，需要单独审 `68901cbff`，验证是否会删除本地仍依赖的模型条目。
+- 后续如果要完整纳入 Opus 4.8 相关迁移/前端白名单，需要另开迁移编号方案，避免与本地 `162/163` 冲突。
+- 若继续移植 v0.1.133，下一批应重新从 clean worktree 状态开始筛选，不要回到主工作区直接操作。
 
-### i18n 维护性拆分
+## 当前结论
 
-- `frontend/src/i18n/locales/zh.ts` 与 `frontend/src/i18n/locales/en.ts` 已改成聚合入口，单文件约 2KB。
-- 顶层 domain 拆到 `frontend/src/i18n/locales/zh/*.ts` 与 `frontend/src/i18n/locales/en/*.ts`。
-- `admin` 再拆到 `frontend/src/i18n/locales/{zh,en}/admin/*.ts`，避免形成新的超大 `admin.ts`。
-- `i18n/index.ts` 的动态导入入口保持不变，因此运行时加载语义不变；这次拆分主要是维护性收益，不是为了显著缩小语言包 chunk。
-
-## 验证记录
-
-- `npm.cmd run test:run -- home-theme public-smoke`：通过，覆盖首页价格公式、hero 首屏和旧块不回归。
-- `npm.cmd run test:run -- home-theme usageServiceTierLocales PaymentView public-smoke`：通过，29 个测试。
-- `npm.cmd run typecheck`：通过。
-- `npm.cmd run build`：通过；仅有既有 Vite dynamic import/chunk size 和 Node `DEP0190` 警告。
-- `git diff --check`：通过；仅有若干 knowledge 文件既有 LF/CRLF warning。
-- Node AST 结构检查：`zh/en` 顶层 39 个 key 对齐，`zh/en admin` 24 个子 key 对齐。
-- Playwright 截图与 DOM 检查已覆盖首页桌面/移动端、价格模块和首屏高度，移动端无横向溢出。
-
-## 当前工作区注意
-
-- 本轮首页/i18n 相关改动集中在：
-  - `frontend/src/views/HomeView.vue`
-  - `frontend/src/i18n/locales/zh.ts`
-  - `frontend/src/i18n/locales/en.ts`
-  - `frontend/src/i18n/locales/zh/`
-  - `frontend/src/i18n/locales/en/`
-  - `frontend/src/__tests__/home-theme.spec.ts`
-  - `frontend/src/views/user/__tests__/PaymentView.spec.ts`
-- `git status` 仍有其他并行改动未处理也未回滚，包括后端 payment / affiliate、部分 tutorial 公共页、`knowledge/00-start-here.md`、`knowledge/05-current-focus.md`、迁移脚本和教程静态资源。
-- 继续新任务前先执行 `git status --short`，确认本轮只接手哪条线；不要把首页任务和聊天生图/嵌入工作区主线混成同一批提交。
+Batch2 已完成并验证通过，分支 `codex/upstream-v0.1.133-batch2` 当前 HEAD 为 `e676580b1`。代码 worktree 干净；仅 `knowledge/tasks/current-task.md` 和 `knowledge/tasks/timeline.md` 作为本地交接记录有未提交修改。
 
 ## 下一步
 
-- 如果继续做首页，可追加“支持模型 / 接入教程 / 常见问题”第三段，并在上线前核对示例倍率 `0.15x` 是否与站点真实默认分组一致。
-- 如果继续做仓库默认主线，应转去聊天生图/嵌入工作区、`/canvas`、OpenWebUI launch / redeem、模型目录/定价同步，不要被本文件里的首页任务记录带偏。
+- 合并策略：如要纳入主工作线，优先把 `d41955c69..e676580b1` 作为 batch2 代码提交范围 review/merge。
+- 下一批移植：继续按主题审 upstream v0.1.133 剩余小修，仍跳过账号配额、风控、DingTalk、迁移重排和前端大页替换。
+- 记录维护：若后续切回主工作区，应先 `git status --short`，确认不会把主工作区 payment/affiliate/tutorial/i18n 等并行改动混入上游修复批次。
+
+## 验证记录
+
+- `git diff --check`：通过。
+- `git diff HEAD~3..HEAD --check`：通过。
+- `cd backend && go test ./internal/pkg/apicompat/... ./internal/service/... ./internal/handler/... ./internal/server/...`：通过。
+- `cd backend && go test -tags unit ./internal/service -run "TestCalculateCost_(OpenAIGPT54LongContextAppliesMultiplierToCacheRead|OpenAIGPT54NoLongContextKeepsCacheReadAtBasePrice|OpenAIGPT54LongContextAppliesMultiplierToCacheCreation|OpenAIGPT54NoLongContextKeepsCacheCreationAtBasePrice|LongContextAppliesMultiplierToCacheCreation5mAnd1h)$"`：通过。
+- `cd backend && go test ./internal/domain ./internal/service -run "TestDefaultBedrockModelMapping_ClaudeOpus48|TestResolveBedrockModelID"`：通过。
