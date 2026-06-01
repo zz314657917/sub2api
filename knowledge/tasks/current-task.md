@@ -1,72 +1,63 @@
 # 当前任务快照
 
-最后更新：2026-05-31 13:30 +08:00
+最后更新：2026-06-01 21:20 +08:00
 
-## 当前仓库状态
+## 背景
 
-- 项目主仓库：`F:/mcplugins/sub2api`。
-- `docs/workflow/status.md` 当前是 `done`，对应 `sub2api-canvas-core` 已收口；仓库没有正在推进中的单一 Sprint。
-- 当前工作区同时存在多条并行改动线，`knowledge/tasks/current-task.md` 需要同时说明“本次正在做的局部任务”和“仓库默认稳定主线”，避免误把一次性首页任务当成整个仓库的默认续做方向。
+- 仓库：`F:/mcplugins/sub2api`。
+- 本轮任务围绕 API Key 创建弹窗的智能路由模式，以及后续“模型感知智能分组路由”运行时能力。
+- 工作区有多条并行未提交改动，包括 support ticket、ent 生成文件、workflow 文档、用户/福利/支付等；本轮只处理 Key 智能路由相关前后端文件，不回滚其他改动。
 
-## 当前默认主线分流
+## 当前目标
 
-1. 稳定主线仍以聊天生图/嵌入工作区链路为主
-   - 近 2026-05-29 的高频提交仍集中在 `chat image workspace migration`、`/canvas`、OpenWebUI launch / redeem、用户图片库、prompt market、模型目录与定价同步。
-   - 继续做这条线时，优先读 `knowledge/05-current-focus.md`、`knowledge/chat-image-embedded-workspace.md` 和 `knowledge/tasks/timeline.md`，不要只看本文件后半段的首页任务记录。
+- 一个 API Key 能按请求模型和生图意图自动选择分组，不要求用户为每类模型创建专用 Key。
+- 前端保留模式卡片，自动生成 `multi_group_routes`；高级手动路由可配置模型匹配、仅生图、排除生图。
+- 后端不新增数据库列，扩展现有 `multi_group_routes` JSON，兼容旧 Key。
 
-2. 当前会话层面的活跃任务是公共首页与多语言维护
-   - 最近一次明确在做的单项任务，是默认首页信息架构/视觉重排，以及 `zh.ts` / `en.ts` 的维护性拆分。
-   - 这属于当前工作区里的局部前端任务，不代表仓库整体主线已经从聊天生图/嵌入工作区切回公共首页。
+## 本次已完成
 
-## 当前局部任务
+- 后端 `APIKeyMultiGroupRoute` 增加 `model_patterns`、`image_only`、`text_only` JSON 字段。
+- 后端路由 resolver 支持模型 pattern、图片意图、`image_only` / `text_only`、旧 priority/weight fallback。
+- OpenAI/Anthropic/Gemini 相关 handler 在解析 model/imageIntent 后执行二次分组解析并更新 `api_key` 上下文。
+- `/v1/messages`、`/v1/messages/count_tokens`、responses、chat completions、embeddings、images 等路由分发前预读 JSON model，避免先进入错误平台 handler。
+- 自检智能体发现的问题已处理：
+  - 延后模型感知端点的分组级订阅/余额校验，避免默认分组在最终路由前误拦截。
+  - `Abort` 后显式 `return`，避免错误响应后继续进入 handler。
+  - body 预读失败时直接 abort，`MaxBytesError` 返回 413。
+  - 同一 group 多 scope 冷却改为取该 group 所有启用 route 的最大 cooldown。
+  - `messages/count_tokens` 增加模型感知二次路由。
+- 前端 `KeysView.vue` 智能自动、价格优先、速度优先、成功率优先生成通用/生图规则；手动路由支持模型匹配和生图开关。
+- 前端类型和中英文 keys 文案已同步。
 
-### 首页重排与价格公式模块
+## 已确认事实
 
-- 用户要求：参考 `https://xcode.best/` 首页截图，在当前首页下方增加更多内容；随后调整版式和文案，避免借鉴痕迹过重，并增加小图标；最新要求参考 `nextlevelbuilder/ui-ux-pro-max-skill` 设定一个设计风格。
-- 后续要求：在首页明确加入“价格计算公式”部分，说明余额如何换算和消耗；把第一屏空出来，不让下方新增内容露进首屏；移除“模型接入，像控制台一样清晰 / gateway.config / 一把密钥、分组路由、账单回放”那段；再按 UI 设计师检查结果继续压缩高空卡区域。
-- 当前工作区存在多项本轮前或并行的未提交改动；本轮首页任务只改默认首页和首页文案，不处理其他 payment / affiliate / tutorial 相关线。
+- 生图路由只允许 OpenAI 平台且 `allow_image_generation=true` 的分组参与。
+- 生图价格优先在有独立生图倍率时按 `image_rate_multiplier` 排序，否则按通用有效倍率排序。
+- 旧 `multi_group_routes` 缺少新字段时按零值处理，不会强制进入模型规则。
+- 前端允许同一 group 按 `text_only` / `image_only` 拆成多条 route；后端 normalize/validate 已按 scope 兼容。
 
-### 本轮已完成
+## 待验证点
 
-- `frontend/src/views/HomeView.vue` 默认首页新增价格公式模块，保留 `homeContent` 自定义首页分支不变。
-- 视觉方向采用 `Enterprise Gateway` 信息架构 + `AI-Native / HUD` 语言，未引入外部依赖。
-- 已移除旧 `AI-Native Command Center` 说明区，不再展示 `gateway.config` 终端预览和“一把密钥 / 分组路由 / 账单回放”三段卡片。
-- 独立价格公式模块用 `1 人民币 = 1 美元`、分组倍率 `0.15x`、得到 `0.150 元人民币`、对应官方 `$1 API 用量` 的四步表达解释费用换算，并补充 Claude / OpenAI / Gemini 官方价目表入口。
-- 已删除价格公式下方重复费用大卡和三张高空卡，把 CTA 和说明压缩进公式模块底部紧凑区。
-- 已按用户要求删除 `Bento Workflow / 开发工具、Agent 和团队额度走同一套规则` 整块展示区，并清理对应 `codingTools` 文案、bento/workflow 样式和回归测试断言。
-- 默认首页首屏改为独立 hero 视口：`home-main-stage` 使用 `100svh`，价格公式和后续内容从第二屏开始出现。
+- 真实登录态下打开 API Key 创建/编辑弹窗，检查桌面和窄屏布局、底部提交按钮固定、手动路由展开区域不溢出。
+- 用实际账号池 smoke：同一 Key 调用 `/v1/responses` 文本模型、生图模型、`/v1/images/generations`、`/v1/messages/count_tokens`，确认最终命中的分组和计费上下文符合规则。
+- 如果未来要精确到“命中 route 的 cooldown”，需要把 resolver 返回值从 group 扩展为 route+group；本轮先按 group 统一冷却。
 
-### i18n 维护性拆分
+## 当前结论
 
-- `frontend/src/i18n/locales/zh.ts` 与 `frontend/src/i18n/locales/en.ts` 已改成聚合入口，单文件约 2KB。
-- 顶层 domain 拆到 `frontend/src/i18n/locales/zh/*.ts` 与 `frontend/src/i18n/locales/en/*.ts`。
-- `admin` 再拆到 `frontend/src/i18n/locales/{zh,en}/admin/*.ts`，避免形成新的超大 `admin.ts`。
-- `i18n/index.ts` 的动态导入入口保持不变，因此运行时加载语义不变；这次拆分主要是维护性收益，不是为了显著缩小语言包 chunk。
-
-## 验证记录
-
-- `npm.cmd run test:run -- home-theme public-smoke`：通过，覆盖首页价格公式、hero 首屏和旧块不回归。
-- `npm.cmd run test:run -- home-theme usageServiceTierLocales PaymentView public-smoke`：通过，29 个测试。
-- `npm.cmd run typecheck`：通过。
-- `npm.cmd run build`：通过；仅有既有 Vite dynamic import/chunk size 和 Node `DEP0190` 警告。
-- `git diff --check`：通过；仅有若干 knowledge 文件既有 LF/CRLF warning。
-- Node AST 结构检查：`zh/en` 顶层 39 个 key 对齐，`zh/en admin` 24 个子 key 对齐。
-- Playwright 截图与 DOM 检查已覆盖首页桌面/移动端、价格模块和首屏高度，移动端无横向溢出。
-
-## 当前工作区注意
-
-- 本轮首页/i18n 相关改动集中在：
-  - `frontend/src/views/HomeView.vue`
-  - `frontend/src/i18n/locales/zh.ts`
-  - `frontend/src/i18n/locales/en.ts`
-  - `frontend/src/i18n/locales/zh/`
-  - `frontend/src/i18n/locales/en/`
-  - `frontend/src/__tests__/home-theme.spec.ts`
-  - `frontend/src/views/user/__tests__/PaymentView.spec.ts`
-- `git status` 仍有其他并行改动未处理也未回滚，包括后端 payment / affiliate、部分 tutorial 公共页、`knowledge/00-start-here.md`、`knowledge/05-current-focus.md`、迁移脚本和教程静态资源。
-- 继续新任务前先执行 `git status --short`，确认本轮只接手哪条线；不要把首页任务和聊天生图/嵌入工作区主线混成同一批提交。
+- 模型感知智能分组路由已实现并通过相关自动化验证。
+- 自检智能体指出的 P1/P2/P3 问题均已修复或以兼容方案收口。
+- 当前未做数据库迁移，API 请求格式保持兼容。
 
 ## 下一步
 
-- 如果继续做首页，可追加“支持模型 / 接入教程 / 常见问题”第三段，并在上线前核对示例倍率 `0.15x` 是否与站点真实默认分组一致。
-- 如果继续做仓库默认主线，应转去聊天生图/嵌入工作区、`/canvas`、OpenWebUI launch / redeem、模型目录/定价同步，不要被本文件里的首页任务记录带偏。
+- 视觉验证：登录本地前端后打开 API Key 创建弹窗 -> 验证创建/编辑模式、智能模式卡片、手动路由模型规则输入在桌面和移动窄屏均正常。
+- 运行时 smoke：准备至少两个可用分组，一个通用文本组和一个允许生图的 OpenAI 组 -> 使用同一 API Key 分别请求文本和生图模型 -> 验证日志中的 group_id 分别命中预期分组。
+- 提交前复核：用 `git diff --stat` 和 `git diff --check` 确认只纳入本轮相关文件，避免混入并行 support ticket / ent / workflow 改动。
+
+## 验证记录
+
+- `go test ./internal/server/routes ./internal/server/middleware ./internal/service ./internal/handler`：通过。
+- `npm.cmd run test:run -- KeysView`：通过，`KeysView.createQuery.spec.ts` 10 个测试通过。
+- `npm.cmd run build`：通过；仅有既有 Browserslist 过旧、Vite dynamic/static import、chunk size 警告。
+- `git diff --check`：通过；仅有 docs/workflow 文件 LF/CRLF warning。
+- 自检智能体 `019e833a-f7ff-72a0-8a60-2c5a6b74d67c` 已完成并关闭。
