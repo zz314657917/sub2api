@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-01 18:45 +08:00
+最后更新：2026-06-01 18:59 +08:00
 
 ## 当前仓库状态
 
@@ -19,16 +19,19 @@
 - OpenAI Responses、Chat Completions、Anthropic Messages 兼容路径，以及原生 Anthropic/Gateway/Bedrock 错误路径，已把当前请求的上游模型传入 `RateLimitService.HandleUpstreamError`。
 - 新增 `model_not_found_error.go` 识别模型不存在 404 body，避免普通 endpoint 404 被误判为模型级冷却。
 - 新增 unit 测试覆盖模型 404 写模型级冷却、写入失败仍触发 failover、普通 404 仍走既有临时不可调度规则。
+- 本批继续补齐低风险 ops 指标修复：`ops_metrics_collector.queryErrorCounts` 现在排除 `is_count_tokens = FALSE`，避免 `count_tokens` 非生成类计数错误污染管理端错误率、SLA 错误和上游 429/529 指标。
+- 已确认多项候选修复本地已存在：OpenAI `response.failed` 流式终态补偿、`count_tokens` generation-only 字段过滤、`context_management` sanitize、Gemini Messages `tool_use` 后接 `text` 的内容块关闭、系统更新 `already_up_to_date`、并发 acquire 失败分类、usage request context、敏感 credentials redaction、OIDC compat email、setup 初始化后拦截。
 
 ### 本批验证记录
 
 - `cd backend && go test -tags unit ./internal/service -run TestIsUpstreamModelNotFoundError|TestRateLimitService_HandleUpstreamError_ModelNotFound|TestRateLimitService_HandleUpstreamError_NonModel404 -count=1`：通过。
 - `cd backend && go test ./internal/service -run TestIsUpstreamModelNotFoundError -count=1`：通过，确认非 unit service 包可编译。
+- `cd backend && go test ./internal/service -run TestOpsMetricsCollectorQueryErrorCountsExcludesCountTokens -count=1`：通过。
 - `git diff --check`：通过。
 
 ### 下一步候选
 
-- 继续合低风险网关安全修复时，优先看 `count_tokens`、WS compatibility、usage context 这类不引入数据库模型的补丁。
+- 继续合低风险网关安全修复时，优先看剩余 OpenAI/Anthropic API compatibility、ops 指标、认证状态处理这类不引入数据库模型的补丁。
 - 账号配额 5h/7d 自动暂停、风控运行态、DingTalk OAuth、迁移编号重排仍保持排除，除非用户明确切到该主题。
 
 ## 当前默认主线分流
