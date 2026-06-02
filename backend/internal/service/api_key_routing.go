@@ -209,10 +209,11 @@ func apiKeyRouteHasModelRules(route domain.APIKeyMultiGroupRoute) bool {
 }
 
 func apiKeyRouteMatchesModelRequest(route domain.APIKeyMultiGroupRoute, group *Group, requestedModel string, imageIntent bool) bool {
+	videoIntent := IsVideoGenerationIntent("", requestedModel, nil)
 	if route.ImageOnly && !imageIntent {
 		return false
 	}
-	if route.TextOnly && imageIntent {
+	if route.TextOnly && (imageIntent || videoIntent) {
 		return false
 	}
 	if imageIntent && (group == nil || group.Platform != PlatformOpenAI || !group.AllowImageGeneration) {
@@ -300,6 +301,9 @@ func preferredPlatformsForPath(path, forcePlatform string) []string {
 	case strings.HasPrefix(path, "/v1beta"):
 		return []string{PlatformGemini}
 	case strings.HasPrefix(path, "/v1/images/") || strings.HasPrefix(path, "/images/"):
+		return []string{PlatformOpenAI}
+	case strings.HasPrefix(path, "/v1/videos/") || strings.HasPrefix(path, "/videos/") ||
+		strings.HasPrefix(path, "/v1/tasks/") || strings.HasPrefix(path, "/tasks/"):
 		return []string{PlatformOpenAI}
 	case strings.HasPrefix(path, "/v1/chat/completions") || strings.HasPrefix(path, "/chat/completions"):
 		return []string{PlatformOpenAI}

@@ -248,6 +248,38 @@ func TestAPIKeyResolveForModelRequestTextOnlyExcludesImageIntent(t *testing.T) {
 	require.Equal(t, imageGroupID, *resolved.GroupID)
 }
 
+func TestAPIKeyResolveForModelRequestTextOnlyExcludesVideoModels(t *testing.T) {
+	textGroupID := int64(10)
+	videoGroupID := int64(20)
+	key := &APIKey{
+		GroupID: &textGroupID,
+		Group: &Group{
+			ID:       textGroupID,
+			Platform: PlatformOpenAI,
+			Status:   StatusActive,
+			Hydrated: true,
+		},
+		MultiGroupRouteGroups: []*Group{
+			{
+				ID:       videoGroupID,
+				Platform: PlatformOpenAI,
+				Status:   StatusActive,
+				Hydrated: true,
+			},
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: textGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
+			{GroupID: videoGroupID, Priority: 2, Weight: 1, Enabled: true, ModelPatterns: []string{"doubao-seedance-*"}},
+		},
+	}
+
+	resolved := key.ResolveForModelRequest("/v1/videos/generations", "", "doubao-seedance-2.0", false)
+
+	require.NotNil(t, resolved)
+	require.NotNil(t, resolved.GroupID)
+	require.Equal(t, videoGroupID, *resolved.GroupID)
+}
+
 func TestAPIKeyResolveForModelRequestFallsBackWhenNoModelRuleMatches(t *testing.T) {
 	defaultGroupID := int64(1)
 	fallbackGroupID := int64(2)

@@ -1,63 +1,61 @@
 # 当前任务快照
 
-最后更新：2026-06-01 21:20 +08:00
+最后更新：2026-06-02 15:30 +08:00
 
 ## 背景
 
 - 仓库：`F:/mcplugins/sub2api`。
-- 本轮任务围绕 API Key 创建弹窗的智能路由模式，以及后续“模型感知智能分组路由”运行时能力。
-- 工作区有多条并行未提交改动，包括 support ticket、ent 生成文件、workflow 文档、用户/福利/支付等；本轮只处理 Key 智能路由相关前后端文件，不回滚其他改动。
+- 当前主线从“模型感知智能分组路由”延伸到 OpenAI-compatible 视频模型接入与异步任务计费。
+- 工作区仍有多条并行未提交改动，包括 ticket、公共模型广场、前端类型等；本轮收尾只处理后端视频异步任务、余额预扣和计费链路，不回滚其它改动。
 
 ## 当前目标
 
-- 一个 API Key 能按请求模型和生图意图自动选择分组，不要求用户为每类模型创建专用 Key。
-- 前端保留模式卡片，自动生成 `multi_group_routes`；高级手动路由可配置模型匹配、仅生图、排除生图。
-- 后端不新增数据库列，扩展现有 `multi_group_routes` JSON，兼容旧 Key。
+- 用户余额不足时，`POST /v1/videos/generations` 必须在上游调用前拦截，避免平台垫付视频生成成本。
+- 钱包分组提交视频任务前按模型价格预估并预扣余额；上游提交失败、缺少 task_id、任务失败/取消时退款；任务成功时写 usage/billing，但不重复扣余额。
+- 订阅分组不预扣钱包余额，任务成功后仍走订阅额度计费。
+- `simple` 运行模式不做真实预扣或计费。
 
 ## 本次已完成
 
-- 后端 `APIKeyMultiGroupRoute` 增加 `model_patterns`、`image_only`、`text_only` JSON 字段。
-- 后端路由 resolver 支持模型 pattern、图片意图、`image_only` / `text_only`、旧 priority/weight fallback。
-- OpenAI/Anthropic/Gemini 相关 handler 在解析 model/imageIntent 后执行二次分组解析并更新 `api_key` 上下文。
-- `/v1/messages`、`/v1/messages/count_tokens`、responses、chat completions、embeddings、images 等路由分发前预读 JSON model，避免先进入错误平台 handler。
-- 自检智能体发现的问题已处理：
-  - 延后模型感知端点的分组级订阅/余额校验，避免默认分组在最终路由前误拦截。
-  - `Abort` 后显式 `return`，避免错误响应后继续进入 handler。
-  - body 预读失败时直接 abort，`MaxBytesError` 返回 413。
-  - 同一 group 多 scope 冷却改为取该 group 所有启用 route 的最大 cooldown。
-  - `messages/count_tokens` 增加模型感知二次路由。
-- 前端 `KeysView.vue` 智能自动、价格优先、速度优先、成功率优先生成通用/生图规则；手动路由支持模型匹配和生图开关。
-- 前端类型和中英文 keys 文案已同步。
+- 新增 `openai_video_tasks` 任务表迁移，记录异步视频任务、模型映射、提交/状态响应、计费状态。
+- 增加 `estimated_cost`、`reserved_cost`、`refunded_cost`，区分估算价、钱包预扣额和退款额。
+- `OpenAIGatewayHandler.Videos` 在钱包模式下先预估价格并原子预扣余额，余额不足直接返回 `billing_error`，不调用上游。
+- 上游 failover、普通失败、响应缺少 `task_id`、任务记录失败时只对已预扣任务执行退款。
+- 订阅分组只检查视频价格配置，不写 `reserved_cost`，避免钱包和订阅双扣。
+- `SettleOpenAIVideoTaskIfTerminal`：
+  - 失败状态退款、刷新用户余额缓存并标记 `failed_no_charge`。
+  - 成功状态对已预扣任务使用 `PrepaidBalanceCost` 和 `CostOverride`，写使用记录但不再次扣钱包余额。
+- 通用 usage billing 增加 `PrepaidBalanceCost`，钱包余额扣减、缓存扣减和低余额通知都只针对剩余未预付成本。
+- 预扣/退款后失效用户余额缓存，降低前端余额和后续 eligibility 判断滞后。
+- 补跑真实 PostgreSQL 容器迁移集成测试，确认 `166_openai_video_tasks.sql` 可随完整迁移链执行。
 
 ## 已确认事实
 
-- 生图路由只允许 OpenAI 平台且 `allow_image_generation=true` 的分组参与。
-- 生图价格优先在有独立生图倍率时按 `image_rate_multiplier` 排序，否则按通用有效倍率排序。
-- 旧 `multi_group_routes` 缺少新字段时按零值处理，不会强制进入模型规则。
-- 前端允许同一 group 按 `text_only` / `image_only` 拆成多条 route；后端 normalize/validate 已按 scope 兼容。
-
-## 待验证点
-
-- 真实登录态下打开 API Key 创建/编辑弹窗，检查桌面和窄屏布局、底部提交按钮固定、手动路由展开区域不溢出。
-- 用实际账号池 smoke：同一 Key 调用 `/v1/responses` 文本模型、生图模型、`/v1/images/generations`、`/v1/messages/count_tokens`，确认最终命中的分组和计费上下文符合规则。
-- 如果未来要精确到“命中 route 的 cooldown”，需要把 resolver 返回值从 group 扩展为 route+group；本轮先按 group 统一冷却。
-
-## 当前结论
-
-- 模型感知智能分组路由已实现并通过相关自动化验证。
-- 自检智能体指出的 P1/P2/P3 问题均已修复或以兼容方案收口。
-- 当前未做数据库迁移，API 请求格式保持兼容。
-
-## 下一步
-
-- 视觉验证：登录本地前端后打开 API Key 创建弹窗 -> 验证创建/编辑模式、智能模式卡片、手动路由模型规则输入在桌面和移动窄屏均正常。
-- 运行时 smoke：准备至少两个可用分组，一个通用文本组和一个允许生图的 OpenAI 组 -> 使用同一 API Key 分别请求文本和生图模型 -> 验证日志中的 group_id 分别命中预期分组。
-- 提交前复核：用 `git diff --stat` 和 `git diff --check` 确认只纳入本轮相关文件，避免混入并行 support ticket / ent / workflow 改动。
+- 钱包模式：`reserved_cost > 0` 才会被当成预付余额；单纯 `estimated_cost` 不会触发预付抵扣。
+- 订阅模式：不预扣钱包，结算时由已有订阅计费逻辑处理。
+- `simple` 模式：跳过视频价格估算、预扣和真实扣费。
+- 视频模型价格必须在渠道模型定价里配置为 `per_request` 或 `image`，否则非 simple 模式会拒绝视频任务提交。
 
 ## 验证记录
 
-- `go test ./internal/server/routes ./internal/server/middleware ./internal/service ./internal/handler`：通过。
-- `npm.cmd run test:run -- KeysView`：通过，`KeysView.createQuery.spec.ts` 10 个测试通过。
-- `npm.cmd run build`：通过；仅有既有 Browserslist 过旧、Vite dynamic/static import、chunk size 警告。
-- `git diff --check`：通过；仅有 docs/workflow 文件 LF/CRLF warning。
-- 自检智能体 `019e833a-f7ff-72a0-8a60-2c5a6b74d67c` 已完成并关闭。
+- `go test ./internal/service -run OpenAIGatewayServiceForwardVideos -count=1`：通过。
+- `go test ./internal/service -run OpenAIGatewayServiceEstimateOpenAIVideoCost -count=1`：通过。
+- `go test ./internal/service -run OpenAIGatewayServiceVideoTaskSettlement -count=1`：通过，覆盖失败任务退款后余额缓存失效。
+- `go test ./internal/handler ./internal/repository -count=1`：通过。
+- `go test ./internal/service ./internal/handler ./internal/repository -count=1`：通过。
+- `go test ./internal/server/routes ./cmd/server -count=1`：通过。
+- `go test -tags=integration ./internal/repository -run TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate -count=1`：通过，覆盖 PostgreSQL/Redis testcontainers 与完整迁移链。
+- `git diff --check`：通过；仅有 `.dockerignore` 和 `knowledge/tasks/current-task.md` 的 LF/CRLF warning。
+
+## 待验证点
+
+- 用真实上游视频账号 smoke：
+  - 余额不足提交视频任务应直接失败，且上游无任务产生。
+  - 余额充足提交成功后余额立即减少预扣额。
+  - 上游任务失败后余额退回。
+  - 上游任务成功后 usage log 生成，余额不二次减少。
+- 前端/管理台如需展示视频任务或预扣状态，后续再补 UI。
+
+## 下一步
+
+- 若继续开发：真实上游视频 smoke 可能消耗上游额度/余额，需用户确认使用哪个本地环境和测试账号后再跑；随后再考虑前端展示异步任务状态和管理员定价提示。

@@ -76,6 +76,10 @@ type TicketListFilter struct {
 	TicketType string
 	Search     string
 	UserID     int64
+	EventType  string
+	EventKey   string
+	DateFrom   time.Time
+	DateTo     time.Time
 	UnreadOnly bool
 	UnreadFor  string
 	SortBy     string
@@ -725,6 +729,14 @@ func normalizeTicketListFilter(filter TicketListFilter) TicketListFilter {
 	if len([]rune(filter.Search)) > 100 {
 		filter.Search = string([]rune(filter.Search)[:100])
 	}
+	filter.EventType = strings.TrimSpace(filter.EventType)
+	if len([]rune(filter.EventType)) > 100 {
+		filter.EventType = string([]rune(filter.EventType)[:100])
+	}
+	filter.EventKey = strings.TrimSpace(filter.EventKey)
+	if len([]rune(filter.EventKey)) > 200 {
+		filter.EventKey = string([]rune(filter.EventKey)[:200])
+	}
 	if filter.UnreadFor != TicketSenderUser && filter.UnreadFor != TicketSenderAdmin {
 		filter.UnreadFor = ""
 	}
@@ -744,6 +756,9 @@ func normalizeTicketListFilter(filter TicketListFilter) TicketListFilter {
 	}
 	if filter.PageSize > maxTicketPageSize {
 		filter.PageSize = maxTicketPageSize
+	}
+	if !filter.DateFrom.IsZero() && !filter.DateTo.IsZero() && filter.DateFrom.After(filter.DateTo) {
+		filter.DateFrom, filter.DateTo = filter.DateTo, filter.DateFrom
 	}
 	return filter
 }

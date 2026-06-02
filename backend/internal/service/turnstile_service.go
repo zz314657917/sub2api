@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
@@ -73,7 +74,12 @@ func (s *TurnstileService) VerifyToken(ctx context.Context, token string, remote
 
 	if !result.Success {
 		logger.LegacyPrintf("service.turnstile", "[Turnstile] Verification failed, error codes: %v", result.ErrorCodes)
-		return ErrTurnstileVerificationFailed
+		if len(result.ErrorCodes) == 0 {
+			return ErrTurnstileVerificationFailed
+		}
+		return ErrTurnstileVerificationFailed.WithMetadata(map[string]string{
+			"turnstile_error_codes": strings.Join(result.ErrorCodes, ","),
+		})
 	}
 
 	logger.LegacyPrintf("service.turnstile", "%s", "[Turnstile] Verification successful")

@@ -1,8 +1,11 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -221,6 +224,51 @@ func TestSystemTicketNotificationTemplates(t *testing.T) {
 	require.Equal(t, "gpt-test", welfareEvent.Metadata["model"])
 }
 
+func TestAdminService_GroupChangedSystemNotificationSmoke(t *testing.T) {
+	repo := newFakeTicketRepo()
+	adminSvc := &adminServiceImpl{}
+	adminSvc.SetSystemTicketService(NewSystemTicketService(repo))
+
+	adminSvc.notifyGroupChangedBestEffort(context.Background(), 42, "api_key_group_update", map[string]any{
+		"group_id":            int64(7),
+		"group_name":          "PLUS共享号池",
+		"old_rate_multiplier": 0.06,
+		"new_rate_multiplier": 0.08,
+		"old_rpm_limit":       60,
+		"new_rpm_limit":       120,
+	})
+
+	got := requireSystemTicketNotification(t, repo, 42, SystemTicketEventGroupChanged, "")
+	require.Contains(t, got.Message.EventKey, "group_changed:42:")
+	require.Contains(t, got.Message.Content, "PLUS共享号池")
+	require.Contains(t, got.Message.Content, "计费倍率：0.06x -> 0.08x")
+	require.Contains(t, got.Message.Content, "RPM 限制：60 -> 120")
+	require.Equal(t, "api_key_group_update", got.Metadata["source"])
+	require.Equal(t, 0.06, got.Metadata["old_rate_multiplier"])
+	require.Equal(t, 0.08, got.Metadata["new_rate_multiplier"])
+	require.Equal(t, float64(60), got.Metadata["old_rpm_limit"])
+	require.Equal(t, float64(120), got.Metadata["new_rpm_limit"])
+}
+
+func TestSystemTicketNotificationFailureLogFields(t *testing.T) {
+	var buf bytes.Buffer
+	previous := slog.Default()
+	slog.SetDefault(slog.New(slog.NewJSONHandler(&buf, nil)))
+	defer slog.SetDefault(previous)
+
+	logSystemTicketNotificationFailure("service.test", 9, SystemTicketNotification{
+		EventType: SystemTicketEventPaymentCompleted,
+		EventKey:  "payment_completed:1",
+	}, errors.New("boom"))
+
+	out := buf.String()
+	require.Contains(t, out, `"module":"service.test"`)
+	require.Contains(t, out, `"user_id":9`)
+	require.Contains(t, out, `"event_type":"payment_completed"`)
+	require.Contains(t, out, `"event_key":"payment_completed:1"`)
+	require.Contains(t, out, `"error":"boom"`)
+}
+
 func TestTicketService_SystemTicketIsReadOnly(t *testing.T) {
 	repo := newFakeTicketRepo()
 	systemSvc := NewSystemTicketService(repo)
@@ -285,6 +333,45 @@ func newFakeTicketRepo() *fakeTicketRepo {
 		messages:      map[int64][]SupportTicketMessage{},
 		systemByUser:  map[int64]int64{},
 		eventKeys:     map[int64]map[string]bool{},
+	}
+}
+
+type systemTicketNotificationCheck struct {
+	Message  SupportTicketMessage
+	Metadata map[string]any
+}
+
+func requireSystemTicketNotification(t *testing.T, repo *fakeTicketRepo, userID int64, eventType string, eventKey string) systemTicketNotificationCheck {
+	t.Helper()
+
+	ticketID := repo.systemByUser[userID]
+	require.NotZero(t, ticketID)
+	ticket := repo.tickets[ticketID]
+	require.NotNil(t, ticket)
+	require.Equal(t, TicketTypeSystem, ticket.TicketType)
+	require.Equal(t, SystemTicketKeyDefault, ticket.SystemKey)
+	require.Equal(t, SystemTicketTitle, ticket.Title)
+	require.Equal(t, TicketStatusOpen, ticket.Status)
+	require.Equal(t, 1, ticket.UserUnreadCount)
+
+	messages := repo.messages[ticketID]
+	require.Len(t, messages, 1)
+	msg := messages[0]
+	require.Equal(t, TicketSenderSystem, msg.SenderType)
+	require.Equal(t, eventType, msg.EventType)
+	if eventKey != "" {
+		require.Equal(t, eventKey, msg.EventKey)
+	}
+	require.NotEmpty(t, msg.Content)
+	require.NotEmpty(t, msg.Metadata)
+
+	var metadata map[string]any
+	require.NoError(t, json.Unmarshal(msg.Metadata, &metadata))
+	require.Equal(t, eventType, metadata["action_type"])
+
+	return systemTicketNotificationCheck{
+		Message:  msg,
+		Metadata: metadata,
 	}
 }
 

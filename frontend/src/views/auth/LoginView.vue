@@ -485,6 +485,10 @@ function validateForm(): boolean {
 // ==================== Form Handlers ====================
 
 async function handleLogin(): Promise<void> {
+  if (isLoading.value) {
+    return
+  }
+
   // Clear previous error
   errorMessage.value = ''
 

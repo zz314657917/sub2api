@@ -7,8 +7,9 @@
     <main class="model-plaza-main relative z-10 mx-auto">
       <section class="model-plaza-title">
         <div>
-          <h1>模型广场</h1>
-          <p>浏览可用的 AI 模型及其定价</p>
+          <span class="model-title-kicker">Pricing Center</span>
+          <h1>模型定价</h1>
+          <p>按供应商查看 Claude、GPT、Gemini 等模型价格，支持按分组倍率折算到你的实际成本。</p>
         </div>
         <button class="model-refresh-button" type="button" :disabled="loading" @click="loadChannels(true)">
           <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
@@ -82,53 +83,99 @@
         </button>
       </section>
 
-      <section v-if="filteredModels.length > 0" class="model-card-grid">
-        <article v-for="model in filteredModels" :key="model.key" class="model-price-card">
-          <div class="model-card-head">
-            <ModelIcon :model="model.name" size="28px" />
-            <div class="min-w-0">
-              <h2>{{ model.name }}</h2>
-              <p>{{ providerLabel(model.platform) }}</p>
+      <section v-if="filteredModels.length > 0" class="model-pricing-stack model-card-grid">
+        <article
+          v-for="section in providerPricingSections"
+          :key="section.platform"
+          class="model-provider-section"
+        >
+          <div class="model-provider-head">
+            <div class="model-provider-title">
+              <span class="model-provider-icon" :class="providerToneClass(section.platform)">
+                <ModelIcon :model="section.sampleModel" size="24px" />
+              </span>
+              <div>
+                <h2>{{ section.label }}</h2>
+                <p>{{ providerDescription(section.platform) }}</p>
+              </div>
+            </div>
+            <div class="model-provider-meta">
+              <strong>{{ section.models.length }}</strong>
+              <span>Models</span>
             </div>
           </div>
 
-          <div v-if="hasPromptCaching(model)" class="model-cache-badge">
-            <Icon name="sparkles" size="xs" />
-            Prompt Caching
+          <div class="model-pricing-table-wrap">
+            <table class="model-pricing-table">
+              <thead>
+                <tr>
+                  <th>模型</th>
+                  <th>官方/参考价</th>
+                  <th>我们的价格</th>
+                  <th>计费说明</th>
+                  <th>缓存写入</th>
+                  <th>缓存读取</th>
+                  <th>价格口径</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="model in section.models" :key="model.key">
+                  <td data-label="模型">
+                    <div class="model-name-cell">
+                      <ModelIcon :model="model.name" size="22px" />
+                      <div class="min-w-0">
+                        <strong>{{ model.name }}</strong>
+                        <span>{{ modelAvailabilityLabel(model) }}</span>
+                      </div>
+                      <em v-if="hasPromptCaching(model)" class="model-cache-badge">
+                        <Icon name="sparkles" size="xs" />
+                        Prompt Caching
+                      </em>
+                    </div>
+                  </td>
+                  <td data-label="官方/参考价">
+                    <span class="model-price-value muted">
+                      {{ referencePrice(model) }}
+                    </span>
+                  </td>
+                  <td data-label="我们的价格">
+                    <span class="model-price-value" :class="{ 'is-rate-price': isRatePriceActive(model) }">
+                      {{ formatPrimaryModelPrice(model) }}
+                    </span>
+                    <small v-if="isRatePriceActive(model) && model.pricing?.input_price != null">
+                      基础 {{ formatBaseModelPrice(model.pricing?.input_price) }}
+                    </small>
+                  </td>
+                  <td data-label="计费说明">
+                    <span class="model-price-value" :class="{ 'is-rate-price': isRatePriceActive(model) }">
+                      {{ formatSecondaryModelPrice(model) }}
+                    </span>
+                    <small v-if="pricingNote(model)" class="model-price-note">
+                      {{ pricingNote(model) }}
+                    </small>
+                    <small v-if="isRatePriceActive(model) && model.pricing?.output_price != null">
+                      基础 {{ formatBaseModelPrice(model.pricing?.output_price) }}
+                    </small>
+                  </td>
+                  <td data-label="缓存写入">
+                    <span class="model-price-value muted">
+                      {{ formatModelPrice(model.pricing?.cache_write_price, model) }}
+                    </span>
+                  </td>
+                  <td data-label="缓存读取">
+                    <span class="model-price-value muted">
+                      {{ formatModelPrice(model.pricing?.cache_read_price, model) }}
+                    </span>
+                  </td>
+                  <td data-label="价格口径">
+                    <span class="model-rate-pill" :class="{ 'is-muted': !isRatePriceActive(model) }">
+                      {{ isRatePriceActive(model) ? effectiveRateLabel(model) : '展示价' }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-
-          <dl class="model-price-list">
-            <div>
-              <dt><Icon name="upload" size="xs" />输入</dt>
-              <dd :class="{ 'is-rate-price': isRatePriceActive(model) }">
-                <span>{{ formatModelPrice(model.pricing?.input_price, model) }}</span>
-                <small v-if="isRatePriceActive(model)">
-                  基础 {{ formatBaseModelPrice(model.pricing?.input_price) }} · {{ effectiveRateLabel(model) }}
-                </small>
-              </dd>
-            </div>
-            <div>
-              <dt><Icon name="download" size="xs" />输出</dt>
-              <dd :class="{ 'is-rate-price': isRatePriceActive(model) }">
-                <span>{{ formatModelPrice(model.pricing?.output_price, model) }}</span>
-                <small v-if="isRatePriceActive(model)">
-                  基础 {{ formatBaseModelPrice(model.pricing?.output_price) }} · {{ effectiveRateLabel(model) }}
-                </small>
-              </dd>
-            </div>
-            <div class="model-price-muted">
-              <dt><Icon name="document" size="xs" />缓存写入</dt>
-              <dd>
-                <span>{{ formatModelPrice(model.pricing?.cache_write_price, model) }}</span>
-              </dd>
-            </div>
-            <div class="model-price-muted">
-              <dt><Icon name="sync" size="xs" />缓存读取</dt>
-              <dd>
-                <span>{{ formatModelPrice(model.pricing?.cache_read_price, model) }}</span>
-              </dd>
-            </div>
-          </dl>
         </article>
       </section>
 
@@ -139,7 +186,7 @@
       </section>
 
       <p class="model-plaza-note">
-        价格以每百万 token 展示；开启倍率后按当前分组倍率折算。实际扣费以控制台记录为准。
+        页面价格为当前展示/售卖价，不等同于官方基础价；开启倍率后按当前分组倍率折算。实际扣费以控制台记录为准。
       </p>
     </main>
   </div>
@@ -160,7 +207,7 @@ import userChannelsAPI, {
   type UserSupportedModelPricing
 } from '@/api/channels'
 import userGroupsAPI from '@/api/groups'
-import { BILLING_MODE_TOKEN } from '@/constants/channel'
+import { BILLING_MODE_PER_REQUEST, BILLING_MODE_TOKEN } from '@/constants/channel'
 import type { Group } from '@/types'
 
 interface ModelGroupMeta extends UserAvailableGroup {
@@ -326,6 +373,23 @@ const filteredModels = computed(() => {
   })
 })
 
+const providerPricingSections = computed(() => {
+  const sections = new Map<string, { platform: string; label: string; sampleModel: string; models: PlazaModel[] }>()
+  for (const model of filteredModels.value) {
+    const platform = model.platform || 'unknown'
+    const section = sections.get(platform) ?? {
+      platform,
+      label: providerLabel(platform),
+      sampleModel: model.name,
+      models: []
+    }
+    section.models.push(model)
+    sections.set(platform, section)
+  }
+
+  return Array.from(sections.values()).sort((a, b) => a.label.localeCompare(b.label))
+})
+
 const emptyStateMessage = computed(() => modelCards.value.length === 0 ? '暂无可用模型' : '没有找到匹配的模型')
 
 async function loadChannels(force = false): Promise<void> {
@@ -399,15 +463,79 @@ function formatModelPrice(value: number | null | undefined, model: PlazaModel): 
   return formatPricePerMillion(value * rate)
 }
 
+function formatPrimaryModelPrice(model: PlazaModel): string {
+  const perRequestPrice = model.pricing?.per_request_price
+  if (model.pricing?.billing_mode === BILLING_MODE_PER_REQUEST && perRequestPrice != null) {
+    return formatPerRequestPrice(perRequestPrice, model)
+  }
+
+  return formatModelPrice(model.pricing?.input_price, model)
+}
+
+function formatSecondaryModelPrice(model: PlazaModel): string {
+  if (model.pricing?.billing_mode === BILLING_MODE_PER_REQUEST) {
+    return model.pricing.intervals[0]?.tier_label || '单次计费'
+  }
+
+  return formatModelPrice(model.pricing?.output_price, model)
+}
+
+function referencePrice(model: PlazaModel): string {
+  switch (model.name) {
+    case 'kling-v3-omni':
+      return formatRmbReferencePrice(0.084, '/秒')
+    case 'kling-v2-6':
+      return formatRmbReferencePrice(0.07, '/秒')
+    case 'wan2.7':
+      return formatRmbReferencePrice(0.083, '/秒')
+    case 'veo3.1-fast':
+      return `${formatRmbReferencePrice(0.10, '/秒')}起`
+    case 'doubao-seedance-2.0':
+      return '¥46/M tokens'
+    default:
+      return '-'
+  }
+}
+
+function formatRmbReferencePrice(usdPrice: number, unit: string): string {
+  const rmbPrice = usdPrice * 7
+  const digits = rmbPrice > 0 && rmbPrice < 1 ? 3 : 2
+  return `¥${rmbPrice.toFixed(digits).replace(/0+$/, '').replace(/\.$/, '')}${unit}`
+}
+
+function pricingNote(model: PlazaModel): string {
+  switch (model.name) {
+    case 'kling-v3-omni':
+      return '参考主流一手 API 价'
+    case 'kling-v2-6':
+      return '参考无音频秒价'
+    case 'wan2.7':
+      return '参考 720P 档估算'
+    case 'veo3.1-fast':
+      return 'Google 官方按秒计费；我们当前按次展示'
+    case 'doubao-seedance-2.0':
+      return '火山官方按 token 用量计费；我们按秒估算'
+    default:
+      return ''
+  }
+}
+
 function formatBaseModelPrice(value: number | null | undefined): string {
   if (value == null) return '-'
   return formatPricePerMillion(value)
 }
 
 function formatPricePerMillion(value: number): string {
-  const perMillion = value * 1_000_000
+  const perMillion = value * 1_000_000 * 7
   const digits = perMillion > 0 && perMillion < 1 ? 3 : 2
-  return `$${perMillion.toFixed(digits)}/M`
+  return `¥${perMillion.toFixed(digits)}/M`
+}
+
+function formatPerRequestPrice(value: number, model: PlazaModel): string {
+  const rate = showRatePrices.value ? effectiveRate(model) ?? 1 : 1
+  const unit = model.pricing?.intervals[0]?.tier_label || '/次'
+  const rmbPrice = value * rate * 7
+  return `¥${rmbPrice.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}${unit}`
 }
 
 function modelBasePriceScore(model: PlazaModel): number {
@@ -489,6 +617,20 @@ function effectiveRateLabel(model: PlazaModel): string {
   return group ? `${group.name} · x${formatRate(rate)}` : `x${formatRate(rate)}`
 }
 
+function modelAvailabilityLabel(model: PlazaModel): string {
+  const count = model.groups.length
+  if (count <= 0) return '基础目录'
+  return `${count} 个可用分组`
+}
+
+function providerDescription(platform: string): string {
+  const label = providerLabel(platform).toLowerCase()
+  if (label === 'anthropic') return 'Claude 长上下文、推理与编码模型'
+  if (label === 'openai') return 'GPT、Codex 与 OpenAI 兼容模型'
+  if (label === 'gemini') return 'Gemini 多模态与长上下文模型'
+  return '兼容模型与自定义渠道'
+}
+
 function selectCheapestRateMode(): void {
   if (sortedRateGroups.value.length === 0) {
     selectedGroupId.value = 'all'
@@ -525,7 +667,7 @@ function hasPromptCaching(model: PlazaModel): boolean {
 function providerLabel(platform: string): string {
   const normalized = platform.toLowerCase()
   if (normalized.includes('anthropic') || normalized.includes('claude')) return 'Anthropic'
-  if (normalized.includes('openai') || normalized.includes('gpt')) return 'Openai'
+  if (normalized.includes('openai') || normalized.includes('gpt')) return 'OpenAI'
   if (normalized.includes('gemini') || normalized.includes('google')) return 'Gemini'
   return platform ? platform.charAt(0).toUpperCase() + platform.slice(1) : 'Other'
 }
@@ -556,6 +698,30 @@ function tokenPricing(
   }
 }
 
+function perRequestPricing(price: number, unit = '/次'): UserSupportedModelPricing {
+  return {
+    billing_mode: BILLING_MODE_PER_REQUEST,
+    input_price: null,
+    output_price: null,
+    cache_write_price: null,
+    cache_read_price: null,
+    image_output_price: null,
+    per_request_price: price,
+    intervals: [
+      {
+        min_tokens: 0,
+        max_tokens: null,
+        tier_label: unit,
+        input_price: null,
+        output_price: null,
+        cache_write_price: null,
+        cache_read_price: null,
+        per_request_price: price
+      }
+    ]
+  }
+}
+
 const openaiGroups: UserAvailableGroup[] = [
   { id: 101, name: 'CC 原生直转渠道', platform: 'openai', subscription_type: 'standard', rate_multiplier: 1.5, is_exclusive: false },
   { id: 102, name: 'CodeX 官转 pro号池', platform: 'openai', subscription_type: 'standard', rate_multiplier: 0.35, is_exclusive: false },
@@ -566,6 +732,10 @@ const openaiGroups: UserAvailableGroup[] = [
 const anthropicGroups: UserAvailableGroup[] = [
   { id: 201, name: 'Anthropic 原生官转渠道', platform: 'anthropic', subscription_type: 'standard', rate_multiplier: 1.5, is_exclusive: false },
   { id: 202, name: 'Claude Code 专线', platform: 'anthropic', subscription_type: 'standard', rate_multiplier: 0.5, is_exclusive: false }
+]
+
+const videoGroups: UserAvailableGroup[] = [
+  { id: 301, name: '视频模型标准渠道', platform: 'video', subscription_type: 'standard', rate_multiplier: 1, is_exclusive: false }
 ]
 
 const fallbackChannels: UserAvailableChannel[] = [
@@ -609,6 +779,23 @@ const fallbackChannels: UserAvailableChannel[] = [
         ]
       }
     ]
+  },
+  {
+    name: 'Video',
+    description: '图片与视频生成模型',
+    platforms: [
+      {
+        platform: 'video',
+        groups: videoGroups,
+        supported_models: [
+          { name: 'kling-v3-omni', platform: 'video', pricing: perRequestPricing(0.08064, '/秒') },
+          { name: 'kling-v2-6', platform: 'video', pricing: perRequestPricing(0.04416, '/秒') },
+          { name: 'wan2.7', platform: 'video', pricing: perRequestPricing(0.07968, '/秒') },
+          { name: 'veo3.1-fast', platform: 'video', pricing: perRequestPricing(0.216, '/次') },
+          { name: 'doubao-seedance-2.0', platform: 'video', pricing: perRequestPricing(0.087072, '/秒') }
+        ]
+      }
+    ]
   }
 ]
 
@@ -643,16 +830,27 @@ onMounted(() => {
 
 .model-plaza-title h1 {
   color: rgba(255, 255, 255, 0.96);
-  font-size: 1.55rem;
+  font-size: clamp(1.65rem, 2.6vw, 2.45rem);
   font-weight: 950;
   line-height: 1;
 }
 
+.model-title-kicker {
+  display: block;
+  margin-bottom: 0.42rem;
+  color: #7dffaa;
+  font-size: 0.74rem;
+  font-weight: 950;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .model-plaza-title p {
-  margin-top: 0.28rem;
+  margin-top: 0.5rem;
   color: rgba(238, 246, 240, 0.68);
   font-size: 0.82rem;
   font-weight: 700;
+  max-width: 44rem;
 }
 
 .model-refresh-button {
@@ -846,118 +1044,207 @@ onMounted(() => {
   font-weight: 800;
 }
 
+.model-pricing-stack,
 .model-card-grid {
   margin-top: 1.45rem;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(16.5rem, 1fr));
-  gap: 1rem;
+  gap: 1.1rem;
 }
 
-.model-price-card {
-  min-height: 14.2rem;
+.model-provider-section {
+  overflow: hidden;
   border-radius: 8px;
   border: 1px solid var(--public-border);
   background: var(--public-surface-raised);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
     var(--public-shadow);
-  padding: 1rem;
   backdrop-filter: blur(18px);
 }
 
-.model-card-head {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  gap: 0.72rem;
-  align-items: start;
+.model-provider-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: 1px solid rgba(221, 230, 255, 0.12);
+  padding: 1rem 1.1rem;
 }
 
-.model-card-head h2 {
+.model-provider-title {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 0.8rem;
+}
+
+.model-provider-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.65rem;
+  height: 2.65rem;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.model-provider-title h2 {
   overflow: hidden;
   color: rgba(255, 255, 255, 0.95);
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 950;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.model-card-head p {
+.model-provider-title p {
   margin-top: 0.16rem;
   color: rgba(222, 232, 255, 0.72);
+  font-size: 0.78rem;
+  font-weight: 750;
+}
+
+.model-provider-meta {
+  display: grid;
+  min-width: 4.8rem;
+  justify-items: end;
+  color: rgba(222, 232, 255, 0.62);
   font-size: 0.68rem;
   font-weight: 900;
-  letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
+.model-provider-meta strong {
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 1.45rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.model-pricing-table-wrap {
+  overflow-x: auto;
+}
+
+.model-pricing-table {
+  width: 100%;
+  min-width: 58rem;
+  border-collapse: collapse;
+}
+
+.model-pricing-table th,
+.model-pricing-table td {
+  border-bottom: 1px solid rgba(221, 230, 255, 0.1);
+  padding: 0.86rem 1rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.model-pricing-table th {
+  background: rgba(2, 8, 12, 0.32);
+  color: rgba(222, 232, 255, 0.58);
+  font-size: 0.72rem;
+  font-weight: 900;
+}
+
+.model-pricing-table tbody tr:hover {
+  background: rgba(119, 255, 173, 0.055);
+}
+
+.model-pricing-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.model-name-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  min-width: 17rem;
+}
+
+.model-name-cell strong {
+  display: block;
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.94);
+  font-size: 0.9rem;
+  font-weight: 950;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.model-name-cell span {
+  display: block;
+  margin-top: 0.16rem;
+  color: rgba(222, 232, 255, 0.58);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
 .model-cache-badge {
-  margin-top: 1rem;
   display: inline-flex;
   align-items: center;
   gap: 0.32rem;
+  flex: 0 0 auto;
   border-radius: 0.42rem;
   background: rgba(251, 191, 36, 0.13);
   padding: 0.28rem 0.5rem;
   color: #f8d36d;
   font-size: 0.72rem;
   font-weight: 850;
+  font-style: normal;
+  white-space: nowrap;
 }
 
-.model-price-list {
-  margin-top: 1.05rem;
-  display: grid;
-  gap: 0.78rem;
-}
-
-.model-price-list div {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-}
-
-.model-price-list dt,
-.model-price-list dd {
-  display: inline-flex;
-  align-items: center;
-}
-
-.model-price-list dt {
-  gap: 0.38rem;
-  color: rgba(222, 232, 255, 0.58);
-  font-size: 0.78rem;
-  font-weight: 800;
-}
-
-.model-price-list dd {
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.12rem;
-  color: rgba(255, 255, 255, 0.94);
+.model-price-value {
+  display: block;
+  color: rgba(255, 255, 255, 0.92);
   font-size: 0.9rem;
   font-weight: 950;
-  text-align: right;
+  white-space: nowrap;
 }
 
-.model-price-list dd.is-rate-price {
+.model-price-value.is-rate-price {
   color: #7dffaa;
 }
 
-.model-price-list dd small {
+.model-price-value.muted {
+  color: rgba(222, 232, 255, 0.7);
+}
+
+.model-pricing-table small {
+  display: block;
+  margin-top: 0.16rem;
   color: rgba(222, 232, 255, 0.68);
   font-size: 0.68rem;
   font-weight: 800;
+  white-space: nowrap;
 }
 
-.model-price-muted {
-  border-top: 1px dashed rgba(221, 230, 255, 0.14);
-  padding-top: 0.72rem;
+.model-price-note {
+  max-width: 13rem;
+  color: rgba(251, 191, 36, 0.82) !important;
+  line-height: 1.35;
+  white-space: normal !important;
 }
 
-.model-price-muted dt,
-.model-price-muted dd {
-  color: rgba(222, 232, 255, 0.7);
+.model-rate-pill {
+  display: inline-flex;
+  align-items: center;
+  max-width: 14rem;
+  border-radius: 999px;
+  background: rgba(119, 255, 173, 0.12);
+  padding: 0.28rem 0.58rem;
+  color: rgba(220, 255, 230, 0.92);
+  font-size: 0.74rem;
+  font-weight: 900;
+  white-space: nowrap;
+}
+
+.model-rate-pill.is-muted {
+  background: rgba(222, 232, 255, 0.08);
+  color: rgba(222, 232, 255, 0.62);
 }
 
 .model-empty-card {
@@ -1030,6 +1317,78 @@ onMounted(() => {
 
   .model-rate-toggle {
     justify-content: flex-end;
+  }
+
+  .model-provider-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .model-provider-meta {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .model-pricing-table {
+    min-width: 0;
+  }
+
+  .model-pricing-table thead {
+    display: none;
+  }
+
+  .model-pricing-table,
+  .model-pricing-table tbody,
+  .model-pricing-table tr,
+  .model-pricing-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .model-pricing-table tr {
+    border-bottom: 1px solid rgba(221, 230, 255, 0.12);
+    padding: 0.75rem 0;
+  }
+
+  .model-pricing-table tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .model-pricing-table td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    border-bottom: 0;
+    padding: 0.38rem 1rem;
+    text-align: right;
+  }
+
+  .model-pricing-table td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: rgba(222, 232, 255, 0.54);
+    font-size: 0.72rem;
+    font-weight: 900;
+  }
+
+  .model-pricing-table td[data-label="模型"] {
+    display: block;
+    text-align: left;
+  }
+
+  .model-pricing-table td[data-label="模型"]::before {
+    display: none;
+  }
+
+  .model-name-cell {
+    min-width: 0;
+  }
+
+  .model-name-cell strong {
+    white-space: normal;
   }
 }
 </style>

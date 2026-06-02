@@ -180,10 +180,19 @@ const dropdownStyle = computed(() => {
   if (!triggerRect.value) return {}
 
   const rect = triggerRect.value
+  const viewportPadding = 16
+  const availableWidth = Math.max(200, window.innerWidth - viewportPadding * 2)
+  const dropdownWidth = Math.min(rect.width, availableWidth)
+  const dropdownLeft = Math.min(
+    Math.max(rect.left, viewportPadding),
+    window.innerWidth - viewportPadding - dropdownWidth
+  )
   const style: Record<string, string> = {
     position: 'fixed',
-    left: `${rect.left}px`,
-    minWidth: `${rect.width}px`,
+    left: `${dropdownLeft}px`,
+    width: `${dropdownWidth}px`,
+    minWidth: `${dropdownWidth}px`,
+    maxWidth: `${availableWidth}px`,
     zIndex: '100000020'
   }
 
@@ -465,7 +474,6 @@ onUnmounted(() => {
 
 <style>
 .select-dropdown-portal {
-  @apply w-max min-w-[200px];
   @apply bg-white dark:bg-dark-800;
   @apply rounded-xl;
   @apply border border-gray-200 dark:border-dark-700;

@@ -24,7 +24,10 @@ Thumbs.db
 
 # Build artifacts
 dist/
+!backend/internal/web/dist/
+!backend/internal/web/dist/**
 build/
+output/
 
 # Node modules (will be installed in container)
 frontend/node_modules/
@@ -32,6 +35,12 @@ node_modules/
 
 # Go build cache (will be built in container)
 backend/vendor/
+.gocache/
+
+# Local Codex/runtime environments
+.codex-runtime/
+.playwright-cli/
+.venv/
 
 # Test files
 *_test.go
@@ -54,6 +63,9 @@ logs/
 
 # Temporary files
 tmp/
+!tmp/Dockerfile.local-prebuilt
+!tmp/Dockerfile.runtime-prebuilt
+!tmp/sub2api-linux-amd64
 temp/
 *.tmp
 

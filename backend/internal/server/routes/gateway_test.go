@@ -79,6 +79,23 @@ func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
 	}
 }
 
+func TestGatewayRoutesOpenAIVideosPathsAreRegistered(t *testing.T) {
+	router := newGatewayRoutesTestRouter()
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/videos/generations", strings.NewReader(`{"model":"doubao-seedance-2.0","prompt":"make a video"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+	require.NotEqual(t, http.StatusNotFound, w.Code)
+
+	taskReq := httptest.NewRequest(http.MethodGet, "/v1/tasks/task_123?language=zh", nil)
+	taskW := httptest.NewRecorder()
+
+	router.ServeHTTP(taskW, taskReq)
+	require.NotEqual(t, http.StatusNotFound, taskW.Code)
+}
+
 func TestResolveAPIKeyRouteForJSONModelReroutesMessagesBeforeDispatch(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

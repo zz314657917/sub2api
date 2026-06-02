@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -152,6 +153,10 @@ func parseTicketListFilter(c *gin.Context) service.TicketListFilter {
 		TicketType: strings.TrimSpace(c.Query("ticket_type")),
 		Search:     strings.TrimSpace(c.Query("search")),
 		UserID:     userID,
+		EventType:  strings.TrimSpace(c.Query("event_type")),
+		EventKey:   strings.TrimSpace(c.Query("event_key")),
+		DateFrom:   parseTicketTimeQuery(c.Query("date_from")),
+		DateTo:     parseTicketTimeQuery(c.Query("date_to")),
 		UnreadOnly: parseTicketBoolQuery(c.Query("unread_only")),
 		SortBy:     strings.TrimSpace(c.Query("sort_by")),
 		SortOrder:  strings.TrimSpace(c.Query("sort_order")),
@@ -166,6 +171,20 @@ func parsePositiveIntQuery(raw string, fallback int) int {
 		return fallback
 	}
 	return parsed
+}
+
+func parseTicketTimeQuery(raw string) time.Time {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}
+	}
+	if parsed, err := time.Parse(time.RFC3339, raw); err == nil {
+		return parsed
+	}
+	if parsed, err := time.Parse("2006-01-02", raw); err == nil {
+		return parsed
+	}
+	return time.Time{}
 }
 
 func parseTicketBoolQuery(raw string) bool {

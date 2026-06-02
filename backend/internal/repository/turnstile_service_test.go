@@ -98,6 +98,48 @@ func (s *TurnstileServiceSuite) TestVerifyToken_EmptyRemoteIP_NotSent() {
 	}
 }
 
+func (s *TurnstileServiceSuite) TestVerifyToken_PrivateRemoteIP_NotSent() {
+	s.setupTransport(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		values, _ := url.ParseQuery(string(body))
+		s.received <- values
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(service.TurnstileVerifyResponse{Success: true})
+	}))
+
+	_, err := s.verifier.VerifyToken(s.ctx, "sk", "token", "127.0.0.1")
+	require.NoError(s.T(), err)
+
+	select {
+	case values := <-s.received:
+		require.Empty(s.T(), values.Get("remoteip"))
+	default:
+		require.Fail(s.T(), "expected server to receive request")
+	}
+}
+
+func (s *TurnstileServiceSuite) TestVerifyToken_InvalidRemoteIP_NotSent() {
+	s.setupTransport(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		values, _ := url.ParseQuery(string(body))
+		s.received <- values
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(service.TurnstileVerifyResponse{Success: true})
+	}))
+
+	_, err := s.verifier.VerifyToken(s.ctx, "sk", "token", "not-an-ip")
+	require.NoError(s.T(), err)
+
+	select {
+	case values := <-s.received:
+		require.Empty(s.T(), values.Get("remoteip"))
+	default:
+		require.Fail(s.T(), "expected server to receive request")
+	}
+}
+
 func (s *TurnstileServiceSuite) TestVerifyToken_RequestError() {
 	s.verifier.verifyURL = "http://in-process/turnstile"
 	s.verifier.httpClient = &http.Client{

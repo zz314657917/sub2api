@@ -174,6 +174,10 @@ export interface SupportTicketListParams {
 
 export interface AdminSupportTicketListParams extends SupportTicketListParams {
   user_id?: number | string
+  event_type?: SupportTicketActionType | string
+  event_key?: string
+  date_from?: string
+  date_to?: string
   sort_by?: AdminSupportTicketSortBy
   sort_order?: SortOrder
 }

@@ -13,6 +13,11 @@ services:
     build:
       context: ..
       dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-sub2api-local-node:24-alpine}
+        GOLANG_IMAGE: ${GOLANG_IMAGE:-sub2api-local-golang:1.26.3-alpine}
+        ALPINE_IMAGE: ${ALPINE_IMAGE:-sub2api-local-alpine:3.21}
+        POSTGRES_IMAGE: ${POSTGRES_IMAGE:-sub2api-local-postgres:18-alpine}
     container_name: sub2api-dev
     restart: unless-stopped
     ports:

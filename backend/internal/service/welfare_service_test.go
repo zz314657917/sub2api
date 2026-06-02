@@ -694,6 +694,28 @@ func TestConsumeNewUserTrialDeductsPoolOnly(t *testing.T) {
 	require.Equal(t, 0.04, repo.siteUsageSince)
 }
 
+func TestConsumeNewUserTrialNotifiesUnclaimedSuccessReward(t *testing.T) {
+	repo := &welfareRepoStub{}
+	userRepo := &welfareUserRepoStub{createdAt: welfareTestRewardEnabledAt().Add(time.Hour)}
+	redeemRepo := &welfareRedeemRepoStub{}
+	systemRepo := newFakeTicketRepo()
+	svc := NewWelfareService(repo, userRepo, redeemRepo, welfareTrialSettingRepoWithReward(true, 0.1, 2.5, 5, 3), nil, nil, nil)
+	svc.SetSystemTicketService(NewSystemTicketService(systemRepo))
+	svc.now = func() time.Time { return welfareTestNow(t) }
+	session, err := svc.BeginNewUserTrial(context.Background(), 42, "203.0.113.8")
+	require.NoError(t, err)
+
+	err = svc.ConsumeNewUserTrial(context.Background(), session, "usage-1", 0.04, "claude-sonnet", 9)
+
+	require.NoError(t, err)
+	notification := requireSystemTicketNotification(t, systemRepo, 42, SystemTicketEventWelfareFirstAPIUnclaimed, "welfare_first_api_unclaimed:42")
+	require.Equal(t, float64(42), notification.Metadata["user_id"])
+	require.Equal(t, float64(session.TrialID), notification.Metadata["trial_id"])
+	require.Equal(t, 2.5, notification.Metadata["reward_amount"])
+	require.Equal(t, "claude-sonnet", notification.Metadata["model"])
+	require.Equal(t, float64(9), notification.Metadata["api_key_id"])
+}
+
 func TestClaimNewUserTrialSuccessRewardGrantsConfiguredRewardOnce(t *testing.T) {
 	repo := &welfareRepoStub{}
 	userRepo := &welfareUserRepoStub{createdAt: welfareTestRewardEnabledAt().Add(time.Hour)}

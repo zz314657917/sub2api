@@ -154,6 +154,33 @@ func RegisterGatewayRoutes(
 			}
 			h.OpenAIGateway.Images(c)
 		})
+		gateway.POST("/videos/generations", func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/videos/generations", false) {
+				return
+			}
+			if getGroupPlatform(c) != service.PlatformOpenAI {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": gin.H{
+						"type":    "not_found_error",
+						"message": "Videos API is not supported for this platform",
+					},
+				})
+				return
+			}
+			h.OpenAIGateway.Videos(c)
+		})
+		gateway.GET("/tasks/:task_id", func(c *gin.Context) {
+			if getGroupPlatform(c) != service.PlatformOpenAI {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": gin.H{
+						"type":    "not_found_error",
+						"message": "Tasks API is not supported for this platform",
+					},
+				})
+				return
+			}
+			h.OpenAIGateway.VideoTask(c)
+		})
 	}
 
 	// Gemini 原生 API 兼容层（Gemini SDK/CLI 直连）
@@ -248,6 +275,33 @@ func RegisterGatewayRoutes(
 			return
 		}
 		h.OpenAIGateway.Images(c)
+	})
+	r.POST("/videos/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/videos/generations", false) {
+			return
+		}
+		if getGroupPlatform(c) != service.PlatformOpenAI {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"type":    "not_found_error",
+					"message": "Videos API is not supported for this platform",
+				},
+			})
+			return
+		}
+		h.OpenAIGateway.Videos(c)
+	})
+	r.GET("/tasks/:task_id", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if getGroupPlatform(c) != service.PlatformOpenAI {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"type":    "not_found_error",
+					"message": "Tasks API is not supported for this platform",
+				},
+			})
+			return
+		}
+		h.OpenAIGateway.VideoTask(c)
 	})
 
 	// Antigravity 模型列表

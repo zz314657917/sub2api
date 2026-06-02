@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 )
@@ -358,6 +359,34 @@ func buildTicketWhere(filter service.TicketListFilter) (string, []any) {
 		args = append(args, filter.TicketType)
 		clauses = append(clauses, `ticket_type = $`+placeholder(len(args)))
 	}
+	if filter.EventType != "" {
+		args = append(args, filter.EventType)
+		eventTypePlaceholder := placeholder(len(args))
+		clauses = append(clauses, fmt.Sprintf(`EXISTS (
+			SELECT 1
+			FROM support_ticket_messages stm_event_type
+			WHERE stm_event_type.ticket_id = support_tickets.id
+				AND stm_event_type.event_type = $%s
+		)`, eventTypePlaceholder))
+	}
+	if filter.EventKey != "" {
+		args = append(args, "%"+filter.EventKey+"%")
+		eventKeyPlaceholder := placeholder(len(args))
+		clauses = append(clauses, fmt.Sprintf(`EXISTS (
+			SELECT 1
+			FROM support_ticket_messages stm_event_key
+			WHERE stm_event_key.ticket_id = support_tickets.id
+				AND stm_event_key.event_key ILIKE $%s
+		)`, eventKeyPlaceholder))
+	}
+	if !filter.DateFrom.IsZero() {
+		args = append(args, filter.DateFrom.UTC())
+		clauses = append(clauses, `last_message_at >= $`+placeholder(len(args)))
+	}
+	if !filter.DateTo.IsZero() {
+		args = append(args, endOfTicketFilterDay(filter.DateTo))
+		clauses = append(clauses, `last_message_at < $`+placeholder(len(args)))
+	}
 	if filter.UnreadOnly {
 		switch filter.UnreadFor {
 		case service.TicketSenderUser:
@@ -389,6 +418,14 @@ func buildTicketWhere(filter service.TicketListFilter) (string, []any) {
 		return "", args
 	}
 	return " WHERE " + strings.Join(clauses, " AND "), args
+}
+
+func endOfTicketFilterDay(value time.Time) time.Time {
+	utc := value.UTC()
+	if utc.Hour() == 0 && utc.Minute() == 0 && utc.Second() == 0 && utc.Nanosecond() == 0 {
+		return utc.AddDate(0, 0, 1)
+	}
+	return utc
 }
 
 func ticketSelectSQL() string {
