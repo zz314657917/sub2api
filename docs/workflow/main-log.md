@@ -26,3 +26,4 @@
 260603 0142 | upstream-main-claude-count-tokens-s2g | implementation-and-qa-pass | codex | backend/internal/service/claude_code_validator.go, docs/workflow/qa-reports/upstream-main-claude-count-tokens-s2g-qa.md
 260603 0148 | upstream-main-openai-failover-body-remap-s2h | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-failover-body-remap-s2h.md
 260603 0155 | upstream-main-openai-failover-body-remap-s2h | implementation-and-qa-pass | codex | backend/internal/service/openai_gateway_service.go, docs/workflow/qa-reports/upstream-main-openai-failover-body-remap-s2h-qa.md
+260603 0201 | upstream-main-oauth-401-no-credentials-write-test-s2i | contract-approved | codex | docs/workflow/tasks/upstream-main-oauth-401-no-credentials-write-test-s2i.md
