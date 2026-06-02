@@ -46,7 +46,7 @@ const (
 	// codex_cli_only 拒绝时单个请求头日志长度上限（字符）
 	codexCLIOnlyHeaderValueMaxBytes = 256
 
-	// OpenAIParsedRequestBodyKey 缓存 handler 侧已解析的请求体，避免重复解析。
+	// OpenAIParsedRequestBodyKey 缓存 handler 侧已解析的请求体，供预校验和 Claude Code helper 使用。
 	OpenAIParsedRequestBodyKey = "openai_parsed_request_body"
 	// OpenAI WS Mode 失败后的重连次数上限（不含首次尝试）。
 	// 与 Codex 客户端保持一致：失败后最多重连 5 次。
@@ -6850,21 +6850,10 @@ func isEmptyBase64DataURI(raw string) bool {
 	return strings.TrimSpace(strings.TrimPrefix(rest, "base64,")) == ""
 }
 
-func getOpenAIRequestBodyMap(c *gin.Context, body []byte) (map[string]any, error) {
-	if c != nil {
-		if cached, ok := c.Get(OpenAIParsedRequestBodyKey); ok {
-			if reqBody, ok := cached.(map[string]any); ok && reqBody != nil {
-				return reqBody, nil
-			}
-		}
-	}
-
+func getOpenAIRequestBodyMap(_ *gin.Context, body []byte) (map[string]any, error) {
 	var reqBody map[string]any
 	if err := json.Unmarshal(body, &reqBody); err != nil {
 		return nil, fmt.Errorf("parse request: %w", err)
-	}
-	if c != nil {
-		c.Set(OpenAIParsedRequestBodyKey, reqBody)
 	}
 	return reqBody, nil
 }
