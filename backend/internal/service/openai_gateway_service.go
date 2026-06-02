@@ -46,7 +46,7 @@ const (
 	// codex_cli_only 拒绝时单个请求头日志长度上限（字符）
 	codexCLIOnlyHeaderValueMaxBytes = 256
 
-	// OpenAIParsedRequestBodyKey 缓存 handler 侧已解析的请求体，避免重复解析。
+	// OpenAIParsedRequestBodyKey 缓存 handler 侧已解析的请求体，供预校验和 Claude Code helper 使用。
 	OpenAIParsedRequestBodyKey = "openai_parsed_request_body"
 	// OpenAI WS Mode 失败后的重连次数上限（不含首次尝试）。
 	// 与 Codex 客户端保持一致：失败后最多重连 5 次。
@@ -126,6 +126,19 @@ type NormalizedCodexLimits struct {
 	Window7dMinutes *int
 }
 
+func normalizeCodexFiveHourUsedPercent(raw *float64) *float64 {
+	if raw == nil {
+		return nil
+	}
+	// OpenAI's 5h Codex quota header is remaining%, despite the upstream header
+	// name saying "used"; the canonical codex_5h_used_percent field stores used%.
+	used := 100 - *raw
+	if used < 0 {
+		used = 0
+	}
+	return &used
+}
+
 // Normalize converts primary/secondary fields to canonical 5h/7d fields.
 // Strategy: Compare window_minutes to determine which is 5h vs 7d.
 // Returns nil if snapshot is nil or has no useful data.
@@ -184,7 +197,7 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 
 	// Assign values
 	if use5hFromPrimary {
-		result.Used5hPercent = s.PrimaryUsedPercent
+		result.Used5hPercent = normalizeCodexFiveHourUsedPercent(s.PrimaryUsedPercent)
 		result.Reset5hSeconds = s.PrimaryResetAfterSeconds
 		result.Window5hMinutes = s.PrimaryWindowMinutes
 		result.Used7dPercent = s.SecondaryUsedPercent
@@ -194,7 +207,7 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 		result.Used7dPercent = s.PrimaryUsedPercent
 		result.Reset7dSeconds = s.PrimaryResetAfterSeconds
 		result.Window7dMinutes = s.PrimaryWindowMinutes
-		result.Used5hPercent = s.SecondaryUsedPercent
+		result.Used5hPercent = normalizeCodexFiveHourUsedPercent(s.SecondaryUsedPercent)
 		result.Reset5hSeconds = s.SecondaryResetAfterSeconds
 		result.Window5hMinutes = s.SecondaryWindowMinutes
 	}
@@ -5746,6 +5759,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	durationMs := int(result.Duration.Milliseconds())
 	accountRateMultiplier := account.BillingRateMultiplier()
 	requestID := resolveUsageBillingRequestID(ctx, result.RequestID)
+	if result.OpenAIWSMode {
+		if upstreamRequestID := strings.TrimSpace(result.RequestID); upstreamRequestID != "" {
+			requestID = upstreamRequestID
+		}
+	}
 	if override := strings.TrimSpace(input.RequestIDOverride); override != "" {
 		requestID = override
 	}
@@ -6573,6 +6591,7 @@ func writeOpenAIFastPolicyBlockedResponse(c *gin.Context, err *OpenAIFastBlocked
 	if c == nil || err == nil {
 		return
 	}
+	MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalPolicyDenied)
 	c.JSON(http.StatusForbidden, gin.H{
 		"error": gin.H{
 			"type":    "permission_error",
@@ -6836,21 +6855,10 @@ func isEmptyBase64DataURI(raw string) bool {
 	return strings.TrimSpace(strings.TrimPrefix(rest, "base64,")) == ""
 }
 
-func getOpenAIRequestBodyMap(c *gin.Context, body []byte) (map[string]any, error) {
-	if c != nil {
-		if cached, ok := c.Get(OpenAIParsedRequestBodyKey); ok {
-			if reqBody, ok := cached.(map[string]any); ok && reqBody != nil {
-				return reqBody, nil
-			}
-		}
-	}
-
+func getOpenAIRequestBodyMap(_ *gin.Context, body []byte) (map[string]any, error) {
 	var reqBody map[string]any
 	if err := json.Unmarshal(body, &reqBody); err != nil {
 		return nil, fmt.Errorf("parse request: %w", err)
-	}
-	if c != nil {
-		c.Set(OpenAIParsedRequestBodyKey, reqBody)
 	}
 	return reqBody, nil
 }

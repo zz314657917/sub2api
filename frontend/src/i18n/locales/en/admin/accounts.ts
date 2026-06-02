@@ -153,6 +153,7 @@ export default {
         expiresAt: 'Expires At',
         actions: 'Actions'
       },
+      usageWindowsHint: '"5h / 7d" are the upstream account\'s official rolling usage windows (e.g. OpenAI ChatGPT, Claude). They are imposed by the upstream provider on the account itself — not configured by sub2api, and unrelated to the models you map. Usage resets automatically once each window rolls over, and the limit cannot be lifted from within sub2api.',
       allPrivacyModes: 'All Privacy States',
       privacyUnset: 'Unset',
       privacyTrainingOff: 'Training data sharing disabled',
@@ -474,10 +475,21 @@ export default {
           'Automatic passthrough is currently enabled: it only affects HTTP passthrough and does not disable WS mode.',
         responsesMode: 'Responses API support',
         responsesModeDesc:
-          'Only applies to OpenAI API Key accounts. Auto follows probe results; force modes override probing.',
+          'Only applies to the OpenAI API Key text forwarding path. Auto follows probe results; force modes override probing.',
         responsesModeAuto: 'Auto',
         responsesModeForceResponses: 'Force Responses',
         responsesModeForceChatCompletions: 'Force Chat Completions',
+        responsesModeTextDisabledHint:
+          'Not applicable when the Responses / Chat Completions endpoint is not enabled.',
+        endpointCapabilities: 'Endpoint capabilities',
+        endpointCapabilitiesDesc:
+          'Used by account routing. The text endpoint follows the Responses API support setting above and is shown as Responses, Chat Completions, or auto mode; Embeddings independently controls /v1/embeddings.',
+        capabilityResponses: 'Responses',
+        capabilityTextAuto: 'Responses / Chat Completions (Auto)',
+        capabilityResponsesAuto: 'Responses (auto probe)',
+        capabilityChatCompletions: 'Chat Completions',
+        capabilityChatCompletionsAuto: 'Chat Completions (auto probe)',
+        capabilityEmbeddings: 'Embeddings',
         responsesStatusAutoSupported: 'Auto probe: Responses',
         responsesStatusAutoUnsupported: 'Auto probe: Chat Completions',
         responsesStatusAutoUnknown: 'Auto probe: unknown',

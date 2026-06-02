@@ -12,3 +12,23 @@
 260529 1055 | sub2api-canvas-core | qa-pass | qa-worker | docs/workflow/qa-reports/sub2api-canvas-core-qa.md
 260601 0000 | sub2api-support-tickets | spec-and-contract-approved | codex | docs/workflow/spec.md, docs/workflow/tasks/sub2api-support-tickets-backend.md, docs/workflow/tasks/sub2api-support-tickets-frontend.md
 260601 1415 | sub2api-support-tickets | implementation-and-target-tests-pass | codex/backend-worker/frontend-worker | backend support ticket API, frontend tickets views, targeted backend/frontend tests
+260602 2120 | upstream-main-safe-patches-s1 | contract-approved | codex | docs/workflow/tasks/upstream-main-safe-patches-s1.md
+260602 2146 | upstream-main-safe-patches-s1 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-safe-patches-s1-result.md, docs/workflow/qa-reports/upstream-main-safe-patches-s1-qa.md
+260602 2320 | upstream-main-migration-patches-s2 | contract-approved | codex | docs/workflow/tasks/upstream-main-migration-patches-s2.md
+260602 2343 | upstream-main-migration-patches-s2 | implementation-and-qa-pass | codex | cab7d4bf0, docs/workflow/worker-results/upstream-main-migration-patches-s2-result.md, docs/workflow/qa-reports/upstream-main-migration-patches-s2-qa.md
+260603 0032 | upstream-main-account-model-sync-s2b | contract-approved | codex | docs/workflow/tasks/upstream-main-account-model-sync-s2b.md
+260603 0038 | upstream-main-account-model-sync-s2b | implementation-and-qa-pass | codex | 764e12073, docs/workflow/worker-results/upstream-main-account-model-sync-s2b-result.md, docs/workflow/qa-reports/upstream-main-account-model-sync-s2b-qa.md
+260603 0049 | upstream-main-account-usage-window-hints-s2c | contract-approved | codex | docs/workflow/tasks/upstream-main-account-usage-window-hints-s2c.md
+260603 0054 | upstream-main-account-usage-window-hints-s2c | implementation-and-qa-pass | codex | frontend/src/views/admin/AccountsView.vue, docs/workflow/worker-results/upstream-main-account-usage-window-hints-s2c-result.md, docs/workflow/qa-reports/upstream-main-account-usage-window-hints-s2c-qa.md
+260603 0108 | upstream-main-openai-endpoint-capability-ui-s2d | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-endpoint-capability-ui-s2d.md
+260603 0125 | upstream-main-openai-endpoint-capability-ui-s2d | implementation-and-qa-pass | codex | frontend/src/components/account/EditAccountModal.vue, docs/workflow/worker-results/upstream-main-openai-endpoint-capability-ui-s2d-result.md, docs/workflow/qa-reports/upstream-main-openai-endpoint-capability-ui-s2d-qa.md
+260603 0139 | upstream-main-claude-count-tokens-s2g | contract-approved | codex | docs/workflow/tasks/upstream-main-claude-count-tokens-s2g.md
+260603 0142 | upstream-main-claude-count-tokens-s2g | implementation-and-qa-pass | codex | backend/internal/service/claude_code_validator.go, docs/workflow/qa-reports/upstream-main-claude-count-tokens-s2g-qa.md
+260603 0148 | upstream-main-openai-failover-body-remap-s2h | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-failover-body-remap-s2h.md
+260603 0155 | upstream-main-openai-failover-body-remap-s2h | implementation-and-qa-pass | codex | backend/internal/service/openai_gateway_service.go, docs/workflow/qa-reports/upstream-main-openai-failover-body-remap-s2h-qa.md
+260603 0201 | upstream-main-oauth-401-no-credentials-write-test-s2i | contract-approved | codex | docs/workflow/tasks/upstream-main-oauth-401-no-credentials-write-test-s2i.md
+260603 0203 | upstream-main-oauth-401-no-credentials-write-test-s2i | implementation-and-qa-pass | codex | backend/internal/service/ratelimit_service_401_test.go, docs/workflow/qa-reports/upstream-main-oauth-401-no-credentials-write-test-s2i-qa.md
+260603 0213 | upstream-main-openai-oauth-refresh-enrichment-s2j | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-oauth-refresh-enrichment-s2j.md
+260603 0217 | upstream-main-openai-oauth-refresh-enrichment-s2j | implementation-and-qa-pass | codex | backend/internal/service/openai_oauth_service.go, backend/internal/service/openai_privacy_service.go, backend/internal/service/wire.go, backend/cmd/server/wire_gen.go, docs/workflow/qa-reports/upstream-main-openai-oauth-refresh-enrichment-s2j-qa.md
+260603 0232 | upstream-main-openai-ws-usage-dedup-s2k | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-ws-usage-dedup-s2k.md
+260603 0234 | upstream-main-openai-ws-usage-dedup-s2k | implementation-and-qa-pass | codex | backend/internal/service/openai_gateway_service.go, backend/internal/service/openai_gateway_record_usage_test.go, docs/workflow/qa-reports/upstream-main-openai-ws-usage-dedup-s2k-qa.md
