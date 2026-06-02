@@ -1,19 +1,19 @@
 # 当前任务快照
 
-最后更新：2026-06-03 02:21 +08:00
+最后更新：2026-06-03 02:34 +08:00
 
 ## 背景
 
 - 仓库主工作区：`F:/mcplugins/sub2api`。
 - 本轮 upstream 同步只在独立 worktree：`E:/codex-worktrees/sub2api/upstream-main-safe-patches-s1`。
-- 当前分支：`codex/upstream-main-openai-oauth-refresh-enrichment-s2j`。
+- 当前分支：`codex/upstream-main-openai-ws-usage-dedup-s2k`。
 - 目标仍是分批同步 `upstream/main` 的稳定修复，不直接 merge `upstream/main`。
 - 继续遵守 P/G/E：先 contract，再实现，再 QA 证据和 handoff。
 
 ## 当前目标
 
 - 在不触碰 schema、迁移、frontend、gateway handler、OpenAI WS/Responses bridge 的前提下，同步小范围上游稳定修复。
-- 本次 S2j 目标：port upstream `eba204632 fix: enrich OpenAI OAuth token refresh` 的可收敛 service/wiring 子集。
+- 本次 S2k 目标：port upstream `1e2193c3d fix: avoid websocket usage dedup conflicts` 的 service/test 子集。
 
 ## 本次已完成
 
@@ -29,27 +29,30 @@
 - S2j 已完成并提交：
   - `ae0b3bfc9 docs: approve openai oauth refresh enrichment sync`
   - `b9646e6eb fix(openai): enrich oauth refresh credentials`
-  - contract 文件：`docs/workflow/tasks/upstream-main-openai-oauth-refresh-enrichment-s2j.md`
-  - `backend/internal/service/openai_oauth_service.go`
-  - `backend/internal/service/openai_privacy_service.go`
-  - `backend/internal/service/openai_oauth_service_refresh_test.go`
-  - `backend/internal/service/openai_subscription_test.go`
-  - `backend/internal/service/wire.go`
-  - `backend/cmd/server/wire_gen.go`
-- S2j QA/结果证据已提交：
-  - `docs/workflow/worker-results/upstream-main-openai-oauth-refresh-enrichment-s2j-result.md`
-  - `docs/workflow/qa-reports/upstream-main-openai-oauth-refresh-enrichment-s2j-qa.md`
+  - `de1c7fee7 docs: update upstream sync handoff`
+- S2k contract 已完成并提交：
+  - `6a926e2a0 docs: approve openai ws usage dedup sync`
+  - contract 文件：`docs/workflow/tasks/upstream-main-openai-ws-usage-dedup-s2k.md`
+- S2k 实现已完成，待提交：
+  - `backend/internal/service/openai_gateway_service.go`
+  - `backend/internal/service/openai_gateway_record_usage_test.go`
+- S2k QA/结果证据已写入，待提交：
+  - `docs/workflow/worker-results/upstream-main-openai-ws-usage-dedup-s2k-result.md`
+  - `docs/workflow/qa-reports/upstream-main-openai-ws-usage-dedup-s2k-qa.md`
   - `docs/workflow/main-log.md`
   - `knowledge/tasks/current-task.md`
 
 ## 已确认事实
 
-- 当前本地与 `upstream/main` 差异仍很大：S2j 实现提交后 `git rev-list --left-right --count HEAD...upstream/main` 为 `311 370`。
+- 当前本地与 `upstream/main` 差异仍很大：S2k contract 提交后 `git rev-list --left-right --count HEAD...upstream/main` 为 `313 370`。
 - 计数不会因手工语义 port 自动下降；当前同步采用 contract + QA 证据而不是直接 merge。
-- S2j 已确认可以收敛为 OpenAI OAuth/privacy service + 最小 Wire provider 补丁：
-  - no-refresh-token existing access-token path 会保留 `subscription_expires_at` 并运行 enrichment。
-  - `fetchChatGPTSubscriptionExpiresAt` 使用 `httptest` 覆盖，不访问真实 ChatGPT 服务。
-  - `wire.go` 新增 `ProvideOpenAIOAuthService`，`wire_gen.go` 只做对应 provider 调用和 `privacyClientFactory` 位置调整。
+- S2k 已确认可以收敛为 `OpenAIGatewayService.RecordUsage` 小修：
+  - 非 WS OpenAI usage 仍优先使用 `ctxkey.ClientRequestID`。
+  - `OpenAIWSMode=true` 且 `Result.RequestID` 非空时，billing/log request id 使用 upstream response id，避免同一 WS connection 多 turn 去重冲突。
+  - 本地 `RequestIDOverride` 仍在最后覆盖。
+- 本轮补充确认等价，无需重复 port：
+  - `8a999f438`：WS terminal events 已不再被 token event 分类，本地已有对应测试。
+  - `2bd3125d`：usage worker context 保留已在本地，含 `wrapUsageRecordTaskContext` 和 request id/client request id 测试。
 - 这些候选已确认本地等价或无需重复 port：
   - `a6117429`, `26ca73a`, `2c14efeaa`, `6acb46c11`, `1d47fd630`, `b15375dfb`, `56e96fdd8`
   - `f1cc83e0e`, `a66f771cb`, `0cfabaa82`
@@ -62,27 +65,27 @@
   - `08e19bb15`, `d7bed40dd`, `08061717b`, `2a075a85b`：OpenAI WS bridge/failover/WS image tool 注入规模较大。
   - `5fd9a3509`：当前本地 pricing resource 仍匹配旧断言，不能只改测试。
   - `0560340bd`：admin create-user balance pointer 触及 DTO、默认余额语义和前端表单，需单独评估。
+  - `a01686c63`, `a31b50748`, `33ac8eb27`, `ddf91e9a7`, `ed1b57c59`, `f7ac5e593`：涉及多模块 gateway/scheduler/config/frontend 或较大协议语义，需单独 Sprint 评估。
 
 ## 待验证点
 
-- S2j 实现/QA 提交后 `git status --short --branch` 已确认 clean。
-- S2j 未重跑 Docker runtime smoke 或全量后端测试；本轮只跑目标 service tests 和 `cmd/server` 编译 smoke。
+- S2k 实现/QA 提交后需再确认 `git status --short --branch` clean。
+- S2k 未重跑 Docker runtime smoke 或全量后端测试；本轮只跑目标 service tests。
 - 若继续下一批，需要重新从 `git log --cherry-pick --right-only HEAD...upstream/main --no-merges` 里筛候选，先判等价再写 contract。
 
 ## 当前结论
 
-- S2j 已完成实现、目标 QA 和提交。
+- S2k 已完成实现和目标 QA，准备提交实现/QA commit。
 - 本轮没有触碰主工作区 `F:/mcplugins/sub2api`。
 - 当前仍不建议直接 merge `upstream/main`；剩余大项主要是迁移、payment/subscription/channel-monitor 功能、OpenAI WS/Responses bridge 和 gateway 重构链。
 
 ## 下一步
 
-- 如继续同步，先确认 `git status --short --branch` clean。
+- 提交 S2k 实现/QA：验证 `git status --short --branch` clean。
 - 如继续同步，优先寻找文件少、无迁移、无 schema、无 bridge 链依赖的候选；每个候选先判本地等价。
 - 大功能或迁移型补丁单独开 Sprint，不纳入当前小补丁批次。
 
 ## 验证记录
 
 - `git diff --check`：通过。
-- `go test ./internal/service -run "OpenAIOAuthService_RefreshAccountToken_NoRefreshTokenUsesExistingAccessToken|FetchChatGPTSubscriptionExpiresAt|OpenAI.*Refresh|OpenAI.*Privacy|OpenAI.*Subscription|BuildAccountCredentials|RefreshIfNeeded" -count=1`：通过。
-- `go test ./cmd/server -run TestNonExistent -count=1`：通过。
+- `go test ./internal/service -run "OpenAIGatewayServiceRecordUsage_(PrefersClientRequestIDOverUpstreamRequestID|WSModePrefersUpstreamRequestIDOverClientRequestID|GeneratesRequestIDWhenAllSourcesMissing)" -count=1`：通过。
