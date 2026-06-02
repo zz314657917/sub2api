@@ -100,6 +100,10 @@ const SelectStub = defineComponent({
     options: {
       type: Array,
       default: () => []
+    },
+    disabled: {
+      type: Boolean,
+      default: false
     }
   },
   emits: ['update:modelValue'],
@@ -107,6 +111,7 @@ const SelectStub = defineComponent({
     <select
       v-bind="$attrs"
       :value="modelValue"
+      :disabled="disabled"
       @change="$emit('update:modelValue', $event.target.value)"
     >
       <option v-for="option in options" :key="option.value" :value="option.value">
@@ -316,6 +321,49 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('openai_responses_mode')
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_responses_supported).toBe(true)
+  })
+
+  it('submits OpenAI APIKey endpoint capability overrides', async () => {
+    const account = buildAccount()
+    account.extra = {
+      openai_responses_supported: true
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    await wrapper.get('[data-testid="openai-endpoint-capability-chat_completions"]').setValue(false)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.openai_capabilities).toEqual(['embeddings'])
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('openai_responses_mode')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_responses_supported).toBe(true)
+    expect(wrapper.get('[data-testid="openai-responses-mode-select"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-testid="openai-responses-mode-not-applicable"]').exists()).toBe(true)
+  })
+
+  it('omits OpenAI endpoint capability override when both defaults are selected', async () => {
+    const account = buildAccount()
+    account.credentials = {
+      ...account.credentials,
+      openai_capabilities: ['embeddings']
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    await wrapper.get('[data-testid="openai-endpoint-capability-chat_completions"]').setValue(true)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('openai_capabilities')
   })
 
   it('submits account-level Codex image generation bridge override', async () => {
