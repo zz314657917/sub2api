@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-03 02:36 +08:00
+最后更新：2026-06-03 02:39 +08:00
 
 ## 背景
 
@@ -53,6 +53,8 @@
 - 本轮补充确认等价，无需重复 port：
   - `8a999f438`：WS terminal events 已不再被 token event 分类，本地已有对应测试。
   - `2bd3125d`：usage worker context 保留已在本地，含 `wrapUsageRecordTaskContext` 和 request id/client request id 测试。
+  - `df2b02e61`：group account available/rate-limited count 口径本地已等价，`GetByID`/`GetAccountCount`/`loadAccountCounts` 已共用调度可用口径。
+  - `69305a609`：ops 本地客户端限制错误 SLA 排除本地已等价，含 API key auth/business-limit/upstream 反例测试。
 - 这些候选已确认本地等价或无需重复 port：
   - `a6117429`, `26ca73a`, `2c14efeaa`, `6acb46c11`, `1d47fd630`, `b15375dfb`, `56e96fdd8`
   - `f1cc83e0e`, `a66f771cb`, `0cfabaa82`
@@ -65,11 +67,14 @@
   - `08e19bb15`, `d7bed40dd`, `08061717b`, `2a075a85b`：OpenAI WS bridge/failover/WS image tool 注入规模较大。
   - `5fd9a3509`：当前本地 pricing resource 仍匹配旧断言，不能只改测试。
   - `0560340bd`：admin create-user balance pointer 触及 DTO、默认余额语义和前端表单，需单独评估。
-  - `a01686c63`, `a31b50748`, `33ac8eb27`, `ddf91e9a7`, `ed1b57c59`, `f7ac5e593`：涉及多模块 gateway/scheduler/config/frontend 或较大协议语义，需单独 Sprint 评估。
+  - `a01686c63`, `a31b50748`, `33ac8eb27`, `ddf91e9a7`, `ed1b57c59`, `f7ac5e593`, `1e406fed5`, `0f8e2d093`, `bb4c1abe2`：涉及多模块 gateway/scheduler/config/frontend、API/DTO 安全响应形态、Ent/migration 或较大协议语义，需单独 Sprint 评估。
+  - `cbdfedab3`：AES encryptor test-only 候选，属于低风险测试补强但不是 Sprint 1 指定 OpenAI/usage/ops 修复；可单独 test-only Sprint 处理。
+  - `825834b5c`：admin/settings contract 小测试修复；当前本地 API contract 搜索未确认完全等价，若要处理可另开 test-only Sprint。
+  - `e1b53fdeb`：notification email helper 写入错误检查；本地当前无 `notification_email_service.go` 同名路径，属于上游邮件通知链，随邮件功能 Sprint 评估。
 
 ## 待验证点
 
-- S2k 实现/QA 提交后 `git status --short --branch` 已确认 clean。
+- S2k 实现/QA 提交后 `git status --short --branch` 已确认 clean；本次 handoff 更新后需再提交并确认 clean。
 - S2k 未重跑 Docker runtime smoke 或全量后端测试；本轮只跑目标 service tests。
 - 若继续下一批，需要重新从 `git log --cherry-pick --right-only HEAD...upstream/main --no-merges` 里筛候选，先判等价再写 contract。
 
@@ -81,7 +86,7 @@
 
 ## 下一步
 
-- 如继续同步，先确认 `git status --short --branch` clean。
+- 提交本次 handoff 更新并确认 `git status --short --branch` clean。
 - 如继续同步，优先寻找文件少、无迁移、无 schema、无 bridge 链依赖的候选；每个候选先判本地等价。
 - 大功能或迁移型补丁单独开 Sprint，不纳入当前小补丁批次。
 
