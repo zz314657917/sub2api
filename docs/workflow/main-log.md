@@ -30,3 +30,4 @@
 260603 0203 | upstream-main-oauth-401-no-credentials-write-test-s2i | implementation-and-qa-pass | codex | backend/internal/service/ratelimit_service_401_test.go, docs/workflow/qa-reports/upstream-main-oauth-401-no-credentials-write-test-s2i-qa.md
 260603 0213 | upstream-main-openai-oauth-refresh-enrichment-s2j | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-oauth-refresh-enrichment-s2j.md
 260603 0217 | upstream-main-openai-oauth-refresh-enrichment-s2j | implementation-and-qa-pass | codex | backend/internal/service/openai_oauth_service.go, backend/internal/service/openai_privacy_service.go, backend/internal/service/wire.go, backend/cmd/server/wire_gen.go, docs/workflow/qa-reports/upstream-main-openai-oauth-refresh-enrichment-s2j-qa.md
+260603 0232 | upstream-main-openai-ws-usage-dedup-s2k | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-ws-usage-dedup-s2k.md
