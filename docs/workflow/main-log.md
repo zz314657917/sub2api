@@ -19,3 +19,4 @@
 260603 0032 | upstream-main-account-model-sync-s2b | contract-approved | codex | docs/workflow/tasks/upstream-main-account-model-sync-s2b.md
 260603 0038 | upstream-main-account-model-sync-s2b | implementation-and-qa-pass | codex | 764e12073, docs/workflow/worker-results/upstream-main-account-model-sync-s2b-result.md, docs/workflow/qa-reports/upstream-main-account-model-sync-s2b-qa.md
 260603 0049 | upstream-main-account-usage-window-hints-s2c | contract-approved | codex | docs/workflow/tasks/upstream-main-account-usage-window-hints-s2c.md
+260603 0054 | upstream-main-account-usage-window-hints-s2c | implementation-and-qa-pass | codex | frontend/src/views/admin/AccountsView.vue, docs/workflow/worker-results/upstream-main-account-usage-window-hints-s2c-result.md, docs/workflow/qa-reports/upstream-main-account-usage-window-hints-s2c-qa.md
