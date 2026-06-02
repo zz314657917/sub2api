@@ -837,6 +837,7 @@ export interface OpsAlertRuntimeSettings {
 export interface OpsAdvancedSettings {
   data_retention: OpsDataRetentionSettings
   aggregation: OpsAggregationSettings
+  openai_account_quota_auto_pause: OpsOpenAIAccountQuotaAutoPauseSettings
   ignore_count_tokens_errors: boolean
   ignore_context_canceled: boolean
   ignore_no_available_accounts: boolean
@@ -846,6 +847,11 @@ export interface OpsAdvancedSettings {
   display_alert_events: boolean
   auto_refresh_enabled: boolean
   auto_refresh_interval_seconds: number
+}
+
+export interface OpsOpenAIAccountQuotaAutoPauseSettings {
+  default_threshold_5h: number
+  default_threshold_7d: number
 }
 
 export interface OpsDataRetentionSettings {

@@ -37,6 +37,21 @@ const metricThresholds = ref<OpsMetricThresholds>({
   upstream_error_rate_percent_max: 5
 })
 
+function finiteNumberOrDefault(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function normalizeAdvancedSettings(settings: OpsAdvancedSettings): OpsAdvancedSettings {
+  const quotaAutoPause = settings.openai_account_quota_auto_pause as Partial<OpsAdvancedSettings['openai_account_quota_auto_pause']> | undefined
+  return {
+    ...settings,
+    openai_account_quota_auto_pause: {
+      default_threshold_5h: finiteNumberOrDefault(quotaAutoPause?.default_threshold_5h, 0),
+      default_threshold_7d: finiteNumberOrDefault(quotaAutoPause?.default_threshold_7d, 0)
+    }
+  }
+}
+
 // 加载所有配置
 async function loadAllSettings() {
   loading.value = true
@@ -49,7 +64,7 @@ async function loadAllSettings() {
     ])
     runtimeSettings.value = runtime
     emailConfig.value = email
-    advancedSettings.value = advanced
+    advancedSettings.value = normalizeAdvancedSettings(advanced)
     // 如果后端返回了阈值，使用后端的值；否则保持默认值
     if (thresholds && Object.keys(thresholds).length > 0) {
         metricThresholds.value = {
@@ -136,6 +151,7 @@ const validation = computed(() => {
   // 验证高级设置
   if (advancedSettings.value) {
     const { error_log_retention_days, minute_metrics_retention_days, hourly_metrics_retention_days } = advancedSettings.value.data_retention
+    const quotaAutoPause = advancedSettings.value.openai_account_quota_auto_pause
     if (error_log_retention_days < 0 || error_log_retention_days > 365) {
       errors.push(t('admin.ops.settings.validation.retentionDaysRange'))
     }
@@ -144,6 +160,15 @@ const validation = computed(() => {
     }
     if (hourly_metrics_retention_days < 0 || hourly_metrics_retention_days > 365) {
       errors.push(t('admin.ops.settings.validation.retentionDaysRange'))
+    }
+    if (quotaAutoPause) {
+      const thresholds = [
+        quotaAutoPause.default_threshold_5h,
+        quotaAutoPause.default_threshold_7d
+      ]
+      if (thresholds.some(v => !Number.isFinite(v) || v < 0 || v > 1)) {
+        errors.push(t('admin.ops.settings.validation.openAIQuotaAutoPauseThresholdRange'))
+      }
     }
   }
 
@@ -470,6 +495,37 @@ async function saveAllSettings() {
                 <p class="mt-1 text-xs text-gray-500">{{ t('admin.ops.settings.aggregationHint') }}</p>
               </div>
               <Toggle v-model="advancedSettings.aggregation.aggregation_enabled" />
+            </div>
+          </div>
+
+          <!-- OpenAI Quota Auto Pause -->
+          <div class="space-y-3">
+            <h5 class="text-xs font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.ops.settings.openAIQuotaAutoPause') }}</h5>
+            <p class="text-xs text-gray-500">{{ t('admin.ops.settings.openAIQuotaAutoPauseHint') }}</p>
+
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label class="input-label">{{ t('admin.ops.settings.openAIQuotaAutoPause5h') }}</label>
+                <input
+                  v-model.number="advancedSettings.openai_account_quota_auto_pause.default_threshold_5h"
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  class="input"
+                />
+              </div>
+              <div>
+                <label class="input-label">{{ t('admin.ops.settings.openAIQuotaAutoPause7d') }}</label>
+                <input
+                  v-model.number="advancedSettings.openai_account_quota_auto_pause.default_threshold_7d"
+                  type="number"
+                  min="0"
+                  max="1"
+                  step="0.01"
+                  class="input"
+                />
+              </div>
             </div>
           </div>
 

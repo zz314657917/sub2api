@@ -677,6 +677,11 @@ export default {
         aggregation: 'Pre-aggregation Tasks',
         enableAggregation: 'Enable Pre-aggregation',
         aggregationHint: 'Pre-aggregation improves query performance for long time windows',
+        openAIQuotaAutoPause: 'OpenAI account quota auto-pause',
+        openAIQuotaAutoPauseHint:
+          'Set global default thresholds from 0 to 1. Use 0 to disable the global default; each account can override or disable a window.',
+        openAIQuotaAutoPause5h: '5h window default threshold',
+        openAIQuotaAutoPause7d: '7d window default threshold',
         errorFiltering: 'Error Filtering',
         ignoreCountTokensErrors: 'Ignore count_tokens errors',
         ignoreCountTokensErrorsHint: 'When enabled, errors from count_tokens requests will not be written to the error log.',
@@ -704,6 +709,7 @@ export default {
         validation: {
           title: 'Please fix the following issues',
           retentionDaysRange: 'Retention days must be between 0 and 365 (0 = wipe all on every cleanup)',
+          openAIQuotaAutoPauseThresholdRange: 'OpenAI account quota auto-pause thresholds must be between 0 and 1',
           slaMinPercentRange: 'SLA minimum percentage must be between 0 and 100',
           ttftP99MaxRange: 'TTFT P99 maximum must be a number ≥ 0',
           requestErrorRateMaxRange: 'Request error rate maximum must be between 0 and 100',

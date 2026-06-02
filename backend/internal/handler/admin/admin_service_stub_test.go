@@ -20,6 +20,8 @@ type stubAdminService struct {
 	boundAuthIdentity    *service.AdminBindAuthIdentityInput
 	boundAuthIdentityFor int64
 	createdAccounts      []*service.CreateAccountInput
+	updatedAccounts      []stubUpdatedAccount
+	extraUpdates         []stubExtraUpdate
 	createdProxies       []*service.CreateProxyInput
 	updatedProxyIDs      []int64
 	updatedProxies       []*service.UpdateProxyInput
@@ -77,6 +79,16 @@ type stubAdminService struct {
 		calls     int
 	}
 	mu sync.Mutex
+}
+
+type stubUpdatedAccount struct {
+	id    int64
+	input *service.UpdateAccountInput
+}
+
+type stubExtraUpdate struct {
+	id      int64
+	updates map[string]any
 }
 
 func newStubAdminService() *stubAdminService {
@@ -327,7 +339,7 @@ func (s *stubAdminService) ListAccounts(ctx context.Context, page, pageSize int,
 }
 
 func (s *stubAdminService) GetAccount(ctx context.Context, id int64) (*service.Account, error) {
-	account := service.Account{ID: id, Name: "account", Status: service.StatusActive}
+	account := service.Account{ID: id, Name: "account", Type: service.AccountTypeOAuth, Status: service.StatusActive}
 	return &account, nil
 }
 
@@ -352,11 +364,25 @@ func (s *stubAdminService) CreateAccount(ctx context.Context, input *service.Cre
 }
 
 func (s *stubAdminService) UpdateAccount(ctx context.Context, id int64, input *service.UpdateAccountInput) (*service.Account, error) {
+	s.mu.Lock()
+	s.updatedAccounts = append(s.updatedAccounts, stubUpdatedAccount{id: id, input: input})
+	s.mu.Unlock()
 	if s.updateAccountErr != nil {
 		return nil, s.updateAccountErr
 	}
-	account := service.Account{ID: id, Name: input.Name, Status: service.StatusActive}
+	account := service.Account{ID: id, Name: input.Name, Type: input.Type, Status: service.StatusActive}
 	return &account, nil
+}
+
+func (s *stubAdminService) UpdateAccountExtra(ctx context.Context, id int64, updates map[string]any) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	copied := make(map[string]any, len(updates))
+	for k, v := range updates {
+		copied[k] = v
+	}
+	s.extraUpdates = append(s.extraUpdates, stubExtraUpdate{id: id, updates: copied})
+	return nil
 }
 
 func (s *stubAdminService) DeleteAccount(ctx context.Context, id int64) error {

@@ -1,47 +1,68 @@
 # 当前任务快照
 
-最后更新：2026-06-01 17:34 +08:00
+最后更新：2026-06-02 17:30 +08:00
 
 ## 背景
 
-用户要求继续按“v0.1.133 关键修复移植计划”做下一批，不执行 `v0.1.133` 整体 merge。主工作区 `F:/mcplugins/sub2api` 仍有并行未提交改动，因此本批在独立 worktree `F:/mcplugins/.codex-worktrees/sub2api-v0133-batch2` 和分支 `codex/upstream-v0.1.133-batch2` 完成。
+- 仓库：`F:/mcplugins/sub2api`。
+- 当前主分支 `main` 正在整理最近本地和远端更新，目标是把已完成的本地批次分支合回主工作线。
+- 已先 fast-forward 合入 `origin/main`，随后合入 `codex/upstream-v0.1.133-batch2`。
+- 正在合入 `codex/upstream-v0.1.133-batch3`，业务代码已自动合入；仅 `knowledge/tasks/current-task.md` 发生内容冲突并已人工重写为当前快照。
+- 工作区仍有未跟踪 `tmp-ui-check/` 截图目录，作为本地视觉证据，不应纳入代码提交。
 
 ## 当前目标
 
-选择性移植上游 v0.1.133 的第二批低/中风险关键修复，重点是 OpenAI WebSocket/Responses 兼容、计费长上下文 cache 价格修复，以及已存在 Opus 4.8 支持中的 Bedrock 模型 ID 小修。继续避开账号配额自动暂停、风控运行态、DingTalk OAuth、大迁移和前端大替换。
+- 在当前 `main` 上继续合并近期本地分支：
+  - `codex/upstream-v0.1.133-batch3`
+  - `codex/upstream-v0.1.133-critical-fixes`
+- 合并后运行后端/前端关键验证，确认可提交。
+- 不直接整包合入 `upstream/main`，因为当前 `HEAD...upstream/main` 分叉很大，需要另行评估。
 
 ## 本次已完成
 
-- 提交 `d41955c69 fix: port upstream websocket compatibility fixes`：移植 OpenAI WS rate-limit failover、Responses/Chat/Anthropic 兼容、`response.failed` 流式错误终态、裸 `/responses` 路由识别和最小 OAuth 429 storm 停止换号逻辑。
-- 提交 `e6aa3a150 fix: apply long context multipliers to cache billing`：移植长上下文计费对 `cache_read` 和 `cache_creation` 的倍率修复及回归测试。
-- 提交 `e676580b1 fix: correct bedrock opus 4.8 model id`：手工修正 `claude-opus-4-8` Bedrock 默认模型 ID 为 `us.anthropic.claude-opus-4-8-v1`，并补 regional resolve 测试。
+- `git fetch --all --prune` 更新了 `origin` 和 `upstream` 引用。
+- `git merge --no-edit origin/main`：fast-forward 成功。
+- `git merge --no-edit codex/upstream-v0.1.133-batch2`：成功生成 merge commit。
+- `git merge --no-edit codex/upstream-v0.1.133-batch3`：业务文件自动合入，`knowledge/tasks/current-task.md` 冲突已人工解析。
+- `batch3` 已包含 `664e9fdcd feat(usage): 用户用量按平台拆分 + UsersView 列设置可配置 + 用量列排序` 相关本地处理：
+  - 后端 dashboard / users 用量统计增加 `by_platform`。
+  - 前端用户 Dashboard 增加平台拆分卡。
+  - 管理端 UsersView 增加平台用量子列、列设置版本迁移和用量排序。
 
 ## 已确认事实
 
-- `b34cc71be` 和 `cff2f291b` 的核心行为已在当前分支等效存在：`ensureForwardErrorResponse` 在 `Writer.Written()` 后继续追加 SSE，`inboundIsResponses` 覆盖 `/v1/responses`、裸 `/responses` 和 `/backend-api/codex/responses`。
-- `68901cbff` 是整份 `backend/resources/model-pricing/model_prices_and_context_window.json` 大规模替换，包含大量模型元数据删除/重排，本批未纳入。
-- `514ac5c6a` 整体包含迁移 `144`、前端账号/用量页和 Bedrock beta 测试语义变化；本批只吸收已确认的小修，不 cherry-pick 整包。
+- 当前 `main` 原先落后 `origin/main` 25 个提交，已通过 fast-forward 补齐。
+- `upstream/main` 已刷新到 `aa69e3947`，但与当前本地线分叉较大；本轮暂不直接合并整条 `upstream/main`。
+- `codex/upstream-v0.1.133-batch2` 和 `codex/upstream-v0.1.133-batch3` 都已经进入当前合并流程。
+- `tmp-ui-check/` 仍是未跟踪目录，不属于应提交源码。
 
 ## 待验证点
 
-- 后续如果要继续追模型/定价元数据，需要单独审 `68901cbff`，验证是否会删除本地仍依赖的模型条目。
-- 后续如果要完整纳入 Opus 4.8 相关迁移/前端白名单，需要另开迁移编号方案，避免与本地 `162/163` 冲突。
-- 若继续移植 v0.1.133，下一批应重新从 clean worktree 状态开始筛选，不要回到主工作区直接操作。
+- 继续合并 `codex/upstream-v0.1.133-critical-fixes` 后，需要检查是否与已合入的 `origin/main` / batch2 / batch3 产生冲突。
+- 合并全部完成后至少运行：
+  - `go test ./internal/service ./internal/handler ./internal/repository -count=1`
+  - `go test ./internal/server/routes ./cmd/server -count=1`
+  - `go test -tags=integration ./internal/repository -run TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate -count=1`
+  - `corepack.cmd pnpm run typecheck`
+  - 相关前端 Vitest：工单、公共页、UsersView/Dashboard/usage。
+- 若涉及 Docker 配置最终入提交，仍建议补一次 Docker build 或至少记录未验证。
 
 ## 当前结论
 
-Batch2 已完成并验证通过，分支 `codex/upstream-v0.1.133-batch2` 当前 HEAD 为 `e676580b1`。代码 worktree 干净；仅 `knowledge/tasks/current-task.md` 和 `knowledge/tasks/timeline.md` 作为本地交接记录有未提交修改。
+- 当前处于合并中状态，业务代码冲突已清理到只剩 `current-task.md` 冲突解析；下一步应 `git add knowledge/tasks/current-task.md` 并继续/完成 `batch3` merge。
+- `batch3` 合并完成后再合 `codex/upstream-v0.1.133-critical-fixes`。
 
 ## 下一步
 
-- 合并策略：如要纳入主工作线，优先把 `d41955c69..e676580b1` 作为 batch2 代码提交范围 review/merge。
-- 下一批移植：继续按主题审 upstream v0.1.133 剩余小修，仍跳过账号配额、风控、DingTalk、迁移重排和前端大页替换。
-- 记录维护：若后续切回主工作区，应先 `git status --short`，确认不会把主工作区 payment/affiliate/tutorial/i18n 等并行改动混入上游修复批次。
+- `git add knowledge/tasks/current-task.md`。
+- 完成当前 `batch3` merge commit。
+- 合并 `codex/upstream-v0.1.133-critical-fixes`。
+- 运行验证并根据结果修复或提交。
 
 ## 验证记录
 
-- `git diff --check`：通过。
-- `git diff HEAD~3..HEAD --check`：通过。
-- `cd backend && go test ./internal/pkg/apicompat/... ./internal/service/... ./internal/handler/... ./internal/server/...`：通过。
-- `cd backend && go test -tags unit ./internal/service -run "TestCalculateCost_(OpenAIGPT54LongContextAppliesMultiplierToCacheRead|OpenAIGPT54NoLongContextKeepsCacheReadAtBasePrice|OpenAIGPT54LongContextAppliesMultiplierToCacheCreation|OpenAIGPT54NoLongContextKeepsCacheCreationAtBasePrice|LongContextAppliesMultiplierToCacheCreation5mAnd1h)$"`：通过。
-- `cd backend && go test ./internal/domain ./internal/service -run "TestDefaultBedrockModelMapping_ClaudeOpus48|TestResolveBedrockModelID"`：通过。
+- 本轮合并前最近已验证：
+  - 视频异步任务计费链路：后端 service/handler/repository、routes/server、PostgreSQL 迁移集成测试通过。
+  - 工单前后端目标测试和前端 typecheck 通过。
+  - 公共页 Vitest 通过。
+- 本轮合并后的统一验证尚未执行。

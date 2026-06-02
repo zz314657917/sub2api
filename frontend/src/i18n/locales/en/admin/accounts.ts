@@ -507,6 +507,14 @@ export default {
         compactModelMapping: 'Compact-only model mapping',
         compactModelMappingDesc:
           'Only applies to /responses/compact. Use this when the upstream compact endpoint requires a special compact model.',
+        quotaAutoPause: 'Codex quota auto-pause',
+        quotaAutoPauseDesc:
+          'Automatically skip this account when Codex 5h / 7d window usage reaches a threshold. Use 0-1 values; leave blank to inherit the global default, or disable a window to exempt it.',
+        quotaAutoPause5h: '5h threshold',
+        quotaAutoPause7d: '7d threshold',
+        quotaAutoPauseInherit: 'Inherit global default',
+        quotaAutoPauseDisable5h: 'Disable 5h auto-pause',
+        quotaAutoPauseDisable7d: 'Disable 7d auto-pause',
         compactSupported: 'Compact supported',
         compactUnsupported: 'Compact unsupported',
         compactAuto: 'Compact Auto',
