@@ -270,7 +270,7 @@ func (a *Alipay) QueryOrder(ctx context.Context, tradeNo string) (*payment.Query
 		Status:   status,
 		Amount:   amount,
 		PaidAt:   result.SendPayDate,
-		Metadata: a.MerchantIdentityMetadata(),
+		Metadata: mergeAlipayPaymentMetadata(a.MerchantIdentityMetadata(), result.BuyerUserId, result.BuyerOpenId),
 	}, nil
 }
 
@@ -315,6 +315,7 @@ func (a *Alipay) VerifyNotification(ctx context.Context, rawBody string, _ map[s
 		}
 		metadata["app_id"] = appID
 	}
+	metadata = mergeAlipayPaymentMetadata(metadata, notification.BuyerId, notification.BuyerOpenId)
 
 	return &payment.PaymentNotification{
 		TradeNo:  notification.TradeNo,
@@ -324,6 +325,24 @@ func (a *Alipay) VerifyNotification(ctx context.Context, rawBody string, _ map[s
 		RawData:  rawBody,
 		Metadata: metadata,
 	}, nil
+}
+
+func mergeAlipayPaymentMetadata(metadata map[string]string, buyerID string, buyerOpenID string) map[string]string {
+	buyerID = strings.TrimSpace(buyerID)
+	buyerOpenID = strings.TrimSpace(buyerOpenID)
+	if buyerID == "" && buyerOpenID == "" {
+		return metadata
+	}
+	if metadata == nil {
+		metadata = map[string]string{}
+	}
+	if buyerID != "" {
+		metadata["buyer_id"] = buyerID
+	}
+	if buyerOpenID != "" {
+		metadata["buyer_open_id"] = buyerOpenID
+	}
+	return metadata
 }
 
 // Refund requests a refund through Alipay.

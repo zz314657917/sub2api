@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, shallowMount } from '@vue/test-utils'
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import enMessages from '@/i18n/locales/en'
+import zhMessages from '@/i18n/locales/zh'
 import PaymentView from '../PaymentView.vue'
 import { PAYMENT_RECOVERY_STORAGE_KEY } from '@/components/payment/paymentFlow'
 
@@ -443,14 +445,11 @@ describe('PaymentView pricing layout', () => {
   })
 
   it('defines pricing copy in both locale files', () => {
-    const zh = readFileSync(resolve(process.cwd(), 'src/i18n/locales/zh.ts'), 'utf8')
-    const en = readFileSync(resolve(process.cwd(), 'src/i18n/locales/en.ts'), 'utf8')
-
-    for (const source of [zh, en]) {
-      expect(source).toContain('pricing: {')
-      expect(source).toContain('flexibleCredit:')
-      expect(source).toContain('plansTitle:')
-      expect(source).toContain('faqTitle:')
+    for (const messages of [zhMessages, enMessages]) {
+      expect(messages.payment.pricing).toBeDefined()
+      expect(messages.payment.pricing.flexibleCredit).toBeTruthy()
+      expect(messages.payment.pricing.plansTitle).toBeTruthy()
+      expect(messages.payment.pricing.faqTitle).toBeTruthy()
     }
   })
 })

@@ -138,6 +138,9 @@ func TestBuildWxpayTransactionMetadata(t *testing.T) {
 		Amount: &payments.TransactionAmount{
 			Currency: strPtr(wxpayCurrency),
 		},
+		Payer: &payments.TransactionPayer{
+			Openid: strPtr("payer-openid"),
+		},
 	}
 
 	metadata := buildWxpayTransactionMetadata(tx)
@@ -152,6 +155,9 @@ func TestBuildWxpayTransactionMetadata(t *testing.T) {
 	}
 	if metadata[wxpayMetadataTradeState] != wxpayTradeStateSuccess {
 		t.Fatalf("trade_state = %q", metadata[wxpayMetadataTradeState])
+	}
+	if metadata["payer_openid"] != "payer-openid" {
+		t.Fatalf("payer_openid = %q", metadata["payer_openid"])
 	}
 }
 

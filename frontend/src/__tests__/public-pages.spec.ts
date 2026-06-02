@@ -93,6 +93,7 @@ describe('public tutorial CMS and model plaza pages', () => {
       'claude-code',
       'cc-switch',
       'cockpit-tools',
+      'recover-codex-session',
       'minepilotqa',
       'openclaw',
       'hermes-agent',
@@ -120,11 +121,18 @@ describe('public tutorial CMS and model plaza pages', () => {
     expect(tutorialFallback).toContain('替换成你的 codex 类型 API Key')
     expect(tutorialFallback).toContain('OpenAI 兼容地址必须写 \\`https://ai.3zapi.top/v1\\`')
     expect(tutorialFallback).toContain('npm 安装路径需要 Node.js 18+')
-    expect(tutorialFallback).toContain('## 恢复历史对话')
+    expect(tutorialFallback).toContain('查看恢复历史会话')
+    expect(tutorialFallback).toContain('# 恢复历史会话')
+    expect(tutorialFallback).toContain('## 操作步骤')
     expect(tutorialFallback).toContain('点击左侧 Codex 图标')
     expect(tutorialFallback).toContain('点击顶部的会话管理')
     expect(tutorialFallback).toContain('点击修复可见性')
     expect(tutorialFallback).toContain('回到 Codex App，刷新或重新打开会话列表')
+    expect(tutorialFallback).toContain('/tutorial/cockpit-tools/codex-sidebar.png')
+    expect(tutorialFallback).toContain('/tutorial/cockpit-tools/session-visibility.png')
+    expect(tutorialView).toContain("'recover-codex-session': 'recover-codex-session'")
+    expect(tutorialView).toContain('justify-content: space-between')
+    expect(tutorialView).toContain('text-overflow: ellipsis')
     expect(tutorialFallback).not.toContain('按需验证开发工具')
     expect(tutorialFallback).not.toContain('第一次接入先按新手最快路线走，只需要准备账号')
     expect(tutorialFallback).not.toContain('Git 和 Node.js 不属于 Codex App 的启动前置条件')

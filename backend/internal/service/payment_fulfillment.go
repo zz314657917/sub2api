@@ -105,7 +105,11 @@ func (s *PaymentService) confirmPayment(ctx context.Context, oid int64, tradeNo 
 		s.writeAuditLog(ctx, o.ID, "PAYMENT_AMOUNT_MISMATCH", pk, map[string]any{"expected": o.PayAmount, "paid": paid, "tradeNo": tradeNo})
 		return fmt.Errorf("amount mismatch: expected %s, got %s", strconv.FormatFloat(o.PayAmount, 'f', -1, 64), strconv.FormatFloat(paid, 'f', -1, 64))
 	}
-	return s.toPaid(ctx, o, tradeNo, paid, pk)
+	providerKey := expectedProviderKey
+	if providerKey == "" {
+		providerKey = pk
+	}
+	return s.toPaid(ctx, o, tradeNo, paid, pk, paymentMethodFingerprint(providerKey, metadata))
 }
 
 func paymentAmountToleranceForCurrency(currency string) float64 {
@@ -139,7 +143,7 @@ func expectedNotificationProviderKey(registry *payment.Registry, orderPaymentTyp
 	return strings.TrimSpace(orderPaymentType)
 }
 
-func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, tradeNo string, paid float64, pk string) error {
+func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, tradeNo string, paid float64, pk string, methodFingerprint string) error {
 	previousStatus := o.Status
 	now := time.Now()
 	grace := now.Add(-paymentGraceMinutes * time.Minute)
@@ -160,6 +164,7 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 	if c == 0 {
 		return s.alreadyProcessed(ctx, o)
 	}
+	s.persistPaymentMethodFingerprint(ctx, o.ID, methodFingerprint)
 	if previousStatus == OrderStatusCancelled || previousStatus == OrderStatusExpired {
 		slog.Info("order recovered from webhook payment success",
 			"orderID", o.ID,
@@ -176,6 +181,21 @@ func (s *PaymentService) toPaid(ctx context.Context, o *dbent.PaymentOrder, trad
 	}
 	s.writeAuditLog(ctx, o.ID, "ORDER_PAID", pk, map[string]any{"tradeNo": tradeNo, "paidAmount": paid})
 	return s.executeFulfillment(ctx, o.ID)
+}
+
+func (s *PaymentService) persistPaymentMethodFingerprint(ctx context.Context, orderID int64, fingerprint string) {
+	fingerprint = strings.TrimSpace(fingerprint)
+	if s == nil || s.entClient == nil || orderID <= 0 || fingerprint == "" {
+		return
+	}
+	if _, err := s.entClient.ExecContext(ctx, `
+UPDATE payment_orders
+SET payment_method_fingerprint = $1,
+    updated_at = NOW()
+WHERE id = $2
+  AND payment_method_fingerprint = ''`, fingerprint, orderID); err != nil {
+		slog.Warn("persist payment method fingerprint failed", "orderID", orderID, "error", err)
+	}
 }
 
 func (s *PaymentService) alreadyProcessed(ctx context.Context, o *dbent.PaymentOrder) error {

@@ -334,23 +334,50 @@ https://ai.3zapi.top
 
 导入账号后，在 Cockpit Tools 左侧点击 Codex 图标，确认当前账号已经切到落叶网络 Provider。
 
-## 恢复历史对话
-
-如果 Codex App 已经登录但历史对话没有显示，可以用 Cockpit Tools 修复可见性。
-
-1. 打开 Cockpit Tools。
-2. 点击左侧 Codex 图标。
-3. 点击顶部的会话管理。
-4. 点击修复可见性。
-5. 回到 Codex App，刷新或重新打开会话列表。
-
 [[callout type="tip" title="恢复 Codex 会话"]]
-导入账号后，如果 Codex 会话不可见，先确认当前 Provider 已选中落叶网络，再进入会话管理点击修复可见性。
+导入账号后，如果 Codex 会话不可见，先确认当前 Provider 已选中落叶网络；具体操作见恢复历史会话教程。
 [[/callout]]
+
+[[link-button href="/tutorial/recover-codex-session" label="查看恢复历史会话"]]
 `.trim()
   },
   {
     id: 6,
+    slug: 'recover-codex-session',
+    title: '恢复历史会话',
+    description: '使用 Cockpit Tools 修复 Codex 历史会话可见性。',
+    category: '排查',
+    sort_order: 55,
+    status: 'published',
+    created_at: timestamp,
+    updated_at: timestamp,
+    published_at: timestamp,
+    content_md: `
+# 恢复历史会话
+
+如果 Codex App 已经登录但历史对话没有显示，可以用 Cockpit Tools 修复可见性。
+
+## 操作步骤
+
+1. 打开 Cockpit Tools。
+2. 点击左侧 Codex 图标。
+
+[[screenshot src="/tutorial/cockpit-tools/codex-sidebar.png" alt="Cockpit Tools 左侧 Codex 图标" caption="点击左侧 Codex 图标进入 Codex 页面"]]
+
+3. 点击顶部的会话管理。
+4. 点击修复可见性。
+
+[[screenshot src="/tutorial/cockpit-tools/session-visibility.png" alt="Cockpit Tools 会话管理修复可见性" caption="进入会话管理后点击修复可见性"]]
+
+5. 回到 Codex App，刷新或重新打开会话列表。
+
+[[callout type="tip" title="看不到会话时请等待一下"]]
+历史会话加载可能有延迟，修复后请等待一会儿，再刷新或重新打开会话列表。
+[[/callout]]
+`.trim()
+  },
+  {
+    id: 7,
     slug: 'minepilotqa',
     title: 'MinePilotQA',
     description: '在 MinePilotQA 中添加 3zapi 服务商并测试连接。',
@@ -380,7 +407,7 @@ https://ai.3zapi.top/
 `.trim()
   },
   {
-    id: 7,
+    id: 8,
     slug: 'openclaw',
     title: 'OpenClaw',
     description: '自托管助手平台，使用 OpenAI 兼容 provider 接入。',
@@ -416,7 +443,7 @@ openclaw dashboard
 `.trim()
   },
   {
-    id: 8,
+    id: 9,
     slug: 'hermes-agent',
     title: 'Hermes-Agent',
     description: '多代理开发工作流，配置自定义模型端点。',
@@ -444,7 +471,7 @@ hermes model
 `.trim()
   },
   {
-    id: 9,
+    id: 10,
     slug: 'faq',
     title: '常见问题',
     description: '密钥、Base URL、权限和工具连接的常见排查。',

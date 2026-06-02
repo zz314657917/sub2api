@@ -61,17 +61,19 @@ func isValidAffiliateCodeFormat(code string) bool {
 }
 
 type AffiliateSummary struct {
-	UserID               int64     `json:"user_id"`
-	AffCode              string    `json:"aff_code"`
-	AffCodeCustom        bool      `json:"aff_code_custom"`
-	AffRebateRatePercent *float64  `json:"aff_rebate_rate_percent,omitempty"`
-	InviterID            *int64    `json:"inviter_id,omitempty"`
-	AffCount             int       `json:"aff_count"`
-	AffQuota             float64   `json:"aff_quota"`
-	AffFrozenQuota       float64   `json:"aff_frozen_quota"`
-	AffHistoryQuota      float64   `json:"aff_history_quota"`
-	CreatedAt            time.Time `json:"created_at"`
-	UpdatedAt            time.Time `json:"updated_at"`
+	UserID                 int64      `json:"user_id"`
+	AffCode                string     `json:"aff_code"`
+	AffCodeCustom          bool       `json:"aff_code_custom"`
+	AffRebateRatePercent   *float64   `json:"aff_rebate_rate_percent,omitempty"`
+	InviterID              *int64     `json:"inviter_id,omitempty"`
+	AffiliateRevokedAt     *time.Time `json:"affiliate_revoked_at,omitempty"`
+	AffiliateRevokedReason string     `json:"affiliate_revoked_reason,omitempty"`
+	AffCount               int        `json:"aff_count"`
+	AffQuota               float64    `json:"aff_quota"`
+	AffFrozenQuota         float64    `json:"aff_frozen_quota"`
+	AffHistoryQuota        float64    `json:"aff_history_quota"`
+	CreatedAt              time.Time  `json:"created_at"`
+	UpdatedAt              time.Time  `json:"updated_at"`
 }
 
 type AffiliateInvitee struct {
@@ -108,6 +110,7 @@ type AffiliateRepository interface {
 	GetAffiliateByCode(ctx context.Context, code string) (*AffiliateSummary, error)
 	BindInviter(ctx context.Context, userID, inviterID int64) (bool, error)
 	AccrueQuota(ctx context.Context, inviterID, inviteeUserID int64, amount float64, freezeHours int, sourceOrderID *int64) (bool, error)
+	RevokeSelfReferralByPaymentMethod(ctx context.Context, inviterID, inviteeUserID int64, sourceOrderID *int64) (bool, error)
 	GetAccruedRebateFromInvitee(ctx context.Context, inviterID, inviteeUserID int64) (float64, error)
 	ThawFrozenQuota(ctx context.Context, userID int64) (float64, error)
 	TransferQuotaToBalance(ctx context.Context, userID int64) (float64, float64, error)
@@ -349,6 +352,18 @@ func (s *AffiliateService) AccrueInviteRebateForOrder(ctx context.Context, invit
 	if inviteeSummary.InviterID == nil || *inviteeSummary.InviterID <= 0 {
 		return 0, nil
 	}
+	if inviteeSummary.AffiliateRevokedAt != nil {
+		return 0, nil
+	}
+	if sourceOrderID != nil {
+		revoked, err := s.repo.RevokeSelfReferralByPaymentMethod(ctx, *inviteeSummary.InviterID, inviteeUserID, sourceOrderID)
+		if err != nil {
+			return 0, err
+		}
+		if revoked {
+			return 0, nil
+		}
+	}
 
 	// 加载邀请人 profile，优先使用专属比例（覆盖全局）
 	inviterSummary, err := s.repo.EnsureUserAffiliate(ctx, *inviteeSummary.InviterID)
@@ -455,6 +470,13 @@ func (s *AffiliateService) ClaimInviteeAPICallReward(ctx context.Context, invite
 	var freezeHours int
 	if s.settingService != nil {
 		freezeHours = s.settingService.GetAffiliateRebateFreezeHours(ctx)
+	}
+	revoked, err := s.repo.RevokeSelfReferralByPaymentMethod(ctx, inviterID, inviteeUserID, nil)
+	if err != nil {
+		return 0, err
+	}
+	if revoked {
+		return 0, ErrAffiliateAPICallRewardNotEligible
 	}
 	applied, err := s.repo.ClaimAPICallReward(ctx, inviterID, inviteeUserID, amount, freezeHours)
 	if err != nil {

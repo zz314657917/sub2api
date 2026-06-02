@@ -185,6 +185,9 @@ const legacyHashRedirects: Record<string, string> = {
   'cc-switch': 'cc-switch',
   cockpit: 'cockpit-tools',
   'cockpit-tools': 'cockpit-tools',
+  'recover-session': 'recover-codex-session',
+  'restore-session': 'recover-codex-session',
+  'recover-codex-session': 'recover-codex-session',
   minepilotqa: 'minepilotqa',
   openclaw: 'openclaw',
   hermes: 'hermes-agent',
@@ -626,12 +629,25 @@ onUnmounted(() => {
 }
 
 .tutorial-tabs a {
-  display: grid;
-  gap: 0.2rem;
-  padding: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  min-height: 2.35rem;
+  padding: 0.45rem 0.55rem;
   border: 1px solid transparent;
   border-radius: 8px;
   color: var(--tutorial-muted);
+}
+
+.tutorial-tabs strong {
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-size: 0.92rem;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tutorial-tabs a:hover,
@@ -642,8 +658,11 @@ onUnmounted(() => {
 }
 
 .tutorial-tabs span {
+  flex: 0 0 auto;
   font-size: 0.75rem;
   color: rgba(207, 220, 240, 0.58);
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .tutorial-main-column {
@@ -1028,8 +1047,8 @@ onUnmounted(() => {
   }
 
   .tutorial-tabs a {
-    min-width: 12rem;
-    padding: 0.58rem 0.7rem;
+    min-width: 10.5rem;
+    padding: 0.48rem 0.62rem;
   }
 }
 

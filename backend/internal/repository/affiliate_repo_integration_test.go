@@ -39,6 +39,50 @@ func querySingleInt(t *testing.T, ctx context.Context, client *dbent.Client, que
 	return value
 }
 
+func insertAffiliateTestPaymentOrder(t *testing.T, ctx context.Context, client *dbent.Client, userID int64, outTradeNo string, fingerprint string, status string) int64 {
+	t.Helper()
+	rows, err := client.QueryContext(ctx, `
+INSERT INTO payment_orders (
+    user_id,
+    user_email,
+    user_name,
+    amount,
+    pay_amount,
+    fee_rate,
+    recharge_code,
+    out_trade_no,
+    payment_type,
+    payment_trade_no,
+    order_type,
+    status,
+    refund_amount,
+    expires_at,
+    client_ip,
+    src_host,
+    payment_method_fingerprint,
+    created_at,
+    updated_at
+)
+VALUES ($1, $2, $3, 10, 10, 0, $4, $5, 'alipay', $6, 'balance', $7, 0, NOW() + INTERVAL '1 hour', '127.0.0.1', 'test.local', $8, NOW(), NOW())
+RETURNING id`,
+		userID,
+		fmt.Sprintf("affiliate-order-user-%d@example.com", userID),
+		fmt.Sprintf("user-%d", userID),
+		"RC-"+outTradeNo,
+		outTradeNo,
+		"TRADE-"+outTradeNo,
+		status,
+		fingerprint,
+	)
+	require.NoError(t, err)
+	defer func() { _ = rows.Close() }()
+	require.True(t, rows.Next(), "expected inserted payment order id")
+	var id int64
+	require.NoError(t, rows.Scan(&id))
+	require.NoError(t, rows.Err())
+	return id
+}
+
 func TestAffiliateRepository_TransferQuotaToBalance_UsesClaimedQuotaBeforeClear(t *testing.T) {
 	ctx := context.Background()
 	tx := testEntTx(t)
@@ -168,6 +212,84 @@ func TestAffiliateRepository_AccrueQuota_ReusesOuterTransaction(t *testing.T) {
 	require.NoError(t, rows.Scan(&postRollbackCount))
 	require.Equal(t, 0, postRollbackCount,
 		"AccrueQuota must propagate the outer tx — found persisted rows after rollback")
+}
+
+func TestAffiliateRepository_RevokeSelfReferralByPaymentMethod(t *testing.T) {
+	ctx := context.Background()
+	tx := testEntTx(t)
+	txCtx := dbent.NewTxContext(ctx, tx)
+	client := tx.Client()
+
+	repo := NewAffiliateRepository(client, integrationDB)
+	now := time.Now().UnixNano()
+	inviter := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("affiliate-self-ref-inviter-%d@example.com", now),
+		PasswordHash: "hash",
+		Role:         service.RoleUser,
+		Status:       service.StatusActive,
+		Concurrency:  5,
+	})
+	invitee := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("affiliate-self-ref-invitee-%d@example.com", now+1),
+		PasswordHash: "hash",
+		Role:         service.RoleUser,
+		Status:       service.StatusActive,
+		Concurrency:  5,
+	})
+
+	_, err := repo.EnsureUserAffiliate(txCtx, inviter.ID)
+	require.NoError(t, err)
+	_, err = repo.EnsureUserAffiliate(txCtx, invitee.ID)
+	require.NoError(t, err)
+	bound, err := repo.BindInviter(txCtx, invitee.ID, inviter.ID)
+	require.NoError(t, err)
+	require.True(t, bound)
+
+	applied, err := repo.AccrueQuota(txCtx, inviter.ID, invitee.ID, 6.5, 0, nil)
+	require.NoError(t, err)
+	require.True(t, applied)
+
+	fingerprint := "pmf_test_same_method"
+	inviterOrderID := insertAffiliateTestPaymentOrder(t, txCtx, client, inviter.ID, fmt.Sprintf("self-ref-inviter-%d", now), fingerprint, service.OrderStatusCompleted)
+	inviteeOrderID := insertAffiliateTestPaymentOrder(t, txCtx, client, invitee.ID, fmt.Sprintf("self-ref-invitee-%d", now), fingerprint, service.OrderStatusRecharging)
+	require.NotZero(t, inviterOrderID)
+
+	revoked, err := repo.RevokeSelfReferralByPaymentMethod(txCtx, inviter.ID, invitee.ID, &inviteeOrderID)
+	require.NoError(t, err)
+	require.True(t, revoked)
+
+	var revokedReason string
+	rows, err := client.QueryContext(txCtx, `
+SELECT affiliate_revoked_reason
+FROM user_affiliates
+WHERE user_id = $1`, invitee.ID)
+	require.NoError(t, err)
+	require.True(t, rows.Next())
+	require.NoError(t, rows.Scan(&revokedReason))
+	require.NoError(t, rows.Close())
+	require.Equal(t, affiliateRevokedReasonSamePaymentMethod, revokedReason)
+
+	quota := querySingleFloat(t, txCtx, client,
+		"SELECT aff_quota::double precision FROM user_affiliates WHERE user_id = $1", inviter.ID)
+	history := querySingleFloat(t, txCtx, client,
+		"SELECT aff_history_quota::double precision FROM user_affiliates WHERE user_id = $1", inviter.ID)
+	require.InDelta(t, 0.0, quota, 1e-9)
+	require.InDelta(t, 0.0, history, 1e-9)
+	require.Equal(t, 0, querySingleInt(t, txCtx, client,
+		"SELECT aff_count FROM user_affiliates WHERE user_id = $1", inviter.ID))
+
+	revokeLedgerCount := querySingleInt(t, txCtx, client, `
+SELECT COUNT(*)
+FROM user_affiliate_ledger
+WHERE user_id = $1
+  AND source_user_id = $2
+  AND action = 'revoke'
+  AND amount = -6.5`, inviter.ID, invitee.ID)
+	require.Equal(t, 1, revokeLedgerCount)
+
+	applied, err = repo.AccrueQuota(txCtx, inviter.ID, invitee.ID, 1.0, 0, nil)
+	require.NoError(t, err)
+	require.False(t, applied)
 }
 
 func TestAffiliateRepository_TransferQuotaToBalance_EmptyQuota(t *testing.T) {

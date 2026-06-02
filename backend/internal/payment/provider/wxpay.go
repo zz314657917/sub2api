@@ -384,6 +384,11 @@ func buildWxpayTransactionMetadata(tx *payments.Transaction) map[string]string {
 			metadata[wxpayMetadataCurrency] = currency
 		}
 	}
+	if tx.Payer != nil {
+		if openid := wxSV(tx.Payer.Openid); openid != "" {
+			metadata["payer_openid"] = openid
+		}
+	}
 	if len(metadata) == 0 {
 		return nil
 	}

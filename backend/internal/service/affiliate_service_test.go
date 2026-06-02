@@ -95,6 +95,25 @@ func TestClaimInviteeAPICallReward_DisabledWhenRewardAmountZero(t *testing.T) {
 	require.False(t, repo.called)
 }
 
+func TestClaimInviteeAPICallReward_BlocksRevokedSelfReferral(t *testing.T) {
+	t.Parallel()
+
+	repo := &affiliateRewardRepoStub{revokeSelfReferral: true}
+	settings := NewSettingService(settingRepoMapStub{
+		SettingKeyAffiliateEnabled:             "true",
+		SettingKeyAffiliateAPICallRewardAmount: "5",
+	}, nil)
+	svc := NewAffiliateService(repo, settings, nil, nil)
+
+	amount, err := svc.ClaimInviteeAPICallReward(context.Background(), 100, 200)
+	require.ErrorIs(t, err, ErrAffiliateAPICallRewardNotEligible)
+	require.Zero(t, amount)
+	require.True(t, repo.revokeCalled)
+	require.Equal(t, int64(100), repo.revokeInviterID)
+	require.Equal(t, int64(200), repo.revokeInviteeUserID)
+	require.False(t, repo.called)
+}
+
 // TestValidateExclusiveRate_BoundaryAndInvalid covers the validator used by
 // admin-facing rate setters: nil is always valid (clear), in-range values
 // are accepted, NaN/Inf and out-of-range values produce a typed BadRequest.
@@ -169,11 +188,15 @@ func TestIsValidAffiliateCodeFormat(t *testing.T) {
 }
 
 type affiliateRewardRepoStub struct {
-	called      bool
-	inviterID   int64
-	inviteeID   int64
-	amount      float64
-	freezeHours int
+	called              bool
+	inviterID           int64
+	inviteeID           int64
+	amount              float64
+	freezeHours         int
+	revokeSelfReferral  bool
+	revokeCalled        bool
+	revokeInviterID     int64
+	revokeInviteeUserID int64
 }
 
 func (r *affiliateRewardRepoStub) EnsureUserAffiliate(_ context.Context, userID int64) (*AffiliateSummary, error) {
@@ -190,6 +213,13 @@ func (r *affiliateRewardRepoStub) BindInviter(context.Context, int64, int64) (bo
 
 func (r *affiliateRewardRepoStub) AccrueQuota(context.Context, int64, int64, float64, int, *int64) (bool, error) {
 	panic("unexpected AccrueQuota call")
+}
+
+func (r *affiliateRewardRepoStub) RevokeSelfReferralByPaymentMethod(_ context.Context, inviterID, inviteeUserID int64, _ *int64) (bool, error) {
+	r.revokeCalled = true
+	r.revokeInviterID = inviterID
+	r.revokeInviteeUserID = inviteeUserID
+	return r.revokeSelfReferral, nil
 }
 
 func (r *affiliateRewardRepoStub) GetAccruedRebateFromInvitee(context.Context, int64, int64) (float64, error) {
