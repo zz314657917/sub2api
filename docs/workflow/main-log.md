@@ -22,3 +22,4 @@
 260603 0054 | upstream-main-account-usage-window-hints-s2c | implementation-and-qa-pass | codex | frontend/src/views/admin/AccountsView.vue, docs/workflow/worker-results/upstream-main-account-usage-window-hints-s2c-result.md, docs/workflow/qa-reports/upstream-main-account-usage-window-hints-s2c-qa.md
 260603 0108 | upstream-main-openai-endpoint-capability-ui-s2d | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-endpoint-capability-ui-s2d.md
 260603 0125 | upstream-main-openai-endpoint-capability-ui-s2d | implementation-and-qa-pass | codex | frontend/src/components/account/EditAccountModal.vue, docs/workflow/worker-results/upstream-main-openai-endpoint-capability-ui-s2d-result.md, docs/workflow/qa-reports/upstream-main-openai-endpoint-capability-ui-s2d-qa.md
+260603 0139 | upstream-main-claude-count-tokens-s2g | contract-approved | codex | docs/workflow/tasks/upstream-main-claude-count-tokens-s2g.md
