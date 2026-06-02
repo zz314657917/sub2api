@@ -1,69 +1,71 @@
 # 当前任务快照
 
-最后更新：2026-06-02 17:59 +08:00
+最后更新：2026-06-03 01:42 +08:00
 
 ## 背景
 
-- 仓库：`F:/mcplugins/sub2api`。
-- 当前主分支 `main` 已完成近期远端与本地分支合并收口。
-- 本轮不直接整包合入 `upstream/main`，因为当前本地主线与 `upstream/main` 仍存在较大分叉，需要单独评估。
-- `tmp-ui-check/` 仍是未跟踪截图证据目录，不属于源码提交范围。
+- 仓库主工作区：`F:/mcplugins/sub2api`。
+- 本轮 upstream 同步只在独立 worktree：`E:/codex-worktrees/sub2api/upstream-main-safe-patches-s1`。
+- 当前分支：`codex/upstream-main-claude-count-tokens-s2g`。
+- 目标仍是分批同步 `upstream/main` 的稳定修复，不直接 merge `upstream/main`。
+- 继续遵守 P/G/E：先 contract，再实现，再 QA 证据和 handoff。
 
 ## 当前目标
 
-- 确认近期本地分支都已合入 `main`。
-- 保留合并中发现的必要兼容修复。
-- 完成关键后端/前端回归，并留下可恢复的最终快照。
+- 在不触碰 schema、迁移、frontend、gateway handler、OpenAI WS/Responses bridge 的前提下，同步小范围上游稳定修复。
+- 本次 S2g 目标：语义 port upstream `bf3787de1 fix(gateway): allow Claude Code count_tokens`。
 
 ## 本次已完成
 
-- 已执行 `git fetch --all --prune`，刷新 `origin` 与 `upstream` 引用。
-- 已确认并合入 `origin/main`。
-- 已确认并合入 `codex/upstream-v0.1.133-batch2`：`1f47bd607 Merge branch 'codex/upstream-v0.1.133-batch2'`。
-- 已确认并合入 `codex/upstream-v0.1.133-batch3`：`2977ef90c Merge branch 'codex/upstream-v0.1.133-batch3'`。
-- 已确认并合入 `codex/upstream-v0.1.133-critical-fixes`：`167ae57d9 Merge branch 'codex/upstream-v0.1.133-critical-fixes'`。
-- 已确认并合入 `pge/sub2api-canvas-editor-core`：`d3104f894 Merge branch 'pge/sub2api-canvas-editor-core'`。
-- 已确认并合入 `pge/sub2api-canvas-run-control`：`797854f44 Merge branch 'pge/sub2api-canvas-run-control'`。
-- 解析 `critical-fixes` 冲突时保留双方后端鉴权测试，并重写 `current-task.md` 为当前事实。
-- 修复合并后的编译缺口：`ResolveOpenAIVideoTaskAccount` 按新签名调用 `isOpenAIAccountEligibleForRequest(ctx, account, "", false, OpenAIEndpointCapabilityChatCompletions)`。
-- 解析 Canvas editor 冲突时保留主线模块化 i18n、运行取消状态、`ref` 包装的拖拽/平移状态和 pointer listener 防重复保护。
+- 新建并提交 S2g contract：
+  - `00a11a676 docs: approve claude count_tokens sync`
+  - contract 文件：`docs/workflow/tasks/upstream-main-claude-count-tokens-s2g.md`
+- 实现 S2g：
+  - `backend/internal/service/claude_code_validator.go`
+  - `backend/internal/service/claude_code_validator_test.go`
+- 行为变化：
+  - `/v1/messages/count_tokens` 在 Claude Code User-Agent 匹配后可跳过普通 `/v1/messages` 的 system prompt/header/metadata 严格校验。
+  - 非 Claude Code User-Agent 仍被拒绝。
+  - 普通 `/v1/messages` 严格校验未放宽。
+- 写入 QA/结果证据：
+  - `docs/workflow/worker-results/upstream-main-claude-count-tokens-s2g-result.md`
+  - `docs/workflow/qa-reports/upstream-main-claude-count-tokens-s2g-qa.md`
 
 ## 已确认事实
 
-- `git branch --no-merged main` 当前为空；已知本地分支均已合入 `main`。
-- `307e952ca feat: finalize gateway billing and ticket polish` 已被 `main` 包含。
-- `664e9fdcd feat(usage): 用户用量按平台拆分 + UsersView 列设置可配置 + 用量列排序` 仍只在 `upstream/main` 上；当前本地 `batch3` 含同主题本地提交 `382287168`。
-- `main` 当前相对 `origin/main` ahead 37。
-- `tmp-ui-check/` 仍未跟踪，未纳入提交。
+- 当前本地与 `upstream/main` 差异仍很大：`git rev-list --left-right --count HEAD...upstream/main` 在提交前为 `304 370`。
+- 计数不会因手工语义 port 自动下降；当前同步采用 contract + QA 证据而不是直接 merge。
+- 这些候选已确认本地等价或无需重复 port：
+  - `a6117429`, `26ca73a`, `2c14efeaa`, `6acb46c11`, `1d47fd630`, `b15375dfb`, `56e96fdd8`
+  - `f1cc83e0e`, `a66f771cb`, `0cfabaa82`
+  - `0a521f09f`, `20f534078`, `89dffdd2e`, `6010c3cca`, `1e6d0b602`
+  - `888cd8092`, `d3d5843b9`
+- 这些候选已明确延后：
+  - `a39163519`：OpenAI key generated config 默认模型升级到 `gpt-5.5`，属于产品/配置策略。
+  - `003b2786d`：目标测试文件属于 deferred apicompat bridge 测试链。
+  - `08e19bb15`, `d7bed40dd`, `08061717b`：OpenAI WS bridge/failover 规模较大。
+  - `5fd9a3509`：当前本地 pricing resource 仍匹配旧断言，不能只改测试。
 
 ## 待验证点
 
-- Docker 配置改动已随合并进入主线，但尚未做 Docker build 验证。
-- 真实上游视频 smoke 未执行；该验证会创建视频任务并消耗上游额度/余额，需要用户明确测试环境和账号后再跑。
-- 尚未 push 到远端。
+- S2g 实现提交后需再确认 `git status --short --branch` clean。
+- 若继续下一批，需要重新从 `git log --cherry-pick --right-only HEAD...upstream/main --no-merges` 里筛候选，先判等价再写 contract。
+- Docker runtime smoke 已在 S1 做过；S2g 是纯 service validator 小修，本轮未重跑 Docker。
 
 ## 当前结论
 
-- 本轮“检查最近更新并合并其他本地分支”已完成。
-- 当前 `main` 没有挂起 merge，已知本地分支全部合入；工作区只剩未跟踪 `tmp-ui-check/`。
-- 关键后端、前端和 Canvas 目标回归均已通过。
+- S2g 已完成实现和目标 QA，准备提交实现/QA commit。
+- 本轮没有触碰主工作区 `F:/mcplugins/sub2api`。
+- 当前仍不建议直接 merge `upstream/main`；剩余大项主要是迁移、payment/subscription/channel-monitor 功能、OpenAI WS/Responses bridge 和 gateway 重构链。
 
 ## 下一步
 
-- 如需共享结果：push 当前 `main` 或创建 PR。
-- 如需清理工作区：删除或归档 `tmp-ui-check/`。
-- 如需补齐剩余风险：跑 Docker build，以及在用户确认账号后跑真实上游视频 smoke。
+- 提交 S2g 实现/QA：验证 `git status --short --branch` clean。
+- 如继续同步，优先寻找文件少、无迁移、无 schema、无 bridge 链依赖的候选；每个候选先判本地等价。
+- 大功能或迁移型补丁单独开 Sprint，不纳入当前小补丁批次。
 
 ## 验证记录
 
-- `git diff --cached --check`：通过。
-- `go test ./internal/service ./internal/handler ./internal/repository -count=1`：通过。
-- `go test ./internal/server/routes ./cmd/server -count=1`：通过。
-- `go test -tags=integration ./internal/repository -run TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate -count=1`：通过。
-- `corepack.cmd pnpm run typecheck`：通过。
-- 工单/公共页/KeysView/UsageFilters/Welfare 目标 Vitest 8 文件 40 用例：通过；仅有 Browserslist 数据较旧提示。
-- UsersView/Dashboard/Usage 目标 Vitest 9 文件 33 用例：通过；`UsageView.spec.ts` 的 mock 缺少 `getModelStats` 产生 stderr，但测试通过。
-- Canvas 后端目标测试：
-  - `go test ./internal/repository -run Canvas -count=1`：通过。
-  - `go test ./internal/service -run Canvas -count=1`：通过。
-- Canvas 前端目标 Vitest：`corepack.cmd pnpm exec vitest run src/views/user/__tests__/CanvasView.spec.ts src/api/__tests__/canvas.spec.ts`：2 文件 14 用例通过；仅有 Browserslist 数据较旧提示。
+- `git diff --check`：通过。
+- `go test ./internal/service -run ClaudeCodeValidator -count=1`：通过。
+- `go test ./internal/service ./internal/handler -run "ClaudeCode|CountTokens" -count=1`：通过。
