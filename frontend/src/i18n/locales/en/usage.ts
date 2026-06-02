@@ -86,7 +86,7 @@ export default {
     imageSizeNotRecorded: 'not recorded',
     imageSizeLegacyUnstandardized: 'legacy unstandardized',
     imageSizeUnknown: 'unknown',
-    cacheRead: 'Read',
+    cacheRead: 'Cache Read',
     cacheWrite: 'Write',
     serviceTier: 'Service tier',
     serviceTierPriority: 'Fast',

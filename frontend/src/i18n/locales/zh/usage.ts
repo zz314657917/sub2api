@@ -86,7 +86,7 @@ export default {
     imageSizeNotRecorded: '未记录',
     imageSizeLegacyUnstandardized: '历史非标准',
     imageSizeUnknown: '未知',
-    cacheRead: '读取',
+    cacheRead: '缓存读取',
     cacheWrite: '写入',
     serviceTier: '服务档位',
     serviceTierPriority: 'Fast',

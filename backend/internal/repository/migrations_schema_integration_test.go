@@ -48,6 +48,7 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireColumn(t, tx, "usage_logs", "image_output_size", "character varying", 32, true)
 	requireColumn(t, tx, "usage_logs", "image_size_source", "character varying", 16, true)
 	requireColumn(t, tx, "usage_logs", "image_size_breakdown", "jsonb", 0, true)
+	requireColumn(t, tx, "usage_logs", "media_type", "character varying", 16, true)
 	requireConstraintDefinitionContains(
 		t,
 		tx,

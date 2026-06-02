@@ -321,20 +321,13 @@
                     }}</span>
                   </div>
                 </div>
-                <!-- Cache Tokens (Read + Write) -->
+                <!-- Cache Write Tokens -->
                 <div
-                  v-if="row.cache_read_tokens > 0 || row.cache_creation_tokens > 0"
+                  v-if="row.cache_creation_tokens > 0"
                   class="flex items-center gap-2"
                 >
-                  <!-- Cache Read -->
-                  <div v-if="row.cache_read_tokens > 0" class="inline-flex items-center gap-1">
-                    <Icon name="inbox" size="sm" class="text-sky-500" />
-                    <span class="font-medium text-sky-600 dark:text-sky-400">{{
-                      formatCacheTokens(row.cache_read_tokens)
-                    }}</span>
-                  </div>
                   <!-- Cache Write -->
-                  <div v-if="row.cache_creation_tokens > 0" class="inline-flex items-center gap-1">
+                  <div class="inline-flex items-center gap-1">
                     <Icon name="edit" size="sm" class="text-amber-500" />
                     <span class="font-medium text-amber-600 dark:text-amber-400">{{
                       formatCacheTokens(row.cache_creation_tokens)
@@ -361,6 +354,20 @@
                 </div>
               </div>
             </div>
+          </template>
+
+          <template #cell-cache_read="{ row }">
+            <div
+              v-if="!isImageUsage(row) && row.cache_read_tokens > 0"
+              class="inline-flex items-center gap-1 text-sm"
+              :title="row.cache_read_tokens.toLocaleString()"
+            >
+              <Icon name="database" size="sm" class="h-3.5 w-3.5 text-sky-500" />
+              <span class="font-medium text-sky-600 dark:text-sky-400">
+                {{ formatCacheTokens(row.cache_read_tokens) }}
+              </span>
+            </div>
+            <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
           </template>
 
           <template #cell-cost="{ row }">
@@ -808,7 +815,9 @@ const tokenTooltipData = ref<UsageLog | null>(null)
 // Usage stats from API
 const usageStats = ref<UsageStatsResponse | null>(null)
 
-const COLUMN_VISIBILITY_KEY = 'usage-visible-columns:v1'
+const COLUMN_VISIBILITY_KEY = 'usage-visible-columns:v2'
+const LEGACY_COLUMN_VISIBILITY_KEYS = ['usage-visible-columns:v1']
+const MIGRATED_DEFAULT_VISIBLE_COLUMNS = ['cache_read']
 const DEFAULT_VISIBLE_COLUMNS = [
   'api_key',
   'group',
@@ -816,6 +825,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   'stream',
   'billing_mode',
   'tokens',
+  'cache_read',
   'cost',
   'first_token',
   'duration',
@@ -833,6 +843,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'stream', label: t('usage.type'), sortable: false },
   { key: 'billing_mode', label: t('admin.usage.billingMode'), sortable: false },
   { key: 'tokens', label: t('usage.tokens'), sortable: false },
+  { key: 'cache_read', label: t('usage.cacheRead'), sortable: false },
   { key: 'cost', label: t('usage.cost'), sortable: false },
   { key: 'first_token', label: t('usage.firstToken'), sortable: false },
   { key: 'duration', label: t('usage.duration'), sortable: false },
@@ -1025,13 +1036,35 @@ const persistVisibleColumns = () => {
 
 const loadVisibleColumns = () => {
   try {
-    const raw = localStorage.getItem(COLUMN_VISIBILITY_KEY)
+    let raw = localStorage.getItem(COLUMN_VISIBILITY_KEY)
+    let migratedFromLegacy = false
+    if (!raw) {
+      for (const key of LEGACY_COLUMN_VISIBILITY_KEYS) {
+        const legacyRaw = localStorage.getItem(key)
+        if (legacyRaw) {
+          raw = legacyRaw
+          break
+        }
+      }
+      migratedFromLegacy = Boolean(raw)
+    }
     if (!raw) return
     const parsed = JSON.parse(raw) as string[]
     const valid = new Set(allColumns.value.map((column) => column.key))
     const next = parsed.filter((key) => valid.has(key))
     if (next.length > 0) {
-      visibleColumnKeys.value = new Set([...ALWAYS_VISIBLE_COLUMNS, ...next])
+      const nextKeys = new Set([...ALWAYS_VISIBLE_COLUMNS, ...next])
+      if (migratedFromLegacy) {
+        MIGRATED_DEFAULT_VISIBLE_COLUMNS.forEach((key) => {
+          if (valid.has(key)) {
+            nextKeys.add(key)
+          }
+        })
+      }
+      visibleColumnKeys.value = nextKeys
+      if (migratedFromLegacy) {
+        persistVisibleColumns()
+      }
     }
   } catch (error) {
     console.error('Failed to load usage visible columns:', error)

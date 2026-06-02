@@ -95,7 +95,7 @@ const messages: Record<string, string> = {
   'usage.unknown': 'Unknown',
   'usage.in': 'In',
   'usage.out': 'Out',
-  'usage.cacheRead': 'Read',
+  'usage.cacheRead': 'Cache Read',
   'usage.cacheWrite': 'Write',
   'usage.imageUnit': ' images',
   'usage.imageCount': 'Image count',
@@ -456,6 +456,7 @@ describe('user UsageView', () => {
     const headerText = () => wrapper.find('.table-headers').text()
 
     expect(headerText()).toContain('Billing Group')
+    expect(headerText()).toContain('Cache Read')
     expect(headerText()).toContain('First Token')
     expect(headerText()).not.toContain('Endpoint')
     expect(headerText()).not.toContain('Reasoning Effort')
@@ -468,7 +469,7 @@ describe('user UsageView', () => {
     await nextTick()
 
     expect(headerText()).toContain('Reasoning Effort')
-    expect(window.localStorage.getItem('usage-visible-columns:v1')).toContain('reasoning_effort')
+    expect(window.localStorage.getItem('usage-visible-columns:v2')).toContain('reasoning_effort')
   })
 
   it('opens row details with group, request, user-agent, token, and cost data', async () => {
