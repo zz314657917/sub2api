@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-03 02:17 +08:00
+最后更新：2026-06-03 02:21 +08:00
 
 ## 背景
 
@@ -26,17 +26,17 @@
 - S2i 已完成并提交：
   - `c4e409517 docs: approve oauth 401 no-write test sync`
   - `5e129b6ac test(oauth): assert 401 handler preserves credentials`
-- S2j contract 已完成并提交：
+- S2j 已完成并提交：
   - `ae0b3bfc9 docs: approve openai oauth refresh enrichment sync`
+  - `b9646e6eb fix(openai): enrich oauth refresh credentials`
   - contract 文件：`docs/workflow/tasks/upstream-main-openai-oauth-refresh-enrichment-s2j.md`
-- S2j 实现已完成，待提交：
   - `backend/internal/service/openai_oauth_service.go`
   - `backend/internal/service/openai_privacy_service.go`
   - `backend/internal/service/openai_oauth_service_refresh_test.go`
   - `backend/internal/service/openai_subscription_test.go`
   - `backend/internal/service/wire.go`
   - `backend/cmd/server/wire_gen.go`
-- S2j QA/结果证据已写入，待提交：
+- S2j QA/结果证据已提交：
   - `docs/workflow/worker-results/upstream-main-openai-oauth-refresh-enrichment-s2j-result.md`
   - `docs/workflow/qa-reports/upstream-main-openai-oauth-refresh-enrichment-s2j-qa.md`
   - `docs/workflow/main-log.md`
@@ -44,7 +44,7 @@
 
 ## 已确认事实
 
-- 当前本地与 `upstream/main` 差异仍很大：S2j contract 提交后 `git rev-list --left-right --count HEAD...upstream/main` 为 `310 370`。
+- 当前本地与 `upstream/main` 差异仍很大：S2j 实现提交后 `git rev-list --left-right --count HEAD...upstream/main` 为 `311 370`。
 - 计数不会因手工语义 port 自动下降；当前同步采用 contract + QA 证据而不是直接 merge。
 - S2j 已确认可以收敛为 OpenAI OAuth/privacy service + 最小 Wire provider 补丁：
   - no-refresh-token existing access-token path 会保留 `subscription_expires_at` 并运行 enrichment。
@@ -65,19 +65,19 @@
 
 ## 待验证点
 
-- S2j 实现/QA 提交后需再确认 `git status --short --branch` clean。
+- S2j 实现/QA 提交后 `git status --short --branch` 已确认 clean。
 - S2j 未重跑 Docker runtime smoke 或全量后端测试；本轮只跑目标 service tests 和 `cmd/server` 编译 smoke。
 - 若继续下一批，需要重新从 `git log --cherry-pick --right-only HEAD...upstream/main --no-merges` 里筛候选，先判等价再写 contract。
 
 ## 当前结论
 
-- S2j 已完成实现和目标 QA，准备提交实现/QA commit。
+- S2j 已完成实现、目标 QA 和提交。
 - 本轮没有触碰主工作区 `F:/mcplugins/sub2api`。
 - 当前仍不建议直接 merge `upstream/main`；剩余大项主要是迁移、payment/subscription/channel-monitor 功能、OpenAI WS/Responses bridge 和 gateway 重构链。
 
 ## 下一步
 
-- 提交 S2j 实现/QA：验证 `git status --short --branch` clean。
+- 如继续同步，先确认 `git status --short --branch` clean。
 - 如继续同步，优先寻找文件少、无迁移、无 schema、无 bridge 链依赖的候选；每个候选先判本地等价。
 - 大功能或迁移型补丁单独开 Sprint，不纳入当前小补丁批次。
 
