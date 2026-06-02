@@ -97,6 +97,11 @@ function systemTicket() {
 
 describe('user TicketsView', () => {
   beforeEach(() => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia
     list.mockReset().mockResolvedValue({
       items: [
         supportTicket(),
@@ -146,6 +151,29 @@ describe('user TicketsView', () => {
     expect(wrapper.find('.unread-pill').exists()).toBe(false)
   })
 
+  it('keeps unread list state on mobile until the user opens a conversation', async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(get).not.toHaveBeenCalled()
+    expect(markRead).not.toHaveBeenCalled()
+    expect(wrapper.find('.unread-pill').exists()).toBe(true)
+
+    await wrapper.find('.ticket-list-item').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(get).toHaveBeenCalledWith(7)
+    expect(markRead).toHaveBeenCalledWith(7)
+    expect(wrapper.find('.unread-pill').exists()).toBe(false)
+  })
+
   it('sends a user reply and refreshes detail/list', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -188,7 +216,7 @@ describe('user TicketsView', () => {
     await flushPromises()
 
     expect(get).toHaveBeenCalledWith(3)
-    expect(wrapper.text()).toContain('tickets.systemTicket')
+    expect(wrapper.text()).toContain('系统通知')
     expect(wrapper.text()).toContain('充值已到账')
     expect(wrapper.find('form.border-t').exists()).toBe(false)
     expect(wrapper.text()).toContain('tickets.systemReadOnly')
@@ -196,5 +224,49 @@ describe('user TicketsView', () => {
 
     await wrapper.find('.system-action-link').trigger('click')
     expect(push).toHaveBeenCalledWith('/orders')
+  })
+
+  it('renders group change metadata details for system messages', async () => {
+    list.mockResolvedValue({
+      items: [systemTicket()],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+    get.mockResolvedValue({
+      ticket: systemTicket(),
+      messages: [
+        {
+          id: 3,
+          ticket_id: 3,
+          sender_type: 'system',
+          content: '分组「PLUS共享号池」已更新。',
+          event_type: 'group_changed',
+          event_key: 'group_changed:1:20260601120000',
+          metadata: {
+            action_type: 'group_changed',
+            group_id: 2,
+            group_name: 'PLUS共享号池',
+            old_rate_multiplier: 0.06,
+            new_rate_multiplier: 0.08,
+            old_rpm_limit: 60,
+            new_rpm_limit: 120,
+          },
+          created_at: '2026-06-01T12:00:00Z',
+        },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('tickets.metadata.changeDetails')
+    expect(wrapper.text()).toContain('tickets.metadata.rateMultiplier')
+    expect(wrapper.text()).toContain('0.06x')
+    expect(wrapper.text()).toContain('0.08x')
+    expect(wrapper.text()).toContain('tickets.metadata.rpmLimit')
+    expect(wrapper.text()).toContain('120')
+    expect(wrapper.find('.system-action-link').exists()).toBe(false)
   })
 })

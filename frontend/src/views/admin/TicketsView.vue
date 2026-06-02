@@ -40,8 +40,42 @@
                 @input="handleSearchInput"
               />
             </div>
-            <div class="grid grid-cols-[1fr_auto] gap-2">
-              <select v-model="filters.sort_by" class="input" @change="reloadFromFirstPage">
+            <div class="grid grid-cols-2 gap-2">
+              <input
+                v-model.trim="filters.event_type"
+                data-test="ticket-event-type-filter"
+                class="input"
+                :placeholder="t('admin.tickets.eventTypePlaceholder')"
+                @input="handleSearchInput"
+              />
+              <input
+                v-model.trim="filters.event_key"
+                data-test="ticket-event-key-filter"
+                class="input"
+                :placeholder="t('admin.tickets.eventKeyPlaceholder')"
+                @input="handleSearchInput"
+              />
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input
+                v-model="filters.date_from"
+                data-test="ticket-date-from-filter"
+                type="date"
+                class="input"
+                :aria-label="t('admin.tickets.dateFrom')"
+                @change="reloadFromFirstPage"
+              />
+              <input
+                v-model="filters.date_to"
+                data-test="ticket-date-to-filter"
+                type="date"
+                class="input"
+                :aria-label="t('admin.tickets.dateTo')"
+                @change="reloadFromFirstPage"
+              />
+            </div>
+            <div class="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
+              <select v-model="filters.sort_by" data-test="ticket-sort-filter" class="input" @change="reloadFromFirstPage">
                 <option value="last_message_at">{{ t('admin.tickets.sortLatest') }}</option>
                 <option value="unread_first">{{ t('admin.tickets.sortUnreadFirst') }}</option>
               </select>
@@ -70,19 +104,18 @@
             :class="{ 'ticket-list-item-active': ticket.id === selectedTicketId }"
             @click="selectTicket(ticket.id)"
           >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="truncate font-medium text-gray-900 dark:text-white">{{ ticket.title }}</span>
-                  <span v-if="isSystemTicket(ticket)" class="badge badge-warning">{{ t('admin.tickets.systemTicket') }}</span>
+            <div class="ticket-list-main">
+              <div class="ticket-list-content">
+                <div class="ticket-list-title-row">
+                  <span class="ticket-title">{{ ticket.title }}</span>
                   <span v-if="ticket.admin_unread_count > 0" class="unread-pill">{{ ticket.admin_unread_count }}</span>
                 </div>
-                <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+                <p class="ticket-list-user">
                   {{ ticket.user?.email || ticket.user?.username || t('admin.tickets.userInfo', { id: ticket.user_id }) }}
                 </p>
-                <p class="mt-1 line-clamp-2 text-sm text-gray-500 dark:text-dark-400">{{ ticket.last_message_preview || '-' }}</p>
+                <p class="ticket-list-preview">{{ formatTicketPreview(ticket.last_message_preview) }}</p>
               </div>
-              <span :class="statusClass(ticket.status, ticket.ticket_type)">{{ statusLabel(ticket) }}</span>
+              <span v-if="!isSystemTicket(ticket)" :class="statusClass(ticket.status, ticket.ticket_type)">{{ statusLabel(ticket) }}</span>
             </div>
             <div class="mt-3 flex items-center justify-between text-xs text-gray-400 dark:text-dark-500">
               <span>#{{ ticket.id }}</span>
@@ -108,7 +141,7 @@
         </div>
       </aside>
 
-      <section class="flex min-w-0 flex-1 flex-col">
+      <section class="min-w-0 flex-1 flex-col" :class="detailPanelClass">
         <div v-if="selectedTicket" class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-4 dark:border-dark-700">
           <div class="min-w-0">
             <button type="button" class="mb-2 inline-flex items-center gap-1 text-sm text-primary-600 md:hidden" @click="showMobileList = true">
@@ -147,11 +180,12 @@
             :class="message.sender_type === 'admin' ? 'justify-end' : 'justify-start'"
           >
             <div :class="messageBubbleClass(message.sender_type)">
-              <div class="mb-1 flex items-center justify-between gap-4 text-xs opacity-75">
+              <div class="message-meta">
                 <span>{{ senderLabel(message.sender_type) }}</span>
                 <span>{{ formatDateTime(message.created_at) }}</span>
               </div>
-              <p class="whitespace-pre-wrap break-words text-sm leading-6">{{ message.content }}</p>
+              <p class="whitespace-pre-wrap break-words text-sm leading-6">{{ formatMessageContent(message.content) }}</p>
+              <SystemTicketMetadataDetails :message="message" />
             </div>
           </div>
           <div v-if="!detailLoading && messages.length === 0" class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-dark-400">
@@ -193,6 +227,7 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import SystemTicketMetadataDetails from '@/components/tickets/SystemTicketMetadataDetails.vue'
 import { adminTicketsAPI } from '@/api/admin/tickets'
 import { useAppStore } from '@/stores/app'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
@@ -219,6 +254,10 @@ const filters = reactive({
   status: '' as SupportTicketStatus | '',
   ticket_type: '' as SupportTicketType | '',
   user_id: '',
+  event_type: '',
+  event_key: '',
+  date_from: '',
+  date_to: '',
   unread_only: false,
   sort_by: 'last_message_at' as AdminSupportTicketSortBy,
 })
@@ -237,12 +276,17 @@ const currentListParams = computed(() => ({
   ticket_type: filters.ticket_type,
   search: filters.search.trim() || undefined,
   user_id: filters.user_id.trim() || undefined,
+  event_type: filters.event_type.trim() || undefined,
+  event_key: filters.event_key.trim() || undefined,
+  date_from: filters.date_from || undefined,
+  date_to: filters.date_to || undefined,
   unread_only: filters.unread_only,
   sort_by: filters.sort_by,
   sort_order: 'desc' as const,
 }))
 
 const selectedIsSystem = computed(() => selectedTicket.value?.ticket_type === 'system')
+const detailPanelClass = computed(() => (selectedTicketId.value && !showMobileList.value ? 'flex' : 'hidden md:flex'))
 
 function isSystemTicket(ticket: SupportTicket) {
   return ticket.ticket_type === 'system'
@@ -268,13 +312,31 @@ function senderLabel(senderType: SupportTicketMessage['sender_type']) {
 
 function messageBubbleClass(senderType: SupportTicketMessage['sender_type']) {
   return [
-    'max-w-[min(720px,85%)] rounded-lg px-4 py-3 shadow-sm',
+    'message-bubble',
     senderType === 'admin'
-      ? 'bg-primary-600 text-white'
+      ? 'message-bubble-admin'
       : senderType === 'user'
-        ? 'bg-white text-gray-900 dark:bg-dark-800 dark:text-gray-100'
-        : 'bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100',
+        ? 'message-bubble-peer'
+        : 'message-bubble-system',
   ]
+}
+
+function formatTicketPreview(preview: string | null | undefined): string {
+  const text = (preview || '-').trim()
+  return formatInlineArrows(text)
+}
+
+function formatMessageContent(content: string): string {
+  return formatInlineArrows(content)
+}
+
+function formatInlineArrows(text: string): string {
+  return text.replace(/\s*(?:->|→)\s*/g, '\u00a0→\u00a0')
+}
+
+function shouldAutoSelectInitialTicket(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true
+  return window.matchMedia('(min-width: 768px)').matches
 }
 
 function applyTicketReadState(ticketId: number) {
@@ -305,12 +367,13 @@ async function loadTickets() {
     tickets.value = response.items
     pagination.total = response.total
     pagination.pages = response.pages
-    if (!selectedTicketId.value && response.items.length > 0) {
+    if (!selectedTicketId.value && response.items.length > 0 && shouldAutoSelectInitialTicket()) {
       await selectTicket(response.items[0].id, false)
     } else if (selectedTicketId.value && !response.items.some((item) => item.id === selectedTicketId.value)) {
       selectedTicketId.value = null
       selectedTicket.value = null
       messages.value = []
+      showMobileList.value = true
     } else if (selectedTicketId.value) {
       selectedTicket.value = response.items.find((item) => item.id === selectedTicketId.value) ?? selectedTicket.value
     }
@@ -470,6 +533,56 @@ onMounted(() => {
   transition: background-color 0.15s ease;
 }
 
+.ticket-list-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.ticket-list-content {
+  min-width: 0;
+}
+
+.ticket-list-title-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.ticket-title {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: rgb(17 24 39);
+  font-weight: 600;
+  line-height: 1.375rem;
+}
+
+.ticket-list-user {
+  margin-top: 0.25rem;
+  overflow: hidden;
+  color: rgb(107 114 128);
+  font-size: 0.75rem;
+  line-height: 1.125rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ticket-list-preview {
+  margin-top: 0.375rem;
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgb(107 114 128);
+  font-size: 0.875rem;
+  line-height: 1.35rem;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .ticket-list-item:hover,
 .ticket-list-item-active {
   background: rgb(249 250 251);
@@ -479,6 +592,15 @@ onMounted(() => {
   border-bottom-color: rgb(55 65 81);
 }
 
+.dark .ticket-title {
+  color: white;
+}
+
+.dark .ticket-list-user,
+.dark .ticket-list-preview {
+  color: rgb(156 163 175);
+}
+
 .dark .ticket-list-item:hover,
 .dark .ticket-list-item-active {
   background: rgb(31 41 55);
@@ -486,6 +608,7 @@ onMounted(() => {
 
 .unread-pill {
   display: inline-flex;
+  flex: 0 0 auto;
   min-width: 1.25rem;
   height: 1.25rem;
   align-items: center;
@@ -496,5 +619,60 @@ onMounted(() => {
   font-size: 0.75rem;
   font-weight: 700;
   color: white;
+}
+
+.message-bubble {
+  width: fit-content;
+  max-width: min(720px, 86%);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.message-bubble-system {
+  width: min(720px, 100%);
+  max-width: 100%;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: rgb(255 251 235);
+  color: rgb(120 53 15);
+}
+
+.message-bubble-admin {
+  background: rgb(37 99 235);
+  color: white;
+}
+
+.message-bubble-peer {
+  background: white;
+  color: rgb(17 24 39);
+}
+
+.message-meta {
+  margin-bottom: 0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  opacity: 0.75;
+}
+
+.dark .message-bubble-system {
+  border-color: rgba(251, 191, 36, 0.24);
+  background: rgb(69 26 3);
+  color: rgb(254 243 199);
+}
+
+.dark .message-bubble-peer {
+  background: rgb(31 41 55);
+  color: rgb(243 244 246);
+}
+
+@media (max-width: 767px) {
+  .message-bubble {
+    max-width: 100%;
+  }
 }
 </style>

@@ -121,6 +121,11 @@ function mountView() {
 
 describe('admin TicketsView', () => {
   beforeEach(() => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: true,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia
     list.mockReset().mockResolvedValue({
       items: [ticket()],
       total: 1,
@@ -151,6 +156,29 @@ describe('admin TicketsView', () => {
     expect(wrapper.text()).toContain('账单问题')
     expect(wrapper.text()).toContain('user@example.com')
     expect(wrapper.text()).toContain('用户留言')
+  })
+
+  it('keeps admin unread list state on mobile until the admin opens a conversation', async () => {
+    window.matchMedia = vi.fn().mockReturnValue({
+      matches: false,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+    }) as unknown as typeof window.matchMedia
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(get).not.toHaveBeenCalled()
+    expect(markRead).not.toHaveBeenCalled()
+    expect(wrapper.find('.unread-pill').exists()).toBe(true)
+
+    await wrapper.find('.ticket-list-item').trigger('click')
+    await flushPromises()
+    await flushPromises()
+
+    expect(get).toHaveBeenCalledWith(9)
+    expect(markRead).toHaveBeenCalledWith(9)
+    expect(wrapper.find('.unread-pill').exists()).toBe(false)
   })
 
   it('sends an admin reply and refreshes detail/list', async () => {
@@ -206,7 +234,14 @@ describe('admin TicketsView', () => {
           content: '分组倍率已调整',
           event_type: 'group_changed',
           event_key: 'group_changed:12:20260601120000',
-          metadata: {},
+          metadata: {
+            action_type: 'group_changed',
+            group_id: 5,
+            old_rate_multiplier: 0.06,
+            new_rate_multiplier: 0.08,
+            old_rpm_limit: 60,
+            new_rpm_limit: 120,
+          },
           created_at: '2026-06-01T12:00:00Z',
         },
       ],
@@ -216,16 +251,45 @@ describe('admin TicketsView', () => {
     await flushPromises()
 
     await wrapper.findAll('select')[1].setValue('system')
-    await wrapper.findAll('select')[2].setValue('unread_first')
+    await wrapper.get('[data-test="ticket-sort-filter"]').setValue('unread_first')
     await flushPromises()
 
     expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ ticket_type: 'system', sort_by: 'unread_first', sort_order: 'desc' }))
-    expect(wrapper.text()).toContain('admin.tickets.systemTicket')
+    expect(wrapper.text()).toContain('系统通知')
     expect(wrapper.text()).toContain('admin.tickets.readOnlyStatus')
     expect(wrapper.text()).toContain('分组倍率已调整')
+    expect(wrapper.text()).toContain('tickets.metadata.changeDetails')
+    expect(wrapper.text()).toContain('0.06x')
+    expect(wrapper.text()).toContain('0.08x')
+    expect(wrapper.text()).toContain('120')
     expect(wrapper.find('form.border-t').exists()).toBe(false)
     expect(wrapper.text()).toContain('admin.tickets.systemReadOnly')
     expect(wrapper.findAll('button').some((button) => button.text().includes('admin.tickets.close'))).toBe(false)
     expect(wrapper.findAll('button').some((button) => button.text().includes('admin.tickets.reopen'))).toBe(false)
+  })
+
+  it('passes system notification audit filters to ticket list params', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('select')[1].setValue('system')
+    await wrapper.get('[data-test="ticket-event-type-filter"]').setValue('group_changed')
+    await wrapper.get('[data-test="ticket-event-key-filter"]').setValue('group_changed:12:20260601120000')
+    vi.advanceTimersByTime(300)
+    await flushPromises()
+
+    await wrapper.get('[data-test="ticket-date-from-filter"]').setValue('2026-06-01')
+    await wrapper.get('[data-test="ticket-date-to-filter"]').setValue('2026-06-02')
+    await flushPromises()
+
+    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({
+      ticket_type: 'system',
+      event_type: 'group_changed',
+      event_key: 'group_changed:12:20260601120000',
+      date_from: '2026-06-01',
+      date_to: '2026-06-02',
+    }))
+    vi.useRealTimers()
   })
 })

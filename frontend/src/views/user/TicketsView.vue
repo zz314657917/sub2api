@@ -64,16 +64,15 @@
             :class="{ 'ticket-list-item-active': ticket.id === selectedTicketId }"
             @click="selectTicket(ticket.id)"
           >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="truncate font-medium text-gray-900 dark:text-white">{{ ticket.title }}</span>
-                  <span v-if="isSystemTicket(ticket)" class="badge badge-warning">{{ t('tickets.systemTicket') }}</span>
+            <div class="ticket-list-main">
+              <div class="ticket-list-content">
+                <div class="ticket-list-title-row">
+                  <span class="ticket-title">{{ ticket.title }}</span>
                   <span v-if="ticket.user_unread_count > 0" class="unread-pill">{{ ticket.user_unread_count }}</span>
                 </div>
-                <p class="mt-1 line-clamp-2 text-sm text-gray-500 dark:text-dark-400">{{ ticket.last_message_preview || '-' }}</p>
+                <p class="ticket-list-preview">{{ formatTicketPreview(ticket.last_message_preview) }}</p>
               </div>
-              <span :class="statusClass(ticket.status, ticket.ticket_type)">{{ statusLabel(ticket) }}</span>
+              <span v-if="!isSystemTicket(ticket)" :class="statusClass(ticket.status, ticket.ticket_type)">{{ statusLabel(ticket) }}</span>
             </div>
             <div class="mt-3 flex items-center justify-between text-xs text-gray-400 dark:text-dark-500">
               <span>#{{ ticket.id }}</span>
@@ -99,8 +98,8 @@
         </div>
       </aside>
 
-      <section class="flex min-w-0 flex-1 flex-col">
-        <div v-if="selectedTicket" class="flex items-center justify-between gap-3 border-b border-gray-200 p-4 dark:border-dark-700">
+      <section class="min-w-0 flex-1 flex-col" :class="detailPanelClass">
+        <div v-if="selectedTicket" class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 p-4 dark:border-dark-700">
           <div class="min-w-0">
             <button type="button" class="mb-2 inline-flex items-center gap-1 text-sm text-primary-600 md:hidden" @click="showMobileList = true">
               <Icon name="chevronLeft" size="sm" />
@@ -129,11 +128,12 @@
             :class="message.sender_type === 'user' ? 'justify-end' : 'justify-start'"
           >
             <div :class="messageBubbleClass(message.sender_type)">
-              <div class="mb-1 flex items-center justify-between gap-4 text-xs opacity-75">
+              <div class="message-meta">
                 <span>{{ senderLabel(message.sender_type) }}</span>
                 <span>{{ formatDateTime(message.created_at) }}</span>
               </div>
-              <p class="whitespace-pre-wrap break-words text-sm leading-6">{{ message.content }}</p>
+              <p class="whitespace-pre-wrap break-words text-sm leading-6">{{ formatMessageContent(message.content) }}</p>
+              <SystemTicketMetadataDetails :message="message" />
               <button
                 v-if="systemActionForMessage(message)"
                 type="button"
@@ -186,6 +186,7 @@ import { useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import SystemTicketMetadataDetails from '@/components/tickets/SystemTicketMetadataDetails.vue'
 import { ticketsAPI } from '@/api/tickets'
 import { useAppStore } from '@/stores/app'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
@@ -238,6 +239,7 @@ const currentListParams = computed(() => ({
 }))
 
 const selectedIsSystem = computed(() => selectedTicket.value?.ticket_type === 'system')
+const detailPanelClass = computed(() => (selectedTicketId.value && !showMobileList.value ? 'flex' : 'hidden md:flex'))
 
 type SystemActionEntry = {
   path: string
@@ -269,13 +271,31 @@ function senderLabel(senderType: SupportTicketMessage['sender_type']) {
 
 function messageBubbleClass(senderType: SupportTicketMessage['sender_type']) {
   return [
-    'max-w-[min(720px,85%)] rounded-lg px-4 py-3 shadow-sm',
+    'message-bubble',
     senderType === 'user'
-      ? 'bg-primary-600 text-white'
+      ? 'message-bubble-user'
       : senderType === 'admin'
-        ? 'bg-white text-gray-900 dark:bg-dark-800 dark:text-gray-100'
-        : 'bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-100',
+        ? 'message-bubble-peer'
+        : 'message-bubble-system',
   ]
+}
+
+function formatTicketPreview(preview: string | null | undefined): string {
+  const text = (preview || '-').trim()
+  return formatInlineArrows(text)
+}
+
+function formatMessageContent(content: string): string {
+  return formatInlineArrows(content)
+}
+
+function formatInlineArrows(text: string): string {
+  return text.replace(/\s*(?:->|→)\s*/g, '\u00a0→\u00a0')
+}
+
+function shouldAutoSelectInitialTicket(): boolean {
+  if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return true
+  return window.matchMedia('(min-width: 768px)').matches
 }
 
 function resolveSystemActionType(message: SupportTicketMessage): SupportTicketActionType | null {
@@ -343,12 +363,13 @@ async function loadTickets() {
     tickets.value = response.items
     pagination.total = response.total
     pagination.pages = response.pages
-    if (!selectedTicketId.value && response.items.length > 0) {
+    if (!selectedTicketId.value && response.items.length > 0 && shouldAutoSelectInitialTicket()) {
       await selectTicket(response.items[0].id, false)
     } else if (selectedTicketId.value && !response.items.some((item) => item.id === selectedTicketId.value)) {
       selectedTicketId.value = null
       selectedTicket.value = null
       messages.value = []
+      showMobileList.value = true
     } else if (selectedTicketId.value) {
       selectedTicket.value = response.items.find((item) => item.id === selectedTicketId.value) ?? selectedTicket.value
     }
@@ -520,6 +541,46 @@ onMounted(() => {
   transition: background-color 0.15s ease;
 }
 
+.ticket-list-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  align-items: start;
+}
+
+.ticket-list-content {
+  min-width: 0;
+}
+
+.ticket-list-title-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.ticket-title {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  color: rgb(17 24 39);
+  font-weight: 600;
+  line-height: 1.375rem;
+}
+
+.ticket-list-preview {
+  margin-top: 0.375rem;
+  display: -webkit-box;
+  overflow: hidden;
+  color: rgb(107 114 128);
+  font-size: 0.875rem;
+  line-height: 1.35rem;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
 .ticket-list-item:hover,
 .ticket-list-item-active {
   background: rgb(249 250 251);
@@ -529,6 +590,14 @@ onMounted(() => {
   border-bottom-color: rgb(55 65 81);
 }
 
+.dark .ticket-title {
+  color: white;
+}
+
+.dark .ticket-list-preview {
+  color: rgb(156 163 175);
+}
+
 .dark .ticket-list-item:hover,
 .dark .ticket-list-item-active {
   background: rgb(31 41 55);
@@ -536,6 +605,7 @@ onMounted(() => {
 
 .unread-pill {
   display: inline-flex;
+  flex: 0 0 auto;
   min-width: 1.25rem;
   height: 1.25rem;
   align-items: center;
@@ -546,6 +616,61 @@ onMounted(() => {
   font-size: 0.75rem;
   font-weight: 700;
   color: white;
+}
+
+.message-bubble {
+  width: fit-content;
+  max-width: min(720px, 86%);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+
+.message-bubble-system {
+  width: min(720px, 100%);
+  max-width: 100%;
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: rgb(255 251 235);
+  color: rgb(120 53 15);
+}
+
+.message-bubble-user {
+  background: rgb(37 99 235);
+  color: white;
+}
+
+.message-bubble-peer {
+  background: white;
+  color: rgb(17 24 39);
+}
+
+.message-meta {
+  margin-bottom: 0.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem 1rem;
+  font-size: 0.75rem;
+  line-height: 1rem;
+  opacity: 0.75;
+}
+
+.dark .message-bubble-system {
+  border-color: rgba(251, 191, 36, 0.24);
+  background: rgb(69 26 3);
+  color: rgb(254 243 199);
+}
+
+.dark .message-bubble-peer {
+  background: rgb(31 41 55);
+  color: rgb(243 244 246);
+}
+
+@media (max-width: 767px) {
+  .message-bubble {
+    max-width: 100%;
+  }
 }
 
 .system-action-link {
