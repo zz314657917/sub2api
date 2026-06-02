@@ -278,10 +278,29 @@ func (s *APIKeyService) ResolveForRequest(ctx context.Context, apiKey *APIKey, p
 		}
 		return s.isRouteGroupCooling(ctx, apiKey, groupID)
 	})
+	return s.refreshResolvedAPIKeyGroupState(ctx, apiKey, resolved)
+}
+
+// ResolveForModelRequest applies model-aware multi-group routing after a
+// gateway handler has parsed the request body.
+func (s *APIKeyService) ResolveForModelRequest(ctx context.Context, apiKey *APIKey, path, forcePlatform, requestedModel string, imageIntent bool) *APIKey {
+	if apiKey == nil {
+		return nil
+	}
+	resolved := apiKey.ResolveForModelRequestWithGroupSkipper(path, forcePlatform, requestedModel, imageIntent, func(groupID int64) bool {
+		if s == nil {
+			return false
+		}
+		return s.isRouteGroupCooling(ctx, apiKey, groupID)
+	})
+	return s.refreshResolvedAPIKeyGroupState(ctx, apiKey, resolved)
+}
+
+func (s *APIKeyService) refreshResolvedAPIKeyGroupState(ctx context.Context, original *APIKey, resolved *APIKey) *APIKey {
 	if resolved == nil || resolved.User == nil || resolved.Group == nil || s == nil || s.userGroupRateRepo == nil {
 		return resolved
 	}
-	if apiKey == nil || apiKey.Group == nil || apiKey.Group.ID != resolved.Group.ID {
+	if original == nil || original.Group == nil || original.Group.ID != resolved.Group.ID {
 		override, err := s.userGroupRateRepo.GetRPMOverrideByUserAndGroup(ctx, resolved.UserID, resolved.Group.ID)
 		if err == nil {
 			resolved.User.UserGroupRPMOverride = override
@@ -444,16 +463,18 @@ func normalizeAPIKeyMultiGroupRoutes(routes []domain.APIKeyMultiGroupRoute) []do
 		return nil
 	}
 	out := make([]domain.APIKeyMultiGroupRoute, 0, len(routes))
-	seen := make(map[int64]struct{}, len(routes))
+	seen := make(map[string]struct{}, len(routes))
 	for _, route := range routes {
+		route.ModelPatterns = normalizeAPIKeyRouteModelPatterns(route.ModelPatterns)
 		if route.GroupID <= 0 {
 			out = append(out, route)
 			continue
 		}
-		if _, ok := seen[route.GroupID]; ok {
+		key := apiKeyRouteDedupKey(route)
+		if _, ok := seen[key]; ok {
 			continue
 		}
-		seen[route.GroupID] = struct{}{}
+		seen[key] = struct{}{}
 		if route.Priority <= 0 {
 			route.Priority = apiKeyRouteDefaultPriority
 		}
@@ -468,12 +489,49 @@ func normalizeAPIKeyMultiGroupRoutes(routes []domain.APIKeyMultiGroupRoute) []do
 	return out
 }
 
+func normalizeAPIKeyRouteModelPatterns(patterns []string) []string {
+	if len(patterns) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(patterns))
+	seen := make(map[string]struct{}, len(patterns))
+	for _, pattern := range patterns {
+		pattern = strings.TrimSpace(pattern)
+		if pattern == "" {
+			continue
+		}
+		key := strings.ToLower(pattern)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, pattern)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+func apiKeyRouteDedupKey(route domain.APIKeyMultiGroupRoute) string {
+	patterns := make([]string, 0, len(route.ModelPatterns))
+	for _, pattern := range route.ModelPatterns {
+		if pattern = strings.TrimSpace(pattern); pattern != "" {
+			patterns = append(patterns, strings.ToLower(pattern))
+		}
+	}
+	return fmt.Sprintf("%d|%t|%t|%s", route.GroupID, route.ImageOnly, route.TextOnly, strings.Join(patterns, "\n"))
+}
+
 func (s *APIKeyService) validateAPIKeyRouteGroups(ctx context.Context, user *User, routes []domain.APIKeyMultiGroupRoute) error {
 	if len(routes) == 0 {
 		return nil
 	}
 	for _, route := range routes {
 		if route.GroupID <= 0 {
+			return ErrAPIKeyRouteInvalid
+		}
+		if route.ImageOnly && route.TextOnly {
 			return ErrAPIKeyRouteInvalid
 		}
 		group, err := s.groupRepo.GetByID(ctx, route.GroupID)

@@ -69,6 +69,8 @@ func TestClaimInviteeAPICallReward_UsesConfiguredReward(t *testing.T) {
 		SettingKeyAffiliateRebateFreezeHours:   "6",
 	}, nil)
 	svc := NewAffiliateService(repo, settings, nil, nil)
+	systemRepo := newFakeTicketRepo()
+	svc.SetSystemTicketService(NewSystemTicketService(systemRepo))
 
 	amount, err := svc.ClaimInviteeAPICallReward(context.Background(), 100, 200)
 	require.NoError(t, err)
@@ -77,6 +79,11 @@ func TestClaimInviteeAPICallReward_UsesConfiguredReward(t *testing.T) {
 	require.Equal(t, int64(200), repo.inviteeID)
 	require.Equal(t, 2.5, repo.amount)
 	require.Equal(t, 6, repo.freezeHours)
+
+	notification := requireSystemTicketNotification(t, systemRepo, 100, SystemTicketEventAffiliateFirstAPIReward, "affiliate_first_api_reward:200")
+	require.Equal(t, float64(200), notification.Metadata["invitee_user_id"])
+	require.Equal(t, 2.5, notification.Metadata["amount"])
+	require.Equal(t, false, notification.Metadata["claimable"])
 }
 
 func TestClaimInviteeAPICallReward_DisabledWhenRewardAmountZero(t *testing.T) {

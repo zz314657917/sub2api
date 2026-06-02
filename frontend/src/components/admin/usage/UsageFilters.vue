@@ -1,5 +1,5 @@
 <template>
-  <div class="card p-6">
+  <div class="card relative z-30 p-6">
     <!-- Toolbar: left filters (multi-line) + right actions -->
     <div class="flex flex-wrap items-end justify-between gap-4">
       <!-- Left: filters (allowed to wrap to multiple rows) -->
@@ -25,19 +25,42 @@
             ✕
           </button>
           <div
-            v-if="showUserDropdown && (userResults.length > 0 || userKeyword)"
-            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:bg-gray-800"
+            v-if="showUserDropdown && (userResults.length > 0 || userKeyword || userSearching)"
+            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-600 dark:bg-gray-800"
           >
+            <div
+              v-if="userSearching"
+              class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400"
+            >
+              {{ t('common.loading') }}
+            </div>
             <button
-              v-for="u in userResults"
-              :key="u.id"
+              v-else-if="numericUserIdCandidate"
               type="button"
-              @click="selectUser(u)"
+              @click="selectUserId(numericUserIdCandidate)"
               class="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
             >
-              <span>{{ u.email }}</span>
-              <span class="ml-2 text-xs text-gray-400">#{{ u.id }}</span>
+              <span>{{ t('admin.usage.filterByUserId') }}</span>
+              <span class="ml-2 text-xs text-gray-400">#{{ numericUserIdCandidate }}</span>
             </button>
+            <template v-else>
+              <button
+                v-for="u in userResults"
+                :key="u.id"
+                type="button"
+                @click="selectUser(u)"
+                class="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <span>{{ u.email }}</span>
+                <span class="ml-2 text-xs text-gray-400">#{{ u.id }}</span>
+              </button>
+            </template>
+            <div
+              v-if="!userSearching && userResults.length === 0 && !numericUserIdCandidate"
+              class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400"
+            >
+              {{ t('common.noOptionsFound') }}
+            </div>
           </div>
         </div>
 
@@ -62,19 +85,33 @@
             ✕
           </button>
           <div
-            v-if="showApiKeyDropdown && apiKeyResults.length > 0"
-            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:bg-gray-800"
+            v-if="showApiKeyDropdown"
+            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-600 dark:bg-gray-800"
           >
-            <button
-              v-for="k in apiKeyResults"
-              :key="k.id"
-              type="button"
-              @click="selectApiKey(k)"
-              class="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+            <div
+              v-if="apiKeySearching"
+              class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400"
             >
-              <span class="truncate">{{ k.name || `#${k.id}` }}</span>
-              <span class="ml-2 text-xs text-gray-400">#{{ k.id }}</span>
-            </button>
+              {{ t('common.loading') }}
+            </div>
+            <template v-else>
+              <button
+                v-for="k in apiKeyResults"
+                :key="k.id"
+                type="button"
+                @click="selectApiKey(k)"
+                class="w-full px-4 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700"
+              >
+                <span class="truncate">{{ k.name || `#${k.id}` }}</span>
+                <span class="ml-2 text-xs text-gray-400">#{{ k.id }}</span>
+              </button>
+            </template>
+            <div
+              v-if="!apiKeySearching && apiKeyResults.length === 0"
+              class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400"
+            >
+              {{ t('common.noOptionsFound') }}
+            </div>
           </div>
         </div>
 
@@ -106,7 +143,7 @@
           </button>
           <div
             v-if="showAccountDropdown && (accountResults.length > 0 || accountKeyword)"
-            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border bg-white shadow-lg dark:bg-gray-800"
+            class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-600 dark:bg-gray-800"
           >
             <button
               v-for="a in accountResults"
@@ -118,6 +155,12 @@
               <span class="truncate">{{ a.name }}</span>
               <span class="ml-2 text-xs text-gray-400">#{{ a.id }}</span>
             </button>
+            <div
+              v-if="accountResults.length === 0"
+              class="px-4 py-2 text-sm text-gray-500 dark:text-gray-400"
+            >
+              {{ t('common.noOptionsFound') }}
+            </div>
           </div>
         </div>
 
@@ -168,7 +211,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, toRef, watch } from 'vue'
+import { computed, ref, onMounted, onUnmounted, toRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
@@ -206,11 +249,13 @@ const accountSearchRef = ref<HTMLElement | null>(null)
 const userKeyword = ref('')
 const userResults = ref<SimpleUser[]>([])
 const showUserDropdown = ref(false)
+const userSearching = ref(false)
 let userSearchTimeout: ReturnType<typeof setTimeout> | null = null
 
 const apiKeyKeyword = ref('')
 const apiKeyResults = ref<SimpleApiKey[]>([])
 const showApiKeyDropdown = ref(false)
+const apiKeySearching = ref(false)
 let apiKeySearchTimeout: ReturnType<typeof setTimeout> | null = null
 
 interface SimpleAccount {
@@ -247,17 +292,37 @@ const billingModeOptions = ref<SelectOption[]>([
 
 const emitChange = () => emit('change')
 
+const parsePositiveInteger = (value: string): number | null => {
+  const text = value.trim()
+  if (!/^\d+$/.test(text)) return null
+  const id = Number(text)
+  return Number.isSafeInteger(id) && id > 0 ? id : null
+}
+
+const numericUserIdCandidate = computed(() => {
+  if (userResults.value.length > 0) return null
+  return parsePositiveInteger(userKeyword.value)
+})
+
 const debounceUserSearch = () => {
   if (userSearchTimeout) clearTimeout(userSearchTimeout)
   userSearchTimeout = setTimeout(async () => {
-    if (!userKeyword.value) {
+    const keyword = userKeyword.value.trim()
+    if (!keyword) {
       userResults.value = []
+      userSearching.value = false
       return
     }
+    userSearching.value = true
     try {
-      userResults.value = await adminAPI.usage.searchUsers(userKeyword.value)
+      const results = await adminAPI.usage.searchUsers(keyword)
+      if (keyword === userKeyword.value.trim()) {
+        userResults.value = results
+      }
     } catch {
       userResults.value = []
+    } finally {
+      userSearching.value = false
     }
   }, 300)
 }
@@ -265,13 +330,20 @@ const debounceUserSearch = () => {
 const debounceApiKeySearch = () => {
   if (apiKeySearchTimeout) clearTimeout(apiKeySearchTimeout)
   apiKeySearchTimeout = setTimeout(async () => {
+    const keyword = apiKeyKeyword.value.trim()
+    apiKeySearching.value = true
     try {
-      apiKeyResults.value = await adminAPI.usage.searchApiKeys(
+      const results = await adminAPI.usage.searchApiKeys(
         filters.value.user_id,
-        apiKeyKeyword.value || ''
+        keyword
       )
+      if (keyword === apiKeyKeyword.value.trim()) {
+        apiKeyResults.value = results
+      }
     } catch {
       apiKeyResults.value = []
+    } finally {
+      apiKeySearching.value = false
     }
   }, 300)
 }
@@ -292,10 +364,28 @@ const selectUser = async (u: SimpleUser) => {
   emitChange()
 }
 
+const selectUserId = async (userId: number | null) => {
+  if (!userId) return
+
+  userKeyword.value = String(userId)
+  showUserDropdown.value = false
+  filters.value.user_id = userId
+  clearApiKey()
+
+  try {
+    apiKeyResults.value = await adminAPI.usage.searchApiKeys(userId, '')
+  } catch {
+    apiKeyResults.value = []
+  }
+
+  emitChange()
+}
+
 const clearUser = () => {
   userKeyword.value = ''
   userResults.value = []
   showUserDropdown.value = false
+  userSearching.value = false
   filters.value.user_id = undefined
   clearApiKey()
   emitChange()
@@ -312,6 +402,7 @@ const clearApiKey = () => {
   apiKeyKeyword.value = ''
   apiKeyResults.value = []
   showApiKeyDropdown.value = false
+  apiKeySearching.value = false
   filters.value.api_key_id = undefined
 }
 
@@ -447,5 +538,8 @@ onMounted(async () => {
 
 onUnmounted(() => {
   document.removeEventListener('click', onDocumentClick)
+  if (userSearchTimeout) clearTimeout(userSearchTimeout)
+  if (apiKeySearchTimeout) clearTimeout(apiKeySearchTimeout)
+  if (accountSearchTimeout) clearTimeout(accountSearchTimeout)
 })
 </script>

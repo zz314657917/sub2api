@@ -170,6 +170,13 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	stream := action == "streamGenerateContent"
 	reqLog = reqLog.With(zap.String("model", modelName), zap.String("action", action), zap.Bool("stream", stream))
 
+	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, modelName, false); !ok {
+		return
+	} else {
+		apiKey = resolved
+		reqLog = reqLog.With(zap.Any("resolved_group_id", apiKey.GroupID))
+	}
+
 	body, err := pkghttputil.ReadRequestBodyWithPrealloc(c.Request)
 	if err != nil {
 		if maxErr, ok := extractMaxBytesError(err); ok {

@@ -81,8 +81,13 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		zap.String("capability", string(parsed.RequiredCapability)),
 	)
 
-	if !service.GroupAllowsImageGeneration(apiKey.Group) {
-		h.errorResponse(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
+	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, parsed.Model, true); !ok {
+		return
+	} else {
+		apiKey = resolved
+		reqLog = reqLog.With(zap.Any("resolved_group_id", apiKey.GroupID))
+	}
+	if !h.ensureImageGenerationAllowed(c, apiKey) {
 		return
 	}
 	if decision := h.checkContentModeration(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIImages, parsed.Model, parsed.ModerationBody()); decision != nil && decision.Blocked {

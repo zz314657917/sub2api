@@ -543,6 +543,7 @@ type adminServiceImpl struct {
 	defaultSubAssigner   DefaultSubscriptionAssigner
 	userSubRepo          UserSubscriptionRepository
 	privacyClientFactory PrivacyClientFactory
+	systemTicketSvc      *SystemTicketService
 }
 
 type userGroupRateBatchReader interface {
@@ -588,6 +589,79 @@ func NewAdminService(
 		userSubRepo:          userSubRepo,
 		privacyClientFactory: privacyClientFactory,
 	}
+}
+
+func (s *adminServiceImpl) SetSystemTicketService(systemTicketSvc *SystemTicketService) {
+	if s != nil {
+		s.systemTicketSvc = systemTicketSvc
+	}
+}
+
+func (s *adminServiceImpl) notifyGroupChangedBestEffort(ctx context.Context, userID int64, source string, metadata map[string]any) {
+	if s == nil || s.systemTicketSvc == nil || userID <= 0 {
+		return
+	}
+	event := NewGroupChangedSystemTicketNotification(userID, source, metadata)
+	s.systemTicketSvc.NotifyEventBestEffort(ctx, "service.admin", userID, event)
+}
+
+func (s *adminServiceImpl) notifyGroupChangedForUsersBestEffort(ctx context.Context, userIDs []int64, source string, metadata map[string]any) {
+	if len(userIDs) == 0 {
+		return
+	}
+	seen := make(map[int64]struct{}, len(userIDs))
+	for _, userID := range userIDs {
+		if userID <= 0 {
+			continue
+		}
+		if _, ok := seen[userID]; ok {
+			continue
+		}
+		seen[userID] = struct{}{}
+		s.notifyGroupChangedBestEffort(ctx, userID, source, metadata)
+	}
+}
+
+func (s *adminServiceImpl) notifyGroupChangedForUsersWithMetadataBestEffort(ctx context.Context, userIDs []int64, source string, metadataForUser func(userID int64) map[string]any) {
+	if len(userIDs) == 0 {
+		return
+	}
+	seen := make(map[int64]struct{}, len(userIDs))
+	for _, userID := range userIDs {
+		if userID <= 0 {
+			continue
+		}
+		if _, ok := seen[userID]; ok {
+			continue
+		}
+		seen[userID] = struct{}{}
+		s.notifyGroupChangedBestEffort(ctx, userID, source, metadataForUser(userID))
+	}
+}
+
+func (s *adminServiceImpl) listGroupUserIDsForNotification(ctx context.Context, groupID int64) []int64 {
+	if s == nil || s.apiKeyRepo == nil || groupID <= 0 {
+		return nil
+	}
+	params := pagination.PaginationParams{Page: 1, PageSize: 500}
+	keys, _, err := s.apiKeyRepo.ListByGroupID(ctx, groupID, params)
+	if err != nil {
+		logger.LegacyPrintf("service.admin", "list group users for system notification failed: group_id=%d err=%v", groupID, err)
+		return nil
+	}
+	userIDs := make([]int64, 0, len(keys))
+	seen := map[int64]struct{}{}
+	for _, key := range keys {
+		if key.UserID <= 0 {
+			continue
+		}
+		if _, ok := seen[key.UserID]; ok {
+			continue
+		}
+		seen[key.UserID] = struct{}{}
+		userIDs = append(userIDs, key.UserID)
+	}
+	return userIDs
 }
 
 // User management implementations
@@ -736,6 +810,16 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	oldStatus := user.Status
 	oldRole := user.Role
 	oldRPMLimit := user.RPMLimit
+	oldAllowedGroups := append([]int64(nil), user.AllowedGroups...)
+	oldGroupRates := map[int64]float64{}
+	if input.GroupRates != nil && s.userGroupRateRepo != nil {
+		loaded, loadErr := s.userGroupRateRepo.GetByUserID(ctx, user.ID)
+		if loadErr != nil {
+			logger.LegacyPrintf("service.admin", "failed to load old user group rates for notification: user_id=%d err=%v", user.ID, loadErr)
+		} else {
+			oldGroupRates = loaded
+		}
+	}
 
 	if input.Email != "" {
 		user.Email = input.Email
@@ -778,6 +862,18 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		if err := s.userGroupRateRepo.SyncUserGroupRates(ctx, user.ID, input.GroupRates); err != nil {
 			logger.LegacyPrintf("service.admin", "failed to sync user group rates: user_id=%d err=%v", user.ID, err)
 		}
+	}
+	if input.AllowedGroups != nil || input.GroupRates != nil || (input.RPMLimit != nil && *input.RPMLimit != oldRPMLimit) {
+		s.notifyGroupChangedBestEffort(ctx, user.ID, "user_update", map[string]any{
+			"user_id":            user.ID,
+			"old_allowed_groups": oldAllowedGroups,
+			"new_allowed_groups": user.AllowedGroups,
+			"group_rates":        input.GroupRates,
+			"group_rate_changes": buildUserGroupRateChangeMetadata(oldGroupRates, input.GroupRates),
+			"old_rpm_limit":      oldRPMLimit,
+			"new_rpm_limit":      user.RPMLimit,
+			"rpm_limit":          user.RPMLimit,
+		})
 	}
 
 	if s.authCacheInvalidator != nil {
@@ -1830,6 +1926,9 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if err != nil {
 		return nil, err
 	}
+	oldRateMultiplier := group.RateMultiplier
+	oldImageRateMultiplier := group.ImageRateMultiplier
+	oldRPMLimit := group.RPMLimit
 
 	if input.Name != "" {
 		group.Name = input.Name
@@ -2028,6 +2127,22 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 			}
 		}
 	}
+	if input.RateMultiplier != nil || input.ImageRateMultiplier != nil || input.RPMLimit != nil {
+		userIDs := s.listGroupUserIDsForNotification(ctx, id)
+		s.notifyGroupChangedForUsersBestEffort(ctx, userIDs, "group_update", map[string]any{
+			"group_id":                  id,
+			"group_name":                group.Name,
+			"old_rate_multiplier":       oldRateMultiplier,
+			"new_rate_multiplier":       group.RateMultiplier,
+			"rate_multiplier":           group.RateMultiplier,
+			"old_image_rate_multiplier": oldImageRateMultiplier,
+			"new_image_rate_multiplier": group.ImageRateMultiplier,
+			"image_rate_multiplier":     group.ImageRateMultiplier,
+			"old_rpm_limit":             oldRPMLimit,
+			"new_rpm_limit":             group.RPMLimit,
+			"rpm_limit":                 group.RPMLimit,
+		})
+	}
 
 	return group, nil
 }
@@ -2083,6 +2198,32 @@ func (s *adminServiceImpl) GetGroupAPIKeys(ctx context.Context, groupID int64, p
 	return keys, result.Total, nil
 }
 
+func buildUserGroupRateChangeMetadata(oldRates map[int64]float64, newRates map[int64]*float64) []map[string]any {
+	if len(newRates) == 0 {
+		return nil
+	}
+	groupIDs := make([]int64, 0, len(newRates))
+	for groupID := range newRates {
+		groupIDs = append(groupIDs, groupID)
+	}
+	sort.Slice(groupIDs, func(i, j int) bool { return groupIDs[i] < groupIDs[j] })
+
+	changes := make([]map[string]any, 0, len(groupIDs))
+	for _, groupID := range groupIDs {
+		change := map[string]any{"group_id": groupID}
+		if oldRate, ok := oldRates[groupID]; ok {
+			change["old_rate_multiplier"] = oldRate
+		}
+		if newRates[groupID] == nil {
+			change["cleared"] = true
+		} else {
+			change["new_rate_multiplier"] = *newRates[groupID]
+		}
+		changes = append(changes, change)
+	}
+	return changes
+}
+
 func (s *adminServiceImpl) GetGroupRateMultipliers(ctx context.Context, groupID int64) ([]UserGroupRateEntry, error) {
 	if s.userGroupRateRepo == nil {
 		return nil, nil
@@ -2106,7 +2247,38 @@ func (s *adminServiceImpl) BatchSetGroupRateMultipliers(ctx context.Context, gro
 			return fmt.Errorf("rate_multiplier must be > 0 (user_id=%d)", e.UserID)
 		}
 	}
-	return s.userGroupRateRepo.SyncGroupRateMultipliers(ctx, groupID, entries)
+	previousRates := map[int64]*float64{}
+	existingEntries, loadErr := s.userGroupRateRepo.GetByGroupID(ctx, groupID)
+	if loadErr != nil {
+		logger.LegacyPrintf("service.admin", "failed to load old group rate multipliers for notification: group_id=%d err=%v", groupID, loadErr)
+	} else {
+		for _, item := range existingEntries {
+			previousRates[item.UserID] = item.RateMultiplier
+		}
+	}
+	if err := s.userGroupRateRepo.SyncGroupRateMultipliers(ctx, groupID, entries); err != nil {
+		return err
+	}
+	userIDs := make([]int64, 0, len(entries))
+	changesByUser := make(map[int64][]map[string]any, len(entries))
+	for _, entry := range entries {
+		userIDs = append(userIDs, entry.UserID)
+		change := map[string]any{
+			"group_id":            groupID,
+			"new_rate_multiplier": entry.RateMultiplier,
+		}
+		if oldRate, ok := previousRates[entry.UserID]; ok && oldRate != nil {
+			change["old_rate_multiplier"] = *oldRate
+		}
+		changesByUser[entry.UserID] = []map[string]any{change}
+	}
+	s.notifyGroupChangedForUsersWithMetadataBestEffort(ctx, userIDs, "group_rate_multipliers", func(userID int64) map[string]any {
+		return map[string]any{
+			"group_id":           groupID,
+			"group_rate_changes": changesByUser[userID],
+		}
+	})
+	return nil
 }
 
 func (s *adminServiceImpl) ClearGroupRPMOverrides(ctx context.Context, groupID int64) error {
@@ -2132,6 +2304,15 @@ func (s *adminServiceImpl) BatchSetGroupRPMOverrides(ctx context.Context, groupI
 			return infraerrors.BadRequest("INVALID_RPM_OVERRIDE", fmt.Sprintf("rpm_override must be >= 0 (user_id=%d)", e.UserID))
 		}
 	}
+	previousOverrides := map[int64]*int{}
+	existingEntries, loadErr := s.userGroupRateRepo.GetByGroupID(ctx, groupID)
+	if loadErr != nil {
+		logger.LegacyPrintf("service.admin", "failed to load old group rpm overrides for notification: group_id=%d err=%v", groupID, loadErr)
+	} else {
+		for _, item := range existingEntries {
+			previousOverrides[item.UserID] = item.RPMOverride
+		}
+	}
 	if err := s.userGroupRateRepo.SyncGroupRPMOverrides(ctx, groupID, entries); err != nil {
 		return err
 	}
@@ -2139,6 +2320,29 @@ func (s *adminServiceImpl) BatchSetGroupRPMOverrides(ctx context.Context, groupI
 	if s.authCacheInvalidator != nil {
 		s.authCacheInvalidator.InvalidateAuthCacheByGroupID(ctx, groupID)
 	}
+	userIDs := make([]int64, 0, len(entries))
+	changesByUser := make(map[int64][]map[string]any, len(entries))
+	for _, entry := range entries {
+		userIDs = append(userIDs, entry.UserID)
+		change := map[string]any{
+			"group_id": groupID,
+		}
+		if oldRPM, ok := previousOverrides[entry.UserID]; ok && oldRPM != nil {
+			change["old_rpm_override"] = *oldRPM
+		}
+		if entry.RPMOverride == nil {
+			change["cleared"] = true
+		} else {
+			change["new_rpm_override"] = *entry.RPMOverride
+		}
+		changesByUser[entry.UserID] = []map[string]any{change}
+	}
+	s.notifyGroupChangedForUsersWithMetadataBestEffort(ctx, userIDs, "group_rpm_overrides", func(userID int64) map[string]any {
+		return map[string]any{
+			"group_id":             groupID,
+			"rpm_override_changes": changesByUser[userID],
+		}
+	})
 	return nil
 }
 
@@ -2231,6 +2435,11 @@ func (s *adminServiceImpl) AdminUpdateAPIKeyGroupID(ctx context.Context, keyID i
 			if s.authCacheInvalidator != nil {
 				s.authCacheInvalidator.InvalidateAuthCacheByKey(ctx, apiKey.Key)
 			}
+			s.notifyGroupChangedBestEffort(ctx, apiKey.UserID, "api_key_group_update", map[string]any{
+				"api_key_id": apiKey.ID,
+				"group_id":   gid,
+				"group_name": group.Name,
+			})
 
 			result.APIKey = apiKey
 			return result, nil
@@ -2246,6 +2455,10 @@ func (s *adminServiceImpl) AdminUpdateAPIKeyGroupID(ctx context.Context, keyID i
 	if s.authCacheInvalidator != nil {
 		s.authCacheInvalidator.InvalidateAuthCacheByKey(ctx, apiKey.Key)
 	}
+	s.notifyGroupChangedBestEffort(ctx, apiKey.UserID, "api_key_group_update", map[string]any{
+		"api_key_id": apiKey.ID,
+		"group_id":   apiKey.GroupID,
+	})
 
 	result.APIKey = apiKey
 	return result, nil
@@ -2336,6 +2549,11 @@ func (s *adminServiceImpl) ReplaceUserGroup(ctx context.Context, userID, oldGrou
 			}
 		}
 	}
+	s.notifyGroupChangedBestEffort(ctx, userID, "replace_user_group", map[string]any{
+		"old_group_id":  oldGroupID,
+		"new_group_id":  newGroupID,
+		"migrated_keys": migrated,
+	})
 
 	return &ReplaceUserGroupResult{MigratedKeys: migrated}, nil
 }

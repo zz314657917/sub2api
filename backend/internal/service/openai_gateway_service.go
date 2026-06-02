@@ -244,6 +244,8 @@ type OpenAIForwardResult struct {
 	ImageOutputSizes   []string
 	ImageSizeSource    string
 	ImageSizeBreakdown map[string]int
+	VideoTaskID        string
+	ResponseBody       []byte
 }
 
 type OpenAIWSRetryMetricsSnapshot struct {
@@ -346,6 +348,7 @@ type OpenAIGatewayService struct {
 	settingService        *SettingService
 	welfareService        *WelfareService
 	membershipService     *MembershipService
+	affiliateService      *AffiliateService
 
 	openaiWSPoolOnce              sync.Once
 	openaiWSStateStoreOnce        sync.Once
@@ -365,6 +368,8 @@ type OpenAIGatewayService struct {
 	codexSnapshotThrottle               *accountWriteThrottle
 	openaiCompatSessionResponses        sync.Map
 	openaiCompatAnthropicDigestSessions sync.Map
+	openaiVideoTaskAccounts             sync.Map // key: task_id, value: openAIVideoTaskAccountRef
+	openaiVideoTaskRepo                 OpenAIVideoTaskRepository
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService
@@ -433,6 +438,18 @@ func NewOpenAIGatewayService(
 	}
 	svc.logOpenAIWSModeBootstrap()
 	return svc
+}
+
+func (s *OpenAIGatewayService) SetAffiliateService(affiliateService *AffiliateService) {
+	if s != nil {
+		s.affiliateService = affiliateService
+	}
+}
+
+func (s *OpenAIGatewayService) SetOpenAIVideoTaskRepository(repo OpenAIVideoTaskRepository) {
+	if s != nil {
+		s.openaiVideoTaskRepo = repo
+	}
 }
 
 // ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）
@@ -5594,17 +5611,22 @@ func (s *OpenAIGatewayService) replaceModelInResponseBody(body []byte, fromModel
 
 // OpenAIRecordUsageInput input for recording usage
 type OpenAIRecordUsageInput struct {
-	Result             *OpenAIForwardResult
-	APIKey             *APIKey
-	User               *User
-	Account            *Account
-	Subscription       *UserSubscription
-	InboundEndpoint    string
-	UpstreamEndpoint   string
-	UserAgent          string // 请求的 User-Agent
-	IPAddress          string // 请求的客户端 IP 地址
-	RequestPayloadHash string
-	APIKeyService      APIKeyQuotaUpdater
+	Result              *OpenAIForwardResult
+	APIKey              *APIKey
+	User                *User
+	Account             *Account
+	Subscription        *UserSubscription
+	InboundEndpoint     string
+	UpstreamEndpoint    string
+	UserAgent           string // 请求的 User-Agent
+	IPAddress           string // 请求的客户端 IP 地址
+	RequestPayloadHash  string
+	RequestIDOverride   string
+	MediaType           string
+	BillingTierOverride string
+	PrepaidBalanceCost  float64
+	CostOverride        *CostBreakdown
+	APIKeyService       APIKeyQuotaUpdater
 	ChannelUsageFields
 }
 
@@ -5684,21 +5706,29 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if result.ServiceTier != nil {
 		serviceTier = strings.TrimSpace(*result.ServiceTier)
 	}
-	cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, tokens, serviceTier)
-	if err != nil {
-		if !isUsagePricingUnavailableError(err) {
-			return err
+	if input.CostOverride != nil {
+		override := *input.CostOverride
+		if override.BillingMode == "" {
+			override.BillingMode = string(BillingModeToken)
 		}
-		logger.L().With(
-			zap.String("component", "service.openai_gateway"),
-			zap.Strings("billing_models", billingModels),
-			zap.String("requested_model", input.OriginalModel),
-			zap.String("mapped_model", input.ChannelMappedModel),
-			zap.String("upstream_model", result.UpstreamModel),
-			zap.Int64("api_key_id", apiKey.ID),
-			zap.Int64("account_id", account.ID),
-		).Warn("openai_usage.pricing_missing_record_zero_cost", zap.Error(err))
-		cost = &CostBreakdown{BillingMode: string(BillingModeToken)}
+		cost = &override
+	} else {
+		cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, tokens, serviceTier, input.BillingTierOverride)
+		if err != nil {
+			if !isUsagePricingUnavailableError(err) {
+				return err
+			}
+			logger.L().With(
+				zap.String("component", "service.openai_gateway"),
+				zap.Strings("billing_models", billingModels),
+				zap.String("requested_model", input.OriginalModel),
+				zap.String("mapped_model", input.ChannelMappedModel),
+				zap.String("upstream_model", result.UpstreamModel),
+				zap.Int64("api_key_id", apiKey.ID),
+				zap.Int64("account_id", account.ID),
+			).Warn("openai_usage.pricing_missing_record_zero_cost", zap.Error(err))
+			cost = &CostBreakdown{BillingMode: string(BillingModeToken)}
+		}
 	}
 
 	// Determine billing type
@@ -5716,6 +5746,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	durationMs := int(result.Duration.Milliseconds())
 	accountRateMultiplier := account.BillingRateMultiplier()
 	requestID := resolveUsageBillingRequestID(ctx, result.RequestID)
+	if override := strings.TrimSpace(input.RequestIDOverride); override != "" {
+		requestID = override
+	}
 
 	// 确定 RequestedModel（渠道映射前的原始模型）
 	requestedModel := result.Model
@@ -5746,6 +5779,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		ImageOutputSize:     optionalTrimmedStringPtr(result.ImageOutputSize),
 		ImageSizeSource:     optionalTrimmedStringPtr(result.ImageSizeSource),
 		ImageSizeBreakdown:  result.ImageSizeBreakdown,
+		MediaType:           optionalTrimmedStringPtr(input.MediaType),
 	}
 	if cost != nil {
 		usageLog.InputCost = cost.InputCost
@@ -5761,6 +5795,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.BillingTier = optionalTrimmedStringPtr(ImageBillingTierWithQuality(result.ImageSize, result.ImageQuality))
 	} else {
 		usageLog.RateMultiplier = multiplier
+	}
+	if override := strings.TrimSpace(input.BillingTierOverride); override != "" {
+		usageLog.BillingTier = &override
 	}
 	usageLog.AccountRateMultiplier = &accountRateMultiplier
 	usageLog.BillingType = billingType
@@ -5833,6 +5870,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			AccountShareOwnerRatePercent: accountShareSettings.OwnerRatePercent,
 			AccountShareFreezeHours:      accountShareSettings.FreezeHours,
 			NewUserTrial:                 trialSession,
+			PrepaidBalanceCost:           input.PrepaidBalanceCost,
 		}, s.billingDeps(), s.usageBillingRepo, s.welfareService)
 		return err
 	}()
@@ -5842,6 +5880,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 	if applied && s.billingCacheService != nil {
 		s.billingCacheService.RecordMembershipTokenUsage(ctx, user.ID, usageLog.TotalTokens())
+	}
+	if applied && s.affiliateService != nil && user != nil {
+		s.affiliateService.NotifyInviteeFirstAPIRewardIfEligible(ctx, user.ID)
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
 
@@ -5857,6 +5898,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	imageMultiplier float64,
 	tokens UsageTokens,
 	serviceTier string,
+	billingTierOverride string,
 ) (*CostBreakdown, error) {
 	billingModel := firstUsageBillingModel(billingModels)
 	if result != nil && result.ImageCount > 0 {
@@ -5871,7 +5913,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		if candidate == "" {
 			continue
 		}
-		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, candidate, multiplier, tokens, serviceTier)
+		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, candidate, multiplier, tokens, serviceTier, billingTierOverride)
 		if err == nil {
 			return cost, nil
 		}
@@ -5901,6 +5943,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	multiplier float64,
 	tokens UsageTokens,
 	serviceTier string,
+	billingTierOverride string,
 ) (*CostBreakdown, error) {
 	if s.resolver != nil && apiKey.Group != nil {
 		gid := apiKey.Group.ID
@@ -5910,6 +5953,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 			GroupID:        &gid,
 			Tokens:         tokens,
 			RequestCount:   1,
+			SizeTier:       strings.TrimSpace(billingTierOverride),
 			RateMultiplier: multiplier,
 			ServiceTier:    serviceTier,
 			Resolver:       s.resolver,

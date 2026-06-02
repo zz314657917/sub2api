@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -76,4 +77,123 @@ func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
 		router.ServeHTTP(w, req)
 		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should hit OpenAI images handler", path)
 	}
+}
+
+func TestGatewayRoutesOpenAIVideosPathsAreRegistered(t *testing.T) {
+	router := newGatewayRoutesTestRouter()
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/videos/generations", strings.NewReader(`{"model":"doubao-seedance-2.0","prompt":"make a video"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+	require.NotEqual(t, http.StatusNotFound, w.Code)
+
+	taskReq := httptest.NewRequest(http.MethodGet, "/v1/tasks/task_123?language=zh", nil)
+	taskW := httptest.NewRecorder()
+
+	router.ServeHTTP(taskW, taskReq)
+	require.NotEqual(t, http.StatusNotFound, taskW.Code)
+}
+
+func TestResolveAPIKeyRouteForJSONModelReroutesMessagesBeforeDispatch(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	defaultGroupID := int64(1)
+	openAIGroupID := int64(2)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"gpt-5"}`))
+	c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
+		GroupID: &defaultGroupID,
+		Group: &service.Group{
+			ID:       defaultGroupID,
+			Platform: service.PlatformAnthropic,
+			Status:   service.StatusActive,
+			Hydrated: true,
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{
+				ID:                    openAIGroupID,
+				Platform:              service.PlatformOpenAI,
+				Status:                service.StatusActive,
+				Hydrated:              true,
+				AllowMessagesDispatch: true,
+			},
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{
+				GroupID:       openAIGroupID,
+				Enabled:       true,
+				Priority:      1,
+				Weight:        1,
+				ModelPatterns: []string{"gpt-*"},
+			},
+		},
+	})
+
+	ok := resolveAPIKeyRouteForJSONModel(c, service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{}), "/v1/messages", false)
+
+	require.True(t, ok)
+	resolved, ok := servermiddleware.GetAPIKeyFromContext(c)
+	require.True(t, ok)
+	require.NotNil(t, resolved.Group)
+	require.Equal(t, openAIGroupID, *resolved.GroupID)
+	require.Equal(t, service.PlatformOpenAI, resolved.Group.Platform)
+}
+
+func TestResolveAPIKeyRouteForJSONModelReturnsFalseWhenResolvedGroupUnavailable(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	groupID := int64(1)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-5"}`))
+	c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
+		GroupID: &groupID,
+		Group: &service.Group{
+			ID:       groupID,
+			Platform: service.PlatformOpenAI,
+			Status:   service.StatusDisabled,
+			Hydrated: true,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: groupID, Enabled: true, Priority: 1, Weight: 1},
+		},
+	})
+
+	ok := resolveAPIKeyRouteForJSONModel(c, service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{}), "/v1/chat/completions", false)
+
+	require.False(t, ok)
+	require.True(t, c.IsAborted())
+}
+
+func TestResolveAPIKeyRouteForJSONModelEnforcesDeferredGroupBilling(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	groupID := int64(1)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-5"}`))
+	c.Set(string(servermiddleware.ContextKeyDeferredGroupBilling), true)
+	c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
+		UserID:  9,
+		GroupID: &groupID,
+		User: &service.User{
+			ID:      9,
+			Balance: 0,
+		},
+		Group: &service.Group{
+			ID:       groupID,
+			Platform: service.PlatformOpenAI,
+			Status:   service.StatusActive,
+			Hydrated: true,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: groupID, Enabled: true, Priority: 1, Weight: 1},
+		},
+	})
+
+	ok := resolveAPIKeyRouteForJSONModel(c, service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{}), "/v1/chat/completions", false)
+
+	require.False(t, ok)
+	require.True(t, c.IsAborted())
+	require.Equal(t, http.StatusForbidden, c.Writer.Status())
 }

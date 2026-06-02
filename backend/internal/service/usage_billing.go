@@ -35,6 +35,7 @@ type UsageBillingCommand struct {
 	MediaType           string
 
 	BalanceCost         float64
+	PrepaidBalanceCost  float64
 	SubscriptionCost    float64
 	APIKeyQuotaCost     float64
 	APIKeyRateLimitCost float64
@@ -60,7 +61,7 @@ func buildUsageBillingFingerprint(c *UsageBillingCommand) string {
 		return ""
 	}
 	raw := fmt.Sprintf(
-		"%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%d|%s|%d|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f|%d",
+		"%d|%d|%d|%s|%s|%s|%s|%d|%d|%d|%d|%d|%d|%s|%d|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f|%0.10f|%d",
 		c.UserID,
 		c.AccountID,
 		c.APIKeyID,
@@ -77,6 +78,7 @@ func buildUsageBillingFingerprint(c *UsageBillingCommand) string {
 		strings.TrimSpace(c.MediaType),
 		valueOrZero(c.SubscriptionID),
 		c.BalanceCost,
+		c.PrepaidBalanceCost,
 		c.SubscriptionCost,
 		c.APIKeyQuotaCost,
 		c.APIKeyRateLimitCost,
@@ -122,6 +124,7 @@ type UsageBillingApplyResult struct {
 	Applied              bool
 	APIKeyQuotaExhausted bool
 	NewBalance           *float64           // post-deduction balance (nil = no balance deduction)
+	PrepaidBalanceCost   float64            // balance cost already deducted before this billing application
 	QuotaState           *AccountQuotaState // post-increment quota state (nil = no quota increment)
 }
 

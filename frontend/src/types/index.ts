@@ -109,6 +109,88 @@ export interface AdminUser extends User {
   current_concurrency?: number
 }
 
+// ==================== Support Ticket Types ====================
+
+export type SupportTicketStatus = 'open' | 'pending_admin' | 'pending_user' | 'closed'
+export type SupportTicketSenderType = 'user' | 'admin' | 'system'
+export type SupportTicketType = 'support' | 'system'
+export type SupportTicketActionType =
+  | 'payment_completed'
+  | 'affiliate_first_api_reward'
+  | 'welfare_first_api_unclaimed'
+  | 'group_changed'
+export type AdminSupportTicketSortBy = 'last_message_at' | 'unread_first'
+export type SortOrder = 'asc' | 'desc'
+
+export interface SupportTicket {
+  id: number
+  user_id: number
+  title: string
+  status: SupportTicketStatus
+  ticket_type: SupportTicketType
+  system_key?: string
+  last_message_preview: string
+  last_message_at: string
+  user_unread_count: number
+  admin_unread_count: number
+  created_at: string
+  updated_at: string
+  closed_at?: string | null
+  user?: User | null
+}
+
+export interface SupportTicketMessage {
+  id: number
+  ticket_id: number
+  sender_type: SupportTicketSenderType
+  sender_user_id?: number | null
+  content: string
+  event_type?: string
+  event_key?: string
+  metadata?: Record<string, unknown> | null
+  created_at: string
+  sender?: User | null
+}
+
+export interface SupportTicketDetail {
+  ticket: SupportTicket
+  messages: SupportTicketMessage[]
+}
+
+export interface TicketUnreadSummary {
+  support_unread: number
+  system_unread: number
+  total_unread: number
+}
+
+export interface SupportTicketListParams {
+  page?: number
+  page_size?: number
+  status?: SupportTicketStatus | ''
+  ticket_type?: SupportTicketType | ''
+  search?: string
+  unread_only?: boolean
+}
+
+export interface AdminSupportTicketListParams extends SupportTicketListParams {
+  user_id?: number | string
+  event_type?: SupportTicketActionType | string
+  event_key?: string
+  date_from?: string
+  date_to?: string
+  sort_by?: AdminSupportTicketSortBy
+  sort_order?: SortOrder
+}
+
+export interface CreateSupportTicketRequest {
+  title: string
+  content: string
+}
+
+export interface CreateSupportTicketMessageRequest {
+  content: string
+}
+
 export interface LoginRequest {
   email: string
   password: string
@@ -662,12 +744,17 @@ export interface ApiKey {
 
 export type AccountPoolStrategy = 'shared_only' | 'private_first' | 'private_only'
 
+export type ApiKeyRoutingPreset = 'auto' | 'cost' | 'speed' | 'stability' | 'manual'
+
 export interface ApiKeyMultiGroupRoute {
   group_id: number
   priority: number
   weight: number
   cooldown_seconds: number
   enabled: boolean
+  model_patterns?: string[]
+  image_only?: boolean
+  text_only?: boolean
 }
 
 export interface CreateApiKeyRequest {

@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"strconv"
 	"testing"
 	"time"
 
@@ -238,6 +239,7 @@ func TestVerifyOrderByOutTradeNoBackfillsTradeNoFromPaidQuery(t *testing.T) {
 	}
 	registry.Register(provider)
 
+	systemRepo := newFakeTicketRepo()
 	svc := &PaymentService{
 		entClient:       client,
 		registry:        registry,
@@ -245,6 +247,7 @@ func TestVerifyOrderByOutTradeNoBackfillsTradeNoFromPaidQuery(t *testing.T) {
 		userRepo:        userRepo,
 		providersLoaded: true,
 	}
+	svc.SetSystemTicketService(NewSystemTicketService(systemRepo))
 
 	got, err := svc.VerifyOrderByOutTradeNo(ctx, order.OutTradeNo, user.ID)
 	require.NoError(t, err)
@@ -261,6 +264,12 @@ func TestVerifyOrderByOutTradeNoBackfillsTradeNoFromPaidQuery(t *testing.T) {
 	require.Len(t, redeemRepo.useCalls, 1)
 	require.Equal(t, int64(1), redeemRepo.useCalls[0].id)
 	require.Equal(t, user.ID, redeemRepo.useCalls[0].userID)
+
+	notification := requireSystemTicketNotification(t, systemRepo, user.ID, SystemTicketEventPaymentCompleted, SystemTicketEventPaymentCompleted+":"+strconv.FormatInt(order.ID, 10))
+	require.Equal(t, float64(order.ID), notification.Metadata["order_id"])
+	require.Equal(t, order.OutTradeNo, notification.Metadata["out_trade_no"])
+	require.Equal(t, "balance", notification.Metadata["order_type"])
+	require.Equal(t, float64(88), notification.Metadata["amount"])
 }
 
 func TestVerifyOrderByOutTradeNoRetriesZeroAmountPaidQueryOnce(t *testing.T) {

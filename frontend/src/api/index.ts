@@ -18,6 +18,7 @@ export { paymentAPI } from './payment'
 export { userGroupsAPI } from './groups'
 export { userChannelsAPI } from './channels'
 export { openWebUIAPI, type OpenWebUILaunchResponse } from './openWebUI'
+export { ticketsAPI } from './tickets'
 export {
   welfareAPI,
   type WelfareDailyCheckin,

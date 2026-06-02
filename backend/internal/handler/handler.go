@@ -38,6 +38,7 @@ type AdminHandlers struct {
 	Payment                *admin.PaymentHandler
 	Affiliate              *admin.AffiliateHandler
 	ImageCreatorStorage    *admin.ImageCreatorStorageGovernanceHandler
+	Ticket                 *admin.TicketHandler
 }
 
 // Handlers contains all HTTP handlers
@@ -55,6 +56,7 @@ type Handlers struct {
 	ImageCreator     *ImageCreatorHandler
 	Canvas           *CanvasHandler
 	PromptFavorite   *PromptFavoriteHandler
+	Ticket           *TicketHandler
 	OpenWebUI        *OpenWebUIHandler
 	Welfare          *WelfareHandler
 	Admin            *AdminHandlers

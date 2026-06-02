@@ -334,8 +334,24 @@ func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrde
 		completedAt := now
 		o.CompletedAt = &completedAt
 		s.recalculateMembershipBestEffort(ctx, o, "payment_completed")
+		s.notifyPaymentCompletedBestEffort(ctx, o)
 	}
 	return nil
+}
+
+func (s *PaymentService) notifyPaymentCompletedBestEffort(ctx context.Context, o *dbent.PaymentOrder) {
+	if s == nil || s.systemTicketSvc == nil || o == nil || o.UserID <= 0 {
+		return
+	}
+	event := NewPaymentCompletedSystemTicketNotification(o.ID, o.OutTradeNo, o.OrderType, o.Amount, o.PayAmount, completedAtForNotification(o))
+	s.systemTicketSvc.NotifyEventBestEffort(ctx, "service.payment", o.UserID, event)
+}
+
+func completedAtForNotification(o *dbent.PaymentOrder) time.Time {
+	if o != nil && o.CompletedAt != nil && !o.CompletedAt.IsZero() {
+		return *o.CompletedAt
+	}
+	return time.Now()
 }
 
 func (s *PaymentService) recalculateMembershipBestEffort(ctx context.Context, o *dbent.PaymentOrder, reason string) {

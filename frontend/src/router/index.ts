@@ -346,6 +346,18 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/tickets',
+    name: 'Tickets',
+    component: () => import('@/views/user/TicketsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Tickets',
+      titleKey: 'tickets.title',
+      descriptionKey: 'tickets.description'
+    }
+  },
+  {
     path: '/affiliate',
     name: 'Affiliate',
     component: () => import('@/views/user/AffiliateView.vue'),
@@ -713,6 +725,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Usage Records',
       titleKey: 'admin.usage.title',
       descriptionKey: 'admin.usage.description'
+    }
+  },
+  {
+    path: '/admin/tickets',
+    name: 'AdminTickets',
+    component: () => import('@/views/admin/TicketsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Ticket Management',
+      titleKey: 'admin.tickets.title',
+      descriptionKey: 'admin.tickets.description'
     }
   },
   {

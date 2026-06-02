@@ -236,12 +236,14 @@ import { useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { welfareAPI } from '@/api/welfare'
+import { useWelfareStore } from '@/stores/welfare'
 import type { WelfareDailyCheckin, WelfareDailyCheckinMilestone, WelfareNewUserTrial, WelfareOverview } from '@/types'
 
 const { t } = useI18n()
 const router = useRouter()
+const welfareStore = useWelfareStore()
 
-const overview = ref<WelfareOverview | null>(null)
+const overview = computed<WelfareOverview | null>(() => welfareStore.overview)
 const loading = ref(false)
 const error = ref('')
 const claimError = ref('')
@@ -454,7 +456,8 @@ async function loadOverview(): Promise<void> {
   claimError.value = ''
   trialClaimError.value = ''
   try {
-    overview.value = await welfareAPI.getWelfareOverview()
+    const nextOverview = await welfareAPI.getWelfareOverview()
+    welfareStore.setOverview(nextOverview)
   } catch (err) {
     error.value = extractErrorMessage(err, t('welfare.loadFailed'))
   } finally {
@@ -508,18 +511,12 @@ async function claimTrialReward(): Promise<void> {
 
 function updateDaily(nextDaily: WelfareDailyCheckin): void {
   if (!overview.value) return
-  overview.value = {
-    ...overview.value,
-    daily_checkin: nextDaily,
-  }
+  welfareStore.updateDaily(nextDaily)
 }
 
 function updateTrial(nextTrial: WelfareNewUserTrial): void {
   if (!overview.value) return
-  overview.value = {
-    ...overview.value,
-    new_user_trial: nextTrial,
-  }
+  welfareStore.updateTrial(nextTrial)
 }
 
 onMounted(() => {

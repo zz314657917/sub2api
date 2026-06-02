@@ -46,9 +46,10 @@ func TestBillingErrorDetails_BillingServiceUnavailableMapsTo503(t *testing.T) {
 	require.Equal(t, 0, retryAfter, "non-RPM errors should not set Retry-After")
 }
 
-func TestBillingErrorDetails_UnknownErrorFallsBackTo403(t *testing.T) {
+func TestBillingErrorDetails_InsufficientBalanceIncludesRechargeURL(t *testing.T) {
 	status, code, msg, _ := billingErrorDetails(service.ErrInsufficientBalance)
 	require.Equal(t, http.StatusForbidden, status)
 	require.Equal(t, "billing_error", code)
-	require.NotEmpty(t, msg)
+	require.Contains(t, msg, "账户余额不足")
+	require.Contains(t, msg, "https://ai.3zapi.top/purchase")
 }

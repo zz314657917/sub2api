@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -460,6 +461,74 @@ func TestRequireGroupAssignmentMarksUngroupedKeyBusinessLimited(t *testing.T) {
 	require.Contains(t, w.Body.String(), "not assigned to any group")
 	require.True(t, markedBusinessLimited)
 	require.Equal(t, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnassigned, businessLimitedReason)
+}
+
+func TestAPIKeyAuthDefersGroupBillingForModelAwareMultiGroupKey(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	defaultGroupID := int64(101)
+	openAIGroupID := int64(102)
+	user := &service.User{
+		ID:          7,
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     0,
+		Concurrency: 3,
+	}
+	apiKey := &service.APIKey{
+		ID:      100,
+		UserID:  user.ID,
+		Key:     "test-key",
+		Status:  service.StatusActive,
+		User:    user,
+		GroupID: &defaultGroupID,
+		Group: &service.Group{
+			ID:       defaultGroupID,
+			Name:     "default",
+			Status:   service.StatusActive,
+			Platform: service.PlatformAnthropic,
+			Hydrated: true,
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{
+				ID:       openAIGroupID,
+				Name:     "openai",
+				Status:   service.StatusActive,
+				Platform: service.PlatformOpenAI,
+				Hydrated: true,
+			},
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: openAIGroupID, Enabled: true, Priority: 1, Weight: 1, ModelPatterns: []string{"gpt-*"}},
+		},
+	}
+	apiKeyRepo := &stubApiKeyRepo{
+		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+			if key != apiKey.Key {
+				return nil, service.ErrAPIKeyNotFound
+			}
+			clone := *apiKey
+			return &clone, nil
+		},
+	}
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	router := gin.New()
+	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
+	router.POST("/v1/messages", func(c *gin.Context) {
+		value, exists := c.Get(string(ContextKeyDeferredGroupBilling))
+		deferred, _ := value.(bool)
+		require.True(t, exists)
+		require.True(t, deferred)
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestAPIKeyAuthIPRestrictionDoesNotTrustSpoofedForwardHeaders(t *testing.T) {

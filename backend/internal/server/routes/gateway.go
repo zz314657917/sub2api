@@ -1,6 +1,9 @@
 package routes
 
 import (
+	"bytes"
+	"errors"
+	"io"
 	"net/http"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -9,6 +12,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
+	"github.com/tidwall/gjson"
 )
 
 // RegisterGatewayRoutes 注册 API 网关路由（Claude/OpenAI/Gemini 兼容）
@@ -42,6 +46,9 @@ func RegisterGatewayRoutes(
 	{
 		// /v1/messages: auto-route based on group platform
 		gateway.POST("/messages", func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/messages", false) {
+				return
+			}
 			if getGroupPlatform(c) == service.PlatformOpenAI {
 				h.OpenAIGateway.Messages(c)
 				return
@@ -50,6 +57,9 @@ func RegisterGatewayRoutes(
 		})
 		// /v1/messages/count_tokens: OpenAI groups get 404
 		gateway.POST("/messages/count_tokens", func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/messages/count_tokens", false) {
+				return
+			}
 			if getGroupPlatform(c) == service.PlatformOpenAI {
 				c.JSON(http.StatusNotFound, gin.H{
 					"type": "error",
@@ -67,6 +77,9 @@ func RegisterGatewayRoutes(
 		gateway.GET("/usage", h.Gateway.Usage)
 		// OpenAI Responses API: auto-route based on group platform
 		gateway.POST("/responses", func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
+				return
+			}
 			if getGroupPlatform(c) == service.PlatformOpenAI {
 				h.OpenAIGateway.Responses(c)
 				return
@@ -74,6 +87,9 @@ func RegisterGatewayRoutes(
 			h.Gateway.Responses(c)
 		})
 		gateway.POST("/responses/*subpath", func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
+				return
+			}
 			if getGroupPlatform(c) == service.PlatformOpenAI {
 				h.OpenAIGateway.Responses(c)
 				return
@@ -83,6 +99,9 @@ func RegisterGatewayRoutes(
 		gateway.GET("/responses", h.OpenAIGateway.ResponsesWebSocket)
 		// OpenAI Chat Completions API: auto-route based on group platform
 		gateway.POST("/chat/completions", func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/chat/completions", false) {
+				return
+			}
 			if getGroupPlatform(c) == service.PlatformOpenAI {
 				h.OpenAIGateway.ChatCompletions(c)
 				return
@@ -90,6 +109,9 @@ func RegisterGatewayRoutes(
 			h.Gateway.ChatCompletions(c)
 		})
 		gateway.POST("/embeddings", func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/embeddings", false) {
+				return
+			}
 			if getGroupPlatform(c) != service.PlatformOpenAI {
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 				c.JSON(http.StatusNotFound, gin.H{
@@ -103,6 +125,9 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.Embeddings(c)
 		})
 		gateway.POST("/images/generations", func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/images/generations", true) {
+				return
+			}
 			if getGroupPlatform(c) != service.PlatformOpenAI {
 				c.JSON(http.StatusNotFound, gin.H{
 					"error": gin.H{
@@ -115,6 +140,9 @@ func RegisterGatewayRoutes(
 			h.OpenAIGateway.Images(c)
 		})
 		gateway.POST("/images/edits", func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/images/edits", true) {
+				return
+			}
 			if getGroupPlatform(c) != service.PlatformOpenAI {
 				c.JSON(http.StatusNotFound, gin.H{
 					"error": gin.H{
@@ -125,6 +153,33 @@ func RegisterGatewayRoutes(
 				return
 			}
 			h.OpenAIGateway.Images(c)
+		})
+		gateway.POST("/videos/generations", func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/videos/generations", false) {
+				return
+			}
+			if getGroupPlatform(c) != service.PlatformOpenAI {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": gin.H{
+						"type":    "not_found_error",
+						"message": "Videos API is not supported for this platform",
+					},
+				})
+				return
+			}
+			h.OpenAIGateway.Videos(c)
+		})
+		gateway.GET("/tasks/:task_id", func(c *gin.Context) {
+			if getGroupPlatform(c) != service.PlatformOpenAI {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": gin.H{
+						"type":    "not_found_error",
+						"message": "Tasks API is not supported for this platform",
+					},
+				})
+				return
+			}
+			h.OpenAIGateway.VideoTask(c)
 		})
 	}
 
@@ -145,6 +200,9 @@ func RegisterGatewayRoutes(
 
 	// OpenAI Responses API（不带v1前缀的别名）— auto-route based on group platform
 	responsesHandler := func(c *gin.Context) {
+		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
+			return
+		}
 		if getGroupPlatform(c) == service.PlatformOpenAI {
 			h.OpenAIGateway.Responses(c)
 			return
@@ -163,6 +221,9 @@ func RegisterGatewayRoutes(
 	}
 	// OpenAI Chat Completions API（不带v1前缀的别名）— auto-route based on group platform
 	r.POST("/chat/completions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/chat/completions", false) {
+			return
+		}
 		if getGroupPlatform(c) == service.PlatformOpenAI {
 			h.OpenAIGateway.ChatCompletions(c)
 			return
@@ -170,6 +231,9 @@ func RegisterGatewayRoutes(
 		h.Gateway.ChatCompletions(c)
 	})
 	r.POST("/embeddings", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/embeddings", false) {
+			return
+		}
 		if getGroupPlatform(c) != service.PlatformOpenAI {
 			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
 			c.JSON(http.StatusNotFound, gin.H{
@@ -183,6 +247,9 @@ func RegisterGatewayRoutes(
 		h.OpenAIGateway.Embeddings(c)
 	})
 	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/images/generations", true) {
+			return
+		}
 		if getGroupPlatform(c) != service.PlatformOpenAI {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": gin.H{
@@ -195,6 +262,9 @@ func RegisterGatewayRoutes(
 		h.OpenAIGateway.Images(c)
 	})
 	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/images/edits", true) {
+			return
+		}
 		if getGroupPlatform(c) != service.PlatformOpenAI {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": gin.H{
@@ -205,6 +275,33 @@ func RegisterGatewayRoutes(
 			return
 		}
 		h.OpenAIGateway.Images(c)
+	})
+	r.POST("/videos/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/videos/generations", false) {
+			return
+		}
+		if getGroupPlatform(c) != service.PlatformOpenAI {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"type":    "not_found_error",
+					"message": "Videos API is not supported for this platform",
+				},
+			})
+			return
+		}
+		h.OpenAIGateway.Videos(c)
+	})
+	r.GET("/tasks/:task_id", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+		if getGroupPlatform(c) != service.PlatformOpenAI {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"type":    "not_found_error",
+					"message": "Tasks API is not supported for this platform",
+				},
+			})
+			return
+		}
+		h.OpenAIGateway.VideoTask(c)
 	})
 
 	// Antigravity 模型列表
@@ -249,4 +346,47 @@ func getGroupPlatform(c *gin.Context) string {
 		return ""
 	}
 	return apiKey.Group.Platform
+}
+
+func resolveAPIKeyRouteForJSONModel(c *gin.Context, apiKeyService *service.APIKeyService, endpoint string, imageEndpoint bool) bool {
+	if c == nil || c.Request == nil || c.Request.Body == nil {
+		return true
+	}
+	apiKey, ok := middleware.GetAPIKeyFromContext(c)
+	if !ok || apiKey == nil {
+		return true
+	}
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.Request.Body = io.NopCloser(bytes.NewReader(nil))
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+				"error": gin.H{
+					"type":    "invalid_request_error",
+					"message": "Request body too large",
+				},
+			})
+		} else {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": gin.H{
+					"type":    "invalid_request_error",
+					"message": "Failed to read request body",
+				},
+			})
+		}
+		c.Abort()
+		return false
+	}
+	c.Request.Body = io.NopCloser(bytes.NewReader(body))
+	requestedModel := ""
+	if gjson.ValidBytes(body) {
+		requestedModel = gjson.GetBytes(body, "model").String()
+	}
+	imageIntent := imageEndpoint || service.IsImageGenerationIntent(endpoint, requestedModel, body)
+	if _, ok := middleware.ResolveAPIKeyForModelRequest(c, apiKeyService, apiKey, requestedModel, imageIntent); !ok {
+		c.Abort()
+		return false
+	}
+	return true
 }

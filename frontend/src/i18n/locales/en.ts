@@ -37,6 +37,7 @@ import announcements from './en/announcements'
 import userSubscriptions from './en/userSubscriptions'
 import onboarding from './en/onboarding'
 import payment from './en/payment'
+import tickets from './en/tickets'
 
 export default {
   home,
@@ -78,4 +79,5 @@ export default {
   userSubscriptions,
   onboarding,
   payment,
+  tickets,
 }

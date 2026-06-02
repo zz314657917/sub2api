@@ -78,6 +78,7 @@ var ProviderSet = wire.NewSet(
 	NewTutorialPageRepository,
 	NewUsageLogRepository,
 	NewUsageBillingRepository,
+	NewOpenAIVideoTaskRepository,
 	NewIdempotencyRepository,
 	NewUsageCleanupRepository,
 	NewDashboardAggregationRepository,
@@ -98,6 +99,7 @@ var ProviderSet = wire.NewSet(
 	NewImageCreatorStorageGovernanceRepository,
 	NewCanvasRepository,
 	NewPromptFavoriteRepository,
+	NewTicketRepository,
 	NewMembershipRepository,
 	NewWelfareRepository,
 

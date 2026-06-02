@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -38,7 +39,7 @@ func (v *turnstileVerifier) VerifyToken(ctx context.Context, secretKey, token, r
 	formData := url.Values{}
 	formData.Set("secret", secretKey)
 	formData.Set("response", token)
-	if remoteIP != "" {
+	if remoteIP := normalizeTurnstileRemoteIP(remoteIP); remoteIP != "" {
 		formData.Set("remoteip", remoteIP)
 	}
 
@@ -60,4 +61,19 @@ func (v *turnstileVerifier) VerifyToken(ctx context.Context, secretKey, token, r
 	}
 
 	return &result, nil
+}
+
+func normalizeTurnstileRemoteIP(remoteIP string) string {
+	remoteIP = strings.TrimSpace(remoteIP)
+	if remoteIP == "" {
+		return ""
+	}
+	parsed := net.ParseIP(remoteIP)
+	if parsed == nil {
+		return ""
+	}
+	if parsed.IsLoopback() || parsed.IsPrivate() || parsed.IsLinkLocalUnicast() || parsed.IsLinkLocalMulticast() || parsed.IsUnspecified() {
+		return ""
+	}
+	return parsed.String()
 }

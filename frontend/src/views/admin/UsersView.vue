@@ -682,6 +682,15 @@
                 {{ t('admin.users.balanceHistory') }}
               </button>
 
+              <!-- Start Ticket Message -->
+              <button
+                @click="handleUserTicketMessage(user); closeActionMenu()"
+                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
+              >
+                <Icon name="mail" size="sm" class="text-gray-400" :stroke-width="2" />
+                {{ t('admin.tickets.createForUser.action') }}
+              </button>
+
               <div class="my-1 border-t border-gray-100 dark:border-dark-700"></div>
 
               <!-- Delete (not for admin) -->
@@ -707,6 +716,7 @@
     <UserBalanceModal :show="showBalanceModal" :user="balanceUser" :operation="balanceOperation" @close="closeBalanceModal" @success="loadUsers" />
     <UserBalanceHistoryModal :show="showBalanceHistoryModal" :user="balanceHistoryUser" @close="closeBalanceHistoryModal" @deposit="handleDepositFromHistory" @withdraw="handleWithdrawFromHistory" />
     <GroupReplaceModal :show="showGroupReplaceModal" :user="groupReplaceUser" :old-group="groupReplaceOldGroup" :all-groups="allGroups" @close="closeGroupReplaceModal" @success="loadUsers" />
+    <UserTicketMessageModal :show="showTicketMessageModal" :user="ticketMessageUser" @close="closeTicketMessageModal" />
     <UserAttributesConfigModal :show="showAttributesModal" @close="handleAttributesModalClose" />
   </AppLayout>
 </template>
@@ -743,6 +753,7 @@ import UserAllowedGroupsModal from '@/components/admin/user/UserAllowedGroupsMod
 import UserBalanceModal from '@/components/admin/user/UserBalanceModal.vue'
 import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
 import GroupReplaceModal from '@/components/admin/user/GroupReplaceModal.vue'
+import UserTicketMessageModal from '@/components/admin/user/UserTicketMessageModal.vue'
 
 const appStore = useAppStore()
 
@@ -1370,6 +1381,10 @@ const balanceOperation = ref<'add' | 'subtract'>('add')
 const showBalanceHistoryModal = ref(false)
 const balanceHistoryUser = ref<AdminUser | null>(null)
 
+// Ticket message modal state
+const showTicketMessageModal = ref(false)
+const ticketMessageUser = ref<AdminUser | null>(null)
+
 // 计算剩余天数
 const getDaysRemaining = (expiresAt: string): number => {
   const now = new Date()
@@ -1633,6 +1648,16 @@ const handleBalanceHistory = (user: AdminUser) => {
 const closeBalanceHistoryModal = () => {
   showBalanceHistoryModal.value = false
   balanceHistoryUser.value = null
+}
+
+const handleUserTicketMessage = (user: AdminUser) => {
+  ticketMessageUser.value = user
+  showTicketMessageModal.value = true
+}
+
+const closeTicketMessageModal = () => {
+  showTicketMessageModal.value = false
+  ticketMessageUser.value = null
 }
 
 // Handle deposit from balance history modal

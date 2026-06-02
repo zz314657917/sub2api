@@ -41,6 +41,7 @@ func ProvideAdminHandlers(
 	paymentHandler *admin.PaymentHandler,
 	affiliateHandler *admin.AffiliateHandler,
 	imageCreatorStorageHandler *admin.ImageCreatorStorageGovernanceHandler,
+	adminTicketHandler *admin.TicketHandler,
 ) *AdminHandlers {
 	return &AdminHandlers{
 		Dashboard:              dashboardHandler,
@@ -75,6 +76,7 @@ func ProvideAdminHandlers(
 		Payment:                paymentHandler,
 		Affiliate:              affiliateHandler,
 		ImageCreatorStorage:    imageCreatorStorageHandler,
+		Ticket:                 adminTicketHandler,
 	}
 }
 
@@ -103,6 +105,7 @@ func ProvideHandlers(
 	imageCreatorHandler *ImageCreatorHandler,
 	canvasHandler *CanvasHandler,
 	promptFavoriteHandler *PromptFavoriteHandler,
+	ticketHandler *TicketHandler,
 	openWebUIHandler *OpenWebUIHandler,
 	welfareHandler *WelfareHandler,
 	adminHandlers *AdminHandlers,
@@ -131,6 +134,7 @@ func ProvideHandlers(
 		ImageCreator:     imageCreatorHandler,
 		Canvas:           canvasHandler,
 		PromptFavorite:   promptFavoriteHandler,
+		Ticket:           ticketHandler,
 		OpenWebUI:        openWebUIHandler,
 		Welfare:          welfareHandler,
 		Admin:            adminHandlers,
@@ -161,6 +165,7 @@ var ProviderSet = wire.NewSet(
 	NewImageCreatorHandler,
 	NewCanvasHandler,
 	NewPromptFavoriteHandler,
+	NewTicketHandler,
 	NewOpenWebUIHandler,
 	NewWelfareHandler,
 	NewGatewayHandler,
@@ -205,6 +210,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewPaymentHandler,
 	admin.NewAffiliateHandler,
 	admin.NewImageCreatorStorageGovernanceHandler,
+	admin.NewTicketHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

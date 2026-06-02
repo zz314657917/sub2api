@@ -5,6 +5,7 @@ export default {
       searchUserPlaceholder: 'Search user by email...',
       searchApiKeyPlaceholder: 'Search API key by name...',
       searchAccountPlaceholder: 'Search account by name...',
+      filterByUserId: 'Filter by user ID',
       selectedUser: 'Selected',
       user: 'User',
       account: 'Account',

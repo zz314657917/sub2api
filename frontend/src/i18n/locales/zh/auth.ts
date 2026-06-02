@@ -25,6 +25,7 @@ export default {
     loginFailed: '登录失败，请检查您的凭据后重试。',
     errors: {
       USER_NOT_ACTIVE: '账号已被禁用',
+      TURNSTILE_VERIFICATION_FAILED: '人机验证失败，请重新完成验证后再试。',
     },
     registrationFailed: '注册失败，请重试。',
     emailSuffixNotAllowed: '该邮箱域名不在允许注册范围内。',

@@ -74,6 +74,13 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 	setOpsRequestContext(c, reqModel, false, body)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeSync))
 
+	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, reqModel, false); !ok {
+		return
+	} else {
+		apiKey = resolved
+		reqLog = reqLog.With(zap.Any("resolved_group_id", apiKey.GroupID))
+	}
+
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)

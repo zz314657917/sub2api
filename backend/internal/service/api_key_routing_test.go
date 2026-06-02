@@ -3,6 +3,7 @@
 package service
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
@@ -112,13 +113,16 @@ func TestAPIKeyRouteCooldownSeconds(t *testing.T) {
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: configuredGroupID, CooldownSeconds: 45, Enabled: true},
 			{GroupID: defaultGroupID, CooldownSeconds: 0, Enabled: true},
+			{GroupID: configuredGroupID, CooldownSeconds: 20, Enabled: true, TextOnly: true},
+			{GroupID: configuredGroupID, CooldownSeconds: 90, Enabled: true, ImageOnly: true},
+			{GroupID: disabledGroupID, CooldownSeconds: 120, Enabled: false},
 			{GroupID: disabledGroupID, CooldownSeconds: 60, Enabled: false},
 		},
 	}
 
 	cooldown, ok := key.RouteCooldownSeconds(configuredGroupID)
 	require.True(t, ok)
-	require.Equal(t, 45, cooldown)
+	require.Equal(t, 90, cooldown)
 
 	cooldown, ok = key.RouteCooldownSeconds(defaultGroupID)
 	require.True(t, ok)
@@ -131,6 +135,186 @@ func TestAPIKeyRouteCooldownSeconds(t *testing.T) {
 	cooldown, ok = key.RouteCooldownSeconds(99)
 	require.False(t, ok)
 	require.Zero(t, cooldown)
+}
+
+func TestAPIKeyResolveForModelRequestMatchesModelPattern(t *testing.T) {
+	textGroupID := int64(1)
+	imageGroupID := int64(2)
+	key := &APIKey{
+		GroupID: &textGroupID,
+		Group: &Group{
+			ID:       textGroupID,
+			Platform: PlatformOpenAI,
+			Status:   StatusActive,
+			Hydrated: true,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: textGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
+			{GroupID: imageGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"gpt-image-*"}, ImageOnly: true},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{ID: imageGroupID, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, AllowImageGeneration: true},
+		},
+	}
+
+	resolved := key.ResolveForModelRequest("/v1/responses", "", "gpt-image-2", true)
+	require.NotNil(t, resolved)
+	require.Equal(t, imageGroupID, *resolved.GroupID)
+
+	resolved = key.ResolveForModelRequest("/v1/responses", "", "gpt-5.5", false)
+	require.NotNil(t, resolved)
+	require.Equal(t, textGroupID, *resolved.GroupID)
+}
+
+func TestAPIKeyResolveForModelRequestImageIntentRequiresImageEnabledOpenAIGroup(t *testing.T) {
+	textGroupID := int64(1)
+	disabledImageGroupID := int64(2)
+	enabledImageGroupID := int64(3)
+	key := &APIKey{
+		GroupID: &textGroupID,
+		Group: &Group{
+			ID:       textGroupID,
+			Platform: PlatformOpenAI,
+			Status:   StatusActive,
+			Hydrated: true,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: textGroupID, Priority: 1, Weight: 1, Enabled: true},
+			{GroupID: disabledImageGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true},
+			{GroupID: enabledImageGroupID, Priority: 2, Weight: 1, Enabled: true, ImageOnly: true},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{ID: disabledImageGroupID, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, AllowImageGeneration: false},
+			{ID: enabledImageGroupID, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, AllowImageGeneration: true},
+		},
+	}
+
+	resolved := key.ResolveForModelRequest("/v1/images/generations", "", "gpt-image-2", true)
+
+	require.NotNil(t, resolved)
+	require.Equal(t, enabledImageGroupID, *resolved.GroupID)
+}
+
+func TestAPIKeyResolveForModelRequestImageOnlyRulePreferredForImageIntent(t *testing.T) {
+	genericImageGroupID := int64(1)
+	imageOnlyGroupID := int64(2)
+	key := &APIKey{
+		GroupID: &genericImageGroupID,
+		Group: &Group{
+			ID:                   genericImageGroupID,
+			Platform:             PlatformOpenAI,
+			Status:               StatusActive,
+			Hydrated:             true,
+			AllowImageGeneration: true,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: genericImageGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"gpt-*"}},
+			{GroupID: imageOnlyGroupID, Priority: 50, Weight: 1, Enabled: true, ImageOnly: true},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{ID: imageOnlyGroupID, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, AllowImageGeneration: true},
+		},
+	}
+
+	resolved := key.ResolveForModelRequest("/v1/responses", "", "gpt-image-2", true)
+
+	require.NotNil(t, resolved)
+	require.Equal(t, imageOnlyGroupID, *resolved.GroupID)
+}
+
+func TestAPIKeyResolveForModelRequestTextOnlyExcludesImageIntent(t *testing.T) {
+	textGroupID := int64(1)
+	imageGroupID := int64(2)
+	key := &APIKey{
+		GroupID: &textGroupID,
+		Group: &Group{
+			ID:       textGroupID,
+			Platform: PlatformOpenAI,
+			Status:   StatusActive,
+			Hydrated: true,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: textGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
+			{GroupID: imageGroupID, Priority: 2, Weight: 1, Enabled: true},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{ID: imageGroupID, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, AllowImageGeneration: true},
+		},
+	}
+
+	resolved := key.ResolveForModelRequest("/v1/responses", "", "gpt-5.5", true)
+
+	require.NotNil(t, resolved)
+	require.Equal(t, imageGroupID, *resolved.GroupID)
+}
+
+func TestAPIKeyResolveForModelRequestTextOnlyExcludesVideoModels(t *testing.T) {
+	textGroupID := int64(10)
+	videoGroupID := int64(20)
+	key := &APIKey{
+		GroupID: &textGroupID,
+		Group: &Group{
+			ID:       textGroupID,
+			Platform: PlatformOpenAI,
+			Status:   StatusActive,
+			Hydrated: true,
+		},
+		MultiGroupRouteGroups: []*Group{
+			{
+				ID:       videoGroupID,
+				Platform: PlatformOpenAI,
+				Status:   StatusActive,
+				Hydrated: true,
+			},
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: textGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
+			{GroupID: videoGroupID, Priority: 2, Weight: 1, Enabled: true, ModelPatterns: []string{"doubao-seedance-*"}},
+		},
+	}
+
+	resolved := key.ResolveForModelRequest("/v1/videos/generations", "", "doubao-seedance-2.0", false)
+
+	require.NotNil(t, resolved)
+	require.NotNil(t, resolved.GroupID)
+	require.Equal(t, videoGroupID, *resolved.GroupID)
+}
+
+func TestAPIKeyResolveForModelRequestFallsBackWhenNoModelRuleMatches(t *testing.T) {
+	defaultGroupID := int64(1)
+	fallbackGroupID := int64(2)
+	key := &APIKey{
+		GroupID: &defaultGroupID,
+		Group: &Group{
+			ID:       defaultGroupID,
+			Platform: PlatformOpenAI,
+			Status:   StatusActive,
+			Hydrated: true,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: defaultGroupID, Priority: 20, Weight: 1, Enabled: true, ModelPatterns: []string{"claude-*"}},
+			{GroupID: fallbackGroupID, Priority: 10, Weight: 1, Enabled: true},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{ID: fallbackGroupID, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true},
+		},
+	}
+
+	resolved := key.ResolveForModelRequest("/v1/responses", "", "gpt-5.5", false)
+
+	require.NotNil(t, resolved)
+	require.Equal(t, fallbackGroupID, *resolved.GroupID)
+}
+
+func TestAPIKeyMultiGroupRouteOldJSONDefaultsRemainCompatible(t *testing.T) {
+	var route domain.APIKeyMultiGroupRoute
+	err := json.Unmarshal([]byte(`{"group_id":7,"priority":1,"weight":2,"cooldown_seconds":30,"enabled":true}`), &route)
+
+	require.NoError(t, err)
+	require.Equal(t, int64(7), route.GroupID)
+	require.Empty(t, route.ModelPatterns)
+	require.False(t, route.ImageOnly)
+	require.False(t, route.TextOnly)
 }
 
 func apiKeyRoutingIntPtr(v int) *int {

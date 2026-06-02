@@ -578,6 +578,7 @@ type GatewayService struct {
 	balanceNotifyService  *BalanceNotifyService
 	welfareService        *WelfareService
 	membershipService     *MembershipService
+	affiliateService      *AffiliateService
 }
 
 // NewGatewayService creates a new GatewayService
@@ -665,6 +666,12 @@ func NewGatewayService(
 		svc.initDebugGatewayBodyFile(path)
 	}
 	return svc
+}
+
+func (s *GatewayService) SetAffiliateService(affiliateService *AffiliateService) {
+	if s != nil {
+		s.affiliateService = affiliateService
+	}
 }
 
 // GenerateSessionHash 从预解析请求计算粘性会话 hash
@@ -8207,6 +8214,7 @@ type postUsageBillingParams struct {
 	AccountShareFreezeHours      int
 	NewUserTrial                 *NewUserTrialSession
 	SkipUsageCounters            bool
+	PrepaidBalanceCost           float64
 }
 
 type accountShareBillingSettings struct {
@@ -8288,8 +8296,9 @@ func postUsageBilling(ctx context.Context, p *postUsageBillingParams, deps *bill
 			}
 		}
 	} else if !p.shouldSkipSelfOwnedPrivateBilling() {
-		if cost.ActualCost > 0 {
-			if err := deps.userRepo.DeductBalance(billingCtx, p.User.ID, cost.ActualCost); err != nil {
+		balanceCost := cost.ActualCost - normalizeNonNegativeFloat(p.PrepaidBalanceCost)
+		if balanceCost > 0 {
+			if err := deps.userRepo.DeductBalance(billingCtx, p.User.ID, balanceCost); err != nil {
 				slog.Error("deduct balance failed", "user_id", p.User.ID, "error", err)
 			}
 		}
@@ -8371,6 +8380,9 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		cmd.CacheCreationTokens = usageLog.CacheCreationTokens
 		cmd.CacheReadTokens = usageLog.CacheReadTokens
 		cmd.ImageCount = usageLog.ImageCount
+		if usageLog.MediaType != nil {
+			cmd.MediaType = *usageLog.MediaType
+		}
 		if usageLog.ServiceTier != nil {
 			cmd.ServiceTier = *usageLog.ServiceTier
 		}
@@ -8396,7 +8408,12 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		cmd.SubscriptionID = &p.Subscription.ID
 		cmd.SubscriptionCost = p.Cost.ActualCost
 	} else if p.Cost.ActualCost > 0 {
-		cmd.BalanceCost = p.Cost.ActualCost
+		prepaid := normalizeNonNegativeFloat(p.PrepaidBalanceCost)
+		if prepaid > p.Cost.ActualCost {
+			prepaid = p.Cost.ActualCost
+		}
+		cmd.PrepaidBalanceCost = prepaid
+		cmd.BalanceCost = p.Cost.ActualCost - prepaid
 	}
 
 	if p.shouldDeductAPIKeyQuota() {
@@ -8585,7 +8602,10 @@ func finalizePostUsageBilling(p *postUsageBillingParams, deps *billingDeps, resu
 			deps.billingCacheService.QueueUpdateSubscriptionUsage(p.User.ID, *p.APIKey.GroupID, p.Cost.ActualCost)
 		}
 	} else if p.Cost.ActualCost > 0 && p.User != nil {
-		deps.billingCacheService.QueueDeductBalance(p.User.ID, p.Cost.ActualCost)
+		balanceCost := p.Cost.ActualCost - normalizeNonNegativeFloat(p.PrepaidBalanceCost)
+		if balanceCost > 0 {
+			deps.billingCacheService.QueueDeductBalance(p.User.ID, balanceCost)
+		}
 	}
 
 	if p.Cost.ActualCost > 0 && p.APIKey != nil && p.APIKey.HasRateLimits() {
@@ -8618,24 +8638,28 @@ func notifyBalanceLow(p *postUsageBillingParams, deps *billingDeps, result *Usag
 		)
 		return
 	}
+	balanceCost := p.Cost.ActualCost - normalizeNonNegativeFloat(p.PrepaidBalanceCost)
+	if balanceCost <= 0 {
+		return
+	}
 
 	oldBalance := resolveOldBalance(p, result)
 	slog.Debug("notifyBalanceLow: calling CheckBalanceAfterDeduction",
 		"user_id", p.User.ID,
 		"old_balance", oldBalance,
-		"cost", p.Cost.ActualCost,
+		"cost", balanceCost,
 		"notify_enabled", p.User.BalanceNotifyEnabled,
 		"threshold", p.User.BalanceNotifyThreshold,
 		"result_has_new_balance", result != nil && result.NewBalance != nil,
 	)
-	deps.balanceNotifyService.CheckBalanceAfterDeduction(context.Background(), p.User, oldBalance, p.Cost.ActualCost)
+	deps.balanceNotifyService.CheckBalanceAfterDeduction(context.Background(), p.User, oldBalance, balanceCost)
 }
 
 // resolveOldBalance returns the pre-deduction balance.
 // Prefers the DB transaction result (newBalance + cost) over snapshot.
 func resolveOldBalance(p *postUsageBillingParams, result *UsageBillingApplyResult) float64 {
 	if result != nil && result.NewBalance != nil {
-		return *result.NewBalance + p.Cost.ActualCost
+		return *result.NewBalance + p.Cost.ActualCost - normalizeNonNegativeFloat(p.PrepaidBalanceCost)
 	}
 	// Legacy fallback: snapshot balance from request context
 	return p.User.Balance
@@ -8961,6 +8985,9 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	}
 	if applied && s.billingCacheService != nil {
 		s.billingCacheService.RecordMembershipTokenUsage(ctx, user.ID, usageLog.TotalTokens())
+	}
+	if applied && s.affiliateService != nil && user != nil {
+		s.affiliateService.NotifyInviteeFirstAPIRewardIfEligible(ctx, user.ID)
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
 

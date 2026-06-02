@@ -119,6 +119,9 @@ func (r *usageBillingRepository) applyUsageBillingEffects(ctx context.Context, t
 		}
 		result.NewBalance = &newBalance
 	}
+	if cmd.PrepaidBalanceCost > 0 {
+		result.PrepaidBalanceCost = cmd.PrepaidBalanceCost
+	}
 
 	if cmd.APIKeyQuotaCost > 0 {
 		exhausted, err := incrementUsageBillingAPIKeyQuota(ctx, tx, cmd.APIKeyID, cmd.APIKeyQuotaCost)

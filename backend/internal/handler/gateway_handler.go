@@ -165,6 +165,13 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	reqStream := parsedReq.Stream
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 
+	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, reqModel, false); !ok {
+		return
+	} else {
+		apiKey = resolved
+		reqLog = reqLog.With(zap.Any("resolved_group_id", apiKey.GroupID))
+	}
+
 	// 解析渠道级模型映射
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 
@@ -1627,6 +1634,13 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 	setOpsRequestContext(c, parsedReq.Model, parsedReq.Stream, body)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(parsedReq.Stream, false)))
 
+	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, parsedReq.Model, false); !ok {
+		return
+	} else {
+		apiKey = resolved
+		reqLog = reqLog.With(zap.Any("resolved_group_id", apiKey.GroupID))
+	}
+
 	// 获取订阅信息（可能为nil）
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 
@@ -1887,6 +1901,9 @@ func billingErrorDetails(err error) (status int, code, message string, retryAfte
 			msg = "Billing service temporarily unavailable. Please retry later."
 		}
 		return http.StatusServiceUnavailable, "billing_service_error", msg, 0
+	}
+	if errors.Is(err, service.ErrInsufficientBalance) {
+		return http.StatusForbidden, "billing_error", "账户余额不足，充值请前往：https://ai.3zapi.top/purchase", 0
 	}
 	if errors.Is(err, service.ErrAPIKeyRateLimit5hExceeded) {
 		msg := pkgerrors.Message(err)
