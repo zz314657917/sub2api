@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-03 02:34 +08:00
+最后更新：2026-06-03 02:36 +08:00
 
 ## 背景
 
@@ -30,13 +30,13 @@
   - `ae0b3bfc9 docs: approve openai oauth refresh enrichment sync`
   - `b9646e6eb fix(openai): enrich oauth refresh credentials`
   - `de1c7fee7 docs: update upstream sync handoff`
-- S2k contract 已完成并提交：
+- S2k 已完成并提交：
   - `6a926e2a0 docs: approve openai ws usage dedup sync`
+  - `332ae3d4d fix(openai): avoid ws usage dedup conflicts`
   - contract 文件：`docs/workflow/tasks/upstream-main-openai-ws-usage-dedup-s2k.md`
-- S2k 实现已完成，待提交：
   - `backend/internal/service/openai_gateway_service.go`
   - `backend/internal/service/openai_gateway_record_usage_test.go`
-- S2k QA/结果证据已写入，待提交：
+- S2k QA/结果证据已提交：
   - `docs/workflow/worker-results/upstream-main-openai-ws-usage-dedup-s2k-result.md`
   - `docs/workflow/qa-reports/upstream-main-openai-ws-usage-dedup-s2k-qa.md`
   - `docs/workflow/main-log.md`
@@ -44,7 +44,7 @@
 
 ## 已确认事实
 
-- 当前本地与 `upstream/main` 差异仍很大：S2k contract 提交后 `git rev-list --left-right --count HEAD...upstream/main` 为 `313 370`。
+- 当前本地与 `upstream/main` 差异仍很大：S2k 实现提交后 `git rev-list --left-right --count HEAD...upstream/main` 为 `314 370`。
 - 计数不会因手工语义 port 自动下降；当前同步采用 contract + QA 证据而不是直接 merge。
 - S2k 已确认可以收敛为 `OpenAIGatewayService.RecordUsage` 小修：
   - 非 WS OpenAI usage 仍优先使用 `ctxkey.ClientRequestID`。
@@ -69,19 +69,19 @@
 
 ## 待验证点
 
-- S2k 实现/QA 提交后需再确认 `git status --short --branch` clean。
+- S2k 实现/QA 提交后 `git status --short --branch` 已确认 clean。
 - S2k 未重跑 Docker runtime smoke 或全量后端测试；本轮只跑目标 service tests。
 - 若继续下一批，需要重新从 `git log --cherry-pick --right-only HEAD...upstream/main --no-merges` 里筛候选，先判等价再写 contract。
 
 ## 当前结论
 
-- S2k 已完成实现和目标 QA，准备提交实现/QA commit。
+- S2k 已完成实现、目标 QA 和提交。
 - 本轮没有触碰主工作区 `F:/mcplugins/sub2api`。
 - 当前仍不建议直接 merge `upstream/main`；剩余大项主要是迁移、payment/subscription/channel-monitor 功能、OpenAI WS/Responses bridge 和 gateway 重构链。
 
 ## 下一步
 
-- 提交 S2k 实现/QA：验证 `git status --short --branch` clean。
+- 如继续同步，先确认 `git status --short --branch` clean。
 - 如继续同步，优先寻找文件少、无迁移、无 schema、无 bridge 链依赖的候选；每个候选先判本地等价。
 - 大功能或迁移型补丁单独开 Sprint，不纳入当前小补丁批次。
 
