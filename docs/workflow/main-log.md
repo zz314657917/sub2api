@@ -14,3 +14,4 @@
 260601 1415 | sub2api-support-tickets | implementation-and-target-tests-pass | codex/backend-worker/frontend-worker | backend support ticket API, frontend tickets views, targeted backend/frontend tests
 260602 2120 | upstream-main-safe-patches-s1 | contract-approved | codex | docs/workflow/tasks/upstream-main-safe-patches-s1.md
 260602 2146 | upstream-main-safe-patches-s1 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-safe-patches-s1-result.md, docs/workflow/qa-reports/upstream-main-safe-patches-s1-qa.md
+260602 2320 | upstream-main-migration-patches-s2 | contract-approved | codex | docs/workflow/tasks/upstream-main-migration-patches-s2.md
