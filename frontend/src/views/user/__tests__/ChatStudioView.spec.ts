@@ -155,8 +155,8 @@ describe('ChatStudioView', () => {
             platform: 'openai',
             groups: [{ id: 10, name: 'OpenAI', platform: 'openai' }],
             supported_models: [
-              { name: 'gpt-5.4-mini', platform: 'openai', pricing: null },
-              { name: 'gpt-5.4', platform: 'openai', pricing: null },
+              { name: 'gpt-5.4-mini', platform: 'openai', pricing: null, reference_pricing: null },
+              { name: 'gpt-5.4', platform: 'openai', pricing: null, reference_pricing: null },
             ],
           },
         ],

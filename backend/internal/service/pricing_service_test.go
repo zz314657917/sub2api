@@ -176,6 +176,18 @@ func TestGetModelPricing_ClaudeOpus48FallsBackToOpus46Pricing(t *testing.T) {
 	require.Same(t, opus46Pricing, got)
 }
 
+func TestGetModelPricing_ClaudeDecimalAliasMatchesHyphenatedPricing(t *testing.T) {
+	sonnet45Pricing := &LiteLLMModelPricing{InputCostPerToken: 3e-6}
+	svc := &PricingService{
+		pricingData: map[string]*LiteLLMModelPricing{
+			"claude-sonnet-4-5": sonnet45Pricing,
+		},
+	}
+
+	got := svc.GetModelPricing("claude-sonnet-4.5")
+	require.Same(t, sonnet45Pricing, got)
+}
+
 func TestGetModelPricing_ImageModelDoesNotFallbackToTextModel(t *testing.T) {
 	imagePricing := &LiteLLMModelPricing{InputCostPerToken: 3}
 	textPricing := &LiteLLMModelPricing{InputCostPerToken: 9}

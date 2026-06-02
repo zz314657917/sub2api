@@ -578,9 +578,12 @@ func (s *PricingService) GetModelPricing(modelName string) *LiteLLMModelPricing 
 
 func (s *PricingService) buildModelLookupCandidates(modelLower string) []string {
 	// Prefer canonical model name first (this also improves billing compatibility with "models/xxx").
-	candidates := []string{
-		normalizeModelNameForPricing(modelLower),
-		modelLower,
+	normalized := normalizeModelNameForPricing(modelLower)
+	candidates := []string{normalized, modelLower}
+	for _, candidate := range []string{normalized, modelLower} {
+		if strings.HasPrefix(candidate, "claude-") {
+			candidates = append(candidates, strings.ReplaceAll(candidate, ".", "-"))
+		}
 	}
 	candidates = append(candidates,
 		strings.TrimPrefix(modelLower, "models/"),

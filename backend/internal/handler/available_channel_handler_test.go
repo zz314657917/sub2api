@@ -45,13 +45,23 @@ func TestFilterUserVisibleGroups_IntersectionOnly(t *testing.T) {
 func TestToUserSupportedModels_FiltersByAllowedPlatforms(t *testing.T) {
 	// 用户可访问分组只覆盖 anthropic；anthropic 平台的模型保留，openai 模型被剔除。
 	src := []service.SupportedModel{
-		{Name: "claude-sonnet-4-6", Platform: "anthropic", Pricing: nil},
+		{
+			Name:     "claude-sonnet-4-6",
+			Platform: "anthropic",
+			Pricing:  nil,
+			ReferencePricing: &service.ChannelModelPricing{
+				BillingMode: service.BillingModeToken,
+				InputPrice:  testFloat64Ptr(3e-6),
+			},
+		},
 		{Name: "gpt-4o", Platform: "openai", Pricing: nil},
 	}
 	allowed := map[string]struct{}{"anthropic": {}}
 	out := toUserSupportedModels(src, allowed)
 	require.Len(t, out, 1)
 	require.Equal(t, "claude-sonnet-4-6", out[0].Name)
+	require.NotNil(t, out[0].ReferencePricing)
+	require.InDelta(t, 3e-6, *out[0].ReferencePricing.InputPrice, 1e-12)
 }
 
 func TestToUserSupportedModels_NilAllowedPlatformsKeepsAll(t *testing.T) {
@@ -129,6 +139,10 @@ func TestUserAvailableChannel_FieldWhitelist(t *testing.T) {
 		_, exists := ivDecoded[key]
 		require.Falsef(t, exists, "user pricing interval must not expose %q", key)
 	}
+}
+
+func testFloat64Ptr(v float64) *float64 {
+	return &v
 }
 
 func TestBuildPlatformSections_GroupsByPlatform(t *testing.T) {

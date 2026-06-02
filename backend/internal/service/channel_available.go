@@ -83,6 +83,7 @@ func (s *ChannelService) ListAvailable(ctx context.Context) ([]AvailableChannel,
 
 		supported := ch.SupportedModels()
 		s.fillGlobalPricingFallback(supported)
+		s.fillReferencePricing(supported)
 
 		out = append(out, AvailableChannel{
 			ID:                 ch.ID,
@@ -100,6 +101,22 @@ func (s *ChannelService) ListAvailable(ctx context.Context) ([]AvailableChannel,
 		return strings.ToLower(out[i].Name) < strings.ToLower(out[j].Name)
 	})
 	return out, nil
+}
+
+// fillReferencePricing 为支持模型补充官方/参考价展示字段。
+//
+// ReferencePricing 只用于用户侧模型广场展示，不影响渠道真实售卖价和扣费链路。
+func (s *ChannelService) fillReferencePricing(models []SupportedModel) {
+	if s.pricingService == nil {
+		return
+	}
+	for i := range models {
+		lp := s.pricingService.GetModelPricing(models[i].Name)
+		if lp == nil {
+			continue
+		}
+		models[i].ReferencePricing = synthesizePricingFromLiteLLM(lp, nil)
+	}
 }
 
 // fillGlobalPricingFallback 对未命中渠道定价的支持模型，从全局 LiteLLM 数据合成一份

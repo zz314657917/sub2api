@@ -306,6 +306,32 @@ func TestFillGlobalPricingFallback_KeepsExistingPrice(t *testing.T) {
 	require.Same(t, existing, models[0].Pricing)
 }
 
+func TestFillReferencePricing_AddsDisplayOnlyOfficialPrice(t *testing.T) {
+	pricingSvc := newStubPricingServiceFromMap(map[string]*LiteLLMModelPricing{
+		"claude-sonnet-4-6": {
+			Mode:                    "chat",
+			InputCostPerToken:       3e-6,
+			OutputCostPerToken:      15e-6,
+			CacheReadInputTokenCost: 0.3e-6,
+		},
+	})
+	svc := &ChannelService{pricingService: pricingSvc}
+
+	channelPrice := &ChannelModelPricing{
+		BillingMode: BillingModeToken,
+		InputPrice:  testPtrFloat64(1e-6),
+	}
+	models := []SupportedModel{
+		{Name: "claude-sonnet-4.6", Platform: "anthropic", Pricing: channelPrice},
+	}
+	svc.fillReferencePricing(models)
+	require.Same(t, channelPrice, models[0].Pricing)
+	require.NotNil(t, models[0].ReferencePricing)
+	require.InDelta(t, 3e-6, *models[0].ReferencePricing.InputPrice, 1e-12)
+	require.InDelta(t, 15e-6, *models[0].ReferencePricing.OutputPrice, 1e-12)
+	require.InDelta(t, 0.3e-6, *models[0].ReferencePricing.CacheReadPrice, 1e-12)
+}
+
 func newStubPricingServiceFromMap(data map[string]*LiteLLMModelPricing) *PricingService {
 	return &PricingService{pricingData: data}
 }

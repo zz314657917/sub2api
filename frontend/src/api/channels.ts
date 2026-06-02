@@ -44,6 +44,7 @@ export interface UserSupportedModel {
   name: string
   platform: string
   pricing: UserSupportedModelPricing | null
+  reference_pricing?: UserSupportedModelPricing | null
 }
 
 /**
