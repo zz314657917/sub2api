@@ -28,3 +28,4 @@
 260603 0155 | upstream-main-openai-failover-body-remap-s2h | implementation-and-qa-pass | codex | backend/internal/service/openai_gateway_service.go, docs/workflow/qa-reports/upstream-main-openai-failover-body-remap-s2h-qa.md
 260603 0201 | upstream-main-oauth-401-no-credentials-write-test-s2i | contract-approved | codex | docs/workflow/tasks/upstream-main-oauth-401-no-credentials-write-test-s2i.md
 260603 0203 | upstream-main-oauth-401-no-credentials-write-test-s2i | implementation-and-qa-pass | codex | backend/internal/service/ratelimit_service_401_test.go, docs/workflow/qa-reports/upstream-main-oauth-401-no-credentials-write-test-s2i-qa.md
+260603 0213 | upstream-main-openai-oauth-refresh-enrichment-s2j | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-oauth-refresh-enrichment-s2j.md
