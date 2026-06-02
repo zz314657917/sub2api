@@ -12,3 +12,4 @@
 260529 1055 | sub2api-canvas-core | qa-pass | qa-worker | docs/workflow/qa-reports/sub2api-canvas-core-qa.md
 260601 0000 | sub2api-support-tickets | spec-and-contract-approved | codex | docs/workflow/spec.md, docs/workflow/tasks/sub2api-support-tickets-backend.md, docs/workflow/tasks/sub2api-support-tickets-frontend.md
 260601 1415 | sub2api-support-tickets | implementation-and-target-tests-pass | codex/backend-worker/frontend-worker | backend support ticket API, frontend tickets views, targeted backend/frontend tests
+260602 2120 | upstream-main-safe-patches-s1 | contract-approved | codex | docs/workflow/tasks/upstream-main-safe-patches-s1.md
