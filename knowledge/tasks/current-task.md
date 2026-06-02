@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-03 02:40 +08:00
+最后更新：2026-06-03 02:41 +08:00
 
 ## 背景
 
@@ -44,7 +44,7 @@
 
 ## 已确认事实
 
-- 当前本地与 `upstream/main` 差异仍很大：S2k 收尾 handoff 提交后 `git rev-list --left-right --count HEAD...upstream/main` 为 `316 370`。
+- 当前本地与 `upstream/main` 差异仍很大：最后一次状态检查中 `git rev-list --left-right --count HEAD...upstream/main` 输出为 `317 370`；后续若继续追加 handoff/doc 提交，左侧计数会随本地提交自然增加。
 - 计数不会因手工语义 port 自动下降；当前同步采用 contract + QA 证据而不是直接 merge。
 - S2k 已确认可以收敛为 `OpenAIGatewayService.RecordUsage` 小修：
   - 非 WS OpenAI usage 仍优先使用 `ctxkey.ClientRequestID`。
