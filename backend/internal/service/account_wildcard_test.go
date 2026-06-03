@@ -134,6 +134,7 @@ func TestAccountIsModelSupported(t *testing.T) {
 	tests := []struct {
 		name           string
 		platform       string
+		accountType    string
 		credentials    map[string]any
 		requestedModel string
 		expected       bool
@@ -174,8 +175,9 @@ func TestAccountIsModelSupported(t *testing.T) {
 			expected:       false,
 		},
 		{
-			name:     "apimart gpt image official uses regular image mapping for compatibility",
-			platform: PlatformOpenAI,
+			name:        "apimart gpt image official uses regular image mapping for compatibility",
+			platform:    PlatformOpenAI,
+			accountType: AccountTypeAPIKey,
 			credentials: map[string]any{
 				"base_url": "https://api.apimart.ai",
 				"model_mapping": map[string]any{
@@ -186,8 +188,9 @@ func TestAccountIsModelSupported(t *testing.T) {
 			expected:       true,
 		},
 		{
-			name:     "non apimart gpt image official still requires explicit mapping",
-			platform: PlatformOpenAI,
+			name:        "non apimart gpt image official still requires explicit mapping",
+			platform:    PlatformOpenAI,
+			accountType: AccountTypeAPIKey,
 			credentials: map[string]any{
 				"base_url": "https://api.openai.com",
 				"model_mapping": map[string]any{
@@ -236,6 +239,7 @@ func TestAccountIsModelSupported(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			account := &Account{
 				Platform:    tt.platform,
+				Type:        tt.accountType,
 				Credentials: tt.credentials,
 			}
 			result := account.IsModelSupported(tt.requestedModel)

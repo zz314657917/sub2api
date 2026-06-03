@@ -5624,22 +5624,23 @@ func (s *OpenAIGatewayService) replaceModelInResponseBody(body []byte, fromModel
 
 // OpenAIRecordUsageInput input for recording usage
 type OpenAIRecordUsageInput struct {
-	Result              *OpenAIForwardResult
-	APIKey              *APIKey
-	User                *User
-	Account             *Account
-	Subscription        *UserSubscription
-	InboundEndpoint     string
-	UpstreamEndpoint    string
-	UserAgent           string // 请求的 User-Agent
-	IPAddress           string // 请求的客户端 IP 地址
-	RequestPayloadHash  string
-	RequestIDOverride   string
-	MediaType           string
-	BillingTierOverride string
-	PrepaidBalanceCost  float64
-	CostOverride        *CostBreakdown
-	APIKeyService       APIKeyQuotaUpdater
+	Result               *OpenAIForwardResult
+	APIKey               *APIKey
+	User                 *User
+	Account              *Account
+	Subscription         *UserSubscription
+	InboundEndpoint      string
+	UpstreamEndpoint     string
+	UserAgent            string // 请求的 User-Agent
+	IPAddress            string // 请求的客户端 IP 地址
+	RequestPayloadHash   string
+	RequestIDOverride    string
+	MediaType            string
+	BillingTierOverride  string
+	RequestCountOverride int
+	PrepaidBalanceCost   float64
+	CostOverride         *CostBreakdown
+	APIKeyService        APIKeyQuotaUpdater
 	ChannelUsageFields
 }
 
@@ -5726,7 +5727,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		}
 		cost = &override
 	} else {
-		cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, tokens, serviceTier, input.BillingTierOverride)
+		cost, err = s.calculateOpenAIRecordUsageCost(ctx, result, apiKey, billingModels, multiplier, imageMultiplier, tokens, serviceTier, input.BillingTierOverride, input.RequestCountOverride)
 		if err != nil {
 			if !isUsagePricingUnavailableError(err) {
 				return err
@@ -5917,6 +5918,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	tokens UsageTokens,
 	serviceTier string,
 	billingTierOverride string,
+	requestCountOverride int,
 ) (*CostBreakdown, error) {
 	billingModel := firstUsageBillingModel(billingModels)
 	if result != nil && result.ImageCount > 0 {
@@ -5931,7 +5933,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 		if candidate == "" {
 			continue
 		}
-		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, candidate, multiplier, tokens, serviceTier, billingTierOverride)
+		cost, err := s.calculateOpenAIRecordUsageTokenCost(ctx, apiKey, candidate, multiplier, tokens, serviceTier, billingTierOverride, requestCountOverride)
 		if err == nil {
 			return cost, nil
 		}
@@ -5962,19 +5964,37 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 	tokens UsageTokens,
 	serviceTier string,
 	billingTierOverride string,
+	requestCountOverride int,
 ) (*CostBreakdown, error) {
 	if s.resolver != nil && apiKey.Group != nil {
 		gid := apiKey.Group.ID
+		resolved := s.resolver.Resolve(ctx, PricingInput{
+			Model:   billingModel,
+			GroupID: &gid,
+		})
+		sizeTier := strings.TrimSpace(billingTierOverride)
+		requestCount := 1
+		if requestCountOverride > 1 && resolved != nil &&
+			(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
+			if hasExactRequestTierPrice(resolved, sizeTier) {
+				requestCount = 1
+			} else if baseTier := openAIVideoBaseBillingTier(sizeTier); baseTier != "" &&
+				hasExactRequestTierPrice(resolved, baseTier) {
+				sizeTier = baseTier
+				requestCount = requestCountOverride
+			}
+		}
 		return s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
 			GroupID:        &gid,
 			Tokens:         tokens,
-			RequestCount:   1,
-			SizeTier:       strings.TrimSpace(billingTierOverride),
+			RequestCount:   requestCount,
+			SizeTier:       sizeTier,
 			RateMultiplier: multiplier,
 			ServiceTier:    serviceTier,
 			Resolver:       s.resolver,
+			Resolved:       resolved,
 		})
 	}
 	return s.billingService.CalculateCostWithServiceTier(billingModel, tokens, multiplier, serviceTier)

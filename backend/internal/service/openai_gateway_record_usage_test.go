@@ -1716,6 +1716,107 @@ func newOpenAIImageChannelTierPricingResolverForTest(t *testing.T, groupID int64
 	return NewModelPricingResolver(cs, NewBillingService(&config.Config{}, nil))
 }
 
+func newOpenAIVideoChannelTierPricingResolverForTest(t *testing.T, groupID int64, model string, defaultPrice *float64, tiers []PricingInterval) *ModelPricingResolver {
+	t.Helper()
+	cache := newEmptyChannelCache()
+	cache.pricingByGroupModel[channelModelKey{groupID: groupID, platform: PlatformOpenAI, model: model}] = &ChannelModelPricing{
+		Platform:        PlatformOpenAI,
+		BillingMode:     BillingModePerRequest,
+		PerRequestPrice: defaultPrice,
+		Intervals:       tiers,
+	}
+	cache.channelByGroupID[groupID] = &Channel{ID: groupID, Status: StatusActive}
+	cache.groupPlatform[groupID] = PlatformOpenAI
+	cache.loadedAt = time.Now()
+	cs := &ChannelService{}
+	cs.cache.Store(cache)
+	return NewModelPricingResolver(cs, NewBillingService(&config.Config{}, nil))
+}
+
+func TestOpenAIGatewayServiceRecordUsage_ChannelVideoBillingUsesBaseTierAsPerSecondPrice(t *testing.T) {
+	groupID := int64(225)
+	price720 := 0.08
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc.resolver = newOpenAIVideoChannelTierPricingResolverForTest(t, groupID, "kling-v3-omni", nil, []PricingInterval{
+		{TierLabel: "720", PerRequestPrice: &price720},
+	})
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:    "resp_video_channel_per_second",
+			Model:        "kling-v3-omni",
+			BillingModel: "kling-v3-omni",
+			Duration:     time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      10225,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:             groupID,
+				Platform:       PlatformOpenAI,
+				RateMultiplier: 2,
+			},
+		},
+		User:                 &User{ID: 20225},
+		Account:              &Account{ID: 30225},
+		MediaType:            "video",
+		BillingTierOverride:  "720:6s",
+		RequestCountOverride: 6,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.InDelta(t, 0.48, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.96, usageRepo.lastLog.ActualCost, 1e-12)
+	require.NotNil(t, usageRepo.lastLog.BillingMode)
+	require.Equal(t, string(BillingModePerRequest), *usageRepo.lastLog.BillingMode)
+	require.NotNil(t, usageRepo.lastLog.BillingTier)
+	require.Equal(t, "720:6s", *usageRepo.lastLog.BillingTier)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_ChannelVideoBillingPrefersExactDurationTier(t *testing.T) {
+	groupID := int64(226)
+	price720 := 0.08
+	price7206s := 0.4
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc.resolver = newOpenAIVideoChannelTierPricingResolverForTest(t, groupID, "kling-v3-omni", nil, []PricingInterval{
+		{TierLabel: "720", PerRequestPrice: &price720},
+		{TierLabel: "720:6s", PerRequestPrice: &price7206s},
+	})
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:    "resp_video_channel_exact",
+			Model:        "kling-v3-omni",
+			BillingModel: "kling-v3-omni",
+			Duration:     time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      10226,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:             groupID,
+				Platform:       PlatformOpenAI,
+				RateMultiplier: 2,
+			},
+		},
+		User:                 &User{ID: 20226},
+		Account:              &Account{ID: 30226},
+		MediaType:            "video",
+		BillingTierOverride:  "720:6s",
+		RequestCountOverride: 6,
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.InDelta(t, 0.4, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.8, usageRepo.lastLog.ActualCost, 1e-12)
+	require.NotNil(t, usageRepo.lastLog.BillingMode)
+	require.Equal(t, string(BillingModePerRequest), *usageRepo.lastLog.BillingMode)
+}
+
 func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesQualityTier(t *testing.T) {
 	groupID := int64(125)
 	price1K := 0.04

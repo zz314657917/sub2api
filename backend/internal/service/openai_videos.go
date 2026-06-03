@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -201,18 +202,34 @@ func (s *OpenAIGatewayService) EstimateOpenAIVideoCost(ctx context.Context, apiK
 		return nil, billingModel, fmt.Errorf("%w for model: %s", ErrOpenAIVideoPricingUnavailable, billingModel)
 	}
 	gid := apiKey.Group.ID
+	sizeTier, requestCount := extractOpenAIVideoBillingTierAndCount(body, nil)
 	cost, err := s.billingService.CalculateCostUnified(CostInput{
 		Ctx:            ctx,
 		Model:          billingModel,
 		GroupID:        &gid,
 		RequestCount:   1,
-		SizeTier:       extractOpenAIVideoBillingTier(body, nil),
+		SizeTier:       sizeTier,
 		RateMultiplier: multiplier,
 		Resolver:       s.resolver,
 		Resolved:       resolved,
 	})
 	if err != nil {
 		return nil, billingModel, fmt.Errorf("%w: %v", ErrOpenAIVideoPricingUnavailable, err)
+	}
+	if shouldApplyOpenAIVideoPerSecondPricing(resolved, sizeTier, requestCount) {
+		cost, err = s.billingService.CalculateCostUnified(CostInput{
+			Ctx:            ctx,
+			Model:          billingModel,
+			GroupID:        &gid,
+			RequestCount:   requestCount,
+			SizeTier:       openAIVideoBaseBillingTier(sizeTier),
+			RateMultiplier: multiplier,
+			Resolver:       s.resolver,
+			Resolved:       resolved,
+		})
+		if err != nil {
+			return nil, billingModel, fmt.Errorf("%w: %v", ErrOpenAIVideoPricingUnavailable, err)
+		}
 	}
 	if cost == nil || cost.ActualCost <= 0 {
 		return nil, billingModel, fmt.Errorf("%w for model: %s", ErrOpenAIVideoPricingUnavailable, billingModel)
@@ -482,25 +499,27 @@ func (s *OpenAIGatewayService) SettleOpenAIVideoTaskIfTerminal(ctx context.Conte
 	if fields.BillingModelSource == "" {
 		fields.BillingModelSource = BillingModelSourceChannelMapped
 	}
+	videoBillingTier, videoRequestCount := extractOpenAIVideoBillingTierAndCount(task.SubmitResponse, input.StatusBody)
 
 	err = s.RecordUsage(ctx, &OpenAIRecordUsageInput{
-		Result:              result,
-		APIKey:              apiKey,
-		User:                user,
-		Account:             account,
-		Subscription:        input.Subscription,
-		InboundEndpoint:     input.InboundEndpoint,
-		UpstreamEndpoint:    input.UpstreamEndpoint,
-		UserAgent:           input.UserAgent,
-		IPAddress:           input.IPAddress,
-		RequestPayloadHash:  firstNonEmptyString(task.RequestPayloadHash, HashUsageRequestPayload(task.SubmitResponse)),
-		RequestIDOverride:   "video_task:" + taskID,
-		MediaType:           "video",
-		BillingTierOverride: extractOpenAIVideoBillingTier(task.SubmitResponse, input.StatusBody),
-		PrepaidBalanceCost:  prepaidCost,
-		CostOverride:        costOverride,
-		APIKeyService:       input.APIKeyService,
-		ChannelUsageFields:  fields,
+		Result:               result,
+		APIKey:               apiKey,
+		User:                 user,
+		Account:              account,
+		Subscription:         input.Subscription,
+		InboundEndpoint:      input.InboundEndpoint,
+		UpstreamEndpoint:     input.UpstreamEndpoint,
+		UserAgent:            input.UserAgent,
+		IPAddress:            input.IPAddress,
+		RequestPayloadHash:   firstNonEmptyString(task.RequestPayloadHash, HashUsageRequestPayload(task.SubmitResponse)),
+		RequestIDOverride:    "video_task:" + taskID,
+		MediaType:            "video",
+		BillingTierOverride:  videoBillingTier,
+		RequestCountOverride: videoRequestCount,
+		PrepaidBalanceCost:   prepaidCost,
+		CostOverride:         costOverride,
+		APIKeyService:        input.APIKeyService,
+		ChannelUsageFields:   fields,
 	})
 	if err != nil {
 		return err
@@ -650,6 +669,11 @@ func isOpenAIVideoTaskFailureStatus(status string) bool {
 }
 
 func extractOpenAIVideoBillingTier(submitBody []byte, statusBody []byte) string {
+	tier, _ := extractOpenAIVideoBillingTierAndCount(submitBody, statusBody)
+	return tier
+}
+
+func extractOpenAIVideoBillingTierAndCount(submitBody []byte, statusBody []byte) (string, int) {
 	resolution := firstNonEmptyString(
 		videoJSONString(submitBody, "resolution"),
 		videoJSONString(submitBody, "size"),
@@ -670,14 +694,71 @@ func extractOpenAIVideoBillingTier(submitBody []byte, statusBody []byte) string 
 	duration = normalizeOpenAIVideoTierPart(duration)
 	switch {
 	case resolution != "" && duration != "":
-		return resolution + ":" + duration + "s"
+		return resolution + ":" + duration + "s", parseOpenAIVideoDurationCount(duration)
 	case resolution != "":
-		return resolution
+		return resolution, 1
 	case duration != "":
-		return duration + "s"
+		return duration + "s", parseOpenAIVideoDurationCount(duration)
 	default:
+		return "", 1
+	}
+}
+
+func openAIVideoBaseBillingTier(tier string) string {
+	base, _, ok := strings.Cut(strings.TrimSpace(tier), ":")
+	if !ok {
 		return ""
 	}
+	return strings.TrimSpace(base)
+}
+
+func parseOpenAIVideoDurationCount(duration string) int {
+	duration = strings.TrimSpace(strings.TrimSuffix(strings.ToLower(duration), "s"))
+	if duration == "" {
+		return 1
+	}
+	value, err := strconv.ParseFloat(duration, 64)
+	if err != nil || value <= 0 {
+		return 1
+	}
+	count := int(value)
+	if float64(count) < value {
+		count++
+	}
+	if count <= 0 {
+		return 1
+	}
+	return count
+}
+
+func shouldApplyOpenAIVideoPerSecondPricing(resolved *ResolvedPricing, tier string, requestCount int) bool {
+	if resolved == nil || requestCount <= 1 {
+		return false
+	}
+	if hasExactRequestTierPrice(resolved, tier) {
+		return false
+	}
+	baseTier := openAIVideoBaseBillingTier(tier)
+	if baseTier == "" {
+		return false
+	}
+	if !hasExactRequestTierPrice(resolved, baseTier) {
+		return false
+	}
+	return true
+}
+
+func hasExactRequestTierPrice(resolved *ResolvedPricing, tierLabel string) bool {
+	tierLabel = strings.TrimSpace(tierLabel)
+	if resolved == nil || tierLabel == "" {
+		return false
+	}
+	for _, tier := range resolved.RequestTiers {
+		if strings.TrimSpace(tier.TierLabel) == tierLabel && tier.PerRequestPrice != nil && *tier.PerRequestPrice > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func videoJSONString(body []byte, path string) string {

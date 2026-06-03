@@ -127,7 +127,7 @@
                       class="model-price-value"
                       :class="{ 'is-rate-price': isRatePriceActive(model) }"
                     >
-                      {{ formatPrimaryModelPrice(model) }}
+                      {{ formatPrimaryPriceCell(model) }}
                     </span>
                     <div v-if="tierPriceItems(model).length > 0" class="model-tier-price-list">
                       <span
@@ -139,19 +139,16 @@
                         <em>{{ item.price }}</em>
                       </span>
                     </div>
-                    <small v-if="isRatePriceActive(model) && model.pricing?.input_price != null">
-                      基础 {{ formatBaseModelPrice(model.pricing?.input_price) }}
+                    <small v-if="isRatePriceActive(model) && model.pricing?.billing_mode !== BILLING_MODE_PER_REQUEST">
+                      基础 {{ formatBasePricePair(model) }}
                     </small>
                   </td>
                   <td data-label="计费说明">
-                    <span class="model-price-value" :class="{ 'is-rate-price': isRatePriceActive(model) }">
-                      {{ formatSecondaryModelPrice(model) }}
+                    <span class="model-billing-note">
+                      {{ formatBillingDescription(model) }}
                     </span>
                     <small v-if="shouldShowPricingNote(model)" class="model-price-note">
                       {{ pricingNote(model) }}
-                    </small>
-                    <small v-if="isRatePriceActive(model) && model.pricing?.output_price != null">
-                      基础 {{ formatBaseModelPrice(model.pricing?.output_price) }}
                     </small>
                   </td>
                 </tr>
@@ -168,7 +165,7 @@
       </section>
 
       <p class="model-plaza-note">
-        官方价按厂商公开口径展示，单位可能不同；我们的价格为当前接入价按美元折算人民币，开启倍率后按当前分组倍率折算。实际扣费以控制台记录为准。
+        官方价按厂商公开口径展示，单位可能不同；我们的价格按本站余额单位展示，开启倍率后按当前分组倍率折算。实际扣费以控制台记录为准。
       </p>
     </main>
   </div>
@@ -232,6 +229,8 @@ const channels = ref<UserAvailableChannel[]>([])
 const availableGroups = ref<UserAvailableGroup[]>([])
 const userGroupRates = ref<Record<number, number>>({})
 
+const RMB_PER_OFFICIAL_USD = 7
+
 const usingFallbackCatalog = computed(() => !isAuthenticated.value || channels.value.length === 0)
 const sourceChannels = computed(() => (usingFallbackCatalog.value ? fallbackChannels : channels.value))
 
@@ -283,7 +282,7 @@ const providerStats = computed<ProviderStat[]>(() => {
     current.count += 1
     stats.set(platform, current)
   }
-  return Array.from(stats.values()).sort((a, b) => a.label.localeCompare(b.label))
+  return Array.from(stats.values()).sort(compareProviders)
 })
 
 const providerTabs = computed(() => [
@@ -357,7 +356,7 @@ const providerPricingSections = computed(() => {
     sections.set(platform, section)
   }
 
-  return Array.from(sections.values()).sort((a, b) => a.label.localeCompare(b.label))
+  return Array.from(sections.values()).sort(compareProviders)
 })
 
 const emptyStateMessage = computed(() => modelCards.value.length === 0 ? '暂无可用模型' : '没有找到匹配的模型')
@@ -470,26 +469,41 @@ function formatRate(rate: number): string {
 function formatModelPrice(value: number | null | undefined, model: PlazaModel): string {
   if (value == null) return '-'
   const rate = showRatePricesForPlatform(model.platform) ? effectiveRate(model) ?? 1 : 1
-  return formatPricePerMillion(value * rate)
+  return formatBalancePricePerMillion(value * rate)
 }
 
-function formatPrimaryModelPrice(model: PlazaModel): string {
+function formatPrimaryPriceCell(model: PlazaModel): string {
   const perRequestPrice = model.pricing?.per_request_price
   if (model.pricing?.billing_mode === BILLING_MODE_PER_REQUEST && perRequestPrice != null) {
     const suffix = tierPriceItems(model).length > 0 ? '起' : ''
     return `${formatPerRequestPrice(perRequestPrice, model)}${suffix}`
   }
 
-  return formatModelPrice(model.pricing?.input_price, model)
+  return formatTokenPricePair(model)
 }
 
-function formatSecondaryModelPrice(model: PlazaModel): string {
+function formatBillingDescription(model: PlazaModel): string {
   if (model.pricing?.billing_mode === BILLING_MODE_PER_REQUEST) {
     if (tierPriceItems(model).length > 0) return `按规格${videoTierUnit()}计费`
     return model.pricing.intervals[0]?.tier_label || '单次计费'
   }
 
-  return formatModelPrice(model.pricing?.output_price, model)
+  if (model.pricing?.billing_mode === BILLING_MODE_IMAGE) return '按图片输出计费'
+  return '按 tokens 计费'
+}
+
+function formatTokenPricePair(model: PlazaModel): string {
+  const parts: string[] = []
+  if (model.pricing?.input_price != null) parts.push(`输入 ${formatModelPrice(model.pricing.input_price, model)}`)
+  if (model.pricing?.output_price != null) parts.push(`输出 ${formatModelPrice(model.pricing.output_price, model)}`)
+  return parts.length > 0 ? parts.join(' / ') : '-'
+}
+
+function formatBasePricePair(model: PlazaModel): string {
+  const parts: string[] = []
+  if (model.pricing?.input_price != null) parts.push(`输入 ${formatBaseModelPrice(model.pricing.input_price)}`)
+  if (model.pricing?.output_price != null) parts.push(`输出 ${formatBaseModelPrice(model.pricing.output_price)}`)
+  return parts.length > 0 ? parts.join(' / ') : '-'
 }
 
 function referencePrice(model: PlazaModel): string {
@@ -584,12 +598,12 @@ function formatReferencePricing(pricing: UserSupportedModelPricing): string {
   }
 
   if (pricing.billing_mode === BILLING_MODE_IMAGE && pricing.image_output_price != null) {
-    return `图片 ${formatPricePerMillion(pricing.image_output_price)}`
+    return `图片 ${formatReferencePricePerMillion(pricing.image_output_price)}`
   }
 
   const parts: string[] = []
-  if (pricing.input_price != null) parts.push(`输入 ${formatPricePerMillion(pricing.input_price)}`)
-  if (pricing.output_price != null) parts.push(`输出 ${formatPricePerMillion(pricing.output_price)}`)
+  if (pricing.input_price != null) parts.push(`输入 ${formatReferencePricePerMillion(pricing.input_price)}`)
+  if (pricing.output_price != null) parts.push(`输出 ${formatReferencePricePerMillion(pricing.output_price)}`)
   if (parts.length > 0) return parts.join(' / ')
 
   if (pricing.per_request_price != null) return formatReferencePerRequestPrice(pricing)
@@ -604,7 +618,7 @@ function formatReferencePerRequestPrice(pricing: UserSupportedModelPricing): str
 }
 
 function formatRmbReferencePrice(usdPrice: number, unit: string): string {
-  const rmbPrice = usdPrice * 7
+  const rmbPrice = usdPrice * RMB_PER_OFFICIAL_USD
   const digits = rmbPrice > 0 && rmbPrice < 1 ? 3 : 2
   return `¥${rmbPrice.toFixed(digits).replace(/0+$/, '').replace(/\.$/, '')}${unit}`
 }
@@ -628,11 +642,17 @@ function pricingNote(model: PlazaModel): string {
 
 function formatBaseModelPrice(value: number | null | undefined): string {
   if (value == null) return '-'
-  return formatPricePerMillion(value)
+  return formatBalancePricePerMillion(value)
 }
 
-function formatPricePerMillion(value: number): string {
-  const perMillion = value * 1_000_000 * 7
+function formatReferencePricePerMillion(value: number): string {
+  const perMillion = value * 1_000_000 * RMB_PER_OFFICIAL_USD
+  const digits = perMillion > 0 && perMillion < 1 ? 3 : 2
+  return `¥${perMillion.toFixed(digits)}/M`
+}
+
+function formatBalancePricePerMillion(value: number): string {
+  const perMillion = value * 1_000_000
   const digits = perMillion > 0 && perMillion < 1 ? 3 : 2
   return `¥${perMillion.toFixed(digits)}/M`
 }
@@ -640,7 +660,7 @@ function formatPricePerMillion(value: number): string {
 function formatPerRequestPrice(value: number, model: PlazaModel): string {
   const rate = showRatePricesForPlatform(model.platform) ? effectiveRate(model) ?? 1 : 1
   const unit = tierPriceItems(model).length > 0 ? videoTierUnit() : model.pricing?.intervals[0]?.tier_label || '/次'
-  const rmbPrice = value * rate * 7
+  const rmbPrice = value * rate
   return `¥${rmbPrice.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}${unit}`
 }
 
@@ -653,12 +673,12 @@ function tierPriceItems(model: PlazaModel): Array<{ label: string; price: string
     .filter((interval) => interval.tier_label && interval.per_request_price != null)
     .map((interval) => ({
       label: interval.tier_label || '默认',
-      price: formatRmbPrice(interval.per_request_price ?? 0, rate, videoTierUnit())
+      price: formatBalancePrice(interval.per_request_price ?? 0, rate, videoTierUnit())
     }))
 }
 
-function formatRmbPrice(value: number, rate: number, unit: string): string {
-  const rmbPrice = value * rate * 7
+function formatBalancePrice(value: number, rate: number, unit: string): string {
+  const rmbPrice = value * rate
   return `¥${rmbPrice.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')}${unit}`
 }
 
@@ -739,8 +759,22 @@ function modelVersionScore(modelName: string): number {
     .reduce((score, part) => score * 100 + Number(part || 0), 0)
 }
 
+function providerOrder(platform: string): number {
+  const label = providerLabel(platform).toLowerCase()
+  if (label === 'openai') return 0
+  if (label === 'anthropic') return 1
+  if (label === 'gemini') return 2
+  if (platformKey(platform) === 'video') return 3
+  return 4
+}
+
+function compareProviders(a: { platform: string; label: string }, b: { platform: string; label: string }): number {
+  const orderCompare = providerOrder(a.platform) - providerOrder(b.platform)
+  return orderCompare || a.label.localeCompare(b.label)
+}
+
 function isOpenAIModel(model: PlazaModel): boolean {
-  return providerLabel(model.platform) === 'Openai' || model.name.toLowerCase().startsWith('gpt-')
+  return providerLabel(model.platform).toLowerCase() === 'openai' || model.name.toLowerCase().startsWith('gpt-')
 }
 
 function compareModelCardsByCost(a: PlazaModel, b: PlazaModel): number {
@@ -926,6 +960,10 @@ const anthropicGroups: UserAvailableGroup[] = [
   { id: 202, name: 'Claude Code 专线', platform: 'anthropic', subscription_type: 'standard', rate_multiplier: 0.5, is_exclusive: false }
 ]
 
+const geminiGroups: UserAvailableGroup[] = [
+  { id: 251, name: 'Gemini 标准渠道', platform: 'gemini', subscription_type: 'standard', rate_multiplier: 1, is_exclusive: false }
+]
+
 const videoGroups: UserAvailableGroup[] = [
   { id: 301, name: '视频模型标准渠道', platform: 'video', subscription_type: 'standard', rate_multiplier: 1, is_exclusive: false }
 ]
@@ -965,6 +1003,21 @@ const fallbackChannels: UserAvailableChannel[] = [
           withReferencePricing('claude-sonnet-4', 'anthropic', tokenPricing(3, 15, 3.75, 0.3), tokenReferencePricing(3, 15, 3.75, 0.3)),
           withReferencePricing('claude-haiku-4.5', 'anthropic', tokenPricing(1, 5, 1.25, 0.1), tokenReferencePricing(1, 5, 1.25, 0.1)),
           withReferencePricing('claude-haiku-4', 'anthropic', tokenPricing(1, 5, 1.25, 0.1), tokenReferencePricing(1, 5, 1.25, 0.1))
+        ]
+      }
+    ]
+  },
+  {
+    name: 'Gemini',
+    description: 'Gemini 多模态与长上下文模型',
+    platforms: [
+      {
+        platform: 'gemini',
+        groups: geminiGroups,
+        supported_models: [
+          withReferencePricing('gemini-3.1-pro', 'gemini', tokenPricing(2, 12, 2, 0.2), tokenReferencePricing(2, 12, 2, 0.2)),
+          withReferencePricing('gemini-3.1-flash', 'gemini', tokenPricing(0.5, 3, 0.5, 0.05), tokenReferencePricing(0.5, 3, 0.5, 0.05)),
+          withReferencePricing('gemini-3.1-flash-lite', 'gemini', tokenPricing(0.1, 0.4, 0.1, 0.01), tokenReferencePricing(0.1, 0.4, 0.1, 0.01))
         ]
       }
     ]
@@ -1443,6 +1496,15 @@ onMounted(() => {
 
 .model-price-value.muted {
   color: rgba(222, 232, 255, 0.7);
+}
+
+.model-billing-note {
+  display: block;
+  color: rgba(222, 232, 255, 0.72);
+  font-size: 0.78rem;
+  font-weight: 850;
+  line-height: 1.35;
+  white-space: nowrap;
 }
 
 .model-tier-price-list {
