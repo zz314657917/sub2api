@@ -1,8 +1,10 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -88,7 +90,17 @@ func (r *contentModerationTestRepo) ListLogs(ctx context.Context, filter Content
 }
 
 func (r *contentModerationTestRepo) CountFlaggedByUserSince(ctx context.Context, userID int64, since time.Time) (int, error) {
-	return 0, nil
+	count := 0
+	for _, log := range r.logs {
+		if !log.Flagged || log.UserID == nil || *log.UserID != userID {
+			continue
+		}
+		if !log.CreatedAt.IsZero() && log.CreatedAt.Before(since) {
+			continue
+		}
+		count++
+	}
+	return count, nil
 }
 
 func (r *contentModerationTestRepo) CleanupExpiredLogs(ctx context.Context, hitBefore time.Time, nonHitBefore time.Time) (*ContentModerationCleanupResult, error) {
@@ -1139,6 +1151,100 @@ func TestContentModerationCheck_PreHashUsesRedisHashCache(t *testing.T) {
 	require.Contains(t, decision.Message, "命中历史风险输入")
 	require.Contains(t, decision.Message, content.Hash())
 	require.Len(t, hashCache.checked, 1)
+}
+
+func TestContentModerationAutoBanSkipsAdminAccount(t *testing.T) {
+	var slogOutput bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&slogOutput, nil)))
+	t.Cleanup(func() {
+		slog.SetDefault(previousLogger)
+	})
+
+	cfg := defaultContentModerationConfig()
+	cfg.BanThreshold = 2
+	cfg.ViolationWindowHours = 24
+
+	userID := int64(1001)
+	repo := &contentModerationTestRepo{}
+	require.NoError(t, repo.CreateLog(context.Background(), newContentModerationFlaggedLog(userID)))
+	userRepo := &contentModerationTestUserRepo{user: &User{ID: userID, Role: RoleAdmin, Status: StatusActive}}
+	invalidator := &contentModerationTestAuthCacheInvalidator{}
+	svc := NewContentModerationService(nil, repo, nil, nil, userRepo, invalidator, nil)
+
+	log := newContentModerationFlaggedLog(userID)
+	svc.applyFlaggedSideEffects(context.Background(), cfg, log)
+	require.NoError(t, repo.CreateLog(context.Background(), log))
+
+	require.Len(t, repo.logs, 2)
+	require.Equal(t, 2, repo.logs[1].ViolationCount)
+	require.False(t, repo.logs[1].AutoBanned)
+	require.Equal(t, StatusActive, userRepo.user.Status)
+	require.Empty(t, userRepo.updated)
+	require.Empty(t, invalidator.userIDs)
+	require.Contains(t, slogOutput.String(), "content_moderation.autoban_skipped_admin")
+	require.Contains(t, slogOutput.String(), "user_id=1001")
+	require.Contains(t, slogOutput.String(), "role=admin")
+	require.Contains(t, slogOutput.String(), "count=2")
+	require.Contains(t, slogOutput.String(), "threshold=2")
+}
+
+func TestContentModerationAutoBanDisablesRegularUserAtThreshold(t *testing.T) {
+	cfg := defaultContentModerationConfig()
+	cfg.BanThreshold = 2
+	cfg.ViolationWindowHours = 24
+
+	userID := int64(1001)
+	repo := &contentModerationTestRepo{}
+	require.NoError(t, repo.CreateLog(context.Background(), newContentModerationFlaggedLog(userID)))
+	userRepo := &contentModerationTestUserRepo{user: &User{ID: userID, Role: RoleUser, Status: StatusActive}}
+	invalidator := &contentModerationTestAuthCacheInvalidator{}
+	svc := NewContentModerationService(nil, repo, nil, nil, userRepo, invalidator, nil)
+
+	log := newContentModerationFlaggedLog(userID)
+	svc.applyFlaggedSideEffects(context.Background(), cfg, log)
+	require.NoError(t, repo.CreateLog(context.Background(), log))
+
+	require.Len(t, repo.logs, 2)
+	require.Equal(t, 2, repo.logs[1].ViolationCount)
+	require.True(t, repo.logs[1].AutoBanned)
+	require.Len(t, userRepo.updated, 1)
+	require.Equal(t, StatusDisabled, userRepo.user.Status)
+	require.Equal(t, []int64{userID}, invalidator.userIDs)
+}
+
+func TestContentModerationAdminBelowBanThresholdRecordsViolationOnly(t *testing.T) {
+	cfg := defaultContentModerationConfig()
+	cfg.BanThreshold = 2
+	cfg.ViolationWindowHours = 24
+
+	userID := int64(1001)
+	repo := &contentModerationTestRepo{}
+	userRepo := &contentModerationTestUserRepo{user: &User{ID: userID, Role: RoleAdmin, Status: StatusActive}}
+	invalidator := &contentModerationTestAuthCacheInvalidator{}
+	svc := NewContentModerationService(nil, repo, nil, nil, userRepo, invalidator, nil)
+
+	log := newContentModerationFlaggedLog(userID)
+	svc.applyFlaggedSideEffects(context.Background(), cfg, log)
+	require.NoError(t, repo.CreateLog(context.Background(), log))
+
+	require.Len(t, repo.logs, 1)
+	require.Equal(t, 1, repo.logs[0].ViolationCount)
+	require.False(t, repo.logs[0].AutoBanned)
+	require.Equal(t, StatusActive, userRepo.user.Status)
+	require.Empty(t, userRepo.updated)
+	require.Empty(t, invalidator.userIDs)
+}
+
+func newContentModerationFlaggedLog(userID int64) *ContentModerationLog {
+	return &ContentModerationLog{
+		UserID:          &userID,
+		Action:          ContentModerationActionBlock,
+		Flagged:         true,
+		HighestCategory: "sexual",
+		HighestScore:    0.9,
+		CreatedAt:       time.Now(),
+	}
 }
 
 func TestContentModerationCheck_PreBlockFlaggedWritesRedisHashCache(t *testing.T) {
