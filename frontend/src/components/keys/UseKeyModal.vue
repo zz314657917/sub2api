@@ -373,10 +373,14 @@ const operator = (value: string) => wrapToken('text-slate-400', value)
 const string = (value: string) => wrapToken('text-amber-200', value)
 const comment = (value: string) => wrapToken('text-slate-500', value)
 
+function normalizeBaseUrl(baseUrl: string): string {
+  return baseUrl.trim().replace(/\/+$/, '')
+}
+
 // Syntax highlighting helpers
 // Generate file configs based on platform and active tab
 const currentFiles = computed((): FileConfig[] => {
-  const baseUrl = props.baseUrl || window.location.origin
+  const baseUrl = normalizeBaseUrl(props.baseUrl || window.location.origin)
   const apiKey = props.apiKey
   const baseRoot = baseUrl.replace(/\/v1\/?$/, '').replace(/\/+$/, '')
   const ensureV1 = (value: string) => {
