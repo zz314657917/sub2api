@@ -30,7 +30,7 @@
         </div>
       </div>
 
-      <div class="grid gap-5 xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]">
+      <div class="grid items-start gap-5 xl:grid-cols-[minmax(18rem,22rem)_minmax(0,1fr)]">
         <section class="model-market-group-panel rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
           <div class="flex items-center justify-between gap-3">
             <h3 class="font-semibold text-gray-900 dark:text-white">分组</h3>
@@ -544,6 +544,7 @@ onMounted(loadCatalog)
 
 <style scoped>
 .model-market-group-panel {
+  align-self: start;
   min-height: 0;
 }
 
