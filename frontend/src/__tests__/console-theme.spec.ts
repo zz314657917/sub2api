@@ -11,6 +11,7 @@ const keyUsageView = readFileSync(resolve(process.cwd(), 'src/views/KeyUsageView
 const tailwindConfig = readFileSync(resolve(process.cwd(), 'tailwind.config.js'), 'utf8')
 const adminDashboard = readFileSync(resolve(process.cwd(), 'src/views/admin/DashboardView.vue'), 'utf8')
 const userStats = readFileSync(resolve(process.cwd(), 'src/components/user/dashboard/UserDashboardStats.vue'), 'utf8')
+const userPerformanceStats = readFileSync(resolve(process.cwd(), 'src/components/user/dashboard/UserDashboardPerformanceStats.vue'), 'utf8')
 const quickActions = readFileSync(resolve(process.cwd(), 'src/components/user/dashboard/UserDashboardQuickActions.vue'), 'utf8')
 const recentUsage = readFileSync(resolve(process.cwd(), 'src/components/user/dashboard/UserDashboardRecentUsage.vue'), 'utf8')
 
@@ -19,6 +20,7 @@ const consoleComponents = [
   appHeader,
   adminDashboard,
   userStats,
+  userPerformanceStats,
   quickActions,
   recentUsage,
 ]

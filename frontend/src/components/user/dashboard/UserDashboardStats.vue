@@ -1,222 +1,26 @@
 <template>
-  <!-- Row 1: Core Stats -->
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-    <!-- Balance -->
-    <div v-if="!isSimple" class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="console-stat-icon console-stat-icon--green">
-          <Icon name="dollar" size="md" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.balance') }}</p>
-          <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">${{ formatBalance(balance) }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('common.available') }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- API Keys -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="console-stat-icon console-stat-icon--blue">
-          <Icon name="key" size="md" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.apiKeys') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ stats?.total_api_keys || 0 }}</p>
-          <p class="text-xs text-green-600 dark:text-green-400">{{ stats?.active_api_keys || 0 }} {{ t('common.active') }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Today Requests -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="console-stat-icon console-stat-icon--green">
-          <Icon name="trendingUp" size="md" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.todayRequests') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ stats?.today_requests || 0 }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('common.total') }}: {{ formatNumber(stats?.total_requests || 0) }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Today Cost -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="console-stat-icon">
-          <Icon name="creditCard" size="md" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.todayCost') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">
-            <span class="text-purple-600 dark:text-purple-400" :title="t('dashboard.actual')">${{ formatCost(stats?.today_actual_cost || 0) }}</span>
-            <span class="text-sm font-normal text-gray-400 dark:text-gray-500" :title="t('dashboard.standard')"> / ${{ formatCost(stats?.today_cost || 0) }}</span>
-          </p>
-          <p class="text-xs">
-            <span class="text-gray-500 dark:text-gray-400">{{ t('common.total') }}: </span>
-            <span class="text-purple-600 dark:text-purple-400" :title="t('dashboard.actual')">${{ formatCost(stats?.total_actual_cost || 0) }}</span>
-            <span class="text-gray-400 dark:text-gray-500" :title="t('dashboard.standard')"> / ${{ formatCost(stats?.total_cost || 0) }}</span>
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Row 2: Token Stats -->
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-    <!-- Today Tokens -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="console-stat-icon console-stat-icon--yellow">
-          <Icon name="database" size="md" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.todayTokens') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ formatTokens(stats?.today_tokens || 0) }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('dashboard.input') }}: {{ formatTokens(stats?.today_input_tokens || 0) }} / {{ t('dashboard.output') }}: {{ formatTokens(stats?.today_output_tokens || 0) }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Total Tokens -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="console-stat-icon">
-          <Icon name="cube" size="md" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.totalTokens') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ formatTokens(stats?.total_tokens || 0) }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('dashboard.input') }}: {{ formatTokens(stats?.total_input_tokens || 0) }} / {{ t('dashboard.output') }}: {{ formatTokens(stats?.total_output_tokens || 0) }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Performance (RPM/TPM) -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="console-stat-icon">
-          <Icon name="bolt" size="md" />
-        </div>
-        <div class="flex-1">
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.performance') }}</p>
-          <div class="flex items-baseline gap-2">
-            <p class="text-xl font-bold text-gray-900 dark:text-white">{{ formatTokens(stats?.rpm || 0) }}</p>
-            <span class="text-xs text-gray-500 dark:text-gray-400">RPM</span>
-          </div>
-          <div class="flex items-baseline gap-2">
-            <p class="text-sm font-semibold text-violet-600 dark:text-violet-400">{{ formatTokens(stats?.tpm || 0) }}</p>
-            <span class="text-xs text-gray-500 dark:text-gray-400">TPM</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Avg Response Time -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="console-stat-icon console-stat-icon--danger">
-          <Icon name="clock" size="md" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.avgResponse') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">{{ formatDuration(stats?.average_duration_ms || 0) }}</p>
-          <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('dashboard.averageTime') }}</p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Row 3: Cache Stats -->
-  <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-    <!-- Today Input Cache Reuse -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="console-stat-icon console-stat-icon--blue">
-          <Icon name="sparkles" size="md" />
-        </div>
+  <section class="dashboard-stats-grid">
+    <article
+      v-for="card in statCards"
+      :key="card.key"
+      class="dashboard-stat-card"
+    >
+      <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.todayCacheHitRate') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">
-            {{ formatCacheReuseRate(stats?.today_cache_read_tokens || 0, stats?.today_input_tokens || 0) }}
-          </p>
-          <p class="truncate text-xs text-gray-500 dark:text-gray-400" :title="cacheReadTitle(stats?.today_cache_read_tokens || 0)">
-            {{ t('dashboard.cacheReadTokens') }}: {{ formatTokens(stats?.today_cache_read_tokens || 0) }}
-          </p>
+          <p class="dashboard-stat-label">{{ card.label }}</p>
+          <p class="dashboard-stat-value">{{ card.value }}</p>
         </div>
+        <span class="dashboard-stat-badge" :class="card.badgeClass">
+          {{ card.badge }}
+        </span>
       </div>
-    </div>
-
-    <!-- Total Input Cache Reuse -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="console-stat-icon console-stat-icon--green">
-          <Icon name="shield" size="md" />
-        </div>
-        <div class="min-w-0">
-          <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.totalCacheHitRate') }}</p>
-          <p class="text-xl font-bold text-gray-900 dark:text-white">
-            {{ formatCacheReuseRate(stats?.total_cache_read_tokens || 0, stats?.total_input_tokens || 0) }}
-          </p>
-          <p class="truncate text-xs text-gray-500 dark:text-gray-400" :title="cacheReadTitle(stats?.total_cache_read_tokens || 0)">
-            {{ t('dashboard.cacheReadTokens') }}: {{ formatTokens(stats?.total_cache_read_tokens || 0) }}
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Row 4: Per-platform breakdown -->
-  <div v-if="!isSimple && platformCards.length > 0" class="card p-4">
-    <div class="mb-3 flex items-center justify-between">
-      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('dashboard.platformBreakdown') }}</h3>
-      <span class="text-xs text-gray-500 dark:text-gray-400">
-        {{ t('dashboard.platformCount', { count: sortedPlatforms.length }) }}
-      </span>
-    </div>
-    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-      <div
-        v-for="item in platformCards"
-        :key="item.platform"
-        :class="[
-          'rounded-lg border p-3',
-          item.isOther
-            ? 'border-dashed border-gray-300 bg-gray-50 dark:border-dark-500 dark:bg-dark-700/30'
-            : 'border-gray-200 dark:border-dark-600'
-        ]"
-      >
-        <div class="flex items-center justify-between">
-          <span class="text-sm font-semibold text-gray-900 dark:text-white">
-            {{ item.isOther ? t('dashboard.platformOther') : platformLabel(item.platform) }}
-          </span>
-          <span class="font-mono text-sm text-purple-600 dark:text-purple-400" :title="t('dashboard.actual')">
-            ${{ formatCost(item.total_actual_cost) }}
-          </span>
-        </div>
-        <div class="mt-2 space-y-1 text-xs">
-          <div class="flex items-center justify-between">
-            <span class="text-gray-500 dark:text-gray-400">{{ t('dashboard.todayCost') }}</span>
-            <span class="font-mono text-gray-900 dark:text-white">${{ formatCost(item.today_actual_cost) }}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-gray-500 dark:text-gray-400">{{ t('dashboard.requests') }}</span>
-            <span class="font-mono text-gray-700 dark:text-gray-300">
-              {{ item.total_requests > 0 ? formatNumber(item.total_requests) : '-' }}
-            </span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-gray-500 dark:text-gray-400">{{ t('dashboard.tokens') }}</span>
-            <span class="font-mono text-gray-700 dark:text-gray-300">
-              {{ item.total_tokens > 0 ? formatTokens(item.total_tokens) : '-' }}
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
+      <p class="dashboard-stat-trend" :class="card.trendClass">
+        {{ card.trend }}
+        <Icon :name="card.trendIcon" size="xs" />
+      </p>
+      <p class="dashboard-stat-note">{{ card.note }}</p>
+    </article>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -225,80 +29,111 @@ import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import type { UserDashboardStats as UserStatsType } from '@/api/usage'
 
+type TrendIcon = 'trendingUp' | 'arrowDown' | 'checkCircle'
+
 const props = defineProps<{
   stats: UserStatsType
-  balance: number
-  isSimple: boolean
 }>()
+
 const { t } = useI18n()
 
-const PLATFORM_LABELS: Record<string, string> = {
-  anthropic: 'Claude',
-  openai: 'OpenAI',
-  gemini: 'Gemini',
-  antigravity: 'Antigravity'
-}
+const formatCompact = (value: number): string =>
+  new Intl.NumberFormat(undefined, {
+    notation: 'compact',
+    maximumFractionDigits: value >= 1000 ? 1 : 0,
+  }).format(Number(value) || 0)
 
-const platformLabel = (p: string) => PLATFORM_LABELS[p] ?? p
-
-const sortedPlatforms = computed(() => {
-  const list = props.stats?.by_platform ?? []
-  return [...list].sort((a, b) => b.total_actual_cost - a.total_actual_cost)
-})
-
-// 处理"各平台之和 < 总值"的差值：后端按平台聚合时过滤了无法归属平台的行
-// （group 与 account 都缺 platform）。这里把差值作为"其他"卡片显式展示，
-// 避免 Row 1 总值与 Row 3 平台拆分加总对不上、用户困惑。
-const OTHER_THRESHOLD = 0.0001
-const platformCards = computed(() => {
-  const cards: Array<{
-    platform: string
-    total_actual_cost: number
-    today_actual_cost: number
-    total_requests: number
-    total_tokens: number
-    isOther?: boolean
-  }> = sortedPlatforms.value.map((p) => ({ ...p }))
-
-  const total = props.stats?.total_actual_cost ?? 0
-  const today = props.stats?.today_actual_cost ?? 0
-  const sumTotal = cards.reduce((s, c) => s + c.total_actual_cost, 0)
-  const sumToday = cards.reduce((s, c) => s + c.today_actual_cost, 0)
-  const diffTotal = Math.max(0, total - sumTotal)
-  const diffToday = Math.max(0, today - sumToday)
-
-  if (diffTotal > OTHER_THRESHOLD || diffToday > OTHER_THRESHOLD) {
-    cards.push({
-      platform: '__other__',
-      total_actual_cost: diffTotal,
-      today_actual_cost: diffToday,
-      total_requests: 0,
-      total_tokens: 0,
-      isOther: true
-    })
-  }
-  return cards
-})
-
-const formatBalance = (b: number) =>
-  new Intl.NumberFormat('en-US', {
+const formatCost = (value: number): string =>
+  `$${new Intl.NumberFormat(undefined, {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 2
-  }).format(b)
+    maximumFractionDigits: 4,
+  }).format(Number(value) || 0)}`
 
-const formatNumber = (n: number) => n.toLocaleString()
-const formatCost = (c: number) => c.toFixed(4)
-const formatTokens = (t: number) => {
-  if (t >= 1_000_000) return `${(t / 1_000_000).toFixed(1)}M`
-  if (t >= 1000) return `${(t / 1000).toFixed(1)}K`
-  return t.toString()
-}
-const formatDuration = (ms: number) => ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${ms.toFixed(0)}ms`
-const formatCacheReuseRate = (cacheReadTokens: number, inputTokens: number) => {
-  const inputTotal = cacheReadTokens + inputTokens
-  if (inputTotal <= 0) return t('common.notAvailable')
-  return `${((cacheReadTokens / inputTotal) * 100).toFixed(1)}%`
-}
-const cacheReadTitle = (cacheReadTokens: number) =>
-  `${t('dashboard.cacheReadTokens')}: ${formatNumber(cacheReadTokens)}`
+const formatPercent = (value: number): string =>
+  `${new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(Number(value) || 0)}%`
+
+const averageCost = computed(() => {
+  const requests = props.stats.total_requests || 0
+  if (requests <= 0) return 0
+  return (props.stats.total_actual_cost || 0) / requests
+})
+
+const successTrend = computed(() => t('dashboard.overview.trendStable'))
+const activeApiKeyNote = computed(() =>
+  t('dashboard.overview.activeApiKeys', {
+    count: props.stats.active_api_keys || 0,
+    total: props.stats.total_api_keys || 0,
+  })
+)
+
+const statCards = computed<Array<{
+  key: string
+  label: string
+  value: string
+  badge: string
+  badgeClass: string
+  trend: string
+  trendClass: string
+  trendIcon: TrendIcon
+  note: string
+}>>(() => [
+  {
+    key: 'total-cost',
+    label: t('dashboard.overview.totalCost'),
+    value: formatCost(props.stats.total_actual_cost || 0),
+    badge: formatCost(props.stats.today_actual_cost || 0),
+    badgeClass: 'dashboard-stat-badge--neutral',
+    trend: successTrend.value,
+    trendClass: 'dashboard-stat-trend--positive',
+    trendIcon: 'trendingUp',
+    note: t('dashboard.overview.recentConsumption'),
+  },
+  {
+    key: 'total-tokens',
+    label: t('dashboard.overview.totalTokens'),
+    value: formatCompact(props.stats.total_tokens || 0),
+    badge: formatCompact(props.stats.today_tokens || 0),
+    badgeClass: 'dashboard-stat-badge--neutral',
+    trend: successTrend.value,
+    trendClass: 'dashboard-stat-trend--positive',
+    trendIcon: 'trendingUp',
+    note: activeApiKeyNote.value,
+  },
+  {
+    key: 'total-requests',
+    label: t('dashboard.overview.totalRequests'),
+    value: formatCompact(props.stats.total_requests || 0),
+    badge: formatCompact(props.stats.today_requests || 0),
+    badgeClass: 'dashboard-stat-badge--neutral',
+    trend: successTrend.value,
+    trendClass: 'dashboard-stat-trend--positive',
+    trendIcon: 'trendingUp',
+    note: t('dashboard.overview.userRetentionNote'),
+  },
+  {
+    key: 'failure-rate',
+    label: t('dashboard.overview.failureRate'),
+    value: formatPercent(0),
+    badge: formatPercent(0),
+    badgeClass: 'dashboard-stat-badge--neutral',
+    trend: t('dashboard.overview.performanceStable'),
+    trendClass: 'dashboard-stat-trend--positive',
+    trendIcon: 'checkCircle',
+    note: t('dashboard.overview.failureRateNote'),
+  },
+  {
+    key: 'avg-cost',
+    label: t('dashboard.overview.averageRequestCost'),
+    value: formatCost(averageCost.value),
+    badge: formatCost(props.stats.today_actual_cost || 0),
+    badgeClass: 'dashboard-stat-badge--neutral',
+    trend: successTrend.value,
+    trendClass: 'dashboard-stat-trend--positive',
+    trendIcon: 'trendingUp',
+    note: t('dashboard.overview.averageRequestCostNote'),
+  },
+])
 </script>

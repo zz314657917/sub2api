@@ -1,103 +1,348 @@
 <template>
-  <div class="space-y-6">
-    <!-- Date Range Filter -->
-    <div class="card p-4">
-      <div class="flex flex-wrap items-center gap-4">
-        <div class="flex items-center gap-2">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('dashboard.timeRange') }}:</span>
-          <DateRangePicker :start-date="startDate" :end-date="endDate" @update:startDate="$emit('update:startDate', $event)" @update:endDate="$emit('update:endDate', $event)" @change="$emit('dateRangeChange', $event)" />
+  <section class="dashboard-charts-stack">
+    <article class="dashboard-panel dashboard-panel--large">
+      <div class="dashboard-panel-header">
+        <div>
+          <h2 class="dashboard-panel-title">{{ t('dashboard.overview.dailyCostTrend') }}</h2>
+          <p class="dashboard-panel-subtitle">{{ t('dashboard.overview.dailyCostTrendDescription') }}</p>
         </div>
-        <button @click="$emit('refresh')" :disabled="loading" class="btn btn-secondary">
-          {{ t('common.refresh') }}
-        </button>
-        <div class="ml-auto flex items-center gap-2">
-          <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('dashboard.granularity') }}:</span>
-          <div class="w-28">
-            <Select :model-value="granularity" :options="[{value:'day', label:t('dashboard.day')}, {value:'hour', label:t('dashboard.hour')}]" @update:model-value="$emit('update:granularity', $event)" @change="$emit('granularityChange')" />
-          </div>
+        <div class="dashboard-range-tabs" aria-label="Dashboard range">
+          <button
+            v-for="preset in rangePresets"
+            :key="preset.key"
+            type="button"
+            class="dashboard-range-tab"
+            :class="{ 'dashboard-range-tab--active': activeRange === preset.key }"
+            @click="applyRange(preset.key)"
+          >
+            {{ preset.label }}
+          </button>
         </div>
       </div>
-    </div>
 
-    <!-- Charts Grid -->
-    <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-      <!-- Model Distribution Chart -->
-      <div class="card relative overflow-hidden p-4">
-        <div v-if="loading" class="absolute inset-0 z-10 flex items-center justify-center bg-white/50 backdrop-blur-sm dark:bg-dark-800/50">
+      <div v-if="loading" class="dashboard-chart-state dashboard-chart-state--large">
+        <LoadingSpinner size="md" />
+      </div>
+      <div v-else-if="hasCostData && costChartData" class="dashboard-main-chart">
+        <Line :data="costChartData" :options="costLineOptions" />
+      </div>
+      <div v-else class="dashboard-chart-state dashboard-chart-state--large">
+        {{ t('dashboard.noDataAvailable') }}
+      </div>
+    </article>
+
+    <div class="dashboard-chart-grid">
+      <article class="dashboard-panel">
+        <div class="dashboard-panel-header dashboard-panel-header--compact">
+          <div>
+            <h3 class="dashboard-panel-title">{{ t('dashboard.overview.tokenTrend') }}</h3>
+            <p class="dashboard-panel-subtitle">{{ t('dashboard.overview.tokenTrendDescription') }}</p>
+          </div>
+        </div>
+        <div v-if="loading" class="dashboard-chart-state">
           <LoadingSpinner size="md" />
         </div>
-        <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">{{ t('dashboard.modelDistribution') }}</h3>
-        <div class="flex items-center gap-6">
-          <div class="h-48 w-48">
-            <Doughnut v-if="modelData" :data="modelData" :options="doughnutOptions" />
-            <div v-else class="flex h-full items-center justify-center text-sm text-gray-500 dark:text-gray-400">{{ t('dashboard.noDataAvailable') }}</div>
-          </div>
-          <div class="max-h-48 flex-1 overflow-y-auto">
-            <table class="w-full text-xs">
-              <thead>
-                <tr class="text-gray-500 dark:text-gray-400">
-                  <th class="pb-2 text-left">{{ t('dashboard.model') }}</th>
-                  <th class="pb-2 text-right">{{ t('dashboard.requests') }}</th>
-                  <th class="pb-2 text-right">{{ t('dashboard.tokens') }}</th>
-                  <th class="pb-2 text-right">{{ t('dashboard.actual') }}</th>
-                  <th class="pb-2 text-right">{{ t('dashboard.standard') }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="model in models" :key="model.model" class="border-t border-gray-100 dark:border-gray-700">
-                  <td class="max-w-[100px] truncate py-1.5 font-medium text-gray-900 dark:text-white" :title="model.model">{{ model.model }}</td>
-                  <td class="py-1.5 text-right text-gray-600 dark:text-gray-400">{{ formatNumber(model.requests) }}</td>
-                  <td class="py-1.5 text-right text-gray-600 dark:text-gray-400">{{ formatTokens(model.total_tokens) }}</td>
-                  <td class="py-1.5 text-right text-green-600 dark:text-green-400">${{ formatCost(model.actual_cost) }}</td>
-                  <td class="py-1.5 text-right text-gray-400 dark:text-gray-500">${{ formatCost(model.cost) }}</td>
-                </tr>
-              </tbody>
-            </table>
+        <div v-else-if="hasTokenData && tokenChartData" class="dashboard-small-chart">
+          <Line :data="tokenChartData" :options="smallLineOptions" />
+        </div>
+        <div v-else class="dashboard-chart-state">
+          {{ t('dashboard.noDataAvailable') }}
+        </div>
+      </article>
+
+      <article class="dashboard-panel">
+        <div class="dashboard-panel-header dashboard-panel-header--compact">
+          <div>
+            <h3 class="dashboard-panel-title">{{ t('dashboard.overview.requestTrend') }}</h3>
+            <p class="dashboard-panel-subtitle">{{ t('dashboard.overview.requestTrendDescription') }}</p>
           </div>
         </div>
-      </div>
-
-      <!-- Token Usage Trend Chart -->
-      <TokenUsageTrend :trend-data="trend" :loading="loading" />
+        <div v-if="loading" class="dashboard-chart-state">
+          <LoadingSpinner size="md" />
+        </div>
+        <div v-else-if="hasRequestData && requestChartData" class="dashboard-small-chart">
+          <Line :data="requestChartData" :options="smallLineOptions" />
+        </div>
+        <div v-else class="dashboard-chart-state">
+          {{ t('dashboard.noDataAvailable') }}
+        </div>
+      </article>
     </div>
-  </div>
+
+  </section>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import {
+  CategoryScale,
+  Chart as ChartJS,
+  Filler,
+  Legend,
+  LinearScale,
+  LineElement,
+  PointElement,
+  Tooltip,
+} from 'chart.js'
+import { Line } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-import DateRangePicker from '@/components/common/DateRangePicker.vue'
-import Select from '@/components/common/Select.vue'
-import { Doughnut } from 'vue-chartjs'
-import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
-import type { TrendDataPoint, ModelStat } from '@/types'
-import { formatCostFixed as formatCost, formatNumberLocaleString as formatNumber, formatTokensK as formatTokens } from '@/utils/format'
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler } from 'chart.js'
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, ArcElement, Title, Tooltip, Legend, Filler)
+import type { TrendDataPoint } from '@/types'
 
-const props = defineProps<{ loading: boolean, startDate: string, endDate: string, granularity: string, trend: TrendDataPoint[], models: ModelStat[] }>()
-defineEmits(['update:startDate', 'update:endDate', 'update:granularity', 'dateRangeChange', 'granularityChange', 'refresh'])
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
+
+type RangePreset = '90d' | '30d' | '7d'
+
+const props = defineProps<{
+  loading: boolean
+  startDate: string
+  endDate: string
+  granularity: string
+  trend: TrendDataPoint[]
+}>()
+
+const emit = defineEmits<{
+  'update:startDate': [value: string]
+  'update:endDate': [value: string]
+  'update:granularity': [value: string]
+  dateRangeChange: [range: { startDate: string; endDate: string; preset: RangePreset }]
+}>()
+
 const { t } = useI18n()
 
-const modelData = computed(() => !props.models?.length ? null : {
-  labels: props.models.map((m: ModelStat) => m.model),
-  datasets: [{
-    data: props.models.map((m: ModelStat) => m.total_tokens),
-    backgroundColor: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
-  }]
+const formatLD = (d: Date) => {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const daysBetweenInclusive = computed(() => {
+  const start = new Date(`${props.startDate}T00:00:00`).getTime()
+  const end = new Date(`${props.endDate}T00:00:00`).getTime()
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return 0
+  return Math.round((end - start) / 86400000) + 1
 })
 
-const doughnutOptions = {
+const activeRange = computed<RangePreset>(() => {
+  const days = daysBetweenInclusive.value
+  if (days <= 8) return '7d'
+  if (days <= 31) return '30d'
+  return '90d'
+})
+
+const rangePresets = computed(() => [
+  { key: '90d' as const, label: t('dashboard.overview.last90Days') },
+  { key: '30d' as const, label: t('dashboard.overview.last30Days') },
+  { key: '7d' as const, label: t('dashboard.overview.last7Days') },
+])
+
+const applyRange = (preset: RangePreset) => {
+  const days = preset === '90d' ? 90 : preset === '30d' ? 30 : 7
+  const end = new Date()
+  const start = new Date()
+  start.setDate(end.getDate() - days + 1)
+  const startValue = formatLD(start)
+  const endValue = formatLD(end)
+  emit('update:startDate', startValue)
+  emit('update:endDate', endValue)
+  if (props.granularity !== 'day') {
+    emit('update:granularity', 'day')
+  }
+  emit('dateRangeChange', { startDate: startValue, endDate: endValue, preset })
+}
+
+const chartLabels = computed(() => props.trend.map((d) => d.date))
+const hasCostData = computed(() => props.trend.some((d) => Number(d.actual_cost || d.cost || 0) > 0))
+const hasTokenData = computed(() => props.trend.some((d) => Number(d.total_tokens || d.input_tokens || d.output_tokens || 0) > 0))
+const hasRequestData = computed(() => props.trend.some((d) => Number(d.requests || 0) > 0))
+
+const chartColors = computed(() => {
+  const isDark = document.documentElement.classList.contains('dark')
+  return {
+    grid: isDark ? 'rgba(148, 163, 184, 0.13)' : 'rgba(148, 163, 184, 0.22)',
+    text: isDark ? '#cbd5e1' : '#64748b',
+    title: isDark ? '#f8fafc' : '#0f172a',
+    tooltipBg: isDark ? 'rgba(15, 23, 42, 0.98)' : 'rgba(255, 255, 255, 0.98)',
+    tooltipBorder: isDark ? 'rgba(148, 163, 184, 0.28)' : 'rgba(100, 116, 139, 0.18)',
+    actual: '#14b8a6',
+    standard: '#f59e0b',
+    input: '#a78bfa',
+    output: '#22d3ee',
+    request: '#60a5fa',
+  }
+})
+
+const costChartData = computed(() => {
+  if (!hasCostData.value) return null
+  return {
+    labels: chartLabels.value,
+    datasets: [
+      {
+        label: t('dashboard.actual'),
+        data: props.trend.map((d) => d.actual_cost),
+        borderColor: chartColors.value.actual,
+        backgroundColor: `${chartColors.value.actual}30`,
+        fill: true,
+        borderWidth: 1.8,
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        tension: 0.38,
+      },
+      {
+        label: t('dashboard.standard'),
+        data: props.trend.map((d) => d.cost),
+        borderColor: chartColors.value.standard,
+        backgroundColor: `${chartColors.value.standard}24`,
+        fill: true,
+        borderWidth: 1.4,
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        tension: 0.38,
+      },
+    ],
+  }
+})
+
+const tokenChartData = computed(() => {
+  if (!hasTokenData.value) return null
+  return {
+    labels: chartLabels.value,
+    datasets: [
+      {
+        label: t('dashboard.input'),
+        data: props.trend.map((d) => d.input_tokens + d.cache_read_tokens + d.cache_creation_tokens),
+        borderColor: chartColors.value.input,
+        backgroundColor: `${chartColors.value.input}24`,
+        fill: true,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.36,
+      },
+      {
+        label: t('dashboard.output'),
+        data: props.trend.map((d) => d.output_tokens),
+        borderColor: chartColors.value.output,
+        backgroundColor: `${chartColors.value.output}20`,
+        fill: true,
+        borderWidth: 1.5,
+        pointRadius: 0,
+        tension: 0.36,
+      },
+    ],
+  }
+})
+
+const requestChartData = computed(() => {
+  if (!hasRequestData.value) return null
+  return {
+    labels: chartLabels.value,
+    datasets: [
+      {
+        label: t('dashboard.requests'),
+        data: props.trend.map((d) => d.requests),
+        borderColor: chartColors.value.request,
+        backgroundColor: `${chartColors.value.request}26`,
+        fill: true,
+        borderWidth: 1.6,
+        pointRadius: 0,
+        tension: 0.34,
+      },
+    ],
+  }
+})
+
+const sharedLineOptions = {
   responsive: true,
   maintainAspectRatio: false,
+  interaction: {
+    intersect: false,
+    mode: 'index' as const,
+  },
+}
+
+const costLineOptions = computed(() => ({
+  ...sharedLineOptions,
+  plugins: {
+    legend: {
+      display: true,
+      position: 'top' as const,
+      align: 'end' as const,
+      labels: {
+        color: chartColors.value.text,
+        usePointStyle: true,
+        pointStyle: 'circle',
+        boxWidth: 7,
+        boxHeight: 7,
+        font: { size: 11, weight: 600 },
+      },
+    },
+    tooltip: tooltipOptions.value,
+  },
+  scales: axisOptions.value,
+}))
+
+const smallLineOptions = computed(() => ({
+  ...sharedLineOptions,
   plugins: {
     legend: { display: false },
-    tooltip: {
-      callbacks: {
-        label: (context: any) => `${context.label}: ${formatTokens(context.parsed)} tokens`
+    tooltip: tooltipOptions.value,
+  },
+  scales: axisOptions.value,
+}))
+
+const tooltipOptions = computed(() => ({
+  backgroundColor: chartColors.value.tooltipBg,
+  borderColor: chartColors.value.tooltipBorder,
+  borderWidth: 1,
+  titleColor: chartColors.value.title,
+  bodyColor: chartColors.value.title,
+  padding: 10,
+  callbacks: {
+    label: (context: any) => {
+      const value = Number(context.raw) || 0
+      if (context.dataset.label === t('dashboard.actual') || context.dataset.label === t('dashboard.standard')) {
+        return `${context.dataset.label}: $${formatCost(value)}`
       }
-    }
-  }
-}
+      return `${context.dataset.label}: ${formatCompact(value)}`
+    },
+  },
+}))
+
+const axisOptions = computed(() => ({
+  x: {
+    grid: {
+      color: chartColors.value.grid,
+      drawBorder: false,
+    },
+    ticks: {
+      color: chartColors.value.text,
+      maxTicksLimit: 9,
+      font: { size: 10, weight: 500 },
+    },
+  },
+  y: {
+    grid: {
+      color: chartColors.value.grid,
+      drawBorder: false,
+    },
+    ticks: {
+      color: chartColors.value.text,
+      font: { size: 10, weight: 500 },
+      callback: (value: string | number) => formatCompact(Number(value)),
+    },
+  },
+}))
+
+const formatCompact = (value: number): string =>
+  new Intl.NumberFormat(undefined, {
+    notation: 'compact',
+    maximumFractionDigits: Number(value) >= 1000 ? 1 : 0,
+  }).format(Number(value) || 0)
+
+const formatCost = (value: number): string =>
+  new Intl.NumberFormat(undefined, {
+    minimumFractionDigits: Number(value) >= 1 ? 2 : 4,
+    maximumFractionDigits: 4,
+  }).format(Number(value) || 0)
 </script>

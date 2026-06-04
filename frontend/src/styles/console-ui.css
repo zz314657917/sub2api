@@ -868,3 +868,641 @@
 .dark .console-shell .border-dark-800 {
     border-color: rgba(51, 65, 85, 0.82);
 }
+
+.console-shell-dashboard {
+    --dashboard-bg: #eef2f7;
+    --dashboard-surface: rgba(255, 255, 255, 0.92);
+    --dashboard-surface-soft: rgba(248, 250, 252, 0.88);
+    --dashboard-border: rgba(148, 163, 184, 0.24);
+    --dashboard-border-strong: rgba(100, 116, 139, 0.32);
+    --dashboard-text: #0f172a;
+    --dashboard-muted: #64748b;
+    --dashboard-muted-soft: #94a3b8;
+    --dashboard-accent: #2563eb;
+    --dashboard-accent-soft: rgba(37, 99, 235, 0.08);
+    --dashboard-success: #0f766e;
+    --dashboard-success-soft: rgba(20, 184, 166, 0.1);
+    --dashboard-warning: #b45309;
+    --dashboard-shadow: 0 10px 24px rgba(15, 23, 42, 0.055);
+    background:
+      linear-gradient(rgba(255, 255, 255, 0.52) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.42) 1px, transparent 1px),
+      linear-gradient(180deg, #f5f7fb 0%, #eef2f7 50%, #f8fafc 100%);
+    background-size: 32px 32px, 32px 32px, auto;
+}
+
+.dark .console-shell-dashboard {
+    --dashboard-bg: #020617;
+    --dashboard-surface: rgba(8, 15, 29, 0.9);
+    --dashboard-surface-soft: rgba(15, 23, 42, 0.82);
+    --dashboard-border: rgba(51, 65, 85, 0.84);
+    --dashboard-border-strong: rgba(71, 85, 105, 0.86);
+    --dashboard-text: #f8fafc;
+    --dashboard-muted: #94a3b8;
+    --dashboard-muted-soft: #64748b;
+    --dashboard-accent: #60a5fa;
+    --dashboard-accent-soft: rgba(96, 165, 250, 0.12);
+    --dashboard-success: #5eead4;
+    --dashboard-success-soft: rgba(45, 212, 191, 0.12);
+    --dashboard-warning: #fbbf24;
+    --dashboard-shadow: 0 14px 32px rgba(0, 0, 0, 0.24);
+    background:
+      linear-gradient(rgba(30, 41, 59, 0.22) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30, 41, 59, 0.18) 1px, transparent 1px),
+      linear-gradient(180deg, #020617 0%, #07111f 54%, #020617 100%);
+    background-size: 32px 32px, 32px 32px, auto;
+}
+
+.console-shell-dashboard::before,
+.console-shell-dashboard::after {
+    display: none;
+}
+
+.console-shell-dashboard .console-header {
+    border-bottom-color: rgba(203, 213, 225, 0.58);
+    background: rgba(255, 255, 255, 0.76);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.035);
+}
+
+.dark .console-shell-dashboard .console-header {
+    border-bottom-color: rgba(51, 65, 85, 0.78);
+    background: rgba(8, 15, 29, 0.78);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
+}
+
+.console-shell-dashboard .console-sidebar {
+    border-right-color: rgba(203, 213, 225, 0.58);
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: 8px 0 24px rgba(15, 23, 42, 0.045);
+}
+
+.dark .console-shell-dashboard .console-sidebar {
+    border-right-color: rgba(51, 65, 85, 0.78);
+    background: rgba(8, 15, 29, 0.9);
+    box-shadow: 10px 0 28px rgba(0, 0, 0, 0.24);
+}
+
+.console-content-dashboard {
+    padding: 1rem;
+}
+
+.console-shell-dashboard .user-dashboard-page {
+    display: flex;
+    width: 100%;
+    max-width: 1480px;
+    flex-direction: column;
+    gap: 1rem;
+    margin: 0 auto;
+}
+
+.console-shell-dashboard .dashboard-loading-state,
+.console-shell-dashboard .dashboard-chart-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    color: var(--dashboard-muted);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.console-shell-dashboard .dashboard-loading-state {
+    min-height: 22rem;
+}
+
+.console-shell-dashboard .dashboard-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(1, minmax(0, 1fr));
+    gap: 0.875rem;
+}
+
+.console-shell-dashboard .dashboard-stat-card,
+.console-shell-dashboard .dashboard-performance-card,
+.console-shell-dashboard .dashboard-panel,
+.console-shell-dashboard .user-dashboard-page > .card,
+.console-shell-dashboard .dashboard-secondary-grid > .card {
+    border: 1px solid var(--dashboard-border);
+    border-radius: 0.5rem;
+    background: var(--dashboard-surface);
+    box-shadow: var(--dashboard-shadow);
+    color: var(--dashboard-text);
+    backdrop-filter: blur(14px);
+}
+
+.console-shell-dashboard .dashboard-stat-card {
+    min-height: 9.25rem;
+    padding: 1rem;
+}
+
+.console-shell-dashboard .dashboard-stat-label {
+    overflow: hidden;
+    color: var(--dashboard-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.console-shell-dashboard .dashboard-stat-value {
+    margin-top: 0.55rem;
+    color: var(--dashboard-text);
+    font-size: 1.55rem;
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: 0;
+}
+
+.console-shell-dashboard .dashboard-stat-badge {
+    display: inline-flex;
+    max-width: 6.75rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 999px;
+    padding: 0.22rem 0.5rem;
+    color: var(--dashboard-muted);
+    font-size: 0.6875rem;
+    font-weight: 700;
+    line-height: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.console-shell-dashboard .dashboard-stat-badge--neutral {
+    background: var(--dashboard-surface-soft);
+}
+
+.console-shell-dashboard .dashboard-stat-trend {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    margin-top: 0.85rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.console-shell-dashboard .dashboard-stat-trend--positive {
+    color: var(--dashboard-success);
+}
+
+.console-shell-dashboard .dashboard-stat-note {
+    margin-top: 0.45rem;
+    color: var(--dashboard-muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.35;
+}
+
+.console-shell-dashboard .dashboard-performance-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.875rem;
+}
+
+.console-shell-dashboard .dashboard-performance-card {
+    display: flex;
+    min-height: 5.75rem;
+    align-items: center;
+    gap: 0.875rem;
+    padding: 0.875rem 1rem;
+}
+
+.console-shell-dashboard .dashboard-performance-icon {
+    display: inline-flex;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0.5rem;
+    border: 1px solid transparent;
+}
+
+.console-shell-dashboard .dashboard-performance-icon--blue {
+    border-color: rgba(59, 130, 246, 0.2);
+    background: rgba(59, 130, 246, 0.1);
+    color: #2563eb;
+}
+
+.console-shell-dashboard .dashboard-performance-icon--indigo {
+    border-color: rgba(79, 70, 229, 0.2);
+    background: rgba(79, 70, 229, 0.1);
+    color: #4338ca;
+}
+
+.console-shell-dashboard .dashboard-performance-icon--green {
+    border-color: rgba(16, 185, 129, 0.22);
+    background: rgba(16, 185, 129, 0.1);
+    color: #059669;
+}
+
+.console-shell-dashboard .dashboard-performance-icon--rose {
+    border-color: rgba(244, 63, 94, 0.2);
+    background: rgba(244, 63, 94, 0.1);
+    color: #e11d48;
+}
+
+.dark .console-shell-dashboard .dashboard-performance-icon--blue {
+    border-color: rgba(96, 165, 250, 0.26);
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+}
+
+.dark .console-shell-dashboard .dashboard-performance-icon--indigo {
+    border-color: rgba(129, 140, 248, 0.3);
+    background: rgba(79, 70, 229, 0.18);
+    color: #c4b5fd;
+}
+
+.dark .console-shell-dashboard .dashboard-performance-icon--green {
+    border-color: rgba(52, 211, 153, 0.28);
+    background: rgba(16, 185, 129, 0.15);
+    color: #6ee7b7;
+}
+
+.dark .console-shell-dashboard .dashboard-performance-icon--rose {
+    border-color: rgba(251, 113, 133, 0.28);
+    background: rgba(244, 63, 94, 0.15);
+    color: #fda4af;
+}
+
+.console-shell-dashboard .dashboard-performance-label {
+    overflow: hidden;
+    color: var(--dashboard-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.console-shell-dashboard .dashboard-performance-value {
+    margin-top: 0.35rem;
+    color: var(--dashboard-text);
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.08;
+    letter-spacing: 0;
+}
+
+.console-shell-dashboard .dashboard-performance-metrics {
+    display: grid;
+    gap: 0.2rem;
+    margin-top: 0.3rem;
+}
+
+.console-shell-dashboard .dashboard-performance-metric {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    min-height: 1.25rem;
+    line-height: 1.1;
+}
+
+.console-shell-dashboard .dashboard-performance-metric-value {
+    min-width: 1.35rem;
+    color: #4f46e5;
+    font-size: 1rem;
+    font-weight: 800;
+    letter-spacing: 0;
+    text-align: right;
+}
+
+.dark .console-shell-dashboard .dashboard-performance-metric-value {
+    color: #a5b4fc;
+}
+
+.console-shell-dashboard .dashboard-performance-metric-unit {
+    color: var(--dashboard-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0;
+}
+
+.console-shell-dashboard .dashboard-performance-note {
+    overflow: hidden;
+    margin-top: 0.35rem;
+    color: var(--dashboard-muted);
+    font-size: 0.72rem;
+    font-weight: 500;
+    line-height: 1.3;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.console-shell-dashboard .dashboard-charts-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.console-shell-dashboard .dashboard-panel {
+    min-width: 0;
+    padding: 1rem;
+}
+
+.console-shell-dashboard .dashboard-panel--large {
+    padding: 1rem;
+}
+
+.console-shell-dashboard .dashboard-panel-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.875rem;
+    margin-bottom: 0.875rem;
+}
+
+.console-shell-dashboard .dashboard-panel-header--compact {
+    margin-bottom: 0.75rem;
+}
+
+.console-shell-dashboard .dashboard-panel-title {
+    color: var(--dashboard-text);
+    font-size: 0.95rem;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: 0;
+}
+
+.console-shell-dashboard .dashboard-panel-subtitle {
+    margin-top: 0.25rem;
+    color: var(--dashboard-muted);
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1.35;
+}
+
+.console-shell-dashboard .dashboard-range-tabs {
+    display: inline-flex;
+    min-height: 2rem;
+    align-items: center;
+    gap: 0.25rem;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 0.5rem;
+    background: var(--dashboard-surface-soft);
+    padding: 0.2rem;
+}
+
+.console-shell-dashboard .dashboard-range-tab {
+    border-radius: 0.375rem;
+    padding: 0.35rem 0.625rem;
+    color: var(--dashboard-muted);
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+    transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+}
+
+.console-shell-dashboard .dashboard-range-tab:hover {
+    color: var(--dashboard-text);
+}
+
+.console-shell-dashboard .dashboard-range-tab--active {
+    background: #ffffff;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+    color: var(--dashboard-accent);
+}
+
+.dark .console-shell-dashboard .dashboard-range-tab--active {
+    background: rgba(30, 41, 59, 0.94);
+    box-shadow: none;
+}
+
+.console-shell-dashboard .dashboard-main-chart,
+.console-shell-dashboard .dashboard-small-chart,
+.console-shell-dashboard .dashboard-chart-state {
+    width: 100%;
+}
+
+.console-shell-dashboard .dashboard-main-chart,
+.console-shell-dashboard .dashboard-chart-state--large {
+    height: 21rem;
+}
+
+.console-shell-dashboard .dashboard-small-chart,
+.console-shell-dashboard .dashboard-chart-state {
+    height: 16rem;
+}
+
+.console-shell-dashboard .dashboard-chart-state.dashboard-chart-state--large {
+    height: 21rem;
+}
+
+.console-shell-dashboard .dashboard-chart-state {
+    border: 1px dashed var(--dashboard-border);
+    background: var(--dashboard-surface-soft);
+}
+
+.console-shell-dashboard .dashboard-chart-grid,
+.console-shell-dashboard .dashboard-secondary-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+}
+
+.console-shell-dashboard .dashboard-platform-panel {
+    padding: 1rem;
+}
+
+.console-shell-dashboard .dashboard-platform-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.875rem;
+}
+
+.console-shell-dashboard .dashboard-platform-count {
+    flex: 0 0 auto;
+    color: var(--dashboard-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.console-shell-dashboard .dashboard-platform-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+}
+
+.console-shell-dashboard .dashboard-platform-card {
+    min-height: 6.875rem;
+    border: 1px solid var(--dashboard-border);
+    border-radius: 0.5rem;
+    background: var(--dashboard-surface-soft);
+    padding: 0.875rem;
+}
+
+.console-shell-dashboard .dashboard-platform-card--other {
+    border-style: dashed;
+    opacity: 0.86;
+}
+
+.console-shell-dashboard .dashboard-platform-card-header,
+.console-shell-dashboard .dashboard-platform-metric {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.console-shell-dashboard .dashboard-platform-name {
+    overflow: hidden;
+    color: var(--dashboard-text);
+    font-size: 0.875rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.console-shell-dashboard .dashboard-platform-total {
+    flex: 0 0 auto;
+    color: #4f46e5;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.8125rem;
+    font-weight: 800;
+}
+
+.dark .console-shell-dashboard .dashboard-platform-total {
+    color: #a5b4fc;
+}
+
+.console-shell-dashboard .dashboard-platform-metrics {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 0.75rem;
+}
+
+.console-shell-dashboard .dashboard-platform-metric dt {
+    color: var(--dashboard-muted);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.console-shell-dashboard .dashboard-platform-metric dd {
+    color: var(--dashboard-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.console-shell-dashboard .dashboard-secondary-grid > .card {
+    min-height: 22rem;
+    overflow: hidden;
+}
+
+.console-shell-dashboard .user-dashboard-page > .card {
+    overflow: hidden;
+}
+
+@media (min-width: 640px) {
+    .console-shell-dashboard .dashboard-stats-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .console-shell-dashboard .dashboard-stat-card,
+    .console-shell-dashboard .dashboard-performance-card,
+    .console-shell-dashboard .dashboard-panel,
+    .console-shell-dashboard .dashboard-panel--large {
+      padding: 1.125rem;
+    }
+
+    .console-shell-dashboard .dashboard-performance-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .console-shell-dashboard .dashboard-platform-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 768px) {
+    .console-content-dashboard {
+      padding: 1.25rem;
+    }
+
+    .console-shell-dashboard .dashboard-stats-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .console-shell-dashboard .dashboard-performance-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .console-shell-dashboard .dashboard-chart-grid,
+    .console-shell-dashboard .dashboard-secondary-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .console-shell-dashboard .dashboard-platform-grid {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+}
+
+@media (min-width: 1280px) {
+    .console-content-dashboard {
+      padding: 1.5rem;
+    }
+
+    .console-shell-dashboard .user-dashboard-page {
+      gap: 1.125rem;
+    }
+
+    .console-shell-dashboard .dashboard-stats-grid {
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+    }
+
+    .console-shell-dashboard .dashboard-main-chart,
+    .console-shell-dashboard .dashboard-chart-state--large {
+      height: 24rem;
+    }
+
+    .console-shell-dashboard .dashboard-chart-state.dashboard-chart-state--large {
+      height: 24rem;
+    }
+
+    .console-shell-dashboard .dashboard-platform-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    .console-shell-dashboard .dashboard-performance-grid {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .console-shell-dashboard .dashboard-panel-header {
+      align-items: stretch;
+    }
+
+    .console-shell-dashboard .dashboard-range-tabs {
+      width: 100%;
+      justify-content: space-between;
+    }
+
+    .console-shell-dashboard .dashboard-range-tab {
+      flex: 1 1 0;
+      padding-right: 0.35rem;
+      padding-left: 0.35rem;
+      text-align: center;
+    }
+
+    .console-shell-dashboard .dashboard-stat-value {
+      font-size: 1.35rem;
+    }
+
+    .console-shell-dashboard .dashboard-performance-card {
+      align-items: flex-start;
+    }
+
+    .console-shell-dashboard .dashboard-performance-value {
+      font-size: 1.2rem;
+    }
+}

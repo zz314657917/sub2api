@@ -1,5 +1,5 @@
 <template>
-  <div class="console-shell">
+  <div class="console-shell" :class="{ 'console-shell-dashboard': isUserDashboard }">
 
     <!-- Sidebar -->
     <AppSidebar />
@@ -13,7 +13,13 @@
       <AppHeader />
 
       <!-- Main Content -->
-      <main class="console-content" :class="{ 'console-content-dense': route.meta.denseWorkspace }">
+      <main
+        class="console-content"
+        :class="{
+          'console-content-dense': route.meta.denseWorkspace,
+          'console-content-dashboard': isUserDashboard
+        }"
+      >
         <slot />
       </main>
     </div>
@@ -36,6 +42,7 @@ const authStore = useAuthStore()
 const route = useRoute()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const isAdmin = computed(() => authStore.user?.role === 'admin')
+const isUserDashboard = computed(() => route.name === 'Dashboard')
 
 const { replayTour } = useOnboardingTour({
   storageKey: isAdmin.value ? 'admin_guide' : 'user_guide',
