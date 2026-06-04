@@ -790,6 +790,11 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_FreshUsageWind
 	require.Equal(t, int64(35602), account.ID)
 }
 
+// Issue #2994: an account poisoned with an inflated used% (e.g. from the reverted #2918
+// inversion) gets excluded from scheduling, and a paused account never receives traffic to
+// refresh its snapshot. When the snapshot is stale (codex_usage_updated_at older than the
+// staleness bound) the account must be allowed a request so it can self-heal from the real
+// response headers — independent of the window's reset time.
 func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_StaleUsageSnapshotSkipsPause_Issue2994(t *testing.T) {
 	ctx := context.Background()
 	primary := Account{
@@ -803,8 +808,10 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_StaleUsageSnap
 		Extra: map[string]any{
 			"codex_5h_used_percent":   99.0,
 			"auto_pause_5h_threshold": 0.95,
-			"codex_5h_reset_at":       time.Now().Add(time.Hour).Format(time.RFC3339),
-			"codex_usage_updated_at":  time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
+			// Window has NOT reset yet, so the reset guard stays inactive.
+			"codex_5h_reset_at": time.Now().Add(time.Hour).Format(time.RFC3339),
+			// Snapshot is stale: older than openAICodexAutoPauseStaleAfter (2h).
+			"codex_usage_updated_at": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
 		},
 	}
 	secondary := Account{ID: 35902, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
@@ -816,6 +823,9 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_StaleUsageSnap
 	require.Equal(t, int64(35901), account.ID)
 }
 
+// Issue #2994 guardrail: a genuinely-exhausted account whose snapshot was refreshed recently
+// (codex_usage_updated_at fresh) must STILL be auto-paused. The stale self-heal must not let a
+// real 99%-used account escape pause.
 func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_FreshExhaustedSnapshotStillPauses_Issue2994(t *testing.T) {
 	ctx := context.Background()
 	primary := Account{
@@ -830,7 +840,8 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_FreshExhausted
 			"codex_5h_used_percent":   99.0,
 			"auto_pause_5h_threshold": 0.95,
 			"codex_5h_reset_at":       time.Now().Add(time.Hour).Format(time.RFC3339),
-			"codex_usage_updated_at":  time.Now().Add(-time.Minute).Format(time.RFC3339),
+			// Snapshot refreshed 1 minute ago: not stale, so the account stays paused.
+			"codex_usage_updated_at": time.Now().Add(-time.Minute).Format(time.RFC3339),
 		},
 	}
 	secondary := Account{ID: 36002, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
