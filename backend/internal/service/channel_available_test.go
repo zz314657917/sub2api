@@ -332,6 +332,29 @@ func TestFillReferencePricing_AddsDisplayOnlyOfficialPrice(t *testing.T) {
 	require.InDelta(t, 0.3e-6, *models[0].ReferencePricing.CacheReadPrice, 1e-12)
 }
 
+func TestFillReferencePricing_AddsAPIMartGPTImage2OfficialPrices(t *testing.T) {
+	svc := &ChannelService{}
+	models := []SupportedModel{
+		{Name: "gpt-image-2-official", Platform: PlatformOpenAI},
+	}
+
+	svc.fillReferencePricing(models)
+
+	require.NotNil(t, models[0].ReferencePricing)
+	require.Equal(t, BillingModeImage, models[0].ReferencePricing.BillingMode)
+	require.NotNil(t, models[0].ReferencePricing.PerRequestPrice)
+	require.InDelta(t, 0.2109, *models[0].ReferencePricing.PerRequestPrice, 1e-12)
+	found := false
+	for _, interval := range models[0].ReferencePricing.Intervals {
+		if interval.TierLabel == "2576x3216:medium" {
+			require.NotNil(t, interval.PerRequestPrice)
+			require.InDelta(t, 0.1408, *interval.PerRequestPrice, 1e-12)
+			found = true
+		}
+	}
+	require.True(t, found)
+}
+
 func newStubPricingServiceFromMap(data map[string]*LiteLLMModelPricing) *PricingService {
 	return &PricingService{pricingData: data}
 }

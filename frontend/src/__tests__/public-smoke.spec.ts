@@ -11,7 +11,7 @@ const publicBackdrop = readFileSync(resolve(process.cwd(), 'src/views/public/com
 const publicCss = readFileSync(resolve(process.cwd(), 'src/views/public/public-page.css'), 'utf8')
 
 describe('public page smoke contracts', () => {
-  it('keeps public entry routes and protects model plaza behind login', () => {
+  it('keeps public entry routes and opens model plaza without login', () => {
     expect(router).toContain("path: '/home'")
     expect(router).toContain("path: '/tutorial'")
     expect(router).toContain("path: '/tutorial/:slug'")
@@ -19,9 +19,9 @@ describe('public page smoke contracts', () => {
     expect(router).toContain("name: 'Home'")
     expect(router).toContain("name: 'Tutorial'")
     expect(router).toContain("name: 'ModelPlaza'")
-    expect(router).toMatch(/path: '\/models'[\s\S]*?requiresAuth: true/)
-    expect(router).not.toContain("'/tutorial', '/models'")
-    expect(router).not.toMatch(/BACKEND_MODE_ALLOWED_PATHS[\s\S]*?'\/models'/)
+    expect(router).toMatch(/path: '\/models'[\s\S]*?requiresAuth: false/)
+    expect(router).toContain("'/tutorial', '/models'")
+    expect(router).toMatch(/BACKEND_MODE_ALLOWED_PATHS[\s\S]*?'\/models'/)
   })
 
   it('routes chat image entry to the embedded studio workspace', () => {
@@ -80,13 +80,25 @@ describe('public page smoke contracts', () => {
   })
 
   it('keeps model plaza discovery controls mounted on the public surface', () => {
-    expect(modelPlazaView).toContain('model-filter-panel')
+    expect(modelPlazaView).toContain('model-toolbar')
     expect(modelPlazaView).toContain('model-card-grid')
+    expect(modelPlazaView).toContain('model-market-card')
     expect(modelPlazaView).toContain('model-search-box')
     expect(modelPlazaView).toContain('v-model="searchQuery"')
-    expect(modelPlazaView).toContain('selectedRateGroup')
-    expect(modelPlazaView).toContain('formatModelPrice')
-    expect(modelPlazaView).toContain('claude-opus-4.8')
-    expect(modelPlazaView).toContain('userChannelsAPI.getAvailable')
+    expect(modelPlazaView).toContain('model-category-tabs')
+    expect(modelPlazaView).toContain('modelMarketAPI.getCatalog')
+    expect(modelPlazaView).toContain('groupRateOptions(group)')
+    expect(modelPlazaView).toContain('displayOurPrice(group, row.our_price)')
+    expect(modelPlazaView).toContain('账号分组')
+    expect(modelPlazaView).toContain('模型名称')
+    expect(modelPlazaView).toContain('规格')
+    expect(modelPlazaView).toContain('我们的价格')
+    expect(modelPlazaView).toContain('官方价格')
+    expect(modelPlazaView).toContain('节省')
+    expect(modelPlazaView).toContain('showOfficialPriceColumn(group)')
+    expect(modelPlazaView).toContain('showSavingColumn(group)')
+    expect(modelPlazaView).not.toContain('selectedRateGroup"')
+    expect(modelPlazaView).not.toContain('userChannelsAPI.getAvailable')
+    expect(modelPlazaView).not.toMatch(/APIMart|apimart/i)
   })
 })

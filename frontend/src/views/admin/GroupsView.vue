@@ -3920,27 +3920,26 @@ const defaultImageQualityPrices: Record<ImageQualitySize, number> = {
   "4K": 0.15,
 };
 
-// APIMart gpt-image-2-official after_discount USD, converted to local
-// CNY-equivalent billing units with 7 CNY/USD and a 20% margin.
+// gpt-image-2-official official USD prices for public display and billing.
 const officialImageQualityReferencePrices: Record<ImageQualityTierLabel, number> = {
-  "1K:low": 0.040992,
-  "1K:medium": 0.355488,
-  "1K:high": 1.417248,
-  "2K:low": 0.081312,
-  "2K:medium": 0.720384,
-  "2K:high": 2.878176,
-  "4K:low": 0.075936,
-  "4K:medium": 0.674016,
-  "4K:high": 2.690688,
+  "1K:low": 0.0061,
+  "1K:medium": 0.0529,
+  "1K:high": 0.2109,
+  "2K:low": 0.0121,
+  "2K:medium": 0.1072,
+  "2K:high": 0.4283,
+  "4K:low": 0.0162,
+  "4K:medium": 0.1408,
+  "4K:high": 0.5703,
 };
 
 const officialImageQualityReferenceNotes: Record<ImageQualitySize, string> = {
   "1K": "1024x1024",
   "2K": "2048x2048",
-  "4K": "3840x2160",
+  "4K": "2576x3216",
 };
 
-const openAIImageQualityPricingModels = ["gpt-image-*"] as const;
+const openAIImageQualityPricingModels = ["gpt-image-2-official"] as const;
 const managedImageQualityPricingFlag = "managed_group_image_quality_pricing";
 
 const buildDefaultImageQualityPrices = (): ImageQualityPriceState => {

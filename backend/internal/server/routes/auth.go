@@ -190,6 +190,12 @@ func RegisterAuthRoutes(
 		settings.GET("/public", h.Setting.GetPublicSettings)
 	}
 
+	// 公开模型市场目录（无需认证）
+	modelMarket := v1.Group("/model-market")
+	{
+		modelMarket.GET("/catalog", h.Setting.GetModelMarketCatalog)
+	}
+
 	// 公开教程文档（无需认证）
 	tutorials := v1.Group("/tutorials")
 	{

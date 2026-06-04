@@ -133,6 +133,7 @@ type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig, proxyURLs map[i
 type SettingService struct {
 	settingRepo                       SettingRepository
 	defaultSubGroupReader             DefaultSubscriptionGroupReader
+	modelMarketGroupReader            GroupRepository
 	proxyRepo                         ProxyRepository // for resolving websearch provider proxy URLs
 	cfg                               *config.Config
 	onUpdate                          func() // Callback when settings are updated (for cache invalidation)
@@ -564,6 +565,11 @@ func (s *SettingService) SetDefaultSubscriptionGroupReader(reader DefaultSubscri
 	s.defaultSubGroupReader = reader
 }
 
+// SetModelMarketGroupReader injects an optional group reader for model market supported group metadata.
+func (s *SettingService) SetModelMarketGroupReader(reader GroupRepository) {
+	s.modelMarketGroupReader = reader
+}
+
 // SetProxyRepository injects a proxy repo for resolving websearch provider proxy URLs.
 func (s *SettingService) SetProxyRepository(repo ProxyRepository) {
 	s.proxyRepo = repo
@@ -919,6 +925,12 @@ func (s *SettingService) GetAntigravityUserAgentVersion(ctx context.Context) str
 // This is used for cache invalidation (e.g., HTML cache in frontend server)
 func (s *SettingService) SetOnUpdateCallback(callback func()) {
 	s.onUpdate = callback
+}
+
+func (s *SettingService) notifyUpdate() {
+	if s != nil && s.onUpdate != nil {
+		s.onUpdate()
+	}
 }
 
 // SetVersion sets the application version for injection into public settings

@@ -5811,7 +5811,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 	if result.ImageCount > 0 {
 		usageLog.RateMultiplier = imageMultiplier
-		usageLog.BillingTier = optionalTrimmedStringPtr(ImageBillingTierWithQuality(result.ImageSize, result.ImageQuality))
+		usageLog.BillingTier = optionalTrimmedStringPtr(OpenAIImageBillingTierForModel(billingModel, result.ImageOutputSize, result.ImageSize, result.ImageQuality))
 	} else {
 		usageLog.RateMultiplier = multiplier
 	}
@@ -6008,7 +6008,7 @@ func (s *OpenAIGatewayService) calculateOpenAIImageCost(
 	multiplier float64,
 ) *CostBreakdown {
 	sizeTier := NormalizeImageBillingTierOrDefault(result.ImageSize)
-	billingTier := ImageBillingTierWithQuality(sizeTier, result.ImageQuality)
+	billingTier := OpenAIImageBillingTierForModel(billingModel, result.ImageOutputSize, sizeTier, result.ImageQuality)
 	if resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey); resolved != nil &&
 		(resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage) {
 		gid := apiKey.Group.ID

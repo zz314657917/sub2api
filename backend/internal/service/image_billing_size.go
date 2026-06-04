@@ -86,6 +86,17 @@ func ImageBillingTierWithQuality(sizeTier string, quality string) string {
 	return tier
 }
 
+func OpenAIImageBillingTierForModel(model string, exactSize string, sizeTier string, quality string) string {
+	if isAPIMartGPTImage2OfficialModel(model) {
+		normalizedSize := normalizeAPIMartImageSize(exactSize)
+		normalizedQuality := normalizeAPIMartImageQuality(quality)
+		if normalizedSize != "" {
+			return normalizedSize + ":" + normalizedQuality
+		}
+	}
+	return ImageBillingTierWithQuality(sizeTier, quality)
+}
+
 func ResolveImageBillingSize(inputSize string, outputSizes []string) ImageBillingSizeResolution {
 	inputSize = strings.TrimSpace(inputSize)
 	outputSizes = compactTrimmedStrings(outputSizes)

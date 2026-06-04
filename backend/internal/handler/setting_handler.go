@@ -102,6 +102,17 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 	})
 }
 
+// GetModelMarketCatalog 获取公开模型市场目录。
+// GET /api/v1/model-market/catalog
+func (h *SettingHandler) GetModelMarketCatalog(c *gin.Context) {
+	catalog, err := h.settingService.GetModelMarketCatalog(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, catalog)
+}
+
 func publicLoginAgreementDocumentsToDTO(items []service.LoginAgreementDocument) []dto.LoginAgreementDocument {
 	result := make([]dto.LoginAgreementDocument, 0, len(items))
 	for _, item := range items {

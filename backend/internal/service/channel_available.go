@@ -107,10 +107,14 @@ func (s *ChannelService) ListAvailable(ctx context.Context) ([]AvailableChannel,
 //
 // ReferencePricing 只用于用户侧模型广场展示，不影响渠道真实售卖价和扣费链路。
 func (s *ChannelService) fillReferencePricing(models []SupportedModel) {
-	if s.pricingService == nil {
-		return
-	}
 	for i := range models {
+		if isAPIMartGPTImage2OfficialModel(models[i].Name) {
+			models[i].ReferencePricing = apimartGPTImage2OfficialReferencePricing()
+			continue
+		}
+		if s.pricingService == nil {
+			continue
+		}
 		lp := s.pricingService.GetModelPricing(models[i].Name)
 		if lp == nil {
 			continue

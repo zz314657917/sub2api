@@ -75,7 +75,7 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 					Mode:   mode,
 					Source: PricingSourceChannel,
 				}
-				r.applyRequestTierOverrides(chPricing, resolved)
+				r.applyRequestTierOverrides(chPricing, resolved, input.Model)
 				return resolved
 			}
 		}
@@ -130,7 +130,7 @@ func (r *ModelPricingResolver) applyChannelOverrides(ctx context.Context, groupI
 	case BillingModeToken:
 		r.applyTokenOverrides(chPricing, resolved)
 	case BillingModePerRequest, BillingModeImage:
-		r.applyRequestTierOverrides(chPricing, resolved)
+		r.applyRequestTierOverrides(chPricing, resolved, model)
 	}
 }
 
@@ -173,8 +173,11 @@ func (r *ModelPricingResolver) applyTokenOverrides(chPricing *ChannelModelPricin
 }
 
 // applyRequestTierOverrides 应用按次/图片模式的渠道覆盖
-func (r *ModelPricingResolver) applyRequestTierOverrides(chPricing *ChannelModelPricing, resolved *ResolvedPricing) {
+func (r *ModelPricingResolver) applyRequestTierOverrides(chPricing *ChannelModelPricing, resolved *ResolvedPricing, model string) {
 	resolved.RequestTiers = filterValidIntervals(chPricing.Intervals)
+	if isAPIMartGPTImage2OfficialModel(model) && resolved.Mode == BillingModeImage {
+		resolved.RequestTiers = appendAPIMartGPTImage2OfficialIntervals(resolved.RequestTiers)
+	}
 	if chPricing.PerRequestPrice != nil {
 		resolved.DefaultPerRequestPrice = *chPricing.PerRequestPrice
 	}
@@ -258,6 +261,10 @@ func (r *ModelPricingResolver) GetRequestTierPrice(resolved *ResolvedPricing, ti
 		return price
 	}
 
+	if price, ok := findAPIMartImageTierPrice(resolved, tierLabel); ok {
+		return price
+	}
+
 	// quality 档未命中时，回退到基础尺寸档，例如 2K:high -> 2K。
 	if baseTier, _, ok := strings.Cut(tierLabel, ":"); ok {
 		if price, ok := findTierPrice(baseTier); ok {
@@ -274,6 +281,25 @@ func (r *ModelPricingResolver) GetRequestTierPrice(resolved *ResolvedPricing, ti
 		}
 	}
 	return 0
+}
+
+func findAPIMartImageTierPrice(resolved *ResolvedPricing, tierLabel string) (float64, bool) {
+	if resolved == nil || resolved.Mode != BillingModeImage {
+		return 0, false
+	}
+	size, quality, ok := strings.Cut(strings.TrimSpace(tierLabel), ":")
+	if !ok {
+		return 0, false
+	}
+	if price, ok := lookupAPIMartGPTImage2OfficialPrice(size, quality); !ok || price <= 0 {
+		return 0, false
+	}
+	for _, tier := range resolved.RequestTiers {
+		if strings.TrimSpace(tier.TierLabel) == apimartImagePriceKey(size, quality) && tier.PerRequestPrice != nil {
+			return *tier.PerRequestPrice, true
+		}
+	}
+	return 0, false
 }
 
 // GetRequestTierPriceByContext 根据 context token 数获取按次价格

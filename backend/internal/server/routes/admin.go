@@ -38,6 +38,9 @@ func RegisterAdminRoutes(
 		// 教程文档管理
 		registerTutorialRoutes(admin, h)
 
+		// 模型市场
+		registerModelMarketRoutes(admin, h)
+
 		// OpenAI OAuth
 		registerOpenAIOAuthRoutes(admin, h)
 
@@ -383,6 +386,15 @@ func registerTutorialRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		tutorials.PUT("/:id", h.Admin.TutorialPage.Update)
 		tutorials.PUT("/:id/status", h.Admin.TutorialPage.UpdateStatus)
 		tutorials.DELETE("/:id", h.Admin.TutorialPage.Delete)
+	}
+}
+
+func registerModelMarketRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	modelMarket := admin.Group("/model-market")
+	{
+		modelMarket.GET("/catalog", h.Admin.Setting.GetModelMarketCatalog)
+		modelMarket.PUT("/catalog", h.Admin.Setting.UpdateModelMarketCatalog)
+		modelMarket.POST("/catalog/reset", h.Admin.Setting.ResetModelMarketCatalog)
 	}
 }
 

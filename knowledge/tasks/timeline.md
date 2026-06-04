@@ -1,5 +1,14 @@
 # 项目时间轴
 
+## 2026-06-03 15:34 +08:00 - 模型广场后台化与公开定价页重构
+
+- 当前阶段：按用户要求把 `/models` 从登录后渠道/倍率展示改为公开模型定价中心，并新增后台“模型市场”维护页。
+- 本段重点：新增 `model_market_catalog` settings JSON 目录、公开目录接口、后台 CRUD/reset 接口和 `/admin/model-market`；前台 `/models` 读取目录数据，按推理/图像/视频分组表格展示价格。
+- 已完成：`/models` 不登录可访问；前台和后台均不展示 APIMart 文案；默认目录包含 ChatGPT、Gemini、Claude、`gpt-image-2-official` 和主要视频模型；`gpt-image-2-official` 展示官方价并补精确尺寸/质量档位计费命中。
+- 关键决策：模型市场展示数据走后台 JSON 配置，不继续在前台硬编码；后端内部 `apimart_*` 命名只保留为上游兼容/计费适配，不作为用户可见品牌。
+- 验证记录：后端模型市场与 `gpt-image-2-official` 命中/计费单测通过；前端 `public-pages`、`public-smoke`、`guards` 通过；`typecheck`、`build`、`git diff --check` 通过；浏览器实测 `http://127.0.0.1:62080/models` 渲染 8 张模型卡且无 APIMart 文案。
+- 遗留问题：当前工作树混有本轮模型市场改动和此前参考价/渠道命中规则改动；未跟踪临时采证文件 `tmp-doubao.html`、`tmp-kling26.html`、`tmp-modelList.html`、`tmp-ui-check/` 未清理。
+
 ## 2026-06-01 17:34 +08:00 - v0.1.133 关键修复 batch2 选择性移植完成
 
 - 当前阶段：在独立 worktree `F:/mcplugins/.codex-worktrees/sub2api-v0133-batch2` 上继续 v0.1.133 关键修复移植，不执行整体 merge。
@@ -306,3 +315,12 @@
 - 已完成：`zh.ts` / `en.ts` 从约 385KB/388KB 降到约 2KB；每个语言目录新增 63 个分片文件；`home-theme` 和 `PaymentView` 测试改为读取 locale 对象，不再依赖大文件文本搜索。
 - 关键决策：这是维护性拆分，不是运行时按页面分包；因为聚合入口仍静态 import 所有分片，最终 zh/en 语言包 chunk 体积基本不会下降。后续如要减包，需要设计按模块/路由动态加载局部翻译。
 - 验证记录：`npm.cmd run test:run -- home-theme usageServiceTierLocales PaymentView public-smoke`、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过；Node AST 检查确认 zh/en 顶层 39 个 key 对齐，admin 子 key 24 个对齐。
+
+## 2026-06-03 18:47 +08:00 - 模型市场 181 档与本地容器更新
+
+- 当前阶段：模型广场从前台硬编码转为后台模型市场目录后，继续处理 `gpt-image-2-official` 重置默认仍显示旧 10 档和长表格撑页面问题。
+- 本段重点：确认新默认目录应为 181 行，更新本地 `sub2api-dev` 容器到新版后端/嵌入前端，并给公共模型卡超过 10 行的价格表加内部滚动。
+- 已完成：`gpt-image-2-official` 默认目录为默认行 1 个 + 180 个官方规格/质量档；后台“重置默认”后仍返回 181 行；公共 `/models` 价格表超过 10 行时启用 `is-scrollable`、`overflow:auto` 和 sticky 表头。
+- 本地容器：重建了干净 runtime 镜像 `sub2api-dev:runtime-prebuilt`，镜像 ID `sha256:5cb0913d4842101e7c5406b07eecd9945c9832ea2dc000f2de2c4bdb9e6cf195`；重新创建了 `sub2api-dev` 应用容器，PostgreSQL / Redis 数据容器未重建。
+- 验证记录：`go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_(GetModelMarketCatalog|SetModelMarketCatalog)|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog" -count=1` 通过；`corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts` 通过；`corepack.cmd pnpm --dir frontend run typecheck` 通过；`corepack.cmd pnpm --dir frontend run build` 通过；`git diff --check` 相关文件通过。
+- 页面验证：`http://127.0.0.1:62080/api/v1/model-market/catalog` 返回 `version=2`、`gpt-image-2-official.rows=181`；浏览器实测 `/models` 中 `gpt-image-2-official` 卡片显示 181 档，`2576x3216 · 中` 为 `$0.11264` / `$0.1408`，表格容器高度约 544px 且可内部滚动，页面无 APIMart 文案。

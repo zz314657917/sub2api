@@ -47,6 +47,7 @@ export { totpAPI } from './totp'
 export { default as announcementsAPI } from './announcements'
 export { channelMonitorUserAPI } from './channelMonitor'
 export { default as tutorialsAPI } from './tutorials'
+export { modelMarketAPI, type ModelMarketCatalog, type ModelMarketGroup, type ModelMarketPriceRow } from './modelMarket'
 
 // Admin APIs
 export { adminAPI } from './admin'

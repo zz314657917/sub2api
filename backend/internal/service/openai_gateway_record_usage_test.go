@@ -1859,6 +1859,51 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesQualityTier(t *t
 	require.Equal(t, "1K:high", *usageRepo.lastLog.BillingTier)
 }
 
+func TestOpenAIGatewayServiceRecordUsage_APIMartGPTImage2OfficialUsesExactSizeOfficialTier(t *testing.T) {
+	groupID := int64(132)
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc.resolver = newOpenAIImageChannelTierPricingResolverForTest(
+		t,
+		groupID,
+		"gpt-image-2-official",
+		nil,
+		appendAPIMartGPTImage2OfficialIntervals(nil),
+	)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:       "resp_apimart_image_official",
+			Model:           "gpt-image-2-official",
+			BillingModel:    "gpt-image-2-official",
+			ImageCount:      7,
+			ImageSize:       "4K",
+			ImageOutputSize: "2576x3216",
+			ImageQuality:    "medium",
+			Duration:        time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      10132,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                   groupID,
+				RateMultiplier:       1,
+				ImageRateIndependent: true,
+				ImageRateMultiplier:  1,
+			},
+		},
+		User:    &User{ID: 20132},
+		Account: &Account{ID: 30132},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.InDelta(t, 0.9856, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.9856, usageRepo.lastLog.ActualCost, 1e-12)
+	require.NotNil(t, usageRepo.lastLog.BillingTier)
+	require.Equal(t, "2576x3216:medium", *usageRepo.lastLog.BillingTier)
+}
+
 func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingFallsBackToSizeTier(t *testing.T) {
 	groupID := int64(129)
 	price1K := 0.04

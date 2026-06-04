@@ -24,7 +24,10 @@ func (s *settingHandlerPublicRepoStub) Get(ctx context.Context, key string) (*se
 }
 
 func (s *settingHandlerPublicRepoStub) GetValue(ctx context.Context, key string) (string, error) {
-	panic("unexpected GetValue call")
+	if value, ok := s.values[key]; ok {
+		return value, nil
+	}
+	return "", service.ErrSettingNotFound
 }
 
 func (s *settingHandlerPublicRepoStub) Set(ctx context.Context, key, value string) error {
@@ -80,6 +83,42 @@ func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
 	require.True(t, resp.Data.ForceEmailOnThirdPartySignup)
+}
+
+func TestSettingHandler_GetModelMarketCatalog_ReturnsDefaultCatalog(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{}, &config.Config{}), "test-version")
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model-market/catalog", nil)
+
+	h.GetModelMarketCatalog(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			Groups []struct {
+				Title           string  `json:"title"`
+				Category        string  `json:"category"`
+				PriceMultiplier float64 `json:"price_multiplier"`
+				Rows            []struct {
+					ID string `json:"id"`
+				} `json:"rows"`
+			} `json:"groups"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.NotEmpty(t, resp.Data.Groups)
+	require.Equal(t, "ChatGPT", resp.Data.Groups[0].Title)
+	require.Equal(t, "chat", resp.Data.Groups[0].Category)
+	require.Equal(t, 1.0, resp.Data.Groups[0].PriceMultiplier)
+	require.Len(t, resp.Data.Groups[3].Rows, 3)
+	require.Len(t, resp.Data.Groups[4].Rows, 181)
 }
 
 func TestSettingHandler_GetPublicSettings_ExposesAccountShareEnabled(t *testing.T) {

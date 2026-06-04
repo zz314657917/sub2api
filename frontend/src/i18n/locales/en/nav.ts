@@ -2,6 +2,7 @@ export default {
     dashboard: 'Dashboard',
     announcements: 'Announcements',
     tutorials: 'Tutorials',
+    modelMarket: 'Model Market',
     apiKeys: 'API Keys',
     myAccounts: 'My Accounts',
     usage: 'Usage',

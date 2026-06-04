@@ -2,6 +2,7 @@ export default {
     dashboard: '仪表盘',
     announcements: '公告',
     tutorials: '教程管理',
+    modelMarket: '模型市场',
     apiKeys: 'API 密钥',
     myAccounts: '我的共享账号',
     usage: '使用记录',

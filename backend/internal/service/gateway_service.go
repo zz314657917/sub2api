@@ -9036,7 +9036,7 @@ func (s *GatewayService) calculateImageCost(
 	multiplier float64,
 ) *CostBreakdown {
 	sizeTier := NormalizeImageBillingTierOrDefault(result.ImageSize)
-	billingTier := ImageBillingTierWithQuality(sizeTier, result.ImageQuality)
+	billingTier := OpenAIImageBillingTierForModel(billingModel, result.ImageOutputSize, sizeTier, result.ImageQuality)
 	if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil {
 		tokens := UsageTokens{
 			InputTokens:       result.Usage.InputTokens,

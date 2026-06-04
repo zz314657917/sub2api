@@ -342,6 +342,44 @@ func openaiFastPolicySettingsFromDTO(s *dto.OpenAIFastPolicySettings) *service.O
 	return &service.OpenAIFastPolicySettings{Rules: rules}
 }
 
+// GetModelMarketCatalog 获取后台模型市场目录。
+// GET /api/v1/admin/model-market/catalog
+func (h *SettingHandler) GetModelMarketCatalog(c *gin.Context) {
+	catalog, err := h.settingService.GetModelMarketCatalog(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, catalog)
+}
+
+// UpdateModelMarketCatalog 保存后台模型市场目录。
+// PUT /api/v1/admin/model-market/catalog
+func (h *SettingHandler) UpdateModelMarketCatalog(c *gin.Context) {
+	var catalog service.ModelMarketCatalog
+	if err := c.ShouldBindJSON(&catalog); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	updated, err := h.settingService.SetModelMarketCatalog(c.Request.Context(), &catalog)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, updated)
+}
+
+// ResetModelMarketCatalog 将模型市场目录恢复为内置默认值。
+// POST /api/v1/admin/model-market/catalog/reset
+func (h *SettingHandler) ResetModelMarketCatalog(c *gin.Context) {
+	updated, err := h.settingService.ResetModelMarketCatalog(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, updated)
+}
+
 func loginAgreementDocumentsToDTO(items []service.LoginAgreementDocument) []dto.LoginAgreementDocument {
 	result := make([]dto.LoginAgreementDocument, 0, len(items))
 	for _, item := range items {
