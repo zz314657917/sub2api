@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   OPENAI_CC_SWITCH_CODEX_MODEL,
-  buildCcSwitchImportDeeplink
+  buildCcSwitchImportDeeplink,
+  buildCcSwitchUsageScript
 } from '@/utils/ccswitchImport'
 import type { GroupPlatform } from '@/types'
 
@@ -63,5 +64,26 @@ describe('ccswitchImport utils', () => {
     expect(params.get('app')).toBe('gemini')
     expect(params.get('endpoint')).toBe(`${baseInput.baseUrl}/antigravity`)
     expect(params.has('model')).toBe(false)
+  })
+
+  it('normalizes trailing slashes in imported endpoints and homepage', () => {
+    const params = paramsFromDeeplink(
+      buildCcSwitchImportDeeplink({
+        ...baseInput,
+        baseUrl: 'https://ai.3zapi.top/',
+        platform: 'openai',
+        clientType: 'claude'
+      })
+    )
+
+    expect(params.get('homepage')).toBe('https://ai.3zapi.top')
+    expect(params.get('endpoint')).toBe('https://ai.3zapi.top')
+  })
+
+  it('normalizes the usage request URL after template replacement', () => {
+    const script = buildCcSwitchUsageScript().replaceAll('{{baseUrl}}', 'https://ai.3zapi.top/')
+    const config = Function(`return ${script}`)()
+
+    expect(config.request.url).toBe('https://ai.3zapi.top/v1/usage')
   })
 })
