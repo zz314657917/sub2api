@@ -68,6 +68,7 @@ type APIKeyRepository interface {
 	GetByKeyForAuth(ctx context.Context, key string) (*APIKey, error)
 	Update(ctx context.Context, key *APIKey) error
 	Delete(ctx context.Context, id int64) error
+	DeleteWithAudit(ctx context.Context, id int64) error
 
 	ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams, filters APIKeyListFilters) ([]APIKey, *pagination.PaginationResult, error)
 	VerifyOwnership(ctx context.Context, userID int64, apiKeyIDs []int64) ([]int64, error)
