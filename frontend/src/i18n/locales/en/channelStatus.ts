@@ -9,6 +9,20 @@ export default {
     detailLoadError: 'Failed to load channel detail',
     detailTitle: 'Channel Detail',
     closeDetail: 'Close',
+    availabilityPanel: {
+      title: 'Service Availability',
+      searchPlaceholder: 'Search service name',
+      groupSuffix: 'Stability Monitor',
+      availabilityLabel: 'Availability',
+      noResultsTitle: 'No matching services',
+      noResultsDescription: 'Try a different keyword.',
+      legend: {
+        abnormal: 'Abnormal',
+        normal: 'Normal',
+        highLatency: 'High latency',
+        maintenance: 'Maintenance'
+      }
+    },
     windowTab: {
       '7d': '7 days',
       '15d': '15 days',

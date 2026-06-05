@@ -126,9 +126,10 @@ type UserMonitorTimelinePoint struct {
 
 // ExtraModelStatus 附加模型最近一次状态。
 type ExtraModelStatus struct {
-	Model     string
-	Status    string
-	LatencyMs *int
+	Model          string
+	Status         string
+	LatencyMs      *int
+	Availability7d float64
 }
 
 // UserMonitorDetail 用户只读视图：监控详情（含全部模型 7d/15d/30d 可用率与平均延迟）。
@@ -194,7 +195,7 @@ type ChannelMonitorAvailability struct {
 
 // MonitorStatusSummary 监控状态聚合（admin list 用，单次 repo 查询消除前端 N+1）。
 // PrimaryStatus / PrimaryLatencyMs 描述主模型最近状态；Availability7d 是主模型 7 天可用率；
-// ExtraModels 描述附加模型最近状态（用于 hover 展示）。
+// ExtraModels 描述附加模型最近状态和 7 天可用率（用于 hover 展示和用户侧模型列表）。
 type MonitorStatusSummary struct {
 	PrimaryStatus    string // 空字符串表示无历史
 	PrimaryLatencyMs *int

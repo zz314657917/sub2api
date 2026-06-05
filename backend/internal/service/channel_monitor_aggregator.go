@@ -215,6 +215,9 @@ func buildStatusSummary(
 			entry.Status = l.Status
 			entry.LatencyMs = l.LatencyMs
 		}
+		if a, ok := availByModel[model]; ok {
+			entry.Availability7d = a.AvailabilityPct
+		}
 		summary.ExtraModels = append(summary.ExtraModels, entry)
 	}
 	return summary

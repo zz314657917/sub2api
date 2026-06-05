@@ -263,9 +263,10 @@ func buildListItemResponse(m *service.ChannelMonitor, summary service.MonitorSta
 	resp.ExtraModelsStatus = make([]dto.ChannelMonitorExtraModelStatus, 0, len(summary.ExtraModels))
 	for _, e := range summary.ExtraModels {
 		resp.ExtraModelsStatus = append(resp.ExtraModelsStatus, dto.ChannelMonitorExtraModelStatus{
-			Model:     e.Model,
-			Status:    e.Status,
-			LatencyMs: e.LatencyMs,
+			Model:          e.Model,
+			Status:         e.Status,
+			LatencyMs:      e.LatencyMs,
+			Availability7d: e.Availability7d,
 		})
 	}
 	return resp

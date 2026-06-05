@@ -9,6 +9,20 @@ export default {
     detailLoadError: '加载渠道详情失败',
     detailTitle: '渠道详情',
     closeDetail: '关闭',
+    availabilityPanel: {
+      title: '服务可用性',
+      searchPlaceholder: '搜索服务名称',
+      groupSuffix: '稳定性监听',
+      availabilityLabel: '可用率',
+      noResultsTitle: '没有匹配的服务',
+      noResultsDescription: '换个关键词试试。',
+      legend: {
+        abnormal: '异常',
+        normal: '正常',
+        highLatency: '高延迟',
+        maintenance: '维护中'
+      }
+    },
     windowTab: {
       '7d': '7 天',
       '15d': '15 天',

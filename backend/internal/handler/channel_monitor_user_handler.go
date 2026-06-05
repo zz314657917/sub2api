@@ -85,9 +85,10 @@ func userMonitorViewToItem(v *service.UserMonitorView) channelMonitorUserListIte
 	extras := make([]dto.ChannelMonitorExtraModelStatus, 0, len(v.ExtraModels))
 	for _, e := range v.ExtraModels {
 		extras = append(extras, dto.ChannelMonitorExtraModelStatus{
-			Model:     e.Model,
-			Status:    e.Status,
-			LatencyMs: e.LatencyMs,
+			Model:          e.Model,
+			Status:         e.Status,
+			LatencyMs:      e.LatencyMs,
+			Availability7d: e.Availability7d,
 		})
 	}
 	timeline := make([]channelMonitorUserTimelinePoint, 0, len(v.Timeline))

@@ -59,7 +59,7 @@ function mountView() {
       stubs: {
         AppLayout: { template: '<div><slot /></div>' },
         MonitorHero: { template: '<div />' },
-        MonitorCardGrid: { template: '<div />' },
+        MonitorAvailabilityList: { template: '<div />' },
         MonitorDetailDialog: { template: '<div />' },
       },
     },
@@ -173,6 +173,14 @@ describe('ChannelStatusView capacity pools', () => {
     await flushPromises()
 
     expect(fetchCapacityPools).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[data-testid="channel-status-layout"]').classes()).toContain('xl:grid-cols-2')
+    const capacityColumn = wrapper.get('[data-testid="capacity-column"]')
+    expect(capacityColumn.text()).toContain('channelStatus.capacityPools.shared')
+    expect(capacityColumn.text()).toContain('channelStatus.capacityPools.mine')
+    const poolSections = wrapper.findAll('[data-testid="account-capacity-pools"]')
+    expect(poolSections).toHaveLength(2)
+    expect(poolSections[0].text()).toContain('channelStatus.capacityPools.shared')
+    expect(poolSections[1].text()).toContain('channelStatus.capacityPools.mine')
     expect(wrapper.text()).toContain('channelStatus.capacityPools.mine')
     expect(wrapper.text()).toContain('channelStatus.capacityPools.shared')
     expect(wrapper.text()).toContain('OpenAI Pro')
@@ -423,6 +431,7 @@ describe('ChannelStatusView capacity pools', () => {
     const poolCards = wrapper.findAll('[data-testid="account-capacity-pools"] > article')
     expect(poolCards).toHaveLength(1)
     expect(wrapper.text()).toContain('channelStatus.capacityPools.shared')
+    expect(wrapper.text()).not.toContain('channelStatus.capacityPools.mine')
     expect(wrapper.text()).not.toContain('公开共享容量参考')
     expect(wrapper.text()).not.toContain('公开共享账号池状态参考。')
     expect(wrapper.text()).not.toContain('FREE共享号池')
@@ -506,6 +515,7 @@ describe('ChannelStatusView capacity pools', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('channelStatus.capacityPools.shared')
+    expect(wrapper.text()).not.toContain('channelStatus.capacityPools.mine')
     expect(wrapper.text()).not.toContain('公开共享容量参考')
     expect(wrapper.text()).not.toContain('FREE共享号池')
   })

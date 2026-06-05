@@ -12,6 +12,7 @@ export interface UserMonitorExtraModel {
   model: string
   status: MonitorStatus
   latency_ms: number | null
+  availability_7d?: number
 }
 
 export interface MonitorTimelinePoint {

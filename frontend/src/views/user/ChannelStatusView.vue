@@ -1,41 +1,53 @@
 <template>
   <AppLayout>
-    <AccountCapacityPools
-      v-if="accountShareEnabled"
-      :pools="visibleCapacityPools"
-      :loading="capacityLoading"
-    />
+    <div class="space-y-4">
+      <div
+        class="grid grid-cols-1 items-start gap-4"
+        :class="{ 'xl:grid-cols-2': showCapacityColumn }"
+        data-testid="channel-status-layout"
+      >
+        <div
+          v-if="showCapacityColumn"
+          class="space-y-4"
+          data-testid="capacity-column"
+        >
+          <AccountCapacityPools
+            v-if="showSharedCapacityPool"
+            :pools="visibleCapacityPools"
+            :loading="capacityLoading"
+            :pool-keys="['shared']"
+          />
 
-    <section class="space-y-3" data-testid="channel-monitor-panel">
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div class="min-w-0">
-          <h2 class="text-base font-bold text-gray-900 dark:text-white">
-            {{ t('channelStatus.monitorTitle') }}
-          </h2>
-          <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-            {{ t('channelStatus.monitorDescription') }}
-          </p>
+          <AccountCapacityPools
+            v-if="showMineCapacityPool"
+            :pools="visibleCapacityPools"
+            :loading="capacityLoading"
+            :pool-keys="['mine']"
+          />
         </div>
 
-        <MonitorHero
-          :overall-status="overallStatus"
-          :window="currentWindow"
-          :loading="loading"
-          :auto-refresh="autoRefresh"
-          @update:window="handleWindowChange"
-          @refresh="manualReload"
-        />
+        <section data-testid="channel-monitor-panel">
+          <MonitorAvailabilityList
+            :items="items"
+            :window="currentWindow"
+            :loading="loading"
+            :detail-cache="detailCache"
+            @row-click="openDetail"
+          >
+            <template #actions>
+              <MonitorHero
+                :overall-status="overallStatus"
+                :window="currentWindow"
+                :loading="loading"
+                :auto-refresh="autoRefresh"
+                @update:window="handleWindowChange"
+                @refresh="manualReload"
+              />
+            </template>
+          </MonitorAvailabilityList>
+        </section>
       </div>
-
-      <MonitorCardGrid
-        :items="items"
-        :window="currentWindow"
-        :countdown-seconds="countdown"
-        :loading="loading"
-        :detail-cache="detailCache"
-        @card-click="openDetail"
-      />
-    </section>
+    </div>
 
     <MonitorDetailDialog
       :show="showDetail"
@@ -58,14 +70,14 @@ import {
   type UserMonitorDetail,
 } from '@/api/channelMonitor'
 import { getAccountCapacityPools } from '@/api/user'
-import type { UserAccountCapacityPools } from '@/types'
+import type { UserAccountCapacityPool, UserAccountCapacityPools } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import MonitorHero, {
   type MonitorWindow,
   type OverallStatus,
 } from '@/components/user/monitor/MonitorHero.vue'
 import AccountCapacityPools from '@/components/user/monitor/AccountCapacityPools.vue'
-import MonitorCardGrid from '@/components/user/monitor/MonitorCardGrid.vue'
+import MonitorAvailabilityList from '@/components/user/monitor/MonitorAvailabilityList.vue'
 import MonitorDetailDialog from '@/components/user/MonitorDetailDialog.vue'
 import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL } from '@/constants/channelMonitor'
 import { useAutoRefresh } from '@/composables/useAutoRefresh'
@@ -95,7 +107,6 @@ const autoRefresh = useAutoRefresh({
   },
   shouldPause: () => document.hidden || loading.value || capacityLoading.value,
 })
-const countdown = autoRefresh.countdown
 
 // ── Computed ──
 const overallStatus = computed<OverallStatus>(() => {
@@ -125,6 +136,9 @@ const visibleCapacityPools = computed<UserAccountCapacityPools | null>(() => {
     external: null,
   }
 })
+const showSharedCapacityPool = computed(() => accountShareEnabled.value && hasVisibleCapacityPool(visibleCapacityPools.value?.shared))
+const showMineCapacityPool = computed(() => accountShareEnabled.value && hasVisibleCapacityPool(visibleCapacityPools.value?.mine))
+const showCapacityColumn = computed(() => showSharedCapacityPool.value || showMineCapacityPool.value)
 
 // ── Loaders ──
 async function reload(silent = false) {
@@ -143,7 +157,7 @@ async function reload(silent = false) {
   } finally {
     if (abortController === ctrl) {
       if (!silent) loading.value = false
-      countdown.value = DEFAULT_INTERVAL_SECONDS
+      autoRefresh.countdown.value = DEFAULT_INTERVAL_SECONDS
       abortController = null
     }
   }
@@ -195,7 +209,9 @@ async function loadDetail(id: number, force = false) {
 }
 
 async function ensureDetailsForWindow() {
-  if (currentWindow.value === '7d') return
+  const shouldLoadDetails = currentWindow.value !== '7d'
+    || items.value.some(it => (it.extra_models?.length ?? 0) > 0)
+  if (!shouldLoadDetails) return
   await Promise.all(items.value.map(it => loadDetail(it.id)))
 }
 
@@ -213,6 +229,18 @@ function openDetail(row: UserMonitorView) {
 function closeDetail() {
   showDetail.value = false
   detailTarget.value = null
+}
+
+function hasVisibleCapacityPool(pool: UserAccountCapacityPool | null | undefined): boolean {
+  if (!pool) return false
+  return positiveCount(pool.total_accounts) > 0
+    || (pool.sections ?? []).some(section => positiveCount(section.total_accounts) > 0)
+    || (pool.groups ?? []).some(group => positiveCount(group.total_accounts) > 0)
+}
+
+function positiveCount(value?: number | null): number {
+  if (!Number.isFinite(value ?? 0)) return 0
+  return Math.max(0, Math.round(value ?? 0))
 }
 
 watch(items, () => {

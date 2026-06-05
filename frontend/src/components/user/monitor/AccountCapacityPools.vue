@@ -1,5 +1,9 @@
 <template>
-  <section class="mb-4 grid grid-cols-1 items-start gap-3 xl:grid-cols-2" data-testid="account-capacity-pools">
+  <section
+    class="grid grid-cols-1 items-start gap-3"
+    :class="{ 'xl:grid-cols-2': poolKeys.length === 0 }"
+    data-testid="account-capacity-pools"
+  >
     <article
       v-for="pool in orderedPools"
       :key="pool.key"
@@ -94,10 +98,16 @@ import type {
   UserAccountCapacityWindowSummary,
 } from '@/types'
 
-const props = defineProps<{
+type CapacityPoolKey = 'mine' | 'shared'
+
+const props = withDefaults(defineProps<{
   pools: UserAccountCapacityPools | null
   loading?: boolean
-}>()
+  poolKeys?: CapacityPoolKey[]
+}>(), {
+  loading: false,
+  poolKeys: () => [],
+})
 
 const { t } = useI18n()
 
@@ -105,7 +115,8 @@ const orderedPools = computed<UserAccountCapacityPool[]>(() => {
   if (!props.pools) {
     return []
   }
-  const pools: UserAccountCapacityPool[] = [props.pools.mine, props.pools.shared]
+  const requestedKeys: CapacityPoolKey[] = props.poolKeys.length ? props.poolKeys : ['mine', 'shared']
+  const pools: UserAccountCapacityPool[] = requestedKeys.map((key) => props.pools![key])
   return pools.filter(hasVisibleDashboardPool)
 })
 
