@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbuser "github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/internal/middleware"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/oauth"
@@ -691,6 +692,17 @@ func findUserByNormalizedEmail(ctx context.Context, client *dbent.Client, email 
 		return nil, infraerrors.Conflict("USER_EMAIL_CONFLICT", "normalized email matched multiple users")
 	}
 	return matches[0], nil
+}
+
+func isOAuthEmailNewUser(ctx context.Context, client *dbent.Client, email string) (bool, error) {
+	_, err := findUserByNormalizedEmail(ctx, client, email)
+	if err == nil {
+		return false, nil
+	}
+	if errors.Is(err, service.ErrUserNotFound) {
+		return true, nil
+	}
+	return false, err
 }
 
 func ensurePendingOAuthRegistrationIdentityAvailable(ctx context.Context, client *dbent.Client, session *dbent.PendingAuthSession) error {
@@ -1791,6 +1803,7 @@ func (h *AuthHandler) createPendingOAuthAccount(c *gin.Context, provider string)
 		return
 	}
 
+	middleware.MarkRegistrationCreated(c)
 	h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
 	clearCookies()
 	writeOAuthTokenPairResponse(c, tokenPair)

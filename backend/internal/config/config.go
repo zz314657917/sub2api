@@ -1137,8 +1137,24 @@ type DefaultConfig struct {
 }
 
 type RateLimitConfig struct {
-	OverloadCooldownMinutes int `mapstructure:"overload_cooldown_minutes"`  // 529过载冷却时间(分钟)
-	OAuth401CooldownMinutes int `mapstructure:"oauth_401_cooldown_minutes"` // OAuth 401临时不可调度冷却(分钟)
+	OverloadCooldownMinutes int                         `mapstructure:"overload_cooldown_minutes"`  // 529过载冷却时间(分钟)
+	OAuth401CooldownMinutes int                         `mapstructure:"oauth_401_cooldown_minutes"` // OAuth 401临时不可调度冷却(分钟)
+	RegistrationRisk        RegistrationRiskLimitConfig `mapstructure:"registration_risk"`
+}
+
+type RegistrationRiskLimitConfig struct {
+	// Enabled enables backend registration risk controls. Individual limits can still be disabled with <= 0.
+	Enabled bool `mapstructure:"enabled"`
+	// SuccessfulRegistrationsPerIP is the max successful email registrations per IP in WindowHours.
+	SuccessfulRegistrationsPerIP int `mapstructure:"successful_registrations_per_ip"`
+	// WindowHours is the success-count window. Defaults to 24 when <= 0 and the success limit is enabled.
+	WindowHours int `mapstructure:"window_hours"`
+	// IPUserAgentAttempts is the max register/send-code attempts per IP+UA in ShortWindowSeconds.
+	IPUserAgentAttempts int `mapstructure:"ip_user_agent_attempts"`
+	// EmailDomainAttempts is the max register/send-code attempts per email domain in ShortWindowSeconds.
+	EmailDomainAttempts int `mapstructure:"email_domain_attempts"`
+	// ShortWindowSeconds is the short risk-attempt window. Defaults to 600 when <= 0 and short limits are enabled.
+	ShortWindowSeconds int `mapstructure:"short_window_seconds"`
 }
 
 // APIKeyAuthCacheConfig API Key 认证缓存配置
@@ -1633,6 +1649,12 @@ func setDefaults() {
 	// RateLimit
 	viper.SetDefault("rate_limit.overload_cooldown_minutes", 10)
 	viper.SetDefault("rate_limit.oauth_401_cooldown_minutes", 10)
+	viper.SetDefault("rate_limit.registration_risk.enabled", true)
+	viper.SetDefault("rate_limit.registration_risk.successful_registrations_per_ip", 3)
+	viper.SetDefault("rate_limit.registration_risk.window_hours", 24)
+	viper.SetDefault("rate_limit.registration_risk.ip_user_agent_attempts", 20)
+	viper.SetDefault("rate_limit.registration_risk.email_domain_attempts", 30)
+	viper.SetDefault("rate_limit.registration_risk.short_window_seconds", 600)
 
 	// Pricing - 从 model-price-repo 同步模型定价和上下文窗口数据（固定到 commit，避免分支漂移）
 	viper.SetDefault("pricing.remote_url", "https://raw.githubusercontent.com/Wei-Shaw/model-price-repo/main/model_prices_and_context_window.json")

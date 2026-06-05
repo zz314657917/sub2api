@@ -91,6 +91,23 @@ func TestLoadDefaultOpenWebUIDisabled(t *testing.T) {
 	}
 }
 
+func TestLoadDefaultRegistrationRiskLimitConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+
+	got := cfg.RateLimit.RegistrationRisk
+	require.True(t, got.Enabled)
+	require.Equal(t, 3, got.SuccessfulRegistrationsPerIP)
+	require.Equal(t, 24, got.WindowHours)
+	require.Equal(t, 20, got.IPUserAgentAttempts)
+	require.Equal(t, 30, got.EmailDomainAttempts)
+	require.Equal(t, 600, got.ShortWindowSeconds)
+}
+
 func TestLoadDefaultOpenAIWSConfig(t *testing.T) {
 	resetViperWithJWTSecret(t)
 

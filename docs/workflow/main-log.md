@@ -32,3 +32,4 @@
 260603 0217 | upstream-main-openai-oauth-refresh-enrichment-s2j | implementation-and-qa-pass | codex | backend/internal/service/openai_oauth_service.go, backend/internal/service/openai_privacy_service.go, backend/internal/service/wire.go, backend/cmd/server/wire_gen.go, docs/workflow/qa-reports/upstream-main-openai-oauth-refresh-enrichment-s2j-qa.md
 260603 0232 | upstream-main-openai-ws-usage-dedup-s2k | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-ws-usage-dedup-s2k.md
 260603 0234 | upstream-main-openai-ws-usage-dedup-s2k | implementation-and-qa-pass | codex | backend/internal/service/openai_gateway_service.go, backend/internal/service/openai_gateway_record_usage_test.go, docs/workflow/qa-reports/upstream-main-openai-ws-usage-dedup-s2k-qa.md
+260605 1456 | registration-risk-limits | implementation-and-qa-pass | codex | docs/workflow/tasks/registration-risk-limits.md, backend/internal/middleware/registration_risk_limiter.go
