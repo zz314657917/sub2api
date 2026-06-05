@@ -164,6 +164,34 @@ describe('EmailVerifyView', () => {
     expect(sendVerifyCodeMock).not.toHaveBeenCalled()
   })
 
+  it('does not resend code when registration page already sent one', async () => {
+    sessionStorage.setItem(
+      'register_data',
+      JSON.stringify({
+        email: 'fresh@example.com',
+        password: 'secret-123',
+        verify_code_sent: true,
+        verify_code_countdown: 60,
+      })
+    )
+
+    mount(EmailVerifyView, {
+      global: {
+        stubs: {
+          AuthLayout: { template: '<div><slot /><slot name="footer" /></div>' },
+          Icon: true,
+          TurnstileWidget: true,
+          transition: false,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(sendVerifyCodeMock).not.toHaveBeenCalled()
+    expect(sendPendingOAuthVerifyCodeMock).not.toHaveBeenCalled()
+  })
+
   it('skips the registration email suffix whitelist for pending oauth verification', async () => {
     authStoreState.pendingAuthSession = {
       token: 'pending-token-2',

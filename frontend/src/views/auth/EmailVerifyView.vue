@@ -278,6 +278,13 @@ onMounted(async () => {
       if (!pendingRedirect.value) {
         pendingRedirect.value = redirectPath.value
       }
+      if (registerData.verify_code_sent === true) {
+        codeSent.value = true
+        const countdownSeconds = Number(registerData.verify_code_countdown)
+        if (Number.isFinite(countdownSeconds) && countdownSeconds > 0) {
+          startCountdown(Math.floor(countdownSeconds))
+        }
+      }
       pendingAdoptionDecision.value = registerData.pending_adoption_decision
         ? {
             adoptDisplayName: registerData.pending_adoption_decision.adopt_display_name === true,
@@ -312,7 +319,7 @@ onMounted(async () => {
   }
 
   // Auto-send verification code if we have valid data
-  if (hasRegisterData.value) {
+  if (hasRegisterData.value && !codeSent.value) {
     await sendCode()
   }
 })
