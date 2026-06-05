@@ -275,6 +275,7 @@ const loadingModels = ref(false)
 let abortController: AbortController | null = null
 const generatedImages = ref<PreviewImage[]>([])
 const previewImageUrl = ref('')
+const preferredOpenAITestModelID = 'gpt-5.4'
 const prioritizedGeminiModels = ['gemini-3.1-flash-image', 'gemini-2.5-flash-image', 'gemini-3.5-flash', 'gemini-2.5-flash', 'gemini-2.5-pro', 'gemini-3-flash-preview', 'gemini-3-pro-preview', 'gemini-2.0-flash']
 const supportsGeminiImageTest = computed(() => {
   const modelID = selectedModelId.value.toLowerCase()
@@ -300,6 +301,20 @@ const sortTestModels = (models: ClaudeModel[]) => {
     if (aPriority !== bPriority) return aPriority - bPriority
     return 0
   })
+}
+
+const selectDefaultTestModel = (models: ClaudeModel[]) => {
+  if (props.account?.platform === 'gemini') {
+    return models[0]?.id || ''
+  }
+
+  if (props.account?.platform === 'openai') {
+    const preferred = models.find((m) => m.id === preferredOpenAITestModelID)
+    if (preferred) return preferred.id
+  }
+
+  const sonnetModel = models.find((m) => m.id.includes('sonnet'))
+  return sonnetModel?.id || models[0]?.id || ''
 }
 
 // Load available models when modal opens
@@ -334,13 +349,7 @@ const loadAvailableModels = async () => {
       : models
     // Default selection by platform
     if (availableModels.value.length > 0) {
-      if (props.account.platform === 'gemini') {
-        selectedModelId.value = availableModels.value[0].id
-      } else {
-        // Try to select Sonnet as default, otherwise use first model
-        const sonnetModel = availableModels.value.find((m) => m.id.includes('sonnet'))
-        selectedModelId.value = sonnetModel?.id || availableModels.value[0].id
-      }
+      selectedModelId.value = selectDefaultTestModel(availableModels.value)
     }
   } catch (error) {
     console.error('Failed to load available models:', error)
