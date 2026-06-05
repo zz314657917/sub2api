@@ -1494,6 +1494,122 @@
                 </div>
                 <Toggle v-model="form.invitation_code_enabled" />
               </div>
+
+              <!-- Registration Risk Limits -->
+              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+                <div class="flex items-center justify-between gap-4">
+                  <div>
+                    <label class="font-medium text-gray-900 dark:text-white">{{
+                      t("admin.settings.registration.riskTitle")
+                    }}</label>
+                    <p class="text-sm text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.registration.riskHint") }}
+                    </p>
+                  </div>
+                  <Toggle v-model="form.registration_risk_enabled" />
+                </div>
+                <div class="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  <label class="block">
+                    <span
+                      class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t(
+                          "admin.settings.registration.riskSuccessfulRegistrationsPerIp",
+                        )
+                      }}
+                    </span>
+                    <input
+                      v-model.number="
+                        form.registration_risk_successful_registrations_per_ip
+                      "
+                      data-testid="registration-risk-success-per-ip"
+                      type="number"
+                      step="1"
+                      class="input"
+                    />
+                  </label>
+                  <label class="block">
+                    <span
+                      class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t("admin.settings.registration.riskWindowHours")
+                      }}
+                    </span>
+                    <input
+                      v-model.number="form.registration_risk_window_hours"
+                      data-testid="registration-risk-window-hours"
+                      type="number"
+                      step="1"
+                      class="input"
+                    />
+                  </label>
+                  <label class="block">
+                    <span
+                      class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t(
+                          "admin.settings.registration.riskIpUserAgentAttempts",
+                        )
+                      }}
+                    </span>
+                    <input
+                      v-model.number="
+                        form.registration_risk_ip_user_agent_attempts
+                      "
+                      data-testid="registration-risk-ip-ua-attempts"
+                      type="number"
+                      step="1"
+                      class="input"
+                    />
+                  </label>
+                  <label class="block">
+                    <span
+                      class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t(
+                          "admin.settings.registration.riskEmailDomainAttempts",
+                        )
+                      }}
+                    </span>
+                    <input
+                      v-model.number="
+                        form.registration_risk_email_domain_attempts
+                      "
+                      data-testid="registration-risk-email-domain-attempts"
+                      type="number"
+                      step="1"
+                      class="input"
+                    />
+                  </label>
+                  <label class="block">
+                    <span
+                      class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-300"
+                    >
+                      {{
+                        t(
+                          "admin.settings.registration.riskShortWindowSeconds",
+                        )
+                      }}
+                    </span>
+                    <input
+                      v-model.number="
+                        form.registration_risk_short_window_seconds
+                      "
+                      data-testid="registration-risk-short-window-seconds"
+                      type="number"
+                      step="1"
+                      class="input"
+                    />
+                  </label>
+                </div>
+                <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.registration.riskLimitHint") }}
+                </p>
+              </div>
               <!-- Password Reset - Only show when email verification is enabled -->
               <div
                 v-if="form.email_verify_enabled"
@@ -7392,6 +7508,12 @@ const form = reactive<SettingsForm>({
   registration_enabled: true,
   email_verify_enabled: false,
   registration_email_suffix_whitelist: [],
+  registration_risk_enabled: true,
+  registration_risk_successful_registrations_per_ip: 3,
+  registration_risk_window_hours: 24,
+  registration_risk_ip_user_agent_attempts: 20,
+  registration_risk_email_domain_attempts: 30,
+  registration_risk_short_window_seconds: 600,
   promo_code_enabled: true,
   invitation_code_enabled: false,
   password_reset_enabled: false,
@@ -8732,6 +8854,22 @@ async function saveSettings() {
         registrationEmailSuffixWhitelistTags.value.map((suffix) =>
           suffix.startsWith("*.") ? suffix : `@${suffix}`,
         ),
+      registration_risk_enabled: form.registration_risk_enabled,
+      registration_risk_successful_registrations_per_ip: Math.trunc(
+        Number(form.registration_risk_successful_registrations_per_ip) || 0,
+      ),
+      registration_risk_window_hours: Math.trunc(
+        Number(form.registration_risk_window_hours) || 0,
+      ),
+      registration_risk_ip_user_agent_attempts: Math.trunc(
+        Number(form.registration_risk_ip_user_agent_attempts) || 0,
+      ),
+      registration_risk_email_domain_attempts: Math.trunc(
+        Number(form.registration_risk_email_domain_attempts) || 0,
+      ),
+      registration_risk_short_window_seconds: Math.trunc(
+        Number(form.registration_risk_short_window_seconds) || 0,
+      ),
       promo_code_enabled: form.promo_code_enabled,
       invitation_code_enabled: form.invitation_code_enabled,
       password_reset_enabled: form.password_reset_enabled,

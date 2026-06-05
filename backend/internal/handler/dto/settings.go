@@ -37,6 +37,12 @@ type SystemSettings struct {
 	RegistrationEnabled              bool                     `json:"registration_enabled"`
 	EmailVerifyEnabled               bool                     `json:"email_verify_enabled"`
 	RegistrationEmailSuffixWhitelist []string                 `json:"registration_email_suffix_whitelist"`
+	RegistrationRiskEnabled          bool                     `json:"registration_risk_enabled"`
+	RegistrationRiskSuccessPerIP     int                      `json:"registration_risk_successful_registrations_per_ip"`
+	RegistrationRiskWindowHours      int                      `json:"registration_risk_window_hours"`
+	RegistrationRiskIPUserAgent      int                      `json:"registration_risk_ip_user_agent_attempts"`
+	RegistrationRiskEmailDomain      int                      `json:"registration_risk_email_domain_attempts"`
+	RegistrationRiskShortWindowSec   int                      `json:"registration_risk_short_window_seconds"`
 	PromoCodeEnabled                 bool                     `json:"promo_code_enabled"`
 	PasswordResetEnabled             bool                     `json:"password_reset_enabled"`
 	FrontendURL                      string                   `json:"frontend_url"`

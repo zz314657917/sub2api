@@ -49,21 +49,31 @@ type registrationRiskRedis interface {
 	Get(ctx context.Context, key string) *redis.StringCmd
 }
 
-type RegistrationRiskLimiter struct {
-	redis registrationRiskRedis
-	cfg   config.RegistrationRiskLimitConfig
+type RegistrationRiskConfigProvider interface {
+	GetRegistrationRiskLimitConfig(ctx context.Context) config.RegistrationRiskLimitConfig
 }
 
-func NewRegistrationRiskLimiter(redisClient *redis.Client, cfg config.RegistrationRiskLimitConfig) *RegistrationRiskLimiter {
-	return &RegistrationRiskLimiter{
+type RegistrationRiskLimiter struct {
+	redis    registrationRiskRedis
+	cfg      config.RegistrationRiskLimitConfig
+	provider RegistrationRiskConfigProvider
+}
+
+func NewRegistrationRiskLimiter(redisClient *redis.Client, cfg config.RegistrationRiskLimitConfig, providers ...RegistrationRiskConfigProvider) *RegistrationRiskLimiter {
+	limiter := &RegistrationRiskLimiter{
 		redis: redisClient,
 		cfg:   cfg,
 	}
+	if len(providers) > 0 {
+		limiter.provider = providers[0]
+	}
+	return limiter
 }
 
 func (l *RegistrationRiskLimiter) LimitRegistrationEntry() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !l.enabled() {
+		cfg := l.effectiveConfig(c.Request.Context())
+		if !l.enabled(cfg) {
 			c.Next()
 			return
 		}
@@ -84,18 +94,18 @@ func (l *RegistrationRiskLimiter) LimitRegistrationEntry() gin.HandlerFunc {
 		userAgent := c.GetHeader("User-Agent")
 		emailDomain := registrationRiskEmailDomain(body)
 
-		if err := l.checkSuccessfulRegistrationIPLimit(c.Request.Context(), clientIP); err != nil {
+		if err := l.checkSuccessfulRegistrationIPLimit(c.Request.Context(), cfg, clientIP); err != nil {
 			response.ErrorFrom(c, err)
 			c.Abort()
 			return
 		}
-		if err := l.countShortWindow(c.Request.Context(), "ip_ua_attempt", hashParts(clientIP, userAgent), l.cfg.IPUserAgentAttempts); err != nil {
+		if err := l.countShortWindow(c.Request.Context(), cfg, "ip_ua_attempt", hashParts(clientIP, userAgent), cfg.IPUserAgentAttempts); err != nil {
 			response.ErrorFrom(c, err)
 			c.Abort()
 			return
 		}
 		if emailDomain != "" {
-			if err := l.countShortWindow(c.Request.Context(), "email_domain_attempt", hashParts(emailDomain), l.cfg.EmailDomainAttempts); err != nil {
+			if err := l.countShortWindow(c.Request.Context(), cfg, "email_domain_attempt", hashParts(emailDomain), cfg.EmailDomainAttempts); err != nil {
 				response.ErrorFrom(c, err)
 				c.Abort()
 				return
@@ -114,11 +124,12 @@ func MarkRegistrationCreated(c *gin.Context) {
 
 func (l *RegistrationRiskLimiter) ReserveMarkedSuccessfulRegistration() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if !l.enabled() || l.redis == nil {
+		cfg := l.effectiveConfig(c.Request.Context())
+		if !l.enabled(cfg) || l.redis == nil {
 			c.Next()
 			return
 		}
-		limit := l.cfg.SuccessfulRegistrationsPerIP
+		limit := cfg.SuccessfulRegistrationsPerIP
 		if limit <= 0 {
 			c.Next()
 			return
@@ -130,7 +141,7 @@ func (l *RegistrationRiskLimiter) ReserveMarkedSuccessfulRegistration() gin.Hand
 		}
 
 		key := successfulRegistrationIPKey(clientIP)
-		count, err := l.incrWithTTL(c.Request.Context(), key, l.successWindow()).Result()
+		count, err := l.incrWithTTL(c.Request.Context(), key, l.successWindow(cfg)).Result()
 		if err != nil {
 			log.Printf("[RegistrationRisk] failed to reserve successful registration: %v", err)
 			response.ErrorFrom(c, ErrRegistrationRiskLimitExceeded)
@@ -153,12 +164,22 @@ func (l *RegistrationRiskLimiter) ReserveMarkedSuccessfulRegistration() gin.Hand
 	}
 }
 
-func (l *RegistrationRiskLimiter) enabled() bool {
-	return l != nil && l.cfg.Enabled
+func (l *RegistrationRiskLimiter) effectiveConfig(ctx context.Context) config.RegistrationRiskLimitConfig {
+	if l == nil {
+		return config.RegistrationRiskLimitConfig{}
+	}
+	if l.provider != nil {
+		return l.provider.GetRegistrationRiskLimitConfig(ctx)
+	}
+	return l.cfg
 }
 
-func (l *RegistrationRiskLimiter) checkSuccessfulRegistrationIPLimit(ctx context.Context, clientIP string) error {
-	limit := l.cfg.SuccessfulRegistrationsPerIP
+func (l *RegistrationRiskLimiter) enabled(cfg config.RegistrationRiskLimitConfig) bool {
+	return l != nil && cfg.Enabled
+}
+
+func (l *RegistrationRiskLimiter) checkSuccessfulRegistrationIPLimit(ctx context.Context, cfg config.RegistrationRiskLimitConfig, clientIP string) error {
+	limit := cfg.SuccessfulRegistrationsPerIP
 	if limit <= 0 || strings.TrimSpace(clientIP) == "" {
 		return nil
 	}
@@ -176,11 +197,11 @@ func (l *RegistrationRiskLimiter) checkSuccessfulRegistrationIPLimit(ctx context
 	return nil
 }
 
-func (l *RegistrationRiskLimiter) countShortWindow(ctx context.Context, kind, identity string, limit int) error {
+func (l *RegistrationRiskLimiter) countShortWindow(ctx context.Context, cfg config.RegistrationRiskLimitConfig, kind, identity string, limit int) error {
 	if limit <= 0 || strings.TrimSpace(identity) == "" {
 		return nil
 	}
-	count, err := l.incrWithTTL(ctx, registrationRiskKey(kind, identity), l.shortWindow()).Result()
+	count, err := l.incrWithTTL(ctx, registrationRiskKey(kind, identity), l.shortWindow(cfg)).Result()
 	if err != nil {
 		log.Printf("[RegistrationRisk] redis incr error: %v", err)
 		return ErrRegistrationRiskLimitExceeded
@@ -213,18 +234,18 @@ func (l *RegistrationRiskLimiter) releaseSuccessfulRegistration(ctx context.Cont
 	}
 }
 
-func (l *RegistrationRiskLimiter) successWindow() time.Duration {
-	if l == nil || l.cfg.WindowHours <= 0 {
+func (l *RegistrationRiskLimiter) successWindow(cfg config.RegistrationRiskLimitConfig) time.Duration {
+	if l == nil || cfg.WindowHours <= 0 {
 		return defaultRegistrationRiskWindow
 	}
-	return time.Duration(l.cfg.WindowHours) * time.Hour
+	return time.Duration(cfg.WindowHours) * time.Hour
 }
 
-func (l *RegistrationRiskLimiter) shortWindow() time.Duration {
-	if l == nil || l.cfg.ShortWindowSeconds <= 0 {
+func (l *RegistrationRiskLimiter) shortWindow(cfg config.RegistrationRiskLimitConfig) time.Duration {
+	if l == nil || cfg.ShortWindowSeconds <= 0 {
 		return defaultRegistrationRiskShortWindow
 	}
-	return time.Duration(l.cfg.ShortWindowSeconds) * time.Second
+	return time.Duration(cfg.ShortWindowSeconds) * time.Second
 }
 
 func readAndRestoreRequestBody(c *gin.Context) ([]byte, error) {

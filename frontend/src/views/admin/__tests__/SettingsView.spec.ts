@@ -152,6 +152,14 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.authSourceDefaults.defaultSubscriptionsLabel": "默认订阅",
     "admin.settings.authSourceDefaults.defaultSubscriptionsHint": "仅对当前认证来源生效，未配置时不追加来源专属订阅。",
     "admin.settings.authSourceDefaults.noSourceSubscriptions": "当前来源未配置专属默认订阅。",
+    "admin.settings.registration.riskTitle": "注册风控",
+    "admin.settings.registration.riskHint": "限制同 IP、同设备指纹和邮箱域名在短时间内的注册行为。",
+    "admin.settings.registration.riskSuccessfulRegistrationsPerIp": "单 IP 成功注册数",
+    "admin.settings.registration.riskWindowHours": "成功注册窗口（小时）",
+    "admin.settings.registration.riskIpUserAgentAttempts": "IP + UA 短窗口尝试数",
+    "admin.settings.registration.riskEmailDomainAttempts": "邮箱域名短窗口尝试数",
+    "admin.settings.registration.riskShortWindowSeconds": "短窗口长度（秒）",
+    "admin.settings.registration.riskLimitHint": "限制数填 0 或负数可关闭对应限制；窗口小于等于 0 时使用系统默认窗口。",
     "admin.settings.paymentVisibleMethods.methodLabel": "{title} 可见方式",
     "admin.settings.paymentVisibleMethods.methodHint": "控制前台结算页是否展示该方式，以及展示时使用的来源键。",
     "admin.settings.paymentVisibleMethods.sourceLabel": "支付来源",
@@ -292,6 +300,12 @@ const baseSettingsResponse = {
   registration_enabled: true,
   email_verify_enabled: false,
   registration_email_suffix_whitelist: [],
+  registration_risk_enabled: true,
+  registration_risk_successful_registrations_per_ip: 3,
+  registration_risk_window_hours: 24,
+  registration_risk_ip_user_agent_attempts: 20,
+  registration_risk_email_domain_attempts: 30,
+  registration_risk_short_window_seconds: 600,
   promo_code_enabled: true,
   invitation_code_enabled: false,
   password_reset_enabled: false,
@@ -614,6 +628,48 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(payload).not.toHaveProperty("payment_visible_method_wxpay_source");
     expect(payload).not.toHaveProperty("payment_visible_method_alipay_enabled");
     expect(payload).not.toHaveProperty("payment_visible_method_wxpay_enabled");
+  });
+
+  it("loads and submits registration risk controls", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      registration_risk_successful_registrations_per_ip: 5,
+      registration_risk_short_window_seconds: 300,
+    });
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openSecurityTab(wrapper);
+
+    expect(wrapper.text()).toContain("注册风控");
+    expect(
+      (
+        wrapper.get('[data-testid="registration-risk-success-per-ip"]')
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("5");
+
+    await wrapper
+      .get('[data-testid="registration-risk-ip-ua-attempts"]')
+      .setValue("12");
+    await wrapper
+      .get('[data-testid="registration-risk-email-domain-attempts"]')
+      .setValue("18");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        registration_risk_enabled: true,
+        registration_risk_successful_registrations_per_ip: 5,
+        registration_risk_window_hours: 24,
+        registration_risk_ip_user_agent_attempts: 12,
+        registration_risk_email_domain_attempts: 18,
+        registration_risk_short_window_seconds: 300,
+      }),
+    );
   });
 
   it("submits Anthropic cache TTL injection gateway setting", async () => {

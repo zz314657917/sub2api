@@ -28,7 +28,7 @@ func RegisterAuthRoutes(
 	if cfg != nil {
 		registrationRiskCfg = cfg.RateLimit.RegistrationRisk
 	}
-	registrationRiskLimiter := middleware.NewRegistrationRiskLimiter(redisClient, registrationRiskCfg)
+	registrationRiskLimiter := middleware.NewRegistrationRiskLimiter(redisClient, registrationRiskCfg, settingService)
 
 	// 公开接口
 	auth := v1.Group("/auth")

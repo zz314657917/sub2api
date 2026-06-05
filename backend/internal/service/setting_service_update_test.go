@@ -237,6 +237,53 @@ func TestSettingService_UpdateSettings_RegistrationEmailSuffixWhitelist_Invalid(
 	require.Equal(t, "INVALID_REGISTRATION_EMAIL_SUFFIX_WHITELIST", infraerrors.Reason(err))
 }
 
+func TestSettingService_UpdateSettings_RegistrationRiskControls(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		RegistrationRiskEnabled:        true,
+		RegistrationRiskSuccessPerIP:   4,
+		RegistrationRiskWindowHours:    12,
+		RegistrationRiskIPUserAgent:    15,
+		RegistrationRiskEmailDomain:    -1,
+		RegistrationRiskShortWindowSec: 300,
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, "true", repo.updates[SettingKeyRegistrationRiskEnabled])
+	require.Equal(t, "4", repo.updates[SettingKeyRegistrationRiskSuccessPerIP])
+	require.Equal(t, "12", repo.updates[SettingKeyRegistrationRiskWindowHours])
+	require.Equal(t, "15", repo.updates[SettingKeyRegistrationRiskIPUserAgent])
+	require.Equal(t, "-1", repo.updates[SettingKeyRegistrationRiskEmailDomain])
+	require.Equal(t, "300", repo.updates[SettingKeyRegistrationRiskShortWindowSec])
+}
+
+func TestSettingService_ParseSettings_RegistrationRiskDefaultsFromConfig(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{
+		RateLimit: config.RateLimitConfig{
+			RegistrationRisk: config.RegistrationRiskLimitConfig{
+				Enabled:                      true,
+				SuccessfulRegistrationsPerIP: 6,
+				WindowHours:                  48,
+				IPUserAgentAttempts:          11,
+				EmailDomainAttempts:          13,
+				ShortWindowSeconds:           180,
+			},
+		},
+	})
+
+	got := svc.parseSettings(map[string]string{})
+
+	require.True(t, got.RegistrationRiskEnabled)
+	require.Equal(t, 6, got.RegistrationRiskSuccessPerIP)
+	require.Equal(t, 48, got.RegistrationRiskWindowHours)
+	require.Equal(t, 11, got.RegistrationRiskIPUserAgent)
+	require.Equal(t, 13, got.RegistrationRiskEmailDomain)
+	require.Equal(t, 180, got.RegistrationRiskShortWindowSec)
+}
+
 func TestParseDefaultSubscriptions_NormalizesValues(t *testing.T) {
 	got := parseDefaultSubscriptions(`[{"group_id":11,"validity_days":30},{"group_id":11,"validity_days":60},{"group_id":0,"validity_days":10},{"group_id":12,"validity_days":99999}]`)
 	require.Equal(t, []DefaultSubscriptionSetting{

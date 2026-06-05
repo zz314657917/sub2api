@@ -111,6 +111,12 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		RegistrationEnabled:                    settings.RegistrationEnabled,
 		EmailVerifyEnabled:                     settings.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:       settings.RegistrationEmailSuffixWhitelist,
+		RegistrationRiskEnabled:                settings.RegistrationRiskEnabled,
+		RegistrationRiskSuccessPerIP:           settings.RegistrationRiskSuccessPerIP,
+		RegistrationRiskWindowHours:            settings.RegistrationRiskWindowHours,
+		RegistrationRiskIPUserAgent:            settings.RegistrationRiskIPUserAgent,
+		RegistrationRiskEmailDomain:            settings.RegistrationRiskEmailDomain,
+		RegistrationRiskShortWindowSec:         settings.RegistrationRiskShortWindowSec,
 		PromoCodeEnabled:                       settings.PromoCodeEnabled,
 		PasswordResetEnabled:                   settings.PasswordResetEnabled,
 		FrontendURL:                            settings.FrontendURL,
@@ -415,6 +421,12 @@ type UpdateSettingsRequest struct {
 	RegistrationEnabled              bool                         `json:"registration_enabled"`
 	EmailVerifyEnabled               bool                         `json:"email_verify_enabled"`
 	RegistrationEmailSuffixWhitelist []string                     `json:"registration_email_suffix_whitelist"`
+	RegistrationRiskEnabled          *bool                        `json:"registration_risk_enabled"`
+	RegistrationRiskSuccessPerIP     *int                         `json:"registration_risk_successful_registrations_per_ip"`
+	RegistrationRiskWindowHours      *int                         `json:"registration_risk_window_hours"`
+	RegistrationRiskIPUserAgent      *int                         `json:"registration_risk_ip_user_agent_attempts"`
+	RegistrationRiskEmailDomain      *int                         `json:"registration_risk_email_domain_attempts"`
+	RegistrationRiskShortWindowSec   *int                         `json:"registration_risk_short_window_seconds"`
 	PromoCodeEnabled                 bool                         `json:"promo_code_enabled"`
 	PasswordResetEnabled             bool                         `json:"password_reset_enabled"`
 	FrontendURL                      string                       `json:"frontend_url"`
@@ -1463,6 +1475,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		RegistrationEnabled:              req.RegistrationEnabled,
 		EmailVerifyEnabled:               req.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist: req.RegistrationEmailSuffixWhitelist,
+		RegistrationRiskEnabled:          boolValueOrDefault(req.RegistrationRiskEnabled, previousSettings.RegistrationRiskEnabled),
+		RegistrationRiskSuccessPerIP:     intValueOrDefault(req.RegistrationRiskSuccessPerIP, previousSettings.RegistrationRiskSuccessPerIP),
+		RegistrationRiskWindowHours:      intValueOrDefault(req.RegistrationRiskWindowHours, previousSettings.RegistrationRiskWindowHours),
+		RegistrationRiskIPUserAgent:      intValueOrDefault(req.RegistrationRiskIPUserAgent, previousSettings.RegistrationRiskIPUserAgent),
+		RegistrationRiskEmailDomain:      intValueOrDefault(req.RegistrationRiskEmailDomain, previousSettings.RegistrationRiskEmailDomain),
+		RegistrationRiskShortWindowSec:   intValueOrDefault(req.RegistrationRiskShortWindowSec, previousSettings.RegistrationRiskShortWindowSec),
 		PromoCodeEnabled:                 req.PromoCodeEnabled,
 		PasswordResetEnabled:             req.PasswordResetEnabled,
 		FrontendURL:                      req.FrontendURL,
@@ -1912,6 +1930,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		RegistrationEnabled:                    updatedSettings.RegistrationEnabled,
 		EmailVerifyEnabled:                     updatedSettings.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:       updatedSettings.RegistrationEmailSuffixWhitelist,
+		RegistrationRiskEnabled:                updatedSettings.RegistrationRiskEnabled,
+		RegistrationRiskSuccessPerIP:           updatedSettings.RegistrationRiskSuccessPerIP,
+		RegistrationRiskWindowHours:            updatedSettings.RegistrationRiskWindowHours,
+		RegistrationRiskIPUserAgent:            updatedSettings.RegistrationRiskIPUserAgent,
+		RegistrationRiskEmailDomain:            updatedSettings.RegistrationRiskEmailDomain,
+		RegistrationRiskShortWindowSec:         updatedSettings.RegistrationRiskShortWindowSec,
 		PromoCodeEnabled:                       updatedSettings.PromoCodeEnabled,
 		PasswordResetEnabled:                   updatedSettings.PasswordResetEnabled,
 		FrontendURL:                            updatedSettings.FrontendURL,
@@ -2150,6 +2174,24 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if !equalStringSlice(before.RegistrationEmailSuffixWhitelist, after.RegistrationEmailSuffixWhitelist) {
 		changed = append(changed, "registration_email_suffix_whitelist")
+	}
+	if before.RegistrationRiskEnabled != after.RegistrationRiskEnabled {
+		changed = append(changed, "registration_risk_enabled")
+	}
+	if before.RegistrationRiskSuccessPerIP != after.RegistrationRiskSuccessPerIP {
+		changed = append(changed, "registration_risk_successful_registrations_per_ip")
+	}
+	if before.RegistrationRiskWindowHours != after.RegistrationRiskWindowHours {
+		changed = append(changed, "registration_risk_window_hours")
+	}
+	if before.RegistrationRiskIPUserAgent != after.RegistrationRiskIPUserAgent {
+		changed = append(changed, "registration_risk_ip_user_agent_attempts")
+	}
+	if before.RegistrationRiskEmailDomain != after.RegistrationRiskEmailDomain {
+		changed = append(changed, "registration_risk_email_domain_attempts")
+	}
+	if before.RegistrationRiskShortWindowSec != after.RegistrationRiskShortWindowSec {
+		changed = append(changed, "registration_risk_short_window_seconds")
 	}
 	if before.PromoCodeEnabled != after.PromoCodeEnabled {
 		changed = append(changed, "promo_code_enabled")

@@ -322,6 +322,12 @@ export interface SystemSettings {
   registration_enabled: boolean;
   email_verify_enabled: boolean;
   registration_email_suffix_whitelist: string[];
+  registration_risk_enabled: boolean;
+  registration_risk_successful_registrations_per_ip: number;
+  registration_risk_window_hours: number;
+  registration_risk_ip_user_agent_attempts: number;
+  registration_risk_email_domain_attempts: number;
+  registration_risk_short_window_seconds: number;
   promo_code_enabled: boolean;
   password_reset_enabled: boolean;
   frontend_url: string;
@@ -578,6 +584,12 @@ export interface UpdateSettingsRequest {
   registration_enabled?: boolean;
   email_verify_enabled?: boolean;
   registration_email_suffix_whitelist?: string[];
+  registration_risk_enabled?: boolean;
+  registration_risk_successful_registrations_per_ip?: number;
+  registration_risk_window_hours?: number;
+  registration_risk_ip_user_agent_attempts?: number;
+  registration_risk_email_domain_attempts?: number;
+  registration_risk_short_window_seconds?: number;
   promo_code_enabled?: boolean;
   password_reset_enabled?: boolean;
   frontend_url?: string;

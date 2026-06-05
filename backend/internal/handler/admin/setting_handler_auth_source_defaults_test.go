@@ -206,6 +206,60 @@ func TestSettingHandler_UpdateSettings_PreservesOmittedAuthSourceDefaults(t *tes
 	require.Equal(t, true, data["force_email_on_third_party_signup"])
 }
 
+func TestSettingHandler_UpdateSettings_PersistsRegistrationRiskControls(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &settingHandlerRepoStub{
+		values: map[string]string{
+			service.SettingKeyRegistrationEnabled:            "true",
+			service.SettingKeyPromoCodeEnabled:               "true",
+			service.SettingKeyRegistrationRiskEnabled:        "true",
+			service.SettingKeyRegistrationRiskSuccessPerIP:   "3",
+			service.SettingKeyRegistrationRiskWindowHours:    "24",
+			service.SettingKeyRegistrationRiskIPUserAgent:    "20",
+			service.SettingKeyRegistrationRiskEmailDomain:    "30",
+			service.SettingKeyRegistrationRiskShortWindowSec: "600",
+		},
+	}
+	svc := service.NewSettingService(repo, &config.Config{Default: config.DefaultConfig{UserConcurrency: 5}})
+	handler := NewSettingHandler(svc, nil, nil, nil, nil, nil)
+
+	body := map[string]any{
+		"registration_enabled":                              true,
+		"promo_code_enabled":                                true,
+		"registration_risk_enabled":                         false,
+		"registration_risk_successful_registrations_per_ip": 2,
+		"registration_risk_window_hours":                    12,
+		"registration_risk_ip_user_agent_attempts":          9,
+		"registration_risk_email_domain_attempts":           -1,
+		"registration_risk_short_window_seconds":            300,
+	}
+	rawBody, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPut, "/api/v1/admin/settings", bytes.NewReader(rawBody))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	handler.UpdateSettings(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "false", repo.values[service.SettingKeyRegistrationRiskEnabled])
+	require.Equal(t, "2", repo.values[service.SettingKeyRegistrationRiskSuccessPerIP])
+	require.Equal(t, "12", repo.values[service.SettingKeyRegistrationRiskWindowHours])
+	require.Equal(t, "9", repo.values[service.SettingKeyRegistrationRiskIPUserAgent])
+	require.Equal(t, "-1", repo.values[service.SettingKeyRegistrationRiskEmailDomain])
+	require.Equal(t, "300", repo.values[service.SettingKeyRegistrationRiskShortWindowSec])
+
+	var resp response.Response
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	data, ok := resp.Data.(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, false, data["registration_risk_enabled"])
+	require.Equal(t, float64(2), data["registration_risk_successful_registrations_per_ip"])
+	require.Equal(t, float64(-1), data["registration_risk_email_domain_attempts"])
+}
+
 func TestSettingHandler_UpdateSettings_PersistsPaymentVisibleMethodsAndAdvancedScheduler(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &settingHandlerRepoStub{

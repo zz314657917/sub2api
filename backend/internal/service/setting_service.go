@@ -82,6 +82,18 @@ const backendModeCacheTTL = 60 * time.Second
 const backendModeErrorTTL = 5 * time.Second
 const backendModeDBTimeout = 5 * time.Second
 
+type cachedRegistrationRiskSettings struct {
+	cfg       config.RegistrationRiskLimitConfig
+	expiresAt int64 // unix nano
+}
+
+var registrationRiskSettingsCache atomic.Value // *cachedRegistrationRiskSettings
+var registrationRiskSettingsSF singleflight.Group
+
+const registrationRiskSettingsCacheTTL = 5 * time.Second
+const registrationRiskSettingsErrorTTL = time.Second
+const registrationRiskSettingsDBTimeout = 2 * time.Second
+
 // cachedGatewayForwardingSettings 缓存网关转发行为设置（进程内缓存，60s TTL）
 type cachedGatewayForwardingSettings struct {
 	fingerprintUnification       bool
@@ -1514,6 +1526,12 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		return nil, fmt.Errorf("marshal registration email suffix whitelist: %w", err)
 	}
 	updates[SettingKeyRegistrationEmailSuffixWhitelist] = string(registrationEmailSuffixWhitelistJSON)
+	updates[SettingKeyRegistrationRiskEnabled] = strconv.FormatBool(settings.RegistrationRiskEnabled)
+	updates[SettingKeyRegistrationRiskSuccessPerIP] = strconv.Itoa(settings.RegistrationRiskSuccessPerIP)
+	updates[SettingKeyRegistrationRiskWindowHours] = strconv.Itoa(settings.RegistrationRiskWindowHours)
+	updates[SettingKeyRegistrationRiskIPUserAgent] = strconv.Itoa(settings.RegistrationRiskIPUserAgent)
+	updates[SettingKeyRegistrationRiskEmailDomain] = strconv.Itoa(settings.RegistrationRiskEmailDomain)
+	updates[SettingKeyRegistrationRiskShortWindowSec] = strconv.Itoa(settings.RegistrationRiskShortWindowSec)
 	updates[SettingKeyPromoCodeEnabled] = strconv.FormatBool(settings.PromoCodeEnabled)
 	updates[SettingKeyPasswordResetEnabled] = strconv.FormatBool(settings.PasswordResetEnabled)
 	updates[SettingKeyFrontendURL] = settings.FrontendURL
@@ -1883,6 +1901,18 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 		value:     settings.BackendModeEnabled,
 		expiresAt: time.Now().Add(backendModeCacheTTL).UnixNano(),
 	})
+	registrationRiskSettingsSF.Forget("registration_risk_settings")
+	registrationRiskSettingsCache.Store(&cachedRegistrationRiskSettings{
+		cfg: config.RegistrationRiskLimitConfig{
+			Enabled:                      settings.RegistrationRiskEnabled,
+			SuccessfulRegistrationsPerIP: settings.RegistrationRiskSuccessPerIP,
+			WindowHours:                  settings.RegistrationRiskWindowHours,
+			IPUserAgentAttempts:          settings.RegistrationRiskIPUserAgent,
+			EmailDomainAttempts:          settings.RegistrationRiskEmailDomain,
+			ShortWindowSeconds:           settings.RegistrationRiskShortWindowSec,
+		},
+		expiresAt: time.Now().Add(registrationRiskSettingsCacheTTL).UnixNano(),
+	})
 	gatewayForwardingSF.Forget("gateway_forwarding")
 	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{
 		fingerprintUnification:       settings.EnableFingerprintUnification,
@@ -1921,6 +1951,65 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 
 func (s *SettingService) defaultRewriteMessageCacheControl() bool {
 	return false
+}
+
+func defaultRegistrationRiskLimitConfig() config.RegistrationRiskLimitConfig {
+	return config.RegistrationRiskLimitConfig{
+		Enabled:                      true,
+		SuccessfulRegistrationsPerIP: 3,
+		WindowHours:                  24,
+		IPUserAgentAttempts:          20,
+		EmailDomainAttempts:          30,
+		ShortWindowSeconds:           600,
+	}
+}
+
+func (s *SettingService) baseRegistrationRiskLimitConfig() config.RegistrationRiskLimitConfig {
+	fallback := defaultRegistrationRiskLimitConfig()
+	if s == nil || s.cfg == nil {
+		return fallback
+	}
+	cfg := s.cfg.RateLimit.RegistrationRisk
+	if !cfg.Enabled &&
+		cfg.SuccessfulRegistrationsPerIP == 0 &&
+		cfg.WindowHours == 0 &&
+		cfg.IPUserAgentAttempts == 0 &&
+		cfg.EmailDomainAttempts == 0 &&
+		cfg.ShortWindowSeconds == 0 {
+		return fallback
+	}
+	return cfg
+}
+
+func boolSettingOrDefault(settings map[string]string, key string, fallback bool) bool {
+	raw, ok := settings[key]
+	if !ok || strings.TrimSpace(raw) == "" {
+		return fallback
+	}
+	return strings.TrimSpace(raw) == "true"
+}
+
+func intSettingOrDefault(settings map[string]string, key string, fallback int) int {
+	raw, ok := settings[key]
+	if !ok || strings.TrimSpace(raw) == "" {
+		return fallback
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return fallback
+	}
+	return value
+}
+
+func registrationRiskLimitConfigFromSettings(settings map[string]string, fallback config.RegistrationRiskLimitConfig) config.RegistrationRiskLimitConfig {
+	return config.RegistrationRiskLimitConfig{
+		Enabled:                      boolSettingOrDefault(settings, SettingKeyRegistrationRiskEnabled, fallback.Enabled),
+		SuccessfulRegistrationsPerIP: intSettingOrDefault(settings, SettingKeyRegistrationRiskSuccessPerIP, fallback.SuccessfulRegistrationsPerIP),
+		WindowHours:                  intSettingOrDefault(settings, SettingKeyRegistrationRiskWindowHours, fallback.WindowHours),
+		IPUserAgentAttempts:          intSettingOrDefault(settings, SettingKeyRegistrationRiskIPUserAgent, fallback.IPUserAgentAttempts),
+		EmailDomainAttempts:          intSettingOrDefault(settings, SettingKeyRegistrationRiskEmailDomain, fallback.EmailDomainAttempts),
+		ShortWindowSeconds:           intSettingOrDefault(settings, SettingKeyRegistrationRiskShortWindowSec, fallback.ShortWindowSeconds),
+	}
 }
 
 func (s *SettingService) validateDefaultSubscriptionGroups(ctx context.Context, items []DefaultSubscriptionSetting) error {
@@ -2025,6 +2114,54 @@ func (s *SettingService) IsRegistrationEnabled(ctx context.Context) bool {
 		return false
 	}
 	return value == "true"
+}
+
+// GetRegistrationRiskLimitConfig returns the effective registration risk limits.
+func (s *SettingService) GetRegistrationRiskLimitConfig(ctx context.Context) config.RegistrationRiskLimitConfig {
+	fallback := s.baseRegistrationRiskLimitConfig()
+	if s == nil || s.settingRepo == nil {
+		return fallback
+	}
+	if cached, ok := registrationRiskSettingsCache.Load().(*cachedRegistrationRiskSettings); ok && cached != nil {
+		if time.Now().UnixNano() < cached.expiresAt {
+			return cached.cfg
+		}
+	}
+	val, _, _ := registrationRiskSettingsSF.Do("registration_risk_settings", func() (any, error) {
+		if cached, ok := registrationRiskSettingsCache.Load().(*cachedRegistrationRiskSettings); ok && cached != nil {
+			if time.Now().UnixNano() < cached.expiresAt {
+				return cached.cfg, nil
+			}
+		}
+		dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), registrationRiskSettingsDBTimeout)
+		defer cancel()
+		values, err := s.settingRepo.GetMultiple(dbCtx, []string{
+			SettingKeyRegistrationRiskEnabled,
+			SettingKeyRegistrationRiskSuccessPerIP,
+			SettingKeyRegistrationRiskWindowHours,
+			SettingKeyRegistrationRiskIPUserAgent,
+			SettingKeyRegistrationRiskEmailDomain,
+			SettingKeyRegistrationRiskShortWindowSec,
+		})
+		if err != nil {
+			slog.Warn("failed to get registration risk settings", "error", err)
+			registrationRiskSettingsCache.Store(&cachedRegistrationRiskSettings{
+				cfg:       fallback,
+				expiresAt: time.Now().Add(registrationRiskSettingsErrorTTL).UnixNano(),
+			})
+			return fallback, nil
+		}
+		cfg := registrationRiskLimitConfigFromSettings(values, fallback)
+		registrationRiskSettingsCache.Store(&cachedRegistrationRiskSettings{
+			cfg:       cfg,
+			expiresAt: time.Now().Add(registrationRiskSettingsCacheTTL).UnixNano(),
+		})
+		return cfg, nil
+	})
+	if cfg, ok := val.(config.RegistrationRiskLimitConfig); ok {
+		return cfg
+	}
+	return fallback
 }
 
 // IsBackendModeEnabled checks if backend mode is enabled
@@ -2590,10 +2727,17 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 	}
 
 	// 初始化默认设置
+	registrationRiskDefaults := s.baseRegistrationRiskLimitConfig()
 	defaults := map[string]string{
 		SettingKeyRegistrationEnabled:                      "true",
 		SettingKeyEmailVerifyEnabled:                       "false",
 		SettingKeyRegistrationEmailSuffixWhitelist:         "[]",
+		SettingKeyRegistrationRiskEnabled:                  strconv.FormatBool(registrationRiskDefaults.Enabled),
+		SettingKeyRegistrationRiskSuccessPerIP:             strconv.Itoa(registrationRiskDefaults.SuccessfulRegistrationsPerIP),
+		SettingKeyRegistrationRiskWindowHours:              strconv.Itoa(registrationRiskDefaults.WindowHours),
+		SettingKeyRegistrationRiskIPUserAgent:              strconv.Itoa(registrationRiskDefaults.IPUserAgentAttempts),
+		SettingKeyRegistrationRiskEmailDomain:              strconv.Itoa(registrationRiskDefaults.EmailDomainAttempts),
+		SettingKeyRegistrationRiskShortWindowSec:           strconv.Itoa(registrationRiskDefaults.ShortWindowSeconds),
 		SettingKeyPromoCodeEnabled:                         "true", // 默认启用优惠码功能
 		SettingKeyLoginAgreementEnabled:                    "false",
 		SettingKeyLoginAgreementMode:                       defaultLoginAgreementMode,
@@ -2790,10 +2934,17 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	if loginAgreementUpdatedAt == "" {
 		loginAgreementUpdatedAt = defaultLoginAgreementDate
 	}
+	registrationRiskCfg := registrationRiskLimitConfigFromSettings(settings, s.baseRegistrationRiskLimitConfig())
 	result := &SystemSettings{
 		RegistrationEnabled:              settings[SettingKeyRegistrationEnabled] == "true",
 		EmailVerifyEnabled:               emailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist: ParseRegistrationEmailSuffixWhitelist(settings[SettingKeyRegistrationEmailSuffixWhitelist]),
+		RegistrationRiskEnabled:          registrationRiskCfg.Enabled,
+		RegistrationRiskSuccessPerIP:     registrationRiskCfg.SuccessfulRegistrationsPerIP,
+		RegistrationRiskWindowHours:      registrationRiskCfg.WindowHours,
+		RegistrationRiskIPUserAgent:      registrationRiskCfg.IPUserAgentAttempts,
+		RegistrationRiskEmailDomain:      registrationRiskCfg.EmailDomainAttempts,
+		RegistrationRiskShortWindowSec:   registrationRiskCfg.ShortWindowSeconds,
 		PromoCodeEnabled:                 settings[SettingKeyPromoCodeEnabled] != "false", // 默认启用
 		PasswordResetEnabled:             emailVerifyEnabled && settings[SettingKeyPasswordResetEnabled] == "true",
 		FrontendURL:                      settings[SettingKeyFrontendURL],

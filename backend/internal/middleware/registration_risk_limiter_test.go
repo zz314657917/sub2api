@@ -80,6 +80,14 @@ func (f *fakeRegistrationRiskRedis) set(key string, value int) {
 	f.values[key] = value
 }
 
+type fakeRegistrationRiskConfigProvider struct {
+	cfg config.RegistrationRiskLimitConfig
+}
+
+func (f *fakeRegistrationRiskConfigProvider) GetRegistrationRiskLimitConfig(context.Context) config.RegistrationRiskLimitConfig {
+	return f.cfg
+}
+
 func newRegistrationRiskTestRouter(redis registrationRiskRedis, cfg config.RegistrationRiskLimitConfig, handler gin.HandlerFunc) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -229,6 +237,34 @@ func TestRegistrationRiskLimiterDisabledByConfig(t *testing.T) {
 
 	require.Equal(t, http.StatusBadRequest, performRegistrationRiskRequest(router, `{"email":"first@example.com"}`).Code)
 	require.Equal(t, http.StatusBadRequest, performRegistrationRiskRequest(router, `{"email":"second@example.com"}`).Code)
+}
+
+func TestRegistrationRiskLimiterUsesDynamicProviderConfig(t *testing.T) {
+	redis := newFakeRegistrationRiskRedis()
+	provider := &fakeRegistrationRiskConfigProvider{
+		cfg: config.RegistrationRiskLimitConfig{
+			Enabled:             true,
+			IPUserAgentAttempts: 1,
+			ShortWindowSeconds:  60,
+		},
+	}
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	limiter := &RegistrationRiskLimiter{
+		redis: redis,
+		cfg: config.RegistrationRiskLimitConfig{
+			Enabled: false,
+		},
+		provider: provider,
+	}
+	router.POST("/register", limiter.LimitRegistrationEntry(), func(c *gin.Context) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "business validation failed"})
+	})
+
+	require.Equal(t, http.StatusBadRequest, performRegistrationRiskRequest(router, `{"email":"first@example.com"}`).Code)
+	second := performRegistrationRiskRequest(router, `{"email":"second@example.com"}`)
+	require.Equal(t, http.StatusTooManyRequests, second.Code)
+	require.Contains(t, second.Body.String(), "REGISTRATION_RISK_LIMIT_EXCEEDED")
 }
 
 func TestRegistrationRiskLimiterFailCloseOnRedisError(t *testing.T) {
