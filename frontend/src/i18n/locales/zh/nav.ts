@@ -18,7 +18,7 @@ export default {
     accountCenter: '账户中心',
     usageAndStatus: '使用与状态',
     redeem: '兑换',
-    tickets: '工单',
+    tickets: '我的工单',
     affiliate: '邀请赚钱',
     affiliateManagement: '邀请赚钱',
     affiliateInviteRecords: '邀请记录',
