@@ -7,7 +7,7 @@ export const tutorialFallbackPages: TutorialPage[] = [
     id: 1,
     slug: 'getting-started',
     title: '快速开始',
-    description: '安装 Codex App，创建 codex 密钥，写入配置并启动验证。',
+    description: '安装 Codex App，复制默认 API Key，写入配置并启动验证。',
     category: '使用指南',
     sort_order: 10,
     status: 'published',
@@ -21,7 +21,7 @@ export const tutorialFallbackPages: TutorialPage[] = [
 
 [[callout type="tip" title="新手最快路线"]]
 1. 安装或打开 Codex App。
-2. 登录落叶网络控制台，创建 codex 类型密钥并复制 Token。
+2. 登录落叶网络控制台，复制默认 API Key 和 Base URL。
 3. 按 Codex 教程写入 config.toml 和 auth.json。
 4. 启动 Codex App，确认模型能正常响应。
 [[/callout]]
@@ -31,13 +31,13 @@ export const tutorialFallbackPages: TutorialPage[] = [
 
 [[link-button href="https://chatgpt.com/codex" label="打开 Codex App"]]
 
-## 创建 API 密钥
+## 复制默认 API 密钥
 
-登录落叶网络控制台，进入 API 密钥页面，点击创建密钥。名称可以自由填写，分组选择可用套餐，密钥类型请选择 codex。
+登录落叶网络控制台，进入 API 密钥页面。新账号会自动准备一个默认 API 密钥，先复制该 Key 和 Base URL；如果列表为空，或需要为不同工具单独统计用量，再点击创建密钥。
 
 [[screenshot src="/tutorial/api-key/sidebar-api-key.png" alt="API 密钥入口" caption="左侧进入 API 密钥页面"]]
-[[screenshot src="/tutorial/api-key/create-key-button.png" alt="创建密钥按钮" caption="点击右上角创建密钥"]]
-[[screenshot src="/tutorial/api-key/create-key-dialog.png" alt="创建密钥弹窗" caption="选择分组和密钥类型后创建"]]
+[[screenshot src="/tutorial/api-key/create-key-button.png" alt="创建密钥按钮" caption="需要额外密钥时点击右上角创建密钥"]]
+[[screenshot src="/tutorial/api-key/create-key-dialog.png" alt="创建密钥弹窗" caption="可按工具或项目创建额外密钥"]]
 
 [[link-button href="/keys" label="打开 API 密钥页面"]]
 
@@ -76,7 +76,7 @@ https://ai.3zapi.top
     content_md: `
 # Codex 配置
 
-Codex 推荐使用落叶网络的 OpenAI 兼容接口。流程是：安装 Codex App，创建 codex 类型密钥，写入 config.toml 和 auth.json，然后启动验证。
+Codex 推荐使用落叶网络的 OpenAI 兼容接口。流程是：安装 Codex App，复制默认 API Key，写入 config.toml 和 auth.json，然后启动验证。
 
 [[callout type="tip" title="推荐路线"]]
 新手先走 Codex App。Codex App 不要求先安装 Git 或 Node.js；Node.js/npm 只用于 Codex CLI，Git 主要用于代码项目版本管理和团队协作。
@@ -109,13 +109,13 @@ codex --version
 
 [[link-button href="https://github.com/openai/codex/releases" label="打开 Codex Releases"]]
 
-## 创建 codex 密钥
+## 复制 API Key
 
-登录落叶网络控制台，进入 API 密钥页面，点击创建密钥。名称可以自由填写，分组选择可用套餐，密钥类型请选择 codex。创建后复制 Token，后面写入 auth.json。
+登录落叶网络控制台，进入 API 密钥页面。新账号会自动准备一个默认 API 密钥，先复制该 Key；如果列表为空，或需要为不同工具单独统计用量，再点击创建密钥。
 
 [[screenshot src="/tutorial/api-key/sidebar-api-key.png" alt="API 密钥入口" caption="左侧进入 API 密钥页面"]]
-[[screenshot src="/tutorial/api-key/create-key-button.png" alt="创建密钥按钮" caption="点击右上角创建密钥"]]
-[[screenshot src="/tutorial/api-key/create-key-dialog.png" alt="创建密钥弹窗" caption="密钥类型选择 codex"]]
+[[screenshot src="/tutorial/api-key/create-key-button.png" alt="创建密钥按钮" caption="需要额外密钥时点击右上角创建密钥"]]
+[[screenshot src="/tutorial/api-key/create-key-dialog.png" alt="创建密钥弹窗" caption="可按工具或项目创建额外密钥"]]
 
 [[link-button href="/keys" label="打开 API 密钥页面"]]
 
@@ -171,7 +171,7 @@ wire_api = "responses"
 
 ## 第三步：创建 auth.json
 
-auth.json 用来保存你的 API Key。这里的 key 就是你在落叶网络控制台创建的 codex 类型密钥。
+auth.json 用来保存你的 API Key。这里的 key 就是你在落叶网络控制台复制的 API Key，默认密钥也可以直接使用。
 
 Windows 用户：在同一个 .codex 文件夹里新建 auth.json，再用记事本打开。
 
@@ -197,8 +197,8 @@ nano ~/.codex/auth.json
 
 [[callout type="warning" title="失败时先查这三项"]]
 1. Base URL 是否为 \`https://ai.3zapi.top/v1\`。
-2. API Key 是否复制完整，并且密钥类型是 codex。
-3. 当前分组是否有可用套餐和余额。
+2. API Key 是否复制完整。
+3. 当前密钥是否能路由到可用套餐，账户是否有余额或试用额度。
 [[/callout]]
 
 ## CLI 用户可选安装
@@ -214,7 +214,7 @@ codex --version
 
 ## 常见问题
 
-- 401 或 unauthorized：优先检查 Token 是否复制完整、密钥类型是否为 codex。
+- 401 或 unauthorized：优先检查 Token 是否复制完整。
 - model not found：当前分组可能不支持配置里的模型，换成控制台可用模型后再试。
 - Base URL 报错：OpenAI 兼容地址必须写 \`https://ai.3zapi.top/v1\`，不要漏掉 \`/v1\`。
 - 配置不生效：修改配置后重启 Codex App；如果是 CLI，关闭旧终端后重新打开。
@@ -495,7 +495,7 @@ hermes model
 
 ## 工具能启动但模型不可用
 
-确认账号分组有可用套餐，模型名和工具协议匹配。
+确认当前密钥能路由到可用套餐，模型名和工具协议匹配。
 `.trim()
   }
 ]

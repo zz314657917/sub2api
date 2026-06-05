@@ -133,6 +133,9 @@ export default {
       noGroupTitle: '请先分配分组',
       noGroupDescription:
         '此 API 密钥尚未分配分组，请先在密钥列表中点击分组列进行分配，然后才能查看使用配置。',
+      smartRoutingTitle: '智能路由已启用',
+      smartRoutingDescription:
+        '此密钥未绑定默认分组，会由运行时路由按模型和可用账号选择分组。可先使用下方 OpenAI 兼容配置；如调用失败，请联系管理员确认可用路由、套餐或余额。',
       openai: {
         description: '将以下配置文件添加到 Codex CLI 配置目录中。',
         configTomlHint: '请确保以下内容位于 config.toml 文件的开头部分',

@@ -49,6 +49,7 @@ const (
 	apiKeyRouteDefaultPriority = 100
 	apiKeyRouteDefaultWeight   = 1
 	apiKeyRouteDefaultCooldown = 30
+	initialAPIKeyName          = "Default API Key"
 )
 
 type apiKeyRouteCooldownKey struct {
@@ -655,6 +656,30 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 	s.compileAPIKeyIPRules(apiKey)
 
 	return apiKey, nil
+}
+
+// EnsureInitialKey creates a default API key for a new user when they do not
+// have any key yet. The key is intentionally ungrouped so smart routing or
+// later user/admin configuration can choose the effective group.
+func (s *APIKeyService) EnsureInitialKey(ctx context.Context, userID int64) (*APIKey, bool, error) {
+	if s == nil || s.apiKeyRepo == nil || userID <= 0 {
+		return nil, false, nil
+	}
+	count, err := s.apiKeyRepo.CountByUserID(ctx, userID)
+	if err != nil {
+		return nil, false, fmt.Errorf("count api keys: %w", err)
+	}
+	if count > 0 {
+		return nil, false, nil
+	}
+	key, err := s.Create(ctx, userID, CreateAPIKeyRequest{
+		Name:                initialAPIKeyName,
+		AccountPoolStrategy: AccountPoolStrategySharedOnly,
+	})
+	if err != nil {
+		return nil, false, err
+	}
+	return key, true, nil
 }
 
 // List 获取用户的API Key列表

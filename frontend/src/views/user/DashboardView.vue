@@ -35,6 +35,7 @@
     </div>
     <UserApiKeyOnboardingDialog
       :show="showApiKeyOnboarding"
+      :has-api-key="hasApiKeyForOnboarding"
       :has-benefit="hasOnboardingBenefit"
       :benefit-kind="onboardingBenefitKind"
       :benefit-label="onboardingBenefitLabel"
@@ -197,10 +198,12 @@ const showApiKeyOnboarding = computed(() => {
   return Boolean(
     stats.value &&
     user.value?.role !== 'admin' &&
-    stats.value.total_api_keys === 0 &&
+    stats.value.total_requests === 0 &&
     !apiKeyOnboardingDismissed.value
   )
 })
+
+const hasApiKeyForOnboarding = computed(() => Number(stats.value?.total_api_keys || 0) > 0)
 
 const onboardingAmountFormatter = new Intl.NumberFormat(undefined, {
   minimumFractionDigits: 0,
@@ -282,7 +285,11 @@ const markApiKeyOnboardingDone = () => {
 
 const startApiKeyOnboardingCreate = async () => {
   markApiKeyOnboardingDone()
-  await router.push({ path: '/keys', query: { create: '1' } })
+  await router.push(
+    hasApiKeyForOnboarding.value
+      ? { path: '/keys' }
+      : { path: '/keys', query: { create: '1' } }
+  )
 }
 
 const openApiKeyTutorial = async () => {

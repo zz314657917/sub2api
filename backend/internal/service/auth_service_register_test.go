@@ -71,6 +71,11 @@ type defaultSubscriptionAssignerStub struct {
 	err   error
 }
 
+type initialAPIKeyBootstrapperStub struct {
+	calls []int64
+	err   error
+}
+
 type refreshTokenCacheStub struct{}
 
 func (s *defaultSubscriptionAssignerStub) AssignOrExtendSubscription(_ context.Context, input *AssignSubscriptionInput) (*UserSubscription, bool, error) {
@@ -81,6 +86,14 @@ func (s *defaultSubscriptionAssignerStub) AssignOrExtendSubscription(_ context.C
 		return nil, false, s.err
 	}
 	return &UserSubscription{UserID: input.UserID, GroupID: input.GroupID}, false, nil
+}
+
+func (s *initialAPIKeyBootstrapperStub) EnsureInitialKey(_ context.Context, userID int64) (*APIKey, bool, error) {
+	s.calls = append(s.calls, userID)
+	if s.err != nil {
+		return nil, false, s.err
+	}
+	return &APIKey{ID: userID + 1000, UserID: userID, Name: initialAPIKeyName}, true, nil
 }
 
 func (s *refreshTokenCacheStub) StoreRefreshToken(context.Context, string, *RefreshTokenData, time.Duration) error {
@@ -390,6 +403,40 @@ func TestAuthService_Register_Success(t *testing.T) {
 	require.Equal(t, 2, user.Concurrency)
 	require.Len(t, repo.created, 1)
 	require.True(t, user.CheckPassword("password"))
+}
+
+func TestAuthService_Register_EnsuresInitialAPIKey(t *testing.T) {
+	repo := &userRepoStub{nextID: 6}
+	bootstrapper := &initialAPIKeyBootstrapperStub{}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled:                 "true",
+		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "false",
+	}, nil)
+	service.SetInitialAPIKeyBootstrapper(bootstrapper)
+
+	token, user, err := service.Register(context.Background(), "initial-key@test.com", "password")
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
+	require.NotNil(t, user)
+	require.Equal(t, int64(6), user.ID)
+	require.Equal(t, []int64{6}, bootstrapper.calls)
+}
+
+func TestAuthService_Register_InitialAPIKeyFailureDoesNotBlock(t *testing.T) {
+	repo := &userRepoStub{nextID: 7}
+	bootstrapper := &initialAPIKeyBootstrapperStub{err: errors.New("api key repo down")}
+	service := newAuthService(repo, map[string]string{
+		SettingKeyRegistrationEnabled:                 "true",
+		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "false",
+	}, nil)
+	service.SetInitialAPIKeyBootstrapper(bootstrapper)
+
+	token, user, err := service.Register(context.Background(), "initial-key-failed@test.com", "password")
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
+	require.NotNil(t, user)
+	require.Equal(t, int64(7), user.ID)
+	require.Equal(t, []int64{7}, bootstrapper.calls)
 }
 
 func TestAuthService_ValidateToken_ExpiredReturnsClaimsWithError(t *testing.T) {

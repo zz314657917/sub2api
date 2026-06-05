@@ -74,7 +74,7 @@ const stubComponent = (name: string) => defineComponent({
   template: `<div data-test-stub="${name}" />`,
 })
 
-const makeStats = () => ({
+const makeStats = (overrides: Record<string, unknown> = {}) => ({
   total_api_keys: 1,
   active_api_keys: 1,
   total_requests: 10,
@@ -97,11 +97,13 @@ const makeStats = () => ({
   rpm: 1,
   tpm: 100,
   by_platform: [],
+  ...overrides,
 })
 
 describe('User DashboardView data loading', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    window.localStorage.clear()
     mocks.refreshUser.mockResolvedValue(undefined)
     mocks.getDashboardStats.mockResolvedValue(makeStats())
     mocks.getDashboardTrend.mockResolvedValue({ trend: [] })
@@ -141,5 +143,61 @@ describe('User DashboardView data loading', () => {
     expect(mocks.getAccountUsageSummary).toHaveBeenCalledTimes(1)
     expect(mocks.getWelfareOverview).toHaveBeenCalledTimes(1)
     expect(mocks.getDashboardModels).not.toHaveBeenCalled()
+  })
+
+  it('shows onboarding for unused default key and opens the key page', async () => {
+    mocks.getDashboardStats.mockResolvedValue(makeStats({
+      total_api_keys: 1,
+      active_api_keys: 1,
+      total_requests: 0,
+    }))
+
+    const onboardingStub = defineComponent({
+      name: 'UserApiKeyOnboardingDialog',
+      props: {
+        show: Boolean,
+        hasApiKey: Boolean,
+      },
+      emits: ['create'],
+      template: `
+        <button
+          data-test="onboarding-primary"
+          :data-show="String(show)"
+          :data-has-api-key="String(hasApiKey)"
+          @click="$emit('create')"
+        >
+          onboarding
+        </button>
+      `,
+    })
+
+    const wrapper = mount(DashboardView, {
+      global: {
+        stubs: {
+          AppLayout: defineComponent({
+            name: 'AppLayout',
+            template: '<main><slot /></main>',
+          }),
+          LoadingSpinner: true,
+          UserDashboardStats: stubComponent('UserDashboardStats'),
+          UserDashboardPerformanceStats: stubComponent('UserDashboardPerformanceStats'),
+          UserDashboardCharts: stubComponent('UserDashboardCharts'),
+          UserDashboardPlatformBreakdown: stubComponent('UserDashboardPlatformBreakdown'),
+          UserDashboardAccountUsage: stubComponent('UserDashboardAccountUsage'),
+          UserDashboardRecentUsage: stubComponent('UserDashboardRecentUsage'),
+          UserDashboardQuickActions: stubComponent('UserDashboardQuickActions'),
+          UserApiKeyOnboardingDialog: onboardingStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const onboarding = wrapper.get('[data-test="onboarding-primary"]')
+    expect(onboarding.attributes('data-show')).toBe('true')
+    expect(onboarding.attributes('data-has-api-key')).toBe('true')
+
+    await onboarding.trigger('click')
+    expect(mocks.push).toHaveBeenCalledWith({ path: '/keys' })
   })
 })

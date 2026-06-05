@@ -83,7 +83,7 @@
               {{ t('dashboard.onboarding.viewTutorial') }}
             </button>
             <button type="button" class="btn btn-primary" @click="emit('create')">
-              {{ t('dashboard.onboarding.createKey') }}
+              {{ primaryActionText }}
             </button>
           </div>
         </div>
@@ -100,6 +100,7 @@ import { openSupportPopup } from '@/utils/supportPopup'
 
 const props = defineProps<{
   show: boolean
+  hasApiKey?: boolean
   hasBenefit?: boolean
   benefitLabel?: string
   benefitRewardLabel?: string
@@ -115,6 +116,7 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const hasBenefit = computed(() => Boolean(props.hasBenefit))
+const hasApiKey = computed(() => Boolean(props.hasApiKey))
 const isWalletBenefit = computed(() => props.benefitKind === 'wallet')
 const isRewardBenefit = computed(() => props.benefitKind === 'reward')
 const showBenefitNotice = computed(() => hasBenefit.value && !isRewardBenefit.value)
@@ -135,18 +137,24 @@ const benefitNotice = computed(() => (
 const dialogTitle = computed(() => (
   hasBenefit.value
     ? t('dashboard.onboarding.trialTitle', { amount: quotaLabel.value })
-    : t('dashboard.onboarding.title')
+    : t(hasApiKey.value ? 'dashboard.onboarding.readyTitle' : 'dashboard.onboarding.title')
 ))
 const dialogDescription = computed(() => (
   hasBenefit.value
     ? t(
       isRewardBenefit.value
-        ? 'dashboard.onboarding.rewardDescription'
+        ? hasApiKey.value
+          ? 'dashboard.onboarding.rewardDescriptionWithKey'
+          : 'dashboard.onboarding.rewardDescription'
         : isWalletBenefit.value
-          ? 'dashboard.onboarding.balanceDescription'
-          : 'dashboard.onboarding.trialDescription'
+          ? hasApiKey.value
+            ? 'dashboard.onboarding.balanceDescriptionWithKey'
+            : 'dashboard.onboarding.balanceDescription'
+          : hasApiKey.value
+            ? 'dashboard.onboarding.trialDescriptionWithKey'
+            : 'dashboard.onboarding.trialDescription'
     )
-    : t('dashboard.onboarding.description')
+    : t(hasApiKey.value ? 'dashboard.onboarding.descriptionWithKey' : 'dashboard.onboarding.description')
 ))
 const badgeText = computed(() => (
   hasBenefit.value
@@ -169,17 +177,23 @@ const pills = computed(() => (
         t('dashboard.onboarding.pillNoRecharge')
       ]
     : [
-      t('dashboard.onboarding.stepKeyTitle'),
+      t(hasApiKey.value ? 'dashboard.onboarding.stepCopyKeyTitle' : 'dashboard.onboarding.stepKeyTitle'),
       t('dashboard.onboarding.stepToolTitle'),
       t('dashboard.onboarding.stepUsageTitle')
     ]
 ))
 
+const primaryActionText = computed(() => (
+  hasApiKey.value
+    ? t('dashboard.onboarding.openKey')
+    : t('dashboard.onboarding.createKey')
+))
+
 const steps = computed(() => [
   {
     icon: 'key' as const,
-    title: t('dashboard.onboarding.stepKeyTitle'),
-    description: t('dashboard.onboarding.stepKeyDescription')
+    title: t(hasApiKey.value ? 'dashboard.onboarding.stepCopyKeyTitle' : 'dashboard.onboarding.stepKeyTitle'),
+    description: t(hasApiKey.value ? 'dashboard.onboarding.stepCopyKeyDescription' : 'dashboard.onboarding.stepKeyDescription')
   },
   {
     icon: 'bolt' as const,

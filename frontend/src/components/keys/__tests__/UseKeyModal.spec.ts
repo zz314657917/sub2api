@@ -75,4 +75,34 @@ describe('UseKeyModal', () => {
     expect(codeBlock.text()).toContain('"name": "GPT-5.4 Mini"')
     expect(codeBlock.text()).not.toContain('"name": "GPT-5.4 Nano"')
   })
+
+  it('renders OpenAI-compatible config for smart-routed keys without a group', () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-smart',
+        baseUrl: 'https://ai.3zapi.top',
+        platform: null
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('keys.useKeyModal.smartRoutingTitle')
+    expect(wrapper.text()).not.toContain('keys.useKeyModal.noGroupTitle')
+
+    const codeBlocks = wrapper.findAll('pre code')
+    expect(codeBlocks.length).toBeGreaterThan(0)
+    const codeText = codeBlocks.map((block) => block.text()).join('\n')
+    expect(codeText).toContain('base_url = "https://ai.3zapi.top"')
+    expect(codeText).toContain('sk-smart')
+  })
 })

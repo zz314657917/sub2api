@@ -12,12 +12,17 @@ vi.mock('vue-i18n', () => ({
       const messages: Record<string, string> = {
         'dashboard.onboarding.title': '先创建一个 API 密钥',
         'dashboard.onboarding.description': 'API 密钥是接入工具的凭证。',
+        'dashboard.onboarding.readyTitle': '默认 API 密钥已准备好',
+        'dashboard.onboarding.descriptionWithKey': '系统已为您创建默认 API 密钥。',
         'dashboard.onboarding.badge': '新用户接入引导',
         'dashboard.onboarding.trialBadge': '新人福利',
         'dashboard.onboarding.trialTitle': '首次调用后领免费额度',
         'dashboard.onboarding.trialDescription': '创建 API 密钥后发起首次调用，API 专用试用额度会自动启用并抵扣，无需先充值。',
+        'dashboard.onboarding.trialDescriptionWithKey': '默认 API 密钥已准备好，发起首次调用后 API 专用试用额度会自动启用并抵扣，无需先充值。',
         'dashboard.onboarding.balanceDescription': '账户余额已发放到账号，创建 API 密钥后即可开始调用，系统会按实际消耗自动扣减。',
+        'dashboard.onboarding.balanceDescriptionWithKey': '账户余额已发放到账号，使用默认 API 密钥即可开始调用，系统会按实际消耗自动扣减。',
         'dashboard.onboarding.rewardDescription': '创建 API 密钥并完成一次真实调用后，到福利中心领取免费额度。',
+        'dashboard.onboarding.rewardDescriptionWithKey': '使用默认 API 密钥完成一次真实调用后，到福利中心领取免费额度。',
         'dashboard.onboarding.trialQuotaFallback': 'API 试用额度',
         'dashboard.onboarding.trialQuotaAmount': '0.1 API 试用额度',
         'dashboard.onboarding.balanceFallback': '账户余额',
@@ -35,11 +40,14 @@ vi.mock('vue-i18n', () => ({
         'dashboard.onboarding.pillWelfareClaim': '福利中心领取',
         'dashboard.onboarding.pillNoRecharge': '无需充值体验',
         'dashboard.onboarding.createKey': '创建 API 密钥',
+        'dashboard.onboarding.openKey': '查看 API 密钥',
         'dashboard.onboarding.joinGroup': '联系客服',
         'dashboard.onboarding.viewTutorial': '查看教程',
         'dashboard.onboarding.skip': '暂时跳过',
         'dashboard.onboarding.stepKeyTitle': '创建密钥',
         'dashboard.onboarding.stepKeyDescription': '生成 API Key，接入 Codex、Claude Code 或其他工具。',
+        'dashboard.onboarding.stepCopyKeyTitle': '复制密钥',
+        'dashboard.onboarding.stepCopyKeyDescription': '打开密钥页，复制默认 API Key 和 Base URL。',
         'dashboard.onboarding.stepToolTitle': '接入工具',
         'dashboard.onboarding.stepToolDescription': '按教程配置工具。',
         'dashboard.onboarding.stepTrialTitle': '发起首次调用',
@@ -70,6 +78,7 @@ describe('UserApiKeyOnboardingDialog', () => {
     const wrapper = mount(UserApiKeyOnboardingDialog, {
       props: {
         show: true,
+        hasApiKey: true,
         hasBenefit: true,
         benefitKind: 'reward',
         benefitLabel: '1 免费额度',
@@ -85,14 +94,14 @@ describe('UserApiKeyOnboardingDialog', () => {
     })
 
     expect(wrapper.text()).toContain('首次调用后领免费额度')
-    expect(wrapper.text()).toContain('创建 API 密钥并完成一次真实调用后，到福利中心领取免费额度')
+    expect(wrapper.text()).toContain('使用默认 API 密钥完成一次真实调用后，到福利中心领取免费额度')
     expect(wrapper.text()).toContain('GPT-5.5')
     expect(wrapper.text()).toContain('Image2')
     expect(wrapper.text()).toContain('Claude')
     expect(wrapper.text()).toContain('OpenClaw')
     expect(wrapper.text()).not.toContain('1 免费额度')
     expect(wrapper.text()).not.toContain('首次调用成功后')
-    expect(wrapper.text()).toContain('创建密钥')
+    expect(wrapper.text()).toContain('复制密钥')
     expect(wrapper.text()).toContain('发起首次调用')
     expect(wrapper.text()).toContain('领取额度')
     expect(wrapper.find('.pointer-events-none').exists()).toBe(true)
@@ -101,6 +110,7 @@ describe('UserApiKeyOnboardingDialog', () => {
     expect(wrapper.find('.modal-overlay').exists()).toBe(false)
 
     await wrapper.get('button.btn-primary').trigger('click')
+    expect(wrapper.get('button.btn-primary').text()).toBe('查看 API 密钥')
     expect(wrapper.emitted('create')).toHaveLength(1)
 
     const buttonByText = (text: string) => wrapper.findAll('button').find(button => button.text() === text)
@@ -111,6 +121,28 @@ describe('UserApiKeyOnboardingDialog', () => {
     expect(wrapper.emitted('skip')).toHaveLength(1)
     expect(wrapper.emitted('tutorial')).toHaveLength(1)
     expect(openSupportPopupMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('shows the default key path when a key already exists', () => {
+    const wrapper = mount(UserApiKeyOnboardingDialog, {
+      props: {
+        show: true,
+        hasApiKey: true,
+      },
+      global: {
+        stubs: {
+          Teleport: true,
+          Transition: false,
+          Icon: true,
+        },
+      },
+    })
+
+    expect(wrapper.text()).toContain('默认 API 密钥已准备好')
+    expect(wrapper.text()).toContain('系统已为您创建默认 API 密钥')
+    expect(wrapper.text()).toContain('复制密钥')
+    expect(wrapper.text()).toContain('查看 API 密钥')
+    expect(wrapper.text()).not.toContain('先创建一个 API 密钥')
   })
 
   it('falls back to plain API key onboarding when trial is unavailable', () => {
