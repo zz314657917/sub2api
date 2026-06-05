@@ -2504,6 +2504,10 @@
         <p class="input-hint">{{ t('admin.accounts.expiresAtHint') }}</p>
       </div>
 
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <AccountCapabilitySelector v-model="accountSupportedCapabilities" />
+      </div>
+
       <!-- OpenAI 自动透传开关（OAuth/API Key） -->
       <div
         v-if="form.platform === 'openai'"
@@ -3194,6 +3198,7 @@ import type {
   AdminGroup,
   AccountPlatform,
   AccountType,
+  AccountCapability,
   CheckMixedChannelResponse,
   CreateAccountRequest,
   CodexSessionImportMessage,
@@ -3207,6 +3212,7 @@ import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
+import AccountCapabilitySelector from '@/components/account/AccountCapabilitySelector.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import ShareDisplayCard from '@/components/account/ShareDisplayCard.vue'
 import { applyInterceptWarmup } from '@/components/account/credentialsBuilder'
@@ -3381,6 +3387,7 @@ const openaiPassthroughEnabled = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
+const accountSupportedCapabilities = ref<AccountCapability[]>([])
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const codexCLIOnlyEnabled = ref(false)
@@ -4247,6 +4254,7 @@ const resetForm = () => {
   vertexLocation.value = 'global'
   tempUnschedEnabled.value = false
   tempUnschedRules.value = []
+  accountSupportedCapabilities.value = []
   geminiOAuthType.value = 'code_assist'
   geminiTierGoogleOne.value = 'google_one_free'
   geminiTierGcp.value = 'gcp_standard'
@@ -4336,6 +4344,16 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     delete extra.openai_responses_mode
   }
 
+  return Object.keys(extra).length > 0 ? extra : undefined
+}
+
+const applySupportedCapabilitiesToExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
+  const extra: Record<string, unknown> = { ...(base || {}) }
+  if (accountSupportedCapabilities.value.length > 0) {
+    extra.supported_capabilities = [...accountSupportedCapabilities.value]
+  } else {
+    delete extra.supported_capabilities
+  }
   return Object.keys(extra).length > 0 ? extra : undefined
 }
 
@@ -4649,7 +4667,7 @@ const handleSubmit = async () => {
   }
 
   form.credentials = credentials
-  const extra = buildAnthropicExtra(buildOpenAIExtra())
+  const extra = applySupportedCapabilitiesToExtra(buildAnthropicExtra(buildOpenAIExtra()))
 
   await doCreateAccount({
     ...form,
@@ -4758,6 +4776,7 @@ const createAccountAndFinish = async (
       finalExtra = quotaExtra
     }
   }
+  finalExtra = applySupportedCapabilitiesToExtra(finalExtra)
   if (platform === 'openai') {
     const compactModelMapping = buildOpenAICompactModelMapping()
     if (compactModelMapping) {
@@ -4813,7 +4832,7 @@ const handleOpenAIExchange = async (authCode: string) => {
 
     const credentials = oauthClient.buildCredentials(tokenInfo)
     const oauthExtra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
-    const extra = buildOpenAIExtra(oauthExtra)
+    const extra = applySupportedCapabilitiesToExtra(buildOpenAIExtra(oauthExtra))
     const shouldCreateOpenAI = form.platform === 'openai'
 
     // Add model mapping for OpenAI OAuth accounts（透传模式下不应用）
@@ -4915,7 +4934,7 @@ const handleOpenAIImportCodexSession = async (content: string) => {
   oauthClient.error.value = ''
 
   try {
-    const extra = buildOpenAIExtra()
+    const extra = applySupportedCapabilitiesToExtra(buildOpenAIExtra())
     const result = await adminAPI.accounts.importCodexSession({
       content: trimmed,
       name: form.name,
@@ -5019,7 +5038,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
           credentials.client_id = clientId
         }
         const oauthExtra = oauthClient.buildExtraInfo(tokenInfo) as Record<string, unknown> | undefined
-        const extra = buildOpenAIExtra(oauthExtra)
+        const extra = applySupportedCapabilitiesToExtra(buildOpenAIExtra(oauthExtra))
 
         // Add model mapping for OpenAI OAuth accounts（透传模式下不应用）
         if (shouldCreateOpenAI && !isOpenAIModelRestrictionDisabled.value) {
@@ -5144,7 +5163,7 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
           platform: 'antigravity',
           type: 'oauth',
           credentials,
-          extra: {},
+          extra: applySupportedCapabilitiesToExtra(),
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
           load_factor: form.load_factor ?? undefined,
@@ -5485,7 +5504,7 @@ const handleCookieAuth = async (sessionKey: string) => {
           platform: form.platform,
           type: addMethod.value, // Use addMethod as type: 'oauth' or 'setup-token'
           credentials,
-          extra,
+          extra: applySupportedCapabilitiesToExtra(extra),
           proxy_id: form.proxy_id,
           concurrency: form.concurrency,
           load_factor: form.load_factor ?? undefined,

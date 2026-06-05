@@ -79,6 +79,24 @@ const (
 
 const openAIEndpointCapabilitiesCredentialKey = "openai_capabilities"
 
+type AccountCapability string
+
+const (
+	AccountCapabilityChat      AccountCapability = "chat"
+	AccountCapabilityImage     AccountCapability = "image"
+	AccountCapabilityVideo     AccountCapability = "video"
+	AccountCapabilityEmbedding AccountCapability = "embedding"
+)
+
+const accountSupportedCapabilitiesExtraKey = "supported_capabilities"
+
+var accountCapabilityOrder = []AccountCapability{
+	AccountCapabilityChat,
+	AccountCapabilityImage,
+	AccountCapabilityVideo,
+	AccountCapabilityEmbedding,
+}
+
 type TempUnschedulableRule struct {
 	ErrorCode       int      `json:"error_code"`
 	Keywords        []string `json:"keywords"`
@@ -1220,6 +1238,137 @@ func (a *Account) GetOpenAISessionID() string {
 		return ""
 	}
 	return strings.TrimSpace(a.GetExtraString("openai_session_id"))
+}
+
+func NormalizeAccountCapabilities(raw any) []string {
+	seen := make(map[AccountCapability]struct{}, len(accountCapabilityOrder))
+	add := func(value string) {
+		if cap, ok := normalizeAccountCapability(value); ok {
+			seen[cap] = struct{}{}
+		}
+	}
+
+	switch values := raw.(type) {
+	case []any:
+		for _, item := range values {
+			if value, ok := item.(string); ok {
+				add(value)
+			}
+		}
+	case []string:
+		for _, value := range values {
+			add(value)
+		}
+	case map[string]any:
+		for key, value := range values {
+			if enabled, ok := value.(bool); ok && enabled {
+				add(key)
+			}
+		}
+	case map[string]bool:
+		for key, enabled := range values {
+			if enabled {
+				add(key)
+			}
+		}
+	case string:
+		for _, value := range strings.Split(values, ",") {
+			add(value)
+		}
+	}
+
+	if len(seen) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(seen))
+	for _, capability := range accountCapabilityOrder {
+		if _, ok := seen[capability]; ok {
+			out = append(out, string(capability))
+		}
+	}
+	return out
+}
+
+func ApplyAccountSupportedCapabilities(extra map[string]any) map[string]any {
+	if extra == nil {
+		return nil
+	}
+	raw, found := extra[accountSupportedCapabilitiesExtraKey]
+	if !found {
+		return extra
+	}
+	normalized := NormalizeAccountCapabilities(raw)
+	if len(normalized) == 0 {
+		extra[accountSupportedCapabilitiesExtraKey] = []string{}
+		return extra
+	}
+	extra[accountSupportedCapabilitiesExtraKey] = normalized
+	return extra
+}
+
+func (a *Account) SupportedCapabilities() []string {
+	if a == nil || a.Extra == nil {
+		return nil
+	}
+	return NormalizeAccountCapabilities(a.Extra[accountSupportedCapabilitiesExtraKey])
+}
+
+func (a *Account) HasExplicitSupportedCapabilities() bool {
+	if a == nil || a.Extra == nil {
+		return false
+	}
+	_, ok := a.Extra[accountSupportedCapabilitiesExtraKey]
+	return ok && len(a.SupportedCapabilities()) > 0
+}
+
+func (a *Account) SupportsCapability(capability AccountCapability) bool {
+	if a == nil {
+		return false
+	}
+	if capability == "" {
+		return true
+	}
+	normalized, ok := normalizeAccountCapability(string(capability))
+	if !ok {
+		return false
+	}
+	capability = normalized
+	configured := a.SupportedCapabilities()
+	if len(configured) == 0 {
+		return true
+	}
+	for _, value := range configured {
+		if AccountCapability(value) == capability {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizeAccountCapability(value string) (AccountCapability, bool) {
+	value = strings.ToLower(strings.TrimSpace(value))
+	switch value {
+	case "chat", "text", "inference", "llm", "completion", "completions", "chat_completion", "chat_completions", "responses":
+		return AccountCapabilityChat, true
+	case "image", "images", "img", "vision_generation", "image_generation":
+		return AccountCapabilityImage, true
+	case "video", "videos", "video_generation":
+		return AccountCapabilityVideo, true
+	case "embedding", "embeddings", "embed":
+		return AccountCapabilityEmbedding, true
+	default:
+		return "", false
+	}
+}
+
+func accountCapabilityForRequestedModel(requestedModel string) AccountCapability {
+	if IsVideoGenerationIntent("", requestedModel, nil) {
+		return AccountCapabilityVideo
+	}
+	if IsImageGenerationIntent("", requestedModel, nil) || isImageGenerationModel(requestedModel) {
+		return AccountCapabilityImage
+	}
+	return AccountCapabilityChat
 }
 
 func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapability) bool {

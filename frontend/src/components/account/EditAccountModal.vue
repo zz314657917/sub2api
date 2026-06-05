@@ -1298,6 +1298,10 @@
         <p class="input-hint">{{ t('admin.accounts.expiresAtHint') }}</p>
       </div>
 
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <AccountCapabilitySelector v-model="accountSupportedCapabilities" />
+      </div>
+
       <!-- OpenAI 自动透传开关（OAuth/API Key） -->
       <div
         v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'apikey')"
@@ -2317,7 +2321,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { adminAPI } from '@/api/admin'
 import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
-import type { Account, Proxy, AdminGroup, CheckMixedChannelResponse, OpenAICompactMode, OpenAIResponsesMode } from '@/types'
+import type { Account, Proxy, AdminGroup, CheckMixedChannelResponse, OpenAICompactMode, OpenAIResponsesMode, AccountCapability } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
@@ -2325,6 +2329,7 @@ import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
+import AccountCapabilitySelector from '@/components/account/AccountCapabilitySelector.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import ShareDisplayCard from '@/components/account/ShareDisplayCard.vue'
 import { applyInterceptWarmup } from '@/components/account/credentialsBuilder'
@@ -2473,6 +2478,7 @@ const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 type OpenAIEndpointCapability = 'chat_completions' | 'embeddings'
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
+const accountSupportedCapabilities = ref<AccountCapability[]>([])
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const codexCLIOnlyEnabled = ref(false)
@@ -2519,6 +2525,36 @@ const shareDisplay5hLimit = ref<number | null>(null)
 const shareDisplay5hUsed = ref<number | null>(null)
 const shareDisplay7dLimit = ref<number | null>(null)
 const shareDisplay7dUsed = ref<number | null>(null)
+const accountCapabilityValues: AccountCapability[] = ['chat', 'image', 'video', 'embedding']
+
+function normalizeAccountCapabilities(value: unknown): AccountCapability[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+  const seen = new Set<AccountCapability>()
+  for (const item of value) {
+    if (typeof item !== 'string') continue
+    const capability = item as AccountCapability
+    if (accountCapabilityValues.includes(capability)) {
+      seen.add(capability)
+    }
+  }
+  return accountCapabilityValues.filter((capability) => seen.has(capability))
+}
+
+function applySupportedCapabilitiesToExtra(updatePayload: Record<string, unknown>): void {
+  const currentExtra = (updatePayload.extra as Record<string, unknown>) ||
+    (props.account?.extra as Record<string, unknown>) ||
+    {}
+  const newExtra: Record<string, unknown> = { ...currentExtra }
+  if (accountSupportedCapabilities.value.length > 0) {
+    newExtra.supported_capabilities = [...accountSupportedCapabilities.value]
+  } else {
+    delete newExtra.supported_capabilities
+  }
+  updatePayload.extra = newExtra
+}
+
 function isOpenAIShareDisplaySupportedAccount(account?: Pick<Account, 'platform' | 'type'> | null): boolean {
   return account?.platform === 'openai' && (account.type === 'apikey' || account.type === 'oauth')
 }
@@ -2920,6 +2956,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   const extra = newAccount.extra as Record<string, unknown> | undefined
   mixedScheduling.value = extra?.mixed_scheduling === true
   allowOverages.value = extra?.allow_overages === true
+  accountSupportedCapabilities.value = normalizeAccountCapabilities(extra?.supported_capabilities)
 
   // Load OpenAI passthrough toggle (OpenAI OAuth/API Key)
   openaiPassthroughEnabled.value = false
@@ -4219,6 +4256,8 @@ const handleSubmit = async () => {
       writeQuotaNotifyToExtra(newExtra, 'update')
       updatePayload.extra = newExtra
     }
+
+    applySupportedCapabilitiesToExtra(updatePayload)
 
     const canContinue = await ensureAntigravityMixedChannelConfirmed(async () => {
       await submitUpdateAccount(accountID, updatePayload)

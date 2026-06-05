@@ -764,6 +764,15 @@ export default {
       billingRateMultiplierHint: '0 表示不计费，仅影响账号计费',
       expiresAt: '过期时间',
       expiresAtHint: '留空表示不过期',
+      supportedCapabilities: {
+        title: '账号适用能力',
+        bulkTitle: '批量设置账号适用能力',
+        hint: '不选择表示不限制，账号可用于推理、图片、视频和 Embedding 请求。',
+        chat: '推理',
+        image: '图片',
+        video: '视频',
+        embedding: 'Embedding'
+      },
       higherPriorityFirst: '数值越小优先级越高',
       mixedScheduling: '在 /v1/messages 中使用',
       mixedSchedulingHint: '启用后可参与 Anthropic/Gemini 分组的调度',

@@ -1035,6 +1035,38 @@
           />
         </div>
       </div>
+
+      <!-- Account capabilities -->
+      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="mb-3 flex items-center justify-between">
+          <label
+            id="bulk-edit-supported-capabilities-label"
+            class="input-label mb-0"
+            for="bulk-edit-supported-capabilities-enabled"
+          >
+            {{ t('admin.accounts.supportedCapabilities.bulkTitle') }}
+          </label>
+          <input
+            v-model="enableSupportedCapabilities"
+            id="bulk-edit-supported-capabilities-enabled"
+            type="checkbox"
+            aria-controls="bulk-edit-supported-capabilities"
+            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+          />
+        </div>
+        <div
+          id="bulk-edit-supported-capabilities"
+          :class="!enableSupportedCapabilities && 'pointer-events-none opacity-50'"
+          role="group"
+          aria-labelledby="bulk-edit-supported-capabilities-label"
+        >
+          <AccountCapabilitySelector
+            v-model="supportedCapabilities"
+            :disabled="!enableSupportedCapabilities"
+            :title="null"
+          />
+        </div>
+      </div>
     </form>
 
     <template #footer>
@@ -1093,13 +1125,14 @@ import { ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
-import type { Proxy as ProxyConfig, AdminGroup, AccountPlatform, AccountType, OpenAICompactMode } from '@/types'
+import type { Proxy as ProxyConfig, AdminGroup, AccountPlatform, AccountType, OpenAICompactMode, AccountCapability } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
+import AccountCapabilitySelector from '@/components/account/AccountCapabilitySelector.vue'
 import Icon from '@/components/icons/Icon.vue'
 import {
   buildModelMappingObject as buildModelMappingPayload,
@@ -1222,6 +1255,7 @@ const enableCodexCLIOnly = ref(false)
 const enableOpenAICompactMode = ref(false)
 const enableOpenAICompactModelMapping = ref(false)
 const enableRpmLimit = ref(false)
+const enableSupportedCapabilities = ref(false)
 
 // State - field values
 const submitting = ref(false)
@@ -1248,6 +1282,7 @@ const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OF
 const codexCLIOnlyEnabled = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 const openAICompactModelMappings = ref<ModelMapping[]>([])
+const supportedCapabilities = ref<AccountCapability[]>([])
 const rpmLimitEnabled = ref(false)
 const bulkBaseRpm = ref<number | null>(null)
 const bulkRpmStrategy = ref<'tiered' | 'sticky_exempt'>('tiered')
@@ -1429,6 +1464,11 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     updates.group_ids = groupIds.value
   }
 
+  if (enableSupportedCapabilities.value) {
+    const extra = ensureExtra()
+    extra.supported_capabilities = [...supportedCapabilities.value]
+  }
+
   if (enableBaseUrl.value) {
     const baseUrlValue = baseUrl.value.trim()
     if (baseUrlValue) {
@@ -1605,6 +1645,7 @@ const handleSubmit = async () => {
     enableOpenAICompactMode.value ||
     enableOpenAICompactModelMapping.value ||
     enableRpmLimit.value ||
+    enableSupportedCapabilities.value ||
     userMsgQueueMode.value !== null
 
   if (!hasAnyFieldEnabled) {
@@ -1707,6 +1748,7 @@ watch(
       enableOpenAICompactMode.value = false
       enableOpenAICompactModelMapping.value = false
       enableRpmLimit.value = false
+      enableSupportedCapabilities.value = false
 
       // Reset all values
       baseUrl.value = ''
@@ -1729,6 +1771,7 @@ watch(
       codexCLIOnlyEnabled.value = false
       openAICompactMode.value = 'auto'
       openAICompactModelMappings.value = []
+      supportedCapabilities.value = []
       rpmLimitEnabled.value = false
       bulkBaseRpm.value = null
       bulkRpmStrategy.value = 'tiered'

@@ -263,6 +263,9 @@ func (s *GeminiMessagesCompatService) isAccountUsableForRequestWithPrecheck(
 	if !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
 		return false
 	}
+	if !account.SupportsCapability(accountCapabilityForRequestedModel(requestedModel)) {
+		return false
+	}
 
 	// 检查模型支持
 	// Check model support

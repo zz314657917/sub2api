@@ -116,7 +116,7 @@ func (h *OpenAIGatewayHandler) Videos(c *gin.Context) {
 	routingStart := time.Now()
 
 	for {
-		selection, _, err := h.gatewayService.SelectAccountWithSchedulerForUser(
+		selection, _, err := h.gatewayService.SelectAccountWithSchedulerForMediaCapabilityForUser(
 			c.Request.Context(),
 			apiKey.GroupID,
 			"",
@@ -124,6 +124,8 @@ func (h *OpenAIGatewayHandler) Videos(c *gin.Context) {
 			reqModel,
 			failedAccountIDs,
 			service.OpenAIUpstreamTransportHTTPSSE,
+			"",
+			service.AccountCapabilityVideo,
 			false,
 			subject.UserID,
 		)
@@ -383,7 +385,7 @@ func (h *OpenAIGatewayHandler) VideoTask(c *gin.Context) {
 	switchCount := 0
 	var lastFailoverErr *service.UpstreamFailoverError
 	for {
-		selection, _, err := h.gatewayService.SelectAccountWithSchedulerForUser(
+		selection, _, err := h.gatewayService.SelectAccountWithSchedulerForMediaCapabilityForUser(
 			c.Request.Context(),
 			apiKey.GroupID,
 			"",
@@ -391,6 +393,8 @@ func (h *OpenAIGatewayHandler) VideoTask(c *gin.Context) {
 			"",
 			failedAccountIDs,
 			service.OpenAIUpstreamTransportHTTPSSE,
+			"",
+			service.AccountCapabilityVideo,
 			false,
 			subject.UserID,
 		)

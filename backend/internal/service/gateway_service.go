@@ -2461,7 +2461,10 @@ func (s *GatewayService) isAccountSchedulableForModelSelection(ctx context.Conte
 	if account == nil {
 		return false
 	}
-	return account.IsSchedulableForModelWithContext(ctx, requestedModel)
+	if !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
+		return false
+	}
+	return account.SupportsCapability(accountCapabilityForRequestedModel(requestedModel))
 }
 
 // isAccountInGroup checks if the account belongs to the specified group.

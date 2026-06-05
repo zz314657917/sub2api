@@ -557,7 +557,7 @@ func (s *OpenAIGatewayService) ResolveOpenAIVideoTaskAccount(ctx context.Context
 			return nil, false
 		}
 		account, err := s.resolveOpenAIVideoTaskAccountByID(ctx, task.AccountID)
-		if err != nil || !isOpenAIAccountEligibleForRequest(ctx, account, "", false, OpenAIEndpointCapabilityChatCompletions) || account.Type != AccountTypeAPIKey {
+		if err != nil || !isOpenAIAccountEligibleForRequest(ctx, account, "", false, OpenAIEndpointCapabilityChatCompletions, AccountCapabilityVideo) || account.Type != AccountTypeAPIKey {
 			return nil, false
 		}
 		s.rememberOpenAIVideoTaskAccountID(taskID, task.AccountID)
@@ -573,7 +573,7 @@ func (s *OpenAIGatewayService) ResolveOpenAIVideoTaskAccount(ctx context.Context
 		return nil, false
 	}
 	account, err := s.resolveOpenAIVideoTaskAccountByID(ctx, ref.AccountID)
-	if err != nil || !isOpenAIAccountEligibleForRequest(ctx, account, "", false, OpenAIEndpointCapabilityChatCompletions) || account.Type != AccountTypeAPIKey {
+	if err != nil || !isOpenAIAccountEligibleForRequest(ctx, account, "", false, OpenAIEndpointCapabilityChatCompletions, AccountCapabilityVideo) || account.Type != AccountTypeAPIKey {
 		return nil, false
 	}
 	return account, true

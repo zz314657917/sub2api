@@ -1763,6 +1763,69 @@ func defaultModelsListCandidateIDs(platform string) []string {
 	}
 }
 
+func (s *adminServiceImpl) filterAccountIDsForGroupCapability(ctx context.Context, accountIDs []int64, group *Group) ([]int64, error) {
+	required := requiredAccountCapabilityForGroup(group)
+	if required == "" || len(accountIDs) == 0 {
+		return accountIDs, nil
+	}
+	accounts, err := s.accountRepo.GetByIDs(ctx, accountIDs)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch accounts for capability filter: %w", err)
+	}
+	supportedIDs := make(map[int64]struct{}, len(accounts))
+	for _, account := range accounts {
+		if account != nil && account.SupportsCapability(required) {
+			supportedIDs[account.ID] = struct{}{}
+		}
+	}
+	filtered := make([]int64, 0, len(accountIDs))
+	for _, accountID := range accountIDs {
+		if _, ok := supportedIDs[accountID]; ok {
+			filtered = append(filtered, accountID)
+		}
+	}
+	return filtered, nil
+}
+
+func requiredAccountCapabilityForGroup(group *Group) AccountCapability {
+	if group == nil {
+		return ""
+	}
+	if group.ModelsListConfig.Enabled && len(group.ModelsListConfig.Models) > 0 {
+		var imageCount, videoCount int
+		for _, model := range group.ModelsListConfig.Models {
+			switch accountCapabilityForRequestedModel(model) {
+			case AccountCapabilityImage:
+				imageCount++
+			case AccountCapabilityVideo:
+				videoCount++
+			}
+		}
+		switch {
+		case videoCount > 0 && videoCount == len(group.ModelsListConfig.Models):
+			return AccountCapabilityVideo
+		case imageCount > 0 && imageCount == len(group.ModelsListConfig.Models):
+			return AccountCapabilityImage
+		}
+	}
+	if group.Platform == PlatformAntigravity && len(group.SupportedModelScopes) > 0 {
+		hasImage := false
+		hasText := false
+		for _, scope := range group.SupportedModelScopes {
+			switch strings.TrimSpace(scope) {
+			case "gemini_image":
+				hasImage = true
+			case "claude", "gemini_text":
+				hasText = true
+			}
+		}
+		if hasImage && !hasText {
+			return AccountCapabilityImage
+		}
+	}
+	return ""
+}
+
 func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error) {
 	if input.RateMultiplier <= 0 {
 		return nil, errors.New("rate_multiplier must be > 0")
@@ -1905,6 +1968,13 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 			}
 		}
 		accountIDsToCopy = filtered
+	}
+	if len(accountIDsToCopy) > 0 {
+		var err error
+		accountIDsToCopy, err = s.filterAccountIDsForGroupCapability(ctx, accountIDsToCopy, group)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// 如果有需要复制的账号，绑定到新分组
@@ -2203,6 +2273,12 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 				}
 			}
 			accountIDsToCopy = filtered
+		}
+		if len(accountIDsToCopy) > 0 {
+			accountIDsToCopy, err = s.filterAccountIDsForGroupCapability(ctx, accountIDsToCopy, group)
+			if err != nil {
+				return nil, err
+			}
 		}
 
 		// 再绑定源分组的账号
@@ -2719,7 +2795,7 @@ func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccou
 		Platform:    input.Platform,
 		Type:        input.Type,
 		Credentials: input.Credentials,
-		Extra:       input.Extra,
+		Extra:       ApplyAccountSupportedCapabilities(input.Extra),
 		ProxyID:     input.ProxyID,
 		Concurrency: input.Concurrency,
 		Priority:    input.Priority,
@@ -2823,7 +2899,7 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 				input.Extra[key] = v
 			}
 		}
-		account.Extra = input.Extra
+		account.Extra = ApplyAccountSupportedCapabilities(input.Extra)
 		if account.Platform == PlatformAntigravity && wasOveragesEnabled && !account.IsOveragesEnabled() {
 			delete(account.Extra, "antigravity_credits_overages") // 清理旧版 overages 运行态
 			// 清除 AICredits 限流 key
@@ -2993,7 +3069,7 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 	// Prepare bulk updates for columns and JSONB fields.
 	repoUpdates := AccountBulkUpdate{
 		Credentials: input.Credentials,
-		Extra:       input.Extra,
+		Extra:       ApplyAccountSupportedCapabilities(input.Extra),
 	}
 	if input.Name != "" {
 		repoUpdates.Name = &input.Name

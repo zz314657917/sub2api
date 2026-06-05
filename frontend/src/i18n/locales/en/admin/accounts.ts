@@ -700,6 +700,15 @@ export default {
       billingRateMultiplierHint: '0 = free, affects account billing only',
       expiresAt: 'Expires At',
       expiresAtHint: 'Leave empty for no expiration',
+      supportedCapabilities: {
+        title: 'Account Capabilities',
+        bulkTitle: 'Bulk Set Account Capabilities',
+        hint: 'Leave all unchecked to allow inference, image, video, and embedding requests.',
+        chat: 'Inference',
+        image: 'Image',
+        video: 'Video',
+        embedding: 'Embedding'
+      },
       higherPriorityFirst: 'Lower value means higher priority',
       mixedScheduling: 'Use in /v1/messages',
       mixedSchedulingHint: 'Enable to participate in Anthropic/Gemini group scheduling',
