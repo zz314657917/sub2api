@@ -870,16 +870,24 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 			logger.LegacyPrintf("service.admin", "failed to sync user group rates: user_id=%d err=%v", user.ID, err)
 		}
 	}
-	if input.AllowedGroups != nil || input.GroupRates != nil || (input.RPMLimit != nil && *input.RPMLimit != oldRPMLimit) {
+	var groupRateChanges []map[string]any
+	if input.GroupRates != nil && s.userGroupRateRepo != nil {
+		groupRateChanges = buildUserGroupRateChangeMetadata(oldGroupRates, input.GroupRates)
+	}
+	allowedGroupChanges := buildAllowedGroupChangeMetadata(oldAllowedGroups, user.AllowedGroups)
+	allowedGroupsChanged := input.AllowedGroups != nil && allowedGroupChanges != nil
+	rpmLimitChanged := input.RPMLimit != nil && *input.RPMLimit != oldRPMLimit
+	if allowedGroupsChanged || len(groupRateChanges) > 0 || rpmLimitChanged {
 		s.notifyGroupChangedBestEffort(ctx, user.ID, "user_update", map[string]any{
-			"user_id":            user.ID,
-			"old_allowed_groups": oldAllowedGroups,
-			"new_allowed_groups": user.AllowedGroups,
-			"group_rates":        input.GroupRates,
-			"group_rate_changes": buildUserGroupRateChangeMetadata(oldGroupRates, input.GroupRates),
-			"old_rpm_limit":      oldRPMLimit,
-			"new_rpm_limit":      user.RPMLimit,
-			"rpm_limit":          user.RPMLimit,
+			"user_id":               user.ID,
+			"old_allowed_groups":    oldAllowedGroups,
+			"new_allowed_groups":    user.AllowedGroups,
+			"allowed_group_changes": allowedGroupChanges,
+			"group_rates":           input.GroupRates,
+			"group_rate_changes":    groupRateChanges,
+			"old_rpm_limit":         oldRPMLimit,
+			"new_rpm_limit":         user.RPMLimit,
+			"rpm_limit":             user.RPMLimit,
 		})
 	}
 
@@ -2288,7 +2296,9 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 			}
 		}
 	}
-	if input.RateMultiplier != nil || input.ImageRateMultiplier != nil || input.RPMLimit != nil {
+	if (input.RateMultiplier != nil && group.RateMultiplier != oldRateMultiplier) ||
+		(input.ImageRateMultiplier != nil && group.ImageRateMultiplier != oldImageRateMultiplier) ||
+		(input.RPMLimit != nil && group.RPMLimit != oldRPMLimit) {
 		userIDs := s.listGroupUserIDsForNotification(ctx, id)
 		s.notifyGroupChangedForUsersBestEffort(ctx, userIDs, "group_update", map[string]any{
 			"group_id":                  id,
@@ -2360,10 +2370,26 @@ func (s *adminServiceImpl) GetGroupAPIKeys(ctx context.Context, groupID int64, p
 }
 
 func buildUserGroupRateChangeMetadata(oldRates map[int64]float64, newRates map[int64]*float64) []map[string]any {
-	if len(newRates) == 0 {
+	if newRates == nil {
 		return nil
 	}
 	groupIDs := make([]int64, 0, len(newRates))
+	if len(newRates) == 0 {
+		groupIDs = make([]int64, 0, len(oldRates))
+		for groupID := range oldRates {
+			groupIDs = append(groupIDs, groupID)
+		}
+		sort.Slice(groupIDs, func(i, j int) bool { return groupIDs[i] < groupIDs[j] })
+		changes := make([]map[string]any, 0, len(groupIDs))
+		for _, groupID := range groupIDs {
+			changes = append(changes, map[string]any{
+				"group_id":            groupID,
+				"old_rate_multiplier": oldRates[groupID],
+				"cleared":             true,
+			})
+		}
+		return changes
+	}
 	for groupID := range newRates {
 		groupIDs = append(groupIDs, groupID)
 	}
@@ -2371,18 +2397,154 @@ func buildUserGroupRateChangeMetadata(oldRates map[int64]float64, newRates map[i
 
 	changes := make([]map[string]any, 0, len(groupIDs))
 	for _, groupID := range groupIDs {
-		change := map[string]any{"group_id": groupID}
-		if oldRate, ok := oldRates[groupID]; ok {
-			change["old_rate_multiplier"] = oldRate
+		oldRate, hadOld := oldRates[groupID]
+		newRate, hasNew := newRates[groupID]
+		switch {
+		case hasNew && newRate != nil && (!hadOld || oldRate != *newRate):
+			change := map[string]any{
+				"group_id":            groupID,
+				"new_rate_multiplier": *newRate,
+			}
+			if hadOld {
+				change["old_rate_multiplier"] = oldRate
+			}
+			changes = append(changes, change)
+		case hasNew && newRate == nil && hadOld:
+			changes = append(changes, map[string]any{
+				"group_id":            groupID,
+				"old_rate_multiplier": oldRate,
+				"cleared":             true,
+			})
 		}
-		if newRates[groupID] == nil {
-			change["cleared"] = true
-		} else {
-			change["new_rate_multiplier"] = *newRates[groupID]
-		}
-		changes = append(changes, change)
 	}
 	return changes
+}
+
+func buildGroupRateMultiplierChanges(groupID int64, previous map[int64]*float64, entries []GroupRateMultiplierInput) map[int64][]map[string]any {
+	changesByUser := make(map[int64][]map[string]any, len(previous)+len(entries))
+	newRates := make(map[int64]float64, len(entries))
+	userIDs := make(map[int64]struct{}, len(previous)+len(entries))
+	for userID := range previous {
+		userIDs[userID] = struct{}{}
+	}
+	for _, entry := range entries {
+		newRates[entry.UserID] = entry.RateMultiplier
+		userIDs[entry.UserID] = struct{}{}
+	}
+	for userID := range userIDs {
+		oldRate, hadOld := previous[userID]
+		newRate, hasNew := newRates[userID]
+		switch {
+		case hasNew && (!hadOld || oldRate == nil || *oldRate != newRate):
+			change := map[string]any{
+				"group_id":            groupID,
+				"new_rate_multiplier": newRate,
+			}
+			if hadOld && oldRate != nil {
+				change["old_rate_multiplier"] = *oldRate
+			}
+			changesByUser[userID] = []map[string]any{change}
+		case !hasNew && hadOld && oldRate != nil:
+			changesByUser[userID] = []map[string]any{{
+				"group_id":            groupID,
+				"old_rate_multiplier": *oldRate,
+				"cleared":             true,
+			}}
+		}
+	}
+	return changesByUser
+}
+
+func buildGroupRPMOverrideChanges(groupID int64, previous map[int64]*int, entries []GroupRPMOverrideInput) map[int64][]map[string]any {
+	changesByUser := make(map[int64][]map[string]any, len(previous)+len(entries))
+	newOverrides := make(map[int64]*int, len(entries))
+	userIDs := make(map[int64]struct{}, len(previous)+len(entries))
+	for userID := range previous {
+		userIDs[userID] = struct{}{}
+	}
+	for _, entry := range entries {
+		newOverrides[entry.UserID] = entry.RPMOverride
+		userIDs[entry.UserID] = struct{}{}
+	}
+	for userID := range userIDs {
+		oldRPM, hadOld := previous[userID]
+		newRPM, hasNew := newOverrides[userID]
+		switch {
+		case hasNew && newRPM != nil && (!hadOld || oldRPM == nil || *oldRPM != *newRPM):
+			change := map[string]any{
+				"group_id":         groupID,
+				"new_rpm_override": *newRPM,
+			}
+			if hadOld && oldRPM != nil {
+				change["old_rpm_override"] = *oldRPM
+			}
+			changesByUser[userID] = []map[string]any{change}
+		case hasNew && newRPM == nil && hadOld && oldRPM != nil:
+			changesByUser[userID] = []map[string]any{{
+				"group_id":         groupID,
+				"old_rpm_override": *oldRPM,
+				"cleared":          true,
+			}}
+		case !hasNew && hadOld && oldRPM != nil:
+			changesByUser[userID] = []map[string]any{{
+				"group_id":         groupID,
+				"old_rpm_override": *oldRPM,
+				"cleared":          true,
+			}}
+		}
+	}
+	return changesByUser
+}
+
+func keysOfChangeMap(changesByUser map[int64][]map[string]any) []int64 {
+	userIDs := make([]int64, 0, len(changesByUser))
+	for userID, changes := range changesByUser {
+		if len(changes) == 0 {
+			continue
+		}
+		userIDs = append(userIDs, userID)
+	}
+	sort.Slice(userIDs, func(i, j int) bool { return userIDs[i] < userIDs[j] })
+	return userIDs
+}
+
+func int64SliceFromSet(values map[int64]struct{}) []int64 {
+	out := make([]int64, 0, len(values))
+	for value := range values {
+		out = append(out, value)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	return out
+}
+
+func buildAllowedGroupChangeMetadata(oldGroups, newGroups []int64) map[string]any {
+	oldSet := make(map[int64]struct{}, len(oldGroups))
+	newSet := make(map[int64]struct{}, len(newGroups))
+	for _, groupID := range oldGroups {
+		oldSet[groupID] = struct{}{}
+	}
+	for _, groupID := range newGroups {
+		newSet[groupID] = struct{}{}
+	}
+	added := make(map[int64]struct{})
+	removed := make(map[int64]struct{})
+	for groupID := range newSet {
+		if _, ok := oldSet[groupID]; !ok {
+			added[groupID] = struct{}{}
+		}
+	}
+	for groupID := range oldSet {
+		if _, ok := newSet[groupID]; !ok {
+			removed[groupID] = struct{}{}
+		}
+	}
+	if len(added) == 0 && len(removed) == 0 {
+		return nil
+	}
+	return map[string]any{
+		"added":   int64SliceFromSet(added),
+		"removed": int64SliceFromSet(removed),
+	}
 }
 
 func (s *adminServiceImpl) GetGroupRateMultipliers(ctx context.Context, groupID int64) ([]UserGroupRateEntry, error) {
@@ -2420,19 +2582,8 @@ func (s *adminServiceImpl) BatchSetGroupRateMultipliers(ctx context.Context, gro
 	if err := s.userGroupRateRepo.SyncGroupRateMultipliers(ctx, groupID, entries); err != nil {
 		return err
 	}
-	userIDs := make([]int64, 0, len(entries))
-	changesByUser := make(map[int64][]map[string]any, len(entries))
-	for _, entry := range entries {
-		userIDs = append(userIDs, entry.UserID)
-		change := map[string]any{
-			"group_id":            groupID,
-			"new_rate_multiplier": entry.RateMultiplier,
-		}
-		if oldRate, ok := previousRates[entry.UserID]; ok && oldRate != nil {
-			change["old_rate_multiplier"] = *oldRate
-		}
-		changesByUser[entry.UserID] = []map[string]any{change}
-	}
+	changesByUser := buildGroupRateMultiplierChanges(groupID, previousRates, entries)
+	userIDs := keysOfChangeMap(changesByUser)
 	s.notifyGroupChangedForUsersWithMetadataBestEffort(ctx, userIDs, "group_rate_multipliers", func(userID int64) map[string]any {
 		return map[string]any{
 			"group_id":           groupID,
@@ -2481,23 +2632,8 @@ func (s *adminServiceImpl) BatchSetGroupRPMOverrides(ctx context.Context, groupI
 	if s.authCacheInvalidator != nil {
 		s.authCacheInvalidator.InvalidateAuthCacheByGroupID(ctx, groupID)
 	}
-	userIDs := make([]int64, 0, len(entries))
-	changesByUser := make(map[int64][]map[string]any, len(entries))
-	for _, entry := range entries {
-		userIDs = append(userIDs, entry.UserID)
-		change := map[string]any{
-			"group_id": groupID,
-		}
-		if oldRPM, ok := previousOverrides[entry.UserID]; ok && oldRPM != nil {
-			change["old_rpm_override"] = *oldRPM
-		}
-		if entry.RPMOverride == nil {
-			change["cleared"] = true
-		} else {
-			change["new_rpm_override"] = *entry.RPMOverride
-		}
-		changesByUser[entry.UserID] = []map[string]any{change}
-	}
+	changesByUser := buildGroupRPMOverrideChanges(groupID, previousOverrides, entries)
+	userIDs := keysOfChangeMap(changesByUser)
 	s.notifyGroupChangedForUsersWithMetadataBestEffort(ctx, userIDs, "group_rpm_overrides", func(userID int64) map[string]any {
 		return map[string]any{
 			"group_id":             groupID,
@@ -2517,6 +2653,10 @@ func (s *adminServiceImpl) AdminUpdateAPIKeyGroupID(ctx context.Context, keyID i
 	apiKey, err := s.apiKeyRepo.GetByID(ctx, keyID)
 	if err != nil {
 		return nil, err
+	}
+	oldGroupID := int64(0)
+	if apiKey.GroupID != nil {
+		oldGroupID = *apiKey.GroupID
 	}
 
 	if groupID == nil {
@@ -2596,11 +2736,15 @@ func (s *adminServiceImpl) AdminUpdateAPIKeyGroupID(ctx context.Context, keyID i
 			if s.authCacheInvalidator != nil {
 				s.authCacheInvalidator.InvalidateAuthCacheByKey(ctx, apiKey.Key)
 			}
-			s.notifyGroupChangedBestEffort(ctx, apiKey.UserID, "api_key_group_update", map[string]any{
-				"api_key_id": apiKey.ID,
-				"group_id":   gid,
-				"group_name": group.Name,
-			})
+			if oldGroupID != gid {
+				s.notifyGroupChangedBestEffort(ctx, apiKey.UserID, "api_key_group_update", map[string]any{
+					"api_key_id":   apiKey.ID,
+					"group_id":     gid,
+					"group_name":   group.Name,
+					"old_group_id": oldGroupID,
+					"new_group_id": gid,
+				})
+			}
 
 			result.APIKey = apiKey
 			return result, nil
@@ -2616,10 +2760,18 @@ func (s *adminServiceImpl) AdminUpdateAPIKeyGroupID(ctx context.Context, keyID i
 	if s.authCacheInvalidator != nil {
 		s.authCacheInvalidator.InvalidateAuthCacheByKey(ctx, apiKey.Key)
 	}
-	s.notifyGroupChangedBestEffort(ctx, apiKey.UserID, "api_key_group_update", map[string]any{
-		"api_key_id": apiKey.ID,
-		"group_id":   apiKey.GroupID,
-	})
+	newGroupID := int64(0)
+	if apiKey.GroupID != nil {
+		newGroupID = *apiKey.GroupID
+	}
+	if oldGroupID != newGroupID {
+		s.notifyGroupChangedBestEffort(ctx, apiKey.UserID, "api_key_group_update", map[string]any{
+			"api_key_id":   apiKey.ID,
+			"group_id":     apiKey.GroupID,
+			"old_group_id": oldGroupID,
+			"new_group_id": newGroupID,
+		})
+	}
 
 	result.APIKey = apiKey
 	return result, nil

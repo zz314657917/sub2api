@@ -176,6 +176,45 @@ func TestAdminService_BatchSetGroupRateMultipliers(t *testing.T) {
 		require.Equal(t, entries, repo.syncedEntries)
 	})
 
+	t.Run("does not notify unchanged entries", func(t *testing.T) {
+		ticketRepo := newFakeTicketRepo()
+		repo := &userGroupRateRepoStubForGroupRate{
+			getByGroupIDData: map[int64][]UserGroupRateEntry{
+				10: {
+					{UserID: 1, RateMultiplier: ptrFloat(1.5)},
+				},
+			},
+		}
+		svc := &adminServiceImpl{userGroupRateRepo: repo}
+		svc.SetSystemTicketService(NewSystemTicketService(ticketRepo))
+
+		err := svc.BatchSetGroupRateMultipliers(context.Background(), 10, []GroupRateMultiplierInput{
+			{UserID: 1, RateMultiplier: 1.5},
+		})
+
+		require.NoError(t, err)
+		require.Zero(t, ticketRepo.systemByUser[1])
+	})
+
+	t.Run("notifies removed entries", func(t *testing.T) {
+		ticketRepo := newFakeTicketRepo()
+		repo := &userGroupRateRepoStubForGroupRate{
+			getByGroupIDData: map[int64][]UserGroupRateEntry{
+				10: {
+					{UserID: 1, RateMultiplier: ptrFloat(1.5)},
+				},
+			},
+		}
+		svc := &adminServiceImpl{userGroupRateRepo: repo}
+		svc.SetSystemTicketService(NewSystemTicketService(ticketRepo))
+
+		err := svc.BatchSetGroupRateMultipliers(context.Background(), 10, nil)
+
+		require.NoError(t, err)
+		got := requireSystemTicketNotification(t, ticketRepo, 1, SystemTicketEventGroupChanged, "")
+		require.Contains(t, got.Message.Content, "分组 #10 专属倍率：1.5x -> 使用分组默认倍率")
+	})
+
 	t.Run("returns nil when repo is nil", func(t *testing.T) {
 		svc := &adminServiceImpl{userGroupRateRepo: nil}
 
@@ -208,6 +247,27 @@ func TestAdminService_BatchSetGroupRPMOverrides(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int64(10), repo.rpmSyncedGroupID)
 		require.Equal(t, entries, repo.rpmSyncedEntries)
+	})
+
+	t.Run("does not notify unchanged entries", func(t *testing.T) {
+		ticketRepo := newFakeTicketRepo()
+		override := 20
+		repo := &userGroupRateRepoStubForGroupRate{
+			getByGroupIDData: map[int64][]UserGroupRateEntry{
+				10: {
+					{UserID: 2, RPMOverride: &override},
+				},
+			},
+		}
+		svc := &adminServiceImpl{userGroupRateRepo: repo}
+		svc.SetSystemTicketService(NewSystemTicketService(ticketRepo))
+
+		err := svc.BatchSetGroupRPMOverrides(context.Background(), 10, []GroupRPMOverrideInput{
+			{UserID: 2, RPMOverride: &override},
+		})
+
+		require.NoError(t, err)
+		require.Zero(t, ticketRepo.systemByUser[2])
 	})
 
 	t.Run("rejects negative override as bad request", func(t *testing.T) {

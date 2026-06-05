@@ -11,6 +11,8 @@ export default {
   allTypes: '全部类型',
   supportTicket: '客服工单',
   systemTicket: '系统通知',
+  supportDefaultHint: '默认只显示需要管理员处理的客服工单。系统通知是审计记录，可切换到系统通知后按用户或事件筛选查看。',
+  systemAuditHint: '正在查看系统通知审计记录。可按用户 ID、事件类型或事件键定位某个用户收到的通知。',
   open: '处理中',
   pending_admin: '等待管理员',
   pending_user: '等待用户',

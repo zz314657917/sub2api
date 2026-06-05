@@ -148,7 +148,7 @@ describe('admin TicketsView', () => {
     await flushPromises()
     await flushPromises()
 
-    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20 }))
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20, ticket_type: 'support' }))
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ sort_by: 'last_message_at', sort_order: 'desc' }))
     expect(get).toHaveBeenCalledWith(9)
     expect(markRead).toHaveBeenCalledWith(9)
@@ -156,6 +156,7 @@ describe('admin TicketsView', () => {
     expect(wrapper.text()).toContain('账单问题')
     expect(wrapper.text()).toContain('user@example.com')
     expect(wrapper.text()).toContain('用户留言')
+    expect(wrapper.text()).toContain('admin.tickets.supportDefaultHint')
   })
 
   it('keeps admin unread list state on mobile until the admin opens a conversation', async () => {
@@ -256,6 +257,7 @@ describe('admin TicketsView', () => {
 
     expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ ticket_type: 'system', sort_by: 'unread_first', sort_order: 'desc' }))
     expect(wrapper.text()).toContain('系统通知')
+    expect(wrapper.text()).toContain('admin.tickets.systemAuditHint')
     expect(wrapper.text()).toContain('admin.tickets.readOnlyStatus')
     expect(wrapper.text()).toContain('分组倍率已调整')
     expect(wrapper.text()).toContain('tickets.metadata.changeDetails')
@@ -274,6 +276,7 @@ describe('admin TicketsView', () => {
     await flushPromises()
 
     await wrapper.findAll('select')[1].setValue('system')
+    await flushPromises()
     await wrapper.get('[data-test="ticket-event-type-filter"]').setValue('group_changed')
     await wrapper.get('[data-test="ticket-event-key-filter"]').setValue('group_changed:12:20260601120000')
     vi.advanceTimersByTime(300)
@@ -289,6 +292,29 @@ describe('admin TicketsView', () => {
       event_key: 'group_changed:12:20260601120000',
       date_from: '2026-06-01',
       date_to: '2026-06-02',
+    }))
+    vi.useRealTimers()
+  })
+
+  it('clears system audit filters when switching back to support tickets', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.findAll('select')[1].setValue('system')
+    await flushPromises()
+    await wrapper.get('[data-test="ticket-event-type-filter"]').setValue('group_changed')
+    await wrapper.get('[data-test="ticket-event-key-filter"]').setValue('group_changed:12')
+    vi.advanceTimersByTime(300)
+    await flushPromises()
+
+    await wrapper.findAll('select')[1].setValue('support')
+    await flushPromises()
+
+    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({
+      ticket_type: 'support',
+      event_type: undefined,
+      event_key: undefined,
     }))
     vi.useRealTimers()
   })

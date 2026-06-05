@@ -452,10 +452,11 @@ func buildGroupChangedSystemTicketContent(metadata map[string]any) string {
 	appendIntChange("RPM 限制", "old_rpm_limit", "new_rpm_limit", "rpm_limit")
 	appendGroupRateChanges(&changes, metadata["group_rate_changes"])
 	appendRPMOverrideChanges(&changes, metadata["rpm_override_changes"])
+	appendAllowedGroupChanges(&changes, metadata["allowed_group_changes"])
 
-	if oldGroupID := ticketInt64(metadata["old_group_id"]); oldGroupID > 0 {
-		if newGroupID := ticketInt64(metadata["new_group_id"]); newGroupID > 0 && newGroupID != oldGroupID {
-			changes = append(changes, fmt.Sprintf("专属分组：#%d -> #%d", oldGroupID, newGroupID))
+	if oldGroupID, hasOldGroupID := ticketInt64Value(metadata["old_group_id"]); hasOldGroupID {
+		if newGroupID, hasNewGroupID := ticketInt64Value(metadata["new_group_id"]); hasNewGroupID && newGroupID != oldGroupID {
+			changes = append(changes, fmt.Sprintf("专属分组：%s -> %s", formatTicketGroupID(oldGroupID), formatTicketGroupID(newGroupID)))
 		}
 	}
 
@@ -480,11 +481,13 @@ func appendGroupRateChanges(changes *[]string, raw any) {
 		newValue, hasNew := ticketFloat(change["new_rate_multiplier"])
 		cleared, _ := ticketBool(change["cleared"])
 		switch {
-		case hasOld && hasNew && oldValue != newValue:
-			*changes = append(*changes, fmt.Sprintf("%s：%s -> %s", label, formatTicketMultiplier(oldValue), formatTicketMultiplier(newValue)))
+		case hasOld && hasNew:
+			if oldValue != newValue {
+				*changes = append(*changes, fmt.Sprintf("%s：%s -> %s", label, formatTicketMultiplier(oldValue), formatTicketMultiplier(newValue)))
+			}
 		case hasOld && cleared:
 			*changes = append(*changes, fmt.Sprintf("%s：%s -> 使用分组默认倍率", label, formatTicketMultiplier(oldValue)))
-		case hasNew:
+		case !hasOld && hasNew:
 			*changes = append(*changes, fmt.Sprintf("%s已更新为 %s", label, formatTicketMultiplier(newValue)))
 		}
 	}
@@ -505,13 +508,34 @@ func appendRPMOverrideChanges(changes *[]string, raw any) {
 		newValue, hasNew := ticketInt(change["new_rpm_override"])
 		cleared, _ := ticketBool(change["cleared"])
 		switch {
-		case hasOld && hasNew && oldValue != newValue:
-			*changes = append(*changes, fmt.Sprintf("%s：%s -> %s", label, formatTicketLimit(oldValue), formatTicketLimit(newValue)))
+		case hasOld && hasNew:
+			if oldValue != newValue {
+				*changes = append(*changes, fmt.Sprintf("%s：%s -> %s", label, formatTicketLimit(oldValue), formatTicketLimit(newValue)))
+			}
 		case hasOld && cleared:
 			*changes = append(*changes, fmt.Sprintf("%s：%s -> 使用分组默认限制", label, formatTicketLimit(oldValue)))
-		case hasNew:
+		case !hasOld && hasNew:
 			*changes = append(*changes, fmt.Sprintf("%s已更新为 %s", label, formatTicketLimit(newValue)))
 		}
+	}
+}
+
+func appendAllowedGroupChanges(changes *[]string, raw any) {
+	items, ok := raw.(map[string]any)
+	if !ok {
+		return
+	}
+	added := ticketInt64List(items["added"])
+	removed := ticketInt64List(items["removed"])
+	parts := make([]string, 0, 2)
+	if len(added) > 0 {
+		parts = append(parts, "增加 "+formatTicketGroupIDs(added))
+	}
+	if len(removed) > 0 {
+		parts = append(parts, "移除 "+formatTicketGroupIDs(removed))
+	}
+	if len(parts) > 0 {
+		*changes = append(*changes, "可用分组："+strings.Join(parts, "，"))
 	}
 }
 
@@ -541,6 +565,24 @@ func formatTicketLimit(value int) string {
 		return "不限制"
 	}
 	return fmt.Sprintf("%d", value)
+}
+
+func formatTicketGroupIDs(values []int64) string {
+	parts := make([]string, 0, len(values))
+	for _, value := range values {
+		if value <= 0 {
+			continue
+		}
+		parts = append(parts, formatTicketGroupID(value))
+	}
+	return strings.Join(parts, "、")
+}
+
+func formatTicketGroupID(value int64) string {
+	if value <= 0 {
+		return "未绑定"
+	}
+	return fmt.Sprintf("#%d", value)
 }
 
 func ticketString(raw any) string {
@@ -594,22 +636,61 @@ func ticketInt(raw any) (int, bool) {
 }
 
 func ticketInt64(raw any) int64 {
+	value, _ := ticketInt64Value(raw)
+	return value
+}
+
+func ticketInt64Value(raw any) (int64, bool) {
 	switch v := raw.(type) {
 	case int64:
-		return v
+		return v, true
 	case int:
-		return int64(v)
+		return int64(v), true
 	case float64:
-		return int64(v)
+		return int64(v), true
+	case *int64:
+		if v == nil {
+			return 0, false
+		}
+		return *v, true
 	default:
-		return 0
+		return 0, false
+	}
+}
+
+func ticketInt64List(raw any) []int64 {
+	switch values := raw.(type) {
+	case []int64:
+		return append([]int64(nil), values...)
+	case []int:
+		out := make([]int64, 0, len(values))
+		for _, value := range values {
+			out = append(out, int64(value))
+		}
+		return out
+	case []float64:
+		out := make([]int64, 0, len(values))
+		for _, value := range values {
+			out = append(out, int64(value))
+		}
+		return out
+	case []any:
+		out := make([]int64, 0, len(values))
+		for _, value := range values {
+			if parsed := ticketInt64(value); parsed > 0 {
+				out = append(out, parsed)
+			}
+		}
+		return out
+	default:
+		return nil
 	}
 }
 
 func NewPaymentCompletedSystemTicketNotification(orderID int64, outTradeNo string, orderType string, amount float64, payAmount float64, completedAt time.Time) SystemTicketNotification {
-	content := fmt.Sprintf("你的订单 #%d 已到账，到账额度 %.4f。", orderID, amount)
+	content := fmt.Sprintf("你的订单已到账，到账额度 %.4f。", amount)
 	if orderType == "subscription" {
-		content = fmt.Sprintf("你的订阅订单 #%d 已到账，订阅已生效。", orderID)
+		content = "你的订阅订单已到账，订阅已生效。"
 	}
 	return SystemTicketNotification{
 		EventType: SystemTicketEventPaymentCompleted,

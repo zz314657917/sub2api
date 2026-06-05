@@ -1,8 +1,67 @@
 <template>
   <div
-    class="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 dark:border-dark-700 dark:bg-dark-800 sm:px-6"
+    :class="[
+      'border-t border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800',
+      compact ? 'px-3 py-2' : 'flex items-center justify-between px-4 py-3 sm:px-6',
+    ]"
   >
-    <div class="flex flex-1 items-center justify-between sm:hidden">
+    <div v-if="compact" class="flex w-full min-w-0 flex-col gap-2">
+      <div class="flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-gray-400">
+        <span class="truncate">
+          <span class="font-medium text-gray-700 dark:text-gray-300">{{ fromItem }}</span>
+          -
+          <span class="font-medium text-gray-700 dark:text-gray-300">{{ toItem }}</span>
+          /
+          <span class="font-medium text-gray-700 dark:text-gray-300">{{ total }}</span>
+        </span>
+        <span class="shrink-0">{{ t('pagination.pageOf', { page, total: totalPages }) }}</span>
+      </div>
+
+      <nav
+        class="relative z-0 flex min-w-0 justify-center -space-x-px rounded-md shadow-sm"
+        aria-label="Pagination"
+      >
+        <button
+          @click="goToPage(page - 1)"
+          :disabled="page === 1"
+          class="relative inline-flex h-9 w-9 items-center justify-center rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dark-600 dark:bg-dark-700 dark:text-gray-400 dark:hover:bg-dark-600"
+          :aria-label="t('pagination.previous')"
+        >
+          <Icon name="chevronLeft" size="md" />
+        </button>
+
+        <button
+          v-for="(pageNum, index) in visiblePages"
+          :key="`${pageNum}-${index}`"
+          @click="typeof pageNum === 'number' && goToPage(pageNum)"
+          :disabled="typeof pageNum !== 'number'"
+          :class="[
+            'relative inline-flex h-9 min-w-9 items-center justify-center border px-2 text-sm font-medium',
+            pageNum === page
+              ? 'z-10 border-primary-500 bg-primary-50 text-primary-600 dark:bg-primary-900/30 dark:text-primary-400'
+              : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50 dark:border-dark-600 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600',
+            typeof pageNum !== 'number' && 'cursor-default'
+          ]"
+          :aria-label="
+            typeof pageNum === 'number' ? t('pagination.goToPage', { page: pageNum }) : undefined
+          "
+          :aria-current="pageNum === page ? 'page' : undefined"
+        >
+          {{ pageNum }}
+        </button>
+
+        <button
+          @click="goToPage(page + 1)"
+          :disabled="page === totalPages"
+          class="relative inline-flex h-9 w-9 items-center justify-center rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-dark-600 dark:bg-dark-700 dark:text-gray-400 dark:hover:bg-dark-600"
+          :aria-label="t('pagination.next')"
+        >
+          <Icon name="chevronRight" size="md" />
+        </button>
+      </nav>
+    </div>
+
+    <div v-else class="flex flex-1 items-center justify-between sm:hidden">
       <!-- Mobile pagination -->
       <button
         @click="goToPage(page - 1)"
@@ -23,7 +82,7 @@
       </button>
     </div>
 
-    <div class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+    <div v-if="!compact" class="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
       <!-- Desktop pagination info -->
       <div class="flex items-center space-x-4">
         <p class="text-sm text-gray-700 dark:text-gray-300">
@@ -134,6 +193,7 @@ interface Props {
   pageSizeOptions?: number[]
   showPageSizeSelector?: boolean
   showJump?: boolean
+  compact?: boolean
 }
 
 interface Emits {
@@ -144,12 +204,13 @@ interface Emits {
 const props = withDefaults(defineProps<Props>(), {
   pageSizeOptions: () => getConfiguredTablePageSizeOptions(),
   showPageSizeSelector: true,
-  showJump: false
+  showJump: false,
+  compact: false,
 })
 
 const emit = defineEmits<Emits>()
 
-const totalPages = computed(() => Math.ceil(props.total / props.pageSize))
+const totalPages = computed(() => Math.max(1, Math.ceil(props.total / props.pageSize)))
 
 const fromItem = computed(() => {
   if (props.total === 0) return 0
@@ -179,13 +240,21 @@ const jumpPage = ref('')
 
 const visiblePages = computed(() => {
   const pages: (number | string)[] = []
-  const maxVisible = 7
+  const maxVisible = props.compact ? 5 : 7
   const total = totalPages.value
 
   if (total <= maxVisible) {
     // Show all pages if total is small
     for (let i = 1; i <= total; i++) {
       pages.push(i)
+    }
+  } else if (props.compact) {
+    if (props.page <= 3) {
+      pages.push(1, 2, 3, '...', total)
+    } else if (props.page >= total - 2) {
+      pages.push(1, '...', total - 2, total - 1, total)
+    } else {
+      pages.push(1, '...', props.page, '...', total)
     }
   } else {
     // Always show first page

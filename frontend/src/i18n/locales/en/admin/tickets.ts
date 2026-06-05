@@ -11,6 +11,8 @@ export default {
   allTypes: 'All types',
   supportTicket: 'Support ticket',
   systemTicket: 'System notification',
+  supportDefaultHint: 'By default, only support tickets that may need admin handling are shown. System notifications are audit records and can be viewed by switching the type filter.',
+  systemAuditHint: 'Viewing system notification audit records. Filter by user ID, event type, or event key to locate a user notification.',
   open: 'Open',
   pending_admin: 'Waiting for admin',
   pending_user: 'Waiting for user',

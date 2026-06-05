@@ -12,6 +12,9 @@
           </div>
 
           <div class="space-y-3">
+            <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
+              {{ filters.ticket_type === 'system' ? t('admin.tickets.systemAuditHint') : t('admin.tickets.supportDefaultHint') }}
+            </div>
             <div class="relative">
               <Icon name="search" size="sm" class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input v-model="filters.search" class="input pl-9" :placeholder="t('admin.tickets.searchPlaceholder')" @input="handleSearchInput" />
@@ -25,9 +28,9 @@
                 <option value="closed">{{ t('admin.tickets.closed') }}</option>
               </select>
               <select v-model="filters.ticket_type" class="input" @change="reloadFromFirstPage">
-                <option value="">{{ t('admin.tickets.allTypes') }}</option>
                 <option value="support">{{ t('admin.tickets.supportTicket') }}</option>
                 <option value="system">{{ t('admin.tickets.systemTicket') }}</option>
+                <option value="">{{ t('admin.tickets.allTypes') }}</option>
               </select>
             </div>
             <div class="grid grid-cols-1 gap-2">
@@ -40,7 +43,7 @@
                 @input="handleSearchInput"
               />
             </div>
-            <div class="grid grid-cols-2 gap-2">
+            <div v-if="filters.ticket_type === 'system'" class="grid grid-cols-2 gap-2">
               <input
                 v-model.trim="filters.event_type"
                 data-test="ticket-event-type-filter"
@@ -135,6 +138,7 @@
             :page="pagination.page"
             :page-size="pagination.page_size"
             :show-page-size-selector="false"
+            compact
             @update:page="handlePageChange"
             @update:page-size="handlePageSizeChange"
           />
@@ -252,7 +256,7 @@ let searchTimer: ReturnType<typeof setTimeout> | null = null
 const filters = reactive({
   search: '',
   status: '' as SupportTicketStatus | '',
-  ticket_type: '' as SupportTicketType | '',
+  ticket_type: 'support' as SupportTicketType | '',
   user_id: '',
   event_type: '',
   event_key: '',
@@ -410,6 +414,10 @@ async function selectTicket(ticketId: number, closeMobileList = true) {
 
 function reloadFromFirstPage() {
   pagination.page = 1
+  if (filters.ticket_type !== 'system') {
+    filters.event_type = ''
+    filters.event_key = ''
+  }
   void loadTickets()
 }
 

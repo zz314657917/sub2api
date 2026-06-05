@@ -204,11 +204,37 @@ func TestSystemTicketNotificationTemplates(t *testing.T) {
 	require.Contains(t, groupEvent.Content, "计费倍率：0.06x -> 0.08x")
 	require.Contains(t, groupEvent.Content, "RPM 限制：60 -> 120")
 
+	allowedGroupEvent := NewGroupChangedSystemTicketNotification(42, "user_update", map[string]any{
+		"allowed_group_changes": map[string]any{
+			"added":   []int64{8},
+			"removed": []int64{7},
+		},
+	})
+	require.Contains(t, allowedGroupEvent.Content, "可用分组：增加 #8，移除 #7")
+
+	unchangedRateEvent := NewGroupChangedSystemTicketNotification(42, "user_update", map[string]any{
+		"group_rate_changes": []map[string]any{
+			{
+				"group_id":            int64(7),
+				"old_rate_multiplier": 0.08,
+				"new_rate_multiplier": 0.08,
+			},
+		},
+	})
+	require.NotContains(t, unchangedRateEvent.Content, "专属倍率已更新为 0.08x")
+	require.NotContains(t, unchangedRateEvent.Content, "专属倍率：0.08x -> 0.08x")
+
 	paymentEvent := NewPaymentCompletedSystemTicketNotification(99, "sub2_abc", "balance", 12.5, 12.3, completedAt)
 	require.Equal(t, "payment_completed:99", paymentEvent.EventKey)
 	require.Equal(t, SystemTicketEventPaymentCompleted, paymentEvent.Metadata["action_type"])
 	require.Equal(t, int64(99), paymentEvent.Metadata["order_id"])
 	require.Equal(t, "sub2_abc", paymentEvent.Metadata["out_trade_no"])
+	require.Equal(t, "你的订单已到账，到账额度 12.5000。", paymentEvent.Content)
+	require.NotContains(t, paymentEvent.Content, "#99")
+
+	subscriptionPaymentEvent := NewPaymentCompletedSystemTicketNotification(100, "sub2_def", "subscription", 0, 0, completedAt)
+	require.Equal(t, "你的订阅订单已到账，订阅已生效。", subscriptionPaymentEvent.Content)
+	require.NotContains(t, subscriptionPaymentEvent.Content, "#100")
 
 	affiliateEvent := NewAffiliateFirstAPIRewardSystemTicketNotification(88, 0.5, true)
 	require.Equal(t, "affiliate_first_api_reward:88", affiliateEvent.EventKey)
