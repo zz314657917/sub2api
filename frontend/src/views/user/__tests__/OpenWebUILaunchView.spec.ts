@@ -193,6 +193,9 @@ describe('OpenWebUILaunchView', () => {
             platform: 'anthropic',
             allow_image_generation: false,
           },
+          multi_group_routes: [
+            { group_id: 11, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true },
+          ],
           route_groups: [
             {
               id: 11,

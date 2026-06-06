@@ -907,6 +907,7 @@ import {
 import { useClipboard } from '@/composables/useClipboard'
 import { useAppStore } from '@/stores'
 import type { ApiKey } from '@/types'
+import { apiKeyChatGroups, apiKeySupportsChat, apiKeySupportsOpenAIImageGeneration, primaryAPIKeyGroupName } from '@/utils/apiKeyCapabilities'
 
 type StudioMode = 'chat' | 'image'
 type StudioTab = 'studio' | 'gallery'
@@ -1107,7 +1108,10 @@ const apiKeyOptions = computed<SelectOption[]>(() =>
 )
 
 const chatModelOptions = computed<SelectOption[]>(() => {
-  const groupId = selectedKey.value?.group_id
+  const groupIds = new Set(
+    (selectedKey.value ? apiKeyChatGroups(selectedKey.value).map((group) => group.id) : [])
+      .filter((id): id is number => typeof id === 'number' && id > 0)
+  )
   const names = new Set<string>()
 
   for (const keyModel of keyModels.value) {
@@ -1116,7 +1120,7 @@ const chatModelOptions = computed<SelectOption[]>(() => {
 
   for (const channel of channels.value) {
     for (const section of channel.platforms || []) {
-      if (groupId && !section.groups?.some((group) => group.id === groupId)) continue
+      if (groupIds.size > 0 && !section.groups?.some((group) => groupIds.has(group.id))) continue
       for (const supportedModel of section.supported_models || []) {
         if (supportedModel.name) names.add(supportedModel.name)
       }
@@ -1528,15 +1532,15 @@ function sessionPreview(session: StudioSession): string {
 }
 
 function apiKeyLabel(key: ApiKey): string {
-  return `API· ${key.name || key.group?.name || key.group?.platform || t('chatImageStudio.apiKey')}`
+  return `API· ${key.name || primaryAPIKeyGroupName(key) || key.group?.platform || t('chatImageStudio.apiKey')}`
 }
 
 function isUsableKey(key: ApiKey): boolean {
-  return key.status === 'active' && !!key.key && key.group_id !== null && !!key.group
+  return !!key.key && apiKeySupportsChat(key)
 }
 
 function isOpenAIImageKey(key: ApiKey): boolean {
-  return key.status === 'active' && key.group?.platform === 'openai' && key.group?.allow_image_generation === true
+  return apiKeySupportsOpenAIImageGeneration(key)
 }
 
 function pickDefaultKey(keys: ApiKey[]): ApiKey | null {

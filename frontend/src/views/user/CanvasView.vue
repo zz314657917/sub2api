@@ -502,6 +502,7 @@ import {
   type ImageCreatorTaskStatus,
 } from '@/api/imageCreator'
 import type { ApiKey } from '@/types'
+import { apiKeySupportsOpenAIImageGeneration, primaryAPIKeyImageGroupName } from '@/utils/apiKeyCapabilities'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
 
@@ -1661,13 +1662,11 @@ function modelLabel(modelItem: CanvasModel): string {
 }
 
 function apiKeyLabel(key: ApiKey): string {
-  return [key.name, key.group?.name, 'OpenAI'].filter(Boolean).join(' · ')
+  return [key.name, primaryAPIKeyImageGroupName(key), 'OpenAI'].filter(Boolean).join(' · ')
 }
 
 function isUsableImageKey(key: ApiKey): boolean {
-  if (key.status !== 'active') return false
-  if (!key.group) return true
-  return key.group.platform === 'openai' && key.group.allow_image_generation === true
+  return apiKeySupportsOpenAIImageGeneration(key)
 }
 
 function pickDefaultApiKey(keys: ApiKey[]): ApiKey | null {

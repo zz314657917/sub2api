@@ -330,11 +330,11 @@ func (s *OpenWebUILaunchService) loadUsableAPIKey(ctx context.Context, userID, a
 	if !apiKey.IsActive() {
 		return nil, infraerrors.BadRequest("API_KEY_INACTIVE", "api key is not active")
 	}
-	if apiKey.GroupID == nil || apiKey.Group == nil || !apiKey.Group.IsActive() {
-		return nil, ErrOpenWebUIKeyNotUsable
-	}
 	if err := s.apiKeyService.CheckAPIKeyQuotaAndExpiry(apiKey); err != nil {
 		return nil, err
+	}
+	if _, ok := openWebUIAPIKeyOptionFromAPIKey(apiKey); !ok {
+		return nil, ErrOpenWebUIKeyNotUsable
 	}
 	return apiKey, nil
 }

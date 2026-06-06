@@ -128,6 +128,7 @@ import Select from '@/components/common/Select.vue'
 import { keysAPI, openWebUIAPI } from '@/api'
 import { useAppStore } from '@/stores'
 import type { ApiKey } from '@/types'
+import { apiKeySupportsChat, apiKeySupportsOpenAIImageGeneration, primaryAPIKeyGroupName } from '@/utils/apiKeyCapabilities'
 import { formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
@@ -153,14 +154,17 @@ const createKeyTarget = computed(() => {
 })
 
 const usableKeys = computed(() =>
-  apiKeys.value.filter((key) => key.status === 'active' && Boolean(key.key) && key.group_id !== null && Boolean(key.group))
+  apiKeys.value.filter((key) =>
+    Boolean(key.key) &&
+    apiKeySupportsChat(key)
+  )
 )
 
 const selectedKey = computed(() => usableKeys.value.find((key) => key.id === selectedKeyId.value) ?? null)
 
 const apiKeyOptions = computed(() =>
   usableKeys.value.map((key) => ({
-    label: `${key.name} · ${key.group?.name ?? t('keys.noGroup')}`,
+    label: `${key.name} · ${primaryAPIKeyGroupName(key) || t('keys.noGroup')}`,
     value: key.id,
   }))
 )
@@ -194,25 +198,12 @@ function preferredKeyId(): number | null {
   return imageReady?.id ?? usableKeys.value[0]?.id ?? null
 }
 
-function keyGroups(key: ApiKey): NonNullable<ApiKey['group']>[] {
-  const groups = key.group ? [key.group] : []
-  if (Array.isArray(key.route_groups)) {
-    groups.push(...key.route_groups)
-  }
-  return groups
-}
-
 function supportsChat(key: ApiKey): boolean {
-  return keyGroups(key).some((group) =>
-    group.platform === 'openai' ||
-    group.platform === 'anthropic' ||
-    group.platform === 'gemini' ||
-    group.platform === 'antigravity'
-  )
+  return apiKeySupportsChat(key)
 }
 
 function supportsImageGeneration(key: ApiKey): boolean {
-  return keyGroups(key).some((group) => group.platform === 'openai' && group.allow_image_generation === true)
+  return apiKeySupportsOpenAIImageGeneration(key)
 }
 
 async function handleLaunch(mode: 'popup' | 'redirect' = 'popup') {

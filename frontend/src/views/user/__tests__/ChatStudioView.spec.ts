@@ -225,6 +225,53 @@ describe('ChatStudioView', () => {
     ]))
   })
 
+  it('loads route-group channel models for a smart-routed API key without a default group', async () => {
+    keysList.mockResolvedValue({
+      items: [
+        makeKey({
+          group_id: null,
+          group: undefined,
+          multi_group_routes: [
+            { group_id: 20, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true },
+          ],
+          route_groups: [
+            { id: 20, name: 'Gemini route', platform: 'gemini', allow_image_generation: false },
+          ],
+        }),
+      ],
+    })
+    getAvailable.mockResolvedValue([
+      {
+        name: 'Available',
+        description: '',
+        platforms: [
+          {
+            platform: 'openai',
+            groups: [{ id: 10, name: 'OpenAI', platform: 'openai' }],
+            supported_models: [
+              { name: 'gpt-hidden', platform: 'openai', pricing: null, reference_pricing: null },
+            ],
+          },
+          {
+            platform: 'gemini',
+            groups: [{ id: 20, name: 'Gemini route', platform: 'gemini' }],
+            supported_models: [
+              { name: 'gemini-3-pro', platform: 'gemini', pricing: null, reference_pricing: null },
+            ],
+          },
+        ],
+      },
+    ])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const modelOptions = wrapper.findAll('[data-testid="chat-model-select"] option').map((option) => option.text())
+    expect(modelOptions).toContain('gemini-3-pro')
+    expect(modelOptions).not.toContain('gpt-hidden')
+    expect(wrapper.text()).toContain('Gemini route')
+  })
+
   it('restores local sessions from browser storage', async () => {
     localStorage.setItem(CHAT_STUDIO_STORAGE_KEY, JSON.stringify({
       currentSessionId: 'chat_old',

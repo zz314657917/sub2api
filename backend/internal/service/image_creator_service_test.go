@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
@@ -458,6 +459,53 @@ func TestImageCreatorServiceCreateTaskDefaultsRequestedOutputFormatToWebP(t *tes
 	require.Equal(t, "webp", repo.tasks[task.ID].OutputFormat)
 }
 
+func TestImageCreatorServiceCreateTaskAllowsRouteImageGroup(t *testing.T) {
+	repo := newFakeImageCreatorRepo()
+	textGroupID := int64(10)
+	imageGroupID := int64(11)
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
+		ID:      10,
+		UserID:  42,
+		Status:  StatusAPIKeyActive,
+		GroupID: &textGroupID,
+		Group: &Group{
+			ID:                   textGroupID,
+			Platform:             PlatformAnthropic,
+			Status:               StatusActive,
+			Hydrated:             true,
+			RoutingScope:         GroupRoutingScopeInference,
+			AllowImageGeneration: false,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: imageGroupID, Priority: 1, Weight: 1, CooldownSeconds: 30, Enabled: true},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{
+				ID:                   imageGroupID,
+				Platform:             PlatformOpenAI,
+				Status:               StatusActive,
+				Hydrated:             true,
+				RoutingScope:         GroupRoutingScopeImage,
+				AllowImageGeneration: true,
+			},
+		},
+	}}, &fakeImageGenerator{}, ImageCreatorServiceOptions{
+		DisableAsyncOnCreate: true,
+	})
+
+	task, err := svc.CreateTask(context.Background(), 42, ImageCreatorCreateTaskInput{
+		APIKeyID:     10,
+		Model:        "gpt-image-2",
+		Prompt:       "a routed image",
+		Count:        1,
+		OutputFormat: "png",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(10), task.APIKeyID)
+	require.Len(t, repo.tasks, 1)
+}
+
 func TestImageCreatorServiceCreateTaskRejectsForeignAPIKey(t *testing.T) {
 	repo := newFakeImageCreatorRepo()
 	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
@@ -655,6 +703,65 @@ func TestImageCreatorServiceProcessTaskSplitsMultiAnglePrompt(t *testing.T) {
 		require.Contains(t, input.Prompt, "不要四宫格")
 	}
 	require.NotEqual(t, generator.inputs[0].Prompt, generator.inputs[1].Prompt)
+}
+
+func TestImageCreatorServiceProcessTaskAllowsRouteImageGroup(t *testing.T) {
+	dir := t.TempDir()
+	repo := newFakeImageCreatorRepo()
+	generator := &fakeImageGenerator{results: []GeneratedImageAsset{
+		{Data: []byte("routed"), OutputFormat: "png"},
+	}}
+	textGroupID := int64(10)
+	imageGroupID := int64(11)
+	svc := NewImageCreatorServiceWithDeps(repo, fakeAPIKeyLookup{key: &APIKey{
+		ID:      10,
+		UserID:  42,
+		Key:     "sk-test",
+		Status:  StatusAPIKeyActive,
+		GroupID: &textGroupID,
+		Group: &Group{
+			ID:                   textGroupID,
+			Platform:             PlatformAnthropic,
+			Status:               StatusActive,
+			Hydrated:             true,
+			RoutingScope:         GroupRoutingScopeInference,
+			AllowImageGeneration: false,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: imageGroupID, Priority: 1, Weight: 1, CooldownSeconds: 30, Enabled: true},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{
+				ID:                   imageGroupID,
+				Platform:             PlatformOpenAI,
+				Status:               StatusActive,
+				Hydrated:             true,
+				RoutingScope:         GroupRoutingScopeImage,
+				AllowImageGeneration: true,
+			},
+		},
+	}}, generator, ImageCreatorServiceOptions{
+		StorageDir:           dir,
+		MaxSavedImages:       1,
+		Retention:            7 * 24 * time.Hour,
+		AutoStartWorker:      false,
+		DisableAsyncOnCreate: true,
+	})
+
+	task, err := svc.CreateTask(context.Background(), 42, ImageCreatorCreateTaskInput{
+		APIKeyID:     10,
+		Model:        "gpt-image-2",
+		Prompt:       "route image",
+		Count:        1,
+		OutputFormat: "png",
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, svc.ProcessTask(context.Background(), task.ID))
+
+	require.Equal(t, 1, generator.calls)
+	require.Equal(t, ImageCreatorTaskStatusSucceeded, repo.tasks[task.ID].Status)
+	require.Len(t, repo.images, 1)
 }
 
 func TestImageCreatorServiceProcessTaskKeepsAllImagesFromCurrentTask(t *testing.T) {
