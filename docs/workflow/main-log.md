@@ -33,3 +33,5 @@
 260603 0232 | upstream-main-openai-ws-usage-dedup-s2k | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-ws-usage-dedup-s2k.md
 260603 0234 | upstream-main-openai-ws-usage-dedup-s2k | implementation-and-qa-pass | codex | backend/internal/service/openai_gateway_service.go, backend/internal/service/openai_gateway_record_usage_test.go, docs/workflow/qa-reports/upstream-main-openai-ws-usage-dedup-s2k-qa.md
 260605 1456 | registration-risk-limits | implementation-and-qa-pass | codex | docs/workflow/tasks/registration-risk-limits.md, backend/internal/middleware/registration_risk_limiter.go
+260606 1441 | upstream-main-hardening-s3 | contract-approved | codex | docs/workflow/tasks/upstream-main-hardening-s3.md
+260606 1454 | upstream-main-hardening-s3 | implementation-and-qa-pass | codex | 0042a1d18, 74aab9e9b, ec89a5ddb, 1e10208ed, b97859413, 5cbee92bd, 0836a8400, d965f4900, docs/workflow/worker-results/upstream-main-hardening-s3-result.md, docs/workflow/qa-reports/upstream-main-hardening-s3-qa.md
