@@ -260,6 +260,132 @@ func TestChatCompletionsToResponses_EmptyContentNeverNull(t *testing.T) {
 	}
 }
 
+func TestChatCompletionsResponseToResponses_DeepSeekReasoningOnlyFallsBackToMessageText(t *testing.T) {
+	content := json.RawMessage(`""`)
+	resp := &ChatCompletionsResponse{
+		ID:     "chatcmpl_deepseek_reasoning_only",
+		Object: "chat.completion",
+		Model:  "deepseek-reasoner",
+		Choices: []ChatChoice{{
+			Index: 0,
+			Message: ChatMessage{
+				Role:             "assistant",
+				Content:          content,
+				ReasoningContent: "reasoning-only answer",
+			},
+			FinishReason: "stop",
+		}},
+	}
+
+	out := ChatCompletionsResponseToResponses(resp, "deepseek-reasoner")
+
+	require.Len(t, out.Output, 2)
+	require.Equal(t, "reasoning", out.Output[0].Type)
+	require.Equal(t, "message", out.Output[1].Type)
+	require.Len(t, out.Output[1].Content, 1)
+	assert.Equal(t, "reasoning-only answer", out.Output[1].Content[0].Text)
+}
+
+func TestChatCompletionsResponseToResponses_DeepSeekReasoningToolCallDoesNotFallbackToMessageText(t *testing.T) {
+	content := json.RawMessage(`""`)
+	resp := &ChatCompletionsResponse{
+		ID:     "chatcmpl_deepseek_reasoning_tool",
+		Object: "chat.completion",
+		Model:  "deepseek-reasoner",
+		Choices: []ChatChoice{{
+			Index: 0,
+			Message: ChatMessage{
+				Role:             "assistant",
+				Content:          content,
+				ReasoningContent: "call a tool",
+				ToolCalls: []ChatToolCall{{
+					ID:   "call_a",
+					Type: "function",
+					Function: ChatFunctionCall{
+						Name:      "exec",
+						Arguments: `{}`,
+					},
+				}},
+			},
+			FinishReason: "tool_calls",
+		}},
+	}
+
+	out := ChatCompletionsResponseToResponses(resp, "deepseek-reasoner")
+
+	require.Len(t, out.Output, 2)
+	require.Equal(t, "reasoning", out.Output[0].Type)
+	require.Equal(t, "function_call", out.Output[1].Type)
+	assert.Equal(t, "exec", out.Output[1].Name)
+}
+
+func TestChatCompletionsStreamToResponses_DeepSeekReasoningOnlyFallsBackToVisibleText(t *testing.T) {
+	state := NewChatCompletionsToResponsesStreamState("deepseek-reasoner")
+	var events []ResponsesStreamEvent
+	for _, payload := range []string{
+		`{"choices":[{"index":0,"delta":{"role":"assistant","content":null,"reasoning_content":""}}]}`,
+		`{"choices":[{"index":0,"delta":{"reasoning_content":"thinking before final"}}]}`,
+		`{"choices":[{"index":0,"delta":{"content":""},"finish_reason":"length"}],"usage":{"prompt_tokens":1,"completion_tokens":2,"total_tokens":3}}`,
+	} {
+		var chunk ChatCompletionsChunk
+		require.NoError(t, json.Unmarshal([]byte(payload), &chunk))
+		events = append(events, ChatCompletionsChunkToResponsesEvents(&chunk, state)...)
+	}
+	events = append(events, FinalizeChatCompletionsResponsesStream(state)...)
+
+	var sawFallbackDelta, sawTextDone bool
+	for _, event := range events {
+		switch event.Type {
+		case "response.output_text.delta":
+			if event.Delta == "thinking before final" {
+				sawFallbackDelta = true
+			}
+		case "response.output_text.done":
+			sawTextDone = true
+			assert.Equal(t, "thinking before final", event.Text)
+		case "response.completed":
+			require.NotNil(t, event.Response)
+			assert.Equal(t, "incomplete", event.Response.Status)
+			require.NotNil(t, event.Response.IncompleteDetails)
+			assert.Equal(t, "max_output_tokens", event.Response.IncompleteDetails.Reason)
+			require.Len(t, event.Response.Output, 2)
+			assert.Equal(t, "reasoning", event.Response.Output[0].Type)
+			assert.Equal(t, "message", event.Response.Output[1].Type)
+			require.Len(t, event.Response.Output[1].Content, 1)
+			assert.Equal(t, "thinking before final", event.Response.Output[1].Content[0].Text)
+		}
+	}
+	assert.True(t, sawFallbackDelta, "reasoning-only stream must produce visible text delta")
+	assert.True(t, sawTextDone, "reasoning-only stream must close visible text")
+}
+
+func TestChatCompletionsStreamToResponses_DeepSeekReasoningToolCallDoesNotFallbackToVisibleText(t *testing.T) {
+	state := NewChatCompletionsToResponsesStreamState("deepseek-reasoner")
+	var events []ResponsesStreamEvent
+	for _, payload := range []string{
+		`{"choices":[{"index":0,"delta":{"reasoning_content":"call a tool"}}]}`,
+		`{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"exec","arguments":"{}"}}]}}]}`,
+		`{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}`,
+	} {
+		var chunk ChatCompletionsChunk
+		require.NoError(t, json.Unmarshal([]byte(payload), &chunk))
+		events = append(events, ChatCompletionsChunkToResponsesEvents(&chunk, state)...)
+	}
+	events = append(events, FinalizeChatCompletionsResponsesStream(state)...)
+
+	for _, event := range events {
+		if event.Type == "response.output_text.delta" {
+			assert.NotEqual(t, "call a tool", event.Delta)
+		}
+		if event.Type == "response.completed" {
+			require.NotNil(t, event.Response)
+			require.Len(t, event.Response.Output, 2)
+			assert.Equal(t, "reasoning", event.Response.Output[0].Type)
+			assert.Equal(t, "function_call", event.Response.Output[1].Type)
+		}
+	}
+}
+
 func TestChatCompletionsToResponses_SystemArrayContent(t *testing.T) {
 	req := &ChatCompletionsRequest{
 		Model: "gpt-4o",
