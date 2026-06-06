@@ -1223,7 +1223,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartOfficialCarriesExactOutputSize
 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_size"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_size","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_size","status":"completed","cost":0.1126,"result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{
 		cfg:          &config.Config{},
@@ -1251,7 +1251,93 @@ func TestOpenAIGatewayServiceForwardImages_APIMartOfficialCarriesExactOutputSize
 	require.Equal(t, 1, result.ImageCount)
 	require.Equal(t, []string{"2576x3216"}, result.ImageOutputSizes)
 	require.Equal(t, "medium", result.ImageQuality)
+	require.NotNil(t, result.CostOverride)
+	require.InDelta(t, 0.1126, result.CostOverride.TotalCost, 1e-12)
+	require.Equal(t, 0.0, result.CostOverride.ActualCost)
+	require.Equal(t, string(BillingModeImage), result.CostOverride.BillingMode)
 	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestExtractAPIMartImageResults_UsesTaskCostOnce(t *testing.T) {
+	body := []byte(`{
+		"code": 200,
+		"data": {
+			"status": "completed",
+			"cost": 0.1126,
+			"result": {
+				"images": [
+					{"url": ["https://upload.apimart.ai/a.png", "https://upload.apimart.ai/b.png"]}
+				]
+			}
+		}
+	}`)
+
+	results := extractAPIMartImageResults(body, &OpenAIImagesRequest{
+		Size:         "1024x1024",
+		ExplicitSize: true,
+	})
+
+	require.Len(t, results, 2)
+	require.NotNil(t, results[0].Cost)
+	require.InDelta(t, 0.1126, *results[0].Cost, 1e-12)
+	require.Nil(t, results[1].Cost)
+	cost := apimartImageResultCostOverride(results)
+	require.NotNil(t, cost)
+	require.InDelta(t, 0.1126, cost.TotalCost, 1e-12)
+}
+
+func TestOpenAIGatewayServiceForwardImages_APIMartDefaultsBillingToUpstreamResolution(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2-official","prompt":"draw poster"}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_default"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_default","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{
+		cfg:          &config.Config{},
+		httpUpstream: upstream,
+	}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       17,
+		Name:     "apimart-official",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 1, result.ImageCount)
+	require.Equal(t, ImageBillingSize1K, result.ImageSize)
+	require.Equal(t, ImageBillingSize1K, result.ImageInputSize)
+	require.Empty(t, result.ImageOutputSizes)
+	require.Equal(t, "1k", gjson.GetBytes(upstream.bodies[0], "resolution").String())
+}
+
+func TestAPIMartImagesBillingInputSizeFallsBackToResolutionForRatioSize(t *testing.T) {
+	parsed := &OpenAIImagesRequest{
+		Size:         "1:1",
+		ExplicitSize: true,
+		SizeTier:     ImageBillingSize2K,
+	}
+
+	require.Equal(t, "1k", apimartImagesResolution(parsed))
+	require.Equal(t, ImageBillingSize1K, apimartImagesBillingSize(parsed))
+	require.Equal(t, ImageBillingSize1K, apimartImagesBillingInputSize(parsed, nil))
 }
 
 func TestAPIMartImagesPayloadPreservesOfficialModelAndResolution(t *testing.T) {

@@ -248,6 +248,7 @@ type OpenAIForwardResult struct {
 	ImageOutputSizes   []string
 	ImageSizeSource    string
 	ImageSizeBreakdown map[string]int
+	CostOverride       *CostBreakdown
 	VideoTaskID        string
 	ResponseBody       []byte
 }
@@ -5738,10 +5739,13 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if result.ServiceTier != nil {
 		serviceTier = strings.TrimSpace(*result.ServiceTier)
 	}
-	if input.CostOverride != nil {
-		override := *input.CostOverride
+	if overrideSource := firstNonNilCostBreakdown(input.CostOverride, result.CostOverride); overrideSource != nil {
+		override := *overrideSource
 		if override.BillingMode == "" {
 			override.BillingMode = string(BillingModeToken)
+		}
+		if result.ImageCount > 0 && override.ActualCost == 0 && override.TotalCost > 0 {
+			override.ActualCost = override.TotalCost * imageMultiplier
 		}
 		cost = &override
 	} else {
@@ -5923,6 +5927,15 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.openai_gateway")
 
+	return nil
+}
+
+func firstNonNilCostBreakdown(values ...*CostBreakdown) *CostBreakdown {
+	for _, value := range values {
+		if value != nil {
+			return value
+		}
+	}
 	return nil
 }
 
