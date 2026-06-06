@@ -295,6 +295,7 @@ import {
 } from '@/api/imageCreator'
 import { useAppStore } from '@/stores'
 import type { ApiKey } from '@/types'
+import { apiKeySupportsOpenAI, apiKeySupportsOpenAIImageGeneration, primaryAPIKeyImageGroupName } from '@/utils/apiKeyCapabilities'
 
 interface GeneratedImage {
   id: string
@@ -393,8 +394,8 @@ const apiKeyOptions = computed(() =>
     value: key.id,
     label: [
       key.name,
-      key.group?.name,
-      key.group?.allow_image_generation ? t('imageCreator.imageEnabled') : t('imageCreator.imageDisabled'),
+      primaryAPIKeyImageGroupName(key),
+      apiKeySupportsOpenAIImageGeneration(key) ? t('imageCreator.imageEnabled') : t('imageCreator.imageDisabled'),
     ].filter(Boolean).join(' · '),
     disabled: !isOpenAIImageKey(key),
   }))
@@ -642,11 +643,11 @@ async function pollImageTask(taskId: number): Promise<void> {
 }
 
 function isOpenAIImageKey(key: ApiKey): boolean {
-  return key.status === 'active' && key.group?.platform === 'openai' && key.group?.allow_image_generation === true
+  return apiKeySupportsOpenAIImageGeneration(key)
 }
 
 function isOpenAIKey(key: ApiKey): boolean {
-  return key.status === 'active' && key.group?.platform === 'openai'
+  return apiKeySupportsOpenAI(key)
 }
 
 function pickDefaultApiKey(keys: ApiKey[]): ApiKey | null {

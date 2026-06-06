@@ -448,7 +448,8 @@ func (s *ImageCreatorService) CreateTask(ctx context.Context, userID int64, inpu
 	if err != nil || apiKey == nil {
 		return nil, infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
 	}
-	if err := validateImageCreatorAPIKeyForUser(apiKey, userID); err != nil {
+	apiKey, err = validateImageCreatorAPIKeyForUser(apiKey, userID, input.Model)
+	if err != nil {
 		return nil, err
 	}
 	maxActiveTasks := defaultImageCreatorActiveTaskLimit
@@ -526,20 +527,21 @@ func normalizeCreateTaskInput(input ImageCreatorCreateTaskInput) ImageCreatorCre
 	return input
 }
 
-func validateImageCreatorAPIKeyForUser(apiKey *APIKey, userID int64) error {
+func validateImageCreatorAPIKeyForUser(apiKey *APIKey, userID int64, model string) (*APIKey, error) {
 	if apiKey == nil {
-		return infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
+		return nil, infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
 	}
 	if apiKey.UserID != userID {
-		return infraerrors.Forbidden("API_KEY_FORBIDDEN", "api key does not belong to current user")
+		return nil, infraerrors.Forbidden("API_KEY_FORBIDDEN", "api key does not belong to current user")
 	}
 	if apiKey.Status != StatusAPIKeyActive && apiKey.Status != StatusActive {
-		return infraerrors.BadRequest("API_KEY_NOT_ACTIVE", "api key is not active")
+		return nil, infraerrors.BadRequest("API_KEY_NOT_ACTIVE", "api key is not active")
 	}
-	if apiKey.Group == nil || apiKey.Group.Platform != PlatformOpenAI || !GroupAllowsImageGeneration(apiKey.Group) {
-		return infraerrors.Forbidden("IMAGE_GENERATION_FORBIDDEN", ImageGenerationPermissionMessage())
+	resolved := apiKey.ResolveForModelRequest("/v1/images/generations", PlatformOpenAI, model, true)
+	if resolved == nil || resolved.Group == nil || resolved.Group.Platform != PlatformOpenAI || !GroupAllowsImageGeneration(resolved.Group) {
+		return nil, infraerrors.Forbidden("IMAGE_GENERATION_FORBIDDEN", ImageGenerationPermissionMessage())
 	}
-	return nil
+	return resolved, nil
 }
 
 func (s *ImageCreatorService) GetTask(ctx context.Context, userID int64, taskID int64) (*ImageCreatorTask, error) {
@@ -767,7 +769,8 @@ func (s *ImageCreatorService) processClaimedTask(ctx context.Context, task *Imag
 		_ = s.repo.MarkTaskFailed(context.Background(), task.ID, msg)
 		return errors.New(msg)
 	}
-	if err := validateImageCreatorAPIKeyForUser(apiKey, task.UserID); err != nil {
+	apiKey, err = validateImageCreatorAPIKeyForUser(apiKey, task.UserID, task.Model)
+	if err != nil {
 		_ = s.repo.MarkTaskFailed(context.Background(), task.ID, imageCreatorTaskErrorMessage(err))
 		return err
 	}

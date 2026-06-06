@@ -338,6 +338,7 @@ import {
 import { useAppStore } from '@/stores'
 import { useClipboard } from '@/composables/useClipboard'
 import type { ApiKey } from '@/types'
+import { apiKeyChatGroups, apiKeySupportsChat, primaryAPIKeyGroupName } from '@/utils/apiKeyCapabilities'
 
 interface LocalChatMessage {
   id: string
@@ -413,7 +414,10 @@ const apiKeyOptions = computed<SelectOption[]>(() =>
 )
 
 const modelOptions = computed<SelectOption[]>(() => {
-  const groupId = selectedKey.value?.group_id
+  const groupIds = new Set(
+    (selectedKey.value ? apiKeyChatGroups(selectedKey.value).map((group) => group.id) : [])
+      .filter((id): id is number => typeof id === 'number' && id > 0)
+  )
   const names = new Set<string>()
 
   for (const keyModel of keyModels.value) {
@@ -422,7 +426,7 @@ const modelOptions = computed<SelectOption[]>(() => {
 
   for (const channel of channels.value) {
     for (const section of channel.platforms || []) {
-      if (groupId && !section.groups?.some((group) => group.id === groupId)) continue
+      if (groupIds.size > 0 && !section.groups?.some((group) => groupIds.has(group.id))) continue
       for (const supportedModel of section.supported_models || []) {
         if (supportedModel.name) names.add(supportedModel.name)
       }
@@ -673,13 +677,13 @@ function messageCountLabel(session: LocalChatSession): string {
 function apiKeyLabel(key: ApiKey): string {
   return [
     key.name,
-    key.group?.name,
+    primaryAPIKeyGroupName(key),
     key.group?.platform,
   ].filter(Boolean).join(' · ')
 }
 
 function isUsableChatKey(key: ApiKey): boolean {
-  return key.status === 'active' && !!key.key && key.group_id !== null && !!key.group
+  return !!key.key && apiKeySupportsChat(key)
 }
 
 function pickDefaultKey(keys: ApiKey[]): ApiKey | null {
