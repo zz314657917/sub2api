@@ -1128,6 +1128,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartEditUploadsAndPollsTask(t *tes
 	require.Equal(t, 1, result.ImageCount)
 	require.Equal(t, "gpt-image-2", result.Model)
 	require.Equal(t, "gpt-image-2", result.UpstreamModel)
+	require.Equal(t, []string{"1024x1024"}, result.ImageOutputSizes)
 	require.Len(t, upstream.requests, 3)
 	require.Equal(t, "https://api.apimart.ai/v1/uploads/images", upstream.requests[0].URL.String())
 	require.Equal(t, "https://api.apimart.ai/v1/images/generations", upstream.requests[1].URL.String())
@@ -1208,6 +1209,49 @@ func TestOpenAIGatewayServiceForwardImages_APIMartRegularImageSplitsMultiImageRe
 	require.Equal(t, "https://upload.apimart.ai/output-1.png", gjson.Get(rec.Body.String(), "data.0.url").String())
 	require.Equal(t, "https://upload.apimart.ai/output-2.png", gjson.Get(rec.Body.String(), "data.1.url").String())
 	require.Equal(t, "https://upload.apimart.ai/output-3.png", gjson.Get(rec.Body.String(), "data.2.url").String())
+}
+
+func TestOpenAIGatewayServiceForwardImages_APIMartOfficialCarriesExactOutputSizeForBilling(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2-official","prompt":"draw poster","size":"2576x3216","quality":"medium","n":1}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_size"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_size","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{
+		cfg:          &config.Config{},
+		httpUpstream: upstream,
+	}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       16,
+		Name:     "apimart-official",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "gpt-image-2-official", result.Model)
+	require.Equal(t, "gpt-image-2-official", result.UpstreamModel)
+	require.Equal(t, 1, result.ImageCount)
+	require.Equal(t, []string{"2576x3216"}, result.ImageOutputSizes)
+	require.Equal(t, "medium", result.ImageQuality)
+	require.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestAPIMartImagesPayloadPreservesOfficialModelAndResolution(t *testing.T) {

@@ -1222,7 +1222,7 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 	}
 
 	requestID := ""
-	images := make([]string, 0, maxInt(1, parsed.N))
+	images := make([]apimartImageResult, 0, maxInt(1, parsed.N))
 	submitCount := apimartImagesSubmitCount(parsed, upstreamModel)
 	for i := 0; i < submitCount; i++ {
 		submitParsed := apimartImagesSubmitRequest(parsed, upstreamModel)
@@ -1241,7 +1241,7 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 		if requestID == "" {
 			requestID = submitReqID
 		}
-		taskImages, err := s.pollAPIMartImageTask(ctx, account, token, proxyURL, baseURL, taskID)
+		taskImages, err := s.pollAPIMartImageTask(ctx, account, token, proxyURL, baseURL, taskID, parsed)
 		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 		if err != nil {
 			s.recordAPIMartImagesUpstreamError(c, account, err)
@@ -1253,23 +1253,24 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 		return nil, fmt.Errorf("apimart image task completed without image urls")
 	}
 
-	body, err := buildAPIMartOpenAIImagesResponse(images, parsed)
+	body, err := buildAPIMartOpenAIImagesResponse(apimartImageResultURLs(images), parsed)
 	if err != nil {
 		return nil, err
 	}
 	c.Data(http.StatusOK, "application/json", body)
 
 	return &OpenAIForwardResult{
-		RequestID:      requestID,
-		Usage:          OpenAIUsage{},
-		Model:          requestModel,
-		UpstreamModel:  upstreamModel,
-		Stream:         false,
-		Duration:       time.Since(startTime),
-		ImageCount:     len(images),
-		ImageSize:      parsed.SizeTier,
-		ImageQuality:   NormalizeImageQuality(parsed.Quality),
-		ImageInputSize: parsed.Size,
+		RequestID:        requestID,
+		Usage:            OpenAIUsage{},
+		Model:            requestModel,
+		UpstreamModel:    upstreamModel,
+		Stream:           false,
+		Duration:         time.Since(startTime),
+		ImageCount:       len(images),
+		ImageSize:        parsed.SizeTier,
+		ImageOutputSizes: apimartImageResultSizes(images),
+		ImageQuality:     NormalizeImageQuality(parsed.Quality),
+		ImageInputSize:   parsed.Size,
 	}, nil
 }
 
@@ -1488,7 +1489,8 @@ func (s *OpenAIGatewayService) pollAPIMartImageTask(
 	proxyURL string,
 	baseURL string,
 	taskID string,
-) ([]string, error) {
+	parsed *OpenAIImagesRequest,
+) ([]apimartImageResult, error) {
 	targetURL := buildOpenAIEndpointURL(baseURL, apimartImagesTaskEndpointPrefix+url.PathEscape(taskID)) + "?language=zh"
 	var lastStatus string
 	var lastMessage string
@@ -1512,7 +1514,7 @@ func (s *OpenAIGatewayService) pollAPIMartImageTask(
 		lastMessage = extractAPIMartImageMessage(respBody)
 		switch status {
 		case "completed", "succeeded", "success":
-			images := extractAPIMartImageResultURLs(respBody)
+			images := extractAPIMartImageResults(respBody, parsed)
 			if len(images) == 0 {
 				return nil, fmt.Errorf("apimart image task completed without image urls")
 			}
@@ -1616,8 +1618,14 @@ func extractAPIMartImageMessage(body []byte) string {
 	return ""
 }
 
-func extractAPIMartImageResultURLs(body []byte) []string {
-	var out []string
+type apimartImageResult struct {
+	URL  string
+	Size string
+}
+
+func extractAPIMartImageResults(body []byte, parsed *OpenAIImagesRequest) []apimartImageResult {
+	var out []apimartImageResult
+	fallbackSize := apimartExplicitPixelSize(parsed)
 	for _, path := range []string{
 		"data.result.images",
 		"result.images",
@@ -1630,26 +1638,130 @@ func extractAPIMartImageResultURLs(body []byte) []string {
 		}
 		for _, item := range items.Array() {
 			if item.Type == gjson.String {
-				out = append(out, strings.TrimSpace(item.String()))
+				out = appendAPIMartImageResult(out, item.String(), fallbackSize)
 				continue
 			}
+			size := firstAPIMartImageResultSize(item, fallbackSize)
 			urls := item.Get("url")
 			if urls.IsArray() {
 				for _, u := range urls.Array() {
-					out = append(out, strings.TrimSpace(u.String()))
+					out = appendAPIMartImageResult(out, u.String(), size)
 				}
 			} else if urls.Type == gjson.String {
-				out = append(out, strings.TrimSpace(urls.String()))
+				out = appendAPIMartImageResult(out, urls.String(), size)
 			}
 			if value := strings.TrimSpace(item.Get("image_url").String()); value != "" {
-				out = append(out, value)
+				out = appendAPIMartImageResult(out, value, size)
 			}
 		}
 		if len(out) > 0 {
 			break
 		}
 	}
-	return compactTrimmedStrings(out)
+	return compactAPIMartImageResults(out)
+}
+
+func extractAPIMartImageResultURLs(body []byte) []string {
+	return apimartImageResultURLs(extractAPIMartImageResults(body, nil))
+}
+
+func appendAPIMartImageResult(out []apimartImageResult, rawURL string, size string) []apimartImageResult {
+	rawURL = strings.TrimSpace(rawURL)
+	if rawURL == "" {
+		return out
+	}
+	return append(out, apimartImageResult{
+		URL:  rawURL,
+		Size: normalizeAPIMartImageSize(size),
+	})
+}
+
+func compactAPIMartImageResults(results []apimartImageResult) []apimartImageResult {
+	if len(results) == 0 {
+		return nil
+	}
+	out := make([]apimartImageResult, 0, len(results))
+	for _, result := range results {
+		result.URL = strings.TrimSpace(result.URL)
+		result.Size = normalizeAPIMartImageSize(result.Size)
+		if result.URL != "" {
+			out = append(out, result)
+		}
+	}
+	return out
+}
+
+func apimartImageResultURLs(results []apimartImageResult) []string {
+	if len(results) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(results))
+	for _, result := range results {
+		if url := strings.TrimSpace(result.URL); url != "" {
+			out = append(out, url)
+		}
+	}
+	return out
+}
+
+func apimartImageResultSizes(results []apimartImageResult) []string {
+	if len(results) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(results))
+	for _, result := range results {
+		if size := normalizeAPIMartImageSize(result.Size); size != "" {
+			out = append(out, size)
+		}
+	}
+	return out
+}
+
+func firstAPIMartImageResultSize(item gjson.Result, fallbackSize string) string {
+	for _, path := range []string{
+		"size",
+		"output_size",
+		"resolution_size",
+		"dimensions",
+		"metadata.size",
+		"metadata.output_size",
+	} {
+		if size := normalizeAPIMartImageSize(item.Get(path).String()); size != "" {
+			return size
+		}
+	}
+	width, height := firstAPIMartImageDimensions(item)
+	if width > 0 && height > 0 {
+		return fmt.Sprintf("%dx%d", width, height)
+	}
+	return fallbackSize
+}
+
+func firstAPIMartImageDimensions(item gjson.Result) (int64, int64) {
+	for _, pair := range [][2]string{
+		{"width", "height"},
+		{"w", "h"},
+		{"metadata.width", "metadata.height"},
+		{"metadata.w", "metadata.h"},
+	} {
+		width := item.Get(pair[0]).Int()
+		height := item.Get(pair[1]).Int()
+		if width > 0 && height > 0 {
+			return width, height
+		}
+	}
+	return 0, 0
+}
+
+func apimartExplicitPixelSize(parsed *OpenAIImagesRequest) string {
+	if parsed == nil || !parsed.ExplicitSize {
+		return ""
+	}
+	size := normalizeAPIMartImageSize(parsed.Size)
+	if _, _, ok := parseImageBillingDimensions(size); ok {
+		return size
+	}
+	return ""
 }
 
 func buildAPIMartOpenAIImagesResponse(images []string, parsed *OpenAIImagesRequest) ([]byte, error) {
