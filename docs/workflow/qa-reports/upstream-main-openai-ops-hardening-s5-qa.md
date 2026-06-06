@@ -24,3 +24,13 @@
 
 ## Recommendation
 PASS. The branch is ready for integration into the intended target after a clean merge check from current `main`.
+
+## Integration Verification
+- 2026-06-07: Created clean integration worktree `E:/codex-worktrees/sub2api/upstream-main-openai-ops-hardening-s5-integration` from current `main@b708d0552`.
+- Merged `codex/upstream-main-openai-ops-hardening-s5` into integration branch without conflicts, producing merge commit `a121e6389`.
+- `git status --short --branch` -> clean on `codex/upstream-main-openai-ops-hardening-s5-integration`.
+- `git diff --check main..HEAD` -> PASS.
+- `git diff --name-only main..HEAD | rg "^(frontend/|backend/ent/|backend/migrations/|deploy/|knowledge/|docs/workflow/status\\.md|docs/workflow/spec\\.md|\\.github/|assets/|README)"` -> no matches.
+- `go test ./internal/service -run "OpenAI|Codex|Proxy|Group|Claude|Terminal|Snapshot|Quality" -count=1` -> PASS.
+- `go test ./internal/handler ./internal/service -run "OpenAI|Gateway|Group|Proxy|Claude|Terminal" -count=1` -> PASS.
+- `go test ./internal/service ./internal/handler -count=1` -> PASS.

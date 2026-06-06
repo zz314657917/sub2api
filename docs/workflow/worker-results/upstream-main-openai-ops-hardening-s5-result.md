@@ -44,3 +44,8 @@
 - `go test ./internal/service -run "OpenAI|Codex|Proxy|Group|Claude|Terminal|Snapshot|Quality" -count=1`
 - `go test ./internal/handler ./internal/service -run "OpenAI|Gateway|Group|Proxy|Claude|Terminal" -count=1`
 - `go test ./internal/service ./internal/handler -count=1`
+
+## Integration Verification
+- Clean integration worktree `E:/codex-worktrees/sub2api/upstream-main-openai-ops-hardening-s5-integration` was created from current `main@b708d0552`.
+- `codex/upstream-main-openai-ops-hardening-s5` merged without conflicts into integration commit `a121e6389`.
+- Integration reran the same path audit and Go target/regression tests; all passed.
