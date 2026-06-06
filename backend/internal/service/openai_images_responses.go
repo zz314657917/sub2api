@@ -630,6 +630,21 @@ func openAIImagesUpstreamErrorFromHTTP(statusCode int, header http.Header, body 
 	}
 }
 
+func (s *OpenAIGatewayService) readUpstreamErrorBody(resp *http.Response) []byte {
+	if resp == nil || resp.Body == nil {
+		return nil
+	}
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
+	return body
+}
+
+func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte, requestedModel ...string) bool {
+	if s == nil || s.rateLimitService == nil {
+		return false
+	}
+	return s.rateLimitService.HandleUpstreamError(ctx, account, statusCode, headers, responseBody, requestedModel...)
+}
+
 // handleOpenAIImagesErrorResponse is the non-failover error handler for the
 // images endpoints (/v1/images/generations and /v1/images/edits). Unlike the
 // generic handleErrorResponse — which collapses every non-failover upstream
