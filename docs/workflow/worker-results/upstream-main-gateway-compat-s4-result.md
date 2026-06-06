@@ -49,3 +49,8 @@
 - `go test ./internal/service -run "OpenAIImages|ChatCompletions|Responses|Failed|Tool|DeepSeek" -count=1`
 - `go test ./internal/handler -run "OpenAI|Gateway|Images|Failed" -count=1`
 - `go test ./internal/pkg/apicompat ./internal/service ./internal/handler -count=1`
+
+## Integration Verification
+- Clean integration worktree `E:/codex-worktrees/sub2api/upstream-main-gateway-compat-s4-integration` was created from current `main@d1c10a7b`.
+- `codex/upstream-main-gateway-compat-s4` merged without conflicts into integration commit `1a05d7343`.
+- Integration reran the same path audit and Go target/regression tests; all passed.

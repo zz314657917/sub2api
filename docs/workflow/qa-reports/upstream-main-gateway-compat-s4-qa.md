@@ -23,3 +23,14 @@
 
 ## Recommendation
 PASS. The branch is ready for review/merge into the intended integration target.
+
+## Integration Verification
+- 2026-06-07: Created clean integration worktree `E:/codex-worktrees/sub2api/upstream-main-gateway-compat-s4-integration` from current `main@d1c10a7b`.
+- Merged `codex/upstream-main-gateway-compat-s4` into integration branch without conflicts, producing merge commit `1a05d7343`.
+- `git status --short --branch` -> clean on `codex/upstream-main-gateway-compat-s4-integration`.
+- `git diff --check main..HEAD` -> PASS.
+- `git diff --name-only main..HEAD | rg "^(frontend/|backend/ent/|backend/migrations/|deploy/|knowledge/|docs/workflow/status\\.md|docs/workflow/spec\\.md|\\.github/|assets/|README)"` -> no matches.
+- `go test ./internal/pkg/apicompat -run "Responses|ChatCompletions|Anthropic|Tool|DeepSeek|Reasoning" -count=1` -> PASS.
+- `go test ./internal/service -run "OpenAIImages|ChatCompletions|Responses|Failed|Tool|DeepSeek" -count=1` -> PASS.
+- `go test ./internal/handler -run "OpenAI|Gateway|Images|Failed" -count=1` -> PASS.
+- `go test ./internal/pkg/apicompat ./internal/service ./internal/handler -count=1` -> PASS.
