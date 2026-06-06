@@ -5,7 +5,11 @@ import (
 	"strings"
 )
 
-const apimartGPTImage2OfficialModel = "gpt-image-2-official"
+const (
+	apimartGPTImage2OfficialModel             = "gpt-image-2-official"
+	apimartGPTImage2OfficialBalanceMultiplier = 7 * 1.2
+	apimartGPTImage2OfficialDefaultPrice      = 0.2109
+)
 
 type apimartImagePriceRow struct {
 	Size     string
@@ -226,6 +230,26 @@ func isAPIMartGPTImage2OfficialModel(model string) bool {
 	return strings.EqualFold(strings.TrimSpace(model), apimartGPTImage2OfficialModel)
 }
 
+func apimartGPTImage2OfficialBalancePrice(upstreamPrice float64) float64 {
+	return upstreamPrice * apimartGPTImage2OfficialBalanceMultiplier
+}
+
+func apimartGPTImage2OfficialUsageMultiplier(model string, baseMultiplier float64) float64 {
+	if isAPIMartGPTImage2OfficialModel(model) {
+		return baseMultiplier * apimartGPTImage2OfficialBalanceMultiplier
+	}
+	return baseMultiplier
+}
+
+func apimartGPTImage2OfficialUsageMultiplierForModels(models []string, baseMultiplier float64) float64 {
+	for _, model := range models {
+		if isAPIMartGPTImage2OfficialModel(model) {
+			return apimartGPTImage2OfficialUsageMultiplier(model, baseMultiplier)
+		}
+	}
+	return baseMultiplier
+}
+
 func lookupAPIMartGPTImage2OfficialPrice(size string, quality string) (float64, bool) {
 	size = normalizeAPIMartImageSize(size)
 	if size == "" {
@@ -250,7 +274,7 @@ func lookupAPIMartGPTImage2OfficialPrice(size string, quality string) (float64, 
 
 func apimartGPTImage2OfficialReferencePricing() *ChannelModelPricing {
 	intervals := make([]PricingInterval, 0, len(apimartGPTImage2OfficialPriceRows)+1)
-	defaultPrice := 0.2109
+	defaultPrice := apimartGPTImage2OfficialDefaultPrice
 	intervals = append(intervals, PricingInterval{
 		MinTokens:       0,
 		MaxTokens:       nil,

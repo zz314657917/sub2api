@@ -1899,7 +1899,8 @@ func TestOpenAIGatewayServiceRecordUsage_APIMartGPTImage2OfficialUsesExactSizeOf
 	require.NoError(t, err)
 	require.NotNil(t, usageRepo.lastLog)
 	require.InDelta(t, 0.9856, usageRepo.lastLog.TotalCost, 1e-12)
-	require.InDelta(t, 0.9856, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, 8.27904, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, apimartGPTImage2OfficialBalanceMultiplier, usageRepo.lastLog.RateMultiplier, 1e-12)
 	require.NotNil(t, usageRepo.lastLog.BillingTier)
 	require.Equal(t, "2576x3216:medium", *usageRepo.lastLog.BillingTier)
 }
@@ -1941,12 +1942,60 @@ func TestOpenAIGatewayServiceRecordUsage_UsesForwardResultCostOverrideForAPIMart
 	require.NoError(t, err)
 	require.NotNil(t, usageRepo.lastLog)
 	require.InDelta(t, 0.1126, usageRepo.lastLog.TotalCost, 1e-12)
-	require.InDelta(t, 0.2252, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, 2.0, usageRepo.lastLog.RateMultiplier, 1e-12)
+	require.InDelta(t, 1.89168, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, 16.8, usageRepo.lastLog.RateMultiplier, 1e-12)
 	require.NotNil(t, usageRepo.lastLog.BillingMode)
 	require.Equal(t, string(BillingModeImage), *usageRepo.lastLog.BillingMode)
 	require.NotNil(t, usageRepo.lastLog.BillingTier)
 	require.Equal(t, "2576x3216:medium", *usageRepo.lastLog.BillingTier)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_APIMartGPTImage2OfficialCostOverrideUsesRequestedModelMultiplier(t *testing.T) {
+	groupID := int64(134)
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:       "resp_apimart_image_cost_override_mapped",
+			Model:           "gpt-image-2",
+			BillingModel:    "gpt-image-2",
+			UpstreamModel:   "gpt-image-2",
+			ImageCount:      1,
+			ImageSize:       "2K",
+			ImageOutputSize: "2576x3216",
+			ImageQuality:    "medium",
+			Duration:        time.Second,
+			CostOverride: &CostBreakdown{
+				TotalCost:   0.1126,
+				BillingMode: string(BillingModeImage),
+			},
+		},
+		APIKey: &APIKey{
+			ID:      10134,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                   groupID,
+				RateMultiplier:       1,
+				ImageRateIndependent: true,
+				ImageRateMultiplier:  1,
+			},
+		},
+		User:    &User{ID: 20134},
+		Account: &Account{ID: 30134},
+		ChannelUsageFields: ChannelUsageFields{
+			OriginalModel:      "gpt-image-2-official",
+			ChannelMappedModel: "gpt-image-2",
+			BillingModelSource: BillingModelSourceChannelMapped,
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, "gpt-image-2-official", usageRepo.lastLog.RequestedModel)
+	require.InDelta(t, 0.1126, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.94584, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, apimartGPTImage2OfficialBalanceMultiplier, usageRepo.lastLog.RateMultiplier, 1e-12)
 }
 
 func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingFallsBackToSizeTier(t *testing.T) {

@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-04 10:39 +08:00
+最后更新：2026-06-06 22:55 +08:00
 
 ## 背景
 
@@ -53,6 +53,7 @@
   - 旧 v7 保存目录会自动刷新现有视频分组为 APIMart 当前官方价和规格参数。
   - 旧 v8 保存目录会自动刷新 `Doubao Seedance 视频` 分组行顺序为 2.0 -> 1.5 -> 1.0，同时保留 `supported_group_ids` 配置。
 - `gpt-image-2-official` 默认目录已升级为 181 个价格档位：默认行 1 个 + 官方规格/质量档 180 个；前台“我们的价格”显示原官方价，`official_price` 和 `saving` 为空。
+- 2026-06-06 新增：`gpt-image-2-official` 的 APIMart 上游真实任务 cost 按人民币余额口径扣费，实际用户扣费为 `data.cost × 7 × 1.2 × 账号分组图片有效倍率`；默认模型市场目录升级为 `version=11`，目录行价本身保存 APIMart 官方参考价，不预乘 `7` 或 `8.4`，示例 `default=¥0.2109`、`2576x3216 · 中=¥0.1408`。如果需要前台展示为官方参考价的 7 倍，在后台该模型市场分组设置 `price_multiplier=7`。
 - 视频分组默认不再填充 `official_price` 和 `saving`，前台只显示“规格 / 我们的价格”。
 - 模型市场 `our_price` 当前统一使用 `¥` 符号：默认目录直接生成 `¥`；读取/保存旧目录时只归一化 `our_price` 里的 `$` 为 `¥`；前台 `displayOurPrice` 也有展示兜底。`input_price`、`output_price` 和 `official_price` 的 `$` 官方口径不在本轮替换范围内。
 - 公共 `/models` 的单个模型卡片价格行超过 10 行时，会启用卡片内滚动；表头固定，不再把整页无限拉长。
@@ -66,6 +67,14 @@
 
 ## 验证记录
 
+- 本轮 `gpt-image-2-official` 余额扣费 `×7×1.2` 验证通过：
+  - `go test -tags=unit ./internal/service -run "TestOpenAIGatewayServiceRecordUsage_(APIMartGPTImage2Official|UsesForwardResultCostOverride)|TestOpenAIGatewayServiceForwardImages_APIMart|TestExtractAPIMartImageResults|TestNormalizeModelMarketCatalog|TestSettingService_GetModelMarketCatalog" -count=1`
+  - `go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_GetModelMarketCatalog|TestSettingService_SetModelMarketCatalog|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog" -count=1`
+  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
+  - `corepack.cmd pnpm --dir frontend run typecheck`
+  - `corepack.cmd pnpm --dir frontend run build`
+  - `git diff --check`
+  - 测试覆盖：APIMart `data.cost=0.1126` 时默认分组扣 `0.94584`，图片独立倍率 `2` 时扣 `1.89168`；渠道映射后仍按原始请求模型 `gpt-image-2-official` 命中 `8.4` 倍率。
 - 本轮“我们的价格”货币符号改为 `¥` 验证通过：
   - 后端默认模型市场目录中 `gpt-image-2`、`gpt-image-2-official`、Doubao 图像/视频和视频模型 `our_price` 均生成 `¥`。
   - 后端 `NormalizeModelMarketCatalog` 只把 `our_price` 里的 `$` 归一化成 `¥`，旧保存目录读取后也会生效；`input_price`、`output_price`、`official_price` 不做替换。

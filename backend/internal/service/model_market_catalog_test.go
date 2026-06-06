@@ -631,6 +631,37 @@ func TestNormalizeModelMarketCatalog_MigratesVersion8DoubaoSeedanceVideoOrder(t 
 	require.Equal(t, "doubao-seedance-1-0-pro-quality-1080p", doubaoVideo.Rows[len(doubaoVideo.Rows)-1].ID)
 }
 
+func TestNormalizeModelMarketCatalog_MigratesVersion10GPTImage2OfficialDisplayPrices(t *testing.T) {
+	catalog, err := NormalizeModelMarketCatalog(&ModelMarketCatalog{
+		Version: 10,
+		Groups: []ModelMarketGroup{
+			{
+				ID:                "gpt-image-2-official",
+				Title:             "gpt-image-2-official",
+				Category:          ModelMarketCategoryImage,
+				SupportedGroupIDs: []int64{20, 10},
+				PriceMultiplier:   1.3,
+				Enabled:           true,
+				SortOrder:         400,
+				Rows: []ModelMarketPriceRow{
+					{ID: "default", Spec: "默认", OurPrice: "¥1.77156", SortOrder: 100, Enabled: true},
+				},
+			},
+		},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, modelMarketCatalogVersion, catalog.Version)
+	official := requireModelMarketGroup(t, catalog.Groups, "gpt-image-2-official")
+	require.Equal(t, []int64{20, 10}, official.SupportedGroupIDs)
+	require.Equal(t, 1.3, official.PriceMultiplier)
+	require.Len(t, official.Rows, len(apimartGPTImage2OfficialPriceRows)+1)
+	require.Equal(t, "¥0.2109", requireModelMarketRow(t, official.Rows, "default").OurPrice)
+	require.Equal(t, "¥0.1408", requireModelMarketRow(t, official.Rows, "2576x3216:medium").OurPrice)
+	require.True(t, official.HideOfficialPrice)
+	require.True(t, official.HideSaving)
+}
+
 func requireModelMarketGroup(t *testing.T, groups []ModelMarketGroup, id string) ModelMarketGroup {
 	t.Helper()
 	for _, group := range groups {

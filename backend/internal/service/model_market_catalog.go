@@ -17,7 +17,7 @@ const (
 	ModelMarketCategoryImage = "image"
 	ModelMarketCategoryVideo = "video"
 
-	modelMarketCatalogVersion = 9
+	modelMarketCatalogVersion = 11
 )
 
 type ModelMarketCatalog struct {
@@ -385,6 +385,9 @@ func migrateModelMarketCatalog(catalog *ModelMarketCatalog) {
 	if catalog.Version < 9 {
 		refreshModelMarketGroup(catalog, doubaoSeedanceVideoModelMarketGroup())
 	}
+	if catalog.Version < 11 {
+		refreshModelMarketGroup(catalog, gptImage2OfficialModelMarketGroup())
+	}
 	applyModelMarketPriceMultiplierDefaults(catalog)
 	applyModelMarketOurPriceCurrency(catalog)
 	if catalog.Version < modelMarketCatalogVersion {
@@ -604,7 +607,7 @@ func gptImage2OfficialModelMarketRows() []ModelMarketPriceRow {
 	rows = append(rows, ModelMarketPriceRow{
 		ID:        "default",
 		Spec:      "默认",
-		OurPrice:  modelMarketOurPrice(0.2109),
+		OurPrice:  modelMarketOurPrice(apimartGPTImage2OfficialDefaultPrice),
 		SortOrder: 100,
 		Enabled:   true,
 	})
@@ -618,6 +621,22 @@ func gptImage2OfficialModelMarketRows() []ModelMarketPriceRow {
 		})
 	}
 	return rows
+}
+
+func gptImage2OfficialModelMarketGroup() ModelMarketGroup {
+	return ModelMarketGroup{
+		ID:                "gpt-image-2-official",
+		Title:             "gpt-image-2-official",
+		Category:          ModelMarketCategoryImage,
+		Platform:          "openai",
+		Description:       "按规格和质量档计费",
+		HideOfficialPrice: true,
+		HideSaving:        true,
+		PriceMultiplier:   1,
+		SortOrder:         400,
+		Enabled:           true,
+		Rows:              gptImage2OfficialModelMarketRows(),
+	}
 }
 
 func doubaoSeedanceImageModelMarketGroup() ModelMarketGroup {
@@ -860,19 +879,7 @@ func DefaultModelMarketCatalog() *ModelMarketCatalog {
 				Enabled:           true,
 				Rows:              gptImage2ModelMarketRows(),
 			},
-			{
-				ID:                "gpt-image-2-official",
-				Title:             "gpt-image-2-official",
-				Category:          ModelMarketCategoryImage,
-				Platform:          "openai",
-				Description:       "按规格和质量档计费",
-				HideOfficialPrice: true,
-				HideSaving:        true,
-				PriceMultiplier:   1,
-				SortOrder:         400,
-				Enabled:           true,
-				Rows:              gptImage2OfficialModelMarketRows(),
-			},
+			gptImage2OfficialModelMarketGroup(),
 			doubaoSeedanceImageModelMarketGroup(),
 			klingV3OmniModelMarketGroup(),
 			klingV26ModelMarketGroup(),
