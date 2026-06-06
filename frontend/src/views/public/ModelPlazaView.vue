@@ -150,8 +150,17 @@
                 </tbody>
               </table>
             </div>
-            <span v-if="hasScrollableRows(group)" class="model-scrollbar-rail" aria-hidden="true">
-              <span class="model-scrollbar-thumb" :style="scrollThumbStyle(group.id)" />
+            <span
+              v-if="hasScrollableRows(group)"
+              class="model-scrollbar-rail"
+              aria-hidden="true"
+              @pointerdown="handleScrollbarRailPointerDown(group.id, $event)"
+            >
+              <span
+                class="model-scrollbar-thumb"
+                :style="scrollThumbStyle(group.id)"
+                @pointerdown.stop="handleScrollbarThumbPointerDown(group.id, $event)"
+              />
             </span>
           </div>
         </article>
@@ -182,6 +191,15 @@ import PublicMatrixBackdrop from './components/PublicMatrixBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
 
 type CategoryFilter = 'all' | ModelMarketCategory
+type ScrollbarDragState = {
+  groupId: string
+  pointerId: number
+  startY: number
+  startScrollTop: number
+  maxScroll: number
+  maxTop: number
+  target: HTMLElement
+}
 
 const loading = ref(false)
 const loadError = ref('')
@@ -189,6 +207,7 @@ const searchQuery = ref('')
 const selectedCategory = ref<CategoryFilter>('all')
 const scrollIndicators = reactive<Record<string, { height: number; top: number }>>({})
 const selectedRateGroupIds = reactive<Record<string, number>>({})
+let activeScrollbarDrag: ScrollbarDragState | null = null
 const catalog = ref<ModelMarketCatalog>({
   version: 1,
   groups: []
@@ -425,6 +444,108 @@ function setScrollIndicator(groupId: string, element: HTMLElement): void {
   scrollIndicators[groupId] = { height, top }
 }
 
+function handleScrollbarRailPointerDown(groupId: string, event: PointerEvent): void {
+  if (event.button !== 0) return
+  const rail = event.currentTarget as HTMLElement
+  const element = scrollElementForGroup(groupId)
+  if (!element) return
+
+  event.preventDefault()
+  const indicator = scrollIndicators[groupId] || { height: 44, top: 0 }
+  const railRect = rail.getBoundingClientRect()
+  const thumbTop = event.clientY - railRect.top - indicator.height / 2
+  setScrollFromThumbTop(groupId, element, railRect.height, indicator.height, thumbTop)
+}
+
+function handleScrollbarThumbPointerDown(groupId: string, event: PointerEvent): void {
+  if (event.button !== 0) return
+  const target = event.currentTarget as HTMLElement
+  const rail = target.parentElement
+  const element = scrollElementForGroup(groupId)
+  if (!rail || !element) return
+
+  event.preventDefault()
+  stopActiveScrollbarDrag()
+  target.setPointerCapture?.(event.pointerId)
+
+  const indicator = scrollIndicators[groupId] || { height: target.offsetHeight || 44, top: 0 }
+  const railHeight = rail.getBoundingClientRect().height
+  activeScrollbarDrag = {
+    groupId,
+    pointerId: event.pointerId,
+    startY: event.clientY,
+    startScrollTop: element.scrollTop,
+    maxScroll: Math.max(0, element.scrollHeight - element.clientHeight),
+    maxTop: Math.max(0, railHeight - indicator.height),
+    target
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pointermove', handleScrollbarPointerMove)
+    window.addEventListener('pointerup', handleScrollbarPointerEnd)
+    window.addEventListener('pointercancel', handleScrollbarPointerEnd)
+  }
+}
+
+function handleScrollbarPointerMove(event: PointerEvent): void {
+  const drag = activeScrollbarDrag
+  if (!drag || event.pointerId !== drag.pointerId || drag.maxScroll <= 0 || drag.maxTop <= 0) return
+  const element = scrollElementForGroup(drag.groupId)
+  if (!element) return
+
+  event.preventDefault()
+  const scrollDelta = ((event.clientY - drag.startY) / drag.maxTop) * drag.maxScroll
+  element.scrollTop = clampNumber(drag.startScrollTop + scrollDelta, 0, drag.maxScroll)
+  setScrollIndicator(drag.groupId, element)
+}
+
+function handleScrollbarPointerEnd(event: PointerEvent): void {
+  if (activeScrollbarDrag && event.pointerId !== activeScrollbarDrag.pointerId) return
+  stopActiveScrollbarDrag()
+}
+
+function stopActiveScrollbarDrag(): void {
+  if (typeof window !== 'undefined') {
+    window.removeEventListener('pointermove', handleScrollbarPointerMove)
+    window.removeEventListener('pointerup', handleScrollbarPointerEnd)
+    window.removeEventListener('pointercancel', handleScrollbarPointerEnd)
+  }
+  if (activeScrollbarDrag?.target.hasPointerCapture?.(activeScrollbarDrag.pointerId)) {
+    activeScrollbarDrag.target.releasePointerCapture?.(activeScrollbarDrag.pointerId)
+  }
+  activeScrollbarDrag = null
+}
+
+function setScrollFromThumbTop(
+  groupId: string,
+  element: HTMLElement,
+  railHeight: number,
+  thumbHeight: number,
+  thumbTop: number
+): void {
+  const maxScroll = Math.max(0, element.scrollHeight - element.clientHeight)
+  const maxTop = Math.max(0, railHeight - thumbHeight)
+  if (maxScroll <= 0 || maxTop <= 0) {
+    element.scrollTop = 0
+    setScrollIndicator(groupId, element)
+    return
+  }
+
+  const nextTop = clampNumber(thumbTop, 0, maxTop)
+  element.scrollTop = (nextTop / maxTop) * maxScroll
+  setScrollIndicator(groupId, element)
+}
+
+function scrollElementForGroup(groupId: string): HTMLElement | null {
+  if (typeof document === 'undefined') return null
+  const elements = document.querySelectorAll<HTMLElement>('.model-table-wrap.is-scrollable[data-scroll-group-id]')
+  return Array.from(elements).find((element) => element.dataset.scrollGroupId === groupId) || null
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
 function sampleModel(group: ModelMarketGroup): string {
   return enabledRows(group).find((row) => row.model)?.model || group.title
 }
@@ -459,6 +580,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  stopActiveScrollbarDrag()
   if (typeof window !== 'undefined') {
     window.removeEventListener('resize', refreshScrollIndicators)
   }
@@ -751,7 +873,9 @@ onBeforeUnmount(() => {
   box-shadow:
     inset 0 0 0 1px rgba(221, 230, 255, 0.08),
     0 0 0 1px rgba(0, 0, 0, 0.22);
-  pointer-events: none;
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: none;
 }
 
 .model-scrollbar-thumb {
@@ -762,7 +886,12 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: linear-gradient(180deg, rgba(164, 255, 196, 0.95), rgba(74, 222, 128, 0.82));
   box-shadow: 0 0 12px rgba(74, 222, 128, 0.32);
-  transition: transform 120ms ease;
+  cursor: grab;
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+
+.model-scrollbar-thumb:active {
+  cursor: grabbing;
 }
 
 .model-table-wrap.is-scrollable .model-pricing-table th {
