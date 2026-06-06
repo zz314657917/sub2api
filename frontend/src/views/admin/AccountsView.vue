@@ -223,7 +223,20 @@
           </template>
           <template #cell-name="{ row, value }">
             <div class="flex flex-col">
-              <span class="font-medium text-gray-900 dark:text-white">{{ displayAccountName(row, value) }}</span>
+              <div class="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                <span class="font-medium text-gray-900 dark:text-white">{{ displayAccountName(row, value) }}</span>
+                <span
+                  v-for="capability in accountCapabilityBadges(row)"
+                  :key="capability"
+                  :class="[
+                    'inline-flex h-5 items-center rounded border px-1.5 text-[10px] font-semibold leading-none',
+                    accountCapabilityBadgeClass(capability)
+                  ]"
+                  :title="accountCapabilityBadgeTitle(capability)"
+                >
+                  {{ accountCapabilityLabel(capability) }}
+                </span>
+              </div>
               <span
                 v-if="accountNameSubtitle(row)"
                 class="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[200px]"
@@ -591,7 +604,7 @@ import ErrorPassthroughRulesModal from '@/components/admin/ErrorPassthroughRules
 import TLSFingerprintProfilesModal from '@/components/admin/TLSFingerprintProfilesModal.vue'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
-import type { Account, AccountPlatform, AccountShareStatus, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel } from '@/types'
+import type { Account, AccountCapability, AccountPlatform, AccountShareStatus, AccountType, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel } from '@/types'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -1451,6 +1464,44 @@ function accountNameSubtitle(row: Account): string {
   if (isSharedAccountsPage.value) return ''
   return firstStringField(row.extra, ['email_address', 'email']) ||
     firstStringField(row.credentials, ['email'])
+}
+
+const accountCapabilityOrder: AccountCapability[] = ['chat', 'image', 'video', 'embedding']
+const accountCapabilitySet = new Set<AccountCapability>(accountCapabilityOrder)
+
+function accountCapabilityBadges(row: Account): AccountCapability[] {
+  const raw = row.extra?.supported_capabilities
+  if (!Array.isArray(raw)) return []
+  const configured = new Set<AccountCapability>()
+  for (const value of raw) {
+    if (typeof value !== 'string') continue
+    const capability = value as AccountCapability
+    if (accountCapabilitySet.has(capability)) {
+      configured.add(capability)
+    }
+  }
+  return accountCapabilityOrder.filter(capability => configured.has(capability))
+}
+
+function accountCapabilityLabel(capability: AccountCapability): string {
+  return t(`admin.accounts.supportedCapabilities.${capability}`)
+}
+
+function accountCapabilityBadgeTitle(capability: AccountCapability): string {
+  return `${t('admin.accounts.supportedCapabilities.title')}: ${accountCapabilityLabel(capability)}`
+}
+
+function accountCapabilityBadgeClass(capability: AccountCapability): string {
+  switch (capability) {
+    case 'chat':
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300'
+    case 'image':
+      return 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700/50 dark:bg-sky-900/20 dark:text-sky-300'
+    case 'video':
+      return 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-700/50 dark:bg-violet-900/20 dark:text-violet-300'
+    case 'embedding':
+      return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300'
+  }
 }
 
 function getAntigravityTierClass(row: any): string {

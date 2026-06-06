@@ -196,6 +196,7 @@ type CreateGroupInput struct {
 	RateMultiplier   float64
 	IsExclusive      bool
 	SubscriptionType string   // standard/subscription
+	RoutingScope     string   // inference/image/video/embedding
 	DailyLimitUSD    *float64 // 日限额 (USD)
 	WeeklyLimitUSD   *float64 // 周限额 (USD)
 	MonthlyLimitUSD  *float64 // 月限额 (USD)
@@ -237,6 +238,7 @@ type UpdateGroupInput struct {
 	IsExclusive      *bool
 	Status           string
 	SubscriptionType string   // standard/subscription
+	RoutingScope     string   // inference/image/video/embedding
 	DailyLimitUSD    *float64 // 日限额 (USD)
 	WeeklyLimitUSD   *float64 // 周限额 (USD)
 	MonthlyLimitUSD  *float64 // 月限额 (USD)
@@ -1799,6 +1801,14 @@ func requiredAccountCapabilityForGroup(group *Group) AccountCapability {
 	if group == nil {
 		return ""
 	}
+	switch group.EffectiveRoutingScope() {
+	case GroupRoutingScopeImage:
+		return AccountCapabilityImage
+	case GroupRoutingScopeVideo:
+		return AccountCapabilityVideo
+	case GroupRoutingScopeEmbedding:
+		return AccountCapabilityEmbedding
+	}
 	if group.ModelsListConfig.Enabled && len(group.ModelsListConfig.Models) > 0 {
 		var imageCount, videoCount int
 		for _, model := range group.ModelsListConfig.Models {
@@ -1929,6 +1939,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		IsExclusive:                     input.IsExclusive,
 		Status:                          StatusActive,
 		SubscriptionType:                subscriptionType,
+		RoutingScope:                    NormalizeGroupRoutingScope(input.RoutingScope, input.AllowImageGeneration),
 		DailyLimitUSD:                   dailyLimit,
 		WeeklyLimitUSD:                  weeklyLimit,
 		MonthlyLimitUSD:                 monthlyLimit,
@@ -2124,6 +2135,9 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	// 图片生成计费配置：负数表示清除（使用默认价格）
 	if input.AllowImageGeneration != nil {
 		group.AllowImageGeneration = *input.AllowImageGeneration
+	}
+	if input.RoutingScope != "" || input.AllowImageGeneration != nil {
+		group.RoutingScope = NormalizeGroupRoutingScope(input.RoutingScope, group.AllowImageGeneration)
 	}
 	if input.ImageRateIndependent != nil {
 		group.ImageRateIndependent = *input.ImageRateIndependent

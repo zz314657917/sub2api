@@ -103,6 +103,14 @@ const (
 	SubscriptionTypeSubscription = domain.SubscriptionTypeSubscription // 订阅模式（按限额控制）
 )
 
+// Group routing scope constants.
+const (
+	GroupRoutingScopeInference = domain.GroupRoutingScopeInference
+	GroupRoutingScopeImage     = domain.GroupRoutingScopeImage
+	GroupRoutingScopeVideo     = domain.GroupRoutingScopeVideo
+	GroupRoutingScopeEmbedding = domain.GroupRoutingScopeEmbedding
+)
+
 // Subscription status constants
 const (
 	SubscriptionStatusActive    = domain.SubscriptionStatusActive

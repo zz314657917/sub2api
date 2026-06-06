@@ -63,27 +63,28 @@ func (k *APIKey) selectRouteGroup(path, forcePlatform, requestedModel string, im
 		return nil
 	}
 	platforms := preferredPlatformsForPath(path, forcePlatform)
+	routingScope := RoutingScopeForRequest(path, requestedModel, imageIntent)
 	if modelAware && (strings.TrimSpace(requestedModel) != "" || imageIntent) {
 		if imageIntent {
-			candidates := k.routeCandidates(groups, platforms, skipGroup, requestedModel, imageIntent, true, true, true)
+			candidates := k.routeCandidates(groups, platforms, skipGroup, requestedModel, imageIntent, routingScope, true, true, true)
 			if len(candidates) == 0 {
-				candidates = k.routeCandidates(groups, nil, skipGroup, requestedModel, imageIntent, true, true, true)
+				candidates = k.routeCandidates(groups, nil, skipGroup, requestedModel, imageIntent, routingScope, true, true, true)
 			}
 			if len(candidates) > 0 {
 				return selectBestRouteGroup(candidates)
 			}
 		}
-		candidates := k.routeCandidates(groups, platforms, skipGroup, requestedModel, imageIntent, true, true, false)
+		candidates := k.routeCandidates(groups, platforms, skipGroup, requestedModel, imageIntent, routingScope, true, true, false)
 		if len(candidates) == 0 {
-			candidates = k.routeCandidates(groups, nil, skipGroup, requestedModel, imageIntent, true, true, false)
+			candidates = k.routeCandidates(groups, nil, skipGroup, requestedModel, imageIntent, routingScope, true, true, false)
 		}
 		if len(candidates) > 0 {
 			return selectBestRouteGroup(candidates)
 		}
 	}
-	candidates := k.routeCandidates(groups, platforms, skipGroup, requestedModel, imageIntent, modelAware, false, false)
+	candidates := k.routeCandidates(groups, platforms, skipGroup, requestedModel, imageIntent, routingScope, modelAware, false, false)
 	if len(candidates) == 0 {
-		candidates = k.routeCandidates(groups, nil, skipGroup, requestedModel, imageIntent, modelAware, false, false)
+		candidates = k.routeCandidates(groups, nil, skipGroup, requestedModel, imageIntent, routingScope, modelAware, false, false)
 	}
 	if len(candidates) == 0 {
 		return nil
@@ -151,7 +152,7 @@ type apiKeyRouteCandidate struct {
 	weight   int
 }
 
-func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, skipGroup func(groupID int64) bool, requestedModel string, imageIntent bool, modelAware bool, explicitRulesOnly bool, imageOnlyRulesOnly bool) []apiKeyRouteCandidate {
+func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, skipGroup func(groupID int64) bool, requestedModel string, imageIntent bool, routingScope string, modelAware bool, explicitRulesOnly bool, imageOnlyRulesOnly bool) []apiKeyRouteCandidate {
 	platformSet := make(map[string]struct{}, len(platforms))
 	for _, platform := range platforms {
 		if platform != "" {
@@ -168,6 +169,9 @@ func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, sk
 		}
 		group := groups[route.GroupID]
 		if group == nil || !group.IsActive() {
+			continue
+		}
+		if !apiKeyRouteMatchesGroupScope(group, routingScope) {
 			continue
 		}
 		if len(platformSet) > 0 {
@@ -208,12 +212,28 @@ func apiKeyRouteHasModelRules(route domain.APIKeyMultiGroupRoute) bool {
 	return len(route.ModelPatterns) > 0 || route.ImageOnly || route.TextOnly
 }
 
+func apiKeyRouteMatchesGroupScope(group *Group, routingScope string) bool {
+	if group == nil {
+		return true
+	}
+	scope := NormalizeGroupRoutingScope(routingScope, false)
+	if scope == "" {
+		scope = GroupRoutingScopeInference
+	}
+	return group.EffectiveRoutingScope() == scope
+}
+
 func apiKeyRouteMatchesModelRequest(route domain.APIKeyMultiGroupRoute, group *Group, requestedModel string, imageIntent bool) bool {
-	videoIntent := IsVideoGenerationIntent("", requestedModel, nil)
+	groupRoutingScope := ""
+	if group != nil {
+		groupRoutingScope = group.EffectiveRoutingScope()
+	}
+	videoIntent := IsVideoGenerationIntent("", requestedModel, nil) || groupRoutingScope == GroupRoutingScopeVideo
+	embeddingIntent := isEmbeddingModel(requestedModel) || groupRoutingScope == GroupRoutingScopeEmbedding
 	if route.ImageOnly && !imageIntent {
 		return false
 	}
-	if route.TextOnly && (imageIntent || videoIntent) {
+	if route.TextOnly && (imageIntent || videoIntent || embeddingIntent) {
 		return false
 	}
 	if imageIntent && (group == nil || group.Platform != PlatformOpenAI || !group.AllowImageGeneration) {
@@ -228,6 +248,36 @@ func apiKeyRouteMatchesModelRequest(route domain.APIKeyMultiGroupRoute, group *G
 		}
 	}
 	return false
+}
+
+func RoutingScopeForRequest(path, requestedModel string, imageIntent bool) string {
+	if imageIntent || IsImageGenerationIntent(path, requestedModel, nil) {
+		return GroupRoutingScopeImage
+	}
+	if IsVideoGenerationIntent(path, requestedModel, nil) {
+		return GroupRoutingScopeVideo
+	}
+	if IsEmbeddingEndpoint(path) || isEmbeddingModel(requestedModel) {
+		return GroupRoutingScopeEmbedding
+	}
+	return GroupRoutingScopeInference
+}
+
+func IsEmbeddingEndpoint(endpoint string) bool {
+	endpoint = strings.TrimSpace(strings.ToLower(endpoint))
+	if endpoint == "" {
+		return false
+	}
+	if idx := strings.IndexByte(endpoint, '?'); idx >= 0 {
+		endpoint = endpoint[:idx]
+	}
+	endpoint = strings.TrimRight(endpoint, "/")
+	return endpoint == "/v1/embeddings" || endpoint == "/embeddings"
+}
+
+func isEmbeddingModel(model string) bool {
+	model = strings.ToLower(strings.TrimSpace(model))
+	return strings.Contains(model, "embedding") || strings.Contains(model, "embeddings")
 }
 
 func matchAPIKeyRouteModelPattern(pattern, model string) bool {

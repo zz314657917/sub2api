@@ -47,6 +47,8 @@ export default {
         name: 'Name',
         description: 'Description',
         platform: 'Platform',
+        routingScope: 'Group Usage',
+        routingScopeHint: 'Used by smart API key routing so inference, image, video, and embedding traffic do not share one group by default.',
         rateMultiplier: 'Rate Multiplier',
         status: 'Status',
         exclusive: 'Exclusive Group',
@@ -113,6 +115,12 @@ export default {
         openai: 'OpenAI',
         gemini: 'Gemini',
         antigravity: 'Antigravity',
+      },
+      routingScopes: {
+        inference: 'Inference',
+        image: 'Image',
+        video: 'Video',
+        embedding: 'Embedding'
       },
       deleteConfirm:
         "Are you sure you want to delete '{name}'? All associated API keys will no longer belong to any group.",

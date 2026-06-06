@@ -161,6 +161,20 @@ func (_c *GroupCreate) SetNillableSubscriptionType(v *string) *GroupCreate {
 	return _c
 }
 
+// SetRoutingScope sets the "routing_scope" field.
+func (_c *GroupCreate) SetRoutingScope(v string) *GroupCreate {
+	_c.mutation.SetRoutingScope(v)
+	return _c
+}
+
+// SetNillableRoutingScope sets the "routing_scope" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableRoutingScope(v *string) *GroupCreate {
+	if v != nil {
+		_c.SetRoutingScope(*v)
+	}
+	return _c
+}
+
 // SetDailyLimitUsd sets the "daily_limit_usd" field.
 func (_c *GroupCreate) SetDailyLimitUsd(v float64) *GroupCreate {
 	_c.mutation.SetDailyLimitUsd(v)
@@ -656,6 +670,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultSubscriptionType
 		_c.mutation.SetSubscriptionType(v)
 	}
+	if _, ok := _c.mutation.RoutingScope(); !ok {
+		v := group.DefaultRoutingScope
+		_c.mutation.SetRoutingScope(v)
+	}
 	if _, ok := _c.mutation.DefaultValidityDays(); !ok {
 		v := group.DefaultDefaultValidityDays
 		_c.mutation.SetDefaultValidityDays(v)
@@ -767,6 +785,14 @@ func (_c *GroupCreate) check() error {
 	if v, ok := _c.mutation.SubscriptionType(); ok {
 		if err := group.SubscriptionTypeValidator(v); err != nil {
 			return &ValidationError{Name: "subscription_type", err: fmt.Errorf(`ent: validator failed for field "Group.subscription_type": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RoutingScope(); !ok {
+		return &ValidationError{Name: "routing_scope", err: errors.New(`ent: missing required field "Group.routing_scope"`)}
+	}
+	if v, ok := _c.mutation.RoutingScope(); ok {
+		if err := group.RoutingScopeValidator(v); err != nil {
+			return &ValidationError{Name: "routing_scope", err: fmt.Errorf(`ent: validator failed for field "Group.routing_scope": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.DefaultValidityDays(); !ok {
@@ -888,6 +914,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.SubscriptionType(); ok {
 		_spec.SetField(group.FieldSubscriptionType, field.TypeString, value)
 		_node.SubscriptionType = value
+	}
+	if value, ok := _c.mutation.RoutingScope(); ok {
+		_spec.SetField(group.FieldRoutingScope, field.TypeString, value)
+		_node.RoutingScope = value
 	}
 	if value, ok := _c.mutation.DailyLimitUsd(); ok {
 		_spec.SetField(group.FieldDailyLimitUsd, field.TypeFloat64, value)
@@ -1268,6 +1298,18 @@ func (u *GroupUpsert) SetSubscriptionType(v string) *GroupUpsert {
 // UpdateSubscriptionType sets the "subscription_type" field to the value that was provided on create.
 func (u *GroupUpsert) UpdateSubscriptionType() *GroupUpsert {
 	u.SetExcluded(group.FieldSubscriptionType)
+	return u
+}
+
+// SetRoutingScope sets the "routing_scope" field.
+func (u *GroupUpsert) SetRoutingScope(v string) *GroupUpsert {
+	u.Set(group.FieldRoutingScope, v)
+	return u
+}
+
+// UpdateRoutingScope sets the "routing_scope" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateRoutingScope() *GroupUpsert {
+	u.SetExcluded(group.FieldRoutingScope)
 	return u
 }
 
@@ -1886,6 +1928,20 @@ func (u *GroupUpsertOne) SetSubscriptionType(v string) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateSubscriptionType() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateSubscriptionType()
+	})
+}
+
+// SetRoutingScope sets the "routing_scope" field.
+func (u *GroupUpsertOne) SetRoutingScope(v string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetRoutingScope(v)
+	})
+}
+
+// UpdateRoutingScope sets the "routing_scope" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateRoutingScope() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateRoutingScope()
 	})
 }
 
@@ -2741,6 +2797,20 @@ func (u *GroupUpsertBulk) SetSubscriptionType(v string) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateSubscriptionType() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateSubscriptionType()
+	})
+}
+
+// SetRoutingScope sets the "routing_scope" field.
+func (u *GroupUpsertBulk) SetRoutingScope(v string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetRoutingScope(v)
+	})
+}
+
+// UpdateRoutingScope sets the "routing_scope" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateRoutingScope() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateRoutingScope()
 	})
 }
 

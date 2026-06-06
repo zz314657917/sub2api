@@ -49,6 +49,7 @@ type CreateGroupRequest struct {
 	Description          string   `json:"description"`
 	RateMultiplier       float64  `json:"rate_multiplier"`
 	IsExclusive          bool     `json:"is_exclusive"`
+	RoutingScope         string   `json:"routing_scope"`
 	AllowImageGeneration bool     `json:"allow_image_generation"`
 	ImageRateIndependent bool     `json:"image_rate_independent"`
 	ImageRateMultiplier  *float64 `json:"image_rate_multiplier"`
@@ -61,6 +62,7 @@ type UpdateGroupRequest struct {
 	RateMultiplier       *float64 `json:"rate_multiplier"`
 	IsExclusive          *bool    `json:"is_exclusive"`
 	Status               *string  `json:"status"`
+	RoutingScope         *string  `json:"routing_scope"`
 	AllowImageGeneration *bool    `json:"allow_image_generation"`
 	ImageRateIndependent *bool    `json:"image_rate_independent"`
 	ImageRateMultiplier  *float64 `json:"image_rate_multiplier"`
@@ -107,6 +109,7 @@ func (s *GroupService) Create(ctx context.Context, req CreateGroupRequest) (*Gro
 		IsExclusive:          req.IsExclusive,
 		Status:               StatusActive,
 		SubscriptionType:     SubscriptionTypeStandard,
+		RoutingScope:         NormalizeGroupRoutingScope(req.RoutingScope, req.AllowImageGeneration),
 		AllowImageGeneration: req.AllowImageGeneration,
 		ImageRateIndependent: req.ImageRateIndependent,
 		ImageRateMultiplier:  imageRateMultiplier,
@@ -183,6 +186,13 @@ func (s *GroupService) Update(ctx context.Context, id int64, req UpdateGroupRequ
 	}
 	if req.AllowImageGeneration != nil {
 		group.AllowImageGeneration = *req.AllowImageGeneration
+	}
+	if req.RoutingScope != nil || req.AllowImageGeneration != nil {
+		scope := group.RoutingScope
+		if req.RoutingScope != nil {
+			scope = *req.RoutingScope
+		}
+		group.RoutingScope = NormalizeGroupRoutingScope(scope, group.AllowImageGeneration)
 	}
 	if req.ImageRateIndependent != nil {
 		group.ImageRateIndependent = *req.ImageRateIndependent

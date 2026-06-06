@@ -90,10 +90,21 @@
           default-sort-order="asc"
           @sort="handleSort"
         >
-          <template #cell-name="{ value }">
-            <span class="font-medium text-gray-900 dark:text-white">{{
-              value
-            }}</span>
+          <template #cell-name="{ row, value }">
+            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+              <span class="font-medium text-gray-900 dark:text-white">{{
+                value
+              }}</span>
+              <span
+                :class="[
+                  'inline-flex h-5 items-center rounded border px-1.5 text-[10px] font-semibold leading-none',
+                  routingScopeBadgeClass(row.routing_scope),
+                ]"
+                :title="t('admin.groups.form.routingScope')"
+              >
+                {{ routingScopeLabel(row.routing_scope) }}
+              </span>
+            </div>
           </template>
 
           <template #cell-platform="{ value }">
@@ -400,6 +411,13 @@
             @change="createForm.copy_accounts_from_group_ids = []"
           />
           <p class="input-hint">{{ t("admin.groups.platformHint") }}</p>
+        </div>
+        <div>
+          <label class="input-label">{{
+            t("admin.groups.form.routingScope")
+          }}</label>
+          <Select v-model="createForm.routing_scope" :options="routingScopeOptions" />
+          <p class="input-hint">{{ t("admin.groups.form.routingScopeHint") }}</p>
         </div>
         <!-- 从分组复制账号 -->
         <div v-if="copyAccountsGroupOptions.length > 0">
@@ -1773,6 +1791,13 @@
             data-tour="group-form-platform"
           />
           <p class="input-hint">{{ t("admin.groups.platformNotEditable") }}</p>
+        </div>
+        <div>
+          <label class="input-label">{{
+            t("admin.groups.form.routingScope")
+          }}</label>
+          <Select v-model="editForm.routing_scope" :options="routingScopeOptions" />
+          <p class="input-hint">{{ t("admin.groups.form.routingScopeHint") }}</p>
         </div>
         <!-- 从分组复制账号（编辑时） -->
         <div v-if="copyAccountsGroupOptionsForEdit.length > 0">
@@ -3232,7 +3257,12 @@ import type {
   ChannelModelPricing,
   PricingInterval,
 } from "@/api/admin/channels";
-import type { AdminGroup, GroupPlatform, SubscriptionType } from "@/types";
+import type {
+  AdminGroup,
+  GroupPlatform,
+  GroupRoutingScope,
+  SubscriptionType,
+} from "@/types";
 import type { Column } from "@/components/common/types";
 import AppLayout from "@/components/layout/AppLayout.vue";
 import TablePageLayout from "@/components/layout/TablePageLayout.vue";
@@ -3352,6 +3382,42 @@ const subscriptionTypeOptions = computed(() => [
   { value: "standard", label: t("admin.groups.subscription.standard") },
   { value: "subscription", label: t("admin.groups.subscription.subscription") },
 ]);
+
+const routingScopeOptions = computed(() => [
+  { value: "inference", label: t("admin.groups.routingScopes.inference") },
+  { value: "image", label: t("admin.groups.routingScopes.image") },
+  { value: "video", label: t("admin.groups.routingScopes.video") },
+  { value: "embedding", label: t("admin.groups.routingScopes.embedding") },
+]);
+
+const normalizeRoutingScope = (scope?: string | null): GroupRoutingScope => {
+  if (
+    scope === "image" ||
+    scope === "video" ||
+    scope === "embedding" ||
+    scope === "inference"
+  ) {
+    return scope;
+  }
+  return "inference";
+};
+
+const routingScopeLabel = (scope?: string | null) =>
+  t(`admin.groups.routingScopes.${normalizeRoutingScope(scope)}`);
+
+const routingScopeBadgeClass = (scope?: string | null) => {
+  switch (normalizeRoutingScope(scope)) {
+    case "image":
+      return "border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700/50 dark:bg-sky-900/20 dark:text-sky-300";
+    case "video":
+      return "border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-700/50 dark:bg-violet-900/20 dark:text-violet-300";
+    case "embedding":
+      return "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-700/50 dark:bg-amber-900/20 dark:text-amber-300";
+    case "inference":
+    default:
+      return "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300";
+  }
+};
 
 // 降级分组选项（创建时）- 仅包含 anthropic 平台且未启用 claude_code_only 的分组
 const fallbackGroupOptions = computed(() => {
@@ -3522,6 +3588,7 @@ const createForm = reactive({
   name: "",
   description: "",
   platform: "anthropic" as GroupPlatform,
+  routing_scope: "inference" as GroupRoutingScope,
   rate_multiplier: 1.0,
   is_exclusive: false,
   subscription_type: "standard" as SubscriptionType,
@@ -3852,6 +3919,7 @@ const editForm = reactive({
   name: "",
   description: "",
   platform: "anthropic" as GroupPlatform,
+  routing_scope: "inference" as GroupRoutingScope,
   rate_multiplier: 1.0,
   is_exclusive: false,
   status: "active" as "active" | "inactive",
@@ -4463,6 +4531,7 @@ const closeCreateModal = () => {
   createForm.name = "";
   createForm.description = "";
   createForm.platform = "anthropic";
+  createForm.routing_scope = "inference";
   createForm.rate_multiplier = 1.0;
   createForm.is_exclusive = false;
   createForm.subscription_type = "standard";
@@ -4600,6 +4669,7 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.name = group.name;
   editForm.description = group.description || "";
   editForm.platform = group.platform;
+  editForm.routing_scope = group.routing_scope || "inference";
   editForm.rate_multiplier = group.rate_multiplier;
   editForm.is_exclusive = group.is_exclusive;
   editForm.status = group.status;

@@ -261,10 +261,11 @@ func TestAPIKeyResolveForModelRequestTextOnlyExcludesVideoModels(t *testing.T) {
 		},
 		MultiGroupRouteGroups: []*Group{
 			{
-				ID:       videoGroupID,
-				Platform: PlatformOpenAI,
-				Status:   StatusActive,
-				Hydrated: true,
+				ID:           videoGroupID,
+				Platform:     PlatformOpenAI,
+				Status:       StatusActive,
+				Hydrated:     true,
+				RoutingScope: GroupRoutingScopeVideo,
 			},
 		},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
@@ -278,6 +279,40 @@ func TestAPIKeyResolveForModelRequestTextOnlyExcludesVideoModels(t *testing.T) {
 	require.NotNil(t, resolved)
 	require.NotNil(t, resolved.GroupID)
 	require.Equal(t, videoGroupID, *resolved.GroupID)
+}
+
+func TestAPIKeyResolveForModelRequestTextOnlyExcludesEmbeddingModels(t *testing.T) {
+	textGroupID := int64(10)
+	embeddingGroupID := int64(20)
+	key := &APIKey{
+		GroupID: &textGroupID,
+		Group: &Group{
+			ID:           textGroupID,
+			Platform:     PlatformOpenAI,
+			Status:       StatusActive,
+			Hydrated:     true,
+			RoutingScope: GroupRoutingScopeInference,
+		},
+		MultiGroupRouteGroups: []*Group{
+			{
+				ID:           embeddingGroupID,
+				Platform:     PlatformOpenAI,
+				Status:       StatusActive,
+				Hydrated:     true,
+				RoutingScope: GroupRoutingScopeEmbedding,
+			},
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: textGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
+			{GroupID: embeddingGroupID, Priority: 2, Weight: 1, Enabled: true, ModelPatterns: []string{"text-embedding-*"}},
+		},
+	}
+
+	resolved := key.ResolveForModelRequest("/v1/embeddings", "", "text-embedding-3-small", false)
+
+	require.NotNil(t, resolved)
+	require.NotNil(t, resolved.GroupID)
+	require.Equal(t, embeddingGroupID, *resolved.GroupID)
 }
 
 func TestAPIKeyResolveForModelRequestFallsBackWhenNoModelRuleMatches(t *testing.T) {
@@ -315,6 +350,59 @@ func TestAPIKeyMultiGroupRouteOldJSONDefaultsRemainCompatible(t *testing.T) {
 	require.Empty(t, route.ModelPatterns)
 	require.False(t, route.ImageOnly)
 	require.False(t, route.TextOnly)
+}
+
+func TestNormalizeGroupRoutingScope(t *testing.T) {
+	require.Equal(t, GroupRoutingScopeInference, NormalizeGroupRoutingScope("", false))
+	require.Equal(t, GroupRoutingScopeImage, NormalizeGroupRoutingScope("", true))
+	require.Equal(t, GroupRoutingScopeInference, NormalizeGroupRoutingScope("reasoning", true))
+	require.Equal(t, GroupRoutingScopeImage, NormalizeGroupRoutingScope("images", false))
+	require.Equal(t, GroupRoutingScopeVideo, NormalizeGroupRoutingScope("video_generation", false))
+	require.Equal(t, GroupRoutingScopeEmbedding, NormalizeGroupRoutingScope("embeddings", false))
+}
+
+func TestAPIKeyResolveForModelRequestUsesGroupRoutingScope(t *testing.T) {
+	textGroupID := int64(1)
+	imageGroupID := int64(2)
+	videoGroupID := int64(3)
+	embeddingGroupID := int64(4)
+	key := &APIKey{
+		GroupID: &textGroupID,
+		Group: &Group{
+			ID:           textGroupID,
+			Platform:     PlatformOpenAI,
+			Status:       StatusActive,
+			Hydrated:     true,
+			RoutingScope: GroupRoutingScopeInference,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: textGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
+			{GroupID: imageGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true},
+			{GroupID: videoGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"doubao-seedance-*"}},
+			{GroupID: embeddingGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"text-embedding-*"}},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{ID: imageGroupID, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, RoutingScope: GroupRoutingScopeImage, AllowImageGeneration: true},
+			{ID: videoGroupID, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, RoutingScope: GroupRoutingScopeVideo},
+			{ID: embeddingGroupID, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, RoutingScope: GroupRoutingScopeEmbedding},
+		},
+	}
+
+	resolved := key.ResolveForModelRequest("/v1/responses", "", "gpt-5.5", false)
+	require.NotNil(t, resolved)
+	require.Equal(t, textGroupID, *resolved.GroupID)
+
+	resolved = key.ResolveForModelRequest("/v1/responses", "", "gpt-image-2", true)
+	require.NotNil(t, resolved)
+	require.Equal(t, imageGroupID, *resolved.GroupID)
+
+	resolved = key.ResolveForModelRequest("/v1/videos/generations", "", "doubao-seedance-2.0", false)
+	require.NotNil(t, resolved)
+	require.Equal(t, videoGroupID, *resolved.GroupID)
+
+	resolved = key.ResolveForModelRequest("/v1/embeddings", "", "text-embedding-3-small", false)
+	require.NotNil(t, resolved)
+	require.Equal(t, embeddingGroupID, *resolved.GroupID)
 }
 
 func apiKeyRoutingIntPtr(v int) *int {

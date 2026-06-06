@@ -105,6 +105,11 @@ func SubscriptionType(v string) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldSubscriptionType, v))
 }
 
+// RoutingScope applies equality check predicate on the "routing_scope" field. It's identical to RoutingScopeEQ.
+func RoutingScope(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldRoutingScope, v))
+}
+
 // DailyLimitUsd applies equality check predicate on the "daily_limit_usd" field. It's identical to DailyLimitUsdEQ.
 func DailyLimitUsd(v float64) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldDailyLimitUsd, v))
@@ -723,6 +728,71 @@ func SubscriptionTypeEqualFold(v string) predicate.Group {
 // SubscriptionTypeContainsFold applies the ContainsFold predicate on the "subscription_type" field.
 func SubscriptionTypeContainsFold(v string) predicate.Group {
 	return predicate.Group(sql.FieldContainsFold(FieldSubscriptionType, v))
+}
+
+// RoutingScopeEQ applies the EQ predicate on the "routing_scope" field.
+func RoutingScopeEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldRoutingScope, v))
+}
+
+// RoutingScopeNEQ applies the NEQ predicate on the "routing_scope" field.
+func RoutingScopeNEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldRoutingScope, v))
+}
+
+// RoutingScopeIn applies the In predicate on the "routing_scope" field.
+func RoutingScopeIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldRoutingScope, vs...))
+}
+
+// RoutingScopeNotIn applies the NotIn predicate on the "routing_scope" field.
+func RoutingScopeNotIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldRoutingScope, vs...))
+}
+
+// RoutingScopeGT applies the GT predicate on the "routing_scope" field.
+func RoutingScopeGT(v string) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldRoutingScope, v))
+}
+
+// RoutingScopeGTE applies the GTE predicate on the "routing_scope" field.
+func RoutingScopeGTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldRoutingScope, v))
+}
+
+// RoutingScopeLT applies the LT predicate on the "routing_scope" field.
+func RoutingScopeLT(v string) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldRoutingScope, v))
+}
+
+// RoutingScopeLTE applies the LTE predicate on the "routing_scope" field.
+func RoutingScopeLTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldRoutingScope, v))
+}
+
+// RoutingScopeContains applies the Contains predicate on the "routing_scope" field.
+func RoutingScopeContains(v string) predicate.Group {
+	return predicate.Group(sql.FieldContains(FieldRoutingScope, v))
+}
+
+// RoutingScopeHasPrefix applies the HasPrefix predicate on the "routing_scope" field.
+func RoutingScopeHasPrefix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasPrefix(FieldRoutingScope, v))
+}
+
+// RoutingScopeHasSuffix applies the HasSuffix predicate on the "routing_scope" field.
+func RoutingScopeHasSuffix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasSuffix(FieldRoutingScope, v))
+}
+
+// RoutingScopeEqualFold applies the EqualFold predicate on the "routing_scope" field.
+func RoutingScopeEqualFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldEqualFold(FieldRoutingScope, v))
+}
+
+// RoutingScopeContainsFold applies the ContainsFold predicate on the "routing_scope" field.
+func RoutingScopeContainsFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldContainsFold(FieldRoutingScope, v))
 }
 
 // DailyLimitUsdEQ applies the EQ predicate on the "daily_limit_usd" field.

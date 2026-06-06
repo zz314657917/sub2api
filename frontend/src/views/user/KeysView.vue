@@ -1469,7 +1469,8 @@ import type {
   Group,
   PublicSettings,
   SubscriptionType,
-  GroupPlatform
+  GroupPlatform,
+  GroupRoutingScope
 } from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
@@ -1504,6 +1505,7 @@ interface GroupOption {
   subscriptionType: SubscriptionType
   platform: GroupPlatform
   status: Group['status']
+  routingScope: GroupRoutingScope
   allowImageGeneration: boolean
   imageRateIndependent: boolean
   imageRate: number
@@ -1696,6 +1698,11 @@ const effectiveImageGroupRate = (group: GroupOption) => {
   return effectiveGroupRate(group)
 }
 
+const routeKindModelPatterns: Record<'video' | 'embedding', string> = {
+  video: 'doubao-seedance-*\n*-video-*',
+  embedding: '*embedding*'
+}
+
 const presetToneClasses = (option: RoutingPresetOption) => {
   const selected = routingPreset.value === option.value
   const toneClasses: Record<RoutingPresetOption['tone'], string> = {
@@ -1795,12 +1802,18 @@ const sortPresetGroups = (
 
 const buildPresetRouteGroups = (
   preset: ApiKeyRoutingPreset,
-  kind: 'text' | 'image'
+  kind: 'text' | 'image' | 'video' | 'embedding'
 ): GroupOption[] => {
   const available = groupOptions.value.filter((group) => group.status === 'active')
-  const routeGroups = kind === 'image'
-    ? available.filter((group) => group.platform === 'openai' && group.allowImageGeneration)
-    : available
+  const routeGroups = available.filter((group) => {
+    if (kind === 'text') {
+      return group.routingScope === 'inference'
+    }
+    if (kind === 'image') {
+      return group.routingScope === 'image' && group.platform === 'openai' && group.allowImageGeneration
+    }
+    return group.routingScope === kind
+  })
   return sortPresetGroups(routeGroups, preset, kind === 'image' ? effectiveImageGroupRate : effectiveGroupRate)
 }
 
@@ -1839,7 +1852,13 @@ const buildPresetRoutes = (preset: ApiKeyRoutingPreset): ApiKeyMultiGroupRouteFo
   const imageRoutes = buildPresetRouteForms(preset, buildPresetRouteGroups(preset, 'image'), {
     image_only: true
   })
-  return [...textRoutes, ...imageRoutes]
+  const videoRoutes = buildPresetRouteForms(preset, buildPresetRouteGroups(preset, 'video'), {
+    model_patterns_text: routeKindModelPatterns.video
+  })
+  const embeddingRoutes = buildPresetRouteForms(preset, buildPresetRouteGroups(preset, 'embedding'), {
+    model_patterns_text: routeKindModelPatterns.embedding
+  })
+  return [...textRoutes, ...imageRoutes, ...videoRoutes, ...embeddingRoutes]
 }
 
 const applyRoutingPreset = (
@@ -2055,6 +2074,7 @@ const groupOptions = computed(() =>
     subscriptionType: group.subscription_type,
     platform: group.platform,
     status: group.status,
+    routingScope: group.routing_scope || 'inference',
     allowImageGeneration: group.allow_image_generation,
     imageRateIndependent: group.image_rate_independent,
     imageRate: group.image_rate_multiplier

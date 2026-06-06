@@ -21,6 +21,7 @@ type Group struct {
 	Hydrated       bool // indicates the group was loaded from a trusted repository source
 
 	SubscriptionType    string
+	RoutingScope        string
 	DailyLimitUSD       *float64
 	WeeklyLimitUSD      *float64
 	MonthlyLimitUSD     *float64
@@ -85,6 +86,20 @@ func (g *Group) IsSubscriptionType() bool {
 	return g.SubscriptionType == SubscriptionTypeSubscription
 }
 
+func (g *Group) EffectiveRoutingScope() string {
+	if g == nil {
+		return GroupRoutingScopeInference
+	}
+	return NormalizeGroupRoutingScope(g.RoutingScope, g.AllowImageGeneration)
+}
+
+func (g *Group) AllowsRoutingScope(scope string) bool {
+	if g == nil {
+		return true
+	}
+	return g.EffectiveRoutingScope() == NormalizeGroupRoutingScope(scope, false)
+}
+
 func (g *Group) HasDailyLimit() bool {
 	return g.DailyLimitUSD != nil && *g.DailyLimitUSD > 0
 }
@@ -128,6 +143,24 @@ func IsGroupContextValid(group *Group) bool {
 		return false
 	}
 	return true
+}
+
+func NormalizeGroupRoutingScope(scope string, allowImageGeneration bool) string {
+	switch strings.ToLower(strings.TrimSpace(scope)) {
+	case GroupRoutingScopeInference, "text", "chat", "reasoning", "reason", "completion", "completions":
+		return GroupRoutingScopeInference
+	case GroupRoutingScopeImage, "images", "image_generation", "image-generation":
+		return GroupRoutingScopeImage
+	case GroupRoutingScopeVideo, "videos", "video_generation", "video-generation":
+		return GroupRoutingScopeVideo
+	case GroupRoutingScopeEmbedding, "embeddings", "embed":
+		return GroupRoutingScopeEmbedding
+	default:
+		if allowImageGeneration {
+			return GroupRoutingScopeImage
+		}
+		return GroupRoutingScopeInference
+	}
 }
 
 // GetRoutingAccountIDs 根据请求模型获取路由账号 ID 列表

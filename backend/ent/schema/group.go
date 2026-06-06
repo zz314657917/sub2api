@@ -58,6 +58,10 @@ func (Group) Fields() []ent.Field {
 		field.String("subscription_type").
 			MaxLen(20).
 			Default(domain.SubscriptionTypeStandard),
+		field.String("routing_scope").
+			MaxLen(20).
+			Default(domain.GroupRoutingScopeInference).
+			Comment("分组用途：inference, image, video, embedding"),
 		field.Float("daily_limit_usd").
 			Optional().
 			Nillable().
@@ -190,6 +194,7 @@ func (Group) Indexes() []ent.Index {
 		index.Fields("status"),
 		index.Fields("platform"),
 		index.Fields("subscription_type"),
+		index.Fields("routing_scope"),
 		index.Fields("is_exclusive"),
 		index.Fields("deleted_at"),
 		index.Fields("sort_order"),

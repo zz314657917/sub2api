@@ -64,6 +64,14 @@ const (
 	SubscriptionTypeSubscription = "subscription" // 订阅模式（按限额控制）
 )
 
+// Group routing scope constants.
+const (
+	GroupRoutingScopeInference = "inference"
+	GroupRoutingScopeImage     = "image"
+	GroupRoutingScopeVideo     = "video"
+	GroupRoutingScopeEmbedding = "embedding"
+)
+
 // Subscription status constants
 const (
 	SubscriptionStatusActive    = "active"

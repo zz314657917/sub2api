@@ -45,6 +45,8 @@ export default {
         name: '名称',
         description: '描述',
         platform: '平台',
+        routingScope: '分组用途',
+        routingScopeHint: '用于 API Key 智能分组自动分流；推理、生图、视频和 Embedding 不会默认混用同一分组。',
         rateMultiplier: '费率倍数',
         status: '状态',
         exclusive: '专属分组',
@@ -88,6 +90,12 @@ export default {
         openai: 'OpenAI',
         gemini: 'Gemini',
         antigravity: 'Antigravity',
+      },
+      routingScopes: {
+        inference: '推理',
+        image: '生图',
+        video: '视频',
+        embedding: 'Embedding'
       },
       saving: '保存中...',
       noGroups: '暂无分组',

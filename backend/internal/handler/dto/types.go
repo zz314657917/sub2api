@@ -94,6 +94,7 @@ type Group struct {
 	Status         string  `json:"status"`
 
 	SubscriptionType string   `json:"subscription_type"`
+	RoutingScope     string   `json:"routing_scope"`
 	DailyLimitUSD    *float64 `json:"daily_limit_usd"`
 	WeeklyLimitUSD   *float64 `json:"weekly_limit_usd"`
 	MonthlyLimitUSD  *float64 `json:"monthly_limit_usd"`

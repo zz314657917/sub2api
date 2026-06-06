@@ -169,6 +169,7 @@ describe('KeysView create query', () => {
     availableGroups.mockResolvedValue([
       groupFixture(1, 'OpenAI', 1),
       groupFixture(2, 'Gemini', 1.2),
+      groupFixture(3, 'Image', 1, { routing_scope: 'image' }),
     ])
 
     const wrapper = mountView()
@@ -190,8 +191,33 @@ describe('KeysView create query', () => {
     }))).toEqual([
       { group_id: 1, priority: 1, weight: 1, text_only: true, image_only: undefined },
       { group_id: 2, priority: 1, weight: 1, text_only: true, image_only: undefined },
-      { group_id: 1, priority: 1, weight: 1, text_only: undefined, image_only: true },
-      { group_id: 2, priority: 1, weight: 1, text_only: undefined, image_only: true },
+      { group_id: 3, priority: 1, weight: 1, text_only: undefined, image_only: true },
+    ])
+  })
+
+  it('auto preset separates inference, image, video, and embedding groups by routing scope', async () => {
+    availableGroups.mockResolvedValue([
+      groupFixture(1, 'Inference', 1),
+      groupFixture(2, 'Image', 1, { routing_scope: 'image' }),
+      groupFixture(3, 'Video', 1, { routing_scope: 'video' }),
+      groupFixture(4, 'Embedding', 1, { routing_scope: 'embedding' }),
+    ])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.openCreateModal()
+    setupState.formData.name = 'Scoped Key'
+
+    await setupState.handleSubmit()
+
+    const routes = keysCreate.mock.calls[0][8]
+    expect(routes).toEqual([
+      { group_id: 1, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, text_only: true },
+      { group_id: 2, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, image_only: true },
+      { group_id: 3, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, model_patterns: ['doubao-seedance-*', '*-video-*'] },
+      { group_id: 4, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, model_patterns: ['*embedding*'] },
     ])
   })
 
@@ -200,6 +226,8 @@ describe('KeysView create query', () => {
       groupFixture(1, 'A', 1),
       groupFixture(2, 'B', 1),
       groupFixture(3, 'C', 1),
+      groupFixture(4, 'Image A', 1, { routing_scope: 'image' }),
+      groupFixture(5, 'Image B', 1, { routing_scope: 'image' }),
     ])
 
     const wrapper = mountView()
@@ -224,9 +252,8 @@ describe('KeysView create query', () => {
       { group_id: 1, priority: 1, weight: 3, cooldown_seconds: 15, text_only: true, image_only: undefined },
       { group_id: 2, priority: 1, weight: 2, cooldown_seconds: 15, text_only: true, image_only: undefined },
       { group_id: 3, priority: 1, weight: 1, cooldown_seconds: 15, text_only: true, image_only: undefined },
-      { group_id: 1, priority: 1, weight: 3, cooldown_seconds: 15, text_only: undefined, image_only: true },
-      { group_id: 2, priority: 1, weight: 2, cooldown_seconds: 15, text_only: undefined, image_only: true },
-      { group_id: 3, priority: 1, weight: 1, cooldown_seconds: 15, text_only: undefined, image_only: true },
+      { group_id: 4, priority: 1, weight: 2, cooldown_seconds: 15, text_only: undefined, image_only: true },
+      { group_id: 5, priority: 1, weight: 1, cooldown_seconds: 15, text_only: undefined, image_only: true },
     ])
   })
 
@@ -328,9 +355,9 @@ describe('KeysView create query', () => {
 
   it('cost preset orders image routes by independent image multiplier', async () => {
     availableGroups.mockResolvedValue([
-      groupFixture(1, 'Text Cheap Image Expensive', 0.5, { image_rate_independent: true, image_rate_multiplier: 2 }),
-      groupFixture(2, 'Text Expensive Image Cheap', 2, { image_rate_independent: true, image_rate_multiplier: 0.3 }),
-      groupFixture(3, 'Shared Middle', 1),
+      groupFixture(1, 'Text Cheap Image Expensive', 0.5, { routing_scope: 'image', image_rate_independent: true, image_rate_multiplier: 2 }),
+      groupFixture(2, 'Text Expensive Image Cheap', 2, { routing_scope: 'image', image_rate_independent: true, image_rate_multiplier: 0.3 }),
+      groupFixture(3, 'Shared Middle', 1, { routing_scope: 'image' }),
     ])
 
     const wrapper = mountView()
@@ -458,6 +485,7 @@ function groupFixture(id: number, name: string, rate: number, overrides: Record<
     is_exclusive: false,
     status: 'active',
     subscription_type: 'standard',
+    routing_scope: 'inference',
     daily_limit_usd: null,
     weekly_limit_usd: null,
     monthly_limit_usd: null,
