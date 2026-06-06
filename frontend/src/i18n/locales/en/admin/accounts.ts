@@ -1163,7 +1163,8 @@ export default {
         gemini3Image: 'G31FI',
         claude: 'Claude',
         passiveSampled: 'Passive',
-        activeQuery: 'Query'
+        activeQuery: 'Query',
+        activeQueryFailed: 'Quota probe failed; showing the last snapshot'
       },
       tier: {
         free: 'Free',

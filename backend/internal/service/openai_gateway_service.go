@@ -59,6 +59,10 @@ const (
 	codexCLIVersion                    = "0.125.0"
 	// Codex 限额快照仅用于后台展示/诊断，不需要每个成功请求都立即落库。
 	openAICodexSnapshotPersistMinInterval = 30 * time.Second
+	// 配额自动暂停时，超过该时长仍未刷新的 used% 快照视为陈旧，不再据此暂停账号。
+	// 被暂停的账号收不到流量，其快照不会从上游响应头刷新；该兜底让账号在快照
+	// 陈旧时放行一次请求，通过正常响应头自愈，而无需等待整个窗口（5h/7d）重置。
+	openAICodexAutoPauseStaleAfter = 2 * time.Hour
 )
 
 // OpenAI allowed headers whitelist (for non-passthrough).
@@ -126,19 +130,6 @@ type NormalizedCodexLimits struct {
 	Window7dMinutes *int
 }
 
-func normalizeCodexFiveHourUsedPercent(raw *float64) *float64 {
-	if raw == nil {
-		return nil
-	}
-	// OpenAI's 5h Codex quota header is remaining%, despite the upstream header
-	// name saying "used"; the canonical codex_5h_used_percent field stores used%.
-	used := 100 - *raw
-	if used < 0 {
-		used = 0
-	}
-	return &used
-}
-
 // Normalize converts primary/secondary fields to canonical 5h/7d fields.
 // Strategy: Compare window_minutes to determine which is 5h vs 7d.
 // Returns nil if snapshot is nil or has no useful data.
@@ -197,7 +188,7 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 
 	// Assign values
 	if use5hFromPrimary {
-		result.Used5hPercent = normalizeCodexFiveHourUsedPercent(s.PrimaryUsedPercent)
+		result.Used5hPercent = s.PrimaryUsedPercent
 		result.Reset5hSeconds = s.PrimaryResetAfterSeconds
 		result.Window5hMinutes = s.PrimaryWindowMinutes
 		result.Used7dPercent = s.SecondaryUsedPercent
@@ -207,7 +198,7 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 		result.Used7dPercent = s.PrimaryUsedPercent
 		result.Reset7dSeconds = s.PrimaryResetAfterSeconds
 		result.Window7dMinutes = s.PrimaryWindowMinutes
-		result.Used5hPercent = normalizeCodexFiveHourUsedPercent(s.SecondaryUsedPercent)
+		result.Used5hPercent = s.SecondaryUsedPercent
 		result.Reset5hSeconds = s.SecondaryResetAfterSeconds
 		result.Window5hMinutes = s.SecondaryWindowMinutes
 	}
@@ -1497,7 +1488,25 @@ func resolveOpenAIQuotaUtilization(extra map[string]any, window string, now time
 	if openAIQuotaWindowReset(extra, window, now) {
 		return 0, false
 	}
+	if openAICodexSnapshotStaleForPause(extra, now) {
+		return 0, false
+	}
 	return usedPercent / 100, true
+}
+
+func openAICodexSnapshotStaleForPause(extra map[string]any, now time.Time) bool {
+	if len(extra) == 0 {
+		return false
+	}
+	updatedRaw, ok := extra["codex_usage_updated_at"]
+	if !ok {
+		return false
+	}
+	updatedAt, err := parseTime(fmt.Sprint(updatedRaw))
+	if err != nil {
+		return false
+	}
+	return now.Sub(updatedAt) >= openAICodexAutoPauseStaleAfter
 }
 
 func openAIQuotaWindowReset(extra map[string]any, window string, now time.Time) bool {

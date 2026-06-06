@@ -108,6 +108,13 @@
     <!-- OpenAI OAuth accounts: single source from /usage API -->
     <template v-else-if="account.platform === 'openai' && account.type === 'oauth'">
       <div v-if="hasOpenAIUsageFallback" class="space-y-1">
+        <div
+          v-if="usageInfo?.error"
+          class="max-w-[200px] truncate text-xs text-amber-600 dark:text-amber-400"
+          :title="usageInfo.error"
+        >
+          {{ usageInfo.error }}
+        </div>
         <UsageProgressBar
           v-if="usageInfo?.five_hour"
           label="5h"
@@ -162,6 +169,13 @@
           <div class="h-1.5 w-8 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700"></div>
           <div class="h-3 w-[32px] animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
         </div>
+      </div>
+      <div
+        v-else-if="usageInfo?.error"
+        class="max-w-[200px] truncate text-xs text-amber-600 dark:text-amber-400"
+        :title="usageInfo.error"
+      >
+        {{ usageInfo.error }}
       </div>
       <div v-else class="text-xs text-gray-400">-</div>
     </template>
@@ -1071,7 +1085,16 @@ const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?
     }
   } catch (e: any) {
     if (!unmounted.value) {
-      error.value = t('common.error')
+      if (usageInfo.value) {
+        usageInfo.value = {
+          ...usageInfo.value,
+          stale: true,
+          error: t('admin.accounts.usageWindow.activeQueryFailed')
+        }
+        _usageCache.set(props.account.id, { data: usageInfo.value, ts: Date.now() })
+      } else {
+        error.value = t('common.error')
+      }
       console.error('Failed to load usage:', e)
     }
   } finally {
@@ -1138,10 +1161,20 @@ const attachVisibilityObserver = () => {
 const loadActiveUsage = async () => {
   activeQueryLoading.value = true
   try {
-    usageInfo.value = props.usageApiScope === 'user'
+    const result = props.usageApiScope === 'user'
       ? await userAPI.getAccountUsage(props.account.id, 'active')
       : await adminAPI.accounts.getUsage(props.account.id, 'active', true)
+    usageInfo.value = result
+    _usageCache.set(props.account.id, { data: result, ts: Date.now() })
   } catch (e: any) {
+    if (usageInfo.value) {
+      usageInfo.value = {
+        ...usageInfo.value,
+        stale: true,
+        error: t('admin.accounts.usageWindow.activeQueryFailed')
+      }
+      _usageCache.set(props.account.id, { data: usageInfo.value, ts: Date.now() })
+    }
     console.error('Failed to load active usage:', e)
   } finally {
     activeQueryLoading.value = false

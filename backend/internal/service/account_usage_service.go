@@ -111,6 +111,7 @@ const (
 	apiQueryMaxJitter       = 800 * time.Millisecond // 用量查询最大随机延迟
 	windowStatsCacheTTL     = 1 * time.Minute
 	openAIProbeCacheTTL     = 10 * time.Minute
+	openAIProbeErrorTTL     = 30 * time.Second
 	openAICodexProbeVersion = "0.125.0"
 )
 
@@ -223,6 +224,9 @@ type UsageInfo struct {
 
 	// 获取 usage 时的错误信息（降级返回，而非 500）
 	Error string `json:"error,omitempty"`
+
+	// 快照是否来自旧缓存。主要用于 OpenAI/Codex 探测失败时继续展示旧额度。
+	Stale bool `json:"stale,omitempty"`
 }
 
 // ClaudeUsageResponse Anthropic API返回的usage结构
@@ -510,8 +514,8 @@ func (s *AccountUsageService) getOpenAIUsage(ctx context.Context, account *Accou
 		usage.SevenDay = progress
 	}
 
-	if (force || shouldRefreshOpenAICodexSnapshot(account, usage, now)) && s.shouldProbeOpenAICodexSnapshot(account.ID, now, force) {
-		if updates, err := s.probeOpenAICodexSnapshot(ctx, account); err == nil && len(updates) > 0 {
+	if force || shouldRefreshOpenAICodexSnapshot(account, usage, now) {
+		if updates, err := s.probeOpenAICodexSnapshotOnce(ctx, account, now, force); err == nil && len(updates) > 0 {
 			mergeAccountExtra(account, updates)
 			if usage.UpdatedAt == nil {
 				usage.UpdatedAt = &now
@@ -522,6 +526,14 @@ func (s *AccountUsageService) getOpenAIUsage(ctx context.Context, account *Accou
 			if progress := buildCodexUsageProgressFromExtra(account.Extra, "7d", now); progress != nil {
 				usage.SevenDay = progress
 			}
+		} else if err != nil {
+			if usage.FiveHour != nil || usage.SevenDay != nil {
+				usage.Stale = true
+				usage.Error = "额度探测失败，已显示上次快照"
+			} else {
+				usage.Error = "额度探测失败，请稍后重试"
+			}
+			usage.ErrorCode = errorCodeNetworkError
 		}
 	}
 
@@ -544,6 +556,25 @@ func (s *AccountUsageService) getOpenAIUsage(ctx context.Context, account *Accou
 	}
 
 	return usage, nil
+}
+
+func (s *AccountUsageService) probeOpenAICodexSnapshotOnce(ctx context.Context, account *Account, now time.Time, force bool) (map[string]any, error) {
+	if s == nil || account == nil || account.ID <= 0 {
+		return nil, nil
+	}
+	if !s.shouldProbeOpenAICodexSnapshot(account.ID, now, force) {
+		return nil, nil
+	}
+	// Mark an in-flight probe with the short failure TTL so concurrent table cells
+	// do not all hit ChatGPT when the upstream probe is slow or failing.
+	s.recordOpenAICodexProbeFailure(account.ID, now)
+	updates, err := s.probeOpenAICodexSnapshot(ctx, account)
+	if err != nil {
+		s.recordOpenAICodexProbeFailure(account.ID, time.Now())
+		return nil, err
+	}
+	s.recordOpenAICodexProbeSuccess(account.ID, now)
+	return updates, nil
 }
 
 func shouldRefreshOpenAICodexSnapshot(account *Account, usage *UsageInfo, now time.Time) bool {
@@ -587,13 +618,40 @@ func (s *AccountUsageService) shouldProbeOpenAICodexSnapshot(accountID int64, no
 	forceProbe := len(force) > 0 && force[0]
 	if !forceProbe {
 		if cached, ok := s.cache.openAIProbeCache.Load(accountID); ok {
+			if entry, ok := cached.(openAIProbeCacheEntry); ok {
+				ttl := openAIProbeCacheTTL
+				if !entry.success {
+					ttl = openAIProbeErrorTTL
+				}
+				if now.Sub(entry.timestamp) < ttl {
+					return false
+				}
+			}
 			if ts, ok := cached.(time.Time); ok && now.Sub(ts) < openAIProbeCacheTTL {
 				return false
 			}
 		}
 	}
-	s.cache.openAIProbeCache.Store(accountID, now)
 	return true
+}
+
+type openAIProbeCacheEntry struct {
+	timestamp time.Time
+	success   bool
+}
+
+func (s *AccountUsageService) recordOpenAICodexProbeSuccess(accountID int64, now time.Time) {
+	if s == nil || s.cache == nil || accountID <= 0 {
+		return
+	}
+	s.cache.openAIProbeCache.Store(accountID, openAIProbeCacheEntry{timestamp: now, success: true})
+}
+
+func (s *AccountUsageService) recordOpenAICodexProbeFailure(accountID int64, now time.Time) {
+	if s == nil || s.cache == nil || accountID <= 0 {
+		return
+	}
+	s.cache.openAIProbeCache.Store(accountID, openAIProbeCacheEntry{timestamp: now, success: false})
 }
 
 func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, account *Account) (map[string]any, error) {

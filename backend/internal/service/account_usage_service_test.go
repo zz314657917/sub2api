@@ -177,7 +177,7 @@ func TestExtractOpenAICodexProbeUpdatesAccepts429WithCodexHeaders(t *testing.T) 
 	headers.Set("x-codex-primary-used-percent", "100")
 	headers.Set("x-codex-primary-reset-after-seconds", "604800")
 	headers.Set("x-codex-primary-window-minutes", "10080")
-	headers.Set("x-codex-secondary-used-percent", "0")
+	headers.Set("x-codex-secondary-used-percent", "100")
 	headers.Set("x-codex-secondary-reset-after-seconds", "18000")
 	headers.Set("x-codex-secondary-window-minutes", "300")
 
@@ -304,6 +304,74 @@ func TestAccountUsageService_GetOpenAIUsage_DoesNotPromoteCodexExtraToRateLimit(
 	case got := <-repo.rateLimitCh:
 		t.Fatalf("不应将已耗尽的 codex extra 持久化为运行时限流状态: %v", got)
 	case <-time.After(200 * time.Millisecond):
+	}
+}
+
+func TestAccountUsageService_GetOpenAIUsage_ProbeFailureReturnsStaleSnapshot(t *testing.T) {
+	t.Parallel()
+
+	now := time.Now().UTC().Truncate(time.Second)
+	account := &Account{
+		ID:       501,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Extra: map[string]any{
+			"openai_oauth_responses_websockets_v2_enabled": true,
+			"codex_usage_updated_at":                       now.Add(-(openAIProbeCacheTTL + time.Minute)).Format(time.RFC3339),
+			"codex_5h_used_percent":                        31.0,
+			"codex_5h_reset_at":                            now.Add(2 * time.Hour).Format(time.RFC3339),
+			"codex_7d_used_percent":                        72.0,
+			"codex_7d_reset_at":                            now.Add(3 * 24 * time.Hour).Format(time.RFC3339),
+		},
+	}
+	svc := &AccountUsageService{
+		accountRepo: &accountUsageCodexProbeRepo{
+			stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{*account}},
+		},
+		cache: NewUsageCache(),
+	}
+
+	usage, err := svc.GetUsage(context.Background(), account.ID)
+	if err != nil {
+		t.Fatalf("GetUsage() error = %v", err)
+	}
+	if usage == nil || usage.FiveHour == nil || usage.SevenDay == nil {
+		t.Fatalf("expected stale usage windows, got %#v", usage)
+	}
+	if usage.FiveHour.Utilization != 31.0 {
+		t.Fatalf("5h utilization = %v, want 31", usage.FiveHour.Utilization)
+	}
+	if usage.SevenDay.Utilization != 72.0 {
+		t.Fatalf("7d utilization = %v, want 72", usage.SevenDay.Utilization)
+	}
+	if !usage.Stale {
+		t.Fatal("expected stale=true after probe failure")
+	}
+	if usage.Error == "" {
+		t.Fatal("expected degraded error message after probe failure")
+	}
+}
+
+func TestOpenAICodexProbeCache_FailureUsesShortBackoff(t *testing.T) {
+	t.Parallel()
+
+	now := time.Date(2026, 6, 6, 8, 0, 0, 0, time.UTC)
+	svc := &AccountUsageService{cache: NewUsageCache()}
+
+	svc.recordOpenAICodexProbeFailure(99, now)
+	if svc.shouldProbeOpenAICodexSnapshot(99, now.Add(openAIProbeErrorTTL-time.Second)) {
+		t.Fatal("expected recent failed probe to be throttled")
+	}
+	if !svc.shouldProbeOpenAICodexSnapshot(99, now.Add(openAIProbeErrorTTL+time.Second)) {
+		t.Fatal("expected failed probe backoff to expire quickly")
+	}
+
+	svc.recordOpenAICodexProbeSuccess(99, now)
+	if svc.shouldProbeOpenAICodexSnapshot(99, now.Add(openAIProbeCacheTTL-time.Second)) {
+		t.Fatal("expected successful probe to use long cache TTL")
+	}
+	if !svc.shouldProbeOpenAICodexSnapshot(99, now.Add(time.Second), true) {
+		t.Fatal("expected force=true to bypass probe cache")
 	}
 }
 

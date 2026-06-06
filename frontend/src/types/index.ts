@@ -1163,6 +1163,7 @@ export interface AccountUsageInfo {
   error_code?: string
 
   error?: string            // usage 获取失败时的错误信息
+  stale?: boolean           // true 表示展示的是旧快照兜底
 }
 
 export interface UserAccountShareSummary {
