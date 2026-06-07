@@ -31,3 +31,15 @@
 ## Recommendation
 
 PASS. The branch is ready for integration from current `main`.
+
+## Integration Verification
+
+- 2026-06-07: Created clean integration worktree `E:/codex-worktrees/sub2api/upstream-main-runtime-safety-s8-integration` from current `main@fed704641`.
+- Merged `codex/upstream-main-runtime-safety-s8` without conflicts, producing merge commit `c2cc859c4`.
+- `git status --short --branch` -> clean on `codex/upstream-main-runtime-safety-s8-integration`.
+- `git diff --check main..HEAD` -> PASS.
+- denied path audit with `git diff --name-only main..HEAD` -> `DENIED_NONE`.
+- `go test ./internal/repository -run "DBPool|Pool|Connection|Lifetime|SetOverloaded|TempUnschedulable|ClearModelRateLimits|Scheduler" -count=1` -> PASS.
+- `go test ./internal/service -run "ContentModeration|AutoBan|Admin|OpenAI|ResponseID|BindHTTP" -count=1` -> PASS.
+- `go test ./internal/handler -run "Stream|OpenAI|Gateway|ChatCompletions|Responses" -count=1` -> PASS.
+- `go test ./internal/repository ./internal/service ./internal/handler -count=1` -> PASS.
