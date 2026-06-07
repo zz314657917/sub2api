@@ -41,3 +41,5 @@
 260607 0052 | upstream-main-openai-ops-hardening-s5 | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-ops-hardening-s5.md
 260607 0052 | upstream-main-openai-ops-hardening-s5 | implementation-and-qa-pass | codex | e7ec84b60, 35e30ec28, bd0a267d9, d1d0377be, 3e8368c6d, docs/workflow/worker-results/upstream-main-openai-ops-hardening-s5-result.md, docs/workflow/qa-reports/upstream-main-openai-ops-hardening-s5-qa.md
 260607 0057 | upstream-main-openai-ops-hardening-s5 | integration-pass | codex | main@b708d0552, merge@a121e6389, docs/workflow/qa-reports/upstream-main-openai-ops-hardening-s5-qa.md
+260607 0813 | upstream-main-parallel-compat-auth-s6 | workers-pass | codex+workers | docs/workflow/worker-results/upstream-main-apicompat-s6a-result.md, docs/workflow/worker-results/upstream-main-openai-runtime-s6b-result.md, docs/workflow/worker-results/upstream-main-auth-repo-s6c-result.md
+260607 0813 | upstream-main-parallel-compat-auth-s6 | integration-pass | codex | integration@807b70e54, docs/workflow/qa-reports/upstream-main-parallel-compat-auth-s6-qa.md
