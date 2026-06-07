@@ -1688,14 +1688,13 @@ func (s *OpenAIGatewayService) tryStickySessionHit(ctx context.Context, groupID 
 		_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 		return nil
 	}
-
 	// 验证账号是否可用于当前请求
 	// Verify account is usable for current request
 	if !isOpenAIAccountEligibleForRequest(ctx, account, requestedModel, false, requiredCapability, requiredAccountCapability) {
 		return nil
 	}
 	account = s.recheckSelectedOpenAIAccountFromDB(ctx, account, requestedModel, requireCompact, requiredCapability, requiredAccountCapability)
-	if account == nil {
+	if account == nil || !openAIStickyAccountMatchesGroup(account, groupID) {
 		_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 		return nil
 	}
@@ -1929,6 +1928,8 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 				if !clearSticky && accountAllowedByAPIKeyPoolStrategy(ctx, account, 0) && isOpenAIAccountEligibleForRequest(ctx, account, requestedModel, false, capability, requiredAccountCapability) {
 					account = s.recheckSelectedOpenAIAccountFromDB(ctx, account, requestedModel, requireCompact, capability, requiredAccountCapability)
 					if account == nil {
+						_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
+					} else if !openAIStickyAccountMatchesGroup(account, groupID) {
 						_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
 					} else if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, account, requestedModel, requireCompact) {
 						_ = s.deleteStickySessionAccountID(ctx, groupID, sessionHash)
