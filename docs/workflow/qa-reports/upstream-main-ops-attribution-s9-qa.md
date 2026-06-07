@@ -33,3 +33,14 @@
 ## Recommendation
 
 PASS. The branch is ready for integration from current `main`.
+
+## Integration Verification
+
+- 2026-06-07: Created clean integration worktree `E:/codex-worktrees/sub2api/upstream-main-ops-attribution-s9-integration` from current `main@d6c7e4c69`.
+- Merged `codex/upstream-main-ops-attribution-s9` without conflicts, producing merge commit `8e3ab99f9`.
+- `git status --short --branch` -> clean on `codex/upstream-main-ops-attribution-s9-integration`.
+- `git diff --check main..HEAD` -> PASS.
+- denied path audit with `git diff --name-only main..HEAD` -> `DENIED_NONE`.
+- `go test ./internal/service -run "Ops|BusinessLimited|FastPolicy|OpenAI|Antigravity|Whitelist|ImageGeneration|Passthrough" -count=1` -> PASS.
+- `go test ./internal/handler ./internal/server/middleware ./internal/service -run "Ops|SLA|BusinessLimited|Denied|Gateway|OpenAI|Antigravity" -count=1` -> PASS.
+- `go test ./internal/service ./internal/handler ./internal/server/middleware -count=1` -> PASS.
