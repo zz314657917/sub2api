@@ -203,12 +203,18 @@
                     <th v-if="showOfficialPriceEditor" class="w-44">官方价格</th>
                     <th v-if="showSavingEditor" class="w-32">节省</th>
                     <th class="w-52">备注</th>
-                    <th class="w-24">排序</th>
+                    <th class="w-32">排序</th>
                     <th class="w-20">显示</th>
                     <th class="w-16">操作</th>
                   </tr>
                 </thead>
-                <tbody>
+                <VueDraggable
+                  v-model="selectedGroup.rows"
+                  tag="tbody"
+                  handle=".model-market-row-drag-handle"
+                  :animation="180"
+                  @end="handleRowsReordered"
+                >
                   <tr v-for="(row, index) in selectedGroup.rows" :key="row.id || index">
                     <td><input v-model="row.id" type="text" class="input input-sm" /></td>
                     <td v-if="selectedGroup.category === 'chat'">
@@ -233,7 +239,19 @@
                       <input v-model="row.saving" type="text" class="input input-sm" placeholder="20% ↓" />
                     </td>
                     <td><input v-model="row.note" type="text" class="input input-sm" /></td>
-                    <td><input v-model.number="row.sort_order" type="number" class="input input-sm" /></td>
+                    <td>
+                      <div class="model-market-row-sort-cell">
+                        <button
+                          type="button"
+                          class="model-market-row-drag-handle"
+                          title="拖动排序"
+                          aria-label="拖动排序"
+                        >
+                          <Icon name="menu" size="sm" />
+                        </button>
+                        <input v-model.number="row.sort_order" type="number" class="input input-sm" />
+                      </div>
+                    </td>
                     <td class="text-center">
                       <input v-model="row.enabled" type="checkbox" class="h-4 w-4 rounded border-gray-300" />
                     </td>
@@ -243,7 +261,7 @@
                       </button>
                     </td>
                   </tr>
-                </tbody>
+                </VueDraggable>
               </table>
             </div>
 
@@ -309,6 +327,7 @@ import Select from '@/components/common/Select.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { VueDraggable } from 'vue-draggable-plus'
 
 const appStore = useAppStore()
 const loading = ref(false)
@@ -497,13 +516,26 @@ function removeSelectedGroup(): void {
 
 function addRow(): void {
   if (!selectedGroup.value) return
-  selectedGroup.value.rows.push(createRow(selectedGroup.value.category))
+  selectedGroup.value.rows.unshift(createRow(selectedGroup.value.category))
+  normalizeSelectedGroupRowOrder()
   syncJsonFromCatalog()
 }
 
 function removeRow(index: number): void {
   selectedGroup.value?.rows.splice(index, 1)
+  normalizeSelectedGroupRowOrder()
   syncJsonFromCatalog()
+}
+
+function handleRowsReordered(): void {
+  normalizeSelectedGroupRowOrder()
+  syncJsonFromCatalog()
+}
+
+function normalizeSelectedGroupRowOrder(): void {
+  selectedGroup.value?.rows.forEach((row, index) => {
+    row.sort_order = (index + 1) * 100
+  })
 }
 
 function toggleSupportedGroup(groupID: number, checked: boolean): void {
@@ -545,18 +577,25 @@ onMounted(loadCatalog)
 <style scoped>
 .model-market-group-panel {
   align-self: start;
+  height: fit-content;
   min-height: 0;
+  max-height: min(42rem, calc(100vh - 8rem));
+  overflow: hidden;
 }
 
 .model-market-group-list {
-  max-height: min(36rem, calc(100vh - 18rem));
+  max-height: min(34rem, calc(100vh - 18rem));
   overflow-y: auto;
-  padding-right: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid rgb(229 231 235);
+  padding: 0.5rem;
+  scrollbar-gutter: stable;
 }
 
 .model-market-group-button {
   display: flex;
   width: 100%;
+  min-width: 0;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
@@ -580,6 +619,7 @@ onMounted(loadCatalog)
 .model-market-group-button strong {
   color: rgb(17 24 39);
   font-size: 0.9rem;
+  line-height: 1.35;
 }
 
 .model-market-group-button small {
@@ -594,6 +634,10 @@ onMounted(loadCatalog)
 }
 
 .dark .model-market-group-button {
+  border-color: rgb(55 65 81);
+}
+
+.dark .model-market-group-list {
   border-color: rgb(55 65 81);
 }
 
@@ -670,6 +714,41 @@ onMounted(loadCatalog)
   vertical-align: middle;
 }
 
+.model-market-row-sort-cell {
+  display: flex;
+  min-width: 7rem;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.model-market-row-sort-cell .input {
+  min-width: 0;
+}
+
+.model-market-row-drag-handle {
+  display: inline-flex;
+  height: 2rem;
+  width: 2rem;
+  flex: none;
+  cursor: grab;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: rgb(107 114 128);
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.model-market-row-drag-handle:hover {
+  background: rgb(243 244 246);
+  color: rgb(55 65 81);
+}
+
+.model-market-row-drag-handle:active {
+  cursor: grabbing;
+}
+
 .model-market-admin-table th {
   position: sticky;
   top: 0;
@@ -691,6 +770,15 @@ onMounted(loadCatalog)
 .dark .model-market-admin-table th,
 .dark .model-market-admin-table td {
   border-color: rgb(55 65 81);
+}
+
+.dark .model-market-row-drag-handle {
+  color: rgb(156 163 175);
+}
+
+.dark .model-market-row-drag-handle:hover {
+  background: rgb(55 65 81);
+  color: rgb(229 231 235);
 }
 
 .model-market-group-list::-webkit-scrollbar,
