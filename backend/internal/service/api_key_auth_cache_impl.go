@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 13 // v13: reload snapshots for custom models_list_config
+const apiKeyAuthSnapshotVersion = 14 // v14: include exclusive group auth fields and custom models_list_config
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -228,6 +228,7 @@ func (s *APIKeyService) snapshotFromAPIKey(ctx context.Context, apiKey *APIKey) 
 			Role:                       apiKey.User.Role,
 			Balance:                    apiKey.User.Balance,
 			Concurrency:                apiKey.User.Concurrency,
+			AllowedGroups:              apiKey.User.AllowedGroups,
 			Email:                      apiKey.User.Email,
 			Username:                   apiKey.User.Username,
 			BalanceNotifyEnabled:       apiKey.User.BalanceNotifyEnabled,
@@ -272,6 +273,7 @@ func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
 		ID:                              group.ID,
 		Name:                            group.Name,
 		Platform:                        group.Platform,
+		IsExclusive:                     group.IsExclusive,
 		Status:                          group.Status,
 		SubscriptionType:                group.SubscriptionType,
 		RoutingScope:                    group.EffectiveRoutingScope(),
@@ -327,6 +329,7 @@ func (s *APIKeyService) snapshotToAPIKey(key string, snapshot *APIKeyAuthSnapsho
 			Role:                       snapshot.User.Role,
 			Balance:                    snapshot.User.Balance,
 			Concurrency:                snapshot.User.Concurrency,
+			AllowedGroups:              snapshot.User.AllowedGroups,
 			Email:                      snapshot.User.Email,
 			Username:                   snapshot.User.Username,
 			BalanceNotifyEnabled:       snapshot.User.BalanceNotifyEnabled,
@@ -359,6 +362,7 @@ func groupFromAPIKeyAuthSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
 		ID:                              snapshot.ID,
 		Name:                            snapshot.Name,
 		Platform:                        snapshot.Platform,
+		IsExclusive:                     snapshot.IsExclusive,
 		Status:                          snapshot.Status,
 		Hydrated:                        true,
 		SubscriptionType:                snapshot.SubscriptionType,
