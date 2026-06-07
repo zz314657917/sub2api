@@ -46,3 +46,5 @@
 260607 0834 | upstream-main-ops-repo-hardening-s7 | contract-approved | codex | docs/workflow/tasks/upstream-main-ops-repo-hardening-s7.md
 260607 0839 | upstream-main-ops-repo-hardening-s7 | implementation-and-qa-pass | codex | eb786804f, docs/workflow/worker-results/upstream-main-ops-repo-hardening-s7-result.md, docs/workflow/qa-reports/upstream-main-ops-repo-hardening-s7-qa.md
 260607 0846 | upstream-main-ops-repo-hardening-s7 | integration-pass | codex | integration@cc50d7211, docs/workflow/qa-reports/upstream-main-ops-repo-hardening-s7-qa.md
+260607 1035 | upstream-main-runtime-safety-s8 | contract-approved | codex | docs/workflow/tasks/upstream-main-runtime-safety-s8.md
+260607 1049 | upstream-main-runtime-safety-s8 | implementation-and-qa-pass | codex | d7a07723a, db145ea56, a2212dc76, dc38e0213, 8ff9810e0, docs/workflow/worker-results/upstream-main-runtime-safety-s8-result.md, docs/workflow/qa-reports/upstream-main-runtime-safety-s8-qa.md
