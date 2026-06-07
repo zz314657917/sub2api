@@ -24,3 +24,14 @@
 
 ## Recommendation
 PASS. The branch is ready for clean integration from current `main`.
+
+## Integration Verification
+- 2026-06-07: Created clean integration worktree `E:/codex-worktrees/sub2api/upstream-main-ops-repo-hardening-s7-integration` from current `main@c3625ce46`.
+- Merged `codex/upstream-main-ops-repo-hardening-s7` without conflicts, producing merge commit `cc50d7211`.
+- `git status --short --branch` -> clean on `codex/upstream-main-ops-repo-hardening-s7-integration`.
+- `git diff --check main..HEAD` -> PASS.
+- `git diff --name-status main..HEAD` -> only `backend/internal/repository/group_repo_sort_integration_test.go` and S7 workflow artifacts.
+- `git diff --name-only main..HEAD | rg "^(frontend/|backend/ent/|backend/migrations/|deploy/|knowledge/|docs/workflow/status\\.md|docs/workflow/spec\\.md|\\.github/|assets/|README)"` -> no matches.
+- `go test ./internal/handler ./internal/server/middleware ./internal/service -run "Ops|SLA|IP|Denied|Client|Token|Refresh|Scheduler|Account" -count=1` -> PASS.
+- `go test ./internal/repository -run "Announcement|Group|Account|Available|Sort|Count" -count=1` -> PASS.
+- `go test ./internal/repository ./internal/service ./internal/handler ./internal/server/middleware -count=1` -> PASS.
