@@ -30,3 +30,13 @@
 ## Recommendation
 
 PASS. The branch is ready for integration from current `main`.
+
+## Integration Verification
+
+- 2026-06-07: Created clean integration worktree `E:/codex-worktrees/sub2api/upstream-main-usage-cache-stats-s10-integration` from current `main@c6fefc8c6`.
+- Merged `codex/upstream-main-usage-cache-stats-s10` without conflicts.
+- `git status --short --branch` -> clean on `codex/upstream-main-usage-cache-stats-s10-integration`.
+- `git diff --check main..HEAD` -> PASS.
+- denied path audit with `git diff --name-only main..HEAD` -> `DENIED_NONE`.
+- `go test ./internal/service ./internal/repository ./internal/server -run "Usage|Stats|Cache|Contract" -count=1` -> PASS.
+- `go test ./internal/service ./internal/repository ./internal/server -count=1` -> PASS.

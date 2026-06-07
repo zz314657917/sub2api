@@ -52,3 +52,4 @@
 260607 1744 | upstream-main-ops-attribution-s9 | implementation-and-qa-pass | codex | 745852f7a, 81daee02e, 5b5c033b1, docs/workflow/worker-results/upstream-main-ops-attribution-s9-result.md, docs/workflow/qa-reports/upstream-main-ops-attribution-s9-qa.md
 260607 1750 | upstream-main-ops-attribution-s9 | integration-pass | codex | integration@8e3ab99f9, docs/workflow/qa-reports/upstream-main-ops-attribution-s9-qa.md
 260607 2017 | upstream-main-usage-cache-stats-s10 | implementation-and-qa-pass | codex | 596a02344, 3f9dce82e, docs/workflow/worker-results/upstream-main-usage-cache-stats-s10-result.md, docs/workflow/qa-reports/upstream-main-usage-cache-stats-s10-qa.md
+260607 2022 | upstream-main-usage-cache-stats-s10 | integration-pass | codex | docs/workflow/qa-reports/upstream-main-usage-cache-stats-s10-qa.md
