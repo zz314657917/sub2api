@@ -25,6 +25,8 @@
   - `frontend/src/components/account/__tests__/UsageProgressBar.spec.ts`
   - `frontend/src/i18n/locales/en.ts`
   - `frontend/src/i18n/locales/zh.ts`
+  - `frontend/src/i18n/locales/en/usage.ts`
+  - `frontend/src/i18n/locales/zh/usage.ts`
   - `docs/workflow/tasks/upstream-main-usage-window-s13.md`
   - `docs/workflow/worker-results/upstream-main-usage-window-s13-result.md`
   - `docs/workflow/qa-reports/upstream-main-usage-window-s13-qa.md`
