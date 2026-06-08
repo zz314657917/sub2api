@@ -55,3 +55,4 @@
 260607 2022 | upstream-main-usage-cache-stats-s10 | integration-pass | codex | docs/workflow/qa-reports/upstream-main-usage-cache-stats-s10-qa.md
 260608 1714 | upstream-main-release135-gateway-auth-s11 | implementation-and-qa-pass | codex | 094e8b438, 15f01494f, 0b595254f, 0fcd80d8b, 064f35021, 9d69c1c09, 541fe39c1, d1812704c, docs/workflow/worker-results/upstream-main-release135-gateway-auth-s11-result.md, docs/workflow/qa-reports/upstream-main-release135-gateway-auth-s11-qa.md
 260608 1716 | upstream-main-release135-gateway-auth-s11 | integration-pass | codex | main, merge: upstream main release135 gateway auth s11
+260608 1724 | upstream-main-prompt-cache-s12 | implementation-and-qa-pass | codex | 69e2d54a8, docs/workflow/worker-results/upstream-main-prompt-cache-s12-result.md, docs/workflow/qa-reports/upstream-main-prompt-cache-s12-qa.md
