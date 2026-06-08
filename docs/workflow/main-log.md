@@ -53,3 +53,4 @@
 260607 1750 | upstream-main-ops-attribution-s9 | integration-pass | codex | integration@8e3ab99f9, docs/workflow/qa-reports/upstream-main-ops-attribution-s9-qa.md
 260607 2017 | upstream-main-usage-cache-stats-s10 | implementation-and-qa-pass | codex | 596a02344, 3f9dce82e, docs/workflow/worker-results/upstream-main-usage-cache-stats-s10-result.md, docs/workflow/qa-reports/upstream-main-usage-cache-stats-s10-qa.md
 260607 2022 | upstream-main-usage-cache-stats-s10 | integration-pass | codex | docs/workflow/qa-reports/upstream-main-usage-cache-stats-s10-qa.md
+260608 1714 | upstream-main-release135-gateway-auth-s11 | implementation-and-qa-pass | codex | 094e8b438, 15f01494f, 0b595254f, 0fcd80d8b, 064f35021, 9d69c1c09, 541fe39c1, d1812704c, docs/workflow/worker-results/upstream-main-release135-gateway-auth-s11-result.md, docs/workflow/qa-reports/upstream-main-release135-gateway-auth-s11-qa.md
