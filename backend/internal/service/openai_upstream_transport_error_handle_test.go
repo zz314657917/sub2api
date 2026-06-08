@@ -63,9 +63,6 @@ func TestHandleOpenAIUpstreamTransportError_PersistentEvictsAndFailsOver(t *test
 	require.True(t, repo.tempUnschedCalls[0].until.After(before.Add(openAITransportErrorTempUnschedDuration-time.Second)))
 	require.True(t, repo.tempUnschedCalls[0].until.Before(after.Add(openAITransportErrorTempUnschedDuration+time.Second)))
 
-	// Immediate in-memory effect so subsequent requests skip it before DB/cache catches up.
-	require.True(t, svc.isOpenAIAccountRuntimeBlocked(account))
-
 	// Must NOT write a response body — the handler owns the (failover) response.
 	require.Equal(t, 0, rec.Body.Len())
 }
@@ -86,7 +83,6 @@ func TestHandleOpenAIUpstreamTransportError_TransientFailsOverWithoutEviction(t 
 
 	// Transient → do NOT evict.
 	require.Empty(t, repo.tempUnschedCalls)
-	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account))
 	require.Equal(t, 0, rec.Body.Len())
 }
 
@@ -108,7 +104,6 @@ func TestHandleOpenAIUpstreamTransportError_ContextCanceled_NoFailoverNoEviction
 
 	// Must NOT evict the account.
 	require.Empty(t, repo.tempUnschedCalls, "context.Canceled must not trigger temp-unsched DB write")
-	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account), "context.Canceled must not block account in-memory")
 
 	// Must NOT write a response body.
 	require.Equal(t, 0, rec.Body.Len())
@@ -127,23 +122,18 @@ func TestHandleOpenAIUpstreamTransportError_WrappedContextCanceled_NoFailover(t 
 	var fo *UpstreamFailoverError
 	require.False(t, errors.As(err, &fo), "wrapped context.Canceled must NOT return *UpstreamFailoverError")
 	require.Empty(t, repo.tempUnschedCalls)
-	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account))
 }
 
-// When accountRepo is nil (no DB), in-memory block must still happen but the
-// success log "openai.account_temp_unscheduled_transport" must NOT fire (it
-// would be misleading: the account is only blocked in memory, not persisted).
-// We verify the in-memory block occurs and no DB call is made.
-func TestTempUnscheduleOpenAITransportError_NilAccountRepo_InMemoryBlockOnly(t *testing.T) {
+// When accountRepo is nil (no DB), the helper cannot persist the temporary
+// unschedule and must not panic.
+func TestTempUnscheduleOpenAITransportError_NilAccountRepo_NoPanic(t *testing.T) {
 	// nil accountRepo → no DB write.
 	svc := &OpenAIGatewayService{accountRepo: nil}
 	account := &Account{ID: 55, Name: "no-db", Platform: PlatformOpenAI}
 
-	svc.tempUnscheduleOpenAITransportError(context.Background(), account, "proxy refused")
-
-	// In-memory block must still happen.
-	require.True(t, svc.isOpenAIAccountRuntimeBlocked(account),
-		"in-memory block must apply even when accountRepo is nil")
+	require.NotPanics(t, func() {
+		svc.tempUnscheduleOpenAITransportError(context.Background(), account, "proxy refused")
+	})
 }
 
 // context.DeadlineExceeded is NOT special-cased — a slow upstream is worth failing over.

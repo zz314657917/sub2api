@@ -17,6 +17,7 @@ import (
 // openAITransportErrorTempUnschedDuration is how long an account is temporarily
 // unscheduled after a durable transport failure (matches tokenRefreshTempUnschedDuration).
 const openAITransportErrorTempUnschedDuration = 10 * time.Minute
+const openAITransportErrorStateUpdateTimeout = 5 * time.Second
 
 // openAITransportFailoverBody is the OpenAI-format error body attached to the
 // failover error for a transport-level failure. Kept identical to the legacy
@@ -135,14 +136,13 @@ func (s *OpenAIGatewayService) handleOpenAIUpstreamTransportError(ctx context.Co
 }
 
 // tempUnscheduleOpenAITransportError marks an account temporarily unschedulable
-// after a durable transport failure, both persistently (DB, survives restart)
-// and in-memory (immediate scheduler effect before the DB/account cache propagates).
+// after a durable transport failure. In this fork AccountRepository.SetTempUnschedulable
+// also enqueues scheduler snapshot sync, so the DB write is the scheduling source
+// of truth.
 //
 // Log semantics:
-//   - "openai.account_temp_unscheduled_transport" — emitted ONLY after a
-//     successful DB write (both in-memory + persisted).
-//   - "openai.account_temp_unscheduled_transport_memory_only" — emitted when
-//     accountRepo is nil (in-memory only; no persistence).
+//   - "openai.account_temp_unscheduled_transport" — emitted after a successful DB write.
+//   - "openai.account_temp_unscheduled_transport_skipped" — emitted when accountRepo is nil.
 //   - "openai.account_temp_unscheduled_transport_failed" — DB write attempted
 //     but returned an error.
 func (s *OpenAIGatewayService) tempUnscheduleOpenAITransportError(ctx context.Context, account *Account, safeErr string) {
@@ -152,15 +152,9 @@ func (s *OpenAIGatewayService) tempUnscheduleOpenAITransportError(ctx context.Co
 	until := time.Now().Add(openAITransportErrorTempUnschedDuration)
 	reason := "upstream transport error (proxy/network): " + safeErr
 
-	// Immediate in-memory block (honoured by the scheduler at selection time),
-	// effective even if the DB write below fails or the account cache lags.
-	s.BlockAccountScheduling(account, until, "transport_error")
-
 	if s.accountRepo == nil {
-		// No DB configured — block is in-memory only; emit a distinct event so
-		// operators are not misled into thinking the block survived a restart.
 		logger.L().With(zap.String("component", "service.openai_gateway")).Warn(
-			"openai.account_temp_unscheduled_transport_memory_only",
+			"openai.account_temp_unscheduled_transport_skipped",
 			zap.Int64("account_id", account.ID),
 			zap.String("account_name", account.Name),
 			zap.String("platform", account.Platform),
@@ -170,7 +164,7 @@ func (s *OpenAIGatewayService) tempUnscheduleOpenAITransportError(ctx context.Co
 		return
 	}
 
-	bgCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), openAIAccountStateUpdateTimeout)
+	bgCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), openAITransportErrorStateUpdateTimeout)
 	defer cancel()
 	if err := s.accountRepo.SetTempUnschedulable(bgCtx, account.ID, until, reason); err != nil {
 		logger.L().With(zap.String("component", "service.openai_gateway")).Warn(
