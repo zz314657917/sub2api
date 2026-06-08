@@ -1,265 +1,67 @@
 # 当前任务快照
 
-最后更新：2026-06-06 22:55 +08:00
+最后更新：2026-06-08 13:45 +08:00
 
 ## 背景
 
 - 仓库：`F:/mcplugins/sub2api`。
-- 用户要求：
-  - `/models` 模型广场不登录也能看。
-  - 前台不要展示 APIMart 相关品牌文案。
-  - 模型广场参考公开定价页的信息结构：推理模型按“模型名称 / 输入 / 输出 / 我们的价格”，图像和视频按“规格 / 我们的价格 / 官方价格 / 节省”。
-  - 建立后台“模型市场”页面，后续从后台维护目录数据，避免前台硬编码。
-  - `gpt-image-2-official` 需要展示官方价格，并修正实际计费命中规则，尤其尺寸/质量档位。
-  - 最新要求：`gpt-image-2-official` 前台把原官方价显示到“我们的价格”，官方价格和节省留空/隐藏；视频分组同样隐藏官方价格和节省；后台分组支持控制隐藏官方价格列和节省列。
-  - 最新要求：每个模型市场分组可在后台选择支持的账号分组；公开 `/models` 卡片标题右侧显示账号分组下拉框，默认最低有效倍率分组，并按所选分组倍率换算“我们的价格”列。
-  - 最新要求：从 `https://apimart.ai/zh/pricing` 把 `doubao-seedance` 相关模型拿到模型广场，以上游官方价格作为本站“我们的价格”。
-  - 最新要求：现有视频模型价格也按 `https://apimart.ai/zh/pricing` 的官方价格和参数规格更新。
-  - 最新要求：后台模型市场每个分组增加“价格倍率”，前台“我们的价格”列要乘以该模型市场分组倍率。
-  - 最新要求：模型广场和后台模型市场中“我们的价格”里的 `$` 改为 `¥`。
+- 6 月上旬的模型市场公开目录、后台维护、`¥` 展示口径、分组倍率换算和 `gpt-image-2-official` 人民币余额扣费修正，已经从“当前主线”退成稳定背景层。
+- 最近两轮上游合成已经把默认续做入口继续前移到 OpenAI gateway / auth / sticky session / prompt cache 这一层：
+  - `upstream-main-release135-gateway-auth-s11`
+  - `upstream-main-prompt-cache-s12`
 
-## 当前状态
+## 当前主线
 
-- 已新增公开模型市场目录接口：`GET /api/v1/model-market/catalog`。
-- 已新增后台模型市场接口：
-  - `GET /api/v1/admin/model-market/catalog`
-  - `PUT /api/v1/admin/model-market/catalog`
-  - `POST /api/v1/admin/model-market/catalog/reset`
-- 模型市场目录复用 `settings` 表 key `model_market_catalog` 保存 JSON，不新增数据库表。
-- 已新增后台页面 `/admin/model-market`，支持分组/价格行编辑、JSON 导入导出、保存和重置默认。
-- 已将 `/models` 改为读取模型市场目录接口，不再依赖用户渠道、用户分组倍率或前台 fallback 硬编码。
-- `/models` 是公开目录展示价；只有后台为某个模型市场分组配置了 `supported_group_ids` 时，前台才显示账号分组下拉框并按所选分组有效倍率换算“我们的价格”列。实际 API 扣费仍按 API Key 所属分组、用户专属倍率、会员倍率和图片独立倍率计算。
-- 模型市场分组新增 `price_multiplier`，默认 `1`；后台“分组设置”可编辑“价格倍率”。公开 `/models` 展示“我们的价格”时按 `行 our_price × 模型市场分组 price_multiplier × 所选账号分组 effective_rate_multiplier` 计算；实际 API 扣费逻辑不受该字段影响。
-- 模型市场目录只持久化 `supported_group_ids`；公开/后台读取时从真实有效账号分组 hydrate 出 `supported_groups`，已删除或停用的账号分组不会出现在前台下拉框。
-- 分组有效倍率规则：图像分组使用 `image_rate_multiplier`（仅当账号分组 `image_rate_independent=true`），否则使用 `rate_multiplier`；推理和视频分组使用 `rate_multiplier`。
-- `/models` 前端路由为 `requiresAuth: false`，后端目录接口不走 JWT；后台模式白名单也包含 `/models`。
-- 前台和后台页面均未展示 APIMart 文案；后端内部仍保留 `apimart_*` 命名用于上游兼容和计费适配。
-- 默认目录包含：
-  - 推理：`ChatGPT`、`Gemini`、`Claude`
-  - 图像：`gpt-image-2`、`gpt-image-2-official`、`Doubao Seedance 图像`
-  - 视频：`kling-v3-omni`、`kling-v2-6`、`wan2.7`、`veo3.1-fast`、`Doubao Seedance 视频`
-- `gpt-image-2` 默认目录包含 3 个价格档位：`1K=¥0.04`、`2K=¥0.06`、`4K=¥0.1`。
-- `Doubao Seedance 图像` 默认目录包含 `doubao-seedance-4-0=¥0.028`、`doubao-seedance-4-5=¥0.035` 两个默认规格；`hide_official_price=true`、`hide_saving=true`。
-- `Doubao Seedance 视频` 默认目录包含 `doubao-seedance-2.0-fast`、`doubao-seedance-2.0-fast-face`、`doubao-seedance-2.0`、`doubao-seedance-2.0-face`、`doubao-seedance-1.5-pro`、`doubao-seedance-1.0-pro-fast`、`doubao-seedance-1.0-pro-quality` 共 29 个规格价格行；新模型 2.0 系列在最上面，1.5 在中间，老模型 1.0 系列在下面；`hide_official_price=true`、`hide_saving=true`。
-- 视频目录已按 APIMart 当前官方价更新：
-  - `kling-v3-omni` 8 档，示例：`default=¥0.084/秒`、`4k-sound=¥0.5357/秒`。
-  - `kling-v2-6` 4 档，新增/更新 `pro-sound-voice=¥0.1875/秒`。
-  - `wan2.7` 2 档：`default=¥0.083/秒`、`1080P=¥0.137/秒`。
-  - `veo3.1-fast` 4 档，新增/更新 `EXTEND-4K=¥0.3/秒`。
-- 模型市场目录版本已升级为 `version=9`：
-  - `gpt-image-2`、`gpt-image-2-official` 和视频分组默认 `hide_official_price=true`、`hide_saving=true`。
-  - 旧 v4 保存目录会自动补齐 `gpt-image-2` 隐藏官方价格/节省列的标记。
-  - 旧 v6 保存目录会自动补齐 `Doubao Seedance 图像` 和 `Doubao Seedance 视频` 两个分组。
-  - 旧 v7 保存目录会自动刷新现有视频分组为 APIMart 当前官方价和规格参数。
-  - 旧 v8 保存目录会自动刷新 `Doubao Seedance 视频` 分组行顺序为 2.0 -> 1.5 -> 1.0，同时保留 `supported_group_ids` 配置。
-- `gpt-image-2-official` 默认目录已升级为 181 个价格档位：默认行 1 个 + 官方规格/质量档 180 个；前台“我们的价格”显示原官方价，`official_price` 和 `saving` 为空。
-- 2026-06-06 新增：`gpt-image-2-official` 的 APIMart 上游真实任务 cost 按人民币余额口径扣费，实际用户扣费为 `data.cost × 7 × 1.2 × 账号分组图片有效倍率`；默认模型市场目录升级为 `version=11`，目录行价本身保存 APIMart 官方参考价，不预乘 `7` 或 `8.4`，示例 `default=¥0.2109`、`2576x3216 · 中=¥0.1408`。如果需要前台展示为官方参考价的 7 倍，在后台该模型市场分组设置 `price_multiplier=7`。
-- 视频分组默认不再填充 `official_price` 和 `saving`，前台只显示“规格 / 我们的价格”。
-- 模型市场 `our_price` 当前统一使用 `¥` 符号：默认目录直接生成 `¥`；读取/保存旧目录时只归一化 `our_price` 里的 `$` 为 `¥`；前台 `displayOurPrice` 也有展示兜底。`input_price`、`output_price` 和 `official_price` 的 `$` 官方口径不在本轮替换范围内。
-- 公共 `/models` 的单个模型卡片价格行超过 10 行时，会启用卡片内滚动；表头固定，不再把整页无限拉长。
-- 可滚动价格表只显示右侧自绘滚动轨道/滑块；原生竖向滚动条已隐藏，避免出现双滑块。
-- 模型卡片标题右侧不再展示价格档位数量；分类筛选按钮上的分组数量仍保留。
-- 本地容器已更新：
-  - 新镜像：`sub2api-dev:runtime-prebuilt`，镜像 ID `sha256:dce543743a7b51315589b8c59d7530a2f19cffd607041114c9c55d4c78c67f4c`。
-  - `sub2api-dev` 已从该新镜像重新创建并运行，端口仍为 `127.0.0.1:8080->8080`。
-  - 新容器 ID：`7197618b08e65b3d6b16abde56a70cafa36936b09b667dbb8b3b85dca8d68632`，健康检查通过。
-  - PostgreSQL / Redis 容器未重建，数据未动。
+当前默认续做入口不再是模型市场，而是 OpenAI 网关认证、会话复用边界和 prompt cache 稳态：
 
-## 验证记录
+- API Key 独占分组访问已经进入默认约束，跨组误用不再应被视为可接受行为。
+- OpenAI sticky session 现在要同时满足“分组成员校验”“跨组切换时剥离失配的 `previous_response_id`”“WSv2 生效路径保护”。
+- `/responses` 非流式传输错误已经进入 failover + 持久故障临时摘除账号的默认心智。
+- release `0.1.135` 的 gateway/auth/session 修复已经合流，后续再看相关报错时，不应继续按旧 transport 假设排查。
+- Chat Completions 的 `prompt_cache_key` 传播已经成为新默认约束；后续涉及 prompt cache session 复用时，应按“随 API Key 隔离”理解，而不是把所有请求混进同一缓存会话。
 
-- 本轮 `gpt-image-2-official` 余额扣费 `×7×1.2` 验证通过：
-  - `go test -tags=unit ./internal/service -run "TestOpenAIGatewayServiceRecordUsage_(APIMartGPTImage2Official|UsesForwardResultCostOverride)|TestOpenAIGatewayServiceForwardImages_APIMart|TestExtractAPIMartImageResults|TestNormalizeModelMarketCatalog|TestSettingService_GetModelMarketCatalog" -count=1`
-  - `go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_GetModelMarketCatalog|TestSettingService_SetModelMarketCatalog|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog" -count=1`
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `corepack.cmd pnpm --dir frontend run typecheck`
-  - `corepack.cmd pnpm --dir frontend run build`
-  - `git diff --check`
-  - 测试覆盖：APIMart `data.cost=0.1126` 时默认分组扣 `0.94584`，图片独立倍率 `2` 时扣 `1.89168`；渠道映射后仍按原始请求模型 `gpt-image-2-official` 命中 `8.4` 倍率。
-- 本轮“我们的价格”货币符号改为 `¥` 验证通过：
-  - 后端默认模型市场目录中 `gpt-image-2`、`gpt-image-2-official`、Doubao 图像/视频和视频模型 `our_price` 均生成 `¥`。
-  - 后端 `NormalizeModelMarketCatalog` 只把 `our_price` 里的 `$` 归一化成 `¥`，旧保存目录读取后也会生效；`input_price`、`output_price`、`official_price` 不做替换。
-  - 前台 `/models` 的 `displayOurPrice` 增加展示兜底，后台新增媒体价格行默认值从 `$0` 改为 `¥0`。
-  - `go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_GetModelMarketCatalog|TestSettingService_SetModelMarketCatalog|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog" -count=1`
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `corepack.cmd pnpm --dir frontend run typecheck`
-  - `corepack.cmd pnpm --dir frontend run build`
-  - `git diff --check -- backend/internal/service/model_market_catalog.go backend/internal/service/model_market_catalog_test.go backend/internal/handler/setting_handler_public_test.go frontend/src/views/admin/ModelMarketView.vue frontend/src/views/public/ModelPlazaView.vue frontend/src/__tests__/public-pages.spec.ts frontend/src/__tests__/public-smoke.spec.ts backend/internal/web/dist knowledge/tasks/current-task.md` 仅有 `knowledge/tasks/current-task.md` 既有 CRLF 提示。
-  - `http://127.0.0.1:8080/api/v1/model-market/catalog` 和 `http://127.0.0.1:62080/api/v1/model-market/catalog` 均返回 `version=9`，示例：`gpt-image-2 1k=¥0.04`、`gpt-image-2-official default=¥0.2109`、`doubao-seedance-video` 首行 `¥0.0435`、`ChatGPT our_price=¥5/M 输入 · ¥30/M 输出`；`ChatGPT input_price=$2.5/M tokens`、`output_price=$15/M tokens` 保持不变。
-  - 内置浏览器验证 `http://127.0.0.1:8080/models` 渲染 11 张卡，`.model-price-value` 中 `dollarPriceCount=0`、`yenPriceCount=242`。
-  - 本地容器已更新到镜像 `sha256:dce543743a7b51315589b8c59d7530a2f19cffd607041114c9c55d4c78c67f4c`，容器 `7197618b08e65b3d6b16abde56a70cafa36936b09b667dbb8b3b85dca8d68632`，健康检查通过。
-- 本轮模型市场分组价格倍率验证通过：
-  - 后端 `ModelMarketGroup` 新增 `price_multiplier`，旧目录空值自动按 `1` 处理，负数拒绝保存；默认目录每个分组返回 `price_multiplier=1`。
-  - 后台 `/admin/model-market` 的“分组设置”新增“价格倍率”输入框；保存 JSON 时空值或 0 会按 `1` 提交。
-  - 前台 `/models` 的“我们的价格”列按 `模型市场分组 price_multiplier × 所选账号分组 effective_rate_multiplier` 换算展示；未配置时保持原价。
-  - `go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_GetModelMarketCatalog|TestSettingService_SetModelMarketCatalog|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog" -count=1`
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `corepack.cmd pnpm --dir frontend run typecheck`
-  - `corepack.cmd pnpm --dir frontend run build`
-  - `git diff --check -- backend/internal/service/model_market_catalog.go backend/internal/service/model_market_catalog_test.go backend/internal/handler/setting_handler_public_test.go frontend/src/api/modelMarket.ts frontend/src/views/admin/ModelMarketView.vue frontend/src/views/public/ModelPlazaView.vue frontend/src/__tests__/public-pages.spec.ts frontend/src/__tests__/public-smoke.spec.ts backend/internal/web/dist`
-  - `http://127.0.0.1:8080/api/v1/model-market/catalog` 和 `http://127.0.0.1:62080/api/v1/model-market/catalog` 均返回 `version=9`、`chatgpt.price_multiplier=1`、`doubao-seedance-video.price_multiplier=1`。
-  - Playwright 临时脚本验证因本项目未安装可 `require('playwright')` 的包失败；本轮没有临时安装依赖，相关脚本已删除。
-- 本轮 Doubao Seedance 视频排序验证通过：
-  - 默认目录和 v8 迁移均锁定 `Doubao Seedance 视频` 行顺序：`doubao-seedance-2.0*` 新模型在最上面，`doubao-seedance-1.5-pro` 在中间，`doubao-seedance-1.0-pro-*` 老模型在下面。
-  - `go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_GetModelMarketCatalog|TestSettingService_SetModelMarketCatalog|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog" -count=1`
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `corepack.cmd pnpm --dir frontend run typecheck`
-  - `corepack.cmd pnpm --dir frontend run build`
-  - `git diff --check -- backend/internal/service/model_market_catalog.go backend/internal/service/model_market_catalog_test.go backend/internal/web/dist frontend/src/__tests__/public-pages.spec.ts frontend/src/__tests__/public-smoke.spec.ts`
-  - `http://127.0.0.1:8080/api/v1/model-market/catalog` 和 `http://127.0.0.1:62080/api/v1/model-market/catalog` 均返回 `version=9`、总分组 11 个、`doubao-seedance-video.rows=29`。
-  - API 验证：首行 `doubao-seedance-2-0-fast-480p-input`，第 21 行 `doubao-seedance-1-5-pro-480p`，末行 `doubao-seedance-1-0-pro-quality-1080p`；`hide_official_price=true`、`hide_saving=true`。
-  - Playwright CLI 截图验证 `http://127.0.0.1:8080/models` 可正常渲染；截图 `output/playwright/model-plaza-doubao-seedance-v9-8080.png`。
-- 本轮视频模型官方价同步验证通过：
-  - 从 `https://apimart.ai/zh/pricing` 提取当前 `video` 分类价格；本地视频目录使用上游 `original_price` 作为“我们的价格”，继续隐藏官方价格/节省列。
-  - `go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_GetModelMarketCatalog|TestSettingService_SetModelMarketCatalog|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog" -count=1`
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `corepack.cmd pnpm --dir frontend run typecheck`
-  - `corepack.cmd pnpm --dir frontend run build`
-  - `git diff --check -- backend/internal/service/model_market_catalog.go backend/internal/service/model_market_catalog_test.go backend/internal/web/dist frontend/src/__tests__/public-pages.spec.ts frontend/src/__tests__/public-smoke.spec.ts`
-  - `http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`。
-  - `http://127.0.0.1:8080/api/v1/model-market/catalog` 和 `http://127.0.0.1:62080/api/v1/model-market/catalog` 均返回 `version=8`、总分组 11 个。
-  - API 验证：`kling-v3-omni.rows=8`，`default=$0.084/秒`、`4k-sound=$0.5357/秒`；`kling-v2-6.rows=4`，`pro-sound-voice=$0.1875/秒`；`wan2.7 default=$0.083/秒`、`1080P=$0.137/秒`；`veo3.1-fast.rows=4`，`default=$0.225/秒`、`EXTEND-4K=$0.3/秒`。
-  - Playwright 验证 `http://127.0.0.1:8080/models` 搜索 `kling-v3-omni` / `veo3.1-fast` 可见新版官方价格和新增参数；页面文本无 APIMart / apimart；截图 `output/playwright/model-plaza-video-official-v8-8080.png`。
-- 本轮 Doubao Seedance 目录同步验证通过：
-  - 从 `https://apimart.ai/zh/pricing` 提取当前 `doubao-seedance` 相关价格；其中 `doubao-seedance-4-0/4-5` 属于 image 分类，1.0/1.5/2.0 相关属于 video 分类。本地目录使用上游 `original_price` 作为“我们的价格”，不展示官方价格/节省列。
-  - `go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_GetModelMarketCatalog|TestSettingService_SetModelMarketCatalog|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog" -count=1`
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `corepack.cmd pnpm --dir frontend run typecheck`
-  - `corepack.cmd pnpm --dir frontend run build`
-  - `git diff --check -- backend/internal/service/model_market_catalog.go backend/internal/service/model_market_catalog_test.go backend/internal/web/dist frontend/src/__tests__/public-pages.spec.ts frontend/src/__tests__/public-smoke.spec.ts`
-  - `http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`。
-  - `http://127.0.0.1:8080/api/v1/model-market/catalog` 返回 `data.version=7`、总分组 11 个；`doubao-seedance-image.rows=2`、`doubao-seedance-video.rows=29`。
-  - `http://127.0.0.1:62080/api/v1/model-market/catalog` 返回 `version=7`、总分组 11 个。
-  - Playwright 验证 `http://127.0.0.1:8080/models` 渲染 11 张卡，搜索 `doubao-seedance` 后只剩 Doubao 图像/视频两张卡；页面文本无 APIMart / apimart；截图 `output/playwright/model-plaza-doubao-seedance-v7-8080.png`。
-  - Playwright 验证 `http://127.0.0.1:62080/models` 渲染 11 张卡，包含 Doubao 图像/视频，页面文本无 APIMart / apimart。
-- 本轮账号分组下拉与倍率换算验证通过：
-  - `go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_GetModelMarketCatalog|TestSettingService_SetModelMarketCatalog|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog" -count=1`
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `corepack.cmd pnpm --dir frontend run typecheck`
-  - `corepack.cmd pnpm --dir frontend run build`
-  - `git diff --check -- backend/internal/service/model_market_catalog.go backend/internal/service/model_market_catalog_test.go backend/internal/service/setting_service.go backend/internal/service/wire.go frontend/src/api/modelMarket.ts frontend/src/views/admin/ModelMarketView.vue frontend/src/views/public/ModelPlazaView.vue frontend/src/__tests__/public-pages.spec.ts frontend/src/__tests__/public-smoke.spec.ts`
-  - `git diff --check` 全量通过，仅文档/知识文件有 CRLF 提示。
-- 本轮容器/API 验证：
-  - `http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`。
-  - `http://127.0.0.1:8080/api/v1/model-market/catalog` 返回统一响应包装，`data.version=6`、总分组 9 个。
-  - `gpt-image-2-official.rows=181`，当前真实目录尚未配置 `supported_group_ids`，因此公开页下拉数量为 0。
-- 本轮 Playwright 验证：
-  - 真实 `http://127.0.0.1:8080/models` 渲染 9 张模型卡，`gpt-image-2-official` DOM 行数 181，页面包含 `2576x3216 · 中` 和 `$0.1408`，页面文本无 APIMart / apimart；截图 `output/playwright/model-plaza-v6-8080.png`。
-  - 通过临时拦截公开目录接口注入 `ChatGPT.supported_groups=[1x,0.5x]` 做无污染验证：下拉默认选最低倍率 `0.5x`，第一行价格从 `¥5/M 输入 · ¥30/M 输出` 折算为 `¥2.5/M 输入 · ¥15/M 输出`；切换到 `1x` 后恢复原价；截图 `output/playwright/model-plaza-supported-groups-v6-8080.png`。
-- 本轮隐藏官方价格/节省列与 v5 迁移验证通过：
-  - `go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_GetModelMarketCatalog|TestSettingService_SetModelMarketCatalog|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog" -count=1`
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `corepack.cmd pnpm --dir frontend run typecheck`
-  - `corepack.cmd pnpm --dir frontend run build`
-  - `git diff --check -- backend/internal/service/model_market_catalog.go backend/internal/service/model_market_catalog_test.go backend/internal/handler/setting_handler_public_test.go frontend/src/api/modelMarket.ts frontend/src/views/public/ModelPlazaView.vue frontend/src/views/admin/ModelMarketView.vue frontend/src/__tests__/public-pages.spec.ts frontend/src/__tests__/public-smoke.spec.ts`
-- 本轮容器/API 验证：
-  - `http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`。
-  - `http://127.0.0.1:8080/api/v1/model-market/catalog` 和 `http://127.0.0.1:62080/api/v1/model-market/catalog` 均返回 `version=5`、总分组 9 个。
-  - `gpt-image-2.rows=3`，`hide_official_price=true`，`hide_saving=true`，三档仍为 `1K=$0.04`、`2K=$0.06`、`4K=$0.1`。
-  - `gpt-image-2-official.rows=181`，`hide_official_price=true`，`hide_saving=true`；`2576x3216 · 中` 行显示 `our_price="$0.1408"`，`official_price` 和 `saving` 为空。
-  - `kling-v3-omni`、`kling-v2-6`、`wan2-7`、`veo3-1-fast` 均为 `hide_official_price=true`、`hide_saving=true`，示例行 `official_price` 和 `saving` 为空。
-- 本轮 Playwright 渲染验证：
-  - `http://127.0.0.1:8080/models` 和 `http://127.0.0.1:62080/models` 均渲染 9 张模型卡。
-  - 推理卡片表头为“模型名称 / 输入 / 输出 / 我们的价格”。
-  - `gpt-image-2`、`gpt-image-2-official` 和全部视频卡片表头只剩“规格 / 我们的价格”。
-  - `gpt-image-2-official` DOM 行数为 181，页面包含 `2576x3216 · 中` 和 `$0.1408`，不再渲染 `$0.11264`。
-  - 页面文本无 APIMart / apimart。
-  - 截图保存在 `output/playwright/model-plaza-hide-official-columns-v5-8080.png`。
-- 后端目标测试通过：
-  - `go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_(GetModelMarketCatalog|SetModelMarketCatalog)|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog|TestFillReferencePricing_AddsAPIMartGPTImage2OfficialPrices|TestOpenAIGatewayServiceRecordUsage_APIMartGPTImage2OfficialUsesExactSizeOfficialTier" -count=1`
-- 前端目标测试通过：
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts src/router/__tests__/guards.spec.ts`
-- 前端类型与构建通过：
-  - `corepack.cmd pnpm --dir frontend run typecheck`
-  - `corepack.cmd pnpm --dir frontend run build`
-- 本轮滚动条补丁后前端验证通过：
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `corepack.cmd pnpm --dir frontend run typecheck`
-  - `corepack.cmd pnpm --dir frontend run build`
-  - `git diff --check -- frontend/src/views/public/ModelPlazaView.vue frontend/src/__tests__/public-pages.spec.ts`
-- 双滑块修正后前端验证通过：
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `corepack.cmd pnpm --dir frontend run typecheck`
-  - `corepack.cmd pnpm --dir frontend run build`
-- 后台“重置默认”已用本地管理员接口执行并验证，重置后 `gpt-image-2-official` 仍为 181 行。
-- 容器/API 验证：
-  - `http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`。
-  - `http://127.0.0.1:8080/api/v1/model-market/catalog` 返回 `version=3`，总分组 9 个，`gpt-image-2.rows=3`，`gpt-image-2-official.rows=181`。
-  - `http://127.0.0.1:62080/api/v1/model-market/catalog` 返回 `version=3`，总分组 9 个，`gpt-image-2.rows=3`，`gpt-image-2-official.rows=181`。
-  - `gpt-image-2` 三档展示价为 `1K=$0.04`、`2K=$0.06`、`4K=$0.1`。
-  - `2576x3216 · 中` 行为 `$0.11264` / `$0.1408`。
-- 本轮 `gpt-image-2` 补充后验证通过：
-  - `go test -tags=unit ./internal/service -run "TestSettingService_GetModelMarketCatalog|TestSettingService_SetModelMarketCatalog|TestNormalizeModelMarketCatalog" -count=1`
-  - `corepack.cmd pnpm --dir frontend run build`
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `git diff --check -- backend/internal/service/model_market_catalog.go backend/internal/service/model_market_catalog_test.go backend/internal/web/dist frontend/src/views/public/ModelPlazaView.vue frontend/src/__tests__/public-pages.spec.ts`
-  - `corepack.cmd pnpm --dir frontend exec playwright screenshot --viewport-size=1600,1200 --wait-for-timeout=2500 http://127.0.0.1:8080/models ../output/playwright/model-plaza-gpt-image-2-8080.png`
-  - `corepack.cmd pnpm --dir frontend exec playwright screenshot --full-page --viewport-size=1600,1200 --wait-for-timeout=2500 http://127.0.0.1:8080/models ../output/playwright/model-plaza-gpt-image-2-8080-full.png`
-- 本轮页面截图实测 `http://127.0.0.1:8080/models`：
-  - 顶部分类显示 `全部 9`、`图像 2`。
-  - 首屏可见新增 `gpt-image-2` 卡片；目录数据仍包含 3 个价格档位。
-  - 截图保存在 `output/playwright/model-plaza-gpt-image-2-8080.png` 和 `output/playwright/model-plaza-gpt-image-2-8080-full.png`。
-- 本轮隐藏卡片标题后档位数量后验证通过：
-  - `rg -n "价格档位|model-card-meta" frontend/src/views/public/ModelPlazaView.vue backend/internal/web/dist` 无命中。
-  - `corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts`
-  - `corepack.cmd pnpm --dir frontend run build`
-  - `git diff --check -- frontend/src/views/public/ModelPlazaView.vue`
-  - `http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`，`sub2api-dev` 为 healthy。
-  - `http://127.0.0.1:8080/models` HTML 不包含 `价格档位` 和 `model-card-meta`。
-  - `http://127.0.0.1:8080/api/v1/model-market/catalog` 仍返回 `version=3`、总分组 9、图像分组 2。
-  - 截图保存在 `output/playwright/model-plaza-hide-count-62080.png` 和 `output/playwright/model-plaza-hide-count-8080.png`。
-- 浏览器实测 `http://127.0.0.1:62080/models`：
-  - 页面渲染 8 张模型卡。
-  - `gpt-image-2-official` 目录数据包含 `181` 个价格档位。
-  - DOM 行数为 181。
-  - 价格表容器有 `is-scrollable`，`overflow:auto`，高度约 544px，`scrollHeight` 大于 `clientHeight`。
-  - 表头 `position: sticky`。
-  - 页面文本无 APIMart / apimart。
-- 浏览器实测 `http://127.0.0.1:62080/models`：
-  - `gpt-image-2-official` DOM 行数为 181。
-  - 表格容器 `overflow-y: scroll`，`scrollHeight=28583`，`clientHeight=544`。
-  - 原生 WebKit 滚动条宽高为 `0px`，`scrollbar-width=none`。
-  - 右侧自绘轨道存在，宽约 `12px`；滑块存在，高度 `44px`，背景为绿色渐变。
-  - 页面文本无 APIMart / apimart。
-- 浏览器实测 `http://127.0.0.1:8080/models`：
-  - 页面渲染 8 张模型卡。
-  - `gpt-image-2-official` DOM 行数为 181。
-  - 表格容器 `overflow-y: scroll`，`scrollHeight=28583`，`clientHeight=544`。
-  - 原生 WebKit 滚动条宽高为 `0px`，`scrollbar-width=none`。
-  - 右侧自绘轨道和滑块均存在且可见，只显示一个绿色滑块。
-  - 页面文本无 APIMart / apimart。
-- `git diff --check` 通过，仅有既有 `knowledge/05-current-focus.md` CRLF warning。
-- 浏览器实测 `http://127.0.0.1:62080/models`：
-  - 页面返回 200。
-  - `/api/v1/model-market/catalog` 返回新目录 JSON。
-  - 页面渲染 8 张模型卡。
-  - `ChatGPT`、`Gemini`、`Claude`、`gpt-image-2-official` 可见。
-  - `2576x3216 · 中`、`$0.11264`、`$0.1408` 可见。
-  - 表头包含推理模型的“模型名称 / 输入 / 输出 / 我们的价格”和图像视频的“规格 / 我们的价格 / 官方价格 / 节省”。
-  - 页面文本无 APIMart / apimart。
+## 当前结论
 
-## 工作区注意
+- `knowledge/00-start-here.md`、`knowledge/05-current-focus.md`、`docs/ai/current-task.md` 已经跟到 6 月 7 日的 OpenAI 网关稳态 / account capability routing / 控制台入口语境，但 `knowledge/tasks/current-task.md` 与 `docs/workflow/status.md` 之前仍停在模型市场 `version=11` 语境，容易把接手者带回旧主线。
+- 当前真正更值得优先沉淀的是：
+  - gateway auth / sticky session / previous response 保护
+  - API Key exclusive group access
+  - prompt cache key 传播与隔离
+  - 非流式 JSON 与 `/responses` transport failover 的稳态
+- 模型市场相关能力仍然有效，但更适合作为稳定背景事实，不该继续占据当前任务快照的最前面。
 
-- 当前工作树仍有较多未提交改动，包含本轮模型市场改动和此前参考价/渠道命中规则改动；不要误当成单一任务全部新改。
-- 未跟踪临时采证文件仍存在，本轮未清理：
-  - `tmp-doubao.html`
-  - `tmp-kling26.html`
-  - `tmp-modelList.html`
-  - `tmp-ui-check/` 下此前截图文件
-- `http://127.0.0.1:62080` 当前由已有 `node` 进程提供，PID `33240`；不是本轮新启动的临时服务。
-- 本轮曾生成临时 Linux 二进制和镜像构建上下文，已清理：
-  - `tmp-ui-check/backend-bin`
-  - `tmp-ui-check/runtime-image`
-  - `deploy/data/sub2api-linux-amd64`
-  - `deploy/data/sub2api-linux-amd64-embed`
-- 本轮重新生成的临时 env 文件 `tmp-ui-check/sub2api-dev.env.tmp` 已删除。
-- 本轮重新生成的后端容器临时构建上下文已清理：
-  - `backend/tmp-ui-check/runtime-image`
-- 旧本地镜像备份标签仍保留：
-  - `sub2api-dev:runtime-prebuilt-before-scroll-181-20260603180452`
-  - `sub2api-dev:runtime-prebuilt-before-update`
+## 已稳定事实
+
+- `upstream-main-release135-gateway-auth-s11` 已完成 implementation、QA 和 integration 记录。
+- `upstream-main-prompt-cache-s12` 已完成 implementation、QA 和 integration 记录。
+- 当前排查 OpenAI 兼容问题时，优先检查：
+  - `backend/internal/handler/openai_gateway_handler.go`
+  - `backend/internal/handler/gateway_handler_chat_completions.go`
+  - `backend/internal/handler/gateway_handler_responses.go`
+  - `backend/internal/service/openai_gateway_service.go`
+  - `backend/internal/service/openai_gateway_messages.go`
+- 当前排查 session / prompt cache 问题时，不要只看请求参数；还要一起看 API Key、分组、sticky session 和 prompt cache key 是否落在同一条约束链上。
 
 ## 下一步
 
-- 如要发布，复核 dirty 文件后按主题提交。
-- 如要继续完善目录，优先在 `/admin/model-market` 更新 JSON 数据，不再改前台模板。
-- 如要把“专业/默认”等视频档位继续对齐上游文档，直接更新 `model_market_catalog` 后台目录即可。
+- 如果继续做 OpenAI 兼容、账号鉴权、会话复用或 transport 稳态，先从 `docs/workflow/tasks/upstream-main-release135-gateway-auth-s11.md` 与 `docs/workflow/tasks/upstream-main-prompt-cache-s12.md` 回读目标和边界。
+- 如果继续补稳定知识，优先把“gateway auth + sticky session + prompt cache”作为当前默认主线，而不是继续扩写模型市场历史细节。
+- 如果没有新的上游合成批次，本文件保持当前快照即可；新增阶段历史再写入 `knowledge/tasks/timeline.md`。
+
+## 验证与证据入口
+
+- Sprint 记录：
+  - `docs/workflow/tasks/upstream-main-release135-gateway-auth-s11.md`
+  - `docs/workflow/worker-results/upstream-main-release135-gateway-auth-s11-result.md`
+  - `docs/workflow/qa-reports/upstream-main-release135-gateway-auth-s11-qa.md`
+  - `docs/workflow/tasks/upstream-main-prompt-cache-s12.md`
+  - `docs/workflow/worker-results/upstream-main-prompt-cache-s12-result.md`
+  - `docs/workflow/qa-reports/upstream-main-prompt-cache-s12-qa.md`
+- 汇总流水：`docs/workflow/main-log.md`
+- 最近主线提交：
+  - `15f01494f` `fix: enforce exclusive group access for api keys`
+  - `064f35021` `fix: validate OpenAI sticky session groups`
+  - `9d69c1c09` `fix(openai): /responses 传输层错误转 failover + 持久故障临时摘除账号`
+  - `541fe39c1` `fix(openai): adapt release135 transport and sticky tests`
+  - `d1812704c` `fix(openai): add raw tool continuation validation`
+  - `69e2d54a8` `fix(openai): propagate prompt cache key for chat completions`
