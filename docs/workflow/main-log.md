@@ -57,3 +57,4 @@
 260608 1716 | upstream-main-release135-gateway-auth-s11 | integration-pass | codex | main, merge: upstream main release135 gateway auth s11
 260608 1724 | upstream-main-prompt-cache-s12 | implementation-and-qa-pass | codex | 69e2d54a8, docs/workflow/worker-results/upstream-main-prompt-cache-s12-result.md, docs/workflow/qa-reports/upstream-main-prompt-cache-s12-qa.md
 260608 1727 | upstream-main-prompt-cache-s12 | integration-pass | codex | main, merge: upstream main prompt cache s12
+260608 2120 | upstream-main-usage-window-s13 | implementation-and-qa-pass | codex | 8a0d0ed63, docs/workflow/worker-results/upstream-main-usage-window-s13-result.md, docs/workflow/qa-reports/upstream-main-usage-window-s13-qa.md
