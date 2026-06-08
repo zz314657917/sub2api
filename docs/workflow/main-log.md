@@ -59,3 +59,4 @@
 260608 1727 | upstream-main-prompt-cache-s12 | integration-pass | codex | main, merge: upstream main prompt cache s12
 260608 2120 | upstream-main-usage-window-s13 | implementation-and-qa-pass | codex | 8a0d0ed63, docs/workflow/worker-results/upstream-main-usage-window-s13-result.md, docs/workflow/qa-reports/upstream-main-usage-window-s13-qa.md
 260608 2122 | upstream-main-usage-window-s13 | integration-pass | codex | main, merge: upstream main usage window s13
+260609 0034 | upstream-main-ops-alert-temp-unscheduled-s14 | implementation-and-qa-pass | codex | 0fb09933c, docs/workflow/worker-results/upstream-main-ops-alert-temp-unscheduled-s14-result.md, docs/workflow/qa-reports/upstream-main-ops-alert-temp-unscheduled-s14-qa.md
