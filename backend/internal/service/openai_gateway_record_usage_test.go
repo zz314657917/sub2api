@@ -1998,6 +1998,102 @@ func TestOpenAIGatewayServiceRecordUsage_APIMartGPTImage2OfficialCostOverrideUse
 	require.InDelta(t, apimartGPTImage2OfficialBalanceMultiplier, usageRepo.lastLog.RateMultiplier, 1e-12)
 }
 
+func TestOpenAIGatewayServiceRecordUsage_APIMartGPTImage2CostOverrideUsesAPIMartAccountMultiplier(t *testing.T) {
+	groupID := int64(135)
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:       "resp_apimart_gpt_image_2_cost_override",
+			Model:           "gpt-image-2",
+			BillingModel:    "gpt-image-2",
+			UpstreamModel:   "gpt-image-2",
+			ImageCount:      1,
+			ImageSize:       "2K",
+			ImageOutputSize: "2576x3216",
+			ImageQuality:    "medium",
+			Duration:        time.Second,
+			CostOverride: &CostBreakdown{
+				TotalCost:   0.1126,
+				BillingMode: string(BillingModeImage),
+			},
+		},
+		APIKey: &APIKey{
+			ID:      10135,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                   groupID,
+				RateMultiplier:       1,
+				ImageRateIndependent: true,
+				ImageRateMultiplier:  1,
+			},
+		},
+		User: &User{ID: 20135},
+		Account: &Account{
+			ID:          30135,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeAPIKey,
+			Credentials: map[string]any{"base_url": "https://api.apimart.ai"},
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, "gpt-image-2", usageRepo.lastLog.RequestedModel)
+	require.InDelta(t, 0.1126, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.94584, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, apimartGPTImage2OfficialBalanceMultiplier, usageRepo.lastLog.RateMultiplier, 1e-12)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_GPTImage2CostOverrideDoesNotUseAPIMartMultiplierForOpenAIAccount(t *testing.T) {
+	groupID := int64(136)
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:       "resp_openai_gpt_image_2_cost_override",
+			Model:           "gpt-image-2",
+			BillingModel:    "gpt-image-2",
+			UpstreamModel:   "gpt-image-2",
+			ImageCount:      1,
+			ImageSize:       "2K",
+			ImageOutputSize: "2576x3216",
+			ImageQuality:    "medium",
+			Duration:        time.Second,
+			CostOverride: &CostBreakdown{
+				TotalCost:   0.1126,
+				BillingMode: string(BillingModeImage),
+			},
+		},
+		APIKey: &APIKey{
+			ID:      10136,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:                   groupID,
+				RateMultiplier:       1,
+				ImageRateIndependent: true,
+				ImageRateMultiplier:  1,
+			},
+		},
+		User: &User{ID: 20136},
+		Account: &Account{
+			ID:          30136,
+			Platform:    PlatformOpenAI,
+			Type:        AccountTypeAPIKey,
+			Credentials: map[string]any{"base_url": "https://api.openai.com"},
+		},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, "gpt-image-2", usageRepo.lastLog.RequestedModel)
+	require.InDelta(t, 0.1126, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.1126, usageRepo.lastLog.ActualCost, 1e-12)
+	require.InDelta(t, 1.0, usageRepo.lastLog.RateMultiplier, 1e-12)
+}
+
 func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingFallsBackToSizeTier(t *testing.T) {
 	groupID := int64(129)
 	price1K := 0.04

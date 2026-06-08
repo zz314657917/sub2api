@@ -699,7 +699,7 @@ func apimartImageMappingSupportsRequestedModel(account *Account, mapping map[str
 	if !strings.EqualFold(strings.TrimSpace(requestedModel), "gpt-image-2-official") {
 		return false
 	}
-	if !account.IsOpenAIApiKey() || !strings.EqualFold(openAIBaseURLHost(account.GetOpenAIBaseURL()), "api.apimart.ai") {
+	if !isAPIMartOpenAIAPIKeyAccount(account) {
 		return false
 	}
 	return mappingSupportsRequestedModel(mapping, "gpt-image-2")

@@ -5770,7 +5770,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		result.Model,
 	)
 	if result.ImageCount > 0 {
-		imageMultiplier = apimartGPTImage2OfficialUsageMultiplierForModels(billingModels, imageMultiplier)
+		imageMultiplier = apimartGPTImage2UsageMultiplierForModels(account, billingModels, imageMultiplier)
 	}
 	serviceTier := ""
 	if result.ServiceTier != nil {
