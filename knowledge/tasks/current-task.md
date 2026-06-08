@@ -1,67 +1,56 @@
 # 当前任务快照
 
-最后更新：2026-06-08 13:45 +08:00
+最后更新：2026-06-09 00:42 +08:00
 
 ## 背景
 
 - 仓库：`F:/mcplugins/sub2api`。
-- 6 月上旬的模型市场公开目录、后台维护、`¥` 展示口径、分组倍率换算和 `gpt-image-2-official` 人民币余额扣费修正，已经从“当前主线”退成稳定背景层。
-- 最近两轮上游合成已经把默认续做入口继续前移到 OpenAI gateway / auth / sticky session / prompt cache 这一层：
-  - `upstream-main-release135-gateway-auth-s11`
-  - `upstream-main-prompt-cache-s12`
+- 当前默认续做入口是上游低风险合成，不是模型市场主线。
+- 本地 `main` 已推送到 `origin/main=cbdb69bed`。
+- 上游 `upstream/main=be0174456`，最新相对 `v0.1.135` 之后主要是 README/sponsors 类更新；功能候选大多已在前序 Sprint 评估或合成。
 
 ## 当前主线
 
-当前默认续做入口不再是模型市场，而是 OpenAI 网关认证、会话复用边界和 prompt cache 稳态：
+- OpenAI gateway/auth/session/prompt cache 稳态已经进入本地主线：
+  - API Key 独占分组访问。
+  - sticky session 分组校验。
+  - 跨组失配 `previous_response_id` 剥离。
+  - `/responses` transport failover + 持久故障账号临时摘除。
+  - Chat Completions `prompt_cache_key` 传播并按 API Key 隔离 session。
+- 用量窗口与 Ops 告警也已补齐：
+  - 5h `ResetsAt` 已同步到 `SessionWindowEnd`，过期窗口展示归零。
+  - Ops 告警新增 `account_temp_unscheduled_count`，可覆盖临时不可调度账号。
+- 模型市场、APIMart 计费、工单、Canvas、Chat/Image Studio、OpenWebUI 仍是本地产品线，后续合上游时默认保护，不跟随上游删除或覆盖。
 
-- API Key 独占分组访问已经进入默认约束，跨组误用不再应被视为可接受行为。
-- OpenAI sticky session 现在要同时满足“分组成员校验”“跨组切换时剥离失配的 `previous_response_id`”“WSv2 生效路径保护”。
-- `/responses` 非流式传输错误已经进入 failover + 持久故障临时摘除账号的默认心智。
-- release `0.1.135` 的 gateway/auth/session 修复已经合流，后续再看相关报错时，不应继续按旧 transport 假设排查。
-- Chat Completions 的 `prompt_cache_key` 传播已经成为新默认约束；后续涉及 prompt cache session 复用时，应按“随 API Key 隔离”理解，而不是把所有请求混进同一缓存会话。
+## 已完成的最近 Sprint
 
-## 当前结论
+- `upstream-main-release135-gateway-auth-s11`
+  - release `0.1.135` gateway/auth/session 修复已合流。
+- `upstream-main-prompt-cache-s12`
+  - `d251487da` 已合流，Chat Completions 传播 `prompt_cache_key`。
+- `upstream-main-usage-window-s13`
+  - `16bc87693` 已合流，5h usage window `ResetsAt` 语义修复已进入主线。
+- `upstream-main-ops-alert-temp-unscheduled-s14`
+  - `f20e6bf76` 已合流，Ops alert 支持 `account_temp_unscheduled_count`。
+  - S14 验证已在 `main` 通过并推送：`git diff --check`、denied path audit、`go test -tags unit ./internal/service -run "ComputeRuleMetric|TempUnscheduled|OpsAlert" -count=1`、`go test ./internal/handler/admin -run "OpsAlert|Metric" -count=1`、`go test ./internal/service ./internal/handler/admin -count=1`、`corepack.cmd pnpm --dir frontend run typecheck`。
 
-- `knowledge/00-start-here.md`、`knowledge/05-current-focus.md`、`docs/ai/current-task.md` 已经跟到 6 月 7 日的 OpenAI 网关稳态 / account capability routing / 控制台入口语境，但 `knowledge/tasks/current-task.md` 与 `docs/workflow/status.md` 之前仍停在模型市场 `version=11` 语境，容易把接手者带回旧主线。
-- 当前真正更值得优先沉淀的是：
-  - gateway auth / sticky session / previous response 保护
-  - API Key exclusive group access
-  - prompt cache key 传播与隔离
-  - 非流式 JSON 与 `/responses` transport failover 的稳态
-- 模型市场相关能力仍然有效，但更适合作为稳定背景事实，不该继续占据当前任务快照的最前面。
+## 下一步候选
 
-## 已稳定事实
+- 低风险可选：
+  - `f5cecea5b`：纯前端 Select 下拉高度修复，可单独小 Sprint。
+- 继续延后：
+  - `af19d4432`：代理有效期与失败回退，涉及 schema/migration/API/frontend，需单独大 Sprint。
+  - README/sponsors/VERSION/docs-only 提交，默认跳过。
+- 如果继续上游合成，先 `git fetch upstream --tags --prune`，再从当前 `main` 开独立 `codex/` 分支或隔离 worktree；不要直接 merge `upstream/main`。
 
-- `upstream-main-release135-gateway-auth-s11` 已完成 implementation、QA 和 integration 记录。
-- `upstream-main-prompt-cache-s12` 已完成 implementation、QA 和 integration 记录。
-- 当前排查 OpenAI 兼容问题时，优先检查：
-  - `backend/internal/handler/openai_gateway_handler.go`
-  - `backend/internal/handler/gateway_handler_chat_completions.go`
-  - `backend/internal/handler/gateway_handler_responses.go`
-  - `backend/internal/service/openai_gateway_service.go`
-  - `backend/internal/service/openai_gateway_messages.go`
-- 当前排查 session / prompt cache 问题时，不要只看请求参数；还要一起看 API Key、分组、sticky session 和 prompt cache key 是否落在同一条约束链上。
+## 证据入口
 
-## 下一步
-
-- 如果继续做 OpenAI 兼容、账号鉴权、会话复用或 transport 稳态，先从 `docs/workflow/tasks/upstream-main-release135-gateway-auth-s11.md` 与 `docs/workflow/tasks/upstream-main-prompt-cache-s12.md` 回读目标和边界。
-- 如果继续补稳定知识，优先把“gateway auth + sticky session + prompt cache”作为当前默认主线，而不是继续扩写模型市场历史细节。
-- 如果没有新的上游合成批次，本文件保持当前快照即可；新增阶段历史再写入 `knowledge/tasks/timeline.md`。
-
-## 验证与证据入口
-
-- Sprint 记录：
+- Sprint contracts：
   - `docs/workflow/tasks/upstream-main-release135-gateway-auth-s11.md`
-  - `docs/workflow/worker-results/upstream-main-release135-gateway-auth-s11-result.md`
-  - `docs/workflow/qa-reports/upstream-main-release135-gateway-auth-s11-qa.md`
   - `docs/workflow/tasks/upstream-main-prompt-cache-s12.md`
-  - `docs/workflow/worker-results/upstream-main-prompt-cache-s12-result.md`
-  - `docs/workflow/qa-reports/upstream-main-prompt-cache-s12-qa.md`
+  - `docs/workflow/tasks/upstream-main-usage-window-s13.md`
+  - `docs/workflow/tasks/upstream-main-ops-alert-temp-unscheduled-s14.md`
+- QA / result：
+  - `docs/workflow/qa-reports/upstream-main-ops-alert-temp-unscheduled-s14-qa.md`
+  - `docs/workflow/worker-results/upstream-main-ops-alert-temp-unscheduled-s14-result.md`
 - 汇总流水：`docs/workflow/main-log.md`
-- 最近主线提交：
-  - `15f01494f` `fix: enforce exclusive group access for api keys`
-  - `064f35021` `fix: validate OpenAI sticky session groups`
-  - `9d69c1c09` `fix(openai): /responses 传输层错误转 failover + 持久故障临时摘除账号`
-  - `541fe39c1` `fix(openai): adapt release135 transport and sticky tests`
-  - `d1812704c` `fix(openai): add raw tool continuation validation`
-  - `69e2d54a8` `fix(openai): propagate prompt cache key for chat completions`

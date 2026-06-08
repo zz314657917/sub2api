@@ -324,3 +324,12 @@
 - 本地容器：重建了干净 runtime 镜像 `sub2api-dev:runtime-prebuilt`，镜像 ID `sha256:5cb0913d4842101e7c5406b07eecd9945c9832ea2dc000f2de2c4bdb9e6cf195`；重新创建了 `sub2api-dev` 应用容器，PostgreSQL / Redis 数据容器未重建。
 - 验证记录：`go test -tags=unit ./internal/service ./internal/handler -run "TestSettingService_(GetModelMarketCatalog|SetModelMarketCatalog)|TestNormalizeModelMarketCatalog|TestSettingHandler_GetModelMarketCatalog" -count=1` 通过；`corepack.cmd pnpm --dir frontend exec vitest run src/__tests__/public-pages.spec.ts src/__tests__/public-smoke.spec.ts` 通过；`corepack.cmd pnpm --dir frontend run typecheck` 通过；`corepack.cmd pnpm --dir frontend run build` 通过；`git diff --check` 相关文件通过。
 - 页面验证：`http://127.0.0.1:62080/api/v1/model-market/catalog` 返回 `version=2`、`gpt-image-2-official.rows=181`；浏览器实测 `/models` 中 `gpt-image-2-official` 卡片显示 181 档，`2576x3216 · 中` 为 `$0.11264` / `$0.1408`，表格容器高度约 544px 且可内部滚动，页面无 APIMart 文案。
+
+## 2026-06-09 00:42 +08:00 - 上游合成推进到 S14 并推送
+
+- 当前阶段：上游低风险合成从 release `0.1.135` gateway/auth/session 延伸到 usage window 与 Ops alert。
+- 本段重点：S13 合入 5h `ResetsAt` 同步到 `SessionWindowEnd`；S14 合入 Ops `account_temp_unscheduled_count` 告警指标，覆盖临时不可调度账号。
+- 已完成：`main` 已推送到 `origin/main=cbdb69bed`；S14 隔离 worktree 已删除，本地临时分支 `codex/upstream-main-ops-alert-temp-unscheduled-s14` 已删除。
+- 关键决策：上游 root `frontend/src/i18n/locales/en.ts/zh.ts` 的单体 i18n 改动继续按本地 modular i18n 落到 `frontend/src/i18n/locales/*/admin/ops.ts`。
+- 验证记录：S14 在 branch 和 main 上均通过 `git diff --check`、denied path audit、`go test -tags unit ./internal/service -run "ComputeRuleMetric|TempUnscheduled|OpsAlert" -count=1`、`go test ./internal/handler/admin -run "OpsAlert|Metric" -count=1`、`go test ./internal/service ./internal/handler/admin -count=1`、`corepack.cmd pnpm --dir frontend run typecheck`。
+- 下一步：可评估 `f5cecea5b` Select 下拉高度小修；`af19d4432` 代理有效期/失败回退继续作为大 Sprint 延后；README/sponsors/docs-only 默认跳过。
