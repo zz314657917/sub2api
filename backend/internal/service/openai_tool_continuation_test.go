@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -117,4 +118,27 @@ func TestHasItemReferenceForCallIDs(t *testing.T) {
 	require.True(t, HasItemReferenceForCallIDs(req, []string{"call_1"}))
 	require.True(t, HasItemReferenceForCallIDs(req, []string{"call_1", "call_2"}))
 	require.False(t, HasItemReferenceForCallIDs(req, []string{"call_1", "call_3"}))
+}
+
+func TestValidateFunctionCallOutputContextBytesMatchesMapValidation(t *testing.T) {
+	cases := []map[string]any{
+		nil,
+		{"input": []any{map[string]any{"type": "input_text", "text": "hi"}}},
+		{"input": []any{map[string]any{"type": "function_call_output", "call_id": "call_1", "output": "ok"}}},
+		{"input": []any{map[string]any{"type": "function_call_output", "output": "ok"}}},
+		{"input": []any{
+			map[string]any{"type": "function_call", "call_id": "call_1"},
+			map[string]any{"type": "function_call_output", "call_id": "call_1", "output": "ok"},
+		}},
+		{"input": []any{
+			map[string]any{"type": "item_reference", "id": "call_1"},
+			map[string]any{"type": "function_call_output", "call_id": "call_1", "output": "ok"},
+		}},
+	}
+
+	for _, body := range cases {
+		bodyBytes, err := json.Marshal(body)
+		require.NoError(t, err)
+		require.Equal(t, ValidateFunctionCallOutputContext(body), ValidateFunctionCallOutputContextBytes(bodyBytes))
+	}
 }
