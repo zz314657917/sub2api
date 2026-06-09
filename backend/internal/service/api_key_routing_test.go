@@ -341,6 +341,76 @@ func TestAPIKeyResolveForModelRequestFallsBackWhenNoModelRuleMatches(t *testing.
 	require.Equal(t, fallbackGroupID, *resolved.GroupID)
 }
 
+func TestAPIKeyResolveForModelRequestKeepsGPTFallbackOnOpenAIPlatform(t *testing.T) {
+	anthropicGroupID := int64(1)
+	openAIGroupID := int64(2)
+	key := &APIKey{
+		GroupID: &anthropicGroupID,
+		Group: &Group{
+			ID:           anthropicGroupID,
+			Platform:     PlatformAnthropic,
+			Status:       StatusActive,
+			Hydrated:     true,
+			RoutingScope: GroupRoutingScopeInference,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: anthropicGroupID, Priority: 1, Weight: 1, Enabled: true},
+			{GroupID: openAIGroupID, Priority: 50, Weight: 1, Enabled: true},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{
+				ID:           openAIGroupID,
+				Platform:     PlatformOpenAI,
+				Status:       StatusActive,
+				Hydrated:     true,
+				RoutingScope: GroupRoutingScopeInference,
+			},
+		},
+	}
+
+	resolved := key.ResolveForModelRequest("/v1/responses", "", "gpt-5.5", false)
+
+	require.NotNil(t, resolved)
+	require.NotNil(t, resolved.GroupID)
+	require.Equal(t, openAIGroupID, *resolved.GroupID)
+	require.Equal(t, PlatformOpenAI, resolved.Group.Platform)
+}
+
+func TestAPIKeyResolveForModelRequestAllowsGeminiModelsOnOpenAIGroup(t *testing.T) {
+	textGroupID := int64(1)
+	openAIGeminiGroupID := int64(2)
+	key := &APIKey{
+		GroupID: &textGroupID,
+		Group: &Group{
+			ID:           textGroupID,
+			Platform:     PlatformOpenAI,
+			Status:       StatusActive,
+			Hydrated:     true,
+			RoutingScope: GroupRoutingScopeInference,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: textGroupID, Priority: 50, Weight: 1, Enabled: true},
+			{GroupID: openAIGeminiGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"gemini-*"}},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{
+				ID:           openAIGeminiGroupID,
+				Platform:     PlatformOpenAI,
+				Status:       StatusActive,
+				Hydrated:     true,
+				RoutingScope: GroupRoutingScopeInference,
+			},
+		},
+	}
+
+	resolved := key.ResolveForModelRequest("/v1/responses", "", "gemini-3.1-pro", false)
+
+	require.NotNil(t, resolved)
+	require.NotNil(t, resolved.GroupID)
+	require.Equal(t, openAIGeminiGroupID, *resolved.GroupID)
+	require.Equal(t, PlatformOpenAI, resolved.Group.Platform)
+}
+
 func TestAPIKeyMultiGroupRouteOldJSONDefaultsRemainCompatible(t *testing.T) {
 	var route domain.APIKeyMultiGroupRoute
 	err := json.Unmarshal([]byte(`{"group_id":7,"priority":1,"weight":2,"cooldown_seconds":30,"enabled":true}`), &route)

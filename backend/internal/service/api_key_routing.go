@@ -63,6 +63,11 @@ func (k *APIKey) selectRouteGroup(path, forcePlatform, requestedModel string, im
 		return nil
 	}
 	platforms := preferredPlatformsForPath(path, forcePlatform)
+	if modelAware && strings.TrimSpace(forcePlatform) == "" {
+		if modelPlatforms := preferredPlatformsForModel(requestedModel); len(modelPlatforms) > 0 {
+			platforms = modelPlatforms
+		}
+	}
 	routingScope := RoutingScopeForRequest(path, requestedModel, imageIntent)
 	if modelAware && (strings.TrimSpace(requestedModel) != "" || imageIntent) {
 		if imageIntent {
@@ -359,6 +364,28 @@ func preferredPlatformsForPath(path, forcePlatform string) []string {
 		return []string{PlatformOpenAI}
 	case strings.HasPrefix(path, "/v1/responses") || strings.HasPrefix(path, "/responses") || strings.HasPrefix(path, "/backend-api/codex/responses"):
 		return []string{PlatformOpenAI, PlatformAnthropic}
+	default:
+		return nil
+	}
+}
+
+func preferredPlatformsForModel(model string) []string {
+	model = strings.ToLower(strings.TrimSpace(model))
+	switch {
+	case model == "":
+		return nil
+	case strings.HasPrefix(model, "claude-") ||
+		strings.HasPrefix(model, "anthropic.claude-") ||
+		strings.Contains(model, ".anthropic.claude-"):
+		return []string{PlatformAnthropic, PlatformAntigravity}
+	case strings.HasPrefix(model, "gemini-"):
+		return nil
+	case strings.HasPrefix(model, "gpt-") ||
+		strings.HasPrefix(model, "o1") ||
+		strings.HasPrefix(model, "o3") ||
+		strings.HasPrefix(model, "o4") ||
+		strings.HasPrefix(model, "text-embedding-"):
+		return []string{PlatformOpenAI}
 	default:
 		return nil
 	}
