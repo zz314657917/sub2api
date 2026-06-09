@@ -1,13 +1,15 @@
 # 聊天生图工作台
 
-最后更新：2026-05-15
+最后更新：2026-06-09
 
 ## 入口与定位
 
-- 用户入口：`/chat-images`。
-- 前端主文件：`frontend/src/views/user/ChatImageStudioView.vue`。
+- 默认用户入口：`/chat-images`，现在用于启动外部落叶AI创作站。
+- 跳转页主文件：`frontend/src/views/user/LuoyeAILaunchView.vue`。
+- 原生工作台入口：`/chat-images/native`，作为 Sub2API 内部备用工作台保留。
+- 原生工作台主文件：`frontend/src/views/user/ChatImageStudioView.vue`。
 - 后端生图接口：`/user/image-creator/tasks`、`/user/image-creator/tasks/:id`、`/user/image-creator/images/:id/file`。
-- 旧 `/open-webui/launch` 目前只作为 alias / 备用实验入口保留，主线是 Sub2API 原生工作台。
+- 默认链路：用户进入 `/chat-images` 后，前端调用 `/api/v1/user/studio-bridge/launch` 生成一次性 `launch_token`，再跳转到落叶AI站点配置的回跳地址。
 
 ## 会话与图片任务的关系
 

@@ -76,9 +76,9 @@ export default {
     },
     onboarding: {
       title: '先创建一个 API 密钥',
-      description: 'API 密钥是接入 Codex、Claude Code、OpenWebUI 等工具的凭证。创建后可以复制密钥和 Base URL，按教程写入对应工具配置。',
+      description: 'API 密钥是接入 Codex、Claude Code 等兼容工具的凭证。创建后可以复制密钥和 Base URL，按教程写入对应工具配置。',
       readyTitle: '默认 API 密钥已准备好',
-      descriptionWithKey: '系统已为您创建默认 API 密钥。打开密钥页复制 API Key 和 Base URL，按教程写入 Codex、Claude Code、OpenWebUI 等工具即可开始调用。',
+      descriptionWithKey: '系统已为您创建默认 API 密钥。打开密钥页复制 API Key 和 Base URL，按教程写入 Codex、Claude Code 等兼容工具即可开始调用。',
       badge: '新用户接入引导',
       trialBadge: '新人福利',
       trialTitle: '首次调用后领免费额度',

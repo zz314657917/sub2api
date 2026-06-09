@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"math"
 	"net/url"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -250,6 +251,10 @@ const (
 	defaultLoginAgreementDate    = "2026-03-31"
 )
 
+const (
+	SettingKeyStudioBridgeLuoyeAI = "studio_bridge_luoye_ai"
+)
+
 func normalizeLoginAgreementMode(raw string) string {
 	switch strings.ToLower(strings.TrimSpace(raw)) {
 	case "checkbox":
@@ -257,6 +262,79 @@ func normalizeLoginAgreementMode(raw string) string {
 	default:
 		return defaultLoginAgreementMode
 	}
+}
+
+func parseStudioBridgeAppSettings(raw string) *StudioBridgeAppSettings {
+	cfg := defaultStudioBridgeAppSettings()
+	if strings.TrimSpace(raw) == "" {
+		return cfg
+	}
+	if err := json.Unmarshal([]byte(raw), cfg); err != nil {
+		return defaultStudioBridgeAppSettings()
+	}
+	return normalizeStudioBridgeAppSettingsForSave(*cfg)
+}
+
+func normalizeStudioBridgeAppSettingsForSave(cfg StudioBridgeAppSettings) *StudioBridgeAppSettings {
+	if strings.TrimSpace(cfg.SiteName) == "" {
+		cfg.SiteName = "落叶AI"
+	}
+	cfg.SiteName = strings.TrimSpace(cfg.SiteName)
+	cfg.LaunchReturnURL = strings.TrimSpace(cfg.LaunchReturnURL)
+	if cfg.LaunchReturnURL == "" {
+		cfg.LaunchReturnURL = defaultStudioBridgeLaunchReturnURL
+	}
+	cfg.RechargeReturnURL = strings.TrimSpace(cfg.RechargeReturnURL)
+	if cfg.RechargeReturnURL == "" {
+		cfg.RechargeReturnURL = defaultStudioBridgeRechargeURL
+	}
+	cfg.DefaultChatGroup = strings.TrimSpace(cfg.DefaultChatGroup)
+	cfg.DefaultImageGroup = strings.TrimSpace(cfg.DefaultImageGroup)
+	cfg.DefaultVideoGroup = strings.TrimSpace(cfg.DefaultVideoGroup)
+	cfg.InternalSecret = strings.TrimSpace(cfg.InternalSecret)
+	cfg.AllowedReturnDomains = normalizeStudioBridgeStringSlice(cfg.AllowedReturnDomains)
+	return &cfg
+}
+
+func normalizeStudioBridgeStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	normalized := make([]string, 0, len(values))
+	for _, v := range values {
+		trimmed := strings.TrimSpace(v)
+		if trimmed == "" {
+			continue
+		}
+		normalized = append(normalized, trimmed)
+	}
+	return normalized
+}
+
+func marshalStudioBridgeAppSettings(cfg StudioBridgeAppSettings) (string, error) {
+	normalized := normalizeStudioBridgeAppSettingsForSave(cfg)
+	raw, err := json.Marshal(normalized)
+	if err != nil {
+		return "", fmt.Errorf("marshal studio bridge settings: %w", err)
+	}
+	return string(raw), nil
+}
+
+func marshalStudioBridgeAppSettingsOrDefault(cfg *StudioBridgeAppSettings) string {
+	if cfg == nil {
+		cfg = defaultStudioBridgeAppSettings()
+	}
+	raw, err := marshalStudioBridgeAppSettings(*cfg)
+	if err != nil {
+		return "{}"
+	}
+	return raw
+}
+
+func defaultStudioBridgeSettingsFromEnv() *StudioBridgeAppSettings {
+	cfg := defaultStudioBridgeAppSettings()
+	cfg.InternalSecret = strings.TrimSpace(os.Getenv("STUDIO_BRIDGE_LUOYE_AI_INTERNAL_SECRET"))
+	return normalizeStudioBridgeAppSettingsForSave(*cfg)
 }
 
 func defaultLoginAgreementDocuments() []LoginAgreementDocument {
@@ -595,6 +673,17 @@ func (s *SettingService) GetAllSettings(ctx context.Context) (*SystemSettings, e
 	}
 
 	return s.parseSettings(settings), nil
+}
+
+func (s *SettingService) GetStudioBridgeLuoyeAISettings(ctx context.Context) (*StudioBridgeAppSettings, error) {
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyStudioBridgeLuoyeAI)
+	if err != nil {
+		if errors.Is(err, ErrSettingNotFound) {
+			return defaultStudioBridgeAppSettings(), nil
+		}
+		return nil, fmt.Errorf("get studio bridge settings: %w", err)
+	}
+	return parseStudioBridgeAppSettings(raw), nil
 }
 
 // GetFrontendURL 获取前端基础URL（数据库优先，fallback 到配置文件）
@@ -1515,6 +1604,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	if settings.GoogleOAuthFrontendRedirectURL == "" {
 		settings.GoogleOAuthFrontendRedirectURL = defaultGoogleOAuthFrontend
 	}
+	settings.StudioBridgeLuoyeAI = *normalizeStudioBridgeAppSettingsForSave(settings.StudioBridgeLuoyeAI)
 
 	updates := make(map[string]string)
 
@@ -1644,6 +1734,11 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	if settings.WeChatConnectMobileAppSecret != "" {
 		updates[SettingKeyWeChatConnectMobileAppSecret] = settings.WeChatConnectMobileAppSecret
 	}
+	studioBridgeJSON, err := marshalStudioBridgeAppSettings(settings.StudioBridgeLuoyeAI)
+	if err != nil {
+		return nil, err
+	}
+	updates[SettingKeyStudioBridgeLuoyeAI] = studioBridgeJSON
 
 	// OEM设置
 	updates[SettingKeySiteName] = settings.SiteName
@@ -2921,6 +3016,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingPaymentVisibleMethodAlipayEnabled:     "false",
 		SettingPaymentVisibleMethodWxpayEnabled:      "false",
 		openAIAdvancedSchedulerSettingKey:            "false",
+		SettingKeyStudioBridgeLuoyeAI:                marshalStudioBridgeAppSettingsOrDefault(defaultStudioBridgeSettingsFromEnv()),
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -2983,6 +3079,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		CustomMenuItems:                  settings[SettingKeyCustomMenuItems],
 		CustomEndpoints:                  settings[SettingKeyCustomEndpoints],
 		BackendModeEnabled:               settings[SettingKeyBackendModeEnabled] == "true",
+		StudioBridgeLuoyeAI:              *parseStudioBridgeAppSettings(settings[SettingKeyStudioBridgeLuoyeAI]),
 	}
 	result.TableDefaultPageSize, result.TablePageSizeOptions = parseTablePreferences(
 		settings[SettingKeyTableDefaultPageSize],

@@ -5803,6 +5803,10 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			cost = &CostBreakdown{BillingMode: string(BillingModeToken)}
 		}
 	}
+	prepaidBalanceCost := input.PrepaidBalanceCost
+	if IsStudioBridgeGatewayContext(ctx) && cost != nil && cost.ActualCost > 0 {
+		prepaidBalanceCost = cost.ActualCost
+	}
 
 	// Determine billing type
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
@@ -5948,7 +5952,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			AccountShareOwnerRatePercent: accountShareSettings.OwnerRatePercent,
 			AccountShareFreezeHours:      accountShareSettings.FreezeHours,
 			NewUserTrial:                 trialSession,
-			PrepaidBalanceCost:           input.PrepaidBalanceCost,
+			PrepaidBalanceCost:           prepaidBalanceCost,
 		}, s.billingDeps(), s.usageBillingRepo, s.welfareService)
 		return err
 	}()

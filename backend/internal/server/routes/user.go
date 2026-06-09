@@ -15,11 +15,13 @@ func RegisterUserRoutes(
 	jwtAuth middleware.JWTAuthMiddleware,
 	settingService *service.SettingService,
 ) {
-	internalOpenWebUI := v1.Group("/internal/open-webui")
+	internalStudioBridge := v1.Group("/internal/studio-bridge")
 	{
-		internalOpenWebUI.POST("/redeem", h.OpenWebUI.Redeem)
-		internalOpenWebUI.POST("/api-keys", h.OpenWebUI.APIKeys)
-		internalOpenWebUI.POST("/api-key-binding", h.OpenWebUI.BindAPIKey)
+		internalStudioBridge.POST("/redeem", h.StudioBridge.Redeem)
+		internalStudioBridge.POST("/user-summary", h.StudioBridge.UserSummary)
+		internalStudioBridge.POST("/charges/reserve", h.StudioBridge.Reserve)
+		internalStudioBridge.POST("/charges/commit", h.StudioBridge.Commit)
+		internalStudioBridge.POST("/charges/refund", h.StudioBridge.Refund)
 	}
 
 	authenticated := v1.Group("")
@@ -41,9 +43,9 @@ func RegisterUserRoutes(
 			user.POST("/auth-identities/bind/start", h.User.StartIdentityBinding)
 			user.GET("/api-keys/:id/usage/daily", h.Usage.GetMyAPIKeyDailyUsage)
 
-			openWebUI := user.Group("/open-webui")
+			studioBridge := user.Group("/studio-bridge")
 			{
-				openWebUI.POST("/launch", h.OpenWebUI.Launch)
+				studioBridge.POST("/launch", h.StudioBridge.Launch)
 			}
 
 			imageCreator := user.Group("/image-creator")

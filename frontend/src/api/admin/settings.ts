@@ -59,6 +59,19 @@ export interface WeChatConnectModeOption {
   labelEn: string;
 }
 
+export interface StudioBridgeAppSettings {
+  enabled: boolean;
+  site_name: string;
+  allowed_return_domains: string[];
+  launch_return_url: string;
+  recharge_return_url: string;
+  default_chat_group: string;
+  default_image_group: string;
+  default_video_group: string;
+  internal_secret?: string;
+  secret_configured?: boolean;
+}
+
 const AUTH_SOURCE_TYPES: AuthSourceType[] = [
   "email",
   "linuxdo",
@@ -578,6 +591,7 @@ export interface SystemSettings {
 
   // OpenAI fast/flex policy
   openai_fast_policy_settings?: OpenAIFastPolicySettings;
+  studio_bridge_luoye_ai: StudioBridgeAppSettings;
 }
 
 export interface UpdateSettingsRequest {
@@ -814,6 +828,7 @@ export interface UpdateSettingsRequest {
 
   // OpenAI fast/flex policy
   openai_fast_policy_settings?: OpenAIFastPolicySettings;
+  studio_bridge_luoye_ai?: StudioBridgeAppSettings;
 }
 
 /**

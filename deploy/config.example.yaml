@@ -854,27 +854,13 @@ totp:
   encryption_key: ""
 
 # =============================================================================
-# LinuxDo Connect OAuth Login (SSO)
-# LinuxDo Connect OAuth 登录（用于 Sub2API 用户登录）
+# External Studio Bridge
+# 外部创作站桥接
 # =============================================================================
-open_webui:
-  # Enable the legacy Sub2API -> Open WebUI launch flow.
-  # Disabled by default because Sub2API now uses the native /chat-images workspace.
-  enabled: false
-  # Open WebUI public chat domain.
-  # Production example: "https://chat.example.com"
-  chat_url: "http://127.0.0.1:8080"
-  # Open WebUI backend callback path that receives launch_token.
-  launch_path: "/api/v1/auths/sub2api/launch"
-  # Shared secret used only between Sub2API and Open WebUI backends.
-  # Generate with: openssl rand -hex 32
-  redeem_secret: ""
-  # Short-lived one-time launch token TTL.
-  token_ttl_seconds: 120
-  # Public Sub2API gateway base URL exposed to Open WebUI after redeem.
-  # Production example: "https://sub2api.example.com/v1"
-  # Leave empty to use server.frontend_url + "/v1" when configured.
-  gateway_base_url: ""
+# Configure Luoye AI launch URL, allowed return domains, recharge return URL,
+# and default chat/image/video groups in the admin system settings.
+# Set STUDIO_BRIDGE_LUOYE_AI_INTERNAL_SECRET in deploy/.env for
+# backend-to-backend studio bridge calls.
 
 image_creator:
   # local keeps generated images on disk. Use cos/s3 to store new generated images in object storage.

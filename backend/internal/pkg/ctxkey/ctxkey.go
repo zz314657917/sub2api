@@ -43,6 +43,9 @@ const (
 	// APIKeyUserID 当前 API Key 所属用户 ID，用于服务层识别“我的账号池”。
 	APIKeyUserID Key = "ctx_api_key_user_id"
 
+	// StudioBridgeGateway marks gateway requests authenticated by the internal studio bridge.
+	StudioBridgeGateway Key = "ctx_studio_bridge_gateway"
+
 	// IsMaxTokensOneHaikuRequest 标识当前请求是否为 max_tokens=1 + haiku 模型的探测请求
 	// 用于 ClaudeCodeOnly 验证绕过（绕过 system prompt 检查，但仍需验证 User-Agent）
 	IsMaxTokensOneHaikuRequest Key = "ctx_is_max_tokens_one_haiku"

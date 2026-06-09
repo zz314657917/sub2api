@@ -240,6 +240,8 @@ type SystemSettings struct {
 	// Account quota notification
 	AccountQuotaNotifyEnabled bool
 	AccountQuotaNotifyEmails  []NotifyEmailEntry
+
+	StudioBridgeLuoyeAI StudioBridgeAppSettings `json:"studio_bridge_luoye_ai"`
 }
 
 type DefaultSubscriptionSetting struct {

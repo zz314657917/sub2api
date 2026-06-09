@@ -5972,6 +5972,288 @@
         </div><!-- /Tab: Features -->
 
         <!-- Tab: Email -->
+        <!-- Tab: External Apps -->
+        <div v-show="activeTab === 'externalApps'" class="space-y-6">
+          <div class="card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <div class="flex items-center justify-between gap-4">
+                <div>
+                  <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                    外部创作站桥接
+                  </h2>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    配置 luoye-ai 创作站入口、充值入口、内部通信密钥和默认分组。
+                  </p>
+                </div>
+                <Toggle v-model="form.studio_bridge_luoye_ai.enabled" />
+              </div>
+            </div>
+            <div class="grid gap-4 p-6 md:grid-cols-2">
+              <div>
+                <label class="input-label">站点名</label>
+                <input
+                  v-model="form.studio_bridge_luoye_ai.site_name"
+                  type="text"
+                  class="input"
+                  placeholder="落叶AI"
+                />
+              </div>
+              <div>
+                <label class="input-label">创作站入口 URL</label>
+                <input
+                  v-model="form.studio_bridge_luoye_ai.launch_return_url"
+                  type="url"
+                  class="input"
+                  placeholder="http://127.0.0.1:8081/auth/sub2api/launch"
+                />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  聊天生图菜单会跳转到这里，并自动附加 launch_token。
+                </p>
+              </div>
+              <div>
+                <label class="input-label">充值入口 URL</label>
+                <input
+                  v-model="form.studio_bridge_luoye_ai.recharge_return_url"
+                  type="url"
+                  class="input"
+                  placeholder="http://127.0.0.1:62080/purchase"
+                />
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  落叶AI余额和头像菜单里的充值，会新开页面跳转到这里。
+                </p>
+              </div>
+              <div>
+                <label class="input-label">默认聊天分组</label>
+                <Select
+                  v-model="form.studio_bridge_luoye_ai.default_chat_group"
+                  :options="studioBridgeGroupOptions('default_chat_group')"
+                  placeholder="选择聊天默认分组"
+                  searchable
+                >
+                  <template #selected="{ option }">
+                    <span
+                      v-if="!option || (option as StudioBridgeGroupOption).kind"
+                      :class="[
+                        'truncate text-sm',
+                        (option as StudioBridgeGroupOption | null)?.kind === 'legacy'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-gray-400',
+                      ]"
+                    >
+                      {{
+                        (option as StudioBridgeGroupOption | null)?.label ||
+                        "选择聊天默认分组"
+                      }}
+                    </span>
+                    <GroupBadge
+                      v-else
+                      :name="(option as StudioBridgeGroupOption).label"
+                      :platform="(option as StudioBridgeGroupOption).platform"
+                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
+                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
+                    />
+                  </template>
+                  <template #option="{ option, selected }">
+                    <div
+                      v-if="(option as StudioBridgeGroupOption).kind"
+                      class="flex min-w-0 flex-1 items-start justify-between gap-3"
+                    >
+                      <div class="min-w-0 text-left">
+                        <div
+                          :class="[
+                            'truncate text-sm font-medium',
+                            (option as StudioBridgeGroupOption).kind === 'legacy'
+                              ? 'text-amber-700 dark:text-amber-300'
+                              : 'text-gray-700 dark:text-gray-300',
+                          ]"
+                        >
+                          {{ (option as StudioBridgeGroupOption).label }}
+                        </div>
+                        <div class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+                          {{ (option as StudioBridgeGroupOption).description }}
+                        </div>
+                      </div>
+                      <Icon v-if="selected" name="check" size="sm" class="shrink-0 text-primary-500" />
+                    </div>
+                    <GroupOptionItem
+                      v-else
+                      :name="(option as StudioBridgeGroupOption).label"
+                      :platform="(option as StudioBridgeGroupOption).platform || 'openai'"
+                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
+                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
+                      :description="(option as StudioBridgeGroupOption).description"
+                      :selected="selected"
+                    />
+                  </template>
+                </Select>
+              </div>
+              <div>
+                <label class="input-label">默认生图分组</label>
+                <Select
+                  v-model="form.studio_bridge_luoye_ai.default_image_group"
+                  :options="studioBridgeGroupOptions('default_image_group')"
+                  placeholder="选择生图默认分组"
+                  searchable
+                >
+                  <template #selected="{ option }">
+                    <span
+                      v-if="!option || (option as StudioBridgeGroupOption).kind"
+                      :class="[
+                        'truncate text-sm',
+                        (option as StudioBridgeGroupOption | null)?.kind === 'legacy'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-gray-400',
+                      ]"
+                    >
+                      {{
+                        (option as StudioBridgeGroupOption | null)?.label ||
+                        "选择生图默认分组"
+                      }}
+                    </span>
+                    <GroupBadge
+                      v-else
+                      :name="(option as StudioBridgeGroupOption).label"
+                      :platform="(option as StudioBridgeGroupOption).platform"
+                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
+                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
+                    />
+                  </template>
+                  <template #option="{ option, selected }">
+                    <div
+                      v-if="(option as StudioBridgeGroupOption).kind"
+                      class="flex min-w-0 flex-1 items-start justify-between gap-3"
+                    >
+                      <div class="min-w-0 text-left">
+                        <div
+                          :class="[
+                            'truncate text-sm font-medium',
+                            (option as StudioBridgeGroupOption).kind === 'legacy'
+                              ? 'text-amber-700 dark:text-amber-300'
+                              : 'text-gray-700 dark:text-gray-300',
+                          ]"
+                        >
+                          {{ (option as StudioBridgeGroupOption).label }}
+                        </div>
+                        <div class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+                          {{ (option as StudioBridgeGroupOption).description }}
+                        </div>
+                      </div>
+                      <Icon v-if="selected" name="check" size="sm" class="shrink-0 text-primary-500" />
+                    </div>
+                    <GroupOptionItem
+                      v-else
+                      :name="(option as StudioBridgeGroupOption).label"
+                      :platform="(option as StudioBridgeGroupOption).platform || 'openai'"
+                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
+                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
+                      :description="(option as StudioBridgeGroupOption).description"
+                      :selected="selected"
+                    />
+                  </template>
+                </Select>
+              </div>
+              <div>
+                <label class="input-label">默认视频分组</label>
+                <Select
+                  v-model="form.studio_bridge_luoye_ai.default_video_group"
+                  :options="studioBridgeGroupOptions('default_video_group')"
+                  placeholder="选择视频默认分组"
+                  searchable
+                >
+                  <template #selected="{ option }">
+                    <span
+                      v-if="!option || (option as StudioBridgeGroupOption).kind"
+                      :class="[
+                        'truncate text-sm',
+                        (option as StudioBridgeGroupOption | null)?.kind === 'legacy'
+                          ? 'text-amber-600 dark:text-amber-400'
+                          : 'text-gray-400',
+                      ]"
+                    >
+                      {{
+                        (option as StudioBridgeGroupOption | null)?.label ||
+                        "选择视频默认分组"
+                      }}
+                    </span>
+                    <GroupBadge
+                      v-else
+                      :name="(option as StudioBridgeGroupOption).label"
+                      :platform="(option as StudioBridgeGroupOption).platform"
+                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
+                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
+                    />
+                  </template>
+                  <template #option="{ option, selected }">
+                    <div
+                      v-if="(option as StudioBridgeGroupOption).kind"
+                      class="flex min-w-0 flex-1 items-start justify-between gap-3"
+                    >
+                      <div class="min-w-0 text-left">
+                        <div
+                          :class="[
+                            'truncate text-sm font-medium',
+                            (option as StudioBridgeGroupOption).kind === 'legacy'
+                              ? 'text-amber-700 dark:text-amber-300'
+                              : 'text-gray-700 dark:text-gray-300',
+                          ]"
+                        >
+                          {{ (option as StudioBridgeGroupOption).label }}
+                        </div>
+                        <div class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+                          {{ (option as StudioBridgeGroupOption).description }}
+                        </div>
+                      </div>
+                      <Icon v-if="selected" name="check" size="sm" class="shrink-0 text-primary-500" />
+                    </div>
+                    <GroupOptionItem
+                      v-else
+                      :name="(option as StudioBridgeGroupOption).label"
+                      :platform="(option as StudioBridgeGroupOption).platform || 'openai'"
+                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
+                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
+                      :description="(option as StudioBridgeGroupOption).description"
+                      :selected="selected"
+                    />
+                  </template>
+                </Select>
+              </div>
+              <div>
+                <label class="input-label">内部通信密钥</label>
+                <input
+                  v-model="form.studio_bridge_luoye_ai.internal_secret"
+                  type="password"
+                  class="input"
+                  :placeholder="
+                    form.studio_bridge_luoye_ai.secret_configured
+                      ? '已配置，留空保持不变'
+                      : '请输入高强度随机密钥'
+                  "
+                  autocomplete="new-password"
+                />
+              </div>
+              <div class="md:col-span-2">
+                <label class="input-label">允许回跳域名</label>
+                <textarea
+                  :value="form.studio_bridge_luoye_ai.allowed_return_domains.join('\n')"
+                  @input="
+                    form.studio_bridge_luoye_ai.allowed_return_domains =
+                      ($event.target as HTMLTextAreaElement).value
+                        .split(/\r?\n|,/)
+                        .map((item) => item.trim())
+                        .filter(Boolean)
+                  "
+                  rows="3"
+                  class="input"
+                  placeholder="luoye.example.com&#10;studio.example.com"
+                ></textarea>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  每行一个域名；支持子域名匹配，不要填写协议、端口或路径。例如本地填 127.0.0.1。
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Tab: Payment -->
         <div v-show="activeTab === 'payment'" class="space-y-6">
           <!-- Payment System Settings -->
@@ -7027,6 +7309,7 @@ import type {
   UpdateSettingsRequest,
   DefaultSubscriptionSetting,
   OpenAIFastPolicyRule,
+  StudioBridgeAppSettings,
   WeChatConnectMode,
   WebSearchEmulationConfig,
   WebSearchProviderConfig,
@@ -7093,6 +7376,7 @@ type SettingsTab =
   | "security"
   | "users"
   | "gateway"
+  | "externalApps"
   | "payment"
   | "email"
   | "backup";
@@ -7104,6 +7388,7 @@ const settingsTabs = [
   { key: "security" as SettingsTab, icon: "shield" as const },
   { key: "users" as SettingsTab, icon: "user" as const },
   { key: "gateway" as SettingsTab, icon: "server" as const },
+  { key: "externalApps" as SettingsTab, icon: "link" as const },
   { key: "payment" as SettingsTab, icon: "creditCard" as const },
   { key: "email" as SettingsTab, icon: "mail" as const },
   { key: "backup" as SettingsTab, icon: "database" as const },
@@ -7324,6 +7609,7 @@ const adminApiKeyMasked = ref("");
 const adminApiKeyOperating = ref(false);
 const newAdminApiKey = ref("");
 const subscriptionGroups = ref<AdminGroup[]>([]);
+const studioBridgeGroups = ref<AdminGroup[]>([]);
 const membershipLoading = ref(true);
 const membershipSaving = ref(false);
 const membershipSettings = reactive<MembershipSettings>({
@@ -7481,6 +7767,43 @@ interface DefaultSubscriptionGroupOption {
   [key: string]: unknown;
 }
 
+interface StudioBridgeGroupOption {
+  value: string;
+  label: string;
+  description: string | null;
+  platform?: AdminGroup["platform"];
+  subscriptionType?: AdminGroup["subscription_type"];
+  rate?: number;
+  kind?: "empty" | "legacy";
+  [key: string]: unknown;
+}
+
+type StudioBridgeGroupField =
+  | "default_chat_group"
+  | "default_image_group"
+  | "default_video_group";
+
+function normalizeStudioBridgeFormSettings(
+  value?: Partial<StudioBridgeAppSettings> | null,
+): StudioBridgeAppSettings {
+  return {
+    enabled: value?.enabled === true,
+    site_name: value?.site_name || "落叶AI",
+    allowed_return_domains: Array.isArray(value?.allowed_return_domains)
+      ? value.allowed_return_domains.map((item) => String(item).trim()).filter(Boolean)
+      : [],
+    launch_return_url:
+      value?.launch_return_url || "http://127.0.0.1:8081/auth/sub2api/launch",
+    recharge_return_url:
+      value?.recharge_return_url || "http://127.0.0.1:62080/purchase",
+    default_chat_group: value?.default_chat_group || "",
+    default_image_group: value?.default_image_group || "",
+    default_video_group: value?.default_video_group || "",
+    internal_secret: "",
+    secret_configured: value?.secret_configured === true,
+  };
+}
+
 type SettingsForm = Omit<
   SystemSettings,
   | "wechat_connect_open_enabled"
@@ -7502,6 +7825,7 @@ type SettingsForm = Omit<
   google_oauth_client_secret: string;
   force_email_on_third_party_signup: boolean;
   openai_advanced_scheduler_enabled: boolean;
+  studio_bridge_luoye_ai: StudioBridgeAppSettings;
 };
 
 const form = reactive<SettingsForm>({
@@ -7688,6 +8012,7 @@ const form = reactive<SettingsForm>({
   // 分组隔离
   allow_ungrouped_key_scheduling: false,
   openai_advanced_scheduler_enabled: false,
+  studio_bridge_luoye_ai: normalizeStudioBridgeFormSettings(),
   // Gateway forwarding behavior
   enable_fingerprint_unification: true,
   enable_metadata_passthrough: false,
@@ -7965,6 +8290,44 @@ const defaultSubscriptionGroupOptions = computed<
     rate: group.rate_multiplier,
   })),
 );
+
+const studioBridgeBaseGroupOptions = computed<StudioBridgeGroupOption[]>(() =>
+  studioBridgeGroups.value.map((group) => ({
+    value: String(group.id),
+    label: group.name,
+    description: group.description,
+    platform: group.platform,
+    subscriptionType: group.subscription_type,
+    rate: group.rate_multiplier,
+  })),
+);
+
+function studioBridgeGroupOptions(
+  field: StudioBridgeGroupField,
+): StudioBridgeGroupOption[] {
+  const currentValue = String(form.studio_bridge_luoye_ai[field] || "").trim();
+  const options: StudioBridgeGroupOption[] = [
+    {
+      value: "",
+      label: "不指定，使用系统默认调度",
+      description: "落叶AI请求不会额外传 group_id，由 Sub2API 按默认规则调度。",
+      kind: "empty",
+    },
+    ...studioBridgeBaseGroupOptions.value,
+  ];
+  if (
+    currentValue &&
+    !options.some((option) => option.value === currentValue)
+  ) {
+    options.splice(1, 0, {
+      value: currentValue,
+      label: `当前配置值：${currentValue}`,
+      description: "这个值不在现有启用分组中；重新选择一个分组即可替换。",
+      kind: "legacy",
+    });
+  }
+  return options;
+}
 
 const membershipSubscriptionGroupOptions = computed(() => [
   { value: 0, label: localText("请选择订阅分组", "Select a subscription group") },
@@ -8508,6 +8871,9 @@ async function loadSettings() {
     form.smtp_password = "";
     smtpPasswordManuallyEdited.value = false;
     form.turnstile_secret_key = "";
+    form.studio_bridge_luoye_ai = normalizeStudioBridgeFormSettings(
+      settings.studio_bridge_luoye_ai,
+    );
     form.linuxdo_connect_client_secret = "";
     form.github_oauth_client_secret = "";
     form.google_oauth_client_secret = "";
@@ -8606,6 +8972,14 @@ async function loadSubscriptionGroups() {
     );
   } catch (_error: unknown) {
     subscriptionGroups.value = [];
+  }
+}
+
+async function loadStudioBridgeGroups() {
+  try {
+    studioBridgeGroups.value = await adminAPI.groups.getAll();
+  } catch (_error: unknown) {
+    studioBridgeGroups.value = [];
   }
 }
 
@@ -9036,6 +9410,28 @@ async function saveSettings() {
       payment_cancel_rate_limit_unit: form.payment_cancel_rate_limit_unit,
       payment_cancel_rate_limit_window_mode:
         form.payment_cancel_rate_limit_window_mode,
+      studio_bridge_luoye_ai: {
+        enabled: form.studio_bridge_luoye_ai.enabled,
+        site_name: form.studio_bridge_luoye_ai.site_name.trim() || "落叶AI",
+        allowed_return_domains:
+          (Array.isArray(form.studio_bridge_luoye_ai.allowed_return_domains)
+            ? form.studio_bridge_luoye_ai.allowed_return_domains
+            : [])
+            .map((item) => item.trim())
+            .filter(Boolean),
+        launch_return_url:
+          form.studio_bridge_luoye_ai.launch_return_url.trim(),
+        recharge_return_url:
+          form.studio_bridge_luoye_ai.recharge_return_url.trim(),
+        default_chat_group:
+          form.studio_bridge_luoye_ai.default_chat_group.trim(),
+        default_image_group:
+          form.studio_bridge_luoye_ai.default_image_group.trim(),
+        default_video_group:
+          form.studio_bridge_luoye_ai.default_video_group.trim(),
+        internal_secret:
+          form.studio_bridge_luoye_ai.internal_secret?.trim() || undefined,
+      },
       openai_advanced_scheduler_enabled: form.openai_advanced_scheduler_enabled,
       // Balance & quota notification
       balance_low_notify_enabled: form.balance_low_notify_enabled,
@@ -9147,10 +9543,14 @@ async function saveSettings() {
     );
     for (const [key, value] of Object.entries(updated)) {
       if (key === "openai_fast_policy_settings") continue;
+      if (key === "studio_bridge_luoye_ai") continue;
       if (value !== null && value !== undefined) {
         (form as Record<string, unknown>)[key] = value;
       }
     }
+    form.studio_bridge_luoye_ai = normalizeStudioBridgeFormSettings(
+      updated.studio_bridge_luoye_ai,
+    );
     if (backendReturnedAffiliateApiCallRewardAmount) {
       affiliateApiCallRewardAmountOverride.value = null;
     } else {
@@ -10028,6 +10428,7 @@ async function handleDeleteProvider() {
 onMounted(() => {
   loadSettings();
   loadSubscriptionGroups();
+  loadStudioBridgeGroups();
   loadMembershipSettings();
   loadAdminApiKey();
   loadOverloadCooldownSettings();

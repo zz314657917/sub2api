@@ -76,9 +76,9 @@ export default {
     },
     onboarding: {
       title: 'Create an API key first',
-      description: 'An API key lets you connect Codex, Claude Code, OpenWebUI and other compatible tools. After creating one, copy the key and Base URL into your tool config.',
+      description: 'An API key lets you connect Codex, Claude Code, and other compatible tools. After creating one, copy the key and Base URL into your tool config.',
       readyTitle: 'Your default API key is ready',
-      descriptionWithKey: 'A default API key has been created for you. Open the key page, copy the API key and Base URL, then add them to Codex, Claude Code, OpenWebUI or another compatible tool.',
+      descriptionWithKey: 'A default API key has been created for you. Open the key page, copy the API key and Base URL, then add them to Codex, Claude Code, or another compatible tool.',
       badge: 'New-user setup',
       trialBadge: 'New-user perk',
       trialTitle: 'Free credits after first call',

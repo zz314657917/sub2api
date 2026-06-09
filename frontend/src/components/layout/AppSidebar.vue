@@ -85,6 +85,7 @@
                         v-for="grandchild in child.children"
                         :key="grandchild.path"
                         :to="grandchild.path"
+                        v-bind="navLinkAttrs(grandchild)"
                         class="sidebar-link mb-0.5 py-1.5 text-sm"
                         :class="{ 'sidebar-link-active': isNavItemActive(grandchild) }"
                         :id="getAdminMenuItemId(grandchild.path)"
@@ -100,6 +101,7 @@
                   <router-link
                     v-else
                     :to="child.path"
+                    v-bind="navLinkAttrs(child)"
                     class="sidebar-link mb-0.5 py-1.5 text-sm"
                     :class="{ 'sidebar-link-active': isNavItemActive(child) }"
                     :id="getAdminMenuItemId(child.path)"
@@ -117,6 +119,7 @@
             <router-link
               v-else
               :to="item.path"
+              v-bind="navLinkAttrs(item)"
               class="sidebar-link mb-1"
               :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
@@ -178,6 +181,7 @@
                   v-for="child in item.children"
                   :key="child.path"
                   :to="child.path"
+                  v-bind="navLinkAttrs(child)"
                   class="sidebar-link mb-0.5 py-1.5 text-sm"
                   :class="{ 'sidebar-link-active': isNavItemActive(child) }"
                   :data-tour="getSelfMenuItemTour(child.path)"
@@ -197,6 +201,7 @@
             <router-link
               v-else
               :to="item.path"
+              v-bind="navLinkAttrs(item)"
               class="sidebar-link mb-1"
               :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
@@ -254,6 +259,7 @@
                   v-for="child in item.children"
                   :key="child.path"
                   :to="child.path"
+                  v-bind="navLinkAttrs(child)"
                   class="sidebar-link mb-0.5 py-1.5 text-sm"
                   :class="{ 'sidebar-link-active': isNavItemActive(child) }"
                   :data-tour="getSelfMenuItemTour(child.path)"
@@ -273,6 +279,7 @@
             <router-link
               v-else
               :to="item.path"
+              v-bind="navLinkAttrs(item)"
               class="sidebar-link mb-1"
               :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
@@ -359,6 +366,7 @@ interface NavItem {
   hideInSimpleMode?: boolean
   children?: NavItem[]
   exactActive?: boolean
+  openInNewTab?: boolean
   /**
    * When true, the parent item only toggles the expand/collapse state and
    * does NOT navigate to its `path`. The `path` is purely a stable key.
@@ -506,7 +514,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/monitor', label: t('nav.channelStatus'), icon: SignalIcon, featureFlag: flagChannelMonitor },
   ]
   const primarySelfItems: NavItem[] = [
-    { path: '/chat-images', label: t('nav.chatImageCreator'), icon: ChatIcon, hideInSimpleMode: true },
+    { path: '/chat-images', label: t('nav.chatImageCreator'), icon: ChatIcon, hideInSimpleMode: true, openInNewTab: true },
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/usage', label: t('nav.usage'), icon: UsageIcon, hideInSimpleMode: true },
     { path: '/tickets', label: t('nav.tickets'), icon: TicketIcon, hideInSimpleMode: true },
@@ -746,6 +754,14 @@ function showWelfareClaimBadge(item: NavItem): boolean {
 
 function showTicketUnreadBadge(item: NavItem): boolean {
   return item.path === '/tickets' && ticketUnreadTotal.value > 0
+}
+
+function navLinkAttrs(item: NavItem): Record<string, string> {
+  if (!item.openInNewTab) return {}
+  return {
+    target: '_blank',
+    rel: 'noopener noreferrer',
+  }
 }
 
 function canRefreshWelfareBadge(): boolean {

@@ -24,10 +24,11 @@ describe('public page smoke contracts', () => {
     expect(router).toMatch(/BACKEND_MODE_ALLOWED_PATHS[\s\S]*?'\/models'/)
   })
 
-  it('routes chat image entry to the embedded studio workspace', () => {
+  it('routes chat image entry to the Luoye AI launch workspace', () => {
     expect(router).toContain("path: '/chat-images'")
+    expect(router).toContain("alias: '/studio-bridge/launch'")
     expect(router).toContain("name: 'ChatImageStudio'")
-    expect(router).toContain("import('@/views/user/ChatImageEmbeddedView.vue')")
+    expect(router).toContain("import('@/views/user/LuoyeAILaunchView.vue')")
     expect(router).not.toContain("path: '/canvas'")
     expect(router).not.toContain("name: 'CanvasStudio'")
     expect(router).toContain("path: '/image-manager'")
@@ -36,10 +37,6 @@ describe('public page smoke contracts', () => {
     expect(router).toContain("path: '/chat-images/native'")
     expect(router).toContain("name: 'ChatImageStudioNative'")
     expect(router).toContain("import('@/views/user/ChatImageStudioView.vue')")
-    expect(router).toContain("path: '/open-webui/launch'")
-    expect(router).toContain("path: '/chat-images'")
-    expect(router).toContain('query: to.query')
-    expect(router).toContain('hash: to.hash')
   })
 
   it('uses one shared navigation and matrix surface across public pages', () => {

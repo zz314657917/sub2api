@@ -17,7 +17,7 @@ export { redeemAPI, type RedeemHistoryItem } from './redeem'
 export { paymentAPI } from './payment'
 export { userGroupsAPI } from './groups'
 export { userChannelsAPI } from './channels'
-export { openWebUIAPI, type OpenWebUILaunchResponse } from './openWebUI'
+export { studioBridgeAPI, type StudioBridgeLaunchResponse } from './studioBridge'
 export { ticketsAPI } from './tickets'
 export {
   welfareAPI,

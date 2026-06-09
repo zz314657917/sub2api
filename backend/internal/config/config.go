@@ -85,7 +85,6 @@ type Config struct {
 	DashboardAgg            DashboardAggregationConfig    `mapstructure:"dashboard_aggregation"`
 	UsageCleanup            UsageCleanupConfig            `mapstructure:"usage_cleanup"`
 	ImageCreator            ImageCreatorConfig            `mapstructure:"image_creator"`
-	OpenWebUI               OpenWebUIConfig               `mapstructure:"open_webui"`
 	Concurrency             ConcurrencyConfig             `mapstructure:"concurrency"`
 	TokenRefresh            TokenRefreshConfig            `mapstructure:"token_refresh"`
 	RunMode                 string                        `mapstructure:"run_mode" yaml:"run_mode"`
@@ -1260,15 +1259,6 @@ type ImageCreatorObjectStorageConfig struct {
 	ForcePathStyle  bool   `mapstructure:"force_path_style"`
 }
 
-type OpenWebUIConfig struct {
-	Enabled         bool   `mapstructure:"enabled"`
-	ChatURL         string `mapstructure:"chat_url"`
-	LaunchPath      string `mapstructure:"launch_path"`
-	RedeemSecret    string `mapstructure:"redeem_secret"`
-	TokenTTLSeconds int    `mapstructure:"token_ttl_seconds"`
-	GatewayBaseURL  string `mapstructure:"gateway_base_url"`
-}
-
 func NormalizeRunMode(value string) string {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	switch normalized {
@@ -1724,14 +1714,6 @@ func setDefaults() {
 	viper.SetDefault("image_creator.cleanup_batch_size", 100)
 	viper.SetDefault("image_creator.download_bytes_per_second", 262144)
 	viper.SetDefault("image_creator.local_gateway_base_url", "")
-
-	// Open WebUI launch integration
-	viper.SetDefault("open_webui.enabled", false)
-	viper.SetDefault("open_webui.chat_url", "http://127.0.0.1:8080")
-	viper.SetDefault("open_webui.launch_path", "/api/v1/auths/sub2api/launch")
-	viper.SetDefault("open_webui.redeem_secret", "")
-	viper.SetDefault("open_webui.token_ttl_seconds", 120)
-	viper.SetDefault("open_webui.gateway_base_url", "")
 
 	// Idempotency
 	viper.SetDefault("idempotency.observe_only", true)
@@ -2380,22 +2362,6 @@ func (c *Config) Validate() error {
 	}
 	if c.ImageCreator.DownloadBytesPerSecond < 0 {
 		return fmt.Errorf("image_creator.download_bytes_per_second must be non-negative")
-	}
-	if c.OpenWebUI.TokenTTLSeconds <= 0 {
-		return fmt.Errorf("open_webui.token_ttl_seconds must be positive")
-	}
-	if c.OpenWebUI.ChatURL != "" {
-		if err := ValidateAbsoluteHTTPURL(c.OpenWebUI.ChatURL); err != nil {
-			return fmt.Errorf("open_webui.chat_url invalid: %w", err)
-		}
-	}
-	if c.OpenWebUI.LaunchPath == "" || !strings.HasPrefix(c.OpenWebUI.LaunchPath, "/") || strings.HasPrefix(c.OpenWebUI.LaunchPath, "//") {
-		return fmt.Errorf("open_webui.launch_path must be an absolute path")
-	}
-	if c.OpenWebUI.GatewayBaseURL != "" {
-		if err := ValidateAbsoluteHTTPURL(c.OpenWebUI.GatewayBaseURL); err != nil {
-			return fmt.Errorf("open_webui.gateway_base_url invalid: %w", err)
-		}
 	}
 	if c.Idempotency.DefaultTTLSeconds <= 0 {
 		return fmt.Errorf("idempotency.default_ttl_seconds must be positive")

@@ -10,7 +10,6 @@ import welfare from './en/welfare'
 import groups from './en/groups'
 import keys from './en/keys'
 import chatStudio from './en/chatStudio'
-import openWebUI from './en/openWebUI'
 import chatImageStudio from './en/chatImageStudio'
 import imageCreator from './en/imageCreator'
 import imageManager from './en/imageManager'
@@ -52,7 +51,6 @@ export default {
   groups,
   keys,
   chatStudio,
-  openWebUI,
   chatImageStudio,
   imageCreator,
   imageManager,

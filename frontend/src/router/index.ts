@@ -265,8 +265,9 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/chat-images',
+    alias: '/studio-bridge/launch',
     name: 'ChatImageStudio',
-    component: () => import('@/views/user/ChatImageEmbeddedView.vue'),
+    component: () => import('@/views/user/LuoyeAILaunchView.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
@@ -300,14 +301,6 @@ const routes: RouteRecordRaw[] = [
       titleKey: 'chatImageStudio.title',
       descriptionKey: 'chatImageStudio.subtitle'
     }
-  },
-  {
-    path: '/open-webui/launch',
-    redirect: (to) => ({
-      path: '/chat-images',
-      query: to.query,
-      hash: to.hash,
-    })
   },
   {
     path: '/chat',

@@ -381,6 +381,46 @@ func (s *APIKeyService) ClearRouteGroupCooldown(ctx context.Context, apiKey *API
 	_ = s.cache.DeleteRouteGroupCooldown(ctx, apiKey.ID, groupID)
 }
 
+// BuildStudioBridgeGatewayAPIKey creates a request-scoped identity for an
+// internal studio bridge gateway call. It is not persisted as a user API key.
+func (s *APIKeyService) BuildStudioBridgeGatewayAPIKey(ctx context.Context, userID, groupID int64) (*APIKey, error) {
+	if s == nil || s.userRepo == nil || s.groupRepo == nil {
+		return nil, fmt.Errorf("studio bridge gateway auth is unavailable")
+	}
+	if userID <= 0 {
+		return nil, fmt.Errorf("studio bridge user id is required")
+	}
+	if groupID <= 0 {
+		return nil, fmt.Errorf("studio bridge group id is required")
+	}
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get studio bridge user: %w", err)
+	}
+	group, err := s.groupRepo.GetByID(ctx, groupID)
+	if err != nil {
+		return nil, fmt.Errorf("get studio bridge group: %w", err)
+	}
+	override := (*int)(nil)
+	if s.userGroupRateRepo != nil {
+		if value, err := s.userGroupRateRepo.GetRPMOverrideByUserAndGroup(ctx, userID, groupID); err == nil {
+			override = value
+		}
+	}
+	user.UserGroupRPMOverride = override
+	return &APIKey{
+		ID:                  -groupID,
+		UserID:              user.ID,
+		Key:                 "studio-bridge",
+		Name:                "Studio Bridge",
+		GroupID:             &group.ID,
+		AccountPoolStrategy: AccountPoolStrategySharedOnly,
+		Status:              StatusActive,
+		User:                user,
+		Group:               group,
+	}, nil
+}
+
 // GenerateKey 生成随机API Key
 func (s *APIKeyService) GenerateKey() (string, error) {
 	// 生成32字节随机数据

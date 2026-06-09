@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func TestAppendFrameOriginAddsOpenWebUIChatOrigin(t *testing.T) {
+func TestAppendFrameOriginAddsHTTPOrigin(t *testing.T) {
 	origins := appendFrameOrigin([]string{"https://checkout.airwallex.com"}, "https://image.3zapi.top/image")
 	want := []string{"https://checkout.airwallex.com", "https://image.3zapi.top"}
 	if !reflect.DeepEqual(origins, want) {

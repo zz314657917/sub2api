@@ -26,6 +26,8 @@ const (
 	ContextKeySubscriptionService ContextKey = "subscription_service"
 	// ContextKeyDeferredGroupBilling marks requests whose group billing must wait until model-aware routing selects the final group.
 	ContextKeyDeferredGroupBilling ContextKey = "deferred_group_billing"
+	// ContextKeyStudioBridgeGateway marks gateway requests authenticated by the internal studio bridge.
+	ContextKeyStudioBridgeGateway ContextKey = "studio_bridge_gateway"
 	// ContextKeyForcePlatform 强制平台（用于 /antigravity 路由）
 	ContextKeyForcePlatform ContextKey = "force_platform"
 )

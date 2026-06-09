@@ -48,7 +48,6 @@ func SetupRouter(
 			// 获取失败时保留已有缓存，避免 frame-src 被意外清空
 			return
 		}
-		origins = appendFrameOrigin(origins, cfg.OpenWebUI.ChatURL)
 		cachedFrameOrigins.Store(&origins)
 	}
 	refreshFrameOrigins() // 启动时初始化

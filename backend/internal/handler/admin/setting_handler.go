@@ -302,6 +302,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AffiliateEnabled:                 settings.AffiliateEnabled,
 		AccountShareEnabled:              settings.AccountShareEnabled,
 		ExternalCapacityReferenceEnabled: settings.ExternalCapacityReferenceEnabled,
+		StudioBridgeLuoyeAI:              studioBridgeSettingsToDTO(settings.StudioBridgeLuoyeAI),
 	}
 
 	// OpenAI fast policy (stored under a dedicated setting key)
@@ -693,6 +694,8 @@ type UpdateSettingsRequest struct {
 
 	// OpenAI fast/flex policy (optional, only updated when provided)
 	OpenAIFastPolicySettings *dto.OpenAIFastPolicySettings `json:"openai_fast_policy_settings,omitempty"`
+
+	StudioBridgeLuoyeAI *dto.StudioBridgeAppSettings `json:"studio_bridge_luoye_ai"`
 }
 
 // UpdateSettings 更新系统设置
@@ -1801,6 +1804,16 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.RiskControlEnabled
 		}(),
+		StudioBridgeLuoyeAI: func() service.StudioBridgeAppSettings {
+			if req.StudioBridgeLuoyeAI != nil {
+				next := studioBridgeSettingsFromDTO(*req.StudioBridgeLuoyeAI)
+				if strings.TrimSpace(next.InternalSecret) == "" {
+					next.InternalSecret = previousSettings.StudioBridgeLuoyeAI.InternalSecret
+				}
+				return next
+			}
+			return previousSettings.StudioBridgeLuoyeAI
+		}(),
 	}
 
 	authSourceDefaults := &service.AuthSourceDefaultSettings{
@@ -2793,6 +2806,34 @@ func systemSettingsResponseData(settings dto.SystemSettings, authSourceDefaults 
 	data["force_email_on_third_party_signup"] = authSourceDefaults.ForceEmailOnThirdPartySignup
 
 	return data
+}
+
+func studioBridgeSettingsToDTO(settings service.StudioBridgeAppSettings) dto.StudioBridgeAppSettings {
+	return dto.StudioBridgeAppSettings{
+		Enabled:              settings.Enabled,
+		SiteName:             settings.SiteName,
+		AllowedReturnDomains: settings.AllowedReturnDomains,
+		LaunchReturnURL:      settings.LaunchReturnURL,
+		RechargeReturnURL:    settings.RechargeReturnURL,
+		DefaultChatGroup:     settings.DefaultChatGroup,
+		DefaultImageGroup:    settings.DefaultImageGroup,
+		DefaultVideoGroup:    settings.DefaultVideoGroup,
+		SecretConfigured:     strings.TrimSpace(settings.InternalSecret) != "",
+	}
+}
+
+func studioBridgeSettingsFromDTO(settings dto.StudioBridgeAppSettings) service.StudioBridgeAppSettings {
+	return service.StudioBridgeAppSettings{
+		Enabled:              settings.Enabled,
+		SiteName:             strings.TrimSpace(settings.SiteName),
+		AllowedReturnDomains: settings.AllowedReturnDomains,
+		LaunchReturnURL:      strings.TrimSpace(settings.LaunchReturnURL),
+		RechargeReturnURL:    strings.TrimSpace(settings.RechargeReturnURL),
+		DefaultChatGroup:     strings.TrimSpace(settings.DefaultChatGroup),
+		DefaultImageGroup:    strings.TrimSpace(settings.DefaultImageGroup),
+		DefaultVideoGroup:    strings.TrimSpace(settings.DefaultVideoGroup),
+		InternalSecret:       strings.TrimSpace(settings.InternalSecret),
+	}
 }
 
 func equalStringSlice(a, b []string) bool {

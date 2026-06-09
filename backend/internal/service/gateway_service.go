@@ -8182,6 +8182,7 @@ type RecordUsageInput struct {
 	RequestPayloadHash string             // 请求体语义哈希，用于降低 request_id 误复用时的静默误去重风险
 	ForceCacheBilling  bool               // 强制缓存计费：将 input_tokens 转为 cache_read 计费（用于粘性会话切换）
 	APIKeyService      APIKeyQuotaUpdater // 可选：用于更新API Key配额
+	PrepaidBalanceCost float64            // balance cost already deducted before usage billing
 
 	ChannelUsageFields // 渠道映射信息（由 handler 在 Forward 前解析）
 }
@@ -8799,6 +8800,7 @@ func (s *GatewayService) RecordUsage(ctx context.Context, input *RecordUsageInpu
 		RequestPayloadHash: input.RequestPayloadHash,
 		ForceCacheBilling:  input.ForceCacheBilling,
 		APIKeyService:      input.APIKeyService,
+		PrepaidBalanceCost: input.PrepaidBalanceCost,
 		ChannelUsageFields: input.ChannelUsageFields,
 	}, &recordUsageOpts{
 		EnableClaudePath: true,
@@ -8821,6 +8823,7 @@ type RecordUsageLongContextInput struct {
 	LongContextMultiplier float64            // 超出阈值部分的倍率（如 2.0）
 	ForceCacheBilling     bool               // 强制缓存计费：将 input_tokens 转为 cache_read 计费（用于粘性会话切换）
 	APIKeyService         APIKeyQuotaUpdater // API Key 配额服务（可选）
+	PrepaidBalanceCost    float64            // balance cost already deducted before usage billing
 
 	ChannelUsageFields // 渠道映射信息（由 handler 在 Forward 前解析）
 }
@@ -8840,6 +8843,7 @@ func (s *GatewayService) RecordUsageWithLongContext(ctx context.Context, input *
 		RequestPayloadHash: input.RequestPayloadHash,
 		ForceCacheBilling:  input.ForceCacheBilling,
 		APIKeyService:      input.APIKeyService,
+		PrepaidBalanceCost: input.PrepaidBalanceCost,
 		ChannelUsageFields: input.ChannelUsageFields,
 	}, &recordUsageOpts{
 		LongContextThreshold:  input.LongContextThreshold,
@@ -8861,6 +8865,7 @@ type recordUsageCoreInput struct {
 	RequestPayloadHash string
 	ForceCacheBilling  bool
 	APIKeyService      APIKeyQuotaUpdater
+	PrepaidBalanceCost float64
 	ChannelUsageFields
 }
 
@@ -8924,6 +8929,10 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 
 	// 计算费用
 	cost := s.calculateRecordUsageCost(ctx, result, apiKey, billingModel, multiplier, imageMultiplier, opts)
+	prepaidBalanceCost := input.PrepaidBalanceCost
+	if IsStudioBridgeGatewayContext(ctx) && cost != nil && cost.ActualCost > 0 {
+		prepaidBalanceCost = cost.ActualCost
+	}
 
 	// 判断计费方式：订阅模式 vs 余额模式
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
@@ -8981,6 +8990,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		AccountShareOwnerRatePercent: accountShareSettings.OwnerRatePercent,
 		AccountShareFreezeHours:      accountShareSettings.FreezeHours,
 		NewUserTrial:                 trialSession,
+		PrepaidBalanceCost:           prepaidBalanceCost,
 	}, s.billingDeps(), s.usageBillingRepo, s.welfareService)
 
 	if billingErr != nil {

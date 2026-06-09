@@ -11,10 +11,10 @@
             <Icon name="refresh" size="sm" />
             <span>{{ t('common.refresh') }}</span>
           </button>
-          <RouterLink to="/chat-images" class="btn btn-primary btn-sm">
+          <a href="/chat-images" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
             <Icon name="sparkles" size="sm" />
             <span>{{ t('imageManager.openStudio') }}</span>
-          </RouterLink>
+          </a>
         </div>
       </header>
 
@@ -114,10 +114,10 @@
         <Icon name="image" size="xl" class="text-primary-500" />
         <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('imageManager.emptyTitle') }}</h2>
         <p class="max-w-md text-center text-sm text-gray-500 dark:text-dark-300">{{ t('imageManager.emptyDescription') }}</p>
-        <RouterLink to="/chat-images" class="btn btn-primary btn-sm">
+        <a href="/chat-images" target="_blank" rel="noopener noreferrer" class="btn btn-primary btn-sm">
           <Icon name="sparkles" size="sm" />
           <span>{{ t('imageManager.openStudio') }}</span>
-        </RouterLink>
+        </a>
       </section>
 
       <section v-else class="image-manager-grid">
@@ -208,7 +208,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import { RouterLink, useRouter } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -427,23 +427,25 @@ function copyPrompt(item: ImageCreatorManagedImage): void {
   void copyToClipboard(item.task_prompt || item.revised_prompt || '')
 }
 
+function openChatImagesInNewTab(query: Record<string, string>): void {
+  const resolved = router.resolve({
+    path: '/chat-images',
+    query,
+  })
+  window.open(resolved.href, '_blank', 'noopener,noreferrer')
+}
+
 function reusePrompt(item: ImageCreatorManagedImage): void {
   const prompt = item.task_prompt || item.revised_prompt || ''
-  void router.push({
-    path: '/chat-images',
-    query: prompt ? { prompt, mode: 'image' } : { mode: 'image' },
-  })
+  openChatImagesInNewTab(prompt ? { prompt, mode: 'image' } : { mode: 'image' })
 }
 
 function useAsReference(item: ImageCreatorManagedImage): void {
   const prompt = item.task_prompt || item.revised_prompt || ''
-  void router.push({
-    path: '/chat-images',
-    query: {
-      mode: 'image',
-      reference_image_id: String(item.id),
-      ...(prompt ? { prompt } : {}),
-    },
+  openChatImagesInNewTab({
+    mode: 'image',
+    reference_image_id: String(item.id),
+    ...(prompt ? { prompt } : {}),
   })
 }
 

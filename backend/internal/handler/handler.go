@@ -57,7 +57,7 @@ type Handlers struct {
 	Canvas           *CanvasHandler
 	PromptFavorite   *PromptFavoriteHandler
 	Ticket           *TicketHandler
-	OpenWebUI        *OpenWebUIHandler
+	StudioBridge     *StudioBridgeHandler
 	Welfare          *WelfareHandler
 	Admin            *AdminHandlers
 	Gateway          *GatewayHandler

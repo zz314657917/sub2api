@@ -9,19 +9,19 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-type openWebUILaunchTokenStore struct {
+type studioBridgeStore struct {
 	rdb *redis.Client
 }
 
-func NewOpenWebUILaunchTokenStore(rdb *redis.Client) service.OpenWebUILaunchTokenStore {
-	return &openWebUILaunchTokenStore{rdb: rdb}
+func NewStudioBridgeStore(rdb *redis.Client) service.StudioBridgeStore {
+	return &studioBridgeStore{rdb: rdb}
 }
 
-func (s *openWebUILaunchTokenStore) Set(ctx context.Context, key string, payload []byte, ttl time.Duration) error {
+func (s *studioBridgeStore) Set(ctx context.Context, key string, payload []byte, ttl time.Duration) error {
 	return s.rdb.Set(ctx, key, payload, ttl).Err()
 }
 
-func (s *openWebUILaunchTokenStore) Get(ctx context.Context, key string) ([]byte, bool, error) {
+func (s *studioBridgeStore) Get(ctx context.Context, key string) ([]byte, bool, error) {
 	raw, err := s.rdb.Get(ctx, key).Bytes()
 	if errors.Is(err, redis.Nil) {
 		return nil, false, nil
@@ -32,7 +32,7 @@ func (s *openWebUILaunchTokenStore) Get(ctx context.Context, key string) ([]byte
 	return raw, true, nil
 }
 
-func (s *openWebUILaunchTokenStore) GetDel(ctx context.Context, key string) ([]byte, bool, error) {
+func (s *studioBridgeStore) GetDel(ctx context.Context, key string) ([]byte, bool, error) {
 	raw, err := s.rdb.GetDel(ctx, key).Bytes()
 	if errors.Is(err, redis.Nil) {
 		return nil, false, nil

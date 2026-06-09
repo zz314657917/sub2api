@@ -1,23 +1,23 @@
-# 聊天生图与嵌入工作区链路
+# 聊天生图与外部创作站桥接链路
 
-最后更新：2026-05-30
+最后更新：2026-06-09
 
 ## 适用范围
 
-- `sub2api` 用户从公共页、用户控制台或聊天生图入口进入图片工作区。
-- OpenWebUI / ChatImage launch、redeem、嵌入式登录态恢复、模型目录与定价同步。
+- `sub2api` 用户从公共页、用户控制台或聊天生图入口进入落叶AI创作站。
+- Studio Bridge launch、redeem、登录态回跳、模型目录与定价同步。
 - 需要判断“为什么一个登录/模型/图片任务改动会同时影响聊天生图工作区”时。
 
 ## 一句话心智
 
-当前 `sub2api` 不能只按“教程 CMS + 容量池 + 控制台”理解；更高频的默认产品链路已经变成“公共入口/控制台 -> launch token -> 嵌入工作区登录态 -> 聊天生图或 Canvas 工作区 -> 图片任务/模型目录/计费映射”。
+当前 `sub2api` 不能只按“教程 CMS + 容量池 + 控制台”理解；更高频的默认产品链路已经变成“公共入口/控制台 -> studio bridge launch token -> 落叶AI登录态 -> 创作台或 Canvas 工作区 -> 图片任务/模型目录/计费映射”。
 
 ## 默认产品链路
 
 1. 用户从 `sub2api` 公共页或控制台进入聊天生图/相关工作区入口。
-2. 前端通过 OpenWebUI / ChatImage launch 链路生成一次性跳转能力。
+2. 前端通过 Studio Bridge launch 链路生成一次性跳转能力。
 3. 目标工作区用 redeem 或等价桥接方式换取本地登录态，而不是要求用户重新维护一套独立账号。
-4. 登录态建立后，用户继续在嵌入式或被跳转的图片工作区里发起图片相关任务。
+4. 登录态建立后，用户继续在落叶AI创作站里发起聊天、生图、视频或画布任务。
 5. 图片任务、模型白名单、定价展示和计费映射继续复用现有 gateway / billing 体系，而不是在工作区内各自维护一套逻辑。
 
 ## 这条链路为什么值得单独记
@@ -66,11 +66,11 @@
   - `knowledge/tasks/current-task.md`
   - `knowledge/tasks/timeline.md`
 - 相关代码面：
-  - `frontend/src/api/openWebUI.ts`
+  - `frontend/src/api/studioBridge.ts`
   - `frontend/src/router/index.ts`
   - `frontend/src/views/user/`
   - `backend/internal/service/openai_images.go`
-  - `backend/internal/service/open_webui_launch_service.go`
+  - `backend/internal/service/studio_bridge.go`
 
 ## 最小验证建议
 

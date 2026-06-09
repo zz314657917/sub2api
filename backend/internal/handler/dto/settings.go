@@ -275,6 +275,21 @@ type SystemSettings struct {
 
 	// OpenAI fast/flex policy
 	OpenAIFastPolicySettings *OpenAIFastPolicySettings `json:"openai_fast_policy_settings,omitempty"`
+
+	StudioBridgeLuoyeAI StudioBridgeAppSettings `json:"studio_bridge_luoye_ai"`
+}
+
+type StudioBridgeAppSettings struct {
+	Enabled              bool     `json:"enabled"`
+	SiteName             string   `json:"site_name"`
+	AllowedReturnDomains []string `json:"allowed_return_domains"`
+	LaunchReturnURL      string   `json:"launch_return_url"`
+	RechargeReturnURL    string   `json:"recharge_return_url"`
+	DefaultChatGroup     string   `json:"default_chat_group"`
+	DefaultImageGroup    string   `json:"default_image_group"`
+	DefaultVideoGroup    string   `json:"default_video_group"`
+	InternalSecret       string   `json:"internal_secret,omitempty"`
+	SecretConfigured     bool     `json:"secret_configured,omitempty"`
 }
 
 type DefaultSubscriptionSetting struct {

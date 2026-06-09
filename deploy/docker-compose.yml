@@ -16,7 +16,7 @@ services:
   # Sub2API Application
   # ===========================================================================
   sub2api:
-    image: weishaw/sub2api:latest
+    image: ${SUB2API_IMAGE:-weishaw/sub2api:latest}
     container_name: sub2api
     restart: unless-stopped
     ulimits:
@@ -92,14 +92,9 @@ services:
       - JWT_ACCESS_TOKEN_EXPIRE_MINUTES=${JWT_ACCESS_TOKEN_EXPIRE_MINUTES:-0}
 
       # =======================================================================
-      # Open WebUI Launch Integration
+      # External Studio Bridge
       # =======================================================================
-      - OPEN_WEBUI_ENABLED=${OPEN_WEBUI_ENABLED:-false}
-      - OPEN_WEBUI_CHAT_URL=${OPEN_WEBUI_CHAT_URL:-http://127.0.0.1:8080}
-      - OPEN_WEBUI_LAUNCH_PATH=${OPEN_WEBUI_LAUNCH_PATH:-/api/v1/auths/sub2api/launch}
-      - OPEN_WEBUI_REDEEM_SECRET=${OPEN_WEBUI_REDEEM_SECRET:-}
-      - OPEN_WEBUI_TOKEN_TTL_SECONDS=${OPEN_WEBUI_TOKEN_TTL_SECONDS:-120}
-      - OPEN_WEBUI_GATEWAY_BASE_URL=${OPEN_WEBUI_GATEWAY_BASE_URL:-}
+      - STUDIO_BRIDGE_LUOYE_AI_INTERNAL_SECRET=${STUDIO_BRIDGE_LUOYE_AI_INTERNAL_SECRET:-}
 
       # =======================================================================
       # TOTP (2FA) Configuration

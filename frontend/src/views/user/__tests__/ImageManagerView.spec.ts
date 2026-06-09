@@ -6,6 +6,7 @@ const listManagedImages = vi.hoisted(() => vi.fn())
 const deleteManagedImages = vi.hoisted(() => vi.fn())
 const downloadImageFile = vi.hoisted(() => vi.fn())
 const push = vi.hoisted(() => vi.fn())
+const resolveRoute = vi.hoisted(() => vi.fn())
 const showError = vi.hoisted(() => vi.fn())
 const showSuccess = vi.hoisted(() => vi.fn())
 const copyToClipboard = vi.hoisted(() => vi.fn())
@@ -15,7 +16,7 @@ vi.mock('vue-router', () => ({
     props: ['to'],
     template: '<a :href="typeof to === \'string\' ? to : to.path"><slot /></a>',
   },
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, resolve: resolveRoute }),
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -89,9 +90,13 @@ describe('ImageManagerView', () => {
     deleteManagedImages.mockReset().mockResolvedValue({ deleted: 1 })
     downloadImageFile.mockReset().mockResolvedValue(new Blob(['pngdata'], { type: 'image/png' }))
     push.mockReset()
+    resolveRoute.mockReset().mockImplementation((to) => ({
+      href: to.query ? `${to.path}?${new URLSearchParams(to.query).toString()}` : to.path,
+    }))
     showError.mockReset()
     showSuccess.mockReset()
     copyToClipboard.mockReset()
+    vi.spyOn(window, 'open').mockImplementation(() => null)
     Object.defineProperty(URL, 'createObjectURL', {
       configurable: true,
       writable: true,
@@ -115,7 +120,7 @@ describe('ImageManagerView', () => {
     expect(wrapper.find('img').attributes('src')).toBe('blob:image-preview')
   })
 
-  it('copies prompt and reuses it in the embedded studio', async () => {
+  it('copies prompt and opens the external studio in a new tab', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -124,16 +129,17 @@ describe('ImageManagerView', () => {
     expect(copyToClipboard).toHaveBeenCalledWith('draw a useful image')
 
     await actionButtons[2].trigger('click')
-    expect(push).toHaveBeenCalledWith({
+    expect(resolveRoute).toHaveBeenCalledWith({
       path: '/chat-images',
       query: {
         prompt: 'draw a useful image',
         mode: 'image',
       },
     })
+    expect(window.open).toHaveBeenCalledWith('/chat-images?prompt=draw+a+useful+image&mode=image', '_blank', 'noopener,noreferrer')
 
     await actionButtons[3].trigger('click')
-    expect(push).toHaveBeenCalledWith({
+    expect(resolveRoute).toHaveBeenCalledWith({
       path: '/chat-images',
       query: {
         mode: 'image',
@@ -141,6 +147,7 @@ describe('ImageManagerView', () => {
         prompt: 'draw a useful image',
       },
     })
+    expect(window.open).toHaveBeenCalledWith('/chat-images?mode=image&reference_image_id=9&prompt=draw+a+useful+image', '_blank', 'noopener,noreferrer')
   })
 
   it('applies image library filters to the list request', async () => {

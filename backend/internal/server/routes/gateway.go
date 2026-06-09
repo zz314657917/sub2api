@@ -2,12 +2,17 @@ package routes
 
 import (
 	"bytes"
+	"context"
+	"crypto/subtle"
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/handler"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -30,6 +35,7 @@ func RegisterGatewayRoutes(
 	clientRequestID := middleware.ClientRequestID()
 	opsErrorLogger := handler.OpsErrorLoggerMiddleware(opsService)
 	endpointNorm := handler.InboundEndpointMiddleware()
+	gatewayAuth := gatewayAuthMiddleware(apiKeyAuth, apiKeyService, settingService)
 
 	// 未分组 Key 拦截中间件（按协议格式区分错误响应）
 	requireGroupAnthropic := middleware.RequireGroupAssignment(settingService, middleware.AnthropicErrorWriter)
@@ -41,7 +47,7 @@ func RegisterGatewayRoutes(
 	gateway.Use(clientRequestID)
 	gateway.Use(opsErrorLogger)
 	gateway.Use(endpointNorm)
-	gateway.Use(gin.HandlerFunc(apiKeyAuth))
+	gateway.Use(gatewayAuth)
 	gateway.Use(requireGroupAnthropic)
 	{
 		// /v1/messages: auto-route based on group platform
@@ -209,18 +215,18 @@ func RegisterGatewayRoutes(
 		}
 		h.Gateway.Responses(c)
 	}
-	r.POST("/responses", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, responsesHandler)
-	r.POST("/responses/*subpath", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, responsesHandler)
-	r.GET("/responses", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, h.OpenAIGateway.ResponsesWebSocket)
+	r.POST("/responses", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, responsesHandler)
+	r.POST("/responses/*subpath", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, responsesHandler)
+	r.GET("/responses", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, h.OpenAIGateway.ResponsesWebSocket)
 	codexDirect := r.Group("/backend-api/codex")
-	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic)
+	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic)
 	{
 		codexDirect.POST("/responses", responsesHandler)
 		codexDirect.POST("/responses/*subpath", responsesHandler)
 		codexDirect.GET("/responses", h.OpenAIGateway.ResponsesWebSocket)
 	}
 	// OpenAI Chat Completions API（不带v1前缀的别名）— auto-route based on group platform
-	r.POST("/chat/completions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+	r.POST("/chat/completions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/chat/completions", false) {
 			return
 		}
@@ -230,7 +236,7 @@ func RegisterGatewayRoutes(
 		}
 		h.Gateway.ChatCompletions(c)
 	})
-	r.POST("/embeddings", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+	r.POST("/embeddings", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/embeddings", false) {
 			return
 		}
@@ -246,7 +252,7 @@ func RegisterGatewayRoutes(
 		}
 		h.OpenAIGateway.Embeddings(c)
 	})
-	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/images/generations", true) {
 			return
 		}
@@ -261,7 +267,7 @@ func RegisterGatewayRoutes(
 		}
 		h.OpenAIGateway.Images(c)
 	})
-	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+	r.POST("/images/edits", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/images/edits", true) {
 			return
 		}
@@ -276,7 +282,7 @@ func RegisterGatewayRoutes(
 		}
 		h.OpenAIGateway.Images(c)
 	})
-	r.POST("/videos/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+	r.POST("/videos/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/videos/generations", false) {
 			return
 		}
@@ -291,7 +297,7 @@ func RegisterGatewayRoutes(
 		}
 		h.OpenAIGateway.Videos(c)
 	})
-	r.GET("/tasks/:task_id", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, func(c *gin.Context) {
+	r.GET("/tasks/:task_id", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
 		if getGroupPlatform(c) != service.PlatformOpenAI {
 			c.JSON(http.StatusNotFound, gin.H{
 				"error": gin.H{
@@ -305,7 +311,7 @@ func RegisterGatewayRoutes(
 	})
 
 	// Antigravity 模型列表
-	r.GET("/antigravity/models", gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, h.Gateway.AntigravityModels)
+	r.GET("/antigravity/models", gatewayAuth, requireGroupAnthropic, h.Gateway.AntigravityModels)
 
 	// Antigravity 专用路由（仅使用 antigravity 账户，不混合调度）
 	antigravityV1 := r.Group("/antigravity/v1")
@@ -314,7 +320,7 @@ func RegisterGatewayRoutes(
 	antigravityV1.Use(opsErrorLogger)
 	antigravityV1.Use(endpointNorm)
 	antigravityV1.Use(middleware.ForcePlatform(service.PlatformAntigravity))
-	antigravityV1.Use(gin.HandlerFunc(apiKeyAuth))
+	antigravityV1.Use(gatewayAuth)
 	antigravityV1.Use(requireGroupAnthropic)
 	{
 		antigravityV1.POST("/messages", h.Gateway.Messages)
@@ -337,6 +343,104 @@ func RegisterGatewayRoutes(
 		antigravityV1Beta.POST("/models/*modelAction", h.Gateway.GeminiV1BetaModels)
 	}
 
+}
+
+func gatewayAuthMiddleware(apiKeyAuth middleware.APIKeyAuthMiddleware, apiKeyService *service.APIKeyService, settingService *service.SettingService) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if strings.TrimSpace(c.GetHeader("X-Sub2API-Studio-Secret")) == "" {
+			gin.HandlerFunc(apiKeyAuth)(c)
+			return
+		}
+		if !authenticateStudioBridgeGateway(c, apiKeyService, settingService) {
+			return
+		}
+		c.Next()
+	}
+}
+
+func authenticateStudioBridgeGateway(c *gin.Context, apiKeyService *service.APIKeyService, settingService *service.SettingService) bool {
+	if c == nil || c.Request == nil || apiKeyService == nil || settingService == nil {
+		middleware.AbortWithError(c, http.StatusServiceUnavailable, "STUDIO_BRIDGE_GATEWAY_UNAVAILABLE", "studio bridge gateway auth is unavailable")
+		return false
+	}
+	cfg, err := settingService.GetStudioBridgeLuoyeAISettings(c.Request.Context())
+	if err != nil {
+		middleware.AbortWithError(c, http.StatusInternalServerError, "STUDIO_BRIDGE_GATEWAY_CONFIG_ERROR", "failed to load studio bridge settings")
+		return false
+	}
+	if cfg == nil || !cfg.Enabled || strings.TrimSpace(cfg.InternalSecret) == "" {
+		middleware.AbortWithError(c, http.StatusForbidden, "STUDIO_BRIDGE_DISABLED", "studio bridge is disabled")
+		return false
+	}
+	secret := strings.TrimSpace(c.GetHeader("X-Sub2API-Studio-Secret"))
+	if !studioBridgeSecretEqual(cfg.InternalSecret, secret) {
+		middleware.AbortWithError(c, http.StatusUnauthorized, "STUDIO_BRIDGE_INVALID_SECRET", "invalid studio bridge secret")
+		return false
+	}
+	userID, err := parsePositiveInt64Header(c, "X-Sub2API-Studio-User-ID")
+	if err != nil {
+		middleware.AbortWithError(c, http.StatusBadRequest, "STUDIO_BRIDGE_USER_REQUIRED", "studio bridge user id is required")
+		return false
+	}
+	groupID, err := parsePositiveInt64Header(c, "X-Sub2API-Group-ID")
+	if err != nil {
+		middleware.AbortWithError(c, http.StatusBadRequest, "STUDIO_BRIDGE_GROUP_REQUIRED", "studio bridge group id is required")
+		return false
+	}
+	apiKey, err := apiKeyService.BuildStudioBridgeGatewayAPIKey(c.Request.Context(), userID, groupID)
+	if err != nil {
+		middleware.AbortWithError(c, http.StatusForbidden, "STUDIO_BRIDGE_GATEWAY_FORBIDDEN", err.Error())
+		return false
+	}
+	if !apiKey.User.IsActive() {
+		middleware.AbortWithError(c, http.StatusUnauthorized, "USER_INACTIVE", "User account is not active")
+		return false
+	}
+	if !validateStudioBridgeGatewayGroup(c, apiKey) {
+		return false
+	}
+	middleware.SetAPIKeyContext(c, apiKey)
+	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxkey.StudioBridgeGateway, true))
+	c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{
+		UserID:      apiKey.User.ID,
+		Concurrency: apiKey.User.Concurrency,
+	})
+	c.Set(string(middleware.ContextKeyUserRole), apiKey.User.Role)
+	c.Set(string(middleware.ContextKeyStudioBridgeGateway), true)
+	return true
+}
+
+func studioBridgeSecretEqual(expected, provided string) bool {
+	expected = strings.TrimSpace(expected)
+	provided = strings.TrimSpace(provided)
+	if expected == "" || provided == "" || len(expected) != len(provided) {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(expected), []byte(provided)) == 1
+}
+
+func validateStudioBridgeGatewayGroup(c *gin.Context, apiKey *service.APIKey) bool {
+	if apiKey == nil || apiKey.GroupID == nil || apiKey.Group == nil {
+		middleware.AbortWithError(c, http.StatusForbidden, "GROUP_NOT_FOUND", "studio bridge group is not configured")
+		return false
+	}
+	if !apiKey.Group.IsActive() {
+		middleware.AbortWithError(c, http.StatusForbidden, "GROUP_DISABLED", "studio bridge group is disabled")
+		return false
+	}
+	return true
+}
+
+func parsePositiveInt64Header(c *gin.Context, name string) (int64, error) {
+	value := strings.TrimSpace(c.GetHeader(name))
+	if value == "" {
+		return 0, strconv.ErrSyntax
+	}
+	parsed, err := strconv.ParseInt(value, 10, 64)
+	if err != nil || parsed <= 0 {
+		return 0, strconv.ErrSyntax
+	}
+	return parsed, nil
 }
 
 // getGroupPlatform extracts the group platform from the API Key stored in context.

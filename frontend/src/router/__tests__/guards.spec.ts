@@ -236,9 +236,9 @@ describe('路由守卫逻辑', () => {
 
     it('访问带 redirect 的 /login 重定向到目标页面', () => {
       const redirect = simulateGuard('/login', { requiresAuth: false }, authState, {
-        redirect: '/open-webui/launch'
+        redirect: '/chat-images'
       })
-      expect(redirect).toBe('/open-webui/launch')
+      expect(redirect).toBe('/chat-images')
     })
 
     it('忽略外部 redirect 并回到默认页面', () => {
