@@ -101,6 +101,7 @@
             <div class="group/dropdown relative">
               <div class="flex flex-col items-start gap-1.5">
                 <button
+                  v-if="!isSmartRoutingKey(row)"
                   :ref="(el) => setGroupButtonRef(row.id, el)"
                   @click="openGroupSelector(row)"
                   class="-mx-2 -my-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-gray-100 dark:hover:bg-dark-700"
@@ -132,12 +133,20 @@
                     />
                   </svg>
                 </button>
-                <span
-                  v-if="row.multi_group_routes?.length"
-                  class="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                <button
+                  v-else
+                  type="button"
+                  class="-mx-2 -my-1 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                  :title="t('keys.clickToEditSmartRouting')"
+                  @click="editKey(row)"
                 >
-                  {{ t('keys.multiGroupRouteCount', { count: row.multi_group_routes.length }) }}
-                </span>
+                  <span
+                    class="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2 py-0.5 dark:bg-blue-900/30"
+                  >
+                    <Icon name="sparkles" size="xs" />
+                    {{ t('keys.multiGroupRouteCount', { count: row.multi_group_routes.length }) }}
+                  </span>
+                </button>
                 <span
                   v-if="row.account_pool_strategy && row.account_pool_strategy !== 'shared_only'"
                   class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
@@ -1602,6 +1611,8 @@ const selectedKeyForGroup = computed(() => {
   return apiKeys.value.find((k) => k.id === groupSelectorKeyId.value) || null
 })
 
+const isSmartRoutingKey = (key: ApiKey) => (key.multi_group_routes?.length ?? 0) > 0
+
 const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance | null) => {
   if (el instanceof HTMLElement) {
     groupButtonRefs.value.set(keyId, el)
@@ -2262,6 +2273,12 @@ const toggleKeyStatus = async (key: ApiKey) => {
 }
 
 const openGroupSelector = (key: ApiKey) => {
+  if (isSmartRoutingKey(key)) {
+    groupSelectorKeyId.value = null
+    dropdownPosition.value = null
+    return
+  }
+
   if (groupSelectorKeyId.value === key.id) {
     groupSelectorKeyId.value = null
     dropdownPosition.value = null

@@ -52,6 +52,7 @@ export default {
     routingPresetHint: '这些模式会保存按请求模型和生图意图匹配的多分组规则；同一个 Key 可自动把普通模型和生图请求路由到不同分组。',
     groupPrioritySelection: '分组优先级选择',
     manualRouteSelection: '手动选择分组',
+    clickToEditSmartRouting: '点击编辑智能分组',
     routingPreset: {
       auto: {
         title: '智能自动',

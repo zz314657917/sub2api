@@ -52,6 +52,7 @@ export default {
     routingPresetHint: 'These presets save multi-group rules that match request model and image intent. One key can route text and image requests to different groups.',
     groupPrioritySelection: 'Group Priority Selection',
     manualRouteSelection: 'Manual Group Selection',
+    clickToEditSmartRouting: 'Click to edit smart routing',
     routingPreset: {
       auto: {
         title: 'Smart Auto',
