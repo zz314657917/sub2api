@@ -27,15 +27,31 @@ func TestSubmitUsageRecordTaskCopiesRequestContext(t *testing.T) {
 func TestOpenAISubmitUsageRecordTaskCopiesRequestContext(t *testing.T) {
 	parent := context.WithValue(context.Background(), ctxkey.ClientRequestID, "openai-client-request-123")
 	parent = context.WithValue(parent, ctxkey.RequestID, "openai-request-456")
+	parent = context.WithValue(parent, ctxkey.StudioBridgeGateway, true)
 
 	var gotClientRequestID string
 	var gotRequestID string
+	var gotStudioBridgeGateway bool
 	h := &OpenAIGatewayHandler{}
 	h.submitUsageRecordTask(parent, func(ctx context.Context) {
 		gotClientRequestID, _ = ctx.Value(ctxkey.ClientRequestID).(string)
 		gotRequestID, _ = ctx.Value(ctxkey.RequestID).(string)
+		gotStudioBridgeGateway, _ = ctx.Value(ctxkey.StudioBridgeGateway).(bool)
 	})
 
 	require.Equal(t, "openai-client-request-123", gotClientRequestID)
 	require.Equal(t, "openai-request-456", gotRequestID)
+	require.True(t, gotStudioBridgeGateway)
+}
+
+func TestOpenAISubmitMandatoryUsageRecordTaskCopiesStudioBridgeGatewayContext(t *testing.T) {
+	parent := context.WithValue(context.Background(), ctxkey.StudioBridgeGateway, true)
+
+	var gotStudioBridgeGateway bool
+	h := &OpenAIGatewayHandler{}
+	h.submitMandatoryUsageRecordTask(parent, func(ctx context.Context) {
+		gotStudioBridgeGateway, _ = ctx.Value(ctxkey.StudioBridgeGateway).(bool)
+	})
+
+	require.True(t, gotStudioBridgeGateway)
 }

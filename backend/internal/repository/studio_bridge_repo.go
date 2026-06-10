@@ -618,7 +618,7 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 	if cmd.UserID <= 0 || amount <= 0 {
 		return nil
 	}
-	refs, err := r.resolveChargeUsageRefs(ctx, exec, cmd.UserID)
+	refs, err := r.resolveChargeUsageRefs(ctx, exec, cmd)
 	if err != nil {
 		return err
 	}
@@ -730,22 +730,15 @@ type studioBridgeChargeUsageRefs struct {
 	groupID   sql.NullInt64
 }
 
-func (r *studioBridgeRepository) resolveChargeUsageRefs(ctx context.Context, exec studioBridgeSQLExecutor, userID int64) (studioBridgeChargeUsageRefs, error) {
-	return r.createDefaultChargeUsageRefs(ctx, exec, userID)
+func (r *studioBridgeRepository) resolveChargeUsageRefs(ctx context.Context, exec studioBridgeSQLExecutor, cmd service.StudioBridgeChargeCommand) (studioBridgeChargeUsageRefs, error) {
+	return r.createDefaultChargeUsageRefs(ctx, exec, cmd.UserID, studioBridgeUsageRouteKind(cmd))
 }
 
-func (r *studioBridgeRepository) createDefaultChargeUsageRefs(ctx context.Context, exec studioBridgeSQLExecutor, userID int64) (studioBridgeChargeUsageRefs, error) {
+func (r *studioBridgeRepository) createDefaultChargeUsageRefs(ctx context.Context, exec studioBridgeSQLExecutor, userID int64, routeKind string) (studioBridgeChargeUsageRefs, error) {
 	var refs studioBridgeChargeUsageRefs
 	err := exec.QueryRowContext(ctx, `
-		WITH account_ref AS (
-			SELECT id
-			FROM accounts
-			WHERE status = 'active' AND deleted_at IS NULL
-			ORDER BY priority ASC, id ASC
-			LIMIT 1
-		),
-		existing_key AS (
-			SELECT id, group_id
+		WITH existing_key AS (
+			SELECT id, group_id, COALESCE(multi_group_routes, '[]'::jsonb) AS multi_group_routes
 			FROM api_keys
 			WHERE user_id = $1
 				AND deleted_at IS NULL
@@ -757,6 +750,13 @@ func (r *studioBridgeRepository) createDefaultChargeUsageRefs(ctx context.Contex
 			FROM api_keys
 			WHERE user_id = $1
 				AND deleted_at IS NULL
+			LIMIT 1
+		),
+		global_account_ref AS (
+			SELECT id
+			FROM accounts
+			WHERE status = 'active' AND deleted_at IS NULL
+			ORDER BY priority ASC, id ASC
 			LIMIT 1
 		),
 		inserted_key AS (
@@ -780,23 +780,86 @@ func (r *studioBridgeRepository) createDefaultChargeUsageRefs(ctx context.Contex
 				NOW(),
 				NOW()
 			WHERE NOT EXISTS (SELECT 1 FROM key_exists)
-				AND EXISTS (SELECT 1 FROM account_ref)
-			RETURNING id, group_id
+				AND EXISTS (SELECT 1 FROM global_account_ref)
+			RETURNING id, group_id, '[]'::jsonb AS multi_group_routes
 		),
 		selected_key AS (
-			SELECT id, group_id FROM existing_key
+			SELECT id, group_id, multi_group_routes FROM existing_key
 			UNION ALL
-			SELECT id, group_id FROM inserted_key
+			SELECT id, group_id, multi_group_routes FROM inserted_key
+			LIMIT 1
+		),
+		route_group AS (
+			SELECT
+				(route ->> 'group_id')::bigint AS group_id,
+				CASE
+					WHEN COALESCE(route ->> 'priority', '') ~ '^[0-9]+$' THEN (route ->> 'priority')::int
+					ELSE 1
+				END AS route_priority,
+				route_ord
+			FROM selected_key
+			CROSS JOIN LATERAL jsonb_array_elements(selected_key.multi_group_routes) WITH ORDINALITY AS routes(route, route_ord)
+			WHERE LOWER(COALESCE(route ->> 'enabled', 'false')) = 'true'
+				AND COALESCE(route ->> 'group_id', '') ~ '^[0-9]+$'
+				AND (
+					($4 = 'image' AND LOWER(COALESCE(route ->> 'image_only', 'false')) = 'true')
+					OR ($4 = 'text' AND LOWER(COALESCE(route ->> 'text_only', 'false')) = 'true')
+					OR ($4 = 'video' AND jsonb_typeof(route -> 'model_patterns') = 'array' AND jsonb_array_length(route -> 'model_patterns') > 0)
+				)
+			ORDER BY route_priority ASC, route_ord ASC
+			LIMIT 1
+		),
+		target_group AS (
+			SELECT COALESCE((SELECT group_id FROM route_group), selected_key.group_id) AS group_id
+			FROM selected_key
+		),
+		group_account_ref AS (
+			SELECT accounts.id
+			FROM target_group
+			JOIN account_groups ON account_groups.group_id = target_group.group_id
+			JOIN accounts ON accounts.id = account_groups.account_id
+			WHERE target_group.group_id IS NOT NULL
+				AND accounts.status = 'active'
+				AND accounts.deleted_at IS NULL
+			ORDER BY account_groups.priority ASC, accounts.priority ASC, accounts.id ASC
+			LIMIT 1
+		),
+		account_ref AS (
+			SELECT id FROM group_account_ref
+			UNION ALL
+			SELECT id FROM global_account_ref
+			WHERE NOT EXISTS (SELECT 1 FROM group_account_ref)
 			LIMIT 1
 		)
-		SELECT selected_key.id, selected_key.group_id, account_ref.id
+		SELECT selected_key.id, target_group.group_id, account_ref.id
 		FROM selected_key
+		CROSS JOIN target_group
 		CROSS JOIN account_ref
-	`, userID, "sk-"+uuid.NewString(), service.DefaultAPIKeyName).Scan(&refs.apiKeyID, &refs.groupID, &refs.accountID)
+	`, userID, "sk-"+uuid.NewString(), service.DefaultAPIKeyName, routeKind).Scan(&refs.apiKeyID, &refs.groupID, &refs.accountID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return refs, errors.New("studio bridge usage log requires an active account")
 	}
 	return refs, err
+}
+
+func studioBridgeUsageRouteKind(cmd service.StudioBridgeChargeCommand) string {
+	mode := strings.ToLower(strings.TrimSpace(cmd.Mode))
+	switch mode {
+	case "generate", "edit", "image":
+		return "image"
+	case "video":
+		return "video"
+	case "chat", "text":
+		return "text"
+	}
+	model := strings.ToLower(strings.TrimSpace(cmd.Model))
+	if strings.Contains(model, "image") || strings.HasPrefix(model, "gpt-image") {
+		return "image"
+	}
+	if strings.Contains(model, "video") || strings.Contains(model, "seedance") {
+		return "video"
+	}
+	return "text"
 }
 
 func studioBridgeUsageRequestID(cmd service.StudioBridgeChargeCommand) string {

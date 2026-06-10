@@ -15,11 +15,14 @@ func TestStudioBridgeRepositoryResolveChargeUsageRefsUsesDefaultKey(t *testing.T
 	defer db.Close()
 
 	repo := &studioBridgeRepository{db: db}
-	mock.ExpectQuery(`WITH account_ref AS`).
-		WithArgs(int64(42), sqlmock.AnyArg(), service.DefaultAPIKeyName).
+	mock.ExpectQuery(`WITH existing_key AS`).
+		WithArgs(int64(42), sqlmock.AnyArg(), service.DefaultAPIKeyName, "text").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "group_id", "account_id"}).AddRow(int64(77), nil, int64(88)))
 
-	refs, err := repo.resolveChargeUsageRefs(context.Background(), db, 42)
+	refs, err := repo.resolveChargeUsageRefs(context.Background(), db, service.StudioBridgeChargeCommand{
+		UserID: 42,
+		Mode:   "chat",
+	})
 	require.NoError(t, err)
 	require.Equal(t, int64(77), refs.apiKeyID)
 	require.Equal(t, int64(88), refs.accountID)
@@ -33,11 +36,15 @@ func TestStudioBridgeRepositoryResolveChargeUsageRefsPreservesDefaultKeyGroup(t 
 	defer db.Close()
 
 	repo := &studioBridgeRepository{db: db}
-	mock.ExpectQuery(`WITH account_ref AS`).
-		WithArgs(int64(42), sqlmock.AnyArg(), service.DefaultAPIKeyName).
+	mock.ExpectQuery(`WITH existing_key AS`).
+		WithArgs(int64(42), sqlmock.AnyArg(), service.DefaultAPIKeyName, "image").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "group_id", "account_id"}).AddRow(int64(77), int64(9), int64(88)))
 
-	refs, err := repo.resolveChargeUsageRefs(context.Background(), db, 42)
+	refs, err := repo.resolveChargeUsageRefs(context.Background(), db, service.StudioBridgeChargeCommand{
+		UserID: 42,
+		Mode:   "edit",
+		Model:  "gpt-image-2",
+	})
 	require.NoError(t, err)
 	require.Equal(t, int64(77), refs.apiKeyID)
 	require.Equal(t, int64(88), refs.accountID)
