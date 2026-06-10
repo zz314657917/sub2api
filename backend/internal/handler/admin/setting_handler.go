@@ -2132,6 +2132,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateEnabled:                 updatedSettings.AffiliateEnabled,
 		AccountShareEnabled:              updatedSettings.AccountShareEnabled,
 		ExternalCapacityReferenceEnabled: updatedSettings.ExternalCapacityReferenceEnabled,
+		StudioBridgeLuoyeAI:              studioBridgeSettingsToDTO(updatedSettings.StudioBridgeLuoyeAI),
 
 		RiskControlEnabled: updatedSettings.RiskControlEnabled,
 	}
