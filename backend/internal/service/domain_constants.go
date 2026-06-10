@@ -74,15 +74,16 @@ const (
 
 // Redeem type constants
 const (
-	RedeemTypeBalance           = domain.RedeemTypeBalance
-	RedeemTypeConcurrency       = domain.RedeemTypeConcurrency
-	RedeemTypeSubscription      = domain.RedeemTypeSubscription
-	RedeemTypeInvitation        = domain.RedeemTypeInvitation
-	RedeemTypeAffiliateBalance  = "affiliate_balance"
-	RedeemTypeLeaderboardReward = domain.RedeemTypeLeaderboardReward
-	RedeemTypeDailyCheckin      = domain.RedeemTypeDailyCheckin
-	RedeemTypeCheckinMilestone  = domain.RedeemTypeCheckinMilestone
-	RedeemTypeNewUserReward     = domain.RedeemTypeNewUserReward
+	RedeemTypeBalance            = domain.RedeemTypeBalance
+	RedeemTypeConcurrency        = domain.RedeemTypeConcurrency
+	RedeemTypeSubscription       = domain.RedeemTypeSubscription
+	RedeemTypeInvitation         = domain.RedeemTypeInvitation
+	RedeemTypeAffiliateBalance   = "affiliate_balance"
+	RedeemTypeLeaderboardReward  = domain.RedeemTypeLeaderboardReward
+	RedeemTypeDailyCheckin       = domain.RedeemTypeDailyCheckin
+	RedeemTypeCheckinMilestone   = domain.RedeemTypeCheckinMilestone
+	RedeemTypeNewUserReward      = domain.RedeemTypeNewUserReward
+	RedeemTypeFirstRechargeBonus = domain.RedeemTypeFirstRechargeBonus
 )
 
 // PromoCode status constants
@@ -376,11 +377,12 @@ const (
 	SettingKeyLeaderboardDailyRewardRank2Amount        = "leaderboard_daily_reward_rank_2_amount"
 	SettingKeyLeaderboardDailyRewardRank3Amount        = "leaderboard_daily_reward_rank_3_amount"
 
-	// Welfare system settings. Recharge/VIP are feature placeholders for later phases.
+	// Welfare system settings.
 	SettingKeyWelfareEnabled                            = "welfare_enabled"
 	SettingKeyWelfareDailyCheckinEnabled                = "welfare_daily_checkin_enabled"
 	SettingKeyWelfareRechargeEnabled                    = "welfare_recharge_enabled"
 	SettingKeyWelfareVIPEnabled                         = "welfare_vip_enabled"
+	SettingKeyWelfareFirstRechargeBonusAmount           = "welfare_first_recharge_bonus_amount"
 	SettingKeyWelfareDailyCheckinRewardMin              = "welfare_daily_checkin_reward_min"
 	SettingKeyWelfareDailyCheckinRewardMax              = "welfare_daily_checkin_reward_max"
 	SettingKeyWelfareDailyCheckinMinAccountAgeHours     = "welfare_daily_checkin_min_account_age_hours"

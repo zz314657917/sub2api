@@ -188,6 +188,7 @@ type PaymentService struct {
 	affiliateService *AffiliateService
 	membershipSvc    *MembershipService
 	systemTicketSvc  *SystemTicketService
+	welfareService   *WelfareService
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService, membershipSvc ...*MembershipService) *PaymentService {
@@ -203,6 +204,12 @@ func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, load
 func (s *PaymentService) SetSystemTicketService(systemTicketSvc *SystemTicketService) {
 	if s != nil {
 		s.systemTicketSvc = systemTicketSvc
+	}
+}
+
+func (s *PaymentService) SetWelfareService(welfareService *WelfareService) {
+	if s != nil {
+		s.welfareService = welfareService
 	}
 }
 

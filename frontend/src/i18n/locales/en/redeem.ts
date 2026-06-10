@@ -26,6 +26,7 @@ export default {
     balanceAddedAffiliate: 'Balance Added (Affiliate Transfer)',
     balanceAddedLeaderboardReward: 'Balance Added (Leaderboard Reward)',
     balanceAddedNewUserReward: 'Balance Added (New User Reward)',
+    balanceAddedFirstRechargeBonus: 'Balance Added (First Recharge Bonus)',
     system: 'System',
     balanceAddedAdmin: 'Balance Added (Admin)',
     balanceDeductedAdmin: 'Balance Deducted (Admin)',

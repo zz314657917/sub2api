@@ -300,6 +300,9 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder) e
 		if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
 			return err
 		}
+		if err := s.applyFirstRechargeBonusForOrder(ctx, o); err != nil {
+			return err
+		}
 		// Code already created and redeemed — just mark completed
 		return s.markCompleted(ctx, o, "RECHARGE_SUCCESS")
 	case redeemActionCreate:
@@ -316,7 +319,23 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder) e
 	if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
 		return err
 	}
+	if err := s.applyFirstRechargeBonusForOrder(ctx, o); err != nil {
+		return err
+	}
 	return s.markCompleted(ctx, o, "RECHARGE_SUCCESS")
+}
+
+func (s *PaymentService) applyFirstRechargeBonusForOrder(ctx context.Context, o *dbent.PaymentOrder) error {
+	if s == nil || s.welfareService == nil || o == nil || o.OrderType != payment.OrderTypeBalance {
+		return nil
+	}
+	if _, err := s.welfareService.GrantFirstRechargeBonusForOrder(ctx, o.ID); err != nil {
+		s.writeAuditLog(ctx, o.ID, "FIRST_RECHARGE_BONUS_FAILED", "system", map[string]any{
+			"error": err.Error(),
+		})
+		return fmt.Errorf("grant first recharge bonus: %w", err)
+	}
+	return nil
 }
 
 func (s *PaymentService) markCompleted(ctx context.Context, o *dbent.PaymentOrder, auditAction string) error {

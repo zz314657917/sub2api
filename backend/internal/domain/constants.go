@@ -36,14 +36,15 @@ const (
 
 // Redeem type constants
 const (
-	RedeemTypeBalance           = "balance"
-	RedeemTypeConcurrency       = "concurrency"
-	RedeemTypeSubscription      = "subscription"
-	RedeemTypeInvitation        = "invitation"
-	RedeemTypeLeaderboardReward = "leaderboard_reward"
-	RedeemTypeDailyCheckin      = "daily_checkin"
-	RedeemTypeCheckinMilestone  = "checkin_milestone"
-	RedeemTypeNewUserReward     = "new_user_reward"
+	RedeemTypeBalance            = "balance"
+	RedeemTypeConcurrency        = "concurrency"
+	RedeemTypeSubscription       = "subscription"
+	RedeemTypeInvitation         = "invitation"
+	RedeemTypeLeaderboardReward  = "leaderboard_reward"
+	RedeemTypeDailyCheckin       = "daily_checkin"
+	RedeemTypeCheckinMilestone   = "checkin_milestone"
+	RedeemTypeNewUserReward      = "new_user_reward"
+	RedeemTypeFirstRechargeBonus = "first_recharge_bonus"
 )
 
 // PromoCode status constants

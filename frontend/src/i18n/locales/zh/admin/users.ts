@@ -201,6 +201,7 @@ export default {
       typeAffiliateBalance: '余额（返利转入）',
       typeLeaderboardReward: '余额（排行榜奖励）',
       typeNewUserReward: '余额（新手试用奖励）',
+      typeFirstRechargeBonus: '余额（首冲赠送）',
       typeAdminBalance: '余额（管理员调整）',
       typeConcurrency: '并发（兑换码）',
       typeAdminConcurrency: '并发（管理员调整）',

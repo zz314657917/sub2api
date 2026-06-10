@@ -90,6 +90,40 @@
           </div>
         </section>
 
+        <section v-if="rechargeVisible" class="card p-5">
+          <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex min-w-0 gap-3">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+                <Icon name="gift" size="sm" :stroke-width="2" />
+              </span>
+              <div class="min-w-0">
+                <div class="flex flex-wrap items-center gap-2">
+                  <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('welfare.recharge.title') }}</h2>
+                  <span class="w-fit rounded-full px-3 py-1 text-xs font-medium" :class="rechargeStatusClass">
+                    {{ rechargeStatusText }}
+                  </span>
+                </div>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {{ t('welfare.recharge.description', { amount: formatAmount(recharge?.first_bonus_amount) }) }}
+                </p>
+                <p v-if="recharge?.first_bonus_claimed && rechargeClaimedAtText" class="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
+                  {{ t('welfare.recharge.claimedAt', { time: rechargeClaimedAtText }) }}
+                </p>
+              </div>
+            </div>
+            <button
+              class="btn h-10 w-full shrink-0 sm:w-auto"
+              :class="recharge?.enabled && !recharge?.first_bonus_claimed ? 'btn-primary' : 'btn-secondary'"
+              type="button"
+              :disabled="!recharge?.enabled || recharge?.first_bonus_claimed"
+              data-testid="welfare-recharge-go"
+              @click="goToRecharge"
+            >
+              {{ rechargeButtonText }}
+            </button>
+          </div>
+        </section>
+
         <section v-if="daily && daily.enabled" class="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
           <div class="card p-5">
             <section>
@@ -220,9 +254,9 @@
           </aside>
         </section>
 
-        <div v-else class="card p-8 text-center">
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('welfare.daily.disabledTitle') }}</h2>
-          <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ t('welfare.daily.disabledDescription') }}</p>
+        <div v-if="!hasVisibleModule" class="card p-8 text-center">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('welfare.emptyTitle') }}</h2>
+          <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ t('welfare.emptyDescription') }}</p>
         </div>
       </template>
     </div>
@@ -237,7 +271,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { welfareAPI } from '@/api/welfare'
 import { useWelfareStore } from '@/stores/welfare'
-import type { WelfareDailyCheckin, WelfareDailyCheckinMilestone, WelfareNewUserTrial, WelfareOverview } from '@/types'
+import type { WelfareDailyCheckin, WelfareDailyCheckinMilestone, WelfareNewUserTrial, WelfareOverview, WelfareRecharge } from '@/types'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -254,6 +288,9 @@ const claimingTrialReward = ref(false)
 
 const daily = computed(() => overview.value?.daily_checkin ?? null)
 const trial = computed(() => overview.value?.new_user_trial ?? null)
+const recharge = computed<WelfareRecharge | null>(() => overview.value?.recharge ?? null)
+const rechargeVisible = computed(() => Boolean(recharge.value && (recharge.value.enabled || recharge.value.first_bonus_claimed)))
+const hasVisibleModule = computed(() => Boolean(trial.value?.enabled || rechargeVisible.value || daily.value?.enabled))
 
 const checkedDateSet = computed(() => new Set(daily.value?.checkin_dates ?? []))
 
@@ -384,8 +421,45 @@ const trialStatusClass = computed(() => {
   return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
 })
 
+const rechargeStatusText = computed(() => {
+  const state = recharge.value
+  if (!state) return t('welfare.notOpen')
+  if (state.first_bonus_claimed) return t('welfare.recharge.claimed')
+  if (state.enabled) return t('welfare.recharge.pending')
+  return reasonText(state.reason)
+})
+
+const rechargeStatusClass = computed(() => {
+  const state = recharge.value
+  if (state?.first_bonus_claimed) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+  if (state?.enabled) return 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300'
+  return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
+})
+
+const rechargeButtonText = computed(() => {
+  const state = recharge.value
+  if (state?.first_bonus_claimed) return t('welfare.recharge.claimed')
+  if (state?.enabled) return t('welfare.recharge.cta')
+  return reasonText(state?.reason)
+})
+
+const rechargeClaimedAtText = computed(() => formatDateTime(recharge.value?.first_bonus_claimed_at))
+
 function formatAmount(value: number | null | undefined): string {
   return amountFormatter.format(Number(value) || 0)
+}
+
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat(undefined, {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(date)
 }
 
 function reasonText(reason?: string): string {
@@ -440,6 +514,10 @@ function milestoneButtonText(milestone: WelfareDailyCheckinMilestone): string {
 
 function goToTrialActivation(): void {
   void router.push('/keys')
+}
+
+function goToRecharge(): void {
+  void router.push('/purchase')
 }
 
 function extractErrorMessage(err: unknown, fallback: string): string {

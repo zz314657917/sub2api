@@ -618,7 +618,7 @@ var ProviderSet = wire.NewSet(
 	NewImageCreatorStorageGovernanceService,
 	NewWelfareService,
 	ProvidePaymentConfigService,
-	NewPaymentService,
+	ProvidePaymentService,
 	ProvidePaymentOrderExpiryService,
 	ProvideBalanceNotifyService,
 	ProvideChannelMonitorService,
@@ -630,6 +630,25 @@ var ProviderSet = wire.NewSet(
 // payment.EncryptionKey type instead of raw []byte, avoiding Wire ambiguity.
 func ProvidePaymentConfigService(entClient *dbent.Client, settingRepo SettingRepository, key payment.EncryptionKey) *PaymentConfigService {
 	return NewPaymentConfigService(entClient, settingRepo, []byte(key))
+}
+
+// ProvidePaymentService wires optional welfare hooks after constructing the core payment service.
+func ProvidePaymentService(
+	entClient *dbent.Client,
+	registry *payment.Registry,
+	loadBalancer payment.LoadBalancer,
+	redeemService *RedeemService,
+	subscriptionSvc *SubscriptionService,
+	configService *PaymentConfigService,
+	userRepo UserRepository,
+	groupRepo GroupRepository,
+	affiliateService *AffiliateService,
+	welfareService *WelfareService,
+	membershipSvc *MembershipService,
+) *PaymentService {
+	svc := NewPaymentService(entClient, registry, loadBalancer, redeemService, subscriptionSvc, configService, userRepo, groupRepo, affiliateService, membershipSvc)
+	svc.SetWelfareService(welfareService)
+	return svc
 }
 
 // ProvideBalanceNotifyService creates BalanceNotifyService

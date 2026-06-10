@@ -6,13 +6,15 @@ export default {
     notOpen: 'Not open',
     disabledTitle: 'Welfare is not enabled',
     disabledDescription: 'This site has not opened the welfare system yet.',
+    emptyTitle: 'No welfare available',
+    emptyDescription: 'There are no open welfare items right now.',
     errorTitle: 'Failed to load welfare',
     loadFailed: 'Failed to load welfare details',
     retry: 'Retry',
     modules: {
       newUserTrial: 'New User Trial',
       daily: 'Daily Check-in',
-      recharge: 'Recharge Rewards',
+      recharge: 'First Recharge Bonus',
       vip: 'VIP Benefits',
     },
     reason: {
@@ -50,6 +52,14 @@ export default {
         inProgress: 'Requesting',
         exhausted: 'Completed',
       },
+    },
+    recharge: {
+      title: 'First Recharge Bonus',
+      description: 'Recharge any positive amount for the first time and automatically receive {amount} balance after payment succeeds.',
+      pending: 'Awaiting first recharge',
+      claimed: 'Granted',
+      claimedAt: 'Granted at: {time}',
+      cta: 'Recharge',
     },
     daily: {
       title: 'Daily Check-in',

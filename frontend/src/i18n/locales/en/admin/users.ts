@@ -165,6 +165,7 @@ export default {
       typeAffiliateBalance: 'Balance (Affiliate Transfer)',
       typeLeaderboardReward: 'Balance (Leaderboard Reward)',
       typeNewUserReward: 'Balance (New User Reward)',
+      typeFirstRechargeBonus: 'Balance (First Recharge Bonus)',
       typeAdminBalance: 'Balance (Admin)',
       typeConcurrency: 'Concurrency (Redeem)',
       typeAdminConcurrency: 'Concurrency (Admin)',

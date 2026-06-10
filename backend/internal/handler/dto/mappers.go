@@ -601,7 +601,7 @@ func redeemCodeFromServiceBase(rc *service.RedeemCode) RedeemCode {
 
 	// Expose notes for system-generated or admin adjustment records so operators
 	// can see why balance changed.
-	if (rc.Type == "admin_balance" || rc.Type == "admin_concurrency" || rc.Type == service.RedeemTypeNewUserReward) && rc.Notes != "" {
+	if (rc.Type == "admin_balance" || rc.Type == "admin_concurrency" || rc.Type == service.RedeemTypeNewUserReward || rc.Type == service.RedeemTypeFirstRechargeBonus) && rc.Notes != "" {
 		out.Notes = &rc.Notes
 	}
 

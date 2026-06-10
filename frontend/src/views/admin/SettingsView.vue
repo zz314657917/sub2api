@@ -5266,14 +5266,9 @@
               <div class="rounded-md bg-gray-50 p-3 dark:bg-dark-800">
                 <div class="flex items-start justify-between gap-3">
                   <div class="min-w-0">
-                    <div class="flex flex-wrap items-center gap-2">
-                      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                        {{ t('admin.settings.features.welfare.rechargeEnabled') }}
-                      </label>
-                      <span class="rounded-full bg-gray-200 px-2 py-0.5 text-[11px] font-medium text-gray-600 dark:bg-dark-700 dark:text-gray-300">
-                        {{ t('admin.settings.features.welfare.reservedBadge') }}
-                      </span>
-                    </div>
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t('admin.settings.features.welfare.rechargeEnabled') }}
+                    </label>
                     <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                       {{ t('admin.settings.features.welfare.rechargeEnabledHint') }}
                     </p>
@@ -5297,6 +5292,32 @@
                     </p>
                   </div>
                   <Toggle v-model="form.welfare_vip_enabled" />
+                </div>
+              </div>
+            </div>
+
+            <div v-if="form.welfare_recharge_enabled" class="space-y-4 rounded-md border border-gray-200 p-4 dark:border-dark-700">
+              <div>
+                <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                  {{ t('admin.settings.features.welfare.rechargeReward') }}
+                </h3>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.welfare.rechargeRewardHint') }}
+                </p>
+              </div>
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.firstRechargeBonusAmount') }}</label>
+                  <input
+                    v-model.number="form.welfare_first_recharge_bonus_amount"
+                    type="number"
+                    min="0"
+                    step="0.00000001"
+                    class="input"
+                  />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.features.welfare.firstRechargeBonusAmountHint') }}
+                  </p>
                 </div>
               </div>
             </div>
@@ -8049,6 +8070,7 @@ const form = reactive<SettingsForm>({
   welfare_new_user_trial_success_reward_amount: 0,
   welfare_new_user_trial_daily_site_quota_amount: 5,
   welfare_new_user_trial_daily_ip_activation_limit: 3,
+  welfare_first_recharge_bonus_amount: 5,
   leaderboard_daily_reward_enabled: false,
   leaderboard_daily_reward_min_total_actual_cost: 0,
   leaderboard_daily_reward_rank_1_amount: 0,
@@ -9227,6 +9249,10 @@ async function saveSettings() {
       0,
       Math.floor(Number(form.welfare_daily_checkin_min_account_age_hours) || 0),
     );
+    const welfareFirstRechargeBonusAmount = Math.max(
+      0,
+      Number(form.welfare_first_recharge_bonus_amount) || 0,
+    );
 
     const payload: UpdateSettingsRequest = {
       registration_enabled: form.registration_enabled,
@@ -9491,6 +9517,7 @@ async function saveSettings() {
         welfareNewUserTrialDailySiteQuotaAmount,
       welfare_new_user_trial_daily_ip_activation_limit:
         welfareNewUserTrialDailyIPActivationLimit,
+      welfare_first_recharge_bonus_amount: welfareFirstRechargeBonusAmount,
       leaderboard_daily_reward_enabled: form.leaderboard_daily_reward_enabled,
       leaderboard_daily_reward_min_total_actual_cost: Math.max(
         0,

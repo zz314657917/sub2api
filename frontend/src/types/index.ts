@@ -1222,6 +1222,15 @@ export interface WelfareOverview {
   }
   daily_checkin?: WelfareDailyCheckin | null
   new_user_trial?: WelfareNewUserTrial | null
+  recharge?: WelfareRecharge | null
+}
+
+export interface WelfareRecharge {
+  enabled: boolean
+  first_bonus_amount: number
+  first_bonus_claimed: boolean
+  first_bonus_claimed_at?: string | null
+  reason: string
 }
 
 export interface WelfareNewUserTrial {
@@ -1645,6 +1654,7 @@ export type RedeemCodeType =
   | 'invitation'
   | 'leaderboard_reward'
   | 'new_user_reward'
+  | 'first_recharge_bonus'
   | 'daily_checkin'
   | 'checkin_milestone'
 export type UsageRequestType = 'unknown' | 'sync' | 'stream' | 'ws_v2'

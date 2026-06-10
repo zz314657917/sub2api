@@ -384,6 +384,7 @@ const isBalanceType = (type: string) => {
     'admin_balance',
     'leaderboard_reward',
     'new_user_reward',
+    'first_recharge_bonus',
     'daily_checkin',
     'checkin_milestone',
   ].includes(type)
@@ -404,6 +405,8 @@ const getHistoryItemTitle = (item: RedeemHistoryItem) => {
     return item.value >= 0 ? t('redeem.balanceAddedAdmin') : t('redeem.balanceDeductedAdmin')
   } else if (item.type === 'new_user_reward') {
     return t('redeem.balanceAddedNewUserReward')
+  } else if (item.type === 'first_recharge_bonus') {
+    return t('redeem.balanceAddedFirstRechargeBonus')
   } else if (
     item.type === 'leaderboard_reward' ||
     item.type === 'daily_checkin' ||

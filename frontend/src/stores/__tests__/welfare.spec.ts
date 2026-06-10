@@ -15,8 +15,14 @@ const baseOverview = (overrides: Partial<WelfareOverview> = {}): WelfareOverview
   modules: {
     daily_checkin: true,
     new_user_trial: true,
-    recharge: false,
+    recharge: true,
     vip: false,
+  },
+  recharge: {
+    enabled: true,
+    first_bonus_amount: 5,
+    first_bonus_claimed: false,
+    reason: 'available',
   },
   daily_checkin: {
     enabled: true,
@@ -96,6 +102,20 @@ describe('useWelfareStore', () => {
   it('does not mark available trial quota itself as claimable balance', () => {
     const store = useWelfareStore()
     store.setOverview(baseOverview())
+
+    expect(store.hasClaimableReward).toBe(false)
+  })
+
+  it('does not mark first recharge bonus as a manual claimable reward', () => {
+    const store = useWelfareStore()
+    store.setOverview(baseOverview({
+      recharge: {
+        enabled: true,
+        first_bonus_amount: 5,
+        first_bonus_claimed: false,
+        reason: 'available',
+      },
+    }))
 
     expect(store.hasClaimableReward).toBe(false)
   })

@@ -6,13 +6,15 @@ export default {
     notOpen: '未开放',
     disabledTitle: '福利系统暂未开启',
     disabledDescription: '当前站点尚未开放福利系统。',
+    emptyTitle: '暂无可用福利',
+    emptyDescription: '当前没有已开放的福利项目。',
     errorTitle: '福利加载失败',
     loadFailed: '加载福利信息失败',
     retry: '重试',
     modules: {
       newUserTrial: '新手试用',
       daily: '每日签到',
-      recharge: '累计充值',
+      recharge: '首冲福利',
       vip: 'VIP 福利',
     },
     reason: {
@@ -50,6 +52,14 @@ export default {
         inProgress: '请求中',
         exhausted: '已完成',
       },
+    },
+    recharge: {
+      title: '首冲福利',
+      description: '首次充值任意金额，到账后自动赠送 {amount} 余额。',
+      pending: '待首充',
+      claimed: '已发放',
+      claimedAt: '发放时间：{time}',
+      cta: '去充值',
     },
     daily: {
       title: '每日签到',

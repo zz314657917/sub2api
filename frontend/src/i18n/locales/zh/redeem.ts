@@ -26,6 +26,7 @@ export default {
     balanceAddedAffiliate: '余额充值（返利转入）',
     balanceAddedLeaderboardReward: '余额充值（排行榜奖励）',
     balanceAddedNewUserReward: '余额充值（新手试用奖励）',
+    balanceAddedFirstRechargeBonus: '余额充值（首冲赠送）',
     system: '系统',
     balanceAddedAdmin: '余额充值（管理员）',
     balanceDeductedAdmin: '余额扣除（管理员）',

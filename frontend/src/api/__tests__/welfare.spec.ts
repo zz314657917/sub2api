@@ -43,8 +43,14 @@ describe('welfare api', () => {
         modules: {
           daily_checkin: true,
           new_user_trial: true,
-          recharge: false,
+          recharge: true,
           vip: false,
+        },
+        recharge: {
+          enabled: true,
+          first_bonus_amount: 5,
+          first_bonus_claimed: false,
+          reason: 'available',
         },
         new_user_trial: {
           enabled: true,
@@ -70,6 +76,8 @@ describe('welfare api', () => {
     expect(overview.new_user_trial?.success_reward_amount).toBe(2)
     expect(overview.new_user_trial?.success_reward_claimable).toBe(true)
     expect(overview.new_user_trial?.status).toBe('active')
+    expect(overview.recharge?.first_bonus_amount).toBe(5)
+    expect(overview.recharge?.first_bonus_claimed).toBe(false)
   })
 
   it('loads daily checkin status', async () => {

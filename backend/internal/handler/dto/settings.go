@@ -248,6 +248,7 @@ type SystemSettings struct {
 	WelfareDailyCheckinEnabled                bool    `json:"welfare_daily_checkin_enabled"`
 	WelfareRechargeEnabled                    bool    `json:"welfare_recharge_enabled"`
 	WelfareVIPEnabled                         bool    `json:"welfare_vip_enabled"`
+	WelfareFirstRechargeBonusAmount           float64 `json:"welfare_first_recharge_bonus_amount"`
 	WelfareDailyCheckinRewardMin              float64 `json:"welfare_daily_checkin_reward_min"`
 	WelfareDailyCheckinRewardMax              float64 `json:"welfare_daily_checkin_reward_max"`
 	WelfareDailyCheckinMinAccountAgeHours     int     `json:"welfare_daily_checkin_min_account_age_hours"`
