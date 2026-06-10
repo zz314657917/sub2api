@@ -857,7 +857,7 @@ totp:
 # External Studio Bridge
 # 外部创作站桥接
 # =============================================================================
-# Configure Luoye AI launch URL, allowed return domains, recharge return URL,
+# Configure Luoye Creative launch URL, allowed return domains, recharge return URL,
 # and default chat/image/video groups in the admin system settings.
 # Set STUDIO_BRIDGE_LUOYE_AI_INTERNAL_SECRET in deploy/.env for
 # backend-to-backend studio bridge calls.

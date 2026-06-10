@@ -157,7 +157,7 @@
             </td>
           </tr>
           <tr
-            v-for="virtualRow in virtualItems"
+            v-for="virtualRow in renderedVirtualRows"
             :key="resolveRowKey(sortedData[virtualRow.index], virtualRow.index)"
             :data-row-id="resolveRowKey(sortedData[virtualRow.index], virtualRow.index)"
             :data-index="virtualRow.index"
@@ -581,6 +581,13 @@ const rowVirtualizer = useVirtualizer(computed(() => ({
 })))
 
 const virtualItems = computed(() => rowVirtualizer.value.getVirtualItems())
+
+const renderedVirtualRows = computed(() => {
+  const items = virtualItems.value
+  if (items.length > 0 || !isDesktopViewport.value) return items
+  const dataLength = sortedData.value?.length ?? 0
+  return Array.from({ length: dataLength }, (_, index) => ({ index, start: 0, end: 0 }))
+})
 
 const virtualPaddingTop = computed(() => {
   const items = virtualItems.value

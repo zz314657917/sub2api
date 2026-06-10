@@ -5995,7 +5995,7 @@
                   v-model="form.studio_bridge_luoye_ai.site_name"
                   type="text"
                   class="input"
-                  placeholder="落叶AI"
+                  placeholder="落叶创艺"
                 />
               </div>
               <div>
@@ -6019,7 +6019,7 @@
                   placeholder="http://127.0.0.1:62080/purchase"
                 />
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  落叶AI余额和头像菜单里的充值，会新开页面跳转到这里。
+                  落叶创艺余额和头像菜单里的充值，会新开页面跳转到这里。
                 </p>
               </div>
               <div>
@@ -7788,7 +7788,7 @@ function normalizeStudioBridgeFormSettings(
 ): StudioBridgeAppSettings {
   return {
     enabled: value?.enabled === true,
-    site_name: value?.site_name || "落叶AI",
+    site_name: value?.site_name || "落叶创艺",
     allowed_return_domains: Array.isArray(value?.allowed_return_domains)
       ? value.allowed_return_domains.map((item) => String(item).trim()).filter(Boolean)
       : [],
@@ -8307,12 +8307,6 @@ function studioBridgeGroupOptions(
 ): StudioBridgeGroupOption[] {
   const currentValue = String(form.studio_bridge_luoye_ai[field] || "").trim();
   const options: StudioBridgeGroupOption[] = [
-    {
-      value: "",
-      label: "不指定，使用系统默认调度",
-      description: "落叶AI请求不会额外传 group_id，由 Sub2API 按默认规则调度。",
-      kind: "empty",
-    },
     ...studioBridgeBaseGroupOptions.value,
   ];
   if (
@@ -8327,6 +8321,18 @@ function studioBridgeGroupOptions(
     });
   }
   return options;
+}
+
+function validateStudioBridgeSettings(): boolean {
+  if (!form.studio_bridge_luoye_ai.enabled) return true;
+  if (
+    !form.studio_bridge_luoye_ai.default_chat_group.trim() ||
+    !form.studio_bridge_luoye_ai.default_image_group.trim()
+  ) {
+    appStore.showError("外部创作站桥接启用时必须选择默认聊天和生图分组。");
+    return false;
+  }
+  return true;
 }
 
 const membershipSubscriptionGroupOptions = computed(() => [
@@ -9042,6 +9048,7 @@ function findDuplicateDefaultSubscription(
 async function saveSettings() {
   saving.value = true;
   try {
+    if (!validateStudioBridgeSettings()) return;
     const normalizedTableDefaultPageSize = Math.floor(
       Number(form.table_default_page_size),
     );
@@ -9412,7 +9419,7 @@ async function saveSettings() {
         form.payment_cancel_rate_limit_window_mode,
       studio_bridge_luoye_ai: {
         enabled: form.studio_bridge_luoye_ai.enabled,
-        site_name: form.studio_bridge_luoye_ai.site_name.trim() || "落叶AI",
+        site_name: form.studio_bridge_luoye_ai.site_name.trim() || "落叶创艺",
         allowed_return_domains:
           (Array.isArray(form.studio_bridge_luoye_ai.allowed_return_domains)
             ? form.studio_bridge_luoye_ai.allowed_return_domains

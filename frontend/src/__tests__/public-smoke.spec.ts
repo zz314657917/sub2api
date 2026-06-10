@@ -24,7 +24,7 @@ describe('public page smoke contracts', () => {
     expect(router).toMatch(/BACKEND_MODE_ALLOWED_PATHS[\s\S]*?'\/models'/)
   })
 
-  it('routes chat image entry to the Luoye AI launch workspace', () => {
+  it('routes chat image entry to the Luoye Creative launch workspace', () => {
     expect(router).toContain("path: '/chat-images'")
     expect(router).toContain("alias: '/studio-bridge/launch'")
     expect(router).toContain("name: 'ChatImageStudio'")

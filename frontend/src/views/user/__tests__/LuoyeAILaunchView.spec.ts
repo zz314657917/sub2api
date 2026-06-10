@@ -66,7 +66,7 @@ describe('LuoyeAILaunchView', () => {
     vi.restoreAllMocks()
   })
 
-  it('launches Luoye AI through the studio bridge in the current tab', async () => {
+  it('launches Luoye Creative through the studio bridge in the current tab', async () => {
     mountView()
     await flushPromises()
 

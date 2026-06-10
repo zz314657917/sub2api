@@ -24,10 +24,8 @@ const (
 )
 
 const (
-	studioBridgeTokenKeyPrefix  = "sub2api:studio_bridge:launch:"
-	studioBridgeChargeKeyPrefix = "sub2api:studio_bridge:charge:"
-	studioBridgeTokenTTL        = 5 * time.Minute
-	studioBridgeChargeTTL       = 72 * time.Hour
+	studioBridgeTokenKeyPrefix = "sub2api:studio_bridge:launch:"
+	studioBridgeTokenTTL       = 5 * time.Minute
 )
 
 var (
@@ -40,6 +38,7 @@ var (
 	ErrStudioBridgeAmountInvalid  = infraerrors.BadRequest("STUDIO_BRIDGE_AMOUNT_INVALID", "amount must be positive")
 	ErrStudioBridgeConflict       = infraerrors.Conflict("STUDIO_BRIDGE_CHARGE_CONFLICT", "charge_key fingerprint conflict")
 	ErrStudioBridgeInsufficient   = infraerrors.BadRequest("STUDIO_BRIDGE_INSUFFICIENT_BALANCE", "insufficient balance")
+	ErrStudioBridgeGroupRequired  = infraerrors.BadRequest("STUDIO_BRIDGE_GROUP_REQUIRED", "default chat and image studio bridge groups are required when studio bridge is enabled")
 )
 
 type StudioBridgeService struct {
@@ -50,14 +49,14 @@ type StudioBridgeService struct {
 
 type StudioBridgeStore interface {
 	Set(ctx context.Context, key string, payload []byte, ttl time.Duration) error
-	Get(ctx context.Context, key string) ([]byte, bool, error)
 	GetDel(ctx context.Context, key string) ([]byte, bool, error)
 }
 
 type StudioBridgeRepository interface {
 	GetUserSummary(ctx context.Context, userID int64, rechargeURL string, usageLimit int) (*StudioBridgeUserSummary, error)
-	ReserveCharge(ctx context.Context, userID int64, amount float64) (float64, error)
-	RefundCharge(ctx context.Context, userID int64, amount float64) (float64, error)
+	ReserveStudioBridgeCharge(ctx context.Context, cmd StudioBridgeChargeCommand) (*StudioBridgeChargeResult, error)
+	CommitStudioBridgeCharge(ctx context.Context, cmd StudioBridgeChargeCommand) (*StudioBridgeChargeResult, error)
+	RefundStudioBridgeCharge(ctx context.Context, cmd StudioBridgeChargeCommand) (*StudioBridgeChargeResult, error)
 }
 
 type StudioBridgeAppSettings struct {
@@ -114,11 +113,17 @@ type StudioBridgeRechargeOrder struct {
 }
 
 type StudioBridgeChargeCommand struct {
-	AppID     string  `json:"app_id"`
-	UserID    int64   `json:"user_id"`
-	ChargeKey string  `json:"charge_key"`
-	Amount    float64 `json:"amount"`
-	Reason    string  `json:"reason"`
+	AppID              string  `json:"app_id"`
+	UserID             int64   `json:"user_id"`
+	ChargeKey          string  `json:"charge_key"`
+	RefundForChargeKey string  `json:"refund_for_charge_key,omitempty"`
+	Amount             float64 `json:"amount"`
+	Reason             string  `json:"reason"`
+	TaskID             string  `json:"task_id,omitempty"`
+	Mode               string  `json:"mode,omitempty"`
+	Model              string  `json:"model,omitempty"`
+	ActorUserID        string  `json:"actor_user_id,omitempty"`
+	TeamID             string  `json:"team_id,omitempty"`
 }
 
 type StudioBridgeChargeResult struct {
@@ -133,16 +138,6 @@ type studioBridgeLaunchPayload struct {
 	AppID     string    `json:"app_id"`
 	UserID    int64     `json:"user_id"`
 	ExpiresAt time.Time `json:"expires_at"`
-}
-
-type studioBridgeChargeState struct {
-	Fingerprint  string    `json:"fingerprint"`
-	UserID       int64     `json:"user_id"`
-	Amount       float64   `json:"amount"`
-	Reason       string    `json:"reason"`
-	Status       string    `json:"status"`
-	BalanceAfter float64   `json:"balance_after"`
-	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 func NewStudioBridgeService(settings *SettingService, repo StudioBridgeRepository, store StudioBridgeStore) *StudioBridgeService {
@@ -259,9 +254,7 @@ func (s *StudioBridgeService) Reserve(ctx context.Context, cmd StudioBridgeCharg
 	if err := normalizeStudioBridgeChargeCommand(&cmd); err != nil {
 		return nil, err
 	}
-	return s.applyCharge(ctx, cmd, "reserved", func() (float64, error) {
-		return s.repo.ReserveCharge(ctx, cmd.UserID, cmd.Amount)
-	})
+	return s.repo.ReserveStudioBridgeCharge(ctx, cmd)
 }
 
 func (s *StudioBridgeService) Commit(ctx context.Context, cmd StudioBridgeChargeCommand, secret string) (*StudioBridgeChargeResult, error) {
@@ -275,7 +268,7 @@ func (s *StudioBridgeService) Commit(ctx context.Context, cmd StudioBridgeCharge
 	if err := normalizeStudioBridgeChargeCommand(&cmd); err != nil {
 		return nil, err
 	}
-	return s.transitionCharge(ctx, cmd, "committed")
+	return s.repo.CommitStudioBridgeCharge(ctx, cmd)
 }
 
 func (s *StudioBridgeService) Refund(ctx context.Context, cmd StudioBridgeChargeCommand, secret string) (*StudioBridgeChargeResult, error) {
@@ -289,98 +282,7 @@ func (s *StudioBridgeService) Refund(ctx context.Context, cmd StudioBridgeCharge
 	if err := normalizeStudioBridgeChargeCommand(&cmd); err != nil {
 		return nil, err
 	}
-	return s.applyCharge(ctx, cmd, "refunded", func() (float64, error) {
-		return s.repo.RefundCharge(ctx, cmd.UserID, cmd.Amount)
-	})
-}
-
-func (s *StudioBridgeService) applyCharge(ctx context.Context, cmd StudioBridgeChargeCommand, targetStatus string, apply func() (float64, error)) (*StudioBridgeChargeResult, error) {
-	if s.store == nil {
-		return nil, infraerrors.InternalServer("STUDIO_BRIDGE_STORE_UNAVAILABLE", "studio bridge charge store is unavailable")
-	}
-	key := studioBridgeChargeKeyPrefix + cmd.AppID + ":" + cmd.ChargeKey
-	fingerprint := studioBridgeChargeFingerprint(cmd)
-	if existing, ok, err := s.loadChargeState(ctx, key); err != nil {
-		return nil, err
-	} else if ok {
-		if existing.Fingerprint != fingerprint {
-			return nil, ErrStudioBridgeConflict
-		}
-		return &StudioBridgeChargeResult{
-			ChargeKey:    cmd.ChargeKey,
-			Status:       existing.Status,
-			Applied:      false,
-			Amount:       existing.Amount,
-			BalanceAfter: existing.BalanceAfter,
-		}, nil
-	}
-	balanceAfter, err := apply()
-	if err != nil {
-		return nil, err
-	}
-	state := studioBridgeChargeState{
-		Fingerprint:  fingerprint,
-		UserID:       cmd.UserID,
-		Amount:       cmd.Amount,
-		Reason:       cmd.Reason,
-		Status:       targetStatus,
-		BalanceAfter: balanceAfter,
-		UpdatedAt:    time.Now().UTC(),
-	}
-	if err := s.storeChargeState(ctx, key, state); err != nil {
-		return nil, err
-	}
-	return &StudioBridgeChargeResult{ChargeKey: cmd.ChargeKey, Status: targetStatus, Applied: true, Amount: cmd.Amount, BalanceAfter: balanceAfter}, nil
-}
-
-func (s *StudioBridgeService) transitionCharge(ctx context.Context, cmd StudioBridgeChargeCommand, targetStatus string) (*StudioBridgeChargeResult, error) {
-	if s.store == nil {
-		return nil, infraerrors.InternalServer("STUDIO_BRIDGE_STORE_UNAVAILABLE", "studio bridge charge store is unavailable")
-	}
-	key := studioBridgeChargeKeyPrefix + cmd.AppID + ":" + cmd.ChargeKey
-	fingerprint := studioBridgeChargeFingerprint(cmd)
-	state, ok, err := s.loadChargeState(ctx, key)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
-		return nil, ErrStudioBridgeChargeKeyEmpty
-	}
-	if state.Fingerprint != fingerprint {
-		return nil, ErrStudioBridgeConflict
-	}
-	if state.Status == targetStatus {
-		return &StudioBridgeChargeResult{ChargeKey: cmd.ChargeKey, Status: state.Status, Applied: false, Amount: state.Amount, BalanceAfter: state.BalanceAfter}, nil
-	}
-	if state.Status == "refunded" {
-		return &StudioBridgeChargeResult{ChargeKey: cmd.ChargeKey, Status: state.Status, Applied: false, Amount: state.Amount, BalanceAfter: state.BalanceAfter}, nil
-	}
-	state.Status = targetStatus
-	state.UpdatedAt = time.Now().UTC()
-	if err := s.storeChargeState(ctx, key, *state); err != nil {
-		return nil, err
-	}
-	return &StudioBridgeChargeResult{ChargeKey: cmd.ChargeKey, Status: targetStatus, Applied: true, Amount: state.Amount, BalanceAfter: state.BalanceAfter}, nil
-}
-
-func (s *StudioBridgeService) loadChargeState(ctx context.Context, key string) (*studioBridgeChargeState, bool, error) {
-	raw, ok, err := s.store.Get(ctx, key)
-	if err != nil || !ok {
-		return nil, ok, err
-	}
-	var state studioBridgeChargeState
-	if err := json.Unmarshal(raw, &state); err != nil {
-		return nil, false, err
-	}
-	return &state, true, nil
-}
-
-func (s *StudioBridgeService) storeChargeState(ctx context.Context, key string, state studioBridgeChargeState) error {
-	raw, err := json.Marshal(state)
-	if err != nil {
-		return err
-	}
-	return s.store.Set(ctx, key, raw, studioBridgeChargeTTL)
+	return s.repo.RefundStudioBridgeCharge(ctx, cmd)
 }
 
 func (s *StudioBridgeService) loadEnabledApp(ctx context.Context, appID string) (*StudioBridgeAppSettings, error) {
@@ -397,12 +299,15 @@ func (s *StudioBridgeService) loadEnabledApp(ctx context.Context, appID string) 
 	if !full.Enabled {
 		return nil, ErrStudioBridgeDisabled
 	}
+	if err := validateStudioBridgeAppSettings(*full); err != nil {
+		return nil, err
+	}
 	return full, nil
 }
 
 func defaultStudioBridgeAppSettings() *StudioBridgeAppSettings {
 	return &StudioBridgeAppSettings{
-		SiteName:             "落叶AI",
+		SiteName:             "落叶创艺",
 		AllowedReturnDomains: []string{},
 		LaunchReturnURL:      defaultStudioBridgeLaunchReturnURL,
 		RechargeReturnURL:    defaultStudioBridgeRechargeURL,
@@ -429,7 +334,13 @@ func normalizeStudioBridgeChargeCommand(cmd *StudioBridgeChargeCommand) error {
 		cmd.AppID = StudioBridgeAppLuoyeAI
 	}
 	cmd.ChargeKey = strings.TrimSpace(cmd.ChargeKey)
+	cmd.RefundForChargeKey = strings.TrimSpace(cmd.RefundForChargeKey)
 	cmd.Reason = strings.TrimSpace(cmd.Reason)
+	cmd.TaskID = strings.TrimSpace(cmd.TaskID)
+	cmd.Mode = strings.TrimSpace(cmd.Mode)
+	cmd.Model = strings.TrimSpace(cmd.Model)
+	cmd.ActorUserID = strings.TrimSpace(cmd.ActorUserID)
+	cmd.TeamID = strings.TrimSpace(cmd.TeamID)
 	if cmd.ChargeKey == "" {
 		return ErrStudioBridgeChargeKeyEmpty
 	}
@@ -440,7 +351,11 @@ func normalizeStudioBridgeChargeCommand(cmd *StudioBridgeChargeCommand) error {
 }
 
 func studioBridgeChargeFingerprint(cmd StudioBridgeChargeCommand) string {
-	return fmt.Sprintf("%s|%d|%s|%.8f", cmd.AppID, cmd.UserID, cmd.ChargeKey, cmd.Amount)
+	return cmd.Fingerprint()
+}
+
+func (cmd StudioBridgeChargeCommand) Fingerprint() string {
+	return fmt.Sprintf("%s|%d|%s|%s|%.8f", cmd.AppID, cmd.UserID, cmd.ChargeKey, cmd.RefundForChargeKey, cmd.Amount)
 }
 
 func resolveStudioBridgeLaunchTarget(returnURL string, cfg *StudioBridgeAppSettings) (*url.URL, error) {

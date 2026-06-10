@@ -13,3 +13,13 @@ func IsStudioBridgeGatewayContext(ctx context.Context) bool {
 	value, _ := ctx.Value(ctxkey.StudioBridgeGateway).(bool)
 	return value
 }
+
+func skipStudioBridgeGatewayUsageBilling(ctx context.Context, account *Account, deferredService *DeferredService) bool {
+	if !IsStudioBridgeGatewayContext(ctx) {
+		return false
+	}
+	if account != nil && deferredService != nil {
+		deferredService.ScheduleLastUsedUpdate(account.ID)
+	}
+	return true
+}

@@ -310,29 +310,29 @@
                   <div class="inline-flex items-center gap-1">
                     <Icon name="arrowDown" size="sm" class="text-emerald-500" />
                     <span class="font-medium text-gray-900 dark:text-white">{{
-                      row.input_tokens.toLocaleString()
+                      formatNumber(row.input_tokens)
                     }}</span>
                   </div>
                   <!-- Output -->
                   <div class="inline-flex items-center gap-1">
                     <Icon name="arrowUp" size="sm" class="text-violet-500" />
                     <span class="font-medium text-gray-900 dark:text-white">{{
-                      row.output_tokens.toLocaleString()
+                      formatNumber(row.output_tokens)
                     }}</span>
                   </div>
                 </div>
                 <!-- Cache Write Tokens -->
                 <div
-                  v-if="row.cache_creation_tokens > 0"
+                  v-if="hasPositiveNumber(row.cache_creation_tokens)"
                   class="flex items-center gap-2"
                 >
                   <!-- Cache Write -->
                   <div class="inline-flex items-center gap-1">
                     <Icon name="edit" size="sm" class="text-amber-500" />
                     <span class="font-medium text-amber-600 dark:text-amber-400">{{
-                      formatCacheTokens(row.cache_creation_tokens)
+                      formatCacheTokens(toFiniteNumber(row.cache_creation_tokens))
                     }}</span>
-                    <span v-if="row.cache_creation_1h_tokens > 0" class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-orange-100 text-orange-600 ring-1 ring-inset ring-orange-200 dark:bg-orange-500/20 dark:text-orange-400 dark:ring-orange-500/30">1h</span>
+                    <span v-if="hasPositiveNumber(row.cache_creation_1h_tokens)" class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-orange-100 text-orange-600 ring-1 ring-inset ring-orange-200 dark:bg-orange-500/20 dark:text-orange-400 dark:ring-orange-500/30">1h</span>
                     <span v-if="row.cache_ttl_overridden" :title="t('usage.cacheTtlOverriddenHint')" class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-rose-100 text-rose-600 ring-1 ring-inset ring-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:ring-rose-500/30 cursor-help">R</span>
                   </div>
                 </div>
@@ -358,13 +358,13 @@
 
           <template #cell-cache_read="{ row }">
             <div
-              v-if="!isImageUsage(row) && row.cache_read_tokens > 0"
+              v-if="!isImageUsage(row) && hasPositiveNumber(row.cache_read_tokens)"
               class="inline-flex items-center gap-1 text-sm"
-              :title="row.cache_read_tokens.toLocaleString()"
+              :title="formatNumber(row.cache_read_tokens)"
             >
               <Icon name="database" size="sm" class="h-3.5 w-3.5 text-sky-500" />
               <span class="font-medium text-sky-600 dark:text-sky-400">
-                {{ formatCacheTokens(row.cache_read_tokens) }}
+                {{ formatCacheTokens(toFiniteNumber(row.cache_read_tokens)) }}
               </span>
             </div>
             <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
@@ -374,10 +374,10 @@
             <div class="flex items-center gap-1.5 text-sm">
               <div class="flex flex-col items-start leading-tight">
                 <span class="text-xs text-gray-400 line-through dark:text-gray-500">
-                  ${{ row.total_cost.toFixed(6) }}
+                  ${{ formatCostFixed(row.total_cost) }}
                 </span>
                 <span class="font-medium text-green-600 dark:text-green-400">
-                  ${{ row.actual_cost.toFixed(6) }}
+                  ${{ formatCostFixed(row.actual_cost) }}
                 </span>
               </div>
               <!-- Cost Detail Tooltip -->
@@ -475,52 +475,52 @@
             <div class="text-xs font-semibold text-gray-300 mb-1">{{ t('usage.tokenDetails') }}</div>
             <div v-if="tokenTooltipData && tokenTooltipData.input_tokens > 0" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.inputTokens') }}</span>
-              <span class="font-medium text-white">{{ tokenTooltipData.input_tokens.toLocaleString() }}</span>
+              <span class="font-medium text-white">{{ formatNumber(tokenTooltipData.input_tokens) }}</span>
             </div>
             <div v-if="tokenTooltipData && tokenTooltipData.output_tokens > 0" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.outputTokens') }}</span>
-              <span class="font-medium text-white">{{ tokenTooltipData.output_tokens.toLocaleString() }}</span>
+              <span class="font-medium text-white">{{ formatNumber(tokenTooltipData.output_tokens) }}</span>
             </div>
-            <div v-if="tokenTooltipData && tokenTooltipData.cache_creation_tokens > 0">
+            <div v-if="tokenTooltipData && hasPositiveNumber(tokenTooltipData.cache_creation_tokens)">
               <!-- 有 5m/1h 明细时，展开显示 -->
-              <template v-if="tokenTooltipData.cache_creation_5m_tokens > 0 || tokenTooltipData.cache_creation_1h_tokens > 0">
-                <div v-if="tokenTooltipData.cache_creation_5m_tokens > 0" class="flex items-center justify-between gap-4">
+              <template v-if="hasPositiveNumber(tokenTooltipData.cache_creation_5m_tokens) || hasPositiveNumber(tokenTooltipData.cache_creation_1h_tokens)">
+                <div v-if="hasPositiveNumber(tokenTooltipData.cache_creation_5m_tokens)" class="flex items-center justify-between gap-4">
                   <span class="text-gray-400 flex items-center gap-1.5">
                     {{ t('admin.usage.cacheCreation5mTokens') }}
                     <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-amber-500/20 text-amber-400 ring-1 ring-inset ring-amber-500/30">5m</span>
                   </span>
-                  <span class="font-medium text-white">{{ tokenTooltipData.cache_creation_5m_tokens.toLocaleString() }}</span>
+                  <span class="font-medium text-white">{{ formatNumber(tokenTooltipData.cache_creation_5m_tokens) }}</span>
                 </div>
-                <div v-if="tokenTooltipData.cache_creation_1h_tokens > 0" class="flex items-center justify-between gap-4">
+                <div v-if="hasPositiveNumber(tokenTooltipData.cache_creation_1h_tokens)" class="flex items-center justify-between gap-4">
                   <span class="text-gray-400 flex items-center gap-1.5">
                     {{ t('admin.usage.cacheCreation1hTokens') }}
                     <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-orange-500/20 text-orange-400 ring-1 ring-inset ring-orange-500/30">1h</span>
                   </span>
-                  <span class="font-medium text-white">{{ tokenTooltipData.cache_creation_1h_tokens.toLocaleString() }}</span>
+                  <span class="font-medium text-white">{{ formatNumber(tokenTooltipData.cache_creation_1h_tokens) }}</span>
                 </div>
               </template>
               <!-- 无明细时，只显示聚合值 -->
               <div v-else class="flex items-center justify-between gap-4">
                 <span class="text-gray-400">{{ t('admin.usage.cacheCreationTokens') }}</span>
-                <span class="font-medium text-white">{{ tokenTooltipData.cache_creation_tokens.toLocaleString() }}</span>
+                <span class="font-medium text-white">{{ formatNumber(tokenTooltipData.cache_creation_tokens) }}</span>
               </div>
             </div>
             <div v-if="tokenTooltipData && tokenTooltipData.cache_ttl_overridden" class="flex items-center justify-between gap-4">
               <span class="text-gray-400 flex items-center gap-1.5">
                 {{ t('usage.cacheTtlOverriddenLabel') }}
-                <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-rose-500/20 text-rose-400 ring-1 ring-inset ring-rose-500/30">R-{{ tokenTooltipData.cache_creation_1h_tokens > 0 ? '5m' : '1H' }}</span>
+                <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-rose-500/20 text-rose-400 ring-1 ring-inset ring-rose-500/30">R-{{ hasPositiveNumber(tokenTooltipData.cache_creation_1h_tokens) ? '5m' : '1H' }}</span>
               </span>
-              <span class="font-medium text-rose-400">{{ tokenTooltipData.cache_creation_1h_tokens > 0 ? t('usage.cacheTtlOverridden1h') : t('usage.cacheTtlOverridden5m') }}</span>
+              <span class="font-medium text-rose-400">{{ hasPositiveNumber(tokenTooltipData.cache_creation_1h_tokens) ? t('usage.cacheTtlOverridden1h') : t('usage.cacheTtlOverridden5m') }}</span>
             </div>
-            <div v-if="tokenTooltipData && tokenTooltipData.cache_read_tokens > 0" class="flex items-center justify-between gap-4">
+            <div v-if="tokenTooltipData && hasPositiveNumber(tokenTooltipData.cache_read_tokens)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.cacheReadTokens') }}</span>
-              <span class="font-medium text-white">{{ tokenTooltipData.cache_read_tokens.toLocaleString() }}</span>
+              <span class="font-medium text-white">{{ formatNumber(tokenTooltipData.cache_read_tokens) }}</span>
             </div>
           </div>
           <!-- Total -->
           <div class="flex items-center justify-between gap-6 border-t border-gray-700 pt-1.5">
             <span class="text-gray-400">{{ t('usage.totalTokens') }}</span>
-            <span class="font-semibold text-blue-400">{{ ((tokenTooltipData?.input_tokens || 0) + (tokenTooltipData?.output_tokens || 0) + (tokenTooltipData?.cache_creation_tokens || 0) + (tokenTooltipData?.cache_read_tokens || 0)).toLocaleString() }}</span>
+            <span class="font-semibold text-blue-400">{{ formatNumber((tokenTooltipData?.input_tokens || 0) + (tokenTooltipData?.output_tokens || 0) + (tokenTooltipData?.cache_creation_tokens || 0) + (tokenTooltipData?.cache_read_tokens || 0)) }}</span>
           </div>
         </div>
         <!-- Tooltip Arrow (left side) -->
@@ -548,13 +548,13 @@
           <!-- Cost Breakdown -->
           <div class="mb-2 border-b border-gray-700 pb-1.5">
             <div class="text-xs font-semibold text-gray-300 mb-1">{{ t('usage.costDetails') }}</div>
-            <div v-if="tooltipData && tooltipData.input_cost > 0" class="flex items-center justify-between gap-4">
+            <div v-if="tooltipData && hasPositiveNumber(tooltipData.input_cost)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.inputCost') }}</span>
-              <span class="font-medium text-white">${{ tooltipData.input_cost.toFixed(6) }}</span>
+              <span class="font-medium text-white">${{ formatCostFixed(tooltipData.input_cost) }}</span>
             </div>
-            <div v-if="tooltipData && tooltipData.output_cost > 0" class="flex items-center justify-between gap-4">
+            <div v-if="tooltipData && hasPositiveNumber(tooltipData.output_cost)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.outputCost') }}</span>
-              <span class="font-medium text-white">${{ tooltipData.output_cost.toFixed(6) }}</span>
+              <span class="font-medium text-white">${{ formatCostFixed(tooltipData.output_cost) }}</span>
             </div>
             <!-- Per-image billing: show image metadata and unit price -->
             <template v-if="tooltipData && isImageUsage(tooltipData)">
@@ -584,11 +584,11 @@
               </div>
               <div class="flex items-center justify-between gap-4">
                 <span class="text-gray-400">{{ t('usage.imageUnitPrice') }}</span>
-                <span class="font-medium text-sky-300">${{ imageUnitPrice(tooltipData).toFixed(6) }}</span>
+                <span class="font-medium text-sky-300">${{ formatCostFixed(imageUnitPrice(tooltipData)) }}</span>
               </div>
               <div class="flex items-center justify-between gap-4">
                 <span class="text-gray-400">{{ t('usage.imageTotalPrice') }}</span>
-                <span class="font-medium text-white">${{ tooltipData.total_cost?.toFixed(6) || '0.000000' }}</span>
+                <span class="font-medium text-white">${{ formatCostFixed(tooltipData.total_cost) }}</span>
               </div>
             </template>
             <!-- Token billing: show unit prices per 1M tokens -->
@@ -604,15 +604,15 @@
             </template>
             <div v-else class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('usage.unitPrice') }}</span>
-              <span class="font-medium text-sky-300">${{ tooltipData?.total_cost?.toFixed(6) || '0.000000' }}</span>
+              <span class="font-medium text-sky-300">${{ formatCostFixed(tooltipData?.total_cost) }}</span>
             </div>
-            <div v-if="tooltipData && tooltipData.cache_creation_cost > 0" class="flex items-center justify-between gap-4">
+            <div v-if="tooltipData && hasPositiveNumber(tooltipData.cache_creation_cost)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.cacheCreationCost') }}</span>
-              <span class="font-medium text-white">${{ tooltipData.cache_creation_cost.toFixed(6) }}</span>
+              <span class="font-medium text-white">${{ formatCostFixed(tooltipData.cache_creation_cost) }}</span>
             </div>
-            <div v-if="tooltipData && tooltipData.cache_read_cost > 0" class="flex items-center justify-between gap-4">
+            <div v-if="tooltipData && hasPositiveNumber(tooltipData.cache_read_cost)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.cacheReadCost') }}</span>
-              <span class="font-medium text-white">${{ tooltipData.cache_read_cost.toFixed(6) }}</span>
+              <span class="font-medium text-white">${{ formatCostFixed(tooltipData.cache_read_cost) }}</span>
             </div>
           </div>
           <!-- Rate and Summary -->
@@ -628,12 +628,12 @@
           </div>
           <div class="flex items-center justify-between gap-6">
             <span class="text-gray-400">{{ t('usage.original') }}</span>
-            <span class="font-medium text-white">${{ tooltipData?.total_cost.toFixed(6) }}</span>
+            <span class="font-medium text-white">${{ formatCostFixed(tooltipData?.total_cost) }}</span>
           </div>
           <div class="flex items-center justify-between gap-6 border-t border-gray-700 pt-1.5">
             <span class="text-gray-400">{{ t('usage.billed') }}</span>
             <span class="font-semibold text-green-400"
-              >${{ tooltipData?.actual_cost.toFixed(6) }}</span
+              >${{ formatCostFixed(tooltipData?.actual_cost) }}</span
             >
           </div>
         </div>
@@ -730,10 +730,10 @@
           <section class="space-y-3">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('usage.tokenDetails') }}</h3>
             <div class="grid gap-3 rounded-lg border border-gray-200 p-4 text-sm dark:border-dark-700 md:grid-cols-2">
-              <div>{{ t('usage.in') }}: <span class="font-medium">{{ selectedUsageLog.input_tokens.toLocaleString() }}</span></div>
-              <div>{{ t('usage.out') }}: <span class="font-medium">{{ selectedUsageLog.output_tokens.toLocaleString() }}</span></div>
-              <div>{{ t('usage.cacheRead') }}: <span class="font-medium">{{ selectedUsageLog.cache_read_tokens.toLocaleString() }}</span></div>
-              <div>{{ t('usage.cacheWrite') }}: <span class="font-medium">{{ selectedUsageLog.cache_creation_tokens.toLocaleString() }}</span></div>
+              <div>{{ t('usage.in') }}: <span class="font-medium">{{ formatNumber(selectedUsageLog.input_tokens) }}</span></div>
+              <div>{{ t('usage.out') }}: <span class="font-medium">{{ formatNumber(selectedUsageLog.output_tokens) }}</span></div>
+              <div>{{ t('usage.cacheRead') }}: <span class="font-medium">{{ formatNumber(selectedUsageLog.cache_read_tokens) }}</span></div>
+              <div>{{ t('usage.cacheWrite') }}: <span class="font-medium">{{ formatNumber(selectedUsageLog.cache_creation_tokens) }}</span></div>
               <div v-if="isImageUsage(selectedUsageLog)">
                 {{ t('usage.imageCount') }}: <span class="font-medium">{{ selectedUsageLog.image_count }}{{ t('usage.imageUnit') }}</span>
               </div>
@@ -746,10 +746,10 @@
           <section class="space-y-3">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('usage.costDetails') }}</h3>
             <div class="grid gap-3 rounded-lg border border-gray-200 p-4 text-sm dark:border-dark-700 md:grid-cols-2">
-              <div>{{ t('usage.billed') }}: <span class="font-medium text-green-600 dark:text-green-400">${{ selectedUsageLog.actual_cost.toFixed(6) }}</span></div>
-              <div>{{ t('usage.original') }}: <span class="font-medium">${{ selectedUsageLog.total_cost.toFixed(6) }}</span></div>
-              <div>{{ t('admin.usage.inputCost') }}: <span class="font-medium">${{ selectedUsageLog.input_cost.toFixed(6) }}</span></div>
-              <div>{{ t('admin.usage.outputCost') }}: <span class="font-medium">${{ selectedUsageLog.output_cost.toFixed(6) }}</span></div>
+              <div>{{ t('usage.billed') }}: <span class="font-medium text-green-600 dark:text-green-400">${{ formatCostFixed(selectedUsageLog.actual_cost) }}</span></div>
+              <div>{{ t('usage.original') }}: <span class="font-medium">${{ formatCostFixed(selectedUsageLog.total_cost) }}</span></div>
+              <div>{{ t('admin.usage.inputCost') }}: <span class="font-medium">${{ formatCostFixed(selectedUsageLog.input_cost) }}</span></div>
+              <div>{{ t('admin.usage.outputCost') }}: <span class="font-medium">${{ formatCostFixed(selectedUsageLog.output_cost) }}</span></div>
               <div>{{ t('usage.firstToken') }}: <span class="font-medium">{{ selectedUsageLog.first_token_ms != null ? formatDuration(selectedUsageLog.first_token_ms) : '-' }}</span></div>
               <div>{{ t('usage.duration') }}: <span class="font-medium">{{ formatDuration(selectedUsageLog.duration_ms) }}</span></div>
             </div>
@@ -955,29 +955,42 @@ const sortState = reactive({
   sort_order: 'desc' as 'asc' | 'desc'
 })
 
-const formatDuration = (ms: number): string => {
-  if (ms < 1000) return `${ms.toFixed(0)}ms`
-  return `${(ms / 1000).toFixed(2)}s`
+const toFiniteNumber = (value: unknown, fallback = 0): number => {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : fallback
 }
 
-const formatCostCompact = (value: number): string => {
-  if (!Number.isFinite(value)) return '$0.00'
-  if (Math.abs(value) >= 100) return `$${value.toFixed(2)}`
-  if (Math.abs(value) >= 1) return `$${value.toFixed(4)}`
-  return `$${value.toFixed(6)}`
+const hasPositiveNumber = (value: unknown): boolean => toFiniteNumber(value) > 0
+
+const formatNumber = (value: unknown): string => toFiniteNumber(value).toLocaleString()
+
+const formatCostFixed = (value: unknown, digits = 6): string => toFiniteNumber(value).toFixed(digits)
+
+const formatDuration = (ms: number | null | undefined): string => {
+  if (ms == null) return '-'
+  const safeMs = toFiniteNumber(ms)
+  if (safeMs < 1000) return `${safeMs.toFixed(0)}ms`
+  return `${(safeMs / 1000).toFixed(2)}s`
 }
 
-const formatCostExact = (value: number): string => `$${(Number.isFinite(value) ? value : 0).toFixed(8)}`
+const formatCostCompact = (value: number | null | undefined): string => {
+  const safeValue = toFiniteNumber(value)
+  if (Math.abs(safeValue) >= 100) return `$${safeValue.toFixed(2)}`
+  if (Math.abs(safeValue) >= 1) return `$${safeValue.toFixed(4)}`
+  return `$${safeValue.toFixed(6)}`
+}
+
+const formatCostExact = (value: number | null | undefined): string => `$${formatCostFixed(value, 8)}`
 
 const imageUnitPrice = (row: UsageLog | null): number => {
-  if (!row || row.image_count <= 0) return 0
-  const total = row.total_cost ?? 0
-  const price = total / row.image_count
+  const imageCount = toFiniteNumber(row?.image_count)
+  if (!row || imageCount <= 0) return 0
+  const price = toFiniteNumber(row.total_cost) / imageCount
   return Number.isFinite(price) ? price : 0
 }
 
 const isImageUsage = (row: Pick<UsageLog, 'image_count'> | null | undefined): boolean => {
-  return (row?.image_count ?? 0) > 0
+  return hasPositiveNumber(row?.image_count)
 }
 
 const getDisplayBillingMode = (row: Pick<UsageLog, 'billing_mode' | 'image_count'> | null | undefined): string | null | undefined => {
@@ -1026,6 +1039,22 @@ const activeScopeSummary = computed(() => {
 
 const isColumnVisible = (key: string): boolean => visibleColumnKeys.value.has(key)
 
+const normalizeVisibleColumnKeys = (keys: Iterable<string>): Set<string> => {
+  const valid = new Set(allColumns.value.map((column) => column.key))
+  const next = new Set<string>()
+  for (const key of keys) {
+    if (valid.has(key)) {
+      next.add(key)
+    }
+  }
+  ALWAYS_VISIBLE_COLUMNS.forEach((key) => {
+    if (valid.has(key)) {
+      next.add(key)
+    }
+  })
+  return next.size > 0 ? next : new Set(DEFAULT_VISIBLE_COLUMNS)
+}
+
 const persistVisibleColumns = () => {
   try {
     localStorage.setItem(COLUMN_VISIBILITY_KEY, JSON.stringify([...visibleColumnKeys.value]))
@@ -1053,7 +1082,7 @@ const loadVisibleColumns = () => {
     const valid = new Set(allColumns.value.map((column) => column.key))
     const next = parsed.filter((key) => valid.has(key))
     if (next.length > 0) {
-      const nextKeys = new Set([...ALWAYS_VISIBLE_COLUMNS, ...next])
+      const nextKeys = normalizeVisibleColumnKeys(next)
       if (migratedFromLegacy) {
         MIGRATED_DEFAULT_VISIBLE_COLUMNS.forEach((key) => {
           if (valid.has(key)) {
@@ -1079,8 +1108,7 @@ const toggleColumn = (key: string) => {
   } else {
     next.add(key)
   }
-  ALWAYS_VISIBLE_COLUMNS.forEach((column) => next.add(column))
-  visibleColumnKeys.value = next
+  visibleColumnKeys.value = normalizeVisibleColumnKeys(next)
   persistVisibleColumns()
 }
 
@@ -1114,15 +1142,16 @@ const formatUsageEndpoints = (log: UsageLog): string => {
   return inbound || '-'
 }
 
-const formatTokens = (value: number): string => {
-  if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(2)}B`
-  } else if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(2)}M`
-  } else if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(2)}K`
+const formatTokens = (value: number | null | undefined): string => {
+  const safeValue = toFiniteNumber(value)
+  if (safeValue >= 1_000_000_000) {
+    return `${(safeValue / 1_000_000_000).toFixed(2)}B`
+  } else if (safeValue >= 1_000_000) {
+    return `${(safeValue / 1_000_000).toFixed(2)}M`
+  } else if (safeValue >= 1_000) {
+    return `${(safeValue / 1_000).toFixed(2)}K`
   }
-  return value.toLocaleString()
+  return formatNumber(safeValue)
 }
 
 type UsageTableQueryParams = UsageQueryParams & {
@@ -1357,15 +1386,15 @@ const exportToCSV = async () => {
         log.inbound_endpoint || '',
         getRequestTypeExportText(log),
         getBillingModeLabel(getDisplayBillingMode(log), t),
-        log.input_tokens,
-        log.output_tokens,
-        log.cache_read_tokens,
-        log.cache_creation_tokens,
-        log.rate_multiplier,
-        log.actual_cost.toFixed(8),
-        log.total_cost.toFixed(8),
+        toFiniteNumber(log.input_tokens),
+        toFiniteNumber(log.output_tokens),
+        toFiniteNumber(log.cache_read_tokens),
+        toFiniteNumber(log.cache_creation_tokens),
+        toFiniteNumber(log.rate_multiplier, 1),
+        formatCostFixed(log.actual_cost, 8),
+        formatCostFixed(log.total_cost, 8),
         log.first_token_ms ?? '',
-        log.duration_ms,
+        log.duration_ms ?? '',
         log.user_agent || ''
       ].map(escapeCSVValue)
     )

@@ -85,15 +85,27 @@
           </template>
 
           <template #cell-name="{ value, row }">
-            <div class="flex items-center gap-1.5">
-              <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
-              <Icon
-                v-if="row.ip_whitelist?.length > 0 || row.ip_blacklist?.length > 0"
-                name="shield"
-                size="sm"
-                class="text-blue-500"
-                :title="t('keys.ipRestrictionEnabled')"
-              />
+            <div class="flex flex-col gap-1">
+              <div class="flex items-center gap-1.5">
+                <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+                <span
+                  v-if="row.is_default"
+                  class="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                  :title="t('keys.defaultKeyHint')"
+                >
+                  {{ t('keys.defaultKeyBadge') }}
+                </span>
+                <Icon
+                  v-if="row.ip_whitelist?.length > 0 || row.ip_blacklist?.length > 0"
+                  name="shield"
+                  size="sm"
+                  class="text-blue-500"
+                  :title="t('keys.ipRestrictionEnabled')"
+                />
+              </div>
+              <span v-if="row.is_default" class="text-xs text-gray-500 dark:text-dark-400">
+                {{ t('keys.defaultKeyStudioNote') }}
+              </span>
             </div>
           </template>
 
@@ -385,7 +397,14 @@
               <!-- Delete Button -->
               <button
                 @click="confirmDelete(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
+                :disabled="row.is_default"
+                :title="row.is_default ? t('keys.defaultKeyDeleteDisabled') : t('common.delete')"
+                :class="[
+                  'flex flex-col items-center gap-0.5 rounded-lg p-1.5 transition-colors',
+                  row.is_default
+                    ? 'cursor-not-allowed text-gray-300 dark:text-dark-500'
+                    : 'text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400'
+                ]"
               >
                 <Icon name="trash" size="sm" />
                 <span class="text-xs">{{ t('common.delete') }}</span>
@@ -2333,6 +2352,10 @@ const closeGroupSelector = (event: MouseEvent) => {
 }
 
 const confirmDelete = (key: ApiKey) => {
+  if (key.is_default) {
+    appStore.showInfo(t('keys.defaultKeyDeleteDisabled'))
+    return
+  }
   selectedKey.value = key
   showDeleteDialog.value = true
 }
@@ -2478,6 +2501,11 @@ function sanitizeInternalRedirect(value: unknown): string {
  */
 const handleDelete = async () => {
   if (!selectedKey.value) return
+  if (selectedKey.value.is_default) {
+    appStore.showInfo(t('keys.defaultKeyDeleteDisabled'))
+    showDeleteDialog.value = false
+    return
+  }
 
   try {
     await keysAPI.delete(selectedKey.value.id)

@@ -87,6 +87,7 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		UserID:              k.UserID,
 		Key:                 k.Key,
 		Name:                k.Name,
+		IsDefault:           k.IsDefault,
 		GroupID:             k.GroupID,
 		MultiGroupRoutes:    multiGroupRoutes,
 		AccountPoolStrategy: service.NormalizeAccountPoolStrategy(k.AccountPoolStrategy),

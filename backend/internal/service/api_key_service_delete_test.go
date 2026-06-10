@@ -27,6 +27,8 @@ type apiKeyRepoStub struct {
 	apiKey             *APIKey // GetKeyAndOwnerID 的返回值
 	getByIDErr         error   // GetKeyAndOwnerID 的错误返回值
 	deleteErr          error   // Delete 的错误返回值
+	updateErr          error
+	updated            *APIKey
 	deletedIDs         []int64 // 记录已删除的 API Key ID 列表
 	allowListByUserID  bool
 	listByUserIDKeys   []APIKey
@@ -74,7 +76,12 @@ func (s *apiKeyRepoStub) GetByKeyForAuth(ctx context.Context, key string) (*APIK
 }
 
 func (s *apiKeyRepoStub) Update(ctx context.Context, key *APIKey) error {
-	panic("unexpected Update call")
+	if s.updateErr != nil {
+		return s.updateErr
+	}
+	clone := *key
+	s.updated = &clone
+	return nil
 }
 
 // Delete 记录被删除的 API Key ID 并返回预设的错误。
@@ -91,15 +98,15 @@ func (s *apiKeyRepoStub) DeleteWithAudit(ctx context.Context, id int64) error {
 // 以下是接口要求实现但本测试不关心的方法
 
 func (s *apiKeyRepoStub) ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams, filters APIKeyListFilters) ([]APIKey, *pagination.PaginationResult, error) {
-	if !s.allowListByUserID {
-		panic("unexpected ListByUserID call")
-	}
 	s.listByUserIDCalls = append(s.listByUserIDCalls, userID)
 	s.listByUserIDParams = append(s.listByUserIDParams, params)
 	if s.listByUserIDErr != nil {
 		return nil, nil, s.listByUserIDErr
 	}
 	keys := append([]APIKey(nil), s.listByUserIDKeys...)
+	if len(keys) == 0 && s.apiKey != nil {
+		keys = append(keys, *s.apiKey)
+	}
 	return keys, &pagination.PaginationResult{
 		Total:    int64(len(keys)),
 		Page:     params.Page,
@@ -261,6 +268,7 @@ func TestApiKeyService_Delete_OwnerMismatch(t *testing.T) {
 	require.Empty(t, repo.deletedIDs)   // 验证删除操作未被调用
 	require.Empty(t, cache.invalidated) // 验证缓存未被清除
 	require.Empty(t, cache.deleteAuthKeys)
+	require.Empty(t, repo.listByUserIDCalls)
 }
 
 // TestApiKeyService_Delete_Success 测试所有者成功删除 API Key 的场景。
@@ -272,7 +280,8 @@ func TestApiKeyService_Delete_OwnerMismatch(t *testing.T) {
 //   - 返回 nil 错误
 func TestApiKeyService_Delete_Success(t *testing.T) {
 	repo := &apiKeyRepoStub{
-		apiKey: &APIKey{ID: 42, UserID: 7, Key: "k"},
+		apiKey:           &APIKey{ID: 42, UserID: 7, Key: "k"},
+		listByUserIDKeys: []APIKey{{ID: 1, UserID: 7, Key: "default"}, {ID: 42, UserID: 7, Key: "k"}},
 	}
 	cache := &apiKeyCacheStub{}
 	svc := &APIKeyService{apiKeyRepo: repo, cache: cache}
@@ -283,8 +292,37 @@ func TestApiKeyService_Delete_Success(t *testing.T) {
 	require.Equal(t, []int64{42}, repo.deletedIDs)  // 验证正确的 API Key 被删除
 	require.Equal(t, []int64{7}, cache.invalidated) // 验证所有者的缓存被清除
 	require.Equal(t, []string{svc.authCacheKey("k")}, cache.deleteAuthKeys)
+	require.Equal(t, []int64{7}, repo.listByUserIDCalls)
 	_, exists := svc.lastUsedTouchL1.Load(int64(42))
 	require.False(t, exists, "delete should clear touch debounce cache")
+}
+
+func TestApiKeyService_Delete_DefaultKeyRejected(t *testing.T) {
+	repo := &apiKeyRepoStub{
+		apiKey: &APIKey{ID: 42, UserID: 7, Key: "sk-default"},
+	}
+	cache := &apiKeyCacheStub{}
+	svc := &APIKeyService{apiKeyRepo: repo, cache: cache}
+
+	err := svc.Delete(context.Background(), 42, 7)
+	require.ErrorIs(t, err, ErrAPIKeyDefaultProtected)
+	require.Empty(t, repo.deletedIDs)
+	require.Empty(t, cache.invalidated)
+	require.Empty(t, cache.deleteAuthKeys)
+	require.Equal(t, []int64{7}, repo.listByUserIDCalls)
+}
+
+func TestApiKeyService_Update_DefaultKeyAllowed(t *testing.T) {
+	repo := &apiKeyRepoStub{
+		apiKey: &APIKey{ID: 42, UserID: 7, Key: "sk-default", Status: StatusActive, AccountPoolStrategy: AccountPoolStrategySharedOnly},
+	}
+	svc := &APIKeyService{apiKeyRepo: repo}
+	name := "renamed"
+
+	key, err := svc.Update(context.Background(), 42, 7, UpdateAPIKeyRequest{Name: &name})
+	require.NoError(t, err)
+	require.NotNil(t, key)
+	require.Equal(t, name, key.Name)
 }
 
 // TestApiKeyService_Delete_NotFound 测试删除不存在的 API Key 时返回正确的错误。
@@ -314,8 +352,9 @@ func TestApiKeyService_Delete_NotFound(t *testing.T) {
 //   - 返回包含 "delete api key" 的错误信息
 func TestApiKeyService_Delete_DeleteFails(t *testing.T) {
 	repo := &apiKeyRepoStub{
-		apiKey:    &APIKey{ID: 42, UserID: 3, Key: "k"},
-		deleteErr: errors.New("delete failed"),
+		apiKey:           &APIKey{ID: 3, UserID: 3, Key: "k"},
+		listByUserIDKeys: []APIKey{{ID: 1, UserID: 3, Key: "default"}, {ID: 3, UserID: 3, Key: "k"}},
+		deleteErr:        errors.New("delete failed"),
 	}
 	cache := &apiKeyCacheStub{}
 	svc := &APIKeyService{apiKeyRepo: repo, cache: cache}

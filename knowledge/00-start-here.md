@@ -1,6 +1,6 @@
 # Sub2API 知识库入口
 
-最后更新：2026-06-07
+最后更新：2026-06-09
 
 ## 项目定位
 
@@ -21,7 +21,7 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 5. 需要跑测试或构建：读 `knowledge/build-and-verify.md`。
 6. 改后端：读 `knowledge/backend-notes.md`。
 7. 改前端或公共页面：读 `knowledge/frontend-notes.md`。
-8. 改聊天生图工作台、Canvas、嵌入式登录或图片任务体验：先读 `knowledge/tasks/current-task.md` 与 `knowledge/tasks/timeline.md`，再补读 `knowledge/chat-image-embedded-workspace.md` 和 `knowledge/chat-image-studio.md`。
+8. 改 Studio Bridge、聊天生图工作台、Canvas、嵌入式登录或图片任务体验：先读 `knowledge/tasks/current-task.md` 与 `knowledge/tasks/timeline.md`，再补读 `knowledge/chat-image-embedded-workspace.md` 和 `knowledge/chat-image-studio.md`。
 9. 遇到老坑、环境差异或旧入口语义：读 `knowledge/known-pitfalls.md`。
 
 ## 事实源分工
@@ -35,17 +35,17 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 
 ## 当前仓库状态提示
 
-- 当前默认续做主线已经从 5 月底的 chat image workspace migration / embedded session / 模型目录同步，再次前移到 OpenAI 网关稳态收口、account capability routing、用户控制台和 `key/base-url` 归一这一层。
-- `knowledge/tasks/current-task.md` 现在同时记录“当前会话正在处理的局部任务”和“仓库默认主线分流”。如果你看到它还在讲模型广场、首页、文案或 i18n 整理，不要误判成仓库整体主线仍停在那一层；最近更高频的默认开发成本已经落到 OpenAI 路径、账号能力和控制台链路。
+- 当前默认续做主线已经从 6 月上旬的 OpenAI 网关稳态、account capability routing、用户控制台和 `key/base-url` 归一，继续前移到 Studio Bridge / 落叶AI生产联调。
+- `knowledge/tasks/current-task.md` 现在同时记录“当前会话正在处理的局部任务”和“仓库默认主线分流”。如果你看到其他入口还停在 gateway prompt cache、模型广场、首页、文案或 i18n 整理，不要误判成仓库整体主线仍停在那一层；最近更高频的默认开发成本已经落到 Studio Bridge、真实充值/扣费闭环和跨仓库联调链路。
 - 遇到入口摘要与任务快照冲突时，先用 `knowledge/05-current-focus.md` 判断稳定主线，再用 `knowledge/tasks/current-task.md` 判断当前会话具体在做哪一条线。
 - 当前工作区仍可能同时存在并行主线的未提交改动，开始新任务前先执行 `git status --short`，确认哪些文件属于本轮目标。
 - 不要清理、回滚或格式化与当前目标无关的文件。
 
 ## 当前默认心智
 
-- `/tutorial`、公共页和旧模型广场同步仍是稳定背景层，但它们已不是最近几天最容易影响续做成本的主线。
-- 现在更值得优先理解的是 OpenAI 网关路径、账号能力路由、控制台状态面板、`key/base-url` 归一，以及这些链路如何和模型目录、计费、能力判断互相牵动。
-- 继续做聊天生图、嵌入工作区或模型市场时，不要只看单个前端页面；通常要把 launch token、会话恢复、能力判定、计费/模型映射、OpenAI 路径和控制台入口当成一条链路理解。
+- OpenAI 网关稳态、账号能力路由、控制台状态面板和 `key/base-url` 归一仍然成立，但它们已从“最近主线”退成 Studio Bridge 之前的稳定背景层。
+- 现在更值得优先理解的是 Sub2API 如何作为落叶AI的账号、充值、余额、默认分组、bridge internal secret 和扣费真源，以及 `/chat-images` / `/studio-bridge/launch` 如何成为当前用户侧创作入口。
+- 继续做聊天生图、嵌入工作区、模型市场或上游合成时，不要只看单个前端页面；通常要把 launch token、会话恢复、默认分组、预扣/确认/退款、团队空间 actor/payer 和 OpenAI 路径背景一起当成一条链路理解。
 
 ## 知识维护规则
 

@@ -4,12 +4,12 @@
 
 ## 入口与定位
 
-- 默认用户入口：`/chat-images`，现在用于启动外部落叶AI创作站。
+- 默认用户入口：`/chat-images`，现在用于启动外部落叶创艺创作站。
 - 跳转页主文件：`frontend/src/views/user/LuoyeAILaunchView.vue`。
 - 原生工作台入口：`/chat-images/native`，作为 Sub2API 内部备用工作台保留。
 - 原生工作台主文件：`frontend/src/views/user/ChatImageStudioView.vue`。
 - 后端生图接口：`/user/image-creator/tasks`、`/user/image-creator/tasks/:id`、`/user/image-creator/images/:id/file`。
-- 默认链路：用户进入 `/chat-images` 后，前端调用 `/api/v1/user/studio-bridge/launch` 生成一次性 `launch_token`，再跳转到落叶AI站点配置的回跳地址。
+- 默认链路：用户进入 `/chat-images` 后，前端调用 `/api/v1/user/studio-bridge/launch` 生成一次性 `launch_token`，再跳转到落叶创艺站点配置的回跳地址。
 
 ## 会话与图片任务的关系
 

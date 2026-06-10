@@ -69,7 +69,7 @@ type leaderboardRewardBalanceGrantRepository interface {
 	AddBalance(ctx context.Context, id int64, amount float64) error
 }
 
-// GetLeaderboardDailyRewards returns yesterday's leaderboard reward status.
+// GetLeaderboardDailyRewards returns last week's leaderboard reward status.
 // The reward settlement window is intentionally based on the server timezone,
 // so clients cannot change reward dates or ranking windows by changing timezone.
 func (s *UsageService) GetLeaderboardDailyRewards(ctx context.Context, userID int64, _ string) (*usagestats.LeaderboardDailyRewards, error) {
@@ -123,7 +123,7 @@ func (s *UsageService) getLeaderboardDailyRewards(ctx context.Context, userID in
 	return status, nil
 }
 
-// ClaimLeaderboardDailyReward grants yesterday's top-3 balance reward to the user.
+// ClaimLeaderboardDailyReward grants last week's top-3 balance reward to the user.
 func (s *UsageService) ClaimLeaderboardDailyReward(ctx context.Context, userID int64, _ string) (*LeaderboardDailyRewardClaimResult, error) {
 	return s.claimLeaderboardDailyReward(ctx, userID, timezone.Now())
 }
@@ -183,7 +183,7 @@ func (s *UsageService) claimLeaderboardDailyReward(ctx context.Context, userID i
 		Status: StatusUsed,
 		UsedBy: &userID,
 		UsedAt: &usedAt,
-		Notes:  fmt.Sprintf("leaderboard daily reward %s rank %d", status.RewardDate, status.CurrentUserRank),
+		Notes:  fmt.Sprintf("leaderboard weekly reward %s rank %d", status.RewardDate, status.CurrentUserRank),
 	}
 	if err := s.redeemRepo.Create(claimCtx, redeemCode); err != nil {
 		return nil, fmt.Errorf("create leaderboard reward audit record: %w", err)
@@ -252,9 +252,13 @@ func grantLeaderboardRewardBalance(ctx context.Context, userRepo UserRepository,
 func leaderboardRewardWindow(now time.Time) (time.Time, time.Time, string, string, time.Time) {
 	loc := timezone.Location()
 	settlementTZ := timezone.Name()
-	today := time.Date(now.In(loc).Year(), now.In(loc).Month(), now.In(loc).Day(), 0, 0, 0, 0, loc)
-	start := today.AddDate(0, 0, -1)
-	return start, today, start.Format("2006-01-02"), settlementTZ, today.Add(leaderboardRewardSettlementDelay)
+	localNow := now.In(loc)
+	today := time.Date(localNow.Year(), localNow.Month(), localNow.Day(), 0, 0, 0, 0, loc)
+	weekdayOffset := (int(today.Weekday()) + 6) % 7
+	thisWeekStart := today.AddDate(0, 0, -weekdayOffset)
+	lastWeekStart := thisWeekStart.AddDate(0, 0, -7)
+	rewardDate := fmt.Sprintf("%s~%s", lastWeekStart.Format("2006-01-02"), thisWeekStart.AddDate(0, 0, -1).Format("2006-01-02"))
+	return lastWeekStart, thisWeekStart, rewardDate, settlementTZ, thisWeekStart.Add(leaderboardRewardSettlementDelay)
 }
 
 func leaderboardDailyRewardTiers(settings leaderboardDailyRewardSettings) []usagestats.LeaderboardDailyRewardTier {
@@ -294,5 +298,6 @@ func resolveLeaderboardDailyRewardClaimState(status *usagestats.LeaderboardDaily
 }
 
 func leaderboardRewardRedeemCode(rewardDate string, userID int64) string {
-	return "LDR" + strings.ReplaceAll(rewardDate, "-", "") + "U" + strings.ToUpper(strconv.FormatInt(userID, 36))
+	normalizedDate := strings.NewReplacer("-", "", "~", "").Replace(rewardDate)
+	return "LDR" + normalizedDate + "U" + strings.ToUpper(strconv.FormatInt(userID, 36))
 }

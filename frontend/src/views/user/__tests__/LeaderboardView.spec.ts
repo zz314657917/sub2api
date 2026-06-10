@@ -64,22 +64,22 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.badges.costBurner': '1M Token 成本最高',
     'leaderboard.generatedAt': '更新',
     'leaderboard.notRanked': '未上榜',
-    'leaderboard.dailyReward.title': '每日排名奖励',
-    'leaderboard.dailyReward.settlementDate': '结算日期',
-    'leaderboard.dailyReward.threshold': '昨日总消费门槛',
+    'leaderboard.dailyReward.title': '每周排名奖励',
+    'leaderboard.dailyReward.settlementDate': '结算周期',
+    'leaderboard.dailyReward.threshold': '上周总消费门槛',
     'leaderboard.dailyReward.rewardAmount': '可领额度',
     'leaderboard.dailyReward.rewardAmountHidden': '按名次发放',
     'leaderboard.dailyReward.targetProgress': '奖励目标进度',
     'leaderboard.dailyReward.progress': '{current} / {target}',
     'leaderboard.dailyReward.progressPercent': '{percent}%',
     'leaderboard.dailyReward.disabled': '奖励功能暂未开启',
-    'leaderboard.dailyReward.settling': '昨日榜结算中，{time} 后可领取',
-    'leaderboard.dailyReward.thresholdNotMet': '昨日总消费未超过最低开启门槛',
-    'leaderboard.dailyReward.notTopThree': '只有昨日榜前三名可以领取',
-    'leaderboard.dailyReward.notRanked': '你昨日暂无上榜消费',
+    'leaderboard.dailyReward.settling': '上周榜结算中，{time} 后可领取',
+    'leaderboard.dailyReward.thresholdNotMet': '上周总消费未超过最低开启门槛',
+    'leaderboard.dailyReward.notTopThree': '只有上周榜前三名可以领取',
+    'leaderboard.dailyReward.notRanked': '你上周暂无上榜消费',
     'leaderboard.dailyReward.zeroReward': '当前名次奖励额度为 0',
     'leaderboard.dailyReward.eligible': '你已符合领取条件',
-    'leaderboard.dailyReward.alreadyClaimed': '昨日奖励已领取',
+    'leaderboard.dailyReward.alreadyClaimed': '上周奖励已领取',
     'leaderboard.dailyReward.claim': '领取奖励',
     'leaderboard.dailyReward.claiming': '领取中...',
     'leaderboard.dailyReward.claimed': '已领取',
@@ -659,7 +659,7 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).toContain('当前周期暂无可展示的使用记录')
   })
 
-  it('renders daily rewards with threshold-not-met copy', async () => {
+  it('renders weekly rewards with threshold-not-met copy', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
         daily_rewards: {
@@ -697,9 +697,9 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="leaderboard-daily-reward"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('每日排名奖励')
-    expect(wrapper.text()).toContain('昨日总消费未超过最低开启门槛')
-    expect(wrapper.text()).not.toContain('昨日总消费门槛')
+    expect(wrapper.text()).toContain('每周排名奖励')
+    expect(wrapper.text()).toContain('上周总消费未超过最低开启门槛')
+    expect(wrapper.text()).not.toContain('上周总消费门槛')
     expect(wrapper.text()).not.toContain('$80.00 / $100.00')
     expect(wrapper.text()).toContain('第 1 名奖励')
     expect(wrapper.text()).toContain('按名次发放')
@@ -708,7 +708,7 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).not.toContain('$5.00')
   })
 
-  it('shows settling state before daily rewards can be claimed', async () => {
+  it('shows settling state before weekly rewards can be claimed', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
         daily_rewards: {
@@ -745,11 +745,11 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('昨日榜结算中')
+    expect(wrapper.text()).toContain('上周榜结算中')
     expect(wrapper.get('[data-testid="leaderboard-daily-reward-claim"]').attributes('disabled')).toBeDefined()
   })
 
-  it('claims an eligible daily reward and shows claimed state', async () => {
+  it('claims an eligible weekly reward and shows claimed state', async () => {
     const claimRewards = {
       reward_date: '2026-05-06',
       settlement_timezone: 'Asia/Shanghai',
@@ -795,7 +795,7 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     expect(claimDashboardLeaderboardDailyReward).toHaveBeenCalledTimes(1)
-    expect(wrapper.text()).toContain('昨日奖励已领取')
+    expect(wrapper.text()).toContain('上周奖励已领取')
     expect(wrapper.get('[data-testid="leaderboard-daily-reward-claim"]').text()).toContain('已领取')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$16.00')
   })

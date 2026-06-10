@@ -5807,6 +5807,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if IsStudioBridgeGatewayContext(ctx) && cost != nil && cost.ActualCost > 0 {
 		prepaidBalanceCost = cost.ActualCost
 	}
+	if skipStudioBridgeGatewayUsageBilling(ctx, account, s.deferredService) {
+		return nil
+	}
 
 	// Determine billing type
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()

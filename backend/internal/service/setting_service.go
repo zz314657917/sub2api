@@ -277,7 +277,7 @@ func parseStudioBridgeAppSettings(raw string) *StudioBridgeAppSettings {
 
 func normalizeStudioBridgeAppSettingsForSave(cfg StudioBridgeAppSettings) *StudioBridgeAppSettings {
 	if strings.TrimSpace(cfg.SiteName) == "" {
-		cfg.SiteName = "落叶AI"
+		cfg.SiteName = "落叶创艺"
 	}
 	cfg.SiteName = strings.TrimSpace(cfg.SiteName)
 	cfg.LaunchReturnURL = strings.TrimSpace(cfg.LaunchReturnURL)
@@ -294,6 +294,17 @@ func normalizeStudioBridgeAppSettingsForSave(cfg StudioBridgeAppSettings) *Studi
 	cfg.InternalSecret = strings.TrimSpace(cfg.InternalSecret)
 	cfg.AllowedReturnDomains = normalizeStudioBridgeStringSlice(cfg.AllowedReturnDomains)
 	return &cfg
+}
+
+func validateStudioBridgeAppSettings(cfg StudioBridgeAppSettings) error {
+	if !cfg.Enabled {
+		return nil
+	}
+	if strings.TrimSpace(cfg.DefaultChatGroup) == "" ||
+		strings.TrimSpace(cfg.DefaultImageGroup) == "" {
+		return ErrStudioBridgeGroupRequired
+	}
+	return nil
 }
 
 func normalizeStudioBridgeStringSlice(values []string) []string {
@@ -1496,6 +1507,9 @@ func oidcCompatibilityWriteDefault(base config.OIDCConnectConfig, configured boo
 
 // UpdateSettings 更新系统设置
 func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSettings) error {
+	if err := validateStudioBridgeAppSettings(settings.StudioBridgeLuoyeAI); err != nil {
+		return err
+	}
 	updates, err := s.buildSystemSettingsUpdates(ctx, settings)
 	if err != nil {
 		return err
@@ -1532,6 +1546,9 @@ func (s *SettingService) OIDCSecurityWriteDefaults(ctx context.Context) (bool, b
 
 // UpdateSettingsWithAuthSourceDefaults persists system settings and auth-source defaults in a single write.
 func (s *SettingService) UpdateSettingsWithAuthSourceDefaults(ctx context.Context, settings *SystemSettings, authDefaults *AuthSourceDefaultSettings) error {
+	if err := validateStudioBridgeAppSettings(settings.StudioBridgeLuoyeAI); err != nil {
+		return err
+	}
 	updates, err := s.buildSystemSettingsUpdates(ctx, settings)
 	if err != nil {
 		return err

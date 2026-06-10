@@ -1,5 +1,25 @@
 # 项目时间轴
 
+## 2026-06-10 02:38 +08:00 - Studio Bridge 本地验收复核
+
+- 当前阶段：Sub2API 作为落叶创艺账号、充值、余额和扣费真源，已完成一轮本地桥接验收复核。
+- 本段重点：复核 Studio Bridge launch/redeem、幂等扣费、余额不足、防绕过扣费和前后端构建。
+- 已完成：通过本地 launch token 进入落叶创艺 `/image`；扣费接口验证 reserve/commit/refund 重复调用不重复扣退，commit 后 refund 被拒绝，同 charge_key 改金额被拒绝；普通用户直打落叶创艺协议 API 返回独立模式 403。
+- 关键决策：本轮不做真钱支付、不消耗真实上游模型；生产真实支付和真实创作扣退单独验收。
+- 验证记录：`backend go test ./...` 通过；`frontend npm.cmd run test:run -- public-smoke` 通过；`frontend npm.cmd run build` 通过，仅有既有 Vite chunk、Browserslist 和 Node deprecation 警告；`git diff --check` 无 whitespace 错误；本地 `sub2api` 容器 healthy，根路径 200。
+- 遗留问题：真实注册/登录回跳、真实充值支付回调、真实创作成功扣费/失败退款、团队成员扣队长/团队额度、网络超时和 DB 故障注入仍需 staging 或生产账号验证。
+- 下一步：上线前在后台填正式 launch URL、充值回跳 URL、internal secret 和默认分组；让用户用真实账号走注册、充值、创作、使用记录、团队空间闭环。
+
+## 2026-06-09 11:49 +08:00 - Studio Bridge 替换 OpenWebUI 入口并服务落叶AI
+
+- 当前阶段：Sub2API 新增外部创作站 Studio Bridge，用户侧“聊天生图”入口已从 OpenWebUI 语义切换为落叶AI启动入口。
+- 本段重点：后台设置新增外部创作站配置；`/chat-images` 和 `/studio-bridge/launch` 进入 `LuoyeAILaunchView.vue`；登录/注册后生成一次性 `launch_token` 并回跳落叶AI；内部接口支持兑换、余额/充值摘要、使用记录摘要，以及 `reserve/commit/refund` 幂等扣费。
+- 已完成：提交 `fe2f80be1 feat: add studio bridge integration`；清理 OpenWebUI 相关 API、文案和路由；用户侧“聊天生图”改为落叶AI启动入口；容器 `sub2api:local` 健康，`http://127.0.0.1:62080/studio-bridge/launch` 返回 200 HTML，不再 404。
+- 关键决策：不再保留 OpenWebUI 作为当前用户入口；`/studio-bridge/launch` 作为 `/chat-images` alias，避免注册/登录 redirect 到 404；充值和用户真源仍由 Sub2API 管理后台配置。
+- 验证记录：`F:/mcplugins/sub2api/frontend` 执行 `npm.cmd run test:run -- public-smoke`、`npm.cmd run build` 通过；`F:/mcplugins/sub2api/backend` 执行 `go test ./...` 通过；HTTP `/health` 和 `/studio-bridge/launch` 检查通过；落叶AI侧对应提交为 `47c9f72 feat: add luoye independent studio mode`。
+- 遗留问题：生产支付回跳和真实 registration return_url 未实测；`CHANNEL_MONITOR_KEY_DECRYPT_FAILED` 是旧监控 key 问题，需后台重填；真实创作扣费与团队共享额度仍需上线前联调。
+- 下一步：正式域名上线前配置 bridge internal secret、落叶AI launch URL、充值回跳 URL 和默认分组；用真实账号验证注册/登录、充值、创作扣费、使用记录和团队空间闭环。
+
 ## 2026-06-03 15:34 +08:00 - 模型广场后台化与公开定价页重构
 
 - 当前阶段：按用户要求把 `/models` 从登录后渠道/倍率展示改为公开模型定价中心，并新增后台“模型市场”维护页。
@@ -213,6 +233,15 @@
 - 验证记录：`npm.cmd run test:run -- public-smoke AppSidebar OpenWebUILaunchView` 通过，3 个测试文件 18 个断言；`npm.cmd run typecheck` 通过；`http://127.0.0.1:62080/chat-images` 返回 200；相关文件 `git diff --check` 通过。
 - 遗留问题：尚未用真实登录态从 `/chat-images` 人工点击按钮完成“选择 API Key -> gpt2api `/create/image`”闭环；尚未做真实 `gpt-image-2` 1 张和 8 张生图展示验证。
 - 下一步：用真实浏览器登录态打开 `/chat-images` 点击进入工作台；随后在 gpt2api 发起 1 张和 8 张生图，确认图片展示、历史恢复和用量归属。
+# 2026-06-09 22:15 +08:00 - Studio Bridge 扣费账本化验收
+
+- 当前阶段：Sub2API 侧 Studio Bridge 从“可联通”推进到扣费安全账本化。
+- 本段重点：把外部创作站 `reserve / commit / refund` 的财务幂等从 Redis 临时状态改为 DB ledger，降低重启、并发和重复请求导致的多扣/多退风险。
+- 已完成：新增 `studio_bridge_charges` 迁移；唯一键 `(app_id, charge_key)`；reserve 事务内抢占账本行并扣余额；commit 事务内按 `amount - refunded_amount` 写 usage log；refund 使用独立 refund key 幂等，且只允许原单 `reserved` 状态退款。
+- 关键决策：Studio Bridge 财务状态以数据库账本为准，Redis 只保留 launch token 的一次性换取语义；usage log 外键通过可解析/可创建的默认 API key 处理，不再写负 ID。
+- 验证记录：`go test ./internal/service ./internal/repository` 通过；`go test ./...` 通过；`go test -tags=integration ./internal/repository -run "TestStudioBridgeRepository" -count=1` 通过；`git diff --check` 通过。
+- 遗留问题：正式上线前需确认生产迁移已执行，并在 staging 用真实账号跑余额不足、并发重放、partial refund + commit、commit 后退款拒绝和支付回调后充值入口回跳。
+
 
 ## 2026-05-16 11:22 +08:00 - gpt2api 跳转登录浏览器闭环验证
 

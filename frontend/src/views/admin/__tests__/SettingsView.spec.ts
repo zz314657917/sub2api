@@ -169,12 +169,12 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.payment.findProvider": "查看支持的支付方式",
     "admin.settings.openaiExperimentalScheduler.title": "OpenAI 实验调度策略",
     "admin.settings.openaiExperimentalScheduler.description": "默认关闭。开启后仅影响本网关在 OpenAI 账号间的实验性调度选择逻辑，不代表上游 OpenAI 官方能力。",
-    "admin.settings.features.leaderboardDailyReward.title": "排行榜每日奖励",
-    "admin.settings.features.leaderboardDailyReward.description": "按昨日消费榜结算前三名余额奖励。",
-    "admin.settings.features.leaderboardDailyReward.enabled": "启用每日奖励",
-    "admin.settings.features.leaderboardDailyReward.enabledHint": "仅当昨日总消费严格超过最低门槛时可领取。",
-    "admin.settings.features.leaderboardDailyReward.minTotalActualCost": "昨日总消费最低门槛",
-    "admin.settings.features.leaderboardDailyReward.minTotalActualCostHint": "必须严格超过该金额才开启昨日榜奖励。",
+    "admin.settings.features.leaderboardDailyReward.title": "排行榜每周奖励",
+    "admin.settings.features.leaderboardDailyReward.description": "按上周消费榜结算前三名余额奖励。",
+    "admin.settings.features.leaderboardDailyReward.enabled": "启用每周奖励",
+    "admin.settings.features.leaderboardDailyReward.enabledHint": "仅当上周总消费严格超过最低门槛时可领取。",
+    "admin.settings.features.leaderboardDailyReward.minTotalActualCost": "上周总消费最低门槛",
+    "admin.settings.features.leaderboardDailyReward.minTotalActualCostHint": "必须严格超过该金额才开启上周榜奖励。",
     "admin.settings.features.leaderboardDailyReward.rank1Amount": "第 1 名",
     "admin.settings.features.leaderboardDailyReward.rank2Amount": "第 2 名",
     "admin.settings.features.leaderboardDailyReward.rank3Amount": "第 3 名",
@@ -692,7 +692,7 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
-  it("loads and submits leaderboard daily reward settings", async () => {
+  it("loads and submits leaderboard weekly reward settings", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,
       leaderboard_daily_reward_enabled: true,
@@ -707,7 +707,7 @@ describe("admin SettingsView payment visible method controls", () => {
     await flushPromises();
     await openFeaturesTab(wrapper);
 
-    expect(wrapper.text()).toContain("排行榜每日奖励");
+    expect(wrapper.text()).toContain("排行榜每周奖励");
     expect(
       (
         wrapper.get('[data-testid="leaderboard-daily-reward-enabled"]')

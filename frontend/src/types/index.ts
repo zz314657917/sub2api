@@ -723,6 +723,7 @@ export interface ApiKey {
   user_id: number
   key: string
   name: string
+  is_default: boolean
   group_id: number | null
   multi_group_routes: ApiKeyMultiGroupRoute[]
   account_pool_strategy: AccountPoolStrategy
@@ -1683,7 +1684,7 @@ export interface UsageLog {
   request_type?: UsageRequestType
   stream: boolean
   openai_ws_mode?: boolean
-  duration_ms: number
+  duration_ms: number | null
   first_token_ms: number | null
 
   // 图片生成字段

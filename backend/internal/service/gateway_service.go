@@ -8933,6 +8933,9 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 	if IsStudioBridgeGatewayContext(ctx) && cost != nil && cost.ActualCost > 0 {
 		prepaidBalanceCost = cost.ActualCost
 	}
+	if skipStudioBridgeGatewayUsageBilling(ctx, account, s.deferredService) {
+		return nil
+	}
 
 	// 判断计费方式：订阅模式 vs 余额模式
 	isSubscriptionBilling := subscription != nil && apiKey.Group != nil && apiKey.Group.IsSubscriptionType()

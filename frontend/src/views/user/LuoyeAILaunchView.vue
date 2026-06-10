@@ -51,7 +51,7 @@ async function openLuoyeAI(): Promise<void> {
     const result = await studioBridgeAPI.launch()
     window.location.assign(result.launch_url)
   } catch (error) {
-    console.error('Failed to launch Luoye AI studio:', error)
+    console.error('Failed to launch Luoye Creative studio:', error)
     launchError.value = t('chatImageStudio.launchFailedDescription')
     appStore.showError(t('chatImageStudio.launchFailedDescription'))
   } finally {

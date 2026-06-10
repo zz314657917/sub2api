@@ -164,7 +164,7 @@ func TestLeaderboardDailyRewardsDefaultDisabled(t *testing.T) {
 	got, err := svc.getLeaderboardDailyRewards(context.Background(), 42, leaderboardRewardTestNow(t))
 
 	require.NoError(t, err)
-	require.Equal(t, "2026-05-08", got.RewardDate)
+	require.Equal(t, "2026-04-27~2026-05-03", got.RewardDate)
 	require.False(t, got.Enabled)
 	require.False(t, got.CanClaim)
 	require.Equal(t, leaderboardRewardReasonDisabled, got.Reason)
@@ -172,22 +172,22 @@ func TestLeaderboardDailyRewardsDefaultDisabled(t *testing.T) {
 
 func TestLeaderboardDailyRewardWindowUsesServerTimezone(t *testing.T) {
 	require.NoError(t, apptimezone.Init("Asia/Shanghai"))
-	now := time.Date(2026, 5, 8, 16, 30, 0, 0, time.UTC)
+	now := time.Date(2026, 5, 10, 16, 30, 0, 0, time.UTC)
 
 	start, end, rewardDate, settlementTZ, claimAvailableAt := leaderboardRewardWindow(now)
 
 	require.Equal(t, "Asia/Shanghai", settlementTZ)
-	require.Equal(t, "2026-05-08", rewardDate)
-	require.Equal(t, time.Date(2026, 5, 8, 0, 0, 0, 0, apptimezone.Location()), start)
-	require.Equal(t, time.Date(2026, 5, 9, 0, 0, 0, 0, apptimezone.Location()), end)
-	require.Equal(t, time.Date(2026, 5, 9, 0, 30, 0, 0, apptimezone.Location()), claimAvailableAt)
+	require.Equal(t, "2026-05-04~2026-05-10", rewardDate)
+	require.Equal(t, time.Date(2026, 5, 4, 0, 0, 0, 0, apptimezone.Location()), start)
+	require.Equal(t, time.Date(2026, 5, 11, 0, 0, 0, 0, apptimezone.Location()), end)
+	require.Equal(t, time.Date(2026, 5, 11, 0, 30, 0, 0, apptimezone.Location()), claimAvailableAt)
 }
 
 func TestLeaderboardDailyRewardsWaitsForSettlementDelay(t *testing.T) {
 	usageRepo := &leaderboardRewardUsageRepo{response: leaderboardRewardResponse(1, 101)}
 	svc := NewUsageService(usageRepo, nil, nil, nil)
 	svc.SetLeaderboardRewardDependencies(leaderboardRewardSettings(true, 100, 5, 3, 1), nil)
-	now := time.Date(2026, 5, 9, 0, 10, 0, 0, apptimezone.Location())
+	now := time.Date(2026, 5, 4, 0, 10, 0, 0, apptimezone.Location())
 
 	got, err := svc.getLeaderboardDailyRewards(context.Background(), 42, now)
 
@@ -195,7 +195,7 @@ func TestLeaderboardDailyRewardsWaitsForSettlementDelay(t *testing.T) {
 	require.False(t, got.SettlementReady)
 	require.False(t, got.CanClaim)
 	require.Equal(t, leaderboardRewardReasonSettling, got.Reason)
-	require.Equal(t, "2026-05-09T00:30:00+08:00", got.ClaimAvailableAt)
+	require.Equal(t, "2026-05-04T00:30:00+08:00", got.ClaimAvailableAt)
 }
 
 func TestLeaderboardDailyRewardsRequiresStrictlyGreaterThanThreshold(t *testing.T) {

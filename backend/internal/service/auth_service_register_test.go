@@ -93,7 +93,7 @@ func (s *initialAPIKeyBootstrapperStub) EnsureInitialKey(_ context.Context, user
 	if s.err != nil {
 		return nil, false, s.err
 	}
-	return &APIKey{ID: userID + 1000, UserID: userID, Name: initialAPIKeyName}, true, nil
+	return &APIKey{ID: userID + 1000, UserID: userID, Name: DefaultAPIKeyName}, true, nil
 }
 
 func (s *refreshTokenCacheStub) StoreRefreshToken(context.Context, string, *RefreshTokenData, time.Duration) error {

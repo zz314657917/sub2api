@@ -40,6 +40,7 @@ var (
 	ErrAPIKeyRateLimit7dExceeded = infraerrors.TooManyRequests("API_KEY_RATE_7D_EXCEEDED", "api key 7天限额已用完")
 	ErrAPIKeyRouteInvalid        = infraerrors.BadRequest("API_KEY_ROUTE_INVALID", "api key multi-group route is invalid")
 	ErrAPIKeyPoolStrategyInvalid = infraerrors.BadRequest("API_KEY_POOL_STRATEGY_INVALID", "api key account pool strategy is invalid")
+	ErrAPIKeyDefaultProtected    = infraerrors.Forbidden("API_KEY_DEFAULT_PROTECTED", "默认 API Key 不能删除，可修改它的分组或模型路由")
 )
 
 const (
@@ -50,7 +51,8 @@ const (
 	apiKeyRouteDefaultPriority = 100
 	apiKeyRouteDefaultWeight   = 1
 	apiKeyRouteDefaultCooldown = 30
-	initialAPIKeyName          = "Default API Key"
+	DefaultAPIKeyName          = "默认 API Key（勿删）"
+	legacyInitialAPIKeyName    = "Default API Key"
 )
 
 type apiKeyRouteCooldownKey struct {
@@ -165,15 +167,20 @@ type APIKeyAuthCacheInvalidator interface {
 	InvalidateAuthCacheByGroupID(ctx context.Context, groupID int64)
 }
 
+type StudioBridgeDefaultRouteSettingsReader interface {
+	GetStudioBridgeLuoyeAISettings(ctx context.Context) (*StudioBridgeAppSettings, error)
+}
+
 // CreateAPIKeyRequest 创建API Key请求
 type CreateAPIKeyRequest struct {
-	Name                string                         `json:"name"`
-	GroupID             *int64                         `json:"group_id"`
-	MultiGroupRoutes    []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // 多分组路由配置
-	AccountPoolStrategy string                         `json:"account_pool_strategy"`
-	CustomKey           *string                        `json:"custom_key"`   // 可选的自定义key
-	IPWhitelist         []string                       `json:"ip_whitelist"` // IP 白名单
-	IPBlacklist         []string                       `json:"ip_blacklist"` // IP 黑名单
+	Name                     string                         `json:"name"`
+	GroupID                  *int64                         `json:"group_id"`
+	MultiGroupRoutes         []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // 多分组路由配置
+	AccountPoolStrategy      string                         `json:"account_pool_strategy"`
+	SkipGroupPermissionCheck bool                           `json:"-"`            // system-created keys may bind admin defaults directly
+	CustomKey                *string                        `json:"custom_key"`   // 可选的自定义key
+	IPWhitelist              []string                       `json:"ip_whitelist"` // IP 白名单
+	IPBlacklist              []string                       `json:"ip_blacklist"` // IP 黑名单
 
 	// Quota fields
 	Quota         float64 `json:"quota"`           // Quota limit in USD (0 = unlimited)
@@ -222,6 +229,7 @@ type APIKeyService struct {
 	userGroupRateRepo     UserGroupRateRepository
 	cache                 APIKeyCache
 	rateLimitCacheInvalid RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
+	studioBridgeDefaults  StudioBridgeDefaultRouteSettingsReader
 	cfg                   *config.Config
 	authCacheL1           *ristretto.Cache
 	authCfg               apiKeyAuthCacheConfig
@@ -258,6 +266,10 @@ func NewAPIKeyService(
 // Called after construction (e.g. in wire) to avoid circular dependencies.
 func (s *APIKeyService) SetRateLimitCacheInvalidator(inv RateLimitCacheInvalidator) {
 	s.rateLimitCacheInvalid = inv
+}
+
+func (s *APIKeyService) SetStudioBridgeDefaultRouteSettingsReader(reader StudioBridgeDefaultRouteSettingsReader) {
+	s.studioBridgeDefaults = reader
 }
 
 func (s *APIKeyService) compileAPIKeyIPRules(apiKey *APIKey) {
@@ -381,44 +393,53 @@ func (s *APIKeyService) ClearRouteGroupCooldown(ctx context.Context, apiKey *API
 	_ = s.cache.DeleteRouteGroupCooldown(ctx, apiKey.ID, groupID)
 }
 
-// BuildStudioBridgeGatewayAPIKey creates a request-scoped identity for an
-// internal studio bridge gateway call. It is not persisted as a user API key.
-func (s *APIKeyService) BuildStudioBridgeGatewayAPIKey(ctx context.Context, userID, groupID int64) (*APIKey, error) {
-	if s == nil || s.userRepo == nil || s.groupRepo == nil {
+// BuildStudioBridgeGatewayAPIKey loads the user's default API key for an
+// internal studio bridge gateway call. The optional fallback group comes from
+// the app-level studio settings and is only used when the default key itself
+// has no effective group or route for the current request.
+func (s *APIKeyService) BuildStudioBridgeGatewayAPIKey(ctx context.Context, userID, fallbackGroupID int64, path string) (*APIKey, error) {
+	if s == nil || s.apiKeyRepo == nil || s.userRepo == nil || s.groupRepo == nil {
 		return nil, fmt.Errorf("studio bridge gateway auth is unavailable")
 	}
 	if userID <= 0 {
 		return nil, fmt.Errorf("studio bridge user id is required")
 	}
-	if groupID <= 0 {
-		return nil, fmt.Errorf("studio bridge group id is required")
-	}
 	user, err := s.userRepo.GetByID(ctx, userID)
 	if err != nil {
 		return nil, fmt.Errorf("get studio bridge user: %w", err)
 	}
-	group, err := s.groupRepo.GetByID(ctx, groupID)
+	apiKey, err := s.loadDefaultAPIKey(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	apiKey.User = user
+	apiKey.UserID = user.ID
+	resolved := s.ResolveForRequest(ctx, apiKey, path, "")
+	if resolved == nil {
+		resolved = apiKey
+	}
+	if resolved.User == nil {
+		resolved.User = user
+	}
+	if resolved.UserID <= 0 {
+		resolved.UserID = user.ID
+	}
+	if resolved.GroupID != nil && resolved.Group != nil {
+		return resolved, nil
+	}
+	if fallbackGroupID <= 0 {
+		return nil, fmt.Errorf("studio bridge group id is required")
+	}
+	group, err := s.groupRepo.GetByID(ctx, fallbackGroupID)
 	if err != nil {
 		return nil, fmt.Errorf("get studio bridge group: %w", err)
 	}
-	override := (*int)(nil)
-	if s.userGroupRateRepo != nil {
-		if value, err := s.userGroupRateRepo.GetRPMOverrideByUserAndGroup(ctx, userID, groupID); err == nil {
-			override = value
-		}
-	}
-	user.UserGroupRPMOverride = override
-	return &APIKey{
-		ID:                  -groupID,
-		UserID:              user.ID,
-		Key:                 "studio-bridge",
-		Name:                "Studio Bridge",
-		GroupID:             &group.ID,
-		AccountPoolStrategy: AccountPoolStrategySharedOnly,
-		Status:              StatusActive,
-		User:                user,
-		Group:               group,
-	}, nil
+	clone := *resolved
+	groupID := group.ID
+	clone.GroupID = &groupID
+	clone.Group = group
+	clone.User = user
+	return s.refreshResolvedAPIKeyGroupState(ctx, nil, &clone), nil
 }
 
 // GenerateKey 生成随机API Key
@@ -566,9 +587,12 @@ func apiKeyRouteDedupKey(route domain.APIKeyMultiGroupRoute) string {
 	return fmt.Sprintf("%d|%t|%t|%s", route.GroupID, route.ImageOnly, route.TextOnly, strings.Join(patterns, "\n"))
 }
 
-func (s *APIKeyService) validateAPIKeyRouteGroups(ctx context.Context, user *User, routes []domain.APIKeyMultiGroupRoute) error {
+func (s *APIKeyService) validateAPIKeyRouteGroups(ctx context.Context, user *User, routes []domain.APIKeyMultiGroupRoute, skipPermissionCheck bool) error {
 	if len(routes) == 0 {
 		return nil
+	}
+	if s.groupRepo == nil {
+		return ErrAPIKeyRouteInvalid
 	}
 	for _, route := range routes {
 		if route.GroupID <= 0 {
@@ -581,7 +605,7 @@ func (s *APIKeyService) validateAPIKeyRouteGroups(ctx context.Context, user *Use
 		if err != nil {
 			return fmt.Errorf("get route group: %w", err)
 		}
-		if !s.canUserBindGroup(ctx, user, group) {
+		if !skipPermissionCheck && !s.canUserBindGroup(ctx, user, group) {
 			return ErrGroupNotAllowed
 		}
 	}
@@ -623,7 +647,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		}
 	}
 	multiGroupRoutes := normalizeAPIKeyMultiGroupRoutes(req.MultiGroupRoutes)
-	if err := s.validateAPIKeyRouteGroups(ctx, user, multiGroupRoutes); err != nil {
+	if err := s.validateAPIKeyRouteGroups(ctx, user, multiGroupRoutes, req.SkipGroupPermissionCheck); err != nil {
 		return nil, err
 	}
 	if !IsValidAccountPoolStrategy(req.AccountPoolStrategy) {
@@ -701,8 +725,9 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 }
 
 // EnsureInitialKey creates a default API key for a new user when they do not
-// have any key yet. The key is intentionally ungrouped so smart routing or
-// later user/admin configuration can choose the effective group.
+// have any key yet. Its initial routing mirrors the studio bridge defaults so
+// users can call the API immediately and only edit routes when they want custom
+// model routing.
 func (s *APIKeyService) EnsureInitialKey(ctx context.Context, userID int64) (*APIKey, bool, error) {
 	if s == nil || s.apiKeyRepo == nil || userID <= 0 {
 		return nil, false, nil
@@ -715,13 +740,85 @@ func (s *APIKeyService) EnsureInitialKey(ctx context.Context, userID int64) (*AP
 		return nil, false, nil
 	}
 	key, err := s.Create(ctx, userID, CreateAPIKeyRequest{
-		Name:                initialAPIKeyName,
-		AccountPoolStrategy: AccountPoolStrategySharedOnly,
+		Name:                     DefaultAPIKeyName,
+		MultiGroupRoutes:         s.buildInitialDefaultAPIKeyRoutes(ctx),
+		AccountPoolStrategy:      AccountPoolStrategySharedOnly,
+		SkipGroupPermissionCheck: true,
 	})
 	if err != nil {
 		return nil, false, err
 	}
+	key.IsDefault = true
 	return key, true, nil
+}
+
+func (s *APIKeyService) buildInitialDefaultAPIKeyRoutes(ctx context.Context) []domain.APIKeyMultiGroupRoute {
+	if s == nil || s.studioBridgeDefaults == nil || s.groupRepo == nil {
+		return nil
+	}
+	settings, err := s.studioBridgeDefaults.GetStudioBridgeLuoyeAISettings(ctx)
+	if err != nil || settings == nil {
+		return nil
+	}
+	routes := make([]domain.APIKeyMultiGroupRoute, 0, 3)
+	if groupID := s.validStudioBridgeDefaultGroupID(ctx, settings.DefaultChatGroup); groupID > 0 {
+		routes = append(routes, domain.APIKeyMultiGroupRoute{
+			GroupID:         groupID,
+			Priority:        1,
+			Weight:          apiKeyRouteDefaultWeight,
+			CooldownSeconds: apiKeyRouteDefaultCooldown,
+			Enabled:         true,
+			TextOnly:        true,
+		})
+	}
+	if groupID := s.validStudioBridgeDefaultGroupID(ctx, settings.DefaultImageGroup); groupID > 0 {
+		routes = append(routes, domain.APIKeyMultiGroupRoute{
+			GroupID:         groupID,
+			Priority:        1,
+			Weight:          apiKeyRouteDefaultWeight,
+			CooldownSeconds: apiKeyRouteDefaultCooldown,
+			Enabled:         true,
+			ImageOnly:       true,
+		})
+	}
+	if groupID := s.validStudioBridgeDefaultGroupID(ctx, settings.DefaultVideoGroup); groupID > 0 {
+		routes = append(routes, domain.APIKeyMultiGroupRoute{
+			GroupID:         groupID,
+			Priority:        1,
+			Weight:          apiKeyRouteDefaultWeight,
+			CooldownSeconds: apiKeyRouteDefaultCooldown,
+			Enabled:         true,
+			ModelPatterns:   []string{"doubao-seedance-*", "*-video-*"},
+		})
+	}
+	if len(routes) == 0 {
+		return nil
+	}
+	return routes
+}
+
+func (s *APIKeyService) validStudioBridgeDefaultGroupID(ctx context.Context, raw string) int64 {
+	groupID := parseStudioBridgeDefaultGroupID(raw)
+	if groupID <= 0 || s == nil || s.groupRepo == nil {
+		return 0
+	}
+	group, err := s.groupRepo.GetByID(ctx, groupID)
+	if err != nil || group == nil || group.ID <= 0 {
+		return 0
+	}
+	return group.ID
+}
+
+func parseStudioBridgeDefaultGroupID(raw string) int64 {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0
+	}
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || id <= 0 {
+		return 0
+	}
+	return id
 }
 
 // List 获取用户的API Key列表
@@ -730,6 +827,7 @@ func (s *APIKeyService) List(ctx context.Context, userID int64, params paginatio
 	if err != nil {
 		return nil, nil, fmt.Errorf("list api keys: %w", err)
 	}
+	s.markAPIKeysDefaultState(ctx, userID, keys)
 	return keys, pagination, nil
 }
 
@@ -862,7 +960,7 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 			return nil, fmt.Errorf("get user: %w", err)
 		}
 		routes := normalizeAPIKeyMultiGroupRoutes(req.MultiGroupRoutes)
-		if err := s.validateAPIKeyRouteGroups(ctx, user, routes); err != nil {
+		if err := s.validateAPIKeyRouteGroups(ctx, user, routes, false); err != nil {
 			return nil, err
 		}
 		apiKey.MultiGroupRoutes = routes
@@ -941,6 +1039,7 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 
 	s.InvalidateAuthCacheByKey(ctx, apiKey.Key)
 	s.compileAPIKeyIPRules(apiKey)
+	s.MarkAPIKeyDefaultState(ctx, apiKey)
 
 	// Invalidate Redis rate limit cache so reset takes effect immediately
 	if resetRateLimit && s.rateLimitCacheInvalid != nil {
@@ -952,21 +1051,28 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 
 // Delete 删除API Key
 func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) error {
-	key, ownerID, err := s.apiKeyRepo.GetKeyAndOwnerID(ctx, id)
+	apiKey, err := s.apiKeyRepo.GetByID(ctx, id)
 	if err != nil {
 		return fmt.Errorf("get api key: %w", err)
 	}
 
 	// 验证当前用户是否为该 API Key 的所有者
-	if ownerID != userID {
+	if apiKey.UserID != userID {
 		return ErrInsufficientPerms
+	}
+	isDefault, err := s.isDefaultAPIKey(ctx, apiKey)
+	if err != nil {
+		return fmt.Errorf("check default api key: %w", err)
+	}
+	if isDefault {
+		return ErrAPIKeyDefaultProtected
 	}
 
 	// 清除Redis缓存（使用 userID 而非 apiKey.UserID）
 	if s.cache != nil {
 		_ = s.cache.DeleteCreateAttemptCount(ctx, userID)
 	}
-	s.InvalidateAuthCacheByKey(ctx, key)
+	s.InvalidateAuthCacheByKey(ctx, apiKey.Key)
 
 	if err := s.apiKeyRepo.Delete(ctx, id); err != nil {
 		return fmt.Errorf("delete api key: %w", err)
@@ -974,6 +1080,88 @@ func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) erro
 	s.lastUsedTouchL1.Delete(id)
 
 	return nil
+}
+
+func (s *APIKeyService) loadDefaultAPIKey(ctx context.Context, userID int64) (*APIKey, error) {
+	if s == nil || s.apiKeyRepo == nil {
+		return nil, fmt.Errorf("api key service is unavailable")
+	}
+	key, err := s.findDefaultAPIKey(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if key != nil {
+		return key, nil
+	}
+	key, _, err = s.EnsureInitialKey(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if key == nil {
+		return nil, ErrAPIKeyNotFound
+	}
+	return key, nil
+}
+
+func (s *APIKeyService) findDefaultAPIKey(ctx context.Context, userID int64) (*APIKey, error) {
+	if s == nil || s.apiKeyRepo == nil {
+		return nil, fmt.Errorf("api key service is unavailable")
+	}
+	keys, _, err := s.apiKeyRepo.ListByUserID(ctx, userID, defaultAPIKeyPagination(), APIKeyListFilters{})
+	if err != nil {
+		return nil, fmt.Errorf("list default api key: %w", err)
+	}
+	if len(keys) > 0 {
+		key := keys[0]
+		key.IsDefault = true
+		if strings.TrimSpace(key.AccountPoolStrategy) == "" {
+			key.AccountPoolStrategy = AccountPoolStrategySharedOnly
+		}
+		return &key, nil
+	}
+	return nil, nil
+}
+
+func (s *APIKeyService) isDefaultAPIKey(ctx context.Context, apiKey *APIKey) (bool, error) {
+	if s == nil || s.apiKeyRepo == nil || apiKey == nil || apiKey.UserID <= 0 || apiKey.ID <= 0 {
+		return false, nil
+	}
+	defaultKey, err := s.findDefaultAPIKey(ctx, apiKey.UserID)
+	if err != nil {
+		return false, err
+	}
+	return defaultKey != nil && defaultKey.ID == apiKey.ID, nil
+}
+
+func (s *APIKeyService) MarkAPIKeyDefaultState(ctx context.Context, apiKey *APIKey) {
+	if apiKey == nil {
+		return
+	}
+	isDefault, err := s.isDefaultAPIKey(ctx, apiKey)
+	if err == nil {
+		apiKey.IsDefault = isDefault
+	}
+}
+
+func (s *APIKeyService) markAPIKeysDefaultState(ctx context.Context, userID int64, keys []APIKey) {
+	if len(keys) == 0 || s == nil || s.apiKeyRepo == nil || userID <= 0 {
+		return
+	}
+	defaultKey, err := s.findDefaultAPIKey(ctx, userID)
+	if err != nil || defaultKey == nil {
+		return
+	}
+	for i := range keys {
+		keys[i].IsDefault = keys[i].ID == defaultKey.ID
+	}
+}
+
+func defaultAPIKeyPagination() pagination.PaginationParams {
+	return pagination.PaginationParams{
+		Page:      1,
+		PageSize:  1,
+		SortOrder: pagination.SortOrderAsc,
+	}
 }
 
 // ValidateKey 验证API Key是否有效（用于认证中间件）

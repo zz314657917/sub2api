@@ -21,17 +21,6 @@ func (s *studioBridgeStore) Set(ctx context.Context, key string, payload []byte,
 	return s.rdb.Set(ctx, key, payload, ttl).Err()
 }
 
-func (s *studioBridgeStore) Get(ctx context.Context, key string) ([]byte, bool, error) {
-	raw, err := s.rdb.Get(ctx, key).Bytes()
-	if errors.Is(err, redis.Nil) {
-		return nil, false, nil
-	}
-	if err != nil {
-		return nil, false, err
-	}
-	return raw, true, nil
-}
-
 func (s *studioBridgeStore) GetDel(ctx context.Context, key string) ([]byte, bool, error) {
 	raw, err := s.rdb.GetDel(ctx, key).Bytes()
 	if errors.Is(err, redis.Nil) {

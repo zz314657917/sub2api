@@ -139,6 +139,7 @@ func (h *APIKeyHandler) GetByID(c *gin.Context) {
 		response.NotFound(c, "API key not found")
 		return
 	}
+	h.apiKeyService.MarkAPIKeyDefaultState(c.Request.Context(), key)
 
 	response.Success(c, dto.APIKeyFromService(key))
 }
@@ -186,6 +187,7 @@ func (h *APIKeyHandler) Create(c *gin.Context) {
 		if err != nil {
 			return nil, err
 		}
+		h.apiKeyService.MarkAPIKeyDefaultState(ctx, key)
 		return dto.APIKeyFromService(key), nil
 	})
 }
@@ -253,6 +255,7 @@ func (h *APIKeyHandler) Update(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	h.apiKeyService.MarkAPIKeyDefaultState(c.Request.Context(), key)
 
 	response.Success(c, dto.APIKeyFromService(key))
 }

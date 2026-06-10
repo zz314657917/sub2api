@@ -751,7 +751,7 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 	response.Success(c, leaderboard)
 }
 
-// ClaimDashboardLeaderboardDailyReward handles claiming yesterday's top-3 reward.
+// ClaimDashboardLeaderboardDailyReward handles claiming last week's top-3 reward.
 // POST /api/v1/usage/dashboard/leaderboard/daily-reward/claim
 func (h *UsageHandler) ClaimDashboardLeaderboardDailyReward(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)

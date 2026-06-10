@@ -409,6 +409,28 @@ describe('user UsageView', () => {
     expect(costCell.find('.line-through').text()).toContain('$0.013400')
   })
 
+  it('renders studio bridge rows with null timing values', async () => {
+    const wrapper = await mountUsageView([
+      baseUsageLog({
+        request_id: 'studio-bridge-null-duration',
+        inbound_endpoint: '/studio-bridge/chat',
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_read_tokens: 0,
+        cache_creation_tokens: 0,
+        first_token_ms: null,
+        duration_ms: null,
+        total_cost: 0.001,
+        actual_cost: 0.001,
+      }),
+    ])
+
+    expect(wrapper.find('.table-row').exists()).toBe(true)
+    expect(wrapper.text()).toContain('gpt-5.5')
+    expect(wrapper.find('.table-cell[data-column="duration"]').text()).toContain('-')
+    expect(wrapper.find('.table-cell[data-column="cost"]').text()).toContain('$0.001000')
+  })
+
   it('passes group filter to usage list and stats requests', async () => {
     const wrapper = await mountUsageView()
 

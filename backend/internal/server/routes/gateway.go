@@ -382,12 +382,8 @@ func authenticateStudioBridgeGateway(c *gin.Context, apiKeyService *service.APIK
 		middleware.AbortWithError(c, http.StatusBadRequest, "STUDIO_BRIDGE_USER_REQUIRED", "studio bridge user id is required")
 		return false
 	}
-	groupID, err := parsePositiveInt64Header(c, "X-Sub2API-Group-ID")
-	if err != nil {
-		middleware.AbortWithError(c, http.StatusBadRequest, "STUDIO_BRIDGE_GROUP_REQUIRED", "studio bridge group id is required")
-		return false
-	}
-	apiKey, err := apiKeyService.BuildStudioBridgeGatewayAPIKey(c.Request.Context(), userID, groupID)
+	groupID := parseOptionalPositiveInt64Header(c, "X-Sub2API-Group-ID")
+	apiKey, err := apiKeyService.BuildStudioBridgeGatewayAPIKey(c.Request.Context(), userID, groupID, c.Request.URL.Path)
 	if err != nil {
 		middleware.AbortWithError(c, http.StatusForbidden, "STUDIO_BRIDGE_GATEWAY_FORBIDDEN", err.Error())
 		return false
@@ -441,6 +437,14 @@ func parsePositiveInt64Header(c *gin.Context, name string) (int64, error) {
 		return 0, strconv.ErrSyntax
 	}
 	return parsed, nil
+}
+
+func parseOptionalPositiveInt64Header(c *gin.Context, name string) int64 {
+	parsed, err := parsePositiveInt64Header(c, name)
+	if err != nil {
+		return 0
+	}
+	return parsed
 }
 
 // getGroupPlatform extracts the group platform from the API Key stored in context.

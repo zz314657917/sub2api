@@ -52,6 +52,7 @@ type APIKey struct {
 	UserID              int64                          `json:"user_id"`
 	Key                 string                         `json:"key"`
 	Name                string                         `json:"name"`
+	IsDefault           bool                           `json:"is_default"`
 	GroupID             *int64                         `json:"group_id"`
 	MultiGroupRoutes    []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"`
 	AccountPoolStrategy string                         `json:"account_pool_strategy"`

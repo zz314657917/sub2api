@@ -33,6 +33,7 @@ type APIKey struct {
 	UserID                int64
 	Key                   string
 	Name                  string
+	IsDefault             bool
 	GroupID               *int64
 	MultiGroupRoutes      []domain.APIKeyMultiGroupRoute
 	MultiGroupRouteGroups []*Group

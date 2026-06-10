@@ -216,7 +216,7 @@ type LeaderboardDailyRewardTier struct {
 	Amount float64 `json:"amount"`
 }
 
-// LeaderboardDailyRewards represents yesterday's reward settlement status.
+// LeaderboardDailyRewards represents last week's reward settlement status.
 type LeaderboardDailyRewards struct {
 	RewardDate               string                       `json:"reward_date"`
 	SettlementTimezone       string                       `json:"settlement_timezone"`
