@@ -155,3 +155,14 @@ func TestMigration135AllowsGitHubAndGoogleAuthProviders(t *testing.T) {
 	require.Contains(t, sql, "'github'")
 	require.Contains(t, sql, "'google'")
 }
+
+func TestMigration173AllowsLeaderboardRewardPeriodKeys(t *testing.T) {
+	content, err := FS.ReadFile("173_leaderboard_daily_reward_period_key.sql")
+	require.NoError(t, err)
+
+	sql := string(content)
+	require.Contains(t, sql, "ALTER TABLE IF EXISTS leaderboard_daily_reward_claims")
+	require.Contains(t, sql, "ALTER COLUMN reward_date TYPE TEXT")
+	require.Contains(t, sql, "USING reward_date::TEXT")
+	require.NotContains(t, sql, "TYPE DATE")
+}

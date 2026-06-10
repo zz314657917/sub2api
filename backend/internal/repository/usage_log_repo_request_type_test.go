@@ -655,13 +655,14 @@ func TestUsageLogRepositoryLeaderboardDailyRewardClaimCreateAndRead(t *testing.T
 	db, mock := newSQLMock(t)
 	repo := &usageLogRepository{sql: db}
 	createdAt := time.Date(2026, 5, 9, 1, 2, 3, 0, time.UTC)
+	rewardDate := "2026-05-04~2026-05-10"
 
 	mock.ExpectQuery("INSERT INTO leaderboard_daily_reward_claims").
-		WithArgs("2026-05-08", int64(42), 1, 5.0, 101.0, nil).
+		WithArgs(rewardDate, int64(42), 1, 5.0, 101.0, nil).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(99), createdAt))
 
 	claim := &service.LeaderboardDailyRewardClaim{
-		RewardDate:      "2026-05-08",
+		RewardDate:      rewardDate,
 		UserID:          42,
 		Rank:            1,
 		Amount:          5,
@@ -671,14 +672,15 @@ func TestUsageLogRepositoryLeaderboardDailyRewardClaimCreateAndRead(t *testing.T
 	require.Equal(t, int64(99), claim.ID)
 
 	mock.ExpectQuery("SELECT id, reward_date::text, user_id, rank, amount, total_actual_cost, redeem_code_id, created_at").
-		WithArgs("2026-05-08", int64(42)).
+		WithArgs(rewardDate, int64(42)).
 		WillReturnRows(sqlmock.NewRows([]string{
 			"id", "reward_date", "user_id", "rank", "amount", "total_actual_cost", "redeem_code_id", "created_at",
-		}).AddRow(int64(99), "2026-05-08", int64(42), 1, 5.0, 101.0, int64(700), createdAt))
+		}).AddRow(int64(99), rewardDate, int64(42), 1, 5.0, 101.0, int64(700), createdAt))
 
-	got, err := repo.GetLeaderboardDailyRewardClaim(context.Background(), "2026-05-08", 42)
+	got, err := repo.GetLeaderboardDailyRewardClaim(context.Background(), rewardDate, 42)
 	require.NoError(t, err)
 	require.Equal(t, int64(99), got.ID)
+	require.Equal(t, rewardDate, got.RewardDate)
 	require.NotNil(t, got.RedeemCodeID)
 	require.Equal(t, int64(700), *got.RedeemCodeID)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -692,7 +694,7 @@ func TestUsageLogRepositoryLeaderboardDailyRewardClaimUniqueConflict(t *testing.
 		WillReturnError(&pq.Error{Code: "23505"})
 
 	err := repo.CreateLeaderboardDailyRewardClaim(context.Background(), &service.LeaderboardDailyRewardClaim{
-		RewardDate:      "2026-05-08",
+		RewardDate:      "2026-05-04~2026-05-10",
 		UserID:          42,
 		Rank:            1,
 		Amount:          5,
