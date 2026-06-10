@@ -90,7 +90,7 @@ func TestStudioBridgeRepositoryCommitLogsNetUsageOnceAfterPartialRefund(t *testi
 		Type:     service.AccountTypeAPIKey,
 		Platform: service.PlatformOpenAI,
 	})
-	defaultKey := mustCreateAPIKey(t, client, &service.APIKey{
+	defaultKey := mustCreateApiKey(t, client, &service.APIKey{
 		UserID:              user.ID,
 		Key:                 "sk-default-" + uuid.NewString(),
 		Name:                service.DefaultAPIKeyName,

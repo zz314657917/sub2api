@@ -69,10 +69,21 @@ func GetNonceFromContext(c *gin.Context) string {
 	return ""
 }
 
+type SecurityHeadersOptions struct {
+	// GetFrameSrcOrigins returns extra origins to inject into frame-src.
+	GetFrameSrcOrigins func() []string
+	// GetFrameAncestors returns frame-ancestors sources for the current request.
+	GetFrameAncestors func(*gin.Context) []string
+}
+
 // SecurityHeaders sets baseline security headers for all responses.
 // getFrameSrcOrigins is an optional function that returns extra origins to inject into frame-src;
 // pass nil to disable dynamic frame-src injection.
 func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) gin.HandlerFunc {
+	return SecurityHeadersWithOptions(cfg, SecurityHeadersOptions{GetFrameSrcOrigins: getFrameSrcOrigins})
+}
+
+func SecurityHeadersWithOptions(cfg config.CSPConfig, opts SecurityHeadersOptions) gin.HandlerFunc {
 	policy := strings.TrimSpace(cfg.Policy)
 	if policy == "" {
 		policy = config.DefaultCSPPolicy
@@ -83,16 +94,25 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 
 	return func(c *gin.Context) {
 		finalPolicy := policy
-		if getFrameSrcOrigins != nil {
-			for _, origin := range getFrameSrcOrigins() {
+		if opts.GetFrameSrcOrigins != nil {
+			for _, origin := range opts.GetFrameSrcOrigins() {
 				if origin != "" {
 					finalPolicy = addToDirective(finalPolicy, "frame-src", origin)
 				}
 			}
 		}
+		frameAncestors := []string(nil)
+		if opts.GetFrameAncestors != nil {
+			frameAncestors = opts.GetFrameAncestors(c)
+		}
+		if len(frameAncestors) > 0 {
+			finalPolicy = setDirective(finalPolicy, "frame-ancestors", frameAncestors)
+		}
 
 		c.Header("X-Content-Type-Options", "nosniff")
-		c.Header("X-Frame-Options", "DENY")
+		if len(frameAncestors) == 0 {
+			c.Header("X-Frame-Options", "DENY")
+		}
 		c.Header("Referrer-Policy", "strict-origin-when-cross-origin")
 		if isAPIRoutePath(c) {
 			c.Next()
@@ -113,6 +133,48 @@ func SecurityHeaders(cfg config.CSPConfig, getFrameSrcOrigins func() []string) g
 		}
 		c.Next()
 	}
+}
+
+func setDirective(policy, directive string, values []string) string {
+	directive = strings.TrimSpace(directive)
+	if directive == "" {
+		return policy
+	}
+	cleanValues := make([]string, 0, len(values))
+	for _, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" || strings.ContainsAny(value, " \t\r\n;") {
+			continue
+		}
+		cleanValues = append(cleanValues, value)
+	}
+	if len(cleanValues) == 0 {
+		return policy
+	}
+
+	replacement := directive + " " + strings.Join(cleanValues, " ")
+	parts := strings.Split(policy, ";")
+	result := make([]string, 0, len(parts)+1)
+	replaced := false
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		fields := strings.Fields(part)
+		if len(fields) > 0 && fields[0] == directive {
+			if !replaced {
+				result = append(result, replacement)
+				replaced = true
+			}
+			continue
+		}
+		result = append(result, part)
+	}
+	if !replaced {
+		result = append(result, replacement)
+	}
+	return strings.Join(result, "; ")
 }
 
 func isAPIRoutePath(c *gin.Context) bool {

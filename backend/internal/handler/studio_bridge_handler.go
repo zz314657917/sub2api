@@ -35,6 +35,10 @@ type studioBridgeUserSummaryRequest struct {
 	UserID int64  `json:"user_id" binding:"required"`
 }
 
+type studioBridgeSessionProbeResponse struct {
+	UserID int64 `json:"user_id"`
+}
+
 func (h *StudioBridgeHandler) Launch(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)
 	if !ok {
@@ -89,6 +93,23 @@ func (h *StudioBridgeHandler) UserSummary(c *gin.Context) {
 		return
 	}
 	response.Success(c, result)
+}
+
+func (h *StudioBridgeHandler) SessionProbe(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
+	appID := strings.TrimSpace(c.Query("app_id"))
+	if appID == "" {
+		appID = service.StudioBridgeAppLuoyeAI
+	}
+	if err := h.service.ValidateSessionProbeOrigin(c.Request.Context(), appID, c.Query("parent_origin")); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, studioBridgeSessionProbeResponse{UserID: subject.UserID})
 }
 
 func (h *StudioBridgeHandler) Reserve(c *gin.Context) {

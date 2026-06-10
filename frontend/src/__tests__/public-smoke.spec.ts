@@ -27,6 +27,10 @@ describe('public page smoke contracts', () => {
   it('routes chat image entry to the Luoye Creative launch workspace', () => {
     expect(router).toContain("path: '/chat-images'")
     expect(router).toContain("alias: '/studio-bridge/launch'")
+    expect(router).toContain("path: '/studio-bridge/session-probe'")
+    expect(router).toContain("name: 'StudioBridgeSessionProbe'")
+    expect(router).toContain("import('@/views/user/StudioBridgeSessionProbeView.vue')")
+    expect(router).toMatch(/BACKEND_MODE_ALLOWED_PATHS[\s\S]*?'\/studio-bridge\/session-probe'/)
     expect(router).toContain("name: 'ChatImageStudio'")
     expect(router).toContain("import('@/views/user/LuoyeAILaunchView.vue')")
     expect(router).not.toContain("path: '/canvas'")

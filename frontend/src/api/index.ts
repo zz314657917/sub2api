@@ -17,7 +17,7 @@ export { redeemAPI, type RedeemHistoryItem } from './redeem'
 export { paymentAPI } from './payment'
 export { userGroupsAPI } from './groups'
 export { userChannelsAPI } from './channels'
-export { studioBridgeAPI, type StudioBridgeLaunchResponse } from './studioBridge'
+export { studioBridgeAPI, type StudioBridgeLaunchResponse, type StudioBridgeSessionProbeResponse } from './studioBridge'
 export { ticketsAPI } from './tickets'
 export {
   welfareAPI,

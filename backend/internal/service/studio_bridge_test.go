@@ -346,6 +346,37 @@ func TestStudioBridgeCommitCreatesUsageLogOnceWithNetAmount(t *testing.T) {
 	require.Equal(t, 1, repo.usageLogCalls)
 }
 
+func TestStudioBridgeSessionProbeOriginValidation(t *testing.T) {
+	ctx := context.Background()
+	svc := newStudioBridgeTestService(t, &studioBridgeRepoStub{})
+
+	require.NoError(t, svc.ValidateSessionProbeOrigin(ctx, StudioBridgeAppLuoyeAI, "http://127.0.0.1:8081"))
+	require.NoError(t, svc.ValidateSessionProbeOrigin(ctx, StudioBridgeAppLuoyeAI, "http://127.0.0.1:8081/profile"))
+	require.ErrorIs(t, svc.ValidateSessionProbeOrigin(ctx, StudioBridgeAppLuoyeAI, "http://evil.example.com"), ErrStudioBridgeInvalidReturn)
+	require.ErrorIs(t, svc.ValidateSessionProbeOrigin(ctx, StudioBridgeAppLuoyeAI, "javascript:alert(1)"), ErrStudioBridgeInvalidReturn)
+}
+
+func TestStudioBridgeSessionProbeOriginAllowsConfiguredReturnDomain(t *testing.T) {
+	ctx := context.Background()
+	raw, err := marshalStudioBridgeAppSettings(StudioBridgeAppSettings{
+		Enabled:              true,
+		SiteName:             "落叶创艺",
+		AllowedReturnDomains: []string{"example.com"},
+		LaunchReturnURL:      "http://127.0.0.1:8081/auth/sub2api/launch",
+		RechargeReturnURL:    "http://127.0.0.1:62080/purchase",
+		DefaultChatGroup:     "1",
+		DefaultImageGroup:    "2",
+		DefaultVideoGroup:    "3",
+		InternalSecret:       "secret",
+	})
+	require.NoError(t, err)
+	settings := NewSettingService(&studioBridgeSettingRepoStub{values: map[string]string{SettingKeyStudioBridgeLuoyeAI: raw}}, &config.Config{})
+	svc := NewStudioBridgeService(settings, &studioBridgeRepoStub{}, newStudioBridgeMemoryStore())
+
+	require.NoError(t, svc.ValidateSessionProbeOrigin(ctx, StudioBridgeAppLuoyeAI, "https://luoye.example.com"))
+	require.ErrorIs(t, svc.ValidateSessionProbeOrigin(ctx, StudioBridgeAppLuoyeAI, "https://example.org"), ErrStudioBridgeInvalidReturn)
+}
+
 func TestStudioBridgeEnabledSettingsRequireChatAndImageGroups(t *testing.T) {
 	err := validateStudioBridgeAppSettings(StudioBridgeAppSettings{
 		Enabled:           true,

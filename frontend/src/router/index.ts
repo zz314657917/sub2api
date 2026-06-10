@@ -279,6 +279,17 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/studio-bridge/session-probe',
+    name: 'StudioBridgeSessionProbe',
+    component: () => import('@/views/user/StudioBridgeSessionProbeView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Studio Bridge Session Probe',
+      hideHeaderTitle: true,
+      denseWorkspace: true
+    }
+  },
+  {
     path: '/image-manager',
     name: 'ImageManager',
     component: () => import('@/views/user/ImageManagerView.vue'),
@@ -859,7 +870,7 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/tutorial', '/models']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/tutorial', '/models', '/studio-bridge/session-probe']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',

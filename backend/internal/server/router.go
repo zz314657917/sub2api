@@ -21,6 +21,11 @@ import (
 
 const frameSrcRefreshTimeout = 5 * time.Second
 
+type studioBridgeFrameAncestorAllowlist struct {
+	origins []string
+	domains []string
+}
+
 // SetupRouter 配置路由器中间件和路由
 func SetupRouter(
 	r *gin.Engine,
@@ -39,6 +44,8 @@ func SetupRouter(
 	var cachedFrameOrigins atomic.Pointer[[]string]
 	emptyOrigins := []string{}
 	cachedFrameOrigins.Store(&emptyOrigins)
+	var cachedStudioBridgeFrameAncestors atomic.Pointer[studioBridgeFrameAncestorAllowlist]
+	cachedStudioBridgeFrameAncestors.Store(&studioBridgeFrameAncestorAllowlist{})
 
 	refreshFrameOrigins := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), frameSrcRefreshTimeout)
@@ -49,6 +56,10 @@ func SetupRouter(
 			return
 		}
 		cachedFrameOrigins.Store(&origins)
+		studioBridgeSettings, err := settingService.GetStudioBridgeLuoyeAISettings(ctx)
+		if err == nil {
+			cachedStudioBridgeFrameAncestors.Store(studioBridgeFrameAncestorAllowlistFromSettings(studioBridgeSettings))
+		}
 	}
 	refreshFrameOrigins() // 启动时初始化
 
@@ -56,11 +67,27 @@ func SetupRouter(
 	r.Use(middleware2.RequestLogger())
 	r.Use(middleware2.Logger())
 	r.Use(middleware2.CORS(cfg.CORS))
-	r.Use(middleware2.SecurityHeaders(cfg.Security.CSP, func() []string {
-		if p := cachedFrameOrigins.Load(); p != nil {
-			return *p
-		}
-		return nil
+	r.Use(middleware2.SecurityHeadersWithOptions(cfg.Security.CSP, middleware2.SecurityHeadersOptions{
+		GetFrameSrcOrigins: func() []string {
+			if p := cachedFrameOrigins.Load(); p != nil {
+				return *p
+			}
+			return nil
+		},
+		GetFrameAncestors: func(c *gin.Context) []string {
+			if c == nil || c.Request == nil || c.Request.URL == nil || c.Request.URL.Path != "/studio-bridge/session-probe" {
+				return nil
+			}
+			origin := frameOriginFromURL(c.Query("parent_origin"))
+			if origin == "" {
+				return nil
+			}
+			allowlist := cachedStudioBridgeFrameAncestors.Load()
+			if !studioBridgeFrameAncestorAllowed(origin, allowlist) {
+				return nil
+			}
+			return []string{origin}
+		},
 	}))
 
 	// Serve embedded frontend with settings injection if available
@@ -114,6 +141,55 @@ func frameOriginFromURL(rawURL string) string {
 		return ""
 	}
 	return parsed.Scheme + "://" + parsed.Host
+}
+
+func studioBridgeFrameAncestorAllowlistFromSettings(settings *service.StudioBridgeAppSettings) *studioBridgeFrameAncestorAllowlist {
+	allowlist := &studioBridgeFrameAncestorAllowlist{}
+	if settings == nil || !settings.Enabled {
+		return allowlist
+	}
+	if origin := frameOriginFromURL(settings.LaunchReturnURL); origin != "" {
+		allowlist.origins = appendFrameOrigin(allowlist.origins, origin)
+	}
+	for _, domain := range settings.AllowedReturnDomains {
+		domain = strings.ToLower(strings.TrimSpace(domain))
+		if domain == "" || strings.ContainsAny(domain, "/:") {
+			continue
+		}
+		allowlist.domains = append(allowlist.domains, domain)
+	}
+	return allowlist
+}
+
+func studioBridgeFrameAncestorAllowed(origin string, allowlist *studioBridgeFrameAncestorAllowlist) bool {
+	origin = frameOriginFromURL(origin)
+	if origin == "" || allowlist == nil {
+		return false
+	}
+	for _, allowed := range allowlist.origins {
+		if origin == allowed {
+			return true
+		}
+	}
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Hostname() == "" {
+		return false
+	}
+	if parsed.Scheme != "https" && !isLoopbackFrameAncestorHost(parsed.Hostname()) {
+		return false
+	}
+	host := strings.ToLower(parsed.Hostname())
+	for _, domain := range allowlist.domains {
+		if host == domain || strings.HasSuffix(host, "."+domain) {
+			return true
+		}
+	}
+	return false
+}
+
+func isLoopbackFrameAncestorHost(host string) bool {
+	host = strings.ToLower(strings.TrimSpace(host))
+	return host == "localhost" || host == "127.0.0.1" || host == "::1" || strings.HasPrefix(host, "127.")
 }
 
 // registerRoutes 注册所有 HTTP 路由

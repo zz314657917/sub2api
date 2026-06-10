@@ -273,6 +273,29 @@ func TestSecurityHeaders(t *testing.T) {
 			nonces[nonce] = true
 		}
 	})
+
+	t.Run("frame_ancestors_override_removes_x_frame_options", func(t *testing.T) {
+		cfg := config.CSPConfig{
+			Enabled: true,
+			Policy:  "default-src 'self'; frame-ancestors 'none'",
+		}
+		middleware := SecurityHeadersWithOptions(cfg, SecurityHeadersOptions{
+			GetFrameAncestors: func(*gin.Context) []string {
+				return []string{"http://127.0.0.1:8081"}
+			},
+		})
+
+		w := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(w)
+		c.Request = httptest.NewRequest(http.MethodGet, "/studio-bridge/session-probe", nil)
+
+		middleware(c)
+
+		csp := w.Header().Get("Content-Security-Policy")
+		assert.Contains(t, csp, "frame-ancestors http://127.0.0.1:8081")
+		assert.NotContains(t, csp, "frame-ancestors 'none'")
+		assert.Empty(t, w.Header().Get("X-Frame-Options"))
+	})
 }
 
 func TestCSPNonceKey(t *testing.T) {
@@ -408,6 +431,13 @@ func TestAddToDirective(t *testing.T) {
 		assert.Contains(t, result, "script-src")
 		assert.Contains(t, result, "https://example.com")
 	})
+}
+
+func TestSetDirective(t *testing.T) {
+	result := setDirective("default-src 'self'; frame-ancestors 'none'; script-src 'self'", "frame-ancestors", []string{"https://luoye.example.com"})
+
+	assert.Contains(t, result, "frame-ancestors https://luoye.example.com")
+	assert.NotContains(t, result, "frame-ancestors 'none'")
 }
 
 // Benchmark tests

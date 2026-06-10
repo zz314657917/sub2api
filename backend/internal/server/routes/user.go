@@ -46,6 +46,7 @@ func RegisterUserRoutes(
 			studioBridge := user.Group("/studio-bridge")
 			{
 				studioBridge.POST("/launch", h.StudioBridge.Launch)
+				studioBridge.GET("/session-probe", h.StudioBridge.SessionProbe)
 			}
 
 			imageCreator := user.Group("/image-creator")

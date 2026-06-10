@@ -243,6 +243,22 @@ func (s *StudioBridgeService) GetUserSummary(ctx context.Context, appID string, 
 	return s.repo.GetUserSummary(ctx, userID, cfg.RechargeReturnURL, 20)
 }
 
+func (s *StudioBridgeService) ValidateSessionProbeOrigin(ctx context.Context, appID, parentOrigin string) error {
+	cfg, err := s.loadEnabledApp(ctx, appID)
+	if err != nil {
+		return err
+	}
+	origin, err := validateStudioBridgeConfiguredLaunchURL(parentOrigin)
+	if err != nil {
+		return err
+	}
+	if launch, err := validateStudioBridgeConfiguredLaunchURL(cfg.LaunchReturnURL); err == nil && sameStudioBridgeOrigin(origin, launch) {
+		return nil
+	}
+	_, err = validateStudioBridgeReturnURL(origin.String(), cfg.AllowedReturnDomains)
+	return err
+}
+
 func (s *StudioBridgeService) Reserve(ctx context.Context, cmd StudioBridgeChargeCommand, secret string) (*StudioBridgeChargeResult, error) {
 	cfg, err := s.loadEnabledApp(ctx, cmd.AppID)
 	if err != nil {
@@ -399,6 +415,13 @@ func validateStudioBridgeReturnURL(raw string, domains []string) (*url.URL, erro
 		}
 	}
 	return nil, ErrStudioBridgeInvalidReturn
+}
+
+func sameStudioBridgeOrigin(a, b *url.URL) bool {
+	if a == nil || b == nil {
+		return false
+	}
+	return strings.EqualFold(a.Scheme, b.Scheme) && strings.EqualFold(a.Host, b.Host)
 }
 
 func validStudioBridgeSecret(expected, provided string) bool {
