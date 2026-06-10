@@ -69,6 +69,7 @@ func UserFromServiceAdmin(u *service.User) *AdminUser {
 	return &AdminUser{
 		User:       *base,
 		Notes:      u.Notes,
+		RegisterIP: u.RegisterIP,
 		LastUsedAt: u.LastUsedAt,
 		GroupRates: u.GroupRates,
 	}

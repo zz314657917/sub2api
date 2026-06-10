@@ -391,17 +391,20 @@ func TestAuthService_Register_Success(t *testing.T) {
 		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "false",
 	}, nil)
 
-	token, user, err := service.Register(context.Background(), "user@test.com", "password")
+	ctx := WithRegisterIP(context.Background(), "203.0.113.8")
+	token, user, err := service.Register(ctx, "user@test.com", "password")
 	require.NoError(t, err)
 	require.NotEmpty(t, token)
 	require.NotNil(t, user)
 	require.Equal(t, int64(5), user.ID)
 	require.Equal(t, "user@test.com", user.Email)
+	require.Equal(t, "203.0.113.8", user.RegisterIP)
 	require.Equal(t, RoleUser, user.Role)
 	require.Equal(t, StatusActive, user.Status)
 	require.Equal(t, 3.5, user.Balance)
 	require.Equal(t, 2, user.Concurrency)
 	require.Len(t, repo.created, 1)
+	require.Equal(t, "203.0.113.8", repo.created[0].RegisterIP)
 	require.True(t, user.CheckPassword("password"))
 }
 

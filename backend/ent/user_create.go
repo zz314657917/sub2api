@@ -228,6 +228,20 @@ func (_c *UserCreate) SetNillableSignupSource(v *string) *UserCreate {
 	return _c
 }
 
+// SetRegisterIP sets the "register_ip" field.
+func (_c *UserCreate) SetRegisterIP(v string) *UserCreate {
+	_c.mutation.SetRegisterIP(v)
+	return _c
+}
+
+// SetNillableRegisterIP sets the "register_ip" field if the given value is not nil.
+func (_c *UserCreate) SetNillableRegisterIP(v *string) *UserCreate {
+	if v != nil {
+		_c.SetRegisterIP(*v)
+	}
+	return _c
+}
+
 // SetLastLoginAt sets the "last_login_at" field.
 func (_c *UserCreate) SetLastLoginAt(v time.Time) *UserCreate {
 	_c.mutation.SetLastLoginAt(v)
@@ -618,6 +632,10 @@ func (_c *UserCreate) defaults() error {
 		v := user.DefaultSignupSource
 		_c.mutation.SetSignupSource(v)
 	}
+	if _, ok := _c.mutation.RegisterIP(); !ok {
+		v := user.DefaultRegisterIP
+		_c.mutation.SetRegisterIP(v)
+	}
 	if _, ok := _c.mutation.BalanceNotifyEnabled(); !ok {
 		v := user.DefaultBalanceNotifyEnabled
 		_c.mutation.SetBalanceNotifyEnabled(v)
@@ -707,6 +725,14 @@ func (_c *UserCreate) check() error {
 	if v, ok := _c.mutation.SignupSource(); ok {
 		if err := user.SignupSourceValidator(v); err != nil {
 			return &ValidationError{Name: "signup_source", err: fmt.Errorf(`ent: validator failed for field "User.signup_source": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RegisterIP(); !ok {
+		return &ValidationError{Name: "register_ip", err: errors.New(`ent: missing required field "User.register_ip"`)}
+	}
+	if v, ok := _c.mutation.RegisterIP(); ok {
+		if err := user.RegisterIPValidator(v); err != nil {
+			return &ValidationError{Name: "register_ip", err: fmt.Errorf(`ent: validator failed for field "User.register_ip": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.BalanceNotifyEnabled(); !ok {
@@ -810,6 +836,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.SignupSource(); ok {
 		_spec.SetField(user.FieldSignupSource, field.TypeString, value)
 		_node.SignupSource = value
+	}
+	if value, ok := _c.mutation.RegisterIP(); ok {
+		_spec.SetField(user.FieldRegisterIP, field.TypeString, value)
+		_node.RegisterIP = value
 	}
 	if value, ok := _c.mutation.LastLoginAt(); ok {
 		_spec.SetField(user.FieldLastLoginAt, field.TypeTime, value)
@@ -1305,6 +1335,18 @@ func (u *UserUpsert) UpdateSignupSource() *UserUpsert {
 	return u
 }
 
+// SetRegisterIP sets the "register_ip" field.
+func (u *UserUpsert) SetRegisterIP(v string) *UserUpsert {
+	u.Set(user.FieldRegisterIP, v)
+	return u
+}
+
+// UpdateRegisterIP sets the "register_ip" field to the value that was provided on create.
+func (u *UserUpsert) UpdateRegisterIP() *UserUpsert {
+	u.SetExcluded(user.FieldRegisterIP)
+	return u
+}
+
 // SetLastLoginAt sets the "last_login_at" field.
 func (u *UserUpsert) SetLastLoginAt(v time.Time) *UserUpsert {
 	u.Set(user.FieldLastLoginAt, v)
@@ -1710,6 +1752,20 @@ func (u *UserUpsertOne) SetSignupSource(v string) *UserUpsertOne {
 func (u *UserUpsertOne) UpdateSignupSource() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateSignupSource()
+	})
+}
+
+// SetRegisterIP sets the "register_ip" field.
+func (u *UserUpsertOne) SetRegisterIP(v string) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRegisterIP(v)
+	})
+}
+
+// UpdateRegisterIP sets the "register_ip" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateRegisterIP() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRegisterIP()
 	})
 }
 
@@ -2306,6 +2362,20 @@ func (u *UserUpsertBulk) SetSignupSource(v string) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdateSignupSource() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateSignupSource()
+	})
+}
+
+// SetRegisterIP sets the "register_ip" field.
+func (u *UserUpsertBulk) SetRegisterIP(v string) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRegisterIP(v)
+	})
+}
+
+// UpdateRegisterIP sets the "register_ip" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateRegisterIP() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRegisterIP()
 	})
 }
 

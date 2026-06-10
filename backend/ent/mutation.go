@@ -40515,6 +40515,7 @@ type UserMutation struct {
 	totp_enabled                  *bool
 	totp_enabled_at               *time.Time
 	signup_source                 *string
+	register_ip                   *string
 	last_login_at                 *time.Time
 	last_active_at                *time.Time
 	balance_notify_enabled        *bool
@@ -41286,6 +41287,42 @@ func (m *UserMutation) OldSignupSource(ctx context.Context) (v string, err error
 // ResetSignupSource resets all changes to the "signup_source" field.
 func (m *UserMutation) ResetSignupSource() {
 	m.signup_source = nil
+}
+
+// SetRegisterIP sets the "register_ip" field.
+func (m *UserMutation) SetRegisterIP(s string) {
+	m.register_ip = &s
+}
+
+// RegisterIP returns the value of the "register_ip" field in the mutation.
+func (m *UserMutation) RegisterIP() (r string, exists bool) {
+	v := m.register_ip
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRegisterIP returns the old "register_ip" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldRegisterIP(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRegisterIP is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRegisterIP requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRegisterIP: %w", err)
+	}
+	return oldValue.RegisterIP, nil
+}
+
+// ResetRegisterIP resets all changes to the "register_ip" field.
+func (m *UserMutation) ResetRegisterIP() {
+	m.register_ip = nil
 }
 
 // SetLastLoginAt sets the "last_login_at" field.
@@ -42412,7 +42449,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 23)
+	fields := make([]string, 0, 24)
 	if m.created_at != nil {
 		fields = append(fields, user.FieldCreatedAt)
 	}
@@ -42457,6 +42494,9 @@ func (m *UserMutation) Fields() []string {
 	}
 	if m.signup_source != nil {
 		fields = append(fields, user.FieldSignupSource)
+	}
+	if m.register_ip != nil {
+		fields = append(fields, user.FieldRegisterIP)
 	}
 	if m.last_login_at != nil {
 		fields = append(fields, user.FieldLastLoginAt)
@@ -42520,6 +42560,8 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.TotpEnabledAt()
 	case user.FieldSignupSource:
 		return m.SignupSource()
+	case user.FieldRegisterIP:
+		return m.RegisterIP()
 	case user.FieldLastLoginAt:
 		return m.LastLoginAt()
 	case user.FieldLastActiveAt:
@@ -42575,6 +42617,8 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldTotpEnabledAt(ctx)
 	case user.FieldSignupSource:
 		return m.OldSignupSource(ctx)
+	case user.FieldRegisterIP:
+		return m.OldRegisterIP(ctx)
 	case user.FieldLastLoginAt:
 		return m.OldLastLoginAt(ctx)
 	case user.FieldLastActiveAt:
@@ -42704,6 +42748,13 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSignupSource(v)
+		return nil
+	case user.FieldRegisterIP:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRegisterIP(v)
 		return nil
 	case user.FieldLastLoginAt:
 		v, ok := value.(time.Time)
@@ -42956,6 +43007,9 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldSignupSource:
 		m.ResetSignupSource()
+		return nil
+	case user.FieldRegisterIP:
+		m.ResetRegisterIP()
 		return nil
 	case user.FieldLastLoginAt:
 		m.ResetLastLoginAt()

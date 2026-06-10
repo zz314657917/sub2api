@@ -91,6 +91,20 @@ type signupGrantPlan struct {
 	Subscriptions []DefaultSubscriptionSetting
 }
 
+type registerIPContextKey struct{}
+
+func WithRegisterIP(ctx context.Context, registerIP string) context.Context {
+	return context.WithValue(ctx, registerIPContextKey{}, strings.TrimSpace(registerIP))
+}
+
+func registerIPFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	value, _ := ctx.Value(registerIPContextKey{}).(string)
+	return strings.TrimSpace(value)
+}
+
 // NewAuthService 创建认证服务实例
 func NewAuthService(
 	entClient *dbent.Client,
@@ -143,6 +157,10 @@ func (s *AuthService) Register(ctx context.Context, email, password string) (str
 
 // RegisterWithVerification 用户注册（支持邮件验证、优惠码、邀请码和邀请返利码），返回token和用户。
 func (s *AuthService) RegisterWithVerification(ctx context.Context, email, password, verifyCode, promoCode, invitationCode, affiliateCode string) (string, *User, error) {
+	return s.registerWithVerificationFromIP(ctx, email, password, verifyCode, promoCode, invitationCode, affiliateCode, registerIPFromContext(ctx))
+}
+
+func (s *AuthService) registerWithVerificationFromIP(ctx context.Context, email, password, verifyCode, promoCode, invitationCode, affiliateCode, registerIP string) (string, *User, error) {
 	// 检查是否开放注册（默认关闭：settingService 未配置时不允许注册）
 	if s.settingService == nil || !s.settingService.IsRegistrationEnabled(ctx) {
 		return "", nil, ErrRegDisabled
@@ -226,6 +244,7 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		Concurrency:  grantPlan.Concurrency,
 		RPMLimit:     defaultRPMLimit,
 		Status:       StatusActive,
+		RegisterIP:   strings.TrimSpace(registerIP),
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
@@ -529,6 +548,7 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 				RPMLimit:     defaultRPMLimit,
 				Status:       StatusActive,
 				SignupSource: signupSource,
+				RegisterIP:   registerIPFromContext(ctx),
 			}
 
 			if err := s.userRepo.Create(ctx, newUser); err != nil {
@@ -646,6 +666,7 @@ func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 				RPMLimit:     defaultRPMLimit,
 				Status:       StatusActive,
 				SignupSource: signupSource,
+				RegisterIP:   registerIPFromContext(ctx),
 			}
 
 			if s.entClient != nil && invitationRedeemCode != nil {

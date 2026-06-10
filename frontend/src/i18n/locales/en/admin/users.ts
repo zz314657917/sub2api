@@ -52,6 +52,7 @@ export default {
         status: 'Status',
         lastActive: 'Last Active',
         lastUsed: 'Last Used',
+        registerIp: 'Register IP',
         created: 'Created',
         actions: 'Actions'
       },

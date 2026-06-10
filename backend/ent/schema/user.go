@@ -84,6 +84,9 @@ func (User) Fields() []ent.Field {
 				}
 			}).
 			Default("email"),
+		field.String("register_ip").
+			MaxLen(45).
+			Default(""),
 		field.Time("last_login_at").
 			Optional().
 			Nillable().

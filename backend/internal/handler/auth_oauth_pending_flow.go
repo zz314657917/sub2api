@@ -1684,8 +1684,9 @@ func (h *AuthHandler) createPendingOAuthAccount(c *gin.Context, provider string)
 		return
 	}
 
+	ctx := service.WithRegisterIP(c.Request.Context(), ip.GetClientIP(c))
 	tokenPair, user, err := h.authService.RegisterOAuthEmailAccount(
-		c.Request.Context(),
+		ctx,
 		email,
 		req.Password,
 		strings.TrimSpace(req.VerifyCode),

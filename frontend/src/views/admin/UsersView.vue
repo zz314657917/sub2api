@@ -560,6 +560,12 @@
             </span>
           </template>
 
+          <template #cell-register_ip="{ value }">
+            <span class="font-mono text-sm text-gray-600 dark:text-gray-400">
+              {{ value || '-' }}
+            </span>
+          </template>
+
           <template #cell-actions="{ row }">
             <div class="flex items-center gap-1">
               <!-- Edit Button -->
@@ -824,6 +830,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'status', label: t('admin.users.columns.status'), sortable: true },
   { key: 'last_active_at', label: t('admin.users.columns.lastActive'), sortable: true },
   { key: 'last_used_at', label: t('admin.users.columns.lastUsed'), sortable: true },
+  { key: 'register_ip', label: t('admin.users.columns.registerIp'), sortable: false },
   { key: 'created_at', label: t('admin.users.columns.created'), sortable: true },
   { key: 'actions', label: t('admin.users.columns.actions'), sortable: false }
 ])

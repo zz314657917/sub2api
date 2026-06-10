@@ -176,6 +176,7 @@ func (s *AuthService) createEmailOAuthUser(ctx context.Context, email, username,
 		RPMLimit:     defaultRPMLimit,
 		Status:       StatusActive,
 		SignupSource: providerType,
+		RegisterIP:   registerIPFromContext(ctx),
 	}
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		if errors.Is(err, ErrEmailExists) {

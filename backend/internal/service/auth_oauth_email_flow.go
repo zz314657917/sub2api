@@ -152,6 +152,7 @@ func (s *AuthService) RegisterOAuthEmailAccount(
 		Concurrency:  grantPlan.Concurrency,
 		Status:       StatusActive,
 		SignupSource: signupSource,
+		RegisterIP:   registerIPFromContext(ctx),
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
@@ -233,6 +234,7 @@ func (s *AuthService) RegisterVerifiedOAuthEmailAccount(
 		RPMLimit:     defaultRPMLimit,
 		Status:       StatusActive,
 		SignupSource: signupSource,
+		RegisterIP:   registerIPFromContext(ctx),
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {

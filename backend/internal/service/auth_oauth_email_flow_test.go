@@ -177,8 +177,9 @@ func TestRegisterOAuthEmailAccountRollsBackCreatedUserWhenTokenPairGenerationFai
 		emailCache,
 	)
 
+	ctx := WithRegisterIP(context.Background(), "198.51.100.9")
 	tokenPair, user, err := authService.RegisterOAuthEmailAccount(
-		context.Background(),
+		ctx,
 		"fresh@example.com",
 		"secret-123",
 		"246810",
@@ -217,8 +218,9 @@ func TestRegisterOAuthEmailAccountSetsNormalizedSignupSourceOnCreatedUser(t *tes
 		emailCache,
 	)
 
+	ctx := WithRegisterIP(context.Background(), "198.51.100.9")
 	tokenPair, user, err := authService.RegisterOAuthEmailAccount(
-		context.Background(),
+		ctx,
 		"fresh@example.com",
 		"secret-123",
 		"246810",
@@ -231,6 +233,7 @@ func TestRegisterOAuthEmailAccountSetsNormalizedSignupSourceOnCreatedUser(t *tes
 	require.NotNil(t, user)
 	require.Len(t, userRepo.created, 1)
 	require.Equal(t, "oidc", userRepo.created[0].SignupSource)
+	require.Equal(t, "198.51.100.9", userRepo.created[0].RegisterIP)
 }
 
 func TestRegisterOAuthEmailAccountKeepsGitHubAndGoogleSignupSource(t *testing.T) {

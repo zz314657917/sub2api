@@ -75,7 +75,7 @@ func TestAuthIdentityFoundationSchemas(t *testing.T) {
 	requireHasUniqueIndex(t, adoptionDecision, "pending_auth_session_id")
 
 	userSchema := requireSchema(t, schemas, "User")
-	requireSchemaFields(t, userSchema, "signup_source", "last_login_at", "last_active_at")
+	requireSchemaFields(t, userSchema, "signup_source", "register_ip", "last_login_at", "last_active_at")
 	signupSource := requireSchemaField(t, userSchema, "signup_source")
 	require.Equal(t, field.TypeString, signupSource.Info.Type)
 	require.True(t, signupSource.Default)
@@ -87,6 +87,11 @@ func TestAuthIdentityFoundationSchemas(t *testing.T) {
 		require.NoError(t, validator(value))
 	}
 	require.Error(t, validator("unknown"))
+
+	registerIP := requireSchemaField(t, userSchema, "register_ip")
+	require.Equal(t, field.TypeString, registerIP.Info.Type)
+	require.True(t, registerIP.Default)
+	require.Equal(t, "", registerIP.DefaultValue)
 }
 
 func requireSchema(t *testing.T, schemas map[string]*load.Schema, name string) *load.Schema {
