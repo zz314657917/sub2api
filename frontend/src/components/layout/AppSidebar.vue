@@ -89,7 +89,7 @@
                         class="sidebar-link mb-0.5 py-1.5 text-sm"
                         :class="{ 'sidebar-link-active': isNavItemActive(grandchild) }"
                         :id="getAdminMenuItemId(grandchild.path)"
-                        @click="handleMenuItemClick(grandchild.path)"
+                        @click="handleMenuItemClick(grandchild, $event)"
                       >
                         <span class="console-nav-icon-frame">
                           <Icon :name="grandchild.icon ?? 'document'" size="sm" />
@@ -105,7 +105,7 @@
                     class="sidebar-link mb-0.5 py-1.5 text-sm"
                     :class="{ 'sidebar-link-active': isNavItemActive(child) }"
                     :id="getAdminMenuItemId(child.path)"
-                    @click="handleMenuItemClick(child.path)"
+                    @click="handleMenuItemClick(child, $event)"
                   >
                     <span class="console-nav-icon-frame">
                       <Icon :name="child.icon ?? 'document'" size="sm" />
@@ -124,7 +124,7 @@
               :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
               :id="getAdminMenuItemId(item.path)"
-              @click="handleMenuItemClick(item.path)"
+              @click="handleMenuItemClick(item, $event)"
             >
               <span class="console-nav-icon-frame">
                 <span v-if="item.iconSvg" class="sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
@@ -185,7 +185,7 @@
                   class="sidebar-link mb-0.5 py-1.5 text-sm"
                   :class="{ 'sidebar-link-active': isNavItemActive(child) }"
                   :data-tour="getSelfMenuItemTour(child.path)"
-                  @click="handleMenuItemClick(child.path)"
+                  @click="handleMenuItemClick(child, $event)"
                 >
                   <span class="console-nav-icon-frame">
                     <Icon :name="child.icon ?? 'document'" size="sm" />
@@ -206,7 +206,7 @@
               :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
               :data-tour="item.path === '/keys' ? 'sidebar-my-keys' : undefined"
-              @click="handleMenuItemClick(item.path)"
+              @click="handleMenuItemClick(item, $event)"
             >
               <span class="console-nav-icon-frame">
                 <span v-if="item.iconSvg" class="sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
@@ -263,7 +263,7 @@
                   class="sidebar-link mb-0.5 py-1.5 text-sm"
                   :class="{ 'sidebar-link-active': isNavItemActive(child) }"
                   :data-tour="getSelfMenuItemTour(child.path)"
-                  @click="handleMenuItemClick(child.path)"
+                  @click="handleMenuItemClick(child, $event)"
                 >
                   <span class="console-nav-icon-frame">
                     <Icon :name="child.icon ?? 'document'" size="sm" />
@@ -284,7 +284,7 @@
               :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
               :data-tour="getSelfMenuItemTour(item.path)"
-              @click="handleMenuItemClick(item.path)"
+              @click="handleMenuItemClick(item, $event)"
             >
               <span class="console-nav-icon-frame">
                 <span v-if="item.iconSvg" class="sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
@@ -352,11 +352,13 @@ import { useI18n } from 'vue-i18n'
 import { useAdminSettingsStore, useAppStore, useAuthStore, useOnboardingStore, useWelfareStore } from '@/stores'
 import VersionBadge from '@/components/common/VersionBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { studioBridgeAPI } from '@/api'
 import { ticketsAPI } from '@/api/tickets'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
+type NavItemAction = 'studioBridgeLaunch'
 
 interface NavItem {
   path: string
@@ -367,6 +369,7 @@ interface NavItem {
   children?: NavItem[]
   exactActive?: boolean
   openInNewTab?: boolean
+  action?: NavItemAction
   /**
    * When true, the parent item only toggles the expand/collapse state and
    * does NOT navigate to its `path`. The `path` is purely a stable key.
@@ -514,7 +517,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/monitor', label: t('nav.channelStatus'), icon: SignalIcon, featureFlag: flagChannelMonitor },
   ]
   const primarySelfItems: NavItem[] = [
-    { path: '/chat-images', label: t('nav.chatImageCreator'), icon: ChatIcon, hideInSimpleMode: true, openInNewTab: true },
+    { path: '/chat-images', label: t('nav.chatImageCreator'), icon: ChatIcon, hideInSimpleMode: true, openInNewTab: true, action: 'studioBridgeLaunch' },
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
     { path: '/usage', label: t('nav.usage'), icon: UsageIcon, hideInSimpleMode: true },
     { path: '/tickets', label: t('nav.tickets'), icon: TicketIcon, hideInSimpleMode: true },
@@ -716,7 +719,56 @@ function handleSidebarTourTarget(event: Event) {
   }
 }
 
-function handleMenuItemClick(itemPath: string) {
+function writeStudioBridgePopupPlaceholder(popup: Window): void {
+  const title = t('chatImageStudio.launchingTitle')
+  popup.document.title = title
+  popup.document.body.style.margin = '0'
+  popup.document.body.style.background = '#f8fafc'
+  const placeholder = popup.document.createElement('div')
+  placeholder.style.display = 'grid'
+  placeholder.style.minHeight = '100vh'
+  placeholder.style.placeItems = 'center'
+  placeholder.style.fontFamily = "system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+  placeholder.style.color = '#475569'
+  placeholder.textContent = title
+  popup.document.body.replaceChildren(placeholder)
+}
+
+async function launchStudioBridgeFromSidebar(): Promise<void> {
+  const popup = window.open('about:blank', '_blank')
+  if (popup) {
+    popup.opener = null
+    writeStudioBridgePopupPlaceholder(popup)
+  }
+  try {
+    const result = await studioBridgeAPI.launch()
+    if (popup && !popup.closed) {
+      popup.location.href = result.launch_url
+      return
+    }
+    window.location.assign(result.launch_url)
+  } catch (error) {
+    if (popup && !popup.closed) {
+      popup.close()
+    }
+    console.error('Failed to launch Luoye Creative studio:', error)
+    appStore.showError(t('chatImageStudio.launchFailedDescription'))
+    void router.push('/chat-images')
+  }
+}
+
+function handleMenuItemClick(item: NavItem, event?: MouseEvent) {
+  if (item.action === 'studioBridgeLaunch') {
+    event?.preventDefault()
+    void launchStudioBridgeFromSidebar()
+    if (mobileOpen.value) {
+      setTimeout(() => {
+        appStore.setMobileOpen(false)
+      }, 150)
+    }
+    return
+  }
+
   if (mobileOpen.value) {
     setTimeout(() => {
       appStore.setMobileOpen(false)
@@ -730,7 +782,7 @@ function handleMenuItemClick(itemPath: string) {
     '/keys': '[data-tour="sidebar-my-keys"]'
   }
 
-  const selector = pathToSelector[itemPath]
+  const selector = pathToSelector[item.path]
   if (selector && onboardingStore.isCurrentStep(selector)) {
     onboardingStore.nextStep(500)
   }
@@ -757,7 +809,7 @@ function showTicketUnreadBadge(item: NavItem): boolean {
 }
 
 function navLinkAttrs(item: NavItem): Record<string, string> {
-  if (!item.openInNewTab) return {}
+  if (!item.openInNewTab || item.action) return {}
   return {
     target: '_blank',
     rel: 'noopener noreferrer',
