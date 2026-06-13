@@ -1605,7 +1605,7 @@ func (h *AuthHandler) bindPendingOAuthLogin(c *gin.Context, provider string) {
 		return
 	}
 
-	h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
+	h.authService.RecordSuccessfulLogin(service.WithLoginIP(c.Request.Context(), ip.GetClientIP(c)), user.ID)
 	tokenPair, err := h.authService.GenerateTokenPair(c.Request.Context(), user, "")
 	if err != nil {
 		response.InternalError(c, "Failed to generate token pair")
@@ -1805,7 +1805,7 @@ func (h *AuthHandler) createPendingOAuthAccount(c *gin.Context, provider string)
 	}
 
 	middleware.MarkRegistrationCreated(c)
-	h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
+	h.authService.RecordSuccessfulLogin(service.WithLoginIP(c.Request.Context(), ip.GetClientIP(c)), user.ID)
 	clearCookies()
 	writeOAuthTokenPairResponse(c, tokenPair)
 }
@@ -1948,7 +1948,7 @@ func (h *AuthHandler) ExchangePendingOAuthCompletion(c *gin.Context) {
 			response.InternalError(c, "Failed to generate token pair")
 			return
 		}
-		h.authService.RecordSuccessfulLogin(c.Request.Context(), loginUser.ID)
+		h.authService.RecordSuccessfulLogin(service.WithLoginIP(c.Request.Context(), ip.GetClientIP(c)), loginUser.ID)
 		payload["access_token"] = tokenPair.AccessToken
 		payload["refresh_token"] = tokenPair.RefreshToken
 		payload["expires_in"] = tokenPair.ExpiresIn

@@ -217,7 +217,7 @@ func TestAuthServiceLoginDefersLastLoginTouchUntilRecordSuccessfulLogin(t *testi
 	require.NoError(t, err)
 	require.Zero(t, identityCount)
 
-	svc.RecordSuccessfulLogin(ctx, user.ID)
+	svc.RecordSuccessfulLogin(service.WithLoginIP(ctx, "198.51.100.10"), user.ID)
 
 	identity, err := client.AuthIdentity.Query().
 		Where(
@@ -228,6 +228,10 @@ func TestAuthServiceLoginDefersLastLoginTouchUntilRecordSuccessfulLogin(t *testi
 		Only(ctx)
 	require.NoError(t, err)
 	require.Equal(t, user.ID, identity.UserID)
+
+	storedUser, err = client.User.Get(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, "198.51.100.10", storedUser.LastLoginIP)
 }
 
 func TestAuthServiceRecordSuccessfulLoginBackfillsEmailIdentity(t *testing.T) {

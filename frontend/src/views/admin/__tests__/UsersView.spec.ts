@@ -72,6 +72,8 @@ const createAdminUser = (): AdminUser => ({
   notes: '',
   last_active_at: '2026-04-16T02:00:00Z',
   last_used_at: '2026-04-17T02:00:00Z',
+  register_ip: '203.0.113.8',
+  last_login_ip: '198.51.100.10',
   current_concurrency: 0
 })
 
@@ -145,7 +147,7 @@ describe('admin UsersView', () => {
 
     const columns = wrapper.get('[data-test="columns"]').text()
     const visibleColumns = columns.split(',')
-    expect(visibleColumns.slice(-5, -1)).toEqual(['last_active_at', 'last_used_at', 'register_ip', 'created_at'])
+    expect(visibleColumns.slice(-6, -1)).toEqual(['last_active_at', 'last_used_at', 'register_ip', 'last_login_ip', 'created_at'])
     expect(visibleColumns).not.toContain('last_login_at')
 
     await wrapper.get('[data-test="sort-last-used"]').trigger('click')

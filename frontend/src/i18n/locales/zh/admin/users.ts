@@ -53,6 +53,7 @@ export default {
         lastActive: '最后活跃时间',
         lastUsed: '最后使用时间',
         registerIp: '注册 IP',
+        lastLoginIp: '最后登录 IP',
         created: '创建时间',
         actions: '操作'
       },

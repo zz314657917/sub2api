@@ -92,6 +92,7 @@ func (r *userRepository) Create(ctx context.Context, userIn *service.User) error
 		SetStatus(userIn.Status).
 		SetSignupSource(userSignupSourceOrDefault(userIn.SignupSource)).
 		SetRegisterIP(userIn.RegisterIP).
+		SetLastLoginIP(userIn.LastLoginIP).
 		SetNillableLastLoginAt(userIn.LastLoginAt).
 		SetNillableLastActiveAt(userIn.LastActiveAt).
 		SetRpmLimit(userIn.RPMLimit).
@@ -207,6 +208,14 @@ func (r *userRepository) Update(ctx context.Context, userIn *service.User) error
 		return translatePersistenceError(err, service.ErrUserNotFound, nil)
 	}
 	oldEmail := existing.Email
+	registerIP := userIn.RegisterIP
+	if registerIP == "" {
+		registerIP = existing.RegisterIP
+	}
+	lastLoginIP := userIn.LastLoginIP
+	if lastLoginIP == "" {
+		lastLoginIP = existing.LastLoginIP
+	}
 
 	updateOp := txClient.User.UpdateOneID(userIn.ID).
 		SetEmail(userIn.Email).
@@ -217,7 +226,8 @@ func (r *userRepository) Update(ctx context.Context, userIn *service.User) error
 		SetBalance(userIn.Balance).
 		SetConcurrency(userIn.Concurrency).
 		SetStatus(userIn.Status).
-		SetRegisterIP(userIn.RegisterIP).
+		SetRegisterIP(registerIP).
+		SetLastLoginIP(lastLoginIP).
 		SetBalanceNotifyEnabled(userIn.BalanceNotifyEnabled).
 		SetBalanceNotifyThresholdType(userIn.BalanceNotifyThresholdType).
 		SetNillableBalanceNotifyThreshold(userIn.BalanceNotifyThreshold).
@@ -969,6 +979,7 @@ func applyUserEntityToService(dst *service.User, src *dbent.User) {
 	dst.ID = src.ID
 	dst.SignupSource = src.SignupSource
 	dst.RegisterIP = src.RegisterIP
+	dst.LastLoginIP = src.LastLoginIP
 	dst.LastLoginAt = src.LastLoginAt
 	dst.LastActiveAt = src.LastActiveAt
 	dst.CreatedAt = src.CreatedAt

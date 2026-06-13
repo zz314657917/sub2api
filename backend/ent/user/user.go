@@ -47,6 +47,8 @@ const (
 	FieldSignupSource = "signup_source"
 	// FieldRegisterIP holds the string denoting the register_ip field in the database.
 	FieldRegisterIP = "register_ip"
+	// FieldLastLoginIP holds the string denoting the last_login_ip field in the database.
+	FieldLastLoginIP = "last_login_ip"
 	// FieldLastLoginAt holds the string denoting the last_login_at field in the database.
 	FieldLastLoginAt = "last_login_at"
 	// FieldLastActiveAt holds the string denoting the last_active_at field in the database.
@@ -210,6 +212,7 @@ var Columns = []string{
 	FieldTotpEnabledAt,
 	FieldSignupSource,
 	FieldRegisterIP,
+	FieldLastLoginIP,
 	FieldLastLoginAt,
 	FieldLastActiveAt,
 	FieldBalanceNotifyEnabled,
@@ -282,6 +285,10 @@ var (
 	DefaultRegisterIP string
 	// RegisterIPValidator is a validator for the "register_ip" field. It is called by the builders before save.
 	RegisterIPValidator func(string) error
+	// DefaultLastLoginIP holds the default value on creation for the "last_login_ip" field.
+	DefaultLastLoginIP string
+	// LastLoginIPValidator is a validator for the "last_login_ip" field. It is called by the builders before save.
+	LastLoginIPValidator func(string) error
 	// DefaultBalanceNotifyEnabled holds the default value on creation for the "balance_notify_enabled" field.
 	DefaultBalanceNotifyEnabled bool
 	// DefaultBalanceNotifyThresholdType holds the default value on creation for the "balance_notify_threshold_type" field.
@@ -380,6 +387,11 @@ func BySignupSource(opts ...sql.OrderTermOption) OrderOption {
 // ByRegisterIP orders the results by the register_ip field.
 func ByRegisterIP(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRegisterIP, opts...).ToFunc()
+}
+
+// ByLastLoginIP orders the results by the last_login_ip field.
+func ByLastLoginIP(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldLastLoginIP, opts...).ToFunc()
 }
 
 // ByLastLoginAt orders the results by the last_login_at field.

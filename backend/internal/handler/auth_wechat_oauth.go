@@ -576,7 +576,7 @@ func (h *AuthHandler) CompleteWeChatOAuthRegistration(c *gin.Context) {
 	if isNewUser {
 		middleware.MarkRegistrationCreated(c)
 	}
-	h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
+	h.authService.RecordSuccessfulLogin(service.WithLoginIP(c.Request.Context(), ip.GetClientIP(c)), user.ID)
 	if _, err := pendingSvc.ConsumeBrowserSession(c.Request.Context(), sessionToken, browserSessionKey); err != nil {
 		clearOAuthPendingSessionCookie(c, secureCookie)
 		clearOAuthPendingBrowserCookie(c, secureCookie)

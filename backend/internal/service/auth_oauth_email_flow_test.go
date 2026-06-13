@@ -234,6 +234,7 @@ func TestRegisterOAuthEmailAccountSetsNormalizedSignupSourceOnCreatedUser(t *tes
 	require.Len(t, userRepo.created, 1)
 	require.Equal(t, "oidc", userRepo.created[0].SignupSource)
 	require.Equal(t, "198.51.100.9", userRepo.created[0].RegisterIP)
+	require.Equal(t, "198.51.100.9", userRepo.created[0].LastLoginIP)
 }
 
 func TestRegisterOAuthEmailAccountKeepsGitHubAndGoogleSignupSource(t *testing.T) {

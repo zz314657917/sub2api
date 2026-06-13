@@ -122,6 +122,32 @@ func TestUserRepositoryUpdateRejectsNormalizedEmailDuplicate(t *testing.T) {
 	require.ErrorIs(t, err, service.ErrEmailExists)
 }
 
+func TestUserRepositoryUpdatePreservesStoredIPFieldsWhenInputOmitsThem(t *testing.T) {
+	repo, client := newUserEntRepo(t)
+	ctx := context.Background()
+
+	user := &service.User{
+		Email:        "ip-fields@example.com",
+		Username:     "ip-user",
+		PasswordHash: "hash",
+		Role:         service.RoleUser,
+		Status:       service.StatusActive,
+		RegisterIP:   "203.0.113.8",
+		LastLoginIP:  "198.51.100.10",
+	}
+	require.NoError(t, repo.Create(ctx, user))
+
+	user.Username = "renamed"
+	user.RegisterIP = ""
+	user.LastLoginIP = ""
+	require.NoError(t, repo.Update(ctx, user))
+
+	stored, err := client.User.Get(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, "203.0.113.8", stored.RegisterIP)
+	require.Equal(t, "198.51.100.10", stored.LastLoginIP)
+}
+
 func TestUserRepositoryGetByEmailReportsNormalizedEmailConflict(t *testing.T) {
 	repo, client := newUserEntRepo(t)
 	ctx := context.Background()

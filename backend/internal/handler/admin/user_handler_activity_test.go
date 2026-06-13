@@ -29,6 +29,8 @@ func TestUserHandlerListIncludesActivityFieldsAndSortParams(t *testing.T) {
 			Username:     "activity-user",
 			Role:         service.RoleUser,
 			Status:       service.StatusActive,
+			RegisterIP:   "203.0.113.8",
+			LastLoginIP:  "198.51.100.10",
 			LastActiveAt: &lastActiveAt,
 			LastUsedAt:   &lastUsedAt,
 			CreatedAt:    lastLoginAt.Add(-24 * time.Hour),
@@ -58,12 +60,16 @@ func TestUserHandlerListIncludesActivityFieldsAndSortParams(t *testing.T) {
 			Items []struct {
 				LastActiveAt *time.Time `json:"last_active_at"`
 				LastUsedAt   *time.Time `json:"last_used_at"`
+				RegisterIP   string     `json:"register_ip"`
+				LastLoginIP  string     `json:"last_login_ip"`
 			} `json:"items"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
 	require.Len(t, resp.Data.Items, 1)
+	require.Equal(t, "203.0.113.8", resp.Data.Items[0].RegisterIP)
+	require.Equal(t, "198.51.100.10", resp.Data.Items[0].LastLoginIP)
 	require.WithinDuration(t, lastActiveAt, *resp.Data.Items[0].LastActiveAt, time.Second)
 	require.WithinDuration(t, lastUsedAt, *resp.Data.Items[0].LastUsedAt, time.Second)
 }
@@ -83,6 +89,8 @@ func TestUserHandlerGetByIDIncludesActivityFields(t *testing.T) {
 			Username:     "detail-user",
 			Role:         service.RoleUser,
 			Status:       service.StatusActive,
+			RegisterIP:   "203.0.113.9",
+			LastLoginIP:  "198.51.100.11",
 			LastActiveAt: &lastActiveAt,
 			LastUsedAt:   &lastUsedAt,
 			CreatedAt:    lastLoginAt.Add(-24 * time.Hour),
@@ -105,10 +113,14 @@ func TestUserHandlerGetByIDIncludesActivityFields(t *testing.T) {
 		Data struct {
 			LastActiveAt *time.Time `json:"last_active_at"`
 			LastUsedAt   *time.Time `json:"last_used_at"`
+			RegisterIP   string     `json:"register_ip"`
+			LastLoginIP  string     `json:"last_login_ip"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
+	require.Equal(t, "203.0.113.9", resp.Data.RegisterIP)
+	require.Equal(t, "198.51.100.11", resp.Data.LastLoginIP)
 	require.WithinDuration(t, lastActiveAt, *resp.Data.LastActiveAt, time.Second)
 	require.WithinDuration(t, lastUsedAt, *resp.Data.LastUsedAt, time.Second)
 }

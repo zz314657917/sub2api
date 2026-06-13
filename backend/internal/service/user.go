@@ -28,6 +28,7 @@ type User struct {
 	TokenVersionResolved bool
 	SignupSource         string
 	RegisterIP           string
+	LastLoginIP          string
 	LastLoginAt          *time.Time
 	LastActiveAt         *time.Time
 	LastUsedAt           *time.Time

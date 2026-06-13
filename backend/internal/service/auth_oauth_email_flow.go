@@ -153,6 +153,7 @@ func (s *AuthService) RegisterOAuthEmailAccount(
 		Status:       StatusActive,
 		SignupSource: signupSource,
 		RegisterIP:   registerIPFromContext(ctx),
+		LastLoginIP:  loginIPFromContext(ctx),
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
@@ -235,6 +236,7 @@ func (s *AuthService) RegisterVerifiedOAuthEmailAccount(
 		Status:       StatusActive,
 		SignupSource: signupSource,
 		RegisterIP:   registerIPFromContext(ctx),
+		LastLoginIP:  loginIPFromContext(ctx),
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {

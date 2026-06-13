@@ -399,12 +399,14 @@ func TestAuthService_Register_Success(t *testing.T) {
 	require.Equal(t, int64(5), user.ID)
 	require.Equal(t, "user@test.com", user.Email)
 	require.Equal(t, "203.0.113.8", user.RegisterIP)
+	require.Equal(t, "203.0.113.8", user.LastLoginIP)
 	require.Equal(t, RoleUser, user.Role)
 	require.Equal(t, StatusActive, user.Status)
 	require.Equal(t, 3.5, user.Balance)
 	require.Equal(t, 2, user.Concurrency)
 	require.Len(t, repo.created, 1)
 	require.Equal(t, "203.0.113.8", repo.created[0].RegisterIP)
+	require.Equal(t, "203.0.113.8", repo.created[0].LastLoginIP)
 	require.True(t, user.CheckPassword("password"))
 }
 

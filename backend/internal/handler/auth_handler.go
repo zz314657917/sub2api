@@ -256,7 +256,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
-	h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
+	h.authService.RecordSuccessfulLogin(service.WithLoginIP(c.Request.Context(), ip.GetClientIP(c)), user.ID)
 
 	h.respondWithTokenPair(c, user)
 }
@@ -378,7 +378,7 @@ func (h *AuthHandler) Login2FA(c *gin.Context) {
 		secureCookie := isRequestHTTPS(c)
 		clearOAuthPendingSessionCookie(c, secureCookie)
 		clearOAuthPendingBrowserCookie(c, secureCookie)
-		h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
+		h.authService.RecordSuccessfulLogin(service.WithLoginIP(c.Request.Context(), ip.GetClientIP(c)), user.ID)
 
 		user, err = h.userService.GetByID(c.Request.Context(), session.UserID)
 		if err != nil {
@@ -391,7 +391,7 @@ func (h *AuthHandler) Login2FA(c *gin.Context) {
 	_ = h.totpService.DeleteLoginSession(c.Request.Context(), req.TempToken)
 
 	if session.PendingOAuthBind == nil {
-		h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
+		h.authService.RecordSuccessfulLogin(service.WithLoginIP(c.Request.Context(), ip.GetClientIP(c)), user.ID)
 	}
 
 	h.respondWithTokenPair(c, user)

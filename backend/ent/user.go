@@ -49,6 +49,8 @@ type User struct {
 	SignupSource string `json:"signup_source,omitempty"`
 	// RegisterIP holds the value of the "register_ip" field.
 	RegisterIP string `json:"register_ip,omitempty"`
+	// LastLoginIP holds the value of the "last_login_ip" field.
+	LastLoginIP string `json:"last_login_ip,omitempty"`
 	// LastLoginAt holds the value of the "last_login_at" field.
 	LastLoginAt *time.Time `json:"last_login_at,omitempty"`
 	// LastActiveAt holds the value of the "last_active_at" field.
@@ -243,7 +245,7 @@ func (*User) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case user.FieldID, user.FieldConcurrency, user.FieldRpmLimit:
 			values[i] = new(sql.NullInt64)
-		case user.FieldEmail, user.FieldPasswordHash, user.FieldRole, user.FieldStatus, user.FieldUsername, user.FieldNotes, user.FieldTotpSecretEncrypted, user.FieldSignupSource, user.FieldRegisterIP, user.FieldBalanceNotifyThresholdType, user.FieldBalanceNotifyExtraEmails:
+		case user.FieldEmail, user.FieldPasswordHash, user.FieldRole, user.FieldStatus, user.FieldUsername, user.FieldNotes, user.FieldTotpSecretEncrypted, user.FieldSignupSource, user.FieldRegisterIP, user.FieldLastLoginIP, user.FieldBalanceNotifyThresholdType, user.FieldBalanceNotifyExtraEmails:
 			values[i] = new(sql.NullString)
 		case user.FieldCreatedAt, user.FieldUpdatedAt, user.FieldDeletedAt, user.FieldTotpEnabledAt, user.FieldLastLoginAt, user.FieldLastActiveAt:
 			values[i] = new(sql.NullTime)
@@ -366,6 +368,12 @@ func (_m *User) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field register_ip", values[i])
 			} else if value.Valid {
 				_m.RegisterIP = value.String
+			}
+		case user.FieldLastLoginIP:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field last_login_ip", values[i])
+			} else if value.Valid {
+				_m.LastLoginIP = value.String
 			}
 		case user.FieldLastLoginAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -577,6 +585,9 @@ func (_m *User) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("register_ip=")
 	builder.WriteString(_m.RegisterIP)
+	builder.WriteString(", ")
+	builder.WriteString("last_login_ip=")
+	builder.WriteString(_m.LastLoginIP)
 	builder.WriteString(", ")
 	if v := _m.LastLoginAt; v != nil {
 		builder.WriteString("last_login_at=")

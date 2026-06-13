@@ -25,6 +25,7 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireColumn(t, tx, "users", "username", "character varying", 100, false)
 	requireColumn(t, tx, "users", "notes", "text", 0, false)
 	requireColumn(t, tx, "users", "register_ip", "character varying", 45, false)
+	requireColumn(t, tx, "users", "last_login_ip", "character varying", 45, false)
 
 	// accounts: schedulable and rate-limit fields
 	requireColumn(t, tx, "accounts", "notes", "text", 0, true)
@@ -125,6 +126,7 @@ func TestMigrationsRunner_AuthIdentityAndPaymentSchemaStayAligned(t *testing.T) 
 	requireColumn(t, tx, "users", "signup_source", "character varying", 20, false)
 	requireColumnDefaultContains(t, tx, "users", "signup_source", "email")
 	requireColumn(t, tx, "users", "register_ip", "character varying", 45, false)
+	requireColumn(t, tx, "users", "last_login_ip", "character varying", 45, false)
 	requireConstraintDefinitionContains(
 		t,
 		tx,

@@ -704,7 +704,7 @@ func (h *AuthHandler) CompleteOIDCOAuthRegistration(c *gin.Context) {
 	if isNewUser {
 		middleware.MarkRegistrationCreated(c)
 	}
-	h.authService.RecordSuccessfulLogin(c.Request.Context(), user.ID)
+	h.authService.RecordSuccessfulLogin(service.WithLoginIP(c.Request.Context(), ip.GetClientIP(c)), user.ID)
 	clearOAuthPendingSessionCookie(c, secureCookie)
 	clearOAuthPendingBrowserCookie(c, secureCookie)
 
@@ -1233,7 +1233,7 @@ func (h *AuthHandler) tryOIDCVerifiedEmailFastPath(
 	if h == nil || h.authService == nil || h.settingSvc == nil {
 		return false
 	}
-	ctx := c.Request.Context()
+	ctx := service.WithRegisterIP(c.Request.Context(), ip.GetClientIP(c))
 	if h.isForceEmailOnThirdPartySignup(ctx) {
 		return false
 	}

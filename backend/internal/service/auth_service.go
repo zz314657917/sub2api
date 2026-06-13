@@ -92,9 +92,15 @@ type signupGrantPlan struct {
 }
 
 type registerIPContextKey struct{}
+type loginIPContextKey struct{}
 
 func WithRegisterIP(ctx context.Context, registerIP string) context.Context {
-	return context.WithValue(ctx, registerIPContextKey{}, strings.TrimSpace(registerIP))
+	registerIP = strings.TrimSpace(registerIP)
+	ctx = context.WithValue(ctx, registerIPContextKey{}, registerIP)
+	if registerIP != "" {
+		ctx = WithLoginIP(ctx, registerIP)
+	}
+	return ctx
 }
 
 func registerIPFromContext(ctx context.Context) string {
@@ -102,6 +108,18 @@ func registerIPFromContext(ctx context.Context) string {
 		return ""
 	}
 	value, _ := ctx.Value(registerIPContextKey{}).(string)
+	return strings.TrimSpace(value)
+}
+
+func WithLoginIP(ctx context.Context, loginIP string) context.Context {
+	return context.WithValue(ctx, loginIPContextKey{}, strings.TrimSpace(loginIP))
+}
+
+func loginIPFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	value, _ := ctx.Value(loginIPContextKey{}).(string)
 	return strings.TrimSpace(value)
 }
 
@@ -245,6 +263,7 @@ func (s *AuthService) registerWithVerificationFromIP(ctx context.Context, email,
 		RPMLimit:     defaultRPMLimit,
 		Status:       StatusActive,
 		RegisterIP:   strings.TrimSpace(registerIP),
+		LastLoginIP:  strings.TrimSpace(registerIP),
 	}
 
 	if err := s.userRepo.Create(ctx, user); err != nil {
@@ -549,6 +568,7 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 				Status:       StatusActive,
 				SignupSource: signupSource,
 				RegisterIP:   registerIPFromContext(ctx),
+				LastLoginIP:  loginIPFromContext(ctx),
 			}
 
 			if err := s.userRepo.Create(ctx, newUser); err != nil {
@@ -667,6 +687,7 @@ func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 				Status:       StatusActive,
 				SignupSource: signupSource,
 				RegisterIP:   registerIPFromContext(ctx),
+				LastLoginIP:  loginIPFromContext(ctx),
 			}
 
 			if s.entClient != nil && invitationRedeemCode != nil {
@@ -877,10 +898,13 @@ func (s *AuthService) touchUserLogin(ctx context.Context, userID int64) {
 		return
 	}
 	now := time.Now().UTC()
-	if err := s.entClient.User.UpdateOneID(userID).
+	update := s.entClient.User.UpdateOneID(userID).
 		SetLastLoginAt(now).
-		SetLastActiveAt(now).
-		Exec(ctx); err != nil {
+		SetLastActiveAt(now)
+	if loginIP := loginIPFromContext(ctx); loginIP != "" {
+		update = update.SetLastLoginIP(loginIP)
+	}
+	if err := update.Exec(ctx); err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to touch login timestamps: user_id=%d err=%v", userID, err)
 	}
 }
