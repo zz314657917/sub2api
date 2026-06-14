@@ -70,19 +70,23 @@ func generateRandomString(n int) string {
 }
 
 type CreateOrderRequest struct {
-	UserID          int64
-	Amount          float64
-	PaymentType     string
-	OpenID          string
-	ClientIP        string
-	IsMobile        bool
-	IsWeChatBrowser bool
-	SrcHost         string
-	SrcURL          string
-	ReturnURL       string
-	PaymentSource   string
-	OrderType       string
-	PlanID          int64
+	UserID                        int64
+	Amount                        float64
+	PaymentType                   string
+	OpenID                        string
+	ClientIP                      string
+	IsMobile                      bool
+	IsWeChatBrowser               bool
+	SrcHost                       string
+	SrcURL                        string
+	ReturnURL                     string
+	PaymentSource                 string
+	OrderType                     string
+	PlanID                        int64
+	RechargePackageID             string
+	RechargePackagePayAmount      float64
+	RechargePackageCreditedAmount float64
+	MonthlyRechargeBonusPeriod    string
 }
 
 type CreateOrderResponse struct {
@@ -189,6 +193,7 @@ type PaymentService struct {
 	membershipSvc    *MembershipService
 	systemTicketSvc  *SystemTicketService
 	welfareService   *WelfareService
+	now              func() time.Time
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService, membershipSvc ...*MembershipService) *PaymentService {
@@ -196,7 +201,7 @@ func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, load
 	if len(membershipSvc) > 0 {
 		membership = membershipSvc[0]
 	}
-	svc := &PaymentService{entClient: entClient, registry: registry, loadBalancer: newVisibleMethodLoadBalancer(loadBalancer, configService), redeemService: redeemService, subscriptionSvc: subscriptionSvc, configService: configService, userRepo: userRepo, groupRepo: groupRepo, affiliateService: affiliateService, membershipSvc: membership}
+	svc := &PaymentService{entClient: entClient, registry: registry, loadBalancer: newVisibleMethodLoadBalancer(loadBalancer, configService), redeemService: redeemService, subscriptionSvc: subscriptionSvc, configService: configService, userRepo: userRepo, groupRepo: groupRepo, affiliateService: affiliateService, membershipSvc: membership, now: time.Now}
 	svc.resumeService = psNewPaymentResumeService(configService)
 	return svc
 }

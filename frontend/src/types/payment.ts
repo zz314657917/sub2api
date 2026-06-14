@@ -63,12 +63,26 @@ export interface CheckoutInfoResponse {
   global_min: number
   global_max: number
   plans: SubscriptionPlan[]
+  recharge_packages: RechargePackage[]
+  monthly_recharge_bonus_claimed: boolean
+  monthly_recharge_bonus_claimed_at?: string
   balance_disabled: boolean
   balance_recharge_multiplier: number
   recharge_fee_rate: number
   help_text: string
   help_image_url: string
   stripe_publishable_key: string
+}
+
+export interface RechargePackage {
+  id: string
+  label: string
+  pay_amount: number
+  credited_amount: number
+  bonus_amount: number
+  effective_credited_amount: number
+  effective_bonus_amount: number
+  sort_order: number
 }
 
 export type MembershipTierLevel = 'normal' | 'vip' | 'svip'
@@ -204,6 +218,7 @@ export interface CreateOrderRequest {
   payment_type: string
   order_type: string
   plan_id?: number
+  recharge_package_id?: string
   return_url?: string
   payment_source?: string
   openid?: string

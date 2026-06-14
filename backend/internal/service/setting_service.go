@@ -3007,6 +3007,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt: "",
 		SettingKeyWelfareNewUserTrialDailySiteQuotaAmount:   "5",
 		SettingKeyWelfareNewUserTrialDailyIPActivationLimit: "3",
+		SettingRechargePackages:                             defaultRechargePackagesJSON(),
 
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
 		SettingKeyAffiliateEnabled: "false",

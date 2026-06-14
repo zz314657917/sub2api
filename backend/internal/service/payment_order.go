@@ -38,6 +38,10 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if err != nil {
 		return nil, err
 	}
+	rechargePackage, monthlyBonusAvailable, err := s.resolveRechargePackageForOrder(ctx, req, cfg)
+	if err != nil {
+		return nil, err
+	}
 	if err := s.checkCancelRateLimit(ctx, req.UserID, cfg); err != nil {
 		return nil, err
 	}
@@ -54,7 +58,15 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		orderAmount = plan.Price
 		limitAmount = plan.Price
 	} else if req.OrderType == payment.OrderTypeBalance {
-		orderAmount = calculateCreditedBalance(req.Amount, cfg.BalanceRechargeMultiplier)
+		req.Amount = rechargePackage.PayAmount
+		req.RechargePackagePayAmount = rechargePackage.PayAmount
+		req.RechargePackageCreditedAmount = rechargePackage.CreditedAmount
+		req.MonthlyRechargeBonusPeriod = monthlyRechargeBonusPeriod(s.nowTime())
+		limitAmount = rechargePackage.PayAmount
+		orderAmount = rechargePackage.PayAmount
+		if monthlyBonusAvailable {
+			orderAmount = rechargePackage.CreditedAmount
+		}
 	}
 	feeRate := cfg.RechargeFeeRate
 	methodCurrency := payment.DefaultPaymentCurrency
@@ -116,13 +128,6 @@ func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrder
 	if req.OrderType == payment.OrderTypeSubscription {
 		return s.validateSubOrder(ctx, req)
 	}
-	if math.IsNaN(req.Amount) || math.IsInf(req.Amount, 0) || req.Amount <= 0 {
-		return nil, infraerrors.BadRequest("INVALID_AMOUNT", "amount must be a positive number")
-	}
-	if (cfg.MinAmount > 0 && req.Amount < cfg.MinAmount) || (cfg.MaxAmount > 0 && req.Amount > cfg.MaxAmount) {
-		return nil, infraerrors.BadRequest("INVALID_AMOUNT", "amount out of range").
-			WithMetadata(map[string]string{"min": fmt.Sprintf("%.2f", cfg.MinAmount), "max": fmt.Sprintf("%.2f", cfg.MaxAmount)})
-	}
 	return nil, nil
 }
 
@@ -166,6 +171,9 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 		return nil, err
 	}
 	providerSnapshot := buildPaymentOrderProviderSnapshot(sel, req)
+	if req.OrderType == payment.OrderTypeBalance {
+		providerSnapshot = addRechargePackageSnapshot(providerSnapshot, req)
+	}
 	selectedInstanceID := ""
 	selectedProviderKey := ""
 	if sel != nil {
@@ -303,6 +311,33 @@ func buildPaymentOrderProviderSnapshot(sel *payment.InstanceSelection, req Creat
 
 	if len(snapshot) == 1 {
 		return nil
+	}
+	return snapshot
+}
+
+func addRechargePackageSnapshot(snapshot map[string]any, req CreateOrderRequest) map[string]any {
+	packageID := strings.TrimSpace(req.RechargePackageID)
+	if packageID == "" {
+		return snapshot
+	}
+	if snapshot == nil {
+		snapshot = map[string]any{"schema_version": 2}
+	}
+	snapshot["recharge_package_id"] = packageID
+	payAmount := req.RechargePackagePayAmount
+	if payAmount <= 0 {
+		payAmount = req.Amount
+	}
+	creditedAmount := req.RechargePackageCreditedAmount
+	if creditedAmount <= 0 {
+		creditedAmount = req.Amount
+	}
+	snapshot["recharge_package_pay_amount"] = normalizePaymentPackageAmount(payAmount)
+	snapshot["recharge_package_credited_amount"] = normalizePaymentPackageAmount(creditedAmount)
+	if req.MonthlyRechargeBonusPeriod != "" {
+		snapshot["monthly_recharge_bonus_period"] = req.MonthlyRechargeBonusPeriod
+	} else {
+		snapshot["monthly_recharge_bonus_period"] = monthlyRechargeBonusPeriod(time.Now())
 	}
 	return snapshot
 }
@@ -713,6 +748,9 @@ func buildWeChatPaymentOAuthStartURL(req CreateOrderRequest, scope string) (stri
 	}
 	if req.PlanID > 0 {
 		q.Set("plan_id", strconv.FormatInt(req.PlanID, 10))
+	}
+	if packageID := strings.TrimSpace(req.RechargePackageID); packageID != "" {
+		q.Set("recharge_package_id", packageID)
 	}
 	if scope = strings.TrimSpace(scope); scope != "" {
 		q.Set("scope", scope)

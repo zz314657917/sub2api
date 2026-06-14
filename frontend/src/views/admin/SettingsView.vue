@@ -6637,6 +6637,97 @@
                     </div>
                   </div>
                 </div>
+                <!-- Row 4: Recharge packages -->
+                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-800/60">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                        {{ t("admin.settings.payment.rechargePackages") }}
+                      </h3>
+                      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {{ t("admin.settings.payment.rechargePackagesHint") }}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm"
+                      @click="addRechargePackage"
+                    >
+                      {{ t("admin.settings.payment.rechargePackageAdd") }}
+                    </button>
+                  </div>
+                  <div class="mt-4 overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-dark-600">
+                      <thead class="text-left text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        <tr>
+                          <th class="whitespace-nowrap px-2 py-2">{{ t("admin.settings.payment.rechargePackageEnabled") }}</th>
+                          <th class="min-w-36 px-2 py-2">{{ t("admin.settings.payment.rechargePackageLabel") }}</th>
+                          <th class="min-w-32 px-2 py-2">{{ t("admin.settings.payment.rechargePackagePayAmount") }}</th>
+                          <th class="min-w-32 px-2 py-2">{{ t("admin.settings.payment.rechargePackageCreditedAmount") }}</th>
+                          <th class="min-w-28 px-2 py-2">{{ t("admin.settings.payment.rechargePackageBonusAmount") }}</th>
+                          <th class="min-w-24 px-2 py-2">{{ t("admin.settings.payment.rechargePackageSortOrder") }}</th>
+                          <th class="w-20 px-2 py-2"></th>
+                        </tr>
+                      </thead>
+                      <tbody class="divide-y divide-gray-200 dark:divide-dark-600">
+                        <tr
+                          v-for="(pkg, index) in form.payment_recharge_packages"
+                          :key="pkg.id || index"
+                        >
+                          <td class="px-2 py-2 align-middle">
+                            <Toggle v-model="pkg.enabled" />
+                          </td>
+                          <td class="px-2 py-2">
+                            <input
+                              v-model="pkg.label"
+                              type="text"
+                              class="input"
+                              :placeholder="t('admin.settings.payment.rechargePackageLabelPlaceholder')"
+                            />
+                          </td>
+                          <td class="px-2 py-2">
+                            <input
+                              v-model.number="pkg.pay_amount"
+                              type="number"
+                              step="0.01"
+                              min="5"
+                              class="input"
+                            />
+                          </td>
+                          <td class="px-2 py-2">
+                            <input
+                              v-model.number="pkg.credited_amount"
+                              type="number"
+                              step="0.01"
+                              min="5"
+                              class="input"
+                            />
+                          </td>
+                          <td class="px-2 py-2 text-gray-700 dark:text-gray-300">
+                            {{ rechargePackageBonusPreview(pkg) }}
+                          </td>
+                          <td class="px-2 py-2">
+                            <input
+                              v-model.number="pkg.sort_order"
+                              type="number"
+                              step="1"
+                              class="input"
+                            />
+                          </td>
+                          <td class="px-2 py-2 text-right">
+                            <button
+                              type="button"
+                              class="rounded-lg px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                              @click="removeRechargePackage(index)"
+                            >
+                              {{ t("admin.settings.payment.rechargePackageRemove") }}
+                            </button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
                 <!-- Row 4: Enabled payment types (provider badges like sub2apipay) -->
                 <div>
                   <label class="input-label">{{
@@ -7330,6 +7421,7 @@ import type {
   UpdateSettingsRequest,
   DefaultSubscriptionSetting,
   OpenAIFastPolicyRule,
+  PaymentRechargePackage,
   StudioBridgeAppSettings,
   WeChatConnectMode,
   WebSearchEmulationConfig,
@@ -7910,6 +8002,16 @@ const form = reactive<SettingsForm>({
   payment_balance_disabled: false,
   payment_balance_recharge_multiplier: 1,
   payment_recharge_fee_rate: 0,
+  payment_recharge_packages: [
+    {
+      id: "pkg-5",
+      label: "5",
+      enabled: true,
+      pay_amount: 5,
+      credited_amount: 5,
+      sort_order: 10,
+    },
+  ],
   payment_enabled_types: [],
   payment_help_image_url: "",
   payment_help_text: "",
@@ -8394,6 +8496,97 @@ function membershipTierLabel(tier: MembershipTierConfig): string {
 
 function membershipGroupName(groupID: number): string {
   return subscriptionGroups.value.find((group) => group.id === groupID)?.name || localText("未绑定", "Not bound");
+}
+
+function normalizeRechargePackageAmount(value: unknown): number {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount < 0) return 0;
+  return Math.round(amount * 100) / 100;
+}
+
+function defaultRechargePackage(): PaymentRechargePackage {
+  const nextIndex = form.payment_recharge_packages.length + 1;
+  return {
+    id: `pkg-${Date.now().toString(36)}-${nextIndex}`,
+    label: "",
+    enabled: true,
+    pay_amount: 5,
+    credited_amount: 5,
+    sort_order: nextIndex * 10,
+  };
+}
+
+function addRechargePackage() {
+  form.payment_recharge_packages.push(defaultRechargePackage());
+}
+
+function removeRechargePackage(index: number) {
+  if (form.payment_recharge_packages.length <= 1) {
+    appStore.showError(localText("至少保留一个充值档位。", "Keep at least one recharge package."));
+    return;
+  }
+  form.payment_recharge_packages.splice(index, 1);
+}
+
+function rechargePackageBonusPreview(pkg: PaymentRechargePackage): string {
+  const pay = normalizeRechargePackageAmount(pkg.pay_amount);
+  const credited = normalizeRechargePackageAmount(pkg.credited_amount);
+  return Math.max(0, credited - pay).toFixed(2);
+}
+
+function normalizeRechargePackagesForSave(): PaymentRechargePackage[] | null {
+  const packages = Array.isArray(form.payment_recharge_packages)
+    ? form.payment_recharge_packages
+    : [];
+  if (packages.length === 0) {
+    appStore.showError(localText("至少配置一个充值档位。", "Configure at least one recharge package."));
+    return null;
+  }
+
+  let enabledCount = 0;
+  const seen = new Set<string>();
+  const normalized: PaymentRechargePackage[] = [];
+  for (const [index, pkg] of packages.entries()) {
+    const payAmount = normalizeRechargePackageAmount(pkg.pay_amount);
+    const creditedAmount = normalizeRechargePackageAmount(pkg.credited_amount);
+    let id = String(pkg.id || "").trim();
+    if (!id) {
+      id = `pkg-${index + 1}`;
+    }
+    if (seen.has(id)) {
+      appStore.showError(localText("充值档位 ID 不能重复。", "Recharge package IDs must be unique."));
+      return null;
+    }
+    seen.add(id);
+    if (payAmount < 5) {
+      appStore.showError(localText("充值档位支付金额最低为 5 元。", "Recharge package pay amount must be at least 5."));
+      return null;
+    }
+    if (creditedAmount < payAmount) {
+      appStore.showError(localText("充值档位到账额度不能小于支付金额。", "Credited amount cannot be less than pay amount."));
+      return null;
+    }
+    const enabled = pkg.enabled === true;
+    if (enabled) enabledCount += 1;
+    normalized.push({
+      id,
+      label: String(pkg.label || "").trim() || String(payAmount),
+      enabled,
+      pay_amount: payAmount,
+      credited_amount: creditedAmount,
+      sort_order: Number.isFinite(Number(pkg.sort_order)) ? Math.trunc(Number(pkg.sort_order)) : (index + 1) * 10,
+    });
+  }
+
+  if (enabledCount === 0) {
+    appStore.showError(localText("至少启用一个充值档位。", "Enable at least one recharge package."));
+    return null;
+  }
+
+  return normalized.sort((a, b) => {
+    if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+    return a.pay_amount - b.pay_amount;
+  });
 }
 
 function validateMembershipSettings(): boolean {
@@ -8886,6 +9079,20 @@ async function loadSettings() {
     form.default_subscriptions = normalizeDefaultSubscriptionSettings(
       settings.default_subscriptions,
     );
+    form.payment_recharge_packages =
+      Array.isArray(settings.payment_recharge_packages) &&
+      settings.payment_recharge_packages.length > 0
+        ? settings.payment_recharge_packages.map((pkg, index) => ({
+            id: String(pkg.id || `pkg-${index + 1}`),
+            label: String(pkg.label || ""),
+            enabled: pkg.enabled !== false,
+            pay_amount: normalizeRechargePackageAmount(pkg.pay_amount),
+            credited_amount: normalizeRechargePackageAmount(pkg.credited_amount || pkg.pay_amount),
+            sort_order: Number.isFinite(Number(pkg.sort_order))
+              ? Math.trunc(Number(pkg.sort_order))
+              : (index + 1) * 10,
+          }))
+        : [defaultRechargePackage()];
     registrationEmailSuffixWhitelistTags.value =
       normalizeRegistrationEmailSuffixDomains(
         settings.registration_email_suffix_whitelist,
@@ -9103,6 +9310,12 @@ async function saveSettings() {
 
     form.table_default_page_size = normalizedTableDefaultPageSize;
     form.table_page_size_options = normalizedTablePageSizeOptions;
+
+    const normalizedRechargePackages = normalizeRechargePackagesForSave();
+    if (!normalizedRechargePackages) {
+      return;
+    }
+    form.payment_recharge_packages = normalizedRechargePackages.map((pkg) => ({ ...pkg }));
 
     const normalizedLoginAgreementDocuments =
       normalizeLoginAgreementDocumentsForSave();
@@ -9429,6 +9642,7 @@ async function saveSettings() {
       payment_balance_recharge_multiplier:
         Number(form.payment_balance_recharge_multiplier) || 1,
       payment_recharge_fee_rate: Number(form.payment_recharge_fee_rate) || 0,
+      payment_recharge_packages: normalizedRechargePackages,
       payment_enabled_types: form.payment_enabled_types,
       payment_load_balance_strategy: form.payment_load_balance_strategy,
       payment_product_name_prefix: form.payment_product_name_prefix,

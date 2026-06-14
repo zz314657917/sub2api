@@ -84,8 +84,8 @@ func TestParsePaymentConfig(t *testing.T) {
 		if cfg.Enabled {
 			t.Fatal("expected Enabled=false by default")
 		}
-		if cfg.MinAmount != 1 {
-			t.Fatalf("expected MinAmount=1, got %v", cfg.MinAmount)
+		if cfg.MinAmount != 5 {
+			t.Fatalf("expected MinAmount=5, got %v", cfg.MinAmount)
 		}
 		if cfg.MaxAmount != 0 {
 			t.Fatalf("expected MaxAmount=0 (no limit), got %v", cfg.MaxAmount)
@@ -197,6 +197,68 @@ func TestParsePaymentConfig(t *testing.T) {
 			t.Fatalf("expected empty EnabledTypes for empty string, got %v", cfg.EnabledTypes)
 		}
 	})
+}
+
+func TestNormalizeRechargePackages(t *testing.T) {
+	t.Parallel()
+
+	got, err := NormalizeRechargePackages([]RechargePackage{
+		{ID: "pkg-50", Label: " 50 Pack ", Enabled: true, PayAmount: 50.004, CreditedAmount: 60.005, SortOrder: 20},
+		{ID: "pkg-5", Enabled: false, PayAmount: 5, CreditedAmount: 5, SortOrder: 10},
+	})
+	if err != nil {
+		t.Fatalf("NormalizeRechargePackages returned error: %v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("packages len = %d, want 2", len(got))
+	}
+	if got[0].ID != "pkg-5" || got[1].ID != "pkg-50" {
+		t.Fatalf("packages not sorted by sort_order: %#v", got)
+	}
+	if got[1].Label != "50 Pack" {
+		t.Fatalf("label = %q, want trimmed", got[1].Label)
+	}
+	if got[1].PayAmount != 50 || got[1].CreditedAmount != 60.01 {
+		t.Fatalf("amounts = %.2f -> %.2f, want 50.00 -> 60.01", got[1].PayAmount, got[1].CreditedAmount)
+	}
+}
+
+func TestNormalizeRechargePackagesRejectsInvalidConfig(t *testing.T) {
+	t.Parallel()
+
+	cases := []struct {
+		name     string
+		packages []RechargePackage
+	}{
+		{
+			name:     "pay amount below minimum",
+			packages: []RechargePackage{{ID: "too-low", Enabled: true, PayAmount: 4.99, CreditedAmount: 5}},
+		},
+		{
+			name:     "credited amount below pay amount",
+			packages: []RechargePackage{{ID: "bad-credit", Enabled: true, PayAmount: 5, CreditedAmount: 4.99}},
+		},
+		{
+			name: "duplicate id",
+			packages: []RechargePackage{
+				{ID: "dup", Enabled: true, PayAmount: 5, CreditedAmount: 5},
+				{ID: "dup", Enabled: true, PayAmount: 20, CreditedAmount: 23},
+			},
+		},
+		{
+			name:     "no enabled package",
+			packages: []RechargePackage{{ID: "disabled", Enabled: false, PayAmount: 5, CreditedAmount: 5}},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := NormalizeRechargePackages(tt.packages); err == nil {
+				t.Fatal("expected error")
+			}
+		})
+	}
 }
 
 func TestGetBasePaymentType(t *testing.T) {

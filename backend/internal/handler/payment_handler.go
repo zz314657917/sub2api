@@ -97,6 +97,10 @@ func (h *PaymentHandler) GetChannels(c *gin.Context) {
 // GET /api/v1/payment/checkout-info
 func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 	ctx := c.Request.Context()
+	subject, ok := requireAuth(c)
+	if !ok {
+		return
+	}
 
 	// Fetch limits (methods + global range)
 	limitsResp, err := h.configService.GetAvailableMethodLimits(ctx)
@@ -130,31 +134,48 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		})
 	}
 
+	var rechargePackages []service.RechargePackageCheckoutView
+	var monthlyClaimed bool
+	var monthlyClaimedAt string
+	if h.paymentService != nil {
+		rechargePackages, monthlyClaimed, monthlyClaimedAt, err = h.paymentService.RechargePackageCheckoutViews(ctx, subject.UserID, cfg.RechargePackages)
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+	}
+
 	response.Success(c, checkoutInfoResponse{
-		Methods:                   limitsResp.Methods,
-		GlobalMin:                 limitsResp.GlobalMin,
-		GlobalMax:                 limitsResp.GlobalMax,
-		Plans:                     planList,
-		BalanceDisabled:           cfg.BalanceDisabled,
-		BalanceRechargeMultiplier: cfg.BalanceRechargeMultiplier,
-		RechargeFeeRate:           cfg.RechargeFeeRate,
-		HelpText:                  cfg.HelpText,
-		HelpImageURL:              cfg.HelpImageURL,
-		StripePublishableKey:      cfg.StripePublishableKey,
+		Methods:                       limitsResp.Methods,
+		GlobalMin:                     limitsResp.GlobalMin,
+		GlobalMax:                     limitsResp.GlobalMax,
+		Plans:                         planList,
+		BalanceDisabled:               cfg.BalanceDisabled,
+		BalanceRechargeMultiplier:     cfg.BalanceRechargeMultiplier,
+		RechargeFeeRate:               cfg.RechargeFeeRate,
+		RechargePackages:              rechargePackages,
+		MonthlyRechargeBonusClaimed:   monthlyClaimed,
+		MonthlyRechargeBonusClaimedAt: monthlyClaimedAt,
+		HelpText:                      cfg.HelpText,
+		HelpImageURL:                  cfg.HelpImageURL,
+		StripePublishableKey:          cfg.StripePublishableKey,
 	})
 }
 
 type checkoutInfoResponse struct {
-	Methods                   map[string]service.MethodLimits `json:"methods"`
-	GlobalMin                 float64                         `json:"global_min"`
-	GlobalMax                 float64                         `json:"global_max"`
-	Plans                     []checkoutPlan                  `json:"plans"`
-	BalanceDisabled           bool                            `json:"balance_disabled"`
-	BalanceRechargeMultiplier float64                         `json:"balance_recharge_multiplier"`
-	RechargeFeeRate           float64                         `json:"recharge_fee_rate"`
-	HelpText                  string                          `json:"help_text"`
-	HelpImageURL              string                          `json:"help_image_url"`
-	StripePublishableKey      string                          `json:"stripe_publishable_key"`
+	Methods                       map[string]service.MethodLimits       `json:"methods"`
+	GlobalMin                     float64                               `json:"global_min"`
+	GlobalMax                     float64                               `json:"global_max"`
+	Plans                         []checkoutPlan                        `json:"plans"`
+	BalanceDisabled               bool                                  `json:"balance_disabled"`
+	BalanceRechargeMultiplier     float64                               `json:"balance_recharge_multiplier"`
+	RechargeFeeRate               float64                               `json:"recharge_fee_rate"`
+	RechargePackages              []service.RechargePackageCheckoutView `json:"recharge_packages"`
+	MonthlyRechargeBonusClaimed   bool                                  `json:"monthly_recharge_bonus_claimed"`
+	MonthlyRechargeBonusClaimedAt string                                `json:"monthly_recharge_bonus_claimed_at,omitempty"`
+	HelpText                      string                                `json:"help_text"`
+	HelpImageURL                  string                                `json:"help_image_url"`
+	StripePublishableKey          string                                `json:"stripe_publishable_key"`
 }
 
 type checkoutPlan struct {
@@ -215,6 +236,7 @@ type CreateOrderRequest struct {
 	PaymentSource     string  `json:"payment_source"`
 	OrderType         string  `json:"order_type"`
 	PlanID            int64   `json:"plan_id"`
+	RechargePackageID string  `json:"recharge_package_id"`
 	// IsMobile lets the frontend declare its mobile status directly. When
 	// nil we fall back to User-Agent heuristics (which miss iPadOS / some
 	// embedded browsers that strip the "Mobile" keyword).
@@ -251,19 +273,20 @@ func (h *PaymentHandler) CreateOrder(c *gin.Context) {
 		mobile = *req.IsMobile
 	}
 	result, err := h.paymentService.CreateOrder(c.Request.Context(), service.CreateOrderRequest{
-		UserID:          subject.UserID,
-		Amount:          req.Amount,
-		PaymentType:     req.PaymentType,
-		OpenID:          req.OpenID,
-		ClientIP:        c.ClientIP(),
-		IsMobile:        mobile,
-		IsWeChatBrowser: isWeChatBrowser(c),
-		SrcHost:         c.Request.Host,
-		SrcURL:          c.Request.Referer(),
-		ReturnURL:       req.ReturnURL,
-		PaymentSource:   req.PaymentSource,
-		OrderType:       req.OrderType,
-		PlanID:          req.PlanID,
+		UserID:            subject.UserID,
+		Amount:            req.Amount,
+		PaymentType:       req.PaymentType,
+		OpenID:            req.OpenID,
+		ClientIP:          c.ClientIP(),
+		IsMobile:          mobile,
+		IsWeChatBrowser:   isWeChatBrowser(c),
+		SrcHost:           c.Request.Host,
+		SrcURL:            c.Request.Referer(),
+		ReturnURL:         req.ReturnURL,
+		PaymentSource:     req.PaymentSource,
+		OrderType:         req.OrderType,
+		PlanID:            req.PlanID,
+		RechargePackageID: req.RechargePackageID,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -306,6 +329,9 @@ func applyWeChatPaymentResumeClaims(req *CreateOrderRequest, claims *service.WeC
 	}
 	if claims.PlanID > 0 {
 		req.PlanID = claims.PlanID
+	}
+	if strings.TrimSpace(claims.RechargePackageID) != "" {
+		req.RechargePackageID = strings.TrimSpace(claims.RechargePackageID)
 	}
 	return nil
 }

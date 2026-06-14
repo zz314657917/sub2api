@@ -107,57 +107,48 @@
                 <div class="grid gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
                   <div class="space-y-6">
                     <div>
-                      <p class="pricing-strong text-sm font-bold">{{ pt('rechargeStep') }}</p>
-                      <div class="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      <div class="flex flex-wrap items-center justify-between gap-3">
+                        <p class="pricing-strong text-sm font-bold">{{ pt('rechargeStep') }}</p>
+                        <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">
+                          {{ checkout.monthly_recharge_bonus_claimed ? pt('monthlyBonusClaimed') : pt('monthlyBonusAvailable') }}
+                        </span>
+                      </div>
+                      <div v-if="rechargePackages.length === 0" class="pricing-subpanel mt-5 rounded-xl p-5 text-sm">
+                        <p class="pricing-muted">{{ pt('noRechargePackages') }}</p>
+                      </div>
+                      <div v-else class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         <button
-                          v-for="preset in rechargeAmountOptions"
-                          :key="preset"
+                          v-for="pkg in rechargePackages"
+                          :key="pkg.id"
                           type="button"
                           class="pricing-preset relative rounded-xl border px-4 py-4 text-center transition"
                           :class="[
-                            validAmount === preset
+                            selectedRechargePackageId === pkg.id
                               ? 'pricing-preset--selected'
                               : 'pricing-preset--idle',
-                            rechargePresetAvailable(preset) ? '' : 'cursor-not-allowed opacity-40'
+                            rechargePackageAvailable(pkg) ? '' : 'cursor-not-allowed opacity-40'
                           ]"
-                          :disabled="!rechargePresetAvailable(preset)"
-                          @click="selectRechargeAmount(preset)"
+                          :disabled="!rechargePackageAvailable(pkg)"
+                          @click="selectRechargePackage(pkg.id)"
                         >
-                          <span v-if="showRecommendedRechargeBadge && preset === recommendedRechargeAmount" class="absolute -top-2 left-1/2 -translate-x-1/2 rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold text-white">
-                            {{ pt('newUserDeal') }}
+                          <span v-if="pkg.effective_bonus_amount > 0" class="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                            {{ pt('bonusBadge', { amount: formatRechargeCreditAmount(pkg.effective_bonus_amount) }) }}
                           </span>
-                          <span class="block text-2xl font-black">{{ formatSelectedPaymentAmount(preset) }}</span>
-                          <span class="pricing-caption mt-2 block text-xs">{{ formatCreditAmount(preset) }}</span>
+                          <span class="block text-2xl font-black">{{ formatSelectedPaymentAmount(pkg.pay_amount) }}</span>
+                          <span class="pricing-caption mt-2 block text-xs">
+                            {{ pt('creditedAmountLine', { amount: formatRechargeCreditAmount(pkg.effective_credited_amount) }) }}
+                          </span>
+                          <span class="pricing-caption mt-1 block text-[11px]">
+                            {{ checkout.monthly_recharge_bonus_claimed
+                              ? pt('bonusClaimedLine')
+                              : pkg.bonus_amount > 0
+                                ? pt('bonusLine', { amount: formatRechargeCreditAmount(pkg.bonus_amount) })
+                                : pt('noBonusLine')
+                            }}
+                          </span>
                         </button>
                       </div>
-                    </div>
-
-                    <div class="pricing-subpanel rounded-xl p-4">
-                      <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p class="pricing-strong text-sm font-semibold">{{ pt('customUnits') }}</p>
-                          <p class="pricing-caption mt-1 text-xs">{{ pt('unitHint', { amount: formatSelectedPaymentAmount(rechargeUnitAmount) }) }}</p>
-                        </div>
-                        <div class="pricing-stepper inline-flex h-10 w-32 shrink-0 items-center overflow-hidden rounded-lg">
-                          <button type="button" class="pricing-stepper-button flex h-full w-10 items-center justify-center text-lg transition disabled:opacity-40" :disabled="rechargeUnits <= 1" @click="decreaseRechargeUnits">-</button>
-                          <span class="pricing-stepper-value flex-1 text-center text-sm font-bold">{{ rechargeUnits }}</span>
-                          <button type="button" class="pricing-stepper-button flex h-full w-10 items-center justify-center transition" @click="increaseRechargeUnits">
-                            <Icon name="plus" size="sm" />
-                          </button>
-                        </div>
-                      </div>
-                      <label class="sr-only" for="custom-recharge-amount">{{ t('payment.customAmount') }}</label>
-                      <input
-                        id="custom-recharge-amount"
-                        class="pricing-input mt-4 w-full rounded-lg border px-3 py-2 text-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 dark:focus:border-blue-400"
-                        type="number"
-                        inputmode="decimal"
-                        min="0"
-                        :value="amount ?? ''"
-                        :placeholder="t('payment.enterAmount')"
-                        @input="setCustomAmountFromEvent"
-                      >
-                      <p v-if="amountError" class="mt-2 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
+                      <p v-if="amountError" class="mt-3 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
                     </div>
 
                     <div v-if="methodOptions.length > 1" class="space-y-3">
@@ -191,13 +182,18 @@
                         <span class="pricing-muted">{{ pt('rechargeAmount') }}</span>
                         <span class="pricing-strong font-semibold">{{ formatSelectedPaymentAmount(validAmount) }}</span>
                       </div>
-                      <div v-if="showRechargeUnitsSummary" class="flex items-center justify-between gap-4">
-                        <span class="pricing-muted">{{ pt('purchaseUnits') }}</span>
-                        <span class="pricing-strong font-semibold">{{ rechargeUnits }} {{ pt('units') }}</span>
-                      </div>
                       <div class="flex items-center justify-between gap-4">
                         <span class="pricing-muted">{{ t('payment.creditedBalance') }}</span>
-                        <span class="pricing-strong font-semibold">{{ formatCreditAmount(validAmount) }}</span>
+                        <span class="pricing-strong font-semibold">{{ formatRechargeCreditAmount(effectiveCreditedAmount) }}</span>
+                      </div>
+                      <div v-if="selectedRechargePackage && selectedRechargePackage.bonus_amount > 0" class="flex items-center justify-between gap-4">
+                        <span class="pricing-muted">{{ pt('bonusAmount') }}</span>
+                        <span class="pricing-strong font-semibold">
+                          {{ selectedRechargePackage.effective_bonus_amount > 0
+                            ? formatRechargeCreditAmount(selectedRechargePackage.effective_bonus_amount)
+                            : pt('bonusAlreadyClaimedSummary')
+                          }}
+                        </span>
                       </div>
                       <div v-if="selectedMethodLabel" class="flex items-center justify-between gap-4">
                         <span class="pricing-muted">{{ t('payment.paymentMethod') }}</span>
@@ -450,7 +446,7 @@ import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
-import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, MembershipStatus, MembershipTierConfig } from '@/types/payment'
+import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, MembershipStatus, MembershipTierConfig, RechargePackage } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { METHOD_ORDER, getPaymentPopupFeatures } from '@/components/payment/providerConfig'
 import {
@@ -495,14 +491,20 @@ const pricingCatalog = {
     balance: '灵活额度',
     flexibleCredit: '灵活额度',
     creditTag: '额度用完前，永久有效',
-    rechargeStep: '第一步：选择或输入充值金额',
+    rechargeStep: '第一步：选择充值档位',
+    monthlyBonusAvailable: '本月首充赠送可用',
+    monthlyBonusClaimed: '本月已领首充赠送',
+    noRechargePackages: '后台暂未配置可用充值档位',
+    bonusBadge: '送 {amount}',
+    creditedAmountLine: '到账 {amount}',
+    bonusLine: '本月首充赠送 {amount}',
+    bonusClaimedLine: '本月已领，到账本金',
+    noBonusLine: '无额外赠送',
+    bonusAmount: '赠送额度',
+    bonusAlreadyClaimedSummary: '本月已领',
     newUserDeal: '新人专享',
-    customUnits: '自定义购买份数',
-    unitHint: '每份按 {amount} 递增',
     orderSummary: '订单摘要',
     rechargeAmount: '充值额度',
-    purchaseUnits: '购买份数',
-    units: '份',
     totalPayable: '总计应付',
     paySecurely: '立即安全支付',
     plansTitle: '套餐订阅',
@@ -568,14 +570,20 @@ const pricingCatalog = {
     balance: 'Flexible credit',
     flexibleCredit: 'Flexible Credit',
     creditTag: 'Valid until used up',
-    rechargeStep: 'Step 1: choose or enter a recharge amount',
+    rechargeStep: 'Step 1: choose a recharge package',
+    monthlyBonusAvailable: 'Monthly first top-up bonus available',
+    monthlyBonusClaimed: 'Monthly first top-up bonus claimed',
+    noRechargePackages: 'No recharge packages are currently available',
+    bonusBadge: '+ {amount}',
+    creditedAmountLine: 'Credits {amount}',
+    bonusLine: 'Monthly first top-up bonus {amount}',
+    bonusClaimedLine: 'Claimed this month, principal only',
+    noBonusLine: 'No extra bonus',
+    bonusAmount: 'Bonus credit',
+    bonusAlreadyClaimedSummary: 'Already claimed',
     newUserDeal: 'New user',
-    customUnits: 'Custom purchase units',
-    unitHint: 'Each unit increases by {amount}',
     orderSummary: 'Order Summary',
     rechargeAmount: 'Recharge credit',
-    purchaseUnits: 'Units',
-    units: 'units',
     totalPayable: 'Total due',
     paySecurely: 'Pay Securely',
     plansTitle: 'Subscriptions',
@@ -672,6 +680,7 @@ const membershipStatus = ref<MembershipStatus | null>(null)
 const errorMessage = ref('')
 const errorHintMessage = ref('')
 const amount = ref<number | null>(null)
+const selectedRechargePackageId = ref('')
 const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
 const previewImage = ref('')
@@ -682,6 +691,7 @@ const paymentPhase = ref<'select' | 'paying'>('select')
 interface CreateOrderOptions {
   openid?: string
   wechatResumeToken?: string
+  rechargePackageId?: string
   paymentType?: string
   isResume?: boolean
   mobileQrFallbackAttempted?: boolean
@@ -795,7 +805,7 @@ async function redirectToPaymentResult(state: PaymentRecoverySnapshot): Promise<
 
 function buildWechatOAuthAuthorizeUrl(
   authorizeUrl: string,
-  context: { paymentType: string; orderType: OrderType; planId?: number; orderAmount: number },
+  context: { paymentType: string; orderType: OrderType; planId?: number; orderAmount: number; rechargePackageId?: string },
 ): string {
   const normalizedUrl = authorizeUrl.trim()
   if (!normalizedUrl || typeof window === 'undefined') {
@@ -821,6 +831,14 @@ function buildWechatOAuthAuthorizeUrl(
       redirectUrl.searchParams.set('amount', String(context.orderAmount))
     } else {
       redirectUrl.searchParams.delete('amount')
+    }
+
+    if (context.rechargePackageId) {
+      redirectUrl.searchParams.set('recharge_package_id', context.rechargePackageId)
+      targetUrl.searchParams.set('recharge_package_id', context.rechargePackageId)
+    } else {
+      redirectUrl.searchParams.delete('recharge_package_id')
+      targetUrl.searchParams.delete('recharge_package_id')
     }
 
     targetUrl.searchParams.set('redirect', `${redirectUrl.pathname}${redirectUrl.search}`)
@@ -854,20 +872,29 @@ function onPaymentSettled() {
 // All checkout data from single API call
 const checkout = ref<CheckoutInfoResponse>({
   methods: {}, global_min: 0, global_max: 0,
-  plans: [], balance_disabled: false, balance_recharge_multiplier: 1, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
+  plans: [], recharge_packages: [], monthly_recharge_bonus_claimed: false, balance_disabled: false, balance_recharge_multiplier: 1, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
 })
 
 const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
 const enabledMethods = computed<VisiblePaymentMethod[]>(() => Object.keys(visibleMethods.value) as VisiblePaymentMethod[])
 const validAmount = computed(() => amount.value ?? 0)
-const balanceRechargeMultiplier = computed(() => {
-  const multiplier = checkout.value.balance_recharge_multiplier
-  return multiplier > 0 ? multiplier : 1
-})
-const rechargeUnitAmount = 1
-const rechargeAmountPresets = [5, 50, 200, 300, 500, 1000]
-const recommendedRechargeAmount = 5
-const showRecommendedRechargeBadge = false
+const rechargePackages = computed(() =>
+  (checkout.value.recharge_packages || [])
+    .filter(pkg => pkg && typeof pkg.id === 'string' && pkg.id.trim() !== '')
+    .slice()
+    .sort((a, b) => {
+      if ((a.sort_order || 0) !== (b.sort_order || 0)) {
+        return (a.sort_order || 0) - (b.sort_order || 0)
+      }
+      return (a.pay_amount || 0) - (b.pay_amount || 0)
+    })
+)
+const selectedRechargePackage = computed(() =>
+  rechargePackages.value.find(pkg => pkg.id === selectedRechargePackageId.value) ?? null
+)
+const effectiveCreditedAmount = computed(() =>
+  selectedRechargePackage.value?.effective_credited_amount ?? validAmount.value
+)
 
 // Check if an amount fits a method's [min, max]. 0 = no limit.
 function amountFitsMethod(amt: number, methodType: string): boolean {
@@ -878,20 +905,6 @@ function amountFitsMethod(amt: number, methodType: string): boolean {
   if (ml.single_max > 0 && amt > ml.single_max) return false
   return true
 }
-
-// Visible methods decide the amount range shown to users.
-const globalMinAmount = computed(() => {
-  const limits = Object.values(visibleMethods.value)
-  if (limits.length === 0) return 0
-  if (limits.some(limit => limit.single_min <= 0)) return 0
-  return Math.min(...limits.map(limit => limit.single_min))
-})
-const globalMaxAmount = computed(() => {
-  const limits = Object.values(visibleMethods.value)
-  if (limits.length === 0) return 0
-  if (limits.some(limit => limit.single_max <= 0)) return 0
-  return Math.max(...limits.map(limit => limit.single_max))
-})
 
 // Selected method's limits (for validation and error messages)
 const selectedLimit = computed(() => visibleMethods.value[selectedMethod.value])
@@ -927,9 +940,9 @@ function formatMembershipDate(value: string): string {
   }).format(date)
 }
 
-function formatCreditAmount(value: number): string {
-  const credited = Math.round((value * balanceRechargeMultiplier.value) * 100) / 100
-  return `$${credited.toFixed(2)} USD`
+function formatRechargeCreditAmount(value: number): string {
+  const amount = Number.isFinite(value) ? value : 0
+  return `$${amount.toFixed(2)} USD`
 }
 
 const membershipCurrentLabel = computed(() => {
@@ -960,19 +973,6 @@ const membershipProgressPercent = computed(() => {
   if (maxThreshold <= 0) return 100
   return Math.min(100, Math.max(0, Math.round((status.current_month_paid / maxThreshold) * 100)))
 })
-
-const rechargeAmountOptions = computed(() =>
-  rechargeAmountPresets.filter((preset) => {
-    if (globalMinAmount.value > 0 && preset < globalMinAmount.value) return false
-    if (globalMaxAmount.value > 0 && preset > globalMaxAmount.value) return false
-    return enabledMethods.value.some((method) => amountFitsMethod(preset, method))
-  })
-)
-
-const rechargeUnits = computed(() => Math.max(1, Math.round((validAmount.value || rechargeUnitAmount) / rechargeUnitAmount)))
-const showRechargeUnitsSummary = computed(() =>
-  validAmount.value >= rechargeUnitAmount && validAmount.value % rechargeUnitAmount === 0
-)
 
 const selectedMethodLabel = computed(() => selectedMethod.value ? paymentMethodLabel(selectedMethod.value) : '')
 
@@ -1014,8 +1014,8 @@ function paymentMethodLabel(type: string): string {
   return t(`payment.methods.${type}`)
 }
 
-function rechargePresetAvailable(preset: number): boolean {
-  return enabledMethods.value.some((method) => amountFitsMethod(preset, method))
+function rechargePackageAvailable(pkg: RechargePackage): boolean {
+  return !!pkg && enabledMethods.value.some((method) => amountFitsMethod(pkg.pay_amount, method))
 }
 
 function selectDefaultMethodIfNeeded(force = false) {
@@ -1045,6 +1045,7 @@ async function loadCheckoutInfo(preservePlan = true) {
   checkout.value = checkoutRes.data
   membershipStatus.value = membershipRes?.data ?? null
   selectDefaultMethodIfNeeded()
+  ensureSelectedRechargePackage()
   if (previousPlanId) {
     selectedPlan.value = checkout.value.plans.find(plan => plan.id === previousPlanId) ?? null
   }
@@ -1068,28 +1069,30 @@ async function refreshCheckoutInfo() {
   }
 }
 
-function selectRechargeAmount(preset: number) {
-  if (!rechargePresetAvailable(preset)) return
-  amount.value = preset
+function selectRechargePackage(packageId: string) {
+  const pkg = rechargePackages.value.find(item => item.id === packageId)
+  if (!pkg || !rechargePackageAvailable(pkg)) return
+  selectedRechargePackageId.value = pkg.id
+  amount.value = pkg.pay_amount
 }
 
-function setRechargeUnits(units: number) {
-  const nextUnits = Math.max(1, units)
-  amount.value = nextUnits * rechargeUnitAmount
+function ensureSelectedRechargePackage(preferredId = selectedRechargePackageId.value) {
+  if (checkout.value.balance_disabled) {
+    selectedRechargePackageId.value = ''
+    amount.value = null
+    return
+  }
+  const current = rechargePackages.value.find(pkg => pkg.id === preferredId && rechargePackageAvailable(pkg))
+  const fallback = current ?? rechargePackages.value.find(pkg => rechargePackageAvailable(pkg)) ?? null
+  selectedRechargePackageId.value = fallback?.id ?? ''
+  amount.value = fallback?.pay_amount ?? null
 }
 
-function decreaseRechargeUnits() {
-  setRechargeUnits(rechargeUnits.value - 1)
-}
-
-function increaseRechargeUnits() {
-  setRechargeUnits(rechargeUnits.value + 1)
-}
-
-function setCustomAmountFromEvent(event: Event) {
-  const target = event.target as HTMLInputElement | null
-  const value = Number.parseFloat(target?.value || '')
-  amount.value = Number.isFinite(value) && value > 0 ? value : null
+function selectRechargePackageByAmount(payAmount: number): string {
+  const matched = rechargePackages.value.find(pkg => pkg.pay_amount === payAmount && rechargePackageAvailable(pkg))
+  if (!matched) return ''
+  selectRechargePackage(matched.id)
+  return matched.id
 }
 
 function planValiditySuffixFor(plan: SubscriptionPlan): string {
@@ -1172,6 +1175,7 @@ const amountError = computed(() => {
 
 const canSubmit = computed(() =>
   validAmount.value > 0
+    && selectedRechargePackage.value !== null
     && amountFitsMethod(validAmount.value, selectedMethod.value)
     && selectedLimit.value?.available !== false
 )
@@ -1260,7 +1264,9 @@ function closeRenewalModal() {
 
 async function handleSubmitRecharge() {
   if (!canSubmit.value || submitting.value) return
-  await createOrder(validAmount.value, 'balance')
+  await createOrder(validAmount.value, 'balance', undefined, {
+    rechargePackageId: selectedRechargePackageId.value,
+  })
 }
 
 async function confirmSubscribe() {
@@ -1279,6 +1285,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       paymentType: requestType,
       orderType,
       planId,
+      rechargePackageId: options.rechargePackageId,
       origin: typeof window !== 'undefined' ? window.location.origin : '',
       isMobile: isMobileDevice(),
       isWechatBrowser: typeof window !== 'undefined' && /MicroMessenger/i.test(window.navigator.userAgent),
@@ -1340,6 +1347,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
         orderType,
         planId,
         orderAmount,
+        rechargePackageId: options.rechargePackageId,
       })
       return
     }
@@ -1380,6 +1388,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
               orderAmount,
               orderType,
               planId,
+              rechargePackageId: options.rechargePackageId,
               paymentType: visibleMethod,
               attempted: options.mobileQrFallbackAttempted === true,
             },
@@ -1398,6 +1407,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
           orderAmount,
           orderType,
           planId,
+          rechargePackageId: options.rechargePackageId,
           paymentType: visibleMethod,
           attempted: options.mobileQrFallbackAttempted === true,
         })
@@ -1427,6 +1437,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       orderAmount,
       orderType,
       planId,
+      rechargePackageId: options.rechargePackageId,
       paymentType: requestType,
       attempted: options.mobileQrFallbackAttempted === true,
     })) {
@@ -1454,6 +1465,7 @@ interface MobileQrFallbackContext {
   orderAmount: number
   orderType: OrderType
   planId?: number
+  rechargePackageId?: string
   paymentType: string
   attempted: boolean
 }
@@ -1503,6 +1515,7 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
       paymentType: visibleMethod,
       orderType: context.orderType,
       planId: context.planId,
+      rechargePackageId: context.rechargePackageId,
       origin: typeof window !== 'undefined' ? window.location.origin : '',
       isMobile: false,
       isWechatBrowser: false,
@@ -1570,7 +1583,11 @@ async function resumeWechatPaymentFromQuery() {
 
   selectedMethod.value = resume.paymentType
   if (resume.orderType === 'balance' && resume.orderAmount > 0) {
-    amount.value = resume.orderAmount
+    if (resume.rechargePackageId) {
+      selectRechargePackage(resume.rechargePackageId)
+    } else {
+      selectRechargePackageByAmount(resume.orderAmount)
+    }
   }
   if (resume.orderType === 'subscription' && resume.planId) {
     selectedPlan.value = checkout.value.plans.find(plan => plan.id === resume.planId) ?? null
@@ -1582,6 +1599,7 @@ async function resumeWechatPaymentFromQuery() {
     await createOrder(0, resume.orderType, resume.planId, {
       wechatResumeToken: resume.wechatResumeToken,
       paymentType: resume.paymentType,
+      rechargePackageId: resume.rechargePackageId,
       isResume: true,
     })
     return
@@ -1591,6 +1609,7 @@ async function resumeWechatPaymentFromQuery() {
     await createOrder(resume.orderAmount, resume.orderType, resume.planId, {
       openid: resume.openid,
       paymentType: resume.paymentType,
+      rechargePackageId: resume.rechargePackageId || selectRechargePackageByAmount(resume.orderAmount),
       isResume: true,
     })
   }
@@ -1625,9 +1644,7 @@ onMounted(async () => {
     }
     await resumeWechatPaymentFromQuery()
     if (!checkout.value.balance_disabled && amount.value == null && !hasWechatResumeQuery(route.query)) {
-      amount.value = rechargeAmountOptions.value.includes(1000)
-        ? 1000
-        : (rechargeAmountOptions.value[0] ?? rechargeUnitAmount)
+      ensureSelectedRechargePackage()
     }
     // Handle renewal navigation: ?tab=subscription&group=123
     if (route.query.tab === 'subscription') {

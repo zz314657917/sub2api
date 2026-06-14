@@ -167,6 +167,17 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.paymentVisibleMethods.sourceRequiredError": "{title} 已启用，请先选择支付来源。",
     "admin.settings.payment.configGuide": "查看支付配置说明",
     "admin.settings.payment.findProvider": "查看支持的支付方式",
+    "admin.settings.payment.rechargePackages": "充值档位",
+    "admin.settings.payment.rechargePackagesHint": "用户只能选择启用中的档位。",
+    "admin.settings.payment.rechargePackageAdd": "新增档位",
+    "admin.settings.payment.rechargePackageRemove": "删除",
+    "admin.settings.payment.rechargePackageEnabled": "启用",
+    "admin.settings.payment.rechargePackageLabel": "名称",
+    "admin.settings.payment.rechargePackageLabelPlaceholder": "如：首充体验包",
+    "admin.settings.payment.rechargePackagePayAmount": "支付金额",
+    "admin.settings.payment.rechargePackageCreditedAmount": "到账额度",
+    "admin.settings.payment.rechargePackageBonusAmount": "赠送",
+    "admin.settings.payment.rechargePackageSortOrder": "排序",
     "admin.settings.openaiExperimentalScheduler.title": "OpenAI 实验调度策略",
     "admin.settings.openaiExperimentalScheduler.description": "默认关闭。开启后仅影响本网关在 OpenAI 账号间的实验性调度选择逻辑，不代表上游 OpenAI 官方能力。",
     "admin.settings.features.leaderboardDailyReward.title": "排行榜每周奖励",
@@ -628,6 +639,67 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(payload).not.toHaveProperty("payment_visible_method_wxpay_source");
     expect(payload).not.toHaveProperty("payment_visible_method_alipay_enabled");
     expect(payload).not.toHaveProperty("payment_visible_method_wxpay_enabled");
+  });
+
+  it("loads and submits configured recharge packages", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      payment_recharge_packages: [
+        {
+          id: "pkg-50",
+          label: "50 元档",
+          enabled: true,
+          pay_amount: 50,
+          credited_amount: 60,
+          sort_order: 20,
+        },
+        {
+          id: "pkg-5",
+          label: "5 元档",
+          enabled: true,
+          pay_amount: 5,
+          credited_amount: 5.5,
+          sort_order: 10,
+        },
+      ],
+    });
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    expect(wrapper.text()).toContain("充值档位");
+    expect(
+      wrapper
+        .findAll("input")
+        .some((node) => (node.element as HTMLInputElement).value === "50 元档"),
+    ).toBe(true);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payment_recharge_packages: [
+          {
+            id: "pkg-5",
+            label: "5 元档",
+            enabled: true,
+            pay_amount: 5,
+            credited_amount: 5.5,
+            sort_order: 10,
+          },
+          {
+            id: "pkg-50",
+            label: "50 元档",
+            enabled: true,
+            pay_amount: 50,
+            credited_amount: 60,
+            sort_order: 20,
+          },
+        ],
+      }),
+    );
   });
 
   it("loads and submits registration risk controls", async () => {

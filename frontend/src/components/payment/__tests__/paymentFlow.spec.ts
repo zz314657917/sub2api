@@ -275,6 +275,33 @@ describe('buildCreateOrderPayload', () => {
       payment_source: 'wechat_in_app_resume',
     })
   })
+
+  it('attaches the selected recharge package only for balance orders', () => {
+    expect(buildCreateOrderPayload({
+      amount: 50,
+      paymentType: 'wxpay',
+      orderType: 'balance',
+      rechargePackageId: 'pkg-50',
+      origin: 'https://app.example.com',
+      isMobile: false,
+      isWechatBrowser: false,
+    })).toEqual(expect.objectContaining({
+      amount: 50,
+      order_type: 'balance',
+      recharge_package_id: 'pkg-50',
+    }))
+
+    expect(buildCreateOrderPayload({
+      amount: 128,
+      paymentType: 'wxpay',
+      orderType: 'subscription',
+      planId: 7,
+      rechargePackageId: 'pkg-ignored',
+      origin: 'https://app.example.com',
+      isMobile: false,
+      isWechatBrowser: false,
+    })).not.toHaveProperty('recharge_package_id')
+  })
 })
 
 describe('readPaymentRecoverySnapshot', () => {

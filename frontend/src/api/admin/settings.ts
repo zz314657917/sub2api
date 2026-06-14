@@ -529,6 +529,7 @@ export interface SystemSettings {
   payment_balance_disabled: boolean;
   payment_balance_recharge_multiplier: number;
   payment_recharge_fee_rate: number;
+  payment_recharge_packages: PaymentRechargePackage[];
   payment_load_balance_strategy: string;
   payment_product_name_prefix: string;
   payment_product_name_suffix: string;
@@ -593,6 +594,15 @@ export interface SystemSettings {
   // OpenAI fast/flex policy
   openai_fast_policy_settings?: OpenAIFastPolicySettings;
   studio_bridge_luoye_ai: StudioBridgeAppSettings;
+}
+
+export interface PaymentRechargePackage {
+  id: string;
+  label: string;
+  enabled: boolean;
+  pay_amount: number;
+  credited_amount: number;
+  sort_order: number;
 }
 
 export interface UpdateSettingsRequest {
@@ -768,6 +778,7 @@ export interface UpdateSettingsRequest {
   payment_balance_disabled?: boolean;
   payment_balance_recharge_multiplier?: number;
   payment_recharge_fee_rate?: number;
+  payment_recharge_packages?: PaymentRechargePackage[];
   payment_load_balance_strategy?: string;
   payment_product_name_prefix?: string;
   payment_product_name_suffix?: string;

@@ -291,6 +291,11 @@ func resolveRedeemAction(existing *RedeemCode, lookupErr error) redeemAction {
 }
 
 func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder) error {
+	var err error
+	o, err = s.adjustBalanceOrderForMonthlyRechargePackage(ctx, o)
+	if err != nil {
+		return err
+	}
 	// Idempotency: check if redeem code already exists (from a previous partial run)
 	existing, lookupErr := s.redeemService.GetByCode(ctx, o.RechargeCode)
 	action := resolveRedeemAction(existing, lookupErr)
@@ -327,6 +332,9 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder) e
 
 func (s *PaymentService) applyFirstRechargeBonusForOrder(ctx context.Context, o *dbent.PaymentOrder) error {
 	if s == nil || s.welfareService == nil || o == nil || o.OrderType != payment.OrderTypeBalance {
+		return nil
+	}
+	if monthlyRechargeDecisionFromOrder(o).Package.ID != "" {
 		return nil
 	}
 	if _, err := s.welfareService.GrantFirstRechargeBonusForOrder(ctx, o.ID); err != nil {

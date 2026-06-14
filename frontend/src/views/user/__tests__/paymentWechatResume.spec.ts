@@ -8,6 +8,7 @@ describe('parseWechatResumeRoute', () => {
       wechat_resume_token: 'resume-token-123',
       openid: 'openid-123',
       payment_type: 'wxpay',
+      recharge_package_id: 'pkg-20',
       amount: '12.5',
       order_type: 'subscription',
       plan_id: '7',
@@ -17,6 +18,7 @@ describe('parseWechatResumeRoute', () => {
       orderType: 'subscription',
       orderAmount: 0,
       planId: 7,
+      rechargePackageId: 'pkg-20',
     })
   })
 
@@ -25,6 +27,7 @@ describe('parseWechatResumeRoute', () => {
       wechat_resume: '1',
       openid: 'openid-123',
       payment_type: 'wxpay',
+      recharge_package_id: 'pkg-5',
       amount: '12.5',
       order_type: 'balance',
     }, [], 88)).toEqual({
@@ -33,6 +36,7 @@ describe('parseWechatResumeRoute', () => {
       orderType: 'balance',
       orderAmount: 12.5,
       planId: undefined,
+      rechargePackageId: 'pkg-5',
     })
   })
 })
@@ -45,6 +49,7 @@ describe('stripWechatResumeQuery', () => {
       wechat_resume_token: 'resume-token-123',
       openid: 'openid-123',
       payment_type: 'wxpay',
+      recharge_package_id: 'pkg-20',
       amount: '12.5',
       order_type: 'subscription',
       plan_id: '7',
