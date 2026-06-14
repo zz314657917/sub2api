@@ -18,9 +18,9 @@
               <Icon name="externalLink" size="md" />
               打开前台
             </router-link>
-            <button type="button" class="btn btn-secondary" @click="exportToJson">
-              <Icon name="download" size="md" />
-              导出 JSON
+            <button type="button" class="btn btn-secondary" @click="openJsonPanel">
+              <Icon name="document" size="md" />
+              JSON 工具
             </button>
             <button type="button" class="btn btn-primary" :disabled="saving || loading" @click="saveCatalog">
               <Icon name="check" size="md" />
@@ -40,24 +40,65 @@
             </button>
           </div>
 
-          <div v-if="catalog.groups.length > 0" class="model-market-group-list mt-4 space-y-2">
-            <button
+          <VueDraggable
+            v-if="catalog.groups.length > 0"
+            v-model="catalog.groups"
+            class="model-market-group-list mt-4 space-y-2"
+            handle=".model-market-group-drag-handle"
+            :animation="180"
+            @start="rememberSelectedGroupBeforeSort"
+            @end="handleGroupsReordered"
+          >
+            <div
               v-for="(group, index) in catalog.groups"
               :key="`${index}:${group.id}`"
-              type="button"
-              class="model-market-group-button"
+              class="model-market-group-card"
               :class="{ 'is-active': selectedGroupIndex === index }"
-              @click="selectedGroupIndex = index"
             >
-              <span class="min-w-0">
-                <strong>{{ group.title || '未命名分组' }}</strong>
-                <small>{{ categoryLabel(group.category) }} · {{ group.rows.length }} 行</small>
-              </span>
-              <span :class="['badge', group.enabled ? 'badge-success' : 'badge-gray']">
-                {{ group.enabled ? '显示' : '隐藏' }}
-              </span>
-            </button>
-          </div>
+              <button
+                type="button"
+                class="model-market-group-drag-handle"
+                title="拖动调整顺序"
+                aria-label="拖动调整顺序"
+                @click.stop
+              >
+                <Icon name="menu" size="sm" />
+              </button>
+              <button
+                type="button"
+                class="model-market-group-select"
+                @click="selectedGroupIndex = index"
+              >
+                <span class="min-w-0">
+                  <strong>{{ group.title || '未命名分组' }}</strong>
+                  <small>{{ categoryLabel(group.category) }} · {{ group.rows.length }} 行</small>
+                </span>
+                <span :class="['badge', group.enabled ? 'badge-success' : 'badge-gray']">
+                  {{ group.enabled ? '显示' : '隐藏' }}
+                </span>
+              </button>
+              <div class="model-market-group-order-actions">
+                <button
+                  type="button"
+                  title="上移分组"
+                  aria-label="上移分组"
+                  :disabled="index === 0"
+                  @click="moveGroup(index, -1)"
+                >
+                  <Icon name="chevronUp" size="xs" />
+                </button>
+                <button
+                  type="button"
+                  title="下移分组"
+                  aria-label="下移分组"
+                  :disabled="index === catalog.groups.length - 1"
+                  @click="moveGroup(index, 1)"
+                >
+                  <Icon name="chevronDown" size="xs" />
+                </button>
+              </div>
+            </div>
+          </VueDraggable>
 
           <EmptyState
             v-else
@@ -97,10 +138,6 @@
               <div>
                 <label class="input-label">平台</label>
                 <input v-model="selectedGroup.platform" type="text" class="input" placeholder="openai / gemini / video" />
-              </div>
-              <div>
-                <label class="input-label">排序</label>
-                <input v-model.number="selectedGroup.sort_order" type="number" class="input" />
               </div>
               <div>
                 <label class="input-label">价格倍率</label>
@@ -276,18 +313,33 @@
         </section>
       </div>
 
-      <section class="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-          <div>
+      <div
+        v-if="showJsonPanel"
+        class="model-market-json-overlay"
+        @click.self="showJsonPanel = false"
+      >
+        <section class="model-market-json-panel">
+          <div class="flex items-center justify-between gap-3">
             <h3 class="font-semibold text-gray-900 dark:text-white">JSON 导入 / 导出</h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">
-              批量更新时可粘贴完整目录 JSON，再点击“应用 JSON”检查结构。
-            </p>
+            <button
+              type="button"
+              class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900 dark:text-dark-300 dark:hover:bg-dark-700 dark:hover:text-white"
+              title="关闭"
+              aria-label="关闭 JSON 工具"
+              @click="showJsonPanel = false"
+            >
+              <Icon name="x" size="md" />
+            </button>
           </div>
-          <div class="flex flex-wrap gap-2">
+
+          <div class="mt-4 flex flex-wrap gap-2">
             <button type="button" class="btn btn-secondary" @click="syncJsonFromCatalog">
               <Icon name="copy" size="md" />
               同步当前
+            </button>
+            <button type="button" class="btn btn-secondary" @click="exportToJson">
+              <Icon name="download" size="md" />
+              复制 JSON
             </button>
             <button type="button" class="btn btn-secondary" @click="applyJsonToCatalog">
               <Icon name="upload" size="md" />
@@ -297,9 +349,10 @@
               重置默认
             </button>
           </div>
-        </div>
-        <textarea v-model="jsonDraft" rows="14" class="input model-market-json mt-4" spellcheck="false"></textarea>
-      </section>
+
+          <textarea v-model="jsonDraft" rows="18" class="input model-market-json mt-4" spellcheck="false"></textarea>
+        </section>
+      </div>
     </div>
 
     <ConfirmDialog
@@ -336,7 +389,9 @@ const saving = ref(false)
 const selectedGroupIndex = ref(0)
 const jsonDraft = ref('')
 const showResetDialog = ref(false)
+const showJsonPanel = ref(false)
 const accountGroups = ref<AdminGroup[]>([])
+const selectedGroupBeforeSort = ref<ModelMarketGroup | null>(null)
 
 const catalog = reactive<ModelMarketCatalog>({
   version: 1,
@@ -484,6 +539,11 @@ function exportToJson(): void {
   appStore.showSuccess('JSON 已复制到剪贴板')
 }
 
+function openJsonPanel(): void {
+  syncJsonFromCatalog()
+  showJsonPanel.value = true
+}
+
 function applyJsonToCatalog(): void {
   try {
     const parsed = JSON.parse(jsonDraft.value) as ModelMarketCatalog
@@ -512,6 +572,46 @@ function removeSelectedGroup(): void {
     selectedGroupIndex.value = Math.min(index, Math.max(0, catalog.groups.length - 1))
     syncJsonFromCatalog()
   }
+}
+
+function rememberSelectedGroupBeforeSort(): void {
+  selectedGroupBeforeSort.value = selectedGroup.value
+}
+
+function handleGroupsReordered(): void {
+  normalizeGroupOrder()
+  restoreSelectedGroup(selectedGroupBeforeSort.value)
+  selectedGroupBeforeSort.value = null
+  syncJsonFromCatalog()
+}
+
+function moveGroup(index: number, direction: -1 | 1): void {
+  const targetIndex = index + direction
+  if (targetIndex < 0 || targetIndex >= catalog.groups.length) return
+  const group = catalog.groups[index]
+  const currentSelection = selectedGroup.value
+  catalog.groups.splice(index, 1)
+  catalog.groups.splice(targetIndex, 0, group)
+  normalizeGroupOrder()
+  restoreSelectedGroup(currentSelection)
+  syncJsonFromCatalog()
+}
+
+function normalizeGroupOrder(): void {
+  catalog.groups.forEach((group, index) => {
+    group.sort_order = (index + 1) * 100
+  })
+}
+
+function restoreSelectedGroup(group: ModelMarketGroup | null): void {
+  if (!catalog.groups.length) {
+    selectedGroupIndex.value = 0
+    return
+  }
+  const index = group ? catalog.groups.indexOf(group) : -1
+  selectedGroupIndex.value = index >= 0
+    ? index
+    : Math.min(selectedGroupIndex.value, catalog.groups.length - 1)
 }
 
 function addRow(): void {
@@ -577,14 +677,17 @@ onMounted(loadCatalog)
 <style scoped>
 .model-market-group-panel {
   align-self: start;
-  height: fit-content;
+  display: flex;
+  height: calc(100vh - 8rem);
+  max-height: calc(100vh - 8rem);
   min-height: 0;
-  max-height: min(42rem, calc(100vh - 8rem));
+  flex-direction: column;
   overflow: hidden;
 }
 
 .model-market-group-list {
-  max-height: min(34rem, calc(100vh - 18rem));
+  min-height: 0;
+  flex: 1;
   overflow-y: auto;
   border-radius: 8px;
   border: 1px solid rgb(229 231 235);
@@ -592,48 +695,105 @@ onMounted(loadCatalog)
   scrollbar-gutter: stable;
 }
 
-.model-market-group-button {
+.model-market-group-card {
   display: flex;
   width: 100%;
   min-width: 0;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
+  gap: 0.5rem;
   border-radius: 8px;
   border: 1px solid rgb(229 231 235);
-  padding: 0.75rem;
+  padding: 0.45rem;
   text-align: left;
   transition:
     border-color 0.16s ease,
     background 0.16s ease;
 }
 
-.model-market-group-button strong,
-.model-market-group-button small {
+.model-market-group-drag-handle,
+.model-market-group-order-actions button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: rgb(107 114 128);
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    opacity 0.16s ease;
+}
+
+.model-market-group-drag-handle {
+  height: 2rem;
+  width: 2rem;
+  cursor: grab;
+}
+
+.model-market-group-drag-handle:hover,
+.model-market-group-order-actions button:hover:not(:disabled) {
+  background: rgb(243 244 246);
+  color: rgb(55 65 81);
+}
+
+.model-market-group-drag-handle:active {
+  cursor: grabbing;
+}
+
+.model-market-group-select {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.35rem 0;
+  text-align: left;
+}
+
+.model-market-group-order-actions {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.model-market-group-order-actions button {
+  height: 1.45rem;
+  width: 1.45rem;
+}
+
+.model-market-group-order-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.32;
+}
+
+.model-market-group-card strong,
+.model-market-group-card small {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.model-market-group-button strong {
+.model-market-group-card strong {
   color: rgb(17 24 39);
   font-size: 0.9rem;
   line-height: 1.35;
 }
 
-.model-market-group-button small {
+.model-market-group-card small {
   margin-top: 0.15rem;
   color: rgb(107 114 128);
   font-size: 0.75rem;
 }
 
-.model-market-group-button.is-active {
+.model-market-group-card.is-active {
   border-color: rgb(59 130 246);
   background: rgb(239 246 255);
 }
 
-.dark .model-market-group-button {
+.dark .model-market-group-card {
   border-color: rgb(55 65 81);
 }
 
@@ -641,17 +801,28 @@ onMounted(loadCatalog)
   border-color: rgb(55 65 81);
 }
 
-.dark .model-market-group-button strong {
+.dark .model-market-group-card strong {
   color: rgb(243 244 246);
 }
 
-.dark .model-market-group-button small {
+.dark .model-market-group-card small {
   color: rgb(156 163 175);
 }
 
-.dark .model-market-group-button.is-active {
+.dark .model-market-group-card.is-active {
   border-color: rgb(96 165 250);
   background: rgba(37, 99, 235, 0.16);
+}
+
+.dark .model-market-group-drag-handle,
+.dark .model-market-group-order-actions button {
+  color: rgb(156 163 175);
+}
+
+.dark .model-market-group-drag-handle:hover,
+.dark .model-market-group-order-actions button:hover:not(:disabled) {
+  background: rgb(55 65 81);
+  color: rgb(229 231 235);
 }
 
 .model-market-supported-groups {
@@ -781,6 +952,35 @@ onMounted(loadCatalog)
   color: rgb(229 231 235);
 }
 
+.model-market-json-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  justify-content: flex-end;
+  background: rgb(15 23 42 / 0.28);
+}
+
+.model-market-json-panel {
+  display: flex;
+  height: 100%;
+  width: min(44rem, 100vw);
+  flex-direction: column;
+  border-left: 1px solid rgb(229 231 235);
+  background: white;
+  padding: 1rem;
+  box-shadow: -18px 0 40px rgb(15 23 42 / 0.18);
+}
+
+.dark .model-market-json-overlay {
+  background: rgb(2 6 23 / 0.48);
+}
+
+.dark .model-market-json-panel {
+  border-color: rgb(55 65 81);
+  background: rgb(17 24 39);
+}
+
 .model-market-group-list::-webkit-scrollbar,
 .model-market-row-table-wrap::-webkit-scrollbar {
   width: 0.45rem;
@@ -805,7 +1005,8 @@ onMounted(loadCatalog)
 }
 
 .model-market-json {
-  min-height: 24rem;
+  min-height: 0;
+  flex: 1;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   line-height: 1.55;
 }
