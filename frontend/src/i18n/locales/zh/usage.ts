@@ -11,6 +11,7 @@ export default {
     totalTokens: '总 Token',
     totalCost: '总消费',
     standardCost: '标准',
+    officialReferenceCost: '官方参考价',
     actualCost: '实际',
     accountCost: '成本',
     userBilled: '用户扣费',

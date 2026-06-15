@@ -11,6 +11,7 @@ export default {
     totalTokens: 'Total Tokens',
     totalCost: 'Total Cost',
     standardCost: 'Standard',
+    officialReferenceCost: 'Official reference',
     actualCost: 'Actual',
     accountCost: 'Cost',
     userBilled: 'User billed',

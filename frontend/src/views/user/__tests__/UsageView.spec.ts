@@ -64,6 +64,7 @@ const messages: Record<string, string> = {
   'usage.totalTokens': 'Total Tokens',
   'usage.totalCost': 'Total Cost',
   'usage.standardCost': 'Standard',
+  'usage.officialReferenceCost': 'Official reference',
   'usage.actualCost': 'Actual',
   'usage.avgDuration': 'Avg Duration',
   'usage.inSelectedRange': 'Selected range',
@@ -405,8 +406,24 @@ describe('user UsageView', () => {
 
     const costCell = wrapper.find('.table-cell[data-column="cost"]')
     expect(costCell.text()).toContain('$0.013400')
-    expect(costCell.text()).toContain('$0.010720')
+    expect(costCell.text()).toContain('✪ 0.010720')
     expect(costCell.find('.line-through').text()).toContain('$0.013400')
+  })
+
+  it('shows cache read percentage in the cache read column', async () => {
+    const wrapper = await mountUsageView([
+      baseUsageLog({
+        input_tokens: 100,
+        output_tokens: 200,
+        cache_creation_tokens: 0,
+        cache_read_tokens: 700,
+      }),
+    ])
+
+    const cacheReadCell = wrapper.find('.table-cell[data-column="cache_read"]')
+    expect(cacheReadCell.text()).toContain('700')
+    expect(cacheReadCell.text()).toContain('87.5%')
+    expect(cacheReadCell.find('[title]').attributes('title')).toBe('700 (87.5%)')
   })
 
   it('renders studio bridge rows with null timing values', async () => {
@@ -428,7 +445,7 @@ describe('user UsageView', () => {
     expect(wrapper.find('.table-row').exists()).toBe(true)
     expect(wrapper.text()).toContain('gpt-5.5')
     expect(wrapper.find('.table-cell[data-column="duration"]').text()).toContain('-')
-    expect(wrapper.find('.table-cell[data-column="cost"]').text()).toContain('$0.001000')
+    expect(wrapper.find('.table-cell[data-column="cost"]').text()).toContain('✪ 0.001000')
   })
 
   it('passes group filter to usage list and stats requests', async () => {
@@ -516,7 +533,7 @@ describe('user UsageView', () => {
     expect(text).toContain('Codex Desktop/0.133.0-alpha.1')
     expect(text).toContain('1,520')
     expect(text).toContain('959')
-    expect(text).toContain('$0.011628')
+    expect(text).toContain('✪ 0.011628')
   })
 
   it('exports csv with group, request id, user-agent, and current filters', async () => {
@@ -584,6 +601,8 @@ describe('user UsageView', () => {
     expect(text).toContain('Rate')
     expect(text).toContain('1.00x')
     expect(text).toContain('Billed')
+    expect(text).toContain('✪ 0.092883')
+    expect(text).toContain('Official reference')
     expect(text).toContain('$0.092883')
     expect(text).toContain('$5.0000 / 1M tokens')
     expect(text).toContain('$30.0000 / 1M tokens')

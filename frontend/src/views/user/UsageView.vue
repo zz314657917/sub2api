@@ -62,8 +62,8 @@
               </p>
               <p class="text-xs text-gray-500 dark:text-gray-400">
                 {{ t('usage.actualCost') }} /
-                <span class="line-through" :title="formatCostExact(usageStats?.total_cost || 0)">{{ formatCostCompact(usageStats?.total_cost || 0) }}</span>
-                {{ t('usage.standardCost') }}
+                <span class="line-through" :title="`${t('usage.officialReferenceCost')}: ${formatOfficialReferenceCostExact(usageStats?.total_cost || 0)}`">{{ formatOfficialReferenceCostCompact(usageStats?.total_cost || 0) }}</span>
+                {{ t('usage.officialReferenceCost') }}
               </p>
             </div>
           </div>
@@ -360,11 +360,14 @@
             <div
               v-if="!isImageUsage(row) && hasPositiveNumber(row.cache_read_tokens)"
               class="inline-flex items-center gap-1 text-sm"
-              :title="formatNumber(row.cache_read_tokens)"
+              :title="`${formatNumber(row.cache_read_tokens)} (${formatCacheReadPercent(row)})`"
             >
               <Icon name="database" size="sm" class="h-3.5 w-3.5 text-sky-500" />
               <span class="font-medium text-sky-600 dark:text-sky-400">
                 {{ formatCacheTokens(toFiniteNumber(row.cache_read_tokens)) }}
+              </span>
+              <span class="text-xs font-medium text-sky-500/80 dark:text-sky-300/80">
+                {{ formatCacheReadPercent(row) }}
               </span>
             </div>
             <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
@@ -373,11 +376,14 @@
           <template #cell-cost="{ row }">
             <div class="flex items-center gap-1.5 text-sm">
               <div class="flex flex-col items-start leading-tight">
-                <span class="text-xs text-gray-400 line-through dark:text-gray-500">
-                  ${{ formatCostFixed(row.total_cost) }}
+                <span
+                  class="text-xs text-gray-400 line-through dark:text-gray-500"
+                  :title="`${t('usage.officialReferenceCost')}: ${formatOfficialReferenceCost(row.total_cost)}`"
+                >
+                  {{ formatOfficialReferenceCost(row.total_cost) }}
                 </span>
                 <span class="font-medium text-green-600 dark:text-green-400">
-                  ${{ formatCostFixed(row.actual_cost) }}
+                  {{ formatCostFixed(row.actual_cost) }}
                 </span>
               </div>
               <!-- Cost Detail Tooltip -->
@@ -514,7 +520,9 @@
             </div>
             <div v-if="tokenTooltipData && hasPositiveNumber(tokenTooltipData.cache_read_tokens)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.cacheReadTokens') }}</span>
-              <span class="font-medium text-white">{{ formatNumber(tokenTooltipData.cache_read_tokens) }}</span>
+              <span class="font-medium text-white">
+                {{ formatNumber(tokenTooltipData.cache_read_tokens) }} ({{ formatCacheReadPercent(tokenTooltipData) }})
+              </span>
             </div>
           </div>
           <!-- Total -->
@@ -550,11 +558,11 @@
             <div class="text-xs font-semibold text-gray-300 mb-1">{{ t('usage.costDetails') }}</div>
             <div v-if="tooltipData && hasPositiveNumber(tooltipData.input_cost)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.inputCost') }}</span>
-              <span class="font-medium text-white">${{ formatCostFixed(tooltipData.input_cost) }}</span>
+              <span class="font-medium text-white">{{ formatOfficialReferenceCost(tooltipData.input_cost) }}</span>
             </div>
             <div v-if="tooltipData && hasPositiveNumber(tooltipData.output_cost)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.outputCost') }}</span>
-              <span class="font-medium text-white">${{ formatCostFixed(tooltipData.output_cost) }}</span>
+              <span class="font-medium text-white">{{ formatOfficialReferenceCost(tooltipData.output_cost) }}</span>
             </div>
             <!-- Per-image billing: show image metadata and unit price -->
             <template v-if="tooltipData && isImageUsage(tooltipData)">
@@ -584,11 +592,11 @@
               </div>
               <div class="flex items-center justify-between gap-4">
                 <span class="text-gray-400">{{ t('usage.imageUnitPrice') }}</span>
-                <span class="font-medium text-sky-300">${{ formatCostFixed(imageUnitPrice(tooltipData)) }}</span>
+                <span class="font-medium text-sky-300">{{ formatOfficialReferenceCost(imageUnitPrice(tooltipData)) }}</span>
               </div>
               <div class="flex items-center justify-between gap-4">
                 <span class="text-gray-400">{{ t('usage.imageTotalPrice') }}</span>
-                <span class="font-medium text-white">${{ formatCostFixed(tooltipData.total_cost) }}</span>
+                <span class="font-medium text-white">{{ formatOfficialReferenceCost(tooltipData.total_cost) }}</span>
               </div>
             </template>
             <!-- Token billing: show unit prices per 1M tokens -->
@@ -604,15 +612,15 @@
             </template>
             <div v-else class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('usage.unitPrice') }}</span>
-              <span class="font-medium text-sky-300">${{ formatCostFixed(tooltipData?.total_cost) }}</span>
+              <span class="font-medium text-sky-300">{{ formatOfficialReferenceCost(tooltipData?.total_cost) }}</span>
             </div>
             <div v-if="tooltipData && hasPositiveNumber(tooltipData.cache_creation_cost)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.cacheCreationCost') }}</span>
-              <span class="font-medium text-white">${{ formatCostFixed(tooltipData.cache_creation_cost) }}</span>
+              <span class="font-medium text-white">{{ formatOfficialReferenceCost(tooltipData.cache_creation_cost) }}</span>
             </div>
             <div v-if="tooltipData && hasPositiveNumber(tooltipData.cache_read_cost)" class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{{ t('admin.usage.cacheReadCost') }}</span>
-              <span class="font-medium text-white">${{ formatCostFixed(tooltipData.cache_read_cost) }}</span>
+              <span class="font-medium text-white">{{ formatOfficialReferenceCost(tooltipData.cache_read_cost) }}</span>
             </div>
           </div>
           <!-- Rate and Summary -->
@@ -627,13 +635,13 @@
             >
           </div>
           <div class="flex items-center justify-between gap-6">
-            <span class="text-gray-400">{{ t('usage.original') }}</span>
-            <span class="font-medium text-white">${{ formatCostFixed(tooltipData?.total_cost) }}</span>
+            <span class="text-gray-400">{{ t('usage.officialReferenceCost') }}</span>
+            <span class="font-medium text-white">{{ formatOfficialReferenceCost(tooltipData?.total_cost) }}</span>
           </div>
           <div class="flex items-center justify-between gap-6 border-t border-gray-700 pt-1.5">
             <span class="text-gray-400">{{ t('usage.billed') }}</span>
             <span class="font-semibold text-green-400"
-              >${{ formatCostFixed(tooltipData?.actual_cost) }}</span
+              >{{ formatCostFixed(tooltipData?.actual_cost) }}</span
             >
           </div>
         </div>
@@ -732,7 +740,12 @@
             <div class="grid gap-3 rounded-lg border border-gray-200 p-4 text-sm dark:border-dark-700 md:grid-cols-2">
               <div>{{ t('usage.in') }}: <span class="font-medium">{{ formatNumber(selectedUsageLog.input_tokens) }}</span></div>
               <div>{{ t('usage.out') }}: <span class="font-medium">{{ formatNumber(selectedUsageLog.output_tokens) }}</span></div>
-              <div>{{ t('usage.cacheRead') }}: <span class="font-medium">{{ formatNumber(selectedUsageLog.cache_read_tokens) }}</span></div>
+              <div>
+                {{ t('usage.cacheRead') }}:
+                <span class="font-medium">
+                  {{ formatNumber(selectedUsageLog.cache_read_tokens) }} ({{ formatCacheReadPercent(selectedUsageLog) }})
+                </span>
+              </div>
               <div>{{ t('usage.cacheWrite') }}: <span class="font-medium">{{ formatNumber(selectedUsageLog.cache_creation_tokens) }}</span></div>
               <div v-if="isImageUsage(selectedUsageLog)">
                 {{ t('usage.imageCount') }}: <span class="font-medium">{{ selectedUsageLog.image_count }}{{ t('usage.imageUnit') }}</span>
@@ -746,10 +759,10 @@
           <section class="space-y-3">
             <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('usage.costDetails') }}</h3>
             <div class="grid gap-3 rounded-lg border border-gray-200 p-4 text-sm dark:border-dark-700 md:grid-cols-2">
-              <div>{{ t('usage.billed') }}: <span class="font-medium text-green-600 dark:text-green-400">${{ formatCostFixed(selectedUsageLog.actual_cost) }}</span></div>
-              <div>{{ t('usage.original') }}: <span class="font-medium">${{ formatCostFixed(selectedUsageLog.total_cost) }}</span></div>
-              <div>{{ t('admin.usage.inputCost') }}: <span class="font-medium">${{ formatCostFixed(selectedUsageLog.input_cost) }}</span></div>
-              <div>{{ t('admin.usage.outputCost') }}: <span class="font-medium">${{ formatCostFixed(selectedUsageLog.output_cost) }}</span></div>
+              <div>{{ t('usage.billed') }}: <span class="font-medium text-green-600 dark:text-green-400">{{ formatCostFixed(selectedUsageLog.actual_cost) }}</span></div>
+              <div>{{ t('usage.officialReferenceCost') }}: <span class="font-medium">{{ formatOfficialReferenceCost(selectedUsageLog.total_cost) }}</span></div>
+              <div>{{ t('admin.usage.inputCost') }}: <span class="font-medium">{{ formatOfficialReferenceCost(selectedUsageLog.input_cost) }}</span></div>
+              <div>{{ t('admin.usage.outputCost') }}: <span class="font-medium">{{ formatOfficialReferenceCost(selectedUsageLog.output_cost) }}</span></div>
               <div>{{ t('usage.firstToken') }}: <span class="font-medium">{{ selectedUsageLog.first_token_ms != null ? formatDuration(selectedUsageLog.first_token_ms) : '-' }}</span></div>
               <div>{{ t('usage.duration') }}: <span class="font-medium">{{ formatDuration(selectedUsageLog.duration_ms) }}</span></div>
             </div>
@@ -777,6 +790,7 @@ import GroupBadge from '@/components/common/GroupBadge.vue'
 import type { UsageLog, ApiKey, Group, UsageQueryParams, UsageStatsResponse } from '@/types'
 import type { Column } from '@/components/common/types'
 import { formatDateTime, formatReasoningEffort } from '@/utils/format'
+import { formatCreditAmount, formatCreditCompact, formatCreditExact } from '@/utils/credits'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatCacheTokens, formatMultiplier } from '@/utils/formatters'
 import { formatTokenPricePerMillion } from '@/utils/usagePricing'
@@ -964,7 +978,32 @@ const hasPositiveNumber = (value: unknown): boolean => toFiniteNumber(value) > 0
 
 const formatNumber = (value: unknown): string => toFiniteNumber(value).toLocaleString()
 
-const formatCostFixed = (value: unknown, digits = 6): string => toFiniteNumber(value).toFixed(digits)
+const usageInputTokenTotal = (
+  row: Pick<UsageLog, 'input_tokens' | 'cache_creation_tokens' | 'cache_read_tokens'>
+): number =>
+  toFiniteNumber(row.input_tokens)
+  + toFiniteNumber(row.cache_creation_tokens)
+  + toFiniteNumber(row.cache_read_tokens)
+
+const formatCacheReadPercent = (
+  row: Pick<UsageLog, 'input_tokens' | 'output_tokens' | 'cache_creation_tokens' | 'cache_read_tokens'>
+): string => {
+  const total = usageInputTokenTotal(row)
+  if (total <= 0) return '0%'
+  const percent = (toFiniteNumber(row.cache_read_tokens) / total) * 100
+  if (percent >= 99.95 && percent < 100) return '99.9%'
+  return `${percent.toFixed(1)}%`
+}
+
+const formatCostNumberFixed = (value: unknown, digits = 6): string => toFiniteNumber(value).toFixed(digits)
+const formatCostFixed = (value: unknown, digits = 6): string =>
+  formatCreditAmount(toFiniteNumber(value), {
+    minimumFractionDigits: digits,
+    maximumFractionDigits: digits,
+  })
+
+const formatOfficialReferenceCost = (value: unknown, digits = 6): string =>
+  `$${formatCostNumberFixed(value, digits)}`
 
 const formatDuration = (ms: number | null | undefined): string => {
   if (ms == null) return '-'
@@ -975,12 +1014,21 @@ const formatDuration = (ms: number | null | undefined): string => {
 
 const formatCostCompact = (value: number | null | undefined): string => {
   const safeValue = toFiniteNumber(value)
-  if (Math.abs(safeValue) >= 100) return `$${safeValue.toFixed(2)}`
-  if (Math.abs(safeValue) >= 1) return `$${safeValue.toFixed(4)}`
+  return formatCreditCompact(safeValue)
+}
+
+const formatCostExact = (value: number | null | undefined): string => formatCreditExact(value)
+
+const formatOfficialReferenceCostCompact = (value: number | null | undefined): string => {
+  const safeValue = toFiniteNumber(value)
+  const abs = Math.abs(safeValue)
+  if (abs >= 100) return `$${safeValue.toFixed(2)}`
+  if (abs >= 1) return `$${safeValue.toFixed(4)}`
   return `$${safeValue.toFixed(6)}`
 }
 
-const formatCostExact = (value: number | null | undefined): string => `$${formatCostFixed(value, 8)}`
+const formatOfficialReferenceCostExact = (value: number | null | undefined): string =>
+  `$${toFiniteNumber(value).toFixed(8)}`
 
 const imageUnitPrice = (row: UsageLog | null): number => {
   const imageCount = toFiniteNumber(row?.image_count)
@@ -1391,8 +1439,8 @@ const exportToCSV = async () => {
         toFiniteNumber(log.cache_read_tokens),
         toFiniteNumber(log.cache_creation_tokens),
         toFiniteNumber(log.rate_multiplier, 1),
-        formatCostFixed(log.actual_cost, 8),
-        formatCostFixed(log.total_cost, 8),
+        formatCostNumberFixed(log.actual_cost, 8),
+        formatCostNumberFixed(log.total_cost, 8),
         log.first_token_ms ?? '',
         log.duration_ms ?? '',
         log.user_agent || ''
