@@ -26,8 +26,8 @@ func TestStudioBridgeRepositoryResolveChargeUsageRefsUsesDefaultKey(t *testing.T
 	defer db.Close()
 
 	repo := &studioBridgeRepository{db: db}
-	mock.ExpectQuery(`WITH existing_key AS`).
-		WithArgs(int64(42), sqlmock.AnyArg(), service.DefaultAPIKeyName, "text").
+	mock.ExpectQuery(`WITH request_context AS`).
+		WithArgs(int64(42), sqlmock.AnyArg(), service.DefaultAPIKeyName, "text", "").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "group_id", "account_id"}).AddRow(int64(77), nil, int64(88)))
 
 	refs, err := repo.resolveChargeUsageRefs(context.Background(), db, service.StudioBridgeChargeCommand{
@@ -47,8 +47,8 @@ func TestStudioBridgeRepositoryResolveChargeUsageRefsPreservesDefaultKeyGroup(t 
 	defer db.Close()
 
 	repo := &studioBridgeRepository{db: db}
-	mock.ExpectQuery(`WITH existing_key AS`).
-		WithArgs(int64(42), sqlmock.AnyArg(), service.DefaultAPIKeyName, "image").
+	mock.ExpectQuery(`WITH request_context AS`).
+		WithArgs(int64(42), sqlmock.AnyArg(), service.DefaultAPIKeyName, "image", "gpt-image-2").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "group_id", "account_id"}).AddRow(int64(77), int64(9), int64(88)))
 
 	refs, err := repo.resolveChargeUsageRefs(context.Background(), db, service.StudioBridgeChargeCommand{
@@ -61,6 +61,75 @@ func TestStudioBridgeRepositoryResolveChargeUsageRefsPreservesDefaultKeyGroup(t 
 	require.Equal(t, int64(88), refs.accountID)
 	require.True(t, refs.groupID.Valid)
 	require.Equal(t, int64(9), refs.groupID.Int64)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestStudioBridgeRepositoryResolveChargeUsageRefsUsesOfficialImageModel(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := &studioBridgeRepository{db: db}
+	mock.ExpectQuery(`WITH request_context AS[\s\S]*model_mapping[\s\S]*api\.apimart\.ai`).
+		WithArgs(int64(42), sqlmock.AnyArg(), service.DefaultAPIKeyName, "image", "gpt-image-2-official").
+		WillReturnRows(sqlmock.NewRows([]string{"id", "group_id", "account_id"}).AddRow(int64(77), int64(12), int64(130)))
+
+	refs, err := repo.resolveChargeUsageRefs(context.Background(), db, service.StudioBridgeChargeCommand{
+		UserID: 42,
+		Mode:   "generate",
+		Model:  "gpt-image-2-official",
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(77), refs.apiKeyID)
+	require.Equal(t, int64(130), refs.accountID)
+	require.True(t, refs.groupID.Valid)
+	require.Equal(t, int64(12), refs.groupID.Int64)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestStudioBridgeRepositoryGetUserSummaryUsesActualModelFields(t *testing.T) {
+	db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
+	require.NoError(t, err)
+	defer db.Close()
+
+	repo := &studioBridgeRepository{db: db}
+	createdAt := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
+	mock.ExpectQuery(`SELECT id, email, username, balance\s+FROM users`).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "balance"}).AddRow(int64(42), "alice@example.test", "alice", 12.5))
+	mock.ExpectQuery(`SELECT\s+request_id,\s+COALESCE\(NULLIF\(TRIM\(upstream_model\), ''\), NULLIF\(TRIM\(model\), ''\), NULLIF\(TRIM\(requested_model\), ''\), ''\),.*FROM usage_logs`).
+		WithArgs(int64(42), 20).
+		WillReturnRows(sqlmock.NewRows([]string{"request_id", "model", "requested_model", "upstream_model", "actual_model", "actual_cost", "created_at", "duration_ms", "billing_mode", "media_type", "inbound_endpoint"}).
+			AddRow("req-1", "gpt-5.5", "auto", "gpt-5.5", "gpt-5.5", 0.25, createdAt, int64(4200), "token", "", "/studio-bridge/chat").
+			AddRow("studio:task-image-1", "gpt-image-2", "auto", "", "gpt-image-2", 0.5, createdAt, int64(149001), "image", "image", "/studio-bridge/generate").
+			AddRow("req-3", "auto", "auto", "", "auto", 0.0, createdAt, int64(0), "token", "", "/studio-bridge/chat"))
+	mock.ExpectQuery(`SELECT id, amount, status, created_at, paid_at\s+FROM payment_orders`).
+		WithArgs(int64(42)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "amount", "status", "created_at", "paid_at"}))
+
+	summary, err := repo.GetUserSummary(context.Background(), 42, "https://example.test/recharge", 20)
+	require.NoError(t, err)
+	require.Len(t, summary.Usage, 3)
+	require.Equal(t, "gpt-5.5", summary.Usage[0].Model)
+	require.Equal(t, "auto", summary.Usage[0].RequestedModel)
+	require.Equal(t, "gpt-5.5", summary.Usage[0].UpstreamModel)
+	require.Equal(t, "gpt-5.5", summary.Usage[0].ActualModel)
+	require.Equal(t, "Text", summary.Usage[0].Type)
+	require.Equal(t, "req-1", summary.Usage[0].TaskID)
+	require.Equal(t, int64(4200), summary.Usage[0].DurationMs)
+	require.Equal(t, int64(5), summary.Usage[0].DurationSeconds)
+	require.Equal(t, "success", summary.Usage[0].Status)
+	require.Equal(t, "gpt-image-2", summary.Usage[1].Model)
+	require.Equal(t, "auto", summary.Usage[1].RequestedModel)
+	require.Empty(t, summary.Usage[1].UpstreamModel)
+	require.Equal(t, "gpt-image-2", summary.Usage[1].ActualModel)
+	require.Equal(t, "Image", summary.Usage[1].Type)
+	require.Equal(t, "task-image-1", summary.Usage[1].TaskID)
+	require.Equal(t, int64(150), summary.Usage[1].DurationSeconds)
+	require.Equal(t, "gpt-5.5", summary.Usage[2].Model)
+	require.Equal(t, "auto", summary.Usage[2].RequestedModel)
+	require.Equal(t, "gpt-5.5", summary.Usage[2].ActualModel)
+	require.Equal(t, "failed", summary.Usage[2].Status)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -78,7 +147,7 @@ func TestStudioBridgeRepositoryCommitWritesUsageDurationFromReserveTime(t *testi
 		Amount:    0.8,
 		TaskID:    "image-task",
 		Mode:      "generate",
-		Model:     "gpt-image-2",
+		Model:     "auto",
 	}
 
 	mock.ExpectBegin()
@@ -123,16 +192,17 @@ func TestStudioBridgeRepositoryCommitWritesUsageDurationFromReserveTime(t *testi
 			nil,
 			reserveCreatedAt,
 		))
-	mock.ExpectQuery(`WITH existing_key AS`).
-		WithArgs(cmd.UserID, sqlmock.AnyArg(), service.DefaultAPIKeyName, "image").
+	mock.ExpectQuery(`WITH request_context AS`).
+		WithArgs(cmd.UserID, sqlmock.AnyArg(), service.DefaultAPIKeyName, "image", "gpt-image-2").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "group_id", "account_id"}).AddRow(int64(77), int64(9), int64(88)))
-	mock.ExpectQuery(`WITH inserted AS \([\s\S]*INSERT INTO usage_logs[\s\S]*duration_ms[\s\S]*\$16::timestamptz[\s\S]*INSERT INTO user_usage_daily_stats`).
+	mock.ExpectQuery(`WITH inserted AS \([\s\S]*INSERT INTO usage_logs[\s\S]*duration_ms[\s\S]*\$17::timestamptz[\s\S]*INSERT INTO user_usage_daily_stats`).
 		WithArgs(
 			cmd.UserID,
 			int64(77),
 			int64(88),
 			"studio:"+cmd.TaskID,
 			"gpt-image-2",
+			"auto",
 			int64(9),
 			0.5,
 			service.BillingTypeBalance,
@@ -156,4 +226,24 @@ func TestStudioBridgeRepositoryCommitWritesUsageDurationFromReserveTime(t *testi
 	require.True(t, result.Applied)
 	require.Equal(t, "committed", result.Status)
 	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestStudioBridgeResolvedUsageModelMapsAutoByRouteKind(t *testing.T) {
+	require.Equal(t, "gpt-5.5", studioBridgeResolvedUsageModel("auto", "chat", "", "", ""))
+	require.Equal(t, "gpt-image-2", studioBridgeResolvedUsageModel("auto", "generate", "", "", ""))
+	require.Equal(t, "gpt-image-2", studioBridgeResolvedUsageModel("auto", "", string(service.BillingModeImage), "image", "/studio-bridge/generate"))
+	require.Equal(t, "gpt-5.4", studioBridgeResolvedUsageModel("gpt-5.4", "chat", "", "", ""))
+}
+
+func TestStudioBridgeUsagePresentationFields(t *testing.T) {
+	require.Equal(t, "Image", studioBridgeUsageTypeLabel("", string(service.BillingModeImage), "image", "/studio-bridge/generate", "auto"))
+	require.Equal(t, "Video", studioBridgeUsageTypeLabel("video", "", "", "", "seedance"))
+	require.Equal(t, "Text", studioBridgeUsageTypeLabel("chat", "", "", "", "auto"))
+	require.Equal(t, "task-123", studioBridgeUsageTaskID("studio:task-123"))
+	require.Equal(t, "req-123", studioBridgeUsageTaskID("req-123"))
+	require.Equal(t, int64(0), studioBridgeUsageDurationSeconds(0))
+	require.Equal(t, int64(1), studioBridgeUsageDurationSeconds(1))
+	require.Equal(t, int64(2), studioBridgeUsageDurationSeconds(1001))
+	require.Equal(t, "success", studioBridgeUsageStatus(0.01))
+	require.Equal(t, "failed", studioBridgeUsageStatus(0))
 }

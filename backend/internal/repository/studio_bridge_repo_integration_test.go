@@ -5,6 +5,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"testing"
@@ -201,4 +202,86 @@ func TestStudioBridgeRepositoryConcurrentReserveOnlyDeductsOnce(t *testing.T) {
 	var balance float64
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT balance FROM users WHERE id = $1", user.ID).Scan(&balance))
 	require.InDelta(t, 9.5, balance, 0.000001)
+}
+
+func TestStudioBridgeResolveChargeUsageRefsPrefersOfficialImageAccount(t *testing.T) {
+	ctx := context.Background()
+	tx := testTx(t)
+	repo := &studioBridgeRepository{}
+
+	var userID int64
+	require.NoError(t, tx.QueryRowContext(ctx, `
+		INSERT INTO users (email, password_hash, status, balance)
+		VALUES ($1, 'x', 'active', 10)
+		RETURNING id
+	`, "studio-official-image-"+uuid.NewString()+"@example.test").Scan(&userID))
+
+	var ordinaryGroupID int64
+	require.NoError(t, tx.QueryRowContext(ctx, `
+		INSERT INTO groups (name, platform, status, subscription_type, rate_multiplier, is_exclusive)
+		VALUES ($1, 'openai', 'active', 'standard', 1, FALSE)
+		RETURNING id
+	`, "studio-ordinary-image-"+uuid.NewString()).Scan(&ordinaryGroupID))
+
+	var officialGroupID int64
+	require.NoError(t, tx.QueryRowContext(ctx, `
+		INSERT INTO groups (name, platform, status, subscription_type, rate_multiplier, is_exclusive)
+		VALUES ($1, 'openai', 'active', 'standard', 1, FALSE)
+		RETURNING id
+	`, "studio-official-image-"+uuid.NewString()).Scan(&officialGroupID))
+
+	var ordinaryAccountID int64
+	require.NoError(t, tx.QueryRowContext(ctx, `
+		INSERT INTO accounts (name, platform, type, credentials, priority, status)
+		VALUES ($1, 'openai', 'apikey', '{"base_url":"https://fluapi.example/v1"}'::jsonb, 1, 'active')
+		RETURNING id
+	`, "fluapi-image-"+uuid.NewString()).Scan(&ordinaryAccountID))
+
+	var officialAccountID int64
+	require.NoError(t, tx.QueryRowContext(ctx, `
+		INSERT INTO accounts (name, platform, type, credentials, priority, status)
+		VALUES ($1, 'openai', 'apikey', '{"base_url":"https://api.apimart.ai/v1","model_mapping":{"gpt-image-2":"gpt-image-2"}}'::jsonb, 50, 'active')
+		RETURNING id
+	`, "apimart-official-image-"+uuid.NewString()).Scan(&officialAccountID))
+
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO account_groups (account_id, group_id, priority)
+		VALUES ($1, $2, 1), ($3, $4, 10)
+	`, ordinaryAccountID, ordinaryGroupID, officialAccountID, officialGroupID)
+	require.NoError(t, err)
+
+	routes, err := json.Marshal([]map[string]any{
+		{
+			"group_id":   ordinaryGroupID,
+			"priority":   1,
+			"enabled":    true,
+			"image_only": true,
+		},
+		{
+			"group_id":       officialGroupID,
+			"priority":       10,
+			"enabled":        true,
+			"image_only":     true,
+			"model_patterns": []string{"gpt-image-2-official"},
+		},
+	})
+	require.NoError(t, err)
+
+	var apiKeyID int64
+	require.NoError(t, tx.QueryRowContext(ctx, `
+		INSERT INTO api_keys (user_id, key, name, group_id, status, account_pool_strategy, multi_group_routes)
+		VALUES ($1, $2, $3, $4, 'active', 'shared_only', $5::jsonb)
+		RETURNING id
+	`, userID, "sk-studio-official-image-"+uuid.NewString(), service.DefaultAPIKeyName, ordinaryGroupID, string(routes)).Scan(&apiKeyID))
+
+	refs, err := repo.resolveChargeUsageRefs(ctx, tx, service.StudioBridgeChargeCommand{
+		UserID: userID,
+		Mode:   "generate",
+		Model:  "gpt-image-2-official",
+	})
+	require.NoError(t, err)
+	require.Equal(t, apiKeyID, refs.apiKeyID)
+	require.Equal(t, officialAccountID, refs.accountID)
+	require.True(t, refs.groupID.Valid)
+	require.Equal(t, officialGroupID, refs.groupID.Int64)
 }

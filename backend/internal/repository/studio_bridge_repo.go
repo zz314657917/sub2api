@@ -41,7 +41,18 @@ func (r *studioBridgeRepository) GetUserSummary(ctx context.Context, userID int6
 	summary.RechargeURL = rechargeURL
 	if usageLimit > 0 {
 		usageRows, err := r.db.QueryContext(ctx, `
-			SELECT request_id, COALESCE(NULLIF(requested_model, ''), model), actual_cost, created_at
+			SELECT
+				request_id,
+				COALESCE(NULLIF(TRIM(upstream_model), ''), NULLIF(TRIM(model), ''), NULLIF(TRIM(requested_model), ''), ''),
+				COALESCE(NULLIF(TRIM(requested_model), ''), ''),
+				COALESCE(NULLIF(TRIM(upstream_model), ''), ''),
+				COALESCE(NULLIF(TRIM(upstream_model), ''), NULLIF(TRIM(model), ''), NULLIF(TRIM(requested_model), ''), ''),
+				actual_cost,
+				created_at,
+				COALESCE(duration_ms, 0)::bigint,
+				COALESCE(NULLIF(TRIM(billing_mode), ''), ''),
+				COALESCE(NULLIF(TRIM(media_type), ''), ''),
+				COALESCE(NULLIF(TRIM(inbound_endpoint), ''), '')
 			FROM usage_logs
 			WHERE user_id = $1
 			ORDER BY created_at DESC
@@ -53,9 +64,18 @@ func (r *studioBridgeRepository) GetUserSummary(ctx context.Context, userID int6
 		defer usageRows.Close()
 		for usageRows.Next() {
 			var item service.StudioBridgeUsageSummary
-			if err := usageRows.Scan(&item.RequestID, &item.Model, &item.ActualCost, &item.CreatedAt); err != nil {
+			var billingMode, mediaType, inboundEndpoint string
+			var durationMs int64
+			if err := usageRows.Scan(&item.RequestID, &item.Model, &item.RequestedModel, &item.UpstreamModel, &item.ActualModel, &item.ActualCost, &item.CreatedAt, &durationMs, &billingMode, &mediaType, &inboundEndpoint); err != nil {
 				return nil, err
 			}
+			item.Model = studioBridgeResolvedUsageModel(item.Model, "", billingMode, mediaType, inboundEndpoint)
+			item.ActualModel = studioBridgeResolvedUsageModel(item.ActualModel, "", billingMode, mediaType, inboundEndpoint)
+			item.Type = studioBridgeUsageTypeLabel("", billingMode, mediaType, inboundEndpoint, item.Model)
+			item.TaskID = studioBridgeUsageTaskID(item.RequestID)
+			item.DurationMs = durationMs
+			item.DurationSeconds = studioBridgeUsageDurationSeconds(durationMs)
+			item.Status = studioBridgeUsageStatus(item.ActualCost)
 			summary.Usage = append(summary.Usage, item)
 		}
 		if err := usageRows.Err(); err != nil {
@@ -626,11 +646,13 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 		return err
 	}
 	requestID := studioBridgeUsageRequestID(cmd)
-	model := strings.TrimSpace(cmd.Model)
-	if model == "" {
-		model = "studio-bridge"
+	requestedModel := strings.TrimSpace(cmd.Model)
+	if requestedModel == "" {
+		requestedModel = "studio-bridge"
 	}
 	billingMode, mediaType, imageCount := studioBridgeUsageBillingFields(cmd.Mode)
+	inboundEndpoint := studioBridgeUsageInboundEndpoint(cmd.Mode)
+	model := studioBridgeResolvedUsageModel(requestedModel, cmd.Mode, billingMode, mediaType, inboundEndpoint)
 	var groupID any
 	if refs.groupID.Valid {
 		groupID = refs.groupID.Int64
@@ -684,18 +706,18 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 				inbound_endpoint,
 				created_at
 			) VALUES (
-				$1, $2, $3, $4, $5, $5, $6,
+				$1, $2, $3, $4, $5, $6, $7,
 				0, 0, 0, 0, 0, 0, 0, 0,
-				0, 0, 0, 0, $7, $7, 1,
-				$8, $9, FALSE, FALSE,
+				0, 0, 0, 0, $8, $8, 1,
+				$9, $10, FALSE, FALSE,
 				CASE
-					WHEN $16::timestamptz IS NULL THEN NULL
+					WHEN $17::timestamptz IS NULL THEN NULL
 					ELSE LEAST(
 						2147483647,
-						GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - $16::timestamptz)) * 1000))
+						GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - $17::timestamptz)) * 1000))
 					)::int
 				END,
-				$10, $11, $12, $13, $14, $15, NOW()
+				$11, $12, $13, $14, $15, $16, NOW()
 			)
 			ON CONFLICT (request_id, api_key_id) DO NOTHING
 			RETURNING user_id, created_at, actual_cost
@@ -732,7 +754,7 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 			RETURNING 1
 		)
 		SELECT EXISTS(SELECT 1 FROM inserted)
-	`, cmd.UserID, refs.apiKeyID, refs.accountID, requestID, model, groupID, amount, service.BillingTypeBalance, int16(service.RequestTypeSync), imageCount, imageSizeArg, imageSizeSourceArg, billingMode, mediaTypeArg, studioBridgeUsageInboundEndpoint(cmd.Mode), studioBridgeDurationStartArg(chargeCreatedAt)).Scan(&inserted)
+	`, cmd.UserID, refs.apiKeyID, refs.accountID, requestID, model, requestedModel, groupID, amount, service.BillingTypeBalance, int16(service.RequestTypeSync), imageCount, imageSizeArg, imageSizeSourceArg, billingMode, mediaTypeArg, inboundEndpoint, studioBridgeDurationStartArg(chargeCreatedAt)).Scan(&inserted)
 	return err
 }
 
@@ -750,13 +772,28 @@ type studioBridgeChargeUsageRefs struct {
 }
 
 func (r *studioBridgeRepository) resolveChargeUsageRefs(ctx context.Context, exec studioBridgeSQLExecutor, cmd service.StudioBridgeChargeCommand) (studioBridgeChargeUsageRefs, error) {
-	return r.createDefaultChargeUsageRefs(ctx, exec, cmd.UserID, studioBridgeUsageRouteKind(cmd))
+	routeKind := studioBridgeUsageRouteKind(cmd)
+	requestedModel := strings.TrimSpace(cmd.Model)
+	if strings.EqualFold(requestedModel, "auto") {
+		requestedModel = studioBridgeResolvedUsageModel(requestedModel, cmd.Mode, "", "", studioBridgeUsageInboundEndpoint(cmd.Mode))
+	}
+	return r.createDefaultChargeUsageRefs(ctx, exec, cmd.UserID, routeKind, requestedModel)
 }
 
-func (r *studioBridgeRepository) createDefaultChargeUsageRefs(ctx context.Context, exec studioBridgeSQLExecutor, userID int64, routeKind string) (studioBridgeChargeUsageRefs, error) {
+func (r *studioBridgeRepository) createDefaultChargeUsageRefs(ctx context.Context, exec studioBridgeSQLExecutor, userID int64, routeKind, requestedModel string) (studioBridgeChargeUsageRefs, error) {
 	var refs studioBridgeChargeUsageRefs
-	err := exec.QueryRowContext(ctx, `
-		WITH existing_key AS (
+	routeModelMatchRankSQL := studioBridgeRouteModelMatchRankSQL("route", "request_context.requested_model", "request_context.mapped_requested_model")
+	accountModelMatchRankSQL := studioBridgeAccountModelMatchRankSQL("accounts", "request_context.requested_model", "request_context.mapped_requested_model")
+	query := `
+		WITH request_context AS (
+			SELECT
+				LOWER(TRIM($5::text)) AS requested_model,
+				CASE
+					WHEN LOWER(TRIM($5::text)) = 'gpt-image-2-official' THEN 'gpt-image-2'
+					ELSE LOWER(TRIM($5::text))
+				END AS mapped_requested_model
+		),
+		existing_key AS (
 			SELECT id, group_id, COALESCE(multi_group_routes, '[]'::jsonb) AS multi_group_routes
 			FROM api_keys
 			WHERE user_id = $1
@@ -771,11 +808,30 @@ func (r *studioBridgeRepository) createDefaultChargeUsageRefs(ctx context.Contex
 				AND deleted_at IS NULL
 			LIMIT 1
 		),
-		global_account_ref AS (
-			SELECT id
+		global_account_candidates AS (
+			SELECT
+				accounts.id,
+				global_group.group_id,
+				accounts.priority,
+				` + accountModelMatchRankSQL + ` AS model_match_rank
 			FROM accounts
+			CROSS JOIN request_context
+			LEFT JOIN LATERAL (
+				SELECT account_groups.group_id
+				FROM account_groups
+				WHERE account_groups.account_id = accounts.id
+				ORDER BY account_groups.priority ASC, account_groups.group_id ASC
+				LIMIT 1
+			) global_group ON TRUE
 			WHERE status = 'active' AND deleted_at IS NULL
-			ORDER BY priority ASC, id ASC
+		),
+		global_account_ref AS (
+			SELECT id, group_id
+			FROM global_account_candidates
+			ORDER BY
+				model_match_rank DESC,
+				priority ASC,
+				id ASC
 			LIMIT 1
 		),
 		inserted_key AS (
@@ -808,61 +864,163 @@ func (r *studioBridgeRepository) createDefaultChargeUsageRefs(ctx context.Contex
 			SELECT id, group_id, multi_group_routes FROM inserted_key
 			LIMIT 1
 		),
-		route_group AS (
+		route_candidates AS (
 			SELECT
 				(route ->> 'group_id')::bigint AS group_id,
 				CASE
 					WHEN COALESCE(route ->> 'priority', '') ~ '^[0-9]+$' THEN (route ->> 'priority')::int
 					ELSE 1
 				END AS route_priority,
-				route_ord
-			FROM selected_key
-			CROSS JOIN LATERAL jsonb_array_elements(selected_key.multi_group_routes) WITH ORDINALITY AS routes(route, route_ord)
-			WHERE LOWER(COALESCE(route ->> 'enabled', 'false')) = 'true'
-				AND COALESCE(route ->> 'group_id', '') ~ '^[0-9]+$'
-				AND (
+				route_ord,
+				` + routeModelMatchRankSQL + ` AS model_match_rank,
+				(
 					($4 = 'image' AND LOWER(COALESCE(route ->> 'image_only', 'false')) = 'true')
 					OR ($4 = 'text' AND LOWER(COALESCE(route ->> 'text_only', 'false')) = 'true')
 					OR ($4 = 'video' AND jsonb_typeof(route -> 'model_patterns') = 'array' AND jsonb_array_length(route -> 'model_patterns') > 0)
-				)
-			ORDER BY route_priority ASC, route_ord ASC
+				) AS route_kind_match
+			FROM selected_key
+			CROSS JOIN request_context
+			CROSS JOIN LATERAL jsonb_array_elements(selected_key.multi_group_routes) WITH ORDINALITY AS routes(route, route_ord)
+			WHERE LOWER(COALESCE(route ->> 'enabled', 'false')) = 'true'
+				AND COALESCE(route ->> 'group_id', '') ~ '^[0-9]+$'
+		),
+		route_group AS (
+			SELECT group_id
+			FROM route_candidates
+			WHERE route_kind_match OR model_match_rank > 0
+			ORDER BY model_match_rank DESC, route_priority ASC, route_ord ASC
 			LIMIT 1
 		),
 		target_group AS (
 			SELECT COALESCE((SELECT group_id FROM route_group), selected_key.group_id) AS group_id
 			FROM selected_key
 		),
-		group_account_ref AS (
-			SELECT accounts.id
+		group_account_candidates AS (
+			SELECT
+				accounts.id,
+				target_group.group_id,
+				account_groups.priority AS account_group_priority,
+				accounts.priority AS account_priority,
+				` + accountModelMatchRankSQL + ` AS model_match_rank
 			FROM target_group
+			CROSS JOIN request_context
 			JOIN account_groups ON account_groups.group_id = target_group.group_id
 			JOIN accounts ON accounts.id = account_groups.account_id
 			WHERE target_group.group_id IS NOT NULL
 				AND accounts.status = 'active'
 				AND accounts.deleted_at IS NULL
-			ORDER BY account_groups.priority ASC, accounts.priority ASC, accounts.id ASC
+		),
+		group_account_ref AS (
+			SELECT id, group_id
+			FROM group_account_candidates
+			ORDER BY model_match_rank DESC, account_group_priority ASC, account_priority ASC, id ASC
+			LIMIT 1
+		),
+		group_supported_account_ref AS (
+			SELECT id, group_id
+			FROM group_account_candidates
+			WHERE model_match_rank > 0
+			ORDER BY model_match_rank DESC, account_group_priority ASC, account_priority ASC, id ASC
+			LIMIT 1
+		),
+		global_supported_account_ref AS (
+			SELECT id, group_id
+			FROM global_account_candidates
+			WHERE model_match_rank > 0
+			ORDER BY model_match_rank DESC, priority ASC, id ASC
 			LIMIT 1
 		),
 		account_ref AS (
-			SELECT id FROM group_account_ref
+			SELECT id, group_id FROM group_supported_account_ref
 			UNION ALL
-			SELECT id FROM global_account_ref
-			WHERE NOT EXISTS (SELECT 1 FROM group_account_ref)
+			SELECT id, group_id FROM global_supported_account_ref
+			WHERE NOT EXISTS (SELECT 1 FROM group_supported_account_ref)
+			UNION ALL
+			SELECT id, group_id FROM group_account_ref
+			WHERE NOT EXISTS (SELECT 1 FROM group_supported_account_ref)
+				AND NOT EXISTS (SELECT 1 FROM global_supported_account_ref)
+			UNION ALL
+			SELECT id, group_id FROM global_account_ref
+			WHERE NOT EXISTS (SELECT 1 FROM group_supported_account_ref)
+				AND NOT EXISTS (SELECT 1 FROM global_supported_account_ref)
+				AND NOT EXISTS (SELECT 1 FROM group_account_ref)
 			LIMIT 1
 		)
-		SELECT selected_key.id, target_group.group_id, account_ref.id
+		SELECT selected_key.id, COALESCE(account_ref.group_id, target_group.group_id), account_ref.id
 		FROM selected_key
 		CROSS JOIN target_group
 		CROSS JOIN account_ref
-	`, userID, "sk-"+uuid.NewString(), service.DefaultAPIKeyName, routeKind).Scan(&refs.apiKeyID, &refs.groupID, &refs.accountID)
+	`
+	err := exec.QueryRowContext(ctx, query, userID, "sk-"+uuid.NewString(), service.DefaultAPIKeyName, routeKind, requestedModel).Scan(&refs.apiKeyID, &refs.groupID, &refs.accountID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return refs, errors.New("studio bridge usage log requires an active account")
 	}
 	return refs, err
 }
 
+func studioBridgeRouteModelMatchRankSQL(routeExpr, requestedModelExpr, mappedRequestedModelExpr string) string {
+	patternMatch := studioBridgePatternMatchSQL("pattern", requestedModelExpr, mappedRequestedModelExpr)
+	return `
+		CASE
+			WHEN ` + requestedModelExpr + ` = '' THEN 0
+			WHEN jsonb_typeof(` + routeExpr + ` -> 'model_patterns') = 'array'
+				AND EXISTS (
+					SELECT 1
+					FROM jsonb_array_elements_text(` + routeExpr + ` -> 'model_patterns') AS patterns(pattern)
+					WHERE ` + patternMatch + `
+				) THEN 2
+			WHEN jsonb_typeof(` + routeExpr + ` -> 'model_patterns') = 'array'
+				AND jsonb_array_length(` + routeExpr + ` -> 'model_patterns') > 0 THEN -1
+			ELSE 0
+		END`
+}
+
+func studioBridgeAccountModelMatchRankSQL(accountExpr, requestedModelExpr, mappedRequestedModelExpr string) string {
+	modelMappingExpr := `(CASE WHEN jsonb_typeof(` + accountExpr + `.credentials -> 'model_mapping') = 'object' THEN ` + accountExpr + `.credentials -> 'model_mapping' ELSE '{}'::jsonb END)`
+	requestedModelMatch := studioBridgeModelMappingMatchSQL(modelMappingExpr, requestedModelExpr, requestedModelExpr)
+	mappedModelMatch := studioBridgeModelMappingMatchSQL(modelMappingExpr, mappedRequestedModelExpr, mappedRequestedModelExpr)
+	baseURLHostExpr := `LOWER(split_part(regexp_replace(regexp_replace(COALESCE(` + accountExpr + `.credentials ->> 'base_url', ''), '^[a-z][a-z0-9+.-]*://', ''), '/.*$', ''), ':', 1))`
+	return `
+		CASE
+			WHEN ` + requestedModelExpr + ` = '' THEN 0
+			WHEN ` + requestedModelMatch + ` THEN 3
+			WHEN ` + mappedModelMatch + `
+				AND ` + requestedModelExpr + ` = 'gpt-image-2-official'
+				AND LOWER(` + accountExpr + `.platform) = 'openai'
+				AND LOWER(` + accountExpr + `.type) = 'apikey'
+				AND ` + baseURLHostExpr + ` = 'api.apimart.ai' THEN 2
+			WHEN jsonb_typeof(` + modelMappingExpr + `) = 'object'
+				AND ` + modelMappingExpr + ` <> '{}'::jsonb THEN -1
+			ELSE 0
+		END`
+}
+
+func studioBridgeModelMappingMatchSQL(modelMappingExpr, requestedModelExpr, mappedRequestedModelExpr string) string {
+	patternMatch := studioBridgePatternMatchSQL("model", requestedModelExpr, mappedRequestedModelExpr)
+	return `EXISTS (
+		SELECT 1
+		FROM jsonb_object_keys(` + modelMappingExpr + `) AS mapping_models(model)
+		WHERE ` + patternMatch + `
+	)`
+}
+
+func studioBridgePatternMatchSQL(patternExpr, requestedModelExpr, mappedRequestedModelExpr string) string {
+	normalizedPattern := `LOWER(TRIM(` + patternExpr + `))`
+	wildcardPrefix := `LEFT(` + normalizedPattern + `, GREATEST(LENGTH(` + normalizedPattern + `) - 1, 0))`
+	return `(
+		` + normalizedPattern + ` = ` + requestedModelExpr + `
+		OR ` + normalizedPattern + ` = ` + mappedRequestedModelExpr + `
+		OR (RIGHT(` + normalizedPattern + `, 1) = '*' AND LEFT(` + requestedModelExpr + `, LENGTH(` + wildcardPrefix + `)) = ` + wildcardPrefix + `)
+		OR (RIGHT(` + normalizedPattern + `, 1) = '*' AND LEFT(` + mappedRequestedModelExpr + `, LENGTH(` + wildcardPrefix + `)) = ` + wildcardPrefix + `)
+	)`
+}
+
 func studioBridgeUsageRouteKind(cmd service.StudioBridgeChargeCommand) string {
-	mode := strings.ToLower(strings.TrimSpace(cmd.Mode))
+	return studioBridgeUsageRouteKindFromHints(cmd.Mode, "", "", "", cmd.Model)
+}
+
+func studioBridgeUsageRouteKindFromHints(mode, billingMode, mediaType, inboundEndpoint, model string) string {
+	mode = strings.ToLower(strings.TrimSpace(mode))
 	switch mode {
 	case "generate", "edit", "image":
 		return "image"
@@ -871,7 +1029,19 @@ func studioBridgeUsageRouteKind(cmd service.StudioBridgeChargeCommand) string {
 	case "chat", "text":
 		return "text"
 	}
-	model := strings.ToLower(strings.TrimSpace(cmd.Model))
+	billingMode = strings.ToLower(strings.TrimSpace(billingMode))
+	mediaType = strings.ToLower(strings.TrimSpace(mediaType))
+	inboundEndpoint = strings.ToLower(strings.TrimSpace(inboundEndpoint))
+	if billingMode == string(service.BillingModeImage) || mediaType == "image" || strings.Contains(inboundEndpoint, "image") || strings.Contains(inboundEndpoint, "generate") || strings.Contains(inboundEndpoint, "edit") {
+		return "image"
+	}
+	if mediaType == "video" || strings.Contains(inboundEndpoint, "video") {
+		return "video"
+	}
+	if strings.Contains(inboundEndpoint, "chat") || strings.Contains(inboundEndpoint, "text") {
+		return "text"
+	}
+	model = strings.ToLower(strings.TrimSpace(model))
 	if strings.Contains(model, "image") || strings.HasPrefix(model, "gpt-image") {
 		return "image"
 	}
@@ -879,6 +1049,32 @@ func studioBridgeUsageRouteKind(cmd service.StudioBridgeChargeCommand) string {
 		return "video"
 	}
 	return "text"
+}
+
+func studioBridgeUsageTypeLabel(mode, billingMode, mediaType, inboundEndpoint, model string) string {
+	switch studioBridgeUsageRouteKindFromHints(mode, billingMode, mediaType, inboundEndpoint, model) {
+	case "image":
+		return "Image"
+	case "video":
+		return "Video"
+	default:
+		return "Text"
+	}
+}
+
+func studioBridgeResolvedUsageModel(model, mode, billingMode, mediaType, inboundEndpoint string) string {
+	model = strings.TrimSpace(model)
+	if !strings.EqualFold(model, "auto") {
+		return model
+	}
+	switch studioBridgeUsageRouteKindFromHints(mode, billingMode, mediaType, inboundEndpoint, model) {
+	case "image":
+		return "gpt-image-2"
+	case "text":
+		return "gpt-5.5"
+	default:
+		return model
+	}
 }
 
 func studioBridgeUsageRequestID(cmd service.StudioBridgeChargeCommand) string {
@@ -892,6 +1088,28 @@ func studioBridgeUsageRequestID(cmd service.StudioBridgeChargeCommand) string {
 	}
 	sum := sha256.Sum256([]byte(source))
 	return "studio:" + hex.EncodeToString(sum[:])[:24]
+}
+
+func studioBridgeUsageTaskID(requestID string) string {
+	requestID = strings.TrimSpace(requestID)
+	if taskID := strings.TrimPrefix(requestID, "studio:"); taskID != requestID {
+		return taskID
+	}
+	return requestID
+}
+
+func studioBridgeUsageDurationSeconds(durationMs int64) int64 {
+	if durationMs <= 0 {
+		return 0
+	}
+	return (durationMs + 999) / 1000
+}
+
+func studioBridgeUsageStatus(actualCost float64) string {
+	if actualCost > 0 {
+		return "success"
+	}
+	return "failed"
 }
 
 func studioBridgeUsageBillingFields(mode string) (billingMode string, mediaType string, imageCount int) {
