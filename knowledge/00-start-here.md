@@ -1,6 +1,6 @@
 # Sub2API 知识库入口
 
-最后更新：2026-06-09
+最后更新：2026-06-11
 
 ## 项目定位
 
@@ -21,7 +21,7 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 5. 需要跑测试或构建：读 `knowledge/build-and-verify.md`。
 6. 改后端：读 `knowledge/backend-notes.md`。
 7. 改前端或公共页面：读 `knowledge/frontend-notes.md`。
-8. 改 Studio Bridge、聊天生图工作台、Canvas、嵌入式登录或图片任务体验：先读 `knowledge/tasks/current-task.md` 与 `knowledge/tasks/timeline.md`，再补读 `knowledge/chat-image-embedded-workspace.md` 和 `knowledge/chat-image-studio.md`。
+8. 改 Studio Bridge、聊天生图工作台、Canvas、嵌入式登录或图片任务体验：先读 `knowledge/tasks/current-task.md` 与 `knowledge/tasks/timeline.md`，再补读 `knowledge/studio-bridge-luoye.md`、`knowledge/chat-image-embedded-workspace.md` 和 `knowledge/chat-image-studio.md`。
 9. 遇到老坑、环境差异或旧入口语义：读 `knowledge/known-pitfalls.md`。
 
 ## 事实源分工
@@ -45,6 +45,11 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 
 - OpenAI 网关稳态、账号能力路由、控制台状态面板和 `key/base-url` 归一仍然成立，但它们已从“最近主线”退成 Studio Bridge 之前的稳定背景层。
 - 现在更值得优先理解的是 Sub2API 如何作为落叶AI的账号、充值、余额、默认分组、bridge internal secret 和扣费真源，以及 `/chat-images` / `/studio-bridge/launch` 如何成为当前用户侧创作入口。
+- 2026-06-10~2026-06-11 已稳定的新事实，不应继续只埋在任务快照里：
+  - Studio Bridge 本地配置在 env secret 存在且配置为空、禁用、缺 secret/group 或仍是 `example.com` 占位时，会自动修复成本地默认 launch / recharge / allowed domains 配置。
+  - 默认生图分组不再硬编码为 `4`，会动态选择第一个 active 且允许生图的 image group；聊天分组优先 text group，缺失时复用 image group。
+  - `session-probe` iframe/CSP 已成为默认验收面的一部分；本地浏览器 smoke 需确认只请求 `/studio-bridge/session-probe`，且不会再出现 `frame-ancestors 'none'`。
+  - `/usage` 表格空白不代表扣费没入账；Studio Bridge 记录里 `duration_ms = null` 等字段会让前端格式化炸掉，相关修复已进入稳定知识。
 - 继续做聊天生图、嵌入工作区、模型市场或上游合成时，不要只看单个前端页面；通常要把 launch token、会话恢复、默认分组、预扣/确认/退款、团队空间 actor/payer 和 OpenAI 路径背景一起当成一条链路理解。
 
 ## 知识维护规则

@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-06-11 09:34 +08:00 - Studio Bridge 本地配置防丢与跳转复核
+
+- 当前阶段：Sub2API 本地 Studio Bridge 配置防丢修复完成，并通过 62080 -> 8081 浏览器 smoke。
+- 本段重点：初始化阶段在 env secret 存在且配置为空/占位/缺 group 时自动修复落叶创艺本地 bridge 配置；默认分组改为从 active groups 动态选择，不再硬编码为 `4`；正式域名配置不覆盖。
+- 已完成：新增 setting service 本地修复逻辑、group reader 注入和回归测试；本地容器 `sub2api:local` 已更新健康；注册后访问 `/chat-images` 可生成 launch token 并进入落叶创艺 `/image`。
+- 关键决策：本地自动修复只面向空配置、禁用、缺 secret/group 或 `example.com` 占位配置；如果没有可用 image group，不强行启用 bridge，避免隐藏 `STUDIO_BRIDGE_GROUP_REQUIRED`。
+- 验证记录：`cd backend && go test ./internal/service ./internal/server` PASS；`git diff --check` PASS；`HEAD /studio-bridge/session-probe?...parent_origin=http://127.0.0.1:8081` 返回 200 且 CSP 只放开 8081；浏览器 smoke 从 `http://127.0.0.1:62080/chat-images` 跳到 `http://127.0.0.1:8081/image`，网络记录中 launch/redeem/user-summary 均 200，未出现 `frame-ancestors 'none'` / CSP iframe 报错。
+- 遗留问题：未跑真实支付、真实上游 `gpt-image-2` 扣费闭环和团队共享额度；本地 smoke 只验证入口、session-probe 和 bridge 配置。
+- 下一步：生产配置正式域名后重新验证 launch URL、充值回跳、默认分组和 `reserve -> image generation -> commit`；本地若再报 `STUDIO_BRIDGE_DISABLED`，先查 env secret 与 active image group。
+
 ## 2026-06-10 02:38 +08:00 - Studio Bridge 本地验收复核
 
 - 当前阶段：Sub2API 作为落叶创艺账号、充值、余额和扣费真源，已完成一轮本地桥接验收复核。

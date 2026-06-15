@@ -1,6 +1,6 @@
 ---
 repo: sub2api
-project_type: generic
+project_type: web
 qa_mode: runtime
 last_verified: pending
 ---
@@ -8,64 +8,87 @@ last_verified: pending
 # Product Spec
 
 ## 一句话需求
-- 实现截图风格完整工单系统：用户可在 `/tickets` 与客服会话留言，管理员可在 `/admin/tickets` 管理、回复、关闭、重开工单，并可从用户列表主动给用户发起留言。
 
-## 目标与非目标
-- 目标：
-  - 用户侧提供双栏工单会话页，支持创建工单、查看消息、回复、标记已读、关闭和刷新。
-  - 管理员侧提供工单管理页，支持状态/未读/用户搜索筛选，查看详情、回复、标记已读、关闭、重开。
-  - 管理员用户列表增加“留言/工单”入口，可对指定用户主动创建工单消息。
-  - 后端持久化工单和消息，并保证用户只能访问自己的工单、管理员接口仅管理员可用。
-  - 未读计数和状态随用户/管理员发言稳定变化。
-- 非目标：
-  - v1 不支持附件。
-  - v1 不支持 WebSocket、SSE、邮件通知或自动轮询。
-  - v1 不实现客服分配、优先级、标签、内部备注和 SLA。
+- 为 API 调度系统新增“综合最优”策略，把当前分散的多分组路由预设和 OpenAI 实验账号调度整合成可解释、可灰度、可回退的动态选路能力：每次请求按价格、成功率、速度和实时拥堵综合评分，自动选择当前更合适的分组与账号。
+
+## 背景现状
+
+- 用户侧 API Key 创建/编辑页已有“智能自动 / 价格优先 / 速度优先 / 成功率优先 / 手动配置”多分组路由预设。
+- 这些预设目前主要生成静态 `multi_group_routes`：
+  - 价格优先按分组倍率排序。
+  - 速度优先把候选放在同一优先级池，并给靠前分组更高权重和更短冷却。
+  - 成功率优先使用更保守的冷却时间。
+- OpenAI 账号层已有实验调度器，默认关闭，通过 `openai_advanced_scheduler_enabled` 控制。
+- 实验调度器已支持账号级 `priority / load / queue / error_rate / ttft` 评分，但还没有把价格或分组级策略纳入同一套运行时评分。
+- 默认关闭实验调度时，当前选路仍主要依赖粘性会话、优先级、负载率和 LRU。
+
+## 目标
+
+- 新增可推荐给用户的“综合最优”策略，动态平衡：
+  - 价格：分组倍率、用户专属分组倍率、生图倍率、账号倍率和可用模型价格。
+  - 成功率：账号近期错误率、分组/账号冷却、已知过载或临时不可调度状态。
+  - 速度：账号首 token 延迟 TTFT、负载率、等待队列。
+  - 实时拥堵：当前账号并发负载、等待数量、可获取槽位状态。
+- 保留现有策略，不破坏手动配置、价格优先、速度优先、成功率优先。
+- 策略结果可解释：至少在调试日志或测试可见结构中能看到分数拆解和最终选择原因。
+- 支持灰度和快速回退：高级调度关闭时继续走旧逻辑。
+
+## 非目标
+
+- v1 不做跨所有平台的统一调度引擎；优先覆盖 OpenAI / OpenAI-compatible 路径。
+- v1 不引入机器学习或复杂预测模型，只做规则化加权评分。
+- v1 不改变用户计费真源，不改变实际扣费公式。
+- v1 不删除现有多分组路由手动能力。
+- v1 不把所有历史监控数据迁移成新指标仓库。
+
+## 产品行为
+
+- API Key 创建/编辑页新增或突出“综合最优”作为推荐策略。
+- 选择“综合最优”时：
+  - 普通文本、生图、视频、embedding 仍先按已有模型/能力约束筛候选分组。
+  - 候选分组内再筛可用账号。
+  - 对候选账号计算综合分数，并选择 topK 中的加权候选，避免单账号长期垄断。
+- 选择“价格优先 / 速度优先 / 成功率优先 / 手动配置”时，保持当前语义稳定。
+- 后台可以开启/关闭实验调度；关闭后请求路径不使用新综合评分。
 
 ## 后端方案
-- 新增表 `support_tickets` 和 `support_ticket_messages`，通过 Ent schema、migration、repository、service、handler 和 routes 接入。
-- 工单状态：
-  - `open`：新建或重开。
-  - `pending_admin`：用户最后发言，等待管理员。
-  - `pending_user`：管理员最后发言，等待用户。
-  - `closed`：已关闭。
-- 用户 API：
-  - `GET /api/v1/user/tickets`
-  - `POST /api/v1/user/tickets`
-  - `GET /api/v1/user/tickets/:id`
-  - `POST /api/v1/user/tickets/:id/messages`
-  - `POST /api/v1/user/tickets/:id/read`
-  - `POST /api/v1/user/tickets/:id/close`
-- 管理员 API：
-  - `GET /api/v1/admin/tickets`
-  - `GET /api/v1/admin/tickets/:id`
-  - `POST /api/v1/admin/tickets/:id/messages`
-  - `POST /api/v1/admin/tickets/:id/read`
-  - `POST /api/v1/admin/tickets/:id/close`
-  - `POST /api/v1/admin/tickets/:id/reopen`
-  - `POST /api/v1/admin/users/:id/tickets`
+
+- 扩展 OpenAI 实验账号调度器：
+  - 在现有 `SchedulerScoreWeights` 中新增价格权重。
+  - 计算账号候选的 price factor，归一化后纳入总分。
+  - 保留现有 `priority / load / queue / error_rate / ttft`。
+  - 输出可测试的 score breakdown。
+- 接入分组级价格来源：
+  - 用户专属分组倍率优先。
+  - 分组通用倍率和生图倍率次之。
+  - 账号 `rate_multiplier` 参与账号级成本因子。
+  - 模型价格仅作为 fallback 或后续增强，不影响 v1 主链路稳定性。
+- 多分组路由运行时选择：
+  - 先复用现有 `multi_group_routes` 的模型、生图/文本、启用状态、优先级和冷却规则做候选过滤。
+  - 对综合最优候选分组开放同优先级动态评分，而不是只按静态顺序硬选。
+  - 保持默认分组作为兜底。
 
 ## 前端方案
-- 用户侧新增 `frontend/src/views/user/TicketsView.vue`，路由 `/tickets`，侧边栏显示“工单服务”。
-- 后台新增 `frontend/src/views/admin/TicketsView.vue`，路由 `/admin/tickets`，侧边栏显示“工单管理”。
-- 新增 API/type：
-  - `frontend/src/api/tickets.ts`
-  - `frontend/src/api/admin/tickets.ts`
-  - 更新 `frontend/src/api/index.ts`
-  - 更新 `frontend/src/api/admin/index.ts`
-  - 更新 `frontend/src/types/index.ts`
-- 用户列表主动留言：
-  - `frontend/src/components/admin/user/UserTicketMessageModal.vue`
-  - `frontend/src/views/admin/UsersView.vue` 只增加入口和弹窗挂载。
-- i18n 增加 `nav.tickets`、`nav.ticketManagement`、`tickets.*`、`admin.tickets.*`。
+
+- 用户侧 `KeysView`：
+  - 新增 `综合最优` 预设，推荐展示。
+  - 文案说明该策略会动态平衡成本、稳定性、速度和拥堵。
+  - 现有预设继续可选，手动配置仍可编辑路由优先级、权重和冷却。
+- 管理后台设置：
+  - 保留现有 `OpenAI 实验调度策略` 开关。
+  - 可选增强：显示当前默认权重说明；v1 不强制做完整权重编辑 UI。
 
 ## 验收标准
-- 用户 A 不能读或回复用户 B 的工单。
-- 管理员能查看、回复、关闭、重开任意工单。
-- 空标题、空内容、超长内容返回稳定 4xx。
-- 未读计数随用户/管理员消息正确变化。
-- 工单关闭后用户回复被拒绝，管理员重开后可继续回复。
-- 前端列表、详情、发送、关闭、重开、空态、错误态可用。
+
+- 开启实验调度后，候选账号综合分数包含价格、错误率、TTFT、负载和队列。
+- 便宜但高拥堵或近期失败率高的账号不会无条件胜出。
+- 快但价格高的账号在成本敏感权重下会降权。
+- 同等条件下低倍率分组/账号得分更高。
+- 高级调度关闭时仍走旧逻辑。
+- 现有 `价格优先 / 速度优先 / 成功率优先 / 手动配置` 创建 API Key 的行为不回归。
+- 后端单测覆盖评分归一化、权重变化、topK 选择、fallback 和旧逻辑关闭分支。
+- 前端单测覆盖新增“综合最优”预设和旧预设兼容。
 
 ## Sprint 计划
-- Sprint 1：完整工单系统 v1，后端持久化/API 与前端用户/后台页面同步完成，QA 以 API 权限、状态流转和页面 smoke 为主。
+
+- Sprint 1：综合最优调度 v1 contract 和最小实现。完成后端价格维度接入、前端综合最优预设、单测和运行时 smoke。

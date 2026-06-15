@@ -1,6 +1,6 @@
 # 构建与验证
 
-最后更新：2026-05-24
+最后更新：2026-06-14
 
 ## 基本原则
 
@@ -109,6 +109,65 @@ go test ./internal/repository/...
 - 双仓库聊天生图链路、COS、launch/redeem 相关改动：
   这类改动通常要同时回看 `F:/java/chatgpt2api` 的 `go test ./...`、`corepack.cmd pnpm --dir web lint`、`corepack.cmd pnpm --dir web build`，不要只验证 `sub2api` 单仓库。
 
+- Studio Bridge 后台配置、自修复、session-probe、sidebar launch 或使用记录空表相关改动：
+
+```powershell
+cd backend
+go test ./internal/service ./internal/server
+go test -tags=integration ./internal/repository -run "TestStudioBridgeRepository" -count=1
+
+cd ../frontend
+npm.cmd run test:run -- public-smoke
+npm.cmd run build
+```
+
+  如本地 62080/8081 预览已可用，再补最小人工检查：
+  - 打开 `http://127.0.0.1:62080/chat-images`
+  - 确认能跳到落叶AI `/image`
+  - 确认网络里 `POST /api/v1/user/studio-bridge/launch`、落叶侧 `/auth/sub2api/launch`、`redeem/user-summary` 均成功
+  - 确认 iframe 只请求 `/studio-bridge/session-probe`，没有 `frame-ancestors 'none'` / CSP 报错
+
+- 首充福利、福利页、充值页、注册 IP 或管理员用户列表相关改动：
+
+```powershell
+cd backend
+go test ./internal/service ./internal/handler ./internal/repository
+
+cd ../frontend
+npm.cmd run test:run -- WelfareView.first-recharge SettingsView.first-recharge UsersView
+npm.cmd run build
+```
+
+- 可配置充值套餐、支付恢复、支付兑现或用户支付页套餐展示相关改动：
+
+```powershell
+cd backend
+go test ./internal/service ./internal/handler -run "TestPayment|TestRecharge|TestSetting" -count=1
+
+cd ../frontend
+npm.cmd run test:run -- PaymentView SettingsView paymentFlow paymentWechatResume
+npm.cmd run build
+```
+
+- 用户注册 IP / 最近登录 IP、后台用户画像或注册来源排查相关改动：
+
+```powershell
+cd backend
+go test ./internal/service ./internal/handler ./internal/repository -run "TestAuth|TestUser" -count=1
+
+cd ../frontend
+npm.cmd run test:run -- UsersView
+npm.cmd run build
+```
+
+- 默认 API key、默认分组、route groups 权限或 Studio Bridge 默认 key 路由相关改动：
+
+```powershell
+cd backend
+go test ./internal/service -run "TestAPIKeyService|TestStudioBridge" -count=1
+go test ./internal/repository -run "TestStudioBridgeRepository" -count=1
+```
+
 ## 近期稳定结论
 
 - 2026-05-16~2026-05-17 的高频改动面已经从早期 `/chat-images` 跳转闭环，转向账号共享展示、容量池聚合展示、排行榜文案和 cockpit 导入。
@@ -117,8 +176,15 @@ go test ./internal/repository/...
   - 只展示有账号的池子/分组。
   - 剩余百分比、`5h`/`7d` 窗口和 i18n 文案是否正确。
 - 本地 fake 演示账号只用于页面预览，生产调度查询必须排除；涉及该逻辑时，要同步检查后端过滤和前端展示，不要只看 UI。
+- 2026-06-10~2026-06-11 的高频验证面已经进一步前移到 Studio Bridge 本地配置自修复、动态默认 group、session-probe iframe/CSP、使用记录 null-safe 渲染、首充福利 bonus 和 sidebar launch。
+- 当前本地 Studio Bridge smoke 不再只验证 `/studio-bridge/launch` 是否 200；更有价值的检查是 launch/redeem/user-summary 是否通、`session-probe` 是否被正确嵌入、以及是否仍能稳定进入落叶AI `/image`。
+- 如果改动触达福利、充值或用户治理，不要只跑支付或用户单边测试；首充福利 bonus、注册 IP 和福利页已经进入同一稳定后台面。
+- 如果改动触达可配置充值套餐，不要只看支付成功回调；至少同时确认后台设置、用户支付页套餐展示、支付恢复和兑现逻辑。
+- 如果改动触达用户 IP 字段，不要只看数据库 migration 或后台表格；至少同时确认注册/登录链路写入、DTO 映射和用户列表展示没有脱节。
+- 如果改动触达默认 API key / route groups / Studio Bridge 默认分组，不要只看前端设置页；要同时确认普通更新路径的 route groups 权限校验没有被遗漏。
 
 ## 已知验证噪声
 
 - 当前任务记录中出现过 Vite chunk / Node `DEP0190` 警告；如果 build 通过且警告为既有问题，记录为残余风险即可。
 - 当前任务记录中出现过 `PaymentView.vue` 并行改动导致 `typecheck` 大量模板引用缺失；遇到时先确认是否属于当前任务改动。
+- 本地 browser smoke 经常会把问题表现成“launch 成功但页面里没有余额/会话不同步”；这类情况先排查 `session-probe` iframe、CSP `frame-ancestors` 和 parent origin，而不是先判定 redeem 或余额接口失效。

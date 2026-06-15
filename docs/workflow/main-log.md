@@ -61,3 +61,6 @@
 260608 2122 | upstream-main-usage-window-s13 | integration-pass | codex | main, merge: upstream main usage window s13
 260609 0034 | upstream-main-ops-alert-temp-unscheduled-s14 | implementation-and-qa-pass | codex | 0fb09933c, docs/workflow/worker-results/upstream-main-ops-alert-temp-unscheduled-s14-result.md, docs/workflow/qa-reports/upstream-main-ops-alert-temp-unscheduled-s14-qa.md
 260609 0038 | upstream-main-ops-alert-temp-unscheduled-s14 | integration-pass | codex | main, merge: upstream main ops alert temp unscheduled s14
+260613 0000 | smart-routing-composite-optimal-v1 | spec-and-contract-draft | codex | docs/workflow/spec.md, docs/workflow/tasks/smart-routing-composite-optimal-v1.md
+260613 0001 | smart-routing-composite-optimal-v1 | contract-approved | codex | docs/workflow/tasks/smart-routing-composite-optimal-v1.md
+260613 0851 | smart-routing-composite-optimal-v1 | implementation-and-qa-pass | codex | docs/workflow/worker-results/smart-routing-composite-optimal-v1-result.md, docs/workflow/qa-reports/smart-routing-composite-optimal-v1-qa.md
