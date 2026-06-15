@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="mx-auto max-w-6xl space-y-6">
+    <div class="mx-auto max-w-[92rem] space-y-6">
       <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <div
@@ -9,9 +9,15 @@
       </div>
 
       <!-- Settings Form -->
-      <form v-else @submit.prevent="saveSettings" class="space-y-6" novalidate>
-        <!-- Tab Navigation -->
-        <div class="settings-tabs-shell">
+      <form
+        v-else
+        @submit.prevent="saveSettings"
+        class="settings-layout-form"
+        novalidate
+      >
+        <div class="settings-layout">
+          <!-- Tab Navigation -->
+          <aside class="settings-tabs-shell">
           <nav
             class="settings-tabs-scroll"
             role="tablist"
@@ -42,10 +48,11 @@
               </button>
             </div>
           </nav>
-        </div>
+          </aside>
 
-        <!-- Tab: Security — Admin API Key -->
-        <div v-show="activeTab === 'security'" class="space-y-6">
+          <div class="settings-content">
+            <!-- Tab: Security — Admin API Key -->
+            <div v-show="activeTab === 'security'" class="space-y-6">
           <!-- Admin API Key Settings -->
           <div class="card">
             <div
@@ -7360,6 +7367,8 @@
             }}
           </button>
         </div>
+          </div>
+        </div>
       </form>
 
       <!-- Provider dialogs placed outside the settings form to prevent form submission bubbling -->
@@ -11060,9 +11069,22 @@ watch(
   @apply h-[42px];
 }
 
-/* ============ 系统设置 Tab 导航 ============ */
+/* ============ 系统设置二级导航 ============ */
+.settings-layout-form {
+  @apply space-y-6;
+}
+
+.settings-layout {
+  @apply grid min-w-0 gap-6;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.settings-content {
+  @apply min-w-0 space-y-6;
+}
+
 .settings-tabs-shell {
-  @apply sticky z-20 -mx-1 rounded-2xl border border-white/80 bg-white/90 p-1.5 backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-950/95;
+  @apply sticky z-20 -mx-1 min-w-0 rounded-2xl border border-white/80 bg-white/90 p-1.5 backdrop-blur-xl dark:border-slate-700/80 dark:bg-slate-950/95;
   top: 4.75rem;
   box-shadow:
     0 12px 28px rgb(15 23 42 / 0.07),
@@ -11081,7 +11103,7 @@ watch(
 }
 
 .settings-tabs-scroll {
-  @apply overflow-x-auto;
+  @apply min-w-0 overflow-x-auto;
   border-radius: 0.875rem;
   -ms-overflow-style: none;
   scrollbar-width: none;
@@ -11106,20 +11128,6 @@ watch(
 .settings-tab:is(.dark *) {
   background: transparent;
   color: rgb(148 163 184);
-}
-
-@media (min-width: 768px) {
-  .settings-tabs {
-    @apply min-w-full;
-  }
-
-  .settings-tab {
-    @apply min-w-0 flex-1 basis-0 overflow-hidden px-2 text-[13px];
-  }
-
-  .settings-tab-icon {
-    @apply h-6 w-6;
-  }
 }
 
 .settings-tab::before {
@@ -11199,6 +11207,62 @@ watch(
 
 .settings-tab-label {
   @apply min-w-0 overflow-hidden text-ellipsis whitespace-nowrap leading-none;
+}
+
+@media (min-width: 1024px) {
+  .settings-layout {
+    grid-template-columns: minmax(0, 1fr) 14.5rem;
+    align-items: start;
+  }
+
+  .settings-content {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .settings-tabs-shell {
+    @apply mx-0 rounded-xl p-2;
+    grid-column: 2;
+    grid-row: 1;
+    top: 5rem;
+    max-height: calc(100vh - 6rem);
+  }
+
+  .settings-tabs-scroll {
+    @apply overflow-x-hidden overflow-y-auto;
+    max-height: calc(100vh - 7.25rem);
+  }
+
+  .settings-tabs-scroll::-webkit-scrollbar {
+    display: block;
+    width: 5px;
+  }
+
+  .settings-tabs-scroll::-webkit-scrollbar-thumb {
+    border-radius: 9999px;
+    background: rgb(148 163 184 / 0.28);
+  }
+
+  .settings-tabs {
+    @apply min-w-0 flex-col items-stretch gap-1;
+  }
+
+  .settings-tab {
+    @apply h-11 w-full min-w-0 justify-start px-3 text-left text-[13px];
+  }
+
+  .settings-tab-icon {
+    @apply h-7 w-7;
+  }
+
+  .settings-tab-active::after {
+    top: 0.55rem;
+    right: auto;
+    bottom: 0.55rem;
+    left: 0.35rem;
+    width: 3px;
+    height: auto;
+  }
 }
 </style>
 
