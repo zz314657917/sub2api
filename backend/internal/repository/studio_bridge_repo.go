@@ -134,7 +134,7 @@ func (r *studioBridgeRepository) ReserveStudioBridgeCharge(ctx context.Context, 
 		if !ok {
 			return nil, service.ErrStudioBridgeChargeKeyEmpty
 		}
-		if existing.Fingerprint != cmd.Fingerprint() {
+		if !studioBridgeChargeFingerprintMatches(existing, cmd) {
 			return nil, service.ErrStudioBridgeConflict
 		}
 		return finishStudioBridgeTx(tx, &service.StudioBridgeChargeResult{
@@ -179,7 +179,7 @@ func (r *studioBridgeRepository) CommitStudioBridgeCharge(ctx context.Context, c
 	if !ok {
 		return nil, service.ErrStudioBridgeChargeKeyEmpty
 	}
-	if charge.Fingerprint != cmd.Fingerprint() {
+	if !studioBridgeChargeFingerprintMatches(charge, cmd) {
 		return nil, service.ErrStudioBridgeConflict
 	}
 	if charge.Status == "committed" || charge.Status == "refunded" {
@@ -241,7 +241,7 @@ func (r *studioBridgeRepository) refundStudioBridgeChargeWithRefundKey(ctx conte
 		return nil, err
 	}
 	if ok {
-		if refund.Fingerprint != cmd.Fingerprint() {
+		if !studioBridgeChargeFingerprintMatches(refund, cmd) {
 			return nil, service.ErrStudioBridgeConflict
 		}
 		return finishStudioBridgeTx(tx, &service.StudioBridgeChargeResult{
@@ -252,21 +252,23 @@ func (r *studioBridgeRepository) refundStudioBridgeChargeWithRefundKey(ctx conte
 			BalanceAfter: refund.BalanceAfter,
 		})
 	}
-	if original.UserID != cmd.UserID || original.Status != "reserved" || original.RefundedAmount+cmd.Amount > original.Amount+1e-9 {
+	refundAmount := studioBridgeRefundAmount(original, cmd)
+	if original.UserID != cmd.UserID || original.Status != "reserved" || original.RefundedAmount+refundAmount > original.Amount+1e-9 {
 		return nil, service.ErrStudioBridgeConflict
 	}
 
-	balanceAfter, err := refundStudioBridgeUserBalance(ctx, tx, cmd.UserID, cmd.Amount)
+	balanceAfter, err := refundStudioBridgeUserBalance(ctx, tx, cmd.UserID, refundAmount)
 	if err != nil {
 		return nil, err
 	}
+	cmd.Amount = refundAmount
 	if err := insertStudioBridgeCharge(ctx, tx, cmd, studioBridgeChargeInsert{
 		Status:       "refunded",
 		BalanceAfter: balanceAfter,
 	}); err != nil {
 		return nil, err
 	}
-	nextRefunded := original.RefundedAmount + cmd.Amount
+	nextRefunded := original.RefundedAmount + refundAmount
 	nextStatus := original.Status
 	if nextRefunded+1e-9 >= original.Amount {
 		nextStatus = "refunded"
@@ -278,7 +280,7 @@ func (r *studioBridgeRepository) refundStudioBridgeChargeWithRefundKey(ctx conte
 		ChargeKey:    cmd.ChargeKey,
 		Status:       "refunded",
 		Applied:      true,
-		Amount:       cmd.Amount,
+		Amount:       refundAmount,
 		BalanceAfter: balanceAfter,
 	})
 }
@@ -291,7 +293,7 @@ func (r *studioBridgeRepository) refundOriginalStudioBridgeCharge(ctx context.Co
 	if !ok {
 		return nil, service.ErrStudioBridgeChargeKeyEmpty
 	}
-	if charge.UserID != cmd.UserID || charge.Fingerprint != cmd.Fingerprint() {
+	if charge.UserID != cmd.UserID || !studioBridgeChargeFingerprintMatches(charge, cmd) {
 		return nil, service.ErrStudioBridgeConflict
 	}
 	if charge.Status == "refunded" {
@@ -604,6 +606,7 @@ func (c studioBridgeChargeRecord) command(fallback service.StudioBridgeChargeCom
 	fallback.ChargeKey = c.ChargeKey
 	fallback.RefundForChargeKey = c.RefundForChargeKey
 	fallback.Amount = c.Amount
+	fallback.AmountUnit = firstNonEmptyString(service.StudioBridgeAmountUnitFromFingerprint(c.Fingerprint), fallback.AmountUnit)
 	fallback.Reason = firstNonEmptyString(c.Reason, fallback.Reason)
 	fallback.TaskID = firstNonEmptyString(c.TaskID, fallback.TaskID)
 	fallback.Mode = firstNonEmptyString(c.Mode, fallback.Mode)
@@ -611,6 +614,32 @@ func (c studioBridgeChargeRecord) command(fallback service.StudioBridgeChargeCom
 	fallback.ActorUserID = firstNonEmptyString(c.ActorUserID, fallback.ActorUserID)
 	fallback.TeamID = firstNonEmptyString(c.TeamID, fallback.TeamID)
 	return fallback
+}
+
+func studioBridgeChargeFingerprintMatches(charge *studioBridgeChargeRecord, cmd service.StudioBridgeChargeCommand) bool {
+	if charge == nil {
+		return false
+	}
+	if charge.Fingerprint == cmd.Fingerprint() {
+		return true
+	}
+	if cmd.RawAmount() == cmd.Amount {
+		return false
+	}
+	legacy := cmd
+	legacy.Amount = cmd.RawAmount()
+	legacy.AmountUnit = ""
+	return charge.Fingerprint == legacy.Fingerprint()
+}
+
+func studioBridgeRefundAmount(original *studioBridgeChargeRecord, cmd service.StudioBridgeChargeCommand) float64 {
+	if original == nil {
+		return cmd.Amount
+	}
+	refundCmd := original.command(cmd)
+	refundCmd.ChargeKey = cmd.ChargeKey
+	refundCmd.RefundForChargeKey = cmd.RefundForChargeKey
+	return service.NormalizeStudioBridgeChargeAmount(refundCmd, cmd.RawAmount())
 }
 
 func studioBridgeNullableString(value string) any {

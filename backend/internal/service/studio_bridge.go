@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	StudioBridgeAppLuoyeAI = "luoye-ai"
+	StudioBridgeAppLuoyeAI            = "luoye-ai"
+	StudioBridgeAmountUnitAPIMartCost = "apimart_cost"
 )
 
 const (
@@ -118,12 +119,14 @@ type StudioBridgeChargeCommand struct {
 	ChargeKey          string  `json:"charge_key"`
 	RefundForChargeKey string  `json:"refund_for_charge_key,omitempty"`
 	Amount             float64 `json:"amount"`
+	AmountUnit         string  `json:"amount_unit,omitempty"`
 	Reason             string  `json:"reason"`
 	TaskID             string  `json:"task_id,omitempty"`
 	Mode               string  `json:"mode,omitempty"`
 	Model              string  `json:"model,omitempty"`
 	ActorUserID        string  `json:"actor_user_id,omitempty"`
 	TeamID             string  `json:"team_id,omitempty"`
+	rawAmount          float64
 }
 
 type StudioBridgeChargeResult struct {
@@ -345,12 +348,17 @@ func normalizeStudioBridgeAppID(appID string) string {
 }
 
 func normalizeStudioBridgeChargeCommand(cmd *StudioBridgeChargeCommand) error {
+	rawAmount := cmd.rawAmount
+	if rawAmount <= 0 {
+		rawAmount = cmd.Amount
+	}
 	cmd.AppID = normalizeStudioBridgeAppID(cmd.AppID)
 	if cmd.AppID == "" {
 		cmd.AppID = StudioBridgeAppLuoyeAI
 	}
 	cmd.ChargeKey = strings.TrimSpace(cmd.ChargeKey)
 	cmd.RefundForChargeKey = strings.TrimSpace(cmd.RefundForChargeKey)
+	cmd.AmountUnit = normalizeStudioBridgeAmountUnit(cmd.AmountUnit)
 	cmd.Reason = strings.TrimSpace(cmd.Reason)
 	cmd.TaskID = strings.TrimSpace(cmd.TaskID)
 	cmd.Mode = strings.TrimSpace(cmd.Mode)
@@ -360,9 +368,11 @@ func normalizeStudioBridgeChargeCommand(cmd *StudioBridgeChargeCommand) error {
 	if cmd.ChargeKey == "" {
 		return ErrStudioBridgeChargeKeyEmpty
 	}
-	if cmd.Amount <= 0 {
+	if rawAmount <= 0 {
 		return ErrStudioBridgeAmountInvalid
 	}
+	cmd.rawAmount = rawAmount
+	cmd.Amount = NormalizeStudioBridgeChargeAmount(*cmd, rawAmount)
 	return nil
 }
 
@@ -371,7 +381,45 @@ func studioBridgeChargeFingerprint(cmd StudioBridgeChargeCommand) string {
 }
 
 func (cmd StudioBridgeChargeCommand) Fingerprint() string {
-	return fmt.Sprintf("%s|%d|%s|%s|%.8f", cmd.AppID, cmd.UserID, cmd.ChargeKey, cmd.RefundForChargeKey, cmd.Amount)
+	amount := cmd.Amount
+	if cmd.rawAmount > 0 {
+		amount = cmd.rawAmount
+	}
+	fingerprint := fmt.Sprintf("%s|%d|%s|%s|%.8f", cmd.AppID, cmd.UserID, cmd.ChargeKey, cmd.RefundForChargeKey, amount)
+	if unit := normalizeStudioBridgeAmountUnit(cmd.AmountUnit); unit != "" {
+		fingerprint += "|" + unit
+	}
+	return fingerprint
+}
+
+func (cmd StudioBridgeChargeCommand) RawAmount() float64 {
+	if cmd.rawAmount > 0 {
+		return cmd.rawAmount
+	}
+	return cmd.Amount
+}
+
+func NormalizeStudioBridgeChargeAmount(cmd StudioBridgeChargeCommand, rawAmount float64) float64 {
+	if isStudioBridgeAPIMartCostAmount(cmd) {
+		return rawAmount * apimartGPTImage2OfficialBalanceMultiplier
+	}
+	return rawAmount
+}
+
+func normalizeStudioBridgeAmountUnit(unit string) string {
+	return strings.ToLower(strings.TrimSpace(unit))
+}
+
+func isStudioBridgeAPIMartCostAmount(cmd StudioBridgeChargeCommand) bool {
+	return normalizeStudioBridgeAmountUnit(cmd.AmountUnit) == StudioBridgeAmountUnitAPIMartCost
+}
+
+func StudioBridgeAmountUnitFromFingerprint(fingerprint string) string {
+	parts := strings.Split(strings.TrimSpace(fingerprint), "|")
+	if len(parts) < 6 {
+		return ""
+	}
+	return normalizeStudioBridgeAmountUnit(parts[len(parts)-1])
 }
 
 func resolveStudioBridgeLaunchTarget(returnURL string, cfg *StudioBridgeAppSettings) (*url.URL, error) {

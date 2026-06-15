@@ -127,19 +127,21 @@ func (r *studioBridgeRepoStub) RefundStudioBridgeCharge(_ context.Context, cmd S
 		if !ok {
 			return nil, ErrStudioBridgeChargeKeyEmpty
 		}
-		if original.cmd.UserID != cmd.UserID || original.status != "reserved" || original.refunded+cmd.Amount > original.cmd.Amount+1e-9 {
+		refundAmount := NormalizeStudioBridgeChargeAmount(original.cmd, cmd.RawAmount())
+		if original.cmd.UserID != cmd.UserID || original.status != "reserved" || original.refunded+refundAmount > original.cmd.Amount+1e-9 {
 			return nil, ErrStudioBridgeConflict
 		}
-		r.balance += cmd.Amount
+		r.balance += refundAmount
 		r.refundCalls++
-		original.refunded += cmd.Amount
+		original.refunded += refundAmount
 		if original.refunded+1e-9 >= original.cmd.Amount {
 			original.status = "refunded"
 		}
 		original.balanceAfter = r.balance
 		r.charges[cmd.RefundForChargeKey] = original
+		cmd.Amount = refundAmount
 		r.refunds[cmd.ChargeKey] = studioBridgeRepoCharge{cmd: cmd, status: "refunded", balanceAfter: r.balance}
-		return &StudioBridgeChargeResult{ChargeKey: cmd.ChargeKey, Status: "refunded", Applied: true, Amount: cmd.Amount, BalanceAfter: r.balance}, nil
+		return &StudioBridgeChargeResult{ChargeKey: cmd.ChargeKey, Status: "refunded", Applied: true, Amount: refundAmount, BalanceAfter: r.balance}, nil
 	}
 	charge, ok := r.charges[cmd.ChargeKey]
 	if !ok {
@@ -344,6 +346,81 @@ func TestStudioBridgeCommitCreatesUsageLogOnceWithNetAmount(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, duplicate.Applied)
 	require.Equal(t, 1, repo.usageLogCalls)
+}
+
+
+func TestStudioBridgeAPIMartImageChargeUsesSub2APIMultiplier(t *testing.T) {
+	ctx := context.Background()
+	repo := &studioBridgeRepoStub{balance: 10}
+	svc := newStudioBridgeTestService(t, repo)
+	cmd := StudioBridgeChargeCommand{
+		AppID:      StudioBridgeAppLuoyeAI,
+		UserID:     42,
+		ChargeKey:  "task:42:image:apimart",
+		Amount:     0.026,
+		AmountUnit: " APIMART_COST ",
+		TaskID:     "task-apimart",
+		Mode:       "edit",
+		Model:      "gpt-image-2",
+	}
+
+	reserved, err := svc.Reserve(ctx, cmd, "secret")
+	require.NoError(t, err)
+	require.True(t, reserved.Applied)
+	require.InDelta(t, 0.2184, reserved.Amount, 0.000001)
+	require.InDelta(t, 9.7816, reserved.BalanceAfter, 0.000001)
+	require.InDelta(t, 9.7816, repo.balance, 0.000001)
+
+	committed, err := svc.Commit(ctx, cmd, "secret")
+	require.NoError(t, err)
+	require.True(t, committed.Applied)
+	require.Equal(t, 1, repo.usageLogCalls)
+	require.InDelta(t, 0.2184, repo.usageLogAmount, 0.000001)
+	require.InDelta(t, 0.2184, repo.usageLogCmd.Amount, 0.000001)
+
+	duplicate, err := svc.Reserve(ctx, cmd, "secret")
+	require.NoError(t, err)
+	require.False(t, duplicate.Applied)
+	require.Equal(t, "committed", duplicate.Status)
+	require.InDelta(t, 0.2184, duplicate.Amount, 0.000001)
+	require.Equal(t, 1, repo.reserveCalls)
+}
+
+func TestStudioBridgeImageChargeWithoutAPIMartAmountUnitKeepsAmount(t *testing.T) {
+	ctx := context.Background()
+	repo := &studioBridgeRepoStub{balance: 10}
+	svc := newStudioBridgeTestService(t, repo)
+
+	reserved, err := svc.Reserve(ctx, StudioBridgeChargeCommand{
+		AppID:     StudioBridgeAppLuoyeAI,
+		UserID:    42,
+		ChargeKey: "task:42:image:gpt-image-2",
+		Amount:    0.026,
+		Mode:      "edit",
+		Model:     "gpt-image-2",
+	}, "secret")
+	require.NoError(t, err)
+	require.True(t, reserved.Applied)
+	require.InDelta(t, 0.026, reserved.Amount, 0.000001)
+	require.InDelta(t, 9.974, reserved.BalanceAfter, 0.000001)
+}
+
+func TestStudioBridgeChargeFingerprintIncludesAmountUnit(t *testing.T) {
+	base := StudioBridgeChargeCommand{
+		AppID:     StudioBridgeAppLuoyeAI,
+		UserID:    42,
+		ChargeKey: "task:42:image:unit",
+		Amount:    0.026,
+		Mode:      "edit",
+		Model:     "gpt-image-2",
+	}
+	raw := base.Fingerprint()
+	withUnit := base
+	withUnit.AmountUnit = StudioBridgeAmountUnitAPIMartCost
+
+	require.NotEqual(t, raw, withUnit.Fingerprint())
+	require.Equal(t, StudioBridgeAmountUnitAPIMartCost, StudioBridgeAmountUnitFromFingerprint(withUnit.Fingerprint()))
+	require.Empty(t, StudioBridgeAmountUnitFromFingerprint(raw))
 }
 
 func TestStudioBridgeSessionProbeOriginValidation(t *testing.T) {
