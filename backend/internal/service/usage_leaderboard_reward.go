@@ -101,6 +101,7 @@ func (s *UsageService) getLeaderboardDailyRewards(ctx context.Context, userID in
 		YesterdayTotalActualCost: leaderboard.TotalActualCost,
 		ThresholdMet:             leaderboard.TotalActualCost > settings.MinTotalActualCost,
 		Rewards:                  leaderboardDailyRewardTiers(settings),
+		TopUsers:                 leaderboardDailyRewardTopUsers(leaderboard.Ranking),
 		Reason:                   leaderboardRewardReasonDisabled,
 	}
 
@@ -267,6 +268,24 @@ func leaderboardDailyRewardTiers(settings leaderboardDailyRewardSettings) []usag
 		{Rank: 2, Amount: settings.RankAmounts[2]},
 		{Rank: 3, Amount: settings.RankAmounts[3]},
 	}
+}
+
+func leaderboardDailyRewardTopUsers(items []usagestats.UserLeaderboardItem) []usagestats.LeaderboardDailyRewardTopUser {
+	topUsers := make([]usagestats.LeaderboardDailyRewardTopUser, 0, 3)
+	for _, item := range items {
+		if item.Rank <= 0 || item.Rank > 3 {
+			continue
+		}
+		topUsers = append(topUsers, usagestats.LeaderboardDailyRewardTopUser{
+			Rank:        item.Rank,
+			UserID:      item.UserID,
+			DisplayName: item.DisplayName,
+			EmailMasked: item.EmailMasked,
+			Username:    item.Username,
+			Email:       item.Email,
+		})
+	}
+	return topUsers
 }
 
 func resolveLeaderboardDailyRewardClaimState(status *usagestats.LeaderboardDailyRewards) (bool, string) {

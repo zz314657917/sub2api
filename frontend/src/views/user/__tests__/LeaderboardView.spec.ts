@@ -86,6 +86,12 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.claimFailed': '领取排行榜奖励失败',
     'leaderboard.dailyReward.rankLabel': '第 {rank} 名',
     'leaderboard.dailyReward.rankReward': '第 {rank} 名奖励',
+    'leaderboard.dailyReward.lastWeekTopUsersTitle': '上周前三',
+    'leaderboard.dailyReward.lastWeekRank1': '上周第一名',
+    'leaderboard.dailyReward.lastWeekRank2': '上周第二名',
+    'leaderboard.dailyReward.lastWeekRank3': '上周第三名',
+    'leaderboard.dailyReward.lastWeekRankLabel': '上周第 {rank} 名',
+    'leaderboard.dailyReward.noTopUser': '暂无上榜',
     'common.loading': '加载中...',
     'common.refresh': '刷新',
   }
@@ -158,6 +164,11 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
         { rank: 1, amount: 0 },
         { rank: 2, amount: 0 },
         { rank: 3, amount: 0 },
+      ],
+      top_users: [
+        { rank: 1, display_name: 'A***e', email_masked: 'a***e@example.com' },
+        { rank: 2, display_name: 'B*b', email_masked: 'b***b@example.com' },
+        { rank: 3, display_name: 'C***l', email_masked: 'c***l@example.com' },
       ],
       current_user_rank: 0,
       current_user_reward_amount: 0,
@@ -676,6 +687,11 @@ describe('LeaderboardView', () => {
             { rank: 2, amount: 3 },
             { rank: 3, amount: 1 },
           ],
+          top_users: [
+            { rank: 1, display_name: 'A***e', email_masked: 'a***e@example.com' },
+            { rank: 2, display_name: 'B*b', email_masked: 'b***b@example.com' },
+            { rank: 3, display_name: 'C***l', email_masked: 'c***l@example.com' },
+          ],
           current_user_rank: 1,
           current_user_reward_amount: 5,
           can_claim: false,
@@ -703,9 +719,63 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).not.toContain('$80.00 / $100.00')
     expect(wrapper.text()).toContain('第 1 名奖励')
     expect(wrapper.text()).toContain('按名次发放')
+    expect(wrapper.text()).toContain('上周前三')
+    expect(wrapper.text()).toContain('上周第一名')
+    expect(wrapper.text()).toContain('上周第二名')
+    expect(wrapper.text()).toContain('上周第三名')
+    expect(wrapper.text()).toContain('A***e')
+    expect(wrapper.text()).toContain('B*b')
+    expect(wrapper.text()).toContain('C***l')
+    expect(wrapper.text()).not.toContain('Alice Winner')
     expect(wrapper.text()).toContain('奖励目标进度')
     expect(wrapper.text()).toContain('80%')
     expect(wrapper.text()).not.toContain('$5.00')
+  })
+
+  it('shows development preview top users when the reward payload has no winners', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        daily_rewards: {
+          reward_date: '2026-05-06',
+          settlement_timezone: 'Asia/Shanghai',
+          settlement_ready: true,
+          claim_available_at: '2026-05-07T00:30:00+08:00',
+          enabled: true,
+          min_total_actual_cost: 100,
+          yesterday_total_actual_cost: 0,
+          threshold_met: false,
+          rewards: [
+            { rank: 1, amount: 5 },
+            { rank: 2, amount: 3 },
+            { rank: 3, amount: 1 },
+          ],
+          top_users: [],
+          current_user_rank: 0,
+          current_user_reward_amount: 0,
+          can_claim: false,
+          claimed: false,
+          reason: 'threshold_not_met',
+        },
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="leaderboard-weekly-winners"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('上周前三')
+    expect(wrapper.text()).toContain('落***尘')
+    expect(wrapper.text()).toContain('138****5678')
+    expect(wrapper.text()).toContain('t***d@example.com')
+    expect(wrapper.text()).not.toContain('暂无上榜')
   })
 
   it('shows settling state before weekly rewards can be claimed', async () => {

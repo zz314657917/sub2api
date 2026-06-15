@@ -226,6 +226,31 @@ func TestLeaderboardDailyRewardsTopThreeCanClaimWhenThresholdMet(t *testing.T) {
 	require.Equal(t, leaderboardRewardReasonEligible, got.Reason)
 }
 
+func TestLeaderboardDailyRewardsIncludesLastWeekTopUsers(t *testing.T) {
+	usageRepo := &leaderboardRewardUsageRepo{
+		response: &usagestats.UserLeaderboardResponse{
+			TotalActualCost: 101,
+			Ranking: []usagestats.UserLeaderboardItem{
+				{Rank: 1, UserID: 11, Username: "Alpha Winner", Email: "alpha@example.com", Tokens: 300},
+				{Rank: 2, UserID: 42, Username: "Beta Winner", Email: "beta@example.com", Tokens: 200, IsCurrentUser: true},
+				{Rank: 3, UserID: 33, Username: "Gamma Winner", Email: "gamma@example.com", Tokens: 100},
+			},
+			CurrentUserEntry: &usagestats.UserLeaderboardItem{Rank: 2, UserID: 42, Username: "Beta Winner", Email: "beta@example.com", Tokens: 200, IsCurrentUser: true},
+		},
+	}
+	svc := NewUsageService(usageRepo, nil, nil, nil)
+	svc.SetLeaderboardRewardDependencies(leaderboardRewardSettings(true, 100, 5, 3, 1), nil)
+
+	got, err := svc.getLeaderboardDailyRewards(context.Background(), 42, leaderboardRewardTestNow(t))
+
+	require.NoError(t, err)
+	require.Equal(t, []usagestats.LeaderboardDailyRewardTopUser{
+		{Rank: 1, UserID: 11, Username: "Alpha Winner", Email: "alpha@example.com"},
+		{Rank: 2, UserID: 42, Username: "Beta Winner", Email: "beta@example.com"},
+		{Rank: 3, UserID: 33, Username: "Gamma Winner", Email: "gamma@example.com"},
+	}, got.TopUsers)
+}
+
 func TestLeaderboardDailyRewardsNonTopThreeCannotClaim(t *testing.T) {
 	usageRepo := &leaderboardRewardUsageRepo{response: leaderboardRewardResponse(4, 101)}
 	svc := NewUsageService(usageRepo, nil, nil, nil)

@@ -209,14 +209,15 @@
           </section>
 
           <section v-if="dailyRewards" class="card p-5" data-testid="leaderboard-daily-reward">
-            <div class="flex items-start justify-between gap-3">
-              <div>
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('leaderboard.dailyReward.title') }}</h2>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('leaderboard.dailyReward.settlementDate') }}: {{ dailyRewards.reward_date || '-' }}
+            <div class="leaderboard-reward-head">
+              <div class="min-w-0">
+                <h2 class="leaderboard-reward-title">{{ t('leaderboard.dailyReward.title') }}</h2>
+                <p class="leaderboard-reward-period">
+                  <span>{{ t('leaderboard.dailyReward.settlementDate') }}</span>
+                  <span>{{ dailyRewards.reward_date || '-' }}</span>
                 </p>
               </div>
-              <span class="rounded-full px-2.5 py-1 text-xs font-medium" :class="dailyRewardStatusClass">
+              <span class="leaderboard-reward-status" :class="dailyRewardStatusClass">
                 {{ dailyRewardReasonText }}
               </span>
             </div>
@@ -229,6 +230,23 @@
               >
                 <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.dailyReward.rankReward', { rank: tier.rank }) }}</p>
                 <p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ t('leaderboard.dailyReward.rewardAmountHidden') }}</p>
+              </div>
+            </div>
+
+            <div v-if="rewardTopUsers.length" class="leaderboard-weekly-winners mt-4" data-testid="leaderboard-weekly-winners">
+              <div class="leaderboard-weekly-winners-header">
+                <span>{{ t('leaderboard.dailyReward.lastWeekTopUsersTitle') }}</span>
+                <span>{{ dailyRewards.reward_date || '-' }}</span>
+              </div>
+              <div class="leaderboard-weekly-winners-list">
+                <div
+                  v-for="winner in rewardTopUsers"
+                  :key="winner.rank"
+                  class="leaderboard-weekly-winner-row"
+                >
+                  <span class="leaderboard-weekly-winner-rank">{{ rewardTopUserRankLabel(winner.rank) }}</span>
+                  <span class="leaderboard-weekly-winner-name">{{ winner.displayName }}</span>
+                </div>
               </div>
             </div>
 
@@ -284,7 +302,7 @@ import {
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { usageAPI } from '@/api'
-import type { LeaderboardBadge, LeaderboardDailyRewards, LeaderboardPeriod, UserLeaderboardItem, UserLeaderboardResponse } from '@/api/usage'
+import type { LeaderboardBadge, LeaderboardDailyRewardTopUser, LeaderboardDailyRewards, LeaderboardPeriod, UserLeaderboardItem, UserLeaderboardResponse } from '@/api/usage'
 import type { UserLeaderboardTokenTrendPoint } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -316,6 +334,11 @@ type RollingTokenPart = {
   value: string
 }
 
+type RewardTopUserView = {
+  rank: number
+  displayName: string
+}
+
 const rollingTokenDigitCells = Array.from({ length: 20 }, (_, index) => String(index % 10))
 const leaderboardTitleBadges: LeaderboardBadge[] = [
   'weekly_token_king',
@@ -324,6 +347,11 @@ const leaderboardTitleBadges: LeaderboardBadge[] = [
   'night_owl',
   'burst_token_king',
   'checkin_king',
+]
+const devRewardTopUsers: LeaderboardDailyRewardTopUser[] = [
+  { rank: 1, display_name: '落***尘' },
+  { rank: 2, display_name: '138****5678' },
+  { rank: 3, display_name: 't***d@example.com' },
 ]
 
 const periodOptions = computed(() => [
@@ -463,6 +491,29 @@ const recentTokenTrendChartOptions = computed(() => ({
 
 const rewardTiers = computed(() => {
   return [1, 2, 3].map((rank) => ({ rank }))
+})
+const rewardTopUsers = computed<RewardTopUserView[]>(() => {
+  const usersByRank = new Map<number, LeaderboardDailyRewardTopUser>()
+  const sourceUsers = dailyRewards.value?.top_users?.length
+    ? dailyRewards.value.top_users
+    : import.meta.env.DEV
+      ? devRewardTopUsers
+      : []
+  for (const user of sourceUsers) {
+    if (user.rank >= 1 && user.rank <= 3 && rewardTopUserHasName(user)) {
+      usersByRank.set(user.rank, user)
+    }
+  }
+  return [1, 2, 3]
+    .map((rank) => {
+      const user = usersByRank.get(rank)
+      if (!user) return null
+      return {
+        rank,
+        displayName: rewardTopUserDisplayName(user),
+      }
+    })
+    .filter((user): user is RewardTopUserView => user != null)
 })
 
 const dailyRewardGoalProgressPercent = computed(() => {
@@ -677,6 +728,25 @@ function leaderboardAvatarInitial(item: UserLeaderboardItem): string {
 function formatRewardRankLabel(rank: number): string {
   if (!rank || rank <= 0) return t('leaderboard.notRanked')
   return t('leaderboard.dailyReward.rankLabel', { rank })
+}
+
+function rewardTopUserRankLabel(rank: number): string {
+  if (rank === 1) return t('leaderboard.dailyReward.lastWeekRank1')
+  if (rank === 2) return t('leaderboard.dailyReward.lastWeekRank2')
+  if (rank === 3) return t('leaderboard.dailyReward.lastWeekRank3')
+  return t('leaderboard.dailyReward.lastWeekRankLabel', { rank })
+}
+
+function rewardTopUserDisplayName(user?: LeaderboardDailyRewardTopUser): string {
+  const displayName = user?.display_name?.trim()
+  if (displayName) return displayName
+  const emailMasked = user?.email_masked?.trim()
+  if (emailMasked) return emailMasked
+  return t('leaderboard.dailyReward.noTopUser')
+}
+
+function rewardTopUserHasName(user?: LeaderboardDailyRewardTopUser): boolean {
+  return Boolean(user?.display_name?.trim() || user?.email_masked?.trim())
 }
 
 function selectVisibleCostEfficiencyUserID(items: UserLeaderboardItem[], mode: 'lowest' | 'highest'): number | null {
@@ -1178,6 +1248,94 @@ onUnmounted(() => {
   border: 1px solid rgb(148 163 184 / 0.16);
 }
 
+.leaderboard-reward-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.85rem;
+}
+
+.leaderboard-reward-title {
+  color: rgb(17 24 39);
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+
+.leaderboard-reward-period {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.16rem 0.35rem;
+  margin-top: 0.32rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.leaderboard-reward-status {
+  display: inline-flex;
+  max-width: 8.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 0.38rem 0.72rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.12;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.leaderboard-weekly-winners {
+  display: grid;
+  gap: 0.6rem;
+  border: 1px solid rgb(148 163 184 / 0.16);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252);
+  padding: 0.75rem;
+}
+
+.leaderboard-weekly-winners-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.leaderboard-weekly-winners-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.leaderboard-weekly-winner-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(5.6rem, auto) minmax(0, 1fr);
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.leaderboard-weekly-winner-rank {
+  color: rgb(100 116 139);
+  font-size: 0.8125rem;
+}
+
+.leaderboard-weekly-winner-name {
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(15 23 42);
+  font-size: 0.875rem;
+  font-weight: 800;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .leaderboard-token-reel::before,
 .leaderboard-token-reel::after {
   position: absolute;
@@ -1322,6 +1480,28 @@ onUnmounted(() => {
   color: rgb(148 163 184);
 }
 
+:global(.dark .leaderboard-reward-title) {
+  color: rgb(248 250 252);
+}
+
+:global(.dark .leaderboard-reward-period) {
+  color: rgb(148 163 184);
+}
+
+:global(.dark .leaderboard-weekly-winners) {
+  border-color: rgb(71 85 105 / 0.34);
+  background: rgb(15 23 42 / 0.32);
+}
+
+:global(.dark .leaderboard-weekly-winners-header),
+:global(.dark .leaderboard-weekly-winner-rank) {
+  color: rgb(148 163 184);
+}
+
+:global(.dark .leaderboard-weekly-winner-name) {
+  color: rgb(248 250 252);
+}
+
 :global(.dark .leaderboard-token-rank-avatar) {
   border-color: rgb(15 23 42 / 0.92);
   background:
@@ -1412,6 +1592,16 @@ onUnmounted(() => {
   .leaderboard-token-trend-chart,
   .leaderboard-token-trend-empty {
     height: 6.1rem;
+  }
+
+  .leaderboard-reward-head {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .leaderboard-reward-status {
+    justify-self: start;
+    max-width: 100%;
   }
 }
 

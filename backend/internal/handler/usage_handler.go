@@ -544,6 +544,69 @@ func finalizeUserLeaderboardItem(item *usagestats.UserLeaderboardItem) {
 	item.Username = ""
 }
 
+func finalizeLeaderboardDailyRewardTopUser(item *usagestats.LeaderboardDailyRewardTopUser) {
+	if item == nil {
+		return
+	}
+	email := strings.TrimSpace(item.Email)
+	username := strings.TrimSpace(item.Username)
+	if email == "" && isLikelyEmailAddress(username) {
+		email = username
+	}
+	if email != "" {
+		item.EmailMasked = service.MaskEmail(email)
+	} else {
+		item.EmailMasked = ""
+	}
+	switch {
+	case username != "" && !isLikelyEmailAddress(username):
+		item.DisplayName = maskSensitiveLeaderboardDisplayName(username)
+	case item.EmailMasked != "":
+		item.DisplayName = item.EmailMasked
+	default:
+		item.DisplayName = "User #" + strconv.FormatInt(item.UserID, 10)
+	}
+	item.DisplayName = hideLeaderboardRewardTopUserName(item.DisplayName)
+	item.Email = ""
+	item.Username = ""
+	item.UserID = 0
+}
+
+func finalizeLeaderboardDailyRewards(payload *usagestats.LeaderboardDailyRewards) {
+	if payload == nil {
+		return
+	}
+	if payload.TopUsers == nil {
+		payload.TopUsers = []usagestats.LeaderboardDailyRewardTopUser{}
+	}
+	for i := range payload.TopUsers {
+		finalizeLeaderboardDailyRewardTopUser(&payload.TopUsers[i])
+	}
+}
+
+func hideLeaderboardRewardTopUserName(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" || strings.Contains(value, "*") {
+		return value
+	}
+	if isLikelyEmailAddress(value) {
+		return service.MaskEmail(value)
+	}
+	runes := []rune(value)
+	switch len(runes) {
+	case 0:
+		return ""
+	case 1:
+		return "*"
+	case 2:
+		return string(runes[:1]) + "*"
+	case 3:
+		return string(runes[:1]) + "*" + string(runes[2:])
+	default:
+		return string(runes[:1]) + "***" + string(runes[len(runes)-1:])
+	}
+}
+
 func maskSensitiveLeaderboardDisplayName(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" {
@@ -653,6 +716,7 @@ func finalizeUserLeaderboardResponse(payload *usagestats.UserLeaderboardResponse
 		finalizeUserLeaderboardItem(&payload.Ranking[i])
 	}
 	finalizeUserLeaderboardItem(payload.CurrentUserEntry)
+	finalizeLeaderboardDailyRewards(payload.DailyRewards)
 }
 
 func parseAPIKeyDailyUsageDays(raw string) (int, bool) {
@@ -765,6 +829,7 @@ func (h *UsageHandler) ClaimDashboardLeaderboardDailyReward(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
+	finalizeLeaderboardDailyRewards(result.DailyRewards)
 	response.Success(c, result)
 }
 

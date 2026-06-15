@@ -201,6 +201,53 @@ func TestUsageHandlerDashboardLeaderboardMasksPhoneAndQQDisplayName(t *testing.T
 	require.Contains(t, body, `"display_name":"QQ:12******90"`)
 }
 
+func TestUsageHandlerDashboardLeaderboardMasksWeeklyRewardTopUsers(t *testing.T) {
+	repo := &userLeaderboardUsageRepo{
+		response: &usagestats.UserLeaderboardResponse{
+			Ranking: []usagestats.UserLeaderboardItem{
+				{Rank: 1, UserID: 42, Username: "winner@example.com", Email: "winner@example.com", ActualCost: 9.5, Requests: 2, Tokens: 100, IsCurrentUser: true},
+				{Rank: 2, UserID: 99, Username: "13812345678", ActualCost: 1.5, Requests: 1, Tokens: 20},
+				{Rank: 3, UserID: 100, Username: "third@example.com", Email: "third@example.com", ActualCost: 1.1, Requests: 1, Tokens: 10},
+			},
+			CurrentUserEntry: &usagestats.UserLeaderboardItem{Rank: 1, UserID: 42, Username: "winner@example.com", Email: "winner@example.com", ActualCost: 9.5, Requests: 2, Tokens: 100, IsCurrentUser: true},
+			TotalActualCost:  12.1,
+		},
+	}
+	router := newUserLeaderboardRouter(repo, 42)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	body := rec.Body.String()
+	require.Contains(t, body, `"top_users"`)
+	require.Contains(t, body, `"display_name":"w***r@example.com"`)
+	require.Contains(t, body, `"display_name":"138****5678"`)
+	require.Contains(t, body, `"display_name":"t***d@example.com"`)
+	require.NotContains(t, body, `"top_users":null`)
+	require.NotContains(t, body, "winner@example.com")
+	require.NotContains(t, body, "third@example.com")
+}
+
+func TestFinalizeLeaderboardDailyRewardsHidesRawTopUserNames(t *testing.T) {
+	rewards := &usagestats.LeaderboardDailyRewards{
+		TopUsers: []usagestats.LeaderboardDailyRewardTopUser{
+			{Rank: 1, UserID: 42, Username: "Visible Nickname", Email: "winner@example.com"},
+			{Rank: 2, UserID: 99, Username: "AB"},
+			{Rank: 3, UserID: 100, Username: "陈小龙"},
+		},
+	}
+
+	finalizeLeaderboardDailyRewards(rewards)
+
+	require.Equal(t, []usagestats.LeaderboardDailyRewardTopUser{
+		{Rank: 1, DisplayName: "V***e", EmailMasked: "w***r@example.com"},
+		{Rank: 2, DisplayName: "A*"},
+		{Rank: 3, DisplayName: "陈*龙"},
+	}, rewards.TopUsers)
+}
+
 func TestUsageHandlerDashboardLeaderboardAddsBadges(t *testing.T) {
 	repo := &userLeaderboardUsageRepo{
 		response: &usagestats.UserLeaderboardResponse{

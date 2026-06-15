@@ -216,22 +216,33 @@ type LeaderboardDailyRewardTier struct {
 	Amount float64 `json:"amount"`
 }
 
+// LeaderboardDailyRewardTopUser represents one masked last-week top user.
+type LeaderboardDailyRewardTopUser struct {
+	Rank        int64  `json:"rank"`
+	DisplayName string `json:"display_name"`
+	EmailMasked string `json:"email_masked,omitempty"`
+	UserID      int64  `json:"-"`
+	Username    string `json:"-"`
+	Email       string `json:"-"`
+}
+
 // LeaderboardDailyRewards represents last week's reward settlement status.
 type LeaderboardDailyRewards struct {
-	RewardDate               string                       `json:"reward_date"`
-	SettlementTimezone       string                       `json:"settlement_timezone"`
-	SettlementReady          bool                         `json:"settlement_ready"`
-	ClaimAvailableAt         string                       `json:"claim_available_at"`
-	Enabled                  bool                         `json:"enabled"`
-	MinTotalActualCost       float64                      `json:"min_total_actual_cost"`
-	YesterdayTotalActualCost float64                      `json:"yesterday_total_actual_cost"`
-	ThresholdMet             bool                         `json:"threshold_met"`
-	Rewards                  []LeaderboardDailyRewardTier `json:"rewards"`
-	CurrentUserRank          int64                        `json:"current_user_rank"`
-	CurrentUserRewardAmount  float64                      `json:"current_user_reward_amount"`
-	CanClaim                 bool                         `json:"can_claim"`
-	Claimed                  bool                         `json:"claimed"`
-	Reason                   string                       `json:"reason"`
+	RewardDate               string                          `json:"reward_date"`
+	SettlementTimezone       string                          `json:"settlement_timezone"`
+	SettlementReady          bool                            `json:"settlement_ready"`
+	ClaimAvailableAt         string                          `json:"claim_available_at"`
+	Enabled                  bool                            `json:"enabled"`
+	MinTotalActualCost       float64                         `json:"min_total_actual_cost"`
+	YesterdayTotalActualCost float64                         `json:"yesterday_total_actual_cost"`
+	ThresholdMet             bool                            `json:"threshold_met"`
+	Rewards                  []LeaderboardDailyRewardTier    `json:"rewards"`
+	TopUsers                 []LeaderboardDailyRewardTopUser `json:"top_users"`
+	CurrentUserRank          int64                           `json:"current_user_rank"`
+	CurrentUserRewardAmount  float64                         `json:"current_user_reward_amount"`
+	CanClaim                 bool                            `json:"can_claim"`
+	Claimed                  bool                            `json:"claimed"`
+	Reason                   string                          `json:"reason"`
 }
 
 // UserLeaderboardResponse represents the user dashboard leaderboard payload.

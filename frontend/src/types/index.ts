@@ -756,7 +756,7 @@ export interface ApiKey {
 
 export type AccountPoolStrategy = 'shared_only' | 'private_first' | 'private_only'
 
-export type ApiKeyRoutingPreset = 'auto' | 'cost' | 'speed' | 'stability' | 'manual'
+export type ApiKeyRoutingPreset = 'optimal' | 'auto' | 'cost' | 'speed' | 'stability' | 'manual'
 
 export interface ApiKeyMultiGroupRoute {
   group_id: number
@@ -1231,6 +1231,11 @@ export interface WelfareRecharge {
   first_bonus_amount: number
   first_bonus_claimed: boolean
   first_bonus_claimed_at?: string | null
+  valid_days: number
+  expires_at?: string | null
+  can_stack_monthly_bonus: boolean
+  monthly_bonus_may_block: boolean
+  first_recharge_completed: boolean
   reason: string
 }
 
@@ -2000,6 +2005,12 @@ export interface LeaderboardDailyRewardTier {
   amount: number
 }
 
+export interface LeaderboardDailyRewardTopUser {
+  rank: number
+  display_name: string
+  email_masked?: string
+}
+
 export interface LeaderboardDailyRewards {
   reward_date: string
   settlement_timezone: string
@@ -2010,6 +2021,7 @@ export interface LeaderboardDailyRewards {
   yesterday_total_actual_cost: number
   threshold_met: boolean
   rewards: LeaderboardDailyRewardTier[]
+  top_users?: LeaderboardDailyRewardTopUser[]
   current_user_rank: number
   current_user_reward_amount: number
   can_claim: boolean
