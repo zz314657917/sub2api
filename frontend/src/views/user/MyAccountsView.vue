@@ -5,26 +5,26 @@
         <div class="card p-5">
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('myAccounts.summary.available') }}</p>
           <p class="mt-2 text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
-            {{ formatCurrency(shareSummary?.available_amount ?? 0) }}
+            {{ formatCreditAmount(shareSummary?.available_amount ?? 0) }}
           </p>
         </div>
         <div class="card p-5">
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('myAccounts.summary.frozen') }}</p>
           <p class="mt-2 text-2xl font-semibold text-amber-600 dark:text-amber-400">
-            {{ formatCurrency(shareSummary?.frozen_amount ?? 0) }}
+            {{ formatCreditAmount(shareSummary?.frozen_amount ?? 0) }}
           </p>
         </div>
         <div class="card p-5">
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('myAccounts.summary.transferred') }}</p>
           <p class="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">
-            {{ formatCurrency(shareSummary?.transferred_amount ?? 0) }}
+            {{ formatCreditAmount(shareSummary?.transferred_amount ?? 0) }}
           </p>
         </div>
         <div class="card p-5">
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('myAccounts.summary.total') }}</p>
           <div class="mt-2 flex items-center justify-between gap-3">
             <p class="text-2xl font-semibold text-gray-900 dark:text-white">
-              {{ formatCurrency(shareSummary?.total_amount ?? 0) }}
+              {{ formatCreditAmount(shareSummary?.total_amount ?? 0) }}
             </p>
             <button
               class="btn btn-primary btn-sm"
@@ -479,6 +479,7 @@ import userAPI from '@/api/user'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { formatCurrency, formatDateTime, formatNumber, formatRelativeTime } from '@/utils/format'
+import { formatCreditAmount } from '@/utils/credits'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { parseOAuthCallbackInput } from '@/utils/oauthCallback'
 import { useTableSelection } from '@/composables/useTableSelection'
@@ -1355,7 +1356,7 @@ async function transferShare(): Promise<void> {
   transferring.value = true
   try {
     const result = await userAPI.transferAccountShareToBalance()
-    appStore.showSuccess(t('myAccounts.transferSuccess', { amount: formatCurrency(result.transferred_amount) }))
+    appStore.showSuccess(t('myAccounts.transferSuccess', { amount: formatCreditAmount(result.transferred_amount) }))
     await Promise.all([loadShareSummary(), authStore.refreshUser().catch(() => undefined)])
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('myAccounts.transferFailed')))

@@ -130,13 +130,13 @@ export default {
         title: 'Subscription Settings',
         type: 'Billing Type',
         typeHint:
-          'Standard billing deducts from user balance. Subscription mode uses quota limits instead.',
+          'Standard billing deducts from user credits. Subscription mode uses quota limits instead.',
         typeNotEditable: 'Billing type cannot be changed after group creation.',
-        standard: 'Standard (Balance)',
+        standard: 'Standard (Credits)',
         subscription: 'Subscription (Quota)',
-        dailyLimit: 'Daily Limit (USD)',
-        weeklyLimit: 'Weekly Limit (USD)',
-        monthlyLimit: 'Monthly Limit (USD)',
+        dailyLimit: 'Daily Credit Limit',
+        weeklyLimit: 'Weekly Credit Limit',
+        monthlyLimit: 'Monthly Credit Limit',
         defaultValidityDays: 'Default Validity (Days)',
         validityHint: 'Number of days the subscription is valid when assigned to a user',
         noLimit: 'No limit'

@@ -47,7 +47,7 @@
 
         <div v-if="user" class="studio-layout-balance">
           <Icon name="dollar" size="sm" />
-          <span>${{ user.balance?.toFixed(2) || '0.00' }}</span>
+          <span>{{ formatCreditAmount(user.balance || 0) }}</span>
         </div>
 
         <LocaleSwitcher class="studio-layout-locale" />
@@ -115,6 +115,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore, useAuthStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { formatCreditAmount } from '@/utils/credits'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
 

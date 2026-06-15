@@ -1,7 +1,7 @@
 export default {
       invitesDescription: 'View site-wide inviter and invitee relationships',
-      rebatesDescription: 'View recharge orders that generated affiliate rebates',
-      transfersDescription: 'View affiliate quota transfers into account balance',
+      rebatesDescription: 'View credit purchase orders that generated affiliate rebates',
+      transfersDescription: 'View affiliate quota transfers into account credits',
       errors: {
         loadFailed: 'Failed to load affiliate records'
       },
@@ -16,13 +16,13 @@ export default {
         affCode: 'Invite Code',
         order: 'Order',
         totalRebate: 'Total Rebate',
-        orderAmount: 'Top-up Amount',
+        orderAmount: 'Credit Amount',
         payAmount: 'Paid Amount',
         rebateAmount: 'Rebate Amount',
         paymentType: 'Payment Method',
         orderStatus: 'Order Status',
         transferAmount: 'Transfer Amount',
-        balanceAfter: 'Balance After',
+        balanceAfter: 'Credits After',
         availableQuotaAfter: 'Available After',
         frozenQuotaAfter: 'Frozen After',
         historyQuotaAfter: 'Historical Rebate After',
@@ -36,7 +36,7 @@ export default {
         rebateRate: 'Rebate Rate',
         invitedCount: 'Invited Users',
         rebatedInviteeCount: 'Rebated Invitees',
-        availableQuota: 'Available Quota',
+        availableQuota: 'Available Credits',
         historyQuota: 'Historical Rebate'
       }
     }

@@ -466,6 +466,7 @@ import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
+import { formatCreditAmount } from '@/utils/credits'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
 import { displaySubscriptionLimit, hasAnySubscriptionLimit } from '@/utils/subscriptionLimits'
@@ -487,24 +488,24 @@ type PricingMessage = string | { [key: string]: PricingMessage }
 const pricingCatalog = {
   zh: {
     title: '定价方案',
-    subtitle: '按需充值或选择超值订阅，以更低成本调用全网大模型。',
-    balance: '灵活额度',
-    flexibleCredit: '灵活额度',
-    creditTag: '额度用完前，永久有效',
-    rechargeStep: '第一步：选择充值档位',
-    monthlyBonusAvailable: '本月首充赠送可用',
-    monthlyBonusClaimed: '本月已领首充赠送',
-    noRechargePackages: '后台暂未配置可用充值档位',
+    subtitle: '按需购买积分或选择超值订阅，以更低成本调用全网大模型。',
+    balance: '灵活积分',
+    flexibleCredit: '灵活积分',
+    creditTag: '积分用完前，永久有效',
+    rechargeStep: '第一步：选择积分档位',
+    monthlyBonusAvailable: '本月首购赠送可用',
+    monthlyBonusClaimed: '本月已领首购赠送',
+    noRechargePackages: '后台暂未配置可用积分档位',
     bonusBadge: '送 {amount}',
     creditedAmountLine: '到账 {amount}',
-    bonusLine: '本月首充赠送 {amount}',
+    bonusLine: '本月首购赠送 {amount}',
     bonusClaimedLine: '本月已领，到账本金',
     noBonusLine: '无额外赠送',
-    bonusAmount: '赠送额度',
+    bonusAmount: '赠送积分',
     bonusAlreadyClaimedSummary: '本月已领',
     newUserDeal: '新人专享',
     orderSummary: '订单摘要',
-    rechargeAmount: '充值额度',
+    rechargeAmount: '购买金额',
     totalPayable: '总计应付',
     paySecurely: '立即安全支付',
     plansTitle: '套餐订阅',
@@ -540,11 +541,11 @@ const pricingCatalog = {
     faq: {
       quota: {
         title: '额度与计费规则',
-        body: '灵活额度按实际调用消耗；订阅套餐按配置的周期额度和倍率计费，具体以当前站点配置为准。',
+        body: '灵活积分按实际调用消耗；订阅套餐按配置的周期额度和倍率计费，具体以当前站点配置为准。',
       },
       balance: {
-        title: '灵活额度说明',
-        body: '灵活额度充值后进入账户余额，在额度用完前持续有效，可用于未被套餐覆盖的调用。',
+        title: '灵活积分说明',
+        body: '购买后的积分进入账户积分，在积分用完前持续有效，可用于未被套餐覆盖的调用。',
       },
       upgrade: {
         title: '如何升级套餐？',
@@ -552,38 +553,38 @@ const pricingCatalog = {
       },
       recovery: {
         title: '额度恢复机制',
-        body: '订阅额度按套餐周期自动重置；灵活额度不会周期清零，只随调用扣减。',
+        body: '订阅额度按套餐周期自动重置；灵活积分不会周期清零，只随调用扣减。',
       },
       subscription: {
         title: '套餐变更说明',
         body: '同一订阅分组再次购买通常视为续费或延长，具体生效方式由后台套餐配置决定。',
       },
       balanceSubscription: {
-        title: '订阅额度与灵活额度',
-        body: '优先使用订阅套餐覆盖的额度；超出或未覆盖部分可继续使用灵活额度支付。',
+        title: '订阅额度与灵活积分',
+        body: '优先使用订阅套餐覆盖的额度；超出或未覆盖部分可继续使用灵活积分支付。',
       },
     },
   },
   en: {
     title: 'Pricing',
-    subtitle: 'Top up as needed or choose a subscription to call all available models at a lower cost.',
+    subtitle: 'Buy credits as needed or choose a subscription to call all available models at a lower cost.',
     balance: 'Flexible credit',
     flexibleCredit: 'Flexible Credit',
     creditTag: 'Valid until used up',
-    rechargeStep: 'Step 1: choose a recharge package',
-    monthlyBonusAvailable: 'Monthly first top-up bonus available',
-    monthlyBonusClaimed: 'Monthly first top-up bonus claimed',
-    noRechargePackages: 'No recharge packages are currently available',
+    rechargeStep: 'Step 1: choose a credit package',
+    monthlyBonusAvailable: 'Monthly first-purchase bonus available',
+    monthlyBonusClaimed: 'Monthly first-purchase bonus claimed',
+    noRechargePackages: 'No credit packages are currently available',
     bonusBadge: '+ {amount}',
     creditedAmountLine: 'Credits {amount}',
-    bonusLine: 'Monthly first top-up bonus {amount}',
+    bonusLine: 'Monthly first-purchase bonus {amount}',
     bonusClaimedLine: 'Claimed this month, principal only',
     noBonusLine: 'No extra bonus',
-    bonusAmount: 'Bonus credit',
+    bonusAmount: 'Bonus credits',
     bonusAlreadyClaimedSummary: 'Already claimed',
     newUserDeal: 'New user',
     orderSummary: 'Order Summary',
-    rechargeAmount: 'Recharge credit',
+    rechargeAmount: 'Purchase amount',
     totalPayable: 'Total due',
     paySecurely: 'Pay Securely',
     plansTitle: 'Subscriptions',
@@ -623,7 +624,7 @@ const pricingCatalog = {
       },
       balance: {
         title: 'Flexible credit',
-        body: 'Top-up credit is added to your account balance and remains valid until it is consumed.',
+        body: 'Purchased credits are added to your account credits and remain valid until consumed.',
       },
       upgrade: {
         title: 'How do I upgrade?',
@@ -942,7 +943,7 @@ function formatMembershipDate(value: string): string {
 
 function formatRechargeCreditAmount(value: number): string {
   const amount = Number.isFinite(value) ? value : 0
-  return `$${amount.toFixed(2)} USD`
+  return formatCreditAmount(amount)
 }
 
 const membershipCurrentLabel = computed(() => {
@@ -1115,9 +1116,9 @@ function planFeatureList(plan: SubscriptionPlan): string[] {
   const weeklyLimit = displaySubscriptionLimit(plan.weekly_limit_usd)
   const monthlyLimit = displaySubscriptionLimit(plan.monthly_limit_usd)
   const dailyLimit = displaySubscriptionLimit(plan.daily_limit_usd)
-  if (weeklyLimit != null) features.push(pt('feature.weeklyQuota', { amount: `$${weeklyLimit}` }))
-  if (monthlyLimit != null) features.push(pt('feature.monthlyQuota', { amount: `$${monthlyLimit}` }))
-  if (dailyLimit != null) features.push(pt('feature.dailyQuota', { amount: `$${dailyLimit}` }))
+  if (weeklyLimit != null) features.push(pt('feature.weeklyQuota', { amount: formatCreditAmount(weeklyLimit) }))
+  if (monthlyLimit != null) features.push(pt('feature.monthlyQuota', { amount: formatCreditAmount(monthlyLimit) }))
+  if (dailyLimit != null) features.push(pt('feature.dailyQuota', { amount: formatCreditAmount(dailyLimit) }))
   if (plan.rate_multiplier != null && plan.rate_multiplier !== 1) {
     features.push(pt('feature.discountRate', { rate: plan.rate_multiplier }))
   }

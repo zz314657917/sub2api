@@ -35,7 +35,7 @@
         </div>
         <div class="mt-1 flex justify-between text-sm">
           <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.creditedAmount') }}</span>
-          <span class="font-medium text-gray-900 dark:text-white">{{ order?.order_type === 'balance' ? '$' : '¥' }}{{ order?.amount?.toFixed(2) }}</span>
+          <span class="font-medium text-gray-900 dark:text-white">{{ formatCreditedAmount(order) }}</span>
         </div>
         <div class="mt-1 flex justify-between text-sm">
           <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</span>
@@ -66,11 +66,11 @@
         <div v-if="form.deduct_balance && userBalance != null" class="mt-3 grid grid-cols-2 gap-3">
           <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-700">
             <div class="text-gray-500 dark:text-gray-400">{{ t('payment.admin.userBalance') }}</div>
-            <div class="mt-1 font-semibold text-gray-900 dark:text-white">${{ userBalance.toFixed(2) }}</div>
+            <div class="mt-1 font-semibold text-gray-900 dark:text-white">{{ formatCreditAmount(userBalance) }}</div>
           </div>
           <div class="rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-700">
             <div class="text-gray-500 dark:text-gray-400">{{ t('payment.admin.orderAmount') }}</div>
-            <div class="mt-1 font-semibold text-gray-900 dark:text-white">{{ order?.order_type === 'balance' ? '$' : '¥' }}{{ order?.amount?.toFixed(2) }}</div>
+            <div class="mt-1 font-semibold text-gray-900 dark:text-white">{{ formatCreditedAmount(order) }}</div>
           </div>
         </div>
 
@@ -169,6 +169,7 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import type { PaymentOrder } from '@/types/payment'
 import { formatOrderDateTime } from '@/components/payment/orderUtils'
+import { formatCreditAmount } from '@/utils/credits'
 
 const { t } = useI18n()
 
@@ -228,6 +229,13 @@ watch(() => props.show, (val) => {
 
 function formatDateTime(dateStr: string): string {
   return formatOrderDateTime(dateStr)
+}
+
+function formatCreditedAmount(order: PaymentOrder | null | undefined): string {
+  if (!order) return formatCreditAmount(0)
+  return order.order_type === 'balance'
+    ? formatCreditAmount(order.amount)
+    : `¥${order.amount.toFixed(2)}`
 }
 
 function handleSubmit() {

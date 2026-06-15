@@ -44,7 +44,7 @@ export default {
     enabled: '已启用',
     disabled: '已禁用',
     total: '总计',
-    balance: '余额',
+    balance: '积分',
     available: '可用',
     copiedToClipboard: '已复制到剪贴板',
     copied: '已复制',

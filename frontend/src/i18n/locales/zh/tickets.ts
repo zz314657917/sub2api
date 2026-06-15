@@ -40,9 +40,9 @@ export default {
   adminSender: '管理员',
   unread: '{count} 条未读',
   actions: {
-    paymentCompleted: '查看订单/充值',
+    paymentCompleted: '查看订单/购买',
     affiliateReward: '查看邀请奖励',
-    welfareReward: '领取福利额度',
+    welfareReward: '领取福利积分',
     groupChanged: '查看账号/套餐信息',
   },
   metadata: {

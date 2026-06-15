@@ -165,7 +165,37 @@ describe('KeysView create query', () => {
     ])
   })
 
-  it('auto preset enables multi-group routing and generates routes from available groups', async () => {
+  it('optimal preset is the default and generates equal-priority routes from available groups', async () => {
+    availableGroups.mockResolvedValue([
+      groupFixture(1, 'OpenAI', 1),
+      groupFixture(2, 'Gemini', 1.2),
+      groupFixture(3, 'Image', 1, { routing_scope: 'image' }),
+    ])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.openCreateModal()
+    setupState.formData.name = 'Optimal Key'
+
+    await setupState.handleSubmit()
+
+    const routes = keysCreate.mock.calls[0][8]
+    expect(routes.map((route: { group_id: number; priority: number; weight: number }) => ({
+      group_id: route.group_id,
+      priority: route.priority,
+      weight: route.weight,
+      text_only: route.text_only,
+      image_only: route.image_only,
+    }))).toEqual([
+      { group_id: 1, priority: 1, weight: 1, text_only: true, image_only: undefined },
+      { group_id: 2, priority: 1, weight: 1, text_only: true, image_only: undefined },
+      { group_id: 3, priority: 1, weight: 1, text_only: undefined, image_only: true },
+    ])
+  })
+
+  it('auto preset remains compatible with equal-priority scoped routes', async () => {
     availableGroups.mockResolvedValue([
       groupFixture(1, 'OpenAI', 1),
       groupFixture(2, 'Gemini', 1.2),
@@ -178,6 +208,7 @@ describe('KeysView create query', () => {
     const setupState = (wrapper.vm as any).$?.setupState
     setupState.openCreateModal()
     setupState.formData.name = 'Auto Key'
+    setupState.applyRoutingPreset('auto')
 
     await setupState.handleSubmit()
 

@@ -40,7 +40,7 @@ export default {
   adminSender: 'Admin',
   unread: '{count} unread',
   actions: {
-    paymentCompleted: 'View orders / recharge',
+    paymentCompleted: 'View orders / purchase',
     affiliateReward: 'View affiliate rewards',
     welfareReward: 'Claim welfare quota',
     groupChanged: 'View account / plan info',

@@ -28,7 +28,7 @@
           <div class="flex-shrink-0 text-right">
             <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.users.currentBalance') }}</p>
             <p class="text-xl font-bold text-gray-900 dark:text-white">
-              ${{ user.balance?.toFixed(2) || '0.00' }}
+              {{ formatCreditAmount(user.balance || 0) }}
             </p>
           </div>
         </div>
@@ -39,8 +39,88 @@
             <template v-else>&nbsp;</template>
           </p>
           <p class="ml-4 flex-shrink-0 text-xs text-gray-500 dark:text-dark-400">
-            {{ t('admin.users.totalRecharged') }}: <span class="font-semibold text-emerald-600 dark:text-emerald-400">${{ totalRecharged.toFixed(2) }}</span>
+            {{ t('admin.users.totalRecharged') }}: <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ formatCreditAmount(totalRecharged) }}</span>
           </p>
+        </div>
+      </div>
+
+      <!-- Recent usage -->
+      <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-600 dark:bg-dark-800">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.users.recentUsageRecords') }}
+            </h4>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">
+              {{ t('admin.users.recentUsageRecordsHint') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            :disabled="usageLoading"
+            class="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-dark-300 dark:hover:bg-dark-700 dark:hover:text-white"
+            :title="t('common.refresh')"
+            @click="loadRecentUsage"
+          >
+            <Icon name="refresh" size="sm" :class="usageLoading ? 'animate-spin' : ''" />
+          </button>
+        </div>
+
+        <div v-if="usageLoading" class="flex items-center justify-center py-5">
+          <svg class="h-6 w-6 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        </div>
+
+        <div v-else-if="usageError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-300">
+          {{ usageError }}
+        </div>
+
+        <div v-else-if="recentUsage.length === 0" class="py-4 text-center">
+          <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.users.noRecentUsageRecords') }}</p>
+        </div>
+
+        <div v-else class="space-y-2">
+          <div
+            v-for="log in recentUsage"
+            :key="log.id"
+            class="rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-700/60"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 items-start gap-3">
+                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-sky-100 text-sky-600 dark:bg-sky-900/30 dark:text-sky-300">
+                  <Icon name="beaker" size="sm" />
+                </div>
+                <div class="min-w-0">
+                  <div class="flex min-w-0 flex-wrap items-center gap-2">
+                    <p class="max-w-[20rem] truncate text-sm font-medium text-gray-900 dark:text-white" :title="log.model || t('usage.unknown')">
+                      {{ log.model || t('usage.unknown') }}
+                    </p>
+                    <span :class="['rounded px-1.5 py-0.5 text-[11px] font-medium', getUsageTypeBadgeClass(log)]">
+                      {{ getUsageTypeLabel(log) }}
+                    </span>
+                  </div>
+                  <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-dark-400">
+                    <span>{{ formatDateTime(log.created_at) }}</span>
+                    <span>{{ t('usage.tokens') }}: {{ formatTokens(getUsageTotalTokens(log)) }}</span>
+                    <span>{{ t('usage.duration') }}: {{ formatDuration(log.duration_ms) }}</span>
+                    <span v-if="log.api_key?.name" class="max-w-[12rem] truncate" :title="log.api_key.name">
+                      {{ t('usage.apiKeyFilter') }}: {{ log.api_key.name }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex-shrink-0 text-right">
+                <p class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">
+                  {{ formatUsageCost(log.actual_cost) }}
+                </p>
+                <p v-if="log.total_cost !== log.actual_cost" class="text-xs text-gray-400 line-through dark:text-dark-500">
+                  {{ formatUsageCost(log.total_cost) }}
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -173,7 +253,9 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI, type BalanceHistoryItem } from '@/api/admin'
 import { formatDateTime } from '@/utils/format'
-import type { AdminUser } from '@/types'
+import { formatCreditAmount } from '@/utils/credits'
+import { resolveUsageRequestType } from '@/utils/usageRequestType'
+import type { AdminUsageLog, AdminUser } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -184,10 +266,14 @@ const { t } = useI18n()
 
 const history = ref<BalanceHistoryItem[]>([])
 const loading = ref(false)
+const usageLoading = ref(false)
+const usageError = ref('')
 const currentPage = ref(1)
 const total = ref(0)
 const totalRecharged = ref(0)
+const recentUsage = ref<AdminUsageLog[]>([])
 const pageSize = 15
+const recentUsageLimit = 5
 const typeFilter = ref('')
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize) || 1)
@@ -206,11 +292,12 @@ const typeOptions = computed(() => [
   { value: 'subscription', label: t('admin.users.typeSubscription') }
 ])
 
-// Watch modal open
-watch(() => props.show, (v) => {
-  if (v && props.user) {
+// Watch modal open or selected user switch.
+watch(() => [props.show, props.user?.id] as const, ([show, id], [prevShow, prevId]) => {
+  if (show && id && (!prevShow || id !== prevId)) {
     typeFilter.value = ''
     loadHistory(1)
+    loadRecentUsage()
   }
 })
 
@@ -233,6 +320,74 @@ const loadHistory = async (page: number) => {
   } finally {
     loading.value = false
   }
+}
+
+const loadRecentUsage = async () => {
+  if (!props.user) return
+  usageLoading.value = true
+  usageError.value = ''
+  try {
+    const res = await adminAPI.usage.list({
+      user_id: props.user.id,
+      page: 1,
+      page_size: recentUsageLimit,
+      sort_by: 'created_at',
+      sort_order: 'desc'
+    })
+    recentUsage.value = res.items || []
+  } catch (error) {
+    console.error('Failed to load recent usage:', error)
+    recentUsage.value = []
+    usageError.value = t('admin.users.failedToLoadRecentUsage')
+  } finally {
+    usageLoading.value = false
+  }
+}
+
+const toFiniteNumber = (value: unknown): number => {
+  const numeric = Number(value)
+  return Number.isFinite(numeric) ? numeric : 0
+}
+
+const formatUsageCost = (value: unknown): string =>
+  formatCreditAmount(toFiniteNumber(value), {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  })
+
+const formatTokens = (value: number): string => {
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`
+  return value.toLocaleString()
+}
+
+const formatDuration = (ms: number | null | undefined): string => {
+  if (ms == null) return '-'
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(2)}s`
+}
+
+const getUsageTotalTokens = (log: AdminUsageLog): number => (
+  toFiniteNumber(log.input_tokens) +
+  toFiniteNumber(log.output_tokens) +
+  toFiniteNumber(log.cache_creation_tokens) +
+  toFiniteNumber(log.cache_read_tokens)
+)
+
+const getUsageTypeLabel = (log: AdminUsageLog): string => {
+  const requestType = resolveUsageRequestType(log)
+  if (requestType === 'ws_v2') return t('usage.ws')
+  if (requestType === 'stream') return t('usage.stream')
+  if (requestType === 'sync') return t('usage.sync')
+  return t('usage.unknown')
+}
+
+const getUsageTypeBadgeClass = (log: AdminUsageLog): string => {
+  const requestType = resolveUsageRequestType(log)
+  if (requestType === 'ws_v2') return 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-200'
+  if (requestType === 'stream') return 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-200'
+  if (requestType === 'sync') return 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+  return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-200'
 }
 
 // Helper: check if admin type
@@ -319,8 +474,11 @@ const getItemTitle = (item: BalanceHistoryItem) => {
 // Format display value
 const formatValue = (item: BalanceHistoryItem) => {
   if (isBalanceType(item.type)) {
-    const sign = item.value >= 0 ? '+' : ''
-    return `${sign}$${item.value.toFixed(2)}`
+    return formatCreditAmount(item.value, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+      signDisplay: 'always',
+    })
   }
   if (isSubscriptionType(item.type)) {
     const days = item.validity_days || Math.round(item.value)

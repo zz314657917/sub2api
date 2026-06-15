@@ -44,7 +44,7 @@ export default {
     enabled: 'Enabled',
     disabled: 'Disabled',
     total: 'Total',
-    balance: 'Balance',
+    balance: 'Credits',
     available: 'Available',
     copiedToClipboard: 'Copied to clipboard',
     copied: 'Copied',

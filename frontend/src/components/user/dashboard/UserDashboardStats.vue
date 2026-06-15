@@ -27,6 +27,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
+import { formatCreditAmount } from '@/utils/credits'
 import type { UserDashboardStats as UserStatsType } from '@/api/usage'
 
 type TrendIcon = 'trendingUp' | 'arrowDown' | 'checkCircle'
@@ -44,10 +45,10 @@ const formatCompact = (value: number): string =>
   }).format(Number(value) || 0)
 
 const formatCost = (value: number): string =>
-  `$${new Intl.NumberFormat(undefined, {
+  formatCreditAmount(value, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 4,
-  }).format(Number(value) || 0)}`
+  })
 
 const formatPercent = (value: number): string =>
   `${new Intl.NumberFormat(undefined, {

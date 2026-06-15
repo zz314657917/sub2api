@@ -20,6 +20,8 @@ export default {
     defaultKeyHint: '创作台默认使用这把 API Key；可修改分组或模型路由来切换模型。',
     defaultKeyStudioNote: '创作台默认调用，可改分组或模型路由切换模型。',
     defaultKeyDeleteDisabled: '默认 API Key 不能删除，可修改它的分组或模型路由。',
+    unifiedKeyBadge: '统一 API',
+    unifiedKeyHint: '这把 Key 已覆盖聊天、生图和视频路由，可用 OpenAI 兼容 Base URL 调用多类模型。',
     apiKey: 'API 密钥',
     group: '分组',
     noGroup: '无分组',
@@ -58,6 +60,10 @@ export default {
     manualRouteSelection: '手动选择分组',
     clickToEditSmartRouting: '点击编辑智能分组',
     routingPreset: {
+      optimal: {
+        title: '综合最优',
+        description: '动态平衡价格、成功率、速度和实时拥堵'
+      },
       auto: {
         title: '智能自动',
         description: '普通模型走通用分组，生图走允许生图的分组'
@@ -126,7 +132,7 @@ export default {
     usage: '用量',
     today: '今日',
     total: '近30天',
-    quota: '额度',
+    quota: '积分限额',
     lastUsedAt: '上次使用时间',
     useKey: '使用密钥',
     useKeyModal: {
@@ -140,7 +146,10 @@ export default {
         '此 API 密钥尚未分配分组，请先在密钥列表中点击分组列进行分配，然后才能查看使用配置。',
       smartRoutingTitle: '智能路由已启用',
       smartRoutingDescription:
-        '此密钥未绑定默认分组，会由运行时路由按模型和可用账号选择分组。可先使用下方 OpenAI 兼容配置；如调用失败，请联系管理员确认可用路由、套餐或余额。',
+        '此密钥未绑定默认分组，会由运行时路由按模型和可用账号选择分组。可先使用下方 OpenAI 兼容配置；如调用失败，请联系管理员确认可用路由、套餐或积分。',
+      unifiedAccessTitle: '统一 API Key',
+      unifiedAccessDescription:
+        '同一把 Key 可通过 OpenAI 兼容入口调用聊天、生图和视频模型；实际分组由模型名和路由规则自动选择。',
       openai: {
         description: '将以下配置文件添加到 Codex CLI 配置目录中。',
         configTomlHint: '请确保以下内容位于 config.toml 文件的开头部分',
@@ -201,33 +210,33 @@ export default {
       geminiCliDesc: '导入为 Gemini CLI 配置'
     },
     // 配额和有效期
-    quotaSettings: '额度设置',
-    quotaSettingsHint: '设置令牌可用额度和已用额度管理。',
-    unlimitedQuota: '无限额度',
+    quotaSettings: '积分限额设置',
+    quotaSettingsHint: '设置令牌可用积分和已用积分管理。',
+    unlimitedQuota: '无限积分',
     advancedSettings: '高级设置',
     advancedSettingsHint: '配置账号池、手动路由、IP、限速和过期时间。',
-    quotaLimit: '额度限制',
-    quotaAmount: '额度金额 (USD)',
-    quotaAmountPlaceholder: '输入 USD 额度限制',
-    quotaAmountHint: '设置此密钥可消费的最大金额。0 = 无限制。',
-    quotaUsed: '已用额度',
+    quotaLimit: '积分限制',
+    quotaAmount: '积分限额',
+    quotaAmountPlaceholder: '输入积分限额',
+    quotaAmountHint: '设置此密钥可消费的最大积分。0 = 无限制。',
+    quotaUsed: '已用积分',
     reset: '重置',
-    resetQuotaUsed: '将已用额度重置为 0',
-    resetQuotaTitle: '确认重置额度',
-    resetQuotaConfirmMessage: '确定要将密钥 "{name}" 的已用额度（${used}）重置为 0 吗？此操作不可撤销。',
-    quotaResetSuccess: '额度重置成功',
-    failedToResetQuota: '重置额度失败',
+    resetQuotaUsed: '将已用积分重置为 0',
+    resetQuotaTitle: '确认重置积分用量',
+    resetQuotaConfirmMessage: '确定要将密钥 "{name}" 的已用积分（{used}）重置为 0 吗？此操作不可撤销。',
+    quotaResetSuccess: '积分用量重置成功',
+    failedToResetQuota: '重置积分用量失败',
     rateLimitColumn: '速率限制',
     rateLimitSection: '速率限制',
     resetUsage: '重置',
-    rateLimit5h: '5小时限额 (USD)',
-    rateLimit1d: '日限额 (USD)',
-    rateLimit7d: '7天限额 (USD)',
-    rateLimitHint: '设置此密钥在指定时间窗口内的最大消费额。0 = 无限制。',
+    rateLimit5h: '5小时积分限额',
+    rateLimit1d: '日积分限额',
+    rateLimit7d: '7天积分限额',
+    rateLimitHint: '设置此密钥在指定时间窗口内的最大积分消耗。0 = 无限制。',
     rateLimitUsage: '速率限制用量',
     resetRateLimitUsage: '重置速率限制用量',
     resetRateLimitTitle: '确认重置速率限制',
-    resetRateLimitConfirmMessage: '确定要重置密钥 "{name}" 的速率限制用量吗？所有时间窗口的已用额度将归零。此操作不可撤销。',
+    resetRateLimitConfirmMessage: '确定要重置密钥 "{name}" 的速率限制用量吗？所有时间窗口的已用积分将归零。此操作不可撤销。',
     rateLimitResetSuccess: '速率限制已重置',
     failedToResetRateLimit: '重置速率限制失败',
     resetNow: '即将重置',
@@ -243,7 +252,7 @@ export default {
     status: {
       active: '活跃',
       inactive: '已停用',
-      quota_exhausted: '额度耗尽',
+      quota_exhausted: '积分耗尽',
       expired: '已过期'
     }
   }

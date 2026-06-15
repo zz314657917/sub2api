@@ -20,6 +20,44 @@
         </div>
       </div>
 
+      <div
+        v-if="unifiedAccess"
+        class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800/60 dark:bg-emerald-900/20"
+      >
+        <div class="flex items-start gap-3">
+          <Icon name="sparkles" size="md" class="mt-0.5 flex-shrink-0 text-emerald-600 dark:text-emerald-300" />
+          <div class="min-w-0">
+            <p class="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+              {{ t('keys.useKeyModal.unifiedAccessTitle') }}
+            </p>
+            <p class="mt-1 text-sm leading-5 text-emerald-700 dark:text-emerald-300">
+              {{ t('keys.useKeyModal.unifiedAccessDescription') }}
+            </p>
+          </div>
+        </div>
+        <div class="mt-3 space-y-3">
+          <div
+            v-for="(file, index) in unifiedAccessFiles"
+            :key="file.path"
+            class="overflow-hidden rounded-lg bg-gray-900"
+          >
+            <div class="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-3 py-2">
+              <span class="text-xs font-mono text-gray-400">{{ file.path }}</span>
+              <button
+                @click="copyContent(file.content, 1000 + index)"
+                class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-colors"
+                :class="copiedIndex === 1000 + index
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'"
+              >
+                {{ copiedIndex === 1000 + index ? t('keys.useKeyModal.copied') : t('keys.useKeyModal.copy') }}
+              </button>
+            </div>
+            <pre class="overflow-x-auto p-3 text-xs font-mono text-gray-100"><code v-text="file.content"></code></pre>
+          </div>
+        </div>
+      </div>
+
       <!-- Platform-specific content -->
       <p class="text-sm text-gray-600 dark:text-gray-400">
         {{ platformDescription }}
@@ -143,6 +181,7 @@ interface Props {
   baseUrl: string
   platform: GroupPlatform | null
   allowMessagesDispatch?: boolean
+  unifiedAccess?: boolean
 }
 
 interface Emits {
@@ -172,6 +211,7 @@ const copiedIndex = ref<number | null>(null)
 const activeTab = ref<string>('unix')
 const activeClientTab = ref<string>('codex')
 const effectivePlatform = computed<GroupPlatform>(() => props.platform ?? 'openai')
+const unifiedAccess = computed(() => props.unifiedAccess === true)
 
 // Reset tabs when platform changes
 const defaultClientTab = computed(() => {
@@ -431,6 +471,35 @@ const currentFiles = computed((): FileConfig[] => {
     default:
       return generateAnthropicFiles(baseUrl, apiKey)
   }
+})
+
+const unifiedAccessFiles = computed((): FileConfig[] => {
+  const baseRoot = normalizeBaseUrl(props.baseUrl || window.location.origin)
+  const apiBase = baseRoot.replace(/\/v1\/?$/, '').replace(/\/+$/, '') + '/v1'
+  const apiKey = props.apiKey
+  return [
+    {
+      path: 'Chat Completions',
+      content: `curl ${apiBase}/chat/completions \\
+  -H "Authorization: Bearer ${apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"gpt-5.4","messages":[{"role":"user","content":"Hello"}]}'`
+    },
+    {
+      path: 'Image Generations',
+      content: `curl ${apiBase}/images/generations \\
+  -H "Authorization: Bearer ${apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"gpt-image-2","prompt":"A clean product photo of a glass teapot"}'`
+    },
+    {
+      path: 'Video Generations',
+      content: `curl ${apiBase}/videos/generations \\
+  -H "Authorization: Bearer ${apiKey}" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"doubao-seedance-2-0-fast-480p","prompt":"A cinematic sunrise over a quiet mountain lake"}'`
+    }
+  ]
 })
 
 function generateAnthropicFiles(baseUrl: string, apiKey: string): FileConfig[] {
@@ -966,6 +1035,22 @@ function generateOpenCodeConfig(platform: string, baseUrl: string, apiKey: strin
     }
   }
   const claudeModels = {
+    'claude-fable-5': {
+      name: 'Claude Fable 5',
+      limit: {
+        context: 1048576,
+        output: 128000
+      },
+      modalities: {
+        input: ['text', 'image', 'pdf'],
+        output: ['text']
+      },
+      options: {
+        thinking: {
+          type: 'adaptive'
+        }
+      }
+    },
     'claude-opus-4-6-thinking': {
       name: 'Claude 4.6 Opus (Thinking)',
       limit: {

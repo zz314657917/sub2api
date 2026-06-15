@@ -34,50 +34,50 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.myRank': '我的排名',
     'leaderboard.emptyTitle': '暂无排名数据',
     'leaderboard.emptyDescription': '当前周期暂无可展示的使用记录',
-    'leaderboard.totalCost': '总消费',
+    'leaderboard.totalCost': '总积分消费',
     'leaderboard.totalRequests': '总请求',
     'leaderboard.totalTokens': '总 Token',
     'leaderboard.tokenRankingTitle': 'Token Top {count}',
     'leaderboard.tokenRankingDescription': '当前周期用量排行。',
     'leaderboard.user': '用户',
-    'leaderboard.cost': '消费',
+    'leaderboard.cost': '积分消费',
     'leaderboard.requests': '请求',
     'leaderboard.tokens': 'Token',
     'leaderboard.inputTokensShort': '输入',
     'leaderboard.outputTokensShort': '输出',
-    'leaderboard.costPerMillionShort': '费用',
+    'leaderboard.costPerMillionShort': '积分',
     'leaderboard.recentTokenTrend.title': '最近 10 天 Token',
     'leaderboard.recentTokenTrend.unit': '每日消耗',
     'leaderboard.recentTokenTrend.tokens': 'Token',
     'leaderboard.recentTokenTrend.empty': '暂无趋势数据',
-    'leaderboard.balance': '余额',
+    'leaderboard.balance': '积分',
     'leaderboard.rank': '排名',
     'leaderboard.myInfo': '我的信息',
-    'leaderboard.costEfficiencyKing': '⭐ 性价比之王',
+    'leaderboard.costEfficiencyKing': '⭐ 积分效率之王',
     'leaderboard.badges.weeklyTokenKing': '周榜 Token 最多',
     'leaderboard.badges.monthlyTokenKing': '月榜 Token 最多',
     'leaderboard.badges.totalTokenKing': '肝帝',
     'leaderboard.badges.nightOwl': '夜猫',
     'leaderboard.badges.burstTokenKing': '爆肝王',
     'leaderboard.badges.checkinKing': '打卡王',
-    'leaderboard.badges.costSaver': '1M Token 成本最低',
-    'leaderboard.badges.costBurner': '1M Token 成本最高',
+    'leaderboard.badges.costSaver': '1M Token 积分消耗最低',
+    'leaderboard.badges.costBurner': '1M Token 积分消耗最高',
     'leaderboard.generatedAt': '更新',
     'leaderboard.notRanked': '未上榜',
     'leaderboard.dailyReward.title': '每周排名奖励',
     'leaderboard.dailyReward.settlementDate': '结算周期',
-    'leaderboard.dailyReward.threshold': '上周总消费门槛',
-    'leaderboard.dailyReward.rewardAmount': '可领额度',
+    'leaderboard.dailyReward.threshold': '上周积分消费门槛',
+    'leaderboard.dailyReward.rewardAmount': '可领积分',
     'leaderboard.dailyReward.rewardAmountHidden': '按名次发放',
     'leaderboard.dailyReward.targetProgress': '奖励目标进度',
     'leaderboard.dailyReward.progress': '{current} / {target}',
     'leaderboard.dailyReward.progressPercent': '{percent}%',
     'leaderboard.dailyReward.disabled': '奖励功能暂未开启',
     'leaderboard.dailyReward.settling': '上周榜结算中，{time} 后可领取',
-    'leaderboard.dailyReward.thresholdNotMet': '上周总消费未超过最低开启门槛',
+    'leaderboard.dailyReward.thresholdNotMet': '上周积分消费未超过最低开启门槛',
     'leaderboard.dailyReward.notTopThree': '只有上周榜前三名可以领取',
-    'leaderboard.dailyReward.notRanked': '你上周暂无上榜消费',
-    'leaderboard.dailyReward.zeroReward': '当前名次奖励额度为 0',
+    'leaderboard.dailyReward.notRanked': '你上周暂无上榜积分消费',
+    'leaderboard.dailyReward.zeroReward': '当前名次奖励积分为 0',
     'leaderboard.dailyReward.eligible': '你已符合领取条件',
     'leaderboard.dailyReward.alreadyClaimed': '上周奖励已领取',
     'leaderboard.dailyReward.claim': '领取奖励',
@@ -409,7 +409,7 @@ describe('LeaderboardView', () => {
 
     expect(wrapper.findAll('[data-testid="leaderboard-badge-icon"]')).toHaveLength(0)
     expect(wrapper.get('[data-testid="leaderboard-token-ranking"]').text()).toContain('1M')
-    expect(wrapper.text()).not.toContain('⭐ 性价比之王')
+    expect(wrapper.text()).not.toContain('⭐ 积分效率之王')
   })
 
   it('renders token usage ranking bars as the main leaderboard', async () => {
@@ -470,10 +470,10 @@ describe('LeaderboardView', () => {
     expect(ranking.text()).toContain('2,000')
     expect(ranking.findAll('.leaderboard-token-bar-fill')).toHaveLength(2)
     const tokenBars = ranking.findAll('.leaderboard-token-bar-track')
-    expect(tokenBars[0].attributes('title')).toBe('输入 700 / 输出 200 / 费用 $10,000.00 / 1M Token')
-    expect(tokenBars[0].attributes('aria-label')).toBe('输入 700 / 输出 200 / 费用 $10,000.00 / 1M Token')
-    expect(tokenBars[1].attributes('title')).toBe('输入 1,500 / 输出 300 / 费用 $500.00 / 1M Token')
-    expect(tokenBars[1].attributes('aria-label')).toBe('输入 1,500 / 输出 300 / 费用 $500.00 / 1M Token')
+    expect(tokenBars[0].attributes('title')).toBe('输入 700 / 输出 200 / 积分 ✪ 10,000.00 / 1M Token')
+    expect(tokenBars[0].attributes('aria-label')).toBe('输入 700 / 输出 200 / 积分 ✪ 10,000.00 / 1M Token')
+    expect(tokenBars[1].attributes('title')).toBe('输入 1,500 / 输出 300 / 积分 ✪ 500.00 / 1M Token')
+    expect(tokenBars[1].attributes('aria-label')).toBe('输入 1,500 / 输出 300 / 积分 ✪ 500.00 / 1M Token')
     expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-bar-width: 84%')
     expect(wrapper.find('[data-testid="leaderboard-cost-efficiency-summary"]').exists()).toBe(false)
   })
@@ -714,8 +714,8 @@ describe('LeaderboardView', () => {
 
     expect(wrapper.find('[data-testid="leaderboard-daily-reward"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('每周排名奖励')
-    expect(wrapper.text()).toContain('上周总消费未超过最低开启门槛')
-    expect(wrapper.text()).not.toContain('上周总消费门槛')
+    expect(wrapper.text()).toContain('上周积分消费未超过最低开启门槛')
+    expect(wrapper.text()).not.toContain('上周积分消费门槛')
     expect(wrapper.text()).not.toContain('$80.00 / $100.00')
     expect(wrapper.text()).toContain('第 1 名奖励')
     expect(wrapper.text()).toContain('按名次发放')

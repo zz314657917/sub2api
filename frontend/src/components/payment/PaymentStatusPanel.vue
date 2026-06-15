@@ -22,7 +22,7 @@
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.amount') }}</span>
-                <span class="font-medium text-gray-900 dark:text-white">{{ paidOrder.order_type === 'balance' ? '$' + paidOrder.amount.toFixed(2) : formatGatewayAmount(paidOrder.amount) }}</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ formatOrderAmount(paidOrder) }}</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</span>
@@ -130,6 +130,7 @@ import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import { getPaymentPopupFeatures } from '@/components/payment/providerConfig'
 import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
+import { formatCreditAmount } from '@/utils/credits'
 import type { PaymentOrder } from '@/types/payment'
 import Icon from '@/components/icons/Icon.vue'
 import QRCode from 'qrcode'
@@ -216,6 +217,12 @@ const countdownDisplay = computed(() => {
 
 function formatGatewayAmount(value: number): string {
   return formatPaymentAmount(value, paymentCurrency.value, localeCode.value)
+}
+
+function formatOrderAmount(order: PaymentOrder): string {
+  return order.order_type === 'balance'
+    ? formatCreditAmount(order.amount)
+    : formatGatewayAmount(order.amount)
 }
 
 function isSuccessStatus(status: string | null | undefined): boolean {

@@ -8,7 +8,7 @@ export default {
       allStatus: 'All Status',
       columns: {
         code: 'Code',
-        bonusAmount: 'Bonus Amount',
+        bonusAmount: 'Bonus Credits',
         maxUses: 'Max Uses',
         usedCount: 'Used',
         usage: 'Usage',
@@ -21,7 +21,7 @@ export default {
       code: 'Promo Code',
       autoGenerate: 'auto-generate if empty',
       codePlaceholder: 'Enter promo code or leave empty',
-      bonusAmount: 'Bonus Amount ($)',
+      bonusAmount: 'Bonus Credits',
       maxUses: 'Max Uses',
       zeroUnlimited: '0 = unlimited',
       expiresAt: 'Expires At',
@@ -42,7 +42,7 @@ export default {
       copied: 'Copied!',
       // Messages
       noCodesYet: 'No promo codes yet',
-      createFirstCode: 'Create your first promo code to offer registration bonuses.',
+      createFirstCode: 'Create your first promo code to offer registration credit bonuses.',
       codeCreated: 'Promo code created successfully',
       codeUpdated: 'Promo code updated successfully',
       codeDeleted: 'Promo code deleted successfully',

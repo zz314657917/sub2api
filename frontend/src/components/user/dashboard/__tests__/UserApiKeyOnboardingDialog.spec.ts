@@ -16,21 +16,21 @@ vi.mock('vue-i18n', () => ({
         'dashboard.onboarding.descriptionWithKey': '系统已为您创建默认 API 密钥。',
         'dashboard.onboarding.badge': '新用户接入引导',
         'dashboard.onboarding.trialBadge': '新人福利',
-        'dashboard.onboarding.trialTitle': '首次调用后领免费额度',
-        'dashboard.onboarding.trialDescription': '创建 API 密钥后发起首次调用，API 专用试用额度会自动启用并抵扣，无需先充值。',
-        'dashboard.onboarding.trialDescriptionWithKey': '默认 API 密钥已准备好，发起首次调用后 API 专用试用额度会自动启用并抵扣，无需先充值。',
-        'dashboard.onboarding.balanceDescription': '账户余额已发放到账号，创建 API 密钥后即可开始调用，系统会按实际消耗自动扣减。',
-        'dashboard.onboarding.balanceDescriptionWithKey': '账户余额已发放到账号，使用默认 API 密钥即可开始调用，系统会按实际消耗自动扣减。',
-        'dashboard.onboarding.rewardDescription': '创建 API 密钥并完成一次真实调用后，到福利中心领取免费额度。',
-        'dashboard.onboarding.rewardDescriptionWithKey': '使用默认 API 密钥完成一次真实调用后，到福利中心领取免费额度。',
-        'dashboard.onboarding.trialQuotaFallback': 'API 试用额度',
-        'dashboard.onboarding.trialQuotaAmount': '0.1 API 试用额度',
-        'dashboard.onboarding.balanceFallback': '账户余额',
-        'dashboard.onboarding.balanceAmount': '0.1 账户余额',
-        'dashboard.onboarding.rewardFallback': '免费额度',
-        'dashboard.onboarding.rewardAmount': '1 免费额度',
-        'dashboard.onboarding.walletNotice': 'API 专用试用额度仅用于调用，不会显示为钱包余额。',
-        'dashboard.onboarding.walletBalanceNotice': '可在钱包余额中查看，调用时按实际消耗扣减。',
+        'dashboard.onboarding.trialTitle': '首次调用后领免费积分',
+        'dashboard.onboarding.trialDescription': '创建 API 密钥后发起首次调用，API 专用试用积分会自动启用并抵扣，无需先购买积分。',
+        'dashboard.onboarding.trialDescriptionWithKey': '默认 API 密钥已准备好，发起首次调用后 API 专用试用积分会自动启用并抵扣，无需先购买积分。',
+        'dashboard.onboarding.balanceDescription': '账户积分已发放到账号，创建 API 密钥后即可开始调用，系统会按实际消耗自动扣减。',
+        'dashboard.onboarding.balanceDescriptionWithKey': '账户积分已发放到账号，使用默认 API 密钥即可开始调用，系统会按实际消耗自动扣减。',
+        'dashboard.onboarding.rewardDescription': '创建 API 密钥并完成一次真实调用后，到福利中心领取免费积分。',
+        'dashboard.onboarding.rewardDescriptionWithKey': '使用默认 API 密钥完成一次真实调用后，到福利中心领取免费积分。',
+        'dashboard.onboarding.trialQuotaFallback': 'API 试用积分',
+        'dashboard.onboarding.trialQuotaAmount': '0.1 API 试用积分',
+        'dashboard.onboarding.balanceFallback': '账户积分',
+        'dashboard.onboarding.balanceAmount': '0.1 账户积分',
+        'dashboard.onboarding.rewardFallback': '免费积分',
+        'dashboard.onboarding.rewardAmount': '1 免费积分',
+        'dashboard.onboarding.walletNotice': 'API 专用试用积分仅用于调用，不会显示为账户积分。',
+        'dashboard.onboarding.walletBalanceNotice': '可在账户积分中查看，调用时按实际消耗扣减。',
         'dashboard.onboarding.pillAutoActivate': '首调用自动抵扣',
         'dashboard.onboarding.pillBalanceDeduct': '调用自动扣减',
         'dashboard.onboarding.pillGpt55': 'GPT-5.5',
@@ -38,7 +38,7 @@ vi.mock('vue-i18n', () => ({
         'dashboard.onboarding.pillClaude': 'Claude',
         'dashboard.onboarding.pillOpenClaw': 'OpenClaw',
         'dashboard.onboarding.pillWelfareClaim': '福利中心领取',
-        'dashboard.onboarding.pillNoRecharge': '无需充值体验',
+        'dashboard.onboarding.pillNoRecharge': '无需购买体验',
         'dashboard.onboarding.createKey': '创建 API 密钥',
         'dashboard.onboarding.openKey': '查看 API 密钥',
         'dashboard.onboarding.joinGroup': '联系客服',
@@ -51,12 +51,12 @@ vi.mock('vue-i18n', () => ({
         'dashboard.onboarding.stepToolTitle': '接入工具',
         'dashboard.onboarding.stepToolDescription': '按教程配置工具。',
         'dashboard.onboarding.stepTrialTitle': '发起首次调用',
-        'dashboard.onboarding.stepTrialDescription': '发送一次真实请求，试用额度会自动启用并抵扣。',
-        'dashboard.onboarding.stepBalanceDescription': '使用新密钥发送一次真实请求，费用会从账户余额中扣减。',
+        'dashboard.onboarding.stepTrialDescription': '发送一次真实请求，试用积分会自动启用并抵扣。',
+        'dashboard.onboarding.stepBalanceDescription': '使用新密钥发送一次真实请求，费用会从账户积分中扣减。',
         'dashboard.onboarding.stepRewardCallDescription': '发送一次真实请求，完成领取条件。',
-        'dashboard.onboarding.stepRewardClaimTitle': '领取额度',
-        'dashboard.onboarding.stepRewardTitle': '领取 1 免费额度',
-        'dashboard.onboarding.stepRewardDescription': '到福利中心领取免费额度。',
+        'dashboard.onboarding.stepRewardClaimTitle': '领取积分',
+        'dashboard.onboarding.stepRewardTitle': '领取 1 免费积分',
+        'dashboard.onboarding.stepRewardDescription': '到福利中心领取免费积分。',
         'dashboard.onboarding.stepUsageTitle': '查看用量',
         'dashboard.onboarding.stepUsageDescription': '查看消费和调用记录。',
       }
@@ -81,8 +81,8 @@ describe('UserApiKeyOnboardingDialog', () => {
         hasApiKey: true,
         hasBenefit: true,
         benefitKind: 'reward',
-        benefitLabel: '1 免费额度',
-        benefitRewardLabel: '1 免费额度',
+        benefitLabel: '1 免费积分',
+        benefitRewardLabel: '1 免费积分',
       },
       global: {
         stubs: {
@@ -93,17 +93,17 @@ describe('UserApiKeyOnboardingDialog', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('首次调用后领免费额度')
-    expect(wrapper.text()).toContain('使用默认 API 密钥完成一次真实调用后，到福利中心领取免费额度')
+    expect(wrapper.text()).toContain('首次调用后领免费积分')
+    expect(wrapper.text()).toContain('使用默认 API 密钥完成一次真实调用后，到福利中心领取免费积分')
     expect(wrapper.text()).toContain('GPT-5.5')
     expect(wrapper.text()).toContain('Image2')
     expect(wrapper.text()).toContain('Claude')
     expect(wrapper.text()).toContain('OpenClaw')
-    expect(wrapper.text()).not.toContain('1 免费额度')
+    expect(wrapper.text()).not.toContain('1 免费积分')
     expect(wrapper.text()).not.toContain('首次调用成功后')
     expect(wrapper.text()).toContain('复制密钥')
     expect(wrapper.text()).toContain('发起首次调用')
-    expect(wrapper.text()).toContain('领取额度')
+    expect(wrapper.text()).toContain('领取积分')
     expect(wrapper.find('.pointer-events-none').exists()).toBe(true)
     expect(wrapper.find('.items-center.justify-center').exists()).toBe(true)
     expect(wrapper.find('img[src="/onboarding/new-user-trial-popup-header.png"]').exists()).toBe(true)

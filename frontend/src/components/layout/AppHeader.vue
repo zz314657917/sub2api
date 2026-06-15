@@ -74,7 +74,7 @@
         <div v-if="user" class="console-balance hidden items-center gap-2 px-3 py-1.5 sm:flex">
           <Icon name="dollar" size="sm" />
           <span class="text-sm font-semibold">
-            ${{ user.balance?.toFixed(2) || '0.00' }}
+            {{ formatCreditAmount(user.balance || 0) }}
           </span>
         </div>
 
@@ -118,7 +118,7 @@
                   {{ t('common.balance') }}
                 </div>
                 <div class="text-sm font-semibold text-emerald-200">
-                  ${{ user.balance?.toFixed(2) || '0.00' }}
+                  {{ formatCreditAmount(user.balance || 0) }}
                 </div>
               </div>
 
@@ -192,6 +192,7 @@ import Icon from '@/components/icons/Icon.vue'
 import { openSupportPopup } from '@/utils/supportPopup'
 import { hasSupportContent } from '@/utils/supportContent'
 import { useAnnouncementStore } from '@/stores/announcements'
+import { formatCreditAmount } from '@/utils/credits'
 import type { UserAnnouncement } from '@/types'
 
 const router = useRouter()

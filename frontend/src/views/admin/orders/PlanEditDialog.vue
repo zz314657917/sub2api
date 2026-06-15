@@ -133,7 +133,7 @@ const selectedGroupInfo = computed(() => {
 
 function formatLimit(value: number | null | undefined): string {
   const limit = displaySubscriptionLimit(value)
-  return limit != null ? `$${limit}` : t('payment.admin.unlimited')
+  return limit != null ? String(limit) : t('payment.admin.unlimited')
 }
 
 // Reset form when dialog opens

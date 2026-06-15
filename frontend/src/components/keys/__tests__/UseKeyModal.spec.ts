@@ -105,4 +105,118 @@ describe('UseKeyModal', () => {
     expect(codeText).toContain('base_url = "https://ai.3zapi.top"')
     expect(codeText).toContain('sk-smart')
   })
+
+  it('renders unified access examples when enabled', () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-unified',
+        baseUrl: 'https://ai.3zapi.top/v1',
+        platform: 'openai',
+        unifiedAccess: true
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('keys.useKeyModal.unifiedAccessTitle')
+    const codeText = wrapper.findAll('pre code').map((block) => block.text()).join('\n')
+    expect(codeText).toContain('/v1/chat/completions')
+    expect(codeText).toContain('/v1/images/generations')
+    expect(codeText).toContain('/v1/videos/generations')
+    expect(codeText).toContain('doubao-seedance-2-0-fast-480p')
+    expect(codeText).toContain('sk-unified')
+  })
+
+  it.each([
+    ['https://ai.3zapi.top', 'https://ai.3zapi.top/v1/chat/completions'],
+    ['https://ai.3zapi.top/v1', 'https://ai.3zapi.top/v1/chat/completions'],
+    ['https://ai.3zapi.top/v1/', 'https://ai.3zapi.top/v1/chat/completions'],
+    ['', 'http://localhost:3000/v1/chat/completions']
+  ])('normalizes unified access API base URL from %s', (baseUrl, expectedChatURL) => {
+    const originalLocation = window.location
+    Object.defineProperty(window, 'location', {
+      value: { ...originalLocation, origin: 'http://localhost:3000' },
+      configurable: true
+    })
+
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-unified',
+        baseUrl,
+        platform: 'openai',
+        unifiedAccess: true
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    const codeText = wrapper.findAll('pre code').map((block) => block.text()).join('\n')
+    expect(codeText).toContain(`curl ${expectedChatURL}`)
+    expect(codeText).not.toContain('/v1/v1/')
+
+    Object.defineProperty(window, 'location', {
+      value: originalLocation,
+      configurable: true
+    })
+  })
+
+  it('renders Claude Fable 5 OpenCode config with adaptive thinking', async () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-test',
+        baseUrl: 'https://example.com/v1',
+        platform: 'antigravity'
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    const opencodeTab = wrapper.findAll('button').find((button) =>
+      button.text().includes('keys.useKeyModal.cliTabs.opencode')
+    )
+
+    expect(opencodeTab).toBeDefined()
+    await opencodeTab!.trigger('click')
+    await nextTick()
+
+    const claudeConfig = wrapper.findAll('pre code')
+      .map((code) => code.text())
+      .find((content) => content.includes('"antigravity-claude"'))
+
+    expect(claudeConfig).toBeDefined()
+    const parsed = JSON.parse(claudeConfig!)
+    const fable = parsed.provider['antigravity-claude'].models['claude-fable-5']
+
+    expect(fable.name).toBe('Claude Fable 5')
+    expect(fable.limit).toEqual({ context: 1048576, output: 128000 })
+    expect(fable.options.thinking).toEqual({ type: 'adaptive' })
+    expect(fable.options.thinking).not.toHaveProperty('budgetTokens')
+  })
 })

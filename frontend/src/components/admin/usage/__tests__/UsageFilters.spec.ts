@@ -34,7 +34,7 @@ const messages: Record<string, string> = {
   'admin.usage.allGroups': 'All Groups',
   'admin.usage.allTypes': 'All Types',
   'admin.usage.allBillingTypes': 'All Billing Types',
-  'admin.usage.billingTypeBalance': 'Balance',
+  'admin.usage.billingTypeBalance': 'Credits',
   'admin.usage.billingTypeSubscription': 'Subscription',
   'admin.usage.allBillingModes': 'All Billing Modes',
   'admin.usage.billingModeToken': 'Token',

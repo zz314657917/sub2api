@@ -25,7 +25,7 @@ export default {
     claimButton: 'Claim Trial',
     contactSupport: 'Contact Support',
     pricing: {
-      ctaRecharge: 'Recharge Now',
+      ctaRecharge: 'Buy Credits',
       ctaKey: 'Create API Key',
       formula: {
         label: 'Price calculation formula',
@@ -36,7 +36,7 @@ export default {
         sampleGroupValue: 'claude-stable',
         sampleRateLabel: 'Rate',
         sampleRateValue: '0.15x',
-        lead: 'Here, 1 CNY can be understood as 1 USD of official API quota; the actual balance cost depends on the group rate hit by the request.',
+        lead: 'Here, 1 CNY can be understood as 1 USD of official API quota; the actual credit cost depends on the group rate hit by the request.',
         note: 'For example, when a group rate is 0.15x, spending 0.150 CNY gives roughly the same callable usage as official $1 API usage. When switching groups, replace only the middle rate number.',
         references: 'Official pricing references',
         links: {
@@ -48,7 +48,7 @@ export default {
           base: {
             badge: 'Base mapping',
             value: '1 CNY = 1 USD',
-            desc: 'Map official dollar usage into the site balance unit first.'
+            desc: 'Map official dollar usage into the site credit unit first.'
           },
           rate: {
             badge: 'Apply group rate',
@@ -58,7 +58,7 @@ export default {
           cost: {
             badge: 'Actual cost',
             value: '0.150 CNY',
-            desc: 'This is the balance cost for equivalent official $1 usage.'
+            desc: 'This is the credit cost for equivalent official $1 usage.'
           },
           usage: {
             badge: 'Official usage',
@@ -71,7 +71,7 @@ export default {
         label: 'Pricing calculation support notes',
         recharge: {
           title: 'Lightweight trials',
-          desc: 'Use a small balance to run tutorials, scripts, and daily development work.'
+          desc: 'Use a small credit balance to run tutorials, scripts, and daily development work.'
         },
         groups: {
           title: 'Environment isolation',
@@ -79,7 +79,7 @@ export default {
         },
         usage: {
           title: 'Request traceability',
-          desc: 'Debug cost issues directly from model, group, and balance records.'
+          desc: 'Debug cost issues directly from model, group, and credit records.'
         }
       }
     },

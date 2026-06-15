@@ -130,7 +130,7 @@
 
           <template #cell-value="{ value, row }">
             <span class="text-sm font-medium text-gray-900 dark:text-white">
-              <template v-if="balanceRedeemValueTypes.has(String(row.type))">${{ value.toFixed(2) }}</template>
+              <template v-if="balanceRedeemValueTypes.has(String(row.type))">{{ formatCreditAmount(value) }}</template>
               <template v-else-if="row.type === 'subscription'">
                 {{ row.validity_days || 30 }} {{ t('admin.redeem.days') }}
                 <span v-if="row.group" class="ml-1 text-xs text-gray-500 dark:text-gray-400"
@@ -634,6 +634,7 @@ import Select from '@/components/common/Select.vue'
 import GroupBadge from '@/components/common/GroupBadge.vue'
 import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { formatCreditAmount } from '@/utils/credits'
 
 const { t } = useI18n()
 const appStore = useAppStore()

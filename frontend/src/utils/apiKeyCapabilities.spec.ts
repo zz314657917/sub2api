@@ -2,9 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   apiKeyGroups,
   apiKeyOpenAIImageGroups,
+  apiKeySupportsUnifiedAccess,
   apiKeySupportsChat,
   apiKeySupportsOpenAI,
   apiKeySupportsOpenAIImageGeneration,
+  apiKeySupportsVideoGeneration,
+  apiKeyVideoGroups,
   primaryAPIKeyGroupName,
   primaryAPIKeyImageGroupName,
 } from './apiKeyCapabilities'
@@ -84,7 +87,7 @@ describe('apiKeyCapabilities', () => {
         { group_id: 11, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true },
       ],
       route_groups: [
-        group({ id: 11, name: 'image', platform: 'openai', allow_image_generation: true }),
+        group({ id: 11, name: 'image', platform: 'openai', routing_scope: 'image', allow_image_generation: true }),
       ],
     })
 
@@ -115,7 +118,7 @@ describe('apiKeyCapabilities', () => {
   })
 
   it('deduplicates default and route groups', () => {
-    const sameGroup = group({ id: 11, name: 'image', platform: 'openai', allow_image_generation: true })
+    const sameGroup = group({ id: 11, name: 'image', platform: 'openai', routing_scope: 'image', allow_image_generation: true })
     const key = apiKey({
       group_id: 11,
       group: sameGroup,
@@ -136,7 +139,7 @@ describe('apiKeyCapabilities', () => {
         { group_id: 11, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true },
       ],
       route_groups: [
-        group({ id: 11, platform: 'openai', allow_image_generation: true }),
+        group({ id: 11, platform: 'openai', routing_scope: 'image', allow_image_generation: true }),
       ],
     })
 
@@ -186,5 +189,75 @@ describe('apiKeyCapabilities', () => {
     })
 
     expect(apiKeySupportsChat(key)).toBe(false)
+  })
+
+  it('detects video capability from routing scope only', () => {
+    const key = apiKey({
+      group_id: 10,
+      group: group({ id: 10, name: 'text', platform: 'openai', routing_scope: 'inference' }),
+      multi_group_routes: [
+        { group_id: 10, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, text_only: true },
+        { group_id: 11, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, model_patterns: ['sora-*'] },
+        { group_id: 12, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true },
+      ],
+      route_groups: [
+        group({ id: 11, name: 'sora', platform: 'openai', routing_scope: 'inference' }),
+        group({ id: 12, name: 'video', platform: 'openai', routing_scope: 'video' }),
+      ],
+    })
+
+    expect(apiKeyVideoGroups(key).map((item) => item.id)).toEqual([12])
+    expect(apiKeySupportsVideoGeneration(key)).toBe(true)
+  })
+
+  it('detects video capability from a single default video group', () => {
+    const key = apiKey({
+      group_id: 12,
+      group: group({ id: 12, name: 'video', platform: 'openai', routing_scope: 'video' }),
+      multi_group_routes: [],
+      route_groups: [],
+    })
+
+    expect(apiKeyVideoGroups(key).map((item) => item.id)).toEqual([12])
+    expect(apiKeySupportsVideoGeneration(key)).toBe(true)
+  })
+
+  it('does not count image or video scoped groups as chat capability', () => {
+    const key = apiKey({
+      group_id: 11,
+      group: group({ id: 11, name: 'image', platform: 'openai', routing_scope: 'image', allow_image_generation: true }),
+      multi_group_routes: [
+        { group_id: 12, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, model_patterns: ['doubao-seedance-*'] },
+      ],
+      route_groups: [
+        group({ id: 12, name: 'video', platform: 'openai', routing_scope: 'video' }),
+      ],
+    })
+
+    expect(apiKeySupportsChat(key)).toBe(false)
+    expect(apiKeySupportsOpenAIImageGeneration(key)).toBe(true)
+    expect(apiKeySupportsVideoGeneration(key)).toBe(true)
+    expect(apiKeySupportsUnifiedAccess(key)).toBe(false)
+  })
+
+  it('detects unified access when one active key covers chat image and video routes', () => {
+    const key = apiKey({
+      group_id: 10,
+      group: group({ id: 10, name: 'text', platform: 'openai', routing_scope: 'inference' }),
+      multi_group_routes: [
+        { group_id: 10, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, text_only: true },
+        { group_id: 11, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, image_only: true },
+        { group_id: 12, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, model_patterns: ['doubao-seedance-*'] },
+      ],
+      route_groups: [
+        group({ id: 11, name: 'image', platform: 'openai', routing_scope: 'image', allow_image_generation: true }),
+        group({ id: 12, name: 'video', platform: 'openai', routing_scope: 'video' }),
+      ],
+    })
+
+    expect(apiKeySupportsChat(key)).toBe(true)
+    expect(apiKeySupportsOpenAIImageGeneration(key)).toBe(true)
+    expect(apiKeySupportsVideoGeneration(key)).toBe(true)
+    expect(apiKeySupportsUnifiedAccess(key)).toBe(true)
   })
 })

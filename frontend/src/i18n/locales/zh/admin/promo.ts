@@ -8,7 +8,7 @@ export default {
       allStatus: '全部状态',
       columns: {
         code: '优惠码',
-        bonusAmount: '赠送金额',
+        bonusAmount: '赠送积分',
         maxUses: '最大使用次数',
         usedCount: '已使用',
         usage: '使用量',
@@ -21,7 +21,7 @@ export default {
       code: '优惠码',
       autoGenerate: '留空自动生成',
       codePlaceholder: '输入优惠码或留空',
-      bonusAmount: '赠送金额 ($)',
+      bonusAmount: '赠送积分',
       maxUses: '最大使用次数',
       zeroUnlimited: '0 = 无限制',
       expiresAt: '过期时间',
@@ -42,7 +42,7 @@ export default {
       copied: '已复制！',
       // 消息
       noCodesYet: '暂无优惠码',
-      createFirstCode: '创建您的第一个优惠码，为新用户提供注册奖励。',
+      createFirstCode: '创建您的第一个优惠码，为新用户提供注册积分奖励。',
       codeCreated: '优惠码创建成功',
       codeUpdated: '优惠码更新成功',
       codeDeleted: '优惠码删除成功',

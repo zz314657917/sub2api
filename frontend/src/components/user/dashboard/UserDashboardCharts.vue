@@ -87,6 +87,7 @@ import {
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { formatCreditAmount } from '@/utils/credits'
 import type { TrendDataPoint } from '@/types'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
@@ -302,7 +303,7 @@ const tooltipOptions = computed(() => ({
     label: (context: any) => {
       const value = Number(context.raw) || 0
       if (context.dataset.label === t('dashboard.actual') || context.dataset.label === t('dashboard.standard')) {
-        return `${context.dataset.label}: $${formatCost(value)}`
+        return `${context.dataset.label}: ${formatCost(value)}`
       }
       return `${context.dataset.label}: ${formatCompact(value)}`
     },
@@ -341,8 +342,8 @@ const formatCompact = (value: number): string =>
   }).format(Number(value) || 0)
 
 const formatCost = (value: number): string =>
-  new Intl.NumberFormat(undefined, {
+  formatCreditAmount(value, {
     minimumFractionDigits: Number(value) >= 1 ? 2 : 4,
     maximumFractionDigits: 4,
-  }).format(Number(value) || 0)
+  })
 </script>

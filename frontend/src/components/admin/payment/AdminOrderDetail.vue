@@ -31,7 +31,7 @@
         </div>
         <div v-if="order.amount !== order.pay_amount">
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.creditedAmount') }}</p>
-          <p class="text-sm font-medium text-gray-900 dark:text-white">{{ order.order_type === 'balance' ? '$' : '¥' }}{{ order.amount.toFixed(2) }}</p>
+          <p class="text-sm font-medium text-gray-900 dark:text-white">{{ formatCreditedAmount(order) }}</p>
         </div>
         <div>
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.paymentMethod') }}</p>
@@ -119,6 +119,7 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import type { PaymentOrder } from '@/types/payment'
 import { statusBadgeClass, canRefund as canRefundStatus, formatOrderDateTime } from '@/components/payment/orderUtils'
+import { formatCreditAmount } from '@/utils/credits'
 
 const { t } = useI18n()
 
@@ -127,7 +128,7 @@ const props = defineProps<{
   order: PaymentOrder | null
 }>()
 
-/** 充值金额 (base amount before fee) = pay_amount - fee = pay_amount / (1 + fee_rate/100) */
+/** 支付基础金额 (base amount before fee) = pay_amount - fee = pay_amount / (1 + fee_rate/100) */
 const baseAmount = computed(() => {
   if (!props.order) return 0
   const feeRate = Number(props.order.fee_rate) || 0
@@ -156,5 +157,11 @@ function canRefund(order: PaymentOrder): boolean {
 
 function formatDateTime(dateStr: string): string {
   return formatOrderDateTime(dateStr)
+}
+
+function formatCreditedAmount(order: PaymentOrder): string {
+  return order.order_type === 'balance'
+    ? formatCreditAmount(order.amount)
+    : `¥${order.amount.toFixed(2)}`
 }
 </script>

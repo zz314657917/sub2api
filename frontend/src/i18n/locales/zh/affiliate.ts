@@ -1,7 +1,7 @@
 export default {
     title: '邀请赚钱',
-    description: '邀请好友注册并调用任意 API 后，即可领取固定奖励，后续充值还可按比例继续累积。',
-    descriptionWithReward: '邀请好友注册并调用任意 API 后，即可领取 {amount}，后续充值还可按比例继续累积。',
+    description: '邀请好友注册并调用任意 API 后，即可领取固定奖励，后续购买积分还可按比例继续累积。',
+    descriptionWithReward: '邀请好友注册并调用任意 API 后，即可领取 {amount}，后续购买积分还可按比例继续累积。',
     yourCode: '我的邀请码',
     inviteLink: '邀请链接',
     copyCode: '复制邀请码',
@@ -9,19 +9,19 @@ export default {
     codeCopied: '邀请码已复制',
     linkCopied: '邀请链接已复制',
     loadFailed: '加载邀请赚钱数据失败',
-    transferFailed: '转入余额失败',
+    transferFailed: '转入积分失败',
     hero: {
       eyebrow: '推荐赚钱',
-      title: '邀请好友，赚取额度'
+      title: '邀请好友，赚取积分'
     },
     summary: {
-      earned: '已赚额度',
+      earned: '已赚积分',
       earnedHint: '累计',
-      availableHint: '可随时转入余额',
+      availableHint: '可随时转入积分',
       invitedHint: '好友注册后统计',
       status: '状态',
       ready: '已开启',
-      statusHint: '分享链接开始赚取额度'
+      statusHint: '分享链接开始赚取积分'
     },
     share: {
       title: '你的邀请链接',
@@ -33,20 +33,20 @@ export default {
     },
     stats: {
       rebateRate: '我的返利比例',
-      rebateRateHint: '被邀请用户每次充值后你可获得的返利比例',
+      rebateRateHint: '被邀请用户每次购买积分后你可获得的返利比例',
       invitedUsers: '邀请人数',
-      availableQuota: '可转返利额度',
+      availableQuota: '可转返利积分',
       frozenQuota: '冻结中',
       frozenQuotaHint: '新产生的返利正在冻结期中',
-      totalQuota: '历史返利额度'
+      totalQuota: '历史返利积分'
     },
     transfer: {
-      title: '返利额度转余额',
-      description: '将当前可用返利额度一键转入账户余额',
-      button: '转入余额',
+      title: '返利积分转入',
+      description: '将当前可用返利积分一键转入账户积分',
+      button: '转入积分',
       transferring: '转入中...',
-      empty: '当前没有可转入额度',
-      success: '已转入余额：{amount}'
+      empty: '当前没有可转入积分',
+      success: '已转入积分：{amount}'
     },
     steps: {
       title: '如何运作',
@@ -60,7 +60,7 @@ export default {
       },
       earn: {
         title: '领取 {amount}',
-        description: '好友首次调用 API 后，你可以领取固定奖励；好友后续充值还会按 {rate} 计算返利。'
+        description: '好友首次调用 API 后，你可以领取固定奖励；好友后续购买积分还会按 {rate} 计算返利。'
       }
     },
     invitees: {
@@ -91,13 +91,13 @@ export default {
     recent: {
       title: '最近推荐',
       description: '查看通过你的链接注册的好友，以及每位好友的奖励状态。',
-      empty: '分享上方邀请链接，开始赚取额度。'
+      empty: '分享上方邀请链接，开始赚取积分。'
     },
     notice: {
       title: '注意事项',
       line1: '只有好友通过你的邀请链接或邀请码注册，才会被记录为有效邀请。',
       line2: '好友通过你的链接注册并调用任意 API 后，固定奖励才可领取。',
-      line3: '充值返利按当前生效比例计算，新产生的返利可能需要经过冻结期。',
+      line3: '积分购买返利按当前生效比例计算，新产生的返利可能需要经过冻结期。',
       line4: '不要使用自己的邮箱、设备或支付方式互相邀请，异常邀请可能会被系统自动撤销。'
     },
     faq: {
@@ -107,12 +107,12 @@ export default {
         answer: '没有固定上限；每一位通过你的链接注册并调用任意 API 的有效好友，都有机会带来 {amount} 固定奖励。'
       },
       when: {
-        question: '额度何时到账？',
-        answer: '好友通过你的链接注册并调用任意 API 后，可在最近推荐列表中领取固定奖励；充值返利会按站点配置进入可用或冻结额度。'
+        question: '积分何时到账？',
+        answer: '好友通过你的链接注册并调用任意 API 后，可在最近推荐列表中领取固定奖励；积分购买返利会按站点配置进入可用或冻结积分。'
       },
       expire: {
-        question: '额度会过期吗？',
-        answer: '不会，转入余额后会一直保留在你的账户余额中，直到 API 用量消耗。'
+        question: '积分会过期吗？',
+        answer: '不会，转入积分后会一直保留在你的账户积分中，直到 API 用量消耗。'
       },
       selfInvite: {
         question: '我能用不同邮箱自我推荐吗？',
@@ -122,8 +122,8 @@ export default {
     tips: {
       title: '使用说明',
       line1: '将邀请码或邀请链接分享给新用户。',
-      line2: '被邀请用户首次调用 API 后，可在列表中领取固定返利；充值返利比例为 {rate}。',
-      line3: '返利额度可随时转入账户余额。',
-      line4: '新产生的返利需要经过冻结期后才能提现。'
+      line2: '被邀请用户首次调用 API 后，可在列表中领取固定返利；积分购买返利比例为 {rate}。',
+      line3: '返利积分可随时转入账户积分。',
+      line4: '新产生的返利需要经过冻结期后才能转入积分。'
     }
   }

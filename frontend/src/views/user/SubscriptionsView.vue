@@ -101,7 +101,7 @@
                   {{ t('userSubscriptions.daily') }}
                 </span>
                 <span class="text-sm text-gray-500 dark:text-dark-400">
-                  ${{ (subscription.daily_usage_usd || 0).toFixed(2) }} / ${{
+                  {{ formatCreditAmount(subscription.daily_usage_usd || 0) }} / {{
                     formatLimitAmount(subscription.group?.daily_limit_usd)
                   }}
                 </span>
@@ -138,7 +138,7 @@
                   {{ t('userSubscriptions.weekly') }}
                 </span>
                 <span class="text-sm text-gray-500 dark:text-dark-400">
-                  ${{ (subscription.weekly_usage_usd || 0).toFixed(2) }} / ${{
+                  {{ formatCreditAmount(subscription.weekly_usage_usd || 0) }} / {{
                     formatLimitAmount(subscription.group?.weekly_limit_usd)
                   }}
                 </span>
@@ -179,7 +179,7 @@
                   {{ t('userSubscriptions.monthly') }}
                 </span>
                 <span class="text-sm text-gray-500 dark:text-dark-400">
-                  ${{ (subscription.monthly_usage_usd || 0).toFixed(2) }} / ${{
+                  {{ formatCreditAmount(subscription.monthly_usage_usd || 0) }} / {{
                     formatLimitAmount(subscription.group?.monthly_limit_usd)
                   }}
                 </span>
@@ -252,6 +252,7 @@ import { formatDateOnly } from '@/utils/format'
 import { platformBorderClass, platformBadgeClass, platformButtonClass, platformLabel } from '@/utils/platformColors'
 import { displaySubscriptionLimit, hasAnySubscriptionLimit } from '@/utils/subscriptionLimits'
 import { getRemainingDurationParts, isOneTimeDailyQuota, type RemainingDurationParts } from '@/utils/subscriptionQuota'
+import { formatCreditAmount } from '@/utils/credits'
 
 function platformAccentDotClass(p: string): string {
   switch (p) {
@@ -299,7 +300,7 @@ function getProgressBarClass(used: number | undefined, limit: number | null | un
 }
 
 function formatLimitAmount(limit: number | null | undefined): string {
-  return (displaySubscriptionLimit(limit) ?? 0).toFixed(2)
+  return formatCreditAmount(displaySubscriptionLimit(limit) ?? 0)
 }
 
 function formatExpirationDate(expiresAt: string): string {

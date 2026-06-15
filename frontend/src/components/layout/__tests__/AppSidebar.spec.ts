@@ -143,6 +143,14 @@ describe('AppSidebar chat image navigation', () => {
     expect(componentSource).toContain("path: '/chat-images'")
     expect(componentSource).toContain("path: '/dashboard'")
   })
+
+  it('keeps chat image launch from also navigating the current page', () => {
+    expect(componentSource).toContain("action: 'studioBridgeLaunch'")
+    expect(componentSource).toContain('function navItemElement')
+    expect(componentSource).toContain("return item.action ? 'button' : 'router-link'")
+    expect(componentSource).toContain("if (item.action) return { type: 'button' }")
+    expect(componentSource).toContain('v-bind="navItemAttrs(item)"')
+  })
 })
 
 describe('AppSidebar self navigation groups', () => {

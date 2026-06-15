@@ -45,7 +45,7 @@
           </div>
           <div class="flex justify-between">
             <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.amount') }}</span>
-            <span class="font-medium text-gray-900 dark:text-white">{{ paidOrder.order_type === 'balance' ? '$' : '¥' }}{{ paidOrder.amount.toFixed(2) }}</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{ formatOrderAmount(paidOrder) }}</span>
           </div>
           <div class="flex justify-between">
             <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</span>
@@ -80,6 +80,7 @@ import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import { getPaymentPopupFeatures } from '@/components/payment/providerConfig'
+import { formatCreditAmount } from '@/utils/credits'
 import type { PaymentOrder } from '@/types/payment'
 import QRCode from 'qrcode'
 import alipayIcon from '@/assets/icons/alipay.svg'
@@ -142,6 +143,12 @@ const countdownDisplay = computed(() => {
   const s = remainingSeconds.value % 60
   return m.toString().padStart(2, '0') + ':' + s.toString().padStart(2, '0')
 })
+
+function formatOrderAmount(order: PaymentOrder): string {
+  return order.order_type === 'balance'
+    ? formatCreditAmount(order.amount)
+    : `¥${order.amount.toFixed(2)}`
+}
 
 function getLogoForType(): string | null {
   if (isAlipay.value) return alipayIcon

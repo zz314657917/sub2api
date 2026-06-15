@@ -278,6 +278,7 @@ import Icon from '@/components/icons/Icon.vue'
 import { welfareAPI } from '@/api/welfare'
 import { useWelfareStore } from '@/stores/welfare'
 import type { WelfareDailyCheckin, WelfareDailyCheckinMilestone, WelfareNewUserTrial, WelfareOverview, WelfareRecharge } from '@/types'
+import { formatCreditAmount } from '@/utils/credits'
 
 const { t } = useI18n()
 const router = useRouter()
@@ -326,11 +327,6 @@ const monthDays = computed(() => {
       isToday: state.today === date,
     }
   })
-})
-
-const amountFormatter = new Intl.NumberFormat(undefined, {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 8,
 })
 
 const trialProgressPercent = computed(() => {
@@ -466,7 +462,7 @@ const rechargeClaimedAtText = computed(() => formatDateTime(recharge.value?.firs
 const rechargeExpiryText = computed(() => formatDateTime(recharge.value?.expires_at))
 
 function formatAmount(value: number | null | undefined): string {
-  return amountFormatter.format(Number(value) || 0)
+  return formatCreditAmount(value, { minimumFractionDigits: 0, maximumFractionDigits: 8 })
 }
 
 function formatDateTime(value: string | null | undefined): string {

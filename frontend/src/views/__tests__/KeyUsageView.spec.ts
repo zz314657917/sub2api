@@ -37,7 +37,7 @@ const messages: Record<string, string> = {
   'keyUsage.cacheWriteTokens': 'Cache Write',
   'keyUsage.cost': 'Cost',
   'keyUsage.quotaMode': 'Key Quota Mode',
-  'keyUsage.walletBalance': 'Wallet Balance',
+  'keyUsage.walletBalance': 'Account Credits',
   'keyUsage.totalQuota': 'Total Quota',
   'keyUsage.limit5h': '5-Hour Limit',
   'keyUsage.limitDaily': 'Daily Limit',
@@ -201,7 +201,7 @@ describe('KeyUsageView daily detail', () => {
     expect(text).toContain('200')
     expect(text).toContain('30')
     expect(text).toContain('10')
-    expect(text).toContain('$0.12')
+    expect(text).toContain('✪ 0.12')
 
     wrapper.unmount()
   })

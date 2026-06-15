@@ -68,8 +68,20 @@ export interface StudioBridgeAppSettings {
   default_chat_group: string;
   default_image_group: string;
   default_video_group: string;
+  default_api_routes?: StudioBridgeDefaultAPIRoute[];
   internal_secret?: string;
   secret_configured?: boolean;
+}
+
+export interface StudioBridgeDefaultAPIRoute {
+  group_id: string;
+  priority: number;
+  weight: number;
+  cooldown_seconds: number;
+  enabled: boolean;
+  model_patterns?: string[];
+  image_only?: boolean;
+  text_only?: boolean;
 }
 
 const AUTH_SOURCE_TYPES: AuthSourceType[] = [

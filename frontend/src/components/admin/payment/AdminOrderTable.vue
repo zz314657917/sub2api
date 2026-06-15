@@ -58,7 +58,7 @@
             ({{ row.fee_rate }}%)
           </span>
           <div v-if="row.amount !== row.pay_amount" class="text-xs text-gray-500">
-            {{ t('payment.orders.creditedAmount') }}: {{ row.order_type === 'balance' ? '$' : '¥' }}{{ row.amount.toFixed(2) }}
+            {{ t('payment.orders.creditedAmount') }}: {{ formatCreditedAmount(row) }}
           </div>
         </div>
       </template>
@@ -143,6 +143,7 @@ import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { statusBadgeClass, canRefund, formatOrderDateTime } from '@/components/payment/orderUtils'
+import { formatCreditAmount } from '@/utils/credits'
 
 const { t } = useI18n()
 
@@ -227,5 +228,11 @@ function canRefundRow(order: PaymentOrder): boolean {
 
 function formatDateTime(dateStr: string): string {
   return formatOrderDateTime(dateStr)
+}
+
+function formatCreditedAmount(order: PaymentOrder): string {
+  return order.order_type === 'balance'
+    ? formatCreditAmount(order.amount)
+    : `¥${order.amount.toFixed(2)}`
 }
 </script>

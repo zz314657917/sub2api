@@ -19,14 +19,14 @@
             {{ item.isOther ? t('dashboard.platformOther') : platformLabel(item.platform) }}
           </h3>
           <span class="dashboard-platform-total" :title="t('dashboard.actual')">
-            ${{ formatCost(item.total_actual_cost) }}
+            {{ formatCost(item.total_actual_cost) }}
           </span>
         </div>
 
         <dl class="dashboard-platform-metrics">
           <div class="dashboard-platform-metric">
             <dt>{{ t('dashboard.todayCost') }}</dt>
-            <dd>${{ formatCost(item.today_actual_cost) }}</dd>
+            <dd>{{ formatCost(item.today_actual_cost) }}</dd>
           </div>
           <div class="dashboard-platform-metric">
             <dt>{{ t('dashboard.requests') }}</dt>
@@ -45,6 +45,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { formatCreditAmount } from '@/utils/credits'
 import type { PlatformDashboardStats, UserDashboardStats as UserStatsType } from '@/api/usage'
 
 const OTHER_THRESHOLD = 0.0001
@@ -97,10 +98,10 @@ const platformCards = computed<PlatformCard[]>(() => {
 })
 
 const formatCost = (value: number): string =>
-  new Intl.NumberFormat(undefined, {
+  formatCreditAmount(value, {
     minimumFractionDigits: 4,
     maximumFractionDigits: 4,
-  }).format(Number(value) || 0)
+  })
 
 const formatInteger = (value: number): string =>
   new Intl.NumberFormat(undefined).format(Math.trunc(Number(value) || 0))

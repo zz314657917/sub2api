@@ -24,7 +24,7 @@ export default {
     sessionKeyPlaceholder: 'Paste Claude Session Key or Setup Token',
     tokenJsonHint: 'Token JSON means pasting an existing token JSON. It does not generate a token or navigate anywhere. Common fields include refresh_token, access_token, expires_at, and client_id.',
     transfer: 'Transfer',
-    transferSuccess: 'Transferred to balance: {amount}',
+    transferSuccess: 'Transferred to credits: {amount}',
     transferFailed: 'Failed to transfer sharing earnings',
     applyPublic: 'Apply Public',
     makePrivate: 'Make Private',

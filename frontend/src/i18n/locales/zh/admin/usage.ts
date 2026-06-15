@@ -29,7 +29,7 @@ export default {
       failedToLoad: '加载使用记录失败',
       billingType: '计费类型',
       allBillingTypes: '全部计费类型',
-      billingTypeBalance: '钱包余额',
+      billingTypeBalance: '积分',
       billingTypeSubscription: '订阅套餐',
       billingMode: '计费模式',
       billingModeToken: '按量',
@@ -37,7 +37,7 @@ export default {
       billingModeImage: '按次(图片)',
       allBillingModes: '全部计费模式',
       ipAddress: 'IP',
-      clickToViewBalance: '点击查看充值记录',
+      clickToViewBalance: '点击查看积分记录',
       failedToLoadUser: '加载用户信息失败',
       cleanup: {
         button: '清理',

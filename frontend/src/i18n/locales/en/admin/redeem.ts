@@ -5,7 +5,7 @@ export default {
       searchCodes: 'Search codes or email...',
       allTypes: 'All Types',
       allStatus: 'All Status',
-      balance: 'Balance',
+      balance: 'Credits',
       concurrency: 'Concurrency',
       subscription: 'Subscription',
       invitation: 'Invitation',
@@ -51,7 +51,7 @@ export default {
       generatedSuccessfully: 'Generated Successfully',
       codesCreated: '{count} redeem code(s) created',
       codeType: 'Code Type',
-      amount: 'Amount ($)',
+      amount: 'Credit Amount',
       value: 'Value',
       count: 'Count',
       generating: 'Generating...',
@@ -70,13 +70,13 @@ export default {
       failedToDeleteUnused: 'Failed to delete unused codes',
       failedToCopy: 'Failed to copy codes',
       types: {
-        balance: 'Balance',
+        balance: 'Credits',
         concurrency: 'Concurrency',
         subscription: 'Subscription',
         invitation: 'Invitation',
-        first_recharge_bonus: 'First Recharge Bonus',
-        // Admin adjustment types (created when admin modifies user balance/concurrency)
-        admin_balance: 'Balance (Admin)',
+        first_recharge_bonus: 'First Purchase Bonus',
+        // Admin adjustment types (created when admin modifies user credits/concurrency)
+        admin_balance: 'Credits (Admin)',
         admin_concurrency: 'Concurrency (Admin)'
       },
       selectGroup: 'Select Group',

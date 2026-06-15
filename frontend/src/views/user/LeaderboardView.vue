@@ -306,7 +306,8 @@ import type { LeaderboardBadge, LeaderboardDailyRewardTopUser, LeaderboardDailyR
 import type { UserLeaderboardTokenTrendPoint } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import { formatCurrency, formatDateTime, formatNumber, formatTime } from '@/utils/format'
+import { formatDateTime, formatNumber, formatTime } from '@/utils/format'
+import { formatCreditAmount } from '@/utils/credits'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
@@ -706,7 +707,10 @@ function formatLeaderboardCostPerMillion(item: UserLeaderboardItem): string {
     : item.tokens > 0
       ? (item.actual_cost / item.tokens) * 1_000_000
       : 0
-  return formatCurrency(value)
+  return formatCreditAmount(value, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 }
 
 function leaderboardTokenMetricsLabel(item: UserLeaderboardItem): string {

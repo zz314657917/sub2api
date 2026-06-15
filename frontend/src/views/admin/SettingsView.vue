@@ -18,53 +18,53 @@
         <div class="settings-layout">
           <!-- Tab Navigation -->
           <aside class="settings-tabs-shell">
-          <nav
-            class="settings-tabs-scroll"
-            role="tablist"
-            :aria-label="t('admin.settings.title')"
-          >
-            <div class="settings-tabs">
-              <button
-                v-for="tab in settingsTabs"
-                :key="tab.key"
-                :id="`settings-tab-${tab.key}`"
-                type="button"
-                role="tab"
-                :aria-selected="activeTab === tab.key"
-                :tabindex="activeTab === tab.key ? 0 : -1"
-                :class="[
-                  'settings-tab',
-                  activeTab === tab.key && 'settings-tab-active',
-                ]"
-                @click="selectSettingsTab(tab.key)"
-                @keydown="handleSettingsTabKeydown($event, tab.key)"
-              >
-                <span class="settings-tab-icon">
-                  <Icon :name="tab.icon" size="sm" />
-                </span>
-                <span class="settings-tab-label">{{
-                  t(`admin.settings.tabs.${tab.key}`)
-                }}</span>
-              </button>
-            </div>
-          </nav>
+            <nav
+              class="settings-tabs-scroll"
+              role="tablist"
+              :aria-label="t('admin.settings.title')"
+            >
+              <div class="settings-tabs">
+                <button
+                  v-for="tab in settingsTabs"
+                  :key="tab.key"
+                  :id="`settings-tab-${tab.key}`"
+                  type="button"
+                  role="tab"
+                  :aria-selected="activeTab === tab.key"
+                  :tabindex="activeTab === tab.key ? 0 : -1"
+                  :class="[
+                    'settings-tab',
+                    activeTab === tab.key && 'settings-tab-active',
+                  ]"
+                  @click="selectSettingsTab(tab.key)"
+                  @keydown="handleSettingsTabKeydown($event, tab.key)"
+                >
+                  <span class="settings-tab-icon">
+                    <Icon :name="tab.icon" size="sm" />
+                  </span>
+                  <span class="settings-tab-label">{{
+                    t(`admin.settings.tabs.${tab.key}`)
+                  }}</span>
+                </button>
+              </div>
+            </nav>
           </aside>
 
           <div class="settings-content">
             <!-- Tab: Security — Admin API Key -->
             <div v-show="activeTab === 'security'" class="space-y-6">
-          <!-- Admin API Key Settings -->
-          <div class="card">
-            <div
-              class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-            >
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                {{ t("admin.settings.adminApiKey.title") }}
-              </h2>
-              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                {{ t("admin.settings.adminApiKey.description") }}
-              </p>
-            </div>
+            <!-- Admin API Key Settings -->
+            <div class="card">
+              <div
+                class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
+              >
+                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                  {{ t("admin.settings.adminApiKey.title") }}
+                </h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {{ t("admin.settings.adminApiKey.description") }}
+                </p>
+              </div>
             <div class="space-y-4 p-6">
               <!-- Security Warning -->
               <div
@@ -5312,7 +5312,7 @@
                   {{ t('admin.settings.features.welfare.rechargeRewardHint') }}
                 </p>
               </div>
-              <div class="grid gap-4 md:grid-cols-2">
+              <div class="grid gap-4 md:grid-cols-3">
                 <div>
                   <label class="input-label">{{ t('admin.settings.features.welfare.firstRechargeBonusAmount') }}</label>
                   <input
@@ -5325,6 +5325,32 @@
                   <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                     {{ t('admin.settings.features.welfare.firstRechargeBonusAmountHint') }}
                   </p>
+                </div>
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.firstRechargeBonusValidDays') }}</label>
+                  <input
+                    v-model.number="form.welfare_first_recharge_bonus_valid_days"
+                    type="number"
+                    min="0"
+                    step="1"
+                    class="input"
+                  />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.features.welfare.firstRechargeBonusValidDaysHint') }}
+                  </p>
+                </div>
+                <div class="rounded-md bg-gray-50 p-3 dark:bg-dark-800">
+                  <div class="flex items-start justify-between gap-3">
+                    <div class="min-w-0">
+                      <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        {{ t('admin.settings.features.welfare.firstRechargeBonusStackMonthly') }}
+                      </label>
+                      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {{ t('admin.settings.features.welfare.firstRechargeBonusStackMonthlyHint') }}
+                      </p>
+                    </div>
+                    <Toggle v-model="form.welfare_first_recharge_bonus_stack_monthly" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -6051,201 +6077,6 @@
                 </p>
               </div>
               <div>
-                <label class="input-label">默认聊天分组</label>
-                <Select
-                  v-model="form.studio_bridge_luoye_ai.default_chat_group"
-                  :options="studioBridgeGroupOptions('default_chat_group')"
-                  placeholder="选择聊天默认分组"
-                  searchable
-                >
-                  <template #selected="{ option }">
-                    <span
-                      v-if="!option || (option as StudioBridgeGroupOption).kind"
-                      :class="[
-                        'truncate text-sm',
-                        (option as StudioBridgeGroupOption | null)?.kind === 'legacy'
-                          ? 'text-amber-600 dark:text-amber-400'
-                          : 'text-gray-400',
-                      ]"
-                    >
-                      {{
-                        (option as StudioBridgeGroupOption | null)?.label ||
-                        "选择聊天默认分组"
-                      }}
-                    </span>
-                    <GroupBadge
-                      v-else
-                      :name="(option as StudioBridgeGroupOption).label"
-                      :platform="(option as StudioBridgeGroupOption).platform"
-                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
-                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
-                    />
-                  </template>
-                  <template #option="{ option, selected }">
-                    <div
-                      v-if="(option as StudioBridgeGroupOption).kind"
-                      class="flex min-w-0 flex-1 items-start justify-between gap-3"
-                    >
-                      <div class="min-w-0 text-left">
-                        <div
-                          :class="[
-                            'truncate text-sm font-medium',
-                            (option as StudioBridgeGroupOption).kind === 'legacy'
-                              ? 'text-amber-700 dark:text-amber-300'
-                              : 'text-gray-700 dark:text-gray-300',
-                          ]"
-                        >
-                          {{ (option as StudioBridgeGroupOption).label }}
-                        </div>
-                        <div class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                          {{ (option as StudioBridgeGroupOption).description }}
-                        </div>
-                      </div>
-                      <Icon v-if="selected" name="check" size="sm" class="shrink-0 text-primary-500" />
-                    </div>
-                    <GroupOptionItem
-                      v-else
-                      :name="(option as StudioBridgeGroupOption).label"
-                      :platform="(option as StudioBridgeGroupOption).platform || 'openai'"
-                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
-                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
-                      :description="(option as StudioBridgeGroupOption).description"
-                      :selected="selected"
-                    />
-                  </template>
-                </Select>
-              </div>
-              <div>
-                <label class="input-label">默认生图分组</label>
-                <Select
-                  v-model="form.studio_bridge_luoye_ai.default_image_group"
-                  :options="studioBridgeGroupOptions('default_image_group')"
-                  placeholder="选择生图默认分组"
-                  searchable
-                >
-                  <template #selected="{ option }">
-                    <span
-                      v-if="!option || (option as StudioBridgeGroupOption).kind"
-                      :class="[
-                        'truncate text-sm',
-                        (option as StudioBridgeGroupOption | null)?.kind === 'legacy'
-                          ? 'text-amber-600 dark:text-amber-400'
-                          : 'text-gray-400',
-                      ]"
-                    >
-                      {{
-                        (option as StudioBridgeGroupOption | null)?.label ||
-                        "选择生图默认分组"
-                      }}
-                    </span>
-                    <GroupBadge
-                      v-else
-                      :name="(option as StudioBridgeGroupOption).label"
-                      :platform="(option as StudioBridgeGroupOption).platform"
-                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
-                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
-                    />
-                  </template>
-                  <template #option="{ option, selected }">
-                    <div
-                      v-if="(option as StudioBridgeGroupOption).kind"
-                      class="flex min-w-0 flex-1 items-start justify-between gap-3"
-                    >
-                      <div class="min-w-0 text-left">
-                        <div
-                          :class="[
-                            'truncate text-sm font-medium',
-                            (option as StudioBridgeGroupOption).kind === 'legacy'
-                              ? 'text-amber-700 dark:text-amber-300'
-                              : 'text-gray-700 dark:text-gray-300',
-                          ]"
-                        >
-                          {{ (option as StudioBridgeGroupOption).label }}
-                        </div>
-                        <div class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                          {{ (option as StudioBridgeGroupOption).description }}
-                        </div>
-                      </div>
-                      <Icon v-if="selected" name="check" size="sm" class="shrink-0 text-primary-500" />
-                    </div>
-                    <GroupOptionItem
-                      v-else
-                      :name="(option as StudioBridgeGroupOption).label"
-                      :platform="(option as StudioBridgeGroupOption).platform || 'openai'"
-                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
-                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
-                      :description="(option as StudioBridgeGroupOption).description"
-                      :selected="selected"
-                    />
-                  </template>
-                </Select>
-              </div>
-              <div>
-                <label class="input-label">默认视频分组</label>
-                <Select
-                  v-model="form.studio_bridge_luoye_ai.default_video_group"
-                  :options="studioBridgeGroupOptions('default_video_group')"
-                  placeholder="选择视频默认分组"
-                  searchable
-                >
-                  <template #selected="{ option }">
-                    <span
-                      v-if="!option || (option as StudioBridgeGroupOption).kind"
-                      :class="[
-                        'truncate text-sm',
-                        (option as StudioBridgeGroupOption | null)?.kind === 'legacy'
-                          ? 'text-amber-600 dark:text-amber-400'
-                          : 'text-gray-400',
-                      ]"
-                    >
-                      {{
-                        (option as StudioBridgeGroupOption | null)?.label ||
-                        "选择视频默认分组"
-                      }}
-                    </span>
-                    <GroupBadge
-                      v-else
-                      :name="(option as StudioBridgeGroupOption).label"
-                      :platform="(option as StudioBridgeGroupOption).platform"
-                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
-                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
-                    />
-                  </template>
-                  <template #option="{ option, selected }">
-                    <div
-                      v-if="(option as StudioBridgeGroupOption).kind"
-                      class="flex min-w-0 flex-1 items-start justify-between gap-3"
-                    >
-                      <div class="min-w-0 text-left">
-                        <div
-                          :class="[
-                            'truncate text-sm font-medium',
-                            (option as StudioBridgeGroupOption).kind === 'legacy'
-                              ? 'text-amber-700 dark:text-amber-300'
-                              : 'text-gray-700 dark:text-gray-300',
-                          ]"
-                        >
-                          {{ (option as StudioBridgeGroupOption).label }}
-                        </div>
-                        <div class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                          {{ (option as StudioBridgeGroupOption).description }}
-                        </div>
-                      </div>
-                      <Icon v-if="selected" name="check" size="sm" class="shrink-0 text-primary-500" />
-                    </div>
-                    <GroupOptionItem
-                      v-else
-                      :name="(option as StudioBridgeGroupOption).label"
-                      :platform="(option as StudioBridgeGroupOption).platform || 'openai'"
-                      :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
-                      :rate-multiplier="(option as StudioBridgeGroupOption).rate"
-                      :description="(option as StudioBridgeGroupOption).description"
-                      :selected="selected"
-                    />
-                  </template>
-                </Select>
-              </div>
-              <div>
                 <label class="input-label">内部通信密钥</label>
                 <input
                   v-model="form.studio_bridge_luoye_ai.internal_secret"
@@ -6277,6 +6108,199 @@
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   每行一个域名；支持子域名匹配，不要填写协议、端口或路径。例如本地填 127.0.0.1。
                 </p>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+              <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 class="text-base font-semibold text-gray-900 dark:text-white">
+                    默认 API 分组路由
+                  </h3>
+                  <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    支持同一个分组配置多条用途路由，首次创建默认 API Key 时会写入这些多分组路由。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm inline-flex items-center gap-1.5"
+                  @click="addStudioBridgeDefaultAPIRoute"
+                >
+                  <Icon name="plus" size="sm" />
+                  添加路由
+                </button>
+              </div>
+            </div>
+            <div class="space-y-3 p-6">
+              <div
+                v-if="form.studio_bridge_luoye_ai.default_api_routes.length === 0"
+                class="rounded-lg border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400"
+              >
+                暂未配置默认 API 路由。启用桥接前至少添加一条路由。
+              </div>
+              <div
+                v-for="(route, index) in form.studio_bridge_luoye_ai.default_api_routes"
+                :key="route.client_id"
+                class="rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/40"
+              >
+                <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div class="flex min-w-0 items-center gap-2">
+                    <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+                      {{ index + 1 }}
+                    </span>
+                    <span class="truncate text-sm font-medium text-gray-700 dark:text-gray-200">
+                      路由 {{ index + 1 }}
+                    </span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2">
+                    <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-dark-600 dark:text-gray-300">
+                      <input
+                        v-model="route.enabled"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span>启用</span>
+                    </label>
+                    <button
+                      type="button"
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-dark-600 dark:text-gray-400 dark:hover:border-red-900/60 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+                      title="删除路由"
+                      @click="removeStudioBridgeDefaultAPIRoute(index)"
+                    >
+                      <Icon name="trash" size="sm" />
+                    </button>
+                  </div>
+                </div>
+
+                <div class="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_minmax(8rem,1fr)]">
+                  <div>
+                    <label class="input-label">分组</label>
+                    <Select
+                      v-model="route.group_id"
+                      :options="studioBridgeRouteGroupOptions(route.group_id)"
+                      placeholder="选择默认 API 分组"
+                      searchable
+                    >
+                      <template #selected="{ option }">
+                        <span
+                          v-if="!option || (option as StudioBridgeGroupOption).kind"
+                          :class="[
+                            'truncate text-sm',
+                            (option as StudioBridgeGroupOption | null)?.kind === 'legacy'
+                              ? 'text-amber-600 dark:text-amber-400'
+                              : 'text-gray-400',
+                          ]"
+                        >
+                          {{
+                            (option as StudioBridgeGroupOption | null)?.label ||
+                            "选择默认 API 分组"
+                          }}
+                        </span>
+                        <GroupBadge
+                          v-else
+                          :name="(option as StudioBridgeGroupOption).label"
+                          :platform="(option as StudioBridgeGroupOption).platform"
+                          :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
+                          :rate-multiplier="(option as StudioBridgeGroupOption).rate"
+                        />
+                      </template>
+                      <template #option="{ option, selected }">
+                        <div
+                          v-if="(option as StudioBridgeGroupOption).kind"
+                          class="flex min-w-0 flex-1 items-start justify-between gap-3"
+                        >
+                          <div class="min-w-0 text-left">
+                            <div
+                              :class="[
+                                'truncate text-sm font-medium',
+                                (option as StudioBridgeGroupOption).kind === 'legacy'
+                                  ? 'text-amber-700 dark:text-amber-300'
+                                  : 'text-gray-700 dark:text-gray-300',
+                              ]"
+                            >
+                              {{ (option as StudioBridgeGroupOption).label }}
+                            </div>
+                            <div class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
+                              {{ (option as StudioBridgeGroupOption).description }}
+                            </div>
+                          </div>
+                          <Icon v-if="selected" name="check" size="sm" class="shrink-0 text-primary-500" />
+                        </div>
+                        <GroupOptionItem
+                          v-else
+                          :name="(option as StudioBridgeGroupOption).label"
+                          :platform="(option as StudioBridgeGroupOption).platform || 'openai'"
+                          :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
+                          :rate-multiplier="(option as StudioBridgeGroupOption).rate"
+                          :description="(option as StudioBridgeGroupOption).description"
+                          :selected="selected"
+                        />
+                      </template>
+                    </Select>
+                  </div>
+                  <div>
+                    <label class="input-label">优先级</label>
+                    <input
+                      v-model.number="route.priority"
+                      type="number"
+                      min="1"
+                      class="input"
+                    />
+                  </div>
+                  <div>
+                    <label class="input-label">权重</label>
+                    <input
+                      v-model.number="route.weight"
+                      type="number"
+                      min="1"
+                      class="input"
+                    />
+                  </div>
+                  <div>
+                    <label class="input-label">冷却秒数</label>
+                    <input
+                      v-model.number="route.cooldown_seconds"
+                      type="number"
+                      min="0"
+                      class="input"
+                    />
+                  </div>
+                </div>
+
+                <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+                  <div>
+                    <label class="input-label">模型匹配</label>
+                    <textarea
+                      :value="route.model_patterns.join('\n')"
+                      rows="2"
+                      class="input min-h-[4.5rem] resize-y"
+                      placeholder="doubao-seedance-*&#10;*-video-*"
+                      @input="route.model_patterns = normalizeStudioBridgeRoutePatterns(($event.target as HTMLTextAreaElement).value)"
+                    />
+                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                      每行或逗号分隔一个模型通配符；留空则按文本/生图开关和分组类型路由。
+                    </p>
+                  </div>
+                  <div class="flex flex-wrap items-start gap-2 pt-6 lg:w-56">
+                    <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-dark-600 dark:text-gray-300">
+                      <input
+                        v-model="route.image_only"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span>仅生图</span>
+                    </label>
+                    <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-dark-600 dark:text-gray-300">
+                      <input
+                        v-model="route.text_only"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span>仅文本</span>
+                    </label>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -7218,14 +7242,14 @@
                 <div class="relative">
                   <span
                     class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                    >$</span
+                    >{{ CREDIT_SYMBOL }}</span
                   >
                   <input
                     v-model.number="form.balance_low_notify_threshold"
                     type="number"
                     min="0"
                     step="0.01"
-                    class="input pl-7"
+                    class="input pl-8"
                   />
                 </div>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -7367,7 +7391,7 @@
             }}
           </button>
         </div>
-          </div>
+        </div>
         </div>
       </form>
 
@@ -7431,6 +7455,7 @@ import type {
   DefaultSubscriptionSetting,
   OpenAIFastPolicyRule,
   PaymentRechargePackage,
+  StudioBridgeDefaultAPIRoute,
   StudioBridgeAppSettings,
   WeChatConnectMode,
   WebSearchEmulationConfig,
@@ -7468,6 +7493,7 @@ import {
   normalizeRegistrationEmailSuffixDomains,
   parseRegistrationEmailSuffixWhitelistInput,
 } from "@/utils/registrationEmailPolicy";
+import { CREDIT_SYMBOL, formatCreditAmount } from "@/utils/credits";
 
 const { t, locale } = useI18n();
 const appStore = useAppStore();
@@ -7900,14 +7926,116 @@ interface StudioBridgeGroupOption {
   [key: string]: unknown;
 }
 
-type StudioBridgeGroupField =
-  | "default_chat_group"
-  | "default_image_group"
-  | "default_video_group";
+type StudioBridgeDefaultAPIRouteForm = StudioBridgeDefaultAPIRoute & {
+  client_id: string;
+  model_patterns: string[];
+};
+
+type StudioBridgeAppSettingsForm = Omit<
+  StudioBridgeAppSettings,
+  "default_api_routes"
+> & {
+  default_api_routes: StudioBridgeDefaultAPIRouteForm[];
+};
+
+let studioBridgeDefaultRouteClientId = 0;
+
+function createStudioBridgeDefaultRouteClientId(): string {
+  studioBridgeDefaultRouteClientId += 1;
+  return `studio-bridge-route-${studioBridgeDefaultRouteClientId}`;
+}
+
+function createStudioBridgeDefaultAPIRoute(
+  overrides: Partial<StudioBridgeDefaultAPIRoute> = {},
+): StudioBridgeDefaultAPIRouteForm {
+  return {
+    client_id: createStudioBridgeDefaultRouteClientId(),
+    group_id: String(overrides.group_id || "").trim(),
+    priority:
+      Number.isFinite(Number(overrides.priority)) && Number(overrides.priority) > 0
+        ? Math.trunc(Number(overrides.priority))
+        : 1,
+    weight:
+      Number.isFinite(Number(overrides.weight)) && Number(overrides.weight) > 0
+        ? Math.trunc(Number(overrides.weight))
+        : 1,
+    cooldown_seconds:
+      Number.isFinite(Number(overrides.cooldown_seconds)) &&
+      Number(overrides.cooldown_seconds) >= 0
+        ? Math.trunc(Number(overrides.cooldown_seconds))
+        : 30,
+    enabled: overrides.enabled !== false,
+    model_patterns: Array.isArray(overrides.model_patterns)
+      ? normalizeStudioBridgeRoutePatterns(overrides.model_patterns)
+      : [],
+    image_only: overrides.image_only === true,
+    text_only: overrides.text_only === true,
+  };
+}
+
+function normalizeStudioBridgeRoutePatterns(value: string | string[]): string[] {
+  const items = Array.isArray(value) ? value : String(value || "").split(/[\r\n,]/);
+  return items
+    .map((item) => String(item).trim())
+    .filter(Boolean)
+    .filter(
+      (item, index, arr) =>
+        arr.findIndex(
+          (candidate) => candidate.toLowerCase() === item.toLowerCase(),
+        ) === index,
+    );
+}
+
+function legacyStudioBridgeDefaultAPIRoutes(
+  value?: Partial<StudioBridgeAppSettings> | null,
+): StudioBridgeDefaultAPIRouteForm[] {
+  const routes: StudioBridgeDefaultAPIRouteForm[] = [];
+  if (value?.default_chat_group) {
+    routes.push(
+      createStudioBridgeDefaultAPIRoute({
+        group_id: value.default_chat_group,
+        text_only: true,
+      }),
+    );
+  }
+  if (value?.default_image_group) {
+    routes.push(
+      createStudioBridgeDefaultAPIRoute({
+        group_id: value.default_image_group,
+        image_only: true,
+      }),
+    );
+  }
+  if (value?.default_video_group) {
+    routes.push(
+      createStudioBridgeDefaultAPIRoute({
+        group_id: value.default_video_group,
+        model_patterns: ["doubao-seedance-*", "*-video-*"],
+      }),
+    );
+  }
+  return routes;
+}
+
+function normalizeStudioBridgeDefaultAPIRoutes(
+  value?: Partial<StudioBridgeAppSettings> | null,
+): StudioBridgeDefaultAPIRouteForm[] {
+  const rawRoutes = Array.isArray(value?.default_api_routes)
+    ? value.default_api_routes
+    : [];
+  const routes = rawRoutes
+    .map((route) => createStudioBridgeDefaultAPIRoute(route))
+    .filter((route) => route.group_id);
+  if (routes.length > 0) {
+    return routes;
+  }
+  return legacyStudioBridgeDefaultAPIRoutes(value);
+}
 
 function normalizeStudioBridgeFormSettings(
   value?: Partial<StudioBridgeAppSettings> | null,
-): StudioBridgeAppSettings {
+): StudioBridgeAppSettingsForm {
+  const defaultAPIRoutes = normalizeStudioBridgeDefaultAPIRoutes(value);
   return {
     enabled: value?.enabled === true,
     site_name: value?.site_name || "落叶创艺",
@@ -7921,6 +8049,7 @@ function normalizeStudioBridgeFormSettings(
     default_chat_group: value?.default_chat_group || "",
     default_image_group: value?.default_image_group || "",
     default_video_group: value?.default_video_group || "",
+    default_api_routes: defaultAPIRoutes,
     internal_secret: "",
     secret_configured: value?.secret_configured === true,
   };
@@ -7947,7 +8076,7 @@ type SettingsForm = Omit<
   google_oauth_client_secret: string;
   force_email_on_third_party_signup: boolean;
   openai_advanced_scheduler_enabled: boolean;
-  studio_bridge_luoye_ai: StudioBridgeAppSettings;
+  studio_bridge_luoye_ai: StudioBridgeAppSettingsForm;
 };
 
 const form = reactive<SettingsForm>({
@@ -8437,10 +8566,8 @@ const studioBridgeBaseGroupOptions = computed<StudioBridgeGroupOption[]>(() =>
   })),
 );
 
-function studioBridgeGroupOptions(
-  field: StudioBridgeGroupField,
-): StudioBridgeGroupOption[] {
-  const currentValue = String(form.studio_bridge_luoye_ai[field] || "").trim();
+function studioBridgeRouteGroupOptions(groupID: string): StudioBridgeGroupOption[] {
+  const currentValue = String(groupID || "").trim();
   const options: StudioBridgeGroupOption[] = [
     ...studioBridgeBaseGroupOptions.value,
   ];
@@ -8458,13 +8585,89 @@ function studioBridgeGroupOptions(
   return options;
 }
 
+function addStudioBridgeDefaultAPIRoute() {
+  const nextGroupID =
+    studioBridgeGroups.value.find(
+      (group) => group.status === "active" && group.id > 0,
+    )?.id || "";
+  form.studio_bridge_luoye_ai.default_api_routes.push(
+    createStudioBridgeDefaultAPIRoute({
+      group_id: nextGroupID ? String(nextGroupID) : "",
+    }),
+  );
+}
+
+function removeStudioBridgeDefaultAPIRoute(index: number) {
+  form.studio_bridge_luoye_ai.default_api_routes.splice(index, 1);
+}
+
+function normalizedStudioBridgeDefaultAPIRoutesForSave(): StudioBridgeDefaultAPIRoute[] {
+  return form.studio_bridge_luoye_ai.default_api_routes
+    .map((route) => ({
+      group_id: String(route.group_id || "").trim(),
+      priority:
+        Number.isFinite(Number(route.priority)) && Number(route.priority) > 0
+          ? Math.trunc(Number(route.priority))
+          : 1,
+      weight:
+        Number.isFinite(Number(route.weight)) && Number(route.weight) > 0
+          ? Math.trunc(Number(route.weight))
+          : 1,
+      cooldown_seconds:
+        Number.isFinite(Number(route.cooldown_seconds)) &&
+        Number(route.cooldown_seconds) >= 0
+          ? Math.trunc(Number(route.cooldown_seconds))
+          : 30,
+      enabled: route.enabled !== false,
+      model_patterns: normalizeStudioBridgeRoutePatterns(route.model_patterns || []),
+      image_only: route.image_only === true,
+      text_only: route.text_only === true,
+    }))
+    .filter((route) => route.group_id);
+}
+
+function syncLegacyStudioBridgeDefaultGroups(
+  routes: StudioBridgeDefaultAPIRoute[],
+): {
+  defaultChatGroup: string;
+  defaultImageGroup: string;
+  defaultVideoGroup: string;
+} {
+  const defaultChatGroup =
+    routes.find((route) => route.text_only)?.group_id ||
+    routes.find((route) => !route.image_only)?.group_id ||
+    routes[0]?.group_id ||
+    "";
+  const defaultImageGroup =
+    routes.find((route) => route.image_only)?.group_id ||
+    routes[0]?.group_id ||
+    "";
+  const defaultVideoGroup =
+    routes.find((route) => (route.model_patterns || []).length > 0)?.group_id ||
+    form.studio_bridge_luoye_ai.default_video_group.trim();
+  return { defaultChatGroup, defaultImageGroup, defaultVideoGroup };
+}
+
 function validateStudioBridgeSettings(): boolean {
   if (!form.studio_bridge_luoye_ai.enabled) return true;
+  if (form.studio_bridge_luoye_ai.default_api_routes.length === 0) {
+    appStore.showError("外部创作站桥接启用时至少需要添加一条默认 API 路由。");
+    return false;
+  }
   if (
-    !form.studio_bridge_luoye_ai.default_chat_group.trim() ||
-    !form.studio_bridge_luoye_ai.default_image_group.trim()
+    form.studio_bridge_luoye_ai.default_api_routes.some(
+      (route) => !String(route.group_id || "").trim(),
+    )
   ) {
-    appStore.showError("外部创作站桥接启用时必须选择默认聊天和生图分组。");
+    appStore.showError("默认 API 路由必须选择分组。");
+    return false;
+  }
+  if (
+    form.studio_bridge_luoye_ai.default_api_routes.some(
+      (route) => route.image_only && route.text_only,
+    )
+  ) {
+    appStore.showError("同一条默认 API 路由不能同时设置为仅文本和仅生图。");
     return false;
   }
   return true;
@@ -8533,7 +8736,7 @@ function addRechargePackage() {
 
 function removeRechargePackage(index: number) {
   if (form.payment_recharge_packages.length <= 1) {
-    appStore.showError(localText("至少保留一个充值档位。", "Keep at least one recharge package."));
+    appStore.showError(localText("至少保留一个积分档位。", "Keep at least one credit package."));
     return;
   }
   form.payment_recharge_packages.splice(index, 1);
@@ -8542,7 +8745,7 @@ function removeRechargePackage(index: number) {
 function rechargePackageBonusPreview(pkg: PaymentRechargePackage): string {
   const pay = normalizeRechargePackageAmount(pkg.pay_amount);
   const credited = normalizeRechargePackageAmount(pkg.credited_amount);
-  return Math.max(0, credited - pay).toFixed(2);
+  return formatCreditAmount(Math.max(0, credited - pay));
 }
 
 function normalizeRechargePackagesForSave(): PaymentRechargePackage[] | null {
@@ -8550,7 +8753,7 @@ function normalizeRechargePackagesForSave(): PaymentRechargePackage[] | null {
     ? form.payment_recharge_packages
     : [];
   if (packages.length === 0) {
-    appStore.showError(localText("至少配置一个充值档位。", "Configure at least one recharge package."));
+    appStore.showError(localText("至少配置一个积分档位。", "Configure at least one credit package."));
     return null;
   }
 
@@ -8565,16 +8768,16 @@ function normalizeRechargePackagesForSave(): PaymentRechargePackage[] | null {
       id = `pkg-${index + 1}`;
     }
     if (seen.has(id)) {
-      appStore.showError(localText("充值档位 ID 不能重复。", "Recharge package IDs must be unique."));
+      appStore.showError(localText("积分档位 ID 不能重复。", "Credit package IDs must be unique."));
       return null;
     }
     seen.add(id);
     if (payAmount < 5) {
-      appStore.showError(localText("充值档位支付金额最低为 5 元。", "Recharge package pay amount must be at least 5."));
+      appStore.showError(localText("积分档位支付金额最低为 5 元。", "Credit package pay amount must be at least 5."));
       return null;
     }
     if (creditedAmount < payAmount) {
-      appStore.showError(localText("充值档位到账额度不能小于支付金额。", "Credited amount cannot be less than pay amount."));
+      appStore.showError(localText("积分档位到账积分不能小于支付金额。", "Credited credits cannot be less than pay amount."));
       return null;
     }
     const enabled = pkg.enabled === true;
@@ -8590,7 +8793,7 @@ function normalizeRechargePackagesForSave(): PaymentRechargePackage[] | null {
   }
 
   if (enabledCount === 0) {
-    appStore.showError(localText("至少启用一个充值档位。", "Enable at least one recharge package."));
+    appStore.showError(localText("至少启用一个积分档位。", "Enable at least one credit package."));
     return null;
   }
 
@@ -9691,6 +9894,7 @@ async function saveSettings() {
           form.studio_bridge_luoye_ai.default_image_group.trim(),
         default_video_group:
           form.studio_bridge_luoye_ai.default_video_group.trim(),
+        default_api_routes: normalizedStudioBridgeDefaultAPIRoutesForSave(),
         internal_secret:
           form.studio_bridge_luoye_ai.internal_secret?.trim() || undefined,
       },
@@ -9800,6 +10004,23 @@ async function saveSettings() {
     }
 
     appendAuthSourceDefaultsToUpdateRequest(payload, authSourceDefaults);
+
+    const studioBridgeDefaultAPIRoutes =
+      payload.studio_bridge_luoye_ai?.default_api_routes ||
+      normalizedStudioBridgeDefaultAPIRoutesForSave();
+    const legacyStudioBridgeDefaults = syncLegacyStudioBridgeDefaultGroups(
+      studioBridgeDefaultAPIRoutes,
+    );
+    if (payload.studio_bridge_luoye_ai) {
+      payload.studio_bridge_luoye_ai.default_api_routes =
+        studioBridgeDefaultAPIRoutes;
+      payload.studio_bridge_luoye_ai.default_chat_group =
+        legacyStudioBridgeDefaults.defaultChatGroup;
+      payload.studio_bridge_luoye_ai.default_image_group =
+        legacyStudioBridgeDefaults.defaultImageGroup;
+      payload.studio_bridge_luoye_ai.default_video_group =
+        legacyStudioBridgeDefaults.defaultVideoGroup;
+    }
 
     const affiliateApiCallRewardAmountPayload = payload.affiliate_api_call_reward_amount ?? 0;
     const updated = await adminAPI.settings.updateSettings(payload);
@@ -11269,7 +11490,7 @@ watch(
 <style>
 /* Dark-mode overrides for the settings tabs shell. Kept in an UNSCOPED block
    because Vue's scoped-CSS compiler was dropping the `:global(.dark) ...`
-   rules in the production build, leaving inactive tabs unreadable on dark. */
+   rules in the production build, leaving inactive settings tabs unreadable on dark. */
 .dark .settings-tabs-shell {
   border-color: rgb(51 65 85 / 0.65);
   background: rgb(15 23 42 / 0.86);

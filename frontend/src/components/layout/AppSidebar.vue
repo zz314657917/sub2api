@@ -198,10 +198,10 @@
                 </router-link>
               </div>
             </template>
-            <router-link
+            <component
               v-else
-              :to="item.path"
-              v-bind="navLinkAttrs(item)"
+              :is="navItemElement(item)"
+              v-bind="navItemAttrs(item)"
               class="sidebar-link mb-1"
               :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
@@ -217,7 +217,7 @@
                 <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                 <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
               </span>
-            </router-link>
+            </component>
           </template>
         </div>
       </template>
@@ -276,10 +276,10 @@
                 </router-link>
               </div>
             </template>
-            <router-link
+            <component
               v-else
-              :to="item.path"
-              v-bind="navLinkAttrs(item)"
+              :is="navItemElement(item)"
+              v-bind="navItemAttrs(item)"
               class="sidebar-link mb-1"
               :class="{ 'sidebar-link-active': isNavItemActive(item), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
@@ -295,7 +295,7 @@
                 <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                 <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
               </span>
-            </router-link>
+            </component>
           </template>
         </div>
       </template>
@@ -813,6 +813,18 @@ function navLinkAttrs(item: NavItem): Record<string, string> {
   return {
     target: '_blank',
     rel: 'noopener noreferrer',
+  }
+}
+
+function navItemElement(item: NavItem): 'button' | 'router-link' {
+  return item.action ? 'button' : 'router-link'
+}
+
+function navItemAttrs(item: NavItem): Record<string, string> {
+  if (item.action) return { type: 'button' }
+  return {
+    to: item.path,
+    ...navLinkAttrs(item),
   }
 }
 

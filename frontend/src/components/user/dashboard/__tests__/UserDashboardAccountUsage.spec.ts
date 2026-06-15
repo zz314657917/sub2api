@@ -15,15 +15,15 @@ vi.mock('vue-i18n', () => ({
         'dashboard.personalAccountUsage.ownUsage': '自己使用',
         'dashboard.personalAccountUsage.sharedUsage': '别人使用',
         'dashboard.personalAccountUsage.shareIncome': '分成入账',
-        'dashboard.personalAccountUsage.platformAmount': '平台留存 ${amount}',
-        'dashboard.personalAccountUsage.balanceNetChange': '余额净变化',
-        'dashboard.personalAccountUsage.balanceDeduction': '余额扣减 ${amount}',
+        'dashboard.personalAccountUsage.platformAmount': '平台留存 {amount}',
+        'dashboard.personalAccountUsage.balanceNetChange': '积分净变化',
+        'dashboard.personalAccountUsage.balanceDeduction': '积分扣减 {amount}',
         'dashboard.personalAccountUsage.privateAccounts': '私有',
         'dashboard.personalAccountUsage.publicPending': '公共待校验',
         'dashboard.personalAccountUsage.publicApproved': '公共已通过',
         'dashboard.personalAccountUsage.publicSuspended': '公共已暂停',
         'dashboard.personalAccountUsage.accountDetails': '账号明细',
-        'dashboard.personalAccountUsage.accountCost': '账号成本 ${amount}',
+        'dashboard.personalAccountUsage.accountCost': '账号成本 {amount}',
         'dashboard.personalAccountUsage.requests': '{count} 请求',
         'dashboard.personalAccountUsage.noUsage': '当前时间范围内暂无个人账号用量',
         'dashboard.personalAccountUsage.usageSummary': '当前时间范围内共有 {count} 次个人账号请求',
@@ -81,11 +81,11 @@ describe('UserDashboardAccountUsage', () => {
     expect(text).toContain('2026-05-07 - 2026-05-13')
     expect(text).toContain('我的账号')
     expect(text).toContain('4')
-    expect(text).toContain('$1.2500')
-    expect(text).toContain('$2.5000')
-    expect(text).toContain('$0.7500')
-    expect(text).toContain('+$0.2500')
-    expect(text).toContain('账号成本 $4.5000')
+    expect(text).toContain('✪ 1.2500')
+    expect(text).toContain('✪ 2.5000')
+    expect(text).toContain('✪ 0.7500')
+    expect(text).toContain('✪ +0.2500')
+    expect(text).toContain('账号成本 ✪ 4.5000')
     expect(text).toContain('当前时间范围内共有 7 次个人账号请求')
   })
 

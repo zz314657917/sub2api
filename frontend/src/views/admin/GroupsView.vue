@@ -151,7 +151,7 @@
                   v-if="hasAnySubscriptionLimit(row)"
                 >
                   <span v-if="displaySubscriptionLimit(row.daily_limit_usd) != null"
-                    >${{ formatSubscriptionLimit(row.daily_limit_usd) }}/{{
+                    >{{ formatSubscriptionLimit(row.daily_limit_usd) }}/{{
                       t("admin.groups.limitDay")
                     }}</span
                   >
@@ -165,7 +165,7 @@
                     >·</span
                   >
                   <span v-if="displaySubscriptionLimit(row.weekly_limit_usd) != null"
-                    >${{ formatSubscriptionLimit(row.weekly_limit_usd) }}/{{
+                    >{{ formatSubscriptionLimit(row.weekly_limit_usd) }}/{{
                       t("admin.groups.limitWeek")
                     }}</span
                   >
@@ -178,7 +178,7 @@
                     >·</span
                   >
                   <span v-if="displaySubscriptionLimit(row.monthly_limit_usd) != null"
-                    >${{ formatSubscriptionLimit(row.monthly_limit_usd) }}/{{
+                    >{{ formatSubscriptionLimit(row.monthly_limit_usd) }}/{{
                       t("admin.groups.limitMonth")
                     }}</span
                   >
@@ -3285,6 +3285,7 @@ import {
   displaySubscriptionLimit,
   hasAnySubscriptionLimit,
 } from "@/utils/subscriptionLimits";
+import { formatCreditAmount } from "@/utils/credits";
 import {
   createDefaultMessagesDispatchFormState,
   messagesDispatchConfigToFormState,
@@ -4579,7 +4580,7 @@ const normalizeOptionalLimit = (
 };
 
 const formatSubscriptionLimit = (value: number | null | undefined): string =>
-  `${displaySubscriptionLimit(value) ?? 0}`;
+  formatCreditAmount(displaySubscriptionLimit(value) ?? 0);
 
 const normalizeImageRateMultiplier = (
   value: number | string | null | undefined,

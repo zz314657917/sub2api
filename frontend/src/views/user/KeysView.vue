@@ -95,6 +95,14 @@
                 >
                   {{ t('keys.defaultKeyBadge') }}
                 </span>
+                <span
+                  v-if="apiKeySupportsUnifiedAccess(row)"
+                  class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                  :title="t('keys.unifiedKeyHint')"
+                >
+                  <Icon name="sparkles" size="xs" />
+                  {{ t('keys.unifiedKeyBadge') }}
+                </span>
                 <Icon
                   v-if="row.ip_whitelist?.length > 0 || row.ip_blacklist?.length > 0"
                   name="shield"
@@ -174,13 +182,13 @@
               <div class="flex items-center gap-1.5">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('keys.today') }}:</span>
                 <span class="font-medium text-gray-900 dark:text-white">
-                  ${{ (usageStats[row.id]?.today_actual_cost ?? 0).toFixed(4) }}
+                  {{ formatCreditAmount(usageStats[row.id]?.today_actual_cost ?? 0, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) }}
                 </span>
               </div>
               <div class="mt-0.5 flex items-center gap-1.5">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('keys.total') }}:</span>
                 <span class="font-medium text-gray-900 dark:text-white">
-                  ${{ (usageStats[row.id]?.total_actual_cost ?? 0).toFixed(4) }}
+                  {{ formatCreditAmount(usageStats[row.id]?.total_actual_cost ?? 0, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) }}
                 </span>
               </div>
               <!-- Quota progress (if quota is set) -->
@@ -193,7 +201,7 @@
                     row.quota_used >= row.quota * 0.8 ? 'text-yellow-500' :
                     'text-gray-900 dark:text-white'
                   ]">
-                    ${{ row.quota_used?.toFixed(2) || '0.00' }} / ${{ row.quota?.toFixed(2) }}
+                    {{ formatCreditAmount(row.quota_used || 0) }} / {{ formatCreditAmount(row.quota || 0) }}
                   </span>
                 </div>
                 <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
@@ -223,7 +231,7 @@
                     row.usage_5h >= row.rate_limit_5h * 0.8 ? 'text-yellow-500' :
                     'text-gray-700 dark:text-gray-300'
                   ]">
-                    ${{ row.usage_5h?.toFixed(2) || '0.00' }}/${{ row.rate_limit_5h?.toFixed(2) }}
+                    {{ formatCreditAmount(row.usage_5h || 0) }}/{{ formatCreditAmount(row.rate_limit_5h || 0) }}
                   </span>
                 </div>
                 <div class="h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
@@ -251,7 +259,7 @@
                     row.usage_1d >= row.rate_limit_1d * 0.8 ? 'text-yellow-500' :
                     'text-gray-700 dark:text-gray-300'
                   ]">
-                    ${{ row.usage_1d?.toFixed(2) || '0.00' }}/${{ row.rate_limit_1d?.toFixed(2) }}
+                    {{ formatCreditAmount(row.usage_1d || 0) }}/{{ formatCreditAmount(row.rate_limit_1d || 0) }}
                   </span>
                 </div>
                 <div class="h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
@@ -279,7 +287,7 @@
                     row.usage_7d >= row.rate_limit_7d * 0.8 ? 'text-yellow-500' :
                     'text-gray-700 dark:text-gray-300'
                   ]">
-                    ${{ row.usage_7d?.toFixed(2) || '0.00' }}/${{ row.rate_limit_7d?.toFixed(2) }}
+                    {{ formatCreditAmount(row.usage_7d || 0) }}/{{ formatCreditAmount(row.rate_limit_7d || 0) }}
                   </span>
                 </div>
                 <div class="h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-600">
@@ -633,7 +641,7 @@
                 </div>
               </div>
               <div class="relative max-w-sm">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">{{ CREDIT_SYMBOL }}</span>
                 <input
                   v-model.number="formData.quota"
                   type="number"
@@ -652,11 +660,11 @@
               <div class="flex items-center gap-2">
                 <div class="flex-1 rounded-lg bg-gray-100 px-3 py-2 dark:bg-dark-700">
                   <span class="font-medium text-gray-900 dark:text-white">
-                    ${{ selectedKey.quota_used?.toFixed(4) || '0.0000' }}
+                    {{ formatCreditAmount(selectedKey.quota_used || 0, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) }}
                   </span>
                   <span class="mx-2 text-gray-400">/</span>
                   <span class="text-gray-500 dark:text-gray-400">
-                    ${{ selectedKey.quota?.toFixed(2) || '0.00' }}
+                    {{ formatCreditAmount(selectedKey.quota || 0) }}
                   </span>
                 </div>
                 <button
@@ -1002,7 +1010,7 @@
             <div>
               <label class="input-label">{{ t('keys.rateLimit5h') }}</label>
               <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">{{ CREDIT_SYMBOL }}</span>
                 <input
                   v-model.number="formData.rate_limit_5h"
                   type="number"
@@ -1022,11 +1030,11 @@
                       selectedKey.usage_5h >= selectedKey.rate_limit_5h * 0.8 ? 'text-yellow-500' :
                       'text-gray-900 dark:text-white'
                     ]">
-                      ${{ selectedKey.usage_5h?.toFixed(4) || '0.0000' }}
+                      {{ formatCreditAmount(selectedKey.usage_5h || 0, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) }}
                     </span>
                     <span class="mx-2 text-gray-400">/</span>
                     <span class="text-gray-500 dark:text-gray-400">
-                      ${{ selectedKey.rate_limit_5h?.toFixed(2) || '0.00' }}
+                      {{ formatCreditAmount(selectedKey.rate_limit_5h || 0) }}
                     </span>
                   </div>
                 </div>
@@ -1048,7 +1056,7 @@
             <div>
               <label class="input-label">{{ t('keys.rateLimit1d') }}</label>
               <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">{{ CREDIT_SYMBOL }}</span>
                 <input
                   v-model.number="formData.rate_limit_1d"
                   type="number"
@@ -1068,11 +1076,11 @@
                       selectedKey.usage_1d >= selectedKey.rate_limit_1d * 0.8 ? 'text-yellow-500' :
                       'text-gray-900 dark:text-white'
                     ]">
-                      ${{ selectedKey.usage_1d?.toFixed(4) || '0.0000' }}
+                      {{ formatCreditAmount(selectedKey.usage_1d || 0, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) }}
                     </span>
                     <span class="mx-2 text-gray-400">/</span>
                     <span class="text-gray-500 dark:text-gray-400">
-                      ${{ selectedKey.rate_limit_1d?.toFixed(2) || '0.00' }}
+                      {{ formatCreditAmount(selectedKey.rate_limit_1d || 0) }}
                     </span>
                   </div>
                 </div>
@@ -1094,7 +1102,7 @@
             <div>
               <label class="input-label">{{ t('keys.rateLimit7d') }}</label>
               <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">$</span>
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">{{ CREDIT_SYMBOL }}</span>
                 <input
                   v-model.number="formData.rate_limit_7d"
                   type="number"
@@ -1114,11 +1122,11 @@
                       selectedKey.usage_7d >= selectedKey.rate_limit_7d * 0.8 ? 'text-yellow-500' :
                       'text-gray-900 dark:text-white'
                     ]">
-                      ${{ selectedKey.usage_7d?.toFixed(4) || '0.0000' }}
+                      {{ formatCreditAmount(selectedKey.usage_7d || 0, { minimumFractionDigits: 4, maximumFractionDigits: 4 }) }}
                     </span>
                     <span class="mx-2 text-gray-400">/</span>
                     <span class="text-gray-500 dark:text-gray-400">
-                      ${{ selectedKey.rate_limit_7d?.toFixed(2) || '0.00' }}
+                      {{ formatCreditAmount(selectedKey.rate_limit_7d || 0) }}
                     </span>
                   </div>
                 </div>
@@ -1311,6 +1319,7 @@
       :base-url="publicSettings?.api_base_url || ''"
       :platform="selectedKey?.group?.platform || null"
       :allow-messages-dispatch="selectedKey?.group?.allow_messages_dispatch || false"
+      :unified-access="selectedKey ? apiKeySupportsUnifiedAccess(selectedKey) : false"
       @close="closeUseKeyModal"
     />
 
@@ -1503,12 +1512,14 @@ import type {
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
+import { CREDIT_SYMBOL, formatCreditAmount } from '@/utils/credits'
 import { maskApiKey } from '@/utils/maskApiKey'
 import {
   buildCcSwitchImportDeeplink,
   buildCcSwitchUsageScript,
   type CcSwitchClientType
 } from '@/utils/ccswitchImport'
+import { apiKeySupportsUnifiedAccess } from '@/utils/apiKeyCapabilities'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -1556,7 +1567,7 @@ interface RoutingPresetOption {
   title: string
   description: string
   icon: 'sparkles' | 'dollar' | 'bolt' | 'shield' | 'menu'
-  tone: 'blue' | 'emerald' | 'orange' | 'rose' | 'gray'
+  tone: 'cyan' | 'blue' | 'emerald' | 'orange' | 'rose' | 'gray'
 }
 
 const appStore = useAppStore()
@@ -1609,7 +1620,7 @@ const showResetRateLimitDialog = ref(false)
 const showUseKeyModal = ref(false)
 const showCcsClientSelect = ref(false)
 const showCockpitToolsInstallDialog = ref(false)
-const routingPreset = ref<ApiKeyRoutingPreset>('auto')
+const routingPreset = ref<ApiKeyRoutingPreset>('optimal')
 const defaultGroupTouched = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
 const pendingCockpitToolsRow = ref<ApiKey | null>(null)
@@ -1688,6 +1699,13 @@ const statusOptions = computed(() => [
 
 const routingPresetOptions = computed<RoutingPresetOption[]>(() => [
   {
+    value: 'optimal',
+    title: t('keys.routingPreset.optimal.title'),
+    description: t('keys.routingPreset.optimal.description'),
+    icon: 'sparkles',
+    tone: 'cyan'
+  },
+  {
     value: 'auto',
     title: t('keys.routingPreset.auto.title'),
     description: t('keys.routingPreset.auto.description'),
@@ -1736,6 +1754,9 @@ const routeKindModelPatterns: Record<'video' | 'embedding', string> = {
 const presetToneClasses = (option: RoutingPresetOption) => {
   const selected = routingPreset.value === option.value
   const toneClasses: Record<RoutingPresetOption['tone'], string> = {
+    cyan: selected
+      ? 'border-cyan-500 bg-cyan-50 text-cyan-800 ring-1 ring-cyan-500 dark:border-cyan-400 dark:bg-cyan-500/10 dark:text-cyan-200'
+      : 'border-gray-200 bg-white text-gray-700 hover:border-cyan-300 hover:bg-cyan-50/50 dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-cyan-500/50 dark:hover:bg-cyan-500/10',
     blue: selected
       ? 'border-blue-500 bg-blue-50 text-blue-800 ring-1 ring-blue-500 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-200'
       : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50/50 dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-blue-500/50 dark:hover:bg-blue-500/10',
@@ -1758,6 +1779,9 @@ const presetToneClasses = (option: RoutingPresetOption) => {
 const presetIconClasses = (option: RoutingPresetOption) => {
   const selected = routingPreset.value === option.value
   const toneClasses: Record<RoutingPresetOption['tone'], string> = {
+    cyan: selected
+      ? 'bg-cyan-500 text-white'
+      : 'bg-cyan-50 text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-300',
     blue: selected
       ? 'bg-blue-500 text-white'
       : 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300',
@@ -1855,7 +1879,7 @@ const buildPresetRouteForms = (
   let weight = 1
   let cooldownSeconds = 30
   let priority = index + 1
-  if (preset === 'auto') {
+  if (preset === 'optimal' || preset === 'auto') {
     priority = 1
   }
   if (preset === 'speed') {
@@ -2365,7 +2389,7 @@ const openCreateModal = () => {
   showEditModal.value = false
   closeModals()
   showCreateModal.value = true
-  applyRoutingPreset('auto')
+  applyRoutingPreset('optimal')
 }
 
 const handleSubmit = async () => {
@@ -2523,7 +2547,7 @@ const closeModals = () => {
   showCreateModal.value = false
   showEditModal.value = false
   selectedKey.value = null
-  routingPreset.value = 'auto'
+  routingPreset.value = 'optimal'
   defaultGroupTouched.value = false
   formData.value = {
     name: '',

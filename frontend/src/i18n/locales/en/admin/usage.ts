@@ -29,7 +29,7 @@ export default {
       failedToLoad: 'Failed to load usage records',
       billingType: 'Billing Type',
       allBillingTypes: 'All Billing Types',
-      billingTypeBalance: 'Balance',
+      billingTypeBalance: 'Credits',
       billingTypeSubscription: 'Subscription',
       billingMode: 'Billing Mode',
       billingModeToken: 'Token',
@@ -37,7 +37,7 @@ export default {
       billingModeImage: 'Image',
       allBillingModes: 'All Billing Modes',
       ipAddress: 'IP',
-      clickToViewBalance: 'Click to view balance history',
+      clickToViewBalance: 'Click to view credit history',
       failedToLoadUser: 'Failed to load user info',
       cleanup: {
         button: 'Cleanup',

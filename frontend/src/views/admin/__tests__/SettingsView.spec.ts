@@ -135,7 +135,7 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.wechatConnect.frontendRedirectUrlPlaceholder": "/auth/wechat/callback",
     "admin.settings.wechatConnect.frontendRedirectUrlHint": "通常用于前端路由回调地址，需与后端配置保持一致。",
     "admin.settings.authSourceDefaults.title": "认证来源默认值",
-    "admin.settings.authSourceDefaults.description": "按注册来源配置新用户默认余额、并发、订阅与授权策略。",
+    "admin.settings.authSourceDefaults.description": "按注册来源配置新用户默认积分、并发、订阅与授权策略。",
     "admin.settings.authSourceDefaults.requireEmailLabel": "第三方注册强制补充邮箱",
     "admin.settings.authSourceDefaults.requireEmailHint": "启用后，Linux DO、OIDC、微信注册缺少邮箱时必须先补充邮箱地址。",
     "admin.settings.authSourceDefaults.enabledHint": "以下默认值会在该来源注册新用户时发放；首次绑定时授权仅作用于已有账号绑定该来源。",
@@ -167,21 +167,21 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.paymentVisibleMethods.sourceRequiredError": "{title} 已启用，请先选择支付来源。",
     "admin.settings.payment.configGuide": "查看支付配置说明",
     "admin.settings.payment.findProvider": "查看支持的支付方式",
-    "admin.settings.payment.rechargePackages": "充值档位",
+    "admin.settings.payment.rechargePackages": "积分档位",
     "admin.settings.payment.rechargePackagesHint": "用户只能选择启用中的档位。",
     "admin.settings.payment.rechargePackageAdd": "新增档位",
     "admin.settings.payment.rechargePackageRemove": "删除",
     "admin.settings.payment.rechargePackageEnabled": "启用",
     "admin.settings.payment.rechargePackageLabel": "名称",
-    "admin.settings.payment.rechargePackageLabelPlaceholder": "如：首充体验包",
+    "admin.settings.payment.rechargePackageLabelPlaceholder": "如：首购体验包",
     "admin.settings.payment.rechargePackagePayAmount": "支付金额",
-    "admin.settings.payment.rechargePackageCreditedAmount": "到账额度",
+    "admin.settings.payment.rechargePackageCreditedAmount": "到账积分",
     "admin.settings.payment.rechargePackageBonusAmount": "赠送",
     "admin.settings.payment.rechargePackageSortOrder": "排序",
     "admin.settings.openaiExperimentalScheduler.title": "OpenAI 实验调度策略",
     "admin.settings.openaiExperimentalScheduler.description": "默认关闭。开启后仅影响本网关在 OpenAI 账号间的实验性调度选择逻辑，不代表上游 OpenAI 官方能力。",
     "admin.settings.features.leaderboardDailyReward.title": "排行榜每周奖励",
-    "admin.settings.features.leaderboardDailyReward.description": "按上周消费榜结算前三名余额奖励。",
+    "admin.settings.features.leaderboardDailyReward.description": "按上周消费榜结算前三名积分奖励。",
     "admin.settings.features.leaderboardDailyReward.enabled": "启用每周奖励",
     "admin.settings.features.leaderboardDailyReward.enabledHint": "仅当上周总消费严格超过最低门槛时可领取。",
     "admin.settings.features.leaderboardDailyReward.minTotalActualCost": "上周总消费最低门槛",
@@ -668,7 +668,7 @@ describe("admin SettingsView payment visible method controls", () => {
     await flushPromises();
     await openPaymentTab(wrapper);
 
-    expect(wrapper.text()).toContain("充值档位");
+    expect(wrapper.text()).toContain("积分档位");
     expect(
       wrapper
         .findAll("input")

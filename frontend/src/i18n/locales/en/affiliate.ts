@@ -1,7 +1,7 @@
 export default {
     title: 'Invite Earnings',
-    description: 'Invite friends to register and call any API. You can claim a fixed reward afterward, then keep earning from recharge rebates.',
-    descriptionWithReward: 'Invite friends to register and call any API. You can claim {amount} afterward, then keep earning from recharge rebates.',
+    description: 'Invite friends to register and call any API. You can claim a fixed reward afterward, then keep earning from credit purchase rebates.',
+    descriptionWithReward: 'Invite friends to register and call any API. You can claim {amount} afterward, then keep earning from credit purchase rebates.',
     yourCode: 'Your Affiliate Code',
     inviteLink: 'Invite Link',
     copyCode: 'Copy Code',
@@ -9,7 +9,7 @@ export default {
     codeCopied: 'Affiliate code copied',
     linkCopied: 'Invite link copied',
     loadFailed: 'Failed to load affiliate data',
-    transferFailed: 'Failed to transfer affiliate quota',
+    transferFailed: 'Failed to transfer affiliate credits',
     hero: {
       eyebrow: 'Referral earnings',
       title: 'Invite friends and earn credit'
@@ -33,20 +33,20 @@ export default {
     },
     stats: {
       rebateRate: 'My Rebate Rate',
-      rebateRateHint: 'What you earn each time an invitee recharges',
+      rebateRateHint: 'What you earn each time an invitee buys credits',
       invitedUsers: 'Invited Users',
-      availableQuota: 'Available Rebate Quota',
+      availableQuota: 'Available Rebate Credits',
       frozenQuota: 'Frozen',
       frozenQuotaHint: 'Recently earned rebates pending release',
-      totalQuota: 'Historical Rebate Quota'
+      totalQuota: 'Historical Rebate Credits'
     },
     transfer: {
-      title: 'Transfer Rebate Quota',
-      description: 'Move available rebate quota into your account balance',
-      button: 'Transfer to Balance',
+      title: 'Transfer Rebate Credits',
+      description: 'Move available rebate credits into your account credits',
+      button: 'Transfer to Credits',
       transferring: 'Transferring...',
-      empty: 'No available rebate quota',
-      success: '{amount} has been transferred to your balance'
+      empty: 'No available rebate credits',
+      success: '{amount} has been transferred to your credits'
     },
     steps: {
       title: 'How it works',
@@ -60,7 +60,7 @@ export default {
       },
       earn: {
         title: 'Claim {amount}',
-        description: 'After the first API call, claim the fixed reward here. Future recharges can keep earning at {rate}.'
+        description: 'After the first API call, claim the fixed reward here. Future credit purchases can keep earning at {rate}.'
       }
     },
     invitees: {
@@ -97,7 +97,7 @@ export default {
       title: 'Important notes',
       line1: 'Only registrations through your invite link or code count as valid referrals.',
       line2: 'The fixed reward becomes claimable after your friend registers through your link and calls any API.',
-      line3: 'Recharge rebates use your current effective rate. Newly earned rebates may enter a frozen period.',
+      line3: 'Credit purchase rebates use your current effective rate. Newly earned rebates may enter a frozen period.',
       line4: 'Do not self-invite with your own email, device, or payment method. Abnormal referrals may be revoked.'
     },
     faq: {
@@ -108,11 +108,11 @@ export default {
       },
       when: {
         question: 'When does credit arrive?',
-        answer: 'After your friend registers through your link and calls any API, you can claim the fixed reward from Recent referrals. Recharge rebates follow the site configuration.'
+        answer: 'After your friend registers through your link and calls any API, you can claim the fixed reward from Recent referrals. Credit purchase rebates follow the site configuration.'
       },
       expire: {
         question: 'Will the credit expire?',
-        answer: 'No. Once transferred to balance, it stays in your account until consumed by API usage.'
+        answer: 'No. Once transferred to credits, it stays in your account until consumed by API usage.'
       },
       selfInvite: {
         question: 'Can I refer myself with another email?',
@@ -122,8 +122,8 @@ export default {
     tips: {
       title: 'How It Works',
       line1: 'Share your affiliate code or invite link with new users.',
-      line2: 'After an invitee makes the first API call, you can claim the fixed reward here. Recharge rebate rate: {rate}.',
-      line3: 'Transfer rebate quota to balance at any time.',
+      line2: 'After an invitee makes the first API call, you can claim the fixed reward here. Credit purchase rebate rate: {rate}.',
+      line3: 'Transfer rebate credits to account credits at any time.',
       line4: 'Newly earned rebates may have a waiting period before they can be transferred.'
     }
   }

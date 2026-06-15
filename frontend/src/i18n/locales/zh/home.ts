@@ -17,7 +17,7 @@ export default {
     heroTitleBottom: '智能解决方案',
     heroSubtitle: 'mapleAI 智能解决方案',
     heroDescription: '统一接入模型能力，按需付费',
-    heroDescriptionAltModels: '完成教程接入 API，领取试用额度',
+    heroDescriptionAltModels: '完成教程接入 API，领取试用积分',
     heroDescriptionAltSupport: '一把密钥连接你的 AI 工作流',
     heroProofGateway: '统一 API 网关',
     heroProofBilling: '按需付费',
@@ -25,7 +25,7 @@ export default {
     claimButton: '注册领取试用',
     contactSupport: '添加客服',
     pricing: {
-      ctaRecharge: '立即充值',
+      ctaRecharge: '购买积分',
       ctaKey: '创建 API Key',
       formula: {
         label: '价格计算公式',
@@ -36,7 +36,7 @@ export default {
         sampleGroupValue: 'claude-稳定',
         sampleRateLabel: '倍率',
         sampleRateValue: '0.15x',
-        lead: '这里的 1 人民币可以按官方 1 美元 API 额度理解；真正扣多少余额，取决于你调用时命中的分组倍率。',
+        lead: '这里的 1 人民币可以按官方 1 美元 API 额度理解；真正扣多少积分，取决于你调用时命中的分组倍率。',
         note: '也就是说，当某个分组的倍率是 0.15x 时，你花 0.150 元人民币，就可以获得大致等同于官方 1 美元 API 的调用用量。更换分组时，只需要替换中间的倍率数字。',
         references: '官方定价参考',
         links: {
@@ -48,7 +48,7 @@ export default {
           base: {
             badge: '基础换算',
             value: '1 人民币 = 1 美元',
-            desc: '先把官方美元消耗映射到本站余额单位。'
+            desc: '先把官方美元消耗映射到本站积分单位。'
           },
           rate: {
             badge: '乘以分组倍率',
@@ -58,7 +58,7 @@ export default {
           cost: {
             badge: '实际扣费',
             value: '0.150 元人民币',
-            desc: '这是本次等价官方 1 美元用量的余额成本。'
+            desc: '这是本次等价官方 1 美元用量的积分成本。'
           },
           usage: {
             badge: '对应官方用量',
@@ -71,7 +71,7 @@ export default {
         label: '价格计算辅助说明',
         recharge: {
           title: '轻量试跑',
-          desc: '小额余额也能先跑通教程、脚本和日常开发任务。'
+          desc: '少量积分也能先跑通教程、脚本和日常开发任务。'
         },
         groups: {
           title: '环境隔离',
@@ -125,7 +125,7 @@ export default {
       multiAccount: '稳定接入体验',
       multiAccountDesc: '号池、代理与会话链路协同，减少单点异常对编码流程的影响。',
       balanceQuota: '用量状态清晰',
-      balanceQuotaDesc: '请求、额度、账单和链路状态集中查看，方便团队控制成本。'
+      balanceQuotaDesc: '请求、积分、账单和链路状态集中查看，方便团队控制成本。'
     },
     // 优势对比
     comparison: {
@@ -176,7 +176,7 @@ export default {
     // CTA 区块
     cta: {
       title: '准备好开始了吗？',
-      description: '注册即可获得免费试用额度，体验一站式 AI 服务',
+      description: '注册即可获得免费试用积分，体验一站式 AI 服务',
       button: '免费注册'
     },
     footer: {

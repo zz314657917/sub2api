@@ -45,15 +45,15 @@
         </div>
         <div v-if="dailyLimit != null" class="flex items-center justify-between">
           <span class="text-gray-400 dark:text-dark-500">{{ t('payment.planCard.dailyLimit') }}</span>
-          <span class="font-medium text-gray-700 dark:text-gray-300">${{ dailyLimit }}</span>
+          <span class="font-medium text-gray-700 dark:text-gray-300">{{ formatCreditAmount(dailyLimit) }}</span>
         </div>
         <div v-if="weeklyLimit != null" class="flex items-center justify-between">
           <span class="text-gray-400 dark:text-dark-500">{{ t('payment.planCard.weeklyLimit') }}</span>
-          <span class="font-medium text-gray-700 dark:text-gray-300">${{ weeklyLimit }}</span>
+          <span class="font-medium text-gray-700 dark:text-gray-300">{{ formatCreditAmount(weeklyLimit) }}</span>
         </div>
         <div v-if="monthlyLimit != null" class="flex items-center justify-between">
           <span class="text-gray-400 dark:text-dark-500">{{ t('payment.planCard.monthlyLimit') }}</span>
-          <span class="font-medium text-gray-700 dark:text-gray-300">${{ monthlyLimit }}</span>
+          <span class="font-medium text-gray-700 dark:text-gray-300">{{ formatCreditAmount(monthlyLimit) }}</span>
         </div>
         <div v-if="!hasQuotaLimit" class="flex items-center justify-between">
           <span class="text-gray-400 dark:text-dark-500">{{ t('payment.planCard.quota') }}</span>
@@ -101,6 +101,7 @@ import {
   platformLabel,
 } from '@/utils/platformColors'
 import { displaySubscriptionLimit, hasAnySubscriptionLimit } from '@/utils/subscriptionLimits'
+import { formatCreditAmount } from '@/utils/credits'
 
 const props = defineProps<{ plan: SubscriptionPlan; activeSubscriptions?: UserSubscription[] }>()
 const emit = defineEmits<{ select: [plan: SubscriptionPlan] }>()

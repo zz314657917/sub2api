@@ -23,9 +23,9 @@ export default {
     sessionKey: 'Session Key / Setup Token',
     sessionKeyPlaceholder: '粘贴 Claude Session Key 或 Setup Token',
     tokenJsonHint: 'Token JSON 是粘贴已有令牌 JSON 的方式，不会自动生成或跳转。常用字段包括 refresh_token、access_token、expires_at、client_id。',
-    transfer: '转余额',
-    transferSuccess: '已转入余额：{amount}',
-    transferFailed: '共享收益转余额失败',
+    transfer: '转积分',
+    transferSuccess: '已转入积分：{amount}',
+    transferFailed: '共享收益转积分失败',
     applyPublic: '申请共享',
     makePrivate: '设为私有',
     publicRequested: '已提交共享审核',
@@ -77,7 +77,7 @@ export default {
     summary: {
       available: '可转收益',
       frozen: '冻结收益',
-      transferred: '已转余额',
+      transferred: '已转积分',
       total: '累计收益'
     },
     shareMode: {

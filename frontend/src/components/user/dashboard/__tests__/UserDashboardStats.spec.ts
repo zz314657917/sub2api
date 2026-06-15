@@ -103,11 +103,11 @@ describe('UserDashboardStats', () => {
       maximumFractionDigits: 1,
     }).format(2500000)
 
-    expect(wrapper.text()).toContain('$12.50')
+    expect(wrapper.text()).toContain('✪ 12.50')
     expect(wrapper.text()).toContain(expectedCompactTokens)
     expect(wrapper.text()).toContain('100')
     expect(wrapper.text()).toContain('0%')
-    expect(wrapper.text()).toContain('$0.125')
+    expect(wrapper.text()).toContain('✪ 0.125')
     expect(wrapper.text()).toContain('2/3 API keys active')
     expect(wrapper.text()).toContain('Failure stats are not returned by the current API')
   })
@@ -128,9 +128,9 @@ describe('UserDashboardStats', () => {
     })
 
     expect(wrapper.findAll('.dashboard-stat-card')).toHaveLength(5)
-    expect(wrapper.text()).toContain('$0.00')
+    expect(wrapper.text()).toContain('✪ 0.00')
     expect(wrapper.text()).toContain('0%')
-    expect(wrapper.text()).toContain('$0.00')
+    expect(wrapper.text()).toContain('✪ 0.00')
     expect(wrapper.text()).toContain('0/0 API keys active')
   })
 })

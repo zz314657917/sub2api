@@ -23,7 +23,7 @@
               </div>
               <div v-if="amount > 0" class="flex justify-between">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.amount') }}</span>
-                <span class="font-medium text-gray-900 dark:text-white">{{ orderType === 'balance' ? '$' : '¥' }}{{ amount.toFixed(2) }}</span>
+                <span class="font-medium text-gray-900 dark:text-white">{{ formatOrderAmount(amount) }}</span>
               </div>
               <div class="flex justify-between">
                 <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</span>
@@ -73,6 +73,7 @@ import { useAppStore } from '@/stores'
 import { getPaymentPopupFeatures } from '@/components/payment/providerConfig'
 import type { Stripe, StripeElements } from '@stripe/stripe-js'
 import Icon from '@/components/icons/Icon.vue'
+import { formatCreditAmount } from '@/utils/credits'
 
 // Stripe payment methods that open a popup (redirect or QR code)
 const POPUP_METHODS = new Set(['alipay', 'wechat_pay'])
@@ -104,6 +105,12 @@ const selectedType = ref('')
 
 let stripeInstance: Stripe | null = null
 let elementsInstance: StripeElements | null = null
+
+function formatOrderAmount(value: number): string {
+  return props.orderType === 'balance'
+    ? formatCreditAmount(value)
+    : `¥${value.toFixed(2)}`
+}
 
 onMounted(async () => {
   try {

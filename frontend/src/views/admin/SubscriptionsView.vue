@@ -227,9 +227,9 @@
                     ></div>
                   </div>
                   <span class="usage-amount">
-                    ${{ row.daily_usage_usd?.toFixed(2) || '0.00' }}
+                    {{ formatSubscriptionCreditAmount(row.daily_usage_usd) }}
                     <span class="text-gray-400">/</span>
-                    ${{ formatLimitAmount(row.group?.daily_limit_usd) }}
+                    {{ formatSubscriptionCreditAmount(row.group?.daily_limit_usd) }}
                   </span>
                 </div>
                 <div class="reset-info" v-if="row.daily_window_start">
@@ -264,9 +264,9 @@
                     ></div>
                   </div>
                   <span class="usage-amount">
-                    ${{ row.weekly_usage_usd?.toFixed(2) || '0.00' }}
+                    {{ formatSubscriptionCreditAmount(row.weekly_usage_usd) }}
                     <span class="text-gray-400">/</span>
-                    ${{ formatLimitAmount(row.group?.weekly_limit_usd) }}
+                    {{ formatSubscriptionCreditAmount(row.group?.weekly_limit_usd) }}
                   </span>
                 </div>
                 <div class="reset-info" v-if="row.weekly_window_start">
@@ -301,9 +301,9 @@
                     ></div>
                   </div>
                   <span class="usage-amount">
-                    ${{ row.monthly_usage_usd?.toFixed(2) || '0.00' }}
+                    {{ formatSubscriptionCreditAmount(row.monthly_usage_usd) }}
                     <span class="text-gray-400">/</span>
-                    ${{ formatLimitAmount(row.group?.monthly_limit_usd) }}
+                    {{ formatSubscriptionCreditAmount(row.group?.monthly_limit_usd) }}
                   </span>
                 </div>
                 <div class="reset-info" v-if="row.monthly_window_start">
@@ -771,6 +771,7 @@ import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { displaySubscriptionLimit, hasAnySubscriptionLimit } from '@/utils/subscriptionLimits'
 import { getRemainingDurationParts, isOneTimeDailyQuota, type RemainingDurationParts } from '@/utils/subscriptionQuota'
+import { formatCreditAmount } from '@/utils/credits'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -1376,8 +1377,11 @@ const getProgressClass = (used: number | null | undefined, limit: number | null 
   return 'bg-green-500'
 }
 
-const formatLimitAmount = (limit: number | null | undefined): string =>
-  (displaySubscriptionLimit(limit) ?? 0).toFixed(2)
+const formatSubscriptionCreditAmount = (amount: number | null | undefined): string =>
+  formatCreditAmount(displaySubscriptionLimit(amount) ?? 0, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
 
 const formatResetDuration = (parts: RemainingDurationParts): string => {
   if (parts.days > 0) {

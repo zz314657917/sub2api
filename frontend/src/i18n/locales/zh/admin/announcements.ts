@@ -42,9 +42,9 @@ export default {
         addAndCondition: '添加 AND 条件',
         conditionType: '条件类型',
         conditionSubscription: '订阅套餐',
-        conditionBalance: '余额',
+        conditionBalance: '积分',
         operator: '运算符',
-        balanceValue: '余额阈值',
+        balanceValue: '积分阈值',
         selectPackages: '选择套餐'
       },
       operators: {

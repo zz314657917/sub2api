@@ -57,7 +57,7 @@
             </div>
             <div v-if="order.amount !== order.pay_amount" class="flex justify-between">
               <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.creditedAmount') }}</span>
-              <span class="font-medium text-gray-900 dark:text-white">{{ order.order_type === 'balance' ? '$' + order.amount.toFixed(2) : formatGatewayAmount(order.amount) }}</span>
+              <span class="font-medium text-gray-900 dark:text-white">{{ formatOrderAmount(order) }}</span>
             </div>
             <div class="flex justify-between">
               <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.paymentMethod') }}</span>
@@ -110,6 +110,7 @@ import { usePaymentStore } from '@/stores/payment'
 import { paymentAPI } from '@/api/payment'
 import type { PaymentOrder } from '@/types/payment'
 import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
+import { formatCreditAmount } from '@/utils/credits'
 import { normalizePaymentMethodForDisplay, paymentMethodI18nKey } from './paymentUx'
 
 const i18n = useI18n()
@@ -138,7 +139,7 @@ const STATUS_REFRESH_MAX_ATTEMPTS = 15
 let statusRefreshTimer: ReturnType<typeof setTimeout> | null = null
 const refreshAttempts = ref(0)
 
-/** 充值金额 = pay_amount / (1 + fee_rate/100)，fee_rate=0 时等于 pay_amount */
+/** 支付基础金额 = pay_amount / (1 + fee_rate/100)，fee_rate=0 时等于 pay_amount */
 const baseAmount = computed(() => {
   if (!order.value) return 0
   const feeRate = Number(order.value.fee_rate) || 0
@@ -187,6 +188,12 @@ function normalizedOrderPaymentType(paymentType: string): string {
 
 function formatGatewayAmount(value: number): string {
   return formatPaymentAmount(value, currency.value, localeCode.value)
+}
+
+function formatOrderAmount(nextOrder: PaymentOrder): string {
+  return nextOrder.order_type === 'balance'
+    ? formatCreditAmount(nextOrder.amount)
+    : formatGatewayAmount(nextOrder.amount)
 }
 
 function setResolvedOrder(nextOrder: PaymentOrder | null): void {

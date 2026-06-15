@@ -29,19 +29,19 @@
 
         <div class="min-w-0">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.ownUsage') }}</p>
-          <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">${{ formatCost(safeSummary.own_usage_cost) }}</p>
+          <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ formatCost(safeSummary.own_usage_cost) }}</p>
           <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.requests', { count: formatInteger(safeSummary.own_usage_requests) }) }}</p>
         </div>
 
         <div class="min-w-0">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.sharedUsage') }}</p>
-          <p class="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">${{ formatCost(safeSummary.shared_usage_cost) }}</p>
+          <p class="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">{{ formatCost(safeSummary.shared_usage_cost) }}</p>
           <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.requests', { count: formatInteger(safeSummary.shared_usage_requests) }) }}</p>
         </div>
 
         <div class="min-w-0">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.shareIncome') }}</p>
-          <p class="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">${{ formatCost(safeSummary.share_income) }}</p>
+          <p class="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ formatCost(safeSummary.share_income) }}</p>
           <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.platformAmount', { amount: formatCost(safeSummary.platform_amount) }) }}</p>
         </div>
 
@@ -92,6 +92,7 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { formatCreditAmount } from '@/utils/credits'
 import type { UserAccountUsageSummary } from '@/types'
 
 const props = defineProps<{
@@ -129,11 +130,14 @@ const displayEndDate = computed(() => safeSummary.value.end_date || props.endDat
 const totalRequests = computed(() => safeSummary.value.own_usage_requests + safeSummary.value.shared_usage_requests)
 const netChangeClass = computed(() => safeSummary.value.balance_net_change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')
 
-const formatCost = (value: number) => Number(value || 0).toFixed(4)
+const formatCost = (value: number) => formatCreditAmount(value, { minimumFractionDigits: 4, maximumFractionDigits: 4 })
 const formatInteger = (value: number) => Math.trunc(value || 0).toLocaleString()
 const formatSignedCost = (value: number) => {
   const amount = Number(value || 0)
-  const sign = amount >= 0 ? '+' : '-'
-  return `${sign}$${formatCost(Math.abs(amount))}`
+  return formatCreditAmount(amount, {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+    signDisplay: 'always',
+  })
 }
 </script>

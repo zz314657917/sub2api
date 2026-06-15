@@ -42,9 +42,9 @@ export default {
         addAndCondition: 'Add AND condition',
         conditionType: 'Condition type',
         conditionSubscription: 'Subscription',
-        conditionBalance: 'Balance',
+        conditionBalance: 'Credits',
         operator: 'Operator',
-        balanceValue: 'Balance threshold',
+        balanceValue: 'Credit threshold',
         selectPackages: 'Select packages'
       },
       operators: {

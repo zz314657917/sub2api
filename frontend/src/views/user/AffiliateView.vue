@@ -36,14 +36,14 @@
             <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-800">
               <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.summary.earned') }}</p>
               <p class="mt-2 text-2xl font-semibold text-gray-950 dark:text-white">
-                {{ formatCurrency(detail.aff_history_quota) }}
+                {{ formatCreditAmount(detail.aff_history_quota) }}
               </p>
               <p class="mt-1 text-xs text-gray-400 dark:text-dark-500">{{ t('affiliate.summary.earnedHint') }}</p>
             </div>
             <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-800">
               <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.stats.availableQuota') }}</p>
               <p class="mt-2 text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
-                {{ formatCurrency(detail.aff_quota) }}
+                {{ formatCreditAmount(detail.aff_quota) }}
               </p>
               <p class="mt-1 text-xs text-gray-400 dark:text-dark-500">{{ t('affiliate.summary.availableHint') }}</p>
             </div>
@@ -58,7 +58,7 @@
               <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.summary.status') }}</p>
               <p class="mt-2 text-2xl font-semibold text-gray-950 dark:text-white">{{ t('affiliate.summary.ready') }}</p>
               <p v-if="detail.aff_frozen_quota > 0" class="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                {{ t('affiliate.stats.frozenQuota') }}: {{ formatCurrency(detail.aff_frozen_quota) }}
+                {{ t('affiliate.stats.frozenQuota') }}: {{ formatCreditAmount(detail.aff_frozen_quota) }}
               </p>
               <p v-else class="mt-1 text-xs text-gray-400 dark:text-dark-500">{{ t('affiliate.summary.statusHint') }}</p>
             </div>
@@ -198,7 +198,7 @@
                       {{ formatDateTime(item.api_used_at) }}
                     </p>
                   </td>
-                  <td class="px-3 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">{{ formatCurrency(item.total_rebate) }}</td>
+                  <td class="px-3 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">{{ formatCreditAmount(item.total_rebate) }}</td>
                   <td class="px-3 py-3 text-gray-700 dark:text-gray-300">{{ formatDateTime(item.created_at) || '-' }}</td>
                   <td class="px-3 py-3 text-right">
                     <button
@@ -259,7 +259,8 @@ import type { AffiliateInvitee, UserAffiliateDetail } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
-import { formatCurrency, formatDateTime } from '@/utils/format'
+import { formatDateTime } from '@/utils/format'
+import { formatCreditAmount } from '@/utils/credits'
 import { extractApiErrorMessage } from '@/utils/apiError'
 
 const { t } = useI18n()
@@ -288,7 +289,7 @@ const formattedRebateRate = computed(() => {
 
 const formattedApiCallRewardAmount = computed(() => {
   const amount = detail.value?.api_call_reward_amount ?? 0
-  return formatCurrency(amount)
+  return formatCreditAmount(amount)
 })
 
 const affiliateDescription = computed(() => {
@@ -335,7 +336,7 @@ async function transferQuota(): Promise<void> {
   transferring.value = true
   try {
     const resp = await userAPI.transferAffiliateQuota()
-    appStore.showSuccess(t('affiliate.transfer.success', { amount: formatCurrency(resp.transferred_quota) }))
+    appStore.showSuccess(t('affiliate.transfer.success', { amount: formatCreditAmount(resp.transferred_quota) }))
     await Promise.all([
       loadAffiliateDetail(true),
       authStore.refreshUser().catch(() => undefined),
@@ -377,7 +378,7 @@ async function claimApiCallReward(item: AffiliateInvitee): Promise<void> {
   claimingInviteeId.value = item.user_id
   try {
     const resp = await userAPI.claimAffiliateApiCallReward(item.user_id)
-    appStore.showSuccess(t('affiliate.invitees.actions.claimSuccess', { amount: formatCurrency(resp.reward_amount) }))
+    appStore.showSuccess(t('affiliate.invitees.actions.claimSuccess', { amount: formatCreditAmount(resp.reward_amount) }))
     await Promise.all([
       loadAffiliateDetail(true),
       authStore.refreshUser().catch(() => undefined),

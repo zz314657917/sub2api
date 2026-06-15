@@ -14,17 +14,17 @@ export default {
         actions: '操作'
       },
       types: {
-        balance: '余额',
+        balance: '积分',
         concurrency: '并发数',
         subscription: '订阅',
         invitation: '邀请码',
-        first_recharge_bonus: '首冲赠送',
-        // 管理员在用户管理页面调整余额/并发时产生的记录
-        admin_balance: '余额（管理员）',
+        first_recharge_bonus: '首购赠送',
+        // 管理员在用户管理页面调整积分/并发时产生的记录
+        admin_balance: '积分（管理员）',
         admin_concurrency: '并发数（管理员）'
       },
       // 用于选择器和筛选器的直接键
-      balance: '余额',
+      balance: '积分',
       concurrency: '并发数',
       subscription: '订阅',
       invitation: '邀请码',
@@ -59,7 +59,7 @@ export default {
       generatedSuccessfully: '生成成功',
       codesCreated: '已创建 {count} 个兑换码',
       codeType: '类型',
-      amount: '金额 ($)',
+      amount: '积分数量',
       value: '面值',
       count: '数量',
       generate: '生成',
@@ -95,7 +95,7 @@ export default {
         selectType: '选择类型',
         valueLabel: '面值',
         valuePlaceholder: '请输入面值',
-        balanceHint: '余额金额（美元）',
+        balanceHint: '积分数量',
         concurrencyHint: '并发数增量',
         countLabel: '数量',
         countPlaceholder: '请输入数量',
@@ -119,7 +119,7 @@ export default {
       deleteCode: '删除',
       deleteConfirmMessage: '确定要删除此兑换码吗？',
       noCodes: '暂无兑换码',
-      noCodesDescription: '生成兑换码以向用户分发余额或并发数。',
+      noCodesDescription: '生成兑换码以向用户分发积分或并发数。',
       codesGeneratedSuccess: '兑换码生成成功，共 {count} 个',
       codeDisabledSuccess: '兑换码已禁用',
       codeEnabledSuccess: '兑换码已启用',
