@@ -74,7 +74,7 @@
         <div v-if="user" class="console-balance hidden items-center gap-2 px-3 py-1.5 sm:flex">
           <Icon name="dollar" size="sm" />
           <span class="text-sm font-semibold">
-            {{ formatCreditAmount(user.balance || 0) }}
+            {{ formatHeaderBalance(user.balance || 0) }}
           </span>
         </div>
 
@@ -118,7 +118,7 @@
                   {{ t('common.balance') }}
                 </div>
                 <div class="text-sm font-semibold text-emerald-200">
-                  {{ formatCreditAmount(user.balance || 0) }}
+                  {{ formatHeaderBalance(user.balance || 0) }}
                 </div>
               </div>
 
@@ -215,6 +215,9 @@ const hasSupportButton = computed(() =>
   hasSupportContent(appStore.cachedPublicSettings, appStore.contactInfo)
 )
 const headerAnnouncements = computed(() => announcementStore.announcements)
+
+const formatHeaderBalance = (value: number | null | undefined) =>
+  formatCreditAmount(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const showOnboardingButton = computed(() => {
   return !authStore.isSimpleMode && user.value?.role === 'admin'
