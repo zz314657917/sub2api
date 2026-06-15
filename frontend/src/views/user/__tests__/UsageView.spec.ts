@@ -337,6 +337,32 @@ const readBlobText = (blob: Blob) =>
     reader.readAsText(blob)
   })
 
+const parseSimpleCsvLine = (line: string): string[] => {
+  const cells: string[] = []
+  let current = ''
+  let quoted = false
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i]
+    const next = line[i + 1]
+
+    if (char === '"' && quoted && next === '"') {
+      current += '"'
+      i += 1
+    } else if (char === '"') {
+      quoted = !quoted
+    } else if (char === ',' && !quoted) {
+      cells.push(current)
+      current = ''
+    } else {
+      current += char
+    }
+  }
+
+  cells.push(current)
+  return cells
+}
+
 describe('user UsageView', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
@@ -517,6 +543,7 @@ describe('user UsageView', () => {
         request_id: 'req-detail',
         input_tokens: 1520,
         output_tokens: 959,
+        cache_read_tokens: 380,
         actual_cost: 0.011628,
         total_cost: 0.012,
       }),
@@ -533,6 +560,7 @@ describe('user UsageView', () => {
     expect(text).toContain('Codex Desktop/0.133.0-alpha.1')
     expect(text).toContain('1,520')
     expect(text).toContain('959')
+    expect(text).toContain('380 (20.0%)')
     expect(text).toContain('✪ 0.011628')
   })
 
@@ -562,6 +590,16 @@ describe('user UsageView', () => {
       expect(csv).toContain('9')
       expect(csv).toContain('req-user-export')
       expect(csv).toContain('Codex Desktop CSV')
+      const [headerLine, dataLine] = csv.split('\n')
+      const headers = parseSimpleCsvLine(headerLine)
+      const values = parseSimpleCsvLine(dataLine)
+      const row = Object.fromEntries(headers.map((header, index) => [header, values[index]]))
+      expect(row['Billed Cost']).toBe('0.09288300')
+      expect(row['Original Cost']).toBe('0.09288300')
+      expect(row['Billed Cost']).not.toContain('$')
+      expect(row['Billed Cost']).not.toContain('✪')
+      expect(row['Original Cost']).not.toContain('$')
+      expect(row['Original Cost']).not.toContain('✪')
       expect(
         query.mock.calls.some((call) => {
           const params = call[0] as Record<string, unknown> | undefined
@@ -606,6 +644,22 @@ describe('user UsageView', () => {
     expect(text).toContain('$0.092883')
     expect(text).toContain('$5.0000 / 1M tokens')
     expect(text).toContain('$30.0000 / 1M tokens')
+  })
+
+  it('shows cache read percentage in the token tooltip', async () => {
+    const wrapper = await mountUsageView()
+
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.tokenTooltipData = baseUsageLog({
+      input_tokens: 4057,
+      output_tokens: 101,
+      cache_creation_tokens: 0,
+      cache_read_tokens: 943,
+    })
+    setupState.tokenTooltipVisible = true
+    await nextTick()
+
+    expect(wrapper.text()).toContain('943 (18.9%)')
   })
 
   it('exports historical image rows with image billing mode derived from image_count', async () => {
