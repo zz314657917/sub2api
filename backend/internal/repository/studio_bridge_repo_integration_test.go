@@ -4,6 +4,7 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"sync"
 	"testing"
@@ -136,8 +137,11 @@ func TestStudioBridgeRepositoryCommitLogsNetUsageOnceAfterPartialRefund(t *testi
 	require.Equal(t, 1, usageCount)
 	require.InDelta(t, 0.5, actualCost, 0.000001)
 	var usageAPIKeyID int64
-	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT api_key_id FROM usage_logs WHERE request_id = $1", "studio:"+cmd.TaskID).Scan(&usageAPIKeyID))
+	var durationMs sql.NullInt64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT api_key_id, duration_ms FROM usage_logs WHERE request_id = $1", "studio:"+cmd.TaskID).Scan(&usageAPIKeyID, &durationMs))
 	require.Equal(t, defaultKey.ID, usageAPIKeyID)
+	require.True(t, durationMs.Valid)
+	require.GreaterOrEqual(t, durationMs.Int64, int64(0))
 
 	var status string
 	var refundedAmount float64

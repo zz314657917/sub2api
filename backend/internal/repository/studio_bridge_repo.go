@@ -175,7 +175,7 @@ func (r *studioBridgeRepository) CommitStudioBridgeCharge(ctx context.Context, c
 	usageAmount := charge.Amount - charge.RefundedAmount
 	if usageAmount > 0 && charge.UsageLoggedAt == nil {
 		usageCmd := charge.command(cmd)
-		if err := r.createChargeUsageLog(ctx, tx, usageCmd, usageAmount); err != nil {
+		if err := r.createChargeUsageLog(ctx, tx, usageCmd, usageAmount, charge.CreatedAt); err != nil {
 			return nil, err
 		}
 	}
@@ -347,6 +347,7 @@ type studioBridgeChargeRecord struct {
 	TeamID             string
 	BalanceAfter       float64
 	UsageLoggedAt      *time.Time
+	CreatedAt          time.Time
 }
 
 type studioBridgeChargeInsert struct {
@@ -457,7 +458,8 @@ func lockStudioBridgeCharge(ctx context.Context, tx *sql.Tx, appID, chargeKey st
 			COALESCE(actor_user_id, ''),
 			COALESCE(team_id, ''),
 			COALESCE(balance_after, 0)::double precision,
-			usage_logged_at
+			usage_logged_at,
+			created_at
 		FROM studio_bridge_charges
 		WHERE app_id = $1 AND charge_key = $2
 		FOR UPDATE
@@ -493,6 +495,7 @@ func scanStudioBridgeCharge(row *sql.Row) (*studioBridgeChargeRecord, error) {
 		&charge.TeamID,
 		&charge.BalanceAfter,
 		&usageLoggedAt,
+		&charge.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -614,7 +617,7 @@ type studioBridgeSQLExecutor interface {
 	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
 }
 
-func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec studioBridgeSQLExecutor, cmd service.StudioBridgeChargeCommand, amount float64) error {
+func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec studioBridgeSQLExecutor, cmd service.StudioBridgeChargeCommand, amount float64, chargeCreatedAt time.Time) error {
 	if cmd.UserID <= 0 || amount <= 0 {
 		return nil
 	}
@@ -672,6 +675,7 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 				request_type,
 				stream,
 				openai_ws_mode,
+				duration_ms,
 				image_count,
 				image_size,
 				image_size_source,
@@ -683,7 +687,15 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 				$1, $2, $3, $4, $5, $5, $6,
 				0, 0, 0, 0, 0, 0, 0, 0,
 				0, 0, 0, 0, $7, $7, 1,
-				$8, $9, FALSE, FALSE, $10, $11, $12, $13, $14, $15, NOW()
+				$8, $9, FALSE, FALSE,
+				CASE
+					WHEN $16::timestamptz IS NULL THEN NULL
+					ELSE LEAST(
+						2147483647,
+						GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - $16::timestamptz)) * 1000))
+					)::int
+				END,
+				$10, $11, $12, $13, $14, $15, NOW()
 			)
 			ON CONFLICT (request_id, api_key_id) DO NOTHING
 			RETURNING user_id, created_at, actual_cost
@@ -720,8 +732,15 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 			RETURNING 1
 		)
 		SELECT EXISTS(SELECT 1 FROM inserted)
-	`, cmd.UserID, refs.apiKeyID, refs.accountID, requestID, model, groupID, amount, service.BillingTypeBalance, int16(service.RequestTypeSync), imageCount, imageSizeArg, imageSizeSourceArg, billingMode, mediaTypeArg, studioBridgeUsageInboundEndpoint(cmd.Mode)).Scan(&inserted)
+	`, cmd.UserID, refs.apiKeyID, refs.accountID, requestID, model, groupID, amount, service.BillingTypeBalance, int16(service.RequestTypeSync), imageCount, imageSizeArg, imageSizeSourceArg, billingMode, mediaTypeArg, studioBridgeUsageInboundEndpoint(cmd.Mode), studioBridgeDurationStartArg(chargeCreatedAt)).Scan(&inserted)
 	return err
+}
+
+func studioBridgeDurationStartArg(value time.Time) any {
+	if value.IsZero() {
+		return nil
+	}
+	return value
 }
 
 type studioBridgeChargeUsageRefs struct {
