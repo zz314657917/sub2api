@@ -39,7 +39,7 @@ var (
 	ErrStudioBridgeAmountInvalid  = infraerrors.BadRequest("STUDIO_BRIDGE_AMOUNT_INVALID", "amount must be positive")
 	ErrStudioBridgeConflict       = infraerrors.Conflict("STUDIO_BRIDGE_CHARGE_CONFLICT", "charge_key fingerprint conflict")
 	ErrStudioBridgeInsufficient   = infraerrors.BadRequest("STUDIO_BRIDGE_INSUFFICIENT_BALANCE", "insufficient balance")
-	ErrStudioBridgeGroupRequired  = infraerrors.BadRequest("STUDIO_BRIDGE_GROUP_REQUIRED", "default chat and image studio bridge groups are required when studio bridge is enabled")
+	ErrStudioBridgeGroupRequired  = infraerrors.BadRequest("STUDIO_BRIDGE_GROUP_REQUIRED", "at least one default studio bridge API route is required when studio bridge is enabled")
 )
 
 type StudioBridgeService struct {
@@ -61,16 +61,28 @@ type StudioBridgeRepository interface {
 }
 
 type StudioBridgeAppSettings struct {
-	Enabled              bool     `json:"enabled"`
-	SiteName             string   `json:"site_name"`
-	AllowedReturnDomains []string `json:"allowed_return_domains"`
-	LaunchReturnURL      string   `json:"launch_return_url"`
-	RechargeReturnURL    string   `json:"recharge_return_url"`
-	DefaultChatGroup     string   `json:"default_chat_group"`
-	DefaultImageGroup    string   `json:"default_image_group"`
-	DefaultVideoGroup    string   `json:"default_video_group"`
-	InternalSecret       string   `json:"internal_secret,omitempty"`
-	SecretConfigured     bool     `json:"secret_configured,omitempty"`
+	Enabled              bool                          `json:"enabled"`
+	SiteName             string                        `json:"site_name"`
+	AllowedReturnDomains []string                      `json:"allowed_return_domains"`
+	LaunchReturnURL      string                        `json:"launch_return_url"`
+	RechargeReturnURL    string                        `json:"recharge_return_url"`
+	DefaultChatGroup     string                        `json:"default_chat_group"`
+	DefaultImageGroup    string                        `json:"default_image_group"`
+	DefaultVideoGroup    string                        `json:"default_video_group"`
+	DefaultAPIRoutes     []StudioBridgeDefaultAPIRoute `json:"default_api_routes,omitempty"`
+	InternalSecret       string                        `json:"internal_secret,omitempty"`
+	SecretConfigured     bool                          `json:"secret_configured,omitempty"`
+}
+
+type StudioBridgeDefaultAPIRoute struct {
+	GroupID         string   `json:"group_id"`
+	Priority        int      `json:"priority"`
+	Weight          int      `json:"weight"`
+	CooldownSeconds int      `json:"cooldown_seconds"`
+	Enabled         bool     `json:"enabled"`
+	ModelPatterns   []string `json:"model_patterns,omitempty"`
+	ImageOnly       bool     `json:"image_only,omitempty"`
+	TextOnly        bool     `json:"text_only,omitempty"`
 }
 
 type StudioBridgeLaunch struct {
@@ -79,13 +91,14 @@ type StudioBridgeLaunch struct {
 }
 
 type StudioBridgeRedeemResult struct {
-	UserID            int64     `json:"user_id"`
-	Email             string    `json:"email"`
-	Username          string    `json:"username"`
-	ExpiresAt         time.Time `json:"expires_at"`
-	DefaultChatGroup  string    `json:"default_chat_group"`
-	DefaultImageGroup string    `json:"default_image_group"`
-	DefaultVideoGroup string    `json:"default_video_group"`
+	UserID            int64                         `json:"user_id"`
+	Email             string                        `json:"email"`
+	Username          string                        `json:"username"`
+	ExpiresAt         time.Time                     `json:"expires_at"`
+	DefaultChatGroup  string                        `json:"default_chat_group"`
+	DefaultImageGroup string                        `json:"default_image_group"`
+	DefaultVideoGroup string                        `json:"default_video_group"`
+	DefaultAPIRoutes  []StudioBridgeDefaultAPIRoute `json:"default_api_routes,omitempty"`
 }
 
 type StudioBridgeUserSummary struct {
@@ -99,10 +112,18 @@ type StudioBridgeUserSummary struct {
 }
 
 type StudioBridgeUsageSummary struct {
-	RequestID  string    `json:"request_id"`
-	Model      string    `json:"model"`
-	ActualCost float64   `json:"actual_cost"`
-	CreatedAt  time.Time `json:"created_at"`
+	RequestID       string    `json:"request_id"`
+	Type            string    `json:"type,omitempty"`
+	TaskID          string    `json:"task_id,omitempty"`
+	Model           string    `json:"model"`
+	RequestedModel  string    `json:"requested_model,omitempty"`
+	UpstreamModel   string    `json:"upstream_model,omitempty"`
+	ActualModel     string    `json:"actual_model,omitempty"`
+	ActualCost      float64   `json:"actual_cost"`
+	DurationMs      int64     `json:"duration_ms,omitempty"`
+	DurationSeconds int64     `json:"duration_seconds,omitempty"`
+	Status          string    `json:"status,omitempty"`
+	CreatedAt       time.Time `json:"created_at"`
 }
 
 type StudioBridgeRechargeOrder struct {
@@ -232,6 +253,7 @@ func (s *StudioBridgeService) RedeemLaunch(ctx context.Context, appID, token, se
 		DefaultChatGroup:  cfg.DefaultChatGroup,
 		DefaultImageGroup: cfg.DefaultImageGroup,
 		DefaultVideoGroup: cfg.DefaultVideoGroup,
+		DefaultAPIRoutes:  cfg.DefaultAPIRoutes,
 	}, nil
 }
 

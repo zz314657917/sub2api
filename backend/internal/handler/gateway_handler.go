@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -482,12 +483,17 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						return
 					}
 				}
-				wroteFallback := h.ensureForwardErrorResponse(c, streamStarted)
+				upstreamErrorAlreadyCommunicated := gatewayForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
+				wroteFallback := false
+				if !upstreamErrorAlreadyCommunicated {
+					wroteFallback = h.ensureForwardErrorResponse(c, streamStarted)
+				}
 				forwardFailedFields := []zap.Field{
 					zap.Int64("account_id", account.ID),
 					zap.String("account_name", account.Name),
 					zap.String("account_platform", account.Platform),
 					zap.Bool("fallback_error_response_written", wroteFallback),
+					zap.Bool("upstream_error_response_already_written", upstreamErrorAlreadyCommunicated),
 					zap.Error(err),
 				}
 				if account.Proxy != nil {
@@ -870,12 +876,17 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						return
 					}
 				}
-				wroteFallback := h.ensureForwardErrorResponse(c, streamStarted)
+				upstreamErrorAlreadyCommunicated := gatewayForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
+				wroteFallback := false
+				if !upstreamErrorAlreadyCommunicated {
+					wroteFallback = h.ensureForwardErrorResponse(c, streamStarted)
+				}
 				forwardFailedFields := []zap.Field{
 					zap.Int64("account_id", account.ID),
 					zap.String("account_name", account.Name),
 					zap.String("account_platform", account.Platform),
 					zap.Bool("fallback_error_response_written", wroteFallback),
+					zap.Bool("upstream_error_response_already_written", upstreamErrorAlreadyCommunicated),
 					zap.Error(err),
 				}
 				if account.Proxy != nil {
@@ -977,13 +988,20 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 
 	var groupID *int64
 	var platform string
+	var forcedPlatform string
 
 	if apiKey != nil && apiKey.Group != nil {
 		groupID = &apiKey.Group.ID
 		platform = apiKey.Group.Platform
 	}
-	if forcedPlatform, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(forcedPlatform) != "" {
+	if forcePlatform, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(forcePlatform) != "" {
+		forcedPlatform = strings.TrimSpace(forcePlatform)
 		platform = forcedPlatform
+	}
+
+	if catalog, ok := h.routedAPIKeyModelCatalog(c.Request.Context(), apiKey, forcedPlatform); ok {
+		writeOpenAIModelsList(c, catalog.ModelIDs)
+		return
 	}
 
 	// Get available models from account configurations for the selected group platform.
@@ -1029,13 +1047,20 @@ func (h *GatewayHandler) ModelCatalog(c *gin.Context) {
 
 	var groupID *int64
 	var platform string
+	var forcedPlatform string
 
 	if apiKey != nil && apiKey.Group != nil {
 		groupID = &apiKey.Group.ID
 		platform = apiKey.Group.Platform
 	}
-	if forcedPlatform, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(forcedPlatform) != "" {
+	if forcePlatform, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(forcePlatform) != "" {
+		forcedPlatform = strings.TrimSpace(forcePlatform)
 		platform = forcedPlatform
+	}
+
+	if catalog, ok := h.routedAPIKeyModelCatalog(c.Request.Context(), apiKey, forcedPlatform); ok {
+		c.JSON(http.StatusOK, catalog.Catalog)
+		return
 	}
 
 	if h.gatewayService == nil {
@@ -1044,6 +1069,335 @@ func (h *GatewayHandler) ModelCatalog(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, h.gatewayService.GetAvailableModelCatalog(c.Request.Context(), groupID, platform))
+}
+
+type routedAPIKeyModelCatalog struct {
+	ModelIDs []string
+	Catalog  service.ModelCatalog
+}
+
+func (h *GatewayHandler) routedAPIKeyModelCatalog(ctx context.Context, apiKey *service.APIKey, forcedPlatform string) (routedAPIKeyModelCatalog, bool) {
+	if h == nil || h.gatewayService == nil || apiKey == nil || len(apiKey.MultiGroupRoutes) == 0 {
+		return routedAPIKeyModelCatalog{}, false
+	}
+	if strings.TrimSpace(forcedPlatform) != "" {
+		return routedAPIKeyModelCatalog{}, false
+	}
+
+	groups := apiKeyRouteGroupsByIDForModels(apiKey)
+	if len(groups) == 0 {
+		return routedAPIKeyModelCatalog{}, false
+	}
+
+	itemsByID := make(map[string]service.ModelCatalogItem)
+	for _, route := range apiKey.MultiGroupRoutes {
+		if !route.Enabled {
+			continue
+		}
+		group := groups[route.GroupID]
+		if group == nil || !group.IsActive() {
+			continue
+		}
+		models, explicitModels := h.modelCatalogCandidatesForRoute(ctx, group)
+		models = modelsForAPIKeyRoute(route, group, models, explicitModels)
+		if len(models) == 0 {
+			continue
+		}
+		routeCatalog := service.BuildModelCatalog(group.Platform, models)
+		routeCapability := apiKeyRouteCatalogCapability(route, group)
+		for _, item := range routeCatalog.Items {
+			capabilities := item.Capabilities
+			if routeCapability != "" {
+				capabilities = []string{routeCapability}
+			}
+			if len(capabilities) == 0 {
+				continue
+			}
+			item.Capabilities = capabilities
+			item.Enabled = !modelCatalogCapabilitiesOnlyVideo(capabilities)
+			if existing, ok := itemsByID[item.ID]; ok {
+				existing.Capabilities = mergeModelCatalogCapabilities(existing.Capabilities, item.Capabilities)
+				existing.Enabled = existing.Enabled || item.Enabled
+				itemsByID[item.ID] = existing
+				continue
+			}
+			itemsByID[item.ID] = item
+		}
+	}
+	if len(itemsByID) == 0 {
+		return routedAPIKeyModelCatalog{}, false
+	}
+
+	items := make([]service.ModelCatalogItem, 0, len(itemsByID))
+	for _, item := range itemsByID {
+		items = append(items, item)
+	}
+	sortModelCatalogItemsForGateway(items)
+
+	catalog := service.ModelCatalog{Object: "model_catalog", Items: items}
+	modelIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		modelIDs = append(modelIDs, item.ID)
+		if modelCatalogHasCapability(item.Capabilities, service.ModelCapabilityChat) {
+			catalog.ChatModels = append(catalog.ChatModels, item.ID)
+		}
+		if modelCatalogHasCapability(item.Capabilities, service.ModelCapabilityImage) {
+			catalog.ImageModels = append(catalog.ImageModels, item.ID)
+		}
+		if modelCatalogHasCapability(item.Capabilities, service.ModelCapabilityVideo) {
+			catalog.VideoModels = append(catalog.VideoModels, item.ID)
+		}
+	}
+	return routedAPIKeyModelCatalog{ModelIDs: modelIDs, Catalog: catalog}, true
+}
+
+func (h *GatewayHandler) modelCatalogCandidatesForRoute(ctx context.Context, group *service.Group) ([]string, bool) {
+	if h == nil || h.gatewayService == nil || group == nil {
+		return nil, false
+	}
+	models := h.gatewayService.GetAvailableModels(ctx, &group.ID, group.Platform)
+	if len(models) > 0 {
+		return models, true
+	}
+	if group.EffectiveRoutingScope() == service.GroupRoutingScopeImage && group.Platform == service.PlatformOpenAI && group.AllowImageGeneration {
+		return defaultImageModelIDsForPlatform(group.Platform), false
+	}
+	if group.EffectiveRoutingScope() == service.GroupRoutingScopeVideo {
+		return service.DefaultVideoModelMarketModelIDs(), false
+	}
+	return defaultModelIDsForPlatform(group.Platform), false
+}
+
+func apiKeyRouteGroupsByIDForModels(apiKey *service.APIKey) map[int64]*service.Group {
+	groups := make(map[int64]*service.Group, len(apiKey.MultiGroupRouteGroups)+1)
+	if service.IsGroupContextValid(apiKey.Group) {
+		groups[apiKey.Group.ID] = apiKey.Group
+	}
+	for _, group := range apiKey.MultiGroupRouteGroups {
+		if service.IsGroupContextValid(group) {
+			groups[group.ID] = group
+		}
+	}
+	return groups
+}
+
+func modelsForAPIKeyRoute(route domain.APIKeyMultiGroupRoute, group *service.Group, available []string, explicitModels bool) []string {
+	routeCapability := apiKeyRouteCatalogCapability(route, group)
+	if routeCapability == "" || !apiKeyRouteCanExposeCapability(route, group, routeCapability) {
+		return nil
+	}
+	out := make([]string, 0, len(available)+len(route.ModelPatterns))
+	seen := make(map[string]struct{}, len(available)+len(route.ModelPatterns))
+	availableSet := make(map[string]struct{}, len(available))
+	for _, model := range available {
+		model = strings.TrimSpace(model)
+		if model == "" || strings.Contains(model, "*") {
+			continue
+		}
+		availableSet[model] = struct{}{}
+	}
+	appendModel := func(model string) {
+		model = strings.TrimSpace(model)
+		if model == "" || strings.Contains(model, "*") {
+			return
+		}
+		if routeCapability == service.ModelCapabilityChat && !modelCatalogHasCapability(service.ModelCapabilitiesForPlatform(group.Platform, model), service.ModelCapabilityChat) {
+			return
+		}
+		if _, ok := seen[model]; ok {
+			return
+		}
+		seen[model] = struct{}{}
+		out = append(out, model)
+	}
+
+	patterns := normalizedModelPatternsForGateway(route.ModelPatterns)
+	if len(patterns) == 0 {
+		for _, model := range available {
+			appendModel(model)
+		}
+		return out
+	}
+
+	for _, model := range available {
+		if modelMatchesAnyGatewayPattern(model, patterns) {
+			appendModel(model)
+		}
+	}
+	for _, pattern := range patterns {
+		if !strings.Contains(pattern, "*") {
+			if _, ok := availableSet[pattern]; explicitModels && !ok {
+				continue
+			}
+			appendModel(pattern)
+		}
+	}
+	return out
+}
+
+func apiKeyRouteCatalogCapability(route domain.APIKeyMultiGroupRoute, group *service.Group) string {
+	if group == nil {
+		return ""
+	}
+	if route.ImageOnly {
+		return service.ModelCapabilityImage
+	}
+	if route.TextOnly {
+		return service.ModelCapabilityChat
+	}
+	switch group.EffectiveRoutingScope() {
+	case service.GroupRoutingScopeInference:
+		return service.ModelCapabilityChat
+	case service.GroupRoutingScopeImage:
+		return service.ModelCapabilityImage
+	case service.GroupRoutingScopeVideo:
+		return service.ModelCapabilityVideo
+	case service.GroupRoutingScopeEmbedding:
+		return ""
+	default:
+		return ""
+	}
+}
+
+func apiKeyRouteCanExposeCapability(route domain.APIKeyMultiGroupRoute, group *service.Group, capability string) bool {
+	if group == nil {
+		return false
+	}
+	scope := group.EffectiveRoutingScope()
+	switch capability {
+	case service.ModelCapabilityChat:
+		return scope == service.GroupRoutingScopeInference && !route.ImageOnly
+	case service.ModelCapabilityImage:
+		return scope == service.GroupRoutingScopeImage && group.Platform == service.PlatformOpenAI && group.AllowImageGeneration && !route.TextOnly
+	case service.ModelCapabilityVideo:
+		return scope == service.GroupRoutingScopeVideo && !route.ImageOnly && !route.TextOnly
+	default:
+		return false
+	}
+}
+
+func normalizedModelPatternsForGateway(patterns []string) []string {
+	out := make([]string, 0, len(patterns))
+	seen := make(map[string]struct{}, len(patterns))
+	for _, pattern := range patterns {
+		pattern = strings.TrimSpace(pattern)
+		if pattern == "" {
+			continue
+		}
+		key := strings.ToLower(pattern)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		out = append(out, pattern)
+	}
+	return out
+}
+
+func modelMatchesAnyGatewayPattern(model string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if gatewayModelPatternMatches(pattern, model) {
+			return true
+		}
+	}
+	return false
+}
+
+func gatewayModelPatternMatches(pattern, model string) bool {
+	pattern = strings.ToLower(strings.TrimSpace(pattern))
+	model = strings.ToLower(strings.TrimSpace(model))
+	if pattern == "" || model == "" {
+		return false
+	}
+	if pattern == "*" {
+		return true
+	}
+	if !strings.Contains(pattern, "*") {
+		return pattern == model
+	}
+	segments := strings.Split(pattern, "*")
+	position := 0
+	for i, segment := range segments {
+		if segment == "" {
+			continue
+		}
+		index := strings.Index(model[position:], segment)
+		if index < 0 {
+			return false
+		}
+		if i == 0 && !strings.HasPrefix(pattern, "*") && index != 0 {
+			return false
+		}
+		position += index + len(segment)
+	}
+	if !strings.HasSuffix(pattern, "*") && len(segments) > 0 {
+		last := segments[len(segments)-1]
+		if last != "" && !strings.HasSuffix(model, last) {
+			return false
+		}
+	}
+	return true
+}
+
+func mergeModelCatalogCapabilities(left, right []string) []string {
+	ordered := []string{service.ModelCapabilityChat, service.ModelCapabilityImage, service.ModelCapabilityVideo}
+	set := make(map[string]struct{}, len(left)+len(right))
+	for _, capability := range left {
+		if strings.TrimSpace(capability) != "" {
+			set[capability] = struct{}{}
+		}
+	}
+	for _, capability := range right {
+		if strings.TrimSpace(capability) != "" {
+			set[capability] = struct{}{}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for _, capability := range ordered {
+		if _, ok := set[capability]; ok {
+			out = append(out, capability)
+			delete(set, capability)
+		}
+	}
+	for capability := range set {
+		out = append(out, capability)
+	}
+	return out
+}
+
+func modelCatalogHasCapability(capabilities []string, capability string) bool {
+	for _, item := range capabilities {
+		if item == capability {
+			return true
+		}
+	}
+	return false
+}
+
+func modelCatalogCapabilitiesOnlyVideo(capabilities []string) bool {
+	return len(capabilities) == 1 && capabilities[0] == service.ModelCapabilityVideo
+}
+
+func sortModelCatalogItemsForGateway(items []service.ModelCatalogItem) {
+	sort.Slice(items, func(i, j int) bool {
+		if rank := gatewayModelCatalogCapabilityRank(items[i].Capabilities) - gatewayModelCatalogCapabilityRank(items[j].Capabilities); rank != 0 {
+			return rank < 0
+		}
+		return items[i].ID < items[j].ID
+	})
+}
+
+func gatewayModelCatalogCapabilityRank(capabilities []string) int {
+	switch {
+	case modelCatalogHasCapability(capabilities, service.ModelCapabilityChat):
+		return 0
+	case modelCatalogHasCapability(capabilities, service.ModelCapabilityImage):
+		return 1
+	case modelCatalogHasCapability(capabilities, service.ModelCapabilityVideo):
+		return 2
+	default:
+		return 3
+	}
 }
 
 func writeModelsList(c *gin.Context, modelIDs []string) {
@@ -1172,6 +1526,20 @@ func defaultModelIDsForPlatform(platform string) []string {
 		}
 		return ids
 	}
+}
+
+func defaultImageModelIDsForPlatform(platform string) []string {
+	if platform != service.PlatformOpenAI {
+		return nil
+	}
+	defaults := defaultModelIDsForPlatform(platform)
+	ids := make([]string, 0, len(defaults))
+	for _, model := range defaults {
+		if modelCatalogHasCapability(service.ModelCapabilitiesForPlatform(platform, model), service.ModelCapabilityImage) {
+			ids = append(ids, model)
+		}
+	}
+	return ids
 }
 
 // AntigravityModels 返回 Antigravity 支持的全部模型
@@ -1630,11 +1998,39 @@ func (h *GatewayHandler) ensureForwardErrorResponse(c *gin.Context, streamStarte
 	if c == nil || c.Writer == nil {
 		return false
 	}
+	if service.IsResponseCommitted(c) {
+		return false
+	}
 	if c.Writer.Written() {
 		streamStarted = true
 	}
 	h.handleStreamingAwareError(c, http.StatusBadGateway, "upstream_error", "Upstream request failed", streamStarted)
 	return true
+}
+
+// gatewayForwardErrorAlreadyCommunicated reports whether a Forward implementation
+// has already written a complete error response to the client before returning
+// an error to the handler.
+//
+// This is intentionally narrower than "writer size changed": a stream may have
+// only emitted keepalive pings or partial data, in which case the handler still
+// needs to append a protocol-level terminal error. Non-SSE output from Forward
+// is different: service-level helpers such as handleErrorResponse/writeClaudeError
+// already wrote the client-visible JSON body, so adding the generic streaming
+// fallback would corrupt the response by appending a second `data: ...` frame.
+func gatewayForwardErrorAlreadyCommunicated(c *gin.Context, writerSizeBeforeForward int, err error) bool {
+	if err == nil || c == nil || c.Writer == nil {
+		return false
+	}
+	if c.Writer.Size() == writerSizeBeforeForward {
+		return false
+	}
+
+	contentType := strings.ToLower(strings.TrimSpace(c.Writer.Header().Get("Content-Type")))
+	if contentType == "" {
+		return false
+	}
+	return !strings.Contains(contentType, "text/event-stream")
 }
 
 // checkClaudeCodeVersion 检查 Claude Code 客户端版本是否满足版本要求

@@ -74,6 +74,50 @@ func TestAPIKeyService_EnsureInitialKey_CreatesSharedKeyWithStudioBridgeRoutes(t
 	require.Equal(t, StatusActive, createdKey.Status)
 }
 
+func TestAPIKeyService_EnsureInitialKey_CreatesSharedKeyWithConfiguredStudioBridgeRoutes(t *testing.T) {
+	repo := &initialAPIKeyRepoStub{}
+	userRepo := &userRepoStub{user: &User{ID: 14, Email: "user@test.com", Status: StatusActive}}
+	settingsRaw, err := marshalStudioBridgeAppSettings(StudioBridgeAppSettings{
+		DefaultAPIRoutes: []StudioBridgeDefaultAPIRoute{
+			{
+				GroupID:         "201",
+				Priority:        1,
+				Weight:          2,
+				CooldownSeconds: 15,
+				Enabled:         true,
+				TextOnly:        true,
+			},
+			{
+				GroupID:         "201",
+				Priority:        1,
+				Weight:          1,
+				CooldownSeconds: 15,
+				Enabled:         true,
+				ModelPatterns:   []string{"gpt-image-*"},
+			},
+		},
+	})
+	require.NoError(t, err)
+	svc := NewAPIKeyService(repo, userRepo, nil, nil, nil, nil, &config.Config{
+		Default: config.DefaultConfig{APIKeyPrefix: "test-"},
+	})
+	svc.groupRepo = &groupRepoStubForStudioBridgeGateway{groups: map[int64]*Group{
+		201: {ID: 201, Name: "multi", Status: StatusActive, Platform: PlatformOpenAI, RoutingScope: GroupRoutingScopeInference, Hydrated: true},
+	}}
+	svc.SetStudioBridgeDefaultRouteSettingsReader(NewSettingService(&studioBridgeSettingRepoStub{
+		values: map[string]string{SettingKeyStudioBridgeLuoyeAI: settingsRaw},
+	}, &config.Config{}))
+
+	_, created, err := svc.EnsureInitialKey(context.Background(), 14)
+	require.NoError(t, err)
+	require.True(t, created)
+	require.Len(t, repo.created, 1)
+	require.Equal(t, []domain.APIKeyMultiGroupRoute{
+		{GroupID: 201, Priority: 1, Weight: 2, CooldownSeconds: 15, Enabled: true, TextOnly: true},
+		{GroupID: 201, Priority: 1, Weight: 1, CooldownSeconds: 15, Enabled: true, ModelPatterns: []string{"gpt-image-*"}},
+	}, repo.created[0].MultiGroupRoutes)
+}
+
 func TestAPIKeyService_EnsureInitialKey_CreatesUngroupedSharedKeyWhenNoStudioBridgeRoutes(t *testing.T) {
 	repo := &initialAPIKeyRepoStub{}
 	userRepo := &userRepoStub{user: &User{ID: 12, Email: "user@test.com", Status: StatusActive}}

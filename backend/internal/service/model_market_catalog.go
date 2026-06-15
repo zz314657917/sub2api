@@ -712,6 +712,40 @@ func doubaoSeedanceVideoModelMarketRows() []ModelMarketPriceRow {
 	}
 }
 
+func DefaultVideoModelMarketModelIDs() []string {
+	candidates := []ModelMarketGroup{
+		klingV3OmniModelMarketGroup(),
+		klingV26ModelMarketGroup(),
+		wan27ModelMarketGroup(),
+		veo31FastModelMarketGroup(),
+		doubaoSeedanceVideoModelMarketGroup(),
+	}
+	ids := make([]string, 0, 64)
+	seen := make(map[string]struct{})
+	for _, group := range candidates {
+		baseModel := strings.TrimSpace(group.Title)
+		for _, row := range group.Rows {
+			model := strings.TrimSpace(row.Model)
+			if model == "" {
+				model = strings.TrimSpace(row.ID)
+			}
+			if group.ID != "doubao-seedance-video" && baseModel != "" {
+				model = baseModel
+			}
+			if model == "" {
+				continue
+			}
+			if _, ok := seen[model]; ok {
+				continue
+			}
+			seen[model] = struct{}{}
+			ids = append(ids, model)
+		}
+	}
+	sort.Strings(ids)
+	return ids
+}
+
 func klingV3OmniModelMarketGroup() ModelMarketGroup {
 	return ModelMarketGroup{
 		ID:                "kling-v3-omni",

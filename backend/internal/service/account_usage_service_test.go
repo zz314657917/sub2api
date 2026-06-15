@@ -425,3 +425,34 @@ func TestBuildCodexUsageProgressFromExtra_ZerosExpiredWindow(t *testing.T) {
 		}
 	})
 }
+
+func TestCodexWindowStatsStart(t *testing.T) {
+	t.Parallel()
+	now := time.Date(2026, 6, 12, 9, 0, 0, 0, time.UTC)
+
+	t.Run("active reset aligns stats window to upstream reset", func(t *testing.T) {
+		resetAt := now.Add(2 * time.Hour)
+		got := codexWindowStatsStart(&UsageProgress{ResetsAt: &resetAt}, 5*time.Hour, now)
+		want := resetAt.Add(-5 * time.Hour)
+		if !got.Equal(want) {
+			t.Fatalf("codexWindowStatsStart() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("expired reset falls back to rolling window", func(t *testing.T) {
+		resetAt := now.Add(-time.Minute)
+		got := codexWindowStatsStart(&UsageProgress{ResetsAt: &resetAt}, 7*24*time.Hour, now)
+		want := now.Add(-7 * 24 * time.Hour)
+		if !got.Equal(want) {
+			t.Fatalf("codexWindowStatsStart() = %v, want %v", got, want)
+		}
+	})
+
+	t.Run("nil progress falls back to rolling window", func(t *testing.T) {
+		got := codexWindowStatsStart(nil, 5*time.Hour, now)
+		want := now.Add(-5 * time.Hour)
+		if !got.Equal(want) {
+			t.Fatalf("codexWindowStatsStart() = %v, want %v", got, want)
+		}
+	})
+}

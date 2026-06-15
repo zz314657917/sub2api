@@ -191,6 +191,7 @@ func PrepareBedrockRequestBodyWithTokens(body []byte, modelID string, betaTokens
 
 	betaTokens = filterBedrockBetaTokens(betaTokens)
 	body = sanitizeBedrockFieldsForBetaTokens(body, betaTokens)
+	body = sanitizeBedrockFable5Thinking(body, modelID)
 
 	// 注入 anthropic_version（Bedrock 要求）
 	body, err = sjson.SetBytes(body, "anthropic_version", "bedrock-2023-05-31")
@@ -207,7 +208,13 @@ func PrepareBedrockRequestBodyWithTokens(body []byte, modelID string, betaTokens
 		if err != nil {
 			return nil, fmt.Errorf("inject anthropic_beta: %w", err)
 		}
+	} else {
+		body, _ = sjson.DeleteBytes(body, "anthropic_beta")
 	}
+
+	// 移除 Bedrock 不支持的 Anthropic 直连 API 专有顶层字段
+	body, _ = sjson.DeleteBytes(body, "provider")
+	body, _ = sjson.DeleteBytes(body, "metadata")
 
 	// 移除 model 字段（Bedrock 通过 URL 指定模型）
 	body, err = sjson.DeleteBytes(body, "model")
@@ -334,6 +341,9 @@ var claudeVersionRe = regexp.MustCompile(`claude-(?:haiku|sonnet|opus)-(\d+)[-.]
 // Claude 4.5+ 支持 cache_control 中的 ttl 字段（"5m" 和 "1h"）
 func isBedrockClaude45OrNewer(modelID string) bool {
 	lower := strings.ToLower(modelID)
+	if isBedrockFable5(lower) {
+		return true
+	}
 	matches := claudeVersionRe.FindStringSubmatch(lower)
 	if matches == nil {
 		return false
@@ -451,13 +461,15 @@ func parseAnthropicBetaHeader(header string) []string {
 // 参考: litellm/litellm/llms/bedrock/common_utils.py (anthropic_beta_headers_config.json)
 // 更新策略: 当 AWS Bedrock 新增支持的 beta token 时需同步更新此白名单
 var bedrockSupportedBetaTokens = map[string]bool{
-	"computer-use-2025-01-24":         true,
-	"computer-use-2025-11-24":         true,
-	"context-1m-2025-08-07":           true,
-	"compact-2026-01-12":              true,
-	"interleaved-thinking-2025-05-14": true,
-	"tool-search-tool-2025-10-19":     true,
-	"tool-examples-2025-10-29":        true,
+	"computer-use-2025-01-24":                true,
+	"computer-use-2025-11-24":                true,
+	"context-1m-2025-08-07":                  true,
+	"context-management-2025-06-27":          true,
+	"compact-2026-01-12":                     true,
+	"fine-grained-tool-streaming-2025-05-14": true, // AWS Tool Use 文档已支持
+	"interleaved-thinking-2025-05-14":        true,
+	"tool-search-tool-2025-10-19":            true,
+	"tool-examples-2025-10-29":               true,
 }
 
 const bedrockContextManagementBetaToken = "context-management-2025-06-27"
@@ -581,6 +593,29 @@ func bedrockModelSupportsToolSearch(modelID string) bool {
 	major, _ := strconv.Atoi(matches[1])
 	minor, _ := strconv.Atoi(matches[2])
 	return major > 4 || (major == 4 && minor >= 5)
+}
+
+func isBedrockFable5(modelID string) bool {
+	return strings.Contains(strings.ToLower(modelID), "claude-fable-5")
+}
+
+func sanitizeBedrockFable5Thinking(body []byte, modelID string) []byte {
+	if !isBedrockFable5(modelID) {
+		return body
+	}
+	thinking := gjson.GetBytes(body, "thinking")
+	if !thinking.Exists() || !thinking.IsObject() {
+		return body
+	}
+	thinkingType := thinking.Get("type").String()
+	if thinkingType == "enabled" {
+		body, _ = sjson.SetBytes(body, "thinking.type", "adaptive")
+		thinkingType = "adaptive"
+	}
+	if thinkingType == "adaptive" {
+		body, _ = sjson.DeleteBytes(body, "thinking.budget_tokens")
+	}
+	return body
 }
 
 // filterBedrockBetaTokens 过滤并转换 beta token 列表，仅保留 Bedrock Invoke 支持的 token

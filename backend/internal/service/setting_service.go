@@ -146,6 +146,7 @@ type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig, proxyURLs map[i
 type SettingService struct {
 	settingRepo                       SettingRepository
 	defaultSubGroupReader             DefaultSubscriptionGroupReader
+	studioBridgeDefaultGroupReader    GroupRepository
 	modelMarketGroupReader            GroupRepository
 	proxyRepo                         ProxyRepository // for resolving websearch provider proxy URLs
 	cfg                               *config.Config
@@ -291,6 +292,10 @@ func normalizeStudioBridgeAppSettingsForSave(cfg StudioBridgeAppSettings) *Studi
 	cfg.DefaultChatGroup = strings.TrimSpace(cfg.DefaultChatGroup)
 	cfg.DefaultImageGroup = strings.TrimSpace(cfg.DefaultImageGroup)
 	cfg.DefaultVideoGroup = strings.TrimSpace(cfg.DefaultVideoGroup)
+	cfg.DefaultAPIRoutes = normalizeStudioBridgeDefaultAPIRoutes(cfg.DefaultAPIRoutes)
+	if len(cfg.DefaultAPIRoutes) == 0 {
+		cfg.DefaultAPIRoutes = legacyStudioBridgeDefaultAPIRoutes(cfg)
+	}
 	cfg.InternalSecret = strings.TrimSpace(cfg.InternalSecret)
 	cfg.AllowedReturnDomains = normalizeStudioBridgeStringSlice(cfg.AllowedReturnDomains)
 	return &cfg
@@ -300,11 +305,90 @@ func validateStudioBridgeAppSettings(cfg StudioBridgeAppSettings) error {
 	if !cfg.Enabled {
 		return nil
 	}
-	if strings.TrimSpace(cfg.DefaultChatGroup) == "" ||
-		strings.TrimSpace(cfg.DefaultImageGroup) == "" {
+	routes := normalizeStudioBridgeDefaultAPIRoutes(cfg.DefaultAPIRoutes)
+	if len(routes) == 0 {
+		routes = legacyStudioBridgeDefaultAPIRoutes(cfg)
+	}
+	if len(routes) == 0 {
 		return ErrStudioBridgeGroupRequired
 	}
 	return nil
+}
+
+func normalizeStudioBridgeDefaultAPIRoutes(routes []StudioBridgeDefaultAPIRoute) []StudioBridgeDefaultAPIRoute {
+	if len(routes) == 0 {
+		return []StudioBridgeDefaultAPIRoute{}
+	}
+	normalized := make([]StudioBridgeDefaultAPIRoute, 0, len(routes))
+	seen := make(map[string]struct{}, len(routes))
+	for _, route := range routes {
+		route.GroupID = strings.TrimSpace(route.GroupID)
+		if route.GroupID == "" {
+			continue
+		}
+		route.ModelPatterns = normalizeStudioBridgeModelPatterns(route.ModelPatterns)
+		key := studioBridgeDefaultAPIRouteDedupKey(route)
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		if route.Priority <= 0 {
+			route.Priority = 1
+		}
+		if route.Weight <= 0 {
+			route.Weight = 1
+		}
+		if route.CooldownSeconds <= 0 {
+			route.CooldownSeconds = apiKeyRouteDefaultCooldown
+		}
+		normalized = append(normalized, route)
+	}
+	return normalized
+}
+
+func studioBridgeDefaultAPIRouteDedupKey(route StudioBridgeDefaultAPIRoute) string {
+	patterns := make([]string, 0, len(route.ModelPatterns))
+	for _, pattern := range route.ModelPatterns {
+		if pattern = strings.TrimSpace(pattern); pattern != "" {
+			patterns = append(patterns, strings.ToLower(pattern))
+		}
+	}
+	return fmt.Sprintf("%s|%t|%t|%s", route.GroupID, route.ImageOnly, route.TextOnly, strings.Join(patterns, "\n"))
+}
+
+func normalizeStudioBridgeModelPatterns(patterns []string) []string {
+	normalized := normalizeStudioBridgeStringSlice(patterns)
+	if len(normalized) == 0 {
+		return nil
+	}
+	return normalized
+}
+
+func legacyStudioBridgeDefaultAPIRoutes(cfg StudioBridgeAppSettings) []StudioBridgeDefaultAPIRoute {
+	routes := make([]StudioBridgeDefaultAPIRoute, 0, 3)
+	if groupID := strings.TrimSpace(cfg.DefaultChatGroup); groupID != "" {
+		routes = append(routes, studioBridgeDefaultAPIRoute(groupID, true, false, nil))
+	}
+	if groupID := strings.TrimSpace(cfg.DefaultImageGroup); groupID != "" {
+		routes = append(routes, studioBridgeDefaultAPIRoute(groupID, false, true, nil))
+	}
+	if groupID := strings.TrimSpace(cfg.DefaultVideoGroup); groupID != "" {
+		routes = append(routes, studioBridgeDefaultAPIRoute(groupID, false, false, []string{"doubao-seedance-*", "*-video-*"}))
+	}
+	return routes
+}
+
+func studioBridgeDefaultAPIRoute(groupID string, textOnly, imageOnly bool, modelPatterns []string) StudioBridgeDefaultAPIRoute {
+	return StudioBridgeDefaultAPIRoute{
+		GroupID:         groupID,
+		Priority:        1,
+		Weight:          apiKeyRouteDefaultWeight,
+		CooldownSeconds: apiKeyRouteDefaultCooldown,
+		Enabled:         true,
+		ModelPatterns:   modelPatterns,
+		ImageOnly:       imageOnly,
+		TextOnly:        textOnly,
+	}
 }
 
 func normalizeStudioBridgeStringSlice(values []string) []string {
@@ -346,6 +430,105 @@ func defaultStudioBridgeSettingsFromEnv() *StudioBridgeAppSettings {
 	cfg := defaultStudioBridgeAppSettings()
 	cfg.InternalSecret = strings.TrimSpace(os.Getenv("STUDIO_BRIDGE_LUOYE_AI_INTERNAL_SECRET"))
 	return normalizeStudioBridgeAppSettingsForSave(*cfg)
+}
+
+func studioBridgeEnvSecret() string {
+	return strings.TrimSpace(os.Getenv("STUDIO_BRIDGE_LUOYE_AI_INTERNAL_SECRET"))
+}
+
+func (s *SettingService) localStudioBridgeDefaults(ctx context.Context, base *StudioBridgeAppSettings) *StudioBridgeAppSettings {
+	cfg := defaultStudioBridgeAppSettings()
+	if base != nil {
+		cfg.SiteName = firstNonEmpty(strings.TrimSpace(base.SiteName), cfg.SiteName)
+		cfg.DefaultVideoGroup = strings.TrimSpace(base.DefaultVideoGroup)
+	}
+	cfg.InternalSecret = studioBridgeEnvSecret()
+	cfg.LaunchReturnURL = defaultStudioBridgeLaunchReturnURL
+	cfg.RechargeReturnURL = defaultStudioBridgeRechargeURL
+	cfg.AllowedReturnDomains = []string{"127.0.0.1", "localhost"}
+	if imageGroup, textGroup := s.defaultStudioBridgeGroups(ctx); imageGroup != "" {
+		cfg.Enabled = true
+		cfg.DefaultImageGroup = imageGroup
+		cfg.DefaultChatGroup = firstNonEmpty(textGroup, imageGroup)
+		cfg.DefaultAPIRoutes = legacyStudioBridgeDefaultAPIRoutes(*cfg)
+	} else if base != nil {
+		cfg.Enabled = base.Enabled && len(normalizeStudioBridgeDefaultAPIRoutes(base.DefaultAPIRoutes)) > 0
+		cfg.DefaultImageGroup = strings.TrimSpace(base.DefaultImageGroup)
+		cfg.DefaultChatGroup = strings.TrimSpace(base.DefaultChatGroup)
+		cfg.DefaultAPIRoutes = normalizeStudioBridgeDefaultAPIRoutes(base.DefaultAPIRoutes)
+	}
+	return normalizeStudioBridgeAppSettingsForSave(*cfg)
+}
+
+func (s *SettingService) defaultStudioBridgeGroups(ctx context.Context) (imageGroup string, textGroup string) {
+	if s == nil || s.studioBridgeDefaultGroupReader == nil {
+		return "", ""
+	}
+	groups, err := s.studioBridgeDefaultGroupReader.ListActive(ctx)
+	if err != nil {
+		slog.Warn("failed to list active groups for studio bridge local defaults", "error", err)
+		return "", ""
+	}
+	sort.SliceStable(groups, func(i, j int) bool {
+		if groups[i].SortOrder != groups[j].SortOrder {
+			return groups[i].SortOrder < groups[j].SortOrder
+		}
+		return groups[i].ID < groups[j].ID
+	})
+	for i := range groups {
+		group := groups[i]
+		if !group.IsActive() {
+			continue
+		}
+		switch group.EffectiveRoutingScope() {
+		case GroupRoutingScopeImage:
+			if imageGroup == "" && group.AllowImageGeneration {
+				imageGroup = strconv.FormatInt(group.ID, 10)
+			}
+		case GroupRoutingScopeInference:
+			if textGroup == "" {
+				textGroup = strconv.FormatInt(group.ID, 10)
+			}
+		}
+	}
+	return imageGroup, textGroup
+}
+
+func studioBridgeSettingsNeedLocalRepair(raw string, cfg *StudioBridgeAppSettings) bool {
+	if studioBridgeEnvSecret() == "" {
+		return false
+	}
+	if strings.TrimSpace(raw) == "" || cfg == nil {
+		return true
+	}
+	if !cfg.Enabled {
+		return true
+	}
+	if strings.TrimSpace(cfg.InternalSecret) == "" {
+		return true
+	}
+	if len(normalizeStudioBridgeDefaultAPIRoutes(cfg.DefaultAPIRoutes)) == 0 {
+		return true
+	}
+	return studioBridgeHasPlaceholderURL(cfg.LaunchReturnURL) ||
+		studioBridgeHasPlaceholderURL(cfg.RechargeReturnURL) ||
+		studioBridgeDomainsArePlaceholder(cfg.AllowedReturnDomains)
+}
+
+func studioBridgeHasPlaceholderURL(value string) bool {
+	return strings.Contains(strings.ToLower(strings.TrimSpace(value)), "example.com")
+}
+
+func studioBridgeDomainsArePlaceholder(values []string) bool {
+	if len(values) == 0 {
+		return true
+	}
+	for _, value := range values {
+		if strings.Contains(strings.ToLower(strings.TrimSpace(value)), "example.com") {
+			return true
+		}
+	}
+	return false
 }
 
 func defaultLoginAgreementDocuments() []LoginAgreementDocument {
@@ -664,6 +847,11 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 // SetDefaultSubscriptionGroupReader injects an optional group reader for default subscription validation.
 func (s *SettingService) SetDefaultSubscriptionGroupReader(reader DefaultSubscriptionGroupReader) {
 	s.defaultSubGroupReader = reader
+}
+
+// SetStudioBridgeDefaultGroupReader injects a group reader for local studio bridge defaults.
+func (s *SettingService) SetStudioBridgeDefaultGroupReader(reader GroupRepository) {
+	s.studioBridgeDefaultGroupReader = reader
 }
 
 // SetModelMarketGroupReader injects an optional group reader for model market supported group metadata.
@@ -2823,8 +3011,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 	// 检查是否已有设置
 	_, err := s.settingRepo.GetValue(ctx, SettingKeyRegistrationEnabled)
 	if err == nil {
-		// 已有设置，不需要初始化
-		return nil
+		// 已有设置时仍允许本地 Studio Bridge 占位配置自修复。
+		return s.repairLocalStudioBridgeDefaults(ctx)
 	}
 	if !errors.Is(err, ErrSettingNotFound) {
 		return fmt.Errorf("check existing settings: %w", err)
@@ -3047,7 +3235,33 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyStudioBridgeLuoyeAI:                marshalStudioBridgeAppSettingsOrDefault(defaultStudioBridgeSettingsFromEnv()),
 	}
 
+	if studioBridgeEnvSecret() != "" {
+		defaults[SettingKeyStudioBridgeLuoyeAI] = marshalStudioBridgeAppSettingsOrDefault(s.localStudioBridgeDefaults(ctx, defaultStudioBridgeSettingsFromEnv()))
+	}
 	return s.settingRepo.SetMultiple(ctx, defaults)
+}
+
+func (s *SettingService) repairLocalStudioBridgeDefaults(ctx context.Context) error {
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyStudioBridgeLuoyeAI)
+	if err != nil && !errors.Is(err, ErrSettingNotFound) {
+		return fmt.Errorf("check studio bridge settings: %w", err)
+	}
+	if errors.Is(err, ErrSettingNotFound) {
+		raw = ""
+	}
+	current := parseStudioBridgeAppSettings(raw)
+	if !studioBridgeSettingsNeedLocalRepair(raw, current) {
+		return nil
+	}
+	updated := s.localStudioBridgeDefaults(ctx, current)
+	value, err := marshalStudioBridgeAppSettings(*updated)
+	if err != nil {
+		return err
+	}
+	if err := s.settingRepo.Set(ctx, SettingKeyStudioBridgeLuoyeAI, value); err != nil {
+		return fmt.Errorf("repair studio bridge local defaults: %w", err)
+	}
+	return nil
 }
 
 // parseSettings 解析设置到结构体

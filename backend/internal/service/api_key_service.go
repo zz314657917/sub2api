@@ -760,6 +760,9 @@ func (s *APIKeyService) buildInitialDefaultAPIKeyRoutes(ctx context.Context) []d
 	if err != nil || settings == nil {
 		return nil
 	}
+	if routes := s.buildInitialDefaultAPIKeyRoutesFromSettings(ctx, settings.DefaultAPIRoutes); len(routes) > 0 {
+		return routes
+	}
 	routes := make([]domain.APIKeyMultiGroupRoute, 0, 3)
 	if groupID := s.validStudioBridgeDefaultGroupID(ctx, settings.DefaultChatGroup); groupID > 0 {
 		routes = append(routes, domain.APIKeyMultiGroupRoute{
@@ -795,6 +798,31 @@ func (s *APIKeyService) buildInitialDefaultAPIKeyRoutes(ctx context.Context) []d
 		return nil
 	}
 	return routes
+}
+
+func (s *APIKeyService) buildInitialDefaultAPIKeyRoutesFromSettings(ctx context.Context, settingsRoutes []StudioBridgeDefaultAPIRoute) []domain.APIKeyMultiGroupRoute {
+	if len(settingsRoutes) == 0 {
+		return nil
+	}
+	routes := make([]domain.APIKeyMultiGroupRoute, 0, len(settingsRoutes))
+	for _, settingsRoute := range settingsRoutes {
+		groupID := s.validStudioBridgeDefaultGroupID(ctx, settingsRoute.GroupID)
+		if groupID <= 0 {
+			continue
+		}
+		route := domain.APIKeyMultiGroupRoute{
+			GroupID:         groupID,
+			Priority:        settingsRoute.Priority,
+			Weight:          settingsRoute.Weight,
+			CooldownSeconds: settingsRoute.CooldownSeconds,
+			Enabled:         settingsRoute.Enabled,
+			ModelPatterns:   settingsRoute.ModelPatterns,
+			ImageOnly:       settingsRoute.ImageOnly,
+			TextOnly:        settingsRoute.TextOnly,
+		}
+		routes = append(routes, route)
+	}
+	return normalizeAPIKeyMultiGroupRoutes(routes)
 }
 
 func (s *APIKeyService) validStudioBridgeDefaultGroupID(ctx context.Context, raw string) int64 {

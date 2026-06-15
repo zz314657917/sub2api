@@ -174,6 +174,7 @@ func TestIsBedrockClaude45OrNewer(t *testing.T) {
 		expect  bool
 	}{
 		{"us.anthropic.claude-opus-4-6-v1", true},
+		{"anthropic.claude-fable-5", true},
 		{"us.anthropic.claude-sonnet-4-6", true},
 		{"us.anthropic.claude-sonnet-4-5-20250929-v1:0", true},
 		{"us.anthropic.claude-opus-4-5-20251101-v1:0", true},
@@ -411,7 +412,7 @@ func TestPrepareBedrockRequestBodyWithTokens_ContextManagementRequiresSupportedB
 		assert.Equal(t, int64(100), gjson.GetBytes(result, "max_tokens").Int())
 	})
 
-	t.Run("filters explicit unsupported context-management beta and strips field", func(t *testing.T) {
+	t.Run("keeps supported context-management beta and retains field", func(t *testing.T) {
 		input := `{
 			"messages":[{"role":"user","content":"hi"}],
 			"max_tokens":100,
@@ -425,8 +426,25 @@ func TestPrepareBedrockRequestBodyWithTokens_ContextManagementRequiresSupportedB
 		)
 		require.NoError(t, err)
 
-		assert.False(t, gjson.GetBytes(result, "context_management").Exists())
-		assert.Equal(t, []string{"context-1m-2025-08-07"}, bedrockAnthropicBetaNames(result))
+		assert.True(t, gjson.GetBytes(result, "context_management").Exists())
+		assert.Equal(t, []string{bedrockContextManagementBetaToken, "context-1m-2025-08-07"}, bedrockAnthropicBetaNames(result))
+	})
+
+	t.Run("removes unsupported top-level fields and stale anthropic_beta", func(t *testing.T) {
+		input := `{
+			"messages":[{"role":"user","content":"hi"}],
+			"max_tokens":100,
+			"provider":"anthropic",
+			"metadata":{"trace":"x"},
+			"anthropic_beta":["files-api-2025-04-14"]
+		}`
+
+		result, err := PrepareBedrockRequestBodyWithTokens([]byte(input), modelID, nil)
+		require.NoError(t, err)
+
+		assert.False(t, gjson.GetBytes(result, "provider").Exists())
+		assert.False(t, gjson.GetBytes(result, "metadata").Exists())
+		assert.False(t, gjson.GetBytes(result, "anthropic_beta").Exists())
 	})
 }
 
@@ -523,6 +541,20 @@ func TestResolveBedrockModelID(t *testing.T) {
 		modelID, ok := ResolveBedrockModelID(account, "claude-opus-4-8")
 		require.True(t, ok)
 		assert.Equal(t, "eu.anthropic.claude-opus-4-8-v1", modelID)
+	})
+
+	t.Run("default fable 5 mapping uses official Bedrock model id", func(t *testing.T) {
+		account := &Account{
+			Platform: PlatformAnthropic,
+			Type:     AccountTypeBedrock,
+			Credentials: map[string]any{
+				"aws_region": "eu-west-1",
+			},
+		}
+
+		modelID, ok := ResolveBedrockModelID(account, "claude-fable-5")
+		require.True(t, ok)
+		assert.Equal(t, "anthropic.claude-fable-5", modelID)
 	})
 
 	t.Run("force global rewrites anthropic regional model id", func(t *testing.T) {
@@ -693,6 +725,26 @@ func TestPrepareBedrockRequestBody_AutoBetaInjection(t *testing.T) {
 		}
 		assert.Contains(t, names, "context-1m-2025-08-07")
 		assert.Contains(t, names, "interleaved-thinking-2025-05-14")
+	})
+}
+
+func TestPrepareBedrockRequestBody_Fable5Thinking(t *testing.T) {
+	t.Run("enabled thinking becomes adaptive and drops budget", func(t *testing.T) {
+		input := `{"messages":[{"role":"user","content":"hi"}],"max_tokens":100,"thinking":{"type":"enabled","budget_tokens":10000}}`
+		result, err := PrepareBedrockRequestBody([]byte(input), "anthropic.claude-fable-5", "")
+		require.NoError(t, err)
+
+		assert.Equal(t, "adaptive", gjson.GetBytes(result, "thinking.type").String())
+		assert.False(t, gjson.GetBytes(result, "thinking.budget_tokens").Exists())
+	})
+
+	t.Run("adaptive thinking drops budget", func(t *testing.T) {
+		input := `{"messages":[{"role":"user","content":"hi"}],"max_tokens":100,"thinking":{"type":"adaptive","budget_tokens":10000}}`
+		result, err := PrepareBedrockRequestBody([]byte(input), "claude-fable-5", "")
+		require.NoError(t, err)
+
+		assert.Equal(t, "adaptive", gjson.GetBytes(result, "thinking.type").String())
+		assert.False(t, gjson.GetBytes(result, "thinking.budget_tokens").Exists())
 	})
 }
 

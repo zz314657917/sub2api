@@ -2845,6 +2845,7 @@ func studioBridgeSettingsToDTO(settings service.StudioBridgeAppSettings) dto.Stu
 		DefaultChatGroup:     settings.DefaultChatGroup,
 		DefaultImageGroup:    settings.DefaultImageGroup,
 		DefaultVideoGroup:    settings.DefaultVideoGroup,
+		DefaultAPIRoutes:     settings.DefaultAPIRoutes,
 		SecretConfigured:     strings.TrimSpace(settings.InternalSecret) != "",
 	}
 }
@@ -2859,6 +2860,7 @@ func studioBridgeSettingsFromDTO(settings dto.StudioBridgeAppSettings) service.S
 		DefaultChatGroup:     strings.TrimSpace(settings.DefaultChatGroup),
 		DefaultImageGroup:    strings.TrimSpace(settings.DefaultImageGroup),
 		DefaultVideoGroup:    strings.TrimSpace(settings.DefaultVideoGroup),
+		DefaultAPIRoutes:     settings.DefaultAPIRoutes,
 		InternalSecret:       strings.TrimSpace(settings.InternalSecret),
 	}
 }

@@ -348,7 +348,6 @@ func TestStudioBridgeCommitCreatesUsageLogOnceWithNetAmount(t *testing.T) {
 	require.Equal(t, 1, repo.usageLogCalls)
 }
 
-
 func TestStudioBridgeAPIMartImageChargeUsesSub2APIMultiplier(t *testing.T) {
 	ctx := context.Background()
 	repo := &studioBridgeRepoStub{balance: 10}
@@ -454,7 +453,7 @@ func TestStudioBridgeSessionProbeOriginAllowsConfiguredReturnDomain(t *testing.T
 	require.ErrorIs(t, svc.ValidateSessionProbeOrigin(ctx, StudioBridgeAppLuoyeAI, "https://example.org"), ErrStudioBridgeInvalidReturn)
 }
 
-func TestStudioBridgeEnabledSettingsRequireChatAndImageGroups(t *testing.T) {
+func TestStudioBridgeEnabledSettingsRequireDefaultAPIRoute(t *testing.T) {
 	err := validateStudioBridgeAppSettings(StudioBridgeAppSettings{
 		Enabled:           true,
 		SiteName:          "落叶创艺",
@@ -465,16 +464,16 @@ func TestStudioBridgeEnabledSettingsRequireChatAndImageGroups(t *testing.T) {
 	require.ErrorIs(t, err, ErrStudioBridgeGroupRequired)
 
 	err = validateStudioBridgeAppSettings(StudioBridgeAppSettings{
-		Enabled:           true,
-		DefaultChatGroup:  "1",
-		DefaultImageGroup: "2",
+		Enabled: true,
+		DefaultAPIRoutes: []StudioBridgeDefaultAPIRoute{
+			{GroupID: "1", Enabled: true, TextOnly: true},
+		},
 	})
 	require.NoError(t, err)
 
 	err = validateStudioBridgeAppSettings(StudioBridgeAppSettings{
-		Enabled:           true,
-		DefaultChatGroup:  "1",
-		DefaultVideoGroup: "3",
+		Enabled:          true,
+		DefaultChatGroup: "1",
 	})
-	require.ErrorIs(t, err, ErrStudioBridgeGroupRequired)
+	require.NoError(t, err)
 }

@@ -313,6 +313,7 @@ gateway:
     sticky_previous_response_ttl_seconds: 3600
     scheduler_score_weights:
       priority: 1.0
+      price: 0.6
       load: 1.0
       queue: 0.7
       error_rate: 0.8

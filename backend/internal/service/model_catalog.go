@@ -91,7 +91,7 @@ func ModelCapabilitiesForPlatform(platform, modelID string) []string {
 	if id == "" {
 		return nil
 	}
-	if isVideoCatalogModel(id) {
+	if isVideoCatalogModel(id) || IsVideoGenerationIntent("", id, nil) {
 		return []string{ModelCapabilityVideo}
 	}
 	if isImageCatalogModel(id) && supportsGatewayImageAPI(platform) {

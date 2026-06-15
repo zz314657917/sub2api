@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -193,6 +194,436 @@ func TestGatewayModelCatalog_GroupsMappedModelsByCapability(t *testing.T) {
 	require.True(t, byID["gpt-image-2"].Enabled)
 	require.Equal(t, []string{service.ModelCapabilityVideo}, byID["sora-2"].Capabilities)
 	require.False(t, byID["sora-2"].Enabled)
+}
+
+func TestGatewayModels_MultiGroupRoutesAggregateRoutableModels(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	chatGroupID := int64(10031)
+	imageGroupID := int64(10032)
+	videoGroupID := int64(10033)
+	h := newGatewayModelsHandlerForTest(
+		&gatewayModelsAccountRepoStub{
+			byGroup: map[int64][]service.Account{
+				chatGroupID: {
+					{
+						ID:       1,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"gpt-5.4": "gpt-5.4",
+							},
+						},
+					},
+				},
+				imageGroupID: {
+					{
+						ID:       2,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"gpt-image-2": "gpt-image-2",
+							},
+						},
+					},
+				},
+				videoGroupID: {
+					{
+						ID:       3,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"doubao-seedance-2.0-pro": "doubao-seedance-2.0-pro",
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true, ModelPatterns: []string{"gpt-*"}},
+			{GroupID: imageGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true, ModelPatterns: []string{"gpt-image-*"}},
+			{GroupID: videoGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"doubao-seedance-*"}},
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{ID: imageGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeImage, AllowImageGeneration: true, Hydrated: true},
+			{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, Hydrated: true},
+		},
+	})
+
+	h.Models(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var got gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.Equal(t, []string{"gpt-5.4", "gpt-image-2", "doubao-seedance-2.0-pro"}, modelIDsForTest(got.Data))
+	require.Equal(t, "model", got.Data[0].Object)
+	require.NotZero(t, got.Data[0].Created)
+}
+
+func TestGatewayModels_ForcedPlatformSkipsMultiGroupRouteAggregation(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	chatGroupID := int64(10036)
+	imageGroupID := int64(10037)
+	h := newGatewayModelsHandlerForTest(
+		&gatewayModelsAccountRepoStub{
+			byGroup: map[int64][]service.Account{
+				chatGroupID: {
+					{
+						ID:       1,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"gpt-5.4": "gpt-5.4",
+							},
+						},
+					},
+				},
+				imageGroupID: {
+					{
+						ID:       2,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"gpt-image-2": "gpt-image-2",
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	c.Set(string(middleware2.ContextKeyForcePlatform), service.PlatformGemini)
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true, ModelPatterns: []string{"gpt-*"}},
+			{GroupID: imageGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true, ModelPatterns: []string{"gpt-image-*"}},
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{ID: imageGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeImage, AllowImageGeneration: true, Hydrated: true},
+		},
+	})
+
+	h.Models(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var got gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	ids := modelIDsForTest(got.Data)
+	require.Contains(t, ids, "gemini-2.5-flash")
+	require.NotContains(t, ids, "gpt-5.4")
+	require.NotContains(t, ids, "gpt-image-2")
+}
+
+func TestGatewayModelCatalog_MultiGroupRoutesAggregateCapabilities(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	chatGroupID := int64(10041)
+	imageGroupID := int64(10042)
+	videoGroupID := int64(10043)
+	h := newGatewayModelsHandlerForTest(
+		&gatewayModelsAccountRepoStub{
+			byGroup: map[int64][]service.Account{
+				chatGroupID: {
+					{
+						ID:       1,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"gpt-5.4": "gpt-5.4",
+							},
+						},
+					},
+				},
+				imageGroupID: {
+					{
+						ID:       2,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"gpt-image-2": "gpt-image-2",
+							},
+						},
+					},
+				},
+				videoGroupID: {
+					{
+						ID:       3,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"sora-2": "sora-2",
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/model-catalog", nil)
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
+			{GroupID: imageGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true},
+			{GroupID: videoGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"sora-*"}},
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{ID: imageGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeImage, AllowImageGeneration: true, Hydrated: true},
+			{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, Hydrated: true},
+		},
+	})
+
+	h.ModelCatalog(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var got gatewayModelCatalogResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.Equal(t, []string{"gpt-5.4"}, got.ChatModels)
+	require.Equal(t, []string{"gpt-image-2"}, got.ImageModels)
+	require.Equal(t, []string{"sora-2"}, got.VideoModels)
+
+	byID := modelCatalogItemsByIDForTest(got.Items)
+	require.Equal(t, []string{service.ModelCapabilityChat}, byID["gpt-5.4"].Capabilities)
+	require.Equal(t, []string{service.ModelCapabilityImage}, byID["gpt-image-2"].Capabilities)
+	require.Equal(t, []string{service.ModelCapabilityVideo}, byID["sora-2"].Capabilities)
+	require.False(t, byID["sora-2"].Enabled)
+}
+
+func TestGatewayModels_MultiGroupRoutesExpandVideoWildcardFromDefaultCatalog(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	chatGroupID := int64(10051)
+	videoGroupID := int64(10052)
+	h := newGatewayModelsHandlerForTest(
+		&gatewayModelsAccountRepoStub{
+			byGroup: map[int64][]service.Account{
+				chatGroupID: {
+					{
+						ID:       1,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"gpt-5.4": "gpt-5.4",
+							},
+						},
+					},
+				},
+				videoGroupID: {
+					{ID: 2, Platform: service.PlatformOpenAI},
+				},
+			},
+		},
+	)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true, ModelPatterns: []string{"gpt-*"}},
+			{GroupID: videoGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"doubao-seedance-*"}},
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, Hydrated: true},
+		},
+	})
+
+	h.Models(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var got gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	ids := modelIDsForTest(got.Data)
+	require.Contains(t, ids, "gpt-5.4")
+	require.Contains(t, ids, "doubao-seedance-2-0-fast-480p")
+	require.NotContains(t, ids, "doubao-seedance-*")
+}
+
+func TestGatewayModels_MultiGroupRoutesDoNotExposeUnsupportedExactPattern(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	chatGroupID := int64(10053)
+	videoGroupID := int64(10054)
+	h := newGatewayModelsHandlerForTest(
+		&gatewayModelsAccountRepoStub{
+			byGroup: map[int64][]service.Account{
+				chatGroupID: {
+					{
+						ID:       1,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"gpt-5.4": "gpt-5.4",
+							},
+						},
+					},
+				},
+				videoGroupID: {
+					{
+						ID:       2,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"sora-2": "sora-2",
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
+			{GroupID: videoGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"veo3.1-fast"}},
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, Hydrated: true},
+		},
+	})
+
+	h.Models(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var got gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	ids := modelIDsForTest(got.Data)
+	require.Contains(t, ids, "gpt-5.4")
+	require.NotContains(t, ids, "veo3.1-fast")
+	require.NotContains(t, ids, "sora-2")
+}
+
+func TestGatewayModels_MultiGroupRoutesDoNotExposeImageGroupWhenGenerationDisabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	chatGroupID := int64(10055)
+	imageGroupID := int64(10056)
+	h := newGatewayModelsHandlerForTest(
+		&gatewayModelsAccountRepoStub{
+			byGroup: map[int64][]service.Account{
+				chatGroupID: {
+					{
+						ID:       1,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"gpt-5.4": "gpt-5.4",
+							},
+						},
+					},
+				},
+				imageGroupID: {
+					{
+						ID:       2,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"gpt-image-2": "gpt-image-2",
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
+			{GroupID: imageGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true},
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{ID: imageGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeImage, AllowImageGeneration: false, Hydrated: true},
+		},
+	})
+
+	h.Models(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var got gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	ids := modelIDsForTest(got.Data)
+	require.Contains(t, ids, "gpt-5.4")
+	require.NotContains(t, ids, "gpt-image-2")
+}
+
+func TestGatewayModelCatalog_MultiGroupRoutesClassifyCustomVideoScopeModel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	videoGroupID := int64(10057)
+	h := newGatewayModelsHandlerForTest(
+		&gatewayModelsAccountRepoStub{
+			byGroup: map[int64][]service.Account{
+				videoGroupID: {
+					{
+						ID:       1,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{
+								"custom-motion-model": "custom-motion-model",
+							},
+						},
+					},
+				},
+			},
+		},
+	)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/model-catalog", nil)
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		Group: &service.Group{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, Hydrated: true},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: videoGroupID, Priority: 1, Weight: 1, Enabled: true},
+		},
+	})
+
+	h.ModelCatalog(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var got gatewayModelCatalogResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.Equal(t, []string{"custom-motion-model"}, got.VideoModels)
+	require.Empty(t, got.ChatModels)
+
+	byID := modelCatalogItemsByIDForTest(got.Items)
+	require.Equal(t, []string{service.ModelCapabilityVideo}, byID["custom-motion-model"].Capabilities)
+	require.False(t, byID["custom-motion-model"].Enabled)
 }
 
 func TestGatewayModels_CustomModelsListDisabledKeepsOriginalModels(t *testing.T) {

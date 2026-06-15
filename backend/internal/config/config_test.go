@@ -1707,6 +1707,7 @@ func TestValidateConfig_OpenAIWSRules(t *testing.T) {
 			name: "scheduler_score_weights 不能全为 0",
 			mutate: func(c *Config) {
 				c.Gateway.OpenAIWS.SchedulerScoreWeights.Priority = 0
+				c.Gateway.OpenAIWS.SchedulerScoreWeights.Price = 0
 				c.Gateway.OpenAIWS.SchedulerScoreWeights.Load = 0
 				c.Gateway.OpenAIWS.SchedulerScoreWeights.Queue = 0
 				c.Gateway.OpenAIWS.SchedulerScoreWeights.ErrorRate = 0

@@ -850,6 +850,7 @@ type GatewayOpenAIWSConfig struct {
 // GatewayOpenAIWSSchedulerScoreWeights 账号调度打分权重。
 type GatewayOpenAIWSSchedulerScoreWeights struct {
 	Priority  float64 `mapstructure:"priority"`
+	Price     float64 `mapstructure:"price"`
 	Load      float64 `mapstructure:"load"`
 	Queue     float64 `mapstructure:"queue"`
 	ErrorRate float64 `mapstructure:"error_rate"`
@@ -1778,6 +1779,7 @@ func setDefaults() {
 	viper.SetDefault("gateway.openai_ws.sticky_response_id_ttl_seconds", 3600)
 	viper.SetDefault("gateway.openai_ws.sticky_previous_response_ttl_seconds", 3600)
 	viper.SetDefault("gateway.openai_ws.scheduler_score_weights.priority", 1.0)
+	viper.SetDefault("gateway.openai_ws.scheduler_score_weights.price", 0.6)
 	viper.SetDefault("gateway.openai_ws.scheduler_score_weights.load", 1.0)
 	viper.SetDefault("gateway.openai_ws.scheduler_score_weights.queue", 0.7)
 	viper.SetDefault("gateway.openai_ws.scheduler_score_weights.error_rate", 0.8)
@@ -2568,6 +2570,7 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("gateway.openai_ws.sticky_previous_response_ttl_seconds must be non-negative")
 	}
 	if c.Gateway.OpenAIWS.SchedulerScoreWeights.Priority < 0 ||
+		c.Gateway.OpenAIWS.SchedulerScoreWeights.Price < 0 ||
 		c.Gateway.OpenAIWS.SchedulerScoreWeights.Load < 0 ||
 		c.Gateway.OpenAIWS.SchedulerScoreWeights.Queue < 0 ||
 		c.Gateway.OpenAIWS.SchedulerScoreWeights.ErrorRate < 0 ||
@@ -2575,6 +2578,7 @@ func (c *Config) Validate() error {
 		return fmt.Errorf("gateway.openai_ws.scheduler_score_weights.* must be non-negative")
 	}
 	weightSum := c.Gateway.OpenAIWS.SchedulerScoreWeights.Priority +
+		c.Gateway.OpenAIWS.SchedulerScoreWeights.Price +
 		c.Gateway.OpenAIWS.SchedulerScoreWeights.Load +
 		c.Gateway.OpenAIWS.SchedulerScoreWeights.Queue +
 		c.Gateway.OpenAIWS.SchedulerScoreWeights.ErrorRate +

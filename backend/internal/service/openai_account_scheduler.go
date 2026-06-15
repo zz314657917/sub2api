@@ -417,6 +417,7 @@ type openAIAccountCandidateScore struct {
 	account   *Account
 	loadInfo  *AccountLoadInfo
 	score     float64
+	price     float64
 	errorRate float64
 	ttft      float64
 	hasTTFT   bool
@@ -614,6 +615,85 @@ func buildOpenAIWeightedSelectionOrder(
 	return order
 }
 
+func scoreOpenAIAccountCandidates(
+	candidates []openAIAccountCandidateScore,
+	weights GatewayOpenAIWSSchedulerScoreWeightsView,
+) float64 {
+	if len(candidates) == 0 {
+		return 0
+	}
+
+	minPriority, maxPriority := candidates[0].account.Priority, candidates[0].account.Priority
+	minPrice, maxPrice := candidates[0].price, candidates[0].price
+	maxWaiting := 1
+	loadRateSum := 0.0
+	loadRateSumSquares := 0.0
+	minTTFT, maxTTFT := 0.0, 0.0
+	hasTTFTSample := false
+	for _, candidate := range candidates {
+		if candidate.account.Priority < minPriority {
+			minPriority = candidate.account.Priority
+		}
+		if candidate.account.Priority > maxPriority {
+			maxPriority = candidate.account.Priority
+		}
+		if candidate.price < minPrice {
+			minPrice = candidate.price
+		}
+		if candidate.price > maxPrice {
+			maxPrice = candidate.price
+		}
+		if candidate.loadInfo.WaitingCount > maxWaiting {
+			maxWaiting = candidate.loadInfo.WaitingCount
+		}
+		if candidate.hasTTFT && candidate.ttft > 0 {
+			if !hasTTFTSample {
+				minTTFT, maxTTFT = candidate.ttft, candidate.ttft
+				hasTTFTSample = true
+			} else {
+				if candidate.ttft < minTTFT {
+					minTTFT = candidate.ttft
+				}
+				if candidate.ttft > maxTTFT {
+					maxTTFT = candidate.ttft
+				}
+			}
+		}
+		loadRate := float64(candidate.loadInfo.LoadRate)
+		loadRateSum += loadRate
+		loadRateSumSquares += loadRate * loadRate
+	}
+	loadSkew := calcLoadSkewByMoments(loadRateSum, loadRateSumSquares, len(candidates))
+
+	for i := range candidates {
+		item := &candidates[i]
+		priorityFactor := 1.0
+		if maxPriority > minPriority {
+			priorityFactor = 1 - float64(item.account.Priority-minPriority)/float64(maxPriority-minPriority)
+		}
+		priceFactor := 1.0
+		if maxPrice > minPrice {
+			priceFactor = 1 - clamp01((item.price-minPrice)/(maxPrice-minPrice))
+		}
+		loadFactor := 1 - clamp01(float64(item.loadInfo.LoadRate)/100.0)
+		queueFactor := 1 - clamp01(float64(item.loadInfo.WaitingCount)/float64(maxWaiting))
+		errorFactor := 1 - clamp01(item.errorRate)
+		ttftFactor := 0.5
+		if item.hasTTFT && hasTTFTSample && maxTTFT > minTTFT {
+			ttftFactor = 1 - clamp01((item.ttft-minTTFT)/(maxTTFT-minTTFT))
+		}
+
+		item.score = weights.Priority*priorityFactor +
+			weights.Price*priceFactor +
+			weights.Load*loadFactor +
+			weights.Queue*queueFactor +
+			weights.ErrorRate*errorFactor +
+			weights.TTFT*ttftFactor
+	}
+
+	return loadSkew
+}
+
 func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 	ctx context.Context,
 	req OpenAIAccountScheduleRequest,
@@ -686,6 +766,7 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 		allCandidates = append(allCandidates, openAIAccountCandidateScore{
 			account:   account,
 			loadInfo:  loadInfo,
+			price:     account.BillingRateMultiplier(),
 			errorRate: errorRate,
 			ttft:      ttft,
 			hasTTFT:   hasTTFT,
@@ -713,62 +794,7 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 	candidateCount := len(candidates)
 	loadSkew := 0.0
 	if len(candidates) > 0 {
-		minPriority, maxPriority := candidates[0].account.Priority, candidates[0].account.Priority
-		maxWaiting := 1
-		loadRateSum := 0.0
-		loadRateSumSquares := 0.0
-		minTTFT, maxTTFT := 0.0, 0.0
-		hasTTFTSample := false
-		for _, candidate := range candidates {
-			if candidate.account.Priority < minPriority {
-				minPriority = candidate.account.Priority
-			}
-			if candidate.account.Priority > maxPriority {
-				maxPriority = candidate.account.Priority
-			}
-			if candidate.loadInfo.WaitingCount > maxWaiting {
-				maxWaiting = candidate.loadInfo.WaitingCount
-			}
-			if candidate.hasTTFT && candidate.ttft > 0 {
-				if !hasTTFTSample {
-					minTTFT, maxTTFT = candidate.ttft, candidate.ttft
-					hasTTFTSample = true
-				} else {
-					if candidate.ttft < minTTFT {
-						minTTFT = candidate.ttft
-					}
-					if candidate.ttft > maxTTFT {
-						maxTTFT = candidate.ttft
-					}
-				}
-			}
-			loadRate := float64(candidate.loadInfo.LoadRate)
-			loadRateSum += loadRate
-			loadRateSumSquares += loadRate * loadRate
-		}
-		loadSkew = calcLoadSkewByMoments(loadRateSum, loadRateSumSquares, len(candidates))
-
-		weights := s.service.openAIWSSchedulerWeights()
-		for i := range candidates {
-			item := &candidates[i]
-			priorityFactor := 1.0
-			if maxPriority > minPriority {
-				priorityFactor = 1 - float64(item.account.Priority-minPriority)/float64(maxPriority-minPriority)
-			}
-			loadFactor := 1 - clamp01(float64(item.loadInfo.LoadRate)/100.0)
-			queueFactor := 1 - clamp01(float64(item.loadInfo.WaitingCount)/float64(maxWaiting))
-			errorFactor := 1 - clamp01(item.errorRate)
-			ttftFactor := 0.5
-			if item.hasTTFT && hasTTFTSample && maxTTFT > minTTFT {
-				ttftFactor = 1 - clamp01((item.ttft-minTTFT)/(maxTTFT-minTTFT))
-			}
-
-			item.score = weights.Priority*priorityFactor +
-				weights.Load*loadFactor +
-				weights.Queue*queueFactor +
-				weights.ErrorRate*errorFactor +
-				weights.TTFT*ttftFactor
-		}
+		loadSkew = scoreOpenAIAccountCandidates(candidates, s.service.openAIWSSchedulerWeights())
 	}
 
 	topK := 0
@@ -1433,6 +1459,7 @@ func (s *OpenAIGatewayService) openAIWSSchedulerWeights() GatewayOpenAIWSSchedul
 	if s != nil && s.cfg != nil {
 		return GatewayOpenAIWSSchedulerScoreWeightsView{
 			Priority:  s.cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Priority,
+			Price:     s.cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Price,
 			Load:      s.cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Load,
 			Queue:     s.cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Queue,
 			ErrorRate: s.cfg.Gateway.OpenAIWS.SchedulerScoreWeights.ErrorRate,
@@ -1441,6 +1468,7 @@ func (s *OpenAIGatewayService) openAIWSSchedulerWeights() GatewayOpenAIWSSchedul
 	}
 	return GatewayOpenAIWSSchedulerScoreWeightsView{
 		Priority:  1.0,
+		Price:     0.6,
 		Load:      1.0,
 		Queue:     0.7,
 		ErrorRate: 0.8,
@@ -1450,6 +1478,7 @@ func (s *OpenAIGatewayService) openAIWSSchedulerWeights() GatewayOpenAIWSSchedul
 
 type GatewayOpenAIWSSchedulerScoreWeightsView struct {
 	Priority  float64
+	Price     float64
 	Load      float64
 	Queue     float64
 	ErrorRate float64

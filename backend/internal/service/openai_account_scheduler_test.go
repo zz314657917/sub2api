@@ -1654,6 +1654,42 @@ func TestBuildOpenAIWeightedSelectionOrder_DeterministicBySessionSeed(t *testing
 	}
 }
 
+func TestScoreOpenAIAccountCandidates_IncludesPriceAndCongestion(t *testing.T) {
+	cheap := 0.5
+	expensive := 2.0
+	candidates := []openAIAccountCandidateScore{
+		{
+			account:   &Account{ID: 201, Priority: 0, RateMultiplier: &cheap},
+			loadInfo:  &AccountLoadInfo{LoadRate: 90, WaitingCount: 5},
+			price:     cheap,
+			errorRate: 0.7,
+			ttft:      500,
+			hasTTFT:   true,
+		},
+		{
+			account:   &Account{ID: 202, Priority: 0, RateMultiplier: &expensive},
+			loadInfo:  &AccountLoadInfo{LoadRate: 10, WaitingCount: 0},
+			price:     expensive,
+			errorRate: 0.0,
+			ttft:      80,
+			hasTTFT:   true,
+		},
+	}
+
+	scoreOpenAIAccountCandidates(candidates, GatewayOpenAIWSSchedulerScoreWeightsView{
+		Price:     1,
+		Load:      1,
+		Queue:     1,
+		ErrorRate: 1,
+		TTFT:      1,
+	})
+	require.Greater(t, candidates[1].score, candidates[0].score, "low price alone must not beat severe congestion and errors")
+
+	priceOnly := append([]openAIAccountCandidateScore(nil), candidates...)
+	scoreOpenAIAccountCandidates(priceOnly, GatewayOpenAIWSSchedulerScoreWeightsView{Price: 1})
+	require.Greater(t, priceOnly[0].score, priceOnly[1].score, "lower account multiplier should win when only price is weighted")
+}
+
 func TestOpenAIGatewayService_SelectAccountWithScheduler_LoadBalanceDistributesAcrossSessions(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(15)
@@ -1865,6 +1901,7 @@ func TestOpenAIGatewayService_SchedulerWrappersAndDefaults(t *testing.T) {
 
 	defaultWeights := svc.openAIWSSchedulerWeights()
 	require.Equal(t, 1.0, defaultWeights.Priority)
+	require.Equal(t, 0.6, defaultWeights.Price)
 	require.Equal(t, 1.0, defaultWeights.Load)
 	require.Equal(t, 0.7, defaultWeights.Queue)
 	require.Equal(t, 0.8, defaultWeights.ErrorRate)
@@ -1874,6 +1911,7 @@ func TestOpenAIGatewayService_SchedulerWrappersAndDefaults(t *testing.T) {
 	cfg.Gateway.OpenAIWS.LBTopK = 9
 	cfg.Gateway.OpenAIWS.StickySessionTTLSeconds = 180
 	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Priority = 0.2
+	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Price = 0.25
 	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Load = 0.3
 	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.Queue = 0.4
 	cfg.Gateway.OpenAIWS.SchedulerScoreWeights.ErrorRate = 0.5
@@ -1884,6 +1922,7 @@ func TestOpenAIGatewayService_SchedulerWrappersAndDefaults(t *testing.T) {
 	require.Equal(t, 180*time.Second, svcWithCfg.openAIWSSessionStickyTTL())
 	customWeights := svcWithCfg.openAIWSSchedulerWeights()
 	require.Equal(t, 0.2, customWeights.Priority)
+	require.Equal(t, 0.25, customWeights.Price)
 	require.Equal(t, 0.3, customWeights.Load)
 	require.Equal(t, 0.4, customWeights.Queue)
 	require.Equal(t, 0.5, customWeights.ErrorRate)

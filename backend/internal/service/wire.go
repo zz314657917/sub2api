@@ -439,6 +439,7 @@ func ProvideBackupService(
 func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupRepository, proxyRepo ProxyRepository, cfg *config.Config) *SettingService {
 	svc := NewSettingService(settingRepo, cfg)
 	svc.SetDefaultSubscriptionGroupReader(groupRepo)
+	svc.SetStudioBridgeDefaultGroupReader(groupRepo)
 	svc.SetModelMarketGroupReader(groupRepo)
 	svc.SetProxyRepository(proxyRepo)
 	antigravity.SetUserAgentVersionResolver(svc.GetAntigravityUserAgentVersion)
