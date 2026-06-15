@@ -15,6 +15,7 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
@@ -32,6 +33,7 @@ const (
 	welfareReasonZeroReward         = "zero_reward"
 	welfareReasonAlreadyChecked     = "already_checked"
 	welfareReasonNotConfigured      = "not_configured"
+	welfareReasonExpired            = "expired"
 	welfareReasonInProgress         = "in_progress"
 	welfareReasonExhausted          = "exhausted"
 	welfareReasonDailyLimit         = "daily_limit"
@@ -217,11 +219,16 @@ type WelfareNewUserTrialView struct {
 }
 
 type WelfareRechargeView struct {
-	Enabled             bool    `json:"enabled"`
-	FirstBonusAmount    float64 `json:"first_bonus_amount"`
-	FirstBonusClaimed   bool    `json:"first_bonus_claimed"`
-	FirstBonusClaimedAt string  `json:"first_bonus_claimed_at,omitempty"`
-	Reason              string  `json:"reason"`
+	Enabled                bool    `json:"enabled"`
+	FirstBonusAmount       float64 `json:"first_bonus_amount"`
+	FirstBonusClaimed      bool    `json:"first_bonus_claimed"`
+	FirstBonusClaimedAt    string  `json:"first_bonus_claimed_at,omitempty"`
+	ValidDays              int     `json:"valid_days"`
+	ExpiresAt              string  `json:"expires_at,omitempty"`
+	CanStackMonthlyBonus   bool    `json:"can_stack_monthly_bonus"`
+	MonthlyBonusMayBlock   bool    `json:"monthly_bonus_may_block"`
+	FirstRechargeCompleted bool    `json:"first_recharge_completed"`
+	Reason                 string  `json:"reason"`
 }
 
 type WelfareDailyCheckinClaimResult struct {
@@ -256,6 +263,8 @@ type welfareSettings struct {
 	NewUserTrialDailySiteQuotaAmount   float64
 	NewUserTrialDailyIPActivationLimit int
 	FirstRechargeBonusAmount           float64
+	FirstRechargeBonusValidDays        int
+	FirstRechargeBonusStackMonthly     bool
 }
 
 func NewWelfareService(
@@ -940,15 +949,31 @@ func (s *WelfareService) buildNewUserTrialView(ctx context.Context, userID int64
 
 func (s *WelfareService) buildRechargeView(ctx context.Context, userID int64, settings welfareSettings) (*WelfareRechargeView, error) {
 	view := &WelfareRechargeView{
-		Enabled:          settings.Enabled && settings.RechargeEnabled && settings.FirstRechargeBonusAmount > 0,
-		FirstBonusAmount: settings.FirstRechargeBonusAmount,
-		Reason:           welfareReasonAvailable,
+		Enabled:              settings.Enabled && settings.RechargeEnabled && settings.FirstRechargeBonusAmount > 0,
+		FirstBonusAmount:     settings.FirstRechargeBonusAmount,
+		ValidDays:            settings.FirstRechargeBonusValidDays,
+		CanStackMonthlyBonus: settings.FirstRechargeBonusStackMonthly,
+		MonthlyBonusMayBlock: !settings.FirstRechargeBonusStackMonthly,
+		Reason:               welfareReasonAvailable,
 	}
 	if !settings.Enabled || !settings.RechargeEnabled {
 		view.Reason = welfareReasonDisabled
 	}
 	if settings.FirstRechargeBonusAmount <= 0 {
 		view.Reason = welfareReasonZeroReward
+	}
+	if settings.FirstRechargeBonusValidDays > 0 {
+		user, err := s.firstRechargeBonusUser(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		if expiresAt := firstRechargeBonusExpiresAt(user, settings.FirstRechargeBonusValidDays); !expiresAt.IsZero() {
+			view.ExpiresAt = expiresAt.UTC().Format(time.RFC3339)
+			if view.Enabled && !s.nowTime().Before(expiresAt) {
+				view.Enabled = false
+				view.Reason = welfareReasonExpired
+			}
+		}
 	}
 	reward, err := s.getFirstRechargeBonus(ctx, userID)
 	if err != nil {
@@ -959,6 +984,17 @@ func (s *WelfareService) buildRechargeView(ctx context.Context, userID int64, se
 		view.Reason = welfareReasonAlreadyClaimed
 		if reward.UsedAt != nil {
 			view.FirstBonusClaimedAt = reward.UsedAt.UTC().Format(time.RFC3339)
+		}
+	}
+	if !view.FirstBonusClaimed {
+		firstRechargeCompleted, err := s.hasFirstRechargeBlockingOrder(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		view.FirstRechargeCompleted = firstRechargeCompleted
+		if firstRechargeCompleted && view.Reason == welfareReasonAvailable {
+			view.Enabled = false
+			view.Reason = welfareReasonNotReached
 		}
 	}
 	return view, nil
@@ -1086,6 +1122,9 @@ func (s *WelfareService) GrantFirstRechargeBonusForOrder(ctx context.Context, or
 	if order.UserID <= 0 || order.OrderType != payment.OrderTypeBalance || order.Amount <= 0 || !isFirstRechargeBonusEligibleOrderStatus(order.Status) {
 		return false, nil
 	}
+	if order.Status == OrderStatusFailed && !paymentOrderHasPaymentEvidence(order) {
+		return false, nil
+	}
 
 	if reward, err := s.getFirstRechargeBonus(ctx, order.UserID); err != nil {
 		return false, err
@@ -1096,6 +1135,18 @@ func (s *WelfareService) GrantFirstRechargeBonusForOrder(ctx context.Context, or
 	first, err := s.isFirstRechargeOrder(ctx, order)
 	if err != nil || !first {
 		return false, err
+	}
+	if !settings.FirstRechargeBonusStackMonthly && monthlyRechargeDecisionFromOrder(order).BonusAmount > 0 && order.Amount > order.PayAmount {
+		return false, nil
+	}
+	if settings.FirstRechargeBonusValidDays > 0 {
+		user, err := s.firstRechargeBonusUser(ctx, order.UserID)
+		if err != nil {
+			return false, err
+		}
+		if firstRechargeBonusExpired(user, settings.FirstRechargeBonusValidDays, s.nowTime()) {
+			return false, nil
+		}
 	}
 
 	code := firstRechargeBonusRedeemCode(order.UserID)
@@ -1153,7 +1204,7 @@ func (s *WelfareService) isFirstRechargeOrder(ctx context.Context, order *dbent.
 			paymentorder.OrderTypeEQ(payment.OrderTypeBalance),
 			paymentorder.AmountGT(0),
 			paymentorder.IDLT(order.ID),
-			paymentorder.StatusIn(firstRechargeBlockingOrderStatuses()...),
+			firstRechargeBlockingOrderPredicate(),
 		).
 		Limit(1).
 		Count(ctx)
@@ -1161,6 +1212,44 @@ func (s *WelfareService) isFirstRechargeOrder(ctx context.Context, order *dbent.
 		return false, err
 	}
 	return count == 0, nil
+}
+
+func (s *WelfareService) hasFirstRechargeBlockingOrder(ctx context.Context, userID int64) (bool, error) {
+	if s == nil || s.entClient == nil || userID <= 0 {
+		return false, nil
+	}
+	return s.entClient.PaymentOrder.Query().
+		Where(
+			paymentorder.UserIDEQ(userID),
+			paymentorder.OrderTypeEQ(payment.OrderTypeBalance),
+			paymentorder.AmountGT(0),
+			firstRechargeBlockingOrderPredicate(),
+		).
+		Limit(1).
+		Exist(ctx)
+}
+
+func (s *WelfareService) firstRechargeBonusUser(ctx context.Context, userID int64) (*User, error) {
+	if s == nil || s.userRepo == nil || userID <= 0 {
+		return nil, nil
+	}
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func firstRechargeBonusExpiresAt(user *User, validDays int) time.Time {
+	if user == nil || user.CreatedAt.IsZero() || validDays <= 0 {
+		return time.Time{}
+	}
+	return user.CreatedAt.AddDate(0, 0, validDays)
+}
+
+func firstRechargeBonusExpired(user *User, validDays int, now time.Time) bool {
+	expiresAt := firstRechargeBonusExpiresAt(user, validDays)
+	return !expiresAt.IsZero() && !now.Before(expiresAt)
 }
 
 func (s *WelfareService) writeFirstRechargeBonusAudit(ctx context.Context, orderID int64, amount float64, code string) error {
@@ -1188,17 +1277,33 @@ func (s *WelfareService) OrderHasFirstRechargeBonus(ctx context.Context, orderID
 	if client == nil || orderID <= 0 {
 		return false, nil
 	}
-	count, err := client.PaymentAuditLog.Query().
+	logs, err := client.PaymentAuditLog.Query().
 		Where(
 			paymentauditlog.OrderIDEQ(strconv.FormatInt(orderID, 10)),
 			paymentauditlog.ActionEQ(welfareFirstRechargeBonusAudit),
 		).
-		Limit(1).
-		Count(ctx)
+		All(ctx)
 	if err != nil {
 		return false, err
 	}
-	return count > 0, nil
+	for _, log := range logs {
+		if !firstRechargeBonusAuditLooksLikeMonthlyRecharge(log.Detail) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func firstRechargeBonusAuditLooksLikeMonthlyRecharge(detail string) bool {
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(detail), &payload); err != nil {
+		return false
+	}
+	if code := strings.ToUpper(stringSnapshotValue(payload, "redeemCode")); code != "" {
+		return strings.HasPrefix(code, "MRB")
+	}
+	return strings.TrimSpace(stringSnapshotValue(payload, "period")) != "" &&
+		strings.TrimSpace(stringSnapshotValue(payload, "package_id")) != ""
 }
 
 func (s *WelfareService) entClientFromContext(ctx context.Context) *dbent.Client {
@@ -1307,6 +1412,8 @@ func (s *WelfareService) getSettings(ctx context.Context) (welfareSettings, erro
 		SettingKeyWelfareNewUserTrialDailySiteQuotaAmount,
 		SettingKeyWelfareNewUserTrialDailyIPActivationLimit,
 		SettingKeyWelfareFirstRechargeBonusAmount,
+		SettingKeyWelfareFirstRechargeBonusValidDays,
+		SettingKeyWelfareFirstRechargeBonusStackMonthly,
 	})
 	if err != nil {
 		return result, fmt.Errorf("get welfare settings: %w", err)
@@ -1334,6 +1441,8 @@ func (s *WelfareService) getSettings(ctx context.Context) (welfareSettings, erro
 	result.NewUserTrialSuccessRewardEnabledAt = parseOptionalRFC3339Setting(values[SettingKeyWelfareNewUserTrialSuccessRewardEnabledAt])
 	result.NewUserTrialDailySiteQuotaAmount = parseNonNegativeFloatSetting(values[SettingKeyWelfareNewUserTrialDailySiteQuotaAmount], defaultNewUserTrialDailySiteQuotaAmount)
 	result.FirstRechargeBonusAmount = parseNonNegativeFloatSetting(values[SettingKeyWelfareFirstRechargeBonusAmount], defaultFirstRechargeBonusAmount)
+	result.FirstRechargeBonusValidDays = parseNonNegativeIntSetting(values[SettingKeyWelfareFirstRechargeBonusValidDays], 0)
+	result.FirstRechargeBonusStackMonthly = values[SettingKeyWelfareFirstRechargeBonusStackMonthly] == "true"
 	if ipLimit, err := strconv.Atoi(strings.TrimSpace(values[SettingKeyWelfareNewUserTrialDailyIPActivationLimit])); err == nil && ipLimit >= 0 {
 		result.NewUserTrialDailyIPActivationLimit = ipLimit
 	} else {
@@ -1440,7 +1549,6 @@ func firstRechargeBlockingOrderStatuses() []string {
 		OrderStatusPaid,
 		OrderStatusRecharging,
 		OrderStatusCompleted,
-		OrderStatusFailed,
 		OrderStatusRefundRequested,
 		OrderStatusRefunding,
 		OrderStatusPartiallyRefunded,
@@ -1449,13 +1557,30 @@ func firstRechargeBlockingOrderStatuses() []string {
 	}
 }
 
+func firstRechargeBlockingOrderPredicate() predicate.PaymentOrder {
+	return paymentorder.Or(
+		paymentorder.StatusIn(firstRechargeBlockingOrderStatuses()...),
+		paymentorder.And(
+			paymentorder.StatusEQ(OrderStatusFailed),
+			paymentorder.Or(
+				paymentorder.PaidAtNotNil(),
+				paymentorder.PaymentTradeNoNEQ(""),
+			),
+		),
+	)
+}
+
+func paymentOrderHasPaymentEvidence(order *dbent.PaymentOrder) bool {
+	return order != nil && (order.PaidAt != nil || strings.TrimSpace(order.PaymentTradeNo) != "")
+}
+
 func isFirstRechargeBonusEligibleOrderStatus(status string) bool {
 	for _, item := range firstRechargeBlockingOrderStatuses() {
 		if status == item {
 			return true
 		}
 	}
-	return false
+	return status == OrderStatusFailed
 }
 
 func isRedeemCodeConflict(err error) bool {

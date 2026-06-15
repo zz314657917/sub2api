@@ -313,12 +313,14 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder) e
 	case redeemActionCreate:
 		rc := &RedeemCode{Code: o.RechargeCode, Type: RedeemTypeBalance, Value: o.Amount, Status: StatusUnused}
 		if err := s.redeemService.CreateCode(ctx, rc); err != nil {
+			s.releaseMonthlyRechargeBonusClaimForOrder(ctx, o)
 			return fmt.Errorf("create redeem code: %w", err)
 		}
 	case redeemActionRedeem:
 		// Code exists but unused — skip creation, proceed to redeem
 	}
 	if _, err := s.redeemService.Redeem(ContextSkipRedeemAffiliate(ctx), o.UserID, o.RechargeCode); err != nil {
+		s.releaseMonthlyRechargeBonusClaimForOrder(ctx, o)
 		return fmt.Errorf("redeem balance: %w", err)
 	}
 	if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
@@ -332,9 +334,6 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder) e
 
 func (s *PaymentService) applyFirstRechargeBonusForOrder(ctx context.Context, o *dbent.PaymentOrder) error {
 	if s == nil || s.welfareService == nil || o == nil || o.OrderType != payment.OrderTypeBalance {
-		return nil
-	}
-	if monthlyRechargeDecisionFromOrder(o).Package.ID != "" {
 		return nil
 	}
 	if _, err := s.welfareService.GrantFirstRechargeBonusForOrder(ctx, o.ID); err != nil {

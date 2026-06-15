@@ -106,6 +106,12 @@
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
                   {{ t('welfare.recharge.description', { amount: formatAmount(recharge?.first_bonus_amount) }) }}
                 </p>
+                <p v-if="rechargeExpiryText" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('welfare.recharge.expiresAt', { time: rechargeExpiryText }) }}
+                </p>
+                <p v-if="recharge?.monthly_bonus_may_block && !recharge?.first_bonus_claimed" class="mt-2 text-xs text-amber-700 dark:text-amber-300">
+                  {{ t('welfare.recharge.monthlyBonusNotice') }}
+                </p>
                 <p v-if="recharge?.first_bonus_claimed && rechargeClaimedAtText" class="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
                   {{ t('welfare.recharge.claimedAt', { time: rechargeClaimedAtText }) }}
                 </p>
@@ -289,7 +295,15 @@ const claimingTrialReward = ref(false)
 const daily = computed(() => overview.value?.daily_checkin ?? null)
 const trial = computed(() => overview.value?.new_user_trial ?? null)
 const recharge = computed<WelfareRecharge | null>(() => overview.value?.recharge ?? null)
-const rechargeVisible = computed(() => Boolean(recharge.value && (recharge.value.enabled || recharge.value.first_bonus_claimed)))
+const rechargeVisible = computed(() => {
+  const state = recharge.value
+  return Boolean(state && (
+    state.enabled ||
+    state.first_bonus_claimed ||
+    (state.first_recharge_completed && state.reason === 'not_reached') ||
+    state.reason === 'expired'
+  ))
+})
 const hasVisibleModule = computed(() => Boolean(trial.value?.enabled || rechargeVisible.value || daily.value?.enabled))
 
 const checkedDateSet = computed(() => new Set(daily.value?.checkin_dates ?? []))
@@ -425,6 +439,8 @@ const rechargeStatusText = computed(() => {
   const state = recharge.value
   if (!state) return t('welfare.notOpen')
   if (state.first_bonus_claimed) return t('welfare.recharge.claimed')
+  if (state.reason === 'expired') return reasonText(state.reason)
+  if (state.first_recharge_completed && state.reason === 'not_reached') return t('welfare.recharge.missed')
   if (state.enabled) return t('welfare.recharge.pending')
   return reasonText(state.reason)
 })
@@ -432,6 +448,7 @@ const rechargeStatusText = computed(() => {
 const rechargeStatusClass = computed(() => {
   const state = recharge.value
   if (state?.first_bonus_claimed) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+  if (state?.first_recharge_completed) return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
   if (state?.enabled) return 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300'
   return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
 })
@@ -439,11 +456,14 @@ const rechargeStatusClass = computed(() => {
 const rechargeButtonText = computed(() => {
   const state = recharge.value
   if (state?.first_bonus_claimed) return t('welfare.recharge.claimed')
+  if (state?.reason === 'expired') return reasonText(state.reason)
+  if (state?.first_recharge_completed && state.reason === 'not_reached') return t('welfare.recharge.missed')
   if (state?.enabled) return t('welfare.recharge.cta')
   return reasonText(state?.reason)
 })
 
 const rechargeClaimedAtText = computed(() => formatDateTime(recharge.value?.first_bonus_claimed_at))
+const rechargeExpiryText = computed(() => formatDateTime(recharge.value?.expires_at))
 
 function formatAmount(value: number | null | undefined): string {
   return amountFormatter.format(Number(value) || 0)
@@ -483,6 +503,8 @@ function reasonText(reason?: string): string {
       return t('welfare.reason.dailyLimit')
     case 'registration_too_new':
       return t('welfare.reason.registrationTooNew')
+    case 'expired':
+      return t('welfare.reason.expired')
     default:
       return t('welfare.reason.unavailable')
   }

@@ -590,6 +590,8 @@ export interface SystemSettings {
   welfare_new_user_trial_daily_site_quota_amount: number;
   welfare_new_user_trial_daily_ip_activation_limit: number;
   welfare_first_recharge_bonus_amount: number;
+  welfare_first_recharge_bonus_valid_days: number;
+  welfare_first_recharge_bonus_stack_monthly: boolean;
 
   // OpenAI fast/flex policy
   openai_fast_policy_settings?: OpenAIFastPolicySettings;
@@ -838,6 +840,8 @@ export interface UpdateSettingsRequest {
   welfare_new_user_trial_daily_site_quota_amount?: number;
   welfare_new_user_trial_daily_ip_activation_limit?: number;
   welfare_first_recharge_bonus_amount?: number;
+  welfare_first_recharge_bonus_valid_days?: number;
+  welfare_first_recharge_bonus_stack_monthly?: boolean;
 
   // OpenAI fast/flex policy
   openai_fast_policy_settings?: OpenAIFastPolicySettings;

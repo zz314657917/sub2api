@@ -1871,11 +1871,16 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	settings.WelfareDailyCheckinMilestone21Amount = normalizeNonNegativeFloat(settings.WelfareDailyCheckinMilestone21Amount)
 	settings.WelfareDailyCheckinMilestone28Amount = normalizeNonNegativeFloat(settings.WelfareDailyCheckinMilestone28Amount)
 	settings.WelfareFirstRechargeBonusAmount = normalizeNonNegativeFloat(settings.WelfareFirstRechargeBonusAmount)
+	if settings.WelfareFirstRechargeBonusValidDays < 0 {
+		settings.WelfareFirstRechargeBonusValidDays = 0
+	}
 	updates[SettingKeyWelfareEnabled] = strconv.FormatBool(settings.WelfareEnabled)
 	updates[SettingKeyWelfareDailyCheckinEnabled] = strconv.FormatBool(settings.WelfareDailyCheckinEnabled)
 	updates[SettingKeyWelfareRechargeEnabled] = strconv.FormatBool(settings.WelfareRechargeEnabled)
 	updates[SettingKeyWelfareVIPEnabled] = strconv.FormatBool(settings.WelfareVIPEnabled)
 	updates[SettingKeyWelfareFirstRechargeBonusAmount] = strconv.FormatFloat(settings.WelfareFirstRechargeBonusAmount, 'f', 8, 64)
+	updates[SettingKeyWelfareFirstRechargeBonusValidDays] = strconv.Itoa(settings.WelfareFirstRechargeBonusValidDays)
+	updates[SettingKeyWelfareFirstRechargeBonusStackMonthly] = strconv.FormatBool(settings.WelfareFirstRechargeBonusStackMonthly)
 	updates[SettingKeyWelfareDailyCheckinRewardMin] = strconv.FormatFloat(settings.WelfareDailyCheckinRewardMin, 'f', 8, 64)
 	updates[SettingKeyWelfareDailyCheckinRewardMax] = strconv.FormatFloat(settings.WelfareDailyCheckinRewardMax, 'f', 8, 64)
 	if settings.WelfareDailyCheckinMinAccountAgeHours < 0 {
@@ -2994,6 +2999,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyWelfareRechargeEnabled:                    "false",
 		SettingKeyWelfareVIPEnabled:                         "false",
 		SettingKeyWelfareFirstRechargeBonusAmount:           "5",
+		SettingKeyWelfareFirstRechargeBonusValidDays:        "0",
+		SettingKeyWelfareFirstRechargeBonusStackMonthly:     "false",
 		SettingKeyWelfareDailyCheckinRewardMin:              "0",
 		SettingKeyWelfareDailyCheckinRewardMax:              "0",
 		SettingKeyWelfareDailyCheckinMinAccountAgeHours:     strconv.Itoa(defaultDailyCheckinMinAccountAgeHours),
@@ -3421,6 +3428,8 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.WelfareRechargeEnabled = settings[SettingKeyWelfareRechargeEnabled] == "true"
 	result.WelfareVIPEnabled = settings[SettingKeyWelfareVIPEnabled] == "true"
 	result.WelfareFirstRechargeBonusAmount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareFirstRechargeBonusAmount], 5)
+	result.WelfareFirstRechargeBonusValidDays = parseNonNegativeIntSetting(settings[SettingKeyWelfareFirstRechargeBonusValidDays], 0)
+	result.WelfareFirstRechargeBonusStackMonthly = settings[SettingKeyWelfareFirstRechargeBonusStackMonthly] == "true"
 	result.WelfareDailyCheckinRewardMin = normalizeDailyRewardAmount(parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinRewardMin], 0))
 	result.WelfareDailyCheckinRewardMax = normalizeDailyRewardAmount(parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinRewardMax], result.WelfareDailyCheckinRewardMin))
 	if result.WelfareDailyCheckinRewardMax < result.WelfareDailyCheckinRewardMin {

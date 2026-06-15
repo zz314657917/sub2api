@@ -45,6 +45,7 @@ const (
 	RedeemTypeCheckinMilestone   = "checkin_milestone"
 	RedeemTypeNewUserReward      = "new_user_reward"
 	RedeemTypeFirstRechargeBonus = "first_recharge_bonus"
+	RedeemTypeMonthlyRecharge    = "monthly_recharge"
 )
 
 // PromoCode status constants

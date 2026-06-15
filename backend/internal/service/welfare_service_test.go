@@ -345,6 +345,8 @@ func welfareSettingRepo(enabled, daily bool, min, max float64) *welfareSettingRe
 		SettingKeyWelfareRechargeEnabled:                    "true",
 		SettingKeyWelfareVIPEnabled:                         "true",
 		SettingKeyWelfareFirstRechargeBonusAmount:           "5.00000000",
+		SettingKeyWelfareFirstRechargeBonusValidDays:        "0",
+		SettingKeyWelfareFirstRechargeBonusStackMonthly:     "false",
 		SettingKeyWelfareDailyCheckinRewardMin:              welfareFloat(min),
 		SettingKeyWelfareDailyCheckinRewardMax:              welfareFloat(max),
 		SettingKeyWelfareDailyCheckinMinAccountAgeHours:     strconv.Itoa(defaultDailyCheckinMinAccountAgeHours),

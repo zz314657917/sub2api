@@ -8173,6 +8173,8 @@ const form = reactive<SettingsForm>({
   welfare_new_user_trial_daily_site_quota_amount: 5,
   welfare_new_user_trial_daily_ip_activation_limit: 3,
   welfare_first_recharge_bonus_amount: 5,
+  welfare_first_recharge_bonus_valid_days: 0,
+  welfare_first_recharge_bonus_stack_monthly: false,
   leaderboard_daily_reward_enabled: false,
   leaderboard_daily_reward_min_total_actual_cost: 0,
   leaderboard_daily_reward_rank_1_amount: 0,
@@ -9466,6 +9468,10 @@ async function saveSettings() {
       0,
       Number(form.welfare_first_recharge_bonus_amount) || 0,
     );
+    const welfareFirstRechargeBonusValidDays = Math.max(
+      0,
+      Math.floor(Number(form.welfare_first_recharge_bonus_valid_days) || 0),
+    );
 
     const payload: UpdateSettingsRequest = {
       registration_enabled: form.registration_enabled,
@@ -9732,6 +9738,9 @@ async function saveSettings() {
       welfare_new_user_trial_daily_ip_activation_limit:
         welfareNewUserTrialDailyIPActivationLimit,
       welfare_first_recharge_bonus_amount: welfareFirstRechargeBonusAmount,
+      welfare_first_recharge_bonus_valid_days: welfareFirstRechargeBonusValidDays,
+      welfare_first_recharge_bonus_stack_monthly:
+        form.welfare_first_recharge_bonus_stack_monthly,
       leaderboard_daily_reward_enabled: form.leaderboard_daily_reward_enabled,
       leaderboard_daily_reward_min_total_actual_cost: Math.max(
         0,

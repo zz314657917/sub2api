@@ -186,6 +186,146 @@ func TestWelfareGrantFirstRechargeBonusOnlyFirstPositiveBalanceOrder(t *testing.
 	}
 }
 
+func TestWelfareGrantFirstRechargeBonusIgnoresUnpaidFailedEarlierOrder(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "failed-unpaid")
+	earlier := createFirstRechargeBonusOrder(t, ctx, client, user, 10, payment.OrderTypeBalance, OrderStatusFailed, "failed-unpaid-earlier")
+	_, err := client.PaymentOrder.UpdateOneID(earlier.ID).
+		SetPaymentTradeNo("").
+		ClearPaidAt().
+		Save(ctx)
+	require.NoError(t, err)
+	order := createFirstRechargeBonusOrder(t, ctx, client, user, 10, payment.OrderTypeBalance, OrderStatusPaid, "failed-unpaid-current")
+	userRepo := &welfareUserRepoStub{}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(&welfareRepoStub{}, userRepo, redeemRepo, firstRechargeBonusSettingRepo(true, true, 5), client, nil, nil)
+
+	granted, err := svc.GrantFirstRechargeBonusForOrder(ctx, order.ID)
+
+	require.NoError(t, err)
+	require.True(t, granted)
+	require.Equal(t, []float64{5}, userRepo.grants)
+	require.Len(t, redeemRepo.created, 1)
+	require.True(t, firstRechargeBonusAuditExists(t, ctx, client, order.ID))
+}
+
+func TestWelfareGrantFirstRechargeBonusBlocksPaidFailedEarlierOrder(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "failed-paid")
+	createFirstRechargeBonusOrder(t, ctx, client, user, 10, payment.OrderTypeBalance, OrderStatusFailed, "failed-paid-earlier")
+	order := createFirstRechargeBonusOrder(t, ctx, client, user, 10, payment.OrderTypeBalance, OrderStatusPaid, "failed-paid-current")
+	userRepo := &welfareUserRepoStub{}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(&welfareRepoStub{}, userRepo, redeemRepo, firstRechargeBonusSettingRepo(true, true, 5), client, nil, nil)
+
+	granted, err := svc.GrantFirstRechargeBonusForOrder(ctx, order.ID)
+
+	require.NoError(t, err)
+	require.False(t, granted)
+	require.Empty(t, userRepo.grants)
+	require.Empty(t, redeemRepo.created)
+	require.False(t, firstRechargeBonusAuditExists(t, ctx, client, order.ID))
+}
+
+func TestWelfareGrantFirstRechargeBonusSkipsCurrentUnpaidFailedOrder(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "current-failed-unpaid")
+	order := createFirstRechargeBonusOrder(t, ctx, client, user, 10, payment.OrderTypeBalance, OrderStatusFailed, "current-failed-unpaid")
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).
+		SetPaymentTradeNo("").
+		ClearPaidAt().
+		Save(ctx)
+	require.NoError(t, err)
+	userRepo := &welfareUserRepoStub{}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(&welfareRepoStub{}, userRepo, redeemRepo, firstRechargeBonusSettingRepo(true, true, 5), client, nil, nil)
+
+	granted, err := svc.GrantFirstRechargeBonusForOrder(ctx, order.ID)
+
+	require.NoError(t, err)
+	require.False(t, granted)
+	require.Empty(t, userRepo.grants)
+	require.Empty(t, redeemRepo.created)
+	require.False(t, firstRechargeBonusAuditExists(t, ctx, client, order.ID))
+}
+
+func TestWelfareGrantFirstRechargeBonusSkipsExpiredNewUserGift(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "expired-gift")
+	order := createFirstRechargeBonusOrder(t, ctx, client, user, 10, payment.OrderTypeBalance, OrderStatusPaid, "expired-gift")
+	userRepo := &welfareUserRepoStub{createdAt: time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)}
+	redeemRepo := &welfareRedeemRepoStub{}
+	repo := firstRechargeBonusSettingRepo(true, true, 5)
+	repo.values[SettingKeyWelfareFirstRechargeBonusValidDays] = "3"
+	svc := NewWelfareService(&welfareRepoStub{}, userRepo, redeemRepo, repo, client, nil, nil)
+	svc.now = func() time.Time { return time.Date(2026, 6, 10, 0, 0, 0, 0, time.UTC) }
+
+	granted, err := svc.GrantFirstRechargeBonusForOrder(ctx, order.ID)
+
+	require.NoError(t, err)
+	require.False(t, granted)
+	require.Empty(t, userRepo.grants)
+	require.Empty(t, redeemRepo.created)
+	require.False(t, firstRechargeBonusAuditExists(t, ctx, client, order.ID))
+}
+
+func TestWelfareGrantFirstRechargeBonusMonthlyPackageStackingPolicy(t *testing.T) {
+	cases := []struct {
+		name         string
+		payAmount    float64
+		creditAmount float64
+		stackMonthly bool
+		wantGranted  bool
+	}{
+		{name: "positive package bonus skipped by default", payAmount: 50, creditAmount: 60, stackMonthly: false, wantGranted: false},
+		{name: "positive package bonus stacks when enabled", payAmount: 50, creditAmount: 60, stackMonthly: true, wantGranted: true},
+		{name: "zero package bonus still grants new user gift", payAmount: 5, creditAmount: 5, stackMonthly: false, wantGranted: true},
+	}
+
+	for idx, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			client := newPaymentConfigServiceTestClient(t)
+			user := createFirstRechargeBonusUser(t, ctx, client, fmt.Sprintf("stack-%d", idx))
+			order := createFirstRechargeBonusOrder(t, ctx, client, user, tt.creditAmount, payment.OrderTypeBalance, OrderStatusPaid, fmt.Sprintf("stack-%d", idx))
+			order, err := client.PaymentOrder.UpdateOneID(order.ID).
+				SetPayAmount(tt.payAmount).
+				SetProviderSnapshot(map[string]any{
+					"schema_version":                   2,
+					"recharge_package_id":              "pkg-test",
+					"recharge_package_pay_amount":      tt.payAmount,
+					"recharge_package_credited_amount": tt.creditAmount,
+					"monthly_recharge_bonus_period":    "202606",
+				}).
+				Save(ctx)
+			require.NoError(t, err)
+			userRepo := &welfareUserRepoStub{}
+			redeemRepo := &welfareRedeemRepoStub{}
+			repo := firstRechargeBonusSettingRepo(true, true, 5)
+			repo.values[SettingKeyWelfareFirstRechargeBonusStackMonthly] = welfareBool(tt.stackMonthly)
+			svc := NewWelfareService(&welfareRepoStub{}, userRepo, redeemRepo, repo, client, nil, nil)
+
+			granted, err := svc.GrantFirstRechargeBonusForOrder(ctx, order.ID)
+
+			require.NoError(t, err)
+			require.Equal(t, tt.wantGranted, granted)
+			if tt.wantGranted {
+				require.Equal(t, []float64{5}, userRepo.grants)
+				require.Len(t, redeemRepo.created, 1)
+				require.True(t, firstRechargeBonusAuditExists(t, ctx, client, order.ID))
+			} else {
+				require.Empty(t, userRepo.grants)
+				require.Empty(t, redeemRepo.created)
+				require.False(t, firstRechargeBonusAuditExists(t, ctx, client, order.ID))
+			}
+		})
+	}
+}
+
 func TestPaymentFirstRechargeBonusRefundUnsupportedForUserAndAdmin(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
@@ -209,10 +349,32 @@ func TestPaymentFirstRechargeBonusRefundUnsupportedForUserAndAdmin(t *testing.T)
 	require.Equal(t, "FIRST_RECHARGE_BONUS_REFUND_UNSUPPORTED", infraerrors.Reason(err))
 }
 
+func TestOrderHasFirstRechargeBonusIgnoresLegacyMonthlyRechargeAudit(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "legacy-mrb-audit")
+	order := createFirstRechargeBonusOrder(t, ctx, client, user, 60, payment.OrderTypeBalance, OrderStatusCompleted, "legacy-mrb-audit")
+	_, err := client.PaymentAuditLog.Create().
+		SetOrderID(strconv.FormatInt(order.ID, 10)).
+		SetAction(welfareFirstRechargeBonusAudit).
+		SetDetail(`{"package_id":"pkg-50","pay_amount":50,"credited_amount":60,"bonus_amount":10,"period":"202606","redeemCode":"MRB202606U1"}`).
+		SetOperator("system").
+		Save(ctx)
+	require.NoError(t, err)
+	welfareSvc := NewWelfareService(nil, nil, nil, nil, client, nil, nil)
+
+	hasBonus, err := welfareSvc.OrderHasFirstRechargeBonus(ctx, order.ID)
+
+	require.NoError(t, err)
+	require.False(t, hasBonus)
+}
+
 func firstRechargeBonusSettingRepo(welfareEnabled, rechargeEnabled bool, amount float64) *welfareSettingRepoStub {
 	repo := welfareSettingRepo(welfareEnabled, true, 1, 1)
 	repo.values[SettingKeyWelfareRechargeEnabled] = welfareBool(rechargeEnabled)
 	repo.values[SettingKeyWelfareFirstRechargeBonusAmount] = welfareFloat(amount)
+	repo.values[SettingKeyWelfareFirstRechargeBonusValidDays] = "0"
+	repo.values[SettingKeyWelfareFirstRechargeBonusStackMonthly] = "false"
 	return repo
 }
 

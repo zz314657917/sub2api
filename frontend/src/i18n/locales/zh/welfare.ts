@@ -14,7 +14,7 @@ export default {
     modules: {
       newUserTrial: '新手试用',
       daily: '每日签到',
-      recharge: '首冲福利',
+      recharge: '新用户首充礼包',
       vip: 'VIP 福利',
     },
     reason: {
@@ -27,6 +27,7 @@ export default {
       exhausted: '已用完',
       dailyLimit: '今日额度已达上限',
       registrationTooNew: '注册满 24 小时后可领取',
+      expired: '已过期',
       unavailable: '暂不可领取',
     },
     trial: {
@@ -54,11 +55,14 @@ export default {
       },
     },
     recharge: {
-      title: '首冲福利',
-      description: '首次充值任意金额，到账后自动赠送 {amount} 余额。',
+      title: '新用户首充礼包',
+      description: '符合条件的新用户首次充值任意金额，到账后自动赠送 {amount} 余额。',
       pending: '待首充',
+      missed: '首充已完成',
       claimed: '已发放',
       claimedAt: '发放时间：{time}',
+      expiresAt: '有效期至：{time}',
+      monthlyBonusNotice: '如果首笔充值已领取每月首充档位赠送，礼包可能不再额外叠加。',
       cta: '去充值',
     },
     daily: {

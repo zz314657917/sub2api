@@ -14,7 +14,7 @@ export default {
     modules: {
       newUserTrial: 'New User Trial',
       daily: 'Daily Check-in',
-      recharge: 'First Recharge Bonus',
+      recharge: 'New-user First Recharge Gift',
       vip: 'VIP Benefits',
     },
     reason: {
@@ -27,6 +27,7 @@ export default {
       exhausted: 'Used up',
       dailyLimit: 'Daily limit reached',
       registrationTooNew: 'Available after 24 hours from registration',
+      expired: 'Expired',
       unavailable: 'Unavailable',
     },
     trial: {
@@ -54,11 +55,14 @@ export default {
       },
     },
     recharge: {
-      title: 'First Recharge Bonus',
-      description: 'Recharge any positive amount for the first time and automatically receive {amount} balance after payment succeeds.',
+      title: 'New-user First Recharge Gift',
+      description: 'Eligible new users automatically receive {amount} balance after the first positive recharge succeeds.',
       pending: 'Awaiting first recharge',
+      missed: 'First recharge completed',
       claimed: 'Granted',
       claimedAt: 'Granted at: {time}',
+      expiresAt: 'Valid until: {time}',
+      monthlyBonusNotice: 'If the first recharge already receives a monthly package bonus, this gift may not stack.',
       cta: 'Recharge',
     },
     daily: {

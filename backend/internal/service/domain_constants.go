@@ -84,6 +84,7 @@ const (
 	RedeemTypeCheckinMilestone   = domain.RedeemTypeCheckinMilestone
 	RedeemTypeNewUserReward      = domain.RedeemTypeNewUserReward
 	RedeemTypeFirstRechargeBonus = domain.RedeemTypeFirstRechargeBonus
+	RedeemTypeMonthlyRecharge    = domain.RedeemTypeMonthlyRecharge
 )
 
 // PromoCode status constants
@@ -383,6 +384,8 @@ const (
 	SettingKeyWelfareRechargeEnabled                    = "welfare_recharge_enabled"
 	SettingKeyWelfareVIPEnabled                         = "welfare_vip_enabled"
 	SettingKeyWelfareFirstRechargeBonusAmount           = "welfare_first_recharge_bonus_amount"
+	SettingKeyWelfareFirstRechargeBonusValidDays        = "welfare_first_recharge_bonus_valid_days"
+	SettingKeyWelfareFirstRechargeBonusStackMonthly     = "welfare_first_recharge_bonus_stack_monthly"
 	SettingKeyWelfareDailyCheckinRewardMin              = "welfare_daily_checkin_reward_min"
 	SettingKeyWelfareDailyCheckinRewardMax              = "welfare_daily_checkin_reward_max"
 	SettingKeyWelfareDailyCheckinMinAccountAgeHours     = "welfare_daily_checkin_min_account_age_hours"

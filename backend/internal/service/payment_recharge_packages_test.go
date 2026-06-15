@@ -74,7 +74,7 @@ func TestRechargePackageCheckoutViewsReflectMonthlyBonusStatus(t *testing.T) {
 
 	_, err = client.RedeemCode.Create().
 		SetCode(monthlyRechargeBonusRedeemCode(user.ID, "202606")).
-		SetType(RedeemTypeFirstRechargeBonus).
+		SetType(RedeemTypeMonthlyRecharge).
 		SetValue(10).
 		SetStatus(StatusUsed).
 		SetUsedBy(user.ID).
@@ -102,7 +102,7 @@ func TestAdjustBalanceOrderForMonthlyRechargePackageClaimsOncePerMonth(t *testin
 	require.Equal(t, 60.0, adjusted.Amount)
 	require.True(t, monthlyRechargeBonusCodeExists(t, ctx, client, user.ID, "202606"))
 	require.Equal(t, 1, monthlyRechargeBonusAuditCount(t, ctx, client, first.ID, monthlyRechargeBonusAudit))
-	require.Equal(t, 1, monthlyRechargeBonusAuditCount(t, ctx, client, first.ID, welfareFirstRechargeBonusAudit))
+	require.Equal(t, 0, monthlyRechargeBonusAuditCount(t, ctx, client, first.ID, welfareFirstRechargeBonusAudit))
 
 	second := createRechargePackageTestOrder(t, ctx, client, user, "second", 50, 60, "202606")
 	adjusted, err = svc.adjustBalanceOrderForMonthlyRechargePackage(ctx, second)
@@ -136,6 +136,174 @@ func TestAdjustBalanceOrderForMonthlyRechargePackageZeroBonusStillConsumesMonthl
 	require.NoError(t, err)
 	require.Equal(t, 50.0, adjusted.Amount)
 	require.Equal(t, 1, monthlyRechargeBonusAuditCount(t, ctx, client, second.ID, "MONTHLY_RECHARGE_BONUS_SKIPPED"))
+}
+
+func TestMonthlyRechargeBonusClaimReleasedWhenBalanceRedeemFails(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createRechargePackageTestUser(t, ctx, client, "release-on-failure")
+	order := createRechargePackageTestOrder(t, ctx, client, user, "release-on-failure", 50, 60, "202606")
+	userRepo := &rechargePackageUserRepo{
+		user:             &User{ID: user.ID, Email: user.Email, Username: user.Username, Balance: 0},
+		updateBalanceErr: infraerrors.BadRequest("REDEEM_FAILED", "redeem failed"),
+	}
+	redeemRepo := &rechargePackageRedeemRepo{client: client}
+	redeemService := NewRedeemService(redeemRepo, userRepo, nil, nil, nil, client, nil, nil)
+	svc := &PaymentService{
+		entClient:     client,
+		redeemService: redeemService,
+		userRepo:      userRepo,
+	}
+
+	err := svc.doBalance(ctx, order)
+
+	require.Error(t, err)
+	require.False(t, monthlyRechargeBonusCodeExists(t, ctx, client, user.ID, "202606"))
+	require.Equal(t, 0, monthlyRechargeBonusAuditCount(t, ctx, client, order.ID, monthlyRechargeBonusAudit))
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, 60.0, reloaded.Amount)
+}
+
+func TestMonthlyRechargeBonusClaimRetrySameOrderKeepsCreditedAmount(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createRechargePackageTestUser(t, ctx, client, "same-order-retry")
+	order := createRechargePackageTestOrder(t, ctx, client, user, "same-order-retry", 50, 60, "202606")
+	svc := &PaymentService{entClient: client}
+
+	adjusted, err := svc.adjustBalanceOrderForMonthlyRechargePackage(ctx, order)
+	require.NoError(t, err)
+	require.Equal(t, 60.0, adjusted.Amount)
+
+	adjusted, err = svc.adjustBalanceOrderForMonthlyRechargePackage(ctx, adjusted)
+	require.NoError(t, err)
+	require.Equal(t, 60.0, adjusted.Amount)
+	require.Equal(t, 1, monthlyRechargeBonusAuditCount(t, ctx, client, order.ID, monthlyRechargeBonusAudit))
+}
+
+func TestMonthlyRechargeBonusDoesNotMarkOrderAsFirstRechargeBonus(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createRechargePackageTestUser(t, ctx, client, "not-first-bonus")
+	order := createRechargePackageTestOrder(t, ctx, client, user, "not-first-bonus", 50, 60, "202606")
+	svc := &PaymentService{entClient: client}
+
+	_, err := svc.adjustBalanceOrderForMonthlyRechargePackage(ctx, order)
+	require.NoError(t, err)
+
+	welfareSvc := NewWelfareService(nil, nil, nil, nil, client, nil, nil)
+	hasBonus, err := welfareSvc.OrderHasFirstRechargeBonus(ctx, order.ID)
+	require.NoError(t, err)
+	require.False(t, hasBonus)
+}
+
+type rechargePackageUserRepo struct {
+	UserRepository
+	user             *User
+	updateBalanceErr error
+}
+
+func (r *rechargePackageUserRepo) GetByID(context.Context, int64) (*User, error) {
+	if r.user == nil {
+		return &User{}, nil
+	}
+	cloned := *r.user
+	return &cloned, nil
+}
+
+func (r *rechargePackageUserRepo) UpdateBalance(context.Context, int64, float64) error {
+	return r.updateBalanceErr
+}
+
+type rechargePackageRedeemRepo struct {
+	RedeemCodeRepository
+	client *dbent.Client
+}
+
+func (r *rechargePackageRedeemRepo) Create(ctx context.Context, code *RedeemCode) error {
+	client := r.client
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		client = tx.Client()
+	}
+	created, err := client.RedeemCode.Create().
+		SetCode(code.Code).
+		SetType(code.Type).
+		SetValue(code.Value).
+		SetStatus(code.Status).
+		SetNotes(code.Notes).
+		SetValidityDays(code.ValidityDays).
+		SetNillableExpiresAt(code.ExpiresAt).
+		SetNillableUsedBy(code.UsedBy).
+		SetNillableUsedAt(code.UsedAt).
+		SetNillableGroupID(code.GroupID).
+		Save(ctx)
+	if err != nil {
+		return err
+	}
+	code.ID = created.ID
+	code.CreatedAt = created.CreatedAt
+	return nil
+}
+
+func (r *rechargePackageRedeemRepo) GetByCode(ctx context.Context, code string) (*RedeemCode, error) {
+	client := r.client
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		client = tx.Client()
+	}
+	found, err := client.RedeemCode.Query().Where(redeemcode.CodeEQ(code)).Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, ErrRedeemCodeNotFound
+		}
+		return nil, err
+	}
+	return redeemCodeFromEnt(found), nil
+}
+
+func (r *rechargePackageRedeemRepo) Use(ctx context.Context, id, userID int64) error {
+	client := r.client
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		client = tx.Client()
+	}
+	now := time.Now().UTC()
+	affected, err := client.RedeemCode.Update().
+		Where(redeemcode.IDEQ(id), redeemcode.StatusEQ(StatusUnused)).
+		SetStatus(StatusUsed).
+		SetUsedBy(userID).
+		SetUsedAt(now).
+		Save(ctx)
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrRedeemCodeUsed
+	}
+	return nil
+}
+
+func redeemCodeFromEnt(found *dbent.RedeemCode) *RedeemCode {
+	if found == nil {
+		return nil
+	}
+	notes := ""
+	if found.Notes != nil {
+		notes = *found.Notes
+	}
+	return &RedeemCode{
+		ID:           found.ID,
+		Code:         found.Code,
+		Type:         found.Type,
+		Value:        found.Value,
+		Status:       found.Status,
+		UsedBy:       found.UsedBy,
+		UsedAt:       found.UsedAt,
+		Notes:        notes,
+		CreatedAt:    found.CreatedAt,
+		ExpiresAt:    found.ExpiresAt,
+		GroupID:      found.GroupID,
+		ValidityDays: found.ValidityDays,
+	}
 }
 
 func createRechargePackageTestUser(t *testing.T, ctx context.Context, client *dbent.Client, suffix string) *dbent.User {

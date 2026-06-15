@@ -9,6 +9,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -152,6 +153,9 @@ func (s *PaymentService) tryClaimMonthlyRechargeBonus(ctx context.Context, o *db
 		return false, nil
 	}
 	code := monthlyRechargeBonusRedeemCode(o.UserID, decision.Period)
+	if s.monthlyRechargeBonusClaimedByOrder(ctx, code, o.ID) {
+		return true, nil
+	}
 	now := time.Now().UTC()
 	detail := map[string]any{
 		"package_id":      decision.Package.ID,
@@ -164,7 +168,7 @@ func (s *PaymentService) tryClaimMonthlyRechargeBonus(ctx context.Context, o *db
 	detailJSON, _ := json.Marshal(detail)
 	_, err := s.entClient.RedeemCode.Create().
 		SetCode(code).
-		SetType(RedeemTypeFirstRechargeBonus).
+		SetType(RedeemTypeMonthlyRecharge).
 		SetValue(decision.BonusAmount).
 		SetStatus(StatusUsed).
 		SetUsedBy(o.UserID).
@@ -177,25 +181,75 @@ func (s *PaymentService) tryClaimMonthlyRechargeBonus(ctx context.Context, o *db
 		}
 		return false, err
 	}
-	if decision.BonusAmount > 0 {
-		if _, err := s.entClient.PaymentAuditLog.Create().
-			SetOrderID(strconv.FormatInt(o.ID, 10)).
-			SetAction(welfareFirstRechargeBonusAudit).
-			SetDetail(string(detailJSON)).
-			SetOperator("system").
-			Save(ctx); err != nil {
-			return false, err
-		}
-	}
 	if _, err := s.entClient.PaymentAuditLog.Create().
 		SetOrderID(strconv.FormatInt(o.ID, 10)).
 		SetAction(monthlyRechargeBonusAudit).
 		SetDetail(string(detailJSON)).
 		SetOperator("system").
 		Save(ctx); err != nil {
+		s.releaseMonthlyRechargeBonusClaimForOrder(ctx, o)
 		return false, err
 	}
 	return true, nil
+}
+
+func (s *PaymentService) releaseMonthlyRechargeBonusClaimForOrder(ctx context.Context, o *dbent.PaymentOrder) {
+	if s == nil || s.entClient == nil || o == nil || o.UserID <= 0 {
+		return
+	}
+	decision := monthlyRechargeDecisionFromOrder(o)
+	if strings.TrimSpace(decision.Package.ID) == "" || decision.Period == "" {
+		return
+	}
+	code := monthlyRechargeBonusRedeemCode(o.UserID, decision.Period)
+	if !s.monthlyRechargeBonusClaimedByOrder(ctx, code, o.ID) {
+		return
+	}
+	if _, err := s.entClient.RedeemCode.Delete().
+		Where(
+			redeemcode.CodeEQ(code),
+			redeemcode.NotesEQ(fmt.Sprintf("monthly recharge bonus order %d", o.ID)),
+		).
+		Exec(ctx); err != nil {
+		s.writeAuditLog(ctx, o.ID, "MONTHLY_RECHARGE_BONUS_RELEASE_FAILED", "system", map[string]any{
+			"package_id": decision.Package.ID,
+			"period":     decision.Period,
+			"error":      err.Error(),
+		})
+		return
+	}
+	if _, err := s.entClient.PaymentAuditLog.Delete().
+		Where(
+			paymentauditlog.OrderIDEQ(strconv.FormatInt(o.ID, 10)),
+			paymentauditlog.ActionEQ(monthlyRechargeBonusAudit),
+		).
+		Exec(ctx); err != nil {
+		s.writeAuditLog(ctx, o.ID, "MONTHLY_RECHARGE_BONUS_AUDIT_RELEASE_FAILED", "system", map[string]any{
+			"package_id": decision.Package.ID,
+			"period":     decision.Period,
+			"error":      err.Error(),
+		})
+	}
+}
+
+func (s *PaymentService) monthlyRechargeBonusClaimedByOrder(ctx context.Context, code string, orderID int64) bool {
+	if s == nil || s.entClient == nil || code == "" || orderID <= 0 {
+		return false
+	}
+	exists, err := s.entClient.RedeemCode.Query().
+		Where(
+			redeemcode.CodeEQ(code),
+			redeemcode.NotesEQ(fmt.Sprintf("monthly recharge bonus order %d", orderID)),
+		).
+		Exist(ctx)
+	if err != nil {
+		s.writeAuditLog(ctx, orderID, "MONTHLY_RECHARGE_BONUS_LOOKUP_FAILED", "system", map[string]any{
+			"redeemCode": code,
+			"error":      err.Error(),
+		})
+		return false
+	}
+	return exists
 }
 
 func monthlyRechargeDecisionFromOrder(o *dbent.PaymentOrder) rechargePackageOrderDecision {
