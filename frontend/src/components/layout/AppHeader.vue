@@ -72,7 +72,6 @@
         <SubscriptionProgressMini v-if="user" />
 
         <div v-if="user" class="console-balance hidden items-center gap-2 px-3 py-1.5 sm:flex">
-          <Icon name="dollar" size="sm" />
           <span class="text-sm font-semibold">
             {{ formatHeaderBalance(user.balance || 0) }}
           </span>
