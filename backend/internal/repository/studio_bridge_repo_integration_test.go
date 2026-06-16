@@ -139,10 +139,14 @@ func TestStudioBridgeRepositoryCommitLogsNetUsageOnceAfterPartialRefund(t *testi
 	require.InDelta(t, 0.5, actualCost, 0.000001)
 	var usageAPIKeyID int64
 	var durationMs sql.NullInt64
-	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT api_key_id, duration_ms FROM usage_logs WHERE request_id = $1", "studio:"+cmd.TaskID).Scan(&usageAPIKeyID, &durationMs))
+	var imageSize sql.NullString
+	var imageSizeSource sql.NullString
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT api_key_id, duration_ms, image_size, image_size_source FROM usage_logs WHERE request_id = $1", "studio:"+cmd.TaskID).Scan(&usageAPIKeyID, &durationMs, &imageSize, &imageSizeSource))
 	require.Equal(t, defaultKey.ID, usageAPIKeyID)
 	require.True(t, durationMs.Valid)
 	require.GreaterOrEqual(t, durationMs.Int64, int64(0))
+	require.False(t, imageSize.Valid)
+	require.False(t, imageSizeSource.Valid)
 
 	var status string
 	var refundedAmount float64

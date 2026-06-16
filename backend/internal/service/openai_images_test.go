@@ -34,7 +34,7 @@ func (w *failingOpenAIImageWriter) Write(p []byte) (int, error) {
 
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_JSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","size":"1024x1024","quality":"high","stream":true}`)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","size":"1024x1024","image_resolution":"4k","quality":"high","stream":true}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -51,6 +51,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_JSON(t *testing.T) {
 	require.Equal(t, "draw a cat", parsed.Prompt)
 	require.True(t, parsed.Stream)
 	require.Equal(t, "1024x1024", parsed.Size)
+	require.Equal(t, "4k", parsed.Resolution)
 	require.Equal(t, "1K", parsed.SizeTier)
 	require.Equal(t, OpenAIImagesCapabilityNative, parsed.RequiredCapability)
 	require.False(t, parsed.Multipart)
@@ -64,6 +65,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T
 	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
 	require.NoError(t, writer.WriteField("prompt", "replace background"))
 	require.NoError(t, writer.WriteField("size", "1536x1024"))
+	require.NoError(t, writer.WriteField("image_resolution", "2k"))
 	part, err := writer.CreateFormFile("image", "source.png")
 	require.NoError(t, err)
 	_, err = part.Write([]byte("fake-image-bytes"))
@@ -85,6 +87,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T
 	require.Equal(t, "gpt-image-2", parsed.Model)
 	require.Equal(t, "replace background", parsed.Prompt)
 	require.Equal(t, "1536x1024", parsed.Size)
+	require.Equal(t, "2k", parsed.Resolution)
 	require.Equal(t, "2K", parsed.SizeTier)
 	require.Len(t, parsed.Uploads, 1)
 	require.Equal(t, OpenAIImagesCapabilityNative, parsed.RequiredCapability)
@@ -1308,6 +1311,9 @@ func TestOpenAIGatewayServiceForwardImages_APIMartOfficialCarriesExactOutputSize
 	require.Equal(t, "gpt-image-2-official", result.UpstreamModel)
 	require.Equal(t, 1, result.ImageCount)
 	require.Equal(t, []string{"2576x3216"}, result.ImageOutputSizes)
+	require.Equal(t, ImageBillingSize4K, result.ImageSize)
+	require.Equal(t, ImageSizeSourceOutput, result.ImageSizeSource)
+	require.Equal(t, map[string]int{ImageBillingSize4K: 1}, result.ImageSizeBreakdown)
 	require.Equal(t, "medium", result.ImageQuality)
 	require.NotNil(t, result.CostOverride)
 	require.InDelta(t, 0.1126, result.CostOverride.TotalCost, 1e-12)
@@ -1386,6 +1392,62 @@ func TestOpenAIGatewayServiceForwardImages_APIMartDefaultsBillingToUpstreamResol
 	require.Equal(t, "1k", gjson.GetBytes(upstream.bodies[0], "resolution").String())
 }
 
+func TestOpenAIGatewayServiceForwardImages_APIMartOutput1536x864UsesKnown1KTier(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw wide poster","n":3,"size":"16:9","image_resolution":"4k"}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_1"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_1","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-1.png"],"size":"1536x864"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_2"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_2","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-2.png"],"size":"1536x864"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_3"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_3","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-3.png"],"size":"1536x864"}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{
+		cfg:          &config.Config{},
+		httpUpstream: upstream,
+	}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       18,
+		Name:     "apimart-regular",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai",
+			"model_mapping": map[string]any{
+				"gpt-image-2": "gpt-image-2",
+			},
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 3, result.ImageCount)
+	require.Equal(t, ImageBillingSize1K, result.ImageSize)
+	require.Equal(t, ImageBillingSize4K, result.ImageInputSize)
+	require.Equal(t, []string{"1536x864", "1536x864", "1536x864"}, result.ImageOutputSizes)
+	require.Equal(t, "1536x864", result.ImageOutputSize)
+	require.Equal(t, ImageSizeSourceOutput, result.ImageSizeSource)
+	require.Equal(t, map[string]int{ImageBillingSize1K: 3}, result.ImageSizeBreakdown)
+	require.Len(t, upstream.bodies, 3)
+	for _, bodyIndex := range []int{0, 1, 2} {
+		require.Equal(t, "4k", gjson.GetBytes(upstream.bodies[bodyIndex], "resolution").String())
+	}
+	require.Equal(t, http.StatusOK, rec.Code)
+}
+
 func TestAPIMartImagesBillingInputSizeFallsBackToResolutionForRatioSize(t *testing.T) {
 	parsed := &OpenAIImagesRequest{
 		Size:         "1:1",
@@ -1396,6 +1458,19 @@ func TestAPIMartImagesBillingInputSizeFallsBackToResolutionForRatioSize(t *testi
 	require.Equal(t, "1k", apimartImagesResolution(parsed))
 	require.Equal(t, ImageBillingSize1K, apimartImagesBillingSize(parsed))
 	require.Equal(t, ImageBillingSize1K, apimartImagesBillingInputSize(parsed, nil))
+}
+
+func TestAPIMartImagesBillingInputSizeUsesResolutionIntentWhenOutputSizeExists(t *testing.T) {
+	parsed := &OpenAIImagesRequest{
+		Size:         "16:9",
+		Resolution:   "4k",
+		ExplicitSize: true,
+		SizeTier:     ImageBillingSize2K,
+	}
+
+	require.Equal(t, "4k", apimartImagesResolution(parsed))
+	require.Equal(t, ImageBillingSize4K, apimartImagesBillingSize(parsed))
+	require.Equal(t, ImageBillingSize4K, apimartImagesBillingInputSize(parsed, []string{"1536x864"}))
 }
 
 func TestAPIMartImagesPayloadPreservesOfficialModelAndResolution(t *testing.T) {

@@ -265,6 +265,11 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 	if resolutionResult := gjson.GetBytes(body, "resolution"); resolutionResult.Exists() {
 		req.Resolution = strings.TrimSpace(resolutionResult.String())
 	}
+	if req.Resolution == "" {
+		if resolutionResult := gjson.GetBytes(body, "image_resolution"); resolutionResult.Exists() {
+			req.Resolution = strings.TrimSpace(resolutionResult.String())
+		}
+	}
 	req.ResponseFormat = strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "response_format").String()))
 	req.Quality = strings.TrimSpace(gjson.GetBytes(body, "quality").String())
 	req.Background = strings.TrimSpace(gjson.GetBytes(body, "background").String())
@@ -391,7 +396,7 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 		case "size":
 			req.Size = value
 			req.ExplicitSize = value != ""
-		case "resolution":
+		case "resolution", "image_resolution":
 			req.Resolution = value
 		case "response_format":
 			req.ResponseFormat = strings.ToLower(value)
@@ -1255,6 +1260,7 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 
 	imageOutputSizes := apimartImageResultSizes(images)
 	costOverride := apimartImageResultCostOverride(images)
+	sizeResolution := resolveAPIMartImageBillingSize(parsed, imageOutputSizes)
 	body, err := buildAPIMartOpenAIImagesResponse(apimartImageResultURLs(images), parsed)
 	if err != nil {
 		return nil, err
@@ -1262,18 +1268,21 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 	c.Data(http.StatusOK, "application/json", body)
 
 	return &OpenAIForwardResult{
-		RequestID:        requestID,
-		Usage:            OpenAIUsage{},
-		Model:            requestModel,
-		UpstreamModel:    upstreamModel,
-		Stream:           false,
-		Duration:         time.Since(startTime),
-		ImageCount:       len(images),
-		ImageSize:        apimartImagesBillingSize(parsed),
-		ImageOutputSizes: imageOutputSizes,
-		ImageQuality:     NormalizeImageQuality(parsed.Quality),
-		ImageInputSize:   apimartImagesBillingInputSize(parsed, imageOutputSizes),
-		CostOverride:     costOverride,
+		RequestID:          requestID,
+		Usage:              OpenAIUsage{},
+		Model:              requestModel,
+		UpstreamModel:      upstreamModel,
+		Stream:             false,
+		Duration:           time.Since(startTime),
+		ImageCount:         len(images),
+		ImageSize:          sizeResolution.BillingSize,
+		ImageOutputSizes:   imageOutputSizes,
+		ImageOutputSize:    sizeResolution.OutputSize,
+		ImageSizeSource:    sizeResolution.Source,
+		ImageSizeBreakdown: sizeResolution.Breakdown,
+		ImageQuality:       NormalizeImageQuality(parsed.Quality),
+		ImageInputSize:     sizeResolution.InputSize,
+		CostOverride:       costOverride,
 	}, nil
 }
 
@@ -1405,7 +1414,11 @@ func apimartImagesBillingInputSize(parsed *OpenAIImagesRequest, outputSizes []st
 		if parsed == nil {
 			return ""
 		}
-		return strings.TrimSpace(parsed.Size)
+		size := strings.TrimSpace(parsed.Size)
+		if _, ok := ClassifyImageBillingTier(size); ok {
+			return size
+		}
+		return apimartImagesBillingSize(parsed)
 	}
 	if parsed != nil {
 		size := strings.TrimSpace(parsed.Size)
@@ -1414,6 +1427,62 @@ func apimartImagesBillingInputSize(parsed *OpenAIImagesRequest, outputSizes []st
 		}
 	}
 	return apimartImagesBillingSize(parsed)
+}
+
+func resolveAPIMartImageBillingSize(parsed *OpenAIImagesRequest, outputSizes []string) ImageBillingSizeResolution {
+	inputSize := apimartImagesBillingInputSize(parsed, outputSizes)
+	outputSizes = compactTrimmedStrings(outputSizes)
+
+	breakdown := map[string]int{}
+	outputSize := firstDisplayImageOutputSize(outputSizes)
+	outputTier := ""
+	for _, output := range outputSizes {
+		resolution, ok := apimartKnownImageResolution(output)
+		if !ok {
+			continue
+		}
+		tier := apimartImageResolutionBillingSize(resolution)
+		if tier == "" {
+			continue
+		}
+		breakdown[tier]++
+		if imageTierRank(tier) > imageTierRank(outputTier) {
+			outputTier = tier
+		}
+	}
+	if outputTier != "" {
+		return ImageBillingSizeResolution{
+			BillingSize: outputTier,
+			InputSize:   inputSize,
+			OutputSize:  outputSize,
+			Source:      ImageSizeSourceOutput,
+			Breakdown:   normalizeImageSizeBreakdown(breakdown),
+		}
+	}
+
+	if resolution := ResolveImageBillingSize(inputSize, outputSizes); resolution.Source == ImageSizeSourceOutput {
+		return resolution
+	}
+
+	return ImageBillingSizeResolution{
+		BillingSize: apimartImagesBillingSize(parsed),
+		InputSize:   inputSize,
+		OutputSize:  outputSize,
+		Source:      ImageSizeSourceInput,
+	}
+}
+
+func apimartImageResolutionBillingSize(resolution string) string {
+	switch strings.ToLower(strings.TrimSpace(resolution)) {
+	case "1k":
+		return ImageBillingSize1K
+	case "2k":
+		return ImageBillingSize2K
+	case "4k":
+		return ImageBillingSize4K
+	default:
+		return ""
+	}
 }
 
 func apimartKnownImageResolution(size string) (string, bool) {
