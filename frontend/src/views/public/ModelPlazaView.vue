@@ -187,6 +187,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import Icon from '@/components/icons/Icon.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import { modelMarketAPI, type ModelMarketAccountGroup, type ModelMarketCatalog, type ModelMarketCategory, type ModelMarketGroup } from '@/api/modelMarket'
+import { CREDIT_SYMBOL } from '@/utils/credits'
 import PublicMatrixBackdrop from './components/PublicMatrixBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
 
@@ -342,11 +343,11 @@ function groupPriceMultiplier(group: ModelMarketGroup): number {
 }
 
 function normalizeOurPriceCurrency(price: string): string {
-  return price.replace(/\$/g, '¥')
+  return price.replace(/[¥￥$]/g, CREDIT_SYMBOL)
 }
 
 function multiplyPriceText(price: string, rate: number): string {
-  return price.replace(/([¥$])\s*(-?\d+(?:\.\d+)?)(?:\s*-\s*([¥$])?\s*(\d+(?:\.\d+)?))?/g, (_match, symbol: string, value: string, rangeSymbol: string | undefined, rangeValue: string | undefined) => {
+  return price.replace(/([✪¥￥$])\s*(-?\d+(?:\.\d+)?)(?:\s*-\s*([✪¥￥$])?\s*(\d+(?:\.\d+)?))?/g, (_match, symbol: string, value: string, rangeSymbol: string | undefined, rangeValue: string | undefined) => {
     const numeric = Number(value)
     if (!Number.isFinite(numeric)) {
       return `${symbol}${value}`

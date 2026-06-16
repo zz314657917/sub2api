@@ -221,6 +221,8 @@ describe('public tutorial CMS and model plaza pages', () => {
     expect(modelPlazaView).toContain('groupPriceMultiplier(group) * selectedRateMultiplier(group)')
     expect(modelPlazaView).toContain('group.price_multiplier ?? 1')
     expect(modelPlazaView).toContain('displayOurPrice(group, row.our_price)')
+    expect(modelPlazaView).toContain("import { CREDIT_SYMBOL } from '@/utils/credits'")
+    expect(modelPlazaView).toContain('price.replace(/[¥￥$]/g, CREDIT_SYMBOL)')
     expect(modelPlazaView).toContain('multiplyPriceText')
     expect(modelPlazaView).toContain('effective_rate_multiplier')
     expect(modelPlazaView).toContain('账号分组')
