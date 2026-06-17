@@ -36,6 +36,7 @@ const (
 	openAIImagesEditsURL       = "https://api.openai.com/v1/images/edits"
 
 	apimartImagesGenerationsEndpoint = openAIImagesGenerationsEndpoint
+	apimartImagesEditsEndpoint       = openAIImagesEditsEndpoint
 	apimartMidjourneyEndpoint        = "/v1/midjourney/generations"
 	apimartImagesUploadEndpoint      = "/v1/uploads/images"
 	apimartImagesTaskEndpointPrefix  = "/v1/tasks/"
@@ -672,7 +673,8 @@ func isOpenAIImageGenerationModel(model string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(model))
 	return strings.HasPrefix(normalized, "gpt-image-") ||
 		isAPIMartGeminiImageModel(normalized) ||
-		isAPIMartMidjourneyImageModel(normalized)
+		isAPIMartMidjourneyImageModel(normalized) ||
+		isAPIMartGrokImagineImageModel(normalized)
 }
 
 func isAPIMartGeminiImageModel(model string) bool {
@@ -700,6 +702,19 @@ func isAPIMartMidjourneyImageModel(model string) bool {
 	return strings.EqualFold(strings.TrimSpace(model), "midjourney")
 }
 
+func isAPIMartGrokImagineImageModel(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "grok-imagine-1.5-apimart", "grok-imagine-1.5-edit-apimart":
+		return true
+	default:
+		return false
+	}
+}
+
+func isAPIMartGrokImagineEditModel(model string) bool {
+	return strings.EqualFold(strings.TrimSpace(model), "grok-imagine-1.5-edit-apimart")
+}
+
 func validateOpenAIImagesModel(model string) error {
 	model = strings.TrimSpace(model)
 	if isOpenAIImageGenerationModel(model) {
@@ -721,6 +736,8 @@ func validateOpenAIImagesReferenceLimit(req *OpenAIImagesRequest, model string) 
 		limit = 14
 	case isAPIMartMidjourneyImageModel(model):
 		limit = 4
+	case isAPIMartGrokImagineImageModel(model):
+		limit = 1
 	default:
 		return nil
 	}
@@ -1429,7 +1446,8 @@ func isAPIMartImagesAsyncModel(model string) bool {
 	return normalized == "gpt-image-2" ||
 		normalized == "gpt-image-2-official" ||
 		isAPIMartGeminiImageModel(normalized) ||
-		isAPIMartMidjourneyImageModel(normalized)
+		isAPIMartMidjourneyImageModel(normalized) ||
+		isAPIMartGrokImagineImageModel(normalized)
 }
 
 func (s *OpenAIGatewayService) forwardAPIMartImages(
@@ -1577,6 +1595,9 @@ func buildAPIMartImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string
 	if isAPIMartMidjourneyImageModel(upstreamModel) {
 		return buildAPIMartMidjourneyImagesPayload(parsed, upstreamModel, imageURLs)
 	}
+	if isAPIMartGrokImagineImageModel(upstreamModel) {
+		return buildAPIMartGrokImagineImagesPayload(parsed, upstreamModel, imageURLs)
+	}
 	payload := map[string]any{
 		"model":      upstreamModel,
 		"prompt":     strings.TrimSpace(parsed.Prompt),
@@ -1666,6 +1687,25 @@ func buildAPIMartMidjourneyImagesPayload(parsed *OpenAIImagesRequest, upstreamMo
 	imageURLs = compactTrimmedStrings(imageURLs)
 	if len(imageURLs) > 0 {
 		payload["image_urls"] = imageURLs
+	}
+	return json.Marshal(payload)
+}
+
+func buildAPIMartGrokImagineImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string, imageURLs []string) ([]byte, error) {
+	payload := map[string]any{
+		"model":  upstreamModel,
+		"prompt": strings.TrimSpace(parsed.Prompt),
+		"n":      parsed.N,
+	}
+	if size := strings.TrimSpace(parsed.Size); size != "" {
+		payload["size"] = size
+	}
+	imageURLs = compactTrimmedStrings(imageURLs)
+	if isAPIMartGrokImagineEditModel(upstreamModel) {
+		if len(imageURLs) == 0 {
+			return nil, fmt.Errorf("%s requires image_urls", upstreamModel)
+		}
+		payload["image_urls"] = imageURLs[:1]
 	}
 	return json.Marshal(payload)
 }
@@ -1875,6 +1915,8 @@ func (s *OpenAIGatewayService) submitAPIMartImageTask(
 	endpoint := apimartImagesGenerationsEndpoint
 	if isAPIMartMidjourneyImageModel(upstreamModel) {
 		endpoint = apimartMidjourneyEndpoint
+	} else if isAPIMartGrokImagineEditModel(upstreamModel) {
+		endpoint = apimartImagesEditsEndpoint
 	}
 	targetURL := buildOpenAIEndpointURL(baseURL, endpoint)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
