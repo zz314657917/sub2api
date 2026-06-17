@@ -4,6 +4,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -639,9 +640,57 @@ func TestAPIKeyAuthIPRestrictionDoesNotTrustSpoofedForwardHeaders(t *testing.T) 
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusForbidden, w.Code)
-	require.Contains(t, w.Body.String(), "ACCESS_DENIED")
+	requireAPIKeyAuthError(t, w, "ACCESS_DENIED", "Access denied. Your IP is 9.9.9.9")
 	require.True(t, markedBusinessLimited)
 	require.Equal(t, service.OpsClientBusinessLimitedReasonIPRestriction, businessLimitedReason)
+}
+
+func TestAPIKeyAuthIPRestrictionIncludesClientIPForBlacklistDenial(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	user := &service.User{
+		ID:          7,
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     10,
+		Concurrency: 3,
+	}
+	apiKey := &service.APIKey{
+		ID:          100,
+		UserID:      user.ID,
+		Key:         "test-key",
+		Status:      service.StatusActive,
+		User:        user,
+		IPBlacklist: []string{"9.9.9.9"},
+	}
+
+	apiKeyRepo := &stubApiKeyRepo{
+		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+			if key != apiKey.Key {
+				return nil, service.ErrAPIKeyNotFound
+			}
+			clone := *apiKey
+			return &clone, nil
+		},
+	}
+
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	router := gin.New()
+	require.NoError(t, router.SetTrustedProxies(nil))
+	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
+	router.GET("/t", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/t", nil)
+	req.RemoteAddr = "9.9.9.9:12345"
+	req.Header.Set("x-api-key", apiKey.Key)
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusForbidden, w.Code)
+	requireAPIKeyAuthError(t, w, "ACCESS_DENIED", "Access denied. Your IP is 9.9.9.9")
 }
 
 func TestAPIKeyAuthTouchesLastUsedOnSuccess(t *testing.T) {
@@ -816,6 +865,15 @@ func newAuthTestRouter(apiKeyService *service.APIKeyService, subscriptionService
 	return router
 }
 
+func requireAPIKeyAuthError(t *testing.T, w *httptest.ResponseRecorder, code, message string) {
+	t.Helper()
+
+	var resp ErrorResponse
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
+	require.Equal(t, code, resp.Code)
+	require.Equal(t, message, resp.Message)
+}
+
 type stubApiKeyRepo struct {
 	getByKey       func(ctx context.Context, key string) (*service.APIKey, error)
 	updateLastUsed func(ctx context.Context, id int64, usedAt time.Time) error
@@ -849,6 +907,10 @@ func (r *stubApiKeyRepo) Update(ctx context.Context, key *service.APIKey) error 
 }
 
 func (r *stubApiKeyRepo) Delete(ctx context.Context, id int64) error {
+	return errors.New("not implemented")
+}
+
+func (r *stubApiKeyRepo) DeleteWithAudit(ctx context.Context, id int64) error {
 	return errors.New("not implemented")
 }
 
@@ -1057,39 +1119,4 @@ func (r *stubUserSubscriptionRepo) IncrementUsage(ctx context.Context, id int64,
 
 func (r *stubUserSubscriptionRepo) BatchUpdateExpiredStatus(ctx context.Context) (int64, error) {
 	return 0, errors.New("not implemented")
-}
-
-type fakeSettingRepo struct {
-	values map[string]string
-}
-
-func (r fakeSettingRepo) Get(ctx context.Context, key string) (*service.Setting, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (r fakeSettingRepo) GetValue(ctx context.Context, key string) (string, error) {
-	if v, ok := r.values[key]; ok {
-		return v, nil
-	}
-	return "", service.ErrSettingNotFound
-}
-
-func (r fakeSettingRepo) Set(ctx context.Context, key, value string) error {
-	return errors.New("not implemented")
-}
-
-func (r fakeSettingRepo) GetMultiple(ctx context.Context, keys []string) (map[string]string, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (r fakeSettingRepo) SetMultiple(ctx context.Context, settings map[string]string) error {
-	return errors.New("not implemented")
-}
-
-func (r fakeSettingRepo) GetAll(ctx context.Context) (map[string]string, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (r fakeSettingRepo) Delete(ctx context.Context, key string) error {
-	return errors.New("not implemented")
 }

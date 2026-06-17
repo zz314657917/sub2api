@@ -63,6 +63,7 @@ func newTestContext() (*gin.Context, *httptest.ResponseRecorder) {
 
 type openAIAccountTestRepo struct {
 	mockAccountRepoForGemini
+	account            *Account
 	updatedExtra       map[string]any
 	bulkUpdatedIDs     []int64
 	bulkUpdatedPayload AccountBulkUpdate
@@ -74,6 +75,13 @@ type openAIAccountTestRepo struct {
 	clearedErrorID     int64
 	setErrorID         int64
 	setErrorMsg        string
+}
+
+func (r *openAIAccountTestRepo) GetByID(ctx context.Context, id int64) (*Account, error) {
+	if r.account != nil && r.account.ID == id {
+		return r.account, nil
+	}
+	return r.mockAccountRepoForGemini.GetByID(ctx, id)
 }
 
 func (r *openAIAccountTestRepo) UpdateExtra(_ context.Context, _ int64, updates map[string]any) error {
@@ -347,6 +355,77 @@ func TestAccountTestService_OpenAI401SetsPermanentErrorOnly(t *testing.T) {
 	require.Zero(t, repo.rateLimitedID)
 	require.Zero(t, repo.clearedErrorID)
 	require.Nil(t, account.RateLimitResetAt)
+}
+
+func TestDecideResponsesProbeSupportRequiresFunctionCallOn2xx(t *testing.T) {
+	require.True(t, decideResponsesProbeSupport(http.StatusOK, []byte(`{"output":[{"type":"function_call","name":"probe_ping"}]}`)))
+	require.False(t, decideResponsesProbeSupport(http.StatusOK, []byte(`{"output":[{"type":"reasoning"}]}`)))
+	require.False(t, decideResponsesProbeSupport(http.StatusOK, []byte(`{"output_text":"ok"}`)))
+	require.False(t, decideResponsesProbeSupport(http.StatusNotFound, nil))
+	require.False(t, decideResponsesProbeSupport(http.StatusMethodNotAllowed, nil))
+	require.True(t, decideResponsesProbeSupport(http.StatusUnauthorized, []byte(`{"error":"bad key"}`)))
+	require.True(t, decideResponsesProbeSupport(http.StatusBadGateway, []byte(`bad gateway`)))
+}
+
+func TestOpenAIResponsesProbePayloadForcesFunctionCall(t *testing.T) {
+	payload := openaiResponsesProbePayload("kimi-k2.6")
+
+	require.Equal(t, "kimi-k2.6", gjson.GetBytes(payload, "model").String())
+	require.Equal(t, "required", gjson.GetBytes(payload, "tool_choice").String())
+	require.Equal(t, "probe_ping", gjson.GetBytes(payload, "tools.0.name").String())
+	require.False(t, gjson.GetBytes(payload, "instructions").Exists())
+}
+
+func TestSelectResponsesProbeModelUsesMappedUpstreamModel(t *testing.T) {
+	account := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"model_mapping": map[string]any{
+				"gpt-5":        "kimi-k2.6",
+				"wildcard":     "vendor-*",
+				"empty":        "",
+				"gpt-4.1-mini": "gpt-4.1-mini",
+			},
+		},
+	}
+
+	require.Equal(t, "gpt-4.1-mini", selectResponsesProbeModel(account))
+	require.NotEmpty(t, selectResponsesProbeModel(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}))
+}
+
+func TestProbeOpenAIAPIKeyResponsesSupportPersistsToolCapability(t *testing.T) {
+	account := &Account{
+		ID:          77,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "sk-test",
+			"base_url": "https://api.example.com/v1",
+			"model_mapping": map[string]any{
+				"gpt-5": "kimi-k2.6",
+			},
+		},
+	}
+	repo := &openAIAccountTestRepo{account: account}
+	upstream := &queuedHTTPUpstream{responses: []*http.Response{
+		newJSONResponse(http.StatusOK, `{"output":[{"type":"reasoning"}]}`),
+	}}
+	svc := &AccountTestService{
+		accountRepo:  repo,
+		httpUpstream: upstream,
+		cfg:          &config.Config{},
+	}
+
+	svc.ProbeOpenAIAPIKeyResponsesSupport(context.Background(), account.ID)
+
+	require.Equal(t, map[string]any{openai_compat.ExtraKeyResponsesSupported: false}, repo.updatedExtra)
+	require.Len(t, upstream.requests, 1)
+	body, err := io.ReadAll(upstream.requests[0].Body)
+	require.NoError(t, err)
+	require.Equal(t, "kimi-k2.6", gjson.GetBytes(body, "model").String())
+	require.Equal(t, "required", gjson.GetBytes(body, "tool_choice").String())
 }
 
 func TestAccountTestService_OpenAIAPIKeyResponsesUnsupportedUsesChatCompletionsPath(t *testing.T) {

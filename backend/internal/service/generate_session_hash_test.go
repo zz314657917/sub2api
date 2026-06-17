@@ -1269,3 +1269,37 @@ func TestGenerateSessionHash_GeminiEndToEnd(t *testing.T) {
 	h3 := svc.GenerateSessionHash(parsed3)
 	require.NotEqual(t, h, h3, "different user with same Gemini request should get different hash")
 }
+
+func TestGenerateSessionHash_ResponsesInputProducesHash(t *testing.T) {
+	svc := &GatewayService{}
+	body := []byte(`{
+		"model":"gpt-5.1",
+		"input":[
+			{"role":"developer","content":[{"type":"input_text","text":"Be concise."}]},
+			{"role":"user","content":[{"type":"input_text","text":"Write a title"}]}
+		]
+	}`)
+
+	parsed, err := ParseGatewayRequest(body, "responses")
+	require.NoError(t, err)
+	parsed.SessionContext = &SessionContext{ClientIP: "10.0.0.1", UserAgent: "responses-client/1.0", APIKeyID: 42}
+
+	hash := svc.GenerateSessionHash(parsed)
+	require.NotEmpty(t, hash)
+
+	parsedAgain, err := ParseGatewayRequest(body, "responses")
+	require.NoError(t, err)
+	parsedAgain.SessionContext = parsed.SessionContext
+	require.Equal(t, hash, svc.GenerateSessionHash(parsedAgain))
+
+	changed, err := ParseGatewayRequest([]byte(`{
+		"model":"gpt-5.1",
+		"input":[
+			{"role":"developer","content":[{"type":"input_text","text":"Be concise."}]},
+			{"role":"user","content":[{"type":"input_text","text":"Write a summary"}]}
+		]
+	}`), "responses")
+	require.NoError(t, err)
+	changed.SessionContext = parsed.SessionContext
+	require.NotEqual(t, hash, svc.GenerateSessionHash(changed))
+}

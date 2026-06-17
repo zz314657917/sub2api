@@ -178,7 +178,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 	// 设置 max_tokens=1 + haiku 探测请求标识到 context 中
 	// 必须在 SetClaudeCodeClientContext 之前设置，因为 ClaudeCodeValidator 需要读取此标识进行绕过判断
-	if isMaxTokensOneHaikuRequest(reqModel, parsedReq.MaxTokens, reqStream) {
+	if isMaxTokensOneHaikuRequest(reqModel, parsedReq.MaxTokens) {
 		ctx := service.WithIsMaxTokensOneHaikuRequest(c.Request.Context(), true, h.metadataBridgeEnabled())
 		c.Request = c.Request.WithContext(ctx)
 	}
@@ -376,7 +376,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 			// 检查请求拦截（预热请求、SUGGESTION MODE等）
 			if account.IsInterceptWarmupEnabled() {
-				interceptType := detectInterceptType(body, reqModel, parsedReq.MaxTokens, reqStream, isClaudeCodeClient)
+				interceptType := detectInterceptType(body, reqModel, parsedReq.MaxTokens, isClaudeCodeClient)
 				if interceptType != InterceptTypeNone {
 					if selection.Acquired && selection.ReleaseFunc != nil {
 						selection.ReleaseFunc()
@@ -529,6 +529,13 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			if result.ReasoningEffort == nil {
 				result.ReasoningEffort = service.NormalizeClaudeOutputEffort(parsedReq.OutputEffort)
 			}
+			if result.ReasoningEffort == nil && parsedReq.ThinkingEnabled {
+				protocolModel := result.UpstreamModel
+				if protocolModel == "" {
+					protocolModel = result.Model
+				}
+				result.ReasoningEffort = service.DefaultEffortForThinkingEnabled(protocolModel)
+			}
 
 			// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
 			capturedTrialSession := trialSession
@@ -644,7 +651,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 			// 检查请求拦截（预热请求、SUGGESTION MODE等）
 			if account.IsInterceptWarmupEnabled() {
-				interceptType := detectInterceptType(body, reqModel, parsedReq.MaxTokens, reqStream, isClaudeCodeClient)
+				interceptType := detectInterceptType(body, reqModel, parsedReq.MaxTokens, isClaudeCodeClient)
 				if interceptType != InterceptTypeNone {
 					if selection.Acquired && selection.ReleaseFunc != nil {
 						selection.ReleaseFunc()
@@ -932,6 +939,13 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 			if result.ReasoningEffort == nil {
 				result.ReasoningEffort = service.NormalizeClaudeOutputEffort(parsedReq.OutputEffort)
+			}
+			if result.ReasoningEffort == nil && parsedReq.ThinkingEnabled {
+				protocolModel := result.UpstreamModel
+				if protocolModel == "" {
+					protocolModel = result.Model
+				}
+				result.ReasoningEffort = service.DefaultEffortForThinkingEnabled(protocolModel)
 			}
 
 			// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
@@ -2213,10 +2227,10 @@ func isHaikuModel(model string) bool {
 }
 
 // isMaxTokensOneHaikuRequest 检查是否为 max_tokens=1 + haiku 模型的探测请求
-// 这类请求用于 Claude Code 验证 API 连通性
-// 条件：max_tokens == 1 且 model 包含 "haiku" 且非流式请求
-func isMaxTokensOneHaikuRequest(model string, maxTokens int, isStream bool) bool {
-	return maxTokens == 1 && isHaikuModel(model) && !isStream
+// 这类请求用于 Claude Code 验证 API 连通性，流式/非流式均可能出现。
+// 条件：max_tokens == 1 且 model 包含 "haiku"
+func isMaxTokensOneHaikuRequest(model string, maxTokens int) bool {
+	return maxTokens == 1 && isHaikuModel(model)
 }
 
 // detectInterceptType 检测请求是否需要拦截，返回拦截类型
@@ -2224,11 +2238,10 @@ func isMaxTokensOneHaikuRequest(model string, maxTokens int, isStream bool) bool
 //   - body: 请求体字节
 //   - model: 请求的模型名称
 //   - maxTokens: max_tokens 值
-//   - isStream: 是否为流式请求
 //   - isClaudeCodeClient: 是否已通过 Claude Code 客户端校验
-func detectInterceptType(body []byte, model string, maxTokens int, isStream bool, isClaudeCodeClient bool) InterceptType {
-	// 优先检查 max_tokens=1 + haiku 探测请求（仅非流式）
-	if isClaudeCodeClient && isMaxTokensOneHaikuRequest(model, maxTokens, isStream) {
+func detectInterceptType(body []byte, model string, maxTokens int, isClaudeCodeClient bool) InterceptType {
+	// 优先检查 max_tokens=1 + haiku 探测请求（流式/非流式均适用）
+	if isClaudeCodeClient && isMaxTokensOneHaikuRequest(model, maxTokens) {
 		return InterceptTypeMaxTokensOneHaiku
 	}
 

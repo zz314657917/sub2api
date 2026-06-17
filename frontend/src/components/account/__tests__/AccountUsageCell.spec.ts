@@ -3,8 +3,10 @@ import { flushPromises, mount } from '@vue/test-utils'
 import AccountUsageCell from '../AccountUsageCell.vue'
 import type { Account } from '@/types'
 
-const { getUsage } = vi.hoisted(() => ({
-  getUsage: vi.fn()
+const { getUsage, queryOpenAIQuota, resetOpenAIQuota } = vi.hoisted(() => ({
+  getUsage: vi.fn(),
+  queryOpenAIQuota: vi.fn(),
+  resetOpenAIQuota: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -13,6 +15,11 @@ vi.mock('@/api/admin', () => ({
       getUsage
     }
   }
+}))
+
+vi.mock('@/api/admin/accounts', () => ({
+  queryOpenAIQuota,
+  resetOpenAIQuota
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -57,6 +64,8 @@ function makeAccount(overrides: Partial<Account>): Account {
 describe('AccountUsageCell', () => {
   beforeEach(() => {
     getUsage.mockReset()
+    queryOpenAIQuota.mockReset()
+    resetOpenAIQuota.mockReset()
     Object.defineProperty(window, 'matchMedia', {
       writable: true,
       value: vi.fn().mockImplementation(() => ({
@@ -273,6 +282,50 @@ describe('AccountUsageCell', () => {
     expect(wrapper.text()).toContain('7d|36|900')
   })
 
+  it('OpenAI OAuth 会在用量窗口下方显示本地查询与上游重置动作', async () => {
+    getUsage.mockResolvedValue({
+      five_hour: {
+        utilization: 18,
+        resets_at: '2099-03-07T12:00:00Z',
+        remaining_seconds: 3600,
+        window_stats: {
+          requests: 9,
+          tokens: 900,
+          cost: 0.09,
+          standard_cost: 0.09,
+          user_cost: 0.09
+        }
+      },
+      seven_day: null
+    })
+
+    const wrapper = mount(AccountUsageCell, {
+      props: {
+        account: makeAccount({
+          id: 2020,
+          platform: 'openai',
+          type: 'oauth',
+          extra: {}
+        })
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: {
+            props: ['label', 'utilization', 'resetsAt', 'windowStats', 'color'],
+            template: '<div class="usage-bar">{{ label }}|{{ utilization }}|{{ windowStats?.tokens }}</div>'
+          },
+          AccountQuotaInfo: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.activeQuery')
+    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.count')
+    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.reset')
+  })
+
   it('OpenAI OAuth 有现成快照时，手动刷新信号会触发 usage 重拉', async () => {
     getUsage.mockResolvedValue({
       five_hour: {
@@ -396,6 +449,33 @@ describe('AccountUsageCell', () => {
 	expect(getUsage).toHaveBeenCalledWith(2002, undefined)
 	expect(wrapper.text()).toContain('5h|0|27700')
 	expect(wrapper.text()).toContain('7d|0|27700')
+  })
+
+  it('OpenAI OAuth 无窗口数据时仍显示上游次数查询入口', async () => {
+    getUsage.mockResolvedValue({})
+
+    const wrapper = mount(AccountUsageCell, {
+      props: {
+        account: makeAccount({
+          id: 2021,
+          platform: 'openai',
+          type: 'oauth',
+          extra: {}
+        })
+      },
+      global: {
+        stubs: {
+          UsageProgressBar: true,
+          AccountQuotaInfo: true
+        }
+      }
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('-')
+    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.count')
+    expect(wrapper.text()).toContain('admin.accounts.openaiQuotaReset.reset')
   })
 
   it('OpenAI OAuth 在行数据刷新但仍无 codex 快照时会重新拉取 usage', async () => {

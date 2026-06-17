@@ -67,6 +67,7 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 
 	billingModel := resolveOpenAIForwardModel(account, originalModel, "")
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
+	reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, upstreamModel)
 	chatReq.Model = upstreamModel
 	if clientStream {
 		chatReq.StreamOptions = &apicompat.ChatStreamOptions{IncludeUsage: true}

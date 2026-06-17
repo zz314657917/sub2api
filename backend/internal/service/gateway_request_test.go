@@ -172,6 +172,26 @@ func TestParseGatewayRequest_AnthropicIgnoresGeminiFields(t *testing.T) {
 	require.Equal(t, "real content", msg["content"])
 }
 
+func TestParseGatewayRequest_ResponsesInput(t *testing.T) {
+	body := []byte(`{
+		"model": "gpt-5.1",
+		"input": [
+			{"role":"developer","content":[{"type":"input_text","text":"Use concise answers."}]},
+			{"role":"user","content":[{"type":"input_text","text":"Hello"}]}
+		]
+	}`)
+
+	parsed, err := ParseGatewayRequest(body, "responses")
+	require.NoError(t, err)
+	require.Equal(t, "gpt-5.1", parsed.Model)
+	require.NotNil(t, parsed.Input)
+	require.Empty(t, parsed.Messages)
+
+	items, ok := parsed.Input.([]any)
+	require.True(t, ok)
+	require.Len(t, items, 2)
+}
+
 func TestFilterThinkingBlocks(t *testing.T) {
 	containsThinkingBlock := func(body []byte) bool {
 		var req map[string]any

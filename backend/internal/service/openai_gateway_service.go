@@ -209,6 +209,7 @@ func (s *OpenAICodexUsageSnapshot) Normalize() *NormalizedCodexLimits {
 // OpenAIUsage represents OpenAI API response usage
 type OpenAIUsage struct {
 	InputTokens              int `json:"input_tokens"`
+	ImageInputTokens         int `json:"image_input_tokens,omitempty"`
 	OutputTokens             int `json:"output_tokens"`
 	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
 	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
@@ -2377,6 +2378,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	if passthroughEnabled {
 		// 透传分支只需要轻量提取字段，避免热路径全量 Unmarshal。
 		reasoningEffort := extractOpenAIReasoningEffortFromBody(body, reqModel)
+		reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, account.GetMappedModel(reqModel))
 		return s.forwardOpenAIPassthrough(ctx, c, account, originalBody, reqModel, reasoningEffort, reqStream, startTime)
 	}
 
@@ -3135,6 +3137,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 
 		reasoningEffort := extractOpenAIReasoningEffort(reqBody, originalModel)
+		reasoningEffort = ApplyThinkingEnabledFallback(reasoningEffort, body, upstreamModel)
 		serviceTier := extractOpenAIServiceTier(reqBody)
 
 		forwardResult := &OpenAIForwardResult{
@@ -5731,6 +5734,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	// Calculate cost
 	tokens := UsageTokens{
 		InputTokens:         actualInputTokens,
+		ImageInputTokens:    result.Usage.ImageInputTokens,
 		OutputTokens:        result.Usage.OutputTokens,
 		CacheCreationTokens: result.Usage.CacheCreationInputTokens,
 		CacheReadTokens:     result.Usage.CacheReadInputTokens,
@@ -6992,7 +6996,7 @@ func normalizeOpenAIReasoningEffort(raw string) string {
 		return ""
 	case "low", "medium", "high":
 		return value
-	case "xhigh", "extrahigh":
+	case "xhigh", "extrahigh", "max":
 		return "xhigh"
 	default:
 		// Only store known effort levels for now to keep UI consistent.
