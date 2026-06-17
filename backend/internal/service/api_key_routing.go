@@ -357,6 +357,8 @@ func preferredPlatformsForPath(path, forcePlatform string) []string {
 		return []string{PlatformGemini}
 	case strings.HasPrefix(path, "/v1/images/") || strings.HasPrefix(path, "/images/"):
 		return []string{PlatformOpenAI}
+	case strings.HasPrefix(path, "/v1/midjourney/") || strings.HasPrefix(path, "/midjourney/"):
+		return []string{PlatformOpenAI}
 	case strings.HasPrefix(path, "/v1/videos/") || strings.HasPrefix(path, "/videos/") ||
 		strings.HasPrefix(path, "/v1/tasks/") || strings.HasPrefix(path, "/tasks/"):
 		return []string{PlatformOpenAI}

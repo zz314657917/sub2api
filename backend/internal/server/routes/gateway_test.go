@@ -67,10 +67,16 @@ func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
 	for _, path := range []string{
 		"/v1/images/generations",
 		"/v1/images/edits",
+		"/v1/midjourney/generations",
 		"/images/generations",
 		"/images/edits",
+		"/midjourney/generations",
 	} {
-		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"gpt-image-2","prompt":"draw a cat"}`))
+		model := "gpt-image-2"
+		if strings.Contains(path, "midjourney") {
+			model = "midjourney"
+		}
+		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"`+model+`","prompt":"draw a cat"}`))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 

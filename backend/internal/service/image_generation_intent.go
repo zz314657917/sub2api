@@ -66,7 +66,8 @@ func IsImageGenerationIntentMap(endpoint string, requestedModel string, reqBody 
 // IsImageGenerationEndpoint identifies dedicated generated-image endpoints.
 func IsImageGenerationEndpoint(endpoint string) bool {
 	switch normalizeImageGenerationEndpoint(endpoint) {
-	case "/v1/images/generations", "/v1/images/edits", "/images/generations", "/images/edits":
+	case "/v1/images/generations", "/v1/images/edits", "/images/generations", "/images/edits",
+		"/v1/midjourney/generations", "/midjourney/generations":
 		return true
 	default:
 		return false

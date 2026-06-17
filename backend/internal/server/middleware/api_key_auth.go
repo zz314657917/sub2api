@@ -362,6 +362,8 @@ func isModelAwareBillingEndpoint(path string) bool {
 		return true
 	case path == "/v1/images/edits" || path == "/images/edits":
 		return true
+	case path == "/v1/midjourney/generations" || path == "/midjourney/generations":
+		return true
 	case strings.HasPrefix(path, "/v1beta/models/") || strings.HasPrefix(path, "/antigravity/v1beta/models/"):
 		return true
 	default:
