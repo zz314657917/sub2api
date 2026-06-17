@@ -1672,7 +1672,7 @@ func buildAPIMartMidjourneyImagesPayload(parsed *OpenAIImagesRequest, upstreamMo
 	if parsed.MidjourneyWeird != nil {
 		payload["weird"] = *parsed.MidjourneyWeird
 	}
-	if parsed.MidjourneyStop != nil {
+	if parsed.MidjourneyStop != nil && midjourneyVersionSupportsStop(parsed.MidjourneyVersion) {
 		payload["stop"] = *parsed.MidjourneyStop
 	}
 	if parsed.MidjourneyNiji != nil {
@@ -1689,6 +1689,15 @@ func buildAPIMartMidjourneyImagesPayload(parsed *OpenAIImagesRequest, upstreamMo
 		payload["image_urls"] = imageURLs
 	}
 	return json.Marshal(payload)
+}
+
+func midjourneyVersionSupportsStop(version string) bool {
+	switch strings.TrimPrefix(strings.ToLower(strings.TrimSpace(version)), "v") {
+	case "5", "5.1", "5.2", "6", "6.1":
+		return true
+	default:
+		return false
+	}
 }
 
 func buildAPIMartGrokImagineImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string, imageURLs []string) ([]byte, error) {
