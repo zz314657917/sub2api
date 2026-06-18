@@ -994,7 +994,16 @@
     padding: 1rem;
 }
 
+.console-shell-dashboard .dashboard-stat-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
 .console-shell-dashboard .dashboard-stat-label {
+    min-width: 0;
+    flex: 1 1 auto;
     overflow: hidden;
     color: var(--dashboard-muted);
     font-size: 0.75rem;
@@ -1006,11 +1015,14 @@
 
 .console-shell-dashboard .dashboard-stat-value {
     margin-top: 0.55rem;
+    overflow: hidden;
     color: var(--dashboard-text);
     font-size: 1.55rem;
     font-weight: 800;
     line-height: 1.08;
     letter-spacing: 0;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .console-shell-dashboard .dashboard-stat-badge {

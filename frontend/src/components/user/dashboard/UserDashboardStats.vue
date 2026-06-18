@@ -5,15 +5,13 @@
       :key="card.key"
       class="dashboard-stat-card"
     >
-      <div class="flex items-start justify-between gap-3">
-        <div class="min-w-0">
-          <p class="dashboard-stat-label">{{ card.label }}</p>
-          <p class="dashboard-stat-value">{{ card.value }}</p>
-        </div>
+      <div class="dashboard-stat-header">
+        <p class="dashboard-stat-label">{{ card.label }}</p>
         <span class="dashboard-stat-badge" :class="card.badgeClass">
           {{ card.badge }}
         </span>
       </div>
+      <p class="dashboard-stat-value">{{ card.value }}</p>
       <p class="dashboard-stat-trend" :class="card.trendClass">
         {{ card.trend }}
         <Icon :name="card.trendIcon" size="xs" />
