@@ -3,6 +3,7 @@ import {
   apiKeyGroups,
   apiKeyOpenAIImageGroups,
   apiKeySupportsUnifiedAccess,
+  apiKeyUnifiedAccessCapabilities,
   apiKeySupportsChat,
   apiKeySupportsOpenAI,
   apiKeySupportsOpenAIImageGeneration,
@@ -259,5 +260,29 @@ describe('apiKeyCapabilities', () => {
     expect(apiKeySupportsOpenAIImageGeneration(key)).toBe(true)
     expect(apiKeySupportsVideoGeneration(key)).toBe(true)
     expect(apiKeySupportsUnifiedAccess(key)).toBe(true)
+  })
+
+  it('treats chat plus image coverage as unified access even without video', () => {
+    const key = apiKey({
+      group_id: 10,
+      group: group({ id: 10, name: 'text', platform: 'openai', routing_scope: 'inference' }),
+      multi_group_routes: [
+        { group_id: 10, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, text_only: true },
+        { group_id: 11, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, image_only: true },
+      ],
+      route_groups: [
+        group({ id: 11, name: 'image', platform: 'openai', routing_scope: 'image', allow_image_generation: true }),
+      ],
+    })
+
+    expect(apiKeySupportsChat(key)).toBe(true)
+    expect(apiKeySupportsOpenAIImageGeneration(key)).toBe(true)
+    expect(apiKeySupportsVideoGeneration(key)).toBe(false)
+    expect(apiKeySupportsUnifiedAccess(key)).toBe(true)
+    expect(apiKeyUnifiedAccessCapabilities(key)).toEqual({
+      chat: true,
+      image: true,
+      video: false,
+    })
   })
 })

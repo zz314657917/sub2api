@@ -8,7 +8,7 @@ export default {
         security: 'Security',
         users: 'Users',
         gateway: 'Gateway',
-        externalApps: 'External Apps',
+        externalApps: 'External Access',
         email: 'Email',
         backup: 'Backup',
         payment: 'Payment',

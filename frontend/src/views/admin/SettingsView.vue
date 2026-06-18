@@ -6154,6 +6154,26 @@
                     </span>
                   </div>
                   <div class="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-200 disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:border-dark-600 dark:text-gray-400 dark:hover:border-primary-900/60 dark:hover:bg-primary-900/20 dark:hover:text-primary-300 dark:disabled:hover:border-dark-600 dark:disabled:hover:bg-transparent dark:disabled:hover:text-gray-400"
+                      :disabled="index === 0"
+                      :title="localText('上移路由', 'Move route up')"
+                      :aria-label="localText(`上移路由 ${index + 1}`, `Move route ${index + 1} up`)"
+                      @click="moveStudioBridgeDefaultAPIRoute(index, -1)"
+                    >
+                      <Icon name="arrowUp" size="sm" />
+                    </button>
+                    <button
+                      type="button"
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-primary-200 hover:bg-primary-50 hover:text-primary-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-gray-200 disabled:hover:bg-transparent disabled:hover:text-gray-500 dark:border-dark-600 dark:text-gray-400 dark:hover:border-primary-900/60 dark:hover:bg-primary-900/20 dark:hover:text-primary-300 dark:disabled:hover:border-dark-600 dark:disabled:hover:bg-transparent dark:disabled:hover:text-gray-400"
+                      :disabled="index === form.studio_bridge_luoye_ai.default_api_routes.length - 1"
+                      :title="localText('下移路由', 'Move route down')"
+                      :aria-label="localText(`下移路由 ${index + 1}`, `Move route ${index + 1} down`)"
+                      @click="moveStudioBridgeDefaultAPIRoute(index, 1)"
+                    >
+                      <Icon name="arrowDown" size="sm" />
+                    </button>
                     <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-dark-600 dark:text-gray-300">
                       <input
                         v-model="route.enabled"
@@ -8599,6 +8619,16 @@ function addStudioBridgeDefaultAPIRoute() {
 
 function removeStudioBridgeDefaultAPIRoute(index: number) {
   form.studio_bridge_luoye_ai.default_api_routes.splice(index, 1);
+}
+
+function moveStudioBridgeDefaultAPIRoute(index: number, direction: -1 | 1) {
+  const routes = form.studio_bridge_luoye_ai.default_api_routes;
+  const targetIndex = index + direction;
+  if (index < 0 || targetIndex < 0 || index >= routes.length || targetIndex >= routes.length) {
+    return;
+  }
+  const [route] = routes.splice(index, 1);
+  routes.splice(targetIndex, 0, route);
 }
 
 function normalizedStudioBridgeDefaultAPIRoutesForSave(): StudioBridgeDefaultAPIRoute[] {

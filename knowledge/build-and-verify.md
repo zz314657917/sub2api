@@ -1,6 +1,6 @@
 # 构建与验证
 
-最后更新：2026-06-14
+最后更新：2026-06-17
 
 ## 基本原则
 
@@ -168,6 +168,21 @@ go test ./internal/service -run "TestAPIKeyService|TestStudioBridge" -count=1
 go test ./internal/repository -run "TestStudioBridgeRepository" -count=1
 ```
 
+- 上游 `v0.1.137` 小步合成、安全/兼容/计费兜底、thinking 协议或 OpenAI quota/reset 相关改动：
+
+```powershell
+cd backend
+go test -tags=unit ./internal/service -run "Test.*Billing|Test.*Thinking|Test.*Reasoning|Test.*Gateway|Test.*OpenAI|Test.*TokenRefresh|Test.*FilterThinking|Test.*ThinkingFilters|Test.*NormalizeChineseLLMThinking|Test.*ApplyThinkingEnabledFallback|Test.*GenerateSessionHash|TestParseGatewayRequest|TestOpenAIQuota" -count=1
+go test -tags=unit ./internal/handler -run "TestDetectInterceptType_MaxTokensOneHaiku|TestSendMockInterceptResponse_MaxTokensOneHaiku" -count=1
+go test -tags=unit ./internal/handler/admin -run "TestOpenAIOAuthHandler.*Quota" -count=1
+go test -tags=unit ./internal/server/middleware -run "TestAPIKeyAuthIPRestrictionDoesNotTrustSpoofedForwardHeaders|TestAPIKeyAuthIPRestrictionIncludesClientIPForBlacklistDenial" -count=1
+go test ./internal/repository -run "Test.*Decompress|Test.*HTTPUpstream" -count=1
+go test ./internal/pkg/apicompat -count=1
+
+cd ../frontend
+cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/components/account/__tests__/OpenAIQuotaResetCell.spec.ts src/components/account/__tests__/AccountUsageCell.spec.ts"
+```
+
 ## 近期稳定结论
 
 - 2026-05-16~2026-05-17 的高频改动面已经从早期 `/chat-images` 跳转闭环，转向账号共享展示、容量池聚合展示、排行榜文案和 cockpit 导入。
@@ -182,9 +197,16 @@ go test ./internal/repository -run "TestStudioBridgeRepository" -count=1
 - 如果改动触达可配置充值套餐，不要只看支付成功回调；至少同时确认后台设置、用户支付页套餐展示、支付恢复和兑现逻辑。
 - 如果改动触达用户 IP 字段，不要只看数据库 migration 或后台表格；至少同时确认注册/登录链路写入、DTO 映射和用户列表展示没有脱节。
 - 如果改动触达默认 API key / route groups / Studio Bridge 默认分组，不要只看前端设置页；要同时确认普通更新路径的 route groups 权限校验没有被遗漏。
+- 2026-06-17 的高频验证面又补进了上游 `v0.1.137` 小步合成：
+  - `form-data@4.0.6` 锁定、token refresh 不可重试错误、zstd、SSE `event:error` failover、thinking 过滤、Responses sticky hash、OpenAI `/responses` probe 和 OpenAI quota/reset 都已有定向测试入口。
+  - 这类改动当前默认按“低风险 patch + 定向回归”验证，不按“整仓全量通过后再判断”理解。
+  - 如果需要复跑前端 Vitest，优先用 `corepack.cmd pnpm --dir frontend exec vitest run ...` 或 `npm.cmd run test:run -- --pool=threads --poolOptions.threads.singleThread=true`；不要再用 Jest 风格 `--runInBand`。
+- 2026-06-17 的上游 Sprint 都显式保护本地定制：验证时除了测试本身，还要看 `git diff --check`、denied-path audit 和 lockfile scan，确认没有误碰 Ent/migrations/VERSION、Studio Bridge、Canvas、支付页、公共页或模型市场。
 
 ## 已知验证噪声
 
 - 当前任务记录中出现过 Vite chunk / Node `DEP0190` 警告；如果 build 通过且警告为既有问题，记录为残余风险即可。
 - 当前任务记录中出现过 `PaymentView.vue` 并行改动导致 `typecheck` 大量模板引用缺失；遇到时先确认是否属于当前任务改动。
 - 本地 browser smoke 经常会把问题表现成“launch 成功但页面里没有余额/会话不同步”；这类情况先排查 `session-probe` iframe、CSP `frame-ancestors` 和 parent origin，而不是先判定 redeem 或余额接口失效。
+- `npm.cmd run test:run -- --runInBand` 在当前 Vitest 环境下会因为不支持 Jest 参数而失败；这属于命令噪声，不应误判为产品回归。
+- 前端全量 Vitest 目前仍可能被 Studio/Canvas/导航/支付等既有产品面失败污染；如果本轮只是上游小步合成，优先看定向测试、QA 报告和 denied-path audit，不要把无关既有失败直接归到当前 patch。

@@ -1,6 +1,6 @@
 # 当前主线
 
-最后更新：2026-06-14
+最后更新：2026-06-17
 
 ## 当前阶段
 
@@ -40,6 +40,11 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
    - 这些能力已经从“当前主线”退到“稳定背景约束”。
    - 当前补知识时，更值得优先解释 OpenAI 网关稳态、账号能力与控制台链路，而不是重复教程页或旧工作区迁移背景。
 
+8. 2026-06-17 的上游小步合成结果，已经进入当前稳定背景层
+   - `v0.1.137` 的 S15/S16/S17 不是新的默认产品主线，但已经形成新的稳定工程边界：安全与兼容补丁、计费兜底、thinking 协议过滤、Responses probe 能力校验、API Key ACL IP 拒绝信息，以及 OpenAI OAuth 上游 quota/reset 入口都已落盘。
+   - 这些结论之所以值得进入当前焦点，而不是只留在 task 快照里，是因为它们会直接影响后续继续合上游、排查 OpenAI/Anthropic/国产模型兼容、做管理员账户运维或解释为什么某些 patch 可以继续小步迁、某些 migration-heavy 变更仍应跳过。
+   - 当前默认心智应是：Studio Bridge / 支付治理仍是产品主链，上游合成则进入“低风险小步、保护本地定制、不 merge 大链路”的稳定工程主线。
+
 ## 已稳定结论
 
 - `knowledge/tasks/current-task.md` 仍适合记录动态交付快照，但当前稳定主线已经不该只停在 2026-06-08 的 gateway auth / prompt cache 语境；最近默认续做心智已继续推进到 Studio Bridge、真实用户闭环和落叶AI生产联调层。
@@ -59,6 +64,15 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
 - `sub2api` 与 `chatgpt2api` 仍需分开维护知识：前者偏 gateway、公共入口、嵌入式工作区桥接、模型/计费目录；后者偏独立图片工作台、`/canvas` 节点工作区和 ChatGPT Web 能力封装。
 - `use key base url` 归一和 routed API key capabilities 已进入当前稳定主线；后续排查用户“为什么这个 key 看不到某能力/为什么 base URL 表现不一致”时，应优先把它当成默认知识，而不是零散提交细节。
 - 默认 API key / 默认分组改造之后，普通更新路径仍应执行 route groups 权限校验；如果未来再看到这块编译或逻辑回退，先检查 `validateAPIKeyRouteGroups(..., false)` 一类调用是否被遗漏。
+- 2026-06-17 的上游小步合成已确认以下边界进入稳定知识面：
+  - 前端 `form-data` 锁定到 `4.0.6`。
+  - token refresh 新增不可重试错误分类。
+  - 上游响应支持 zstd；非流式 2xx 非 JSON 和 SSE `event:error` 会进入 failover 并保留原始错误体。
+  - tool strict 缺省补 `false`；国产模型 fallback pricing 与图像输入 token 计费补齐。
+  - DeepSeek `reasoning_effort=max` 归一到 `xhigh`；Anthropic thinking block 过滤按 mapped upstream model 分流。
+  - Responses sticky hash 以 `input` 兜底，Claude Code `max_tokens=1` Haiku 流式探测会被拦截，OpenAI APIKey `/responses` probe 会校验工具能力。
+  - OpenAI OAuth usage cell 已支持上游 WHAM quota 查询与 reset credits 操作，但这一块仍属于“小步迁移完成的后台运维面”，不是新产品主线。
+- 2026-06-17 的三轮 Sprint 都明确没有 merge/rebase `upstream/main`，也没有触碰 Ent/migrations/VERSION、Studio Bridge、Canvas、支付页、公共页或模型市场；这条“保护本地定制”的边界本身已经是稳定结论。
 
 ## 现在不该误判的点
 
@@ -76,5 +90,7 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
 - 不要把可配置充值套餐当成单纯设置页小功能；它实际影响用户支付入口、恢复逻辑、福利兑现和后续验收基线。
 - 不要把用户 IP 字段当成临时调试字段；它已经进入用户治理、风控和运营判断的默认后台视图。
 - 不要把落叶AI团队空间联调误判成 chatgpt2api 单仓库任务；当前团队空间的 actor/payer、余额和扣费真源仍在 Sub2API。
+- 不要把 2026-06-17 的上游 patch 误判成“已经可以整体跟上游合并”；当前稳定策略仍是按 Sprint 做低风险小步迁移，并显式避开 migration-heavy、合规门禁或会覆盖本地定制的大链路。
+- 不要把 OpenAI quota/reset、thinking filter、Responses probe 或 zstd 支持当成零散实现细节；它们已经影响后续排障基线和上游 patch 取舍。
 - 不要只看 `docs/ai/current-task.md`；该文件仍是兼容旧入口的说明，当前事实应以 `knowledge/`、`knowledge/tasks/current-task.md` 和时间轴为主。
 - 不要把本地 fake 演示账号或 fallback 教程内容当成正式生产数据；它们仍主要服务本地预览、升级兜底或空态保护。
