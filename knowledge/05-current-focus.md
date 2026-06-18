@@ -72,7 +72,8 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
   - DeepSeek `reasoning_effort=max` 归一到 `xhigh`；Anthropic thinking block 过滤按 mapped upstream model 分流。
   - Responses sticky hash 以 `input` 兜底，Claude Code `max_tokens=1` Haiku 流式探测会被拦截，OpenAI APIKey `/responses` probe 会校验工具能力。
   - OpenAI OAuth usage cell 已支持上游 WHAM quota 查询与 reset credits 操作，但这一块仍属于“小步迁移完成的后台运维面”，不是新产品主线。
-- 2026-06-17 的三轮 Sprint 都明确没有 merge/rebase `upstream/main`，也没有触碰 Ent/migrations/VERSION、Studio Bridge、Canvas、支付页、公共页或模型市场；这条“保护本地定制”的边界本身已经是稳定结论。
+- 2026-06-17 的三轮上游 Sprint 本身都明确没有 merge/rebase `upstream/main`，也没有触碰 Ent/migrations/VERSION、Studio Bridge、Canvas、支付页、公共页或模型市场；这条“保护本地定制”的边界只适用于 S15-S17。
+- 后续 `main` 已合入统一 API Key、APIMart 图片模型、公共页/模型市场显示和系统设置导航等产品批次，`origin/main..HEAD` 已实际触达 `wire_gen.go`、Studio Bridge repo、公共页、模型市场、`KeysView`、`SettingsView` 等路径；做最近提交复核时必须按当前 diff 重新列证据，不要沿用 S15-S17 的 `NO_DENIED_PATHS`。
 
 ## 现在不该误判的点
 

@@ -59,6 +59,7 @@ last_verified: 2026-06-17 11:20 +08:00
 - 不整体 merge 或 rebase `upstream/main`。
 - 不触碰 Ent schema、migrations、VERSION、wire 大链路生成物。
 - 不覆盖本地 Studio Bridge、Canvas、支付页、公共页、模型市场、工单或 Chat/Image Studio 定制。
+- 以上边界仅适用于 S15-S17 这条上游小步迁移链路；后续统一 API Key / APIMart 图片网关 / 前端导航合并已经触达 `wire_gen.go`、Studio Bridge repo、公共页、模型市场、Keys 和 Settings 等路径，不能再用本节作为当前 `origin/main..HEAD` 的 denied-path 证明。
 - 不引入 migration-heavy、compliance gate、cyber policy、渠道监控 jitter、Claude OAuth system prompt blocks 等高风险链路。
 - 不把前端全量 Vitest 失败修复混进本轮 Sprint；这应另开前端稳定化任务。
 
@@ -77,9 +78,9 @@ last_verified: 2026-06-17 11:20 +08:00
 - patch 迁入后，定向后端测试通过。
 - 涉及前端控件或管理页时，定向 Vitest 通过。
 - `git diff --check` 通过。
-- denied-path audit 返回 `NO_DENIED_PATHS`。
+- 上游小步 Sprint 的 denied-path audit 应返回 `NO_DENIED_PATHS`；若当前批次是产品合并或 UI/网关主线合并，则必须改为列出实际触达路径和对应验证，不能沿用旧审计结论。
 - lockfile 扫描无已知需规避版本残留，例如 `form-data@4.0.5`。
-- 迁移结果不触碰本轮禁止路径。
+- 迁移结果不触碰本轮禁止路径；若后续合并触达曾经的禁止路径，workflow/knowledge 必须明确说明这是新批次范围，而不是继续复用旧 Sprint 证据。
 - workflow 文档能说明“为什么这轮可以迁、为什么其他候选仍应跳过”。
 
 ## 当前证据入口

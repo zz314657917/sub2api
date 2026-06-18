@@ -175,7 +175,7 @@ cd backend
 go test -tags=unit ./internal/service -run "Test.*Billing|Test.*Thinking|Test.*Reasoning|Test.*Gateway|Test.*OpenAI|Test.*TokenRefresh|Test.*FilterThinking|Test.*ThinkingFilters|Test.*NormalizeChineseLLMThinking|Test.*ApplyThinkingEnabledFallback|Test.*GenerateSessionHash|TestParseGatewayRequest|TestOpenAIQuota" -count=1
 go test -tags=unit ./internal/handler -run "TestDetectInterceptType_MaxTokensOneHaiku|TestSendMockInterceptResponse_MaxTokensOneHaiku" -count=1
 go test -tags=unit ./internal/handler/admin -run "TestOpenAIOAuthHandler.*Quota" -count=1
-go test -tags=unit ./internal/server/middleware -run "TestAPIKeyAuthIPRestrictionDoesNotTrustSpoofedForwardHeaders|TestAPIKeyAuthIPRestrictionIncludesClientIPForBlacklistDenial" -count=1
+go test -tags=unit ./internal/server/middleware -run "TestAPIKeyAuthIPRestrictionDoesNotTrustSpoofedForwardHeaders|TestAPIKeyAuthIPRestrictionUsesGenericMessageForBlacklistDenial" -count=1
 go test ./internal/repository -run "Test.*Decompress|Test.*HTTPUpstream" -count=1
 go test ./internal/pkg/apicompat -count=1
 
@@ -201,7 +201,8 @@ cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/component
   - `form-data@4.0.6` 锁定、token refresh 不可重试错误、zstd、SSE `event:error` failover、thinking 过滤、Responses sticky hash、OpenAI `/responses` probe 和 OpenAI quota/reset 都已有定向测试入口。
   - 这类改动当前默认按“低风险 patch + 定向回归”验证，不按“整仓全量通过后再判断”理解。
   - 如果需要复跑前端 Vitest，优先用 `corepack.cmd pnpm --dir frontend exec vitest run ...` 或 `npm.cmd run test:run -- --pool=threads --poolOptions.threads.singleThread=true`；不要再用 Jest 风格 `--runInBand`。
-- 2026-06-17 的上游 Sprint 都显式保护本地定制：验证时除了测试本身，还要看 `git diff --check`、denied-path audit 和 lockfile scan，确认没有误碰 Ent/migrations/VERSION、Studio Bridge、Canvas、支付页、公共页或模型市场。
+- 2026-06-17 的上游 S15-S17 Sprint 都显式保护本地定制：验证这些 Sprint 本身时除了测试本身，还要看 `git diff --check`、denied-path audit 和 lockfile scan，确认没有误碰 Ent/migrations/VERSION、Studio Bridge、Canvas、支付页、公共页或模型市场。
+- 但当前 `main` 已在后续统一 API Key / APIMart 图片网关 / 前端导航与设置页合并中触达 `wire_gen.go`、Studio Bridge repo、公共页、模型市场、`KeysView` 和 `SettingsView`。评估 `origin/main..HEAD` 时必须列出真实触达路径和对应验证，不能沿用 S15-S17 的 `NO_DENIED_PATHS`。
 
 ## 已知验证噪声
 
@@ -209,4 +210,4 @@ cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/component
 - 当前任务记录中出现过 `PaymentView.vue` 并行改动导致 `typecheck` 大量模板引用缺失；遇到时先确认是否属于当前任务改动。
 - 本地 browser smoke 经常会把问题表现成“launch 成功但页面里没有余额/会话不同步”；这类情况先排查 `session-probe` iframe、CSP `frame-ancestors` 和 parent origin，而不是先判定 redeem 或余额接口失效。
 - `npm.cmd run test:run -- --runInBand` 在当前 Vitest 环境下会因为不支持 Jest 参数而失败；这属于命令噪声，不应误判为产品回归。
-- 前端全量 Vitest 目前仍可能被 Studio/Canvas/导航/支付等既有产品面失败污染；如果本轮只是上游小步合成，优先看定向测试、QA 报告和 denied-path audit，不要把无关既有失败直接归到当前 patch。
+- 前端全量 Vitest 目前仍可能被 Studio/Canvas/导航/支付等既有产品面失败污染；如果本轮只是上游小步合成，优先看定向测试、QA 报告和 denied-path audit。若本轮本来就是产品合并或 UI 合并，则不要用 denied-path audit 掩盖真实触达范围。

@@ -1607,6 +1607,54 @@ func TestOpenAIGatewayServiceForwardImages_APIMartGrokImagineEditUploadsAndPaylo
 	require.False(t, gjson.GetBytes(submitBody, "official_fallback").Exists())
 }
 
+func TestOpenAIGatewayServiceForwardImages_APIMartMappedGrokEditRejectsExtraReferencesBeforeUpload(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
+	require.NoError(t, writer.WriteField("prompt", "keep the product and change background"))
+	for _, fileName := range []string{"reference-1.png", "reference-2.png"} {
+		imagePart, err := writer.CreateFormFile("image", fileName)
+		require.NoError(t, err)
+		_, err = imagePart.Write([]byte("png-image-content"))
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body.Bytes()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body.Bytes())
+	require.NoError(t, err)
+	require.Len(t, parsed.Uploads, 2)
+
+	account := &Account{
+		ID:       22,
+		Name:     "apimart-mapped-grok-edit",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai/v1",
+			"model_mapping": map[string]any{
+				"gpt-image-2": "grok-imagine-1.5-edit-apimart",
+			},
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body.Bytes(), parsed, "")
+	require.Nil(t, result)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "grok-imagine-1.5-edit-apimart supports at most 1 reference images")
+	require.Len(t, upstream.requests, 0)
+}
+
 func TestOpenAIGatewayServiceForwardImages_APIMartOfficialCarriesExactOutputSizeForBilling(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{"model":"gpt-image-2-official","prompt":"draw poster","size":"2576x3216","quality":"medium","n":1}`)
