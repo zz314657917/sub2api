@@ -68,8 +68,8 @@
                 <Icon v-else :name="categoryIcon(group.category)" size="md" />
               </span>
               <div class="min-w-0">
-                <h2>{{ group.title }}</h2>
-                <p>{{ group.description || categoryDescription(group.category) }}</p>
+                <h2>{{ displayModelLabel(group.title) }}</h2>
+                <p>{{ displayModelLabel(group.description || categoryDescription(group.category)) }}</p>
               </div>
             </div>
             <label v-if="groupRateOptions(group).length > 0" class="model-group-rate-select">
@@ -118,8 +118,8 @@
                         <div class="model-name-cell">
                           <ModelIcon :model="row.model || group.title" size="22px" />
                           <div class="min-w-0">
-                            <strong>{{ row.model }}</strong>
-                            <small v-if="row.note">{{ row.note }}</small>
+                            <strong>{{ displayModelLabel(row.model) }}</strong>
+                            <small v-if="row.note">{{ displayModelLabel(row.note) }}</small>
                           </div>
                         </div>
                       </td>
@@ -132,8 +132,8 @@
                     <template v-else>
                       <td data-label="规格">
                         <div class="model-spec-cell">
-                          <strong>{{ row.spec }}</strong>
-                          <small v-if="row.note">{{ row.note }}</small>
+                          <strong>{{ displayModelLabel(row.spec) }}</strong>
+                          <small v-if="row.note">{{ displayModelLabel(row.note) }}</small>
                         </div>
                       </td>
                       <td data-label="我们的价格">
@@ -188,6 +188,7 @@ import Icon from '@/components/icons/Icon.vue'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import { modelMarketAPI, type ModelMarketAccountGroup, type ModelMarketCatalog, type ModelMarketCategory, type ModelMarketGroup } from '@/api/modelMarket'
 import { CREDIT_SYMBOL } from '@/utils/credits'
+import { cleanModelDisplayName, displayModelLabel } from '@/utils/modelDisplay'
 import PublicMatrixBackdrop from './components/PublicMatrixBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
 
@@ -223,20 +224,20 @@ const visibleGroups = computed(() => {
     if (!query) return enabledRows(group).length > 0
 
     const groupMatches = [
-      group.title,
-      group.description,
+      cleanModelDisplayName(group.title, ''),
+      cleanModelDisplayName(group.description, ''),
       group.platform
     ].some((value) => (value || '').toLowerCase().includes(query))
     const rowMatches = enabledRows(group).some((row) =>
       [
-        row.model,
-        row.spec,
+        cleanModelDisplayName(row.model, ''),
+        cleanModelDisplayName(row.spec, ''),
         row.input_price,
         row.output_price,
         row.our_price,
         group.hide_official_price ? '' : row.official_price,
         group.hide_saving ? '' : row.saving,
-        row.note
+        cleanModelDisplayName(row.note, '')
       ].some((value) => (value || '').toLowerCase().includes(query))
     )
     return groupMatches || rowMatches

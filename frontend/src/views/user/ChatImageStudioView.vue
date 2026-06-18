@@ -635,7 +635,7 @@
                   </span>
                 </div>
                 <p class="mt-1 truncate text-xs text-gray-500 dark:text-dark-300">
-                  {{ task.model }} · {{ task.size }} · {{ task.output_format }} · {{ formatDateTime(task.created_at) }}
+                  {{ displayModelLabel(task.model) }} · {{ task.size }} · {{ task.output_format }} · {{ formatDateTime(task.created_at) }}
                 </p>
               </div>
               <button
@@ -908,6 +908,7 @@ import { useClipboard } from '@/composables/useClipboard'
 import { useAppStore } from '@/stores'
 import type { ApiKey } from '@/types'
 import { apiKeyChatGroups, apiKeySupportsChat, apiKeySupportsOpenAIImageGeneration, primaryAPIKeyGroupName } from '@/utils/apiKeyCapabilities'
+import { displayModelLabel } from '@/utils/modelDisplay'
 
 type StudioMode = 'chat' | 'image'
 type StudioTab = 'studio' | 'gallery'

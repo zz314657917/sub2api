@@ -96,7 +96,7 @@
               <span
                 class="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100"
               >
-                {{ row.model }}
+                {{ displayModelLabel(row.model) }}
               </span>
               <span
                 class="flex-shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400"
@@ -115,7 +115,7 @@
                 :aria-valuemin="0"
                 :aria-valuemax="100"
                 :aria-valuenow="row.availability ?? 0"
-                :aria-label="`${row.model} ${t('channelStatus.availabilityPanel.availabilityLabel')}`"
+                :aria-label="`${displayModelLabel(row.model)} ${t('channelStatus.availabilityPanel.availabilityLabel')}`"
               >
                 <span
                   class="block h-full rounded-full transition-all duration-300"
@@ -160,6 +160,7 @@ import {
 import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { cleanModelDisplayName, displayModelLabel } from '@/utils/modelDisplay'
 
 type MonitorWindow = '7d' | '15d' | '30d'
 type Tone = 'normal' | 'warning' | 'danger' | 'maintenance'
@@ -277,7 +278,7 @@ function modelRowsFor(item: UserMonitorView): DisplayRow[] {
 function matchesQuery(row: DisplayRow, query: string): boolean {
   if (!query) return true
   const searchable = [
-    row.model,
+    cleanModelDisplayName(row.model, ''),
     row.monitor.name,
     row.monitor.group_name,
     providerLabel(row.monitor.provider),

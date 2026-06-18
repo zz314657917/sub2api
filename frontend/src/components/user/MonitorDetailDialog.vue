@@ -30,7 +30,7 @@
             :key="m.model"
             class="border-b border-gray-100 dark:border-dark-800"
           >
-            <td class="py-2 pr-3 font-medium text-gray-900 dark:text-gray-100">{{ m.model }}</td>
+            <td class="py-2 pr-3 font-medium text-gray-900 dark:text-gray-100">{{ displayModelLabel(m.model) }}</td>
             <td class="py-2 pr-3">
               <span
                 class="inline-flex items-center rounded-full px-2 py-0.5 text-[11px]"
@@ -70,6 +70,7 @@ import {
 } from '@/api/channelMonitor'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import { useChannelMonitorFormat } from '@/composables/useChannelMonitorFormat'
+import { displayModelLabel } from '@/utils/modelDisplay'
 
 const props = defineProps<{
   show: boolean

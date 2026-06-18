@@ -24,7 +24,7 @@
             {{ providerLabel(item.provider) }}
           </span>
           <span class="font-mono text-xs truncate text-gray-500 dark:text-gray-400">
-            {{ item.primary_model }}
+            {{ displayModelLabel(item.primary_model) }}
           </span>
           <span
             v-if="item.group_name"
@@ -84,6 +84,7 @@ import ProviderIcon from './ProviderIcon.vue'
 import MonitorMetricPair from './MonitorMetricPair.vue'
 import MonitorAvailabilityRow from './MonitorAvailabilityRow.vue'
 import MonitorTimeline from './MonitorTimeline.vue'
+import { displayModelLabel } from '@/utils/modelDisplay'
 
 const PROVIDER_TINT: Record<string, string> = {
   openai: 'text-emerald-600 dark:text-emerald-300',

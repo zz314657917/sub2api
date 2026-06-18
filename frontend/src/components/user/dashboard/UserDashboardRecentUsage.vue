@@ -18,7 +18,7 @@
               <Icon name="beaker" size="md" />
             </div>
             <div>
-              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ log.model }}</p>
+              <p class="text-sm font-medium text-gray-900 dark:text-white">{{ displayModelLabel(log.model) }}</p>
               <p class="text-xs text-gray-500 dark:text-dark-400">{{ formatDateTime(log.created_at) }}</p>
             </div>
           </div>
@@ -47,6 +47,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatDateTime } from '@/utils/format'
 import { formatCreditAmount } from '@/utils/credits'
+import { displayModelLabel } from '@/utils/modelDisplay'
 import type { UsageLog } from '@/types'
 
 defineProps<{

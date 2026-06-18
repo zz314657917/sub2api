@@ -94,8 +94,8 @@
                 </div>
                 <div class="min-w-0">
                   <div class="flex min-w-0 flex-wrap items-center gap-2">
-                    <p class="max-w-[20rem] truncate text-sm font-medium text-gray-900 dark:text-white" :title="log.model || t('usage.unknown')">
-                      {{ log.model || t('usage.unknown') }}
+                    <p class="max-w-[20rem] truncate text-sm font-medium text-gray-900 dark:text-white" :title="displayModelLabel(log.model, log.model || t('usage.unknown'))">
+                      {{ displayModelLabel(log.model, log.model || t('usage.unknown')) }}
                     </p>
                     <span :class="['rounded px-1.5 py-0.5 text-[11px] font-medium', getUsageTypeBadgeClass(log)]">
                       {{ getUsageTypeLabel(log) }}
@@ -255,6 +255,7 @@ import { adminAPI, type BalanceHistoryItem } from '@/api/admin'
 import { formatDateTime } from '@/utils/format'
 import { formatCreditAmount } from '@/utils/credits'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'
+import { displayModelLabel } from '@/utils/modelDisplay'
 import type { AdminUsageLog, AdminUser } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'

@@ -23,9 +23,9 @@
         v-if="showPlatform && model.platform"
         class="rounded bg-gray-200/60 px-1 text-[10px] uppercase text-gray-600 dark:bg-dark-700 dark:text-gray-400"
       >
-        {{ model.platform }}
+        {{ displayModelLabel(model.platform) }}
       </span>
-      {{ model.name }}
+      {{ displayName }}
     </span>
 
     <!-- Teleport to body so the popover is not clipped by card/overflow-hidden
@@ -45,12 +45,12 @@
           class="flex items-center justify-between gap-2 rounded-t-lg border-b px-3 py-2"
           :class="[popoverHeaderClass, popoverBorderClass]"
         >
-          <span class="truncate font-semibold">{{ model.name }}</span>
+          <span class="truncate font-semibold">{{ displayName }}</span>
           <span
             v-if="model.platform"
             class="flex-shrink-0 rounded bg-white/70 px-1.5 py-0.5 text-[10px] uppercase tracking-wide dark:bg-dark-900/60"
           >
-            {{ model.platform }}
+            {{ displayModelLabel(model.platform) }}
           </span>
         </div>
 
@@ -167,6 +167,7 @@ import type { UserPricingInterval, UserSupportedModel } from '@/api/channels'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import type { GroupPlatform } from '@/types'
 import { platformBadgeClass, platformBorderClass, platformBadgeLightClass } from '@/utils/platformColors'
+import { displayModelLabel } from '@/utils/modelDisplay'
 
 const props = withDefaults(
   defineProps<{
@@ -190,6 +191,7 @@ const props = withDefaults(
 )
 
 const effectivePlatform = computed<string>(() => props.model.platform || props.platformHint || '')
+const displayName = computed(() => displayModelLabel(props.model.name))
 
 const { t } = useI18n()
 

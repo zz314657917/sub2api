@@ -63,9 +63,9 @@
           <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.errorDetail.model') }}</div>
           <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
             <template v-if="hasModelMapping(detail)">
-              <span class="font-mono">{{ detail.requested_model }}</span>
+              <span class="font-mono">{{ displayModelLabel(detail.requested_model) }}</span>
               <span class="mx-1 text-gray-400">→</span>
-              <span class="font-mono text-primary-600 dark:text-primary-400">{{ detail.upstream_model }}</span>
+              <span class="font-mono text-primary-600 dark:text-primary-400">{{ displayModelLabel(detail.upstream_model) }}</span>
             </template>
             <template v-else>
               {{ displayModel(detail) || '—' }}
@@ -198,6 +198,7 @@ import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores'
 import { opsAPI, type OpsErrorDetail } from '@/api/admin/ops'
 import { formatDateTime } from '@/utils/format'
+import { displayModelLabel } from '@/utils/modelDisplay'
 import { resolvePrimaryResponseBody, resolveUpstreamPayload } from '../utils/errorDetailResponse'
 
 interface Props {
@@ -272,10 +273,10 @@ function hasModelMapping(d: OpsErrorDetail | null): boolean {
 function displayModel(d: OpsErrorDetail | null): string {
   if (!d) return ''
   const upstream = String(d.upstream_model || '').trim()
-  if (upstream) return upstream
+  if (upstream) return displayModelLabel(upstream)
   const requested = String(d.requested_model || '').trim()
-  if (requested) return requested
-  return String(d.model || '').trim()
+  if (requested) return displayModelLabel(requested)
+  return displayModelLabel(String(d.model || '').trim(), '')
 }
 
 const correlatedUpstream = ref<OpsErrorDetail[]>([])

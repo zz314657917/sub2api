@@ -373,7 +373,7 @@
                     :key="i"
                     class="border-b border-gray-100 last:border-b-0 dark:border-dark-800"
                   >
-                    <td class="px-4 py-3 text-sm font-medium whitespace-nowrap text-gray-900 dark:text-white">{{ m.model || '-' }}</td>
+                    <td class="px-4 py-3 text-sm font-medium whitespace-nowrap text-gray-900 dark:text-white">{{ displayModelLabel(m.model, m.model || '-') }}</td>
                     <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(m.requests) }}</td>
                     <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(m.input_tokens) }}</td>
                     <td class="px-4 py-3 text-sm tabular-nums text-right text-gray-700 dark:text-dark-200">{{ fmtNum(m.output_tokens) }}</td>
@@ -423,6 +423,7 @@ import { useAppStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatCreditAmount } from '@/utils/credits'
+import { displayModelLabel } from '@/utils/modelDisplay'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()

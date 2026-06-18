@@ -35,7 +35,7 @@
 
         <template #cell-model="{ row }">
           <div v-if="row.model_mapping_chain && row.model_mapping_chain.includes('→')" class="space-y-0.5 text-xs">
-            <div v-for="(step, i) in row.model_mapping_chain.split('→')" :key="i"
+            <div v-for="(step, i) in displayModelChain(row.model_mapping_chain).split('→')" :key="i"
                  class="break-all"
                  :class="i === 0 ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
                  :style="i > 0 ? `padding-left: ${i * 0.75}rem` : ''">
@@ -44,13 +44,13 @@
           </div>
           <div v-else-if="row.upstream_model && row.upstream_model !== row.model" class="space-y-0.5 text-xs">
             <div class="break-all font-medium text-gray-900 dark:text-white">
-              {{ row.model }}
+              {{ displayModelLabel(row.model) }}
             </div>
             <div class="break-all text-gray-500 dark:text-gray-400">
-              <span class="mr-0.5">↳</span>{{ row.upstream_model }}
+              <span class="mr-0.5">↳</span>{{ displayModelLabel(row.upstream_model) }}
             </div>
           </div>
-          <span v-else class="font-medium text-gray-900 dark:text-white">{{ row.model }}</span>
+          <span v-else class="font-medium text-gray-900 dark:text-white">{{ displayModelLabel(row.model) }}</span>
         </template>
 
         <template #cell-reasoning_effort="{ row }">
@@ -402,6 +402,7 @@ import {
   formatImageSizeBreakdown,
   formatImageSizeSource,
 } from '@/utils/imageUsage'
+import { displayModelChain, displayModelLabel } from '@/utils/modelDisplay'
 
 /** Compute the account-billed cost for display: (account_stats_cost ?? total_cost) * rate_multiplier */
 function accountBilled(row: { total_cost?: number | null; account_stats_cost?: number | null; account_rate_multiplier?: number | null }): number {

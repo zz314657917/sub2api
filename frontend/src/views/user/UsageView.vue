@@ -251,7 +251,7 @@
           </template>
 
           <template #cell-model="{ value }">
-            <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{ displayModelLabel(value) }}</span>
           </template>
 
           <template #cell-reasoning_effort="{ row }">
@@ -718,7 +718,7 @@
               </div>
               <div>
                 <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.model') }}</div>
-                <div class="mt-1 break-all font-medium text-gray-900 dark:text-white">{{ selectedUsageLog.model }}</div>
+                <div class="mt-1 break-all font-medium text-gray-900 dark:text-white">{{ displayModelLabel(selectedUsageLog.model) }}</div>
               </div>
               <div>
                 <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.endpoint') }}</div>
@@ -810,6 +810,7 @@ import {
   formatImageSizeBreakdown,
   formatImageSizeSource,
 } from '@/utils/imageUsage'
+import { displayModelLabel } from '@/utils/modelDisplay'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -1079,7 +1080,7 @@ const activeScopeSummary = computed(() => {
     selectedAPIKeyLabel.value,
     selectedGroupLabel.value
   ]
-  if (filters.value.model) parts.push(filters.value.model)
+  if (filters.value.model) parts.push(displayModelLabel(filters.value.model))
   if (filters.value.request_type) parts.push(selectedRequestTypeLabel.value)
   if (filters.value.billing_mode) parts.push(getBillingModeLabel(filters.value.billing_mode, t))
   return parts.join(' / ')

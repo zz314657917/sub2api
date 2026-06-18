@@ -503,6 +503,7 @@ import {
 } from '@/api/imageCreator'
 import type { ApiKey } from '@/types'
 import { apiKeySupportsOpenAIImageGeneration, primaryAPIKeyImageGroupName } from '@/utils/apiKeyCapabilities'
+import { displayModelLabel } from '@/utils/modelDisplay'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
 
@@ -1658,7 +1659,7 @@ function canvasMeta(item: UserCanvasSummary): string {
 }
 
 function modelLabel(modelItem: CanvasModel): string {
-  return [modelItem.name || modelItem.id, modelItem.provider].filter(Boolean).join(' · ')
+  return [displayModelLabel(modelItem.id, modelItem.name || modelItem.id), modelItem.provider].filter(Boolean).join(' · ')
 }
 
 function apiKeyLabel(key: ApiKey): string {

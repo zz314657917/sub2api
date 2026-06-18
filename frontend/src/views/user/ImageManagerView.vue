@@ -149,7 +149,7 @@
             </div>
             <p class="image-manager-prompt">{{ item.task_prompt || item.revised_prompt || t('imageManager.noPrompt') }}</p>
             <div class="image-manager-meta">
-              <span>{{ item.task_model || 'gpt-image-2' }}</span>
+              <span>{{ displayModelLabel(item.task_model || 'gpt-image-2') }}</span>
               <span v-if="dimensionSummary(item)">{{ dimensionSummary(item) }}</span>
               <span>{{ formatTime(item.created_at) }}</span>
             </div>
@@ -221,6 +221,7 @@ import {
 } from '@/api/imageCreator'
 import { useClipboard } from '@/composables/useClipboard'
 import { useAppStore } from '@/stores'
+import { displayModelLabel } from '@/utils/modelDisplay'
 
 const PAGE_SIZE = 40
 

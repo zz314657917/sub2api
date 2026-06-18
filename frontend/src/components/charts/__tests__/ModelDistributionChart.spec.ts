@@ -128,6 +128,37 @@ describe('ModelDistributionChart', () => {
     expect(label).toBe('model-b: $1.40 (87.5%)')
   })
 
+  it('sanitizes visible model labels without changing row identity', () => {
+    const wrapper = mount(ModelDistributionChart, {
+      props: {
+        modelStats: [
+          {
+            model: 'grok-imagine-1.5-apimart',
+            requests: 1,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_creation_tokens: 0,
+            cache_read_tokens: 0,
+            total_tokens: 10,
+            cost: 0.1,
+            actual_cost: 0.1,
+            account_cost: 0.1,
+          },
+        ],
+      },
+      global: {
+        stubs: {
+          LoadingSpinner: true,
+        },
+      },
+    })
+
+    const chartData = JSON.parse(wrapper.find('.chart-data').text())
+    expect(chartData.labels).toEqual(['grok-imagine-1.5'])
+    expect(wrapper.text()).toContain('grok-imagine-1.5')
+    expect(wrapper.text()).not.toMatch(/apimart/i)
+  })
+
   it('renders Others in the spending ranking table and uses a dedicated chart color', async () => {
     const wrapper = mount(ModelDistributionChart, {
       props: {

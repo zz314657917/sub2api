@@ -157,7 +157,7 @@
                   :key="model"
                   class="inline-flex max-w-[180px] items-center truncate rounded-md bg-white px-2 py-1 font-mono text-xs text-gray-600 shadow-sm dark:bg-dark-800 dark:text-gray-300"
                 >
-                  {{ model }}
+                  {{ displayModelLabel(model) }}
                 </span>
                 <span v-if="hiddenModelFilterModelCount > 0" class="inline-flex rounded-md bg-white px-2 py-1 text-xs text-gray-500 shadow-sm dark:bg-dark-800 dark:text-gray-400">
                   +{{ hiddenModelFilterModelCount }}
@@ -209,7 +209,7 @@
                     <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-700 dark:text-gray-300">{{ row.api_key_name || '-' }}</td>
                     <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-700 dark:text-gray-300">
                       <div>{{ row.endpoint || '-' }}</div>
-                      <div class="text-xs text-gray-400">{{ row.provider || '-' }} / {{ row.model || '-' }}</div>
+                      <div class="text-xs text-gray-400">{{ row.provider || '-' }} / {{ displayModelLabel(row.model, row.model || '-') }}</div>
                     </td>
                     <td class="whitespace-nowrap px-5 py-4">
                       <span class="inline-flex rounded-md px-2 py-1 text-xs font-medium" :class="resultBadgeClass(row)">
@@ -923,7 +923,7 @@
               <div>
                 <p class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.riskControl.inputDetailContent') }}</p>
                 <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  {{ inputDetailRow.endpoint || '-' }} · {{ inputDetailRow.provider || '-' }} / {{ inputDetailRow.model || '-' }}
+                  {{ inputDetailRow.endpoint || '-' }} · {{ inputDetailRow.provider || '-' }} / {{ displayModelLabel(inputDetailRow.model, inputDetailRow.model || '-') }}
                 </p>
               </div>
               <span v-if="inputDetailRow.group_name" class="inline-flex rounded-md bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 dark:bg-sky-900/20 dark:text-sky-300">
@@ -971,6 +971,7 @@ import type { AdminGroup, SelectOption } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { formatDateTime as formatDateTimeValue } from '@/utils/format'
+import { displayModelLabel } from '@/utils/modelDisplay'
 
 type SettingsTab = 'basic' | 'scope' | 'runtime' | 'response' | 'retention' | 'keywords'
 type WorkerSlotState = 'active' | 'idle' | 'disabled'

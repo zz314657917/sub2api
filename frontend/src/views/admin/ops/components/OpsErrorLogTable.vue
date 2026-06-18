@@ -102,9 +102,9 @@
                   <template v-if="hasModelMapping(log)">
                     <el-tooltip :content="modelMappingTooltip(log)" placement="top" :show-after="500">
                       <span class="flex items-center gap-1 truncate font-mono text-[11px] text-gray-700 dark:text-gray-300">
-                        <span class="truncate">{{ log.requested_model }}</span>
+                        <span class="truncate">{{ displayModelLabel(log.requested_model) }}</span>
                         <span class="flex-shrink-0 text-gray-400">→</span>
-                        <span class="truncate text-primary-600 dark:text-primary-400">{{ log.upstream_model }}</span>
+                        <span class="truncate text-primary-600 dark:text-primary-400">{{ displayModelLabel(log.upstream_model) }}</span>
                       </span>
                     </el-tooltip>
                   </template>
@@ -215,6 +215,7 @@ import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/Pagination.vue'
 import type { OpsErrorLog } from '@/api/admin/ops'
 import { getSeverityClass, formatDateTime } from '../utils/opsFormatters'
+import { displayModelLabel } from '@/utils/modelDisplay'
 
 const { t } = useI18n()
 
@@ -259,16 +260,16 @@ function modelMappingTooltip(log: OpsErrorLog): string {
   const requested = String(log.requested_model || '').trim()
   const upstream = String(log.upstream_model || '').trim()
   if (!requested && !upstream) return ''
-  if (requested && upstream) return `${requested} → ${upstream}`
-  return upstream || requested
+  if (requested && upstream) return `${displayModelLabel(requested)} → ${displayModelLabel(upstream)}`
+  return displayModelLabel(upstream || requested)
 }
 
 function displayModel(log: OpsErrorLog): string {
   const upstream = String(log.upstream_model || '').trim()
-  if (upstream) return upstream
+  if (upstream) return displayModelLabel(upstream)
   const requested = String(log.requested_model || '').trim()
-  if (requested) return requested
-  return String(log.model || '').trim()
+  if (requested) return displayModelLabel(requested)
+  return displayModelLabel(String(log.model || '').trim(), '')
 }
 
 function formatRequestType(type: number | null | undefined): string {

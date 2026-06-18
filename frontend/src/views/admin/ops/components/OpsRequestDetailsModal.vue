@@ -6,6 +6,7 @@ import Pagination from '@/components/common/Pagination.vue'
 import { useClipboard } from '@/composables/useClipboard'
 import { useAppStore } from '@/stores'
 import { opsAPI, type OpsRequestDetailsParams, type OpsRequestDetail } from '@/api/admin/ops'
+import { displayModelLabel } from '@/utils/modelDisplay'
 import { parseTimeRangeMinutes, formatDateTime } from '../utils/opsFormatters'
 
 export interface OpsRequestDetailsPreset {
@@ -146,6 +147,10 @@ const kindBadgeClass = (kind: string) => {
   if (kind === 'error') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
   return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
 }
+
+function rowModelLabel(model: string | null | undefined): string {
+  return model ? displayModelLabel(model) : '-'
+}
 </script>
 
 <template>
@@ -231,8 +236,8 @@ const kindBadgeClass = (kind: string) => {
                   <td class="whitespace-nowrap px-4 py-3 text-xs font-medium text-gray-700 dark:text-gray-200">
                     {{ (row.platform || 'unknown').toUpperCase() }}
                   </td>
-                  <td class="max-w-[240px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="row.model || ''">
-                    {{ row.model || '-' }}
+                  <td class="max-w-[240px] truncate px-4 py-3 text-xs text-gray-600 dark:text-gray-300" :title="rowModelLabel(row.model)">
+                    {{ rowModelLabel(row.model) }}
                   </td>
                   <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
                     {{ typeof row.duration_ms === 'number' ? `${row.duration_ms} ms` : '-' }}
