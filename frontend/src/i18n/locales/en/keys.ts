@@ -21,7 +21,13 @@ export default {
     defaultKeyStudioNote: 'Used by Studio by default. Change the group or model routes to switch models.',
     defaultKeyDeleteDisabled: 'The default API key cannot be deleted. You can change its group or model routes.',
     unifiedKeyBadge: 'Unified API',
-    unifiedKeyHint: 'This key covers chat, image, and video routes through one OpenAI-compatible Base URL.',
+    unifiedKeyHint: 'This key covers chat and image routes through one OpenAI-compatible Base URL. Video is optional.',
+    capabilities: {
+      chat: 'Chat',
+      image: 'Image',
+      video: 'Video',
+      videoDisabled: 'Video off',
+    },
     apiKey: 'API Key',
     group: 'Group',
     noGroup: 'No group',
@@ -149,7 +155,14 @@ export default {
         'This key has no default group. Runtime routing will choose a group by model and available accounts. Start with the OpenAI-compatible config below; if calls fail, ask an admin to confirm routes, plans, or credits.',
       unifiedAccessTitle: 'Unified API Key',
       unifiedAccessDescription:
-        'Use one OpenAI-compatible key for chat, image, and video models. The gateway selects the route by model name and routing rules.',
+        'Use one OpenAI-compatible key for chat and image models. Video examples appear automatically when a video route is available.',
+      unifiedAccessVideoUnavailable: 'This key has no available video route. Configure a default video group to enable video API examples.',
+      unifiedAccessCapabilities: {
+        chat: 'Chat',
+        image: 'Image',
+        video: 'Video',
+        videoDisabled: 'Video off',
+      },
       openai: {
         description: 'Add the following configuration files to your Codex CLI config directory.',
         configTomlHint: 'Make sure the following content is at the beginning of the config.toml file',

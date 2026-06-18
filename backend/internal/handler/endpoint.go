@@ -15,15 +15,16 @@ import (
 // ──────────────────────────────────────────────────────────
 
 const (
-	EndpointMessages          = "/v1/messages"
-	EndpointChatCompletions   = "/v1/chat/completions"
-	EndpointEmbeddings        = "/v1/embeddings"
-	EndpointResponses         = "/v1/responses"
-	EndpointImagesGenerations = "/v1/images/generations"
-	EndpointImagesEdits       = "/v1/images/edits"
-	EndpointVideosGenerations = "/v1/videos/generations"
-	EndpointTasks             = "/v1/tasks"
-	EndpointGeminiModels      = "/v1beta/models"
+	EndpointMessages              = "/v1/messages"
+	EndpointChatCompletions       = "/v1/chat/completions"
+	EndpointEmbeddings            = "/v1/embeddings"
+	EndpointResponses             = "/v1/responses"
+	EndpointImagesGenerations     = "/v1/images/generations"
+	EndpointImagesEdits           = "/v1/images/edits"
+	EndpointMidjourneyGenerations = "/v1/midjourney/generations"
+	EndpointVideosGenerations     = "/v1/videos/generations"
+	EndpointTasks                 = "/v1/tasks"
+	EndpointGeminiModels          = "/v1beta/models"
 )
 
 // gin.Context keys used by the middleware and helpers below.
@@ -55,6 +56,8 @@ func NormalizeInboundEndpoint(path string) string {
 		return EndpointImagesGenerations
 	case strings.Contains(path, EndpointImagesEdits) || strings.Contains(path, "/images/edits"):
 		return EndpointImagesEdits
+	case strings.Contains(path, EndpointMidjourneyGenerations) || strings.Contains(path, "/midjourney/generations"):
+		return EndpointMidjourneyGenerations
 	case strings.Contains(path, EndpointVideosGenerations) || strings.Contains(path, "/videos/generations"):
 		return EndpointVideosGenerations
 	case strings.Contains(path, EndpointTasks) || strings.Contains(path, "/tasks/"):
@@ -85,6 +88,7 @@ func DeriveUpstreamEndpoint(inbound, rawRequestPath, platform string) string {
 	switch platform {
 	case service.PlatformOpenAI:
 		if inbound == EndpointEmbeddings || inbound == EndpointImagesGenerations || inbound == EndpointImagesEdits ||
+			inbound == EndpointMidjourneyGenerations ||
 			inbound == EndpointVideosGenerations || inbound == EndpointTasks {
 			return inbound
 		}

@@ -145,6 +145,21 @@ func RegisterGatewayRoutes(
 			}
 			h.OpenAIGateway.Images(c)
 		})
+		gateway.POST("/midjourney/generations", func(c *gin.Context) {
+			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/midjourney/generations", true) {
+				return
+			}
+			if getGroupPlatform(c) != service.PlatformOpenAI {
+				c.JSON(http.StatusNotFound, gin.H{
+					"error": gin.H{
+						"type":    "not_found_error",
+						"message": "Images API is not supported for this platform",
+					},
+				})
+				return
+			}
+			h.OpenAIGateway.Images(c)
+		})
 		gateway.POST("/images/edits", func(c *gin.Context) {
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/images/edits", true) {
 				return
@@ -254,6 +269,21 @@ func RegisterGatewayRoutes(
 	})
 	r.POST("/images/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/images/generations", true) {
+			return
+		}
+		if getGroupPlatform(c) != service.PlatformOpenAI {
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"type":    "not_found_error",
+					"message": "Images API is not supported for this platform",
+				},
+			})
+			return
+		}
+		h.OpenAIGateway.Images(c)
+	})
+	r.POST("/midjourney/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
+		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/midjourney/generations", true) {
 			return
 		}
 		if getGroupPlatform(c) != service.PlatformOpenAI {

@@ -690,12 +690,6 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 	if mediaType != "" {
 		mediaTypeArg = mediaType
 	}
-	var imageSizeArg any
-	var imageSizeSourceArg any
-	if imageCount > 0 {
-		imageSizeArg = "1K"
-		imageSizeSourceArg = "default"
-	}
 	var inserted bool
 	err = exec.QueryRowContext(ctx, `
 		WITH inserted AS (
@@ -783,7 +777,7 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 			RETURNING 1
 		)
 		SELECT EXISTS(SELECT 1 FROM inserted)
-	`, cmd.UserID, refs.apiKeyID, refs.accountID, requestID, model, requestedModel, groupID, amount, service.BillingTypeBalance, int16(service.RequestTypeSync), imageCount, imageSizeArg, imageSizeSourceArg, billingMode, mediaTypeArg, inboundEndpoint, studioBridgeDurationStartArg(chargeCreatedAt)).Scan(&inserted)
+	`, cmd.UserID, refs.apiKeyID, refs.accountID, requestID, model, requestedModel, groupID, amount, service.BillingTypeBalance, int16(service.RequestTypeSync), imageCount, nil, nil, billingMode, mediaTypeArg, inboundEndpoint, studioBridgeDurationStartArg(chargeCreatedAt)).Scan(&inserted)
 	return err
 }
 

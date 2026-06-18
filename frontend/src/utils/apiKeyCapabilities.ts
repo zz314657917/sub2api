@@ -2,6 +2,12 @@ import type { ApiKey, Group } from '@/types'
 
 type RoutePredicate = (route: ApiKey['multi_group_routes'][number]) => boolean
 
+export interface ApiKeyUnifiedAccessCapabilities {
+  chat: boolean
+  image: boolean
+  video: boolean
+}
+
 function groupSupportsChat(group: Group | undefined | null): group is Group {
   if (!group || group.status === 'inactive') return false
   return group.routing_scope === 'inference' && (
@@ -103,10 +109,17 @@ export function apiKeySupportsVideoGeneration(key: ApiKey): boolean {
   return key.status === 'active' && apiKeyVideoGroups(key).length > 0
 }
 
+export function apiKeyUnifiedAccessCapabilities(key: ApiKey): ApiKeyUnifiedAccessCapabilities {
+  return {
+    chat: apiKeySupportsChat(key),
+    image: apiKeySupportsOpenAIImageGeneration(key),
+    video: apiKeySupportsVideoGeneration(key),
+  }
+}
+
 export function apiKeySupportsUnifiedAccess(key: ApiKey): boolean {
-  return apiKeySupportsChat(key) &&
-    apiKeySupportsOpenAIImageGeneration(key) &&
-    apiKeySupportsVideoGeneration(key)
+  const capabilities = apiKeyUnifiedAccessCapabilities(key)
+  return capabilities.chat && capabilities.image
 }
 
 export function primaryAPIKeyGroupName(key: ApiKey): string {

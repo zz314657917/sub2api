@@ -1,6 +1,7 @@
 # 当前任务快照
 
-最后更新：2026-06-14 13:45 +08:00
+最后更新：2026-06-17 11:20 +08:00
+本轮追加：2026-06-17 11:20 +08:00
 
 ## 背景
 
@@ -45,6 +46,10 @@
 - 2026-06-12 复核确认以下中小候选也已等价覆盖，暂不重复迁：长上下文 cache_read/cache_creation 倍率、Antigravity streaming `message_start.message.usage` 输入 token 采集、OpenAI WS terminal event 不计入 first-token、Gemini messages streaming tool_use->text block closure、count_tokens generation 字段过滤、Claude Code count_tokens UA-only 放行、Ops metrics 排除 count_tokens、WS usage dedup、并发 acquire 失败分类。
 - 2026-06-13 管理员用户视图继续补齐用户治理字段：`users` 表和后台用户列表已把注册 IP / 最近登录 IP 纳入稳定数据面；后续排查注册来源、首充领取、异常登录或风控限制时，应默认把 IP 信息当作后台一等字段，而不是一次性调试信息。
 - 2026-06-14 支付后台已支持可配置充值套餐：充值页、后台设置、支付恢复和兑现逻辑不再只服务固定金额流，而是围绕后台套餐配置运转；这说明“支付闭环”现在已从首充福利 bonus 继续推进到“套餐定义 + 支付回跳 + 恢复/兑现”的完整后台治理面。
+- 2026-06-17 上游 `v0.1.137` 安全/兼容补丁已在分支 `codex/upstream-v0137-safe-patches` 小步迁移完成，workflow Sprint `upstream-main-v0137-safe-patches-s15` 状态为 `done`；本轮只合入低风险安全、兼容、计费兜底和 thinking 协议补丁，没有整体 merge `upstream/main`，也没有触碰 Ent/migrations/VERSION 或 Studio Bridge、Canvas、支付页、公共页等产品定制文件。
+- 2026-06-17 本轮迁移的关键结论：前端 `form-data` 锁定到 `4.0.6`；token refresh 增加不可重试错误；上游响应支持 zstd；非流式 2xx 非 JSON 与 SSE `event:error` 进入 failover 并保留原始错误体；tool strict 缺省补 false；国产模型 fallback pricing 和图像输入 token 计费补齐；DeepSeek `reasoning_effort=max` 归一化为 `xhigh`；Anthropic thinking block 过滤改为按 mapped upstream model 分流，避免 DeepSeek/Kimi/GLM/MiniMax/Qwen thinking 兼容上游被误剥离历史 thinking。
+- 2026-06-17 继续完成上游 `v0.1.137` 小兼容 S16，workflow Sprint `upstream-main-v0137-small-compat-s16` 状态为 `done`；本轮迁移 Responses API sticky hash 以 `input` 兜底、Claude Code `max_tokens=1` Haiku 流式探测拦截、OpenAI APIKey `/responses` probe 工具能力校验、API Key ACL 拒绝信息带实际 IP。仍未 merge/rebase 上游，且 denied path audit 为 `NO_DENIED_PATHS`。
+- 2026-06-17 上游 `b81694929` 已作为独立 S17 完成，workflow Sprint `upstream-main-openai-quota-reset-s17` 状态为 `done`；新增管理员 OpenAI OAuth 账号上游 WHAM quota 查询和 rate-limit reset credit 消费入口，后端复用 token provider、privacy client factory 和账号代理解析，前端仅在 OpenAI OAuth usage cell 展示上游 credits 查询/重置控件；未触碰 Ent/migrations/VERSION、Studio Bridge、支付、Canvas、公共页或模型市场。
 
 ## 下一步
 
@@ -54,6 +59,7 @@
 - 用真实账号验证注册/登录、充值、落叶AI创作扣费、使用记录、团队空间最小闭环。
 - 本地重启后若再遇到 `STUDIO_BRIDGE_DISABLED`，优先检查 env secret 是否注入、active image group 是否存在且允许生图、以及设置是否被正式域名配置覆盖；不要再手动硬编码默认 group `4`。
 - 如继续上游合成，必须单独开 Sprint，避免覆盖 Studio Bridge 和落叶AI入口；下一轮优先只看仍未确认的中小稳定修复，暂不孤立迁 `service_quota_enabled` 这类依赖功能链的尾巴，也不碰 `0acf00c4 Add admin compliance acknowledgement gate` 这种产品行为级门禁。
+- 如继续上游合成，基于 S15/S16/S17 结果继续只做小步 contract；OpenAI quota UI/reset 已完成，仍跳过 migration-heavy、cyber_policy、渠道监控 jitter、Claude OAuth system prompt blocks 等大链路。下一批可单独评估 OpenAI image failover、Anthropic window cooldown、account list parameter batching、token refresh retry amplification/outbox dedup 等候选。若要修前端全量 Vitest 失败，另开前端稳定化任务，当前失败集中在 Studio/Canvas/导航/支付等非本轮改动产品面。
 - 真实支付回调、真钱充值、真实上游创作成功/失败扣退、网络超时/DB 故障注入和迁移演练仍需 staging 或生产环境验证；本地验收不触碰真钱支付。
 - 若用户浏览器仍看到旧的使用记录空表，先强刷 `/usage`；当前本地容器已更新到新前端资源，正常无需清数据库或改扣费记录。
 
@@ -99,3 +105,24 @@
 - 2026-06-12 上游 `v0.1.136` 小步合成验证：
   - `cd F:/mcplugins/sub2api/backend && go test ./internal/service -run "TestCodexWindowStatsStart|TestBuildCodexUsageProgressFromExtra|TestResolveOpenAICodex7dTempBlock" -count=1` 通过。
   - 2026-06-13~2026-06-14 的支付/用户治理扩展尚未在本页补新的真实浏览器或联调证据；当前先以提交主题和测试落点确认它们已进入默认知识面，后续如继续推进应优先补套餐配置、支付恢复和用户 IP 字段的定向验收记录。
+- 2026-06-17 上游 `v0.1.137` S15 小步合成验证：
+  - `cd F:/mcplugins/sub2api/backend && go test -tags=unit ./internal/service -run "TestGetFallbackPricing_FamilyMatching|TestGetModelPricing_DoubaoEmbeddingVisionImageInputRate|TestCalculateCost_DoubaoEmbeddingVisionDifferentialInput|TestHandleNonStreamingResponse|TestHandleStreamingResponse_SSEErrorEvent|TestIsNonRetryableRefreshError|TestResolveThinkingProtocol|TestThinkingFilters|TestNormalizeChineseLLMThinking|TestApplyThinkingEnabledFallback|TestExtractOpenAIReasoningEffortFromBody" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api/backend && go test ./internal/service -run "TestOpenAIGatewayServiceRecordUsage_MissingPricingRecordsZeroCostUsageLog|TestExtractOpenAIReasoningEffortFromBody|TestIsNonRetryableRefreshError|TestResolveThinkingProtocol|TestThinkingFilters|TestNormalizeChineseLLMThinking|TestApplyThinkingEnabledFallback" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api/backend && go test -tags=unit ./internal/service -run "Test.*Billing|Test.*Thinking|Test.*Reasoning|Test.*Gateway|Test.*OpenAI|Test.*TokenRefresh|Test.*FilterThinking|Test.*ThinkingFilters|Test.*NormalizeChineseLLMThinking|Test.*ApplyThinkingEnabledFallback" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api/backend && go test ./internal/repository -run "Test.*Decompress|Test.*HTTPUpstream" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api/backend && go test ./internal/pkg/apicompat -count=1` 通过。
+  - `git diff --check` 通过；lockfile 扫描确认没有 `form-data@4.0.5` / `form-data: 4.0.5` 残留。
+  - `cd F:/mcplugins/sub2api/frontend && npm.cmd run test:run -- --runInBand` 因 Vitest 不支持 Jest 参数失败；替代命令 `npm.cmd run test:run -- --pool=threads --poolOptions.threads.singleThread=true` 执行后仍有既有/非本轮产品面失败，已记录在 `docs/workflow/qa-reports/upstream-main-v0137-safe-patches-s15-qa.md`。
+- 2026-06-17 上游 `v0.1.137` S16 小步合成验证：
+  - `cd F:/mcplugins/sub2api/backend && go test -tags=unit ./internal/service -run "TestParseGatewayRequest_ResponsesInput|TestGenerateSessionHash_ResponsesInputProducesHash|TestDecideResponsesProbeSupportRequiresFunctionCallOn2xx|TestOpenAIResponsesProbePayloadForcesFunctionCall|TestSelectResponsesProbeModelUsesMappedUpstreamModel|TestProbeOpenAIAPIKeyResponsesSupportPersistsToolCapability" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api/backend && go test -tags=unit ./internal/handler -run "TestDetectInterceptType_MaxTokensOneHaiku|TestSendMockInterceptResponse_MaxTokensOneHaiku" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api/backend && go test -tags=unit ./internal/server/middleware -run "TestAPIKeyAuthIPRestrictionDoesNotTrustSpoofedForwardHeaders|TestAPIKeyAuthIPRestrictionIncludesClientIPForBlacklistDenial" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api/backend && go test -tags=unit ./internal/service -run "Test.*Billing|Test.*Thinking|Test.*Reasoning|Test.*Gateway|Test.*OpenAI|Test.*TokenRefresh|Test.*FilterThinking|Test.*ThinkingFilters|Test.*NormalizeChineseLLMThinking|Test.*ApplyThinkingEnabledFallback|Test.*GenerateSessionHash|TestParseGatewayRequest" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api/backend && go test ./internal/repository -run "Test.*Decompress|Test.*HTTPUpstream" -count=1` 通过；`go test ./internal/pkg/apicompat -count=1` 通过；`git diff --check` 通过；denied-path audit 返回 `NO_DENIED_PATHS`；lockfile scan 返回 `NO_FORM_DATA_405`。
+- 2026-06-17 上游 `b81694929` S17 OpenAI quota/reset 独立迁移验证：
+  - `cd F:/mcplugins/sub2api/backend && go test -tags=unit ./internal/service -run "TestOpenAIQuota" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api/backend && go test -tags=unit ./internal/handler/admin -run "TestOpenAIOAuthHandler.*Quota" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api/backend && go test ./internal/service -run "^$" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api/backend && go test ./internal/handler/admin -run "^$" -count=1` 通过。
+  - `cd F:/mcplugins/sub2api && cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/components/account/__tests__/OpenAIQuotaResetCell.spec.ts src/components/account/__tests__/AccountUsageCell.spec.ts"` 通过，2 files / 20 tests。
+  - `git diff --check` 通过；denied-path audit 返回 `NO_DENIED_PATHS`。

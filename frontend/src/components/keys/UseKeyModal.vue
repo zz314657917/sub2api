@@ -33,7 +33,27 @@
             <p class="mt-1 text-sm leading-5 text-emerald-700 dark:text-emerald-300">
               {{ t('keys.useKeyModal.unifiedAccessDescription') }}
             </p>
+            <div class="mt-3 flex flex-wrap gap-2">
+              <span
+                v-for="item in unifiedCapabilityItems"
+                :key="item.key"
+                class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium"
+                :class="item.enabled
+                  ? 'bg-white/80 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-200 dark:ring-emerald-700/60'
+                  : 'bg-gray-100 text-gray-500 ring-1 ring-gray-200 dark:bg-dark-800 dark:text-gray-400 dark:ring-dark-600'"
+              >
+                <Icon :name="item.icon" size="xs" />
+                {{ item.label }}
+              </span>
+            </div>
           </div>
+        </div>
+        <div
+          v-if="!unifiedCapabilityState.video"
+          class="mt-3 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:border-amber-800/60 dark:bg-amber-900/20 dark:text-amber-200"
+        >
+          <Icon name="infoCircle" size="sm" class="mt-0.5 flex-shrink-0" />
+          <span>{{ t('keys.useKeyModal.unifiedAccessVideoUnavailable') }}</span>
         </div>
         <div class="mt-3 space-y-3">
           <div
@@ -182,6 +202,7 @@ interface Props {
   platform: GroupPlatform | null
   allowMessagesDispatch?: boolean
   unifiedAccess?: boolean
+  unifiedCapabilities?: UnifiedAccessCapabilities
 }
 
 interface Emits {
@@ -201,6 +222,12 @@ interface FileConfig {
   highlighted?: string
 }
 
+interface UnifiedAccessCapabilities {
+  chat: boolean
+  image: boolean
+  video: boolean
+}
+
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
@@ -212,6 +239,34 @@ const activeTab = ref<string>('unix')
 const activeClientTab = ref<string>('codex')
 const effectivePlatform = computed<GroupPlatform>(() => props.platform ?? 'openai')
 const unifiedAccess = computed(() => props.unifiedAccess === true)
+const unifiedCapabilityState = computed<UnifiedAccessCapabilities>(() => ({
+  chat: props.unifiedCapabilities?.chat ?? unifiedAccess.value,
+  image: props.unifiedCapabilities?.image ?? unifiedAccess.value,
+  video: props.unifiedCapabilities?.video ?? unifiedAccess.value
+}))
+
+const unifiedCapabilityItems = computed(() => [
+  {
+    key: 'chat',
+    label: t('keys.useKeyModal.unifiedAccessCapabilities.chat'),
+    icon: 'chat' as const,
+    enabled: unifiedCapabilityState.value.chat
+  },
+  {
+    key: 'image',
+    label: t('keys.useKeyModal.unifiedAccessCapabilities.image'),
+    icon: 'image' as const,
+    enabled: unifiedCapabilityState.value.image
+  },
+  {
+    key: 'video',
+    label: unifiedCapabilityState.value.video
+      ? t('keys.useKeyModal.unifiedAccessCapabilities.video')
+      : t('keys.useKeyModal.unifiedAccessCapabilities.videoDisabled'),
+    icon: 'sparkles' as const,
+    enabled: unifiedCapabilityState.value.video
+  }
+])
 
 // Reset tabs when platform changes
 const defaultClientTab = computed(() => {
@@ -477,29 +532,35 @@ const unifiedAccessFiles = computed((): FileConfig[] => {
   const baseRoot = normalizeBaseUrl(props.baseUrl || window.location.origin)
   const apiBase = baseRoot.replace(/\/v1\/?$/, '').replace(/\/+$/, '') + '/v1'
   const apiKey = props.apiKey
-  return [
-    {
+  const files: FileConfig[] = []
+  if (unifiedCapabilityState.value.chat) {
+    files.push({
       path: 'Chat Completions',
       content: `curl ${apiBase}/chat/completions \\
   -H "Authorization: Bearer ${apiKey}" \\
   -H "Content-Type: application/json" \\
   -d '{"model":"gpt-5.4","messages":[{"role":"user","content":"Hello"}]}'`
-    },
-    {
+    })
+  }
+  if (unifiedCapabilityState.value.image) {
+    files.push({
       path: 'Image Generations',
       content: `curl ${apiBase}/images/generations \\
   -H "Authorization: Bearer ${apiKey}" \\
   -H "Content-Type: application/json" \\
   -d '{"model":"gpt-image-2","prompt":"A clean product photo of a glass teapot"}'`
-    },
-    {
+    })
+  }
+  if (unifiedCapabilityState.value.video) {
+    files.push({
       path: 'Video Generations',
       content: `curl ${apiBase}/videos/generations \\
   -H "Authorization: Bearer ${apiKey}" \\
   -H "Content-Type: application/json" \\
   -d '{"model":"doubao-seedance-2-0-fast-480p","prompt":"A cinematic sunrise over a quiet mountain lake"}'`
-    }
-  ]
+    })
+  }
+  return files
 })
 
 function generateAnthropicFiles(baseUrl: string, apiKey: string): FileConfig[] {

@@ -298,7 +298,7 @@ func TestOpenAIGatewayServiceRecordUsage_MissingPricingRecordsZeroCostUsageLog(t
 				InputTokens:  1200,
 				OutputTokens: 300,
 			},
-			Model:    "deepseek-v4-flash",
+			Model:    "unknown-no-pricing-model",
 			Duration: time.Second,
 		},
 		APIKey:        &APIKey{ID: 1002, Quota: 100, Group: &Group{RateMultiplier: 1}},
@@ -317,8 +317,8 @@ func TestOpenAIGatewayServiceRecordUsage_MissingPricingRecordsZeroCostUsageLog(t
 
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, "resp_missing_pricing", usageRepo.lastLog.RequestID)
-	require.Equal(t, "deepseek-v4-flash", usageRepo.lastLog.Model)
-	require.Equal(t, "deepseek-v4-flash", usageRepo.lastLog.RequestedModel)
+	require.Equal(t, "unknown-no-pricing-model", usageRepo.lastLog.Model)
+	require.Equal(t, "unknown-no-pricing-model", usageRepo.lastLog.RequestedModel)
 	require.Equal(t, 1200, usageRepo.lastLog.InputTokens)
 	require.Equal(t, 300, usageRepo.lastLog.OutputTokens)
 	require.Zero(t, usageRepo.lastLog.TotalCost)
@@ -1477,6 +1477,107 @@ func TestOpenAIGatewayServiceRecordUsage_OutputImageSizeWinsBeforeBillingAndPers
 	require.Equal(t, map[string]int{ImageBillingSize4K: 1}, usageRepo.lastLog.ImageSizeBreakdown)
 	require.InDelta(t, 0.44, usageRepo.lastLog.TotalCost, 1e-12)
 	require.InDelta(t, 0.44, usageRepo.lastLog.ActualCost, 1e-12)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_Output1536x864Downshifts4KIntent(t *testing.T) {
+	imagePrice1K := 0.051
+	imagePrice4K := 0.152
+	groupID := int64(1203)
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:        "resp_image_4k_intent_1536x864_output",
+			Model:            "gpt-image-2",
+			ImageCount:       3,
+			ImageSize:        ImageBillingSize1K,
+			ImageInputSize:   ImageBillingSize4K,
+			ImageOutputSizes: []string{"1536x864", "1536x864", "1536x864"},
+			ImageSizeSource:  ImageSizeSourceOutput,
+			ImageSizeBreakdown: map[string]int{
+				ImageBillingSize1K: 3,
+			},
+			Duration: time.Second,
+		},
+		APIKey: &APIKey{
+			ID:      11203,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:             groupID,
+				RateMultiplier: 1.0,
+				ImagePrice1K:   &imagePrice1K,
+				ImagePrice4K:   &imagePrice4K,
+			},
+		},
+		User:    &User{ID: 21203},
+		Account: &Account{ID: 31203},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, 3, usageRepo.lastLog.ImageCount)
+	require.NotNil(t, usageRepo.lastLog.ImageSize)
+	require.Equal(t, ImageBillingSize1K, *usageRepo.lastLog.ImageSize)
+	require.NotNil(t, usageRepo.lastLog.ImageInputSize)
+	require.Equal(t, ImageBillingSize4K, *usageRepo.lastLog.ImageInputSize)
+	require.NotNil(t, usageRepo.lastLog.ImageOutputSize)
+	require.Equal(t, "1536x864", *usageRepo.lastLog.ImageOutputSize)
+	require.NotNil(t, usageRepo.lastLog.ImageSizeSource)
+	require.Equal(t, ImageSizeSourceOutput, *usageRepo.lastLog.ImageSizeSource)
+	require.Equal(t, map[string]int{ImageBillingSize1K: 3}, usageRepo.lastLog.ImageSizeBreakdown)
+	require.InDelta(t, 0.153, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.153, usageRepo.lastLog.ActualCost, 1e-12)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_Output1536x864UsesCostOverrideWhenPresent(t *testing.T) {
+	imagePrice1K := 0.051
+	groupID := int64(1204)
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:        "resp_image_4k_intent_1536x864_cost_override",
+			Model:            "gpt-image-2",
+			ImageCount:       3,
+			ImageSize:        ImageBillingSize1K,
+			ImageInputSize:   ImageBillingSize4K,
+			ImageOutputSizes: []string{"1536x864", "1536x864", "1536x864"},
+			ImageSizeSource:  ImageSizeSourceOutput,
+			ImageSizeBreakdown: map[string]int{
+				ImageBillingSize1K: 3,
+			},
+			Duration: time.Second,
+			CostOverride: &CostBreakdown{
+				TotalCost:   0.026,
+				BillingMode: string(BillingModeImage),
+			},
+		},
+		APIKey: &APIKey{
+			ID:      11204,
+			GroupID: i64p(groupID),
+			Group: &Group{
+				ID:             groupID,
+				RateMultiplier: 1.0,
+				ImagePrice1K:   &imagePrice1K,
+			},
+		},
+		User:    &User{ID: 21204},
+		Account: &Account{ID: 31204},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.NotNil(t, usageRepo.lastLog.ImageSize)
+	require.Equal(t, ImageBillingSize1K, *usageRepo.lastLog.ImageSize)
+	require.NotNil(t, usageRepo.lastLog.ImageInputSize)
+	require.Equal(t, ImageBillingSize4K, *usageRepo.lastLog.ImageInputSize)
+	require.NotNil(t, usageRepo.lastLog.ImageOutputSize)
+	require.Equal(t, "1536x864", *usageRepo.lastLog.ImageOutputSize)
+	require.Equal(t, map[string]int{ImageBillingSize1K: 3}, usageRepo.lastLog.ImageSizeBreakdown)
+	require.InDelta(t, 0.026, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, 0.026, usageRepo.lastLog.ActualCost, 1e-12)
 }
 
 func TestOpenAIGatewayServiceRecordUsage_ImageUsesPerImageBillingEvenWithUsageTokens(t *testing.T) {

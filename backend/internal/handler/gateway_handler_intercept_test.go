@@ -14,11 +14,19 @@ import (
 func TestDetectInterceptType_MaxTokensOneHaikuRequiresClaudeCodeClient(t *testing.T) {
 	body := []byte(`{"messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}]}`)
 
-	notClaudeCode := detectInterceptType(body, "claude-haiku-4-5", 1, false, false)
+	notClaudeCode := detectInterceptType(body, "claude-haiku-4-5", 1, false)
 	require.Equal(t, InterceptTypeNone, notClaudeCode)
 
-	isClaudeCode := detectInterceptType(body, "claude-haiku-4-5", 1, false, true)
+	isClaudeCode := detectInterceptType(body, "claude-haiku-4-5", 1, true)
 	require.Equal(t, InterceptTypeMaxTokensOneHaiku, isClaudeCode)
+}
+
+func TestDetectInterceptType_MaxTokensOneHaikuIncludesStreamingProbe(t *testing.T) {
+	body := []byte(`{"stream":true,"messages":[{"role":"user","content":[{"type":"text","text":"hello"}]}]}`)
+
+	require.True(t, isMaxTokensOneHaikuRequest("claude-haiku-4-5", 1))
+	got := detectInterceptType(body, "claude-haiku-4-5", 1, true)
+	require.Equal(t, InterceptTypeMaxTokensOneHaiku, got)
 }
 
 func TestDetectInterceptType_SuggestionModeUnaffected(t *testing.T) {
@@ -30,7 +38,7 @@ func TestDetectInterceptType_SuggestionModeUnaffected(t *testing.T) {
 		"system":[]
 	}`)
 
-	got := detectInterceptType(body, "claude-sonnet-4-5", 256, false, false)
+	got := detectInterceptType(body, "claude-sonnet-4-5", 256, false)
 	require.Equal(t, InterceptTypeSuggestionMode, got)
 }
 

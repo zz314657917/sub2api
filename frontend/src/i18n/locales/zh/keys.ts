@@ -21,7 +21,13 @@ export default {
     defaultKeyStudioNote: '创作台默认调用，可改分组或模型路由切换模型。',
     defaultKeyDeleteDisabled: '默认 API Key 不能删除，可修改它的分组或模型路由。',
     unifiedKeyBadge: '统一 API',
-    unifiedKeyHint: '这把 Key 已覆盖聊天、生图和视频路由，可用 OpenAI 兼容 Base URL 调用多类模型。',
+    unifiedKeyHint: '这把 Key 已覆盖聊天和生图路由，可用 OpenAI 兼容 Base URL 调用多类模型；视频为可选能力。',
+    capabilities: {
+      chat: '聊天',
+      image: '生图',
+      video: '视频',
+      videoDisabled: '视频未启用'
+    },
     apiKey: 'API 密钥',
     group: '分组',
     noGroup: '无分组',
@@ -149,7 +155,14 @@ export default {
         '此密钥未绑定默认分组，会由运行时路由按模型和可用账号选择分组。可先使用下方 OpenAI 兼容配置；如调用失败，请联系管理员确认可用路由、套餐或积分。',
       unifiedAccessTitle: '统一 API Key',
       unifiedAccessDescription:
-        '同一把 Key 可通过 OpenAI 兼容入口调用聊天、生图和视频模型；实际分组由模型名和路由规则自动选择。',
+        '同一把 Key 可通过 OpenAI 兼容入口调用聊天和生图模型；视频可用时会自动显示对应示例，实际分组由模型名和路由规则选择。',
+      unifiedAccessVideoUnavailable: '当前 Key 没有可用视频路由；配置默认视频分组后会自动开放视频接口示例。',
+      unifiedAccessCapabilities: {
+        chat: '聊天',
+        image: '生图',
+        video: '视频',
+        videoDisabled: '视频未启用'
+      },
       openai: {
         description: '将以下配置文件添加到 Codex CLI 配置目录中。',
         configTomlHint: '请确保以下内容位于 config.toml 文件的开头部分',

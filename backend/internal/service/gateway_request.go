@@ -70,6 +70,7 @@ type ParsedRequest struct {
 	MetadataUserID  string          // metadata.user_id（用于会话亲和）
 	System          any             // system 字段内容
 	Messages        []any           // messages 数组
+	Input           any             // Responses API input 字段内容（用于粘性会话 hash）
 	HasSystem       bool            // 是否包含 system 字段（包含 null 也视为显式传入）
 	ThinkingEnabled bool            // 是否开启 thinking（部分平台会影响最终模型名）
 	OutputEffort    string          // output_config.effort（Claude API 的推理强度控制）
@@ -238,6 +239,21 @@ func ParseGatewayRequest(body []byte, protocol string) (*ParsedRequest, error) {
 			}
 			parsed.Messages = messages
 		}
+
+		if protocol == "responses" {
+			if input := gjson.Get(jsonStr, "input"); input.Exists() {
+				switch input.Type {
+				case gjson.String:
+					parsed.Input = input.String()
+				default:
+					var value any
+					if err := json.Unmarshal(sliceRawFromBody(body, input), &value); err != nil {
+						return nil, err
+					}
+					parsed.Input = value
+				}
+			}
+		}
 	}
 
 	return parsed, nil
@@ -377,7 +393,10 @@ func StripEmptyTextBlocks(body []byte) []byte {
 //   - 当 thinking.type 不是 "enabled"/"adaptive"：移除所有 thinking 相关块
 //   - 当 thinking.type 是 "enabled"/"adaptive"：仅移除缺失/无效 signature 的 thinking 块（避免 400）
 //     (blocks with missing/empty/dummy signatures that would cause 400 errors)
-func FilterThinkingBlocks(body []byte) []byte {
+func FilterThinkingBlocks(body []byte, mappedModel ...string) []byte {
+	if len(mappedModel) > 0 && !ShouldPreFilterThinkingBlocks(mappedModel[0]) {
+		return body
+	}
 	return filterThinkingBlocksInternal(body, false)
 }
 
@@ -395,7 +414,10 @@ func FilterThinkingBlocks(body []byte) []byte {
 //   - Convert `thinking` blocks to `text` blocks (preserve the thinking content).
 //   - Remove `redacted_thinking` blocks (cannot be converted to text).
 //   - Ensure no message ends up with empty content.
-func FilterThinkingBlocksForRetry(body []byte) []byte {
+func FilterThinkingBlocksForRetry(body []byte, mappedModel ...string) []byte {
+	if len(mappedModel) > 0 && !ShouldApplyRetryFilters(mappedModel[0]) {
+		return body
+	}
 	hasThinkingContent := bytes.Contains(body, patternTypeThinking) ||
 		bytes.Contains(body, patternTypeThinkingSpaced) ||
 		bytes.Contains(body, patternTypeRedactedThinking) ||
@@ -738,7 +760,10 @@ func anthropicBetaTokensContains(header, token string) bool {
 //
 // Use this only when needed: converting tool blocks to text changes model behaviour and can increase the
 // risk of prompt injection (tool output becomes plain conversation text).
-func FilterSignatureSensitiveBlocksForRetry(body []byte) []byte {
+func FilterSignatureSensitiveBlocksForRetry(body []byte, mappedModel ...string) []byte {
+	if len(mappedModel) > 0 && !ShouldApplyRetryFilters(mappedModel[0]) {
+		return body
+	}
 	// Fast path: only run when we see likely relevant constructs.
 	if !bytes.Contains(body, []byte(`"type":"thinking"`)) &&
 		!bytes.Contains(body, []byte(`"type": "thinking"`)) &&
@@ -1031,6 +1056,53 @@ func NormalizeClaudeOutputEffort(raw string) *string {
 	default:
 		return nil
 	}
+}
+
+// DefaultEffortForThinkingEnabled returns a usage-log fallback effort for
+// upstreams where thinking is only an on/off switch and the client did not send
+// an explicit effort.
+func DefaultEffortForThinkingEnabled(mappedModel string) *string {
+	if ResolveThinkingProtocol(mappedModel) != ThinkingProtocolPassbackRequired {
+		return nil
+	}
+	if strings.HasPrefix(strings.ToLower(strings.TrimSpace(mappedModel)), "deepseek-") {
+		return nil
+	}
+	effort := "high"
+	return &effort
+}
+
+func OpenAIBodyHasThinkingEnabled(body []byte) bool {
+	thinkingType := strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "thinking.type").String()))
+	return thinkingType == "enabled" || thinkingType == "adaptive"
+}
+
+func ApplyThinkingEnabledFallback(effort *string, body []byte, mappedModel string) *string {
+	if effort != nil {
+		return effort
+	}
+	if !OpenAIBodyHasThinkingEnabled(body) {
+		return nil
+	}
+	return DefaultEffortForThinkingEnabled(mappedModel)
+}
+
+// NormalizeChineseLLMThinking rewrites provider-specific thinking values for
+// Chinese Anthropic-compatible upstreams. MiniMax M-series accepts adaptive /
+// disabled, while Anthropic SDK clients commonly send enabled.
+func NormalizeChineseLLMThinking(body []byte, mappedModel string) ([]byte, bool) {
+	modelLower := strings.ToLower(strings.TrimSpace(mappedModel))
+	if !strings.HasPrefix(modelLower, "minimax-m") {
+		return body, false
+	}
+	if gjson.GetBytes(body, "thinking.type").String() != "enabled" {
+		return body, false
+	}
+	modified, err := sjson.SetBytes(body, "thinking.type", "adaptive")
+	if err != nil {
+		return body, false
+	}
+	return modified, true
 }
 
 // =========================

@@ -3,7 +3,9 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -34,7 +36,7 @@ func (w *failingOpenAIImageWriter) Write(p []byte) (int, error) {
 
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_JSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","size":"1024x1024","quality":"high","stream":true}`)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","size":"1024x1024","image_resolution":"4k","quality":"high","stream":true}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -51,9 +53,70 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_JSON(t *testing.T) {
 	require.Equal(t, "draw a cat", parsed.Prompt)
 	require.True(t, parsed.Stream)
 	require.Equal(t, "1024x1024", parsed.Size)
+	require.Equal(t, "4k", parsed.Resolution)
 	require.Equal(t, "1K", parsed.SizeTier)
 	require.Equal(t, OpenAIImagesCapabilityNative, parsed.RequiredCapability)
 	require.False(t, parsed.Multipart)
+}
+
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_GeminiFields(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gemini-3.1-flash-image-preview","prompt":"draw a cat","n":2,"size":"16:9","resolution":"4k","image_urls":["https://example.com/a.png"],"image_url":"https://example.com/b.png","mask_url":"https://example.com/mask.png","google_search":true,"google_image_search":false}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	require.Equal(t, "gemini-3.1-flash-image-preview", parsed.Model)
+	require.Equal(t, []string{"https://example.com/a.png", "https://example.com/b.png"}, parsed.InputImageURLs)
+	require.Equal(t, "https://example.com/mask.png", parsed.MaskImageURL)
+	require.NotNil(t, parsed.GoogleSearch)
+	require.True(t, *parsed.GoogleSearch)
+	require.NotNil(t, parsed.GoogleImageSearch)
+	require.False(t, *parsed.GoogleImageSearch)
+}
+
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_ReferenceLimits(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	tests := []struct {
+		name  string
+		model string
+		count int
+	}{
+		{name: "gemini", model: "gemini-3-pro-image-preview", count: 15},
+		{name: "midjourney", model: "midjourney", count: 5},
+		{name: "grok-imagine", model: "grok-imagine-1.5-edit-apimart", count: 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			urls := make([]string, 0, tt.count)
+			for i := 0; i < tt.count; i++ {
+				urls = append(urls, fmt.Sprintf("https://example.com/ref-%d.png", i))
+			}
+			rawURLs, err := json.Marshal(urls)
+			require.NoError(t, err)
+			body := []byte(`{"model":"` + tt.model + `","prompt":"draw","image_urls":` + string(rawURLs) + `}`)
+			path := "/v1/images/generations"
+			if tt.model == "midjourney" {
+				path = "/midjourney/generations"
+			}
+			req := httptest.NewRequest(http.MethodPost, path, bytes.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = req
+
+			parsed, err := (&OpenAIGatewayService{}).ParseOpenAIImagesRequest(c, body)
+			require.Nil(t, parsed)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "supports at most")
+		})
+	}
 }
 
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T) {
@@ -64,6 +127,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T
 	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
 	require.NoError(t, writer.WriteField("prompt", "replace background"))
 	require.NoError(t, writer.WriteField("size", "1536x1024"))
+	require.NoError(t, writer.WriteField("image_resolution", "2k"))
 	part, err := writer.CreateFormFile("image", "source.png")
 	require.NoError(t, err)
 	_, err = part.Write([]byte("fake-image-bytes"))
@@ -85,6 +149,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T
 	require.Equal(t, "gpt-image-2", parsed.Model)
 	require.Equal(t, "replace background", parsed.Prompt)
 	require.Equal(t, "1536x1024", parsed.Size)
+	require.Equal(t, "2k", parsed.Resolution)
 	require.Equal(t, "2K", parsed.SizeTier)
 	require.Len(t, parsed.Uploads, 1)
 	require.Equal(t, OpenAIImagesCapabilityNative, parsed.RequiredCapability)
@@ -1269,6 +1334,279 @@ func TestOpenAIGatewayServiceForwardImages_APIMartRegularImageSplitsMultiImageRe
 	require.Equal(t, "https://upload.apimart.ai/output-3.png", gjson.Get(rec.Body.String(), "data.2.url").String())
 }
 
+func TestOpenAIGatewayServiceForwardImages_APIMartGeminiImagePayload(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gemini-3.1-flash-image-preview","prompt":"draw with references","n":2,"size":"16:9","resolution":"4k","quality":"high","background":"transparent","image_urls":["https://example.com/ref.png"],"mask_url":"https://example.com/mask.png","google_search":true,"google_image_search":false}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_gemini"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_gemini","status":"completed","result":{"images":[{"url":["https://upload.example/gemini.png"],"size":"3840x2160"}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       17,
+		Name:     "apimart-gemini",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "gemini-3.1-flash-image-preview", result.UpstreamModel)
+	require.Len(t, upstream.requests, 2)
+	require.Equal(t, "https://api.apimart.ai/v1/images/generations", upstream.requests[0].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/tasks/task_gemini?language=zh", upstream.requests[1].URL.String())
+	submitBody := upstream.bodies[0]
+	require.Equal(t, "gemini-3.1-flash-image-preview", gjson.GetBytes(submitBody, "model").String())
+	require.Equal(t, "draw with references", gjson.GetBytes(submitBody, "prompt").String())
+	require.Equal(t, int64(2), gjson.GetBytes(submitBody, "n").Int())
+	require.Equal(t, "16:9", gjson.GetBytes(submitBody, "size").String())
+	require.Equal(t, "4k", gjson.GetBytes(submitBody, "resolution").String())
+	require.Equal(t, "https://example.com/ref.png", gjson.GetBytes(submitBody, "image_urls.0").String())
+	require.Equal(t, "https://example.com/mask.png", gjson.GetBytes(submitBody, "mask_url").String())
+	require.True(t, gjson.GetBytes(submitBody, "google_search").Bool())
+	require.False(t, gjson.GetBytes(submitBody, "google_image_search").Bool())
+	require.False(t, gjson.GetBytes(submitBody, "quality").Exists())
+	require.False(t, gjson.GetBytes(submitBody, "background").Exists())
+	require.False(t, gjson.GetBytes(submitBody, "official_fallback").Exists())
+}
+
+func TestOpenAIGatewayServiceForwardImages_APIMartMidjourneyUploadsAndPayload(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "midjourney"))
+	require.NoError(t, writer.WriteField("prompt", "imagine a catalog scene"))
+	require.NoError(t, writer.WriteField("n", "2"))
+	require.NoError(t, writer.WriteField("size", "16:9"))
+	require.NoError(t, writer.WriteField("version", "6.1"))
+	require.NoError(t, writer.WriteField("speed", "relax"))
+	require.NoError(t, writer.WriteField("quality", "1"))
+	require.NoError(t, writer.WriteField("stylize", "100"))
+	require.NoError(t, writer.WriteField("chaos", "7"))
+	require.NoError(t, writer.WriteField("weird", "3"))
+	require.NoError(t, writer.WriteField("stop", "85"))
+	require.NoError(t, writer.WriteField("niji", "true"))
+	require.NoError(t, writer.WriteField("raw", "false"))
+	require.NoError(t, writer.WriteField("tile", "true"))
+	imagePart, err := writer.CreateFormFile("image", "reference.png")
+	require.NoError(t, err)
+	_, err = imagePart.Write([]byte("png-image-content"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/midjourney/generations", bytes.NewReader(body.Bytes()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"url":"https://upload.example/ref.png"}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_mj"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_mj","status":"completed","result":{"images":[{"url":["https://upload.example/mj.png"],"size":"16:9"}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body.Bytes())
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       18,
+		Name:     "apimart-midjourney",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai/v1",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body.Bytes(), parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "midjourney", result.UpstreamModel)
+	require.Len(t, upstream.requests, 3)
+	require.Equal(t, "https://api.apimart.ai/v1/uploads/images", upstream.requests[0].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/midjourney/generations", upstream.requests[1].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/tasks/task_mj?language=zh", upstream.requests[2].URL.String())
+	submitBody := upstream.bodies[1]
+	require.Equal(t, "midjourney", gjson.GetBytes(submitBody, "model").String())
+	require.Equal(t, "imagine a catalog scene", gjson.GetBytes(submitBody, "prompt").String())
+	require.Equal(t, int64(2), gjson.GetBytes(submitBody, "n").Int())
+	require.Equal(t, "16:9", gjson.GetBytes(submitBody, "size").String())
+	require.Equal(t, "6.1", gjson.GetBytes(submitBody, "version").String())
+	require.Equal(t, "relax", gjson.GetBytes(submitBody, "speed").String())
+	require.Equal(t, "1", gjson.GetBytes(submitBody, "quality").String())
+	require.Equal(t, int64(100), gjson.GetBytes(submitBody, "stylize").Int())
+	require.Equal(t, int64(7), gjson.GetBytes(submitBody, "chaos").Int())
+	require.Equal(t, int64(3), gjson.GetBytes(submitBody, "weird").Int())
+	require.Equal(t, int64(85), gjson.GetBytes(submitBody, "stop").Int())
+	require.True(t, gjson.GetBytes(submitBody, "niji").Bool())
+	require.False(t, gjson.GetBytes(submitBody, "raw").Bool())
+	require.True(t, gjson.GetBytes(submitBody, "tile").Bool())
+	require.Equal(t, "https://upload.example/ref.png", gjson.GetBytes(submitBody, "image_urls.0").String())
+	require.False(t, gjson.GetBytes(submitBody, "resolution").Exists())
+	require.False(t, gjson.GetBytes(submitBody, "official_fallback").Exists())
+}
+
+func TestOpenAIGatewayServiceForwardImages_APIMartMidjourneyDropsUnsupportedStop(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"midjourney","prompt":"imagine a catalog scene","n":1,"version":"8.1","stop":85}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/midjourney/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_mj_v8"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_mj_v8","status":"completed","result":{"images":[{"url":["https://upload.example/mj-v8.png"],"size":"1:1"}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       21,
+		Name:     "apimart-midjourney-v8",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai/v1",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "8.1", gjson.GetBytes(upstream.bodies[0], "version").String())
+	require.False(t, gjson.GetBytes(upstream.bodies[0], "stop").Exists())
+}
+
+func TestOpenAIGatewayServiceForwardImages_APIMartGrokImagineGenerationPayload(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"grok-imagine-1.5-apimart","prompt":"draw a cinematic product scene","n":2,"size":"16:9","quality":"high","background":"transparent"}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_grok"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_grok","status":"completed","result":{"images":[{"url":["https://upload.example/grok.png"],"size":"16:9"}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       19,
+		Name:     "apimart-grok",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "grok-imagine-1.5-apimart", result.UpstreamModel)
+	require.Len(t, upstream.requests, 2)
+	require.Equal(t, "https://api.apimart.ai/v1/images/generations", upstream.requests[0].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/tasks/task_grok?language=zh", upstream.requests[1].URL.String())
+	submitBody := upstream.bodies[0]
+	require.Equal(t, "grok-imagine-1.5-apimart", gjson.GetBytes(submitBody, "model").String())
+	require.Equal(t, "draw a cinematic product scene", gjson.GetBytes(submitBody, "prompt").String())
+	require.Equal(t, int64(2), gjson.GetBytes(submitBody, "n").Int())
+	require.Equal(t, "16:9", gjson.GetBytes(submitBody, "size").String())
+	require.False(t, gjson.GetBytes(submitBody, "quality").Exists())
+	require.False(t, gjson.GetBytes(submitBody, "background").Exists())
+	require.False(t, gjson.GetBytes(submitBody, "resolution").Exists())
+	require.False(t, gjson.GetBytes(submitBody, "image_urls").Exists())
+}
+
+func TestOpenAIGatewayServiceForwardImages_APIMartGrokImagineEditUploadsAndPayload(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "grok-imagine-1.5-edit-apimart"))
+	require.NoError(t, writer.WriteField("prompt", "keep the product and change background"))
+	require.NoError(t, writer.WriteField("n", "1"))
+	require.NoError(t, writer.WriteField("size", "1:1"))
+	imagePart, err := writer.CreateFormFile("image", "reference.png")
+	require.NoError(t, err)
+	_, err = imagePart.Write([]byte("png-image-content"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body.Bytes()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"url":"https://upload.example/grok-ref.png"}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_grok_edit"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_grok_edit","status":"completed","result":{"images":[{"url":["https://upload.example/grok-edit.png"],"size":"1:1"}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body.Bytes())
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       20,
+		Name:     "apimart-grok-edit",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai/v1",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body.Bytes(), parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "grok-imagine-1.5-edit-apimart", result.UpstreamModel)
+	require.Len(t, upstream.requests, 3)
+	require.Equal(t, "https://api.apimart.ai/v1/uploads/images", upstream.requests[0].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/images/edits", upstream.requests[1].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/tasks/task_grok_edit?language=zh", upstream.requests[2].URL.String())
+	submitBody := upstream.bodies[1]
+	require.Equal(t, "grok-imagine-1.5-edit-apimart", gjson.GetBytes(submitBody, "model").String())
+	require.Equal(t, "keep the product and change background", gjson.GetBytes(submitBody, "prompt").String())
+	require.Equal(t, int64(1), gjson.GetBytes(submitBody, "n").Int())
+	require.Equal(t, "1:1", gjson.GetBytes(submitBody, "size").String())
+	require.Equal(t, "https://upload.example/grok-ref.png", gjson.GetBytes(submitBody, "image_urls.0").String())
+	require.Len(t, gjson.GetBytes(submitBody, "image_urls").Array(), 1)
+	require.False(t, gjson.GetBytes(submitBody, "resolution").Exists())
+	require.False(t, gjson.GetBytes(submitBody, "official_fallback").Exists())
+}
+
 func TestOpenAIGatewayServiceForwardImages_APIMartOfficialCarriesExactOutputSizeForBilling(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{"model":"gpt-image-2-official","prompt":"draw poster","size":"2576x3216","quality":"medium","n":1}`)
@@ -1308,6 +1646,9 @@ func TestOpenAIGatewayServiceForwardImages_APIMartOfficialCarriesExactOutputSize
 	require.Equal(t, "gpt-image-2-official", result.UpstreamModel)
 	require.Equal(t, 1, result.ImageCount)
 	require.Equal(t, []string{"2576x3216"}, result.ImageOutputSizes)
+	require.Equal(t, ImageBillingSize4K, result.ImageSize)
+	require.Equal(t, ImageSizeSourceOutput, result.ImageSizeSource)
+	require.Equal(t, map[string]int{ImageBillingSize4K: 1}, result.ImageSizeBreakdown)
 	require.Equal(t, "medium", result.ImageQuality)
 	require.NotNil(t, result.CostOverride)
 	require.InDelta(t, 0.1126, result.CostOverride.TotalCost, 1e-12)
@@ -1386,6 +1727,62 @@ func TestOpenAIGatewayServiceForwardImages_APIMartDefaultsBillingToUpstreamResol
 	require.Equal(t, "1k", gjson.GetBytes(upstream.bodies[0], "resolution").String())
 }
 
+func TestOpenAIGatewayServiceForwardImages_APIMartOutput1536x864UsesKnown1KTier(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw wide poster","n":3,"size":"16:9","image_resolution":"4k"}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_1"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_1","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-1.png"],"size":"1536x864"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_2"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_2","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-2.png"],"size":"1536x864"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_3"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_3","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output-3.png"],"size":"1536x864"}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{
+		cfg:          &config.Config{},
+		httpUpstream: upstream,
+	}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       18,
+		Name:     "apimart-regular",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai",
+			"model_mapping": map[string]any{
+				"gpt-image-2": "gpt-image-2",
+			},
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 3, result.ImageCount)
+	require.Equal(t, ImageBillingSize1K, result.ImageSize)
+	require.Equal(t, ImageBillingSize4K, result.ImageInputSize)
+	require.Equal(t, []string{"1536x864", "1536x864", "1536x864"}, result.ImageOutputSizes)
+	require.Equal(t, "1536x864", result.ImageOutputSize)
+	require.Equal(t, ImageSizeSourceOutput, result.ImageSizeSource)
+	require.Equal(t, map[string]int{ImageBillingSize1K: 3}, result.ImageSizeBreakdown)
+	require.Len(t, upstream.bodies, 3)
+	for _, bodyIndex := range []int{0, 1, 2} {
+		require.Equal(t, "4k", gjson.GetBytes(upstream.bodies[bodyIndex], "resolution").String())
+	}
+	require.Equal(t, http.StatusOK, rec.Code)
+}
+
 func TestAPIMartImagesBillingInputSizeFallsBackToResolutionForRatioSize(t *testing.T) {
 	parsed := &OpenAIImagesRequest{
 		Size:         "1:1",
@@ -1396,6 +1793,19 @@ func TestAPIMartImagesBillingInputSizeFallsBackToResolutionForRatioSize(t *testi
 	require.Equal(t, "1k", apimartImagesResolution(parsed))
 	require.Equal(t, ImageBillingSize1K, apimartImagesBillingSize(parsed))
 	require.Equal(t, ImageBillingSize1K, apimartImagesBillingInputSize(parsed, nil))
+}
+
+func TestAPIMartImagesBillingInputSizeUsesResolutionIntentWhenOutputSizeExists(t *testing.T) {
+	parsed := &OpenAIImagesRequest{
+		Size:         "16:9",
+		Resolution:   "4k",
+		ExplicitSize: true,
+		SizeTier:     ImageBillingSize2K,
+	}
+
+	require.Equal(t, "4k", apimartImagesResolution(parsed))
+	require.Equal(t, ImageBillingSize4K, apimartImagesBillingSize(parsed))
+	require.Equal(t, ImageBillingSize4K, apimartImagesBillingInputSize(parsed, []string{"1536x864"}))
 }
 
 func TestAPIMartImagesPayloadPreservesOfficialModelAndResolution(t *testing.T) {

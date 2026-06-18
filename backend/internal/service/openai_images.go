@@ -36,6 +36,8 @@ const (
 	openAIImagesEditsURL       = "https://api.openai.com/v1/images/edits"
 
 	apimartImagesGenerationsEndpoint = openAIImagesGenerationsEndpoint
+	apimartImagesEditsEndpoint       = openAIImagesEditsEndpoint
+	apimartMidjourneyEndpoint        = "/v1/midjourney/generations"
 	apimartImagesUploadEndpoint      = "/v1/uploads/images"
 	apimartImagesTaskEndpointPrefix  = "/v1/tasks/"
 	apimartImagesPollInterval        = 3 * time.Second
@@ -90,6 +92,17 @@ type OpenAIImagesRequest struct {
 	Style              string
 	OutputCompression  *int
 	PartialImages      *int
+	GoogleSearch       *bool
+	GoogleImageSearch  *bool
+	MidjourneyVersion  string
+	MidjourneySpeed    string
+	MidjourneyStylize  *int
+	MidjourneyChaos    *int
+	MidjourneyWeird    *int
+	MidjourneyNiji     *bool
+	MidjourneyRaw      *bool
+	MidjourneyTile     *bool
+	MidjourneyStop     *int
 	HasMask            bool
 	HasNativeOptions   bool
 	RequiredCapability OpenAIImagesCapability
@@ -229,6 +242,9 @@ func (s *OpenAIGatewayService) ParseOpenAIImagesRequest(c *gin.Context, body []b
 	if err := validateOpenAIImagesModel(req.Model); err != nil {
 		return nil, err
 	}
+	if err := validateOpenAIImagesReferenceLimit(req, req.Model); err != nil {
+		return nil, err
+	}
 	req.SizeTier = normalizeOpenAIImageSizeTier(req.Size)
 	req.RequiredCapability = classifyOpenAIImagesCapability(req)
 	return req, nil
@@ -265,6 +281,11 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 	if resolutionResult := gjson.GetBytes(body, "resolution"); resolutionResult.Exists() {
 		req.Resolution = strings.TrimSpace(resolutionResult.String())
 	}
+	if req.Resolution == "" {
+		if resolutionResult := gjson.GetBytes(body, "image_resolution"); resolutionResult.Exists() {
+			req.Resolution = strings.TrimSpace(resolutionResult.String())
+		}
+	}
 	req.ResponseFormat = strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "response_format").String()))
 	req.Quality = strings.TrimSpace(gjson.GetBytes(body, "quality").String())
 	req.Background = strings.TrimSpace(gjson.GetBytes(body, "background").String())
@@ -286,6 +307,65 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		}
 		v := int(partialImages.Int())
 		req.PartialImages = &v
+	}
+	if googleSearch := gjson.GetBytes(body, "google_search"); googleSearch.Exists() {
+		value, err := parseOpenAIImagesJSONBool(googleSearch, "google_search")
+		if err != nil {
+			return err
+		}
+		req.GoogleSearch = &value
+	}
+	if googleImageSearch := gjson.GetBytes(body, "google_image_search"); googleImageSearch.Exists() {
+		value, err := parseOpenAIImagesJSONBool(googleImageSearch, "google_image_search")
+		if err != nil {
+			return err
+		}
+		req.GoogleImageSearch = &value
+	}
+	req.MidjourneyVersion = strings.TrimSpace(gjson.GetBytes(body, "version").String())
+	req.MidjourneySpeed = strings.TrimSpace(gjson.GetBytes(body, "speed").String())
+	for _, field := range []struct {
+		path string
+		dest **int
+	}{
+		{path: "stylize", dest: &req.MidjourneyStylize},
+		{path: "chaos", dest: &req.MidjourneyChaos},
+		{path: "weird", dest: &req.MidjourneyWeird},
+		{path: "stop", dest: &req.MidjourneyStop},
+	} {
+		if value := gjson.GetBytes(body, field.path); value.Exists() {
+			if value.Type != gjson.Number {
+				return fmt.Errorf("invalid %s field type", field.path)
+			}
+			v := int(value.Int())
+			*field.dest = &v
+		}
+	}
+	for _, field := range []struct {
+		path string
+		dest **bool
+	}{
+		{path: "niji", dest: &req.MidjourneyNiji},
+		{path: "raw", dest: &req.MidjourneyRaw},
+		{path: "tile", dest: &req.MidjourneyTile},
+	} {
+		if value := gjson.GetBytes(body, field.path); value.Exists() {
+			parsed, err := parseOpenAIImagesJSONBool(value, field.path)
+			if err != nil {
+				return err
+			}
+			*field.dest = &parsed
+		}
+	}
+	if err := appendOpenAIImagesJSONURLField(body, "image_urls", &req.InputImageURLs); err != nil {
+		return err
+	}
+	if imageURL := strings.TrimSpace(gjson.GetBytes(body, "image_url").String()); imageURL != "" {
+		req.InputImageURLs = append(req.InputImageURLs, imageURL)
+	}
+	if maskURL := strings.TrimSpace(gjson.GetBytes(body, "mask_url").String()); maskURL != "" {
+		req.MaskImageURL = maskURL
+		req.HasMask = true
 	}
 	if req.IsEdits() {
 		images := gjson.GetBytes(body, "images")
@@ -317,6 +397,40 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 	req.HasNativeOptions = hasOpenAINativeImageOptions(func(path string) bool {
 		return gjson.GetBytes(body, path).Exists()
 	})
+	return nil
+}
+
+func parseOpenAIImagesJSONBool(value gjson.Result, field string) (bool, error) {
+	switch value.Type {
+	case gjson.True, gjson.False:
+		return value.Bool(), nil
+	default:
+		return false, fmt.Errorf("invalid %s field type", field)
+	}
+}
+
+func appendOpenAIImagesJSONURLField(body []byte, field string, out *[]string) error {
+	value := gjson.GetBytes(body, field)
+	if !value.Exists() {
+		return nil
+	}
+	switch {
+	case value.IsArray():
+		for _, item := range value.Array() {
+			if item.Type != gjson.String {
+				return fmt.Errorf("invalid %s field type", field)
+			}
+			if url := strings.TrimSpace(item.String()); url != "" {
+				*out = append(*out, url)
+			}
+		}
+	case value.Type == gjson.String:
+		if url := strings.TrimSpace(value.String()); url != "" {
+			*out = append(*out, url)
+		}
+	default:
+		return fmt.Errorf("invalid %s field type", field)
+	}
 	return nil
 }
 
@@ -391,7 +505,7 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 		case "size":
 			req.Size = value
 			req.ExplicitSize = value != ""
-		case "resolution":
+		case "resolution", "image_resolution":
 			req.Resolution = value
 		case "response_format":
 			req.ResponseFormat = strings.ToLower(value)
@@ -439,6 +553,71 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 			}
 			req.PartialImages = &n
 			req.HasNativeOptions = true
+		case "google_search":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return fmt.Errorf("invalid google_search field value")
+			}
+			req.GoogleSearch = &parsed
+			req.HasNativeOptions = true
+		case "google_image_search":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return fmt.Errorf("invalid google_image_search field value")
+			}
+			req.GoogleImageSearch = &parsed
+			req.HasNativeOptions = true
+		case "image_url", "image_urls":
+			req.InputImageURLs = append(req.InputImageURLs, parseOpenAIImagesURLFieldValue(value)...)
+		case "mask_url":
+			req.MaskImageURL = value
+			req.HasMask = value != ""
+		case "version":
+			req.MidjourneyVersion = value
+		case "speed":
+			req.MidjourneySpeed = value
+		case "stylize":
+			n, err := strconv.Atoi(value)
+			if err != nil {
+				return fmt.Errorf("invalid stylize field value")
+			}
+			req.MidjourneyStylize = &n
+		case "chaos":
+			n, err := strconv.Atoi(value)
+			if err != nil {
+				return fmt.Errorf("invalid chaos field value")
+			}
+			req.MidjourneyChaos = &n
+		case "weird":
+			n, err := strconv.Atoi(value)
+			if err != nil {
+				return fmt.Errorf("invalid weird field value")
+			}
+			req.MidjourneyWeird = &n
+		case "stop":
+			n, err := strconv.Atoi(value)
+			if err != nil {
+				return fmt.Errorf("invalid stop field value")
+			}
+			req.MidjourneyStop = &n
+		case "niji":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return fmt.Errorf("invalid niji field value")
+			}
+			req.MidjourneyNiji = &parsed
+		case "raw":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return fmt.Errorf("invalid raw field value")
+			}
+			req.MidjourneyRaw = &parsed
+		case "tile":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return fmt.Errorf("invalid tile field value")
+			}
+			req.MidjourneyTile = &parsed
 		default:
 			if isOpenAINativeImageOption(name) && value != "" {
 				req.HasNativeOptions = true
@@ -450,6 +629,26 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 		return fmt.Errorf("image file is required")
 	}
 	return nil
+}
+
+func parseOpenAIImagesURLFieldValue(value string) []string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return nil
+	}
+	if gjson.Valid(value) {
+		parsed := gjson.Parse(value)
+		if parsed.IsArray() {
+			out := make([]string, 0, len(parsed.Array()))
+			for _, item := range parsed.Array() {
+				if url := strings.TrimSpace(item.String()); url != "" {
+					out = append(out, url)
+				}
+			}
+			return out
+		}
+	}
+	return []string{value}
 }
 
 func parseOpenAIImageDimensions(_ textproto.MIMEHeader) (int, int) {
@@ -471,7 +670,49 @@ func applyOpenAIImagesDefaults(req *OpenAIImagesRequest) {
 }
 
 func isOpenAIImageGenerationModel(model string) bool {
-	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "gpt-image-")
+	normalized := strings.ToLower(strings.TrimSpace(model))
+	return strings.HasPrefix(normalized, "gpt-image-") ||
+		isAPIMartGeminiImageModel(normalized) ||
+		isAPIMartMidjourneyImageModel(normalized) ||
+		isAPIMartGrokImagineImageModel(normalized)
+}
+
+func isAPIMartGeminiImageModel(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "gemini-3-pro-image-preview",
+		"gemini-3-pro-image-preview-official",
+		"gemini-3.1-flash-image-preview",
+		"gemini-3.1-flash-image-preview-official":
+		return true
+	default:
+		return false
+	}
+}
+
+func isAPIMartGeminiFlashImageModel(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "gemini-3.1-flash-image-preview", "gemini-3.1-flash-image-preview-official":
+		return true
+	default:
+		return false
+	}
+}
+
+func isAPIMartMidjourneyImageModel(model string) bool {
+	return strings.EqualFold(strings.TrimSpace(model), "midjourney")
+}
+
+func isAPIMartGrokImagineImageModel(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "grok-imagine-1.5-apimart", "grok-imagine-1.5-edit-apimart":
+		return true
+	default:
+		return false
+	}
+}
+
+func isAPIMartGrokImagineEditModel(model string) bool {
+	return strings.EqualFold(strings.TrimSpace(model), "grok-imagine-1.5-edit-apimart")
 }
 
 func validateOpenAIImagesModel(model string) error {
@@ -485,10 +726,34 @@ func validateOpenAIImagesModel(model string) error {
 	return fmt.Errorf("images endpoint requires an image model, got %q", model)
 }
 
+func validateOpenAIImagesReferenceLimit(req *OpenAIImagesRequest, model string) error {
+	if req == nil {
+		return nil
+	}
+	limit := 0
+	switch {
+	case isAPIMartGeminiImageModel(model):
+		limit = 14
+	case isAPIMartMidjourneyImageModel(model):
+		limit = 4
+	case isAPIMartGrokImagineImageModel(model):
+		limit = 1
+	default:
+		return nil
+	}
+	count := len(compactTrimmedStrings(req.InputImageURLs)) + len(req.Uploads)
+	if count > limit {
+		return fmt.Errorf("%s supports at most %d reference images, got %d", strings.TrimSpace(model), limit, count)
+	}
+	return nil
+}
+
 func normalizeOpenAIImagesEndpointPath(path string) string {
 	trimmed := strings.TrimSpace(path)
 	switch {
 	case strings.Contains(trimmed, "/images/generations"):
+		return openAIImagesGenerationsEndpoint
+	case strings.Contains(trimmed, "/midjourney/generations"):
 		return openAIImagesGenerationsEndpoint
 	case strings.Contains(trimmed, "/images/edits"):
 		return openAIImagesEditsEndpoint
@@ -530,6 +795,8 @@ func hasOpenAINativeImageOptions(exists func(path string) bool) bool {
 		"moderation",
 		"input_fidelity",
 		"partial_images",
+		"google_search",
+		"google_image_search",
 	} {
 		if exists(path) {
 			return true
@@ -540,7 +807,7 @@ func hasOpenAINativeImageOptions(exists func(path string) bool) bool {
 
 func isOpenAINativeImageOption(name string) bool {
 	switch strings.TrimSpace(strings.ToLower(name)) {
-	case "background", "quality", "style", "output_format", "output_compression", "moderation", "input_fidelity", "partial_images":
+	case "background", "quality", "style", "output_format", "output_compression", "moderation", "input_fidelity", "partial_images", "google_search", "google_image_search":
 		return true
 	default:
 		return false
@@ -1176,7 +1443,11 @@ func isAPIMartImagesHost(account *Account) bool {
 
 func isAPIMartImagesAsyncModel(model string) bool {
 	normalized := strings.ToLower(strings.TrimSpace(model))
-	return normalized == "gpt-image-2" || normalized == "gpt-image-2-official"
+	return normalized == "gpt-image-2" ||
+		normalized == "gpt-image-2-official" ||
+		isAPIMartGeminiImageModel(normalized) ||
+		isAPIMartMidjourneyImageModel(normalized) ||
+		isAPIMartGrokImagineImageModel(normalized)
 }
 
 func (s *OpenAIGatewayService) forwardAPIMartImages(
@@ -1232,7 +1503,7 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 		}
 		setOpsUpstreamRequestBody(c, submitBody)
 
-		taskID, submitReqID, err := s.submitAPIMartImageTask(ctx, account, token, proxyURL, baseURL, submitBody)
+		taskID, submitReqID, err := s.submitAPIMartImageTask(ctx, account, token, proxyURL, baseURL, upstreamModel, submitBody)
 		if err != nil {
 			SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
 			s.recordAPIMartImagesUpstreamError(c, account, err)
@@ -1255,6 +1526,7 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 
 	imageOutputSizes := apimartImageResultSizes(images)
 	costOverride := apimartImageResultCostOverride(images)
+	sizeResolution := resolveAPIMartImageBillingSize(parsed, imageOutputSizes)
 	body, err := buildAPIMartOpenAIImagesResponse(apimartImageResultURLs(images), parsed)
 	if err != nil {
 		return nil, err
@@ -1262,18 +1534,21 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 	c.Data(http.StatusOK, "application/json", body)
 
 	return &OpenAIForwardResult{
-		RequestID:        requestID,
-		Usage:            OpenAIUsage{},
-		Model:            requestModel,
-		UpstreamModel:    upstreamModel,
-		Stream:           false,
-		Duration:         time.Since(startTime),
-		ImageCount:       len(images),
-		ImageSize:        apimartImagesBillingSize(parsed),
-		ImageOutputSizes: imageOutputSizes,
-		ImageQuality:     NormalizeImageQuality(parsed.Quality),
-		ImageInputSize:   apimartImagesBillingInputSize(parsed, imageOutputSizes),
-		CostOverride:     costOverride,
+		RequestID:          requestID,
+		Usage:              OpenAIUsage{},
+		Model:              requestModel,
+		UpstreamModel:      upstreamModel,
+		Stream:             false,
+		Duration:           time.Since(startTime),
+		ImageCount:         len(images),
+		ImageSize:          sizeResolution.BillingSize,
+		ImageOutputSizes:   imageOutputSizes,
+		ImageOutputSize:    sizeResolution.OutputSize,
+		ImageSizeSource:    sizeResolution.Source,
+		ImageSizeBreakdown: sizeResolution.Breakdown,
+		ImageQuality:       NormalizeImageQuality(parsed.Quality),
+		ImageInputSize:     sizeResolution.InputSize,
+		CostOverride:       costOverride,
 	}, nil
 }
 
@@ -1316,8 +1591,15 @@ func buildAPIMartImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string
 	if parsed == nil {
 		return nil, fmt.Errorf("parsed images request is required")
 	}
+	upstreamModel = strings.TrimSpace(upstreamModel)
+	if isAPIMartMidjourneyImageModel(upstreamModel) {
+		return buildAPIMartMidjourneyImagesPayload(parsed, upstreamModel, imageURLs)
+	}
+	if isAPIMartGrokImagineImageModel(upstreamModel) {
+		return buildAPIMartGrokImagineImagesPayload(parsed, upstreamModel, imageURLs)
+	}
 	payload := map[string]any{
-		"model":      strings.TrimSpace(upstreamModel),
+		"model":      upstreamModel,
 		"prompt":     strings.TrimSpace(parsed.Prompt),
 		"n":          parsed.N,
 		"resolution": apimartImagesResolution(parsed),
@@ -1325,23 +1607,33 @@ func buildAPIMartImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string
 	if size := strings.TrimSpace(parsed.Size); size != "" {
 		payload["size"] = size
 	}
-	if quality := strings.TrimSpace(parsed.Quality); quality != "" {
-		payload["quality"] = quality
+	if !isAPIMartGeminiImageModel(upstreamModel) {
+		if quality := strings.TrimSpace(parsed.Quality); quality != "" {
+			payload["quality"] = quality
+		}
+		if background := strings.TrimSpace(parsed.Background); background != "" {
+			payload["background"] = background
+		}
+		if moderation := strings.TrimSpace(parsed.Moderation); moderation != "" {
+			payload["moderation"] = moderation
+		}
+		if outputFormat := strings.TrimSpace(parsed.OutputFormat); outputFormat != "" {
+			payload["output_format"] = outputFormat
+		}
+		if parsed.OutputCompression != nil {
+			payload["output_compression"] = *parsed.OutputCompression
+		}
 	}
-	if background := strings.TrimSpace(parsed.Background); background != "" {
-		payload["background"] = background
-	}
-	if moderation := strings.TrimSpace(parsed.Moderation); moderation != "" {
-		payload["moderation"] = moderation
-	}
-	if outputFormat := strings.TrimSpace(parsed.OutputFormat); outputFormat != "" {
-		payload["output_format"] = outputFormat
-	}
-	if parsed.OutputCompression != nil {
-		payload["output_compression"] = *parsed.OutputCompression
-	}
-	if strings.EqualFold(strings.TrimSpace(upstreamModel), "gpt-image-2") {
+	if strings.EqualFold(upstreamModel, "gpt-image-2") {
 		payload["official_fallback"] = false
+	}
+	if isAPIMartGeminiImageModel(upstreamModel) && isAPIMartGeminiFlashImageModel(upstreamModel) {
+		if parsed.GoogleSearch != nil {
+			payload["google_search"] = *parsed.GoogleSearch
+		}
+		if parsed.GoogleImageSearch != nil {
+			payload["google_image_search"] = *parsed.GoogleImageSearch
+		}
 	}
 	imageURLs = compactTrimmedStrings(imageURLs)
 	if len(imageURLs) > 0 {
@@ -1349,6 +1641,80 @@ func buildAPIMartImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string
 	}
 	if maskURL := strings.TrimSpace(maskURL); maskURL != "" {
 		payload["mask_url"] = maskURL
+	}
+	return json.Marshal(payload)
+}
+
+func buildAPIMartMidjourneyImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string, imageURLs []string) ([]byte, error) {
+	payload := map[string]any{
+		"model":  upstreamModel,
+		"prompt": strings.TrimSpace(parsed.Prompt),
+		"n":      parsed.N,
+	}
+	if size := strings.TrimSpace(parsed.Size); size != "" {
+		payload["size"] = size
+	}
+	if version := strings.TrimSpace(parsed.MidjourneyVersion); version != "" {
+		payload["version"] = version
+	}
+	if speed := strings.TrimSpace(parsed.MidjourneySpeed); speed != "" {
+		payload["speed"] = speed
+	}
+	if quality := strings.TrimSpace(parsed.Quality); quality != "" {
+		payload["quality"] = quality
+	}
+	if parsed.MidjourneyStylize != nil {
+		payload["stylize"] = *parsed.MidjourneyStylize
+	}
+	if parsed.MidjourneyChaos != nil {
+		payload["chaos"] = *parsed.MidjourneyChaos
+	}
+	if parsed.MidjourneyWeird != nil {
+		payload["weird"] = *parsed.MidjourneyWeird
+	}
+	if parsed.MidjourneyStop != nil && midjourneyVersionSupportsStop(parsed.MidjourneyVersion) {
+		payload["stop"] = *parsed.MidjourneyStop
+	}
+	if parsed.MidjourneyNiji != nil {
+		payload["niji"] = *parsed.MidjourneyNiji
+	}
+	if parsed.MidjourneyRaw != nil {
+		payload["raw"] = *parsed.MidjourneyRaw
+	}
+	if parsed.MidjourneyTile != nil {
+		payload["tile"] = *parsed.MidjourneyTile
+	}
+	imageURLs = compactTrimmedStrings(imageURLs)
+	if len(imageURLs) > 0 {
+		payload["image_urls"] = imageURLs
+	}
+	return json.Marshal(payload)
+}
+
+func midjourneyVersionSupportsStop(version string) bool {
+	switch strings.TrimPrefix(strings.ToLower(strings.TrimSpace(version)), "v") {
+	case "5", "5.1", "5.2", "6", "6.1":
+		return true
+	default:
+		return false
+	}
+}
+
+func buildAPIMartGrokImagineImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string, imageURLs []string) ([]byte, error) {
+	payload := map[string]any{
+		"model":  upstreamModel,
+		"prompt": strings.TrimSpace(parsed.Prompt),
+		"n":      parsed.N,
+	}
+	if size := strings.TrimSpace(parsed.Size); size != "" {
+		payload["size"] = size
+	}
+	imageURLs = compactTrimmedStrings(imageURLs)
+	if isAPIMartGrokImagineEditModel(upstreamModel) {
+		if len(imageURLs) == 0 {
+			return nil, fmt.Errorf("%s requires image_urls", upstreamModel)
+		}
+		payload["image_urls"] = imageURLs[:1]
 	}
 	return json.Marshal(payload)
 }
@@ -1405,7 +1771,11 @@ func apimartImagesBillingInputSize(parsed *OpenAIImagesRequest, outputSizes []st
 		if parsed == nil {
 			return ""
 		}
-		return strings.TrimSpace(parsed.Size)
+		size := strings.TrimSpace(parsed.Size)
+		if _, ok := ClassifyImageBillingTier(size); ok {
+			return size
+		}
+		return apimartImagesBillingSize(parsed)
 	}
 	if parsed != nil {
 		size := strings.TrimSpace(parsed.Size)
@@ -1414,6 +1784,62 @@ func apimartImagesBillingInputSize(parsed *OpenAIImagesRequest, outputSizes []st
 		}
 	}
 	return apimartImagesBillingSize(parsed)
+}
+
+func resolveAPIMartImageBillingSize(parsed *OpenAIImagesRequest, outputSizes []string) ImageBillingSizeResolution {
+	inputSize := apimartImagesBillingInputSize(parsed, outputSizes)
+	outputSizes = compactTrimmedStrings(outputSizes)
+
+	breakdown := map[string]int{}
+	outputSize := firstDisplayImageOutputSize(outputSizes)
+	outputTier := ""
+	for _, output := range outputSizes {
+		resolution, ok := apimartKnownImageResolution(output)
+		if !ok {
+			continue
+		}
+		tier := apimartImageResolutionBillingSize(resolution)
+		if tier == "" {
+			continue
+		}
+		breakdown[tier]++
+		if imageTierRank(tier) > imageTierRank(outputTier) {
+			outputTier = tier
+		}
+	}
+	if outputTier != "" {
+		return ImageBillingSizeResolution{
+			BillingSize: outputTier,
+			InputSize:   inputSize,
+			OutputSize:  outputSize,
+			Source:      ImageSizeSourceOutput,
+			Breakdown:   normalizeImageSizeBreakdown(breakdown),
+		}
+	}
+
+	if resolution := ResolveImageBillingSize(inputSize, outputSizes); resolution.Source == ImageSizeSourceOutput {
+		return resolution
+	}
+
+	return ImageBillingSizeResolution{
+		BillingSize: apimartImagesBillingSize(parsed),
+		InputSize:   inputSize,
+		OutputSize:  outputSize,
+		Source:      ImageSizeSourceInput,
+	}
+}
+
+func apimartImageResolutionBillingSize(resolution string) string {
+	switch strings.ToLower(strings.TrimSpace(resolution)) {
+	case "1k":
+		return ImageBillingSize1K
+	case "2k":
+		return ImageBillingSize2K
+	case "4k":
+		return ImageBillingSize4K
+	default:
+		return ""
+	}
 }
 
 func apimartKnownImageResolution(size string) (string, bool) {
@@ -1492,9 +1918,16 @@ func (s *OpenAIGatewayService) submitAPIMartImageTask(
 	token string,
 	proxyURL string,
 	baseURL string,
+	upstreamModel string,
 	body []byte,
 ) (string, string, error) {
-	targetURL := buildOpenAIEndpointURL(baseURL, apimartImagesGenerationsEndpoint)
+	endpoint := apimartImagesGenerationsEndpoint
+	if isAPIMartMidjourneyImageModel(upstreamModel) {
+		endpoint = apimartMidjourneyEndpoint
+	} else if isAPIMartGrokImagineEditModel(upstreamModel) {
+		endpoint = apimartImagesEditsEndpoint
+	}
+	targetURL := buildOpenAIEndpointURL(baseURL, endpoint)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if err != nil {
 		return "", "", err

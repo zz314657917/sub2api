@@ -64,3 +64,8 @@
 260613 0000 | smart-routing-composite-optimal-v1 | spec-and-contract-draft | codex | docs/workflow/spec.md, docs/workflow/tasks/smart-routing-composite-optimal-v1.md
 260613 0001 | smart-routing-composite-optimal-v1 | contract-approved | codex | docs/workflow/tasks/smart-routing-composite-optimal-v1.md
 260613 0851 | smart-routing-composite-optimal-v1 | implementation-and-qa-pass | codex | docs/workflow/worker-results/smart-routing-composite-optimal-v1-result.md, docs/workflow/qa-reports/smart-routing-composite-optimal-v1-qa.md
+260616 2341 | upstream-main-v0137-safe-patches-s15 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0137-safe-patches-s15.md
+260617 0017 | upstream-main-v0137-safe-patches-s15 | done | codex | docs/workflow/qa-reports/upstream-main-v0137-safe-patches-s15-qa.md
+260617 0143 | upstream-main-v0137-small-compat-s16 | done | codex | docs/workflow/qa-reports/upstream-main-v0137-small-compat-s16-qa.md
+260617 0205 | upstream-main-openai-quota-reset-s17 | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-quota-reset-s17.md
+260617 1120 | upstream-main-openai-quota-reset-s17 | done | codex | docs/workflow/qa-reports/upstream-main-openai-quota-reset-s17-qa.md

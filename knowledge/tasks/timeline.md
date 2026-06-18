@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-06-17 11:20 +08:00 - 上游 OpenAI quota reset S17 完成
+
+- 当前阶段：上游 `b81694929` 已作为独立 S17 迁移完成，workflow 状态为 `done`。
+- 本段重点：管理员 OpenAI OAuth 账号新增上游 WHAM quota 查询和 rate-limit reset credit 消费入口；后端复用现有 token provider、privacy client factory 和账号代理；前端只在 OpenAI OAuth usage cell 展示 credits 查询/重置控件。
+- 已完成：新增 `OpenAIQuotaService`、管理端 `/api/v1/admin/openai/accounts/:id/quota` 与 `/api/v1/admin/openai/accounts/:id/reset-quota` 路由、前端 `OpenAIQuotaResetCell` 和定向测试；未 merge/rebase `upstream/main`。
+- 关键决策：`b81694929` 是完整功能链，适合独立合入；不修改本地 `/api/v1/admin/accounts/:id/reset-quota` 账号 quota 语义，也不触碰 Ent/migrations/VERSION、Studio Bridge、支付、Canvas、公共页或模型市场。
+- 验证记录：OpenAI quota service 单测、admin handler quota 单测、普通构建 compile check、定向前端 Vitest 2 files / 20 tests、`git diff --check` 和 denied-path audit 均通过。
+- 遗留问题：未向真实 `chatgpt.com` 发送 quota/reset 请求；生产前如有受控 OpenAI OAuth 管理账号，可做一次 staging 手工验证。
+- 下一步：如继续追上游，另开 Sprint 评估 OpenAI image failover、Anthropic window cooldown、account list parameter batching 或 token refresh retry amplification/outbox dedup；前端全量 Vitest 既有失败另开稳定化任务处理。
+
 ## 2026-06-11 09:34 +08:00 - Studio Bridge 本地配置防丢与跳转复核
 
 - 当前阶段：Sub2API 本地 Studio Bridge 配置防丢修复完成，并通过 62080 -> 8081 浏览器 smoke。
@@ -372,3 +382,21 @@
 - 关键决策：上游 root `frontend/src/i18n/locales/en.ts/zh.ts` 的单体 i18n 改动继续按本地 modular i18n 落到 `frontend/src/i18n/locales/*/admin/ops.ts`。
 - 验证记录：S14 在 branch 和 main 上均通过 `git diff --check`、denied path audit、`go test -tags unit ./internal/service -run "ComputeRuleMetric|TempUnscheduled|OpsAlert" -count=1`、`go test ./internal/handler/admin -run "OpsAlert|Metric" -count=1`、`go test ./internal/service ./internal/handler/admin -count=1`、`corepack.cmd pnpm --dir frontend run typecheck`。
 - 下一步：可评估 `f5cecea5b` Select 下拉高度小修；`af19d4432` 代理有效期/失败回退继续作为大 Sprint 延后；README/sponsors/docs-only 默认跳过。
+
+## 2026-06-17 00:17 +08:00 - 上游 v0.1.137 安全/兼容补丁 S15 完成
+
+- 当前阶段：分支 `codex/upstream-v0137-safe-patches`，P/G/E Sprint `upstream-main-v0137-safe-patches-s15` 已从 `contract-approved` 推进到 `done`。
+- 本段重点：只迁移上游 `v0.1.137` 中低风险安全、兼容和计费兜底补丁，避免整体 merge `upstream/main` 覆盖本地 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制。
+- 已完成：`form-data` override + lockfile 升到 `4.0.6`；token refresh 不可重试错误补齐；上游 zstd 解压；非 JSON 2xx 与 SSE `event:error` failover 保留原始错误体；tool strict default false；DeepSeek/GLM/Kimi/MiniMax/豆包 embedding vision 等 fallback pricing 与图像输入 token 计费；DeepSeek `reasoning_effort=max -> xhigh`；Anthropic thinking block 过滤按 mapped upstream model 分流，避免国产兼容上游历史 thinking 被误剥离。
+- 关键决策：不碰 Ent、migration、VERSION、Studio/Canvas/支付/公共页等 denied paths；migration-heavy、cyber_policy、OpenAI quota UI、渠道监控 jitter、Claude OAuth system prompt blocks 继续作为后续独立 Sprint。
+- 验证记录：后端 service/repository/apicompat 定向测试通过，`git diff --check` 通过，lockfile 扫描确认无 `form-data@4.0.5` / `form-data: 4.0.5` 残留。前端全量 Vitest 用 Vitest 单线程参数执行后仍在 Studio/Canvas/导航/支付等非本轮产品面失败，已写入 S15 QA 报告。
+- 证据入口：`docs/workflow/tasks/upstream-main-v0137-safe-patches-s15.md`、`docs/workflow/worker-results/upstream-main-v0137-safe-patches-s15-result.md`、`docs/workflow/qa-reports/upstream-main-v0137-safe-patches-s15-qa.md`。
+
+## 2026-06-17 01:43 +08:00 - 上游 v0.1.137 小兼容补丁 S16 完成
+
+- 当前阶段：分支 `codex/upstream-v0137-safe-patches` 继续小步迁移，P/G/E Sprint `upstream-main-v0137-small-compat-s16` 已完成并保持 `done`。
+- 本段重点：S15 后继续合入 4 个独立且低风险的上游兼容修复：Responses API sticky hash 使用 `input` 兜底、Claude Code `max_tokens=1` Haiku 流式探测也可拦截、OpenAI APIKey `/responses` probe 校验工具调用能力、API Key ACL 拒绝信息显示实际客户端 IP。
+- 已完成：本地 `ParsedRequest` 结构化实现中新增 `Input` 字段，仅 `protocol=="responses"` 解析；`GenerateSessionHash` 在 system/messages 无内容时用 Responses `input` 作为 hash anchor；OpenAI responses probe 改为 `tool_choice=required` 的 `probe_ping`，2xx 但无 `function_call` 判定不支持，且优先使用 model mapping 的上游模型；ACL 错误保留本地安全默认，不信任伪造 forwarded header。
+- 关键决策：仍不碰 Ent、migrations、VERSION、Studio/Canvas/支付/公共页；OpenAI image failover、Anthropic cooldown、account list parameter batching、token refresh retry amplification/outbox dedup、OpenAI quota UI、cyber_policy、channel monitor jitter、Claude OAuth system prompt blocks 继续拆成后续独立 Sprint。
+- 验证记录：S16 service/handler/middleware 定向测试通过，S15+S16 宽 service/repository/apicompat 测试通过，`git diff --check` 通过，denied-path audit 为 `NO_DENIED_PATHS`，lockfile scan 为 `NO_FORM_DATA_405`。
+- 证据入口：`docs/workflow/tasks/upstream-main-v0137-small-compat-s16.md`、`docs/workflow/worker-results/upstream-main-v0137-small-compat-s16-result.md`、`docs/workflow/qa-reports/upstream-main-v0137-small-compat-s16-qa.md`。

@@ -114,6 +114,22 @@
               <span v-if="row.is_default" class="text-xs text-gray-500 dark:text-dark-400">
                 {{ t('keys.defaultKeyStudioNote') }}
               </span>
+              <div
+                v-if="apiKeyCapabilityItems(row).length > 0"
+                class="flex flex-wrap gap-1"
+              >
+                <span
+                  v-for="item in apiKeyCapabilityItems(row)"
+                  :key="item.key"
+                  class="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-medium"
+                  :class="item.enabled
+                    ? 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-200'
+                    : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300'"
+                >
+                  <Icon :name="item.icon" size="xs" />
+                  {{ item.label }}
+                </span>
+              </div>
             </div>
           </template>
 
@@ -1320,6 +1336,7 @@
       :platform="selectedKey?.group?.platform || null"
       :allow-messages-dispatch="selectedKey?.group?.allow_messages_dispatch || false"
       :unified-access="selectedKey ? apiKeySupportsUnifiedAccess(selectedKey) : false"
+      :unified-capabilities="selectedKey ? apiKeyUnifiedAccessCapabilities(selectedKey) : undefined"
       @close="closeUseKeyModal"
     />
 
@@ -1519,7 +1536,10 @@ import {
   buildCcSwitchUsageScript,
   type CcSwitchClientType
 } from '@/utils/ccswitchImport'
-import { apiKeySupportsUnifiedAccess } from '@/utils/apiKeyCapabilities'
+import {
+  apiKeySupportsUnifiedAccess,
+  apiKeyUnifiedAccessCapabilities
+} from '@/utils/apiKeyCapabilities'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -1642,6 +1662,36 @@ const selectedKeyForGroup = computed(() => {
 })
 
 const isSmartRoutingKey = (key: ApiKey) => (key.multi_group_routes?.length ?? 0) > 0
+
+const apiKeyCapabilityItems = (key: ApiKey) => {
+  const capabilities = apiKeyUnifiedAccessCapabilities(key)
+  const unifiedAccess = apiKeySupportsUnifiedAccess(key)
+  if (!unifiedAccess && !isSmartRoutingKey(key)) {
+    return []
+  }
+  return [
+    {
+      key: 'chat',
+      label: t('keys.capabilities.chat'),
+      icon: 'chat' as const,
+      enabled: capabilities.chat
+    },
+    {
+      key: 'image',
+      label: t('keys.capabilities.image'),
+      icon: 'image' as const,
+      enabled: capabilities.image
+    },
+    {
+      key: 'video',
+      label: capabilities.video
+        ? t('keys.capabilities.video')
+        : t('keys.capabilities.videoDisabled'),
+      icon: 'sparkles' as const,
+      enabled: capabilities.video
+    }
+  ].filter((item) => item.enabled || (item.key === 'video' && unifiedAccess))
+}
 
 const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance | null) => {
   if (el instanceof HTMLElement) {

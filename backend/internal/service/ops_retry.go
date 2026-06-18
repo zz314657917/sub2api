@@ -16,6 +16,7 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/gin-gonic/gin"
 	"github.com/lib/pq"
+	"github.com/tidwall/gjson"
 )
 
 const (
@@ -361,7 +362,11 @@ func (s *OpsService) executeRetry(ctx context.Context, errorLog *OpsErrorLogDeta
 
 	switch reqType {
 	case opsRetryTypeMessages:
-		bodyBytes = FilterThinkingBlocksForRetry(bodyBytes)
+		if model := gjson.GetBytes(bodyBytes, "model").String(); model != "" {
+			bodyBytes = FilterThinkingBlocksForRetry(bodyBytes, model)
+		} else {
+			bodyBytes = FilterThinkingBlocksForRetry(bodyBytes)
+		}
 	case opsRetryTypeOpenAI, opsRetryTypeGeminiV1B:
 		// No-op
 	}

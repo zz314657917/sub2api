@@ -136,6 +136,39 @@ describe('UseKeyModal', () => {
     expect(codeText).toContain('sk-unified')
   })
 
+  it('marks video as unavailable for unified keys without video routing', () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-unified',
+        baseUrl: 'https://ai.3zapi.top/v1',
+        platform: 'openai',
+        unifiedAccess: true,
+        unifiedCapabilities: {
+          chat: true,
+          image: true,
+          video: false
+        }
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    expect(wrapper.text()).toContain('keys.useKeyModal.unifiedAccessVideoUnavailable')
+    const codeText = wrapper.findAll('pre code').map((block) => block.text()).join('\n')
+    expect(codeText).toContain('/v1/chat/completions')
+    expect(codeText).toContain('/v1/images/generations')
+    expect(codeText).not.toContain('/v1/videos/generations')
+  })
+
   it.each([
     ['https://ai.3zapi.top', 'https://ai.3zapi.top/v1/chat/completions'],
     ['https://ai.3zapi.top/v1', 'https://ai.3zapi.top/v1/chat/completions'],

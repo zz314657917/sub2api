@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -93,8 +94,11 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			clientIP := ip.GetTrustedClientIP(c)
 			allowed, _ := ip.CheckIPRestrictionWithCompiledRules(clientIP, apiKey.CompiledIPWhitelist, apiKey.CompiledIPBlacklist)
 			if !allowed {
+				if clientIP == "" {
+					clientIP = "unknown"
+				}
 				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonIPRestriction)
-				AbortWithError(c, 403, "ACCESS_DENIED", "Access denied")
+				AbortWithError(c, 403, "ACCESS_DENIED", fmt.Sprintf("Access denied. Your IP is %s", clientIP))
 				return
 			}
 		}
@@ -361,6 +365,8 @@ func isModelAwareBillingEndpoint(path string) bool {
 	case path == "/v1/images/generations" || path == "/images/generations":
 		return true
 	case path == "/v1/images/edits" || path == "/images/edits":
+		return true
+	case path == "/v1/midjourney/generations" || path == "/midjourney/generations":
 		return true
 	case strings.HasPrefix(path, "/v1beta/models/") || strings.HasPrefix(path, "/antigravity/v1beta/models/"):
 		return true
