@@ -7,6 +7,65 @@ last_verified: 2026-06-17 11:20 +08:00
 
 # Workflow Spec
 
+## S18 Addendum: APIMart task webhook
+
+### 一句话目标
+
+- 在不改变普通图片同步代理兼容行为的前提下，为 APIMart 视频/长任务接入任务完成 webhook，让 Sub2API 能在任务终态时主动完成本地状态落库、结算和失败退款。
+
+### 当前背景
+
+- Sub2API 当前仍是 Studio Bridge / 落叶AI的账号、余额、分组和扣费真源。
+- `chatgpt2api` / 落叶创作台负责任务体验，但任务成功扣费、失败退款和使用记录最终应回到 Sub2API 侧闭环。
+- APIMart task webhook 只在任务 `completed` / `failed` 等终态后回调；因此它适合补强长任务可靠结算，不适合作为普通同步 OpenAI 图片接口的直接替代。
+- 本地视频任务已经有 `openai_video_tasks`、预扣、`/v1/tasks/:task_id` 查询结算和失败退款逻辑，S18 应复用这条链路，而不是新增并行账本。
+
+### 明确不在范围内
+
+- 不把普通 `/v1/images/generations` 同步响应改为异步 `task_id` 返回。
+- 不覆盖客户请求里已经带的 `webhook` 字段；客户 webhook fan-out/relay 另开任务。
+- 不新增数据库迁移，不写真实公网域名或 secret，不改 Studio Bridge / chatgpt2api 协议。
+- 不整体重构 Image Creator 或 APIMart 图片轮询逻辑。
+
+### 验收标准
+
+- webhook 接收端有 secret 校验、body 大小限制、脱敏日志和幂等处理。
+- APIMart 视频任务只在配置完整且请求未带客户 webhook 时注入 Sub2API callback URL。
+- 成功终态只结算一次；失败终态只退款一次；重复回调不重复扣退。
+- 现有 `/v1/tasks/:task_id` 查询结算仍作为兜底可用。
+- 定向后端测试和 `git diff --check` 通过，denied-path audit 不触碰图片同步代理、迁移、Ent、公共页、支付页、Canvas、Studio 前端等禁止范围。
+
+## S19 Draft Addendum: upstream v0.1.137 postfixes
+
+### 一句话目标
+
+- 在 S15-S17 已完成的基础上，继续筛出 `v0.1.137` 中不碰迁移、不碰前端、不覆盖本地产品定制的后端小修，作为 S18 之后的候选小步迁移。
+
+### 当前背景
+
+- 上游 `v0.1.137` 的安全/兼容主干已经通过 S15/S16/S17 小步迁入。
+- 仍有少量后端补丁有合并价值，但不应和当前 S18 APIMart webhook 实现混在一起。
+- 当前 S19 只是 follow-up contract 草案；`docs/workflow/status.md` 仍以 S18 `contract-draft` 为当前合法动作。
+
+### 候选范围
+
+- OpenAI failover 复用原始错误体。
+- Anthropic window cooldown 保留。
+- Account repository 列表参数限制与 refresh candidates SQL 修复。
+
+### 明确不在范围内
+
+- 不整体 merge/rebase `upstream/main`。
+- 不碰 Ent、migrations、VERSION、wire 生成物或前端。
+- 不把 OpenAI image failover、token refresh retry amplification、OAuth promo signup、scheduler outbox dedup/cleanup、cyber policy、channel monitor jitter、Claude OAuth system prompt blocks 混入本轮。
+
+### 验收标准
+
+- 定向后端 service / repository / server contract 测试通过。
+- `git diff --check` 通过。
+- denied-path audit 返回 `NO_DENIED_PATHS`。
+- worker/result 和 QA report 说明每个上游候选是 `ported`、`equivalent` 还是 `skipped`。
+
 ## 一句话目标
 
 - 在不覆盖本地 Studio Bridge / 支付治理 / Canvas / 公共页等产品定制的前提下，把上游 `v0.1.137` 的低风险安全、兼容、计费兜底和管理员运维能力按独立 Sprint 小步迁入，并为后续继续评估候选 patch 保留清晰边界。

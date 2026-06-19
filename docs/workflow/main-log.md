@@ -69,3 +69,7 @@
 260617 0143 | upstream-main-v0137-small-compat-s16 | done | codex | docs/workflow/qa-reports/upstream-main-v0137-small-compat-s16-qa.md
 260617 0205 | upstream-main-openai-quota-reset-s17 | contract-approved | codex | docs/workflow/tasks/upstream-main-openai-quota-reset-s17.md
 260617 1120 | upstream-main-openai-quota-reset-s17 | done | codex | docs/workflow/qa-reports/upstream-main-openai-quota-reset-s17-qa.md
+260618 1348 | apimart-task-webhook-s18 | spec-and-contract-draft | codex | docs/workflow/spec.md, docs/workflow/tasks/apimart-task-webhook-s18.md
+260618 1925 | upstream-main-v0137-postfixes-s19 | followup-contract-draft | codex | docs/workflow/tasks/upstream-main-v0137-postfixes-s19.md
+260618 1925 | upstream-main-v0137-postfixes-s19 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0137-postfixes-s19.md
+260618 1925 | upstream-main-v0137-postfixes-s19 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0137-postfixes-s19-result.md, docs/workflow/qa-reports/upstream-main-v0137-postfixes-s19-qa.md

@@ -16,6 +16,14 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+type panicOnReadCloser struct{}
+
+func (panicOnReadCloser) Read(_ []byte) (int, error) {
+	panic("response body should not be reread")
+}
+
+func (panicOnReadCloser) Close() error { return nil }
+
 func TestOpenAIGatewayService_Forward_FailoverReparsesCachedBodyForNextAccount(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -106,6 +114,29 @@ func TestOpenAIGatewayService_Forward_FailoverReparsesCachedBodyForNextAccount(t
 	}
 }
 
+func TestOpenAIGatewayService_HandleFailoverSideEffects_DoesNotRereadResponseBody(t *testing.T) {
+	repo := &openAIFailoverCachedBodyAccountRepo{}
+	svc := &OpenAIGatewayService{
+		rateLimitService: NewRateLimitService(repo, nil, nil, nil, nil),
+	}
+	account := &Account{
+		ID:       88,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+	}
+	resp := &http.Response{
+		StatusCode: http.StatusTooManyRequests,
+		Header:     http.Header{},
+		Body:       panicOnReadCloser{},
+	}
+
+	require.NotPanics(t, func() {
+		svc.handleFailoverSideEffects(context.Background(), resp, account, []byte(`{"error":{"type":"rate_limit_error","message":"rate limited"}}`))
+	})
+
+	require.Equal(t, int64(88), repo.lastRateLimitedID)
+}
+
 func TestGetOpenAIRequestBodyMap_IgnoresLegacyContextCache(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -139,8 +170,10 @@ func openAIFailoverCachedBodyTestAccount(id int64, name string, mapping map[stri
 
 type openAIFailoverCachedBodyAccountRepo struct {
 	stubOpenAIAccountRepo
+	lastRateLimitedID int64
 }
 
-func (r *openAIFailoverCachedBodyAccountRepo) SetRateLimited(context.Context, int64, time.Time) error {
+func (r *openAIFailoverCachedBodyAccountRepo) SetRateLimited(_ context.Context, id int64, _ time.Time) error {
+	r.lastRateLimitedID = id
 	return nil
 }

@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-06-18 19:25 +08:00 - 上游 v0.1.137 后续小补丁 S19 完成
+
+- 当前阶段：`upstream-main-v0137-postfixes-s19` 已实现并通过定向 QA，workflow 状态为 `done`。
+- 本段重点：在 S15-S17 之后继续小步合入 3 类后端补丁：OpenAI failover side effects 复用已缓存错误体、Anthropic 官方 5h/7d window cooldown 优先于本地 temp-unsched、account repo 大量 ID 查询按 50000 分批避免 PostgreSQL 参数上限。
+- 已完成：修改 `OpenAIGatewayService.handleFailoverSideEffects` 及 OpenAI chat/images 调用点；补 `panicOnReadCloser` 回归测试；新增 Anthropic cooldown 优先级测试；新增 account 大集合分批查询 fake-driver 测试；S19 worker result 和 QA report 已写入。
+- 关键决策：`acaffe29e` 的 `ListOAuthRefreshCandidates` SQL 修复在本地无对应接口，按 S19 contract 记录为 skipped/not applicable；不为它拉入 token refresh retry amplification 链路。OpenAI image failover、scheduler outbox、OAuth promo signup、cyber policy、channel monitor jitter 和 Claude OAuth system prompt blocks 继续后置独立评估。
+- 验证记录：service/repository/server 定向测试通过；`-tags=unit` 的 OpenAI failover、Anthropic cooldown、account parameter-limit 定向测试通过；`git diff --check` 通过，仅有既有 LF/CRLF 提示；denied-path audit 返回 `NO_DENIED_PATHS`。
+- 遗留问题：未做真实 OpenAI/Anthropic 上游请求，也未做真实 PostgreSQL 大数据压测；`docs/workflow/tasks/upstream-main-v0137-postfixes-s19.md`、worker result 和 QA report 被 `.gitignore: docs/*` 忽略，提交时需显式 `git add -f`。
+- 下一步：如回到产品主线，审查 S18 APIMart task webhook contract；如继续追上游，另开 Sprint 单独评估 OpenAI image failover 或 token refresh retry amplification。
+
 ## 2026-06-17 11:20 +08:00 - 上游 OpenAI quota reset S17 完成
 
 - 当前阶段：上游 `b81694929` 已作为独立 S17 迁移完成，workflow 状态为 `done`。

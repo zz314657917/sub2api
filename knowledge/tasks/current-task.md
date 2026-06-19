@@ -1,7 +1,7 @@
 # 当前任务快照
 
-最后更新：2026-06-17 11:20 +08:00
-本轮追加：2026-06-17 11:20 +08:00
+最后更新：2026-06-18 19:25 +08:00
+本轮追加：2026-06-18 19:25 +08:00
 
 ## 背景
 
@@ -9,6 +9,10 @@
 - 当前默认续做入口已从“上游低风险合成”切到 Studio Bridge / 落叶AI生产联调。
 - 最近提交 `fe2f80be1 feat: add studio bridge integration` 已把 Sub2API 扩展为落叶AI的账号、充值、余额、配置和扣费真源。
 - `chatgpt2api` 对应提交为 `47c9f72 feat: add luoye independent studio mode`，两边本地容器已重建并通过基础验证。
+- 2026-06-18 新增当前 Sprint：`apimart-task-webhook-s18`，目标是为 APIMart 视频/长任务接入任务完成 webhook，让 Sub2API 在任务终态时主动完成状态落库、结算和失败退款。
+- S18 当前只完成 spec addendum 和 contract 草案，尚未进入业务代码实现。
+- 2026-06-18 追加上游 `v0.1.137` 后续小补丁 S19 草案：`upstream-main-v0137-postfixes-s19`，只作为 S18 之后的 follow-up 候选，不改变当前 `docs/workflow/status.md` 的 S18 `contract-draft` 状态。
+- 2026-06-18 S19 已实现并通过定向 QA；`docs/workflow/status.md` 当前回到 `done`，下一步可回看 S18 contract 或另开上游合成 Sprint。
 
 ## 当前主线
 
@@ -25,6 +29,13 @@
 - 团队空间联调仍是稳定背景层：
   - 团队空间由落叶AI记录 actor/payer。
   - Sub2API 侧仍作为扣费和余额真源。
+- APIMart task webhook 进入新的工程主线候选：
+  - 首轮只覆盖视频/长任务和 Studio Bridge 可复用账本语义。
+  - 不改变普通 `/v1/images/generations` 同步兼容行为，不覆盖客户自带 `webhook`。
+  - 下一合法动作是审查 `docs/workflow/tasks/apimart-task-webhook-s18.md` contract。
+- 上游小步合成仍可继续，但必须排在 S18 gate 之后或另行切换 Sprint：
+  - S19 草案候选限定为 OpenAI failover body、Anthropic cooldown、account repo 参数/refresh candidates 这类后端小补丁。
+  - OpenAI image failover、token refresh retry amplification、OAuth promo signup、scheduler outbox dedup/cleanup、cyber policy、channel monitor jitter、Claude OAuth system prompt blocks 暂不混入 S19。
 
 ## 已稳定事实
 
@@ -50,9 +61,15 @@
 - 2026-06-17 本轮迁移的关键结论：前端 `form-data` 锁定到 `4.0.6`；token refresh 增加不可重试错误；上游响应支持 zstd；非流式 2xx 非 JSON 与 SSE `event:error` 进入 failover 并保留原始错误体；tool strict 缺省补 false；国产模型 fallback pricing 和图像输入 token 计费补齐；DeepSeek `reasoning_effort=max` 归一化为 `xhigh`；Anthropic thinking block 过滤改为按 mapped upstream model 分流，避免 DeepSeek/Kimi/GLM/MiniMax/Qwen thinking 兼容上游被误剥离历史 thinking。
 - 2026-06-17 继续完成上游 `v0.1.137` 小兼容 S16，workflow Sprint `upstream-main-v0137-small-compat-s16` 状态为 `done`；本轮迁移 Responses API sticky hash 以 `input` 兜底、Claude Code `max_tokens=1` Haiku 流式探测拦截、OpenAI APIKey `/responses` probe 工具能力校验、API Key ACL 拒绝信息带实际 IP。仍未 merge/rebase 上游，且 denied path audit 为 `NO_DENIED_PATHS`。
 - 2026-06-17 上游 `b81694929` 已作为独立 S17 完成，workflow Sprint `upstream-main-openai-quota-reset-s17` 状态为 `done`；新增管理员 OpenAI OAuth 账号上游 WHAM quota 查询和 rate-limit reset credit 消费入口，后端复用 token provider、privacy client factory 和账号代理解析，前端仅在 OpenAI OAuth usage cell 展示上游 credits 查询/重置控件；未触碰 Ent/migrations/VERSION、Studio Bridge、支付、Canvas、公共页或模型市场。
+- 2026-06-18 APIMart task webhook S18 已进入 `contract-draft`：已新增 `docs/workflow/tasks/apimart-task-webhook-s18.md`，并在 `docs/workflow/spec.md` 添加 S18 Addendum；`docs/workflow/status.md` 当前 Sprint 指向 `apimart-task-webhook-s18`。该 contract 文件当前被 `.gitignore` 的 `docs/*` 规则忽略，后续若要提交需显式 `git add -f`。
+- 2026-06-18 S19 follow-up contract 草案已新增：`docs/workflow/tasks/upstream-main-v0137-postfixes-s19.md`，同时在 `docs/workflow/spec.md` 追加 S19 Draft Addendum。S19 不修改 `docs/workflow/status.md`，避免抢占当前 S18 contract review gate。
+- 2026-06-18 S19 完成：OpenAI failover side effects 改为复用已缓存错误体；Anthropic 5h/7d 官方 window cooldown 优先于本地 temp-unsched 规则；account repository 对 proxy/account-group/group 大量 ID 查询做 50000 分批，避免 PostgreSQL 参数上限。`acaffe29e` 的 `ListOAuthRefreshCandidates` SQL 修复在本地无对应接口，按 contract 记录为 skipped/not applicable。
 
 ## 下一步
 
+- 审查 `docs/workflow/tasks/apimart-task-webhook-s18.md` contract：确认 endpoint、secret/base URL 配置、幂等结算、客户自带 webhook 不覆盖、Denied Paths 和验收命令是否足够清晰。
+- S18 contract 通过后，再进入实现或调用 Developer Worker；实现前不得触碰普通图片同步代理、迁移、Ent、支付页、公共页、Canvas 或 Studio 前端。
+- 若用户决定继续上游合成，需另开新的 Sprint；当前 S19 已 done。若回到产品主线，先审查 `docs/workflow/tasks/apimart-task-webhook-s18.md`。
 - 正式域名上线前，先在后台填好 bridge internal secret、落叶AI launch URL、充值回跳 URL 和默认分组。
 - 补一轮后台支付治理验收：确认可配置充值套餐、首充福利 bonus、支付恢复和用户侧支付页文案在同一套配置下工作一致，不要只验支付成功回调。
 - 如继续排查用户异常或风控反馈，优先从管理员用户列表核对注册 IP / 最近登录 IP，再结合福利领取、OAuth 注册和充值记录判断，不要只看账户基础字段。
@@ -126,3 +143,21 @@
   - `cd F:/mcplugins/sub2api/backend && go test ./internal/handler/admin -run "^$" -count=1` 通过。
   - `cd F:/mcplugins/sub2api && cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/components/account/__tests__/OpenAIQuotaResetCell.spec.ts src/components/account/__tests__/AccountUsageCell.spec.ts"` 通过，2 files / 20 tests。
   - `git diff --check` 通过；denied-path audit 返回 `NO_DENIED_PATHS`。
+- 2026-06-18 APIMart task webhook S18 contract 草案：
+  - `docs/workflow/tasks/apimart-task-webhook-s18.md`
+  - `docs/workflow/spec.md` S18 Addendum
+  - `docs/workflow/status.md` 当前 phase 为 `contract-draft`
+  - `git diff --check -- docs/workflow/spec.md docs/workflow/status.md docs/workflow/main-log.md knowledge/tasks/current-task.md` 通过，仅有既有 LF/CRLF 提示；`docs/workflow/tasks/apimart-task-webhook-s18.md` 因 `.gitignore` 未进入 git diff，已用 `rg -n "[ \t]+$"` 单独确认无行尾空白。
+- 2026-06-18 S19 follow-up contract 草案：
+  - `docs/workflow/tasks/upstream-main-v0137-postfixes-s19.md`
+  - `docs/workflow/spec.md` S19 Draft Addendum
+  - `docs/workflow/main-log.md` 追加 followup-contract-draft 记录
+- 2026-06-18 S19 实现与 QA：
+  - `docs/workflow/worker-results/upstream-main-v0137-postfixes-s19-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0137-postfixes-s19-qa.md`
+  - `go test ./internal/service -run "Test.*Failover.*Body|Test.*Cached.*Body|Test.*Anthropic.*Window|Test.*Cooldown|TestOpenAI.*Images" -count=1` 通过。
+  - `go test ./internal/repository -run "Test.*Account.*List|Test.*Refresh.*Candidate|Test.*Temp.*Unscheduled|TestAccountsToService" -count=1` 通过。
+  - `go test ./internal/server -run "Test.*APIContract" -count=1` 通过，包编译但无匹配测试。
+  - `go test -tags=unit ./internal/service -run "TestOpenAIGatewayService_HandleFailoverSideEffects_DoesNotRereadResponseBody|TestOpenAIGatewayService_Forward_FailoverReparsesCachedBodyForNextAccount|TestHandleUpstreamError_AnthropicWindowLimitPreemptsTempUnschedRule" -count=1` 通过。
+  - `go test -tags=unit ./internal/repository -run "TestAccountsToService_LargeActiveAccountSetDoesNotExceedPostgresParameterLimit" -count=1` 通过。
+  - `git diff --check` 通过，仅有既有 LF/CRLF 工作区提示；S19 denied-path audit 返回 `NO_DENIED_PATHS`。

@@ -149,6 +149,14 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		return true
 	}
 
+	// Official Anthropic 5h / 7d window exhaustion is a hard account limit.
+	// Keep it before user temp-unsched rules so a broad 429 keyword rule cannot shorten it.
+	if statusCode == http.StatusTooManyRequests && account.Platform == PlatformAnthropic {
+		if s.persistAnthropicExhaustedWindowLimit(ctx, account, headers) {
+			return false
+		}
+	}
+
 	// 先尝试临时不可调度规则（401除外）
 	// 如果匹配成功，直接返回，不执行后续禁用逻辑
 	if statusCode != 401 {
@@ -1041,6 +1049,37 @@ func (s *RateLimitService) calculateOpenAI429ResetTime(headers http.Header) *tim
 type anthropic429Result struct {
 	resetAt       time.Time  // The correct reset time to use for SetRateLimited
 	fiveHourReset *time.Time // 5h window reset timestamp (for session window calculation), nil if not available
+}
+
+func (s *RateLimitService) persistAnthropicExhaustedWindowLimit(ctx context.Context, account *Account, headers http.Header) bool {
+	if s == nil || s.accountRepo == nil || account == nil {
+		return false
+	}
+	result := calculateAnthropic429ResetTime(headers)
+	if result == nil || !result.resetAt.After(time.Now()) {
+		return false
+	}
+	if account.RateLimitResetAt != nil && account.RateLimitResetAt.After(time.Now()) && !result.resetAt.After(*account.RateLimitResetAt) {
+		slog.Info("anthropic_window_rate_limit_kept",
+			"account_id", account.ID,
+			"reset_at", result.resetAt,
+			"existing_reset_at", account.RateLimitResetAt)
+		return true
+	}
+	if err := s.accountRepo.SetRateLimited(ctx, account.ID, result.resetAt); err != nil {
+		slog.Warn("anthropic_window_rate_limit_set_failed", "account_id", account.ID, "reset_at", result.resetAt, "error", err)
+		return true
+	}
+	windowEnd := result.resetAt
+	if result.fiveHourReset != nil {
+		windowEnd = *result.fiveHourReset
+	}
+	windowStart := windowEnd.Add(-5 * time.Hour)
+	if err := s.accountRepo.UpdateSessionWindow(ctx, account.ID, &windowStart, &windowEnd, "rejected"); err != nil {
+		slog.Warn("anthropic_window_rate_limit_update_session_window_failed", "account_id", account.ID, "error", err)
+	}
+	slog.Info("anthropic_window_rate_limited", "account_id", account.ID, "reset_at", result.resetAt, "reset_in", time.Until(result.resetAt).Truncate(time.Second))
+	return true
 }
 
 // calculateAnthropic429ResetTime parses Anthropic's per-window rate-limit headers

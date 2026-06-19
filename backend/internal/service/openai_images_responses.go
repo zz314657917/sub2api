@@ -1463,7 +1463,7 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 				Kind:               "failover",
 				Message:            upstreamMsg,
 			})
-			s.handleFailoverSideEffects(upstreamCtx, resp, account)
+			s.handleFailoverSideEffects(upstreamCtx, resp, account, respBody)
 			return nil, &UpstreamFailoverError{
 				StatusCode:             resp.StatusCode,
 				ResponseBody:           respBody,
@@ -1625,7 +1625,7 @@ func (s *OpenAIGatewayService) forwardSplitOpenAIImagesOAuth(
 					Kind:               "failover",
 					Message:            upstreamMsg,
 				})
-				s.handleFailoverSideEffects(ctx, resp, account)
+				s.handleFailoverSideEffects(ctx, resp, account, respBody)
 				if len(responseBodies) > 0 {
 					return partialResult(), &UpstreamFailoverError{
 						StatusCode:             resp.StatusCode,
