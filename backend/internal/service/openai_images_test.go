@@ -876,6 +876,58 @@ func TestOpenAIGatewayServiceForwardImages_OAuthUpstreamHTTPErrorSurfacesRealErr
 	require.Contains(t, gjson.Get(rec.Body.String(), "error.message").String(), "Invalid value for 'size'")
 }
 
+func TestOpenAIGatewayServiceForwardImages_NormalizesUpstreamImageTooLargeError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","response_format":"b64_json"}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+	c.Set("api_key", &APIKey{ID: 42})
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	svc.httpUpstream = &httpUpstreamRecorder{
+		resp: &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Header: http.Header{
+				"Content-Type": []string{"text/plain"},
+				"X-Request-Id": []string{"req_img_too_large"},
+			},
+			Body: io.NopCloser(strings.NewReader("status_code=400, Part exceeded maximum size of 1024KB.")),
+		},
+	}
+
+	account := &Account{
+		ID:       1,
+		Name:     "openai-oauth",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token": "token-123",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.Nil(t, result)
+	var upstreamErr *OpenAIImagesUpstreamError
+	require.ErrorAs(t, err, &upstreamErr)
+	require.Equal(t, http.StatusBadRequest, upstreamErr.StatusCode)
+	require.Equal(t, "invalid_request_error", upstreamErr.ErrorType)
+	require.Equal(t, "image_too_large", upstreamErr.Code)
+	require.Equal(t, "image", upstreamErr.Param)
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, "invalid_request_error", gjson.Get(rec.Body.String(), "error.type").String())
+	require.Equal(t, "image_too_large", gjson.Get(rec.Body.String(), "error.code").String())
+	require.Equal(t, "image", gjson.Get(rec.Body.String(), "error.param").String())
+	require.Equal(t, openAIImagesImageTooLargeMessage, gjson.Get(rec.Body.String(), "error.message").String())
+}
+
 func TestOpenAIGatewayServiceForwardImages_OAuthNonStreamModerationBlockedReturnsClientError(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{"model":"gpt-image-2","prompt":"draw blocked image","response_format":"b64_json"}`)
@@ -2057,6 +2109,61 @@ func TestOpenAIGatewayServiceForwardImages_OAuthStreamingTransformsEvents(t *tes
 	require.Equal(t, "auto", gjson.Get(completed.Data, "background").String())
 	require.JSONEq(t, `{"images":1}`, gjson.Get(completed.Data, "usage").Raw)
 	require.False(t, gjson.Get(completed.Data, "revised_prompt").Exists())
+}
+
+func TestOpenAIGatewayServiceForwardImages_OAuthStreamingNormalizesImageTooLargeError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","stream":true,"response_format":"url"}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+
+	upstream := &httpUpstreamRecorder{
+		resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header: http.Header{
+				"Content-Type": []string{"text/event-stream"},
+				"X-Request-Id": []string{"req_img_stream_too_large"},
+			},
+			Body: io.NopCloser(strings.NewReader(
+				"data: {\"type\":\"response.failed\",\"response\":{\"id\":\"resp_too_large\",\"status\":\"failed\",\"error\":{\"type\":\"invalid_request_error\",\"message\":\"Part exceeded maximum size of 1024KB.\"}}}\n\n" +
+					"data: [DONE]\n\n",
+			)),
+		},
+	}
+	svc.httpUpstream = upstream
+
+	account := &Account{
+		ID:       2,
+		Name:     "openai-oauth",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"access_token": "token-123",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
+	require.Nil(t, result)
+	var upstreamErr *OpenAIImagesUpstreamError
+	require.ErrorAs(t, err, &upstreamErr)
+	require.Equal(t, "image_too_large", upstreamErr.Code)
+	require.Equal(t, "image", upstreamErr.Param)
+
+	events := parseOpenAIImageTestSSEEvents(rec.Body.String())
+	errorEvent, ok := findOpenAIImageTestSSEEvent(events, "error")
+	require.True(t, ok)
+	require.Equal(t, "invalid_request_error", gjson.Get(errorEvent.Data, "error.type").String())
+	require.Equal(t, "image_too_large", gjson.Get(errorEvent.Data, "error.code").String())
+	require.Equal(t, "image", gjson.Get(errorEvent.Data, "error.param").String())
+	require.Equal(t, openAIImagesImageTooLargeMessage, gjson.Get(errorEvent.Data, "error.message").String())
 }
 
 func TestOpenAIGatewayServiceForwardImages_APIKeyStreamingDrainsAfterClientDisconnect(t *testing.T) {

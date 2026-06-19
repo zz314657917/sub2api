@@ -1171,7 +1171,7 @@ func (s *OpenAIGatewayService) forwardSplitOpenAIImagesAPIKey(
 					RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
 				}
 			}
-			result, err := s.handleErrorResponse(ctx, resp, c, account, forwardBody)
+			result, err := s.handleOpenAIImagesErrorResponse(ctx, resp, c, account, upstreamModel)
 			if len(responseBodies) > 0 {
 				return partialResult(), err
 			}
@@ -1272,7 +1272,7 @@ func (s *OpenAIGatewayService) forwardSplitOpenAIImagesAPIKeyStreaming(
 			respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 			_ = resp.Body.Close()
 			resp.Body = io.NopCloser(bytes.NewReader(respBody))
-			return s.handleErrorResponse(ctx, resp, c, account, forwardBody)
+			return s.handleOpenAIImagesErrorResponse(ctx, resp, c, account, upstreamModel)
 		}
 		if responseHeader == nil {
 			responseHeader = resp.Header.Clone()

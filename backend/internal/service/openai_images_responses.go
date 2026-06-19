@@ -38,6 +38,11 @@ type OpenAIImagesUpstreamError struct {
 	UpstreamRequestID string
 }
 
+const (
+	openAIImagesImageTooLargeCode    = "image_too_large"
+	openAIImagesImageTooLargeMessage = "参考图片过大，单张图片请压缩到 1MB 以内，或使用可公开访问的图片 URL"
+)
+
 func (e *OpenAIImagesUpstreamError) Error() string {
 	if e == nil {
 		return ""
@@ -90,6 +95,40 @@ func (e *OpenAIImagesUpstreamError) clientMessage() string {
 		return trimmed
 	}
 	return "Upstream request failed"
+}
+
+func isOpenAIImagesUpstreamImageTooLarge(code, errType, message string, rawBody []byte) bool {
+	combined := strings.ToLower(strings.TrimSpace(strings.Join([]string{
+		code,
+		errType,
+		message,
+		string(rawBody),
+	}, " ")))
+	if combined == "" {
+		return false
+	}
+	return strings.Contains(combined, "part exceeded maximum size") ||
+		strings.Contains(combined, "maximum size of 1024kb") ||
+		strings.Contains(combined, "max_part_size") ||
+		strings.Contains(combined, openAIImagesImageTooLargeCode) ||
+		strings.Contains(combined, "image too large") ||
+		strings.Contains(combined, "图片过大") ||
+		strings.Contains(combined, "参考图过大")
+}
+
+func normalizeOpenAIImagesUpstreamError(err *OpenAIImagesUpstreamError, rawBody []byte) *OpenAIImagesUpstreamError {
+	if err == nil {
+		return nil
+	}
+	if !isOpenAIImagesUpstreamImageTooLarge(err.Code, err.ErrorType, err.Message, rawBody) {
+		return err
+	}
+	err.StatusCode = http.StatusBadRequest
+	err.ErrorType = "invalid_request_error"
+	err.Code = openAIImagesImageTooLargeCode
+	err.Message = openAIImagesImageTooLargeMessage
+	err.Param = "image"
+	return err
 }
 
 func openAIResponsesImageResultKey(itemID string, result openAIResponsesImageResult) string {
@@ -570,14 +609,14 @@ func openAIImagesUpstreamErrorFromGJSON(errorObj gjson.Result, upstreamRequestID
 	if message == "" {
 		message = "Upstream request failed"
 	}
-	return &OpenAIImagesUpstreamError{
+	return normalizeOpenAIImagesUpstreamError(&OpenAIImagesUpstreamError{
 		StatusCode:        statusCode,
 		ErrorType:         errType,
 		Code:              code,
 		Message:           sanitizeUpstreamErrorMessage(message),
 		Param:             param,
 		UpstreamRequestID: strings.TrimSpace(upstreamRequestID),
-	}
+	}, nil)
 }
 
 // openAIImagesErrorTypeForStatus returns an OpenAI-style error type when the
@@ -620,14 +659,14 @@ func openAIImagesUpstreamErrorFromHTTP(statusCode int, header http.Header, body 
 	if header != nil {
 		requestID = strings.TrimSpace(header.Get("x-request-id"))
 	}
-	return &OpenAIImagesUpstreamError{
+	return normalizeOpenAIImagesUpstreamError(&OpenAIImagesUpstreamError{
 		StatusCode:        statusCode,
 		ErrorType:         errType,
 		Code:              code,
 		Message:           message,
 		Param:             param,
 		UpstreamRequestID: requestID,
-	}
+	}, body)
 }
 
 func (s *OpenAIGatewayService) readUpstreamErrorBody(resp *http.Response) []byte {
@@ -1600,7 +1639,7 @@ func (s *OpenAIGatewayService) forwardSplitOpenAIImagesOAuth(
 					RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
 				}
 			}
-			result, err := s.handleErrorResponse(ctx, resp, c, account, responsesBody)
+			result, err := s.handleOpenAIImagesErrorResponse(ctx, resp, c, account, requestModel)
 			if len(responseBodies) > 0 {
 				return partialResult(), err
 			}
@@ -1715,7 +1754,7 @@ func (s *OpenAIGatewayService) forwardSplitOpenAIImagesOAuthStreaming(
 			respBody, _ := io.ReadAll(io.LimitReader(resp.Body, 2<<20))
 			_ = resp.Body.Close()
 			resp.Body = io.NopCloser(bytes.NewReader(respBody))
-			return s.handleErrorResponse(ctx, resp, c, account, responsesBody)
+			return s.handleOpenAIImagesErrorResponse(ctx, resp, c, account, requestModel)
 		}
 		if responseHeader == nil {
 			responseHeader = resp.Header.Clone()
