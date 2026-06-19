@@ -289,6 +289,15 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 	req.ResponseFormat = strings.ToLower(strings.TrimSpace(gjson.GetBytes(body, "response_format").String()))
 	req.Quality = strings.TrimSpace(gjson.GetBytes(body, "quality").String())
 	req.Background = strings.TrimSpace(gjson.GetBytes(body, "background").String())
+	if req.Background == "" {
+		background, ok, err := parseOpenAIImagesTransparentBackgroundJSON(gjson.GetBytes(body, "transparent_background"))
+		if err != nil {
+			return err
+		}
+		if ok {
+			req.Background = background
+		}
+	}
 	req.OutputFormat = strings.TrimSpace(gjson.GetBytes(body, "output_format").String())
 	req.Moderation = strings.TrimSpace(gjson.GetBytes(body, "moderation").String())
 	req.InputFidelity = strings.TrimSpace(gjson.GetBytes(body, "input_fidelity").String())
@@ -398,6 +407,31 @@ func parseOpenAIImagesJSONRequest(body []byte, req *OpenAIImagesRequest) error {
 		return gjson.GetBytes(body, path).Exists()
 	})
 	return nil
+}
+
+func parseOpenAIImagesTransparentBackgroundJSON(value gjson.Result) (string, bool, error) {
+	if !value.Exists() {
+		return "", false, nil
+	}
+	switch value.Type {
+	case gjson.True, gjson.False:
+		return openAIImagesBackgroundFromTransparent(value.Bool()), true, nil
+	case gjson.String:
+		parsed, err := strconv.ParseBool(strings.TrimSpace(value.String()))
+		if err != nil {
+			return "", false, fmt.Errorf("invalid transparent_background field type")
+		}
+		return openAIImagesBackgroundFromTransparent(parsed), true, nil
+	default:
+		return "", false, fmt.Errorf("invalid transparent_background field type")
+	}
+}
+
+func openAIImagesBackgroundFromTransparent(transparent bool) string {
+	if transparent {
+		return "transparent"
+	}
+	return "opaque"
 }
 
 func parseOpenAIImagesJSONBool(value gjson.Result, field string) (bool, error) {
@@ -526,6 +560,15 @@ func parseOpenAIImagesMultipartRequest(body []byte, contentType string, req *Ope
 			req.HasNativeOptions = true
 		case "background":
 			req.Background = value
+			req.HasNativeOptions = true
+		case "transparent_background":
+			parsed, err := strconv.ParseBool(value)
+			if err != nil {
+				return fmt.Errorf("invalid transparent_background field value")
+			}
+			if req.Background == "" {
+				req.Background = openAIImagesBackgroundFromTransparent(parsed)
+			}
 			req.HasNativeOptions = true
 		case "output_format":
 			req.OutputFormat = value
@@ -788,6 +831,7 @@ func classifyOpenAIImagesCapability(req *OpenAIImagesRequest) OpenAIImagesCapabi
 func hasOpenAINativeImageOptions(exists func(path string) bool) bool {
 	for _, path := range []string{
 		"background",
+		"transparent_background",
 		"quality",
 		"style",
 		"output_format",
@@ -807,7 +851,7 @@ func hasOpenAINativeImageOptions(exists func(path string) bool) bool {
 
 func isOpenAINativeImageOption(name string) bool {
 	switch strings.TrimSpace(strings.ToLower(name)) {
-	case "background", "quality", "style", "output_format", "output_compression", "moderation", "input_fidelity", "partial_images", "google_search", "google_image_search":
+	case "background", "transparent_background", "quality", "style", "output_format", "output_compression", "moderation", "input_fidelity", "partial_images", "google_search", "google_image_search":
 		return true
 	default:
 		return false
@@ -2454,7 +2498,10 @@ func rewriteOpenAIImagesModelAndN(body []byte, contentType string, model string,
 		rewrittenBody, rewrittenType, rewriteErr := rewriteOpenAIImagesMultipartModelAndN(body, contentType, model, n, rewriteN)
 		return rewrittenBody, rewrittenType, rewriteErr
 	}
-	rewritten := body
+	rewritten, err := normalizeOpenAIImagesJSONCompatibilityFields(body)
+	if err != nil {
+		return nil, "", err
+	}
 	if model != "" {
 		rewritten, err = sjson.SetBytes(rewritten, "model", model)
 		if err != nil {
@@ -2468,6 +2515,32 @@ func rewriteOpenAIImagesModelAndN(body []byte, contentType string, model string,
 		}
 	}
 	return rewritten, contentType, nil
+}
+
+func normalizeOpenAIImagesJSONCompatibilityFields(body []byte) ([]byte, error) {
+	transparentBackground := gjson.GetBytes(body, "transparent_background")
+	if !transparentBackground.Exists() {
+		return body, nil
+	}
+	rewritten := body
+	if strings.TrimSpace(gjson.GetBytes(body, "background").String()) == "" {
+		background, ok, err := parseOpenAIImagesTransparentBackgroundJSON(transparentBackground)
+		if err != nil {
+			return nil, err
+		}
+		if ok {
+			var setErr error
+			rewritten, setErr = sjson.SetBytes(rewritten, "background", background)
+			if setErr != nil {
+				return nil, fmt.Errorf("rewrite image request background: %w", setErr)
+			}
+		}
+	}
+	rewritten, err := sjson.DeleteBytes(rewritten, "transparent_background")
+	if err != nil {
+		return nil, fmt.Errorf("remove image request transparent_background: %w", err)
+	}
+	return rewritten, nil
 }
 
 func rewriteOpenAIImagesMultipartModel(body []byte, contentType string, model string) ([]byte, string, error) {
@@ -2489,6 +2562,9 @@ func rewriteOpenAIImagesMultipartModelAndN(body []byte, contentType string, mode
 	writer := multipart.NewWriter(&buffer)
 	modelWritten := false
 	nWritten := false
+	backgroundWritten := false
+	transparentBackgroundValue := ""
+	transparentBackgroundSeen := false
 
 	for {
 		part, err := reader.NextPart()
@@ -2500,13 +2576,39 @@ func rewriteOpenAIImagesMultipartModelAndN(body []byte, contentType string, mode
 		}
 
 		formName := strings.TrimSpace(part.FormName())
+		if formName == "transparent_background" && part.FileName() == "" {
+			data, readErr := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize))
+			_ = part.Close()
+			if readErr != nil {
+				return nil, "", fmt.Errorf("read multipart transparent_background: %w", readErr)
+			}
+			transparentBackgroundValue = strings.TrimSpace(string(data))
+			transparentBackgroundSeen = true
+			continue
+		}
+
+		if formName == "background" && part.FileName() == "" {
+			data, readErr := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize))
+			_ = part.Close()
+			if readErr != nil {
+				return nil, "", fmt.Errorf("read multipart background: %w", readErr)
+			}
+			background := strings.TrimSpace(string(data))
+			if background != "" {
+				if err := writer.WriteField("background", background); err != nil {
+					return nil, "", fmt.Errorf("rewrite multipart background: %w", err)
+				}
+				backgroundWritten = true
+			}
+			continue
+		}
+
 		partHeader := cloneMultipartHeader(part.Header)
 		target, err := writer.CreatePart(partHeader)
 		if err != nil {
 			_ = part.Close()
 			return nil, "", fmt.Errorf("create multipart part: %w", err)
 		}
-
 		if formName == "model" && part.FileName() == "" && model != "" {
 			if _, err := target.Write([]byte(model)); err != nil {
 				_ = part.Close()
@@ -2540,6 +2642,15 @@ func rewriteOpenAIImagesMultipartModelAndN(body []byte, contentType string, mode
 	if rewriteN && !nWritten {
 		if err := writer.WriteField("n", strconv.Itoa(n)); err != nil {
 			return nil, "", fmt.Errorf("append multipart n field: %w", err)
+		}
+	}
+	if transparentBackgroundSeen && !backgroundWritten {
+		parsed, err := strconv.ParseBool(transparentBackgroundValue)
+		if err != nil {
+			return nil, "", fmt.Errorf("invalid transparent_background field value")
+		}
+		if err := writer.WriteField("background", openAIImagesBackgroundFromTransparent(parsed)); err != nil {
+			return nil, "", fmt.Errorf("append multipart background field: %w", err)
 		}
 	}
 	if err := writer.Close(); err != nil {

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -57,6 +58,52 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_JSON(t *testing.T) {
 	require.Equal(t, "1K", parsed.SizeTier)
 	require.Equal(t, OpenAIImagesCapabilityNative, parsed.RequiredCapability)
 	require.False(t, parsed.Multipart)
+}
+
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_TransparentBackgroundAliasJSON(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","transparent_background":true}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	require.NotNil(t, parsed)
+	require.Equal(t, "transparent", parsed.Background)
+	require.Equal(t, OpenAIImagesCapabilityNative, parsed.RequiredCapability)
+
+	rewritten, contentType, err := rewriteOpenAIImagesModel(body, req.Header.Get("Content-Type"), "gpt-image-2")
+	require.NoError(t, err)
+	require.Equal(t, "application/json", contentType)
+	require.Equal(t, "transparent", gjson.GetBytes(rewritten, "background").String())
+	require.False(t, gjson.GetBytes(rewritten, "transparent_background").Exists())
+}
+
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_TransparentBackgroundAliasDoesNotOverrideBackground(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","background":"opaque","transparent_background":true}`)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
+	require.NoError(t, err)
+	require.NotNil(t, parsed)
+	require.Equal(t, "opaque", parsed.Background)
+
+	rewritten, _, err := rewriteOpenAIImagesModel(body, req.Header.Get("Content-Type"), "gpt-image-2")
+	require.NoError(t, err)
+	require.Equal(t, "opaque", gjson.GetBytes(rewritten, "background").String())
+	require.False(t, gjson.GetBytes(rewritten, "transparent_background").Exists())
 }
 
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_GeminiFields(t *testing.T) {
@@ -153,6 +200,57 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_MultipartEdit(t *testing.T
 	require.Equal(t, "2K", parsed.SizeTier)
 	require.Len(t, parsed.Uploads, 1)
 	require.Equal(t, OpenAIImagesCapabilityNative, parsed.RequiredCapability)
+}
+
+func TestOpenAIGatewayServiceParseOpenAIImagesRequest_TransparentBackgroundAliasMultipart(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
+	require.NoError(t, writer.WriteField("prompt", "replace background"))
+	require.NoError(t, writer.WriteField("transparent_background", "false"))
+	part, err := writer.CreateFormFile("image", "source.png")
+	require.NoError(t, err)
+	_, err = part.Write([]byte("fake-image-bytes"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body.Bytes()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	svc := &OpenAIGatewayService{}
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body.Bytes())
+	require.NoError(t, err)
+	require.NotNil(t, parsed)
+	require.Equal(t, "opaque", parsed.Background)
+	require.Equal(t, OpenAIImagesCapabilityNative, parsed.RequiredCapability)
+
+	rewritten, contentType, err := rewriteOpenAIImagesModel(body.Bytes(), writer.FormDataContentType(), "gpt-image-2")
+	require.NoError(t, err)
+	mediaType, params, err := mime.ParseMediaType(contentType)
+	require.NoError(t, err)
+	require.Equal(t, "multipart/form-data", mediaType)
+	multipartReader := multipart.NewReader(bytes.NewReader(rewritten), params["boundary"])
+	fields := map[string]string{}
+	for {
+		part, err := multipartReader.NextPart()
+		if err == io.EOF {
+			break
+		}
+		require.NoError(t, err)
+		if part.FileName() == "" {
+			data, err := io.ReadAll(part)
+			require.NoError(t, err)
+			fields[part.FormName()] = string(data)
+		}
+		require.NoError(t, part.Close())
+	}
+	require.Equal(t, "opaque", fields["background"])
+	require.NotContains(t, fields, "transparent_background")
 }
 
 func TestOpenAIImagesRequestModerationBody_JSONEditIncludesInputImageURLs(t *testing.T) {
