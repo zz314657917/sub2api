@@ -1831,7 +1831,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartMidjourneyUploadsAndPayload(t 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"url":"https://upload.example/ref.png"}`),
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_mj"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_mj","status":"completed","result":{"images":[{"url":["https://upload.example/mj.png"],"size":"16:9"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_mj","status":"completed","cost":0.036,"result":{"images":[{"url":["https://upload.example/mj.png"],"size":"16:9"}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 	parsed, err := svc.ParseOpenAIImagesRequest(c, body.Bytes())
@@ -1874,6 +1874,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartMidjourneyUploadsAndPayload(t 
 	require.Equal(t, "https://upload.example/ref.png", gjson.GetBytes(submitBody, "image_urls.0").String())
 	require.False(t, gjson.GetBytes(submitBody, "resolution").Exists())
 	require.False(t, gjson.GetBytes(submitBody, "official_fallback").Exists())
+	require.InDelta(t, 0.036, gjson.GetBytes(rec.Body.Bytes(), "cost").Float(), 1e-12)
 }
 
 func TestOpenAIGatewayServiceForwardImages_APIMartMidjourneyDropsUnsupportedStop(t *testing.T) {
@@ -1924,7 +1925,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartGrokImagineGenerationPayload(t
 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_grok"}]}`),
-		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_grok","status":"completed","result":{"images":[{"url":["https://upload.example/grok.png"],"size":"16:9"}]}}}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_grok","status":"completed","cost":0.024,"result":{"images":[{"url":["https://upload.example/grok.png"],"size":"16:9"}]}}}`),
 	}}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 	parsed, err := svc.ParseOpenAIImagesRequest(c, body)
@@ -1957,6 +1958,7 @@ func TestOpenAIGatewayServiceForwardImages_APIMartGrokImagineGenerationPayload(t
 	require.False(t, gjson.GetBytes(submitBody, "background").Exists())
 	require.False(t, gjson.GetBytes(submitBody, "resolution").Exists())
 	require.False(t, gjson.GetBytes(submitBody, "image_urls").Exists())
+	require.InDelta(t, 0.024, gjson.GetBytes(rec.Body.Bytes(), "cost").Float(), 1e-12)
 }
 
 func TestOpenAIGatewayServiceForwardImages_APIMartGrokImagineEditUploadsAndPayload(t *testing.T) {

@@ -1887,7 +1887,7 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 	imageOutputSizes := apimartImageResultSizes(images)
 	costOverride := apimartImageResultCostOverride(images)
 	sizeResolution := resolveAPIMartImageBillingSize(parsed, imageOutputSizes)
-	body, err := buildAPIMartOpenAIImagesResponse(apimartImageResultURLs(images), parsed)
+	body, err := buildAPIMartOpenAIImagesResponse(apimartImageResultURLs(images), parsed, costOverride)
 	if err != nil {
 		return nil, err
 	}
@@ -2831,9 +2831,12 @@ func apimartExplicitPixelSize(parsed *OpenAIImagesRequest) string {
 	return ""
 }
 
-func buildAPIMartOpenAIImagesResponse(images []string, parsed *OpenAIImagesRequest) ([]byte, error) {
+func buildAPIMartOpenAIImagesResponse(images []string, parsed *OpenAIImagesRequest, costOverride *CostBreakdown) ([]byte, error) {
 	out := []byte(`{"created":0,"data":[]}`)
 	out, _ = sjson.SetBytes(out, "created", time.Now().Unix())
+	if costOverride != nil && costOverride.TotalCost > 0 {
+		out, _ = sjson.SetBytes(out, "cost", costOverride.TotalCost)
+	}
 	prompt := ""
 	if parsed != nil {
 		prompt = strings.TrimSpace(parsed.Prompt)
