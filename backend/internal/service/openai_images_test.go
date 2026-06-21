@@ -12,8 +12,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/textproto"
+	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/gin-gonic/gin"
@@ -33,6 +35,74 @@ func (w *failingOpenAIImageWriter) Write(p []byte) (int, error) {
 	}
 	w.writes++
 	return w.ResponseWriter.Write(p)
+}
+
+type fakeOpenAIImageInputObjectStore struct {
+	objects     map[string][]byte
+	uploaded    []string
+	deleted     []string
+	presignURLs map[string]string
+	uploadCalls int
+	uploadErrAt int
+}
+
+func newFakeOpenAIImageInputObjectStore() *fakeOpenAIImageInputObjectStore {
+	return &fakeOpenAIImageInputObjectStore{
+		objects:     make(map[string][]byte),
+		presignURLs: make(map[string]string),
+	}
+}
+
+func (s *fakeOpenAIImageInputObjectStore) Upload(_ context.Context, key string, body io.Reader, _ string) (int64, error) {
+	s.uploadCalls++
+	if s.uploadErrAt > 0 && s.uploadCalls == s.uploadErrAt {
+		return 0, io.ErrUnexpectedEOF
+	}
+	data, err := io.ReadAll(body)
+	if err != nil {
+		return 0, err
+	}
+	s.objects[key] = append([]byte(nil), data...)
+	s.uploaded = append(s.uploaded, key)
+	return int64(len(data)), nil
+}
+
+func (s *fakeOpenAIImageInputObjectStore) Download(_ context.Context, key string) (io.ReadCloser, error) {
+	data, ok := s.objects[key]
+	if !ok {
+		return nil, os.ErrNotExist
+	}
+	return io.NopCloser(bytes.NewReader(data)), nil
+}
+
+func (s *fakeOpenAIImageInputObjectStore) Delete(_ context.Context, key string) error {
+	s.deleted = append(s.deleted, key)
+	delete(s.objects, key)
+	return nil
+}
+
+func (s *fakeOpenAIImageInputObjectStore) PresignURL(_ context.Context, key string, _ time.Duration) (string, error) {
+	if url, ok := s.presignURLs[key]; ok && strings.TrimSpace(url) != "" {
+		return url, nil
+	}
+	return "https://objects.example/" + key, nil
+}
+
+func (s *fakeOpenAIImageInputObjectStore) HeadBucket(_ context.Context) error {
+	return nil
+}
+
+func openAIImageInputObjectStoreTestConfig() *config.Config {
+	return &config.Config{
+		ImageCreator: config.ImageCreatorConfig{
+			ObjectStorage: config.ImageCreatorObjectStorageConfig{
+				Bucket:          "image-inputs",
+				AccessKeyID:     "ak",
+				SecretAccessKey: "sk",
+				Prefix:          "test-prefix",
+			},
+		},
+	}
 }
 
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_JSON(t *testing.T) {
@@ -1417,6 +1487,198 @@ func TestOpenAIGatewayServiceForwardImages_APIMartEditUploadsAndPollsTask(t *tes
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, "https://upload.apimart.ai/output.png", gjson.Get(rec.Body.String(), "data.0.url").String())
 	require.Equal(t, "replace background", gjson.Get(rec.Body.String(), "data.0.revised_prompt").String())
+}
+
+func TestOpenAIGatewayServiceForwardImages_APIMartObjectURLTransportUsesObjectStore(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
+	require.NoError(t, writer.WriteField("prompt", "replace background"))
+	require.NoError(t, writer.WriteField("size", "1024x1024"))
+	imagePart, err := writer.CreateFormFile("image", "source.png")
+	require.NoError(t, err)
+	_, err = imagePart.Write([]byte("png-image-content"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body.Bytes()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	store := newFakeOpenAIImageInputObjectStore()
+	upstream := &httpUpstreamRecorder{responses: []*http.Response{
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":[{"status":"submitted","task_id":"task_123"}]}`),
+		newOpenAIImagesJSONResponse(http.StatusOK, `{"code":200,"data":{"id":"task_123","status":"completed","result":{"images":[{"url":["https://upload.apimart.ai/output.png"]}]}}}`),
+	}}
+	svc := &OpenAIGatewayService{
+		cfg:          openAIImageInputObjectStoreTestConfig(),
+		httpUpstream: upstream,
+	}
+	svc.SetImageInputObjectStoreFactory(func(context.Context, *BackupS3Config) (BackupObjectStore, error) {
+		return store, nil
+	})
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body.Bytes())
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       12,
+		Name:     "api-1mb",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Extra: map[string]any{
+			openAIImageInputTransportExtraKey: "object_url",
+		},
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai",
+			"model_mapping": map[string]any{
+				"gpt-image-2": "gpt-image-2",
+			},
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body.Bytes(), parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 1, result.ImageCount)
+	require.Len(t, upstream.requests, 2)
+	require.Len(t, store.uploaded, 1)
+	require.Equal(t, "https://api.apimart.ai/v1/images/generations", upstream.requests[0].URL.String())
+	require.Equal(t, "https://api.apimart.ai/v1/tasks/task_123?language=zh", upstream.requests[1].URL.String())
+	require.Equal(t, "application/json", upstream.requests[0].Header.Get("Content-Type"))
+	require.Equal(t, "https://objects.example/"+store.uploaded[0], gjson.GetBytes(upstream.bodies[0], "image_urls.0").String())
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "https://upload.apimart.ai/output.png", gjson.Get(rec.Body.String(), "data.0.url").String())
+	require.Len(t, store.deleted, 1)
+}
+
+func TestPrepareAPIMartImageInputsObjectURLTransportCleansObjectsOnError(t *testing.T) {
+	svc := &OpenAIGatewayService{
+		cfg: openAIImageInputObjectStoreTestConfig(),
+	}
+	store := newFakeOpenAIImageInputObjectStore()
+	store.uploadErrAt = 2
+	svc.SetImageInputObjectStoreFactory(func(context.Context, *BackupS3Config) (BackupObjectStore, error) {
+		return store, nil
+	})
+
+	account := &Account{
+		ID: 12,
+		Extra: map[string]any{
+			openAIImageInputTransportExtraKey: "object_url",
+		},
+	}
+	parsed := &OpenAIImagesRequest{
+		Uploads: []OpenAIImagesUpload{
+			{Data: []byte("first-image"), ContentType: "image/png", FileName: "first.png"},
+			{Data: []byte("second-image"), ContentType: "image/png", FileName: "second.png"},
+		},
+	}
+
+	imageURLs, maskURL, cleanup, err := svc.prepareAPIMartImageInputs(context.Background(), account, "token", "", "https://api.apimart.ai", parsed)
+	require.Error(t, err)
+	require.Nil(t, imageURLs)
+	require.Empty(t, maskURL)
+	require.NotNil(t, cleanup)
+	require.Len(t, store.uploaded, 1)
+	require.Len(t, store.deleted, 1)
+	require.Empty(t, store.objects)
+}
+
+func TestOpenAIGatewayServiceForwardImages_CompatibleObjectURLTransportRewritesMultipartToJSON(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
+	require.NoError(t, writer.WriteField("prompt", "draw a poster"))
+	require.NoError(t, writer.WriteField("response_format", "b64_json"))
+	imagePart, err := writer.CreateFormFile("image", "source.png")
+	require.NoError(t, err)
+	_, err = imagePart.Write([]byte("png-image-content"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body.Bytes()))
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = req
+
+	store := newFakeOpenAIImageInputObjectStore()
+	upstream := &httpUpstreamRecorder{resp: newOpenAIImagesJSONResponse(http.StatusOK, `{"created":1710000007,"data":[{"b64_json":"aW1hZ2U="}]}`)}
+	svc := &OpenAIGatewayService{
+		cfg:          openAIImageInputObjectStoreTestConfig(),
+		httpUpstream: upstream,
+	}
+	svc.SetImageInputObjectStoreFactory(func(context.Context, *BackupS3Config) (BackupObjectStore, error) {
+		return store, nil
+	})
+	parsed, err := svc.ParseOpenAIImagesRequest(c, body.Bytes())
+	require.NoError(t, err)
+
+	account := &Account{
+		ID:       23,
+		Name:     "generic-1mb",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Extra: map[string]any{
+			openAIImageInputTransportExtraKey:     "object_url",
+			openAIImageURLFieldsSupportedExtraKey: true,
+		},
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://image-upstream.example/v1",
+		},
+	}
+
+	result, err := svc.ForwardImages(context.Background(), c, account, body.Bytes(), parsed, "")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 1, result.ImageCount)
+	require.Len(t, store.uploaded, 1)
+	require.Len(t, store.deleted, 1)
+	require.Len(t, upstream.requests, 1)
+	require.Equal(t, "https://image-upstream.example/v1/images/generations", upstream.lastReq.URL.String())
+	require.Equal(t, "application/json", upstream.lastReq.Header.Get("Content-Type"))
+	require.Equal(t, "gpt-image-2", gjson.GetBytes(upstream.lastBody, "model").String())
+	require.Equal(t, "draw a poster", gjson.GetBytes(upstream.lastBody, "prompt").String())
+	require.Equal(t, "https://objects.example/"+store.uploaded[0], gjson.GetBytes(upstream.lastBody, "image_urls.0").String())
+	require.Equal(t, "b64_json", gjson.GetBytes(upstream.lastBody, "response_format").String())
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "aW1hZ2U=", gjson.Get(rec.Body.String(), "data.0.b64_json").String())
+}
+
+func TestPrepareOpenAIImagesObjectURLInputsConvertsDataURLAndKeepsHTTPURL(t *testing.T) {
+	svc := &OpenAIGatewayService{
+		cfg: openAIImageInputObjectStoreTestConfig(),
+	}
+	store := newFakeOpenAIImageInputObjectStore()
+	svc.SetImageInputObjectStoreFactory(func(context.Context, *BackupS3Config) (BackupObjectStore, error) {
+		return store, nil
+	})
+
+	parsed := &OpenAIImagesRequest{
+		InputImageURLs: []string{
+			"https://example.com/ref.png",
+			"data:image/png;base64,QUJD",
+		},
+		MaskImageURL: "data:image/png;base64,REVG",
+	}
+	prepared, err := svc.prepareOpenAIImagesObjectURLInputs(context.Background(), &Account{ID: 99}, parsed)
+	require.NoError(t, err)
+	require.Len(t, prepared.ImageURLs, 2)
+	require.Equal(t, "https://example.com/ref.png", prepared.ImageURLs[0])
+	require.Equal(t, "https://objects.example/"+store.uploaded[0], prepared.ImageURLs[1])
+	require.Equal(t, "https://objects.example/"+store.uploaded[1], prepared.MaskURL)
+	require.Len(t, store.uploaded, 2)
+	require.Empty(t, store.deleted)
+	prepared.cleanup(svc)
+	require.Len(t, store.deleted, 2)
 }
 
 func TestOpenAIGatewayServiceForwardImages_APIMartRegularImageSplitsMultiImageRequests(t *testing.T) {

@@ -377,6 +377,9 @@ type OpenAIGatewayService struct {
 	openaiCompatAnthropicDigestSessions sync.Map
 	openaiVideoTaskAccounts             sync.Map // key: task_id, value: openAIVideoTaskAccountRef
 	openaiVideoTaskRepo                 OpenAIVideoTaskRepository
+	imageInputObjectStoreFactory        BackupObjectStoreFactory
+	imageInputObjectStoreMu             sync.Mutex
+	imageInputObjectStore               BackupObjectStore
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService
@@ -456,6 +459,12 @@ func (s *OpenAIGatewayService) SetAffiliateService(affiliateService *AffiliateSe
 func (s *OpenAIGatewayService) SetOpenAIVideoTaskRepository(repo OpenAIVideoTaskRepository) {
 	if s != nil {
 		s.openaiVideoTaskRepo = repo
+	}
+}
+
+func (s *OpenAIGatewayService) SetImageInputObjectStoreFactory(factory BackupObjectStoreFactory) {
+	if s != nil {
+		s.imageInputObjectStoreFactory = factory
 	}
 }
 

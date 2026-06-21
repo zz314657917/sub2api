@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-06-21 10:33 +08:00 - 普通账号级图片输入 URL 化完成
+
+- 当前阶段：普通上游账号的图片输入 URL 化已落地，按账号 `extra` 能力启用，不绑定 APIMart 平台名。
+- 本段重点：新增 `image_input_transport`、`image_upload_limit_bytes`、`image_url_fields_supported` 三个通用账号字段；启用后本地 multipart 图片、mask 和 JSON data URL 会上传到现有对象存储，再通过 presigned URL 写入 `image_urls` / `mask_url`；已是 `http/https` 的输入原样透传。
+- 已完成：OpenAI 图片 API Key 路径、APIMart async image 路径和 OAuth Responses 图片路径均接入账号级 object URL 策略；failover 切账号时基于选中的账号重新计算输入策略；服务启动注入 `BackupObjectStoreFactory`；临时对象 key 加 UUID，错误和完成后都会清理临时对象。
+- 关键决策：普通 OpenAI-compatible 上游只有显式配置 `image_url_fields_supported=true` 才改写 JSON URL 字段；未知兼容上游继续 multipart 原行为，避免破坏兼容性。上游 `Part exceeded maximum size of 1024KB` 继续归一提示客户这是上游 1MB 限制。
+- 验证记录：图片网关定向测试通过；`cd F:/mcplugins/sub2api/backend && go test ./...` 通过；`git diff --check` 通过。
+- 遗留问题：未用真实受限上游账号和真实对象存储公网访问链路做 staging 验证；本轮未做前端 UI，只支持手工配置账号 `extra`。
+- 下一步：给受 1MB 限制的普通账号配置 `image_input_transport=object_url` 和 `image_upload_limit_bytes=1048576`；确认该上游支持 URL 字段时再加 `image_url_fields_supported=true`；用大于 1MB 的图片请求做 staging 验证。
+
 ## 2026-06-18 19:25 +08:00 - 上游 v0.1.137 后续小补丁 S19 完成
 
 - 当前阶段：`upstream-main-v0137-postfixes-s19` 已实现并通过定向 QA，workflow 状态为 `done`。

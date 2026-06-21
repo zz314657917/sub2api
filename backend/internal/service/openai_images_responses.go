@@ -1408,17 +1408,33 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 		return nil, err
 	}
 
-	if shouldSplitOpenAIImagesRequests(parsed, requestModel) {
-		return s.forwardSplitOpenAIImagesOAuth(upstreamCtx, c, account, parsed, token, requestModel, startTime)
+	forwardParsed := parsed
+	var preparedInputs preparedOpenAIImageURLInputs
+	if shouldUseOpenAIImagesObjectURLTransport(account, parsed) {
+		preparedInputs, err = s.prepareOpenAIImagesObjectURLInputs(upstreamCtx, account, parsed)
+		if err != nil {
+			return nil, err
+		}
+		defer preparedInputs.cleanup(s)
+		cloned := *parsed
+		cloned.InputImageURLs = append([]string(nil), preparedInputs.ImageURLs...)
+		cloned.Uploads = nil
+		cloned.MaskImageURL = preparedInputs.MaskURL
+		cloned.MaskUpload = nil
+		forwardParsed = &cloned
 	}
 
-	responsesBody, err := buildOpenAIImagesResponsesRequest(parsed, requestModel)
+	if shouldSplitOpenAIImagesRequests(forwardParsed, requestModel) {
+		return s.forwardSplitOpenAIImagesOAuth(upstreamCtx, c, account, forwardParsed, token, requestModel, startTime)
+	}
+
+	responsesBody, err := buildOpenAIImagesResponsesRequest(forwardParsed, requestModel)
 	if err != nil {
 		return nil, err
 	}
 	setOpsUpstreamRequestBody(c, responsesBody)
 
-	upstreamReq, err := s.buildUpstreamRequest(upstreamCtx, c, account, responsesBody, token, true, parsed.StickySessionSeed(), false)
+	upstreamReq, err := s.buildUpstreamRequest(upstreamCtx, c, account, responsesBody, token, true, forwardParsed.StickySessionSeed(), false)
 	if err != nil {
 		return nil, err
 	}
@@ -1480,8 +1496,8 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 		imageOutputSizes []string
 		firstTokenMs     *int
 	)
-	if parsed.Stream {
-		usage, imageCount, imageOutputSizes, firstTokenMs, err = s.handleOpenAIImagesOAuthStreamingResponse(resp, c, startTime, parsed.ResponseFormat, openAIImagesStreamPrefix(parsed), requestModel)
+	if forwardParsed.Stream {
+		usage, imageCount, imageOutputSizes, firstTokenMs, err = s.handleOpenAIImagesOAuthStreamingResponse(resp, c, startTime, forwardParsed.ResponseFormat, openAIImagesStreamPrefix(forwardParsed), requestModel)
 		if err != nil {
 			if imageCount > 0 {
 				return &OpenAIForwardResult{
@@ -1489,41 +1505,41 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 					Usage:            usage,
 					Model:            requestModel,
 					UpstreamModel:    requestModel,
-					Stream:           parsed.Stream,
+					Stream:           forwardParsed.Stream,
 					ResponseHeaders:  resp.Header.Clone(),
 					Duration:         time.Since(startTime),
 					FirstTokenMs:     firstTokenMs,
 					ImageCount:       imageCount,
-					ImageSize:        parsed.SizeTier,
-					ImageQuality:     NormalizeImageQuality(parsed.Quality),
-					ImageInputSize:   parsed.Size,
+					ImageSize:        forwardParsed.SizeTier,
+					ImageQuality:     NormalizeImageQuality(forwardParsed.Quality),
+					ImageInputSize:   forwardParsed.Size,
 					ImageOutputSizes: imageOutputSizes,
 				}, err
 			}
 			return nil, err
 		}
 	} else {
-		usage, imageCount, imageOutputSizes, err = s.handleOpenAIImagesOAuthNonStreamingResponse(resp, c, parsed.ResponseFormat, requestModel)
+		usage, imageCount, imageOutputSizes, err = s.handleOpenAIImagesOAuthNonStreamingResponse(resp, c, forwardParsed.ResponseFormat, requestModel)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if imageCount <= 0 {
-		imageCount = parsed.N
+		imageCount = forwardParsed.N
 	}
 	return &OpenAIForwardResult{
 		RequestID:        resp.Header.Get("x-request-id"),
 		Usage:            usage,
 		Model:            requestModel,
 		UpstreamModel:    requestModel,
-		Stream:           parsed.Stream,
+		Stream:           forwardParsed.Stream,
 		ResponseHeaders:  resp.Header.Clone(),
 		Duration:         time.Since(startTime),
 		FirstTokenMs:     firstTokenMs,
 		ImageCount:       imageCount,
-		ImageSize:        parsed.SizeTier,
-		ImageQuality:     NormalizeImageQuality(parsed.Quality),
-		ImageInputSize:   parsed.Size,
+		ImageSize:        forwardParsed.SizeTier,
+		ImageQuality:     NormalizeImageQuality(forwardParsed.Quality),
+		ImageInputSize:   forwardParsed.Size,
 		ImageOutputSizes: imageOutputSizes,
 	}, nil
 }

@@ -20,9 +20,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/imroc/req/v3"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -52,6 +54,13 @@ const (
 	openAIImageMaxDownloadBytes    = 20 << 20 // 20MB per image download
 	openAIImageMaxUploadPartSize   = 20 << 20 // 20MB per multipart upload part
 	openAIImagesResponsesMainModel = "gpt-5.4-mini"
+
+	openAIImageInputTransportExtraKey        = "image_input_transport"
+	openAIImageInputTransportObjectURL       = "object_url"
+	openAIImageInputUploadLimitBytesExtraKey = "image_upload_limit_bytes"
+	openAIImageURLFieldsSupportedExtraKey    = "image_url_fields_supported"
+	openAIImageInputObjectKeyPrefix          = "image-inputs"
+	openAIImageInputObjectURLTTL             = 2 * time.Hour
 )
 
 type OpenAIImagesCapability string
@@ -791,6 +800,301 @@ func validateOpenAIImagesReferenceLimit(req *OpenAIImagesRequest, model string) 
 	return nil
 }
 
+type preparedOpenAIImageURLInputs struct {
+	ImageURLs []string
+	MaskURL   string
+	keys      []string
+}
+
+func (p preparedOpenAIImageURLInputs) cleanup(service *OpenAIGatewayService) {
+	if service == nil || len(p.keys) == 0 {
+		return
+	}
+	service.cleanupOpenAIImageInputObjects(p.keys)
+}
+
+func shouldUseOpenAIImagesObjectURLTransport(account *Account, parsed *OpenAIImagesRequest) bool {
+	if account == nil {
+		return false
+	}
+	if strings.EqualFold(strings.TrimSpace(account.GetExtraString(openAIImageInputTransportExtraKey)), openAIImageInputTransportObjectURL) {
+		return true
+	}
+	limit := openAIImagesAccountUploadLimitBytes(account)
+	return limit > 0 && openAIImagesLocalInputExceedsLimit(parsed, limit)
+}
+
+func openAIImagesAccountUploadLimitBytes(account *Account) int64 {
+	if account == nil || account.Extra == nil {
+		return 0
+	}
+	value := ParseExtraInt(account.Extra[openAIImageInputUploadLimitBytesExtraKey])
+	if value <= 0 {
+		return 0
+	}
+	return int64(value)
+}
+
+func openAIImagesLocalInputExceedsLimit(parsed *OpenAIImagesRequest, limit int64) bool {
+	if parsed == nil || limit <= 0 {
+		return false
+	}
+	for _, upload := range parsed.Uploads {
+		if int64(len(upload.Data)) > limit {
+			return true
+		}
+	}
+	if parsed.MaskUpload != nil && int64(len(parsed.MaskUpload.Data)) > limit {
+		return true
+	}
+	for _, raw := range parsed.InputImageURLs {
+		data, _, ok, err := parseOpenAIImagesDataURL(raw)
+		if err == nil && ok && int64(len(data)) > limit {
+			return true
+		}
+	}
+	if data, _, ok, err := parseOpenAIImagesDataURL(parsed.MaskImageURL); err == nil && ok && int64(len(data)) > limit {
+		return true
+	}
+	return false
+}
+
+func accountSupportsOpenAIImageURLFields(account *Account) bool {
+	if account == nil || account.Extra == nil {
+		return false
+	}
+	return parseOpenAIImagesExtraBool(account.Extra[openAIImageURLFieldsSupportedExtraKey])
+}
+
+func parseOpenAIImagesExtraBool(raw any) bool {
+	switch value := raw.(type) {
+	case bool:
+		return value
+	case string:
+		switch strings.ToLower(strings.TrimSpace(value)) {
+		case "1", "true", "yes", "y", "on", "enabled":
+			return true
+		default:
+			return false
+		}
+	case int:
+		return value != 0
+	case int64:
+		return value != 0
+	case float64:
+		return value != 0
+	case json.Number:
+		i, err := value.Int64()
+		return err == nil && i != 0
+	default:
+		return false
+	}
+}
+
+func parseOpenAIImagesDataURL(raw string) ([]byte, string, bool, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || !strings.HasPrefix(strings.ToLower(raw), "data:") {
+		return nil, "", false, nil
+	}
+	comma := strings.Index(raw, ",")
+	if comma < 0 {
+		return nil, "", true, fmt.Errorf("invalid image data URL")
+	}
+	header := raw[len("data:"):comma]
+	if !strings.Contains(strings.ToLower(header), ";base64") {
+		return nil, "", true, fmt.Errorf("image data URL must be base64")
+	}
+	contentType := strings.TrimSpace(strings.Split(header, ";")[0])
+	if !strings.HasPrefix(strings.ToLower(contentType), "image/") {
+		return nil, "", true, fmt.Errorf("image data URL must be image/*")
+	}
+	data, err := base64.StdEncoding.DecodeString(strings.TrimSpace(raw[comma+1:]))
+	if err != nil {
+		return nil, "", true, fmt.Errorf("decode image data URL: %w", err)
+	}
+	if len(data) == 0 {
+		return nil, "", true, fmt.Errorf("image data URL is empty")
+	}
+	return data, contentType, true, nil
+}
+
+func (s *OpenAIGatewayService) prepareOpenAIImagesObjectURLInputs(
+	ctx context.Context,
+	account *Account,
+	parsed *OpenAIImagesRequest,
+) (preparedOpenAIImageURLInputs, error) {
+	if parsed == nil {
+		return preparedOpenAIImageURLInputs{}, fmt.Errorf("parsed images request is required")
+	}
+	prepared := preparedOpenAIImageURLInputs{
+		ImageURLs: make([]string, 0, len(parsed.InputImageURLs)+len(parsed.Uploads)),
+	}
+	for _, imageURL := range parsed.InputImageURLs {
+		converted, key, err := s.openAIImageInputURLAsObjectURL(ctx, account, imageURL)
+		if err != nil {
+			prepared.cleanup(s)
+			return preparedOpenAIImageURLInputs{}, err
+		}
+		if strings.TrimSpace(converted) != "" {
+			prepared.ImageURLs = append(prepared.ImageURLs, converted)
+		}
+		if key != "" {
+			prepared.keys = append(prepared.keys, key)
+		}
+	}
+	for _, upload := range parsed.Uploads {
+		converted, key, err := s.uploadOpenAIImageInputObject(ctx, account, upload.Data, upload.ContentType, upload.FileName)
+		if err != nil {
+			prepared.cleanup(s)
+			return preparedOpenAIImageURLInputs{}, err
+		}
+		prepared.ImageURLs = append(prepared.ImageURLs, converted)
+		prepared.keys = append(prepared.keys, key)
+	}
+
+	maskURL := strings.TrimSpace(parsed.MaskImageURL)
+	if maskURL != "" {
+		converted, key, err := s.openAIImageInputURLAsObjectURL(ctx, account, maskURL)
+		if err != nil {
+			prepared.cleanup(s)
+			return preparedOpenAIImageURLInputs{}, err
+		}
+		maskURL = converted
+		if key != "" {
+			prepared.keys = append(prepared.keys, key)
+		}
+	}
+	if parsed.MaskUpload != nil {
+		converted, key, err := s.uploadOpenAIImageInputObject(ctx, account, parsed.MaskUpload.Data, parsed.MaskUpload.ContentType, parsed.MaskUpload.FileName)
+		if err != nil {
+			prepared.cleanup(s)
+			return preparedOpenAIImageURLInputs{}, err
+		}
+		maskURL = converted
+		prepared.keys = append(prepared.keys, key)
+	}
+	prepared.MaskURL = maskURL
+	return prepared, nil
+}
+
+func (s *OpenAIGatewayService) openAIImageInputURLAsObjectURL(
+	ctx context.Context,
+	account *Account,
+	raw string,
+) (string, string, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", "", nil
+	}
+	data, contentType, ok, err := parseOpenAIImagesDataURL(raw)
+	if err != nil {
+		return "", "", err
+	}
+	if !ok {
+		return raw, "", nil
+	}
+	return s.uploadOpenAIImageInputObject(ctx, account, data, contentType, "image")
+}
+
+func (s *OpenAIGatewayService) uploadOpenAIImageInputObject(
+	ctx context.Context,
+	account *Account,
+	data []byte,
+	contentType string,
+	filename string,
+) (string, string, error) {
+	if len(data) == 0 {
+		return "", "", fmt.Errorf("image input is empty")
+	}
+	store, err := s.getOpenAIImageInputObjectStore(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	contentType = normalizeImageMimeType(contentType, data)
+	key := s.openAIImageInputObjectKey(account, data, contentType, filename)
+	if _, err := store.Upload(ctx, key, bytes.NewReader(data), contentType); err != nil {
+		return "", "", fmt.Errorf("upload image input object: %w", err)
+	}
+	objectURL, err := store.PresignURL(ctx, key, openAIImageInputObjectURLTTL)
+	if err != nil {
+		_ = store.Delete(context.Background(), key)
+		return "", "", fmt.Errorf("presign image input object: %w", err)
+	}
+	if strings.TrimSpace(objectURL) == "" {
+		_ = store.Delete(context.Background(), key)
+		return "", "", fmt.Errorf("presign image input object returned empty url")
+	}
+	return strings.TrimSpace(objectURL), key, nil
+}
+
+func (s *OpenAIGatewayService) openAIImageInputObjectKey(account *Account, data []byte, contentType string, filename string) string {
+	prefix := openAIImageInputObjectKeyPrefix
+	if s != nil && s.cfg != nil {
+		if configuredPrefix := strings.Trim(strings.TrimSpace(s.cfg.ImageCreator.ObjectStorage.Prefix), "/"); configuredPrefix != "" {
+			prefix = configuredPrefix + "/" + openAIImageInputObjectKeyPrefix
+		}
+	}
+	accountID := int64(0)
+	if account != nil {
+		accountID = account.ID
+	}
+	sum := sha256.Sum256(data)
+	ext := imageExtension(contentType, filename, "png")
+	return fmt.Sprintf("%s/%d/%s/%s-%s.%s", prefix, accountID, time.Now().UTC().Format("2006/01/02"), hex.EncodeToString(sum[:]), uuid.NewString(), ext)
+}
+
+func (s *OpenAIGatewayService) getOpenAIImageInputObjectStore(ctx context.Context) (BackupObjectStore, error) {
+	if s == nil {
+		return nil, fmt.Errorf("openai gateway service is unavailable")
+	}
+	if s.imageInputObjectStoreFactory == nil {
+		return nil, fmt.Errorf("image input object storage factory is unavailable")
+	}
+	cfg := openAIImageInputObjectStorageConfig(s.cfg)
+	if cfg == nil || !cfg.IsConfigured() {
+		return nil, fmt.Errorf("image input object storage is not configured")
+	}
+	s.imageInputObjectStoreMu.Lock()
+	defer s.imageInputObjectStoreMu.Unlock()
+	if s.imageInputObjectStore != nil {
+		return s.imageInputObjectStore, nil
+	}
+	store, err := s.imageInputObjectStoreFactory(ctx, cfg)
+	if err != nil {
+		return nil, err
+	}
+	s.imageInputObjectStore = store
+	return store, nil
+}
+
+func openAIImageInputObjectStorageConfig(cfg *config.Config) *BackupS3Config {
+	opts := imageCreatorOptionsFromConfig(cfg)
+	if opts.ObjectStorage == nil || !opts.ObjectStorage.IsConfigured() {
+		return nil
+	}
+	copied := *opts.ObjectStorage
+	return &copied
+}
+
+func (s *OpenAIGatewayService) cleanupOpenAIImageInputObjects(keys []string) {
+	keys = dedupeStrings(compactTrimmedStrings(keys))
+	if len(keys) == 0 {
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	store, err := s.getOpenAIImageInputObjectStore(ctx)
+	if err != nil {
+		logger.LegacyPrintf("service.openai_gateway", "[OpenAI] cleanup image input objects skipped: %s", sanitizeUpstreamErrorMessage(err.Error()))
+		return
+	}
+	for _, key := range keys {
+		if err := store.Delete(ctx, key); err != nil {
+			logger.LegacyPrintf("service.openai_gateway", "[OpenAI] cleanup image input object failed key=%s err=%s", key, sanitizeUpstreamErrorMessage(err.Error()))
+		}
+	}
+}
+
 func normalizeOpenAIImagesEndpointPath(path string) string {
 	trimmed := strings.TrimSpace(path)
 	switch {
@@ -914,14 +1218,6 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 		parsed.Endpoint,
 		account.Type,
 	)
-	forwardBody, forwardContentType, err := rewriteOpenAIImagesModel(body, parsed.ContentType, upstreamModel)
-	if err != nil {
-		return nil, err
-	}
-	if !parsed.Multipart {
-		setOpsUpstreamRequestBody(c, forwardBody)
-	}
-
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	defer releaseUpstreamCtx()
 
@@ -932,10 +1228,41 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 	if isAPIMartImagesHost(account) && isAPIMartImagesAsyncModel(upstreamModel) {
 		return s.forwardAPIMartImages(upstreamCtx, c, account, parsed, token, requestModel, upstreamModel, startTime)
 	}
-	if shouldSplitOpenAIImagesRequests(parsed, upstreamModel) {
-		return s.forwardSplitOpenAIImagesAPIKey(upstreamCtx, c, account, body, parsed, token, requestModel, upstreamModel, startTime)
+
+	forwardBody, forwardContentType, err := rewriteOpenAIImagesModel(body, parsed.ContentType, upstreamModel)
+	if err != nil {
+		return nil, err
 	}
-	upstreamReq, err := s.buildOpenAIImagesRequest(upstreamCtx, c, account, forwardBody, forwardContentType, token, parsed.Endpoint)
+	forwardParsed := parsed
+	var preparedInputs preparedOpenAIImageURLInputs
+	if accountSupportsOpenAIImageURLFields(account) && shouldUseOpenAIImagesObjectURLTransport(account, parsed) {
+		preparedInputs, err = s.prepareOpenAIImagesObjectURLInputs(upstreamCtx, account, parsed)
+		if err != nil {
+			return nil, err
+		}
+		defer preparedInputs.cleanup(s)
+		forwardBody, err = buildOpenAIImagesURLFieldsPayload(parsed, upstreamModel, preparedInputs.ImageURLs, preparedInputs.MaskURL)
+		if err != nil {
+			return nil, err
+		}
+		cloned := *parsed
+		cloned.ContentType = "application/json"
+		cloned.Multipart = false
+		cloned.InputImageURLs = append([]string(nil), preparedInputs.ImageURLs...)
+		cloned.Uploads = nil
+		cloned.MaskImageURL = preparedInputs.MaskURL
+		cloned.MaskUpload = nil
+		forwardParsed = &cloned
+		forwardContentType = "application/json"
+	}
+	if !forwardParsed.Multipart {
+		setOpsUpstreamRequestBody(c, forwardBody)
+	}
+
+	if shouldSplitOpenAIImagesRequests(forwardParsed, upstreamModel) {
+		return s.forwardSplitOpenAIImagesAPIKey(upstreamCtx, c, account, forwardBody, forwardParsed, token, requestModel, upstreamModel, startTime)
+	}
+	upstreamReq, err := s.buildOpenAIImagesRequest(upstreamCtx, c, account, forwardBody, forwardContentType, token, forwardParsed.Endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -1517,27 +1844,13 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 	}
 
 	upstreamStart := time.Now()
-	imageURLs := append([]string(nil), parsed.InputImageURLs...)
-	for _, upload := range parsed.Uploads {
-		uploadedURL, uploadErr := s.uploadAPIMartImage(ctx, account, token, proxyURL, baseURL, upload)
-		if uploadErr != nil {
-			SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
-			s.recordAPIMartImagesUpstreamError(c, account, uploadErr)
-			return nil, uploadErr
-		}
-		imageURLs = append(imageURLs, uploadedURL)
+	imageURLs, maskURL, cleanupInputs, err := s.prepareAPIMartImageInputs(ctx, account, token, proxyURL, baseURL, parsed)
+	if err != nil {
+		SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
+		s.recordAPIMartImagesUpstreamError(c, account, err)
+		return nil, err
 	}
-
-	maskURL := strings.TrimSpace(parsed.MaskImageURL)
-	if parsed.MaskUpload != nil {
-		uploadedURL, uploadErr := s.uploadAPIMartImage(ctx, account, token, proxyURL, baseURL, *parsed.MaskUpload)
-		if uploadErr != nil {
-			SetOpsLatencyMs(c, OpsUpstreamLatencyMsKey, time.Since(upstreamStart).Milliseconds())
-			s.recordAPIMartImagesUpstreamError(c, account, uploadErr)
-			return nil, uploadErr
-		}
-		maskURL = uploadedURL
-	}
+	defer cleanupInputs()
 
 	requestID := ""
 	images := make([]apimartImageResult, 0, maxInt(1, parsed.N))
@@ -1597,6 +1910,98 @@ func (s *OpenAIGatewayService) forwardAPIMartImages(
 		ImageInputSize:     sizeResolution.InputSize,
 		CostOverride:       costOverride,
 	}, nil
+}
+
+func (s *OpenAIGatewayService) prepareAPIMartImageInputs(
+	ctx context.Context,
+	account *Account,
+	token string,
+	proxyURL string,
+	baseURL string,
+	parsed *OpenAIImagesRequest,
+) ([]string, string, func(), error) {
+	if parsed == nil {
+		return nil, "", func() {}, fmt.Errorf("parsed images request is required")
+	}
+	useObjectURL := shouldUseOpenAIImagesObjectURLTransport(account, parsed)
+	imageURLs := make([]string, 0, len(parsed.InputImageURLs)+len(parsed.Uploads))
+	createdKeys := make([]string, 0, len(parsed.InputImageURLs)+len(parsed.Uploads)+1)
+	appendKey := func(key string) {
+		if strings.TrimSpace(key) != "" {
+			createdKeys = append(createdKeys, key)
+		}
+	}
+	cleanupCreated := func() {
+		s.cleanupOpenAIImageInputObjects(createdKeys)
+	}
+
+	for _, rawURL := range parsed.InputImageURLs {
+		rawURL = strings.TrimSpace(rawURL)
+		if rawURL == "" {
+			continue
+		}
+		if !useObjectURL {
+			imageURLs = append(imageURLs, rawURL)
+			continue
+		}
+		converted, key, err := s.openAIImageInputURLAsObjectURL(ctx, account, rawURL)
+		if err != nil {
+			cleanupCreated()
+			return nil, "", func() {}, err
+		}
+		imageURLs = append(imageURLs, converted)
+		appendKey(key)
+	}
+
+	for _, upload := range parsed.Uploads {
+		if !useObjectURL {
+			uploadedURL, uploadErr := s.uploadAPIMartImage(ctx, account, token, proxyURL, baseURL, upload)
+			if uploadErr != nil {
+				return nil, "", func() {}, uploadErr
+			}
+			imageURLs = append(imageURLs, uploadedURL)
+			continue
+		}
+		uploadedURL, key, uploadErr := s.uploadOpenAIImageInputObject(ctx, account, upload.Data, upload.ContentType, upload.FileName)
+		if uploadErr != nil {
+			cleanupCreated()
+			return nil, "", func() {}, uploadErr
+		}
+		imageURLs = append(imageURLs, uploadedURL)
+		appendKey(key)
+	}
+
+	maskURL := strings.TrimSpace(parsed.MaskImageURL)
+	if parsed.MaskUpload != nil {
+		if !useObjectURL {
+			uploadedURL, uploadErr := s.uploadAPIMartImage(ctx, account, token, proxyURL, baseURL, *parsed.MaskUpload)
+			if uploadErr != nil {
+				return nil, "", func() {}, uploadErr
+			}
+			maskURL = uploadedURL
+		} else {
+			uploadedURL, key, uploadErr := s.uploadOpenAIImageInputObject(ctx, account, parsed.MaskUpload.Data, parsed.MaskUpload.ContentType, parsed.MaskUpload.FileName)
+			if uploadErr != nil {
+				cleanupCreated()
+				return nil, "", func() {}, uploadErr
+			}
+			maskURL = uploadedURL
+			appendKey(key)
+		}
+	} else if useObjectURL && maskURL != "" {
+		converted, key, err := s.openAIImageInputURLAsObjectURL(ctx, account, maskURL)
+		if err != nil {
+			cleanupCreated()
+			return nil, "", func() {}, err
+		}
+		maskURL = converted
+		appendKey(key)
+	}
+
+	cleanup := func() {
+		cleanupCreated()
+	}
+	return compactTrimmedStrings(imageURLs), maskURL, cleanup, nil
 }
 
 func splitOpenAIImagesRequestCount(parsed *OpenAIImagesRequest, upstreamModel string) int {
@@ -1762,6 +2167,77 @@ func buildAPIMartGrokImagineImagesPayload(parsed *OpenAIImagesRequest, upstreamM
 			return nil, fmt.Errorf("%s requires image_urls", upstreamModel)
 		}
 		payload["image_urls"] = imageURLs[:1]
+	}
+	return json.Marshal(payload)
+}
+
+func buildOpenAIImagesURLFieldsPayload(parsed *OpenAIImagesRequest, upstreamModel string, imageURLs []string, maskURL string) ([]byte, error) {
+	if parsed == nil {
+		return nil, fmt.Errorf("parsed images request is required")
+	}
+	payload := map[string]any{
+		"model":  strings.TrimSpace(upstreamModel),
+		"prompt": strings.TrimSpace(parsed.Prompt),
+		"n":      parsed.N,
+	}
+	for _, field := range []struct {
+		key   string
+		value string
+	}{
+		{key: "size", value: parsed.Size},
+		{key: "response_format", value: parsed.ResponseFormat},
+		{key: "quality", value: parsed.Quality},
+		{key: "background", value: parsed.Background},
+		{key: "output_format", value: parsed.OutputFormat},
+		{key: "moderation", value: parsed.Moderation},
+		{key: "input_fidelity", value: parsed.InputFidelity},
+		{key: "style", value: parsed.Style},
+		{key: "version", value: parsed.MidjourneyVersion},
+		{key: "speed", value: parsed.MidjourneySpeed},
+	} {
+		if trimmed := strings.TrimSpace(field.value); trimmed != "" {
+			payload[field.key] = trimmed
+		}
+	}
+	if parsed.OutputCompression != nil {
+		payload["output_compression"] = *parsed.OutputCompression
+	}
+	if parsed.PartialImages != nil {
+		payload["partial_images"] = *parsed.PartialImages
+	}
+	if parsed.GoogleSearch != nil {
+		payload["google_search"] = *parsed.GoogleSearch
+	}
+	if parsed.GoogleImageSearch != nil {
+		payload["google_image_search"] = *parsed.GoogleImageSearch
+	}
+	if parsed.MidjourneyStylize != nil {
+		payload["stylize"] = *parsed.MidjourneyStylize
+	}
+	if parsed.MidjourneyChaos != nil {
+		payload["chaos"] = *parsed.MidjourneyChaos
+	}
+	if parsed.MidjourneyWeird != nil {
+		payload["weird"] = *parsed.MidjourneyWeird
+	}
+	if parsed.MidjourneyStop != nil {
+		payload["stop"] = *parsed.MidjourneyStop
+	}
+	if parsed.MidjourneyNiji != nil {
+		payload["niji"] = *parsed.MidjourneyNiji
+	}
+	if parsed.MidjourneyRaw != nil {
+		payload["raw"] = *parsed.MidjourneyRaw
+	}
+	if parsed.MidjourneyTile != nil {
+		payload["tile"] = *parsed.MidjourneyTile
+	}
+	imageURLs = compactTrimmedStrings(imageURLs)
+	if len(imageURLs) > 0 {
+		payload["image_urls"] = imageURLs
+	}
+	if maskURL := strings.TrimSpace(maskURL); maskURL != "" {
+		payload["mask_url"] = maskURL
 	}
 	return json.Marshal(payload)
 }
