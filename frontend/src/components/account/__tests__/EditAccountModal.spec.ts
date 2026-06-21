@@ -387,6 +387,50 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_image_generation_bridge_enabled')
   })
 
+  it('submits OpenAI APIKey image input object URL marker', async () => {
+    const account = buildAccount()
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    await wrapper.get('[data-testid="openai-image-input-object-url-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="openai-image-upload-limit-bytes"]').setValue('1048576')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toEqual(expect.objectContaining({
+      image_input_transport: 'object_url',
+      image_upload_limit_bytes: 1048576,
+      image_url_fields_supported: true
+    }))
+  })
+
+  it('clears OpenAI APIKey image input object URL marker when disabled', async () => {
+    const account = buildAccount()
+    account.extra = {
+      image_input_transport: 'object_url',
+      image_upload_limit_bytes: 1048576,
+      image_url_fields_supported: true
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    await wrapper.get('[data-testid="openai-image-input-object-url-toggle"]').trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('image_input_transport')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('image_upload_limit_bytes')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('image_url_fields_supported')
+  })
+
   it('moves a shared OpenAI OAuth account to the selected capacity pool', async () => {
     const account = {
       ...buildAccount(),

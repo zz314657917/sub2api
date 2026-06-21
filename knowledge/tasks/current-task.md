@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-06-21 10:33 +08:00
+最后更新：2026-06-21 11:02 +08:00
 
 ## 背景
 
@@ -25,6 +25,7 @@
 - OAuth 图片 Responses 路径也会在账号策略触发时基于克隆后的 parsed request 转 URL，split 请求使用同一份账号级重算结果。
 - APIMart object URL 准备阶段如果中途失败，会清理已创建的临时对象；对象 key 带 UUID，避免相同图片并发请求互相删除临时对象。
 - 保留上游 `Part exceeded maximum size of 1024KB` 错误归一，客户会看到这是上游 1MB 限制。
+- 后台账号编辑弹窗已给 OpenAI API Key 账号新增“图片输入 URL 化”配置区，可直接写入上述三个 `extra` 字段，不再需要手工改数据库。
 
 ## 已确认事实
 
@@ -35,7 +36,7 @@
 ## 待验证点
 
 - 生产或 staging 上目标上游必须能公网访问对象存储 presigned URL。
-- 真实受限账号需要在后台 `extra` 配置 `image_input_transport=object_url`，普通兼容上游还需要配置 `image_url_fields_supported=true`。
+- 真实受限账号需要在后台账号编辑页开启“图片输入 URL 化”，普通兼容上游还需要勾选“上游支持 image_urls / mask_url”。
 - 若仅配置 `image_upload_limit_bytes=1048576`，只有本地输入超过该阈值时才触发 URL 化；是否要强制所有本地图片都 URL 化，应按账号能力再确认。
 
 ## 当前结论
@@ -45,12 +46,15 @@
 
 ## 下一步
 
-- 配置受 1MB 限制的普通账号：动作 -> 在账号 `extra` 加 `image_input_transport=object_url`、`image_upload_limit_bytes=1048576`，若是 OpenAI-compatible 且确认支持 URL 字段，再加 `image_url_fields_supported=true`；验证 -> 用大于 1MB 的本地图请求确认上游 body 走 `image_urls`。
+- 配置受 1MB 限制的普通账号：动作 -> 后台账号管理编辑该 OpenAI API Key 账号，开启“图片输入 URL 化”，上传限制字节数填 `1048576`，确认支持 URL 字段后勾选 `image_urls / mask_url`；验证 -> 用大于 1MB 的本地图请求确认上游 body 走 `image_urls`。
 - 部署前确认对象存储公网可达：动作 -> 用生成的 presigned URL 从上游可访问网络发起 HEAD/GET；验证 -> 返回 200 且不过期。
-- 如要做前端 UI：动作 -> 后续给账号编辑弹窗加这三个 extra 字段的可视化配置；验证 -> 保存后后端 extra JSON 与手工配置一致。
 
 ## 验证记录
 
 - `cd F:/mcplugins/sub2api/backend && go test ./internal/service -run "TestOpenAIGatewayServiceForwardImages_APIMart|TestOpenAIGatewayServiceForwardImages_CompatibleObjectURLTransport|TestPrepareOpenAIImagesObjectURLInputs|TestPrepareAPIMartImageInputsObjectURLTransportCleansObjectsOnError|TestOpenAIImagesUpstreamImageTooLarge" -count=1` 通过。
 - `cd F:/mcplugins/sub2api/backend && go test ./...` 通过。
+- `cd F:/mcplugins/sub2api/frontend && npm.cmd run test:run -- src/components/account/__tests__/EditAccountModal.spec.ts` 通过。
+- `cd F:/mcplugins/sub2api/frontend && npm.cmd run typecheck -- --pretty false` 通过。
+- `cd F:/mcplugins/sub2api/frontend && npm.cmd run build` 通过，仅有既有 chunk、Browserslist 和 Node deprecation 警告。
+- `cd F:/mcplugins/sub2api/frontend && npm.cmd run lint` 通过。
 - `cd F:/mcplugins/sub2api && git diff --check` 通过。

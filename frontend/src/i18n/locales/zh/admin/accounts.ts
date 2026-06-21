@@ -565,6 +565,13 @@ export default {
         endpointCapabilities: '端点能力',
         endpointCapabilitiesDesc:
           '用于调度筛选。文本端点会跟随上方 Responses API 支持显示为 Responses、Chat Completions 或自动模式；Embeddings 独立控制 /v1/embeddings。',
+        imageInputObjectURL: '图片输入 URL 化',
+        imageInputObjectURLDesc:
+          '给有上游 multipart 1MB 限制的 OpenAI-compatible 图片账号打标。开启后本地图片会先上传到对象存储，再以 URL 传给上游。',
+        imageUploadLimitBytes: '上传限制字节数',
+        imageUploadLimitBytesHint: '1MB 账号填写 1048576；留空保存时使用 1048576。',
+        imageURLFieldsSupported: '上游支持 image_urls / mask_url',
+        imageURLFieldsSupportedHint: '仅在确认兼容上游支持 URL 字段时开启；未知兼容上游保持关闭更稳。',
         capabilityResponses: 'Responses',
         capabilityTextAuto: 'Responses / Chat Completions（自动）',
         capabilityResponsesAuto: 'Responses（自动探测）',

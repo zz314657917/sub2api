@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-06-21 11:02 +08:00 - 图片输入 URL 化账号标记 UI 收口
+
+- 当前阶段：普通上游账号的图片输入 URL 化已补上后台账号编辑 UI，可直接在账号管理里打标。
+- 本段重点：OpenAI API Key 账号新增“图片输入 URL 化”开关、上传限制字节数字段和 `image_urls / mask_url` 支持勾选；保存后写入账号 `extra`，后端继续按账号能力处理图片输入。
+- 已完成：前端 `EditAccountModal` 接入 UI 和保存逻辑；补中英文文案；新增回归测试覆盖开启/关闭两个方向；`npm.cmd run test:run -- src/components/account/__tests__/EditAccountModal.spec.ts`、`typecheck`、`build`、`lint` 通过。
+- 关键决策：仍然只对 OpenAI API Key 账号暴露这组图片输入能力标记，不把它扩散成平台级全局开关。
+- 验证记录：前端定向测试、`typecheck`、`build`、`lint` 和 `git diff --check` 通过；build 仅有既有 chunk/Browserslist/Node deprecation 警告。
+- 遗留问题：未做真实受限上游账号的 staging 手工验收；对象存储公网可达性仍需部署侧确认。
+- 下一步：把受 1MB 限制的账号在后台编辑页打上这个标记；若要进一步简化运维，再考虑把这组能力做成更显眼的表单分组或模板化预设。
+
 ## 2026-06-21 10:33 +08:00 - 普通账号级图片输入 URL 化完成
 
 - 当前阶段：普通上游账号的图片输入 URL 化已落地，按账号 `extra` 能力启用，不绑定 APIMart 平台名。

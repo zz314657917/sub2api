@@ -1469,6 +1469,70 @@
         </div>
       </div>
 
+      <!-- OpenAI API Key image input transport -->
+      <div
+        v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+        class="space-y-3 border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="flex items-center justify-between gap-4">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.openai.imageInputObjectURL') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.openai.imageInputObjectURLDesc') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="openai-image-input-object-url-toggle"
+            @click="openAIImageInputObjectURLEnabled = !openAIImageInputObjectURLEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              openAIImageInputObjectURLEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                openAIImageInputObjectURLEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+        <div
+          v-if="openAIImageInputObjectURLEnabled"
+          class="grid grid-cols-1 gap-3 rounded-lg bg-gray-50 p-3 dark:bg-dark-700 sm:grid-cols-2"
+        >
+          <div>
+            <label class="input-label">{{ t('admin.accounts.openai.imageUploadLimitBytes') }}</label>
+            <input
+              v-model.number="openAIImageUploadLimitBytes"
+              type="number"
+              min="1"
+              step="1"
+              class="input"
+              data-testid="openai-image-upload-limit-bytes"
+            />
+            <p class="input-hint">{{ t('admin.accounts.openai.imageUploadLimitBytesHint') }}</p>
+          </div>
+          <label class="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 dark:border-dark-600 dark:bg-dark-800">
+            <input
+              v-model="openAIImageURLFieldsSupported"
+              type="checkbox"
+              class="mt-0.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
+              data-testid="openai-image-url-fields-supported"
+            />
+            <span>
+              <span class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                {{ t('admin.accounts.openai.imageURLFieldsSupported') }}
+              </span>
+              <span class="mt-1 block text-xs leading-5 text-gray-500 dark:text-gray-400">
+                {{ t('admin.accounts.openai.imageURLFieldsSupportedHint') }}
+              </span>
+            </span>
+          </label>
+        </div>
+      </div>
+
       <!-- Anthropic API Key 自动透传开关 -->
       <div
         v-if="account?.platform === 'anthropic' && account?.type === 'apikey'"
@@ -2486,6 +2550,10 @@ const openAIQuotaAutoPause5hThreshold = ref<number | null>(null)
 const openAIQuotaAutoPause7dThreshold = ref<number | null>(null)
 const openAIQuotaAutoPause5hDisabled = ref(false)
 const openAIQuotaAutoPause7dDisabled = ref(false)
+const OPENAI_IMAGE_DEFAULT_UPLOAD_LIMIT_BYTES = 1048576
+const openAIImageInputObjectURLEnabled = ref(false)
+const openAIImageUploadLimitBytes = ref<number | null>(OPENAI_IMAGE_DEFAULT_UPLOAD_LIMIT_BYTES)
+const openAIImageURLFieldsSupported = ref(true)
 type CodexImageGenerationBridgeMode = 'inherit' | 'enabled' | 'disabled'
 const codexImageGenerationBridgeMode = ref<CodexImageGenerationBridgeMode>('inherit')
 const anthropicPassthroughEnabled = ref(false)
@@ -2616,6 +2684,28 @@ function writeOptionalShareDisplayNumber(extra: Record<string, unknown>, key: st
   } else {
     delete extra[key]
   }
+}
+function parsePositiveInteger(value: unknown): number | null {
+  const n = typeof value === 'number'
+    ? value
+    : typeof value === 'string'
+      ? Number(value)
+      : NaN
+  if (!Number.isFinite(n) || n <= 0) {
+    return null
+  }
+  return Math.trunc(n)
+}
+function writeOpenAIImageInputTransportToExtra(extra: Record<string, unknown>): void {
+  if (props.account?.platform === 'openai' && props.account?.type === 'apikey' && openAIImageInputObjectURLEnabled.value) {
+    extra.image_input_transport = 'object_url'
+    extra.image_upload_limit_bytes = parsePositiveInteger(openAIImageUploadLimitBytes.value) ?? OPENAI_IMAGE_DEFAULT_UPLOAD_LIMIT_BYTES
+    extra.image_url_fields_supported = openAIImageURLFieldsSupported.value === true
+    return
+  }
+  delete extra.image_input_transport
+  delete extra.image_upload_limit_bytes
+  delete extra.image_url_fields_supported
 }
 function normalizeOpenAIQuotaAutoPauseThreshold(value: number | null): number | null {
   if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
@@ -2971,6 +3061,9 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   openAIQuotaAutoPause7dThreshold.value = null
   openAIQuotaAutoPause5hDisabled.value = false
   openAIQuotaAutoPause7dDisabled.value = false
+  openAIImageInputObjectURLEnabled.value = false
+  openAIImageUploadLimitBytes.value = OPENAI_IMAGE_DEFAULT_UPLOAD_LIMIT_BYTES
+  openAIImageURLFieldsSupported.value = true
   codexImageGenerationBridgeMode.value = 'inherit'
   anthropicPassthroughEnabled.value = false
   webSearchEmulationMode.value = 'default'
@@ -3017,6 +3110,11 @@ const syncFormFromAccount = (newAccount: Account | null) => {
       : null
     openAIQuotaAutoPause5hDisabled.value = extra?.auto_pause_5h_disabled === true
     openAIQuotaAutoPause7dDisabled.value = extra?.auto_pause_7d_disabled === true
+    if (newAccount.type === 'apikey') {
+      openAIImageInputObjectURLEnabled.value = extra?.image_input_transport === 'object_url'
+      openAIImageUploadLimitBytes.value = parsePositiveInteger(extra?.image_upload_limit_bytes) ?? OPENAI_IMAGE_DEFAULT_UPLOAD_LIMIT_BYTES
+      openAIImageURLFieldsSupported.value = extra?.image_url_fields_supported !== false
+    }
     const credentials = newAccount.credentials as Record<string, unknown> | undefined
     const compactMappings = credentials?.compact_model_mapping as Record<string, string> | undefined
     if (compactMappings && typeof compactMappings === 'object') {
@@ -4141,6 +4239,7 @@ const handleSubmit = async () => {
         } else {
           newExtra.openai_responses_mode = openAIResponsesMode.value
         }
+        writeOpenAIImageInputTransportToExtra(newExtra)
       }
 
       delete newExtra.codex_image_generation_bridge_enabled

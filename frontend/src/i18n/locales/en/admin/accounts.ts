@@ -484,6 +484,14 @@ export default {
         endpointCapabilities: 'Endpoint capabilities',
         endpointCapabilitiesDesc:
           'Used by account routing. The text endpoint follows the Responses API support setting above and is shown as Responses, Chat Completions, or auto mode; Embeddings independently controls /v1/embeddings.',
+        imageInputObjectURL: 'Image input URL transport',
+        imageInputObjectURLDesc:
+          'Mark OpenAI-compatible image accounts whose upstream has a multipart 1MB limit. Local images are uploaded to object storage first, then sent upstream as URLs.',
+        imageUploadLimitBytes: 'Upload limit bytes',
+        imageUploadLimitBytesHint: 'Use 1048576 for 1MB accounts. Empty values are saved as 1048576.',
+        imageURLFieldsSupported: 'Upstream supports image_urls / mask_url',
+        imageURLFieldsSupportedHint:
+          'Enable only after confirming the compatible upstream supports URL fields. Leave off for unknown compatible upstreams.',
         capabilityResponses: 'Responses',
         capabilityTextAuto: 'Responses / Chat Completions (Auto)',
         capabilityResponsesAuto: 'Responses (auto probe)',
