@@ -1,5 +1,26 @@
 # 项目时间轴
 
+## 2026-06-24 00:20 +08:00 - 排行榜模型榜趋势与本地容器更新
+
+- 当前阶段：用户侧排行榜已增加“模型榜”，并按参考图在右侧显示“增长”和“排名变化”；本地 `sub2api` 容器已更新到新镜像并保持 healthy。
+- 本段重点：后端新增模型维度排行榜聚合，统计当前周期模型请求、输入/输出/总 Token，并对比上一同长度周期计算 `growth_percent` 和 `rank_change`；前端新增 Token 榜 / 模型榜切换、模型商图标、右侧趋势指标卡和移动端响应式布局。
+- 已完成：空模型榜样例数据只在 `SUB2API_LEADERBOARD_SAMPLE_MODELS=true` 或 debug 模式启用；样例包含 `gpt-5.5`、`claude-opus-4-8`、`gpt-5.4`，用于本地看负增长和上下箭头效果；前端 i18n、类型和定向测试已同步。
+- 本地容器：当前在线容器是 `sub2api`，地址 `http://127.0.0.1:62080`；镜像为 `sub2api:codex-20260624-0011-leaderboard-trend`，image id `sha256:a123f00a67aa9073dcdbe00bbd6e4355b9a14d1f29d5914d079f0ba3bc3ef87b`；`sub2api:local` 已指向同一镜像；旧容器备份为 `sub2api-before-leaderboard-trend-20260624-0011`。
+- 关键决策：本轮只替换应用容器，不重建 PostgreSQL / Redis / volume；Docker 更新按 `local-docker-update-guard` 获取并释放 `sub2api` 锁。多阶段 Dockerfile 缺少本地 builder 镜像时，改用本机 Go 编译 Linux 二进制并基于 `sub2api:local` repack。
+- 验证记录：排行榜 handler/repository 定向 Go 测试通过；`LeaderboardView` 和 `leaderboard-theme` Vitest 通过；前端 `typecheck`、`build` 通过，仅有既有 Browserslist、Node `DEP0190`、Vite chunk 和大 chunk 警告；`git diff --check` 通过，仅有 Markdown LF/CRLF 提示；`/health` 返回 200；`docker exec sub2api /app/sub2api --version` 为 `Sub2API 0.1.126 (commit: codex-leaderboard-trend, built: 2026-06-23T16:14:00Z)`。
+- 遗留问题：内置浏览器访问 `/leaderboard` 被重定向到登录页，未持有登录态，因此未完成真实登录态视觉截图；当前工作树仍混有 S20、Payment、knowledge 等无关脏改，提交时必须只 stage leaderboard 相关文件。
+- 下一步：如需视觉复核，登录后访问 `http://127.0.0.1:62080/leaderboard` 并切换“模型榜”；如需提交，先用 `git diff --cached --name-only` 确认只包含本次排行榜文件，再执行 `git diff --cached --check`。
+
+## 2026-06-23 19:20 +08:00 - 上游 v0.1.138 后端小补丁 S20 收尾
+
+- 当前阶段：`upstream-main-v0138-small-patches-s20` 已完成代码级迁移和验收复核，workflow 状态为 `done`。
+- 本段重点：迁入 Gemini schema 清理、OpenAI images `response.incomplete` / no-output 诊断、Vertex Anthropic beta 白名单过滤、Claude Code 任意 `cc_entrypoint=` 识别、GLM reasoning effort 归一、OpenAI chat-only upstream endpoint 记录、promo 过期清空。
+- 已完成：按本地图片 handler 语义补强非内容过滤 `response.incomplete` -> `UpstreamFailoverError`，避免 502 incomplete 被当作已写出的用户错误；刷新 upstream 后确认 `v0.1.138..upstream/main` 仅剩 README/sponsor/VERSION 类 chore，继续跳过。
+- 关键决策：本轮不整体 merge `upstream/main`，不合入 `README`、sponsor assets、`VERSION`、前端 UI、支付返佣、scheduler 策略、Ent/migration 或 Claude mimicry `cch` removal；当前工作树存在 usage/leaderboard/Payment 等无关脏改，提交时必须外科式 staging。
+- 验证记录：S20 service 定向测试通过；S20 `-tags=unit` GLM/raw chat 定向测试通过；handler OpenAI 定向测试通过；`git diff --check` 通过，仅有 Markdown LF/CRLF 提示。
+- 遗留问题：未做真实 OpenAI OAuth 图片、Vertex 或 GLM 上游请求；未 stage/commit；`docs/workflow/tasks/upstream-main-v0138-small-patches-s20.md` 被 `docs/*` ignore，若提交需 `git add -f`。
+- 下一步：若提交，先只 staging S20 allowed paths 并用 `git diff --cached --name-only` 审核；若继续追上游，另开 Sprint，不把 sponsor/VERSION chore 混入当前补丁批次。
+
 ## 2026-06-21 11:02 +08:00 - 图片输入 URL 化账号标记 UI 收口
 
 - 当前阶段：普通上游账号的图片输入 URL 化已补上后台账号编辑 UI，可直接在账号管理里打标。

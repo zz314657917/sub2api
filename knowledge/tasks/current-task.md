@@ -1,60 +1,78 @@
 # 当前任务快照
 
-最后更新：2026-06-21 11:02 +08:00
+最后更新：2026-06-24 00:20 +08:00
 
 ## 背景
 
 - 仓库：`F:/mcplugins/sub2api`。
-- 本轮任务是普通账号级图片输入 URL 化：不按平台名或 APIMart 名称判断，只按上游账号 `extra` 的图片输入能力配置决定是否把本地图片转对象存储 URL。
-- 问题来源是部分上游账号返回 `Part exceeded maximum size of 1024KB`，这属于上游 1MB multipart part 限制；Sub2API 本地默认并不是整体 1MB 限制。
-
-## 当前目标
-
-- 对有 1MB 上传限制的普通上游账号，通过账号 `extra` 启用对象存储 URL 化。
-- 普通账号默认行为保持不变；failover 切账号时必须按新账号能力重新处理输入，不能复用上一账号的改写结果。
+- 当前分支：`codex/upstream-v0138-small-patches`。
+- 本轮用户要求：排行榜增加“模型榜”，先放假数据看效果；模型榜图标改为模型商图标；右侧增加“增长”和“排名变化”；最后更新本地容器。
+- 当前工作树是 mixed dirty tree，另有 S20 上游小补丁、Payment UI、knowledge 等无关脏改；提交时必须外科式 staging，不能 `git add .`。
 
 ## 本次已完成
 
-- 新增账号 `extra` 通用字段识别：
-  - `image_input_transport: "object_url"`：启用对象存储 URL 化。
-  - `image_upload_limit_bytes`：可选，超过限制时触发 URL 化。
-  - `image_url_fields_supported`：普通 OpenAI-compatible 上游显式声明支持 `image_urls` / `mask_url` 后才走 JSON URL 字段改写。
-- 接入现有 S3/COS 对象存储和 presigned URL，图片输入临时对象默认 URL 有效期为 `2h`。
-- APIMart/兼容 `image_urls` 路径在启用 object URL 策略后会把 multipart 图片、mask、JSON data URL 上传到对象存储，再提交 `image_urls` / `mask_url`。
-- 已经是 `http/https` URL 的输入原样透传，不重复上传。
-- OAuth 图片 Responses 路径也会在账号策略触发时基于克隆后的 parsed request 转 URL，split 请求使用同一份账号级重算结果。
-- APIMart object URL 准备阶段如果中途失败，会清理已创建的临时对象；对象 key 带 UUID，避免相同图片并发请求互相删除临时对象。
-- 保留上游 `Part exceeded maximum size of 1024KB` 错误归一，客户会看到这是上游 1MB 限制。
-- 后台账号编辑弹窗已给 OpenAI API Key 账号新增“图片输入 URL 化”配置区，可直接写入上述三个 `extra` 字段，不再需要手工改数据库。
+- 后端排行榜响应新增 `model_ranking` / `total_models`。
+- 后端新增模型榜聚合：按当前周期统计模型请求数、输入 Token、输出 Token、总 Token，并与上一同长度周期对比。
+- 模型榜新增趋势字段：
+  - `growth_percent`：相对上一周期 Token 增长百分比，保留 1 位小数。
+  - `rank_change`：上一周期排名减当前排名；正数表示上升，负数表示下降。
+- 空模型榜样例数据只在 `SUB2API_LEADERBOARD_SAMPLE_MODELS=true`，或 `SERVER_MODE=debug` 且 Gin debug 模式下启用。
+- 前端排行榜增加 Token 榜 / 模型榜切换。
+- 模型榜行内图标改为 `ModelIcon`，按模型名显示模型商图标。
+- 模型榜右侧增加两个指标卡：
+  - 增长：例如 `+28.4%`、`-77.7%`、`—`。
+  - 排名变化：例如 `↑ 1`、`↓ 1`、`—`。
+- 模型榜移动端已做响应式堆叠，避免右侧指标挤压主内容。
+- 已补中英文 i18n、前端类型、后端/前端定向测试。
 
-## 已确认事实
+## 本地容器
 
-- 未配置 `image_input_transport` / `image_url_fields_supported` 的普通 OpenAI-compatible 账号不改写 multipart，避免破坏未知兼容上游。
-- APIMart async image 路径仍保留默认 `/v1/uploads/images` 上传行为；只有账号策略启用 object URL 时才跳过上游 multipart 上传。
-- 服务启动注入了 `BackupObjectStoreFactory`，图片输入临时对象复用现有对象存储配置。
-
-## 待验证点
-
-- 生产或 staging 上目标上游必须能公网访问对象存储 presigned URL。
-- 真实受限账号需要在后台账号编辑页开启“图片输入 URL 化”，普通兼容上游还需要勾选“上游支持 image_urls / mask_url”。
-- 若仅配置 `image_upload_limit_bytes=1048576`，只有本地输入超过该阈值时才触发 URL 化；是否要强制所有本地图片都 URL 化，应按账号能力再确认。
-
-## 当前结论
-
-- 这轮已按“账号能力”而不是“平台名”实现，APIMart 只是已知支持 `image_urls` 的路径之一。
-- 对没有显式 URL 字段能力的普通上游，仍保持原 multipart 行为；上游 1MB 报错会继续归一提示客户这是上游限制。
-
-## 下一步
-
-- 配置受 1MB 限制的普通账号：动作 -> 后台账号管理编辑该 OpenAI API Key 账号，开启“图片输入 URL 化”，上传限制字节数填 `1048576`，确认支持 URL 字段后勾选 `image_urls / mask_url`；验证 -> 用大于 1MB 的本地图请求确认上游 body 走 `image_urls`。
-- 部署前确认对象存储公网可达：动作 -> 用生成的 presigned URL 从上游可访问网络发起 HEAD/GET；验证 -> 返回 200 且不过期。
+- 当前在线容器：`sub2api`，不是 `sub2api-dev`。
+- 地址：`http://127.0.0.1:62080`。
+- 当前镜像：`sub2api:codex-20260624-0011-leaderboard-trend`。
+- 当前镜像 ID：`sha256:a123f00a67aa9073dcdbe00bbd6e4355b9a14d1f29d5914d079f0ba3bc3ef87b`。
+- `sub2api:local` 已指向同一新镜像。
+- 当前容器状态：`running healthy`，端口 `127.0.0.1:62080->8080`。
+- 旧容器备份：`sub2api-before-leaderboard-trend-20260624-0011`，旧镜像 `sub2api:codex-20260623-2336-model-icons`。
+- `sub2api-postgres` 和 `sub2api-redis` 未重建，数据容器未动。
+- Docker 更新锁已获取并释放。
 
 ## 验证记录
 
-- `cd F:/mcplugins/sub2api/backend && go test ./internal/service -run "TestOpenAIGatewayServiceForwardImages_APIMart|TestOpenAIGatewayServiceForwardImages_CompatibleObjectURLTransport|TestPrepareOpenAIImagesObjectURLInputs|TestPrepareAPIMartImageInputsObjectURLTransportCleansObjectsOnError|TestOpenAIImagesUpstreamImageTooLarge" -count=1` 通过。
-- `cd F:/mcplugins/sub2api/backend && go test ./...` 通过。
-- `cd F:/mcplugins/sub2api/frontend && npm.cmd run test:run -- src/components/account/__tests__/EditAccountModal.spec.ts` 通过。
-- `cd F:/mcplugins/sub2api/frontend && npm.cmd run typecheck -- --pretty false` 通过。
-- `cd F:/mcplugins/sub2api/frontend && npm.cmd run build` 通过，仅有既有 chunk、Browserslist 和 Node deprecation 警告。
-- `cd F:/mcplugins/sub2api/frontend && npm.cmd run lint` 通过。
-- `cd F:/mcplugins/sub2api && git diff --check` 通过。
+- `go test ./internal/handler -run "TestUsageHandlerDashboardLeaderboard" -count=1` 通过。
+- `go test ./internal/repository -run "TestUsageLogRepositoryGetLeaderboardModelRanking|TestUsageLogRepositoryGetUserLeaderboard" -count=1` 通过。
+- `corepack.cmd pnpm --dir frontend exec vitest run src/views/user/__tests__/LeaderboardView.spec.ts src/__tests__/leaderboard-theme.spec.ts` 通过。
+- `corepack.cmd pnpm --dir frontend run typecheck` 通过。
+- `corepack.cmd pnpm --dir frontend run build` 通过，仅有既有 Browserslist、Node `DEP0190`、Vite chunk warning 和大 chunk 提示。
+- `git diff --check` 通过，仅提示部分 Markdown/knowledge 文件下次 Git 触碰时 LF 会替换为 CRLF。
+- `GET http://127.0.0.1:62080/health` 返回 200。
+- `docker exec sub2api /app/sub2api --version` 输出 `Sub2API 0.1.126 (commit: codex-leaderboard-trend, built: 2026-06-23T16:14:00Z)`。
+
+## 未验证点
+
+- 内置浏览器访问 `/leaderboard` 被重定向到 `/login?redirect=/leaderboard`，当前未持有登录态，因此未完成真实登录态视觉截图验收。
+- 未 stage/commit。
+
+## 提交边界
+
+如用户要求提交，只 stage 本轮 leaderboard 相关文件：
+
+- `backend/internal/handler/usage_handler.go`
+- `backend/internal/handler/usage_handler_leaderboard_test.go`
+- `backend/internal/pkg/usagestats/usage_log_types.go`
+- `backend/internal/repository/usage_log_repo.go`
+- `backend/internal/repository/usage_log_repo_request_type_test.go`
+- `backend/internal/service/usage_service.go`
+- `frontend/src/types/index.ts`
+- `frontend/src/views/user/LeaderboardView.vue`
+- `frontend/src/views/user/__tests__/LeaderboardView.spec.ts`
+- `frontend/src/__tests__/leaderboard-theme.spec.ts`
+- `frontend/src/i18n/locales/zh/leaderboard.ts`
+- `frontend/src/i18n/locales/en/leaderboard.ts`
+
+不要混入 Payment、S20、`knowledge/05-current-focus.md`、`knowledge/studio-bridge-luoye.md` 或其它无关改动，除非用户明确要求。
+
+## 下一步
+
+- 若用户提供登录态或自行登录后，可打开 `http://127.0.0.1:62080/leaderboard`，切到“模型榜”，人工确认模型商图标、右侧“增长/排名变化”和移动端布局。
+- 若要提交，先用 `git diff --cached --name-only` 审核 staged 文件，再跑 `git diff --cached --check`。
