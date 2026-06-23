@@ -2284,6 +2284,43 @@ func TestAPIMartImagesPayloadPreservesOfficialModelAndResolution(t *testing.T) {
 	require.False(t, gjson.GetBytes(body, "official_fallback").Exists())
 }
 
+func TestAPIMartImagesPayloadSupportsSeedreamImageModels(t *testing.T) {
+	body, err := buildAPIMartImagesPayload(&OpenAIImagesRequest{
+		Prompt:            "draw poster",
+		N:                 2,
+		Size:              "16:9",
+		Resolution:        "2k",
+		Quality:           "high",
+		Background:        "transparent",
+		OutputFormat:      "webp",
+		OutputCompression: intPtr(80),
+	}, "doubao-seedance-4-5", []string{"https://upload.example/ref.png"}, "")
+	require.NoError(t, err)
+
+	require.True(t, isOpenAIImageGenerationModel("doubao-seedance-4-5"))
+	require.Equal(t, "doubao-seedance-4-5", gjson.GetBytes(body, "model").String())
+	require.Equal(t, "2k", gjson.GetBytes(body, "resolution").String())
+	require.Equal(t, "16:9", gjson.GetBytes(body, "size").String())
+	require.Equal(t, "https://upload.example/ref.png", gjson.GetBytes(body, "image_urls.0").String())
+	require.False(t, gjson.GetBytes(body, "quality").Exists())
+	require.False(t, gjson.GetBytes(body, "background").Exists())
+	require.False(t, gjson.GetBytes(body, "output_format").Exists())
+	require.False(t, gjson.GetBytes(body, "output_compression").Exists())
+}
+
+func TestAPIMartImagesSeedreamReferenceAndOutputLimit(t *testing.T) {
+	req := &OpenAIImagesRequest{
+		N:              2,
+		InputImageURLs: []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14"},
+	}
+	err := validateOpenAIImagesReferenceLimit(req, "doubao-seedance-4-0")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "supports at most 15 input and output images")
+
+	req.N = 1
+	require.NoError(t, validateOpenAIImagesReferenceLimit(req, "doubao-seedance-4-0"))
+}
+
 func TestAPIMartImagesResolutionPreservesRatioDefaultAndKnownPixelTiers(t *testing.T) {
 	require.Equal(t, "1k", apimartImagesResolution(&OpenAIImagesRequest{Size: "16:9", ExplicitSize: true, SizeTier: ImageBillingSize1K}))
 	require.Equal(t, "1k", apimartImagesResolution(&OpenAIImagesRequest{Size: "1536x864", ExplicitSize: true, SizeTier: ImageBillingSize2K}))

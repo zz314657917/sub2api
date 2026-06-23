@@ -726,7 +726,8 @@ func isOpenAIImageGenerationModel(model string) bool {
 	return strings.HasPrefix(normalized, "gpt-image-") ||
 		isAPIMartGeminiImageModel(normalized) ||
 		isAPIMartMidjourneyImageModel(normalized) ||
-		isAPIMartGrokImagineImageModel(normalized)
+		isAPIMartGrokImagineImageModel(normalized) ||
+		isAPIMartSeedreamImageModel(normalized)
 }
 
 func isAPIMartGeminiImageModel(model string) bool {
@@ -763,6 +764,15 @@ func isAPIMartGrokImagineImageModel(model string) bool {
 	}
 }
 
+func isAPIMartSeedreamImageModel(model string) bool {
+	switch strings.ToLower(strings.TrimSpace(model)) {
+	case "doubao-seedance-4-0", "doubao-seedance-4-5":
+		return true
+	default:
+		return false
+	}
+}
+
 func isAPIMartGrokImagineEditModel(model string) bool {
 	return strings.EqualFold(strings.TrimSpace(model), "grok-imagine-1.5-edit-apimart")
 }
@@ -790,6 +800,12 @@ func validateOpenAIImagesReferenceLimit(req *OpenAIImagesRequest, model string) 
 		limit = 4
 	case isAPIMartGrokImagineImageModel(model):
 		limit = 1
+	case isAPIMartSeedreamImageModel(model):
+		count := len(compactTrimmedStrings(req.InputImageURLs)) + len(req.Uploads)
+		if count+maxInt(1, req.N) > 15 {
+			return fmt.Errorf("%s supports at most 15 input and output images, got %d", strings.TrimSpace(model), count+maxInt(1, req.N))
+		}
+		return nil
 	default:
 		return nil
 	}
@@ -2060,20 +2076,22 @@ func buildAPIMartImagesPayload(parsed *OpenAIImagesRequest, upstreamModel string
 		payload["size"] = size
 	}
 	if !isAPIMartGeminiImageModel(upstreamModel) {
-		if quality := strings.TrimSpace(parsed.Quality); quality != "" {
-			payload["quality"] = quality
-		}
-		if background := strings.TrimSpace(parsed.Background); background != "" {
-			payload["background"] = background
-		}
-		if moderation := strings.TrimSpace(parsed.Moderation); moderation != "" {
-			payload["moderation"] = moderation
-		}
-		if outputFormat := strings.TrimSpace(parsed.OutputFormat); outputFormat != "" {
-			payload["output_format"] = outputFormat
-		}
-		if parsed.OutputCompression != nil {
-			payload["output_compression"] = *parsed.OutputCompression
+		if !isAPIMartSeedreamImageModel(upstreamModel) {
+			if quality := strings.TrimSpace(parsed.Quality); quality != "" {
+				payload["quality"] = quality
+			}
+			if background := strings.TrimSpace(parsed.Background); background != "" {
+				payload["background"] = background
+			}
+			if moderation := strings.TrimSpace(parsed.Moderation); moderation != "" {
+				payload["moderation"] = moderation
+			}
+			if outputFormat := strings.TrimSpace(parsed.OutputFormat); outputFormat != "" {
+				payload["output_format"] = outputFormat
+			}
+			if parsed.OutputCompression != nil {
+				payload["output_compression"] = *parsed.OutputCompression
+			}
 		}
 	}
 	if strings.EqualFold(upstreamModel, "gpt-image-2") {
