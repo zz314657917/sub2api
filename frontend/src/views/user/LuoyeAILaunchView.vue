@@ -30,8 +30,10 @@ import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { studioBridgeAPI } from '@/api'
+import { keysAPI, studioBridgeAPI } from '@/api'
 import { useAppStore } from '@/stores'
+import type { ApiKey } from '@/types'
+import { apiKeySupportsOpenAIImageGeneration } from '@/utils/apiKeyCapabilities'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -43,11 +45,31 @@ onMounted(() => {
   void openLuoyeAI()
 })
 
+function pickDefaultAPIKey(keys: ApiKey[]): ApiKey | null {
+  return keys.find((key) => key.is_default) ?? keys[0] ?? null
+}
+
+async function ensureDefaultAPIKeySupportsImages(): Promise<boolean> {
+  const response = await keysAPI.list(1, 100, {
+    status: 'active',
+    sort_by: 'created_at',
+    sort_order: 'desc',
+  })
+  const defaultKey = pickDefaultAPIKey(response.items || [])
+  if (!defaultKey || !apiKeySupportsOpenAIImageGeneration(defaultKey)) {
+    launchError.value = t('chatImageStudio.defaultImageGroupMissing')
+    appStore.showError(t('chatImageStudio.defaultImageGroupMissing'))
+    return false
+  }
+  return true
+}
+
 async function openLuoyeAI(): Promise<void> {
   if (launching.value) return
   launching.value = true
   launchError.value = ''
   try {
+    if (!await ensureDefaultAPIKeySupportsImages()) return
     const result = await studioBridgeAPI.launch()
     window.location.assign(result.launch_url)
   } catch (error) {

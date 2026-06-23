@@ -30,22 +30,24 @@ const (
 )
 
 var (
-	ErrStudioBridgeDisabled       = infraerrors.Forbidden("STUDIO_BRIDGE_DISABLED", "studio bridge is disabled")
-	ErrStudioBridgeInvalidApp     = infraerrors.NotFound("STUDIO_BRIDGE_APP_NOT_FOUND", "studio bridge app not found")
-	ErrStudioBridgeInvalidSecret  = infraerrors.Unauthorized("STUDIO_BRIDGE_INVALID_SECRET", "invalid studio bridge secret")
-	ErrStudioBridgeInvalidToken   = infraerrors.Unauthorized("STUDIO_BRIDGE_TOKEN_INVALID", "launch token is invalid or expired")
-	ErrStudioBridgeInvalidReturn  = infraerrors.BadRequest("STUDIO_BRIDGE_RETURN_URL_INVALID", "return url is not allowed")
-	ErrStudioBridgeChargeKeyEmpty = infraerrors.BadRequest("STUDIO_BRIDGE_CHARGE_KEY_REQUIRED", "charge_key is required")
-	ErrStudioBridgeAmountInvalid  = infraerrors.BadRequest("STUDIO_BRIDGE_AMOUNT_INVALID", "amount must be positive")
-	ErrStudioBridgeConflict       = infraerrors.Conflict("STUDIO_BRIDGE_CHARGE_CONFLICT", "charge_key fingerprint conflict")
-	ErrStudioBridgeInsufficient   = infraerrors.BadRequest("STUDIO_BRIDGE_INSUFFICIENT_BALANCE", "insufficient balance")
-	ErrStudioBridgeGroupRequired  = infraerrors.BadRequest("STUDIO_BRIDGE_GROUP_REQUIRED", "at least one default studio bridge API route is required when studio bridge is enabled")
+	ErrStudioBridgeDisabled           = infraerrors.Forbidden("STUDIO_BRIDGE_DISABLED", "studio bridge is disabled")
+	ErrStudioBridgeInvalidApp         = infraerrors.NotFound("STUDIO_BRIDGE_APP_NOT_FOUND", "studio bridge app not found")
+	ErrStudioBridgeInvalidSecret      = infraerrors.Unauthorized("STUDIO_BRIDGE_INVALID_SECRET", "invalid studio bridge secret")
+	ErrStudioBridgeInvalidToken       = infraerrors.Unauthorized("STUDIO_BRIDGE_TOKEN_INVALID", "launch token is invalid or expired")
+	ErrStudioBridgeInvalidReturn      = infraerrors.BadRequest("STUDIO_BRIDGE_RETURN_URL_INVALID", "return url is not allowed")
+	ErrStudioBridgeChargeKeyEmpty     = infraerrors.BadRequest("STUDIO_BRIDGE_CHARGE_KEY_REQUIRED", "charge_key is required")
+	ErrStudioBridgeAmountInvalid      = infraerrors.BadRequest("STUDIO_BRIDGE_AMOUNT_INVALID", "amount must be positive")
+	ErrStudioBridgeConflict           = infraerrors.Conflict("STUDIO_BRIDGE_CHARGE_CONFLICT", "charge_key fingerprint conflict")
+	ErrStudioBridgeInsufficient       = infraerrors.BadRequest("STUDIO_BRIDGE_INSUFFICIENT_BALANCE", "insufficient balance")
+	ErrStudioBridgeGroupRequired      = infraerrors.BadRequest("STUDIO_BRIDGE_GROUP_REQUIRED", "at least one default studio bridge API route is required when studio bridge is enabled")
+	ErrStudioBridgeImageGroupRequired = infraerrors.Forbidden("STUDIO_BRIDGE_IMAGE_GROUP_REQUIRED", "默认 API Key 未配置可用的 OpenAI 生图分组，请到密钥页为默认 API Key 添加“仅生图”路由，或让管理员配置默认 API 分组路由")
 )
 
 type StudioBridgeService struct {
-	settings *SettingService
-	repo     StudioBridgeRepository
-	store    StudioBridgeStore
+	settings      *SettingService
+	repo          StudioBridgeRepository
+	store         StudioBridgeStore
+	apiKeyService *APIKeyService
 }
 
 type StudioBridgeStore interface {
@@ -168,6 +170,13 @@ func NewStudioBridgeService(settings *SettingService, repo StudioBridgeRepositor
 	return &StudioBridgeService{settings: settings, repo: repo, store: store}
 }
 
+func (s *StudioBridgeService) SetAPIKeyService(apiKeyService *APIKeyService) {
+	if s == nil {
+		return
+	}
+	s.apiKeyService = apiKeyService
+}
+
 func (s *StudioBridgeService) GetAppSettings(ctx context.Context, appID string) (*StudioBridgeAppSettings, error) {
 	if normalizeStudioBridgeAppID(appID) != StudioBridgeAppLuoyeAI {
 		return nil, ErrStudioBridgeInvalidApp
@@ -185,6 +194,9 @@ func (s *StudioBridgeService) GetAppSettings(ctx context.Context, appID string) 
 func (s *StudioBridgeService) CreateLaunch(ctx context.Context, userID int64, appID, returnURL string) (*StudioBridgeLaunch, error) {
 	cfg, err := s.loadEnabledApp(ctx, appID)
 	if err != nil {
+		return nil, err
+	}
+	if err := s.ensureDefaultAPIKeyCanGenerateImages(ctx, userID); err != nil {
 		return nil, err
 	}
 	if s.store == nil {
@@ -210,6 +222,32 @@ func (s *StudioBridgeService) CreateLaunch(ctx context.Context, userID int64, ap
 	q.Set("launch_token", token)
 	target.RawQuery = q.Encode()
 	return &StudioBridgeLaunch{LaunchURL: target.String(), ExpiresAt: expiresAt}, nil
+}
+
+func (s *StudioBridgeService) ensureDefaultAPIKeyCanGenerateImages(ctx context.Context, userID int64) error {
+	if s == nil || s.apiKeyService == nil {
+		return nil
+	}
+	apiKey, err := s.apiKeyService.loadDefaultAPIKey(ctx, userID)
+	if err != nil {
+		return err
+	}
+	resolved := s.apiKeyService.ResolveForModelRequest(ctx, apiKey, "/v1/images/generations", "", "gpt-image-2", true)
+	if !apiKeyHasOpenAIImageGroup(resolved) {
+		return ErrStudioBridgeImageGroupRequired
+	}
+	return nil
+}
+
+func apiKeyHasOpenAIImageGroup(apiKey *APIKey) bool {
+	if apiKey == nil || apiKey.Status != StatusActive || apiKey.Group == nil {
+		return false
+	}
+	group := apiKey.Group
+	return group.IsActive() &&
+		group.Platform == PlatformOpenAI &&
+		group.EffectiveRoutingScope() == GroupRoutingScopeImage &&
+		group.AllowImageGeneration
 }
 
 func (s *StudioBridgeService) RedeemLaunch(ctx context.Context, appID, token, secret string) (*StudioBridgeRedeemResult, error) {

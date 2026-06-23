@@ -8,6 +8,7 @@ export default {
     launchingDescription: '正在创建一次性登录链接，马上进入创作台。',
     launchFailedTitle: '打开落叶创艺失败',
     launchFailedDescription: '无法创建落叶创艺登录链接，请检查外部应用配置或稍后重试。',
+    defaultImageGroupMissing: '默认 API Key 未配置可用的 OpenAI 生图分组，请到密钥页为默认 API Key 添加“仅生图”路由，或让管理员配置默认 API 分组路由。',
     retryLaunch: '重新打开',
     embeddedEmptyTitle: '选择 API Key 后进入',
     embeddedEmptyDescription: '从右上角选择一个可用 API Key，系统会在当前页面内打开生图工作台。',

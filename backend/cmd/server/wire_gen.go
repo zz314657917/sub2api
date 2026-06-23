@@ -161,7 +161,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	ticketHandler := handler.NewTicketHandler(ticketService)
 	studioBridgeStore := repository.NewStudioBridgeStore(redisClient)
 	studioBridgeRepository := repository.NewStudioBridgeRepository(db)
-	studioBridgeService := service.NewStudioBridgeService(settingService, studioBridgeRepository, studioBridgeStore)
+	studioBridgeService := service.ProvideStudioBridgeService(settingService, studioBridgeRepository, studioBridgeStore, apiKeyService)
 	studioBridgeHandler := handler.NewStudioBridgeHandler(studioBridgeService)
 	welfareService := service.NewWelfareService(welfareRepository, userRepository, redeemCodeRepository, settingRepository, client, apiKeyAuthCacheInvalidator, billingCacheService)
 	welfareService.SetSystemTicketService(systemTicketService)

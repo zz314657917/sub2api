@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/stretchr/testify/require"
 )
 
@@ -217,6 +219,154 @@ func newStudioBridgeTestService(t *testing.T, repo *studioBridgeRepoStub) *Studi
 	require.NoError(t, err)
 	settings := NewSettingService(&studioBridgeSettingRepoStub{values: map[string]string{SettingKeyStudioBridgeLuoyeAI: raw}}, &config.Config{})
 	return NewStudioBridgeService(settings, repo, newStudioBridgeMemoryStore())
+}
+
+func newStudioBridgeLaunchTestService(t *testing.T, key APIKey, groups map[int64]*Group) *StudioBridgeService {
+	t.Helper()
+	raw, err := marshalStudioBridgeAppSettings(StudioBridgeAppSettings{
+		Enabled:           true,
+		SiteName:          "落叶创艺",
+		LaunchReturnURL:   "http://127.0.0.1:8081/auth/sub2api/launch",
+		RechargeReturnURL: "http://127.0.0.1:62080/purchase",
+		DefaultAPIRoutes: []StudioBridgeDefaultAPIRoute{
+			{GroupID: "10", Enabled: true, TextOnly: true},
+			{GroupID: "20", Enabled: true, ImageOnly: true},
+		},
+		InternalSecret: "secret",
+	})
+	require.NoError(t, err)
+	settings := NewSettingService(&studioBridgeSettingRepoStub{values: map[string]string{SettingKeyStudioBridgeLuoyeAI: raw}}, &config.Config{})
+	apiKeyService := NewAPIKeyService(
+		&studioBridgeLaunchAPIKeyRepo{keys: []APIKey{key}},
+		&studioBridgeLaunchUserRepo{user: &User{ID: 7, Email: "u@example.com", Status: StatusActive}},
+		&studioBridgeLaunchGroupRepo{groups: groups},
+		nil,
+		nil,
+		nil,
+		&config.Config{},
+	)
+	svc := ProvideStudioBridgeService(settings, &studioBridgeRepoStub{}, newStudioBridgeMemoryStore(), apiKeyService)
+	return svc
+}
+
+type studioBridgeLaunchAPIKeyRepo struct {
+	APIKeyRepository
+	keys []APIKey
+}
+
+func (r *studioBridgeLaunchAPIKeyRepo) ListByUserID(_ context.Context, userID int64, params pagination.PaginationParams, _ APIKeyListFilters) ([]APIKey, *pagination.PaginationResult, error) {
+	out := make([]APIKey, 0, len(r.keys))
+	for _, key := range r.keys {
+		if key.UserID == userID {
+			out = append(out, key)
+		}
+	}
+	if params.PageSize > 0 && len(out) > params.PageSize {
+		out = out[:params.PageSize]
+	}
+	return out, &pagination.PaginationResult{Total: int64(len(out)), Page: params.Page, PageSize: params.PageSize, Pages: 1}, nil
+}
+
+func (r *studioBridgeLaunchAPIKeyRepo) CountByUserID(_ context.Context, userID int64) (int64, error) {
+	count := int64(0)
+	for _, key := range r.keys {
+		if key.UserID == userID {
+			count++
+		}
+	}
+	return count, nil
+}
+
+type studioBridgeLaunchUserRepo struct {
+	UserRepository
+	user *User
+}
+
+func (r *studioBridgeLaunchUserRepo) GetByID(_ context.Context, id int64) (*User, error) {
+	if r.user == nil || r.user.ID != id {
+		return nil, ErrUserNotFound
+	}
+	clone := *r.user
+	return &clone, nil
+}
+
+type studioBridgeLaunchGroupRepo struct {
+	GroupRepository
+	groups map[int64]*Group
+}
+
+func (r *studioBridgeLaunchGroupRepo) GetByID(_ context.Context, id int64) (*Group, error) {
+	group := r.groups[id]
+	if group == nil {
+		return nil, ErrGroupNotFound
+	}
+	clone := *group
+	return &clone, nil
+}
+
+func TestStudioBridgeCreateLaunchRejectsDefaultKeyWithoutImageGroup(t *testing.T) {
+	defaultGroupID := int64(10)
+	svc := newStudioBridgeLaunchTestService(t, APIKey{
+		ID:      1,
+		UserID:  7,
+		Key:     "sk-default",
+		Name:    DefaultAPIKeyName,
+		Status:  StatusActive,
+		GroupID: &defaultGroupID,
+		Group: &Group{
+			ID:           defaultGroupID,
+			Name:         "chat",
+			Status:       StatusActive,
+			Platform:     PlatformOpenAI,
+			RoutingScope: GroupRoutingScopeInference,
+			Hydrated:     true,
+		},
+		AccountPoolStrategy: AccountPoolStrategySharedOnly,
+	}, map[int64]*Group{
+		10: {ID: 10, Name: "chat", Status: StatusActive, Platform: PlatformOpenAI, RoutingScope: GroupRoutingScopeInference, Hydrated: true},
+	})
+
+	launch, err := svc.CreateLaunch(context.Background(), 7, StudioBridgeAppLuoyeAI, "")
+
+	require.Nil(t, launch)
+	require.ErrorIs(t, err, ErrStudioBridgeImageGroupRequired)
+}
+
+func TestStudioBridgeCreateLaunchAllowsDefaultKeyImageRoute(t *testing.T) {
+	defaultGroupID := int64(10)
+	svc := newStudioBridgeLaunchTestService(t, APIKey{
+		ID:      1,
+		UserID:  7,
+		Key:     "sk-default",
+		Name:    DefaultAPIKeyName,
+		Status:  StatusActive,
+		GroupID: &defaultGroupID,
+		Group: &Group{
+			ID:           defaultGroupID,
+			Name:         "chat",
+			Status:       StatusActive,
+			Platform:     PlatformOpenAI,
+			RoutingScope: GroupRoutingScopeInference,
+			Hydrated:     true,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: 10, Priority: 1, Weight: 1, CooldownSeconds: 30, Enabled: true, TextOnly: true},
+			{GroupID: 20, Priority: 1, Weight: 1, CooldownSeconds: 30, Enabled: true, ImageOnly: true},
+		},
+		MultiGroupRouteGroups: []*Group{
+			{ID: 20, Name: "image", Status: StatusActive, Platform: PlatformOpenAI, RoutingScope: GroupRoutingScopeImage, AllowImageGeneration: true, Hydrated: true},
+		},
+		AccountPoolStrategy: AccountPoolStrategySharedOnly,
+	}, map[int64]*Group{
+		10: {ID: 10, Name: "chat", Status: StatusActive, Platform: PlatformOpenAI, RoutingScope: GroupRoutingScopeInference, Hydrated: true},
+		20: {ID: 20, Name: "image", Status: StatusActive, Platform: PlatformOpenAI, RoutingScope: GroupRoutingScopeImage, AllowImageGeneration: true, Hydrated: true},
+	})
+
+	launch, err := svc.CreateLaunch(context.Background(), 7, StudioBridgeAppLuoyeAI, "")
+
+	require.NoError(t, err)
+	require.NotNil(t, launch)
+	require.Contains(t, launch.LaunchURL, "launch_token=")
 }
 
 func TestStudioBridgeRefundRestoresReservedBalanceOnce(t *testing.T) {

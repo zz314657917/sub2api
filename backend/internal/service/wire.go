@@ -499,6 +499,17 @@ func ProvideImageCreatorService(
 	return svc
 }
 
+func ProvideStudioBridgeService(
+	settingService *SettingService,
+	repo StudioBridgeRepository,
+	store StudioBridgeStore,
+	apiKeyService *APIKeyService,
+) *StudioBridgeService {
+	svc := NewStudioBridgeService(settingService, repo, store)
+	svc.SetAPIKeyService(apiKeyService)
+	return svc
+}
+
 func ProvideOpsService(
 	opsRepo OpsRepository,
 	settingRepo SettingRepository,
@@ -627,6 +638,7 @@ var ProviderSet = wire.NewSet(
 	NewSystemTicketService,
 	NewCanvasServiceWithDeps,
 	ProvideImageCreatorService,
+	ProvideStudioBridgeService,
 	NewImageCreatorStorageGovernanceService,
 	NewWelfareService,
 	ProvidePaymentConfigService,

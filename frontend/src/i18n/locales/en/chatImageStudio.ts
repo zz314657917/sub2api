@@ -8,6 +8,7 @@ export default {
     launchingDescription: 'Creating a one-time sign-in link and sending you to the studio.',
     launchFailedTitle: 'Failed to open Luoye Creative',
     launchFailedDescription: 'Could not create the Luoye Creative sign-in link. Check the external app settings or try again later.',
+    defaultImageGroupMissing: 'The default API key has no usable OpenAI image group. Add an image-only route to the default API key, or ask an admin to configure default API group routes.',
     retryLaunch: 'Reopen',
     embeddedEmptyTitle: 'Choose an API key to enter',
     embeddedEmptyDescription: 'Select an available API key from the top right, then the image workspace opens inside this page.',
