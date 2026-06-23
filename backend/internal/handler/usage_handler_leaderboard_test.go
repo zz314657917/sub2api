@@ -29,6 +29,11 @@ type userLeaderboardUsageRepo struct {
 	limits           []int
 	currentUserIDs   []int64
 	badgeLeaders     *usagestats.UserLeaderboardBadgeLeaders
+	modelStart       time.Time
+	modelEnd         time.Time
+	modelLimit       int
+	modelRanking     []usagestats.UserLeaderboardModelItem
+	totalModels      int64
 }
 
 func (r *userLeaderboardUsageRepo) GetUserLeaderboard(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (*usagestats.UserLeaderboardResponse, error) {
@@ -62,6 +67,16 @@ func (r *userLeaderboardUsageRepo) GetUserLeaderboardBadgeLeaders(ctx context.Co
 		return r.badgeLeaders, nil
 	}
 	return &usagestats.UserLeaderboardBadgeLeaders{}, nil
+}
+
+func (r *userLeaderboardUsageRepo) GetLeaderboardModelRanking(ctx context.Context, startTime, endTime time.Time, limit int) ([]usagestats.UserLeaderboardModelItem, int64, error) {
+	r.modelStart = startTime
+	r.modelEnd = endTime
+	r.modelLimit = limit
+	if r.modelRanking != nil {
+		return r.modelRanking, r.totalModels, nil
+	}
+	return []usagestats.UserLeaderboardModelItem{}, 0, nil
 }
 
 func newUserLeaderboardRouter(repo *userLeaderboardUsageRepo, userID int64) *gin.Engine {
@@ -172,6 +187,51 @@ func TestUsageHandlerDashboardLeaderboardIncludesRecentTokenTrend(t *testing.T) 
 	require.Contains(t, body, `"recent_token_trend"`)
 	require.Contains(t, body, `{"date":"`+firstTrendDate+`","total_tokens":180}`)
 	require.Contains(t, body, `{"date":"`+secondTrendDate+`","total_tokens":420}`)
+}
+
+func TestUsageHandlerDashboardLeaderboardIncludesModelRanking(t *testing.T) {
+	t.Setenv("SUB2API_LEADERBOARD_SAMPLE_MODELS", "false")
+	growth := 87.3
+	rankChange := int64(1)
+	repo := &userLeaderboardUsageRepo{
+		modelRanking: []usagestats.UserLeaderboardModelItem{
+			{Rank: 1, Model: "gpt-5.5", Requests: 12, InputTokens: 700, OutputTokens: 300, Tokens: 1000, GrowthPercent: &growth, RankChange: &rankChange},
+			{Rank: 2, Model: "claude-opus-4-8", Requests: 5, InputTokens: 400, OutputTokens: 100, Tokens: 500},
+		},
+		totalModels: 8,
+	}
+	router := newUserLeaderboardRouter(repo, 42)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?period=week&timezone=Asia/Shanghai", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, 10, repo.modelLimit)
+	body := rec.Body.String()
+	require.Contains(t, body, `"total_models":8`)
+	require.Contains(t, body, `"model_ranking":[{"rank":1,"model":"gpt-5.5","requests":12,"input_tokens":700,"output_tokens":300,"tokens":1000,"growth_percent":87.3,"rank_change":1}`)
+	require.Contains(t, body, `{"rank":2,"model":"claude-opus-4-8","requests":5,"input_tokens":400,"output_tokens":100,"tokens":500}`)
+}
+
+func TestUsageHandlerDashboardLeaderboardUsesSampleModelRankingWhenEnabled(t *testing.T) {
+	t.Setenv("SUB2API_LEADERBOARD_SAMPLE_MODELS", "true")
+	repo := &userLeaderboardUsageRepo{}
+	router := newUserLeaderboardRouter(repo, 42)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?period=day", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	body := rec.Body.String()
+	require.Contains(t, body, `"total_models":3`)
+	require.Contains(t, body, `"model":"gpt-5.5"`)
+	require.Contains(t, body, `"growth_percent":-77.7`)
+	require.Contains(t, body, `"rank_change":1`)
+	require.Contains(t, body, `"model":"claude-opus-4-8"`)
+	require.Contains(t, body, `"rank_change":-1`)
+	require.Contains(t, body, `"model":"gpt-5.4"`)
 }
 
 func TestUsageHandlerDashboardLeaderboardMasksPhoneAndQQDisplayName(t *testing.T) {

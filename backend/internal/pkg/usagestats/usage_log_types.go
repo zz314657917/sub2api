@@ -198,6 +198,18 @@ type UserLeaderboardTokenTrendPoint struct {
 	TotalTokens int64  `json:"total_tokens"`
 }
 
+// UserLeaderboardModelItem represents one model row in the user-visible leaderboard.
+type UserLeaderboardModelItem struct {
+	Rank          int64    `json:"rank"`
+	Model         string   `json:"model"`
+	Requests      int64    `json:"requests"`
+	InputTokens   int64    `json:"input_tokens"`
+	OutputTokens  int64    `json:"output_tokens"`
+	Tokens        int64    `json:"tokens"`
+	GrowthPercent *float64 `json:"growth_percent,omitempty"`
+	RankChange    *int64   `json:"rank_change,omitempty"`
+}
+
 // UserLeaderboardBadgeLeaders represents users that should receive special leaderboard badges.
 type UserLeaderboardBadgeLeaders struct {
 	WeeklyTokenKingUserID  int64
@@ -256,6 +268,8 @@ type UserLeaderboardResponse struct {
 	TotalTokens      int64                            `json:"total_tokens"`
 	Ranking          []UserLeaderboardItem            `json:"ranking"`
 	CurrentUserEntry *UserLeaderboardItem             `json:"current_user_entry"`
+	ModelRanking     []UserLeaderboardModelItem       `json:"model_ranking"`
+	TotalModels      int64                            `json:"total_models"`
 	DailyRewards     *LeaderboardDailyRewards         `json:"daily_rewards,omitempty"`
 	RecentTokenTrend []UserLeaderboardTokenTrendPoint `json:"recent_token_trend"`
 }

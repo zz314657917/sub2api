@@ -45,6 +45,23 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).not.toContain('data-testid="leaderboard-cost-efficiency-summary"')
   })
 
+  it('uses provider icons for model ranking avatars', () => {
+    expect(leaderboardView).toContain("import ModelIcon from '@/components/common/ModelIcon.vue'")
+    expect(leaderboardView).toContain('data-testid="leaderboard-model-rank-icon"')
+    expect(leaderboardView).toContain('<ModelIcon :model="item.model" size="16px" />')
+    expect(leaderboardView).not.toContain('function modelAvatarInitial')
+  })
+
+  it('shows growth and rank movement on model ranking rows', () => {
+    expect(leaderboardView).toContain('data-testid="leaderboard-model-growth"')
+    expect(leaderboardView).toContain('data-testid="leaderboard-model-rank-change"')
+    expect(leaderboardView).toContain('leaderboard-model-rank-insights')
+    expect(leaderboardView).toContain('function modelGrowthLabel(item: UserLeaderboardModelItem): string')
+    expect(leaderboardView).toContain('function modelRankChangeLabel(item: UserLeaderboardModelItem): string')
+    expect(leaderboardView).toContain("t('leaderboard.growth')")
+    expect(leaderboardView).toContain("t('leaderboard.rankChange')")
+  })
+
   it('keeps the ranking panel bound to a scoped-css-safe dark descendant selector', () => {
     expect(leaderboardView).toContain(':global(.dark .leaderboard-token-ranking-card)')
     expect(leaderboardView).toContain(':global(.dark .leaderboard-token-bar-track)')

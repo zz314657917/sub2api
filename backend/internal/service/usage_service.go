@@ -73,6 +73,10 @@ type userLeaderboardBadgeLeaderRepository interface {
 	GetUserLeaderboardBadgeLeaders(ctx context.Context, weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd time.Time, userTZ string) (*usagestats.UserLeaderboardBadgeLeaders, error)
 }
 
+type leaderboardModelRankingRepository interface {
+	GetLeaderboardModelRanking(ctx context.Context, startTime, endTime time.Time, limit int) ([]usagestats.UserLeaderboardModelItem, int64, error)
+}
+
 type leaderboardBadgeCacheEntry struct {
 	expiresAt time.Time
 	leaders   *usagestats.UserLeaderboardBadgeLeaders
@@ -348,6 +352,22 @@ func (s *UsageService) GetUserLeaderboard(ctx context.Context, startTime, endTim
 		return nil, fmt.Errorf("get user leaderboard: %w", err)
 	}
 	return leaderboard, nil
+}
+
+// GetLeaderboardModelRanking returns global model usage ranking for the leaderboard period.
+func (s *UsageService) GetLeaderboardModelRanking(ctx context.Context, startTime, endTime time.Time, limit int) ([]usagestats.UserLeaderboardModelItem, int64, error) {
+	repo, ok := s.usageRepo.(leaderboardModelRankingRepository)
+	if !ok {
+		return []usagestats.UserLeaderboardModelItem{}, 0, nil
+	}
+	items, totalModels, err := repo.GetLeaderboardModelRanking(ctx, startTime, endTime, limit)
+	if err != nil {
+		return nil, 0, fmt.Errorf("get leaderboard model ranking: %w", err)
+	}
+	if items == nil {
+		items = []usagestats.UserLeaderboardModelItem{}
+	}
+	return items, totalModels, nil
 }
 
 // GetLeaderboardRecentTokenTrend returns global daily token totals for the leaderboard summary.

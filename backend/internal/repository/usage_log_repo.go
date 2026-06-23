@@ -2430,6 +2430,7 @@ type UserUsageTrendPoint = usagestats.UserUsageTrendPoint
 type UserSpendingRankingItem = usagestats.UserSpendingRankingItem
 type UserSpendingRankingResponse = usagestats.UserSpendingRankingResponse
 type UserLeaderboardItem = usagestats.UserLeaderboardItem
+type UserLeaderboardModelItem = usagestats.UserLeaderboardModelItem
 type UserLeaderboardResponse = usagestats.UserLeaderboardResponse
 type UserLeaderboardBadgeLeaders = usagestats.UserLeaderboardBadgeLeaders
 
@@ -2783,6 +2784,139 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 		TotalRequests:    totalRequests,
 		TotalTokens:      totalTokens,
 	}, nil
+}
+
+// GetLeaderboardModelRanking returns model-level token ranking for the user-visible leaderboard.
+func (r *usageLogRepository) GetLeaderboardModelRanking(ctx context.Context, startTime, endTime time.Time, limit int) (items []UserLeaderboardModelItem, totalModels int64, err error) {
+	if limit <= 0 {
+		limit = 10
+	}
+
+	conditions := make([]string, 0, 2)
+	previousConditions := make([]string, 0, 2)
+	args := make([]any, 0, 5)
+	if !startTime.IsZero() {
+		args = append(args, startTime)
+		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", len(args)))
+	}
+	if !endTime.IsZero() {
+		args = append(args, endTime)
+		conditions = append(conditions, fmt.Sprintf("created_at < $%d", len(args)))
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	previousWhereClause := "WHERE false"
+	if !startTime.IsZero() && !endTime.IsZero() && endTime.After(startTime) {
+		window := endTime.Sub(startTime)
+		previousStart := startTime.Add(-window)
+		args = append(args, previousStart)
+		previousConditions = append(previousConditions, fmt.Sprintf("created_at >= $%d", len(args)))
+		args = append(args, startTime)
+		previousConditions = append(previousConditions, fmt.Sprintf("created_at < $%d", len(args)))
+		previousWhereClause = "WHERE " + strings.Join(previousConditions, " AND ")
+	}
+
+	limitArg := len(args) + 1
+	query := fmt.Sprintf(`
+		WITH model_usage AS (
+			SELECT
+				COALESCE(NULLIF(TRIM(model), ''), 'unknown') as model,
+				COUNT(*) as requests,
+				COALESCE(SUM(input_tokens), 0) as input_tokens,
+				COALESCE(SUM(output_tokens), 0) as output_tokens,
+				COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens
+			FROM usage_logs
+			%s
+			GROUP BY COALESCE(NULLIF(TRIM(model), ''), 'unknown')
+		),
+		previous_model_usage AS (
+			SELECT
+				COALESCE(NULLIF(TRIM(model), ''), 'unknown') as model,
+				COUNT(*) as previous_requests,
+				COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as previous_tokens
+			FROM usage_logs
+			%s
+			GROUP BY COALESCE(NULLIF(TRIM(model), ''), 'unknown')
+		),
+		previous_ranked AS (
+			SELECT
+				ROW_NUMBER() OVER (ORDER BY previous_tokens DESC, previous_requests DESC, model ASC) as previous_rank,
+				model,
+				previous_tokens
+			FROM previous_model_usage
+		),
+		ranked AS (
+			SELECT
+				ROW_NUMBER() OVER (ORDER BY tokens DESC, requests DESC, model ASC) as rank,
+				model,
+				requests,
+				input_tokens,
+				output_tokens,
+				tokens,
+				COUNT(*) OVER () as total_models
+			FROM model_usage
+		)
+		SELECT
+			ranked.rank,
+			ranked.model,
+			ranked.requests,
+			ranked.input_tokens,
+			ranked.output_tokens,
+			ranked.tokens,
+			ranked.total_models,
+			CASE
+				WHEN previous_ranked.previous_tokens IS NULL THEN NULL
+				WHEN previous_ranked.previous_tokens = 0 AND ranked.tokens > 0 THEN 100
+				WHEN previous_ranked.previous_tokens = 0 THEN 0
+				ELSE ROUND(((ranked.tokens - previous_ranked.previous_tokens)::numeric / previous_ranked.previous_tokens::numeric) * 100, 1)
+			END as growth_percent,
+			CASE
+				WHEN previous_ranked.previous_rank IS NULL THEN NULL
+				ELSE previous_ranked.previous_rank - ranked.rank
+			END as rank_change
+		FROM ranked
+		LEFT JOIN previous_ranked ON previous_ranked.model = ranked.model
+		WHERE ranked.rank <= $%d
+		ORDER BY ranked.rank ASC
+	`, whereClause, previousWhereClause, limitArg)
+
+	args = append(args, limit)
+	rows, err := r.sql.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+			items = nil
+			totalModels = 0
+		}
+	}()
+
+	items = make([]UserLeaderboardModelItem, 0)
+	for rows.Next() {
+		var row UserLeaderboardModelItem
+		var growthPercent sql.NullFloat64
+		var rankChange sql.NullInt64
+		if err = rows.Scan(&row.Rank, &row.Model, &row.Requests, &row.InputTokens, &row.OutputTokens, &row.Tokens, &totalModels, &growthPercent, &rankChange); err != nil {
+			return nil, 0, err
+		}
+		if growthPercent.Valid {
+			row.GrowthPercent = &growthPercent.Float64
+		}
+		if rankChange.Valid {
+			row.RankChange = &rankChange.Int64
+		}
+		items = append(items, row)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, 0, err
+	}
+	return items, totalModels, nil
 }
 
 // GetUserLeaderboardBadgeLeaders returns user IDs that should receive special leaderboard badges.

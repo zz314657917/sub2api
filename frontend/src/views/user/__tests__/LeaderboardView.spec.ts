@@ -37,12 +37,19 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.totalCost': '总积分消费',
     'leaderboard.totalRequests': '总请求',
     'leaderboard.totalTokens': '总 Token',
+    'leaderboard.viewLabel': '排行榜类型',
+    'leaderboard.views.tokens': 'Token 消耗榜',
+    'leaderboard.views.models': '模型榜',
     'leaderboard.tokenRankingTitle': 'Token Top {count}',
     'leaderboard.tokenRankingDescription': '当前周期用量排行。',
+    'leaderboard.modelRankingTitle': '模型 Top {count}',
+    'leaderboard.modelRankingDescription': '当前周期热门模型排行。',
     'leaderboard.user': '用户',
     'leaderboard.cost': '积分消费',
     'leaderboard.requests': '请求',
     'leaderboard.tokens': 'Token',
+    'leaderboard.growth': '增长',
+    'leaderboard.rankChange': '排名变化',
     'leaderboard.inputTokensShort': '输入',
     'leaderboard.outputTokensShort': '输出',
     'leaderboard.costPerMillionShort': '积分',
@@ -92,6 +99,8 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.lastWeekRank3': '上周第三名',
     'leaderboard.dailyReward.lastWeekRankLabel': '上周第 {rank} 名',
     'leaderboard.dailyReward.noTopUser': '暂无上榜',
+    'leaderboard.modelEmptyTitle': '暂无模型数据',
+    'leaderboard.modelEmptyDescription': '当前周期暂无可展示的模型使用记录',
     'common.loading': '加载中...',
     'common.refresh': '刷新',
   }
@@ -151,6 +160,29 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
       { date: '2026-05-06', total_tokens: 470 },
       { date: '2026-05-07', total_tokens: 640 },
     ],
+    model_ranking: [
+      {
+        rank: 1,
+        model: 'gpt-5.5',
+        requests: 10,
+        input_tokens: 700,
+        output_tokens: 200,
+        tokens: 1000,
+        growth_percent: -77.7,
+        rank_change: 1,
+      },
+      {
+        rank: 2,
+        model: 'claude-opus-4-8',
+        requests: 4,
+        input_tokens: 300,
+        output_tokens: 100,
+        tokens: 400,
+        growth_percent: -87.3,
+        rank_change: -1,
+      },
+    ],
+    total_models: 2,
     daily_rewards: {
       reward_date: '2026-05-06',
       settlement_timezone: 'Asia/Shanghai',
@@ -476,6 +508,75 @@ describe('LeaderboardView', () => {
     expect(tokenBars[1].attributes('aria-label')).toBe('输入 1,500 / 输出 300 / 积分 ✪ 500.00 / 1M Token')
     expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-bar-width: 84%')
     expect(wrapper.find('[data-testid="leaderboard-cost-efficiency-summary"]').exists()).toBe(false)
+  })
+
+  it('switches to model ranking with model-level token bars', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        model_ranking: [
+          {
+            rank: 1,
+            model: 'gpt-5.5',
+            requests: 52,
+            input_tokens: 6000000000,
+            output_tokens: 130000000,
+            tokens: 6130000000,
+            growth_percent: 28.4,
+            rank_change: 1,
+          },
+          {
+            rank: 2,
+            model: 'gpt-5.4',
+            requests: 10826,
+            input_tokens: 1000000000,
+            output_tokens: 230000000,
+            tokens: 1230000000,
+            growth_percent: -12.8,
+            rank_change: -1,
+          },
+        ],
+        total_models: 2,
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+    expect(wrapper.find('[data-testid="leaderboard-model-ranking"]').exists()).toBe(false)
+
+    await wrapper.findAll('button').find((button) => button.text() === '模型榜')?.trigger('click')
+    await flushPromises()
+
+    const ranking = wrapper.get('[data-testid="leaderboard-model-ranking"]')
+    expect(ranking.text()).toContain('模型 Top 2')
+    expect(ranking.text()).toContain('gpt-5.5')
+    expect(ranking.text()).toContain('gpt-5.4')
+    expect(ranking.text()).toContain('请求 52')
+    expect(ranking.findAll('[data-testid="leaderboard-model-rank-icon"]')).toHaveLength(2)
+    expect(ranking.findAll('[data-testid="leaderboard-model-token"]')).toHaveLength(2)
+    expect(ranking.findAll('[data-testid="leaderboard-model-growth"]')).toHaveLength(2)
+    expect(ranking.findAll('[data-testid="leaderboard-model-rank-change"]')).toHaveLength(2)
+    expect(ranking.text()).toContain('6.1B')
+    expect(ranking.text()).toContain('1.2B')
+    expect(ranking.text()).toContain('+28.4%')
+    expect(ranking.text()).toContain('↑ 1')
+    expect(ranking.text()).toContain('-12.8%')
+    expect(ranking.text()).toContain('↓ 1')
+    expect(ranking.find('.model-icon').exists()).toBe(true)
+    expect(ranking.findAll('.leaderboard-token-bar-fill')).toHaveLength(2)
+    const tokenBars = ranking.findAll('.leaderboard-token-bar-track')
+    expect(tokenBars[0].attributes('title')).toBe('请求 52 / 输入 6B / 输出 130M / Token 6.1B / 83.3%')
+    expect(tokenBars[1].attributes('aria-label')).toBe('请求 10.8K / 输入 1B / 输出 230M / Token 1.2B / 16.7%')
+    expect(ranking.text()).toContain('83.3%')
+    expect(ranking.text()).toContain('16.7%')
+    expect(ranking.findAll('.leaderboard-model-rank-row')[1].attributes('style')).toContain('--token-bar-width: 16.85')
   })
 
   it('keeps the total token display increasing visually between refreshes', async () => {

@@ -612,6 +612,37 @@ func TestUsageLogRepositoryGetUserLeaderboardKeepsCurrentUserEntryOutsideLimit(t
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
+func TestUsageLogRepositoryGetLeaderboardModelRanking(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+
+	start := time.Date(2026, 5, 4, 0, 0, 0, 0, time.UTC)
+	end := start.Add(7 * 24 * time.Hour)
+
+	rows := sqlmock.NewRows([]string{
+		"rank", "model", "requests", "input_tokens", "output_tokens", "tokens", "total_models", "growth_percent", "rank_change",
+	}).
+		AddRow(int64(1), "gpt-5.5", int64(12), int64(700), int64(300), int64(1000), int64(4), 66.7, int64(2)).
+		AddRow(int64(2), "claude-opus-4-8", int64(5), int64(400), int64(100), int64(500), int64(4), -20.5, int64(-1))
+
+	mock.ExpectQuery(`(?s)WITH model_usage AS.*SELECT\s+ranked\.rank,\s+ranked\.model,\s+ranked\.requests,\s+ranked\.input_tokens,\s+ranked\.output_tokens,\s+ranked\.tokens,\s+ranked\.total_models.*WHERE ranked\.rank <= \$5.*ORDER BY ranked\.rank ASC`).
+		WithArgs(start, end, start.Add(-7*24*time.Hour), start, 10).
+		WillReturnRows(rows)
+
+	got, totalModels, err := repo.GetLeaderboardModelRanking(context.Background(), start, end, 10)
+	require.NoError(t, err)
+	require.Equal(t, int64(4), totalModels)
+	gptGrowth := 66.7
+	gptRankChange := int64(2)
+	claudeGrowth := -20.5
+	claudeRankChange := int64(-1)
+	require.Equal(t, []usagestats.UserLeaderboardModelItem{
+		{Rank: 1, Model: "gpt-5.5", Requests: 12, InputTokens: 700, OutputTokens: 300, Tokens: 1000, GrowthPercent: &gptGrowth, RankChange: &gptRankChange},
+		{Rank: 2, Model: "claude-opus-4-8", Requests: 5, InputTokens: 400, OutputTokens: 100, Tokens: 500, GrowthPercent: &claudeGrowth, RankChange: &claudeRankChange},
+	}, got)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
 func TestUsageLogRepositoryGetUserLeaderboardBadgeLeaders(t *testing.T) {
 	db, mock := newSQLMock(t)
 	repo := &usageLogRepository{sql: db}

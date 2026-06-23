@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -17,6 +18,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 )
+
+var leaderboardSampleModelRanking = []usagestats.UserLeaderboardModelItem{
+	{Rank: 1, Model: "gpt-5.5", Requests: 52, InputTokens: 6000000000, OutputTokens: 130000000, Tokens: 6130000000, GrowthPercent: leaderboardFloat64Ptr(-77.7), RankChange: leaderboardInt64Ptr(1)},
+	{Rank: 2, Model: "claude-opus-4-8", Requests: 31, InputTokens: 2700000000, OutputTokens: 180000000, Tokens: 2880000000, GrowthPercent: leaderboardFloat64Ptr(-87.3), RankChange: leaderboardInt64Ptr(-1)},
+	{Rank: 3, Model: "gpt-5.4", Requests: 10826, InputTokens: 1000000000, OutputTokens: 230000000, Tokens: 1230000000, GrowthPercent: leaderboardFloat64Ptr(-74.7), RankChange: nil},
+}
 
 // UsageHandler handles usage-related requests
 type UsageHandler struct {
@@ -473,6 +480,30 @@ func fillLeaderboardRecentTokenTrend(points []usagestats.UserLeaderboardTokenTre
 	return result
 }
 
+func leaderboardFloat64Ptr(value float64) *float64 {
+	return &value
+}
+
+func leaderboardInt64Ptr(value int64) *int64 {
+	return &value
+}
+
+func shouldUseLeaderboardSampleModelRanking() bool {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("SUB2API_LEADERBOARD_SAMPLE_MODELS")), "true") {
+		return true
+	}
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("SERVER_MODE")), "debug") && gin.Mode() == gin.DebugMode
+}
+
+func cloneLeaderboardSampleModelRanking(limit int) []usagestats.UserLeaderboardModelItem {
+	if limit <= 0 || limit > len(leaderboardSampleModelRanking) {
+		limit = len(leaderboardSampleModelRanking)
+	}
+	items := make([]usagestats.UserLeaderboardModelItem, limit)
+	copy(items, leaderboardSampleModelRanking[:limit])
+	return items
+}
+
 func applyUserLeaderboardBadges(payload *usagestats.UserLeaderboardResponse, leaders *usagestats.UserLeaderboardBadgeLeaders) {
 	if payload == nil || leaders == nil {
 		return
@@ -802,6 +833,20 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 	leaderboard.RecentTokenTrend = recentTrend
 	if leaderboard.Ranking == nil {
 		leaderboard.Ranking = []usagestats.UserLeaderboardItem{}
+	}
+	modelRanking, totalModels, err := h.usageService.GetLeaderboardModelRanking(c.Request.Context(), startTime, endTime, limit)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	leaderboard.ModelRanking = modelRanking
+	leaderboard.TotalModels = totalModels
+	if leaderboard.ModelRanking == nil {
+		leaderboard.ModelRanking = []usagestats.UserLeaderboardModelItem{}
+	}
+	if len(leaderboard.ModelRanking) == 0 && shouldUseLeaderboardSampleModelRanking() {
+		leaderboard.ModelRanking = cloneLeaderboardSampleModelRanking(limit)
+		leaderboard.TotalModels = int64(len(leaderboard.ModelRanking))
 	}
 	applyUserLeaderboardBadges(leaderboard, leaders)
 	dailyRewards, err := h.usageService.GetLeaderboardDailyRewards(c.Request.Context(), subject.UserID, userTZ)

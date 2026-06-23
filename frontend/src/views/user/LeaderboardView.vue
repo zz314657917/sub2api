@@ -87,13 +87,53 @@
       </div>
 
       <div v-else-if="leaderboard" class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div class="min-w-0 space-y-3">
-          <div v-if="rankingItems.length === 0" class="card p-8">
-            <EmptyState :title="t('leaderboard.emptyTitle')" :description="t('leaderboard.emptyDescription')" />
-          </div>
+        <div class="min-w-0">
+          <section v-if="activeRankingEmpty" class="leaderboard-token-ranking-card">
+            <div class="leaderboard-ranking-card-toolbar">
+              <div class="leaderboard-ranking-switch" role="tablist" :aria-label="t('leaderboard.viewLabel')">
+                <button
+                  v-for="option in rankingViewOptions"
+                  :key="option.value"
+                  type="button"
+                  class="leaderboard-ranking-switch-button"
+                  :class="rankingView === option.value
+                    ? 'leaderboard-ranking-switch-button--active'
+                    : 'leaderboard-ranking-switch-button--idle'"
+                  :aria-selected="rankingView === option.value"
+                  role="tab"
+                  @click="rankingView = option.value"
+                >
+                  {{ option.label }}
+                </button>
+              </div>
+            </div>
+
+            <div class="leaderboard-ranking-empty">
+              <EmptyState :title="activeRankingEmptyTitle" :description="activeRankingEmptyDescription" />
+            </div>
+          </section>
 
           <template v-else>
-            <section class="leaderboard-token-ranking-card" data-testid="leaderboard-token-ranking">
+            <section v-if="rankingView === 'tokens'" class="leaderboard-token-ranking-card" data-testid="leaderboard-token-ranking">
+              <div class="leaderboard-ranking-card-toolbar">
+                <div class="leaderboard-ranking-switch" role="tablist" :aria-label="t('leaderboard.viewLabel')">
+                  <button
+                    v-for="option in rankingViewOptions"
+                    :key="option.value"
+                    type="button"
+                    class="leaderboard-ranking-switch-button"
+                    :class="rankingView === option.value
+                      ? 'leaderboard-ranking-switch-button--active'
+                      : 'leaderboard-ranking-switch-button--idle'"
+                    :aria-selected="rankingView === option.value"
+                    role="tab"
+                    @click="rankingView = option.value"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+
               <div class="leaderboard-token-ranking-header">
                 <div class="min-w-0">
                   <h2 class="leaderboard-token-ranking-title text-base font-semibold text-gray-900 dark:text-white">
@@ -164,6 +204,106 @@
                     >
                       <div class="leaderboard-token-bar-fill"></div>
                       <span class="leaderboard-token-bar-value">{{ formatNumber(item.tokens) }}</span>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
+            <section v-else class="leaderboard-token-ranking-card leaderboard-model-ranking-card" data-testid="leaderboard-model-ranking">
+              <div class="leaderboard-ranking-card-toolbar">
+                <div class="leaderboard-ranking-switch" role="tablist" :aria-label="t('leaderboard.viewLabel')">
+                  <button
+                    v-for="option in rankingViewOptions"
+                    :key="option.value"
+                    type="button"
+                    class="leaderboard-ranking-switch-button"
+                    :class="rankingView === option.value
+                      ? 'leaderboard-ranking-switch-button--active'
+                      : 'leaderboard-ranking-switch-button--idle'"
+                    :aria-selected="rankingView === option.value"
+                    role="tab"
+                    @click="rankingView = option.value"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+
+              <div class="leaderboard-token-ranking-header">
+                <div class="min-w-0">
+                  <h2 class="leaderboard-token-ranking-title text-base font-semibold text-gray-900 dark:text-white">
+                    <span>{{ t('leaderboard.modelRankingTitle', { count: modelRankingItems.length }) }}</span>
+                    <span class="leaderboard-token-ranking-period">{{ currentPeriodLabel }}</span>
+                  </h2>
+                </div>
+                <span class="leaderboard-token-ranking-updated">
+                  {{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}
+                </span>
+              </div>
+
+              <div class="leaderboard-token-rank-list">
+                <article
+                  v-for="item in modelRankingItems"
+                  :key="item.model"
+                  class="leaderboard-token-rank-row leaderboard-model-rank-row"
+                  :style="modelBarStyle(item)"
+                >
+                  <div class="leaderboard-model-rank-user">
+                    <span class="leaderboard-token-rank-index">#{{ item.rank }}</span>
+                    <span
+                      class="leaderboard-token-rank-avatar leaderboard-model-rank-avatar"
+                      :title="displayModelLabel(item.model)"
+                      data-testid="leaderboard-model-rank-icon"
+                      aria-hidden="true"
+                    >
+                      <ModelIcon :model="item.model" size="16px" />
+                    </span>
+                    <span class="leaderboard-token-rank-name" :title="displayModelLabel(item.model)">
+                      {{ displayModelLabel(item.model) }}
+                    </span>
+                    <span class="leaderboard-model-rank-meta">
+                      {{ t('leaderboard.requests') }} {{ formatNumber(item.requests) }}
+                    </span>
+                  </div>
+
+                  <div class="leaderboard-token-bar-area">
+                    <div
+                      class="leaderboard-token-bar-track"
+                      :aria-label="modelRankingMetricsLabel(item)"
+                      :title="modelRankingMetricsLabel(item)"
+                    >
+                      <div class="leaderboard-token-bar-fill"></div>
+                      <span class="leaderboard-token-bar-value">{{ modelTokenShareLabel(item) }}</span>
+                    </div>
+                  </div>
+
+                  <div class="leaderboard-model-rank-insights" :aria-label="modelRankingTrendLabel(item)">
+                    <div
+                      class="leaderboard-model-rank-insight leaderboard-model-rank-insight--token"
+                      :title="modelTokenTitle(item)"
+                      data-testid="leaderboard-model-token"
+                    >
+                      <span class="leaderboard-model-rank-insight-value">{{ formatNumber(item.tokens) }}</span>
+                      <span class="leaderboard-model-rank-insight-label">{{ t('leaderboard.tokens') }}</span>
+                    </div>
+                    <div
+                      class="leaderboard-model-rank-insight"
+                      :class="modelGrowthClass(item)"
+                      :title="modelGrowthTitle(item)"
+                      data-testid="leaderboard-model-growth"
+                    >
+                      <span class="leaderboard-model-rank-insight-value">{{ modelGrowthLabel(item) }}</span>
+                      <span class="leaderboard-model-rank-insight-label">{{ t('leaderboard.growth') }}</span>
+                    </div>
+                    <div
+                      class="leaderboard-model-rank-insight"
+                      :class="modelRankChangeClass(item)"
+                      :title="modelRankChangeTitle(item)"
+                      data-testid="leaderboard-model-rank-change"
+                    >
+                      <span class="leaderboard-model-rank-insight-value">{{ modelRankChangeLabel(item) }}</span>
+                      <span class="leaderboard-model-rank-insight-label">{{ t('leaderboard.rankChange') }}</span>
                     </div>
                   </div>
                 </article>
@@ -303,17 +443,22 @@ import {
 import { Line } from 'vue-chartjs'
 import { usageAPI } from '@/api'
 import type { LeaderboardBadge, LeaderboardDailyRewardTopUser, LeaderboardDailyRewards, LeaderboardPeriod, UserLeaderboardItem, UserLeaderboardResponse } from '@/api/usage'
-import type { UserLeaderboardTokenTrendPoint } from '@/types'
+import type { UserLeaderboardModelItem, UserLeaderboardTokenTrendPoint } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import ModelIcon from '@/components/common/ModelIcon.vue'
 import { formatDateTime, formatNumber, formatTime } from '@/utils/format'
 import { formatCreditAmount } from '@/utils/credits'
+import { displayModelLabel } from '@/utils/modelDisplay'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
 const { t } = useI18n()
 
+type RankingView = 'tokens' | 'models'
+
 const period = ref<LeaderboardPeriod>('day')
+const rankingView = ref<RankingView>('tokens')
 const leaderboard = ref<UserLeaderboardResponse | null>(null)
 const loading = ref(false)
 const error = ref(false)
@@ -354,12 +499,21 @@ const devRewardTopUsers: LeaderboardDailyRewardTopUser[] = [
   { rank: 2, display_name: '138****5678' },
   { rank: 3, display_name: 't***d@example.com' },
 ]
+const devModelTrendFallbacks: Record<string, { growthPercent: number; rankChange: number | null }> = {
+  'gpt-5.5': { growthPercent: -77.7, rankChange: 1 },
+  'claude-opus-4-8': { growthPercent: -87.3, rankChange: -1 },
+  'gpt-5.4': { growthPercent: -74.7, rankChange: null },
+}
 
 const periodOptions = computed(() => [
   { value: 'day' as const, label: t('leaderboard.period.day') },
   { value: 'week' as const, label: t('leaderboard.period.week') },
   { value: 'month' as const, label: t('leaderboard.period.month') },
   { value: 'all' as const, label: t('leaderboard.period.all') },
+])
+const rankingViewOptions = computed(() => [
+  { value: 'tokens' as const, label: t('leaderboard.views.tokens') },
+  { value: 'models' as const, label: t('leaderboard.views.models') },
 ])
 const currentPeriodLabel = computed(() => periodOptions.value.find((option) => option.value === period.value)?.label ?? '')
 const recentTokenTrendPoints = computed<UserLeaderboardTokenTrendPoint[]>(() => leaderboard.value?.recent_token_trend ?? [])
@@ -375,6 +529,30 @@ const rankingItems = computed<UserLeaderboardItem[]>(() => {
   }))
 })
 const maxRankingTokens = computed(() => Math.max(0, ...rankingItems.value.map((item) => item.tokens)))
+const modelRankingItems = computed<UserLeaderboardModelItem[]>(() => {
+  return (leaderboard.value?.model_ranking ?? []).slice(0, leaderboardLimit).map((item) => {
+    const fallback = import.meta.env.DEV ? devModelTrendFallbacks[item.model] : undefined
+    return {
+      ...item,
+      growth_percent: item.growth_percent ?? fallback?.growthPercent ?? null,
+      rank_change: item.rank_change ?? fallback?.rankChange ?? null,
+    }
+  })
+})
+const maxModelRankingTokens = computed(() => Math.max(0, ...modelRankingItems.value.map((item) => item.tokens)))
+const totalVisibleModelRankingTokens = computed(() => modelRankingItems.value.reduce((sum, item) => sum + Math.max(0, item.tokens || 0), 0))
+const activeRankingEmpty = computed(() => rankingView.value === 'models'
+  ? modelRankingItems.value.length === 0
+  : rankingItems.value.length === 0
+)
+const activeRankingEmptyTitle = computed(() => rankingView.value === 'models'
+  ? t('leaderboard.modelEmptyTitle')
+  : t('leaderboard.emptyTitle')
+)
+const activeRankingEmptyDescription = computed(() => rankingView.value === 'models'
+  ? t('leaderboard.modelEmptyDescription')
+  : t('leaderboard.emptyDescription')
+)
 const dailyRewards = computed<LeaderboardDailyRewards | null>(() => leaderboard.value?.daily_rewards ?? null)
 const myEntry = computed<UserLeaderboardItem | null>(() => {
   if (leaderboard.value?.current_user_entry) return leaderboard.value.current_user_entry
@@ -681,6 +859,38 @@ function tokenBarStyle(item: UserLeaderboardItem): Record<string, string> {
   }
 }
 
+function modelBarWidth(item: UserLeaderboardModelItem): string {
+  if (maxModelRankingTokens.value <= 0 || item.tokens <= 0) return '0%'
+  return `${Math.min(84, Math.max(4, (item.tokens / maxModelRankingTokens.value) * 84))}%`
+}
+
+function modelBarStyle(item: UserLeaderboardModelItem): Record<string, string> {
+  const palette = tokenBarPalette(item.rank)
+  const widthText = modelBarWidth(item)
+
+  return {
+    '--token-bar-width': widthText,
+    '--token-bar-value-left': `calc(${widthText} + 0.55rem)`,
+    '--token-bar-value-x': '0',
+    '--token-bar-color': palette.color,
+    '--token-bar-glow': palette.glow,
+    '--token-rank-color': palette.text,
+    '--token-value-color': palette.text,
+  }
+}
+
+function modelTokenShare(item: UserLeaderboardModelItem): number {
+  const total = totalVisibleModelRankingTokens.value
+  if (total <= 0 || item.tokens <= 0) return 0
+  return Math.max(0, (item.tokens / total) * 100)
+}
+
+function modelTokenShareLabel(item: UserLeaderboardModelItem): string {
+  const share = modelTokenShare(item)
+  if (share > 0 && share < 0.1) return '<0.1%'
+  return `${share.toFixed(1)}%`
+}
+
 function tokenBarPalette(rank: number): { color: string; glow: string; text: string } {
   if (rank === 1) return { color: 'rgb(217 119 6)', glow: 'rgb(217 119 6 / 0.22)', text: 'rgb(146 64 14)' }
   if (rank === 2) return { color: 'rgb(5 150 105)', glow: 'rgb(5 150 105 / 0.2)', text: 'rgb(4 120 87)' }
@@ -719,6 +929,67 @@ function leaderboardTokenMetricsLabel(item: UserLeaderboardItem): string {
     `${t('leaderboard.outputTokensShort')} ${formatNumber(item.output_tokens ?? 0)}`,
     `${t('leaderboard.costPerMillionShort')} ${formatLeaderboardCostPerMillion(item)} / 1M Token`,
   ].join(' / ')
+}
+
+function modelRankingMetricsLabel(item: UserLeaderboardModelItem): string {
+  return [
+    `${t('leaderboard.requests')} ${formatNumber(item.requests ?? 0)}`,
+    `${t('leaderboard.inputTokensShort')} ${formatNumber(item.input_tokens ?? 0)}`,
+    `${t('leaderboard.outputTokensShort')} ${formatNumber(item.output_tokens ?? 0)}`,
+    `${t('leaderboard.tokens')} ${formatNumber(item.tokens ?? 0)}`,
+    modelTokenShareLabel(item),
+  ].join(' / ')
+}
+
+function modelGrowthValue(item: UserLeaderboardModelItem): number | null {
+  const value = Number(item.growth_percent)
+  return Number.isFinite(value) ? value : null
+}
+
+function modelRankChangeValue(item: UserLeaderboardModelItem): number | null {
+  const value = Number(item.rank_change)
+  return Number.isFinite(value) ? Math.trunc(value) : null
+}
+
+function modelGrowthLabel(item: UserLeaderboardModelItem): string {
+  const value = modelGrowthValue(item)
+  if (value == null) return '—'
+  const prefix = value > 0 ? '+' : ''
+  return `${prefix}${value.toFixed(1)}%`
+}
+
+function modelRankChangeLabel(item: UserLeaderboardModelItem): string {
+  const value = modelRankChangeValue(item)
+  if (value == null || value === 0) return '—'
+  return value > 0 ? `↑ ${value}` : `↓ ${Math.abs(value)}`
+}
+
+function modelGrowthClass(item: UserLeaderboardModelItem): string {
+  const value = modelGrowthValue(item)
+  if (value == null || value === 0) return 'leaderboard-model-rank-insight--neutral'
+  return value > 0 ? 'leaderboard-model-rank-insight--up' : 'leaderboard-model-rank-insight--down'
+}
+
+function modelRankChangeClass(item: UserLeaderboardModelItem): string {
+  const value = modelRankChangeValue(item)
+  if (value == null || value === 0) return 'leaderboard-model-rank-insight--neutral'
+  return value > 0 ? 'leaderboard-model-rank-insight--up' : 'leaderboard-model-rank-insight--down'
+}
+
+function modelGrowthTitle(item: UserLeaderboardModelItem): string {
+  return `${t('leaderboard.growth')}: ${modelGrowthLabel(item)}`
+}
+
+function modelRankChangeTitle(item: UserLeaderboardModelItem): string {
+  return `${t('leaderboard.rankChange')}: ${modelRankChangeLabel(item)}`
+}
+
+function modelTokenTitle(item: UserLeaderboardModelItem): string {
+  return `${t('leaderboard.tokens')}: ${formatNumber(item.tokens ?? 0)}`
+}
+
+function modelRankingTrendLabel(item: UserLeaderboardModelItem): string {
+  return `${modelTokenTitle(item)} / ${modelGrowthTitle(item)} / ${modelRankChangeTitle(item)}`
 }
 
 function leaderboardAvatarUrl(item: UserLeaderboardItem): string {
@@ -983,6 +1254,63 @@ onUnmounted(() => {
   opacity: 0.58;
 }
 
+.leaderboard-ranking-switch {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid rgb(148 163 184 / 0.22);
+  border-radius: 0.5rem;
+  background: rgb(248 250 252 / 0.82);
+  padding: 0.125rem;
+  scrollbar-width: none;
+}
+
+.leaderboard-ranking-switch::-webkit-scrollbar {
+  display: none;
+}
+
+.leaderboard-ranking-switch-button {
+  flex: 0 0 auto;
+  border-radius: 0.375rem;
+  padding: 0.34rem 0.72rem;
+  font-size: 0.8125rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  transition: background-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
+  white-space: nowrap;
+}
+
+.leaderboard-ranking-switch-button--active {
+  background: #ffffff;
+  color: rgb(15 23 42);
+  box-shadow: 0 0.45rem 1.1rem rgb(15 23 42 / 0.08);
+}
+
+.leaderboard-ranking-switch-button--idle {
+  color: rgb(100 116 139);
+}
+
+.leaderboard-ranking-switch-button--idle:hover {
+  color: rgb(15 23 42);
+}
+
+.leaderboard-ranking-card-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 0.85rem;
+}
+
+.leaderboard-ranking-empty {
+  display: flex;
+  min-height: 12rem;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid rgb(148 163 184 / 0.18);
+  padding: 2rem 1rem 0.75rem;
+}
+
 .leaderboard-token-odometer {
   position: relative;
   z-index: 1;
@@ -1099,6 +1427,10 @@ onUnmounted(() => {
   background: rgb(34 197 94 / 0.07);
 }
 
+.leaderboard-model-rank-row {
+  grid-template-columns: minmax(11rem, 13rem) minmax(9.5rem, 1fr) minmax(16rem, 17rem);
+}
+
 .leaderboard-token-rank-user {
   display: grid;
   min-width: 0;
@@ -1186,6 +1518,103 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.leaderboard-model-rank-user {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 2.5rem 1.45rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.leaderboard-model-rank-meta {
+  grid-column: 3;
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(100 116 139);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-model-rank-avatar {
+  border-radius: 0.35rem;
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.98), rgb(226 232 240 / 0.9)),
+    var(--token-bar-color);
+  color: rgb(15 23 42);
+  font-size: 0.62rem;
+}
+
+.leaderboard-model-rank-avatar :deep(.model-icon),
+.leaderboard-model-rank-avatar :deep(.model-icon-fallback) {
+  width: 1rem;
+  height: 1rem;
+}
+
+.leaderboard-model-rank-avatar :deep(.model-icon-fallback) {
+  border-radius: 0.2rem;
+}
+
+.leaderboard-model-rank-insights {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.leaderboard-model-rank-insight {
+  display: grid;
+  min-width: 0;
+  min-height: 3.05rem;
+  align-content: center;
+  gap: 0.22rem;
+  overflow: hidden;
+  border: 1px solid rgb(148 163 184 / 0.14);
+  border-radius: 0.38rem;
+  background: rgb(248 250 252 / 0.84);
+  padding: 0.45rem 0.5rem;
+  text-align: right;
+}
+
+.leaderboard-model-rank-insight-value {
+  min-width: 0;
+  overflow: hidden;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-model-rank-insight-label {
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(100 116 139);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.15;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-model-rank-insight--up .leaderboard-model-rank-insight-value {
+  color: rgb(22 163 74);
+}
+
+.leaderboard-model-rank-insight--down .leaderboard-model-rank-insight-value {
+  color: rgb(220 38 38);
+}
+
+.leaderboard-model-rank-insight--neutral .leaderboard-model-rank-insight-value {
+  color: rgb(100 116 139);
+}
+
+.leaderboard-model-rank-insight--token .leaderboard-model-rank-insight-value {
+  color: rgb(15 23 42);
 }
 
 .leaderboard-token-current-tag {
@@ -1402,6 +1831,25 @@ onUnmounted(() => {
   background-size: 5.5rem 100%, 100% 1rem, 100% 100%;
 }
 
+:global(.dark .leaderboard-ranking-switch) {
+  border-color: rgb(51 65 85 / 0.86);
+  background: rgb(15 23 42 / 0.76);
+}
+
+:global(.dark .leaderboard-ranking-switch-button--active) {
+  background: rgb(30 41 59 / 0.96);
+  color: rgb(248 250 252);
+  box-shadow: none;
+}
+
+:global(.dark .leaderboard-ranking-switch-button--idle) {
+  color: rgb(148 163 184);
+}
+
+:global(.dark .leaderboard-ranking-switch-button--idle:hover) {
+  color: rgb(248 250 252);
+}
+
 :global(.dark .leaderboard-token-summary-meta) {
   color: rgb(148 163 184);
 }
@@ -1516,6 +1964,42 @@ onUnmounted(() => {
     0 0.32rem 0.8rem var(--token-bar-glow);
 }
 
+:global(.dark .leaderboard-model-rank-meta) {
+  color: rgb(148 163 184);
+}
+
+:global(.dark .leaderboard-model-rank-avatar) {
+  background:
+    linear-gradient(135deg, rgb(255 255 255 / 0.98), rgb(226 232 240 / 0.92)),
+    var(--token-bar-color);
+  color: rgb(15 23 42);
+}
+
+:global(.dark .leaderboard-model-rank-insight) {
+  border-color: rgb(51 65 85 / 0.72);
+  background: rgb(30 41 59 / 0.72);
+}
+
+:global(.dark .leaderboard-model-rank-insight-label) {
+  color: rgb(148 163 184);
+}
+
+:global(.dark .leaderboard-model-rank-insight--up .leaderboard-model-rank-insight-value) {
+  color: rgb(74 222 128);
+}
+
+:global(.dark .leaderboard-model-rank-insight--down .leaderboard-model-rank-insight-value) {
+  color: rgb(248 113 113);
+}
+
+:global(.dark .leaderboard-model-rank-insight--neutral .leaderboard-model-rank-insight-value) {
+  color: rgb(203 213 225);
+}
+
+:global(.dark .leaderboard-model-rank-insight--token .leaderboard-model-rank-insight-value) {
+  color: rgb(248 250 252);
+}
+
 :global(.dark .leaderboard-token-bar-track) {
   background:
     linear-gradient(90deg, rgb(148 163 184 / 0.1) 1px, transparent 1px),
@@ -1535,6 +2019,10 @@ onUnmounted(() => {
 }
 
 @media (max-width: 767px) {
+  .leaderboard-ranking-card-toolbar {
+    margin-bottom: 0.7rem;
+  }
+
   .leaderboard-token-ranking-header {
     flex-direction: column;
     align-items: flex-start;
@@ -1547,7 +2035,15 @@ onUnmounted(() => {
     padding: 0.25rem 0;
   }
 
+  .leaderboard-model-rank-row {
+    gap: 0.5rem;
+  }
+
   .leaderboard-token-rank-user {
+    grid-template-columns: 2.35rem 1.28rem minmax(0, 1fr);
+  }
+
+  .leaderboard-model-rank-user {
     grid-template-columns: 2.35rem 1.28rem minmax(0, 1fr);
   }
 
@@ -1557,6 +2053,16 @@ onUnmounted(() => {
 
   .leaderboard-token-bar-value {
     font-size: 0.8rem;
+  }
+
+  .leaderboard-model-rank-insights {
+    grid-template-columns: repeat(3, minmax(0, 6.5rem));
+    justify-content: end;
+  }
+
+  .leaderboard-model-rank-insight {
+    min-height: 2.75rem;
+    padding: 0.38rem 0.48rem;
   }
 
   .leaderboard-token-rank-avatar {

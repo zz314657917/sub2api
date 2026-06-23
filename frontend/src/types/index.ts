@@ -2001,6 +2001,17 @@ export interface UserLeaderboardTokenTrendPoint {
   total_tokens: number
 }
 
+export interface UserLeaderboardModelItem {
+  rank: number
+  model: string
+  requests: number
+  input_tokens: number
+  output_tokens: number
+  tokens: number
+  growth_percent?: number | null
+  rank_change?: number | null
+}
+
 export interface LeaderboardDailyRewardTier {
   rank: number
   amount: number
@@ -2040,6 +2051,8 @@ export interface UserLeaderboardResponse {
   total_tokens: number
   ranking: UserLeaderboardItem[]
   current_user_entry: UserLeaderboardItem | null
+  model_ranking?: UserLeaderboardModelItem[]
+  total_models?: number
   daily_rewards?: LeaderboardDailyRewards | null
   recent_token_trend?: UserLeaderboardTokenTrendPoint[]
 }
