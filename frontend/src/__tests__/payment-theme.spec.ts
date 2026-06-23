@@ -14,4 +14,12 @@ describe('payment page theme', () => {
     expect(paymentView).not.toMatch(/:global\(\.dark\)\s+\.purchase-pricing-page/)
     expect(paymentView).not.toMatch(/:global\(\.dark\)\s+\.pricing-/)
   })
+
+  it('keeps subscription prices compact and aligned', () => {
+    expect(paymentView).toContain('formatPaymentAmountCompact')
+    expect(paymentView).toContain('function formatDisplayPaymentAmount')
+    expect(paymentView).toContain('pricing-plan-price-row')
+    expect(paymentView).toContain('{{ formatDisplayPaymentAmount(plan.price) }}')
+    expect(paymentView).toContain('{{ formatDisplayPaymentAmount(selectedPlan.price) }}')
+  })
 })

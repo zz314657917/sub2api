@@ -266,10 +266,13 @@
                     </div>
                     <h3 class="pricing-strong mt-5 text-xl font-black">{{ plan.name }}</h3>
                     <p class="pricing-caption mt-2 min-h-[2.5rem] text-sm leading-5">{{ plan.description || pt('planDefaultDesc') }}</p>
-                    <div class="mt-6 flex min-w-0 flex-wrap items-end justify-center gap-2">
-                      <span v-if="plan.original_price" class="pricing-strike pb-2 text-sm line-through">{{ formatSelectedPaymentAmount(plan.original_price) }}</span>
-                      <span class="pricing-plan-price break-words text-center text-4xl font-black tabular-nums sm:text-5xl">{{ formatSelectedPaymentAmount(plan.price) }}</span>
-                      <span class="pricing-muted pb-2 text-sm">/{{ planValiditySuffixFor(plan) }}</span>
+                    <div class="mt-6 flex min-w-0 flex-col items-center justify-end gap-2">
+                      <span v-if="plan.original_price" class="pricing-strike min-h-5 text-sm line-through">{{ formatDisplayPaymentAmount(plan.original_price) }}</span>
+                      <span v-else class="min-h-5"></span>
+                      <div class="pricing-plan-price-row flex min-w-0 items-baseline justify-center gap-2 text-center">
+                        <span class="pricing-plan-price min-w-0 break-words text-4xl font-black tabular-nums sm:text-5xl">{{ formatDisplayPaymentAmount(plan.price) }}</span>
+                        <span class="pricing-muted shrink-0 text-sm">/{{ planValiditySuffixFor(plan) }}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -333,16 +336,16 @@
                       </div>
                       <div class="flex justify-between gap-4">
                         <span class="pricing-muted">{{ pt('subtotal') }}</span>
-                        <span class="pricing-strong font-semibold">{{ formatSelectedPaymentAmount(selectedPlan.price) }}</span>
+                        <span class="pricing-strong font-semibold">{{ formatDisplayPaymentAmount(selectedPlan.price) }}</span>
                       </div>
                       <div v-if="feeRate > 0 && selectedPlan.price > 0" class="flex justify-between gap-4">
                         <span class="pricing-muted">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
-                        <span class="pricing-strong font-semibold">{{ formatSelectedPaymentAmount(subFeeAmount) }}</span>
+                        <span class="pricing-strong font-semibold">{{ formatDisplayPaymentAmount(subFeeAmount) }}</span>
                       </div>
                       <div class="pricing-divider border-t border-dashed pt-5">
                         <div class="flex items-end justify-between gap-4">
                           <span class="pricing-muted">{{ pt('totalPayable') }}</span>
-                          <span class="min-w-0 break-words text-right text-3xl font-black text-blue-600 tabular-nums dark:text-blue-400">{{ formatSelectedPaymentAmount(subTotalAmount) }}</span>
+                          <span class="min-w-0 break-words text-right text-3xl font-black text-blue-600 tabular-nums dark:text-blue-400">{{ formatDisplayPaymentAmount(subTotalAmount) }}</span>
                         </div>
                       </div>
                     </div>
@@ -465,7 +468,7 @@ import { platformAccentBarClass, platformBadgeLightClass, platformLabel } from '
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
+import { formatPaymentAmount, formatPaymentAmountCompact, normalizePaymentCurrency } from '@/components/payment/currency'
 import { formatCreditAmount } from '@/utils/credits'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
@@ -921,6 +924,10 @@ const localeCode = computed(() => {
 
 function formatSelectedPaymentAmount(value: number): string {
   return formatPaymentAmount(value, selectedCurrency.value, localeCode.value)
+}
+
+function formatDisplayPaymentAmount(value: number): string {
+  return formatPaymentAmountCompact(value, selectedCurrency.value, localeCode.value)
 }
 
 function formatNumber(value: number): string {
@@ -1935,6 +1942,12 @@ onMounted(async () => {
 
 .pricing-plan-price {
   color: #0f172a;
+  line-height: 1;
+}
+
+.pricing-plan-price-row {
+  max-width: 100%;
+  min-height: 3.25rem;
 }
 
 :global(.dark .pricing-plan-price) {
