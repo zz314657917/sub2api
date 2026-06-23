@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <div class="purchase-pricing-page -m-4 min-h-[calc(100vh-4rem)] md:-m-[1.35rem] lg:-m-[1.6rem]">
-      <div class="relative z-10 mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 py-8 sm:px-6 lg:px-8">
+      <div class="relative z-10 mx-auto flex w-full max-w-[1360px] flex-col gap-10 px-4 py-8 sm:px-6 lg:px-8">
         <div v-if="loading" class="flex min-h-[28rem] items-center justify-center">
           <div class="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
         </div>
@@ -40,209 +40,215 @@
               </div>
             </div>
 
-            <section v-if="membershipStatus?.enabled" class="pricing-card rounded-3xl p-5 sm:p-6">
-              <div class="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div class="flex flex-wrap items-center gap-3">
-                    <Icon name="shield" size="lg" class="text-emerald-500" />
-                    <h2 class="pricing-section-title text-xl font-black tracking-normal">{{ pt('membership.title') }}</h2>
-                    <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">{{ membershipCurrentLabel }}</span>
-                  </div>
-                  <p class="pricing-muted mt-2 text-sm">{{ membershipProgressText }}</p>
-                </div>
-                <div v-if="membershipStatus.expires_at" class="pricing-summary rounded-xl px-4 py-3 text-right text-sm">
-                  <p class="pricing-muted">{{ pt('membership.expiresAt') }}</p>
-                  <p class="pricing-strong mt-1 font-semibold">{{ formatMembershipDate(membershipStatus.expires_at) }}</p>
-                </div>
-              </div>
-
-              <div class="mt-5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-                <div class="h-full rounded-full bg-emerald-500 transition-all" :style="{ width: `${membershipProgressPercent}%` }"></div>
-              </div>
-
-              <div class="mt-5 grid gap-3 md:grid-cols-3">
-                <article
-                  v-for="tier in membershipStatus.tiers"
-                  :key="tier.level"
-                  class="pricing-membership-tier rounded-xl border p-4"
-                  :class="tier.level === membershipStatus.current_tier ? 'pricing-membership-tier--active' : ''"
-                >
-                  <div class="flex items-center justify-between gap-3">
-                    <h3 class="pricing-strong text-base font-black">{{ tier.label }}</h3>
-                    <span class="pricing-caption text-xs">{{ membershipThresholdText(tier) }}</span>
-                  </div>
-                  <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
-                    <div class="pricing-subpanel rounded-lg p-2">
-                      <p class="pricing-strong font-semibold">{{ tier.rate_multiplier }}x</p>
-                      <p class="pricing-caption mt-0.5">{{ pt('membership.rate') }}</p>
-                    </div>
-                    <div class="pricing-subpanel rounded-lg p-2">
-                      <p class="pricing-strong font-semibold">{{ tier.rpm_limit }} RPM</p>
-                      <p class="pricing-caption mt-0.5">{{ pt('membership.rpm') }}</p>
-                    </div>
-                    <div class="pricing-subpanel rounded-lg p-2">
-                      <p class="pricing-strong font-semibold">{{ formatNumber(tier.tpm_limit) }} TPM</p>
-                      <p class="pricing-caption mt-0.5">{{ pt('membership.tpm') }}</p>
-                    </div>
-                    <div class="pricing-subpanel rounded-lg p-2">
-                      <p class="pricing-strong font-semibold">{{ tier.image_active_tasks }}</p>
-                      <p class="pricing-caption mt-0.5">{{ pt('membership.imageTasks') }}</p>
-                    </div>
-                  </div>
-                </article>
-              </div>
-            </section>
-
-            <section v-if="!checkout.balance_disabled" class="space-y-6">
-              <div class="flex flex-wrap items-center gap-3">
-                <Icon name="creditCard" size="lg" class="text-sky-400" />
-                <h2 class="pricing-section-title text-xl font-black tracking-normal">{{ pt('flexibleCredit') }}</h2>
-                <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">{{ pt('creditTag') }}</span>
-              </div>
-
-              <div v-if="enabledMethods.length === 0" class="pricing-card rounded-3xl py-16 text-center">
-                <p class="pricing-muted">{{ t('payment.notAvailable') }}</p>
-              </div>
-              <div v-else class="pricing-card rounded-3xl p-5 sm:p-8">
-                <div class="grid gap-8 lg:grid-cols-[minmax(0,1.45fr)_minmax(320px,0.95fr)]">
-                  <div class="space-y-6">
+            <div class="pricing-main-grid grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
+              <main class="min-w-0 space-y-6">
+                <section v-if="membershipStatus?.enabled" class="pricing-card rounded-3xl p-5 sm:p-6">
+                  <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
-                      <div class="flex flex-wrap items-center justify-between gap-3">
-                        <p class="pricing-strong text-sm font-bold">{{ pt('rechargeStep') }}</p>
-                        <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">
-                          {{ checkout.monthly_recharge_bonus_claimed ? pt('monthlyBonusClaimed') : pt('monthlyBonusAvailable') }}
-                        </span>
+                      <div class="flex flex-wrap items-center gap-3">
+                        <Icon name="shield" size="lg" class="text-emerald-500" />
+                        <h2 class="pricing-section-title text-xl font-black tracking-normal">{{ pt('membership.title') }}</h2>
+                        <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">{{ membershipCurrentLabel }}</span>
                       </div>
-                      <div v-if="rechargePackages.length === 0" class="pricing-subpanel mt-5 rounded-xl p-5 text-sm">
-                        <p class="pricing-muted">{{ pt('noRechargePackages') }}</p>
-                      </div>
-                      <div v-else class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                        <button
-                          v-for="pkg in rechargePackages"
-                          :key="pkg.id"
-                          type="button"
-                          class="pricing-preset relative rounded-xl border px-4 py-4 text-center transition"
-                          :class="[
-                            selectedRechargePackageId === pkg.id
-                              ? 'pricing-preset--selected'
-                              : 'pricing-preset--idle',
-                            rechargePackageAvailable(pkg) ? '' : 'cursor-not-allowed opacity-40'
-                          ]"
-                          :disabled="!rechargePackageAvailable(pkg)"
-                          @click="selectRechargePackage(pkg.id)"
-                        >
-                          <span v-if="pkg.effective_bonus_amount > 0" class="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold text-white">
-                            {{ pt('bonusBadge', { amount: formatRechargeCreditAmount(pkg.effective_bonus_amount) }) }}
-                          </span>
-                          <span class="block text-2xl font-black">{{ formatSelectedPaymentAmount(pkg.pay_amount) }}</span>
-                          <span class="pricing-caption mt-2 block text-xs">
-                            {{ pt('creditedAmountLine', { amount: formatRechargeCreditAmount(pkg.effective_credited_amount) }) }}
-                          </span>
-                          <span class="pricing-caption mt-1 block text-[11px]">
-                            {{ checkout.monthly_recharge_bonus_claimed
-                              ? pt('bonusClaimedLine')
-                              : pkg.bonus_amount > 0
-                                ? pt('bonusLine', { amount: formatRechargeCreditAmount(pkg.bonus_amount) })
-                                : pt('noBonusLine')
-                            }}
-                          </span>
-                        </button>
-                      </div>
-                      <p v-if="amountError" class="mt-3 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
+                      <p class="pricing-muted mt-2 text-sm">{{ membershipProgressText }}</p>
                     </div>
-
-                    <div v-if="methodOptions.length > 1" class="space-y-3">
-                      <p class="pricing-strong text-sm font-bold">{{ t('payment.paymentMethod') }}</p>
-                      <div class="grid gap-2 sm:grid-cols-2">
-                        <button
-                          v-for="method in methodOptions"
-                          :key="method.type"
-                          type="button"
-                          class="pricing-method-option rounded-lg border px-3 py-2 text-left text-sm transition"
-                          :class="[
-                            selectedMethod === method.type
-                              ? 'pricing-method-option--selected'
-                              : 'pricing-method-option--idle',
-                            method.available ? '' : 'cursor-not-allowed opacity-45'
-                          ]"
-                          :disabled="!method.available"
-                          @click="selectedMethod = method.type"
-                        >
-                          <span class="block font-semibold">{{ paymentMethodLabel(method.type) }}</span>
-                          <span v-if="method.fee_rate > 0" class="pricing-caption mt-1 block text-xs">{{ t('payment.fee') }} {{ method.fee_rate }}%</span>
-                        </button>
-                      </div>
+                    <div v-if="membershipStatus.expires_at" class="pricing-summary rounded-xl px-4 py-3 text-right text-sm">
+                      <p class="pricing-muted">{{ pt('membership.expiresAt') }}</p>
+                      <p class="pricing-strong mt-1 font-semibold">{{ formatMembershipDate(membershipStatus.expires_at) }}</p>
                     </div>
                   </div>
 
-                  <aside class="pricing-summary rounded-2xl p-6">
-                    <h3 class="pricing-strong text-sm font-black">{{ pt('orderSummary') }}</h3>
-                    <div class="mt-6 space-y-4 text-sm">
-                      <div class="flex items-center justify-between gap-4">
-                        <span class="pricing-muted">{{ pt('rechargeAmount') }}</span>
-                        <span class="pricing-strong font-semibold">{{ formatSelectedPaymentAmount(validAmount) }}</span>
+                  <div class="mt-5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+                    <div class="h-full rounded-full bg-emerald-500 transition-all" :style="{ width: `${membershipProgressPercent}%` }"></div>
+                  </div>
+
+                  <div class="mt-5 grid gap-3 md:grid-cols-3">
+                    <article
+                      v-for="tier in membershipStatus.tiers"
+                      :key="tier.level"
+                      class="pricing-membership-tier rounded-xl border p-4"
+                      :class="tier.level === membershipStatus.current_tier ? 'pricing-membership-tier--active' : ''"
+                    >
+                      <div class="flex items-center justify-between gap-3">
+                        <h3 class="pricing-strong text-base font-black">{{ tier.label }}</h3>
+                        <span class="pricing-caption text-xs">{{ membershipThresholdText(tier) }}</span>
                       </div>
-                      <div class="flex items-center justify-between gap-4">
-                        <span class="pricing-muted">{{ t('payment.creditedBalance') }}</span>
-                        <span class="pricing-strong font-semibold">{{ formatRechargeCreditAmount(effectiveCreditedAmount) }}</span>
-                      </div>
-                      <div v-if="selectedRechargePackage && selectedRechargePackage.bonus_amount > 0" class="flex items-center justify-between gap-4">
-                        <span class="pricing-muted">{{ pt('bonusAmount') }}</span>
-                        <span class="pricing-strong font-semibold">
-                          {{ selectedRechargePackage.effective_bonus_amount > 0
-                            ? formatRechargeCreditAmount(selectedRechargePackage.effective_bonus_amount)
-                            : pt('bonusAlreadyClaimedSummary')
-                          }}
-                        </span>
-                      </div>
-                      <div v-if="selectedMethodLabel" class="flex items-center justify-between gap-4">
-                        <span class="pricing-muted">{{ t('payment.paymentMethod') }}</span>
-                        <span class="pricing-strong font-semibold">{{ selectedMethodLabel }}</span>
-                      </div>
-                      <div v-if="feeRate > 0" class="flex items-center justify-between gap-4">
-                        <span class="pricing-muted">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
-                        <span class="pricing-strong font-semibold">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
-                      </div>
-                      <div class="pricing-divider border-t border-dashed pt-6">
-                        <div class="flex items-end justify-between gap-4">
-                          <span class="pricing-muted">{{ pt('totalPayable') }}</span>
-                          <span class="min-w-0 break-words text-right text-3xl font-black text-blue-600 tabular-nums dark:text-blue-400 sm:text-4xl">{{ formatSelectedPaymentAmount(totalAmount) }}</span>
+                      <div class="mt-4 grid grid-cols-2 gap-2 text-xs">
+                        <div class="pricing-subpanel rounded-lg p-2">
+                          <p class="pricing-strong font-semibold">{{ tier.rate_multiplier }}x</p>
+                          <p class="pricing-caption mt-0.5">{{ pt('membership.rate') }}</p>
+                        </div>
+                        <div class="pricing-subpanel rounded-lg p-2">
+                          <p class="pricing-strong font-semibold">{{ tier.rpm_limit }} RPM</p>
+                          <p class="pricing-caption mt-0.5">{{ pt('membership.rpm') }}</p>
+                        </div>
+                        <div class="pricing-subpanel rounded-lg p-2">
+                          <p class="pricing-strong font-semibold">{{ formatNumber(tier.tpm_limit) }} TPM</p>
+                          <p class="pricing-caption mt-0.5">{{ pt('membership.tpm') }}</p>
+                        </div>
+                        <div class="pricing-subpanel rounded-lg p-2">
+                          <p class="pricing-strong font-semibold">{{ tier.image_active_tasks }}</p>
+                          <p class="pricing-caption mt-0.5">{{ pt('membership.imageTasks') }}</p>
                         </div>
                       </div>
-                    </div>
-                    <button :class="['btn mt-7 inline-flex w-full items-center justify-center gap-2 py-3 text-base font-bold', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
-                      <span v-if="submitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                      <Icon v-else name="shield" size="sm" />
-                      {{ submitting ? t('common.processing') : pt('paySecurely') }}
-                    </button>
-                  </aside>
-                </div>
-              </div>
-            </section>
+                    </article>
+                  </div>
+                </section>
 
-            <section class="pricing-section-divider space-y-6 border-t pt-10">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="flex flex-wrap items-center gap-3">
-                  <Icon name="creditCard" size="lg" class="text-sky-400" />
-                  <h2 class="pricing-section-title text-xl font-black tracking-normal">{{ pt('plansTitle') }}</h2>
-                  <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">{{ pt('plansTag') }}</span>
-                </div>
-                <button
-                  type="button"
-                  class="pricing-refresh-button inline-flex h-9 w-9 items-center justify-center rounded-lg transition disabled:cursor-wait disabled:opacity-60"
-                  :disabled="checkoutRefreshing"
-                  :title="t('common.refresh')"
-                  @click="refreshCheckoutInfo"
-                >
-                  <Icon name="refresh" size="sm" :class="checkoutRefreshing ? 'animate-spin' : ''" />
-                </button>
-              </div>
+                <section v-if="!checkout.balance_disabled" class="space-y-4">
+                  <div class="flex flex-wrap items-center gap-3">
+                    <Icon name="creditCard" size="lg" class="text-sky-400" />
+                    <h2 class="pricing-section-title text-xl font-black tracking-normal">{{ pt('flexibleCredit') }}</h2>
+                    <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">{{ pt('creditTag') }}</span>
+                  </div>
+
+                  <div v-if="enabledMethods.length === 0" class="pricing-card rounded-3xl py-16 text-center">
+                    <p class="pricing-muted">{{ t('payment.notAvailable') }}</p>
+                  </div>
+                  <div v-else class="pricing-card pricing-recharge-card rounded-3xl p-4 sm:p-5">
+                    <div class="space-y-5">
+                      <div class="min-w-0 space-y-5">
+                        <div>
+                          <div class="flex flex-wrap items-center justify-between gap-3">
+                            <p class="pricing-strong text-sm font-bold">{{ pt('rechargeStep') }}</p>
+                            <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">
+                              {{ checkout.monthly_recharge_bonus_claimed ? pt('monthlyBonusClaimed') : pt('monthlyBonusAvailable') }}
+                            </span>
+                          </div>
+                          <div v-if="rechargePackages.length === 0" class="pricing-subpanel mt-5 rounded-xl p-5 text-sm">
+                            <p class="pricing-muted">{{ pt('noRechargePackages') }}</p>
+                          </div>
+                          <div v-else class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                            <button
+                              v-for="pkg in rechargePackages"
+                              :key="pkg.id"
+                              type="button"
+                              class="pricing-preset relative flex min-h-[6.5rem] flex-col items-center justify-center rounded-xl border px-3 py-3 text-center transition"
+                              :class="[
+                                selectedRechargePackageId === pkg.id
+                                  ? 'pricing-preset--selected'
+                                  : 'pricing-preset--idle',
+                                rechargePackageAvailable(pkg) ? '' : 'cursor-not-allowed opacity-40'
+                              ]"
+                              :disabled="!rechargePackageAvailable(pkg)"
+                              @click="selectRechargePackage(pkg.id)"
+                            >
+                              <span v-if="pkg.effective_bonus_amount > 0" class="absolute -top-2 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-orange-500 px-2 py-0.5 text-[10px] font-bold text-white">
+                                {{ pt('bonusBadge', { amount: formatRechargeCreditAmount(pkg.effective_bonus_amount) }) }}
+                              </span>
+                              <span class="block text-[1.65rem] font-black leading-none">{{ formatSelectedPaymentAmount(pkg.pay_amount) }}</span>
+                              <span class="pricing-caption mt-2 block text-xs leading-5">
+                                {{ pt('creditedAmountLine', { amount: formatRechargeCreditAmount(pkg.effective_credited_amount) }) }}
+                              </span>
+                              <span class="pricing-caption mt-0.5 block text-[11px] leading-4">
+                                {{ checkout.monthly_recharge_bonus_claimed
+                                  ? pt('bonusClaimedLine')
+                                  : pkg.bonus_amount > 0
+                                    ? pt('bonusLine', { amount: formatRechargeCreditAmount(pkg.bonus_amount) })
+                                    : pt('noBonusLine')
+                                }}
+                              </span>
+                            </button>
+                          </div>
+                          <p v-if="amountError" class="mt-3 text-xs text-amber-600 dark:text-amber-300">{{ amountError }}</p>
+                        </div>
+
+                        <div v-if="methodOptions.length > 1" class="space-y-3">
+                          <p class="pricing-strong text-sm font-bold">{{ t('payment.paymentMethod') }}</p>
+                          <div class="grid gap-2 sm:grid-cols-2">
+                            <button
+                              v-for="method in methodOptions"
+                              :key="method.type"
+                              type="button"
+                              class="pricing-method-option rounded-lg border px-3 py-2 text-left text-sm transition"
+                              :class="[
+                                selectedMethod === method.type
+                                  ? 'pricing-method-option--selected'
+                                  : 'pricing-method-option--idle',
+                                method.available ? '' : 'cursor-not-allowed opacity-45'
+                              ]"
+                              :disabled="!method.available"
+                              @click="selectedMethod = method.type"
+                            >
+                              <span class="block font-semibold">{{ paymentMethodLabel(method.type) }}</span>
+                              <span v-if="method.fee_rate > 0" class="pricing-caption mt-1 block text-xs">{{ t('payment.fee') }} {{ method.fee_rate }}%</span>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <aside class="pricing-recharge-summary rounded-2xl p-4 sm:p-5">
+                        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,240px)] lg:items-end">
+                          <div class="min-w-0">
+                            <h3 class="pricing-strong text-sm font-black">{{ pt('orderSummary') }}</h3>
+                            <div class="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
+                              <div class="flex items-center justify-between gap-4">
+                                <span class="pricing-muted">{{ pt('rechargeAmount') }}</span>
+                                <span class="pricing-strong font-semibold">{{ formatSelectedPaymentAmount(validAmount) }}</span>
+                              </div>
+                              <div class="flex items-center justify-between gap-4">
+                                <span class="pricing-muted">{{ t('payment.creditedBalance') }}</span>
+                                <span class="pricing-strong font-semibold">{{ formatRechargeCreditAmount(effectiveCreditedAmount) }}</span>
+                              </div>
+                              <div v-if="selectedRechargePackage && selectedRechargePackage.bonus_amount > 0" class="flex items-center justify-between gap-4">
+                                <span class="pricing-muted">{{ pt('bonusAmount') }}</span>
+                                <span class="pricing-strong font-semibold">
+                                  {{ selectedRechargePackage.effective_bonus_amount > 0
+                                    ? formatRechargeCreditAmount(selectedRechargePackage.effective_bonus_amount)
+                                    : pt('bonusAlreadyClaimedSummary')
+                                  }}
+                                </span>
+                              </div>
+                              <div v-if="selectedMethodLabel" class="flex items-center justify-between gap-4">
+                                <span class="pricing-muted">{{ t('payment.paymentMethod') }}</span>
+                                <span class="pricing-strong font-semibold">{{ selectedMethodLabel }}</span>
+                              </div>
+                              <div v-if="feeRate > 0" class="flex items-center justify-between gap-4">
+                                <span class="pricing-muted">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
+                                <span class="pricing-strong font-semibold">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
+                              </div>
+                              <div class="pricing-divider border-t border-dashed pt-3 sm:col-span-2 lg:col-span-1 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
+                                <div class="flex items-end justify-between gap-4">
+                                  <span class="pricing-muted">{{ pt('totalPayable') }}</span>
+                                  <span class="min-w-0 break-words text-right text-2xl font-black text-blue-600 tabular-nums dark:text-blue-400 sm:text-3xl">{{ formatSelectedPaymentAmount(totalAmount) }}</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <button :class="['btn inline-flex w-full items-center justify-center gap-2 py-3 text-sm font-bold', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
+                            <span v-if="submitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                            <Icon v-else name="shield" size="sm" />
+                            {{ submitting ? t('common.processing') : pt('paySecurely') }}
+                          </button>
+                        </div>
+                      </aside>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="pricing-section-divider space-y-5 border-t pt-8">
+                  <div class="flex flex-wrap items-center justify-between gap-3">
+                    <div class="flex flex-wrap items-center gap-3">
+                      <Icon name="creditCard" size="lg" class="text-sky-400" />
+                      <h2 class="pricing-section-title text-xl font-black tracking-normal">{{ pt('plansTitle') }}</h2>
+                      <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">{{ pt('plansTag') }}</span>
+                    </div>
+                    <button
+                      type="button"
+                      class="pricing-refresh-button inline-flex h-9 w-9 items-center justify-center rounded-lg transition disabled:cursor-wait disabled:opacity-60"
+                      :disabled="checkoutRefreshing"
+                      :title="t('common.refresh')"
+                      @click="refreshCheckoutInfo"
+                    >
+                      <Icon name="refresh" size="sm" :class="checkoutRefreshing ? 'animate-spin' : ''" />
+                    </button>
+                  </div>
 
               <div v-if="checkout.plans.length === 0" class="pricing-card rounded-3xl py-16 text-center">
                 <Icon name="gift" size="xl" class="pricing-empty-icon mx-auto mb-3" />
                 <p class="pricing-muted">{{ t('payment.noPlans') }}</p>
               </div>
-              <div v-else class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <div v-else class="grid grid-cols-1 gap-5 md:grid-cols-2">
                 <article
                   v-for="plan in checkout.plans"
                   :key="plan.id"
@@ -383,27 +389,99 @@
                   </div>
                 </div>
               </div>
-            </section>
+                </section>
+              </main>
 
-            <section class="mx-auto w-full max-w-3xl space-y-4 pt-4">
-              <h2 class="pricing-section-title text-center text-xl font-black">{{ pt('faqTitle') }}</h2>
-              <div class="pricing-faq-list">
-                <div v-for="(item, index) in faqItems" :key="item.title">
-                  <button class="pricing-faq-button flex w-full items-center justify-between gap-4 py-4 text-left text-sm font-bold" type="button" @click="openFaqIndex = openFaqIndex === index ? null : index">
-                    <span>{{ item.title }}</span>
-                    <Icon name="chevronDown" size="sm" class="pricing-muted-icon shrink-0 transition" :class="{ 'rotate-180': openFaqIndex === index }" />
+              <aside class="pricing-side-stack space-y-5 xl:sticky xl:top-6">
+                <section class="pricing-card rounded-3xl p-5">
+                  <div class="flex items-start gap-3">
+                    <Icon name="ticket" size="lg" class="mt-0.5 text-emerald-500" />
+                    <div>
+                      <h2 class="pricing-section-title text-lg font-black">{{ t('redeem.title') }}</h2>
+                      <p class="pricing-muted mt-1 text-sm">{{ t('redeem.description') }}</p>
+                    </div>
+                  </div>
+                  <form class="mt-5 space-y-3" @submit.prevent="handleInlineRedeem">
+                    <div class="relative">
+                      <Icon name="gift" size="sm" class="pricing-muted-icon pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" />
+                      <input
+                        v-model="redeemCode"
+                        type="text"
+                        class="pricing-input w-full rounded-xl border py-3 pl-10 pr-3 text-sm"
+                        :placeholder="t('redeem.redeemCodePlaceholder')"
+                        :disabled="redeemSubmitting"
+                      />
+                    </div>
+                    <button class="btn btn-primary inline-flex w-full items-center justify-center gap-2 py-3 text-sm font-bold" :disabled="!redeemCode.trim() || redeemSubmitting" type="submit">
+                      <span v-if="redeemSubmitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                      <Icon v-else name="check" size="sm" />
+                      {{ redeemSubmitting ? t('redeem.redeeming') : t('redeem.redeemButton') }}
+                    </button>
+                    <p class="pricing-caption text-xs">{{ t('redeem.redeemCodeHint') }}</p>
+                    <p
+                      v-if="redeemFeedback"
+                      class="pricing-inline-feedback rounded-lg px-3 py-2 text-xs"
+                      :class="redeemFeedback.kind === 'success' ? 'pricing-inline-feedback--success' : 'pricing-inline-feedback--error'"
+                    >
+                      {{ redeemFeedback.message }}
+                    </p>
+                  </form>
+                </section>
+
+                <section class="pricing-card rounded-3xl p-5">
+                  <div class="flex items-center gap-2">
+                    <Icon name="questionCircle" size="lg" class="text-sky-500" />
+                    <h2 class="pricing-section-title text-lg font-black">{{ pt('faqTitle') }}</h2>
+                  </div>
+                  <div class="pricing-faq-list mt-2">
+                    <div v-for="(item, index) in faqItems" :key="item.title">
+                      <button class="pricing-faq-button flex w-full items-center justify-between gap-4 py-4 text-left text-sm font-bold" type="button" @click="openFaqIndex = openFaqIndex === index ? null : index">
+                        <span>{{ item.title }}</span>
+                        <Icon name="chevronDown" size="sm" class="pricing-muted-icon shrink-0 transition" :class="{ 'rotate-180': openFaqIndex === index }" />
+                      </button>
+                      <p v-if="openFaqIndex === index" class="pricing-muted pb-4 text-sm leading-6">{{ item.body }}</p>
+                    </div>
+                  </div>
+                </section>
+
+                <section v-if="checkout.help_text || checkout.help_image_url" class="pricing-card rounded-3xl p-5">
+                  <div class="flex flex-col items-center gap-3">
+                    <img v-if="checkout.help_image_url" :src="checkout.help_image_url" alt=""
+                      class="h-40 max-w-full cursor-pointer rounded-lg object-contain transition-opacity hover:opacity-80"
+                      @click="previewImage = checkout.help_image_url" />
+                    <p v-if="checkout.help_text" class="pricing-muted text-center text-sm">{{ checkout.help_text }}</p>
+                  </div>
+                </section>
+              </aside>
+            </div>
+
+            <section class="pricing-card pricing-order-history overflow-hidden rounded-3xl">
+              <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-5 sm:px-6">
+                <div>
+                  <div class="flex items-center gap-2">
+                    <Icon name="clipboard" size="lg" class="text-sky-500" />
+                    <h2 class="pricing-section-title text-xl font-black">{{ pt('historyTitle') }}</h2>
+                  </div>
+                  <p class="pricing-muted mt-1 text-sm">{{ pt('historySubtitle') }}</p>
+                </div>
+                <div class="flex items-center gap-2">
+                  <button
+                    type="button"
+                    class="pricing-refresh-button inline-flex h-9 w-9 items-center justify-center rounded-lg transition disabled:cursor-wait disabled:opacity-60"
+                    :disabled="ordersLoading"
+                    :title="t('common.refresh')"
+                    @click="fetchRecentOrders"
+                  >
+                    <Icon name="refresh" size="sm" :class="ordersLoading ? 'animate-spin' : ''" />
                   </button>
-                  <p v-if="openFaqIndex === index" class="pricing-muted pb-4 text-sm leading-6">{{ item.body }}</p>
+                  <button class="btn btn-secondary py-2 text-sm font-bold" type="button" @click="router.push('/orders')">{{ pt('viewAllOrders') }}</button>
                 </div>
               </div>
-            </section>
-
-            <section v-if="checkout.help_text || checkout.help_image_url" class="pricing-card rounded-3xl p-5">
-              <div class="flex flex-col items-center gap-3">
-                <img v-if="checkout.help_image_url" :src="checkout.help_image_url" alt=""
-                  class="h-40 max-w-full cursor-pointer rounded-lg object-contain transition-opacity hover:opacity-80"
-                  @click="previewImage = checkout.help_image_url" />
-                <p v-if="checkout.help_text" class="pricing-muted text-center text-sm">{{ checkout.help_text }}</p>
+              <div v-if="ordersErrorMessage" class="mx-5 mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100 sm:mx-6">
+                {{ ordersErrorMessage }}
+              </div>
+              <div class="pricing-order-table pricing-order-scroll">
+                <OrderTable :orders="recentOrders" :loading="ordersLoading" :show-actions="false" />
               </div>
             </section>
           </template>
@@ -447,9 +525,10 @@ import { usePaymentStore } from '@/stores/payment'
 import { useSubscriptionStore } from '@/stores/subscriptions'
 import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
+import { redeemAPI } from '@/api/redeem'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
-import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, MembershipStatus, MembershipTierConfig, RechargePackage } from '@/types/payment'
+import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, MembershipStatus, MembershipTierConfig, RechargePackage, PaymentOrder } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { METHOD_ORDER, getPaymentPopupFeatures } from '@/components/payment/providerConfig'
 import {
@@ -467,8 +546,9 @@ import {
 import { platformAccentBarClass, platformBadgeLightClass, platformLabel } from '@/utils/platformColors'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
+import OrderTable from '@/components/payment/OrderTable.vue'
 import Icon from '@/components/icons/Icon.vue'
-import { formatPaymentAmount, formatPaymentAmountCompact, normalizePaymentCurrency } from '@/components/payment/currency'
+import { formatPaymentAmountCompact, normalizePaymentCurrency } from '@/components/payment/currency'
 import { formatCreditAmount } from '@/utils/credits'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
@@ -520,6 +600,9 @@ const pricingCatalog = {
     selectedPlan: '已选套餐',
     subtotal: '套餐金额',
     faqTitle: '常见问题',
+    historyTitle: '交易历史',
+    historySubtitle: '查看最近的充值和订阅订单',
+    viewAllOrders: '全部订单',
     membership: {
       title: '会员权益',
       current: '当前等级：{level}',
@@ -599,6 +682,9 @@ const pricingCatalog = {
     selectedPlan: 'Selected plan',
     subtotal: 'Subtotal',
     faqTitle: 'FAQ',
+    historyTitle: 'Transaction History',
+    historySubtitle: 'Review recent credit and subscription orders.',
+    viewAllOrders: 'All Orders',
     membership: {
       title: 'Membership',
       current: 'Current tier: {level}',
@@ -689,6 +775,12 @@ const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
 const previewImage = ref('')
 const openFaqIndex = ref<number | null>(null)
+const redeemCode = ref('')
+const redeemSubmitting = ref(false)
+const redeemFeedback = ref<{ kind: 'success' | 'error'; message: string } | null>(null)
+const recentOrders = ref<PaymentOrder[]>([])
+const ordersLoading = ref(false)
+const ordersErrorMessage = ref('')
 
 const paymentPhase = ref<'select' | 'paying'>('select')
 
@@ -790,6 +882,52 @@ function resetPayment() {
   removeRecoverySnapshot()
 }
 
+async function fetchRecentOrders() {
+  ordersLoading.value = true
+  ordersErrorMessage.value = ''
+  try {
+    const res = await paymentAPI.getMyOrders({ page: 1, page_size: 10 })
+    recentOrders.value = res.data.items || []
+  } catch (err: unknown) {
+    ordersErrorMessage.value = extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))
+  } finally {
+    ordersLoading.value = false
+  }
+}
+
+async function handleInlineRedeem() {
+  const code = redeemCode.value.trim()
+  if (!code || redeemSubmitting.value) return
+  redeemSubmitting.value = true
+  redeemFeedback.value = null
+  try {
+    const result = await redeemAPI.redeem(code)
+    redeemCode.value = ''
+    redeemFeedback.value = {
+      kind: 'success',
+      message: result.message || t('redeem.codeRedeemSuccess'),
+    }
+    await authStore.refreshUser()
+    if (result.type === 'subscription') {
+      await subscriptionStore.fetchActiveSubscriptions(true).catch(() => {
+        appStore.showWarning(t('redeem.subscriptionRefreshFailed'))
+      })
+    }
+    await Promise.all([
+      loadCheckoutInfo(),
+      fetchRecentOrders(),
+    ])
+    appStore.showSuccess(t('redeem.codeRedeemSuccess'))
+  } catch (err: unknown) {
+    const apiError = err as { response?: { data?: { detail?: string } } }
+    const message = apiError.response?.data?.detail || extractI18nErrorMessage(err, t, 'payment.errors', t('redeem.failedToRedeem'))
+    redeemFeedback.value = { kind: 'error', message }
+    appStore.showError(t('redeem.redeemFailed'))
+  } finally {
+    redeemSubmitting.value = false
+  }
+}
+
 async function redirectToPaymentResult(state: PaymentRecoverySnapshot): Promise<void> {
   const query: Record<string, string | undefined> = {}
   if (state.orderId > 0) {
@@ -856,6 +994,7 @@ function onPaymentDone() {
   const wasSubscription = paymentState.value.orderType === 'subscription'
   resetPayment()
   selectedPlan.value = null
+  fetchRecentOrders().catch(() => {})
   if (wasSubscription) {
     subscriptionStore.fetchActiveSubscriptions(true).catch(() => {})
   }
@@ -864,6 +1003,7 @@ function onPaymentDone() {
 function onPaymentSuccess() {
   removeRecoverySnapshot()
   authStore.refreshUser()
+  fetchRecentOrders().catch(() => {})
   if (paymentState.value.orderType === 'subscription') {
     subscriptionStore.fetchActiveSubscriptions(true).catch(() => {})
   }
@@ -923,7 +1063,7 @@ const localeCode = computed(() => {
 })
 
 function formatSelectedPaymentAmount(value: number): string {
-  return formatPaymentAmount(value, selectedCurrency.value, localeCode.value)
+  return formatPaymentAmountCompact(value, selectedCurrency.value, localeCode.value)
 }
 
 function formatDisplayPaymentAmount(value: number): string {
@@ -935,7 +1075,7 @@ function formatNumber(value: number): string {
 }
 
 function formatMembershipMoney(value: number): string {
-  return formatPaymentAmount(value, selectedCurrency.value, localeCode.value)
+  return formatPaymentAmountCompact(value, selectedCurrency.value, localeCode.value)
 }
 
 function formatMembershipDate(value: string): string {
@@ -950,7 +1090,7 @@ function formatMembershipDate(value: string): string {
 
 function formatRechargeCreditAmount(value: number): string {
   const amount = Number.isFinite(value) ? value : 0
-  return formatCreditAmount(amount)
+  return formatCreditAmount(amount, { minimumFractionDigits: 0, maximumFractionDigits: 4 })
 }
 
 const membershipCurrentLabel = computed(() => {
@@ -1306,6 +1446,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
     }
 
     const result = await paymentStore.createOrder(payload) as CreateOrderResult & { resume_token?: string }
+    fetchRecentOrders().catch(() => {})
     const openWindow = (url: string) => {
       const win = window.open(url, 'paymentPopup', getPaymentPopupFeatures())
       if (!win || win.closed) {
@@ -1529,6 +1670,7 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
       isWechatBrowser: false,
     })
     const result = await paymentStore.createOrder(payload) as CreateOrderResult & { resume_token?: string }
+    fetchRecentOrders().catch(() => {})
     const stripeMethod = visibleMethod === 'wxpay' ? 'wechat_pay' : 'alipay'
     const stripeRouteUrl = result.client_secret
       ? router.resolve({
@@ -1625,7 +1767,10 @@ async function resumeWechatPaymentFromQuery() {
 
 onMounted(async () => {
   try {
-    await loadCheckoutInfo(false)
+    await Promise.all([
+      loadCheckoutInfo(false),
+      fetchRecentOrders(),
+    ])
     if (typeof window !== 'undefined') {
       if (hasWechatResumeQuery(route.query)) {
         removeRecoverySnapshot()
@@ -1900,6 +2045,84 @@ onMounted(async () => {
 
 :global(.dark .pricing-summary) {
   background: rgba(18, 28, 43, 0.92);
+}
+
+.pricing-recharge-summary {
+  align-self: stretch;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(241, 245, 249, 0.58);
+}
+
+:global(.dark .pricing-recharge-summary) {
+  border-color: rgba(71, 85, 105, 0.7);
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.pricing-side-stack {
+  align-self: start;
+}
+
+.pricing-inline-feedback--success {
+  border: 1px solid rgba(16, 185, 129, 0.24);
+  background: rgba(209, 250, 229, 0.72);
+  color: #047857;
+}
+
+.pricing-inline-feedback--error {
+  border: 1px solid rgba(239, 68, 68, 0.24);
+  background: rgba(254, 226, 226, 0.78);
+  color: #b91c1c;
+}
+
+:global(.dark .pricing-inline-feedback--success) {
+  border-color: rgba(52, 211, 153, 0.24);
+  background: rgba(6, 78, 59, 0.38);
+  color: #a7f3d0;
+}
+
+:global(.dark .pricing-inline-feedback--error) {
+  border-color: rgba(248, 113, 113, 0.28);
+  background: rgba(127, 29, 29, 0.34);
+  color: #fecaca;
+}
+
+.pricing-order-history {
+  padding: 0;
+}
+
+.pricing-order-table {
+  overflow-x: auto;
+  border-top: 1px solid rgba(148, 163, 184, 0.24);
+}
+
+.pricing-order-scroll {
+  max-height: min(26rem, 44vh);
+  overflow: auto;
+}
+
+:global(.dark .pricing-order-table) {
+  border-top-color: rgba(51, 65, 85, 0.9);
+}
+
+.pricing-order-table :deep(.table-wrapper) {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.pricing-order-scroll :deep(.table-wrapper) {
+  max-height: inherit;
+}
+
+.pricing-order-scroll :deep(table) {
+  min-width: 760px;
+}
+
+@media (max-width: 767px) {
+  .pricing-order-scroll {
+    max-height: none;
+    overflow: visible;
+  }
 }
 
 .pricing-divider,

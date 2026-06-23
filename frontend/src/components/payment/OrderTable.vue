@@ -55,6 +55,7 @@ const props = defineProps<{
   orders: PaymentOrder[]
   loading: boolean
   showUser?: boolean
+  showActions?: boolean
 }>()
 
 function formatDate(dateStr: string) { return new Date(dateStr).toLocaleString() }
@@ -85,8 +86,10 @@ const columns = computed((): Column[] => {
     { key: 'payment_type', label: t('payment.orders.paymentMethod') },
     { key: 'status', label: t('payment.orders.status') },
     { key: 'created_at', label: t('payment.orders.createdAt') },
-    { key: 'actions', label: t('common.actions') },
   )
+  if (props.showActions !== false) {
+    cols.push({ key: 'actions', label: t('common.actions') })
+  }
   return cols
 })
 </script>

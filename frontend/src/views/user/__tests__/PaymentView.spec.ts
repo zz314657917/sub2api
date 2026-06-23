@@ -21,8 +21,11 @@ const fetchActiveSubscriptions = vi.hoisted(() => vi.fn().mockResolvedValue(unde
 const showError = vi.hoisted(() => vi.fn())
 const showInfo = vi.hoisted(() => vi.fn())
 const showWarning = vi.hoisted(() => vi.fn())
+const showSuccess = vi.hoisted(() => vi.fn())
 const getCheckoutInfo = vi.hoisted(() => vi.fn())
 const getMembershipStatus = vi.hoisted(() => vi.fn())
+const getMyOrders = vi.hoisted(() => vi.fn())
+const redeem = vi.hoisted(() => vi.fn())
 const bridgeInvoke = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-router', async () => {
@@ -76,6 +79,7 @@ vi.mock('@/stores', () => ({
     showError,
     showInfo,
     showWarning,
+    showSuccess,
   }),
 }))
 
@@ -83,6 +87,13 @@ vi.mock('@/api/payment', () => ({
   paymentAPI: {
     getCheckoutInfo,
     getMembershipStatus,
+    getMyOrders,
+  },
+}))
+
+vi.mock('@/api/redeem', () => ({
+  redeemAPI: {
+    redeem,
   },
 }))
 
@@ -202,8 +213,11 @@ describe('PaymentView WeChat JSAPI flow', () => {
     showError.mockReset()
     showInfo.mockReset()
     showWarning.mockReset()
+    showSuccess.mockReset()
     getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture())
     getMembershipStatus.mockReset().mockResolvedValue({ data: null })
+    getMyOrders.mockReset().mockResolvedValue({ data: { items: [], total: 0 } })
+    redeem.mockReset()
     bridgeInvoke.mockReset()
     window.localStorage.clear()
     ;(window as Window & { WeixinJSBridge?: { invoke: typeof bridgeInvoke } }).WeixinJSBridge = {
@@ -432,6 +446,18 @@ describe('PaymentView pricing layout', () => {
     expect(source).toContain("pt('flexibleCredit')")
     expect(source).toContain("pt('plansTitle')")
     expect(source).toContain("pt('faqTitle')")
+    expect(source).toContain("pt('historyTitle')")
+    expect(source).toContain('pricing-main-grid')
+    expect(source).toContain('pricing-side-stack')
+    expect(source).toContain('max-w-[1360px]')
+    expect(source).toContain('xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]')
+    expect(source).toContain('lg:grid-cols-3')
+    expect(source).toContain('pricing-recharge-summary')
+    expect(source).toContain('pricing-order-scroll')
+    expect(source).toContain('max-height: min(26rem, 44vh)')
+    expect(source).toContain('handleInlineRedeem')
+    expect(source).toContain('fetchRecentOrders')
+    expect(source).toContain(':show-actions="false"')
     expect(source).toContain('pricing-preset--selected')
     expect(source).toContain('pricing-plan-card--recommended')
     expect(source).toContain('refreshCheckoutInfo')
@@ -456,6 +482,7 @@ describe('PaymentView pricing layout', () => {
       expect(messages.payment.pricing.flexibleCredit).toBeTruthy()
       expect(messages.payment.pricing.plansTitle).toBeTruthy()
       expect(messages.payment.pricing.faqTitle).toBeTruthy()
+      expect(messages.payment.pricing.historyTitle).toBeTruthy()
     }
   })
 })

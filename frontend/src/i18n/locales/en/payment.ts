@@ -35,6 +35,9 @@ export default {
       selectedPlan: 'Selected plan',
       subtotal: 'Subtotal',
       faqTitle: 'FAQ',
+      historyTitle: 'Transaction History',
+      historySubtitle: 'Review recent credit and subscription orders.',
+      viewAllOrders: 'All Orders',
       feature: {
         weeklyQuota: 'Weekly quota {amount}',
         monthlyQuota: 'Monthly quota {amount}',

@@ -35,6 +35,9 @@ export default {
       selectedPlan: '已选套餐',
       subtotal: '套餐金额',
       faqTitle: '常见问题',
+      historyTitle: '交易历史',
+      historySubtitle: '查看最近的充值和订阅订单',
+      viewAllOrders: '全部订单',
       feature: {
         weeklyQuota: '周额度 {amount}',
         monthlyQuota: '月额度 {amount}',
