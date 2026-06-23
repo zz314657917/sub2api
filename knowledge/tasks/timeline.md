@@ -1,5 +1,43 @@
 # 项目时间轴
 
+## 2026-06-24 01:37 +08:00 - 排行榜 tab 收进榜单卡片
+
+- 当前阶段：排行榜“Token 消耗榜 / 模型榜”切换按钮已收进左侧榜单卡片顶部，本地 `sub2api` 容器已更新并保持 healthy。
+- 本段重点：解决用户截图中 tab 悬在排行榜卡片外、上方留出大块空白且视觉割裂的问题；空态、Token 榜、模型榜分支都使用卡片内 toolbar。
+- 已完成：更新 `LeaderboardView.vue`，左侧外层移除额外 `space-y-3`，新增 `leaderboard-ranking-card-toolbar` 和空态内嵌容器；本地应用容器更新到 `sub2api:codex-20260624-0132-leaderboard-tabs-card`，image id `sha256:08635c5210a05c1136fee41aeff556f486c01b7a85ff41b2192f592939aeb658`；`sub2api:local` 已同步；旧容器备份为 `sub2api-before-leaderboard-tabs-card-20260624-0132`。
+- 关键决策：本轮只处理排行榜布局包裹，不改后端排行榜数据逻辑；考虑当前工作树已有 Payment 宽布局改动，重新基于当前工作树编译新二进制，避免容器回退到旧前端状态。
+- 验证记录：`LeaderboardView` + `leaderboard-theme` Vitest 通过；前端 `typecheck`、`build` 通过，仅有既有 Browserslist、Node `DEP0190`、Vite chunk 和大 chunk 警告；相关前端文件 `git diff --check` 通过；`/health` 返回 200；`docker exec sub2api /app/sub2api --version` 为 `Sub2API 0.1.126 (commit: codex-leaderboard-tabs-card, built: 2026-06-23T17:33:03Z)`；served 的 `LeaderboardView-CJliFWp5.js` 含 `leaderboard-ranking-card-toolbar` 和 `leaderboard-model-token`，CSS chunk 含新 toolbar/card 样式。
+- 遗留问题：内置浏览器未持有登录态，打开 `/leaderboard` 后显示 `Login - 落叶网络`，未完成真实登录态视觉截图；当前工作树仍混有 S20、Payment、knowledge 等无关脏改，提交时必须只 stage leaderboard 相关文件。
+- 下一步：用户浏览器刷新 `http://127.0.0.1:62080/leaderboard` 后切到“模型榜”人工确认 tab 已被排行榜卡片包住；如需提交，先审 `git diff --cached --name-only` 再跑 `git diff --cached --check`。
+
+## 2026-06-24 01:18 +08:00 - 模型榜右侧补 Token 指标卡
+
+- 当前阶段：排行榜模型榜右侧指标区已按用户截图改为三列：`Token / 增长 / 排名变化`，本地 `sub2api` 容器已更新并保持 healthy。
+- 本段重点：保留条形条上的占比显示，同时在右侧新增独立 Token 卡显示绝对 Token，避免百分比改动后缺少真实用量读数。
+- 已完成：更新 `LeaderboardView.vue` 和 `LeaderboardView.spec.ts`；三列指标在桌面和移动端使用稳定 grid 宽度；本地应用容器更新到 `sub2api:codex-20260624-0115-leaderboard-token-card`，image id `sha256:7021974184e63ad00423df79f661fb6028843a77138c059115c1965d4336bb40`；`sub2api:local` 已同步；旧容器备份为 `sub2api-before-leaderboard-token-card-20260624-0115`。
+- 关键决策：不撤回条形条百分比，改为“条形条显示占比，右侧卡片显示绝对 Token”，同时保留增长和排名变化。
+- 验证记录：`LeaderboardView` + `leaderboard-theme` Vitest 通过；前端 `typecheck`、`build` 通过，仅有既有 Browserslist、Node `DEP0190`、Vite chunk 和大 chunk 警告；相关前端文件 `git diff --check` 通过；`/health` 返回 200；`docker exec sub2api /app/sub2api --version` 为 `Sub2API 0.1.126 (commit: codex-leaderboard-token-card, built: 2026-06-23T17:16:44Z)`；served 的 `LeaderboardView-CB2x0vhk.js` 含 `leaderboard-model-token`。
+- 遗留问题：内置浏览器未持有登录态，未完成真实登录态视觉截图；当前工作树仍混有 S20、Payment、knowledge 等无关脏改，提交时必须只 stage leaderboard 相关文件。
+- 下一步：用户浏览器刷新 `http://127.0.0.1:62080/leaderboard` 后切到“模型榜”人工确认三列指标；如需提交，先审 `git diff --cached --name-only` 再跑 `git diff --cached --check`。
+
+## 2026-06-24 00:54 +08:00 - 模型榜 Token 文本改为百分比
+
+- 当前阶段：排行榜模型榜已把条形区域后面的绝对 Token 数字改为当前可见模型榜 Token 占比，本地 `sub2api` 容器已更新并保持 healthy。
+- 本段重点：前端新增可见模型榜总 Token 占比计算，显示 `83.3%` / `16.7%` 这类 1 位小数百分比；极小占比显示 `<0.1%`；tooltip / aria-label 继续保留绝对 Token 并追加百分比。
+- 已完成：更新 `LeaderboardView.vue` 和 `LeaderboardView.spec.ts`；重新构建前端嵌入产物；本地应用容器更新到 `sub2api:codex-20260624-0050-leaderboard-percent`，image id `sha256:fea8c5043443bc388b138e63112bda2f296c9a32e42d1a74d6d3ecac48383e73`；`sub2api:local` 已同步；旧容器备份为 `sub2api-before-leaderboard-percent-20260624-0050`。
+- 关键决策：模型榜主体展示百分比，绝对 Token 仍放在 tooltip / aria-label 中，避免信息丢失；本轮只替换应用容器，不重建 PostgreSQL / Redis / volume。
+- 验证记录：`LeaderboardView` + `leaderboard-theme` Vitest 通过；前端 `typecheck`、`build` 通过，仅有既有 Browserslist、Node `DEP0190`、Vite chunk 和大 chunk 警告；相关前端文件 `git diff --check` 通过；`/health` 返回 200；`docker exec sub2api /app/sub2api --version` 为 `Sub2API 0.1.126 (commit: codex-leaderboard-percent, built: 2026-06-23T16:49:37Z)`；已确认 served 的 `LeaderboardView-DgMTc5OO.js` 含百分比格式逻辑。
+- 遗留问题：内置浏览器仍未持有登录态，停在 `/login?redirect=/leaderboard`，未完成真实登录态视觉截图；当前工作树仍混有 S20、Payment、knowledge 等无关脏改，提交时必须只 stage leaderboard 相关文件。
+- 下一步：用户浏览器刷新 `http://127.0.0.1:62080/leaderboard` 后切到“模型榜”人工确认显示；如需提交，先审 `git diff --cached --name-only` 再跑 `git diff --cached --check`。
+
+## 2026-06-24 00:38 +08:00 - 排行榜模型榜 SQL 歧义修复
+
+- 当前阶段：用户截图显示“排行榜加载失败”，现场日志确认 `/api/v1/usage/dashboard/leaderboard` 返回 500，根因是模型榜 SQL 在 `ranked` 与 `previous_ranked` join 后最终查询使用未加别名的 `model` / `rank`，PostgreSQL 报 `pq: column reference "model" is ambiguous`。
+- 已完成：将 `GetLeaderboardModelRanking` 最终 SELECT / WHERE / ORDER BY 改为显式 `ranked.rank`、`ranked.model`、`ranked.*`，并收紧 repository 单测的 SQL 正则，覆盖 `ranked.model` 和 `WHERE ranked.rank`。
+- 本地容器：应用容器已更新到 `sub2api:codex-20260624-0036-leaderboard-sqlfix`，image id `sha256:0208ea487db59792494292322639c7f91d50ce44cbabc7bf5d40708cb844d51a`；`sub2api:local` 已同步；旧容器备份为 `sub2api-before-leaderboard-sqlfix-20260624-0036`；PostgreSQL / Redis 未重建。
+- 验证记录：repository / handler leaderboard 定向测试通过；`git diff --check` 通过，仅有无关 Markdown LF/CRLF 提示；`/health` 返回 200；`docker exec sub2api /app/sub2api --version` 为 `Sub2API 0.1.126 (commit: codex-leaderboard-sqlfix, built: 2026-06-23T16:33:35Z)`；临时登录请求排行榜接口返回 200，`model_ranking_count=3`、`total_models=3`，随后已登出撤销临时 refresh token。
+- 下一步：用户浏览器刷新 `http://127.0.0.1:62080/leaderboard` 后应不再显示“排行榜加载失败”；如仍异常，优先看前端控制台和最新容器日志。
+
 ## 2026-06-24 00:20 +08:00 - 排行榜模型榜趋势与本地容器更新
 
 - 当前阶段：用户侧排行榜已增加“模型榜”，并按参考图在右侧显示“增长”和“排名变化”；本地 `sub2api` 容器已更新到新镜像并保持 healthy。

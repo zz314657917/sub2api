@@ -1,6 +1,6 @@
 # Studio Bridge / 落叶AI 联调
 
-最后更新：2026-06-11
+最后更新：2026-06-23
 
 ## 当前定位
 
@@ -29,6 +29,20 @@
 - 如果存在 `STUDIO_BRIDGE_LUOYE_AI_INTERNAL_SECRET`，且当前配置为空、禁用、缺 secret/group 或仍是 `example.com` 占位，初始化会自动修复成本地 bridge 默认配置。
 - 本地自动修复只面向空配置、禁用、缺 secret/group 或占位配置；正式域名配置不会被覆盖。
 - 自动修复后的 allowed domains 会放开 `127.0.0.1` / `localhost` 本地联调入口。
+
+## 与图片输入能力的当前关系
+
+- 当前落叶创艺侧的图片继续编辑、参考图复用和跨工作台送电商，已经不应只按“chatgpt2api 前端自己持有本地文件”理解；Sub2API 作为 bridge 真源，最近也开始决定某些上游账号是否必须把本地图片转成对象存储 URL。
+- 2026-06-21 已确认：这条能力不是按 APIMart 或某个平台名硬编码，而是按上游账号 `extra` 决定：
+  - `image_input_transport=object_url`
+  - `image_upload_limit_bytes`
+  - `image_url_fields_supported`
+- 这意味着后续再排查“落叶侧继续编辑失败 / 某些参考图请求在上游被 1MB multipart 限制拦住 / 同样功能在不同账号表现不同”时，不能只查 launch/redeem 或 session-probe，还要回到 Sub2API 账号能力配置与对象存储可达性。
+
+## 与支付/治理面的当前关系
+
+- 当前 Studio Bridge 主线已经不只包含 launch/redeem、余额和扣费；它还和首充福利、可配置充值套餐、注册 IP / 最近登录 IP 这些支付治理面共同组成默认后台知识。
+- 换句话说，后续如果做“落叶AI 生产联调”知识补写，不应再把它拆成 bridge 一页、支付一页、用户治理一页互不相关；默认心智应是同一条用户入口 -> 充值/余额 -> 创作扣费 -> 后台治理链路。
 
 ## 默认分组语义
 
@@ -73,6 +87,7 @@
 - 遇到余额不足、任务失败或取消：先从 `reserve / commit / refund` 和 usage log 语义排查，不要先怀疑纯前端展示。
 - 遇到落叶创艺团队空间问题：不要只在 `chatgpt2api` 查；`actor/payer`、余额和扣费真源仍在 Sub2API。
 - 遇到浏览器 launch 成功但页面打不开：先查 `session-probe`、CSP `frame-ancestors`、allowed domains 和 launch / redeem / user-summary 调用链。
+- 遇到某些账号的继续编辑、参考图或 mask 上传在上游失败：再加一层排查账号 `extra` 是否启用了 `image_input_transport=object_url`、是否声明支持 `image_urls / mask_url`、对象存储 presigned URL 是否可达；不要只在落叶前端或 launch 链路里找原因。
 
 ## 仍未验证的边界
 
