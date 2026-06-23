@@ -184,6 +184,7 @@ type WelfareDailyCheckinView struct {
 	CurrentStreakDays  int                            `json:"current_streak_days"`
 	MonthCheckinDays   int                            `json:"month_checkin_days"`
 	CheckinDates       []string                       `json:"checkin_dates"`
+	MilestoneEnabled   bool                           `json:"milestone_enabled"`
 	Milestones         []WelfareDailyCheckinMilestone `json:"milestones"`
 	CanClaimToday      bool                           `json:"can_claim_today"`
 	Reason             string                         `json:"reason"`
@@ -256,6 +257,7 @@ type welfareSettings struct {
 	RewardMin                          float64
 	RewardMax                          float64
 	DailyCheckinMinAccountAgeHours     int
+	MilestoneEnabled                   bool
 	MilestoneAmounts                   map[int]float64
 	NewUserTrialQuotaAmount            float64
 	NewUserTrialSuccessRewardAmount    float64
@@ -708,6 +710,9 @@ func (s *WelfareService) ClaimDailyCheckinMilestone(ctx context.Context, userID 
 	if !settings.DailyCheckinEnabled {
 		return nil, ErrWelfareDailyCheckinDisabled
 	}
+	if !settings.MilestoneEnabled {
+		return nil, ErrWelfareCheckinMilestoneNotClaimable.WithMetadata(map[string]string{"reason": welfareReasonDisabled})
+	}
 
 	status, err := s.buildDailyCheckinView(ctx, userID, now, settings)
 	if err != nil {
@@ -812,6 +817,7 @@ func (s *WelfareService) buildDailyCheckinView(ctx context.Context, userID int64
 		RewardMonth:        month,
 		RewardMin:          settings.RewardMin,
 		RewardMax:          settings.RewardMax,
+		MilestoneEnabled:   settings.Enabled && settings.DailyCheckinEnabled && settings.MilestoneEnabled,
 		Milestones:         make([]WelfareDailyCheckinMilestone, 0, 4),
 		Reason:             welfareReasonAvailable,
 		SettlementTimezone: timezone.Name(),
@@ -860,6 +866,10 @@ func (s *WelfareService) buildDailyCheckinView(ctx context.Context, userID int64
 			view.Reason = welfareReasonRegistrationTooNew
 			view.CanClaimAfter = eligibleAt.UTC().Format(time.RFC3339)
 		}
+	}
+
+	if !view.MilestoneEnabled {
+		return view, nil
 	}
 
 	claims, err := s.repo.ListDailyCheckinMilestoneClaims(ctx, month, userID)
@@ -1401,6 +1411,7 @@ func (s *WelfareService) getSettings(ctx context.Context) (welfareSettings, erro
 		SettingKeyWelfareDailyCheckinRewardMin,
 		SettingKeyWelfareDailyCheckinRewardMax,
 		SettingKeyWelfareDailyCheckinMinAccountAgeHours,
+		SettingKeyWelfareDailyCheckinMilestoneEnabled,
 		SettingKeyWelfareDailyCheckinMilestone7Amount,
 		SettingKeyWelfareDailyCheckinMilestone14Amount,
 		SettingKeyWelfareDailyCheckinMilestone21Amount,
@@ -1429,6 +1440,7 @@ func (s *WelfareService) getSettings(ctx context.Context) (welfareSettings, erro
 		result.RewardMax = result.RewardMin
 	}
 	result.DailyCheckinMinAccountAgeHours = parseNonNegativeIntSetting(values[SettingKeyWelfareDailyCheckinMinAccountAgeHours], defaultDailyCheckinMinAccountAgeHours)
+	result.MilestoneEnabled = !isFalseSettingValue(values[SettingKeyWelfareDailyCheckinMilestoneEnabled])
 	result.MilestoneAmounts[welfareMilestoneDay7] = parseNonNegativeFloatSetting(values[SettingKeyWelfareDailyCheckinMilestone7Amount], 0)
 	result.MilestoneAmounts[welfareMilestoneDay14] = parseNonNegativeFloatSetting(values[SettingKeyWelfareDailyCheckinMilestone14Amount], 0)
 	result.MilestoneAmounts[welfareMilestoneDay21] = parseNonNegativeFloatSetting(values[SettingKeyWelfareDailyCheckinMilestone21Amount], 0)

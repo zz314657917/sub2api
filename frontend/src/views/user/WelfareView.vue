@@ -168,7 +168,7 @@
                 </div>
               </div>
 
-              <div class="mt-5 grid gap-3 sm:grid-cols-3">
+              <div class="mt-5 grid gap-3" :class="daily.milestone_enabled ? 'sm:grid-cols-3' : 'sm:grid-cols-2'">
                 <div class="rounded-md border border-gray-100 bg-white px-4 py-3 dark:border-dark-700 dark:bg-dark-800">
                   <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('welfare.daily.currentStreak') }}</p>
                   <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
@@ -183,7 +183,7 @@
                     <span class="text-sm font-medium text-gray-500 dark:text-gray-400">{{ t('welfare.daily.daysUnit') }}</span>
                   </p>
                 </div>
-                <div class="rounded-md border border-gray-100 bg-white px-4 py-3 dark:border-dark-700 dark:bg-dark-800">
+                <div v-if="daily.milestone_enabled" class="rounded-md border border-gray-100 bg-white px-4 py-3 dark:border-dark-700 dark:bg-dark-800">
                   <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('welfare.milestones.nextTitle') }}</p>
                   <p class="mt-1 text-sm font-medium leading-6 text-gray-900 dark:text-white">{{ nextMilestoneSummary }}</p>
                 </div>
@@ -192,7 +192,7 @@
               <p v-if="claimError" class="mt-4 text-sm text-red-600 dark:text-red-400">{{ claimError }}</p>
             </section>
 
-            <section class="mt-6 border-t border-gray-100 pt-5 dark:border-dark-700">
+            <section v-if="daily.milestone_enabled" class="mt-6 border-t border-gray-100 pt-5 dark:border-dark-700">
               <div class="flex items-center justify-between gap-3">
                 <div class="flex min-w-0 gap-3">
                   <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">

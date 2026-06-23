@@ -358,6 +358,7 @@ func TestSettingService_UpdateSettings_WelfareDailyRewardNormalizesToOneDecimal(
 		WelfareDailyCheckinRewardMin:          1.25,
 		WelfareDailyCheckinRewardMax:          2.74,
 		WelfareDailyCheckinMinAccountAgeHours: -3,
+		WelfareDailyCheckinMilestoneEnabled:   true,
 		WelfareDailyCheckinMilestone7Amount:   7.5,
 	})
 	require.NoError(t, err)
@@ -366,6 +367,7 @@ func TestSettingService_UpdateSettings_WelfareDailyRewardNormalizesToOneDecimal(
 	require.Equal(t, "1.30000000", repo.updates[SettingKeyWelfareDailyCheckinRewardMin])
 	require.Equal(t, "2.70000000", repo.updates[SettingKeyWelfareDailyCheckinRewardMax])
 	require.Equal(t, "0", repo.updates[SettingKeyWelfareDailyCheckinMinAccountAgeHours])
+	require.Equal(t, "true", repo.updates[SettingKeyWelfareDailyCheckinMilestoneEnabled])
 	require.Equal(t, "7.50000000", repo.updates[SettingKeyWelfareDailyCheckinMilestone7Amount])
 
 	err = svc.UpdateSettings(context.Background(), &SystemSettings{

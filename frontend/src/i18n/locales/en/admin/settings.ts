@@ -74,6 +74,8 @@ export default {
           minAccountAgeHoursHint: 'Set 0 to let new users claim daily check-in immediately.',
           milestoneRewards: 'Streak Milestones',
           milestoneHint: 'Calculated by monthly streak days and reset on the 1st.',
+          milestoneEnabled: 'Enable Streak Milestones',
+          milestoneEnabledHint: 'When off, users do not see milestone cards and milestone claim endpoints are denied. Daily check-in is unaffected.',
           milestone7: '7-day streak',
           milestone14: '14-day streak',
           milestone21: '21-day streak',

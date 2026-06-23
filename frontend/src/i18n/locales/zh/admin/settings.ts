@@ -74,6 +74,8 @@ export default {
           minAccountAgeHoursHint: '填 0 表示注册后立即可领取每日签到奖励。',
           milestoneRewards: '连续签到大奖',
           milestoneHint: '按当月连续签到天数计算，1 号自动重置。',
+          milestoneEnabled: '启用连续签到大奖',
+          milestoneEnabledHint: '关闭后用户端不展示大奖卡片，大奖领取接口也会拒绝访问；每日签到不受影响。',
           milestone7: '连续 7 天',
           milestone14: '连续 14 天',
           milestone21: '连续 21 天',

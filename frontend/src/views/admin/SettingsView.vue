@@ -5464,7 +5464,20 @@
                   {{ t('admin.settings.features.welfare.milestoneHint') }}
                 </p>
               </div>
-              <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div class="rounded-md bg-gray-50 p-3 dark:bg-dark-800">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="min-w-0">
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t('admin.settings.features.welfare.milestoneEnabled') }}
+                    </label>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                      {{ t('admin.settings.features.welfare.milestoneEnabledHint') }}
+                    </p>
+                  </div>
+                  <Toggle v-model="form.welfare_daily_checkin_milestone_enabled" />
+                </div>
+              </div>
+              <div v-if="form.welfare_daily_checkin_milestone_enabled" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <div>
                   <label class="input-label">{{ t('admin.settings.features.welfare.milestone7') }}</label>
                   <input v-model.number="form.welfare_daily_checkin_milestone_7_amount" type="number" min="0" step="0.00000001" class="input" />
@@ -8321,6 +8334,7 @@ const form = reactive<SettingsForm>({
   welfare_daily_checkin_reward_min: 0,
   welfare_daily_checkin_reward_max: 0,
   welfare_daily_checkin_min_account_age_hours: 24,
+  welfare_daily_checkin_milestone_enabled: true,
   welfare_daily_checkin_milestone_7_amount: 0,
   welfare_daily_checkin_milestone_14_amount: 0,
   welfare_daily_checkin_milestone_21_amount: 0,
@@ -9956,6 +9970,8 @@ async function saveSettings() {
       welfare_daily_checkin_reward_max: welfareDailyRewardMax,
       welfare_daily_checkin_min_account_age_hours:
         welfareDailyCheckinMinAccountAgeHours,
+      welfare_daily_checkin_milestone_enabled:
+        form.welfare_daily_checkin_milestone_enabled,
       welfare_daily_checkin_milestone_7_amount: Math.max(
         0,
         Number(form.welfare_daily_checkin_milestone_7_amount) || 0,

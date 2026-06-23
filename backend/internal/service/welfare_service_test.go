@@ -350,6 +350,7 @@ func welfareSettingRepo(enabled, daily bool, min, max float64) *welfareSettingRe
 		SettingKeyWelfareDailyCheckinRewardMin:              welfareFloat(min),
 		SettingKeyWelfareDailyCheckinRewardMax:              welfareFloat(max),
 		SettingKeyWelfareDailyCheckinMinAccountAgeHours:     strconv.Itoa(defaultDailyCheckinMinAccountAgeHours),
+		SettingKeyWelfareDailyCheckinMilestoneEnabled:       "true",
 		SettingKeyWelfareDailyCheckinMilestone7Amount:       "7.00000000",
 		SettingKeyWelfareDailyCheckinMilestone14Amount:      "14.00000000",
 		SettingKeyWelfareDailyCheckinMilestone21Amount:      "21.00000000",
@@ -616,6 +617,25 @@ func TestClaimWelfareMilestoneAddsBalanceAndAuditRecord(t *testing.T) {
 	require.Equal(t, RedeemTypeCheckinMilestone, redeemRepo.created[0].Type)
 	require.Equal(t, int64(200), repo.attachedMilestoneClaimID)
 	require.Equal(t, int64(700), repo.attachedMilestoneRedeemID)
+}
+
+func TestWelfareMilestoneDisabledHidesMilestonesAndRejectsClaim(t *testing.T) {
+	repo := &welfareRepoStub{}
+	for day := 7; day >= 1; day-- {
+		repo.daily = append(repo.daily, welfareDaily(42, fmt.Sprintf("2026-05-%02d", 14-day), 1))
+	}
+	settings := welfareSettingRepo(true, true, 1, 1)
+	settings.values[SettingKeyWelfareDailyCheckinMilestoneEnabled] = "false"
+	svc := NewWelfareService(repo, &welfareUserRepoStub{}, &welfareRedeemRepoStub{}, settings, nil, nil, nil)
+	svc.now = func() time.Time { return welfareTestNow(t) }
+
+	status, err := svc.GetDailyCheckin(context.Background(), 42)
+	require.NoError(t, err)
+	require.False(t, status.MilestoneEnabled)
+	require.Empty(t, status.Milestones)
+
+	_, err = svc.ClaimDailyCheckinMilestone(welfareTxContext(), 42, 7)
+	require.ErrorIs(t, err, ErrWelfareCheckinMilestoneNotClaimable)
 }
 
 func TestClaimWelfareMilestoneDuplicateReturnsConflict(t *testing.T) {

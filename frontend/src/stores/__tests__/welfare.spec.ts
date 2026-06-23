@@ -35,6 +35,7 @@ const baseOverview = (overrides: Partial<WelfareOverview> = {}): WelfareOverview
     current_streak_days: 1,
     month_checkin_days: 1,
     checkin_dates: ['2026-06-01'],
+    milestone_enabled: true,
     milestones: [],
     can_claim_today: false,
     reason: 'already_checked',

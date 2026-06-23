@@ -1277,6 +1277,7 @@ export interface WelfareDailyCheckin {
   current_streak_days: number
   month_checkin_days: number
   checkin_dates: string[]
+  milestone_enabled: boolean
   milestones: WelfareDailyCheckinMilestone[]
   can_claim_today: boolean
   reason: string

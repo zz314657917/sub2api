@@ -293,6 +293,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		WelfareDailyCheckinRewardMin:              settings.WelfareDailyCheckinRewardMin,
 		WelfareDailyCheckinRewardMax:              settings.WelfareDailyCheckinRewardMax,
 		WelfareDailyCheckinMinAccountAgeHours:     settings.WelfareDailyCheckinMinAccountAgeHours,
+		WelfareDailyCheckinMilestoneEnabled:       settings.WelfareDailyCheckinMilestoneEnabled,
 		WelfareDailyCheckinMilestone7Amount:       settings.WelfareDailyCheckinMilestone7Amount,
 		WelfareDailyCheckinMilestone14Amount:      settings.WelfareDailyCheckinMilestone14Amount,
 		WelfareDailyCheckinMilestone21Amount:      settings.WelfareDailyCheckinMilestone21Amount,
@@ -678,6 +679,7 @@ type UpdateSettingsRequest struct {
 	WelfareDailyCheckinRewardMin              *float64 `json:"welfare_daily_checkin_reward_min"`
 	WelfareDailyCheckinRewardMax              *float64 `json:"welfare_daily_checkin_reward_max"`
 	WelfareDailyCheckinMinAccountAgeHours     *int     `json:"welfare_daily_checkin_min_account_age_hours"`
+	WelfareDailyCheckinMilestoneEnabled       *bool    `json:"welfare_daily_checkin_milestone_enabled"`
 	WelfareDailyCheckinMilestone7Amount       *float64 `json:"welfare_daily_checkin_milestone_7_amount"`
 	WelfareDailyCheckinMilestone14Amount      *float64 `json:"welfare_daily_checkin_milestone_14_amount"`
 	WelfareDailyCheckinMilestone21Amount      *float64 `json:"welfare_daily_checkin_milestone_21_amount"`
@@ -1782,6 +1784,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		WelfareDailyCheckinRewardMin:              float64ValueOrDefault(req.WelfareDailyCheckinRewardMin, previousSettings.WelfareDailyCheckinRewardMin),
 		WelfareDailyCheckinRewardMax:              float64ValueOrDefault(req.WelfareDailyCheckinRewardMax, previousSettings.WelfareDailyCheckinRewardMax),
 		WelfareDailyCheckinMinAccountAgeHours:     intValueOrDefault(req.WelfareDailyCheckinMinAccountAgeHours, previousSettings.WelfareDailyCheckinMinAccountAgeHours),
+		WelfareDailyCheckinMilestoneEnabled:       boolValueOrDefault(req.WelfareDailyCheckinMilestoneEnabled, previousSettings.WelfareDailyCheckinMilestoneEnabled),
 		WelfareDailyCheckinMilestone7Amount:       float64ValueOrDefault(req.WelfareDailyCheckinMilestone7Amount, previousSettings.WelfareDailyCheckinMilestone7Amount),
 		WelfareDailyCheckinMilestone14Amount:      float64ValueOrDefault(req.WelfareDailyCheckinMilestone14Amount, previousSettings.WelfareDailyCheckinMilestone14Amount),
 		WelfareDailyCheckinMilestone21Amount:      float64ValueOrDefault(req.WelfareDailyCheckinMilestone21Amount, previousSettings.WelfareDailyCheckinMilestone21Amount),
@@ -2135,6 +2138,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		WelfareDailyCheckinRewardMin:              updatedSettings.WelfareDailyCheckinRewardMin,
 		WelfareDailyCheckinRewardMax:              updatedSettings.WelfareDailyCheckinRewardMax,
 		WelfareDailyCheckinMinAccountAgeHours:     updatedSettings.WelfareDailyCheckinMinAccountAgeHours,
+		WelfareDailyCheckinMilestoneEnabled:       updatedSettings.WelfareDailyCheckinMilestoneEnabled,
 		WelfareDailyCheckinMilestone7Amount:       updatedSettings.WelfareDailyCheckinMilestone7Amount,
 		WelfareDailyCheckinMilestone14Amount:      updatedSettings.WelfareDailyCheckinMilestone14Amount,
 		WelfareDailyCheckinMilestone21Amount:      updatedSettings.WelfareDailyCheckinMilestone21Amount,
@@ -2641,6 +2645,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.WelfareDailyCheckinMinAccountAgeHours != after.WelfareDailyCheckinMinAccountAgeHours {
 		changed = append(changed, "welfare_daily_checkin_min_account_age_hours")
+	}
+	if before.WelfareDailyCheckinMilestoneEnabled != after.WelfareDailyCheckinMilestoneEnabled {
+		changed = append(changed, "welfare_daily_checkin_milestone_enabled")
 	}
 	if before.WelfareDailyCheckinMilestone7Amount != after.WelfareDailyCheckinMilestone7Amount {
 		changed = append(changed, "welfare_daily_checkin_milestone_7_amount")

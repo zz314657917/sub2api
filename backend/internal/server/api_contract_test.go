@@ -861,6 +861,7 @@ func TestAPIContracts(t *testing.T) {
 					"welfare_daily_checkin_reward_min": 0,
 					"welfare_daily_checkin_reward_max": 0,
 					"welfare_daily_checkin_min_account_age_hours": 24,
+					"welfare_daily_checkin_milestone_enabled": true,
 					"welfare_daily_checkin_milestone_7_amount": 0,
 					"welfare_daily_checkin_milestone_14_amount": 0,
 					"welfare_daily_checkin_milestone_21_amount": 0,
@@ -1127,6 +1128,7 @@ func TestAPIContracts(t *testing.T) {
 					"welfare_daily_checkin_reward_min": 0,
 					"welfare_daily_checkin_reward_max": 0,
 					"welfare_daily_checkin_min_account_age_hours": 24,
+					"welfare_daily_checkin_milestone_enabled": true,
 					"welfare_daily_checkin_milestone_7_amount": 0,
 					"welfare_daily_checkin_milestone_14_amount": 0,
 					"welfare_daily_checkin_milestone_21_amount": 0,
@@ -2129,6 +2131,10 @@ func (r *stubApiKeyRepo) Delete(ctx context.Context, id int64) error {
 	delete(r.byID, id)
 	delete(r.byKey, key.Key)
 	return nil
+}
+
+func (r *stubApiKeyRepo) DeleteWithAudit(ctx context.Context, id int64) error {
+	return r.Delete(ctx, id)
 }
 
 func (r *stubApiKeyRepo) ListByUserID(ctx context.Context, userID int64, params pagination.PaginationParams, _ service.APIKeyListFilters) ([]service.APIKey, *pagination.PaginationResult, error) {
