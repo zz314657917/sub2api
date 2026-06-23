@@ -244,7 +244,7 @@
                 <Icon name="gift" size="xl" class="pricing-empty-icon mx-auto mb-3" />
                 <p class="pricing-muted">{{ t('payment.noPlans') }}</p>
               </div>
-              <div v-else class="grid grid-cols-1 gap-5 md:grid-cols-2">
+              <div v-else class="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
                 <article
                   v-for="plan in checkout.plans"
                   :key="plan.id"

@@ -453,6 +453,7 @@ describe('PaymentView pricing layout', () => {
     expect(source).toContain('xl:grid-cols-[minmax(0,1120px)_minmax(300px,340px)]')
     expect(source).toContain('lg:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]')
     expect(source).toContain('lg:grid-cols-3')
+    expect(source).toContain('xl:grid-cols-3')
     expect(source).toContain('pricing-recharge-summary')
     expect(source).toContain('pricing-order-scroll')
     expect(source).toContain('max-height: min(26rem, 44vh)')
