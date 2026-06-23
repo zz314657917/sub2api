@@ -1,7 +1,7 @@
 <template>
   <AppLayout>
     <div class="purchase-pricing-page -m-4 min-h-[calc(100vh-4rem)] md:-m-[1.35rem] lg:-m-[1.6rem]">
-      <div class="relative z-10 mx-auto flex w-full max-w-[1360px] flex-col gap-10 px-4 py-8 sm:px-6 lg:px-8">
+      <div class="relative z-10 mx-auto flex w-full max-w-[1500px] flex-col gap-10 px-4 py-8 sm:px-6 lg:px-8">
         <div v-if="loading" class="flex min-h-[28rem] items-center justify-center">
           <div class="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
         </div>
@@ -40,7 +40,7 @@
               </div>
             </div>
 
-            <div class="pricing-main-grid grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(300px,340px)]">
+            <div class="pricing-main-grid grid items-start gap-6 xl:grid-cols-[minmax(0,1120px)_minmax(300px,340px)]">
               <main class="min-w-0 space-y-6">
                 <section v-if="membershipStatus?.enabled" class="pricing-card rounded-3xl p-5 sm:p-6">
                   <div class="flex flex-wrap items-start justify-between gap-4">
@@ -106,7 +106,7 @@
                     <p class="pricing-muted">{{ t('payment.notAvailable') }}</p>
                   </div>
                   <div v-else class="pricing-card pricing-recharge-card rounded-3xl p-4 sm:p-5">
-                    <div class="space-y-5">
+                    <div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]">
                       <div class="min-w-0 space-y-5">
                         <div>
                           <div class="flex flex-wrap items-center justify-between gap-3">
@@ -177,50 +177,46 @@
                         </div>
                       </div>
 
-                      <aside class="pricing-recharge-summary rounded-2xl p-4 sm:p-5">
-                        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(220px,240px)] lg:items-end">
-                          <div class="min-w-0">
-                            <h3 class="pricing-strong text-sm font-black">{{ pt('orderSummary') }}</h3>
-                            <div class="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-3">
-                              <div class="flex items-center justify-between gap-4">
-                                <span class="pricing-muted">{{ pt('rechargeAmount') }}</span>
-                                <span class="pricing-strong font-semibold">{{ formatSelectedPaymentAmount(validAmount) }}</span>
-                              </div>
-                              <div class="flex items-center justify-between gap-4">
-                                <span class="pricing-muted">{{ t('payment.creditedBalance') }}</span>
-                                <span class="pricing-strong font-semibold">{{ formatRechargeCreditAmount(effectiveCreditedAmount) }}</span>
-                              </div>
-                              <div v-if="selectedRechargePackage && selectedRechargePackage.bonus_amount > 0" class="flex items-center justify-between gap-4">
-                                <span class="pricing-muted">{{ pt('bonusAmount') }}</span>
-                                <span class="pricing-strong font-semibold">
-                                  {{ selectedRechargePackage.effective_bonus_amount > 0
-                                    ? formatRechargeCreditAmount(selectedRechargePackage.effective_bonus_amount)
-                                    : pt('bonusAlreadyClaimedSummary')
-                                  }}
-                                </span>
-                              </div>
-                              <div v-if="selectedMethodLabel" class="flex items-center justify-between gap-4">
-                                <span class="pricing-muted">{{ t('payment.paymentMethod') }}</span>
-                                <span class="pricing-strong font-semibold">{{ selectedMethodLabel }}</span>
-                              </div>
-                              <div v-if="feeRate > 0" class="flex items-center justify-between gap-4">
-                                <span class="pricing-muted">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
-                                <span class="pricing-strong font-semibold">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
-                              </div>
-                              <div class="pricing-divider border-t border-dashed pt-3 sm:col-span-2 lg:col-span-1 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-                                <div class="flex items-end justify-between gap-4">
-                                  <span class="pricing-muted">{{ pt('totalPayable') }}</span>
-                                  <span class="min-w-0 break-words text-right text-2xl font-black text-blue-600 tabular-nums dark:text-blue-400 sm:text-3xl">{{ formatSelectedPaymentAmount(totalAmount) }}</span>
-                                </div>
-                              </div>
+                      <aside class="pricing-recharge-summary rounded-2xl p-5 lg:p-6">
+                        <h3 class="pricing-strong text-sm font-black">{{ pt('orderSummary') }}</h3>
+                        <div class="mt-6 space-y-4 text-sm">
+                          <div class="flex items-center justify-between gap-4">
+                            <span class="pricing-muted">{{ pt('rechargeAmount') }}</span>
+                            <span class="pricing-strong font-semibold">{{ formatSelectedPaymentAmount(validAmount) }}</span>
+                          </div>
+                          <div class="flex items-center justify-between gap-4">
+                            <span class="pricing-muted">{{ t('payment.creditedBalance') }}</span>
+                            <span class="pricing-strong font-semibold">{{ formatRechargeCreditAmount(effectiveCreditedAmount) }}</span>
+                          </div>
+                          <div v-if="selectedRechargePackage && selectedRechargePackage.bonus_amount > 0" class="flex items-center justify-between gap-4">
+                            <span class="pricing-muted">{{ pt('bonusAmount') }}</span>
+                            <span class="pricing-strong font-semibold">
+                              {{ selectedRechargePackage.effective_bonus_amount > 0
+                                ? formatRechargeCreditAmount(selectedRechargePackage.effective_bonus_amount)
+                                : pt('bonusAlreadyClaimedSummary')
+                              }}
+                            </span>
+                          </div>
+                          <div v-if="selectedMethodLabel" class="flex items-center justify-between gap-4">
+                            <span class="pricing-muted">{{ t('payment.paymentMethod') }}</span>
+                            <span class="pricing-strong font-semibold">{{ selectedMethodLabel }}</span>
+                          </div>
+                          <div v-if="feeRate > 0" class="flex items-center justify-between gap-4">
+                            <span class="pricing-muted">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
+                            <span class="pricing-strong font-semibold">{{ formatSelectedPaymentAmount(feeAmount) }}</span>
+                          </div>
+                          <div class="pricing-divider border-t border-dashed pt-6">
+                            <div class="flex items-end justify-between gap-4">
+                              <span class="pricing-muted">{{ pt('totalPayable') }}</span>
+                              <span class="min-w-0 break-words text-right text-3xl font-black text-blue-600 tabular-nums dark:text-blue-400 sm:text-4xl">{{ formatSelectedPaymentAmount(totalAmount) }}</span>
                             </div>
                           </div>
-                          <button :class="['btn inline-flex w-full items-center justify-center gap-2 py-3 text-sm font-bold', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
-                            <span v-if="submitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
-                            <Icon v-else name="shield" size="sm" />
-                            {{ submitting ? t('common.processing') : pt('paySecurely') }}
-                          </button>
                         </div>
+                        <button :class="['btn mt-6 inline-flex w-full items-center justify-center gap-2 py-3 text-base font-bold', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
+                          <span v-if="submitting" class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+                          <Icon v-else name="shield" size="sm" />
+                          {{ submitting ? t('common.processing') : pt('paySecurely') }}
+                        </button>
                       </aside>
                     </div>
                   </div>
