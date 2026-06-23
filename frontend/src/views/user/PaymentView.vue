@@ -388,7 +388,7 @@
                 </section>
               </main>
 
-              <aside class="pricing-side-stack space-y-5 xl:sticky xl:top-6">
+              <aside class="pricing-side-stack space-y-5 xl:sticky xl:top-6 xl:mt-[2.75rem]">
                 <section class="pricing-card rounded-3xl p-5">
                   <div class="flex items-start gap-3">
                     <Icon name="ticket" size="lg" class="mt-0.5 text-emerald-500" />

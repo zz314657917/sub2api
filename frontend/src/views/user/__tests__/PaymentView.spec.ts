@@ -449,6 +449,7 @@ describe('PaymentView pricing layout', () => {
     expect(source).toContain("pt('historyTitle')")
     expect(source).toContain('pricing-main-grid')
     expect(source).toContain('pricing-side-stack')
+    expect(source).toContain('xl:mt-[2.75rem]')
     expect(source).toContain('max-w-[1500px]')
     expect(source).toContain('xl:grid-cols-[minmax(0,1120px)_minmax(300px,340px)]')
     expect(source).toContain('lg:grid-cols-[minmax(0,1fr)_minmax(320px,360px)]')
