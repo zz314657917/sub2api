@@ -41,11 +41,16 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
    - 当前稳定边界包括：`image_input_transport=object_url`、可选的 `image_upload_limit_bytes`，以及普通 OpenAI-compatible 上游只有在声明支持 `image_urls` / `mask_url` 时才走 JSON URL 字段改写。
    - 这条能力会直接影响账号编辑页、上游兼容性排查、multipart 失败归因与 failover 后的再次请求；后续如果再看到 “Part exceeded maximum size of 1024KB” 一类问题，不应先假设是 Sub2API 全局上传限制。
 
-8. 教程 CMS / 登录跳转 / 共享额度窗口仍是基础层，但已经更远离当前高频主线
+8. 排行榜 / 模型榜已进入新的当前用户台面
+   - 2026-06-24 的主线不再只停在 Studio Bridge、支付治理或账号能力兼容；用户台 `leaderboard` 已新增模型榜、Token 占比、增长百分比和排名变化，并有模型商图标语义。
+   - 这说明当前默认产品面已经包含“用户可见数据台”的持续演进，后续如果再看 dashboard/leaderboard，不应继续按旧的单一 Token 榜理解。
+   - 模型榜当前稳定边界包括：后端 `model_ranking` 聚合、上一周期对比的 `growth_percent` / `rank_change`、前端榜单卡片内嵌切换，以及移动端右侧指标区响应式堆叠。
+
+9. 教程 CMS / 登录跳转 / 共享额度窗口仍是基础层，但已经更远离当前高频主线
    - 这些能力已经从“当前主线”退到“稳定背景约束”。
    - 当前补知识时，更值得优先解释 OpenAI 网关稳态、账号能力与控制台链路，而不是重复教程页或旧工作区迁移背景。
 
-9. 2026-06-17 的上游小步合成结果，已经进入当前稳定背景层
+10. 2026-06-17 的上游小步合成结果，已经进入当前稳定背景层
    - `v0.1.137` 的 S15/S16/S17 不是新的默认产品主线，但已经形成新的稳定工程边界：安全与兼容补丁、计费兜底、thinking 协议过滤、Responses probe 能力校验、API Key ACL IP 拒绝信息，以及 OpenAI OAuth 上游 quota/reset 入口都已落盘。
    - 这些结论之所以值得进入当前焦点，而不是只留在 task 快照里，是因为它们会直接影响后续继续合上游、排查 OpenAI/Anthropic/国产模型兼容、做管理员账户运维或解释为什么某些 patch 可以继续小步迁、某些 migration-heavy 变更仍应跳过。
    - 当前默认心智应是：Studio Bridge / 支付治理仍是产品主链，上游合成则进入“低风险小步、保护本地定制、不 merge 大链路”的稳定工程主线。
@@ -69,6 +74,9 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
 - 账号级图片输入 URL 化已经进入当前稳定兼容边界：普通 OpenAI-compatible 上游默认仍走原 multipart；只有账号能力显式要求 object URL 或超过声明的上传阈值时，才应改写输入。
 - 上游 `Part exceeded maximum size of 1024KB` 当前应优先理解为“目标上游 multipart part 只有 1MB 限制”，不是 Sub2API 整体图片输入统一只有 1MB；后续排障应先查账号 `extra`、对象存储可达性和 `image_urls / mask_url` 能力声明。
 - 后台账号编辑页已经进入这条稳定链路：图片输入 URL 化不再要求手工改数据库，而是可以直接在 OpenAI API Key 账号编辑弹窗配置。
+- 2026-06-24 的用户榜单稳定面已经不是“只看 Token 消耗榜”：
+  - 模型榜当前已包含模型商图标、Token 占比、增长百分比和排名变化。
+  - `Token 消耗榜 / 模型榜` 切换已收进同一排行榜卡片，不应再把它理解成页面外层临时控件。
 - `sub2api` 与 `chatgpt2api` 仍需分开维护知识：前者偏 gateway、公共入口、嵌入式工作区桥接、模型/计费目录；后者偏独立图片工作台、`/canvas` 节点工作区和 ChatGPT Web 能力封装。
 - `use key base url` 归一和 routed API key capabilities 已进入当前稳定主线；后续排查用户“为什么这个 key 看不到某能力/为什么 base URL 表现不一致”时，应优先把它当成默认知识，而不是零散提交细节。
 - 默认 API key / 默认分组改造之后，普通更新路径仍应执行 route groups 权限校验；如果未来再看到这块编译或逻辑回退，先检查 `validateAPIKeyRouteGroups(..., false)` 一类调用是否被遗漏。
@@ -100,6 +108,7 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
 - 不要把用户 IP 字段当成临时调试字段；它已经进入用户治理、风控和运营判断的默认后台视图。
 - 不要把图片输入 URL 化误判成 APIMart 专属分支；当前它是账号能力驱动的兼容层，普通 OpenAI-compatible 上游也可能需要。
 - 不要把上游 `Part exceeded maximum size of 1024KB` 误判成 Sub2API 本地统一上传上限；当前更多是在提示目标上游 multipart part 限制与账号能力配置不匹配。
+- 不要把 2026-06-24 的 leaderboard 改动误判成纯视觉小修；它已经引入新的用户侧稳定数据语义，包括模型榜、增长、排名变化和榜单内嵌切换。
 - 不要把落叶AI团队空间联调误判成 chatgpt2api 单仓库任务；当前团队空间的 actor/payer、余额和扣费真源仍在 Sub2API。
 - 不要把 2026-06-17 的上游 patch 误判成“已经可以整体跟上游合并”；当前稳定策略仍是按 Sprint 做低风险小步迁移，并显式避开 migration-heavy、合规门禁或会覆盖本地定制的大链路。
 - 不要把 OpenAI quota/reset、thinking filter、Responses probe 或 zstd 支持当成零散实现细节；它们已经影响后续排障基线和上游 patch 取舍。

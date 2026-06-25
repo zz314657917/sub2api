@@ -216,6 +216,9 @@ func applyCodexOAuthTransformWithOptions(reqBody map[string]any, opts codexOAuth
 	if isCodexSparkModel(normalizedModel) && applyCodexSparkImageUnsupportedInstructions(reqBody) {
 		result.Modified = true
 	}
+	if isCodexSparkModel(normalizedModel) && stripCodexSparkImageGenerationTools(reqBody) {
+		result.Modified = true
+	}
 
 	// 续链场景保留 item_reference 与 id，避免 call_id 上下文丢失。
 	if input, ok := reqBody["input"].([]any); ok {
@@ -592,6 +595,48 @@ func hasOpenAIImageGenerationTool(reqBody map[string]any) bool {
 		}
 	}
 	return false
+}
+
+func stripCodexSparkImageGenerationTools(reqBody map[string]any) bool {
+	rawTools, ok := reqBody["tools"]
+	if !ok || rawTools == nil {
+		return false
+	}
+	tools, ok := rawTools.([]any)
+	if !ok {
+		return false
+	}
+	filtered := make([]any, 0, len(tools))
+	removed := false
+	for _, rawTool := range tools {
+		if toolMap, ok := rawTool.(map[string]any); ok &&
+			strings.TrimSpace(firstNonEmptyString(toolMap["type"])) == "image_generation" {
+			removed = true
+			continue
+		}
+		filtered = append(filtered, rawTool)
+	}
+	if !removed {
+		return false
+	}
+	if codexSparkToolChoiceSelectsImageGeneration(reqBody["tool_choice"]) {
+		reqBody["tool_choice"] = "auto"
+	}
+	if len(filtered) == 0 {
+		delete(reqBody, "tools")
+		delete(reqBody, "tool_choice")
+		return true
+	}
+	reqBody["tools"] = filtered
+	return true
+}
+
+func codexSparkToolChoiceSelectsImageGeneration(rawChoice any) bool {
+	choice, ok := rawChoice.(map[string]any)
+	if !ok {
+		return false
+	}
+	return strings.TrimSpace(firstNonEmptyString(choice["type"])) == "image_generation"
 }
 
 func hasOpenAIInputImage(reqBody map[string]any) bool {

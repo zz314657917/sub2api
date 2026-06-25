@@ -494,6 +494,92 @@ func TestAuthServiceBindEmailIdentity_RevokesExistingAccessAndRefreshTokens(t *t
 	require.True(t, errors.Is(err, service.ErrTokenRevoked) || errors.Is(err, service.ErrRefreshTokenInvalid))
 }
 
+func TestAuthServiceSendEmailIdentityBindCode_RejectsEmailOutsideRegistrationSuffixWhitelist(t *testing.T) {
+	ctx := context.Background()
+	cache := &emailBindCacheStub{}
+	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{
+		service.SettingKeyRegistrationEmailSuffixWhitelist: `["@qq.com"]`,
+	}, cache, nil)
+
+	user, err := client.User.Create().
+		SetEmail("legacy-user" + service.OIDCConnectSyntheticEmailDomain).
+		SetUsername("legacy-user-suffix-code").
+		SetPasswordHash("old-hash").
+		SetBalance(1).
+		SetConcurrency(1).
+		SetRole(service.RoleUser).
+		SetStatus(service.StatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+
+	err = svc.SendEmailIdentityBindCode(ctx, user.ID, "intruder@gmail.com")
+	require.ErrorIs(t, err, service.ErrEmailSuffixNotAllowed)
+	require.Empty(t, cache.setEmails)
+}
+
+func TestAuthServiceBindEmailIdentity_RejectsEmailOutsideRegistrationSuffixWhitelist(t *testing.T) {
+	ctx := context.Background()
+	cache := &emailBindCacheStub{
+		data: &service.VerificationCodeData{
+			Code:      "123456",
+			CreatedAt: time.Now().UTC(),
+			ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
+		},
+	}
+	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{
+		service.SettingKeyRegistrationEmailSuffixWhitelist: `["@qq.com"]`,
+	}, cache, nil)
+
+	user, err := client.User.Create().
+		SetEmail("legacy-bind" + service.OIDCConnectSyntheticEmailDomain).
+		SetUsername("legacy-bind-suffix").
+		SetPasswordHash("old-hash").
+		SetBalance(1).
+		SetConcurrency(1).
+		SetRole(service.RoleUser).
+		SetStatus(service.StatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+
+	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "intruder@gmail.com", "123456", "new-password")
+	require.ErrorIs(t, err, service.ErrEmailSuffixNotAllowed)
+	require.Nil(t, updatedUser)
+
+	storedUser, err := client.User.Get(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, "legacy-bind"+service.OIDCConnectSyntheticEmailDomain, storedUser.Email)
+}
+
+func TestAuthServiceBindEmailIdentity_AllowsEmailInsideRegistrationSuffixWhitelist(t *testing.T) {
+	ctx := context.Background()
+	cache := &emailBindCacheStub{
+		data: &service.VerificationCodeData{
+			Code:      "123456",
+			CreatedAt: time.Now().UTC(),
+			ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
+		},
+	}
+	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{
+		service.SettingKeyRegistrationEmailSuffixWhitelist: `["@qq.com"]`,
+	}, cache, nil)
+
+	user, err := client.User.Create().
+		SetEmail("legacy-qq" + service.LinuxDoConnectSyntheticEmailDomain).
+		SetUsername("legacy-qq-suffix").
+		SetPasswordHash("old-hash").
+		SetBalance(1).
+		SetConcurrency(1).
+		SetRole(service.RoleUser).
+		SetStatus(service.StatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+
+	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, " Member@QQ.com ", "123456", "new-password")
+	require.NoError(t, err)
+	require.NotNil(t, updatedUser)
+	require.Equal(t, "member@qq.com", updatedUser.Email)
+}
+
 type emailBindSettingRepoStub struct {
 	values map[string]string
 }
@@ -536,8 +622,9 @@ func (s *emailBindSettingRepoStub) Delete(context.Context, string) error {
 }
 
 type emailBindCacheStub struct {
-	data *service.VerificationCodeData
-	err  error
+	data      *service.VerificationCodeData
+	err       error
+	setEmails []string
 }
 
 func (s *emailBindCacheStub) GetVerificationCode(context.Context, string) (*service.VerificationCodeData, error) {
@@ -547,7 +634,8 @@ func (s *emailBindCacheStub) GetVerificationCode(context.Context, string) (*serv
 	return s.data, nil
 }
 
-func (s *emailBindCacheStub) SetVerificationCode(context.Context, string, *service.VerificationCodeData, time.Duration) error {
+func (s *emailBindCacheStub) SetVerificationCode(_ context.Context, email string, _ *service.VerificationCodeData, _ time.Duration) error {
+	s.setEmails = append(s.setEmails, email)
 	return nil
 }
 
