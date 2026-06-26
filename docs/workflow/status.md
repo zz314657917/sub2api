@@ -1,20 +1,20 @@
 ---
-phase: contract-approved
+phase: done
 current_sprint: upstream-main-v0138-followup-safe-patches-s21
 total_sprints: 6
-pending_action: implement S21 safe follow-up patches
+pending_action: close or commit S21 safe follow-up patches
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-06-23 13:32 +08:00
+last_verified: 2026-06-26 01:13 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`contract-approved`
+- 当前阶段：`done`
 - 当前 Sprint：`upstream-main-v0138-followup-safe-patches-s21`
 - 当前目标：在 S20 已完成的基础上，继续合入本地可用且范围可控的四个上游 follow-up：Codex Spark 剥离客户端 `image_generation` tool、OpenAI weekly reset 二次确认、usage cache token 明细展示、邮箱绑定后缀白名单校验。
-- 当前结论：S21 contract 已批准；本轮不整体 merge `upstream/main`，不触碰支付返佣、调度策略、Claude `cch` mimicry、CI/deploy/README/VERSION/sponsor 或公共产品页。
+- 当前结论：S21 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付返佣、调度策略、Claude `cch` mimicry、CI/deploy/README/VERSION/sponsor 或公共产品页。
 - 当前已确认事实：
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
@@ -31,8 +31,11 @@ last_verified: 2026-06-23 13:32 +08:00
   - 本地图片 handler 会把 `OpenAIImagesUpstreamError` 当作已写出的上游错误直接结束；因此 S20 在 `openai_images_responses.go` 内将非内容过滤的 `response.incomplete` 转为 `UpstreamFailoverError`，避免 502 incomplete 被误当用户错误提前返回。
   - S21 必须把 Spark `image_generation` tool strip 放在本地图片权限 gate 前；否则 Codex CLI 默认携带的 tool 会在被剥离前被误判为图片生成意图。
   - S21 明确跳过订阅支付返佣、prefer-soonest-reset 调度、Claude mimicry `cch` 删除、GPT-5.5 instructions fallback、README/sponsor/VERSION 和 SELinux compose 标签。
+  - S21 实际合入 Spark `image_generation` tool strip、OpenAI weekly reset 二次确认、usage cache token 明细展示、邮箱绑定后缀白名单校验。
 - 目标验证入口：
   - `docs/workflow/tasks/upstream-main-v0138-followup-safe-patches-s21.md`
+  - `docs/workflow/worker-results/upstream-main-v0138-followup-safe-patches-s21-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0138-followup-safe-patches-s21-qa.md`
   - `docs/workflow/tasks/apimart-task-webhook-s18.md`
   - `docs/workflow/tasks/upstream-main-v0137-postfixes-s19.md`
   - `docs/workflow/tasks/upstream-main-v0138-small-patches-s20.md`
@@ -75,5 +78,9 @@ last_verified: 2026-06-23 13:32 +08:00
   - `go test -tags=unit ./internal/service -run "TestNormalizeGLMOpenAIReasoningEffort|TestForwardAsRawChatCompletions_NormalizesGLMReasoningEffortForUpstream" -count=1`
   - `go test ./internal/handler -run "Test.*OpenAI|Test.*ChatCompletions|Test.*Responses|Test.*Messages" -count=1`
   - `git diff --check` 通过；仅提示 `docs/workflow/status.md` 下次 Git 触碰时 LF 会替换为 CRLF。
-- 下一合法动作：按 S21 contract 实现并执行定向 QA。
+  - `go test ./internal/service -run "TestApplyCodexOAuthTransform_.*ImageGenerationTool.*Spark|TestOpenAIGatewayService_Forward_StripsImageGenerationToolForSparkAPIKey|TestStripCodexSparkImageGenerationToolFromRawPayload|TestAuthServiceBindEmailIdentity_.*Suffix|TestAuthServiceSendEmailIdentityBindCode_.*Suffix" -count=1`
+  - `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/components/account/__tests__/OpenAIQuotaResetCell.spec.ts src/components/admin/usage/__tests__/UsageStatsCards.spec.ts"`
+  - `git diff --check`
+  - S21 denied-path audit returned `NO_DENIED_PATHS`.
+- 下一合法动作：按需提交/推送 S21，或进入下一 Sprint。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。

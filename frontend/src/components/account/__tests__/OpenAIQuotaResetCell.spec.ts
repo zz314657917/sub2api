@@ -115,6 +115,9 @@ describe('OpenAIQuotaResetCell', () => {
     await flushPromises()
     await wrapper.findAll('button')[1].trigger('click')
     await flushPromises()
+    expect(resetOpenAIQuota).not.toHaveBeenCalled()
+    await wrapper.getComponent({ name: 'ConfirmDialog' }).vm.$emit('confirm')
+    await flushPromises()
 
     expect(resetOpenAIQuota).toHaveBeenCalledWith(23)
     expect(queryOpenAIQuota).toHaveBeenCalledTimes(2)
