@@ -523,6 +523,11 @@ func ChatCompletionsChunkToResponsesEvents(
 					copyCall.ID = generateItemID()
 				}
 				copyCall.Type = "function"
+				// Arguments are accumulated by the shared block below. Some
+				// compatible upstreams pack id+name+arguments into the first
+				// tool_call chunk, so keeping the copied arguments here would
+				// count that first chunk twice.
+				copyCall.Function.Arguments = ""
 				state.ToolCalls[idx] = &copyCall
 				stored = &copyCall
 				events = append(events, chatToResponsesEvent(state, "response.output_item.added", &ResponsesStreamEvent{

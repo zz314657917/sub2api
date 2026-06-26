@@ -2,6 +2,7 @@ package apicompat
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -469,6 +470,40 @@ func TestChatCompletionsStreamToResponses_DeepSeekReasoningToolCallDoesNotFallba
 			assert.Equal(t, "function_call", event.Response.Output[1].Type)
 		}
 	}
+}
+
+func TestStream_ToolCallArgumentsInFirstChunkNotDoubled(t *testing.T) {
+	state := NewChatCompletionsToResponsesStreamState("gpt-5.4")
+	var events []ResponsesStreamEvent
+	for _, payload := range []string{
+		`{"choices":[{"index":0,"delta":{"role":"assistant"}}]}`,
+		`{"choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_a","type":"function","function":{"name":"exec","arguments":"{\"cmd\":\"ls\"}"}}]}}]}`,
+		`{"choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}`,
+	} {
+		var chunk ChatCompletionsChunk
+		require.NoError(t, json.Unmarshal([]byte(payload), &chunk))
+		events = append(events, ChatCompletionsChunkToResponsesEvents(&chunk, state)...)
+	}
+	events = append(events, FinalizeChatCompletionsResponsesStream(state)...)
+
+	var argsDelta strings.Builder
+	var sawCompleted bool
+	for _, event := range events {
+		switch event.Type {
+		case "response.function_call_arguments.delta":
+			_, _ = argsDelta.WriteString(event.Delta)
+		case "response.completed":
+			if event.Response != nil {
+				sawCompleted = true
+				require.Len(t, event.Response.Output, 1)
+				assert.Equal(t, "function_call", event.Response.Output[0].Type)
+				assert.Equal(t, `{"cmd":"ls"}`, event.Response.Output[0].Arguments)
+			}
+		}
+	}
+
+	assert.True(t, sawCompleted, "response.completed missing")
+	assert.Equal(t, `{"cmd":"ls"}`, argsDelta.String())
 }
 
 func TestChatCompletionsToResponses_SystemArrayContent(t *testing.T) {

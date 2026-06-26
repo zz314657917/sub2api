@@ -75,3 +75,5 @@
 260618 1925 | upstream-main-v0137-postfixes-s19 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0137-postfixes-s19-result.md, docs/workflow/qa-reports/upstream-main-v0137-postfixes-s19-qa.md
 260626 0000 | upstream-main-v0138-followup-safe-patches-s21 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0138-followup-safe-patches-s21.md
 260626 0113 | upstream-main-v0138-followup-safe-patches-s21 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0138-followup-safe-patches-s21-result.md, docs/workflow/qa-reports/upstream-main-v0138-followup-safe-patches-s21-qa.md
+260626 1620 | upstream-main-v0138-followup-safe-patches-s22 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0138-followup-safe-patches-s22.md
+260626 1658 | upstream-main-v0138-followup-safe-patches-s22 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0138-followup-safe-patches-s22-result.md, docs/workflow/qa-reports/upstream-main-v0138-followup-safe-patches-s22-qa.md

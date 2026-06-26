@@ -1,20 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-v0138-followup-safe-patches-s21
+current_sprint: upstream-main-v0138-followup-safe-patches-s22
 total_sprints: 6
-pending_action: close or commit S21 safe follow-up patches
+pending_action: close or commit S22 safe follow-up patches
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-06-26 01:13 +08:00
+last_verified: 2026-06-26 16:58 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0138-followup-safe-patches-s21`
-- 当前目标：在 S20 已完成的基础上，继续合入本地可用且范围可控的四个上游 follow-up：Codex Spark 剥离客户端 `image_generation` tool、OpenAI weekly reset 二次确认、usage cache token 明细展示、邮箱绑定后缀白名单校验。
-- 当前结论：S21 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付返佣、调度策略、Claude `cch` mimicry、CI/deploy/README/VERSION/sponsor 或公共产品页。
+- 当前 Sprint：`upstream-main-v0138-followup-safe-patches-s22`
+- 当前目标：继续从 post-`v0.1.138` `upstream/main` 合入后端低风险兼容小修：ChatCompletions->Responses tool arguments 不翻倍、Responses passthrough function-call arguments 去重、`refresh_token_invalidated` 不重试、chat-completions transport error 进入 failover、email auth identity 创建错误不被 shadowed err 吞掉。
+- 当前结论：S22 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端和公共产品页。
 - 当前已确认事实：
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
@@ -32,7 +32,13 @@ last_verified: 2026-06-26 01:13 +08:00
   - S21 必须把 Spark `image_generation` tool strip 放在本地图片权限 gate 前；否则 Codex CLI 默认携带的 tool 会在被剥离前被误判为图片生成意图。
   - S21 明确跳过订阅支付返佣、prefer-soonest-reset 调度、Claude mimicry `cch` 删除、GPT-5.5 instructions fallback、README/sponsor/VERSION 和 SELinux compose 标签。
   - S21 实际合入 Spark `image_generation` tool strip、OpenAI weekly reset 二次确认、usage cache token 明细展示、邮箱绑定后缀白名单校验。
+  - S22 候选评估中，usage cache breakdown、Spark image tool strip 已本地等价；支付/订阅/余额预扣、order currency、Antigravity fallback、GPT-5.5 instructions fallback、ops chart UI、Claude terminal template、payment supported-types 继续跳过。
+  - S22 实际移植范围限制在后端 OpenAI/Codex 兼容和 auth/token 小修，不触碰前端或本地产品面。
+  - S22 实际合入：ChatCompletions->Responses first-chunk tool arguments 不翻倍、Responses passthrough function-call arguments 去重、`refresh_token_invalidated` 非重试、chat-completions transport error 进入 failover、email auth identity create err 不再被 shadow。
 - 目标验证入口：
+  - `docs/workflow/tasks/upstream-main-v0138-followup-safe-patches-s22.md`
+  - `docs/workflow/worker-results/upstream-main-v0138-followup-safe-patches-s22-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0138-followup-safe-patches-s22-qa.md`
   - `docs/workflow/tasks/upstream-main-v0138-followup-safe-patches-s21.md`
   - `docs/workflow/worker-results/upstream-main-v0138-followup-safe-patches-s21-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0138-followup-safe-patches-s21-qa.md`
@@ -82,5 +88,9 @@ last_verified: 2026-06-26 01:13 +08:00
   - `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/components/account/__tests__/OpenAIQuotaResetCell.spec.ts src/components/admin/usage/__tests__/UsageStatsCards.spec.ts"`
   - `git diff --check`
   - S21 denied-path audit returned `NO_DENIED_PATHS`.
-- 下一合法动作：按需提交/推送 S21，或进入下一 Sprint。
+  - `go test ./internal/pkg/apicompat -run "TestStream_ToolCallArgumentsInFirstChunkNotDoubled" -count=1`
+  - `go test -tags=unit ./internal/service -run "TestHandleStreamingResponsePassthroughDeduplicatesFunctionCallArguments|TestForwardResponsesChatCompletionsFallbackKeepsFunctionArgumentsSingle|TestForwardAsChatCompletions_TransportErrorReturnsFailover|TestForwardAsRawChatCompletions_TransportErrorReturnsFailover|TestIsNonRetryableRefreshError|TestEnsureEmailAuthIdentityCreateErrorReturnsFalse" -count=1`
+  - `git diff --check`
+  - S22 denied-path audit over `git status --short` paths returned `NO_DENIED_PATHS`.
+- 下一合法动作：按需提交/推送 S22，或进入下一 Sprint。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。
