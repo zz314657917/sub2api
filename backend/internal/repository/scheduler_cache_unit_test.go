@@ -108,3 +108,22 @@ func TestBuildSchedulerMetadataAccount_KeepsQuotaAutoPauseFields(t *testing.T) {
 	require.Equal(t, true, got.Extra["auto_pause_5h_disabled"])
 	require.Equal(t, false, got.Extra["auto_pause_7d_disabled"])
 }
+
+func TestBuildSchedulerMetadataAccount_KeepsImageURLInputFields(t *testing.T) {
+	account := service.Account{
+		ID: 146,
+		Extra: map[string]any{
+			"image_input_transport":       "object_url",
+			"image_upload_limit_bytes":    1048576,
+			"image_url_fields_supported":  true,
+			"unused_image_private_secret": "drop-me",
+		},
+	}
+
+	got := buildSchedulerMetadataAccount(account)
+
+	require.Equal(t, "object_url", got.Extra["image_input_transport"])
+	require.Equal(t, 1048576, got.Extra["image_upload_limit_bytes"])
+	require.Equal(t, true, got.Extra["image_url_fields_supported"])
+	require.Nil(t, got.Extra["unused_image_private_secret"])
+}
