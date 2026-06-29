@@ -81,3 +81,5 @@
 260629 2115 | upstream-main-v0139-backend-compat-s23 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0139-backend-compat-s23-result.md, docs/workflow/qa-reports/upstream-main-v0139-backend-compat-s23-qa.md
 260629 2205 | upstream-main-v0139-backend-compat-s24 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0139-backend-compat-s24.md
 260629 2238 | upstream-main-v0139-backend-compat-s24 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0139-backend-compat-s24-result.md, docs/workflow/qa-reports/upstream-main-v0139-backend-compat-s24-qa.md
+260629 2234 | upstream-main-v0139-codex-json-input-s25 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0139-codex-json-input-s25.md
+260629 2234 | upstream-main-v0139-codex-json-input-s25 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0139-codex-json-input-s25-result.md, docs/workflow/qa-reports/upstream-main-v0139-codex-json-input-s25-qa.md
