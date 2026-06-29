@@ -1,20 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-v0138-followup-safe-patches-s22
-total_sprints: 6
-pending_action: close or commit S22 safe follow-up patches
+current_sprint: upstream-main-v0139-backend-compat-s23
+total_sprints: 7
+pending_action: commit and push S23 backend compatibility patches
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-06-26 16:58 +08:00
+last_verified: 2026-06-29 21:15 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0138-followup-safe-patches-s22`
-- 当前目标：继续从 post-`v0.1.138` `upstream/main` 合入后端低风险兼容小修：ChatCompletions->Responses tool arguments 不翻倍、Responses passthrough function-call arguments 去重、`refresh_token_invalidated` 不重试、chat-completions transport error 进入 failover、email auth identity 创建错误不被 shadowed err 吞掉。
-- 当前结论：S22 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端和公共产品页。
+- 当前 Sprint：`upstream-main-v0139-backend-compat-s23`
+- 当前目标：继续从 post-`v0.1.138` / `v0.1.139` `upstream/main` 合入纯后端低风险协议兼容小修：OpenAI image output 计数防误判、图片内容拒绝 400 透传、OpenAI overloaded code failover、response.failed 事件脱敏、Responses->Anthropic custom tool schema 规范化、Codex image bridge `tool_choice=auto`。
+- 当前结论：S23 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、Grok、codex_cli_only 大范围指纹加固、model_not_found 404 handler refactor、前端和公共产品页。
 - 当前已确认事实：
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
@@ -35,7 +35,12 @@ last_verified: 2026-06-26 16:58 +08:00
   - S22 候选评估中，usage cache breakdown、Spark image tool strip 已本地等价；支付/订阅/余额预扣、order currency、Antigravity fallback、GPT-5.5 instructions fallback、ops chart UI、Claude terminal template、payment supported-types 继续跳过。
   - S22 实际移植范围限制在后端 OpenAI/Codex 兼容和 auth/token 小修，不触碰前端或本地产品面。
   - S22 实际合入：ChatCompletions->Responses first-chunk tool arguments 不翻倍、Responses passthrough function-call arguments 去重、`refresh_token_invalidated` 非重试、chat-completions transport error 进入 failover、email auth identity create err 不再被 shadow。
+  - S23 候选评估中，`0da1fe28e`、`9491de0a3`、`cc7612bdb`、`8a7269f53`、`40c825273`、`e5f7836bf` 都适合组成纯后端兼容小批；`82553c4dc` quota platform billing、`da810c3b4` Keys unlimited reactivation、`7c2fee6c9` fallback pricing log dedup 可后续独立批次；Grok、codex_cli_only 全量指纹加固、model_not_found 404 handler refactor、支付/订阅/Ops/Keys 前端功能继续跳过。
+  - S23 实际合入：OpenAI image output text-only 防误计数、图片模型拒绝 400 透传、OpenAI overloaded/slow_down failover、response.failed 脱敏、Responses->Anthropic custom/unknown tool schema 规范化、Codex image bridge `tool_choice=auto`。
 - 目标验证入口：
+  - `docs/workflow/tasks/upstream-main-v0139-backend-compat-s23.md`
+  - `docs/workflow/worker-results/upstream-main-v0139-backend-compat-s23-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0139-backend-compat-s23-qa.md`
   - `docs/workflow/tasks/upstream-main-v0138-followup-safe-patches-s22.md`
   - `docs/workflow/worker-results/upstream-main-v0138-followup-safe-patches-s22-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0138-followup-safe-patches-s22-qa.md`
@@ -92,5 +97,9 @@ last_verified: 2026-06-26 16:58 +08:00
   - `go test -tags=unit ./internal/service -run "TestHandleStreamingResponsePassthroughDeduplicatesFunctionCallArguments|TestForwardResponsesChatCompletionsFallbackKeepsFunctionArgumentsSingle|TestForwardAsChatCompletions_TransportErrorReturnsFailover|TestForwardAsRawChatCompletions_TransportErrorReturnsFailover|TestIsNonRetryableRefreshError|TestEnsureEmailAuthIdentityCreateErrorReturnsFalse" -count=1`
   - `git diff --check`
   - S22 denied-path audit over `git status --short` paths returned `NO_DENIED_PATHS`.
-- 下一合法动作：按需提交/推送 S22，或进入下一 Sprint。
+  - `go test ./internal/service -run "TestOpenAIImageOutputCounter|TestImagesOAuthNonStreaming_ContentRefusalReturns400NoRetry|TestExtractModelRefusal_EmptyWhenNoText|TestIsOpenAITransientProcessingError|TestOpenAIStreamingResponseFailedBeforeOutputServerOverloadedCodeReturnsFailover|TestOpenAIStreamingResponseFailedAfterOutputSanitizesVerboseResponseForClient|TestOpenAIStreamingPassthroughResponseFailedAfterOutputSanitizesVerboseResponseForClient|TestOpenAIGatewayServiceForward_CodexImageInjectionRespectsGroupCapability|TestOpenAIGatewayServiceForward_ChannelBridgeOverrideEnablesCodexInjection|TestOpenAIGatewayServiceForward_CodexBridgePreservesExistingToolChoice|TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_InjectsCodexImageGenerationTool" -count=1`
+  - `go test ./internal/pkg/apicompat -run "TestResponsesToAnthropic_.*Tool|TestResponsesToAnthropic_Custom" -count=1`
+  - `git diff --check`
+  - S23 raw denied-path audit only命中本轮前已有的 `knowledge/*` 脏改；S23 提交前需以 staged audit 确认未纳入这些文件。
+- 下一合法动作：精确 stage S23 allowed paths，执行 staged denied-path audit 后提交/推送。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。

@@ -2522,7 +2522,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			return nil, err
 		}
 		switch path {
-		case "type", "model":
+		case "type", "model", "tool_choice":
 			payload[path] = value
 		case "client_metadata." + openAIWSTurnMetadataHeader:
 			setOpenAIWSTurnMetadata(payload, fmt.Sprintf("%v", value))
@@ -2618,6 +2618,16 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		} else if changed {
 			normalized = stripped
 			logOpenAIWSModeInfo("ingress_ws_codex_spark_image_tool_stripped account_id=%d", account.ID)
+		}
+		if !isCodexSparkModel(upstreamModel) &&
+			openAIJSONToolsContainImageGeneration(gjson.GetBytes(normalized, "tools")) &&
+			!gjson.GetBytes(normalized, "tool_choice").Exists() {
+			next, setErr := applyPayloadMutation(normalized, "tool_choice", "auto")
+			if setErr != nil {
+				return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", setErr)
+			}
+			normalized = next
+			logOpenAIWSModeInfo("ingress_ws_codex_image_tool_choice_auto account_id=%d", account.ID)
 		}
 		imageIntent := IsImageGenerationIntent(openAIResponsesEndpoint, originalModel, normalized)
 		if imageIntent && !GroupAllowsImageGeneration(apiKeyGroup(getAPIKeyFromContext(c))) {

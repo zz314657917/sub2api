@@ -596,6 +596,56 @@ func openAIImagesUpstreamErrorFromSSEPayload(payload []byte) *OpenAIImagesUpstre
 	}
 }
 
+func extractOpenAIImagesModelRefusal(body []byte) string {
+	var b strings.Builder
+	collect := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			return
+		}
+		if b.Len() > 0 {
+			_ = b.WriteByte(' ')
+		}
+		_, _ = b.WriteString(s)
+	}
+	forEachOpenAISSEDataPayload(string(body), func(payload []byte) {
+		if !gjson.ValidBytes(payload) {
+			return
+		}
+		switch gjson.GetBytes(payload, "type").String() {
+		case "response.output_text.delta":
+			collect(gjson.GetBytes(payload, "delta").String())
+		case "response.completed", "response.output_item.done":
+			gjson.GetBytes(payload, "response.output").ForEach(func(_, item gjson.Result) bool {
+				if item.Get("type").String() == "message" {
+					item.Get("content").ForEach(func(_, part gjson.Result) bool {
+						if part.Get("type").String() == "output_text" {
+							collect(part.Get("text").String())
+						}
+						return true
+					})
+				}
+				return true
+			})
+			item := gjson.GetBytes(payload, "item")
+			if item.Get("type").String() == "message" {
+				item.Get("content").ForEach(func(_, part gjson.Result) bool {
+					if part.Get("type").String() == "output_text" {
+						collect(part.Get("text").String())
+					}
+					return true
+				})
+			}
+		}
+	})
+	refusal := strings.TrimSpace(b.String())
+	const maxRefusal = 600
+	if len(refusal) > maxRefusal {
+		refusal = refusal[:maxRefusal]
+	}
+	return refusal
+}
+
 // summarizeOpenAIImagesNoOutputBody extracts a compact diagnostic summary for
 // soft failures where the upstream response has no image and no standard error.
 func summarizeOpenAIImagesNoOutputBody(body []byte) string {
@@ -1090,6 +1140,17 @@ func (s *OpenAIGatewayService) handleOpenAIImagesOAuthNonStreamingResponse(
 			setOpsUpstreamError(c, upstreamErr.clientStatusCode(), upstreamErr.clientMessage(), "")
 			writeOpenAIImagesUpstreamErrorResponse(c, upstreamErr)
 			return OpenAIUsage{}, 0, nil, upstreamErr
+		}
+		if refusal := extractOpenAIImagesModelRefusal(body); refusal != "" {
+			refusalErr := &OpenAIImagesUpstreamError{
+				StatusCode: http.StatusBadRequest,
+				ErrorType:  "image_generation_user_error",
+				Code:       "content_policy_violation",
+				Message:    sanitizeUpstreamErrorMessage(refusal),
+			}
+			setOpsUpstreamError(c, http.StatusBadRequest, refusalErr.clientMessage(), summarizeOpenAIImagesNoOutputBody(body))
+			writeOpenAIImagesUpstreamErrorResponse(c, refusalErr)
+			return OpenAIUsage{}, 0, nil, refusalErr
 		}
 		setOpsUpstreamError(c, http.StatusBadGateway, "upstream did not return image output", summarizeOpenAIImagesNoOutputBody(body))
 		return OpenAIUsage{}, 0, nil, &UpstreamFailoverError{

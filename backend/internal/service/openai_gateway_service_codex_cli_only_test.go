@@ -234,6 +234,18 @@ func TestIsOpenAITransientProcessingError(t *testing.T) {
 		[]byte(`{"error":{"message":"An error occurred while processing your request. You can retry your request, or contact us through our help center at help.openai.com if the error persists. Please include the request ID req_123 in your message."}}`),
 	))
 
+	require.True(t, isOpenAITransientProcessingError(
+		http.StatusBadRequest,
+		"",
+		[]byte(`{"error":{"message":"temporary overload","code":"server_is_overloaded"}}`),
+	))
+
+	require.True(t, isOpenAITransientProcessingError(
+		http.StatusServiceUnavailable,
+		"",
+		[]byte(`{"response":{"error":{"message":"slow down","code":"slow_down"}}}`),
+	))
+
 	require.False(t, isOpenAITransientProcessingError(
 		http.StatusBadRequest,
 		"Missing required parameter: 'instructions'",

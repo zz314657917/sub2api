@@ -165,3 +165,45 @@ func TestImagesOAuthNonStreaming_IncompleteContentFilterWritesClientError(t *tes
 		t.Fatalf("expected written 400 response, got %d", rec.Code)
 	}
 }
+
+func TestExtractModelRefusal_EmptyWhenNoText(t *testing.T) {
+	body := "data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_no_text\",\"output\":[]}}\n\n"
+	if got := extractOpenAIImagesModelRefusal([]byte(body)); got != "" {
+		t.Fatalf("expected no refusal text, got %q", got)
+	}
+}
+
+func TestImagesOAuthNonStreaming_ContentRefusalReturns400NoRetry(t *testing.T) {
+	body := "data: {\"type\":\"response.output_text.delta\",\"delta\":\"I cannot help create that image.\"}\n\n" +
+		"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_refusal\",\"status\":\"completed\",\"output\":[]}}\n\n"
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/generations", nil)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{},
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+
+	svc := &OpenAIGatewayService{}
+	_, _, _, err := svc.handleOpenAIImagesOAuthNonStreamingResponse(resp, c, "b64_json", "gpt-image-2")
+
+	var upstreamErr *OpenAIImagesUpstreamError
+	if !errors.As(err, &upstreamErr) {
+		t.Fatalf("expected *OpenAIImagesUpstreamError, got %T: %v", err, err)
+	}
+	if upstreamErr.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", upstreamErr.StatusCode)
+	}
+	if upstreamErr.Code != "content_policy_violation" {
+		t.Fatalf("unexpected code %q", upstreamErr.Code)
+	}
+	var failoverErr *UpstreamFailoverError
+	if errors.As(err, &failoverErr) {
+		t.Fatalf("content refusal must not return failover error: %#v", failoverErr)
+	}
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("expected written 400 response, got %d", rec.Code)
+	}
+}
