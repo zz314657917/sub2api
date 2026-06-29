@@ -1,20 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-v0139-codex-json-input-s25
-total_sprints: 9
-pending_action: commit and push S25 Codex JSON input patch
+current_sprint: upstream-main-v0139-openai-count-tokens-s26
+total_sprints: 10
+pending_action: commit and push S26 OpenAI count_tokens bridge
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-06-29 22:34 +08:00
+last_verified: 2026-06-29 22:46 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0139-codex-json-input-s25`
-- 当前目标：继续从 post-`v0.1.138` / `v0.1.139` `upstream/main` 合入纯后端 Codex OAuth 兼容小修：system guidance 保留在 Responses `input` 中并映射为 developer，同时镜像到 `instructions`。
-- 当前结论：S25 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰 OpenAI count_tokens bridge、支付/订阅/余额预扣语义、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端和公共产品页。
+- 当前 Sprint：`upstream-main-v0139-openai-count-tokens-s26`
+- 当前目标：继续从 post-`v0.1.138` / `v0.1.139` `upstream/main` 合入纯后端 OpenAI count_tokens bridge：OpenAI group 的 `/v1/messages/count_tokens` 转到 `/v1/responses/input_tokens`。
+- 当前结论：S26 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣语义、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端和公共产品页。
 - 当前已确认事实：
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
@@ -40,7 +40,11 @@ last_verified: 2026-06-29 22:34 +08:00
   - S24 候选评估中，`82553c4dc`、`7c2fee6c9`、`da810c3b4` 适合组成纯后端运维/计费小批；`b105cc0fd` Codex JSON/developer input 行为需要单独确认本地 transform 语义，暂留 S25；前端 API base、Keys column settings、subscription/payment 显示、Ops system log key id 继续跳过。
   - S24 实际合入：OpenAI async usage billing 捕获并传递 request-time quota platform、fallback pricing warn 按模型去重、quota exhausted key 设置为 unlimited 时重新激活。本地缺少上游完整 `UserPlatformQuotaRepository` 持久层，S24 只保留平台字段到统一 billing command，不引入 migrations/flusher。
   - S25 实际合入：Codex OAuth transform 将 `role:"system"` input item 改写为 `role:"developer"` 并保留在 `input`，同时继续把 system 文本镜像到 `instructions`；这覆盖 Responses JSON mode 需要在 input 中保留 JSON 指令的场景。`7a38c6621` OpenAI count_tokens bridge 范围较大，留作 S26 单独 contract。
+  - S26 实际合入：OpenAI group 的 `/v1/messages/count_tokens` 不再路由级 404，新增 handler/service 将 Anthropic count_tokens 请求转换为 OpenAI `/v1/responses/input_tokens` 并返回 `input_tokens`。本地没有上游部分新 helper，已按现有 `ParseGatewayRequest`、billing check、account selection 和 HTTP upstream 调用适配。
 - 目标验证入口：
+  - `docs/workflow/tasks/upstream-main-v0139-openai-count-tokens-s26.md`
+  - `docs/workflow/worker-results/upstream-main-v0139-openai-count-tokens-s26-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0139-openai-count-tokens-s26-qa.md`
   - `docs/workflow/tasks/upstream-main-v0139-codex-json-input-s25.md`
   - `docs/workflow/worker-results/upstream-main-v0139-codex-json-input-s25-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0139-codex-json-input-s25-qa.md`
@@ -117,5 +121,11 @@ last_verified: 2026-06-29 22:34 +08:00
   - `go test ./internal/service -run "TestExtractSystemMessagesFromInput|TestApplyCodexOAuthTransform_ExtractsSystemMessages|TestApplyCodexOAuthTransform_JsonObjectKeepsJsonInstructionInInput" -count=1`
   - `go test ./internal/service -run "TestApplyCodexOAuthTransform_.*Instructions|TestExtractSystemMessagesFromInput" -count=1`
   - `git diff --check`
-- 下一合法动作：精确 stage S25 allowed paths，执行 staged denied-path audit 后提交/推送。
+  - `go test ./internal/service -run "TestOpenAIGatewayService_ForwardCountTokensAsAnthropic" -count=1`
+  - `go test ./internal/server/routes -run "TestGatewayRoutesOpenAICountTokensPathIsRegistered|TestGatewayRoutesNonOpenAICountTokensPathStillRegistered" -count=1`
+  - `go test ./internal/service -run "TestOpenAIGatewayService_ForwardCountTokensAsAnthropic|TestBuildOpenAIEndpointURL" -count=1`
+  - `go test ./internal/handler -run "TestResolveOpenAIMessagesDispatchMappedModel|TestNewOpenAIModelMappedBodyCache|TestOpenAIGatewayHandler" -count=1`
+  - `go test ./internal/server/routes -run "TestGatewayRoutes" -count=1`
+  - `git diff --check`
+- 下一合法动作：精确 stage S26 allowed paths，执行 staged denied-path audit 后提交/推送。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。

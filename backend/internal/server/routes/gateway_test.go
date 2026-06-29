@@ -15,9 +15,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func newGatewayRoutesTestRouter() *gin.Engine {
+func newGatewayRoutesTestRouter(platforms ...string) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
+	platform := service.PlatformOpenAI
+	if len(platforms) > 0 && strings.TrimSpace(platforms[0]) != "" {
+		platform = strings.TrimSpace(platforms[0])
+	}
 
 	RegisterGatewayRoutes(
 		router,
@@ -29,8 +33,12 @@ func newGatewayRoutesTestRouter() *gin.Engine {
 			groupID := int64(1)
 			c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
 				GroupID: &groupID,
-				Group:   &service.Group{Platform: service.PlatformOpenAI},
+				Group: &service.Group{
+					Platform:              platform,
+					AllowMessagesDispatch: true,
+				},
 			})
+			c.Set(string(servermiddleware.ContextKeyUser), servermiddleware.AuthSubject{UserID: 1, Concurrency: 1})
 			c.Next()
 		}),
 		nil,
@@ -100,6 +108,28 @@ func TestGatewayRoutesOpenAIVideosPathsAreRegistered(t *testing.T) {
 
 	router.ServeHTTP(taskW, taskReq)
 	require.NotEqual(t, http.StatusNotFound, taskW.Code)
+}
+
+func TestGatewayRoutesOpenAICountTokensPathIsRegistered(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformOpenAI)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages/count_tokens", strings.NewReader(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hi"}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+	require.NotEqual(t, http.StatusNotFound, w.Code)
+}
+
+func TestGatewayRoutesNonOpenAICountTokensPathStillRegistered(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformAnthropic)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/messages/count_tokens", strings.NewReader(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hi"}]}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	router.ServeHTTP(w, req)
+	require.NotEqual(t, http.StatusNotFound, w.Code)
 }
 
 func TestResolveAPIKeyRouteForJSONModelReroutesMessagesBeforeDispatch(t *testing.T) {
