@@ -112,7 +112,7 @@ func TestGatewayRoutesOpenAIVideosPathsAreRegistered(t *testing.T) {
 	require.NotEqual(t, http.StatusNotFound, taskW.Code)
 }
 
-func TestGatewayRoutesGrokAllowsTextCompatibilityEntrypoints(t *testing.T) {
+func TestGatewayRoutesGrokAllowsCLICompatibilityEntrypoints(t *testing.T) {
 	router := newGatewayRoutesTestRouter(service.PlatformGrok)
 
 	for _, tc := range []struct {

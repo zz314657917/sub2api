@@ -265,6 +265,12 @@ gateway:
     store_disabled_force_new_conn: true
     # 是否启用 WSv2 generate=false 预热（默认 false）
     prewarm_generate_enabled: false
+    # 入站客户端 WS 单帧读取上限（默认 64MiB）
+    client_read_limit_bytes: 67108864
+    # 首包过大时，保持客户端 WS，改用 HTTP Responses 上游（默认 false；Grok 会强制使用该桥接）
+    http_bridge_enabled: false
+    # 触发 HTTP bridge 的入站 WS payload 阈值（默认 15MiB）
+    http_bridge_threshold_bytes: 15728640
     # 协议 feature 开关，v2 优先于 v1
     responses_websockets: false
     responses_websockets_v2: true
