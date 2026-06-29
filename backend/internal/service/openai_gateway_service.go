@@ -5865,6 +5865,7 @@ type OpenAIRecordUsageInput struct {
 	PrepaidBalanceCost   float64
 	CostOverride         *CostBreakdown
 	APIKeyService        APIKeyQuotaUpdater
+	QuotaPlatform        string
 	ChannelUsageFields
 }
 
@@ -6109,6 +6110,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		return nil
 	}
 
+	quotaPlatform := strings.TrimSpace(input.QuotaPlatform)
+	if quotaPlatform == "" {
+		quotaPlatform = PlatformFromAPIKey(apiKey)
+	}
+
 	applied := false
 	billingErr := func() error {
 		accountShareSettings := resolveAccountShareBillingSettings(ctx, s.settingService)
@@ -6128,6 +6134,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			AccountShareFreezeHours:      accountShareSettings.FreezeHours,
 			NewUserTrial:                 trialSession,
 			PrepaidBalanceCost:           prepaidBalanceCost,
+			Platform:                     quotaPlatform,
 		}, s.billingDeps(), s.usageBillingRepo, s.welfareService)
 		return err
 	}()

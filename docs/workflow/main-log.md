@@ -79,3 +79,5 @@
 260626 1658 | upstream-main-v0138-followup-safe-patches-s22 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0138-followup-safe-patches-s22-result.md, docs/workflow/qa-reports/upstream-main-v0138-followup-safe-patches-s22-qa.md
 260629 2045 | upstream-main-v0139-backend-compat-s23 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0139-backend-compat-s23.md
 260629 2115 | upstream-main-v0139-backend-compat-s23 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0139-backend-compat-s23-result.md, docs/workflow/qa-reports/upstream-main-v0139-backend-compat-s23-qa.md
+260629 2205 | upstream-main-v0139-backend-compat-s24 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0139-backend-compat-s24.md
+260629 2238 | upstream-main-v0139-backend-compat-s24 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0139-backend-compat-s24-result.md, docs/workflow/qa-reports/upstream-main-v0139-backend-compat-s24-qa.md

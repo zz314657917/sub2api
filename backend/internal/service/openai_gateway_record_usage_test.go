@@ -879,6 +879,53 @@ func TestOpenAIGatewayServiceRecordUsage_UpdatesAPIKeyQuotaWhenConfigured(t *tes
 	require.InDelta(t, expected.ActualCost, quotaSvc.lastAmount, 1e-12)
 }
 
+func TestOpenAIGatewayServiceRecordUsage_PreservesQuotaPlatform(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_quota_platform",
+			Usage:     OpenAIUsage{InputTokens: 10, OutputTokens: 5},
+			Model:     "gpt-5.1",
+			Duration:  time.Second,
+		},
+		APIKey:        &APIKey{ID: 10050, Quota: 100, Group: &Group{Platform: PlatformOpenAI}},
+		User:          &User{ID: 20050},
+		Account:       &Account{ID: 30050, Type: AccountTypeAPIKey},
+		APIKeyService: &openAIRecordUsageAPIKeyQuotaStub{},
+		QuotaPlatform: PlatformAntigravity,
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, billingRepo.calls)
+	require.Equal(t, PlatformAntigravity, billingRepo.lastCmd.Platform)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_FallsBackToAPIKeyQuotaPlatform(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_quota_platform_fallback",
+			Usage:     OpenAIUsage{InputTokens: 10, OutputTokens: 5},
+			Model:     "gpt-5.1",
+			Duration:  time.Second,
+		},
+		APIKey:        &APIKey{ID: 10051, Quota: 100, Group: &Group{Platform: PlatformOpenAI}},
+		User:          &User{ID: 20051},
+		Account:       &Account{ID: 30051, Type: AccountTypeAPIKey},
+		APIKeyService: &openAIRecordUsageAPIKeyQuotaStub{},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 1, billingRepo.calls)
+	require.Equal(t, PlatformOpenAI, billingRepo.lastCmd.Platform)
+}
+
 func TestOpenAIGatewayServiceRecordUsage_ClampsActualInputTokensToZero(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}

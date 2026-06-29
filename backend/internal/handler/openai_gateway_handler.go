@@ -503,6 +503,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		requestPayloadHash := service.HashUsageRequestPayload(body)
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account)
+		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 
 		// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
 		capturedTrialSession := trialSession
@@ -526,6 +527,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 				IPAddress:          clientIP,
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      h.apiKeyService,
+				QuotaPlatform:      quotaPlatform,
 				ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),
 			}); err != nil {
 				logger.L().With(
@@ -920,6 +922,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		requestPayloadHash := service.HashUsageRequestPayload(body)
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account)
+		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 
 		capturedTrialSession := trialSession
 		capturedTrialRelease := trialRelease
@@ -942,6 +945,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 				IPAddress:          clientIP,
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      h.apiKeyService,
+				QuotaPlatform:      quotaPlatform,
 				ChannelUsageFields: channelMappingMsg.ToUsageFields(reqModel, result.UpstreamModel),
 			}); err != nil {
 				logger.L().With(
@@ -1563,6 +1567,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, true, result.FirstTokenMs)
 				inboundEndpoint := GetInboundEndpoint(c)
 				upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account)
+				quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 				capturedTrialSession := trialSession
 				capturedTrialRelease := trialRelease
 				submitMode := h.submitOpenAIUsageRecordTask(ctx, result, func(taskCtx context.Context) {
@@ -1584,6 +1589,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 						IPAddress:          clientIP,
 						RequestPayloadHash: service.HashUsageRequestPayload(firstMessage),
 						APIKeyService:      h.apiKeyService,
+						QuotaPlatform:      quotaPlatform,
 						ChannelUsageFields: channelMappingWS.ToUsageFields(reqModel, result.UpstreamModel),
 					}); err != nil {
 						reqLog.Error("openai.websocket_record_usage_failed",

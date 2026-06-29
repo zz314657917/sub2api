@@ -8399,6 +8399,7 @@ type postUsageBillingParams struct {
 	NewUserTrial                 *NewUserTrialSession
 	SkipUsageCounters            bool
 	PrepaidBalanceCost           float64
+	Platform                     string
 }
 
 type accountShareBillingSettings struct {
@@ -8613,6 +8614,9 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		cmd.AccountShareOwnerUserID = *p.Account.OwnerUserID
 		cmd.AccountShareOwnerRatePercent = clampAccountShareOwnerRate(p.AccountShareOwnerRatePercent)
 		cmd.AccountShareFreezeHours = normalizeAccountShareFreezeHours(p.AccountShareFreezeHours)
+	}
+	if platform := strings.TrimSpace(p.Platform); platform != "" {
+		cmd.Platform = platform
 	}
 
 	cmd.Normalize()
