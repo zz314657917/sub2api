@@ -1,20 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-v0139-openai-count-tokens-s26
-total_sprints: 10
-pending_action: commit and push S26 OpenAI count_tokens bridge
+current_sprint: upstream-main-v0139-codex-model-instructions-s27
+total_sprints: 11
+pending_action: commit and push S27 Codex model-aware instructions
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-06-29 22:46 +08:00
+last_verified: 2026-06-30 13:18 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0139-openai-count-tokens-s26`
-- 当前目标：继续从 post-`v0.1.138` / `v0.1.139` `upstream/main` 合入纯后端 OpenAI count_tokens bridge：OpenAI group 的 `/v1/messages/count_tokens` 转到 `/v1/responses/input_tokens`。
-- 当前结论：S26 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣语义、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端和公共产品页。
+- 当前 Sprint：`upstream-main-v0139-codex-model-instructions-s27`
+- 当前目标：继续从 post-`v0.1.138` / `v0.1.139+` `upstream/main` 合入纯后端 OpenAI/Codex 小补丁：空 `instructions` 按模型注入真实 Codex base prompt，特别是 `gpt-5.5` 不再回退到通用占位符。
+- 当前结论：S27 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣语义、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端、公共产品页、Grok 路由和 OAuth redirect_uri 修复。
 - 当前已确认事实：
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
@@ -41,7 +41,12 @@ last_verified: 2026-06-29 22:46 +08:00
   - S24 实际合入：OpenAI async usage billing 捕获并传递 request-time quota platform、fallback pricing warn 按模型去重、quota exhausted key 设置为 unlimited 时重新激活。本地缺少上游完整 `UserPlatformQuotaRepository` 持久层，S24 只保留平台字段到统一 billing command，不引入 migrations/flusher。
   - S25 实际合入：Codex OAuth transform 将 `role:"system"` input item 改写为 `role:"developer"` 并保留在 `input`，同时继续把 system 文本镜像到 `instructions`；这覆盖 Responses JSON mode 需要在 input 中保留 JSON 指令的场景。`7a38c6621` OpenAI count_tokens bridge 范围较大，留作 S26 单独 contract。
   - S26 实际合入：OpenAI group 的 `/v1/messages/count_tokens` 不再路由级 404，新增 handler/service 将 Anthropic count_tokens 请求转换为 OpenAI `/v1/responses/input_tokens` 并返回 `input_tokens`。本地没有上游部分新 helper，已按现有 `ParseGatewayRequest`、billing check、account selection 和 HTTP upstream 调用适配。
+  - S27 候选评估中，`27600b1d2c` count_tokens generation field filter、`1d47fd6300` DeepSeek `reasoning_content`、`2c14efeaa0` Images `n` 透传、`888cd8092d` image moderation error、`32ea9cfe1f` API key SSE body fallback、`89dffdd2e1` Anthropic cache token input semantics、`6aec505016`/`be3613593b` OAuth 401 no credentials overwrite、`c10598dfe5` idempotency UTF-8 truncation 都已在本地等价；本轮只迁入仍缺失且范围小的 `709cf6185` / model-aware Codex instructions。
+  - S27 实际合入：新增 `openai.CodexBaseInstructionsForModel` 与 GPT-5.1/GPT-5.2/GPT-5.5 Codex base prompt 资源；`applyCodexOAuthTransform` 和 `OpenAIGatewayService.Forward` 在空/空白 `instructions` 时使用模型感知默认 prompt，`gpt-5.5` 走 GPT-5.5 Codex base prompt。
 - 目标验证入口：
+  - `docs/workflow/tasks/upstream-main-v0139-codex-model-instructions-s27.md`
+  - `docs/workflow/worker-results/upstream-main-v0139-codex-model-instructions-s27-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0139-codex-model-instructions-s27-qa.md`
   - `docs/workflow/tasks/upstream-main-v0139-openai-count-tokens-s26.md`
   - `docs/workflow/worker-results/upstream-main-v0139-openai-count-tokens-s26-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0139-openai-count-tokens-s26-qa.md`
@@ -127,5 +132,8 @@ last_verified: 2026-06-29 22:46 +08:00
   - `go test ./internal/handler -run "TestResolveOpenAIMessagesDispatchMappedModel|TestNewOpenAIModelMappedBodyCache|TestOpenAIGatewayHandler" -count=1`
   - `go test ./internal/server/routes -run "TestGatewayRoutes" -count=1`
   - `git diff --check`
-- 下一合法动作：精确 stage S26 allowed paths，执行 staged denied-path audit 后提交/推送。
+  - `go test ./internal/pkg/openai -run "TestCodexBaseInstructionsForModel" -count=1`
+  - `go test ./internal/service -run "TestDefaultCodexSynthInstructionsModelAware|TestApplyCodexOAuthTransform_GPT55SuppliesModelSpecificInstructions|TestApplyCodexOAuthTransform_CodexCLI_SuppliesDefaultWhenEmpty|TestApplyCodexOAuthTransform_NonCodexCLI_PreservesExistingInstructions|TestOpenAIGatewayServiceForwardGPT55InjectsModelSpecificInstructions" -count=1`
+  - `git diff --check`
+- 下一合法动作：精确 stage S27 allowed paths，执行 staged denied-path audit 后提交/推送。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。

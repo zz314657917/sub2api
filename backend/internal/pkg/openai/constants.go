@@ -1,7 +1,10 @@
 // Package openai provides helpers and types for OpenAI API integration.
 package openai
 
-import _ "embed"
+import (
+	_ "embed"
+	"strings"
+)
 
 // Model represents an OpenAI model
 type Model struct {
@@ -44,3 +47,46 @@ const DefaultTestModel = "gpt-5.4"
 //
 //go:embed instructions.txt
 var DefaultInstructions string
+
+// instructionsGPT51 / instructionsGPT52 / instructionsGPT55 are the Codex CLI
+// base prompts for non-codex GPT-5.x models. GPT-5.5 is also the latest
+// fallback for GPT-5.3/GPT-5.4 and unknown models.
+//
+//go:embed instructions_gpt5_1.txt
+var instructionsGPT51 string
+
+//go:embed instructions_gpt5_2.txt
+var instructionsGPT52 string
+
+//go:embed instructions_gpt5_5.txt
+var instructionsGPT55 string
+
+func latestCodexInstructions() string {
+	if v := strings.TrimSpace(instructionsGPT55); v != "" {
+		return instructionsGPT55
+	}
+	return DefaultInstructions
+}
+
+// CodexBaseInstructionsForModel returns the closest Codex base prompt for a
+// model. Codex-family models use the GPT-5 Codex prompt, GPT-5.1/5.2/5.5 use
+// their matching prompts, and unversioned or unknown models fall back to the
+// latest known prompt.
+func CodexBaseInstructionsForModel(model string) string {
+	m := strings.ToLower(strings.TrimSpace(model))
+	switch {
+	case strings.Contains(m, "codex"):
+		return DefaultInstructions
+	case strings.HasPrefix(m, "gpt-5.5"):
+		return latestCodexInstructions()
+	case strings.HasPrefix(m, "gpt-5.2"):
+		if v := strings.TrimSpace(instructionsGPT52); v != "" {
+			return instructionsGPT52
+		}
+	case strings.HasPrefix(m, "gpt-5.1"):
+		if v := strings.TrimSpace(instructionsGPT51); v != "" {
+			return instructionsGPT51
+		}
+	}
+	return latestCodexInstructions()
+}
