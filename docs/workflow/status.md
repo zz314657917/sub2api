@@ -1,20 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-v0141-payment-validity-units-s33
-total_sprints: 14
-pending_action: continue read-only upstream candidate scan for S34
+current_sprint: upstream-main-v0141-antigravity-system-role-s34
+total_sprints: 15
+pending_action: continue read-only upstream candidate scan for S35
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-01 01:26 +08:00
+last_verified: 2026-07-01 01:50 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0141-payment-validity-units-s33`
-- 当前目标：继续从最新 `upstream/main` 小步合入纯后端低风险补丁：支付订阅套餐有效期单位 `weeks` / `months` 在创建订单时正确折算为天数。
-- 当前结论：S33 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰前端、Ent/migrations/wire、支付退款/余额预扣/返佣、Ops 分类大批、安全敏感凭证 redaction、Gemini chat-completions 大桥接、用户代理/账号脏改或 `knowledge/*`。
+- 当前 Sprint：`upstream-main-v0141-antigravity-system-role-s34`
+- 当前目标：继续从最新 `upstream/main` 小步合入纯后端低风险补丁：Antigravity Claude-to-Gemini 转换中，把 `messages[].role == "system"` 内容合并进 Gemini `systemInstruction`，避免输出非法 `system` role 的 contents。
+- 当前结论：S34 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰前端、Ent/migrations/wire、支付退款/余额预扣/返佣、Ops 分类大批、安全敏感凭证 redaction、Gemini chat-completions 大桥接、用户代理/账号脏改或 `knowledge/*`。
 - 当前已确认事实：
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
@@ -57,7 +57,12 @@ last_verified: 2026-07-01 01:26 +08:00
   - S32 本地主工作树 handler 定向测试通过；service 定向测试在主工作树被无关 proxy/account 脏改导致的 `ProxyRepository` stub 编译错误挡住，同一 S32 patch 已在临时干净 worktree 上通过 handler/service 定向测试。
   - S33 筛选中，`a611742910` 图片生成上游 context 脱离和 `6acb46c113` 通用网关本地容量错误标记已被本地等价覆盖；`0f8e2d093` admin 账号敏感凭证 redaction 有安全价值但触达 `admin_service.go`、`frontend/src/types/index.ts` 等当前脏文件，留作后续独立批次。
   - S33 实际合入：上游 `147c1879d` / `fix(payment): support plural subscription validity units`。本地前端套餐编辑器会保存 `weeks` / `months`，后端创建支付订单时现在将 `weeks` 折算为 `days * 7`、`months` 折算为 `days * 30`，保持 `days` / 未知单位回退原值。
+  - S34 筛选中，`271aba1abe` IP 拒绝 SLA 排除、`930326116` 订阅支付金额显示、`0ae3329613` API Key 名称 XSS 转义、`04deb819b0` EasyPay 查单 `trade_status`、`1e2193c3d2` WebSocket 用量去重、`bf1a2d6dc2` Codex reset window 统计、`c40a74d98` 内容审计管理员自动封禁豁免、`55655b865` Responses→Chat reasoning-only stream、`727ac3f68` / `app_session_terminated` 非重试、`f6e0ebc6b` Anthropic window cooldown、`bf3787de1` Claude Code count_tokens 放行、`20f534078` Responses→Chat usage 明细都已被本地等价覆盖。
+  - S34 实际合入：上游 `65559ac58` / `fix(antigravity): merge system role messages`。Antigravity 转换器现在从 `messages` 中提取 `role:"system"` 的 parts，并追加到 Gemini `systemInstruction`；普通 user/assistant contents 不变，assistant 仍映射为 Gemini `model` role。
 - 目标验证入口：
+  - `docs/workflow/tasks/upstream-main-v0141-antigravity-system-role-s34.md`
+  - `docs/workflow/worker-results/upstream-main-v0141-antigravity-system-role-s34-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0141-antigravity-system-role-s34-qa.md`
   - `docs/workflow/tasks/upstream-main-v0141-payment-validity-units-s33.md`
   - `docs/workflow/worker-results/upstream-main-v0141-payment-validity-units-s33-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0141-payment-validity-units-s33-qa.md`
@@ -173,5 +178,7 @@ last_verified: 2026-07-01 01:26 +08:00
   - `go test -tags=unit ./internal/server/middleware -run "TestAPIKeyAuthIPRestrictionDoesNotTrustSpoofedForwardHeaders|TestAPIKeyAuthIPRestrictionIncludesClientIPForBlacklistDenial|TestAPIKeyAuthIPRestrictionUsesForwardedClientIPWhenProxyTrusted" -count=1`
   - `go test ./internal/service -run "TestComputeValidityDaysSupportsSingularAndPluralUnits" -count=1`
   - `git diff --check -- backend/internal/service/payment_service.go backend/internal/service/payment_order_result_test.go`
-- 下一合法动作：精确 stage S33 allowed paths，执行 staged denied-path audit 后提交/推送；之后继续只读筛选 S34。
+  - `go test ./internal/pkg/antigravity -run "TestTransformClaudeToGeminiWithOptions_MessageRoles|TestTransformClaudeToGeminiWithOptions_PreservesBillingHeaderSystemBlock" -count=1`
+  - `git diff --check -- backend/internal/pkg/antigravity/request_transformer.go backend/internal/pkg/antigravity/request_transformer_test.go`
+- 下一合法动作：精确 stage S34 allowed paths，执行 staged denied-path audit 后提交；之后继续只读筛选 S35。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。
