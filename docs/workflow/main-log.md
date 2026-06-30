@@ -86,3 +86,4 @@
 260629 2240 | upstream-main-v0139-openai-count-tokens-s26 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0139-openai-count-tokens-s26.md
 260629 2246 | upstream-main-v0139-openai-count-tokens-s26 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0139-openai-count-tokens-s26-result.md, docs/workflow/qa-reports/upstream-main-v0139-openai-count-tokens-s26-qa.md
 260630 1318 | upstream-main-v0139-codex-model-instructions-s27 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0139-codex-model-instructions-s27-result.md, docs/workflow/qa-reports/upstream-main-v0139-codex-model-instructions-s27-qa.md
+260630 1349 | upstream-main-v0139-openai-context-window-s28 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0139-openai-context-window-s28-result.md, docs/workflow/qa-reports/upstream-main-v0139-openai-context-window-s28-qa.md
