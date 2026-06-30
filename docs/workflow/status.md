@@ -1,20 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-v0139-responses-stream-output-s29
+current_sprint: upstream-main-v0139-chat-bridge-guards-s30
 total_sprints: 12
-pending_action: continue read-only upstream candidate scan for S30
+pending_action: continue read-only upstream candidate scan for S31
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-06-30 14:06 +08:00
+last_verified: 2026-06-30 14:22 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0139-responses-stream-output-s29`
-- 当前目标：继续从 post-`v0.1.138` / `v0.1.139+` `upstream/main` 合入纯后端 OpenAI 小补丁：Responses streaming 终端事件 `response.output:null` / 空 output 归一化为 SDK 可解析数组。
-- 当前结论：S29 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣语义、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端、公共产品页、Grok 路由、OAuth redirect_uri 修复或当前 proxy/account 脏改。
+- 当前 Sprint：`upstream-main-v0139-chat-bridge-guards-s30`
+- 当前目标：继续从 post-`v0.1.138` / `v0.1.139+` `upstream/main` 合入纯后端 OpenAI 小补丁：`/v1/chat/completions` bridge 补齐 `codex_cli_only` gate，并避免普通 Chat Completions OAuth bridge 注入默认 Codex instructions。
+- 当前结论：S30 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣语义、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端、公共产品页、Grok 路由、OAuth redirect_uri 修复或当前 proxy/account 脏改。
 - 当前已确认事实：
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
@@ -47,7 +47,12 @@ last_verified: 2026-06-30 14:06 +08:00
   - S28 实际合入：新增 `isOpenAIContextWindowError`，让 HTTP 502/5xx、Responses stream、Chat Completions bridge buffered/stream 的 context-window 超限错误不再构造 `UpstreamFailoverError`；同时保留 `server_is_overloaded` 等 transient 错误的 failover 行为。
   - S29 候选评估中，`b9509e823a` / `ed2aac25a` long-context cache_read/cache_creation 倍率、`8a999f438d` WS terminal first-token 排除、`0a521f09fb` Gemini messages tool_use 关闭、`03ae510c68` ops count_tokens metrics 排除均已本地等价；本轮只迁入仍缺失且范围小的 `e9a2db8e80`。
   - S29 实际合入：OpenAI Responses streaming 在终端 `response.completed` / `response.done` / incomplete/cancel 事件的 `response.output` 为 null 或空且可从流式 delta 重建时，补齐为 SDK 可解析 output 数组；没有可重建内容时补为空数组，避免客户端解析 terminal output 为 null。
+  - S30 候选评估中，`ae5e980dd` 与 `dbdbfb112` 都是纯后端 OpenAI chat-completions bridge 小补丁，且本地 `ForwardAsChatCompletions` 仍缺失对应行为，适合合并为一批。
+  - S30 实际合入：`ForwardAsChatCompletions` 在入口补齐 `codex_cli_only` 检测和拒绝日志；OAuth 普通 Chat Completions 转 Responses 后调用 `SkipDefaultInstructions`，并显式保留空 `instructions` 字段，避免给 chat bridge 注入默认 Codex prompt。
 - 目标验证入口：
+  - `docs/workflow/tasks/upstream-main-v0139-chat-bridge-guards-s30.md`
+  - `docs/workflow/worker-results/upstream-main-v0139-chat-bridge-guards-s30-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0139-chat-bridge-guards-s30-qa.md`
   - `docs/workflow/tasks/upstream-main-v0139-responses-stream-output-s29.md`
   - `docs/workflow/worker-results/upstream-main-v0139-responses-stream-output-s29-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0139-responses-stream-output-s29-qa.md`
@@ -147,5 +152,6 @@ last_verified: 2026-06-30 14:06 +08:00
   - `git diff --check`
   - `go test ./internal/service -run "TestIsOpenAIContextWindowError|TestShouldFailoverOpenAIUpstreamResponseContextWindow502|TestOpenAIHandleErrorResponse_ContextWindow502KeepsMessageWithoutFailover|TestForwardAsChatCompletions_BufferedContextWindowResponseFailedReturnsErrorWithoutFailover|TestForwardAsChatCompletions_BufferedTransientResponseFailedTriggersFailover|TestForwardAsChatCompletions_StreamContextWindowResponseFailedReturnsErrorWithoutFailover|TestOpenAIStreamingContextWindowResponseFailedBeforeOutputPassesThrough|TestOpenAIStreamingResponseFailedBeforeOutputServerOverloadedCodeReturnsFailover" -count=1`
   - `go test ./internal/service -run "TestOpenAIStreamingNormalizesTerminalOutputFromDeltas|TestOpenAIStreamingNormalizesTerminalOutputToEmptyArray|TestOpenAIStreamingPreambleKeepaliveUsesDownstreamIdle|TestOpenAIStreamingPolicyResponseFailedBeforeOutputPassesThrough|TestOpenAIStreamingResponseFailedAfterOutputSanitizesVerboseResponseForClient" -count=1`
-- 下一合法动作：精确 stage S29 allowed paths，执行 staged denied-path audit 后提交/推送；之后继续只读筛选 S30。
+  - `go test ./internal/service -run "TestForwardAsChatCompletions_EnforcesCodexCLIOnlyRestriction|TestForwardAsChatCompletions_OAuthDoesNotInjectDefaultInstructions|TestForwardAsChatCompletions_APIKeyPropagatesPromptCacheKeyInResponsesBody|TestForwardAsChatCompletions_TransportErrorReturnsFailover" -count=1`
+- 下一合法动作：精确 stage S30 allowed paths，执行 staged denied-path audit 后提交/推送；之后继续只读筛选 S31。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。
