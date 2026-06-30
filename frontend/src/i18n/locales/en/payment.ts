@@ -42,7 +42,6 @@ export default {
         weeklyQuota: 'Weekly quota {amount}',
         monthlyQuota: 'Monthly quota {amount}',
         dailyQuota: 'Daily quota {amount}',
-        discountRate: 'Effective API billing rate: {rate}x',
         gptModels: 'Supports mainstream GPT models',
         unlimitedQuota: 'No quota limit inside this plan',
       },

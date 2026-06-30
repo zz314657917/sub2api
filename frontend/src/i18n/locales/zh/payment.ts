@@ -42,7 +42,6 @@ export default {
         weeklyQuota: '周额度 {amount}',
         monthlyQuota: '月额度 {amount}',
         dailyQuota: '日额度 {amount}',
-        discountRate: '相当于全站 API 计费额外尊享 {rate} 折',
         gptModels: '支持 GPT 主流模型',
         unlimitedQuota: '不限制套餐内额度',
       },

@@ -616,7 +616,6 @@ const pricingCatalog = {
       weeklyQuota: '周额度 {amount}',
       monthlyQuota: '月额度 {amount}',
       dailyQuota: '日额度 {amount}',
-      discountRate: '相当于全站 API 计费额外尊享 {rate} 折',
       gptModels: '支持 GPT 主流模型',
       unlimitedQuota: '不限制套餐内额度',
     },
@@ -698,7 +697,6 @@ const pricingCatalog = {
       weeklyQuota: 'Weekly quota {amount}',
       monthlyQuota: 'Monthly quota {amount}',
       dailyQuota: 'Daily quota {amount}',
-      discountRate: 'Effective API billing rate: {rate}x',
       gptModels: 'Supports mainstream GPT models',
       unlimitedQuota: 'No quota limit inside this plan',
     },
@@ -1262,9 +1260,6 @@ function planFeatureList(plan: SubscriptionPlan): string[] {
   if (weeklyLimit != null) features.push(pt('feature.weeklyQuota', { amount: formatCreditAmount(weeklyLimit) }))
   if (monthlyLimit != null) features.push(pt('feature.monthlyQuota', { amount: formatCreditAmount(monthlyLimit) }))
   if (dailyLimit != null) features.push(pt('feature.dailyQuota', { amount: formatCreditAmount(dailyLimit) }))
-  if (plan.rate_multiplier != null && plan.rate_multiplier !== 1) {
-    features.push(pt('feature.discountRate', { rate: plan.rate_multiplier }))
-  }
   features.push(...(plan.features || []).filter(Boolean).map(normalizePlanFeature))
   if (features.length === 0) {
     features.push(pt('feature.unlimitedQuota'))
