@@ -1,20 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-v0140-api-key-acl-denial-s31
-total_sprints: 12
-pending_action: continue read-only upstream candidate scan for S32
+current_sprint: upstream-main-v0141-model-not-found-s32
+total_sprints: 13
+pending_action: continue read-only upstream candidate scan for S33
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-06-30 15:12 +08:00
+last_verified: 2026-07-01 00:40 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0140-api-key-acl-denial-s31`
-- 当前目标：继续从最新 `upstream/main` 小步合入纯后端低风险补丁：API Key ACL 拒绝响应补充解析后的 client IP，并保持 Gin trusted-proxy 边界。
-- 当前结论：S31 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣语义、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端、公共产品页、Grok 路由、OAuth completion flow 或当前 proxy/account 脏改。
+- 当前 Sprint：`upstream-main-v0141-model-not-found-s32`
+- 当前目标：继续从最新 `upstream/main` 小步合入纯后端低风险补丁：当账号池非空但没有账号支持请求模型时返回 `404 model_not_found`，而空池/瞬时容量问题继续返回 `503 api_error`。
+- 当前结论：S32 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣语义、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端、公共产品页、Grok 路由、OAuth completion flow、用户代理/账号脏改或 `knowledge/*`。
 - 当前已确认事实：
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
@@ -52,7 +52,13 @@ last_verified: 2026-06-30 15:12 +08:00
   - S31 基准刷新后，上游已到 `v0.1.140-1-g89b2d63ef`；`v0.1.140` 尾部主要是前端排序、OAuth completion flow、支付退款 pending、Grok/platform quota migration、sponsor 和 VERSION，均不适合混入本轮小补丁。
   - S31 候选评估中，`82576e0a3` email auth identity create err 和 `65fa72892` chat transport failover 已本地等价；本轮只迁入仍缺失的 `56c62c59c` API Key ACL 拒绝信息补 client IP。
   - S31 实际合入：API Key whitelist/blacklist 拒绝响应返回 `Access denied. Your IP is <client-ip>`，继续通过 `ip.GetTrustedClientIP(c)` / Gin `ClientIP()` 解析客户端 IP；未配置 trusted proxies 时不信任伪造转发头，配置 trusted proxies 时可显示转发后的 client IP。
+  - S32 基准刷新后，上游已到 `v0.1.141-1-gdc1bc1545`；`v0.1.141` 尾部主要是 admin/user usage parity、订阅支付金额显示、sponsor/VERSION 和前端/产品面范围，均不适合混入本轮小补丁。
+  - S32 实际合入：新增 no-account 错误分类器与模型可用性诊断；Anthropic/Gemini/OpenAI 网关在账号池非空但无账号支持请求模型时返回 `404 model_not_found`，空池、compact unsupported、查询失败、限流、quota pause、runtime block 和 slot/wait 容量问题继续返回 `503`。
+  - S32 本地主工作树 handler 定向测试通过；service 定向测试在主工作树被无关 proxy/account 脏改导致的 `ProxyRepository` stub 编译错误挡住，同一 S32 patch 已在临时干净 worktree 上通过 handler/service 定向测试。
 - 目标验证入口：
+  - `docs/workflow/tasks/upstream-main-v0141-model-not-found-s32.md`
+  - `docs/workflow/worker-results/upstream-main-v0141-model-not-found-s32-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0141-model-not-found-s32-qa.md`
   - `docs/workflow/tasks/upstream-main-v0140-api-key-acl-denial-s31.md`
   - `docs/workflow/worker-results/upstream-main-v0140-api-key-acl-denial-s31-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0140-api-key-acl-denial-s31-qa.md`
