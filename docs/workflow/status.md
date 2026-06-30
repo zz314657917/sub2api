@@ -1,20 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-v0139-chat-bridge-guards-s30
+current_sprint: upstream-main-v0140-api-key-acl-denial-s31
 total_sprints: 12
-pending_action: continue read-only upstream candidate scan for S31
+pending_action: continue read-only upstream candidate scan for S32
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-06-30 14:22 +08:00
+last_verified: 2026-06-30 15:12 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0139-chat-bridge-guards-s30`
-- 当前目标：继续从 post-`v0.1.138` / `v0.1.139+` `upstream/main` 合入纯后端 OpenAI 小补丁：`/v1/chat/completions` bridge 补齐 `codex_cli_only` gate，并避免普通 Chat Completions OAuth bridge 注入默认 Codex instructions。
-- 当前结论：S30 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣语义、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端、公共产品页、Grok 路由、OAuth redirect_uri 修复或当前 proxy/account 脏改。
+- 当前 Sprint：`upstream-main-v0140-api-key-acl-denial-s31`
+- 当前目标：继续从最新 `upstream/main` 小步合入纯后端低风险补丁：API Key ACL 拒绝响应补充解析后的 client IP，并保持 Gin trusted-proxy 边界。
+- 当前结论：S31 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣语义、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端、公共产品页、Grok 路由、OAuth completion flow 或当前 proxy/account 脏改。
 - 当前已确认事实：
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
@@ -49,7 +49,13 @@ last_verified: 2026-06-30 14:22 +08:00
   - S29 实际合入：OpenAI Responses streaming 在终端 `response.completed` / `response.done` / incomplete/cancel 事件的 `response.output` 为 null 或空且可从流式 delta 重建时，补齐为 SDK 可解析 output 数组；没有可重建内容时补为空数组，避免客户端解析 terminal output 为 null。
   - S30 候选评估中，`ae5e980dd` 与 `dbdbfb112` 都是纯后端 OpenAI chat-completions bridge 小补丁，且本地 `ForwardAsChatCompletions` 仍缺失对应行为，适合合并为一批。
   - S30 实际合入：`ForwardAsChatCompletions` 在入口补齐 `codex_cli_only` 检测和拒绝日志；OAuth 普通 Chat Completions 转 Responses 后调用 `SkipDefaultInstructions`，并显式保留空 `instructions` 字段，避免给 chat bridge 注入默认 Codex prompt。
+  - S31 基准刷新后，上游已到 `v0.1.140-1-g89b2d63ef`；`v0.1.140` 尾部主要是前端排序、OAuth completion flow、支付退款 pending、Grok/platform quota migration、sponsor 和 VERSION，均不适合混入本轮小补丁。
+  - S31 候选评估中，`82576e0a3` email auth identity create err 和 `65fa72892` chat transport failover 已本地等价；本轮只迁入仍缺失的 `56c62c59c` API Key ACL 拒绝信息补 client IP。
+  - S31 实际合入：API Key whitelist/blacklist 拒绝响应返回 `Access denied. Your IP is <client-ip>`，继续通过 `ip.GetTrustedClientIP(c)` / Gin `ClientIP()` 解析客户端 IP；未配置 trusted proxies 时不信任伪造转发头，配置 trusted proxies 时可显示转发后的 client IP。
 - 目标验证入口：
+  - `docs/workflow/tasks/upstream-main-v0140-api-key-acl-denial-s31.md`
+  - `docs/workflow/worker-results/upstream-main-v0140-api-key-acl-denial-s31-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0140-api-key-acl-denial-s31-qa.md`
   - `docs/workflow/tasks/upstream-main-v0139-chat-bridge-guards-s30.md`
   - `docs/workflow/worker-results/upstream-main-v0139-chat-bridge-guards-s30-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0139-chat-bridge-guards-s30-qa.md`
@@ -153,5 +159,6 @@ last_verified: 2026-06-30 14:22 +08:00
   - `go test ./internal/service -run "TestIsOpenAIContextWindowError|TestShouldFailoverOpenAIUpstreamResponseContextWindow502|TestOpenAIHandleErrorResponse_ContextWindow502KeepsMessageWithoutFailover|TestForwardAsChatCompletions_BufferedContextWindowResponseFailedReturnsErrorWithoutFailover|TestForwardAsChatCompletions_BufferedTransientResponseFailedTriggersFailover|TestForwardAsChatCompletions_StreamContextWindowResponseFailedReturnsErrorWithoutFailover|TestOpenAIStreamingContextWindowResponseFailedBeforeOutputPassesThrough|TestOpenAIStreamingResponseFailedBeforeOutputServerOverloadedCodeReturnsFailover" -count=1`
   - `go test ./internal/service -run "TestOpenAIStreamingNormalizesTerminalOutputFromDeltas|TestOpenAIStreamingNormalizesTerminalOutputToEmptyArray|TestOpenAIStreamingPreambleKeepaliveUsesDownstreamIdle|TestOpenAIStreamingPolicyResponseFailedBeforeOutputPassesThrough|TestOpenAIStreamingResponseFailedAfterOutputSanitizesVerboseResponseForClient" -count=1`
   - `go test ./internal/service -run "TestForwardAsChatCompletions_EnforcesCodexCLIOnlyRestriction|TestForwardAsChatCompletions_OAuthDoesNotInjectDefaultInstructions|TestForwardAsChatCompletions_APIKeyPropagatesPromptCacheKeyInResponsesBody|TestForwardAsChatCompletions_TransportErrorReturnsFailover" -count=1`
-- 下一合法动作：精确 stage S30 allowed paths，执行 staged denied-path audit 后提交/推送；之后继续只读筛选 S31。
+  - `go test -tags=unit ./internal/server/middleware -run "TestAPIKeyAuthIPRestrictionDoesNotTrustSpoofedForwardHeaders|TestAPIKeyAuthIPRestrictionIncludesClientIPForBlacklistDenial|TestAPIKeyAuthIPRestrictionUsesForwardedClientIPWhenProxyTrusted" -count=1`
+- 下一合法动作：精确 stage S31 allowed paths，执行 staged denied-path audit 后提交/推送；之后继续只读筛选 S32。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。

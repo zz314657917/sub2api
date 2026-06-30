@@ -640,12 +640,12 @@ func TestAPIKeyAuthIPRestrictionDoesNotTrustSpoofedForwardHeaders(t *testing.T) 
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusForbidden, w.Code)
-	requireAPIKeyAuthError(t, w, "ACCESS_DENIED", "Access denied")
+	requireAPIKeyAuthError(t, w, "ACCESS_DENIED", "Access denied. Your IP is 9.9.9.9")
 	require.True(t, markedBusinessLimited)
 	require.Equal(t, service.OpsClientBusinessLimitedReasonIPRestriction, businessLimitedReason)
 }
 
-func TestAPIKeyAuthIPRestrictionUsesGenericMessageForBlacklistDenial(t *testing.T) {
+func TestAPIKeyAuthIPRestrictionIncludesClientIPForBlacklistDenial(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	user := &service.User{
@@ -690,7 +690,56 @@ func TestAPIKeyAuthIPRestrictionUsesGenericMessageForBlacklistDenial(t *testing.
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusForbidden, w.Code)
-	requireAPIKeyAuthError(t, w, "ACCESS_DENIED", "Access denied")
+	requireAPIKeyAuthError(t, w, "ACCESS_DENIED", "Access denied. Your IP is 9.9.9.9")
+}
+
+func TestAPIKeyAuthIPRestrictionUsesForwardedClientIPWhenProxyTrusted(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	user := &service.User{
+		ID:          7,
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     10,
+		Concurrency: 3,
+	}
+	apiKey := &service.APIKey{
+		ID:          100,
+		UserID:      user.ID,
+		Key:         "test-key",
+		Status:      service.StatusActive,
+		User:        user,
+		IPWhitelist: []string{"9.9.9.9"},
+	}
+
+	apiKeyRepo := &stubApiKeyRepo{
+		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+			if key != apiKey.Key {
+				return nil, service.ErrAPIKeyNotFound
+			}
+			clone := *apiKey
+			return &clone, nil
+		},
+	}
+
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	router := gin.New()
+	require.NoError(t, router.SetTrustedProxies([]string{"9.9.9.9"}))
+	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
+	router.GET("/t", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"ok": true})
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/t", nil)
+	req.RemoteAddr = "9.9.9.9:12345"
+	req.Header.Set("x-api-key", apiKey.Key)
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	router.ServeHTTP(w, req)
+
+	require.Equal(t, http.StatusForbidden, w.Code)
+	requireAPIKeyAuthError(t, w, "ACCESS_DENIED", "Access denied. Your IP is 1.2.3.4")
 }
 
 func TestAPIKeyAuthTouchesLastUsedOnSuccess(t *testing.T) {
