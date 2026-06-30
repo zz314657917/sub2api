@@ -1,20 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-v0141-model-not-found-s32
-total_sprints: 13
-pending_action: continue read-only upstream candidate scan for S33
+current_sprint: upstream-main-v0141-payment-validity-units-s33
+total_sprints: 14
+pending_action: continue read-only upstream candidate scan for S34
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-01 00:40 +08:00
+last_verified: 2026-07-01 01:26 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0141-model-not-found-s32`
-- 当前目标：继续从最新 `upstream/main` 小步合入纯后端低风险补丁：当账号池非空但没有账号支持请求模型时返回 `404 model_not_found`，而空池/瞬时容量问题继续返回 `503 api_error`。
-- 当前结论：S32 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰支付/订阅/余额预扣语义、CI/deploy/README/VERSION/sponsor、Ent/migrations/wire、前端、公共产品页、Grok 路由、OAuth completion flow、用户代理/账号脏改或 `knowledge/*`。
+- 当前 Sprint：`upstream-main-v0141-payment-validity-units-s33`
+- 当前目标：继续从最新 `upstream/main` 小步合入纯后端低风险补丁：支付订阅套餐有效期单位 `weeks` / `months` 在创建订单时正确折算为天数。
+- 当前结论：S33 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰前端、Ent/migrations/wire、支付退款/余额预扣/返佣、Ops 分类大批、安全敏感凭证 redaction、Gemini chat-completions 大桥接、用户代理/账号脏改或 `knowledge/*`。
 - 当前已确认事实：
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
@@ -55,7 +55,12 @@ last_verified: 2026-07-01 00:40 +08:00
   - S32 基准刷新后，上游已到 `v0.1.141-1-gdc1bc1545`；`v0.1.141` 尾部主要是 admin/user usage parity、订阅支付金额显示、sponsor/VERSION 和前端/产品面范围，均不适合混入本轮小补丁。
   - S32 实际合入：新增 no-account 错误分类器与模型可用性诊断；Anthropic/Gemini/OpenAI 网关在账号池非空但无账号支持请求模型时返回 `404 model_not_found`，空池、compact unsupported、查询失败、限流、quota pause、runtime block 和 slot/wait 容量问题继续返回 `503`。
   - S32 本地主工作树 handler 定向测试通过；service 定向测试在主工作树被无关 proxy/account 脏改导致的 `ProxyRepository` stub 编译错误挡住，同一 S32 patch 已在临时干净 worktree 上通过 handler/service 定向测试。
+  - S33 筛选中，`a611742910` 图片生成上游 context 脱离和 `6acb46c113` 通用网关本地容量错误标记已被本地等价覆盖；`0f8e2d093` admin 账号敏感凭证 redaction 有安全价值但触达 `admin_service.go`、`frontend/src/types/index.ts` 等当前脏文件，留作后续独立批次。
+  - S33 实际合入：上游 `147c1879d` / `fix(payment): support plural subscription validity units`。本地前端套餐编辑器会保存 `weeks` / `months`，后端创建支付订单时现在将 `weeks` 折算为 `days * 7`、`months` 折算为 `days * 30`，保持 `days` / 未知单位回退原值。
 - 目标验证入口：
+  - `docs/workflow/tasks/upstream-main-v0141-payment-validity-units-s33.md`
+  - `docs/workflow/worker-results/upstream-main-v0141-payment-validity-units-s33-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0141-payment-validity-units-s33-qa.md`
   - `docs/workflow/tasks/upstream-main-v0141-model-not-found-s32.md`
   - `docs/workflow/worker-results/upstream-main-v0141-model-not-found-s32-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0141-model-not-found-s32-qa.md`
@@ -166,5 +171,7 @@ last_verified: 2026-07-01 00:40 +08:00
   - `go test ./internal/service -run "TestOpenAIStreamingNormalizesTerminalOutputFromDeltas|TestOpenAIStreamingNormalizesTerminalOutputToEmptyArray|TestOpenAIStreamingPreambleKeepaliveUsesDownstreamIdle|TestOpenAIStreamingPolicyResponseFailedBeforeOutputPassesThrough|TestOpenAIStreamingResponseFailedAfterOutputSanitizesVerboseResponseForClient" -count=1`
   - `go test ./internal/service -run "TestForwardAsChatCompletions_EnforcesCodexCLIOnlyRestriction|TestForwardAsChatCompletions_OAuthDoesNotInjectDefaultInstructions|TestForwardAsChatCompletions_APIKeyPropagatesPromptCacheKeyInResponsesBody|TestForwardAsChatCompletions_TransportErrorReturnsFailover" -count=1`
   - `go test -tags=unit ./internal/server/middleware -run "TestAPIKeyAuthIPRestrictionDoesNotTrustSpoofedForwardHeaders|TestAPIKeyAuthIPRestrictionIncludesClientIPForBlacklistDenial|TestAPIKeyAuthIPRestrictionUsesForwardedClientIPWhenProxyTrusted" -count=1`
-- 下一合法动作：精确 stage S31 allowed paths，执行 staged denied-path audit 后提交/推送；之后继续只读筛选 S32。
+  - `go test ./internal/service -run "TestComputeValidityDaysSupportsSingularAndPluralUnits" -count=1`
+  - `git diff --check -- backend/internal/service/payment_service.go backend/internal/service/payment_order_result_test.go`
+- 下一合法动作：精确 stage S33 allowed paths，执行 staged denied-path audit 后提交/推送；之后继续只读筛选 S34。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。
