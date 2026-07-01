@@ -258,9 +258,9 @@ function formatQuota(value: number): string {
 
 function formatPercent(value: number): string {
   if (!Number.isFinite(value)) {
-    return '0.0%'
+    return '0%'
   }
-  return `${value.toFixed(1)}%`
+  return `${Math.round(value)}%`
 }
 
 function clampPercent(value: number): number {

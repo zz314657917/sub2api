@@ -855,10 +855,10 @@ func TestUserAccountService_GetCapacityPoolsUsesShareDisplayDedicatedWindows(t *
 	if group == nil {
 		t.Fatalf("expected OpenAI Pro display group, got %#v", pools.Shared.Groups)
 	}
-	if window := group.Windows["5h"]; fmt.Sprintf("%.2f", window.UsedPercent) != "20.00" || fmt.Sprintf("%.2f", window.UsedAmount) != "100.00" || window.WindowMinutes != 300 {
+	if window := group.Windows["5h"]; fmt.Sprintf("%.2f", window.UsedPercent) != "19.03" || fmt.Sprintf("%.2f", window.UsedAmount) != "95.17" || window.WindowMinutes != 300 {
 		t.Fatalf("expected dedicated 5h display window, got %#v", window)
 	}
-	if window := group.Windows["7d"]; fmt.Sprintf("%.2f", window.UsedPercent) != "4.63" || fmt.Sprintf("%.2f", window.UsedAmount) != "100.00" || window.WindowMinutes != 10080 {
+	if window := group.Windows["7d"]; fmt.Sprintf("%.2f", window.UsedPercent) != "4.41" || fmt.Sprintf("%.2f", window.UsedAmount) != "95.17" || window.WindowMinutes != 10080 {
 		t.Fatalf("expected dedicated 7d display window, got %#v", window)
 	}
 }
@@ -900,10 +900,10 @@ func TestUserAccountService_GetCapacityPoolsUsesOAuthShareDisplayDedicatedWindow
 	if group == nil {
 		t.Fatalf("expected OpenAI Plus display group, got %#v", pools.Shared.Groups)
 	}
-	if window := group.Windows["5h"]; fmt.Sprintf("%.2f", window.UsedPercent) != "20.00" || fmt.Sprintf("%.2f", window.UsedAmount) != "100.00" || window.WindowMinutes != 300 {
+	if window := group.Windows["5h"]; fmt.Sprintf("%.2f", window.UsedPercent) != "19.03" || fmt.Sprintf("%.2f", window.UsedAmount) != "95.17" || window.WindowMinutes != 300 {
 		t.Fatalf("expected OAuth dedicated 5h display window, got %#v", window)
 	}
-	if window := group.Windows["7d"]; fmt.Sprintf("%.2f", window.UsedPercent) != "4.63" || fmt.Sprintf("%.2f", window.UsedAmount) != "100.00" || window.WindowMinutes != 10080 {
+	if window := group.Windows["7d"]; fmt.Sprintf("%.2f", window.UsedPercent) != "4.41" || fmt.Sprintf("%.2f", window.UsedAmount) != "95.17" || window.WindowMinutes != 10080 {
 		t.Fatalf("expected OAuth dedicated 7d display window, got %#v", window)
 	}
 }
@@ -948,6 +948,70 @@ func TestUserAccountService_GetCapacityPoolsUsesActualUsageForDisplayWindowWitho
 	}
 	if window := group.Windows["7d"]; window.UsedPercent != 6.25 || window.UsedAmount != 12.5 || window.WindowMinutes != 10080 {
 		t.Fatalf("expected 7d display window to use actual usage, got %#v", window)
+	}
+}
+
+func TestUserAccountService_GetCapacityPoolsAveragesPercentOnlyAndDisplayWindows(t *testing.T) {
+	ownerID := int64(10)
+	otherOwnerID := int64(11)
+	repo := &capacityPoolAccountRepoStub{
+		usageCosts: map[int64]float64{
+			2: 4.83,
+		},
+		schedulable: []Account{
+			{
+				ID:          1,
+				Name:        "oahu-pro-oauth",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				OwnerUserID: &otherOwnerID,
+				ShareMode:   AccountShareModePublic,
+				ShareStatus: AccountShareStatusActive,
+				Status:      StatusActive,
+				Schedulable: true,
+				Groups: []*Group{{
+					ID:       88,
+					Name:     "OpenAI Pro",
+					Platform: PlatformOpenAI,
+				}},
+				Extra: map[string]any{
+					"codex_5h_used_percent": 53.0,
+				},
+			},
+			{
+				ID:          2,
+				Name:        "hosted-pro-display",
+				Platform:    PlatformOpenAI,
+				Type:        AccountTypeOAuth,
+				ShareMode:   AccountShareModePrivate,
+				ShareStatus: AccountShareStatusNotShared,
+				Status:      StatusActive,
+				Schedulable: true,
+				Extra: map[string]any{
+					"share_display_tier":         "pro",
+					"share_display_percent_only": true,
+					"share_display_5h_limit":     100.0,
+					"share_display_5h_used":      95.17,
+				},
+			},
+		},
+	}
+	svc := NewUserAccountService(repo, accountShareSettingsStub{enabled: true})
+
+	pools, err := svc.GetCapacityPools(context.Background(), ownerID)
+	if err != nil {
+		t.Fatalf("GetCapacityPools returned error: %v", err)
+	}
+	group := findCapacityPoolGroup(pools.Shared.Groups, 0, "OpenAI Pro")
+	if group == nil {
+		t.Fatalf("expected OpenAI Pro display group, got %#v", pools.Shared.Groups)
+	}
+	window := group.Windows["5h"]
+	if window.SnapshotAccounts != 2 || window.SchedulableSnapshotAccounts != 2 {
+		t.Fatalf("expected both pro accounts to contribute to 5h window, got %#v", window)
+	}
+	if fmt.Sprintf("%.2f", window.UsedPercent) != "74.09" || fmt.Sprintf("%.2f", window.RemainingUnits) != "5.30" {
+		t.Fatalf("expected mixed 5h utilization to be averaged instead of capped by display account, got %#v", window)
 	}
 }
 

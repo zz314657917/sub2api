@@ -146,6 +146,10 @@ type UserAccountCapacityWindowSummary struct {
 	RemainingUnits              float64 `json:"remaining_units"`
 	UsedAmount                  float64 `json:"-"`
 	LimitAmount                 float64 `json:"-"`
+	AmountPercentWeight         float64 `json:"-"`
+	AmountPercentUsedTotal      float64 `json:"-"`
+	PercentWeight               float64 `json:"-"`
+	PercentUsedTotal            float64 `json:"-"`
 }
 
 type UserAccountService struct {
@@ -1434,7 +1438,13 @@ func accountShareDisplayUsageWindowSnapshot(account *Account, suffix string, def
 	if !ok && actualUsed <= 0 {
 		return UserAccountCapacityWindowSnapshot{}, false
 	}
-	used := maxFloat64(parseExtraFloat64(usedRaw), 0) + maxFloat64(actualUsed, 0)
+	used := maxFloat64(actualUsed, 0)
+	if ok {
+		configuredUsed := maxFloat64(parseExtraFloat64(usedRaw), 0)
+		if configuredUsed > 0 {
+			used = configuredUsed
+		}
+	}
 	if used > limit {
 		used = limit
 	}
@@ -1736,11 +1746,11 @@ func mergeCapacityWindowSummary(windows map[string]UserAccountCapacityWindowSumm
 		if schedulable {
 			current.UsedAmount += snapshot.UsedAmount
 			current.LimitAmount += snapshot.LimitAmount
+			current.AmountPercentUsedTotal += snapshot.UsedPercent * float64(accountCount)
+			current.AmountPercentWeight += float64(accountCount)
 			current.RemainingUnits += maxFloat64(snapshot.LimitAmount-snapshot.UsedAmount, 0)
 		}
-		if current.LimitAmount > 0 {
-			current.UsedPercent = current.UsedAmount / current.LimitAmount * 100
-		}
+		current = refreshCapacityWindowSummaryPercent(current)
 		if !currentHasReset(current) || snapshotResetEarlier(snapshot, current) {
 			current.ResetAfterSeconds = snapshot.ResetAfterSeconds
 			current.ResetAt = snapshot.ResetAt
@@ -1749,19 +1759,39 @@ func mergeCapacityWindowSummary(windows map[string]UserAccountCapacityWindowSumm
 		windows[key] = current
 		return
 	}
-	if snapshot.UsedPercent > current.UsedPercent {
-		current.UsedPercent = snapshot.UsedPercent
+	if schedulable {
+		current.PercentUsedTotal += snapshot.UsedPercent * float64(accountCount)
+		current.PercentWeight += float64(accountCount)
+		remaining := 1 - snapshot.UsedPercent/100
+		if remaining > 0 {
+			current.RemainingUnits += remaining * float64(accountCount)
+		}
+	}
+	current = refreshCapacityWindowSummaryPercent(current)
+	if !currentHasReset(current) || snapshotResetEarlier(snapshot, current) {
 		current.ResetAfterSeconds = snapshot.ResetAfterSeconds
 		current.ResetAt = snapshot.ResetAt
 		current.WindowMinutes = snapshot.WindowMinutes
 	}
-	if schedulable {
-		remaining := 1 - snapshot.UsedPercent/100
-		if remaining > 0 {
-			current.RemainingUnits += remaining
-		}
-	}
 	windows[key] = current
+}
+
+func refreshCapacityWindowSummaryPercent(current UserAccountCapacityWindowSummary) UserAccountCapacityWindowSummary {
+	if current.PercentWeight > 0 {
+		totalWeight := current.PercentWeight + current.AmountPercentWeight
+		if totalWeight <= 0 {
+			current.UsedPercent = 0
+			return current
+		}
+		current.UsedPercent = (current.PercentUsedTotal + current.AmountPercentUsedTotal) / totalWeight
+		return current
+	}
+	if current.LimitAmount > 0 {
+		current.UsedPercent = current.UsedAmount / current.LimitAmount * 100
+		return current
+	}
+	current.UsedPercent = 0
+	return current
 }
 
 func maxFloat64(a, b float64) float64 {
