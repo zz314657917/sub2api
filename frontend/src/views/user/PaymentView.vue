@@ -340,6 +340,10 @@
                         <span class="pricing-muted">{{ pt('subtotal') }}</span>
                         <span class="pricing-strong font-semibold">{{ formatDisplayPaymentAmount(selectedPlan.price) }}</span>
                       </div>
+                      <div v-if="planHasPeakRate(selectedPlan)" class="flex justify-between gap-4">
+                        <span class="pricing-muted">{{ t('payment.planCard.peakRate') }}</span>
+                        <span class="pricing-strong text-right font-semibold text-amber-700 dark:text-amber-300">{{ planPeakRateLabel(selectedPlan) }}</span>
+                      </div>
                       <div v-if="feeRate > 0 && selectedPlan.price > 0" class="flex justify-between gap-4">
                         <span class="pricing-muted">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
                         <span class="pricing-strong font-semibold">{{ formatDisplayPaymentAmount(subFeeAmount) }}</span>
@@ -376,6 +380,7 @@
                       </div>
                       <div class="pricing-caption flex flex-wrap gap-x-3 text-[11px]">
                         <span>{{ t('payment.planCard.rate') }}: ×{{ sub.group?.rate_multiplier ?? 1 }}</span>
+                        <span v-if="subscriptionHasPeakRate(sub)">{{ t('payment.planCard.peakRate') }}: {{ subscriptionPeakRateLabel(sub) }}</span>
                         <span v-if="!hasAnySubscriptionLimit(sub.group)">{{ t('payment.planCard.quota') }}: {{ t('payment.planCard.unlimited') }}</span>
                         <span v-if="sub.expires_at">{{ t('userSubscriptions.daysRemaining', { days: getDaysRemaining(sub.expires_at) }) }}</span>
                         <span v-else>{{ t('userSubscriptions.noExpiration') }}</span>
@@ -1353,11 +1358,30 @@ function planFeatureList(plan: SubscriptionPlan): string[] {
   if (weeklyLimit != null) features.push(pt('feature.weeklyQuota', { amount: formatCreditAmount(weeklyLimit) }))
   if (monthlyLimit != null) features.push(pt('feature.monthlyQuota', { amount: formatCreditAmount(monthlyLimit) }))
   if (dailyLimit != null) features.push(pt('feature.dailyQuota', { amount: formatCreditAmount(dailyLimit) }))
+  if (planHasPeakRate(plan)) features.push(`${t('payment.planCard.peakRate')}: ${planPeakRateLabel(plan)}`)
   features.push(...(plan.features || []).filter(Boolean).map(normalizePlanFeature))
   if (features.length === 0) {
     features.push(pt('feature.unlimitedQuota'))
   }
   return features.slice(0, 6)
+}
+
+function planHasPeakRate(plan: SubscriptionPlan): boolean {
+  return Boolean(plan.peak_rate_enabled && plan.peak_start && plan.peak_end)
+}
+
+function planPeakRateLabel(plan: SubscriptionPlan): string {
+  return `${plan.peak_start}-${plan.peak_end} ×${plan.peak_rate_multiplier ?? 1}`
+}
+
+function subscriptionHasPeakRate(sub: { group?: { peak_rate_enabled?: boolean; peak_start?: string; peak_end?: string } | null }): boolean {
+  const group = sub.group
+  return Boolean(group?.peak_rate_enabled && group.peak_start && group.peak_end)
+}
+
+function subscriptionPeakRateLabel(sub: { group?: { peak_start?: string; peak_end?: string; peak_rate_multiplier?: number } | null }): string {
+  const group = sub.group
+  return `${group?.peak_start}-${group?.peak_end} ×${group?.peak_rate_multiplier ?? 1}`
 }
 
 function normalizePlanFeature(feature: string): string {

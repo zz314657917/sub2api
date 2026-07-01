@@ -282,6 +282,7 @@ export default {
     planFeatures: '功能特性',
     planCard: {
       rate: '倍率',
+      peakRate: '高峰倍率',
       dailyLimit: '日限额',
       weeklyLimit: '周限额',
       monthlyLimit: '月限额',
