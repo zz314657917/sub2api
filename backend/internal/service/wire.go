@@ -486,10 +486,12 @@ func ProvideAPIKeyService(
 	cfg *config.Config,
 	billingCacheService *BillingCacheService,
 	settingService *SettingService,
+	concurrencyService *ConcurrencyService,
 ) *APIKeyService {
 	svc := NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userSubRepo, userGroupRateRepo, cache, cfg)
 	svc.SetRateLimitCacheInvalidator(billingCacheService)
 	svc.SetStudioBridgeDefaultRouteSettingsReader(settingService)
+	svc.SetConcurrencyService(concurrencyService)
 	return svc
 }
 
