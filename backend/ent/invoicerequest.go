@@ -52,6 +52,10 @@ type InvoiceRequest struct {
 	ReviewedAt *time.Time `json:"reviewed_at,omitempty"`
 	// IssuedAt holds the value of the "issued_at" field.
 	IssuedAt *time.Time `json:"issued_at,omitempty"`
+	// DownloadedAt holds the value of the "downloaded_at" field.
+	DownloadedAt *time.Time `json:"downloaded_at,omitempty"`
+	// DownloadCount holds the value of the "download_count" field.
+	DownloadCount int `json:"download_count,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
 	CreatedAt time.Time `json:"created_at,omitempty"`
 	// UpdatedAt holds the value of the "updated_at" field.
@@ -89,11 +93,11 @@ func (*InvoiceRequest) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case invoicerequest.FieldAmount:
 			values[i] = new(sql.NullFloat64)
-		case invoicerequest.FieldID, invoicerequest.FieldUserID, invoicerequest.FieldFileSize, invoicerequest.FieldReviewedBy:
+		case invoicerequest.FieldID, invoicerequest.FieldUserID, invoicerequest.FieldFileSize, invoicerequest.FieldReviewedBy, invoicerequest.FieldDownloadCount:
 			values[i] = new(sql.NullInt64)
 		case invoicerequest.FieldCurrency, invoicerequest.FieldInvoiceType, invoicerequest.FieldTitle, invoicerequest.FieldTaxNumber, invoicerequest.FieldRemark, invoicerequest.FieldStatus, invoicerequest.FieldAdminNote, invoicerequest.FieldInvoiceNo, invoicerequest.FieldFileName, invoicerequest.FieldFilePath, invoicerequest.FieldFileContentType:
 			values[i] = new(sql.NullString)
-		case invoicerequest.FieldReviewedAt, invoicerequest.FieldIssuedAt, invoicerequest.FieldCreatedAt, invoicerequest.FieldUpdatedAt:
+		case invoicerequest.FieldReviewedAt, invoicerequest.FieldIssuedAt, invoicerequest.FieldDownloadedAt, invoicerequest.FieldCreatedAt, invoicerequest.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -228,6 +232,19 @@ func (_m *InvoiceRequest) assignValues(columns []string, values []any) error {
 				_m.IssuedAt = new(time.Time)
 				*_m.IssuedAt = value.Time
 			}
+		case invoicerequest.FieldDownloadedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field downloaded_at", values[i])
+			} else if value.Valid {
+				_m.DownloadedAt = new(time.Time)
+				*_m.DownloadedAt = value.Time
+			}
+		case invoicerequest.FieldDownloadCount:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field download_count", values[i])
+			} else if value.Valid {
+				_m.DownloadCount = int(value.Int64)
+			}
 		case invoicerequest.FieldCreatedAt:
 			if value, ok := values[i].(*sql.NullTime); !ok {
 				return fmt.Errorf("unexpected type %T for field created_at", values[i])
@@ -351,6 +368,14 @@ func (_m *InvoiceRequest) String() string {
 		builder.WriteString("issued_at=")
 		builder.WriteString(v.Format(time.ANSIC))
 	}
+	builder.WriteString(", ")
+	if v := _m.DownloadedAt; v != nil {
+		builder.WriteString("downloaded_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("download_count=")
+	builder.WriteString(fmt.Sprintf("%v", _m.DownloadCount))
 	builder.WriteString(", ")
 	builder.WriteString("created_at=")
 	builder.WriteString(_m.CreatedAt.Format(time.ANSIC))

@@ -993,12 +993,16 @@ func init() {
 	invoicerequestDescFileContentType := invoicerequestFields[13].Descriptor()
 	// invoicerequest.FileContentTypeValidator is a validator for the "file_content_type" field. It is called by the builders before save.
 	invoicerequest.FileContentTypeValidator = invoicerequestDescFileContentType.Validators[0].(func(string) error)
+	// invoicerequestDescDownloadCount is the schema descriptor for download_count field.
+	invoicerequestDescDownloadCount := invoicerequestFields[18].Descriptor()
+	// invoicerequest.DefaultDownloadCount holds the default value on creation for the download_count field.
+	invoicerequest.DefaultDownloadCount = invoicerequestDescDownloadCount.Default.(int)
 	// invoicerequestDescCreatedAt is the schema descriptor for created_at field.
-	invoicerequestDescCreatedAt := invoicerequestFields[17].Descriptor()
+	invoicerequestDescCreatedAt := invoicerequestFields[19].Descriptor()
 	// invoicerequest.DefaultCreatedAt holds the default value on creation for the created_at field.
 	invoicerequest.DefaultCreatedAt = invoicerequestDescCreatedAt.Default.(func() time.Time)
 	// invoicerequestDescUpdatedAt is the schema descriptor for updated_at field.
-	invoicerequestDescUpdatedAt := invoicerequestFields[18].Descriptor()
+	invoicerequestDescUpdatedAt := invoicerequestFields[20].Descriptor()
 	// invoicerequest.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	invoicerequest.DefaultUpdatedAt = invoicerequestDescUpdatedAt.Default.(func() time.Time)
 	// invoicerequest.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.

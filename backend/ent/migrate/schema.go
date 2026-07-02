@@ -819,6 +819,8 @@ var (
 		{Name: "reviewed_by", Type: field.TypeInt64, Nullable: true},
 		{Name: "reviewed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "issued_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "downloaded_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "download_count", Type: field.TypeInt, Default: 0},
 		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "user_id", Type: field.TypeInt64},
@@ -831,7 +833,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "invoice_requests_users_invoice_requests",
-				Columns:    []*schema.Column{InvoiceRequestsColumns[19]},
+				Columns:    []*schema.Column{InvoiceRequestsColumns[21]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
@@ -840,7 +842,7 @@ var (
 			{
 				Name:    "invoicerequest_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{InvoiceRequestsColumns[19]},
+				Columns: []*schema.Column{InvoiceRequestsColumns[21]},
 			},
 			{
 				Name:    "invoicerequest_status",
@@ -850,7 +852,7 @@ var (
 			{
 				Name:    "invoicerequest_created_at",
 				Unique:  false,
-				Columns: []*schema.Column{InvoiceRequestsColumns[17]},
+				Columns: []*schema.Column{InvoiceRequestsColumns[19]},
 			},
 			{
 				Name:    "invoicerequest_currency",

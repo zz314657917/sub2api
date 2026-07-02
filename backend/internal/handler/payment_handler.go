@@ -463,6 +463,21 @@ func (h *PaymentHandler) GetInvoiceSummary(c *gin.Context) {
 	response.Success(c, summary)
 }
 
+// GetInvoiceClaimSummary returns how many issued invoice files are still unclaimed.
+// GET /api/v1/payment/invoices/claim-summary
+func (h *PaymentHandler) GetInvoiceClaimSummary(c *gin.Context) {
+	subject, ok := requireAuth(c)
+	if !ok {
+		return
+	}
+	summary, err := h.paymentService.GetInvoiceClaimSummary(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, summary)
+}
+
 // ListMyInvoices returns the current user's invoice requests.
 // GET /api/v1/payment/invoices/my
 func (h *PaymentHandler) ListMyInvoices(c *gin.Context) {

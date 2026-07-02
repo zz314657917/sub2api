@@ -503,7 +503,6 @@ const WELFARE_BADGE_REFRESH_MS = 60_000
 const TICKET_UNREAD_BADGE_REFRESH_MS = 60_000
 const SIDEBAR_TOUR_TARGET_EVENT = 'sub2api:sidebar-tour-target'
 const TICKET_UNREAD_BADGE_REFRESH_EVENT = 'sub2api:ticket-unread-updated'
-const INVOICE_CLAIMED_STORAGE_PREFIX = 'sub2api:claimed-invoices:'
 const sidebarTourTargetGroups: Record<string, string[]> = {
   '#sidebar-group-manage': ['/admin/basic-management'],
   '#sidebar-channel-manage': ['/admin/basic-management'],
@@ -890,41 +889,14 @@ function canRefreshTicketUnreadBadge(): boolean {
   return authStore.isAuthenticated && !authStore.isAdmin && !authStore.isSimpleMode
 }
 
-function claimedInvoiceStorageKey(): string {
-  return `${INVOICE_CLAIMED_STORAGE_PREFIX}${authStore.user?.id ?? 'anonymous'}`
-}
-
-function readClaimedInvoiceIDs(): Set<number> {
-  if (typeof localStorage === 'undefined') return new Set()
-  const storageKeys = [claimedInvoiceStorageKey(), `${INVOICE_CLAIMED_STORAGE_PREFIX}current`]
-  const claimed = new Set<number>()
-  try {
-    for (const key of storageKeys) {
-      const raw = localStorage.getItem(key)
-      const ids = raw ? JSON.parse(raw) : []
-      if (!Array.isArray(ids)) continue
-      for (const id of ids) {
-        const numericID = Number(id)
-        if (Number.isFinite(numericID) && numericID > 0) {
-          claimed.add(numericID)
-        }
-      }
-    }
-    return claimed
-  } catch {
-    return claimed
-  }
-}
-
 async function refreshInvoiceClaimBadge(): Promise<void> {
   if (!canRefreshTicketUnreadBadge()) {
     invoiceClaimTotal.value = 0
     return
   }
   try {
-    const response = await paymentAPI.getMyInvoices({ page: 1, page_size: 50, status: 'issued' })
-    const claimed = readClaimedInvoiceIDs()
-    invoiceClaimTotal.value = (response.data.items || []).filter((item) => item.downloadable && !claimed.has(item.id)).length
+    const response = await paymentAPI.getInvoiceClaimSummary()
+    invoiceClaimTotal.value = Math.max(0, Number(response.data.claimable_count) || 0)
   } catch {
     invoiceClaimTotal.value = 0
   }

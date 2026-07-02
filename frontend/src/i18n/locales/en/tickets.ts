@@ -39,6 +39,7 @@ export default {
   userSender: 'Me',
   adminSender: 'Admin',
   unread: '{count} unread',
+  invoiceClaimPending: 'Invoice ready',
   actions: {
     paymentCompleted: 'View orders / purchase',
     invoiceIssued: 'Download invoice',

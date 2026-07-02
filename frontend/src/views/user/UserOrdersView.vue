@@ -55,7 +55,7 @@
                   <td class="whitespace-nowrap px-3 py-2 text-right">
                     <button v-if="item.downloadable" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20" @click="downloadInvoice(item)">
                       <Icon name="download" size="sm" />
-                      {{ t('payment.invoices.download') }}
+                      {{ item.downloaded_at ? t('payment.invoices.downloaded') : t('payment.invoices.download') }}
                     </button>
                     <span v-else class="text-xs text-gray-400">{{ t('payment.invoices.noFile') }}</span>
                   </td>
@@ -216,7 +216,6 @@ const { t, locale } = useI18n()
 const router = useRouter()
 const appStore = useAppStore()
 const TICKET_UNREAD_BADGE_REFRESH_EVENT = 'sub2api:ticket-unread-updated'
-const INVOICE_CLAIMED_STORAGE_PREFIX = 'sub2api:claimed-invoices:'
 
 const loading = ref(false)
 const actionLoading = ref(false)
@@ -400,24 +399,10 @@ async function downloadInvoice(item: InvoiceRequest) {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
-    markInvoiceClaimed(item.id)
     window.dispatchEvent(new Event(TICKET_UNREAD_BADGE_REFRESH_EVENT))
+    await fetchInvoices()
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
-  }
-}
-
-function markInvoiceClaimed(invoiceId: number) {
-  if (typeof localStorage === 'undefined') return
-  const storageKey = `${INVOICE_CLAIMED_STORAGE_PREFIX}current`
-  try {
-    const raw = localStorage.getItem(storageKey)
-    const ids = raw ? JSON.parse(raw) : []
-    const next = new Set(Array.isArray(ids) ? ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0) : [])
-    next.add(invoiceId)
-    localStorage.setItem(storageKey, JSON.stringify([...next]))
-  } catch {
-    localStorage.setItem(storageKey, JSON.stringify([invoiceId]))
   }
 }
 

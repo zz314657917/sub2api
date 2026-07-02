@@ -45,6 +45,7 @@ func RegisterPaymentRoutes(
 		invoices := authenticated.Group("/invoices")
 		{
 			invoices.GET("/summary", paymentHandler.GetInvoiceSummary)
+			invoices.GET("/claim-summary", paymentHandler.GetInvoiceClaimSummary)
 			invoices.GET("/my", paymentHandler.ListMyInvoices)
 			invoices.POST("", paymentHandler.CreateInvoiceRequest)
 			invoices.GET("/:id/download", paymentHandler.DownloadInvoice)

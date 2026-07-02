@@ -20278,6 +20278,9 @@ type InvoiceRequestMutation struct {
 	addreviewed_by    *int64
 	reviewed_at       *time.Time
 	issued_at         *time.Time
+	downloaded_at     *time.Time
+	download_count    *int
+	adddownload_count *int
 	created_at        *time.Time
 	updated_at        *time.Time
 	clearedFields     map[string]struct{}
@@ -21190,6 +21193,111 @@ func (m *InvoiceRequestMutation) ResetIssuedAt() {
 	delete(m.clearedFields, invoicerequest.FieldIssuedAt)
 }
 
+// SetDownloadedAt sets the "downloaded_at" field.
+func (m *InvoiceRequestMutation) SetDownloadedAt(t time.Time) {
+	m.downloaded_at = &t
+}
+
+// DownloadedAt returns the value of the "downloaded_at" field in the mutation.
+func (m *InvoiceRequestMutation) DownloadedAt() (r time.Time, exists bool) {
+	v := m.downloaded_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDownloadedAt returns the old "downloaded_at" field's value of the InvoiceRequest entity.
+// If the InvoiceRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InvoiceRequestMutation) OldDownloadedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDownloadedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDownloadedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDownloadedAt: %w", err)
+	}
+	return oldValue.DownloadedAt, nil
+}
+
+// ClearDownloadedAt clears the value of the "downloaded_at" field.
+func (m *InvoiceRequestMutation) ClearDownloadedAt() {
+	m.downloaded_at = nil
+	m.clearedFields[invoicerequest.FieldDownloadedAt] = struct{}{}
+}
+
+// DownloadedAtCleared returns if the "downloaded_at" field was cleared in this mutation.
+func (m *InvoiceRequestMutation) DownloadedAtCleared() bool {
+	_, ok := m.clearedFields[invoicerequest.FieldDownloadedAt]
+	return ok
+}
+
+// ResetDownloadedAt resets all changes to the "downloaded_at" field.
+func (m *InvoiceRequestMutation) ResetDownloadedAt() {
+	m.downloaded_at = nil
+	delete(m.clearedFields, invoicerequest.FieldDownloadedAt)
+}
+
+// SetDownloadCount sets the "download_count" field.
+func (m *InvoiceRequestMutation) SetDownloadCount(i int) {
+	m.download_count = &i
+	m.adddownload_count = nil
+}
+
+// DownloadCount returns the value of the "download_count" field in the mutation.
+func (m *InvoiceRequestMutation) DownloadCount() (r int, exists bool) {
+	v := m.download_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldDownloadCount returns the old "download_count" field's value of the InvoiceRequest entity.
+// If the InvoiceRequest object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *InvoiceRequestMutation) OldDownloadCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldDownloadCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldDownloadCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldDownloadCount: %w", err)
+	}
+	return oldValue.DownloadCount, nil
+}
+
+// AddDownloadCount adds i to the "download_count" field.
+func (m *InvoiceRequestMutation) AddDownloadCount(i int) {
+	if m.adddownload_count != nil {
+		*m.adddownload_count += i
+	} else {
+		m.adddownload_count = &i
+	}
+}
+
+// AddedDownloadCount returns the value that was added to the "download_count" field in this mutation.
+func (m *InvoiceRequestMutation) AddedDownloadCount() (r int, exists bool) {
+	v := m.adddownload_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetDownloadCount resets all changes to the "download_count" field.
+func (m *InvoiceRequestMutation) ResetDownloadCount() {
+	m.download_count = nil
+	m.adddownload_count = nil
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (m *InvoiceRequestMutation) SetCreatedAt(t time.Time) {
 	m.created_at = &t
@@ -21323,7 +21431,7 @@ func (m *InvoiceRequestMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *InvoiceRequestMutation) Fields() []string {
-	fields := make([]string, 0, 19)
+	fields := make([]string, 0, 21)
 	if m.user != nil {
 		fields = append(fields, invoicerequest.FieldUserID)
 	}
@@ -21375,6 +21483,12 @@ func (m *InvoiceRequestMutation) Fields() []string {
 	if m.issued_at != nil {
 		fields = append(fields, invoicerequest.FieldIssuedAt)
 	}
+	if m.downloaded_at != nil {
+		fields = append(fields, invoicerequest.FieldDownloadedAt)
+	}
+	if m.download_count != nil {
+		fields = append(fields, invoicerequest.FieldDownloadCount)
+	}
 	if m.created_at != nil {
 		fields = append(fields, invoicerequest.FieldCreatedAt)
 	}
@@ -21423,6 +21537,10 @@ func (m *InvoiceRequestMutation) Field(name string) (ent.Value, bool) {
 		return m.ReviewedAt()
 	case invoicerequest.FieldIssuedAt:
 		return m.IssuedAt()
+	case invoicerequest.FieldDownloadedAt:
+		return m.DownloadedAt()
+	case invoicerequest.FieldDownloadCount:
+		return m.DownloadCount()
 	case invoicerequest.FieldCreatedAt:
 		return m.CreatedAt()
 	case invoicerequest.FieldUpdatedAt:
@@ -21470,6 +21588,10 @@ func (m *InvoiceRequestMutation) OldField(ctx context.Context, name string) (ent
 		return m.OldReviewedAt(ctx)
 	case invoicerequest.FieldIssuedAt:
 		return m.OldIssuedAt(ctx)
+	case invoicerequest.FieldDownloadedAt:
+		return m.OldDownloadedAt(ctx)
+	case invoicerequest.FieldDownloadCount:
+		return m.OldDownloadCount(ctx)
 	case invoicerequest.FieldCreatedAt:
 		return m.OldCreatedAt(ctx)
 	case invoicerequest.FieldUpdatedAt:
@@ -21602,6 +21724,20 @@ func (m *InvoiceRequestMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetIssuedAt(v)
 		return nil
+	case invoicerequest.FieldDownloadedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDownloadedAt(v)
+		return nil
+	case invoicerequest.FieldDownloadCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetDownloadCount(v)
+		return nil
 	case invoicerequest.FieldCreatedAt:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -21633,6 +21769,9 @@ func (m *InvoiceRequestMutation) AddedFields() []string {
 	if m.addreviewed_by != nil {
 		fields = append(fields, invoicerequest.FieldReviewedBy)
 	}
+	if m.adddownload_count != nil {
+		fields = append(fields, invoicerequest.FieldDownloadCount)
+	}
 	return fields
 }
 
@@ -21647,6 +21786,8 @@ func (m *InvoiceRequestMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedFileSize()
 	case invoicerequest.FieldReviewedBy:
 		return m.AddedReviewedBy()
+	case invoicerequest.FieldDownloadCount:
+		return m.AddedDownloadCount()
 	}
 	return nil, false
 }
@@ -21676,6 +21817,13 @@ func (m *InvoiceRequestMutation) AddField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddReviewedBy(v)
+		return nil
+	case invoicerequest.FieldDownloadCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddDownloadCount(v)
 		return nil
 	}
 	return fmt.Errorf("unknown InvoiceRequest numeric field %s", name)
@@ -21714,6 +21862,9 @@ func (m *InvoiceRequestMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(invoicerequest.FieldIssuedAt) {
 		fields = append(fields, invoicerequest.FieldIssuedAt)
+	}
+	if m.FieldCleared(invoicerequest.FieldDownloadedAt) {
+		fields = append(fields, invoicerequest.FieldDownloadedAt)
 	}
 	return fields
 }
@@ -21758,6 +21909,9 @@ func (m *InvoiceRequestMutation) ClearField(name string) error {
 		return nil
 	case invoicerequest.FieldIssuedAt:
 		m.ClearIssuedAt()
+		return nil
+	case invoicerequest.FieldDownloadedAt:
+		m.ClearDownloadedAt()
 		return nil
 	}
 	return fmt.Errorf("unknown InvoiceRequest nullable field %s", name)
@@ -21817,6 +21971,12 @@ func (m *InvoiceRequestMutation) ResetField(name string) error {
 		return nil
 	case invoicerequest.FieldIssuedAt:
 		m.ResetIssuedAt()
+		return nil
+	case invoicerequest.FieldDownloadedAt:
+		m.ResetDownloadedAt()
+		return nil
+	case invoicerequest.FieldDownloadCount:
+		m.ResetDownloadCount()
 		return nil
 	case invoicerequest.FieldCreatedAt:
 		m.ResetCreatedAt()

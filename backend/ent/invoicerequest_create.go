@@ -221,6 +221,34 @@ func (_c *InvoiceRequestCreate) SetNillableIssuedAt(v *time.Time) *InvoiceReques
 	return _c
 }
 
+// SetDownloadedAt sets the "downloaded_at" field.
+func (_c *InvoiceRequestCreate) SetDownloadedAt(v time.Time) *InvoiceRequestCreate {
+	_c.mutation.SetDownloadedAt(v)
+	return _c
+}
+
+// SetNillableDownloadedAt sets the "downloaded_at" field if the given value is not nil.
+func (_c *InvoiceRequestCreate) SetNillableDownloadedAt(v *time.Time) *InvoiceRequestCreate {
+	if v != nil {
+		_c.SetDownloadedAt(*v)
+	}
+	return _c
+}
+
+// SetDownloadCount sets the "download_count" field.
+func (_c *InvoiceRequestCreate) SetDownloadCount(v int) *InvoiceRequestCreate {
+	_c.mutation.SetDownloadCount(v)
+	return _c
+}
+
+// SetNillableDownloadCount sets the "download_count" field if the given value is not nil.
+func (_c *InvoiceRequestCreate) SetNillableDownloadCount(v *int) *InvoiceRequestCreate {
+	if v != nil {
+		_c.SetDownloadCount(*v)
+	}
+	return _c
+}
+
 // SetCreatedAt sets the "created_at" field.
 func (_c *InvoiceRequestCreate) SetCreatedAt(v time.Time) *InvoiceRequestCreate {
 	_c.mutation.SetCreatedAt(v)
@@ -297,6 +325,10 @@ func (_c *InvoiceRequestCreate) defaults() {
 		v := invoicerequest.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.DownloadCount(); !ok {
+		v := invoicerequest.DefaultDownloadCount
+		_c.mutation.SetDownloadCount(v)
+	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		v := invoicerequest.DefaultCreatedAt()
 		_c.mutation.SetCreatedAt(v)
@@ -369,6 +401,9 @@ func (_c *InvoiceRequestCreate) check() error {
 		if err := invoicerequest.FileContentTypeValidator(v); err != nil {
 			return &ValidationError{Name: "file_content_type", err: fmt.Errorf(`ent: validator failed for field "InvoiceRequest.file_content_type": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.DownloadCount(); !ok {
+		return &ValidationError{Name: "download_count", err: errors.New(`ent: missing required field "InvoiceRequest.download_count"`)}
 	}
 	if _, ok := _c.mutation.CreatedAt(); !ok {
 		return &ValidationError{Name: "created_at", err: errors.New(`ent: missing required field "InvoiceRequest.created_at"`)}
@@ -469,6 +504,14 @@ func (_c *InvoiceRequestCreate) createSpec() (*InvoiceRequest, *sqlgraph.CreateS
 	if value, ok := _c.mutation.IssuedAt(); ok {
 		_spec.SetField(invoicerequest.FieldIssuedAt, field.TypeTime, value)
 		_node.IssuedAt = &value
+	}
+	if value, ok := _c.mutation.DownloadedAt(); ok {
+		_spec.SetField(invoicerequest.FieldDownloadedAt, field.TypeTime, value)
+		_node.DownloadedAt = &value
+	}
+	if value, ok := _c.mutation.DownloadCount(); ok {
+		_spec.SetField(invoicerequest.FieldDownloadCount, field.TypeInt, value)
+		_node.DownloadCount = value
 	}
 	if value, ok := _c.mutation.CreatedAt(); ok {
 		_spec.SetField(invoicerequest.FieldCreatedAt, field.TypeTime, value)
@@ -826,6 +869,42 @@ func (u *InvoiceRequestUpsert) UpdateIssuedAt() *InvoiceRequestUpsert {
 // ClearIssuedAt clears the value of the "issued_at" field.
 func (u *InvoiceRequestUpsert) ClearIssuedAt() *InvoiceRequestUpsert {
 	u.SetNull(invoicerequest.FieldIssuedAt)
+	return u
+}
+
+// SetDownloadedAt sets the "downloaded_at" field.
+func (u *InvoiceRequestUpsert) SetDownloadedAt(v time.Time) *InvoiceRequestUpsert {
+	u.Set(invoicerequest.FieldDownloadedAt, v)
+	return u
+}
+
+// UpdateDownloadedAt sets the "downloaded_at" field to the value that was provided on create.
+func (u *InvoiceRequestUpsert) UpdateDownloadedAt() *InvoiceRequestUpsert {
+	u.SetExcluded(invoicerequest.FieldDownloadedAt)
+	return u
+}
+
+// ClearDownloadedAt clears the value of the "downloaded_at" field.
+func (u *InvoiceRequestUpsert) ClearDownloadedAt() *InvoiceRequestUpsert {
+	u.SetNull(invoicerequest.FieldDownloadedAt)
+	return u
+}
+
+// SetDownloadCount sets the "download_count" field.
+func (u *InvoiceRequestUpsert) SetDownloadCount(v int) *InvoiceRequestUpsert {
+	u.Set(invoicerequest.FieldDownloadCount, v)
+	return u
+}
+
+// UpdateDownloadCount sets the "download_count" field to the value that was provided on create.
+func (u *InvoiceRequestUpsert) UpdateDownloadCount() *InvoiceRequestUpsert {
+	u.SetExcluded(invoicerequest.FieldDownloadCount)
+	return u
+}
+
+// AddDownloadCount adds v to the "download_count" field.
+func (u *InvoiceRequestUpsert) AddDownloadCount(v int) *InvoiceRequestUpsert {
+	u.Add(invoicerequest.FieldDownloadCount, v)
 	return u
 }
 
@@ -1212,6 +1291,48 @@ func (u *InvoiceRequestUpsertOne) UpdateIssuedAt() *InvoiceRequestUpsertOne {
 func (u *InvoiceRequestUpsertOne) ClearIssuedAt() *InvoiceRequestUpsertOne {
 	return u.Update(func(s *InvoiceRequestUpsert) {
 		s.ClearIssuedAt()
+	})
+}
+
+// SetDownloadedAt sets the "downloaded_at" field.
+func (u *InvoiceRequestUpsertOne) SetDownloadedAt(v time.Time) *InvoiceRequestUpsertOne {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.SetDownloadedAt(v)
+	})
+}
+
+// UpdateDownloadedAt sets the "downloaded_at" field to the value that was provided on create.
+func (u *InvoiceRequestUpsertOne) UpdateDownloadedAt() *InvoiceRequestUpsertOne {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.UpdateDownloadedAt()
+	})
+}
+
+// ClearDownloadedAt clears the value of the "downloaded_at" field.
+func (u *InvoiceRequestUpsertOne) ClearDownloadedAt() *InvoiceRequestUpsertOne {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.ClearDownloadedAt()
+	})
+}
+
+// SetDownloadCount sets the "download_count" field.
+func (u *InvoiceRequestUpsertOne) SetDownloadCount(v int) *InvoiceRequestUpsertOne {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.SetDownloadCount(v)
+	})
+}
+
+// AddDownloadCount adds v to the "download_count" field.
+func (u *InvoiceRequestUpsertOne) AddDownloadCount(v int) *InvoiceRequestUpsertOne {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.AddDownloadCount(v)
+	})
+}
+
+// UpdateDownloadCount sets the "download_count" field to the value that was provided on create.
+func (u *InvoiceRequestUpsertOne) UpdateDownloadCount() *InvoiceRequestUpsertOne {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.UpdateDownloadCount()
 	})
 }
 
@@ -1766,6 +1887,48 @@ func (u *InvoiceRequestUpsertBulk) UpdateIssuedAt() *InvoiceRequestUpsertBulk {
 func (u *InvoiceRequestUpsertBulk) ClearIssuedAt() *InvoiceRequestUpsertBulk {
 	return u.Update(func(s *InvoiceRequestUpsert) {
 		s.ClearIssuedAt()
+	})
+}
+
+// SetDownloadedAt sets the "downloaded_at" field.
+func (u *InvoiceRequestUpsertBulk) SetDownloadedAt(v time.Time) *InvoiceRequestUpsertBulk {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.SetDownloadedAt(v)
+	})
+}
+
+// UpdateDownloadedAt sets the "downloaded_at" field to the value that was provided on create.
+func (u *InvoiceRequestUpsertBulk) UpdateDownloadedAt() *InvoiceRequestUpsertBulk {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.UpdateDownloadedAt()
+	})
+}
+
+// ClearDownloadedAt clears the value of the "downloaded_at" field.
+func (u *InvoiceRequestUpsertBulk) ClearDownloadedAt() *InvoiceRequestUpsertBulk {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.ClearDownloadedAt()
+	})
+}
+
+// SetDownloadCount sets the "download_count" field.
+func (u *InvoiceRequestUpsertBulk) SetDownloadCount(v int) *InvoiceRequestUpsertBulk {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.SetDownloadCount(v)
+	})
+}
+
+// AddDownloadCount adds v to the "download_count" field.
+func (u *InvoiceRequestUpsertBulk) AddDownloadCount(v int) *InvoiceRequestUpsertBulk {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.AddDownloadCount(v)
+	})
+}
+
+// UpdateDownloadCount sets the "download_count" field to the value that was provided on create.
+func (u *InvoiceRequestUpsertBulk) UpdateDownloadCount() *InvoiceRequestUpsertBulk {
+	return u.Update(func(s *InvoiceRequestUpsert) {
+		s.UpdateDownloadCount()
 	})
 }
 

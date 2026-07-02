@@ -68,6 +68,7 @@
               <div class="ticket-list-content">
                 <div class="ticket-list-title-row">
                   <span class="ticket-title">{{ ticket.title }}</span>
+                  <span v-if="isInvoiceClaimTicket(ticket)" class="invoice-claim-pill">{{ t('tickets.invoiceClaimPending') }}</span>
                   <span v-if="ticket.user_unread_count > 0" class="unread-pill">{{ ticket.user_unread_count }}</span>
                 </div>
                 <p class="ticket-list-preview">{{ formatTicketPreview(ticket.last_message_preview) }}</p>
@@ -217,13 +218,13 @@ const creating = ref(false)
 const sending = ref(false)
 const acting = ref(false)
 const invoiceDownloadingId = ref<number | null>(null)
+const invoiceClaimTotal = ref(0)
 const showCreateForm = ref(false)
 const showMobileList = ref(true)
 const replyContent = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 const TICKET_UNREAD_BADGE_REFRESH_EVENT = 'sub2api:ticket-unread-updated'
-const INVOICE_CLAIMED_STORAGE_PREFIX = 'sub2api:claimed-invoices:'
 
 const filters = reactive({
   search: '',
@@ -269,6 +270,10 @@ type SystemInvoiceActionEntry = {
 
 function isSystemTicket(ticket: SupportTicket) {
   return ticket.ticket_type === 'system'
+}
+
+function isInvoiceClaimTicket(ticket: SupportTicket) {
+  return isSystemTicket(ticket) && ticket.system_key === 'system' && invoiceClaimTotal.value > 0
 }
 
 function statusLabel(ticket: SupportTicket) {
@@ -376,7 +381,7 @@ async function downloadInvoiceFromTicket(action: SystemInvoiceActionEntry) {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
-    markInvoiceClaimed(action.invoiceId)
+    await loadTickets()
     notifyTicketUnreadBadgeChanged()
   } catch (error: any) {
     appStore.showError(error.message || t('tickets.invoiceDownloadFailed'))
@@ -392,23 +397,6 @@ function invoiceFileName(invoiceId: number, contentType?: string): string {
 
 function notifyTicketUnreadBadgeChanged() {
   window.dispatchEvent(new Event(TICKET_UNREAD_BADGE_REFRESH_EVENT))
-}
-
-function claimedInvoiceStorageKey(): string {
-  return `${INVOICE_CLAIMED_STORAGE_PREFIX}current`
-}
-
-function markInvoiceClaimed(invoiceId: number) {
-  if (typeof localStorage === 'undefined') return
-  try {
-    const raw = localStorage.getItem(claimedInvoiceStorageKey())
-    const ids = raw ? JSON.parse(raw) : []
-    const next = new Set(Array.isArray(ids) ? ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0) : [])
-    next.add(invoiceId)
-    localStorage.setItem(claimedInvoiceStorageKey(), JSON.stringify([...next]))
-  } catch {
-    localStorage.setItem(claimedInvoiceStorageKey(), JSON.stringify([invoiceId]))
-  }
 }
 
 function applyTicketReadState(ticketId: number) {
@@ -436,6 +424,7 @@ async function markTicketRead(ticketId: number, silent = false) {
 async function loadTickets() {
   loading.value = true
   try {
+    await refreshInvoiceClaimSummary()
     const response = await ticketsAPI.list(currentListParams.value)
     tickets.value = response.items
     pagination.total = response.total
@@ -454,6 +443,15 @@ async function loadTickets() {
     appStore.showError(error.message || t('tickets.loadFailed'))
   } finally {
     loading.value = false
+  }
+}
+
+async function refreshInvoiceClaimSummary() {
+  try {
+    const response = await paymentAPI.getInvoiceClaimSummary()
+    invoiceClaimTotal.value = Math.max(0, Number(response.data.claimable_count) || 0)
+  } catch {
+    invoiceClaimTotal.value = 0
   }
 }
 
@@ -693,6 +691,47 @@ onMounted(() => {
   font-size: 0.75rem;
   font-weight: 700;
   color: white;
+}
+
+.invoice-claim-pill {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgb(234 88 12), rgb(202 138 4));
+  padding: 0.125rem 0.45rem;
+  color: white;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1rem;
+  box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.36);
+  animation: invoice-claim-pulse 1.15s ease-in-out infinite;
+}
+
+.dark .invoice-claim-pill {
+  background: linear-gradient(135deg, rgb(249 115 22), rgb(234 179 8));
+  color: rgb(255 251 235);
+}
+
+@keyframes invoice-claim-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.45);
+  }
+
+  50% {
+    transform: scale(1.1);
+    opacity: 0.78;
+    box-shadow: 0 0 0 0.32rem rgba(248, 113, 113, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .invoice-claim-pill {
+    animation: none;
+  }
 }
 
 .message-bubble {

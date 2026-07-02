@@ -49,6 +49,10 @@ type InvoiceSummary struct {
 	AvailableAmount float64 `json:"available_amount"`
 }
 
+type InvoiceClaimSummary struct {
+	ClaimableCount int `json:"claimable_count"`
+}
+
 type InvoiceRequestCreateInput struct {
 	UserID      int64
 	Amount      float64
@@ -108,9 +112,12 @@ type InvoiceRequestView struct {
 	ReviewedBy      *int64     `json:"reviewed_by,omitempty"`
 	ReviewedAt      *time.Time `json:"reviewed_at,omitempty"`
 	IssuedAt        *time.Time `json:"issued_at,omitempty"`
+	DownloadedAt    *time.Time `json:"downloaded_at,omitempty"`
+	DownloadCount   int        `json:"download_count"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
 	Downloadable    bool       `json:"downloadable"`
+	Claimable       bool       `json:"claimable"`
 }
 
 func (s *PaymentService) GetInvoiceSummary(ctx context.Context, userID int64) (*InvoiceSummary, error) {
@@ -137,6 +144,25 @@ func (s *PaymentService) ListUserInvoices(ctx context.Context, userID int64, par
 		return nil, 0, err
 	}
 	return invoiceRequestViews(items), total, nil
+}
+
+func (s *PaymentService) GetInvoiceClaimSummary(ctx context.Context, userID int64) (*InvoiceClaimSummary, error) {
+	if userID <= 0 {
+		return nil, infraerrors.Unauthorized("UNAUTHORIZED", "user not authenticated")
+	}
+	count, err := s.entClient.InvoiceRequest.Query().
+		Where(
+			invoicerequest.UserIDEQ(userID),
+			invoicerequest.StatusEQ(InvoiceStatusIssued),
+			invoicerequest.FilePathNotNil(),
+			invoicerequest.FilePathNEQ(""),
+			invoicerequest.DownloadedAtIsNil(),
+		).
+		Count(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("count invoice claimable requests: %w", err)
+	}
+	return &InvoiceClaimSummary{ClaimableCount: count}, nil
 }
 
 func (s *PaymentService) CreateInvoiceRequest(ctx context.Context, input InvoiceRequestCreateInput) (*InvoiceRequestView, error) {
@@ -327,6 +353,16 @@ func (s *PaymentService) GetInvoiceDownload(ctx context.Context, userID, request
 	if err != nil || info.IsDir() {
 		return nil, infraerrors.NotFound("INVOICE_FILE_NOT_FOUND", "invoice file not found")
 	}
+	now := s.nowTime()
+	update := s.entClient.InvoiceRequest.UpdateOneID(req.ID).
+		AddDownloadCount(1).
+		SetUpdatedAt(now)
+	if req.DownloadedAt == nil {
+		update.SetDownloadedAt(now)
+	}
+	if _, err := update.Save(ctx); err != nil {
+		return nil, fmt.Errorf("mark invoice downloaded: %w", err)
+	}
 	fileName := fmt.Sprintf("invoice-%d", req.ID)
 	if req.FileName != nil && strings.TrimSpace(*req.FileName) != "" {
 		fileName = sanitizeInvoiceOriginalFileName(*req.FileName)
@@ -499,21 +535,24 @@ func invoiceRequestView(item *dbent.InvoiceRequest) InvoiceRequestView {
 		return InvoiceRequestView{}
 	}
 	view := InvoiceRequestView{
-		ID:           item.ID,
-		UserID:       item.UserID,
-		Amount:       invoiceRoundAmount(item.Amount),
-		Currency:     item.Currency,
-		InvoiceType:  item.InvoiceType,
-		Title:        item.Title,
-		TaxNumber:    item.TaxNumber,
-		Status:       item.Status,
-		ReviewedBy:   item.ReviewedBy,
-		ReviewedAt:   item.ReviewedAt,
-		IssuedAt:     item.IssuedAt,
-		CreatedAt:    item.CreatedAt,
-		UpdatedAt:    item.UpdatedAt,
-		Downloadable: item.Status == InvoiceStatusIssued && item.FilePath != nil && strings.TrimSpace(*item.FilePath) != "",
+		ID:            item.ID,
+		UserID:        item.UserID,
+		Amount:        invoiceRoundAmount(item.Amount),
+		Currency:      item.Currency,
+		InvoiceType:   item.InvoiceType,
+		Title:         item.Title,
+		TaxNumber:     item.TaxNumber,
+		Status:        item.Status,
+		ReviewedBy:    item.ReviewedBy,
+		ReviewedAt:    item.ReviewedAt,
+		IssuedAt:      item.IssuedAt,
+		DownloadedAt:  item.DownloadedAt,
+		DownloadCount: item.DownloadCount,
+		CreatedAt:     item.CreatedAt,
+		UpdatedAt:     item.UpdatedAt,
+		Downloadable:  item.Status == InvoiceStatusIssued && item.FilePath != nil && strings.TrimSpace(*item.FilePath) != "",
 	}
+	view.Claimable = view.Downloadable && view.DownloadedAt == nil
 	if item.Remark != nil {
 		view.Remark = *item.Remark
 	}

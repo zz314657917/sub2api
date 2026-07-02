@@ -154,6 +154,7 @@ export default {
       empty: '暂无开票申请',
       emptyAvailable: '暂无可开票金额',
       download: '下载',
+      downloaded: '已领取',
       noFile: '暂无文件',
       submitSuccess: '开票申请已提交',
       requestId: '申请 ID',

@@ -172,6 +172,10 @@ export interface InvoiceSummary {
   available_amount: number
 }
 
+export interface InvoiceClaimSummary {
+  claimable_count: number
+}
+
 export interface InvoiceRequest {
   id: number
   user_id: number
@@ -192,9 +196,12 @@ export interface InvoiceRequest {
   reviewed_by?: number
   reviewed_at?: string
   issued_at?: string
+  downloaded_at?: string
+  download_count: number
   created_at: string
   updated_at: string
   downloadable: boolean
+  claimable: boolean
 }
 
 export interface CreateInvoiceRequest {

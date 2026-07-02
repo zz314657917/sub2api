@@ -348,6 +348,47 @@ func (_u *InvoiceRequestUpdate) ClearIssuedAt() *InvoiceRequestUpdate {
 	return _u
 }
 
+// SetDownloadedAt sets the "downloaded_at" field.
+func (_u *InvoiceRequestUpdate) SetDownloadedAt(v time.Time) *InvoiceRequestUpdate {
+	_u.mutation.SetDownloadedAt(v)
+	return _u
+}
+
+// SetNillableDownloadedAt sets the "downloaded_at" field if the given value is not nil.
+func (_u *InvoiceRequestUpdate) SetNillableDownloadedAt(v *time.Time) *InvoiceRequestUpdate {
+	if v != nil {
+		_u.SetDownloadedAt(*v)
+	}
+	return _u
+}
+
+// ClearDownloadedAt clears the value of the "downloaded_at" field.
+func (_u *InvoiceRequestUpdate) ClearDownloadedAt() *InvoiceRequestUpdate {
+	_u.mutation.ClearDownloadedAt()
+	return _u
+}
+
+// SetDownloadCount sets the "download_count" field.
+func (_u *InvoiceRequestUpdate) SetDownloadCount(v int) *InvoiceRequestUpdate {
+	_u.mutation.ResetDownloadCount()
+	_u.mutation.SetDownloadCount(v)
+	return _u
+}
+
+// SetNillableDownloadCount sets the "download_count" field if the given value is not nil.
+func (_u *InvoiceRequestUpdate) SetNillableDownloadCount(v *int) *InvoiceRequestUpdate {
+	if v != nil {
+		_u.SetDownloadCount(*v)
+	}
+	return _u
+}
+
+// AddDownloadCount adds value to the "download_count" field.
+func (_u *InvoiceRequestUpdate) AddDownloadCount(v int) *InvoiceRequestUpdate {
+	_u.mutation.AddDownloadCount(v)
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *InvoiceRequestUpdate) SetUpdatedAt(v time.Time) *InvoiceRequestUpdate {
 	_u.mutation.SetUpdatedAt(v)
@@ -552,6 +593,18 @@ func (_u *InvoiceRequestUpdate) sqlSave(ctx context.Context) (_node int, err err
 	}
 	if _u.mutation.IssuedAtCleared() {
 		_spec.ClearField(invoicerequest.FieldIssuedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.DownloadedAt(); ok {
+		_spec.SetField(invoicerequest.FieldDownloadedAt, field.TypeTime, value)
+	}
+	if _u.mutation.DownloadedAtCleared() {
+		_spec.ClearField(invoicerequest.FieldDownloadedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.DownloadCount(); ok {
+		_spec.SetField(invoicerequest.FieldDownloadCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedDownloadCount(); ok {
+		_spec.AddField(invoicerequest.FieldDownloadCount, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(invoicerequest.FieldUpdatedAt, field.TypeTime, value)
@@ -924,6 +977,47 @@ func (_u *InvoiceRequestUpdateOne) ClearIssuedAt() *InvoiceRequestUpdateOne {
 	return _u
 }
 
+// SetDownloadedAt sets the "downloaded_at" field.
+func (_u *InvoiceRequestUpdateOne) SetDownloadedAt(v time.Time) *InvoiceRequestUpdateOne {
+	_u.mutation.SetDownloadedAt(v)
+	return _u
+}
+
+// SetNillableDownloadedAt sets the "downloaded_at" field if the given value is not nil.
+func (_u *InvoiceRequestUpdateOne) SetNillableDownloadedAt(v *time.Time) *InvoiceRequestUpdateOne {
+	if v != nil {
+		_u.SetDownloadedAt(*v)
+	}
+	return _u
+}
+
+// ClearDownloadedAt clears the value of the "downloaded_at" field.
+func (_u *InvoiceRequestUpdateOne) ClearDownloadedAt() *InvoiceRequestUpdateOne {
+	_u.mutation.ClearDownloadedAt()
+	return _u
+}
+
+// SetDownloadCount sets the "download_count" field.
+func (_u *InvoiceRequestUpdateOne) SetDownloadCount(v int) *InvoiceRequestUpdateOne {
+	_u.mutation.ResetDownloadCount()
+	_u.mutation.SetDownloadCount(v)
+	return _u
+}
+
+// SetNillableDownloadCount sets the "download_count" field if the given value is not nil.
+func (_u *InvoiceRequestUpdateOne) SetNillableDownloadCount(v *int) *InvoiceRequestUpdateOne {
+	if v != nil {
+		_u.SetDownloadCount(*v)
+	}
+	return _u
+}
+
+// AddDownloadCount adds value to the "download_count" field.
+func (_u *InvoiceRequestUpdateOne) AddDownloadCount(v int) *InvoiceRequestUpdateOne {
+	_u.mutation.AddDownloadCount(v)
+	return _u
+}
+
 // SetUpdatedAt sets the "updated_at" field.
 func (_u *InvoiceRequestUpdateOne) SetUpdatedAt(v time.Time) *InvoiceRequestUpdateOne {
 	_u.mutation.SetUpdatedAt(v)
@@ -1158,6 +1252,18 @@ func (_u *InvoiceRequestUpdateOne) sqlSave(ctx context.Context) (_node *InvoiceR
 	}
 	if _u.mutation.IssuedAtCleared() {
 		_spec.ClearField(invoicerequest.FieldIssuedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.DownloadedAt(); ok {
+		_spec.SetField(invoicerequest.FieldDownloadedAt, field.TypeTime, value)
+	}
+	if _u.mutation.DownloadedAtCleared() {
+		_spec.ClearField(invoicerequest.FieldDownloadedAt, field.TypeTime)
+	}
+	if value, ok := _u.mutation.DownloadCount(); ok {
+		_spec.SetField(invoicerequest.FieldDownloadCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedDownloadCount(); ok {
+		_spec.AddField(invoicerequest.FieldDownloadCount, field.TypeInt, value)
 	}
 	if value, ok := _u.mutation.UpdatedAt(); ok {
 		_spec.SetField(invoicerequest.FieldUpdatedAt, field.TypeTime, value)

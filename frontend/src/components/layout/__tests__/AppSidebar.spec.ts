@@ -182,7 +182,7 @@ describe('AppSidebar self navigation groups', () => {
     expect(componentSource).toContain("t('nav.claimQuota')")
     expect(componentSource).toContain("t('nav.claimInvoice')")
     expect(componentSource).toContain('ticketsAPI.unreadSummary()')
-    expect(componentSource).toContain("paymentAPI.getMyInvoices({ page: 1, page_size: 50, status: 'issued' })")
+    expect(componentSource).toContain('paymentAPI.getInvoiceClaimSummary()')
     expect(componentSource).toContain('const invoiceClaimTotal = ref(0)')
     expect(componentSource).toContain('function refreshInvoiceClaimBadge')
     expect(componentSource).toContain('.sidebar-unread-badge')

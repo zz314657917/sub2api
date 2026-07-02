@@ -13,8 +13,9 @@ const { list, get, createMessage, close, markRead } = vi.hoisted(() => ({
   markRead: vi.fn(),
 }))
 
-const { downloadInvoice } = vi.hoisted(() => ({
+const { downloadInvoice, getInvoiceClaimSummary } = vi.hoisted(() => ({
   downloadInvoice: vi.fn(),
+  getInvoiceClaimSummary: vi.fn(),
 }))
 
 const { showError, showSuccess } = vi.hoisted(() => ({
@@ -36,6 +37,7 @@ vi.mock('@/api/tickets', () => ({
 vi.mock('@/api/payment', () => ({
   paymentAPI: {
     downloadInvoice,
+    getInvoiceClaimSummary,
   },
 }))
 
@@ -94,7 +96,7 @@ function supportTicket(overrides: Record<string, unknown> = {}) {
   }
 }
 
-function systemTicket() {
+function systemTicket(overrides: Record<string, unknown> = {}) {
   return supportTicket({
     id: 3,
     title: '系统通知',
@@ -102,6 +104,7 @@ function systemTicket() {
     ticket_type: 'system',
     system_key: 'system',
     last_message_preview: '充值已到账',
+    ...overrides,
   })
 }
 
@@ -138,6 +141,7 @@ describe('user TicketsView', () => {
     close.mockReset().mockResolvedValue(undefined)
     markRead.mockReset().mockResolvedValue(undefined)
     downloadInvoice.mockReset().mockResolvedValue({ data: new Blob(['pdf'], { type: 'application/pdf' }) })
+    getInvoiceClaimSummary.mockReset().mockResolvedValue({ data: { claimable_count: 0 } })
     push.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
@@ -247,6 +251,9 @@ describe('user TicketsView', () => {
 
   it('downloads issued invoices directly from system ticket messages', async () => {
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    getInvoiceClaimSummary
+      .mockResolvedValueOnce({ data: { claimable_count: 1 } })
+      .mockResolvedValue({ data: { claimable_count: 0 } })
     list.mockResolvedValue({
       items: [systemTicket()],
       total: 1,
@@ -274,6 +281,7 @@ describe('user TicketsView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('tickets.actions.invoiceIssued')
+    expect(wrapper.text()).toContain('tickets.invoiceClaimPending')
     expect(wrapper.text()).toContain('tickets.metadata.invoiceAmount')
     expect(wrapper.text()).toContain('1999 CNY')
     expect(wrapper.text()).toContain('INV-001')
@@ -284,6 +292,28 @@ describe('user TicketsView', () => {
     expect(URL.createObjectURL).toHaveBeenCalled()
     expect(click).toHaveBeenCalled()
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:invoice')
+    expect(list).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).not.toContain('tickets.invoiceClaimPending')
+  })
+
+  it('does not mark non-default system tickets as invoice claim tickets', async () => {
+    getInvoiceClaimSummary.mockResolvedValue({ data: { claimable_count: 1 } })
+    list.mockResolvedValue({
+      items: [systemTicket({ system_key: 'other-system' })],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+    get.mockResolvedValue({
+      ticket: systemTicket({ system_key: 'other-system' }),
+      messages: [],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).not.toContain('tickets.invoiceClaimPending')
   })
 
   it('renders group change metadata details for system messages', async () => {

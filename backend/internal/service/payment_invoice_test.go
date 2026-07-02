@@ -102,6 +102,13 @@ func TestPaymentInvoiceDownloadRequiresOwnerIssuedAndFile(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.True(t, issued.Downloadable)
+	require.True(t, issued.Claimable)
+	require.Nil(t, issued.DownloadedAt)
+	require.Equal(t, 0, issued.DownloadCount)
+
+	claimSummary, err := svc.GetInvoiceClaimSummary(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, 1, claimSummary.ClaimableCount)
 
 	_, err = svc.GetInvoiceDownload(ctx, other.ID, req.ID)
 	require.Equal(t, "FORBIDDEN", infraerrors.Reason(err))
@@ -113,6 +120,24 @@ func TestPaymentInvoiceDownloadRequiresOwnerIssuedAndFile(t *testing.T) {
 	require.Equal(t, int64(9), file.Size)
 	require.FileExists(t, file.Path)
 	require.Contains(t, filepath.ToSlash(file.Path), "/invoices/")
+
+	downloaded, err := client.InvoiceRequest.Get(ctx, req.ID)
+	require.NoError(t, err)
+	require.NotNil(t, downloaded.DownloadedAt)
+	require.Equal(t, 1, downloaded.DownloadCount)
+	firstDownloadedAt := *downloaded.DownloadedAt
+
+	claimSummary, err = svc.GetInvoiceClaimSummary(ctx, user.ID)
+	require.NoError(t, err)
+	require.Equal(t, 0, claimSummary.ClaimableCount)
+
+	_, err = svc.GetInvoiceDownload(ctx, user.ID, req.ID)
+	require.NoError(t, err)
+	downloadedAgain, err := client.InvoiceRequest.Get(ctx, req.ID)
+	require.NoError(t, err)
+	require.NotNil(t, downloadedAgain.DownloadedAt)
+	require.Equal(t, firstDownloadedAt, *downloadedAgain.DownloadedAt)
+	require.Equal(t, 2, downloadedAgain.DownloadCount)
 }
 
 func TestPaymentInvoiceIssueCreatesSystemTicketNotification(t *testing.T) {

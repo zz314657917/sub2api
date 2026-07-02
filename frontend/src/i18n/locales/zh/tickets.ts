@@ -39,6 +39,7 @@ export default {
   userSender: '我',
   adminSender: '管理员',
   unread: '{count} 条未读',
+  invoiceClaimPending: '待领发票',
   actions: {
     paymentCompleted: '查看订单/购买',
     invoiceIssued: '下载发票',

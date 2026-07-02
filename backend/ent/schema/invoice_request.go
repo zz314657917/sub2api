@@ -78,6 +78,12 @@ func (InvoiceRequest) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Time("downloaded_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Int("download_count").
+			Default(0),
 		field.Time("created_at").
 			Immutable().
 			Default(time.Now).

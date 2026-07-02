@@ -13,6 +13,7 @@ import type {
   CreateOrderRequest,
   CreateOrderResult,
   CreateInvoiceRequest,
+  InvoiceClaimSummary,
   InvoiceRequest,
   InvoiceSummary,
   PaymentOrder,
@@ -99,6 +100,11 @@ export const paymentAPI = {
   /** Get current user's invoiceable amount summary */
   getInvoiceSummary() {
     return apiClient.get<InvoiceSummary>('/payment/invoices/summary')
+  },
+
+  /** Get count of issued invoice files not downloaded yet */
+  getInvoiceClaimSummary() {
+    return apiClient.get<InvoiceClaimSummary>('/payment/invoices/claim-summary')
   },
 
   /** Get current user's invoice requests */

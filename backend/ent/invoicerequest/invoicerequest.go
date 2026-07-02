@@ -48,6 +48,10 @@ const (
 	FieldReviewedAt = "reviewed_at"
 	// FieldIssuedAt holds the string denoting the issued_at field in the database.
 	FieldIssuedAt = "issued_at"
+	// FieldDownloadedAt holds the string denoting the downloaded_at field in the database.
+	FieldDownloadedAt = "downloaded_at"
+	// FieldDownloadCount holds the string denoting the download_count field in the database.
+	FieldDownloadCount = "download_count"
 	// FieldCreatedAt holds the string denoting the created_at field in the database.
 	FieldCreatedAt = "created_at"
 	// FieldUpdatedAt holds the string denoting the updated_at field in the database.
@@ -85,6 +89,8 @@ var Columns = []string{
 	FieldReviewedBy,
 	FieldReviewedAt,
 	FieldIssuedAt,
+	FieldDownloadedAt,
+	FieldDownloadCount,
 	FieldCreatedAt,
 	FieldUpdatedAt,
 }
@@ -120,6 +126,8 @@ var (
 	FileNameValidator func(string) error
 	// FileContentTypeValidator is a validator for the "file_content_type" field. It is called by the builders before save.
 	FileContentTypeValidator func(string) error
+	// DefaultDownloadCount holds the default value on creation for the "download_count" field.
+	DefaultDownloadCount int
 	// DefaultCreatedAt holds the default value on creation for the "created_at" field.
 	DefaultCreatedAt func() time.Time
 	// DefaultUpdatedAt holds the default value on creation for the "updated_at" field.
@@ -219,6 +227,16 @@ func ByReviewedAt(opts ...sql.OrderTermOption) OrderOption {
 // ByIssuedAt orders the results by the issued_at field.
 func ByIssuedAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldIssuedAt, opts...).ToFunc()
+}
+
+// ByDownloadedAt orders the results by the downloaded_at field.
+func ByDownloadedAt(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDownloadedAt, opts...).ToFunc()
+}
+
+// ByDownloadCount orders the results by the download_count field.
+func ByDownloadCount(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldDownloadCount, opts...).ToFunc()
 }
 
 // ByCreatedAt orders the results by the created_at field.

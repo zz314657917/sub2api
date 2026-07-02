@@ -81,7 +81,9 @@ function invoice(overrides: Record<string, unknown> = {}) {
     file_name: '',
     created_at: '2026-07-01T10:00:00Z',
     updated_at: '2026-07-01T10:00:00Z',
+    download_count: 0,
     downloadable: false,
+    claimable: false,
     ...overrides,
   }
 }

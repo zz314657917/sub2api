@@ -140,6 +140,16 @@ func IssuedAt(v time.Time) predicate.InvoiceRequest {
 	return predicate.InvoiceRequest(sql.FieldEQ(FieldIssuedAt, v))
 }
 
+// DownloadedAt applies equality check predicate on the "downloaded_at" field. It's identical to DownloadedAtEQ.
+func DownloadedAt(v time.Time) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldEQ(FieldDownloadedAt, v))
+}
+
+// DownloadCount applies equality check predicate on the "download_count" field. It's identical to DownloadCountEQ.
+func DownloadCount(v int) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldEQ(FieldDownloadCount, v))
+}
+
 // CreatedAt applies equality check predicate on the "created_at" field. It's identical to CreatedAtEQ.
 func CreatedAt(v time.Time) predicate.InvoiceRequest {
 	return predicate.InvoiceRequest(sql.FieldEQ(FieldCreatedAt, v))
@@ -1183,6 +1193,96 @@ func IssuedAtIsNil() predicate.InvoiceRequest {
 // IssuedAtNotNil applies the NotNil predicate on the "issued_at" field.
 func IssuedAtNotNil() predicate.InvoiceRequest {
 	return predicate.InvoiceRequest(sql.FieldNotNull(FieldIssuedAt))
+}
+
+// DownloadedAtEQ applies the EQ predicate on the "downloaded_at" field.
+func DownloadedAtEQ(v time.Time) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldEQ(FieldDownloadedAt, v))
+}
+
+// DownloadedAtNEQ applies the NEQ predicate on the "downloaded_at" field.
+func DownloadedAtNEQ(v time.Time) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldNEQ(FieldDownloadedAt, v))
+}
+
+// DownloadedAtIn applies the In predicate on the "downloaded_at" field.
+func DownloadedAtIn(vs ...time.Time) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldIn(FieldDownloadedAt, vs...))
+}
+
+// DownloadedAtNotIn applies the NotIn predicate on the "downloaded_at" field.
+func DownloadedAtNotIn(vs ...time.Time) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldNotIn(FieldDownloadedAt, vs...))
+}
+
+// DownloadedAtGT applies the GT predicate on the "downloaded_at" field.
+func DownloadedAtGT(v time.Time) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldGT(FieldDownloadedAt, v))
+}
+
+// DownloadedAtGTE applies the GTE predicate on the "downloaded_at" field.
+func DownloadedAtGTE(v time.Time) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldGTE(FieldDownloadedAt, v))
+}
+
+// DownloadedAtLT applies the LT predicate on the "downloaded_at" field.
+func DownloadedAtLT(v time.Time) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldLT(FieldDownloadedAt, v))
+}
+
+// DownloadedAtLTE applies the LTE predicate on the "downloaded_at" field.
+func DownloadedAtLTE(v time.Time) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldLTE(FieldDownloadedAt, v))
+}
+
+// DownloadedAtIsNil applies the IsNil predicate on the "downloaded_at" field.
+func DownloadedAtIsNil() predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldIsNull(FieldDownloadedAt))
+}
+
+// DownloadedAtNotNil applies the NotNil predicate on the "downloaded_at" field.
+func DownloadedAtNotNil() predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldNotNull(FieldDownloadedAt))
+}
+
+// DownloadCountEQ applies the EQ predicate on the "download_count" field.
+func DownloadCountEQ(v int) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldEQ(FieldDownloadCount, v))
+}
+
+// DownloadCountNEQ applies the NEQ predicate on the "download_count" field.
+func DownloadCountNEQ(v int) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldNEQ(FieldDownloadCount, v))
+}
+
+// DownloadCountIn applies the In predicate on the "download_count" field.
+func DownloadCountIn(vs ...int) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldIn(FieldDownloadCount, vs...))
+}
+
+// DownloadCountNotIn applies the NotIn predicate on the "download_count" field.
+func DownloadCountNotIn(vs ...int) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldNotIn(FieldDownloadCount, vs...))
+}
+
+// DownloadCountGT applies the GT predicate on the "download_count" field.
+func DownloadCountGT(v int) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldGT(FieldDownloadCount, v))
+}
+
+// DownloadCountGTE applies the GTE predicate on the "download_count" field.
+func DownloadCountGTE(v int) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldGTE(FieldDownloadCount, v))
+}
+
+// DownloadCountLT applies the LT predicate on the "download_count" field.
+func DownloadCountLT(v int) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldLT(FieldDownloadCount, v))
+}
+
+// DownloadCountLTE applies the LTE predicate on the "download_count" field.
+func DownloadCountLTE(v int) predicate.InvoiceRequest {
+	return predicate.InvoiceRequest(sql.FieldLTE(FieldDownloadCount, v))
 }
 
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.

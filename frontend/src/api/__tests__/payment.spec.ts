@@ -37,4 +37,10 @@ describe('payment api', () => {
       resume_token: 'resume-token-123',
     })
   })
+
+  it('gets invoice claim summary for sidebar reminders', async () => {
+    await paymentAPI.getInvoiceClaimSummary()
+
+    expect(get).toHaveBeenCalledWith('/payment/invoices/claim-summary')
+  })
 })
