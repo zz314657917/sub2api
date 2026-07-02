@@ -223,6 +223,7 @@ const replyContent = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 const TICKET_UNREAD_BADGE_REFRESH_EVENT = 'sub2api:ticket-unread-updated'
+const INVOICE_CLAIMED_STORAGE_PREFIX = 'sub2api:claimed-invoices:'
 
 const filters = reactive({
   search: '',
@@ -375,6 +376,8 @@ async function downloadInvoiceFromTicket(action: SystemInvoiceActionEntry) {
     link.click()
     link.remove()
     URL.revokeObjectURL(url)
+    markInvoiceClaimed(action.invoiceId)
+    notifyTicketUnreadBadgeChanged()
   } catch (error: any) {
     appStore.showError(error.message || t('tickets.invoiceDownloadFailed'))
   } finally {
@@ -389,6 +392,23 @@ function invoiceFileName(invoiceId: number, contentType?: string): string {
 
 function notifyTicketUnreadBadgeChanged() {
   window.dispatchEvent(new Event(TICKET_UNREAD_BADGE_REFRESH_EVENT))
+}
+
+function claimedInvoiceStorageKey(): string {
+  return `${INVOICE_CLAIMED_STORAGE_PREFIX}current`
+}
+
+function markInvoiceClaimed(invoiceId: number) {
+  if (typeof localStorage === 'undefined') return
+  try {
+    const raw = localStorage.getItem(claimedInvoiceStorageKey())
+    const ids = raw ? JSON.parse(raw) : []
+    const next = new Set(Array.isArray(ids) ? ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0) : [])
+    next.add(invoiceId)
+    localStorage.setItem(claimedInvoiceStorageKey(), JSON.stringify([...next]))
+  } catch {
+    localStorage.setItem(claimedInvoiceStorageKey(), JSON.stringify([invoiceId]))
+  }
 }
 
 function applyTicketReadState(ticketId: number) {

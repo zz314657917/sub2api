@@ -9,6 +9,7 @@ export default {
     leaderboard: 'Leaderboard',
     welfare: 'Welfare',
     claimQuota: 'Claim',
+    claimInvoice: 'Invoice',
     creationCenter: 'Creation Center',
     chatCreator: 'AI Chat',
     imageCreator: 'Image Creator',

@@ -9,6 +9,7 @@ export default {
     leaderboard: '排行榜',
     welfare: '福利中心',
     claimQuota: '领额度',
+    claimInvoice: '领发票',
     creationCenter: '创作中心',
     chatCreator: 'AI 聊天',
     imageCreator: '图片创作',

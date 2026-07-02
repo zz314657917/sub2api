@@ -215,6 +215,8 @@ import OrderTable from '@/components/payment/OrderTable.vue'
 const { t, locale } = useI18n()
 const router = useRouter()
 const appStore = useAppStore()
+const TICKET_UNREAD_BADGE_REFRESH_EVENT = 'sub2api:ticket-unread-updated'
+const INVOICE_CLAIMED_STORAGE_PREFIX = 'sub2api:claimed-invoices:'
 
 const loading = ref(false)
 const actionLoading = ref(false)
@@ -398,8 +400,24 @@ async function downloadInvoice(item: InvoiceRequest) {
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+    markInvoiceClaimed(item.id)
+    window.dispatchEvent(new Event(TICKET_UNREAD_BADGE_REFRESH_EVENT))
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  }
+}
+
+function markInvoiceClaimed(invoiceId: number) {
+  if (typeof localStorage === 'undefined') return
+  const storageKey = `${INVOICE_CLAIMED_STORAGE_PREFIX}current`
+  try {
+    const raw = localStorage.getItem(storageKey)
+    const ids = raw ? JSON.parse(raw) : []
+    const next = new Set(Array.isArray(ids) ? ids.map((id) => Number(id)).filter((id) => Number.isFinite(id) && id > 0) : [])
+    next.add(invoiceId)
+    localStorage.setItem(storageKey, JSON.stringify([...next]))
+  } catch {
+    localStorage.setItem(storageKey, JSON.stringify([invoiceId]))
   }
 }
 

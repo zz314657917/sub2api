@@ -133,6 +133,7 @@
               <span class="sidebar-label sidebar-label-flex" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
                 <span class="min-w-0 truncate">{{ item.label }}</span>
                 <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
+                <span v-if="showInvoiceClaimBadge(item)" class="sidebar-claim-badge sidebar-invoice-claim-badge">{{ t('nav.claimInvoice') }}</span>
                 <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
                 <span v-if="showAdminTicketAttentionBadge(item)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
               </span>
@@ -194,6 +195,7 @@
                   <span class="sidebar-label-flex min-w-0 flex-1">
                     <span class="min-w-0 truncate">{{ child.label }}</span>
                     <span v-if="showWelfareClaimBadge(child)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
+                    <span v-if="showInvoiceClaimBadge(child)" class="sidebar-claim-badge sidebar-invoice-claim-badge">{{ t('nav.claimInvoice') }}</span>
                     <span v-if="showTicketUnreadBadge(child)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
                     <span v-if="showAdminTicketAttentionBadge(child)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
                   </span>
@@ -217,6 +219,7 @@
               <span class="sidebar-label sidebar-label-flex" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
                 <span class="min-w-0 truncate">{{ item.label }}</span>
                 <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
+                <span v-if="showInvoiceClaimBadge(item)" class="sidebar-claim-badge sidebar-invoice-claim-badge">{{ t('nav.claimInvoice') }}</span>
                 <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
                 <span v-if="showAdminTicketAttentionBadge(item)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
               </span>
@@ -274,6 +277,7 @@
                   <span class="sidebar-label-flex min-w-0 flex-1">
                     <span class="min-w-0 truncate">{{ child.label }}</span>
                     <span v-if="showWelfareClaimBadge(child)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
+                    <span v-if="showInvoiceClaimBadge(child)" class="sidebar-claim-badge sidebar-invoice-claim-badge">{{ t('nav.claimInvoice') }}</span>
                     <span v-if="showTicketUnreadBadge(child)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
                     <span v-if="showAdminTicketAttentionBadge(child)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
                   </span>
@@ -297,6 +301,7 @@
               <span class="sidebar-label sidebar-label-flex" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
                 <span class="min-w-0 truncate">{{ item.label }}</span>
                 <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
+                <span v-if="showInvoiceClaimBadge(item)" class="sidebar-claim-badge sidebar-invoice-claim-badge">{{ t('nav.claimInvoice') }}</span>
                 <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
                 <span v-if="showAdminTicketAttentionBadge(item)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
               </span>
@@ -359,6 +364,7 @@ import VersionBadge from '@/components/common/VersionBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { studioBridgeAPI } from '@/api'
 import { ticketsAPI } from '@/api/tickets'
+import { paymentAPI } from '@/api/payment'
 import { adminTicketsAPI } from '@/api/admin/tickets'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
@@ -488,6 +494,7 @@ const flagWelfare = makeSidebarFlag(FeatureFlags.welfare)
 const welfareClaimBadgeVisible = computed(() => welfareStore.hasClaimableReward)
 const ticketUnreadTotal = ref(0)
 const adminTicketUnreadTotal = ref(0)
+const invoiceClaimTotal = ref(0)
 const ticketUnreadBadgeLabel = computed(() => (ticketUnreadTotal.value > 99 ? '99+' : String(ticketUnreadTotal.value)))
 const adminTicketAttentionBadgeLabel = computed(() => (adminTicketUnreadTotal.value > 99 ? '99+' : String(adminTicketUnreadTotal.value)))
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
@@ -496,6 +503,7 @@ const WELFARE_BADGE_REFRESH_MS = 60_000
 const TICKET_UNREAD_BADGE_REFRESH_MS = 60_000
 const SIDEBAR_TOUR_TARGET_EVENT = 'sub2api:sidebar-tour-target'
 const TICKET_UNREAD_BADGE_REFRESH_EVENT = 'sub2api:ticket-unread-updated'
+const INVOICE_CLAIMED_STORAGE_PREFIX = 'sub2api:claimed-invoices:'
 const sidebarTourTargetGroups: Record<string, string[]> = {
   '#sidebar-group-manage': ['/admin/basic-management'],
   '#sidebar-channel-manage': ['/admin/basic-management'],
@@ -815,6 +823,10 @@ function showTicketUnreadBadge(item: NavItem): boolean {
   return item.path === '/tickets' && ticketUnreadTotal.value > 0
 }
 
+function showInvoiceClaimBadge(item: NavItem): boolean {
+  return item.path === '/tickets' && invoiceClaimTotal.value > 0
+}
+
 function showAdminTicketAttentionBadge(item: NavItem): boolean {
   return item.path === '/admin/tickets' && adminTicketUnreadTotal.value > 0
 }
@@ -878,6 +890,46 @@ function canRefreshTicketUnreadBadge(): boolean {
   return authStore.isAuthenticated && !authStore.isAdmin && !authStore.isSimpleMode
 }
 
+function claimedInvoiceStorageKey(): string {
+  return `${INVOICE_CLAIMED_STORAGE_PREFIX}${authStore.user?.id ?? 'anonymous'}`
+}
+
+function readClaimedInvoiceIDs(): Set<number> {
+  if (typeof localStorage === 'undefined') return new Set()
+  const storageKeys = [claimedInvoiceStorageKey(), `${INVOICE_CLAIMED_STORAGE_PREFIX}current`]
+  const claimed = new Set<number>()
+  try {
+    for (const key of storageKeys) {
+      const raw = localStorage.getItem(key)
+      const ids = raw ? JSON.parse(raw) : []
+      if (!Array.isArray(ids)) continue
+      for (const id of ids) {
+        const numericID = Number(id)
+        if (Number.isFinite(numericID) && numericID > 0) {
+          claimed.add(numericID)
+        }
+      }
+    }
+    return claimed
+  } catch {
+    return claimed
+  }
+}
+
+async function refreshInvoiceClaimBadge(): Promise<void> {
+  if (!canRefreshTicketUnreadBadge()) {
+    invoiceClaimTotal.value = 0
+    return
+  }
+  try {
+    const response = await paymentAPI.getMyInvoices({ page: 1, page_size: 50, status: 'issued' })
+    const claimed = readClaimedInvoiceIDs()
+    invoiceClaimTotal.value = (response.data.items || []).filter((item) => item.downloadable && !claimed.has(item.id)).length
+  } catch {
+    invoiceClaimTotal.value = 0
+  }
+}
+
 function canRefreshAdminTicketAttentionBadge(): boolean {
   return authStore.isAuthenticated && authStore.isAdmin && !authStore.isSimpleMode
 }
@@ -893,6 +945,7 @@ async function refreshTicketUnreadBadge(): Promise<void> {
   } else {
     ticketUnreadTotal.value = 0
   }
+  await refreshInvoiceClaimBadge()
 
   if (canRefreshAdminTicketAttentionBadge()) {
     try {
@@ -1171,6 +1224,19 @@ onUnmounted(() => {
   color: rgb(134 239 172);
 }
 
+.sidebar-invoice-claim-badge {
+  max-width: 4.75rem;
+  background: linear-gradient(135deg, rgb(234 88 12), rgb(202 138 4));
+  color: white;
+  box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.36);
+  animation: sidebar-ticket-attention-pulse 1.15s ease-in-out infinite;
+}
+
+.dark .sidebar-invoice-claim-badge {
+  background: linear-gradient(135deg, rgb(249 115 22), rgb(234 179 8));
+  color: rgb(255 251 235);
+}
+
 .sidebar-unread-badge {
   flex: 0 0 auto;
   min-width: 1.25rem;
@@ -1215,7 +1281,8 @@ onUnmounted(() => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .sidebar-ticket-attention-badge {
+  .sidebar-ticket-attention-badge,
+  .sidebar-invoice-claim-badge {
     animation: none;
   }
 }
