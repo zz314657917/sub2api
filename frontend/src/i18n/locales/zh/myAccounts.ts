@@ -104,6 +104,51 @@ export default {
       title: '共享模式',
       publicCreateHint: '保存后会自动提交共享审核，审核通过前不会进入公共池。'
     },
+    advanced: {
+      planTier: {
+        title: '账号等级',
+        hint: 'OpenAI 会按所选等级做容量展示；无法确认等级时建议选 Free。'
+      },
+      modelLimit: {
+        title: '模型限制（可选）',
+        hint: '保存到账号 model_mapping，用于真实调度和模型支持判断。',
+        allowlist: '模型白名单',
+        mapping: '模型映射',
+        fillSuggested: '填入推荐模型',
+        clear: '清除所有模型',
+        customPlaceholder: '输入自定义模型名称',
+        sourcePlaceholder: '请求模型，例如 gpt-5.2',
+        targetPlaceholder: '上游模型，例如 gpt-5.2-pro',
+        add: '加入',
+        selected: '已选择 {count} 个模型'
+      },
+      concurrency: '并发数',
+      expiresAt: '过期时间',
+      autoPauseOnExpired: '到期后自动暂停调度',
+      codexLimit: {
+        title: 'Codex 限额保护',
+        hint: '仅对 OpenAI OAuth 生效；达到设置百分比后暂停调度，窗口重置后自动恢复。',
+        fiveHour: '5h 限额百分比',
+        sevenDay: '7d 限额百分比'
+      },
+      dispatch: {
+        title: '调度控制',
+        hint: '配置费用窗口、请求频率、客户端指纹和缓存替换等调度控制。',
+        rpm: 'RPM 限制',
+        rpmHint: '限制每分钟请求数，保护上游账号。',
+        baseRpm: '基础 RPM',
+        userMsgQueueMode: '用户消息限速模式',
+        queueModes: {
+          off: '关闭',
+          throttle: '软件限速',
+          serialize: '串行队列'
+        },
+        tlsFingerprint: 'TLS 指纹模拟',
+        sessionMasking: '会话 ID 伪装',
+        cacheTtl: '缓存 TTL 强制替换',
+        cacheTtlTarget: '缓存 TTL 类型'
+      }
+    },
     shareStatus: {
       notShared: '未共享',
       pendingReview: '待审核',

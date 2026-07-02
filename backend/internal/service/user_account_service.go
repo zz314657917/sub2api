@@ -36,6 +36,8 @@ var (
 	ErrUserAccountAPIKeyBlocked = infraerrors.Forbidden("USER_ACCOUNT_APIKEY_BLOCKED", "API Key and custom upstream account uploads are disabled for normal users")
 )
 
+const userAccountDefaultConcurrency = 3
+
 type UserAccountShareSummary struct {
 	OwnerUserID       int64   `json:"owner_user_id"`
 	FrozenAmount      float64 `json:"frozen_amount"`
@@ -341,7 +343,7 @@ func (s *UserAccountService) Create(ctx context.Context, userID int64, req Creat
 		Credentials: req.Credentials,
 		Extra:       req.Extra,
 		ProxyID:     nil,
-		Concurrency: 0,
+		Concurrency: normalizeUserAccountConcurrency(req.Concurrency),
 		Priority:    0,
 		Status:      StatusActive,
 		Schedulable: true,
@@ -405,7 +407,9 @@ func (s *UserAccountService) Update(ctx context.Context, userID, accountID int64
 	if req.Extra != nil {
 		account.Extra = *req.Extra
 	}
-	if req.ExpiresAt != nil {
+	if req.ClearExpiresAt {
+		account.ExpiresAt = nil
+	} else if req.ExpiresAt != nil {
 		account.ExpiresAt = req.ExpiresAt
 	}
 	if req.AutoPauseOnExpired != nil {
@@ -418,7 +422,10 @@ func (s *UserAccountService) Update(ctx context.Context, userID, accountID int64
 		}
 		account.ProxyID = proxyID
 	}
-	if req.GroupIDs != nil || req.Concurrency != nil || req.Priority != nil || req.Status != nil {
+	if req.Concurrency != nil {
+		account.Concurrency = normalizeUserAccountConcurrency(*req.Concurrency)
+	}
+	if req.GroupIDs != nil || req.Priority != nil || req.Status != nil {
 		return nil, ErrUserAccountShareInvalid
 	}
 
@@ -1997,4 +2004,11 @@ func normalizeCapacityWindowTime(raw any) string {
 	default:
 		return ""
 	}
+}
+
+func normalizeUserAccountConcurrency(value int) int {
+	if value >= 1 {
+		return value
+	}
+	return userAccountDefaultConcurrency
 }

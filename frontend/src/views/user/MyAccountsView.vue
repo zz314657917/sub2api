@@ -415,6 +415,223 @@
               </div>
             </div>
 
+            <div v-if="accountAdvancedConfigVisible" class="space-y-5 border-t border-gray-200 pt-5 dark:border-dark-700">
+              <div v-if="form.platform === 'openai'">
+                <label class="input-label">{{ t('myAccounts.advanced.planTier.title') }}</label>
+                <div class="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <button
+                    v-for="tier in accountPlanTierOptions"
+                    :key="tier.value"
+                    type="button"
+                    @click="selectAccountPlanTier(tier.value)"
+                    :class="[
+                      'rounded-lg border px-3 py-3 text-left transition-all',
+                      accountPlanTier === tier.value
+                        ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
+                        : 'border-gray-200 text-gray-600 hover:border-primary-300 dark:border-dark-600 dark:text-gray-400'
+                    ]"
+                  >
+                    <span class="block text-sm font-semibold">{{ tier.label }}</span>
+                    <span class="mt-1 block text-xs">{{ tier.description }}</span>
+                  </button>
+                </div>
+                <p class="input-hint">{{ t('myAccounts.advanced.planTier.hint') }}</p>
+              </div>
+
+              <div v-if="isModelLimitConfigVisible">
+                <div class="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <label class="input-label">{{ t('myAccounts.advanced.modelLimit.title') }}</label>
+                    <p class="input-hint">{{ t('myAccounts.advanced.modelLimit.hint') }}</p>
+                  </div>
+                  <div class="grid w-full grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700 sm:w-80">
+                    <button
+                      type="button"
+                      @click="accountModelLimitMode = 'allowlist'"
+                      :class="[
+                        'rounded-md px-3 py-2 text-sm font-medium transition-all',
+                        accountModelLimitMode === 'allowlist' ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-600 dark:text-primary-300' : 'text-gray-600 dark:text-gray-400'
+                      ]"
+                    >
+                      {{ t('myAccounts.advanced.modelLimit.allowlist') }}
+                    </button>
+                    <button
+                      type="button"
+                      @click="accountModelLimitMode = 'mapping'"
+                      :class="[
+                        'rounded-md px-3 py-2 text-sm font-medium transition-all',
+                        accountModelLimitMode === 'mapping' ? 'bg-white text-primary-700 shadow-sm dark:bg-dark-600 dark:text-primary-300' : 'text-gray-600 dark:text-gray-400'
+                      ]"
+                    >
+                      {{ t('myAccounts.advanced.modelLimit.mapping') }}
+                    </button>
+                  </div>
+                </div>
+
+                <div v-if="accountModelLimitMode === 'allowlist'" class="mt-3 rounded-lg border border-gray-200 p-3 dark:border-dark-700">
+                  <div class="grid max-h-48 gap-2 overflow-y-auto sm:grid-cols-2">
+                    <button
+                      v-for="model in openAIModelSuggestions"
+                      :key="model"
+                      type="button"
+                      @click="toggleSuggestedModel(model)"
+                      :class="[
+                        'flex min-h-9 items-center justify-between rounded-md px-3 py-2 text-left text-xs transition-all',
+                        accountModelAllowlist.includes(model)
+                          ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-dark-700 dark:text-dark-200 dark:hover:bg-dark-600'
+                      ]"
+                    >
+                      <span class="truncate">{{ model }}</span>
+                      <span v-if="accountModelAllowlist.includes(model)" class="ml-2">x</span>
+                    </button>
+                  </div>
+                  <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <button type="button" class="btn btn-secondary btn-sm" @click="fillSuggestedModels">
+                      {{ t('myAccounts.advanced.modelLimit.fillSuggested') }}
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm text-red-600 dark:text-red-400" @click="clearSelectedModels">
+                      {{ t('myAccounts.advanced.modelLimit.clear') }}
+                    </button>
+                  </div>
+                  <div class="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <input v-model="accountModelCustomInput" class="input flex-1" :placeholder="t('myAccounts.advanced.modelLimit.customPlaceholder')" @keyup.enter="addCustomModel" />
+                    <button type="button" class="btn btn-secondary" @click="addCustomModel">
+                      {{ t('myAccounts.advanced.modelLimit.add') }}
+                    </button>
+                  </div>
+                  <p class="mt-2 text-xs text-gray-500 dark:text-dark-400">
+                    {{ t('myAccounts.advanced.modelLimit.selected', { count: selectedModelCount }) }}
+                  </p>
+                </div>
+
+                <div v-else class="mt-3 rounded-lg border border-gray-200 p-3 dark:border-dark-700">
+                  <div class="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                    <input v-model="accountModelMappingSource" class="input" :placeholder="t('myAccounts.advanced.modelLimit.sourcePlaceholder')" />
+                    <input v-model="accountModelMappingTarget" class="input" :placeholder="t('myAccounts.advanced.modelLimit.targetPlaceholder')" @keyup.enter="addModelMapping" />
+                    <button type="button" class="btn btn-secondary" @click="addModelMapping">
+                      {{ t('myAccounts.advanced.modelLimit.add') }}
+                    </button>
+                  </div>
+                  <div v-if="accountModelMappings.length > 0" class="mt-3 space-y-2">
+                    <div
+                      v-for="row in accountModelMappings"
+                      :key="row.id"
+                      class="flex items-center justify-between gap-3 rounded-md bg-gray-50 px-3 py-2 text-sm dark:bg-dark-900"
+                    >
+                      <span class="min-w-0 flex-1 truncate">{{ row.source }} -> {{ row.target }}</span>
+                      <button type="button" class="text-xs font-medium text-red-600 hover:underline dark:text-red-400" @click="removeModelMapping(row.id)">
+                        {{ t('common.delete') }}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid gap-4 md:grid-cols-2">
+                <div>
+                  <label class="input-label">{{ t('myAccounts.advanced.concurrency') }}</label>
+                  <input v-model.number="accountConcurrency" type="number" min="1" class="input" @input="accountConcurrency = normalizePositiveInteger(accountConcurrency, 3)" />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('myAccounts.advanced.expiresAt') }}</label>
+                  <input v-model="accountExpiresAtInput" type="datetime-local" class="input" />
+                  <label class="mt-2 flex items-center gap-2 text-xs text-gray-600 dark:text-dark-300">
+                    <input v-model="accountAutoPauseOnExpired" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                    <span>{{ t('myAccounts.advanced.autoPauseOnExpired') }}</span>
+                  </label>
+                </div>
+              </div>
+
+              <div v-if="form.platform === 'openai'" class="rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+                <div class="flex items-center justify-between gap-3">
+                  <div>
+                    <label class="input-label mb-0">{{ t('myAccounts.advanced.codexLimit.title') }}</label>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('myAccounts.advanced.codexLimit.hint') }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    @click="codexLimitProtectionEnabled = !codexLimitProtectionEnabled"
+                    :class="[
+                      'relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors',
+                      codexLimitProtectionEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                    ]"
+                  >
+                    <span :class="['inline-block h-5 w-5 rounded-full bg-white shadow transition-transform', codexLimitProtectionEnabled ? 'translate-x-5' : 'translate-x-0']" />
+                  </button>
+                </div>
+                <div v-if="codexLimitProtectionEnabled" class="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label class="input-label">{{ t('myAccounts.advanced.codexLimit.fiveHour') }}</label>
+                    <input v-model.number="codex5hLimitPercent" type="number" min="0" step="1" class="input" />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t('myAccounts.advanced.codexLimit.sevenDay') }}</label>
+                    <input v-model.number="codex7dLimitPercent" type="number" min="0" step="1" class="input" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-dark-700">
+                <div>
+                  <h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('myAccounts.advanced.dispatch.title') }}</h4>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('myAccounts.advanced.dispatch.hint') }}</p>
+                </div>
+                <div class="flex items-center justify-between gap-3 rounded-lg border border-gray-100 p-3 dark:border-dark-700">
+                  <div>
+                    <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('myAccounts.advanced.dispatch.rpm') }}</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('myAccounts.advanced.dispatch.rpmHint') }}</p>
+                  </div>
+                  <button
+                    type="button"
+                    @click="rpmLimitEnabled = !rpmLimitEnabled"
+                    :class="['relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors', rpmLimitEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600']"
+                  >
+                    <span :class="['inline-block h-5 w-5 rounded-full bg-white shadow transition-transform', rpmLimitEnabled ? 'translate-x-5' : 'translate-x-0']" />
+                  </button>
+                </div>
+                <div v-if="rpmLimitEnabled">
+                  <label class="input-label">{{ t('myAccounts.advanced.dispatch.baseRpm') }}</label>
+                  <input v-model.number="baseRpm" type="number" min="1" class="input" />
+                </div>
+                <div>
+                  <label class="input-label">{{ t('myAccounts.advanced.dispatch.userMsgQueueMode') }}</label>
+                  <div class="mt-2 flex flex-wrap gap-2">
+                    <button
+                      v-for="mode in userMsgQueueModeOptions"
+                      :key="mode"
+                      type="button"
+                      @click="userMsgQueueMode = mode"
+                      :class="[
+                        'rounded-md border px-3 py-2 text-sm transition-all',
+                        userMsgQueueMode === mode ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300' : 'border-gray-200 text-gray-600 dark:border-dark-600 dark:text-gray-400'
+                      ]"
+                    >
+                      {{ t(`myAccounts.advanced.dispatch.queueModes.${mode}`) }}
+                    </button>
+                  </div>
+                </div>
+                <div class="grid gap-3 md:grid-cols-3">
+                  <label class="flex items-center gap-2 rounded-lg border border-gray-100 p-3 text-sm dark:border-dark-700">
+                    <input v-model="tlsFingerprintEnabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                    <span>{{ t('myAccounts.advanced.dispatch.tlsFingerprint') }}</span>
+                  </label>
+                  <label class="flex items-center gap-2 rounded-lg border border-gray-100 p-3 text-sm dark:border-dark-700">
+                    <input v-model="sessionIdMaskingEnabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                    <span>{{ t('myAccounts.advanced.dispatch.sessionMasking') }}</span>
+                  </label>
+                  <label class="flex items-center gap-2 rounded-lg border border-gray-100 p-3 text-sm dark:border-dark-700">
+                    <input v-model="cacheTtlOverrideEnabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+                    <span>{{ t('myAccounts.advanced.dispatch.cacheTtl') }}</span>
+                  </label>
+                </div>
+                <div v-if="cacheTtlOverrideEnabled">
+                  <label class="input-label">{{ t('myAccounts.advanced.dispatch.cacheTtlTarget') }}</label>
+                  <Select v-model="cacheTtlOverrideTarget" :options="[{ value: '5m', label: '5m' }, { value: '1h', label: '1h' }]" />
+                </div>
+              </div>
+            </div>
+
             <div v-if="editingAccount && !isUserManagedKeyBackedType(editingAccount.type)">
               <label class="input-label">{{ t('myAccounts.import.credentials') }}</label>
               <textarea v-model="credentialsJson" class="input min-h-[160px] w-full font-mono text-xs" :placeholder="t('myAccounts.import.credentialsPlaceholder')"></textarea>
@@ -713,7 +930,7 @@ import ShareDisplayCard from '@/components/account/ShareDisplayCard.vue'
 import userAPI from '@/api/user'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
-import { formatCurrency, formatDateTime, formatNumber, formatRelativeTime } from '@/utils/format'
+import { formatCurrency, formatDateTime, formatDateTimeLocalInput, formatNumber, formatRelativeTime, parseDateTimeLocalInput } from '@/utils/format'
 import { formatCreditAmount } from '@/utils/credits'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { parseOAuthCallbackInput } from '@/utils/oauthCallback'
@@ -766,6 +983,27 @@ const shareDisplay5hLimit = ref<number | null>(null)
 const shareDisplay5hUsed = ref<number | null>(null)
 const shareDisplay7dLimit = ref<number | null>(null)
 const shareDisplay7dUsed = ref<number | null>(null)
+const accountPlanTier = ref('plus')
+const accountModelLimitMode = ref<'allowlist' | 'mapping'>('allowlist')
+const accountModelAllowlist = ref<string[]>(['gpt-5.2', 'gpt-5.2-chat-latest', 'gpt-5.2-pro', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex'])
+const accountModelCustomInput = ref('')
+const accountModelMappingSource = ref('')
+const accountModelMappingTarget = ref('')
+const accountModelMappings = ref<Array<{ id: number; source: string; target: string }>>([])
+const accountConcurrency = ref(3)
+const accountExpiresAt = ref<number | null>(null)
+const accountAutoPauseOnExpired = ref(true)
+const codexLimitProtectionEnabled = ref(true)
+const codex5hLimitPercent = ref<number | null>(100)
+const codex7dLimitPercent = ref<number | null>(100)
+const rpmLimitEnabled = ref(false)
+const baseRpm = ref<number | null>(15)
+const userMsgQueueMode = ref<'off' | 'throttle' | 'serialize'>('off')
+const tlsFingerprintEnabled = ref(false)
+const sessionIdMaskingEnabled = ref(false)
+const cacheTtlOverrideEnabled = ref(false)
+const cacheTtlOverrideTarget = ref<'5m' | '1h'>('5m')
+let modelMappingRowId = 1
 
 const pagination = reactive({
   page: 1,
@@ -831,6 +1069,40 @@ type AccountMethodCard = {
   bgClass: string
   iconBgClass: string
 }
+
+type AccountPlanTierOption = {
+  value: string
+  label: string
+  description: string
+}
+
+const openAIModelSuggestions = [
+  'gpt-5.2',
+  'gpt-5.2-2025-12-11',
+  'gpt-5.2-chat-latest',
+  'gpt-5.2-pro',
+  'gpt-5.2-pro-2025-12-11',
+  'gpt-5.5',
+  'gpt-5.4',
+  'gpt-5.4-mini',
+  'gpt-5.4-2026-03-05',
+  'gpt-5.3-codex',
+  'gpt-5.3-codex-spark',
+  'codex-auto-review',
+  'gpt-4o-audio-preview',
+  'gpt-4o-realtime-preview',
+  'gpt-image-1',
+  'gpt-image-1.5',
+  'gpt-image-2',
+]
+
+const accountPlanTierOptions: AccountPlanTierOption[] = [
+  { value: 'free', label: 'Free', description: '无法确认等级时按 Free 处理' },
+  { value: 'plus', label: 'Plus', description: '常规 ChatGPT Plus 账号' },
+  { value: 'pro', label: 'Pro', description: '高配账号或 Pro 订阅' },
+  { value: 'team', label: 'Team', description: '团队账号或 JSON 导入' },
+]
+const userMsgQueueModeOptions: Array<'off' | 'throttle' | 'serialize'> = ['off', 'throttle', 'serialize']
 
 const {
   selectedIds,
@@ -978,6 +1250,19 @@ const selectedProxyLabel = computed(() => {
   return userProxies.value.find(proxy => proxy.id === id)?.name ?? ''
 })
 
+const accountAdvancedConfigVisible = computed(() => {
+  return editingAccount.value !== null || accountWizardStep.value === 1
+})
+
+const isModelLimitConfigVisible = computed(() => form.platform === 'openai')
+
+const accountExpiresAtInput = computed({
+  get: () => formatDateTimeLocalInput(accountExpiresAt.value),
+  set: (value: string) => {
+    accountExpiresAt.value = parseDateTimeLocalInput(value)
+  }
+})
+
 const accountAuthStepTitle = computed(() => {
   if (form.platform === 'anthropic') {
     return t('myAccounts.steps.claudeAuth')
@@ -1038,6 +1323,8 @@ const isAccountQuotaConfigVisible = computed(() => {
   }
   return false
 })
+
+const selectedModelCount = computed(() => accountModelAllowlist.value.length)
 
 const importFormatOptions = computed(() => [
   { value: 'sub2api_oauth_json', label: 'Sub2API OAuth JSON' },
@@ -1164,7 +1451,7 @@ function openEditModal(account: Account): void {
   const credentials = account.credentials ?? {}
   apiKeyBaseUrl.value = String(credentials.base_url || (account.platform === 'openai' ? 'https://api.openai.com' : ''))
   apiKeyValue.value = ''
-  loadAccountExtraForm(account.extra ?? {})
+  loadAccountExtraForm(account.extra ?? {}, account)
   showAccountModal.value = true
 }
 
@@ -1336,6 +1623,14 @@ function normalizePositiveNumber(value: number | null): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
 }
 
+function normalizeNonNegativeNumber(value: number | null): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
+}
+
+function normalizePositiveInteger(value: number | null | undefined, fallback = 3): number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 1 ? Math.trunc(value) : fallback
+}
+
 function resetAccountExtraForm(): void {
   quotaDailyLimit.value = null
   quotaWeeklyLimit.value = null
@@ -1350,9 +1645,34 @@ function resetAccountExtraForm(): void {
   shareDisplay5hUsed.value = null
   shareDisplay7dLimit.value = null
   shareDisplay7dUsed.value = null
+  accountPlanTier.value = 'plus'
+  accountModelLimitMode.value = 'allowlist'
+  accountModelAllowlist.value = ['gpt-5.2', 'gpt-5.2-chat-latest', 'gpt-5.2-pro', 'gpt-5.5', 'gpt-5.4', 'gpt-5.4-mini', 'gpt-5.3-codex']
+  accountModelCustomInput.value = ''
+  accountModelMappingSource.value = ''
+  accountModelMappingTarget.value = ''
+  accountModelMappings.value = []
+  accountConcurrency.value = 3
+  accountExpiresAt.value = null
+  accountAutoPauseOnExpired.value = true
+  codexLimitProtectionEnabled.value = true
+  codex5hLimitPercent.value = 100
+  codex7dLimitPercent.value = 100
+  rpmLimitEnabled.value = false
+  baseRpm.value = 15
+  userMsgQueueMode.value = 'off'
+  tlsFingerprintEnabled.value = false
+  sessionIdMaskingEnabled.value = false
+  cacheTtlOverrideEnabled.value = false
+  cacheTtlOverrideTarget.value = '5m'
 }
 
-function loadAccountExtraForm(extra: Record<string, unknown>): void {
+function selectAccountPlanTier(tier: string): void {
+  accountPlanTier.value = tier
+  shareDisplayTier.value = tier
+}
+
+function loadAccountExtraForm(extra: Record<string, unknown>, account?: Account): void {
   quotaDailyLimit.value = typeof extra.quota_daily_limit === 'number' && extra.quota_daily_limit > 0 ? extra.quota_daily_limit : null
   quotaWeeklyLimit.value = typeof extra.quota_weekly_limit === 'number' && extra.quota_weekly_limit > 0 ? extra.quota_weekly_limit : null
   quotaMonthlyLimit.value = typeof extra.quota_monthly_limit === 'number' && extra.quota_monthly_limit > 0 ? extra.quota_monthly_limit : null
@@ -1368,6 +1688,142 @@ function loadAccountExtraForm(extra: Record<string, unknown>): void {
   shareDisplay5hUsed.value = typeof extra.share_display_5h_used === 'number' && extra.share_display_5h_used >= 0 ? extra.share_display_5h_used : null
   shareDisplay7dLimit.value = typeof extra.share_display_7d_limit === 'number' && extra.share_display_7d_limit > 0 ? extra.share_display_7d_limit : null
   shareDisplay7dUsed.value = typeof extra.share_display_7d_used === 'number' && extra.share_display_7d_used >= 0 ? extra.share_display_7d_used : null
+  accountPlanTier.value = typeof extra.share_display_tier === 'string' && extra.share_display_tier ? extra.share_display_tier : stringValue(account?.credentials?.plan_type) || 'plus'
+  shareDisplayTier.value = accountPlanTier.value
+  accountConcurrency.value = normalizePositiveInteger(account?.concurrency, 3)
+  accountExpiresAt.value = typeof account?.expires_at === 'number' ? account.expires_at : null
+  accountAutoPauseOnExpired.value = account?.auto_pause_on_expired !== false
+  const codex5hLimit = typeof extra.share_display_5h_limit === 'number' ? extra.share_display_5h_limit : null
+  const codex7dLimit = typeof extra.share_display_7d_limit === 'number' ? extra.share_display_7d_limit : null
+  codexLimitProtectionEnabled.value = codex5hLimit != null || codex7dLimit != null
+  codex5hLimitPercent.value = codex5hLimit ?? 100
+  codex7dLimitPercent.value = codex7dLimit ?? 100
+  rpmLimitEnabled.value = typeof extra.base_rpm === 'number' && extra.base_rpm > 0
+  baseRpm.value = typeof extra.base_rpm === 'number' && extra.base_rpm > 0 ? extra.base_rpm : 15
+  userMsgQueueMode.value = normalizeUserMsgQueueMode(extra.user_msg_queue_mode)
+  tlsFingerprintEnabled.value = extra.enable_tls_fingerprint === true
+  sessionIdMaskingEnabled.value = extra.session_id_masking_enabled === true
+  cacheTtlOverrideEnabled.value = extra.cache_ttl_override_enabled === true
+  cacheTtlOverrideTarget.value = extra.cache_ttl_override_target === '1h' ? '1h' : '5m'
+  loadAccountModelMapping(account?.credentials?.model_mapping)
+}
+
+function normalizeUserMsgQueueMode(value: unknown): 'off' | 'throttle' | 'serialize' {
+  if (value === 'throttle' || value === 'soft') {
+    return 'throttle'
+  }
+  if (value === 'serialize' || value === 'serial') {
+    return 'serialize'
+  }
+  return 'off'
+}
+
+function loadAccountModelMapping(raw: unknown): void {
+  const mapping = asRecord(raw)
+  if (!mapping || Object.keys(mapping).length === 0) {
+    accountModelLimitMode.value = 'allowlist'
+    return
+  }
+  const entries = Object.entries(mapping)
+    .map(([source, target]) => ({ source, target: String(target ?? '') }))
+    .filter(row => row.source.trim() && row.target.trim())
+  if (entries.length === 0) {
+    accountModelLimitMode.value = 'allowlist'
+    return
+  }
+  const allowlist = entries.every(row => row.source === row.target)
+  accountModelLimitMode.value = allowlist ? 'allowlist' : 'mapping'
+  if (allowlist) {
+    accountModelAllowlist.value = entries.map(row => row.source)
+    return
+  }
+  accountModelMappings.value = entries.map(row => ({
+    id: modelMappingRowId++,
+    source: row.source,
+    target: row.target,
+  }))
+}
+
+function toggleSuggestedModel(model: string): void {
+  if (accountModelAllowlist.value.includes(model)) {
+    accountModelAllowlist.value = accountModelAllowlist.value.filter(item => item !== model)
+    return
+  }
+  accountModelAllowlist.value = [...accountModelAllowlist.value, model]
+}
+
+function addCustomModel(): void {
+  const model = accountModelCustomInput.value.trim()
+  if (!model || accountModelAllowlist.value.includes(model)) {
+    accountModelCustomInput.value = ''
+    return
+  }
+  accountModelAllowlist.value = [...accountModelAllowlist.value, model]
+  accountModelCustomInput.value = ''
+}
+
+function fillSuggestedModels(): void {
+  accountModelAllowlist.value = [...openAIModelSuggestions]
+}
+
+function clearSelectedModels(): void {
+  accountModelAllowlist.value = []
+}
+
+function addModelMapping(): void {
+  const source = accountModelMappingSource.value.trim()
+  const target = accountModelMappingTarget.value.trim()
+  if (!source || !target) return
+  accountModelMappings.value = [
+    ...accountModelMappings.value,
+    { id: modelMappingRowId++, source, target },
+  ]
+  accountModelMappingSource.value = ''
+  accountModelMappingTarget.value = ''
+}
+
+function removeModelMapping(id: number): void {
+  accountModelMappings.value = accountModelMappings.value.filter(row => row.id !== id)
+}
+
+function buildModelMapping(): Record<string, string> | undefined {
+  const mapping: Record<string, string> = {}
+  if (accountModelLimitMode.value === 'allowlist') {
+    for (const model of accountModelAllowlist.value) {
+      const normalized = model.trim()
+      if (normalized) mapping[normalized] = normalized
+    }
+  } else {
+    for (const row of accountModelMappings.value) {
+      const source = row.source.trim()
+      const target = row.target.trim()
+      if (source && target) mapping[source] = target
+    }
+  }
+  return Object.keys(mapping).length > 0 ? mapping : undefined
+}
+
+function buildAccountCredentialExtras(): Record<string, unknown> | undefined {
+  const extras: Record<string, unknown> = {}
+  if (form.platform === 'openai') {
+    extras.plan_type = accountPlanTier.value
+    const modelMapping = buildModelMapping()
+    if (modelMapping) {
+      extras.model_mapping = modelMapping
+    }
+  }
+  return Object.keys(extras).length > 0 ? extras : undefined
+}
+
+function buildAccountCredentials(base?: Record<string, unknown>): Record<string, unknown> | undefined {
+  const credentials: Record<string, unknown> = { ...(base || {}) }
+  const extras = buildAccountCredentialExtras()
+  if (extras) {
+    Object.assign(credentials, extras)
+  } else {
+    delete credentials.model_mapping
+  }
+  return Object.keys(credentials).length > 0 ? credentials : undefined
 }
 
 function buildAccountExtra(base?: Record<string, unknown>): Record<string, unknown> | undefined {
@@ -1398,6 +1854,57 @@ function buildAccountExtra(base?: Record<string, unknown>): Record<string, unkno
   if (total != null) extra.quota_limit = total
   else delete extra.quota_limit
 
+  if (form.platform === 'openai') {
+    extra.share_display_tier = accountPlanTier.value || 'plus'
+    extra.share_display_percent_only = true
+    if (codexLimitProtectionEnabled.value) {
+      const fiveHour = normalizeNonNegativeNumber(codex5hLimitPercent.value)
+      const sevenDay = normalizeNonNegativeNumber(codex7dLimitPercent.value)
+      extra.share_display_5h_limit = fiveHour ?? 100
+      extra.share_display_7d_limit = sevenDay ?? 100
+    } else {
+      delete extra.share_display_5h_limit
+      delete extra.share_display_5h_used
+      delete extra.share_display_5h_start
+      delete extra.share_display_7d_limit
+      delete extra.share_display_7d_used
+      delete extra.share_display_7d_start
+    }
+  } else {
+    delete extra.share_display_tier
+    delete extra.share_display_percent_only
+    delete extra.share_display_5h_limit
+    delete extra.share_display_5h_used
+    delete extra.share_display_5h_start
+    delete extra.share_display_7d_limit
+    delete extra.share_display_7d_used
+    delete extra.share_display_7d_start
+  }
+
+  if (rpmLimitEnabled.value) {
+    extra.base_rpm = normalizePositiveNumber(baseRpm.value) ?? 15
+    extra.rpm_strategy = 'tiered'
+  } else {
+    delete extra.base_rpm
+    delete extra.rpm_strategy
+  }
+  if (userMsgQueueMode.value !== 'off') {
+    extra.user_msg_queue_mode = userMsgQueueMode.value
+  } else {
+    delete extra.user_msg_queue_mode
+  }
+  if (tlsFingerprintEnabled.value) extra.enable_tls_fingerprint = true
+  else delete extra.enable_tls_fingerprint
+  if (sessionIdMaskingEnabled.value) extra.session_id_masking_enabled = true
+  else delete extra.session_id_masking_enabled
+  if (cacheTtlOverrideEnabled.value) {
+    extra.cache_ttl_override_enabled = true
+    extra.cache_ttl_override_target = cacheTtlOverrideTarget.value
+  } else {
+    delete extra.cache_ttl_override_enabled
+    delete extra.cache_ttl_override_target
+  }
+
   if (form.platform === 'openai' && shareDisplayEnabled.value) {
     const displayName = shareDisplayName.value.trim()
     if (displayName) extra.share_display_name = displayName
@@ -1411,15 +1918,17 @@ function buildAccountExtra(base?: Record<string, unknown>): Record<string, unkno
     writeOptionalShareDisplayNumber(extra, 'share_display_7d_used', shareDisplay7dUsed.value, false)
   } else {
     delete extra.share_display_name
-    delete extra.share_display_tier
-    delete extra.share_display_percent_only
     delete extra.share_display_account_count
-    delete extra.share_display_5h_limit
-    delete extra.share_display_5h_used
-    delete extra.share_display_5h_start
-    delete extra.share_display_7d_limit
-    delete extra.share_display_7d_used
-    delete extra.share_display_7d_start
+    if (form.platform !== 'openai') {
+      delete extra.share_display_tier
+      delete extra.share_display_percent_only
+      delete extra.share_display_5h_limit
+      delete extra.share_display_5h_used
+      delete extra.share_display_5h_start
+      delete extra.share_display_7d_limit
+      delete extra.share_display_7d_used
+      delete extra.share_display_7d_start
+    }
   }
   return Object.keys(extra).length > 0 ? extra : undefined
 }
@@ -1451,14 +1960,29 @@ function selectedProxyIdUpdatePayload(value: number | null): number {
 async function saveAccount(): Promise<void> {
   savingAccount.value = true
   try {
+    const accountExtra = buildAccountExtra()
+    const credentialExtras = buildAccountCredentialExtras()
+    const accountConfigPayload = {
+      extra: accountExtra,
+      credential_extras: credentialExtras,
+      concurrency: normalizePositiveInteger(accountConcurrency.value, 3),
+      expires_at: accountExpiresAt.value,
+      auto_pause_on_expired: accountAutoPauseOnExpired.value,
+    }
     if (editingAccount.value) {
       const baseExtra = (editingAccount.value.extra ?? {}) as Record<string, unknown>
+      const parsedCredentials = credentialsJson.value.trim()
+        ? parseJsonObject(credentialsJson.value)
+        : (editingAccount.value.credentials ?? {})
       const payload = {
         name: form.name.trim(),
         notes: form.notes.trim() || null,
-        credentials: isUserManagedKeyBackedType(editingAccount.value.type) ? undefined : (credentialsJson.value.trim() ? parseJsonObject(credentialsJson.value) : undefined),
-        extra: isAccountQuotaConfigVisible.value ? buildAccountExtra(baseExtra) ?? {} : undefined,
-        proxy_id: selectedProxyIdUpdatePayload(form.proxyId)
+        credentials: isUserManagedKeyBackedType(editingAccount.value.type) ? undefined : buildAccountCredentials(parsedCredentials),
+        extra: buildAccountExtra(baseExtra) ?? {},
+        proxy_id: selectedProxyIdUpdatePayload(form.proxyId),
+        concurrency: normalizePositiveInteger(accountConcurrency.value, 3),
+        expires_at: accountExpiresAt.value ?? 0,
+        auto_pause_on_expired: accountAutoPauseOnExpired.value
       }
       const updated = await userAPI.updateAccount(editingAccount.value.id, payload)
       patchAccount(updated)
@@ -1481,7 +2005,8 @@ async function saveAccount(): Promise<void> {
         code: callback.code,
         state: callback.state || authState.value || undefined,
         name: form.name.trim(),
-        notes: form.notes.trim() || null
+        notes: form.notes.trim() || null,
+        ...accountConfigPayload,
       }, form.proxyId))
     } else if (form.method === 'session-key' || form.method === 'setup-token') {
       createdAccount = await userAPI.importAccountSession(withSelectedProxy({
@@ -1489,7 +2014,8 @@ async function saveAccount(): Promise<void> {
         method: form.method,
         session_key: sessionKey.value.trim(),
         name: form.name.trim(),
-        notes: form.notes.trim() || null
+        notes: form.notes.trim() || null,
+        ...accountConfigPayload,
       }, form.proxyId))
     } else if (form.method === 'apikey') {
       if (!apiKeyValue.value.trim()) {
@@ -1503,18 +2029,26 @@ async function saveAccount(): Promise<void> {
         type: 'apikey',
         credentials: {
           base_url: apiKeyBaseUrl.value.trim() || 'https://api.openai.com',
-          api_key: apiKeyValue.value.trim()
+          api_key: apiKeyValue.value.trim(),
+          ...(buildAccountCredentialExtras() ?? {})
         },
-        extra: buildAccountExtra()
+        extra: accountExtra,
+        concurrency: normalizePositiveInteger(accountConcurrency.value, 3),
+        expires_at: accountExpiresAt.value,
+        auto_pause_on_expired: accountAutoPauseOnExpired.value,
       }, form.proxyId))
     } else {
+      const credentials = buildAccountCredentials(parseJsonObject(credentialsJson.value))
       createdAccount = await userAPI.createAccount(withSelectedProxy({
         name: form.name.trim() || defaultAccountName(),
         notes: form.notes.trim() || null,
         platform: form.platform,
         type: inferTypeFromForm(),
-        credentials: parseJsonObject(credentialsJson.value),
-        extra: isAccountQuotaConfigVisible.value ? buildAccountExtra() : undefined
+        credentials: credentials ?? {},
+        extra: accountExtra,
+        concurrency: normalizePositiveInteger(accountConcurrency.value, 3),
+        expires_at: accountExpiresAt.value,
+        auto_pause_on_expired: accountAutoPauseOnExpired.value,
       }, form.proxyId))
     }
     if (createdAccount && createShareMode.value === 'public') {

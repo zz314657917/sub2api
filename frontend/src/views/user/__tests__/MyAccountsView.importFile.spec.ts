@@ -14,6 +14,12 @@ const { userAPI, showError, showSuccess, refreshUser } = vi.hoisted(() => ({
     createAccount: vi.fn(),
     updateAccount: vi.fn(),
     generateAccountAuthURL: vi.fn(),
+    exchangeAccountOAuthCode: vi.fn(),
+    importAccountSession: vi.fn(),
+    listProxies: vi.fn(),
+    createProxy: vi.fn(),
+    updateProxy: vi.fn(),
+    deleteProxy: vi.fn(),
   },
   showError: vi.fn(),
   showSuccess: vi.fn(),
@@ -114,7 +120,7 @@ function mountView() {
         Input: {
           props: ['modelValue', 'label', 'placeholder', 'dataTestid'],
           emits: ['update:modelValue'],
-          template: '<input :data-testid="dataTestid" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
+          template: '<input :data-testid="dataTestid" :placeholder="placeholder" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)" />',
         },
         PlatformTypeBadge: { template: '<span />' },
         AccountCapacityCell: { template: '<span />' },
@@ -144,6 +150,12 @@ describe('MyAccountsView import file', () => {
     userAPI.updateAccountShareMode.mockReset()
     userAPI.createAccount.mockReset()
     userAPI.updateAccount.mockReset()
+    userAPI.exchangeAccountOAuthCode.mockReset().mockResolvedValue(makeAccount({ id: 88 }))
+    userAPI.importAccountSession.mockReset().mockResolvedValue(makeAccount({ id: 89, platform: 'anthropic' }))
+    userAPI.listProxies.mockReset().mockResolvedValue([])
+    userAPI.createProxy.mockReset()
+    userAPI.updateProxy.mockReset()
+    userAPI.deleteProxy.mockReset()
     userAPI.generateAccountAuthURL.mockReset().mockResolvedValue({
       auth_url: 'https://auth.example.test/oauth/authorize?state=state-1',
       session_id: 'session-1',
@@ -215,6 +227,53 @@ describe('MyAccountsView import file', () => {
       platform: 'openai',
       method: 'oauth',
     })
+  })
+
+  it('passes advanced account configuration when saving an OpenAI OAuth account', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="my-accounts-open-create"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="my-accounts-name"]').setValue('Configured OpenAI')
+    await wrapper.get('[data-testid="my-accounts-next"]').trigger('click')
+    await flushPromises()
+
+    const generateButton = wrapper
+      .findAll('button')
+      .find(button => button.text().includes('myAccounts.generateAuthUrl'))
+    await generateButton!.trigger('click')
+    await flushPromises()
+
+    const oauthInput = wrapper
+      .findAll('input')
+      .find(input => input.attributes('placeholder') === 'myAccounts.oauthCodePlaceholder')
+    expect(oauthInput).toBeTruthy()
+    await oauthInput!.setValue('http://localhost:3000/auth/callback?code=oauth-code&state=state-1')
+
+    await wrapper.get('[data-testid="my-accounts-save"]').trigger('click')
+    await flushPromises()
+
+    expect(userAPI.exchangeAccountOAuthCode).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'openai',
+      method: 'oauth',
+      session_id: 'session-1',
+      code: 'oauth-code',
+      name: 'Configured OpenAI',
+      concurrency: 3,
+      auto_pause_on_expired: true,
+      credential_extras: expect.objectContaining({
+        plan_type: 'plus',
+        model_mapping: expect.objectContaining({
+          'gpt-5.2': 'gpt-5.2',
+        }),
+      }),
+      extra: expect.objectContaining({
+        share_display_tier: 'plus',
+        share_display_5h_limit: 100,
+        share_display_7d_limit: 100,
+      }),
+    }))
   })
 
   it('preserves exported sub2api account name and extra metadata on import', async () => {

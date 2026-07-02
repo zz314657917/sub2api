@@ -104,6 +104,51 @@ export default {
       title: 'Sharing Mode',
       publicCreateHint: 'After saving, a sharing review will be submitted automatically. It will not enter the public pool before approval.'
     },
+    advanced: {
+      planTier: {
+        title: 'Account Tier',
+        hint: 'Used for OpenAI capacity display. Choose Free when the tier cannot be confirmed.'
+      },
+      modelLimit: {
+        title: 'Model Limit (Optional)',
+        hint: 'Saved to account model_mapping and used by real scheduling/model support checks.',
+        allowlist: 'Model Allowlist',
+        mapping: 'Model Mapping',
+        fillSuggested: 'Fill suggested models',
+        clear: 'Clear all models',
+        customPlaceholder: 'Enter a custom model name',
+        sourcePlaceholder: 'Requested model, e.g. gpt-5.2',
+        targetPlaceholder: 'Upstream model, e.g. gpt-5.2-pro',
+        add: 'Add',
+        selected: '{count} model(s) selected'
+      },
+      concurrency: 'Concurrency',
+      expiresAt: 'Expires At',
+      autoPauseOnExpired: 'Auto-pause scheduling after expiration',
+      codexLimit: {
+        title: 'Codex Limit Protection',
+        hint: 'Only applies to OpenAI OAuth. Scheduling pauses after usage reaches the configured percentage and recovers after window reset.',
+        fiveHour: '5h limit percentage',
+        sevenDay: '7d limit percentage'
+      },
+      dispatch: {
+        title: 'Dispatch Control',
+        hint: 'Configure request windows, request frequency, client fingerprints, and cache TTL replacement.',
+        rpm: 'RPM Limit',
+        rpmHint: 'Limit requests per minute to protect the upstream account.',
+        baseRpm: 'Base RPM',
+        userMsgQueueMode: 'User message queue mode',
+        queueModes: {
+          off: 'Off',
+          throttle: 'Soft limit',
+          serialize: 'Serial queue'
+        },
+        tlsFingerprint: 'TLS fingerprint',
+        sessionMasking: 'Session ID masking',
+        cacheTtl: 'Force cache TTL',
+        cacheTtlTarget: 'Cache TTL target'
+      }
+    },
     shareStatus: {
       notShared: 'Not Shared',
       pendingReview: 'Pending Review',

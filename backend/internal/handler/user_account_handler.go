@@ -54,6 +54,7 @@ type userAccountCreateRequest struct {
 	Credentials        map[string]any `json:"credentials" binding:"required"`
 	Extra              map[string]any `json:"extra"`
 	ProxyID            *int64         `json:"proxy_id"`
+	Concurrency        int            `json:"concurrency"`
 	ExpiresAt          *int64         `json:"expires_at"`
 	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
 }
@@ -64,6 +65,7 @@ type userAccountUpdateRequest struct {
 	Credentials        map[string]any `json:"credentials"`
 	Extra              map[string]any `json:"extra"`
 	ProxyID            *int64         `json:"proxy_id"`
+	Concurrency        *int           `json:"concurrency"`
 	ExpiresAt          *int64         `json:"expires_at"`
 	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
 }
@@ -81,6 +83,7 @@ type userAccountImportRequest struct {
 	Credentials        map[string]any `json:"credentials" binding:"required"`
 	Extra              map[string]any `json:"extra"`
 	ProxyID            *int64         `json:"proxy_id"`
+	Concurrency        int            `json:"concurrency"`
 	ExpiresAt          *int64         `json:"expires_at"`
 	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
 }
@@ -96,27 +99,37 @@ type userAccountGenerateAuthURLRequest struct {
 }
 
 type userAccountExchangeCodeRequest struct {
-	Platform    string  `json:"platform" binding:"required"`
-	Method      string  `json:"method"`
-	SessionID   string  `json:"session_id" binding:"required"`
-	Code        string  `json:"code" binding:"required"`
-	State       string  `json:"state"`
-	RedirectURI string  `json:"redirect_uri"`
-	OAuthType   string  `json:"oauth_type"`
-	TierID      string  `json:"tier_id"`
-	ProxyID     *int64  `json:"proxy_id"`
-	Name        string  `json:"name"`
-	Notes       *string `json:"notes"`
+	Platform           string         `json:"platform" binding:"required"`
+	Method             string         `json:"method"`
+	SessionID          string         `json:"session_id" binding:"required"`
+	Code               string         `json:"code" binding:"required"`
+	State              string         `json:"state"`
+	RedirectURI        string         `json:"redirect_uri"`
+	OAuthType          string         `json:"oauth_type"`
+	TierID             string         `json:"tier_id"`
+	ProxyID            *int64         `json:"proxy_id"`
+	CredentialExtras   map[string]any `json:"credential_extras"`
+	Extra              map[string]any `json:"extra"`
+	Concurrency        int            `json:"concurrency"`
+	ExpiresAt          *int64         `json:"expires_at"`
+	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
+	Name               string         `json:"name"`
+	Notes              *string        `json:"notes"`
 }
 
 type userAccountSessionImportRequest struct {
-	Platform   string  `json:"platform" binding:"required"`
-	Method     string  `json:"method"`
-	SessionKey string  `json:"session_key"`
-	Code       string  `json:"code"`
-	ProxyID    *int64  `json:"proxy_id"`
-	Name       string  `json:"name"`
-	Notes      *string `json:"notes"`
+	Platform           string         `json:"platform" binding:"required"`
+	Method             string         `json:"method"`
+	SessionKey         string         `json:"session_key"`
+	Code               string         `json:"code"`
+	ProxyID            *int64         `json:"proxy_id"`
+	CredentialExtras   map[string]any `json:"credential_extras"`
+	Extra              map[string]any `json:"extra"`
+	Concurrency        int            `json:"concurrency"`
+	ExpiresAt          *int64         `json:"expires_at"`
+	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
+	Name               string         `json:"name"`
+	Notes              *string        `json:"notes"`
 }
 
 func (h *UserAccountHandler) List(c *gin.Context) {
@@ -178,6 +191,7 @@ func (h *UserAccountHandler) Create(c *gin.Context) {
 		Credentials:        req.Credentials,
 		Extra:              req.Extra,
 		ProxyID:            req.ProxyID,
+		Concurrency:        req.Concurrency,
 		ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
 		AutoPauseOnExpired: req.AutoPauseOnExpired,
 	}
@@ -214,6 +228,7 @@ func (h *UserAccountHandler) Import(c *gin.Context) {
 		Credentials:        req.Credentials,
 		Extra:              extra,
 		ProxyID:            req.ProxyID,
+		Concurrency:        req.Concurrency,
 		ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
 		AutoPauseOnExpired: req.AutoPauseOnExpired,
 	}
@@ -240,7 +255,9 @@ func (h *UserAccountHandler) Update(c *gin.Context) {
 		Name:               trimmedStringPtr(req.Name),
 		Notes:              req.Notes,
 		ProxyID:            req.ProxyID,
+		Concurrency:        req.Concurrency,
 		ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
+		ClearExpiresAt:     req.ExpiresAt != nil && *req.ExpiresAt <= 0,
 		AutoPauseOnExpired: req.AutoPauseOnExpired,
 	}
 	if req.Credentials != nil {
@@ -589,13 +606,16 @@ func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context,
 			extra["privacy_mode"] = tokenInfo.PrivacyMode
 		}
 		svcReq = service.CreateAccountRequest{
-			Name:        defaultName(req.Name, tokenInfo.Email, "OpenAI OAuth Account"),
-			Notes:       req.Notes,
-			Platform:    service.PlatformOpenAI,
-			Type:        service.AccountTypeOAuth,
-			Credentials: h.openaiOAuth.BuildAccountCredentials(tokenInfo),
-			Extra:       emptyMapToNil(extra),
-			ProxyID:     proxyID,
+			Name:               defaultName(req.Name, tokenInfo.Email, "OpenAI OAuth Account"),
+			Notes:              req.Notes,
+			Platform:           service.PlatformOpenAI,
+			Type:               service.AccountTypeOAuth,
+			Credentials:        mergeUserAccountCredentials(h.openaiOAuth.BuildAccountCredentials(tokenInfo), req.CredentialExtras),
+			Extra:              mergeUserAccountExtras(emptyMapToNil(extra), req.Extra),
+			ProxyID:            proxyID,
+			Concurrency:        req.Concurrency,
+			ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
+			AutoPauseOnExpired: req.AutoPauseOnExpired,
 		}
 	case service.PlatformAnthropic:
 		tokenInfo, err := h.oauthService.ExchangeCode(ctx, &service.ExchangeCodeInput{
@@ -611,12 +631,16 @@ func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context,
 			accountType = service.AccountTypeSetupToken
 		}
 		svcReq = service.CreateAccountRequest{
-			Name:        defaultName(req.Name, tokenInfo.EmailAddress, "Claude OAuth Account"),
-			Notes:       req.Notes,
-			Platform:    service.PlatformAnthropic,
-			Type:        accountType,
-			Credentials: service.BuildClaudeAccountCredentials(tokenInfo),
-			ProxyID:     proxyID,
+			Name:               defaultName(req.Name, tokenInfo.EmailAddress, "Claude OAuth Account"),
+			Notes:              req.Notes,
+			Platform:           service.PlatformAnthropic,
+			Type:               accountType,
+			Credentials:        mergeUserAccountCredentials(service.BuildClaudeAccountCredentials(tokenInfo), req.CredentialExtras),
+			Extra:              emptyMapToNil(req.Extra),
+			ProxyID:            proxyID,
+			Concurrency:        req.Concurrency,
+			ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
+			AutoPauseOnExpired: req.AutoPauseOnExpired,
 		}
 	case service.PlatformGemini:
 		oauthType := strings.TrimSpace(req.OAuthType)
@@ -635,13 +659,16 @@ func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context,
 			return nil, err
 		}
 		svcReq = service.CreateAccountRequest{
-			Name:        defaultName(req.Name, tokenInfo.ProjectID, "Gemini OAuth Account"),
-			Notes:       req.Notes,
-			Platform:    service.PlatformGemini,
-			Type:        service.AccountTypeOAuth,
-			Credentials: h.geminiOAuth.BuildAccountCredentials(tokenInfo),
-			Extra:       tokenInfo.Extra,
-			ProxyID:     proxyID,
+			Name:               defaultName(req.Name, tokenInfo.ProjectID, "Gemini OAuth Account"),
+			Notes:              req.Notes,
+			Platform:           service.PlatformGemini,
+			Type:               service.AccountTypeOAuth,
+			Credentials:        mergeUserAccountCredentials(h.geminiOAuth.BuildAccountCredentials(tokenInfo), req.CredentialExtras),
+			Extra:              mergeUserAccountExtras(tokenInfo.Extra, req.Extra),
+			ProxyID:            proxyID,
+			Concurrency:        req.Concurrency,
+			ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
+			AutoPauseOnExpired: req.AutoPauseOnExpired,
 		}
 	case service.PlatformAntigravity:
 		tokenInfo, err := h.antigravityOAuth.ExchangeCode(ctx, &service.AntigravityExchangeCodeInput{
@@ -658,13 +685,16 @@ func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context,
 			extra["privacy_mode"] = tokenInfo.PrivacyMode
 		}
 		svcReq = service.CreateAccountRequest{
-			Name:        defaultName(req.Name, tokenInfo.Email, "Antigravity OAuth Account"),
-			Notes:       req.Notes,
-			Platform:    service.PlatformAntigravity,
-			Type:        service.AccountTypeOAuth,
-			Credentials: h.antigravityOAuth.BuildAccountCredentials(tokenInfo),
-			Extra:       emptyMapToNil(extra),
-			ProxyID:     proxyID,
+			Name:               defaultName(req.Name, tokenInfo.Email, "Antigravity OAuth Account"),
+			Notes:              req.Notes,
+			Platform:           service.PlatformAntigravity,
+			Type:               service.AccountTypeOAuth,
+			Credentials:        mergeUserAccountCredentials(h.antigravityOAuth.BuildAccountCredentials(tokenInfo), req.CredentialExtras),
+			Extra:              mergeUserAccountExtras(emptyMapToNil(extra), req.Extra),
+			ProxyID:            proxyID,
+			Concurrency:        req.Concurrency,
+			ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
+			AutoPauseOnExpired: req.AutoPauseOnExpired,
 		}
 	default:
 		return nil, service.ErrUserAccountShareInvalid
@@ -701,12 +731,16 @@ func (h *UserAccountHandler) createAccountFromSessionKey(ctx context.Context, us
 		return nil, err
 	}
 	svcReq := service.CreateAccountRequest{
-		Name:        defaultName(req.Name, tokenInfo.EmailAddress, "Claude Session Account"),
-		Notes:       req.Notes,
-		Platform:    service.PlatformAnthropic,
-		Type:        accountType,
-		Credentials: service.BuildClaudeAccountCredentials(tokenInfo),
-		ProxyID:     proxyID,
+		Name:               defaultName(req.Name, tokenInfo.EmailAddress, "Claude Session Account"),
+		Notes:              req.Notes,
+		Platform:           service.PlatformAnthropic,
+		Type:               accountType,
+		Credentials:        mergeUserAccountCredentials(service.BuildClaudeAccountCredentials(tokenInfo), req.CredentialExtras),
+		Extra:              emptyMapToNil(req.Extra),
+		ProxyID:            proxyID,
+		Concurrency:        req.Concurrency,
+		ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
+		AutoPauseOnExpired: req.AutoPauseOnExpired,
 	}
 	return h.userAccountService.Create(ctx, userID, svcReq)
 }
@@ -784,6 +818,28 @@ func mergeUserImportExtra(extra, credentials map[string]any, platform, name stri
 		}
 	}
 	return emptyMapToNil(merged)
+}
+
+func mergeUserAccountExtras(base, overrides map[string]any) map[string]any {
+	merged := map[string]any{}
+	for key, value := range base {
+		merged[key] = value
+	}
+	for key, value := range overrides {
+		merged[key] = value
+	}
+	return emptyMapToNil(merged)
+}
+
+func mergeUserAccountCredentials(base, extras map[string]any) map[string]any {
+	merged := map[string]any{}
+	for key, value := range base {
+		merged[key] = value
+	}
+	for key, value := range extras {
+		merged[key] = value
+	}
+	return merged
 }
 
 func inferOpenAIShareDisplayTierFromText(value string) string {

@@ -81,6 +81,86 @@ func TestUserAccountService_UpdateCanClearUserProxy(t *testing.T) {
 	}
 }
 
+func TestUserAccountService_CreateAndUpdateUserConcurrency(t *testing.T) {
+	ownerID := int64(10)
+	accountRepo := newUserProxyAccountRepoStub()
+	svc := NewUserAccountService(accountRepo, accountShareSettingsStub{enabled: true})
+
+	account, err := svc.Create(context.Background(), ownerID, CreateAccountRequest{
+		Name:        "owned",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Credentials: map[string]any{"refresh_token": "rt"},
+		Concurrency: 5,
+	})
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+	if account.Concurrency != 5 {
+		t.Fatalf("expected concurrency 5, got %d", account.Concurrency)
+	}
+
+	nextConcurrency := 2
+	updated, err := svc.Update(context.Background(), ownerID, account.ID, UpdateAccountRequest{Concurrency: &nextConcurrency})
+	if err != nil {
+		t.Fatalf("Update returned error: %v", err)
+	}
+	if updated.Concurrency != 2 {
+		t.Fatalf("expected concurrency 2, got %d", updated.Concurrency)
+	}
+	if len(accountRepo.updated) != 1 || accountRepo.updated[0].Concurrency != 2 {
+		t.Fatalf("repository update did not receive concurrency: %#v", accountRepo.updated)
+	}
+}
+
+func TestUserAccountService_DefaultsInvalidUserConcurrency(t *testing.T) {
+	ownerID := int64(10)
+	accountRepo := newUserProxyAccountRepoStub()
+	svc := NewUserAccountService(accountRepo, accountShareSettingsStub{enabled: true})
+
+	account, err := svc.Create(context.Background(), ownerID, CreateAccountRequest{
+		Name:        "owned",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Credentials: map[string]any{"refresh_token": "rt"},
+		Concurrency: -1,
+	})
+	if err != nil {
+		t.Fatalf("Create returned error: %v", err)
+	}
+	if account.Concurrency != userAccountDefaultConcurrency {
+		t.Fatalf("expected default concurrency %d, got %d", userAccountDefaultConcurrency, account.Concurrency)
+	}
+}
+
+func TestUserAccountService_UpdateCanClearExpiresAt(t *testing.T) {
+	ownerID := int64(10)
+	expiresAt := time.Now().Add(time.Hour)
+	accountRepo := newUserProxyAccountRepoStub()
+	accountRepo.accounts[1] = &Account{
+		ID:          1,
+		Name:        "owned",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Credentials: map[string]any{"refresh_token": "rt"},
+		OwnerUserID: &ownerID,
+		ExpiresAt:   &expiresAt,
+		Status:      StatusActive,
+	}
+	svc := NewUserAccountService(accountRepo, accountShareSettingsStub{enabled: true})
+
+	account, err := svc.Update(context.Background(), ownerID, 1, UpdateAccountRequest{ClearExpiresAt: true})
+	if err != nil {
+		t.Fatalf("Update returned error: %v", err)
+	}
+	if account.ExpiresAt != nil {
+		t.Fatalf("expected expires_at cleared, got %#v", account.ExpiresAt)
+	}
+	if len(accountRepo.updated) != 1 || accountRepo.updated[0].ExpiresAt != nil {
+		t.Fatalf("repository update did not clear expires_at: %#v", accountRepo.updated)
+	}
+}
+
 func TestUserProxyService_DeleteRejectsInUseProxy(t *testing.T) {
 	ownerID := int64(10)
 	proxyID := int64(20)
