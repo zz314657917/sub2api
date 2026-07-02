@@ -124,6 +124,7 @@ type UpdateAccountRequest struct {
 	Status             *string         `json:"status"`
 	GroupIDs           *[]int64        `json:"group_ids"`
 	ExpiresAt          *time.Time      `json:"expires_at"`
+	ClearExpiresAt     bool            `json:"-"`
 	AutoPauseOnExpired *bool           `json:"auto_pause_on_expired"`
 }
 
@@ -275,7 +276,9 @@ func (s *AccountService) Update(ctx context.Context, id int64, req UpdateAccount
 	if req.Status != nil {
 		account.Status = *req.Status
 	}
-	if req.ExpiresAt != nil {
+	if req.ClearExpiresAt {
+		account.ExpiresAt = nil
+	} else if req.ExpiresAt != nil {
 		account.ExpiresAt = req.ExpiresAt
 	}
 	if req.AutoPauseOnExpired != nil {
