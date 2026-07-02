@@ -50,6 +50,10 @@
               <Icon name="upload" size="md" />
               <span>{{ t('myAccounts.import.title') }}</span>
             </button>
+            <button class="btn btn-secondary" data-testid="my-accounts-open-proxies" @click="openProxyModal">
+              <Icon name="globe" size="md" />
+              <span>我的代理</span>
+            </button>
             <button class="btn btn-primary" data-testid="my-accounts-open-create" @click="openCreateModal">
               <Icon name="plus" size="md" />
               <span>{{ t('myAccounts.addAccount') }}</span>
@@ -249,71 +253,217 @@
     </div>
 
     <div v-if="showAccountModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-dark-800">
-        <div class="flex items-start justify-between gap-4">
-          <div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-              {{ editingAccount ? t('myAccounts.editAccount') : t('myAccounts.addAccount') }}
-            </h3>
-            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">{{ t('myAccounts.wizardHint') }}</p>
-          </div>
+      <div class="flex max-h-[92vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl dark:bg-dark-800">
+        <div class="flex items-center justify-between border-b border-gray-200 px-6 py-5 dark:border-dark-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+            {{ editingAccount ? t('myAccounts.editAccount') : t('myAccounts.addAccount') }}
+          </h3>
           <button class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-700" @click="closeAccountModal">
             <Icon name="x" size="md" />
           </button>
         </div>
 
-        <div v-if="!editingAccount" class="mt-6 grid gap-4 md:grid-cols-2">
-          <div>
-            <label class="input-label">{{ t('myAccounts.platform') }}</label>
-            <Select v-model="form.platform" :options="platformOptions" />
+        <div class="overflow-y-auto px-6 py-5">
+          <div v-if="!editingAccount" class="mb-6 flex items-center justify-center">
+            <div class="flex items-center gap-4">
+              <div class="flex items-center">
+                <div
+                  :class="[
+                    'flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold',
+                    accountWizardStep >= 1 ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-dark-600'
+                  ]"
+                >
+                  1
+                </div>
+                <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('myAccounts.steps.authMethod') }}</span>
+              </div>
+              <div class="h-0.5 w-8 bg-gray-300 dark:bg-dark-600" />
+              <div class="flex items-center">
+                <div
+                  :class="[
+                    'flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold',
+                    accountWizardStep >= 2 ? 'bg-primary-500 text-white' : 'bg-gray-200 text-gray-500 dark:bg-dark-600'
+                  ]"
+                >
+                  2
+                </div>
+                <span class="ml-2 text-sm font-medium text-gray-700 dark:text-gray-300">{{ accountAuthStepTitle }}</span>
+              </div>
+            </div>
           </div>
-          <div>
-            <label class="input-label">{{ t('myAccounts.method') }}</label>
-            <Select v-model="form.method" :options="methodOptions" />
+
+          <div v-if="editingAccount || accountWizardStep === 1" class="space-y-5">
+            <div>
+              <label class="input-label">{{ t('myAccounts.accountName') }}</label>
+              <input
+                v-model="form.name"
+                data-testid="my-accounts-name"
+                type="text"
+                class="input"
+                :placeholder="t('myAccounts.namePlaceholder')"
+              />
+            </div>
+
+            <div>
+              <label class="input-label">{{ t('myAccounts.notes') }}</label>
+              <textarea
+                v-model="form.notes"
+                rows="3"
+                class="input"
+                :placeholder="t('myAccounts.notesPlaceholder')"
+              ></textarea>
+              <p class="input-hint">{{ t('myAccounts.notesOptional') }}</p>
+            </div>
+
+            <div v-if="!editingAccount">
+              <label class="input-label">{{ t('myAccounts.shareMode.title') }}</label>
+              <div class="mt-2 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  @click="createShareMode = 'private'"
+                  :class="[
+                    'flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-all',
+                    createShareMode === 'private'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
+                      : 'border-gray-200 text-gray-600 hover:border-primary-300 dark:border-dark-600 dark:text-gray-400'
+                  ]"
+                >
+                  <Icon name="lock" size="sm" />
+                  <span>{{ t('myAccounts.shareMode.private') }}</span>
+                </button>
+                <button
+                  type="button"
+                  @click="createShareMode = 'public'"
+                  :class="[
+                    'flex items-center justify-center gap-2 rounded-lg border px-4 py-3 text-sm font-medium transition-all',
+                    createShareMode === 'public'
+                      ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-900/20 dark:text-primary-300'
+                      : 'border-gray-200 text-gray-600 hover:border-primary-300 dark:border-dark-600 dark:text-gray-400'
+                  ]"
+                >
+                  <Icon name="globe" size="sm" />
+                  <span>{{ t('myAccounts.shareMode.public') }}</span>
+                </button>
+              </div>
+              <p v-if="createShareMode === 'public'" class="mt-2 text-xs text-gray-500 dark:text-dark-400">
+                {{ t('myAccounts.shareMode.publicCreateHint') }}
+              </p>
+            </div>
+
+            <div v-if="!editingAccount">
+              <label class="input-label">{{ t('myAccounts.platform') }}</label>
+              <div class="mt-2 grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-dark-700 md:grid-cols-4">
+                <button
+                  v-for="platform in accountPlatformCards"
+                  :key="platform.value"
+                  type="button"
+                  @click="selectAccountPlatform(platform.value)"
+                  :class="[
+                    'flex min-h-11 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-all',
+                    form.platform === platform.value
+                      ? `${platform.activeClass} bg-white shadow-sm dark:bg-dark-600`
+                      : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
+                  ]"
+                >
+                  <Icon :name="platform.icon" size="sm" />
+                  <span>{{ platform.label }}</span>
+                </button>
+              </div>
+            </div>
+
+            <div v-if="!editingAccount">
+              <label class="input-label">{{ t('myAccounts.accountType') }}</label>
+              <div class="mt-2 grid gap-3" :class="methodCardGridClass">
+                <button
+                  v-for="method in accountMethodCards"
+                  :key="method.value"
+                  type="button"
+                  @click="selectAccountMethod(method.value)"
+                  :class="[
+                    'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
+                    form.method === method.value
+                      ? `${method.borderClass} ${method.bgClass}`
+                      : 'border-gray-200 hover:border-primary-300 dark:border-dark-600 dark:hover:border-primary-700'
+                  ]"
+                >
+                  <div
+                    :class="[
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+                      form.method === method.value
+                        ? `${method.iconBgClass} text-white`
+                        : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
+                    ]"
+                  >
+                    <Icon :name="method.icon" size="sm" />
+                  </div>
+                  <div>
+                    <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ method.label }}</span>
+                    <span class="text-xs text-gray-500 dark:text-gray-400">{{ method.description }}</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label class="input-label">{{ t('myAccounts.proxy.title') }}</label>
+              <Select v-model="form.proxyId" :options="proxyOptions" />
+              <div v-if="!editingAccount" class="mt-2 flex items-center justify-between gap-3 text-xs text-gray-500 dark:text-dark-400">
+                <span>{{ t('myAccounts.proxy.hint') }}</span>
+                <button type="button" class="font-medium text-primary-600 hover:underline dark:text-primary-400" @click="openProxyModal">
+                  {{ t('myAccounts.proxy.manage') }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="editingAccount && !isUserManagedKeyBackedType(editingAccount.type)">
+              <label class="input-label">{{ t('myAccounts.import.credentials') }}</label>
+              <textarea v-model="credentialsJson" class="input min-h-[160px] w-full font-mono text-xs" :placeholder="t('myAccounts.import.credentialsPlaceholder')"></textarea>
+            </div>
           </div>
-        </div>
 
-        <div class="mt-5 grid gap-4 md:grid-cols-2">
-          <Input v-model="form.name" :label="t('myAccounts.name')" :placeholder="t('myAccounts.namePlaceholder')" data-testid="my-accounts-name" />
-          <Input v-model="form.notes" :label="t('myAccounts.notes')" :placeholder="t('myAccounts.notesPlaceholder')" />
-        </div>
+          <div v-else class="space-y-5">
+            <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 dark:border-dark-700 dark:bg-dark-900">
+              <div class="flex flex-wrap items-center gap-2 text-sm text-gray-700 dark:text-dark-200">
+                <span class="font-medium text-gray-900 dark:text-white">{{ selectedPlatformLabel }}</span>
+                <span class="text-gray-400">/</span>
+                <span>{{ selectedMethodLabel }}</span>
+                <span v-if="selectedProxyLabel" class="text-gray-400">/</span>
+                <span v-if="selectedProxyLabel">{{ selectedProxyLabel }}</span>
+              </div>
+            </div>
 
-        <div v-if="!editingAccount && form.method === 'oauth'" class="mt-5 rounded-xl border border-gray-200 p-4 dark:border-dark-700">
-          <div class="flex flex-col gap-3 md:flex-row md:items-end">
-            <Input v-model="oauthCode" class="flex-1" :label="t('myAccounts.oauthCode')" :placeholder="t('myAccounts.oauthCodePlaceholder')" />
-            <button class="btn btn-secondary" :disabled="authUrlLoading" @click="generateAuthUrl">
-              <Icon v-if="authUrlLoading" name="refresh" size="sm" class="animate-spin" />
-              <Icon v-else name="externalLink" size="sm" />
-              <span>{{ t('myAccounts.generateAuthUrl') }}</span>
-            </button>
+            <div v-if="form.method === 'oauth'" class="rounded-xl border border-gray-200 p-4 dark:border-dark-700">
+              <div class="flex flex-col gap-3 md:flex-row md:items-end">
+                <Input v-model="oauthCode" class="flex-1" :label="t('myAccounts.oauthCode')" :placeholder="t('myAccounts.oauthCodePlaceholder')" />
+                <button class="btn btn-secondary" :disabled="authUrlLoading" @click="generateAuthUrl">
+                  <Icon v-if="authUrlLoading" name="refresh" size="sm" class="animate-spin" />
+                  <Icon v-else name="externalLink" size="sm" />
+                  <span>{{ t('myAccounts.generateAuthUrl') }}</span>
+                </button>
+              </div>
+              <div v-if="authUrl" class="mt-3 rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-900">
+                <a :href="authUrl" target="_blank" rel="noopener noreferrer" class="break-all text-primary-600 hover:underline dark:text-primary-400">
+                  {{ authUrl }}
+                </a>
+              </div>
+              <p class="mt-2 text-xs text-gray-500 dark:text-dark-400">{{ t('myAccounts.oauthHint') }}</p>
+            </div>
+
+            <div v-else-if="form.method === 'session-key' || form.method === 'setup-token'">
+              <label class="input-label">{{ t('myAccounts.sessionKey') }}</label>
+              <textarea v-model="sessionKey" class="input min-h-[160px] w-full" :placeholder="t('myAccounts.sessionKeyPlaceholder')"></textarea>
+            </div>
+
+            <div v-else>
+              <label class="input-label">{{ t('myAccounts.import.credentials') }}</label>
+              <textarea v-model="credentialsJson" class="input min-h-[180px] w-full font-mono text-xs" :placeholder="t('myAccounts.import.credentialsPlaceholder')"></textarea>
+              <p class="mt-2 text-xs text-gray-500 dark:text-dark-400">
+                {{ t('myAccounts.tokenJsonHint') }}
+              </p>
+            </div>
           </div>
-          <div v-if="authUrl" class="mt-3 rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-900">
-            <a :href="authUrl" target="_blank" rel="noopener noreferrer" class="break-all text-primary-600 hover:underline dark:text-primary-400">
-              {{ authUrl }}
-            </a>
-          </div>
-          <p class="mt-2 text-xs text-gray-500 dark:text-dark-400">{{ t('myAccounts.oauthHint') }}</p>
-        </div>
 
-        <div v-else-if="!editingAccount && (form.method === 'session-key' || form.method === 'setup-token')" class="mt-5">
-          <label class="input-label">{{ t('myAccounts.sessionKey') }}</label>
-          <textarea v-model="sessionKey" class="input min-h-[120px] w-full" :placeholder="t('myAccounts.sessionKeyPlaceholder')"></textarea>
-        </div>
-
-        <div v-else-if="!editingAccount && form.method === 'apikey'" class="mt-5 grid gap-4 md:grid-cols-2">
-          <Input v-model="apiKeyBaseUrl" :label="t('admin.accounts.baseUrl')" placeholder="https://api.openai.com" data-testid="my-accounts-apikey-base-url" />
-          <Input v-model="apiKeyValue" :label="t('admin.accounts.apiKeyRequired')" type="password" placeholder="sk-proj-..." data-testid="my-accounts-apikey-value" />
-        </div>
-
-        <div v-else-if="!editingAccount || !isUserManagedKeyBackedType(editingAccount.type)" class="mt-5">
-          <label class="input-label">{{ t('myAccounts.import.credentials') }}</label>
-          <textarea v-model="credentialsJson" class="input min-h-[160px] w-full font-mono text-xs" :placeholder="t('myAccounts.import.credentialsPlaceholder')"></textarea>
-          <p v-if="!editingAccount && form.method === 'json'" class="mt-2 text-xs text-gray-500 dark:text-dark-400">
-            {{ t('myAccounts.tokenJsonHint') }}
-          </p>
-        </div>
-
-        <div v-if="isAccountQuotaConfigVisible" class="mt-5 space-y-4 rounded-xl border border-gray-200 p-4 dark:border-dark-700">
+          <div v-if="isAccountQuotaConfigVisible" class="mt-5 space-y-4 rounded-xl border border-gray-200 p-4 dark:border-dark-700">
           <div>
             <h4 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('admin.accounts.quotaControl.title') }}</h4>
             <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.accounts.quotaLimitHint') }}</p>
@@ -359,12 +509,24 @@
           />
         </div>
 
-        <div class="mt-6 flex justify-end gap-3">
-          <button class="btn btn-secondary" @click="closeAccountModal">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" data-testid="my-accounts-save" :disabled="savingAccount" @click="saveAccount">
-            <Icon v-if="savingAccount" name="refresh" size="sm" class="animate-spin" />
-            <span>{{ t('common.save') }}</span>
-          </button>
+          <div class="mt-6 flex justify-end gap-3 border-t border-gray-200 pt-5 dark:border-dark-700">
+            <button class="btn btn-secondary" @click="closeAccountModal">{{ t('common.cancel') }}</button>
+            <button v-if="!editingAccount && accountWizardStep === 2" class="btn btn-secondary" @click="accountWizardStep = 1">
+              {{ t('common.back') }}
+            </button>
+            <button
+              v-if="!editingAccount && accountWizardStep === 1"
+              class="btn btn-primary"
+              data-testid="my-accounts-next"
+              @click="goToAccountAuthStep"
+            >
+              <span>{{ t('common.next') }}</span>
+            </button>
+            <button v-else class="btn btn-primary" data-testid="my-accounts-save" :disabled="savingAccount" @click="saveAccount">
+              <Icon v-if="savingAccount" name="refresh" size="sm" class="animate-spin" />
+              <span>{{ t('common.save') }}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -389,6 +551,10 @@
             <label class="input-label">{{ t('myAccounts.import.format') }}</label>
             <Select v-model="importForm.format" :options="importFormatOptions" />
           </div>
+        </div>
+        <div class="mt-4">
+          <label class="input-label">代理</label>
+          <Select v-model="importForm.proxyId" :options="proxyOptions" />
         </div>
         <div class="mt-4">
           <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -457,6 +623,75 @@
         </div>
       </div>
     </div>
+
+    <div v-if="showProxyModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-xl dark:bg-dark-800">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">我的代理</h3>
+            <p class="mt-1 text-sm text-gray-500 dark:text-dark-400">这些代理只对你自己的共享账号可见。</p>
+          </div>
+          <button class="rounded-lg p-1 text-gray-400 hover:bg-gray-100 dark:hover:bg-dark-700" @click="showProxyModal = false">
+            <Icon name="x" size="md" />
+          </button>
+        </div>
+
+        <div class="mt-5 grid gap-4 md:grid-cols-2">
+          <Input v-model="proxyForm.name" label="名称" placeholder="美国住宅代理" />
+          <div>
+            <label class="input-label">协议</label>
+            <Select v-model="proxyForm.protocol" :options="proxyProtocolOptions" />
+          </div>
+          <Input v-model="proxyForm.host" label="主机" placeholder="127.0.0.1" />
+          <div>
+            <label class="input-label">端口</label>
+            <input v-model.number="proxyForm.port" type="number" min="1" max="65535" class="input" placeholder="7890" />
+          </div>
+          <Input v-model="proxyForm.username" label="用户名" placeholder="可选" />
+          <Input v-model="proxyForm.password" label="密码" type="password" placeholder="新增可选，编辑留空不修改" />
+        </div>
+
+        <div class="mt-5 flex justify-end gap-3">
+          <button class="btn btn-secondary" @click="resetProxyForm">清空</button>
+          <button class="btn btn-primary" :disabled="savingProxy" @click="saveProxy">
+            <Icon v-if="savingProxy" name="refresh" size="sm" class="animate-spin" />
+            <span>{{ editingProxyId ? '保存代理' : '新增代理' }}</span>
+          </button>
+        </div>
+
+        <div class="mt-6 overflow-hidden rounded-xl border border-gray-200 dark:border-dark-700">
+          <div v-if="proxyLoading" class="p-5 text-sm text-gray-500 dark:text-dark-400">加载中...</div>
+          <div v-else-if="userProxies.length === 0" class="p-5 text-sm text-gray-500 dark:text-dark-400">暂无代理</div>
+          <table v-else class="w-full divide-y divide-gray-200 text-sm dark:divide-dark-700">
+            <thead class="bg-gray-50 text-left text-xs uppercase text-gray-500 dark:bg-dark-900 dark:text-dark-400">
+              <tr>
+                <th class="px-4 py-3">名称</th>
+                <th class="px-4 py-3">地址</th>
+                <th class="px-4 py-3">状态</th>
+                <th class="px-4 py-3 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-dark-700">
+              <tr v-for="proxy in userProxies" :key="proxy.id">
+                <td class="px-4 py-3 font-medium text-gray-900 dark:text-white">{{ proxy.name }}</td>
+                <td class="px-4 py-3 text-gray-600 dark:text-dark-300">{{ proxy.protocol }}://{{ proxy.host }}:{{ proxy.port }}</td>
+                <td class="px-4 py-3">
+                  <span :class="['badge text-xs', proxy.status === 'active' ? 'badge-success' : 'badge-secondary']">
+                    {{ proxy.status === 'active' ? '启用' : '停用' }}
+                  </span>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex justify-end gap-2">
+                    <button class="btn btn-xs btn-secondary" @click="editProxy(proxy)">编辑</button>
+                    <button class="btn btn-xs btn-danger" @click="removeProxy(proxy)">删除</button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </AppLayout>
 </template>
 
@@ -483,7 +718,7 @@ import { formatCreditAmount } from '@/utils/credits'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { parseOAuthCallbackInput } from '@/utils/oauthCallback'
 import { useTableSelection } from '@/composables/useTableSelection'
-import type { Account, AccountPlatform, AccountShareMode, AccountShareStatus, UserAccountShareSummary } from '@/types'
+import type { Account, AccountPlatform, AccountShareMode, AccountShareStatus, Proxy, ProxyProtocol, UserAccountAuthURLRequest, UserAccountShareSummary } from '@/types'
 import type { Column } from '@/components/common/types'
 
 const { t } = useI18n()
@@ -498,11 +733,18 @@ const importing = ref(false)
 const importFileReading = ref(false)
 const authUrlLoading = ref(false)
 const bulkSharing = ref(false)
+const proxyLoading = ref(false)
+const savingProxy = ref(false)
 const shareUpdatingId = ref<number | null>(null)
 const shareSummary = ref<UserAccountShareSummary | null>(null)
 const showAccountModal = ref(false)
 const showImportModal = ref(false)
+const showProxyModal = ref(false)
 const editingAccount = ref<Account | null>(null)
+const userProxies = ref<Proxy[]>([])
+const editingProxyId = ref<number | null>(null)
+const accountWizardStep = ref(1)
+const createShareMode = ref<AccountShareMode>('private')
 const authUrl = ref('')
 const authSessionId = ref('')
 const authState = ref('')
@@ -540,11 +782,22 @@ const form = reactive({
   name: '',
   notes: '',
   platform: 'openai',
-  method: 'oauth'
+  method: 'oauth',
+  proxyId: null as number | null
 })
 const importForm = reactive({
   platform: 'openai',
-  format: 'sub2api_oauth_json'
+  format: 'sub2api_oauth_json',
+  proxyId: null as number | null
+})
+const proxyForm = reactive({
+  name: '',
+  protocol: 'http' as ProxyProtocol,
+  host: '',
+  port: null as number | null,
+  username: '',
+  password: '',
+  status: 'active' as 'active' | 'inactive'
 })
 const importContent = ref('')
 const importFileInput = ref<HTMLInputElement | null>(null)
@@ -557,6 +810,26 @@ type ImportFileEntry = {
   content: string
   platform: AccountPlatform
   format: string
+}
+
+type UserAccountMethod = 'oauth' | 'setup-token' | 'session-key' | 'json'
+type IconName = 'sparkles' | 'bolt' | 'cloud' | 'key' | 'lock' | 'document' | 'globe'
+
+type AccountPlatformCard = {
+  value: AccountPlatform
+  label: string
+  icon: IconName
+  activeClass: string
+}
+
+type AccountMethodCard = {
+  value: UserAccountMethod
+  label: string
+  description: string
+  icon: IconName
+  borderClass: string
+  bgClass: string
+  iconBgClass: string
 }
 
 const {
@@ -597,6 +870,121 @@ const platformOptions = computed(() => [
   { value: 'antigravity', label: 'Antigravity' }
 ])
 
+const accountPlatformCards = computed<AccountPlatformCard[]>(() => [
+  { value: 'anthropic', label: 'Anthropic', icon: 'sparkles', activeClass: 'text-orange-600 dark:text-orange-400' },
+  { value: 'openai', label: 'OpenAI', icon: 'bolt', activeClass: 'text-green-600 dark:text-green-400' },
+  { value: 'gemini', label: 'Gemini', icon: 'sparkles', activeClass: 'text-blue-600 dark:text-blue-400' },
+  { value: 'antigravity', label: 'Antigravity', icon: 'cloud', activeClass: 'text-purple-600 dark:text-purple-400' }
+])
+
+const accountMethodCards = computed<AccountMethodCard[]>(() => {
+  const palette = platformMethodPalette.value
+  if (form.platform === 'anthropic') {
+    return [
+      {
+        value: 'oauth',
+        label: 'Claude Code',
+        description: 'OAuth',
+        icon: 'sparkles',
+        ...palette
+      },
+      {
+        value: 'setup-token',
+        label: 'Setup Token',
+        description: t('myAccounts.methodDescriptions.setupToken'),
+        icon: 'key',
+        ...palette
+      },
+      {
+        value: 'session-key',
+        label: 'Session Key',
+        description: t('myAccounts.methodDescriptions.sessionKey'),
+        icon: 'lock',
+        ...palette
+      },
+      {
+        value: 'json',
+        label: t('myAccounts.import.jsonToken'),
+        description: t('myAccounts.methodDescriptions.json'),
+        icon: 'document',
+        ...palette
+      }
+    ]
+  }
+  return [
+    {
+      value: 'oauth',
+      label: selectedPlatformLabel.value,
+      description: 'OAuth',
+      icon: form.platform === 'antigravity' ? 'cloud' : 'key',
+      ...palette
+    },
+    {
+      value: 'json',
+      label: t('myAccounts.import.jsonToken'),
+      description: t('myAccounts.methodDescriptions.json'),
+      icon: 'document',
+      ...palette
+    }
+  ]
+})
+
+const platformMethodPalette = computed(() => {
+  switch (form.platform) {
+    case 'anthropic':
+      return {
+        borderClass: 'border-orange-500',
+        bgClass: 'bg-orange-50 dark:bg-orange-900/20',
+        iconBgClass: 'bg-orange-500'
+      }
+    case 'gemini':
+      return {
+        borderClass: 'border-blue-500',
+        bgClass: 'bg-blue-50 dark:bg-blue-900/20',
+        iconBgClass: 'bg-blue-500'
+      }
+    case 'antigravity':
+      return {
+        borderClass: 'border-purple-500',
+        bgClass: 'bg-purple-50 dark:bg-purple-900/20',
+        iconBgClass: 'bg-purple-500'
+      }
+    default:
+      return {
+        borderClass: 'border-green-500',
+        bgClass: 'bg-green-50 dark:bg-green-900/20',
+        iconBgClass: 'bg-green-500'
+      }
+  }
+})
+
+const methodCardGridClass = computed(() => accountMethodCards.value.length > 2 ? 'sm:grid-cols-2' : 'grid-cols-1 sm:grid-cols-2')
+
+const selectedPlatformLabel = computed(() => (
+  accountPlatformCards.value.find(platform => platform.value === form.platform)?.label ??
+  platformOptions.value.find(platform => platform.value === form.platform)?.label ??
+  form.platform
+))
+
+const selectedMethodLabel = computed(() => (
+  accountMethodCards.value.find(method => method.value === form.method)?.label ??
+  methodOptions.value.find(method => method.value === form.method)?.label ??
+  form.method
+))
+
+const selectedProxyLabel = computed(() => {
+  const id = selectedProxyIdPayload(form.proxyId)
+  if (id == null) return ''
+  return userProxies.value.find(proxy => proxy.id === id)?.name ?? ''
+})
+
+const accountAuthStepTitle = computed(() => {
+  if (form.platform === 'anthropic') {
+    return t('myAccounts.steps.claudeAuth')
+  }
+  return t('myAccounts.steps.accountAuth', { platform: selectedPlatformLabel.value })
+})
+
 const methodOptions = computed(() => {
   if (form.platform === 'anthropic') {
     return [
@@ -612,10 +1000,30 @@ const methodOptions = computed(() => {
   ]
 })
 
+const proxyOptions = computed(() => [
+  { value: null, label: '不使用代理' },
+  ...userProxies.value
+    .filter(proxy => proxy.status === 'active' || proxy.id === form.proxyId || proxy.id === importForm.proxyId)
+    .map(proxy => ({
+      value: proxy.id,
+      label: `${proxy.name} (${proxy.protocol}://${proxy.host}:${proxy.port})`
+    }))
+])
+
+const proxyProtocolOptions = computed(() => [
+  { value: 'http', label: 'HTTP' },
+  { value: 'https', label: 'HTTPS' },
+  { value: 'socks5', label: 'SOCKS5' },
+  { value: 'socks5h', label: 'SOCKS5H' }
+])
+
 watch(
   () => form.platform,
   (platform) => {
-    if (platform !== 'openai' && form.method === 'apikey') {
+    if (platform !== 'anthropic' && (form.method === 'setup-token' || form.method === 'session-key')) {
+      form.method = 'oauth'
+    }
+    if (!accountMethodCards.value.some(method => method.value === form.method)) {
       form.method = 'oauth'
     }
     if (!editingAccount.value) {
@@ -678,8 +1086,19 @@ async function loadShareSummary(): Promise<void> {
   }
 }
 
+async function loadProxies(): Promise<void> {
+  proxyLoading.value = true
+  try {
+    userProxies.value = await userAPI.listProxies()
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, '代理加载失败'))
+  } finally {
+    proxyLoading.value = false
+  }
+}
+
 async function loadAll(): Promise<void> {
-  await Promise.all([loadAccounts(), loadShareSummary()])
+  await Promise.all([loadAccounts(), loadShareSummary(), loadProxies()])
 }
 
 function handlePageChange(page: number): void {
@@ -713,6 +1132,9 @@ function resetForm(): void {
   form.notes = ''
   form.platform = 'openai'
   form.method = 'oauth'
+  form.proxyId = null
+  accountWizardStep.value = 1
+  createShareMode.value = 'private'
   oauthCode.value = ''
   sessionKey.value = ''
   credentialsJson.value = ''
@@ -732,10 +1154,12 @@ function openCreateModal(): void {
 
 function openEditModal(account: Account): void {
   editingAccount.value = account
+  accountWizardStep.value = 1
   form.name = account.name
   form.notes = account.notes ?? ''
   form.platform = account.platform
   form.method = 'json'
+  form.proxyId = account.proxy_id ?? null
   credentialsJson.value = JSON.stringify(account.credentials ?? {}, null, 2)
   const credentials = account.credentials ?? {}
   apiKeyBaseUrl.value = String(credentials.base_url || (account.platform === 'openai' ? 'https://api.openai.com' : ''))
@@ -752,12 +1176,127 @@ function openImportModal(): void {
   if (importFolderInput.value) importFolderInput.value.value = ''
   importForm.platform = 'openai'
   importForm.format = 'sub2api_oauth_json'
+  importForm.proxyId = null
   showImportModal.value = true
 }
 
 function closeAccountModal(): void {
   showAccountModal.value = false
   editingAccount.value = null
+  accountWizardStep.value = 1
+}
+
+function selectAccountPlatform(platform: AccountPlatform): void {
+  form.platform = platform
+  if (!accountMethodCards.value.some(method => method.value === form.method)) {
+    form.method = 'oauth'
+  }
+  authUrl.value = ''
+  authSessionId.value = ''
+  authState.value = ''
+  oauthCode.value = ''
+}
+
+function selectAccountMethod(method: UserAccountMethod): void {
+  form.method = method
+  authUrl.value = ''
+  authSessionId.value = ''
+  authState.value = ''
+  oauthCode.value = ''
+  sessionKey.value = ''
+  credentialsJson.value = ''
+}
+
+function goToAccountAuthStep(): void {
+  if (!form.name.trim()) {
+    form.name = defaultAccountName()
+  }
+  accountWizardStep.value = 2
+}
+
+function resetProxyForm(): void {
+  editingProxyId.value = null
+  proxyForm.name = ''
+  proxyForm.protocol = 'http'
+  proxyForm.host = ''
+  proxyForm.port = null
+  proxyForm.username = ''
+  proxyForm.password = ''
+  proxyForm.status = 'active'
+}
+
+async function openProxyModal(): Promise<void> {
+  resetProxyForm()
+  showProxyModal.value = true
+  await loadProxies()
+}
+
+function editProxy(proxy: Proxy): void {
+  editingProxyId.value = proxy.id
+  proxyForm.name = proxy.name
+  proxyForm.protocol = proxy.protocol
+  proxyForm.host = proxy.host
+  proxyForm.port = proxy.port
+  proxyForm.username = proxy.username ?? ''
+  proxyForm.password = ''
+  proxyForm.status = proxy.status
+}
+
+async function saveProxy(): Promise<void> {
+  const port = Number(proxyForm.port)
+  if (!proxyForm.name.trim() || !proxyForm.host.trim() || !Number.isInteger(port) || port < 1 || port > 65535) {
+    appStore.showError('请填写有效的代理名称、主机和端口')
+    return
+  }
+
+  savingProxy.value = true
+  try {
+    const payload = {
+      name: proxyForm.name.trim(),
+      protocol: proxyForm.protocol,
+      host: proxyForm.host.trim(),
+      port,
+      username: proxyForm.username.trim() || null,
+      status: proxyForm.status
+    }
+    const password = proxyForm.password.trim()
+    const saved = editingProxyId.value
+      ? await userAPI.updateProxy(editingProxyId.value, {
+          ...payload,
+          ...(password ? { password } : {})
+        })
+      : await userAPI.createProxy({
+          ...payload,
+          password: password || null
+        })
+    const index = userProxies.value.findIndex(proxy => proxy.id === saved.id)
+    if (index >= 0) {
+      const next = [...userProxies.value]
+      next[index] = saved
+      userProxies.value = next
+    } else {
+      userProxies.value = [saved, ...userProxies.value]
+    }
+    appStore.showSuccess(t('common.success'))
+    resetProxyForm()
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, '代理保存失败'))
+  } finally {
+    savingProxy.value = false
+  }
+}
+
+async function removeProxy(proxy: Proxy): Promise<void> {
+  if (!window.confirm(`确定删除代理「${proxy.name}」吗？`)) return
+  try {
+    await userAPI.deleteProxy(proxy.id)
+    userProxies.value = userProxies.value.filter(item => item.id !== proxy.id)
+    if (form.proxyId === proxy.id) form.proxyId = null
+    if (importForm.proxyId === proxy.id) importForm.proxyId = null
+    appStore.showSuccess(t('common.success'))
+  } catch (error) {
+    appStore.showError(extractApiErrorMessage(error, '代理删除失败'))
+  }
 }
 
 function parseJsonObject(raw: string): Record<string, unknown> {
@@ -893,6 +1432,22 @@ function writeOptionalShareDisplayNumber(extra: Record<string, unknown>, key: st
   }
 }
 
+function selectedProxyIdPayload(value: number | null): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null
+}
+
+function withSelectedProxy<T extends Record<string, unknown>>(payload: T, value: number | null): T {
+  const proxyId = selectedProxyIdPayload(value)
+  if (proxyId != null) {
+    return { ...payload, proxy_id: proxyId }
+  }
+  return payload
+}
+
+function selectedProxyIdUpdatePayload(value: number | null): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : 0
+}
+
 async function saveAccount(): Promise<void> {
   savingAccount.value = true
   try {
@@ -902,7 +1457,8 @@ async function saveAccount(): Promise<void> {
         name: form.name.trim(),
         notes: form.notes.trim() || null,
         credentials: isUserManagedKeyBackedType(editingAccount.value.type) ? undefined : (credentialsJson.value.trim() ? parseJsonObject(credentialsJson.value) : undefined),
-        extra: isAccountQuotaConfigVisible.value ? buildAccountExtra(baseExtra) ?? {} : undefined
+        extra: isAccountQuotaConfigVisible.value ? buildAccountExtra(baseExtra) ?? {} : undefined,
+        proxy_id: selectedProxyIdUpdatePayload(form.proxyId)
       }
       const updated = await userAPI.updateAccount(editingAccount.value.id, payload)
       patchAccount(updated)
@@ -911,13 +1467,14 @@ async function saveAccount(): Promise<void> {
       return
     }
 
+    let createdAccount: Account | null = null
     if (form.method === 'oauth') {
       const callback = parseOAuthCallbackInput(oauthCode.value)
       if (!authSessionId.value || !callback.code) {
         appStore.showError(t('myAccounts.oauthMissing'))
         return
       }
-      const created = await userAPI.exchangeAccountOAuthCode({
+      createdAccount = await userAPI.exchangeAccountOAuthCode(withSelectedProxy({
         platform: form.platform,
         method: form.method,
         session_id: authSessionId.value,
@@ -925,23 +1482,21 @@ async function saveAccount(): Promise<void> {
         state: callback.state || authState.value || undefined,
         name: form.name.trim(),
         notes: form.notes.trim() || null
-      })
-      accounts.value = [created, ...accounts.value]
+      }, form.proxyId))
     } else if (form.method === 'session-key' || form.method === 'setup-token') {
-      const created = await userAPI.importAccountSession({
+      createdAccount = await userAPI.importAccountSession(withSelectedProxy({
         platform: form.platform,
         method: form.method,
         session_key: sessionKey.value.trim(),
         name: form.name.trim(),
         notes: form.notes.trim() || null
-      })
-      accounts.value = [created, ...accounts.value]
+      }, form.proxyId))
     } else if (form.method === 'apikey') {
       if (!apiKeyValue.value.trim()) {
         appStore.showError(t('admin.accounts.pleaseEnterApiKey'))
         return
       }
-      const created = await userAPI.createAccount({
+      createdAccount = await userAPI.createAccount(withSelectedProxy({
         name: form.name.trim() || defaultAccountName(),
         notes: form.notes.trim() || null,
         platform: form.platform,
@@ -951,18 +1506,22 @@ async function saveAccount(): Promise<void> {
           api_key: apiKeyValue.value.trim()
         },
         extra: buildAccountExtra()
-      })
-      accounts.value = [created, ...accounts.value]
+      }, form.proxyId))
     } else {
-      const created = await userAPI.createAccount({
+      createdAccount = await userAPI.createAccount(withSelectedProxy({
         name: form.name.trim() || defaultAccountName(),
         notes: form.notes.trim() || null,
         platform: form.platform,
         type: inferTypeFromForm(),
         credentials: parseJsonObject(credentialsJson.value),
         extra: isAccountQuotaConfigVisible.value ? buildAccountExtra() : undefined
-      })
-      accounts.value = [created, ...accounts.value]
+      }, form.proxyId))
+    }
+    if (createdAccount && createShareMode.value === 'public') {
+      createdAccount = await userAPI.updateAccountShareMode(createdAccount.id, 'public')
+    }
+    if (createdAccount) {
+      accounts.value = [createdAccount, ...accounts.value]
     }
     appStore.showSuccess(t('common.success'))
     closeAccountModal()
@@ -982,11 +1541,18 @@ function defaultAccountName(): string {
 async function generateAuthUrl(): Promise<void> {
   authUrlLoading.value = true
   try {
-    const result = await userAPI.generateAccountAuthURL({
+    const payload: UserAccountAuthURLRequest = {
       platform: form.platform,
-      method: form.method,
-      redirect_uri: typeof window === 'undefined' ? undefined : `${window.location.origin}/auth/callback`
-    })
+      method: form.method
+    }
+    if (form.platform !== 'openai' && typeof window !== 'undefined') {
+      payload.redirect_uri = `${window.location.origin}/auth/callback`
+    }
+    const proxyID = selectedProxyIdPayload(form.proxyId)
+    if (proxyID != null) {
+      payload.proxy_id = proxyID
+    }
+    const result = await userAPI.generateAccountAuthURL(payload)
     authUrl.value = String(result.auth_url || result.url || '')
     authSessionId.value = String(result.session_id || '')
     authState.value = String(result.state || '')
@@ -1191,14 +1757,14 @@ async function importFromContent(): Promise<void> {
       for (const entry of importFolderFiles.value) {
         try {
           const built = buildImportPayload(entry.format, entry.platform, entry.content)
-          const created = await userAPI.importAccount({
+          const created = await userAPI.importAccount(withSelectedProxy({
             format: entry.format,
             name: built.name,
             platform: entry.platform,
             type: built.type,
             credentials: built.credentials,
             extra: built.extra ?? undefined,
-          })
+          }, importForm.proxyId))
           createdAccounts.push(created)
         } catch {
           failedNames.push(entry.name)
@@ -1224,14 +1790,14 @@ async function importFromContent(): Promise<void> {
     }
 
     const built = buildImportPayload(importForm.format, importForm.platform, importContent.value)
-    const created = await userAPI.importAccount({
+    const created = await userAPI.importAccount(withSelectedProxy({
       format: importForm.format,
       name: built.name,
       platform: importForm.platform as AccountPlatform,
       type: built.type,
       credentials: built.credentials,
       extra: built.extra ?? undefined,
-    })
+    }, importForm.proxyId))
     accounts.value = [created, ...accounts.value]
     appStore.showSuccess(t('common.success'))
     showImportModal.value = false

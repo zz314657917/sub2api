@@ -4,12 +4,15 @@ export default {
     addAccount: 'Add Account',
     editAccount: 'Edit Account',
     account: 'Account',
+    accountName: 'Account Name',
+    accountType: 'Account Type',
     platform: 'Platform',
     method: 'Auth Method',
     name: 'Name',
     namePlaceholder: 'e.g. My ChatGPT Plus',
     notes: 'Notes',
     notesPlaceholder: 'Optional',
+    notesOptional: 'Notes are optional',
     oauth: 'OAuth',
     wizardHint: 'Normal users can add OAuth, Setup Token, Session Key, and Token JSON accounts. API Key accounts are maintained by administrators.',
     apiKeyUploadDisabled: 'API Key and custom upstream uploads are disabled for normal users. Use OAuth or ask an administrator to manage a hosted key.',
@@ -23,6 +26,21 @@ export default {
     sessionKey: 'Session Key / Setup Token',
     sessionKeyPlaceholder: 'Paste Claude Session Key or Setup Token',
     tokenJsonHint: 'Token JSON means pasting an existing token JSON. It does not generate a token or navigate anywhere. Common fields include refresh_token, access_token, expires_at, and client_id.',
+    steps: {
+      authMethod: 'Auth Method',
+      claudeAuth: 'Claude Account Auth',
+      accountAuth: '{platform} Account Auth'
+    },
+    methodDescriptions: {
+      setupToken: 'Claude authorization token',
+      sessionKey: 'Paste session credentials manually',
+      json: 'Paste an existing token JSON'
+    },
+    proxy: {
+      title: 'Proxy',
+      hint: 'Authorization and token exchange will use the selected proxy.',
+      manage: 'Manage my proxies'
+    },
     transfer: 'Transfer',
     transferSuccess: 'Transferred to credits: {amount}',
     transferFailed: 'Failed to transfer sharing earnings',
@@ -82,7 +100,9 @@ export default {
     },
     shareMode: {
       private: 'Private',
-      public: 'Public'
+      public: 'Public',
+      title: 'Sharing Mode',
+      publicCreateHint: 'After saving, a sharing review will be submitted automatically. It will not enter the public pool before approval.'
     },
     shareStatus: {
       notShared: 'Not Shared',

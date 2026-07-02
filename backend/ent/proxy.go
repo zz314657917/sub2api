@@ -35,6 +35,8 @@ type Proxy struct {
 	Username *string `json:"username,omitempty"`
 	// Password holds the value of the "password" field.
 	Password *string `json:"password,omitempty"`
+	// User owner for self-managed proxies; NULL means admin global proxy.
+	OwnerUserID *int64 `json:"owner_user_id,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
@@ -66,7 +68,7 @@ func (*Proxy) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case proxy.FieldID, proxy.FieldPort:
+		case proxy.FieldID, proxy.FieldPort, proxy.FieldOwnerUserID:
 			values[i] = new(sql.NullInt64)
 		case proxy.FieldName, proxy.FieldProtocol, proxy.FieldHost, proxy.FieldUsername, proxy.FieldPassword, proxy.FieldStatus:
 			values[i] = new(sql.NullString)
@@ -150,6 +152,13 @@ func (_m *Proxy) assignValues(columns []string, values []any) error {
 				_m.Password = new(string)
 				*_m.Password = value.String
 			}
+		case proxy.FieldOwnerUserID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field owner_user_id", values[i])
+			} else if value.Valid {
+				_m.OwnerUserID = new(int64)
+				*_m.OwnerUserID = value.Int64
+			}
 		case proxy.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
@@ -228,6 +237,11 @@ func (_m *Proxy) String() string {
 	if v := _m.Password; v != nil {
 		builder.WriteString("password=")
 		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.OwnerUserID; v != nil {
+		builder.WriteString("owner_user_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")
 	builder.WriteString("status=")

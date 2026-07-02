@@ -13,6 +13,7 @@ const { userAPI, showError, showSuccess, refreshUser } = vi.hoisted(() => ({
     transferAccountShareToBalance: vi.fn(),
     createAccount: vi.fn(),
     updateAccount: vi.fn(),
+    generateAccountAuthURL: vi.fn(),
   },
   showError: vi.fn(),
   showSuccess: vi.fn(),
@@ -143,6 +144,11 @@ describe('MyAccountsView import file', () => {
     userAPI.updateAccountShareMode.mockReset()
     userAPI.createAccount.mockReset()
     userAPI.updateAccount.mockReset()
+    userAPI.generateAccountAuthURL.mockReset().mockResolvedValue({
+      auth_url: 'https://auth.example.test/oauth/authorize?state=state-1',
+      session_id: 'session-1',
+      state: 'state-1',
+    })
     showError.mockReset()
     showSuccess.mockReset()
     refreshUser.mockReset()
@@ -186,6 +192,29 @@ describe('MyAccountsView import file', () => {
         session_key: 'claude-session-key',
       },
     }))
+  })
+
+  it('generates OpenAI OAuth URLs without overriding the Codex redirect URI', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="my-accounts-open-create"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="my-accounts-next"]').trigger('click')
+    await flushPromises()
+
+    const generateButton = wrapper
+      .findAll('button')
+      .find(button => button.text().includes('myAccounts.generateAuthUrl'))
+    expect(generateButton).toBeTruthy()
+
+    await generateButton!.trigger('click')
+    await flushPromises()
+
+    expect(userAPI.generateAccountAuthURL).toHaveBeenCalledWith({
+      platform: 'openai',
+      method: 'oauth',
+    })
   })
 
   it('preserves exported sub2api account name and extra metadata on import', async () => {
@@ -386,10 +415,9 @@ describe('MyAccountsView import file', () => {
     await flushPromises()
 
     await wrapper.get('[data-testid="my-accounts-open-create"]').trigger('click')
-    const selects = wrapper.findAll('select')
+    await flushPromises()
 
-    const methodValues = selects[1].findAll('option').map(option => (option.element as HTMLOptionElement).value)
-    expect(methodValues).not.toContain('apikey')
+    expect(wrapper.text()).not.toContain('API Key')
     expect(wrapper.find('[data-testid="my-accounts-apikey-base-url"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="my-accounts-apikey-value"]').exists()).toBe(false)
   })

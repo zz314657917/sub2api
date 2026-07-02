@@ -23,11 +23,19 @@ type ProxyRepository interface {
 	List(ctx context.Context, params pagination.PaginationParams) ([]Proxy, *pagination.PaginationResult, error)
 	ListWithFilters(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]Proxy, *pagination.PaginationResult, error)
 	ListWithFiltersAndAccountCount(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]ProxyWithAccountCount, *pagination.PaginationResult, error)
+	ListGlobalWithFilters(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]Proxy, *pagination.PaginationResult, error)
+	ListGlobalWithFiltersAndAccountCount(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]ProxyWithAccountCount, *pagination.PaginationResult, error)
 	ListActive(ctx context.Context) ([]Proxy, error)
 	ListActiveWithAccountCount(ctx context.Context) ([]ProxyWithAccountCount, error)
+	ListActiveGlobal(ctx context.Context) ([]Proxy, error)
+	ListActiveGlobalWithAccountCount(ctx context.Context) ([]ProxyWithAccountCount, error)
+	ListUserOwned(ctx context.Context, userID int64) ([]Proxy, error)
+	ListActiveUserOwned(ctx context.Context, userID int64) ([]Proxy, error)
+	GetUserOwnedByID(ctx context.Context, userID, proxyID int64) (*Proxy, error)
 
 	ExistsByHostPortAuth(ctx context.Context, host string, port int, username, password string) (bool, error)
 	CountAccountsByProxyID(ctx context.Context, proxyID int64) (int64, error)
+	CountUserOwnedAccountsByProxyID(ctx context.Context, userID, proxyID int64) (int64, error)
 	ListAccountSummariesByProxyID(ctx context.Context, proxyID int64) ([]ProxyAccountSummary, error)
 }
 

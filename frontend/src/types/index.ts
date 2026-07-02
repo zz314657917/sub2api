@@ -1384,6 +1384,7 @@ export interface CreateUserAccountRequest {
   type: AccountType | string
   credentials: Record<string, unknown>
   extra?: Record<string, unknown>
+  proxy_id?: number | null
   expires_at?: number | null
   auto_pause_on_expired?: boolean
 }
@@ -1393,6 +1394,7 @@ export interface UpdateUserAccountRequest {
   notes?: string | null
   credentials?: Record<string, unknown>
   extra?: Record<string, unknown>
+  proxy_id?: number | null
   expires_at?: number | null
   auto_pause_on_expired?: boolean
 }
@@ -1408,6 +1410,7 @@ export interface UserAccountAuthURLRequest {
   project_id?: string
   oauth_type?: string
   tier_id?: string
+  proxy_id?: number | null
 }
 
 export interface UserAccountAuthURLResponse {
@@ -1427,6 +1430,7 @@ export interface UserAccountExchangeCodeRequest {
   redirect_uri?: string
   oauth_type?: string
   tier_id?: string
+  proxy_id?: number | null
   name?: string
   notes?: string | null
 }
@@ -1436,6 +1440,7 @@ export interface UserAccountSessionImportRequest {
   method?: string
   session_key?: string
   code?: string
+  proxy_id?: number | null
   name?: string
   notes?: string | null
 }

@@ -49,6 +49,10 @@ func (Proxy) Fields() []ent.Field {
 			MaxLen(100).
 			Optional().
 			Nillable(),
+		field.Int64("owner_user_id").
+			Optional().
+			Nillable().
+			Comment("User owner for self-managed proxies; NULL means admin global proxy."),
 		field.String("status").
 			MaxLen(20).
 			Default("active"),
@@ -68,5 +72,7 @@ func (Proxy) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("status"),
 		index.Fields("deleted_at"),
+		index.Fields("owner_user_id"),
+		index.Fields("owner_user_id", "status"),
 	}
 }

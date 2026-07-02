@@ -154,6 +154,7 @@ type UserAccountCapacityWindowSummary struct {
 
 type UserAccountService struct {
 	accountRepo             AccountRepository
+	proxyRepo               ProxyRepository
 	settings                UserAccountShareSettings
 	externalCapacityCacheMu sync.Mutex
 	externalCapacityCache   externalCapacityPoolCache
@@ -230,6 +231,16 @@ func NewUserAccountService(accountRepo AccountRepository, settings UserAccountSh
 		accountRepo: accountRepo,
 		settings:    settings,
 	}
+}
+
+func (s *UserAccountService) SetProxyRepository(proxyRepo ProxyRepository) {
+	if s != nil {
+		s.proxyRepo = proxyRepo
+	}
+}
+
+func (s *UserAccountService) ValidateProxyForUser(ctx context.Context, userID int64, proxyID *int64) (*int64, error) {
+	return s.normalizeUserProxyID(ctx, userID, proxyID)
 }
 
 func isUserUploadedAPIKeyAccount(accountType string) bool {
@@ -346,6 +357,13 @@ func (s *UserAccountService) Create(ctx context.Context, userID int64, req Creat
 	if req.ExpiresAt != nil {
 		account.ExpiresAt = req.ExpiresAt
 	}
+	if req.ProxyID != nil {
+		proxyID, err := s.normalizeUserProxyID(ctx, userID, req.ProxyID)
+		if err != nil {
+			return nil, err
+		}
+		account.ProxyID = proxyID
+	}
 	if err := repo.Create(ctx, account); err != nil {
 		return nil, err
 	}
@@ -393,7 +411,14 @@ func (s *UserAccountService) Update(ctx context.Context, userID, accountID int64
 	if req.AutoPauseOnExpired != nil {
 		account.AutoPauseOnExpired = *req.AutoPauseOnExpired
 	}
-	if req.GroupIDs != nil || req.ProxyID != nil || req.Concurrency != nil || req.Priority != nil || req.Status != nil {
+	if req.ProxyID != nil {
+		proxyID, err := s.normalizeUserProxyID(ctx, userID, req.ProxyID)
+		if err != nil {
+			return nil, err
+		}
+		account.ProxyID = proxyID
+	}
+	if req.GroupIDs != nil || req.Concurrency != nil || req.Priority != nil || req.Status != nil {
 		return nil, ErrUserAccountShareInvalid
 	}
 
@@ -1163,6 +1188,24 @@ func (s *UserAccountService) getOwnedAccount(ctx context.Context, userID, accoun
 		return nil, ErrUserAccountNotOwned
 	}
 	return account, nil
+}
+
+func (s *UserAccountService) normalizeUserProxyID(ctx context.Context, userID int64, proxyID *int64) (*int64, error) {
+	if proxyID == nil || *proxyID == 0 {
+		return nil, nil
+	}
+	if s == nil || s.proxyRepo == nil {
+		return nil, fmt.Errorf("proxy repository not configured")
+	}
+	proxy, err := s.proxyRepo.GetUserOwnedByID(ctx, userID, *proxyID)
+	if err != nil {
+		return nil, err
+	}
+	if proxy == nil || !proxy.IsActive() {
+		return nil, ErrProxyNotFound
+	}
+	id := proxy.ID
+	return &id, nil
 }
 
 type userOwnedAccountRepositoryWithShare interface {

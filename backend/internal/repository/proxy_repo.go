@@ -39,6 +39,9 @@ func (r *proxyRepository) Create(ctx context.Context, proxyIn *service.Proxy) er
 		SetHost(proxyIn.Host).
 		SetPort(proxyIn.Port).
 		SetStatus(proxyIn.Status)
+	if proxyIn.OwnerUserID != nil {
+		builder.SetOwnerUserID(*proxyIn.OwnerUserID)
+	}
 	if proxyIn.Username != "" {
 		builder.SetUsername(proxyIn.Username)
 	}
@@ -90,6 +93,11 @@ func (r *proxyRepository) Update(ctx context.Context, proxyIn *service.Proxy) er
 		SetHost(proxyIn.Host).
 		SetPort(proxyIn.Port).
 		SetStatus(proxyIn.Status)
+	if proxyIn.OwnerUserID != nil {
+		builder.SetOwnerUserID(*proxyIn.OwnerUserID)
+	} else {
+		builder.ClearOwnerUserID()
+	}
 	if proxyIn.Username != "" {
 		builder.SetUsername(proxyIn.Username)
 	} else {
@@ -124,6 +132,15 @@ func (r *proxyRepository) List(ctx context.Context, params pagination.Pagination
 // ListWithFilters lists proxies with optional filtering by protocol, status, and search query
 func (r *proxyRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]service.Proxy, *pagination.PaginationResult, error) {
 	q := r.client.Proxy.Query()
+	return r.listWithFiltersQuery(ctx, q, params, protocol, status, search)
+}
+
+func (r *proxyRepository) ListGlobalWithFilters(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]service.Proxy, *pagination.PaginationResult, error) {
+	q := r.client.Proxy.Query().Where(proxy.OwnerUserIDIsNil())
+	return r.listWithFiltersQuery(ctx, q, params, protocol, status, search)
+}
+
+func (r *proxyRepository) listWithFiltersQuery(ctx context.Context, q *dbent.ProxyQuery, params pagination.PaginationParams, protocol, status, search string) ([]service.Proxy, *pagination.PaginationResult, error) {
 	if protocol != "" {
 		q = q.Where(proxy.ProtocolEQ(protocol))
 	}
@@ -162,6 +179,15 @@ func (r *proxyRepository) ListWithFilters(ctx context.Context, params pagination
 // ListWithFiltersAndAccountCount lists proxies with filters and includes account count per proxy
 func (r *proxyRepository) ListWithFiltersAndAccountCount(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]service.ProxyWithAccountCount, *pagination.PaginationResult, error) {
 	q := r.client.Proxy.Query()
+	return r.listWithFiltersAndAccountCountQuery(ctx, q, params, protocol, status, search)
+}
+
+func (r *proxyRepository) ListGlobalWithFiltersAndAccountCount(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]service.ProxyWithAccountCount, *pagination.PaginationResult, error) {
+	q := r.client.Proxy.Query().Where(proxy.OwnerUserIDIsNil())
+	return r.listWithFiltersAndAccountCountQuery(ctx, q, params, protocol, status, search)
+}
+
+func (r *proxyRepository) listWithFiltersAndAccountCountQuery(ctx context.Context, q *dbent.ProxyQuery, params pagination.PaginationParams, protocol, status, search string) ([]service.ProxyWithAccountCount, *pagination.PaginationResult, error) {
 	if protocol != "" {
 		q = q.Where(proxy.ProtocolEQ(protocol))
 	}
@@ -282,10 +308,76 @@ func (r *proxyRepository) ListActive(ctx context.Context) ([]service.Proxy, erro
 	return outProxies, nil
 }
 
+func (r *proxyRepository) ListActiveGlobal(ctx context.Context) ([]service.Proxy, error) {
+	proxies, err := r.client.Proxy.Query().
+		Where(proxy.StatusEQ(service.StatusActive), proxy.OwnerUserIDIsNil()).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	outProxies := make([]service.Proxy, 0, len(proxies))
+	for i := range proxies {
+		outProxies = append(outProxies, *proxyEntityToService(proxies[i]))
+	}
+	return outProxies, nil
+}
+
+func (r *proxyRepository) ListUserOwned(ctx context.Context, userID int64) ([]service.Proxy, error) {
+	if userID <= 0 {
+		return []service.Proxy{}, nil
+	}
+	proxies, err := r.client.Proxy.Query().
+		Where(proxy.OwnerUserIDEQ(userID)).
+		Order(dbent.Desc(proxy.FieldCreatedAt), dbent.Desc(proxy.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	outProxies := make([]service.Proxy, 0, len(proxies))
+	for i := range proxies {
+		outProxies = append(outProxies, *proxyEntityToService(proxies[i]))
+	}
+	return outProxies, nil
+}
+
+func (r *proxyRepository) ListActiveUserOwned(ctx context.Context, userID int64) ([]service.Proxy, error) {
+	if userID <= 0 {
+		return []service.Proxy{}, nil
+	}
+	proxies, err := r.client.Proxy.Query().
+		Where(proxy.OwnerUserIDEQ(userID), proxy.StatusEQ(service.StatusActive)).
+		Order(dbent.Desc(proxy.FieldCreatedAt), dbent.Desc(proxy.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	outProxies := make([]service.Proxy, 0, len(proxies))
+	for i := range proxies {
+		outProxies = append(outProxies, *proxyEntityToService(proxies[i]))
+	}
+	return outProxies, nil
+}
+
+func (r *proxyRepository) GetUserOwnedByID(ctx context.Context, userID, proxyID int64) (*service.Proxy, error) {
+	if userID <= 0 || proxyID <= 0 {
+		return nil, service.ErrProxyNotFound
+	}
+	m, err := r.client.Proxy.Query().
+		Where(proxy.IDEQ(proxyID), proxy.OwnerUserIDEQ(userID)).
+		Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, service.ErrProxyNotFound
+		}
+		return nil, err
+	}
+	return proxyEntityToService(m), nil
+}
+
 // ExistsByHostPortAuth checks if a proxy with the same host, port, username, and password exists
 func (r *proxyRepository) ExistsByHostPortAuth(ctx context.Context, host string, port int, username, password string) (bool, error) {
 	q := r.client.Proxy.Query().
-		Where(proxy.HostEQ(host), proxy.PortEQ(port))
+		Where(proxy.HostEQ(host), proxy.PortEQ(port), proxy.OwnerUserIDIsNil())
 
 	if username == "" {
 		q = q.Where(proxy.Or(proxy.UsernameIsNil(), proxy.UsernameEQ("")))
@@ -306,6 +398,17 @@ func (r *proxyRepository) ExistsByHostPortAuth(ctx context.Context, host string,
 func (r *proxyRepository) CountAccountsByProxyID(ctx context.Context, proxyID int64) (int64, error) {
 	var count int64
 	if err := scanSingleRow(ctx, r.sql, "SELECT COUNT(*) FROM accounts WHERE proxy_id = $1 AND deleted_at IS NULL", []any{proxyID}, &count); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (r *proxyRepository) CountUserOwnedAccountsByProxyID(ctx context.Context, userID, proxyID int64) (int64, error) {
+	if userID <= 0 || proxyID <= 0 {
+		return 0, nil
+	}
+	var count int64
+	if err := scanSingleRow(ctx, r.sql, "SELECT COUNT(*) FROM accounts WHERE proxy_id = $1 AND owner_user_id = $2 AND deleted_at IS NULL", []any{proxyID, userID}, &count); err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -412,19 +515,49 @@ func (r *proxyRepository) ListActiveWithAccountCount(ctx context.Context) ([]ser
 	return result, nil
 }
 
+func (r *proxyRepository) ListActiveGlobalWithAccountCount(ctx context.Context) ([]service.ProxyWithAccountCount, error) {
+	proxies, err := r.client.Proxy.Query().
+		Where(proxy.StatusEQ(service.StatusActive), proxy.OwnerUserIDIsNil()).
+		Order(dbent.Desc(proxy.FieldCreatedAt)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	counts, err := r.GetAccountCountsForProxies(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]service.ProxyWithAccountCount, 0, len(proxies))
+	for i := range proxies {
+		proxyOut := proxyEntityToService(proxies[i])
+		if proxyOut == nil {
+			continue
+		}
+		result = append(result, service.ProxyWithAccountCount{
+			Proxy:        *proxyOut,
+			AccountCount: counts[proxyOut.ID],
+		})
+	}
+
+	return result, nil
+}
+
 func proxyEntityToService(m *dbent.Proxy) *service.Proxy {
 	if m == nil {
 		return nil
 	}
 	out := &service.Proxy{
-		ID:        m.ID,
-		Name:      m.Name,
-		Protocol:  m.Protocol,
-		Host:      m.Host,
-		Port:      m.Port,
-		Status:    m.Status,
-		CreatedAt: m.CreatedAt,
-		UpdatedAt: m.UpdatedAt,
+		ID:          m.ID,
+		Name:        m.Name,
+		Protocol:    m.Protocol,
+		Host:        m.Host,
+		Port:        m.Port,
+		OwnerUserID: m.OwnerUserID,
+		Status:      m.Status,
+		CreatedAt:   m.CreatedAt,
+		UpdatedAt:   m.UpdatedAt,
 	}
 	if m.Username != nil {
 		out.Username = *m.Username
@@ -440,6 +573,7 @@ func applyProxyEntityToService(dst *service.Proxy, src *dbent.Proxy) {
 		return
 	}
 	dst.ID = src.ID
+	dst.OwnerUserID = src.OwnerUserID
 	dst.CreatedAt = src.CreatedAt
 	dst.UpdatedAt = src.UpdatedAt
 }

@@ -45,6 +45,12 @@ func ProvideOAuthRefreshAPI(accountRepo AccountRepository, tokenCache GeminiToke
 	return NewOAuthRefreshAPI(accountRepo, tokenCache)
 }
 
+func ProvideUserAccountService(accountRepo AccountRepository, settings UserAccountShareSettings, proxyRepo ProxyRepository) *UserAccountService {
+	svc := NewUserAccountService(accountRepo, settings)
+	svc.SetProxyRepository(proxyRepo)
+	return svc
+}
+
 // ProvideOpenAIOAuthService creates OpenAIOAuthService with privacy/account enrichment support.
 func ProvideOpenAIOAuthService(
 	proxyRepo ProxyRepository,
@@ -553,8 +559,9 @@ var ProviderSet = wire.NewSet(
 	ProvideAPIKeyAuthCacheInvalidator,
 	NewGroupService,
 	NewAccountService,
-	NewUserAccountService,
+	ProvideUserAccountService,
 	NewProxyService,
+	NewUserProxyService,
 	NewRedeemService,
 	NewPromoService,
 	ProvideUsageService,

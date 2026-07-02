@@ -4,12 +4,15 @@ export default {
     addAccount: '新增账号',
     editAccount: '编辑账号',
     account: '账号',
+    accountName: '账号名称',
+    accountType: '账号类型',
     platform: '平台',
     method: '授权方式',
     name: '名称',
     namePlaceholder: '例如：我的 ChatGPT Plus',
     notes: '备注',
     notesPlaceholder: '可选',
+    notesOptional: '备注可选',
     oauth: 'OAuth 授权',
     wizardHint: '普通用户仅支持 OAuth、Setup Token、Session Key 和 Token JSON；API Key 由管理员在账号管理中维护。',
     apiKeyUploadDisabled: '普通用户暂不支持上传 API Key 或自定义上游，请使用 OAuth 或联系管理员托管。',
@@ -23,6 +26,21 @@ export default {
     sessionKey: 'Session Key / Setup Token',
     sessionKeyPlaceholder: '粘贴 Claude Session Key 或 Setup Token',
     tokenJsonHint: 'Token JSON 是粘贴已有令牌 JSON 的方式，不会自动生成或跳转。常用字段包括 refresh_token、access_token、expires_at、client_id。',
+    steps: {
+      authMethod: '授权方式',
+      claudeAuth: 'Claude 账号授权',
+      accountAuth: '{platform} 账号授权'
+    },
+    methodDescriptions: {
+      setupToken: 'Claude 授权令牌',
+      sessionKey: '手动粘贴会话凭据',
+      json: '粘贴已有令牌 JSON'
+    },
+    proxy: {
+      title: '代理',
+      hint: '授权和令牌兑换会使用你选择的代理。',
+      manage: '管理我的代理'
+    },
     transfer: '转积分',
     transferSuccess: '已转入积分：{amount}',
     transferFailed: '共享收益转积分失败',
@@ -82,7 +100,9 @@ export default {
     },
     shareMode: {
       private: '私有',
-      public: '公共'
+      public: '公共',
+      title: '共享模式',
+      publicCreateHint: '保存后会自动提交共享审核，审核通过前不会进入公共池。'
     },
     shareStatus: {
       notShared: '未共享',

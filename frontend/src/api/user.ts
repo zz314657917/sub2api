@@ -20,9 +20,12 @@ import type {
   Account,
   AccountShareMode,
   AccountUsageInfo,
+  CreateProxyRequest,
   CreateUserAccountRequest,
   ImportUserAccountRequest,
   PaginatedResponse,
+  Proxy,
+  UpdateProxyRequest,
   UpdateUserAccountRequest,
   UserAccountAuthURLRequest,
   UserAccountAuthURLResponse,
@@ -319,6 +322,26 @@ export async function importAccountSession(payload: UserAccountSessionImportRequ
   return data
 }
 
+export async function listProxies(): Promise<Proxy[]> {
+  const { data } = await apiClient.get<Proxy[]>('/user/proxies')
+  return data
+}
+
+export async function createProxy(payload: CreateProxyRequest): Promise<Proxy> {
+  const { data } = await apiClient.post<Proxy>('/user/proxies', payload)
+  return data
+}
+
+export async function updateProxy(id: number, payload: UpdateProxyRequest): Promise<Proxy> {
+  const { data } = await apiClient.put<Proxy>(`/user/proxies/${id}`, payload)
+  return data
+}
+
+export async function deleteProxy(id: number): Promise<{ message: string }> {
+  const { data } = await apiClient.delete<{ message: string }>(`/user/proxies/${id}`)
+  return data
+}
+
 export const userAPI = {
   getProfile,
   updateProfile,
@@ -350,7 +373,11 @@ export const userAPI = {
   transferAccountShareToBalance,
   generateAccountAuthURL,
   exchangeAccountOAuthCode,
-  importAccountSession
+  importAccountSession,
+  listProxies,
+  createProxy,
+  updateProxy,
+  deleteProxy
 }
 
 export default userAPI

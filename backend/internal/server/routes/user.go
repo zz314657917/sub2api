@@ -103,6 +103,14 @@ func RegisterUserRoutes(
 				welfare.POST("/new-user-trial/reward/claim", h.Welfare.ClaimNewUserTrialSuccessReward)
 			}
 
+			proxies := user.Group("/proxies")
+			{
+				proxies.GET("", h.UserProxy.List)
+				proxies.POST("", h.UserProxy.Create)
+				proxies.PUT("/:id", h.UserProxy.Update)
+				proxies.DELETE("/:id", h.UserProxy.Delete)
+			}
+
 			// 通知邮箱管理
 			notifyEmail := user.Group("/notify-email")
 			{

@@ -53,6 +53,7 @@ type userAccountCreateRequest struct {
 	Type               string         `json:"type" binding:"required,oneof=oauth setup-token apikey upstream"`
 	Credentials        map[string]any `json:"credentials" binding:"required"`
 	Extra              map[string]any `json:"extra"`
+	ProxyID            *int64         `json:"proxy_id"`
 	ExpiresAt          *int64         `json:"expires_at"`
 	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
 }
@@ -62,6 +63,7 @@ type userAccountUpdateRequest struct {
 	Notes              *string        `json:"notes"`
 	Credentials        map[string]any `json:"credentials"`
 	Extra              map[string]any `json:"extra"`
+	ProxyID            *int64         `json:"proxy_id"`
 	ExpiresAt          *int64         `json:"expires_at"`
 	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
 }
@@ -78,6 +80,7 @@ type userAccountImportRequest struct {
 	Type               string         `json:"type" binding:"required,oneof=oauth setup-token apikey upstream"`
 	Credentials        map[string]any `json:"credentials" binding:"required"`
 	Extra              map[string]any `json:"extra"`
+	ProxyID            *int64         `json:"proxy_id"`
 	ExpiresAt          *int64         `json:"expires_at"`
 	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
 }
@@ -89,6 +92,7 @@ type userAccountGenerateAuthURLRequest struct {
 	ProjectID   string `json:"project_id"`
 	OAuthType   string `json:"oauth_type"`
 	TierID      string `json:"tier_id"`
+	ProxyID     *int64 `json:"proxy_id"`
 }
 
 type userAccountExchangeCodeRequest struct {
@@ -100,6 +104,7 @@ type userAccountExchangeCodeRequest struct {
 	RedirectURI string  `json:"redirect_uri"`
 	OAuthType   string  `json:"oauth_type"`
 	TierID      string  `json:"tier_id"`
+	ProxyID     *int64  `json:"proxy_id"`
 	Name        string  `json:"name"`
 	Notes       *string `json:"notes"`
 }
@@ -109,6 +114,7 @@ type userAccountSessionImportRequest struct {
 	Method     string  `json:"method"`
 	SessionKey string  `json:"session_key"`
 	Code       string  `json:"code"`
+	ProxyID    *int64  `json:"proxy_id"`
 	Name       string  `json:"name"`
 	Notes      *string `json:"notes"`
 }
@@ -171,6 +177,7 @@ func (h *UserAccountHandler) Create(c *gin.Context) {
 		Type:               strings.ToLower(strings.TrimSpace(req.Type)),
 		Credentials:        req.Credentials,
 		Extra:              req.Extra,
+		ProxyID:            req.ProxyID,
 		ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
 		AutoPauseOnExpired: req.AutoPauseOnExpired,
 	}
@@ -206,6 +213,7 @@ func (h *UserAccountHandler) Import(c *gin.Context) {
 		Type:               strings.ToLower(strings.TrimSpace(req.Type)),
 		Credentials:        req.Credentials,
 		Extra:              extra,
+		ProxyID:            req.ProxyID,
 		ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
 		AutoPauseOnExpired: req.AutoPauseOnExpired,
 	}
@@ -231,6 +239,7 @@ func (h *UserAccountHandler) Update(c *gin.Context) {
 	svcReq := service.UpdateAccountRequest{
 		Name:               trimmedStringPtr(req.Name),
 		Notes:              req.Notes,
+		ProxyID:            req.ProxyID,
 		ExpiresAt:          unixSecondsToTime(req.ExpiresAt),
 		AutoPauseOnExpired: req.AutoPauseOnExpired,
 	}
@@ -429,6 +438,11 @@ func parseUserAccountUsageSummaryRange(c *gin.Context) (time.Time, time.Time, bo
 }
 
 func (h *UserAccountHandler) GenerateAuthURL(c *gin.Context) {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		response.Unauthorized(c, "User not authenticated")
+		return
+	}
 	if h.userAccountService != nil && !h.userAccountService.IsEnabled(c.Request.Context()) {
 		response.ErrorFrom(c, service.ErrUserAccountShareDisabled)
 		return
@@ -436,6 +450,11 @@ func (h *UserAccountHandler) GenerateAuthURL(c *gin.Context) {
 	var req userAccountGenerateAuthURLRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		req = userAccountGenerateAuthURLRequest{}
+	}
+	proxyID, err := h.userAccountService.ValidateProxyForUser(c.Request.Context(), subject.UserID, req.ProxyID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
 	}
 	platform := strings.ToLower(strings.TrimSpace(req.Platform))
 	method := strings.ToLower(strings.TrimSpace(req.Method))
@@ -445,7 +464,7 @@ func (h *UserAccountHandler) GenerateAuthURL(c *gin.Context) {
 			response.InternalError(c, "OpenAI OAuth service not configured")
 			return
 		}
-		result, err := h.openaiOAuth.GenerateAuthURL(c.Request.Context(), nil, req.RedirectURI, service.PlatformOpenAI)
+		result, err := h.openaiOAuth.GenerateAuthURL(c.Request.Context(), proxyID, req.RedirectURI, service.PlatformOpenAI)
 		if err != nil {
 			response.ErrorFrom(c, err)
 			return
@@ -461,9 +480,9 @@ func (h *UserAccountHandler) GenerateAuthURL(c *gin.Context) {
 			err    error
 		)
 		if method == "setup-token" || method == service.AccountTypeSetupToken {
-			result, err = h.oauthService.GenerateSetupTokenURL(c.Request.Context(), nil)
+			result, err = h.oauthService.GenerateSetupTokenURL(c.Request.Context(), proxyID)
 		} else {
-			result, err = h.oauthService.GenerateAuthURL(c.Request.Context(), nil)
+			result, err = h.oauthService.GenerateAuthURL(c.Request.Context(), proxyID)
 		}
 		if err != nil {
 			response.ErrorFrom(c, err)
@@ -483,7 +502,7 @@ func (h *UserAccountHandler) GenerateAuthURL(c *gin.Context) {
 		if redirectURI == "" {
 			redirectURI = deriveUserAccountGeminiRedirectURI(c)
 		}
-		result, err := h.geminiOAuth.GenerateAuthURL(c.Request.Context(), nil, redirectURI, req.ProjectID, oauthType, req.TierID)
+		result, err := h.geminiOAuth.GenerateAuthURL(c.Request.Context(), proxyID, redirectURI, req.ProjectID, oauthType, req.TierID)
 		if err != nil {
 			response.ErrorFrom(c, err)
 			return
@@ -494,7 +513,7 @@ func (h *UserAccountHandler) GenerateAuthURL(c *gin.Context) {
 			response.InternalError(c, "Antigravity OAuth service not configured")
 			return
 		}
-		result, err := h.antigravityOAuth.GenerateAuthURL(c.Request.Context(), nil)
+		result, err := h.antigravityOAuth.GenerateAuthURL(c.Request.Context(), proxyID)
 		if err != nil {
 			response.ErrorFrom(c, err)
 			return
@@ -548,6 +567,10 @@ func (h *UserAccountHandler) ImportSession(c *gin.Context) {
 }
 
 func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context, userID int64, platform, method string, req userAccountExchangeCodeRequest) (*service.Account, error) {
+	proxyID, err := h.userAccountService.ValidateProxyForUser(ctx, userID, req.ProxyID)
+	if err != nil {
+		return nil, err
+	}
 	var svcReq service.CreateAccountRequest
 	switch platform {
 	case service.PlatformOpenAI:
@@ -556,6 +579,7 @@ func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context,
 			Code:        req.Code,
 			State:       req.State,
 			RedirectURI: req.RedirectURI,
+			ProxyID:     proxyID,
 		})
 		if err != nil {
 			return nil, err
@@ -571,11 +595,13 @@ func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context,
 			Type:        service.AccountTypeOAuth,
 			Credentials: h.openaiOAuth.BuildAccountCredentials(tokenInfo),
 			Extra:       emptyMapToNil(extra),
+			ProxyID:     proxyID,
 		}
 	case service.PlatformAnthropic:
 		tokenInfo, err := h.oauthService.ExchangeCode(ctx, &service.ExchangeCodeInput{
 			SessionID: req.SessionID,
 			Code:      req.Code,
+			ProxyID:   proxyID,
 		})
 		if err != nil {
 			return nil, err
@@ -590,6 +616,7 @@ func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context,
 			Platform:    service.PlatformAnthropic,
 			Type:        accountType,
 			Credentials: service.BuildClaudeAccountCredentials(tokenInfo),
+			ProxyID:     proxyID,
 		}
 	case service.PlatformGemini:
 		oauthType := strings.TrimSpace(req.OAuthType)
@@ -602,6 +629,7 @@ func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context,
 			Code:      req.Code,
 			OAuthType: oauthType,
 			TierID:    req.TierID,
+			ProxyID:   proxyID,
 		})
 		if err != nil {
 			return nil, err
@@ -613,12 +641,14 @@ func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context,
 			Type:        service.AccountTypeOAuth,
 			Credentials: h.geminiOAuth.BuildAccountCredentials(tokenInfo),
 			Extra:       tokenInfo.Extra,
+			ProxyID:     proxyID,
 		}
 	case service.PlatformAntigravity:
 		tokenInfo, err := h.antigravityOAuth.ExchangeCode(ctx, &service.AntigravityExchangeCodeInput{
 			SessionID: req.SessionID,
 			State:     req.State,
 			Code:      req.Code,
+			ProxyID:   proxyID,
 		})
 		if err != nil {
 			return nil, err
@@ -634,6 +664,7 @@ func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context,
 			Type:        service.AccountTypeOAuth,
 			Credentials: h.antigravityOAuth.BuildAccountCredentials(tokenInfo),
 			Extra:       emptyMapToNil(extra),
+			ProxyID:     proxyID,
 		}
 	default:
 		return nil, service.ErrUserAccountShareInvalid
@@ -642,6 +673,10 @@ func (h *UserAccountHandler) createAccountFromOAuthExchange(ctx context.Context,
 }
 
 func (h *UserAccountHandler) createAccountFromSessionKey(ctx context.Context, userID int64, req userAccountSessionImportRequest) (*service.Account, error) {
+	proxyID, err := h.userAccountService.ValidateProxyForUser(ctx, userID, req.ProxyID)
+	if err != nil {
+		return nil, err
+	}
 	platform := strings.ToLower(strings.TrimSpace(req.Platform))
 	method := strings.ToLower(strings.TrimSpace(req.Method))
 	sessionKey := strings.TrimSpace(req.SessionKey)
@@ -659,6 +694,7 @@ func (h *UserAccountHandler) createAccountFromSessionKey(ctx context.Context, us
 	}
 	tokenInfo, err := h.oauthService.CookieAuth(ctx, &service.CookieAuthInput{
 		SessionKey: sessionKey,
+		ProxyID:    proxyID,
 		Scope:      scope,
 	})
 	if err != nil {
@@ -670,6 +706,7 @@ func (h *UserAccountHandler) createAccountFromSessionKey(ctx context.Context, us
 		Platform:    service.PlatformAnthropic,
 		Type:        accountType,
 		Credentials: service.BuildClaudeAccountCredentials(tokenInfo),
+		ProxyID:     proxyID,
 	}
 	return h.userAccountService.Create(ctx, userID, svcReq)
 }
