@@ -41,12 +41,17 @@ export default {
   unread: '{count} 条未读',
   actions: {
     paymentCompleted: '查看订单/购买',
+    invoiceIssued: '下载发票',
     affiliateReward: '查看邀请奖励',
     welfareReward: '领取福利积分',
     groupChanged: '查看账号/套餐信息',
   },
+  invoiceDownloadFailed: '下载发票失败',
   metadata: {
     changeDetails: '变更明细',
+    invoiceAmount: '发票金额',
+    invoiceNo: '发票号码',
+    invoiceFile: '发票文件',
     allowedGroups: '可用分组',
     rateMultiplier: '计费倍率',
     imageRateMultiplier: '图片倍率',

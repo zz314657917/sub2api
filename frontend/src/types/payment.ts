@@ -22,6 +22,10 @@ export type PaymentType = 'alipay' | 'wxpay' | 'alipay_direct' | 'wxpay_direct' 
 
 export type OrderType = 'balance' | 'subscription'
 
+export type InvoiceType = 'vat_general' | 'vat_special'
+
+export type InvoiceStatus = 'pending' | 'approved' | 'rejected' | 'issued'
+
 // ==================== Configuration ====================
 
 export interface PaymentConfig {
@@ -157,6 +161,48 @@ export interface PaymentOrder {
   refund_request_reason?: string
   plan_id?: number
   provider_instance_id?: string
+}
+
+// ==================== Invoices ====================
+
+export interface InvoiceSummary {
+  currency: string
+  eligible_amount: number
+  requested_amount: number
+  available_amount: number
+}
+
+export interface InvoiceRequest {
+  id: number
+  user_id: number
+  user_email?: string
+  user_name?: string
+  amount: number
+  currency: string
+  invoice_type: InvoiceType
+  title: string
+  tax_number: string
+  remark?: string
+  status: InvoiceStatus
+  admin_note?: string
+  invoice_no?: string
+  file_name?: string
+  file_size?: number
+  file_content_type?: string
+  reviewed_by?: number
+  reviewed_at?: string
+  issued_at?: string
+  created_at: string
+  updated_at: string
+  downloadable: boolean
+}
+
+export interface CreateInvoiceRequest {
+  amount: number
+  invoice_type: InvoiceType
+  title: string
+  tax_number: string
+  remark?: string
 }
 
 // ==================== Plans & Channels ====================

@@ -663,7 +663,7 @@ func ProvidePaymentConfigService(entClient *dbent.Client, settingRepo SettingRep
 	return NewPaymentConfigService(entClient, settingRepo, []byte(key))
 }
 
-// ProvidePaymentService wires optional welfare hooks after constructing the core payment service.
+// ProvidePaymentService wires optional notification and welfare hooks after constructing the core payment service.
 func ProvidePaymentService(
 	entClient *dbent.Client,
 	registry *payment.Registry,
@@ -675,10 +675,12 @@ func ProvidePaymentService(
 	groupRepo GroupRepository,
 	affiliateService *AffiliateService,
 	welfareService *WelfareService,
+	systemTicketSvc *SystemTicketService,
 	membershipSvc *MembershipService,
 ) *PaymentService {
 	svc := NewPaymentService(entClient, registry, loadBalancer, redeemService, subscriptionSvc, configService, userRepo, groupRepo, affiliateService, membershipSvc)
 	svc.SetWelfareService(welfareService)
+	svc.SetSystemTicketService(systemTicketSvc)
 	return svc
 }
 

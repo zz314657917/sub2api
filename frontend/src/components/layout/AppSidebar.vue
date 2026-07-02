@@ -134,6 +134,7 @@
                 <span class="min-w-0 truncate">{{ item.label }}</span>
                 <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                 <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
+                <span v-if="showAdminTicketAttentionBadge(item)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
               </span>
             </router-link>
           </template>
@@ -194,6 +195,7 @@
                     <span class="min-w-0 truncate">{{ child.label }}</span>
                     <span v-if="showWelfareClaimBadge(child)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                     <span v-if="showTicketUnreadBadge(child)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
+                    <span v-if="showAdminTicketAttentionBadge(child)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
                   </span>
                 </router-link>
               </div>
@@ -216,6 +218,7 @@
                 <span class="min-w-0 truncate">{{ item.label }}</span>
                 <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                 <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
+                <span v-if="showAdminTicketAttentionBadge(item)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
               </span>
             </component>
           </template>
@@ -272,6 +275,7 @@
                     <span class="min-w-0 truncate">{{ child.label }}</span>
                     <span v-if="showWelfareClaimBadge(child)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                     <span v-if="showTicketUnreadBadge(child)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
+                    <span v-if="showAdminTicketAttentionBadge(child)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
                   </span>
                 </router-link>
               </div>
@@ -294,6 +298,7 @@
                 <span class="min-w-0 truncate">{{ item.label }}</span>
                 <span v-if="showWelfareClaimBadge(item)" class="sidebar-claim-badge">{{ t('nav.claimQuota') }}</span>
                 <span v-if="showTicketUnreadBadge(item)" class="sidebar-unread-badge">{{ ticketUnreadBadgeLabel }}</span>
+                <span v-if="showAdminTicketAttentionBadge(item)" class="sidebar-unread-badge sidebar-ticket-attention-badge">{{ adminTicketAttentionBadgeLabel }}</span>
               </span>
             </component>
           </template>
@@ -354,6 +359,7 @@ import VersionBadge from '@/components/common/VersionBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { studioBridgeAPI } from '@/api'
 import { ticketsAPI } from '@/api/tickets'
+import { adminTicketsAPI } from '@/api/admin/tickets'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 
@@ -464,7 +470,6 @@ const BellIcon: IconName = 'bell'
 const TicketIcon: IconName = 'ticket'
 const CogIcon: IconName = 'cog'
 const OrderIcon: IconName = 'clipboard'
-const OrderListIcon: IconName = 'document'
 const SignalIcon: IconName = 'sync'
 const ShieldIcon: IconName = 'shield'
 const PriceTagIcon: IconName = 'tag'
@@ -482,7 +487,9 @@ const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagWelfare = makeSidebarFlag(FeatureFlags.welfare)
 const welfareClaimBadgeVisible = computed(() => welfareStore.hasClaimableReward)
 const ticketUnreadTotal = ref(0)
+const adminTicketUnreadTotal = ref(0)
 const ticketUnreadBadgeLabel = computed(() => (ticketUnreadTotal.value > 99 ? '99+' : String(ticketUnreadTotal.value)))
+const adminTicketAttentionBadgeLabel = computed(() => (adminTicketUnreadTotal.value > 99 ? '99+' : String(adminTicketUnreadTotal.value)))
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 const WELFARE_BADGE_REFRESH_MS = 60_000
@@ -506,7 +513,6 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   const accountItems: NavItem[] = [
     { path: '/my-accounts', label: t('nav.myAccounts'), icon: GlobeIcon, hideInSimpleMode: true, featureFlag: flagAccountShare },
     { path: '/subscriptions', label: t('nav.mySubscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },
-    { path: '/orders', label: t('nav.myOrders'), icon: OrderListIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/redeem', label: t('nav.redeem'), icon: GiftIcon, hideInSimpleMode: true },
     { path: '/profile', label: t('nav.profile'), icon: UserIcon },
   ]
@@ -619,6 +625,19 @@ const adminNavItems = computed((): NavItem[] => {
       ],
     },
     {
+      path: '/admin/orders',
+      label: t('nav.orderManagement'),
+      icon: OrderIcon,
+      hideInSimpleMode: true,
+      expandOnly: true,
+      featureFlag: flagAdminPayment,
+      children: [
+        { path: '/admin/orders/dashboard', label: t('nav.paymentDashboard'), icon: ChartIcon },
+        { path: '/admin/orders', label: t('nav.orderList'), icon: OrderIcon, exactActive: true },
+        { path: '/admin/orders/invoices', label: t('nav.invoiceRequests'), icon: TicketIcon },
+      ],
+    },
+    {
       path: '/admin/business-operations',
       label: t('nav.businessOperations'),
       icon: OrderIcon,
@@ -626,18 +645,6 @@ const adminNavItems = computed((): NavItem[] => {
       children: [
         { path: '/admin/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },
         { path: '/admin/orders/plans', label: t('nav.paymentPlans'), icon: PriceTagIcon, hideInSimpleMode: true, featureFlag: flagAdminPayment },
-        {
-          path: '/admin/orders',
-          label: t('nav.orderManagement'),
-          icon: OrderIcon,
-          hideInSimpleMode: true,
-          expandOnly: true,
-          featureFlag: flagAdminPayment,
-          children: [
-            { path: '/admin/orders/dashboard', label: t('nav.paymentDashboard'), icon: ChartIcon },
-            { path: '/admin/orders', label: t('nav.orderList'), icon: OrderIcon, exactActive: true },
-          ],
-        },
         { path: '/admin/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
         { path: '/admin/promo-codes', label: t('nav.promoCodes'), icon: GiftIcon, hideInSimpleMode: true },
         {
@@ -808,6 +815,10 @@ function showTicketUnreadBadge(item: NavItem): boolean {
   return item.path === '/tickets' && ticketUnreadTotal.value > 0
 }
 
+function showAdminTicketAttentionBadge(item: NavItem): boolean {
+  return item.path === '/admin/tickets' && adminTicketUnreadTotal.value > 0
+}
+
 function navLinkAttrs(item: NavItem): Record<string, string> {
   if (!item.openInNewTab || item.action) return {}
   return {
@@ -867,16 +878,37 @@ function canRefreshTicketUnreadBadge(): boolean {
   return authStore.isAuthenticated && !authStore.isAdmin && !authStore.isSimpleMode
 }
 
+function canRefreshAdminTicketAttentionBadge(): boolean {
+  return authStore.isAuthenticated && authStore.isAdmin && !authStore.isSimpleMode
+}
+
 async function refreshTicketUnreadBadge(): Promise<void> {
-  if (!canRefreshTicketUnreadBadge()) {
+  if (canRefreshTicketUnreadBadge()) {
+    try {
+      const summary = await ticketsAPI.unreadSummary()
+      ticketUnreadTotal.value = Math.max(0, Number(summary.total_unread) || 0)
+    } catch {
+      ticketUnreadTotal.value = 0
+    }
+  } else {
     ticketUnreadTotal.value = 0
-    return
   }
-  try {
-    const summary = await ticketsAPI.unreadSummary()
-    ticketUnreadTotal.value = Math.max(0, Number(summary.total_unread) || 0)
-  } catch {
-    ticketUnreadTotal.value = 0
+
+  if (canRefreshAdminTicketAttentionBadge()) {
+    try {
+      const response = await adminTicketsAPI.list({
+        page: 1,
+        page_size: 1,
+        unread_only: true,
+        sort_by: 'unread_first',
+        sort_order: 'desc',
+      })
+      adminTicketUnreadTotal.value = Math.max(0, Number(response.total) || 0)
+    } catch {
+      adminTicketUnreadTotal.value = 0
+    }
+  } else {
+    adminTicketUnreadTotal.value = 0
   }
 }
 
@@ -1154,6 +1186,38 @@ onUnmounted(() => {
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.sidebar-ticket-attention-badge {
+  background: linear-gradient(135deg, rgb(239 68 68), rgb(245 158 11));
+  box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.45);
+  transform-origin: center;
+  animation: sidebar-ticket-attention-pulse 1.15s ease-in-out infinite;
+}
+
+.dark .sidebar-ticket-attention-badge {
+  box-shadow: 0 0 0 0 rgba(251, 146, 60, 0.38);
+}
+
+@keyframes sidebar-ticket-attention-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(248, 113, 113, 0.45);
+  }
+
+  50% {
+    transform: scale(1.14);
+    opacity: 0.74;
+    box-shadow: 0 0 0 0.32rem rgba(248, 113, 113, 0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-ticket-attention-badge {
+    animation: none;
+  }
 }
 
 .sidebar-label-collapsed {

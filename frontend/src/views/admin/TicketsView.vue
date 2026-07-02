@@ -239,6 +239,7 @@ import type { AdminSupportTicketSortBy, SupportTicket, SupportTicketMessage, Sup
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const TICKET_UNREAD_BADGE_REFRESH_EVENT = 'sub2api:ticket-unread-updated'
 
 const tickets = ref<SupportTicket[]>([])
 const selectedTicketId = ref<number | null>(null)
@@ -352,10 +353,15 @@ function applyTicketReadState(ticketId: number) {
   }
 }
 
+function dispatchTicketUnreadBadgeRefresh() {
+  window.dispatchEvent(new Event(TICKET_UNREAD_BADGE_REFRESH_EVENT))
+}
+
 async function markTicketRead(ticketId: number, silent = false) {
   try {
     await adminTicketsAPI.markRead(ticketId)
     applyTicketReadState(ticketId)
+    dispatchTicketUnreadBadgeRefresh()
     if (!silent) appStore.showSuccess(t('admin.tickets.readSuccess'))
   } catch (error: any) {
     if (!silent) {

@@ -39,6 +39,7 @@ const (
 const (
 	SystemTicketEventGroupChanged             = "group_changed"
 	SystemTicketEventPaymentCompleted         = "payment_completed"
+	SystemTicketEventInvoiceIssued            = "invoice_issued"
 	SystemTicketEventAffiliateFirstAPIReward  = "affiliate_first_api_reward"
 	SystemTicketEventWelfareFirstAPIUnclaimed = "welfare_first_api_unclaimed"
 )
@@ -705,6 +706,31 @@ func NewPaymentCompletedSystemTicketNotification(orderID int64, outTradeNo strin
 			"pay_amount":   payAmount,
 			"completed_at": completedAt.UTC().Format(time.RFC3339),
 		},
+	}
+}
+
+func NewInvoiceIssuedSystemTicketNotification(invoice InvoiceRequestView) SystemTicketNotification {
+	content := fmt.Sprintf("你的发票已开具，金额 %.2f %s。请在本工单消息中下载发票文件。", invoice.Amount, strings.TrimSpace(invoice.Currency))
+	metadata := map[string]any{
+		"action_type":        SystemTicketEventInvoiceIssued,
+		"invoice_request_id": invoice.ID,
+		"amount":             invoice.Amount,
+		"currency":           invoice.Currency,
+		"invoice_type":       invoice.InvoiceType,
+		"title":              invoice.Title,
+		"file_name":          invoice.FileName,
+	}
+	if strings.TrimSpace(invoice.InvoiceNo) != "" {
+		metadata["invoice_no"] = invoice.InvoiceNo
+	}
+	if invoice.IssuedAt != nil {
+		metadata["issued_at"] = invoice.IssuedAt.UTC().Format(time.RFC3339)
+	}
+	return SystemTicketNotification{
+		EventType: SystemTicketEventInvoiceIssued,
+		EventKey:  fmt.Sprintf("%s:%d", SystemTicketEventInvoiceIssued, invoice.ID),
+		Content:   content,
+		Metadata:  metadata,
 	}
 }
 

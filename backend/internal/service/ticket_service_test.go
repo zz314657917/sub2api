@@ -236,6 +236,27 @@ func TestSystemTicketNotificationTemplates(t *testing.T) {
 	require.Equal(t, "你的订阅订单已到账，订阅已生效。", subscriptionPaymentEvent.Content)
 	require.NotContains(t, subscriptionPaymentEvent.Content, "#100")
 
+	issuedAt := completedAt.Add(time.Hour)
+	invoiceEvent := NewInvoiceIssuedSystemTicketNotification(InvoiceRequestView{
+		ID:          7,
+		UserID:      42,
+		Amount:      1999,
+		Currency:    "CNY",
+		InvoiceType: InvoiceTypeVATGeneral,
+		Title:       "ACME",
+		InvoiceNo:   "INV-20260701",
+		FileName:    "invoice-7.pdf",
+		IssuedAt:    &issuedAt,
+	})
+	require.Equal(t, "invoice_issued:7", invoiceEvent.EventKey)
+	require.Equal(t, SystemTicketEventInvoiceIssued, invoiceEvent.Metadata["action_type"])
+	require.Equal(t, int64(7), invoiceEvent.Metadata["invoice_request_id"])
+	require.Equal(t, "invoice-7.pdf", invoiceEvent.Metadata["file_name"])
+	require.Equal(t, "INV-20260701", invoiceEvent.Metadata["invoice_no"])
+	require.Contains(t, invoiceEvent.Content, "你的发票已开具")
+	require.Contains(t, invoiceEvent.Content, "1999.00 CNY")
+	require.Contains(t, invoiceEvent.Content, "本工单消息中下载")
+
 	affiliateEvent := NewAffiliateFirstAPIRewardSystemTicketNotification(88, 0.5, true)
 	require.Equal(t, "affiliate_first_api_reward:88", affiliateEvent.EventKey)
 	require.Equal(t, SystemTicketEventAffiliateFirstAPIReward, affiliateEvent.Metadata["action_type"])

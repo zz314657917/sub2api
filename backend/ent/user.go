@@ -95,6 +95,8 @@ type UserEdges struct {
 	PromoCodeUsages []*PromoCodeUsage `json:"promo_code_usages,omitempty"`
 	// PaymentOrders holds the value of the payment_orders edge.
 	PaymentOrders []*PaymentOrder `json:"payment_orders,omitempty"`
+	// InvoiceRequests holds the value of the invoice_requests edge.
+	InvoiceRequests []*InvoiceRequest `json:"invoice_requests,omitempty"`
 	// AuthIdentities holds the value of the auth_identities edge.
 	AuthIdentities []*AuthIdentity `json:"auth_identities,omitempty"`
 	// PendingAuthSessions holds the value of the pending_auth_sessions edge.
@@ -105,7 +107,7 @@ type UserEdges struct {
 	UserAllowedGroups []*UserAllowedGroup `json:"user_allowed_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [14]bool
+	loadedTypes [15]bool
 }
 
 // APIKeysOrErr returns the APIKeys value or an error if the edge
@@ -198,10 +200,19 @@ func (e UserEdges) PaymentOrdersOrErr() ([]*PaymentOrder, error) {
 	return nil, &NotLoadedError{edge: "payment_orders"}
 }
 
+// InvoiceRequestsOrErr returns the InvoiceRequests value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) InvoiceRequestsOrErr() ([]*InvoiceRequest, error) {
+	if e.loadedTypes[10] {
+		return e.InvoiceRequests, nil
+	}
+	return nil, &NotLoadedError{edge: "invoice_requests"}
+}
+
 // AuthIdentitiesOrErr returns the AuthIdentities value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) AuthIdentitiesOrErr() ([]*AuthIdentity, error) {
-	if e.loadedTypes[10] {
+	if e.loadedTypes[11] {
 		return e.AuthIdentities, nil
 	}
 	return nil, &NotLoadedError{edge: "auth_identities"}
@@ -210,7 +221,7 @@ func (e UserEdges) AuthIdentitiesOrErr() ([]*AuthIdentity, error) {
 // PendingAuthSessionsOrErr returns the PendingAuthSessions value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) PendingAuthSessionsOrErr() ([]*PendingAuthSession, error) {
-	if e.loadedTypes[11] {
+	if e.loadedTypes[12] {
 		return e.PendingAuthSessions, nil
 	}
 	return nil, &NotLoadedError{edge: "pending_auth_sessions"}
@@ -219,7 +230,7 @@ func (e UserEdges) PendingAuthSessionsOrErr() ([]*PendingAuthSession, error) {
 // SupportTicketsOrErr returns the SupportTickets value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) SupportTicketsOrErr() ([]*SupportTicket, error) {
-	if e.loadedTypes[12] {
+	if e.loadedTypes[13] {
 		return e.SupportTickets, nil
 	}
 	return nil, &NotLoadedError{edge: "support_tickets"}
@@ -228,7 +239,7 @@ func (e UserEdges) SupportTicketsOrErr() ([]*SupportTicket, error) {
 // UserAllowedGroupsOrErr returns the UserAllowedGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) UserAllowedGroupsOrErr() ([]*UserAllowedGroup, error) {
-	if e.loadedTypes[13] {
+	if e.loadedTypes[14] {
 		return e.UserAllowedGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "user_allowed_groups"}
@@ -487,6 +498,11 @@ func (_m *User) QueryPromoCodeUsages() *PromoCodeUsageQuery {
 // QueryPaymentOrders queries the "payment_orders" edge of the User entity.
 func (_m *User) QueryPaymentOrders() *PaymentOrderQuery {
 	return NewUserClient(_m.config).QueryPaymentOrders(_m)
+}
+
+// QueryInvoiceRequests queries the "invoice_requests" edge of the User entity.
+func (_m *User) QueryInvoiceRequests() *InvoiceRequestQuery {
+	return NewUserClient(_m.config).QueryInvoiceRequests(_m)
 }
 
 // QueryAuthIdentities queries the "auth_identities" edge of the User entity.

@@ -144,6 +144,7 @@ describe('admin TicketsView', () => {
   })
 
   it('loads tickets and renders user context', async () => {
+    const dispatchSpy = vi.spyOn(window, 'dispatchEvent')
     const wrapper = mountView()
     await flushPromises()
     await flushPromises()
@@ -157,6 +158,8 @@ describe('admin TicketsView', () => {
     expect(wrapper.text()).toContain('user@example.com')
     expect(wrapper.text()).toContain('用户留言')
     expect(wrapper.text()).toContain('admin.tickets.supportDefaultHint')
+    expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'sub2api:ticket-unread-updated' }))
+    dispatchSpy.mockRestore()
   })
 
   it('keeps admin unread list state on mobile until the admin opens a conversation', async () => {

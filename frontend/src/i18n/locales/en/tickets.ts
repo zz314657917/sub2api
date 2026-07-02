@@ -41,12 +41,17 @@ export default {
   unread: '{count} unread',
   actions: {
     paymentCompleted: 'View orders / purchase',
+    invoiceIssued: 'Download invoice',
     affiliateReward: 'View affiliate rewards',
     welfareReward: 'Claim welfare quota',
     groupChanged: 'View account / plan info',
   },
+  invoiceDownloadFailed: 'Failed to download invoice',
   metadata: {
     changeDetails: 'Change Details',
+    invoiceAmount: 'Invoice Amount',
+    invoiceNo: 'Invoice No.',
+    invoiceFile: 'Invoice File',
     allowedGroups: 'Allowed Groups',
     rateMultiplier: 'Billing Multiplier',
     imageRateMultiplier: 'Image Multiplier',

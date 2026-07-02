@@ -41,6 +41,14 @@ func RegisterPaymentRoutes(
 			orders.POST("/:id/refund-request", paymentHandler.RequestRefund)
 			orders.GET("/refund-eligible-providers", paymentHandler.GetRefundEligibleProviders)
 		}
+
+		invoices := authenticated.Group("/invoices")
+		{
+			invoices.GET("/summary", paymentHandler.GetInvoiceSummary)
+			invoices.GET("/my", paymentHandler.ListMyInvoices)
+			invoices.POST("", paymentHandler.CreateInvoiceRequest)
+			invoices.GET("/:id/download", paymentHandler.DownloadInvoice)
+		}
 	}
 
 	// --- Public payment endpoints (no auth) ---
@@ -84,6 +92,15 @@ func RegisterPaymentRoutes(
 			adminOrders.POST("/:id/cancel", adminPaymentHandler.CancelOrder)
 			adminOrders.POST("/:id/retry", adminPaymentHandler.RetryFulfillment)
 			adminOrders.POST("/:id/refund", adminPaymentHandler.ProcessRefund)
+		}
+
+		adminInvoices := adminGroup.Group("/invoices")
+		{
+			adminInvoices.GET("", adminPaymentHandler.ListInvoices)
+			adminInvoices.GET("/:id", adminPaymentHandler.GetInvoiceDetail)
+			adminInvoices.POST("/:id/approve", adminPaymentHandler.ApproveInvoice)
+			adminInvoices.POST("/:id/reject", adminPaymentHandler.RejectInvoice)
+			adminInvoices.POST("/:id/issue", adminPaymentHandler.IssueInvoice)
 		}
 
 		// Subscription Plans

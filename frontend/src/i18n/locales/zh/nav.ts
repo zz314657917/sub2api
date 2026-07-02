@@ -55,6 +55,7 @@ export default {
     myOrders: '我的订单',
     orderManagement: '订单管理',
     orderList: '订单列表',
+    invoiceRequests: '开票申请',
     paymentDashboard: '支付概览',
     paymentConfig: '支付配置',
     paymentPlans: '订阅套餐',

@@ -1,14 +1,18 @@
 package admin
 
 import (
+	"net/http"
 	"strconv"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
+	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
+
+const adminInvoiceMaxMultipartBytes int64 = 12 << 20
 
 // PaymentHandler handles admin payment management.
 type PaymentHandler struct {
@@ -173,6 +177,139 @@ func (h *PaymentHandler) ProcessRefund(c *gin.Context) {
 		return
 	}
 	response.Success(c, result)
+}
+
+// --- Invoices ---
+
+// ListInvoices returns a paginated list of invoice requests.
+// GET /api/v1/admin/payment/invoices
+func (h *PaymentHandler) ListInvoices(c *gin.Context) {
+	page, pageSize := response.ParsePagination(c)
+	var userID int64
+	if uid := c.Query("user_id"); uid != "" {
+		if v, err := strconv.ParseInt(uid, 10, 64); err == nil {
+			userID = v
+		}
+	}
+	items, total, err := h.paymentService.AdminListInvoiceRequests(c.Request.Context(), service.InvoiceRequestListParams{
+		Page:   page,
+		Limit:  pageSize,
+		Status: c.Query("status"),
+		UserID: userID,
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, int64(total), page, pageSize)
+}
+
+// GetInvoiceDetail returns one invoice request.
+// GET /api/v1/admin/payment/invoices/:id
+func (h *PaymentHandler) GetInvoiceDetail(c *gin.Context) {
+	requestID, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	item, err := h.paymentService.AdminGetInvoiceRequest(c.Request.Context(), requestID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+type AdminInvoiceReviewRequest struct {
+	AdminNote string `json:"admin_note"`
+}
+
+// ApproveInvoice approves a pending invoice request.
+// POST /api/v1/admin/payment/invoices/:id/approve
+func (h *PaymentHandler) ApproveInvoice(c *gin.Context) {
+	requestID, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	var req AdminInvoiceReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.paymentService.AdminApproveInvoiceRequest(c.Request.Context(), requestID, service.InvoiceAdminReviewInput{
+		AdminID:   adminSubjectID(c),
+		AdminNote: req.AdminNote,
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+// RejectInvoice rejects a pending or approved invoice request.
+// POST /api/v1/admin/payment/invoices/:id/reject
+func (h *PaymentHandler) RejectInvoice(c *gin.Context) {
+	requestID, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	var req AdminInvoiceReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.paymentService.AdminRejectInvoiceRequest(c.Request.Context(), requestID, service.InvoiceAdminReviewInput{
+		AdminID:   adminSubjectID(c),
+		AdminNote: req.AdminNote,
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+// IssueInvoice uploads the final invoice file and marks the request as issued.
+// POST /api/v1/admin/payment/invoices/:id/issue
+func (h *PaymentHandler) IssueInvoice(c *gin.Context) {
+	requestID, ok := parseIDParam(c, "id")
+	if !ok {
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, adminInvoiceMaxMultipartBytes)
+	header, err := c.FormFile("file")
+	if err != nil {
+		response.BadRequest(c, "invoice file is required")
+		return
+	}
+	file, err := header.Open()
+	if err != nil {
+		response.BadRequest(c, "invoice file is invalid")
+		return
+	}
+	defer func() { _ = file.Close() }()
+	item, err := h.paymentService.AdminIssueInvoiceRequest(c.Request.Context(), requestID, service.InvoiceAdminIssueInput{
+		AdminID:     adminSubjectID(c),
+		AdminNote:   c.PostForm("admin_note"),
+		InvoiceNo:   c.PostForm("invoice_no"),
+		FileName:    header.Filename,
+		ContentType: header.Header.Get("Content-Type"),
+		FileSize:    header.Size,
+		Reader:      file,
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, item)
+}
+
+func adminSubjectID(c *gin.Context) int64 {
+	subject, ok := middleware2.GetAuthSubjectFromContext(c)
+	if !ok {
+		return 0
+	}
+	return subject.UserID
 }
 
 // --- Subscription Plans ---

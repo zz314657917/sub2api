@@ -6,6 +6,8 @@
 import { apiClient } from '../client'
 import type {
   DashboardStats,
+  InvoiceRequest,
+  InvoiceStatus,
   PaymentOrder,
   PaymentChannel,
   SubscriptionPlan,
@@ -106,6 +108,40 @@ export const adminPaymentAPI = {
   /** Process a refund */
   refundOrder(id: number, data: { amount: number; reason: string; deduct_balance?: boolean; force?: boolean }) {
     return apiClient.post(`/admin/payment/orders/${id}/refund`, data)
+  },
+
+  // ==================== Invoices ====================
+
+  /** Get all invoice requests */
+  getInvoices(params?: {
+    page?: number
+    page_size?: number
+    status?: InvoiceStatus | ''
+    user_id?: number
+  }) {
+    return apiClient.get<BasePaginationResponse<InvoiceRequest>>('/admin/payment/invoices', { params })
+  },
+
+  /** Get a specific invoice request */
+  getInvoice(id: number) {
+    return apiClient.get<InvoiceRequest>(`/admin/payment/invoices/${id}`)
+  },
+
+  /** Approve invoice request */
+  approveInvoice(id: number, data: { admin_note?: string }) {
+    return apiClient.post<InvoiceRequest>(`/admin/payment/invoices/${id}/approve`, data)
+  },
+
+  /** Reject invoice request */
+  rejectInvoice(id: number, data: { admin_note: string }) {
+    return apiClient.post<InvoiceRequest>(`/admin/payment/invoices/${id}/reject`, data)
+  },
+
+  /** Upload issued invoice file */
+  issueInvoice(id: number, data: FormData) {
+    return apiClient.post<InvoiceRequest>(`/admin/payment/invoices/${id}/issue`, data, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
   },
 
   // ==================== Channels ====================

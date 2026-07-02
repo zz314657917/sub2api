@@ -39,9 +39,10 @@ const props = defineProps<{
 const { t } = useI18n()
 
 const rows = computed(() => {
-  if (!isGroupChangedMessage(props.message)) return []
   const metadata = props.message.metadata
   if (!isMetadata(metadata)) return []
+  if (isInvoiceIssuedMessage(props.message)) return invoiceRows(metadata)
+  if (!isGroupChangedMessage(props.message)) return []
 
   const result: DetailRow[] = []
   appendArrayChange(result, metadata, 'allowedGroups', 'old_allowed_groups', 'new_allowed_groups', formatGroupList)
@@ -59,8 +60,35 @@ function isGroupChangedMessage(message: SupportTicketMessage): boolean {
     && (message.event_type === 'group_changed' || message.metadata?.action_type === 'group_changed')
 }
 
+function isInvoiceIssuedMessage(message: SupportTicketMessage): boolean {
+  return message.sender_type === 'system'
+    && (message.event_type === 'invoice_issued' || message.metadata?.action_type === 'invoice_issued')
+}
+
+function invoiceRows(metadata: Metadata): DetailRow[] {
+  const result: DetailRow[] = []
+  const amount = numberValue(metadata.amount)
+  const currency = stringValue(metadata.currency)
+  const invoiceNo = stringValue(metadata.invoice_no)
+  const fileName = stringValue(metadata.file_name)
+  if (amount != null) {
+    result.push({ key: 'invoiceAmount', label: label('invoiceAmount'), newValue: `${formatNumber(amount)} ${currency || 'CNY'}` })
+  }
+  if (invoiceNo) {
+    result.push({ key: 'invoiceNo', label: label('invoiceNo'), newValue: invoiceNo })
+  }
+  if (fileName) {
+    result.push({ key: 'invoiceFile', label: label('invoiceFile'), newValue: fileName })
+  }
+  return result
+}
+
 function isMetadata(value: unknown): value is Metadata {
   return !!value && typeof value === 'object' && !Array.isArray(value)
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
 }
 
 function label(key: string, params?: Record<string, unknown>): string {

@@ -86,14 +86,20 @@ describe('AppSidebar admin navigation groups', () => {
 
   it('keeps subscription plans beside subscription management instead of inside orders', () => {
     const businessStart = componentSource.indexOf("label: t('nav.businessOperations')")
+    const businessEnd = componentSource.indexOf("path: '/admin/usage'", businessStart)
     const ordersStart = componentSource.indexOf("path: '/admin/orders'", businessStart)
-    const ordersChildrenStart = componentSource.indexOf('children: [', ordersStart)
+    const ordersTopLevelStart = componentSource.indexOf("path: '/admin/orders'")
+    const ordersChildrenStart = componentSource.indexOf('children: [', ordersTopLevelStart)
     const ordersChildrenEnd = componentSource.indexOf('],', ordersChildrenStart)
     expect(businessStart).toBeGreaterThan(-1)
-    expect(ordersStart).toBeGreaterThan(-1)
-    expect(ordersChildrenStart).toBeGreaterThan(-1)
-    expect(componentSource.indexOf("path: '/admin/subscriptions'", businessStart)).toBeLessThan(ordersStart)
-    expect(componentSource.indexOf("path: '/admin/orders/plans'", businessStart)).toBeLessThan(ordersStart)
+    expect(businessEnd).toBeGreaterThan(businessStart)
+    expect(ordersStart).toBe(-1)
+    expect(ordersTopLevelStart).toBeGreaterThan(-1)
+    expect(ordersTopLevelStart).toBeLessThan(businessStart)
+    expect(ordersChildrenStart).toBeGreaterThan(ordersTopLevelStart)
+    expect(componentSource.slice(businessStart, businessEnd)).not.toContain("label: t('nav.orderManagement')")
+    expect(componentSource.indexOf("path: '/admin/subscriptions'", businessStart)).toBeGreaterThan(businessStart)
+    expect(componentSource.indexOf("path: '/admin/orders/plans'", businessStart)).toBeGreaterThan(businessStart)
     expect(componentSource.slice(ordersChildrenStart, ordersChildrenEnd)).not.toContain("path: '/admin/orders/plans'")
   })
 
@@ -101,6 +107,17 @@ describe('AppSidebar admin navigation groups', () => {
     expect(componentSource).toContain('exactActive?: boolean')
     expect(componentSource).toContain('function isNavItemActive')
     expect(componentSource).toContain("path: '/admin/orders', label: t('nav.orderList'), icon: OrderIcon, exactActive: true")
+  })
+
+  it('shows an animated admin ticket badge from admin unread tickets', () => {
+    expect(componentSource).toContain("import { adminTicketsAPI } from '@/api/admin/tickets'")
+    expect(componentSource).toContain('const adminTicketUnreadTotal = ref(0)')
+    expect(componentSource).toContain('function showAdminTicketAttentionBadge')
+    expect(componentSource).toContain("item.path === '/admin/tickets'")
+    expect(componentSource).toContain('adminTicketsAPI.list({')
+    expect(componentSource).toContain('unread_only: true')
+    expect(componentSource).toContain('sidebar-ticket-attention-badge')
+    expect(componentSource).toContain('@keyframes sidebar-ticket-attention-pulse')
   })
 
   it('preserves admin onboarding anchors after grouping', () => {
@@ -188,7 +205,7 @@ describe('AppSidebar self navigation groups', () => {
     expect(componentSource).toContain("path: '/available-channels'")
     expect(componentSource).toContain("path: '/monitor'")
     expect(componentSource).toContain("path: '/my-accounts'")
-    expect(componentSource).toContain("path: '/orders'")
+    expect(accountCenterBlock).not.toContain("path: '/orders'")
     expect(componentSource).toContain("path: '/profile'")
     expect(componentSource).toContain("path: '/subscriptions'")
   })

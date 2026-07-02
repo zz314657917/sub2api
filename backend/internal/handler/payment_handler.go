@@ -2,6 +2,9 @@ package handler
 
 import (
 	"fmt"
+	"io"
+	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -443,6 +446,121 @@ func (h *PaymentHandler) GetRefundEligibleProviders(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{"provider_instance_ids": ids})
+}
+
+// GetInvoiceSummary returns the current user's invoiceable amount summary.
+// GET /api/v1/payment/invoices/summary
+func (h *PaymentHandler) GetInvoiceSummary(c *gin.Context) {
+	subject, ok := requireAuth(c)
+	if !ok {
+		return
+	}
+	summary, err := h.paymentService.GetInvoiceSummary(c.Request.Context(), subject.UserID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, summary)
+}
+
+// ListMyInvoices returns the current user's invoice requests.
+// GET /api/v1/payment/invoices/my
+func (h *PaymentHandler) ListMyInvoices(c *gin.Context) {
+	subject, ok := requireAuth(c)
+	if !ok {
+		return
+	}
+	page, pageSize := response.ParsePagination(c)
+	items, total, err := h.paymentService.ListUserInvoices(c.Request.Context(), subject.UserID, service.InvoiceRequestListParams{
+		Page:   page,
+		Limit:  pageSize,
+		Status: c.Query("status"),
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Paginated(c, items, int64(total), page, pageSize)
+}
+
+type CreateInvoiceRequestBody struct {
+	Amount      float64 `json:"amount" binding:"required"`
+	InvoiceType string  `json:"invoice_type" binding:"required"`
+	Title       string  `json:"title" binding:"required"`
+	TaxNumber   string  `json:"tax_number" binding:"required"`
+	Remark      string  `json:"remark"`
+}
+
+// CreateInvoiceRequest creates an invoice request for the current user.
+// POST /api/v1/payment/invoices
+func (h *PaymentHandler) CreateInvoiceRequest(c *gin.Context) {
+	subject, ok := requireAuth(c)
+	if !ok {
+		return
+	}
+	var req CreateInvoiceRequestBody
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	item, err := h.paymentService.CreateInvoiceRequest(c.Request.Context(), service.InvoiceRequestCreateInput{
+		UserID:      subject.UserID,
+		Amount:      req.Amount,
+		InvoiceType: req.InvoiceType,
+		Title:       req.Title,
+		TaxNumber:   req.TaxNumber,
+		Remark:      req.Remark,
+	})
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Created(c, item)
+}
+
+// DownloadInvoice downloads an issued invoice file owned by the current user.
+// GET /api/v1/payment/invoices/:id/download
+func (h *PaymentHandler) DownloadInvoice(c *gin.Context) {
+	subject, ok := requireAuth(c)
+	if !ok {
+		return
+	}
+	requestID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil || requestID <= 0 {
+		response.BadRequest(c, "Invalid invoice request ID")
+		return
+	}
+	file, err := h.paymentService.GetInvoiceDownload(c.Request.Context(), subject.UserID, requestID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	serveInvoiceDownload(c, file)
+}
+
+func serveInvoiceDownload(c *gin.Context, file *service.InvoiceDownloadFile) {
+	f, err := os.Open(file.Path)
+	if err != nil {
+		response.NotFound(c, "invoice file not found")
+		return
+	}
+	defer func() { _ = f.Close() }()
+	if file.ContentType != "" {
+		c.Header("Content-Type", file.ContentType)
+	}
+	c.Header("Content-Disposition", `attachment; filename="`+strings.ReplaceAll(file.FileName, `"`, `\"`)+`"`)
+	c.Header("Accept-Ranges", "none")
+	if file.Size > 0 {
+		c.Writer.Header().Set("Content-Length", strconv.FormatInt(file.Size, 10))
+	}
+	if !file.ModTime.IsZero() {
+		c.Writer.Header().Set("Last-Modified", file.ModTime.UTC().Format(http.TimeFormat))
+	}
+	c.Status(http.StatusOK)
+	if c.Request.Method == http.MethodHead {
+		return
+	}
+	_, _ = io.Copy(c.Writer, f)
 }
 
 // VerifyOrderRequest is the request body for verifying a payment order.

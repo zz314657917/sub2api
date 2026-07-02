@@ -135,6 +135,16 @@
               <p class="whitespace-pre-wrap break-words text-sm leading-6">{{ formatMessageContent(message.content) }}</p>
               <SystemTicketMetadataDetails :message="message" />
               <button
+                v-if="systemInvoiceActionForMessage(message)"
+                type="button"
+                class="system-action-link mt-3"
+                :disabled="invoiceDownloadingId === systemInvoiceActionForMessage(message)!.invoiceId"
+                @click="downloadInvoiceFromTicket(systemInvoiceActionForMessage(message)!)"
+              >
+                <Icon :name="systemInvoiceActionForMessage(message)!.icon" size="sm" />
+                {{ invoiceDownloadingId === systemInvoiceActionForMessage(message)!.invoiceId ? t('common.processing') : systemInvoiceActionForMessage(message)!.label }}
+              </button>
+              <button
                 v-if="systemActionForMessage(message)"
                 type="button"
                 class="system-action-link mt-3"
@@ -187,6 +197,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import SystemTicketMetadataDetails from '@/components/tickets/SystemTicketMetadataDetails.vue'
+import { paymentAPI } from '@/api/payment'
 import { ticketsAPI } from '@/api/tickets'
 import { useAppStore } from '@/stores/app'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
@@ -205,6 +216,7 @@ const detailLoading = ref(false)
 const creating = ref(false)
 const sending = ref(false)
 const acting = ref(false)
+const invoiceDownloadingId = ref<number | null>(null)
 const showCreateForm = ref(false)
 const showMobileList = ref(true)
 const replyContent = ref('')
@@ -243,6 +255,13 @@ const detailPanelClass = computed(() => (selectedTicketId.value && !showMobileLi
 
 type SystemActionEntry = {
   path: string
+  label: string
+  icon: InstanceType<typeof Icon>['$props']['name']
+}
+
+type SystemInvoiceActionEntry = {
+  invoiceId: number
+  fileName: string
   label: string
   icon: InstanceType<typeof Icon>['$props']['name']
 }
@@ -303,6 +322,7 @@ function resolveSystemActionType(message: SupportTicketMessage): SupportTicketAc
   const actionType = typeof rawActionType === 'string' ? rawActionType : message.event_type
   switch (actionType) {
     case 'payment_completed':
+    case 'invoice_issued':
     case 'affiliate_first_api_reward':
     case 'welfare_first_api_unclaimed':
     case 'group_changed':
@@ -317,6 +337,8 @@ function systemActionForMessage(message: SupportTicketMessage): SystemActionEntr
   switch (resolveSystemActionType(message)) {
     case 'payment_completed':
       return { path: '/orders', label: t('tickets.actions.paymentCompleted'), icon: 'clipboard' }
+    case 'invoice_issued':
+      return null
     case 'affiliate_first_api_reward':
       return { path: '/affiliate', label: t('tickets.actions.affiliateReward'), icon: 'userPlus' }
     case 'welfare_first_api_unclaimed':
@@ -326,8 +348,43 @@ function systemActionForMessage(message: SupportTicketMessage): SystemActionEntr
   }
 }
 
+function systemInvoiceActionForMessage(message: SupportTicketMessage): SystemInvoiceActionEntry | null {
+  if (message.sender_type !== 'system' || resolveSystemActionType(message) !== 'invoice_issued') return null
+  const rawID = message.metadata?.invoice_request_id
+  const invoiceId = typeof rawID === 'number' ? rawID : typeof rawID === 'string' ? Number(rawID) : 0
+  if (!Number.isFinite(invoiceId) || invoiceId <= 0) return null
+  const rawFileName = message.metadata?.file_name
+  const fileName = typeof rawFileName === 'string' ? rawFileName.trim() : ''
+  return { invoiceId, fileName, label: t('tickets.actions.invoiceIssued'), icon: 'download' }
+}
+
 function openSystemAction(path: string) {
   void router.push(path)
+}
+
+async function downloadInvoiceFromTicket(action: SystemInvoiceActionEntry) {
+  invoiceDownloadingId.value = action.invoiceId
+  try {
+    const res = await paymentAPI.downloadInvoice(action.invoiceId)
+    const blob = res.data
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = action.fileName || invoiceFileName(action.invoiceId, blob.type)
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    URL.revokeObjectURL(url)
+  } catch (error: any) {
+    appStore.showError(error.message || t('tickets.invoiceDownloadFailed'))
+  } finally {
+    invoiceDownloadingId.value = null
+  }
+}
+
+function invoiceFileName(invoiceId: number, contentType?: string): string {
+  const ext = contentType === 'application/pdf' ? '.pdf' : ''
+  return `invoice-${invoiceId}${ext}`
 }
 
 function notifyTicketUnreadBadgeChanged() {

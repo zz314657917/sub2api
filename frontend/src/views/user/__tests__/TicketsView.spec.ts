@@ -13,6 +13,10 @@ const { list, get, createMessage, close, markRead } = vi.hoisted(() => ({
   markRead: vi.fn(),
 }))
 
+const { downloadInvoice } = vi.hoisted(() => ({
+  downloadInvoice: vi.fn(),
+}))
+
 const { showError, showSuccess } = vi.hoisted(() => ({
   showError: vi.fn(),
   showSuccess: vi.fn(),
@@ -26,6 +30,12 @@ vi.mock('@/api/tickets', () => ({
     createMessage,
     markRead,
     close,
+  },
+}))
+
+vi.mock('@/api/payment', () => ({
+  paymentAPI: {
+    downloadInvoice,
   },
 }))
 
@@ -127,9 +137,18 @@ describe('user TicketsView', () => {
     createMessage.mockReset().mockResolvedValue({ ticket: { id: 7 }, messages: [] })
     close.mockReset().mockResolvedValue(undefined)
     markRead.mockReset().mockResolvedValue(undefined)
+    downloadInvoice.mockReset().mockResolvedValue({ data: new Blob(['pdf'], { type: 'application/pdf' }) })
     push.mockReset()
     showError.mockReset()
     showSuccess.mockReset()
+    Object.defineProperty(URL, 'createObjectURL', {
+      configurable: true,
+      value: vi.fn(() => 'blob:invoice'),
+    })
+    Object.defineProperty(URL, 'revokeObjectURL', {
+      configurable: true,
+      value: vi.fn(),
+    })
   })
 
   it('loads tickets and renders the selected conversation', async () => {
@@ -224,6 +243,47 @@ describe('user TicketsView', () => {
 
     await wrapper.find('.system-action-link').trigger('click')
     expect(push).toHaveBeenCalledWith('/orders')
+  })
+
+  it('downloads issued invoices directly from system ticket messages', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
+    list.mockResolvedValue({
+      items: [systemTicket()],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+    get.mockResolvedValue({
+      ticket: systemTicket(),
+      messages: [
+        {
+          id: 4,
+          ticket_id: 3,
+          sender_type: 'system',
+          content: '你的发票已开具。',
+          event_type: 'invoice_issued',
+          event_key: 'invoice_issued:7',
+          metadata: { action_type: 'invoice_issued', invoice_request_id: 7, amount: 1999, currency: 'CNY', invoice_no: 'INV-001', file_name: 'invoice-7.pdf' },
+          created_at: '2026-07-01T12:00:00Z',
+        },
+      ],
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('tickets.actions.invoiceIssued')
+    expect(wrapper.text()).toContain('tickets.metadata.invoiceAmount')
+    expect(wrapper.text()).toContain('1999 CNY')
+    expect(wrapper.text()).toContain('INV-001')
+    await wrapper.find('.system-action-link').trigger('click')
+    await flushPromises()
+
+    expect(downloadInvoice).toHaveBeenCalledWith(7)
+    expect(URL.createObjectURL).toHaveBeenCalled()
+    expect(click).toHaveBeenCalled()
+    expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:invoice')
   })
 
   it('renders group change metadata details for system messages', async () => {

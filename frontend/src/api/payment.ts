@@ -12,6 +12,9 @@ import type {
   CheckoutInfoResponse,
   CreateOrderRequest,
   CreateOrderResult,
+  CreateInvoiceRequest,
+  InvoiceRequest,
+  InvoiceSummary,
   PaymentOrder,
   MembershipStatus
 } from '@/types/payment'
@@ -91,5 +94,25 @@ export const paymentAPI = {
   /** Get provider instance IDs that allow user refund */
   getRefundEligibleProviders() {
     return apiClient.get<{ provider_instance_ids: string[] }>('/payment/orders/refund-eligible-providers')
+  },
+
+  /** Get current user's invoiceable amount summary */
+  getInvoiceSummary() {
+    return apiClient.get<InvoiceSummary>('/payment/invoices/summary')
+  },
+
+  /** Get current user's invoice requests */
+  getMyInvoices(params?: { page?: number; page_size?: number; status?: string }) {
+    return apiClient.get<BasePaginationResponse<InvoiceRequest>>('/payment/invoices/my', { params })
+  },
+
+  /** Create an invoice request */
+  createInvoice(data: CreateInvoiceRequest) {
+    return apiClient.post<InvoiceRequest>('/payment/invoices', data)
+  },
+
+  /** Download issued invoice file */
+  downloadInvoice(id: number) {
+    return apiClient.get<Blob>(`/payment/invoices/${id}/download`, { responseType: 'blob' })
   }
 }

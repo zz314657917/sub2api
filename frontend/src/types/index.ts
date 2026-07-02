@@ -118,6 +118,7 @@ export type SupportTicketSenderType = 'user' | 'admin' | 'system'
 export type SupportTicketType = 'support' | 'system'
 export type SupportTicketActionType =
   | 'payment_completed'
+  | 'invoice_issued'
   | 'affiliate_first_api_reward'
   | 'welfare_first_api_unclaimed'
   | 'group_changed'

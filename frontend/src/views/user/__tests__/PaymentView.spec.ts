@@ -25,6 +25,8 @@ const showSuccess = vi.hoisted(() => vi.fn())
 const getCheckoutInfo = vi.hoisted(() => vi.fn())
 const getMembershipStatus = vi.hoisted(() => vi.fn())
 const getMyOrders = vi.hoisted(() => vi.fn())
+const getInvoiceSummary = vi.hoisted(() => vi.fn())
+const createInvoice = vi.hoisted(() => vi.fn())
 const redeem = vi.hoisted(() => vi.fn())
 const bridgeInvoke = vi.hoisted(() => vi.fn())
 
@@ -88,6 +90,8 @@ vi.mock('@/api/payment', () => ({
     getCheckoutInfo,
     getMembershipStatus,
     getMyOrders,
+    getInvoiceSummary,
+    createInvoice,
   },
 }))
 
@@ -217,6 +221,15 @@ describe('PaymentView WeChat JSAPI flow', () => {
     getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture())
     getMembershipStatus.mockReset().mockResolvedValue({ data: null })
     getMyOrders.mockReset().mockResolvedValue({ data: { items: [], total: 0 } })
+    getInvoiceSummary.mockReset().mockResolvedValue({
+      data: {
+        currency: 'CNY',
+        eligible_amount: 300,
+        requested_amount: 120,
+        available_amount: 180,
+      },
+    })
+    createInvoice.mockReset().mockResolvedValue({ data: {} })
     redeem.mockReset()
     bridgeInvoke.mockReset()
     window.localStorage.clear()
@@ -446,6 +459,8 @@ describe('PaymentView pricing layout', () => {
     expect(source).toContain("pt('flexibleCredit')")
     expect(source).toContain("pt('plansTitle')")
     expect(source).toContain("pt('faqTitle')")
+    expect(source).toContain("pt('faq.bulkDiscount.title')")
+    expect(source).toContain("pt('faq.bulkDiscount.body')")
     expect(source).toContain("pt('historyTitle')")
     expect(source).toContain('pricing-main-grid')
     expect(source).toContain('pricing-side-stack')
@@ -460,6 +475,14 @@ describe('PaymentView pricing layout', () => {
     expect(source).toContain('max-height: min(26rem, 44vh)')
     expect(source).toContain('handleInlineRedeem')
     expect(source).toContain('fetchRecentOrders')
+    expect(source).toContain('payment.invoices.applyTitle')
+    expect(source).toContain('payment.invoices.applyHint')
+    expect(source).not.toContain('payment.invoices.summaryHint')
+    expect(source).toContain('fetchInvoiceSummary')
+    expect(source).toContain('openInvoiceDialog')
+    expect(source).toContain('submitInvoice')
+    expect(source).toContain('getInvoiceSummary')
+    expect(source).toContain('createInvoice')
     expect(source).toContain(':show-actions="false"')
     expect(source).toContain('pricing-preset--selected')
     expect(source).toContain('pricing-plan-card--recommended')
@@ -485,6 +508,8 @@ describe('PaymentView pricing layout', () => {
       expect(messages.payment.pricing.flexibleCredit).toBeTruthy()
       expect(messages.payment.pricing.plansTitle).toBeTruthy()
       expect(messages.payment.pricing.faqTitle).toBeTruthy()
+      expect(messages.payment.pricing.faq.bulkDiscount.title).toBeTruthy()
+      expect(messages.payment.pricing.faq.bulkDiscount.body).toBeTruthy()
       expect(messages.payment.pricing.historyTitle).toBeTruthy()
     }
   })

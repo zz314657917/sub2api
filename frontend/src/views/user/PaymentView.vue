@@ -422,6 +422,15 @@
                       {{ redeemFeedback.message }}
                     </p>
                   </form>
+                  <button
+                    type="button"
+                    class="btn btn-secondary mt-4 inline-flex w-full items-center justify-center gap-2 border-t border-gray-100 py-3 text-sm font-bold dark:border-dark-700"
+                    :disabled="invoiceSummaryLoading || invoiceSubmitting || invoiceSummary.available_amount <= 0"
+                    @click="openInvoiceDialog"
+                  >
+                    <Icon name="document" size="sm" />
+                    {{ t('payment.invoices.apply') }}
+                  </button>
                 </section>
 
                 <section class="pricing-card rounded-3xl p-5">
@@ -501,6 +510,62 @@
         </div>
       </Transition>
     </Teleport>
+    <!-- Invoice Request Modal -->
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="showInvoiceDialog" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" @click.self="closeInvoiceDialog">
+          <div class="relative w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-dark-700 dark:bg-dark-900">
+            <button class="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-gray-200" @click="closeInvoiceDialog">
+              <Icon name="x" size="sm" />
+            </button>
+            <div class="pr-8">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.invoices.applyTitle') }}</h3>
+              <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.invoices.availableAmount') }}：{{ formatInvoiceAmount(invoiceSummary.available_amount, invoiceSummary.currency) }}</p>
+              <p class="mt-2 text-sm text-blue-600 dark:text-blue-300">{{ t('payment.invoices.applyHint') }}</p>
+            </div>
+            <div class="mt-6 space-y-4">
+              <div>
+                <label class="pricing-label text-sm font-bold">{{ t('payment.invoices.amount') }}</label>
+                <input v-model.number="invoiceForm.amount" type="number" min="0" step="0.01" class="pricing-input mt-2 w-full rounded-xl border px-3 py-3 text-sm" />
+              </div>
+              <div>
+                <label class="pricing-label text-sm font-bold">{{ t('payment.invoices.type') }}</label>
+                <div class="mt-2 grid grid-cols-2 gap-2">
+                  <button
+                    v-for="option in invoiceTypeOptions"
+                    :key="option.value"
+                    type="button"
+                    class="rounded-xl px-3 py-3 text-sm font-bold transition"
+                    :class="invoiceForm.invoice_type === option.value ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-200 dark:hover:bg-dark-600'"
+                    @click="invoiceForm.invoice_type = option.value"
+                  >
+                    {{ option.label }}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label class="pricing-label text-sm font-bold">{{ t('payment.invoices.title') }}</label>
+                <input v-model.trim="invoiceForm.title" type="text" class="pricing-input mt-2 w-full rounded-xl border px-3 py-3 text-sm" />
+              </div>
+              <div>
+                <label class="pricing-label text-sm font-bold">{{ t('payment.invoices.taxNumber') }}</label>
+                <input v-model.trim="invoiceForm.tax_number" type="text" class="pricing-input mt-2 w-full rounded-xl border px-3 py-3 text-sm" />
+              </div>
+              <div>
+                <label class="pricing-label text-sm font-bold">{{ t('payment.invoices.remark') }}</label>
+                <input v-model.trim="invoiceForm.remark" type="text" class="pricing-input mt-2 w-full rounded-xl border px-3 py-3 text-sm" />
+              </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-3">
+              <button class="btn btn-secondary px-4 py-2 text-sm font-bold" type="button" @click="closeInvoiceDialog">{{ t('common.cancel') }}</button>
+              <button class="btn btn-primary px-4 py-2 text-sm font-bold" type="button" :disabled="invoiceSubmitting || !canSubmitInvoice" @click="submitInvoice">
+                {{ invoiceSubmitting ? t('common.processing') : t('common.submit') }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
     <!-- Image Preview Overlay -->
     <Teleport to="body">
       <Transition name="modal">
@@ -524,7 +589,7 @@ import { paymentAPI } from '@/api/payment'
 import { redeemAPI } from '@/api/redeem'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
-import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, MembershipStatus, MembershipTierConfig, RechargePackage, PaymentOrder } from '@/types/payment'
+import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, MembershipStatus, MembershipTierConfig, RechargePackage, PaymentOrder, CreateInvoiceRequest, InvoiceSummary, InvoiceType } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { METHOD_ORDER, getPaymentPopupFeatures } from '@/components/payment/providerConfig'
 import {
@@ -628,6 +693,10 @@ const pricingCatalog = {
         title: '灵活积分说明',
         body: '购买后的积分进入账户积分，在积分用完前持续有效，可用于未被套餐覆盖的调用。',
       },
+      bulkDiscount: {
+        title: '大量使用是否可以联系管理员获得额外折扣？',
+        body: '如果您需要大量使用我们的服务，可以联系我们的管理员团队获取企业级定制解决方案和额外的折扣优惠。',
+      },
       upgrade: {
         title: '如何升级套餐？',
         body: '选择更高档套餐并完成支付后，系统会按当前订阅规则刷新可用额度和有效期。',
@@ -709,6 +778,10 @@ const pricingCatalog = {
         title: 'Flexible credit',
         body: 'Purchased credits are added to your account credits and remain valid until consumed.',
       },
+      bulkDiscount: {
+        title: 'Can I contact an admin for extra discounts on high-volume usage?',
+        body: 'If you need high-volume access to our services, contact our admin team for enterprise-grade custom solutions and additional discounts.',
+      },
       upgrade: {
         title: 'How do I upgrade?',
         body: 'Choose a higher plan and complete payment. The system refreshes quota and validity according to the plan rules.',
@@ -775,6 +848,17 @@ const redeemFeedback = ref<{ kind: 'success' | 'error'; message: string } | null
 const recentOrders = ref<PaymentOrder[]>([])
 const ordersLoading = ref(false)
 const ordersErrorMessage = ref('')
+const invoiceSummaryLoading = ref(false)
+const invoiceSubmitting = ref(false)
+const showInvoiceDialog = ref(false)
+const invoiceSummary = ref<InvoiceSummary>({ currency: 'CNY', eligible_amount: 0, requested_amount: 0, available_amount: 0 })
+const invoiceForm = ref<CreateInvoiceRequest>({
+  amount: 0,
+  invoice_type: 'vat_general',
+  title: '',
+  tax_number: '',
+  remark: '',
+})
 
 const paymentPhase = ref<'select' | 'paying'>('select')
 
@@ -910,6 +994,7 @@ async function handleInlineRedeem() {
     await Promise.all([
       loadCheckoutInfo(),
       fetchRecentOrders(),
+      fetchInvoiceSummary(),
     ])
     appStore.showSuccess(t('redeem.codeRedeemSuccess'))
   } catch (err: unknown) {
@@ -1072,6 +1157,10 @@ function formatMembershipMoney(value: number): string {
   return formatPaymentAmountCompact(value, selectedCurrency.value, localeCode.value)
 }
 
+function formatInvoiceAmount(value: number, currency?: string): string {
+  return formatPaymentAmountCompact(value, normalizePaymentCurrency(currency), localeCode.value)
+}
+
 function formatMembershipDate(value: string): string {
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return value
@@ -1133,6 +1222,10 @@ const faqItems = computed(() => [
   {
     title: pt('faq.balance.title'),
     body: pt('faq.balance.body'),
+  },
+  {
+    title: pt('faq.bulkDiscount.title'),
+    body: pt('faq.bulkDiscount.body'),
   },
   {
     title: pt('faq.upgrade.title'),
@@ -1350,6 +1443,18 @@ const canSubmitSubscription = computed(() =>
     && selectedLimit.value?.available !== false
 )
 
+const invoiceTypeOptions = computed<Array<{ value: InvoiceType; label: string }>>(() => [
+  { value: 'vat_general', label: t('payment.invoices.types.vat_general') },
+  { value: 'vat_special', label: t('payment.invoices.types.vat_special') },
+])
+
+const canSubmitInvoice = computed(() => {
+  return invoiceForm.value.amount > 0
+    && invoiceForm.value.amount <= invoiceSummary.value.available_amount
+    && invoiceForm.value.title.trim() !== ''
+    && invoiceForm.value.tax_number.trim() !== ''
+})
+
 // Auto-switch to first available method when current selection can't handle the amount
 watch(() => [validAmount.value, selectedMethod.value] as const, ([amt, method]) => {
   if (amt <= 0 || amountFitsMethod(amt, method)) return
@@ -1399,6 +1504,57 @@ function selectPlanFromModal(plan: SubscriptionPlan) {
 function closeRenewalModal() {
   showRenewalModal.value = false
   renewGroupId.value = null
+}
+
+async function fetchInvoiceSummary() {
+  invoiceSummaryLoading.value = true
+  try {
+    const res = await paymentAPI.getInvoiceSummary()
+    invoiceSummary.value = res.data
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  } finally {
+    invoiceSummaryLoading.value = false
+  }
+}
+
+function openInvoiceDialog() {
+  invoiceForm.value = {
+    amount: Number(invoiceSummary.value.available_amount.toFixed(2)),
+    invoice_type: 'vat_general',
+    title: '',
+    tax_number: '',
+    remark: '',
+  }
+  showInvoiceDialog.value = true
+}
+
+function closeInvoiceDialog() {
+  showInvoiceDialog.value = false
+}
+
+async function submitInvoice() {
+  if (!canSubmitInvoice.value) return
+  invoiceSubmitting.value = true
+  try {
+    await paymentAPI.createInvoice({
+      amount: Number(invoiceForm.value.amount),
+      invoice_type: invoiceForm.value.invoice_type,
+      title: invoiceForm.value.title.trim(),
+      tax_number: invoiceForm.value.tax_number.trim(),
+      remark: invoiceForm.value.remark?.trim() || undefined,
+    })
+    appStore.showSuccess(t('payment.invoices.submitSuccess'))
+    closeInvoiceDialog()
+    await Promise.all([
+      fetchInvoiceSummary(),
+      fetchRecentOrders(),
+    ])
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  } finally {
+    invoiceSubmitting.value = false
+  }
 }
 
 async function handleSubmitRecharge() {
@@ -1761,6 +1917,7 @@ onMounted(async () => {
     await Promise.all([
       loadCheckoutInfo(false),
       fetchRecentOrders(),
+      fetchInvoiceSummary(),
     ])
     if (typeof window !== 'undefined') {
       if (hasWechatResumeQuery(route.query)) {

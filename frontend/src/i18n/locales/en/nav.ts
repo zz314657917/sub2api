@@ -55,6 +55,7 @@ export default {
     myOrders: 'My Orders',
     orderManagement: 'Orders',
     orderList: 'Order List',
+    invoiceRequests: 'Invoices',
     paymentDashboard: 'Payment Dashboard',
     paymentConfig: 'Payment Config',
     paymentPlans: 'Plans',
