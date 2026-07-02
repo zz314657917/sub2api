@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import SubscriptionPlanCard from '../SubscriptionPlanCard.vue'
 import type { SubscriptionPlan } from '@/types/payment'
+import { useAppStore } from '@/stores/app'
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
@@ -33,10 +35,19 @@ const basePlan: SubscriptionPlan = {
   sort_order: 1,
 }
 
-const mountPlanCard = (plan: SubscriptionPlan) =>
-  mount(SubscriptionPlanCard, {
+const mountPlanCard = (plan: SubscriptionPlan) => {
+  const pinia = createPinia()
+  setActivePinia(pinia)
+  const appStore = useAppStore()
+  appStore.cachedPublicSettings = {
+    server_utc_offset: '+08:00',
+  } as typeof appStore.cachedPublicSettings
+
+  return mount(SubscriptionPlanCard, {
     props: { plan },
+    global: { plugins: [pinia] },
   })
+}
 
 describe('SubscriptionPlanCard', () => {
   it('hides zero daily limit and keeps positive cycle limits visible', () => {
@@ -89,5 +100,18 @@ describe('SubscriptionPlanCard', () => {
 
     expect(wrapper.text()).toContain('payment.pricing.feature.gptModels')
     expect(wrapper.text()).not.toContain('covers 3 model scopes')
+  })
+
+  it('labels peak rate windows with the server UTC offset', () => {
+    const wrapper = mountPlanCard({
+      ...basePlan,
+      peak_rate_enabled: true,
+      peak_start: '14:00',
+      peak_end: '18:00',
+      peak_rate_multiplier: 2,
+    })
+
+    expect(wrapper.text()).toContain('payment.planCard.peakRate')
+    expect(wrapper.text()).toContain('14:00-18:00 ×2 (UTC+08:00)')
   })
 })
