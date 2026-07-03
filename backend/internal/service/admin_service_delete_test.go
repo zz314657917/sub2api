@@ -305,12 +305,40 @@ func (s *proxyRepoStub) ListWithFilters(ctx context.Context, params pagination.P
 	panic("unexpected ListWithFilters call")
 }
 
+func (s *proxyRepoStub) ListGlobalWithFilters(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]Proxy, *pagination.PaginationResult, error) {
+	panic("unexpected ListGlobalWithFilters call")
+}
+
+func (s *proxyRepoStub) ListGlobalWithFiltersAndAccountCount(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]ProxyWithAccountCount, *pagination.PaginationResult, error) {
+	panic("unexpected ListGlobalWithFiltersAndAccountCount call")
+}
+
 func (s *proxyRepoStub) ListActive(ctx context.Context) ([]Proxy, error) {
 	panic("unexpected ListActive call")
 }
 
 func (s *proxyRepoStub) ListActiveWithAccountCount(ctx context.Context) ([]ProxyWithAccountCount, error) {
 	panic("unexpected ListActiveWithAccountCount call")
+}
+
+func (s *proxyRepoStub) ListActiveGlobal(ctx context.Context) ([]Proxy, error) {
+	panic("unexpected ListActiveGlobal call")
+}
+
+func (s *proxyRepoStub) ListActiveGlobalWithAccountCount(ctx context.Context) ([]ProxyWithAccountCount, error) {
+	panic("unexpected ListActiveGlobalWithAccountCount call")
+}
+
+func (s *proxyRepoStub) ListUserOwned(ctx context.Context, userID int64) ([]Proxy, error) {
+	panic("unexpected ListUserOwned call")
+}
+
+func (s *proxyRepoStub) ListActiveUserOwned(ctx context.Context, userID int64) ([]Proxy, error) {
+	panic("unexpected ListActiveUserOwned call")
+}
+
+func (s *proxyRepoStub) GetUserOwnedByID(ctx context.Context, userID, proxyID int64) (*Proxy, error) {
+	panic("unexpected GetUserOwnedByID call")
 }
 
 func (s *proxyRepoStub) ListWithFiltersAndAccountCount(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]ProxyWithAccountCount, *pagination.PaginationResult, error) {
@@ -326,6 +354,10 @@ func (s *proxyRepoStub) CountAccountsByProxyID(ctx context.Context, proxyID int6
 		return 0, s.countErr
 	}
 	return s.accountCount, nil
+}
+
+func (s *proxyRepoStub) CountUserOwnedAccountsByProxyID(ctx context.Context, userID, proxyID int64) (int64, error) {
+	return 0, nil
 }
 
 func (s *proxyRepoStub) ListAccountSummariesByProxyID(ctx context.Context, proxyID int64) ([]ProxyAccountSummary, error) {

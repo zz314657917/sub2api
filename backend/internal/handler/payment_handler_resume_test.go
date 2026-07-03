@@ -137,33 +137,28 @@ func TestVerifyOrderPublicReturnsLegacyOrderState(t *testing.T) {
 	var resp struct {
 		Code int `json:"code"`
 		Data struct {
-			ID           int64   `json:"id"`
-			OutTradeNo   string  `json:"out_trade_no"`
-			Amount       float64 `json:"amount"`
-			PayAmount    float64 `json:"pay_amount"`
-			FeeRate      float64 `json:"fee_rate"`
-			Currency     string  `json:"currency"`
-			PaymentType  string  `json:"payment_type"`
-			OrderType    string  `json:"order_type"`
-			Status       string  `json:"status"`
-			RefundAmount float64 `json:"refund_amount"`
-			CreatedAt    string  `json:"created_at"`
-			ExpiresAt    string  `json:"expires_at"`
+			OutTradeNo  string `json:"out_trade_no"`
+			Status      string `json:"status"`
+			Paid        bool   `json:"paid"`
+			CreatedAt   string `json:"created_at"`
+			ExpiresAt   string `json:"expires_at"`
+			PaidAt      string `json:"paid_at"`
+			CompletedAt string `json:"completed_at"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
-	require.Equal(t, order.ID, resp.Data.ID)
 	require.Equal(t, "legacy-order-no", resp.Data.OutTradeNo)
-	require.Equal(t, 90.64, resp.Data.PayAmount)
-	require.Equal(t, 0.03, resp.Data.FeeRate)
-	require.Equal(t, "HKD", resp.Data.Currency)
-	require.Equal(t, payment.TypeAlipay, resp.Data.PaymentType)
-	require.Equal(t, payment.OrderTypeBalance, resp.Data.OrderType)
 	require.Equal(t, service.OrderStatusPending, resp.Data.Status)
-	require.Equal(t, 0.0, resp.Data.RefundAmount)
+	require.False(t, resp.Data.Paid)
 	require.NotEmpty(t, resp.Data.CreatedAt)
 	require.NotEmpty(t, resp.Data.ExpiresAt)
+	require.Empty(t, resp.Data.PaidAt)
+	require.Empty(t, resp.Data.CompletedAt)
+	require.NotContains(t, recorder.Body.String(), `"amount"`)
+	require.NotContains(t, recorder.Body.String(), `"payment_type"`)
+	require.NotContains(t, recorder.Body.String(), `"refund_amount"`)
+	require.NotContains(t, recorder.Body.String(), strconv.FormatInt(order.ID, 10))
 }
 
 func TestResolveOrderPublicByResumeTokenReturnsFrontendContractFields(t *testing.T) {
