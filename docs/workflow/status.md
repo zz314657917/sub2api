@@ -2,11 +2,11 @@
 phase: contract-draft
 current_sprint: affiliate-risk-alerts-s45
 total_sprints: 45
-pending_action: Verify merged main, then review S45 affiliate risk scanner contract; implement only in a clean worktree
+pending_action: Review S45 affiliate risk scanner contract; implement only in a clean worktree
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-04 00:12 +08:00
+last_verified: 2026-07-04 00:28 +08:00
 ---
 
 # Workflow Status
@@ -14,8 +14,8 @@ last_verified: 2026-07-04 00:12 +08:00
 - 当前阶段：`contract-draft`
 - 当前 Sprint：`affiliate-risk-alerts-s45`
 - 当前目标：评审邀请返佣风控扫描器 contract，确认默认 `20m` 且后台可调的扫描周期、最近 `12h` 窗口、评分告警和高风险冻结兑现边界。
-- 当前结论：S44 高峰倍率已合入 `main`；`codex/welfare-voucher-image-preflight` 正在合并收口，S45 contract 已起草但尚未进入实现。
-- 当前默认续做提示：如果用户说“继续”，先完成当前 merge/push/branch cleanup，再处理 S45 contract review。
+- 当前结论：S44 高峰倍率和 `codex/welfare-voucher-image-preflight` 已合入 `main` 并推送；已合入分支已清理，S45 contract 已起草但尚未进入实现。
+- 当前默认续做提示：如果用户说“继续”，先处理 S45 contract review。
 - 当前已确认事实：
   - S45 contract 已起草：`docs/workflow/tasks/affiliate-risk-alerts-s45.md`。
   - S45 目标是“风险评分 + ops 告警 + 奖励兑现冻结”，不是单条规则封号。
@@ -27,18 +27,16 @@ last_verified: 2026-07-04 00:12 +08:00
   - S45 现有索引可支撑候选用户优先扫描：已有 `usage_logs(user_id, created_at)`、`usage_logs(created_at)`、`usage_logs(ip_address)`、`user_affiliates(inviter_id)` 和 API reward 防重复索引。
   - S45 实现仍需补三个窄索引：`users(created_at)`、`user_affiliate_ledger(action, created_at)`、`usage_logs(ip_address, created_at) WHERE ip_address <> ''`。
   - S45 复用 `ops_alert_events`；但 `OpsService.CreateAlertEvent` 本身只写事件，邮件通知当前在 `OpsAlertEvaluatorService` 内部完成，实现时要抽小 helper 或保留为明确 follow-up，不能复制大段邮件逻辑。
-  - S45 必须在干净 worktree 或收口脏树后实现，避免混入当前 payment/welfare/settings/gateway/frontend 脏改；settings 相关文件只允许新增扫描间隔设置，不允许吸收无关脏改。
+  - S45 必须在干净 worktree 实现；实现前仍要做 dirty-tree preflight，settings 相关文件只允许新增扫描间隔设置，不允许吸收无关脏改。
   - S44 contract 已起草：`docs/workflow/tasks/upstream-main-v0143-group-peak-rate-impl-s44.md`。
-  - S44 contract 已评审为 blocked：实现范围清楚，但当前 main worktree 中多个 S44 allowed paths 已经有未归属脏改，触发 stop rule。
-  - S44 当前阻塞路径：`backend/internal/handler/dto/settings.go`、`backend/internal/handler/payment_handler.go`、`backend/internal/service/billing_service.go`、`backend/internal/service/billing_service_test.go`、`backend/internal/service/gateway_service.go`、`backend/internal/service/openai_gateway_service.go`、`backend/internal/service/setting_service.go`、`frontend/src/types/index.ts`、`frontend/src/types/payment.ts`。
-  - S44 提议本地 migration 为 `backend/migrations/181_add_group_peak_rate_multiplier.sql`；福利券分支的未跟踪迁移已改为 `backend/migrations/182_welfare_vouchers.sql`，实现/合并前仍必须再次确认编号安全。
-  - S44 必须先做 dirty-tree preflight；若 allowed business paths 仍有未归属脏改，停止，不允许在当前主工作树硬合。
+  - S44 曾因 dirty-tree preflight 触发 stop rule；后续已在隔离 worktree 完成并合入 `main`。
+  - S44 最终使用本地 migration `backend/migrations/181_add_group_peak_rate_multiplier.sql`；福利券合并使用 `backend/migrations/182_welfare_vouchers.sql`，编号未冲突。
   - S43 contract 已起草：`docs/workflow/tasks/upstream-main-v0143-group-peak-rate-plan-s43.md`。
   - S43 contract 已评审批准：planning-only，允许路径只包含 workflow 文档，业务实现必须转入后续 Sprint。
   - S43 目标上游提交是 `915c60b15`、`1034f576d`、`11a3da65c`，三者共同组成订阅分组高峰时段倍率主功能、全链路透传/计费边界修正、配置加固和服务端时区展示。
   - 本地预检确认尚无 `peak_rate_enabled`、`peak_start`、`peak_end`、`peak_rate_multiplier` 字段或链路；当前只有普通 `rate_multiplier`、`image_rate_multiplier` 和用户专属分组倍率/RPM。
   - S43 不是小补丁：它会触达 Ent/migration、admin group handler/DTO、group service、API key auth cache、billing/gateway usage recording、available channels、payment/subscription plan API、admin/user frontend display 和 i18n。
-  - 当前主工作树仍有 payment、welfare voucher、settings、billing、gateway、frontend payment/i18n、knowledge 脏改；高峰倍率上游触达路径与 `backend/internal/handler/dto/settings.go`、`backend/internal/handler/payment_handler.go`、`backend/internal/service/billing_service.go`、`backend/internal/service/gateway_service.go`、`backend/internal/service/openai_gateway_service.go`、`backend/internal/service/setting_service.go`、`frontend/src/types/index.ts`、`frontend/src/types/payment.ts` 重叠，因此实现前必须先收口或隔离。
+  - S43/S44 规划时主工作树存在 payment、welfare voucher、settings、billing、gateway、frontend payment/i18n、knowledge 脏改；高峰倍率触达路径与这些文件重叠，因此当时必须先收口或隔离。
   - 上游使用 migration `158_add_group_peak_rate_multiplier.sql`，本地 migration 已推进到更高编号且有未提交 migration 工作；实现 Sprint 必须分配本地下一安全编号，不能照搬上游 158。
   - 上游允许 `peak_rate_multiplier=0` 代表高峰免费/折扣策略；实现前需要确认本地产品语义是否接受。
   - S35 合并计划已批准：`docs/workflow/tasks/upstream-main-v0142-merge-plan-s35.md` 标记为 approved，后续实现必须按独立 Sprint 推进。
@@ -78,7 +76,7 @@ last_verified: 2026-07-04 00:12 +08:00
   - GitHub latest release 已确认为 `v0.1.142` / `60da9ba17`，发布时间为 2026-07-01。
   - 临时 worktree 试算 `git merge --no-commit --no-ff v0.1.142` 会产生大量冲突，冲突集中在 Ent 生成代码、account/proxy schema、gateway、payment、usage 和前端视图。
   - `git apply --check --3way` 显示多个小补丁可单独迁入，但 Grok、OpenAI Spark shadow、Codex detect、Anthropic dateline / Sonnet5 是大功能链路，不能混入小补丁批次。
-  - 当前本地主工作树仍有福利券、设置、用户代理、前端 locale/view 和 knowledge 脏改，且 `main` 相对 `origin/main` ahead；后续代码 port 前必须先收口或隔离这些本地变更。
+  - S35 规划时本地主工作树仍有福利券、设置、用户代理、前端 locale/view 和 knowledge 脏改，且 `main` 相对 `origin/main` ahead；后续代码 port 前必须先收口或隔离这些本地变更。
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
   - 上游 `v0.1.137` 低风险候选包括前端依赖安全、token refresh 不可重试、zstd、非 JSON/SSE 错误保留、计费兜底、thinking 协议兼容、Responses sticky hash、Haiku 探测、OpenAI responses tool probe 和 ACL 拒绝信息。
