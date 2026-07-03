@@ -112,6 +112,8 @@ type WelfareRepository interface {
 	SumNewUserTrialUsageSince(ctx context.Context, since time.Time) (float64, error)
 	CountNewUserTrialActivationsByIPSince(ctx context.Context, clientIP string, since time.Time) (int, error)
 	FirstSuccessfulUsageAt(ctx context.Context, userID int64) (*time.Time, error)
+	GrantVoucher(ctx context.Context, input WelfareVoucherGrantInput) error
+	GetVoucherBalanceSummary(ctx context.Context, userID int64) (*WelfareVoucherBalanceSummary, error)
 }
 
 type WelfareDailyCheckinRecord struct {
@@ -158,12 +160,29 @@ type WelfareNewUserTrialConsumeInput struct {
 	APIKeyID       int64
 }
 
+type WelfareVoucherGrantInput struct {
+	UserID       int64
+	SourceType   string
+	SourceID     int64
+	Amount       float64
+	ExpiresAt    *time.Time
+	RedeemCodeID *int64
+}
+
+type WelfareVoucherBalanceSummary struct {
+	Balance          float64    `json:"balance"`
+	VoucherAvailable float64    `json:"voucher_available"`
+	TotalAvailable   float64    `json:"total_available"`
+	NextExpiresAt    *time.Time `json:"next_expires_at,omitempty"`
+}
+
 type WelfareOverview struct {
-	Enabled      bool                     `json:"enabled"`
-	Modules      WelfareModules           `json:"modules"`
-	DailyCheckin *WelfareDailyCheckinView `json:"daily_checkin,omitempty"`
-	NewUserTrial *WelfareNewUserTrialView `json:"new_user_trial,omitempty"`
-	Recharge     *WelfareRechargeView     `json:"recharge,omitempty"`
+	Enabled       bool                      `json:"enabled"`
+	Modules       WelfareModules            `json:"modules"`
+	DailyCheckin  *WelfareDailyCheckinView  `json:"daily_checkin,omitempty"`
+	NewUserTrial  *WelfareNewUserTrialView  `json:"new_user_trial,omitempty"`
+	Recharge      *WelfareRechargeView      `json:"recharge,omitempty"`
+	VoucherWallet *WelfareVoucherWalletView `json:"voucher_wallet,omitempty"`
 }
 
 type WelfareModules struct {
@@ -219,6 +238,13 @@ type WelfareNewUserTrialView struct {
 	SuccessRewardClaimedAt string  `json:"success_reward_claimed_at,omitempty"`
 }
 
+type WelfareVoucherWalletView struct {
+	Balance          float64 `json:"balance"`
+	VoucherAvailable float64 `json:"voucher_available"`
+	TotalAvailable   float64 `json:"total_available"`
+	NextExpiresAt    string  `json:"next_expires_at,omitempty"`
+}
+
 type WelfareRechargeView struct {
 	Enabled                bool    `json:"enabled"`
 	FirstBonusAmount       float64 `json:"first_bonus_amount"`
@@ -267,6 +293,7 @@ type welfareSettings struct {
 	FirstRechargeBonusAmount           float64
 	FirstRechargeBonusValidDays        int
 	FirstRechargeBonusStackMonthly     bool
+	VoucherValidDays                   int
 }
 
 func NewWelfareService(
@@ -282,7 +309,7 @@ func NewWelfareService(
 	if billingCacheService != nil {
 		billingCacheInvalidator = billingCacheService
 	}
-	return &WelfareService{
+	svc := &WelfareService{
 		repo:                    repo,
 		userRepo:                userRepo,
 		redeemRepo:              redeemRepo,
@@ -292,6 +319,10 @@ func NewWelfareService(
 		billingCacheInvalidator: billingCacheInvalidator,
 		now:                     timezone.Now,
 	}
+	if billingCacheService != nil {
+		billingCacheService.SetVoucherBalanceProvider(svc)
+	}
+	return svc
 }
 
 func (s *WelfareService) SetSystemTicketService(systemTicketSvc *SystemTicketService) {
@@ -329,6 +360,11 @@ func (s *WelfareService) GetOverview(ctx context.Context, userID int64) (*Welfar
 		return nil, err
 	}
 	overview.Recharge = recharge
+	wallet, err := s.buildVoucherWalletView(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	overview.VoucherWallet = wallet
 	return overview, nil
 }
 
@@ -664,8 +700,15 @@ func (s *WelfareService) ClaimDailyCheckin(ctx context.Context, userID int64) (*
 	if err := s.redeemRepo.Create(claimCtx, redeemCode); err != nil {
 		return nil, fmt.Errorf("create daily check-in audit record: %w", err)
 	}
-	if err := grantWelfareBalance(claimCtx, s.userRepo, userID, amount); err != nil {
-		return nil, fmt.Errorf("update daily check-in balance: %w", err)
+	if err := s.grantCheckinVoucher(claimCtx, WelfareVoucherGrantInput{
+		UserID:       userID,
+		SourceType:   RedeemTypeDailyCheckin,
+		SourceID:     claim.ID,
+		Amount:       amount,
+		ExpiresAt:    welfareVoucherExpiresAt(now, settings.VoucherValidDays),
+		RedeemCodeID: &redeemCode.ID,
+	}); err != nil {
+		return nil, fmt.Errorf("grant daily check-in voucher: %w", err)
 	}
 	if err := s.repo.AttachDailyCheckinRedeemCode(claimCtx, claim.ID, redeemCode.ID); err != nil {
 		return nil, err
@@ -777,8 +820,15 @@ func (s *WelfareService) ClaimDailyCheckinMilestone(ctx context.Context, userID 
 	if err := s.redeemRepo.Create(claimCtx, redeemCode); err != nil {
 		return nil, fmt.Errorf("create daily check-in milestone audit record: %w", err)
 	}
-	if err := grantWelfareBalance(claimCtx, s.userRepo, userID, milestone.Amount); err != nil {
-		return nil, fmt.Errorf("update daily check-in milestone balance: %w", err)
+	if err := s.grantCheckinVoucher(claimCtx, WelfareVoucherGrantInput{
+		UserID:       userID,
+		SourceType:   RedeemTypeCheckinMilestone,
+		SourceID:     claim.ID,
+		Amount:       milestone.Amount,
+		ExpiresAt:    welfareVoucherExpiresAt(now, settings.VoucherValidDays),
+		RedeemCodeID: &redeemCode.ID,
+	}); err != nil {
+		return nil, fmt.Errorf("grant daily check-in milestone voucher: %w", err)
 	}
 	if err := s.repo.AttachDailyCheckinMilestoneRedeemCode(claimCtx, claim.ID, redeemCode.ID); err != nil {
 		return nil, err
@@ -1008,6 +1058,52 @@ func (s *WelfareService) buildRechargeView(ctx context.Context, userID int64, se
 		}
 	}
 	return view, nil
+}
+
+func (s *WelfareService) buildVoucherWalletView(ctx context.Context, userID int64) (*WelfareVoucherWalletView, error) {
+	if s == nil || s.repo == nil || userID <= 0 {
+		return nil, nil
+	}
+	summary, err := s.repo.GetVoucherBalanceSummary(ctx, userID)
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if summary == nil {
+		return nil, nil
+	}
+	view := &WelfareVoucherWalletView{
+		Balance:          summary.Balance,
+		VoucherAvailable: summary.VoucherAvailable,
+		TotalAvailable:   summary.TotalAvailable,
+	}
+	if summary.NextExpiresAt != nil {
+		view.NextExpiresAt = summary.NextExpiresAt.UTC().Format(time.RFC3339)
+	}
+	return view, nil
+}
+
+func (s *WelfareService) GetVoucherAvailableAmount(ctx context.Context, userID int64) (float64, error) {
+	if s == nil || s.repo == nil || userID <= 0 {
+		return 0, nil
+	}
+	summary, err := s.repo.GetVoucherBalanceSummary(ctx, userID)
+	if err != nil {
+		return 0, err
+	}
+	if summary == nil {
+		return 0, nil
+	}
+	return normalizeNonNegativeFloat(summary.VoucherAvailable), nil
+}
+
+func (s *WelfareService) grantCheckinVoucher(ctx context.Context, input WelfareVoucherGrantInput) error {
+	if s == nil || s.repo == nil {
+		return ErrWelfareDailyCheckinUnavailable
+	}
+	return s.repo.GrantVoucher(ctx, input)
 }
 
 func (s *WelfareService) applyNewUserTrialSuccessRewardState(ctx context.Context, userID int64, view *WelfareNewUserTrialView, trial *WelfareNewUserTrial, enabledAt *time.Time) {
@@ -1411,6 +1507,7 @@ func (s *WelfareService) getSettings(ctx context.Context) (welfareSettings, erro
 		SettingKeyWelfareDailyCheckinRewardMin,
 		SettingKeyWelfareDailyCheckinRewardMax,
 		SettingKeyWelfareDailyCheckinMinAccountAgeHours,
+		SettingKeyWelfareVoucherValidDays,
 		SettingKeyWelfareDailyCheckinMilestoneEnabled,
 		SettingKeyWelfareDailyCheckinMilestone7Amount,
 		SettingKeyWelfareDailyCheckinMilestone14Amount,
@@ -1440,6 +1537,7 @@ func (s *WelfareService) getSettings(ctx context.Context) (welfareSettings, erro
 		result.RewardMax = result.RewardMin
 	}
 	result.DailyCheckinMinAccountAgeHours = parseNonNegativeIntSetting(values[SettingKeyWelfareDailyCheckinMinAccountAgeHours], defaultDailyCheckinMinAccountAgeHours)
+	result.VoucherValidDays = parseNonNegativeIntSetting(values[SettingKeyWelfareVoucherValidDays], 0)
 	result.MilestoneEnabled = !isFalseSettingValue(values[SettingKeyWelfareDailyCheckinMilestoneEnabled])
 	result.MilestoneAmounts[welfareMilestoneDay7] = parseNonNegativeFloatSetting(values[SettingKeyWelfareDailyCheckinMilestone7Amount], 0)
 	result.MilestoneAmounts[welfareMilestoneDay14] = parseNonNegativeFloatSetting(values[SettingKeyWelfareDailyCheckinMilestone14Amount], 0)
@@ -1511,6 +1609,14 @@ func randomRewardAmount(minValue, maxValue float64) (float64, error) {
 
 func normalizeDailyRewardAmount(value float64) float64 {
 	return math.Round(normalizeNonNegativeFloat(value)*float64(welfareDailyRewardStepScale)) / float64(welfareDailyRewardStepScale)
+}
+
+func welfareVoucherExpiresAt(now time.Time, validDays int) *time.Time {
+	if validDays <= 0 {
+		return nil
+	}
+	expiresAt := now.UTC().AddDate(0, 0, validDays)
+	return &expiresAt
 }
 
 func validWelfareMilestoneDay(day int) bool {

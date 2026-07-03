@@ -50,6 +50,38 @@ func (r *welfareRepository) withTx(ctx context.Context, fn func(context.Context)
 	return tx.Commit()
 }
 
+func (r *welfareRepository) GrantVoucher(ctx context.Context, input service.WelfareVoucherGrantInput) error {
+	exec, err := r.executor(ctx)
+	if err != nil {
+		return err
+	}
+	return grantWelfareVoucher(ctx, exec, welfareVoucherGrantInput{
+		UserID:       input.UserID,
+		SourceType:   input.SourceType,
+		SourceID:     input.SourceID,
+		Amount:       input.Amount,
+		ExpiresAt:    input.ExpiresAt,
+		RedeemCodeID: input.RedeemCodeID,
+	})
+}
+
+func (r *welfareRepository) GetVoucherBalanceSummary(ctx context.Context, userID int64) (*service.WelfareVoucherBalanceSummary, error) {
+	exec, err := r.executor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	summary, err := getWelfareVoucherBalanceSummary(ctx, exec, userID)
+	if err != nil {
+		return nil, err
+	}
+	return &service.WelfareVoucherBalanceSummary{
+		Balance:          summary.Balance,
+		VoucherAvailable: summary.VoucherAvailable,
+		TotalAvailable:   summary.Balance + summary.VoucherAvailable,
+		NextExpiresAt:    summary.NextExpiresAt,
+	}, nil
+}
+
 func (r *welfareRepository) GetDailyCheckin(ctx context.Context, checkinDate string, userID int64) (*service.WelfareDailyCheckinRecord, error) {
 	exec, err := r.executor(ctx)
 	if err != nil {

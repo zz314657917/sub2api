@@ -1231,6 +1231,14 @@ export interface WelfareOverview {
   daily_checkin?: WelfareDailyCheckin | null
   new_user_trial?: WelfareNewUserTrial | null
   recharge?: WelfareRecharge | null
+  voucher_wallet?: WelfareVoucherWallet | null
+}
+
+export interface WelfareVoucherWallet {
+  balance: number
+  voucher_available: number
+  total_available: number
+  next_expires_at?: string
 }
 
 export interface WelfareRecharge {

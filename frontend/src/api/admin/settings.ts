@@ -594,6 +594,7 @@ export interface SystemSettings {
   welfare_daily_checkin_reward_min: number;
   welfare_daily_checkin_reward_max: number;
   welfare_daily_checkin_min_account_age_hours: number;
+  welfare_voucher_valid_days: number;
   welfare_daily_checkin_milestone_enabled: boolean;
   welfare_daily_checkin_milestone_7_amount: number;
   welfare_daily_checkin_milestone_14_amount: number;
@@ -846,6 +847,7 @@ export interface UpdateSettingsRequest {
   welfare_daily_checkin_reward_min?: number;
   welfare_daily_checkin_reward_max?: number;
   welfare_daily_checkin_min_account_age_hours?: number;
+  welfare_voucher_valid_days?: number;
   welfare_daily_checkin_milestone_enabled?: boolean;
   welfare_daily_checkin_milestone_7_amount?: number;
   welfare_daily_checkin_milestone_14_amount?: number;

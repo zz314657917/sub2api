@@ -28,16 +28,30 @@ func (r *studioBridgeRepository) GetUserSummary(ctx context.Context, userID int6
 	}
 	var summary service.StudioBridgeUserSummary
 	err := r.db.QueryRowContext(ctx, `
-		SELECT id, email, username, balance
-		FROM users
-		WHERE id = $1 AND deleted_at IS NULL
-	`, userID).Scan(&summary.UserID, &summary.Email, &summary.Username, &summary.Balance)
+		SELECT
+			u.id,
+			u.email,
+			u.username,
+			u.balance::double precision,
+			COALESCE(voucher.available_amount, 0)::double precision
+		FROM users u
+		LEFT JOIN LATERAL (
+			SELECT SUM(v.remaining_amount) AS available_amount
+			FROM welfare_vouchers v
+			WHERE v.user_id = u.id
+				AND v.status = 'active'
+				AND v.remaining_amount > 0
+				AND (v.expires_at IS NULL OR v.expires_at > NOW())
+		) voucher ON TRUE
+		WHERE u.id = $1 AND u.deleted_at IS NULL
+	`, userID).Scan(&summary.UserID, &summary.Email, &summary.Username, &summary.Balance, &summary.VoucherBalance)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, service.ErrUserNotFound
 	}
 	if err != nil {
 		return nil, err
 	}
+	summary.TotalAvailable = summary.Balance + summary.VoucherBalance
 	summary.RechargeURL = rechargeURL
 	if usageLimit > 0 {
 		usageRows, err := r.db.QueryContext(ctx, `
@@ -146,7 +160,7 @@ func (r *studioBridgeRepository) ReserveStudioBridgeCharge(ctx context.Context, 
 		})
 	}
 
-	balanceAfter, err := reserveStudioBridgeUserBalance(ctx, tx, cmd.UserID, cmd.Amount)
+	balanceAfter, err := reserveStudioBridgeUserBalance(ctx, tx, cmd.UserID, cmd.Amount, cmd.ChargeKey)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +271,7 @@ func (r *studioBridgeRepository) refundStudioBridgeChargeWithRefundKey(ctx conte
 		return nil, service.ErrStudioBridgeConflict
 	}
 
-	balanceAfter, err := refundStudioBridgeUserBalance(ctx, tx, cmd.UserID, refundAmount)
+	balanceAfter, err := refundStudioBridgeUserBalance(ctx, tx, cmd.UserID, refundAmount, original.ChargeKey)
 	if err != nil {
 		return nil, err
 	}
@@ -321,7 +335,7 @@ func (r *studioBridgeRepository) refundOriginalStudioBridgeCharge(ctx context.Co
 			BalanceAfter: charge.BalanceAfter,
 		})
 	}
-	balanceAfter, err := refundStudioBridgeUserBalance(ctx, tx, cmd.UserID, refundAmount)
+	balanceAfter, err := refundStudioBridgeUserBalance(ctx, tx, cmd.UserID, refundAmount, charge.ChargeKey)
 	if err != nil {
 		return nil, err
 	}
@@ -528,43 +542,23 @@ func scanStudioBridgeCharge(row *sql.Row) (*studioBridgeChargeRecord, error) {
 	return &charge, nil
 }
 
-func reserveStudioBridgeUserBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, error) {
-	var balance float64
-	err := tx.QueryRowContext(ctx, `
-		UPDATE users
-		SET balance = balance - $1,
-			updated_at = NOW()
-		WHERE id = $2
-			AND deleted_at IS NULL
-			AND balance >= $1
-		RETURNING balance
-	`, amount, userID).Scan(&balance)
-	if errors.Is(err, sql.ErrNoRows) {
-		var exists bool
-		if e := tx.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND deleted_at IS NULL)`, userID).Scan(&exists); e != nil {
-			return 0, e
-		}
-		if exists {
-			return 0, service.ErrStudioBridgeInsufficient
-		}
-		return 0, service.ErrUserNotFound
+func reserveStudioBridgeUserBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64, chargeKey string) (float64, error) {
+	result, err := deductWelfareVoucherThenBalance(ctx, tx, userID, amount, welfareVoucherOperationStudioBridge, chargeKey, true)
+	if errors.Is(err, service.ErrInsufficientBalance) {
+		return 0, service.ErrStudioBridgeInsufficient
 	}
-	return balance, err
+	if err != nil {
+		return 0, err
+	}
+	return result.BalanceAfter, nil
 }
 
-func refundStudioBridgeUserBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64) (float64, error) {
-	var balance float64
-	err := tx.QueryRowContext(ctx, `
-		UPDATE users
-		SET balance = balance + $1,
-			updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL
-		RETURNING balance
-	`, amount, userID).Scan(&balance)
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, service.ErrUserNotFound
+func refundStudioBridgeUserBalance(ctx context.Context, tx *sql.Tx, userID int64, amount float64, chargeKey string) (float64, error) {
+	result, err := refundWelfareVoucherDeductions(ctx, tx, userID, amount, welfareVoucherOperationStudioBridge, chargeKey)
+	if err != nil {
+		return 0, err
 	}
-	return balance, err
+	return result.BalanceAfter, nil
 }
 
 func updateStudioBridgeChargeReservedBalance(ctx context.Context, tx *sql.Tx, id int64, balanceAfter float64) error {

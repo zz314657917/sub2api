@@ -85,6 +85,10 @@ type apiKeyRateLimitLoader interface {
 	GetRateLimitData(ctx context.Context, keyID int64) (*APIKeyRateLimitData, error)
 }
 
+type VoucherBalanceProvider interface {
+	GetVoucherAvailableAmount(ctx context.Context, userID int64) (float64, error)
+}
+
 // BillingCacheService 计费缓存服务
 // 负责余额和订阅数据的缓存管理，提供高性能的计费资格检查
 type BillingCacheService struct {
@@ -95,6 +99,7 @@ type BillingCacheService struct {
 	userRPMCache          UserRPMCache
 	userGroupRateRepo     UserGroupRateRepository
 	membershipResolver    MembershipBenefitResolver
+	voucherProvider       VoucherBalanceProvider
 	cfg                   *config.Config
 	circuitBreaker        *billingCircuitBreaker
 
@@ -140,6 +145,13 @@ func (s *BillingCacheService) SetMembershipBenefitResolver(resolver MembershipBe
 		return
 	}
 	s.membershipResolver = resolver
+}
+
+func (s *BillingCacheService) SetVoucherBalanceProvider(provider VoucherBalanceProvider) {
+	if s == nil {
+		return
+	}
+	s.voucherProvider = provider
 }
 
 // Stop 关闭缓存写入工作池
@@ -864,9 +876,54 @@ func (s *BillingCacheService) checkBalanceEligibility(ctx context.Context, userI
 	}
 
 	if balance <= 0 {
+		if s.voucherProvider != nil {
+			available, voucherErr := s.voucherProvider.GetVoucherAvailableAmount(ctx, userID)
+			if voucherErr != nil {
+				logger.LegacyPrintf("service.billing_cache", "Warning: voucher balance check failed for user %d: %v", userID, voucherErr)
+			} else if available > 0 {
+				return nil
+			}
+		}
 		return ErrInsufficientBalance
 	}
 
+	return nil
+}
+
+func (s *BillingCacheService) CheckBalanceAmountEligibility(ctx context.Context, userID int64, amount float64) error {
+	if amount <= 0 {
+		return nil
+	}
+	if s == nil {
+		return ErrBillingServiceUnavailable
+	}
+	if s.circuitBreaker != nil && !s.circuitBreaker.Allow() {
+		return ErrBillingServiceUnavailable
+	}
+	balance, err := s.GetUserBalance(ctx, userID)
+	if err != nil {
+		if s.circuitBreaker != nil {
+			s.circuitBreaker.OnFailure(err)
+		}
+		logger.LegacyPrintf("service.billing_cache", "ALERT: billing amount check failed for user %d amount %.6f: %v", userID, amount, err)
+		return ErrBillingServiceUnavailable.WithCause(err)
+	}
+	if s.circuitBreaker != nil {
+		s.circuitBreaker.OnSuccess()
+	}
+
+	totalAvailable := balance
+	if s.voucherProvider != nil {
+		available, voucherErr := s.voucherProvider.GetVoucherAvailableAmount(ctx, userID)
+		if voucherErr != nil {
+			logger.LegacyPrintf("service.billing_cache", "Warning: voucher amount check failed for user %d: %v", userID, voucherErr)
+		} else {
+			totalAvailable += available
+		}
+	}
+	if totalAvailable+1e-9 < amount {
+		return ErrInsufficientBalance
+	}
 	return nil
 }
 

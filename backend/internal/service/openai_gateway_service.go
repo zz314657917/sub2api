@@ -6023,6 +6023,7 @@ type OpenAIRecordUsageInput struct {
 	BillingTierOverride  string
 	RequestCountOverride int
 	PrepaidBalanceCost   float64
+	RequireBalanceCheck  bool
 	CostOverride         *CostBreakdown
 	APIKeyService        APIKeyQuotaUpdater
 	QuotaPlatform        string
@@ -6294,6 +6295,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			AccountShareFreezeHours:      accountShareSettings.FreezeHours,
 			NewUserTrial:                 trialSession,
 			PrepaidBalanceCost:           prepaidBalanceCost,
+			RequireBalanceCheck:          input.RequireBalanceCheck,
 			Platform:                     quotaPlatform,
 		}, s.billingDeps(), s.usageBillingRepo, s.welfareService)
 		return err
@@ -6320,6 +6322,106 @@ func firstNonNilCostBreakdown(values ...*CostBreakdown) *CostBreakdown {
 		}
 	}
 	return nil
+}
+
+func (s *OpenAIGatewayService) EstimateOpenAIImagesCost(ctx context.Context, apiKey *APIKey, user *User, account *Account, parsed *OpenAIImagesRequest, fields ChannelUsageFields) (*CostBreakdown, string, error) {
+	if s == nil || s.billingService == nil || apiKey == nil || user == nil || parsed == nil {
+		return nil, "", errors.New("openai images billing context is incomplete")
+	}
+	if apiKey.Group == nil || apiKey.GroupID == nil {
+		return nil, "", errors.New("openai images group is required for billing")
+	}
+
+	requestModel := strings.TrimSpace(parsed.Model)
+	if requestModel == "" {
+		requestModel = "gpt-image-2"
+	}
+	channelMappedModel := strings.TrimSpace(fields.ChannelMappedModel)
+	if channelMappedModel == "" {
+		channelMappedModel = requestModel
+	}
+	billingModel := channelMappedModel
+	switch fields.BillingModelSource {
+	case BillingModelSourceRequested:
+		billingModel = firstNonEmptyString(fields.OriginalModel, requestModel)
+	case BillingModelSourceUpstream:
+		billingModel = estimateOpenAIImagesUpstreamModel(account, channelMappedModel)
+	case BillingModelSourceChannelMapped, "":
+		billingModel = channelMappedModel
+	default:
+		billingModel = channelMappedModel
+	}
+	if billingModel == "" {
+		return nil, "", errors.New("openai images billing model is empty")
+	}
+
+	multiplier := 1.0
+	if s.cfg != nil {
+		multiplier = s.cfg.Default.RateMultiplier
+	}
+	resolver := s.userGroupRateResolver
+	if resolver == nil {
+		resolver = newUserGroupRateResolver(nil, nil, resolveUserGroupRateCacheTTL(s.cfg), nil, "service.openai_gateway")
+	}
+	multiplier = resolver.Resolve(ctx, user.ID, *apiKey.GroupID, apiKey.Group.RateMultiplier)
+	if s.membershipService != nil {
+		multiplier = s.membershipService.ApplyRateMultiplier(ctx, user.ID, multiplier)
+	}
+	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
+	candidates := usageBillingModelCandidates(billingModel, channelMappedModel, requestModel)
+	imageMultiplier = apimartGPTImage2UsageMultiplierForModels(account, candidates, imageMultiplier)
+
+	upstreamModel := estimateOpenAIImagesUpstreamModel(account, channelMappedModel)
+	sizeResolution := estimateOpenAIImagesBillingSize(parsed, upstreamModel)
+	result := &OpenAIForwardResult{
+		Model:              firstNonEmptyString(channelMappedModel, requestModel),
+		UpstreamModel:      upstreamModel,
+		ImageCount:         estimateOpenAIImagesCount(parsed, upstreamModel),
+		ImageSize:          sizeResolution.BillingSize,
+		ImageInputSize:     sizeResolution.InputSize,
+		ImageOutputSize:    sizeResolution.OutputSize,
+		ImageOutputSizes:   nil,
+		ImageSizeSource:    sizeResolution.Source,
+		ImageSizeBreakdown: sizeResolution.Breakdown,
+		ImageQuality:       NormalizeImageQuality(parsed.Quality),
+	}
+	cost := s.calculateOpenAIImageCost(ctx, firstUsageBillingModel(candidates), apiKey, result, imageMultiplier)
+	if cost == nil {
+		return nil, billingModel, errors.New("openai images cost estimate is unavailable")
+	}
+	return cost, billingModel, nil
+}
+
+func estimateOpenAIImagesUpstreamModel(account *Account, requestModel string) string {
+	requestModel = strings.TrimSpace(requestModel)
+	if account == nil {
+		return requestModel
+	}
+	if account.Type == AccountTypeOAuth {
+		if requestModel == "" {
+			return "gpt-image-2"
+		}
+		return requestModel
+	}
+	return strings.TrimSpace(account.GetMappedModel(requestModel))
+}
+
+func estimateOpenAIImagesCount(parsed *OpenAIImagesRequest, upstreamModel string) int {
+	if parsed == nil || parsed.N <= 0 {
+		return 1
+	}
+	return maxInt(1, parsed.N)
+}
+
+func estimateOpenAIImagesBillingSize(parsed *OpenAIImagesRequest, upstreamModel string) ImageBillingSizeResolution {
+	if isAPIMartImagesAsyncModel(upstreamModel) {
+		return resolveAPIMartImageBillingSize(parsed, nil)
+	}
+	inputSize := ""
+	if parsed != nil {
+		inputSize = firstNonEmptyString(parsed.Size, parsed.SizeTier)
+	}
+	return ResolveImageBillingSize(inputSize, nil)
 }
 
 func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(

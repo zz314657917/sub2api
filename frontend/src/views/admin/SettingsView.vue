@@ -5454,6 +5454,19 @@
                     {{ t('admin.settings.features.welfare.minAccountAgeHoursHint') }}
                   </p>
                 </div>
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.voucherValidDays') }}</label>
+                  <input
+                    v-model.number="form.welfare_voucher_valid_days"
+                    type="number"
+                    min="0"
+                    step="1"
+                    class="input"
+                  />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.features.welfare.voucherValidDaysHint') }}
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -8423,6 +8436,7 @@ const form = reactive<SettingsForm>({
   welfare_daily_checkin_reward_min: 0,
   welfare_daily_checkin_reward_max: 0,
   welfare_daily_checkin_min_account_age_hours: 24,
+  welfare_voucher_valid_days: 0,
   welfare_daily_checkin_milestone_enabled: true,
   welfare_daily_checkin_milestone_7_amount: 0,
   welfare_daily_checkin_milestone_14_amount: 0,
@@ -9887,6 +9901,10 @@ async function saveSettings() {
       0,
       Math.floor(Number(form.welfare_daily_checkin_min_account_age_hours) || 0),
     );
+    const welfareVoucherValidDays = Math.max(
+      0,
+      Math.floor(Number(form.welfare_voucher_valid_days) || 0),
+    );
     const welfareFirstRechargeBonusAmount = Math.max(
       0,
       Number(form.welfare_first_recharge_bonus_amount) || 0,
@@ -10138,6 +10156,7 @@ async function saveSettings() {
       welfare_daily_checkin_reward_max: welfareDailyRewardMax,
       welfare_daily_checkin_min_account_age_hours:
         welfareDailyCheckinMinAccountAgeHours,
+      welfare_voucher_valid_days: welfareVoucherValidDays,
       welfare_daily_checkin_milestone_enabled:
         form.welfare_daily_checkin_milestone_enabled,
       welfare_daily_checkin_milestone_7_amount: Math.max(

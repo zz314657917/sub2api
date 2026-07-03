@@ -24,6 +24,8 @@ type welfareRepoStub struct {
 
 	createdDaily      []WelfareDailyCheckinRecord
 	createdMilestones []WelfareDailyCheckinMilestoneClaim
+	grantedVouchers   []WelfareVoucherGrantInput
+	voucherSummary    *WelfareVoucherBalanceSummary
 
 	attachedDailyClaimID      int64
 	attachedDailyRedeemID     int64
@@ -115,6 +117,19 @@ func (r *welfareRepoStub) AttachDailyCheckinMilestoneRedeemCode(_ context.Contex
 	r.attachedMilestoneClaimID = claimID
 	r.attachedMilestoneRedeemID = redeemCodeID
 	return nil
+}
+
+func (r *welfareRepoStub) GrantVoucher(_ context.Context, input WelfareVoucherGrantInput) error {
+	r.grantedVouchers = append(r.grantedVouchers, input)
+	return nil
+}
+
+func (r *welfareRepoStub) GetVoucherBalanceSummary(_ context.Context, userID int64) (*WelfareVoucherBalanceSummary, error) {
+	if r.voucherSummary != nil {
+		clone := *r.voucherSummary
+		return &clone, nil
+	}
+	return &WelfareVoucherBalanceSummary{TotalAvailable: 0}, nil
 }
 
 func (r *welfareRepoStub) GetNewUserTrial(_ context.Context, userID int64) (*WelfareNewUserTrial, error) {
@@ -350,6 +365,7 @@ func welfareSettingRepo(enabled, daily bool, min, max float64) *welfareSettingRe
 		SettingKeyWelfareDailyCheckinRewardMin:              welfareFloat(min),
 		SettingKeyWelfareDailyCheckinRewardMax:              welfareFloat(max),
 		SettingKeyWelfareDailyCheckinMinAccountAgeHours:     strconv.Itoa(defaultDailyCheckinMinAccountAgeHours),
+		SettingKeyWelfareVoucherValidDays:                   "0",
 		SettingKeyWelfareDailyCheckinMilestoneEnabled:       "true",
 		SettingKeyWelfareDailyCheckinMilestone7Amount:       "7.00000000",
 		SettingKeyWelfareDailyCheckinMilestone14Amount:      "14.00000000",
@@ -470,7 +486,7 @@ func TestWelfareDailyCheckinMonthlyStreakResetsAtMonthBoundary(t *testing.T) {
 	require.Empty(t, got.CheckinDates)
 }
 
-func TestClaimWelfareDailyCheckinAddsBalanceAndAuditRecord(t *testing.T) {
+func TestClaimWelfareDailyCheckinGrantsVoucherAndAuditRecord(t *testing.T) {
 	repo := &welfareRepoStub{}
 	userRepo := &welfareUserRepoStub{}
 	redeemRepo := &welfareRedeemRepoStub{}
@@ -486,8 +502,12 @@ func TestClaimWelfareDailyCheckinAddsBalanceAndAuditRecord(t *testing.T) {
 	require.Equal(t, 1.3, got.ClaimedAmount)
 	require.Len(t, repo.createdDaily, 1)
 	require.Equal(t, "2026-05-13", repo.createdDaily[0].CheckinDate)
-	require.Equal(t, []float64{1.3}, userRepo.grants)
+	require.Empty(t, userRepo.grants)
 	require.Empty(t, userRepo.updates)
+	require.Len(t, repo.grantedVouchers, 1)
+	require.Equal(t, RedeemTypeDailyCheckin, repo.grantedVouchers[0].SourceType)
+	require.Equal(t, int64(100), repo.grantedVouchers[0].SourceID)
+	require.Equal(t, 1.3, repo.grantedVouchers[0].Amount)
 	require.Len(t, redeemRepo.created, 1)
 	require.Equal(t, RedeemTypeDailyCheckin, redeemRepo.created[0].Type)
 	require.Equal(t, StatusUsed, redeemRepo.created[0].Status)
@@ -537,6 +557,7 @@ func TestClaimWelfareDailyCheckinRequiresAccountAge(t *testing.T) {
 	require.Contains(t, err.Error(), welfareReasonRegistrationTooNew)
 	require.Empty(t, repo.createdDaily)
 	require.Empty(t, userRepo.grants)
+	require.Empty(t, repo.grantedVouchers)
 	require.Empty(t, redeemRepo.created)
 }
 
@@ -553,7 +574,8 @@ func TestClaimWelfareDailyCheckinAllowsAccountAt24Hours(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1.0, got.ClaimedAmount)
 	require.Len(t, repo.createdDaily, 1)
-	require.Equal(t, []float64{1}, userRepo.grants)
+	require.Empty(t, userRepo.grants)
+	require.Len(t, repo.grantedVouchers, 1)
 }
 
 func TestClaimWelfareDailyCheckinUsesConfiguredMinimumAccountAgeHours(t *testing.T) {
@@ -596,7 +618,7 @@ func TestClaimWelfareMilestoneRequiresReachedStreak(t *testing.T) {
 	require.ErrorIs(t, err, ErrWelfareCheckinMilestoneNotClaimable)
 }
 
-func TestClaimWelfareMilestoneAddsBalanceAndAuditRecord(t *testing.T) {
+func TestClaimWelfareMilestoneGrantsVoucherAndAuditRecord(t *testing.T) {
 	repo := &welfareRepoStub{}
 	for day := 7; day >= 1; day-- {
 		repo.daily = append(repo.daily, welfareDaily(42, fmt.Sprintf("2026-05-%02d", 14-day), 1))
@@ -612,7 +634,11 @@ func TestClaimWelfareMilestoneAddsBalanceAndAuditRecord(t *testing.T) {
 	require.Equal(t, 7.0, got.ClaimedAmount)
 	require.Equal(t, 7, got.Milestone.Day)
 	require.True(t, got.Milestone.Claimed)
-	require.Equal(t, []float64{7}, userRepo.grants)
+	require.Empty(t, userRepo.grants)
+	require.Len(t, repo.grantedVouchers, 1)
+	require.Equal(t, RedeemTypeCheckinMilestone, repo.grantedVouchers[0].SourceType)
+	require.Equal(t, int64(200), repo.grantedVouchers[0].SourceID)
+	require.Equal(t, 7.0, repo.grantedVouchers[0].Amount)
 	require.Len(t, redeemRepo.created, 1)
 	require.Equal(t, RedeemTypeCheckinMilestone, redeemRepo.created[0].Type)
 	require.Equal(t, int64(200), repo.attachedMilestoneClaimID)

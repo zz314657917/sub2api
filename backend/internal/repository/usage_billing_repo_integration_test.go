@@ -128,6 +128,161 @@ func TestUsageBillingRepositoryApply_DeduplicatesSubscriptionBilling(t *testing.
 	require.InDelta(t, 2.5, dailyUsage, 0.000001)
 }
 
+func TestUsageBillingRepositoryApply_ConsumesVoucherBeforeBalance(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB)
+
+	user := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("usage-billing-voucher-user-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+		Balance:      2,
+	})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID: user.ID,
+		Key:    "sk-usage-billing-voucher-" + uuid.NewString(),
+		Name:   "billing-voucher",
+	})
+	account := mustCreateAccount(t, client, &service.Account{
+		Name: "usage-billing-voucher-account-" + uuid.NewString(),
+		Type: service.AccountTypeAPIKey,
+	})
+
+	expiresAt := time.Now().UTC().Add(24 * time.Hour)
+	require.NoError(t, grantWelfareVoucher(ctx, integrationDB, welfareVoucherGrantInput{
+		UserID:     user.ID,
+		SourceType: "test",
+		SourceID:   time.Now().UnixNano(),
+		Amount:     1.5,
+		ExpiresAt:  &expiresAt,
+	}))
+
+	result, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:   uuid.NewString(),
+		APIKeyID:    apiKey.ID,
+		UserID:      user.ID,
+		AccountID:   account.ID,
+		AccountType: service.AccountTypeAPIKey,
+		BalanceCost: 2.25,
+	})
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+	require.InDelta(t, 1.5, result.VoucherCost, 0.000001)
+	require.InDelta(t, 0.75, result.BalanceCost, 0.000001)
+	require.NotNil(t, result.NewBalance)
+	require.InDelta(t, 1.25, *result.NewBalance, 0.000001)
+
+	var balance float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT balance FROM users WHERE id = $1", user.ID).Scan(&balance))
+	require.InDelta(t, 1.25, balance, 0.000001)
+
+	var remaining float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(remaining_amount), 0)::double precision
+		FROM welfare_vouchers
+		WHERE user_id = $1
+	`, user.ID).Scan(&remaining))
+	require.InDelta(t, 0, remaining, 0.000001)
+}
+
+func TestUsageBillingRepositoryApply_IgnoresExpiredVoucherAndUsesBalance(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB)
+
+	user := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("usage-billing-expired-voucher-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+		Balance:      0.5,
+	})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID: user.ID,
+		Key:    "sk-usage-billing-expired-voucher-" + uuid.NewString(),
+		Name:   "billing-expired-voucher",
+	})
+
+	expiresAt := time.Now().UTC().Add(-time.Hour)
+	require.NoError(t, grantWelfareVoucher(ctx, integrationDB, welfareVoucherGrantInput{
+		UserID:     user.ID,
+		SourceType: "test",
+		SourceID:   time.Now().UnixNano(),
+		Amount:     10,
+		ExpiresAt:  &expiresAt,
+	}))
+
+	result, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:   uuid.NewString(),
+		APIKeyID:    apiKey.ID,
+		UserID:      user.ID,
+		BalanceCost: 0.25,
+	})
+	require.NoError(t, err)
+	require.True(t, result.Applied)
+	require.InDelta(t, 0, result.VoucherCost, 0.000001)
+	require.InDelta(t, 0.25, result.BalanceCost, 0.000001)
+	require.NotNil(t, result.NewBalance)
+	require.InDelta(t, 0.25, *result.NewBalance, 0.000001)
+
+	var balance float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT balance FROM users WHERE id = $1", user.ID).Scan(&balance))
+	require.InDelta(t, 0.25, balance, 0.000001)
+
+	var remaining float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(remaining_amount), 0)::double precision
+		FROM welfare_vouchers
+		WHERE user_id = $1
+	`, user.ID).Scan(&remaining))
+	require.InDelta(t, 10, remaining, 0.000001)
+}
+
+func TestUsageBillingRepositoryApply_RequireBalanceCheckRejectsInsufficientVoucherAndBalance(t *testing.T) {
+	ctx := context.Background()
+	client := testEntClient(t)
+	repo := NewUsageBillingRepository(client, integrationDB)
+
+	user := mustCreateUser(t, client, &service.User{
+		Email:        fmt.Sprintf("usage-billing-insufficient-voucher-%d@example.com", time.Now().UnixNano()),
+		PasswordHash: "hash",
+		Balance:      0.5,
+	})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{
+		UserID: user.ID,
+		Key:    "sk-usage-billing-insufficient-voucher-" + uuid.NewString(),
+		Name:   "billing-insufficient-voucher",
+	})
+
+	expiresAt := time.Now().UTC().Add(24 * time.Hour)
+	require.NoError(t, grantWelfareVoucher(ctx, integrationDB, welfareVoucherGrantInput{
+		UserID:     user.ID,
+		SourceType: "test",
+		SourceID:   time.Now().UnixNano(),
+		Amount:     0.25,
+		ExpiresAt:  &expiresAt,
+	}))
+
+	_, err := repo.Apply(ctx, &service.UsageBillingCommand{
+		RequestID:           uuid.NewString(),
+		APIKeyID:            apiKey.ID,
+		UserID:              user.ID,
+		BalanceCost:         1.0,
+		RequireBalanceCheck: true,
+	})
+	require.ErrorIs(t, err, service.ErrInsufficientBalance)
+
+	var balance float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT balance FROM users WHERE id = $1", user.ID).Scan(&balance))
+	require.InDelta(t, 0.5, balance, 0.000001)
+
+	var remaining float64
+	require.NoError(t, integrationDB.QueryRowContext(ctx, `
+		SELECT COALESCE(SUM(remaining_amount), 0)::double precision
+		FROM welfare_vouchers
+		WHERE user_id = $1
+	`, user.ID).Scan(&remaining))
+	require.InDelta(t, 0.25, remaining, 0.000001)
+}
+
 func TestUsageBillingRepositoryApply_RequestFingerprintConflict(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)

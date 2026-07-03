@@ -2079,6 +2079,10 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		settings.WelfareDailyCheckinMinAccountAgeHours = 0
 	}
 	updates[SettingKeyWelfareDailyCheckinMinAccountAgeHours] = strconv.Itoa(settings.WelfareDailyCheckinMinAccountAgeHours)
+	if settings.WelfareVoucherValidDays < 0 {
+		settings.WelfareVoucherValidDays = 0
+	}
+	updates[SettingKeyWelfareVoucherValidDays] = strconv.Itoa(settings.WelfareVoucherValidDays)
 	updates[SettingKeyWelfareDailyCheckinMilestoneEnabled] = strconv.FormatBool(settings.WelfareDailyCheckinMilestoneEnabled)
 	updates[SettingKeyWelfareDailyCheckinMilestone7Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone7Amount, 'f', 8, 64)
 	updates[SettingKeyWelfareDailyCheckinMilestone14Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone14Amount, 'f', 8, 64)
@@ -3197,6 +3201,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyWelfareDailyCheckinRewardMin:              "0",
 		SettingKeyWelfareDailyCheckinRewardMax:              "0",
 		SettingKeyWelfareDailyCheckinMinAccountAgeHours:     strconv.Itoa(defaultDailyCheckinMinAccountAgeHours),
+		SettingKeyWelfareVoucherValidDays:                   "0",
 		SettingKeyWelfareDailyCheckinMilestoneEnabled:       "true",
 		SettingKeyWelfareDailyCheckinMilestone7Amount:       "0",
 		SettingKeyWelfareDailyCheckinMilestone14Amount:      "0",
@@ -3657,6 +3662,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		result.WelfareDailyCheckinRewardMax = result.WelfareDailyCheckinRewardMin
 	}
 	result.WelfareDailyCheckinMinAccountAgeHours = parseNonNegativeIntSetting(settings[SettingKeyWelfareDailyCheckinMinAccountAgeHours], defaultDailyCheckinMinAccountAgeHours)
+	result.WelfareVoucherValidDays = parseNonNegativeIntSetting(settings[SettingKeyWelfareVoucherValidDays], 0)
 	result.WelfareDailyCheckinMilestoneEnabled = !isFalseSettingValue(settings[SettingKeyWelfareDailyCheckinMilestoneEnabled])
 	result.WelfareDailyCheckinMilestone7Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone7Amount], 0)
 	result.WelfareDailyCheckinMilestone14Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone14Amount], 0)

@@ -8399,6 +8399,7 @@ type postUsageBillingParams struct {
 	NewUserTrial                 *NewUserTrialSession
 	SkipUsageCounters            bool
 	PrepaidBalanceCost           float64
+	RequireBalanceCheck          bool
 	Platform                     string
 }
 
@@ -8599,6 +8600,7 @@ func buildUsageBillingCommand(requestID string, usageLog *UsageLog, p *postUsage
 		}
 		cmd.PrepaidBalanceCost = prepaid
 		cmd.BalanceCost = p.Cost.ActualCost - prepaid
+		cmd.RequireBalanceCheck = p.RequireBalanceCheck
 	}
 
 	if p.shouldDeductAPIKeyQuota() {
@@ -8790,7 +8792,7 @@ func finalizePostUsageBilling(p *postUsageBillingParams, deps *billingDeps, resu
 			deps.billingCacheService.QueueUpdateSubscriptionUsage(p.User.ID, *p.APIKey.GroupID, p.Cost.ActualCost)
 		}
 	} else if p.Cost.ActualCost > 0 && p.User != nil {
-		balanceCost := p.Cost.ActualCost - normalizeNonNegativeFloat(p.PrepaidBalanceCost)
+		balanceCost := usageBillingWalletBalanceCost(p, result)
 		if balanceCost > 0 {
 			deps.billingCacheService.QueueDeductBalance(p.User.ID, balanceCost)
 		}
@@ -8826,7 +8828,7 @@ func notifyBalanceLow(p *postUsageBillingParams, deps *billingDeps, result *Usag
 		)
 		return
 	}
-	balanceCost := p.Cost.ActualCost - normalizeNonNegativeFloat(p.PrepaidBalanceCost)
+	balanceCost := usageBillingWalletBalanceCost(p, result)
 	if balanceCost <= 0 {
 		return
 	}
@@ -8847,10 +8849,20 @@ func notifyBalanceLow(p *postUsageBillingParams, deps *billingDeps, result *Usag
 // Prefers the DB transaction result (newBalance + cost) over snapshot.
 func resolveOldBalance(p *postUsageBillingParams, result *UsageBillingApplyResult) float64 {
 	if result != nil && result.NewBalance != nil {
-		return *result.NewBalance + p.Cost.ActualCost - normalizeNonNegativeFloat(p.PrepaidBalanceCost)
+		return *result.NewBalance + usageBillingWalletBalanceCost(p, result)
 	}
 	// Legacy fallback: snapshot balance from request context
 	return p.User.Balance
+}
+
+func usageBillingWalletBalanceCost(p *postUsageBillingParams, result *UsageBillingApplyResult) float64 {
+	if result != nil {
+		return normalizeNonNegativeFloat(result.BalanceCost)
+	}
+	if p == nil || p.Cost == nil {
+		return 0
+	}
+	return normalizeNonNegativeFloat(p.Cost.ActualCost - normalizeNonNegativeFloat(p.PrepaidBalanceCost))
 }
 
 // notifyAccountQuota sends account quota threshold notification after increment.

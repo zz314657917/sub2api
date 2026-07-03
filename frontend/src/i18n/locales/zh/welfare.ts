@@ -1,6 +1,6 @@
 export default {
     title: '福利中心',
-    subtitle: '领取每日签到奖励，连续签到达成后可领取额外积分。',
+    subtitle: '领取每日签到抵用券，连续签到达成后可领取额外抵用券。',
     moduleStatus: '福利模块状态',
     enabled: '已开启',
     notOpen: '未开放',
@@ -65,6 +65,12 @@ export default {
       monthlyBonusNotice: '如果首笔购买已领取每月首购档位赠送，礼包可能不再额外叠加。',
       cta: '去购买',
     },
+    wallet: {
+      voucher: '抵用券余额',
+      balance: '普通积分',
+      total: '可用合计',
+      nextExpiresAt: '最近过期：{time}',
+    },
     daily: {
       title: '每日签到',
       disabledTitle: '每日签到暂未开启',
@@ -73,7 +79,7 @@ export default {
       monthDays: '本月签到',
       todayReward: '今日奖励',
       daysUnit: '天',
-      description: '今天签到可领取随机积分奖励，并推进连续签到进度。',
+      description: '今天签到可领取随机抵用券，并推进连续签到进度。',
       claimedDescription: '今日已领取 {amount}，当前连续签到 {streak} 天。',
       canClaim: '可领取',
       checked: '今日已签到',

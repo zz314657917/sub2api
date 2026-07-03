@@ -94,9 +94,9 @@ func TestStudioBridgeRepositoryGetUserSummaryUsesActualModelFields(t *testing.T)
 
 	repo := &studioBridgeRepository{db: db}
 	createdAt := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
-	mock.ExpectQuery(`SELECT id, email, username, balance\s+FROM users`).
+	mock.ExpectQuery(`SELECT\s+u\.id,[\s\S]*welfare_vouchers[\s\S]*WHERE u\.id = \$1 AND u\.deleted_at IS NULL`).
 		WithArgs(int64(42)).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "balance"}).AddRow(int64(42), "alice@example.test", "alice", 12.5))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "email", "username", "balance", "voucher_balance"}).AddRow(int64(42), "alice@example.test", "alice", 12.5, 3.25))
 	mock.ExpectQuery(`SELECT\s+request_id,\s+COALESCE\(NULLIF\(TRIM\(upstream_model\), ''\), NULLIF\(TRIM\(model\), ''\), NULLIF\(TRIM\(requested_model\), ''\), ''\),.*FROM usage_logs`).
 		WithArgs(int64(42), 20).
 		WillReturnRows(sqlmock.NewRows([]string{"request_id", "model", "requested_model", "upstream_model", "actual_model", "actual_cost", "created_at", "duration_ms", "billing_mode", "media_type", "inbound_endpoint"}).
@@ -109,6 +109,9 @@ func TestStudioBridgeRepositoryGetUserSummaryUsesActualModelFields(t *testing.T)
 
 	summary, err := repo.GetUserSummary(context.Background(), 42, "https://example.test/recharge", 20)
 	require.NoError(t, err)
+	require.Equal(t, 12.5, summary.Balance)
+	require.Equal(t, 3.25, summary.VoucherBalance)
+	require.Equal(t, 15.75, summary.TotalAvailable)
 	require.Len(t, summary.Usage, 3)
 	require.Equal(t, "gpt-5.5", summary.Usage[0].Model)
 	require.Equal(t, "auto", summary.Usage[0].RequestedModel)

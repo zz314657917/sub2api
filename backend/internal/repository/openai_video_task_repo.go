@@ -133,20 +133,7 @@ func (r *openAIVideoTaskRepository) ReserveBalance(ctx context.Context, input *s
 			_ = tx.Rollback()
 		}
 	}()
-	var newBalance float64
-	err = tx.QueryRowContext(ctx, `
-		UPDATE users
-		SET balance = balance - $1,
-			updated_at = NOW()
-		WHERE id = $2
-			AND deleted_at IS NULL
-			AND balance >= $1
-		RETURNING balance
-	`, amount, input.UserID).Scan(&newBalance)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, service.ErrInsufficientBalance
-	}
-	if err != nil {
+	if _, err := deductWelfareVoucherThenBalance(ctx, tx, input.UserID, amount, welfareVoucherOperationOpenAIVideo, input.TaskID, true); err != nil {
 		return nil, err
 	}
 	task, err := upsertSubmittedOpenAIVideoTask(ctx, tx, input, service.OpenAIVideoTaskBillingReserved, amount, amount)
@@ -168,6 +155,15 @@ func (r *openAIVideoTaskRepository) BindSubmitted(ctx context.Context, placehold
 	if input == nil || placeholderTaskID == "" || strings.TrimSpace(input.TaskID) == "" {
 		return nil, errors.New("openai video task_id is required")
 	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if tx != nil {
+			_ = tx.Rollback()
+		}
+	}()
 	provider := normalizeVideoTaskProvider(input.Provider)
 	status := strings.TrimSpace(input.Status)
 	if status == "" {
@@ -197,7 +193,7 @@ func (r *openAIVideoTaskRepository) BindSubmitted(ctx context.Context, placehold
 			updated_at = NOW()
 		WHERE provider = $1 AND task_id = $2
 		RETURNING ` + openAIVideoTaskColumns
-	return scanOpenAIVideoTaskRow(ctx, r.db, query,
+	task, err := scanOpenAIVideoTaskTx(ctx, tx, query,
 		provider,
 		placeholderTaskID,
 		strings.TrimSpace(input.TaskID),
@@ -219,6 +215,17 @@ func (r *openAIVideoTaskRepository) BindSubmitted(ctx context.Context, placehold
 		openAIVideoTaskNullableTrimmedStringArg(input.RequestPayloadHash),
 		openAIVideoTaskNullableJSONBytesArg(input.SubmitResponse),
 	)
+	if err != nil {
+		return nil, err
+	}
+	if err := rebindWelfareVoucherDeductions(ctx, tx, input.UserID, welfareVoucherOperationOpenAIVideo, placeholderTaskID, strings.TrimSpace(input.TaskID)); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	tx = nil
+	return task, nil
 }
 
 func (r *openAIVideoTaskRepository) GetByTaskID(ctx context.Context, provider string, taskID string) (*service.OpenAIVideoTask, error) {
@@ -308,12 +315,7 @@ func (r *openAIVideoTaskRepository) RefundReserved(ctx context.Context, provider
 	if task == nil {
 		return nil, fmt.Errorf("openai video task refund returned nil task")
 	}
-	_, err = tx.ExecContext(ctx, `
-		UPDATE users
-		SET balance = balance + $1,
-			updated_at = NOW()
-		WHERE id = $2 AND deleted_at IS NULL
-	`, task.ReservedCost, task.UserID)
+	_, err = refundWelfareVoucherDeductions(ctx, tx, task.UserID, task.ReservedCost, welfareVoucherOperationOpenAIVideo, task.TaskID)
 	if err != nil {
 		return nil, err
 	}
