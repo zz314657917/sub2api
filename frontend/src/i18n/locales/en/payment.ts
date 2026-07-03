@@ -282,6 +282,7 @@ export default {
     planFeatures: 'Features',
     planCard: {
       rate: 'Rate',
+      peakRate: 'Peak rate',
       dailyLimit: 'Daily',
       weeklyLimit: 'Weekly',
       monthlyLimit: 'Monthly',

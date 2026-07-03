@@ -42,6 +42,7 @@ export default {
       accountsTotal: 'Total:',
       accountsUnit: '',
       rateAndAccounts: '{rate}x rate · {count} accounts',
+      rateLabel: 'rate',
       accountsCount: '{count} accounts',
       form: {
         name: 'Name',
@@ -140,6 +141,15 @@ export default {
         defaultValidityDays: 'Default Validity (Days)',
         validityHint: 'Number of days the subscription is valid when assigned to a user',
         noLimit: 'No limit'
+      },
+      peakRate: {
+        title: 'Peak rate multiplier',
+        enable: 'Enable peak rate multiplier',
+        peakStart: 'Peak start',
+        peakEnd: 'Peak end',
+        peakMultiplier: 'Peak multiplier',
+        serverTimezone: 'Peak window uses server timezone: {timezone}.',
+        multiplierHint: 'Token billing is multiplied by this factor during the peak window. Image per-request billing is not affected.'
       },
       imagePricing: {
         title: 'Image Generation Pricing',

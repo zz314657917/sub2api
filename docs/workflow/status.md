@@ -1,20 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-v0141-antigravity-system-role-s34
-total_sprints: 15
-pending_action: continue read-only upstream candidate scan for S35
+current_sprint: upstream-main-v0143-group-peak-rate-impl-s44
+total_sprints: 44
+pending_action: draft S45 plan for remaining upstream v0.1.143/post-v0.1.143 candidates
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-01 01:50 +08:00
+last_verified: 2026-07-03 13:14 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0141-antigravity-system-role-s34`
-- 当前目标：继续从最新 `upstream/main` 小步合入纯后端低风险补丁：Antigravity Claude-to-Gemini 转换中，把 `messages[].role == "system"` 内容合并进 Gemini `systemInstruction`，避免输出非法 `system` role 的 contents。
-- 当前结论：S34 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰前端、Ent/migrations/wire、支付退款/余额预扣/返佣、Ops 分类大批、安全敏感凭证 redaction、Gemini chat-completions 大桥接、用户代理/账号脏改或 `knowledge/*`。
+- 当前 Sprint：`upstream-main-v0143-group-peak-rate-impl-s44`
+- 当前目标：完成上游 `v0.1.143` 订阅分组高峰时段倍率能力的本地合入、复核和提交准备。
+- 当前结论：S44 已在隔离 worktree 实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰 welfare、Studio Bridge、OpenAI Images、deploy、README、`.github` 或主工作区无关脏改。下一步单独起 S45 计划，继续筛选剩余 `v0.1.143` / post-`v0.1.143` 候选。
 - 当前已确认事实：
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
@@ -59,10 +59,15 @@ last_verified: 2026-07-01 01:50 +08:00
   - S33 实际合入：上游 `147c1879d` / `fix(payment): support plural subscription validity units`。本地前端套餐编辑器会保存 `weeks` / `months`，后端创建支付订单时现在将 `weeks` 折算为 `days * 7`、`months` 折算为 `days * 30`，保持 `days` / 未知单位回退原值。
   - S34 筛选中，`271aba1abe` IP 拒绝 SLA 排除、`930326116` 订阅支付金额显示、`0ae3329613` API Key 名称 XSS 转义、`04deb819b0` EasyPay 查单 `trade_status`、`1e2193c3d2` WebSocket 用量去重、`bf1a2d6dc2` Codex reset window 统计、`c40a74d98` 内容审计管理员自动封禁豁免、`55655b865` Responses→Chat reasoning-only stream、`727ac3f68` / `app_session_terminated` 非重试、`f6e0ebc6b` Anthropic window cooldown、`bf3787de1` Claude Code count_tokens 放行、`20f534078` Responses→Chat usage 明细都已被本地等价覆盖。
   - S34 实际合入：上游 `65559ac58` / `fix(antigravity): merge system role messages`。Antigravity 转换器现在从 `messages` 中提取 `role:"system"` 的 parts，并追加到 Gemini `systemInstruction`；普通 user/assistant contents 不变，assistant 仍映射为 Gemini `model` role。
+  - S44 实际合入：上游 `v0.1.143` 订阅分组高峰时段倍率能力，使用本地 migration `181_add_group_peak_rate_multiplier.sql`，并保留本地模块化 i18n。高峰倍率仅作用于 token 计费，token-mode 图片 output tokens 也走 token 高峰倍率；图片/per-request 计费不受高峰倍率影响。
+  - S44 复核修复：Create handler 不再先于 service normalization 拒绝标准分组携带高峰字段；Keys 智能多分组摘要现在展示 route group badge 和高峰窗口；前端类型/测试 fixture 补齐 peak 字段；OpenAI/generic gateway 按最终 billing mode 选择日志倍率。
 - 目标验证入口：
   - `docs/workflow/tasks/upstream-main-v0141-antigravity-system-role-s34.md`
   - `docs/workflow/worker-results/upstream-main-v0141-antigravity-system-role-s34-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0141-antigravity-system-role-s34-qa.md`
+  - `docs/workflow/tasks/upstream-main-v0143-group-peak-rate-impl-s44.md`
+  - `docs/workflow/worker-results/upstream-main-v0143-group-peak-rate-impl-s44-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0143-group-peak-rate-impl-s44-qa.md`
   - `docs/workflow/tasks/upstream-main-v0141-payment-validity-units-s33.md`
   - `docs/workflow/worker-results/upstream-main-v0141-payment-validity-units-s33-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0141-payment-validity-units-s33-qa.md`
@@ -180,5 +185,12 @@ last_verified: 2026-07-01 01:50 +08:00
   - `git diff --check -- backend/internal/service/payment_service.go backend/internal/service/payment_order_result_test.go`
   - `go test ./internal/pkg/antigravity -run "TestTransformClaudeToGeminiWithOptions_MessageRoles|TestTransformClaudeToGeminiWithOptions_PreservesBillingHeaderSystemBlock" -count=1`
   - `git diff --check -- backend/internal/pkg/antigravity/request_transformer.go backend/internal/pkg/antigravity/request_transformer_test.go`
-- 下一合法动作：精确 stage S34 allowed paths，执行 staged denied-path audit 后提交；之后继续只读筛选 S35。
+  - `go run -mod=mod entgo.io/ent/cmd/ent generate --feature sql/upsert,intercept,sql/execquery,sql/lock --idtype int64 ./schema` in `backend/ent`
+  - `go test ./internal/service -run "Test.*Peak.*|Test.*Group.*Peak.*|Test.*Billing.*Peak.*|Test.*Gateway.*Peak.*|Test.*RecordUsage.*Peak.*" -count=1`
+  - `go test ./internal/handler -run "Test.*AvailableChannel.*Peak.*|Test.*Payment.*Peak.*|TestGroupHandlerCreate_LeavesPeakRateNormalizationToService|TestGroupHandlerEndpoints" -count=1`
+  - `go test ./internal/handler/admin -run "Test.*Group.*Peak.*|TestGroupHandlerCreate_LeavesPeakRateNormalizationToService|TestGroupHandlerEndpoints" -count=1`
+  - `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend run typecheck"`
+  - `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/components/payment/__tests__/SubscriptionPlanCard.spec.ts src/views/user/__tests__/PaymentView.spec.ts src/views/user/__tests__/KeysView.createQuery.spec.ts src/utils/apiKeyCapabilities.spec.ts"`
+  - `git diff --check`
+- 下一合法动作：精确 stage S44 allowed paths 和 workflow evidence，执行 staged denied-path audit 后提交；之后起 S45 合成计划继续只读筛选剩余 upstream candidates。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。

@@ -113,6 +113,7 @@ export default {
       nonExclusive: '公开',
       public: '公开',
       rateAndAccounts: '{rate}x 费率 · {count} 个账号',
+      rateLabel: '倍率',
       accountsCount: '{count} 个账号',
       enterGroupName: '请输入分组名称',
       optionalDescription: '可选描述',
@@ -170,6 +171,15 @@ export default {
         defaultValidityDays: '默认有效期（天）',
         validityHint: '分配给用户时订阅的有效天数',
         noLimit: '无限制'
+      },
+      peakRate: {
+        title: '高峰倍率',
+        enable: '启用高峰时段倍率',
+        peakStart: '高峰开始时间',
+        peakEnd: '高峰结束时间',
+        peakMultiplier: '高峰倍率',
+        serverTimezone: '高峰时间窗口按服务器时区计算：{timezone}。',
+        multiplierHint: '高峰时段内 token 计费会叠加该倍率；图片按次计费不受影响。'
       },
       imagePricing: {
         title: '图片生成计费',

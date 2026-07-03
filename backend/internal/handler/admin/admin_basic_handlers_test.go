@@ -214,6 +214,35 @@ func TestGroupHandlerEndpoints(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 }
 
+func TestGroupHandlerCreate_LeavesPeakRateNormalizationToService(t *testing.T) {
+	router, adminSvc := setupAdminRouter()
+
+	body, err := json.Marshal(map[string]any{
+		"name":                 "standard-with-peak",
+		"platform":             "anthropic",
+		"subscription_type":    "standard",
+		"peak_rate_enabled":    true,
+		"peak_start":           "09:00",
+		"peak_end":             "18:00",
+		"peak_rate_multiplier": 2,
+	})
+	require.NoError(t, err)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/groups", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.NotNil(t, adminSvc.createdGroup)
+	require.Equal(t, "standard", adminSvc.createdGroup.SubscriptionType)
+	require.True(t, adminSvc.createdGroup.PeakRateEnabled)
+	require.Equal(t, "09:00", adminSvc.createdGroup.PeakStart)
+	require.Equal(t, "18:00", adminSvc.createdGroup.PeakEnd)
+	require.NotNil(t, adminSvc.createdGroup.PeakRateMultiplier)
+	require.Equal(t, 2.0, *adminSvc.createdGroup.PeakRateMultiplier)
+}
+
 func TestProxyHandlerEndpoints(t *testing.T) {
 	router, _ := setupAdminRouter()
 

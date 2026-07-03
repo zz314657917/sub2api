@@ -26,6 +26,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
 	"github.com/cespare/xxhash/v2"
@@ -6080,7 +6081,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if s.membershipService != nil {
 		multiplier = s.membershipService.ApplyRateMultiplier(ctx, user.ID, multiplier)
 	}
-	imageMultiplier := resolveImageRateMultiplier(apiKey, multiplier)
+	// token 倍率叠加高峰因子（token 计费含图片 token，图片按次倍率不受影响）。高峰因子按请求时刻现算，
+	// 不并入上面的 Resolve，以免污染 user:group 倍率缓存。
+	multiplier, imageMultiplier := computePeakAwareMultipliers(apiKey, multiplier, timezone.Now())
 
 	var cost *CostBreakdown
 	var err error
@@ -6115,7 +6118,11 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 			override.BillingMode = string(BillingModeToken)
 		}
 		if result.ImageCount > 0 && override.ActualCost == 0 && override.TotalCost > 0 {
-			override.ActualCost = override.TotalCost * imageMultiplier
+			overrideMultiplier := multiplier
+			if isUsageLogImageBillingMode(override.BillingMode) {
+				overrideMultiplier = imageMultiplier
+			}
+			override.ActualCost = override.TotalCost * overrideMultiplier
 		}
 		cost = &override
 	} else {
@@ -6208,7 +6215,8 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		usageLog.TotalCost = cost.TotalCost
 		usageLog.ActualCost = cost.ActualCost
 	}
-	if result.ImageCount > 0 {
+	billingMode := resolveUsageLogBillingMode(result.ImageCount, cost)
+	if isUsageLogImageBillingMode(billingMode) {
 		usageLog.RateMultiplier = imageMultiplier
 		usageLog.BillingTier = optionalTrimmedStringPtr(OpenAIImageBillingTierForModel(billingModel, result.ImageOutputSize, result.ImageSize, result.ImageQuality))
 	} else {
@@ -6228,16 +6236,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	usageLog.ChannelID = optionalInt64Ptr(input.ChannelID)
 	usageLog.ModelMappingChain = optionalTrimmedStringPtr(input.ModelMappingChain)
 	// 设置计费模式
-	if cost != nil && cost.BillingMode != "" {
-		billingMode := cost.BillingMode
-		usageLog.BillingMode = &billingMode
-	} else if result.ImageCount > 0 {
-		billingMode := string(BillingModeImage)
-		usageLog.BillingMode = &billingMode
-	} else {
-		billingMode := string(BillingModeToken)
-		usageLog.BillingMode = &billingMode
-	}
+	usageLog.BillingMode = &billingMode
 	// 添加 UserAgent
 	if input.UserAgent != "" {
 		usageLog.UserAgent = &input.UserAgent
@@ -6335,7 +6334,7 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageCost(
 	requestCountOverride int,
 ) (*CostBreakdown, error) {
 	billingModel := firstUsageBillingModel(billingModels)
-	if result != nil && result.ImageCount > 0 {
+	if s.shouldUseOpenAIImageBillingCost(ctx, billingModel, apiKey, result) {
 		return s.calculateOpenAIImageCost(ctx, billingModel, apiKey, result, imageMultiplier), nil
 	}
 	if len(billingModels) == 0 || billingModel == "" {
@@ -6412,6 +6411,14 @@ func (s *OpenAIGatewayService) calculateOpenAIRecordUsageTokenCost(
 		})
 	}
 	return s.billingService.CalculateCostWithServiceTier(billingModel, tokens, multiplier, serviceTier)
+}
+
+func (s *OpenAIGatewayService) shouldUseOpenAIImageBillingCost(ctx context.Context, billingModel string, apiKey *APIKey, result *OpenAIForwardResult) bool {
+	if result == nil || result.ImageCount <= 0 {
+		return false
+	}
+	resolved := s.resolveOpenAIChannelPricing(ctx, billingModel, apiKey)
+	return resolved == nil || resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage
 }
 
 func (s *OpenAIGatewayService) calculateOpenAIImageCost(

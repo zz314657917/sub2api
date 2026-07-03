@@ -340,6 +340,10 @@
                         <span class="pricing-muted">{{ pt('subtotal') }}</span>
                         <span class="pricing-strong font-semibold">{{ formatDisplayPaymentAmount(selectedPlan.price) }}</span>
                       </div>
+                      <div v-if="planHasPeakRate(selectedPlan)" class="flex justify-between gap-4">
+                        <span class="pricing-muted">{{ t('payment.planCard.peakRate') }}</span>
+                        <span class="pricing-strong text-right font-semibold text-amber-700 dark:text-amber-300">{{ planPeakRateLabel(selectedPlan) }}</span>
+                      </div>
                       <div v-if="feeRate > 0 && selectedPlan.price > 0" class="flex justify-between gap-4">
                         <span class="pricing-muted">{{ t('payment.fee') }} ({{ feeRate }}%)</span>
                         <span class="pricing-strong font-semibold">{{ formatDisplayPaymentAmount(subFeeAmount) }}</span>
@@ -376,6 +380,7 @@
                       </div>
                       <div class="pricing-caption flex flex-wrap gap-x-3 text-[11px]">
                         <span>{{ t('payment.planCard.rate') }}: ×{{ sub.group?.rate_multiplier ?? 1 }}</span>
+                        <span v-if="subscriptionHasPeakRate(sub)">{{ t('payment.planCard.peakRate') }}: {{ subscriptionPeakRateLabel(sub) }}</span>
                         <span v-if="!hasAnySubscriptionLimit(sub.group)">{{ t('payment.planCard.quota') }}: {{ t('payment.planCard.unlimited') }}</span>
                         <span v-if="sub.expires_at">{{ t('userSubscriptions.daysRemaining', { days: getDaysRemaining(sub.expires_at) }) }}</span>
                         <span v-else>{{ t('userSubscriptions.noExpiration') }}</span>
@@ -589,6 +594,7 @@ import { paymentAPI } from '@/api/payment'
 import { redeemAPI } from '@/api/redeem'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
+import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel, type PeakRateFields } from '@/utils/peak-rate'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType, MembershipStatus, MembershipTierConfig, RechargePackage, PaymentOrder, CreateInvoiceRequest, InvoiceSummary, InvoiceType } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import { METHOD_ORDER, getPaymentPopupFeatures } from '@/components/payment/providerConfig'
@@ -1353,11 +1359,28 @@ function planFeatureList(plan: SubscriptionPlan): string[] {
   if (weeklyLimit != null) features.push(pt('feature.weeklyQuota', { amount: formatCreditAmount(weeklyLimit) }))
   if (monthlyLimit != null) features.push(pt('feature.monthlyQuota', { amount: formatCreditAmount(monthlyLimit) }))
   if (dailyLimit != null) features.push(pt('feature.dailyQuota', { amount: formatCreditAmount(dailyLimit) }))
+  if (planHasPeakRate(plan)) features.push(`${t('payment.planCard.peakRate')}: ${planPeakRateLabel(plan)}`)
   features.push(...(plan.features || []).filter(Boolean).map(normalizePlanFeature))
   if (features.length === 0) {
     features.push(pt('feature.unlimitedQuota'))
   }
   return features.slice(0, 6)
+}
+
+function planHasPeakRate(plan: SubscriptionPlan): boolean {
+  return hasPeakRate(plan)
+}
+
+function planPeakRateLabel(plan: SubscriptionPlan): string {
+  return formatPeakRateWindow(plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset, t('common.serverTime')))
+}
+
+function subscriptionHasPeakRate(sub: { group?: PeakRateFields | null }): boolean {
+  return hasPeakRate(sub.group)
+}
+
+function subscriptionPeakRateLabel(sub: { group?: PeakRateFields | null }): string {
+  return formatPeakRateWindow(sub.group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset, t('common.serverTime')))
 }
 
 function normalizePlanFeature(feature: string): string {

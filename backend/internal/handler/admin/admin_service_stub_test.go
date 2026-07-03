@@ -40,6 +40,7 @@ type stubAdminService struct {
 		filters     *service.BulkUpdateAccountFilters
 		shareStatus string
 	}
+	createdGroup     *service.CreateGroupInput
 	lastListAccounts struct {
 		platform    string
 		accountType string
@@ -293,6 +294,7 @@ func (s *stubAdminService) GetGroupModelsListCandidates(ctx context.Context, id 
 }
 
 func (s *stubAdminService) CreateGroup(ctx context.Context, input *service.CreateGroupInput) (*service.Group, error) {
+	s.createdGroup = input
 	group := service.Group{ID: 200, Name: input.Name, Status: service.StatusActive}
 	return &group, nil
 }
