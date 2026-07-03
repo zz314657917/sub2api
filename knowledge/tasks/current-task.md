@@ -1,72 +1,69 @@
 # 当前任务快照
 
-最后更新：2026-07-04 00:28 +08:00
+最后更新：2026-07-04 02:02 +08:00
 
 ## 背景
 
 - 仓库：`F:/mcplugins/sub2api`。
 - 当前分支：`main`。
-- 本轮目标是把 `codex/welfare-voucher-image-preflight` 合入 `main`，验证后推送，并清理已合并分支。
-- 合并前 `main` 基线：`9abff8fa588415fca795ae53ac09565b04c8edd1`，提交信息为 `merge: add group peak rate multiplier`。
-- 合并后 `main` head：`37ffe5fdf729cd23230753b9931bea8f54534791`，提交信息为 `merge: add welfare voucher image preflight`。
+- 本轮目标是把 `codex/affiliate-risk-alerts-s45` 合入 `main`，完成合并后复核，并推送主线。
+- S45 功能分支 head：`41e1befc docs: align affiliate risk workflow status`。
+- S45 merge commit：`d1bc3aa40 merge: add affiliate risk scanner alerts`。
 
 ## 当前目标
 
-- 收尾质检发现的文档状态漂移：`docs/workflow/status.md` 不应再把 S44 描述为当前 blocked。
-- 提交并推送文档修复，保持 `main` 与 `origin/main` 同步。
-- 下一阶段入口回到 `affiliate-risk-alerts-s45` contract review。
+- 提交 S45 合并后的 workflow / handoff 状态同步。
+- 推送 `main`，确认 `origin/main` 指向最新合并结果。
+- 后续如果继续开发，进入下一个已批准 Sprint；如果准备上线，先做发布前验证。
 
 ## 本次已完成
 
-- 已执行 `git fetch --all --prune`，刷新 `origin` 与 `upstream`。
-- 已将 `codex/welfare-voucher-image-preflight` merge 到 `main`。
-- 已解决三个 merge 冲突：
-  - `docs/workflow/main-log.md`：保留 S35-S42/S45 记录，并补入 S44 implementation-and-qa-pass。
-  - `docs/workflow/status.md`：最终状态改为 S45 contract-draft，记录 S44 已进入 `main`。
-  - `frontend/src/types/index.ts`：同时保留 S44 的 `server_timezone` / `server_utc_offset` 与福利券分支的 `payment_faq_items`。
-- 已提交 merge commit：`37ffe5fdf merge: add welfare voucher image preflight`。
-- 已推送 `main`，远端 `origin/main` 已确认指向 `37ffe5fdf729cd23230753b9931bea8f54534791`。
-- 已删除本地已合入分支：
-  - `codex/welfare-voucher-image-preflight`
-  - `codex/upstream-main-v0143-group-peak-rate-impl-s44`
-- 已删除远端分支：`origin/codex/welfare-voucher-image-preflight`。
-- 已起三个只读智能体质检；代码/类型/迁移/验证覆盖均未发现阻断问题。
+- 已执行 `git fetch --all --prune`，刷新 `origin` 和 `upstream`。
+- 已确认 `main` 与 `origin/main` 在合并前同步，基线为 `2db8cffff docs: align workflow status after welfare merge`。
+- 已将 `codex/affiliate-risk-alerts-s45` 无冲突合入 `main`。
+- 已完成合并后定向验收：
+  - IP 归一化 unit 测试通过。
+  - S45 service 风险评分/扫描间隔/冻结相关测试通过。
+  - S45 repository 风控相关测试通过。
+  - admin settings 定向测试通过。
+  - frontend typecheck 通过。
+  - `git diff --check` 通过。
+  - `origin/main..HEAD` denied-path 审计返回 `NO_DENIED_PATHS`。
+  - 冲突标记扫描无命中。
+- 已更新 `docs/workflow/status.md` 和 `docs/workflow/main-log.md`，记录 S45 已合入 `main`。
 
 ## 已确认事实
 
-- 合并后 migration 编号连续关键点：`181_add_group_peak_rate_multiplier.sql` 已在 `main`，`182_welfare_vouchers.sql` 来自福利券分支，未冲突。
-- `frontend/src/types/index.ts` 的 `PublicSettings` 同时保留 `server_timezone`、`server_utc_offset`、`payment_faq_items`。
-- 福利券分支除了四笔核心提交，也携带此前尚未在 `main` 的本地产品提交，包括 leaderboard cache、editable payment FAQ、model plaza mobile layout 和 affiliate risk scanner contract 文档。
-- 当前合并没有吸收 `upstream/main` 最新变化；`upstream/main` 已刷新但不属于本轮清理目标。
-- `git branch --merged main` 现在只剩 `main`；未合入的 S45-S52 等候选分支和 rewrite backup 分支保留。
+- S45 已实现并合入：邀请返佣风险评分扫描器、ops 告警、P2/P1 奖励兑现冻结、后台扫描周期设置、IPv6 `/64` 归一化和扫描索引。
+- S45 冻结范围只覆盖首次 API 调用奖励 claim 和邀请返佣 quota 转余额；不封号、不禁用 API key、不撤销绑定、不扣回历史奖励、不阻断正常 API 使用。
+- 新 migration 为 `backend/migrations/183_affiliate_risk_freezes.sql`，包含 `affiliate_risk_freezes` 表和三个扫描索引。
+- `docs/workflow/qa-reports/affiliate-risk-alerts-s45-qa.md` 结论为 `PASS`。
+- `go test ./cmd/server -run "TestWireGenerated" -count=1` 在当前仓库返回 `ok ... [no tests to run]`，不作为有效测试命中；wire 相关改动目前由 package 编译和既有 merge 结果覆盖。
 
 ## 待验证点
 
-- 文档修复提交后需要执行 `git diff --check` 和 `git diff --cached --check`。
-- 文档修复提交后需要推送 `main`，并确认 `origin/main` 指向新提交。
-- 本轮未做运行态发版验证；如果进入发版，需要另做前端 build、后端启动 smoke、支付/退款沙箱或回调 smoke、图片预检扣费手动 API smoke。
+- `main` 推送后需要确认 `origin/main` 指向最新提交。
+- 本轮未在生产规模数据库上运行扫描器；上线前建议在预发或只读复制库上观察扫描耗时、告警数量和冻结记录写入情况。
+- 本轮未做完整发布验证；如果要上线，需要另做后端启动 smoke、迁移执行检查、前端 build 或容器构建，以及 ops 告警查看路径验证。
 
 ## 当前结论
 
-- `codex/welfare-voucher-image-preflight` 已合入并推送到 `main`，已合入分支已清理。
-- 质检唯一需要修复的是 workflow 文档的状态漂移；修完后即可进入 S45 contract review。
+- S45 代码级和文档级收口已完成，当前处于合并后待推送状态。
+- 合并范围符合 S45 contract allowed paths；denied-path 审计未发现越界路径。
 
 ## 下一步
 
-1. 提交 `docs: align workflow status after welfare merge`。
-2. 推送 `main` 并确认远端 head。
-3. 后续如用户说“继续”，进入 `docs/workflow/tasks/affiliate-risk-alerts-s45.md` 的 contract review，不再回到 S44 blocked 状态。
+1. 提交 workflow / handoff 状态同步。
+2. 推送 `main` 并确认 `origin/main`。
+3. 推送后如继续工作，进入下一个已批准 Sprint 或执行 S45 上线前验证。
 
 ## 验证记录
 
-- `git diff --check` 通过。
-- `git diff --cached --check` 通过。
-- 严格冲突标记检查 `rg -n "^(<<<<<<< .+|=======$|>>>>>>> .+)$" .` 无命中。
-- `go test ./internal/service -run "Test.*Payment.*|Test.*Refund.*|TestBillingCacheServiceCheckBalanceAmountEligibility|TestOpenAIGatewayServiceEstimateOpenAIImagesCost|TestUsageBillingWalletBalanceCost|Test.*Peak.*|Test.*Group.*Peak.*|Test.*Billing.*Peak.*|Test.*Gateway.*Peak.*|Test.*RecordUsage.*Peak.*" -count=1` 通过。
-- `go test ./internal/handler -run "Test.*Payment.*|Test.*Refund.*|Test.*OpenAI.*Images|TestVerifyOrderPublic|Test.*AvailableChannel.*Peak.*|Test.*Payment.*Peak.*|TestGroupHandlerCreate_LeavesPeakRateNormalizationToService|TestGroupHandlerEndpoints" -count=1` 通过。
-- `go test ./internal/handler/admin -run "Test.*Payment.*|Test.*Refund.*|Test.*Group.*Peak.*|TestGroupHandlerCreate_LeavesPeakRateNormalizationToService|TestGroupHandlerEndpoints" -count=1` 通过。
-- `go test ./internal/repository -run "Test.*UsageBilling|Test.*Studio|Test.*OpenAIVideo|Test.*Welfare" -count=1` 通过。
-- `go test -tags=integration ./internal/repository -run "TestUsageBillingRepositoryApply_.*Voucher|TestUsageBillingRepositoryApply_RequireBalanceCheck" -count=1` 通过。
+- `go test -tags=unit ./internal/pkg/ip -run "Test.*Normalize.*IPv6.*64|Test.*Normalize.*IP" -count=1` 通过。
+- `go test ./internal/service -run "TestAffiliateRisk.*|Test.*Affiliate.*Freeze.*|Test.*Affiliate.*Risk.*|Test.*Ops.*Alert.*Email|Test.*Affiliate.*Scan.*Interval|Test.*Setting.*Affiliate.*Risk" -count=1` 通过。
+- `go test ./internal/repository -run "TestAffiliateRisk.*|TestAffiliateRepo.*Freeze.*|TestAffiliateRepo.*Claim.*Risk.*|TestAffiliateRepo.*Transfer.*Risk.*" -count=1` 通过。
+- `go test ./internal/handler/admin -run "Test.*Setting|TestSetting|Test.*Affiliate" -count=1` 通过。
 - `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend run typecheck"` 通过。
-- `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/views/user/__tests__/PaymentView.spec.ts src/views/user/__tests__/PaymentResultView.spec.ts src/components/payment/__tests__/currency.spec.ts src/components/payment/__tests__/PaymentQRDialog.spec.ts src/components/payment/__tests__/SubscriptionPlanCard.spec.ts src/views/user/__tests__/KeysView.createQuery.spec.ts src/utils/apiKeyCapabilities.spec.ts"` 通过，6 files / 54 tests。
-- 质检智能体补跑确认通过：repository voucher/studio 定向测试、支付前端 Vitest 4 files / 32 tests、公共/设置/福利 Vitest 4 files / 33 tests、`git diff --check`。
+- `git diff --check` 通过。
+- `git diff --name-only origin/main..HEAD | rg "<denied-path-regex>"` 未命中，输出 `NO_DENIED_PATHS`。
+- `rg -n "^(<<<<<<< .+|=======$|>>>>>>> .+)$" .` 无命中。

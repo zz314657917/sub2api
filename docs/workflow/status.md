@@ -2,20 +2,20 @@
 phase: done
 current_sprint: affiliate-risk-alerts-s45
 total_sprints: 45
-pending_action: Wait for merge or start next approved Sprint
+pending_action: Start next approved Sprint or release validation
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-04 01:48 +08:00
+last_verified: 2026-07-04 02:02 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
 - 当前 Sprint：`affiliate-risk-alerts-s45`
-- 当前目标：等待合并 `codex/affiliate-risk-alerts-s45`，或进入下一个已批准 Sprint。
-- 当前结论：S45 已实现风险评分扫描、ops 告警、P2/P1 邀请奖励兑现冻结、后台扫描周期设置、IPv6 /64 归一化和扫描索引；QA 结论 PASS。
-- 当前默认续做提示：如果用户说“继续”，先确认 `codex/affiliate-risk-alerts-s45` 是否已合入；未合入则走合并/上线前复核，已合入则进入下一个已批准 Sprint。
+- 当前目标：S45 已合入 `main`，等待后续上线安排或进入下一个已批准 Sprint。
+- 当前结论：S45 已实现并合入 `main`：风险评分扫描、ops 告警、P2/P1 邀请奖励兑现冻结、后台扫描周期设置、IPv6 /64 归一化和扫描索引；QA 结论 PASS。
+- 当前默认续做提示：如果用户说“继续”，进入下一个已批准 Sprint；如果要上线，先做发布前验证。
 - 当前已确认事实：
   - S45 contract 已起草：`docs/workflow/tasks/affiliate-risk-alerts-s45.md`。
   - S45 目标是“风险评分 + ops 告警 + 奖励兑现冻结”，不是单条规则封号。
@@ -314,5 +314,6 @@ last_verified: 2026-07-04 01:48 +08:00
   - `git diff --check -- <S42 allowed paths>`
   - staged denied-path audit returned `NO_DENIED_PATHS` because no files were staged.
 - S42 QA 结论：PASS，详见 `docs/workflow/worker-results/upstream-main-v0143-user-model-stats-requested-s42-result.md` 和 `docs/workflow/qa-reports/upstream-main-v0143-user-model-stats-requested-s42-qa.md`。
-- 下一合法动作：等待 `codex/affiliate-risk-alerts-s45` 合并，或在用户确认后规划下一个 Sprint。
+- S45 已合入 `main`：merge commit `d1bc3aa40 merge: add affiliate risk scanner alerts`，功能分支 head `41e1befc docs: align affiliate risk workflow status`。
+- 下一合法动作：进入下一个已批准 Sprint，或按发布流程做 S45 上线前验证。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。
