@@ -1,21 +1,84 @@
 ---
-phase: done
-current_sprint: upstream-main-v0141-antigravity-system-role-s34
-total_sprints: 15
-pending_action: continue read-only upstream candidate scan for S35
+phase: contract-draft
+current_sprint: affiliate-risk-alerts-s45
+total_sprints: 24
+pending_action: Review S45 affiliate risk scanner contract; implement only in a clean worktree or after unrelated dirty paths are isolated
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-01 01:50 +08:00
+last_verified: 2026-07-03 19:30 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0141-antigravity-system-role-s34`
-- 当前目标：继续从最新 `upstream/main` 小步合入纯后端低风险补丁：Antigravity Claude-to-Gemini 转换中，把 `messages[].role == "system"` 内容合并进 Gemini `systemInstruction`，避免输出非法 `system` role 的 contents。
-- 当前结论：S34 已实现并通过定向 QA；本轮不整体 merge `upstream/main`，不触碰前端、Ent/migrations/wire、支付退款/余额预扣/返佣、Ops 分类大批、安全敏感凭证 redaction、Gemini chat-completions 大桥接、用户代理/账号脏改或 `knowledge/*`。
+- 当前阶段：`contract-draft`
+- 当前 Sprint：`affiliate-risk-alerts-s45`
+- 当前目标：评审邀请返佣风控扫描器 contract，确认默认 `20m` 且后台可调的扫描周期、最近 `12h` 窗口、评分告警和高风险冻结兑现边界。
+- 当前结论：S45 contract 已起草；当前不得直接在主工作树实现，因为仓库仍处于 payment/welfare/settings/gateway/frontend mixed dirty tree。
+- 当前默认续做提示：如果用户说“继续”，先处理 S45 contract review；除非用户明确回到 S44，否则不要恢复高峰倍率实现。S44 仍保持 blocked/deferred。
 - 当前已确认事实：
+  - S45 contract 已起草：`docs/workflow/tasks/affiliate-risk-alerts-s45.md`。
+  - S45 目标是“风险评分 + ops 告警 + 奖励兑现冻结”，不是单条规则封号。
+  - S45 扫描周期默认 `20m`，但必须加后台设置允许运营自行调整；扫描窗口固定为最近 `12h`。
+  - S45 扫描间隔设置建议限制在 `5-1440` 分钟，非法值回退默认 `20m`，并尽量运行中生效。
+  - S45 默认动作：`P3` 只告警；`P2/P1` 告警并冻结邀请奖励兑现。
+  - S45 冻结范围只覆盖首次 API 调用奖励 claim 和邀请返佣 quota 转余额；不自动封号、不自动禁用 API key、不回滚历史奖励、不撤销邀请关系。
+  - S45 数据源已确认可用：`users.register_ip`、`users.last_login_ip`、`usage_logs.ip_address`、`user_affiliates.inviter_id`、`user_affiliate_ledger.action = 'api_call_reward'`。
+  - S45 现有索引可支撑候选用户优先扫描：已有 `usage_logs(user_id, created_at)`、`usage_logs(created_at)`、`usage_logs(ip_address)`、`user_affiliates(inviter_id)` 和 API reward 防重复索引。
+  - S45 实现仍需补三个窄索引：`users(created_at)`、`user_affiliate_ledger(action, created_at)`、`usage_logs(ip_address, created_at) WHERE ip_address <> ''`。
+  - S45 复用 `ops_alert_events`；但 `OpsService.CreateAlertEvent` 本身只写事件，邮件通知当前在 `OpsAlertEvaluatorService` 内部完成，实现时要抽小 helper 或保留为明确 follow-up，不能复制大段邮件逻辑。
+  - S45 必须在干净 worktree 或收口脏树后实现，避免混入当前 payment/welfare/settings/gateway/frontend 脏改；settings 相关文件只允许新增扫描间隔设置，不允许吸收无关脏改。
+  - S44 contract 已起草：`docs/workflow/tasks/upstream-main-v0143-group-peak-rate-impl-s44.md`。
+  - S44 contract 已评审为 blocked：实现范围清楚，但当前 main worktree 中多个 S44 allowed paths 已经有未归属脏改，触发 stop rule。
+  - S44 当前阻塞路径：`backend/internal/handler/dto/settings.go`、`backend/internal/handler/payment_handler.go`、`backend/internal/service/billing_service.go`、`backend/internal/service/billing_service_test.go`、`backend/internal/service/gateway_service.go`、`backend/internal/service/openai_gateway_service.go`、`backend/internal/service/setting_service.go`、`frontend/src/types/index.ts`、`frontend/src/types/payment.ts`。
+  - S44 提议本地 migration 为 `backend/migrations/181_add_group_peak_rate_multiplier.sql`；福利券分支的未跟踪迁移已改为 `backend/migrations/182_welfare_vouchers.sql`，实现/合并前仍必须再次确认编号安全。
+  - S44 必须先做 dirty-tree preflight；若 allowed business paths 仍有未归属脏改，停止，不允许在当前主工作树硬合。
+  - S43 contract 已起草：`docs/workflow/tasks/upstream-main-v0143-group-peak-rate-plan-s43.md`。
+  - S43 contract 已评审批准：planning-only，允许路径只包含 workflow 文档，业务实现必须转入后续 Sprint。
+  - S43 目标上游提交是 `915c60b15`、`1034f576d`、`11a3da65c`，三者共同组成订阅分组高峰时段倍率主功能、全链路透传/计费边界修正、配置加固和服务端时区展示。
+  - 本地预检确认尚无 `peak_rate_enabled`、`peak_start`、`peak_end`、`peak_rate_multiplier` 字段或链路；当前只有普通 `rate_multiplier`、`image_rate_multiplier` 和用户专属分组倍率/RPM。
+  - S43 不是小补丁：它会触达 Ent/migration、admin group handler/DTO、group service、API key auth cache、billing/gateway usage recording、available channels、payment/subscription plan API、admin/user frontend display 和 i18n。
+  - 当前主工作树仍有 payment、welfare voucher、settings、billing、gateway、frontend payment/i18n、knowledge 脏改；高峰倍率上游触达路径与 `backend/internal/handler/dto/settings.go`、`backend/internal/handler/payment_handler.go`、`backend/internal/service/billing_service.go`、`backend/internal/service/gateway_service.go`、`backend/internal/service/openai_gateway_service.go`、`backend/internal/service/setting_service.go`、`frontend/src/types/index.ts`、`frontend/src/types/payment.ts` 重叠，因此实现前必须先收口或隔离。
+  - 上游使用 migration `158_add_group_peak_rate_multiplier.sql`，本地 migration 已推进到更高编号且有未提交 migration 工作；实现 Sprint 必须分配本地下一安全编号，不能照搬上游 158。
+  - 上游允许 `peak_rate_multiplier=0` 代表高峰免费/折扣策略；实现前需要确认本地产品语义是否接受。
+  - S35 合并计划已批准：`docs/workflow/tasks/upstream-main-v0142-merge-plan-s35.md` 标记为 approved，后续实现必须按独立 Sprint 推进。
+  - S36 contract 已批准并完成：`docs/workflow/tasks/upstream-main-v0142-payment-refund-s36.md` 标记为 approved，结果和 QA 记录已落到 worker-results / qa-reports。
+  - S37 contract 已批准：`docs/workflow/tasks/upstream-main-v0142-openai-codex-gateway-s37.md`，实现必须限制在该 contract 的 allowed paths 内。
+  - S37 实际合入：Codex OAuth `reasoning` items 不再整项丢弃，而是保留 `encrypted_content` / `content` / `summary`，仅移除 `rs_*` id，并在缺少 `summary` 时补空数组；`gpt-5.5-pro` 作为独立 Codex 模型名保留，同时沿用 GPT-5.5/GPT-5.4 fallback 价格和长上下文计费策略。
+  - S38a contract 已批准：`docs/workflow/tasks/upstream-main-v0142-account-repo-count-s38a.md`，候选只包含 `fd004bdd8 fix(account-repo): Clone query before Count to prevent state pollution`。
+  - S38a 预检显示 `backend/internal/repository/account_repo.go` 和 `backend/internal/repository/account_repo_integration_test.go` 当前干净，且 `fd004bdd8` 只触碰这两个文件。
+  - S38a 实际合入：`accountRepository.ListWithFilters` 使用 `q.Clone().Count(ctx)`，避免 Ent interceptor 追加 predicate 时污染随后分页列表查询；集成测试新增单页 `pagination.Total == len(accounts)` 断言。
+  - S39a contract 已批准：`docs/workflow/tasks/upstream-main-v0142-frontend-api-base-s39a.md`，候选只包含 `2a58a57a7` 中不触碰 dirty `SettingsView.vue` 的 direct frontend request API-base 核心。
+  - S39a 预检显示：`2a58a57a7` 除 `frontend/src/views/admin/SettingsView.vue` 外的 touched paths 当前干净；`SettingsView.vue` 已有 19 行本地脏改，本轮 denied。
+  - S39a 本地适配：上游聚合 i18n 文件在本地拆分为 `frontend/src/i18n/locales/{en,zh}/admin/settings.ts`，因此 contract allowed/acceptance paths 已按本地结构调整。
+  - S39a 实际合入：新增 `frontend/src/api/url.ts`，并让 admin ops WebSocket、API client refresh、setup API、account test streaming、key usage gateway fetch、custom page fetch 和 Stripe popup polling 使用配置 API base / gateway origin。
+  - S40 contract 已批准：`docs/workflow/tasks/upstream-main-v0143-claude-oauth-payload-s40.md`，候选只包含 `5bd9368ab fix claude oauth token exchange payload`。
+  - S40 预检显示 `backend/internal/repository/claude_oauth_service.go` 与 `backend/internal/repository/claude_oauth_service_test.go` 当前干净，且 `5bd9368ab` 只触碰这两个文件。
+  - S40 实际合入：Claude OAuth setup-token code exchange 不再向 token endpoint 发送 `expires_in`；对应测试改为断言 setup token 也 omit `expires_in`。
+  - S41 contract 已批准：`docs/workflow/tasks/upstream-main-v0143-antigravity-reasoning-params-s41.md`，候选只包含 `f5b296127 fix: Handle invalid arguments correctly for Gemini reasoning models`。
+  - S41 预检显示 `backend/internal/pkg/antigravity/claude_types.go`、`backend/internal/pkg/antigravity/request_transformer.go`、`backend/internal/pkg/antigravity/request_transformer_test.go` 当前干净；上游 `f5b296127` 只触碰前两个文件，本地允许补 focused unit tests。
+  - S41 目标行为：Gemini reasoning models 不再收到空工具场景下的强制 `toolConfig`，且不再收到 `stopSequences`、`temperature`、`topP`、`topK` 等无效参数；非 reasoning Gemini 行为保持不变。
+  - S41 实际合入：`modelDef` 增加 `IsReasoning`，新增 `IsGeminiReasoningModel`；Antigravity 转换器在 Gemini reasoning 模型且无工具时省略 `toolConfig`，并在 generationConfig 中省略 reasoning 模型不支持的 stop/temperature/topP/topK 参数；新增测试覆盖 reasoning 与 non-reasoning 分支。
+  - S42 contract 已批准：`docs/workflow/tasks/upstream-main-v0143-user-model-stats-requested-s42.md`，候选只包含 `e236bff1e fix: aggregate user model stats by requested model`。
+  - S42 预检显示 `backend/internal/repository/usage_log_repo.go` 与 `backend/internal/repository/usage_log_repo_request_type_test.go` 当前干净，且上游 `e236bff1e` 只触碰这两个文件。
+  - S42 目标行为：单用户模型统计复用本地 `getModelStatsWithFiltersBySource(..., usagestats.ModelSourceRequested)`，按 `requested_model` 聚合并在空值时回落 `model`。
+  - S42 实际合入：`GetUserModelStats` 改为复用 requested-model 聚合 helper；新增 sqlmock 测试锁定 `requested_model` fallback 表达式、user/time 参数顺序和扫描结果。
+  - 最新 release 已刷新为 `v0.1.143` / tag commit `9caa3c9c5`；`v0.1.143` 后 `upstream/main` 还有 `a5638a4e5` 与 `0b8e5eec3`，均未进入本轮。
+  - S39 中 `8c2d9b9a1` 继续 deferred，因为它移除 OpenAI 默认模型列表中的 `gpt-5.3-codex`，属于可见产品策略而非纯兼容小修。
+  - S38 full bundle 中 `9f5b57fc9` 继续 deferred，因为它触碰 `usage_billing_repo.go`、`billing_cache_service.go`、`gateway_service.go`、`usage_billing.go`、config 和 deploy 示例等当前脏树/高风险区域。
+  - S38 full bundle 中 `03727ac36` 继续 deferred，因为它触碰 subscription repository/service、billing cache、admin routes、DTO/types、frontend subscription API/types 和 integration tests，当前不适合混入窄补丁。
+  - S37 明确本地等价：`9491de0a3`、`ae5e980dd`、`65fa72892`、`0a97a5f46`、`2b49d662c`、`011278204`、`e5f7836bf`、`82553c4dc`、`7a38c6621` 已由本地 S21-S30/S23-S26 相关实现和本轮定向测试覆盖。
+  - S37 未触碰 Ent、migrations、wire、frontend、payment/refund、welfare voucher、Studio Bridge、user proxy/account ownership、repository、generic `gateway_service.go`、knowledge、deploy、assets 或 README。
+  - S37 候选提交是 `9491de0a3`、`ae5e980dd`、`65fa72892`、`0a97a5f46`、`2b49d662c`、`011278204`、`e5f7836bf`、`73de2ea7f`、`b28a22333`、`82553c4dc`、`7a38c6621`；本轮必须逐项判定 `ported / local-equivalent / skipped`。
+  - S37 预检显示：chat transport failover、token refresh non-retry、tool args dedupe、Spark image tool strip、Codex image bridge `tool_choice=auto`、quota platform billing、OpenAI count_tokens bridge 大概率已有本地等价；但当前本地 Codex OAuth transform 仍会丢弃 `reasoning` items，和 `73de2ea7f` 的 encrypted reasoning 保留方向不等价，需作为主要待 port 风险点。
+  - S36 实际合入：退款状态新增 `REFUND_PENDING`；Stripe/Airwallex/WxPay 增加退款查询；pending refund 支持回滚本地扣减并由 admin query/finalize 收口；匿名 `out_trade_no` public verify 返回最小 DTO；支付金额显示读取订单币种，余额 credit 显示保留本地 credit 语义；支付提供商卡片和弹窗对空 `supported_types` 做防御。
+  - S36 明确跳过：`c6f375d3a` 被 `b1403e8b2` superseded，订阅订单金额继续是 plan direct price；`65ad7df4f` 中 `SettingsView.vue` 相关部分因 denied path 跳过。
+  - S36 候选提交是 `c6f375d3a`、`b1403e8b2`、`55242ffac`、`65ad7df4f`、`7316d8302`、`93a3bf307`、`930326116`；它们只允许进入支付/退款批次。
+  - S36 不允许触碰 Ent、migrations、wire、welfare voucher、user proxy/account ownership、Studio Bridge、knowledge、Docker/deploy、README/assets 或当前未列入 allowed paths 的脏文件。
+  - GitHub latest release 已确认为 `v0.1.142` / `60da9ba17`，发布时间为 2026-07-01。
+  - 临时 worktree 试算 `git merge --no-commit --no-ff v0.1.142` 会产生大量冲突，冲突集中在 Ent 生成代码、account/proxy schema、gateway、payment、usage 和前端视图。
+  - `git apply --check --3way` 显示多个小补丁可单独迁入，但 Grok、OpenAI Spark shadow、Codex detect、Anthropic dateline / Sonnet5 是大功能链路，不能混入小补丁批次。
+  - 当前本地主工作树仍有福利券、设置、用户代理、前端 locale/view 和 knowledge 脏改，且 `main` 相对 `origin/main` ahead；后续代码 port 前必须先收口或隔离这些本地变更。
   - 本地 `main` 与 `upstream/main` 严重分叉，直接 merge 会冲突大量 Ent、wire、网关、设置页和前端文件。
   - 本地当前主线包含 Studio Bridge / 落叶AI、支付套餐、模型市场、Canvas、工单和公共页定制；上游小步迁移 Sprint 不允许覆盖这些产品面，产品合并批次则必须单独列出真实触达范围和验证。
   - 上游 `v0.1.137` 低风险候选包括前端依赖安全、token refresh 不可重试、zstd、非 JSON/SSE 错误保留、计费兜底、thinking 协议兼容、Responses sticky hash、Haiku 探测、OpenAI responses tool probe 和 ACL 拒绝信息。
@@ -61,6 +124,26 @@ last_verified: 2026-07-01 01:50 +08:00
   - S34 实际合入：上游 `65559ac58` / `fix(antigravity): merge system role messages`。Antigravity 转换器现在从 `messages` 中提取 `role:"system"` 的 parts，并追加到 Gemini `systemInstruction`；普通 user/assistant contents 不变，assistant 仍映射为 Gemini `model` role。
 - 目标验证入口：
   - `docs/workflow/tasks/upstream-main-v0141-antigravity-system-role-s34.md`
+  - `docs/workflow/tasks/upstream-main-v0143-antigravity-reasoning-params-s41.md`
+  - `docs/workflow/worker-results/upstream-main-v0143-antigravity-reasoning-params-s41-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0143-antigravity-reasoning-params-s41-qa.md`
+  - `docs/workflow/tasks/upstream-main-v0143-user-model-stats-requested-s42.md`
+  - `docs/workflow/worker-results/upstream-main-v0143-user-model-stats-requested-s42-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0143-user-model-stats-requested-s42-qa.md`
+  - `docs/workflow/tasks/upstream-main-v0143-claude-oauth-payload-s40.md`
+  - `docs/workflow/worker-results/upstream-main-v0143-claude-oauth-payload-s40-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0143-claude-oauth-payload-s40-qa.md`
+  - `docs/workflow/tasks/upstream-main-v0142-frontend-api-base-s39a.md`
+  - `docs/workflow/worker-results/upstream-main-v0142-frontend-api-base-s39a-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0142-frontend-api-base-s39a-qa.md`
+  - `docs/workflow/tasks/upstream-main-v0142-account-repo-count-s38a.md`
+  - `docs/workflow/worker-results/upstream-main-v0142-account-repo-count-s38a-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0142-account-repo-count-s38a-qa.md`
+  - `docs/workflow/tasks/upstream-main-v0142-openai-codex-gateway-s37.md`
+  - `docs/workflow/worker-results/upstream-main-v0142-openai-codex-gateway-s37-result.md`
+  - `docs/workflow/qa-reports/upstream-main-v0142-openai-codex-gateway-s37-qa.md`
+  - `docs/workflow/tasks/upstream-main-v0142-payment-refund-s36.md`
+  - `docs/workflow/tasks/upstream-main-v0142-merge-plan-s35.md`
   - `docs/workflow/worker-results/upstream-main-v0141-antigravity-system-role-s34-result.md`
   - `docs/workflow/qa-reports/upstream-main-v0141-antigravity-system-role-s34-qa.md`
   - `docs/workflow/tasks/upstream-main-v0141-payment-validity-units-s33.md`
@@ -180,5 +263,46 @@ last_verified: 2026-07-01 01:50 +08:00
   - `git diff --check -- backend/internal/service/payment_service.go backend/internal/service/payment_order_result_test.go`
   - `go test ./internal/pkg/antigravity -run "TestTransformClaudeToGeminiWithOptions_MessageRoles|TestTransformClaudeToGeminiWithOptions_PreservesBillingHeaderSystemBlock" -count=1`
   - `git diff --check -- backend/internal/pkg/antigravity/request_transformer.go backend/internal/pkg/antigravity/request_transformer_test.go`
-- 下一合法动作：精确 stage S34 allowed paths，执行 staged denied-path audit 后提交；之后继续只读筛选 S35。
+  - `go test ./internal/service -run "Test.*Payment.*|Test.*Refund.*|Test.*Order.*|TestComputeValidityDaysSupportsSingularAndPluralUnits" -count=1`
+  - `go test ./internal/handler -run "Test.*Payment.*|Test.*Refund.*" -count=1`
+  - `go test ./internal/handler/admin -run "Test.*Payment.*|Test.*Refund.*" -count=1`
+  - `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/views/user/__tests__/PaymentView.spec.ts src/views/user/__tests__/PaymentResultView.spec.ts src/components/payment/__tests__/currency.spec.ts src/components/payment/__tests__/PaymentQRDialog.spec.ts"`
+  - `git diff --check -- <S36 allowed paths>`
+- S37 验证：
+  - `go test ./internal/service -run "TestApplyCodexOAuthTransform_PreservesEncryptedReasoningAndStripsReasoningID|TestFilterCodexInput_PreservesReasoningItemsAndStripsReasoningIDs|TestNormalizeCodexModel_Gpt53|TestResolveOpenAIForwardModel|TestNormalizeOpenAIModelForUpstream|TestUsageBillingModelCandidatesPreserveGPT55ProModel|TestGetModelPricing_OpenAICompactAliasesFallback|TestCalculateCost_OpenAIGPT55ProUsesGPT55PricingPolicy|TestGetFallbackPricing_FamilyMatching|TestShouldAutoInjectPromptCacheKeyForCompat" -count=1`
+  - `go test ./internal/service -run "TestOpenAIImageOutputCounter|TestImagesOAuthNonStreaming_ContentRefusalReturns400NoRetry|TestForwardAsChatCompletions_EnforcesCodexCLIOnlyRestriction|TestForwardAsChatCompletions_TransportErrorReturnsFailover|TestForwardAsRawChatCompletions_TransportErrorReturnsFailover|TestIsNonRetryableRefreshError|TestHandleStreamingResponsePassthroughDeduplicatesFunctionCallArguments|TestForwardResponsesChatCompletionsFallbackKeepsFunctionArgumentsSingle|TestApplyCodexOAuthTransform_.*ImageGenerationTool.*Spark|TestOpenAIGatewayService_Forward_StripsImageGenerationToolForSparkAPIKey|TestStripCodexSparkImageGenerationToolFromRawPayload|TestOpenAIGatewayServiceForward_CodexImageInjectionRespectsGroupCapability|TestOpenAIGatewayServiceForward_ChannelBridgeOverrideEnablesCodexInjection|TestOpenAIGatewayServiceForward_CodexBridgePreservesExistingToolChoice|TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_InjectsCodexImageGenerationTool|TestOpenAIGatewayService_ForwardCountTokensAsAnthropic|TestBuildOpenAIEndpointURL|TestOpenAIQuotaPlatform|TestOpenAIGatewayServiceRecordUsage_.*QuotaPlatform|TestCodex.*Reasoning|Test.*Encrypted.*Reasoning|Test.*GPT55.*Pro|Test.*ModelMapping|TestCodexBaseInstructionsForModel|TestFilterCodexInput_PreservesReasoningItemsAndStripsReasoningIDs|TestNormalizeCodexModel_Gpt53|TestResolveOpenAIForwardModel|TestNormalizeOpenAIModelForUpstream|TestUsageBillingModelCandidatesPreserveGPT55ProModel|TestGetModelPricing_OpenAICompactAliasesFallback|TestCalculateCost_OpenAIGPT55ProUsesGPT55PricingPolicy|TestGetFallbackPricing_FamilyMatching|TestShouldAutoInjectPromptCacheKeyForCompat" -count=1`
+  - `go test ./internal/handler -run "TestOpenAIRecordUsageInputsCarryQuotaPlatform|TestResolveOpenAIMessagesDispatchMappedModel|TestNewOpenAIModelMappedBodyCache|TestOpenAIGatewayHandler|TestOpenAIGateway.*CountTokens" -count=1`
+  - `go test ./internal/server/routes -run "TestGatewayRoutes" -count=1`
+  - `git diff --check -- <S37 allowed paths>`
+  - staged denied-path audit returned `NO_DENIED_PATHS` because no files were staged.
+- S36 QA 结论：PASS，详见 `docs/workflow/worker-results/upstream-main-v0142-payment-refund-s36-result.md` 和 `docs/workflow/qa-reports/upstream-main-v0142-payment-refund-s36-qa.md`。
+- S37 QA 结论：PASS，详见 `docs/workflow/worker-results/upstream-main-v0142-openai-codex-gateway-s37-result.md` 和 `docs/workflow/qa-reports/upstream-main-v0142-openai-codex-gateway-s37-qa.md`。
+- S38a 验证：
+  - 初始 contract 命令 `go test ./internal/repository -run "TestAccountRepoSuite/TestListWithFilters|TestAccountRepoSuite/TestListWithFiltersGroupFilter" -count=1` 返回 `ok ... [no tests to run]`，不作为验收证据。
+  - `go test -tags=integration ./internal/repository -run "TestAccountRepoSuite/TestListWithFilters" -count=1`
+  - `git diff --check -- <S38a allowed paths>`
+  - staged denied-path audit returned `NO_DENIED_PATHS` because no files were staged.
+- S38a QA 结论：PASS，详见 `docs/workflow/worker-results/upstream-main-v0142-account-repo-count-s38a-result.md` 和 `docs/workflow/qa-reports/upstream-main-v0142-account-repo-count-s38a-qa.md`。
+- S39a 验证：
+  - `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend run typecheck"`
+  - `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/views/user/__tests__/PaymentResultView.spec.ts src/views/user/__tests__/PaymentView.spec.ts"`，2 files / 22 tests passed。
+  - `git diff --check -- <S39a allowed paths>`
+  - staged denied-path audit returned `NO_DENIED_PATHS` because no files were staged.
+- S39a QA 结论：PASS，详见 `docs/workflow/worker-results/upstream-main-v0142-frontend-api-base-s39a-result.md` 和 `docs/workflow/qa-reports/upstream-main-v0142-frontend-api-base-s39a-qa.md`。
+  - S40 验证：
+  - `go test ./internal/repository -run "TestClaudeOAuthServiceSuite/TestExchangeCodeForToken" -count=1`
+  - `git diff --check -- <S40 allowed paths>`
+  - staged denied-path audit returned `NO_DENIED_PATHS` because no files were staged.
+- S40 QA 结论：PASS，详见 `docs/workflow/worker-results/upstream-main-v0143-claude-oauth-payload-s40-result.md` 和 `docs/workflow/qa-reports/upstream-main-v0143-claude-oauth-payload-s40-qa.md`。
+- S41 验证：
+  - `go test ./internal/pkg/antigravity -run "TestTransformClaudeToGeminiWithOptions_ReasoningModelOmitsInvalidArgs|TestBuildGenerationConfig_ReasoningModelOmitsUnsupportedParams|TestTransformClaudeToGeminiWithOptions_PreservesWebSearchAlongsideFunctions|TestTransformClaudeToGeminiWithOptions_MessageRoles" -count=1`
+  - `git diff --check -- <S41 allowed paths>`
+  - staged denied-path audit returned `NO_DENIED_PATHS` because no files were staged.
+- S41 QA 结论：PASS，详见 `docs/workflow/worker-results/upstream-main-v0143-antigravity-reasoning-params-s41-result.md` 和 `docs/workflow/qa-reports/upstream-main-v0143-antigravity-reasoning-params-s41-qa.md`。
+- S42 验证：
+  - `go test ./internal/repository -run "TestUsageLogRepositoryGetUserModelStatsUsesRequestedModel|TestUsageLogRepositoryGetModelStatsWithFiltersRequestTypePriority|TestClaudeOAuthServiceSuite/TestExchangeCodeForToken" -count=1`
+  - `git diff --check -- <S42 allowed paths>`
+  - staged denied-path audit returned `NO_DENIED_PATHS` because no files were staged.
+- S42 QA 结论：PASS，详见 `docs/workflow/worker-results/upstream-main-v0143-user-model-stats-requested-s42-result.md` 和 `docs/workflow/qa-reports/upstream-main-v0143-user-model-stats-requested-s42-qa.md`。
+- 下一合法动作：评审 `docs/workflow/tasks/affiliate-risk-alerts-s45.md`；批准后只能在干净 worktree 或隔离当前 payment-welfare-settings-gateway/frontend 脏树后实现。S44 高峰倍率保持 blocked/deferred。
 - 状态推进规则：`contract-draft -> contract-approved -> build -> qa -> fix -> retest -> done`。

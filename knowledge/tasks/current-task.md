@@ -1,96 +1,68 @@
 # 当前任务快照
 
-最后更新：2026-06-24 01:37 +08:00
+最后更新：2026-07-03 22:21 +08:00
 
 ## 背景
 
 - 仓库：`F:/mcplugins/sub2api`。
-- 当前分支：`codex/upstream-v0138-small-patches`。
-- 本轮用户要求：排行榜增加“模型榜”，先放假数据看效果；模型榜图标改为模型商图标；右侧增加“增长”和“排名变化”；把模型榜排名后面的 Token 文本改为百分比；按截图在右侧再补 Token 指标卡；最后把“Token 消耗榜 / 模型榜”切换收进排行榜卡片，去掉中间大空白，并更新本地容器。
-- 当前工作树是 mixed dirty tree，另有 S20 上游小补丁、Payment UI、knowledge 等无关脏改；提交时必须外科式 staging，不能 `git add .`。
+- 当前分支：`codex/welfare-voucher-image-preflight`。
+- `main` 与 `origin/main` 已确认一致：`9abff8fa588415fca795ae53ac09565b04c8edd1`，提交信息为 `merge: add group peak rate multiplier`。
+- 当前分支是在福利券、支付退款、OpenAI/Codex 网关与图片预扣费链路上继续收口；不要在未明确批准前把 `main` 的高峰倍率提交 merge/rebase 进来。
+
+## 当前目标
+
+- 收口 `codex/welfare-voucher-image-preflight`：确认代码提交边界、同步 workflow/knowledge 交接文档、推送分支到远端。
+- 保持 mixed dirty tree 纪律：只 stage 本轮文档/knowledge 收口文件，不使用 `git add .`。
 
 ## 本次已完成
 
-- 后端排行榜响应新增 `model_ranking` / `total_models`。
-- 后端新增模型榜聚合：按当前周期统计模型请求数、输入 Token、输出 Token、总 Token，并与上一同长度周期对比。
-- 模型榜新增趋势字段：
-  - `growth_percent`：相对上一周期 Token 增长百分比，保留 1 位小数。
-  - `rank_change`：上一周期排名减当前排名；正数表示上升，负数表示下降。
-- 空模型榜样例数据只在 `SUB2API_LEADERBOARD_SAMPLE_MODELS=true`，或 `SERVER_MODE=debug` 且 Gin debug 模式下启用。
-- 前端排行榜增加 Token 榜 / 模型榜切换。
-- 模型榜行内图标改为 `ModelIcon`，按模型名显示模型商图标。
-- 模型榜右侧指标区已按截图改为三列指标卡：
-  - Token：例如 `7.29B`、`194.35M`。
-  - 增长：例如 `+28.4%`、`-77.7%`、`—`。
-  - 排名变化：例如 `↑ 1`、`↓ 1`、`—`。
-- 模型榜移动端已做响应式堆叠，避免右侧指标挤压主内容。
-- 模型榜条形区域后面的值已从绝对 Token 改为当前可见模型榜 Token 占比：
-  - 正常显示 1 位小数百分比，例如 `83.3%`、`16.7%`。
-  - `0 < share < 0.1` 显示 `<0.1%`。
-  - tooltip / aria-label 仍保留绝对 Token，并追加百分比。
-- “Token 消耗榜 / 模型榜”切换按钮已从排行榜卡片外移入榜单卡片内部：
-  - 空态、Token 榜、模型榜三种分支都在卡片顶部内嵌同一组切换按钮。
-  - 左侧榜单外层去掉额外 `space-y-3` 间距，避免 tab 和榜单卡片之间出现割裂大空白。
-- 已补中英文 i18n、前端类型、后端/前端定向测试。
-- 已修复模型榜 SQL 歧义导致的排行榜接口 500：最终 SELECT / WHERE / ORDER BY 改为显式 `ranked.*` 别名，避免 `model` 在 `ranked` 与 `previous_ranked` join 后被 PostgreSQL 判定为 ambiguous。
+- 已完成 `main -> origin/main` 推送确认；本地和远端 `main` 均为 `9abff8fa`。
+- 已回到 `codex/welfare-voucher-image-preflight`。
+- 福利券图片预扣费相关源码已分四笔提交收口：
+  - `1d3c2e786 fix(openai): preserve codex reasoning and gpt55 pro pricing`
+  - `6a9b68bbc fix(payment): finalize pending refunds safely`
+  - `f81aab169 feat(welfare): add voucher wallet image preflight billing`
+  - `82625e7f0 test(payment): lock public verify and proxy stubs`
+- 源码 dirty 已清空；当前剩余 dirty 只在 workflow/knowledge 文档。
+- `backend/migrations/182_welfare_vouchers.sql` 已作为本地福利券 migration 编号使用，因为 `main` 已包含 `181_add_group_peak_rate_multiplier.sql`。
 
-## 本地容器
+## 已确认事实
 
-- 当前在线容器：`sub2api`，不是 `sub2api-dev`。
-- 地址：`http://127.0.0.1:62080`。
-- 当前镜像：`sub2api:codex-20260624-0132-leaderboard-tabs-card`。
-- 当前镜像 ID：`sha256:08635c5210a05c1136fee41aeff556f486c01b7a85ff41b2192f592939aeb658`。
-- `sub2api:local` 已指向同一新镜像。
-- 当前容器状态：`running healthy`，端口 `127.0.0.1:62080->8080`。
-- 本次 tab 收进卡片更新前容器备份：`sub2api-before-leaderboard-tabs-card-20260624-0132`，旧镜像 `sub2api:codex-20260624-0120-payment-layout-wide`。
-- Payment 宽布局更新前容器备份：`sub2api-before-payment-layout-wide-20260624-0120`，旧镜像 `sub2api:codex-20260624-0115-leaderboard-token-card`。
-- 本次 Token 卡更新前容器备份：`sub2api-before-leaderboard-token-card-20260624-0115`，旧镜像 `sub2api:codex-20260624-0051-payment-layout`。
-- 百分比显示更新前容器备份：`sub2api-before-leaderboard-percent-20260624-0050`，旧镜像 `sub2api:codex-20260624-0036-leaderboard-sqlfix`。
-- 更早 SQL 修复前容器备份：`sub2api-before-leaderboard-sqlfix-20260624-0036`，旧镜像 `sub2api:codex-20260624-0011-leaderboard-trend`。
-- `sub2api-postgres` 和 `sub2api-redis` 未重建，数据容器未动。
-- Docker 更新锁已获取并释放。
+- OpenAI/Codex 路径已保留 `reasoning` input items，仅剥离 `rs_*` id，并补齐空 `summary`。
+- `gpt-5.5-pro` 已作为独立 Codex 模型名保留，并走 GPT-5.5/GPT-5.4 价格 fallback。
+- 退款链路已新增 `REFUND_PENDING`，provider pending 退款会持久化并由 admin query/finalize 原子收口。
+- 匿名 `out_trade_no` public verify 仅返回最小订单 DTO。
+- 福利签到与 milestone 奖励改为发放 voucher；usage billing、Studio Bridge、OpenAI Video 已接入 voucher-first 抵扣。
+- OpenAI Images 已在上游派发前做确定性成本估算；估算失败 fail-closed，最终计费使用 `CostOverride` 与 `RequireBalanceCheck` 防并发透支。
+- `BillingCacheService.CheckBalanceAmountEligibility` 已按 voucher + balance 总可用额判断。
 
-## 验证记录
+## 待验证点
 
-- `go test ./internal/handler -run "TestUsageHandlerDashboardLeaderboard" -count=1` 通过。
-- `go test ./internal/repository -run "TestUsageLogRepositoryGetLeaderboardModelRanking|TestUsageLogRepositoryGetUserLeaderboard" -count=1` 通过。
-- `corepack.cmd pnpm --dir frontend exec vitest run src/views/user/__tests__/LeaderboardView.spec.ts src/__tests__/leaderboard-theme.spec.ts` 通过，2 files / 26 tests。
-- `corepack.cmd pnpm --dir frontend run typecheck` 通过。
-- `corepack.cmd pnpm --dir frontend run build` 通过，仅有既有 Browserslist、Node `DEP0190`、Vite dynamic/static import chunk warning 和大 chunk 提示。
-- `git diff --check -- frontend/src/views/user/LeaderboardView.vue frontend/src/views/user/__tests__/LeaderboardView.spec.ts` 通过。
-- `GET http://127.0.0.1:62080/health` 返回 200。
-- `docker exec sub2api /app/sub2api --version` 输出 `Sub2API 0.1.126 (commit: codex-leaderboard-tabs-card, built: 2026-06-23T17:33:03Z)`。
-- 当前容器日志无 `panic`、`pq:` 或 `ERROR`；`/leaderboard` 未登录访问返回 200 HTML。
-- 已确认 `http://127.0.0.1:62080/assets/LeaderboardView-CJliFWp5.js` 包含 `leaderboard-ranking-card-toolbar` 和 `leaderboard-model-token`。
-- 已确认 `http://127.0.0.1:62080/assets/LeaderboardView-ClHQr9PL.css` 包含 `leaderboard-ranking-card-toolbar` 和 `leaderboard-token-ranking-card`。
-- 早前临时登录后请求 `GET /api/v1/usage/dashboard/leaderboard?period=day` 返回 200，`code=0`，`model_ranking_count=3`，`total_models=3`，随后已调用登出接口撤销本次临时 refresh token。
+- 当前分支尚未与最新 `main` 合并；如果后续准备进主线，需要单独评估高峰倍率与福利券/支付文件的冲突。
+- 本地容器仍需在分支推送后按用户要求另行重建/替换；本轮收口不自动更新容器。
+- 文档收口提交后需要执行 `git diff --check`、`git diff --cached --check`，并用 `git status --short --branch` 确认工作树。
+- 分支推送后需要用 `git ls-remote origin refs/heads/codex/welfare-voucher-image-preflight` 确认远端 head。
 
-## 未验证点
+## 当前结论
 
-- 内置浏览器打开 `http://127.0.0.1:62080/leaderboard` 后标题为 `Login - 落叶网络`，未持有登录态，因此未完成真实登录态视觉截图验收。
-- 本轮收尾按精确 staging 分批提交；源码变更、知识记录和交接快照不混入无关未审文件。
-
-## 提交边界
-
-如用户要求提交，只 stage 本轮 leaderboard 相关文件：
-
-- `backend/internal/handler/usage_handler.go`
-- `backend/internal/handler/usage_handler_leaderboard_test.go`
-- `backend/internal/pkg/usagestats/usage_log_types.go`
-- `backend/internal/repository/usage_log_repo.go`
-- `backend/internal/repository/usage_log_repo_request_type_test.go`
-- `backend/internal/service/usage_service.go`
-- `frontend/src/types/index.ts`
-- `frontend/src/views/user/LeaderboardView.vue`
-- `frontend/src/views/user/__tests__/LeaderboardView.spec.ts`
-- `frontend/src/__tests__/leaderboard-theme.spec.ts`
-- `frontend/src/i18n/locales/zh/leaderboard.ts`
-- `frontend/src/i18n/locales/en/leaderboard.ts`
-
-不要混入 Payment、S20、`knowledge/05-current-focus.md`、`knowledge/studio-bridge-luoye.md` 或其它无关改动，除非用户明确要求。
+- `codex/welfare-voucher-image-preflight` 的源码实现和定向测试已完成，当前进入文档收口与远端同步阶段。
+- 下一步不应继续叠加新功能；先完成文档提交、推送分支，再决定是否开新的 main 合并/容器更新步骤。
 
 ## 下一步
 
-- 用户浏览器刷新 `http://127.0.0.1:62080/leaderboard` 后，切到“模型榜”，应看到“Token 消耗榜 / 模型榜”切换按钮被包进排行榜卡片顶部，下面紧跟 `模型 Top 10 / 总榜` 标题和榜单内容；条形区域后面是百分比，右侧指标卡依次为 `Token / 增长 / 排名变化`。
-- 如需视觉复核，先登录本地页面，再确认模型商图标、右侧三列指标、tab 内嵌卡片和移动端布局。
-- 合并/推送前继续按 cached diff 审核 staged 文件，并运行 `git diff --cached --check`。
+1. 运行 `git diff --check`。
+2. 精确 stage 当前 workflow/knowledge 文档。
+3. 运行 `git diff --cached --check` 和 staged 文件清单核对。
+4. 提交 `docs: refresh workflow and task handoff`。
+5. 推送 `codex/welfare-voucher-image-preflight` 并确认远端 head。
+6. 如继续上线验证，再单独执行本地容器重建与 payment/welfare/image 手动 smoke。
+
+## 验证记录
+
+- `go test ./internal/service -run "Test.*Payment.*|Test.*Refund.*|TestBillingCacheServiceCheckBalanceAmountEligibility|TestOpenAIGatewayServiceEstimateOpenAIImagesCost|TestUsageBillingWalletBalanceCost" -count=1` 通过。
+- `go test ./internal/handler -run "Test.*Payment.*|Test.*Refund.*|Test.*OpenAI.*Images|TestVerifyOrderPublic" -count=1` 通过。
+- `go test ./internal/repository -run "Test.*UsageBilling|Test.*Studio|Test.*OpenAIVideo|Test.*Welfare" -count=1` 通过。
+- `go test -tags=integration ./internal/repository -run "TestUsageBillingRepositoryApply_.*Voucher|TestUsageBillingRepositoryApply_RequireBalanceCheck" -count=1` 通过。
+- `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend run typecheck"` 通过。
+- `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/views/user/__tests__/PaymentView.spec.ts src/views/user/__tests__/PaymentResultView.spec.ts src/components/payment/__tests__/currency.spec.ts"` 通过。
+- 额外 OpenAI/Codex、payment、admin settings、repository 定向测试已在本轮收口前通过。

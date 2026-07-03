@@ -1,6 +1,6 @@
 # Studio Bridge / 落叶AI 联调
 
-最后更新：2026-06-23
+最后更新：2026-06-28
 
 ## 当前定位
 
@@ -43,6 +43,15 @@
 
 - 当前 Studio Bridge 主线已经不只包含 launch/redeem、余额和扣费；它还和首充福利、可配置充值套餐、注册 IP / 最近登录 IP 这些支付治理面共同组成默认后台知识。
 - 换句话说，后续如果做“落叶AI 生产联调”知识补写，不应再把它拆成 bridge 一页、支付一页、用户治理一页互不相关；默认心智应是同一条用户入口 -> 充值/余额 -> 创作扣费 -> 后台治理链路。
+
+## 与 6 月下旬上游安全小补丁的关系
+
+- 到 2026-06-26，Sub2API 的默认续做入口已经不再只有 Studio Bridge / 支付治理；`upstream-main-v0138-followup-safe-patches-s21/s22` 也进入了当前稳定工程背景层。
+- 这意味着后续再排查落叶AI生产联调时，不能把 bridge 问题和上游兼容问题完全分开看：
+  - Spark `image_generation` tool strip 会直接影响图片意图识别。
+  - usage cache token 明细会影响后台用量/排行类解释。
+  - Responses / ChatCompletions 工具参数去重、`refresh_token_invalidated` 非重试和 transport failover 会影响 OpenAI/Codex 路径的稳定性。
+- 但这条工程线当前仍明确不覆盖支付/订阅/余额预扣、前端产品页或 migrations；不要把 S21/S22 误说成 Studio Bridge 全面产品升级。
 
 ## 默认分组语义
 
