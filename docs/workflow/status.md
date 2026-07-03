@@ -1,22 +1,33 @@
 ---
 phase: done
-current_sprint: affiliate-risk-alerts-s45
-total_sprints: 45
+current_sprint: upstream-main-v0143-antigravity-oauth-401-recovery-s52
+total_sprints: 52
 pending_action: Start next approved Sprint or release validation
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-04 02:02 +08:00
+last_verified: 2026-07-04 02:31 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`affiliate-risk-alerts-s45`
-- 当前目标：S45 已合入 `main`，等待后续上线安排或进入下一个已批准 Sprint。
-- 当前结论：S45 已实现并合入 `main`：风险评分扫描、ops 告警、P2/P1 邀请奖励兑现冻结、后台扫描周期设置、IPv6 /64 归一化和扫描索引；QA 结论 PASS。
-- 当前默认续做提示：如果用户说“继续”，进入下一个已批准 Sprint；如果要上线，先做发布前验证。
+- 当前 Sprint：`upstream-main-v0143-antigravity-oauth-401-recovery-s52`
+- 当前目标：S45 前置 redeem 小补丁和 S46-S52 上游小补丁链已按顺序 cherry-pick 到集成分支，等待 no-ff 合入 `main` 并推送。
+- 当前结论：S45-S52 批量重放完成并通过计划内定向验证；S52 `-tags=unit` 命令已尝试，失败仅命中已知无关 service unit 编译基线。
+- 当前默认续做提示：如果用户说“继续”，执行 release validation 或进入下一个已批准 Sprint。
 - 当前已确认事实：
+  - S45-S52 集成分支：`codex/upstream-main-v0143-s45-s52-batch`。
+  - S45-S52 基线：`main` / `origin/main` 的 `485eaf801 docs: record affiliate risk merge`。
+  - S45-S52 按顺序 `cherry-pick -x` 完成：`544accdd3`、`af6c8fdeb`、`9aa85e59e`、`6888e9da5`、`512f44c13`、`6abeb0796`、`248bf80dc`、`c558b6eda`、`fed128046`、`5ce438fa7`、`b6970cdc6`、`4f9542e34`。
+  - S45 redeem 普通兑换现在拒绝 invitation/internal marker code，不再消耗这类 code。
+  - S46 Codex import 优先按 `chatgpt_user_id` 等用户身份匹配，shared account id 仅作最后 fallback；import API 请求超时提升到 120s。
+  - S47 ops realtime stats 新增内部缩减账号查询路径，并抑制 request canceled 日志噪音。
+  - S48 Codex OAuth input 保留 reasoning item 的 `encrypted_content` / `content` / `summary`，剥离 replay-unsafe `rs_*` id，缺失 `summary` 时补空数组。
+  - S49 `/responses/compact` 不再注入 Codex image bridge tool、tool_choice 或 bridge instructions。
+  - S50 Claude Code `>= claude-cli/2.1.193` streaming idle keepalive 改用空 content delta；旧客户端继续 ping。
+  - S51 Anthropic API Key 账号支持 `extra.anthropic_apikey_auth_scheme = "authorization_bearer"`，默认仍使用 `x-api-key`。
+  - S52 Antigravity OAuth 401 在有 refresh token 时进入临时不可调度恢复路径；无 refresh token 时仍置 error。
   - S45 contract 已起草：`docs/workflow/tasks/affiliate-risk-alerts-s45.md`。
   - S45 目标是“风险评分 + ops 告警 + 奖励兑现冻结”，不是单条规则封号。
   - S45 扫描周期默认 `20m`，但必须加后台设置允许运营自行调整；扫描窗口固定为最近 `12h`。
@@ -268,6 +279,15 @@ last_verified: 2026-07-04 02:02 +08:00
   - `git diff --check -- backend/internal/pkg/antigravity/request_transformer.go backend/internal/pkg/antigravity/request_transformer_test.go`
   - `go run -mod=mod entgo.io/ent/cmd/ent generate --feature sql/upsert,intercept,sql/execquery,sql/lock --idtype int64 ./schema` in `backend/ent`
   - `go test ./internal/service -run "Test.*Peak.*|Test.*Group.*Peak.*|Test.*Billing.*Peak.*|Test.*Gateway.*Peak.*|Test.*RecordUsage.*Peak.*" -count=1`
+  - `go test ./internal/service -run "TestRedeemRejects.*BeforeTransaction|TestFulfillPaidOrder.*Redeem|TestPaymentRechargePackage|TestFirstRechargeBonus|TestMonthlyRecharge" -count=1`
+  - `go test ./internal/handler/admin -run "TestCodexIdentity|TestParseCodexSessionImport|TestNormalizeCodexImport|TestResolveCodexImport|TestMergeCodexImport|TestImportCodex|TestOpsRealtimeRequestCanceled|TestOpsRealtime|TestGetConcurrencyStats|TestGetAccountAvailability|TestGetRealtimeTrafficSummary" -count=1`
+  - `go test ./internal/service -run "TestListAllAccountsForOps|TestOps.*Concurrency|TestOps.*Availability|TestFilterCodexInput|TestApplyCodexOAuthTransform|TestOpenAIGatewayServiceForward_CodexBridge|TestOpenAIGatewayServiceForward_.*Image|TestOpenAIGatewayService_CodexImageGenerationBridge|TestGatewayService_StreamingKeepalive|TestGatewayService_StreamingReusesScannerBufferAndStillParsesUsage|TestDetachUpstreamContextIgnoresClientCancel|TestAccount_GetAnthropicAPIKeyAuthScheme|TestGatewayService_AnthropicAPIKeyPassthrough_BearerAuthScheme|TestGatewayService_AnthropicAPIKeyBearerAuthScheme|TestBuildUpstreamModelsRequestsForAPIKeyAccounts" -count=1`
+  - `go test -tags=integration ./internal/repository -run "TestAccountRepoSuite/TestListOpsAccountsForStats|TestAccountRepoSuite/TestListWithFilters" -count=1`
+  - S52 unit-tag command attempted: `go test -tags=unit ./internal/service -run "TestRateLimitService_HandleUpstreamError_OAuth401SetsTempUnschedulable|TestRateLimitService_HandleUpstreamError_OAuth401NoRefreshTokenSetsError|TestTokenRefreshService_RefreshWithRetry_Antigravity|TestTokenRefreshService_RefreshWithRetry_ClearsTempUnschedulable" -count=1`; result: non-blocking known unrelated service unit compile baseline in billing tests (`ImageOutputPriceExplicit`, old `computeTokenBreakdown` / `calculateCostInternal` signatures).
+  - `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend run typecheck"`
+  - `git diff --check`
+  - `rg -n "^(<<<<<<< .+|=======$|>>>>>>> .+)$" .` no matches.
+  - S45-S52 denied-path audit over `git diff --name-only origin/main..HEAD` returned `DENIED_PATH_AUDIT_PASS`.
   - `go test ./internal/handler -run "Test.*AvailableChannel.*Peak.*|Test.*Payment.*Peak.*|TestGroupHandlerCreate_LeavesPeakRateNormalizationToService|TestGroupHandlerEndpoints" -count=1`
   - `go test ./internal/handler/admin -run "Test.*Group.*Peak.*|TestGroupHandlerCreate_LeavesPeakRateNormalizationToService|TestGroupHandlerEndpoints" -count=1`
   - `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend run typecheck"`
