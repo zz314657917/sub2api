@@ -249,6 +249,7 @@ import Select from '@/components/common/Select.vue'
 import TextArea from '@/components/common/TextArea.vue'
 import { Icon } from '@/components/icons'
 import { useClipboard } from '@/composables/useClipboard'
+import { buildApiUrl } from '@/api/client'
 import { adminAPI } from '@/api/admin'
 import type { Account, ClaudeModel } from '@/types'
 
@@ -427,7 +428,7 @@ const startTest = async () => {
 
   try {
     // Create EventSource for SSE
-    const url = `/api/v1/admin/accounts/${props.account.id}/test`
+    const url = buildApiUrl(`/admin/accounts/${props.account.id}/test`)
 
     // Use fetch with streaming for SSE since EventSource doesn't support POST
     const response = await fetch(url, {

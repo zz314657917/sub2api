@@ -431,6 +431,107 @@ func TestTransformClaudeToGeminiWithOptions_PreservesBillingHeaderSystemBlock(t 
 	}
 }
 
+func TestBuildGenerationConfig_ReasoningModelOmitsUnsupportedParams(t *testing.T) {
+	temperature := 0.7
+	topP := 0.9
+	topK := 40
+
+	cfg := buildGenerationConfig(&ClaudeRequest{
+		Model:       "gemini-3.1-pro-high",
+		MaxTokens:   2048,
+		Temperature: &temperature,
+		TopP:        &topP,
+		TopK:        &topK,
+	})
+	require.NotNil(t, cfg)
+	require.Equal(t, 2048, cfg.MaxOutputTokens)
+	require.Empty(t, cfg.StopSequences)
+	require.Nil(t, cfg.Temperature)
+	require.Nil(t, cfg.TopP)
+	require.Nil(t, cfg.TopK)
+
+	nonReasoningCfg := buildGenerationConfig(&ClaudeRequest{
+		Model:       "gemini-2.5-flash",
+		MaxTokens:   2048,
+		Temperature: &temperature,
+		TopP:        &topP,
+		TopK:        &topK,
+	})
+	require.NotNil(t, nonReasoningCfg)
+	require.Equal(t, DefaultStopSequences, nonReasoningCfg.StopSequences)
+	require.Equal(t, temperature, *nonReasoningCfg.Temperature)
+	require.Equal(t, topP, *nonReasoningCfg.TopP)
+	require.Equal(t, topK, *nonReasoningCfg.TopK)
+}
+
+func TestTransformClaudeToGeminiWithOptions_ReasoningModelOmitsInvalidArgs(t *testing.T) {
+	transform := func(t *testing.T, targetModel string, tools []ClaudeTool) V1InternalRequest {
+		t.Helper()
+
+		temperature := 0.7
+		topP := 0.9
+		topK := 40
+		claudeReq := &ClaudeRequest{
+			Model:       "claude-3-5-sonnet-latest",
+			MaxTokens:   4096,
+			Temperature: &temperature,
+			TopP:        &topP,
+			TopK:        &topK,
+			Messages: []ClaudeMessage{
+				{
+					Role:    "user",
+					Content: json.RawMessage(`[{"type":"text","text":"hello"}]`),
+				},
+			},
+			Tools: tools,
+		}
+
+		body, err := TransformClaudeToGeminiWithOptions(claudeReq, "project-1", targetModel, DefaultTransformOptions())
+		require.NoError(t, err)
+
+		var req V1InternalRequest
+		require.NoError(t, json.Unmarshal(body, &req))
+		return req
+	}
+
+	t.Run("reasoning model without tools omits invalid args", func(t *testing.T) {
+		req := transform(t, "gemini-3.1-pro-high", nil)
+
+		require.Nil(t, req.Request.ToolConfig)
+		require.NotNil(t, req.Request.GenerationConfig)
+		require.Empty(t, req.Request.GenerationConfig.StopSequences)
+		require.Nil(t, req.Request.GenerationConfig.Temperature)
+		require.Nil(t, req.Request.GenerationConfig.TopP)
+		require.Nil(t, req.Request.GenerationConfig.TopK)
+	})
+
+	t.Run("reasoning model with tools keeps tool config", func(t *testing.T) {
+		req := transform(t, "gemini-3.1-pro-high", []ClaudeTool{
+			{
+				Name:        "get_weather",
+				Description: "Get weather information",
+				InputSchema: map[string]any{"type": "object"},
+			},
+		})
+
+		require.NotNil(t, req.Request.ToolConfig)
+		require.Equal(t, "VALIDATED", req.Request.ToolConfig.FunctionCallingConfig.Mode)
+		require.Len(t, req.Request.Tools, 1)
+	})
+
+	t.Run("non reasoning model keeps default args", func(t *testing.T) {
+		req := transform(t, "gemini-2.5-flash", nil)
+
+		require.NotNil(t, req.Request.ToolConfig)
+		require.Equal(t, "VALIDATED", req.Request.ToolConfig.FunctionCallingConfig.Mode)
+		require.NotNil(t, req.Request.GenerationConfig)
+		require.Equal(t, DefaultStopSequences, req.Request.GenerationConfig.StopSequences)
+		require.NotNil(t, req.Request.GenerationConfig.Temperature)
+		require.NotNil(t, req.Request.GenerationConfig.TopP)
+		require.NotNil(t, req.Request.GenerationConfig.TopK)
+	})
+}
+
 func TestTransformClaudeToGeminiWithOptions_MessageRoles(t *testing.T) {
 	transform := func(t *testing.T, claudeReq *ClaudeRequest) V1InternalRequest {
 		t.Helper()

@@ -404,7 +404,7 @@ export default {
         homeHeroSubtitlesPlaceholder:
           '统一接入模型能力，按需付费\n完成教程接入 API，领取试用积分\n一把密钥连接你的 AI 工作流',
         apiBaseUrl: 'API 端点地址',
-        apiBaseUrlHint: '用于"使用密钥"和"导入到 CC Switch"功能，留空则使用当前站点地址',
+        apiBaseUrlHint: '用于"使用密钥"、"导入到 CC Switch"和直接 API 请求，留空则使用当前站点地址',
         apiBaseUrlPlaceholder: 'https://api.example.com',
         tablePreferencesTitle: '通用表格设置',
         tablePreferencesDescription: '设置后台与用户侧表格组件的默认分页行为',
