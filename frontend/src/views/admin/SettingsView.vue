@@ -5713,6 +5713,24 @@
 
               <div>
                 <label class="input-label">
+                  {{ t('admin.settings.features.affiliate.riskScanIntervalMinutes') }}
+                </label>
+                <input
+                  v-model.number="form.affiliate_risk_scan_interval_minutes"
+                  type="number"
+                  step="1"
+                  min="5"
+                  max="1440"
+                  class="input"
+                  placeholder="20"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.affiliate.riskScanIntervalMinutesDesc') }}
+                </p>
+              </div>
+
+              <div>
+                <label class="input-label">
                   {{ t('admin.settings.features.affiliate.durationDays') }}
                 </label>
                 <input
@@ -8238,6 +8256,7 @@ const form = reactive<SettingsForm>({
   affiliate_rebate_duration_days: 0,
   affiliate_rebate_per_invitee_cap: 0,
   affiliate_api_call_reward_amount: 0,
+  affiliate_risk_scan_interval_minutes: 20,
   default_concurrency: 1,
   default_subscriptions: [],
   force_email_on_third_party_signup: false,
@@ -9954,6 +9973,10 @@ async function saveSettings() {
       affiliate_rebate_duration_days: Math.max(0, Math.min(3650, Math.floor(Number(form.affiliate_rebate_duration_days) || 0))),
       affiliate_rebate_per_invitee_cap: Math.max(0, Number(form.affiliate_rebate_per_invitee_cap) || 0),
       affiliate_api_call_reward_amount: Math.max(0, Number(form.affiliate_api_call_reward_amount) || 0),
+      affiliate_risk_scan_interval_minutes: (() => {
+        const minutes = Math.floor(Number(form.affiliate_risk_scan_interval_minutes) || 20);
+        return minutes < 5 || minutes > 1440 ? 20 : minutes;
+      })(),
       default_concurrency: form.default_concurrency,
       default_subscriptions: normalizedDefaultSubscriptions,
       force_email_on_third_party_signup: form.force_email_on_third_party_signup,

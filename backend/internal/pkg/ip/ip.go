@@ -64,6 +64,30 @@ func normalizeIP(ip string) string {
 	return ip
 }
 
+// NormalizeIPForRiskKey normalizes an IP into a stable key for risk grouping.
+// IPv4 returns the exact canonical IP. IPv6 returns the /64 network key, e.g.
+// 2409:8962:e1:391d:7d22:7006:9425:c2f8 -> 2409:8962:e1:391d::/64.
+func NormalizeIPForRiskKey(raw string) string {
+	raw = normalizeIP(raw)
+	if raw == "" {
+		return ""
+	}
+	parsed := net.ParseIP(raw)
+	if parsed == nil {
+		return ""
+	}
+	if v4 := parsed.To4(); v4 != nil {
+		return v4.String()
+	}
+	v16 := parsed.To16()
+	if v16 == nil {
+		return ""
+	}
+	mask := net.CIDRMask(64, 128)
+	network := v16.Mask(mask)
+	return network.String() + "/64"
+}
+
 // privateNets 预编译私有 IP CIDR 块，避免每次调用 isPrivateIP 时重复解析
 var privateNets []*net.IPNet
 

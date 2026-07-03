@@ -132,6 +132,8 @@ export default {
           apiCallRewardAmountHint: 'Fixed rebate amount the inviter can claim after an invitee makes the first API call. 0 = disabled.',
           freezeHours: 'Rebate Freeze Period (hours)',
           freezeHoursDesc: 'New rebates will be frozen for this period before becoming available for withdrawal. 0 = no freeze.',
+          riskScanIntervalMinutes: 'Risk Scan Interval (minutes)',
+          riskScanIntervalMinutesDesc: 'Scans affiliate and API reward risk over the last 12 hours. Allowed range is 5-1440 minutes; invalid values fall back to 20.',
           durationDays: 'Rebate Duration (days)',
           durationDaysDesc: 'Rebate relationship expires after this many days since invitee registration. 0 = permanent.',
           perInviteeCap: 'Per-Invitee Rebate Cap',

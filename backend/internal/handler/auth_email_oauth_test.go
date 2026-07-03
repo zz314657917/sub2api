@@ -376,6 +376,10 @@ func (r *oauthEmailAffiliateRepoStub) ClaimAPICallReward(context.Context, int64,
 	panic("unexpected ClaimAPICallReward call")
 }
 
+func (r *oauthEmailAffiliateRepoStub) HasActiveRiskFreeze(context.Context, int64) (bool, error) {
+	return false, nil
+}
+
 func (r *oauthEmailAffiliateRepoStub) UpdateUserAffCode(context.Context, int64, string) error {
 	panic("unexpected UpdateUserAffCode call")
 }
