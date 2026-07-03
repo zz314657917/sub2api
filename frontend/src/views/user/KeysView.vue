@@ -187,6 +187,30 @@
                     {{ t('keys.multiGroupRouteCount', { count: row.multi_group_routes.length }) }}
                   </span>
                 </button>
+                <div
+                  v-if="smartRoutePreviewGroups(row).length > 0"
+                  class="flex max-w-[20rem] flex-wrap gap-1"
+                >
+                  <GroupBadge
+                    v-for="item in smartRoutePreviewGroups(row)"
+                    :key="`${row.id}-${item.index}-${item.route.group_id}`"
+                    :name="item.group.name"
+                    :platform="item.group.platform"
+                    :subscription-type="item.group.subscription_type"
+                    :rate-multiplier="item.group.rate_multiplier"
+                    :user-rate-multiplier="userGroupRates[item.group.id]"
+                    :peak-rate-enabled="item.group.peak_rate_enabled"
+                    :peak-start="item.group.peak_start"
+                    :peak-end="item.group.peak_end"
+                    :peak-rate-multiplier="item.group.peak_rate_multiplier"
+                  />
+                  <span
+                    v-if="smartRouteOverflowCount(row) > 0"
+                    class="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500 dark:bg-dark-700 dark:text-gray-300"
+                  >
+                    +{{ smartRouteOverflowCount(row) }}
+                  </span>
+                </div>
                 <span
                   v-if="row.account_pool_strategy && row.account_pool_strategy !== 'shared_only'"
                   class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
@@ -1690,6 +1714,33 @@ const selectedKeyForGroup = computed(() => {
 })
 
 const isSmartRoutingKey = (key: ApiKey) => (key.multi_group_routes?.length ?? 0) > 0
+const SMART_ROUTE_PREVIEW_LIMIT = 3
+
+interface SmartRoutePreviewGroup {
+  route: ApiKeyMultiGroupRoute
+  group: Group
+  index: number
+}
+
+const smartRouteGroups = (key: ApiKey): SmartRoutePreviewGroup[] => {
+  const groupsById = new Map((key.route_groups || []).map((group) => [group.id, group]))
+  return [...(key.multi_group_routes || [])]
+    .map((route, index) => ({ route, index }))
+    .filter((item) => item.route.enabled)
+    .sort((a, b) => {
+      const priorityA = a.route.priority > 0 ? a.route.priority : 100
+      const priorityB = b.route.priority > 0 ? b.route.priority : 100
+      return priorityA === priorityB ? a.index - b.index : priorityA - priorityB
+    })
+    .map(({ route, index }) => ({ route, index, group: groupsById.get(route.group_id) }))
+    .filter((item): item is SmartRoutePreviewGroup => Boolean(item.group))
+}
+
+const smartRoutePreviewGroups = (key: ApiKey) => smartRouteGroups(key).slice(0, SMART_ROUTE_PREVIEW_LIMIT)
+
+const smartRouteOverflowCount = (key: ApiKey) => {
+  return Math.max(0, smartRouteGroups(key).length - SMART_ROUTE_PREVIEW_LIMIT)
+}
 
 const apiKeyCapabilityItems = (key: ApiKey) => {
   const capabilities = apiKeyUnifiedAccessCapabilities(key)

@@ -9208,7 +9208,7 @@ func (s *GatewayService) calculateRecordUsageCost(
 	opts *recordUsageOpts,
 ) *CostBreakdown {
 	// 图片生成计费
-	if result.ImageCount > 0 {
+	if s.shouldUseImageBillingCost(ctx, billingModel, apiKey, result) {
 		return s.calculateImageCost(ctx, result, apiKey, billingModel, imageMultiplier)
 	}
 
@@ -9216,10 +9216,18 @@ func (s *GatewayService) calculateRecordUsageCost(
 	return s.calculateTokenCost(ctx, result, apiKey, billingModel, multiplier, opts)
 }
 
+func (s *GatewayService) shouldUseImageBillingCost(ctx context.Context, billingModel string, apiKey *APIKey, result *ForwardResult) bool {
+	if result == nil || result.ImageCount <= 0 {
+		return false
+	}
+	resolved := s.resolveChannelPricing(ctx, billingModel, apiKey)
+	return resolved == nil || resolved.Mode == BillingModePerRequest || resolved.Mode == BillingModeImage
+}
+
 // resolveChannelPricing 检查指定模型是否存在渠道级别定价。
 // 返回非 nil 的 ResolvedPricing 表示有渠道定价，nil 表示走默认定价路径。
 func (s *GatewayService) resolveChannelPricing(ctx context.Context, billingModel string, apiKey *APIKey) *ResolvedPricing {
-	if s.resolver == nil || apiKey.Group == nil {
+	if s.resolver == nil || apiKey == nil || apiKey.Group == nil {
 		return nil
 	}
 	gid := apiKey.Group.ID
@@ -9384,7 +9392,7 @@ func (s *GatewayService) buildRecordUsageLog(
 		SubscriptionID:        optionalSubscriptionID(subscription),
 		CreatedAt:             time.Now(),
 	}
-	if result.ImageCount > 0 {
+	if isUsageLogImageBillingMode(resolveUsageLogBillingMode(result.ImageCount, cost)) {
 		usageLog.RateMultiplier = imageMultiplier
 		usageLog.BillingTier = optionalTrimmedStringPtr(ImageBillingTierWithQuality(result.ImageSize, result.ImageQuality))
 	}
@@ -9403,16 +9411,22 @@ func (s *GatewayService) buildRecordUsageLog(
 
 // resolveBillingMode 根据计费结果和请求类型确定计费模式。
 func resolveBillingMode(result *ForwardResult, cost *CostBreakdown) *string {
-	var mode string
-	switch {
-	case cost != nil && cost.BillingMode != "":
-		mode = cost.BillingMode
-	case result.ImageCount > 0:
-		mode = string(BillingModeImage)
-	default:
-		mode = string(BillingModeToken)
-	}
+	mode := resolveUsageLogBillingMode(result.ImageCount, cost)
 	return &mode
+}
+
+func resolveUsageLogBillingMode(imageCount int, cost *CostBreakdown) string {
+	if cost != nil && cost.BillingMode != "" {
+		return cost.BillingMode
+	}
+	if imageCount > 0 {
+		return string(BillingModeImage)
+	}
+	return string(BillingModeToken)
+}
+
+func isUsageLogImageBillingMode(mode string) bool {
+	return mode == string(BillingModeImage) || mode == string(BillingModePerRequest)
 }
 
 func optionalSubscriptionID(subscription *UserSubscription) *int64 {

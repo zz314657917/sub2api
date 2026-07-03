@@ -4,6 +4,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import SubscriptionPlanCard from '../SubscriptionPlanCard.vue'
 import type { SubscriptionPlan } from '@/types/payment'
 import { useAppStore } from '@/stores/app'
+import { CREDIT_SYMBOL } from '@/utils/credits'
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
@@ -59,11 +60,11 @@ describe('SubscriptionPlanCard', () => {
     })
 
     expect(wrapper.text()).not.toContain('payment.planCard.dailyLimit')
-    expect(wrapper.text()).not.toContain('$0')
+    expect(wrapper.text()).not.toContain(`${CREDIT_SYMBOL} 0`)
     expect(wrapper.text()).toContain('payment.planCard.weeklyLimit')
-    expect(wrapper.text()).toContain('$350')
+    expect(wrapper.text()).toContain(`${CREDIT_SYMBOL} 350.00`)
     expect(wrapper.text()).toContain('payment.planCard.monthlyLimit')
-    expect(wrapper.text()).toContain('$1250')
+    expect(wrapper.text()).toContain(`${CREDIT_SYMBOL} 1,250.00`)
   })
 
   it('treats zero cycle limits as unlimited', () => {
@@ -76,7 +77,7 @@ describe('SubscriptionPlanCard', () => {
 
     expect(wrapper.text()).toContain('payment.planCard.quota')
     expect(wrapper.text()).toContain('payment.planCard.unlimited')
-    expect(wrapper.text()).not.toContain('$0')
+    expect(wrapper.text()).not.toContain(`${CREDIT_SYMBOL} 0`)
   })
 
   it('does not expose Antigravity model scope names for OpenAI plans', () => {
