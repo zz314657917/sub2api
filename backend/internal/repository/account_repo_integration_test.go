@@ -457,6 +457,47 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 	}
 }
 
+func (s *AccountRepoSuite) TestListOpsAccountsForStatsFiltersAndLoadsGroups() {
+	targetGroup := mustCreateGroup(s.T(), s.client, &service.Group{
+		Name:     "ops-target",
+		Platform: service.PlatformOpenAI,
+	})
+	otherGroup := mustCreateGroup(s.T(), s.client, &service.Group{
+		Name:     "ops-other",
+		Platform: service.PlatformAnthropic,
+	})
+	target := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:        "ops-target-account",
+		Platform:    service.PlatformOpenAI,
+		Concurrency: 9,
+	})
+	otherPlatform := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:     "ops-other-platform",
+		Platform: service.PlatformAnthropic,
+	})
+	ungrouped := mustCreateAccount(s.T(), s.client, &service.Account{
+		Name:     "ops-ungrouped",
+		Platform: service.PlatformOpenAI,
+	})
+	mustBindAccountToGroup(s.T(), s.client, target.ID, targetGroup.ID, 1)
+	mustBindAccountToGroup(s.T(), s.client, otherPlatform.ID, otherGroup.ID, 1)
+
+	accounts, err := s.repo.ListOpsAccountsForStats(s.ctx, service.PlatformOpenAI, &targetGroup.ID)
+	s.Require().NoError(err)
+	s.Require().Len(accounts, 1)
+	s.Require().Equal(target.ID, accounts[0].ID)
+	s.Require().Equal("ops-target-account", accounts[0].Name)
+	s.Require().Equal(service.PlatformOpenAI, accounts[0].Platform)
+	s.Require().Equal(9, accounts[0].Concurrency)
+	s.Require().Equal([]int64{targetGroup.ID}, accounts[0].GroupIDs)
+	s.Require().Len(accounts[0].Groups, 1)
+	s.Require().Equal("ops-target", accounts[0].Groups[0].Name)
+
+	accounts, err = s.repo.ListOpsAccountsForStats(s.ctx, service.PlatformOpenAI, nil)
+	s.Require().NoError(err)
+	s.Require().ElementsMatch([]int64{target.ID, ungrouped.ID}, idsOfAccounts(accounts))
+}
+
 // --- ListByGroup / ListActive / ListByPlatform ---
 
 func (s *AccountRepoSuite) TestListByGroup() {

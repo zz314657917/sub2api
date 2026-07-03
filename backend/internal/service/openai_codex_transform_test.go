@@ -1394,7 +1394,7 @@ func TestFilterCodexInput_PreservesReasoningItemsAndStripsReasoningIDs(t *testin
 				"summary":           []any{map[string]any{"type": "summary_text", "text": "kept"}},
 			},
 			map[string]any{"type": "reasoning", "id": "rs_without_summary"},
-			map[string]any{"type": "function_call", "id": "fc_1", "call_id": "fc_1", "name": "tool"},
+			map[string]any{"type": "function_call", "id": "fc_1", "call_id": "fc_1", "name": "tool", "arguments": "{}"},
 			map[string]any{"type": "function_call_output", "call_id": "fc_1", "output": "{}"},
 		}
 	}
@@ -1405,34 +1405,105 @@ func TestFilterCodexInput_PreservesReasoningItemsAndStripsReasoningIDs(t *testin
 			filtered := filterCodexInput(build(), preserve)
 			require.Len(t, filtered, 5)
 
-			gotTypes := make(map[string]int)
-			var reasoningItems []map[string]any
+			byType := make(map[string][]map[string]any)
 			for _, raw := range filtered {
 				item, ok := raw.(map[string]any)
 				require.True(t, ok)
 				typ, ok := item["type"].(string)
 				require.True(t, ok)
-				gotTypes[typ]++
-				if typ == "reasoning" {
-					reasoningItems = append(reasoningItems, item)
-				}
+				byType[typ] = append(byType[typ], item)
 				if id, ok := item["id"].(string); ok {
-					require.False(t, strings.HasPrefix(id, "rs_"),
-						"no item carrying an rs_* id should survive the filter")
+					require.False(t, strings.HasPrefix(id, "rs_"))
 				}
 			}
 
-			require.Equal(t, 1, gotTypes["message"])
-			require.Equal(t, 1, gotTypes["function_call"])
-			require.Equal(t, 1, gotTypes["function_call_output"])
-			require.Equal(t, 2, gotTypes["reasoning"])
-			require.Equal(t, "gAAAAAB-enc-payload", reasoningItems[0]["encrypted_content"])
-			require.NotContains(t, reasoningItems[0], "id")
-			require.Equal(t, []any{map[string]any{"type": "summary_text", "text": "kept"}}, reasoningItems[0]["summary"])
-			require.NotContains(t, reasoningItems[1], "id")
-			summary, ok := reasoningItems[1]["summary"].([]any)
+			require.Len(t, byType["reasoning"], 2)
+			for _, r := range byType["reasoning"] {
+				_, hasID := r["id"]
+				require.False(t, hasID)
+				_, hasSummary := r["summary"]
+				require.True(t, hasSummary)
+			}
+			require.Equal(t, "gAAAAAB-enc-payload", byType["reasoning"][0]["encrypted_content"])
+			require.Equal(t, []any{map[string]any{"type": "summary_text", "text": "kept"}}, byType["reasoning"][0]["summary"])
+			summary, ok := byType["reasoning"][1]["summary"].([]any)
 			require.True(t, ok)
 			require.Len(t, summary, 0)
+			require.Len(t, byType["message"], 1)
+			require.Len(t, byType["function_call"], 1)
+			require.Equal(t, "fc_1", byType["function_call"][0]["call_id"])
+			require.Len(t, byType["function_call_output"], 1)
+			require.Equal(t, "fc_1", byType["function_call_output"][0]["call_id"])
 		})
 	}
+}
+
+func TestFilterCodexInput_BareReasoningStripsIDBackfillsSummary(t *testing.T) {
+	input := []any{
+		map[string]any{
+			"type": "reasoning",
+			"id":   "rs_0672f12450da0b9c0169f07220a6c08198b68c2455ced99344",
+		},
+	}
+
+	filtered := filterCodexInput(input, false)
+	require.Len(t, filtered, 1)
+
+	item, ok := filtered[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "reasoning", item["type"])
+	_, hasID := item["id"]
+	require.False(t, hasID)
+	summary, ok := item["summary"].([]any)
+	require.True(t, ok)
+	require.Len(t, summary, 0)
+}
+
+func TestFilterCodexInput_ReasoningBackfillsMissingSummary(t *testing.T) {
+	input := []any{
+		map[string]any{
+			"type":              "reasoning",
+			"id":                "rs_abc",
+			"encrypted_content": "gAAAAAB-enc",
+		},
+	}
+
+	filtered := filterCodexInput(input, false)
+	require.Len(t, filtered, 1)
+
+	item, ok := filtered[0].(map[string]any)
+	require.True(t, ok)
+	summary, ok := item["summary"].([]any)
+	require.True(t, ok)
+	require.Len(t, summary, 0)
+	require.Equal(t, "gAAAAAB-enc", item["encrypted_content"])
+}
+
+func TestFilterCodexInput_PreservesReasoningSummaryAndContent(t *testing.T) {
+	summary := []any{
+		map[string]any{"type": "summary_text", "text": "Considered the options."},
+	}
+	content := []any{
+		map[string]any{"type": "reasoning_text", "text": "internal chain"},
+	}
+	input := []any{
+		map[string]any{
+			"type":              "reasoning",
+			"id":                "rs_abc",
+			"summary":           summary,
+			"content":           content,
+			"encrypted_content": "gAAAAAB-enc",
+		},
+	}
+
+	filtered := filterCodexInput(input, false)
+	require.Len(t, filtered, 1)
+
+	item, ok := filtered[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, summary, item["summary"])
+	require.Equal(t, content, item["content"])
+	require.Equal(t, "gAAAAAB-enc", item["encrypted_content"])
+	_, hasID := item["id"]
+	require.False(t, hasID)
 }

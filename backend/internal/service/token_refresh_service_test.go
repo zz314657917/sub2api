@@ -201,17 +201,21 @@ func TestTokenRefreshService_RefreshWithRetry_NilInvalidator(t *testing.T) {
 func TestTokenRefreshService_RefreshWithRetry_Antigravity(t *testing.T) {
 	repo := &tokenRefreshAccountRepo{}
 	invalidator := &tokenCacheInvalidatorStub{}
+	tempCache := &tempUnschedCacheStub{}
 	cfg := &config.Config{
 		TokenRefresh: config.TokenRefreshConfig{
 			MaxRetries:          1,
 			RetryBackoffSeconds: 0,
 		},
 	}
-	service := NewTokenRefreshService(repo, nil, nil, nil, nil, invalidator, nil, cfg, nil)
+	service := NewTokenRefreshService(repo, nil, nil, nil, nil, invalidator, nil, cfg, tempCache)
+	until := time.Now().Add(10 * time.Minute)
 	account := &Account{
-		ID:       8,
-		Platform: PlatformAntigravity,
-		Type:     AccountTypeOAuth,
+		ID:                      8,
+		Platform:                PlatformAntigravity,
+		Type:                    AccountTypeOAuth,
+		TempUnschedulableUntil:  &until,
+		TempUnschedulableReason: "OAuth 401: unauthorized",
 	}
 	refresher := &tokenRefresherStub{
 		credentials: map[string]any{
@@ -223,6 +227,8 @@ func TestTokenRefreshService_RefreshWithRetry_Antigravity(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, repo.updateCalls)
 	require.Equal(t, 1, invalidator.calls) // Antigravity 也应触发缓存失效
+	require.Equal(t, 1, repo.clearTempCalls, "Antigravity OAuth refresh should clear 401 temp-unschedulable state")
+	require.Equal(t, 1, tempCache.deleteCalls, "Antigravity OAuth refresh should clear scheduler cache state")
 }
 
 // TestTokenRefreshService_RefreshWithRetry_NonOAuthAccount 测试非 OAuth 账号不触发缓存失效
