@@ -13,11 +13,14 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	apptimezone "github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
+	"golang.org/x/sync/singleflight"
 )
 
 var (
 	ErrUsageLogNotFound = infraerrors.NotFound("USAGE_LOG_NOT_FOUND", "usage log not found")
 )
+
+const leaderboardStatsCacheTTL = 30 * time.Second
 
 // CreateUsageLogRequest 创建使用日志请求
 type CreateUsageLogRequest struct {
@@ -67,6 +70,11 @@ type UsageService struct {
 	redeemRepo           RedeemCodeRepository
 	badgeCacheMu         sync.Mutex
 	badgeCache           map[string]leaderboardBadgeCacheEntry
+	leaderboardCacheMu   sync.Mutex
+	leaderboardCacheSF   singleflight.Group
+	userLeaderboardCache map[string]leaderboardUserCacheEntry
+	modelRankingCache    map[string]leaderboardModelRankingCacheEntry
+	recentTrendCache     map[string]leaderboardRecentTrendCacheEntry
 }
 
 type userLeaderboardBadgeLeaderRepository interface {
@@ -82,6 +90,22 @@ type leaderboardBadgeCacheEntry struct {
 	leaders   *usagestats.UserLeaderboardBadgeLeaders
 }
 
+type leaderboardUserCacheEntry struct {
+	expiresAt   time.Time
+	leaderboard *usagestats.UserLeaderboardResponse
+}
+
+type leaderboardModelRankingCacheEntry struct {
+	expiresAt   time.Time
+	items       []usagestats.UserLeaderboardModelItem
+	totalModels int64
+}
+
+type leaderboardRecentTrendCacheEntry struct {
+	expiresAt time.Time
+	points    []usagestats.UserLeaderboardTokenTrendPoint
+}
+
 // NewUsageService 创建使用统计服务实例
 func NewUsageService(usageRepo UsageLogRepository, userRepo UserRepository, entClient *dbent.Client, authCacheInvalidator APIKeyAuthCacheInvalidator) *UsageService {
 	return &UsageService{
@@ -90,6 +114,9 @@ func NewUsageService(usageRepo UsageLogRepository, userRepo UserRepository, entC
 		entClient:            entClient,
 		authCacheInvalidator: authCacheInvalidator,
 		badgeCache:           make(map[string]leaderboardBadgeCacheEntry),
+		userLeaderboardCache: make(map[string]leaderboardUserCacheEntry),
+		modelRankingCache:    make(map[string]leaderboardModelRankingCacheEntry),
+		recentTrendCache:     make(map[string]leaderboardRecentTrendCacheEntry),
 	}
 }
 
@@ -347,11 +374,27 @@ func (s *UsageService) GetAPIKeyDashboardStats(ctx context.Context, apiKeyID int
 
 // GetUserLeaderboard returns the user dashboard leaderboard for a time range.
 func (s *UsageService) GetUserLeaderboard(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (*usagestats.UserLeaderboardResponse, error) {
-	leaderboard, err := s.usageRepo.GetUserLeaderboard(ctx, startTime, endTime, limit, currentUserID)
+	cacheKey := userLeaderboardStatsCacheKey(startTime, endTime, limit, currentUserID)
+	if cached := s.getCachedUserLeaderboard(cacheKey, time.Now()); cached != nil {
+		return cached, nil
+	}
+
+	value, err, _ := s.leaderboardCacheSF.Do("user:"+cacheKey, func() (any, error) {
+		if cached := s.getCachedUserLeaderboard(cacheKey, time.Now()); cached != nil {
+			return cached, nil
+		}
+		leaderboard, err := s.usageRepo.GetUserLeaderboard(ctx, startTime, endTime, limit, currentUserID)
+		if err != nil {
+			return nil, err
+		}
+		s.setCachedUserLeaderboard(cacheKey, leaderboard, time.Now())
+		return cloneUserLeaderboardResponse(leaderboard), nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("get user leaderboard: %w", err)
 	}
-	return leaderboard, nil
+	leaderboard, _ := value.(*usagestats.UserLeaderboardResponse)
+	return cloneUserLeaderboardResponse(leaderboard), nil
 }
 
 // GetLeaderboardModelRanking returns global model usage ranking for the leaderboard period.
@@ -360,31 +403,66 @@ func (s *UsageService) GetLeaderboardModelRanking(ctx context.Context, startTime
 	if !ok {
 		return []usagestats.UserLeaderboardModelItem{}, 0, nil
 	}
-	items, totalModels, err := repo.GetLeaderboardModelRanking(ctx, startTime, endTime, limit)
+	cacheKey := leaderboardStatsCacheKey(startTime, endTime, limit)
+	if items, totalModels, ok := s.getCachedLeaderboardModelRanking(cacheKey, time.Now()); ok {
+		return items, totalModels, nil
+	}
+
+	value, err, _ := s.leaderboardCacheSF.Do("model:"+cacheKey, func() (any, error) {
+		if items, totalModels, ok := s.getCachedLeaderboardModelRanking(cacheKey, time.Now()); ok {
+			return leaderboardModelRankingCacheEntry{items: items, totalModels: totalModels}, nil
+		}
+		items, totalModels, err := repo.GetLeaderboardModelRanking(ctx, startTime, endTime, limit)
+		if err != nil {
+			return nil, err
+		}
+		if items == nil {
+			items = []usagestats.UserLeaderboardModelItem{}
+		}
+		s.setCachedLeaderboardModelRanking(cacheKey, items, totalModels, time.Now())
+		return leaderboardModelRankingCacheEntry{items: cloneUserLeaderboardModelItems(items), totalModels: totalModels}, nil
+	})
 	if err != nil {
 		return nil, 0, fmt.Errorf("get leaderboard model ranking: %w", err)
 	}
-	if items == nil {
-		items = []usagestats.UserLeaderboardModelItem{}
+	result, _ := value.(leaderboardModelRankingCacheEntry)
+	if result.items == nil {
+		result.items = []usagestats.UserLeaderboardModelItem{}
 	}
-	return items, totalModels, nil
+	return cloneUserLeaderboardModelItems(result.items), result.totalModels, nil
 }
 
 // GetLeaderboardRecentTokenTrend returns global daily token totals for the leaderboard summary.
 func (s *UsageService) GetLeaderboardRecentTokenTrend(ctx context.Context, startTime, endTime time.Time) ([]usagestats.UserLeaderboardTokenTrendPoint, error) {
-	trend, err := s.usageRepo.GetUsageTrendWithFilters(ctx, startTime, endTime, "day", 0, 0, 0, 0, "", nil, nil, nil)
+	cacheKey := leaderboardStatsCacheKey(startTime, endTime, 0)
+	if points, ok := s.getCachedLeaderboardRecentTrend(cacheKey, time.Now()); ok {
+		return points, nil
+	}
+
+	value, err, _ := s.leaderboardCacheSF.Do("trend:"+cacheKey, func() (any, error) {
+		if points, ok := s.getCachedLeaderboardRecentTrend(cacheKey, time.Now()); ok {
+			return points, nil
+		}
+		trend, err := s.usageRepo.GetUsageTrendWithFilters(ctx, startTime, endTime, "day", 0, 0, 0, 0, "", nil, nil, nil)
+		if err != nil {
+			return nil, err
+		}
+
+		points := make([]usagestats.UserLeaderboardTokenTrendPoint, 0, len(trend))
+		for _, item := range trend {
+			points = append(points, usagestats.UserLeaderboardTokenTrendPoint{
+				Date:        item.Date,
+				TotalTokens: item.TotalTokens,
+			})
+		}
+		s.setCachedLeaderboardRecentTrend(cacheKey, points, time.Now())
+		return cloneLeaderboardRecentTrend(points), nil
+	})
 	if err != nil {
 		return nil, fmt.Errorf("get leaderboard recent token trend: %w", err)
 	}
-
-	points := make([]usagestats.UserLeaderboardTokenTrendPoint, 0, len(trend))
-	for _, item := range trend {
-		points = append(points, usagestats.UserLeaderboardTokenTrendPoint{
-			Date:        item.Date,
-			TotalTokens: item.TotalTokens,
-		})
-	}
-	return points, nil
+	points, _ := value.([]usagestats.UserLeaderboardTokenTrendPoint)
+	return cloneLeaderboardRecentTrend(points), nil
 }
 
 // GetUserLeaderboardBadgeLeaders returns special badge leader user IDs for the requested windows.
@@ -440,6 +518,128 @@ func (s *UsageService) setCachedLeaderboardBadgeLeaders(key string, leaders *usa
 	}
 }
 
+func (s *UsageService) getCachedUserLeaderboard(key string, now time.Time) *usagestats.UserLeaderboardResponse {
+	if s == nil || key == "" {
+		return nil
+	}
+	s.leaderboardCacheMu.Lock()
+	defer s.leaderboardCacheMu.Unlock()
+	entry, ok := s.userLeaderboardCache[key]
+	if !ok || entry.leaderboard == nil || !now.Before(entry.expiresAt) {
+		return nil
+	}
+	return cloneUserLeaderboardResponse(entry.leaderboard)
+}
+
+func (s *UsageService) setCachedUserLeaderboard(key string, leaderboard *usagestats.UserLeaderboardResponse, now time.Time) {
+	if s == nil || key == "" || leaderboard == nil {
+		return
+	}
+	s.leaderboardCacheMu.Lock()
+	defer s.leaderboardCacheMu.Unlock()
+	if s.userLeaderboardCache == nil {
+		s.userLeaderboardCache = make(map[string]leaderboardUserCacheEntry)
+	}
+	for existingKey, entry := range s.userLeaderboardCache {
+		if !now.Before(entry.expiresAt) {
+			delete(s.userLeaderboardCache, existingKey)
+		}
+	}
+	s.userLeaderboardCache[key] = leaderboardUserCacheEntry{
+		expiresAt:   now.Add(leaderboardStatsCacheTTL),
+		leaderboard: cloneUserLeaderboardResponse(leaderboard),
+	}
+}
+
+func (s *UsageService) getCachedLeaderboardModelRanking(key string, now time.Time) ([]usagestats.UserLeaderboardModelItem, int64, bool) {
+	if s == nil || key == "" {
+		return nil, 0, false
+	}
+	s.leaderboardCacheMu.Lock()
+	defer s.leaderboardCacheMu.Unlock()
+	entry, ok := s.modelRankingCache[key]
+	if !ok || !now.Before(entry.expiresAt) {
+		return nil, 0, false
+	}
+	return cloneUserLeaderboardModelItems(entry.items), entry.totalModels, true
+}
+
+func (s *UsageService) setCachedLeaderboardModelRanking(key string, items []usagestats.UserLeaderboardModelItem, totalModels int64, now time.Time) {
+	if s == nil || key == "" {
+		return
+	}
+	s.leaderboardCacheMu.Lock()
+	defer s.leaderboardCacheMu.Unlock()
+	if s.modelRankingCache == nil {
+		s.modelRankingCache = make(map[string]leaderboardModelRankingCacheEntry)
+	}
+	for existingKey, entry := range s.modelRankingCache {
+		if !now.Before(entry.expiresAt) {
+			delete(s.modelRankingCache, existingKey)
+		}
+	}
+	s.modelRankingCache[key] = leaderboardModelRankingCacheEntry{
+		expiresAt:   now.Add(leaderboardStatsCacheTTL),
+		items:       cloneUserLeaderboardModelItems(items),
+		totalModels: totalModels,
+	}
+}
+
+func (s *UsageService) getCachedLeaderboardRecentTrend(key string, now time.Time) ([]usagestats.UserLeaderboardTokenTrendPoint, bool) {
+	if s == nil || key == "" {
+		return nil, false
+	}
+	s.leaderboardCacheMu.Lock()
+	defer s.leaderboardCacheMu.Unlock()
+	entry, ok := s.recentTrendCache[key]
+	if !ok || !now.Before(entry.expiresAt) {
+		return nil, false
+	}
+	return cloneLeaderboardRecentTrend(entry.points), true
+}
+
+func (s *UsageService) setCachedLeaderboardRecentTrend(key string, points []usagestats.UserLeaderboardTokenTrendPoint, now time.Time) {
+	if s == nil || key == "" {
+		return
+	}
+	s.leaderboardCacheMu.Lock()
+	defer s.leaderboardCacheMu.Unlock()
+	if s.recentTrendCache == nil {
+		s.recentTrendCache = make(map[string]leaderboardRecentTrendCacheEntry)
+	}
+	for existingKey, entry := range s.recentTrendCache {
+		if !now.Before(entry.expiresAt) {
+			delete(s.recentTrendCache, existingKey)
+		}
+	}
+	s.recentTrendCache[key] = leaderboardRecentTrendCacheEntry{
+		expiresAt: now.Add(leaderboardStatsCacheTTL),
+		points:    cloneLeaderboardRecentTrend(points),
+	}
+}
+
+func userLeaderboardStatsCacheKey(startTime, endTime time.Time, limit int, currentUserID int64) string {
+	return strings.Join([]string{
+		leaderboardStatsCacheKey(startTime, endTime, limit),
+		fmt.Sprintf("user:%d", currentUserID),
+	}, "|")
+}
+
+func leaderboardStatsCacheKey(startTime, endTime time.Time, limit int) string {
+	return strings.Join([]string{
+		leaderboardStatsTimeKey(startTime),
+		leaderboardStatsTimeKey(endTime),
+		fmt.Sprintf("limit:%d", limit),
+	}, "|")
+}
+
+func leaderboardStatsTimeKey(value time.Time) string {
+	if value.IsZero() {
+		return ""
+	}
+	return value.UTC().Format(time.RFC3339Nano)
+}
+
 func leaderboardBadgeCacheKey(weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd time.Time, userTZ string) string {
 	return strings.Join([]string{
 		normalizeLeaderboardBadgeCacheTimezone(userTZ),
@@ -490,6 +690,95 @@ func cloneLeaderboardBadgeLeaders(leaders *usagestats.UserLeaderboardBadgeLeader
 	}
 	clone := *leaders
 	return &clone
+}
+
+func cloneUserLeaderboardResponse(payload *usagestats.UserLeaderboardResponse) *usagestats.UserLeaderboardResponse {
+	if payload == nil {
+		return nil
+	}
+	clone := *payload
+	clone.Ranking = cloneUserLeaderboardItems(payload.Ranking)
+	if payload.CurrentUserEntry != nil {
+		current := cloneUserLeaderboardItem(*payload.CurrentUserEntry)
+		clone.CurrentUserEntry = &current
+	}
+	clone.ModelRanking = cloneUserLeaderboardModelItems(payload.ModelRanking)
+	clone.RecentTokenTrend = cloneLeaderboardRecentTrend(payload.RecentTokenTrend)
+	clone.DailyRewards = cloneLeaderboardDailyRewards(payload.DailyRewards)
+	return &clone
+}
+
+func cloneUserLeaderboardItems(items []usagestats.UserLeaderboardItem) []usagestats.UserLeaderboardItem {
+	if items == nil {
+		return nil
+	}
+	clones := make([]usagestats.UserLeaderboardItem, len(items))
+	for i, item := range items {
+		clones[i] = cloneUserLeaderboardItem(item)
+	}
+	return clones
+}
+
+func cloneUserLeaderboardItem(item usagestats.UserLeaderboardItem) usagestats.UserLeaderboardItem {
+	if item.AvatarURL != nil {
+		avatarURL := *item.AvatarURL
+		item.AvatarURL = &avatarURL
+	}
+	item.Badges = cloneStrings(item.Badges)
+	return item
+}
+
+func cloneUserLeaderboardModelItems(items []usagestats.UserLeaderboardModelItem) []usagestats.UserLeaderboardModelItem {
+	if items == nil {
+		return nil
+	}
+	clones := make([]usagestats.UserLeaderboardModelItem, len(items))
+	for i, item := range items {
+		if item.GrowthPercent != nil {
+			growthPercent := *item.GrowthPercent
+			item.GrowthPercent = &growthPercent
+		}
+		if item.RankChange != nil {
+			rankChange := *item.RankChange
+			item.RankChange = &rankChange
+		}
+		clones[i] = item
+	}
+	return clones
+}
+
+func cloneLeaderboardRecentTrend(points []usagestats.UserLeaderboardTokenTrendPoint) []usagestats.UserLeaderboardTokenTrendPoint {
+	if points == nil {
+		return nil
+	}
+	clones := make([]usagestats.UserLeaderboardTokenTrendPoint, len(points))
+	copy(clones, points)
+	return clones
+}
+
+func cloneLeaderboardDailyRewards(rewards *usagestats.LeaderboardDailyRewards) *usagestats.LeaderboardDailyRewards {
+	if rewards == nil {
+		return nil
+	}
+	clone := *rewards
+	if rewards.Rewards != nil {
+		clone.Rewards = make([]usagestats.LeaderboardDailyRewardTier, len(rewards.Rewards))
+		copy(clone.Rewards, rewards.Rewards)
+	}
+	if rewards.TopUsers != nil {
+		clone.TopUsers = make([]usagestats.LeaderboardDailyRewardTopUser, len(rewards.TopUsers))
+		copy(clone.TopUsers, rewards.TopUsers)
+	}
+	return &clone
+}
+
+func cloneStrings(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	clones := make([]string, len(values))
+	copy(clones, values)
+	return clones
 }
 
 func leaderboardBadgeLeadersHasAny(leaders *usagestats.UserLeaderboardBadgeLeaders) bool {

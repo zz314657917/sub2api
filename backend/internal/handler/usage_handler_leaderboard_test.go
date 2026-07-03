@@ -130,11 +130,11 @@ func TestUsageHandlerDashboardLeaderboardLimitClamp(t *testing.T) {
 	require.NotEmpty(t, repo.currentUserIDs)
 	require.Equal(t, int64(42), repo.currentUserIDs[0])
 
-	req = httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?limit=0", nil)
+	req = httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?period=week&limit=0", nil)
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.Len(t, repo.limits, 4)
+	require.Len(t, repo.limits, 3)
 	require.Equal(t, 10, repo.limits[2])
 }
 
