@@ -1,6 +1,6 @@
 # Sub2API 知识库入口
 
-最后更新：2026-06-11
+最后更新：2026-06-28
 
 ## 项目定位
 
@@ -50,6 +50,9 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
   - 默认生图分组不再硬编码为 `4`，会动态选择第一个 active 且允许生图的 image group；聊天分组优先 text group，缺失时复用 image group。
   - `session-probe` iframe/CSP 已成为默认验收面的一部分；本地浏览器 smoke 需确认只请求 `/studio-bridge/session-probe`，且不会再出现 `frame-ancestors 'none'`。
   - `/usage` 表格空白不代表扣费没入账；Studio Bridge 记录里 `duration_ms = null` 等字段会让前端格式化炸掉，相关修复已进入稳定知识。
+- 2026-06-26 的默认续做入口又补进了一条独立工程主线：在 Studio Bridge / 支付治理之外，`upstream-main-v0138-followup-safe-patches-s21/s22` 已成为当前默认工程语境的一部分。
+  - S21 已稳定落地 Spark `image_generation` tool strip、OpenAI weekly reset 二次确认、usage cache token 明细展示和邮箱绑定后缀白名单。
+  - S22 当前结论是“后端 OpenAI/Codex 兼容小修已完成定向 QA，但支付/订阅/余额预扣和前端产品面仍保持跳过”。
 - 继续做聊天生图、嵌入工作区、模型市场或上游合成时，不要只看单个前端页面；通常要把 launch token、会话恢复、默认分组、预扣/确认/退款、团队空间 actor/payer 和 OpenAI 路径背景一起当成一条链路理解。
 
 ## 知识维护规则

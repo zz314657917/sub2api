@@ -389,6 +389,7 @@ const (
 	SettingKeyWelfareDailyCheckinRewardMin              = "welfare_daily_checkin_reward_min"
 	SettingKeyWelfareDailyCheckinRewardMax              = "welfare_daily_checkin_reward_max"
 	SettingKeyWelfareDailyCheckinMinAccountAgeHours     = "welfare_daily_checkin_min_account_age_hours"
+	SettingKeyWelfareVoucherValidDays                   = "welfare_voucher_valid_days"
 	SettingKeyWelfareDailyCheckinMilestoneEnabled       = "welfare_daily_checkin_milestone_enabled"
 	SettingKeyWelfareDailyCheckinMilestone7Amount       = "welfare_daily_checkin_milestone_7_amount"
 	SettingKeyWelfareDailyCheckinMilestone14Amount      = "welfare_daily_checkin_milestone_14_amount"

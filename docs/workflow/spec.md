@@ -2,10 +2,186 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-06-17 11:20 +08:00
+last_verified: 2026-07-03 19:30 +08:00
 ---
 
 # Workflow Spec
+
+## S45 Addendum: affiliate risk scoring and alert scanner
+
+### 一句话目标
+
+- 做一个最小可用的邀请返佣风控扫描器：扫描间隔默认 `20m` 且可在后台设置调整，扫描最近 `12h`，按风险评分写入 `ops_alert_events`，并在高风险时冻结邀请奖励兑现；第一版不自动封号、不自动禁用 API key、不回滚历史奖励。
+
+### 当前结论
+
+- 这不是单条规则封禁，而是“风险评分 + 告警 + 奖励兑现冻结”。
+- 默认扫描窗口从原先讨论的 `24h` 收敛为 `12h`；扫描周期默认 `20m`，但必须加入后台设置，方便运营自行调整。
+- 扫描间隔设置建议限制在 `5-1440` 分钟，非法值回退 `20m`，避免过频扫描压数据库。
+- 高风险处理只冻结返佣变现路径：
+  - 阻止被邀请人首次 API 调用奖励 claim。
+  - 阻止邀请返佣 quota 转余额。
+  - 不扣回已发 ledger、不移除邀请关系、不封用户、不禁用 API key。
+
+### 主要触达面
+
+- 数据源：`users.register_ip`、`users.last_login_ip`、`usage_logs.ip_address`、`user_affiliates.inviter_id`、`user_affiliate_ledger.action = 'api_call_reward'`。
+- 后端服务：新增 affiliate risk scanner、IPv6 `/64` 归一化、风险评分和去重。
+- 后台设置：新增扫描间隔设置项，不需要新增独立风控页面。
+- 性能索引：补齐 `users(created_at)`、`user_affiliate_ledger(action, created_at)`、`usage_logs(ip_address, created_at) WHERE ip_address <> ''`。
+- 持久化：新增风险冻结记录或等价状态，用于拦截 claim/transfer。
+- 运维告警：复用 `ops_alert_events`，并尽量复用现有 ops email 通知路径。
+- 启动调度：按现有后台服务模式启动，使用 Redis leader lock / heartbeat 风格。
+
+### 评分和分级
+
+- 同一邀请人 `12h` 内邀请 `>=3` 个账号：`+25`。
+- 邀请人和被邀请人登录 IP 相同：`+40`。
+- IPv6 同 `/64`：`+35`。
+- 注册 IP 分散但登录 IP 或 `/64` 聚合：`+25`。
+- 注册后 `30m` 内触发 API 奖励：`+20`。
+- 多个被邀请账号邮箱像批量生成：`+10`。
+- 被邀请关系已撤销/禁用但存在 `api_call_reward`：`+30`。
+- `>=50` 为 `P3` 告警，`>=70` 为 `P2` 告警并冻结兑现，`>=90` 为 `P1` 高风险冻结兑现。
+
+### 当前阻塞与风险
+
+- 当前主工作树仍有 payment、welfare voucher、settings、billing、gateway、frontend payment/i18n、knowledge 脏改。
+- S45 会触达 affiliate、ops、wire、migration、后台任务启动链路和最小 settings 表单；必须在干净 worktree 或收口脏树后实现。
+- `OpsService.CreateAlertEvent` 只负责写事件；现有 email 发送在 alert evaluator 内部，S45 实现时必须避免复制大段邮件逻辑。
+- migration 编号不能直接假定；实现前要重新检查 tracked/untracked migrations。
+- 当前已有 `usage_logs(user_id, created_at)`、`usage_logs(created_at)`、`user_affiliates(inviter_id)` 等基础索引，但缺少上述风控扫描专用索引；S45 实现必须补窄范围 migration，避免按 IP/时间或 ledger action/time 扫全表。
+
+### 推荐执行计划
+
+1. 评审并批准 `docs/workflow/tasks/affiliate-risk-alerts-s45.md`。
+2. 在干净 worktree 开发，先实现 IPv6 `/64` 归一化和评分纯函数测试。
+3. 增加 risk repository 查询最近 `12h` 邀请/登录/API 奖励/usage IP 聚合数据。
+4. 增加 scan-specific indexes migration：`users(created_at)`、`user_affiliate_ledger(action, created_at)`、`usage_logs(ip_address, created_at) WHERE ip_address <> ''`。
+5. 增加 scanner 服务：读取后台配置的扫描间隔，默认 `20m`，Redis leader lock、ops heartbeat、去重写 `ops_alert_events`。
+6. 增加风险冻结持久化，并在 `ClaimInviteeAPICallReward` / `TransferAffiliateQuota` 前拦截。
+7. 增加后台设置项，允许调整扫描间隔。
+8. 跑定向 Go 测试、frontend typecheck、migration 编号检查、`git diff --check` 和 denied-path audit。
+
+### 明确不在 S45 范围内
+
+- 不做前端新页面；只允许在后台设置中增加扫描间隔控制，运维中心先复用现有告警列表。
+- 不自动封号。
+- 不自动禁用 API key。
+- 不扣回历史奖励。
+- 不删除或撤销邀请关系。
+- 不混入支付、福利券、Studio Bridge、OpenAI image/video 或前端 payment 脏改。
+
+## S43 Addendum: upstream v0.1.143 group peak-rate synthesis plan
+
+### 一句话目标
+
+- 把上游 `v0.1.143` 的订阅分组高峰时段倍率能力拆成一个独立产品级合成批次，先完成边界和验收计划，再决定是否进入 schema/migration + billing/gateway + frontend 实现。
+
+### 当前结论
+
+- 本地尚未合入订阅分组高峰时段倍率能力。
+- 本地现有能力包括普通 `rate_multiplier`、`image_rate_multiplier` 和用户专属分组倍率/RPM；未发现 `peak_rate_enabled`、`peak_start`、`peak_end`、`peak_rate_multiplier` 这套字段和链路。
+- 上游该能力不是小补丁，不能混入 S38a-S42 这类安全兼容提交。
+
+### 上游来源
+
+- `915c60b15 feat(group): 订阅分组新增可选的高峰时段倍率，以支持智谱等coding plan的高峰时段`
+- `1034f576d fix: 高峰倍率全链路透传、计费术语修正与边界处理`
+- `11a3da65c fix(group): harden peak-rate config handling and label peak windows with server timezone`
+
+### 主要触达面
+
+- 数据层：`backend/ent/schema/group.go`、Ent 生成代码、group migration。
+- 后端接口：admin group create/update/list DTO、available channels、public settings server timezone。
+- 服务层：group validation/normalization、API key auth cache/group hydration、gateway/openai gateway usage recording。
+- 计费层：token 计费倍率叠加高峰因子，图片按次计费不受高峰因子影响。
+- 前端：admin GroupsView、GroupBadge、GroupOptionItem、AvailableChannelsTable、Payment/Subscriptions/Keys 页面和 i18n。
+
+### 当前阻塞与风险
+
+- 当前主工作树仍有 payment、welfare voucher、settings、billing、gateway、frontend payment/i18n、knowledge 脏改。
+- 上游高峰倍率触达路径与当前脏文件重叠：`backend/internal/handler/dto/settings.go`、`backend/internal/handler/payment_handler.go`、`backend/internal/service/billing_service.go`、`backend/internal/service/gateway_service.go`、`backend/internal/service/openai_gateway_service.go`、`backend/internal/service/setting_service.go`、`frontend/src/types/index.ts`、`frontend/src/types/payment.ts`。
+- 上游 migration 是 `158_add_group_peak_rate_multiplier.sql`，本地 migration 已推进到更高编号且存在未提交 migration 工作；实现时必须使用本地下一安全编号。
+- 上游允许 `peak_rate_multiplier=0` 表示高峰免费策略；本地实现前需要确认是否接受该产品语义。
+
+### 推荐执行计划
+
+1. 先收口或隔离当前 payment/welfare/settings/gateway/frontend dirty tree。
+2. 在干净 branch/worktree 上开启实现 Sprint，不直接 cherry-pick 三个上游提交。
+3. 先做 schema、migration、Ent 生成和 DTO/mappers。
+4. 再做 group service 的校验、归一化、server timezone 计算和 API key cache 透传。
+5. 然后接入 gateway/openai gateway 计费快照，锁定“高峰只影响 token 倍率，不影响图片按次计费”。
+6. 最后接前端 admin/user display 和 i18n，跑后端定向测试、frontend typecheck/Vitest、`git diff --check` 与 staged denied-path audit。
+
+### 明确不在 S43 范围内
+
+- 不修改业务代码。
+- 不新增 migration 或 Ent 生成代码。
+- 不触碰当前 dirty payment/welfare/settings/gateway/frontend 文件。
+- 不把 post-`v0.1.143` 的 `a5638a4e5`、ops realtime stats、redeem invitation fix 混入高峰倍率计划。
+
+## S35 Addendum: upstream v0.1.142 merge plan
+
+### 一句话目标
+
+- 在不整体 merge `upstream/main` / `v0.1.142` 的前提下，把上游 `v0.1.142` 与本地长期 fork 的差异拆成可评审、可验证、可暂停恢复的分批合并计划。
+
+### 当前背景
+
+- GitHub latest release 已确认为 `v0.1.142`，tag 提交为 `60da9ba17`，发布时间为 2026-07-01。
+- 本地 `main` 已经长期分叉，直接 `git merge --no-commit v0.1.142` 在临时 worktree 中触发大量冲突，集中在 Ent 生成代码、account/proxy schema、gateway、payment、usage 和前端视图。
+- 本地主工作树当前仍有未提交的福利券、设置、用户代理、知识库等改动，且 `main` 相对 `origin/main` ahead；合入上游补丁前必须先收口或隔离这些本地变更。
+- 上轮只读筛选已经证明，多个 `v0.1.138..v0.1.142` 小补丁可以在干净本地 `HEAD` 上通过 `git apply --check --3way`，但 Grok、Spark shadow、Codex detect、Anthropic dateline / Sonnet5 属于大功能链路，需要另开 Sprint。
+
+### 合并策略
+
+- 禁止整段 merge/rebase `v0.1.142`。
+- 继续采用“小批次 port + contract + 定向测试 + denied-path audit”的方式推进。
+- 每一批只允许包含同一业务域的上游补丁；支付、OpenAI/Codex 网关、usage billing、订阅、前端 API base 不能混成一个提交。
+- 当前 dirty tree 未收口前，不启动代码迁移；若必须先 port，应使用干净 worktree，并且 contract 必须声明不会触碰主工作树脏改。
+
+### 推荐批次
+
+1. `S36 payment-refund-safe-bundle`
+   - 候选提交：`c6f375d3a`、`b1403e8b2`、`55242ffac`、`65ad7df4f`、`7316d8302`、`93a3bf307`、`930326116`。
+   - 目标：订阅金额、汇率换算、退款 pending、支付卡片和币种显示的安全修复。
+   - 风险：触碰支付前后端与退款流程，必须定向跑 payment service / handler / frontend vitest。
+
+2. `S37 openai-codex-gateway-safe-bundle`
+   - 候选提交：`9491de0a3`、`ae5e980dd`、`65fa72892`、`0a97a5f46`、`2b49d662c`、`011278204`、`e5f7836bf`、`73de2ea7f`、`b28a22333`、`82553c4dc`、`7a38c6621`。
+   - 目标：OpenAI/Codex transport failover、tool args 去重、Codex image bridge、GPT-5.5 Pro Codex 名称保留、count_tokens bridge 等网关兼容修复。
+   - 风险：部分行为与本地既有 S23-S30 迁移重叠，必须逐项判定 `ported / equivalent / skipped`。
+
+3. `S38 billing-subscription-safe-bundle`
+   - 候选提交：`9f5b57fc9`、`03727ac36`、`fd004bdd8`。
+   - 目标：余额计费防透支、订阅撤销软删除、account query `Count` 污染修复。
+   - 风险：`9f5b57fc9` 会触碰 `usage_billing_repo.go`、`billing_cache_service.go`、`gateway_service.go`，与当前福利券/usage billing 脏改重叠；必须等福利券工作树收口后再做，或独立干净 worktree 迁移。
+
+4. `S39 frontend-small-fixes`
+   - 候选提交：`2a58a57a7`、`8c2d9b9a1`。
+   - 目标：前端 direct requests 使用配置的 API base；是否移除 `gpt-5.3-codex` 默认模型由本地产品策略决定。
+   - 风险：触碰前端 i18n、Settings、KeyUsage 等文件；需要前端 typecheck / targeted vitest。
+
+5. 独立大功能 Epic，不混入小补丁批次：
+   - Grok subscription / media / OAuth / quota 链路。
+   - OpenAI Spark shadow account。
+   - `codex_cli_only` engine fingerprint 加固与 app-server 配置。
+   - Anthropic OAuth dateline 指纹抹除与 Sonnet5 适配。
+
+### 明确不在范围内
+
+- 不整体 merge `v0.1.142`。
+- 不在 S35 修改任何业务代码。
+- 不触碰 Ent、migrations、wire、生产配置、Docker/deploy、README/assets，除非后续独立 Sprint contract 明确批准。
+- 不把当前未提交的福利券、发票、用户代理、知识库改动纳入上游合并批次。
+
+### 验收标准
+
+- S35 只交付合并计划和下一步 contract 草案，不做代码迁移。
+- `docs/workflow/status.md` 进入 `contract-draft`，下一合法动作是评审 S35 plan contract。
+- `docs/workflow/tasks/upstream-main-v0142-merge-plan-s35.md` 明确成功标准、允许路径、禁止路径、候选批次、验收命令和 stop rules。
+- `git diff --check` 覆盖本轮 workflow 文档。
 
 ## S18 Addendum: APIMart task webhook
 

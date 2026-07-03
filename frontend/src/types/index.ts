@@ -282,6 +282,11 @@ export interface SupportPopupItem {
   badge: string
 }
 
+export interface PaymentFAQItem {
+  title: string
+  body: string
+}
+
 export interface LoginAgreementDocument {
   id: string
   title: string
@@ -382,6 +387,7 @@ export interface PublicSettings {
   // 可选：注入的 __APP_CONFIG__ 旧缓存可能缺失
   server_timezone?: string
   server_utc_offset?: string
+  payment_faq_items?: PaymentFAQItem[]
   balance_low_notify_enabled: boolean
   account_quota_notify_enabled: boolean
   balance_low_notify_threshold: number
@@ -1242,6 +1248,14 @@ export interface WelfareOverview {
   daily_checkin?: WelfareDailyCheckin | null
   new_user_trial?: WelfareNewUserTrial | null
   recharge?: WelfareRecharge | null
+  voucher_wallet?: WelfareVoucherWallet | null
+}
+
+export interface WelfareVoucherWallet {
+  balance: number
+  voucher_available: number
+  total_available: number
+  next_expires_at?: string
 }
 
 export interface WelfareRecharge {

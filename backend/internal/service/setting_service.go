@@ -976,6 +976,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyWelfareRechargeEnabled,
 		SettingKeyWelfareVIPEnabled,
 		SettingKeyWelfareNewUserTrialEnabled,
+		SettingPaymentFAQItems,
 	}
 
 	settings, err := s.settingRepo.GetMultiple(ctx, keys)
@@ -1071,6 +1072,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		WeChatOAuthMobileEnabled:         weChatMobileEnabled,
 		BackendModeEnabled:               settings[SettingKeyBackendModeEnabled] == "true",
 		PaymentEnabled:                   settings[SettingPaymentEnabled] == "true",
+		PaymentFAQItems:                  settings[SettingPaymentFAQItems],
 		OIDCOAuthEnabled:                 oidcEnabled,
 		OIDCOAuthProviderName:            oidcProviderName,
 		GitHubOAuthEnabled:               gitHubEnabled,
@@ -1299,6 +1301,7 @@ type PublicSettingsInjectionPayload struct {
 	GoogleOAuthEnabled               bool                     `json:"google_oauth_enabled"`
 	BackendModeEnabled               bool                     `json:"backend_mode_enabled"`
 	PaymentEnabled                   bool                     `json:"payment_enabled"`
+	PaymentFAQItems                  json.RawMessage          `json:"payment_faq_items"`
 	Version                          string                   `json:"version"`
 	// 服务器全局时区（IANA 名称与当前 UTC 偏移），高峰时段等服务端本地时间窗口的展示标注用
 	ServerTimezone              string  `json:"server_timezone"`
@@ -1380,6 +1383,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		GoogleOAuthEnabled:               settings.GoogleOAuthEnabled,
 		BackendModeEnabled:               settings.BackendModeEnabled,
 		PaymentEnabled:                   settings.PaymentEnabled,
+		PaymentFAQItems:                  safeRawJSONArray(settings.PaymentFAQItems),
 		Version:                          s.version,
 		ServerTimezone:                   timezone.Name(),
 		ServerUTCOffset:                  timezone.UTCOffset(),
@@ -2081,6 +2085,10 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		settings.WelfareDailyCheckinMinAccountAgeHours = 0
 	}
 	updates[SettingKeyWelfareDailyCheckinMinAccountAgeHours] = strconv.Itoa(settings.WelfareDailyCheckinMinAccountAgeHours)
+	if settings.WelfareVoucherValidDays < 0 {
+		settings.WelfareVoucherValidDays = 0
+	}
+	updates[SettingKeyWelfareVoucherValidDays] = strconv.Itoa(settings.WelfareVoucherValidDays)
 	updates[SettingKeyWelfareDailyCheckinMilestoneEnabled] = strconv.FormatBool(settings.WelfareDailyCheckinMilestoneEnabled)
 	updates[SettingKeyWelfareDailyCheckinMilestone7Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone7Amount, 'f', 8, 64)
 	updates[SettingKeyWelfareDailyCheckinMilestone14Amount] = strconv.FormatFloat(settings.WelfareDailyCheckinMilestone14Amount, 'f', 8, 64)
@@ -3199,6 +3207,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyWelfareDailyCheckinRewardMin:              "0",
 		SettingKeyWelfareDailyCheckinRewardMax:              "0",
 		SettingKeyWelfareDailyCheckinMinAccountAgeHours:     strconv.Itoa(defaultDailyCheckinMinAccountAgeHours),
+		SettingKeyWelfareVoucherValidDays:                   "0",
 		SettingKeyWelfareDailyCheckinMilestoneEnabled:       "true",
 		SettingKeyWelfareDailyCheckinMilestone7Amount:       "0",
 		SettingKeyWelfareDailyCheckinMilestone14Amount:      "0",
@@ -3211,6 +3220,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyWelfareNewUserTrialDailySiteQuotaAmount:   "5",
 		SettingKeyWelfareNewUserTrialDailyIPActivationLimit: "3",
 		SettingRechargePackages:                             defaultRechargePackagesJSON(),
+		SettingPaymentFAQItems:                              defaultPaymentFAQItemsJSON(),
 
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
 		SettingKeyAffiliateEnabled: "false",
@@ -3658,6 +3668,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		result.WelfareDailyCheckinRewardMax = result.WelfareDailyCheckinRewardMin
 	}
 	result.WelfareDailyCheckinMinAccountAgeHours = parseNonNegativeIntSetting(settings[SettingKeyWelfareDailyCheckinMinAccountAgeHours], defaultDailyCheckinMinAccountAgeHours)
+	result.WelfareVoucherValidDays = parseNonNegativeIntSetting(settings[SettingKeyWelfareVoucherValidDays], 0)
 	result.WelfareDailyCheckinMilestoneEnabled = !isFalseSettingValue(settings[SettingKeyWelfareDailyCheckinMilestoneEnabled])
 	result.WelfareDailyCheckinMilestone7Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone7Amount], 0)
 	result.WelfareDailyCheckinMilestone14Amount = parseNonNegativeFloatSetting(settings[SettingKeyWelfareDailyCheckinMilestone14Amount], 0)

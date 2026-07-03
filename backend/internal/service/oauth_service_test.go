@@ -81,17 +81,41 @@ func (m *mockProxyRepoForOAuth) ListWithFilters(ctx context.Context, params pagi
 func (m *mockProxyRepoForOAuth) ListWithFiltersAndAccountCount(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]ProxyWithAccountCount, *pagination.PaginationResult, error) {
 	panic("ListWithFiltersAndAccountCount not implemented")
 }
+func (m *mockProxyRepoForOAuth) ListGlobalWithFilters(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]Proxy, *pagination.PaginationResult, error) {
+	panic("ListGlobalWithFilters not implemented")
+}
+func (m *mockProxyRepoForOAuth) ListGlobalWithFiltersAndAccountCount(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]ProxyWithAccountCount, *pagination.PaginationResult, error) {
+	panic("ListGlobalWithFiltersAndAccountCount not implemented")
+}
 func (m *mockProxyRepoForOAuth) ListActive(ctx context.Context) ([]Proxy, error) {
 	panic("ListActive not implemented")
 }
 func (m *mockProxyRepoForOAuth) ListActiveWithAccountCount(ctx context.Context) ([]ProxyWithAccountCount, error) {
 	panic("ListActiveWithAccountCount not implemented")
 }
+func (m *mockProxyRepoForOAuth) ListActiveGlobal(ctx context.Context) ([]Proxy, error) {
+	panic("ListActiveGlobal not implemented")
+}
+func (m *mockProxyRepoForOAuth) ListActiveGlobalWithAccountCount(ctx context.Context) ([]ProxyWithAccountCount, error) {
+	panic("ListActiveGlobalWithAccountCount not implemented")
+}
+func (m *mockProxyRepoForOAuth) ListUserOwned(ctx context.Context, userID int64) ([]Proxy, error) {
+	panic("ListUserOwned not implemented")
+}
+func (m *mockProxyRepoForOAuth) ListActiveUserOwned(ctx context.Context, userID int64) ([]Proxy, error) {
+	panic("ListActiveUserOwned not implemented")
+}
+func (m *mockProxyRepoForOAuth) GetUserOwnedByID(ctx context.Context, userID, proxyID int64) (*Proxy, error) {
+	panic("GetUserOwnedByID not implemented")
+}
 func (m *mockProxyRepoForOAuth) ExistsByHostPortAuth(ctx context.Context, host string, port int, username, password string) (bool, error) {
 	panic("ExistsByHostPortAuth not implemented")
 }
 func (m *mockProxyRepoForOAuth) CountAccountsByProxyID(ctx context.Context, proxyID int64) (int64, error) {
 	panic("CountAccountsByProxyID not implemented")
+}
+func (m *mockProxyRepoForOAuth) CountUserOwnedAccountsByProxyID(ctx context.Context, userID, proxyID int64) (int64, error) {
+	return 0, nil
 }
 func (m *mockProxyRepoForOAuth) ListAccountSummariesByProxyID(ctx context.Context, proxyID int64) ([]ProxyAccountSummary, error) {
 	panic("ListAccountSummariesByProxyID not implemented")

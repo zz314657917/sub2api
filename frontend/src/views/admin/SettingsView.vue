@@ -5454,6 +5454,19 @@
                     {{ t('admin.settings.features.welfare.minAccountAgeHoursHint') }}
                   </p>
                 </div>
+                <div>
+                  <label class="input-label">{{ t('admin.settings.features.welfare.voucherValidDays') }}</label>
+                  <input
+                    v-model.number="form.welfare_voucher_valid_days"
+                    type="number"
+                    min="0"
+                    step="1"
+                    class="input"
+                  />
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    {{ t('admin.settings.features.welfare.voucherValidDaysHint') }}
+                  </p>
+                </div>
               </div>
 
               <div>
@@ -6838,6 +6851,93 @@
                     </a>
                   </p>
                 </div>
+                <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-600 dark:bg-dark-800/60">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <h3 class="text-sm font-semibold text-gray-900 dark:text-white">
+                        {{ t("admin.settings.payment.faqItems") }}
+                      </h3>
+                      <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                        {{ t("admin.settings.payment.faqItemsHint") }}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn btn-secondary btn-sm"
+                      @click="addPaymentFAQItem"
+                    >
+                      {{ t("admin.settings.payment.faqAdd") }}
+                    </button>
+                  </div>
+                  <div class="mt-4 max-h-96 space-y-3 overflow-y-auto pr-1">
+                    <div
+                      v-for="(item, index) in form.payment_faq_items"
+                      :key="index"
+                      class="rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-600 dark:bg-dark-900/50"
+                    >
+                      <div class="flex flex-wrap items-center justify-between gap-2">
+                        <span class="text-xs font-semibold text-gray-500 dark:text-gray-400">
+                          {{ t("admin.settings.payment.faqItemIndex", { index: index + 1 }) }}
+                        </span>
+                        <div class="flex items-center gap-1">
+                          <button
+                            type="button"
+                            class="rounded-md px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100 disabled:opacity-40 dark:text-gray-300 dark:hover:bg-dark-700"
+                            :disabled="index === 0"
+                            @click="movePaymentFAQItem(index, -1)"
+                          >
+                            {{ t("admin.settings.payment.faqMoveUp") }}
+                          </button>
+                          <button
+                            type="button"
+                            class="rounded-md px-2 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-100 disabled:opacity-40 dark:text-gray-300 dark:hover:bg-dark-700"
+                            :disabled="index === form.payment_faq_items.length - 1"
+                            @click="movePaymentFAQItem(index, 1)"
+                          >
+                            {{ t("admin.settings.payment.faqMoveDown") }}
+                          </button>
+                          <button
+                            type="button"
+                            class="rounded-md px-2 py-1 text-xs font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
+                            @click="removePaymentFAQItem(index)"
+                          >
+                            {{ t("common.delete") }}
+                          </button>
+                        </div>
+                      </div>
+                      <div class="mt-3 grid gap-3 md:grid-cols-[minmax(180px,260px)_minmax(0,1fr)]">
+                        <div>
+                          <label class="input-label">
+                            {{ t("admin.settings.payment.faqTitle") }}
+                          </label>
+                          <input
+                            v-model="item.title"
+                            type="text"
+                            class="input"
+                            :placeholder="t('admin.settings.payment.faqTitlePlaceholder')"
+                          />
+                        </div>
+                        <div>
+                          <label class="input-label">
+                            {{ t("admin.settings.payment.faqBody") }}
+                          </label>
+                          <textarea
+                            v-model="item.body"
+                            rows="2"
+                            class="input"
+                            :placeholder="t('admin.settings.payment.faqBodyPlaceholder')"
+                          ></textarea>
+                        </div>
+                      </div>
+                    </div>
+                    <p
+                      v-if="form.payment_faq_items.length === 0"
+                      class="rounded-lg border border-dashed border-gray-300 px-3 py-4 text-center text-sm text-gray-500 dark:border-dark-600 dark:text-gray-400"
+                    >
+                      {{ t("admin.settings.payment.faqEmpty") }}
+                    </p>
+                  </div>
+                </div>
                 <!-- Row 5: Help image + text -->
                 <div class="grid grid-cols-2 gap-3">
                   <div>
@@ -7499,6 +7599,7 @@ import type {
   AdminGroup,
   LoginAgreementDocument,
   NotifyEmailEntry,
+  PaymentFAQItem,
   Proxy,
 } from "@/types";
 import type { MembershipSettings, MembershipTierConfig, ProviderInstance } from "@/types/payment";
@@ -8183,6 +8284,7 @@ const form = reactive<SettingsForm>({
       sort_order: 10,
     },
   ],
+  payment_faq_items: defaultPaymentFAQItems(),
   payment_enabled_types: [],
   payment_help_image_url: "",
   payment_help_text: "",
@@ -8334,6 +8436,7 @@ const form = reactive<SettingsForm>({
   welfare_daily_checkin_reward_min: 0,
   welfare_daily_checkin_reward_max: 0,
   welfare_daily_checkin_min_account_age_hours: 24,
+  welfare_voucher_valid_days: 0,
   welfare_daily_checkin_milestone_enabled: true,
   welfare_daily_checkin_milestone_7_amount: 0,
   welfare_daily_checkin_milestone_14_amount: 0,
@@ -8790,6 +8893,71 @@ function rechargePackageBonusPreview(pkg: PaymentRechargePackage): string {
   const pay = normalizeRechargePackageAmount(pkg.pay_amount);
   const credited = normalizeRechargePackageAmount(pkg.credited_amount);
   return formatCreditAmount(Math.max(0, credited - pay));
+}
+
+function defaultPaymentFAQItems(): PaymentFAQItem[] {
+  return [
+    {
+      title: "额度与计费规则",
+      body: "灵活积分按实际调用消耗；订阅套餐按配置的周期额度和倍率计费，具体以当前站点配置为准。",
+    },
+    {
+      title: "灵活积分说明",
+      body: "购买后的积分进入账户积分，在积分用完前持续有效，可用于未被套餐覆盖的调用。",
+    },
+    {
+      title: "大量使用是否可以联系管理员获得额外折扣？",
+      body: "如果您需要大量使用我们的服务，可以联系我们的管理员团队获取企业级定制解决方案和额外的折扣优惠。",
+    },
+    {
+      title: "如何升级套餐？",
+      body: "选择更高档套餐并完成支付后，系统会按当前订阅规则刷新可用额度和有效期。",
+    },
+    {
+      title: "额度恢复机制",
+      body: "订阅额度按套餐周期自动重置；灵活积分不会周期清零，只随调用扣减。",
+    },
+    {
+      title: "套餐变更说明",
+      body: "同一订阅分组再次购买通常视为续费或延长，具体生效方式由后台套餐配置决定。",
+    },
+    {
+      title: "订阅额度与灵活积分",
+      body: "优先使用订阅套餐覆盖的额度；超出或未覆盖部分可继续使用灵活积分支付。",
+    },
+  ];
+}
+
+function addPaymentFAQItem() {
+  form.payment_faq_items.push({ title: "", body: "" });
+}
+
+function removePaymentFAQItem(index: number) {
+  form.payment_faq_items.splice(index, 1);
+}
+
+function movePaymentFAQItem(index: number, direction: -1 | 1) {
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= form.payment_faq_items.length) return;
+  const items = form.payment_faq_items;
+  const [item] = items.splice(index, 1);
+  items.splice(targetIndex, 0, item);
+}
+
+function normalizePaymentFAQItemsForSave(): PaymentFAQItem[] | null {
+  const items = Array.isArray(form.payment_faq_items) ? form.payment_faq_items : [];
+  const normalized: PaymentFAQItem[] = [];
+  for (const item of items) {
+    const title = String(item.title || "").trim();
+    const body = String(item.body || "").trim();
+    if (!title && !body) continue;
+    if (!title || !body) {
+      appStore.showError(localText("常见问题需要同时填写标题和内容。", "FAQ items need both title and content."));
+      return null;
+    }
+    normalized.push({ title, body });
+  }
+  return normalized.length > 0 ? normalized : defaultPaymentFAQItems();
 }
 
 function normalizeRechargePackagesForSave(): PaymentRechargePackage[] | null {
@@ -9351,6 +9519,14 @@ async function loadSettings() {
               : (index + 1) * 10,
           }))
         : [defaultRechargePackage()];
+    form.payment_faq_items =
+      Array.isArray(settings.payment_faq_items) &&
+      settings.payment_faq_items.length > 0
+        ? settings.payment_faq_items.map((item) => ({
+            title: String(item.title || ""),
+            body: String(item.body || ""),
+          }))
+        : defaultPaymentFAQItems();
     registrationEmailSuffixWhitelistTags.value =
       normalizeRegistrationEmailSuffixDomains(
         settings.registration_email_suffix_whitelist,
@@ -9574,6 +9750,11 @@ async function saveSettings() {
       return;
     }
     form.payment_recharge_packages = normalizedRechargePackages.map((pkg) => ({ ...pkg }));
+    const normalizedPaymentFAQItems = normalizePaymentFAQItemsForSave();
+    if (!normalizedPaymentFAQItems) {
+      return;
+    }
+    form.payment_faq_items = normalizedPaymentFAQItems.map((item) => ({ ...item }));
 
     const normalizedLoginAgreementDocuments =
       normalizeLoginAgreementDocumentsForSave();
@@ -9719,6 +9900,10 @@ async function saveSettings() {
     const welfareDailyCheckinMinAccountAgeHours = Math.max(
       0,
       Math.floor(Number(form.welfare_daily_checkin_min_account_age_hours) || 0),
+    );
+    const welfareVoucherValidDays = Math.max(
+      0,
+      Math.floor(Number(form.welfare_voucher_valid_days) || 0),
     );
     const welfareFirstRechargeBonusAmount = Math.max(
       0,
@@ -9905,6 +10090,7 @@ async function saveSettings() {
         Number(form.payment_balance_recharge_multiplier) || 1,
       payment_recharge_fee_rate: Number(form.payment_recharge_fee_rate) || 0,
       payment_recharge_packages: normalizedRechargePackages,
+      payment_faq_items: normalizedPaymentFAQItems,
       payment_enabled_types: form.payment_enabled_types,
       payment_load_balance_strategy: form.payment_load_balance_strategy,
       payment_product_name_prefix: form.payment_product_name_prefix,
@@ -9970,6 +10156,7 @@ async function saveSettings() {
       welfare_daily_checkin_reward_max: welfareDailyRewardMax,
       welfare_daily_checkin_min_account_age_hours:
         welfareDailyCheckinMinAccountAgeHours,
+      welfare_voucher_valid_days: welfareVoucherValidDays,
       welfare_daily_checkin_milestone_enabled:
         form.welfare_daily_checkin_milestone_enabled,
       welfare_daily_checkin_milestone_7_amount: Math.max(

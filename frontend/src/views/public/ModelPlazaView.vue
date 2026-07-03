@@ -1089,6 +1089,16 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
   }
 
+  .model-group-rate-select {
+    width: 100%;
+  }
+
+  .model-group-rate-select select {
+    min-width: 0;
+    max-width: none;
+    flex: 1 1 auto;
+  }
+
   .model-category-tabs {
     overflow-x: auto;
   }
@@ -1110,6 +1120,18 @@ onBeforeUnmount(() => {
     width: 100%;
   }
 
+  .model-pricing-table.is-chat-table td,
+  .model-pricing-table.is-media-table td {
+    width: 100%;
+  }
+
+  .model-pricing-table.is-chat-table td:nth-child(n),
+  .model-pricing-table.is-market-two-column td,
+  .model-pricing-table.is-market-three-column td:nth-child(n),
+  .model-pricing-table.is-market-four-column td:nth-child(n) {
+    width: 100%;
+  }
+
   .model-pricing-table tr {
     border-bottom: 1px solid rgba(221, 230, 255, 0.1);
     padding: 0.72rem 0;
@@ -1120,13 +1142,14 @@ onBeforeUnmount(() => {
   }
 
   .model-pricing-table td {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
+    display: grid;
+    grid-template-columns: minmax(3.5rem, auto) minmax(0, 1fr);
+    align-items: center;
+    gap: 0.75rem;
     border-bottom: 0;
     padding: 0.38rem 1rem;
     text-align: right;
+    white-space: nowrap;
   }
 
   .model-pricing-table td::before {
@@ -1135,12 +1158,14 @@ onBeforeUnmount(() => {
     color: rgba(191, 209, 230, 0.62);
     font-size: 0.72rem;
     font-weight: 900;
+    text-align: left;
   }
 
   .model-pricing-table td[data-label='模型名称'],
   .model-pricing-table td[data-label='规格'] {
     display: block;
     text-align: left;
+    white-space: normal;
   }
 
   .model-pricing-table td[data-label='模型名称']::before,
@@ -1154,6 +1179,168 @@ onBeforeUnmount(() => {
 
   .model-message-card button {
     margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .model-plaza-page {
+    overflow-x: hidden;
+  }
+
+  .model-plaza-main {
+    padding: 0.9rem 0.72rem 4rem;
+  }
+
+  .model-plaza-hero {
+    gap: 0.75rem;
+    padding-bottom: 0.85rem;
+  }
+
+  .model-title-kicker {
+    margin-bottom: 0.32rem;
+    font-size: 0.7rem;
+  }
+
+  .model-plaza-hero h1 {
+    font-size: 1.55rem;
+  }
+
+  .model-plaza-hero p {
+    margin-top: 0.42rem;
+    font-size: 0.82rem;
+    line-height: 1.55;
+  }
+
+  .model-refresh-button,
+  .model-message-card button {
+    min-height: 2.55rem;
+    justify-content: center;
+    padding-inline: 0.78rem;
+  }
+
+  .model-toolbar {
+    gap: 0.65rem;
+    padding: 0.72rem;
+  }
+
+  .model-search-box {
+    min-height: 2.5rem;
+    padding-inline: 0.72rem;
+  }
+
+  .model-category-tabs {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.22rem;
+    overflow: visible;
+  }
+
+  .model-category-tabs button {
+    justify-content: center;
+    gap: 0.3rem;
+    min-height: 2.12rem;
+    padding: 0.3rem 0.38rem;
+    font-size: 0.76rem;
+  }
+
+  .model-card-grid {
+    margin-top: 0.72rem;
+    gap: 0.78rem;
+  }
+
+  .model-card-head {
+    gap: 0.72rem;
+    padding: 0.82rem;
+  }
+
+  .model-card-title {
+    gap: 0.62rem;
+  }
+
+  .model-card-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .model-card-title h2 {
+    font-size: 0.98rem;
+  }
+
+  .model-card-title p {
+    font-size: 0.74rem;
+    line-height: 1.35;
+  }
+
+  .model-group-rate-select {
+    gap: 0.42rem;
+    padding: 0.42rem 0.52rem;
+  }
+
+  .model-group-rate-select select {
+    font-size: 0.74rem;
+    text-overflow: ellipsis;
+  }
+
+  .model-table-wrap.is-scrollable {
+    max-height: 26rem;
+  }
+
+  .model-scrollbar-rail {
+    display: none;
+  }
+
+  .model-pricing-table tr {
+    margin: 0;
+    padding: 0.62rem 0.62rem;
+  }
+
+  .model-pricing-table td {
+    margin: 0.28rem 0;
+    border: 1px solid rgba(221, 230, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(2, 8, 12, 0.28);
+    padding: 0.44rem max(0.75rem, env(safe-area-inset-right)) 0.44rem 0.65rem;
+    color: rgba(232, 241, 248, 0.86);
+    font-size: 0.8rem;
+    line-height: 1.2;
+  }
+
+  .model-pricing-table td:not([data-label='模型名称']):not([data-label='规格']) {
+    padding-right: calc(max(0.75rem, env(safe-area-inset-right)) + 2.55rem);
+  }
+
+  .model-pricing-table td[data-label='模型名称'],
+  .model-pricing-table td[data-label='规格'] {
+    margin-bottom: 0.42rem;
+    border: 0;
+    background: transparent;
+    padding: 0 0.1rem;
+  }
+
+  .model-name-cell {
+    gap: 0.58rem;
+  }
+
+  .model-name-cell strong,
+  .model-spec-cell strong {
+    font-size: 0.9rem;
+  }
+
+  .model-name-cell small,
+  .model-spec-cell small {
+    font-size: 0.7rem;
+  }
+
+  .model-price-value,
+  .model-saving {
+    justify-self: end;
+  }
+
+  .model-plaza-note {
+    padding-top: 0.9rem;
+    font-size: 0.72rem;
+    line-height: 1.6;
   }
 }
 </style>

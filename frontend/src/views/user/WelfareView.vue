@@ -29,6 +29,24 @@
       </div>
 
       <template v-else-if="overview">
+        <section v-if="walletVisible" class="grid gap-3 sm:grid-cols-3">
+          <div class="rounded-md border border-gray-100 bg-white px-4 py-3 dark:border-dark-700 dark:bg-dark-800">
+            <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('welfare.wallet.voucher') }}</p>
+            <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ formatAmount(wallet?.voucher_available) }}</p>
+          </div>
+          <div class="rounded-md border border-gray-100 bg-white px-4 py-3 dark:border-dark-700 dark:bg-dark-800">
+            <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('welfare.wallet.balance') }}</p>
+            <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ formatAmount(wallet?.balance) }}</p>
+          </div>
+          <div class="rounded-md border border-gray-100 bg-white px-4 py-3 dark:border-dark-700 dark:bg-dark-800">
+            <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('welfare.wallet.total') }}</p>
+            <p class="mt-1 text-2xl font-bold text-gray-900 dark:text-white">{{ formatAmount(wallet?.total_available) }}</p>
+            <p v-if="walletNextExpiryText" class="mt-1 truncate text-xs text-gray-500 dark:text-gray-400" :title="walletNextExpiryText">
+              {{ t('welfare.wallet.nextExpiresAt', { time: walletNextExpiryText }) }}
+            </p>
+          </div>
+        </section>
+
         <section v-if="trial && trial.enabled" class="card p-5">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div class="min-w-0">
@@ -277,7 +295,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { welfareAPI } from '@/api/welfare'
 import { useWelfareStore } from '@/stores/welfare'
-import type { WelfareDailyCheckin, WelfareDailyCheckinMilestone, WelfareNewUserTrial, WelfareOverview, WelfareRecharge } from '@/types'
+import type { WelfareDailyCheckin, WelfareDailyCheckinMilestone, WelfareNewUserTrial, WelfareOverview, WelfareRecharge, WelfareVoucherWallet } from '@/types'
 import { formatCreditAmount } from '@/utils/credits'
 
 const { t } = useI18n()
@@ -296,6 +314,8 @@ const claimingTrialReward = ref(false)
 const daily = computed(() => overview.value?.daily_checkin ?? null)
 const trial = computed(() => overview.value?.new_user_trial ?? null)
 const recharge = computed<WelfareRecharge | null>(() => overview.value?.recharge ?? null)
+const wallet = computed<WelfareVoucherWallet | null>(() => overview.value?.voucher_wallet ?? null)
+const walletVisible = computed(() => Boolean(wallet.value && (wallet.value.voucher_available > 0 || wallet.value.balance > 0)))
 const rechargeVisible = computed(() => {
   const state = recharge.value
   return Boolean(state && (
@@ -305,7 +325,7 @@ const rechargeVisible = computed(() => {
     state.reason === 'expired'
   ))
 })
-const hasVisibleModule = computed(() => Boolean(trial.value?.enabled || rechargeVisible.value || daily.value?.enabled))
+const hasVisibleModule = computed(() => Boolean(walletVisible.value || trial.value?.enabled || rechargeVisible.value || daily.value?.enabled))
 
 const checkedDateSet = computed(() => new Set(daily.value?.checkin_dates ?? []))
 
@@ -460,6 +480,7 @@ const rechargeButtonText = computed(() => {
 
 const rechargeClaimedAtText = computed(() => formatDateTime(recharge.value?.first_bonus_claimed_at))
 const rechargeExpiryText = computed(() => formatDateTime(recharge.value?.expires_at))
+const walletNextExpiryText = computed(() => formatDateTime(wallet.value?.next_expires_at))
 
 function formatAmount(value: number | null | undefined): string {
   return formatCreditAmount(value, { minimumFractionDigits: 0, maximumFractionDigits: 8 })

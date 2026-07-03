@@ -263,6 +263,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		PaymentBalanceRechargeMultiplier:       paymentCfg.BalanceRechargeMultiplier,
 		PaymentRechargeFeeRate:                 paymentCfg.RechargeFeeRate,
 		PaymentRechargePackages:                paymentCfg.RechargePackages,
+		PaymentFAQItems:                        dto.PaymentFAQItemsFromService(paymentCfg.FAQItems),
 		PaymentLoadBalanceStrat:                paymentCfg.LoadBalanceStrategy,
 		PaymentProductNamePrefix:               paymentCfg.ProductNamePrefix,
 		PaymentProductNameSuffix:               paymentCfg.ProductNameSuffix,
@@ -293,6 +294,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		WelfareDailyCheckinRewardMin:              settings.WelfareDailyCheckinRewardMin,
 		WelfareDailyCheckinRewardMax:              settings.WelfareDailyCheckinRewardMax,
 		WelfareDailyCheckinMinAccountAgeHours:     settings.WelfareDailyCheckinMinAccountAgeHours,
+		WelfareVoucherValidDays:                   settings.WelfareVoucherValidDays,
 		WelfareDailyCheckinMilestoneEnabled:       settings.WelfareDailyCheckinMilestoneEnabled,
 		WelfareDailyCheckinMilestone7Amount:       settings.WelfareDailyCheckinMilestone7Amount,
 		WelfareDailyCheckinMilestone14Amount:      settings.WelfareDailyCheckinMilestone14Amount,
@@ -643,6 +645,7 @@ type UpdateSettingsRequest struct {
 	PaymentBalanceRechargeMultiplier *float64                  `json:"payment_balance_recharge_multiplier"`
 	PaymentRechargeFeeRate           *float64                  `json:"payment_recharge_fee_rate"`
 	PaymentRechargePackages          []service.RechargePackage `json:"payment_recharge_packages"`
+	PaymentFAQItems                  []dto.PaymentFAQItem      `json:"payment_faq_items"`
 	PaymentLoadBalanceStrat          *string                   `json:"payment_load_balance_strategy"`
 	PaymentProductNamePrefix         *string                   `json:"payment_product_name_prefix"`
 	PaymentProductNameSuffix         *string                   `json:"payment_product_name_suffix"`
@@ -679,6 +682,7 @@ type UpdateSettingsRequest struct {
 	WelfareDailyCheckinRewardMin              *float64 `json:"welfare_daily_checkin_reward_min"`
 	WelfareDailyCheckinRewardMax              *float64 `json:"welfare_daily_checkin_reward_max"`
 	WelfareDailyCheckinMinAccountAgeHours     *int     `json:"welfare_daily_checkin_min_account_age_hours"`
+	WelfareVoucherValidDays                   *int     `json:"welfare_voucher_valid_days"`
 	WelfareDailyCheckinMilestoneEnabled       *bool    `json:"welfare_daily_checkin_milestone_enabled"`
 	WelfareDailyCheckinMilestone7Amount       *float64 `json:"welfare_daily_checkin_milestone_7_amount"`
 	WelfareDailyCheckinMilestone14Amount      *float64 `json:"welfare_daily_checkin_milestone_14_amount"`
@@ -1784,6 +1788,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		WelfareDailyCheckinRewardMin:              float64ValueOrDefault(req.WelfareDailyCheckinRewardMin, previousSettings.WelfareDailyCheckinRewardMin),
 		WelfareDailyCheckinRewardMax:              float64ValueOrDefault(req.WelfareDailyCheckinRewardMax, previousSettings.WelfareDailyCheckinRewardMax),
 		WelfareDailyCheckinMinAccountAgeHours:     intValueOrDefault(req.WelfareDailyCheckinMinAccountAgeHours, previousSettings.WelfareDailyCheckinMinAccountAgeHours),
+		WelfareVoucherValidDays:                   intValueOrDefault(req.WelfareVoucherValidDays, previousSettings.WelfareVoucherValidDays),
 		WelfareDailyCheckinMilestoneEnabled:       boolValueOrDefault(req.WelfareDailyCheckinMilestoneEnabled, previousSettings.WelfareDailyCheckinMilestoneEnabled),
 		WelfareDailyCheckinMilestone7Amount:       float64ValueOrDefault(req.WelfareDailyCheckinMilestone7Amount, previousSettings.WelfareDailyCheckinMilestone7Amount),
 		WelfareDailyCheckinMilestone14Amount:      float64ValueOrDefault(req.WelfareDailyCheckinMilestone14Amount, previousSettings.WelfareDailyCheckinMilestone14Amount),
@@ -1903,6 +1908,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			BalanceRechargeMultiplier: req.PaymentBalanceRechargeMultiplier,
 			RechargeFeeRate:           req.PaymentRechargeFeeRate,
 			RechargePackages:          req.PaymentRechargePackages,
+			FAQItems:                  dto.PaymentFAQItemsToService(req.PaymentFAQItems),
 			LoadBalanceStrategy:       req.PaymentLoadBalanceStrat,
 			ProductNamePrefix:         req.PaymentProductNamePrefix,
 			ProductNameSuffix:         req.PaymentProductNameSuffix,
@@ -2108,6 +2114,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PaymentBalanceRechargeMultiplier:       updatedPaymentCfg.BalanceRechargeMultiplier,
 		PaymentRechargeFeeRate:                 updatedPaymentCfg.RechargeFeeRate,
 		PaymentRechargePackages:                updatedPaymentCfg.RechargePackages,
+		PaymentFAQItems:                        dto.PaymentFAQItemsFromService(updatedPaymentCfg.FAQItems),
 		PaymentLoadBalanceStrat:                updatedPaymentCfg.LoadBalanceStrategy,
 		PaymentProductNamePrefix:               updatedPaymentCfg.ProductNamePrefix,
 		PaymentProductNameSuffix:               updatedPaymentCfg.ProductNameSuffix,
@@ -2138,6 +2145,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		WelfareDailyCheckinRewardMin:              updatedSettings.WelfareDailyCheckinRewardMin,
 		WelfareDailyCheckinRewardMax:              updatedSettings.WelfareDailyCheckinRewardMax,
 		WelfareDailyCheckinMinAccountAgeHours:     updatedSettings.WelfareDailyCheckinMinAccountAgeHours,
+		WelfareVoucherValidDays:                   updatedSettings.WelfareVoucherValidDays,
 		WelfareDailyCheckinMilestoneEnabled:       updatedSettings.WelfareDailyCheckinMilestoneEnabled,
 		WelfareDailyCheckinMilestone7Amount:       updatedSettings.WelfareDailyCheckinMilestone7Amount,
 		WelfareDailyCheckinMilestone14Amount:      updatedSettings.WelfareDailyCheckinMilestone14Amount,
@@ -2171,7 +2179,7 @@ func hasPaymentFields(req UpdateSettingsRequest) bool {
 		req.PaymentOrderTimeoutMin != nil || req.PaymentMaxPendingOrders != nil ||
 		req.PaymentEnabledTypes != nil || req.PaymentBalanceDisabled != nil ||
 		req.PaymentBalanceRechargeMultiplier != nil || req.PaymentRechargeFeeRate != nil ||
-		req.PaymentRechargePackages != nil ||
+		req.PaymentRechargePackages != nil || req.PaymentFAQItems != nil ||
 		req.PaymentLoadBalanceStrat != nil || req.PaymentProductNamePrefix != nil ||
 		req.PaymentProductNameSuffix != nil || req.PaymentHelpImageURL != nil ||
 		req.PaymentHelpText != nil || req.PaymentCancelRateLimitEnabled != nil ||
@@ -2645,6 +2653,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.WelfareDailyCheckinMinAccountAgeHours != after.WelfareDailyCheckinMinAccountAgeHours {
 		changed = append(changed, "welfare_daily_checkin_min_account_age_hours")
+	}
+	if before.WelfareVoucherValidDays != after.WelfareVoucherValidDays {
+		changed = append(changed, "welfare_voucher_valid_days")
 	}
 	if before.WelfareDailyCheckinMilestoneEnabled != after.WelfareDailyCheckinMilestoneEnabled {
 		changed = append(changed, "welfare_daily_checkin_milestone_enabled")

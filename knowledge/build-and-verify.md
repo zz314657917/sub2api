@@ -1,6 +1,6 @@
 # 构建与验证
 
-最后更新：2026-06-17
+最后更新：2026-07-03
 
 ## 基本原则
 
@@ -147,6 +147,40 @@ go test ./internal/service ./internal/handler -run "TestPayment|TestRecharge|Tes
 cd ../frontend
 npm.cmd run test:run -- PaymentView SettingsView paymentFlow paymentWechatResume
 npm.cmd run build
+```
+
+- invoice requests、ticket downloads、invoice claim reminders、退款查询或订单结果页相关改动：
+
+```powershell
+cd backend
+go test ./internal/service ./internal/handler ./internal/handler/admin -run "Test.*Payment.*|Test.*Refund.*|Test.*Invoice.*|Test.*Ticket.*" -count=1
+
+cd ../frontend
+corepack.cmd pnpm --dir frontend exec vitest run src/views/user/__tests__/PaymentResultView.spec.ts src/views/user/__tests__/PaymentView.spec.ts
+corepack.cmd pnpm --dir frontend exec vitest run src/components/payment/__tests__/currency.spec.ts
+corepack.cmd pnpm --dir frontend run build
+```
+
+- welfare voucher、福利钱包、支付抵扣或 welfare 页展示相关改动：
+
+```powershell
+cd backend
+go test ./internal/service ./internal/repository -run "Test.*Welfare.*|Test.*Voucher.*|Test.*Billing.*" -count=1
+
+cd ../frontend
+corepack.cmd pnpm --dir frontend exec vitest run src/views/user/__tests__/PaymentView.spec.ts src/views/user/__tests__/PaymentResultView.spec.ts
+corepack.cmd pnpm --dir frontend run build
+```
+
+- user accounts、user proxies、统一账号向导或用户侧高级配置字段相关改动：
+
+```powershell
+cd backend
+go test ./internal/service ./internal/handler ./internal/repository -run "Test.*User.*Account.*|Test.*Proxy.*" -count=1
+
+cd ../frontend
+corepack.cmd pnpm --dir frontend run typecheck
+corepack.cmd pnpm --dir frontend run build
 ```
 
 - 用户注册 IP / 最近登录 IP、后台用户画像或注册来源排查相关改动：

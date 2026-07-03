@@ -1,6 +1,6 @@
 # 当前主线
 
-最后更新：2026-06-17
+最后更新：2026-06-27
 
 ## 当前阶段
 
@@ -55,6 +55,11 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
    - 这些结论之所以值得进入当前焦点，而不是只留在 task 快照里，是因为它们会直接影响后续继续合上游、排查 OpenAI/Anthropic/国产模型兼容、做管理员账户运维或解释为什么某些 patch 可以继续小步迁、某些 migration-heavy 变更仍应跳过。
    - 当前默认心智应是：Studio Bridge / 支付治理仍是产品主链，上游合成则进入“低风险小步、保护本地定制、不 merge 大链路”的稳定工程主线。
 
+11. 2026-06-26 的 S21 / S22 follow-up safe patches，已经把“最近默认续做入口”从 leaderboard 小任务前移到新一轮上游收口
+   - S21 已稳定落地 Spark `image_generation` tool strip、OpenAI weekly reset 二次确认、usage cache token 明细展示和邮箱绑定后缀白名单。
+   - 当前默认续做不应再停在 6/24 的 leaderboard 视觉/交互语境；更接近事实的是“在不覆盖本地 Studio Bridge、支付和公共页定制的前提下，继续小步吸上游安全/兼容修复”。
+   - S22 仍是候选评估，不应误写成“已完成主线”；支付/订阅/余额预扣、order currency、Antigravity fallback、GPT-5.5 instructions fallback、ops chart UI、Claude terminal template、payment supported-types 继续属于跳过或待独立 Sprint 的范围。
+
 ## 已稳定结论
 
 - `knowledge/tasks/current-task.md` 仍适合记录动态交付快照，但当前稳定主线已经不该只停在 2026-06-08 的 gateway auth / prompt cache 语境；最近默认续做心智已继续推进到 Studio Bridge、真实用户闭环和落叶AI生产联调层。
@@ -77,6 +82,9 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
 - 2026-06-24 的用户榜单稳定面已经不是“只看 Token 消耗榜”：
   - 模型榜当前已包含模型商图标、Token 占比、增长百分比和排名变化。
   - `Token 消耗榜 / 模型榜` 切换已收进同一排行榜卡片，不应再把它理解成页面外层临时控件。
+- 2026-06-26 的默认工程入口也已经不是“只看 leaderboard 是否完成”：
+  - Spark image tool strip 必须先于本地图片权限 gate 执行，否则 Codex CLI 默认携带的 tool 会被误判成图片生成意图。
+  - OpenAI quota/reset 已不仅是 S17 时的“后台运维面存在”，而是继续收口到 weekly reset 二次确认和 usage cache token 细项展示。
 - `sub2api` 与 `chatgpt2api` 仍需分开维护知识：前者偏 gateway、公共入口、嵌入式工作区桥接、模型/计费目录；后者偏独立图片工作台、`/canvas` 节点工作区和 ChatGPT Web 能力封装。
 - `use key base url` 归一和 routed API key capabilities 已进入当前稳定主线；后续排查用户“为什么这个 key 看不到某能力/为什么 base URL 表现不一致”时，应优先把它当成默认知识，而不是零散提交细节。
 - 默认 API key / 默认分组改造之后，普通更新路径仍应执行 route groups 权限校验；如果未来再看到这块编译或逻辑回退，先检查 `validateAPIKeyRouteGroups(..., false)` 一类调用是否被遗漏。
@@ -109,6 +117,7 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
 - 不要把图片输入 URL 化误判成 APIMart 专属分支；当前它是账号能力驱动的兼容层，普通 OpenAI-compatible 上游也可能需要。
 - 不要把上游 `Part exceeded maximum size of 1024KB` 误判成 Sub2API 本地统一上传上限；当前更多是在提示目标上游 multipart part 限制与账号能力配置不匹配。
 - 不要把 2026-06-24 的 leaderboard 改动误判成纯视觉小修；它已经引入新的用户侧稳定数据语义，包括模型榜、增长、排名变化和榜单内嵌切换。
+- 也不要把 2026-06-24 的 leaderboard 改动继续误判成“当前默认续做入口”；截至 2026-06-26，更接近主线的是 S21 已完成、S22 待评估的上游 follow-up safe patches。
 - 不要把落叶AI团队空间联调误判成 chatgpt2api 单仓库任务；当前团队空间的 actor/payer、余额和扣费真源仍在 Sub2API。
 - 不要把 2026-06-17 的上游 patch 误判成“已经可以整体跟上游合并”；当前稳定策略仍是按 Sprint 做低风险小步迁移，并显式避开 migration-heavy、合规门禁或会覆盖本地定制的大链路。
 - 不要把 OpenAI quota/reset、thinking filter、Responses probe 或 zstd 支持当成零散实现细节；它们已经影响后续排障基线和上游 patch 取舍。

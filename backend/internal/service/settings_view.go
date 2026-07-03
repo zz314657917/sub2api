@@ -195,6 +195,7 @@ type SystemSettings struct {
 	WelfareDailyCheckinRewardMin              float64 `json:"welfare_daily_checkin_reward_min"`
 	WelfareDailyCheckinRewardMax              float64 `json:"welfare_daily_checkin_reward_max"`
 	WelfareDailyCheckinMinAccountAgeHours     int     `json:"welfare_daily_checkin_min_account_age_hours"`
+	WelfareVoucherValidDays                   int     `json:"welfare_voucher_valid_days"`
 	WelfareDailyCheckinMilestoneEnabled       bool    `json:"welfare_daily_checkin_milestone_enabled"`
 	WelfareDailyCheckinMilestone7Amount       float64 `json:"welfare_daily_checkin_milestone_7_amount"`
 	WelfareDailyCheckinMilestone14Amount      float64 `json:"welfare_daily_checkin_milestone_14_amount"`
@@ -299,6 +300,7 @@ type PublicSettings struct {
 	WeChatOAuthMobileEnabled bool
 	BackendModeEnabled       bool
 	PaymentEnabled           bool
+	PaymentFAQItems          string
 	OIDCOAuthEnabled         bool
 	OIDCOAuthProviderName    string
 	GitHubOAuthEnabled       bool

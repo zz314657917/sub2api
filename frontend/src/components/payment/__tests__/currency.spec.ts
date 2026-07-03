@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatPaymentAmount, formatPaymentAmountCompact } from '../currency'
+import { currencySymbol, formatPaymentAmount, formatPaymentAmountCompact } from '../currency'
 
 describe('formatPaymentAmount', () => {
   it('uses the currency default fraction digits', () => {
@@ -13,5 +13,15 @@ describe('formatPaymentAmountCompact', () => {
   it('removes insignificant trailing zeros', () => {
     expect(formatPaymentAmountCompact(80, 'CNY', 'zh-CN')).not.toContain('.00')
     expect(formatPaymentAmountCompact(699.5, 'CNY', 'zh-CN')).toContain('.5')
+  })
+})
+
+describe('currencySymbol', () => {
+  it('uses configured symbols and falls back to normalized currency code', () => {
+    expect(currencySymbol('usd')).toBe('$')
+    expect(currencySymbol('CNY')).toBe('¥')
+    expect(currencySymbol('hkd')).toBe('HK$')
+    expect(currencySymbol('xyz')).toBe('XYZ')
+    expect(currencySymbol('bad-code')).toBe('¥')
   })
 })

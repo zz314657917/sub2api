@@ -49,7 +49,7 @@
           </div>
           <div class="flex justify-between">
             <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</span>
-            <span class="font-medium text-gray-900 dark:text-white">¥{{ paidOrder.pay_amount.toFixed(2) }}</span>
+            <span class="font-medium text-gray-900 dark:text-white">{{ formatGatewayAmount(paidOrder.pay_amount, paidOrder.currency) }}</span>
           </div>
         </div>
       </div>
@@ -81,6 +81,7 @@ import { paymentAPI } from '@/api/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import { getPaymentPopupFeatures } from '@/components/payment/providerConfig'
 import { formatCreditAmount } from '@/utils/credits'
+import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import type { PaymentOrder } from '@/types/payment'
 import QRCode from 'qrcode'
 import alipayIcon from '@/assets/icons/alipay.svg'
@@ -101,7 +102,8 @@ const emit = defineEmits<{
   success: []
 }>()
 
-const { t } = useI18n()
+const i18n = useI18n()
+const { t } = i18n
 const paymentStore = usePaymentStore()
 const appStore = useAppStore()
 
@@ -147,7 +149,20 @@ const countdownDisplay = computed(() => {
 function formatOrderAmount(order: PaymentOrder): string {
   return order.order_type === 'balance'
     ? formatCreditAmount(order.amount)
-    : `¥${order.amount.toFixed(2)}`
+    : formatGatewayAmount(order.amount, order.currency)
+}
+
+function localeCode(): string | undefined {
+  const raw = i18n.locale as unknown
+  if (typeof raw === 'string') return raw
+  if (raw && typeof raw === 'object' && 'value' in raw) {
+    return String((raw as { value?: string }).value || '')
+  }
+  return undefined
+}
+
+function formatGatewayAmount(value: number, currency?: string | null): string {
+  return formatPaymentAmount(value, normalizePaymentCurrency(currency), localeCode())
 }
 
 function getLogoForType(): string | null {

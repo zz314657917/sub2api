@@ -19,15 +19,15 @@
         </div>
         <div>
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.baseAmount') }}</p>
-          <p class="text-sm font-medium text-gray-900 dark:text-white">¥{{ baseAmount.toFixed(2) }}</p>
+          <p class="text-sm font-medium text-gray-900 dark:text-white">{{ paymentAmountSymbol(order) }}{{ baseAmount.toFixed(2) }}</p>
         </div>
         <div v-if="order.fee_rate > 0">
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.fee') }} ({{ order.fee_rate }}%)</p>
-          <p class="text-sm font-medium text-gray-900 dark:text-white">¥{{ feeAmount.toFixed(2) }}</p>
+          <p class="text-sm font-medium text-gray-900 dark:text-white">{{ paymentAmountSymbol(order) }}{{ feeAmount.toFixed(2) }}</p>
         </div>
         <div>
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.payAmount') }}</p>
-          <p class="text-sm font-medium text-gray-900 dark:text-white">¥{{ order.pay_amount.toFixed(2) }}</p>
+          <p class="text-sm font-medium text-gray-900 dark:text-white">{{ paymentAmountSymbol(order) }}{{ order.pay_amount.toFixed(2) }}</p>
         </div>
         <div v-if="order.amount !== order.pay_amount">
           <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('payment.orders.creditedAmount') }}</p>
@@ -77,7 +77,7 @@
         <div class="grid grid-cols-2 gap-2 text-sm">
           <div>
             <span class="text-red-600 dark:text-red-400">{{ t('payment.admin.refundAmount') }}:</span>
-            <span class="ml-1 font-medium text-red-700 dark:text-red-300">{{ order.order_type === 'balance' ? '$' : '¥' }}{{ order.refund_amount.toFixed(2) }}</span>
+            <span class="ml-1 font-medium text-red-700 dark:text-red-300">{{ formatRefundAmount(order) }}</span>
           </div>
           <div v-if="order.refund_reason" class="col-span-2">
             <span class="text-red-600 dark:text-red-400">{{ t('payment.admin.refundReason') }}:</span>
@@ -119,6 +119,7 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import type { PaymentOrder } from '@/types/payment'
 import { statusBadgeClass, canRefund as canRefundStatus, formatOrderDateTime } from '@/components/payment/orderUtils'
+import { currencySymbol } from '@/components/payment/currency'
 import { formatCreditAmount } from '@/utils/credits'
 
 const { t } = useI18n()
@@ -144,6 +145,8 @@ const feeAmount = computed(() => {
   return props.order.pay_amount - baseAmount.value
 })
 
+const creditedAmountSymbol = currencySymbol('USD')
+
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'cancel', order: PaymentOrder): void
@@ -162,6 +165,16 @@ function formatDateTime(dateStr: string): string {
 function formatCreditedAmount(order: PaymentOrder): string {
   return order.order_type === 'balance'
     ? formatCreditAmount(order.amount)
-    : `¥${order.amount.toFixed(2)}`
+    : `${paymentAmountSymbol(order)}${order.amount.toFixed(2)}`
+}
+
+function formatRefundAmount(order: PaymentOrder): string {
+  return order.order_type === 'balance'
+    ? `${creditedAmountSymbol}${order.refund_amount.toFixed(2)}`
+    : `${paymentAmountSymbol(order)}${order.refund_amount.toFixed(2)}`
+}
+
+function paymentAmountSymbol(order: PaymentOrder | null | undefined): string {
+  return currencySymbol(order?.currency)
 }
 </script>

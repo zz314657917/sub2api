@@ -1,6 +1,6 @@
 export default {
     title: 'Welfare',
-    subtitle: 'Claim daily check-in rewards and larger credit bonuses for monthly streaks.',
+    subtitle: 'Claim daily check-in vouchers and larger voucher bonuses for monthly streaks.',
     moduleStatus: 'Welfare module status',
     enabled: 'Enabled',
     notOpen: 'Not open',
@@ -65,6 +65,12 @@ export default {
       monthlyBonusNotice: 'If the first purchase already receives a monthly package bonus, this gift may not stack.',
       cta: 'Buy Credits',
     },
+    wallet: {
+      voucher: 'Voucher balance',
+      balance: 'Regular credits',
+      total: 'Total available',
+      nextExpiresAt: 'Next expires: {time}',
+    },
     daily: {
       title: 'Daily Check-in',
       disabledTitle: 'Daily check-in is not open',
@@ -73,7 +79,7 @@ export default {
       monthDays: 'Month check-ins',
       todayReward: 'Today reward',
       daysUnit: 'days',
-      description: 'Check in today to claim a random credit reward and grow your streak.',
+      description: 'Check in today to claim a random voucher and grow your streak.',
       claimedDescription: 'Claimed {amount} today. Current streak: {streak} days.',
       canClaim: 'Claimable',
       checked: 'Checked today',

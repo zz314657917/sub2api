@@ -261,6 +261,38 @@ func TestNormalizeRechargePackagesRejectsInvalidConfig(t *testing.T) {
 	}
 }
 
+func TestNormalizePaymentFAQItems(t *testing.T) {
+	t.Parallel()
+
+	got := NormalizePaymentFAQItems([]PaymentFAQItem{
+		{Title: "  Q1  ", Body: "  A1  "},
+		{Title: "", Body: "body only"},
+		{Title: "title only", Body: ""},
+		{Title: "  ", Body: "  "},
+		{Title: "Q2", Body: "A2"},
+	})
+	if len(got) != 2 {
+		t.Fatalf("items len = %d, want 2 (%#v)", len(got), got)
+	}
+	if got[0].Title != "Q1" || got[0].Body != "A1" {
+		t.Fatalf("first item = %#v, want trimmed Q1/A1", got[0])
+	}
+	if got[1].Title != "Q2" || got[1].Body != "A2" {
+		t.Fatalf("second item = %#v, want Q2/A2", got[1])
+	}
+}
+
+func TestParsePaymentFAQItemsFallback(t *testing.T) {
+	t.Parallel()
+
+	if got := ParsePaymentFAQItems(""); len(got) != len(DefaultPaymentFAQItems()) {
+		t.Fatalf("empty fallback len = %d, want defaults", len(got))
+	}
+	if got := ParsePaymentFAQItems(`[{"title":"Only title"}]`); len(got) != len(DefaultPaymentFAQItems()) {
+		t.Fatalf("invalid item fallback len = %d, want defaults", len(got))
+	}
+}
+
 func TestGetBasePaymentType(t *testing.T) {
 	t.Parallel()
 

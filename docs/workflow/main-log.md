@@ -93,4 +93,34 @@
 260701 0040 | upstream-main-v0141-model-not-found-s32 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0141-model-not-found-s32-result.md, docs/workflow/qa-reports/upstream-main-v0141-model-not-found-s32-qa.md
 260701 0126 | upstream-main-v0141-payment-validity-units-s33 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0141-payment-validity-units-s33-result.md, docs/workflow/qa-reports/upstream-main-v0141-payment-validity-units-s33-qa.md
 260701 0150 | upstream-main-v0141-antigravity-system-role-s34 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0141-antigravity-system-role-s34-result.md, docs/workflow/qa-reports/upstream-main-v0141-antigravity-system-role-s34-qa.md
+260702 1645 | upstream-main-v0142-merge-plan-s35 | contract-draft | codex | docs/workflow/spec.md, docs/workflow/tasks/upstream-main-v0142-merge-plan-s35.md
+260702 1759 | upstream-main-v0142-merge-plan-s35 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0142-merge-plan-s35.md
+260702 1759 | upstream-main-v0142-payment-refund-s36 | contract-draft | codex | docs/workflow/tasks/upstream-main-v0142-payment-refund-s36.md
+260702 1802 | upstream-main-v0142-payment-refund-s36 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0142-payment-refund-s36.md
+260702 1841 | upstream-main-v0142-payment-refund-s36 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0142-payment-refund-s36-result.md, docs/workflow/qa-reports/upstream-main-v0142-payment-refund-s36-qa.md
+260702 2056 | upstream-main-v0142-openai-codex-gateway-s37 | contract-draft | codex | docs/workflow/tasks/upstream-main-v0142-openai-codex-gateway-s37.md
+260702 2111 | upstream-main-v0142-openai-codex-gateway-s37 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0142-openai-codex-gateway-s37.md
+260702 2234 | upstream-main-v0142-openai-codex-gateway-s37 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0142-openai-codex-gateway-s37-result.md, docs/workflow/qa-reports/upstream-main-v0142-openai-codex-gateway-s37-qa.md
+260703 0119 | upstream-main-v0142-account-repo-count-s38a | contract-draft | codex | docs/workflow/tasks/upstream-main-v0142-account-repo-count-s38a.md
+260703 0119 | upstream-main-v0142-account-repo-count-s38a | contract-approved | codex | docs/workflow/tasks/upstream-main-v0142-account-repo-count-s38a.md
+260703 0125 | upstream-main-v0142-account-repo-count-s38a | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0142-account-repo-count-s38a-result.md, docs/workflow/qa-reports/upstream-main-v0142-account-repo-count-s38a-qa.md
+260703 0129 | upstream-main-v0142-frontend-api-base-s39a | contract-draft | codex | docs/workflow/tasks/upstream-main-v0142-frontend-api-base-s39a.md
+260703 0129 | upstream-main-v0142-frontend-api-base-s39a | contract-approved | codex | docs/workflow/tasks/upstream-main-v0142-frontend-api-base-s39a.md
+260703 0135 | upstream-main-v0142-frontend-api-base-s39a | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0142-frontend-api-base-s39a-result.md, docs/workflow/qa-reports/upstream-main-v0142-frontend-api-base-s39a-qa.md
+260703 1032 | upstream-main-v0143-claude-oauth-payload-s40 | contract-draft | codex | docs/workflow/tasks/upstream-main-v0143-claude-oauth-payload-s40.md
+260703 1032 | upstream-main-v0143-claude-oauth-payload-s40 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0143-claude-oauth-payload-s40.md
+260703 1035 | upstream-main-v0143-claude-oauth-payload-s40 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0143-claude-oauth-payload-s40-result.md, docs/workflow/qa-reports/upstream-main-v0143-claude-oauth-payload-s40-qa.md
+260703 1040 | upstream-main-v0143-antigravity-reasoning-params-s41 | contract-draft | codex | docs/workflow/tasks/upstream-main-v0143-antigravity-reasoning-params-s41.md
+260703 1040 | upstream-main-v0143-antigravity-reasoning-params-s41 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0143-antigravity-reasoning-params-s41.md
+260703 1044 | upstream-main-v0143-antigravity-reasoning-params-s41 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0143-antigravity-reasoning-params-s41-result.md, docs/workflow/qa-reports/upstream-main-v0143-antigravity-reasoning-params-s41-qa.md
+260703 1047 | upstream-main-v0143-user-model-stats-requested-s42 | contract-draft | codex | docs/workflow/tasks/upstream-main-v0143-user-model-stats-requested-s42.md
+260703 1047 | upstream-main-v0143-user-model-stats-requested-s42 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0143-user-model-stats-requested-s42.md
+260703 1049 | upstream-main-v0143-user-model-stats-requested-s42 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0143-user-model-stats-requested-s42-result.md, docs/workflow/qa-reports/upstream-main-v0143-user-model-stats-requested-s42-qa.md
 260703 1314 | upstream-main-v0143-group-peak-rate-impl-s44 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0143-group-peak-rate-impl-s44-result.md, docs/workflow/qa-reports/upstream-main-v0143-group-peak-rate-impl-s44-qa.md
+260703 1610 | upstream-main-v0143-group-peak-rate-plan-s43 | contract-draft | codex | docs/workflow/tasks/upstream-main-v0143-group-peak-rate-plan-s43.md
+260703 1628 | upstream-main-v0143-group-peak-rate-plan-s43 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0143-group-peak-rate-plan-s43.md
+260703 1632 | upstream-main-v0143-group-peak-rate-impl-s44 | contract-draft | codex | docs/workflow/tasks/upstream-main-v0143-group-peak-rate-impl-s44.md
+260703 1637 | upstream-main-v0143-group-peak-rate-impl-s44 | contract-blocked | codex | docs/workflow/tasks/upstream-main-v0143-group-peak-rate-impl-s44.md
+260703 1930 | affiliate-risk-alerts-s45 | contract-draft | codex | docs/workflow/tasks/affiliate-risk-alerts-s45.md
+260703 1936 | affiliate-risk-alerts-s45 | contract-refined | codex | scan interval configurable in admin settings, default 20m
+260703 2028 | affiliate-risk-alerts-s45 | contract-refined | codex | add scan-specific indexes for users, affiliate ledger, usage log IP/time

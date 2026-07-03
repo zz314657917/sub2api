@@ -104,13 +104,15 @@ type StudioBridgeRedeemResult struct {
 }
 
 type StudioBridgeUserSummary struct {
-	UserID      int64                       `json:"user_id"`
-	Email       string                      `json:"email"`
-	Username    string                      `json:"username"`
-	Balance     float64                     `json:"balance"`
-	RechargeURL string                      `json:"recharge_url"`
-	Usage       []StudioBridgeUsageSummary  `json:"usage"`
-	Orders      []StudioBridgeRechargeOrder `json:"recent_recharges"`
+	UserID         int64                       `json:"user_id"`
+	Email          string                      `json:"email"`
+	Username       string                      `json:"username"`
+	Balance        float64                     `json:"balance"`
+	VoucherBalance float64                     `json:"voucher_balance"`
+	TotalAvailable float64                     `json:"total_available"`
+	RechargeURL    string                      `json:"recharge_url"`
+	Usage          []StudioBridgeUsageSummary  `json:"usage"`
+	Orders         []StudioBridgeRechargeOrder `json:"recent_recharges"`
 }
 
 type StudioBridgeUsageSummary struct {
