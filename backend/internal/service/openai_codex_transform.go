@@ -10,6 +10,7 @@ import (
 
 var codexModelMap = map[string]string{
 	"gpt-5.5":                    "gpt-5.5",
+	"gpt-5.5-pro":                "gpt-5.5-pro",
 	"codex-auto-review":          "codex-auto-review",
 	"gpt-5.4":                    "gpt-5.4",
 	"gpt-5.4-mini":               "gpt-5.4-mini",
@@ -61,6 +62,7 @@ var codexVersionModelPrefixes = []struct {
 	{prefix: "gpt-5.3-codex", target: "gpt-5.3-codex"},
 	{prefix: "gpt-5.4-mini", target: "gpt-5.4-mini"},
 	{prefix: "gpt-5.4-nano", target: "gpt-5.4-nano"},
+	{prefix: "gpt-5.5-pro", target: "gpt-5.5-pro"},
 	{prefix: "gpt-5.5", target: "gpt-5.5"},
 	{prefix: "gpt-5.4", target: "gpt-5.4"},
 	{prefix: "gpt-5.2", target: "gpt-5.2"},
@@ -1083,11 +1085,22 @@ func filterCodexInputWithOptions(input []any, opts codexInputFilterOptions) []an
 		}
 		typ, _ := m["type"].(string)
 
-		// chatgpt.com codex backend (OAuth path) does not persist reasoning
-		// items because applyCodexOAuthTransform forces store=false. Any rs_*
-		// reference replayed in input is guaranteed to 404 upstream
-		// ("Item with id 'rs_...' not found"). Drop reasoning items entirely.
+		// ChatGPT Codex OAuth uses store=false. Replaying a reasoning item
+		// with its rs_* id can 404 on the upstream id lookup, but encrypted_content
+		// is the cross-turn reasoning carrier. Keep the item, strip only the id,
+		// and ensure summary exists because upstream requires it.
 		if typ == "reasoning" {
+			newItem := make(map[string]any, len(m))
+			for key, value := range m {
+				if key == "id" {
+					continue
+				}
+				newItem[key] = value
+			}
+			if summary, ok := newItem["summary"]; !ok || summary == nil {
+				newItem["summary"] = []any{}
+			}
+			filtered = append(filtered, newItem)
 			continue
 		}
 
