@@ -513,4 +513,13 @@ describe('PaymentView pricing layout', () => {
       expect(messages.payment.pricing.historyTitle).toBeTruthy()
     }
   })
+
+  it('keeps subscription checkout amount independent from the balance recharge multiplier', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/views/user/PaymentView.vue'), 'utf8')
+
+    expect(source).toContain("await createOrder(selectedPlan.value.price, 'subscription', selectedPlan.value.id)")
+    expect(source).toContain('balance_recharge_multiplier')
+    expect(source).not.toContain("selectedPlan.value.price * checkout.value.balance_recharge_multiplier")
+    expect(source).not.toContain("selectedPlan.value.price * checkout.balance_recharge_multiplier")
+  })
 })

@@ -499,14 +499,15 @@ const limitableTypes = computed(() => {
 
 // --- Methods ---
 function isTypeSelected(type: string): boolean {
-  return form.supported_types.includes(type)
+  return Array.isArray(form.supported_types) && form.supported_types.includes(type)
 }
 
 function toggleType(type: string) {
-  if (form.supported_types.includes(type)) {
+  const currentTypes = Array.isArray(form.supported_types) ? form.supported_types : []
+  if (currentTypes.includes(type)) {
     form.supported_types = form.supported_types.filter(t => t !== type)
   } else {
-    form.supported_types = [...form.supported_types, type]
+    form.supported_types = [...currentTypes, type]
   }
 }
 
@@ -658,7 +659,7 @@ function reset(defaultKey: string) {
 function loadProvider(provider: ProviderInstance) {
   form.name = provider.name
   form.provider_key = provider.provider_key
-  form.supported_types = provider.supported_types
+  form.supported_types = Array.isArray(provider.supported_types) ? [...provider.supported_types] : []
   form.enabled = provider.enabled
   // Coerce to a valid value for this provider. Guards against stale data
   // (e.g. "popup" written by an older client) showing up as an unselected

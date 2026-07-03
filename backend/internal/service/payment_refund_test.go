@@ -9,10 +9,56 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
+
+type refundQueryProviderStub struct {
+	key              string
+	queryResponse    *payment.RefundResponse
+	queryErr         error
+	queryRequests    []payment.RefundQueryRequest
+	refundCalled     bool
+	createPayCalled  bool
+	queryOrderCalled bool
+	verifyCalled     bool
+}
+
+func (p *refundQueryProviderStub) Name() string { return p.key }
+func (p *refundQueryProviderStub) ProviderKey() string {
+	if p.key == "" {
+		return payment.TypeStripe
+	}
+	return p.key
+}
+func (p *refundQueryProviderStub) SupportedTypes() []payment.PaymentType {
+	return []payment.PaymentType{payment.TypeStripe}
+}
+func (p *refundQueryProviderStub) CreatePayment(context.Context, payment.CreatePaymentRequest) (*payment.CreatePaymentResponse, error) {
+	p.createPayCalled = true
+	panic("unexpected CreatePayment call")
+}
+func (p *refundQueryProviderStub) QueryOrder(context.Context, string) (*payment.QueryOrderResponse, error) {
+	p.queryOrderCalled = true
+	panic("unexpected QueryOrder call")
+}
+func (p *refundQueryProviderStub) VerifyNotification(context.Context, string, map[string]string) (*payment.PaymentNotification, error) {
+	p.verifyCalled = true
+	panic("unexpected VerifyNotification call")
+}
+func (p *refundQueryProviderStub) Refund(context.Context, payment.RefundRequest) (*payment.RefundResponse, error) {
+	p.refundCalled = true
+	panic("unexpected Refund call")
+}
+func (p *refundQueryProviderStub) QueryRefund(_ context.Context, req payment.RefundQueryRequest) (*payment.RefundResponse, error) {
+	p.queryRequests = append(p.queryRequests, req)
+	if p.queryErr != nil {
+		return nil, p.queryErr
+	}
+	return p.queryResponse, nil
+}
 
 func TestValidateRefundRequestRejectsLegacyGuessedProviderInstance(t *testing.T) {
 	ctx := context.Background()
@@ -176,7 +222,7 @@ func TestGwRefundRejectsAlipayMerchantIdentitySnapshotMismatch(t *testing.T) {
 		loadBalancer: newWebhookProviderTestLoadBalancer(client),
 	}
 
-	err = svc.gwRefund(ctx, &RefundPlan{
+	_, err = svc.gwRefund(ctx, &RefundPlan{
 		OrderID:       order.ID,
 		Order:         order,
 		RefundAmount:  order.Amount,
@@ -207,4 +253,322 @@ func TestValidateRefundProviderResponseAcceptsPending(t *testing.T) {
 	require.NoError(t, validateRefundProviderResponse(&payment.RefundResponse{Status: payment.ProviderStatusSuccess}))
 	require.Error(t, validateRefundProviderResponse(&payment.RefundResponse{Status: payment.ProviderStatusFailed}))
 	require.Error(t, validateRefundProviderResponse(nil))
+}
+
+func TestFinishRefundPendingMarksOrderPendingAndRollsBackDeduction(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+
+	user, err := client.User.Create().
+		SetEmail("refund-pending@example.com").
+		SetPasswordHash("hash").
+		SetUsername("refund-pending-user").
+		Save(ctx)
+	require.NoError(t, err)
+
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(100).
+		SetPayAmount(100).
+		SetFeeRate(0).
+		SetRechargeCode("REFUND-PENDING-ORDER").
+		SetOutTradeNo("sub2_refund_pending_order").
+		SetPaymentType(payment.TypeStripe).
+		SetPaymentTradeNo("pi_refund_pending").
+		SetOrderType(payment.OrderTypeBalance).
+		SetStatus(OrderStatusRefunding).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetPaidAt(time.Now()).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		Save(ctx)
+	require.NoError(t, err)
+
+	var rolledBack float64
+	userRepo := &mockUserRepo{}
+	userRepo.updateBalanceFn = func(ctx context.Context, id int64, amount float64) error {
+		require.Equal(t, user.ID, id)
+		rolledBack += amount
+		return nil
+	}
+	svc := &PaymentService{
+		entClient: client,
+		userRepo:  userRepo,
+	}
+	plan := &RefundPlan{
+		OrderID:         order.ID,
+		Order:           order,
+		RefundAmount:    40,
+		GatewayAmount:   40,
+		Reason:          "gateway accepted but not final",
+		Force:           true,
+		DeductionType:   payment.DeductionTypeBalance,
+		BalanceToDeduct: 40,
+	}
+
+	result, err := svc.finishRefund(ctx, plan, &payment.RefundResponse{RefundID: "re_pending", Status: payment.ProviderStatusPending})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.False(t, result.Success)
+	require.Contains(t, result.Warning, "pending confirmation")
+	require.Equal(t, 40.0, rolledBack)
+	require.Zero(t, plan.BalanceToDeduct)
+
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusRefundPending, reloaded.Status)
+	require.Equal(t, 40.0, reloaded.RefundAmount)
+	require.NotNil(t, reloaded.RefundReason)
+	require.Equal(t, "gateway accepted but not final", *reloaded.RefundReason)
+	require.Nil(t, reloaded.RefundAt)
+
+	pendingAudits, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_PENDING")).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, pendingAudits)
+	successAudits, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_SUCCESS")).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, successAudits)
+}
+
+func TestFinishRefundSuccessStatusesFinalize(t *testing.T) {
+	for _, status := range []string{payment.ProviderStatusSuccess, payment.ProviderStatusRefunded} {
+		t.Run(status, func(t *testing.T) {
+			ctx := context.Background()
+			client := newPaymentConfigServiceTestClient(t)
+
+			user, err := client.User.Create().
+				SetEmail("refund-success-" + status + "@example.com").
+				SetPasswordHash("hash").
+				SetUsername("refund-success-" + status).
+				Save(ctx)
+			require.NoError(t, err)
+
+			order, err := client.PaymentOrder.Create().
+				SetUserID(user.ID).
+				SetUserEmail(user.Email).
+				SetUserName(user.Username).
+				SetAmount(100).
+				SetPayAmount(100).
+				SetFeeRate(0).
+				SetRechargeCode("REFUND-SUCCESS-" + status).
+				SetOutTradeNo("sub2_refund_success_" + status).
+				SetPaymentType(payment.TypeStripe).
+				SetPaymentTradeNo("pi_refund_success_" + status).
+				SetOrderType(payment.OrderTypeBalance).
+				SetStatus(OrderStatusRefunding).
+				SetExpiresAt(time.Now().Add(time.Hour)).
+				SetPaidAt(time.Now()).
+				SetClientIP("127.0.0.1").
+				SetSrcHost("api.example.com").
+				Save(ctx)
+			require.NoError(t, err)
+
+			svc := &PaymentService{entClient: client}
+			plan := &RefundPlan{
+				OrderID:         order.ID,
+				Order:           order,
+				RefundAmount:    100,
+				GatewayAmount:   100,
+				Reason:          "final success",
+				DeductionType:   payment.DeductionTypeBalance,
+				BalanceToDeduct: 100,
+			}
+
+			result, err := svc.finishRefund(ctx, plan, &payment.RefundResponse{Status: status})
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.True(t, result.Success)
+			require.Equal(t, 100.0, result.BalanceDeducted)
+
+			reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+			require.NoError(t, err)
+			require.Equal(t, OrderStatusRefunded, reloaded.Status)
+			require.NotNil(t, reloaded.RefundAt)
+
+			successAudits, err := client.PaymentAuditLog.Query().
+				Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_SUCCESS")).
+				Count(ctx)
+			require.NoError(t, err)
+			require.Equal(t, 1, successAudits)
+			pendingAudits, err := client.PaymentAuditLog.Query().
+				Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_PENDING")).
+				Count(ctx)
+			require.NoError(t, err)
+			require.Zero(t, pendingAudits)
+		})
+	}
+}
+
+func TestPrepareAndExecuteRefundRejectRefundPending(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+
+	user, err := client.User.Create().
+		SetEmail("refund-pending-reject@example.com").
+		SetPasswordHash("hash").
+		SetUsername("refund-pending-reject").
+		Save(ctx)
+	require.NoError(t, err)
+	inst, err := client.PaymentProviderInstance.Create().
+		SetProviderKey(payment.TypeStripe).
+		SetName("stripe-refund-pending-reject").
+		SetConfig(encryptWebhookProviderConfig(t, map[string]string{"secretKey": "sk_test_refund_pending_reject"})).
+		SetSupportedTypes("stripe").
+		SetEnabled(true).
+		SetRefundEnabled(true).
+		Save(ctx)
+	require.NoError(t, err)
+	instID := strconv.FormatInt(inst.ID, 10)
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(50).
+		SetPayAmount(50).
+		SetFeeRate(0).
+		SetRechargeCode("REFUND-PENDING-REJECT").
+		SetOutTradeNo("sub2_refund_pending_reject").
+		SetPaymentType(payment.TypeStripe).
+		SetPaymentTradeNo("pi_refund_pending_reject").
+		SetOrderType(payment.OrderTypeBalance).
+		SetStatus(OrderStatusRefundPending).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetPaidAt(time.Now()).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		SetProviderInstanceID(instID).
+		SetProviderKey(payment.TypeStripe).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := &PaymentService{
+		entClient:    client,
+		loadBalancer: newWebhookProviderTestLoadBalancer(client),
+		userRepo:     &mockUserRepo{getByIDUser: &User{ID: user.ID, Balance: 50}},
+	}
+
+	plan, result, err := svc.PrepareRefund(ctx, order.ID, 10, "retry ordinary path", false, true)
+	require.Nil(t, plan)
+	require.Nil(t, result)
+	require.Error(t, err)
+	require.Equal(t, "INVALID_STATUS", infraerrors.Reason(err))
+
+	execResult, err := svc.ExecuteRefund(ctx, &RefundPlan{
+		OrderID:       order.ID,
+		Order:         order,
+		RefundAmount:  10,
+		GatewayAmount: 10,
+		Reason:        "retry ordinary path",
+	})
+	require.Nil(t, execResult)
+	require.Error(t, err)
+	require.Equal(t, "CONFLICT", infraerrors.Reason(err))
+
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusRefundPending, reloaded.Status)
+}
+
+func TestQueryAndFinalizeRefundUsesPendingAuditDeductionAmount(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+
+	user, err := client.User.Create().
+		SetEmail("refund-query-finalize@example.com").
+		SetPasswordHash("hash").
+		SetUsername("refund-query-finalize").
+		Save(ctx)
+	require.NoError(t, err)
+	inst, err := client.PaymentProviderInstance.Create().
+		SetProviderKey(payment.TypeStripe).
+		SetName("stripe-refund-query-finalize").
+		SetConfig(encryptWebhookProviderConfig(t, map[string]string{"secretKey": "sk_test_refund_query_finalize"})).
+		SetSupportedTypes("stripe").
+		SetEnabled(true).
+		SetRefundEnabled(true).
+		Save(ctx)
+	require.NoError(t, err)
+	instID := strconv.FormatInt(inst.ID, 10)
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(100).
+		SetPayAmount(100).
+		SetFeeRate(0).
+		SetRechargeCode("REFUND-QUERY-FINALIZE").
+		SetOutTradeNo("sub2_refund_query_finalize").
+		SetPaymentType(payment.TypeStripe).
+		SetPaymentTradeNo("pi_refund_query_finalize").
+		SetOrderType(payment.OrderTypeBalance).
+		SetStatus(OrderStatusRefundPending).
+		SetRefundAmount(80).
+		SetRefundReason("provider pending").
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetPaidAt(time.Now()).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		SetProviderInstanceID(instID).
+		SetProviderKey(payment.TypeStripe).
+		Save(ctx)
+	require.NoError(t, err)
+	svc := &PaymentService{
+		entClient:    client,
+		loadBalancer: newWebhookProviderTestLoadBalancer(client),
+	}
+	svc.writeAuditLog(ctx, order.ID, "REFUND_PENDING", "admin", map[string]any{
+		"refundID":            "re_saved_pending",
+		"deductionRequested":  true,
+		"deductionType":       payment.DeductionTypeBalance,
+		"balanceDeducted":     30,
+		"subDaysDeducted":     0,
+		"subscriptionID":      0,
+		"deductionRollbackOK": true,
+	})
+
+	var deducted float64
+	userRepo := &mockUserRepo{}
+	userRepo.deductBalanceFn = func(ctx context.Context, id int64, amount float64) error {
+		require.Equal(t, user.ID, id)
+		deducted += amount
+		return nil
+	}
+	queryProvider := &refundQueryProviderStub{
+		key:           payment.TypeStripe,
+		queryResponse: &payment.RefundResponse{RefundID: "re_saved_pending", Status: payment.ProviderStatusSuccess},
+	}
+	originalFactory := createPaymentProviderFromInstance
+	createPaymentProviderFromInstance = func(providerKey, instanceID string, cfg map[string]string) (payment.Provider, error) {
+		require.Equal(t, payment.TypeStripe, providerKey)
+		require.Equal(t, instID, instanceID)
+		return queryProvider, nil
+	}
+	t.Cleanup(func() { createPaymentProviderFromInstance = originalFactory })
+	svc.userRepo = userRepo
+
+	result, err := svc.QueryAndFinalizeRefund(ctx, order.ID)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.True(t, result.Success)
+	require.InDelta(t, 30, deducted, 0.000001)
+	require.InDelta(t, 30, result.BalanceDeducted, 0.000001)
+	require.False(t, queryProvider.refundCalled)
+	require.Len(t, queryProvider.queryRequests, 1)
+	require.Equal(t, "re_saved_pending", queryProvider.queryRequests[0].RefundID)
+	require.Equal(t, "80.00", queryProvider.queryRequests[0].Amount)
+
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusPartiallyRefunded, reloaded.Status)
+	successAudits, err := client.PaymentAuditLog.Query().
+		Where(paymentauditlog.OrderIDEQ(strconv.FormatInt(order.ID, 10)), paymentauditlog.ActionEQ("REFUND_SUCCESS")).
+		Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, successAudits)
 }

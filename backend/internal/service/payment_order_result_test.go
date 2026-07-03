@@ -138,6 +138,44 @@ func TestCalculateCreateOrderPayAmountRejectsFractionalZeroDecimal(t *testing.T)
 	}
 }
 
+func TestCalculateCreateOrderPayAmountForSubscriptionKeepsDirectPrice(t *testing.T) {
+	t.Parallel()
+
+	amountStr, amount, err := calculateCreateOrderPayAmount(5, 0, "CNY")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if amountStr != "5.00" || amount != 5 {
+		t.Fatalf("subscription CNY pay amount = (%q, %v), want (5.00, 5)", amountStr, amount)
+	}
+}
+
+func TestCalculateCreateOrderPayAmountForSubscriptionAppliesFeeToDirectPrice(t *testing.T) {
+	t.Parallel()
+
+	amountStr, amount, err := calculateCreateOrderPayAmount(5, 2.5, "CNY")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if amountStr != "5.13" || amount != 5.13 {
+		t.Fatalf("subscription CNY pay amount with fee = (%q, %v), want (5.13, 5.13)", amountStr, amount)
+	}
+}
+
+func TestCalculateCreditedBalanceStillUsesRechargeMultiplier(t *testing.T) {
+	t.Parallel()
+
+	got := calculateCreditedBalance(10, 0.14)
+	if got != 1.4 {
+		t.Fatalf("credited balance = %v, want 1.4", got)
+	}
+
+	got = calculateCreditedBalance(5, 10)
+	if got != 50 {
+		t.Fatalf("credited balance = %v, want 50", got)
+	}
+}
+
 func TestComputeValidityDaysSupportsSingularAndPluralUnits(t *testing.T) {
 	t.Parallel()
 
