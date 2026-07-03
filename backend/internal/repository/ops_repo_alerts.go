@@ -489,6 +489,43 @@ LIMIT 1`
 	return ev, nil
 }
 
+func (r *opsRepository) GetActiveAlertEventByDimension(ctx context.Context, kind string, inviterID int64, fingerprint string) (*service.OpsAlertEvent, error) {
+	if r == nil || r.db == nil {
+		return nil, fmt.Errorf("nil ops repository")
+	}
+	q := `
+SELECT
+  id,
+  COALESCE(rule_id, 0),
+  COALESCE(severity, ''),
+  COALESCE(status, ''),
+  COALESCE(title, ''),
+  COALESCE(description, ''),
+  metric_value,
+  threshold_value,
+  dimensions,
+  fired_at,
+  resolved_at,
+  email_sent,
+  created_at
+FROM ops_alert_events
+WHERE status = $1
+  AND dimensions->>'kind' = $2
+  AND dimensions->>'inviter_id' = $3
+  AND dimensions->>'fingerprint' = $4
+ORDER BY fired_at DESC, id DESC
+LIMIT 1`
+	row := r.db.QueryRowContext(ctx, q, service.OpsAlertStatusFiring, strings.TrimSpace(kind), fmt.Sprint(inviterID), strings.TrimSpace(fingerprint))
+	ev, err := scanOpsAlertEvent(row)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return ev, nil
+}
+
 func (r *opsRepository) GetLatestAlertEvent(ctx context.Context, ruleID int64) (*service.OpsAlertEvent, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("nil ops repository")

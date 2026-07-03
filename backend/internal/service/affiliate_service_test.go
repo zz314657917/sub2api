@@ -121,6 +121,36 @@ func TestClaimInviteeAPICallReward_BlocksRevokedSelfReferral(t *testing.T) {
 	require.False(t, repo.called)
 }
 
+func TestClaimInviteeAPICallReward_BlocksActiveRiskFreeze(t *testing.T) {
+	t.Parallel()
+
+	repo := &affiliateRewardRepoStub{activeRiskFreeze: true}
+	settings := NewSettingService(settingRepoMapStub{
+		SettingKeyAffiliateEnabled:             "true",
+		SettingKeyAffiliateAPICallRewardAmount: "5",
+	}, nil)
+	svc := NewAffiliateService(repo, settings, nil, nil)
+
+	amount, err := svc.ClaimInviteeAPICallReward(context.Background(), 100, 200)
+	require.ErrorIs(t, err, ErrAffiliateRiskFrozen)
+	require.Zero(t, amount)
+	require.False(t, repo.called)
+	require.False(t, repo.revokeCalled)
+}
+
+func TestTransferAffiliateQuota_BlocksActiveRiskFreeze(t *testing.T) {
+	t.Parallel()
+
+	repo := &affiliateRewardRepoStub{activeRiskFreeze: true}
+	svc := NewAffiliateService(repo, nil, nil, nil)
+
+	transferred, balance, err := svc.TransferAffiliateQuota(context.Background(), 100)
+	require.ErrorIs(t, err, ErrAffiliateRiskFrozen)
+	require.Zero(t, transferred)
+	require.Zero(t, balance)
+	require.False(t, repo.transferCalled)
+}
+
 // TestValidateExclusiveRate_BoundaryAndInvalid covers the validator used by
 // admin-facing rate setters: nil is always valid (clear), in-range values
 // are accepted, NaN/Inf and out-of-range values produce a typed BadRequest.
@@ -200,6 +230,8 @@ type affiliateRewardRepoStub struct {
 	inviteeID           int64
 	amount              float64
 	freezeHours         int
+	activeRiskFreeze    bool
+	transferCalled      bool
 	revokeSelfReferral  bool
 	revokeCalled        bool
 	revokeInviterID     int64
@@ -238,7 +270,8 @@ func (r *affiliateRewardRepoStub) ThawFrozenQuota(context.Context, int64) (float
 }
 
 func (r *affiliateRewardRepoStub) TransferQuotaToBalance(context.Context, int64) (float64, float64, error) {
-	panic("unexpected TransferQuotaToBalance call")
+	r.transferCalled = true
+	return 1.25, 9.5, nil
 }
 
 func (r *affiliateRewardRepoStub) ListInvitees(context.Context, int64, int) ([]AffiliateInvitee, error) {
@@ -252,6 +285,10 @@ func (r *affiliateRewardRepoStub) ClaimAPICallReward(_ context.Context, inviterI
 	r.amount = amount
 	r.freezeHours = freezeHours
 	return true, nil
+}
+
+func (r *affiliateRewardRepoStub) HasActiveRiskFreeze(context.Context, int64) (bool, error) {
+	return r.activeRiskFreeze, nil
 }
 
 func (r *affiliateRewardRepoStub) UpdateUserAffCode(context.Context, int64, string) error {

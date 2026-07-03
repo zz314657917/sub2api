@@ -30,6 +30,9 @@ const (
 	AffiliateRebateDurationDaysMax      = 3650  // ~10 年
 	AffiliateRebatePerInviteeCapDefault = 0.0   // 0 = 无上限
 	AffiliateAPICallRewardAmountDefault = 0.0   // 被邀请人首次调用 API 后可领取的固定返利
+	AffiliateRiskScanIntervalDefaultMin = 20    // 邀请返佣风控扫描周期（分钟）
+	AffiliateRiskScanIntervalMin        = 5
+	AffiliateRiskScanIntervalMax        = 1440
 )
 
 // User-owned account sharing settings.
@@ -162,12 +165,13 @@ const (
 	SettingKeyAffiliateRebateDurationDays      = "affiliate_rebate_duration_days"   // 返利有效期（天，0=永久）
 	SettingKeyAffiliateRebatePerInviteeCap     = "affiliate_rebate_per_invitee_cap" // 单人返利上限（0=无上限）
 	SettingKeyAffiliateAPICallRewardAmount     = "affiliate_api_call_reward_amount" // 被邀请人首次调用 API 后固定返利金额
-	SettingKeyRiskControlEnabled               = "risk_control_enabled"             // 是否启用风控中心入口与审计链路
-	SettingKeyContentModerationConfig          = "content_moderation_config"        // 内容审计配置（JSON）
-	SettingKeyLoginAgreementEnabled            = "login_agreement_enabled"          // 登录前是否要求同意条款
-	SettingKeyLoginAgreementMode               = "login_agreement_mode"             // 条款确认展示模式：modal / checkbox
-	SettingKeyLoginAgreementUpdatedAt          = "login_agreement_updated_at"       // 条款更新日期（展示用）
-	SettingKeyLoginAgreementDocuments          = "login_agreement_documents"        // 条款文档列表（JSON，Markdown 内容）
+	SettingKeyAffiliateRiskScanIntervalMinutes = "affiliate_risk_scan_interval_minutes"
+	SettingKeyRiskControlEnabled               = "risk_control_enabled"       // 是否启用风控中心入口与审计链路
+	SettingKeyContentModerationConfig          = "content_moderation_config"  // 内容审计配置（JSON）
+	SettingKeyLoginAgreementEnabled            = "login_agreement_enabled"    // 登录前是否要求同意条款
+	SettingKeyLoginAgreementMode               = "login_agreement_mode"       // 条款确认展示模式：modal / checkbox
+	SettingKeyLoginAgreementUpdatedAt          = "login_agreement_updated_at" // 条款更新日期（展示用）
+	SettingKeyLoginAgreementDocuments          = "login_agreement_documents"  // 条款文档列表（JSON，Markdown 内容）
 
 	// 邮件服务设置
 	SettingKeySMTPHost     = "smtp_host"      // SMTP服务器地址

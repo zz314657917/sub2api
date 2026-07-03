@@ -132,6 +132,8 @@ export default {
           apiCallRewardAmountHint: '被邀请用户首次调用 API 后，邀请人可领取的固定返利金额。0 = 不启用该奖励。',
           freezeHours: '返利冻结期（小时）',
           freezeHoursDesc: '新产生的返利将在冻结期内无法转入账户积分。0 = 不冻结。',
+          riskScanIntervalMinutes: '风险扫描周期（分钟）',
+          riskScanIntervalMinutesDesc: '扫描最近 12 小时的邀请和 API 奖励风险。允许 5-1440 分钟，非法值回退 20 分钟。',
           durationDays: '返利有效期（天）',
           durationDaysDesc: '被邀请用户注册后多少天内的积分购买产生返利。0 = 永久有效。',
           perInviteeCap: '单人返利上限',

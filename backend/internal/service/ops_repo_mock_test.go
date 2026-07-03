@@ -13,6 +13,10 @@ type opsRepoMock struct {
 	ListSystemLogsFn              func(ctx context.Context, filter *OpsSystemLogFilter) (*OpsSystemLogList, error)
 	DeleteSystemLogsFn            func(ctx context.Context, filter *OpsSystemLogCleanupFilter) (int64, error)
 	InsertSystemLogCleanupAuditFn func(ctx context.Context, input *OpsSystemLogCleanupAudit) error
+	UpsertJobHeartbeatFn          func(ctx context.Context, input *OpsUpsertJobHeartbeatInput) error
+	GetActiveAlertEventByDimFn    func(ctx context.Context, kind string, inviterID int64, fingerprint string) (*OpsAlertEvent, error)
+	CreateAlertEventFn            func(ctx context.Context, event *OpsAlertEvent) (*OpsAlertEvent, error)
+	UpdateAlertEventEmailSentFn   func(ctx context.Context, eventID int64, emailSent bool) error
 }
 
 func (m *opsRepoMock) InsertErrorLog(ctx context.Context, input *OpsInsertErrorLogInput) (int64, error) {
@@ -130,6 +134,9 @@ func (m *opsRepoMock) GetLatestSystemMetrics(ctx context.Context, windowMinutes 
 }
 
 func (m *opsRepoMock) UpsertJobHeartbeat(ctx context.Context, input *OpsUpsertJobHeartbeatInput) error {
+	if m.UpsertJobHeartbeatFn != nil {
+		return m.UpsertJobHeartbeatFn(ctx, input)
+	}
 	return nil
 }
 
@@ -165,11 +172,21 @@ func (m *opsRepoMock) GetActiveAlertEvent(ctx context.Context, ruleID int64) (*O
 	return nil, nil
 }
 
+func (m *opsRepoMock) GetActiveAlertEventByDimension(ctx context.Context, kind string, inviterID int64, fingerprint string) (*OpsAlertEvent, error) {
+	if m.GetActiveAlertEventByDimFn != nil {
+		return m.GetActiveAlertEventByDimFn(ctx, kind, inviterID, fingerprint)
+	}
+	return nil, nil
+}
+
 func (m *opsRepoMock) GetLatestAlertEvent(ctx context.Context, ruleID int64) (*OpsAlertEvent, error) {
 	return nil, nil
 }
 
 func (m *opsRepoMock) CreateAlertEvent(ctx context.Context, event *OpsAlertEvent) (*OpsAlertEvent, error) {
+	if m.CreateAlertEventFn != nil {
+		return m.CreateAlertEventFn(ctx, event)
+	}
 	return event, nil
 }
 
@@ -178,6 +195,9 @@ func (m *opsRepoMock) UpdateAlertEventStatus(ctx context.Context, eventID int64,
 }
 
 func (m *opsRepoMock) UpdateAlertEventEmailSent(ctx context.Context, eventID int64, emailSent bool) error {
+	if m.UpdateAlertEventEmailSentFn != nil {
+		return m.UpdateAlertEventEmailSentFn(ctx, eventID, emailSent)
+	}
 	return nil
 }
 

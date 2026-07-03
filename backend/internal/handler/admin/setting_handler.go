@@ -218,6 +218,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:            settings.AffiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:           settings.AffiliateRebatePerInviteeCap,
 		AffiliateAPICallRewardAmount:           settings.AffiliateAPICallRewardAmount,
+		AffiliateRiskScanIntervalMinutes:       settings.AffiliateRiskScanIntervalMinutes,
 		DefaultUserRPMLimit:                    settings.DefaultUserRPMLimit,
 		DefaultSubscriptions:                   defaultSubscriptions,
 		EnableModelFallback:                    settings.EnableModelFallback,
@@ -549,6 +550,7 @@ type UpdateSettingsRequest struct {
 	AffiliateRebateDurationDays              *int                              `json:"affiliate_rebate_duration_days"`
 	AffiliateRebatePerInviteeCap             *float64                          `json:"affiliate_rebate_per_invitee_cap"`
 	AffiliateAPICallRewardAmount             *float64                          `json:"affiliate_api_call_reward_amount"`
+	AffiliateRiskScanIntervalMinutes         *int                              `json:"affiliate_risk_scan_interval_minutes"`
 	DefaultUserRPMLimit                      int                               `json:"default_user_rpm_limit"`
 	DefaultSubscriptions                     []dto.DefaultSubscriptionSetting  `json:"default_subscriptions"`
 	AuthSourceDefaultEmailBalance            *float64                          `json:"auth_source_default_email_balance"`
@@ -782,6 +784,14 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	}
 	if affiliateAPICallRewardAmount < 0 {
 		affiliateAPICallRewardAmount = service.AffiliateAPICallRewardAmountDefault
+	}
+	affiliateRiskScanIntervalMinutes := previousSettings.AffiliateRiskScanIntervalMinutes
+	if req.AffiliateRiskScanIntervalMinutes != nil {
+		affiliateRiskScanIntervalMinutes = *req.AffiliateRiskScanIntervalMinutes
+	}
+	if affiliateRiskScanIntervalMinutes < service.AffiliateRiskScanIntervalMin ||
+		affiliateRiskScanIntervalMinutes > service.AffiliateRiskScanIntervalMax {
+		affiliateRiskScanIntervalMinutes = service.AffiliateRiskScanIntervalDefaultMin
 	}
 	// 通用表格配置：兼容旧客户端未传字段时保留当前值。
 	if req.TableDefaultPageSize <= 0 {
@@ -1597,6 +1607,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:      affiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:     affiliateRebatePerInviteeCap,
 		AffiliateAPICallRewardAmount:     affiliateAPICallRewardAmount,
+		AffiliateRiskScanIntervalMinutes: affiliateRiskScanIntervalMinutes,
 		DefaultUserRPMLimit:              req.DefaultUserRPMLimit,
 		DefaultSubscriptions:             defaultSubscriptions,
 		EnableModelFallback:              req.EnableModelFallback,
@@ -2070,6 +2081,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:            updatedSettings.AffiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:           updatedSettings.AffiliateRebatePerInviteeCap,
 		AffiliateAPICallRewardAmount:           updatedSettings.AffiliateAPICallRewardAmount,
+		AffiliateRiskScanIntervalMinutes:       updatedSettings.AffiliateRiskScanIntervalMinutes,
 		DefaultUserRPMLimit:                    updatedSettings.DefaultUserRPMLimit,
 		DefaultSubscriptions:                   updatedDefaultSubscriptions,
 		EnableModelFallback:                    updatedSettings.EnableModelFallback,
@@ -2484,6 +2496,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AffiliateAPICallRewardAmount != after.AffiliateAPICallRewardAmount {
 		changed = append(changed, "affiliate_api_call_reward_amount")
+	}
+	if before.AffiliateRiskScanIntervalMinutes != after.AffiliateRiskScanIntervalMinutes {
+		changed = append(changed, "affiliate_risk_scan_interval_minutes")
 	}
 	if !equalDefaultSubscriptions(before.DefaultSubscriptions, after.DefaultSubscriptions) {
 		changed = append(changed, "default_subscriptions")

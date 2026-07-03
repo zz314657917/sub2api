@@ -94,3 +94,43 @@ func TestCheckIPRestrictionWithCompiledRules_InvalidWhitelistStillDenies(t *test
 	require.False(t, allowed)
 	require.Equal(t, "access denied", reason)
 }
+
+func TestNormalizeIPForRiskKeyIPv6Slash64(t *testing.T) {
+	got := NormalizeIPForRiskKey("2409:8962:e1:391d:7d22:7006:9425:c2f8")
+	require.Equal(t, "2409:8962:e1:391d::/64", got)
+}
+
+func TestNormalizeIPForRiskKey(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{
+			name: "ipv4",
+			raw:  "8.8.8.8",
+			want: "8.8.8.8",
+		},
+		{
+			name: "ipv4 with port",
+			raw:  "8.8.8.8:443",
+			want: "8.8.8.8",
+		},
+		{
+			name: "bracketed ipv6 with port",
+			raw:  "[2409:8962:e1:391d:7d22:7006:9425:c2f8]:443",
+			want: "2409:8962:e1:391d::/64",
+		},
+		{
+			name: "invalid",
+			raw:  "not-an-ip",
+			want: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, NormalizeIPForRiskKey(tc.raw))
+		})
+	}
+}

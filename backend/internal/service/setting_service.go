@@ -2013,6 +2013,8 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		settings.AffiliateAPICallRewardAmount = AffiliateAPICallRewardAmountDefault
 	}
 	updates[SettingKeyAffiliateAPICallRewardAmount] = strconv.FormatFloat(settings.AffiliateAPICallRewardAmount, 'f', 8, 64)
+	settings.AffiliateRiskScanIntervalMinutes = normalizeAffiliateRiskScanIntervalMinutes(settings.AffiliateRiskScanIntervalMinutes)
+	updates[SettingKeyAffiliateRiskScanIntervalMinutes] = strconv.Itoa(settings.AffiliateRiskScanIntervalMinutes)
 	updates[SettingKeyDefaultUserRPMLimit] = strconv.Itoa(settings.DefaultUserRPMLimit)
 	defaultSubsJSON, err := json.Marshal(settings.DefaultSubscriptions)
 	if err != nil {
@@ -2844,6 +2846,19 @@ func (s *SettingService) GetAffiliateAPICallRewardAmount(ctx context.Context) fl
 	return amount
 }
 
+// GetAffiliateRiskScanIntervalMinutes returns the scheduler interval for the
+// affiliate risk scanner. Invalid or missing values fall back to the safe default.
+func (s *SettingService) GetAffiliateRiskScanIntervalMinutes(ctx context.Context) int {
+	if s == nil || s.settingRepo == nil {
+		return AffiliateRiskScanIntervalDefaultMin
+	}
+	raw, err := s.settingRepo.GetValue(ctx, SettingKeyAffiliateRiskScanIntervalMinutes)
+	if err != nil {
+		return AffiliateRiskScanIntervalDefaultMin
+	}
+	return parseAffiliateRiskScanIntervalMinutes(raw)
+}
+
 // IsPasswordResetEnabled 检查是否启用密码重置功能
 // 要求：必须同时开启邮件验证
 func (s *SettingService) IsPasswordResetEnabled(ctx context.Context) bool {
@@ -3135,6 +3150,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAffiliateRebateDurationDays:              strconv.Itoa(AffiliateRebateDurationDaysDefault),
 		SettingKeyAffiliateRebatePerInviteeCap:             strconv.FormatFloat(AffiliateRebatePerInviteeCapDefault, 'f', 2, 64),
 		SettingKeyAffiliateAPICallRewardAmount:             strconv.FormatFloat(AffiliateAPICallRewardAmountDefault, 'f', 2, 64),
+		SettingKeyAffiliateRiskScanIntervalMinutes:         strconv.Itoa(AffiliateRiskScanIntervalDefaultMin),
 		SettingKeyDefaultUserRPMLimit:                      "0",
 		SettingKeyDefaultSubscriptions:                     "[]",
 		SettingKeyAuthSourceDefaultEmailBalance:            "0",
@@ -3397,6 +3413,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	} else {
 		result.AffiliateAPICallRewardAmount = AffiliateAPICallRewardAmountDefault
 	}
+	result.AffiliateRiskScanIntervalMinutes = parseAffiliateRiskScanIntervalMinutes(settings[SettingKeyAffiliateRiskScanIntervalMinutes])
 	result.DefaultSubscriptions = parseDefaultSubscriptions(settings[SettingKeyDefaultSubscriptions])
 
 	// 敏感信息直接返回，方便测试连接时使用
@@ -3775,6 +3792,21 @@ func clampAffiliateRebateRate(value float64) float64 {
 		return AffiliateRebateRateMax
 	}
 	return value
+}
+
+func parseAffiliateRiskScanIntervalMinutes(raw string) int {
+	v, err := strconv.Atoi(strings.TrimSpace(raw))
+	if err != nil {
+		return AffiliateRiskScanIntervalDefaultMin
+	}
+	return normalizeAffiliateRiskScanIntervalMinutes(v)
+}
+
+func normalizeAffiliateRiskScanIntervalMinutes(v int) int {
+	if v < AffiliateRiskScanIntervalMin || v > AffiliateRiskScanIntervalMax {
+		return AffiliateRiskScanIntervalDefaultMin
+	}
+	return v
 }
 
 func isFalseSettingValue(value string) bool {

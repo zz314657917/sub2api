@@ -20,6 +20,7 @@ var (
 	ErrAffiliateInviteeNotFound             = infraerrors.NotFound("AFFILIATE_INVITEE_NOT_FOUND", "affiliate invitee not found")
 	ErrAffiliateAPICallRewardNotEligible    = infraerrors.Forbidden("AFFILIATE_API_CALL_REWARD_NOT_ELIGIBLE", "affiliate API call reward is not claimable")
 	ErrAffiliateAPICallRewardAlreadyClaimed = infraerrors.Conflict("AFFILIATE_API_CALL_REWARD_ALREADY_CLAIMED", "affiliate API call reward already claimed")
+	ErrAffiliateRiskFrozen                  = infraerrors.Forbidden("AFFILIATE_RISK_FROZEN", "affiliate rewards are frozen pending review")
 )
 
 const (
@@ -116,6 +117,7 @@ type AffiliateRepository interface {
 	TransferQuotaToBalance(ctx context.Context, userID int64) (float64, float64, error)
 	ListInvitees(ctx context.Context, inviterID int64, limit int) ([]AffiliateInvitee, error)
 	ClaimAPICallReward(ctx context.Context, inviterID, inviteeUserID int64, amount float64, freezeHours int) (bool, error)
+	HasActiveRiskFreeze(ctx context.Context, inviterID int64) (bool, error)
 
 	// 管理端：用户级专属配置
 	UpdateUserAffCode(ctx context.Context, userID int64, newCode string) error
@@ -127,6 +129,45 @@ type AffiliateRepository interface {
 	ListAffiliateRebateRecords(ctx context.Context, filter AffiliateRecordFilter) ([]AffiliateRebateRecord, int64, error)
 	ListAffiliateTransferRecords(ctx context.Context, filter AffiliateRecordFilter) ([]AffiliateTransferRecord, int64, error)
 	GetAffiliateUserOverview(ctx context.Context, userID int64) (*AffiliateUserOverview, error)
+}
+
+type AffiliateRiskRepository interface {
+	ListAffiliateRiskClusters(ctx context.Context, windowStart, windowEnd time.Time) ([]AffiliateRiskCluster, error)
+	UpsertAffiliateRiskFreeze(ctx context.Context, freeze AffiliateRiskFreeze) (bool, error)
+	HasActiveRiskFreeze(ctx context.Context, inviterID int64) (bool, error)
+}
+
+type AffiliateRiskCluster struct {
+	InviterID          int64
+	InviterEmail       string
+	InviterUsername    string
+	InviterRegisterIP  string
+	InviterLastLoginIP string
+	Invitees           []AffiliateRiskInvitee
+}
+
+type AffiliateRiskInvitee struct {
+	UserID                 int64
+	Email                  string
+	Username               string
+	RegisterIP             string
+	LastLoginIP            string
+	CreatedAt              time.Time
+	AffiliateRevokedAt     *time.Time
+	AffiliateRevokedReason string
+	FirstUsageAt           *time.Time
+	FirstUsageIP           string
+	APICallRewardAt        *time.Time
+}
+
+type AffiliateRiskFreeze struct {
+	InviterID         int64
+	Fingerprint       string
+	Severity          string
+	Score             int
+	Reason            string
+	SourceWindowStart time.Time
+	SourceWindowEnd   time.Time
 }
 
 // AffiliateAdminFilter 列表筛选条件
@@ -449,6 +490,11 @@ func (s *AffiliateService) TransferAffiliateQuota(ctx context.Context, userID in
 	if s == nil || s.repo == nil {
 		return 0, 0, infraerrors.ServiceUnavailable("SERVICE_UNAVAILABLE", "affiliate service unavailable")
 	}
+	if frozen, err := s.repo.HasActiveRiskFreeze(ctx, userID); err != nil {
+		return 0, 0, err
+	} else if frozen {
+		return 0, 0, ErrAffiliateRiskFrozen
+	}
 
 	transferred, balance, err := s.repo.TransferQuotaToBalance(ctx, userID)
 	if err != nil {
@@ -469,6 +515,11 @@ func (s *AffiliateService) ClaimInviteeAPICallReward(ctx context.Context, invite
 	}
 	if !s.IsEnabled(ctx) {
 		return 0, ErrAffiliateAPICallRewardNotEligible
+	}
+	if frozen, err := s.repo.HasActiveRiskFreeze(ctx, inviterID); err != nil {
+		return 0, err
+	} else if frozen {
+		return 0, ErrAffiliateRiskFrozen
 	}
 	amount := s.affiliateAPICallRewardAmount(ctx)
 	if amount <= 0 || math.IsNaN(amount) || math.IsInf(amount, 0) {

@@ -1,5 +1,5 @@
 ---
-status: draft
+status: approved
 owner: codex
 qa_mode: runtime
 created_at: 2026-07-03 17:20 +08:00

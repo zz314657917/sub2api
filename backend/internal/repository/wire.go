@@ -95,6 +95,8 @@ var ProviderSet = wire.NewSet(
 	NewChannelMonitorRequestTemplateRepository,
 	NewContentModerationRepository,
 	NewAffiliateRepository,
+	wire.Bind(new(service.AffiliateRepository), new(*affiliateRepository)),
+	wire.Bind(new(service.AffiliateRiskRepository), new(*affiliateRepository)),
 	NewImageCreatorRepository,
 	NewImageCreatorStorageGovernanceRepository,
 	NewCanvasRepository,

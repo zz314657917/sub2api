@@ -66,10 +66,11 @@ type affiliateQueryExecer interface {
 
 type affiliateRepository struct {
 	client *dbent.Client
+	db     *sql.DB
 }
 
-func NewAffiliateRepository(client *dbent.Client, _ *sql.DB) service.AffiliateRepository {
-	return &affiliateRepository{client: client}
+func NewAffiliateRepository(client *dbent.Client, db *sql.DB) *affiliateRepository {
+	return &affiliateRepository{client: client, db: db}
 }
 
 func (r *affiliateRepository) EnsureUserAffiliate(ctx context.Context, userID int64) (*service.AffiliateSummary, error) {

@@ -49,6 +49,7 @@ type OpsRepository interface {
 	ListAlertEvents(ctx context.Context, filter *OpsAlertEventFilter) ([]*OpsAlertEvent, error)
 	GetAlertEventByID(ctx context.Context, eventID int64) (*OpsAlertEvent, error)
 	GetActiveAlertEvent(ctx context.Context, ruleID int64) (*OpsAlertEvent, error)
+	GetActiveAlertEventByDimension(ctx context.Context, kind string, inviterID int64, fingerprint string) (*OpsAlertEvent, error)
 	GetLatestAlertEvent(ctx context.Context, ruleID int64) (*OpsAlertEvent, error)
 	CreateAlertEvent(ctx context.Context, event *OpsAlertEvent) (*OpsAlertEvent, error)
 	UpdateAlertEventStatus(ctx context.Context, eventID int64, status string, resolvedAt *time.Time) error
