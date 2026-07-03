@@ -17,9 +17,9 @@ export function hasPeakRate(fields?: PeakRateFields | null): boolean {
   return Boolean(fields?.peak_rate_enabled && fields.peak_start && fields.peak_end)
 }
 
-/** "+08:00" → "UTC+08:00"；旧缓存无该字段时返回空串，调用方降级为不带时区标注 */
-export function serverTimezoneLabel(utcOffset?: string | null): string {
-  return utcOffset ? `UTC${utcOffset}` : ''
+/** "+08:00" -> "UTC+08:00"; missing offsets should still show that server time applies. */
+export function serverTimezoneLabel(utcOffset?: string | null, fallback = 'Server time'): string {
+  return utcOffset ? `UTC${utcOffset}` : fallback
 }
 
 /** "14:00-18:00 ×2 (UTC+08:00)"，tzLabel 为空时省略括号部分 */

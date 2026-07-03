@@ -283,7 +283,7 @@ function subscriptionHasPeakRate(subscription: UserSubscription): boolean {
 }
 
 function subscriptionPeakRateLabel(subscription: UserSubscription): string {
-  return formatPeakRateWindow(subscription.group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
+  return formatPeakRateWindow(subscription.group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset, t('common.serverTime')))
 }
 
 async function loadSubscriptions() {

@@ -148,6 +148,7 @@ export default {
         peakStart: 'Peak start',
         peakEnd: 'Peak end',
         peakMultiplier: 'Peak multiplier',
+        serverTimezone: 'Peak window uses server timezone: {timezone}.',
         multiplierHint: 'Token billing is multiplied by this factor during the peak window. Image per-request billing is not affected.'
       },
       imagePricing: {

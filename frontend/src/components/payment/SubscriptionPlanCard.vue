@@ -148,7 +148,7 @@ const appStore = useAppStore()
 const hasPeakRate = computed(() => groupHasPeakRate(props.plan))
 
 const peakRateDisplay = computed(() => {
-  return formatPeakRateWindow(props.plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
+  return formatPeakRateWindow(props.plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset, t('common.serverTime')))
 })
 
 const displayFeatures = computed(() => props.plan.features.map(normalizePlanFeature))

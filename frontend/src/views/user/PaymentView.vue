@@ -1372,7 +1372,7 @@ function planHasPeakRate(plan: SubscriptionPlan): boolean {
 }
 
 function planPeakRateLabel(plan: SubscriptionPlan): string {
-  return formatPeakRateWindow(plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
+  return formatPeakRateWindow(plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset, t('common.serverTime')))
 }
 
 function subscriptionHasPeakRate(sub: { group?: PeakRateFields | null }): boolean {
@@ -1380,7 +1380,7 @@ function subscriptionHasPeakRate(sub: { group?: PeakRateFields | null }): boolea
 }
 
 function subscriptionPeakRateLabel(sub: { group?: PeakRateFields | null }): string {
-  return formatPeakRateWindow(sub.group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
+  return formatPeakRateWindow(sub.group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset, t('common.serverTime')))
 }
 
 function normalizePlanFeature(feature: string): string {

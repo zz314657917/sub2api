@@ -220,7 +220,7 @@ function hasPeakRate(group: UserAvailableGroup): boolean {
 }
 
 function peakRateLabel(group: UserAvailableGroup): string {
-  return formatPeakRateWindow(group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
+  return formatPeakRateWindow(group, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset, t('common.serverTime')))
 }
 
 function peakRateTitle(group: UserAvailableGroup): string {

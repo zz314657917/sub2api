@@ -91,7 +91,7 @@ const peakRateText = computed(() => {
       peak_end: props.peakEnd,
       peak_rate_multiplier: props.peakRateMultiplier
     },
-    serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset)
+    serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset, t('common.serverTime'))
   )
 })
 

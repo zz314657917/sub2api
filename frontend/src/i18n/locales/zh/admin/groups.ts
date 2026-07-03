@@ -178,6 +178,7 @@ export default {
         peakStart: '高峰开始时间',
         peakEnd: '高峰结束时间',
         peakMultiplier: '高峰倍率',
+        serverTimezone: '高峰时间窗口按服务器时区计算：{timezone}。',
         multiplierHint: '高峰时段内 token 计费会叠加该倍率；图片按次计费不受影响。'
       },
       imagePricing: {

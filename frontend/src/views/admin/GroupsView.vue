@@ -979,9 +979,19 @@
               <span>{{ t("admin.groups.peakRate.enable") }}</span>
             </label>
           </div>
+          <p
+            v-if="createForm.peak_rate_enabled"
+            class="mb-3 text-xs text-gray-500 dark:text-gray-400"
+          >
+            {{
+              t("admin.groups.peakRate.serverTimezone", {
+                timezone: peakRateServerTimezoneLabel,
+              })
+            }}
+          </p>
           <div
             v-if="createForm.peak_rate_enabled"
-            class="mb-4 grid grid-cols-3 gap-3"
+            class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"
           >
             <div>
               <label class="input-label">{{ t("admin.groups.peakRate.peakStart") }}</label>
@@ -2409,9 +2419,19 @@
               <span>{{ t("admin.groups.peakRate.enable") }}</span>
             </label>
           </div>
+          <p
+            v-if="editForm.peak_rate_enabled"
+            class="mb-3 text-xs text-gray-500 dark:text-gray-400"
+          >
+            {{
+              t("admin.groups.peakRate.serverTimezone", {
+                timezone: peakRateServerTimezoneLabel,
+              })
+            }}
+          </p>
           <div
             v-if="editForm.peak_rate_enabled"
-            class="mb-4 grid grid-cols-3 gap-3"
+            class="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3"
           >
             <div>
               <label class="input-label">{{ t("admin.groups.peakRate.peakStart") }}</label>
@@ -3397,11 +3417,19 @@ import {
 } from "./groupsModelsList";
 import { createModelsListCandidatesTracker } from "./groupsModelsListCandidates";
 import { normalizeSupportedModelScopesForPlatform } from "./groupsSupportedModelScopes";
+import { serverTimezoneLabel } from "@/utils/peak-rate";
 
 const { t } = useI18n();
 const appStore = useAppStore();
 const onboardingStore = useOnboardingStore();
 const router = useRouter();
+
+const peakRateServerTimezoneLabel = computed(() =>
+  serverTimezoneLabel(
+    appStore.cachedPublicSettings?.server_utc_offset,
+    t("common.serverTime"),
+  ),
+);
 
 const columns = computed<Column[]>(() => [
   { key: "name", label: t("admin.groups.columns.name"), sortable: true },
