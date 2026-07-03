@@ -975,6 +975,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyWelfareRechargeEnabled,
 		SettingKeyWelfareVIPEnabled,
 		SettingKeyWelfareNewUserTrialEnabled,
+		SettingPaymentFAQItems,
 	}
 
 	settings, err := s.settingRepo.GetMultiple(ctx, keys)
@@ -1070,6 +1071,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		WeChatOAuthMobileEnabled:         weChatMobileEnabled,
 		BackendModeEnabled:               settings[SettingKeyBackendModeEnabled] == "true",
 		PaymentEnabled:                   settings[SettingPaymentEnabled] == "true",
+		PaymentFAQItems:                  settings[SettingPaymentFAQItems],
 		OIDCOAuthEnabled:                 oidcEnabled,
 		OIDCOAuthProviderName:            oidcProviderName,
 		GitHubOAuthEnabled:               gitHubEnabled,
@@ -1298,6 +1300,7 @@ type PublicSettingsInjectionPayload struct {
 	GoogleOAuthEnabled               bool                     `json:"google_oauth_enabled"`
 	BackendModeEnabled               bool                     `json:"backend_mode_enabled"`
 	PaymentEnabled                   bool                     `json:"payment_enabled"`
+	PaymentFAQItems                  json.RawMessage          `json:"payment_faq_items"`
 	Version                          string                   `json:"version"`
 	BalanceLowNotifyEnabled          bool                     `json:"balance_low_notify_enabled"`
 	AccountQuotaNotifyEnabled        bool                     `json:"account_quota_notify_enabled"`
@@ -1376,6 +1379,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		GoogleOAuthEnabled:               settings.GoogleOAuthEnabled,
 		BackendModeEnabled:               settings.BackendModeEnabled,
 		PaymentEnabled:                   settings.PaymentEnabled,
+		PaymentFAQItems:                  safeRawJSONArray(settings.PaymentFAQItems),
 		Version:                          s.version,
 		BalanceLowNotifyEnabled:          settings.BalanceLowNotifyEnabled,
 		AccountQuotaNotifyEnabled:        settings.AccountQuotaNotifyEnabled,
@@ -3205,6 +3209,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyWelfareNewUserTrialDailySiteQuotaAmount:   "5",
 		SettingKeyWelfareNewUserTrialDailyIPActivationLimit: "3",
 		SettingRechargePackages:                             defaultRechargePackagesJSON(),
+		SettingPaymentFAQItems:                              defaultPaymentFAQItemsJSON(),
 
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
 		SettingKeyAffiliateEnabled: "false",

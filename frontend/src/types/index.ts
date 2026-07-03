@@ -282,6 +282,11 @@ export interface SupportPopupItem {
   badge: string
 }
 
+export interface PaymentFAQItem {
+  title: string
+  body: string
+}
+
 export interface LoginAgreementDocument {
   id: string
   title: string
@@ -378,6 +383,7 @@ export interface PublicSettings {
   google_oauth_enabled: boolean
   backend_mode_enabled: boolean
   version: string
+  payment_faq_items?: PaymentFAQItem[]
   balance_low_notify_enabled: boolean
   account_quota_notify_enabled: boolean
   balance_low_notify_threshold: number

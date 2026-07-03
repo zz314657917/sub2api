@@ -34,6 +34,11 @@ type SupportPopupItem struct {
 	Badge    string `json:"badge"`
 }
 
+type PaymentFAQItem struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
+}
+
 // SystemSettings represents the admin settings API response payload.
 type SystemSettings struct {
 	RegistrationEnabled              bool                     `json:"registration_enabled"`
@@ -214,6 +219,7 @@ type SystemSettings struct {
 	PaymentBalanceRechargeMultiplier float64                   `json:"payment_balance_recharge_multiplier"`
 	PaymentRechargeFeeRate           float64                   `json:"payment_recharge_fee_rate"`
 	PaymentRechargePackages          []service.RechargePackage `json:"payment_recharge_packages"`
+	PaymentFAQItems                  []PaymentFAQItem          `json:"payment_faq_items"`
 	PaymentLoadBalanceStrat          string                    `json:"payment_load_balance_strategy"`
 	PaymentProductNamePrefix         string                    `json:"payment_product_name_prefix"`
 	PaymentProductNameSuffix         string                    `json:"payment_product_name_suffix"`
@@ -354,6 +360,7 @@ type PublicSettings struct {
 	SoraClientEnabled                bool                     `json:"sora_client_enabled"`
 	BackendModeEnabled               bool                     `json:"backend_mode_enabled"`
 	PaymentEnabled                   bool                     `json:"payment_enabled"`
+	PaymentFAQItems                  []PaymentFAQItem         `json:"payment_faq_items"`
 	Version                          string                   `json:"version"`
 	BalanceLowNotifyEnabled          bool                     `json:"balance_low_notify_enabled"`
 	AccountQuotaNotifyEnabled        bool                     `json:"account_quota_notify_enabled"`
@@ -500,4 +507,32 @@ func ParseSupportPopupItems(raw string) []SupportPopupItem {
 		return []SupportPopupItem{}
 	}
 	return items
+}
+
+func PaymentFAQItemsFromService(items []service.PaymentFAQItem) []PaymentFAQItem {
+	if len(items) == 0 {
+		return []PaymentFAQItem{}
+	}
+	result := make([]PaymentFAQItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, PaymentFAQItem{
+			Title: item.Title,
+			Body:  item.Body,
+		})
+	}
+	return result
+}
+
+func PaymentFAQItemsToService(items []PaymentFAQItem) []service.PaymentFAQItem {
+	if items == nil {
+		return nil
+	}
+	result := make([]service.PaymentFAQItem, 0, len(items))
+	for _, item := range items {
+		result = append(result, service.PaymentFAQItem{
+			Title: item.Title,
+			Body:  item.Body,
+		})
+	}
+	return result
 }

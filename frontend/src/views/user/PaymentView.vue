@@ -614,6 +614,7 @@ import { formatCreditAmount } from '@/utils/credits'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
 import { displaySubscriptionLimit, hasAnySubscriptionLimit } from '@/utils/subscriptionLimits'
+import type { PaymentFAQItem } from '@/types'
 
 const i18n = useI18n()
 const { t } = i18n
@@ -1214,7 +1215,7 @@ const recommendedPlanId = computed(() => {
   return plans[0].id
 })
 
-const faqItems = computed(() => [
+const defaultFAQItems = computed<PaymentFAQItem[]>(() => [
   {
     title: pt('faq.quota.title'),
     body: pt('faq.quota.body'),
@@ -1243,6 +1244,24 @@ const faqItems = computed(() => [
     title: pt('faq.balanceSubscription.title'),
     body: pt('faq.balanceSubscription.body'),
   },
+])
+
+const configuredFAQItems = computed<PaymentFAQItem[]>(() => {
+  const items = appStore.cachedPublicSettings?.payment_faq_items
+  if (!Array.isArray(items) || items.length === 0) {
+    return defaultFAQItems.value
+  }
+  const normalized = items
+    .map(item => ({
+      title: String(item?.title || '').trim(),
+      body: String(item?.body || '').trim(),
+    }))
+    .filter(item => item.title && item.body)
+  return normalized.length > 0 ? normalized : defaultFAQItems.value
+})
+
+const faqItems = computed(() => [
+  ...configuredFAQItems.value,
 ])
 
 function paymentMethodLabel(type: string): string {

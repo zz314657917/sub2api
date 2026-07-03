@@ -28,6 +28,7 @@ const (
 	SettingBalanceRechargeMult = "BALANCE_RECHARGE_MULTIPLIER"
 	SettingRechargeFeeRate     = "RECHARGE_FEE_RATE"
 	SettingRechargePackages    = "PAYMENT_RECHARGE_PACKAGES"
+	SettingPaymentFAQItems     = "PAYMENT_FAQ_ITEMS"
 	SettingProductNamePrefix   = "PRODUCT_NAME_PREFIX"
 	SettingProductNameSuffix   = "PRODUCT_NAME_SUFFIX"
 	SettingHelpImageURL        = "PAYMENT_HELP_IMAGE_URL"
@@ -60,6 +61,7 @@ type PaymentConfig struct {
 	BalanceRechargeMultiplier float64           `json:"balance_recharge_multiplier"`
 	RechargeFeeRate           float64           `json:"recharge_fee_rate"`
 	RechargePackages          []RechargePackage `json:"recharge_packages"`
+	FAQItems                  []PaymentFAQItem  `json:"faq_items"`
 	LoadBalanceStrategy       string            `json:"load_balance_strategy"`
 	ProductNamePrefix         string            `json:"product_name_prefix"`
 	ProductNameSuffix         string            `json:"product_name_suffix"`
@@ -88,6 +90,7 @@ type UpdatePaymentConfigRequest struct {
 	BalanceRechargeMultiplier *float64          `json:"balance_recharge_multiplier"`
 	RechargeFeeRate           *float64          `json:"recharge_fee_rate"`
 	RechargePackages          []RechargePackage `json:"recharge_packages"`
+	FAQItems                  []PaymentFAQItem  `json:"faq_items"`
 	LoadBalanceStrategy       *string           `json:"load_balance_strategy"`
 	ProductNamePrefix         *string           `json:"product_name_prefix"`
 	ProductNameSuffix         *string           `json:"product_name_suffix"`
@@ -111,6 +114,10 @@ func (r UpdatePaymentConfigRequest) HasRechargePackages() bool {
 	return r.RechargePackages != nil
 }
 
+func (r UpdatePaymentConfigRequest) HasFAQItems() bool {
+	return r.FAQItems != nil
+}
+
 type RechargePackage struct {
 	ID             string  `json:"id"`
 	Label          string  `json:"label"`
@@ -118,6 +125,11 @@ type RechargePackage struct {
 	PayAmount      float64 `json:"pay_amount"`
 	CreditedAmount float64 `json:"credited_amount"`
 	SortOrder      int     `json:"sort_order"`
+}
+
+type PaymentFAQItem struct {
+	Title string `json:"title"`
+	Body  string `json:"body"`
 }
 
 type RechargePackageCheckoutView struct {
@@ -229,7 +241,7 @@ func (s *PaymentConfigService) GetPaymentConfig(ctx context.Context) (*PaymentCo
 		SettingPaymentEnabled, SettingMinRechargeAmount, SettingMaxRechargeAmount,
 		SettingDailyRechargeLimit, SettingOrderTimeoutMinutes, SettingMaxPendingOrders,
 		SettingEnabledPaymentTypes, SettingBalancePayDisabled, SettingBalanceRechargeMult, SettingRechargeFeeRate, SettingLoadBalanceStrategy,
-		SettingRechargePackages, SettingProductNamePrefix, SettingProductNameSuffix,
+		SettingRechargePackages, SettingPaymentFAQItems, SettingProductNamePrefix, SettingProductNameSuffix,
 		SettingHelpImageURL, SettingHelpText,
 		SettingCancelRateLimitOn, SettingCancelRateLimitMax,
 		SettingCancelWindowSize, SettingCancelWindowUnit, SettingCancelWindowMode,
@@ -258,6 +270,7 @@ func (s *PaymentConfigService) parsePaymentConfig(vals map[string]string) *Payme
 		BalanceRechargeMultiplier: normalizeBalanceRechargeMultiplier(pcParseFloat(vals[SettingBalanceRechargeMult], defaultBalanceRechargeMultiplier)),
 		RechargeFeeRate:           pcParseFloat(vals[SettingRechargeFeeRate], 0),
 		RechargePackages:          parseRechargePackages(vals[SettingRechargePackages]),
+		FAQItems:                  ParsePaymentFAQItems(vals[SettingPaymentFAQItems]),
 		LoadBalanceStrategy:       vals[SettingLoadBalanceStrategy],
 		ProductNamePrefix:         vals[SettingProductNamePrefix],
 		ProductNameSuffix:         vals[SettingProductNameSuffix],
@@ -305,6 +318,79 @@ func defaultRechargePackagesJSON() string {
 		return "[]"
 	}
 	return string(raw)
+}
+
+func DefaultPaymentFAQItems() []PaymentFAQItem {
+	return []PaymentFAQItem{
+		{
+			Title: "额度与计费规则",
+			Body:  "灵活积分按实际调用消耗；订阅套餐按配置的周期额度和倍率计费，具体以当前站点配置为准。",
+		},
+		{
+			Title: "灵活积分说明",
+			Body:  "购买后的积分进入账户积分，在积分用完前持续有效，可用于未被套餐覆盖的调用。",
+		},
+		{
+			Title: "大量使用是否可以联系管理员获得额外折扣？",
+			Body:  "如果您需要大量使用我们的服务，可以联系我们的管理员团队获取企业级定制解决方案和额外的折扣优惠。",
+		},
+		{
+			Title: "如何升级套餐？",
+			Body:  "选择更高档套餐并完成支付后，系统会按当前订阅规则刷新可用额度和有效期。",
+		},
+		{
+			Title: "额度恢复机制",
+			Body:  "订阅额度按套餐周期自动重置；灵活积分不会周期清零，只随调用扣减。",
+		},
+		{
+			Title: "套餐变更说明",
+			Body:  "同一订阅分组再次购买通常视为续费或延长，具体生效方式由后台套餐配置决定。",
+		},
+		{
+			Title: "订阅额度与灵活积分",
+			Body:  "优先使用订阅套餐覆盖的额度；超出或未覆盖部分可继续使用灵活积分支付。",
+		},
+	}
+}
+
+func defaultPaymentFAQItemsJSON() string {
+	raw, err := json.Marshal(DefaultPaymentFAQItems())
+	if err != nil {
+		return "[]"
+	}
+	return string(raw)
+}
+
+func ParsePaymentFAQItems(raw string) []PaymentFAQItem {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return DefaultPaymentFAQItems()
+	}
+	var items []PaymentFAQItem
+	if err := json.Unmarshal([]byte(raw), &items); err != nil {
+		return DefaultPaymentFAQItems()
+	}
+	normalized := NormalizePaymentFAQItems(items)
+	if len(normalized) == 0 {
+		return DefaultPaymentFAQItems()
+	}
+	return normalized
+}
+
+func NormalizePaymentFAQItems(items []PaymentFAQItem) []PaymentFAQItem {
+	normalized := make([]PaymentFAQItem, 0, len(items))
+	for _, item := range items {
+		title := strings.TrimSpace(item.Title)
+		body := strings.TrimSpace(item.Body)
+		if title == "" || body == "" {
+			continue
+		}
+		normalized = append(normalized, PaymentFAQItem{
+			Title: title,
+			Body:  body,
+		})
+	}
+	return normalized
 }
 
 func parseRechargePackages(raw string) []RechargePackage {
@@ -436,6 +522,18 @@ func (s *PaymentConfigService) UpdatePaymentConfig(ctx context.Context, req Upda
 		}
 		rechargePackagesRaw = string(raw)
 	}
+	var faqItemsRaw string
+	if req.HasFAQItems() {
+		items := NormalizePaymentFAQItems(req.FAQItems)
+		if len(items) == 0 {
+			items = DefaultPaymentFAQItems()
+		}
+		raw, err := json.Marshal(items)
+		if err != nil {
+			return fmt.Errorf("marshal payment faq items: %w", err)
+		}
+		faqItemsRaw = string(raw)
+	}
 	m := map[string]string{
 		SettingPaymentEnabled:                    formatBoolOrEmpty(req.Enabled),
 		SettingMinRechargeAmount:                 formatPositiveFloat(req.MinAmount),
@@ -463,6 +561,9 @@ func (s *PaymentConfigService) UpdatePaymentConfig(ctx context.Context, req Upda
 	}
 	if req.HasRechargePackages() {
 		m[SettingRechargePackages] = rechargePackagesRaw
+	}
+	if req.HasFAQItems() {
+		m[SettingPaymentFAQItems] = faqItemsRaw
 	}
 	if req.EnabledTypes != nil {
 		m[SettingEnabledPaymentTypes] = strings.Join(req.EnabledTypes, ",")
