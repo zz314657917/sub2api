@@ -6,21 +6,22 @@ pending_action: Start next approved Sprint or release validation
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-04 03:22 +08:00
+last_verified: 2026-07-04 03:28 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
 - 当前 Sprint：`upstream-main-v0144-safe-patches-s53`
-- 当前目标：S53 已在隔离 worktree 中完成并通过 QA，等待 no-ff 合入 `main` 并推送。
+- 当前目标：S53 已 no-ff 合入 `main`，等待推送确认。
 - 当前结论：S53 已重放 `token_expired` 非重试、Responses 映射模型计费、Codex access-only import 防误合并；计划内定向验证 PASS。
-- 当前默认续做提示：如果用户说“继续”，将 S53 no-ff 合入 main，推送并确认 `origin/main`。
+- 当前默认续做提示：如果用户说“继续”，推送 `main` 并确认 `origin/main`；推送后进入 release validation 或 S54 性能/容量批次。
 - 当前已确认事实：
   - S53 contract：`docs/workflow/tasks/upstream-main-v0144-safe-patches-s53.md`。
   - S53 集成分支：`codex/upstream-main-v0144-s53-safe-patches`。
   - S53 隔离 worktree：`E:/codex-worktrees/sub2api/upstream-main-v0144-s53-safe-patches`。
   - S53 候选提交：`e5dc1f597`、`4dd3aee5c`、`6bd248fd1`。
+  - S53 merge commit：`dbdeb1ba1 merge: add upstream s53 safe patches`。
   - S53 实际补充一条范围修正提交：`test(openai): scope s53 mapped billing tests`，用于移除 upstream hotpath 测试中依赖本地未 port helper 的非目标测试块。
   - S53 QA 报告：`docs/workflow/qa-reports/upstream-main-v0144-safe-patches-s53-qa.md`，结论 PASS。
   - S53 明确跳过：usage log queue backpressure、group capacity batching、concurrency cleanup、Codex image tool policy、error request UI alignment、Anthropic Fable 7d_oi、deploy migration timeout、Grok UI/README changes。
