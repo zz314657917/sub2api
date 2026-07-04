@@ -1,22 +1,29 @@
 ---
 phase: done
-current_sprint: upstream-main-v0143-antigravity-oauth-401-recovery-s52
-total_sprints: 52
+current_sprint: upstream-main-v0144-safe-patches-s53
+total_sprints: 53
 pending_action: Start next approved Sprint or release validation
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-04 02:36 +08:00
+last_verified: 2026-07-04 03:22 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0143-antigravity-oauth-401-recovery-s52`
-- 当前目标：S45 前置 redeem 小补丁和 S46-S52 上游小补丁链已按顺序 cherry-pick、no-ff 合入 `main`，等待推送确认。
-- 当前结论：S45-S52 批量重放完成并通过计划内定向验证；S52 `-tags=unit` 命令已尝试，失败仅命中已知无关 service unit 编译基线。
-- 当前默认续做提示：如果用户说“继续”，执行 release validation 或进入下一个已批准 Sprint。
+- 当前 Sprint：`upstream-main-v0144-safe-patches-s53`
+- 当前目标：S53 已在隔离 worktree 中完成并通过 QA，等待 no-ff 合入 `main` 并推送。
+- 当前结论：S53 已重放 `token_expired` 非重试、Responses 映射模型计费、Codex access-only import 防误合并；计划内定向验证 PASS。
+- 当前默认续做提示：如果用户说“继续”，将 S53 no-ff 合入 main，推送并确认 `origin/main`。
 - 当前已确认事实：
+  - S53 contract：`docs/workflow/tasks/upstream-main-v0144-safe-patches-s53.md`。
+  - S53 集成分支：`codex/upstream-main-v0144-s53-safe-patches`。
+  - S53 隔离 worktree：`E:/codex-worktrees/sub2api/upstream-main-v0144-s53-safe-patches`。
+  - S53 候选提交：`e5dc1f597`、`4dd3aee5c`、`6bd248fd1`。
+  - S53 实际补充一条范围修正提交：`test(openai): scope s53 mapped billing tests`，用于移除 upstream hotpath 测试中依赖本地未 port helper 的非目标测试块。
+  - S53 QA 报告：`docs/workflow/qa-reports/upstream-main-v0144-safe-patches-s53-qa.md`，结论 PASS。
+  - S53 明确跳过：usage log queue backpressure、group capacity batching、concurrency cleanup、Codex image tool policy、error request UI alignment、Anthropic Fable 7d_oi、deploy migration timeout、Grok UI/README changes。
   - S45-S52 集成分支：`codex/upstream-main-v0143-s45-s52-batch`。
   - S45-S52 基线：`main` / `origin/main` 的 `485eaf801 docs: record affiliate risk merge`。
   - S45-S52 按顺序 `cherry-pick -x` 完成：`544accdd3`、`af6c8fdeb`、`9aa85e59e`、`6888e9da5`、`512f44c13`、`6abeb0796`、`248bf80dc`、`c558b6eda`、`fed128046`、`5ce438fa7`、`b6970cdc6`、`4f9542e34`。
@@ -288,6 +295,11 @@ last_verified: 2026-07-04 02:36 +08:00
   - `git diff --check`
   - `rg -n "^(<<<<<<< .+|=======$|>>>>>>> .+)$" .` no matches.
   - S45-S52 denied-path audit over `git diff --name-only origin/main..HEAD` returned `DENIED_PATH_AUDIT_PASS`.
+  - `go test ./internal/service -run "TestIsNonRetryableRefreshError|TestTokenRefreshService_RefreshWithRetry|TestOpenAIGatewayServiceRecordUsage|TestOpenAIGatewayService_.*Mapped|TestOpenAIGatewayService_Forward" -count=1`
+  - `go test ./internal/handler/admin -run "TestCodexIdentity|TestParseCodexSessionImport|TestNormalizeCodexImport|TestResolveCodexImport|TestMergeCodexImport|TestImportCodex" -count=1`
+  - S53 `git diff --check` passed.
+  - S53 conflict marker scan returned no matches.
+  - S53 denied-path audit over `git diff --name-only origin/main..HEAD` returned `DENIED_PATH_AUDIT_PASS`.
   - `go test ./internal/handler -run "Test.*AvailableChannel.*Peak.*|Test.*Payment.*Peak.*|TestGroupHandlerCreate_LeavesPeakRateNormalizationToService|TestGroupHandlerEndpoints" -count=1`
   - `go test ./internal/handler/admin -run "Test.*Group.*Peak.*|TestGroupHandlerCreate_LeavesPeakRateNormalizationToService|TestGroupHandlerEndpoints" -count=1`
   - `cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend run typecheck"`
