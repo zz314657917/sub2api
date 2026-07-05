@@ -139,18 +139,22 @@ type StudioBridgeRechargeOrder struct {
 }
 
 type StudioBridgeChargeCommand struct {
-	AppID              string  `json:"app_id"`
-	UserID             int64   `json:"user_id"`
-	ChargeKey          string  `json:"charge_key"`
-	RefundForChargeKey string  `json:"refund_for_charge_key,omitempty"`
-	Amount             float64 `json:"amount"`
-	AmountUnit         string  `json:"amount_unit,omitempty"`
-	Reason             string  `json:"reason"`
-	TaskID             string  `json:"task_id,omitempty"`
-	Mode               string  `json:"mode,omitempty"`
-	Model              string  `json:"model,omitempty"`
-	ActorUserID        string  `json:"actor_user_id,omitempty"`
-	TeamID             string  `json:"team_id,omitempty"`
+	AppID              string         `json:"app_id"`
+	UserID             int64          `json:"user_id"`
+	ChargeKey          string         `json:"charge_key"`
+	RefundForChargeKey string         `json:"refund_for_charge_key,omitempty"`
+	Amount             float64        `json:"amount"`
+	AmountUnit         string         `json:"amount_unit,omitempty"`
+	Reason             string         `json:"reason"`
+	TaskID             string         `json:"task_id,omitempty"`
+	Mode               string         `json:"mode,omitempty"`
+	Model              string         `json:"model,omitempty"`
+	ActorUserID        string         `json:"actor_user_id,omitempty"`
+	TeamID             string         `json:"team_id,omitempty"`
+	ImageCount         int            `json:"image_count,omitempty"`
+	ImageSize          string         `json:"image_size,omitempty"`
+	ImageSizeSource    string         `json:"image_size_source,omitempty"`
+	ImageSizeBreakdown map[string]int `json:"image_size_breakdown,omitempty"`
 	rawAmount          float64
 }
 
@@ -427,6 +431,9 @@ func normalizeStudioBridgeChargeCommand(cmd *StudioBridgeChargeCommand) error {
 	cmd.Model = strings.TrimSpace(cmd.Model)
 	cmd.ActorUserID = strings.TrimSpace(cmd.ActorUserID)
 	cmd.TeamID = strings.TrimSpace(cmd.TeamID)
+	cmd.ImageSize = normalizeStudioBridgeImageSize(cmd.ImageSize)
+	cmd.ImageSizeSource = normalizeStudioBridgeImageSizeSource(cmd.ImageSizeSource, cmd.ImageSize)
+	cmd.ImageSizeBreakdown = normalizeStudioBridgeImageSizeBreakdown(cmd.ImageSizeBreakdown, cmd.ImageSize, cmd.ImageCount)
 	if cmd.ChargeKey == "" {
 		return ErrStudioBridgeChargeKeyEmpty
 	}
@@ -436,6 +443,46 @@ func normalizeStudioBridgeChargeCommand(cmd *StudioBridgeChargeCommand) error {
 	cmd.rawAmount = rawAmount
 	cmd.Amount = NormalizeStudioBridgeChargeAmount(*cmd, rawAmount)
 	return nil
+}
+
+func normalizeStudioBridgeImageSize(size string) string {
+	if strings.TrimSpace(size) == "" {
+		return ""
+	}
+	return NormalizeImageBillingTierOrDefault(size)
+}
+
+func normalizeStudioBridgeImageSizeSource(source string, imageSize string) string {
+	switch strings.TrimSpace(source) {
+	case ImageSizeSourceOutput:
+		return ImageSizeSourceOutput
+	case ImageSizeSourceInput:
+		return ImageSizeSourceInput
+	case ImageSizeSourceLegacy:
+		return ImageSizeSourceLegacy
+	default:
+		if strings.TrimSpace(imageSize) == "" {
+			return ""
+		}
+		return ImageSizeSourceDefault
+	}
+}
+
+func normalizeStudioBridgeImageSizeBreakdown(breakdown map[string]int, imageSize string, imageCount int) map[string]int {
+	out := map[string]int{}
+	for size, count := range breakdown {
+		if count <= 0 {
+			continue
+		}
+		out[NormalizeImageBillingTierOrDefault(size)] += count
+	}
+	if len(out) == 0 && imageCount > 0 && strings.TrimSpace(imageSize) != "" {
+		out[NormalizeImageBillingTierOrDefault(imageSize)] = imageCount
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 func studioBridgeChargeFingerprint(cmd StudioBridgeChargeCommand) string {

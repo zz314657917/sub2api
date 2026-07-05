@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -674,6 +675,12 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 		requestedModel = "studio-bridge"
 	}
 	billingMode, mediaType, imageCount := studioBridgeUsageBillingFields(cmd.Mode)
+	if cmd.ImageCount > 0 {
+		imageCount = cmd.ImageCount
+	}
+	imageSize := studioBridgeUsageImageSize(cmd, imageCount)
+	imageSizeSource := studioBridgeUsageImageSizeSource(cmd, imageCount)
+	imageSizeBreakdown := studioBridgeUsageImageSizeBreakdown(cmd, imageCount)
 	inboundEndpoint := studioBridgeUsageInboundEndpoint(cmd.Mode)
 	model := studioBridgeResolvedUsageModel(requestedModel, cmd.Mode, billingMode, mediaType, inboundEndpoint)
 	var groupID any
@@ -718,6 +725,7 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 				image_count,
 				image_size,
 				image_size_source,
+				image_size_breakdown,
 				billing_mode,
 				media_type,
 				inbound_endpoint,
@@ -728,13 +736,13 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 				0, 0, 0, 0, $8, $8, 1,
 				$9, $10, FALSE, FALSE,
 				CASE
-					WHEN $17::timestamptz IS NULL THEN NULL
+					WHEN $18::timestamptz IS NULL THEN NULL
 					ELSE LEAST(
 						2147483647,
-						GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - $17::timestamptz)) * 1000))
+						GREATEST(0, FLOOR(EXTRACT(EPOCH FROM (NOW() - $18::timestamptz)) * 1000))
 					)::int
 				END,
-				$11, $12, $13, $14, $15, $16, NOW()
+				$11, $12, $13, $14, $15, $16, $17, NOW()
 			)
 			ON CONFLICT (request_id, api_key_id) DO NOTHING
 			RETURNING user_id, created_at, actual_cost
@@ -771,8 +779,46 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 			RETURNING 1
 		)
 		SELECT EXISTS(SELECT 1 FROM inserted)
-	`, cmd.UserID, refs.apiKeyID, refs.accountID, requestID, model, requestedModel, groupID, amount, service.BillingTypeBalance, int16(service.RequestTypeSync), imageCount, nil, nil, billingMode, mediaTypeArg, inboundEndpoint, studioBridgeDurationStartArg(chargeCreatedAt)).Scan(&inserted)
+	`, cmd.UserID, refs.apiKeyID, refs.accountID, requestID, model, requestedModel, groupID, amount, service.BillingTypeBalance, int16(service.RequestTypeSync), imageCount, imageSize, imageSizeSource, imageSizeBreakdown, billingMode, mediaTypeArg, inboundEndpoint, studioBridgeDurationStartArg(chargeCreatedAt)).Scan(&inserted)
 	return err
+}
+
+func studioBridgeUsageImageSize(cmd service.StudioBridgeChargeCommand, imageCount int) any {
+	if imageCount <= 0 || strings.TrimSpace(cmd.ImageSize) == "" {
+		return nil
+	}
+	return service.NormalizeImageBillingTierOrDefault(cmd.ImageSize)
+}
+
+func studioBridgeUsageImageSizeSource(cmd service.StudioBridgeChargeCommand, imageCount int) any {
+	if imageCount <= 0 || strings.TrimSpace(cmd.ImageSize) == "" {
+		return nil
+	}
+	switch strings.TrimSpace(cmd.ImageSizeSource) {
+	case service.ImageSizeSourceOutput:
+		return service.ImageSizeSourceOutput
+	case service.ImageSizeSourceInput:
+		return service.ImageSizeSourceInput
+	case service.ImageSizeSourceLegacy:
+		return service.ImageSizeSourceLegacy
+	default:
+		return service.ImageSizeSourceDefault
+	}
+}
+
+func studioBridgeUsageImageSizeBreakdown(cmd service.StudioBridgeChargeCommand, imageCount int) any {
+	if imageCount <= 0 || strings.TrimSpace(cmd.ImageSize) == "" {
+		return nil
+	}
+	breakdown := cmd.ImageSizeBreakdown
+	if len(breakdown) == 0 {
+		breakdown = map[string]int{service.NormalizeImageBillingTierOrDefault(cmd.ImageSize): imageCount}
+	}
+	data, err := json.Marshal(breakdown)
+	if err != nil || len(data) == 0 {
+		return nil
+	}
+	return string(data)
 }
 
 func studioBridgeDurationStartArg(value time.Time) any {

@@ -144,13 +144,17 @@ func TestStudioBridgeRepositoryCommitWritesUsageDurationFromReserveTime(t *testi
 	repo := &studioBridgeRepository{db: db}
 	reserveCreatedAt := time.Date(2026, 6, 15, 12, 0, 0, 0, time.UTC)
 	cmd := service.StudioBridgeChargeCommand{
-		AppID:     service.StudioBridgeAppLuoyeAI,
-		UserID:    42,
-		ChargeKey: "task:image:precharge",
-		Amount:    0.8,
-		TaskID:    "image-task",
-		Mode:      "generate",
-		Model:     "auto",
+		AppID:              service.StudioBridgeAppLuoyeAI,
+		UserID:             42,
+		ChargeKey:          "task:image:precharge",
+		Amount:             0.8,
+		TaskID:             "image-task",
+		Mode:               "generate",
+		Model:              "auto",
+		ImageCount:         4,
+		ImageSize:          service.ImageBillingSize1K,
+		ImageSizeSource:    service.ImageSizeSourceInput,
+		ImageSizeBreakdown: map[string]int{service.ImageBillingSize1K: 4},
 	}
 
 	mock.ExpectBegin()
@@ -198,7 +202,7 @@ func TestStudioBridgeRepositoryCommitWritesUsageDurationFromReserveTime(t *testi
 	mock.ExpectQuery(`WITH request_context AS`).
 		WithArgs(cmd.UserID, sqlmock.AnyArg(), service.DefaultAPIKeyName, "image", "gpt-image-2").
 		WillReturnRows(sqlmock.NewRows([]string{"id", "group_id", "account_id"}).AddRow(int64(77), int64(9), int64(88)))
-	mock.ExpectQuery(`WITH inserted AS \([\s\S]*INSERT INTO usage_logs[\s\S]*duration_ms[\s\S]*\$17::timestamptz[\s\S]*INSERT INTO user_usage_daily_stats`).
+	mock.ExpectQuery(`WITH inserted AS \([\s\S]*INSERT INTO usage_logs[\s\S]*image_size_breakdown[\s\S]*\$18::timestamptz[\s\S]*INSERT INTO user_usage_daily_stats`).
 		WithArgs(
 			cmd.UserID,
 			int64(77),
@@ -210,9 +214,10 @@ func TestStudioBridgeRepositoryCommitWritesUsageDurationFromReserveTime(t *testi
 			0.5,
 			service.BillingTypeBalance,
 			int16(service.RequestTypeSync),
-			1,
-			nil,
-			nil,
+			4,
+			service.ImageBillingSize1K,
+			service.ImageSizeSourceInput,
+			`{"1K":4}`,
 			string(service.BillingModeImage),
 			"image",
 			"/studio-bridge/generate",
