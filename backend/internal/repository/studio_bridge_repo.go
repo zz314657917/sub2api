@@ -382,6 +382,10 @@ type studioBridgeChargeRecord struct {
 	Model              string
 	ActorUserID        string
 	TeamID             string
+	ImageCount         int
+	ImageSize          string
+	ImageSizeSource    string
+	ImageSizeBreakdown map[string]int
 	BalanceAfter       float64
 	UsageLoggedAt      *time.Time
 	CreatedAt          time.Time
@@ -408,10 +412,14 @@ func claimStudioBridgeReserveCharge(ctx context.Context, tx *sql.Tx, cmd service
 			model,
 			actor_user_id,
 			team_id,
+			image_count,
+			image_size,
+			image_size_source,
+			image_size_breakdown,
 			created_at,
 			updated_at
 		)
-		VALUES ($1, $2, $3, $4, 'reserved', $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, 'reserved', $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW(), NOW())
 		ON CONFLICT (app_id, charge_key) DO NOTHING
 		RETURNING id
 	`,
@@ -426,6 +434,10 @@ func claimStudioBridgeReserveCharge(ctx context.Context, tx *sql.Tx, cmd service
 		studioBridgeNullableString(cmd.Model),
 		studioBridgeNullableString(cmd.ActorUserID),
 		studioBridgeNullableString(cmd.TeamID),
+		cmd.ImageCount,
+		studioBridgeUsageImageSize(cmd, cmd.ImageCount),
+		studioBridgeUsageImageSizeSource(cmd, cmd.ImageCount),
+		studioBridgeUsageImageSizeBreakdown(cmd, cmd.ImageCount),
 	).Scan(&id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, false, nil
@@ -452,11 +464,15 @@ func insertStudioBridgeCharge(ctx context.Context, tx *sql.Tx, cmd service.Studi
 			model,
 			actor_user_id,
 			team_id,
+			image_count,
+			image_size,
+			image_size_source,
+			image_size_breakdown,
 			balance_after,
 			created_at,
 			updated_at
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, NOW(), NOW())
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW())
 	`,
 		cmd.AppID,
 		cmd.ChargeKey,
@@ -471,6 +487,10 @@ func insertStudioBridgeCharge(ctx context.Context, tx *sql.Tx, cmd service.Studi
 		studioBridgeNullableString(cmd.Model),
 		studioBridgeNullableString(cmd.ActorUserID),
 		studioBridgeNullableString(cmd.TeamID),
+		cmd.ImageCount,
+		studioBridgeUsageImageSize(cmd, cmd.ImageCount),
+		studioBridgeUsageImageSizeSource(cmd, cmd.ImageCount),
+		studioBridgeUsageImageSizeBreakdown(cmd, cmd.ImageCount),
 		values.BalanceAfter,
 	)
 	return err
@@ -494,6 +514,10 @@ func lockStudioBridgeCharge(ctx context.Context, tx *sql.Tx, appID, chargeKey st
 			COALESCE(model, ''),
 			COALESCE(actor_user_id, ''),
 			COALESCE(team_id, ''),
+			COALESCE(image_count, 0),
+			COALESCE(image_size, ''),
+			COALESCE(image_size_source, ''),
+			image_size_breakdown::text,
 			COALESCE(balance_after, 0)::double precision,
 			usage_logged_at,
 			created_at
@@ -514,6 +538,7 @@ func lockStudioBridgeCharge(ctx context.Context, tx *sql.Tx, appID, chargeKey st
 func scanStudioBridgeCharge(row *sql.Row) (*studioBridgeChargeRecord, error) {
 	var charge studioBridgeChargeRecord
 	var usageLoggedAt sql.NullTime
+	var imageSizeBreakdown sql.NullString
 	err := row.Scan(
 		&charge.ID,
 		&charge.AppID,
@@ -530,6 +555,10 @@ func scanStudioBridgeCharge(row *sql.Row) (*studioBridgeChargeRecord, error) {
 		&charge.Model,
 		&charge.ActorUserID,
 		&charge.TeamID,
+		&charge.ImageCount,
+		&charge.ImageSize,
+		&charge.ImageSizeSource,
+		&imageSizeBreakdown,
 		&charge.BalanceAfter,
 		&usageLoggedAt,
 		&charge.CreatedAt,
@@ -540,6 +569,7 @@ func scanStudioBridgeCharge(row *sql.Row) (*studioBridgeChargeRecord, error) {
 	if usageLoggedAt.Valid {
 		charge.UsageLoggedAt = &usageLoggedAt.Time
 	}
+	charge.ImageSizeBreakdown = stringIntMapFromNullJSON(imageSizeBreakdown)
 	return &charge, nil
 }
 
@@ -608,6 +638,14 @@ func (c studioBridgeChargeRecord) command(fallback service.StudioBridgeChargeCom
 	fallback.Model = firstNonEmptyString(c.Model, fallback.Model)
 	fallback.ActorUserID = firstNonEmptyString(c.ActorUserID, fallback.ActorUserID)
 	fallback.TeamID = firstNonEmptyString(c.TeamID, fallback.TeamID)
+	if c.ImageCount > 0 {
+		fallback.ImageCount = c.ImageCount
+	}
+	fallback.ImageSize = firstNonEmptyString(c.ImageSize, fallback.ImageSize)
+	fallback.ImageSizeSource = firstNonEmptyString(c.ImageSizeSource, fallback.ImageSizeSource)
+	if len(c.ImageSizeBreakdown) > 0 {
+		fallback.ImageSizeBreakdown = copyStudioBridgeImageSizeBreakdown(c.ImageSizeBreakdown)
+	}
 	return fallback
 }
 
@@ -787,7 +825,7 @@ func studioBridgeUsageImageSize(cmd service.StudioBridgeChargeCommand, imageCoun
 	if imageCount <= 0 || strings.TrimSpace(cmd.ImageSize) == "" {
 		return nil
 	}
-	return service.NormalizeImageBillingTierOrDefault(cmd.ImageSize)
+	return studioBridgeNormalizeUsageImageSize(cmd.ImageSize)
 }
 
 func studioBridgeUsageImageSizeSource(cmd service.StudioBridgeChargeCommand, imageCount int) any {
@@ -799,6 +837,8 @@ func studioBridgeUsageImageSizeSource(cmd service.StudioBridgeChargeCommand, ima
 		return service.ImageSizeSourceOutput
 	case service.ImageSizeSourceInput:
 		return service.ImageSizeSourceInput
+	case service.ImageSizeSourceDefault:
+		return service.ImageSizeSourceDefault
 	case service.ImageSizeSourceLegacy:
 		return service.ImageSizeSourceLegacy
 	default:
@@ -812,13 +852,44 @@ func studioBridgeUsageImageSizeBreakdown(cmd service.StudioBridgeChargeCommand, 
 	}
 	breakdown := cmd.ImageSizeBreakdown
 	if len(breakdown) == 0 {
-		breakdown = map[string]int{service.NormalizeImageBillingTierOrDefault(cmd.ImageSize): imageCount}
+		if tier, ok := studioBridgeUsageImageSizeTier(cmd.ImageSize); ok {
+			breakdown = map[string]int{tier: imageCount}
+		}
+	}
+	if len(breakdown) == 0 {
+		return nil
 	}
 	data, err := json.Marshal(breakdown)
 	if err != nil || len(data) == 0 {
 		return nil
 	}
 	return string(data)
+}
+
+func studioBridgeNormalizeUsageImageSize(size string) string {
+	trimmed := strings.TrimSpace(size)
+	if strings.EqualFold(trimmed, service.ImageBillingSizeMixed) {
+		return service.ImageBillingSizeMixed
+	}
+	return service.NormalizeImageBillingTierOrDefault(trimmed)
+}
+
+func studioBridgeUsageImageSizeTier(size string) (string, bool) {
+	if strings.EqualFold(strings.TrimSpace(size), service.ImageBillingSizeMixed) {
+		return "", false
+	}
+	return service.ClassifyImageBillingTier(size)
+}
+
+func copyStudioBridgeImageSizeBreakdown(in map[string]int) map[string]int {
+	if len(in) == 0 {
+		return nil
+	}
+	out := make(map[string]int, len(in))
+	for key, value := range in {
+		out[key] = value
+	}
+	return out
 }
 
 func studioBridgeDurationStartArg(value time.Time) any {

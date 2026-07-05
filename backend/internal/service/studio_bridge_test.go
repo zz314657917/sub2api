@@ -572,6 +572,41 @@ func TestStudioBridgeChargeFingerprintIncludesAmountUnit(t *testing.T) {
 	require.Empty(t, StudioBridgeAmountUnitFromFingerprint(raw))
 }
 
+func TestStudioBridgeChargeNormalizesImageMetadata(t *testing.T) {
+	cmd := StudioBridgeChargeCommand{
+		AppID:              StudioBridgeAppLuoyeAI,
+		UserID:             42,
+		ChargeKey:          "task:42:image:metadata",
+		Amount:             0.1,
+		ImageSizeSource:    "DEFAULT",
+		ImageSizeBreakdown: map[string]int{"1k": 2, "2048x2048": 1, "unknown": 9},
+	}
+
+	require.NoError(t, normalizeStudioBridgeChargeCommand(&cmd))
+	require.Equal(t, 3, cmd.ImageCount)
+	require.Equal(t, ImageBillingSizeMixed, cmd.ImageSize)
+	require.Equal(t, ImageSizeSourceDefault, cmd.ImageSizeSource)
+	require.Equal(t, map[string]int{
+		ImageBillingSize1K: 2,
+		ImageBillingSize2K: 1,
+	}, cmd.ImageSizeBreakdown)
+
+	cmd = StudioBridgeChargeCommand{
+		AppID:           StudioBridgeAppLuoyeAI,
+		UserID:          42,
+		ChargeKey:       "task:42:image:mixed",
+		Amount:          0.1,
+		ImageCount:      4,
+		ImageSize:       "mixed",
+		ImageSizeSource: "Input",
+	}
+	require.NoError(t, normalizeStudioBridgeChargeCommand(&cmd))
+	require.Equal(t, 4, cmd.ImageCount)
+	require.Equal(t, ImageBillingSizeMixed, cmd.ImageSize)
+	require.Equal(t, ImageSizeSourceInput, cmd.ImageSizeSource)
+	require.Nil(t, cmd.ImageSizeBreakdown)
+}
+
 func TestStudioBridgeSessionProbeOriginValidation(t *testing.T) {
 	ctx := context.Background()
 	svc := newStudioBridgeTestService(t, &studioBridgeRepoStub{})

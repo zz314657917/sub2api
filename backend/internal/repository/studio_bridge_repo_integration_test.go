@@ -100,15 +100,19 @@ func TestStudioBridgeRepositoryCommitLogsNetUsageOnceAfterPartialRefund(t *testi
 		AccountPoolStrategy: service.AccountPoolStrategySharedOnly,
 	})
 	cmd := service.StudioBridgeChargeCommand{
-		AppID:       service.StudioBridgeAppLuoyeAI,
-		UserID:      user.ID,
-		ChargeKey:   "task:" + uuid.NewString() + ":precharge",
-		Amount:      0.8,
-		TaskID:      "task-" + uuid.NewString(),
-		Mode:        "generate",
-		Model:       "gpt-image-2",
-		ActorUserID: "sub2api:actor",
-		TeamID:      "team-1",
+		AppID:              service.StudioBridgeAppLuoyeAI,
+		UserID:             user.ID,
+		ChargeKey:          "task:" + uuid.NewString() + ":precharge",
+		Amount:             0.8,
+		TaskID:             "task-" + uuid.NewString(),
+		Mode:               "generate",
+		Model:              "gpt-image-2",
+		ActorUserID:        "sub2api:actor",
+		TeamID:             "team-1",
+		ImageCount:         4,
+		ImageSize:          service.ImageBillingSize1K,
+		ImageSizeSource:    service.ImageSizeSourceInput,
+		ImageSizeBreakdown: map[string]int{service.ImageBillingSize1K: 4},
 	}
 	_, err := repo.ReserveStudioBridgeCharge(ctx, cmd)
 	require.NoError(t, err)
@@ -124,11 +128,16 @@ func TestStudioBridgeRepositoryCommitLogsNetUsageOnceAfterPartialRefund(t *testi
 	})
 	require.NoError(t, err)
 
-	committed, err := repo.CommitStudioBridgeCharge(ctx, cmd)
+	commitCmd := cmd
+	commitCmd.ImageCount = 0
+	commitCmd.ImageSize = ""
+	commitCmd.ImageSizeSource = ""
+	commitCmd.ImageSizeBreakdown = nil
+	committed, err := repo.CommitStudioBridgeCharge(ctx, commitCmd)
 	require.NoError(t, err)
 	require.True(t, committed.Applied)
 
-	duplicateCommit, err := repo.CommitStudioBridgeCharge(ctx, cmd)
+	duplicateCommit, err := repo.CommitStudioBridgeCharge(ctx, commitCmd)
 	require.NoError(t, err)
 	require.False(t, duplicateCommit.Applied)
 
@@ -141,12 +150,19 @@ func TestStudioBridgeRepositoryCommitLogsNetUsageOnceAfterPartialRefund(t *testi
 	var durationMs sql.NullInt64
 	var imageSize sql.NullString
 	var imageSizeSource sql.NullString
-	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT api_key_id, duration_ms, image_size, image_size_source FROM usage_logs WHERE request_id = $1", "studio:"+cmd.TaskID).Scan(&usageAPIKeyID, &durationMs, &imageSize, &imageSizeSource))
+	var imageSizeBreakdown sql.NullString
+	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT api_key_id, duration_ms, image_size, image_size_source, image_size_breakdown::text FROM usage_logs WHERE request_id = $1", "studio:"+cmd.TaskID).Scan(&usageAPIKeyID, &durationMs, &imageSize, &imageSizeSource, &imageSizeBreakdown))
 	require.Equal(t, defaultKey.ID, usageAPIKeyID)
 	require.True(t, durationMs.Valid)
 	require.GreaterOrEqual(t, durationMs.Int64, int64(0))
-	require.False(t, imageSize.Valid)
-	require.False(t, imageSizeSource.Valid)
+	require.True(t, imageSize.Valid)
+	require.Equal(t, service.ImageBillingSize1K, imageSize.String)
+	require.True(t, imageSizeSource.Valid)
+	require.Equal(t, service.ImageSizeSourceInput, imageSizeSource.String)
+	require.True(t, imageSizeBreakdown.Valid)
+	var breakdown map[string]int
+	require.NoError(t, json.Unmarshal([]byte(imageSizeBreakdown.String), &breakdown))
+	require.Equal(t, map[string]int{service.ImageBillingSize1K: 4}, breakdown)
 
 	var status string
 	var refundedAmount float64

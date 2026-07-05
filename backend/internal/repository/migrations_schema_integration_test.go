@@ -83,6 +83,41 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireIndex(t, tx, "usage_billing_dedup", "idx_usage_billing_dedup_request_api_key")
 	requireIndex(t, tx, "usage_billing_dedup", "idx_usage_billing_dedup_created_at_brin")
 
+	// studio_bridge_charges: image billing metadata survives reserve -> commit.
+	requireColumn(t, tx, "studio_bridge_charges", "image_count", "integer", 0, false)
+	requireColumn(t, tx, "studio_bridge_charges", "image_size", "character varying", 10, true)
+	requireColumn(t, tx, "studio_bridge_charges", "image_size_source", "character varying", 16, true)
+	requireColumn(t, tx, "studio_bridge_charges", "image_size_breakdown", "jsonb", 0, true)
+	requireConstraintDefinitionContains(
+		t,
+		tx,
+		"studio_bridge_charges",
+		"studio_bridge_charges_image_count_nonnegative",
+		"image_count >= 0",
+	)
+	requireConstraintDefinitionContains(
+		t,
+		tx,
+		"studio_bridge_charges",
+		"studio_bridge_charges_image_size_source_check",
+		"image_size_source",
+		"'output'",
+		"'input'",
+		"'default'",
+		"'legacy'",
+	)
+	requireConstraintDefinitionContains(
+		t,
+		tx,
+		"studio_bridge_charges",
+		"studio_bridge_charges_image_size_check",
+		"image_size",
+		"'1K'",
+		"'2K'",
+		"'4K'",
+		"'mixed'",
+	)
+
 	var usageBillingDedupArchiveRegclass sql.NullString
 	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.usage_billing_dedup_archive')").Scan(&usageBillingDedupArchiveRegclass))
 	require.True(t, usageBillingDedupArchiveRegclass.Valid, "expected usage_billing_dedup_archive table to exist")

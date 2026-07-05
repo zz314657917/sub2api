@@ -432,8 +432,14 @@ func normalizeStudioBridgeChargeCommand(cmd *StudioBridgeChargeCommand) error {
 	cmd.ActorUserID = strings.TrimSpace(cmd.ActorUserID)
 	cmd.TeamID = strings.TrimSpace(cmd.TeamID)
 	cmd.ImageSize = normalizeStudioBridgeImageSize(cmd.ImageSize)
-	cmd.ImageSizeSource = normalizeStudioBridgeImageSizeSource(cmd.ImageSizeSource, cmd.ImageSize)
 	cmd.ImageSizeBreakdown = normalizeStudioBridgeImageSizeBreakdown(cmd.ImageSizeBreakdown, cmd.ImageSize, cmd.ImageCount)
+	if cmd.ImageCount <= 0 {
+		cmd.ImageCount = studioBridgeImageSizeBreakdownCount(cmd.ImageSizeBreakdown)
+	}
+	if cmd.ImageSize == "" {
+		cmd.ImageSize = studioBridgeImageSizeFromBreakdown(cmd.ImageSizeBreakdown)
+	}
+	cmd.ImageSizeSource = normalizeStudioBridgeImageSizeSource(cmd.ImageSizeSource, cmd.ImageSize)
 	if cmd.ChargeKey == "" {
 		return ErrStudioBridgeChargeKeyEmpty
 	}
@@ -446,18 +452,24 @@ func normalizeStudioBridgeChargeCommand(cmd *StudioBridgeChargeCommand) error {
 }
 
 func normalizeStudioBridgeImageSize(size string) string {
-	if strings.TrimSpace(size) == "" {
+	trimmed := strings.TrimSpace(size)
+	if trimmed == "" {
 		return ""
 	}
-	return NormalizeImageBillingTierOrDefault(size)
+	if strings.EqualFold(trimmed, ImageBillingSizeMixed) {
+		return ImageBillingSizeMixed
+	}
+	return NormalizeImageBillingTierOrDefault(trimmed)
 }
 
 func normalizeStudioBridgeImageSizeSource(source string, imageSize string) string {
-	switch strings.TrimSpace(source) {
+	switch strings.ToLower(strings.TrimSpace(source)) {
 	case ImageSizeSourceOutput:
 		return ImageSizeSourceOutput
 	case ImageSizeSourceInput:
 		return ImageSizeSourceInput
+	case ImageSizeSourceDefault:
+		return ImageSizeSourceDefault
 	case ImageSizeSourceLegacy:
 		return ImageSizeSourceLegacy
 	default:
@@ -474,15 +486,46 @@ func normalizeStudioBridgeImageSizeBreakdown(breakdown map[string]int, imageSize
 		if count <= 0 {
 			continue
 		}
-		out[NormalizeImageBillingTierOrDefault(size)] += count
+		if tier, ok := ClassifyImageBillingTier(size); ok {
+			out[tier] += count
+		}
 	}
-	if len(out) == 0 && imageCount > 0 && strings.TrimSpace(imageSize) != "" {
-		out[NormalizeImageBillingTierOrDefault(imageSize)] = imageCount
+	if len(out) == 0 && imageCount > 0 {
+		if tier, ok := ClassifyImageBillingTier(imageSize); ok {
+			out[tier] = imageCount
+		}
 	}
 	if len(out) == 0 {
 		return nil
 	}
 	return out
+}
+
+func studioBridgeImageSizeBreakdownCount(breakdown map[string]int) int {
+	total := 0
+	for _, count := range breakdown {
+		if count > 0 {
+			total += count
+		}
+	}
+	return total
+}
+
+func studioBridgeImageSizeFromBreakdown(breakdown map[string]int) string {
+	if len(breakdown) == 0 {
+		return ""
+	}
+	size := ""
+	for tier, count := range breakdown {
+		if count <= 0 {
+			continue
+		}
+		if size != "" {
+			return ImageBillingSizeMixed
+		}
+		size = tier
+	}
+	return size
 }
 
 func studioBridgeChargeFingerprint(cmd StudioBridgeChargeCommand) string {
