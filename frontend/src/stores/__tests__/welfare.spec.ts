@@ -7,6 +7,7 @@ import type { WelfareOverview } from '@/types'
 vi.mock('@/api/welfare', () => ({
   welfareAPI: {
     getWelfareOverview: vi.fn(),
+    claimWelfareFirstRechargeBonus: vi.fn(),
   },
 }))
 
@@ -22,6 +23,7 @@ const baseOverview = (overrides: Partial<WelfareOverview> = {}): WelfareOverview
     enabled: true,
     first_bonus_amount: 5,
     first_bonus_claimed: false,
+    first_bonus_claimable: false,
     reason: 'available',
   },
   daily_checkin: {
@@ -107,17 +109,50 @@ describe('useWelfareStore', () => {
     expect(store.hasClaimableReward).toBe(false)
   })
 
-  it('does not mark first recharge bonus as a manual claimable reward', () => {
+  it('marks first recharge bonus as claimable only when the bonus can be claimed', () => {
     const store = useWelfareStore()
     store.setOverview(baseOverview({
       recharge: {
         enabled: true,
         first_bonus_amount: 5,
         first_bonus_claimed: false,
+        first_bonus_claimable: false,
         reason: 'available',
       },
     }))
 
+    expect(store.hasClaimableReward).toBe(false)
+
+    store.setOverview(baseOverview({
+      recharge: {
+        enabled: true,
+        first_bonus_amount: 5,
+        first_bonus_claimed: false,
+        first_bonus_claimable: true,
+        reason: 'available',
+      },
+    }))
+
+    expect(store.hasClaimableReward).toBe(true)
+  })
+
+  it('updates recharge state after claiming first recharge bonus', () => {
+    const store = useWelfareStore()
+    store.setOverview(baseOverview())
+
+    store.updateRecharge({
+      enabled: true,
+      first_bonus_amount: 5,
+      first_bonus_claimed: true,
+      first_bonus_claimable: false,
+      reason: 'already_claimed',
+      valid_days: 0,
+      can_stack_monthly_bonus: false,
+      monthly_bonus_may_block: true,
+      first_recharge_completed: true,
+    })
+
+    expect(store.overview?.recharge?.first_bonus_claimed).toBe(true)
     expect(store.hasClaimableReward).toBe(false)
   })
 

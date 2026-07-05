@@ -69,6 +69,19 @@ func (h *WelfareHandler) ClaimNewUserTrialSuccessReward(c *gin.Context) {
 	response.Success(c, result)
 }
 
+func (h *WelfareHandler) ClaimFirstRechargeBonus(c *gin.Context) {
+	subject, ok := middleware.GetAuthSubjectFromContext(c)
+	if !ok || subject.UserID <= 0 {
+		response.Unauthorized(c, "Unauthorized")
+		return
+	}
+	result, err := h.welfareService.ClaimFirstRechargeBonus(c.Request.Context(), subject.UserID)
+	if response.ErrorFrom(c, err) {
+		return
+	}
+	response.Success(c, result)
+}
+
 func (h *WelfareHandler) ClaimDailyCheckinMilestone(c *gin.Context) {
 	subject, ok := middleware.GetAuthSubjectFromContext(c)
 	if !ok || subject.UserID <= 0 {

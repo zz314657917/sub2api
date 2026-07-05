@@ -1263,6 +1263,7 @@ export interface WelfareRecharge {
   first_bonus_amount: number
   first_bonus_claimed: boolean
   first_bonus_claimed_at?: string | null
+  first_bonus_claimable: boolean
   valid_days: number
   expires_at?: string | null
   can_stack_monthly_bonus: boolean
@@ -1324,6 +1325,11 @@ export interface WelfareDailyCheckinClaimResponse {
 
 export interface WelfareNewUserTrialRewardClaimResponse {
   new_user_trial: WelfareNewUserTrial
+  claimed_amount: number
+}
+
+export interface WelfareFirstRechargeBonusClaimResponse {
+  recharge: WelfareRecharge
   claimed_amount: number
 }
 

@@ -101,6 +101,7 @@ func RegisterUserRoutes(
 				welfare.POST("/daily-checkin/claim", h.Welfare.ClaimDailyCheckin)
 				welfare.POST("/daily-checkin/milestones/:day/claim", h.Welfare.ClaimDailyCheckinMilestone)
 				welfare.POST("/new-user-trial/reward/claim", h.Welfare.ClaimNewUserTrialSuccessReward)
+				welfare.POST("/recharge/first-bonus/claim", h.Welfare.ClaimFirstRechargeBonus)
 			}
 
 			proxies := user.Group("/proxies")

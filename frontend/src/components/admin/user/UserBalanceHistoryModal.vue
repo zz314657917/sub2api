@@ -124,6 +124,90 @@
         </div>
       </div>
 
+      <!-- Subscription payment orders -->
+      <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-600 dark:bg-dark-800">
+        <div class="mb-3 flex items-center justify-between gap-3">
+          <div class="min-w-0">
+            <h4 class="text-sm font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.users.subscriptionPaymentOrders') }}
+            </h4>
+            <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">
+              {{ t('admin.users.subscriptionPaymentOrdersHint') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            :disabled="subscriptionOrdersLoading"
+            class="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-700 disabled:cursor-not-allowed disabled:opacity-60 dark:text-dark-300 dark:hover:bg-dark-700 dark:hover:text-white"
+            :title="t('common.refresh')"
+            @click="loadSubscriptionOrders"
+          >
+            <Icon name="refresh" size="sm" :class="subscriptionOrdersLoading ? 'animate-spin' : ''" />
+          </button>
+        </div>
+
+        <div v-if="subscriptionOrdersLoading" class="flex items-center justify-center py-5">
+          <svg class="h-6 w-6 animate-spin text-primary-500" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+          </svg>
+        </div>
+
+        <div v-else-if="subscriptionOrdersError" class="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600 dark:bg-red-900/20 dark:text-red-300">
+          {{ subscriptionOrdersError }}
+        </div>
+
+        <div v-else-if="subscriptionOrders.length === 0" class="py-4 text-center">
+          <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.users.noSubscriptionPaymentOrders') }}</p>
+        </div>
+
+        <div v-else class="space-y-2">
+          <div
+            v-for="order in subscriptionOrders"
+            :key="order.id"
+            class="rounded-lg border border-gray-100 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-700/60"
+          >
+            <div class="flex items-start justify-between gap-3">
+              <div class="flex min-w-0 items-start gap-3">
+                <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-300">
+                  <Icon name="badge" size="sm" />
+                </div>
+                <div class="min-w-0">
+                  <div class="flex min-w-0 flex-wrap items-center gap-2">
+                    <p class="font-mono text-sm font-medium text-gray-900 dark:text-white">
+                      #{{ order.id }}
+                    </p>
+                    <OrderStatusBadge :status="order.status" />
+                    <span
+                      v-if="order.subscription_days"
+                      class="rounded bg-purple-50 px-1.5 py-0.5 text-[11px] font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-200"
+                    >
+                      {{ t('admin.users.subscriptionOrderDays', { days: order.subscription_days }) }}
+                    </span>
+                  </div>
+                  <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500 dark:text-dark-400">
+                    <span>{{ t('payment.orders.orderNo') }}: {{ order.out_trade_no }}</span>
+                    <span>{{ t('payment.orders.paymentMethod') }}: {{ t('payment.methods.' + order.payment_type, order.payment_type) }}</span>
+                    <span>{{ t('payment.orders.createdAt') }}: {{ formatDateTime(order.created_at) }}</span>
+                    <span v-if="order.paid_at">{{ t('admin.users.subscriptionOrderPaidAt') }}: {{ formatDateTime(order.paid_at) }}</span>
+                    <span v-if="order.completed_at">{{ t('admin.users.subscriptionOrderCompletedAt') }}: {{ formatDateTime(order.completed_at) }}</span>
+                    <span v-if="order.plan_id">{{ t('admin.users.subscriptionOrderPlan') }}: #{{ order.plan_id }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flex-shrink-0 text-right">
+                <p class="text-sm font-semibold text-gray-900 dark:text-white">
+                  {{ formatSubscriptionOrderAmount(order) }}
+                </p>
+                <p v-if="order.refund_amount" class="text-xs text-red-500 dark:text-red-300">
+                  {{ t('payment.admin.refundAmount') }}: {{ formatSubscriptionOrderRefund(order) }}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Type filter + Action buttons -->
       <div class="flex items-center gap-3">
         <Select
@@ -257,9 +341,12 @@ import { formatCreditAmount } from '@/utils/credits'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'
 import { displayModelLabel } from '@/utils/modelDisplay'
 import type { AdminUsageLog, AdminUser } from '@/types'
+import type { PaymentOrder } from '@/types/payment'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import OrderStatusBadge from '@/components/payment/OrderStatusBadge.vue'
+import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 
 const props = defineProps<{ show: boolean; user: AdminUser | null; hideActions?: boolean }>()
 const emit = defineEmits(['close', 'deposit', 'withdraw'])
@@ -269,12 +356,16 @@ const history = ref<BalanceHistoryItem[]>([])
 const loading = ref(false)
 const usageLoading = ref(false)
 const usageError = ref('')
+const subscriptionOrdersLoading = ref(false)
+const subscriptionOrdersError = ref('')
 const currentPage = ref(1)
 const total = ref(0)
 const totalRecharged = ref(0)
 const recentUsage = ref<AdminUsageLog[]>([])
+const subscriptionOrders = ref<PaymentOrder[]>([])
 const pageSize = 15
 const recentUsageLimit = 5
+const subscriptionOrdersLimit = 5
 const typeFilter = ref('')
 
 const totalPages = computed(() => Math.ceil(total.value / pageSize) || 1)
@@ -299,6 +390,7 @@ watch(() => [props.show, props.user?.id] as const, ([show, id], [prevShow, prevI
     typeFilter.value = ''
     loadHistory(1)
     loadRecentUsage()
+    loadSubscriptionOrders()
   }
 })
 
@@ -345,6 +437,27 @@ const loadRecentUsage = async () => {
   }
 }
 
+const loadSubscriptionOrders = async () => {
+  if (!props.user) return
+  subscriptionOrdersLoading.value = true
+  subscriptionOrdersError.value = ''
+  try {
+    const res = await adminAPI.payment.getOrders({
+      user_id: props.user.id,
+      order_type: 'subscription',
+      page: 1,
+      page_size: subscriptionOrdersLimit,
+    })
+    subscriptionOrders.value = res.data.items || []
+  } catch (error) {
+    console.error('Failed to load subscription payment orders:', error)
+    subscriptionOrders.value = []
+    subscriptionOrdersError.value = t('admin.users.failedToLoadSubscriptionOrders')
+  } finally {
+    subscriptionOrdersLoading.value = false
+  }
+}
+
 const toFiniteNumber = (value: unknown): number => {
   const numeric = Number(value)
   return Number.isFinite(numeric) ? numeric : 0
@@ -355,6 +468,12 @@ const formatUsageCost = (value: unknown): string =>
     minimumFractionDigits: 4,
     maximumFractionDigits: 4,
   })
+
+const formatSubscriptionOrderAmount = (order: PaymentOrder): string =>
+  formatPaymentAmount(toFiniteNumber(order.pay_amount || order.amount), normalizePaymentCurrency(order.currency))
+
+const formatSubscriptionOrderRefund = (order: PaymentOrder): string =>
+  formatPaymentAmount(toFiniteNumber(order.refund_amount), normalizePaymentCurrency(order.currency))
 
 const formatTokens = (value: number): string => {
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`

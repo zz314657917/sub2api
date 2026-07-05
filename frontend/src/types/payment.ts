@@ -143,6 +143,9 @@ export interface MembershipStatus {
 export interface PaymentOrder {
   id: number
   user_id: number
+  user_email?: string
+  user_name?: string
+  user_notes?: string | null
   amount: number
   pay_amount: number
   currency?: string
@@ -161,6 +164,8 @@ export interface PaymentOrder {
   refund_requested_by?: number
   refund_request_reason?: string
   plan_id?: number
+  subscription_group_id?: number
+  subscription_days?: number
   provider_instance_id?: string
 }
 

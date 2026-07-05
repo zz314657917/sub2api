@@ -333,7 +333,7 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder) e
 }
 
 func (s *PaymentService) applyFirstRechargeBonusForOrder(ctx context.Context, o *dbent.PaymentOrder) error {
-	if s == nil || s.welfareService == nil || o == nil || o.OrderType != payment.OrderTypeBalance {
+	if s == nil || s.welfareService == nil || o == nil {
 		return nil
 	}
 	if _, err := s.welfareService.GrantFirstRechargeBonusForOrder(ctx, o.ID); err != nil {
@@ -445,18 +445,63 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error
 	if err != nil || g.Status != payment.EntityStatusActive {
 		return fmt.Errorf("group %d no longer exists or inactive", gid)
 	}
-	// Idempotency: check audit log to see if subscription was already assigned.
-	// Prevents double-extension on retry after markCompleted fails.
-	if s.hasAuditLog(ctx, o.ID, "SUBSCRIPTION_SUCCESS") {
-		slog.Info("subscription already assigned for order, skipping", "orderID", o.ID, "groupID", gid)
-		return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
-	}
 	orderNote := fmt.Sprintf("payment order %d", o.ID)
-	_, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
+	// Idempotency: check audit log or subscription notes to see if this order already assigned the subscription.
+	// Prevents double-extension on retry after first-recharge bonus or markCompleted fails.
+	assigned, err := s.subscriptionAlreadyAssignedForOrder(ctx, o, orderNote)
 	if err != nil {
-		return fmt.Errorf("assign subscription: %w", err)
+		return err
 	}
-	return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
+	if assigned {
+		slog.Info("subscription already assigned for order, skipping", "orderID", o.ID, "groupID", gid)
+	} else {
+		_, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
+		if err != nil {
+			return fmt.Errorf("assign subscription: %w", err)
+		}
+		if err := s.writeAuditLogStrict(ctx, o.ID, "SUBSCRIPTION_ASSIGNED", "system", map[string]any{
+			"groupID":      gid,
+			"validityDays": days,
+		}); err != nil {
+			return fmt.Errorf("record subscription assignment: %w", err)
+		}
+	}
+	if err := s.applyFirstRechargeBonusForOrder(ctx, o); err != nil {
+		return err
+	}
+	if err := s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS"); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *PaymentService) subscriptionAlreadyAssignedForOrder(ctx context.Context, o *dbent.PaymentOrder, orderNote string) (bool, error) {
+	if s == nil || o == nil || o.SubscriptionGroupID == nil {
+		return false, nil
+	}
+	if s.hasAuditLog(ctx, o.ID, "SUBSCRIPTION_ASSIGNED") {
+		return true, nil
+	}
+	if s.subscriptionSvc == nil {
+		return false, nil
+	}
+	sub, err := s.subscriptionSvc.GetActiveSubscription(ctx, o.UserID, *o.SubscriptionGroupID)
+	if err != nil {
+		if errors.Is(err, ErrSubscriptionNotFound) {
+			return false, nil
+		}
+		return false, fmt.Errorf("check subscription assignment: %w", err)
+	}
+	return sub != nil && subscriptionNotesContainOrder(sub.Notes, orderNote), nil
+}
+
+func subscriptionNotesContainOrder(notes string, orderNote string) bool {
+	for _, line := range strings.Split(notes, "\n") {
+		if strings.TrimSpace(line) == orderNote {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *PaymentService) hasAuditLog(ctx context.Context, orderID int64, action string) bool {

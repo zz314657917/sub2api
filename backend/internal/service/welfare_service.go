@@ -69,6 +69,7 @@ var (
 	ErrWelfareNewUserTrialDailyLimitExceeded = infraerrors.TooManyRequests("WELFARE_NEW_USER_TRIAL_DAILY_LIMIT", "new user trial daily limit exceeded")
 	ErrWelfareNewUserTrialNotFound           = infraerrors.NotFound("WELFARE_NEW_USER_TRIAL_NOT_FOUND", "new user trial not found")
 	ErrWelfareNewUserTrialRewardClaimed      = infraerrors.Conflict("WELFARE_NEW_USER_TRIAL_REWARD_CLAIMED", "new user trial reward already claimed")
+	ErrWelfareFirstRechargeBonusNotClaimable = infraerrors.Forbidden("WELFARE_FIRST_RECHARGE_BONUS_NOT_CLAIMABLE", "first recharge bonus is not claimable")
 	ErrFirstRechargeBonusRefundUnsupported   = infraerrors.Forbidden("FIRST_RECHARGE_BONUS_REFUND_UNSUPPORTED", "orders with first recharge bonus cannot be refunded automatically")
 )
 
@@ -250,6 +251,7 @@ type WelfareRechargeView struct {
 	FirstBonusAmount       float64 `json:"first_bonus_amount"`
 	FirstBonusClaimed      bool    `json:"first_bonus_claimed"`
 	FirstBonusClaimedAt    string  `json:"first_bonus_claimed_at,omitempty"`
+	FirstBonusClaimable    bool    `json:"first_bonus_claimable"`
 	ValidDays              int     `json:"valid_days"`
 	ExpiresAt              string  `json:"expires_at,omitempty"`
 	CanStackMonthlyBonus   bool    `json:"can_stack_monthly_bonus"`
@@ -266,6 +268,11 @@ type WelfareDailyCheckinClaimResult struct {
 type WelfareNewUserTrialRewardClaimResult struct {
 	NewUserTrial  *WelfareNewUserTrialView `json:"new_user_trial"`
 	ClaimedAmount float64                  `json:"claimed_amount"`
+}
+
+type WelfareFirstRechargeBonusClaimResult struct {
+	Recharge      *WelfareRechargeView `json:"recharge"`
+	ClaimedAmount float64              `json:"claimed_amount"`
 }
 
 type WelfareDailyCheckinMilestoneClaimResult struct {
@@ -545,6 +552,60 @@ func (s *WelfareService) ClaimNewUserTrialSuccessReward(ctx context.Context, use
 	return &WelfareNewUserTrialRewardClaimResult{
 		NewUserTrial:  view,
 		ClaimedAmount: settings.NewUserTrialSuccessRewardAmount,
+	}, nil
+}
+
+func (s *WelfareService) ClaimFirstRechargeBonus(ctx context.Context, userID int64) (*WelfareFirstRechargeBonusClaimResult, error) {
+	if s == nil || s.entClient == nil || s.userRepo == nil || s.redeemRepo == nil || userID <= 0 {
+		return nil, ErrWelfareFirstRechargeBonusNotClaimable.WithMetadata(map[string]string{"reason": welfareReasonDisabled})
+	}
+	settings, err := s.getSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if !settings.Enabled || !settings.RechargeEnabled {
+		return nil, ErrWelfareFirstRechargeBonusNotClaimable.WithMetadata(map[string]string{"reason": welfareReasonDisabled})
+	}
+	amount := normalizeNonNegativeFloat(settings.FirstRechargeBonusAmount)
+	if amount <= 0 {
+		return nil, ErrWelfareFirstRechargeBonusNotClaimable.WithMetadata(map[string]string{"reason": welfareReasonZeroReward})
+	}
+	if reward, err := s.getFirstRechargeBonus(ctx, userID); err != nil {
+		return nil, err
+	} else if reward != nil {
+		return nil, ErrWelfareFirstRechargeBonusNotClaimable.WithMetadata(map[string]string{"reason": welfareReasonAlreadyClaimed})
+	}
+	if settings.FirstRechargeBonusValidDays > 0 {
+		user, err := s.firstRechargeBonusUser(ctx, userID)
+		if err != nil {
+			return nil, err
+		}
+		if firstRechargeBonusExpired(user, settings.FirstRechargeBonusValidDays, s.nowTime()) {
+			return nil, ErrWelfareFirstRechargeBonusNotClaimable.WithMetadata(map[string]string{"reason": welfareReasonExpired})
+		}
+	}
+
+	order, err := s.firstRechargeBonusClaimableOrder(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if order == nil {
+		return nil, ErrWelfareFirstRechargeBonusNotClaimable.WithMetadata(map[string]string{"reason": welfareReasonNotReached})
+	}
+	granted, err := s.GrantFirstRechargeBonusForOrder(ctx, order.ID)
+	if err != nil {
+		return nil, err
+	}
+	if !granted {
+		return nil, ErrWelfareFirstRechargeBonusNotClaimable.WithMetadata(map[string]string{"reason": welfareReasonAlreadyClaimed})
+	}
+	recharge, err := s.buildRechargeView(ctx, userID, settings)
+	if err != nil {
+		return nil, err
+	}
+	return &WelfareFirstRechargeBonusClaimResult{
+		Recharge:      recharge,
+		ClaimedAmount: amount,
 	}, nil
 }
 
@@ -1052,9 +1113,20 @@ func (s *WelfareService) buildRechargeView(ctx context.Context, userID int64, se
 			return nil, err
 		}
 		view.FirstRechargeCompleted = firstRechargeCompleted
+		if firstRechargeCompleted {
+			claimableOrder, err := s.firstRechargeBonusClaimableOrder(ctx, userID)
+			if err != nil {
+				return nil, err
+			}
+			view.FirstBonusClaimable = claimableOrder != nil && view.Enabled
+		}
 		if firstRechargeCompleted && view.Reason == welfareReasonAvailable {
-			view.Enabled = false
-			view.Reason = welfareReasonNotReached
+			if view.FirstBonusClaimable {
+				view.Reason = welfareReasonAvailable
+			} else {
+				view.Enabled = false
+				view.Reason = welfareReasonNotReached
+			}
 		}
 	}
 	return view, nil
@@ -1225,7 +1297,7 @@ func (s *WelfareService) GrantFirstRechargeBonusForOrder(ctx context.Context, or
 		}
 		return false, err
 	}
-	if order.UserID <= 0 || order.OrderType != payment.OrderTypeBalance || order.Amount <= 0 || !isFirstRechargeBonusEligibleOrderStatus(order.Status) {
+	if order.UserID <= 0 || !isFirstRechargeBonusEligibleOrder(order) || !isFirstRechargeBonusEligibleOrderStatus(order.Status) {
 		return false, nil
 	}
 	if order.Status == OrderStatusFailed && !paymentOrderHasPaymentEvidence(order) {
@@ -1307,7 +1379,7 @@ func (s *WelfareService) isFirstRechargeOrder(ctx context.Context, order *dbent.
 	count, err := s.entClient.PaymentOrder.Query().
 		Where(
 			paymentorder.UserIDEQ(order.UserID),
-			paymentorder.OrderTypeEQ(payment.OrderTypeBalance),
+			paymentorder.OrderTypeIn(firstRechargeBonusEligibleOrderTypes()...),
 			paymentorder.AmountGT(0),
 			paymentorder.IDLT(order.ID),
 			firstRechargeBlockingOrderPredicate(),
@@ -1320,6 +1392,34 @@ func (s *WelfareService) isFirstRechargeOrder(ctx context.Context, order *dbent.
 	return count == 0, nil
 }
 
+func (s *WelfareService) firstRechargeBonusClaimableOrder(ctx context.Context, userID int64) (*dbent.PaymentOrder, error) {
+	if s == nil || s.entClient == nil || userID <= 0 {
+		return nil, nil
+	}
+	order, err := s.entClient.PaymentOrder.Query().
+		Where(
+			paymentorder.UserIDEQ(userID),
+			paymentorder.OrderTypeIn(firstRechargeBonusEligibleOrderTypes()...),
+			paymentorder.AmountGT(0),
+			firstRechargeBlockingOrderPredicate(),
+		).
+		Order(dbent.Asc(paymentorder.FieldID)).
+		First(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	if order == nil || !isFirstRechargeBonusEligibleOrder(order) || !isFirstRechargeBonusEligibleOrderStatus(order.Status) {
+		return nil, nil
+	}
+	if order.Status == OrderStatusFailed && !paymentOrderHasPaymentEvidence(order) {
+		return nil, nil
+	}
+	return order, nil
+}
+
 func (s *WelfareService) hasFirstRechargeBlockingOrder(ctx context.Context, userID int64) (bool, error) {
 	if s == nil || s.entClient == nil || userID <= 0 {
 		return false, nil
@@ -1327,7 +1427,7 @@ func (s *WelfareService) hasFirstRechargeBlockingOrder(ctx context.Context, user
 	return s.entClient.PaymentOrder.Query().
 		Where(
 			paymentorder.UserIDEQ(userID),
-			paymentorder.OrderTypeEQ(payment.OrderTypeBalance),
+			paymentorder.OrderTypeIn(firstRechargeBonusEligibleOrderTypes()...),
 			paymentorder.AmountGT(0),
 			firstRechargeBlockingOrderPredicate(),
 		).
@@ -1675,6 +1775,13 @@ func firstRechargeBlockingOrderStatuses() []string {
 	}
 }
 
+func firstRechargeBonusEligibleOrderTypes() []string {
+	return []string{
+		payment.OrderTypeBalance,
+		payment.OrderTypeSubscription,
+	}
+}
+
 func firstRechargeBlockingOrderPredicate() predicate.PaymentOrder {
 	return paymentorder.Or(
 		paymentorder.StatusIn(firstRechargeBlockingOrderStatuses()...),
@@ -1686,6 +1793,18 @@ func firstRechargeBlockingOrderPredicate() predicate.PaymentOrder {
 			),
 		),
 	)
+}
+
+func isFirstRechargeBonusEligibleOrder(order *dbent.PaymentOrder) bool {
+	if order == nil || order.Amount <= 0 {
+		return false
+	}
+	for _, orderType := range firstRechargeBonusEligibleOrderTypes() {
+		if order.OrderType == orderType {
+			return true
+		}
+	}
+	return false
 }
 
 func paymentOrderHasPaymentEvidence(order *dbent.PaymentOrder) bool {

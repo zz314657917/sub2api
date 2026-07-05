@@ -304,10 +304,14 @@ func (r *welfareUserRepoStub) AddBalance(_ context.Context, _ int64, amount floa
 
 type welfareRedeemRepoStub struct {
 	RedeemCodeRepository
-	created []RedeemCode
+	created   []RedeemCode
+	createErr error
 }
 
 func (r *welfareRedeemRepoStub) Create(_ context.Context, code *RedeemCode) error {
+	if r.createErr != nil {
+		return r.createErr
+	}
 	code.ID = int64(len(r.created) + 700)
 	r.created = append(r.created, *code)
 	return nil

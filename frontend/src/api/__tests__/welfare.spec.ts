@@ -13,6 +13,7 @@ vi.mock('@/api/client', () => ({
 }))
 
 import {
+  claimWelfareFirstRechargeBonus,
   claimWelfareDailyCheckin,
   claimWelfareDailyCheckinMilestone,
   claimWelfareNewUserTrialReward,
@@ -50,6 +51,7 @@ describe('welfare api', () => {
           enabled: true,
           first_bonus_amount: 5,
           first_bonus_claimed: false,
+          first_bonus_claimable: true,
           reason: 'available',
         },
         new_user_trial: {
@@ -78,6 +80,7 @@ describe('welfare api', () => {
     expect(overview.new_user_trial?.status).toBe('active')
     expect(overview.recharge?.first_bonus_amount).toBe(5)
     expect(overview.recharge?.first_bonus_claimed).toBe(false)
+    expect(overview.recharge?.first_bonus_claimable).toBe(true)
   })
 
   it('loads daily checkin status', async () => {
@@ -104,5 +107,11 @@ describe('welfare api', () => {
     await claimWelfareNewUserTrialReward()
 
     expect(post).toHaveBeenCalledWith('/user/welfare/new-user-trial/reward/claim')
+  })
+
+  it('claims first recharge bonus', async () => {
+    await claimWelfareFirstRechargeBonus()
+
+    expect(post).toHaveBeenCalledWith('/user/welfare/recharge/first-bonus/claim')
   })
 })

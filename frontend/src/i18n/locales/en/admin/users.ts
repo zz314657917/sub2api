@@ -188,6 +188,14 @@ export default {
       recentUsageRecordsHint: 'Shows the latest 5 API requests from this user',
       noRecentUsageRecords: 'No recent usage records',
       failedToLoadRecentUsage: 'Failed to load recent usage',
+      subscriptionPaymentOrders: 'Subscription Payment Orders',
+      subscriptionPaymentOrdersHint: 'Shows the latest 5 subscription payment orders. Paid purchases do not appear in credit/redeem history.',
+      noSubscriptionPaymentOrders: 'No subscription payment orders',
+      failedToLoadSubscriptionOrders: 'Failed to load subscription payment orders',
+      subscriptionOrderDays: '{days} days',
+      subscriptionOrderPaidAt: 'Paid At',
+      subscriptionOrderCompletedAt: 'Completed At',
+      subscriptionOrderPlan: 'Plan',
       roles: {
         admin: 'Admin',
         user: 'User'

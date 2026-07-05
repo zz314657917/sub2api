@@ -133,15 +133,16 @@
                 <p v-if="recharge?.first_bonus_claimed && rechargeClaimedAtText" class="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
                   {{ t('welfare.recharge.claimedAt', { time: rechargeClaimedAtText }) }}
                 </p>
+                <p v-if="rechargeClaimError" class="mt-2 text-sm text-red-600 dark:text-red-400">{{ rechargeClaimError }}</p>
               </div>
             </div>
             <button
               class="btn h-10 w-full shrink-0 sm:w-auto"
               :class="recharge?.enabled && !recharge?.first_bonus_claimed ? 'btn-primary' : 'btn-secondary'"
               type="button"
-              :disabled="!recharge?.enabled || recharge?.first_bonus_claimed"
+              :disabled="!recharge?.enabled || recharge?.first_bonus_claimed || claimingRechargeBonus"
               data-testid="welfare-recharge-go"
-              @click="goToRecharge"
+              @click="handleRechargeAction"
             >
               {{ rechargeButtonText }}
             </button>
@@ -307,9 +308,11 @@ const loading = ref(false)
 const error = ref('')
 const claimError = ref('')
 const trialClaimError = ref('')
+const rechargeClaimError = ref('')
 const claimingDaily = ref(false)
 const claimingMilestoneDay = ref<number | null>(null)
 const claimingTrialReward = ref(false)
+const claimingRechargeBonus = ref(false)
 
 const daily = computed(() => overview.value?.daily_checkin ?? null)
 const trial = computed(() => overview.value?.new_user_trial ?? null)
@@ -456,6 +459,7 @@ const rechargeStatusText = computed(() => {
   if (!state) return t('welfare.notOpen')
   if (state.first_bonus_claimed) return t('welfare.recharge.claimed')
   if (state.reason === 'expired') return reasonText(state.reason)
+  if (state.first_bonus_claimable) return t('welfare.recharge.claimable')
   if (state.first_recharge_completed && state.reason === 'not_reached') return t('welfare.recharge.missed')
   if (state.enabled) return t('welfare.recharge.pending')
   return reasonText(state.reason)
@@ -464,6 +468,7 @@ const rechargeStatusText = computed(() => {
 const rechargeStatusClass = computed(() => {
   const state = recharge.value
   if (state?.first_bonus_claimed) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+  if (state?.first_bonus_claimable) return 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300'
   if (state?.first_recharge_completed) return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
   if (state?.enabled) return 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300'
   return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
@@ -471,8 +476,10 @@ const rechargeStatusClass = computed(() => {
 
 const rechargeButtonText = computed(() => {
   const state = recharge.value
+  if (claimingRechargeBonus.value) return t('welfare.recharge.claiming')
   if (state?.first_bonus_claimed) return t('welfare.recharge.claimed')
   if (state?.reason === 'expired') return reasonText(state.reason)
+  if (state?.first_bonus_claimable) return t('welfare.recharge.claim')
   if (state?.first_recharge_completed && state.reason === 'not_reached') return t('welfare.recharge.missed')
   if (state?.enabled) return t('welfare.recharge.cta')
   return reasonText(state?.reason)
@@ -559,6 +566,14 @@ function goToRecharge(): void {
   void router.push('/purchase')
 }
 
+function handleRechargeAction(): void {
+  if (recharge.value?.first_bonus_claimable) {
+    void claimRechargeBonus()
+    return
+  }
+  goToRecharge()
+}
+
 function extractErrorMessage(err: unknown, fallback: string): string {
   if (err && typeof err === 'object' && 'message' in err) {
     const message = String((err as { message?: unknown }).message || '')
@@ -572,6 +587,7 @@ async function loadOverview(): Promise<void> {
   error.value = ''
   claimError.value = ''
   trialClaimError.value = ''
+  rechargeClaimError.value = ''
   try {
     const nextOverview = await welfareAPI.getWelfareOverview()
     welfareStore.setOverview(nextOverview)
@@ -626,6 +642,20 @@ async function claimTrialReward(): Promise<void> {
   }
 }
 
+async function claimRechargeBonus(): Promise<void> {
+  if (!recharge.value?.first_bonus_claimable || claimingRechargeBonus.value) return
+  claimingRechargeBonus.value = true
+  rechargeClaimError.value = ''
+  try {
+    const result = await welfareAPI.claimWelfareFirstRechargeBonus()
+    updateRecharge(result.recharge)
+  } catch (err) {
+    rechargeClaimError.value = extractErrorMessage(err, t('welfare.recharge.claimFailed'))
+  } finally {
+    claimingRechargeBonus.value = false
+  }
+}
+
 function updateDaily(nextDaily: WelfareDailyCheckin): void {
   if (!overview.value) return
   welfareStore.updateDaily(nextDaily)
@@ -634,6 +664,11 @@ function updateDaily(nextDaily: WelfareDailyCheckin): void {
 function updateTrial(nextTrial: WelfareNewUserTrial): void {
   if (!overview.value) return
   welfareStore.updateTrial(nextTrial)
+}
+
+function updateRecharge(nextRecharge: WelfareRecharge): void {
+  if (!overview.value) return
+  welfareStore.updateRecharge(nextRecharge)
 }
 
 onMounted(() => {

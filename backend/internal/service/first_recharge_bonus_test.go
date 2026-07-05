@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -150,16 +151,18 @@ func TestWelfareGrantFirstRechargeBonusDoesNotIncreaseTotalRecharged(t *testing.
 	require.Equal(t, 12.5, reloaded.TotalRecharged)
 }
 
-func TestWelfareGrantFirstRechargeBonusOnlyFirstPositiveBalanceOrder(t *testing.T) {
+func TestWelfareGrantFirstRechargeBonusOnlyFirstPositivePaymentOrder(t *testing.T) {
 	cases := []struct {
 		name        string
 		amount      float64
 		orderType   string
+		earlierType string
 		withEarlier bool
 	}{
-		{name: "second balance order", amount: 10, orderType: payment.OrderTypeBalance, withEarlier: true},
+		{name: "second balance order", amount: 10, orderType: payment.OrderTypeBalance, earlierType: payment.OrderTypeBalance, withEarlier: true},
+		{name: "balance after subscription order", amount: 10, orderType: payment.OrderTypeBalance, earlierType: payment.OrderTypeSubscription, withEarlier: true},
+		{name: "subscription after balance order", amount: 10, orderType: payment.OrderTypeSubscription, earlierType: payment.OrderTypeBalance, withEarlier: true},
 		{name: "zero balance order", amount: 0, orderType: payment.OrderTypeBalance},
-		{name: "subscription order", amount: 10, orderType: payment.OrderTypeSubscription},
 	}
 
 	for idx, tt := range cases {
@@ -168,7 +171,7 @@ func TestWelfareGrantFirstRechargeBonusOnlyFirstPositiveBalanceOrder(t *testing.
 			client := newPaymentConfigServiceTestClient(t)
 			user := createFirstRechargeBonusUser(t, ctx, client, fmt.Sprintf("only-first-%d", idx))
 			if tt.withEarlier {
-				createFirstRechargeBonusOrder(t, ctx, client, user, 1, payment.OrderTypeBalance, OrderStatusCompleted, fmt.Sprintf("only-first-%d-earlier", idx))
+				createFirstRechargeBonusOrder(t, ctx, client, user, 1, tt.earlierType, OrderStatusCompleted, fmt.Sprintf("only-first-%d-earlier", idx))
 			}
 			order := createFirstRechargeBonusOrder(t, ctx, client, user, tt.amount, tt.orderType, OrderStatusPaid, fmt.Sprintf("only-first-%d-current", idx))
 			userRepo := &welfareUserRepoStub{}
@@ -184,6 +187,228 @@ func TestWelfareGrantFirstRechargeBonusOnlyFirstPositiveBalanceOrder(t *testing.
 			require.False(t, firstRechargeBonusAuditExists(t, ctx, client, order.ID))
 		})
 	}
+}
+
+func TestWelfareGrantFirstRechargeBonusGrantsFirstSubscriptionOrder(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "subscription-grant")
+	order := createFirstRechargeBonusOrder(t, ctx, client, user, 15, payment.OrderTypeSubscription, OrderStatusPaid, "subscription-grant")
+	userRepo := &welfareUserRepoStub{}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(&welfareRepoStub{}, userRepo, redeemRepo, firstRechargeBonusSettingRepo(true, true, 5), client, nil, nil)
+
+	granted, err := svc.GrantFirstRechargeBonusForOrder(ctx, order.ID)
+
+	require.NoError(t, err)
+	require.True(t, granted)
+	require.Equal(t, []float64{5}, userRepo.grants)
+	require.Len(t, redeemRepo.created, 1)
+	require.True(t, firstRechargeBonusAuditExists(t, ctx, client, order.ID))
+}
+
+func TestWelfareOverviewMarksHistoricalSubscriptionFirstRechargeBonusClaimable(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "subscription-claimable")
+	createFirstRechargeBonusOrder(t, ctx, client, user, 15, payment.OrderTypeSubscription, OrderStatusCompleted, "subscription-claimable")
+	svc := NewWelfareService(&welfareRepoStub{}, &welfareUserRepoStub{}, &welfareRedeemRepoStub{}, firstRechargeBonusSettingRepo(true, true, 5), client, nil, nil)
+
+	overview, err := svc.GetOverview(ctx, user.ID)
+
+	require.NoError(t, err)
+	require.NotNil(t, overview.Recharge)
+	require.True(t, overview.Recharge.Enabled)
+	require.True(t, overview.Recharge.FirstRechargeCompleted)
+	require.True(t, overview.Recharge.FirstBonusClaimable)
+	require.False(t, overview.Recharge.FirstBonusClaimed)
+	require.Equal(t, welfareReasonAvailable, overview.Recharge.Reason)
+}
+
+func TestWelfareClaimFirstRechargeBonusGrantsHistoricalSubscriptionOrder(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "subscription-claim")
+	order := createFirstRechargeBonusOrder(t, ctx, client, user, 15, payment.OrderTypeSubscription, OrderStatusCompleted, "subscription-claim")
+	userRepo := &welfareUserRepoStub{}
+	redeemRepo := &welfareRedeemRepoStub{}
+	svc := NewWelfareService(&welfareRepoStub{}, userRepo, redeemRepo, firstRechargeBonusSettingRepo(true, true, 5), client, nil, nil)
+	grantTime := time.Date(2026, 6, 10, 8, 9, 10, 0, time.UTC)
+	svc.now = func() time.Time { return grantTime }
+
+	result, err := svc.ClaimFirstRechargeBonus(ctx, user.ID)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, 5.0, result.ClaimedAmount)
+	require.NotNil(t, result.Recharge)
+	require.True(t, result.Recharge.FirstBonusClaimed)
+	require.False(t, result.Recharge.FirstBonusClaimable)
+	require.Equal(t, welfareReasonAlreadyClaimed, result.Recharge.Reason)
+	require.Equal(t, []float64{5}, userRepo.grants)
+	require.Len(t, redeemRepo.created, 1)
+	require.Equal(t, "first recharge bonus order "+strconv.FormatInt(order.ID, 10), redeemRepo.created[0].Notes)
+	require.Equal(t, 1, firstRechargeBonusAuditCount(t, ctx, client, order.ID))
+}
+
+func TestWelfareClaimFirstRechargeBonusRejectsWithoutHistoricalOrder(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "subscription-no-order")
+	svc := NewWelfareService(&welfareRepoStub{}, &welfareUserRepoStub{}, &welfareRedeemRepoStub{}, firstRechargeBonusSettingRepo(true, true, 5), client, nil, nil)
+
+	result, err := svc.ClaimFirstRechargeBonus(ctx, user.ID)
+
+	require.Nil(t, result)
+	require.Error(t, err)
+	var apiErr *infraerrors.ApplicationError
+	require.True(t, errors.As(err, &apiErr))
+	require.Equal(t, "WELFARE_FIRST_RECHARGE_BONUS_NOT_CLAIMABLE", apiErr.Reason)
+	require.Equal(t, welfareReasonNotReached, apiErr.Metadata["reason"])
+}
+
+func TestPaymentSubscriptionFulfillmentAppliesFirstRechargeBonus(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "subscription-fulfill")
+	order := createFirstRechargeBonusOrder(t, ctx, client, user, 15, payment.OrderTypeSubscription, OrderStatusPaid, "subscription-fulfill")
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).
+		SetSubscriptionGroupID(1).
+		SetSubscriptionDays(30).
+		Save(ctx)
+	require.NoError(t, err)
+	groupRepo := &subscriptionGroupRepoStub{
+		group: &Group{ID: 1, Status: StatusActive, SubscriptionType: SubscriptionTypeSubscription},
+	}
+	subRepo := newSubscriptionUserSubRepoStub()
+	subscriptionSvc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	userRepo := &welfareUserRepoStub{}
+	redeemRepo := &welfareRedeemRepoStub{}
+	welfareSvc := NewWelfareService(&welfareRepoStub{}, userRepo, redeemRepo, firstRechargeBonusSettingRepo(true, true, 5), client, nil, nil)
+	paymentSvc := &PaymentService{
+		entClient:       client,
+		groupRepo:       groupRepo,
+		subscriptionSvc: subscriptionSvc,
+		welfareService:  welfareSvc,
+	}
+
+	err = paymentSvc.ExecuteSubscriptionFulfillment(ctx, order.ID)
+
+	require.NoError(t, err)
+	require.Equal(t, []float64{5}, userRepo.grants)
+	require.Len(t, redeemRepo.created, 1)
+	require.Equal(t, 1, subRepo.createCalls)
+	require.True(t, firstRechargeBonusAuditExists(t, ctx, client, order.ID))
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusCompleted, reloaded.Status)
+	require.True(t, paymentAuditExists(t, ctx, client, order.ID, "SUBSCRIPTION_SUCCESS"))
+}
+
+func TestPaymentSubscriptionFulfillmentRetriesFirstRechargeBonusWithoutExtendingAgain(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "subscription-retry")
+	order := createFirstRechargeBonusOrder(t, ctx, client, user, 15, payment.OrderTypeSubscription, OrderStatusPaid, "subscription-retry")
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).
+		SetSubscriptionGroupID(1).
+		SetSubscriptionDays(30).
+		Save(ctx)
+	require.NoError(t, err)
+	groupRepo := &subscriptionGroupRepoStub{
+		group: &Group{ID: 1, Status: StatusActive, SubscriptionType: SubscriptionTypeSubscription},
+	}
+	subRepo := newSubscriptionUserSubRepoStub()
+	subscriptionSvc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	userRepo := &welfareUserRepoStub{}
+	redeemRepo := &welfareRedeemRepoStub{createErr: errors.New("redeem store unavailable")}
+	welfareSvc := NewWelfareService(&welfareRepoStub{}, userRepo, redeemRepo, firstRechargeBonusSettingRepo(true, true, 5), client, nil, nil)
+	paymentSvc := &PaymentService{
+		entClient:       client,
+		groupRepo:       groupRepo,
+		subscriptionSvc: subscriptionSvc,
+		welfareService:  welfareSvc,
+	}
+
+	err = paymentSvc.ExecuteSubscriptionFulfillment(ctx, order.ID)
+
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "grant first recharge bonus")
+	require.Equal(t, 1, subRepo.createCalls)
+	require.Empty(t, userRepo.grants)
+	require.True(t, paymentAuditExists(t, ctx, client, order.ID, "SUBSCRIPTION_ASSIGNED"))
+	require.False(t, paymentAuditExists(t, ctx, client, order.ID, "SUBSCRIPTION_SUCCESS"))
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusFailed, reloaded.Status)
+
+	redeemRepo.createErr = nil
+	err = paymentSvc.RetryFulfillment(ctx, order.ID)
+
+	require.NoError(t, err)
+	require.Equal(t, 1, subRepo.createCalls)
+	require.Equal(t, []float64{5}, userRepo.grants)
+	require.Len(t, redeemRepo.created, 1)
+	require.True(t, firstRechargeBonusAuditExists(t, ctx, client, order.ID))
+	reloaded, err = client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusCompleted, reloaded.Status)
+	require.True(t, paymentAuditExists(t, ctx, client, order.ID, "SUBSCRIPTION_SUCCESS"))
+}
+
+func TestPaymentSubscriptionFulfillmentRetryUsesSubscriptionNoteWhenAssignedAuditMissing(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createFirstRechargeBonusUser(t, ctx, client, "subscription-note-retry")
+	order := createFirstRechargeBonusOrder(t, ctx, client, user, 15, payment.OrderTypeSubscription, OrderStatusFailed, "subscription-note-retry")
+	order, err := client.PaymentOrder.UpdateOneID(order.ID).
+		SetSubscriptionGroupID(1).
+		SetSubscriptionDays(30).
+		Save(ctx)
+	require.NoError(t, err)
+	groupRepo := &subscriptionGroupRepoStub{
+		group: &Group{ID: 1, Status: StatusActive, SubscriptionType: SubscriptionTypeSubscription},
+	}
+	subRepo := newSubscriptionUserSubRepoStub()
+	now := time.Now()
+	subRepo.seed(&UserSubscription{
+		ID:        11,
+		UserID:    user.ID,
+		GroupID:   1,
+		StartsAt:  now,
+		ExpiresAt: now.AddDate(0, 0, 30),
+		Status:    SubscriptionStatusActive,
+		Notes:     fmt.Sprintf("payment order %d", order.ID),
+	})
+	subscriptionSvc := NewSubscriptionService(groupRepo, subRepo, nil, nil, nil)
+	userRepo := &welfareUserRepoStub{}
+	redeemRepo := &welfareRedeemRepoStub{}
+	welfareSvc := NewWelfareService(&welfareRepoStub{}, userRepo, redeemRepo, firstRechargeBonusSettingRepo(true, true, 5), client, nil, nil)
+	paymentSvc := &PaymentService{
+		entClient:       client,
+		groupRepo:       groupRepo,
+		subscriptionSvc: subscriptionSvc,
+		welfareService:  welfareSvc,
+	}
+
+	err = paymentSvc.RetryFulfillment(ctx, order.ID)
+
+	require.NoError(t, err)
+	require.Equal(t, 0, subRepo.createCalls)
+	require.Equal(t, []float64{5}, userRepo.grants)
+	require.Len(t, redeemRepo.created, 1)
+	require.True(t, firstRechargeBonusAuditExists(t, ctx, client, order.ID))
+	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusCompleted, reloaded.Status)
+	require.True(t, paymentAuditExists(t, ctx, client, order.ID, "SUBSCRIPTION_SUCCESS"))
+}
+
+func TestSubscriptionNotesContainOrderRequiresExactLine(t *testing.T) {
+	require.True(t, subscriptionNotesContainOrder("old note\npayment order 12\nother note", "payment order 12"))
+	require.True(t, subscriptionNotesContainOrder("  payment order 12  ", "payment order 12"))
+	require.False(t, subscriptionNotesContainOrder("payment order 123", "payment order 12"))
+	require.False(t, subscriptionNotesContainOrder("prefix payment order 12", "payment order 12"))
 }
 
 func TestWelfareGrantFirstRechargeBonusIgnoresUnpaidFailedEarlierOrder(t *testing.T) {
@@ -450,6 +675,18 @@ func firstRechargeBonusAuditCount(t *testing.T, ctx context.Context, client *dbe
 		Count(ctx)
 	require.NoError(t, err)
 	return count
+}
+
+func paymentAuditExists(t *testing.T, ctx context.Context, client *dbent.Client, orderID int64, action string) bool {
+	t.Helper()
+	exists, err := client.PaymentAuditLog.Query().
+		Where(
+			paymentauditlog.OrderIDEQ(strconv.FormatInt(orderID, 10)),
+			paymentauditlog.ActionEQ(action),
+		).
+		Exist(ctx)
+	require.NoError(t, err)
+	return exists
 }
 
 type firstRechargeBonusEntUserRepo struct {

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { welfareAPI } from '@/api/welfare'
-import type { WelfareDailyCheckin, WelfareNewUserTrial, WelfareOverview } from '@/types'
+import type { WelfareDailyCheckin, WelfareNewUserTrial, WelfareOverview, WelfareRecharge } from '@/types'
 
 const CACHE_TTL_MS = 60_000
 
@@ -28,8 +28,14 @@ export const useWelfareStore = defineStore('welfare', () => {
       trial.success_reward_claimable &&
       !trial.success_reward_claimed
     )
+    const recharge = current.recharge
+    const hasRechargeReward = Boolean(
+      recharge?.enabled &&
+      recharge.first_bonus_claimable &&
+      !recharge.first_bonus_claimed
+    )
 
-    return hasDailyCheckin || hasMilestone || hasTrialReward
+    return hasDailyCheckin || hasMilestone || hasTrialReward || hasRechargeReward
   })
 
   async function fetchOverview(force = false): Promise<WelfareOverview | null> {
@@ -96,6 +102,14 @@ export const useWelfareStore = defineStore('welfare', () => {
     })
   }
 
+  function updateRecharge(nextRecharge: WelfareRecharge): void {
+    if (!overview.value) return
+    setOverview({
+      ...overview.value,
+      recharge: nextRecharge,
+    })
+  }
+
   function reset(): void {
     overview.value = null
     loading.value = false
@@ -114,6 +128,7 @@ export const useWelfareStore = defineStore('welfare', () => {
     setOverview,
     updateDaily,
     updateTrial,
+    updateRecharge,
     reset,
   }
 })
