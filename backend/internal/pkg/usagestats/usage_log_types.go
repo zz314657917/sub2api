@@ -173,22 +173,24 @@ type UserSpendingRankingResponse struct {
 
 // UserLeaderboardItem represents one user-visible leaderboard row.
 type UserLeaderboardItem struct {
-	Rank          int64    `json:"rank"`
-	UserID        int64    `json:"user_id"`
-	DisplayName   string   `json:"display_name"`
-	EmailMasked   string   `json:"email_masked"`
-	AvatarURL     *string  `json:"avatar_url,omitempty"`
-	ActualCost    float64  `json:"actual_cost"`
-	Requests      int64    `json:"requests"`
-	InputTokens   int64    `json:"input_tokens"`
-	OutputTokens  int64    `json:"output_tokens"`
-	Tokens        int64    `json:"tokens"`
-	CostPer1M     float64  `json:"cost_per_1m_tokens"`
-	Balance       float64  `json:"balance"`
-	Badges        []string `json:"badges,omitempty"`
-	IsCurrentUser bool     `json:"is_current_user"`
-	Username      string   `json:"-"`
-	Email         string   `json:"-"`
+	Rank                int64    `json:"rank"`
+	UserID              int64    `json:"user_id"`
+	DisplayName         string   `json:"display_name"`
+	EmailMasked         string   `json:"email_masked"`
+	AvatarURL           *string  `json:"avatar_url,omitempty"`
+	ActualCost          float64  `json:"actual_cost"`
+	Requests            int64    `json:"requests"`
+	InputTokens         int64    `json:"input_tokens"`
+	OutputTokens        int64    `json:"output_tokens"`
+	CacheCreationTokens int64    `json:"cache_creation_tokens"`
+	CacheReadTokens     int64    `json:"cache_read_tokens"`
+	Tokens              int64    `json:"tokens"`
+	CostPer1M           float64  `json:"cost_per_1m_tokens"`
+	Balance             float64  `json:"balance"`
+	Badges              []string `json:"badges,omitempty"`
+	IsCurrentUser       bool     `json:"is_current_user"`
+	Username            string   `json:"-"`
+	Email               string   `json:"-"`
 }
 
 // UserLeaderboardTokenTrendPoint represents one daily token total for the
@@ -196,6 +198,19 @@ type UserLeaderboardItem struct {
 type UserLeaderboardTokenTrendPoint struct {
 	Date        string `json:"date"`
 	TotalTokens int64  `json:"total_tokens"`
+}
+
+// UserLeaderboardDailyChampion represents one day's top token user for the
+// leaderboard calendar.
+type UserLeaderboardDailyChampion struct {
+	Date        string  `json:"date"`
+	UserID      int64   `json:"user_id"`
+	DisplayName string  `json:"display_name"`
+	EmailMasked string  `json:"email_masked"`
+	AvatarURL   *string `json:"avatar_url,omitempty"`
+	Tokens      int64   `json:"tokens"`
+	Username    string  `json:"-"`
+	Email       string  `json:"-"`
 }
 
 // UserLeaderboardModelItem represents one model row in the user-visible leaderboard.
@@ -272,6 +287,7 @@ type UserLeaderboardResponse struct {
 	TotalModels      int64                            `json:"total_models"`
 	DailyRewards     *LeaderboardDailyRewards         `json:"daily_rewards,omitempty"`
 	RecentTokenTrend []UserLeaderboardTokenTrendPoint `json:"recent_token_trend"`
+	DailyChampions   []UserLeaderboardDailyChampion   `json:"daily_champions"`
 }
 
 // UserBreakdownItem represents per-user usage breakdown within a dimension (group, model, endpoint).

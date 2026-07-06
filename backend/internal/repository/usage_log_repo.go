@@ -2430,6 +2430,7 @@ type UserUsageTrendPoint = usagestats.UserUsageTrendPoint
 type UserSpendingRankingItem = usagestats.UserSpendingRankingItem
 type UserSpendingRankingResponse = usagestats.UserSpendingRankingResponse
 type UserLeaderboardItem = usagestats.UserLeaderboardItem
+type UserLeaderboardDailyChampion = usagestats.UserLeaderboardDailyChampion
 type UserLeaderboardModelItem = usagestats.UserLeaderboardModelItem
 type UserLeaderboardResponse = usagestats.UserLeaderboardResponse
 type UserLeaderboardBadgeLeaders = usagestats.UserLeaderboardBadgeLeaders
@@ -2670,6 +2671,8 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 				COUNT(*) as requests,
 				COALESCE(SUM(u.input_tokens), 0) as input_tokens,
 				COALESCE(SUM(u.output_tokens), 0) as output_tokens,
+				COALESCE(SUM(u.cache_creation_tokens), 0) as cache_creation_tokens,
+				COALESCE(SUM(u.cache_read_tokens), 0) as cache_read_tokens,
 				COALESCE(SUM(u.input_tokens + u.output_tokens + u.cache_creation_tokens + u.cache_read_tokens), 0) as tokens
 			FROM usage_logs u
 			LEFT JOIN users us ON u.user_id = us.id
@@ -2689,6 +2692,8 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 				requests,
 				input_tokens,
 				output_tokens,
+				cache_creation_tokens,
+				cache_read_tokens,
 				tokens,
 				CASE WHEN tokens > 0 THEN actual_cost * 1000000.0 / tokens ELSE 0 END as cost_per_1m_tokens,
 				COALESCE(SUM(actual_cost) OVER (), 0) as total_actual_cost,
@@ -2712,6 +2717,8 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 			requests,
 			input_tokens,
 			output_tokens,
+			cache_creation_tokens,
+			cache_read_tokens,
 			tokens,
 			cost_per_1m_tokens,
 			total_actual_cost,
@@ -2752,6 +2759,8 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 			&row.Requests,
 			&row.InputTokens,
 			&row.OutputTokens,
+			&row.CacheCreationTokens,
+			&row.CacheReadTokens,
 			&row.Tokens,
 			&row.CostPer1M,
 			&totalActualCost,
@@ -2784,6 +2793,82 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 		TotalRequests:    totalRequests,
 		TotalTokens:      totalTokens,
 	}, nil
+}
+
+// GetLeaderboardDailyChampions returns the top token user for each day in the
+// requested leaderboard calendar window.
+func (r *usageLogRepository) GetLeaderboardDailyChampions(ctx context.Context, startTime, endTime time.Time) (result []UserLeaderboardDailyChampion, err error) {
+	query := `
+		WITH ranked_daily AS (
+			SELECT
+				stats.usage_date,
+				stats.user_id,
+				COALESCE(us.username, '') AS username,
+				COALESCE(us.email, '') AS email,
+				NULLIF(COALESCE(ua.url, ''), '') AS avatar_url,
+				COALESCE(stats.tokens, 0) AS tokens,
+				ROW_NUMBER() OVER (
+					PARTITION BY stats.usage_date
+					ORDER BY stats.tokens DESC, stats.user_id ASC
+				) AS rn
+			FROM user_usage_daily_stats stats
+			LEFT JOIN users us ON stats.user_id = us.id
+			LEFT JOIN user_avatars ua ON stats.user_id = ua.user_id
+			WHERE stats.usage_date >= $1::date
+				AND stats.usage_date < $2::date
+				AND COALESCE(stats.tokens, 0) > 0
+		)
+		SELECT
+			usage_date::text,
+			user_id,
+			username,
+			email,
+			avatar_url,
+			tokens
+		FROM ranked_daily
+		WHERE rn = 1
+		ORDER BY usage_date ASC
+	`
+
+	loc := leaderboardBadgeStatsLocation()
+	rows, err := r.sql.QueryContext(ctx, query,
+		leaderboardBadgeDateArg(startTime, loc),
+		leaderboardBadgeDateArg(endTime, loc),
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+			result = nil
+		}
+	}()
+
+	champions := make([]UserLeaderboardDailyChampion, 0)
+	for rows.Next() {
+		var row UserLeaderboardDailyChampion
+		var avatarURL sql.NullString
+		if err = rows.Scan(
+			&row.Date,
+			&row.UserID,
+			&row.Username,
+			&row.Email,
+			&avatarURL,
+			&row.Tokens,
+		); err != nil {
+			return nil, err
+		}
+		if avatarURL.Valid && strings.TrimSpace(avatarURL.String) != "" {
+			value := avatarURL.String
+			row.AvatarURL = &value
+		}
+		champions = append(champions, row)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return champions, nil
 }
 
 // GetLeaderboardModelRanking returns model-level token ranking for the user-visible leaderboard.

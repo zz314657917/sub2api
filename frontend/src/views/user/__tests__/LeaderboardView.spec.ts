@@ -1,4 +1,5 @@
 import { enableAutoUnmount, flushPromises, mount } from '@vue/test-utils'
+import { nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { getDashboardLeaderboard, claimDashboardLeaderboardDailyReward } = vi.hoisted(() => ({
@@ -37,13 +38,9 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.totalCost': '总积分消费',
     'leaderboard.totalRequests': '总请求',
     'leaderboard.totalTokens': '总 Token',
-    'leaderboard.viewLabel': '排行榜类型',
-    'leaderboard.views.tokens': 'Token 消耗榜',
-    'leaderboard.views.models': '模型榜',
+    'leaderboard.periodLabel': '排行榜周期',
     'leaderboard.tokenRankingTitle': 'Token Top {count}',
     'leaderboard.tokenRankingDescription': '当前周期用量排行。',
-    'leaderboard.modelRankingTitle': '模型 Top {count}',
-    'leaderboard.modelRankingDescription': '当前周期热门模型排行。',
     'leaderboard.user': '用户',
     'leaderboard.cost': '积分消费',
     'leaderboard.requests': '请求',
@@ -52,11 +49,24 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.rankChange': '排名变化',
     'leaderboard.inputTokensShort': '输入',
     'leaderboard.outputTokensShort': '输出',
+    'leaderboard.cacheTokensShort': '缓存',
+    'leaderboard.cacheRatioShort': '缓存占比',
     'leaderboard.costPerMillionShort': '积分',
     'leaderboard.recentTokenTrend.title': '最近 10 天 Token',
     'leaderboard.recentTokenTrend.unit': '每日消耗',
     'leaderboard.recentTokenTrend.tokens': 'Token',
     'leaderboard.recentTokenTrend.empty': '暂无趋势数据',
+    'leaderboard.calendar.title': '日历',
+    'leaderboard.calendar.previousMonth': '查看上月',
+    'leaderboard.calendar.currentMonth': '回到本月',
+    'leaderboard.calendar.emptyDay': '{date} 暂无冠军',
+    'leaderboard.calendar.weekdays.sun': '日',
+    'leaderboard.calendar.weekdays.mon': '一',
+    'leaderboard.calendar.weekdays.tue': '二',
+    'leaderboard.calendar.weekdays.wed': '三',
+    'leaderboard.calendar.weekdays.thu': '四',
+    'leaderboard.calendar.weekdays.fri': '五',
+    'leaderboard.calendar.weekdays.sat': '六',
     'leaderboard.balance': '积分',
     'leaderboard.rank': '排名',
     'leaderboard.myInfo': '我的信息',
@@ -99,8 +109,6 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.lastWeekRank3': '上周第三名',
     'leaderboard.dailyReward.lastWeekRankLabel': '上周第 {rank} 名',
     'leaderboard.dailyReward.noTopUser': '暂无上榜',
-    'leaderboard.modelEmptyTitle': '暂无模型数据',
-    'leaderboard.modelEmptyDescription': '当前周期暂无可展示的模型使用记录',
     'common.loading': '加载中...',
     'common.refresh': '刷新',
   }
@@ -142,6 +150,10 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
         avatar_url: null,
         actual_cost: 2.5,
         requests: 8,
+        input_tokens: 620,
+        output_tokens: 180,
+        cache_creation_tokens: 60,
+        cache_read_tokens: 40,
         tokens: 900,
         balance: 11,
         is_current_user: true,
@@ -160,6 +172,7 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
       { date: '2026-05-06', total_tokens: 470 },
       { date: '2026-05-07', total_tokens: 640 },
     ],
+    daily_champions: [],
     model_ranking: [
       {
         rank: 1,
@@ -393,6 +406,8 @@ describe('LeaderboardView', () => {
             requests: 10,
             input_tokens: 700,
             output_tokens: 200,
+            cache_creation_tokens: 60,
+            cache_read_tokens: 40,
             tokens: 1000,
             cost_per_1m_tokens: 10000,
             balance: 1,
@@ -458,6 +473,8 @@ describe('LeaderboardView', () => {
             requests: 10,
             input_tokens: 700,
             output_tokens: 200,
+            cache_creation_tokens: 60,
+            cache_read_tokens: 40,
             tokens: 1000,
             cost_per_1m_tokens: 10000,
             balance: 1,
@@ -473,6 +490,8 @@ describe('LeaderboardView', () => {
             requests: 10,
             input_tokens: 1500,
             output_tokens: 300,
+            cache_creation_tokens: 120,
+            cache_read_tokens: 80,
             tokens: 2000,
             cost_per_1m_tokens: 500,
             balance: 2,
@@ -496,23 +515,31 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     const ranking = wrapper.get('[data-testid="leaderboard-token-ranking"]')
-    expect(ranking.text()).toContain('Token Top 2')
+    expect(ranking.text()).not.toContain('Token Top 2')
+    expect(ranking.text()).toContain('更新 16:00:00')
     expect(ranking.text()).toContain('Pricey')
     expect(ranking.text()).toContain('Efficient')
     expect(ranking.text()).toContain('2,000')
-    expect(ranking.findAll('.leaderboard-token-bar-fill')).toHaveLength(2)
+    expect(ranking.findAll('[data-testid="leaderboard-token-bar-fill"]')).toHaveLength(2)
+    expect(ranking.findAll('[data-testid="leaderboard-token-segment-input"]')).toHaveLength(2)
+    expect(ranking.findAll('[data-testid="leaderboard-token-segment-output"]')).toHaveLength(2)
+    expect(ranking.findAll('[data-testid="leaderboard-token-segment-cache"]')).toHaveLength(2)
     const tokenBars = ranking.findAll('.leaderboard-token-bar-track')
-    expect(tokenBars[0].attributes('title')).toBe('输入 700 / 输出 200 / 积分 ✪ 10,000.00 / 1M Token')
-    expect(tokenBars[0].attributes('aria-label')).toBe('输入 700 / 输出 200 / 积分 ✪ 10,000.00 / 1M Token')
-    expect(tokenBars[1].attributes('title')).toBe('输入 1,500 / 输出 300 / 积分 ✪ 500.00 / 1M Token')
-    expect(tokenBars[1].attributes('aria-label')).toBe('输入 1,500 / 输出 300 / 积分 ✪ 500.00 / 1M Token')
+    expect(tokenBars[0].attributes('title')).toBe('输入 700 / 输出 200 / 缓存 100 (缓存占比 10.0%) / 积分 ✪ 10,000.00 / 1M Token')
+    expect(tokenBars[0].attributes('aria-label')).toBe('输入 700 / 输出 200 / 缓存 100 (缓存占比 10.0%) / 积分 ✪ 10,000.00 / 1M Token')
+    expect(tokenBars[1].attributes('title')).toBe('输入 1,500 / 输出 300 / 缓存 200 (缓存占比 10.0%) / 积分 ✪ 500.00 / 1M Token')
+    expect(tokenBars[1].attributes('aria-label')).toBe('输入 1,500 / 输出 300 / 缓存 200 (缓存占比 10.0%) / 积分 ✪ 500.00 / 1M Token')
     expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-bar-width: 84%')
+    expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-input-width: 75.0%')
+    expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-output-width: 15.0%')
+    expect(ranking.findAll('.leaderboard-token-rank-row')[1].attributes('style')).toContain('--token-cache-width: 10.0%')
     expect(wrapper.find('[data-testid="leaderboard-cost-efficiency-summary"]').exists()).toBe(false)
   })
 
-  it('switches to model ranking with model-level token bars', async () => {
+  it('keeps period tabs inside the token ranking card and hides the model ranking switch', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
+        period: 'day',
         model_ranking: [
           {
             rank: 1,
@@ -549,34 +576,19 @@ describe('LeaderboardView', () => {
     })
 
     await flushPromises()
-    expect(wrapper.find('[data-testid="leaderboard-model-ranking"]').exists()).toBe(false)
 
-    await wrapper.findAll('button').find((button) => button.text() === '模型榜')?.trigger('click')
+    const ranking = wrapper.get('[data-testid="leaderboard-token-ranking"]')
+    const rankingTabs = ranking.findAll('.leaderboard-ranking-switch-button')
+    expect(rankingTabs.map((button) => button.text())).toEqual(['日榜', '周榜', '月榜', '总榜'])
+    expect(rankingTabs[0].attributes('aria-selected')).toBe('true')
+    expect(wrapper.text()).not.toContain('模型榜')
+    expect(wrapper.find('[data-testid="leaderboard-model-ranking"]').exists()).toBe(false)
+    expect(ranking.text()).not.toContain('gpt-5.5')
+
+    await rankingTabs[1].trigger('click')
     await flushPromises()
 
-    const ranking = wrapper.get('[data-testid="leaderboard-model-ranking"]')
-    expect(ranking.text()).toContain('模型 Top 2')
-    expect(ranking.text()).toContain('gpt-5.5')
-    expect(ranking.text()).toContain('gpt-5.4')
-    expect(ranking.text()).toContain('请求 52')
-    expect(ranking.findAll('[data-testid="leaderboard-model-rank-icon"]')).toHaveLength(2)
-    expect(ranking.findAll('[data-testid="leaderboard-model-token"]')).toHaveLength(2)
-    expect(ranking.findAll('[data-testid="leaderboard-model-growth"]')).toHaveLength(2)
-    expect(ranking.findAll('[data-testid="leaderboard-model-rank-change"]')).toHaveLength(2)
-    expect(ranking.text()).toContain('6.1B')
-    expect(ranking.text()).toContain('1.2B')
-    expect(ranking.text()).toContain('+28.4%')
-    expect(ranking.text()).toContain('↑ 1')
-    expect(ranking.text()).toContain('-12.8%')
-    expect(ranking.text()).toContain('↓ 1')
-    expect(ranking.find('.model-icon').exists()).toBe(true)
-    expect(ranking.findAll('.leaderboard-token-bar-fill')).toHaveLength(2)
-    const tokenBars = ranking.findAll('.leaderboard-token-bar-track')
-    expect(tokenBars[0].attributes('title')).toBe('请求 52 / 输入 6B / 输出 130M / Token 6.1B / 83.3%')
-    expect(tokenBars[1].attributes('aria-label')).toBe('请求 10.8K / 输入 1B / 输出 230M / Token 1.2B / 16.7%')
-    expect(ranking.text()).toContain('83.3%')
-    expect(ranking.text()).toContain('16.7%')
-    expect(ranking.findAll('.leaderboard-model-rank-row')[1].attributes('style')).toContain('--token-bar-width: 16.85')
+    expect(getDashboardLeaderboard).toHaveBeenLastCalledWith({ period: 'week', limit: 10 })
   })
 
   it('keeps the total token display increasing visually between refreshes', async () => {
@@ -622,6 +634,77 @@ describe('LeaderboardView', () => {
     expect(trendPanel.text()).toContain('最近 10 天 Token')
     expect(trendPanel.text()).toContain('每日消耗')
     expect(wrapper.get('[data-testid="leaderboard-recent-token-line"]').text()).toBe('120,0,340,180,260,420,390,510,470,640')
+  })
+
+  it('renders the daily champion calendar with avatar fallback and native tooltip copy', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        generated_at: '2026-07-06T00:00:00Z',
+        daily_champions: [
+          {
+            date: '2026-06-10',
+            user_id: 10,
+            display_name: '155***4@qq.com',
+            email_masked: '155***4@qq.com',
+            avatar_url: 'https://cdn.example.com/u10.png',
+            tokens: 48_163_000,
+          },
+          {
+            date: '2026-07-06',
+            user_id: 11,
+            display_name: '南瓜号',
+            email_masked: 'n***@example.com',
+            avatar_url: null,
+            tokens: 12_000,
+          },
+        ],
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const calendar = wrapper.get('[data-testid="leaderboard-daily-champions-calendar"]')
+    expect(calendar.text()).toContain('日历')
+    expect(calendar.text()).not.toContain('开荒以来')
+    expect(calendar.text()).toContain('2026年7月')
+    expect(calendar.text()).toContain('2026年6月')
+    expect(calendar.findAll('[data-testid="leaderboard-calendar-day"]')).toHaveLength(61)
+    expect(calendar.findAll('[data-testid="leaderboard-calendar-placeholder"]').length).toBeGreaterThan(0)
+
+    const championDays = calendar.findAll('[data-testid="leaderboard-calendar-day"]')
+      .filter((day) => day.attributes('aria-label')?.includes('tokens'))
+    expect(championDays).toHaveLength(2)
+
+    const julyChampion = championDays.find((day) => day.attributes('aria-label')?.includes('2026年7月6日'))
+    expect(julyChampion?.attributes('title')).toBeUndefined()
+    expect(julyChampion?.attributes('aria-label')).toBe('2026年7月6日\n南瓜号\n1.2万 tokens')
+    expect(julyChampion?.find('[data-testid="leaderboard-calendar-avatar"]').text()).toBe('南')
+
+    const emptyDay = calendar.findAll('[data-testid="leaderboard-calendar-day"]')
+      .find((day) => day.attributes('aria-label') === '2026年7月1日 暂无冠军')
+    expect(emptyDay?.attributes('title')).toBeUndefined()
+
+    const juneChampion = calendar.findAll('[data-testid="leaderboard-calendar-day"]')
+      .find((day) => day.attributes('aria-label')?.includes('2026年6月10日'))
+    expect(juneChampion?.attributes('title')).toBeUndefined()
+    expect(juneChampion?.attributes('aria-label')).toBe('2026年6月10日\n155***4@qq.com\n4816.3万 tokens')
+    expect(juneChampion?.find('[data-testid="leaderboard-calendar-avatar"] img').attributes('src')).toBe('https://cdn.example.com/u10.png')
+    await juneChampion?.trigger('mouseenter')
+    await nextTick()
+    const tooltip = document.body.querySelector('[data-testid="leaderboard-calendar-tooltip"]')
+    expect(tooltip?.textContent).toContain('2026年6月10日')
+    expect(tooltip?.textContent).toContain('155***4@qq.com')
+    expect(tooltip?.textContent).toContain('4816.3万 tokens')
+    expect(tooltip?.textContent).toContain('当日冠军')
   })
 
   it('shows lightweight rank titles without restoring old row badges', async () => {

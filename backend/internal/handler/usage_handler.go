@@ -463,6 +463,13 @@ func dashboardLeaderboardRecentTrendWindow(userTZ string, now time.Time) (time.T
 	return todayStart.AddDate(0, 0, -9), todayStart.AddDate(0, 0, 1)
 }
 
+func dashboardLeaderboardChampionCalendarWindow(userTZ string, now time.Time) (time.Time, time.Time) {
+	loc := userLocation(userTZ)
+	now = now.In(loc)
+	currentMonthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, loc)
+	return currentMonthStart.AddDate(0, -1, 0), currentMonthStart.AddDate(0, 1, 0)
+}
+
 func fillLeaderboardRecentTokenTrend(points []usagestats.UserLeaderboardTokenTrendPoint, startTime, endTime time.Time) []usagestats.UserLeaderboardTokenTrendPoint {
 	byDate := make(map[string]int64, len(points))
 	for _, point := range points {
@@ -615,6 +622,32 @@ func finalizeLeaderboardDailyRewards(payload *usagestats.LeaderboardDailyRewards
 	}
 }
 
+func finalizeLeaderboardDailyChampion(item *usagestats.UserLeaderboardDailyChampion) {
+	if item == nil {
+		return
+	}
+	email := strings.TrimSpace(item.Email)
+	username := strings.TrimSpace(item.Username)
+	if email == "" && isLikelyEmailAddress(username) {
+		email = username
+	}
+	if email != "" {
+		item.EmailMasked = service.MaskEmail(email)
+	} else {
+		item.EmailMasked = ""
+	}
+	switch {
+	case username != "" && !isLikelyEmailAddress(username):
+		item.DisplayName = maskSensitiveLeaderboardDisplayName(username)
+	case item.EmailMasked != "":
+		item.DisplayName = item.EmailMasked
+	default:
+		item.DisplayName = "User #" + strconv.FormatInt(item.UserID, 10)
+	}
+	item.Email = ""
+	item.Username = ""
+}
+
 func hideLeaderboardRewardTopUserName(value string) string {
 	value = strings.TrimSpace(value)
 	if value == "" || strings.Contains(value, "*") {
@@ -747,6 +780,12 @@ func finalizeUserLeaderboardResponse(payload *usagestats.UserLeaderboardResponse
 		finalizeUserLeaderboardItem(&payload.Ranking[i])
 	}
 	finalizeUserLeaderboardItem(payload.CurrentUserEntry)
+	if payload.DailyChampions == nil {
+		payload.DailyChampions = []usagestats.UserLeaderboardDailyChampion{}
+	}
+	for i := range payload.DailyChampions {
+		finalizeLeaderboardDailyChampion(&payload.DailyChampions[i])
+	}
 	finalizeLeaderboardDailyRewards(payload.DailyRewards)
 }
 
@@ -826,11 +865,18 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 		return
 	}
 	recentTrend = fillLeaderboardRecentTokenTrend(recentTrend, recentTrendStart, recentTrendEnd)
+	championCalendarStart, championCalendarEnd := dashboardLeaderboardChampionCalendarWindow(userTZ, now)
+	dailyChampions, err := h.usageService.GetLeaderboardDailyChampions(c.Request.Context(), championCalendarStart, championCalendarEnd)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 	leaderboard.Period = period
 	leaderboard.StartDate = startDate
 	leaderboard.EndDate = endDate
 	leaderboard.GeneratedAt = time.Now().UTC().Format(time.RFC3339)
 	leaderboard.RecentTokenTrend = recentTrend
+	leaderboard.DailyChampions = dailyChampions
 	if leaderboard.Ranking == nil {
 		leaderboard.Ranking = []usagestats.UserLeaderboardItem{}
 	}

@@ -11,14 +11,16 @@ import (
 
 type leaderboardStatsCacheUsageRepo struct {
 	UsageLogRepository
-	userCalls        int
-	userResponses    []*usagestats.UserLeaderboardResponse
-	modelCalls       int
-	modelItems       []usagestats.UserLeaderboardModelItem
-	modelTotal       int64
-	trendCalls       int
-	trend            []usagestats.TrendDataPoint
-	createdUsageLogs []*UsageLog
+	userCalls          int
+	userResponses      []*usagestats.UserLeaderboardResponse
+	modelCalls         int
+	modelItems         []usagestats.UserLeaderboardModelItem
+	modelTotal         int64
+	trendCalls         int
+	trend              []usagestats.TrendDataPoint
+	dailyChampionCalls int
+	dailyChampions     []usagestats.UserLeaderboardDailyChampion
+	createdUsageLogs   []*UsageLog
 }
 
 func (r *leaderboardStatsCacheUsageRepo) GetUserLeaderboard(context.Context, time.Time, time.Time, int, int64) (*usagestats.UserLeaderboardResponse, error) {
@@ -43,6 +45,11 @@ func (r *leaderboardStatsCacheUsageRepo) GetUsageTrendWithFilters(context.Contex
 	points := make([]usagestats.TrendDataPoint, len(r.trend))
 	copy(points, r.trend)
 	return points, nil
+}
+
+func (r *leaderboardStatsCacheUsageRepo) GetLeaderboardDailyChampions(context.Context, time.Time, time.Time) ([]usagestats.UserLeaderboardDailyChampion, error) {
+	r.dailyChampionCalls++
+	return cloneLeaderboardDailyChampions(r.dailyChampions), nil
 }
 
 func (r *leaderboardStatsCacheUsageRepo) Create(_ context.Context, log *UsageLog) (bool, error) {
@@ -142,6 +149,45 @@ func TestUsageServiceGetLeaderboardModelRankingAndRecentTrendUseShortCache(t *te
 	require.NoError(t, err)
 	require.Equal(t, 1, repo.trendCalls)
 	require.Equal(t, int64(300), trendAgain[0].TotalTokens)
+}
+
+func TestUsageServiceGetLeaderboardDailyChampionsCachesAndReturnsClones(t *testing.T) {
+	avatarURL := "https://example.test/champion.png"
+	repo := &leaderboardStatsCacheUsageRepo{
+		dailyChampions: []usagestats.UserLeaderboardDailyChampion{
+			{
+				Date:        "2026-06-10",
+				UserID:      42,
+				DisplayName: "Champion",
+				EmailMasked: "c***@example.com",
+				AvatarURL:   &avatarURL,
+				Tokens:      48_163_000,
+			},
+		},
+	}
+	svc := NewUsageService(repo, nil, nil, nil)
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+
+	first, err := svc.GetLeaderboardDailyChampions(context.Background(), start, end)
+	require.NoError(t, err)
+	require.Len(t, first, 1)
+	first[0].Tokens = 1
+	*first[0].AvatarURL = "mutated"
+
+	second, err := svc.GetLeaderboardDailyChampions(context.Background(), start, end)
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.dailyChampionCalls)
+	require.Equal(t, int64(48_163_000), second[0].Tokens)
+	require.Equal(t, avatarURL, *second[0].AvatarURL)
+
+	second[0].Tokens = 2
+	*second[0].AvatarURL = "mutated-again"
+	third, err := svc.GetLeaderboardDailyChampions(context.Background(), start, end)
+	require.NoError(t, err)
+	require.Equal(t, 1, repo.dailyChampionCalls)
+	require.Equal(t, int64(48_163_000), third[0].Tokens)
+	require.Equal(t, avatarURL, *third[0].AvatarURL)
 }
 
 func TestUsageServiceGetUserLeaderboardCacheKeyIncludesTimeRange(t *testing.T) {

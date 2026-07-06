@@ -34,6 +34,9 @@ type userLeaderboardUsageRepo struct {
 	modelLimit       int
 	modelRanking     []usagestats.UserLeaderboardModelItem
 	totalModels      int64
+	championStart    time.Time
+	championEnd      time.Time
+	dailyChampions   []usagestats.UserLeaderboardDailyChampion
 }
 
 func (r *userLeaderboardUsageRepo) GetUserLeaderboard(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (*usagestats.UserLeaderboardResponse, error) {
@@ -77,6 +80,15 @@ func (r *userLeaderboardUsageRepo) GetLeaderboardModelRanking(ctx context.Contex
 		return r.modelRanking, r.totalModels, nil
 	}
 	return []usagestats.UserLeaderboardModelItem{}, 0, nil
+}
+
+func (r *userLeaderboardUsageRepo) GetLeaderboardDailyChampions(ctx context.Context, startTime, endTime time.Time) ([]usagestats.UserLeaderboardDailyChampion, error) {
+	r.championStart = startTime
+	r.championEnd = endTime
+	if r.dailyChampions != nil {
+		return r.dailyChampions, nil
+	}
+	return []usagestats.UserLeaderboardDailyChampion{}, nil
 }
 
 func newUserLeaderboardRouter(repo *userLeaderboardUsageRepo, userID int64) *gin.Engine {
@@ -212,6 +224,49 @@ func TestUsageHandlerDashboardLeaderboardIncludesModelRanking(t *testing.T) {
 	require.Contains(t, body, `"total_models":8`)
 	require.Contains(t, body, `"model_ranking":[{"rank":1,"model":"gpt-5.5","requests":12,"input_tokens":700,"output_tokens":300,"tokens":1000,"growth_percent":87.3,"rank_change":1}`)
 	require.Contains(t, body, `{"rank":2,"model":"claude-opus-4-8","requests":5,"input_tokens":400,"output_tokens":100,"tokens":500}`)
+}
+
+func TestUsageHandlerDashboardLeaderboardIncludesMaskedDailyChampions(t *testing.T) {
+	avatarURL := "https://cdn.example.com/champion.png"
+	repo := &userLeaderboardUsageRepo{
+		dailyChampions: []usagestats.UserLeaderboardDailyChampion{
+			{
+				Date:      "2026-06-10",
+				UserID:    42,
+				Username:  "raw-winner@example.com",
+				Email:     "winner@example.com",
+				AvatarURL: &avatarURL,
+				Tokens:    48_163_000,
+			},
+			{
+				Date:     "2026-06-11",
+				UserID:   99,
+				Username: "13812345678",
+				Tokens:   12_000,
+			},
+		},
+	}
+	router := newUserLeaderboardRouter(repo, 42)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?timezone=Asia/Shanghai", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.False(t, repo.championStart.IsZero())
+	require.False(t, repo.championEnd.IsZero())
+	body := rec.Body.String()
+	require.Contains(t, body, `"daily_champions"`)
+	require.Contains(t, body, `"date":"2026-06-10"`)
+	require.Contains(t, body, `"display_name":"w***r@example.com"`)
+	require.Contains(t, body, `"email_masked":"w***r@example.com"`)
+	require.Contains(t, body, `"avatar_url":"https://cdn.example.com/champion.png"`)
+	require.Contains(t, body, `"tokens":48163000`)
+	require.Contains(t, body, `"date":"2026-06-11"`)
+	require.Contains(t, body, `"display_name":"138****5678"`)
+	require.NotContains(t, body, "winner@example.com")
+	require.NotContains(t, body, "raw-winner@example.com")
+	require.NotContains(t, body, "13812345678")
 }
 
 func TestUsageHandlerDashboardLeaderboardUsesSampleModelRankingWhenEnabled(t *testing.T) {

@@ -30,12 +30,29 @@ export default {
     rankChange: 'Rank Change',
     inputTokensShort: 'Input',
     outputTokensShort: 'Output',
+    cacheTokensShort: 'Cache',
+    cacheRatioShort: 'Cache Ratio',
     costPerMillionShort: 'Credits',
     recentTokenTrend: {
       title: 'Last 10 Days Tokens',
       unit: 'Daily Usage',
       tokens: 'Tokens',
       empty: 'No trend data'
+    },
+    calendar: {
+      title: 'Calendar',
+      previousMonth: 'View previous month',
+      currentMonth: 'Back to current month',
+      emptyDay: '{date} has no champion',
+      weekdays: {
+        sun: 'Sun',
+        mon: 'Mon',
+        tue: 'Tue',
+        wed: 'Wed',
+        thu: 'Thu',
+        fri: 'Fri',
+        sat: 'Sat'
+      }
     },
     balance: 'Credits',
     currentUser: 'You',

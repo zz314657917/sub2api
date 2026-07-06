@@ -30,12 +30,29 @@ export default {
     rankChange: '排名变化',
     inputTokensShort: '输入',
     outputTokensShort: '输出',
+    cacheTokensShort: '缓存',
+    cacheRatioShort: '缓存占比',
     costPerMillionShort: '积分',
     recentTokenTrend: {
       title: '最近 10 天 Token',
       unit: '每日消耗',
       tokens: 'Token',
       empty: '暂无趋势数据'
+    },
+    calendar: {
+      title: '日历',
+      previousMonth: '查看上月',
+      currentMonth: '回到本月',
+      emptyDay: '{date} 暂无冠军',
+      weekdays: {
+        sun: '日',
+        mon: '一',
+        tue: '二',
+        wed: '三',
+        thu: '四',
+        fri: '五',
+        sat: '六'
+      }
     },
     balance: '积分',
     currentUser: '当前用户',

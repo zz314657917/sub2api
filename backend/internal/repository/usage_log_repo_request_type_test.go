@@ -573,11 +573,11 @@ func TestUsageLogRepositoryGetUserLeaderboardRanksCurrentUserInTop(t *testing.T)
 	end := start.Add(7 * 24 * time.Hour)
 
 	rows := sqlmock.NewRows([]string{
-		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "input_tokens", "output_tokens", "tokens", "cost_per_1m_tokens",
+		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "input_tokens", "output_tokens", "cache_creation_tokens", "cache_read_tokens", "tokens", "cost_per_1m_tokens",
 		"total_actual_cost", "total_requests", "total_tokens",
 	}).
-		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 8.0, int64(9), int64(500), int64(350), int64(900), 8888.888888, 40.0, int64(30), int64(2600)).
-		AddRow(int64(2), int64(1), "", "alpha@example.com", "https://cdn.example.com/a.png", 2.5, 12.5, int64(8), int64(600), int64(150), int64(800), 15625.0, 40.0, int64(30), int64(2600))
+		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 8.0, int64(9), int64(500), int64(350), int64(30), int64(20), int64(900), 8888.888888, 40.0, int64(30), int64(2600)).
+		AddRow(int64(2), int64(1), "", "alpha@example.com", "https://cdn.example.com/a.png", 2.5, 12.5, int64(8), int64(600), int64(150), int64(25), int64(25), int64(800), 15625.0, 40.0, int64(30), int64(2600))
 
 	mock.ExpectQuery("ROW_NUMBER\\(\\) OVER \\(ORDER BY tokens DESC, actual_cost DESC, user_id ASC\\)").
 		WithArgs(start, end, 2, int64(1)).
@@ -593,6 +593,8 @@ func TestUsageLogRepositoryGetUserLeaderboardRanksCurrentUserInTop(t *testing.T)
 	require.Equal(t, 2.5, got.Ranking[1].Balance)
 	require.Equal(t, int64(600), got.Ranking[1].InputTokens)
 	require.Equal(t, int64(150), got.Ranking[1].OutputTokens)
+	require.Equal(t, int64(25), got.Ranking[1].CacheCreationTokens)
+	require.Equal(t, int64(25), got.Ranking[1].CacheReadTokens)
 	require.Equal(t, 15625.0, got.Ranking[1].CostPer1M)
 	require.NotNil(t, got.CurrentUserEntry)
 	require.Equal(t, got.Ranking[1], *got.CurrentUserEntry)
@@ -610,11 +612,11 @@ func TestUsageLogRepositoryGetUserLeaderboardKeepsCurrentUserEntryOutsideLimit(t
 	end := start.Add(7 * 24 * time.Hour)
 
 	rows := sqlmock.NewRows([]string{
-		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "input_tokens", "output_tokens", "tokens", "cost_per_1m_tokens",
+		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "input_tokens", "output_tokens", "cache_creation_tokens", "cache_read_tokens", "tokens", "cost_per_1m_tokens",
 		"total_actual_cost", "total_requests", "total_tokens",
 	}).
-		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 20.0, int64(9), int64(450), int64(400), int64(900), 22222.222222, 30.0, int64(12), int64(1200)).
-		AddRow(int64(4), int64(9), "", "outside@example.com", nil, 0.75, 1.0, int64(1), int64(30), int64(15), int64(50), 20000.0, 30.0, int64(12), int64(1200))
+		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 20.0, int64(9), int64(450), int64(400), int64(20), int64(30), int64(900), 22222.222222, 30.0, int64(12), int64(1200)).
+		AddRow(int64(4), int64(9), "", "outside@example.com", nil, 0.75, 1.0, int64(1), int64(30), int64(15), int64(2), int64(3), int64(50), 20000.0, 30.0, int64(12), int64(1200))
 
 	mock.ExpectQuery("ROW_NUMBER\\(\\) OVER \\(ORDER BY tokens DESC, actual_cost DESC, user_id ASC\\)").
 		WithArgs(start, end, 1, int64(9)).
@@ -629,6 +631,8 @@ func TestUsageLogRepositoryGetUserLeaderboardKeepsCurrentUserEntryOutsideLimit(t
 	require.Equal(t, int64(9), got.CurrentUserEntry.UserID)
 	require.Equal(t, int64(30), got.CurrentUserEntry.InputTokens)
 	require.Equal(t, int64(15), got.CurrentUserEntry.OutputTokens)
+	require.Equal(t, int64(2), got.CurrentUserEntry.CacheCreationTokens)
+	require.Equal(t, int64(3), got.CurrentUserEntry.CacheReadTokens)
 	require.Equal(t, 20000.0, got.CurrentUserEntry.CostPer1M)
 	require.True(t, got.CurrentUserEntry.IsCurrentUser)
 	require.NoError(t, mock.ExpectationsWereMet())
@@ -661,6 +665,45 @@ func TestUsageLogRepositoryGetLeaderboardModelRanking(t *testing.T) {
 	require.Equal(t, []usagestats.UserLeaderboardModelItem{
 		{Rank: 1, Model: "gpt-5.5", Requests: 12, InputTokens: 700, OutputTokens: 300, Tokens: 1000, GrowthPercent: &gptGrowth, RankChange: &gptRankChange},
 		{Rank: 2, Model: "claude-opus-4-8", Requests: 5, InputTokens: 400, OutputTokens: 100, Tokens: 500, GrowthPercent: &claudeGrowth, RankChange: &claudeRankChange},
+	}, got)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUsageLogRepositoryGetLeaderboardDailyChampions(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+
+	start := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
+	rows := sqlmock.NewRows([]string{
+		"usage_date", "user_id", "username", "email", "avatar_url", "tokens",
+	}).
+		AddRow("2026-06-10", int64(4), "alpha", "alpha@example.com", "https://cdn.example.com/a.png", int64(48_163_000)).
+		AddRow("2026-06-11", int64(2), "", "beta@example.com", nil, int64(12_000))
+	avatarURL := "https://cdn.example.com/a.png"
+
+	mock.ExpectQuery(`(?s)WITH ranked_daily AS.*PARTITION BY stats\.usage_date\s+ORDER BY stats\.tokens DESC, stats\.user_id ASC.*WHERE rn = 1`).
+		WithArgs("2026-06-01", "2026-08-01").
+		WillReturnRows(rows)
+
+	got, err := repo.GetLeaderboardDailyChampions(context.Background(), start, end)
+	require.NoError(t, err)
+	require.Equal(t, []UserLeaderboardDailyChampion{
+		{
+			Date:      "2026-06-10",
+			UserID:    4,
+			Username:  "alpha",
+			Email:     "alpha@example.com",
+			AvatarURL: &avatarURL,
+			Tokens:    48_163_000,
+		},
+		{
+			Date:     "2026-06-11",
+			UserID:   2,
+			Username: "",
+			Email:    "beta@example.com",
+			Tokens:   12_000,
+		},
 	}, got)
 	require.NoError(t, mock.ExpectationsWereMet())
 }

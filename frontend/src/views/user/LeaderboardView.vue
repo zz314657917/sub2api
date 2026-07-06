@@ -1,25 +1,6 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
-      <div class="card p-4">
-        <div class="grid grid-cols-2 gap-2 sm:grid-cols-4" role="tablist" :aria-label="t('leaderboard.periodLabel')">
-          <button
-            v-for="option in periodOptions"
-            :key="option.value"
-            type="button"
-            class="h-10 rounded-lg border px-3 text-sm font-medium transition-colors"
-            :class="period === option.value
-              ? 'border-primary-500 bg-primary-50 text-primary-700 dark:border-primary-400 dark:bg-primary-500/10 dark:text-primary-300'
-              : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-300 dark:hover:bg-dark-700'"
-            :aria-selected="period === option.value"
-            role="tab"
-            @click="selectPeriod(option.value)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
-      </div>
-
       <section v-if="leaderboard" class="card leaderboard-token-card leaderboard-token-summary p-5">
         <div class="leaderboard-token-summary-inner relative z-10">
           <div class="leaderboard-token-summary-main min-w-0">
@@ -86,234 +67,148 @@
         <button class="btn btn-primary mt-5" type="button" @click="loadLeaderboard">{{ t('leaderboard.retry') }}</button>
       </div>
 
-      <div v-else-if="leaderboard" class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div class="min-w-0">
-          <section v-if="activeRankingEmpty" class="leaderboard-token-ranking-card">
-            <div class="leaderboard-ranking-card-toolbar">
-              <div class="leaderboard-ranking-switch" role="tablist" :aria-label="t('leaderboard.viewLabel')">
-                <button
-                  v-for="option in rankingViewOptions"
-                  :key="option.value"
-                  type="button"
-                  class="leaderboard-ranking-switch-button"
-                  :class="rankingView === option.value
-                    ? 'leaderboard-ranking-switch-button--active'
-                    : 'leaderboard-ranking-switch-button--idle'"
-                  :aria-selected="rankingView === option.value"
-                  role="tab"
-                  @click="rankingView = option.value"
-                >
-                  {{ option.label }}
-                </button>
-              </div>
-            </div>
-
-            <div class="leaderboard-ranking-empty">
-              <EmptyState :title="activeRankingEmptyTitle" :description="activeRankingEmptyDescription" />
-            </div>
-          </section>
-
-          <template v-else>
-            <section v-if="rankingView === 'tokens'" class="leaderboard-token-ranking-card" data-testid="leaderboard-token-ranking">
+      <template v-else-if="leaderboard">
+        <div class="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
+          <div class="min-w-0">
+            <section v-if="activeRankingEmpty" class="leaderboard-token-ranking-card">
               <div class="leaderboard-ranking-card-toolbar">
-                <div class="leaderboard-ranking-switch" role="tablist" :aria-label="t('leaderboard.viewLabel')">
+                <div class="leaderboard-ranking-switch" role="tablist" :aria-label="t('leaderboard.periodLabel')">
                   <button
-                    v-for="option in rankingViewOptions"
+                    v-for="option in periodOptions"
                     :key="option.value"
                     type="button"
                     class="leaderboard-ranking-switch-button"
-                    :class="rankingView === option.value
+                    :class="period === option.value
                       ? 'leaderboard-ranking-switch-button--active'
                       : 'leaderboard-ranking-switch-button--idle'"
-                    :aria-selected="rankingView === option.value"
+                    :aria-selected="period === option.value"
                     role="tab"
-                    @click="rankingView = option.value"
+                    @click="selectPeriod(option.value)"
                   >
                     {{ option.label }}
                   </button>
-                </div>
-              </div>
-
-              <div class="leaderboard-token-ranking-header">
-                <div class="min-w-0">
-                  <h2 class="leaderboard-token-ranking-title text-base font-semibold text-gray-900 dark:text-white">
-                    <span>{{ t('leaderboard.tokenRankingTitle', { count: rankingItems.length }) }}</span>
-                    <span class="leaderboard-token-ranking-period">{{ currentPeriodLabel }}</span>
-                  </h2>
                 </div>
                 <span class="leaderboard-token-ranking-updated">
                   {{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}
                 </span>
               </div>
 
-              <div class="leaderboard-token-rank-list">
-                <article
-                  v-for="item in rankingItems"
-                  :key="item.user_id"
-                  class="leaderboard-token-rank-row"
-                  :class="item.is_current_user ? 'leaderboard-token-rank-row-current' : ''"
-                  :style="tokenBarStyle(item)"
-                >
-                  <div class="leaderboard-token-rank-user">
-                    <div class="leaderboard-token-rank-main">
-                      <span class="leaderboard-token-rank-index">#{{ item.rank }}</span>
-                      <span class="leaderboard-token-rank-avatar" data-testid="leaderboard-rank-avatar" aria-hidden="true">
-                        <img
-                          v-if="leaderboardAvatarUrl(item)"
-                          :src="leaderboardAvatarUrl(item)"
-                          alt=""
-                          loading="lazy"
+              <div class="leaderboard-ranking-empty">
+                <EmptyState :title="t('leaderboard.emptyTitle')" :description="t('leaderboard.emptyDescription')" />
+              </div>
+            </section>
+
+            <template v-else>
+              <section class="leaderboard-token-ranking-card" data-testid="leaderboard-token-ranking">
+                <div class="leaderboard-ranking-card-toolbar">
+                  <div class="leaderboard-ranking-switch" role="tablist" :aria-label="t('leaderboard.periodLabel')">
+                    <button
+                      v-for="option in periodOptions"
+                      :key="option.value"
+                      type="button"
+                      class="leaderboard-ranking-switch-button"
+                      :class="period === option.value
+                        ? 'leaderboard-ranking-switch-button--active'
+                        : 'leaderboard-ranking-switch-button--idle'"
+                      :aria-selected="period === option.value"
+                      role="tab"
+                      @click="selectPeriod(option.value)"
+                    >
+                      {{ option.label }}
+                    </button>
+                  </div>
+                  <span class="leaderboard-token-ranking-updated">
+                    {{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}
+                  </span>
+                </div>
+
+                <div class="leaderboard-token-rank-list">
+                  <article
+                    v-for="item in rankingItems"
+                    :key="item.user_id"
+                    class="leaderboard-token-rank-row"
+                    :class="item.is_current_user ? 'leaderboard-token-rank-row-current' : ''"
+                    :style="tokenBarStyle(item)"
+                  >
+                    <div
+                      class="leaderboard-token-rank-user"
+                      :class="hasLeaderboardRankSecondary(item) ? '' : 'leaderboard-token-rank-user--name-only'"
+                    >
+                      <div class="leaderboard-token-rank-main">
+                        <span class="leaderboard-token-rank-index">#{{ item.rank }}</span>
+                        <span class="leaderboard-token-rank-avatar" data-testid="leaderboard-rank-avatar" aria-hidden="true">
+                          <img
+                            v-if="leaderboardAvatarUrl(item)"
+                            :src="leaderboardAvatarUrl(item)"
+                            alt=""
+                            loading="lazy"
+                          >
+                          <span v-else>{{ leaderboardAvatarInitial(item) }}</span>
+                        </span>
+                        <span class="leaderboard-token-rank-name" :title="getLeaderboardDisplayName(item)">
+                          {{ getLeaderboardDisplayName(item) }}
+                        </span>
+                        <span v-if="item.is_current_user" class="leaderboard-token-current-tag">
+                          {{ t('leaderboard.currentUser') }}
+                        </span>
+                      </div>
+                      <div v-if="visibleLeaderboardTitleBadges(item.badges).length" class="leaderboard-token-title-list">
+                        <span
+                          v-for="badge in visibleLeaderboardTitleBadges(item.badges)"
+                          :key="badge"
+                          class="leaderboard-token-title-badge"
+                          :title="leaderboardBadgeTitle(badge)"
+                          :aria-label="leaderboardBadgeTitle(badge)"
+                          data-testid="leaderboard-rank-title"
+                          :data-badge="badge"
                         >
-                        <span v-else>{{ leaderboardAvatarInitial(item) }}</span>
-                      </span>
-                      <span class="leaderboard-token-rank-name" :title="getLeaderboardDisplayName(item)">
-                        {{ getLeaderboardDisplayName(item) }}
-                      </span>
-                      <span v-if="item.is_current_user" class="leaderboard-token-current-tag">
-                        {{ t('leaderboard.currentUser') }}
-                      </span>
+                          {{ leaderboardTitleLabel(badge) }}
+                        </span>
+                        <span
+                          v-if="hiddenLeaderboardTitleBadgeCount(item.badges) > 0"
+                          class="leaderboard-token-title-more"
+                          :title="hiddenLeaderboardBadgeTitle(item.badges)"
+                          :aria-label="hiddenLeaderboardBadgeTitle(item.badges)"
+                        >
+                          +{{ hiddenLeaderboardTitleBadgeCount(item.badges) }}
+                        </span>
+                      </div>
                     </div>
-                    <div v-if="visibleLeaderboardTitleBadges(item.badges).length" class="leaderboard-token-title-list">
-                      <span
-                        v-for="badge in visibleLeaderboardTitleBadges(item.badges)"
-                        :key="badge"
-                        class="leaderboard-token-title-badge"
-                        :title="leaderboardBadgeTitle(badge)"
-                        :aria-label="leaderboardBadgeTitle(badge)"
-                        data-testid="leaderboard-rank-title"
-                        :data-badge="badge"
+
+                    <div class="leaderboard-token-bar-area">
+                      <div
+                        class="leaderboard-token-bar-track"
+                        :aria-label="leaderboardTokenMetricsLabel(item)"
+                        :title="leaderboardTokenMetricsLabel(item)"
                       >
-                        {{ leaderboardTitleLabel(badge) }}
-                      </span>
-                      <span
-                        v-if="hiddenLeaderboardTitleBadgeCount(item.badges) > 0"
-                        class="leaderboard-token-title-more"
-                        :title="hiddenLeaderboardBadgeTitle(item.badges)"
-                        :aria-label="hiddenLeaderboardBadgeTitle(item.badges)"
-                      >
-                        +{{ hiddenLeaderboardTitleBadgeCount(item.badges) }}
-                      </span>
+                        <div
+                          class="leaderboard-token-bar-fill"
+                          data-testid="leaderboard-token-bar-fill"
+                        >
+                          <span
+                            class="leaderboard-token-bar-segment leaderboard-token-bar-segment-input"
+                            data-testid="leaderboard-token-segment-input"
+                          ></span>
+                          <span
+                            class="leaderboard-token-bar-segment leaderboard-token-bar-segment-output"
+                            data-testid="leaderboard-token-segment-output"
+                          ></span>
+                          <span
+                            class="leaderboard-token-bar-segment leaderboard-token-bar-segment-cache"
+                            data-testid="leaderboard-token-segment-cache"
+                          ></span>
+                        </div>
+                        <span class="leaderboard-token-bar-value">{{ formatNumber(item.tokens) }}</span>
+                      </div>
                     </div>
-                  </div>
-
-                  <div class="leaderboard-token-bar-area">
-                    <div
-                      class="leaderboard-token-bar-track"
-                      :aria-label="leaderboardTokenMetricsLabel(item)"
-                      :title="leaderboardTokenMetricsLabel(item)"
-                    >
-                      <div class="leaderboard-token-bar-fill"></div>
-                      <span class="leaderboard-token-bar-value">{{ formatNumber(item.tokens) }}</span>
-                    </div>
-                  </div>
-                </article>
-              </div>
-            </section>
-
-            <section v-else class="leaderboard-token-ranking-card leaderboard-model-ranking-card" data-testid="leaderboard-model-ranking">
-              <div class="leaderboard-ranking-card-toolbar">
-                <div class="leaderboard-ranking-switch" role="tablist" :aria-label="t('leaderboard.viewLabel')">
-                  <button
-                    v-for="option in rankingViewOptions"
-                    :key="option.value"
-                    type="button"
-                    class="leaderboard-ranking-switch-button"
-                    :class="rankingView === option.value
-                      ? 'leaderboard-ranking-switch-button--active'
-                      : 'leaderboard-ranking-switch-button--idle'"
-                    :aria-selected="rankingView === option.value"
-                    role="tab"
-                    @click="rankingView = option.value"
-                  >
-                    {{ option.label }}
-                  </button>
+                  </article>
                 </div>
-              </div>
+              </section>
+            </template>
+          </div>
 
-              <div class="leaderboard-token-ranking-header">
-                <div class="min-w-0">
-                  <h2 class="leaderboard-token-ranking-title text-base font-semibold text-gray-900 dark:text-white">
-                    <span>{{ t('leaderboard.modelRankingTitle', { count: modelRankingItems.length }) }}</span>
-                    <span class="leaderboard-token-ranking-period">{{ currentPeriodLabel }}</span>
-                  </h2>
-                </div>
-                <span class="leaderboard-token-ranking-updated">
-                  {{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}
-                </span>
-              </div>
-
-              <div class="leaderboard-token-rank-list">
-                <article
-                  v-for="item in modelRankingItems"
-                  :key="item.model"
-                  class="leaderboard-token-rank-row leaderboard-model-rank-row"
-                  :style="modelBarStyle(item)"
-                >
-                  <div class="leaderboard-model-rank-user">
-                    <span class="leaderboard-token-rank-index">#{{ item.rank }}</span>
-                    <span
-                      class="leaderboard-token-rank-avatar leaderboard-model-rank-avatar"
-                      :title="displayModelLabel(item.model)"
-                      data-testid="leaderboard-model-rank-icon"
-                      aria-hidden="true"
-                    >
-                      <ModelIcon :model="item.model" size="16px" />
-                    </span>
-                    <span class="leaderboard-token-rank-name" :title="displayModelLabel(item.model)">
-                      {{ displayModelLabel(item.model) }}
-                    </span>
-                    <span class="leaderboard-model-rank-meta">
-                      {{ t('leaderboard.requests') }} {{ formatNumber(item.requests) }}
-                    </span>
-                  </div>
-
-                  <div class="leaderboard-token-bar-area">
-                    <div
-                      class="leaderboard-token-bar-track"
-                      :aria-label="modelRankingMetricsLabel(item)"
-                      :title="modelRankingMetricsLabel(item)"
-                    >
-                      <div class="leaderboard-token-bar-fill"></div>
-                      <span class="leaderboard-token-bar-value">{{ modelTokenShareLabel(item) }}</span>
-                    </div>
-                  </div>
-
-                  <div class="leaderboard-model-rank-insights" :aria-label="modelRankingTrendLabel(item)">
-                    <div
-                      class="leaderboard-model-rank-insight leaderboard-model-rank-insight--token"
-                      :title="modelTokenTitle(item)"
-                      data-testid="leaderboard-model-token"
-                    >
-                      <span class="leaderboard-model-rank-insight-value">{{ formatNumber(item.tokens) }}</span>
-                      <span class="leaderboard-model-rank-insight-label">{{ t('leaderboard.tokens') }}</span>
-                    </div>
-                    <div
-                      class="leaderboard-model-rank-insight"
-                      :class="modelGrowthClass(item)"
-                      :title="modelGrowthTitle(item)"
-                      data-testid="leaderboard-model-growth"
-                    >
-                      <span class="leaderboard-model-rank-insight-value">{{ modelGrowthLabel(item) }}</span>
-                      <span class="leaderboard-model-rank-insight-label">{{ t('leaderboard.growth') }}</span>
-                    </div>
-                    <div
-                      class="leaderboard-model-rank-insight"
-                      :class="modelRankChangeClass(item)"
-                      :title="modelRankChangeTitle(item)"
-                      data-testid="leaderboard-model-rank-change"
-                    >
-                      <span class="leaderboard-model-rank-insight-value">{{ modelRankChangeLabel(item) }}</span>
-                      <span class="leaderboard-model-rank-insight-label">{{ t('leaderboard.rankChange') }}</span>
-                    </div>
-                  </div>
-                </article>
-              </div>
-            </section>
-          </template>
-        </div>
-
-        <aside class="space-y-5 xl:sticky xl:top-20 xl:self-start">
-          <section class="card p-5" data-testid="leaderboard-my-info">
+          <aside class="space-y-5 xl:sticky xl:top-20 xl:self-start">
+            <section class="card p-5" data-testid="leaderboard-my-info">
             <p class="text-sm font-semibold text-primary-700 dark:text-primary-300">{{ t('leaderboard.myInfo') }}</p>
             <div v-if="myEntry?.badges?.length" class="mt-3 flex flex-wrap items-center gap-1.5">
               <span
@@ -421,9 +316,86 @@
             >
               {{ claimButtonText }}
             </button>
-          </section>
-        </aside>
-      </div>
+            </section>
+          </aside>
+        </div>
+
+        <section class="leaderboard-calendar-card" data-testid="leaderboard-daily-champions-calendar">
+          <div class="leaderboard-calendar-head">
+            <h2 class="leaderboard-calendar-title">{{ t('leaderboard.calendar.title') }}</h2>
+          </div>
+
+          <div class="leaderboard-calendar-scroll">
+            <div class="leaderboard-calendar-months">
+              <section
+                v-for="month in championCalendarMonths"
+                :key="month.key"
+                class="leaderboard-calendar-month-panel"
+                :class="month.isCurrent ? 'leaderboard-calendar-month-panel--current' : 'leaderboard-calendar-month-panel--previous'"
+              >
+                <div class="leaderboard-calendar-month">{{ month.label }}</div>
+                <div class="leaderboard-calendar-weekdays" aria-hidden="true">
+                  <span
+                    v-for="weekday in championCalendarWeekdays"
+                    :key="`${month.key}-${weekday}`"
+                    class="leaderboard-calendar-weekday"
+                  >
+                    {{ weekday }}
+                  </span>
+                </div>
+                <div class="leaderboard-calendar-days">
+                  <div
+                    v-for="day in month.days"
+                    :key="day.key"
+                    class="leaderboard-calendar-day"
+                    :class="{
+                      'leaderboard-calendar-day--active': !day.isPlaceholder && day.champion,
+                      'leaderboard-calendar-day--placeholder': day.isPlaceholder
+                    }"
+                    :aria-label="championCalendarCellLabel(day)"
+                    :tabindex="championCalendarCellTabIndex(day)"
+                    :data-testid="day.isPlaceholder ? 'leaderboard-calendar-placeholder' : 'leaderboard-calendar-day'"
+                    @mouseenter="showChampionTooltip(day, $event)"
+                    @mouseleave="hideChampionTooltip"
+                    @focusin="showChampionTooltip(day, $event)"
+                    @focusout="hideChampionTooltip"
+                  >
+                    <template v-if="!day.isPlaceholder">
+                    <span class="leaderboard-calendar-day-number">{{ day.day }}</span>
+                    <span v-if="day.champion" class="leaderboard-calendar-avatar" data-testid="leaderboard-calendar-avatar">
+                      <img
+                        v-if="dailyChampionAvatarUrl(day.champion)"
+                        :src="dailyChampionAvatarUrl(day.champion)"
+                        alt=""
+                        loading="lazy"
+                      >
+                      <span v-else>{{ dailyChampionAvatarInitial(day.champion) }}</span>
+                    </span>
+                    </template>
+                  </div>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <Teleport to="body">
+            <div
+              v-if="activeChampionTooltip"
+              class="leaderboard-calendar-tooltip"
+              :style="championTooltipStyle"
+              role="tooltip"
+              data-testid="leaderboard-calendar-tooltip"
+            >
+              <div class="leaderboard-calendar-tooltip-date">{{ activeChampionTooltip.dateLabel }}</div>
+              <div class="leaderboard-calendar-tooltip-main">
+                <span class="leaderboard-calendar-tooltip-name">{{ activeChampionTooltip.displayName }}</span>
+                <span class="leaderboard-calendar-tooltip-tokens">{{ activeChampionTooltip.tokenLabel }}</span>
+              </div>
+              <div class="leaderboard-calendar-tooltip-meta">{{ activeChampionTooltip.metaLabel }}</div>
+            </div>
+          </Teleport>
+        </section>
+      </template>
     </div>
   </AppLayout>
 </template>
@@ -442,23 +414,18 @@ import {
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { usageAPI } from '@/api'
-import type { LeaderboardBadge, LeaderboardDailyRewardTopUser, LeaderboardDailyRewards, LeaderboardPeriod, UserLeaderboardItem, UserLeaderboardResponse } from '@/api/usage'
-import type { UserLeaderboardModelItem, UserLeaderboardTokenTrendPoint } from '@/types'
+import type { LeaderboardBadge, LeaderboardDailyRewardTopUser, LeaderboardDailyRewards, LeaderboardPeriod, UserLeaderboardDailyChampion, UserLeaderboardItem, UserLeaderboardResponse } from '@/api/usage'
+import type { UserLeaderboardTokenTrendPoint } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
-import ModelIcon from '@/components/common/ModelIcon.vue'
 import { formatDateTime, formatNumber, formatTime } from '@/utils/format'
 import { formatCreditAmount } from '@/utils/credits'
-import { displayModelLabel } from '@/utils/modelDisplay'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
 const { t } = useI18n()
 
-type RankingView = 'tokens' | 'models'
-
 const period = ref<LeaderboardPeriod>('day')
-const rankingView = ref<RankingView>('tokens')
 const leaderboard = ref<UserLeaderboardResponse | null>(null)
 const loading = ref(false)
 const error = ref(false)
@@ -472,6 +439,10 @@ const visibleBadgeLimit = 3
 const visibleRankTitleLimit = 2
 const visualTokenTickerIntervalMs = 3000
 const visualTokenTickerSteps = [37, 54, 62, 81, 95, 128, 143, 166, 218]
+const championTooltipWidth = 240
+const championTooltipHeight = 98
+const championTooltipGap = 10
+const championTooltipViewportPadding = 12
 let loadSeq = 0
 let visualTokenTickerID: number | null = null
 
@@ -483,6 +454,29 @@ type RollingTokenPart = {
 type RewardTopUserView = {
   rank: number
   displayName: string
+}
+
+type ChampionCalendarDay = {
+  key: string
+  date: string
+  day: number
+  champion?: UserLeaderboardDailyChampion
+  streak: number
+  isPlaceholder: boolean
+}
+
+type ChampionCalendarMonth = {
+  key: string
+  label: string
+  days: ChampionCalendarDay[]
+  isCurrent: boolean
+}
+
+type ChampionCalendarTooltipView = {
+  dateLabel: string
+  displayName: string
+  metaLabel: string
+  tokenLabel: string
 }
 
 const rollingTokenDigitCells = Array.from({ length: 20 }, (_, index) => String(index % 10))
@@ -499,11 +493,6 @@ const devRewardTopUsers: LeaderboardDailyRewardTopUser[] = [
   { rank: 2, display_name: '138****5678' },
   { rank: 3, display_name: 't***d@example.com' },
 ]
-const devModelTrendFallbacks: Record<string, { growthPercent: number; rankChange: number | null }> = {
-  'gpt-5.5': { growthPercent: -77.7, rankChange: 1 },
-  'claude-opus-4-8': { growthPercent: -87.3, rankChange: -1 },
-  'gpt-5.4': { growthPercent: -74.7, rankChange: null },
-}
 
 const periodOptions = computed(() => [
   { value: 'day' as const, label: t('leaderboard.period.day') },
@@ -511,12 +500,39 @@ const periodOptions = computed(() => [
   { value: 'month' as const, label: t('leaderboard.period.month') },
   { value: 'all' as const, label: t('leaderboard.period.all') },
 ])
-const rankingViewOptions = computed(() => [
-  { value: 'tokens' as const, label: t('leaderboard.views.tokens') },
-  { value: 'models' as const, label: t('leaderboard.views.models') },
+const championCalendarWeekdays = computed(() => [
+  t('leaderboard.calendar.weekdays.sun'),
+  t('leaderboard.calendar.weekdays.mon'),
+  t('leaderboard.calendar.weekdays.tue'),
+  t('leaderboard.calendar.weekdays.wed'),
+  t('leaderboard.calendar.weekdays.thu'),
+  t('leaderboard.calendar.weekdays.fri'),
+  t('leaderboard.calendar.weekdays.sat'),
 ])
-const currentPeriodLabel = computed(() => periodOptions.value.find((option) => option.value === period.value)?.label ?? '')
 const recentTokenTrendPoints = computed<UserLeaderboardTokenTrendPoint[]>(() => leaderboard.value?.recent_token_trend ?? [])
+const dailyChampionsByDate = computed(() => {
+  const champions = new Map<string, UserLeaderboardDailyChampion>()
+  for (const champion of leaderboard.value?.daily_champions ?? []) {
+    if (champion.date) {
+      champions.set(champion.date, champion)
+    }
+  }
+  return champions
+})
+const championCalendarAnchor = computed(() => parseCalendarAnchorDate(leaderboard.value?.generated_at))
+const championCalendarMonths = computed<ChampionCalendarMonth[]>(() => {
+  const anchor = championCalendarAnchor.value
+  return [
+    buildChampionCalendarMonth(new Date(anchor.getFullYear(), anchor.getMonth() - 1, 1), false),
+    buildChampionCalendarMonth(new Date(anchor.getFullYear(), anchor.getMonth(), 1), true),
+  ]
+})
+const activeChampionTooltip = ref<ChampionCalendarTooltipView | null>(null)
+const championTooltipPosition = ref({ left: 0, top: 0 })
+const championTooltipStyle = computed(() => ({
+  left: `${championTooltipPosition.value.left}px`,
+  top: `${championTooltipPosition.value.top}px`,
+}))
 
 const rankingItems = computed<UserLeaderboardItem[]>(() => {
   const visibleItems = (leaderboard.value?.ranking ?? []).slice(0, leaderboardLimit)
@@ -529,30 +545,7 @@ const rankingItems = computed<UserLeaderboardItem[]>(() => {
   }))
 })
 const maxRankingTokens = computed(() => Math.max(0, ...rankingItems.value.map((item) => item.tokens)))
-const modelRankingItems = computed<UserLeaderboardModelItem[]>(() => {
-  return (leaderboard.value?.model_ranking ?? []).slice(0, leaderboardLimit).map((item) => {
-    const fallback = import.meta.env.DEV ? devModelTrendFallbacks[item.model] : undefined
-    return {
-      ...item,
-      growth_percent: item.growth_percent ?? fallback?.growthPercent ?? null,
-      rank_change: item.rank_change ?? fallback?.rankChange ?? null,
-    }
-  })
-})
-const maxModelRankingTokens = computed(() => Math.max(0, ...modelRankingItems.value.map((item) => item.tokens)))
-const totalVisibleModelRankingTokens = computed(() => modelRankingItems.value.reduce((sum, item) => sum + Math.max(0, item.tokens || 0), 0))
-const activeRankingEmpty = computed(() => rankingView.value === 'models'
-  ? modelRankingItems.value.length === 0
-  : rankingItems.value.length === 0
-)
-const activeRankingEmptyTitle = computed(() => rankingView.value === 'models'
-  ? t('leaderboard.modelEmptyTitle')
-  : t('leaderboard.emptyTitle')
-)
-const activeRankingEmptyDescription = computed(() => rankingView.value === 'models'
-  ? t('leaderboard.modelEmptyDescription')
-  : t('leaderboard.emptyDescription')
-)
+const activeRankingEmpty = computed(() => rankingItems.value.length === 0)
 const dailyRewards = computed<LeaderboardDailyRewards | null>(() => leaderboard.value?.daily_rewards ?? null)
 const myEntry = computed<UserLeaderboardItem | null>(() => {
   if (leaderboard.value?.current_user_entry) return leaderboard.value.current_user_entry
@@ -797,7 +790,52 @@ function applyClaimedBalance(amount: number) {
 function selectPeriod(value: LeaderboardPeriod) {
   if (period.value === value) return
   period.value = value
+  hideChampionTooltip()
   loadLeaderboard()
+}
+
+function showChampionTooltip(day: ChampionCalendarDay, event: Event) {
+  if (day.isPlaceholder || !day.champion) {
+    hideChampionTooltip()
+    return
+  }
+
+  const target = event.currentTarget
+  if (!(target instanceof HTMLElement)) return
+
+  activeChampionTooltip.value = {
+    dateLabel: formatChampionCalendarDate(day.date),
+    displayName: dailyChampionDisplayName(day.champion),
+    metaLabel: championTooltipMeta(day),
+    tokenLabel: `${formatCompactChineseTokens(day.champion.tokens)} tokens`,
+  }
+  positionChampionTooltip(target)
+}
+
+function championTooltipMeta(day: ChampionCalendarDay): string {
+  if (!day.champion) return ''
+  const displayName = dailyChampionDisplayName(day.champion)
+  const emailMasked = day.champion.email_masked?.trim() || ''
+  if (emailMasked && emailMasked !== displayName) return emailMasked
+  if (day.streak > 1) return `蝉联第 ${day.streak} 天`
+  return '当日冠军'
+}
+
+function positionChampionTooltip(target: HTMLElement) {
+  const rect = target.getBoundingClientRect()
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || championTooltipWidth
+  const maxLeft = Math.max(championTooltipViewportPadding, viewportWidth - championTooltipWidth - championTooltipViewportPadding)
+  const preferredLeft = rect.left + window.scrollX - 12
+  const left = Math.min(Math.max(championTooltipViewportPadding, preferredLeft), maxLeft)
+  const top = Math.max(
+    championTooltipViewportPadding,
+    rect.top + window.scrollY - championTooltipGap - championTooltipHeight,
+  )
+  championTooltipPosition.value = { left, top }
+}
+
+function hideChampionTooltip() {
+  activeChampionTooltip.value = null
 }
 
 function formatRollingTokenNumber(value: number): string {
@@ -818,6 +856,125 @@ function formatCompactTokens(value: number): string {
   if (abs >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
   if (abs >= 1_000) return `${(value / 1_000).toFixed(1)}K`
   return Math.round(value).toLocaleString('en-US')
+}
+
+function parseCalendarAnchorDate(value?: string): Date {
+  const parsed = value ? new Date(value) : null
+  if (parsed && Number.isFinite(parsed.getTime())) {
+    return parsed
+  }
+  return new Date()
+}
+
+function buildChampionCalendarMonth(monthStart: Date, isCurrent: boolean): ChampionCalendarMonth {
+  const year = monthStart.getFullYear()
+  const month = monthStart.getMonth()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const key = formatCalendarDateKey(monthStart)
+  const leadingPlaceholderCount = new Date(year, month, 1).getDay()
+  let previousChampionUserID: number | null = null
+  let streak = 0
+  const realDays = Array.from({ length: daysInMonth }, (_, index) => {
+    const date = new Date(year, month, index + 1)
+    const dateKey = formatCalendarDateKey(date)
+    const champion = dailyChampionsByDate.value.get(dateKey)
+    if (champion) {
+      streak = previousChampionUserID === champion.user_id ? streak + 1 : 1
+      previousChampionUserID = champion.user_id
+    } else {
+      streak = 0
+      previousChampionUserID = null
+    }
+    return {
+      key: dateKey,
+      date: dateKey,
+      day: index + 1,
+      champion,
+      streak,
+      isPlaceholder: false,
+    }
+  })
+  const trailingPlaceholderCount = (7 - ((leadingPlaceholderCount + daysInMonth) % 7)) % 7
+
+  return {
+    key,
+    label: `${year}年${month + 1}月`,
+    isCurrent,
+    days: [
+      ...Array.from({ length: leadingPlaceholderCount }, (_, index) => createChampionCalendarPlaceholder(`${key}-leading-${index}`)),
+      ...realDays,
+      ...Array.from({ length: trailingPlaceholderCount }, (_, index) => createChampionCalendarPlaceholder(`${key}-trailing-${index}`)),
+    ],
+  }
+}
+
+function createChampionCalendarPlaceholder(key: string): ChampionCalendarDay {
+  return {
+    key,
+    date: '',
+    day: 0,
+    streak: 0,
+    isPlaceholder: true,
+  }
+}
+
+function formatCalendarDateKey(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatChampionCalendarDate(value: string): string {
+  const [, year = '', month = '', day = ''] = value.match(/^(\d{4})-(\d{2})-(\d{2})$/) ?? []
+  if (!year || !month || !day) return value
+  return `${year}年${Number(month)}月${Number(day)}日`
+}
+
+function formatCompactChineseTokens(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  const abs = Math.abs(value)
+  if (abs >= 100_000_000) return `${formatCompactUnit(value / 100_000_000)}亿`
+  if (abs >= 10_000) return `${formatCompactUnit(value / 10_000)}万`
+  return formatNumber(Math.max(0, Math.round(value)))
+}
+
+function formatCompactUnit(value: number): string {
+  return value.toFixed(1).replace(/\.0$/, '')
+}
+
+function dailyChampionDisplayName(champion: UserLeaderboardDailyChampion): string {
+  return champion.display_name?.trim() || champion.email_masked?.trim() || t('leaderboard.currentUser')
+}
+
+function dailyChampionAvatarUrl(champion: UserLeaderboardDailyChampion): string {
+  return champion.avatar_url?.trim() || ''
+}
+
+function dailyChampionAvatarInitial(champion: UserLeaderboardDailyChampion): string {
+  return Array.from(dailyChampionDisplayName(champion).trim())[0]?.toUpperCase() || 'U'
+}
+
+function championCalendarTooltip(day: ChampionCalendarDay): string {
+  if (!day.champion) return championCalendarEmptyLabel(day)
+  return [
+    formatChampionCalendarDate(day.date),
+    dailyChampionDisplayName(day.champion),
+    `${formatCompactChineseTokens(day.champion.tokens)} tokens`,
+  ].join('\n')
+}
+
+function championCalendarEmptyLabel(day: ChampionCalendarDay): string {
+  return t('leaderboard.calendar.emptyDay', { date: formatChampionCalendarDate(day.date) })
+}
+
+function championCalendarCellLabel(day: ChampionCalendarDay): string | undefined {
+  if (day.isPlaceholder) return undefined
+  return day.champion ? championCalendarTooltip(day) : championCalendarEmptyLabel(day)
+}
+
+function championCalendarCellTabIndex(day: ChampionCalendarDay): number | undefined {
+  return !day.isPlaceholder && day.champion ? 0 : undefined
 }
 
 function startVisualTokenTicker() {
@@ -844,12 +1001,41 @@ function tokenBarWidth(item: UserLeaderboardItem): string {
   return `${Math.min(84, Math.max(4, (item.tokens / maxRankingTokens.value) * 84))}%`
 }
 
+function leaderboardCacheTokens(item: UserLeaderboardItem): number {
+  return Math.max(0, (item.cache_creation_tokens ?? 0) + (item.cache_read_tokens ?? 0))
+}
+
+function leaderboardInputTokens(item: UserLeaderboardItem): number {
+  return Math.max(0, item.input_tokens ?? 0)
+}
+
+function leaderboardOutputTokens(item: UserLeaderboardItem): number {
+  return Math.max(0, item.output_tokens ?? 0)
+}
+
+function leaderboardCachePercent(item: UserLeaderboardItem): number {
+  if (item.tokens <= 0) return 0
+  return Math.min(100, (leaderboardCacheTokens(item) / item.tokens) * 100)
+}
+
+function leaderboardTokenSegmentPercent(value: number, total: number): string {
+  if (total <= 0 || value <= 0) return '0%'
+  return `${Math.min(100, (value / total) * 100).toFixed(1)}%`
+}
+
+function formatLeaderboardCachePercent(item: UserLeaderboardItem): string {
+  return `${leaderboardCachePercent(item).toFixed(1)}%`
+}
+
 function tokenBarStyle(item: UserLeaderboardItem): Record<string, string> {
   const palette = tokenBarPalette(item.rank)
   const widthText = tokenBarWidth(item)
 
   return {
     '--token-bar-width': widthText,
+    '--token-input-width': leaderboardTokenSegmentPercent(leaderboardInputTokens(item), item.tokens),
+    '--token-output-width': leaderboardTokenSegmentPercent(leaderboardOutputTokens(item), item.tokens),
+    '--token-cache-width': leaderboardTokenSegmentPercent(leaderboardCacheTokens(item), item.tokens),
     '--token-bar-value-left': `calc(${widthText} + 0.55rem)`,
     '--token-bar-value-x': '0',
     '--token-bar-color': palette.color,
@@ -857,38 +1043,6 @@ function tokenBarStyle(item: UserLeaderboardItem): Record<string, string> {
     '--token-rank-color': palette.text,
     '--token-value-color': palette.text,
   }
-}
-
-function modelBarWidth(item: UserLeaderboardModelItem): string {
-  if (maxModelRankingTokens.value <= 0 || item.tokens <= 0) return '0%'
-  return `${Math.min(84, Math.max(4, (item.tokens / maxModelRankingTokens.value) * 84))}%`
-}
-
-function modelBarStyle(item: UserLeaderboardModelItem): Record<string, string> {
-  const palette = tokenBarPalette(item.rank)
-  const widthText = modelBarWidth(item)
-
-  return {
-    '--token-bar-width': widthText,
-    '--token-bar-value-left': `calc(${widthText} + 0.55rem)`,
-    '--token-bar-value-x': '0',
-    '--token-bar-color': palette.color,
-    '--token-bar-glow': palette.glow,
-    '--token-rank-color': palette.text,
-    '--token-value-color': palette.text,
-  }
-}
-
-function modelTokenShare(item: UserLeaderboardModelItem): number {
-  const total = totalVisibleModelRankingTokens.value
-  if (total <= 0 || item.tokens <= 0) return 0
-  return Math.max(0, (item.tokens / total) * 100)
-}
-
-function modelTokenShareLabel(item: UserLeaderboardModelItem): string {
-  const share = modelTokenShare(item)
-  if (share > 0 && share < 0.1) return '<0.1%'
-  return `${share.toFixed(1)}%`
 }
 
 function tokenBarPalette(rank: number): { color: string; glow: string; text: string } {
@@ -927,69 +1081,9 @@ function leaderboardTokenMetricsLabel(item: UserLeaderboardItem): string {
   return [
     `${t('leaderboard.inputTokensShort')} ${formatNumber(item.input_tokens ?? 0)}`,
     `${t('leaderboard.outputTokensShort')} ${formatNumber(item.output_tokens ?? 0)}`,
+    `${t('leaderboard.cacheTokensShort')} ${formatNumber(leaderboardCacheTokens(item))} (${t('leaderboard.cacheRatioShort')} ${formatLeaderboardCachePercent(item)})`,
     `${t('leaderboard.costPerMillionShort')} ${formatLeaderboardCostPerMillion(item)} / 1M Token`,
   ].join(' / ')
-}
-
-function modelRankingMetricsLabel(item: UserLeaderboardModelItem): string {
-  return [
-    `${t('leaderboard.requests')} ${formatNumber(item.requests ?? 0)}`,
-    `${t('leaderboard.inputTokensShort')} ${formatNumber(item.input_tokens ?? 0)}`,
-    `${t('leaderboard.outputTokensShort')} ${formatNumber(item.output_tokens ?? 0)}`,
-    `${t('leaderboard.tokens')} ${formatNumber(item.tokens ?? 0)}`,
-    modelTokenShareLabel(item),
-  ].join(' / ')
-}
-
-function modelGrowthValue(item: UserLeaderboardModelItem): number | null {
-  const value = Number(item.growth_percent)
-  return Number.isFinite(value) ? value : null
-}
-
-function modelRankChangeValue(item: UserLeaderboardModelItem): number | null {
-  const value = Number(item.rank_change)
-  return Number.isFinite(value) ? Math.trunc(value) : null
-}
-
-function modelGrowthLabel(item: UserLeaderboardModelItem): string {
-  const value = modelGrowthValue(item)
-  if (value == null) return '—'
-  const prefix = value > 0 ? '+' : ''
-  return `${prefix}${value.toFixed(1)}%`
-}
-
-function modelRankChangeLabel(item: UserLeaderboardModelItem): string {
-  const value = modelRankChangeValue(item)
-  if (value == null || value === 0) return '—'
-  return value > 0 ? `↑ ${value}` : `↓ ${Math.abs(value)}`
-}
-
-function modelGrowthClass(item: UserLeaderboardModelItem): string {
-  const value = modelGrowthValue(item)
-  if (value == null || value === 0) return 'leaderboard-model-rank-insight--neutral'
-  return value > 0 ? 'leaderboard-model-rank-insight--up' : 'leaderboard-model-rank-insight--down'
-}
-
-function modelRankChangeClass(item: UserLeaderboardModelItem): string {
-  const value = modelRankChangeValue(item)
-  if (value == null || value === 0) return 'leaderboard-model-rank-insight--neutral'
-  return value > 0 ? 'leaderboard-model-rank-insight--up' : 'leaderboard-model-rank-insight--down'
-}
-
-function modelGrowthTitle(item: UserLeaderboardModelItem): string {
-  return `${t('leaderboard.growth')}: ${modelGrowthLabel(item)}`
-}
-
-function modelRankChangeTitle(item: UserLeaderboardModelItem): string {
-  return `${t('leaderboard.rankChange')}: ${modelRankChangeLabel(item)}`
-}
-
-function modelTokenTitle(item: UserLeaderboardModelItem): string {
-  return `${t('leaderboard.tokens')}: ${formatNumber(item.tokens ?? 0)}`
-}
-
-function modelRankingTrendLabel(item: UserLeaderboardModelItem): string {
-  return `${modelTokenTitle(item)} / ${modelGrowthTitle(item)} / ${modelRankChangeTitle(item)}`
 }
 
 function leaderboardAvatarUrl(item: UserLeaderboardItem): string {
@@ -1085,6 +1179,10 @@ function visibleLeaderboardTitleBadges(badges: LeaderboardBadge[] = []): Leaderb
   return badges.filter((badge) => leaderboardTitleBadges.includes(badge)).slice(0, visibleRankTitleLimit)
 }
 
+function hasLeaderboardRankSecondary(item: UserLeaderboardItem): boolean {
+  return Boolean(item.is_current_user) || visibleLeaderboardTitleBadges(item.badges).length > 0
+}
+
 function hiddenLeaderboardTitleBadgeCount(badges: LeaderboardBadge[] = []): number {
   return badges.filter((badge) => leaderboardTitleBadges.includes(badge)).slice(visibleRankTitleLimit).length
 }
@@ -1138,10 +1236,15 @@ function leaderboardBadgeClass(badge: LeaderboardBadge): string {
 onMounted(() => {
   startVisualTokenTicker()
   loadLeaderboard()
+  window.addEventListener('scroll', hideChampionTooltip, true)
+  window.addEventListener('resize', hideChampionTooltip)
 })
 
 onUnmounted(() => {
   stopVisualTokenTicker()
+  hideChampionTooltip()
+  window.removeEventListener('scroll', hideChampionTooltip, true)
+  window.removeEventListener('resize', hideChampionTooltip)
 })
 </script>
 
@@ -1298,8 +1401,9 @@ onUnmounted(() => {
 .leaderboard-ranking-card-toolbar {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  margin-bottom: 0.85rem;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .leaderboard-ranking-empty {
@@ -1372,34 +1476,6 @@ onUnmounted(() => {
   overflow: hidden;
 }
 
-.leaderboard-token-ranking-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  border-bottom: 1px solid rgb(148 163 184 / 0.18);
-  padding-bottom: 0.8rem;
-}
-
-.leaderboard-token-ranking-title {
-  display: flex;
-  min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  letter-spacing: 0;
-}
-
-.leaderboard-token-ranking-period {
-  display: inline-flex;
-  align-items: center;
-  border-left: 1px solid rgb(148 163 184 / 0.45);
-  padding-left: 0.45rem;
-  color: rgb(100 116 139);
-  font-size: 0.8125rem;
-  font-weight: 700;
-}
-
 .leaderboard-token-ranking-updated {
   flex: 0 0 auto;
   color: rgb(100 116 139);
@@ -1409,17 +1485,17 @@ onUnmounted(() => {
 
 .leaderboard-token-rank-list {
   display: grid;
-  gap: 0.82rem;
+  gap: 0.58rem;
   padding-top: 1rem;
 }
 
 .leaderboard-token-rank-row {
   display: grid;
-  grid-template-columns: minmax(11.5rem, 13.5rem) minmax(14rem, 1fr);
+  grid-template-columns: minmax(13.25rem, 16rem) minmax(14rem, 1fr);
   align-items: center;
   gap: 1rem;
-  min-height: 2.22rem;
-  padding: 0.08rem 0;
+  min-height: 3.7rem;
+  padding: 0.16rem 0;
 }
 
 .leaderboard-token-rank-row-current {
@@ -1427,16 +1503,14 @@ onUnmounted(() => {
   background: rgb(34 197 94 / 0.07);
 }
 
-.leaderboard-model-rank-row {
-  grid-template-columns: minmax(11rem, 13rem) minmax(9.5rem, 1fr) minmax(16rem, 17rem);
-}
-
 .leaderboard-token-rank-user {
   display: grid;
   min-width: 0;
-  grid-template-columns: 2.5rem 1.45rem minmax(0, 1fr);
+  grid-template-columns: 2.5rem 2.9rem minmax(0, 1fr);
+  grid-template-rows: minmax(1.2rem, auto) minmax(1.05rem, auto);
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.65rem;
+  row-gap: 0.22rem;
 }
 
 .leaderboard-token-rank-main {
@@ -1444,6 +1518,8 @@ onUnmounted(() => {
 }
 
 .leaderboard-token-rank-name {
+  grid-column: 3;
+  grid-row: 1;
   max-width: 100%;
   min-width: 0;
   overflow: hidden;
@@ -1452,6 +1528,11 @@ onUnmounted(() => {
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.leaderboard-token-rank-user--name-only .leaderboard-token-rank-name {
+  grid-row: 1 / span 2;
+  align-self: center;
 }
 
 .leaderboard-token-bar-area {
@@ -1471,18 +1552,43 @@ onUnmounted(() => {
 }
 
 .leaderboard-token-bar-fill {
+  display: flex;
   width: var(--token-bar-width);
   height: 100%;
   min-width: 0.7rem;
+  overflow: hidden;
   border-radius: 0.08rem 0.28rem 0.28rem 0.08rem;
-  background: var(--token-bar-color);
+  background: rgb(148 163 184 / 0.18);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.26),
     0 0.35rem 1.1rem var(--token-bar-glow);
   transition: width 520ms cubic-bezier(0.22, 0.72, 0.2, 1);
 }
 
+.leaderboard-token-bar-segment {
+  display: block;
+  height: 100%;
+  min-width: 0;
+}
+
+.leaderboard-token-bar-segment-input {
+  width: var(--token-input-width);
+  background: linear-gradient(90deg, rgb(20 20 19), rgb(37 37 35));
+}
+
+.leaderboard-token-bar-segment-output {
+  width: var(--token-output-width);
+  background: linear-gradient(90deg, rgb(169 88 62), rgb(204 120 92));
+}
+
+.leaderboard-token-bar-segment-cache {
+  width: var(--token-cache-width);
+  background: linear-gradient(90deg, rgb(76 148 132), rgb(93 184 166));
+}
+
 .leaderboard-token-rank-index {
+  grid-column: 1;
+  grid-row: 1 / span 2;
   min-width: 0;
   color: rgb(100 116 139);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
@@ -1492,10 +1598,12 @@ onUnmounted(() => {
 }
 
 .leaderboard-token-rank-avatar {
+  grid-column: 2;
+  grid-row: 1 / span 2;
   display: inline-flex;
   flex: 0 0 auto;
-  width: 1.45rem;
-  height: 1.45rem;
+  width: 2.9rem;
+  height: 2.9rem;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -1508,7 +1616,7 @@ onUnmounted(() => {
     0 0 0 1px rgb(15 23 42 / 0.08),
     0 0.32rem 0.72rem var(--token-bar-glow);
   color: var(--token-rank-color);
-  font-size: 0.7rem;
+  font-size: 1rem;
   font-weight: 900;
   line-height: 1;
   text-transform: uppercase;
@@ -1520,107 +1628,11 @@ onUnmounted(() => {
   object-fit: cover;
 }
 
-.leaderboard-model-rank-user {
-  display: grid;
-  min-width: 0;
-  grid-template-columns: 2.5rem 1.45rem minmax(0, 1fr);
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.leaderboard-model-rank-meta {
-  grid-column: 3;
-  min-width: 0;
-  overflow: hidden;
-  color: rgb(100 116 139);
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.leaderboard-model-rank-avatar {
-  border-radius: 0.35rem;
-  background:
-    linear-gradient(135deg, rgb(255 255 255 / 0.98), rgb(226 232 240 / 0.9)),
-    var(--token-bar-color);
-  color: rgb(15 23 42);
-  font-size: 0.62rem;
-}
-
-.leaderboard-model-rank-avatar :deep(.model-icon),
-.leaderboard-model-rank-avatar :deep(.model-icon-fallback) {
-  width: 1rem;
-  height: 1rem;
-}
-
-.leaderboard-model-rank-avatar :deep(.model-icon-fallback) {
-  border-radius: 0.2rem;
-}
-
-.leaderboard-model-rank-insights {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.55rem;
-  min-width: 0;
-}
-
-.leaderboard-model-rank-insight {
-  display: grid;
-  min-width: 0;
-  min-height: 3.05rem;
-  align-content: center;
-  gap: 0.22rem;
-  overflow: hidden;
-  border: 1px solid rgb(148 163 184 / 0.14);
-  border-radius: 0.38rem;
-  background: rgb(248 250 252 / 0.84);
-  padding: 0.45rem 0.5rem;
-  text-align: right;
-}
-
-.leaderboard-model-rank-insight-value {
-  min-width: 0;
-  overflow: hidden;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.92rem;
-  font-weight: 900;
-  line-height: 1;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.leaderboard-model-rank-insight-label {
-  min-width: 0;
-  overflow: hidden;
-  color: rgb(100 116 139);
-  font-size: 0.72rem;
-  font-weight: 800;
-  line-height: 1.15;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.leaderboard-model-rank-insight--up .leaderboard-model-rank-insight-value {
-  color: rgb(22 163 74);
-}
-
-.leaderboard-model-rank-insight--down .leaderboard-model-rank-insight-value {
-  color: rgb(220 38 38);
-}
-
-.leaderboard-model-rank-insight--neutral .leaderboard-model-rank-insight-value {
-  color: rgb(100 116 139);
-}
-
-.leaderboard-model-rank-insight--token .leaderboard-model-rank-insight-value {
-  color: rgb(15 23 42);
-}
-
 .leaderboard-token-current-tag {
   flex: 0 0 auto;
   justify-self: start;
   grid-column: 3;
+  grid-row: 2;
   border-radius: 9999px;
   background: rgb(34 197 94 / 0.12);
   padding: 0.1rem 0.45rem;
@@ -1632,6 +1644,7 @@ onUnmounted(() => {
 .leaderboard-token-title-list {
   display: flex;
   grid-column: 3;
+  grid-row: 2;
   max-width: 100%;
   min-width: 0;
   flex-wrap: wrap;
@@ -1815,6 +1828,259 @@ onUnmounted(() => {
   text-shadow: 0 1px 0 rgb(255 255 255 / 0.78);
 }
 
+.leaderboard-calendar-card {
+  overflow: hidden;
+  border: 1px solid rgb(148 163 184 / 0.22);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.86), rgb(248 250 252 / 0.7)),
+    linear-gradient(90deg, rgb(148 163 184 / 0.1) 1px, transparent 1px),
+    rgb(248 250 252 / 0.72);
+  background-size: auto, 3rem 100%, auto;
+  padding: 1rem;
+  box-shadow: 0 1rem 2.4rem rgb(15 23 42 / 0.05);
+}
+
+.leaderboard-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.8rem;
+  padding-bottom: 0.8rem;
+}
+
+.leaderboard-calendar-title {
+  flex: 1 1 auto;
+  color: rgb(15 23 42);
+  font-size: 1.12rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.25;
+  text-align: left;
+}
+
+.leaderboard-calendar-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.25rem;
+}
+
+.leaderboard-calendar-scroll::-webkit-scrollbar {
+  height: 0.45rem;
+}
+
+.leaderboard-calendar-scroll::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgb(148 163 184 / 0.32);
+}
+
+.leaderboard-calendar-months {
+  display: grid;
+  min-width: 50.75rem;
+  grid-template-columns: repeat(2, minmax(24.4rem, 1fr));
+  gap: 1rem;
+}
+
+.leaderboard-calendar-month-panel {
+  overflow: hidden;
+  border: 1px solid rgb(148 163 184 / 0.22);
+  border-radius: 0.65rem;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(241 245 249 / 0.64)),
+    rgb(255 255 255 / 0.68);
+  padding: 0.85rem;
+}
+
+.leaderboard-calendar-month-panel--current {
+  border-color: rgb(59 130 246 / 0.28);
+  background:
+    linear-gradient(180deg, rgb(239 246 255 / 0.9), rgb(255 255 255 / 0.72)),
+    rgb(255 255 255 / 0.72);
+}
+
+.leaderboard-calendar-month {
+  margin-bottom: 0.6rem;
+  color: rgb(15 23 42);
+  font-size: 0.98rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.leaderboard-calendar-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 0.42rem;
+}
+
+.leaderboard-calendar-weekday {
+  color: rgb(100 116 139);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+}
+
+.leaderboard-calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  grid-auto-rows: 3.45rem;
+  gap: 0.4rem;
+}
+
+.leaderboard-calendar-day {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  height: 3.45rem;
+  justify-items: center;
+  overflow: hidden;
+  border: 1px solid rgb(148 163 184 / 0.22);
+  border-radius: 0.5rem;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 0.8), rgb(241 245 249 / 0.48)),
+    rgb(255 255 255 / 0.56);
+}
+
+.leaderboard-calendar-day--active {
+  border-color: rgb(245 158 11 / 0.42);
+  background:
+    radial-gradient(circle at 50% 18%, rgb(251 191 36 / 0.28), transparent 58%),
+    linear-gradient(180deg, rgb(255 251 235 / 0.88), rgb(255 255 255 / 0.62));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.7),
+    0 0.45rem 1rem rgb(245 158 11 / 0.1);
+}
+
+.leaderboard-calendar-day--placeholder {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+.leaderboard-calendar-day-number {
+  position: absolute;
+  top: 0.22rem;
+  left: 0.28rem;
+  z-index: 2;
+  display: inline-flex;
+  min-width: 1rem;
+  height: 0.95rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgb(255 251 235 / 0.86);
+  color: rgb(146 64 14);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 0 0 1px rgb(245 158 11 / 0.16);
+}
+
+.leaderboard-calendar-avatar {
+  position: absolute;
+  inset: 0;
+  display: inline-flex;
+  width: 100%;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: inherit;
+  background:
+    radial-gradient(circle at 50% 36%, rgb(255 255 255 / 0.26), transparent 42%),
+    linear-gradient(135deg, rgb(253 230 138 / 0.98), rgb(217 119 6 / 0.82)),
+    rgb(217 119 6);
+  color: rgb(255 251 235);
+  font-size: 1.18rem;
+  font-weight: 900;
+  line-height: 1;
+  text-shadow: 0 1px 0 rgb(120 53 15 / 0.35);
+  text-transform: uppercase;
+}
+
+.leaderboard-calendar-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.leaderboard-calendar-day--active .leaderboard-calendar-avatar::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgb(15 23 42 / 0.18), transparent 42%, rgb(15 23 42 / 0.08)),
+    inset 0 0 0 1px rgb(255 255 255 / 0.34);
+  pointer-events: none;
+  content: "";
+}
+
+.leaderboard-calendar-tooltip {
+  position: absolute;
+  z-index: 1200;
+  display: grid;
+  width: 15rem;
+  min-height: 6.1rem;
+  gap: 0.34rem;
+  border: 1px solid rgb(120 53 15 / 0.34);
+  border-radius: 0.5rem;
+  background:
+    linear-gradient(180deg, rgb(28 25 18 / 0.98), rgb(18 16 11 / 0.98)),
+    rgb(18 16 11);
+  box-shadow:
+    0 1rem 2rem rgb(15 23 42 / 0.22),
+    0 0 0 1px rgb(253 224 71 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
+  color: rgb(245 245 244);
+  padding: 0.72rem 0.78rem 0.7rem;
+  pointer-events: none;
+  letter-spacing: 0;
+}
+
+.leaderboard-calendar-tooltip-date {
+  color: rgb(161 161 170);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.leaderboard-calendar-tooltip-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: baseline;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.leaderboard-calendar-tooltip-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: rgb(250 250 249);
+  font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+  font-size: 0.92rem;
+  font-weight: 900;
+  line-height: 1.18;
+}
+
+.leaderboard-calendar-tooltip-tokens {
+  color: rgb(234 179 8);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.75rem;
+  font-weight: 900;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.leaderboard-calendar-tooltip-meta {
+  color: rgb(168 162 158);
+  font-size: 0.74rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
 :global(.dark .leaderboard-token-card) {
   border-color: rgb(71 85 105 / 0.34);
   background:
@@ -1964,47 +2230,112 @@ onUnmounted(() => {
     0 0.32rem 0.8rem var(--token-bar-glow);
 }
 
-:global(.dark .leaderboard-model-rank-meta) {
-  color: rgb(148 163 184);
-}
-
-:global(.dark .leaderboard-model-rank-avatar) {
-  background:
-    linear-gradient(135deg, rgb(255 255 255 / 0.98), rgb(226 232 240 / 0.92)),
-    var(--token-bar-color);
-  color: rgb(15 23 42);
-}
-
-:global(.dark .leaderboard-model-rank-insight) {
-  border-color: rgb(51 65 85 / 0.72);
-  background: rgb(30 41 59 / 0.72);
-}
-
-:global(.dark .leaderboard-model-rank-insight-label) {
-  color: rgb(148 163 184);
-}
-
-:global(.dark .leaderboard-model-rank-insight--up .leaderboard-model-rank-insight-value) {
-  color: rgb(74 222 128);
-}
-
-:global(.dark .leaderboard-model-rank-insight--down .leaderboard-model-rank-insight-value) {
-  color: rgb(248 113 113);
-}
-
-:global(.dark .leaderboard-model-rank-insight--neutral .leaderboard-model-rank-insight-value) {
-  color: rgb(203 213 225);
-}
-
-:global(.dark .leaderboard-model-rank-insight--token .leaderboard-model-rank-insight-value) {
-  color: rgb(248 250 252);
-}
-
 :global(.dark .leaderboard-token-bar-track) {
   background:
     linear-gradient(90deg, rgb(148 163 184 / 0.1) 1px, transparent 1px),
     transparent;
   background-size: 10% 100%;
+}
+
+:global(.dark .leaderboard-token-bar-fill) {
+  background: rgb(51 65 85 / 0.42);
+}
+
+:global(.dark .leaderboard-token-bar-segment-input) {
+  background: linear-gradient(90deg, rgb(160 157 150), rgb(250 249 245));
+}
+
+:global(.dark .leaderboard-token-bar-segment-output) {
+  background: linear-gradient(90deg, rgb(169 88 62), rgb(204 120 92));
+}
+
+:global(.dark .leaderboard-token-bar-segment-cache) {
+  background: linear-gradient(90deg, rgb(76 148 132), rgb(93 184 166));
+}
+
+:global(.dark .leaderboard-calendar-card) {
+  border-color: rgb(71 85 105 / 0.34);
+  background:
+    linear-gradient(180deg, rgb(15 23 42 / 0.58), rgb(15 23 42 / 0.28)),
+    linear-gradient(90deg, rgb(148 163 184 / 0.08) 1px, transparent 1px),
+    rgb(15 23 42 / 0.3);
+  background-size: auto, 3rem 100%, auto;
+  box-shadow: none;
+}
+
+:global(.dark .leaderboard-calendar-title),
+:global(.dark .leaderboard-calendar-month) {
+  color: rgb(248 250 252);
+}
+
+:global(.dark .leaderboard-calendar-scroll::-webkit-scrollbar-thumb) {
+  background: rgb(148 163 184 / 0.34);
+}
+
+:global(.dark .leaderboard-calendar-month-panel) {
+  border-color: rgb(71 85 105 / 0.34);
+  background:
+    linear-gradient(180deg, rgb(30 41 59 / 0.68), rgb(15 23 42 / 0.5)),
+    rgb(15 23 42 / 0.42);
+}
+
+:global(.dark .leaderboard-calendar-month-panel--current) {
+  border-color: rgb(96 165 250 / 0.36);
+  background:
+    linear-gradient(180deg, rgb(30 41 59 / 0.78), rgb(15 23 42 / 0.56)),
+    rgb(15 23 42 / 0.48);
+}
+
+:global(.dark .leaderboard-calendar-weekday) {
+  color: rgb(148 163 184);
+}
+
+:global(.dark .leaderboard-calendar-day) {
+  border-color: rgb(71 85 105 / 0.4);
+  background:
+    linear-gradient(180deg, rgb(30 41 59 / 0.66), rgb(15 23 42 / 0.36)),
+    rgb(15 23 42 / 0.32);
+}
+
+:global(.dark .leaderboard-calendar-day--active) {
+  border-color: rgb(252 211 77 / 0.42);
+  background:
+    radial-gradient(circle at 50% 18%, rgb(251 191 36 / 0.22), transparent 58%),
+    linear-gradient(180deg, rgb(30 41 59 / 0.84), rgb(15 23 42 / 0.6));
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.08),
+    0 0.45rem 1rem rgb(251 191 36 / 0.1);
+}
+
+:global(.dark .leaderboard-calendar-day--placeholder) {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+:global(.dark .leaderboard-calendar-day-number) {
+  background: rgb(15 23 42 / 0.72);
+  color: rgb(253 224 71);
+  box-shadow: 0 0 0 1px rgb(252 211 77 / 0.12);
+}
+
+:global(.dark .leaderboard-calendar-avatar) {
+  background:
+    radial-gradient(circle at 50% 36%, rgb(255 255 255 / 0.16), transparent 42%),
+    linear-gradient(135deg, rgb(30 41 59 / 0.96), rgb(217 119 6 / 0.7)),
+    rgb(217 119 6);
+  color: rgb(253 224 71);
+}
+
+:global(.dark .leaderboard-calendar-tooltip) {
+  border-color: rgb(252 211 77 / 0.2);
+  background:
+    linear-gradient(180deg, rgb(17 17 17 / 0.98), rgb(8 8 8 / 0.98)),
+    rgb(8 8 8);
+  box-shadow:
+    0 1rem 2rem rgb(0 0 0 / 0.34),
+    0 0 0 1px rgb(252 211 77 / 0.08),
+    inset 0 1px 0 rgb(255 255 255 / 0.08);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2020,31 +2351,21 @@ onUnmounted(() => {
 
 @media (max-width: 767px) {
   .leaderboard-ranking-card-toolbar {
+    flex-wrap: wrap;
     margin-bottom: 0.7rem;
-  }
-
-  .leaderboard-token-ranking-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.35rem;
   }
 
   .leaderboard-token-rank-row {
     grid-template-columns: 1fr;
-    gap: 0.35rem;
-    padding: 0.25rem 0;
-  }
-
-  .leaderboard-model-rank-row {
-    gap: 0.5rem;
+    gap: 0.45rem;
+    min-height: 3.35rem;
+    padding: 0.26rem 0;
   }
 
   .leaderboard-token-rank-user {
-    grid-template-columns: 2.35rem 1.28rem minmax(0, 1fr);
-  }
-
-  .leaderboard-model-rank-user {
-    grid-template-columns: 2.35rem 1.28rem minmax(0, 1fr);
+    grid-template-columns: 2.35rem 2.5rem minmax(0, 1fr);
+    grid-template-rows: minmax(1.1rem, auto) minmax(1rem, auto);
+    row-gap: 0.18rem;
   }
 
   .leaderboard-token-bar-track {
@@ -2055,21 +2376,11 @@ onUnmounted(() => {
     font-size: 0.8rem;
   }
 
-  .leaderboard-model-rank-insights {
-    grid-template-columns: repeat(3, minmax(0, 6.5rem));
-    justify-content: end;
-  }
-
-  .leaderboard-model-rank-insight {
-    min-height: 2.75rem;
-    padding: 0.38rem 0.48rem;
-  }
-
   .leaderboard-token-rank-avatar {
-    width: 1.28rem;
-    height: 1.28rem;
+    width: 2.5rem;
+    height: 2.5rem;
     border-width: 1px;
-    font-size: 0.62rem;
+    font-size: 0.9rem;
   }
 
   .leaderboard-token-odometer {
@@ -2102,6 +2413,41 @@ onUnmounted(() => {
   .leaderboard-token-trend-chart,
   .leaderboard-token-trend-empty {
     height: 6.1rem;
+  }
+
+  .leaderboard-calendar-card {
+    padding: 0.95rem;
+  }
+
+  .leaderboard-calendar-head {
+    padding-bottom: 0.65rem;
+  }
+
+  .leaderboard-calendar-months {
+    min-width: 44.7rem;
+    grid-template-columns: repeat(2, 21.85rem);
+    gap: 0.75rem;
+  }
+
+  .leaderboard-calendar-month-panel {
+    padding: 0.72rem;
+  }
+
+  .leaderboard-calendar-weekdays,
+  .leaderboard-calendar-days {
+    gap: 0.48rem;
+  }
+
+  .leaderboard-calendar-days {
+    grid-auto-rows: 3.05rem;
+  }
+
+  .leaderboard-calendar-day {
+    height: 3.05rem;
+  }
+
+  .leaderboard-calendar-avatar {
+    font-size: 1rem;
   }
 
   .leaderboard-reward-head {

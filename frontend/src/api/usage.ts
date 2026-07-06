@@ -20,6 +20,7 @@ export type {
   LeaderboardBadge,
   LeaderboardPeriod,
   LeaderboardDailyRewards,
+  UserLeaderboardDailyChampion,
   LeaderboardDailyRewardTopUser,
   UserLeaderboardItem,
   UserLeaderboardResponse,

@@ -2044,6 +2044,8 @@ export interface UserLeaderboardItem {
   requests: number
   input_tokens: number
   output_tokens: number
+  cache_creation_tokens: number
+  cache_read_tokens: number
   tokens: number
   cost_per_1m_tokens: number
   balance: number
@@ -2054,6 +2056,15 @@ export interface UserLeaderboardItem {
 export interface UserLeaderboardTokenTrendPoint {
   date: string
   total_tokens: number
+}
+
+export interface UserLeaderboardDailyChampion {
+  date: string
+  user_id: number
+  display_name: string
+  email_masked: string
+  avatar_url?: string | null
+  tokens: number
 }
 
 export interface UserLeaderboardModelItem {
@@ -2110,6 +2121,7 @@ export interface UserLeaderboardResponse {
   total_models?: number
   daily_rewards?: LeaderboardDailyRewards | null
   recent_token_trend?: UserLeaderboardTokenTrendPoint[]
+  daily_champions?: UserLeaderboardDailyChampion[]
 }
 
 export interface ApiKeyUsageTrendPoint {

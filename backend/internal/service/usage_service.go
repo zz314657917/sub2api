@@ -75,6 +75,7 @@ type UsageService struct {
 	userLeaderboardCache map[string]leaderboardUserCacheEntry
 	modelRankingCache    map[string]leaderboardModelRankingCacheEntry
 	recentTrendCache     map[string]leaderboardRecentTrendCacheEntry
+	dailyChampionsCache  map[string]leaderboardDailyChampionsCacheEntry
 }
 
 type userLeaderboardBadgeLeaderRepository interface {
@@ -83,6 +84,10 @@ type userLeaderboardBadgeLeaderRepository interface {
 
 type leaderboardModelRankingRepository interface {
 	GetLeaderboardModelRanking(ctx context.Context, startTime, endTime time.Time, limit int) ([]usagestats.UserLeaderboardModelItem, int64, error)
+}
+
+type leaderboardDailyChampionsRepository interface {
+	GetLeaderboardDailyChampions(ctx context.Context, startTime, endTime time.Time) ([]usagestats.UserLeaderboardDailyChampion, error)
 }
 
 type leaderboardBadgeCacheEntry struct {
@@ -106,6 +111,11 @@ type leaderboardRecentTrendCacheEntry struct {
 	points    []usagestats.UserLeaderboardTokenTrendPoint
 }
 
+type leaderboardDailyChampionsCacheEntry struct {
+	expiresAt time.Time
+	champions []usagestats.UserLeaderboardDailyChampion
+}
+
 // NewUsageService 创建使用统计服务实例
 func NewUsageService(usageRepo UsageLogRepository, userRepo UserRepository, entClient *dbent.Client, authCacheInvalidator APIKeyAuthCacheInvalidator) *UsageService {
 	return &UsageService{
@@ -117,6 +127,7 @@ func NewUsageService(usageRepo UsageLogRepository, userRepo UserRepository, entC
 		userLeaderboardCache: make(map[string]leaderboardUserCacheEntry),
 		modelRankingCache:    make(map[string]leaderboardModelRankingCacheEntry),
 		recentTrendCache:     make(map[string]leaderboardRecentTrendCacheEntry),
+		dailyChampionsCache:  make(map[string]leaderboardDailyChampionsCacheEntry),
 	}
 }
 
@@ -465,6 +476,38 @@ func (s *UsageService) GetLeaderboardRecentTokenTrend(ctx context.Context, start
 	return cloneLeaderboardRecentTrend(points), nil
 }
 
+// GetLeaderboardDailyChampions returns daily top token users for the leaderboard calendar.
+func (s *UsageService) GetLeaderboardDailyChampions(ctx context.Context, startTime, endTime time.Time) ([]usagestats.UserLeaderboardDailyChampion, error) {
+	repo, ok := s.usageRepo.(leaderboardDailyChampionsRepository)
+	if !ok {
+		return []usagestats.UserLeaderboardDailyChampion{}, nil
+	}
+	cacheKey := leaderboardStatsCacheKey(startTime, endTime, 0)
+	if champions, ok := s.getCachedLeaderboardDailyChampions(cacheKey, time.Now()); ok {
+		return champions, nil
+	}
+
+	value, err, _ := s.leaderboardCacheSF.Do("daily-champions:"+cacheKey, func() (any, error) {
+		if champions, ok := s.getCachedLeaderboardDailyChampions(cacheKey, time.Now()); ok {
+			return champions, nil
+		}
+		champions, err := repo.GetLeaderboardDailyChampions(ctx, startTime, endTime)
+		if err != nil {
+			return nil, err
+		}
+		if champions == nil {
+			champions = []usagestats.UserLeaderboardDailyChampion{}
+		}
+		s.setCachedLeaderboardDailyChampions(cacheKey, champions, time.Now())
+		return cloneLeaderboardDailyChampions(champions), nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("get leaderboard daily champions: %w", err)
+	}
+	champions, _ := value.([]usagestats.UserLeaderboardDailyChampion)
+	return cloneLeaderboardDailyChampions(champions), nil
+}
+
 // GetUserLeaderboardBadgeLeaders returns special badge leader user IDs for the requested windows.
 func (s *UsageService) GetUserLeaderboardBadgeLeaders(ctx context.Context, weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd time.Time, userTZ string) (*usagestats.UserLeaderboardBadgeLeaders, error) {
 	repo, ok := s.usageRepo.(userLeaderboardBadgeLeaderRepository)
@@ -618,6 +661,39 @@ func (s *UsageService) setCachedLeaderboardRecentTrend(key string, points []usag
 	}
 }
 
+func (s *UsageService) getCachedLeaderboardDailyChampions(key string, now time.Time) ([]usagestats.UserLeaderboardDailyChampion, bool) {
+	if s == nil || key == "" {
+		return nil, false
+	}
+	s.leaderboardCacheMu.Lock()
+	defer s.leaderboardCacheMu.Unlock()
+	entry, ok := s.dailyChampionsCache[key]
+	if !ok || !now.Before(entry.expiresAt) {
+		return nil, false
+	}
+	return cloneLeaderboardDailyChampions(entry.champions), true
+}
+
+func (s *UsageService) setCachedLeaderboardDailyChampions(key string, champions []usagestats.UserLeaderboardDailyChampion, now time.Time) {
+	if s == nil || key == "" {
+		return
+	}
+	s.leaderboardCacheMu.Lock()
+	defer s.leaderboardCacheMu.Unlock()
+	if s.dailyChampionsCache == nil {
+		s.dailyChampionsCache = make(map[string]leaderboardDailyChampionsCacheEntry)
+	}
+	for existingKey, entry := range s.dailyChampionsCache {
+		if !now.Before(entry.expiresAt) {
+			delete(s.dailyChampionsCache, existingKey)
+		}
+	}
+	s.dailyChampionsCache[key] = leaderboardDailyChampionsCacheEntry{
+		expiresAt: now.Add(leaderboardStatsCacheTTL),
+		champions: cloneLeaderboardDailyChampions(champions),
+	}
+}
+
 func userLeaderboardStatsCacheKey(startTime, endTime time.Time, limit int, currentUserID int64) string {
 	return strings.Join([]string{
 		leaderboardStatsCacheKey(startTime, endTime, limit),
@@ -704,6 +780,7 @@ func cloneUserLeaderboardResponse(payload *usagestats.UserLeaderboardResponse) *
 	}
 	clone.ModelRanking = cloneUserLeaderboardModelItems(payload.ModelRanking)
 	clone.RecentTokenTrend = cloneLeaderboardRecentTrend(payload.RecentTokenTrend)
+	clone.DailyChampions = cloneLeaderboardDailyChampions(payload.DailyChampions)
 	clone.DailyRewards = cloneLeaderboardDailyRewards(payload.DailyRewards)
 	return &clone
 }
@@ -753,6 +830,21 @@ func cloneLeaderboardRecentTrend(points []usagestats.UserLeaderboardTokenTrendPo
 	}
 	clones := make([]usagestats.UserLeaderboardTokenTrendPoint, len(points))
 	copy(clones, points)
+	return clones
+}
+
+func cloneLeaderboardDailyChampions(champions []usagestats.UserLeaderboardDailyChampion) []usagestats.UserLeaderboardDailyChampion {
+	if champions == nil {
+		return nil
+	}
+	clones := make([]usagestats.UserLeaderboardDailyChampion, len(champions))
+	for i, champion := range champions {
+		if champion.AvatarURL != nil {
+			avatarURL := *champion.AvatarURL
+			champion.AvatarURL = &avatarURL
+		}
+		clones[i] = champion
+	}
 	return clones
 }
 
