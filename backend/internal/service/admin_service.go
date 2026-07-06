@@ -60,6 +60,8 @@ type AdminService interface {
 	UpdateGroup(ctx context.Context, id int64, input *UpdateGroupInput) (*Group, error)
 	DeleteGroup(ctx context.Context, id int64) error
 	GetGroupAPIKeys(ctx context.Context, groupID int64, page, pageSize int) ([]APIKey, int64, error)
+	GetGroupAccounts(ctx context.Context, groupID int64) ([]Account, error)
+	UpdateGroupAccountPriorities(ctx context.Context, groupID int64, updates []GroupAccountPriorityUpdate) error
 	GetGroupRateMultipliers(ctx context.Context, groupID int64) ([]UserGroupRateEntry, error)
 	ClearGroupRateMultipliers(ctx context.Context, groupID int64) error
 	BatchSetGroupRateMultipliers(ctx context.Context, groupID int64, entries []GroupRateMultiplierInput) error
@@ -2526,6 +2528,61 @@ func (s *adminServiceImpl) GetGroupAPIKeys(ctx context.Context, groupID int64, p
 		return nil, 0, err
 	}
 	return keys, result.Total, nil
+}
+
+func (s *adminServiceImpl) GetGroupAccounts(ctx context.Context, groupID int64) ([]Account, error) {
+	if groupID <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_GROUP_ID", "group_id must be positive")
+	}
+	if _, err := s.groupRepo.GetByID(ctx, groupID); err != nil {
+		return nil, err
+	}
+	return s.accountRepo.ListAllByGroup(ctx, groupID)
+}
+
+func (s *adminServiceImpl) UpdateGroupAccountPriorities(ctx context.Context, groupID int64, updates []GroupAccountPriorityUpdate) error {
+	if groupID <= 0 {
+		return infraerrors.BadRequest("INVALID_GROUP_ID", "group_id must be positive")
+	}
+	if len(updates) == 0 {
+		return infraerrors.BadRequest("EMPTY_ACCOUNT_PRIORITIES", "updates must not be empty")
+	}
+	if _, err := s.groupRepo.GetByID(ctx, groupID); err != nil {
+		return err
+	}
+
+	accounts, err := s.accountRepo.ListAllByGroup(ctx, groupID)
+	if err != nil {
+		return err
+	}
+	boundAccountIDs := make(map[int64]struct{}, len(accounts))
+	for _, account := range accounts {
+		boundAccountIDs[account.ID] = struct{}{}
+	}
+
+	cleaned := make([]GroupAccountPriorityUpdate, 0, len(updates))
+	seen := make(map[int64]struct{}, len(updates))
+	for _, update := range updates {
+		if update.AccountID <= 0 {
+			return infraerrors.BadRequest("INVALID_ACCOUNT_ID", "account_id must be positive")
+		}
+		if update.Priority <= 0 {
+			return infraerrors.BadRequest("INVALID_ACCOUNT_PRIORITY", "priority must be positive")
+		}
+		if _, ok := boundAccountIDs[update.AccountID]; !ok {
+			return infraerrors.BadRequest("ACCOUNT_NOT_IN_GROUP", fmt.Sprintf("account %d is not bound to group %d", update.AccountID, groupID))
+		}
+		if _, ok := seen[update.AccountID]; ok {
+			return infraerrors.BadRequest("DUPLICATE_ACCOUNT_PRIORITY", fmt.Sprintf("account %d appears multiple times", update.AccountID))
+		}
+		seen[update.AccountID] = struct{}{}
+		cleaned = append(cleaned, GroupAccountPriorityUpdate{
+			AccountID: update.AccountID,
+			Priority:  update.Priority,
+		})
+	}
+
+	return s.accountRepo.UpdateGroupAccountPriorities(ctx, groupID, cleaned)
 }
 
 func buildUserGroupRateChangeMetadata(oldRates map[int64]float64, newRates map[int64]*float64) []map[string]any {

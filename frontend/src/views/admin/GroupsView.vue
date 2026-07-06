@@ -91,18 +91,29 @@
           @sort="handleSort"
         >
           <template #cell-name="{ row, value }">
-            <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <div class="flex min-w-0 flex-wrap items-center gap-1.5">
               <span class="font-medium text-gray-900 dark:text-white">{{
                 value
               }}</span>
               <span
-                :class="[
-                  'inline-flex h-5 items-center rounded border px-1.5 text-[10px] font-semibold leading-none',
-                  routingScopeBadgeClass(row.routing_scope),
-                ]"
+                :class="[groupNameBadgeClass, routingScopeBadgeClass(row.routing_scope)]"
                 :title="t('admin.groups.form.routingScope')"
               >
                 {{ routingScopeLabel(row.routing_scope) }}
+              </span>
+              <span
+                :class="[
+                  groupNameBadgeClass,
+                  row.is_exclusive
+                    ? 'border-primary-200 bg-primary-50 text-primary-700 dark:border-primary-700/50 dark:bg-primary-900/20 dark:text-primary-300'
+                    : 'border-gray-200 bg-gray-50 text-gray-700 dark:border-dark-500 dark:bg-dark-700 dark:text-gray-300',
+                ]"
+              >
+                {{
+                  row.is_exclusive
+                    ? t("admin.groups.exclusive")
+                    : t("admin.groups.public")
+                }}
               </span>
             </div>
           </template>
@@ -194,14 +205,6 @@
             <span class="text-sm text-gray-700 dark:text-gray-300"
               >{{ value }}x</span
             >
-          </template>
-
-          <template #cell-is_exclusive="{ value }">
-            <span :class="['badge', value ? 'badge-primary' : 'badge-gray']">
-              {{
-                value ? t("admin.groups.exclusive") : t("admin.groups.public")
-              }}
-            </span>
           </template>
 
           <template #cell-account_count="{ row }">
@@ -306,6 +309,15 @@
               >
                 <Icon name="edit" size="sm" />
                 <span class="text-xs">{{ t("common.edit") }}</span>
+              </button>
+              <button
+                @click="handleAccountPriority(row)"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-gray-100 hover:text-sky-600 dark:hover:bg-dark-700 dark:hover:text-sky-400"
+              >
+                <Icon name="arrowsUpDown" size="sm" />
+                <span class="text-xs">{{
+                  t("admin.groups.accountPriority.action")
+                }}</span>
               </button>
               <button
                 @click="handleRateMultipliers(row)"
@@ -3356,6 +3368,14 @@
       @close="showRPMOverridesModal = false"
       @success="loadGroups"
     />
+
+    <!-- Group Account Priority Modal -->
+    <GroupAccountPriorityModal
+      :show="showAccountPriorityModal"
+      :group="accountPriorityGroup"
+      @close="showAccountPriorityModal = false"
+      @success="loadGroups"
+    />
   </AppLayout>
 </template>
 
@@ -3390,6 +3410,7 @@ import PlatformIcon from "@/components/common/PlatformIcon.vue";
 import Icon from "@/components/icons/Icon.vue";
 import GroupRateMultipliersModal from "@/components/admin/group/GroupRateMultipliersModal.vue";
 import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesModal.vue";
+import GroupAccountPriorityModal from "@/components/admin/group/GroupAccountPriorityModal.vue";
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
 import { VueDraggable } from "vue-draggable-plus";
 import { createStableObjectKeyResolver } from "@/utils/stableObjectKey";
@@ -3446,11 +3467,6 @@ const columns = computed<Column[]>(() => [
   {
     key: "rate_multiplier",
     label: t("admin.groups.columns.rateMultiplier"),
-    sortable: true,
-  },
-  {
-    key: "is_exclusive",
-    label: t("admin.groups.columns.type"),
     sortable: true,
   },
   {
@@ -3527,6 +3543,9 @@ const normalizeRoutingScope = (scope?: string | null): GroupRoutingScope => {
 
 const routingScopeLabel = (scope?: string | null) =>
   t(`admin.groups.routingScopes.${normalizeRoutingScope(scope)}`);
+
+const groupNameBadgeClass =
+  "inline-flex h-5 items-center rounded border px-1.5 text-[10px] font-semibold leading-none";
 
 const routingScopeBadgeClass = (scope?: string | null) => {
   switch (normalizeRoutingScope(scope)) {
@@ -3692,6 +3711,8 @@ const showRateMultipliersModal = ref(false);
 const rateMultipliersGroup = ref<AdminGroup | null>(null);
 const showRPMOverridesModal = ref(false);
 const rpmOverridesGroup = ref<AdminGroup | null>(null);
+const showAccountPriorityModal = ref(false);
+const accountPriorityGroup = ref<AdminGroup | null>(null);
 const sortableGroups = ref<AdminGroup[]>([]);
 const createMessagesDispatchDefaults = createDefaultMessagesDispatchFormState();
 const editMessagesDispatchDefaults = createDefaultMessagesDispatchFormState();
@@ -5006,6 +5027,11 @@ const handleRateMultipliers = (group: AdminGroup) => {
 const handleRPMOverrides = (group: AdminGroup) => {
   rpmOverridesGroup.value = group;
   showRPMOverridesModal.value = true;
+};
+
+const handleAccountPriority = (group: AdminGroup) => {
+  accountPriorityGroup.value = group;
+  showAccountPriorityModal.value = true;
 };
 
 const handleCreatePlan = (group: AdminGroup) => {

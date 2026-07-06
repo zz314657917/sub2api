@@ -6,6 +6,7 @@ import (
 	"context"
 	"testing"
 
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/stretchr/testify/require"
 )
@@ -122,6 +123,23 @@ func (s *groupRepoStubForAdmin) GetAccountIDsByGroupIDs(_ context.Context, _ []i
 }
 
 func (s *groupRepoStubForAdmin) UpdateSortOrders(_ context.Context, _ []GroupSortOrderUpdate) error {
+	return nil
+}
+
+type accountRepoStubForGroupPriority struct {
+	AccountRepository
+	accounts       []Account
+	updateGroupID  int64
+	updateRequests []GroupAccountPriorityUpdate
+}
+
+func (s *accountRepoStubForGroupPriority) ListAllByGroup(_ context.Context, groupID int64) ([]Account, error) {
+	return s.accounts, nil
+}
+
+func (s *accountRepoStubForGroupPriority) UpdateGroupAccountPriorities(_ context.Context, groupID int64, updates []GroupAccountPriorityUpdate) error {
+	s.updateGroupID = groupID
+	s.updateRequests = append([]GroupAccountPriorityUpdate(nil), updates...)
 	return nil
 }
 
@@ -435,6 +453,48 @@ func TestAdminService_UpdateGroup_InvalidatesAuthCacheOnRPMLimitChange(t *testin
 	require.NotNil(t, group)
 	require.Equal(t, 60, repo.updated.RPMLimit)
 	require.Equal(t, []int64{1}, invalidator.groupIDs, "分组 RPMLimit 写入 auth snapshot，变更后必须失效 API Key 认证缓存")
+}
+
+func TestAdminService_UpdateGroupAccountPriorities_UpdatesBoundAccounts(t *testing.T) {
+	groupRepo := &groupRepoStubForAdmin{getByID: &Group{ID: 10, Name: "group"}}
+	accountRepo := &accountRepoStubForGroupPriority{
+		accounts: []Account{{ID: 1}, {ID: 2}},
+	}
+	svc := &adminServiceImpl{
+		groupRepo:   groupRepo,
+		accountRepo: accountRepo,
+	}
+
+	err := svc.UpdateGroupAccountPriorities(context.Background(), 10, []GroupAccountPriorityUpdate{
+		{AccountID: 2, Priority: 1},
+		{AccountID: 1, Priority: 2},
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, int64(10), accountRepo.updateGroupID)
+	require.Equal(t, []GroupAccountPriorityUpdate{
+		{AccountID: 2, Priority: 1},
+		{AccountID: 1, Priority: 2},
+	}, accountRepo.updateRequests)
+}
+
+func TestAdminService_UpdateGroupAccountPriorities_RejectsUnboundAccount(t *testing.T) {
+	groupRepo := &groupRepoStubForAdmin{getByID: &Group{ID: 10, Name: "group"}}
+	accountRepo := &accountRepoStubForGroupPriority{
+		accounts: []Account{{ID: 1}},
+	}
+	svc := &adminServiceImpl{
+		groupRepo:   groupRepo,
+		accountRepo: accountRepo,
+	}
+
+	err := svc.UpdateGroupAccountPriorities(context.Background(), 10, []GroupAccountPriorityUpdate{
+		{AccountID: 2, Priority: 1},
+	})
+
+	require.Error(t, err)
+	require.Equal(t, "ACCOUNT_NOT_IN_GROUP", infraerrors.Reason(err))
+	require.Empty(t, accountRepo.updateRequests)
 }
 
 func TestAdminService_UpdateGroup_ClearsPeakRateWhenChangingToStandard(t *testing.T) {

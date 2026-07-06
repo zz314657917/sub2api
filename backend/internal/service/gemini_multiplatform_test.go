@@ -85,6 +85,12 @@ func (m *mockAccountRepoForGemini) ListWithFilters(ctx context.Context, params p
 func (m *mockAccountRepoForGemini) ListByGroup(ctx context.Context, groupID int64) ([]Account, error) {
 	return nil, nil
 }
+func (m *mockAccountRepoForGemini) ListAllByGroup(ctx context.Context, groupID int64) ([]Account, error) {
+	return nil, nil
+}
+func (m *mockAccountRepoForGemini) UpdateGroupAccountPriorities(ctx context.Context, groupID int64, updates []GroupAccountPriorityUpdate) error {
+	return nil
+}
 func (m *mockAccountRepoForGemini) ListActive(ctx context.Context) ([]Account, error) {
 	return nil, nil
 }

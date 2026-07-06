@@ -103,6 +103,14 @@ func (s *accountRepoStubForBulkUpdate) ListByGroup(_ context.Context, groupID in
 	return nil, nil
 }
 
+func (s *accountRepoStubForBulkUpdate) ListAllByGroup(ctx context.Context, groupID int64) ([]Account, error) {
+	return s.ListByGroup(ctx, groupID)
+}
+
+func (s *accountRepoStubForBulkUpdate) UpdateGroupAccountPriorities(_ context.Context, _ int64, _ []GroupAccountPriorityUpdate) error {
+	return nil
+}
+
 func (s *accountRepoStubForBulkUpdate) ListWithFilters(_ context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error) {
 	s.listCalled = true
 	s.lastListParams = params

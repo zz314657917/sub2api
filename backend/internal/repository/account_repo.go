@@ -1163,6 +1163,63 @@ func (r *accountRepository) ListByGroup(ctx context.Context, groupID int64) ([]s
 	return accounts, nil
 }
 
+func (r *accountRepository) ListAllByGroup(ctx context.Context, groupID int64) ([]service.Account, error) {
+	return r.queryAccountsByGroup(ctx, groupID, accountGroupQueryOptions{})
+}
+
+func (r *accountRepository) UpdateGroupAccountPriorities(ctx context.Context, groupID int64, updates []service.GroupAccountPriorityUpdate) error {
+	if groupID <= 0 || len(updates) == 0 {
+		return nil
+	}
+
+	tx, err := r.client.Tx(ctx)
+	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
+		return err
+	}
+
+	var txClient *dbent.Client
+	if err == nil {
+		defer func() { _ = tx.Rollback() }()
+		txClient = tx.Client()
+	} else {
+		txClient = r.client
+	}
+
+	changedAccountIDs := make([]int64, 0, len(updates))
+	for _, update := range updates {
+		if update.AccountID <= 0 {
+			continue
+		}
+		affected, err := txClient.AccountGroup.Update().
+			Where(
+				dbaccountgroup.GroupIDEQ(groupID),
+				dbaccountgroup.AccountIDEQ(update.AccountID),
+			).
+			SetPriority(update.Priority).
+			Save(ctx)
+		if err != nil {
+			return err
+		}
+		if affected > 0 {
+			changedAccountIDs = append(changedAccountIDs, update.AccountID)
+		}
+	}
+
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+
+	payload := buildSchedulerGroupPayload([]int64{groupID})
+	for _, accountID := range uniquePositiveInt64s(changedAccountIDs) {
+		if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountGroupsChanged, &accountID, nil, payload); err != nil {
+			logger.LegacyPrintf("repository.account", "[SchedulerOutbox] enqueue group account priority failed: account=%d group=%d err=%v", accountID, groupID, err)
+		}
+	}
+	return nil
+}
+
 func (r *accountRepository) ListActive(ctx context.Context) ([]service.Account, error) {
 	accounts, err := r.client.Account.Query().
 		Where(dbaccount.StatusEQ(service.StatusActive)).

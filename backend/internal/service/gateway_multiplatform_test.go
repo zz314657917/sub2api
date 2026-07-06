@@ -98,6 +98,12 @@ func (m *mockAccountRepoForPlatform) ListWithFilters(ctx context.Context, params
 func (m *mockAccountRepoForPlatform) ListByGroup(ctx context.Context, groupID int64) ([]Account, error) {
 	return nil, nil
 }
+func (m *mockAccountRepoForPlatform) ListAllByGroup(ctx context.Context, groupID int64) ([]Account, error) {
+	return nil, nil
+}
+func (m *mockAccountRepoForPlatform) UpdateGroupAccountPriorities(ctx context.Context, groupID int64, updates []GroupAccountPriorityUpdate) error {
+	return nil
+}
 func (m *mockAccountRepoForPlatform) ListActive(ctx context.Context) ([]Account, error) {
 	return nil, nil
 }

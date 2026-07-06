@@ -259,6 +259,23 @@ export default {
         hint: '可选多个分组，账号会自动去重',
         hintEdit: '⚠️ 注意：这会替换当前分组的所有账号绑定'
       },
+      accountPriority: {
+        title: '账号调度顺序',
+        action: '账号排序',
+        hint: '仅影响账号在当前分组内的调度顺序；数值越小越优先，不会修改账号全局优先级。',
+        loading: '正在加载分组账号...',
+        empty: '当前分组暂无绑定账号',
+        loadFailed: '加载分组账号失败',
+        saveFailed: '保存账号调度顺序失败',
+        saved: '账号调度顺序已保存',
+        reload: '重新加载',
+        account: '账号',
+        groupPriority: '分组优先级',
+        globalPriority: '全局优先级',
+        moveUp: '上移',
+        moveDown: '下移',
+        unsaved: '账号调度顺序有未保存修改'
+      },
       modelRouting: {
         title: '模型路由配置',
         tooltip:

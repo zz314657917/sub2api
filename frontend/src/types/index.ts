@@ -895,6 +895,15 @@ export interface UpdateGroupRequest {
   copy_accounts_from_group_ids?: number[]
 }
 
+export interface AccountGroup {
+  account_id: number
+  group_id: number
+  priority: number
+  created_at?: string
+  account?: Account
+  group?: Group
+}
+
 // ==================== Account & Proxy Types ====================
 
 export type AccountPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity'
@@ -1050,7 +1059,7 @@ export interface Account {
   current_concurrency?: number // Real-time concurrency count from Redis
   priority: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
-  status: 'active' | 'inactive' | 'error'
+  status: 'active' | 'inactive' | 'disabled' | 'error'
   error_message: string | null
   last_used_at: string | null
   expires_at: number | null
@@ -1060,6 +1069,7 @@ export interface Account {
   proxy?: Proxy
   group_ids?: number[] // Groups this account belongs to
   groups?: Group[] // Preloaded group objects
+  account_groups?: AccountGroup[] // Per-group account bindings with group-local priority
 
   // Rate limit & scheduling fields
   schedulable: boolean

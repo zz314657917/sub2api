@@ -481,6 +481,55 @@ func (h *GroupHandler) GetGroupAPIKeys(c *gin.Context) {
 	response.Paginated(c, outKeys, total, page, pageSize)
 }
 
+// GetGroupAccounts handles getting accounts in a group.
+// GET /api/v1/admin/groups/:id/accounts
+func (h *GroupHandler) GetGroupAccounts(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid group ID")
+		return
+	}
+
+	accounts, err := h.adminService.GetGroupAccounts(c.Request.Context(), groupID)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	outAccounts := make([]dto.Account, 0, len(accounts))
+	for i := range accounts {
+		outAccounts = append(outAccounts, *dto.AccountFromService(&accounts[i]))
+	}
+	response.Success(c, outAccounts)
+}
+
+type BatchSetGroupAccountPrioritiesRequest struct {
+	Updates []service.GroupAccountPriorityUpdate `json:"updates" binding:"required,min=1"`
+}
+
+// BatchSetGroupAccountPriorities handles updating per-group account priorities.
+// PUT /api/v1/admin/groups/:id/account-priorities
+func (h *GroupHandler) BatchSetGroupAccountPriorities(c *gin.Context) {
+	groupID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		response.BadRequest(c, "Invalid group ID")
+		return
+	}
+
+	var req BatchSetGroupAccountPrioritiesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+
+	if err := h.adminService.UpdateGroupAccountPriorities(c.Request.Context(), groupID, req.Updates); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+
+	response.Success(c, gin.H{"message": "Group account priorities updated successfully"})
+}
+
 // GetGroupRateMultipliers handles getting rate multipliers for users in a group
 // GET /api/v1/admin/groups/:id/rate-multipliers
 func (h *GroupHandler) GetGroupRateMultipliers(c *gin.Context) {

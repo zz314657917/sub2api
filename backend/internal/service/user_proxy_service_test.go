@@ -253,6 +253,12 @@ func (s *userProxyAccountRepoStub) ListWithFilters(ctx context.Context, params p
 func (s *userProxyAccountRepoStub) ListByGroup(ctx context.Context, groupID int64) ([]Account, error) {
 	panic("unexpected ListByGroup call")
 }
+func (s *userProxyAccountRepoStub) ListAllByGroup(ctx context.Context, groupID int64) ([]Account, error) {
+	panic("unexpected ListAllByGroup call")
+}
+func (s *userProxyAccountRepoStub) UpdateGroupAccountPriorities(ctx context.Context, groupID int64, updates []GroupAccountPriorityUpdate) error {
+	panic("unexpected UpdateGroupAccountPriorities call")
+}
 func (s *userProxyAccountRepoStub) ListActive(ctx context.Context) ([]Account, error) {
 	panic("unexpected ListActive call")
 }

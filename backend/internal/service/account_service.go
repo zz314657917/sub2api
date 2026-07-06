@@ -39,6 +39,8 @@ type AccountRepository interface {
 	List(ctx context.Context, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error)
 	ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error)
 	ListByGroup(ctx context.Context, groupID int64) ([]Account, error)
+	ListAllByGroup(ctx context.Context, groupID int64) ([]Account, error)
+	UpdateGroupAccountPriorities(ctx context.Context, groupID int64, updates []GroupAccountPriorityUpdate) error
 	ListActive(ctx context.Context) ([]Account, error)
 	ListByPlatform(ctx context.Context, platform string) ([]Account, error)
 
@@ -94,6 +96,11 @@ type AccountBulkUpdate struct {
 	Schedulable    *bool
 	Credentials    map[string]any
 	Extra          map[string]any
+}
+
+type GroupAccountPriorityUpdate struct {
+	AccountID int64 `json:"account_id"`
+	Priority  int   `json:"priority"`
 }
 
 // CreateAccountRequest 创建账号请求

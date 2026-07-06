@@ -87,6 +87,14 @@ func (s *accountRepoStub) ListByGroup(ctx context.Context, groupID int64) ([]Acc
 	panic("unexpected ListByGroup call")
 }
 
+func (s *accountRepoStub) ListAllByGroup(ctx context.Context, groupID int64) ([]Account, error) {
+	panic("unexpected ListAllByGroup call")
+}
+
+func (s *accountRepoStub) UpdateGroupAccountPriorities(ctx context.Context, groupID int64, updates []GroupAccountPriorityUpdate) error {
+	panic("unexpected UpdateGroupAccountPriorities call")
+}
+
 func (s *accountRepoStub) ListActive(ctx context.Context) ([]Account, error) {
 	panic("unexpected ListActive call")
 }

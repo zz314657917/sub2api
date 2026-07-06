@@ -90,6 +90,12 @@ func (m *sessionWindowMockRepo) ListWithFilters(context.Context, pagination.Pagi
 func (m *sessionWindowMockRepo) ListByGroup(context.Context, int64) ([]Account, error) {
 	panic("unexpected")
 }
+func (m *sessionWindowMockRepo) ListAllByGroup(context.Context, int64) ([]Account, error) {
+	panic("unexpected")
+}
+func (m *sessionWindowMockRepo) UpdateGroupAccountPriorities(context.Context, int64, []GroupAccountPriorityUpdate) error {
+	panic("unexpected")
+}
 func (m *sessionWindowMockRepo) ListActive(context.Context) ([]Account, error) {
 	panic("unexpected")
 }

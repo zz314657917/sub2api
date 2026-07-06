@@ -228,6 +228,23 @@ export default {
         hint: 'Multiple groups can be selected, accounts will be deduplicated',
         hintEdit: '⚠️ Warning: This will replace all existing account bindings'
       },
+      accountPriority: {
+        title: 'Account Scheduling Order',
+        action: 'Order',
+        hint: 'Only affects scheduling order within this group. Lower values run first and global account priority is unchanged.',
+        loading: 'Loading group accounts...',
+        empty: 'No accounts are bound to this group',
+        loadFailed: 'Failed to load group accounts',
+        saveFailed: 'Failed to save account scheduling order',
+        saved: 'Account scheduling order saved',
+        reload: 'Reload',
+        account: 'Account',
+        groupPriority: 'Group Priority',
+        globalPriority: 'Global Priority',
+        moveUp: 'Move up',
+        moveDown: 'Move down',
+        unsaved: 'Account scheduling order has unsaved changes'
+      },
       modelRouting: {
         title: 'Model Routing',
         tooltip: 'Configure specific model requests to be routed to designated accounts. Supports wildcard matching, e.g., claude-opus-* matches all opus models.',
