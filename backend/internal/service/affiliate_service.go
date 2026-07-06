@@ -78,16 +78,21 @@ type AffiliateSummary struct {
 }
 
 type AffiliateInvitee struct {
-	UserID                 int64      `json:"user_id"`
-	Email                  string     `json:"email"`
-	Username               string     `json:"username"`
-	CreatedAt              *time.Time `json:"created_at,omitempty"`
-	TotalRebate            float64    `json:"total_rebate"`
-	APIUsed                bool       `json:"api_used"`
-	APIUsedAt              *time.Time `json:"api_used_at,omitempty"`
-	APICallRewardClaimed   bool       `json:"api_call_reward_claimed"`
-	APICallRewardClaimedAt *time.Time `json:"api_call_reward_claimed_at,omitempty"`
-	APICallRewardAmount    float64    `json:"api_call_reward_amount"`
+	UserID                    int64      `json:"user_id"`
+	Email                     string     `json:"email"`
+	Username                  string     `json:"username"`
+	CreatedAt                 *time.Time `json:"created_at,omitempty"`
+	TotalRebate               float64    `json:"total_rebate"`
+	APIUsed                   bool       `json:"api_used"`
+	APIUsedAt                 *time.Time `json:"api_used_at,omitempty"`
+	APICallRewardClaimed      bool       `json:"api_call_reward_claimed"`
+	APICallRewardClaimedAt    *time.Time `json:"api_call_reward_claimed_at,omitempty"`
+	APICallRewardAmount       float64    `json:"api_call_reward_amount"`
+	FirstRechargeCompleted    bool       `json:"first_recharge_completed"`
+	FirstRechargeAt           *time.Time `json:"first_recharge_at,omitempty"`
+	FirstRechargeRewarded     bool       `json:"first_recharge_rewarded"`
+	FirstRechargeRewardedAt   *time.Time `json:"first_recharge_rewarded_at,omitempty"`
+	FirstRechargeRewardAmount float64    `json:"first_recharge_reward_amount"`
 }
 
 type AffiliateDetail struct {
@@ -103,6 +108,7 @@ type AffiliateDetail struct {
 	// 用于在用户的 /affiliate 页面直观展示「分享后能拿到多少」。
 	EffectiveRebateRatePercent float64            `json:"effective_rebate_rate_percent"`
 	APICallRewardAmount        float64            `json:"api_call_reward_amount"`
+	FirstRechargeRewardAmount  float64            `json:"first_recharge_reward_amount"`
 	Invitees                   []AffiliateInvitee `json:"invitees"`
 }
 
@@ -117,6 +123,7 @@ type AffiliateRepository interface {
 	TransferQuotaToBalance(ctx context.Context, userID int64) (float64, float64, error)
 	ListInvitees(ctx context.Context, inviterID int64, limit int) ([]AffiliateInvitee, error)
 	ClaimAPICallReward(ctx context.Context, inviterID, inviteeUserID int64, amount float64, freezeHours int) (bool, error)
+	GrantFirstRechargeReward(ctx context.Context, inviterID, inviteeUserID, sourceOrderID int64, amount float64, freezeHours int) (bool, error)
 	HasActiveRiskFreeze(ctx context.Context, inviterID int64) (bool, error)
 
 	// 管理端：用户级专属配置
@@ -317,6 +324,7 @@ func (s *AffiliateService) GetAffiliateDetail(ctx context.Context, userID int64)
 	apiCallRewardAmount := s.affiliateAPICallRewardAmount(ctx)
 	for i := range invitees {
 		invitees[i].APICallRewardAmount = apiCallRewardAmount
+		invitees[i].FirstRechargeRewardAmount = apiCallRewardAmount
 	}
 	return &AffiliateDetail{
 		UserID:                     summary.UserID,
@@ -328,6 +336,7 @@ func (s *AffiliateService) GetAffiliateDetail(ctx context.Context, userID int64)
 		AffHistoryQuota:            summary.AffHistoryQuota,
 		EffectiveRebateRatePercent: s.resolveRebateRatePercent(ctx, summary),
 		APICallRewardAmount:        apiCallRewardAmount,
+		FirstRechargeRewardAmount:  apiCallRewardAmount,
 		Invitees:                   invitees,
 	}, nil
 }
@@ -548,6 +557,61 @@ func (s *AffiliateService) ClaimInviteeAPICallReward(ctx context.Context, invite
 	return amount, nil
 }
 
+func (s *AffiliateService) GrantInviteeFirstRechargeReward(ctx context.Context, inviteeUserID int64, sourceOrderID int64) (float64, int64, error) {
+	if s == nil || s.repo == nil {
+		return 0, 0, nil
+	}
+	if inviteeUserID <= 0 || sourceOrderID <= 0 {
+		return 0, 0, nil
+	}
+	if !s.IsEnabled(ctx) {
+		return 0, 0, nil
+	}
+	amount := s.affiliateAPICallRewardAmount(ctx)
+	if amount <= 0 || math.IsNaN(amount) || math.IsInf(amount, 0) {
+		return 0, 0, nil
+	}
+	summary, err := s.repo.EnsureUserAffiliate(ctx, inviteeUserID)
+	if err != nil {
+		return 0, 0, err
+	}
+	if summary == nil || summary.InviterID == nil || *summary.InviterID <= 0 || *summary.InviterID == inviteeUserID {
+		return 0, 0, nil
+	}
+	if summary.AffiliateRevokedAt != nil {
+		return 0, 0, nil
+	}
+	inviterID := *summary.InviterID
+	if frozen, err := s.repo.HasActiveRiskFreeze(ctx, inviterID); err != nil {
+		return 0, 0, err
+	} else if frozen {
+		return 0, inviterID, nil
+	}
+	revoked, err := s.repo.RevokeSelfReferralByPaymentMethod(ctx, inviterID, inviteeUserID, &sourceOrderID)
+	if err != nil {
+		return 0, inviterID, err
+	}
+	if revoked {
+		return 0, inviterID, nil
+	}
+	var freezeHours int
+	if s.settingService != nil {
+		freezeHours = s.settingService.GetAffiliateRebateFreezeHours(ctx)
+	}
+	applied, err := s.repo.GrantFirstRechargeReward(ctx, inviterID, inviteeUserID, sourceOrderID, amount, freezeHours)
+	if err != nil {
+		if errors.Is(err, ErrAffiliateAPICallRewardAlreadyClaimed) {
+			return 0, inviterID, nil
+		}
+		return 0, inviterID, err
+	}
+	if !applied {
+		return 0, inviterID, nil
+	}
+	s.invalidateAffiliateCaches(ctx, inviterID)
+	return amount, inviterID, nil
+}
+
 func (s *AffiliateService) NotifyInviteeFirstAPIRewardIfEligible(ctx context.Context, inviteeUserID int64) {
 	if s == nil || s.repo == nil || s.systemTicketSvc == nil || inviteeUserID <= 0 {
 		return
@@ -576,6 +640,14 @@ func (s *AffiliateService) notifyAffiliateFirstAPIRewardBestEffort(ctx context.C
 		return
 	}
 	event := NewAffiliateFirstAPIRewardSystemTicketNotification(inviteeUserID, amount, false)
+	s.systemTicketSvc.NotifyEventBestEffort(ctx, "service.affiliate", inviterID, event)
+}
+
+func (s *AffiliateService) notifyAffiliateFirstRechargeRewardBestEffort(ctx context.Context, inviterID int64, inviteeUserID int64, amount float64) {
+	if s == nil || s.systemTicketSvc == nil || inviterID <= 0 || inviteeUserID <= 0 {
+		return
+	}
+	event := NewAffiliateFirstRechargeRewardSystemTicketNotification(inviteeUserID, amount, false)
 	s.systemTicketSvc.NotifyEventBestEffort(ctx, "service.affiliate", inviterID, event)
 }
 

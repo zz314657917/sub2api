@@ -37,11 +37,12 @@ const (
 )
 
 const (
-	SystemTicketEventGroupChanged             = "group_changed"
-	SystemTicketEventPaymentCompleted         = "payment_completed"
-	SystemTicketEventInvoiceIssued            = "invoice_issued"
-	SystemTicketEventAffiliateFirstAPIReward  = "affiliate_first_api_reward"
-	SystemTicketEventWelfareFirstAPIUnclaimed = "welfare_first_api_unclaimed"
+	SystemTicketEventGroupChanged                 = "group_changed"
+	SystemTicketEventPaymentCompleted             = "payment_completed"
+	SystemTicketEventInvoiceIssued                = "invoice_issued"
+	SystemTicketEventAffiliateFirstAPIReward      = "affiliate_first_api_reward"
+	SystemTicketEventAffiliateFirstRechargeReward = "affiliate_first_recharge_reward"
+	SystemTicketEventWelfareFirstAPIUnclaimed     = "welfare_first_api_unclaimed"
 )
 
 type SupportTicket struct {
@@ -748,6 +749,37 @@ func NewAffiliateFirstAPIRewardSystemTicketNotification(inviteeUserID int64, amo
 			"invitee_user_id": inviteeUserID,
 			"amount":          amount,
 			"claimable":       claimable,
+		},
+	}
+}
+
+func NewAffiliateFirstRechargeRewardSystemTicketNotification(inviteeUserID int64, amount float64, claimable bool) SystemTicketNotification {
+	content := fmt.Sprintf("你邀请的用户 #%d 已完成首次充值，邀请奖励 %.4f 已处理。", inviteeUserID, amount)
+	if claimable {
+		content = fmt.Sprintf("你邀请的用户 #%d 已完成首次充值，有 %.4f 邀请奖励可领取。", inviteeUserID, amount)
+	}
+	return SystemTicketNotification{
+		EventType: SystemTicketEventAffiliateFirstRechargeReward,
+		EventKey:  fmt.Sprintf("%s:%d", SystemTicketEventAffiliateFirstRechargeReward, inviteeUserID),
+		Content:   content,
+		Metadata: map[string]any{
+			"action_type":     SystemTicketEventAffiliateFirstRechargeReward,
+			"invitee_user_id": inviteeUserID,
+			"amount":          amount,
+			"claimable":       claimable,
+		},
+	}
+}
+
+func NewAffiliateInviteeFirstRechargeRewardSystemTicketNotification(amount float64) SystemTicketNotification {
+	return SystemTicketNotification{
+		EventType: SystemTicketEventAffiliateFirstRechargeReward,
+		EventKey:  fmt.Sprintf("%s:invitee", SystemTicketEventAffiliateFirstRechargeReward),
+		Content:   fmt.Sprintf("你通过邀请完成首次充值，邀请双方奖励 %.4f 已发放到账户。", amount),
+		Metadata: map[string]any{
+			"action_type": SystemTicketEventAffiliateFirstRechargeReward,
+			"amount":      amount,
+			"role":        "invitee",
 		},
 	}
 }

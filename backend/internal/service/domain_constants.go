@@ -29,7 +29,7 @@ const (
 	AffiliateRebateDurationDaysDefault  = 0     // 0 = 永久有效
 	AffiliateRebateDurationDaysMax      = 3650  // ~10 年
 	AffiliateRebatePerInviteeCapDefault = 0.0   // 0 = 无上限
-	AffiliateAPICallRewardAmountDefault = 0.0   // 被邀请人首次调用 API 后可领取的固定返利
+	AffiliateAPICallRewardAmountDefault = 0.0   // 被邀请人首次充值后双方自动获得的固定奖励
 	AffiliateRiskScanIntervalDefaultMin = 20    // 邀请返佣风控扫描周期（分钟）
 	AffiliateRiskScanIntervalMin        = 5
 	AffiliateRiskScanIntervalMax        = 1440
@@ -164,7 +164,7 @@ const (
 	SettingKeyAffiliateRebateFreezeHours       = "affiliate_rebate_freeze_hours"    // 返利冻结期（小时，0=不冻结）
 	SettingKeyAffiliateRebateDurationDays      = "affiliate_rebate_duration_days"   // 返利有效期（天，0=永久）
 	SettingKeyAffiliateRebatePerInviteeCap     = "affiliate_rebate_per_invitee_cap" // 单人返利上限（0=无上限）
-	SettingKeyAffiliateAPICallRewardAmount     = "affiliate_api_call_reward_amount" // 被邀请人首次调用 API 后固定返利金额
+	SettingKeyAffiliateAPICallRewardAmount     = "affiliate_api_call_reward_amount" // 被邀请人首次充值后双方自动获得的固定奖励金额
 	SettingKeyAffiliateRiskScanIntervalMinutes = "affiliate_risk_scan_interval_minutes"
 	SettingKeyRiskControlEnabled               = "risk_control_enabled"       // 是否启用风控中心入口与审计链路
 	SettingKeyContentModerationConfig          = "content_moderation_config"  // 内容审计配置（JSON）

@@ -330,6 +330,7 @@ function resolveSystemActionType(message: SupportTicketMessage): SupportTicketAc
     case 'payment_completed':
     case 'invoice_issued':
     case 'affiliate_first_api_reward':
+    case 'affiliate_first_recharge_reward':
     case 'welfare_first_api_unclaimed':
     case 'group_changed':
       return actionType
@@ -346,6 +347,7 @@ function systemActionForMessage(message: SupportTicketMessage): SystemActionEntr
     case 'invoice_issued':
       return null
     case 'affiliate_first_api_reward':
+    case 'affiliate_first_recharge_reward':
       return { path: '/affiliate', label: t('tickets.actions.affiliateReward'), icon: 'userPlus' }
     case 'welfare_first_api_unclaimed':
       return { path: '/welfare', label: t('tickets.actions.welfareReward'), icon: 'sparkles' }

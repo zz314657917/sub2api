@@ -55,6 +55,10 @@ func (r *affiliateRiskFreezeRepoStub) ClaimAPICallReward(context.Context, int64,
 	return true, nil
 }
 
+func (r *affiliateRiskFreezeRepoStub) GrantFirstRechargeReward(context.Context, int64, int64, int64, float64, int) (bool, error) {
+	return false, nil
+}
+
 func (r *affiliateRiskFreezeRepoStub) HasActiveRiskFreeze(context.Context, int64) (bool, error) {
 	return r.activeRiskFreeze, nil
 }

@@ -225,20 +225,32 @@ func TestIsValidAffiliateCodeFormat(t *testing.T) {
 }
 
 type affiliateRewardRepoStub struct {
-	called              bool
-	inviterID           int64
-	inviteeID           int64
-	amount              float64
-	freezeHours         int
-	activeRiskFreeze    bool
-	transferCalled      bool
-	revokeSelfReferral  bool
-	revokeCalled        bool
-	revokeInviterID     int64
-	revokeInviteeUserID int64
+	called                          bool
+	inviterID                       int64
+	inviteeID                       int64
+	amount                          float64
+	freezeHours                     int
+	summaryByUserID                 map[int64]*AffiliateSummary
+	activeRiskFreeze                bool
+	transferCalled                  bool
+	revokeSelfReferral              bool
+	revokeCalled                    bool
+	revokeInviterID                 int64
+	revokeInviteeUserID             int64
+	grantFirstRechargeCalls         int64
+	grantFirstRechargeInviterID     int64
+	grantFirstRechargeInviteeID     int64
+	grantFirstRechargeSourceOrderID int64
+	grantFirstRechargeAmount        float64
+	grantFirstRechargeFreezeHours   int
 }
 
 func (r *affiliateRewardRepoStub) EnsureUserAffiliate(_ context.Context, userID int64) (*AffiliateSummary, error) {
+	if r.summaryByUserID != nil {
+		if summary, ok := r.summaryByUserID[userID]; ok {
+			return summary, nil
+		}
+	}
 	return &AffiliateSummary{UserID: userID}, nil
 }
 
@@ -284,6 +296,19 @@ func (r *affiliateRewardRepoStub) ClaimAPICallReward(_ context.Context, inviterI
 	r.inviteeID = inviteeUserID
 	r.amount = amount
 	r.freezeHours = freezeHours
+	return true, nil
+}
+
+func (r *affiliateRewardRepoStub) GrantFirstRechargeReward(_ context.Context, inviterID, inviteeUserID, sourceOrderID int64, amount float64, freezeHours int) (bool, error) {
+	if r.grantFirstRechargeCalls > 0 {
+		return false, nil
+	}
+	r.grantFirstRechargeCalls++
+	r.grantFirstRechargeInviterID = inviterID
+	r.grantFirstRechargeInviteeID = inviteeUserID
+	r.grantFirstRechargeSourceOrderID = sourceOrderID
+	r.grantFirstRechargeAmount = amount
+	r.grantFirstRechargeFreezeHours = freezeHours
 	return true, nil
 }
 

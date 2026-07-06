@@ -115,7 +115,7 @@
             </div>
             <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-800">
               <p class="font-mono text-xs font-semibold text-primary-600 dark:text-primary-400">03</p>
-              <h3 class="mt-4 text-base font-semibold text-gray-950 dark:text-white">{{ t('affiliate.steps.earn.title', { amount: formattedApiCallRewardAmount }) }}</h3>
+              <h3 class="mt-4 text-base font-semibold text-gray-950 dark:text-white">{{ t('affiliate.steps.earn.title', { amount: formattedFirstRechargeRewardAmount }) }}</h3>
               <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t('affiliate.steps.earn.description', { rate: `${formattedRebateRate}%` }) }}</p>
             </div>
           </div>
@@ -171,7 +171,7 @@
                 <tr class="border-b border-gray-200 bg-gray-50 text-gray-500 dark:border-dark-700 dark:bg-dark-900/60 dark:text-dark-400">
                   <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.email') }}</th>
                   <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.username') }}</th>
-                  <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.apiStatus') }}</th>
+                  <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.rechargeStatus') }}</th>
                   <th class="px-3 py-2 font-medium text-right">{{ t('affiliate.invitees.columns.rebate') }}</th>
                   <th class="px-3 py-2 font-medium">{{ t('affiliate.invitees.columns.joinedAt') }}</th>
                   <th class="px-3 py-2 font-medium text-right">{{ t('affiliate.invitees.columns.action') }}</th>
@@ -188,14 +188,14 @@
                   <td class="px-3 py-3">
                     <span
                       class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                      :class="item.api_used
+                      :class="item.first_recharge_completed
                         ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
                         : 'bg-gray-100 text-gray-500 dark:bg-dark-800 dark:text-dark-400'"
                     >
-                      {{ item.api_used ? t('affiliate.invitees.apiStatus.used') : t('affiliate.invitees.apiStatus.pending') }}
+                      {{ item.first_recharge_completed ? t('affiliate.invitees.rechargeStatus.completed') : t('affiliate.invitees.rechargeStatus.pending') }}
                     </span>
-                    <p v-if="item.api_used_at" class="mt-1 text-xs text-gray-400">
-                      {{ formatDateTime(item.api_used_at) }}
+                    <p v-if="item.first_recharge_at" class="mt-1 text-xs text-gray-400">
+                      {{ formatDateTime(item.first_recharge_at) }}
                     </p>
                   </td>
                   <td class="px-3 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">{{ formatCreditAmount(item.total_rebate) }}</td>
@@ -204,16 +204,9 @@
                     <button
                       type="button"
                       class="btn btn-secondary btn-sm whitespace-nowrap"
-                      :disabled="!canClaimApiCallReward(item) || claimingInviteeId === item.user_id"
-                      @click="claimApiCallReward(item)"
+                      disabled
                     >
-                      <Icon
-                        v-if="claimingInviteeId === item.user_id"
-                        name="refresh"
-                        size="sm"
-                        class="animate-spin"
-                      />
-                      <Icon v-else name="dollar" size="sm" />
+                      <Icon name="dollar" size="sm" />
                       <span>{{ claimButtonLabel(item) }}</span>
                     </button>
                   </td>
@@ -228,7 +221,7 @@
           <div class="divide-y divide-gray-200 overflow-hidden rounded-lg border border-gray-200 bg-white dark:divide-dark-700 dark:border-dark-700 dark:bg-dark-800">
             <div class="p-4">
               <p class="text-sm font-semibold text-gray-950 dark:text-white">{{ t('affiliate.faq.limit.question') }}</p>
-              <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t('affiliate.faq.limit.answer', { amount: formattedApiCallRewardAmount }) }}</p>
+              <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t('affiliate.faq.limit.answer', { amount: formattedFirstRechargeRewardAmount }) }}</p>
             </div>
             <div class="p-4">
               <p class="text-sm font-semibold text-gray-950 dark:text-white">{{ t('affiliate.faq.when.question') }}</p>
@@ -270,7 +263,6 @@ const { copyToClipboard } = useClipboard()
 
 const loading = ref(true)
 const transferring = ref(false)
-const claimingInviteeId = ref<number | null>(null)
 const detail = ref<UserAffiliateDetail | null>(null)
 
 const inviteLink = computed(() => {
@@ -287,13 +279,13 @@ const formattedRebateRate = computed(() => {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toString()
 })
 
-const formattedApiCallRewardAmount = computed(() => {
-  const amount = detail.value?.api_call_reward_amount ?? 0
+const formattedFirstRechargeRewardAmount = computed(() => {
+  const amount = detail.value?.first_recharge_reward_amount ?? detail.value?.api_call_reward_amount ?? 0
   return formatCreditAmount(amount)
 })
 
 const affiliateDescription = computed(() => {
-  return t('affiliate.descriptionWithReward', { amount: formattedApiCallRewardAmount.value })
+  return t('affiliate.descriptionWithReward', { amount: formattedFirstRechargeRewardAmount.value })
 })
 
 const mailShareHref = computed(() => {
@@ -348,46 +340,17 @@ async function transferQuota(): Promise<void> {
   }
 }
 
-function canClaimApiCallReward(item: AffiliateInvitee): boolean {
-  return Boolean(
-    detail.value &&
-    detail.value.api_call_reward_amount > 0 &&
-    item.api_used &&
-    !item.api_call_reward_claimed
-  )
-}
-
 function claimButtonLabel(item: AffiliateInvitee): string {
-  if (claimingInviteeId.value === item.user_id) {
-    return t('affiliate.invitees.actions.claiming')
+  if (item.first_recharge_rewarded || item.api_call_reward_claimed) {
+    return t('affiliate.invitees.actions.rewarded')
   }
-  if (item.api_call_reward_claimed) {
-    return t('affiliate.invitees.actions.claimed')
-  }
-  if ((detail.value?.api_call_reward_amount ?? 0) <= 0) {
+  if ((detail.value?.first_recharge_reward_amount ?? detail.value?.api_call_reward_amount ?? 0) <= 0) {
     return t('affiliate.invitees.actions.notConfigured')
   }
-  if (!item.api_used) {
+  if (!item.first_recharge_completed) {
     return t('affiliate.invitees.actions.waiting')
   }
-  return t('affiliate.invitees.actions.claim')
-}
-
-async function claimApiCallReward(item: AffiliateInvitee): Promise<void> {
-  if (!canClaimApiCallReward(item) || claimingInviteeId.value !== null) return
-  claimingInviteeId.value = item.user_id
-  try {
-    const resp = await userAPI.claimAffiliateApiCallReward(item.user_id)
-    appStore.showSuccess(t('affiliate.invitees.actions.claimSuccess', { amount: formatCreditAmount(resp.reward_amount) }))
-    await Promise.all([
-      loadAffiliateDetail(true),
-      authStore.refreshUser().catch(() => undefined),
-    ])
-  } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('affiliate.invitees.actions.claimFailed')))
-  } finally {
-    claimingInviteeId.value = null
-  }
+  return t('affiliate.invitees.actions.autoPending')
 }
 
 onMounted(() => {

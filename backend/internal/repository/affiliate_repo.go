@@ -19,8 +19,10 @@ const (
 	affiliateCodeLength      = 12
 	affiliateCodeMaxAttempts = 12
 
-	affiliateLedgerActionRevoke             = "revoke"
-	affiliateRevokedReasonSamePaymentMethod = "same_payment_method"
+	affiliateLedgerActionRevoke              = "revoke"
+	affiliateLedgerActionAPICallReward       = "api_call_reward"
+	affiliateLedgerActionFirstRechargeReward = "first_recharge_reward"
+	affiliateRevokedReasonSamePaymentMethod  = "same_payment_method"
 )
 
 var affiliateCodeCharset = []byte("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
@@ -469,6 +471,111 @@ VALUES ($1, 'api_call_reward', $2, $3, NOW(), NOW())`,
 	return applied, nil
 }
 
+func (r *affiliateRepository) GrantFirstRechargeReward(ctx context.Context, inviterID, inviteeUserID, sourceOrderID int64, amount float64, freezeHours int) (bool, error) {
+	if amount <= 0 || sourceOrderID <= 0 {
+		return false, nil
+	}
+
+	var applied bool
+	err := r.withTx(ctx, func(txCtx context.Context, txClient *dbent.Client) error {
+		if _, err := ensureUserAffiliateWithClient(txCtx, txClient, inviterID); err != nil {
+			return err
+		}
+
+		rows, err := txClient.QueryContext(txCtx, `
+SELECT EXISTS(
+           SELECT 1
+           FROM user_affiliates ua
+           WHERE ua.user_id = $2 AND ua.inviter_id = $1
+             AND ua.affiliate_revoked_at IS NULL
+       ) AS is_invitee,
+       EXISTS(
+           SELECT 1
+           FROM payment_orders po
+           WHERE po.id = $3
+             AND po.user_id = $2
+             AND po.amount > 0
+             AND po.status IN ('PAID', 'RECHARGING', 'COMPLETED')
+           LIMIT 1
+       ) AS first_recharge_completed,
+       EXISTS(
+           SELECT 1
+           FROM user_affiliate_ledger ual
+           WHERE ual.user_id = $1
+             AND ual.source_user_id = $2
+             AND ual.action = $4
+           LIMIT 1
+       ) AS reward_claimed`,
+			inviterID, inviteeUserID, sourceOrderID, affiliateLedgerActionFirstRechargeReward,
+		)
+		if err != nil {
+			return fmt.Errorf("query affiliate first recharge reward eligibility: %w", err)
+		}
+
+		var isInvitee, firstRechargeCompleted, rewardClaimed bool
+		if rows.Next() {
+			if err := rows.Scan(&isInvitee, &firstRechargeCompleted, &rewardClaimed); err != nil {
+				_ = rows.Close()
+				return err
+			}
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		if !isInvitee {
+			return service.ErrAffiliateInviteeNotFound
+		}
+		if !firstRechargeCompleted {
+			return service.ErrAffiliateAPICallRewardNotEligible
+		}
+		if rewardClaimed {
+			return service.ErrAffiliateAPICallRewardAlreadyClaimed
+		}
+
+		var updateSQL string
+		if freezeHours > 0 {
+			updateSQL = "UPDATE user_affiliates SET aff_frozen_quota = aff_frozen_quota + $1, aff_history_quota = aff_history_quota + $1, updated_at = NOW() WHERE user_id = $2"
+		} else {
+			updateSQL = "UPDATE user_affiliates SET aff_quota = aff_quota + $1, aff_history_quota = aff_history_quota + $1, updated_at = NOW() WHERE user_id = $2"
+		}
+		res, err := txClient.ExecContext(txCtx, updateSQL, amount, inviterID)
+		if err != nil {
+			return fmt.Errorf("credit affiliate first recharge inviter reward: %w", err)
+		}
+		affected, _ := res.RowsAffected()
+		if affected == 0 {
+			return service.ErrAffiliateProfileNotFound
+		}
+
+		if freezeHours > 0 {
+			_, err = txClient.ExecContext(txCtx, `
+INSERT INTO user_affiliate_ledger (user_id, action, amount, source_user_id, source_order_id, frozen_until, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, NOW() + make_interval(hours => $6), NOW(), NOW())`,
+				inviterID, affiliateLedgerActionFirstRechargeReward, amount, inviteeUserID, sourceOrderID, freezeHours,
+			)
+		} else {
+			_, err = txClient.ExecContext(txCtx, `
+INSERT INTO user_affiliate_ledger (user_id, action, amount, source_user_id, source_order_id, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, NOW(), NOW())`,
+				inviterID, affiliateLedgerActionFirstRechargeReward, amount, inviteeUserID, sourceOrderID,
+			)
+		}
+		if err != nil {
+			if isAffiliateUniqueViolation(err) {
+				return service.ErrAffiliateAPICallRewardAlreadyClaimed
+			}
+			return fmt.Errorf("insert affiliate first recharge reward ledger: %w", err)
+		}
+
+		applied = true
+		return nil
+	})
+	if err != nil {
+		return false, err
+	}
+	return applied, nil
+}
+
 func (r *affiliateRepository) RevokeSelfReferralByPaymentMethod(ctx context.Context, inviterID, inviteeUserID int64, sourceOrderID *int64) (bool, error) {
 	if inviterID <= 0 || inviteeUserID <= 0 || inviterID == inviteeUserID {
 		return false, nil
@@ -611,9 +718,9 @@ SELECT EXISTS(
 
 func revokeAffiliateRelationForSamePaymentMethod(ctx context.Context, client affiliateQueryExecer, inviterID, inviteeUserID int64, sourceOrderID *int64) error {
 	rows, err := client.QueryContext(ctx, `
-SELECT COALESCE(SUM(CASE WHEN action IN ('accrue', 'api_call_reward') AND frozen_until IS NOT NULL THEN amount ELSE 0 END), 0)::double precision,
-       COALESCE(SUM(CASE WHEN action IN ('accrue', 'api_call_reward') AND frozen_until IS NULL THEN amount ELSE 0 END), 0)::double precision,
-       COALESCE(SUM(CASE WHEN action IN ('accrue', 'api_call_reward') THEN amount ELSE 0 END), 0)::double precision
+SELECT COALESCE(SUM(CASE WHEN action IN ('accrue', 'api_call_reward', 'first_recharge_reward') AND frozen_until IS NOT NULL THEN amount ELSE 0 END), 0)::double precision,
+       COALESCE(SUM(CASE WHEN action IN ('accrue', 'api_call_reward', 'first_recharge_reward') AND frozen_until IS NULL THEN amount ELSE 0 END), 0)::double precision,
+       COALESCE(SUM(CASE WHEN action IN ('accrue', 'api_call_reward', 'first_recharge_reward') THEN amount ELSE 0 END), 0)::double precision
 FROM user_affiliate_ledger
 WHERE user_id = $1
   AND source_user_id = $2`, inviterID, inviteeUserID)
@@ -690,7 +797,8 @@ SELECT ua.user_id,
        ua.created_at,
        COALESCE(rebate.total_rebate, 0)::double precision AS total_rebate,
        first_usage.first_api_called_at,
-       api_reward.claimed_at
+       api_reward.claimed_at,
+       first_recharge.first_recharge_at
 FROM user_affiliates ua
 LEFT JOIN users u ON u.id = ua.user_id
 LEFT JOIN (
@@ -698,7 +806,7 @@ LEFT JOIN (
     FROM user_affiliate_ledger
     WHERE user_id = $1
       AND source_user_id IS NOT NULL
-      AND action IN ('accrue', 'api_call_reward', 'revoke')
+      AND action IN ('accrue', 'api_call_reward', 'first_recharge_reward', 'revoke')
     GROUP BY source_user_id
 ) rebate ON rebate.source_user_id = ua.user_id
 LEFT JOIN LATERAL (
@@ -711,9 +819,17 @@ LEFT JOIN (
     FROM user_affiliate_ledger
     WHERE user_id = $1
       AND source_user_id IS NOT NULL
-      AND action = 'api_call_reward'
+      AND action = 'first_recharge_reward'
     GROUP BY source_user_id
 ) api_reward ON api_reward.source_user_id = ua.user_id
+LEFT JOIN LATERAL (
+    SELECT MIN(po.created_at) AS first_recharge_at
+    FROM payment_orders po
+    WHERE po.user_id = ua.user_id
+      AND po.amount > 0
+      AND po.order_type IN ('balance', 'subscription')
+      AND po.status IN ('PAID', 'RECHARGING', 'COMPLETED', 'REFUND_REQUESTED', 'REFUNDING', 'PARTIALLY_REFUNDED', 'REFUNDED', 'REFUND_FAILED')
+) first_recharge ON TRUE
 WHERE ua.inviter_id = $1
 ORDER BY ua.created_at DESC
 LIMIT $2`, inviterID, limit)
@@ -728,6 +844,7 @@ LIMIT $2`, inviterID, limit)
 		var createdAt time.Time
 		var apiUsedAt sql.NullTime
 		var apiRewardClaimedAt sql.NullTime
+		var firstRechargeAt sql.NullTime
 		if err := rows.Scan(
 			&item.UserID,
 			&item.Email,
@@ -736,6 +853,7 @@ LIMIT $2`, inviterID, limit)
 			&item.TotalRebate,
 			&apiUsedAt,
 			&apiRewardClaimedAt,
+			&firstRechargeAt,
 		); err != nil {
 			return nil, err
 		}
@@ -749,6 +867,13 @@ LIMIT $2`, inviterID, limit)
 			t := apiRewardClaimedAt.Time
 			item.APICallRewardClaimed = true
 			item.APICallRewardClaimedAt = &t
+			item.FirstRechargeRewarded = true
+			item.FirstRechargeRewardedAt = &t
+		}
+		if firstRechargeAt.Valid {
+			t := firstRechargeAt.Time
+			item.FirstRechargeCompleted = true
+			item.FirstRechargeAt = &t
 		}
 		invitees = append(invitees, item)
 	}

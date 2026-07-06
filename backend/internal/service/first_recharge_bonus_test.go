@@ -305,6 +305,91 @@ func TestPaymentSubscriptionFulfillmentAppliesFirstRechargeBonus(t *testing.T) {
 	require.True(t, paymentAuditExists(t, ctx, client, order.ID, "SUBSCRIPTION_SUCCESS"))
 }
 
+func TestPaymentBalanceFulfillmentGrantsAffiliateFirstRechargeRewardToBothSides(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	inviter := createFirstRechargeBonusUser(t, ctx, client, "affiliate-inviter")
+	invitee := createFirstRechargeBonusUser(t, ctx, client, "affiliate-invitee")
+	order := createFirstRechargeBonusOrder(t, ctx, client, invitee, 12.5, payment.OrderTypeBalance, OrderStatusPaid, "aff-fr")
+	userRepo := &firstRechargeBonusEntUserRepo{client: client}
+	settings := NewSettingService(firstRechargeAffiliateSettingRepo{
+		SettingKeyAffiliateEnabled:             "true",
+		SettingKeyAffiliateAPICallRewardAmount: "2.5",
+		SettingKeyAffiliateRebateFreezeHours:   "0",
+		SettingKeyAffiliateRebateRate:          "0",
+	}, nil)
+	affiliateRepo := &firstRechargeAffiliateRepoStub{
+		summaryByUserID: map[int64]*AffiliateSummary{
+			invitee.ID: {UserID: invitee.ID, InviterID: &inviter.ID},
+			inviter.ID: {UserID: inviter.ID},
+		},
+	}
+	affiliateSvc := NewAffiliateService(affiliateRepo, settings, nil, nil)
+	paymentSvc := &PaymentService{
+		entClient:        client,
+		affiliateService: affiliateSvc,
+		userRepo:         userRepo,
+	}
+
+	err := paymentSvc.applyAffiliateFirstRechargeRewardForOrder(ctx, order)
+
+	require.NoError(t, err)
+	reloadedInvitee, err := client.User.Get(ctx, invitee.ID)
+	require.NoError(t, err)
+	require.Equal(t, 2.5, reloadedInvitee.Balance)
+	require.Equal(t, 0.0, reloadedInvitee.TotalRecharged)
+	require.Equal(t, int64(1), affiliateRepo.grantFirstRechargeCalls)
+	require.Equal(t, inviter.ID, affiliateRepo.grantFirstRechargeInviterID)
+	require.Equal(t, invitee.ID, affiliateRepo.grantFirstRechargeInviteeID)
+	require.Equal(t, order.ID, affiliateRepo.grantFirstRechargeSourceOrderID)
+	require.Equal(t, 2.5, affiliateRepo.grantFirstRechargeAmount)
+	require.True(t, paymentAuditExists(t, ctx, client, order.ID, "AFFILIATE_FIRST_RECHARGE_REWARD_APPLIED"))
+
+	err = paymentSvc.applyAffiliateFirstRechargeRewardForOrder(ctx, order)
+
+	require.NoError(t, err)
+	reloadedInvitee, err = client.User.Get(ctx, invitee.ID)
+	require.NoError(t, err)
+	require.Equal(t, 2.5, reloadedInvitee.Balance)
+	require.Equal(t, int64(1), affiliateRepo.grantFirstRechargeCalls)
+}
+
+func TestPaymentBalanceFulfillmentSkipsAffiliateRewardAfterFirstRecharge(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	inviter := createFirstRechargeBonusUser(t, ctx, client, "affiliate-second-inviter")
+	invitee := createFirstRechargeBonusUser(t, ctx, client, "affiliate-second-invitee")
+	createFirstRechargeBonusOrder(t, ctx, client, invitee, 8, payment.OrderTypeBalance, OrderStatusCompleted, "aff-2-prev")
+	order := createFirstRechargeBonusOrder(t, ctx, client, invitee, 12.5, payment.OrderTypeBalance, OrderStatusPaid, "aff-2-now")
+	userRepo := &firstRechargeBonusEntUserRepo{client: client}
+	settings := NewSettingService(firstRechargeAffiliateSettingRepo{
+		SettingKeyAffiliateEnabled:             "true",
+		SettingKeyAffiliateAPICallRewardAmount: "2.5",
+		SettingKeyAffiliateRebateRate:          "0",
+	}, nil)
+	affiliateRepo := &firstRechargeAffiliateRepoStub{
+		summaryByUserID: map[int64]*AffiliateSummary{
+			invitee.ID: {UserID: invitee.ID, InviterID: &inviter.ID},
+			inviter.ID: {UserID: inviter.ID},
+		},
+	}
+	affiliateSvc := NewAffiliateService(affiliateRepo, settings, nil, nil)
+	paymentSvc := &PaymentService{
+		entClient:        client,
+		affiliateService: affiliateSvc,
+		userRepo:         userRepo,
+	}
+
+	err := paymentSvc.applyAffiliateFirstRechargeRewardForOrder(ctx, order)
+
+	require.NoError(t, err)
+	reloadedInvitee, err := client.User.Get(ctx, invitee.ID)
+	require.NoError(t, err)
+	require.Equal(t, 0.0, reloadedInvitee.Balance)
+	require.Equal(t, int64(0), affiliateRepo.grantFirstRechargeCalls)
+	require.False(t, paymentAuditExists(t, ctx, client, order.ID, "AFFILIATE_FIRST_RECHARGE_REWARD_APPLIED"))
+}
+
 func TestPaymentSubscriptionFulfillmentRetriesFirstRechargeBonusWithoutExtendingAgain(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
@@ -689,6 +774,99 @@ func paymentAuditExists(t *testing.T, ctx context.Context, client *dbent.Client,
 	return exists
 }
 
+type firstRechargeAffiliateSettingRepo map[string]string
+
+func (r firstRechargeAffiliateSettingRepo) Get(ctx context.Context, key string) (*Setting, error) {
+	value, err := r.GetValue(ctx, key)
+	if err != nil {
+		return nil, err
+	}
+	now := time.Now()
+	return &Setting{Key: key, Value: value, UpdatedAt: now}, nil
+}
+
+func (r firstRechargeAffiliateSettingRepo) GetValue(_ context.Context, key string) (string, error) {
+	value, ok := r[key]
+	if !ok {
+		return "", errors.New("setting not found")
+	}
+	return value, nil
+}
+
+func (r firstRechargeAffiliateSettingRepo) Set(_ context.Context, key, value string) error {
+	r[key] = value
+	return nil
+}
+
+func (r firstRechargeAffiliateSettingRepo) GetMultiple(_ context.Context, keys []string) (map[string]string, error) {
+	out := make(map[string]string, len(keys))
+	for _, key := range keys {
+		out[key] = r[key]
+	}
+	return out, nil
+}
+
+func (r firstRechargeAffiliateSettingRepo) SetMultiple(_ context.Context, settings map[string]string) error {
+	for key, value := range settings {
+		r[key] = value
+	}
+	return nil
+}
+
+func (r firstRechargeAffiliateSettingRepo) GetAll(context.Context) (map[string]string, error) {
+	out := make(map[string]string, len(r))
+	for key, value := range r {
+		out[key] = value
+	}
+	return out, nil
+}
+
+func (r firstRechargeAffiliateSettingRepo) Delete(_ context.Context, key string) error {
+	delete(r, key)
+	return nil
+}
+
+type firstRechargeAffiliateRepoStub struct {
+	AffiliateRepository
+	summaryByUserID                 map[int64]*AffiliateSummary
+	grantFirstRechargeCalls         int64
+	grantFirstRechargeInviterID     int64
+	grantFirstRechargeInviteeID     int64
+	grantFirstRechargeSourceOrderID int64
+	grantFirstRechargeAmount        float64
+	grantFirstRechargeFreezeHours   int
+}
+
+func (r *firstRechargeAffiliateRepoStub) EnsureUserAffiliate(_ context.Context, userID int64) (*AffiliateSummary, error) {
+	if r.summaryByUserID != nil {
+		if summary, ok := r.summaryByUserID[userID]; ok {
+			return summary, nil
+		}
+	}
+	return &AffiliateSummary{UserID: userID}, nil
+}
+
+func (r *firstRechargeAffiliateRepoStub) RevokeSelfReferralByPaymentMethod(context.Context, int64, int64, *int64) (bool, error) {
+	return false, nil
+}
+
+func (r *firstRechargeAffiliateRepoStub) GrantFirstRechargeReward(_ context.Context, inviterID, inviteeUserID, sourceOrderID int64, amount float64, freezeHours int) (bool, error) {
+	if r.grantFirstRechargeCalls > 0 {
+		return false, nil
+	}
+	r.grantFirstRechargeCalls++
+	r.grantFirstRechargeInviterID = inviterID
+	r.grantFirstRechargeInviteeID = inviteeUserID
+	r.grantFirstRechargeSourceOrderID = sourceOrderID
+	r.grantFirstRechargeAmount = amount
+	r.grantFirstRechargeFreezeHours = freezeHours
+	return true, nil
+}
+
+func (r *firstRechargeAffiliateRepoStub) HasActiveRiskFreeze(context.Context, int64) (bool, error) {
+	return false, nil
+}
+
 type firstRechargeBonusEntUserRepo struct {
 	UserRepository
 	client *dbent.Client
@@ -700,6 +878,44 @@ func (r *firstRechargeBonusEntUserRepo) AddBalance(ctx context.Context, id int64
 		client = tx.Client()
 	}
 	affected, err := client.User.Update().Where(dbuser.IDEQ(id)).AddBalance(amount).Save(ctx)
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrUserNotFound
+	}
+	return nil
+}
+
+func (r *firstRechargeBonusEntUserRepo) GetByID(ctx context.Context, id int64) (*User, error) {
+	client := r.client
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		client = tx.Client()
+	}
+	found, err := client.User.Get(ctx, id)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, ErrUserNotFound
+		}
+		return nil, err
+	}
+	return &User{
+		ID:          found.ID,
+		Email:       found.Email,
+		Username:    found.Username,
+		Balance:     found.Balance,
+		Concurrency: found.Concurrency,
+		CreatedAt:   found.CreatedAt,
+		UpdatedAt:   found.UpdatedAt,
+	}, nil
+}
+
+func (r *firstRechargeBonusEntUserRepo) UpdateBalance(ctx context.Context, id int64, amount float64) error {
+	client := r.client
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		client = tx.Client()
+	}
+	affected, err := client.User.Update().Where(dbuser.IDEQ(id)).AddBalance(amount).AddTotalRecharged(amount).Save(ctx)
 	if err != nil {
 		return err
 	}
@@ -769,4 +985,56 @@ func (r *firstRechargeBonusEntRedeemRepo) GetByCode(ctx context.Context, code st
 		GroupID:      found.GroupID,
 		ValidityDays: found.ValidityDays,
 	}, nil
+}
+
+func (r *firstRechargeBonusEntRedeemRepo) GetByID(ctx context.Context, id int64) (*RedeemCode, error) {
+	client := r.client
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		client = tx.Client()
+	}
+	found, err := client.RedeemCode.Query().Where(redeemcode.IDEQ(id)).Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, ErrRedeemCodeNotFound
+		}
+		return nil, err
+	}
+	notes := ""
+	if found.Notes != nil {
+		notes = *found.Notes
+	}
+	return &RedeemCode{
+		ID:           found.ID,
+		Code:         found.Code,
+		Type:         found.Type,
+		Value:        found.Value,
+		Status:       found.Status,
+		UsedBy:       found.UsedBy,
+		UsedAt:       found.UsedAt,
+		Notes:        notes,
+		CreatedAt:    found.CreatedAt,
+		ExpiresAt:    found.ExpiresAt,
+		GroupID:      found.GroupID,
+		ValidityDays: found.ValidityDays,
+	}, nil
+}
+
+func (r *firstRechargeBonusEntRedeemRepo) Use(ctx context.Context, id, userID int64) error {
+	client := r.client
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		client = tx.Client()
+	}
+	affected, err := client.RedeemCode.Update().
+		Where(redeemcode.IDEQ(id), redeemcode.StatusEQ(StatusUnused)).
+		SetStatus(StatusUsed).
+		SetUsedBy(userID).
+		SetUsedAt(time.Now()).
+		Save(ctx)
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return ErrRedeemCodeUsed
+	}
+	return nil
 }

@@ -1,7 +1,7 @@
 export default {
     title: '邀请赚钱',
-    description: '邀请好友注册并调用任意 API 后，即可领取固定奖励，后续购买积分还可按比例继续累积。',
-    descriptionWithReward: '邀请好友注册并调用任意 API 后，即可领取 {amount}，后续购买积分还可按比例继续累积。',
+    description: '邀请好友注册并完成首次充值后，双方自动获得固定奖励，后续购买积分还可按比例继续累积。',
+    descriptionWithReward: '邀请好友注册并完成首次充值后，双方自动获得 {amount}，后续购买积分还可按比例继续累积。',
     yourCode: '我的邀请码',
     inviteLink: '邀请链接',
     copyCode: '复制邀请码',
@@ -29,7 +29,7 @@ export default {
       more: '也可以通过以下方式分享',
       email: '邮件',
       emailSubject: '邀请你一起使用 API 服务',
-      emailBody: '通过我的邀请链接注册，调用任意 API 后即可开始赚取奖励：{link}'
+      emailBody: '通过我的邀请链接注册，完成首次充值后我们都能获得奖励：{link}'
     },
     stats: {
       rebateRate: '我的返利比例',
@@ -55,12 +55,12 @@ export default {
         description: '把邀请链接发给好友，或发布到社交媒体、社群和团队频道。'
       },
       verify: {
-        title: '用户注册并调用',
-        description: '好友通过你的链接创建账号后，调用任意 API 即可进入奖励流程。'
+        title: '好友完成首充',
+        description: '好友通过你的链接创建账号后，完成首次充值即可触发双方固定奖励。'
       },
       earn: {
-        title: '领取 {amount}',
-        description: '好友首次调用 API 后，你可以领取固定奖励；好友后续购买积分还会按 {rate} 计算返利。'
+        title: '双方获得 {amount}',
+        description: '首充成功后系统会自动发放固定奖励；好友后续购买积分还会按 {rate} 计算返利。'
       }
     },
     invitees: {
@@ -70,6 +70,7 @@ export default {
         email: '邮箱',
         username: '用户名',
         apiStatus: 'API 调用',
+        rechargeStatus: '首次充值',
         rebate: '返利明细',
         joinedAt: '注册时间',
         action: '操作'
@@ -78,13 +79,19 @@ export default {
         used: '已调用',
         pending: '未调用'
       },
+      rechargeStatus: {
+        completed: '已首充',
+        pending: '待首充'
+      },
       actions: {
         claim: '领取返利',
         claiming: '领取中...',
         claimed: '已领取',
-        waiting: '待调用',
+        rewarded: '已发放',
+        autoPending: '自动发放',
+        waiting: '待首充',
         notConfigured: '未配置',
-        claimSuccess: '已领取首次 API 调用返利：{amount}',
+        claimSuccess: '已发放首次充值邀请奖励：{amount}',
         claimFailed: '领取返利失败'
       }
     },
@@ -96,7 +103,7 @@ export default {
     notice: {
       title: '注意事项',
       line1: '只有好友通过你的邀请链接或邀请码注册，才会被记录为有效邀请。',
-      line2: '好友通过你的链接注册并调用任意 API 后，固定奖励才可领取。',
+      line2: '好友通过你的链接注册并完成首次充值后，固定奖励会自动发放给双方。',
       line3: '积分购买返利按当前生效比例计算，新产生的返利可能需要经过冻结期。',
       line4: '不要使用自己的邮箱、设备或支付方式互相邀请，异常邀请可能会被系统自动撤销。'
     },
@@ -104,11 +111,11 @@ export default {
       title: '常见问题',
       limit: {
         question: '邀请好友数量有上限吗？',
-        answer: '没有固定上限；每一位通过你的链接注册并调用任意 API 的有效好友，都有机会带来 {amount} 固定奖励。'
+        answer: '没有固定上限；每一位通过你的链接注册并完成首次充值的有效好友，都有机会让双方获得 {amount} 固定奖励。'
       },
       when: {
         question: '积分何时到账？',
-        answer: '好友通过你的链接注册并调用任意 API 后，可在最近推荐列表中领取固定奖励；积分购买返利会按站点配置进入可用或冻结积分。'
+        answer: '好友通过你的链接注册并完成首次充值后，固定奖励会自动到账；积分购买返利会按站点配置进入可用或冻结积分。'
       },
       expire: {
         question: '积分会过期吗？',
@@ -122,7 +129,7 @@ export default {
     tips: {
       title: '使用说明',
       line1: '将邀请码或邀请链接分享给新用户。',
-      line2: '被邀请用户首次调用 API 后，可在列表中领取固定返利；积分购买返利比例为 {rate}。',
+      line2: '被邀请用户首次充值后，双方会自动获得固定奖励；积分购买返利比例为 {rate}。',
       line3: '返利积分可随时转入账户积分。',
       line4: '新产生的返利需要经过冻结期后才能转入积分。'
     }

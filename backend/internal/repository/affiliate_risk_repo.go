@@ -37,7 +37,7 @@ WITH candidates AS (
               FROM user_affiliate_ledger ual
               WHERE ual.user_id = ua.inviter_id
                 AND ual.source_user_id = ua.user_id
-                AND ual.action = 'api_call_reward'
+                AND ual.action IN ('api_call_reward', 'first_recharge_reward')
                 AND ual.created_at >= $1
                 AND ual.created_at < $2
           )
@@ -62,7 +62,7 @@ api_rewards AS (
     JOIN candidates c
       ON c.inviter_id = ual.user_id
      AND c.invitee_id = ual.source_user_id
-    WHERE ual.action = 'api_call_reward'
+    WHERE ual.action IN ('api_call_reward', 'first_recharge_reward')
       AND ual.created_at < $2
     GROUP BY ual.user_id, ual.source_user_id
 )

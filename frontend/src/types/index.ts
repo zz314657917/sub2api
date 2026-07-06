@@ -120,6 +120,7 @@ export type SupportTicketActionType =
   | 'payment_completed'
   | 'invoice_issued'
   | 'affiliate_first_api_reward'
+  | 'affiliate_first_recharge_reward'
   | 'welfare_first_api_unclaimed'
   | 'group_changed'
 export type AdminSupportTicketSortBy = 'last_message_at' | 'unread_first'
@@ -221,6 +222,11 @@ export interface AffiliateInvitee {
   api_call_reward_claimed: boolean
   api_call_reward_claimed_at?: string
   api_call_reward_amount: number
+  first_recharge_completed?: boolean
+  first_recharge_at?: string
+  first_recharge_rewarded?: boolean
+  first_recharge_rewarded_at?: string
+  first_recharge_reward_amount?: number
 }
 
 export interface UserAffiliateDetail {
@@ -234,6 +240,7 @@ export interface UserAffiliateDetail {
   /** 当前用户作为邀请人时实际生效的返利比例（专属覆盖全局）。0-100。 */
   effective_rebate_rate_percent: number
   api_call_reward_amount: number
+  first_recharge_reward_amount?: number
   invitees: AffiliateInvitee[]
 }
 

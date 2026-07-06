@@ -308,6 +308,9 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder) e
 		if err := s.applyFirstRechargeBonusForOrder(ctx, o); err != nil {
 			return err
 		}
+		if err := s.applyAffiliateFirstRechargeRewardForOrder(ctx, o); err != nil {
+			return err
+		}
 		// Code already created and redeemed — just mark completed
 		return s.markCompleted(ctx, o, "RECHARGE_SUCCESS")
 	case redeemActionCreate:
@@ -327,6 +330,9 @@ func (s *PaymentService) doBalance(ctx context.Context, o *dbent.PaymentOrder) e
 		return err
 	}
 	if err := s.applyFirstRechargeBonusForOrder(ctx, o); err != nil {
+		return err
+	}
+	if err := s.applyAffiliateFirstRechargeRewardForOrder(ctx, o); err != nil {
 		return err
 	}
 	return s.markCompleted(ctx, o, "RECHARGE_SUCCESS")
@@ -469,6 +475,9 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error
 	if err := s.applyFirstRechargeBonusForOrder(ctx, o); err != nil {
 		return err
 	}
+	if err := s.applyAffiliateFirstRechargeRewardForOrder(ctx, o); err != nil {
+		return err
+	}
 	if err := s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS"); err != nil {
 		return err
 	}
@@ -510,6 +519,143 @@ func (s *PaymentService) hasAuditLog(ctx context.Context, orderID int64, action 
 		Where(paymentauditlog.OrderIDEQ(oid), paymentauditlog.ActionEQ(action)).
 		Limit(1).Count(ctx)
 	return c > 0
+}
+
+func (s *PaymentService) applyAffiliateFirstRechargeRewardForOrder(ctx context.Context, o *dbent.PaymentOrder) error {
+	if s == nil || s.affiliateService == nil || s.userRepo == nil || o == nil || o.ID <= 0 || o.UserID <= 0 || o.Amount <= 0 {
+		return nil
+	}
+	first, err := s.isFirstRechargeRewardOrder(ctx, o)
+	if err != nil {
+		s.writeAuditLog(ctx, o.ID, "AFFILIATE_FIRST_RECHARGE_REWARD_FAILED", "system", map[string]any{
+			"error": err.Error(),
+		})
+		return fmt.Errorf("check affiliate first recharge reward order: %w", err)
+	}
+	if !first {
+		return nil
+	}
+
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		s.writeAuditLog(ctx, o.ID, "AFFILIATE_FIRST_RECHARGE_REWARD_FAILED", "system", map[string]any{
+			"error": fmt.Sprintf("begin affiliate first recharge reward tx: %v", err),
+		})
+		return fmt.Errorf("begin affiliate first recharge reward tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	txCtx := dbent.NewTxContext(ctx, tx)
+	rewardAmount, inviterID, err := s.affiliateService.GrantInviteeFirstRechargeReward(txCtx, o.UserID, o.ID)
+	if err != nil {
+		s.writeAuditLog(ctx, o.ID, "AFFILIATE_FIRST_RECHARGE_REWARD_FAILED", "system", map[string]any{
+			"error": err.Error(),
+		})
+		return fmt.Errorf("grant affiliate first recharge reward: %w", err)
+	}
+	if rewardAmount <= 0 {
+		if err := tx.Commit(); err != nil {
+			s.writeAuditLog(ctx, o.ID, "AFFILIATE_FIRST_RECHARGE_REWARD_FAILED", "system", map[string]any{
+				"error": fmt.Sprintf("commit skipped affiliate first recharge reward tx: %v", err),
+			})
+			return fmt.Errorf("commit skipped affiliate first recharge reward tx: %w", err)
+		}
+		return nil
+	}
+	if err := grantWelfareBalance(txCtx, s.userRepo, o.UserID, rewardAmount); err != nil {
+		s.writeAuditLog(ctx, o.ID, "AFFILIATE_FIRST_RECHARGE_REWARD_FAILED", "system", map[string]any{
+			"error": err.Error(),
+		})
+		return fmt.Errorf("grant invitee first recharge reward: %w", err)
+	}
+	if err := s.writeAffiliateFirstRechargeRewardAudit(txCtx, o.ID, inviterID, o.UserID, rewardAmount); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		s.writeAuditLog(ctx, o.ID, "AFFILIATE_FIRST_RECHARGE_REWARD_FAILED", "system", map[string]any{
+			"error": fmt.Sprintf("commit affiliate first recharge reward tx: %v", err),
+		})
+		return fmt.Errorf("commit affiliate first recharge reward tx: %w", err)
+	}
+	s.invalidateAffiliateFirstRechargeRewardCaches(ctx, o.UserID)
+	s.notifyAffiliateInviterFirstRechargeRewardBestEffort(ctx, inviterID, o.UserID, rewardAmount)
+	s.notifyAffiliateInviteeFirstRechargeRewardBestEffort(ctx, o.UserID, rewardAmount)
+	return nil
+}
+
+func (s *PaymentService) isFirstRechargeRewardOrder(ctx context.Context, o *dbent.PaymentOrder) (bool, error) {
+	if s == nil || s.entClient == nil || o == nil || o.ID <= 0 || o.UserID <= 0 || o.Amount <= 0 {
+		return false, nil
+	}
+	if !isFirstRechargeBonusEligibleOrder(o) || !isFirstRechargeBonusEligibleOrderStatus(o.Status) {
+		return false, nil
+	}
+	if o.Status == OrderStatusFailed && !paymentOrderHasPaymentEvidence(o) {
+		return false, nil
+	}
+	count, err := s.entClient.PaymentOrder.Query().
+		Where(
+			paymentorder.UserIDEQ(o.UserID),
+			paymentorder.OrderTypeIn(firstRechargeBonusEligibleOrderTypes()...),
+			paymentorder.AmountGT(0),
+			paymentorder.IDLT(o.ID),
+			firstRechargeBlockingOrderPredicate(),
+		).
+		Limit(1).
+		Count(ctx)
+	if err != nil {
+		return false, err
+	}
+	return count == 0, nil
+}
+
+func (s *PaymentService) writeAffiliateFirstRechargeRewardAudit(ctx context.Context, orderID, inviterID, inviteeUserID int64, amount float64) error {
+	client := s.entClient
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		client = tx.Client()
+	}
+	if client == nil || orderID <= 0 {
+		return nil
+	}
+	detail, _ := json.Marshal(map[string]any{
+		"inviter_user_id": inviterID,
+		"invitee_user_id": inviteeUserID,
+		"reward_amount":   amount,
+	})
+	if _, err := client.PaymentAuditLog.Create().
+		SetOrderID(strconv.FormatInt(orderID, 10)).
+		SetAction("AFFILIATE_FIRST_RECHARGE_REWARD_APPLIED").
+		SetDetail(string(detail)).
+		SetOperator("system").
+		Save(ctx); err != nil {
+		return fmt.Errorf("write affiliate first recharge reward audit: %w", err)
+	}
+	return nil
+}
+
+func (s *PaymentService) invalidateAffiliateFirstRechargeRewardCaches(ctx context.Context, userID int64) {
+	if s == nil || userID <= 0 {
+		return
+	}
+	if s.affiliateService != nil {
+		s.affiliateService.invalidateAffiliateCaches(ctx, userID)
+	}
+}
+
+func (s *PaymentService) notifyAffiliateInviterFirstRechargeRewardBestEffort(ctx context.Context, inviterID int64, inviteeUserID int64, amount float64) {
+	if s == nil || s.systemTicketSvc == nil || inviterID <= 0 || inviteeUserID <= 0 {
+		return
+	}
+	event := NewAffiliateFirstRechargeRewardSystemTicketNotification(inviteeUserID, amount, false)
+	s.systemTicketSvc.NotifyEventBestEffort(ctx, "service.payment", inviterID, event)
+}
+
+func (s *PaymentService) notifyAffiliateInviteeFirstRechargeRewardBestEffort(ctx context.Context, inviteeUserID int64, amount float64) {
+	if s == nil || s.systemTicketSvc == nil || inviteeUserID <= 0 {
+		return
+	}
+	event := NewAffiliateInviteeFirstRechargeRewardSystemTicketNotification(amount)
+	s.systemTicketSvc.NotifyEventBestEffort(ctx, "service.payment", inviteeUserID, event)
 }
 
 func (s *PaymentService) applyAffiliateRebateForOrder(ctx context.Context, o *dbent.PaymentOrder) error {

@@ -1,7 +1,7 @@
 export default {
     title: 'Invite Earnings',
-    description: 'Invite friends to register and call any API. You can claim a fixed reward afterward, then keep earning from credit purchase rebates.',
-    descriptionWithReward: 'Invite friends to register and call any API. You can claim {amount} afterward, then keep earning from credit purchase rebates.',
+    description: 'Invite friends to register and complete their first recharge. Both sides receive the fixed reward automatically, then you can keep earning from credit purchase rebates.',
+    descriptionWithReward: 'Invite friends to register and complete their first recharge. Both sides receive {amount} automatically, then you can keep earning from credit purchase rebates.',
     yourCode: 'Your Affiliate Code',
     inviteLink: 'Invite Link',
     copyCode: 'Copy Code',
@@ -29,7 +29,7 @@ export default {
       more: 'Or share another way',
       email: 'Email',
       emailSubject: 'Join this API service with my invite link',
-      emailBody: 'Register through my invite link, then call any API to start the reward flow: {link}'
+      emailBody: 'Register through my invite link, then complete your first recharge so we both receive the reward: {link}'
     },
     stats: {
       rebateRate: 'My Rebate Rate',
@@ -55,12 +55,12 @@ export default {
         description: 'Send the invite link to friends, social channels, communities, or team chats.'
       },
       verify: {
-        title: 'User registers and calls',
-        description: 'Your friend creates an account through your link, then calls any API to enter the reward flow.'
+        title: 'Friend recharges first',
+        description: 'Your friend creates an account through your link, then completes the first recharge to trigger rewards for both sides.'
       },
       earn: {
-        title: 'Claim {amount}',
-        description: 'After the first API call, claim the fixed reward here. Future credit purchases can keep earning at {rate}.'
+        title: 'Both receive {amount}',
+        description: 'After the first recharge succeeds, the fixed reward is granted automatically. Future credit purchases can keep earning at {rate}.'
       }
     },
     invitees: {
@@ -70,6 +70,7 @@ export default {
         email: 'Email',
         username: 'Username',
         apiStatus: 'API Call',
+        rechargeStatus: 'First Recharge',
         rebate: 'Rebate',
         joinedAt: 'Joined At',
         action: 'Action'
@@ -78,13 +79,19 @@ export default {
         used: 'Called',
         pending: 'Pending'
       },
+      rechargeStatus: {
+        completed: 'Recharged',
+        pending: 'Pending'
+      },
       actions: {
         claim: 'Claim',
         claiming: 'Claiming...',
         claimed: 'Claimed',
+        rewarded: 'Granted',
+        autoPending: 'Auto grant',
         waiting: 'Waiting',
         notConfigured: 'Not configured',
-        claimSuccess: 'First API call rebate claimed: {amount}',
+        claimSuccess: 'First recharge referral reward granted: {amount}',
         claimFailed: 'Failed to claim rebate'
       }
     },
@@ -96,7 +103,7 @@ export default {
     notice: {
       title: 'Important notes',
       line1: 'Only registrations through your invite link or code count as valid referrals.',
-      line2: 'The fixed reward becomes claimable after your friend registers through your link and calls any API.',
+      line2: 'The fixed reward is granted to both sides after your friend registers through your link and completes the first recharge.',
       line3: 'Credit purchase rebates use your current effective rate. Newly earned rebates may enter a frozen period.',
       line4: 'Do not self-invite with your own email, device, or payment method. Abnormal referrals may be revoked.'
     },
@@ -104,11 +111,11 @@ export default {
       title: 'FAQ',
       limit: {
         question: 'Is there a referral limit?',
-        answer: 'There is no fixed cap. Every valid friend who registers through your link and calls any API may bring a {amount} fixed reward.'
+        answer: 'There is no fixed cap. Every valid friend who registers through your link and completes the first recharge may grant both sides a {amount} fixed reward.'
       },
       when: {
         question: 'When does credit arrive?',
-        answer: 'After your friend registers through your link and calls any API, you can claim the fixed reward from Recent referrals. Credit purchase rebates follow the site configuration.'
+        answer: 'After your friend registers through your link and completes the first recharge, the fixed reward is granted automatically. Credit purchase rebates follow the site configuration.'
       },
       expire: {
         question: 'Will the credit expire?',
@@ -122,7 +129,7 @@ export default {
     tips: {
       title: 'How It Works',
       line1: 'Share your affiliate code or invite link with new users.',
-      line2: 'After an invitee makes the first API call, you can claim the fixed reward here. Credit purchase rebate rate: {rate}.',
+      line2: 'After an invitee completes the first recharge, both sides receive the fixed reward automatically. Credit purchase rebate rate: {rate}.',
       line3: 'Transfer rebate credits to account credits at any time.',
       line4: 'Newly earned rebates may have a waiting period before they can be transferred.'
     }
