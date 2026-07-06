@@ -40,7 +40,7 @@ export default {
       empty: 'No trend data'
     },
     calendar: {
-      title: 'Calendar',
+      title: 'Daily Champions',
       previousMonth: 'View previous month',
       currentMonth: 'Back to current month',
       emptyDay: '{date} has no champion',

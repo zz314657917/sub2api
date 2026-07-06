@@ -40,7 +40,7 @@ export default {
       empty: '暂无趋势数据'
     },
     calendar: {
-      title: '日历',
+      title: '每日冠军',
       previousMonth: '查看上月',
       currentMonth: '回到本月',
       emptyDay: '{date} 暂无冠军',

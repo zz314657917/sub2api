@@ -1,10 +1,10 @@
 <template>
   <AppLayout>
-    <div class="space-y-6">
+    <div class="leaderboard-page space-y-6">
       <section v-if="leaderboard" class="card leaderboard-token-card leaderboard-token-summary p-5">
         <div class="leaderboard-token-summary-inner relative z-10">
           <div class="leaderboard-token-summary-main min-w-0">
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.totalTokens') }}</p>
+            <p class="leaderboard-section-label text-sm">{{ t('leaderboard.totalTokens') }}</p>
             <div
               :key="rollingTokenAnimationKey"
               class="leaderboard-token-odometer"
@@ -34,7 +34,7 @@
                 <span v-else>{{ part.value }}</span>
               </span>
             </div>
-            <div class="leaderboard-token-summary-meta text-sm text-gray-500 dark:text-gray-400">
+            <div class="leaderboard-token-summary-meta text-sm">
               <span>{{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}</span>
             </div>
           </div>
@@ -54,17 +54,17 @@
         </div>
       </section>
 
-      <div v-if="loading" class="card flex min-h-[280px] items-center justify-center p-8">
+      <div v-if="loading" class="card leaderboard-state-card flex min-h-[280px] items-center justify-center p-8">
         <div class="text-center">
-          <div class="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
-          <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">{{ t('common.loading') }}</p>
+          <div class="leaderboard-loading-spinner mx-auto h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"></div>
+          <p class="leaderboard-section-label mt-3 text-sm">{{ t('common.loading') }}</p>
         </div>
       </div>
 
-      <div v-else-if="error" class="card p-8 text-center">
-        <h2 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('leaderboard.errorTitle') }}</h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ t('leaderboard.errorDescription') }}</p>
-        <button class="btn btn-primary mt-5" type="button" @click="loadLeaderboard">{{ t('leaderboard.retry') }}</button>
+      <div v-else-if="error" class="card leaderboard-state-card p-8 text-center">
+        <h2 class="leaderboard-state-title text-lg font-semibold">{{ t('leaderboard.errorTitle') }}</h2>
+        <p class="leaderboard-section-label mt-2 text-sm">{{ t('leaderboard.errorDescription') }}</p>
+        <button class="btn btn-primary leaderboard-reward-claim mt-5" type="button" @click="loadLeaderboard">{{ t('leaderboard.retry') }}</button>
       </div>
 
       <template v-else-if="leaderboard">
@@ -117,9 +117,25 @@
                       {{ option.label }}
                     </button>
                   </div>
-                  <span class="leaderboard-token-ranking-updated">
-                    {{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}
-                  </span>
+                  <div class="leaderboard-ranking-toolbar-meta">
+                    <div class="leaderboard-token-legend" aria-hidden="true">
+                      <span class="leaderboard-token-legend-item">
+                        <span class="leaderboard-token-legend-dot leaderboard-token-legend-dot--input"></span>
+                        {{ t('leaderboard.inputTokensShort') }}
+                      </span>
+                      <span class="leaderboard-token-legend-item">
+                        <span class="leaderboard-token-legend-dot leaderboard-token-legend-dot--output"></span>
+                        {{ t('leaderboard.outputTokensShort') }}
+                      </span>
+                      <span class="leaderboard-token-legend-item">
+                        <span class="leaderboard-token-legend-dot leaderboard-token-legend-dot--cache"></span>
+                        {{ t('leaderboard.cacheTokensShort') }}
+                      </span>
+                    </div>
+                    <span class="leaderboard-token-ranking-updated">
+                      {{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}
+                    </span>
+                  </div>
                 </div>
 
                 <div class="leaderboard-token-rank-list">
@@ -207,9 +223,9 @@
             </template>
           </div>
 
-          <aside class="space-y-5 xl:sticky xl:top-20 xl:self-start">
-            <section class="card p-5" data-testid="leaderboard-my-info">
-            <p class="text-sm font-semibold text-primary-700 dark:text-primary-300">{{ t('leaderboard.myInfo') }}</p>
+          <aside class="leaderboard-side-stack space-y-5 xl:sticky xl:top-20 xl:self-start">
+            <section class="card leaderboard-side-card p-5" data-testid="leaderboard-my-info">
+            <p class="leaderboard-side-title text-sm font-semibold">{{ t('leaderboard.myInfo') }}</p>
             <div v-if="myEntry?.badges?.length" class="mt-3 flex flex-wrap items-center gap-1.5">
               <span
                 v-for="badge in visibleLeaderboardBadges(myEntry?.badges)"
@@ -233,17 +249,17 @@
               </span>
             </div>
             <div class="mt-4 min-w-0">
-              <p class="truncate text-xl font-bold text-gray-900 dark:text-white">
+              <p class="leaderboard-side-value truncate text-xl font-bold">
                 {{ myRankLabel }} {{ myDisplayName }}
               </p>
             </div>
-            <div class="leaderboard-my-token-card mt-4 rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-800" data-testid="leaderboard-my-token">
-              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.tokens') }}</p>
-              <p class="mt-1 truncate text-xl font-bold text-gray-900 dark:text-white">{{ formatNumber(myEntry?.tokens ?? 0) }}</p>
+            <div class="leaderboard-my-token-card mt-4 rounded-lg p-3 text-sm" data-testid="leaderboard-my-token">
+              <p class="leaderboard-side-label text-xs">{{ t('leaderboard.tokens') }}</p>
+              <p class="leaderboard-side-value mt-1 truncate text-xl font-bold">{{ formatNumber(myEntry?.tokens ?? 0) }}</p>
             </div>
           </section>
 
-          <section v-if="dailyRewards" class="card p-5" data-testid="leaderboard-daily-reward">
+          <section v-if="dailyRewards" class="card leaderboard-side-card p-5" data-testid="leaderboard-daily-reward">
             <div class="leaderboard-reward-head">
               <div class="min-w-0">
                 <h2 class="leaderboard-reward-title">{{ t('leaderboard.dailyReward.title') }}</h2>
@@ -261,10 +277,10 @@
               <div
                 v-for="tier in rewardTiers"
                 :key="tier.rank"
-                class="rounded-lg border border-gray-100 bg-gray-50 p-3 text-center dark:border-dark-700 dark:bg-dark-800"
+                class="leaderboard-reward-tier-card rounded-lg p-3 text-center"
               >
-                <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('leaderboard.dailyReward.rankReward', { rank: tier.rank }) }}</p>
-                <p class="mt-1 text-sm font-bold text-gray-900 dark:text-white">{{ t('leaderboard.dailyReward.rewardAmountHidden') }}</p>
+                <p class="leaderboard-side-label text-xs">{{ t('leaderboard.dailyReward.rankReward', { rank: tier.rank }) }}</p>
+                <p class="leaderboard-side-value mt-1 text-sm font-bold">{{ t('leaderboard.dailyReward.rewardAmountHidden') }}</p>
               </div>
             </div>
 
@@ -285,21 +301,21 @@
               </div>
             </div>
 
-            <div class="mt-4 rounded-lg bg-gray-50 p-3 text-sm dark:bg-dark-800">
+            <div class="leaderboard-reward-progress-card mt-4 rounded-lg p-3 text-sm">
               <div class="flex items-center justify-between gap-3">
-                <span class="text-gray-500 dark:text-gray-400">{{ t('leaderboard.myRank') }}</span>
-                <span class="font-semibold text-gray-900 dark:text-white">{{ formatRewardRankLabel(dailyRewards.current_user_rank) }}</span>
+                <span class="leaderboard-side-label">{{ t('leaderboard.myRank') }}</span>
+                <span class="leaderboard-side-value font-semibold">{{ formatRewardRankLabel(dailyRewards.current_user_rank) }}</span>
               </div>
               <div class="mt-2 flex items-center justify-between gap-3">
-                <span class="text-gray-500 dark:text-gray-400">{{ t('leaderboard.dailyReward.targetProgress') }}</span>
-                <span class="font-semibold text-gray-900 dark:text-white">{{ dailyRewardGoalProgressText }}</span>
+                <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.targetProgress') }}</span>
+                <span class="leaderboard-side-value font-semibold">{{ dailyRewardGoalProgressText }}</span>
               </div>
               <div
-                class="mt-3 h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700"
+                class="leaderboard-reward-progress-track mt-3 h-2 overflow-hidden rounded-full"
                 :aria-label="`${t('leaderboard.dailyReward.targetProgress')} ${dailyRewardGoalProgressText}`"
               >
                 <div
-                  class="h-full rounded-full bg-primary-600 transition-all duration-300 dark:bg-primary-400"
+                  class="leaderboard-reward-progress-fill h-full rounded-full transition-all duration-300"
                   :style="{ width: dailyRewardGoalProgressWidth }"
                 ></div>
               </div>
@@ -308,7 +324,7 @@
             <p v-if="claimError" class="mt-3 text-sm text-red-600 dark:text-red-400">{{ claimError }}</p>
 
             <button
-              class="btn btn-primary mt-4 w-full"
+              class="btn btn-primary leaderboard-reward-claim mt-4 w-full"
               type="button"
               :disabled="!dailyRewards.can_claim || claimingReward"
               data-testid="leaderboard-daily-reward-claim"
@@ -323,6 +339,7 @@
         <section class="leaderboard-calendar-card" data-testid="leaderboard-daily-champions-calendar">
           <div class="leaderboard-calendar-head">
             <h2 class="leaderboard-calendar-title">{{ t('leaderboard.calendar.title') }}</h2>
+            <span class="leaderboard-calendar-meta">{{ championCalendarRangeLabel }}</span>
           </div>
 
           <div class="leaderboard-calendar-scroll">
@@ -333,15 +350,8 @@
                 class="leaderboard-calendar-month-panel"
                 :class="month.isCurrent ? 'leaderboard-calendar-month-panel--current' : 'leaderboard-calendar-month-panel--previous'"
               >
-                <div class="leaderboard-calendar-month">{{ month.label }}</div>
-                <div class="leaderboard-calendar-weekdays" aria-hidden="true">
-                  <span
-                    v-for="weekday in championCalendarWeekdays"
-                    :key="`${month.key}-${weekday}`"
-                    class="leaderboard-calendar-weekday"
-                  >
-                    {{ weekday }}
-                  </span>
+                <div class="leaderboard-calendar-month-toolbar">
+                  <div class="leaderboard-calendar-month">{{ month.label }}</div>
                 </div>
                 <div class="leaderboard-calendar-days">
                   <div
@@ -349,18 +359,17 @@
                     :key="day.key"
                     class="leaderboard-calendar-day"
                     :class="{
-                      'leaderboard-calendar-day--active': !day.isPlaceholder && day.champion,
-                      'leaderboard-calendar-day--placeholder': day.isPlaceholder
+                      'leaderboard-calendar-day--active': day.champion,
+                      'leaderboard-calendar-day--empty': !day.champion
                     }"
                     :aria-label="championCalendarCellLabel(day)"
                     :tabindex="championCalendarCellTabIndex(day)"
-                    :data-testid="day.isPlaceholder ? 'leaderboard-calendar-placeholder' : 'leaderboard-calendar-day'"
+                    data-testid="leaderboard-calendar-day"
                     @mouseenter="showChampionTooltip(day, $event)"
                     @mouseleave="hideChampionTooltip"
                     @focusin="showChampionTooltip(day, $event)"
                     @focusout="hideChampionTooltip"
                   >
-                    <template v-if="!day.isPlaceholder">
                     <span class="leaderboard-calendar-day-number">{{ day.day }}</span>
                     <span v-if="day.champion" class="leaderboard-calendar-avatar" data-testid="leaderboard-calendar-avatar">
                       <img
@@ -371,7 +380,6 @@
                       >
                       <span v-else>{{ dailyChampionAvatarInitial(day.champion) }}</span>
                     </span>
-                    </template>
                   </div>
                 </div>
               </section>
@@ -462,7 +470,6 @@ type ChampionCalendarDay = {
   day: number
   champion?: UserLeaderboardDailyChampion
   streak: number
-  isPlaceholder: boolean
 }
 
 type ChampionCalendarMonth = {
@@ -500,15 +507,6 @@ const periodOptions = computed(() => [
   { value: 'month' as const, label: t('leaderboard.period.month') },
   { value: 'all' as const, label: t('leaderboard.period.all') },
 ])
-const championCalendarWeekdays = computed(() => [
-  t('leaderboard.calendar.weekdays.sun'),
-  t('leaderboard.calendar.weekdays.mon'),
-  t('leaderboard.calendar.weekdays.tue'),
-  t('leaderboard.calendar.weekdays.wed'),
-  t('leaderboard.calendar.weekdays.thu'),
-  t('leaderboard.calendar.weekdays.fri'),
-  t('leaderboard.calendar.weekdays.sat'),
-])
 const recentTokenTrendPoints = computed<UserLeaderboardTokenTrendPoint[]>(() => leaderboard.value?.recent_token_trend ?? [])
 const dailyChampionsByDate = computed(() => {
   const champions = new Map<string, UserLeaderboardDailyChampion>()
@@ -527,6 +525,7 @@ const championCalendarMonths = computed<ChampionCalendarMonth[]>(() => {
     buildChampionCalendarMonth(new Date(anchor.getFullYear(), anchor.getMonth(), 1), true),
   ]
 })
+const championCalendarRangeLabel = computed(() => championCalendarMonths.value.map((month) => month.label).join(' / '))
 const activeChampionTooltip = ref<ChampionCalendarTooltipView | null>(null)
 const championTooltipPosition = ref({ left: 0, top: 0 })
 const championTooltipStyle = computed(() => ({
@@ -570,13 +569,13 @@ const rollingTokenAnimationKey = computed(() => `${period.value}-${tokenTickerSe
 const recentTokenTrendChartColors = computed(() => {
   const isDark = document.documentElement.classList.contains('dark')
   return {
-    line: isDark ? '#60a5fa' : '#2563eb',
-    fill: isDark ? 'rgba(37, 99, 235, 0.24)' : 'rgba(37, 99, 235, 0.16)',
-    text: isDark ? '#dbeafe' : '#1e293b',
-    muted: isDark ? '#94a3b8' : '#64748b',
-    grid: isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(100, 116, 139, 0.16)',
-    tooltipBg: isDark ? 'rgba(8, 13, 26, 0.96)' : 'rgba(255, 255, 255, 0.96)',
-    tooltipBorder: isDark ? 'rgba(96, 165, 250, 0.34)' : 'rgba(37, 99, 235, 0.18)',
+    line: isDark ? '#d6b79d' : '#c46f50',
+    fill: isDark ? 'rgba(214, 183, 157, 0.18)' : 'rgba(196, 111, 80, 0.14)',
+    text: isDark ? '#f3efe7' : '#23201c',
+    muted: isDark ? '#a89f92' : '#6d675d',
+    grid: isDark ? 'rgba(214, 183, 157, 0.12)' : 'rgba(84, 76, 66, 0.12)',
+    tooltipBg: isDark ? 'rgba(18, 18, 16, 0.96)' : 'rgba(255, 253, 248, 0.96)',
+    tooltipBorder: isDark ? 'rgba(214, 183, 157, 0.24)' : 'rgba(196, 111, 80, 0.22)',
   }
 })
 
@@ -721,9 +720,9 @@ const dailyRewardReasonText = computed(() => {
 
 const dailyRewardStatusClass = computed(() => {
   const reward = dailyRewards.value
-  if (reward?.claimed) return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
-  if (reward?.can_claim) return 'bg-primary-100 text-primary-700 dark:bg-primary-500/20 dark:text-primary-300'
-  return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
+  if (reward?.claimed) return 'leaderboard-reward-status--claimed'
+  if (reward?.can_claim) return 'leaderboard-reward-status--ready'
+  return 'leaderboard-reward-status--idle'
 })
 
 const claimButtonText = computed(() => {
@@ -795,7 +794,7 @@ function selectPeriod(value: LeaderboardPeriod) {
 }
 
 function showChampionTooltip(day: ChampionCalendarDay, event: Event) {
-  if (day.isPlaceholder || !day.champion) {
+  if (!day.champion) {
     hideChampionTooltip()
     return
   }
@@ -871,10 +870,9 @@ function buildChampionCalendarMonth(monthStart: Date, isCurrent: boolean): Champ
   const month = monthStart.getMonth()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const key = formatCalendarDateKey(monthStart)
-  const leadingPlaceholderCount = new Date(year, month, 1).getDay()
   let previousChampionUserID: number | null = null
   let streak = 0
-  const realDays = Array.from({ length: daysInMonth }, (_, index) => {
+  const days = Array.from({ length: daysInMonth }, (_, index) => {
     const date = new Date(year, month, index + 1)
     const dateKey = formatCalendarDateKey(date)
     const champion = dailyChampionsByDate.value.get(dateKey)
@@ -891,30 +889,14 @@ function buildChampionCalendarMonth(monthStart: Date, isCurrent: boolean): Champ
       day: index + 1,
       champion,
       streak,
-      isPlaceholder: false,
     }
   })
-  const trailingPlaceholderCount = (7 - ((leadingPlaceholderCount + daysInMonth) % 7)) % 7
 
   return {
     key,
     label: `${year}年${month + 1}月`,
     isCurrent,
-    days: [
-      ...Array.from({ length: leadingPlaceholderCount }, (_, index) => createChampionCalendarPlaceholder(`${key}-leading-${index}`)),
-      ...realDays,
-      ...Array.from({ length: trailingPlaceholderCount }, (_, index) => createChampionCalendarPlaceholder(`${key}-trailing-${index}`)),
-    ],
-  }
-}
-
-function createChampionCalendarPlaceholder(key: string): ChampionCalendarDay {
-  return {
-    key,
-    date: '',
-    day: 0,
-    streak: 0,
-    isPlaceholder: true,
+    days,
   }
 }
 
@@ -969,12 +951,11 @@ function championCalendarEmptyLabel(day: ChampionCalendarDay): string {
 }
 
 function championCalendarCellLabel(day: ChampionCalendarDay): string | undefined {
-  if (day.isPlaceholder) return undefined
   return day.champion ? championCalendarTooltip(day) : championCalendarEmptyLabel(day)
 }
 
 function championCalendarCellTabIndex(day: ChampionCalendarDay): number | undefined {
-  return !day.isPlaceholder && day.champion ? 0 : undefined
+  return day.champion ? 0 : undefined
 }
 
 function startVisualTokenTicker() {
@@ -1046,10 +1027,10 @@ function tokenBarStyle(item: UserLeaderboardItem): Record<string, string> {
 }
 
 function tokenBarPalette(rank: number): { color: string; glow: string; text: string } {
-  if (rank === 1) return { color: 'rgb(217 119 6)', glow: 'rgb(217 119 6 / 0.22)', text: 'rgb(146 64 14)' }
-  if (rank === 2) return { color: 'rgb(5 150 105)', glow: 'rgb(5 150 105 / 0.2)', text: 'rgb(4 120 87)' }
-  if (rank === 3) return { color: 'rgb(37 99 235)', glow: 'rgb(37 99 235 / 0.18)', text: 'rgb(29 78 216)' }
-  return { color: 'rgb(100 116 139)', glow: 'rgb(100 116 139 / 0.14)', text: 'rgb(71 85 105)' }
+  if (rank === 1) return { color: 'rgb(196 111 80)', glow: 'rgb(196 111 80 / 0.22)', text: 'rgb(116 61 45)' }
+  if (rank === 2) return { color: 'rgb(95 143 129)', glow: 'rgb(95 143 129 / 0.18)', text: 'rgb(57 98 88)' }
+  if (rank === 3) return { color: 'rgb(132 118 98)', glow: 'rgb(132 118 98 / 0.16)', text: 'rgb(86 76 63)' }
+  return { color: 'rgb(118 111 101)', glow: 'rgb(118 111 101 / 0.12)', text: 'rgb(74 68 59)' }
 }
 
 function digitReelStyle(value: string, _index: number): Record<string, string> {
@@ -1249,6 +1230,38 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.leaderboard-page {
+  margin: -1rem;
+  min-height: calc(100vh - 4rem);
+  padding: 1rem;
+  background:
+    linear-gradient(180deg, rgb(250 249 245 / 0.96), rgb(245 241 232 / 0.88)),
+    rgb(250 249 245);
+  color: rgb(35 32 28);
+}
+
+.leaderboard-section-label {
+  color: rgb(109 103 93);
+}
+
+.leaderboard-state-card {
+  border: 1px solid rgb(214 202 186 / 0.72);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.92), rgb(250 247 239 / 0.76)),
+    rgb(255 253 248);
+  box-shadow: 0 0.85rem 2rem rgb(60 49 36 / 0.05);
+}
+
+.leaderboard-state-title {
+  color: rgb(35 32 28);
+}
+
+.leaderboard-loading-spinner {
+  border-color: rgb(196 111 80);
+  border-top-color: transparent;
+}
+
 .leaderboard-token-summary {
   min-height: 10.8rem;
 }
@@ -1272,7 +1285,7 @@ onUnmounted(() => {
 
 .leaderboard-token-summary-meta {
   justify-items: center;
-  color: rgb(100 116 139);
+  color: rgb(109 103 93);
   font-size: 0.8125rem;
   letter-spacing: 0;
 }
@@ -1280,18 +1293,21 @@ onUnmounted(() => {
 .leaderboard-token-card {
   position: relative;
   overflow: hidden;
-  border-color: rgb(148 163 184 / 0.18);
+  border: 1px solid rgb(214 202 186 / 0.72);
+  border-radius: 0.75rem;
   background:
-    radial-gradient(circle at 50% 8%, rgb(251 191 36 / 0.22), transparent 34%),
-    linear-gradient(180deg, rgb(255 251 235 / 0.76), rgb(255 255 255 / 0.94));
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.7);
+    linear-gradient(135deg, rgb(255 253 248 / 0.96), rgb(247 240 229 / 0.86)),
+    rgb(255 253 248);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.72),
+    0 0.85rem 2rem rgb(60 49 36 / 0.06);
 }
 
 .leaderboard-token-trend-panel {
   display: grid;
   min-width: 0;
   gap: 0.52rem;
-  border-left: 1px solid rgb(148 163 184 / 0.22);
+  border-left: 1px solid rgb(214 202 186 / 0.74);
   padding-left: 1.35rem;
 }
 
@@ -1300,7 +1316,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  color: rgb(71 85 105);
+  color: rgb(68 62 54);
   font-size: 0.78rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -1311,7 +1327,7 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  color: rgb(37 99 235);
+  color: rgb(154 83 62);
   font-size: 0.72rem;
   white-space: nowrap;
 }
@@ -1321,7 +1337,7 @@ onUnmounted(() => {
   height: 0.55rem;
   border: 1px solid currentColor;
   border-radius: 9999px;
-  background: rgb(37 99 235 / 0.12);
+  background: rgb(196 111 80 / 0.13);
   content: "";
 }
 
@@ -1335,12 +1351,13 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgb(148 163 184 / 0.16);
+  border: 1px solid rgb(214 202 186 / 0.62);
   background:
-    linear-gradient(90deg, rgb(148 163 184 / 0.08) 1px, transparent 1px),
-    linear-gradient(rgb(148 163 184 / 0.08) 1px, transparent 1px);
+    linear-gradient(90deg, rgb(132 118 98 / 0.08) 1px, transparent 1px),
+    linear-gradient(rgb(132 118 98 / 0.08) 1px, transparent 1px),
+    rgb(255 253 248 / 0.58);
   background-size: 12.5% 100%, 100% 1.65rem;
-  color: rgb(100 116 139);
+  color: rgb(109 103 93);
   font-size: 0.8125rem;
 }
 
@@ -1349,12 +1366,12 @@ onUnmounted(() => {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgb(148 163 184 / 0.09) 1px, transparent 1px),
-    linear-gradient(rgb(148 163 184 / 0.08) 1px, transparent 1px),
-    linear-gradient(90deg, transparent, rgb(251 191 36 / 0.1), transparent);
+    linear-gradient(90deg, rgb(132 118 98 / 0.06) 1px, transparent 1px),
+    linear-gradient(rgb(132 118 98 / 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, transparent, rgb(196 111 80 / 0.08), transparent);
   background-size: 5.5rem 100%, 100% 1rem, 100% 100%;
   content: "";
-  opacity: 0.58;
+  opacity: 0.54;
 }
 
 .leaderboard-ranking-switch {
@@ -1362,10 +1379,10 @@ onUnmounted(() => {
   width: fit-content;
   max-width: 100%;
   overflow-x: auto;
-  border: 1px solid rgb(148 163 184 / 0.22);
-  border-radius: 0.5rem;
-  background: rgb(248 250 252 / 0.82);
-  padding: 0.125rem;
+  border: 1px solid rgb(43 40 35 / 0.14);
+  border-radius: 0.375rem;
+  background: rgb(240 233 221 / 0.82);
+  padding: 0.16rem;
   scrollbar-width: none;
 }
 
@@ -1375,8 +1392,8 @@ onUnmounted(() => {
 
 .leaderboard-ranking-switch-button {
   flex: 0 0 auto;
-  border-radius: 0.375rem;
-  padding: 0.34rem 0.72rem;
+  border-radius: 0.25rem;
+  padding: 0.34rem 0.74rem;
   font-size: 0.8125rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -1385,17 +1402,17 @@ onUnmounted(() => {
 }
 
 .leaderboard-ranking-switch-button--active {
-  background: #ffffff;
-  color: rgb(15 23 42);
-  box-shadow: 0 0.45rem 1.1rem rgb(15 23 42 / 0.08);
+  background: rgb(35 32 28);
+  color: rgb(255 253 248);
+  box-shadow: 0 0.34rem 0.9rem rgb(35 32 28 / 0.14);
 }
 
 .leaderboard-ranking-switch-button--idle {
-  color: rgb(100 116 139);
+  color: rgb(109 103 93);
 }
 
 .leaderboard-ranking-switch-button--idle:hover {
-  color: rgb(15 23 42);
+  color: rgb(35 32 28);
 }
 
 .leaderboard-ranking-card-toolbar {
@@ -1406,12 +1423,60 @@ onUnmounted(() => {
   margin-bottom: 1rem;
 }
 
+.leaderboard-ranking-toolbar-meta {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.8rem;
+}
+
+.leaderboard-token-legend {
+  display: inline-flex;
+  flex: 0 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.45rem 0.7rem;
+}
+
+.leaderboard-token-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28rem;
+  color: rgb(109 103 93);
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.leaderboard-token-legend-dot {
+  width: 0.62rem;
+  height: 0.62rem;
+  border-radius: 0.18rem;
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.36);
+}
+
+.leaderboard-token-legend-dot--input {
+  background: linear-gradient(135deg, rgb(20 20 19), rgb(64 58 50));
+}
+
+.leaderboard-token-legend-dot--output {
+  background: linear-gradient(135deg, rgb(154 83 62), rgb(196 111 80));
+}
+
+.leaderboard-token-legend-dot--cache {
+  background: linear-gradient(135deg, rgb(72 118 105), rgb(95 143 129));
+}
+
 .leaderboard-ranking-empty {
   display: flex;
   min-height: 12rem;
   align-items: center;
   justify-content: center;
-  border-top: 1px solid rgb(148 163 184 / 0.18);
+  border-top: 1px solid rgb(214 202 186 / 0.62);
   padding: 2rem 1rem 0.75rem;
 }
 
@@ -1426,7 +1491,7 @@ onUnmounted(() => {
   overflow-x: auto;
   overflow-y: hidden;
   padding-top: 0.42rem;
-  color: rgb(92 39 8);
+  color: rgb(68 41 32);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: clamp(2.05rem, 6.6vw, 3.45rem);
   font-variant-numeric: tabular-nums;
@@ -1450,26 +1515,26 @@ onUnmounted(() => {
   height: 1.08em;
   margin-right: 0.04em;
   overflow: hidden;
-  border: 1px solid rgb(180 83 9 / 0.2);
-  border-radius: 0.28rem;
+  border: 1px solid rgb(196 111 80 / 0.24);
+  border-radius: 0.2rem;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.98), rgb(254 243 199 / 0.74)),
-    radial-gradient(circle at 50% 0%, rgb(253 224 71 / 0.34), transparent 60%);
+    linear-gradient(180deg, rgb(255 253 248 / 0.98), rgb(240 233 221 / 0.78)),
+    radial-gradient(circle at 50% 0%, rgb(196 111 80 / 0.14), transparent 60%);
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.8),
-    inset 0 -0.18rem 0 rgb(120 53 15 / 0.06),
-    0 0.34rem 0.95rem rgb(180 83 9 / 0.12);
+    inset 0 1px 0 rgb(255 255 255 / 0.74),
+    inset 0 -0.18rem 0 rgb(68 41 32 / 0.04),
+    0 0.28rem 0.8rem rgb(154 83 62 / 0.1);
 }
 
 .leaderboard-token-ranking-card {
   overflow: hidden;
-  border: 1px solid rgb(148 163 184 / 0.16);
+  border: 1px solid rgb(214 202 186 / 0.72);
   border-radius: 0.75rem;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.58), rgb(255 255 255 / 0.2)),
-    rgb(255 255 255 / 0.34);
+    linear-gradient(180deg, rgb(255 253 248 / 0.92), rgb(250 247 239 / 0.78)),
+    rgb(255 253 248);
   padding: 1.25rem;
-  box-shadow: 0 1rem 2.6rem rgb(15 23 42 / 0.05);
+  box-shadow: 0 0.85rem 2rem rgb(60 49 36 / 0.06);
 }
 
 .leaderboard-token-ranking-card {
@@ -1478,7 +1543,7 @@ onUnmounted(() => {
 
 .leaderboard-token-ranking-updated {
   flex: 0 0 auto;
-  color: rgb(100 116 139);
+  color: rgb(109 103 93);
   font-size: 0.8125rem;
   white-space: nowrap;
 }
@@ -1500,7 +1565,7 @@ onUnmounted(() => {
 
 .leaderboard-token-rank-row-current {
   border-radius: 0.45rem;
-  background: rgb(34 197 94 / 0.07);
+  background: rgb(95 143 129 / 0.1);
 }
 
 .leaderboard-token-rank-user {
@@ -1546,7 +1611,7 @@ onUnmounted(() => {
   overflow: visible;
   border-radius: 0;
   background:
-    linear-gradient(90deg, rgb(148 163 184 / 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(132 118 98 / 0.13) 1px, transparent 1px),
     transparent;
   background-size: 10% 100%;
 }
@@ -1558,7 +1623,7 @@ onUnmounted(() => {
   min-width: 0.7rem;
   overflow: hidden;
   border-radius: 0.08rem 0.28rem 0.28rem 0.08rem;
-  background: rgb(148 163 184 / 0.18);
+  background: rgb(222 212 196 / 0.58);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.26),
     0 0.35rem 1.1rem var(--token-bar-glow);
@@ -1590,7 +1655,7 @@ onUnmounted(() => {
   grid-column: 1;
   grid-row: 1 / span 2;
   min-width: 0;
-  color: rgb(100 116 139);
+  color: rgb(118 111 101);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.75rem;
   font-weight: 800;
@@ -1607,13 +1672,13 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border: 2px solid rgb(255 255 255 / 0.9);
+  border: 2px solid rgb(255 253 248 / 0.96);
   border-radius: 9999px;
   background:
-    linear-gradient(135deg, rgb(255 255 255 / 0.96), rgb(226 232 240 / 0.84)),
+    linear-gradient(135deg, rgb(255 253 248 / 0.98), rgb(240 233 221 / 0.86)),
     var(--token-bar-color);
   box-shadow:
-    0 0 0 1px rgb(15 23 42 / 0.08),
+    0 0 0 1px rgb(35 32 28 / 0.09),
     0 0.32rem 0.72rem var(--token-bar-glow);
   color: var(--token-rank-color);
   font-size: 1rem;
@@ -1634,9 +1699,9 @@ onUnmounted(() => {
   grid-column: 3;
   grid-row: 2;
   border-radius: 9999px;
-  background: rgb(34 197 94 / 0.12);
+  background: rgb(95 143 129 / 0.14);
   padding: 0.1rem 0.45rem;
-  color: rgb(22 163 74);
+  color: rgb(57 98 88);
   font-size: 0.6875rem;
   font-weight: 700;
 }
@@ -1659,8 +1724,8 @@ onUnmounted(() => {
   align-items: center;
   overflow: hidden;
   border: 1px solid currentColor;
-  border-radius: 9999px;
-  background: rgb(255 255 255 / 0.55);
+  border-radius: 0.25rem;
+  background: rgb(255 253 248 / 0.66);
   padding: 0.08rem 0.4rem;
   color: var(--token-rank-color);
   font-size: 0.6875rem;
@@ -1673,7 +1738,7 @@ onUnmounted(() => {
 
 .leaderboard-token-title-more {
   max-width: none;
-  color: rgb(100 116 139);
+  color: rgb(109 103 93);
 }
 
 .leaderboard-token-bar-value {
@@ -1691,7 +1756,29 @@ onUnmounted(() => {
 }
 
 .leaderboard-my-token-card {
-  border: 1px solid rgb(148 163 184 / 0.16);
+  border: 1px solid rgb(214 202 186 / 0.46);
+  background: rgb(250 247 239 / 0.5);
+}
+
+.leaderboard-side-card {
+  border: 1px solid rgb(214 202 186 / 0.56);
+  border-radius: 0.75rem;
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.72), rgb(250 247 239 / 0.46)),
+    rgb(255 253 248);
+  box-shadow: 0 0.35rem 1rem rgb(60 49 36 / 0.035);
+}
+
+.leaderboard-side-title {
+  color: rgb(116 61 45);
+}
+
+.leaderboard-side-label {
+  color: rgb(109 103 93);
+}
+
+.leaderboard-side-value {
+  color: rgb(35 32 28);
 }
 
 .leaderboard-reward-head {
@@ -1702,7 +1789,7 @@ onUnmounted(() => {
 }
 
 .leaderboard-reward-title {
-  color: rgb(17 24 39);
+  color: rgb(35 32 28);
   font-size: 1rem;
   font-weight: 800;
   letter-spacing: 0;
@@ -1715,7 +1802,7 @@ onUnmounted(() => {
   flex-wrap: wrap;
   gap: 0.16rem 0.35rem;
   margin-top: 0.32rem;
-  color: rgb(100 116 139);
+  color: rgb(109 103 93);
   font-size: 0.75rem;
   line-height: 1.35;
 }
@@ -1734,12 +1821,51 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.leaderboard-reward-status--claimed {
+  background: rgb(232 241 236);
+  color: rgb(57 98 88);
+}
+
+.leaderboard-reward-status--ready {
+  background: rgb(248 231 224);
+  color: rgb(116 61 45);
+}
+
+.leaderboard-reward-status--idle {
+  background: rgb(240 233 221);
+  color: rgb(109 103 93);
+}
+
+.leaderboard-reward-tier-card,
+.leaderboard-reward-progress-card {
+  border: 1px solid rgb(214 202 186 / 0.46);
+  background: rgb(250 247 239 / 0.5);
+}
+
+.leaderboard-reward-progress-track {
+  background: rgb(222 212 196 / 0.72);
+}
+
+.leaderboard-reward-progress-fill {
+  background: linear-gradient(90deg, rgb(95 143 129), rgb(196 111 80));
+}
+
+.leaderboard-reward-claim {
+  border-color: rgb(35 32 28);
+  background: rgb(35 32 28);
+  color: rgb(255 253 248);
+}
+
+.leaderboard-reward-claim:not(:disabled):hover {
+  background: rgb(64 58 50);
+}
+
 .leaderboard-weekly-winners {
   display: grid;
   gap: 0.6rem;
-  border: 1px solid rgb(148 163 184 / 0.16);
+  border: 1px solid rgb(214 202 186 / 0.68);
   border-radius: 0.5rem;
-  background: rgb(248 250 252);
+  background: rgb(250 247 239 / 0.72);
   padding: 0.75rem;
 }
 
@@ -1748,7 +1874,7 @@ onUnmounted(() => {
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  color: rgb(100 116 139);
+  color: rgb(109 103 93);
   font-size: 0.75rem;
   font-weight: 700;
 }
@@ -1767,14 +1893,14 @@ onUnmounted(() => {
 }
 
 .leaderboard-weekly-winner-rank {
-  color: rgb(100 116 139);
+  color: rgb(109 103 93);
   font-size: 0.8125rem;
 }
 
 .leaderboard-weekly-winner-name {
   min-width: 0;
   overflow: hidden;
-  color: rgb(15 23 42);
+  color: rgb(35 32 28);
   font-size: 0.875rem;
   font-weight: 800;
   text-align: right;
@@ -1795,12 +1921,12 @@ onUnmounted(() => {
 
 .leaderboard-token-reel::before {
   top: 0;
-  background: linear-gradient(180deg, rgb(255 247 237 / 0.96), transparent);
+  background: linear-gradient(180deg, rgb(255 253 248 / 0.96), transparent);
 }
 
 .leaderboard-token-reel::after {
   bottom: 0;
-  background: linear-gradient(0deg, rgb(120 53 15 / 0.16), transparent);
+  background: linear-gradient(0deg, rgb(68 41 32 / 0.12), transparent);
 }
 
 .leaderboard-token-strip {
@@ -1824,39 +1950,46 @@ onUnmounted(() => {
   height: 1.08em;
   align-items: flex-end;
   padding: 0 0.026em 0.08em;
-  color: rgb(180 83 9);
+  color: rgb(154 83 62);
   text-shadow: 0 1px 0 rgb(255 255 255 / 0.78);
 }
 
 .leaderboard-calendar-card {
   overflow: hidden;
-  border: 1px solid rgb(148 163 184 / 0.22);
+  border: 1px solid rgb(214 202 186 / 0.62);
   border-radius: 0.75rem;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.86), rgb(248 250 252 / 0.7)),
-    linear-gradient(90deg, rgb(148 163 184 / 0.1) 1px, transparent 1px),
-    rgb(248 250 252 / 0.72);
-  background-size: auto, 3rem 100%, auto;
-  padding: 1rem;
-  box-shadow: 0 1rem 2.4rem rgb(15 23 42 / 0.05);
+    linear-gradient(180deg, rgb(255 253 248 / 0.92), rgb(250 247 239 / 0.62)),
+    rgb(255 253 248);
+  padding: 1rem 1rem 1.05rem;
+  box-shadow: 0 0.85rem 2rem rgb(60 49 36 / 0.06);
 }
 
 .leaderboard-calendar-head {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 0.8rem;
   padding-bottom: 0.8rem;
 }
 
 .leaderboard-calendar-title {
   flex: 1 1 auto;
-  color: rgb(15 23 42);
+  color: rgb(35 32 28);
   font-size: 1.12rem;
   font-weight: 900;
   letter-spacing: 0;
   line-height: 1.25;
   text-align: left;
+}
+
+.leaderboard-calendar-meta {
+  flex: 0 0 auto;
+  color: rgb(109 103 93);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .leaderboard-calendar-scroll {
@@ -1871,62 +2004,54 @@ onUnmounted(() => {
 
 .leaderboard-calendar-scroll::-webkit-scrollbar-thumb {
   border-radius: 9999px;
-  background: rgb(148 163 184 / 0.32);
+  background: rgb(132 118 98 / 0.28);
 }
 
 .leaderboard-calendar-months {
   display: grid;
-  min-width: 50.75rem;
-  grid-template-columns: repeat(2, minmax(24.4rem, 1fr));
+  width: 100%;
+  min-width: 58rem;
+  grid-template-columns: repeat(2, minmax(28rem, 1fr));
   gap: 1rem;
 }
 
 .leaderboard-calendar-month-panel {
-  overflow: hidden;
-  border: 1px solid rgb(148 163 184 / 0.22);
+  border: 1px solid rgb(214 202 186 / 0.5);
   border-radius: 0.65rem;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(241 245 249 / 0.64)),
-    rgb(255 255 255 / 0.68);
+    linear-gradient(180deg, rgb(255 253 248 / 0.78), rgb(250 247 239 / 0.46)),
+    rgb(255 253 248);
   padding: 0.85rem;
 }
 
 .leaderboard-calendar-month-panel--current {
-  border-color: rgb(59 130 246 / 0.28);
+  border-color: rgb(196 111 80 / 0.28);
   background:
-    linear-gradient(180deg, rgb(239 246 255 / 0.9), rgb(255 255 255 / 0.72)),
-    rgb(255 255 255 / 0.72);
+    linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(247 240 229 / 0.54)),
+    rgb(255 253 248);
+}
+
+.leaderboard-calendar-month-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 0.72rem;
 }
 
 .leaderboard-calendar-month {
-  margin-bottom: 0.6rem;
-  color: rgb(15 23 42);
-  font-size: 0.98rem;
-  font-weight: 700;
-  line-height: 1.2;
-  white-space: nowrap;
-}
-
-.leaderboard-calendar-weekdays {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 0.4rem;
-  margin-bottom: 0.42rem;
-}
-
-.leaderboard-calendar-weekday {
-  color: rgb(100 116 139);
-  font-size: 0.72rem;
+  color: rgb(35 32 28);
+  font-size: 1rem;
   font-weight: 900;
-  line-height: 1;
-  text-align: center;
+  line-height: 1.2;
+  text-align: left;
+  white-space: nowrap;
 }
 
 .leaderboard-calendar-days {
   display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-  grid-auto-rows: 3.45rem;
-  gap: 0.4rem;
+  grid-template-columns: repeat(15, minmax(0, 1fr));
+  grid-auto-rows: 3.28rem;
+  gap: 0.32rem;
 }
 
 .leaderboard-calendar-day {
@@ -1934,30 +2059,38 @@ onUnmounted(() => {
   display: grid;
   width: 100%;
   min-width: 0;
-  height: 3.45rem;
+  height: 3.28rem;
   justify-items: center;
   overflow: hidden;
-  border: 1px solid rgb(148 163 184 / 0.22);
-  border-radius: 0.5rem;
+  border: 1px solid rgb(214 202 186 / 0.58);
+  border-radius: 0.42rem;
   background:
-    linear-gradient(180deg, rgb(255 255 255 / 0.8), rgb(241 245 249 / 0.48)),
-    rgb(255 255 255 / 0.56);
+    linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(250 247 239 / 0.62)),
+    rgb(255 253 248 / 0.7);
+  transition: border-color 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
 }
 
 .leaderboard-calendar-day--active {
-  border-color: rgb(245 158 11 / 0.42);
+  border-color: rgb(196 111 80 / 0.42);
   background:
-    radial-gradient(circle at 50% 18%, rgb(251 191 36 / 0.28), transparent 58%),
-    linear-gradient(180deg, rgb(255 251 235 / 0.88), rgb(255 255 255 / 0.62));
+    linear-gradient(180deg, rgb(247 240 229 / 0.8), rgb(255 253 248 / 0.64));
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.7),
-    0 0.45rem 1rem rgb(245 158 11 / 0.1);
+    inset 0 1px 0 rgb(255 255 255 / 0.68),
+    0 0.42rem 0.9rem rgb(196 111 80 / 0.08);
+  cursor: help;
 }
 
-.leaderboard-calendar-day--placeholder {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
+.leaderboard-calendar-day--active:hover,
+.leaderboard-calendar-day--active:focus-visible {
+  border-color: rgb(154 83 62 / 0.48);
+  transform: translateY(-1px);
+}
+
+.leaderboard-calendar-day--empty {
+  border-color: rgb(214 202 186 / 0.36);
+  background:
+    linear-gradient(180deg, rgb(255 253 248 / 0.36), rgb(250 247 239 / 0.18)),
+    rgb(255 253 248 / 0.28);
 }
 
 .leaderboard-calendar-day-number {
@@ -1971,13 +2104,19 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  background: rgb(255 251 235 / 0.86);
-  color: rgb(146 64 14);
+  background: rgb(255 253 248 / 0.86);
+  color: rgb(116 61 45);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.68rem;
   font-weight: 900;
   line-height: 1;
-  box-shadow: 0 0 0 1px rgb(245 158 11 / 0.16);
+  box-shadow: 0 0 0 1px rgb(196 111 80 / 0.18);
+}
+
+.leaderboard-calendar-day--empty .leaderboard-calendar-day-number {
+  background: transparent;
+  color: rgb(132 118 98 / 0.64);
+  box-shadow: none;
 }
 
 .leaderboard-calendar-avatar {
@@ -1991,14 +2130,14 @@ onUnmounted(() => {
   overflow: hidden;
   border-radius: inherit;
   background:
-    radial-gradient(circle at 50% 36%, rgb(255 255 255 / 0.26), transparent 42%),
-    linear-gradient(135deg, rgb(253 230 138 / 0.98), rgb(217 119 6 / 0.82)),
-    rgb(217 119 6);
-  color: rgb(255 251 235);
+    radial-gradient(circle at 50% 36%, rgb(255 255 255 / 0.2), transparent 42%),
+    linear-gradient(135deg, rgb(214 183 157 / 0.98), rgb(154 83 62 / 0.86)),
+    rgb(154 83 62);
+  color: rgb(255 253 248);
   font-size: 1.18rem;
   font-weight: 900;
   line-height: 1;
-  text-shadow: 0 1px 0 rgb(120 53 15 / 0.35);
+  text-shadow: 0 1px 0 rgb(68 41 32 / 0.32);
   text-transform: uppercase;
 }
 
@@ -2012,7 +2151,7 @@ onUnmounted(() => {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgb(15 23 42 / 0.18), transparent 42%, rgb(15 23 42 / 0.08)),
+    linear-gradient(180deg, rgb(35 32 28 / 0.18), transparent 42%, rgb(35 32 28 / 0.08)),
     inset 0 0 0 1px rgb(255 255 255 / 0.34);
   pointer-events: none;
   content: "";
@@ -2025,23 +2164,23 @@ onUnmounted(() => {
   width: 15rem;
   min-height: 6.1rem;
   gap: 0.34rem;
-  border: 1px solid rgb(120 53 15 / 0.34);
+  border: 1px solid rgb(214 183 157 / 0.28);
   border-radius: 0.5rem;
   background:
-    linear-gradient(180deg, rgb(28 25 18 / 0.98), rgb(18 16 11 / 0.98)),
-    rgb(18 16 11);
+    linear-gradient(180deg, rgb(35 32 28 / 0.98), rgb(20 20 19 / 0.98)),
+    rgb(20 20 19);
   box-shadow:
-    0 1rem 2rem rgb(15 23 42 / 0.22),
-    0 0 0 1px rgb(253 224 71 / 0.08),
+    0 1rem 2rem rgb(35 32 28 / 0.22),
+    0 0 0 1px rgb(214 183 157 / 0.08),
     inset 0 1px 0 rgb(255 255 255 / 0.08);
-  color: rgb(245 245 244);
+  color: rgb(255 253 248);
   padding: 0.72rem 0.78rem 0.7rem;
   pointer-events: none;
   letter-spacing: 0;
 }
 
 .leaderboard-calendar-tooltip-date {
-  color: rgb(161 161 170);
+  color: rgb(168 159 145);
   font-size: 0.68rem;
   font-weight: 900;
   line-height: 1;
@@ -2058,7 +2197,7 @@ onUnmounted(() => {
 .leaderboard-calendar-tooltip-name {
   min-width: 0;
   overflow-wrap: anywhere;
-  color: rgb(250 250 249);
+  color: rgb(255 253 248);
   font-family: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   font-size: 0.92rem;
   font-weight: 900;
@@ -2066,7 +2205,7 @@ onUnmounted(() => {
 }
 
 .leaderboard-calendar-tooltip-tokens {
-  color: rgb(234 179 8);
+  color: rgb(214 183 157);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.75rem;
   font-weight: 900;
@@ -2075,93 +2214,138 @@ onUnmounted(() => {
 }
 
 .leaderboard-calendar-tooltip-meta {
-  color: rgb(168 162 158);
+  color: rgb(168 159 145);
   font-size: 0.74rem;
   font-weight: 800;
   line-height: 1.2;
 }
 
-:global(.dark .leaderboard-token-card) {
-  border-color: rgb(71 85 105 / 0.34);
+:global(.dark .leaderboard-page) {
   background:
-    radial-gradient(circle at 50% 8%, rgb(251 191 36 / 0.16), transparent 34%),
-    linear-gradient(180deg, rgb(30 41 59 / 0.92), rgb(15 23 42 / 0.94));
-  box-shadow: none;
+    linear-gradient(180deg, rgb(22 22 20), rgb(14 14 13)),
+    rgb(14 14 13);
+  color: rgb(243 239 231);
+}
+
+:global(.dark .leaderboard-section-label) {
+  color: rgb(168 159 145);
+}
+
+:global(.dark .leaderboard-state-card) {
+  border-color: rgb(214 183 157 / 0.18);
+  background:
+    linear-gradient(180deg, rgb(35 32 28 / 0.82), rgb(20 20 19 / 0.7)),
+    rgb(20 20 19 / 0.84);
+  box-shadow: 0 0.85rem 2rem rgb(0 0 0 / 0.18);
+}
+
+:global(.dark .leaderboard-state-title) {
+  color: rgb(243 239 231);
+}
+
+:global(.dark .leaderboard-loading-spinner) {
+  border-color: rgb(214 183 157);
+  border-top-color: transparent;
+}
+
+:global(.dark .leaderboard-token-card) {
+  border-color: rgb(214 183 157 / 0.18);
+  background:
+    linear-gradient(135deg, rgb(35 32 28 / 0.94), rgb(20 20 19 / 0.96)),
+    rgb(20 20 19);
+  box-shadow: 0 0.85rem 2rem rgb(0 0 0 / 0.2);
 }
 
 :global(.dark .leaderboard-token-card::after) {
   background:
-    linear-gradient(90deg, rgb(148 163 184 / 0.12) 1px, transparent 1px),
-    linear-gradient(rgb(148 163 184 / 0.1) 1px, transparent 1px),
-    linear-gradient(90deg, transparent, rgb(251 191 36 / 0.08), transparent);
+    linear-gradient(90deg, rgb(214 183 157 / 0.07) 1px, transparent 1px),
+    linear-gradient(rgb(214 183 157 / 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, transparent, rgb(196 111 80 / 0.08), transparent);
   background-size: 5.5rem 100%, 100% 1rem, 100% 100%;
 }
 
 :global(.dark .leaderboard-ranking-switch) {
-  border-color: rgb(51 65 85 / 0.86);
-  background: rgb(15 23 42 / 0.76);
+  border-color: rgb(214 183 157 / 0.18);
+  background: rgb(14 14 13 / 0.86);
 }
 
 :global(.dark .leaderboard-ranking-switch-button--active) {
-  background: rgb(30 41 59 / 0.96);
-  color: rgb(248 250 252);
+  background: rgb(243 239 231);
+  color: rgb(20 20 19);
   box-shadow: none;
 }
 
 :global(.dark .leaderboard-ranking-switch-button--idle) {
-  color: rgb(148 163 184);
+  color: rgb(168 159 145);
 }
 
 :global(.dark .leaderboard-ranking-switch-button--idle:hover) {
-  color: rgb(248 250 252);
+  color: rgb(243 239 231);
+}
+
+:global(.dark .leaderboard-token-legend-item) {
+  color: rgb(168 159 145);
+}
+
+:global(.dark .leaderboard-token-legend-dot--input) {
+  background: linear-gradient(135deg, rgb(160 157 150), rgb(243 239 231));
+}
+
+:global(.dark .leaderboard-token-legend-dot--output) {
+  background: linear-gradient(135deg, rgb(154 83 62), rgb(196 111 80));
+}
+
+:global(.dark .leaderboard-token-legend-dot--cache) {
+  background: linear-gradient(135deg, rgb(72 118 105), rgb(95 143 129));
 }
 
 :global(.dark .leaderboard-token-summary-meta) {
-  color: rgb(148 163 184);
+  color: rgb(168 159 145);
 }
 
 :global(.dark .leaderboard-token-trend-panel) {
-  border-left-color: rgb(71 85 105 / 0.42);
+  border-left-color: rgb(214 183 157 / 0.18);
 }
 
 :global(.dark .leaderboard-token-trend-header) {
-  color: rgb(203 213 225);
+  color: rgb(214 183 157);
 }
 
 :global(.dark .leaderboard-token-trend-legend) {
-  color: rgb(96 165 250);
+  color: rgb(214 183 157);
 }
 
 :global(.dark .leaderboard-token-trend-legend::before) {
-  background: rgb(96 165 250 / 0.16);
+  background: rgb(214 183 157 / 0.14);
 }
 
 :global(.dark .leaderboard-token-trend-empty) {
-  border-color: rgb(71 85 105 / 0.34);
+  border-color: rgb(214 183 157 / 0.16);
   background:
-    linear-gradient(90deg, rgb(148 163 184 / 0.1) 1px, transparent 1px),
-    linear-gradient(rgb(148 163 184 / 0.1) 1px, transparent 1px);
+    linear-gradient(90deg, rgb(214 183 157 / 0.08) 1px, transparent 1px),
+    linear-gradient(rgb(214 183 157 / 0.08) 1px, transparent 1px),
+    rgb(20 20 19 / 0.42);
   background-size: 12.5% 100%, 100% 1.65rem;
-  color: rgb(148 163 184);
+  color: rgb(168 159 145);
 }
 
 :global(.dark .leaderboard-token-odometer) {
-  color: rgb(254 240 138);
+  color: rgb(243 239 231);
 }
 
 :global(.dark .leaderboard-token-reel) {
-  border-color: rgb(251 191 36 / 0.3);
+  border-color: rgb(214 183 157 / 0.22);
   background:
-    linear-gradient(180deg, rgb(30 41 59 / 0.96), rgb(15 23 42 / 0.92)),
-    radial-gradient(circle at 50% 0%, rgb(251 191 36 / 0.3), transparent 58%);
+    linear-gradient(180deg, rgb(35 32 28 / 0.96), rgb(20 20 19 / 0.94)),
+    radial-gradient(circle at 50% 0%, rgb(196 111 80 / 0.18), transparent 58%);
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.1),
     inset 0 -0.22rem 0 rgb(0 0 0 / 0.24),
-    0 0.35rem 1rem rgb(251 191 36 / 0.12);
+    0 0.35rem 1rem rgb(196 111 80 / 0.1);
 }
 
 :global(.dark .leaderboard-token-reel::before) {
-  background: linear-gradient(180deg, rgb(30 41 59 / 0.96), transparent);
+  background: linear-gradient(180deg, rgb(35 32 28 / 0.96), transparent);
 }
 
 :global(.dark .leaderboard-token-reel::after) {
@@ -2169,172 +2353,222 @@ onUnmounted(() => {
 }
 
 :global(.dark .leaderboard-token-cell) {
-  text-shadow: 0 0 0.55rem rgb(251 191 36 / 0.24);
+  text-shadow: 0 0 0.55rem rgb(214 183 157 / 0.18);
 }
 
 :global(.dark .leaderboard-token-separator) {
-  color: rgb(252 211 77);
-  text-shadow: 0 0 0.55rem rgb(251 191 36 / 0.2);
+  color: rgb(214 183 157);
+  text-shadow: 0 0 0.55rem rgb(214 183 157 / 0.18);
 }
 
 :global(.dark .leaderboard-token-ranking-card) {
-  border-color: rgb(71 85 105 / 0.34);
+  border-color: rgb(214 183 157 / 0.18);
   background:
-    linear-gradient(180deg, rgb(15 23 42 / 0.45), rgb(15 23 42 / 0.16)),
-    rgb(15 23 42 / 0.2);
-  box-shadow: none;
+    linear-gradient(180deg, rgb(35 32 28 / 0.82), rgb(20 20 19 / 0.7)),
+    rgb(20 20 19 / 0.84);
+  box-shadow: 0 0.85rem 2rem rgb(0 0 0 / 0.18);
 }
 
 :global(.dark .leaderboard-token-rank-row-current) {
-  background: rgb(34 197 94 / 0.1);
+  background: rgb(95 143 129 / 0.14);
 }
 
 :global(.dark .leaderboard-token-title-badge),
 :global(.dark .leaderboard-token-title-more) {
-  background: rgb(15 23 42 / 0.28);
+  background: rgb(14 14 13 / 0.36);
 }
 
 :global(.dark .leaderboard-token-title-more) {
-  color: rgb(148 163 184);
+  color: rgb(168 159 145);
+}
+
+:global(.dark .leaderboard-side-card) {
+  border-color: rgb(214 183 157 / 0.13);
+  background:
+    linear-gradient(180deg, rgb(35 32 28 / 0.58), rgb(20 20 19 / 0.42)),
+    rgb(20 20 19 / 0.56);
+  box-shadow: 0 0.35rem 1rem rgb(0 0 0 / 0.14);
+}
+
+:global(.dark .leaderboard-side-title) {
+  color: rgb(214 183 157);
+}
+
+:global(.dark .leaderboard-side-label) {
+  color: rgb(168 159 145);
+}
+
+:global(.dark .leaderboard-side-value) {
+  color: rgb(243 239 231);
+}
+
+:global(.dark .leaderboard-my-token-card),
+:global(.dark .leaderboard-reward-tier-card),
+:global(.dark .leaderboard-reward-progress-card) {
+  border-color: rgb(214 183 157 / 0.12);
+  background: rgb(14 14 13 / 0.24);
+}
+
+:global(.dark .leaderboard-reward-progress-track) {
+  background: rgb(64 58 50 / 0.78);
 }
 
 :global(.dark .leaderboard-reward-title) {
-  color: rgb(248 250 252);
+  color: rgb(243 239 231);
 }
 
 :global(.dark .leaderboard-reward-period) {
-  color: rgb(148 163 184);
+  color: rgb(168 159 145);
+}
+
+:global(.dark .leaderboard-reward-status--claimed) {
+  background: rgb(95 143 129 / 0.16);
+  color: rgb(160 191 181);
+}
+
+:global(.dark .leaderboard-reward-status--ready) {
+  background: rgb(196 111 80 / 0.16);
+  color: rgb(230 166 141);
+}
+
+:global(.dark .leaderboard-reward-status--idle) {
+  background: rgb(118 111 101 / 0.18);
+  color: rgb(168 159 145);
 }
 
 :global(.dark .leaderboard-weekly-winners) {
-  border-color: rgb(71 85 105 / 0.34);
-  background: rgb(15 23 42 / 0.32);
+  border-color: rgb(214 183 157 / 0.16);
+  background: rgb(14 14 13 / 0.34);
 }
 
 :global(.dark .leaderboard-weekly-winners-header),
 :global(.dark .leaderboard-weekly-winner-rank) {
-  color: rgb(148 163 184);
+  color: rgb(168 159 145);
 }
 
 :global(.dark .leaderboard-weekly-winner-name) {
-  color: rgb(248 250 252);
+  color: rgb(243 239 231);
 }
 
 :global(.dark .leaderboard-token-rank-avatar) {
-  border-color: rgb(15 23 42 / 0.92);
+  border-color: rgb(20 20 19 / 0.92);
   background:
-    linear-gradient(135deg, rgb(30 41 59 / 0.96), rgb(15 23 42 / 0.9)),
+    linear-gradient(135deg, rgb(35 32 28 / 0.96), rgb(20 20 19 / 0.9)),
     var(--token-bar-color);
   box-shadow:
-    0 0 0 1px rgb(148 163 184 / 0.18),
+    0 0 0 1px rgb(214 183 157 / 0.18),
     0 0.32rem 0.8rem var(--token-bar-glow);
 }
 
 :global(.dark .leaderboard-token-bar-track) {
   background:
-    linear-gradient(90deg, rgb(148 163 184 / 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(214 183 157 / 0.08) 1px, transparent 1px),
     transparent;
   background-size: 10% 100%;
 }
 
 :global(.dark .leaderboard-token-bar-fill) {
-  background: rgb(51 65 85 / 0.42);
+  background: rgb(64 58 50 / 0.52);
 }
 
 :global(.dark .leaderboard-token-bar-segment-input) {
-  background: linear-gradient(90deg, rgb(160 157 150), rgb(250 249 245));
+  background: linear-gradient(90deg, rgb(160 157 150), rgb(243 239 231));
 }
 
 :global(.dark .leaderboard-token-bar-segment-output) {
-  background: linear-gradient(90deg, rgb(169 88 62), rgb(204 120 92));
+  background: linear-gradient(90deg, rgb(154 83 62), rgb(196 111 80));
 }
 
 :global(.dark .leaderboard-token-bar-segment-cache) {
-  background: linear-gradient(90deg, rgb(76 148 132), rgb(93 184 166));
+  background: linear-gradient(90deg, rgb(72 118 105), rgb(95 143 129));
 }
 
 :global(.dark .leaderboard-calendar-card) {
-  border-color: rgb(71 85 105 / 0.34);
+  border-color: rgb(214 183 157 / 0.16);
   background:
-    linear-gradient(180deg, rgb(15 23 42 / 0.58), rgb(15 23 42 / 0.28)),
-    linear-gradient(90deg, rgb(148 163 184 / 0.08) 1px, transparent 1px),
-    rgb(15 23 42 / 0.3);
-  background-size: auto, 3rem 100%, auto;
-  box-shadow: none;
+    linear-gradient(180deg, rgb(35 32 28 / 0.82), rgb(20 20 19 / 0.7)),
+    rgb(20 20 19 / 0.84);
+  box-shadow: 0 0.85rem 2rem rgb(0 0 0 / 0.18);
 }
 
 :global(.dark .leaderboard-calendar-title),
 :global(.dark .leaderboard-calendar-month) {
-  color: rgb(248 250 252);
+  color: rgb(243 239 231);
+}
+
+:global(.dark .leaderboard-calendar-meta) {
+  color: rgb(168 159 145);
 }
 
 :global(.dark .leaderboard-calendar-scroll::-webkit-scrollbar-thumb) {
-  background: rgb(148 163 184 / 0.34);
+  background: rgb(214 183 157 / 0.24);
 }
 
 :global(.dark .leaderboard-calendar-month-panel) {
-  border-color: rgb(71 85 105 / 0.34);
+  border-color: rgb(214 183 157 / 0.12);
   background:
-    linear-gradient(180deg, rgb(30 41 59 / 0.68), rgb(15 23 42 / 0.5)),
-    rgb(15 23 42 / 0.42);
+    linear-gradient(180deg, rgb(35 32 28 / 0.5), rgb(20 20 19 / 0.34)),
+    rgb(20 20 19 / 0.42);
 }
 
 :global(.dark .leaderboard-calendar-month-panel--current) {
-  border-color: rgb(96 165 250 / 0.36);
+  border-color: rgb(214 183 157 / 0.18);
   background:
-    linear-gradient(180deg, rgb(30 41 59 / 0.78), rgb(15 23 42 / 0.56)),
-    rgb(15 23 42 / 0.48);
-}
-
-:global(.dark .leaderboard-calendar-weekday) {
-  color: rgb(148 163 184);
+    linear-gradient(180deg, rgb(35 32 28 / 0.62), rgb(20 20 19 / 0.42)),
+    rgb(20 20 19 / 0.5);
 }
 
 :global(.dark .leaderboard-calendar-day) {
-  border-color: rgb(71 85 105 / 0.4);
+  border-color: rgb(214 183 157 / 0.16);
   background:
-    linear-gradient(180deg, rgb(30 41 59 / 0.66), rgb(15 23 42 / 0.36)),
-    rgb(15 23 42 / 0.32);
+    linear-gradient(180deg, rgb(35 32 28 / 0.58), rgb(20 20 19 / 0.4)),
+    rgb(20 20 19 / 0.34);
 }
 
 :global(.dark .leaderboard-calendar-day--active) {
-  border-color: rgb(252 211 77 / 0.42);
+  border-color: rgb(214 183 157 / 0.3);
   background:
-    radial-gradient(circle at 50% 18%, rgb(251 191 36 / 0.22), transparent 58%),
-    linear-gradient(180deg, rgb(30 41 59 / 0.84), rgb(15 23 42 / 0.6));
+    linear-gradient(180deg, rgb(64 58 50 / 0.62), rgb(20 20 19 / 0.54));
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.08),
-    0 0.45rem 1rem rgb(251 191 36 / 0.1);
+    0 0.45rem 1rem rgb(0 0 0 / 0.18);
 }
 
-:global(.dark .leaderboard-calendar-day--placeholder) {
-  border-color: transparent;
-  background: transparent;
-  box-shadow: none;
+:global(.dark .leaderboard-calendar-day--empty) {
+  border-color: rgb(214 183 157 / 0.08);
+  background:
+    linear-gradient(180deg, rgb(35 32 28 / 0.38), rgb(20 20 19 / 0.24)),
+    rgb(20 20 19 / 0.24);
 }
 
 :global(.dark .leaderboard-calendar-day-number) {
-  background: rgb(15 23 42 / 0.72);
-  color: rgb(253 224 71);
-  box-shadow: 0 0 0 1px rgb(252 211 77 / 0.12);
+  background: rgb(20 20 19 / 0.72);
+  color: rgb(214 183 157);
+  box-shadow: 0 0 0 1px rgb(214 183 157 / 0.14);
+}
+
+:global(.dark .leaderboard-calendar-day--empty .leaderboard-calendar-day-number) {
+  background: transparent;
+  color: rgb(168 159 145 / 0.6);
+  box-shadow: none;
 }
 
 :global(.dark .leaderboard-calendar-avatar) {
   background:
     radial-gradient(circle at 50% 36%, rgb(255 255 255 / 0.16), transparent 42%),
-    linear-gradient(135deg, rgb(30 41 59 / 0.96), rgb(217 119 6 / 0.7)),
-    rgb(217 119 6);
-  color: rgb(253 224 71);
+    linear-gradient(135deg, rgb(64 58 50 / 0.96), rgb(154 83 62 / 0.72)),
+    rgb(154 83 62);
+  color: rgb(243 239 231);
 }
 
 :global(.dark .leaderboard-calendar-tooltip) {
-  border-color: rgb(252 211 77 / 0.2);
+  border-color: rgb(214 183 157 / 0.2);
   background:
     linear-gradient(180deg, rgb(17 17 17 / 0.98), rgb(8 8 8 / 0.98)),
     rgb(8 8 8);
   box-shadow:
     0 1rem 2rem rgb(0 0 0 / 0.34),
-    0 0 0 1px rgb(252 211 77 / 0.08),
+    0 0 0 1px rgb(214 183 157 / 0.08),
     inset 0 1px 0 rgb(255 255 255 / 0.08);
 }
 
@@ -2353,6 +2587,16 @@ onUnmounted(() => {
   .leaderboard-ranking-card-toolbar {
     flex-wrap: wrap;
     margin-bottom: 0.7rem;
+  }
+
+  .leaderboard-ranking-toolbar-meta {
+    width: 100%;
+    justify-content: space-between;
+    gap: 0.65rem;
+  }
+
+  .leaderboard-token-legend {
+    justify-content: flex-start;
   }
 
   .leaderboard-token-rank-row {
@@ -2405,7 +2649,7 @@ onUnmounted(() => {
   .leaderboard-token-trend-panel {
     width: 100%;
     border-left: 0;
-    border-top: 1px solid rgb(148 163 184 / 0.22);
+    border-top: 1px solid rgb(214 202 186 / 0.72);
     padding-top: 1rem;
     padding-left: 0;
   }
@@ -2420,20 +2664,26 @@ onUnmounted(() => {
   }
 
   .leaderboard-calendar-head {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 0.45rem 0.75rem;
     padding-bottom: 0.65rem;
   }
 
+  .leaderboard-calendar-meta {
+    font-size: 0.74rem;
+  }
+
   .leaderboard-calendar-months {
-    min-width: 44.7rem;
-    grid-template-columns: repeat(2, 21.85rem);
-    gap: 0.75rem;
+    min-width: 58rem;
+    grid-template-columns: repeat(2, minmax(28rem, 1fr));
+    gap: 0.85rem;
   }
 
   .leaderboard-calendar-month-panel {
     padding: 0.72rem;
   }
 
-  .leaderboard-calendar-weekdays,
   .leaderboard-calendar-days {
     gap: 0.48rem;
   }
@@ -2482,98 +2732,98 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 0.25rem;
-  background: rgb(248 250 252);
+  background: rgb(250 247 239);
   padding: 0 0.25rem;
-  color: rgb(71 85 105);
+  color: rgb(109 103 93);
   font-size: 0.6875rem;
   font-weight: 700;
   line-height: 1;
-  box-shadow: inset 0 0 0 1px rgb(203 213 225);
+  box-shadow: inset 0 0 0 1px rgb(214 202 186);
 }
 
 .leaderboard-badge-week {
-  background: rgb(239 246 255);
-  color: rgb(37 99 235);
+  background: rgb(247 240 229);
+  color: rgb(116 61 45);
 }
 
 .leaderboard-badge-month {
-  background: rgb(245 243 255);
-  color: rgb(124 58 237);
+  background: rgb(240 233 221);
+  color: rgb(86 76 63);
 }
 
 .leaderboard-badge-total {
-  background: rgb(254 249 195);
-  color: rgb(161 98 7);
+  background: rgb(242 235 222);
+  color: rgb(68 41 32);
 }
 
 .leaderboard-badge-night {
-  background: rgb(238 242 255);
-  color: rgb(67 56 202);
+  background: rgb(238 234 226);
+  color: rgb(74 68 59);
 }
 
 .leaderboard-badge-burst {
-  background: rgb(255 241 242);
-  color: rgb(225 29 72);
+  background: rgb(248 231 224);
+  color: rgb(154 83 62);
 }
 
 .leaderboard-badge-checkin {
-  background: rgb(240 253 250);
-  color: rgb(13 148 136);
+  background: rgb(232 241 236);
+  color: rgb(57 98 88);
 }
 
 .leaderboard-badge-save {
-  background: rgb(240 253 244);
-  color: rgb(22 163 74);
+  background: rgb(232 241 236);
+  color: rgb(57 98 88);
 }
 
 .leaderboard-badge-fire {
-  background: rgb(255 247 237);
-  color: rgb(234 88 12);
+  background: rgb(248 231 224);
+  color: rgb(116 61 45);
 }
 
 :global(.dark .leaderboard-badge-overflow) {
-  background: rgb(30 41 59);
-  color: rgb(203 213 225);
-  box-shadow: inset 0 0 0 1px rgb(71 85 105);
+  background: rgb(20 20 19);
+  color: rgb(168 159 145);
+  box-shadow: inset 0 0 0 1px rgb(214 183 157 / 0.18);
 }
 
 :global(.dark .leaderboard-badge-week) {
-  background: rgb(37 99 235 / 0.16);
-  color: rgb(147 197 253);
+  background: rgb(196 111 80 / 0.16);
+  color: rgb(214 183 157);
 }
 
 :global(.dark .leaderboard-badge-month) {
-  background: rgb(124 58 237 / 0.16);
-  color: rgb(196 181 253);
+  background: rgb(214 183 157 / 0.12);
+  color: rgb(214 183 157);
 }
 
 :global(.dark .leaderboard-badge-total) {
-  background: rgb(202 138 4 / 0.16);
-  color: rgb(253 224 71);
+  background: rgb(243 239 231 / 0.12);
+  color: rgb(243 239 231);
 }
 
 :global(.dark .leaderboard-badge-night) {
-  background: rgb(79 70 229 / 0.16);
-  color: rgb(165 180 252);
+  background: rgb(118 111 101 / 0.18);
+  color: rgb(214 183 157);
 }
 
 :global(.dark .leaderboard-badge-burst) {
-  background: rgb(225 29 72 / 0.16);
-  color: rgb(253 164 175);
+  background: rgb(196 111 80 / 0.16);
+  color: rgb(230 166 141);
 }
 
 :global(.dark .leaderboard-badge-checkin) {
-  background: rgb(13 148 136 / 0.16);
-  color: rgb(94 234 212);
+  background: rgb(95 143 129 / 0.16);
+  color: rgb(160 191 181);
 }
 
 :global(.dark .leaderboard-badge-save) {
-  background: rgb(22 163 74 / 0.16);
-  color: rgb(134 239 172);
+  background: rgb(95 143 129 / 0.16);
+  color: rgb(160 191 181);
 }
 
 :global(.dark .leaderboard-badge-fire) {
-  background: rgb(234 88 12 / 0.16);
-  color: rgb(253 186 116);
+  background: rgb(196 111 80 / 0.16);
+  color: rgb(230 166 141);
 }
 </style>

@@ -56,7 +56,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.recentTokenTrend.unit': '每日消耗',
     'leaderboard.recentTokenTrend.tokens': 'Token',
     'leaderboard.recentTokenTrend.empty': '暂无趋势数据',
-    'leaderboard.calendar.title': '日历',
+    'leaderboard.calendar.title': '每日冠军',
     'leaderboard.calendar.previousMonth': '查看上月',
     'leaderboard.calendar.currentMonth': '回到本月',
     'leaderboard.calendar.emptyDay': '{date} 暂无冠军',
@@ -673,12 +673,15 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     const calendar = wrapper.get('[data-testid="leaderboard-daily-champions-calendar"]')
-    expect(calendar.text()).toContain('日历')
+    expect(calendar.text()).toContain('每日冠军')
+    expect(calendar.text()).toContain('2026年6月 / 2026年7月')
     expect(calendar.text()).not.toContain('开荒以来')
     expect(calendar.text()).toContain('2026年7月')
     expect(calendar.text()).toContain('2026年6月')
+    expect(calendar.find('[data-testid="leaderboard-calendar-prev"]').exists()).toBe(false)
+    expect(calendar.find('[data-testid="leaderboard-calendar-current"]').exists()).toBe(false)
     expect(calendar.findAll('[data-testid="leaderboard-calendar-day"]')).toHaveLength(61)
-    expect(calendar.findAll('[data-testid="leaderboard-calendar-placeholder"]').length).toBeGreaterThan(0)
+    expect(calendar.findAll('[data-testid="leaderboard-calendar-placeholder"]')).toHaveLength(0)
 
     const championDays = calendar.findAll('[data-testid="leaderboard-calendar-day"]')
       .filter((day) => day.attributes('aria-label')?.includes('tokens'))
@@ -1085,9 +1088,9 @@ describe('LeaderboardView', () => {
 
     const rows = wrapper.findAll('.leaderboard-token-rank-row')
     expect(rows).toHaveLength(3)
-    expect(rows[0].attributes('style')).toContain('--token-bar-color: rgb(217 119 6)')
-    expect(rows[1].attributes('style')).toContain('--token-bar-color: rgb(5 150 105)')
-    expect(rows[2].attributes('style')).toContain('--token-bar-color: rgb(37 99 235)')
+    expect(rows[0].attributes('style')).toContain('--token-bar-color: rgb(196 111 80)')
+    expect(rows[1].attributes('style')).toContain('--token-bar-color: rgb(95 143 129)')
+    expect(rows[2].attributes('style')).toContain('--token-bar-color: rgb(132 118 98)')
     expect(wrapper.find('.leaderboard-avatar-frame-gold').exists()).toBe(false)
   })
 
