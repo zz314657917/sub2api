@@ -116,7 +116,7 @@
             <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-800">
               <p class="font-mono text-xs font-semibold text-primary-600 dark:text-primary-400">03</p>
               <h3 class="mt-4 text-base font-semibold text-gray-950 dark:text-white">{{ t('affiliate.steps.earn.title', { amount: formattedFirstRechargeRewardAmount }) }}</h3>
-              <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t('affiliate.steps.earn.description', { rate: `${formattedRebateRate}%` }) }}</p>
+              <p class="mt-2 text-sm leading-6 text-gray-600 dark:text-dark-300">{{ t('affiliate.steps.earn.description', rebateDescriptionParams) }}</p>
             </div>
           </div>
 
@@ -283,6 +283,19 @@ const formattedFirstRechargeRewardAmount = computed(() => {
   const amount = detail.value?.first_recharge_reward_amount ?? detail.value?.api_call_reward_amount ?? 0
   return formatCreditAmount(amount)
 })
+const rebateDurationDays = computed(() => Math.max(0, Math.floor(detail.value?.rebate_duration_days ?? 0)))
+
+const rebateWindowText = computed(() => {
+  if (rebateDurationDays.value > 0) {
+    return t('affiliate.rebateWindow.limited', { days: rebateDurationDays.value })
+  }
+  return t('affiliate.rebateWindow.permanent')
+})
+
+const rebateDescriptionParams = computed(() => ({
+  rate: `${formattedRebateRate.value}%`,
+  rebateWindow: rebateWindowText.value,
+}))
 
 const affiliateDescription = computed(() => {
   return t('affiliate.descriptionWithReward', { amount: formattedFirstRechargeRewardAmount.value })

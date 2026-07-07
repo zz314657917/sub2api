@@ -40,6 +40,10 @@ export default {
       frozenQuotaHint: 'Recently earned rebates pending release',
       totalQuota: 'Historical Rebate Credits'
     },
+    rebateWindow: {
+      permanent: 'future credit purchases',
+      limited: 'credit purchases within the next {days} days'
+    },
     transfer: {
       title: 'Transfer Rebate Credits',
       description: 'Move available rebate credits into your account credits',
@@ -60,7 +64,7 @@ export default {
       },
       earn: {
         title: 'Both receive {amount}',
-        description: 'After the first recharge succeeds, the fixed reward is granted automatically. Future credit purchases can keep earning at {rate}.'
+        description: 'After the first recharge succeeds, the fixed reward is granted automatically. Your friend’s {rebateWindow} can keep earning at {rate}.'
       }
     },
     invitees: {

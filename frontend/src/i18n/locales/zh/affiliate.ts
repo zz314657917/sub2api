@@ -40,6 +40,10 @@ export default {
       frozenQuotaHint: '新产生的返利正在冻结期中',
       totalQuota: '历史返利积分'
     },
+    rebateWindow: {
+      permanent: '后续购买积分',
+      limited: '后续 {days} 天内购买积分'
+    },
     transfer: {
       title: '返利积分转入',
       description: '将当前可用返利积分一键转入账户积分',
@@ -60,7 +64,7 @@ export default {
       },
       earn: {
         title: '双方获得 {amount}',
-        description: '首充成功后系统会自动发放固定奖励；好友后续购买积分还会按 {rate} 计算返利。'
+        description: '首充成功后系统会自动发放固定奖励；好友{rebateWindow}还会按 {rate} 计算返利。'
       }
     },
     invitees: {
