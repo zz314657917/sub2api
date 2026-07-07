@@ -762,6 +762,7 @@ export interface ApiKey {
   expires_at: string | null // Expiration time (null = never expires)
   created_at: string
   updated_at: string
+  current_concurrency: number
   group?: Group
   route_groups?: Group[]
   rate_limit_5h: number
