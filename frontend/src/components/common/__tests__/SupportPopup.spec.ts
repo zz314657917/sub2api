@@ -2,8 +2,12 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import SupportPopup from '@/components/common/SupportPopup.vue'
 import { useAppStore } from '@/stores/app'
+
+const supportPopupSource = readFileSync(resolve(process.cwd(), 'src/components/common/SupportPopup.vue'), 'utf8')
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
@@ -131,5 +135,17 @@ describe('SupportPopup', () => {
     await nextTick()
 
     expect(wrapper.emitted('close')).toHaveLength(2)
+  })
+
+  it('uses the warm clay popup theme instead of the old blue-slate treatment', () => {
+    expect(supportPopupSource).toContain('background: #efe9de')
+    expect(supportPopupSource).toContain('color: #a9583e')
+    expect(supportPopupSource).toContain('rgba(204, 120, 92')
+    expect(supportPopupSource).toContain('background: rgba(255, 252, 246')
+    expect(supportPopupSource).toContain('border: 1px solid #d8cec2')
+    expect(supportPopupSource).not.toContain('rgba(59, 130, 246')
+    expect(supportPopupSource).not.toContain('rgba(37, 99, 235')
+    expect(supportPopupSource).not.toContain('color: #2563eb')
+    expect(supportPopupSource).not.toContain('color: #93c5fd')
   })
 })
