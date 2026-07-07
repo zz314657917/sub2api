@@ -5,93 +5,16 @@
 
       <TablePageLayout>
       <template #actions>
-        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <!-- Total Requests -->
-          <div class="card p-4">
-          <div class="flex items-center gap-3">
-            <div class="rounded-lg bg-[#f3e7df] p-2 dark:bg-[#cc785c]/15">
-              <Icon name="document" size="md" class="text-[#a9583e] dark:text-[#f0b89e]" />
-            </div>
-            <div>
-              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {{ t('usage.totalRequests') }}
-              </p>
-              <p class="text-xl font-bold text-gray-900 dark:text-white">
-                {{ usageStats?.total_requests?.toLocaleString() || '0' }}
-              </p>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                {{ t('usage.inSelectedRange') }}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Total Tokens -->
-        <div class="card p-4">
-          <div class="flex items-center gap-3">
-            <div class="rounded-lg bg-amber-100 p-2 dark:bg-amber-900/30">
-              <Icon name="cube" size="md" class="text-amber-600 dark:text-amber-400" />
-            </div>
-            <div>
-              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {{ t('usage.totalTokens') }}
-              </p>
-              <p class="text-xl font-bold text-gray-900 dark:text-white">
-                {{ formatTokens(usageStats?.total_tokens || 0) }}
-              </p>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                {{ t('usage.in') }}: {{ formatTokens(usageStats?.total_input_tokens || 0) }} /
-                {{ t('usage.out') }}: {{ formatTokens(usageStats?.total_output_tokens || 0) }}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Total Cost -->
-        <div class="card p-4">
-          <div class="flex items-center gap-3">
-            <div class="rounded-lg bg-[#fffaf5] p-2 ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/15 dark:ring-[#cc785c]/30">
-              <Icon name="dollar" size="md" class="text-[#a9583e] dark:text-[#f0b89e]" />
-            </div>
-            <div class="min-w-0 flex-1">
-              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {{ t('usage.totalCost') }}
-              </p>
-              <p
-                class="text-xl font-bold text-[#a9583e] dark:text-[#f0b89e]"
-                :title="formatCostExact(usageStats?.total_actual_cost || 0)"
-              >
-                {{ formatCostCompact(usageStats?.total_actual_cost || 0) }}
-              </p>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                {{ t('usage.actualCost') }} /
-                <span class="line-through" :title="`${t('usage.officialReferenceCost')}: ${formatOfficialReferenceCostExact(usageStats?.total_cost || 0)}`">{{ formatOfficialReferenceCostCompact(usageStats?.total_cost || 0) }}</span>
-                {{ t('usage.officialReferenceCost') }}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Average Duration -->
-        <div class="card p-4">
-          <div class="flex items-center gap-3">
-            <div class="rounded-lg bg-[#f3e7df] p-2 dark:bg-[#cc785c]/15">
-              <Icon name="clock" size="md" class="text-[#a9583e] dark:text-[#f0b89e]" />
-            </div>
-            <div>
-              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                {{ t('usage.avgDuration') }}
-              </p>
-              <p class="text-xl font-bold text-gray-900 dark:text-white">
-                {{ formatDuration(usageStats?.average_duration_ms || 0) }}
-              </p>
-              <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.perRequest') }}</p>
-            </div>
-          </div>
-        </div>
-          <div class="col-span-2 rounded-lg border border-gray-200 bg-white/70 px-4 py-2 text-xs text-gray-600 dark:border-dark-700 dark:bg-dark-900/70 dark:text-gray-400 lg:col-span-4">
-            {{ activeScopeSummary }}
-          </div>
+        <div class="flex w-full flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-gray-200 bg-white/70 px-4 py-2 text-xs text-gray-600 shadow-sm dark:border-dark-700 dark:bg-dark-900/70 dark:text-gray-400">
+          <span class="min-w-0 flex-1 truncate">{{ activeScopeSummary }}</span>
+          <span class="flex items-center gap-1 whitespace-nowrap border-l border-gray-200 pl-4 text-gray-500 dark:border-dark-700 dark:text-gray-500">
+            <span>{{ t('usage.totalTokens') }}</span>
+            <span class="font-semibold text-gray-900 dark:text-white">{{ activeScopeTotalTokens }}</span>
+          </span>
+          <span class="flex items-center gap-1 whitespace-nowrap text-gray-500 dark:text-gray-500">
+            <span>{{ t('usage.totalCost') }}</span>
+            <span class="font-semibold text-[#a9583e] dark:text-[#f0b89e]" :title="activeScopeExactCost">{{ activeScopeTotalCost }}</span>
+          </span>
         </div>
       </template>
 
@@ -795,7 +718,7 @@ import UserSubscriptionsPanel from '@/components/user/UserSubscriptionsPanel.vue
 import type { UsageLog, ApiKey, Group, UsageQueryParams, UsageStatsResponse } from '@/types'
 import type { Column } from '@/components/common/types'
 import { formatDateTime, formatReasoningEffort } from '@/utils/format'
-import { formatCreditAmount, formatCreditCompact, formatCreditExact } from '@/utils/credits'
+import { formatCreditAmount } from '@/utils/credits'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatCacheTokens, formatMultiplier } from '@/utils/formatters'
 import { formatTokenPricePerMillion } from '@/utils/usagePricing'
@@ -1018,24 +941,6 @@ const formatDuration = (ms: number | null | undefined): string => {
   return `${(safeMs / 1000).toFixed(2)}s`
 }
 
-const formatCostCompact = (value: number | null | undefined): string => {
-  const safeValue = toFiniteNumber(value)
-  return formatCreditCompact(safeValue)
-}
-
-const formatCostExact = (value: number | null | undefined): string => formatCreditExact(value)
-
-const formatOfficialReferenceCostCompact = (value: number | null | undefined): string => {
-  const safeValue = toFiniteNumber(value)
-  const abs = Math.abs(safeValue)
-  if (abs >= 100) return `$${safeValue.toFixed(2)}`
-  if (abs >= 1) return `$${safeValue.toFixed(4)}`
-  return `$${safeValue.toFixed(6)}`
-}
-
-const formatOfficialReferenceCostExact = (value: number | null | undefined): string =>
-  `$${toFiniteNumber(value).toFixed(8)}`
-
 const imageUnitPrice = (row: UsageLog | null): number => {
   const imageCount = toFiniteNumber(row?.image_count)
   if (!row || imageCount <= 0) return 0
@@ -1090,6 +995,17 @@ const activeScopeSummary = computed(() => {
   if (filters.value.billing_mode) parts.push(getBillingModeLabel(filters.value.billing_mode, t))
   return parts.join(' / ')
 })
+
+const activeScopeTotalTokens = computed(() => formatNumber(usageStats.value?.total_tokens ?? 0))
+
+const activeScopeExactCost = computed(() => formatCostFixed(usageStats.value?.total_actual_cost ?? 0, 6))
+
+const activeScopeTotalCost = computed(() =>
+  formatCreditAmount(usageStats.value?.total_actual_cost ?? 0, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+)
 
 const isColumnVisible = (key: string): boolean => visibleColumnKeys.value.has(key)
 
@@ -1194,18 +1110,6 @@ const getRequestTypeExportText = (log: UsageLog): string => {
 const formatUsageEndpoints = (log: UsageLog): string => {
   const inbound = log.inbound_endpoint?.trim()
   return inbound || '-'
-}
-
-const formatTokens = (value: number | null | undefined): string => {
-  const safeValue = toFiniteNumber(value)
-  if (safeValue >= 1_000_000_000) {
-    return `${(safeValue / 1_000_000_000).toFixed(2)}B`
-  } else if (safeValue >= 1_000_000) {
-    return `${(safeValue / 1_000_000).toFixed(2)}M`
-  } else if (safeValue >= 1_000) {
-    return `${(safeValue / 1_000).toFixed(2)}K`
-  }
-  return formatNumber(safeValue)
 }
 
 type UsageTableQueryParams = UsageQueryParams & {

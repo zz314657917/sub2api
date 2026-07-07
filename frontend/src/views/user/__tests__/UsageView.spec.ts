@@ -532,6 +532,18 @@ describe('user UsageView', () => {
     expect(costCell.find('.line-through').text()).toContain('$0.013400')
   })
 
+  it('renders compact scope totals without restoring duplicated stat cards', async () => {
+    const wrapper = await mountUsageView()
+
+    const text = wrapper.text()
+
+    expect(text).toContain('All API Keys / All Groups')
+    expect(text).toContain('Total Tokens100')
+    expect(text).toContain('Total Cost✪ 0.09')
+    expect(text).not.toContain('Total Requests0In selected range')
+    expect(text).not.toContain('Average Duration')
+  })
+
   it('shows cache read percentage in the cache read column', async () => {
     const wrapper = await mountUsageView([
       baseUsageLog({
