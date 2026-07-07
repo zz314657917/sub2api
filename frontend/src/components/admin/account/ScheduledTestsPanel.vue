@@ -180,7 +180,7 @@
               <!-- Auto Recover Badge -->
               <span
                 v-if="plan.auto_recover"
-                class="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400"
+                class="inline-flex items-center rounded-full bg-[#f3e7df] px-2 py-0.5 text-xs font-medium text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]"
               >
                 {{ t('admin.scheduledTests.autoRecover') }}
               </span>
@@ -203,7 +203,7 @@
               <div class="flex items-center gap-1" @click.stop>
                 <button
                   @click="startEdit(plan)"
-                  class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-blue-50 hover:text-blue-500 dark:hover:bg-blue-900/20"
+                  class="rounded-lg p-1.5 text-gray-400 transition-colors hover:bg-[#f3e7df] hover:text-[#a9583e] dark:hover:bg-[#cc785c]/12 dark:hover:text-[#f0b89e]"
                   :title="t('admin.scheduledTests.editPlan')"
                 >
                   <Icon name="edit" size="sm" :stroke-width="2" />
@@ -232,7 +232,7 @@
           <!-- Edit Form -->
           <div
             v-if="editingPlanId === plan.id"
-            class="border-t border-blue-100 bg-blue-50/50 px-4 py-3 dark:border-blue-900 dark:bg-blue-900/10"
+            class="border-t border-[#d8cec2] bg-[#fffaf5]/60 px-4 py-3 dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10"
             @click.stop
           >
             <div class="mb-2 text-xs font-medium text-gray-600 dark:text-gray-400">
@@ -373,9 +373,9 @@
                       :class="[
                         'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
                         result.status === 'success'
-                          ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
+                          ? 'bg-[#edf4ef] text-[#5f7f68] dark:bg-[#7f9d8a]/15 dark:text-[#b7d1bd]'
                           : result.status === 'running'
-                            ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400'
+                            ? 'bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:text-[#f0b89e] dark:ring-[#cc785c]/30'
                             : 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
                       ]"
                     >

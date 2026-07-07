@@ -38,8 +38,8 @@ const isDarkMode = computed(() => document.documentElement.classList.contains('d
 const colors = computed(() => ({
   red: '#ef4444',
   redAlpha: '#ef444420',
-  purple: '#8b5cf6',
-  purpleAlpha: '#8b5cf620',
+  accent: '#cc785c',
+  accentAlpha: '#cc785c20',
   gray: '#9ca3af',
   grid: isDarkMode.value ? '#374151' : '#f3f4f6',
   text: isDarkMode.value ? '#9ca3af' : '#6b7280'
@@ -78,8 +78,8 @@ const chartData = computed(() => {
       {
         label: t('admin.ops.upstreamExcl429529'),
         data: props.points.map((p) => p.upstream_error_count_excl_429_529 ?? 0),
-        borderColor: colors.value.purple,
-        backgroundColor: colors.value.purpleAlpha,
+        borderColor: colors.value.accent,
+        backgroundColor: colors.value.accentAlpha,
         fill: true,
         tension: 0.35,
         pointRadius: 0,

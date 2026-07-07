@@ -68,7 +68,7 @@
                 class="rounded-lg p-1 transition-colors hover:bg-gray-100 dark:hover:bg-dark-700"
                 :class="
                   copiedKeyId === row.id
-                    ? 'text-green-500'
+                    ? 'text-[#a9583e] dark:text-[#f0b89e]'
                     : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                 "
                 :title="copiedKeyId === row.id ? t('keys.copied') : t('keys.copyToClipboard')"
@@ -90,14 +90,14 @@
                 <span class="font-medium text-gray-900 dark:text-white">{{ value }}</span>
                 <span
                   v-if="row.is_default"
-                  class="inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                  class="inline-flex items-center rounded-md bg-[#f3e7df] px-1.5 py-0.5 text-xs font-medium text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]"
                   :title="t('keys.defaultKeyHint')"
                 >
                   {{ t('keys.defaultKeyBadge') }}
                 </span>
                 <span
                   v-if="apiKeySupportsUnifiedAccess(row)"
-                  class="inline-flex items-center gap-1 rounded-md bg-emerald-50 px-1.5 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                  class="inline-flex items-center gap-1 rounded-md bg-[#fffaf5] px-1.5 py-0.5 text-xs font-medium text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:text-[#f0b89e] dark:ring-[#cc785c]/30"
                   :title="t('keys.unifiedKeyHint')"
                 >
                   <Icon name="sparkles" size="xs" />
@@ -107,7 +107,7 @@
                   v-if="row.ip_whitelist?.length > 0 || row.ip_blacklist?.length > 0"
                   name="shield"
                   size="sm"
-                  class="text-blue-500"
+                  class="text-[#a9583e] dark:text-[#f0b89e]"
                   :title="t('keys.ipRestrictionEnabled')"
                 />
               </div>
@@ -176,12 +176,12 @@
                 <button
                   v-else
                   type="button"
-                  class="-mx-2 -my-1 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-blue-700 transition-colors hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/30"
+                  class="-mx-2 -my-1 inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium text-[#a9583e] transition-colors hover:bg-[#f3e7df] dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/15"
                   :title="t('keys.clickToEditSmartRouting')"
                   @click="editKey(row)"
                 >
                   <span
-                    class="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2 py-0.5 dark:bg-blue-900/30"
+                    class="inline-flex items-center gap-1.5 rounded-md bg-[#fffaf5] px-2 py-0.5 ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:ring-[#cc785c]/30"
                   >
                     <Icon name="sparkles" size="xs" />
                     {{ t('keys.multiGroupRouteCount', { count: row.multi_group_routes.length }) }}
@@ -213,7 +213,7 @@
                 </div>
                 <span
                   v-if="row.account_pool_strategy && row.account_pool_strategy !== 'shared_only'"
-                  class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                  class="inline-flex items-center rounded-md bg-[#fffaf5] px-2 py-0.5 text-xs font-medium text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:text-[#f0b89e] dark:ring-[#cc785c]/30"
                 >
                   {{ accountPoolStrategyLabel(row.account_pool_strategy) }}
                 </span>
@@ -297,7 +297,7 @@
                       'h-full rounded-full transition-all',
                       row.usage_5h >= row.rate_limit_5h ? 'bg-red-500' :
                       row.usage_5h >= row.rate_limit_5h * 0.8 ? 'bg-yellow-500' :
-                      'bg-emerald-500'
+                      'bg-[#cc785c]'
                     ]"
                     :style="{ width: Math.min((row.usage_5h / row.rate_limit_5h) * 100, 100) + '%' }"
                   />
@@ -325,7 +325,7 @@
                       'h-full rounded-full transition-all',
                       row.usage_1d >= row.rate_limit_1d ? 'bg-red-500' :
                       row.usage_1d >= row.rate_limit_1d * 0.8 ? 'bg-yellow-500' :
-                      'bg-emerald-500'
+                      'bg-[#cc785c]'
                     ]"
                     :style="{ width: Math.min((row.usage_1d / row.rate_limit_1d) * 100, 100) + '%' }"
                   />
@@ -353,7 +353,7 @@
                       'h-full rounded-full transition-all',
                       row.usage_7d >= row.rate_limit_7d ? 'bg-red-500' :
                       row.usage_7d >= row.rate_limit_7d * 0.8 ? 'bg-yellow-500' :
-                      'bg-emerald-500'
+                      'bg-[#cc785c]'
                     ]"
                     :style="{ width: Math.min((row.usage_7d / row.rate_limit_7d) * 100, 100) + '%' }"
                   />
@@ -414,7 +414,7 @@
               <!-- Use Key Button -->
               <button
                 @click="openUseKeyModal(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-[#f3e7df] hover:text-[#a9583e] dark:hover:bg-[#cc785c]/12 dark:hover:text-[#f0b89e]"
               >
                 <Icon name="terminal" size="sm" />
                 <span class="text-xs">{{ t('keys.useKey') }}</span>
@@ -423,7 +423,7 @@
               <button
                 v-if="!publicSettings?.hide_ccs_import_button"
                 @click="importToCcswitch(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-[#f3e7df] hover:text-[#a9583e] dark:hover:bg-[#cc785c]/12 dark:hover:text-[#f0b89e]"
               >
                 <Icon name="upload" size="sm" />
                 <span class="text-xs">{{ t('keys.importToCcSwitch') }}</span>
@@ -431,7 +431,7 @@
               <!-- Import to Cockpit Tools Button -->
               <button
                 @click="importToCockpitTools(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-cyan-50 hover:text-cyan-600 dark:hover:bg-cyan-900/20 dark:hover:text-cyan-400"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-[#f3e7df] hover:text-[#a9583e] dark:hover:bg-[#cc785c]/12 dark:hover:text-[#f0b89e]"
                 :title="t('keys.importToCockpitToolsHint')"
               >
                 <Icon name="upload" size="sm" />
@@ -444,7 +444,7 @@
                   'flex flex-col items-center gap-0.5 rounded-lg p-1.5 transition-colors',
                   row.status === 'active'
                     ? 'text-gray-500 hover:bg-yellow-50 hover:text-yellow-600 dark:hover:bg-yellow-900/20 dark:hover:text-yellow-400'
-                    : 'text-gray-500 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400'
+                    : 'text-gray-500 hover:bg-[#f3e7df] hover:text-[#a9583e] dark:hover:bg-[#cc785c]/12 dark:hover:text-[#f0b89e]'
                 ]"
               >
                 <Icon v-if="row.status === 'active'" name="ban" size="sm" />
@@ -510,7 +510,7 @@
       <form id="key-form" @submit.prevent="handleSubmit" class="space-y-5">
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/40">
           <div class="mb-4 flex items-start gap-3">
-            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300">
+            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/12 dark:text-[#f0b89e]">
               <Icon name="key" size="md" />
             </div>
             <div>
@@ -573,7 +573,7 @@
                   </span>
                 </button>
               </div>
-              <div class="mt-3 rounded-lg bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300">
+              <div class="mt-3 rounded-lg border border-[#d8cec2] bg-[#fffaf5] px-3 py-2 text-xs leading-5 text-[#6c6a64] dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10 dark:text-[#f0b89e]">
                 {{ t('keys.routingPresetHint') }}
               </div>
             </div>
@@ -668,7 +668,7 @@
 
         <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/40">
           <div class="mb-4 flex items-start gap-3">
-            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300">
+            <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/12 dark:text-[#f0b89e] dark:ring-[#cc785c]/30">
               <Icon name="creditCard" size="md" />
             </div>
             <div>
@@ -1117,7 +1117,7 @@
                       'h-full rounded-full transition-all',
                       selectedKey.usage_5h >= selectedKey.rate_limit_5h ? 'bg-red-500' :
                       selectedKey.usage_5h >= selectedKey.rate_limit_5h * 0.8 ? 'bg-yellow-500' :
-                      'bg-green-500'
+                      'bg-[#cc785c]'
                     ]"
                     :style="{ width: Math.min((selectedKey.usage_5h / selectedKey.rate_limit_5h) * 100, 100) + '%' }"
                   />
@@ -1163,7 +1163,7 @@
                       'h-full rounded-full transition-all',
                       selectedKey.usage_1d >= selectedKey.rate_limit_1d ? 'bg-red-500' :
                       selectedKey.usage_1d >= selectedKey.rate_limit_1d * 0.8 ? 'bg-yellow-500' :
-                      'bg-green-500'
+                      'bg-[#cc785c]'
                     ]"
                     :style="{ width: Math.min((selectedKey.usage_1d / selectedKey.rate_limit_1d) * 100, 100) + '%' }"
                   />
@@ -1209,7 +1209,7 @@
                       'h-full rounded-full transition-all',
                       selectedKey.usage_7d >= selectedKey.rate_limit_7d ? 'bg-red-500' :
                       selectedKey.usage_7d >= selectedKey.rate_limit_7d * 0.8 ? 'bg-yellow-500' :
-                      'bg-green-500'
+                      'bg-[#cc785c]'
                     ]"
                     :style="{ width: Math.min((selectedKey.usage_7d / selectedKey.rate_limit_7d) * 100, 100) + '%' }"
                   />
@@ -1455,7 +1455,7 @@
         <p class="text-sm leading-6 text-gray-600 dark:text-gray-400">
           {{ t('keys.cockpitToolsInstall.description') }}
         </p>
-        <div class="rounded-lg border border-cyan-100 bg-cyan-50 p-3 text-sm text-cyan-800 dark:border-cyan-800 dark:bg-cyan-900/20 dark:text-cyan-200">
+        <div class="rounded-lg border border-[#d8cec2] bg-[#fffaf5] p-3 text-sm text-[#504f49] dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10 dark:text-[#f0b89e]">
           {{ t('keys.cockpitToolsInstall.fallbackHint') }}
         </div>
       </div>
@@ -1898,14 +1898,14 @@ const presetToneClasses = (option: RoutingPresetOption) => {
   const selected = routingPreset.value === option.value
   const toneClasses: Record<RoutingPresetOption['tone'], string> = {
     cyan: selected
-      ? 'border-cyan-500 bg-cyan-50 text-cyan-800 ring-1 ring-cyan-500 dark:border-cyan-400 dark:bg-cyan-500/10 dark:text-cyan-200'
-      : 'border-gray-200 bg-white text-gray-700 hover:border-cyan-300 hover:bg-cyan-50/50 dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-cyan-500/50 dark:hover:bg-cyan-500/10',
+      ? 'border-[#cc785c] bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#cc785c]/60 dark:border-[#cc785c] dark:bg-[#cc785c]/10 dark:text-[#f0b89e]'
+      : 'border-gray-200 bg-white text-gray-700 hover:border-[#d8cec2] hover:bg-[#fffaf5] dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-[#cc785c]/50 dark:hover:bg-[#cc785c]/10',
     blue: selected
-      ? 'border-blue-500 bg-blue-50 text-blue-800 ring-1 ring-blue-500 dark:border-blue-400 dark:bg-blue-500/10 dark:text-blue-200'
-      : 'border-gray-200 bg-white text-gray-700 hover:border-blue-300 hover:bg-blue-50/50 dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-blue-500/50 dark:hover:bg-blue-500/10',
+      ? 'border-[#cc785c] bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#cc785c]/60 dark:border-[#cc785c] dark:bg-[#cc785c]/10 dark:text-[#f0b89e]'
+      : 'border-gray-200 bg-white text-gray-700 hover:border-[#d8cec2] hover:bg-[#fffaf5] dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-[#cc785c]/50 dark:hover:bg-[#cc785c]/10',
     emerald: selected
-      ? 'border-emerald-500 bg-emerald-50 text-emerald-800 ring-1 ring-emerald-500 dark:border-emerald-400 dark:bg-emerald-500/10 dark:text-emerald-200'
-      : 'border-gray-200 bg-white text-gray-700 hover:border-emerald-300 hover:bg-emerald-50/50 dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-emerald-500/50 dark:hover:bg-emerald-500/10',
+      ? 'border-[#cc785c] bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#cc785c]/60 dark:border-[#cc785c] dark:bg-[#cc785c]/10 dark:text-[#f0b89e]'
+      : 'border-gray-200 bg-white text-gray-700 hover:border-[#d8cec2] hover:bg-[#fffaf5] dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-[#cc785c]/50 dark:hover:bg-[#cc785c]/10',
     orange: selected
       ? 'border-orange-500 bg-orange-50 text-orange-800 ring-1 ring-orange-500 dark:border-orange-400 dark:bg-orange-500/10 dark:text-orange-200'
       : 'border-gray-200 bg-white text-gray-700 hover:border-orange-300 hover:bg-orange-50/50 dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-orange-500/50 dark:hover:bg-orange-500/10',
@@ -1923,14 +1923,14 @@ const presetIconClasses = (option: RoutingPresetOption) => {
   const selected = routingPreset.value === option.value
   const toneClasses: Record<RoutingPresetOption['tone'], string> = {
     cyan: selected
-      ? 'bg-cyan-500 text-white'
-      : 'bg-cyan-50 text-cyan-600 dark:bg-cyan-500/15 dark:text-cyan-300',
+      ? 'bg-[#141413] text-white'
+      : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/12 dark:text-[#f0b89e]',
     blue: selected
-      ? 'bg-blue-500 text-white'
-      : 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300',
+      ? 'bg-[#141413] text-white'
+      : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/12 dark:text-[#f0b89e]',
     emerald: selected
-      ? 'bg-emerald-500 text-white'
-      : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300',
+      ? 'bg-[#141413] text-white'
+      : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/12 dark:text-[#f0b89e]',
     orange: selected
       ? 'bg-orange-500 text-white'
       : 'bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300',

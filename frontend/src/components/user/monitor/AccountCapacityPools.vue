@@ -159,12 +159,12 @@ function poolDescription(pool: UserAccountCapacityPool): string {
 
 function poolIconClass(pool: UserAccountCapacityPool): string {
   if (pool.key === 'mine') {
-    return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+    return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
   }
   if (isExternalPool(pool)) {
-    return 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
+    return 'bg-[#fffaf5] text-[#8e8b82] ring-1 ring-[#d8cec2] dark:bg-[#8e8b82]/15 dark:text-[#d8cec2] dark:ring-[#8e8b82]/40'
   }
-  return 'bg-cyan-100 text-cyan-700 dark:bg-cyan-500/15 dark:text-cyan-300'
+  return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
 }
 
 function hasVisibleDashboardPool(pool: UserAccountCapacityPool | null | undefined): pool is UserAccountCapacityPool {
@@ -316,7 +316,7 @@ function groupStatusLabel(status: string): string {
 }
 
 function groupBorderClass(status: string): string {
-  if (status === 'healthy') return 'border-emerald-200/80 bg-emerald-50/35 dark:border-emerald-500/30 dark:bg-emerald-500/5'
+  if (status === 'healthy') return 'border-[#d8cec2]/80 bg-[#fffaf5]/70 dark:border-[#cc785c]/30 dark:bg-[#cc785c]/5'
   if (status === 'unavailable') return 'border-rose-200/80 bg-rose-50/35 dark:border-rose-500/30 dark:bg-rose-500/5'
   return 'border-amber-200/90 bg-amber-50/40 dark:border-amber-500/30 dark:bg-amber-500/5'
 }
@@ -324,7 +324,7 @@ function groupBorderClass(status: string): string {
 function chipClass(tone: 'success' | 'warning' | 'danger' | 'neutral'): string {
   switch (tone) {
     case 'success':
-      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+      return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
     case 'warning':
       return 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
     case 'danger':
@@ -347,11 +347,11 @@ function windowProgressClass(usedPercent: number, percentOnlyQuota: boolean): st
   if (percentOnlyQuota) {
     if (used >= 100) return 'bg-rose-500'
     if (used >= 80) return 'bg-amber-500'
-    return 'bg-emerald-500'
+    return 'bg-[#cc785c]'
   }
   if (used >= 100) return 'bg-rose-500'
   if (used >= 80) return 'bg-amber-500'
-  return 'bg-cyan-500'
+  return 'bg-[#cc785c]'
 }
 
 type AccountStatusEntry = {
@@ -377,8 +377,8 @@ function accountStatusEntries(group: UserAccountCapacityPoolGroup): AccountStatu
       key: 'schedulable',
       label: t('channelStatus.capacityPools.schedulable'),
       count: schedulable,
-      barClass: 'bg-teal-400',
-      dotClass: 'bg-teal-400',
+      barClass: 'bg-[#9c7b62]',
+      dotClass: 'bg-[#9c7b62]',
       showLegend: false,
     },
     {
@@ -575,7 +575,7 @@ const MetricTile = defineComponent({
         class: [
           'mt-1 text-xl font-bold',
           tileProps.tone === 'success'
-            ? 'text-emerald-600 dark:text-emerald-300'
+            ? 'text-[#a9583e] dark:text-[#f0b89e]'
             : tileProps.tone === 'warning'
               ? 'text-amber-600 dark:text-amber-300'
               : tileProps.tone === 'danger'

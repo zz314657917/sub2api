@@ -1,14 +1,52 @@
 <template>
-  <AuthLayout>
+  <component :is="embedded ? 'div' : AuthLayout" :class="embedded ? 'auth-embedded-shell' : undefined">
     <div class="space-y-6">
       <!-- Title -->
-      <div class="text-center">
-        <h2 class="text-2xl font-bold text-white">
+      <div v-if="showTitle" class="text-center">
+        <h2 class="text-2xl font-bold text-[#141413]">
           {{ t('auth.createAccount') }}
         </h2>
-        <p class="mt-2 text-sm font-medium text-violet-100/74">
+        <p class="mt-2 text-sm font-medium text-[#6c6a64]">
           {{ t('auth.signUpToStart', { siteName }) }}
         </p>
+      </div>
+
+      <div v-if="showOAuthLogin" class="auth-oauth-first space-y-3">
+        <EmailOAuthButtons
+          :disabled="registrationActionDisabled"
+          :aff-code="formData.aff_code"
+          :github-enabled="githubOAuthEnabled"
+          :google-enabled="googleOAuthEnabled"
+          :show-divider="false"
+        />
+
+        <LinuxDoOAuthSection
+          v-if="linuxdoOAuthEnabled"
+          :disabled="registrationActionDisabled"
+          :aff-code="formData.aff_code"
+          :show-divider="false"
+        />
+        <WechatOAuthSection
+          v-if="wechatOAuthEnabled"
+          :disabled="registrationActionDisabled"
+          :aff-code="formData.aff_code"
+          :show-divider="false"
+        />
+        <OidcOAuthSection
+          v-if="oidcOAuthEnabled"
+          :disabled="registrationActionDisabled"
+          :provider-name="oidcOAuthProviderName"
+          :aff-code="formData.aff_code"
+          :show-divider="false"
+        />
+
+        <div class="auth-oauth-divider flex items-center gap-3">
+          <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
+          <span class="text-xs text-[#8e8b82]">
+            {{ t('auth.oauthOrContinue') }}
+          </span>
+          <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
+        </div>
       </div>
 
       <!-- Registration Disabled Message -->
@@ -30,22 +68,22 @@
       <form v-else @submit.prevent="handleRegister" class="space-y-5">
         <!-- Email Input -->
         <div>
-          <label for="email" class="input-label">
+          <label for="email" class="auth-input-label">
             {{ t('auth.emailLabel') }}
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="mail" size="md" class="text-gray-400 dark:text-dark-500" />
+              <Icon name="mail" size="md" class="text-[#8e8b82]" />
             </div>
             <input
               id="email"
               v-model="formData.email"
               type="email"
               required
-              autofocus
+              :autofocus="!embedded"
               autocomplete="email"
               :disabled="registrationActionDisabled"
-              class="input pl-11"
+              class="auth-input pl-11"
               :class="{ 'input-error': errors.email }"
               :placeholder="t('auth.emailPlaceholder')"
             />
@@ -54,12 +92,12 @@
 
         <!-- Password Input -->
         <div>
-          <label for="password" class="input-label">
+          <label for="password" class="auth-input-label">
             {{ t('auth.passwordLabel') }}
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-gray-400 dark:text-dark-500" />
+              <Icon name="lock" size="md" class="text-[#8e8b82]" />
             </div>
             <input
               id="password"
@@ -68,7 +106,7 @@
               required
               autocomplete="new-password"
               :disabled="registrationActionDisabled"
-              class="input pl-11 pr-11"
+              class="auth-input pl-11 pr-11"
               :class="{ 'input-error': errors.password }"
               :placeholder="t('auth.createPasswordPlaceholder')"
             />
@@ -76,48 +114,48 @@
               type="button"
               :disabled="registrationActionDisabled"
               @click="showPassword = !showPassword"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-gray-400 transition-colors hover:text-gray-600 dark:hover:text-dark-300"
+              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-[#8e8b82] transition-colors hover:text-[#141413]"
             >
               <Icon v-if="showPassword" name="eyeOff" size="md" />
               <Icon v-else name="eye" size="md" />
             </button>
           </div>
-          <p class="input-hint">
+          <p class="auth-input-hint">
             {{ t('auth.passwordHint') }}
           </p>
         </div>
 
         <!-- Invitation Code Input (Required when enabled) -->
         <div v-if="invitationCodeEnabled">
-          <label for="invitation_code" class="input-label">
+          <label for="invitation_code" class="auth-input-label">
             {{ t('auth.invitationCodeLabel') }}
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="key" size="md" :class="invitationValidation.valid ? 'text-green-500' : 'text-gray-400 dark:text-dark-500'" />
+              <Icon name="key" size="md" :class="invitationValidation.valid ? 'text-[#5f7f68]' : 'text-[#8e8b82]'" />
             </div>
             <input
               id="invitation_code"
               v-model="formData.invitation_code"
               type="text"
               :disabled="registrationActionDisabled"
-              class="input pl-11 pr-10"
+              class="auth-input pl-11 pr-10"
               :class="{
-                'border-green-500 focus:border-green-500 focus:ring-green-500': invitationValidation.valid,
-                'border-red-500 focus:border-red-500 focus:ring-red-500': invitationValidation.invalid || errors.invitation_code
+                'is-valid': invitationValidation.valid,
+                'input-error': invitationValidation.invalid || errors.invitation_code
               }"
               :placeholder="t('auth.invitationCodePlaceholder')"
               @input="handleInvitationCodeInput"
             />
             <!-- Validation indicator -->
             <div v-if="invitationValidating" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
-              <svg class="h-4 w-4 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
+              <svg class="h-4 w-4 animate-spin text-[#8e8b82]" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             </div>
             <div v-else-if="invitationValidation.valid" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
-              <Icon name="checkCircle" size="md" class="text-green-500" />
+              <Icon name="checkCircle" size="md" class="text-[#5f7f68] dark:text-[#9ab3a0]" />
             </div>
             <div v-else-if="invitationValidation.invalid || errors.invitation_code" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
               <Icon name="exclamationCircle" size="md" class="text-red-500" />
@@ -125,9 +163,9 @@
           </div>
           <!-- Invitation code validation result -->
           <transition name="fade">
-            <div v-if="invitationValidation.valid" class="mt-2 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
-              <Icon name="checkCircle" size="sm" class="text-green-600 dark:text-green-400" />
-              <span class="text-sm text-green-700 dark:text-green-400">
+            <div v-if="invitationValidation.valid" class="mt-2 flex items-center gap-2 rounded-lg border border-[#d8cec2] bg-[#eef3ed] px-3 py-2 dark:border-[#5f7f68]/30 dark:bg-[#5f7f68]/15">
+              <Icon name="checkCircle" size="sm" class="text-[#5f7f68] dark:text-[#9ab3a0]" />
+              <span class="text-sm text-[#5f7f68] dark:text-[#9ab3a0]">
                 {{ t('auth.invitationCodeValid') }}
               </span>
             </div>
@@ -136,36 +174,36 @@
 
         <!-- Promo Code Input (Optional) -->
         <div v-if="promoCodeEnabled">
-          <label for="promo_code" class="input-label">
+          <label for="promo_code" class="auth-input-label">
             {{ t('auth.promoCodeLabel') }}
-            <span class="ml-1 text-xs font-normal text-gray-400 dark:text-dark-500">({{ t('common.optional') }})</span>
+            <span class="ml-1 text-xs font-normal text-[#8e8b82]">({{ t('common.optional') }})</span>
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="gift" size="md" :class="promoValidation.valid ? 'text-green-500' : 'text-gray-400 dark:text-dark-500'" />
+              <Icon name="gift" size="md" :class="promoValidation.valid ? 'text-[#5f7f68]' : 'text-[#8e8b82]'" />
             </div>
             <input
               id="promo_code"
               v-model="formData.promo_code"
               type="text"
               :disabled="registrationActionDisabled"
-              class="input pl-11 pr-10"
+              class="auth-input pl-11 pr-10"
               :class="{
-                'border-green-500 focus:border-green-500 focus:ring-green-500': promoValidation.valid,
-                'border-red-500 focus:border-red-500 focus:ring-red-500': promoValidation.invalid
+                'is-valid': promoValidation.valid,
+                'input-error': promoValidation.invalid
               }"
               :placeholder="t('auth.promoCodePlaceholder')"
               @input="handlePromoCodeInput"
             />
             <!-- Validation indicator -->
             <div v-if="promoValidating" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
-              <svg class="h-4 w-4 animate-spin text-gray-400" fill="none" viewBox="0 0 24 24">
+              <svg class="h-4 w-4 animate-spin text-[#8e8b82]" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
               </svg>
             </div>
             <div v-else-if="promoValidation.valid" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
-              <Icon name="checkCircle" size="md" class="text-green-500" />
+              <Icon name="checkCircle" size="md" class="text-[#5f7f68] dark:text-[#9ab3a0]" />
             </div>
             <div v-else-if="promoValidation.invalid" class="absolute inset-y-0 right-0 flex items-center pr-3.5">
               <Icon name="exclamationCircle" size="md" class="text-red-500" />
@@ -173,9 +211,9 @@
           </div>
           <!-- Promo code validation result -->
           <transition name="fade">
-            <div v-if="promoValidation.valid" class="mt-2 flex items-center gap-2 rounded-lg bg-green-50 px-3 py-2 dark:bg-green-900/20">
-              <Icon name="gift" size="sm" class="text-green-600 dark:text-green-400" />
-              <span class="text-sm text-green-700 dark:text-green-400">
+            <div v-if="promoValidation.valid" class="mt-2 flex items-center gap-2 rounded-lg border border-[#d8cec2] bg-[#eef3ed] px-3 py-2 dark:border-[#5f7f68]/30 dark:bg-[#5f7f68]/15">
+              <Icon name="gift" size="sm" class="text-[#5f7f68] dark:text-[#9ab3a0]" />
+              <span class="text-sm text-[#5f7f68] dark:text-[#9ab3a0]">
                 {{ t('auth.promoCodeValid', { amount: promoValidation.bonusAmount?.toFixed(2) }) }}
               </span>
             </div>
@@ -209,7 +247,7 @@
         <button
           type="submit"
           :disabled="registrationActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary w-full"
+          class="auth-submit-button w-full"
         >
           <svg
             v-if="isLoading"
@@ -231,7 +269,7 @@
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          <Icon v-else name="userPlus" size="md" class="mr-2" />
+          <Icon v-else name="userPlus" size="sm" />
           {{
             isLoading
               ? t('auth.processing')
@@ -242,59 +280,21 @@
         </button>
 
       </form>
-
-      <div v-if="showOAuthLogin" class="space-y-3 pt-1">
-        <div class="flex items-center gap-3">
-          <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-          <span class="text-xs text-gray-500 dark:text-dark-400">
-            {{ t('auth.oauthOrContinue') }}
-          </span>
-          <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-        </div>
-
-        <EmailOAuthButtons
-          :disabled="registrationActionDisabled"
-          :aff-code="formData.aff_code"
-          :github-enabled="githubOAuthEnabled"
-          :google-enabled="googleOAuthEnabled"
-          :show-divider="false"
-        />
-
-        <LinuxDoOAuthSection
-          v-if="linuxdoOAuthEnabled"
-          :disabled="registrationActionDisabled"
-          :aff-code="formData.aff_code"
-          :show-divider="false"
-        />
-        <WechatOAuthSection
-          v-if="wechatOAuthEnabled"
-          :disabled="registrationActionDisabled"
-          :aff-code="formData.aff_code"
-          :show-divider="false"
-        />
-        <OidcOAuthSection
-          v-if="oidcOAuthEnabled"
-          :disabled="registrationActionDisabled"
-          :provider-name="oidcOAuthProviderName"
-          :aff-code="formData.aff_code"
-          :show-divider="false"
-        />
-      </div>
     </div>
 
     <!-- Footer -->
-    <template #footer>
-      <p class="text-gray-500 dark:text-dark-400">
+    <template v-if="!embedded" #footer>
+      <p class="text-[#6c6a64]">
         {{ t('auth.alreadyHaveAccount') }}
         <router-link
           :to="loginLinkTarget"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="font-semibold text-[#a9583e] transition-colors hover:text-[#cc785c]"
         >
           {{ t('auth.signIn') }}
         </router-link>
       </p>
     </template>
-  </AuthLayout>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -332,6 +332,21 @@ import type { LoginAgreementDocument } from '@/types'
 
 const { t, locale } = useI18n()
 const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
+
+const props = withDefaults(defineProps<{
+  embedded?: boolean
+  showTitle?: boolean
+}>(), {
+  embedded: false,
+  showTitle: true
+})
+
+defineEmits<{
+  switchToLogin: []
+}>()
+
+const embedded = computed(() => props.embedded)
+const showTitle = computed(() => props.showTitle)
 
 // ==================== Router & Stores ====================
 
@@ -966,5 +981,102 @@ async function handleRegister(): Promise<void> {
 .fade-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+.auth-embedded-shell {
+  color: #141413;
+}
+
+.auth-input-label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: #504f49;
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.auth-input {
+  width: 100%;
+  min-height: 2.75rem;
+  border: 1px solid #d8cec2;
+  border-radius: 10px;
+  background: rgba(250, 249, 245, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.64);
+  color: #141413;
+  font-size: 0.875rem;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.auth-input::placeholder {
+  color: #a7a29a;
+}
+
+.auth-input:focus {
+  border-color: rgba(204, 120, 92, 0.68);
+  background: #fffaf5;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 0 0 3px rgba(204, 120, 92, 0.16);
+}
+
+.auth-input.input-error {
+  border-color: rgba(248, 113, 113, 0.9);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.08),
+    0 0 0 3px rgba(248, 113, 113, 0.18);
+}
+
+.auth-input.is-valid {
+  border-color: rgba(95, 127, 104, 0.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.64),
+    0 0 0 3px rgba(127, 157, 138, 0.16);
+}
+
+.auth-input-hint {
+  margin-top: 0.4rem;
+  color: #6c6a64;
+  font-size: 0.78rem;
+  font-weight: 500;
+  line-height: 1.45;
+}
+
+.auth-submit-button {
+  display: inline-flex;
+  min-height: 3.1rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 1px solid #141413;
+  border-radius: 999px;
+  background: #141413;
+  box-shadow: 0 14px 28px rgba(20, 20, 19, 0.16);
+  color: #fffaf5;
+  font-size: 0.95rem;
+  font-weight: 700;
+  transition:
+    transform 120ms ease,
+    box-shadow 120ms ease,
+    background-color 120ms ease;
+}
+
+.auth-submit-button:hover:not(:disabled) {
+  background: #2a2926;
+  transform: translateY(-1px);
+  box-shadow: 0 16px 32px rgba(20, 20, 19, 0.18);
+}
+
+.auth-submit-button:active:not(:disabled) {
+  transform: translateY(1px);
+  box-shadow: 0 8px 18px rgba(20, 20, 19, 0.14);
+}
+
+.auth-submit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
 }
 </style>

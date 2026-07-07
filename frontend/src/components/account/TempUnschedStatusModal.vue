@@ -29,7 +29,7 @@
       </div>
 
       <div v-else class="space-y-4">
-        <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-300">
+        <div class="rounded-lg border border-[#d8cec2] bg-[#fffaf5] p-3 text-sm text-[#504f49] dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10 dark:text-[#f0b89e]">
           {{ t('admin.accounts.recoverStateHint') }}
         </div>
 

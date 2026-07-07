@@ -13,16 +13,16 @@
 
       <!-- Success State -->
       <div v-if="isSubmitted" class="space-y-6">
-        <div class="rounded-xl border border-green-200 bg-green-50 p-6 dark:border-green-800/50 dark:bg-green-900/20">
+        <div class="rounded-xl border border-[#d8cec2] bg-[#fffaf5] p-6 dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10">
           <div class="flex flex-col items-center gap-4 text-center">
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-green-100 dark:bg-green-800/50">
-              <Icon name="checkCircle" size="lg" class="text-green-600 dark:text-green-400" />
+            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-[#eef3ed] dark:bg-[#5f7f68]/20">
+              <Icon name="checkCircle" size="lg" class="text-[#5f7f68] dark:text-[#9ab3a0]" />
             </div>
             <div>
-              <h3 class="text-lg font-semibold text-green-800 dark:text-green-200">
+              <h3 class="text-lg font-semibold text-[#5f7f68] dark:text-[#9ab3a0]">
                 {{ t('auth.resetEmailSent') }}
               </h3>
-              <p class="mt-2 text-sm text-green-700 dark:text-green-300">
+              <p class="mt-2 text-sm text-[#504f49] dark:text-[#d8cec2]">
                 {{ t('auth.resetEmailSentHint') }}
               </p>
             </div>
@@ -32,7 +32,7 @@
         <div class="text-center">
           <router-link
             to="/login"
-            class="inline-flex items-center gap-2 font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+            class="inline-flex items-center gap-2 font-medium text-[#a9583e] transition-colors hover:text-[#cc785c] dark:text-[#f0b89e] dark:hover:text-[#ffd5c2]"
           >
             <Icon name="arrowLeft" size="sm" />
             {{ t('auth.backToLogin') }}
@@ -115,7 +115,7 @@
         {{ t('auth.rememberedPassword') }}
         <router-link
           to="/login"
-          class="font-medium text-primary-600 transition-colors hover:text-primary-500 dark:text-primary-400 dark:hover:text-primary-300"
+          class="font-medium text-[#a9583e] transition-colors hover:text-[#cc785c] dark:text-[#f0b89e] dark:hover:text-[#ffd5c2]"
         >
           {{ t('auth.signIn') }}
         </router-link>

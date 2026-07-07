@@ -15,11 +15,11 @@
             :class="[
               'flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br',
               isOpenAILike
-                ? 'from-green-500 to-green-600'
+                ? 'from-[#cc785c] to-[#a9583e]'
                 : isGemini
-                  ? 'from-blue-500 to-blue-600'
+                  ? 'from-[#8e8b82] to-[#6c6a64]'
                   : isAntigravity
-                    ? 'from-purple-500 to-purple-600'
+                    ? 'from-[#cc785c] to-[#a9583e]'
                     : 'from-orange-500 to-orange-600'
             ]"
           >
@@ -83,9 +83,9 @@
             :class="[
               'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
               geminiOAuthType === 'google_one'
-                ? 'bg-purple-500 text-white'
+                ? 'bg-[#cc785c] text-white'
                 : geminiOAuthType === 'code_assist'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-[#fffaf5]0 text-white'
                   : 'bg-amber-500 text-white'
             ]"
           >

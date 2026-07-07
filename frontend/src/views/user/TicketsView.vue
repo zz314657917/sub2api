@@ -1,6 +1,6 @@
 <template>
   <AppLayout>
-    <div class="flex h-[calc(100vh-5rem)] min-h-[640px] overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900">
+    <div class="flex h-[calc(100vh-5rem)] min-h-[640px] overflow-hidden rounded-lg border border-[#d8cec2] bg-[#faf9f5]/90 shadow-sm dark:border-dark-700 dark:bg-dark-900">
       <aside
         class="ticket-list-panel"
         :class="selectedTicketId && !showMobileList ? 'hidden md:flex' : 'flex'"
@@ -17,7 +17,7 @@
             </button>
           </div>
 
-          <form v-if="showCreateForm" class="mb-4 space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-800" @submit.prevent="handleCreateTicket">
+          <form v-if="showCreateForm" class="mb-4 space-y-3 rounded-lg border border-[#d8cec2] bg-[#fffaf5] p-3 dark:border-dark-700 dark:bg-dark-800" @submit.prevent="handleCreateTicket">
             <input v-model.trim="createForm.title" class="input" :placeholder="t('tickets.titlePlaceholder')" />
             <textarea v-model.trim="createForm.content" class="input min-h-[96px]" :placeholder="t('tickets.contentPlaceholder')"></textarea>
             <div class="flex justify-end gap-2">
@@ -121,7 +121,7 @@
           </div>
         </div>
 
-        <div v-if="selectedTicket" ref="messageListRef" class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-gray-50 p-4 dark:bg-dark-950">
+        <div v-if="selectedTicket" ref="messageListRef" class="min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#f5f0e8]/45 p-4 dark:bg-dark-950">
           <div
             v-for="message in messages"
             :key="message.id"
@@ -162,7 +162,7 @@
           </div>
         </div>
 
-        <form v-if="selectedTicket && !selectedIsSystem" class="border-t border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900" @submit.prevent="handleSendMessage">
+        <form v-if="selectedTicket && !selectedIsSystem" class="border-t border-[#d8cec2] bg-[#faf9f5] p-4 dark:border-dark-700 dark:bg-dark-900" @submit.prevent="handleSendMessage">
           <div class="flex gap-3">
             <textarea
               v-model.trim="replyContent"
@@ -177,11 +177,11 @@
           </div>
         </form>
 
-        <div v-else-if="selectedTicket" class="border-t border-gray-200 bg-white p-4 text-sm text-gray-500 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-400">
+        <div v-else-if="selectedTicket" class="border-t border-[#d8cec2] bg-[#faf9f5] p-4 text-sm text-gray-500 dark:border-dark-700 dark:bg-dark-900 dark:text-dark-400">
           {{ t('tickets.systemReadOnly') }}
         </div>
 
-        <div v-else class="flex flex-1 flex-col items-center justify-center bg-gray-50 p-6 text-center text-gray-500 dark:bg-dark-950 dark:text-dark-400">
+        <div v-else class="flex flex-1 flex-col items-center justify-center bg-[#f5f0e8]/45 p-6 text-center text-gray-500 dark:bg-dark-950 dark:text-dark-400">
           <Icon name="ticket" size="xl" class="mb-3 text-gray-300 dark:text-dark-600" />
           <p>{{ t('tickets.noTicketSelected') }}</p>
         </div>
@@ -660,7 +660,8 @@ onMounted(() => {
 
 .ticket-list-item:hover,
 .ticket-list-item-active {
-  background: rgb(249 250 251);
+  background: rgb(255 250 245);
+  box-shadow: inset 3px 0 0 rgb(204 120 92);
 }
 
 .dark .ticket-list-item {
@@ -700,7 +701,7 @@ onMounted(() => {
   flex: 0 0 auto;
   align-items: center;
   border-radius: 999px;
-  background: linear-gradient(135deg, rgb(234 88 12), rgb(202 138 4));
+  background: linear-gradient(135deg, rgb(204 120 92), rgb(169 88 62));
   padding: 0.125rem 0.45rem;
   color: white;
   font-size: 0.6875rem;
@@ -747,13 +748,13 @@ onMounted(() => {
 .message-bubble-system {
   width: min(720px, 100%);
   max-width: 100%;
-  border: 1px solid rgba(245, 158, 11, 0.28);
-  background: rgb(255 251 235);
-  color: rgb(120 53 15);
+  border: 1px solid rgb(216 206 194);
+  background: rgb(255 250 245);
+  color: rgb(80 79 73);
 }
 
 .message-bubble-user {
-  background: rgb(37 99 235);
+  background: rgb(20 20 19);
   color: white;
 }
 
@@ -775,9 +776,9 @@ onMounted(() => {
 }
 
 .dark .message-bubble-system {
-  border-color: rgba(251, 191, 36, 0.24);
-  background: rgb(69 26 3);
-  color: rgb(254 243 199);
+  border-color: rgba(204, 120, 92, 0.32);
+  background: rgba(204, 120, 92, 0.12);
+  color: rgb(240 184 158);
 }
 
 .dark .message-bubble-peer {
@@ -796,17 +797,17 @@ onMounted(() => {
   align-items: center;
   gap: 0.375rem;
   border-radius: 0.375rem;
-  border: 1px solid rgb(251 191 36);
-  background: rgb(255 251 235);
+  border: 1px solid rgb(204 120 92);
+  background: rgb(255 250 245);
   padding: 0.375rem 0.625rem;
-  color: rgb(146 64 14);
+  color: rgb(169 88 62);
   font-size: 0.8125rem;
   font-weight: 600;
 }
 
 .dark .system-action-link {
-  border-color: rgba(251, 191, 36, 0.35);
-  background: rgba(251, 191, 36, 0.1);
-  color: rgb(253 230 138);
+  border-color: rgba(240, 184, 158, 0.35);
+  background: rgba(204, 120, 92, 0.12);
+  color: rgb(240 184 158);
 }
 </style>

@@ -146,17 +146,17 @@ const labelClass = computed(() => {
     }
   }
 
-  // 正常状态或无天数：根据平台显示主题色
+  // 正常状态或无天数：统一使用当前控制台暖色体系，避免在表格/筛选中回到旧蓝绿平台色。
   if (props.platform === 'anthropic') {
     return `${base} bg-orange-200/60 text-orange-800 dark:bg-orange-800/40 dark:text-orange-300`
   }
   if (props.platform === 'openai') {
-    return `${base} bg-emerald-200/60 text-emerald-800 dark:bg-emerald-800/40 dark:text-emerald-300`
+    return `${base} bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]`
   }
   if (props.platform === 'gemini') {
-    return `${base} bg-blue-200/60 text-blue-800 dark:bg-blue-800/40 dark:text-blue-300`
+    return `${base} bg-[#fffaf5] text-[#6c6a64] ring-1 ring-[#d8cec2] dark:bg-[#8e8b82]/15 dark:text-[#d8cec2] dark:ring-[#8e8b82]/40`
   }
-  return `${base} bg-violet-200/60 text-violet-800 dark:bg-violet-800/40 dark:text-violet-300`
+  return `${base} console-badge-accent`
 })
 
 const peakRateClass = computed(() => {
@@ -171,19 +171,19 @@ const badgeClass = computed(() => {
       ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
       : 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-400'
   } else if (props.platform === 'openai') {
-    // OpenAI: green theme
+    // OpenAI: warm console theme
     return isSubscription.value
-      ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
-      : 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+      ? 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
+      : 'bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:text-[#f0b89e] dark:ring-[#cc785c]/30'
   }
   if (props.platform === 'gemini') {
     return isSubscription.value
-      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-      : 'bg-sky-50 text-sky-700 dark:bg-sky-900/20 dark:text-sky-400'
+      ? 'bg-[#fffaf5] text-[#6c6a64] ring-1 ring-[#d8cec2] dark:bg-[#8e8b82]/15 dark:text-[#d8cec2] dark:ring-[#8e8b82]/40'
+      : 'bg-[#f5f0e8] text-[#6c6a64] dark:bg-[#8e8b82]/12 dark:text-[#d8cec2]'
   }
-  // Fallback: original colors
+  // Fallback: warm accent
   return isSubscription.value
-    ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400'
-    : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+    ? 'console-badge-accent'
+    : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
 })
 </script>

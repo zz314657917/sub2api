@@ -280,7 +280,7 @@ onMounted(() => {
           </div>
 
           <details class="col-span-1 md:col-span-2">
-            <summary class="cursor-pointer text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400">
+            <summary class="cursor-pointer text-xs font-medium text-[#a9583e] hover:text-[#7a4635] dark:text-[#f0b89e]">
               {{ t('admin.ops.runtime.showAdvancedDeveloperSettings') }}
             </summary>
             <div class="mt-2 grid grid-cols-1 gap-3 rounded-lg bg-gray-100 p-3 dark:bg-dark-800 md:grid-cols-2">
@@ -533,4 +533,3 @@ onMounted(() => {
     </template>
   </BaseDialog>
 </template>
-

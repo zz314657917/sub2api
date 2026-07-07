@@ -1,7 +1,7 @@
 <template>
   <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
     <div class="card p-4 flex items-center gap-3">
-      <div class="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/30 text-blue-600">
+      <div class="rounded-lg bg-[#f3e7df] p-2 text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]">
         <Icon name="document" size="md" />
       </div>
       <div>
@@ -59,12 +59,12 @@
       </div>
     </div>
     <div class="card p-4 flex items-center gap-3">
-      <div class="rounded-lg bg-green-100 p-2 dark:bg-green-900/30 text-green-600">
+      <div class="rounded-lg bg-[#fffaf5] p-2 text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/15 dark:text-[#f0b89e] dark:ring-[#cc785c]/30">
         <Icon name="dollar" size="md" />
       </div>
       <div class="min-w-0 flex-1">
         <p class="text-xs font-medium text-gray-500">{{ t('usage.totalCost') }}</p>
-        <p class="text-xl font-bold text-green-600">
+        <p class="text-xl font-bold text-[#a9583e] dark:text-[#f0b89e]">
           ${{ (stats?.total_actual_cost || 0).toFixed(4) }}
         </p>
         <p class="text-xs text-gray-400">
@@ -75,7 +75,7 @@
       </div>
     </div>
     <div class="card p-4 flex items-center gap-3">
-      <div class="rounded-lg bg-purple-100 p-2 dark:bg-purple-900/30 text-purple-600">
+      <div class="rounded-lg bg-[#f3e7df] p-2 text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]">
         <Icon name="clock" size="md" />
       </div>
       <div><p class="text-xs font-medium text-gray-500">{{ t('usage.avgDuration') }}</p><p class="text-xl font-bold">{{ formatDuration(stats?.average_duration_ms || 0) }}</p></div>

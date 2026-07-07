@@ -1,6 +1,6 @@
 <template>
-  <div class="tutorial-page relative min-h-screen text-white">
-    <PublicMatrixBackdrop />
+  <div class="tutorial-page relative min-h-screen">
+    <PublicRevealBackdrop variant="page" />
     <PublicTopNav />
 
     <main
@@ -166,7 +166,7 @@ import { useAppStore } from '@/stores/app'
 import tutorialsAPI from '@/api/tutorials'
 import type { TutorialPage, TutorialPageSummary } from '@/types'
 import { renderTutorialMarkdown, type TutorialTocItem } from '@/utils/tutorialMarkdown'
-import PublicMatrixBackdrop from './components/PublicMatrixBackdrop.vue'
+import PublicRevealBackdrop from './components/PublicRevealBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
 import { tutorialFallbackPages } from './tutorialFallback'
 
@@ -424,18 +424,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+@import './public-page.css';
+
 .tutorial-page {
   overflow-x: clip;
-  --tutorial-panel: rgba(8, 13, 26, 0.78);
-  --tutorial-panel-strong: rgba(11, 18, 32, 0.92);
-  --tutorial-border: rgba(185, 209, 255, 0.16);
-  --tutorial-border-strong: rgba(112, 255, 179, 0.3);
-  --tutorial-text: rgba(236, 244, 255, 0.92);
-  --tutorial-muted: rgba(207, 220, 240, 0.66);
-  background:
-    radial-gradient(circle at 18% 12%, rgba(22, 163, 74, 0.18), transparent 26rem),
-    radial-gradient(circle at 90% 6%, rgba(14, 165, 233, 0.14), transparent 24rem),
-    #050712;
+  --tutorial-panel: rgba(250, 249, 245, 0.9);
+  --tutorial-panel-strong: #faf9f5;
+  --tutorial-border: #e6dfd8;
+  --tutorial-border-strong: #d8cec2;
+  --tutorial-text: #141413;
+  --tutorial-muted: #6c6a64;
+  background: #faf9f5;
+  color: var(--tutorial-text);
 }
 
 .tutorial-main {
@@ -458,11 +458,9 @@ onUnmounted(() => {
 .tutorial-loading {
   border: 1px solid var(--tutorial-border);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.035)),
-    var(--tutorial-panel);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(18px);
+  background: var(--tutorial-panel);
+  box-shadow: 0 12px 32px rgba(20, 20, 19, 0.05);
+  backdrop-filter: blur(16px);
 }
 
 .tutorial-source-notice {
@@ -472,25 +470,25 @@ onUnmounted(() => {
   gap: 1rem;
   margin-bottom: 1rem;
   padding: 0.85rem 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.2);
+  border: 1px solid var(--tutorial-border);
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.7);
+  background: rgba(250, 249, 245, 0.9);
   color: var(--tutorial-text);
 }
 
 .tutorial-source-notice--empty {
-  border-color: rgba(59, 130, 246, 0.28);
-  background: rgba(37, 99, 235, 0.1);
+  border-color: #d8cec2;
+  background: rgba(245, 240, 232, 0.82);
 }
 
 .tutorial-source-notice--error {
-  border-color: rgba(251, 191, 36, 0.32);
-  background: rgba(180, 83, 9, 0.12);
+  border-color: rgba(217, 119, 6, 0.28);
+  background: rgba(251, 191, 36, 0.12);
 }
 
 .tutorial-source-notice strong {
   display: block;
-  color: #f8fafc;
+  color: var(--tutorial-text);
   font-size: 0.92rem;
 }
 
@@ -504,11 +502,11 @@ onUnmounted(() => {
   flex: 0 0 auto;
   min-height: 2.25rem;
   padding: 0.45rem 0.8rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.08);
-  color: white;
-  font-weight: 800;
+  border: 1px solid var(--tutorial-border-strong);
+  border-radius: 999px;
+  background: #faf9f5;
+  color: var(--public-accent);
+  font-weight: 500;
 }
 
 .tutorial-intro {
@@ -518,16 +516,17 @@ onUnmounted(() => {
 .tutorial-kicker {
   display: inline-flex;
   margin-bottom: 0.75rem;
-  color: #86efac;
+  color: var(--public-accent);
   font-size: 0.75rem;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .tutorial-intro h1 {
   margin: 0;
   max-width: 12em;
+  font-family: var(--public-font-display);
   font-size: clamp(2rem, 5vw, 4.1rem);
-  font-weight: 950;
+  font-weight: 400;
   line-height: 0.98;
 }
 
@@ -551,17 +550,17 @@ onUnmounted(() => {
   justify-content: center;
   min-height: 2.45rem;
   padding: 0.65rem 1rem;
-  border: 1px solid rgba(134, 239, 172, 0.35);
-  border-radius: 8px;
-  background: rgba(34, 197, 94, 0.16);
-  color: #dcfce7;
-  font-weight: 800;
+  border: 1px solid #cc785c;
+  border-radius: 999px;
+  background: #cc785c;
+  color: #ffffff;
+  font-weight: 500;
 }
 
 .guide-action-link--ghost {
-  border-color: rgba(147, 197, 253, 0.26);
-  background: rgba(59, 130, 246, 0.12);
-  color: #dbeafe;
+  border-color: var(--tutorial-border);
+  background: #faf9f5;
+  color: var(--tutorial-text);
 }
 
 .beginner-path {
@@ -574,15 +573,15 @@ onUnmounted(() => {
 .beginner-step {
   min-height: 9rem;
   padding: 1rem;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--tutorial-border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.055);
+  background: rgba(245, 240, 232, 0.82);
 }
 
 .beginner-step span {
-  color: #67e8f9;
+  color: var(--public-accent);
   font-size: 0.75rem;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .beginner-step strong {
@@ -618,9 +617,9 @@ onUnmounted(() => {
 .tutorial-sidebar-title,
 .tutorial-toc p {
   margin: 0 0 0.65rem;
-  color: #93c5fd;
+  color: var(--public-accent);
   font-size: 0.75rem;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .tutorial-tabs {
@@ -653,14 +652,14 @@ onUnmounted(() => {
 .tutorial-tabs a:hover,
 .tutorial-tabs a.is-active {
   border-color: var(--tutorial-border-strong);
-  background: rgba(34, 197, 94, 0.11);
-  color: white;
+  background: var(--public-accent-soft);
+  color: var(--public-accent);
 }
 
 .tutorial-tabs span {
   flex: 0 0 auto;
   font-size: 0.75rem;
-  color: rgba(207, 220, 240, 0.58);
+  color: var(--public-muted-soft);
   line-height: 1;
   white-space: nowrap;
 }
@@ -679,15 +678,16 @@ onUnmounted(() => {
 }
 
 .tutorial-article-head span {
-  color: #86efac;
+  color: var(--public-accent);
   font-size: 0.75rem;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .tutorial-article-head h2 {
   margin: 0.2rem 0;
+  font-family: var(--public-font-display);
   font-size: clamp(1.6rem, 3vw, 2.6rem);
-  font-weight: 950;
+  font-weight: 400;
 }
 
 .tutorial-article-head p {
@@ -699,11 +699,11 @@ onUnmounted(() => {
   align-self: start;
   min-height: 2.25rem;
   padding: 0.45rem 0.8rem;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.06);
-  color: white;
-  font-weight: 800;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 999px;
+  background: #faf9f5;
+  color: var(--public-accent);
+  font-weight: 500;
 }
 
 .tutorial-content-shell {
@@ -727,21 +727,21 @@ onUnmounted(() => {
   align-content: start;
   gap: 0.45rem;
   padding: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid var(--tutorial-border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.055);
-  color: white;
+  background: rgba(250, 249, 245, 0.9);
+  color: var(--tutorial-text);
 }
 
 .tutorial-directory-card:hover {
   border-color: var(--tutorial-border-strong);
-  background: rgba(34, 197, 94, 0.1);
+  background: var(--public-accent-soft);
 }
 
 .tutorial-directory-card span {
-  color: #86efac;
+  color: var(--public-accent);
   font-size: 0.75rem;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .tutorial-directory-card strong {
@@ -762,10 +762,11 @@ onUnmounted(() => {
 .tutorial-content :deep(h1),
 .tutorial-content :deep(h2),
 .tutorial-content :deep(h3) {
+  font-family: var(--public-font-display);
   scroll-margin-top: 6rem;
   margin: 1.6rem 0 0.7rem;
-  color: #f8fafc;
-  font-weight: 900;
+  color: var(--tutorial-text);
+  font-weight: 400;
 }
 
 .tutorial-content :deep(h1) {
@@ -784,15 +785,15 @@ onUnmounted(() => {
 }
 
 .tutorial-content :deep(a) {
-  color: #86efac;
-  font-weight: 800;
+  color: var(--public-accent);
+  font-weight: 500;
   text-decoration-line: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
 }
 
 .tutorial-content :deep(a:hover) {
-  color: #bbf7d0;
+  color: var(--public-accent-strong);
   text-decoration-thickness: 2px;
 }
 
@@ -803,8 +804,8 @@ onUnmounted(() => {
   border: 0;
   border-radius: 0;
   background: transparent;
-  color: #86efac;
-  font-weight: 900;
+  color: var(--public-accent);
+  font-weight: 500;
   text-decoration-line: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 0.18em;
@@ -817,17 +818,17 @@ onUnmounted(() => {
 
 .tutorial-content :deep(code) {
   border-radius: 6px;
-  background: rgba(148, 163, 184, 0.13);
-  color: #bae6fd;
+  background: #f5f0e8;
+  color: #141413;
   padding: 0.1rem 0.3rem;
 }
 
 .tutorial-content :deep(.tutorial-command-block) {
   margin: 1rem 0;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.18);
+  border: 1px solid var(--tutorial-border);
   border-radius: 8px;
-  background: rgba(2, 6, 23, 0.76);
+  background: #181715;
 }
 
 .tutorial-content :deep(.command-block-header) {
@@ -836,19 +837,19 @@ onUnmounted(() => {
   justify-content: space-between;
   gap: 1rem;
   padding: 0.65rem 0.8rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
-  color: #e2e8f0;
+  border-bottom: 1px solid rgba(250, 249, 245, 0.14);
+  color: #faf9f5;
   font-size: 0.82rem;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .tutorial-content :deep(.copy-command-button) {
   min-height: 1.75rem;
   padding: 0.25rem 0.55rem;
-  border: 1px solid rgba(134, 239, 172, 0.28);
-  border-radius: 7px;
-  background: rgba(34, 197, 94, 0.12);
-  color: #bbf7d0;
+  border: 1px solid rgba(250, 249, 245, 0.24);
+  border-radius: 999px;
+  background: rgba(250, 249, 245, 0.1);
+  color: #faf9f5;
 }
 
 .tutorial-content :deep(pre) {
@@ -861,22 +862,22 @@ onUnmounted(() => {
   display: block;
   min-width: max-content;
   background: transparent;
-  color: #f8fafc;
+  color: #faf9f5;
   padding: 0;
 }
 
 .tutorial-content :deep(.tutorial-callout) {
   margin: 1rem 0;
   padding: 0.9rem 1rem;
-  border: 1px solid rgba(134, 239, 172, 0.22);
+  border: 1px solid #e6dfd8;
   border-radius: 8px;
-  background: rgba(22, 163, 74, 0.1);
+  background: rgba(245, 240, 232, 0.82);
 }
 
 .tutorial-content :deep(.tutorial-callout strong) {
   display: block;
   margin-bottom: 0.35rem;
-  color: #bbf7d0;
+  color: var(--public-accent);
 }
 
 .tutorial-content :deep(.tutorial-screenshot-card) {
@@ -884,17 +885,17 @@ onUnmounted(() => {
   width: min(100%, 48rem);
   margin: 0.75rem 0.5rem 0.75rem 0;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.16);
+  border: 1px solid var(--tutorial-border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.055);
+  background: #faf9f5;
   cursor: zoom-in;
   vertical-align: top;
   transition: border-color 0.16s ease, transform 0.16s ease, background 0.16s ease;
 }
 
 .tutorial-content :deep(.tutorial-screenshot-card:hover) {
-  border-color: rgba(134, 239, 172, 0.42);
-  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(204, 120, 92, 0.36);
+  background: #f5f0e8;
   transform: translateY(-1px);
 }
 
@@ -903,7 +904,7 @@ onUnmounted(() => {
   width: 100%;
   height: auto;
   object-fit: contain;
-  background: rgba(15, 23, 42, 0.8);
+  background: #f5f0e8;
 }
 
 .tutorial-content :deep(.tutorial-screenshot-card figcaption) {
@@ -959,7 +960,7 @@ onUnmounted(() => {
   border-radius: 8px;
   background: rgba(15, 23, 42, 0.86);
   color: #dcfce7;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .tutorial-image-lightbox__close:hover {
@@ -978,7 +979,8 @@ onUnmounted(() => {
   padding: 0.85rem;
   border: 1px solid var(--tutorial-border);
   border-radius: 8px;
-  background: rgba(4, 8, 18, 0.62);
+  background: rgba(250, 249, 245, 0.9);
+  box-shadow: var(--public-shadow-soft);
 }
 
 .tutorial-toc button {
@@ -991,8 +993,8 @@ onUnmounted(() => {
 
 .tutorial-toc button:hover,
 .tutorial-toc button.is-active {
-  background: rgba(59, 130, 246, 0.14);
-  color: white;
+  background: var(--public-accent-soft);
+  color: var(--public-accent);
 }
 
 .tutorial-toc .toc-level-3 {
@@ -1015,8 +1017,8 @@ onUnmounted(() => {
   width: 2rem;
   height: 2rem;
   margin: 0 auto 0.8rem;
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #86efac;
+  border: 2px solid rgba(38, 37, 30, 0.14);
+  border-top-color: var(--public-accent);
   border-radius: 999px;
   animation: tutorial-spin 0.8s linear infinite;
 }

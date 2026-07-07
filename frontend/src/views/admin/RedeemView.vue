@@ -95,7 +95,7 @@
                 :class="[
                   'flex items-center transition-colors',
                   copiedCode === value
-                    ? 'text-green-500'
+                    ? 'text-[#a9583e] dark:text-[#f0b89e]'
                     : 'text-gray-400 hover:text-gray-600 dark:hover:text-gray-300'
                 ]"
                 :title="copiedCode === value ? t('admin.redeem.copied') : t('keys.copyToClipboard')"
@@ -306,8 +306,8 @@
               />
             </div>
             <!-- 邀请码类型：显示提示信息 -->
-            <div v-if="generateForm.type === 'invitation'" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-              <p class="text-sm text-blue-700 dark:text-blue-300">
+            <div v-if="generateForm.type === 'invitation'" class="rounded-lg border border-[#d8cec2] bg-[#fffaf5] p-3 dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10">
+              <p class="text-sm text-[#504f49] dark:text-[#f0b89e]/80">
                 {{ t('admin.redeem.invitationHint') }}
               </p>
             </div>
@@ -531,10 +531,10 @@
           >
             <div class="flex items-center gap-3">
               <div
-                class="flex h-10 w-10 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30"
+                class="flex h-10 w-10 items-center justify-center rounded-full bg-[#fffaf5] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/15 dark:ring-[#cc785c]/30"
               >
                 <svg
-                  class="h-5 w-5 text-green-600 dark:text-green-400"
+                  class="h-5 w-5 text-[#a9583e] dark:text-[#f0b89e]"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"

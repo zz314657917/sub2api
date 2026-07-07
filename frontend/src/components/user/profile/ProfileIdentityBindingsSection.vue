@@ -49,7 +49,12 @@
                 </h3>
                 <span
                   :data-testid="`profile-binding-${item.provider}-status`"
-                  :class="['badge', item.bound ? 'badge-success' : 'badge-gray']"
+                  :class="[
+                    'badge',
+                    item.bound
+                      ? 'border-[#d8cec2] bg-[#f5f0e8] text-[#5f7f68] dark:border-[#5f7f68]/50 dark:bg-[#5f7f68]/20 dark:text-[#9ab3a0]'
+                      : 'badge-gray'
+                  ]"
                 >
                   {{
                     item.bound
@@ -474,10 +479,10 @@ function providerIconClass(provider: UserAuthProvider): string {
     return 'bg-orange-100 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300'
   }
   if (provider === 'wechat') {
-    return 'bg-green-100 text-green-600 dark:bg-green-900/20 dark:text-green-300'
+    return 'bg-[#f5f0e8] text-[#5f7f68] dark:bg-[#5f7f68]/20 dark:text-[#9ab3a0]'
   }
   if (provider === 'oidc') {
-    return 'bg-sky-100 text-sky-600 dark:bg-sky-900/20 dark:text-sky-300'
+    return 'bg-[#fffaf5] text-[#a9583e] dark:bg-[#a9583e]/20 dark:text-[#cc785c]'
   }
   return 'bg-primary-100 text-primary-600 dark:bg-primary-900/20 dark:text-primary-300'
 }

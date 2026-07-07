@@ -324,13 +324,13 @@
                 class="group/ex relative inline-flex cursor-pointer items-center gap-1 whitespace-nowrap text-xs"
                 @click.stop="toggleExpandedGroup(row.id)"
               >
-                <Icon name="shield" size="xs" class="h-3.5 w-3.5 text-purple-500 dark:text-purple-400" />
-                <span class="font-medium text-purple-600 dark:text-purple-400">{{ getUserGroups(row).exclusive.length }}</span>
+                <Icon name="shield" size="xs" class="h-3.5 w-3.5 text-[#a9583e] dark:text-[#f0b89e]" />
+                <span class="font-medium text-[#a9583e] dark:text-[#f0b89e]">{{ getUserGroups(row).exclusive.length }}</span>
                 <span class="text-gray-500 dark:text-dark-400">{{ t('admin.users.exclusiveLabel') }}</span>
                 <!-- Hover tooltip（操作菜单未打开时显示） -->
                 <div
                   v-if="expandedGroupUserId !== row.id"
-                  class="pointer-events-none absolute left-0 top-full z-50 mt-1.5 rounded bg-gray-900 px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity duration-75 group-hover/ex:opacity-100 dark:bg-dark-600"
+                  class="pointer-events-none absolute left-0 top-full z-50 mt-1.5 console-tooltip-surface px-2.5 py-1.5 text-xs opacity-0 transition-opacity duration-75 group-hover/ex:opacity-100"
                 >
                   <div class="absolute left-4 bottom-full border-4 border-transparent border-b-gray-900 dark:border-b-dark-600"></div>
                   <div class="flex flex-col gap-0.5 whitespace-nowrap">
@@ -365,7 +365,7 @@
                 <span class="font-medium text-gray-600 dark:text-dark-300">{{ getUserGroups(row).publicGroups.length }}</span>
                 <span class="text-gray-400 dark:text-dark-500">{{ t('admin.users.publicLabel') }}</span>
                 <!-- Tooltip: 向下弹出 -->
-                <div class="pointer-events-none absolute left-0 top-full z-50 mt-1.5 rounded bg-gray-900 px-2.5 py-1.5 text-xs text-white opacity-0 shadow-lg transition-opacity duration-75 group-hover/pub:opacity-100 dark:bg-dark-600">
+                <div class="pointer-events-none absolute left-0 top-full z-50 mt-1.5 console-tooltip-surface px-2.5 py-1.5 text-xs opacity-0 transition-opacity duration-75 group-hover/pub:opacity-100">
                   <div class="absolute left-4 bottom-full border-4 border-transparent border-b-gray-900 dark:border-b-dark-600"></div>
                   <div class="flex flex-col gap-0.5 whitespace-nowrap">
                     <span v-for="g in getUserGroups(row).publicGroups" :key="g.id">{{ g.name }}</span>
@@ -416,14 +416,14 @@
                   {{ formatCreditAmount(value) }}
                 </button>
                 <!-- Instant tooltip -->
-                <div class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-gray-900 px-2 py-1 text-xs text-white opacity-0 shadow-lg transition-opacity duration-75 group-hover:opacity-100 dark:bg-dark-600">
+                <div class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap console-tooltip-surface px-2 py-1 text-xs opacity-0 transition-opacity duration-75 group-hover:opacity-100">
                   {{ t('admin.users.balanceHistoryTip') }}
                   <div class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-dark-600"></div>
                 </div>
               </div>
               <button
                 @click.stop="handleDeposit(row)"
-                class="rounded px-2 py-0.5 text-xs font-medium text-emerald-600 transition-colors hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+                class="rounded px-2 py-0.5 text-xs font-medium text-[#a9583e] transition-colors hover:bg-[#f3e7df] dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/12"
                 :title="t('admin.users.deposit')"
               >
                 {{ t('admin.users.deposit') }}
@@ -546,7 +546,7 @@
               <span
                 :class="[
                   'inline-block h-2 w-2 rounded-full',
-                  value === 'active' ? 'bg-green-500' : 'bg-red-500'
+                  value === 'active' ? 'bg-[#7f9d8a]' : 'bg-red-500'
                 ]"
               ></span>
               <span class="text-sm text-gray-700 dark:text-gray-300">
@@ -602,7 +602,7 @@
                   'flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors',
                   row.status === 'active'
                     ? 'hover:bg-orange-50 hover:text-orange-600 dark:hover:bg-orange-900/20 dark:hover:text-orange-400'
-                    : 'hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20 dark:hover:text-green-400'
+                    : 'hover:bg-[#edf4ef] hover:text-[#5f7f68] dark:hover:bg-[#7f9d8a]/15 dark:hover:text-[#b7d1bd]'
                 ]"
               >
                 <Icon v-if="row.status === 'active'" name="ban" size="sm" />
@@ -681,7 +681,7 @@
                 @click="handleDeposit(user); closeActionMenu()"
                 class="flex w-full items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
               >
-                <Icon name="plus" size="sm" class="text-emerald-500" :stroke-width="2" />
+                <Icon name="plus" size="sm" class="text-[#a9583e] dark:text-[#f0b89e]" :stroke-width="2" />
                 {{ t('admin.users.deposit') }}
               </button>
 

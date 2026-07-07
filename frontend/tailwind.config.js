@@ -6,17 +6,17 @@ export default {
     extend: {
       colors: {
         primary: {
-          50: '#f3f8e9',
-          100: '#ddecbe',
-          200: '#c1dc8f',
-          300: '#9fc85e',
-          400: '#74a84a',
-          500: '#3f7f3f',
-          600: '#2f6f34',
-          700: '#24582b',
-          800: '#1d4324',
-          900: '#16341e',
-          950: '#0a1d10'
+          50: '#fbf4ef',
+          100: '#f6e4d8',
+          200: '#edc7b4',
+          300: '#df9e7f',
+          400: '#d48667',
+          500: '#cc785c',
+          600: '#a9583e',
+          700: '#88432e',
+          800: '#6f3829',
+          900: '#5b3025',
+          950: '#321610'
         },
         accent: {
           50: '#faf6ec',
@@ -64,9 +64,9 @@ export default {
       boxShadow: {
         glass: '0 6px 0 rgba(70, 50, 35, 0.22), 0 16px 28px rgba(20, 31, 18, 0.12)',
         'glass-sm': '0 3px 0 rgba(70, 50, 35, 0.2), 0 10px 18px rgba(20, 31, 18, 0.1)',
-        glow: '0 0 0 2px rgba(90, 141, 61, 0.28), 0 0 22px rgba(90, 141, 61, 0.22)',
+        glow: '0 0 0 2px rgba(204, 120, 92, 0.24), 0 0 22px rgba(204, 120, 92, 0.18)',
         'glow-lg':
-          '0 0 0 2px rgba(90, 141, 61, 0.35), 0 0 44px rgba(90, 141, 61, 0.28)',
+          '0 0 0 2px rgba(204, 120, 92, 0.32), 0 0 44px rgba(204, 120, 92, 0.24)',
         card: '0 4px 0 rgba(70, 50, 35, 0.18), 0 12px 24px rgba(20, 31, 18, 0.08)',
         'card-hover':
           '0 6px 0 rgba(70, 50, 35, 0.2), 0 18px 34px rgba(20, 31, 18, 0.12)',
@@ -74,12 +74,12 @@ export default {
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'gradient-primary': 'linear-gradient(135deg, #74a84a 0%, #2f6f34 100%)',
+        'gradient-primary': 'linear-gradient(135deg, #d48667 0%, #a9583e 100%)',
         'gradient-dark': 'linear-gradient(135deg, #1e293b 0%, #020617 100%)',
         'gradient-glass':
           'linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%)',
         'mesh-gradient':
-          'linear-gradient(45deg, rgba(63, 127, 63, 0.08) 25%, transparent 25%), linear-gradient(-45deg, rgba(139, 111, 71, 0.08) 25%, transparent 25%), linear-gradient(rgba(91, 78, 60, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(91, 78, 60, 0.08) 1px, transparent 1px)'
+          'linear-gradient(45deg, rgba(204, 120, 92, 0.08) 25%, transparent 25%), linear-gradient(-45deg, rgba(139, 111, 71, 0.08) 25%, transparent 25%), linear-gradient(rgba(91, 78, 60, 0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(91, 78, 60, 0.08) 1px, transparent 1px)'
       },
       animation: {
         'fade-in': 'fadeIn 0.3s ease-out',
@@ -119,7 +119,7 @@ export default {
         glow: {
           '0%': {
             boxShadow:
-              '0 0 0 2px rgba(63, 127, 63, 0.25), 0 0 18px rgba(63, 127, 63, 0.22)'
+              '0 0 0 2px rgba(204, 120, 92, 0.22), 0 0 18px rgba(204, 120, 92, 0.18)'
           },
           '100%': {
             boxShadow:

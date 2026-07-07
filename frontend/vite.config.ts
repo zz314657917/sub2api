@@ -118,7 +118,7 @@ export default defineConfig(({ mode }) => {
           target: backendUrl,
           changeOrigin: true
         },
-        '/setup': {
+        '/setup/': {
           target: backendUrl,
           changeOrigin: true
         }

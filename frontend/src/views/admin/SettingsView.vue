@@ -177,16 +177,16 @@
                 <!-- Newly Generated Key Display -->
                 <div
                   v-if="newAdminApiKey"
-                  class="space-y-3 rounded-lg border border-green-200 bg-green-50 p-4 dark:border-green-800 dark:bg-green-900/20"
+                  class="space-y-3 rounded-lg border border-[#d8cec2] bg-[#fffaf5] p-4 dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10"
                 >
                   <p
-                    class="text-sm font-medium text-green-700 dark:text-green-300"
+                    class="text-sm font-medium text-[#a9583e] dark:text-[#f0b89e]"
                   >
                     {{ t("admin.settings.adminApiKey.keyWarning") }}
                   </p>
                   <div class="flex items-center gap-2">
                     <code
-                      class="flex-1 select-all break-all rounded border border-green-300 bg-white px-3 py-2 font-mono text-sm dark:border-green-700 dark:bg-dark-800"
+                      class="flex-1 select-all break-all rounded border border-[#d8cec2] bg-white px-3 py-2 font-mono text-sm dark:border-[#cc785c]/35 dark:bg-dark-800"
                     >
                       {{ newAdminApiKey }}
                     </code>
@@ -198,7 +198,7 @@
                       {{ t("admin.settings.adminApiKey.copyKey") }}
                     </button>
                   </div>
-                  <p class="text-xs text-green-600 dark:text-green-400">
+                  <p class="text-xs text-[#5f7f68] dark:text-[#9bb7a1]">
                     {{ t("admin.settings.adminApiKey.usage") }}
                   </p>
                 </div>
@@ -3702,7 +3702,7 @@
                           !expandedProviders[pIdx] &&
                           provider.api_key_configured
                         "
-                        class="text-xs text-green-500"
+                        class="text-xs text-[#5f7f68] dark:text-[#9bb7a1]"
                       >
                         {{
                           t(
@@ -3901,7 +3901,7 @@
                               ? 'bg-red-500'
                               : quotaPercentage(provider) > 70
                                 ? 'bg-yellow-500'
-                                : 'bg-green-500'
+                                : 'bg-[#7f9d8a]'
                           "
                           :style="{
                             width:
@@ -4017,7 +4017,7 @@
                   <a
                     :href="r.url"
                     target="_blank"
-                    class="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+                    class="text-sm font-medium text-[#a9583e] hover:underline dark:text-[#f0b89e]"
                     >{{ r.title }}</a
                   >
                   <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
@@ -11639,11 +11639,11 @@ watch(
 }
 
 .settings-tab-active:is(.dark *) {
-  border-color: rgb(20 184 166 / 0.55);
+  border-color: rgb(204 120 92 / 0.55);
   background:
-    linear-gradient(180deg, rgb(20 184 166 / 0.18), rgb(15 23 42 / 0.92)),
+    linear-gradient(180deg, rgb(204 120 92 / 0.18), rgb(15 23 42 / 0.92)),
     rgb(15 23 42 / 0.96) !important;
-  color: rgb(236 253 245);
+  color: rgb(255 247 237);
   box-shadow:
     0 14px 30px rgb(0 0 0 / 0.32),
     0 1px 0 rgb(255 255 255 / 0.1) inset;
@@ -11661,7 +11661,7 @@ watch(
   height: 2px;
   border-radius: 9999px;
   content: "";
-  background: linear-gradient(90deg, #14b8a6, #0ea5e9);
+  background: linear-gradient(90deg, #cc785c, #a9583e);
 }
 
 .settings-tab-icon {
@@ -11678,8 +11678,8 @@ watch(
 }
 
 .settings-tab-active:is(.dark *) .settings-tab-icon {
-  background: rgb(20 184 166 / 0.16);
-  color: rgb(134 239 172);
+  background: rgb(204 120 92 / 0.16);
+  color: rgb(240 184 158);
 }
 
 .settings-tab-label {

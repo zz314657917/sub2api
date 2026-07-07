@@ -12,7 +12,7 @@
           </div>
 
           <div class="space-y-3">
-            <div class="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-700 dark:border-blue-500/20 dark:bg-blue-500/10 dark:text-blue-200">
+            <div class="rounded-md border border-[#d8cec2] bg-[#fffaf5] px-3 py-2 text-xs leading-5 text-[#6c6a64] dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10 dark:text-[#f0b89e]">
               {{ filters.ticket_type === 'system' ? t('admin.tickets.systemAuditHint') : t('admin.tickets.supportDefaultHint') }}
             </div>
             <div class="relative">
@@ -646,13 +646,13 @@ onMounted(() => {
 .message-bubble-system {
   width: min(720px, 100%);
   max-width: 100%;
-  border: 1px solid rgba(245, 158, 11, 0.28);
-  background: rgb(255 251 235);
-  color: rgb(120 53 15);
+  border: 1px solid rgb(216 206 194);
+  background: rgb(255 250 245);
+  color: rgb(80 79 73);
 }
 
 .message-bubble-admin {
-  background: rgb(37 99 235);
+  background: rgb(20 20 19);
   color: white;
 }
 
@@ -674,9 +674,9 @@ onMounted(() => {
 }
 
 .dark .message-bubble-system {
-  border-color: rgba(251, 191, 36, 0.24);
-  background: rgb(69 26 3);
-  color: rgb(254 243 199);
+  border-color: rgba(204, 120, 92, 0.32);
+  background: rgba(204, 120, 92, 0.12);
+  color: rgb(240 184 158);
 }
 
 .dark .message-bubble-peer {

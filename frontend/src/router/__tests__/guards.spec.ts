@@ -127,7 +127,6 @@ function simulateGuard(
       '/admin/subscriptions',
       '/admin/redeem',
       '/subscriptions',
-      '/redeem',
     ]
     if (restrictedPaths.some((path) => toPath.startsWith(path))) {
       return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
@@ -307,18 +306,6 @@ describe('路由守卫逻辑', () => {
       expect(redirect).toBe('/dashboard')
     })
 
-    it('普通用户简易模式访问 /redeem 重定向到 /dashboard', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: false,
-        isSimpleMode: true,
-        backendModeEnabled: false,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/redeem', {}, authState)
-      expect(redirect).toBe('/dashboard')
-    })
-
     it('管理员简易模式访问 /admin/groups 重定向到 /admin/dashboard', () => {
       const authState: MockAuthState = {
         isAuthenticated: true,
@@ -341,6 +328,22 @@ describe('路由守卫逻辑', () => {
       }
       const redirect = simulateGuard(
         '/admin/subscriptions',
+        { requiresAdmin: true },
+        authState
+      )
+      expect(redirect).toBe('/admin/dashboard')
+    })
+
+    it('管理员简易模式访问 /admin/redeem 重定向', () => {
+      const authState: MockAuthState = {
+        isAuthenticated: true,
+        isAdmin: true,
+        isSimpleMode: true,
+        backendModeEnabled: false,
+        hasPendingAuthSession: false,
+      }
+      const redirect = simulateGuard(
+        '/admin/redeem',
         { requiresAdmin: true },
         authState
       )
@@ -580,7 +583,6 @@ describe('路由守卫逻辑', () => {
     })
   })
 })
-
 
 describe('订阅入口兼容路由', () => {
   it('keeps /subscriptions as a guarded compatibility entry to /usage#subscriptions', () => {

@@ -95,7 +95,7 @@ const performanceCards = computed<PerformanceCard[]>(() => [
       { value: formatNumber(props.stats.tpm || 0), unit: 'TPM' },
     ],
     icon: 'bolt',
-    iconClass: 'dashboard-performance-icon--indigo',
+    iconClass: '!border-[#d8cec2] !bg-[#fffaf5] !text-[#a9583e] dark:!border-[#a9583e]/45 dark:!bg-[#a9583e]/20 dark:!text-[#cc785c]',
   },
   {
     key: 'today-cache-reuse',
@@ -104,7 +104,7 @@ const performanceCards = computed<PerformanceCard[]>(() => [
     value: formatCacheReuseRate(props.stats.today_cache_read_tokens || 0, props.stats.today_input_tokens || 0),
     note: `${t('dashboard.cacheReadTokens')}: ${formatNumber(props.stats.today_cache_read_tokens || 0)}`,
     icon: 'sparkles',
-    iconClass: 'dashboard-performance-icon--blue',
+    iconClass: '!border-[#d8cec2] !bg-[#f5f0e8] !text-[#cc785c] dark:!border-[#cc785c]/45 dark:!bg-[#cc785c]/20 dark:!text-[#cc785c]',
   },
   {
     key: 'total-cache-reuse',
@@ -113,7 +113,7 @@ const performanceCards = computed<PerformanceCard[]>(() => [
     value: formatCacheReuseRate(props.stats.total_cache_read_tokens || 0, props.stats.total_input_tokens || 0),
     note: `${t('dashboard.cacheReadTokens')}: ${formatNumber(props.stats.total_cache_read_tokens || 0)}`,
     icon: 'shield',
-    iconClass: 'dashboard-performance-icon--green',
+    iconClass: '!border-[#d8cec2] !bg-[#fffaf5] !text-[#5f7f68] dark:!border-[#5f7f68]/45 dark:!bg-[#5f7f68]/20 dark:!text-[#9ab3a0]',
   },
   {
     key: 'avg-response',

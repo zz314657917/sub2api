@@ -96,7 +96,7 @@
                 <template v-if="testResults[proxy.id]">
                   <span
                     v-if="testResults[proxy.id].success"
-                    class="inline-flex flex-shrink-0 items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-xs text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                    class="inline-flex flex-shrink-0 items-center gap-1 rounded bg-[#fffaf5] px-1.5 py-0.5 text-xs text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:text-[#f0b89e] dark:ring-[#cc785c]/30"
                   >
                     <span v-if="testResults[proxy.id].country">{{
                       testResults[proxy.id].country
@@ -374,9 +374,16 @@ onUnmounted(() => {
 
 .batch-test-btn {
   @apply flex-shrink-0 rounded-lg p-1.5;
-  @apply text-gray-500 hover:text-emerald-600 dark:hover:text-emerald-400;
-  @apply hover:bg-emerald-50 dark:hover:bg-emerald-900/20;
+  @apply text-gray-500 hover:text-[#a9583e] dark:hover:text-[#f0b89e];
   @apply transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.batch-test-btn:hover {
+  background-color: #f3e7df;
+}
+
+.dark .batch-test-btn:hover {
+  background-color: rgb(204 120 92 / 0.12);
 }
 
 .select-options {
@@ -407,9 +414,16 @@ onUnmounted(() => {
 
 .test-btn {
   @apply flex-shrink-0 rounded p-1;
-  @apply text-gray-400 hover:text-emerald-600 dark:hover:text-emerald-400;
-  @apply hover:bg-emerald-50 dark:hover:bg-emerald-900/20;
+  @apply text-gray-400 hover:text-[#a9583e] dark:hover:text-[#f0b89e];
   @apply transition-colors disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+.test-btn:hover {
+  background-color: #f3e7df;
+}
+
+.dark .test-btn:hover {
+  background-color: rgb(204 120 92 / 0.12);
 }
 
 /* Dropdown animation */

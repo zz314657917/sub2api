@@ -14,6 +14,10 @@ import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveDocumentTitle } from './title'
 
+if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
+  window.history.scrollRestoration = 'manual'
+}
+
 /**
  * Route definitions with lazy loading
  */
@@ -69,17 +73,19 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'Login',
-    component: () => import('@/views/auth/LoginView.vue'),
+    component: () => import('@/views/HomeView.vue'),
+    props: { authMode: 'login' },
     meta: {
       requiresAuth: false,
       title: 'Login',
-      titleKey: 'common.login'
+      titleKey: 'auth.signIn'
     }
   },
   {
     path: '/register',
     name: 'Register',
-    component: () => import('@/views/auth/RegisterView.vue'),
+    component: () => import('@/views/HomeView.vue'),
+    props: { authMode: 'register' },
     meta: {
       requiresAuth: false,
       title: 'Register',
@@ -335,18 +341,6 @@ const routes: RouteRecordRaw[] = [
       title: 'Image Creator',
       titleKey: 'imageCreator.title',
       descriptionKey: 'imageCreator.subtitle'
-    }
-  },
-  {
-    path: '/redeem',
-    name: 'Redeem',
-    component: () => import('@/views/user/RedeemView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'Redeem Code',
-      titleKey: 'redeem.title',
-      descriptionKey: 'redeem.description'
     }
   },
   {
@@ -1051,7 +1045,6 @@ router.beforeEach(async (to, _from, next) => {
       '/admin/subscriptions',
       '/admin/redeem',
       '/subscriptions',
-      '/redeem',
       '/welfare',
       '/leaderboard'
     ]

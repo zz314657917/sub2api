@@ -133,5 +133,10 @@
 260704 0310 | upstream-main-v0144-safe-patches-s53 | contract-approved | codex | docs/workflow/tasks/upstream-main-v0144-safe-patches-s53.md
 260704 0322 | upstream-main-v0144-safe-patches-s53 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-main-v0144-safe-patches-s53-result.md, docs/workflow/qa-reports/upstream-main-v0144-safe-patches-s53-qa.md
 260704 0328 | upstream-main-v0144-safe-patches-s53 | merged-to-main | codex | dbdeb1ba1 merge: add upstream s53 safe patches
+260708 0038 | ui-warm-leftovers-s54 | contract-draft | codex | docs/workflow/tasks/ui-warm-leftovers-s54.md
+260708 0039 | ui-warm-leftovers-s54 | workers-dispatched | codex | admin-a, monitor-b, user-c
+260708 0114 | ui-warm-leftovers-s54 | multi-agent-sweep-pass | codex | admin badges, user dashboard/profile, payment/welfare, auth/common, key-usage, admin usage/risk
+260708 0114 | ui-warm-leftovers-s54 | validation-pass | codex | console-theme style-theme, auth/home/public smoke, build, git diff --check
+260708 0120 | ui-warm-leftovers-s54 | local-container-updated | codex | 127.0.0.1:62080, sub2api:codex-20260708-0115-warm-ui-workers, health/smoke pass
 260708 0317 | upstream-v0146-small-safe-patches-s55 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-v0146-small-safe-patches-s55-result.md, docs/workflow/qa-reports/upstream-v0146-small-safe-patches-s55-qa.md
 260708 0357 | upstream-v0146-backend-safe-patches-s56 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-v0146-backend-safe-patches-s56-result.md, docs/workflow/qa-reports/upstream-v0146-backend-safe-patches-s56-qa.md

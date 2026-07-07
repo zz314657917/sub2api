@@ -28,7 +28,7 @@
           :class="[
             'rounded-full px-2.5 py-1 text-xs font-semibold',
             account.status === 'active'
-              ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
+              ? 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
               : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
           ]"
         >
@@ -46,14 +46,14 @@
         <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <!-- 30-Day Total Cost -->
           <div
-            class="card border-emerald-200 bg-gradient-to-br from-emerald-50 to-white p-4 dark:border-emerald-800/30 dark:from-emerald-900/10 dark:to-dark-700"
+            class="card border-[#d8cec2] bg-gradient-to-br from-[#fffaf5] to-white p-4 dark:border-[#cc785c]/30 dark:from-[#cc785c]/10 dark:to-dark-700"
           >
             <div class="mb-2 flex items-center justify-between">
               <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{
                 t('admin.accounts.stats.totalCost')
               }}</span>
-              <div class="rounded-lg bg-emerald-100 p-1.5 dark:bg-emerald-900/30">
-                <Icon name="dollar" size="sm" class="text-emerald-600 dark:text-emerald-400" />
+              <div class="rounded-lg bg-[#f3e7df] p-1.5 dark:bg-[#cc785c]/15">
+                <Icon name="dollar" size="sm" class="text-[#a9583e] dark:text-[#f0b89e]" />
               </div>
             </div>
             <p class="text-2xl font-bold text-gray-900 dark:text-white">
@@ -72,14 +72,14 @@
 
           <!-- 30-Day Total Requests -->
           <div
-            class="card border-blue-200 bg-gradient-to-br from-blue-50 to-white p-4 dark:border-blue-800/30 dark:from-blue-900/10 dark:to-dark-700"
+            class="card border-[#d8cec2] bg-gradient-to-br from-[#f5f0e8] to-white p-4 dark:border-[#cc785c]/30 dark:from-[#cc785c]/10 dark:to-dark-700"
           >
             <div class="mb-2 flex items-center justify-between">
               <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{
                 t('admin.accounts.stats.totalRequests')
               }}</span>
-              <div class="rounded-lg bg-blue-100 p-1.5 dark:bg-blue-900/30">
-                <Icon name="bolt" size="sm" class="text-blue-600 dark:text-blue-400" />
+              <div class="rounded-lg bg-[#f3e7df] p-1.5 dark:bg-[#cc785c]/15">
+                <Icon name="bolt" size="sm" class="text-[#a9583e] dark:text-[#f0b89e]" />
               </div>
             </div>
             <p class="text-2xl font-bold text-gray-900 dark:text-white">
@@ -123,15 +123,15 @@
 
           <!-- Daily Average Requests -->
           <div
-            class="card border-purple-200 bg-gradient-to-br from-purple-50 to-white p-4 dark:border-purple-800/30 dark:from-purple-900/10 dark:to-dark-700"
+            class="card border-[#d8cec2] bg-[#fffaf5] p-4 dark:border-dark-600 dark:bg-dark-700"
           >
             <div class="mb-2 flex items-center justify-between">
               <span class="text-xs font-medium text-gray-500 dark:text-gray-400">{{
                 t('admin.accounts.stats.avgDailyRequests')
               }}</span>
-              <div class="rounded-lg bg-purple-100 p-1.5 dark:bg-purple-900/30">
+              <div class="rounded-lg bg-[#f3e7df] p-1.5 dark:bg-[#cc785c]/15">
                 <svg
-                  class="h-4 w-4 text-purple-600 dark:text-purple-400"
+                  class="h-4 w-4 text-[#a9583e] dark:text-[#f0b89e]"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -159,8 +159,8 @@
           <!-- Today Overview -->
           <div class="card p-4">
             <div class="mb-3 flex items-center gap-2">
-              <div class="rounded-lg bg-cyan-100 p-1.5 dark:bg-cyan-900/30">
-                <Icon name="clock" size="sm" class="text-cyan-600 dark:text-cyan-400" />
+              <div class="rounded-lg bg-[#f3e7df] p-1.5 dark:bg-[#cc785c]/15">
+                <Icon name="clock" size="sm" class="text-[#a9583e] dark:text-[#f0b89e]" />
               </div>
               <span class="text-sm font-semibold text-gray-900 dark:text-white">{{
                 t('admin.accounts.stats.todayOverview')
@@ -243,11 +243,11 @@
           <!-- Highest Request Day -->
           <div class="card p-4">
             <div class="mb-3 flex items-center gap-2">
-              <div class="rounded-lg bg-indigo-100 p-1.5 dark:bg-indigo-900/30">
+              <div class="rounded-lg bg-[#f3e7df] p-1.5 dark:bg-[#cc785c]/15">
                 <Icon
                   name="trendingUp"
                   size="sm"
-                  class="text-indigo-600 dark:text-indigo-400"
+                  class="text-[#a9583e] dark:text-[#f0b89e]"
                 />
               </div>
               <span class="text-sm font-semibold text-gray-900 dark:text-white">{{
@@ -267,7 +267,7 @@
                 <span class="text-xs text-gray-500 dark:text-gray-400">{{
                   t('admin.accounts.stats.requests')
                 }}</span>
-                <span class="text-sm font-semibold text-indigo-600 dark:text-indigo-400">{{
+                <span class="text-sm font-semibold text-[#a9583e] dark:text-[#f0b89e]">{{
                   formatNumber(stats.summary.highest_request_day?.requests || 0)
                 }}</span>
               </div>
@@ -292,8 +292,8 @@
           <!-- Accumulated Tokens -->
           <div class="card p-4">
             <div class="mb-3 flex items-center gap-2">
-              <div class="rounded-lg bg-teal-100 p-1.5 dark:bg-teal-900/30">
-                <Icon name="cube" size="sm" class="text-teal-600 dark:text-teal-400" />
+              <div class="rounded-lg bg-[#f3e7df] p-1.5 dark:bg-[#cc785c]/15">
+                <Icon name="cube" size="sm" class="text-[#a9583e] dark:text-[#f0b89e]" />
               </div>
               <span class="text-sm font-semibold text-gray-900 dark:text-white">{{
                 t('admin.accounts.stats.accumulatedTokens')
@@ -516,8 +516,8 @@ const trendChartData = computed(() => {
       {
         label: t('usage.accountBilled') + ' (USD)',
         data: stats.value.history.map((h) => h.actual_cost),
-        borderColor: '#3b82f6',
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        borderColor: '#cc785c',
+        backgroundColor: 'rgba(204, 120, 92, 0.12)',
         fill: true,
         tension: 0.3,
         yAxisID: 'y'
@@ -525,8 +525,8 @@ const trendChartData = computed(() => {
       {
         label: t('usage.userBilled') + ' (USD)',
         data: stats.value.history.map((h) => h.user_cost),
-        borderColor: '#10b981',
-        backgroundColor: 'rgba(16, 185, 129, 0.08)',
+        borderColor: '#8e8b82',
+        backgroundColor: 'rgba(142, 139, 130, 0.08)',
         fill: false,
         tension: 0.3,
         borderDash: [5, 5],
@@ -601,7 +601,7 @@ const lineChartOptions = computed(() => ({
         color: chartColors.value.grid
       },
       ticks: {
-        color: '#3b82f6',
+        color: '#cc785c',
         font: {
           size: 10
         },
@@ -610,7 +610,7 @@ const lineChartOptions = computed(() => ({
       title: {
         display: true,
         text: t('usage.accountBilled') + ' (USD)',
-        color: '#3b82f6',
+        color: '#cc785c',
         font: {
           size: 11
         }

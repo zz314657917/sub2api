@@ -3,7 +3,7 @@
     <div class="purchase-pricing-page -m-4 min-h-[calc(100vh-4rem)] md:-m-[1.35rem] lg:-m-[1.6rem]">
       <div class="relative z-10 mx-auto flex w-full max-w-[1500px] flex-col gap-10 px-4 py-8 sm:px-6 lg:px-8">
         <div v-if="loading" class="flex min-h-[28rem] items-center justify-center">
-          <div class="h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-t-transparent"></div>
+          <div class="h-8 w-8 animate-spin rounded-full border-4 border-[#cc785c] border-t-transparent"></div>
         </div>
         <template v-else>
           <template v-if="paymentPhase === 'paying'">
@@ -46,7 +46,7 @@
                   <div class="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <div class="flex flex-wrap items-center gap-3">
-                        <Icon name="shield" size="lg" class="text-emerald-500" />
+                        <Icon name="shield" size="lg" class="text-[#5f7f68] dark:text-[#9ab3a0]" />
                         <h2 class="pricing-section-title text-xl font-black tracking-normal">{{ pt('membership.title') }}</h2>
                         <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">{{ membershipCurrentLabel }}</span>
                       </div>
@@ -58,8 +58,8 @@
                     </div>
                   </div>
 
-                  <div class="mt-5 h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-                    <div class="h-full rounded-full bg-emerald-500 transition-all" :style="{ width: `${membershipProgressPercent}%` }"></div>
+                  <div class="mt-5 h-2 overflow-hidden rounded-full bg-[#e6ded4] dark:bg-dark-700">
+                    <div class="h-full rounded-full bg-[#7f9d8a] transition-all" :style="{ width: `${membershipProgressPercent}%` }"></div>
                   </div>
 
                   <div class="mt-5 grid gap-3 md:grid-cols-3">
@@ -97,7 +97,7 @@
 
                 <section v-if="!checkout.balance_disabled" class="space-y-4">
                   <div class="flex flex-wrap items-center gap-3">
-                    <Icon name="creditCard" size="lg" class="text-sky-400" />
+                    <Icon name="creditCard" size="lg" class="text-[#a9583e]" />
                     <h2 class="pricing-section-title text-xl font-black tracking-normal">{{ pt('flexibleCredit') }}</h2>
                     <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">{{ pt('creditTag') }}</span>
                   </div>
@@ -208,7 +208,7 @@
                           <div class="pricing-divider border-t border-dashed pt-6">
                             <div class="flex items-end justify-between gap-4">
                               <span class="pricing-muted">{{ pt('totalPayable') }}</span>
-                              <span class="min-w-0 break-words text-right text-3xl font-black text-blue-600 tabular-nums dark:text-blue-400 sm:text-4xl">{{ formatSelectedPaymentAmount(totalAmount) }}</span>
+                              <span class="min-w-0 break-words text-right text-3xl font-black text-[#a9583e] tabular-nums dark:text-primary-300 sm:text-4xl">{{ formatSelectedPaymentAmount(totalAmount) }}</span>
                             </div>
                           </div>
                         </div>
@@ -225,7 +225,7 @@
                 <section class="pricing-section-divider space-y-5 border-t pt-8">
                   <div class="flex flex-wrap items-center justify-between gap-3">
                     <div class="flex flex-wrap items-center gap-3">
-                      <Icon name="creditCard" size="lg" class="text-sky-400" />
+                      <Icon name="creditCard" size="lg" class="text-[#a9583e]" />
                       <h2 class="pricing-section-title text-xl font-black tracking-normal">{{ pt('plansTitle') }}</h2>
                       <span class="pricing-section-tag rounded-md px-2.5 py-1 text-xs font-medium">{{ pt('plansTag') }}</span>
                     </div>
@@ -257,7 +257,7 @@
                         : 'pricing-plan-card--idle'
                   ]"
                 >
-                  <span v-if="isRecommendedPlan(plan)" class="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-indigo-500 px-4 py-1 text-xs font-bold text-white">
+                  <span v-if="isRecommendedPlan(plan)" class="absolute left-1/2 top-0 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#141413] px-4 py-1 text-xs font-bold text-white">
                     {{ pt('recommended') }}
                   </span>
                   <div class="text-center">
@@ -282,7 +282,7 @@
 
                   <ul class="pricing-feature-list flex-1 space-y-4 text-sm">
                     <li v-for="feature in planFeatureList(plan)" :key="feature" class="flex gap-3">
-                      <Icon name="check" size="sm" class="mt-0.5 shrink-0 text-blue-500 dark:text-blue-300" />
+                      <Icon name="check" size="sm" class="mt-0.5 shrink-0 text-[#a9583e] dark:text-primary-300" />
                       <span>{{ feature }}</span>
                     </li>
                   </ul>
@@ -302,7 +302,7 @@
               <div v-if="selectedPlan" class="pricing-confirm-panel rounded-3xl p-5 sm:p-6">
                 <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)]">
                   <div>
-                    <p class="text-sm font-bold text-blue-700 dark:text-blue-100">{{ pt('confirmTitle') }}</p>
+                    <p class="text-sm font-bold text-[#a9583e] dark:text-primary-100">{{ pt('confirmTitle') }}</p>
                     <h3 class="pricing-strong mt-2 text-2xl font-black">{{ selectedPlan.name }}</h3>
                     <p class="pricing-muted mt-2 text-sm">{{ selectedPlan.description || pt('planDefaultDesc') }}</p>
 
@@ -351,7 +351,7 @@
                       <div class="pricing-divider border-t border-dashed pt-5">
                         <div class="flex items-end justify-between gap-4">
                           <span class="pricing-muted">{{ pt('totalPayable') }}</span>
-                          <span class="min-w-0 break-words text-right text-3xl font-black text-blue-600 tabular-nums dark:text-blue-400">{{ formatDisplayPaymentAmount(subTotalAmount) }}</span>
+                          <span class="min-w-0 break-words text-right text-3xl font-black text-[#a9583e] tabular-nums dark:text-primary-300">{{ formatDisplayPaymentAmount(subTotalAmount) }}</span>
                         </div>
                       </div>
                     </div>
@@ -396,7 +396,7 @@
               <aside class="pricing-side-stack space-y-5 xl:sticky xl:top-6 xl:mt-[2.75rem]">
                 <section class="pricing-card rounded-3xl p-5">
                   <div class="flex items-start gap-3">
-                    <Icon name="ticket" size="lg" class="mt-0.5 text-emerald-500" />
+                    <Icon name="ticket" size="lg" class="mt-0.5 text-[#5f7f68] dark:text-[#9ab3a0]" />
                     <div>
                       <h2 class="pricing-section-title text-lg font-black">{{ t('redeem.title') }}</h2>
                       <p class="pricing-muted mt-1 text-sm">{{ t('redeem.description') }}</p>
@@ -440,7 +440,7 @@
 
                 <section class="pricing-card rounded-3xl p-5">
                   <div class="flex items-center gap-2">
-                    <Icon name="questionCircle" size="lg" class="text-sky-500" />
+                    <Icon name="questionCircle" size="lg" class="text-[#a9583e]" />
                     <h2 class="pricing-section-title text-lg font-black">{{ pt('faqTitle') }}</h2>
                   </div>
                   <div class="pricing-faq-list mt-2">
@@ -469,7 +469,7 @@
               <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-5 sm:px-6">
                 <div>
                   <div class="flex items-center gap-2">
-                    <Icon name="clipboard" size="lg" class="text-sky-500" />
+                    <Icon name="clipboard" size="lg" class="text-[#a9583e]" />
                     <h2 class="pricing-section-title text-xl font-black">{{ pt('historyTitle') }}</h2>
                   </div>
                   <p class="pricing-muted mt-1 text-sm">{{ pt('historySubtitle') }}</p>
@@ -502,7 +502,7 @@
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="showRenewalModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4" @click.self="closeRenewalModal">
-          <div class="relative w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-dark-700 dark:bg-dark-900">
+          <div class="relative w-full max-w-lg rounded-2xl border border-[#d8cec2] bg-[#fffaf5] p-6 shadow-[0_24px_64px_rgba(75,52,40,0.14)] dark:border-dark-700 dark:bg-dark-900">
             <!-- Close button -->
             <button class="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-gray-200" @click="closeRenewalModal">
               <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -519,14 +519,14 @@
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="showInvoiceDialog" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm" @click.self="closeInvoiceDialog">
-          <div class="relative w-full max-w-xl rounded-2xl border border-gray-200 bg-white p-6 shadow-2xl dark:border-dark-700 dark:bg-dark-900">
+          <div class="relative w-full max-w-xl rounded-2xl border border-[#d8cec2] bg-[#fffaf5] p-6 shadow-[0_24px_64px_rgba(75,52,40,0.14)] dark:border-dark-700 dark:bg-dark-900">
             <button class="absolute right-4 top-4 rounded-lg p-1 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-dark-700 dark:hover:text-gray-200" @click="closeInvoiceDialog">
               <Icon name="x" size="sm" />
             </button>
             <div class="pr-8">
               <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.invoices.applyTitle') }}</h3>
               <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('payment.invoices.availableAmount') }}：{{ formatInvoiceAmount(invoiceSummary.available_amount, invoiceSummary.currency) }}</p>
-              <p class="mt-2 text-sm text-blue-600 dark:text-blue-300">{{ t('payment.invoices.applyHint') }}</p>
+              <p class="mt-2 text-sm text-[#a9583e] dark:text-primary-300">{{ t('payment.invoices.applyHint') }}</p>
             </div>
             <div class="mt-6 space-y-4">
               <div>
@@ -541,7 +541,7 @@
                     :key="option.value"
                     type="button"
                     class="rounded-xl px-3 py-3 text-sm font-bold transition"
-                    :class="invoiceForm.invoice_type === option.value ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-200 dark:hover:bg-dark-600'"
+                    :class="invoiceForm.invoice_type === option.value ? 'bg-[#141413] text-white shadow-lg shadow-black/10 dark:bg-white dark:text-gray-900' : 'bg-[#f5f0e8] text-[#504f49] hover:bg-[#efe9de] dark:bg-dark-700 dark:text-gray-200 dark:hover:bg-dark-600'"
                     @click="invoiceForm.invoice_type = option.value"
                   >
                     {{ option.label }}
@@ -2017,14 +2017,15 @@ onMounted(async () => {
   overflow: hidden;
   min-width: 0;
   background:
-    radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.1), transparent 30rem),
-    linear-gradient(180deg, rgba(248, 250, 252, 0.96), rgba(239, 246, 255, 0.86) 46%, rgba(248, 250, 252, 0.94));
-  color: #0f172a;
+    radial-gradient(circle at 50% 0%, rgba(204, 120, 92, 0.12), transparent 30rem),
+    radial-gradient(circle at 88% 5%, rgba(216, 206, 194, 0.34), transparent 24rem),
+    linear-gradient(180deg, rgba(250, 249, 245, 0.98), rgba(245, 240, 232, 0.88) 48%, rgba(250, 249, 245, 0.96));
+  color: #141413;
 }
 
 :global(.dark .purchase-pricing-page) {
   background:
-    radial-gradient(circle at 50% 0%, rgba(59, 130, 246, 0.12), transparent 30rem),
+    radial-gradient(circle at 50% 0%, rgba(204, 120, 92, 0.12), transparent 30rem),
     #0c0d10;
   color: #f8fafc;
 }
@@ -2035,10 +2036,10 @@ onMounted(async () => {
   z-index: -1;
   pointer-events: none;
   content: '';
-  opacity: 0.34;
+  opacity: 0.26;
   background-image:
-    linear-gradient(rgba(37, 99, 235, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(37, 99, 235, 0.07) 1px, transparent 1px);
+    linear-gradient(rgba(216, 206, 194, 0.2) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(216, 206, 194, 0.15) 1px, transparent 1px);
   background-size: 42px 42px;
   mask-image: linear-gradient(to bottom, black, transparent 78%);
 }
@@ -2054,7 +2055,7 @@ onMounted(async () => {
 .pricing-section-title,
 .pricing-strong,
 .pricing-faq-button {
-  color: #0f172a;
+  color: #141413;
 }
 
 :global(.dark .pricing-title),
@@ -2067,7 +2068,7 @@ onMounted(async () => {
 .pricing-subtitle,
 .pricing-muted,
 .pricing-caption {
-  color: #475569;
+  color: #6c6a64;
 }
 
 :global(.dark .pricing-subtitle),
@@ -2077,7 +2078,7 @@ onMounted(async () => {
 }
 
 .pricing-caption {
-  color: #64748b;
+  color: #807d76;
 }
 
 :global(.dark .pricing-caption) {
@@ -2085,7 +2086,7 @@ onMounted(async () => {
 }
 
 .pricing-muted-icon {
-  color: #64748b;
+  color: #807d76;
 }
 
 :global(.dark .pricing-muted-icon) {
@@ -2093,7 +2094,7 @@ onMounted(async () => {
 }
 
 .pricing-strike {
-  color: #94a3b8;
+  color: #a09a91;
 }
 
 :global(.dark .pricing-strike) {
@@ -2106,9 +2107,9 @@ onMounted(async () => {
 .pricing-summary,
 .pricing-subscription-card,
 .pricing-confirm-panel {
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(255, 255, 255, 0.88);
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.07);
+  border: 1px solid rgba(216, 206, 194, 0.74);
+  background: rgba(250, 249, 245, 0.9);
+  box-shadow: 0 18px 44px rgba(75, 52, 40, 0.07);
   backdrop-filter: blur(16px);
 }
 
@@ -2124,8 +2125,8 @@ onMounted(async () => {
 }
 
 .pricing-section-tag {
-  background: rgba(219, 234, 254, 0.86);
-  color: #1d4ed8;
+  background: rgba(204, 120, 92, 0.12);
+  color: #a9583e;
 }
 
 :global(.dark .pricing-section-tag) {
@@ -2134,15 +2135,15 @@ onMounted(async () => {
 }
 
 .pricing-refresh-button {
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  background: rgba(255, 255, 255, 0.72);
-  color: #475569;
-  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(216, 206, 194, 0.74);
+  background: rgba(250, 249, 245, 0.72);
+  color: #6c6a64;
+  box-shadow: 0 10px 28px rgba(75, 52, 40, 0.06);
 }
 
 .pricing-refresh-button:hover:not(:disabled) {
-  border-color: rgba(59, 130, 246, 0.36);
-  color: #2563eb;
+  border-color: rgba(204, 120, 92, 0.42);
+  color: #a9583e;
 }
 
 :global(.dark .pricing-refresh-button) {
@@ -2153,32 +2154,32 @@ onMounted(async () => {
 }
 
 :global(.dark .pricing-refresh-button:hover:not(:disabled)) {
-  border-color: rgba(96, 165, 250, 0.5);
-  color: #93c5fd;
+  border-color: rgba(204, 120, 92, 0.5);
+  color: #d8cec2;
 }
 
 .pricing-preset,
 .pricing-method-option,
 .pricing-stepper,
 .pricing-input {
-  border-color: rgba(148, 163, 184, 0.42);
-  background: rgba(248, 250, 252, 0.9);
-  color: #0f172a;
+  border-color: rgba(216, 206, 194, 0.78);
+  background: rgba(250, 249, 245, 0.9);
+  color: #141413;
 }
 
 .pricing-preset--idle:hover,
 .pricing-method-option--idle:hover,
 .pricing-stepper-button:hover {
-  border-color: rgba(59, 130, 246, 0.5);
-  background: #ffffff;
+  border-color: rgba(204, 120, 92, 0.42);
+  background: #fffaf5;
 }
 
 .pricing-preset--selected,
 .pricing-method-option--selected {
-  border-color: rgba(37, 99, 235, 0.74);
-  background: rgba(219, 234, 254, 0.76);
-  color: #1e3a8a;
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.28);
+  border-color: rgba(204, 120, 92, 0.72);
+  background: rgba(204, 120, 92, 0.12);
+  color: #8f4c36;
+  box-shadow: 0 0 0 1px rgba(204, 120, 92, 0.24);
 }
 
 :global(.dark .pricing-preset),
@@ -2199,14 +2200,14 @@ onMounted(async () => {
 
 :global(.dark .pricing-preset--selected),
 :global(.dark .pricing-method-option--selected) {
-  border-color: rgba(96, 165, 250, 0.9);
-  background: rgba(59, 130, 246, 0.16);
+  border-color: rgba(204, 120, 92, 0.72);
+  background: rgba(204, 120, 92, 0.16);
   color: #f8fafc;
-  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.45);
+  box-shadow: 0 0 0 1px rgba(204, 120, 92, 0.42);
 }
 
 .pricing-stepper-value {
-  color: #0f172a;
+  color: #141413;
 }
 
 :global(.dark .pricing-stepper-value) {
@@ -2214,7 +2215,7 @@ onMounted(async () => {
 }
 
 .pricing-stepper-button {
-  color: #64748b;
+  color: #6c6a64;
 }
 
 :global(.dark .pricing-stepper-button) {
@@ -2230,7 +2231,7 @@ onMounted(async () => {
 }
 
 .pricing-summary {
-  background: rgba(239, 246, 255, 0.86);
+  background: rgba(245, 240, 232, 0.86);
 }
 
 :global(.dark .pricing-summary) {
@@ -2239,8 +2240,8 @@ onMounted(async () => {
 
 .pricing-recharge-summary {
   align-self: stretch;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  background: rgba(241, 245, 249, 0.58);
+  border: 1px solid rgba(216, 206, 194, 0.62);
+  background: rgba(245, 240, 232, 0.62);
 }
 
 :global(.dark .pricing-recharge-summary) {
@@ -2253,9 +2254,9 @@ onMounted(async () => {
 }
 
 .pricing-inline-feedback--success {
-  border: 1px solid rgba(16, 185, 129, 0.24);
-  background: rgba(209, 250, 229, 0.72);
-  color: #047857;
+  border: 1px solid rgba(127, 157, 138, 0.26);
+  background: rgba(127, 157, 138, 0.12);
+  color: #5f7f68;
 }
 
 .pricing-inline-feedback--error {
@@ -2265,9 +2266,9 @@ onMounted(async () => {
 }
 
 :global(.dark .pricing-inline-feedback--success) {
-  border-color: rgba(52, 211, 153, 0.24);
-  background: rgba(6, 78, 59, 0.38);
-  color: #a7f3d0;
+  border-color: rgba(127, 157, 138, 0.28);
+  background: rgba(127, 157, 138, 0.14);
+  color: #9ab3a0;
 }
 
 :global(.dark .pricing-inline-feedback--error) {
@@ -2282,7 +2283,7 @@ onMounted(async () => {
 
 .pricing-order-table {
   overflow-x: auto;
-  border-top: 1px solid rgba(148, 163, 184, 0.24);
+  border-top: 1px solid rgba(216, 206, 194, 0.58);
 }
 
 .pricing-order-scroll {
@@ -2317,7 +2318,7 @@ onMounted(async () => {
 
 .pricing-divider,
 .pricing-section-divider {
-  border-color: rgba(148, 163, 184, 0.3);
+  border-color: rgba(216, 206, 194, 0.7);
 }
 
 :global(.dark .pricing-divider),
@@ -2326,17 +2327,17 @@ onMounted(async () => {
 }
 
 .pricing-plan-card--idle:hover {
-  border-color: rgba(59, 130, 246, 0.45);
+  border-color: rgba(204, 120, 92, 0.42);
 }
 
 .pricing-plan-card--selected {
-  border-color: rgba(37, 99, 235, 0.76);
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.28), 0 18px 44px rgba(37, 99, 235, 0.12);
+  border-color: rgba(204, 120, 92, 0.76);
+  box-shadow: 0 0 0 1px rgba(204, 120, 92, 0.24), 0 18px 44px rgba(75, 52, 40, 0.1);
 }
 
 .pricing-plan-card--recommended {
-  border-color: rgba(99, 102, 241, 0.66);
-  box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.2), 0 18px 44px rgba(99, 102, 241, 0.1);
+  border-color: rgba(160, 153, 144, 0.58);
+  box-shadow: 0 0 0 1px rgba(160, 153, 144, 0.18), 0 18px 44px rgba(75, 52, 40, 0.08);
 }
 
 :global(.dark .pricing-plan-card--idle:hover) {
@@ -2344,17 +2345,17 @@ onMounted(async () => {
 }
 
 :global(.dark .pricing-plan-card--selected) {
-  border-color: rgba(96, 165, 250, 0.9);
-  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.55), 0 18px 48px rgba(0, 0, 0, 0.22);
+  border-color: rgba(204, 120, 92, 0.82);
+  box-shadow: 0 0 0 1px rgba(204, 120, 92, 0.45), 0 18px 48px rgba(0, 0, 0, 0.22);
 }
 
 :global(.dark .pricing-plan-card--recommended) {
-  border-color: rgba(129, 140, 248, 0.9);
-  box-shadow: 0 0 0 1px rgba(129, 140, 248, 0.45), 0 18px 48px rgba(0, 0, 0, 0.22);
+  border-color: rgba(216, 206, 194, 0.78);
+  box-shadow: 0 0 0 1px rgba(216, 206, 194, 0.3), 0 18px 48px rgba(0, 0, 0, 0.22);
 }
 
 .pricing-plan-price {
-  color: #0f172a;
+  color: #141413;
   line-height: 1;
 }
 
@@ -2369,7 +2370,7 @@ onMounted(async () => {
 
 .pricing-plan-divider,
 .pricing-faq-list > div + div {
-  border-top: 1px solid rgba(148, 163, 184, 0.28);
+  border-top: 1px solid rgba(216, 206, 194, 0.58);
 }
 
 :global(.dark .pricing-plan-divider),
@@ -2378,7 +2379,7 @@ onMounted(async () => {
 }
 
 .pricing-feature-list {
-  color: #334155;
+  color: #504f49;
 }
 
 :global(.dark .pricing-feature-list) {
@@ -2386,13 +2387,13 @@ onMounted(async () => {
 }
 
 .pricing-confirm-panel {
-  border-color: rgba(59, 130, 246, 0.36);
-  background: rgba(219, 234, 254, 0.56);
+  border-color: rgba(204, 120, 92, 0.36);
+  background: rgba(243, 231, 223, 0.58);
 }
 
 :global(.dark .pricing-confirm-panel) {
-  border-color: rgba(96, 165, 250, 0.42);
-  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(204, 120, 92, 0.42);
+  background: rgba(204, 120, 92, 0.12);
 }
 
 .pricing-empty-icon {

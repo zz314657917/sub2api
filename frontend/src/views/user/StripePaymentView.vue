@@ -2,7 +2,7 @@
   <component :is="isPopup ? 'div' : AppLayout" :class="isPopup ? 'min-h-screen bg-gray-50 dark:bg-dark-900' : ''">
     <div class="mx-auto max-w-lg space-y-6 py-8" :class="isPopup ? 'px-4' : ''">
       <div v-if="loading" class="flex items-center justify-center py-20">
-        <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
+        <div class="h-8 w-8 animate-spin rounded-full border-4 border-[#cc785c] border-t-transparent"></div>
       </div>
       <div v-else-if="initError" class="card p-8 text-center">
         <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
@@ -16,7 +16,7 @@
         <!-- 金额头部 -->
         <div v-if="order" class="card overflow-hidden">
           <div class="bg-gradient-to-br from-[#635bff] to-[#4f46e5] px-6 py-6 text-center">
-            <p class="text-sm font-medium text-indigo-200">{{ t('payment.actualPay') }}</p>
+            <p class="text-sm font-medium text-white/80">{{ t('payment.actualPay') }}</p>
             <p class="mt-1 text-3xl font-bold text-white">{{ formatGatewayAmount(order.pay_amount) }}</p>
           </div>
         </div>
@@ -26,7 +26,7 @@
           <div class="card p-6">
             <div class="flex flex-col items-center space-y-4">
               <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.qr.scanWxpay') }}</p>
-              <div class="relative rounded-lg border-2 border-[#2BB741] bg-green-50 p-4 dark:border-[#2BB741]/70 dark:bg-green-950/20">
+              <div class="relative rounded-lg border-2 border-[#2BB741] bg-[#f4fbf2] p-4 dark:border-[#2BB741]/70 dark:bg-[#2BB741]/10">
                 <img :src="wechatQrUrl" alt="WeChat Pay QR" class="h-56 w-56 rounded" />
                 <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <span class="rounded-full bg-[#2BB741] p-2 shadow ring-2 ring-white">
@@ -56,8 +56,8 @@
         <template v-else-if="stripeSuccess">
           <div class="card p-6 text-center">
             <div class="flex flex-col items-center gap-3 py-4">
-              <div class="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-                <Icon name="check" size="lg" class="text-green-500" />
+              <div class="flex h-16 w-16 items-center justify-center rounded-full bg-[#9ab3a0]/20 dark:bg-[#9ab3a0]/10">
+                <Icon name="check" size="lg" class="text-[#5f7f68] dark:text-[#9ab3a0]" />
               </div>
               <p class="text-lg font-bold text-gray-900 dark:text-white">{{ t('payment.result.success') }}</p>
               <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.stripeSuccessProcessing') }}</p>

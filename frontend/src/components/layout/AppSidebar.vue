@@ -519,7 +519,6 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   const welfareItem: NavItem = { path: '/welfare', label: t('nav.welfare'), icon: WelfareIcon, hideInSimpleMode: true, featureFlag: flagWelfare }
   const accountItems: NavItem[] = [
     { path: '/my-accounts', label: t('nav.myAccounts'), icon: GlobeIcon, hideInSimpleMode: true, featureFlag: flagAccountShare },
-    { path: '/redeem', label: t('nav.redeem'), icon: GiftIcon, hideInSimpleMode: true },
     { path: '/profile', label: t('nav.profile'), icon: UserIcon },
   ]
 
@@ -538,21 +537,11 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     welfareItem,
   ]
 
-  if (authStore.isSimpleMode) {
-    items.push(...primarySelfItems, ...accountItems, ...usageStatusItems)
-  } else {
-    items.push(
-      ...primarySelfItems,
-      {
-        path: '/self/account-center',
-        label: t('nav.accountCenter'),
-        icon: UserIcon,
-        expandOnly: true,
-        children: accountItems,
-      },
-      ...usageStatusItems,
-    )
-  }
+  items.push(
+    ...primarySelfItems,
+    ...usageStatusItems,
+    ...accountItems,
+  )
 
   items.push(
     ...customMenuItemsForUser.value.map((item): NavItem => ({
@@ -1180,9 +1169,10 @@ onUnmounted(() => {
   max-width: 4rem;
   overflow: hidden;
   border-radius: 9999px;
-  background: rgb(220 252 231);
+  border: 1px solid rgba(204, 120, 92, 0.18);
+  background: #f3e7df;
   padding: 0.125rem 0.375rem;
-  color: rgb(22 101 52);
+  color: #a9583e;
   font-size: 0.6875rem;
   font-weight: 700;
   line-height: 1rem;
@@ -1191,8 +1181,9 @@ onUnmounted(() => {
 }
 
 .dark .sidebar-claim-badge {
-  background: rgba(34, 197, 94, 0.16);
-  color: rgb(134 239 172);
+  border-color: rgba(240, 184, 158, 0.26);
+  background: rgba(204, 120, 92, 0.16);
+  color: #f0b89e;
 }
 
 .sidebar-invoice-claim-badge {

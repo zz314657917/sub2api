@@ -116,7 +116,7 @@
                 :class="[
                   'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                   modelRestrictionMode === 'mapping'
-                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                    ? 'console-badge-accent'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
                 ]"
               >
@@ -150,8 +150,8 @@
 
             <!-- Mapping Mode -->
             <div v-else>
-              <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-                <p class="text-xs text-purple-700 dark:text-purple-400">
+              <div class="mb-3 rounded-lg console-note-accent p-3">
+                <p class="text-xs">
                   <svg
                     class="mr-1 inline h-4 w-4"
                     fill="none"
@@ -280,8 +280,8 @@
               />
             </button>
           </div>
-          <div v-if="poolModeEnabled" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-            <p class="text-xs text-blue-700 dark:text-blue-400">
+          <div v-if="poolModeEnabled" class="rounded-lg console-note-accent p-3">
+            <p class="text-xs">
               <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
               {{ t('admin.accounts.poolModeInfo') }}
             </p>
@@ -444,7 +444,7 @@
               :class="[
                 'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                 modelRestrictionMode === 'mapping'
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                  ? 'console-badge-accent'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
               ]"
             >
@@ -465,8 +465,8 @@
 
           <!-- Mapping Mode -->
           <div v-else>
-            <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-              <p class="text-xs text-purple-700 dark:text-purple-400">
+            <div class="mb-3 rounded-lg console-note-accent p-3">
+              <p class="text-xs">
                 {{ t('admin.accounts.mapRequestModels') }}
               </p>
             </div>
@@ -643,7 +643,7 @@
               :class="[
                 'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                 modelRestrictionMode === 'mapping'
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                  ? 'console-badge-accent'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
               ]"
             >
@@ -677,8 +677,8 @@
 
           <!-- Mapping Mode -->
           <div v-else>
-            <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-              <p class="text-xs text-purple-700 dark:text-purple-400">
+            <div class="mb-3 rounded-lg console-note-accent p-3">
+              <p class="text-xs">
                 <svg
                   class="mr-1 inline h-4 w-4"
                   fill="none"
@@ -878,7 +878,7 @@
               :class="[
                 'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                 modelRestrictionMode === 'mapping'
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                  ? 'console-badge-accent'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
               ]"
             >
@@ -948,8 +948,8 @@
               />
             </button>
           </div>
-          <div v-if="poolModeEnabled" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-            <p class="text-xs text-blue-700 dark:text-blue-400">
+          <div v-if="poolModeEnabled" class="rounded-lg console-note-accent p-3">
+            <p class="text-xs">
               <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
               {{ t('admin.accounts.poolModeInfo') }}
             </p>
@@ -983,8 +983,8 @@
 
         <!-- Mapping Mode Only (no toggle for Antigravity) -->
         <div>
-          <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-            <p class="text-xs text-purple-700 dark:text-purple-400">{{ t('admin.accounts.mapRequestModels') }}</p>
+          <div class="mb-3 rounded-lg console-note-accent p-3">
+            <p class="text-xs">{{ t('admin.accounts.mapRequestModels') }}</p>
           </div>
 
           <div class="mb-3 flex flex-wrap gap-2">
@@ -992,7 +992,7 @@
               type="button"
               @click="syncAntigravityUpstreamModels"
               :disabled="isSyncingAntigravityUpstream || !account?.id"
-              class="rounded-lg border border-emerald-200 px-3 py-1.5 text-sm text-emerald-600 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
+              class="rounded-lg border border-[#d8cec2] px-3 py-1.5 text-sm text-[#a9583e] transition-colors hover:bg-[#fffaf5] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#cc785c]/30 dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/12"
             >
               {{ isSyncingAntigravityUpstream ? t('admin.accounts.syncUpstreamModelsLoading') : t('admin.accounts.syncUpstreamModels') }}
             </button>
@@ -1104,8 +1104,8 @@
         </div>
 
         <div v-if="tempUnschedEnabled" class="space-y-3">
-          <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-            <p class="text-xs text-blue-700 dark:text-blue-400">
+          <div class="rounded-lg console-note-accent p-3">
+            <p class="text-xs">
               <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
               {{ t('admin.accounts.tempUnschedulable.notice') }}
             </p>
@@ -1337,9 +1337,9 @@
         v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'apikey')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
-        <div class="overflow-hidden rounded-lg border border-sky-100 bg-sky-50/60 shadow-sm dark:border-sky-900/50 dark:bg-sky-950/20">
+        <div class="overflow-hidden rounded-lg border border-[#d8cec2] bg-[#fffaf5]/70 shadow-sm dark:border-[#cc785c]/30 dark:bg-[#cc785c]/8">
           <div class="flex items-start gap-3 px-4 py-3">
-            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-sky-600 shadow-sm ring-1 ring-sky-100 dark:bg-dark-800 dark:text-sky-300 dark:ring-sky-900/60">
+            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-[#a9583e] shadow-sm ring-1 ring-[#d8cec2] dark:bg-dark-800 dark:text-[#f0b89e] dark:ring-[#cc785c]/30">
               <Icon name="sparkles" size="sm" />
             </div>
             <div class="min-w-0 flex-1">
@@ -1357,7 +1357,7 @@
               </p>
             </div>
           </div>
-          <div class="border-t border-sky-100 bg-white/70 p-2 dark:border-sky-900/50 dark:bg-dark-800/70">
+          <div class="border-t border-[#d8cec2] bg-white/70 p-2 dark:border-[#cc785c]/30 dark:bg-dark-800/70">
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <button
                 v-for="option in codexImageGenerationBridgeOptions"
@@ -1368,7 +1368,7 @@
                 :class="[
                   'group flex min-h-[68px] items-start gap-2 rounded-md border px-3 py-2 text-left transition-all',
                   codexImageGenerationBridgeMode === option.value
-                    ? 'border-sky-300 bg-sky-50 text-sky-900 shadow-sm ring-1 ring-sky-200 dark:border-sky-700 dark:bg-sky-900/25 dark:text-sky-100 dark:ring-sky-800'
+                    ? 'border-[#cc785c] bg-[#fffaf5] text-[#141413] shadow-sm ring-1 ring-[#cc785c]/30 dark:border-[#cc785c]/70 dark:bg-[#cc785c]/12 dark:text-[#f0b89e] dark:ring-[#cc785c]/35'
                     : 'border-transparent bg-transparent text-slate-600 hover:border-gray-200 hover:bg-gray-50 dark:text-slate-300 dark:hover:border-dark-500 dark:hover:bg-dark-700'
                 ]"
               >
@@ -1376,7 +1376,7 @@
                   :class="[
                     'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
                     codexImageGenerationBridgeMode === option.value
-                      ? 'border-sky-500 bg-sky-500 text-white'
+                      ? 'border-[#cc785c] bg-[#cc785c] text-white'
                       : 'border-gray-300 text-transparent group-hover:border-gray-400 dark:border-dark-500'
                   ]"
                 >
@@ -2295,7 +2295,7 @@
             </span>
             <!-- Tooltip（向下显示避免被弹窗裁剪） -->
             <div
-              class="pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 rounded bg-gray-900 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-gray-700"
+              class="console-tooltip-surface pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 px-3 py-2 text-xs opacity-0 transition-opacity group-hover:opacity-100"
             >
               {{ t('admin.accounts.mixedSchedulingTooltip') }}
               <div
@@ -2322,7 +2322,7 @@
               ?
             </span>
             <div
-              class="pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 rounded bg-gray-900 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-gray-700"
+              class="console-tooltip-surface pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 px-3 py-2 text-xs opacity-0 transition-opacity group-hover:opacity-100"
             >
               {{ t('admin.accounts.allowOveragesTooltip') }}
               <div
@@ -2790,7 +2790,7 @@ const codexImageGenerationBridgeBadgeLabel = computed(() => {
 const codexImageGenerationBridgeBadgeClass = computed(() => {
   switch (codexImageGenerationBridgeMode.value) {
     case 'enabled':
-      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+      return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
     case 'disabled':
       return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
     default:

@@ -54,13 +54,13 @@
         <!-- Code Status -->
         <div
           v-if="codeSent"
-          class="rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-800/50 dark:bg-green-900/20"
+          class="rounded-xl border border-[#d8cec2] bg-[#fffaf5] p-4 dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10"
         >
           <div class="flex items-start gap-3">
             <div class="flex-shrink-0">
-              <Icon name="checkCircle" size="md" class="text-green-500" />
+              <Icon name="checkCircle" size="md" class="text-[#5f7f68] dark:text-[#9ab3a0]" />
             </div>
-            <p class="text-sm text-green-700 dark:text-green-400">
+            <p class="text-sm text-[#504f49] dark:text-[#d8cec2]">
               {{ t('auth.codeSentSuccess') }}
             </p>
           </div>
@@ -120,7 +120,7 @@
             :disabled="
               isSendingCode || (turnstileEnabled && showResendTurnstile && !resendTurnstileToken)
             "
-            class="text-sm text-primary-600 transition-colors hover:text-primary-500 disabled:cursor-not-allowed disabled:opacity-50 dark:text-primary-400 dark:hover:text-primary-300"
+            class="text-sm text-[#a9583e] transition-colors hover:text-[#cc785c] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#f0b89e] dark:hover:text-[#ffd5c2]"
           >
             <span v-if="isSendingCode">{{ t('auth.sendingCode') }}</span>
             <span v-else-if="turnstileEnabled && !showResendTurnstile">

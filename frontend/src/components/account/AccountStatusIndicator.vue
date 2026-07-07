@@ -45,14 +45,14 @@
       </svg>
       <!-- Tooltip - 向下显示 -->
       <div
-        class="invisible absolute left-0 top-full z-[100] mt-1.5 min-w-[200px] max-w-[300px] rounded-lg bg-gray-800 px-3 py-2 text-xs text-white opacity-0 shadow-xl transition-all duration-200 group-hover/error:visible group-hover/error:opacity-100 dark:bg-gray-900"
+        class="console-tooltip-surface invisible absolute left-0 top-full z-[100] mt-1.5 min-w-[200px] max-w-[300px] px-3 py-2 text-xs opacity-0 transition-all duration-200 group-hover/error:visible group-hover/error:opacity-100"
       >
-        <div class="whitespace-pre-wrap break-words leading-relaxed text-gray-300">
+        <div class="console-tooltip-text whitespace-pre-wrap break-words leading-relaxed">
           {{ account.error_message }}
         </div>
         <!-- 上方小三角 -->
         <div
-          class="absolute bottom-full left-3 border-[6px] border-transparent border-b-gray-800 dark:border-b-gray-900"
+          class="console-tooltip-arrow-up absolute bottom-full left-3 border-[6px] border-transparent"
         ></div>
       </div>
     </div>
@@ -67,11 +67,11 @@
       </span>
       <!-- Tooltip -->
       <div
-        class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 whitespace-normal rounded bg-gray-900 px-3 py-2 text-center text-xs leading-relaxed text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-gray-700"
+        class="console-tooltip-surface pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 whitespace-normal px-3 py-2 text-center text-xs leading-relaxed opacity-0 transition-opacity group-hover:opacity-100"
       >
         {{ t('admin.accounts.status.rateLimitedUntil', { time: formatDateTime(account.rate_limit_reset_at) }) }}
         <div
-          class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"
+          class="console-tooltip-arrow-down absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent"
         ></div>
       </div>
     </div>
@@ -109,7 +109,7 @@
         <!-- 普通模型限流 -->
         <span
           v-else
-          class="inline-flex items-center gap-1 rounded bg-purple-100 px-1.5 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"
+          class="console-badge-accent inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium"
         >
           <Icon name="exclamationTriangle" size="xs" :stroke-width="2" />
           {{ formatScopeName(item.model) }}
@@ -117,7 +117,7 @@
         </span>
         <!-- Tooltip -->
         <div
-          class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 whitespace-normal rounded bg-gray-900 px-3 py-2 text-center text-xs leading-relaxed text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-gray-700"
+          class="console-tooltip-surface pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 whitespace-normal px-3 py-2 text-center text-xs leading-relaxed opacity-0 transition-opacity group-hover:opacity-100"
         >
           {{
             item.kind === 'credits_exhausted'
@@ -127,7 +127,7 @@
                 : t('admin.accounts.status.modelRateLimitedUntil', { model: formatScopeName(item.model), time: formatTime(item.reset_at) })
           }}
           <div
-            class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"
+            class="console-tooltip-arrow-down absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent"
           ></div>
         </div>
       </div>
@@ -143,11 +143,11 @@
       </span>
       <!-- Tooltip -->
       <div
-        class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 whitespace-normal rounded bg-gray-900 px-3 py-2 text-center text-xs leading-relaxed text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-gray-700"
+        class="console-tooltip-surface pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 w-56 -translate-x-1/2 whitespace-normal px-3 py-2 text-center text-xs leading-relaxed opacity-0 transition-opacity group-hover:opacity-100"
       >
         {{ t('admin.accounts.status.overloadedUntil', { time: formatTime(account.overload_until) }) }}
         <div
-          class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-gray-900 dark:border-t-gray-700"
+          class="console-tooltip-arrow-down absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent"
         ></div>
       </div>
     </div>

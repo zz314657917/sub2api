@@ -1,6 +1,6 @@
 <template>
   <div class="model-plaza-page public-page-shell relative min-h-screen overflow-hidden">
-    <PublicMatrixBackdrop />
+    <PublicRevealBackdrop variant="page" />
     <PublicTopNav />
 
     <main class="model-plaza-main relative z-10 mx-auto">
@@ -153,6 +153,7 @@
             <span
               v-if="hasScrollableRows(group)"
               class="model-scrollbar-rail"
+              :data-scroll-rail-group-id="group.id"
               aria-hidden="true"
               @pointerdown="handleScrollbarRailPointerDown(group.id, $event)"
             >
@@ -189,7 +190,7 @@ import ModelIcon from '@/components/common/ModelIcon.vue'
 import { modelMarketAPI, type ModelMarketAccountGroup, type ModelMarketCatalog, type ModelMarketCategory, type ModelMarketGroup } from '@/api/modelMarket'
 import { CREDIT_SYMBOL } from '@/utils/credits'
 import { cleanModelDisplayName, displayModelLabel } from '@/utils/modelDisplay'
-import PublicMatrixBackdrop from './components/PublicMatrixBackdrop.vue'
+import PublicRevealBackdrop from './components/PublicRevealBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
 
 type CategoryFilter = 'all' | ModelMarketCategory
@@ -261,7 +262,7 @@ async function loadCatalog(): Promise<void> {
   loading.value = true
   loadError.value = ''
   try {
-    catalog.value = await modelMarketAPI.getCatalog()
+    catalog.value = normalizeCatalog(await modelMarketAPI.getCatalog())
     initializeSelectedRateGroups()
     await nextTick()
     refreshScrollIndicators()
@@ -269,6 +270,21 @@ async function loadCatalog(): Promise<void> {
     loadError.value = error?.message || '请稍后再试'
   } finally {
     loading.value = false
+  }
+}
+
+function normalizeCatalog(value: ModelMarketCatalog): ModelMarketCatalog {
+  if (!value || !Array.isArray(value.groups)) {
+    throw new Error('模型目录响应格式无效')
+  }
+
+  return {
+    ...value,
+    groups: value.groups.map((group) => ({
+      ...group,
+      rows: Array.isArray(group.rows) ? group.rows : [],
+      supported_groups: Array.isArray(group.supported_groups) ? group.supported_groups : []
+    }))
   }
 }
 
@@ -432,13 +448,13 @@ function refreshScrollIndicators(): void {
 function setScrollIndicator(groupId: string, element: HTMLElement): void {
   const scrollHeight = element.scrollHeight
   const clientHeight = element.clientHeight
+  const railHeight = scrollRailHeightForGroup(groupId, clientHeight)
+
   if (scrollHeight <= clientHeight) {
-    scrollIndicators[groupId] = { height: clientHeight, top: 0 }
+    scrollIndicators[groupId] = { height: railHeight, top: 0 }
     return
   }
 
-  const railPadding = 18
-  const railHeight = Math.max(0, clientHeight - railPadding * 2)
   const height = Math.max(44, Math.round((clientHeight / scrollHeight) * railHeight))
   const maxTop = Math.max(0, railHeight - height)
   const maxScroll = Math.max(1, scrollHeight - clientHeight)
@@ -544,6 +560,21 @@ function scrollElementForGroup(groupId: string): HTMLElement | null {
   return Array.from(elements).find((element) => element.dataset.scrollGroupId === groupId) || null
 }
 
+function scrollRailForGroup(groupId: string): HTMLElement | null {
+  if (typeof document === 'undefined') return null
+  const elements = document.querySelectorAll<HTMLElement>('.model-scrollbar-rail[data-scroll-rail-group-id]')
+  return Array.from(elements).find((element) => element.dataset.scrollRailGroupId === groupId) || null
+}
+
+function scrollRailHeightForGroup(groupId: string, fallbackClientHeight: number): number {
+  const rail = scrollRailForGroup(groupId)
+  if (rail) {
+    return Math.max(0, rail.getBoundingClientRect().height)
+  }
+
+  return Math.max(0, fallbackClientHeight - 66)
+}
+
 function clampNumber(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value))
 }
@@ -593,10 +624,8 @@ onBeforeUnmount(() => {
 @import './public-page.css';
 
 .model-plaza-page {
-  background:
-    radial-gradient(circle at 50% 18%, rgba(32, 170, 92, 0.18) 0, transparent 34%),
-    radial-gradient(circle at 18% 24%, rgba(87, 86, 210, 0.14) 0, transparent 30%),
-    linear-gradient(180deg, #050914 0%, #08110f 48%, #03060a 100%);
+  background: #faf9f5;
+  color: var(--public-text);
 }
 
 .model-plaza-main {
@@ -615,26 +644,27 @@ onBeforeUnmount(() => {
 .model-title-kicker {
   display: block;
   margin-bottom: 0.42rem;
-  color: #7dffaa;
+  color: var(--public-accent);
   font-size: 0.74rem;
-  font-weight: 950;
+  font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .model-plaza-hero h1 {
-  color: rgba(255, 255, 255, 0.96);
+  color: var(--public-text);
+  font-family: var(--public-font-display);
   font-size: clamp(1.65rem, 2.6vw, 2.45rem);
-  font-weight: 950;
+  font-weight: 400;
   line-height: 1;
 }
 
 .model-plaza-hero p {
   margin-top: 0.55rem;
   max-width: 42rem;
-  color: rgba(238, 246, 240, 0.72);
+  color: var(--public-muted);
   font-size: 0.86rem;
-  font-weight: 700;
+  font-weight: 350;
 }
 
 .model-refresh-button,
@@ -642,15 +672,13 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
-  border-radius: 8px;
-  border: 1px solid rgba(119, 255, 173, 0.34);
-  background:
-    linear-gradient(180deg, rgba(119, 255, 173, 0.18), rgba(20, 184, 166, 0.08)),
-    rgba(5, 15, 18, 0.72);
+  border-radius: 999px;
+  border: 1px solid #cc785c;
+  background: #cc785c;
   padding: 0.62rem 0.86rem;
-  color: #eafff0;
+  color: #ffffff;
   font-size: 0.82rem;
-  font-weight: 850;
+  font-weight: 500;
 }
 
 .model-refresh-button:disabled {
@@ -663,13 +691,11 @@ onBeforeUnmount(() => {
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.9rem;
   border-radius: 8px;
-  border: 1px solid rgba(221, 230, 255, 0.12);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.055)),
-    rgba(6, 13, 18, 0.66);
+  border: 1px solid var(--public-border);
+  background: rgba(250, 249, 245, 0.88);
   padding: 0.85rem;
-  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.22);
-  backdrop-filter: blur(18px);
+  box-shadow: var(--public-shadow-soft);
+  backdrop-filter: blur(16px);
 }
 
 .model-search-box {
@@ -678,24 +704,24 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.7rem;
   border-radius: 8px;
-  border: 1px solid rgba(221, 230, 255, 0.12);
-  background: rgba(2, 8, 12, 0.54);
+  border: 1px solid var(--public-border);
+  background: #faf9f5;
   padding: 0 0.85rem;
-  color: rgba(222, 232, 255, 0.62);
+  color: var(--public-muted);
 }
 
 .model-search-box input {
   min-width: 0;
   width: 100%;
   background: transparent;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--public-text);
   font-size: 0.86rem;
-  font-weight: 700;
+  font-weight: 400;
   outline: none;
 }
 
 .model-search-box input::placeholder {
-  color: rgba(222, 232, 255, 0.46);
+  color: var(--public-muted-soft);
 }
 
 .model-category-tabs {
@@ -703,8 +729,8 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.28rem;
   border-radius: 8px;
-  border: 1px solid rgba(221, 230, 255, 0.12);
-  background: rgba(2, 8, 12, 0.38);
+  border: 1px solid var(--public-border);
+  background: #f5f0e8;
   padding: 0.24rem;
 }
 
@@ -715,20 +741,21 @@ onBeforeUnmount(() => {
   min-height: 2.2rem;
   border-radius: 6px;
   padding: 0.34rem 0.65rem;
-  color: rgba(238, 246, 240, 0.74);
+  color: var(--public-muted-strong);
   font-size: 0.8rem;
-  font-weight: 850;
+  font-weight: 500;
 }
 
 .model-category-tabs button.is-active {
-  background: rgba(119, 255, 173, 0.16);
-  color: rgba(236, 255, 241, 0.96);
+  background: #faf9f5;
+  color: var(--public-accent);
+  box-shadow: var(--public-shadow-soft);
 }
 
 .model-category-tabs small {
-  color: rgba(222, 232, 255, 0.62);
+  color: var(--public-muted-soft);
   font-size: 0.72rem;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .model-card-grid {
@@ -740,12 +767,10 @@ onBeforeUnmount(() => {
 .model-market-card {
   overflow: hidden;
   border-radius: 8px;
-  border: 1px solid rgba(221, 230, 255, 0.14);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.035)),
-    rgba(5, 13, 18, 0.76);
-  box-shadow: 0 22px 46px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(18px);
+  border: 1px solid var(--public-border);
+  background: rgba(250, 249, 245, 0.92);
+  box-shadow: var(--public-shadow);
+  backdrop-filter: blur(16px);
 }
 
 .model-card-head {
@@ -753,8 +778,8 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  border-bottom: 1px solid rgba(221, 230, 255, 0.12);
-  background: rgba(4, 11, 16, 0.58);
+  border-bottom: 1px solid var(--public-border);
+  background: rgba(245, 240, 232, 0.8);
   padding: 1rem 1.1rem;
 }
 
@@ -773,29 +798,29 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   border-radius: 8px;
-  border: 1px solid rgba(221, 230, 255, 0.14);
+  border: 1px solid var(--public-border);
 }
 
 .model-card-icon.is-chat {
-  background: rgba(96, 165, 250, 0.14);
-  color: rgb(147, 197, 253);
+  background: rgba(20, 20, 19, 0.06);
+  color: #141413;
 }
 
 .model-card-icon.is-image {
-  background: rgba(74, 222, 128, 0.14);
-  color: rgb(134, 239, 172);
+  background: var(--public-accent-soft);
+  color: var(--public-accent);
 }
 
 .model-card-icon.is-video {
-  background: rgba(196, 181, 253, 0.14);
-  color: rgb(196, 181, 253);
+  background: rgba(204, 120, 92, 0.1);
+  color: #a9583e;
 }
 
 .model-card-title h2 {
   overflow: hidden;
-  color: rgba(255, 255, 255, 0.94);
+  color: var(--public-text);
   font-size: 1.05rem;
-  font-weight: 950;
+  font-weight: 560;
   line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -803,9 +828,9 @@ onBeforeUnmount(() => {
 
 .model-card-title p {
   margin-top: 0.15rem;
-  color: rgba(222, 232, 255, 0.62);
+  color: var(--public-muted);
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 350;
 }
 
 .model-group-rate-select {
@@ -814,15 +839,15 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.45rem;
   border-radius: 8px;
-  border: 1px solid rgba(119, 255, 173, 0.22);
-  background: rgba(2, 8, 12, 0.42);
+  border: 1px solid var(--public-border);
+  background: #faf9f5;
   padding: 0.42rem 0.5rem 0.42rem 0.62rem;
 }
 
 .model-group-rate-select span {
-  color: rgba(191, 209, 230, 0.72);
+  color: var(--public-muted);
   font-size: 0.72rem;
-  font-weight: 850;
+  font-weight: 500;
   white-space: nowrap;
 }
 
@@ -831,15 +856,15 @@ onBeforeUnmount(() => {
   min-height: 2rem;
   border: 0;
   background: transparent;
-  color: rgba(236, 255, 241, 0.96);
+  color: var(--public-accent);
   font-size: 0.78rem;
-  font-weight: 900;
+  font-weight: 500;
   outline: none;
 }
 
 .model-group-rate-select option {
-  background: #07110f;
-  color: #eafff0;
+  background: #faf9f5;
+  color: #141413;
 }
 
 .model-table-shell {
@@ -865,16 +890,15 @@ onBeforeUnmount(() => {
 
 .model-scrollbar-rail {
   position: absolute;
-  top: 18px;
+  top: 3rem;
   right: 0.24rem;
-  bottom: 18px;
+  bottom: 1.1rem;
   z-index: 6;
   width: 0.72rem;
   border-radius: 999px;
-  background: rgba(7, 17, 24, 0.9);
+  background: #e6dfd8;
   box-shadow:
-    inset 0 0 0 1px rgba(221, 230, 255, 0.08),
-    0 0 0 1px rgba(0, 0, 0, 0.22);
+    inset 0 0 0 1px rgba(20, 20, 19, 0.05);
   cursor: pointer;
   pointer-events: auto;
   touch-action: none;
@@ -884,10 +908,10 @@ onBeforeUnmount(() => {
   display: block;
   min-height: 44px;
   width: 100%;
-  border: 2px solid rgba(7, 17, 24, 0.9);
+  border: 2px solid #e6dfd8;
   border-radius: 999px;
-  background: linear-gradient(180deg, rgba(164, 255, 196, 0.95), rgba(74, 222, 128, 0.82));
-  box-shadow: 0 0 12px rgba(74, 222, 128, 0.32);
+  background: #cc785c;
+  box-shadow: 0 4px 12px rgba(204, 120, 92, 0.2);
   cursor: grab;
   transition: background 120ms ease, box-shadow 120ms ease;
 }
@@ -962,21 +986,21 @@ onBeforeUnmount(() => {
 
 .model-pricing-table th,
 .model-pricing-table td {
-  border-bottom: 1px solid rgba(221, 230, 255, 0.1);
+  border-bottom: 1px solid var(--public-border);
   padding: 0.82rem 1rem;
   text-align: left;
   vertical-align: middle;
 }
 
 .model-pricing-table th {
-  background: rgba(9, 20, 28, 0.82);
-  color: rgba(191, 209, 230, 0.68);
+  background: #f5f0e8;
+  color: #6c6a64;
   font-size: 0.72rem;
-  font-weight: 900;
+  font-weight: 500;
 }
 
 .model-pricing-table tbody tr:hover {
-  background: rgba(74, 222, 128, 0.07);
+  background: #f5f0e8;
 }
 
 .model-pricing-table tbody tr:last-child td {
@@ -984,9 +1008,9 @@ onBeforeUnmount(() => {
 }
 
 .model-pricing-table td {
-  color: rgba(224, 235, 244, 0.78);
+  color: #3d3d3a;
   font-size: 0.86rem;
-  font-weight: 750;
+  font-weight: 350;
 }
 
 .model-name-cell {
@@ -999,9 +1023,9 @@ onBeforeUnmount(() => {
 .model-name-cell strong,
 .model-spec-cell strong {
   display: block;
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--public-text);
   font-size: 0.9rem;
-  font-weight: 950;
+  font-weight: 520;
   line-height: 1.25;
 }
 
@@ -1009,34 +1033,34 @@ onBeforeUnmount(() => {
 .model-spec-cell small {
   display: block;
   margin-top: 0.22rem;
-  color: rgba(191, 209, 230, 0.6);
+  color: var(--public-muted);
   font-size: 0.72rem;
-  font-weight: 700;
+  font-weight: 350;
   line-height: 1.35;
 }
 
 .model-price-value {
-  color: rgb(125, 255, 170);
-  font-weight: 950;
+  color: var(--public-success);
+  font-weight: 520;
   white-space: nowrap;
 }
 
 .model-saving {
   display: inline-flex;
   border-radius: 999px;
-  border: 1px solid rgba(125, 255, 170, 0.24);
-  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(47, 122, 82, 0.2);
+  background: rgba(47, 122, 82, 0.08);
   padding: 0.18rem 0.52rem;
-  color: rgb(178, 255, 207);
+  color: var(--public-success);
   font-size: 0.76rem;
-  font-weight: 950;
+  font-weight: 500;
   white-space: nowrap;
 }
 
 .model-saving.muted {
-  border-color: rgba(191, 209, 230, 0.14);
-  background: rgba(148, 163, 184, 0.1);
-  color: rgba(191, 209, 230, 0.62);
+  border-color: var(--public-border);
+  background: #f5f0e8;
+  color: #6c6a64;
 }
 
 .model-message-card {
@@ -1046,23 +1070,24 @@ onBeforeUnmount(() => {
   gap: 0.85rem;
   min-height: 10rem;
   border-radius: 8px;
-  border: 1px dashed rgba(221, 230, 255, 0.24);
-  background: rgba(6, 13, 18, 0.72);
+  border: 1px dashed var(--public-border-strong);
+  background: rgba(250, 249, 245, 0.9);
   padding: 1.2rem;
-  color: rgba(238, 246, 240, 0.76);
-  backdrop-filter: blur(18px);
+  color: var(--public-muted);
+  box-shadow: var(--public-shadow-soft);
+  backdrop-filter: blur(16px);
 }
 
 .model-message-card h2 {
-  color: rgba(255, 255, 255, 0.94);
+  color: var(--public-text);
   font-size: 1rem;
-  font-weight: 900;
+  font-weight: 560;
 }
 
 .model-message-card p {
   margin-top: 0.2rem;
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 350;
 }
 
 .model-message-card button {
@@ -1071,10 +1096,10 @@ onBeforeUnmount(() => {
 
 .model-plaza-note {
   padding: 1.25rem 0 0.25rem;
-  color: rgba(222, 232, 255, 0.68);
+  color: var(--public-muted);
   text-align: center;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 350;
 }
 
 @media (max-width: 900px) {
@@ -1133,7 +1158,7 @@ onBeforeUnmount(() => {
   }
 
   .model-pricing-table tr {
-    border-bottom: 1px solid rgba(221, 230, 255, 0.1);
+    border-bottom: 1px solid var(--public-border);
     padding: 0.72rem 0;
   }
 
@@ -1155,9 +1180,9 @@ onBeforeUnmount(() => {
   .model-pricing-table td::before {
     content: attr(data-label);
     flex: 0 0 auto;
-    color: rgba(191, 209, 230, 0.62);
+    color: var(--public-muted);
     font-size: 0.72rem;
-    font-weight: 900;
+    font-weight: 500;
     text-align: left;
   }
 
@@ -1297,11 +1322,11 @@ onBeforeUnmount(() => {
 
   .model-pricing-table td {
     margin: 0.28rem 0;
-    border: 1px solid rgba(221, 230, 255, 0.08);
+    border: 1px solid var(--public-border);
     border-radius: 8px;
-    background: rgba(2, 8, 12, 0.28);
+    background: #f5f0e8;
     padding: 0.44rem max(0.75rem, env(safe-area-inset-right)) 0.44rem 0.65rem;
-    color: rgba(232, 241, 248, 0.86);
+    color: #3d3d3a;
     font-size: 0.8rem;
     line-height: 1.2;
   }

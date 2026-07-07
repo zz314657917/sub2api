@@ -3,32 +3,55 @@
 .home-page-root,
 .tutorial-page,
 .model-plaza-page {
-  --public-border: rgba(226, 232, 240, 0.14);
-  --public-border-strong: rgba(226, 232, 240, 0.22);
-  --public-surface: rgba(6, 13, 18, 0.58);
-  --public-surface-soft: rgba(255, 255, 255, 0.07);
-  --public-surface-hover: rgba(255, 255, 255, 0.11);
-  --public-surface-raised:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.105), rgba(255, 255, 255, 0.055)),
-    rgba(6, 13, 18, 0.56);
-  --public-input-surface: rgba(2, 8, 10, 0.5);
-  --public-text: rgba(255, 255, 255, 0.94);
-  --public-muted: rgba(222, 232, 255, 0.66);
-  --public-muted-strong: rgba(238, 246, 240, 0.78);
-  --public-accent: #77ffad;
-  --public-accent-soft: rgba(119, 255, 173, 0.12);
-  --public-ring: rgba(119, 255, 173, 0.32);
-  --public-shadow: 0 18px 42px rgba(0, 0, 0, 0.2);
-  --public-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.14);
+  --public-bg: #faf9f5;
+  --public-bg-soft: #f5f0e8;
+  --public-bg-muted: #efe9de;
+  --public-border: #e6dfd8;
+  --public-border-strong: #d8cec2;
+  --public-surface: rgba(250, 249, 245, 0.92);
+  --public-surface-soft: rgba(245, 240, 232, 0.86);
+  --public-surface-hover: #efe9de;
+  --public-surface-raised: rgba(250, 249, 245, 0.96);
+  --public-input-surface: #faf9f5;
+  --public-text: #141413;
+  --public-body: #3d3d3a;
+  --public-muted: #6c6a64;
+  --public-muted-soft: #8e8b82;
+  --public-muted-strong: #252523;
+  --public-accent: #cc785c;
+  --public-accent-strong: #a9583e;
+  --public-accent-soft: rgba(204, 120, 92, 0.14);
+  --public-dark: #181715;
+  --public-dark-raised: #252320;
+  --public-dark-soft: #1f1e1b;
+  --public-on-dark: #faf9f5;
+  --public-on-dark-soft: #a09d96;
+  --public-success: #5db872;
+  --public-ring: rgba(204, 120, 92, 0.24);
+  --public-shadow: 0 18px 40px rgba(20, 20, 19, 0.06);
+  --public-shadow-soft: 0 8px 22px rgba(20, 20, 19, 0.045);
+  --public-nav-height: 3.75rem;
+  --public-font-sans: Inter, "Noto Sans SC", "Source Han Sans SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --public-font-display: var(--public-font-sans);
+  --public-font-mono: "JetBrains Mono", "SFMono-Regular", "Cascadia Code", Consolas, "Liberation Mono", monospace;
+  color: var(--public-text);
+  font-family: var(--public-font-sans);
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+.home-page-root,
+.tutorial-page,
+.model-plaza-page,
+.legal-document-page {
+  padding-top: var(--public-nav-height);
 }
 
 .public-page-shell {
   position: relative;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 48% 28%, rgba(32, 170, 92, 0.22) 0, transparent 34%),
-    radial-gradient(circle at 20% 20%, rgba(87, 86, 210, 0.16) 0, transparent 30%),
-    linear-gradient(180deg, #050914 0%, #08110f 48%, #03060a 100%);
+  background: var(--public-bg);
 }
 
 .public-hero {
@@ -43,11 +66,11 @@
   gap: 0.5rem;
   border: 1px solid var(--public-border-strong);
   border-radius: 999px;
-  background: var(--public-surface-soft);
+  background: var(--public-bg-soft);
   padding: 0.52rem 0.78rem;
   color: var(--public-muted-strong);
   font-size: 0.75rem;
-  font-weight: 900;
+  font-weight: 500;
   letter-spacing: 0.04em;
   backdrop-filter: blur(18px);
 }
@@ -55,14 +78,15 @@
 .public-kicker span {
   height: 0.45rem;
   width: 0.45rem;
-  background: #6dff9b;
-  box-shadow: 0 0 16px rgba(109, 255, 155, 0.8);
+  border-radius: 999px;
+  background: var(--public-accent);
 }
 
 .public-hero h1 {
   margin-top: 1.15rem;
+  font-family: var(--public-font-display);
   font-size: clamp(2.5rem, 7vw, 5rem);
-  font-weight: 950;
+  font-weight: 400;
   line-height: 0.98;
   letter-spacing: 0;
 }
@@ -70,7 +94,16 @@
 .public-hero p {
   margin: 1rem auto 0;
   max-width: 44rem;
-  color: rgba(238, 246, 240, 0.76);
+  color: var(--public-muted);
   font-size: 1.02rem;
   line-height: 1.9;
+}
+
+@media (max-width: 1023px) {
+  .home-page-root,
+  .tutorial-page,
+  .model-plaza-page,
+  .legal-document-page {
+    --public-nav-height: 6.4rem;
+  }
 }

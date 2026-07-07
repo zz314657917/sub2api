@@ -1,5 +1,5 @@
 <template>
-  <div class="auth-pixel-bg relative flex min-h-screen items-center justify-center overflow-hidden p-4 text-white">
+  <div class="auth-pixel-bg relative flex min-h-screen items-center justify-center overflow-hidden p-4 text-[#141413]">
     <div class="auth-blur-field pointer-events-none absolute inset-0"></div>
     <div class="auth-noise pointer-events-none absolute inset-0"></div>
 
@@ -9,15 +9,13 @@
       <div class="mb-7 text-center">
         <!-- Custom Logo or Default Logo -->
         <template v-if="settingsLoaded">
-          <div
-            class="mb-4 inline-flex h-16 w-16 items-center justify-center overflow-hidden border border-white/20 bg-white/12 shadow-[inset_0_1px_0_rgba(255,255,255,0.2),0_14px_26px_rgba(8,5,21,0.26)]"
-          >
+          <div class="mb-4 inline-flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-[#d8cec2] bg-[#faf9f5]/80 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_12px_26px_rgba(20,20,19,0.08)]">
             <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
           </div>
-          <h1 class="auth-brand-title mb-2 text-3xl font-black">
+          <h1 class="auth-brand-title mb-2 text-3xl font-bold">
             {{ siteName }}
           </h1>
-          <p class="text-sm font-medium text-violet-100/72">
+          <p class="text-sm font-medium text-[#6c6a64]">
             {{ siteSubtitle }}
           </p>
         </template>
@@ -34,7 +32,7 @@
       </div>
 
       <!-- Copyright -->
-      <div class="mt-8 text-center text-xs text-violet-100/48">
+      <div class="mt-8 text-center text-xs text-[#8e8b82]">
         &copy; {{ currentYear }} {{ siteName }}. All rights reserved.
       </div>
     </div>
@@ -69,55 +67,52 @@ onMounted(() => {
 <style scoped>
 .auth-pixel-bg {
   background:
-    radial-gradient(circle at 50% 38%, rgba(169, 109, 255, 0.16) 0, transparent 34%),
-    radial-gradient(circle at 18% 22%, rgba(105, 86, 255, 0.26) 0, transparent 30%),
-    radial-gradient(circle at 82% 28%, rgba(168, 75, 255, 0.2) 0, transparent 28%),
-    linear-gradient(180deg, #120b35 0%, #160932 48%, #080515 100%);
+    radial-gradient(circle at 18% 12%, rgba(204, 120, 92, 0.14) 0, transparent 28rem),
+    radial-gradient(circle at 84% 16%, rgba(216, 206, 194, 0.48) 0, transparent 26rem),
+    linear-gradient(180deg, #faf9f5 0%, #f5f0e8 54%, #efe9de 100%);
 }
 
 .auth-blur-field {
   background:
-    radial-gradient(ellipse at 50% 32%, rgba(197, 118, 255, 0.28), transparent 36%),
-    radial-gradient(ellipse at 34% 22%, rgba(74, 86, 255, 0.22), transparent 28%),
-    radial-gradient(ellipse at 70% 24%, rgba(117, 41, 199, 0.28), transparent 30%),
-    radial-gradient(ellipse at 54% 80%, rgba(77, 223, 255, 0.1), transparent 28%);
-  filter: blur(44px);
-  opacity: 0.94;
+    radial-gradient(ellipse at 50% 28%, rgba(204, 120, 92, 0.12), transparent 34%),
+    radial-gradient(ellipse at 36% 18%, rgba(255, 248, 235, 0.72), transparent 28%),
+    radial-gradient(ellipse at 70% 24%, rgba(216, 206, 194, 0.36), transparent 30%);
+  filter: blur(38px);
+  opacity: 0.86;
   transform: scale(1.05);
 }
 
 .auth-noise {
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-  background-size: 54px 54px;
+    linear-gradient(rgba(216, 206, 194, 0.24) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(216, 206, 194, 0.18) 1px, transparent 1px);
+  background-size: 46px 46px;
   mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.56), transparent 80%);
-  opacity: 0.36;
+  opacity: 0.28;
 }
 
 .auth-brand-title {
-  color: transparent;
-  background: linear-gradient(98deg, #ffffff 0%, #c4a5ff 42%, #74d5ff 78%, #ffffff 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: #141413;
 }
 
 .auth-panel {
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.09);
+  border: 1px solid rgba(216, 206, 194, 0.82);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(250, 249, 245, 0.92), rgba(239, 233, 222, 0.76)),
+    rgba(250, 249, 245, 0.86);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 18px 44px rgba(8, 5, 21, 0.32);
+    inset 0 1px 0 rgba(255, 255, 255, 0.68),
+    0 24px 64px rgba(75, 52, 40, 0.12);
   backdrop-filter: blur(20px);
 }
 
 .auth-footer :deep(a) {
-  color: #ffd85d;
-  font-weight: 800;
+  color: #a9583e;
+  font-weight: 650;
 }
 
 .auth-footer :deep(a:hover) {
-  color: #ffec86;
+  color: #cc785c;
 }
 </style>

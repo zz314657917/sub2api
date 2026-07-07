@@ -16,7 +16,7 @@
       </button>
 
       <button @click="router.push('/usage')" class="console-action-row group flex w-full items-center gap-4 p-4 text-left transition-all duration-200">
-        <div class="console-action-icon console-stat-icon--green transition-transform group-hover:scale-105">
+        <div class="console-action-icon !border-[#d8cec2] !bg-[#fffaf5] !text-[#5f7f68] transition-transform group-hover:scale-105 dark:!border-[#5f7f68]/45 dark:!bg-[#5f7f68]/20 dark:!text-[#9ab3a0]">
           <Icon name="chartBar" size="md" />
         </div>
         <div class="min-w-0 flex-1">
@@ -26,16 +26,6 @@
         <Icon name="arrowRight" size="sm" />
       </button>
 
-      <button @click="router.push('/redeem')" class="console-action-row group flex w-full items-center gap-4 p-4 text-left transition-all duration-200">
-        <div class="console-action-icon console-stat-icon--yellow transition-transform group-hover:scale-105">
-          <Icon name="gift" size="md" />
-        </div>
-        <div class="min-w-0 flex-1">
-          <p class="text-sm font-medium text-gray-900 dark:text-white">{{ t('dashboard.redeemCode') }}</p>
-          <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('dashboard.addBalanceWithCode') }}</p>
-        </div>
-        <Icon name="arrowRight" size="sm" />
-      </button>
     </div>
   </div>
 </template>

@@ -265,7 +265,7 @@
             </div>
 
             <!-- Free tier note -->
-            <div class="rounded-lg bg-green-50 p-3 text-xs text-green-700 dark:bg-green-900/20 dark:text-green-300">
+            <div class="rounded-lg bg-[#fffaf5] p-3 text-xs text-[#5f7f68] ring-1 ring-[#d8cec2] dark:bg-[#7f9d8a]/12 dark:text-[#9bb7a1] dark:ring-[#7f9d8a]/25">
               {{ t('admin.backup.r2Guide.freeTier') }}
             </div>
 
@@ -579,9 +579,9 @@ async function removeBackup(id: string) {
 function statusClass(status: string): string {
   switch (status) {
     case 'completed':
-      return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+      return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
     case 'running':
-      return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+      return 'bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:text-[#f0b89e] dark:ring-[#cc785c]/30'
     case 'failed':
       return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
     default:

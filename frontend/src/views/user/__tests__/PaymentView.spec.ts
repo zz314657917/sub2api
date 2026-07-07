@@ -474,6 +474,7 @@ describe('PaymentView pricing layout', () => {
     expect(source).toContain('pricing-order-scroll')
     expect(source).toContain('max-height: min(26rem, 44vh)')
     expect(source).toContain('handleInlineRedeem')
+    expect(source).toContain("from '@/api/redeem'")
     expect(source).toContain('fetchRecentOrders')
     expect(source).toContain('payment.invoices.applyTitle')
     expect(source).toContain('payment.invoices.applyHint')

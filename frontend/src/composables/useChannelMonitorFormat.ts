@@ -4,7 +4,7 @@
  * Centralises:
  *  - status / provider label + badge class lookups
  *  - latency / availability / percent number formatting
- *  - dashboard-style helpers (HSL for availability, provider gradient, relative time)
+ *  - dashboard-style helpers (warm availability colour, provider gradient, relative time)
  *
  * i18n keys live under `monitorCommon.*` so admin and user views share the
  * same translation source.
@@ -24,11 +24,6 @@ import {
 
 const NEUTRAL_BADGE = 'bg-gray-100 text-gray-800 dark:bg-dark-700 dark:text-gray-300'
 
-/** Availability HSL hue multiplier: 0%=red(0) / 50%=yellow(60) / 100%=green(120). */
-const HSL_HUE_PER_PERCENT = 1.2
-const HSL_SATURATION = 72
-const HSL_LIGHTNESS = 42
-
 export interface AvailabilityRow {
   primary_status: MonitorStatus | ''
   availability_7d: number | null | undefined
@@ -45,7 +40,7 @@ export function useChannelMonitorFormat() {
   function statusBadgeClass(s: MonitorStatus | ''): string {
     switch (s) {
       case STATUS_OPERATIONAL:
-        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+        return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
       case STATUS_DEGRADED:
         return 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
       case STATUS_FAILED:
@@ -66,11 +61,11 @@ export function useChannelMonitorFormat() {
   function providerBadgeClass(p: Provider | string): string {
     switch (p) {
       case PROVIDER_OPENAI:
-        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300'
+        return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
       case PROVIDER_ANTHROPIC:
         return 'bg-orange-100 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300'
       case PROVIDER_GEMINI:
-        return 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'
+        return 'bg-[#f5f0e8] text-[#6c6a64] ring-1 ring-[#d8cec2] dark:bg-[#8e8b82]/15 dark:text-[#d8cec2] dark:ring-[#8e8b82]/35'
       default:
         return NEUTRAL_BADGE
     }
@@ -78,23 +73,23 @@ export function useChannelMonitorFormat() {
 
   /**
    * Tailwind class for a provider radio-button-style picker (active/inactive state).
-   * Reuses the same emerald/orange/sky palette as providerBadgeClass to keep
+   * Reuses the same warm/orange/neutral palette as providerBadgeClass to keep
    * visual semantics consistent across badges and pickers.
    */
   function providerPickerClass(p: Provider | string, active: boolean): string {
     switch (p) {
       case PROVIDER_OPENAI:
         return active
-          ? 'border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-400'
-          : 'border-gray-200 bg-white text-gray-600 hover:border-emerald-300 hover:text-emerald-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400 dark:hover:border-emerald-500/50'
+          ? 'border-[#cc785c] bg-[#fffaf5] text-[#a9583e] dark:border-[#f0b89e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
+          : 'border-gray-200 bg-white text-gray-600 hover:border-[#d9957b] hover:text-[#a9583e] dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400 dark:hover:border-[#cc785c]/50'
       case PROVIDER_ANTHROPIC:
         return active
           ? 'border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-500/15 dark:text-orange-300 dark:border-orange-400'
           : 'border-gray-200 bg-white text-gray-600 hover:border-orange-300 hover:text-orange-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400 dark:hover:border-orange-500/50'
       case PROVIDER_GEMINI:
         return active
-          ? 'border-sky-500 bg-sky-50 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-400'
-          : 'border-gray-200 bg-white text-gray-600 hover:border-sky-300 hover:text-sky-700 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400 dark:hover:border-sky-500/50'
+          ? 'border-[#8e8b82] bg-[#f5f0e8] text-[#504f49] dark:border-[#d8cec2]/60 dark:bg-[#8e8b82]/15 dark:text-[#d8cec2]'
+          : 'border-gray-200 bg-white text-gray-600 hover:border-[#b8afa4] hover:text-[#504f49] dark:border-dark-700 dark:bg-dark-800 dark:text-gray-400 dark:hover:border-[#8e8b82]/50'
       default:
         return active
           ? 'border-gray-400 bg-gray-50 text-gray-700 dark:border-dark-500 dark:bg-dark-700 dark:text-gray-200'
@@ -145,14 +140,16 @@ export function useChannelMonitorFormat() {
 }
 
 /**
- * Map availability percent to an HSL colour (red -> yellow -> green).
+ * Map availability percent to the warm console palette.
  * Returns undefined for null/NaN so callers can fall back to a neutral colour.
  */
 export function hslForPct(pct: number | null | undefined): string | undefined {
   if (pct === null || pct === undefined || Number.isNaN(pct)) return undefined
   const clamped = Math.max(0, Math.min(100, pct))
-  const hue = clamped * HSL_HUE_PER_PERCENT
-  return `hsl(${hue} ${HSL_SATURATION}% ${HSL_LIGHTNESS}%)`
+  if (clamped >= 95) return '#a9583e'
+  if (clamped >= 75) return '#cc785c'
+  if (clamped >= 50) return '#b45309'
+  return '#dc2626'
 }
 
 /**
@@ -161,11 +158,11 @@ export function hslForPct(pct: number | null | undefined): string | undefined {
 export function providerGradient(provider: string): string {
   switch (provider) {
     case PROVIDER_OPENAI:
-      return 'bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-500/10 dark:to-emerald-500/20'
+      return 'bg-gradient-to-br from-[#fffaf5] to-[#f3e7df] dark:from-[#cc785c]/10 dark:to-[#cc785c]/20'
     case PROVIDER_ANTHROPIC:
       return 'bg-gradient-to-br from-orange-50 to-amber-100 dark:from-orange-500/10 dark:to-amber-500/20'
     case PROVIDER_GEMINI:
-      return 'bg-gradient-to-br from-sky-50 to-indigo-100 dark:from-sky-500/10 dark:to-indigo-500/20'
+      return 'bg-gradient-to-br from-[#f5f0e8] to-[#e7ded2] dark:from-[#8e8b82]/10 dark:to-[#8e8b82]/20'
     default:
       return 'bg-gradient-to-br from-gray-100 to-gray-200 dark:from-dark-700 dark:to-dark-600'
   }

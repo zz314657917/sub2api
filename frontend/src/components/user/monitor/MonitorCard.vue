@@ -87,9 +87,9 @@ import MonitorTimeline from './MonitorTimeline.vue'
 import { displayModelLabel } from '@/utils/modelDisplay'
 
 const PROVIDER_TINT: Record<string, string> = {
-  openai: 'text-emerald-600 dark:text-emerald-300',
+  openai: 'text-[#a9583e] dark:text-[#f0b89e]',
   anthropic: 'text-orange-600 dark:text-orange-300',
-  gemini: 'text-sky-600 dark:text-sky-300',
+  gemini: 'text-[#6c6a64] dark:text-[#d8cec2]',
 }
 
 const props = defineProps<{

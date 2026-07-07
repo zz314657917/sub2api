@@ -68,16 +68,16 @@ const isDarkMode = computed(() => {
 })
 
 const chartColors = computed(() => ({
-  text: isDarkMode.value ? '#dbeafe' : '#334155',
-  muted: isDarkMode.value ? '#94a3b8' : '#64748b',
-  grid: isDarkMode.value ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)',
-  tooltipBg: isDarkMode.value ? 'rgba(8, 13, 26, 0.96)' : 'rgba(255, 255, 255, 0.96)',
-  tooltipText: isDarkMode.value ? '#f8fafc' : '#0f172a',
-  input: '#3b82f6',
-  output: '#10b981',
-  cacheCreation: '#f59e0b',
-  cacheRead: '#06b6d4',
-  cacheHitRate: '#8b5cf6'
+  text: isDarkMode.value ? '#e8ded4' : '#3d3a34',
+  muted: isDarkMode.value ? '#b4aaa0' : '#7a736b',
+  grid: isDarkMode.value ? 'rgba(216, 206, 194, 0.11)' : 'rgba(160, 153, 144, 0.16)',
+  tooltipBg: isDarkMode.value ? 'rgba(20, 20, 19, 0.96)' : 'rgba(255, 250, 245, 0.98)',
+  tooltipText: isDarkMode.value ? '#fffaf5' : '#26251e',
+  input: '#cc785c',
+  output: '#8f8072',
+  cacheCreation: '#d9a441',
+  cacheRead: '#7f9d8a',
+  cacheHitRate: '#6f6a5f'
 }))
 
 const chartData = computed(() => {
@@ -175,7 +175,7 @@ const lineOptions = computed(() => ({
     },
     tooltip: {
       backgroundColor: chartColors.value.tooltipBg,
-      borderColor: isDarkMode.value ? 'rgba(59, 130, 246, 0.34)' : 'rgba(59, 130, 246, 0.18)',
+      borderColor: isDarkMode.value ? 'rgba(240, 184, 158, 0.32)' : 'rgba(204, 120, 92, 0.24)',
       borderWidth: 1,
       titleColor: chartColors.value.tooltipText,
       bodyColor: chartColors.value.tooltipText,
@@ -277,24 +277,24 @@ const formatCost = (value: number): string => {
   height: 1.75rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(59, 130, 246, 0.22);
+  border: 1px solid rgba(204, 120, 92, 0.24);
   border-radius: 0.5rem;
-  background: rgba(59, 130, 246, 0.09);
-  color: #2563eb;
+  background: rgba(204, 120, 92, 0.1);
+  color: #a9583e;
 }
 
 .dark .dashboard-title-icon {
-  border-color: rgba(96, 165, 250, 0.28);
-  background: rgba(59, 130, 246, 0.14);
-  color: #93c5fd;
+  border-color: rgba(240, 184, 158, 0.3);
+  background: rgba(204, 120, 92, 0.16);
+  color: #f0b89e;
 }
 
 .dashboard-panel-chip {
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid rgba(216, 206, 194, 0.74);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 250, 245, 0.72);
   padding: 0.25rem 0.625rem;
-  color: #64748b;
+  color: #7a736b;
   font-size: 0.6875rem;
   font-weight: 700;
   line-height: 1;

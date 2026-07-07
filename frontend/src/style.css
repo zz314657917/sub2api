@@ -4,35 +4,35 @@
 
 @layer base {
   :root {
-    --mc-grass: #3f7f3f;
-    --mc-grass-light: #74a84a;
-    --mc-leaf: #24582b;
-    --mc-dirt: #8b6f47;
-    --mc-dirt-dark: #463225;
-    --mc-stone: #6f7569;
-    --mc-stone-light: #d9d2bd;
-    --mc-sky: #8ecae6;
-    --mc-sun: #f1c453;
-    --mc-cream: #f5f0dc;
-    --mc-ink: #172114;
-    --mc-border: rgba(86, 67, 42, 0.42);
-    --mc-shadow-block: 0 4px 0 rgba(70, 50, 35, 0.24), 0 14px 28px rgba(20, 31, 18, 0.12);
-    --mc-shadow-pressed: 0 2px 0 rgba(70, 50, 35, 0.3), 0 8px 18px rgba(20, 31, 18, 0.1);
+    --mc-grass: #cc785c;
+    --mc-grass-light: #d9957b;
+    --mc-leaf: #a9583e;
+    --mc-dirt: #8e8b82;
+    --mc-dirt-dark: #504f49;
+    --mc-stone: #6c6a64;
+    --mc-stone-light: #efe9de;
+    --mc-sky: #d8cec2;
+    --mc-sun: #cc785c;
+    --mc-cream: #faf9f5;
+    --mc-ink: #141413;
+    --mc-border: rgba(216, 206, 194, 0.82);
+    --mc-shadow-block: 0 16px 38px rgba(75, 52, 40, 0.08);
+    --mc-shadow-pressed: 0 10px 24px rgba(75, 52, 40, 0.07);
     --mc-grid:
-      linear-gradient(rgba(86, 67, 42, 0.08) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(86, 67, 42, 0.08) 1px, transparent 1px);
+      linear-gradient(rgba(216, 206, 194, 0.16) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(216, 206, 194, 0.12) 1px, transparent 1px);
   }
 
   .dark {
-    --mc-grass: #74a84a;
-    --mc-grass-light: #9fc85e;
-    --mc-leaf: #3f7f3f;
+    --mc-grass: #cc785c;
+    --mc-grass-light: #d9957b;
+    --mc-leaf: #a9583e;
     --mc-dirt: #64748b;
     --mc-dirt-dark: #0f172a;
     --mc-stone: #94a3b8;
     --mc-stone-light: #1e293b;
     --mc-sky: #28445a;
-    --mc-sun: #f1c453;
+    --mc-sun: #d9957b;
     --mc-cream: #0f172a;
     --mc-ink: #f5f0dc;
     --mc-border: rgba(100, 116, 139, 0.32);
@@ -52,8 +52,9 @@
   }
 
   body {
-    @apply bg-primary-50 text-gray-900 dark:bg-dark-950 dark:text-gray-100;
+    @apply text-gray-900 dark:bg-dark-950 dark:text-gray-100;
     @apply min-h-screen;
+    background-color: #faf9f5;
     background-image: var(--mc-grid);
     background-size: 24px 24px;
   }
@@ -99,9 +100,14 @@
 
   /* 选中文本样式 */
   ::selection {
-    @apply bg-primary-500/20 text-primary-900 dark:text-primary-100;
+    background: rgba(204, 120, 92, 0.22);
+    color: #141413;
   }
 
+  input[type='checkbox'],
+  input[type='radio'] {
+    accent-color: #cc785c;
+  }
 
 }
 
@@ -113,26 +119,36 @@
     border-color: var(--mc-border);
     box-shadow: var(--mc-shadow-pressed);
     @apply transition-all duration-200 ease-out;
-    @apply focus:outline-none focus:ring-2 focus:ring-primary-500/50 focus:ring-offset-2;
+    @apply focus:outline-none focus:ring-2 focus:ring-offset-2;
+    --tw-ring-color: rgba(204, 120, 92, 0.38);
     @apply disabled:transform-none disabled:cursor-not-allowed disabled:opacity-50;
     @apply active:translate-y-0.5;
   }
 
   .btn-primary {
-    @apply border border-primary-800 bg-primary-600;
+    @apply border;
+    border-color: #141413;
+    background: #141413;
     @apply text-white;
-    background-image:
-      linear-gradient(rgba(255, 255, 255, 0.12) 0 0),
-      linear-gradient(135deg, var(--mc-grass-light), var(--mc-grass));
-    @apply hover:bg-primary-700;
+    background-image: none;
+  }
+
+  .btn-primary:hover {
+    background: #2a2926;
+    border-color: #2a2926;
   }
 
   .btn-secondary {
-    @apply bg-white dark:bg-dark-800;
+    background: rgba(250, 249, 245, 0.88);
+    @apply dark:bg-dark-800;
     @apply text-gray-700 dark:text-gray-200;
     @apply border dark:border-dark-600;
     border-color: var(--mc-border);
-    @apply hover:bg-accent-50 dark:hover:bg-dark-700;
+    @apply dark:hover:bg-dark-700;
+  }
+
+  .btn-secondary:hover {
+    background: #efe9de;
   }
 
   .btn-ghost {
@@ -206,14 +222,20 @@
   /* ============ 输入框样式 ============ */
   .input {
     @apply w-full rounded-md px-4 py-2.5 text-sm;
-    @apply bg-white dark:bg-dark-800;
+    background: rgba(250, 249, 245, 0.9);
+    @apply dark:bg-dark-800;
     @apply border dark:border-dark-600;
     border-color: var(--mc-border);
     @apply text-gray-900 dark:text-gray-100;
     @apply placeholder:text-gray-400 dark:placeholder:text-dark-400;
     @apply transition-all duration-200;
-    @apply focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30;
+    @apply focus:outline-none focus:ring-2;
     @apply disabled:cursor-not-allowed disabled:bg-gray-100 dark:disabled:bg-dark-900;
+  }
+
+  .input:focus {
+    border-color: #cc785c;
+    --tw-ring-color: rgba(204, 120, 92, 0.2);
   }
 
   .input-error {
@@ -245,13 +267,15 @@
 
   /* ============ 玻璃效果 ============ */
   .glass {
-    @apply bg-white/85 backdrop-blur-md dark:bg-dark-800/85;
+    background-color: rgba(250, 249, 245, 0.85);
+    @apply backdrop-blur-md dark:bg-dark-800/85;
     background-image: var(--mc-grid);
     background-size: 24px 24px;
   }
 
   .glass-card {
-    @apply bg-white/85 dark:bg-dark-800/85;
+    background-color: rgba(250, 249, 245, 0.86);
+    @apply dark:bg-dark-800/85;
     @apply backdrop-blur-md;
     @apply rounded-lg;
     @apply border dark:border-dark-700/70;
@@ -262,7 +286,8 @@
 
   /* ============ 卡片样式 ============ */
   .card {
-    @apply bg-white dark:bg-dark-800/80;
+    background-color: rgba(250, 249, 245, 0.92);
+    @apply dark:bg-dark-800/80;
     @apply rounded-lg;
     @apply border dark:border-dark-700/70;
     border-color: var(--mc-border);
@@ -277,7 +302,8 @@
   }
 
   .card-glass {
-    @apply bg-white/85 dark:bg-dark-800/85;
+    background-color: rgba(250, 249, 245, 0.86);
+    @apply dark:bg-dark-800/85;
     @apply backdrop-blur-md;
     @apply rounded-lg;
     @apply border dark:border-dark-700/70;
@@ -414,7 +440,9 @@
   }
 
   .badge-purple {
-    @apply bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400;
+    background-color: rgba(204, 120, 92, 0.12);
+    color: #a9583e;
+    @apply dark:bg-purple-900/30 dark:text-purple-400;
   }
 
   /* ============ 下拉菜单 ============ */
@@ -748,8 +776,15 @@
 
   .code-block {
     @apply font-mono text-sm;
+    @apply overflow-x-auto rounded-lg p-4;
+    background: #f5f0e8;
+    border: 1px solid #d8cec2;
+    color: #26251e;
+  }
+
+  .dark .code-block {
     @apply bg-gray-900 text-gray-100;
-    @apply overflow-x-auto rounded-xl p-4;
+    border-color: rgba(51, 65, 85, 0.72);
   }
 
   /* ============ Tour Description ============ */

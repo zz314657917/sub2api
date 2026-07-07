@@ -298,12 +298,12 @@ onMounted(() => {
               <span
                 v-for="email in draft.alert.recipients"
                 :key="email"
-                class="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                class="inline-flex items-center gap-2 rounded-full bg-[#f3e7df] px-3 py-1 text-xs font-medium text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]"
               >
                 {{ email }}
                 <button
                   type="button"
-                  class="text-blue-700/80 hover:text-blue-900 dark:text-blue-300"
+                  class="text-[#a9583e]/80 hover:text-[#7a4635] dark:text-[#f0b89e]"
                   @click="removeRecipient('alert', email)"
                 >
                   ×
@@ -363,12 +363,12 @@ onMounted(() => {
               <span
                 v-for="email in draft.report.recipients"
                 :key="email"
-                class="inline-flex items-center gap-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                class="inline-flex items-center gap-2 rounded-full bg-[#f3e7df] px-3 py-1 text-xs font-medium text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]"
               >
                 {{ email }}
                 <button
                   type="button"
-                  class="text-blue-700/80 hover:text-blue-900 dark:text-blue-300"
+                  class="text-[#a9583e]/80 hover:text-[#7a4635] dark:text-[#f0b89e]"
                   @click="removeRecipient('report', email)"
                 >
                   ×

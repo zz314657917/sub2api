@@ -24,7 +24,7 @@
         <!-- 专属分组区域 -->
         <div v-if="exclusiveGroups.length > 0">
           <div class="mb-3 flex items-center gap-2">
-            <div class="h-1.5 w-1.5 rounded-full bg-purple-500"></div>
+            <div class="h-1.5 w-1.5 rounded-full bg-[#cc785c]"></div>
             <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.users.exclusiveGroups') }}</h4>
             <span class="text-xs text-gray-400">({{ exclusiveGroupConfigs.filter(c => c.isSelected).length }}/{{ exclusiveGroupConfigs.length }})</span>
           </div>
@@ -59,7 +59,7 @@
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2">
                     <span class="text-base font-semibold text-gray-900 dark:text-white">{{ config.groupName }}</span>
-                    <span class="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/40 dark:text-purple-300">
+                    <span class="inline-flex items-center rounded-full bg-[#f3e7df] px-2 py-0.5 text-xs font-medium text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]">
                       {{ t('admin.groups.exclusive') }}
                     </span>
                   </div>
@@ -96,7 +96,7 @@
         <!-- 公开分组区域 -->
         <div v-if="publicGroups.length > 0">
           <div class="mb-3 flex items-center gap-2">
-            <div class="h-1.5 w-1.5 rounded-full bg-green-500"></div>
+            <div class="h-1.5 w-1.5 rounded-full bg-[#7f9d8a]"></div>
             <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300">{{ t('admin.users.publicGroups') }}</h4>
             <span class="text-xs text-gray-400">({{ publicGroupConfigs.length }})</span>
           </div>
@@ -104,12 +104,12 @@
             <div
               v-for="config in publicGroupConfigs"
               :key="config.groupId"
-              class="relative overflow-hidden rounded-xl border-2 border-green-200 bg-green-50/50 p-4 dark:border-green-800/50 dark:bg-green-900/10"
+              class="relative overflow-hidden rounded-xl border-2 border-[#d8cec2] bg-[#fffaf5]/70 p-4 dark:border-[#7f9d8a]/40 dark:bg-[#7f9d8a]/10"
             >
               <div class="flex items-center gap-4">
                 <!-- 复选框（禁用状态） -->
                 <div class="flex-shrink-0">
-                  <div class="flex h-5 w-5 items-center justify-center rounded-md border-2 border-green-400 bg-green-500 dark:border-green-600 dark:bg-green-600">
+                  <div class="flex h-5 w-5 items-center justify-center rounded-md border-2 border-[#7f9d8a] bg-[#5f7f68] dark:border-[#9ab3a0] dark:bg-[#7f9d8a]">
                     <svg class="h-full w-full text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
                     </svg>

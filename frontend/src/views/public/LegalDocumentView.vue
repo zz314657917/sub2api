@@ -1,6 +1,6 @@
 <template>
-  <div class="legal-document-page public-page-shell min-h-screen text-white">
-    <PublicMatrixBackdrop />
+  <div class="legal-document-page public-page-shell min-h-screen">
+    <PublicRevealBackdrop variant="page" />
 
     <PublicTopNav />
 
@@ -81,7 +81,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores'
-import PublicMatrixBackdrop from './components/PublicMatrixBackdrop.vue'
+import PublicRevealBackdrop from './components/PublicRevealBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
 import type { LoginAgreementDocument } from '@/types'
 
@@ -188,12 +188,10 @@ onMounted(async () => {
 .legal-document-card {
   border: 1px solid var(--public-border-strong);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.11), rgba(255, 255, 255, 0.055)),
-    rgba(6, 13, 18, 0.72);
+  background: rgba(250, 249, 245, 0.92);
   box-shadow: var(--public-shadow);
   padding: clamp(1.35rem, 3vw, 2.25rem);
-  backdrop-filter: blur(20px);
+  backdrop-filter: blur(16px);
 }
 
 .legal-document-header {
@@ -213,12 +211,10 @@ onMounted(async () => {
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(119, 255, 173, 0.24);
+  border: 1px solid var(--public-border);
   border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(119, 255, 173, 0.18), rgba(99, 102, 241, 0.1)),
-    rgba(255, 255, 255, 0.07);
-  color: #b7ffd0;
+  background: var(--public-accent-soft);
+  color: var(--public-accent);
   box-shadow: var(--public-shadow-soft);
 }
 
@@ -226,16 +222,17 @@ onMounted(async () => {
   margin: 0;
   color: var(--public-accent);
   font-size: 0.78rem;
-  font-weight: 900;
+  font-weight: 500;
   letter-spacing: 0.04em;
 }
 
 .legal-document-header h1,
 .legal-document-state h1 {
   margin: 0.4rem 0 0;
-  color: #f8fafc;
+  font-family: var(--public-font-display);
+  color: var(--public-text);
   font-size: clamp(1.85rem, 4vw, 3rem);
-  font-weight: 950;
+  font-weight: 400;
   line-height: 1.08;
   letter-spacing: 0;
 }
@@ -264,63 +261,65 @@ onMounted(async () => {
   margin-top: 1.65rem;
   line-height: 1.85;
   overflow-wrap: anywhere;
-  color: rgba(226, 232, 240, 0.86);
+  color: #3d3d3a;
 }
 
 .legal-document-content :deep(h1) {
   margin: 2rem 0 1rem;
   border-bottom: 1px solid var(--public-border);
   padding-bottom: 0.9rem;
-  color: #ffffff;
+  font-family: var(--public-font-display);
+  color: var(--public-text);
   font-size: clamp(1.6rem, 3vw, 2.15rem);
-  font-weight: 900;
+  font-weight: 400;
   line-height: 1.2;
 }
 
 .legal-document-content :deep(h2) {
   margin: 1.85rem 0 0.75rem;
-  color: #f8fafc;
+  font-family: var(--public-font-display);
+  color: var(--public-text);
   font-size: clamp(1.25rem, 2vw, 1.55rem);
-  font-weight: 850;
+  font-weight: 400;
   line-height: 1.28;
 }
 
 .legal-document-content :deep(h3) {
   margin: 1.5rem 0 0.55rem;
-  color: #eef2ff;
+  color: #252523;
   font-size: 1.1rem;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .legal-document-content :deep(h4) {
   margin: 1.25rem 0 0.45rem;
-  color: #eef2ff;
+  color: #252523;
   font-size: 1rem;
-  font-weight: 800;
+  font-weight: 500;
 }
 
 .legal-document-content :deep(p) {
   margin: 0 0 1rem;
-  color: rgba(226, 232, 240, 0.84);
+  color: #3d3d3a;
   font-size: 0.96rem;
 }
 
 .legal-document-content :deep(a) {
-  color: #98ffbd;
+  color: var(--public-accent);
   text-decoration: underline;
   text-underline-offset: 4px;
   transition: color 150ms ease;
 }
 
 .legal-document-content :deep(a:hover) {
-  color: #ffffff;
+  color: var(--public-accent-strong);
 }
 
 .legal-document-content :deep(ul),
 .legal-document-content :deep(ol) {
   margin: 0 0 1rem;
   padding-left: 1.35rem;
-  color: rgba(226, 232, 240, 0.84);
+  color: #3d3d3a;
 }
 
 .legal-document-content :deep(ul) {
@@ -338,20 +337,20 @@ onMounted(async () => {
 
 .legal-document-content :deep(blockquote) {
   margin: 1.35rem 0;
-  border-left: 3px solid rgba(119, 255, 173, 0.52);
+  border-left: 3px solid #cc785c;
   border-radius: 0 8px 8px 0;
-  background: rgba(119, 255, 173, 0.08);
+  background: var(--public-accent-soft);
   padding: 0.85rem 1rem;
-  color: rgba(238, 246, 240, 0.82);
+  color: #3d3d3a;
 }
 
 .legal-document-content :deep(code) {
   border: 1px solid var(--public-border);
   border-radius: 6px;
-  background: rgba(2, 8, 10, 0.64);
+  background: #f5f0e8;
   padding: 0.12rem 0.35rem;
-  color: #d9ffe7;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  color: #141413;
+  font-family: var(--public-font-mono);
   font-size: 0.86em;
 }
 
@@ -360,9 +359,9 @@ onMounted(async () => {
   overflow-x: auto;
   border: 1px solid var(--public-border);
   border-radius: 8px;
-  background: rgba(2, 8, 10, 0.82);
+  background: #181715;
   padding: 1rem;
-  color: #f8fafc;
+  color: #faf9f5;
 }
 
 .legal-document-content :deep(pre code) {
@@ -388,9 +387,9 @@ onMounted(async () => {
 }
 
 .legal-document-content :deep(th) {
-  background: rgba(255, 255, 255, 0.08);
-  color: #f8fafc;
-  font-weight: 800;
+  background: #f5f0e8;
+  color: var(--public-text);
+  font-weight: 500;
 }
 
 .legal-document-content :deep(img) {
@@ -432,12 +431,12 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   border: 1px solid var(--public-border-strong);
-  border-radius: 8px;
-  background: var(--public-surface-soft);
+  border-radius: 999px;
+  background: #faf9f5;
   padding: 0.5rem 0.85rem;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--public-muted-strong);
   font-size: 0.86rem;
-  font-weight: 850;
+  font-weight: 500;
   transition:
     border-color 150ms ease,
     background 150ms ease,
@@ -448,14 +447,14 @@ onMounted(async () => {
 .legal-document-action:hover {
   border-color: var(--public-ring);
   background: var(--public-surface-hover);
-  color: #ffffff;
+  color: var(--public-accent);
   transform: translateY(-1px);
 }
 
 .legal-document-action--primary {
-  border-color: rgba(119, 255, 173, 0.38);
-  background: linear-gradient(180deg, rgba(119, 255, 173, 0.22), rgba(119, 255, 173, 0.12));
-  color: #eafff1;
+  border-color: #cc785c;
+  background: #cc785c;
+  color: #ffffff;
 }
 
 .legal-document-state {
@@ -476,14 +475,14 @@ onMounted(async () => {
 .legal-document-state--danger .legal-document-state-icon {
   border-color: rgba(248, 113, 113, 0.36);
   background: rgba(248, 113, 113, 0.12);
-  color: #fecaca;
+  color: #b91c1c;
 }
 
 .legal-document-spinner {
   height: 2.6rem;
   width: 2.6rem;
   flex: 0 0 auto;
-  border: 2px solid rgba(255, 255, 255, 0.14);
+  border: 2px solid rgba(38, 37, 30, 0.14);
   border-top-color: var(--public-accent);
   border-radius: 999px;
   animation: legal-document-spin 0.82s linear infinite;

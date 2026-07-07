@@ -1,11 +1,9 @@
 <template>
-  <div
-    class="mc-pixel-grid relative flex min-h-screen items-center justify-center overflow-hidden bg-primary-50 px-4 dark:bg-dark-950"
-  >
+  <div class="not-found-warm-page relative flex min-h-screen items-center justify-center overflow-hidden bg-[#faf9f5] px-4 text-[#141413] dark:bg-dark-950">
     <!-- Background Decoration -->
     <div class="pointer-events-none absolute inset-0 overflow-hidden">
-      <div class="absolute inset-x-0 top-0 h-24 border-b-4 border-accent-700/20 bg-primary-200/70 dark:bg-primary-950/40"></div>
-      <div class="absolute bottom-0 left-0 right-0 h-16 border-t-4 border-accent-700/20 bg-accent-500/25 dark:bg-accent-900/30"></div>
+      <div class="absolute inset-x-0 top-0 h-24 border-b border-[#e6dfd8] bg-[#f5f0e8]/70 dark:bg-dark-900/40"></div>
+      <div class="absolute bottom-0 left-0 right-0 h-16 border-t border-[#e6dfd8] bg-[#efe9de]/55 dark:bg-dark-900/30"></div>
     </div>
 
     <div class="relative z-10 w-full max-w-md text-center">
@@ -16,9 +14,7 @@
             >404</span
           >
           <div class="absolute inset-0 flex items-center justify-center">
-            <div
-              class="flex h-24 w-24 items-center justify-center rounded-lg border-2 border-accent-700/30 bg-gradient-primary shadow-glass"
-            >
+            <div class="flex h-24 w-24 items-center justify-center rounded-full border border-[#d8cec2] bg-[#141413] shadow-[0_18px_42px_rgba(20,20,19,0.16)]">
               <svg
                 class="h-12 w-12 text-white"
                 fill="none"

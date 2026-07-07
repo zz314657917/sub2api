@@ -139,7 +139,7 @@ onBeforeUnmount(clearTimer)
 
 .header-announcement-label {
   flex-shrink: 0;
-  color: #4338ca;
+  color: #a9583e;
   padding: 0;
   font-size: 0.6875rem;
   font-weight: 700;
@@ -211,7 +211,7 @@ onBeforeUnmount(clearTimer)
 }
 
 .dark .header-announcement-label {
-  color: #c7d2fe;
+  color: #f0b89e;
 }
 
 .dark .header-announcement-divider {

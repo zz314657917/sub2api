@@ -171,8 +171,9 @@ describe('AppSidebar chat image navigation', () => {
 })
 
 describe('AppSidebar self navigation groups', () => {
-  it('keeps account entries grouped while usage/status links stay available', () => {
-    expect(componentSource).toContain("label: t('nav.accountCenter')")
+  it('keeps account entries ungrouped at the bottom while usage/status links stay available', () => {
+    expect(componentSource).not.toContain("label: t('nav.accountCenter')")
+    expect(componentSource).not.toContain("path: '/self/account-center'")
     expect(componentSource).toContain("t('nav.myAccount')")
     expect(componentSource).not.toContain("label: t('nav.usageAndStatus')")
     expect(componentSource).toContain("const welfareItem: NavItem = { path: '/welfare'")
@@ -198,10 +199,12 @@ describe('AppSidebar self navigation groups', () => {
     expect(primaryEnd).toBeGreaterThan(primaryStart)
     expect(componentSource.slice(primaryStart, primaryEnd)).toContain('welfareItem')
     expect(componentSource.slice(primaryStart, primaryEnd)).toContain("path: '/affiliate'")
-    const accountCenterBlock = componentSource.slice(accountStart, usageStart)
-    expect(componentSource.slice(accountStart, usageStart)).not.toContain("path: '/welfare'")
-    expect(accountCenterBlock).not.toContain("path: '/affiliate'")
+    const accountItemsBlock = componentSource.slice(accountStart, usageStart)
+    expect(accountItemsBlock).not.toContain("path: '/welfare'")
+    expect(accountItemsBlock).not.toContain("path: '/affiliate'")
     expect(componentSource).toContain('...usageStatusItems')
+    expect(componentSource).toContain('...accountItems')
+    expect(componentSource).toMatch(/items\.push\(\s*\.\.\.primarySelfItems,\s*\.\.\.usageStatusItems,\s*\.\.\.accountItems,\s*\)/)
     expect(componentSource).toContain("path: '/keys'")
     expect(componentSource).toContain("path: '/chat-images'")
     expect(componentSource).toContain("path: '/usage'")
@@ -211,10 +214,11 @@ describe('AppSidebar self navigation groups', () => {
     expect(componentSource).toContain("path: '/available-channels'")
     expect(componentSource).toContain("path: '/monitor'")
     expect(componentSource).toContain("path: '/my-accounts'")
-    expect(accountCenterBlock).not.toContain("path: '/orders'")
+    expect(accountItemsBlock).not.toContain("path: '/orders'")
     expect(componentSource).toContain("path: '/profile'")
-    expect(componentSource).not.toContain("path: '/subscriptions'")
+    expect(componentSource).toContain("path: '/usage'")
     expect(componentSource).toContain("label: t('nav.usageAndSubscriptions')")
+    expect(accountItemsBlock).not.toContain("path: '/redeem'")
   })
 
   it('keeps the API key tour target available inside personal groups', () => {

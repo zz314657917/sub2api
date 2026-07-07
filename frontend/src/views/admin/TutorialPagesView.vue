@@ -74,7 +74,7 @@
                 v-if="row.status === 'published'"
                 :to="`/tutorial/${row.slug}`"
                 target="_blank"
-                class="rounded-lg p-1.5 text-gray-500 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20"
+                class="rounded-lg p-1.5 text-gray-500 hover:bg-[#f3e7df] hover:text-[#a9583e] dark:hover:bg-[#cc785c]/12 dark:hover:text-[#f0b89e]"
                 title="打开前台"
               >
                 <Icon name="externalLink" size="sm" />
@@ -91,7 +91,7 @@
               </button>
               <button
                 type="button"
-                class="rounded-lg p-1.5 text-gray-500 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-900/20"
+                class="rounded-lg p-1.5 text-gray-500 hover:bg-[#f3e7df] hover:text-[#a9583e] dark:hover:bg-[#cc785c]/12 dark:hover:text-[#f0b89e]"
                 :title="row.status === 'published' ? '下线' : '发布'"
                 :disabled="isRowBusy(row.id)"
                 :class="isRowBusy(row.id) && 'opacity-50'"

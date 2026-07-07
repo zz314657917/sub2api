@@ -90,7 +90,7 @@
             :class="[
               'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
               form.platform === 'openai'
-                ? 'bg-white text-green-600 shadow-sm dark:bg-dark-600 dark:text-green-400'
+                ? 'bg-white text-[#a9583e] shadow-sm dark:bg-dark-600 dark:text-[#f0b89e]'
                 : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
             ]"
           >
@@ -115,7 +115,7 @@
             :class="[
               'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
               form.platform === 'gemini'
-                ? 'bg-white text-blue-600 shadow-sm dark:bg-dark-600 dark:text-blue-400'
+                ? 'bg-white text-[#a9583e] shadow-sm dark:bg-dark-600 dark:text-[#f0b89e]'
                 : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
             ]"
           >
@@ -140,7 +140,7 @@
             :class="[
               'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
               form.platform === 'antigravity'
-                ? 'bg-white text-purple-600 shadow-sm dark:bg-dark-600 dark:text-purple-400'
+                ? 'bg-white text-[#a9583e] shadow-sm dark:bg-dark-600 dark:text-[#f0b89e]'
                 : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'
             ]"
           >
@@ -190,15 +190,15 @@
             :class="[
               'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
               accountCategory === 'apikey'
-                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
+                ? 'border-[#cc785c] bg-[#fffaf5] dark:bg-[#cc785c]/12'
+                : 'border-gray-200 hover:border-[#cc785c]/50 dark:border-dark-600 dark:hover:border-[#cc785c]/60'
             ]"
           >
             <div
               :class="[
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'apikey'
-                  ? 'bg-purple-500 text-white'
+                  ? 'bg-[#cc785c] text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
@@ -250,15 +250,15 @@
             :class="[
               'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
               accountCategory === 'service_account'
-                ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/20'
-                : 'border-gray-200 hover:border-sky-300 dark:border-dark-600 dark:hover:border-sky-700'
+                ? 'border-[#cc785c] bg-[#fffaf5] dark:bg-[#cc785c]/12'
+                : 'border-gray-200 hover:border-[#cc785c]/50 dark:border-dark-600 dark:hover:border-[#cc785c]/60'
             ]"
           >
             <div
               :class="[
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'service_account'
-                  ? 'bg-sky-500 text-white'
+                  ? 'bg-[#cc785c] text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
@@ -274,7 +274,7 @@
 
         <div
           v-if="accountCategory === 'service_account'"
-          class="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:border-sky-800/40 dark:bg-sky-900/20 dark:text-sky-200"
+          class="mt-3 rounded-lg border border-[#d8cec2] bg-[#fffaf5] px-3 py-2 text-xs text-[#504f49] dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10 dark:text-[#f0b89e]"
         >
           <p>{{ t('admin.accounts.vertexAnthropicHint') }}</p>
         </div>
@@ -290,15 +290,15 @@
             :class="[
               'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
               accountCategory === 'oauth-based'
-                ? 'border-green-500 bg-green-50 dark:bg-green-900/20'
-                : 'border-gray-200 hover:border-green-300 dark:border-dark-600 dark:hover:border-green-700'
+                ? 'border-[#cc785c] bg-[#fffaf5] dark:border-[#cc785c]/60 dark:bg-[#cc785c]/12'
+                : 'border-gray-200 hover:border-[#d9957b] dark:border-dark-600 dark:hover:border-[#cc785c]/50'
             ]"
           >
             <div
               :class="[
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'oauth-based'
-                  ? 'bg-green-500 text-white'
+                  ? 'bg-[#cc785c] text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
@@ -316,15 +316,15 @@
             :class="[
               'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
               accountCategory === 'apikey'
-                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
+                ? 'border-[#cc785c] bg-[#fffaf5] dark:bg-[#cc785c]/12'
+                : 'border-gray-200 hover:border-[#cc785c]/50 dark:border-dark-600 dark:hover:border-[#cc785c]/60'
             ]"
           >
             <div
               :class="[
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'apikey'
-                  ? 'bg-purple-500 text-white'
+                  ? 'bg-[#cc785c] text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
@@ -346,7 +346,7 @@
           <button
             type="button"
             @click="showGeminiHelpDialog = true"
-            class="flex items-center gap-1 rounded px-2 py-1 text-xs text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20"
+            class="flex items-center gap-1 rounded px-2 py-1 text-xs text-[#a9583e] hover:bg-[#f3e7df] dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/12"
           >
             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
@@ -361,15 +361,15 @@
             :class="[
               'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
               accountCategory === 'oauth-based'
-                ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                : 'border-gray-200 hover:border-blue-300 dark:border-dark-600 dark:hover:border-blue-700'
+                ? 'border-[#cc785c] bg-[#fffaf5] dark:bg-[#cc785c]/12'
+                : 'border-gray-200 hover:border-[#cc785c]/50 dark:border-dark-600 dark:hover:border-[#cc785c]/60'
             ]"
           >
             <div
               :class="[
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'oauth-based'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-[#cc785c] text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
@@ -391,15 +391,15 @@
             :class="[
               'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
               accountCategory === 'apikey'
-                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
+                ? 'border-[#cc785c] bg-[#fffaf5] dark:bg-[#cc785c]/12'
+                : 'border-gray-200 hover:border-[#cc785c]/50 dark:border-dark-600 dark:hover:border-[#cc785c]/60'
             ]"
           >
             <div
               :class="[
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'apikey'
-                  ? 'bg-purple-500 text-white'
+                  ? 'bg-[#cc785c] text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
@@ -433,15 +433,15 @@
             :class="[
               'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
               accountCategory === 'service_account'
-                ? 'border-sky-500 bg-sky-50 dark:bg-sky-900/20'
-                : 'border-gray-200 hover:border-sky-300 dark:border-dark-600 dark:hover:border-sky-700'
+                ? 'border-[#cc785c] bg-[#fffaf5] dark:bg-[#cc785c]/12'
+                : 'border-gray-200 hover:border-[#cc785c]/50 dark:border-dark-600 dark:hover:border-[#cc785c]/60'
             ]"
           >
             <div
               :class="[
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 accountCategory === 'service_account'
-                  ? 'bg-sky-500 text-white'
+                  ? 'bg-[#cc785c] text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
@@ -460,13 +460,13 @@
 
         <div
           v-if="accountCategory === 'apikey'"
-          class="mt-3 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs text-purple-800 dark:border-purple-800/40 dark:bg-purple-900/20 dark:text-purple-200"
+          class="mt-3 rounded-lg console-note-accent px-3 py-2 text-xs"
         >
           <p>{{ t('admin.accounts.gemini.accountType.apiKeyNote') }}</p>
           <div class="mt-2 flex flex-wrap gap-2">
             <a
               :href="geminiHelpLinks.apiKey"
-              class="font-medium text-blue-600 hover:underline dark:text-blue-400"
+              class="font-medium text-[#a9583e] hover:underline dark:text-[#f0b89e]"
               target="_blank"
               rel="noreferrer"
             >
@@ -477,7 +477,7 @@
 
         <div
           v-if="accountCategory === 'service_account'"
-          class="mt-3 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800 dark:border-sky-800/40 dark:bg-sky-900/20 dark:text-sky-200"
+          class="mt-3 rounded-lg border border-[#d8cec2] bg-[#fffaf5] px-3 py-2 text-xs text-[#504f49] dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10 dark:text-[#f0b89e]"
         >
           <p>{{ t('admin.accounts.vertexGeminiHint') }}</p>
         </div>
@@ -493,15 +493,15 @@
               :class="[
                 'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
                 geminiOAuthType === 'google_one'
-                  ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                  : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
+                  ? 'border-[#cc785c] bg-[#fffaf5] dark:bg-[#cc785c]/15'
+                  : 'border-gray-200 hover:border-[#cc785c]/50 dark:border-dark-600 dark:hover:border-[#cc785c]/60'
               ]"
             >
               <div
                 :class="[
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                   geminiOAuthType === 'google_one'
-                    ? 'bg-purple-500 text-white'
+                    ? 'bg-[#cc785c] text-white'
                     : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
                 ]"
               >
@@ -516,12 +516,12 @@
                 </span>
                 <div class="mt-2 flex flex-wrap gap-1">
                   <span
-                    class="rounded bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700 dark:bg-purple-900/40 dark:text-purple-300"
+                    class="rounded console-badge-accent px-2 py-0.5 text-[10px] font-semibold"
                   >
                     推荐个人用户
                   </span>
                   <span
-                    class="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                    class="rounded bg-[#f3e7df] px-2 py-0.5 text-[10px] font-semibold text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]"
                   >
                     无需 GCP
                   </span>
@@ -536,15 +536,15 @@
               :class="[
                 'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
                 geminiOAuthType === 'code_assist'
-                  ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                  : 'border-gray-200 hover:border-blue-300 dark:border-dark-600 dark:hover:border-blue-700'
+                  ? 'border-[#cc785c] bg-[#fffaf5] dark:bg-[#cc785c]/12'
+                  : 'border-gray-200 hover:border-[#cc785c]/50 dark:border-dark-600 dark:hover:border-[#cc785c]/60'
               ]"
             >
               <div
                 :class="[
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                   geminiOAuthType === 'code_assist'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-[#cc785c] text-white'
                     : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
                 ]"
               >
@@ -561,7 +561,7 @@
                   需要激活 GCP 项目并绑定信用卡
                   <a
                     :href="geminiHelpLinks.gcpProject"
-                    class="ml-1 text-blue-600 hover:underline dark:text-blue-400"
+                    class="ml-1 text-[#a9583e] hover:underline dark:text-[#f0b89e]"
                     target="_blank"
                     rel="noreferrer"
                   >
@@ -570,12 +570,12 @@
                 </div>
                 <div class="mt-2 flex flex-wrap gap-1">
                   <span
-                    class="rounded bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300"
+                    class="rounded bg-[#f3e7df] px-2 py-0.5 text-[10px] font-semibold text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]"
                   >
                     企业用户
                   </span>
                   <span
-                    class="rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300"
+                    class="rounded bg-[#fffaf5] px-2 py-0.5 text-[10px] font-semibold text-[#6c6a64] ring-1 ring-[#d8cec2] dark:bg-dark-700 dark:text-[#d8cec2] dark:ring-dark-600"
                   >
                     高并发
                   </span>
@@ -726,15 +726,15 @@
             :class="[
               'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
               antigravityAccountType === 'oauth'
-                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
+                ? 'border-[#cc785c] bg-[#fffaf5] dark:bg-[#cc785c]/12'
+                : 'border-gray-200 hover:border-[#cc785c]/50 dark:border-dark-600 dark:hover:border-[#cc785c]/60'
             ]"
           >
             <div
               :class="[
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 antigravityAccountType === 'oauth'
-                  ? 'bg-purple-500 text-white'
+                  ? 'bg-[#cc785c] text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
@@ -752,15 +752,15 @@
             :class="[
               'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
               antigravityAccountType === 'upstream'
-                ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
-                : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
+                ? 'border-[#cc785c] bg-[#fffaf5] dark:bg-[#cc785c]/12'
+                : 'border-gray-200 hover:border-[#cc785c]/50 dark:border-dark-600 dark:hover:border-[#cc785c]/60'
             ]"
           >
             <div
               :class="[
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
                 antigravityAccountType === 'upstream'
-                  ? 'bg-purple-500 text-white'
+                  ? 'bg-[#cc785c] text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
             >
@@ -815,8 +815,8 @@
             :class="[
               'rounded-lg border-2 border-dashed px-4 py-5 transition-colors',
               vertexServiceAccountDragActive
-                ? 'border-sky-500 bg-sky-50 dark:border-sky-500 dark:bg-sky-900/20'
-                : 'border-gray-300 bg-gray-50 hover:border-sky-400 hover:bg-sky-50/60 dark:border-dark-500 dark:bg-dark-700/40 dark:hover:border-sky-600 dark:hover:bg-sky-900/10'
+                ? 'border-[#cc785c] bg-[#fffaf5] dark:border-[#cc785c] dark:bg-[#cc785c]/12'
+                : 'border-gray-300 bg-gray-50 hover:border-[#cc785c]/60 hover:bg-[#fffaf5]/70 dark:border-dark-500 dark:bg-dark-700/40 dark:hover:border-[#cc785c]/50 dark:hover:bg-[#cc785c]/10'
             ]"
             @dragenter.prevent="vertexServiceAccountDragActive = true"
             @dragover.prevent="vertexServiceAccountDragActive = true"
@@ -844,7 +844,7 @@
             </div>
             <div
               v-if="vertexClientEmail"
-              class="mt-3 rounded-md border border-sky-200 bg-white px-3 py-2 text-xs text-sky-900 dark:border-sky-800/50 dark:bg-dark-800 dark:text-sky-200"
+              class="mt-3 rounded-md border border-[#d8cec2] bg-white px-3 py-2 text-xs text-[#504f49] dark:border-[#cc785c]/30 dark:bg-dark-800 dark:text-[#f0b89e]"
             >
               <div class="truncate">Project ID: <span class="font-mono">{{ vertexProjectId }}</span></div>
               <div class="truncate">Client Email: <span class="font-mono">{{ vertexClientEmail }}</span></div>
@@ -897,8 +897,8 @@
 
         <!-- Mapping Mode Only (no toggle for Antigravity) -->
         <div>
-          <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-            <p class="text-xs text-purple-700 dark:text-purple-400">
+          <div class="mb-3 rounded-lg console-note-accent p-3">
+            <p class="text-xs">
               {{ t('admin.accounts.mapRequestModels') }}
             </p>
           </div>
@@ -1101,7 +1101,7 @@
                 :class="[
                   'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                   modelRestrictionMode === 'mapping'
-                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                    ? 'console-badge-accent'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
                 ]"
               >
@@ -1135,8 +1135,8 @@
 
             <!-- Mapping Mode -->
             <div v-else>
-              <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-                <p class="text-xs text-purple-700 dark:text-purple-400">
+              <div class="mb-3 rounded-lg console-note-accent p-3">
+                <p class="text-xs">
                   <svg
                     class="mr-1 inline h-4 w-4"
                     fill="none"
@@ -1265,8 +1265,8 @@
               />
             </button>
           </div>
-          <div v-if="poolModeEnabled" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-            <p class="text-xs text-blue-700 dark:text-blue-400">
+          <div v-if="poolModeEnabled" class="rounded-lg console-note-accent p-3">
+            <p class="text-xs">
               <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
               {{ t('admin.accounts.poolModeInfo') }}
             </p>
@@ -1540,7 +1540,7 @@
               :class="[
                 'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                 modelRestrictionMode === 'mapping'
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                  ? 'console-badge-accent'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
               ]"
             >
@@ -1610,8 +1610,8 @@
               />
             </button>
           </div>
-          <div v-if="poolModeEnabled" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-            <p class="text-xs text-blue-700 dark:text-blue-400">
+          <div v-if="poolModeEnabled" class="rounded-lg console-note-accent p-3">
+            <p class="text-xs">
               <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
               {{ t('admin.accounts.poolModeInfo') }}
             </p>
@@ -1804,7 +1804,7 @@
               :class="[
                 'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                 modelRestrictionMode === 'mapping'
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+                  ? 'console-badge-accent'
                   : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
               ]"
             >
@@ -1825,8 +1825,8 @@
 
           <!-- Mapping Mode -->
           <div v-else>
-            <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-              <p class="text-xs text-purple-700 dark:text-purple-400">
+            <div class="mb-3 rounded-lg console-note-accent p-3">
+              <p class="text-xs">
                 {{ t('admin.accounts.mapRequestModels') }}
               </p>
             </div>
@@ -1930,8 +1930,8 @@
         </div>
 
         <div v-if="tempUnschedEnabled" class="space-y-3">
-          <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-              <p class="text-xs text-blue-700 dark:text-blue-400">
+          <div class="rounded-lg console-note-accent p-3">
+              <p class="text-xs">
                 <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
                 {{ t('admin.accounts.tempUnschedulable.notice') }}
               </p>
@@ -2795,7 +2795,7 @@
             </span>
             <!-- Tooltip（向下显示避免被弹窗裁剪） -->
             <div
-              class="pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 rounded bg-gray-900 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-gray-700"
+              class="console-tooltip-surface pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 px-3 py-2 text-xs opacity-0 transition-opacity group-hover:opacity-100"
             >
               {{ t('admin.accounts.mixedSchedulingTooltip') }}
               <div
@@ -2822,7 +2822,7 @@
               ?
             </span>
             <div
-              class="pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 rounded bg-gray-900 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-gray-700"
+              class="console-tooltip-surface pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 px-3 py-2 text-xs opacity-0 transition-opacity group-hover:opacity-100"
             >
               {{ t('admin.accounts.allowOveragesTooltip') }}
               <div
@@ -2993,7 +2993,7 @@
                 href="https://policies.google.com/terms"
                 target="_blank"
                 rel="noreferrer"
-                class="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                class="text-sm text-[#a9583e] hover:underline dark:text-[#f0b89e]"
               >
                 {{ t('admin.accounts.gemini.setupGuide.links.countryCheck') }}
               </a>
@@ -3002,7 +3002,7 @@
                 href="https://policies.google.com/country-association-form"
                 target="_blank"
                 rel="noreferrer"
-                class="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                class="text-sm text-[#a9583e] hover:underline dark:text-[#f0b89e]"
               >
                 修改归属地
               </a>
@@ -3011,7 +3011,7 @@
                 href="https://gemini.google.com/gems/create?hl=en-US&pli=1"
                 target="_blank"
                 rel="noreferrer"
-                class="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                class="text-sm text-[#a9583e] hover:underline dark:text-[#f0b89e]"
               >
                 {{ t('admin.accounts.gemini.setupGuide.links.geminiWebActivation') }}
               </a>
@@ -3020,7 +3020,7 @@
                 href="https://console.cloud.google.com"
                 target="_blank"
                 rel="noreferrer"
-                class="text-sm text-blue-600 hover:underline dark:text-blue-400"
+                class="text-sm text-[#a9583e] hover:underline dark:text-[#f0b89e]"
               >
                 {{ t('admin.accounts.gemini.setupGuide.links.gcpProject') }}
               </a>
@@ -3116,7 +3116,7 @@
             :href="geminiQuotaDocs.codeAssist"
             target="_blank"
             rel="noreferrer"
-            class="text-sm text-blue-600 hover:underline dark:text-blue-400"
+            class="text-sm text-[#a9583e] hover:underline dark:text-[#f0b89e]"
           >
             {{ t('admin.accounts.gemini.quotaPolicy.docs.codeAssist') }}
           </a>
@@ -3124,7 +3124,7 @@
             :href="geminiQuotaDocs.aiStudio"
             target="_blank"
             rel="noreferrer"
-            class="text-sm text-blue-600 hover:underline dark:text-blue-400"
+            class="text-sm text-[#a9583e] hover:underline dark:text-[#f0b89e]"
           >
             {{ t('admin.accounts.gemini.quotaPolicy.docs.aiStudio') }}
           </a>
@@ -3132,7 +3132,7 @@
             :href="geminiQuotaDocs.vertex"
             target="_blank"
             rel="noreferrer"
-            class="text-sm text-blue-600 hover:underline dark:text-blue-400"
+            class="text-sm text-[#a9583e] hover:underline dark:text-[#f0b89e]"
           >
             {{ t('admin.accounts.gemini.quotaPolicy.docs.vertex') }}
           </a>
@@ -3149,7 +3149,7 @@
             :href="geminiHelpLinks.apiKey"
             target="_blank"
             rel="noreferrer"
-            class="text-sm text-blue-600 hover:underline dark:text-blue-400"
+            class="text-sm text-[#a9583e] hover:underline dark:text-[#f0b89e]"
           >
             {{ t('admin.accounts.gemini.accountType.apiKeyLink') }}
           </a>
@@ -3157,7 +3157,7 @@
             :href="geminiHelpLinks.aiStudioPricing"
             target="_blank"
             rel="noreferrer"
-            class="text-sm text-blue-600 hover:underline dark:text-blue-400"
+            class="text-sm text-[#a9583e] hover:underline dark:text-[#f0b89e]"
           >
             {{ t('admin.accounts.gemini.accountType.quotaLink') }}
           </a>

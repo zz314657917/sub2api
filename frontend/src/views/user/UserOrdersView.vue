@@ -53,7 +53,7 @@
                   <td class="whitespace-nowrap px-3 py-2"><span :class="invoiceStatusClass(item.status)">{{ invoiceStatusLabel(item.status) }}</span></td>
                   <td class="whitespace-nowrap px-3 py-2 text-gray-500 dark:text-gray-400">{{ formatDateTime(item.created_at) }}</td>
                   <td class="whitespace-nowrap px-3 py-2 text-right">
-                    <button v-if="item.downloadable" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20" @click="downloadInvoice(item)">
+                    <button v-if="item.downloadable" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#a9583e] hover:bg-[#f3e7df] dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/20" @click="downloadInvoice(item)">
                       <Icon name="download" size="sm" />
                       {{ item.downloaded_at ? t('payment.invoices.downloaded') : t('payment.invoices.download') }}
                     </button>
@@ -88,7 +88,7 @@
                 <Icon name="x" size="sm" />
                 <span>{{ t('payment.orders.cancel') }}</span>
               </button>
-              <button v-if="canRequestRefund(row)" @click="openRefundDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-purple-600 hover:bg-purple-50 dark:text-purple-400 dark:hover:bg-purple-900/20">
+              <button v-if="canRequestRefund(row)" @click="openRefundDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#a9583e] hover:bg-[#f3e7df] dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/20">
                 <Icon name="dollar" size="sm" />
                 <span>{{ t('payment.orders.requestRefund') }}</span>
               </button>
@@ -114,7 +114,7 @@
         <div>
           <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.invoices.availableAmount') }}</p>
           <p class="mt-1 text-2xl font-semibold text-gray-900 dark:text-white">{{ formatInvoiceAmount(invoiceSummary.available_amount, invoiceSummary.currency) }}</p>
-          <p class="mt-2 text-sm text-blue-600 dark:text-blue-300">{{ t('payment.invoices.applyHint') }}</p>
+          <p class="mt-2 text-sm text-[#a9583e] dark:text-[#f0b89e]">{{ t('payment.invoices.applyHint') }}</p>
         </div>
         <div>
           <label class="input-label">{{ t('payment.invoices.amount') }}</label>
@@ -128,7 +128,7 @@
               :key="option.value"
               type="button"
               class="rounded-md px-3 py-2 text-sm font-medium"
-              :class="invoiceForm.invoice_type === option.value ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-dark-700 dark:text-gray-200 dark:hover:bg-dark-600'"
+              :class="invoiceForm.invoice_type === option.value ? 'bg-[#141413] text-white dark:bg-white dark:text-gray-900' : 'bg-[#f5f0e8] text-[#504f49] hover:bg-[#efe9de] dark:bg-dark-700 dark:text-gray-200 dark:hover:bg-dark-600'"
               @click="invoiceForm.invoice_type = option.value"
             >
               {{ option.label }}
@@ -170,7 +170,7 @@
     <!-- Refund Dialog -->
     <BaseDialog :show="!!refundTarget" :title="t('payment.orders.requestRefund')" @close="refundTarget = null">
       <div v-if="refundTarget" class="space-y-4">
-        <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-800">
+        <div class="rounded-lg border border-[#d8cec2] bg-[#f5f0e8] p-4 dark:border-dark-700 dark:bg-dark-800">
           <div class="flex justify-between text-sm">
             <span class="text-gray-500 dark:text-gray-400">{{ t('payment.orders.orderId') }}</span>
             <span class="font-mono text-gray-900 dark:text-white">#{{ refundTarget.id }}</span>
@@ -416,8 +416,8 @@ function invoiceStatusLabel(status: InvoiceStatus): string {
 
 function invoiceStatusClass(status: InvoiceStatus): string {
   const base = 'rounded-full px-2 py-0.5 text-xs font-medium'
-  if (status === 'issued') return `${base} bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300`
-  if (status === 'approved') return `${base} bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300`
+  if (status === 'issued') return `${base} bg-[#9ab3a0]/20 text-[#5f7f68] dark:bg-[#9ab3a0]/10 dark:text-[#9ab3a0]`
+  if (status === 'approved') return `${base} bg-[#f5f0e8] text-[#a9583e] dark:bg-[#cc785c]/20 dark:text-[#f0b89e]`
   if (status === 'rejected') return `${base} bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300`
   return `${base} bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300`
 }

@@ -2,13 +2,13 @@
   <Transition name="api-key-onboarding">
     <section
       v-if="show"
-      class="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-slate-950/35 px-4 py-6 backdrop-blur-[2px]"
+      class="pointer-events-none fixed inset-0 z-40 flex items-center justify-center bg-[#2f2925]/35 px-4 py-6 backdrop-blur-[2px]"
       role="dialog"
       aria-modal="true"
       aria-live="polite"
       :aria-label="dialogTitle"
     >
-      <div class="pointer-events-auto w-full max-w-[720px] overflow-hidden rounded-xl border border-slate-700 bg-slate-950 text-white shadow-2xl shadow-cyan-950/30">
+      <div class="pointer-events-auto w-full max-w-[720px] overflow-hidden rounded-xl border border-[#d8cec2] bg-[#fffaf5] text-gray-900 shadow-2xl shadow-[#a9583e]/20 dark:border-[#5f7f68]/45 dark:bg-[#2f2925] dark:text-[#f5f0e8]">
         <div class="relative min-h-[292px] overflow-hidden">
           <img
             src="/onboarding/new-user-trial-popup-header.png"
@@ -16,10 +16,10 @@
             aria-hidden="true"
             class="absolute inset-0 h-full w-full object-cover"
           >
-          <div class="absolute inset-0 bg-gradient-to-r from-slate-950 via-slate-950/92 to-slate-950/20"></div>
+          <div class="absolute inset-0 bg-gradient-to-r from-[#2f2925] via-[#2f2925]/92 to-[#2f2925]/20"></div>
           <button
             type="button"
-            class="absolute right-4 top-4 z-10 rounded-lg p-2 text-slate-300 transition-colors hover:bg-white/10 hover:text-white"
+            class="absolute right-4 top-4 z-10 rounded-lg p-2 text-[#f5f0e8]/80 transition-colors hover:bg-[#fffaf5]/15 hover:text-white"
             aria-label="Close"
             @click="emit('skip')"
           >
@@ -28,17 +28,17 @@
 
           <div class="relative flex min-h-[292px] max-w-[28rem] flex-col justify-between px-5 py-5 sm:px-6 sm:py-6">
             <div>
-              <div class="inline-flex items-center gap-2 rounded-full border border-cyan-300/30 bg-cyan-300/10 px-3 py-1 text-xs font-semibold text-cyan-100">
+              <div class="inline-flex items-center gap-2 rounded-full border border-[#cc785c]/50 bg-[#cc785c]/20 px-3 py-1 text-xs font-semibold text-[#fffaf5]">
                 <Icon name="sparkles" size="xs" :stroke-width="2" />
                 {{ badgeText }}
               </div>
               <h3 class="mt-4 text-2xl font-bold leading-tight text-white sm:text-3xl">
                 {{ dialogTitle }}
               </h3>
-              <p class="mt-3 text-sm leading-6 text-slate-200 sm:text-base">
+              <p class="mt-3 text-sm leading-6 text-[#f5f0e8] sm:text-base">
                 {{ dialogDescription }}
               </p>
-              <p v-if="showBenefitNotice" class="mt-3 text-xs leading-5 text-cyan-100/80">
+              <p v-if="showBenefitNotice" class="mt-3 text-xs leading-5 text-[#f5f0e8]/80">
                 {{ benefitNotice }}
               </p>
             </div>
@@ -47,7 +47,7 @@
               <span
                 v-for="pill in pills"
                 :key="pill"
-                class="rounded-full border border-white/10 bg-white/10 px-3 py-1 text-xs font-medium text-slate-100"
+                class="rounded-full border border-[#fffaf5]/20 bg-[#fffaf5]/12 px-3 py-1 text-xs font-medium text-[#fffaf5]"
               >
                 {{ pill }}
               </span>
@@ -55,20 +55,20 @@
           </div>
         </div>
 
-        <div class="space-y-4 border-t border-slate-800 bg-white px-5 py-4 text-slate-900 dark:bg-dark-900 dark:text-white">
+        <div class="space-y-4 border-t border-[#d8cec2] bg-[#faf9f5] px-5 py-4 text-gray-900 dark:border-[#5f7f68]/40 dark:bg-[#2f2925] dark:text-[#f5f0e8]">
           <div class="grid gap-3 sm:grid-cols-3">
             <div
               v-for="item in steps"
               :key="item.title"
-              class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-dark-700 dark:bg-dark-800"
+              class="rounded-lg border border-[#d8cec2] bg-[#fffaf5] p-3 dark:border-[#5f7f68]/40 dark:bg-[#2f2925]/80"
             >
-              <div class="flex items-center gap-2 text-sm font-semibold text-slate-950 dark:text-white">
-                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-cyan-50 text-cyan-700 dark:bg-cyan-500/10 dark:text-cyan-300">
+              <div class="flex items-center gap-2 text-sm font-semibold text-gray-950 dark:text-[#f5f0e8]">
+                <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#f5f0e8] text-[#a9583e] dark:bg-[#a9583e]/20 dark:text-[#cc785c]">
                   <Icon :name="item.icon" size="xs" :stroke-width="2" />
                 </span>
                 {{ item.title }}
               </div>
-              <p class="mt-2 text-xs leading-5 text-slate-600 dark:text-slate-300">{{ item.description }}</p>
+              <p class="mt-2 text-xs leading-5 text-gray-600 dark:text-[#f5f0e8]/75">{{ item.description }}</p>
             </div>
           </div>
 

@@ -130,7 +130,7 @@
                         :class="[
                           'inline-flex rounded-full px-2 py-0.5 text-xs font-medium',
                           entry.user_status === 'active'
-                            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                            ? 'bg-[#eef4ef] text-[#5f7f68] dark:bg-[#7f9d8a]/15 dark:text-[#9ab3a0]'
                             : 'bg-gray-100 text-gray-600 dark:bg-dark-600 dark:text-gray-400'
                         ]"
                       >
@@ -249,9 +249,9 @@ let searchTimeout: ReturnType<typeof setTimeout>
 const platformColorClass = computed(() => {
   switch (props.group?.platform) {
     case 'anthropic': return 'text-orange-700 dark:text-orange-400'
-    case 'openai': return 'text-emerald-700 dark:text-emerald-400'
+    case 'openai': return 'text-[#a9583e] dark:text-[#f0b89e]'
     case 'antigravity': return 'text-purple-700 dark:text-purple-400'
-    default: return 'text-blue-700 dark:text-blue-400'
+    default: return 'text-[#6c6a64] dark:text-[#d8cec2]'
   }
 })
 

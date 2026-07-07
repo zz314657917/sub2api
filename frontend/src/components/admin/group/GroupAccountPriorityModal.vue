@@ -195,18 +195,18 @@ const platformColorClass = computed(() => {
     case 'anthropic':
       return 'text-orange-700 dark:text-orange-400'
     case 'openai':
-      return 'text-emerald-700 dark:text-emerald-400'
+      return 'text-[#a9583e] dark:text-[#f0b89e]'
     case 'antigravity':
       return 'text-purple-700 dark:text-purple-400'
     default:
-      return 'text-blue-700 dark:text-blue-400'
+      return 'text-[#6c6a64] dark:text-[#d8cec2]'
   }
 })
 
 const accountStatusClass = (status: Account['status']) => [
   'rounded px-1.5 py-0.5 font-medium',
   status === 'active'
-    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+    ? 'bg-[#eef4ef] text-[#5f7f68] dark:bg-[#7f9d8a]/15 dark:text-[#9ab3a0]'
     : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
 ]
 

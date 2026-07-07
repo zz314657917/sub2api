@@ -1,17 +1,51 @@
 <template>
-  <AuthLayout>
+  <component :is="embedded ? 'div' : AuthLayout" :class="embedded ? 'auth-embedded-shell' : undefined">
     <div class="auth-login-form space-y-6">
       <!-- Title -->
-      <div class="text-center">
-        <h2 class="text-2xl font-black text-white">
+      <div v-if="showTitle" class="text-center">
+        <h2 class="text-2xl font-bold text-[#141413]">
           {{ t('auth.welcomeBack') }}
         </h2>
-        <p class="mt-2 text-sm text-violet-100/72">
+        <p class="mt-2 text-sm text-[#6c6a64]">
           {{ t('auth.signInToAccount') }}
         </p>
       </div>
       <!-- Login Form -->
       <form @submit.prevent="handleLogin" class="space-y-5">
+        <div v-if="showOAuthLogin" class="auth-oauth-first space-y-3">
+          <EmailOAuthButtons
+            :disabled="authActionDisabled"
+            :github-enabled="githubOAuthEnabled"
+            :google-enabled="googleOAuthEnabled"
+            :show-divider="false"
+          />
+
+          <LinuxDoOAuthSection
+            v-if="linuxdoOAuthEnabled"
+            :disabled="authActionDisabled"
+            :show-divider="false"
+          />
+          <WechatOAuthSection
+            v-if="wechatOAuthEnabled"
+            :disabled="authActionDisabled"
+            :show-divider="false"
+          />
+          <OidcOAuthSection
+            v-if="oidcOAuthEnabled"
+            :disabled="authActionDisabled"
+            :provider-name="oidcOAuthProviderName"
+            :show-divider="false"
+          />
+
+          <div class="auth-oauth-divider flex items-center gap-3">
+            <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
+            <span class="text-xs text-[#8e8b82]">
+              {{ t('auth.oauthOrContinue') }}
+            </span>
+            <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
+          </div>
+        </div>
+
         <!-- Email Input -->
         <div>
           <label for="email" class="auth-input-label">
@@ -19,14 +53,14 @@
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="mail" size="md" class="text-violet-100/62" />
+              <Icon name="mail" size="md" class="text-[#8e8b82]" />
             </div>
             <input
               id="email"
               v-model="formData.email"
               type="email"
               required
-              autofocus
+              :autofocus="!embedded"
               autocomplete="email"
               :disabled="authActionDisabled"
               class="auth-input pl-11"
@@ -43,7 +77,7 @@
           </label>
           <div class="relative">
             <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-violet-100/62" />
+              <Icon name="lock" size="md" class="text-[#8e8b82]" />
             </div>
             <input
               id="password"
@@ -60,7 +94,7 @@
               type="button"
               @click="showPassword = !showPassword"
               :disabled="authActionDisabled"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-violet-100/62 transition-colors hover:text-white"
+              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-[#8e8b82] transition-colors hover:text-[#141413]"
             >
               <Icon v-if="showPassword" name="eyeOff" size="md" />
               <Icon v-else name="eye" size="md" />
@@ -71,7 +105,7 @@
             <router-link
               v-if="passwordResetEnabled && !backendModeEnabled"
               to="/forgot-password"
-              class="text-sm font-bold text-[#ffd85d] transition-colors hover:text-[#ffec86]"
+              class="text-sm font-semibold text-[#a9583e] transition-colors hover:text-[#cc785c]"
             >
               {{ t('auth.forgotPassword') }}
             </router-link>
@@ -115,7 +149,7 @@
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          <PixelIcon v-else name="arrow-right" size="sm" />
+          <Icon v-else name="arrowRight" size="sm" />
           {{ isLoading ? t('auth.signingIn') : t('auth.signIn') }}
         </button>
 
@@ -130,56 +164,22 @@
           @reject="rejectLoginAgreement"
           @open="showAgreementModal = true"
         />
-
-        <div v-if="showOAuthLogin" class="space-y-3 pt-1">
-          <div class="flex items-center gap-3">
-            <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-            <span class="text-xs text-gray-500 dark:text-dark-400">
-              {{ t('auth.oauthOrContinue') }}
-            </span>
-            <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-          </div>
-
-          <EmailOAuthButtons
-            :disabled="authActionDisabled"
-            :github-enabled="githubOAuthEnabled"
-            :google-enabled="googleOAuthEnabled"
-            :show-divider="false"
-          />
-
-          <LinuxDoOAuthSection
-            v-if="linuxdoOAuthEnabled"
-            :disabled="authActionDisabled"
-            :show-divider="false"
-          />
-          <WechatOAuthSection
-            v-if="wechatOAuthEnabled"
-            :disabled="authActionDisabled"
-            :show-divider="false"
-          />
-          <OidcOAuthSection
-            v-if="oidcOAuthEnabled"
-            :disabled="authActionDisabled"
-            :provider-name="oidcOAuthProviderName"
-            :show-divider="false"
-          />
-        </div>
       </form>
     </div>
 
     <!-- Footer -->
-    <template v-if="!backendModeEnabled" #footer>
-      <p class="text-violet-100/70">
+    <template v-if="!embedded && !backendModeEnabled" #footer>
+      <p class="text-[#6c6a64]">
         {{ t('auth.dontHaveAccount') }}
         <router-link
           :to="registerLinkTarget"
-          class="font-black text-[#ffd85d] transition-colors hover:text-[#ffec86]"
+          class="font-semibold text-[#a9583e] transition-colors hover:text-[#cc785c]"
         >
           {{ t('auth.signUp') }}
         </router-link>
       </p>
     </template>
-  </AuthLayout>
+  </component>
 
   <!-- 2FA Modal -->
   <TotpLoginModal
@@ -204,7 +204,6 @@ import EmailOAuthButtons from '@/components/auth/EmailOAuthButtons.vue'
 import LoginAgreementPrompt from '@/components/auth/LoginAgreementPrompt.vue'
 import TotpLoginModal from '@/components/auth/TotpLoginModal.vue'
 import Icon from '@/components/icons/Icon.vue'
-import PixelIcon from '@/components/icons/PixelIcon.vue'
 import TurnstileWidget from '@/components/TurnstileWidget.vue'
 import { useAuthStore, useAppStore } from '@/stores'
 import { getPublicSettings, isTotp2FARequired, isWeChatWebOAuthEnabled } from '@/api/auth'
@@ -214,6 +213,21 @@ import { clearAllAffiliateReferralCodes } from '@/utils/oauthAffiliate'
 
 const { t } = useI18n()
 const LOGIN_AGREEMENT_STORAGE_KEY = 'sub2api_login_agreement_consent'
+
+const props = withDefaults(defineProps<{
+  embedded?: boolean
+  showTitle?: boolean
+}>(), {
+  embedded: false,
+  showTitle: true
+})
+
+defineEmits<{
+  switchToRegister: []
+}>()
+
+const embedded = computed(() => props.embedded)
+const showTitle = computed(() => props.showTitle)
 
 // ==================== Router & Stores ====================
 
@@ -580,20 +594,19 @@ function handle2FACancel(): void {
 .auth-input-label {
   display: block;
   margin-bottom: 0.45rem;
-  color: rgba(245, 239, 255, 0.86);
+  color: #504f49;
   font-size: 0.875rem;
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .auth-input {
   width: 100%;
   min-height: 2.75rem;
-  border: 2px solid rgba(255, 255, 255, 0.16);
-  background: rgba(8, 5, 21, 0.34);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.08),
-    inset 0 -2px 0 rgba(0, 0, 0, 0.18);
-  color: white;
+  border: 1px solid #d8cec2;
+  border-radius: 10px;
+  background: rgba(250, 249, 245, 0.76);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.64);
+  color: #141413;
   font-size: 0.875rem;
   outline: none;
   transition:
@@ -603,15 +616,15 @@ function handle2FACancel(): void {
 }
 
 .auth-input::placeholder {
-  color: rgba(245, 239, 255, 0.42);
+  color: #a7a29a;
 }
 
 .auth-input:focus {
-  border-color: rgba(141, 103, 255, 0.72);
-  background: rgba(8, 5, 21, 0.48);
+  border-color: rgba(204, 120, 92, 0.68);
+  background: #fffaf5;
   box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.1),
-    0 0 0 3px rgba(141, 103, 255, 0.22);
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    0 0 0 3px rgba(204, 120, 92, 0.16);
 }
 
 .auth-input.input-error {
@@ -627,40 +640,28 @@ function handle2FACancel(): void {
   align-items: center;
   justify-content: center;
   gap: 0.55rem;
-  border: 3px solid #153c1e;
-  background: #328033;
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
-    0 5px 0 #123118,
-    0 16px 30px rgba(8, 5, 21, 0.32);
-  color: white;
+  border: 1px solid #141413;
+  border-radius: 999px;
+  background: #141413;
+  box-shadow: 0 14px 28px rgba(20, 20, 19, 0.16);
+  color: #fffaf5;
   font-size: 0.95rem;
-  font-weight: 900;
-  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.35);
+  font-weight: 700;
   transition:
     transform 120ms ease,
     box-shadow 120ms ease,
-    filter 120ms ease;
+    background-color 120ms ease;
 }
 
 .auth-submit-button:hover:not(:disabled) {
-  filter: brightness(1.05);
+  background: #2a2926;
   transform: translateY(-1px);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
-    0 6px 0 #123118,
-    0 18px 32px rgba(8, 5, 21, 0.36);
+  box-shadow: 0 16px 32px rgba(20, 20, 19, 0.18);
 }
 
 .auth-submit-button:active:not(:disabled) {
-  transform: translateY(3px);
-  box-shadow:
-    inset 0 2px 0 rgba(255, 255, 255, 0.24),
-    inset 0 -3px 0 rgba(0, 0, 0, 0.24),
-    0 2px 0 #123118,
-    0 9px 20px rgba(8, 5, 21, 0.28);
+  transform: translateY(1px);
+  box-shadow: 0 8px 18px rgba(20, 20, 19, 0.14);
 }
 
 .auth-submit-button:disabled {
@@ -668,20 +669,17 @@ function handle2FACancel(): void {
   opacity: 0.62;
 }
 
-.auth-submit-button .pixel-glyph {
-  --pixel-glyph-on: rgba(255, 255, 255, 0.94);
-  --pixel-glyph-accent: rgba(205, 231, 214, 0.86);
-  --pixel-glyph-glow: transparent;
-  filter: none;
+.auth-embedded-shell {
+  color: #141413;
 }
 
 .auth-login-form :deep(.input-error-text) {
-  color: #fca5a5;
+  color: #dc2626;
 }
 
 .auth-login-form :deep(.bg-gray-200),
 .auth-login-form :deep(.dark\:bg-dark-700) {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(216, 206, 194, 0.68);
 }
 
 .fade-enter-active,

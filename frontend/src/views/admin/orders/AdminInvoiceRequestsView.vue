@@ -54,7 +54,7 @@
                       <Icon name="eye" size="sm" />
                       {{ t('common.view') }}
                     </button>
-                    <button v-if="item.status === 'pending'" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-900/20" @click="approveInvoice(item)">
+                    <button v-if="item.status === 'pending'" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#a9583e] hover:bg-[#f3e7df] dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/12" @click="approveInvoice(item)">
                       <Icon name="check" size="sm" />
                       {{ t('payment.invoices.approve') }}
                     </button>
@@ -62,7 +62,7 @@
                       <Icon name="x" size="sm" />
                       {{ t('payment.invoices.reject') }}
                     </button>
-                    <button v-if="item.status === 'pending' || item.status === 'approved'" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-green-600 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-900/20" @click="openIssue(item)">
+                    <button v-if="item.status === 'pending' || item.status === 'approved'" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-[#5f7f68] hover:bg-[#f5f0e8] dark:text-[#9ab3a0] dark:hover:bg-[#7f9d8a]/15" @click="openIssue(item)">
                       <Icon name="upload" size="sm" />
                       {{ t('payment.invoices.issue') }}
                     </button>
@@ -308,8 +308,8 @@ function invoiceStatusLabel(status: InvoiceStatus): string {
 
 function invoiceStatusClass(status: InvoiceStatus): string {
   const base = 'rounded-full px-2 py-0.5 text-xs font-medium'
-  if (status === 'issued') return `${base} bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300`
-  if (status === 'approved') return `${base} bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300`
+  if (status === 'issued') return `${base} bg-[#fffaf5] text-[#5f7f68] ring-1 ring-[#d8cec2] dark:bg-[#7f9d8a]/15 dark:text-[#9ab3a0] dark:ring-[#7f9d8a]/30`
+  if (status === 'approved') return `${base} bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]`
   if (status === 'rejected') return `${base} bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300`
   return `${base} bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300`
 }

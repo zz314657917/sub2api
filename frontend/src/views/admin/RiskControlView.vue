@@ -89,9 +89,9 @@
                   <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.activeWorkers') }}</p>
                   <p class="mt-2 text-2xl font-semibold text-gray-900 dark:text-white">{{ status?.active_workers ?? 0 }}</p>
                 </div>
-                <div class="rounded-lg bg-emerald-50 p-4 dark:bg-emerald-900/10">
+                <div class="rounded-lg bg-[#fffaf5] p-4 ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:ring-[#cc785c]/30">
                   <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.idleWorkers') }}</p>
-                  <p class="mt-2 text-2xl font-semibold text-emerald-700 dark:text-emerald-300">{{ status?.idle_workers ?? configForm.worker_count }}</p>
+                  <p class="mt-2 text-2xl font-semibold text-[#a9583e] dark:text-[#f0b89e]">{{ status?.idle_workers ?? configForm.worker_count }}</p>
                 </div>
                 <div class="rounded-lg bg-gray-50 p-4 dark:bg-dark-700/50">
                   <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.processed') }}</p>
@@ -229,7 +229,7 @@
                       <button
                         v-if="canUnbanRow(row)"
                         type="button"
-                        class="mt-2 inline-flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-900/60 dark:bg-emerald-900/20 dark:text-emerald-300 dark:hover:bg-emerald-900/30"
+                        class="mt-2 inline-flex items-center gap-1 rounded-md border border-[#d8cec2] bg-[#fffaf5] px-2 py-1 text-xs font-medium text-[#a9583e] transition-colors hover:bg-[#f3e7df] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10 dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/15"
                         :disabled="unbanningUserID === row.user_id"
                         @click="unbanUser(row)"
                       >
@@ -512,7 +512,7 @@
                               <span class="truncate font-mono text-sm font-semibold text-gray-900 dark:text-white">{{ row.masked || '-' }}</span>
                               <span
                                 class="inline-flex rounded-md px-1.5 py-0.5 text-[11px] font-medium"
-                                :class="row.configured ? 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300' : 'bg-purple-50 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'"
+                                :class="row.configured ? 'bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/15 dark:text-[#f0b89e] dark:ring-[#cc785c]/30' : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'"
                               >
                                 {{ isStoredApiKeyPendingDelete(row) ? t('admin.riskControl.apiKeyPendingDelete') : row.configured ? t('admin.riskControl.apiKeyConfigured') : t('admin.riskControl.apiKeyTemporary') }}
                               </span>
@@ -564,7 +564,7 @@
                           {{ t('admin.riskControl.auditTestHighest', { category: moderationTestResult.highest_category || '-', score: percent(moderationTestResult.highest_score) }) }}
                         </p>
                       </div>
-                      <span class="inline-flex rounded-full px-2 py-1 text-xs font-medium" :class="moderationTestResult.flagged ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'">
+                      <span class="inline-flex rounded-full px-2 py-1 text-xs font-medium" :class="moderationTestResult.flagged ? 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300' : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'">
                         {{ moderationTestResult.flagged ? t('admin.riskControl.auditTestFlagged') : t('admin.riskControl.auditTestPassed') }}
                       </span>
                     </div>
@@ -574,7 +574,7 @@
                         <span class="font-semibold text-gray-900 dark:text-white">{{ percent(moderationTestResult.composite_score) }}</span>
                       </div>
                       <div class="h-2 overflow-hidden rounded-full bg-gray-100 dark:bg-dark-700">
-                        <div class="h-full rounded-full" :class="moderationTestResult.flagged ? 'bg-red-500' : 'bg-emerald-500'" :style="{ width: percentWidth(moderationTestResult.composite_score) }"></div>
+                        <div class="h-full rounded-full" :class="moderationTestResult.flagged ? 'bg-red-500' : 'bg-[#cc785c]'" :style="{ width: percentWidth(moderationTestResult.composite_score) }"></div>
                       </div>
                     </div>
                     <div class="mt-3 max-h-52 space-y-2 overflow-y-auto pr-1">
@@ -926,7 +926,7 @@
                   {{ inputDetailRow.endpoint || '-' }} · {{ inputDetailRow.provider || '-' }} / {{ displayModelLabel(inputDetailRow.model, inputDetailRow.model || '-') }}
                 </p>
               </div>
-              <span v-if="inputDetailRow.group_name" class="inline-flex rounded-md bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 dark:bg-sky-900/20 dark:text-sky-300">
+              <span v-if="inputDetailRow.group_name" class="inline-flex rounded-md bg-[#fffaf5] px-2.5 py-1 text-xs font-medium text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:text-[#f0b89e] dark:ring-[#cc785c]/30">
                 {{ inputDetailRow.group_name }}
               </span>
             </div>
@@ -1327,7 +1327,7 @@ const overviewItems = computed<OverviewItem[]>(() => [
     meta: modeLabel(configForm.mode),
     icon: 'shield',
     iconClass: configForm.enabled
-      ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300'
+      ? 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
       : 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400',
     badge: runtimeBadgeText.value,
     badgeClass: runtimeBadgeClass.value,
@@ -1338,7 +1338,7 @@ const overviewItems = computed<OverviewItem[]>(() => [
     value: configForm.api_key_configured ? t('admin.riskControl.apiKeyCount', { count: configForm.api_key_count }) : t('admin.riskControl.notConfigured'),
     meta: configForm.api_key_configured ? apiKeyHealthSummary.value || configForm.model || '-' : configForm.model || '-',
     icon: 'key',
-    iconClass: 'bg-sky-50 text-sky-600 dark:bg-sky-900/20 dark:text-sky-300',
+    iconClass: 'bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/10 dark:text-[#f0b89e] dark:ring-[#cc785c]/30',
   },
   {
     key: 'scope',
@@ -1346,7 +1346,7 @@ const overviewItems = computed<OverviewItem[]>(() => [
     value: configForm.all_groups ? t('admin.riskControl.allGroups') : selectedGroupCount.value,
     meta: modelFilterSummary.value,
     icon: 'users',
-    iconClass: 'bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300',
+    iconClass: 'bg-[#fffaf5] text-[#5f7f68] ring-1 ring-[#d8cec2] dark:bg-[#7f9d8a]/15 dark:text-[#9ab3a0] dark:ring-[#7f9d8a]/30',
   },
   {
     key: 'logs',
@@ -1410,7 +1410,7 @@ const runtimeBadgeClass = computed(() => {
   if (!status.value?.risk_control_enabled || !configForm.enabled || configForm.mode === 'off') {
     return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
   }
-  return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300'
+  return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
 })
 
 function applyConfig(config: ContentModerationConfig) {
@@ -1845,22 +1845,22 @@ function resultBadgeClass(row: ContentModerationLog): string {
   if (row.action === 'block' || row.action === 'keyword_block') return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
   if (row.action === 'error' || row.error) return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
   if (row.flagged) return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300'
-  return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+  return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
 }
 
 function workerSlotClass(state: WorkerSlotState): string {
   if (state === 'active') {
-    return 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-900/60 dark:bg-sky-900/20 dark:text-sky-300'
+    return 'border-[#d8cec2] bg-[#fffaf5] text-[#a9583e] dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10 dark:text-[#f0b89e]'
   }
   if (state === 'idle') {
-    return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-900/20 dark:text-emerald-300'
+    return 'border-[#d8cec2] bg-[#fffaf5] text-[#5f7f68] dark:border-[#7f9d8a]/30 dark:bg-[#7f9d8a]/10 dark:text-[#9ab3a0]'
   }
   return 'border-gray-100 bg-white text-gray-400 dark:border-dark-700 dark:bg-dark-800 dark:text-gray-500'
 }
 
 function workerDotClass(state: WorkerSlotState): string {
-  if (state === 'active') return 'bg-sky-500'
-  if (state === 'idle') return 'bg-emerald-500'
+  if (state === 'active') return 'bg-[#cc785c]'
+  if (state === 'idle') return 'bg-[#7f9d8a]'
   return 'bg-gray-300 dark:bg-dark-500'
 }
 
@@ -1895,7 +1895,7 @@ function apiKeyStatusLabel(statusValue: ContentModerationAPIKeyStatus['status'])
 
 function apiKeyStatusBadgeClass(statusValue: ContentModerationAPIKeyStatus['status']): string {
   const classes: Record<ContentModerationAPIKeyStatus['status'], string> = {
-    ok: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300',
+    ok: 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]',
     error: 'bg-amber-50 text-amber-700 dark:bg-amber-900/20 dark:text-amber-300',
     frozen: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300',
     unknown: 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300',
@@ -1905,7 +1905,7 @@ function apiKeyStatusBadgeClass(statusValue: ContentModerationAPIKeyStatus['stat
 
 function apiKeyStatusDotClass(statusValue: ContentModerationAPIKeyStatus['status']): string {
   const classes: Record<ContentModerationAPIKeyStatus['status'], string> = {
-    ok: 'bg-emerald-500',
+    ok: 'bg-[#cc785c]',
     error: 'bg-amber-500',
     frozen: 'bg-red-500',
     unknown: 'bg-gray-400',

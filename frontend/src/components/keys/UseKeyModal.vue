@@ -6,15 +6,15 @@
     @close="emit('close')"
   >
     <div class="space-y-4">
-      <div v-if="!platform" class="flex items-start gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-        <svg class="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
+      <div v-if="!platform" class="flex items-start gap-3 p-4 rounded-lg bg-[#fffaf5] dark:bg-[#cc785c]/10 border border-[#d8cec2] dark:border-[#cc785c]/30">
+        <svg class="w-5 h-5 text-[#a9583e] flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
         </svg>
         <div>
-          <p class="text-sm font-medium text-blue-800 dark:text-blue-200">
+          <p class="text-sm font-medium text-[#141413] dark:text-[#f0b89e]">
             {{ t('keys.useKeyModal.smartRoutingTitle') }}
           </p>
-          <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
+          <p class="text-sm text-[#6c6a64] dark:text-[#f0b89e]/80 mt-1">
             {{ t('keys.useKeyModal.smartRoutingDescription') }}
           </p>
         </div>
@@ -22,15 +22,15 @@
 
       <div
         v-if="unifiedAccess"
-        class="rounded-lg border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800/60 dark:bg-emerald-900/20"
+        class="rounded-lg border border-[#d8cec2] bg-[#f8f3ec] p-4 dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10"
       >
         <div class="flex items-start gap-3">
-          <Icon name="sparkles" size="md" class="mt-0.5 flex-shrink-0 text-emerald-600 dark:text-emerald-300" />
+          <Icon name="sparkles" size="md" class="mt-0.5 flex-shrink-0 text-[#a9583e] dark:text-[#f0b89e]" />
           <div class="min-w-0">
-            <p class="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+            <p class="text-sm font-semibold text-[#141413] dark:text-[#f0b89e]">
               {{ t('keys.useKeyModal.unifiedAccessTitle') }}
             </p>
-            <p class="mt-1 text-sm leading-5 text-emerald-700 dark:text-emerald-300">
+            <p class="mt-1 text-sm leading-5 text-[#504f49] dark:text-[#f0b89e]/80">
               {{ t('keys.useKeyModal.unifiedAccessDescription') }}
             </p>
             <div class="mt-3 flex flex-wrap gap-2">
@@ -39,7 +39,7 @@
                 :key="item.key"
                 class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium"
                 :class="item.enabled
-                  ? 'bg-white/80 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-200 dark:ring-emerald-700/60'
+                  ? 'bg-white/85 text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/15 dark:text-[#f0b89e] dark:ring-[#cc785c]/30'
                   : 'bg-gray-100 text-gray-500 ring-1 ring-gray-200 dark:bg-dark-800 dark:text-gray-400 dark:ring-dark-600'"
               >
                 <Icon :name="item.icon" size="xs" />
@@ -59,21 +59,21 @@
           <div
             v-for="(file, index) in unifiedAccessFiles"
             :key="file.path"
-            class="overflow-hidden rounded-lg bg-gray-900"
+            class="overflow-hidden rounded-lg border border-[#d8cec2] bg-[#fffdf9] shadow-sm dark:bg-gray-900"
           >
-            <div class="flex items-center justify-between border-b border-gray-700 bg-gray-800 px-3 py-2">
-              <span class="text-xs font-mono text-gray-400">{{ file.path }}</span>
+            <div class="flex items-center justify-between border-b border-[#d8cec2] bg-[#f5f0e8] px-3 py-2 dark:border-gray-700 dark:bg-gray-800">
+              <span class="text-xs font-mono text-[#6c6a64] dark:text-gray-400">{{ file.path }}</span>
               <button
                 @click="copyContent(file.content, 1000 + index)"
                 class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs font-medium transition-colors"
                 :class="copiedIndex === 1000 + index
-                  ? 'bg-green-500/20 text-green-400'
-                  : 'bg-gray-700 text-gray-300 hover:bg-gray-600 hover:text-white'"
+                  ? 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
+                  : 'bg-white text-[#504f49] ring-1 ring-[#d8cec2] hover:bg-[#fffaf5] hover:text-[#141413] dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 dark:hover:text-white'"
               >
                 {{ copiedIndex === 1000 + index ? t('keys.useKeyModal.copied') : t('keys.useKeyModal.copy') }}
               </button>
             </div>
-            <pre class="overflow-x-auto p-3 text-xs font-mono text-gray-100"><code v-text="file.content"></code></pre>
+            <pre class="overflow-x-auto bg-[#fffaf5] p-3 text-xs font-mono leading-5 text-[#141413] dark:bg-gray-900 dark:text-gray-100"><code v-text="file.content"></code></pre>
           </div>
         </div>
       </div>
@@ -139,16 +139,16 @@
             <Icon name="exclamationCircle" size="sm" class="flex-shrink-0" />
             {{ file.hint }}
           </p>
-          <div class="bg-gray-900 dark:bg-dark-900 rounded-xl overflow-hidden">
+          <div class="overflow-hidden rounded-xl border border-[#d8cec2] bg-[#fffdf9] shadow-sm dark:border-dark-700 dark:bg-dark-900">
             <!-- Code Header -->
-            <div class="flex items-center justify-between px-4 py-2 bg-gray-800 dark:bg-dark-800 border-b border-gray-700 dark:border-dark-700">
-              <span class="text-xs text-gray-400 font-mono">{{ file.path }}</span>
+            <div class="flex items-center justify-between px-4 py-2 bg-[#f5f0e8] dark:bg-dark-800 border-b border-[#d8cec2] dark:border-dark-700">
+              <span class="text-xs text-[#6c6a64] dark:text-gray-400 font-mono">{{ file.path }}</span>
               <button
                 @click="copyContent(file.content, index)"
                 class="flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-lg transition-colors"
                 :class="copiedIndex === index
-                  ? 'bg-green-500/20 text-green-400'
-                  : 'bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white'"
+                  ? 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
+                  : 'bg-white hover:bg-[#fffaf5] text-[#504f49] hover:text-[#141413] ring-1 ring-[#d8cec2] dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 dark:hover:text-white'"
               >
                 <svg v-if="copiedIndex === index" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
@@ -160,15 +160,15 @@
               </button>
             </div>
             <!-- Code Content -->
-            <pre class="p-4 text-sm font-mono text-gray-100 overflow-x-auto"><code v-if="file.highlighted" v-html="file.highlighted"></code><code v-else v-text="file.content"></code></pre>
+            <pre class="overflow-x-auto bg-[#fffaf5] p-4 text-sm font-mono leading-6 text-[#141413] dark:bg-dark-900 dark:text-gray-100"><code v-if="file.highlighted" v-html="file.highlighted"></code><code v-else v-text="file.content"></code></pre>
           </div>
         </div>
       </div>
 
       <!-- Usage Note -->
-      <div v-if="showPlatformNote" class="flex items-start gap-3 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
-        <Icon name="infoCircle" size="md" class="text-blue-500 flex-shrink-0 mt-0.5" />
-        <p class="text-sm text-blue-700 dark:text-blue-300">
+      <div v-if="showPlatformNote" class="flex items-start gap-3 p-3 rounded-lg bg-[#fffaf5] dark:bg-[#cc785c]/10 border border-[#d8cec2] dark:border-[#cc785c]/30">
+        <Icon name="infoCircle" size="md" class="text-[#a9583e] flex-shrink-0 mt-0.5" />
+        <p class="text-sm text-[#504f49] dark:text-[#f0b89e]/80">
           {{ platformNote }}
         </p>
       </div>
@@ -458,11 +458,11 @@ const escapeHtml = (value: string) => value
 const wrapToken = (className: string, value: string) =>
   `<span class="${className}">${escapeHtml(value)}</span>`
 
-const keyword = (value: string) => wrapToken('text-emerald-300', value)
-const variable = (value: string) => wrapToken('text-sky-200', value)
-const operator = (value: string) => wrapToken('text-slate-400', value)
-const string = (value: string) => wrapToken('text-amber-200', value)
-const comment = (value: string) => wrapToken('text-slate-500', value)
+const keyword = (value: string) => wrapToken('text-[#a9583e] dark:text-[#f0b89e]', value)
+const variable = (value: string) => wrapToken('text-[#7a4635] dark:text-[#f3d0bd]', value)
+const operator = (value: string) => wrapToken('text-[#8e8b82] dark:text-slate-400', value)
+const string = (value: string) => wrapToken('text-[#9a6a2f] dark:text-amber-200', value)
+const comment = (value: string) => wrapToken('text-[#8e8b82] dark:text-slate-500', value)
 
 function normalizeBaseUrl(baseUrl: string): string {
   return baseUrl.trim().replace(/\/+$/, '')

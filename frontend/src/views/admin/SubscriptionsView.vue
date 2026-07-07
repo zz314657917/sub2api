@@ -331,8 +331,8 @@
                 "
                 class="flex items-center gap-2 rounded-lg bg-gradient-to-r from-emerald-50 to-teal-50 px-3 py-2 dark:from-emerald-900/20 dark:to-teal-900/20"
               >
-                <span class="text-lg text-emerald-600 dark:text-emerald-400">∞</span>
-                <span class="text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                <span class="text-lg text-[#a9583e] dark:text-[#f0b89e]">∞</span>
+                <span class="text-xs font-medium text-[#a9583e] dark:text-[#f0b89e]">
                   {{ t('admin.subscriptions.unlimited') }}
                 </span>
               </div>
@@ -380,7 +380,7 @@
               <button
                 v-if="row.status === 'active' || row.status === 'expired'"
                 @click="handleExtend(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-900/20 dark:hover:text-blue-400"
+                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-[#f3e7df] hover:text-[#a9583e] dark:hover:bg-[#cc785c]/12 dark:hover:text-[#f0b89e]"
               >
                 <Icon name="calendar" size="sm" />
                 <span class="text-xs">{{ t('admin.subscriptions.adjust') }}</span>
@@ -733,7 +733,7 @@
             </div>
 
             <!-- Tip -->
-            <div class="rounded-lg bg-blue-50 p-3 text-xs text-blue-700 dark:bg-blue-900/20 dark:text-blue-300">
+            <div class="rounded-lg bg-[#f3e7df] p-3 text-xs text-[#a9583e] dark:bg-[#cc785c]/10 dark:text-[#f0b89e]">
               {{ t('admin.subscriptions.guide.tip') }}
             </div>
 
@@ -1486,6 +1486,6 @@ onUnmounted(() => {
 }
 
 .reset-info {
-  @apply flex items-center gap-1 pl-12 text-[10px] text-blue-600 dark:text-blue-400;
+  @apply flex items-center gap-1 pl-12 text-[10px] text-[#a9583e] dark:text-[#f0b89e];
 }
 </style>

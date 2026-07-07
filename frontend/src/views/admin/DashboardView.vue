@@ -22,7 +22,7 @@
                 <p class="text-xl font-bold text-gray-900 dark:text-white">
                   {{ stats.total_api_keys }}
                 </p>
-                <p class="text-xs text-green-600 dark:text-green-400">
+                <p class="text-xs text-[#a9583e] dark:text-[#f0b89e]">
                   {{ stats.active_api_keys }} {{ t('common.active') }}
                 </p>
               </div>
@@ -43,7 +43,7 @@
                   {{ stats.total_accounts }}
                 </p>
                 <p class="text-xs">
-                  <span class="text-green-600 dark:text-green-400"
+                  <span class="text-[#a9583e] dark:text-[#f0b89e]"
                     >{{ stats.normal_accounts }} {{ t('common.active') }}</span
                   >
                   <span v-if="stats.error_accounts > 0" class="ml-1 text-red-500"
@@ -84,7 +84,7 @@
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">
                   {{ t('admin.dashboard.users') }}
                 </p>
-                <p class="text-xl font-bold text-emerald-600 dark:text-emerald-400">
+                <p class="text-xl font-bold text-[#a9583e] dark:text-[#f0b89e]">
                   +{{ stats.today_new_users }}
                 </p>
                 <p class="text-xs text-gray-500 dark:text-gray-400">
@@ -112,13 +112,13 @@
                 </p>
                 <p class="text-xs">
                   <span
-                    class="text-green-600 dark:text-green-400"
+                    class="text-[#a9583e] dark:text-[#f0b89e]"
                     :title="t('admin.dashboard.actual')"
                     >${{ formatCost(stats.today_actual_cost) }}</span
                   >
                   <span class="text-gray-400 dark:text-gray-500"> / </span>
                   <span
-                    class="text-orange-500 dark:text-orange-400"
+                    class="text-[#a9583e] dark:text-[#f0b89e]"
                     :title="t('admin.dashboard.accountCost')"
                     >${{ formatCost(stats.today_account_cost) }}</span
                   >
@@ -148,13 +148,13 @@
                 </p>
                 <p class="text-xs">
                   <span
-                    class="text-green-600 dark:text-green-400"
+                    class="text-[#a9583e] dark:text-[#f0b89e]"
                     :title="t('admin.dashboard.actual')"
                     >${{ formatCost(stats.total_actual_cost) }}</span
                   >
                   <span class="text-gray-400 dark:text-gray-500"> / </span>
                   <span
-                    class="text-orange-500 dark:text-orange-400"
+                    class="text-[#a9583e] dark:text-[#f0b89e]"
                     :title="t('admin.dashboard.accountCost')"
                     >${{ formatCost(stats.total_account_cost) }}</span
                   >
@@ -186,7 +186,7 @@
                   <span class="text-xs text-gray-500 dark:text-gray-400">RPM</span>
                 </div>
                 <div class="flex items-baseline gap-2">
-                  <p class="text-sm font-semibold text-violet-600 dark:text-violet-400">
+                  <p class="text-sm font-semibold text-[#a9583e] dark:text-[#f0b89e]">
                     {{ formatTokens(stats.tpm) }}
                   </p>
                   <span class="text-xs text-gray-500 dark:text-gray-400">TPM</span>
@@ -452,14 +452,14 @@ const isDarkMode = computed(() => {
 
 // Chart colors
 const chartColors = computed(() => ({
-  text: isDarkMode.value ? '#dbeafe' : '#334155',
-  muted: isDarkMode.value ? '#94a3b8' : '#64748b',
-  grid: isDarkMode.value ? 'rgba(148, 163, 184, 0.1)' : 'rgba(100, 116, 139, 0.1)',
-  tooltipBg: isDarkMode.value ? 'rgba(8, 13, 26, 0.96)' : 'rgba(255, 255, 255, 0.96)',
-  tooltipText: isDarkMode.value ? '#f8fafc' : '#0f172a',
-  blue: '#3b82f6',
-  cyan: '#06b6d4',
-  emerald: '#10b981'
+  text: isDarkMode.value ? '#e8ded4' : '#3d3a34',
+  muted: isDarkMode.value ? '#b4aaa0' : '#7a736b',
+  grid: isDarkMode.value ? 'rgba(216, 206, 194, 0.11)' : 'rgba(160, 153, 144, 0.16)',
+  tooltipBg: isDarkMode.value ? 'rgba(20, 20, 19, 0.96)' : 'rgba(255, 250, 245, 0.98)',
+  tooltipText: isDarkMode.value ? '#fffaf5' : '#26251e',
+  blue: '#cc785c',
+  cyan: '#b88a5a',
+  emerald: '#7f9d8a'
 }))
 
 // Bar chart options (for user usage ranking)
@@ -477,7 +477,7 @@ const barOptions = computed(() => ({
     },
     tooltip: {
       backgroundColor: chartColors.value.tooltipBg,
-      borderColor: isDarkMode.value ? 'rgba(59, 130, 246, 0.34)' : 'rgba(59, 130, 246, 0.18)',
+      borderColor: isDarkMode.value ? 'rgba(240, 184, 158, 0.32)' : 'rgba(204, 120, 92, 0.24)',
       borderWidth: 1,
       titleColor: chartColors.value.tooltipText,
       bodyColor: chartColors.value.tooltipText,
@@ -576,15 +576,15 @@ const userTrendChartData = computed(() => {
       chartColors.value.blue,
       chartColors.value.emerald,
       chartColors.value.cyan,
-      '#f59e0b',
-      '#8b5cf6',
-      '#f97316',
-      '#14b8a6',
-      '#6366f1',
-      '#22c55e',
-      '#eab308',
-      '#0ea5e9',
-      '#a855f7'
+      '#d9a441',
+      '#8f8072',
+      '#c89174',
+      '#7f9d8a',
+      '#6f6a5f',
+      '#a9583e',
+      '#9b7a55',
+      '#d2a679',
+      '#a0a0a0'
     ]
     return palette[idx % palette.length]
   })
@@ -800,12 +800,12 @@ onMounted(() => {
 .dashboard-panel {
   position: relative;
   overflow: hidden;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid rgba(216, 206, 194, 0.72);
   border-radius: 0.75rem;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.82)),
-    radial-gradient(circle at 100% 0%, rgba(59, 130, 246, 0.08), transparent 18rem);
-  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.07);
+    linear-gradient(135deg, rgba(255, 250, 245, 0.94), rgba(250, 249, 245, 0.84)),
+    radial-gradient(circle at 100% 0%, rgba(204, 120, 92, 0.08), transparent 18rem);
+  box-shadow: 0 18px 44px rgba(75, 52, 40, 0.07);
   backdrop-filter: blur(16px);
 }
 
@@ -814,7 +814,7 @@ onMounted(() => {
   border-color: rgba(55, 65, 81, 0.9);
   background:
     linear-gradient(135deg, rgba(13, 20, 33, 0.96), rgba(9, 14, 26, 0.9)),
-    radial-gradient(circle at 100% 0%, rgba(6, 182, 212, 0.08), transparent 19rem);
+    radial-gradient(circle at 100% 0%, rgba(240, 184, 158, 0.08), transparent 19rem);
   box-shadow: 0 18px 48px rgba(0, 0, 0, 0.25);
 }
 
@@ -823,8 +823,8 @@ onMounted(() => {
   inset: 0;
   pointer-events: none;
   background:
-    linear-gradient(90deg, rgba(59, 130, 246, 0.16), transparent 18rem),
-    linear-gradient(rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+    linear-gradient(90deg, rgba(204, 120, 92, 0.14), transparent 18rem),
+    linear-gradient(rgba(216, 206, 194, 0.18) 1px, transparent 1px);
   background-size: auto, 100% 2.75rem;
   opacity: 0.28;
   content: '';
@@ -832,8 +832,8 @@ onMounted(() => {
 
 .dark .dashboard-panel::before {
   background:
-    linear-gradient(90deg, rgba(6, 182, 212, 0.12), transparent 18rem),
-    linear-gradient(rgba(148, 163, 184, 0.12) 1px, transparent 1px);
+    linear-gradient(90deg, rgba(240, 184, 158, 0.12), transparent 18rem),
+    linear-gradient(rgba(148, 136, 123, 0.12) 1px, transparent 1px);
   opacity: 0.2;
 }
 
@@ -852,36 +852,36 @@ onMounted(() => {
   height: 1.75rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(204, 120, 92, 0.24);
   border-radius: 0.5rem;
-  background: rgba(59, 130, 246, 0.09);
-  color: #2563eb;
+  background: rgba(204, 120, 92, 0.1);
+  color: #a9583e;
 }
 
 .dark .dashboard-title-icon {
-  border-color: rgba(96, 165, 250, 0.28);
-  background: rgba(59, 130, 246, 0.14);
-  color: #93c5fd;
+  border-color: rgba(240, 184, 158, 0.3);
+  background: rgba(204, 120, 92, 0.16);
+  color: #f0b89e;
 }
 
 .dashboard-title-icon--blue {
-  border-color: rgba(6, 182, 212, 0.22);
-  background: rgba(6, 182, 212, 0.09);
-  color: #0891b2;
+  border-color: rgba(204, 120, 92, 0.24);
+  background: rgba(204, 120, 92, 0.1);
+  color: #a9583e;
 }
 
 .dark .dashboard-title-icon--blue {
-  border-color: rgba(34, 211, 238, 0.26);
-  background: rgba(8, 145, 178, 0.16);
-  color: #67e8f9;
+  border-color: rgba(240, 184, 158, 0.3);
+  background: rgba(204, 120, 92, 0.16);
+  color: #f0b89e;
 }
 
 .dashboard-panel-chip {
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid rgba(216, 206, 194, 0.74);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.62);
+  background: rgba(255, 250, 245, 0.72);
   padding: 0.25rem 0.625rem;
-  color: #64748b;
+  color: #7a736b;
   font-size: 0.6875rem;
   font-weight: 700;
   line-height: 1;

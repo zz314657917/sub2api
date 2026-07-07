@@ -1,13 +1,13 @@
 <template>
-  <div class="mc-pixel-grid relative flex min-h-screen flex-col bg-primary-50 dark:bg-dark-950">
+  <div class="public-key-usage-page relative flex min-h-screen flex-col bg-[#faf9f5] text-[#141413] dark:bg-dark-950">
     <!-- Header (same pattern as HomeView) -->
-    <header class="relative z-20 px-6 py-4">
+    <header class="relative z-20 border-b border-[#e6dfd8] bg-[#faf9f5]/78 px-6 py-4 backdrop-blur-xl">
       <nav class="mx-auto flex max-w-6xl items-center justify-between">
         <router-link to="/home" class="flex items-center gap-3">
-          <div class="h-10 w-10 overflow-hidden rounded-md border border-accent-700/25 bg-accent-100 shadow-glass-sm dark:bg-dark-800">
+          <div class="h-10 w-10 overflow-hidden rounded-full border border-[#d8cec2] bg-[#faf9f5] shadow-sm dark:bg-dark-800">
             <img :src="siteLogo || '/logo.png'" alt="Logo" class="h-full w-full object-contain" />
           </div>
-          <span class="text-lg font-semibold tracking-tight text-gray-900 dark:text-white">{{ siteName }}</span>
+          <span class="text-lg font-semibold tracking-tight text-[#141413] dark:text-white">{{ siteName }}</span>
         </router-link>
         <div class="flex items-center gap-3">
           <LocaleSwitcher />
@@ -16,14 +16,14 @@
             :href="docUrl"
             target="_blank"
             rel="noopener noreferrer"
-            class="rounded-md border border-transparent p-2 text-gray-500 transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-gray-700 dark:text-dark-400 dark:hover:border-accent-700 dark:hover:bg-dark-800 dark:hover:text-white"
+            class="rounded-full border border-transparent p-2 text-[#6c6a64] transition-colors hover:border-[#d8cec2] hover:bg-[#efe9de] hover:text-[#141413] dark:text-dark-400 dark:hover:border-dark-700 dark:hover:bg-dark-800 dark:hover:text-white"
             :title="t('home.viewDocs')"
           >
             <Icon name="book" size="md" />
           </a>
           <button
             @click="toggleTheme"
-            class="rounded-md border border-transparent p-2 text-gray-500 transition-colors hover:border-accent-300 hover:bg-accent-50 hover:text-gray-700 dark:text-dark-400 dark:hover:border-accent-700 dark:hover:bg-dark-800 dark:hover:text-white"
+            class="rounded-full border border-transparent p-2 text-[#6c6a64] transition-colors hover:border-[#d8cec2] hover:bg-[#efe9de] hover:text-[#141413] dark:text-dark-400 dark:hover:border-dark-700 dark:hover:bg-dark-800 dark:hover:text-white"
             :title="isDark ? t('home.switchToLight') : t('home.switchToDark')"
           >
             <Icon v-if="isDark" name="sun" size="md" />
@@ -159,7 +159,7 @@
             <div class="inline-flex items-center gap-2 px-5 py-2.5 rounded-md border border-accent-700/20 bg-white/90 shadow-glass-sm backdrop-blur-sm dark:border-dark-700 dark:bg-dark-900/90">
               <span
                 class="w-2.5 h-2.5 rounded-full pulse-dot"
-                :class="statusInfo.isActive ? 'bg-emerald-500' : 'bg-rose-500'"
+                :class="statusInfo.isActive ? 'bg-[#7f9d8a]' : 'bg-rose-500'"
               ></span>
               <span class="text-sm font-medium text-gray-900 dark:text-white">{{ statusInfo.label }}</span>
               <span class="text-xs text-gray-400 dark:text-dark-500">|</span>
@@ -528,10 +528,10 @@ function setDailyUsageDays(days: 7 | 30 | 90) {
 
 const CIRCUMFERENCE = 2 * Math.PI * 68
 const RING_GRADIENTS = [
-  { from: '#14b8a6', to: '#5eead4' },
-  { from: '#6366F1', to: '#A5B4FC' },
-  { from: '#10B981', to: '#6EE7B7' },
-  { from: '#F59E0B', to: '#FCD34D' },
+  { from: '#cc785c', to: '#a9583e' },
+  { from: '#7f9d8a', to: '#9ab3a0' },
+  { from: '#a9583e', to: '#cc785c' },
+  { from: '#5f7f68', to: '#9ab3a0' },
 ]
 
 const ringAnimated = ref(false)
@@ -675,7 +675,7 @@ interface DetailRow {
 function getUsageColor(pct: number): string {
   if (pct > 90) return 'text-rose-500'
   if (pct > 70) return 'text-amber-500'
-  return 'text-emerald-500'
+  return 'text-[#5f7f68]'
 }
 
 const detailRows = computed<DetailRow[]>(() => {
@@ -692,9 +692,9 @@ const detailRows = computed<DetailRow[]>(() => {
     if (data.quota) {
       const remainColor = data.quota.remaining <= 0 ? 'text-rose-500'
         : data.quota.remaining < data.quota.limit * 0.1 ? 'text-amber-500'
-        : 'text-emerald-500'
+        : 'text-[#5f7f68]'
       rows.push({
-        iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_SHIELD,
+        iconBg: 'bg-[#7f9d8a]/10', iconColor: 'text-[#5f7f68]', iconSvg: ICON_SHIELD,
         label: t('keyUsage.remainingQuota'), value: usd(data.quota.remaining), valueClass: remainColor,
       })
     }
@@ -719,7 +719,7 @@ const detailRows = computed<DetailRow[]>(() => {
           valueStr += ` (⟳ ${resetStr})`
         }
         rows.push({
-          iconBg: 'bg-primary-500/10', iconColor: 'text-primary-500', iconSvg: ICON_DOLLAR,
+          iconBg: 'bg-[#cc785c]/10', iconColor: 'text-[#a9583e]', iconSvg: ICON_DOLLAR,
           label: `${t('keyUsage.usedQuota')} (${windowMap[rl.window] || rl.window})`,
           value: valueStr,
           valueClass: getUsageColor(pct),
@@ -728,7 +728,7 @@ const detailRows = computed<DetailRow[]>(() => {
     }
   } else {
     rows.push({
-      iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_CHECK,
+      iconBg: 'bg-[#7f9d8a]/10', iconColor: 'text-[#5f7f68]', iconSvg: ICON_CHECK,
       label: t('keyUsage.subscriptionType'), value: data.planName || t('keyUsage.walletBalance'), valueClass: '',
     })
 
@@ -737,21 +737,21 @@ const detailRows = computed<DetailRow[]>(() => {
       if (sub.daily_limit_usd > 0) {
         const pct = (sub.daily_usage_usd / sub.daily_limit_usd) * 100
         rows.push({
-          iconBg: 'bg-primary-500/10', iconColor: 'text-primary-500', iconSvg: ICON_DOLLAR,
+          iconBg: 'bg-[#cc785c]/10', iconColor: 'text-[#a9583e]', iconSvg: ICON_DOLLAR,
           label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '日' : 'D'})`, value: `${usd(sub.daily_usage_usd)} / ${usd(sub.daily_limit_usd)}`, valueClass: getUsageColor(pct),
         })
       }
       if (sub.weekly_limit_usd > 0) {
         const pct = (sub.weekly_usage_usd / sub.weekly_limit_usd) * 100
         rows.push({
-          iconBg: 'bg-indigo-500/10', iconColor: 'text-indigo-500', iconSvg: ICON_DOLLAR,
+          iconBg: 'bg-[#7f9d8a]/10', iconColor: 'text-[#5f7f68]', iconSvg: ICON_DOLLAR,
           label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '周' : 'W'})`, value: `${usd(sub.weekly_usage_usd)} / ${usd(sub.weekly_limit_usd)}`, valueClass: getUsageColor(pct),
         })
       }
       if (sub.monthly_limit_usd > 0) {
         const pct = (sub.monthly_usage_usd / sub.monthly_limit_usd) * 100
         rows.push({
-          iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_DOLLAR,
+          iconBg: 'bg-[#cc785c]/10', iconColor: 'text-[#a9583e]', iconSvg: ICON_DOLLAR,
           label: `${t('keyUsage.usedQuota')} (${locale.value === 'zh' ? '月' : 'M'})`, value: `${usd(sub.monthly_usage_usd)} / ${usd(sub.monthly_limit_usd)}`, valueClass: getUsageColor(pct),
         })
       }
@@ -764,10 +764,10 @@ const detailRows = computed<DetailRow[]>(() => {
     }
 
     const remainColor = data.remaining != null
-      ? (data.remaining <= 0 ? 'text-rose-500' : data.remaining < 10 ? 'text-amber-500' : 'text-emerald-500')
+      ? (data.remaining <= 0 ? 'text-rose-500' : data.remaining < 10 ? 'text-amber-500' : 'text-[#5f7f68]')
       : ''
     rows.push({
-      iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_SHIELD,
+      iconBg: 'bg-[#7f9d8a]/10', iconColor: 'text-[#5f7f68]', iconSvg: ICON_SHIELD,
       label: t('keyUsage.remainingQuota'), value: data.remaining != null ? usd(data.remaining) : '-', valueClass: remainColor,
     })
   }
@@ -946,8 +946,8 @@ onUnmounted(() => {
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
 }
 .input-ring:focus {
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.2);
-  border-color: #14b8a6;
+  box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.22);
+  border-color: #cc785c;
   outline: none;
 }
 

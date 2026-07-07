@@ -187,14 +187,14 @@
         </div>
 
         <!-- 服务商 Webhook 提示 -->
-        <div v-if="providerWebhookUrl" class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-3 dark:border-blue-800/50 dark:bg-blue-900/20">
-          <p class="text-xs text-blue-700 dark:text-blue-300">
+        <div v-if="providerWebhookUrl" class="mt-3 rounded-lg border border-[#d8cec2] bg-[#faf9f5] p-3 dark:border-dark-700 dark:bg-dark-800/70">
+          <p class="text-xs text-[#6b5b4b] dark:text-dark-300">
             {{ t(providerWebhookHint) }}
           </p>
-          <code class="mt-1 block break-all rounded bg-blue-100 px-2 py-1 text-xs text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+          <code class="mt-1 block break-all rounded border border-[#d8cec2] bg-[#fffaf5] px-2 py-1 text-xs text-[#4f4036] dark:border-dark-600 dark:bg-dark-700 dark:text-dark-200">
             {{ providerWebhookUrl }}
           </code>
-          <p v-if="form.provider_key === 'stripe'" class="mt-2 text-xs leading-relaxed text-blue-700 dark:text-blue-300">
+          <p v-if="form.provider_key === 'stripe'" class="mt-2 text-xs leading-relaxed text-[#6b5b4b] dark:text-dark-300">
             {{ t('admin.settings.payment.stripeWebhookApiVersionHint', { version: STRIPE_SDK_API_VERSION }) }}
           </p>
         </div>

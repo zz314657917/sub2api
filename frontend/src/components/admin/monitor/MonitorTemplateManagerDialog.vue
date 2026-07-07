@@ -435,7 +435,7 @@ function modeBadgeClass(mode: BodyOverrideMode): string {
     case 'merge':
       return 'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'
     case 'replace':
-      return 'bg-purple-100 text-purple-700 dark:bg-purple-500/15 dark:text-purple-300'
+      return 'bg-[#f5f0e8] text-[#6c6a64] ring-1 ring-[#d8cec2] dark:bg-[#8e8b82]/15 dark:text-[#d8cec2] dark:ring-[#8e8b82]/35'
     default:
       return 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
   }

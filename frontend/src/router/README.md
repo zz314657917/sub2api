@@ -26,7 +26,6 @@ This directory contains the Vue Router configuration for the Sub2API frontend ap
 | `/dashboard` | DashboardView | User dashboard with stats    |
 | `/keys`      | KeysView      | API key management           |
 | `/usage`     | UsageView     | Usage records and statistics |
-| `/redeem`    | RedeemView    | Redeem code interface        |
 | `/profile`   | ProfileView   | User profile settings        |
 
 ### Admin Routes (Admin Role Required)

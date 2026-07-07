@@ -5,7 +5,7 @@
 
       <button
         type="button"
-        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-900/30"
+        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-[#a9583e] transition-colors hover:bg-[#fffaf5] disabled:cursor-not-allowed disabled:opacity-50 dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/12"
         :disabled="loading || resetting"
         :title="countButtonTitle"
         @click="handleQuery"
@@ -55,7 +55,7 @@
     <div v-if="error" class="text-[10px] text-red-600 dark:text-red-400" :title="error">
       {{ truncatedError }}
     </div>
-    <div v-else-if="resetMessage" class="text-[10px] text-emerald-600 dark:text-emerald-400">
+    <div v-else-if="resetMessage" class="text-[10px] text-[#a9583e] dark:text-[#f0b89e]">
       {{ resetMessage }}
     </div>
 

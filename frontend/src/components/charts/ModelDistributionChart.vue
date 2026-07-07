@@ -130,11 +130,11 @@
           <tbody>
             <template v-for="(model, index) in displayModelStats" :key="model.model">
               <tr
-                class="dashboard-table-row cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-700/40"
+                class="dashboard-table-row cursor-pointer hover:bg-[#f8efe8] dark:hover:bg-dark-700/40"
                 @click="toggleBreakdown('model', model.model)"
               >
                 <td
-                  class="max-w-[100px] truncate py-2 font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  class="max-w-[100px] truncate py-2 font-medium text-[#a9583e] hover:text-[#7f3f2a] dark:text-[#f0b89e] dark:hover:text-[#ffd5c2]"
                   :title="displayModelLabel(model.model)"
                 >
                   <span class="inline-flex items-center gap-1">
@@ -150,10 +150,10 @@
                 <td class="py-2 text-right text-gray-600 dark:text-gray-400">
                   {{ formatTokens(model.total_tokens) }}
                 </td>
-                <td class="py-2 text-right text-green-600 dark:text-green-400">
+                <td class="py-2 text-right text-[#a9583e] dark:text-[#f0b89e]">
                   ${{ formatCost(model.actual_cost) }}
                 </td>
-                <td class="py-2 text-right text-orange-500 dark:text-orange-400">
+                <td class="py-2 text-right text-[#a9583e] dark:text-[#f0b89e]">
                   ${{ formatCost(model.account_cost) }}
                 </td>
                 <td class="py-2 text-right text-gray-400 dark:text-gray-500">
@@ -213,8 +213,8 @@
               :key="item.isOther ? 'others' : `${item.user_id}-${index}`"
               class="dashboard-table-row transition-colors"
               :class="item.isOther
-                ? 'bg-gray-50/70 dark:bg-dark-700/20'
-                : 'cursor-pointer hover:bg-gray-50 dark:hover:bg-dark-700/40'"
+                ? 'bg-[#f5f0e8]/70 dark:bg-dark-700/20'
+                : 'cursor-pointer hover:bg-[#f8efe8] dark:hover:bg-dark-700/40'"
               @click="item.isOther ? undefined : emit('ranking-click', item)"
             >
               <td class="py-2">
@@ -239,7 +239,7 @@
               <td class="py-2 text-right text-gray-600 dark:text-gray-400">
                 {{ formatTokens(item.tokens) }}
               </td>
-              <td class="py-2 text-right text-green-600 dark:text-green-400">
+              <td class="py-2 text-right text-[#a9583e] dark:text-[#f0b89e]">
                 ${{ formatCost(item.actual_cost) }}
               </td>
             </tr>
@@ -356,19 +356,19 @@ const segmentBorderColor = computed(() =>
 )
 
 const chartColors = [
-  '#3b82f6',
-  '#06b6d4',
-  '#10b981',
-  '#f59e0b',
-  '#8b5cf6',
-  '#14b8a6',
-  '#f97316',
-  '#6366f1',
-  '#84cc16',
-  '#eab308',
-  '#a855f7',
-  '#f43f5e',
-  '#64748b'
+  '#cc785c',
+  '#b88a5a',
+  '#8f8072',
+  '#d9a441',
+  '#7f9d8a',
+  '#a9583e',
+  '#6f6a5f',
+  '#c89174',
+  '#9b7a55',
+  '#8e8b82',
+  '#d2a679',
+  '#b4604b',
+  '#a0a0a0'
 ]
 
 const displayModelStats = computed(() => {
@@ -411,7 +411,7 @@ const rankingChartData = computed(() => {
   if (otherRankingItem.value) {
     labels.push(t('admin.dashboard.spendingRankingOther'))
     data.push(otherRankingItem.value.actual_cost)
-    backgroundColor.push('#94a3b8')
+    backgroundColor.push('#a0a0a0')
   }
 
   return {
@@ -480,12 +480,12 @@ const doughnutOptions = computed(() => ({
       display: false
     },
     tooltip: {
-      backgroundColor: 'rgba(8, 13, 26, 0.96)',
-      borderColor: 'rgba(59, 130, 246, 0.36)',
+      backgroundColor: isDarkMode.value ? 'rgba(20, 20, 19, 0.96)' : 'rgba(255, 250, 245, 0.98)',
+      borderColor: isDarkMode.value ? 'rgba(240, 184, 158, 0.32)' : 'rgba(204, 120, 92, 0.24)',
       borderWidth: 1,
       padding: 10,
-      titleColor: '#f8fafc',
-      bodyColor: '#e5e7eb',
+      titleColor: isDarkMode.value ? '#fffaf5' : '#26251e',
+      bodyColor: isDarkMode.value ? '#e8ded4' : '#504f49',
       callbacks: {
         label: (context: any) => {
           const value = context.raw as number
@@ -510,12 +510,12 @@ const rankingDoughnutOptions = computed(() => ({
       display: false
     },
     tooltip: {
-      backgroundColor: 'rgba(8, 13, 26, 0.96)',
-      borderColor: 'rgba(59, 130, 246, 0.36)',
+      backgroundColor: isDarkMode.value ? 'rgba(20, 20, 19, 0.96)' : 'rgba(255, 250, 245, 0.98)',
+      borderColor: isDarkMode.value ? 'rgba(240, 184, 158, 0.32)' : 'rgba(204, 120, 92, 0.24)',
       borderWidth: 1,
       padding: 10,
-      titleColor: '#f8fafc',
-      bodyColor: '#e5e7eb',
+      titleColor: isDarkMode.value ? '#fffaf5' : '#26251e',
+      bodyColor: isDarkMode.value ? '#e8ded4' : '#504f49',
       callbacks: {
         label: (context: any) => {
           const value = context.raw as number
@@ -591,21 +591,21 @@ const formatCost = (value: number): string => {
 
 .dashboard-doughnut-center span {
   display: block;
-  color: #64748b;
+  color: #7a736b;
   font-size: 0.6875rem;
   font-weight: 700;
   line-height: 1.15;
 }
 
 .dark .dashboard-doughnut-center span {
-  color: #94a3b8;
+  color: #b4aaa0;
 }
 
 .dashboard-doughnut-center strong {
   display: block;
   margin-top: 0.25rem;
   overflow: hidden;
-  color: #0f172a;
+  color: #26251e;
   font-size: 1rem;
   font-weight: 800;
   line-height: 1.15;
@@ -614,7 +614,7 @@ const formatCost = (value: number): string => {
 }
 
 .dark .dashboard-doughnut-center strong {
-  color: #f8fafc;
+  color: #fffaf5;
 }
 
 .dashboard-table-wrap {
@@ -633,7 +633,7 @@ const formatCost = (value: number): string => {
 
 .dashboard-data-table th {
   padding-bottom: 0.5rem;
-  color: #64748b;
+  color: #7a736b;
   font-weight: 700;
   text-align: right;
 }
@@ -643,11 +643,11 @@ const formatCost = (value: number): string => {
 }
 
 .dark .dashboard-data-table th {
-  color: #94a3b8;
+  color: #b4aaa0;
 }
 
 .dashboard-table-row {
-  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  border-top: 1px solid rgba(216, 206, 194, 0.34);
   transition: background-color 0.16s ease, color 0.16s ease;
 }
 
@@ -660,7 +660,7 @@ const formatCost = (value: number): string => {
   height: 0.5rem;
   flex: 0 0 auto;
   border-radius: 999px;
-  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.12);
+  box-shadow: 0 0 0 3px rgba(216, 206, 194, 0.18);
 }
 
 .dashboard-title-icon {
@@ -669,23 +669,23 @@ const formatCost = (value: number): string => {
   height: 1.75rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(16, 185, 129, 0.22);
+  border: 1px solid rgba(204, 120, 92, 0.24);
   border-radius: 0.5rem;
-  background: rgba(16, 185, 129, 0.09);
-  color: #059669;
+  background: rgba(204, 120, 92, 0.1);
+  color: #a9583e;
 }
 
 .dark .dashboard-title-icon {
-  border-color: rgba(52, 211, 153, 0.28);
-  background: rgba(16, 185, 129, 0.14);
-  color: #86efac;
+  border-color: rgba(240, 184, 158, 0.3);
+  background: rgba(204, 120, 92, 0.16);
+  color: #f0b89e;
 }
 
 .dashboard-segmented {
   display: inline-flex;
-  border: 1px solid rgba(148, 163, 184, 0.22);
+  border: 1px solid rgba(216, 206, 194, 0.72);
   border-radius: 0.5rem;
-  background: rgba(248, 250, 252, 0.78);
+  background: rgba(245, 240, 232, 0.78);
   padding: 0.125rem;
 }
 
@@ -703,9 +703,9 @@ const formatCost = (value: number): string => {
 }
 
 .dashboard-segmented-button--active {
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  background: #fffaf5;
+  color: #26251e;
+  box-shadow: 0 8px 18px rgba(75, 52, 40, 0.08);
 }
 
 .dark .dashboard-segmented-button--active {
@@ -715,11 +715,11 @@ const formatCost = (value: number): string => {
 }
 
 .dashboard-segmented-button--idle {
-  color: #64748b;
+  color: #7a736b;
 }
 
 .dashboard-segmented-button--idle:hover {
-  color: #0f172a;
+  color: #26251e;
 }
 
 .dark .dashboard-segmented-button--idle {

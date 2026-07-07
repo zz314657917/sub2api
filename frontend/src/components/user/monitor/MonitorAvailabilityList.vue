@@ -205,7 +205,7 @@ const legends = computed(() => [
   {
     key: 'normal',
     label: t('channelStatus.availabilityPanel.legend.normal'),
-    dot: 'bg-emerald-500',
+    dot: 'bg-[#9c7b62]',
   },
   {
     key: 'warning',
@@ -215,7 +215,7 @@ const legends = computed(() => [
   {
     key: 'maintenance',
     label: t('channelStatus.availabilityPanel.legend.maintenance'),
-    dot: 'bg-sky-500',
+    dot: 'bg-[#8e8b82]',
   },
 ])
 
@@ -326,10 +326,10 @@ function dotClass(tone: Tone): string {
     case 'warning':
       return 'bg-amber-500'
     case 'maintenance':
-      return 'bg-sky-500'
+      return 'bg-[#8e8b82]'
     case 'normal':
     default:
-      return 'bg-emerald-500'
+      return 'bg-[#9c7b62]'
   }
 }
 
@@ -340,10 +340,10 @@ function barClass(tone: Tone): string {
     case 'warning':
       return 'bg-amber-500'
     case 'maintenance':
-      return 'bg-sky-500'
+      return 'bg-[#8e8b82]'
     case 'normal':
     default:
-      return 'bg-emerald-500'
+      return 'bg-[#9c7b62]'
   }
 }
 

@@ -11,19 +11,112 @@ export default {
     navModels: 'Model Plaza',
     navContact: 'Contact',
     getStarted: 'Get Started',
-    goToDashboard: 'Open Dashboard',
-    heroEyebrow: 'AI access hub',
-    heroTitleTop: 'mapleAI',
-    heroTitleBottom: 'Intelligent Solutions',
-    heroSubtitle: 'mapleAI intelligent solutions',
-    heroDescription: 'Connect AI model capabilities through one gateway.',
+    goToDashboard: 'Go to Dashboard',
+    heroEyebrow: 'Developer API workspace',
+    heroTitleTop: 'AI Coding',
+    heroTitleBottom: 'One-stop model service',
+    heroSubtitle: 'AI Coding one-stop model service',
+    heroDescription: 'Use one OpenAI-compatible entry URL to keep model calls, API keys, and usage records in a lightweight workflow.',
     heroDescriptionAltModels: 'Follow the quick start and claim trial credits.',
     heroDescriptionAltSupport: 'One key for your AI workflow.',
+    heroProductTitle: 'Make AI access a clear path',
+    heroProductMetricsLabel: 'Homepage product capability metrics',
+    heroGatewayConsole: 'API workspace',
+    apiEntryLabel: 'API entry',
+    apiEntryAriaLabel: 'OpenAI-compatible API entry URL',
+    heroStats: {
+      endpoint: 'Unified endpoint',
+      billing: 'Traceable billing',
+      routing: 'Multi-model routing'
+    },
+    heroFlow: {
+      request: {
+        label: 'Requests enter one gateway',
+        text: 'OpenAI compatible'
+      },
+      route: {
+        label: 'Route by group policy',
+        text: 'Chat / Image / Video'
+      },
+      usage: {
+        label: 'Record usage and rates',
+        text: 'Credit ledger'
+      }
+    },
     heroProofGateway: 'Unified API gateway',
-    heroProofBilling: 'Pay as you go',
+    heroProofBilling: 'Rate billing',
     heroProofVisibility: 'Usage visibility',
     claimButton: 'Claim Trial',
+    quickStartButton: 'Quick Start',
     contactSupport: 'Contact Support',
+    accountWorkbench: {
+      ariaLabel: 'Account workbench overview',
+      kicker: 'Account',
+      title: 'Account workbench',
+      description: 'Review balance, usage volume, and lifetime spend while signed in.',
+      currentBalance: 'Current balance',
+      totalTokens: 'Total tokens',
+      totalRequests: 'Total requests',
+      totalCost: 'Total spend',
+      loading: 'Syncing account data...',
+      loadFailed: 'Account data is temporarily unavailable'
+    },
+    gatewayExplain: {
+      ariaLabel: 'Unified API gateway explanation',
+      kicker: 'What a unified model gateway does',
+      title: 'One entry point for models, accounts, and usage.',
+      description: 'Connect to one OpenAI-compatible API URL. The gateway handles model selection, group rates, account routing, and usage records, so your product code does not need a new integration for every upstream provider.',
+      mapLabel: 'Diagram showing one API gateway connected to a model pool, account pool, and usage records',
+      gatewayLabel: 'Unified entry',
+      gatewayName: 'API Gateway',
+      accountPoolLabel: 'Accounts and sessions',
+      accountPoolName: 'Account Pool',
+      poolLabel: 'Multi-model routing',
+      poolName: 'Model Pool'
+    },
+    modelCarousel: {
+      ariaLabel: 'Supported model carousel',
+      kicker: 'Model coverage',
+      title: 'Access a broad set of top-tier models',
+      highlight: '',
+      description: 'Coding, reasoning, image, and multimodal capabilities can live behind the same entry point and account-pool policy.'
+    },
+    faq: {
+      ariaLabel: 'Frequently asked questions',
+      kicker: 'FAQ',
+      title: 'Frequently asked questions',
+      description: 'A short guide to the questions teams usually ask about setup, billing, model access, and account-pool routing.',
+      tabs: {
+        service: 'About the service',
+        billing: 'Pricing and billing',
+        usage: 'Setup and usage'
+      },
+      items: [
+        {
+          question: 'Is this an official provider platform?',
+          answer: 'No. It is an OpenAI-compatible API gateway that manages access, routing, account-pool policy, and usage records.'
+        },
+        {
+          question: 'What do I need to change in my tools?',
+          answer: 'Most OpenAI-compatible tools only need a new Base URL and API key. Your application can keep using the same compatible API shape.'
+        },
+        {
+          question: 'Where can I view models and group rates?',
+          answer: 'The model plaza shows public model and rate information. Final availability and pricing follow the dashboard, order page, and account configuration.'
+        },
+        {
+          question: 'Will the account pool affect my application code?',
+          answer: 'No. Your application calls the unified entry point while routing, sessions, and failover are handled by the gateway.'
+        }
+      ]
+    },
+    finalCta: {
+      ariaLabel: 'Start using the gateway',
+      kicker: 'Ready',
+      title: 'Start using',
+      description: 'Replace the API URL and key to route model calls through one entry point, then use the tutorial and trial credits to send the first request.',
+      button: 'Claim Trial'
+    },
     pricing: {
       ctaRecharge: 'Buy Credits',
       ctaKey: 'Create API Key',

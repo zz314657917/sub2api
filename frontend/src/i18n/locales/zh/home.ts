@@ -9,21 +9,114 @@ export default {
     navHome: '首页',
     navTutorial: '教程',
     navModels: '模型广场',
-    navContact: '联系管理',
+    navContact: '联系客服',
     getStarted: '立即开始',
-    goToDashboard: '登录控制台',
-    heroEyebrow: 'AI 接入中枢',
-    heroTitleTop: 'mapleAI',
-    heroTitleBottom: '智能解决方案',
-    heroSubtitle: 'mapleAI 智能解决方案',
-    heroDescription: '统一接入模型能力，按需付费',
+    goToDashboard: '前往仪表盘',
+    heroEyebrow: '开发者 API 工作台',
+    heroTitleTop: 'AI Coding',
+    heroTitleBottom: '一站式大模型服务',
+    heroSubtitle: 'AI Coding 一站式大模型服务',
+    heroDescription: '一个兼容 OpenAI 的入口网址，把模型调用、密钥接入和用量记录收进同一个轻量工作流。',
     heroDescriptionAltModels: '完成教程接入 API，领取试用积分',
     heroDescriptionAltSupport: '一把密钥连接你的 AI 工作流',
+    heroProductTitle: '把 AI 接入变成一条清晰路径',
+    heroProductMetricsLabel: '首页产品能力指标',
+    heroGatewayConsole: 'API 工作台',
+    apiEntryLabel: 'API 入口',
+    apiEntryAriaLabel: '兼容 OpenAI 的 API 入口网址',
+    heroStats: {
+      endpoint: '统一端点',
+      billing: '账单可追踪',
+      routing: '多模型路由'
+    },
+    heroFlow: {
+      request: {
+        label: '请求进入统一网关',
+        text: 'OpenAI compatible'
+      },
+      route: {
+        label: '按分组路由到模型池',
+        text: 'Chat / Image / Video'
+      },
+      usage: {
+        label: '记录用量与倍率',
+        text: 'Credit ledger'
+      }
+    },
     heroProofGateway: '统一 API 网关',
-    heroProofBilling: '按需付费',
+    heroProofBilling: '倍率账单',
     heroProofVisibility: '用量透明',
     claimButton: '注册领取试用',
+    quickStartButton: '快速开始',
     contactSupport: '添加客服',
+    accountWorkbench: {
+      ariaLabel: '账号工作台概览',
+      kicker: 'Account',
+      title: '账号工作台',
+      description: '登录状态下快速查看余额、调用量和累计消耗。',
+      currentBalance: '当前余额',
+      totalTokens: '总 Token',
+      totalRequests: '总请求数',
+      totalCost: '总花费',
+      loading: '正在同步账号数据...',
+      loadFailed: '账号数据暂时无法同步'
+    },
+    gatewayExplain: {
+      ariaLabel: '统一 API 网关说明',
+      kicker: '什么是统一模型网关',
+      title: '一个入口，连接多种模型与账号池。',
+      description: '你只需要接入一个兼容 OpenAI 的 API 地址；模型选择、分组倍率、账号路由和用量记录都交给网关处理，业务代码不用为每个上游重新改一遍。',
+      mapLabel: '统一 API 网关连接模型池、账号池和用量记录的关系图',
+      gatewayLabel: '统一入口',
+      gatewayName: 'API Gateway',
+      accountPoolLabel: '账号与会话',
+      accountPoolName: 'Account Pool',
+      poolLabel: '多模型路由',
+      poolName: 'Model Pool'
+    },
+    modelCarousel: {
+      ariaLabel: '可接入模型轮播展示',
+      kicker: '模型接入范围',
+      title: '提供众多顶级优质大模型',
+      highlight: '',
+      description: '从编码、推理到图像和多模态能力，统一放进同一个入口和账号池策略里。'
+    },
+    faq: {
+      ariaLabel: '常见问题解答',
+      kicker: 'FAQ 常见问题',
+      title: '常见问题解答',
+      description: '整理了关于接入、计费、模型和账号池的常见疑问，先把关键问题说清楚。',
+      tabs: {
+        service: '关于服务',
+        billing: '价格与计费',
+        usage: '接入与使用'
+      },
+      items: [
+        {
+          question: '这是官方平台吗？',
+          answer: '不是官方平台，而是兼容 OpenAI 的统一 API 网关，负责接入、路由、账号池策略和用量记录。'
+        },
+        {
+          question: 'API 地址需要怎么改？',
+          answer: '多数兼容 OpenAI 的工具只需要替换 Base URL 和 API Key；业务侧继续按 OpenAI-compatible 接口调用。'
+        },
+        {
+          question: '模型和分组倍率在哪里看？',
+          answer: '模型广场会展示公开模型与倍率信息，最终价格和可用分组以控制台、下单页和实际账户配置为准。'
+        },
+        {
+          question: '账号池会影响我的业务代码吗？',
+          answer: '不会。你的应用继续调用统一入口，模型路由、账号会话和失败切换由网关侧处理。'
+        }
+      ]
+    },
+    finalCta: {
+      ariaLabel: '开始使用',
+      kicker: 'Ready',
+      title: '开始使用',
+      description: '替换 API 地址和密钥，就可以把模型调用接入统一入口，先从教程和试用额度跑通第一条请求。',
+      button: '注册领取试用'
+    },
     pricing: {
       ctaRecharge: '购买积分',
       ctaKey: '创建 API Key',

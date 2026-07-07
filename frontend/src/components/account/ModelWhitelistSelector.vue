@@ -81,7 +81,7 @@
       <button
         type="button"
         @click="fillRelated"
-        class="rounded-lg border border-blue-200 px-3 py-1.5 text-sm text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400 dark:hover:bg-blue-900/30"
+        class="rounded-lg border border-[#d8cec2] px-3 py-1.5 text-sm text-[#a9583e] transition-colors hover:bg-[#fffaf5] dark:border-[#cc785c]/30 dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/12"
       >
         {{ t('admin.accounts.fillRelatedModels') }}
       </button>
@@ -90,7 +90,7 @@
         type="button"
         @click="syncUpstreamModels"
         :disabled="isSyncingUpstream"
-        class="rounded-lg border border-emerald-200 px-3 py-1.5 text-sm text-emerald-600 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
+        class="rounded-lg border border-[#d8cec2] px-3 py-1.5 text-sm text-[#a9583e] transition-colors hover:bg-[#fffaf5] disabled:cursor-not-allowed disabled:opacity-60 dark:border-[#cc785c]/30 dark:text-[#f0b89e] dark:hover:bg-[#cc785c]/12"
       >
         {{ isSyncingUpstream ? t('admin.accounts.syncUpstreamModelsLoading') : t('admin.accounts.syncUpstreamModels') }}
       </button>

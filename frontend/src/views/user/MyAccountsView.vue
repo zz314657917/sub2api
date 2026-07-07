@@ -4,7 +4,7 @@
       <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <div class="card p-5">
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('myAccounts.summary.available') }}</p>
-          <p class="mt-2 text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
+          <p class="mt-2 text-2xl font-semibold text-[#5f7f68] dark:text-[#9ab3a0]">
             {{ formatCreditAmount(shareSummary?.available_amount ?? 0) }}
           </p>
         </div>
@@ -228,7 +228,7 @@
                 <button class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-primary-600 dark:hover:bg-dark-700 dark:hover:text-primary-400" @click="openEditModal(row)">
                   <Icon name="edit" size="sm" />
                 </button>
-                <button class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-emerald-600 dark:hover:bg-dark-700 dark:hover:text-emerald-400" @click="runTest(row)">
+                <button class="rounded-lg p-1.5 text-gray-500 hover:bg-[#f5f0e8] hover:text-[#5f7f68] dark:hover:bg-[#5f7f68]/20 dark:hover:text-[#9ab3a0]" @click="runTest(row)">
                   <Icon name="play" size="sm" />
                 </button>
                 <button class="rounded-lg p-1.5 text-gray-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400" @click="deleteOwnedAccount(row)">

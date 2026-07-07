@@ -42,7 +42,7 @@
             </div>
             <div class="rounded-lg border border-gray-200 bg-white p-5 dark:border-dark-700 dark:bg-dark-800">
               <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('affiliate.stats.availableQuota') }}</p>
-              <p class="mt-2 text-2xl font-semibold text-emerald-600 dark:text-emerald-400">
+              <p class="mt-2 text-2xl font-semibold text-[#5f7f68] dark:text-[#9ab3a0]">
                 {{ formatCreditAmount(detail.aff_quota) }}
               </p>
               <p class="mt-1 text-xs text-gray-400 dark:text-dark-500">{{ t('affiliate.summary.availableHint') }}</p>
@@ -120,12 +120,12 @@
             </div>
           </div>
 
-          <div class="rounded-lg border border-emerald-200 bg-emerald-50/60 p-4 dark:border-emerald-900/40 dark:bg-emerald-900/10">
+          <div class="rounded-lg border border-[#7f9d8a]/35 bg-[#7f9d8a]/10 p-4 dark:border-[#7f9d8a]/30 dark:bg-[#7f9d8a]/10">
             <div class="flex gap-3">
-              <Icon name="infoCircle" size="sm" class="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <Icon name="infoCircle" size="sm" class="mt-0.5 shrink-0 text-[#5f7f68] dark:text-[#9ab3a0]" />
               <div>
-                <p class="text-sm font-semibold text-emerald-900 dark:text-emerald-200">{{ t('affiliate.notice.title') }}</p>
-                <ul class="mt-2 space-y-1 text-sm leading-6 text-emerald-800 dark:text-emerald-300">
+                <p class="text-sm font-semibold text-[#4f6d58] dark:text-[#b8c8bb]">{{ t('affiliate.notice.title') }}</p>
+                <ul class="mt-2 space-y-1 text-sm leading-6 text-[#5f7f68] dark:text-[#9ab3a0]">
                   <li>{{ t('affiliate.notice.line1') }}</li>
                   <li>{{ t('affiliate.notice.line2') }}</li>
                   <li>{{ t('affiliate.notice.line3') }}</li>
@@ -189,7 +189,7 @@
                     <span
                       class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                       :class="item.first_recharge_completed
-                        ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                        ? 'bg-[#7f9d8a]/12 text-[#5f7f68] dark:bg-[#7f9d8a]/15 dark:text-[#9ab3a0]'
                         : 'bg-gray-100 text-gray-500 dark:bg-dark-800 dark:text-dark-400'"
                     >
                       {{ item.first_recharge_completed ? t('affiliate.invitees.rechargeStatus.completed') : t('affiliate.invitees.rechargeStatus.pending') }}
@@ -198,7 +198,7 @@
                       {{ formatDateTime(item.first_recharge_at) }}
                     </p>
                   </td>
-                  <td class="px-3 py-3 text-right font-medium text-emerald-600 dark:text-emerald-400">{{ formatCreditAmount(item.total_rebate) }}</td>
+                  <td class="px-3 py-3 text-right font-medium text-[#5f7f68] dark:text-[#9ab3a0]">{{ formatCreditAmount(item.total_rebate) }}</td>
                   <td class="px-3 py-3 text-gray-700 dark:text-gray-300">{{ formatDateTime(item.created_at) || '-' }}</td>
                   <td class="px-3 py-3 text-right">
                     <button
@@ -283,6 +283,7 @@ const formattedFirstRechargeRewardAmount = computed(() => {
   const amount = detail.value?.first_recharge_reward_amount ?? detail.value?.api_call_reward_amount ?? 0
   return formatCreditAmount(amount)
 })
+
 const rebateDurationDays = computed(() => Math.max(0, Math.floor(detail.value?.rebate_duration_days ?? 0)))
 
 const rebateWindowText = computed(() => {

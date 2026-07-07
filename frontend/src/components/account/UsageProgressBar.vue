@@ -99,9 +99,9 @@ watch(
 // Label background colors
 const labelClass = computed(() => {
   const colors = {
-    indigo: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
-    emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    purple: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
+    indigo: 'console-badge-accent',
+    emerald: 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]',
+    purple: 'console-badge-accent',
     amber: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
   }
   return colors[props.color]
@@ -114,7 +114,7 @@ const barClass = computed(() => {
   } else if (props.utilization >= 80) {
     return 'bg-amber-500'
   } else {
-    return 'bg-green-500'
+    return 'bg-[#9c7b62]'
   }
 })
 

@@ -9,7 +9,7 @@
 
       <div v-if="loading" class="card flex min-h-[280px] items-center justify-center p-8">
         <div class="text-center">
-          <div class="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
+          <div class="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-[#cc785c] border-t-transparent"></div>
           <p class="mt-3 text-sm text-gray-500 dark:text-gray-400">{{ t('common.loading') }}</p>
         </div>
       </div>
@@ -81,12 +81,12 @@
               <div class="h-full rounded-full bg-primary-600 transition-all" :style="{ width: `${trialProgressPercent}%` }"></div>
             </div>
             <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">{{ t('welfare.trial.walletNotice') }}</p>
-            <div v-if="trial.success_reward_amount > 0" class="mt-4 flex flex-col gap-3 rounded-md border border-emerald-100 bg-emerald-50 px-4 py-3 dark:border-emerald-500/20 dark:bg-emerald-500/10 sm:flex-row sm:items-center sm:justify-between">
+            <div v-if="trial.success_reward_amount > 0" class="mt-4 flex flex-col gap-3 rounded-md border border-[#d8cec2] bg-[#faf9f5] px-4 py-3 dark:border-[#9ab3a0]/30 dark:bg-[#9ab3a0]/10 sm:flex-row sm:items-center sm:justify-between">
               <div class="min-w-0">
-                <p class="text-sm font-semibold text-emerald-800 dark:text-emerald-200">
+                <p class="text-sm font-semibold text-[#5f7f68] dark:text-[#9ab3a0]">
                   {{ t('welfare.trial.successRewardTitle', { amount: formatAmount(trial.success_reward_amount) }) }}
                 </p>
-                <p class="mt-1 text-xs text-emerald-700 dark:text-emerald-300">
+                <p class="mt-1 text-xs text-[#5f7f68] dark:text-[#9ab3a0]">
                   {{ trialSuccessRewardDescription }}
                 </p>
               </div>
@@ -108,7 +108,7 @@
         <section v-if="rechargeVisible" class="card p-5">
           <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div class="flex min-w-0 gap-3">
-              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300">
+              <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-[#9ab3a0]/20 text-[#5f7f68] dark:bg-[#9ab3a0]/10 dark:text-[#9ab3a0]">
                 <Icon name="gift" size="sm" :stroke-width="2" />
               </span>
               <div class="min-w-0">
@@ -127,7 +127,7 @@
                 <p v-if="recharge?.monthly_bonus_may_block && !recharge?.first_bonus_claimed" class="mt-2 text-xs text-amber-700 dark:text-amber-300">
                   {{ t('welfare.recharge.monthlyBonusNotice') }}
                 </p>
-                <p v-if="recharge?.first_bonus_claimed && rechargeClaimedAtText" class="mt-2 text-xs text-emerald-700 dark:text-emerald-300">
+                <p v-if="recharge?.first_bonus_claimed && rechargeClaimedAtText" class="mt-2 text-xs text-[#5f7f68] dark:text-[#9ab3a0]">
                   {{ t('welfare.recharge.claimedAt', { time: rechargeClaimedAtText }) }}
                 </p>
                 <p v-if="rechargeClaimError" class="mt-2 text-sm text-red-600 dark:text-red-400">{{ rechargeClaimError }}</p>
@@ -401,7 +401,7 @@ const dailyActionDescription = computed(() => {
 
 const dailyStatusClass = computed(() => {
   const state = daily.value
-  if (state?.checked_today) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+  if (state?.checked_today) return 'bg-[#9ab3a0]/20 text-[#5f7f68] dark:bg-[#9ab3a0]/10 dark:text-[#9ab3a0]'
   if (state?.can_claim_today) return 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300'
   return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
 })
@@ -464,7 +464,7 @@ const rechargeStatusText = computed(() => {
 
 const rechargeStatusClass = computed(() => {
   const state = recharge.value
-  if (state?.first_bonus_claimed) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+  if (state?.first_bonus_claimed) return 'bg-[#9ab3a0]/20 text-[#5f7f68] dark:bg-[#9ab3a0]/10 dark:text-[#9ab3a0]'
   if (state?.first_bonus_claimable) return 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300'
   if (state?.first_recharge_completed) return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
   if (state?.enabled) return 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300'
@@ -538,14 +538,14 @@ function milestoneStatusText(milestone: WelfareDailyCheckinMilestone): string {
 }
 
 function milestoneStatusClass(milestone: WelfareDailyCheckinMilestone): string {
-  if (milestone.claimed) return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'
+  if (milestone.claimed) return 'bg-[#9ab3a0]/20 text-[#5f7f68] dark:bg-[#9ab3a0]/10 dark:text-[#9ab3a0]'
   if (milestone.claimable) return 'bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300'
   return 'bg-gray-100 text-gray-500 dark:bg-dark-700 dark:text-gray-400'
 }
 
 function milestoneCardClass(milestone: WelfareDailyCheckinMilestone): string {
   if (milestone.claimable) return 'border-primary-200 bg-primary-50/60 dark:border-primary-500/30 dark:bg-primary-500/10'
-  if (milestone.claimed) return 'border-emerald-200 bg-emerald-50/50 dark:border-emerald-500/30 dark:bg-emerald-500/10'
+  if (milestone.claimed) return 'border-[#9ab3a0]/40 bg-[#9ab3a0]/10 dark:border-[#9ab3a0]/30 dark:bg-[#9ab3a0]/10'
   return 'border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-800'
 }
 

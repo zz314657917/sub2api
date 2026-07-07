@@ -35,13 +35,13 @@
 
         <div class="min-w-0">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.sharedUsage') }}</p>
-          <p class="mt-1 text-2xl font-bold text-blue-600 dark:text-blue-400">{{ formatCost(safeSummary.shared_usage_cost) }}</p>
+          <p class="mt-1 text-2xl font-bold text-[#a9583e] dark:text-[#cc785c]">{{ formatCost(safeSummary.shared_usage_cost) }}</p>
           <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.requests', { count: formatInteger(safeSummary.shared_usage_requests) }) }}</p>
         </div>
 
         <div class="min-w-0">
           <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.shareIncome') }}</p>
-          <p class="mt-1 text-2xl font-bold text-emerald-600 dark:text-emerald-400">{{ formatCost(safeSummary.share_income) }}</p>
+          <p class="mt-1 text-2xl font-bold text-[#5f7f68] dark:text-[#9ab3a0]">{{ formatCost(safeSummary.share_income) }}</p>
           <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.platformAmount', { amount: formatCost(safeSummary.platform_amount) }) }}</p>
         </div>
 
@@ -63,7 +63,7 @@
         </div>
         <div class="flex items-center justify-between gap-3">
           <span class="text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.publicApproved') }}</span>
-          <span class="font-semibold text-emerald-600 dark:text-emerald-400">{{ formatInteger(safeSummary.public_active_accounts) }}</span>
+          <span class="font-semibold text-[#5f7f68] dark:text-[#9ab3a0]">{{ formatInteger(safeSummary.public_active_accounts) }}</span>
         </div>
         <div class="flex items-center justify-between gap-3">
           <span class="text-gray-500 dark:text-gray-400">{{ t('dashboard.personalAccountUsage.publicSuspended') }}</span>
@@ -128,7 +128,7 @@ const safeSummary = computed(() => props.summary ?? emptySummary)
 const displayStartDate = computed(() => safeSummary.value.start_date || props.startDate)
 const displayEndDate = computed(() => safeSummary.value.end_date || props.endDate)
 const totalRequests = computed(() => safeSummary.value.own_usage_requests + safeSummary.value.shared_usage_requests)
-const netChangeClass = computed(() => safeSummary.value.balance_net_change >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400')
+const netChangeClass = computed(() => safeSummary.value.balance_net_change >= 0 ? 'text-[#5f7f68] dark:text-[#9ab3a0]' : 'text-rose-600 dark:text-rose-400')
 
 const formatCost = (value: number) => formatCreditAmount(value, { minimumFractionDigits: 4, maximumFractionDigits: 4 })
 const formatInteger = (value: number) => Math.trunc(value || 0).toLocaleString()

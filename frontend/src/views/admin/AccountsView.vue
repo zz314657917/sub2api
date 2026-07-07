@@ -92,13 +92,13 @@
                       </div>
                     </div>
                     <button class="account-tools-menu-item" @click="openSyncFromCrs">
-                      <span class="account-tools-menu-icon bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
+                      <span class="account-tools-menu-icon bg-[#fffaf5] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]">
                         <Icon name="sync" size="sm" />
                       </span>
                       <span class="flex-1 text-left">{{ t('admin.accounts.syncFromCrs') }}</span>
                     </button>
                     <button class="account-tools-menu-item" @click="openImportData">
-                      <span class="account-tools-menu-icon bg-emerald-50 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300">
+                      <span class="account-tools-menu-icon bg-[#fffaf5] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]">
                         <Icon name="upload" size="sm" />
                       </span>
                       <span class="flex-1 text-left">{{ t('admin.accounts.dataImport') }}</span>
@@ -385,7 +385,7 @@
                 </span>
                 <span
                   v-if="row.auto_pause_on_expired && value"
-                  class="inline-flex items-center rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300"
+                  class="inline-flex items-center rounded-md bg-[#f3e7df] px-2 py-0.5 text-xs font-medium text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]"
                 >
                   {{ t('admin.accounts.autoPauseOnExpired') }}
                 </span>
@@ -1406,8 +1406,8 @@ function getOpenAICompactMeta(row: any): { label: string; className: string; dot
     case 'active':
       return {
         label: t('admin.accounts.openai.compactSupported'),
-        className: 'text-emerald-600 dark:text-emerald-300',
-        dotClass: 'bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.14)]'
+        className: 'text-[#a9583e] dark:text-[#f0b89e]',
+        dotClass: 'bg-[#fffaf5]0 shadow-[0_0_0_2px_rgba(16,185,129,0.14)]'
       }
     case 'blocked':
       return {
@@ -1494,9 +1494,9 @@ function accountCapabilityBadgeTitle(capability: AccountCapability): string {
 function accountCapabilityBadgeClass(capability: AccountCapability): string {
   switch (capability) {
     case 'chat':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700/50 dark:bg-emerald-900/20 dark:text-emerald-300'
+      return 'border-[#d8cec2] bg-[#fffaf5] text-[#a9583e] dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10 dark:text-[#f0b89e]'
     case 'image':
-      return 'border-sky-200 bg-sky-50 text-sky-700 dark:border-sky-700/50 dark:bg-sky-900/20 dark:text-sky-300'
+      return 'border-[#d8cec2] bg-[#fffaf5] text-[#a9583e] dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10 dark:text-[#f0b89e]'
     case 'video':
       return 'border-violet-200 bg-violet-50 text-violet-700 dark:border-violet-700/50 dark:bg-violet-900/20 dark:text-violet-300'
     case 'embedding':
@@ -1508,8 +1508,8 @@ function getAntigravityTierClass(row: any): string {
   const tier = getAntigravityTierFromRow(row)
   switch (tier) {
     case 'free-tier': return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
-    case 'g1-pro-tier': return 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-300'
-    case 'g1-ultra-tier': return 'bg-purple-100 text-purple-600 dark:bg-purple-900/40 dark:text-purple-300'
+    case 'g1-pro-tier': return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
+    case 'g1-ultra-tier': return 'console-badge-accent'
     default: return ''
   }
 }
@@ -2234,7 +2234,7 @@ const closeBulkShareFilteredConfirm = () => {
 const getBulkShareResultStatusClass = (status: BulkShareResultItem['status']) => {
   switch (status) {
     case 'success':
-      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+      return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
     case 'failed':
       return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300'
     case 'skipped':

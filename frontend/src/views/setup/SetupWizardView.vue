@@ -1,14 +1,10 @@
 <template>
-  <div
-    class="mc-pixel-grid flex min-h-screen items-center justify-center bg-primary-50 p-4 dark:bg-dark-950"
-  >
+  <div class="setup-warm-page flex min-h-screen items-center justify-center bg-[#faf9f5] p-4 text-[#141413] dark:bg-dark-950">
     <div class="w-full max-w-2xl">
       <!-- Logo & Title -->
       <div class="mb-8 text-center">
-        <div
-          class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-lg border-2 border-accent-700/30 bg-gradient-primary shadow-glass"
-        >
-          <Icon name="cog" size="xl" class="text-white" />
+        <div class="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-full border border-[#d8cec2] bg-[#efe9de] shadow-sm">
+          <Icon name="cog" size="xl" class="text-[#a9583e]" />
         </div>
         <h1 class="text-3xl font-bold text-gray-900 dark:text-white">{{ t('setup.title') }}</h1>
         <p class="mt-2 text-gray-500 dark:text-dark-400">{{ t('setup.description') }}</p>
@@ -23,9 +19,9 @@
                 :class="[
                   'flex h-10 w-10 items-center justify-center rounded-full text-sm font-semibold transition-all',
                   currentStep > index
-                    ? 'bg-primary-500 text-white'
+                    ? 'bg-[#7f9d8a] text-white'
                     : currentStep === index
-                      ? 'bg-primary-500 text-white ring-4 ring-primary-100 dark:ring-primary-900'
+                      ? 'bg-[#cc785c] text-white ring-4 ring-[#f3e7df] dark:ring-[#cc785c]/20'
                       : 'bg-gray-200 text-gray-500 dark:bg-dark-700 dark:text-dark-400'
                 ]"
               >
@@ -51,7 +47,7 @@
             <div
               v-if="index < steps.length - 1"
               class="mx-3 h-0.5 w-12"
-              :class="currentStep > index ? 'bg-primary-500' : 'bg-gray-200 dark:bg-dark-700'"
+              :class="currentStep > index ? 'bg-[#7f9d8a]' : 'bg-gray-200 dark:bg-dark-700'"
             ></div>
           </template>
         </div>
@@ -173,7 +169,7 @@
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
-            <Icon v-else-if="dbConnected" name="check" size="md" class="mr-2 text-green-500" :stroke-width="2" />
+            <Icon v-else-if="dbConnected" name="check" size="md" class="mr-2 text-[#5f7f68] dark:text-[#9ab3a0]" :stroke-width="2" />
             {{
               testingDb
                 ? t('setup.status.testing')
@@ -278,7 +274,7 @@
               v-else-if="redisConnected"
               name="check"
               size="md"
-              class="mr-2 text-green-500"
+              class="mr-2 text-[#5f7f68] dark:text-[#9ab3a0]"
               :stroke-width="2"
             />
             {{
@@ -394,12 +390,12 @@
         <!-- Success Message -->
         <div
           v-if="installSuccess"
-          class="mt-6 rounded-xl border border-green-200 bg-green-50 p-4 dark:border-green-800/50 dark:bg-green-900/20"
+          class="mt-6 rounded-xl border border-[#d8cec2] bg-[#fffaf5] p-4 dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10"
         >
           <div class="flex items-start gap-3">
             <svg
               v-if="!serviceReady"
-              class="h-5 w-5 flex-shrink-0 animate-spin text-green-500"
+              class="h-5 w-5 flex-shrink-0 animate-spin text-[#a9583e] dark:text-[#f0b89e]"
               fill="none"
               viewBox="0 0 24 24"
             >
@@ -417,12 +413,12 @@
                 d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
               ></path>
             </svg>
-            <Icon v-else name="checkCircle" size="md" class="flex-shrink-0 text-green-500" />
+            <Icon v-else name="checkCircle" size="md" class="flex-shrink-0 text-[#5f7f68] dark:text-[#9ab3a0]" />
             <div>
-              <p class="text-sm font-medium text-green-700 dark:text-green-400">
+              <p class="text-sm font-medium text-[#5f7f68] dark:text-[#9ab3a0]">
                 {{ t('setup.status.completed') }}
               </p>
-              <p class="mt-1 text-sm text-green-600 dark:text-green-500">
+              <p class="mt-1 text-sm text-[#504f49] dark:text-[#d8cec2]">
                 {{
                   serviceReady
                     ? t('setup.status.redirecting')

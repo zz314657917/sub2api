@@ -3,14 +3,14 @@
     <div class="w-full max-w-md space-y-6">
       <!-- Loading -->
       <div v-if="loading" class="flex items-center justify-center py-20">
-        <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
+        <div class="h-8 w-8 animate-spin rounded-full border-4 border-[#cc785c] border-t-transparent"></div>
       </div>
       <template v-else>
         <!-- Status Icon -->
         <div class="text-center">
           <div v-if="isSuccess"
-            class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-            <svg class="h-10 w-10 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+            class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-[#9ab3a0]/20 dark:bg-[#9ab3a0]/10">
+            <svg class="h-10 w-10 text-[#5f7f68] dark:text-[#9ab3a0]" fill="none" viewBox="0 0 24 24" stroke="currentColor"
               stroke-width="2">
               <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
             </svg>
