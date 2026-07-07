@@ -6,6 +6,7 @@ export default {
     apiKeys: 'API 密钥',
     myAccounts: '我的共享账号',
     usage: '使用记录',
+    usageAndSubscriptions: '使用与订阅',
     leaderboard: '排行榜',
     welfare: '福利中心',
     claimQuota: '领额度',

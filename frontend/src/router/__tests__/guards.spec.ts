@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { resolveCompletedSetupRedirectPath } from '@/router/setupRedirect'
+import routerSource from '../index.ts?raw'
 
 // Mock 导航加载状态
 vi.mock('@/composables/useNavigationLoading', () => {
@@ -577,5 +578,20 @@ describe('路由守卫逻辑', () => {
       const redirect = simulateGuard('/email-verify', { requiresAuth: false }, authState)
       expect(redirect).toBe('/login')
     })
+  })
+})
+
+
+describe('订阅入口兼容路由', () => {
+  it('keeps /subscriptions as a guarded compatibility entry to /usage#subscriptions', () => {
+    const subscriptionsRouteStart = routerSource.indexOf("path: '/subscriptions'")
+    const purchaseRouteStart = routerSource.indexOf("path: '/purchase'", subscriptionsRouteStart)
+    const subscriptionsRoute = routerSource.slice(subscriptionsRouteStart, purchaseRouteStart)
+
+    expect(subscriptionsRouteStart).toBeGreaterThan(-1)
+    expect(purchaseRouteStart).toBeGreaterThan(subscriptionsRouteStart)
+    expect(subscriptionsRoute).toContain("beforeEnter: () => ({ path: '/usage', hash: '#subscriptions' })")
+    expect(subscriptionsRoute).toContain('requiresAuth: true')
+    expect(subscriptionsRoute).toContain('requiresAdmin: false')
   })
 })

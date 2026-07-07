@@ -1,6 +1,8 @@
 export default {
     title: '使用记录',
     description: '查看和分析您的 API 使用历史',
+    combinedTitle: '使用与订阅',
+    combinedDescription: '查看订阅额度、用量进度和 API 使用历史',
     costDetails: '成本明细',
     tokenDetails: 'Token 明细',
     cacheTtlOverriddenHint: '缓存 TTL Override 已启用',

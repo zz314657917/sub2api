@@ -233,9 +233,9 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Usage Records',
-      titleKey: 'usage.title',
-      descriptionKey: 'usage.description'
+      title: 'Usage & Subscriptions',
+      titleKey: 'usage.combinedTitle',
+      descriptionKey: 'usage.combinedDescription'
     }
   },
   {
@@ -401,6 +401,7 @@ const routes: RouteRecordRaw[] = [
     path: '/subscriptions',
     name: 'Subscriptions',
     component: () => import('@/views/user/SubscriptionsView.vue'),
+    beforeEnter: () => ({ path: '/usage', hash: '#subscriptions' }),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,

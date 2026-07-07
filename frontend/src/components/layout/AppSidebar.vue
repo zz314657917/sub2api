@@ -519,7 +519,6 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   const welfareItem: NavItem = { path: '/welfare', label: t('nav.welfare'), icon: WelfareIcon, hideInSimpleMode: true, featureFlag: flagWelfare }
   const accountItems: NavItem[] = [
     { path: '/my-accounts', label: t('nav.myAccounts'), icon: GlobeIcon, hideInSimpleMode: true, featureFlag: flagAccountShare },
-    { path: '/subscriptions', label: t('nav.mySubscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },
     { path: '/redeem', label: t('nav.redeem'), icon: GiftIcon, hideInSimpleMode: true },
     { path: '/profile', label: t('nav.profile'), icon: UserIcon },
   ]
@@ -532,7 +531,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   const primarySelfItems: NavItem[] = [
     { path: '/chat-images', label: t('nav.chatImageCreator'), icon: ChatIcon, hideInSimpleMode: true, openInNewTab: true, action: 'studioBridgeLaunch' },
     { path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon },
-    { path: '/usage', label: t('nav.usage'), icon: UsageIcon, hideInSimpleMode: true },
+    { path: '/usage', label: t('nav.usageAndSubscriptions'), icon: UsageIcon, hideInSimpleMode: true },
     { path: '/tickets', label: t('nav.tickets'), icon: TicketIcon, hideInSimpleMode: true },
     { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
     { path: '/affiliate', label: t('nav.affiliate'), icon: TeamIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },

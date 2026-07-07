@@ -6,6 +6,7 @@ export default {
     apiKeys: 'API Keys',
     myAccounts: 'My Accounts',
     usage: 'Usage',
+    usageAndSubscriptions: 'Usage & Subscriptions',
     leaderboard: 'Leaderboard',
     welfare: 'Welfare',
     claimQuota: 'Claim',

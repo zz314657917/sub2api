@@ -1,6 +1,8 @@
 export default {
     title: 'Usage Records',
     description: 'View and analyze your API usage history',
+    combinedTitle: 'Usage & Subscriptions',
+    combinedDescription: 'View subscription quotas, usage progress, and API usage history',
     costDetails: 'Cost Breakdown',
     tokenDetails: 'Token Breakdown',
     cacheTtlOverriddenHint: 'Cache TTL Override enabled',

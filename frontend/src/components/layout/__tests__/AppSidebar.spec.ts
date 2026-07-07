@@ -213,7 +213,8 @@ describe('AppSidebar self navigation groups', () => {
     expect(componentSource).toContain("path: '/my-accounts'")
     expect(accountCenterBlock).not.toContain("path: '/orders'")
     expect(componentSource).toContain("path: '/profile'")
-    expect(componentSource).toContain("path: '/subscriptions'")
+    expect(componentSource).not.toContain("path: '/subscriptions'")
+    expect(componentSource).toContain("label: t('nav.usageAndSubscriptions')")
   })
 
   it('keeps the API key tour target available inside personal groups', () => {

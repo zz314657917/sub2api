@@ -9,6 +9,8 @@ const {
   getStatsByDateRange,
   list,
   getAvailableGroups,
+  getMySubscriptions,
+  routerPush,
   showError,
   showWarning,
   showSuccess,
@@ -18,6 +20,8 @@ const {
   getStatsByDateRange: vi.fn(),
   list: vi.fn(),
   getAvailableGroups: vi.fn(),
+  getMySubscriptions: vi.fn(),
+  routerPush: vi.fn(),
   showError: vi.fn(),
   showWarning: vi.fn(),
   showSuccess: vi.fn(),
@@ -119,6 +123,32 @@ const messages: Record<string, string> = {
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per request',
   'admin.usage.billingModeImage': 'Image',
+  'userSubscriptions.title': 'My Subscriptions',
+  'userSubscriptions.description': 'View your subscription plans and usage',
+  'userSubscriptions.noActiveSubscriptions': 'No Active Subscriptions',
+  'userSubscriptions.noActiveSubscriptionsDesc':
+    "You don't have any active subscriptions. Contact administrator to get one.",
+  'userSubscriptions.failedToLoad': 'Failed to load subscriptions',
+  'userSubscriptions.status.active': 'Active',
+  'userSubscriptions.status.expired': 'Expired',
+  'userSubscriptions.status.revoked': 'Revoked',
+  'userSubscriptions.expires': 'Expires',
+  'userSubscriptions.noExpiration': 'No expiration',
+  'userSubscriptions.unlimited': 'Unlimited',
+  'userSubscriptions.unlimitedDesc': 'No usage limits on this subscription',
+  'userSubscriptions.daily': 'Daily',
+  'userSubscriptions.weekly': 'Weekly',
+  'userSubscriptions.monthly': 'Monthly',
+  'userSubscriptions.daysRemaining': '{days} days remaining',
+  'userSubscriptions.resetIn': 'Resets in {time}',
+  'userSubscriptions.quotaEndsIn': 'Quota ends in {time}',
+  'userSubscriptions.windowNotActive': 'Awaiting first use',
+  'payment.planCard.rate': 'Rate',
+  'payment.planCard.peakRate': 'Peak rate',
+  'payment.renewNow': 'Renew Now',
+  'common.today': 'today',
+  'common.tomorrow': 'tomorrow',
+  'common.serverTime': 'Server time',
 }
 
 vi.mock('@/api', () => ({
@@ -136,6 +166,18 @@ vi.mock('@/api', () => ({
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({ showError, showWarning, showSuccess, showInfo }),
+}))
+
+vi.mock('@/api/subscriptions', () => ({
+  default: {
+    getMySubscriptions,
+  },
+}))
+
+vi.mock('vue-router', () => ({
+  useRouter: () => ({
+    push: routerPush,
+  }),
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -171,6 +213,29 @@ const availableGroup = {
   fallback_group_id_on_invalid_request: null,
   require_oauth_only: false,
   require_privacy_set: false,
+}
+
+const activeSubscription = {
+  id: 12,
+  user_id: 42,
+  group_id: 9,
+  status: 'active',
+  starts_at: '2026-03-01T00:00:00Z',
+  daily_usage_usd: 0.25,
+  weekly_usage_usd: 1.5,
+  monthly_usage_usd: 4.2,
+  daily_window_start: '2026-03-08T00:00:00Z',
+  weekly_window_start: '2026-03-01T00:00:00Z',
+  monthly_window_start: '2026-03-01T00:00:00Z',
+  created_at: '2026-03-01T00:00:00Z',
+  updated_at: '2026-03-08T00:00:00Z',
+  expires_at: null,
+  group: {
+    ...availableGroup,
+    daily_limit_usd: 1,
+    weekly_limit_usd: 5,
+    monthly_limit_usd: 20,
+  },
 }
 
 const baseUsageLog = (overrides: Record<string, unknown> = {}) => ({
@@ -285,6 +350,7 @@ const mountUsageView = async (items = [baseUsageLog()]) => {
   })
   list.mockResolvedValue({ items: [{ id: 3, name: 'demo-key' }] })
   getAvailableGroups.mockResolvedValue([availableGroup])
+  getMySubscriptions.mockResolvedValue([activeSubscription])
 
   const wrapper = mount(UsageView, {
     global: {
@@ -370,6 +436,8 @@ describe('user UsageView', () => {
     getStatsByDateRange.mockReset()
     list.mockReset()
     getAvailableGroups.mockReset()
+    getMySubscriptions.mockReset()
+    routerPush.mockReset()
     showError.mockReset()
     showWarning.mockReset()
     showSuccess.mockReset()
@@ -411,6 +479,34 @@ describe('user UsageView', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('renders subscriptions above usage records and keeps renewal routing', async () => {
+    const wrapper = await mountUsageView()
+
+    expect(wrapper.find('[data-testid="user-subscriptions-panel"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('My Subscriptions')
+    expect(wrapper.text()).not.toContain('Usage Records')
+    expect(wrapper.text()).toContain('mc')
+    expect(wrapper.text()).toContain('Active')
+    expect(wrapper.find('.table-headers').exists()).toBe(true)
+
+    const renewButton = wrapper.findAll('button').find((button) => button.text().includes('Renew Now'))
+    expect(renewButton).toBeTruthy()
+    await renewButton!.trigger('click')
+
+    expect(routerPush).toHaveBeenCalledWith({
+      path: '/purchase',
+      query: { tab: 'subscription', group: '9' },
+    })
+  })
+
+  it('shows subscription empty state on the combined usage page', async () => {
+    getMySubscriptions.mockResolvedValueOnce([])
+    const wrapper = await mountUsageView()
+
+    expect(wrapper.text()).toContain('No Active Subscriptions')
+    expect(wrapper.find('.table-headers').exists()).toBe(true)
   })
 
   it('renders the actual billing group with the row rate multiplier', async () => {
