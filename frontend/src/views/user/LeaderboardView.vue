@@ -195,7 +195,12 @@
                       <div
                         class="leaderboard-token-bar-track"
                         :aria-label="leaderboardTokenMetricsLabel(item)"
-                        :title="leaderboardTokenMetricsLabel(item)"
+                        role="img"
+                        tabindex="0"
+                        @mouseenter="showTokenBarTooltip(item, $event)"
+                        @mouseleave="hideTokenBarTooltip"
+                        @focusin="showTokenBarTooltip(item, $event)"
+                        @focusout="hideTokenBarTooltip"
                       >
                         <div
                           class="leaderboard-token-bar-fill"
@@ -223,115 +228,117 @@
             </template>
           </div>
 
-          <aside class="leaderboard-side-stack space-y-5 xl:sticky xl:top-20 xl:self-start">
+          <aside class="leaderboard-side-stack xl:sticky xl:top-20 xl:self-start">
             <section class="card leaderboard-side-card p-5" data-testid="leaderboard-my-info">
-            <p class="leaderboard-side-title text-sm font-semibold">{{ t('leaderboard.myInfo') }}</p>
-            <div v-if="myEntry?.badges?.length" class="mt-3 flex flex-wrap items-center gap-1.5">
-              <span
-                v-for="badge in visibleLeaderboardBadges(myEntry?.badges)"
-                :key="badge"
-                class="leaderboard-badge-icon"
-                :class="leaderboardBadgeClass(badge)"
-                :title="leaderboardBadgeTitle(badge)"
-                :aria-label="leaderboardBadgeTitle(badge)"
-                data-testid="leaderboard-my-badge-icon"
-                :data-badge="badge"
-              >
-                {{ leaderboardBadgeLabel(badge) }}
-              </span>
-              <span
-                v-if="hiddenLeaderboardBadgeCount(myEntry?.badges) > 0"
-                class="leaderboard-badge-overflow"
-                :title="hiddenLeaderboardBadgeTitle(myEntry?.badges)"
-                :aria-label="hiddenLeaderboardBadgeTitle(myEntry?.badges)"
-              >
-                +{{ hiddenLeaderboardBadgeCount(myEntry?.badges) }}
-              </span>
-            </div>
-            <div class="mt-4 min-w-0">
-              <p class="leaderboard-side-value truncate text-xl font-bold">
-                {{ myRankLabel }} {{ myDisplayName }}
-              </p>
-            </div>
-            <div class="leaderboard-my-token-card mt-4 rounded-lg p-3 text-sm" data-testid="leaderboard-my-token">
-              <p class="leaderboard-side-label text-xs">{{ t('leaderboard.tokens') }}</p>
-              <p class="leaderboard-side-value mt-1 truncate text-xl font-bold">{{ formatNumber(myEntry?.tokens ?? 0) }}</p>
-            </div>
-          </section>
-
-          <section v-if="dailyRewards" class="card leaderboard-side-card p-5" data-testid="leaderboard-daily-reward">
-            <div class="leaderboard-reward-head">
-              <div class="min-w-0">
-                <h2 class="leaderboard-reward-title">{{ t('leaderboard.dailyReward.title') }}</h2>
-                <p class="leaderboard-reward-period">
-                  <span>{{ t('leaderboard.dailyReward.settlementDate') }}</span>
-                  <span>{{ dailyRewards.reward_date || '-' }}</span>
-                </p>
-              </div>
-              <span class="leaderboard-reward-status" :class="dailyRewardStatusClass">
-                {{ dailyRewardReasonText }}
-              </span>
-            </div>
-
-            <div class="mt-4 grid grid-cols-3 gap-2">
-              <div
-                v-for="tier in rewardTiers"
-                :key="tier.rank"
-                class="leaderboard-reward-tier-card rounded-lg p-3 text-center"
-              >
-                <p class="leaderboard-side-label text-xs">{{ t('leaderboard.dailyReward.rankReward', { rank: tier.rank }) }}</p>
-                <p class="leaderboard-side-value mt-1 text-sm font-bold">{{ t('leaderboard.dailyReward.rewardAmountHidden') }}</p>
-              </div>
-            </div>
-
-            <div v-if="rewardTopUsers.length" class="leaderboard-weekly-winners mt-4" data-testid="leaderboard-weekly-winners">
-              <div class="leaderboard-weekly-winners-header">
-                <span>{{ t('leaderboard.dailyReward.lastWeekTopUsersTitle') }}</span>
-                <span>{{ dailyRewards.reward_date || '-' }}</span>
-              </div>
-              <div class="leaderboard-weekly-winners-list">
-                <div
-                  v-for="winner in rewardTopUsers"
-                  :key="winner.rank"
-                  class="leaderboard-weekly-winner-row"
-                >
-                  <span class="leaderboard-weekly-winner-rank">{{ rewardTopUserRankLabel(winner.rank) }}</span>
-                  <span class="leaderboard-weekly-winner-name">{{ winner.displayName }}</span>
+              <div class="leaderboard-side-profile">
+                <p class="leaderboard-side-title text-sm font-semibold">{{ t('leaderboard.myInfo') }}</p>
+                <div v-if="myEntry?.badges?.length" class="mt-3 flex flex-wrap items-center gap-1.5">
+                  <span
+                    v-for="badge in visibleLeaderboardBadges(myEntry?.badges)"
+                    :key="badge"
+                    class="leaderboard-badge-icon"
+                    :class="leaderboardBadgeClass(badge)"
+                    :title="leaderboardBadgeTitle(badge)"
+                    :aria-label="leaderboardBadgeTitle(badge)"
+                    data-testid="leaderboard-my-badge-icon"
+                    :data-badge="badge"
+                  >
+                    {{ leaderboardBadgeLabel(badge) }}
+                  </span>
+                  <span
+                    v-if="hiddenLeaderboardBadgeCount(myEntry?.badges) > 0"
+                    class="leaderboard-badge-overflow"
+                    :title="hiddenLeaderboardBadgeTitle(myEntry?.badges)"
+                    :aria-label="hiddenLeaderboardBadgeTitle(myEntry?.badges)"
+                  >
+                    +{{ hiddenLeaderboardBadgeCount(myEntry?.badges) }}
+                  </span>
+                </div>
+                <div class="mt-4 min-w-0">
+                  <p class="leaderboard-side-value truncate text-xl font-bold">
+                    {{ myRankLabel }} {{ myDisplayName }}
+                  </p>
+                </div>
+                <div class="leaderboard-my-token-card mt-4 rounded-lg p-3 text-sm" data-testid="leaderboard-my-token">
+                  <p class="leaderboard-side-label text-xs">{{ t('leaderboard.tokens') }}</p>
+                  <p class="leaderboard-side-value mt-1 truncate text-xl font-bold">{{ formatNumber(myEntry?.tokens ?? 0) }}</p>
                 </div>
               </div>
-            </div>
 
-            <div class="leaderboard-reward-progress-card mt-4 rounded-lg p-3 text-sm">
-              <div class="flex items-center justify-between gap-3">
-                <span class="leaderboard-side-label">{{ t('leaderboard.myRank') }}</span>
-                <span class="leaderboard-side-value font-semibold">{{ formatRewardRankLabel(dailyRewards.current_user_rank) }}</span>
-              </div>
-              <div class="mt-2 flex items-center justify-between gap-3">
-                <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.targetProgress') }}</span>
-                <span class="leaderboard-side-value font-semibold">{{ dailyRewardGoalProgressText }}</span>
-              </div>
-              <div
-                class="leaderboard-reward-progress-track mt-3 h-2 overflow-hidden rounded-full"
-                :aria-label="`${t('leaderboard.dailyReward.targetProgress')} ${dailyRewardGoalProgressText}`"
-              >
-                <div
-                  class="leaderboard-reward-progress-fill h-full rounded-full transition-all duration-300"
-                  :style="{ width: dailyRewardGoalProgressWidth }"
-                ></div>
-              </div>
-            </div>
+              <div v-if="dailyRewards" class="leaderboard-reward-panel" data-testid="leaderboard-daily-reward">
+                <div class="leaderboard-reward-head">
+                  <div class="min-w-0">
+                    <h2 class="leaderboard-reward-title">{{ t('leaderboard.dailyReward.title') }}</h2>
+                    <p class="leaderboard-reward-period">
+                      <span>{{ t('leaderboard.dailyReward.settlementDate') }}</span>
+                      <span>{{ dailyRewards.reward_date || '-' }}</span>
+                    </p>
+                  </div>
+                  <span class="leaderboard-reward-status" :class="dailyRewardStatusClass">
+                    {{ dailyRewardReasonText }}
+                  </span>
+                </div>
 
-            <p v-if="claimError" class="mt-3 text-sm text-red-600 dark:text-red-400">{{ claimError }}</p>
+                <div class="leaderboard-reward-tiers mt-3">
+                  <div
+                    v-for="tier in rewardTiers"
+                    :key="tier.rank"
+                    class="leaderboard-reward-tier-card rounded-lg p-2 text-center"
+                  >
+                    <p class="leaderboard-side-label text-xs">{{ t('leaderboard.dailyReward.rankReward', { rank: tier.rank }) }}</p>
+                    <p class="leaderboard-side-value mt-1 text-xs font-bold">{{ t('leaderboard.dailyReward.rewardAmountHidden') }}</p>
+                  </div>
+                </div>
 
-            <button
-              class="btn btn-primary leaderboard-reward-claim mt-4 w-full"
-              type="button"
-              :disabled="!dailyRewards.can_claim || claimingReward"
-              data-testid="leaderboard-daily-reward-claim"
-              @click="claimDailyReward"
-            >
-              {{ claimButtonText }}
-            </button>
+                <div v-if="rewardTopUsers.length" class="leaderboard-weekly-winners mt-3" data-testid="leaderboard-weekly-winners">
+                  <div class="leaderboard-weekly-winners-header">
+                    <span>{{ t('leaderboard.dailyReward.lastWeekTopUsersTitle') }}</span>
+                    <span>{{ dailyRewards.reward_date || '-' }}</span>
+                  </div>
+                  <div class="leaderboard-weekly-winners-list">
+                    <div
+                      v-for="winner in rewardTopUsers"
+                      :key="winner.rank"
+                      class="leaderboard-weekly-winner-row"
+                    >
+                      <span class="leaderboard-weekly-winner-rank">{{ rewardTopUserRankLabel(winner.rank) }}</span>
+                      <span class="leaderboard-weekly-winner-name">{{ winner.displayName }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="leaderboard-reward-progress-card mt-3 rounded-lg p-3 text-sm">
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="leaderboard-side-label">{{ t('leaderboard.myRank') }}</span>
+                    <span class="leaderboard-side-value font-semibold">{{ formatRewardRankLabel(dailyRewards.current_user_rank) }}</span>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between gap-3">
+                    <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.targetProgress') }}</span>
+                    <span class="leaderboard-side-value font-semibold">{{ dailyRewardGoalProgressText }}</span>
+                  </div>
+                  <div
+                    class="leaderboard-reward-progress-track mt-3 h-2 overflow-hidden rounded-full"
+                    :aria-label="`${t('leaderboard.dailyReward.targetProgress')} ${dailyRewardGoalProgressText}`"
+                  >
+                    <div
+                      class="leaderboard-reward-progress-fill h-full rounded-full transition-all duration-300"
+                      :style="{ width: dailyRewardGoalProgressWidth }"
+                    ></div>
+                  </div>
+                </div>
+
+                <p v-if="claimError" class="mt-3 text-sm text-red-600 dark:text-red-400">{{ claimError }}</p>
+
+                <button
+                  class="btn btn-primary leaderboard-reward-claim mt-3 w-full"
+                  type="button"
+                  :disabled="!dailyRewards.can_claim || claimingReward"
+                  data-testid="leaderboard-daily-reward-claim"
+                  @click="claimDailyReward"
+                >
+                  {{ claimButtonText }}
+                </button>
+              </div>
             </section>
           </aside>
         </div>
@@ -353,7 +360,7 @@
                 <div class="leaderboard-calendar-month-toolbar">
                   <div class="leaderboard-calendar-month">{{ month.label }}</div>
                 </div>
-                <div class="leaderboard-calendar-days">
+                <div class="leaderboard-calendar-days" :style="{ '--calendar-day-columns': String(month.columnCount) }">
                   <div
                     v-for="day in month.days"
                     :key="day.key"
@@ -371,14 +378,19 @@
                     @focusout="hideChampionTooltip"
                   >
                     <span class="leaderboard-calendar-day-number">{{ day.day }}</span>
-                    <span v-if="day.champion" class="leaderboard-calendar-avatar" data-testid="leaderboard-calendar-avatar">
-                      <img
-                        v-if="dailyChampionAvatarUrl(day.champion)"
-                        :src="dailyChampionAvatarUrl(day.champion)"
-                        alt=""
-                        loading="lazy"
-                      >
-                      <span v-else>{{ dailyChampionAvatarInitial(day.champion) }}</span>
+                    <span class="leaderboard-calendar-avatar-frame" data-testid="leaderboard-calendar-avatar-frame">
+                      <span v-if="day.champion" class="leaderboard-calendar-avatar" data-testid="leaderboard-calendar-avatar">
+                        <img
+                          v-if="dailyChampionAvatarUrl(day.champion)"
+                          :src="dailyChampionAvatarUrl(day.champion)"
+                          alt=""
+                          loading="lazy"
+                        >
+                        <span v-else>{{ dailyChampionAvatarInitial(day.champion) }}</span>
+                      </span>
+                      <span v-if="day.champion" class="leaderboard-calendar-token-label">
+                        {{ dailyChampionTokenMLabel(day.champion) }}
+                      </span>
                     </span>
                   </div>
                 </div>
@@ -404,6 +416,34 @@
           </Teleport>
         </section>
       </template>
+
+      <Teleport to="body">
+        <div
+          v-if="activeTokenBarTooltip"
+          class="leaderboard-calendar-tooltip leaderboard-token-tooltip"
+          :style="tokenBarTooltipStyle"
+          role="tooltip"
+          data-testid="leaderboard-token-tooltip"
+        >
+          <div class="leaderboard-calendar-tooltip-date">{{ activeTokenBarTooltip.dateLabel }}</div>
+          <div class="leaderboard-calendar-tooltip-main">
+            <span class="leaderboard-calendar-tooltip-name">{{ activeTokenBarTooltip.displayName }}</span>
+            <span class="leaderboard-calendar-tooltip-tokens">{{ activeTokenBarTooltip.tokenLabel }}</span>
+          </div>
+          <div class="leaderboard-token-tooltip-table" role="table">
+            <div
+              v-for="metric in activeTokenBarTooltip.metrics"
+              :key="metric.label"
+              class="leaderboard-token-tooltip-row"
+              role="row"
+            >
+              <span class="leaderboard-token-tooltip-label" role="cell">{{ metric.label }}</span>
+              <span class="leaderboard-token-tooltip-value" role="cell">{{ metric.value }}</span>
+              <span v-if="metric.note" class="leaderboard-token-tooltip-note" role="cell">{{ metric.note }}</span>
+            </div>
+          </div>
+        </div>
+      </Teleport>
     </div>
   </AppLayout>
 </template>
@@ -477,12 +517,26 @@ type ChampionCalendarMonth = {
   label: string
   days: ChampionCalendarDay[]
   isCurrent: boolean
+  columnCount: number
 }
 
 type ChampionCalendarTooltipView = {
   dateLabel: string
   displayName: string
   metaLabel: string
+  tokenLabel: string
+}
+
+type TokenBarTooltipMetric = {
+  label: string
+  value: string
+  note?: string
+}
+
+type TokenBarTooltipView = {
+  dateLabel: string
+  displayName: string
+  metrics: TokenBarTooltipMetric[]
   tokenLabel: string
 }
 
@@ -531,6 +585,12 @@ const championTooltipPosition = ref({ left: 0, top: 0 })
 const championTooltipStyle = computed(() => ({
   left: `${championTooltipPosition.value.left}px`,
   top: `${championTooltipPosition.value.top}px`,
+}))
+const activeTokenBarTooltip = ref<TokenBarTooltipView | null>(null)
+const tokenBarTooltipPosition = ref({ left: 0, top: 0 })
+const tokenBarTooltipStyle = computed(() => ({
+  left: `${tokenBarTooltipPosition.value.left}px`,
+  top: `${tokenBarTooltipPosition.value.top}px`,
 }))
 
 const rankingItems = computed<UserLeaderboardItem[]>(() => {
@@ -790,7 +850,67 @@ function selectPeriod(value: LeaderboardPeriod) {
   if (period.value === value) return
   period.value = value
   hideChampionTooltip()
+  hideTokenBarTooltip()
   loadLeaderboard()
+}
+
+function showTokenBarTooltip(item: UserLeaderboardItem, event: Event) {
+  const target = event.currentTarget
+  if (!(target instanceof HTMLElement)) return
+
+  activeTokenBarTooltip.value = {
+    dateLabel: leaderboardTokenTooltipDateLabel(),
+    displayName: getLeaderboardDisplayName(item),
+    metrics: leaderboardTokenTooltipMetrics(item),
+    tokenLabel: `${formatCompactChineseTokens(item.tokens)} tokens`,
+  }
+  positionTokenBarTooltip(target)
+}
+
+function leaderboardTokenTooltipDateLabel(): string {
+  const generatedAt = leaderboard.value?.generated_at
+  return generatedAt ? formatChampionCalendarDate(formatCalendarDateKey(new Date(generatedAt))) : t('leaderboard.tokens')
+}
+
+function leaderboardTokenTooltipMetrics(item: UserLeaderboardItem): TokenBarTooltipMetric[] {
+  return [
+    {
+      label: t('leaderboard.inputTokensShort'),
+      value: formatCompactChineseTokens(leaderboardInputTokens(item)),
+    },
+    {
+      label: t('leaderboard.outputTokensShort'),
+      value: formatCompactChineseTokens(leaderboardOutputTokens(item)),
+    },
+    {
+      label: t('leaderboard.cacheTokensShort'),
+      value: formatCompactChineseTokens(leaderboardCacheTokens(item)),
+      note: `${t('leaderboard.cacheRatioShort')} ${formatLeaderboardCachePercent(item)}`,
+    },
+    {
+      label: t('leaderboard.costPerMillionShort'),
+      value: formatLeaderboardCostPerMillion(item),
+      note: '/ 1M Token',
+    },
+  ]
+}
+
+function positionTokenBarTooltip(target: HTMLElement) {
+  const rect = target.getBoundingClientRect()
+  const width = 256
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth || width
+  const maxLeft = Math.max(championTooltipViewportPadding, viewportWidth - width - championTooltipViewportPadding)
+  const preferredLeft = rect.left + window.scrollX + Math.min(24, rect.width * 0.35)
+  const left = Math.min(Math.max(championTooltipViewportPadding, preferredLeft), maxLeft)
+  const top = Math.max(
+    championTooltipViewportPadding,
+    rect.top + window.scrollY - championTooltipGap - championTooltipHeight,
+  )
+  tokenBarTooltipPosition.value = { left, top }
+}
+
+function hideTokenBarTooltip() {
+  activeTokenBarTooltip.value = null
 }
 
 function showChampionTooltip(day: ChampionCalendarDay, event: Event) {
@@ -869,10 +989,14 @@ function buildChampionCalendarMonth(monthStart: Date, isCurrent: boolean): Champ
   const year = monthStart.getFullYear()
   const month = monthStart.getMonth()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const anchor = championCalendarAnchor.value
+  const visibleDays = isCurrent && year === anchor.getFullYear() && month === anchor.getMonth()
+    ? Math.min(daysInMonth, Math.max(1, anchor.getDate()))
+    : daysInMonth
   const key = formatCalendarDateKey(monthStart)
   let previousChampionUserID: number | null = null
   let streak = 0
-  const days = Array.from({ length: daysInMonth }, (_, index) => {
+  const days = Array.from({ length: visibleDays }, (_, index) => {
     const date = new Date(year, month, index + 1)
     const dateKey = formatCalendarDateKey(date)
     const champion = dailyChampionsByDate.value.get(dateKey)
@@ -897,6 +1021,7 @@ function buildChampionCalendarMonth(monthStart: Date, isCurrent: boolean): Champ
     label: `${year}年${month + 1}月`,
     isCurrent,
     days,
+    columnCount: Math.min(15, Math.max(1, visibleDays)),
   }
 }
 
@@ -921,6 +1046,13 @@ function formatCompactChineseTokens(value: number): string {
   return formatNumber(Math.max(0, Math.round(value)))
 }
 
+function formatTokenMillions(value: number): string {
+  if (!Number.isFinite(value)) return '0M'
+  const millions = Math.max(0, value) / 1_000_000
+  if (millions > 0 && millions < 0.1) return '<0.1M'
+  return `${formatCompactUnit(millions)}M`
+}
+
 function formatCompactUnit(value: number): string {
   return value.toFixed(1).replace(/\.0$/, '')
 }
@@ -935,6 +1067,10 @@ function dailyChampionAvatarUrl(champion: UserLeaderboardDailyChampion): string 
 
 function dailyChampionAvatarInitial(champion: UserLeaderboardDailyChampion): string {
   return Array.from(dailyChampionDisplayName(champion).trim())[0]?.toUpperCase() || 'U'
+}
+
+function dailyChampionTokenMLabel(champion: UserLeaderboardDailyChampion): string {
+  return formatTokenMillions(champion.tokens)
 }
 
 function championCalendarTooltip(day: ChampionCalendarDay): string {
@@ -1014,11 +1150,10 @@ function tokenBarStyle(item: UserLeaderboardItem): Record<string, string> {
 
   return {
     '--token-bar-width': widthText,
+    '--token-bar-value-left': widthText,
     '--token-input-width': leaderboardTokenSegmentPercent(leaderboardInputTokens(item), item.tokens),
     '--token-output-width': leaderboardTokenSegmentPercent(leaderboardOutputTokens(item), item.tokens),
     '--token-cache-width': leaderboardTokenSegmentPercent(leaderboardCacheTokens(item), item.tokens),
-    '--token-bar-value-left': `calc(${widthText} + 0.55rem)`,
-    '--token-bar-value-x': '0',
     '--token-bar-color': palette.color,
     '--token-bar-glow': palette.glow,
     '--token-rank-color': palette.text,
@@ -1218,14 +1353,19 @@ onMounted(() => {
   startVisualTokenTicker()
   loadLeaderboard()
   window.addEventListener('scroll', hideChampionTooltip, true)
+  window.addEventListener('scroll', hideTokenBarTooltip, true)
   window.addEventListener('resize', hideChampionTooltip)
+  window.addEventListener('resize', hideTokenBarTooltip)
 })
 
 onUnmounted(() => {
   stopVisualTokenTicker()
   hideChampionTooltip()
+  hideTokenBarTooltip()
   window.removeEventListener('scroll', hideChampionTooltip, true)
+  window.removeEventListener('scroll', hideTokenBarTooltip, true)
   window.removeEventListener('resize', hideChampionTooltip)
+  window.removeEventListener('resize', hideTokenBarTooltip)
 })
 </script>
 
@@ -1607,20 +1747,51 @@ onUnmounted(() => {
 
 .leaderboard-token-bar-track {
   position: relative;
+  display: grid;
+  box-sizing: border-box;
+  grid-template-columns: minmax(0, 1fr) 5.9rem;
+  column-gap: 0.7rem;
+  align-items: center;
   height: 1.32rem;
   overflow: visible;
   border-radius: 0;
+  background: transparent;
+}
+
+.leaderboard-token-bar-track::before {
+  position: absolute;
+  top: 50%;
+  right: 6.6rem;
+  left: 0;
+  height: 1px;
+  transform: translateY(-50%);
+  background: rgb(132 118 98 / 0.055);
+  content: "";
+}
+
+.leaderboard-token-bar-track::after {
+  position: absolute;
+  top: 0;
+  right: 6.6rem;
+  bottom: 0;
+  left: 0;
   background:
-    linear-gradient(90deg, rgb(132 118 98 / 0.13) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(132 118 98 / 0.032) 1px, transparent 1px),
     transparent;
   background-size: 10% 100%;
+  content: "";
+  pointer-events: none;
 }
 
 .leaderboard-token-bar-fill {
+  position: relative;
+  z-index: 1;
   display: flex;
+  grid-column: 1;
+  grid-row: 1;
   width: var(--token-bar-width);
   height: 100%;
-  min-width: 0.7rem;
+  min-width: 1.05rem;
   overflow: hidden;
   border-radius: 0.08rem 0.28rem 0.28rem 0.08rem;
   background: rgb(222 212 196 / 0.58);
@@ -1742,11 +1913,14 @@ onUnmounted(() => {
 }
 
 .leaderboard-token-bar-value {
-  position: absolute;
-  top: 50%;
-  left: var(--token-bar-value-left);
+  position: relative;
+  z-index: 2;
+  grid-column: 1;
+  grid-row: 1;
+  justify-self: start;
+  margin-left: var(--token-bar-value-left);
   min-width: 0;
-  transform: translate(var(--token-bar-value-x), -50%);
+  transform: translateX(0.6rem);
   color: var(--token-value-color);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.95rem;
@@ -1760,13 +1934,21 @@ onUnmounted(() => {
   background: rgb(250 247 239 / 0.5);
 }
 
+.leaderboard-side-stack {
+  min-width: 0;
+}
+
 .leaderboard-side-card {
-  border: 1px solid rgb(214 202 186 / 0.56);
+  border: 1px solid rgb(214 202 186 / 0.46);
   border-radius: 0.75rem;
   background:
-    linear-gradient(180deg, rgb(255 253 248 / 0.72), rgb(250 247 239 / 0.46)),
+    linear-gradient(180deg, rgb(255 253 248 / 0.66), rgb(250 247 239 / 0.34)),
     rgb(255 253 248);
-  box-shadow: 0 0.35rem 1rem rgb(60 49 36 / 0.035);
+  box-shadow: 0 0.25rem 0.8rem rgb(60 49 36 / 0.025);
+}
+
+.leaderboard-side-profile {
+  min-width: 0;
 }
 
 .leaderboard-side-title {
@@ -1788,9 +1970,15 @@ onUnmounted(() => {
   gap: 0.85rem;
 }
 
+.leaderboard-reward-panel {
+  margin-top: 1rem;
+  border-top: 1px solid rgb(214 202 186 / 0.44);
+  padding-top: 0.95rem;
+}
+
 .leaderboard-reward-title {
   color: rgb(35 32 28);
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1.3;
@@ -1813,8 +2001,8 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  padding: 0.38rem 0.72rem;
-  font-size: 0.75rem;
+  padding: 0.32rem 0.58rem;
+  font-size: 0.7rem;
   font-weight: 700;
   line-height: 1.12;
   text-align: center;
@@ -1836,10 +2024,16 @@ onUnmounted(() => {
   color: rgb(109 103 93);
 }
 
+.leaderboard-reward-tiers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
 .leaderboard-reward-tier-card,
 .leaderboard-reward-progress-card {
-  border: 1px solid rgb(214 202 186 / 0.46);
-  background: rgb(250 247 239 / 0.5);
+  border: 1px solid rgb(214 202 186 / 0.34);
+  background: rgb(250 247 239 / 0.34);
 }
 
 .leaderboard-reward-progress-track {
@@ -1863,10 +2057,10 @@ onUnmounted(() => {
 .leaderboard-weekly-winners {
   display: grid;
   gap: 0.6rem;
-  border: 1px solid rgb(214 202 186 / 0.68);
+  border: 1px solid rgb(214 202 186 / 0.4);
   border-radius: 0.5rem;
-  background: rgb(250 247 239 / 0.72);
-  padding: 0.75rem;
+  background: rgb(250 247 239 / 0.38);
+  padding: 0.65rem;
 }
 
 .leaderboard-weekly-winners-header {
@@ -2010,9 +2204,10 @@ onUnmounted(() => {
 .leaderboard-calendar-months {
   display: grid;
   width: 100%;
-  min-width: 58rem;
-  grid-template-columns: repeat(2, minmax(28rem, 1fr));
+  min-width: 0;
+  grid-template-columns: minmax(36rem, 1fr) minmax(18rem, auto);
   gap: 1rem;
+  align-items: start;
 }
 
 .leaderboard-calendar-month-panel {
@@ -2049,86 +2244,108 @@ onUnmounted(() => {
 
 .leaderboard-calendar-days {
   display: grid;
-  grid-template-columns: repeat(15, minmax(0, 1fr));
-  grid-auto-rows: 3.28rem;
-  gap: 0.32rem;
+  --calendar-day-size: 3.34rem;
+  --calendar-day-label-height: 0.9rem;
+  grid-template-columns: repeat(var(--calendar-day-columns), var(--calendar-day-size));
+  grid-auto-rows: calc(var(--calendar-day-size) + var(--calendar-day-label-height) + 0.18rem);
+  gap: 0.5rem 0.4rem;
+  justify-content: start;
 }
 
 .leaderboard-calendar-day {
   position: relative;
   display: grid;
+  grid-template-rows: var(--calendar-day-label-height) var(--calendar-day-size);
+  align-content: start;
+  width: var(--calendar-day-size);
+  min-width: 0;
+  height: calc(var(--calendar-day-size) + var(--calendar-day-label-height) + 0.18rem);
+  justify-items: center;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  transition: opacity 0.16s ease, transform 0.16s ease;
+}
+
+.leaderboard-calendar-day--active {
+  cursor: help;
+}
+
+.leaderboard-calendar-day--active:hover,
+.leaderboard-calendar-day--active:focus-visible {
+  transform: translateY(-1px);
+}
+
+.leaderboard-calendar-day-number {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
   width: 100%;
   min-width: 0;
-  height: 3.28rem;
-  justify-items: center;
+  height: var(--calendar-day-label-height);
+  align-items: center;
+  justify-content: center;
+  border-radius: 0;
+  background: transparent;
+  color: rgb(116 61 45);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: none;
+}
+
+.leaderboard-calendar-day--empty .leaderboard-calendar-day-number {
+  color: rgb(132 118 98 / 0.48);
+}
+
+.leaderboard-calendar-avatar-frame {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: var(--calendar-day-size);
   overflow: hidden;
   border: 1px solid rgb(214 202 186 / 0.58);
   border-radius: 0.42rem;
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.86), rgb(250 247 239 / 0.62)),
     rgb(255 253 248 / 0.7);
-  transition: border-color 0.16s ease, opacity 0.16s ease, transform 0.16s ease;
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 
-.leaderboard-calendar-day--active {
+.leaderboard-calendar-day--active .leaderboard-calendar-avatar-frame {
   border-color: rgb(196 111 80 / 0.42);
   background:
     linear-gradient(180deg, rgb(247 240 229 / 0.8), rgb(255 253 248 / 0.64));
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.68),
     0 0.42rem 0.9rem rgb(196 111 80 / 0.08);
-  cursor: help;
 }
 
-.leaderboard-calendar-day--active:hover,
-.leaderboard-calendar-day--active:focus-visible {
+.leaderboard-calendar-day--active:hover .leaderboard-calendar-avatar-frame,
+.leaderboard-calendar-day--active:focus-visible .leaderboard-calendar-avatar-frame {
   border-color: rgb(154 83 62 / 0.48);
-  transform: translateY(-1px);
 }
 
-.leaderboard-calendar-day--empty {
-  border-color: rgb(214 202 186 / 0.36);
+.leaderboard-calendar-day--empty .leaderboard-calendar-avatar-frame {
+  border-color: rgb(214 202 186 / 0.18);
   background:
-    linear-gradient(180deg, rgb(255 253 248 / 0.36), rgb(250 247 239 / 0.18)),
-    rgb(255 253 248 / 0.28);
-}
-
-.leaderboard-calendar-day-number {
-  position: absolute;
-  top: 0.22rem;
-  left: 0.28rem;
-  z-index: 2;
-  display: inline-flex;
-  min-width: 1rem;
-  height: 0.95rem;
-  align-items: center;
-  justify-content: center;
-  border-radius: 9999px;
-  background: rgb(255 253 248 / 0.86);
-  color: rgb(116 61 45);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.68rem;
-  font-weight: 900;
-  line-height: 1;
-  box-shadow: 0 0 0 1px rgb(196 111 80 / 0.18);
-}
-
-.leaderboard-calendar-day--empty .leaderboard-calendar-day-number {
-  background: transparent;
-  color: rgb(132 118 98 / 0.64);
+    linear-gradient(180deg, rgb(255 253 248 / 0.22), rgb(250 247 239 / 0.08)),
+    rgb(255 253 248 / 0.14);
   box-shadow: none;
+  opacity: 0.72;
 }
 
 .leaderboard-calendar-avatar {
   position: absolute;
-  inset: 0;
+  inset: 0 0 0.8rem;
   display: inline-flex;
   width: 100%;
-  height: 100%;
+  height: auto;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  border-radius: inherit;
+  border-radius: 0.42rem 0.42rem 0.2rem 0.2rem;
   background:
     radial-gradient(circle at 50% 36%, rgb(255 255 255 / 0.2), transparent 42%),
     linear-gradient(135deg, rgb(214 183 157 / 0.98), rgb(154 83 62 / 0.86)),
@@ -2145,6 +2362,25 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.leaderboard-calendar-token-label {
+  position: absolute;
+  right: 0.16rem;
+  bottom: 0.12rem;
+  left: 0.16rem;
+  z-index: 3;
+  display: block;
+  overflow: hidden;
+  color: rgb(84 70 56);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 0.72rem;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .leaderboard-calendar-day--active .leaderboard-calendar-avatar::after {
@@ -2177,6 +2413,54 @@ onUnmounted(() => {
   padding: 0.72rem 0.78rem 0.7rem;
   pointer-events: none;
   letter-spacing: 0;
+}
+
+.leaderboard-token-tooltip {
+  width: 18rem;
+  min-height: 7rem;
+}
+
+.leaderboard-token-tooltip-table {
+  display: grid;
+  gap: 0.14rem;
+  border-top: 1px solid rgb(214 183 157 / 0.14);
+  padding-top: 0.3rem;
+  color: rgb(168 159 145);
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.leaderboard-token-tooltip-row {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 3.2rem minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.42rem;
+}
+
+.leaderboard-token-tooltip-label,
+.leaderboard-token-tooltip-value,
+.leaderboard-token-tooltip-note {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.leaderboard-token-tooltip-label {
+  color: rgb(168 159 145);
+}
+
+.leaderboard-token-tooltip-value {
+  color: rgb(255 253 248);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 900;
+}
+
+.leaderboard-token-tooltip-note {
+  color: rgb(214 183 157 / 0.78);
+  font-size: 0.68rem;
+  text-align: right;
+  white-space: nowrap;
 }
 
 .leaderboard-calendar-tooltip-date {
@@ -2409,6 +2693,10 @@ onUnmounted(() => {
   background: rgb(14 14 13 / 0.24);
 }
 
+:global(.dark .leaderboard-reward-panel) {
+  border-top-color: rgb(214 183 157 / 0.14);
+}
+
 :global(.dark .leaderboard-reward-progress-track) {
   background: rgb(64 58 50 / 0.78);
 }
@@ -2461,8 +2749,16 @@ onUnmounted(() => {
 }
 
 :global(.dark .leaderboard-token-bar-track) {
+  background: transparent;
+}
+
+:global(.dark .leaderboard-token-bar-track::before) {
+  background: rgb(214 183 157 / 0.045);
+}
+
+:global(.dark .leaderboard-token-bar-track::after) {
   background:
-    linear-gradient(90deg, rgb(214 183 157 / 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(214 183 157 / 0.022) 1px, transparent 1px),
     transparent;
   background-size: 10% 100%;
 }
@@ -2518,14 +2814,14 @@ onUnmounted(() => {
     rgb(20 20 19 / 0.5);
 }
 
-:global(.dark .leaderboard-calendar-day) {
+:global(.dark .leaderboard-calendar-avatar-frame) {
   border-color: rgb(214 183 157 / 0.16);
   background:
     linear-gradient(180deg, rgb(35 32 28 / 0.58), rgb(20 20 19 / 0.4)),
     rgb(20 20 19 / 0.34);
 }
 
-:global(.dark .leaderboard-calendar-day--active) {
+:global(.dark .leaderboard-calendar-day--active .leaderboard-calendar-avatar-frame) {
   border-color: rgb(214 183 157 / 0.3);
   background:
     linear-gradient(180deg, rgb(64 58 50 / 0.62), rgb(20 20 19 / 0.54));
@@ -2534,23 +2830,21 @@ onUnmounted(() => {
     0 0.45rem 1rem rgb(0 0 0 / 0.18);
 }
 
-:global(.dark .leaderboard-calendar-day--empty) {
-  border-color: rgb(214 183 157 / 0.08);
+:global(.dark .leaderboard-calendar-day--empty .leaderboard-calendar-avatar-frame) {
+  border-color: rgb(214 183 157 / 0.05);
   background:
-    linear-gradient(180deg, rgb(35 32 28 / 0.38), rgb(20 20 19 / 0.24)),
-    rgb(20 20 19 / 0.24);
+    linear-gradient(180deg, rgb(35 32 28 / 0.24), rgb(20 20 19 / 0.12)),
+    rgb(20 20 19 / 0.14);
 }
 
 :global(.dark .leaderboard-calendar-day-number) {
-  background: rgb(20 20 19 / 0.72);
+  background: transparent;
   color: rgb(214 183 157);
-  box-shadow: 0 0 0 1px rgb(214 183 157 / 0.14);
+  box-shadow: none;
 }
 
 :global(.dark .leaderboard-calendar-day--empty .leaderboard-calendar-day-number) {
-  background: transparent;
   color: rgb(168 159 145 / 0.6);
-  box-shadow: none;
 }
 
 :global(.dark .leaderboard-calendar-avatar) {
@@ -2559,6 +2853,10 @@ onUnmounted(() => {
     linear-gradient(135deg, rgb(64 58 50 / 0.96), rgb(154 83 62 / 0.72)),
     rgb(154 83 62);
   color: rgb(243 239 231);
+}
+
+:global(.dark .leaderboard-calendar-token-label) {
+  color: rgb(214 183 157);
 }
 
 :global(.dark .leaderboard-calendar-tooltip) {
@@ -2685,19 +2983,22 @@ onUnmounted(() => {
   }
 
   .leaderboard-calendar-days {
+    --calendar-day-size: 3.16rem;
     gap: 0.48rem;
   }
 
-  .leaderboard-calendar-days {
-    grid-auto-rows: 3.05rem;
-  }
-
   .leaderboard-calendar-day {
-    height: 3.05rem;
+    width: var(--calendar-day-size);
+    height: var(--calendar-day-size);
   }
 
   .leaderboard-calendar-avatar {
     font-size: 1rem;
+  }
+
+  .leaderboard-calendar-token-label {
+    font-size: 0.54rem;
+    line-height: 0.68rem;
   }
 
   .leaderboard-reward-head {
