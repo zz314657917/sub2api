@@ -58,6 +58,7 @@ export default {
       totalTokens: 'Total tokens',
       totalRequests: 'Total requests',
       totalCost: 'Total spend',
+      rechargeBalance: 'Top up balance',
       loading: 'Syncing account data...',
       loadFailed: 'Account data is temporarily unavailable'
     },

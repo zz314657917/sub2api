@@ -96,8 +96,8 @@
             {{ t('home.accountWorkbench.loadFailed') }}
           </p>
 
-          <router-link :to="dashboardPath" class="home-account-workbench-link">
-            <span>{{ t('home.goToDashboard') }}</span>
+          <router-link to="/purchase" class="home-account-workbench-link">
+            <span>{{ t('home.accountWorkbench.rechargeBalance') }}</span>
             <Icon name="arrowRight" size="sm" aria-hidden="true" />
           </router-link>
         </aside>
@@ -795,14 +795,6 @@ onBeforeUnmount(() => {
     0 26px 70px rgba(75, 52, 40, 0.11);
   padding: 1.35rem;
   backdrop-filter: blur(22px) saturate(1.08);
-}
-
-.home-account-workbench::before {
-  content: '';
-  position: absolute;
-  inset: auto 1.35rem 4.9rem 1.35rem;
-  height: 1px;
-  background: rgba(216, 206, 194, 0.72);
 }
 
 .home-account-workbench-header {

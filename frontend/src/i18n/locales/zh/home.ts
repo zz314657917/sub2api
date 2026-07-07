@@ -58,6 +58,7 @@ export default {
       totalTokens: '总 Token',
       totalRequests: '总请求数',
       totalCost: '总花费',
+      rechargeBalance: '充值余额',
       loading: '正在同步账号数据...',
       loadFailed: '账号数据暂时无法同步'
     },
