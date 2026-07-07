@@ -66,11 +66,6 @@
             <div class="home-account-user-chip" :title="accountWorkbenchUserName">
               <span>{{ accountWorkbenchUserName }}</span>
             </div>
-            <p class="home-account-workbench-kicker">
-              {{ t('home.accountWorkbench.kicker') }}
-            </p>
-            <h2>{{ t('home.accountWorkbench.title') }}</h2>
-            <p>{{ t('home.accountWorkbench.description') }}</p>
           </div>
 
           <div class="home-account-balance-card">
@@ -493,7 +488,7 @@ function formatHomeNumber(value: number | null | undefined): string {
 function formatHomeCredit(value: number | null | undefined): string {
   return formatCreditAmount(value, {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 4,
+    maximumFractionDigits: 2,
   })
 }
 
@@ -780,9 +775,9 @@ onBeforeUnmount(() => {
   position: relative;
   display: grid;
   width: min(100%, 28rem);
-  min-height: 31rem;
+  min-height: 24rem;
   align-content: start;
-  gap: 1.05rem;
+  gap: 0.95rem;
   overflow: hidden;
   border: 1px solid rgba(216, 206, 194, 0.82);
   border-radius: 24px;
@@ -799,7 +794,6 @@ onBeforeUnmount(() => {
 
 .home-account-workbench-header {
   display: grid;
-  gap: 0.46rem;
   text-align: left;
 }
 
@@ -828,30 +822,6 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.home-account-workbench-kicker {
-  color: #a9583e;
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0;
-  line-height: 1.4;
-  text-transform: uppercase;
-}
-
-.home-account-workbench-header h2 {
-  color: #141413;
-  font-family: var(--public-font-display);
-  font-size: 1.58rem;
-  font-weight: 700;
-  line-height: 1.18;
-  letter-spacing: 0;
-}
-
-.home-account-workbench-header p:not(.home-account-workbench-kicker) {
-  color: rgba(61, 61, 58, 0.7);
-  font-size: 0.88rem;
-  line-height: 1.72;
 }
 
 .home-account-balance-card {
