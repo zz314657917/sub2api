@@ -595,7 +595,6 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		} else {
 			req.Header.Set("User-Agent", codexCLIUserAgent)
 		}
-		setOpenAIChatGPTAccountHeaders(req.Header, account)
 	}
 
 	// Get proxy URL
