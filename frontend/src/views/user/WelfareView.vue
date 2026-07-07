@@ -1,10 +1,7 @@
 <template>
   <AppLayout>
     <div class="space-y-6">
-      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div class="min-w-0">
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">{{ t('welfare.title') }}</h1>
-        </div>
+      <div class="flex justify-end">
         <button class="btn btn-secondary h-10 shrink-0" type="button" :disabled="loading" @click="loadOverview">
           {{ t('common.refresh') }}
         </button>
@@ -490,7 +487,7 @@ const rechargeExpiryText = computed(() => formatDateTime(recharge.value?.expires
 const walletNextExpiryText = computed(() => formatDateTime(wallet.value?.next_expires_at))
 
 function formatAmount(value: number | null | undefined): string {
-  return formatCreditAmount(value, { minimumFractionDigits: 0, maximumFractionDigits: 8 })
+  return formatCreditAmount(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 function formatDateTime(value: string | null | undefined): string {
