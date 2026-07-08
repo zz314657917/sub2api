@@ -47,6 +47,15 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.tokens': 'Token',
     'leaderboard.growth': '增长',
     'leaderboard.rankChange': '排名变化',
+    'leaderboard.refreshing': '后台刷新中',
+    'leaderboard.rankChangeNew': '新',
+    'leaderboard.rankChangeCompared.day': '较昨日',
+    'leaderboard.rankChangeCompared.week': '较上周',
+    'leaderboard.rankChangeCompared.month': '较上月',
+    'leaderboard.rankChangeTitle.new': '{period}新上榜',
+    'leaderboard.rankChangeTitle.up': '{period}名次上升 {count}',
+    'leaderboard.rankChangeTitle.down': '{period}名次下降 {count}',
+    'leaderboard.rankChangeTitle.same': '{period}名次持平',
     'leaderboard.inputTokensShort': '输入',
     'leaderboard.outputTokensShort': '输出',
     'leaderboard.cacheTokensShort': '缓存',
@@ -323,6 +332,78 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Weekly User')
+  })
+
+  it('shows cached leaderboard rows with a background refresh indicator', async () => {
+    window.sessionStorage.setItem('sub2api:user-leaderboard:v1:day:10', JSON.stringify({
+      savedAt: Date.now(),
+      data: makeResponse({
+        ranking: [
+          {
+            rank: 1,
+            user_id: 88,
+            display_name: 'Cached User',
+            email_masked: 'c***@example.com',
+            avatar_url: null,
+            actual_cost: 1,
+            requests: 1,
+            input_tokens: 90,
+            output_tokens: 10,
+            cache_creation_tokens: 0,
+            cache_read_tokens: 0,
+            tokens: 100,
+            cost_per_1m_tokens: 10000,
+            balance: 0,
+            is_current_user: false,
+          },
+        ],
+      }),
+    }))
+    let resolveRefresh: (value: ReturnType<typeof makeResponse>) => void = () => {}
+    getDashboardLeaderboard.mockReturnValueOnce(new Promise((resolve) => {
+      resolveRefresh = resolve
+    }))
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await nextTick()
+
+    expect(wrapper.text()).toContain('Cached User')
+    expect(wrapper.get('[data-testid="leaderboard-refreshing"]').text()).toBe('后台刷新中')
+
+    resolveRefresh(makeResponse({
+      ranking: [
+        {
+          rank: 1,
+          user_id: 99,
+          display_name: 'Fresh User',
+          email_masked: 'f***@example.com',
+          avatar_url: null,
+          actual_cost: 2,
+          requests: 2,
+          input_tokens: 180,
+          output_tokens: 20,
+          cache_creation_tokens: 0,
+          cache_read_tokens: 0,
+          tokens: 200,
+          cost_per_1m_tokens: 10000,
+          balance: 0,
+          is_current_user: false,
+        },
+      ],
+    }))
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Fresh User')
+    expect(wrapper.text()).not.toContain('Cached User')
+    expect(wrapper.find('[data-testid="leaderboard-refreshing"]').exists()).toBe(false)
   })
 
   it('highlights the current user row and shows my rank summary outside the top list', async () => {
@@ -603,9 +684,27 @@ describe('LeaderboardView', () => {
             rank_change: -1,
             is_current_user: false,
           },
+          {
+            rank: 3,
+            user_id: 3,
+            display_name: 'Newcomer',
+            email_masked: 'n***@example.com',
+            avatar_url: null,
+            actual_cost: 0.5,
+            requests: 5,
+            input_tokens: 320,
+            output_tokens: 70,
+            cache_creation_tokens: 5,
+            cache_read_tokens: 5,
+            tokens: 400,
+            cost_per_1m_tokens: 1250,
+            balance: 3,
+            rank_new: true,
+            is_current_user: false,
+          },
         ],
         current_user_entry: null,
-        total_tokens: 3000,
+        total_tokens: 3400,
       })
     )
     const { default: LeaderboardView } = await import('../LeaderboardView.vue')
@@ -625,12 +724,14 @@ describe('LeaderboardView', () => {
     expect(ranking.text()).toContain('更新 16:00:00')
     expect(ranking.text()).toContain('Pricey')
     expect(ranking.text()).toContain('Efficient')
-    expect(ranking.findAll('[data-testid="leaderboard-rank-change"]').map((node) => node.text())).toEqual(['+1', '-1'])
+    const rankChanges = ranking.findAll('[data-testid="leaderboard-rank-change"]')
+    expect(rankChanges.map((node) => node.text())).toEqual(['↑+1', '↓-1', '新'])
+    expect(rankChanges.map((node) => node.attributes('title'))).toEqual(['较昨日名次上升 1', '较昨日名次下降 1', '较昨日新上榜'])
     expect(ranking.text()).toContain('2,000')
-    expect(ranking.findAll('[data-testid="leaderboard-token-bar-fill"]')).toHaveLength(2)
-    expect(ranking.findAll('[data-testid="leaderboard-token-segment-input"]')).toHaveLength(2)
-    expect(ranking.findAll('[data-testid="leaderboard-token-segment-output"]')).toHaveLength(2)
-    expect(ranking.findAll('[data-testid="leaderboard-token-segment-cache"]')).toHaveLength(2)
+    expect(ranking.findAll('[data-testid="leaderboard-token-bar-fill"]')).toHaveLength(3)
+    expect(ranking.findAll('[data-testid="leaderboard-token-segment-input"]')).toHaveLength(3)
+    expect(ranking.findAll('[data-testid="leaderboard-token-segment-output"]')).toHaveLength(3)
+    expect(ranking.findAll('[data-testid="leaderboard-token-segment-cache"]')).toHaveLength(3)
     const tokenBars = ranking.findAll('.leaderboard-token-bar-track')
     expect(tokenBars[0].attributes('title')).toBeUndefined()
     expect(tokenBars[0].attributes('aria-label')).toBe('输入 700 / 输出 200 / 缓存 100 (缓存占比 10.0%) / 积分 ✪ 10,000.00 / 1M Token')

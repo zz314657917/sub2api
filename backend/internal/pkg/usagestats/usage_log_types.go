@@ -189,6 +189,7 @@ type UserLeaderboardItem struct {
 	Balance             float64  `json:"balance"`
 	Badges              []string `json:"badges,omitempty"`
 	RankChange          *int64   `json:"rank_change,omitempty"`
+	RankNew             bool     `json:"rank_new,omitempty"`
 	IsCurrentUser       bool     `json:"is_current_user"`
 	Username            string   `json:"-"`
 	Email               string   `json:"-"`

@@ -91,6 +91,13 @@
                 <span class="leaderboard-token-ranking-updated">
                   {{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}
                 </span>
+                <span
+                  v-if="refreshingLeaderboard"
+                  class="leaderboard-token-ranking-refreshing"
+                  data-testid="leaderboard-refreshing"
+                >
+                  {{ t('leaderboard.refreshing') }}
+                </span>
               </div>
 
               <div class="leaderboard-ranking-empty">
@@ -134,6 +141,13 @@
                     </div>
                     <span class="leaderboard-token-ranking-updated">
                       {{ t('leaderboard.generatedAt') }} {{ formatTime(leaderboard.generated_at) }}
+                    </span>
+                    <span
+                      v-if="refreshingLeaderboard"
+                      class="leaderboard-token-ranking-refreshing"
+                      data-testid="leaderboard-refreshing"
+                    >
+                      {{ t('leaderboard.refreshing') }}
                     </span>
                   </div>
                 </div>
@@ -482,6 +496,7 @@ const period = ref<LeaderboardPeriod>('day')
 const leaderboard = ref<UserLeaderboardResponse | null>(null)
 const weekLeaderboard = ref<UserLeaderboardResponse | null>(null)
 const loading = ref(false)
+const refreshingLeaderboard = ref(false)
 const error = ref(false)
 const claimingReward = ref(false)
 const claimError = ref('')
@@ -904,6 +919,7 @@ async function loadLeaderboard() {
     leaderboard.value = null
   }
   loading.value = !cached
+  refreshingLeaderboard.value = !!cached
 
   try {
     const response = await usageAPI.getDashboardLeaderboard({ period: period.value, limit: leaderboardLimit })
@@ -919,6 +935,7 @@ async function loadLeaderboard() {
   } finally {
     if (currentSeq === loadSeq) {
       loading.value = false
+      refreshingLeaderboard.value = false
     }
   }
 
@@ -1440,13 +1457,16 @@ function leaderboardRankChangeValue(item: UserLeaderboardItem): number | null {
 }
 
 function leaderboardRankChangeLabel(item: UserLeaderboardItem): string {
+  if (item.rank_new) return t('leaderboard.rankChangeNew')
   const value = leaderboardRankChangeValue(item)
   if (value == null) return ''
-  if (value > 0) return `+${value}`
-  return String(value)
+  if (value > 0) return `↑+${value}`
+  if (value < 0) return `↓${value}`
+  return '0'
 }
 
 function leaderboardRankChangeClass(item: UserLeaderboardItem): string {
+  if (item.rank_new) return 'leaderboard-rank-change--new'
   const value = leaderboardRankChangeValue(item)
   if (value == null) return ''
   if (value > 0) return 'leaderboard-rank-change--up'
@@ -1455,11 +1475,20 @@ function leaderboardRankChangeClass(item: UserLeaderboardItem): string {
 }
 
 function leaderboardRankChangeTitle(item: UserLeaderboardItem): string {
+  const periodLabel = leaderboardRankComparedLabel()
+  if (item.rank_new) return t('leaderboard.rankChangeTitle.new', { period: periodLabel })
   const value = leaderboardRankChangeValue(item)
   if (value == null) return ''
-  if (value > 0) return `名次上升 ${value}`
-  if (value < 0) return `名次下降 ${Math.abs(value)}`
-  return '名次持平'
+  if (value > 0) return t('leaderboard.rankChangeTitle.up', { period: periodLabel, count: value })
+  if (value < 0) return t('leaderboard.rankChangeTitle.down', { period: periodLabel, count: Math.abs(value) })
+  return t('leaderboard.rankChangeTitle.same', { period: periodLabel })
+}
+
+function leaderboardRankComparedLabel(): string {
+  if (period.value === 'day') return t('leaderboard.rankChangeCompared.day')
+  if (period.value === 'week') return t('leaderboard.rankChangeCompared.week')
+  if (period.value === 'month') return t('leaderboard.rankChangeCompared.month')
+  return ''
 }
 
 function formatLeaderboardCostPerMillion(item: UserLeaderboardItem): string {
@@ -1956,6 +1985,20 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
+.leaderboard-token-ranking-refreshing {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  border: 1px solid rgb(196 111 80 / 0.26);
+  border-radius: 9999px;
+  background: rgb(196 111 80 / 0.08);
+  padding: 0.18rem 0.52rem;
+  color: rgb(116 61 45);
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .leaderboard-token-rank-list {
   display: grid;
   gap: 0.42rem;
@@ -2037,6 +2080,12 @@ onUnmounted(() => {
 
 .leaderboard-rank-change--same {
   color: rgb(118 111 101);
+}
+
+.leaderboard-rank-change--new {
+  border-color: rgb(196 111 80 / 0.48);
+  background: rgb(196 111 80 / 0.1);
+  color: rgb(154 83 62);
 }
 
 .leaderboard-token-rank-user--name-only .leaderboard-token-rank-name-line {

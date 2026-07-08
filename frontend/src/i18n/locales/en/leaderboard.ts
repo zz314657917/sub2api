@@ -28,6 +28,19 @@ export default {
     tokens: 'Tokens',
     growth: 'Growth',
     rankChange: 'Rank Change',
+    refreshing: 'Refreshing in background',
+    rankChangeNew: 'NEW',
+    rankChangeCompared: {
+      day: 'vs yesterday',
+      week: 'vs previous week',
+      month: 'vs previous month'
+    },
+    rankChangeTitle: {
+      new: 'New on leaderboard {period}',
+      up: 'Rank up {count} {period}',
+      down: 'Rank down {count} {period}',
+      same: 'Rank unchanged {period}'
+    },
     inputTokensShort: 'Input',
     outputTokensShort: 'Output',
     cacheTokensShort: 'Cache',

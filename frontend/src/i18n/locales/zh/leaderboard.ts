@@ -28,6 +28,19 @@ export default {
     tokens: 'Token',
     growth: '增长',
     rankChange: '排名变化',
+    refreshing: '后台刷新中',
+    rankChangeNew: '新',
+    rankChangeCompared: {
+      day: '较昨日',
+      week: '较上周',
+      month: '较上月'
+    },
+    rankChangeTitle: {
+      new: '{period}新上榜',
+      up: '{period}名次上升 {count}',
+      down: '{period}名次下降 {count}',
+      same: '{period}名次持平'
+    },
     inputTokensShort: '输入',
     outputTokensShort: '输出',
     cacheTokensShort: '缓存',

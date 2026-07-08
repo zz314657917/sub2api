@@ -64,6 +64,34 @@ func (s *UsageLogRepoSuite) createUsageLog(user *service.User, apiKey *service.A
 	return log
 }
 
+func (s *UsageLogRepoSuite) TestGetUserLeaderboardRankNewUsesPreviousWindow() {
+	start := time.Date(2026, 5, 8, 0, 0, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+	previousStart := start.Add(-24 * time.Hour)
+
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-leaderboard-rank-new"})
+	currentOnly := mustCreateUser(s.T(), s.client, &service.User{Email: "rank-new-current-only@test.com"})
+	currentOnlyKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: currentOnly.ID, Key: "sk-rank-new-current-only", Name: "current-only"})
+
+	s.createUsageLog(currentOnly, currentOnlyKey, account, 100, 50, 1.0, start.Add(time.Hour))
+
+	withoutPreviousRows, err := s.repo.GetUserLeaderboard(s.ctx, start, end, 10, currentOnly.ID)
+	s.Require().NoError(err)
+	s.Require().Len(withoutPreviousRows.Ranking, 1)
+	s.Require().Equal(currentOnly.ID, withoutPreviousRows.Ranking[0].UserID)
+	s.Require().False(withoutPreviousRows.Ranking[0].RankNew, "empty previous window must not mark every current user as new")
+
+	previousOnly := mustCreateUser(s.T(), s.client, &service.User{Email: "rank-new-previous-only@test.com"})
+	previousOnlyKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: previousOnly.ID, Key: "sk-rank-new-previous-only", Name: "previous-only"})
+	s.createUsageLog(previousOnly, previousOnlyKey, account, 80, 20, 0.8, previousStart.Add(time.Hour))
+
+	withPreviousRows, err := s.repo.GetUserLeaderboard(s.ctx, start, end, 10, currentOnly.ID)
+	s.Require().NoError(err)
+	s.Require().Len(withPreviousRows.Ranking, 1)
+	s.Require().Equal(currentOnly.ID, withPreviousRows.Ranking[0].UserID)
+	s.Require().True(withPreviousRows.Ranking[0].RankNew, "current user missing from a non-empty previous window should be marked as new")
+}
+
 // --- Create / GetByID ---
 
 func (s *UsageLogRepoSuite) TestCreate() {

@@ -2666,6 +2666,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 	}
 
 	previousWhereClause := "WHERE false"
+	rankNewExpr := "false"
 	if !startTime.IsZero() && !endTime.IsZero() && endTime.After(startTime) {
 		window := endTime.Sub(startTime)
 		previousStart := startTime.Add(-window)
@@ -2674,6 +2675,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 		args = append(args, startTime)
 		previousConditions = append(previousConditions, fmt.Sprintf("created_at < $%d", len(args)))
 		previousWhereClause = "WHERE " + strings.Join(previousConditions, " AND ")
+		rankNewExpr = "EXISTS (SELECT 1 FROM previous_user_spend) AND previous_ranked.previous_rank IS NULL"
 	}
 
 	limitArg := len(args) + 1
@@ -2744,6 +2746,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 					WHEN previous_ranked.previous_rank IS NULL THEN NULL
 					ELSE previous_ranked.previous_rank - current_ranked.rank
 				END as rank_change,
+				%s as rank_new,
 				previous_ranked.previous_tokens
 			FROM current_ranked
 			LEFT JOIN previous_ranked ON previous_ranked.user_id = current_ranked.user_id
@@ -2769,12 +2772,13 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 			tokens,
 			cost_per_1m_tokens,
 			rank_change,
+			rank_new,
 			total_actual_cost,
 			total_requests,
 			total_tokens
 		FROM selected
 		ORDER BY rank ASC
-	`, whereClause, previousWhereClause, limitArg, currentUserArg)
+	`, whereClause, previousWhereClause, rankNewExpr, limitArg, currentUserArg)
 
 	args = append(args, limit, currentUserID)
 	rows, err := r.sql.QueryContext(ctx, query, args...)
@@ -2813,6 +2817,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 			&row.Tokens,
 			&row.CostPer1M,
 			&rankChange,
+			&row.RankNew,
 			&totalActualCost,
 			&totalRequests,
 			&totalTokens,

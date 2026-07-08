@@ -2071,6 +2071,7 @@ export interface UserLeaderboardItem {
   balance: number
   badges?: LeaderboardBadge[]
   rank_change?: number | null
+  rank_new?: boolean
   is_current_user: boolean
 }
 
