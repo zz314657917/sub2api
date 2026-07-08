@@ -904,6 +904,34 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
+  it("saves shared capacity visibility for channel status", async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+
+    expect(
+      (
+        wrapper.get('[data-testid="account-share-channel-status-visible"]')
+          .element as HTMLInputElement
+      ).checked,
+    ).toBe(true);
+
+    await wrapper
+      .get('[data-testid="account-share-channel-status-visible"]')
+      .setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account_share_enabled: true,
+        account_share_channel_status_visible: false,
+      }),
+    );
+  });
+
   it("submits message cache_control rewrite gateway setting", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,
