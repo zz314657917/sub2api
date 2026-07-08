@@ -151,12 +151,13 @@ func TestUsageHandlerDashboardLeaderboardLimitClamp(t *testing.T) {
 }
 
 func TestUsageHandlerDashboardLeaderboardMasksEmailAndDisplayName(t *testing.T) {
+	rankChange := int64(1)
 	repo := &userLeaderboardUsageRepo{
 		response: &usagestats.UserLeaderboardResponse{
 			Ranking: []usagestats.UserLeaderboardItem{
-				{Rank: 1, UserID: 42, Username: "raw-username@example.com", Email: "alice@example.com", ActualCost: 9.5, Requests: 2, InputTokens: 80, OutputTokens: 20, Tokens: 100, CostPer1M: 95000, IsCurrentUser: true},
+				{Rank: 1, UserID: 42, Username: "raw-username@example.com", Email: "alice@example.com", ActualCost: 9.5, Requests: 2, InputTokens: 80, OutputTokens: 20, Tokens: 100, CostPer1M: 95000, RankChange: &rankChange, IsCurrentUser: true},
 			},
-			CurrentUserEntry: &usagestats.UserLeaderboardItem{Rank: 1, UserID: 42, Username: "raw-username@example.com", Email: "alice@example.com", ActualCost: 9.5, Requests: 2, InputTokens: 80, OutputTokens: 20, Tokens: 100, CostPer1M: 95000, IsCurrentUser: true},
+			CurrentUserEntry: &usagestats.UserLeaderboardItem{Rank: 1, UserID: 42, Username: "raw-username@example.com", Email: "alice@example.com", ActualCost: 9.5, Requests: 2, InputTokens: 80, OutputTokens: 20, Tokens: 100, CostPer1M: 95000, RankChange: &rankChange, IsCurrentUser: true},
 			TotalActualCost:  9.5,
 			TotalRequests:    2,
 			TotalTokens:      100,
@@ -177,6 +178,7 @@ func TestUsageHandlerDashboardLeaderboardMasksEmailAndDisplayName(t *testing.T) 
 	require.Contains(t, body, `"input_tokens":80`)
 	require.Contains(t, body, `"output_tokens":20`)
 	require.Contains(t, body, `"cost_per_1m_tokens":95000`)
+	require.Contains(t, body, `"rank_change":1`)
 }
 
 func TestUsageHandlerDashboardLeaderboardIncludesRecentTokenTrend(t *testing.T) {

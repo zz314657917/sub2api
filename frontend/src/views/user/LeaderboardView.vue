@@ -161,11 +161,22 @@
                           >
                           <span v-else>{{ leaderboardAvatarInitial(item) }}</span>
                         </span>
-                        <span class="leaderboard-token-rank-name" :title="getLeaderboardDisplayName(item)">
-                          {{ getLeaderboardDisplayName(item) }}
-                        </span>
-                        <span v-if="item.is_current_user" class="leaderboard-token-current-tag">
-                          {{ t('leaderboard.currentUser') }}
+                        <span class="leaderboard-token-rank-name-line">
+                          <span class="leaderboard-token-rank-name" :title="getLeaderboardDisplayName(item)">
+                            {{ getLeaderboardDisplayName(item) }}
+                          </span>
+                          <span
+                            v-if="leaderboardRankChangeLabel(item)"
+                            class="leaderboard-rank-change"
+                            :class="leaderboardRankChangeClass(item)"
+                            :title="leaderboardRankChangeTitle(item)"
+                            data-testid="leaderboard-rank-change"
+                          >
+                            {{ leaderboardRankChangeLabel(item) }}
+                          </span>
+                          <span v-if="item.is_current_user" class="leaderboard-token-current-tag">
+                            {{ t('leaderboard.currentUser') }}
+                          </span>
                         </span>
                       </div>
                       <div v-if="visibleLeaderboardTitleBadges(item.badges).length" class="leaderboard-token-title-list">
@@ -230,39 +241,24 @@
 
           <aside class="leaderboard-side-stack xl:sticky xl:top-20 xl:self-start">
             <section class="card leaderboard-side-card p-5" data-testid="leaderboard-my-info">
-              <div class="leaderboard-side-profile">
-                <p class="leaderboard-side-title text-sm font-semibold">{{ t('leaderboard.myInfo') }}</p>
-                <div v-if="myEntry?.badges?.length" class="mt-3 flex flex-wrap items-center gap-1.5">
-                  <span
-                    v-for="badge in visibleLeaderboardBadges(myEntry?.badges)"
-                    :key="badge"
-                    class="leaderboard-badge-icon"
-                    :class="leaderboardBadgeClass(badge)"
-                    :title="leaderboardBadgeTitle(badge)"
-                    :aria-label="leaderboardBadgeTitle(badge)"
-                    data-testid="leaderboard-my-badge-icon"
-                    :data-badge="badge"
-                  >
-                    {{ leaderboardBadgeLabel(badge) }}
-                  </span>
-                  <span
-                    v-if="hiddenLeaderboardBadgeCount(myEntry?.badges) > 0"
-                    class="leaderboard-badge-overflow"
-                    :title="hiddenLeaderboardBadgeTitle(myEntry?.badges)"
-                    :aria-label="hiddenLeaderboardBadgeTitle(myEntry?.badges)"
-                  >
-                    +{{ hiddenLeaderboardBadgeCount(myEntry?.badges) }}
-                  </span>
-                </div>
-                <div class="mt-4 min-w-0">
-                  <p class="leaderboard-side-value truncate text-xl font-bold">
-                    {{ myRankLabel }} {{ myDisplayName }}
-                  </p>
-                </div>
-                <div class="leaderboard-my-token-card mt-4 rounded-lg p-3 text-sm" data-testid="leaderboard-my-token">
-                  <p class="leaderboard-side-label text-xs">{{ t('leaderboard.tokens') }}</p>
-                  <p class="leaderboard-side-value mt-1 truncate text-xl font-bold">{{ formatNumber(myEntry?.tokens ?? 0) }}</p>
-                </div>
+              <div class="leaderboard-record-card" data-testid="leaderboard-my-record">
+                <p class="leaderboard-record-kicker">{{ t('leaderboard.record.title') }}</p>
+                <p class="leaderboard-record-headline">{{ myRecordHeadline }}</p>
+                <p
+                  class="leaderboard-record-progress"
+                  :class="{ 'leaderboard-record-progress--deity': myRecordProgress.isDeity }"
+                >
+                  <template v-if="myRecordProgress.isDeity">
+                    <strong>{{ myRecordProgress.value }}</strong>
+                  </template>
+                  <template v-else>
+                    <span>{{ myRecordProgress.prefix }}</span>
+                    <span>
+                      <strong>{{ myRecordProgress.value }}</strong>
+                      <span v-if="myRecordProgress.suffix" class="leaderboard-record-unit">{{ myRecordProgress.suffix }}</span>
+                    </span>
+                  </template>
+                </p>
               </div>
 
               <div v-if="dailyRewards" class="leaderboard-reward-panel" data-testid="leaderboard-daily-reward">
@@ -274,8 +270,13 @@
                       <span>{{ dailyRewards.reward_date || '-' }}</span>
                     </p>
                   </div>
-                  <span class="leaderboard-reward-status" :class="dailyRewardStatusClass">
-                    {{ dailyRewardReasonText }}
+                  <span
+                    class="leaderboard-reward-status"
+                    :class="dailyRewardStatusClass"
+                    :title="dailyRewardReasonText"
+                    data-testid="leaderboard-daily-reward-status"
+                  >
+                    {{ dailyRewardStatusText }}
                   </span>
                 </div>
 
@@ -285,8 +286,8 @@
                     :key="tier.rank"
                     class="leaderboard-reward-tier-card rounded-lg p-2 text-center"
                   >
-                    <p class="leaderboard-side-label text-xs">{{ t('leaderboard.dailyReward.rankReward', { rank: tier.rank }) }}</p>
-                    <p class="leaderboard-side-value mt-1 text-xs font-bold">{{ t('leaderboard.dailyReward.rewardAmountHidden') }}</p>
+                    <p class="leaderboard-side-label leaderboard-reward-tier-label">{{ t('leaderboard.dailyReward.rankReward', { rank: tier.rank }) }}</p>
+                    <p class="leaderboard-side-value leaderboard-reward-tier-value">{{ tier.amountText }}</p>
                   </div>
                 </div>
 
@@ -309,12 +310,16 @@
 
                 <div class="leaderboard-reward-progress-card mt-3 rounded-lg p-3 text-sm">
                   <div class="flex items-center justify-between gap-3">
-                    <span class="leaderboard-side-label">{{ t('leaderboard.myRank') }}</span>
+                    <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.lastWeekRank') }}</span>
                     <span class="leaderboard-side-value font-semibold">{{ formatRewardRankLabel(dailyRewards.current_user_rank) }}</span>
                   </div>
                   <div class="mt-2 flex items-center justify-between gap-3">
                     <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.targetProgress') }}</span>
                     <span class="leaderboard-side-value font-semibold">{{ dailyRewardGoalProgressText }}</span>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between gap-3">
+                    <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.weeklyRushProgress') }}</span>
+                    <span class="leaderboard-side-value leaderboard-weekly-rush-value font-semibold">{{ weeklyRushProgressText }}</span>
                   </div>
                   <div
                     class="leaderboard-reward-progress-track mt-3 h-2 overflow-hidden rounded-full"
@@ -388,9 +393,9 @@
                         >
                         <span v-else>{{ dailyChampionAvatarInitial(day.champion) }}</span>
                       </span>
-                      <span v-if="day.champion" class="leaderboard-calendar-token-label">
-                        {{ dailyChampionTokenMLabel(day.champion) }}
-                      </span>
+                    </span>
+                    <span v-if="day.champion" class="leaderboard-calendar-token-label">
+                      {{ dailyChampionTokenMLabel(day.champion) }}
                     </span>
                   </div>
                 </div>
@@ -475,6 +480,7 @@ const { t } = useI18n()
 
 const period = ref<LeaderboardPeriod>('day')
 const leaderboard = ref<UserLeaderboardResponse | null>(null)
+const weekLeaderboard = ref<UserLeaderboardResponse | null>(null)
 const loading = ref(false)
 const error = ref(false)
 const claimingReward = ref(false)
@@ -483,7 +489,6 @@ const tokenTickerSeed = ref(0)
 const visualTokenIncrement = ref(0)
 const visualTokenTick = ref(0)
 const leaderboardLimit = 10
-const visibleBadgeLimit = 3
 const visibleRankTitleLimit = 2
 const visualTokenTickerIntervalMs = 3000
 const visualTokenTickerSteps = [37, 54, 62, 81, 95, 128, 143, 166, 218]
@@ -491,6 +496,10 @@ const championTooltipWidth = 240
 const championTooltipHeight = 98
 const championTooltipGap = 10
 const championTooltipViewportPadding = 12
+const tokenBarTooltipHeight = 136
+const tokenBarTooltipGap = 18
+const leaderboardSessionCacheVersion = 'v1'
+const leaderboardSessionCacheTTL = 5 * 60 * 1000
 let loadSeq = 0
 let visualTokenTickerID: number | null = null
 
@@ -538,6 +547,18 @@ type TokenBarTooltipView = {
   displayName: string
   metrics: TokenBarTooltipMetric[]
   tokenLabel: string
+}
+
+type LeaderboardRecordProgress = {
+  prefix: string
+  value: string
+  suffix: string
+  isDeity: boolean
+}
+
+type LeaderboardSessionCacheSnapshot = {
+  savedAt: number
+  data: UserLeaderboardResponse
 }
 
 const rollingTokenDigitCells = Array.from({ length: 20 }, (_, index) => String(index % 10))
@@ -610,8 +631,51 @@ const myEntry = computed<UserLeaderboardItem | null>(() => {
   if (leaderboard.value?.current_user_entry) return leaderboard.value.current_user_entry
   return rankingItems.value.find((item) => item.is_current_user) ?? null
 })
-const myDisplayName = computed(() => (myEntry.value ? getLeaderboardDisplayName(myEntry.value) : t('leaderboard.currentUser')))
-const myRankLabel = computed(() => (myEntry.value?.rank ? `#${myEntry.value.rank}` : t('leaderboard.notRanked')))
+const weekRankingItems = computed<UserLeaderboardItem[]>(() => {
+  const visibleItems = (weekLeaderboard.value?.ranking ?? []).slice(0, leaderboardLimit)
+  return visibleItems.map((item) => ({ ...item }))
+})
+const weekMyEntry = computed<UserLeaderboardItem | null>(() => {
+  if (weekLeaderboard.value?.current_user_entry) return weekLeaderboard.value.current_user_entry
+  return weekRankingItems.value.find((item) => item.is_current_user) ?? null
+})
+const myRankNumber = computed(() => Math.max(0, Number(myEntry.value?.rank ?? 0)))
+const myTokenTotal = computed(() => Math.max(0, Math.floor(Number(myEntry.value?.tokens ?? 0))))
+const myRecordHeadline = computed(() => {
+  const tokens = formatRecordMillionTokens(myTokenTotal.value)
+  if (myRankNumber.value > 0) {
+    return t('leaderboard.record.headlineRanked', { rank: myRankNumber.value, tokens })
+  }
+  return t('leaderboard.record.headlineUnranked', { tokens })
+})
+const myRecordProgress = computed<LeaderboardRecordProgress>(() => {
+  const rank = myRankNumber.value
+
+  if (rank === 1) {
+    return {
+      prefix: '',
+      value: t('leaderboard.record.deity'),
+      suffix: '',
+      isDeity: true,
+    }
+  }
+
+  if (rank === 2 || rank === 3) {
+    const targetRank = rank - 1
+    return buildRecordProgress(
+      targetRank === 1 ? t('leaderboard.record.distanceToFirst') : t('leaderboard.record.distanceToSecond'),
+      findLeaderboardEntryByRank(targetRank),
+    )
+  }
+
+  if (rank > 3) {
+    return buildRecordProgress(t('leaderboard.record.distanceToTopThree'), findLeaderboardEntryByRank(3))
+  }
+
+  const boardEntryIndex = Math.min(leaderboardLimit, rankingItems.value.length) - 1
+  const boardEntry = boardEntryIndex >= 0 ? rankingItems.value[boardEntryIndex] : null
+  return buildRecordProgress(t('leaderboard.record.distanceToBoard'), boardEntry)
+})
 const rollingTokenParts = computed<RollingTokenPart[]>(() => {
   return formatRollingTokenNumber(displayedTotalTokens.value)
     .split('')
@@ -721,7 +785,20 @@ const recentTokenTrendChartOptions = computed(() => ({
 }))
 
 const rewardTiers = computed(() => {
-  return [1, 2, 3].map((rank) => ({ rank }))
+  const rewardsByRank = new Map<number, number>()
+  for (const reward of dailyRewards.value?.rewards ?? []) {
+    if (reward.rank >= 1 && reward.rank <= 3) {
+      rewardsByRank.set(reward.rank, Number(reward.amount))
+    }
+  }
+  return [1, 2, 3].map((rank) => {
+    const amount = rewardsByRank.get(rank)
+    return {
+      rank,
+      amount,
+      amountText: amount === undefined ? t('leaderboard.dailyReward.rewardAmountHidden') : formatRewardAmount(amount),
+    }
+  })
 })
 const rewardTopUsers = computed<RewardTopUserView[]>(() => {
   const usersByRank = new Map<number, LeaderboardDailyRewardTopUser>()
@@ -762,9 +839,20 @@ const dailyRewardGoalProgressPercent = computed(() => {
   return Math.min(99, Math.max(0, Math.floor((current / target) * 100)))
 })
 const dailyRewardGoalProgressText = computed(() =>
-  t('leaderboard.dailyReward.progressPercent', { percent: dailyRewardGoalProgressPercent.value })
+  dailyRewards.value?.threshold_met
+    ? t('leaderboard.dailyReward.progressReached')
+    : t('leaderboard.dailyReward.progressPercent', { percent: dailyRewardGoalProgressPercent.value })
 )
 const dailyRewardGoalProgressWidth = computed(() => `${dailyRewardGoalProgressPercent.value}%`)
+
+const weeklyRushProgressText = computed(() => {
+  if (!weekLeaderboard.value) return t('leaderboard.dailyReward.weeklyRushLoading')
+
+  const progress = buildWeeklyRushProgress()
+  if (progress.isDeity) return progress.value
+  if (progress.value === '--') return t('leaderboard.dailyReward.weeklyRushNoData')
+  return `${progress.prefix} ${progress.value}${progress.suffix ? ` ${progress.suffix}` : ''}`
+})
 
 const dailyRewardReasonText = computed(() => {
   const reason = dailyRewards.value?.reason
@@ -776,6 +864,18 @@ const dailyRewardReasonText = computed(() => {
   if (reason === 'not_ranked') return t('leaderboard.dailyReward.notRanked')
   if (reason === 'zero_reward') return t('leaderboard.dailyReward.zeroReward')
   return t('leaderboard.dailyReward.disabled')
+})
+
+const dailyRewardStatusText = computed(() => {
+  const reason = dailyRewards.value?.reason
+  if (reason === 'eligible') return t('leaderboard.dailyReward.statusReady')
+  if (reason === 'already_claimed') return t('leaderboard.dailyReward.statusClaimed')
+  if (reason === 'settling') return t('leaderboard.dailyReward.statusSettling')
+  if (reason === 'threshold_not_met') return t('leaderboard.dailyReward.statusThresholdNotMet')
+  if (reason === 'not_top_three') return t('leaderboard.dailyReward.statusNotTopThree')
+  if (reason === 'not_ranked') return t('leaderboard.dailyReward.statusNotRanked')
+  if (reason === 'zero_reward') return t('leaderboard.dailyReward.statusZeroReward')
+  return t('leaderboard.dailyReward.statusDisabled')
 })
 
 const dailyRewardStatusClass = computed(() => {
@@ -793,26 +893,56 @@ const claimButtonText = computed(() => {
 
 async function loadLeaderboard() {
   const currentSeq = ++loadSeq
-  loading.value = true
   error.value = false
   claimError.value = ''
-  leaderboard.value = null
+  const cached = readLeaderboardSessionCache(period.value)
+  if (cached) {
+    leaderboard.value = cached
+    visualTokenIncrement.value = 0
+    tokenTickerSeed.value += 1
+  } else {
+    leaderboard.value = null
+  }
+  loading.value = !cached
 
   try {
     const response = await usageAPI.getDashboardLeaderboard({ period: period.value, limit: leaderboardLimit })
     if (currentSeq !== loadSeq) return
     leaderboard.value = response
+    writeLeaderboardSessionCache(period.value, response)
     visualTokenIncrement.value = 0
     tokenTickerSeed.value += 1
   } catch (err) {
     if (currentSeq !== loadSeq) return
     console.error('Failed to load leaderboard:', err)
-    error.value = true
-    leaderboard.value = null
+    error.value = !leaderboard.value
   } finally {
     if (currentSeq === loadSeq) {
       loading.value = false
     }
+  }
+
+  void loadWeekLeaderboardSummary()
+}
+
+async function loadWeekLeaderboardSummary() {
+  if (period.value === 'week' && leaderboard.value) {
+    weekLeaderboard.value = leaderboard.value
+    return
+  }
+
+  const cached = readLeaderboardSessionCache('week')
+  if (cached) {
+    weekLeaderboard.value = cached
+    return
+  }
+
+  try {
+    const response = await usageAPI.getDashboardLeaderboard({ period: 'week', limit: leaderboardLimit })
+    weekLeaderboard.value = response
+    writeLeaderboardSessionCache('week', response)
+  } catch (err) {
+    console.error('Failed to load weekly leaderboard summary:', err)
   }
 }
 
@@ -826,6 +956,7 @@ async function claimDailyReward() {
     if (leaderboard.value) {
       leaderboard.value.daily_rewards = result.daily_rewards
       applyClaimedBalance(result.claimed_amount)
+      writeLeaderboardSessionCache(period.value, leaderboard.value)
     }
   } catch (err) {
     console.error('Failed to claim leaderboard daily reward:', err)
@@ -843,6 +974,40 @@ function applyClaimedBalance(amount: number) {
     if (item.user_id === current.user_id && item !== current) {
       item.balance = (item.balance ?? 0) + amount
     }
+  }
+}
+
+function leaderboardSessionCacheKey(value: LeaderboardPeriod): string {
+  return `sub2api:user-leaderboard:${leaderboardSessionCacheVersion}:${value}:${leaderboardLimit}`
+}
+
+function readLeaderboardSessionCache(value: LeaderboardPeriod): UserLeaderboardResponse | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = window.sessionStorage.getItem(leaderboardSessionCacheKey(value))
+    if (!raw) return null
+    const snapshot = JSON.parse(raw) as Partial<LeaderboardSessionCacheSnapshot>
+    if (!snapshot || typeof snapshot.savedAt !== 'number' || !snapshot.data) return null
+    if (Date.now() - snapshot.savedAt > leaderboardSessionCacheTTL) {
+      window.sessionStorage.removeItem(leaderboardSessionCacheKey(value))
+      return null
+    }
+    return snapshot.data
+  } catch {
+    return null
+  }
+}
+
+function writeLeaderboardSessionCache(value: LeaderboardPeriod, data: UserLeaderboardResponse): void {
+  if (typeof window === 'undefined') return
+  try {
+    const snapshot: LeaderboardSessionCacheSnapshot = {
+      savedAt: Date.now(),
+      data,
+    }
+    window.sessionStorage.setItem(leaderboardSessionCacheKey(value), JSON.stringify(snapshot))
+  } catch {
+    // Cache failures should never block ranking display.
   }
 }
 
@@ -904,7 +1069,7 @@ function positionTokenBarTooltip(target: HTMLElement) {
   const left = Math.min(Math.max(championTooltipViewportPadding, preferredLeft), maxLeft)
   const top = Math.max(
     championTooltipViewportPadding,
-    rect.top + window.scrollY - championTooltipGap - championTooltipHeight,
+    rect.top + window.scrollY - tokenBarTooltipGap - tokenBarTooltipHeight,
   )
   tokenBarTooltipPosition.value = { left, top }
 }
@@ -977,6 +1142,83 @@ function formatCompactTokens(value: number): string {
   return Math.round(value).toLocaleString('en-US')
 }
 
+function findLeaderboardEntryByRank(rank: number): UserLeaderboardItem | null {
+  return rankingItems.value.find((item) => item.rank === rank) ?? null
+}
+
+function buildRecordProgress(prefix: string, target: UserLeaderboardItem | null): LeaderboardRecordProgress {
+  if (!target) {
+    return {
+      prefix,
+      value: '--',
+      suffix: '',
+      isDeity: false,
+    }
+  }
+
+  const distance = Math.max(0, Math.floor(Number(target.tokens ?? 0)) - myTokenTotal.value + 1)
+  return {
+    prefix,
+    value: formatRecordDistanceTokens(distance),
+    suffix: 'token',
+    isDeity: false,
+  }
+}
+
+function buildWeeklyRushProgress(): LeaderboardRecordProgress {
+  const rank = Math.max(0, Number(weekMyEntry.value?.rank ?? 0))
+  const myTokens = Math.max(0, Math.floor(Number(weekMyEntry.value?.tokens ?? 0)))
+
+  if (rank === 1) {
+    return {
+      prefix: '',
+      value: t('leaderboard.record.deity'),
+      suffix: '',
+      isDeity: true,
+    }
+  }
+
+  if (rank === 2 || rank === 3) {
+    const targetRank = rank - 1
+    return buildDistanceProgress(
+      targetRank === 1 ? t('leaderboard.record.distanceToFirst') : t('leaderboard.record.distanceToSecond'),
+      findWeekLeaderboardEntryByRank(targetRank),
+      myTokens,
+    )
+  }
+
+  if (rank > 3) {
+    return buildDistanceProgress(t('leaderboard.record.distanceToTopThree'), findWeekLeaderboardEntryByRank(3), myTokens)
+  }
+
+  const boardEntryIndex = Math.min(leaderboardLimit, weekRankingItems.value.length) - 1
+  const boardEntry = boardEntryIndex >= 0 ? weekRankingItems.value[boardEntryIndex] : null
+  return buildDistanceProgress(t('leaderboard.record.distanceToBoard'), boardEntry, myTokens)
+}
+
+function findWeekLeaderboardEntryByRank(rank: number): UserLeaderboardItem | null {
+  return weekRankingItems.value.find((item) => item.rank === rank) ?? null
+}
+
+function buildDistanceProgress(prefix: string, target: UserLeaderboardItem | null, currentTokens: number): LeaderboardRecordProgress {
+  if (!target) {
+    return {
+      prefix,
+      value: '--',
+      suffix: '',
+      isDeity: false,
+    }
+  }
+
+  const distance = Math.max(0, Math.floor(Number(target.tokens ?? 0)) - currentTokens + 1)
+  return {
+    prefix,
+    value: formatRecordDistanceTokens(distance),
+    suffix: 'token',
+    isDeity: false,
+  }
+}
+
 function parseCalendarAnchorDate(value?: string): Date {
   const parsed = value ? new Date(value) : null
   if (parsed && Number.isFinite(parsed.getTime())) {
@@ -1021,7 +1263,7 @@ function buildChampionCalendarMonth(monthStart: Date, isCurrent: boolean): Champ
     label: `${year}年${month + 1}月`,
     isCurrent,
     days,
-    columnCount: Math.min(15, Math.max(1, visibleDays)),
+    columnCount: Math.min(16, Math.max(1, visibleDays)),
   }
 }
 
@@ -1051,6 +1293,16 @@ function formatTokenMillions(value: number): string {
   const millions = Math.max(0, value) / 1_000_000
   if (millions > 0 && millions < 0.1) return '<0.1M'
   return `${formatCompactUnit(millions)}M`
+}
+
+function formatRecordMillionTokens(value: number): string {
+  return formatTokenMillions(value)
+}
+
+function formatRecordDistanceTokens(value: number): string {
+  if (value >= 100_000_000) return `${formatCompactUnit(value / 100_000_000)}亿`
+  if (value >= 10_000) return `${formatCompactUnit(value / 10_000)}万`
+  return formatNumber(value)
 }
 
 function formatCompactUnit(value: number): string {
@@ -1181,12 +1433,48 @@ function getLeaderboardDisplayName(item: UserLeaderboardItem): string {
   return item.display_name?.trim() || item.email_masked?.trim() || t('leaderboard.currentUser')
 }
 
+function leaderboardRankChangeValue(item: UserLeaderboardItem): number | null {
+  const value = item.rank_change
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null
+  return Math.trunc(value)
+}
+
+function leaderboardRankChangeLabel(item: UserLeaderboardItem): string {
+  const value = leaderboardRankChangeValue(item)
+  if (value == null) return ''
+  if (value > 0) return `+${value}`
+  return String(value)
+}
+
+function leaderboardRankChangeClass(item: UserLeaderboardItem): string {
+  const value = leaderboardRankChangeValue(item)
+  if (value == null) return ''
+  if (value > 0) return 'leaderboard-rank-change--up'
+  if (value < 0) return 'leaderboard-rank-change--down'
+  return 'leaderboard-rank-change--same'
+}
+
+function leaderboardRankChangeTitle(item: UserLeaderboardItem): string {
+  const value = leaderboardRankChangeValue(item)
+  if (value == null) return ''
+  if (value > 0) return `名次上升 ${value}`
+  if (value < 0) return `名次下降 ${Math.abs(value)}`
+  return '名次持平'
+}
+
 function formatLeaderboardCostPerMillion(item: UserLeaderboardItem): string {
   const value = Number.isFinite(item.cost_per_1m_tokens) && item.cost_per_1m_tokens > 0
     ? item.cost_per_1m_tokens
     : item.tokens > 0
       ? (item.actual_cost / item.tokens) * 1_000_000
       : 0
+  return formatCreditAmount(value, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+function formatRewardAmount(value: number): string {
   return formatCreditAmount(value, {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -1275,20 +1563,12 @@ function orderedLeaderboardBadges(item: UserLeaderboardItem, costSaverUserID: nu
   ] as LeaderboardBadge[]).filter((badge) => badgeSet.has(badge))
 }
 
-function visibleLeaderboardBadges(badges: LeaderboardBadge[] = []): LeaderboardBadge[] {
-  return badges.slice(0, visibleBadgeLimit)
-}
-
-function hiddenLeaderboardBadges(badges: LeaderboardBadge[] = []): LeaderboardBadge[] {
-  return badges.slice(visibleBadgeLimit)
-}
-
-function hiddenLeaderboardBadgeCount(badges: LeaderboardBadge[] = []): number {
-  return hiddenLeaderboardBadges(badges).length
-}
-
 function hiddenLeaderboardBadgeTitle(badges: LeaderboardBadge[] = []): string {
-  return hiddenLeaderboardBadges(badges).map((badge) => leaderboardBadgeTitle(badge)).join(' / ')
+  return badges
+    .filter((badge) => leaderboardTitleBadges.includes(badge))
+    .slice(visibleRankTitleLimit)
+    .map((badge) => leaderboardBadgeTitle(badge))
+    .join(' / ')
 }
 
 function visibleLeaderboardTitleBadges(badges: LeaderboardBadge[] = []): LeaderboardBadge[] {
@@ -1334,18 +1614,6 @@ function leaderboardBadgeTitle(badge: LeaderboardBadge): string {
   if (badge === 'checkin_king') return t('leaderboard.badges.checkinKing')
   if (badge === 'cost_saver') return t('leaderboard.badges.costSaver')
   if (badge === 'cost_burner') return t('leaderboard.badges.costBurner')
-  return ''
-}
-
-function leaderboardBadgeClass(badge: LeaderboardBadge): string {
-  if (badge === 'weekly_token_king') return 'leaderboard-badge-week'
-  if (badge === 'monthly_token_king') return 'leaderboard-badge-month'
-  if (badge === 'total_token_king') return 'leaderboard-badge-total'
-  if (badge === 'night_owl') return 'leaderboard-badge-night'
-  if (badge === 'burst_token_king') return 'leaderboard-badge-burst'
-  if (badge === 'checkin_king') return 'leaderboard-badge-checkin'
-  if (badge === 'cost_saver') return 'leaderboard-badge-save'
-  if (badge === 'cost_burner') return 'leaderboard-badge-fire'
   return ''
 }
 
@@ -1690,16 +1958,16 @@ onUnmounted(() => {
 
 .leaderboard-token-rank-list {
   display: grid;
-  gap: 0.58rem;
-  padding-top: 1rem;
+  gap: 0.42rem;
+  padding-top: 0.82rem;
 }
 
 .leaderboard-token-rank-row {
   display: grid;
-  grid-template-columns: minmax(13.25rem, 16rem) minmax(14rem, 1fr);
+  grid-template-columns: minmax(13.25rem, 14.5rem) minmax(14rem, 1fr);
   align-items: center;
-  gap: 1rem;
-  min-height: 3.7rem;
+  gap: 0.68rem;
+  min-height: 3.65rem;
   padding: 0.16rem 0;
 }
 
@@ -1714,19 +1982,29 @@ onUnmounted(() => {
   grid-template-columns: 2.5rem 2.9rem minmax(0, 1fr);
   grid-template-rows: minmax(1.2rem, auto) minmax(1.05rem, auto);
   align-items: center;
-  gap: 0.65rem;
-  row-gap: 0.22rem;
+  gap: 0.6rem;
+  row-gap: 0.2rem;
 }
 
 .leaderboard-token-rank-main {
   display: contents;
 }
 
+.leaderboard-token-rank-name-line {
+  display: flex;
+  grid-column: 3;
+  grid-row: 1;
+  min-width: 0;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.32rem;
+}
+
 .leaderboard-token-rank-name {
+  min-width: 0;
   grid-column: 3;
   grid-row: 1;
   max-width: 100%;
-  min-width: 0;
   overflow: hidden;
   color: var(--token-rank-color);
   font-size: 0.875rem;
@@ -1735,8 +2013,38 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.leaderboard-token-rank-user--name-only .leaderboard-token-rank-name {
+.leaderboard-rank-change {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-self: center;
+  border: 1px solid currentColor;
+  border-radius: 9999px;
+  background: rgb(255 253 248 / 0.78);
+  padding: 0.06rem 0.32rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.66rem;
+  font-weight: 900;
+  line-height: 1.05;
+}
+
+.leaderboard-rank-change--up {
+  color: rgb(178 67 54);
+}
+
+.leaderboard-rank-change--down {
+  color: rgb(57 98 88);
+}
+
+.leaderboard-rank-change--same {
+  color: rgb(118 111 101);
+}
+
+.leaderboard-token-rank-user--name-only .leaderboard-token-rank-name-line {
   grid-row: 1 / span 2;
+  align-self: center;
+}
+
+.leaderboard-token-rank-user--name-only .leaderboard-token-rank-name {
   align-self: center;
 }
 
@@ -1882,10 +2190,12 @@ onUnmounted(() => {
   grid-column: 3;
   grid-row: 2;
   max-width: 100%;
+  max-height: 1.45rem;
   min-width: 0;
   flex-wrap: wrap;
   justify-content: flex-start;
-  gap: 0.25rem;
+  gap: 0.24rem;
+  overflow: hidden;
 }
 
 .leaderboard-token-title-badge,
@@ -1897,11 +2207,11 @@ onUnmounted(() => {
   border: 1px solid currentColor;
   border-radius: 0.25rem;
   background: rgb(255 253 248 / 0.66);
-  padding: 0.08rem 0.4rem;
+  padding: 0.1rem 0.42rem;
   color: var(--token-rank-color);
   font-size: 0.6875rem;
   font-weight: 700;
-  line-height: 1.15;
+  line-height: 1.1;
   opacity: 0.84;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1929,11 +2239,6 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.leaderboard-my-token-card {
-  border: 1px solid rgb(214 202 186 / 0.46);
-  background: rgb(250 247 239 / 0.5);
-}
-
 .leaderboard-side-stack {
   min-width: 0;
 }
@@ -1947,27 +2252,71 @@ onUnmounted(() => {
   box-shadow: 0 0.25rem 0.8rem rgb(60 49 36 / 0.025);
 }
 
-.leaderboard-side-profile {
+.leaderboard-record-card {
   min-width: 0;
+  border: 1px solid rgb(214 202 186 / 0.42);
+  border-radius: 0.72rem;
+  background:
+    linear-gradient(135deg, rgb(255 253 248 / 0.92), rgb(239 235 226 / 0.64)),
+    rgb(250 247 239);
+  padding: 1.05rem 1.12rem;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.75),
+    0 0.45rem 1.25rem rgb(60 49 36 / 0.04);
 }
 
-.leaderboard-side-title {
-  color: rgb(116 61 45);
-}
-
-.leaderboard-side-label {
+.leaderboard-record-kicker {
   color: rgb(109 103 93);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  line-height: 1.35;
 }
 
-.leaderboard-side-value {
+.leaderboard-record-headline {
+  margin-top: 0.6rem;
   color: rgb(35 32 28);
+  font-size: clamp(0.98rem, 1.5vw, 1.12rem);
+  font-weight: 900;
+  letter-spacing: 0;
+  line-height: 1.38;
+}
+
+.leaderboard-record-progress {
+  display: flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: 0.42rem;
+  margin-top: 0.72rem;
+  color: rgb(86 80 71);
+  font-size: 0.92rem;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.leaderboard-record-progress strong {
+  color: rgb(178 67 54);
+  font-size: clamp(1.32rem, 2.6vw, 1.72rem);
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+}
+
+.leaderboard-record-unit {
+  margin-left: 0.32rem;
+}
+
+.leaderboard-record-progress--deity strong {
+  color: rgb(116 61 45);
+  font-size: clamp(1.18rem, 2.1vw, 1.48rem);
 }
 
 .leaderboard-reward-head {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: start;
-  gap: 0.85rem;
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
 }
 
 .leaderboard-reward-panel {
@@ -1978,17 +2327,16 @@ onUnmounted(() => {
 
 .leaderboard-reward-title {
   color: rgb(35 32 28);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   font-weight: 800;
   letter-spacing: 0;
   line-height: 1.3;
 }
 
 .leaderboard-reward-period {
-  display: flex;
+  display: grid;
   min-width: 0;
-  flex-wrap: wrap;
-  gap: 0.16rem 0.35rem;
+  gap: 0.12rem;
   margin-top: 0.32rem;
   color: rgb(109 103 93);
   font-size: 0.75rem;
@@ -1996,12 +2344,14 @@ onUnmounted(() => {
 }
 
 .leaderboard-reward-status {
+  flex: 0 0 auto;
   display: inline-flex;
-  max-width: 8.75rem;
+  max-width: 7.8rem;
   align-items: center;
   justify-content: center;
   border-radius: 9999px;
-  padding: 0.32rem 0.58rem;
+  margin-top: 0.1rem;
+  padding: 0.34rem 0.66rem;
   font-size: 0.7rem;
   font-weight: 700;
   line-height: 1.12;
@@ -2036,12 +2386,46 @@ onUnmounted(() => {
   background: rgb(250 247 239 / 0.34);
 }
 
+.leaderboard-reward-tier-card {
+  min-width: 0;
+  padding-inline: 0.34rem;
+}
+
+.leaderboard-reward-tier-label {
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 500;
+  line-height: 1.22;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-reward-tier-value {
+  overflow: hidden;
+  margin-top: 0.22rem;
+  color: rgb(35 32 28);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .leaderboard-reward-progress-track {
   background: rgb(222 212 196 / 0.72);
 }
 
 .leaderboard-reward-progress-fill {
   background: linear-gradient(90deg, rgb(95 143 129), rgb(196 111 80));
+}
+
+.leaderboard-weekly-rush-value {
+  min-width: 0;
+  overflow: hidden;
+  color: rgb(116 61 45);
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .leaderboard-reward-claim {
@@ -2202,11 +2586,21 @@ onUnmounted(() => {
 }
 
 .leaderboard-calendar-months {
+  --calendar-day-size: 4.08rem;
+  --calendar-day-label-height: 1rem;
+  --calendar-day-token-height: 0.9rem;
+  --calendar-day-gap-x: 0.44rem;
+  --calendar-month-padding: 0.85rem;
+  --calendar-month-min-width: calc(
+    (var(--calendar-day-size) * 16) +
+    (var(--calendar-day-gap-x) * 15) +
+    (var(--calendar-month-padding) * 2)
+  );
   display: grid;
   width: 100%;
-  min-width: 0;
-  grid-template-columns: minmax(36rem, 1fr) minmax(18rem, auto);
-  gap: 1rem;
+  min-width: min(100%, var(--calendar-month-min-width));
+  grid-template-columns: minmax(var(--calendar-month-min-width), 1fr);
+  gap: 0.9rem;
   align-items: start;
 }
 
@@ -2216,7 +2610,7 @@ onUnmounted(() => {
   background:
     linear-gradient(180deg, rgb(255 253 248 / 0.78), rgb(250 247 239 / 0.46)),
     rgb(255 253 248);
-  padding: 0.85rem;
+  padding: var(--calendar-month-padding);
 }
 
 .leaderboard-calendar-month-panel--current {
@@ -2244,22 +2638,20 @@ onUnmounted(() => {
 
 .leaderboard-calendar-days {
   display: grid;
-  --calendar-day-size: 3.34rem;
-  --calendar-day-label-height: 0.9rem;
   grid-template-columns: repeat(var(--calendar-day-columns), var(--calendar-day-size));
-  grid-auto-rows: calc(var(--calendar-day-size) + var(--calendar-day-label-height) + 0.18rem);
-  gap: 0.5rem 0.4rem;
+  grid-auto-rows: calc(var(--calendar-day-size) + var(--calendar-day-label-height) + var(--calendar-day-token-height) + 0.2rem);
+  gap: 0.58rem var(--calendar-day-gap-x);
   justify-content: start;
 }
 
 .leaderboard-calendar-day {
   position: relative;
   display: grid;
-  grid-template-rows: var(--calendar-day-label-height) var(--calendar-day-size);
+  grid-template-rows: var(--calendar-day-label-height) var(--calendar-day-size) var(--calendar-day-token-height);
   align-content: start;
   width: var(--calendar-day-size);
   min-width: 0;
-  height: calc(var(--calendar-day-size) + var(--calendar-day-label-height) + 0.18rem);
+  height: calc(var(--calendar-day-size) + var(--calendar-day-label-height) + var(--calendar-day-token-height) + 0.2rem);
   justify-items: center;
   overflow: visible;
   border: 0;
@@ -2289,7 +2681,7 @@ onUnmounted(() => {
   background: transparent;
   color: rgb(116 61 45);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 900;
   line-height: 1;
   box-shadow: none;
@@ -2338,10 +2730,10 @@ onUnmounted(() => {
 
 .leaderboard-calendar-avatar {
   position: absolute;
-  inset: 0 0 0.8rem;
+  inset: 0;
   display: inline-flex;
   width: 100%;
-  height: auto;
+  height: 100%;
   align-items: center;
   justify-content: center;
   overflow: hidden;
@@ -2351,7 +2743,7 @@ onUnmounted(() => {
     linear-gradient(135deg, rgb(214 183 157 / 0.98), rgb(154 83 62 / 0.86)),
     rgb(154 83 62);
   color: rgb(255 253 248);
-  font-size: 1.18rem;
+  font-size: 1.45rem;
   font-weight: 900;
   line-height: 1;
   text-shadow: 0 1px 0 rgb(68 41 32 / 0.32);
@@ -2365,19 +2757,18 @@ onUnmounted(() => {
 }
 
 .leaderboard-calendar-token-label {
-  position: absolute;
-  right: 0.16rem;
-  bottom: 0.12rem;
-  left: 0.16rem;
-  z-index: 3;
-  display: block;
+  display: flex;
+  width: 100%;
+  height: var(--calendar-day-token-height);
+  align-items: center;
+  justify-content: center;
   overflow: hidden;
   color: rgb(84 70 56);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.58rem;
+  font-size: 0.62rem;
   font-weight: 900;
   letter-spacing: 0;
-  line-height: 0.72rem;
+  line-height: 1;
   text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2674,7 +3065,29 @@ onUnmounted(() => {
   box-shadow: 0 0.35rem 1rem rgb(0 0 0 / 0.14);
 }
 
-:global(.dark .leaderboard-side-title) {
+:global(.dark .leaderboard-record-card) {
+  border-color: rgb(214 183 157 / 0.14);
+  background:
+    linear-gradient(135deg, rgb(35 32 28 / 0.74), rgb(20 20 19 / 0.56)),
+    rgb(20 20 19 / 0.72);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.04),
+    0 0.45rem 1rem rgb(0 0 0 / 0.12);
+}
+
+:global(.dark .leaderboard-record-kicker) {
+  color: rgb(168 159 145);
+}
+
+:global(.dark .leaderboard-record-headline) {
+  color: rgb(243 239 231);
+}
+
+:global(.dark .leaderboard-record-progress) {
+  color: rgb(194 187 176);
+}
+
+:global(.dark .leaderboard-record-progress strong) {
   color: rgb(214 183 157);
 }
 
@@ -2686,7 +3099,6 @@ onUnmounted(() => {
   color: rgb(243 239 231);
 }
 
-:global(.dark .leaderboard-my-token-card),
 :global(.dark .leaderboard-reward-tier-card),
 :global(.dark .leaderboard-reward-progress-card) {
   border-color: rgb(214 183 157 / 0.12);
@@ -2900,8 +3312,8 @@ onUnmounted(() => {
   .leaderboard-token-rank-row {
     grid-template-columns: 1fr;
     gap: 0.45rem;
-    min-height: 3.35rem;
-    padding: 0.26rem 0;
+    min-height: 3.18rem;
+    padding: 0.18rem 0;
   }
 
   .leaderboard-token-rank-user {
@@ -2973,32 +3385,24 @@ onUnmounted(() => {
   }
 
   .leaderboard-calendar-months {
-    min-width: 58rem;
-    grid-template-columns: repeat(2, minmax(28rem, 1fr));
+    --calendar-day-size: 3.42rem;
+    --calendar-day-label-height: 0.92rem;
+    --calendar-day-token-height: 0.8rem;
+    --calendar-day-gap-x: 0.34rem;
+    --calendar-month-padding: 0.72rem;
     gap: 0.85rem;
   }
 
-  .leaderboard-calendar-month-panel {
-    padding: 0.72rem;
-  }
-
   .leaderboard-calendar-days {
-    --calendar-day-size: 3.16rem;
-    gap: 0.48rem;
-  }
-
-  .leaderboard-calendar-day {
-    width: var(--calendar-day-size);
-    height: var(--calendar-day-size);
+    gap: 0.48rem var(--calendar-day-gap-x);
   }
 
   .leaderboard-calendar-avatar {
-    font-size: 1rem;
+    font-size: 1.12rem;
   }
 
   .leaderboard-calendar-token-label {
     font-size: 0.54rem;
-    line-height: 0.68rem;
   }
 
   .leaderboard-reward-head {

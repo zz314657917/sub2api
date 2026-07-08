@@ -70,6 +70,14 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.balance': '积分',
     'leaderboard.rank': '排名',
     'leaderboard.myInfo': '我的信息',
+    'leaderboard.record.title': '你的战绩',
+    'leaderboard.record.headlineRanked': '当前第 {rank} 名，消耗 {tokens}',
+    'leaderboard.record.headlineUnranked': '暂未上榜，消耗 {tokens}',
+    'leaderboard.record.distanceToBoard': '距离上榜还差',
+    'leaderboard.record.distanceToTopThree': '距离前三还差',
+    'leaderboard.record.distanceToSecond': '距离第二还差',
+    'leaderboard.record.distanceToFirst': '距离第一还差',
+    'leaderboard.record.deity': '掌控token的神',
     'leaderboard.costEfficiencyKing': '⭐ 积分效率之王',
     'leaderboard.badges.weeklyTokenKing': '周榜 Token 最多',
     'leaderboard.badges.monthlyTokenKing': '月榜 Token 最多',
@@ -81,14 +89,19 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.badges.costBurner': '1M Token 积分消耗最高',
     'leaderboard.generatedAt': '更新',
     'leaderboard.notRanked': '未上榜',
-    'leaderboard.dailyReward.title': '每周排名奖励',
-    'leaderboard.dailyReward.settlementDate': '结算周期',
+    'leaderboard.dailyReward.title': '上周奖励',
+    'leaderboard.dailyReward.settlementDate': '统计周期',
     'leaderboard.dailyReward.threshold': '上周积分消费门槛',
     'leaderboard.dailyReward.rewardAmount': '可领积分',
     'leaderboard.dailyReward.rewardAmountHidden': '按名次发放',
-    'leaderboard.dailyReward.targetProgress': '奖励目标进度',
+    'leaderboard.dailyReward.lastWeekRank': '上周排名',
+    'leaderboard.dailyReward.targetProgress': '上周奖励门槛',
+    'leaderboard.dailyReward.weeklyRushProgress': '本周冲榜进度',
+    'leaderboard.dailyReward.weeklyRushLoading': '计算中',
+    'leaderboard.dailyReward.weeklyRushNoData': '暂无进度',
     'leaderboard.dailyReward.progress': '{current} / {target}',
     'leaderboard.dailyReward.progressPercent': '{percent}%',
+    'leaderboard.dailyReward.progressReached': '已达成',
     'leaderboard.dailyReward.disabled': '奖励功能暂未开启',
     'leaderboard.dailyReward.settling': '上周榜结算中，{time} 后可领取',
     'leaderboard.dailyReward.thresholdNotMet': '上周积分消费未超过最低开启门槛',
@@ -97,6 +110,14 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.zeroReward': '当前名次奖励积分为 0',
     'leaderboard.dailyReward.eligible': '你已符合领取条件',
     'leaderboard.dailyReward.alreadyClaimed': '上周奖励已领取',
+    'leaderboard.dailyReward.statusDisabled': '未开启',
+    'leaderboard.dailyReward.statusSettling': '结算中',
+    'leaderboard.dailyReward.statusThresholdNotMet': '门槛未达成',
+    'leaderboard.dailyReward.statusNotTopThree': '未进前三',
+    'leaderboard.dailyReward.statusNotRanked': '未上榜',
+    'leaderboard.dailyReward.statusZeroReward': '无奖励',
+    'leaderboard.dailyReward.statusReady': '可领取',
+    'leaderboard.dailyReward.statusClaimed': '已领取',
     'leaderboard.dailyReward.claim': '领取奖励',
     'leaderboard.dailyReward.claiming': '领取中...',
     'leaderboard.dailyReward.claimed': '已领取',
@@ -227,6 +248,7 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
 
 describe('LeaderboardView', () => {
   beforeEach(() => {
+    window.sessionStorage.clear()
     getDashboardLeaderboard.mockReset()
     claimDashboardLeaderboardDailyReward.mockReset()
     getDashboardLeaderboard.mockResolvedValue(makeResponse())
@@ -256,6 +278,9 @@ describe('LeaderboardView', () => {
   it('clears stale rows while loading the next period', async () => {
     let resolveWeek: (value: ReturnType<typeof makeResponse>) => void = () => {}
     getDashboardLeaderboard.mockResolvedValueOnce(makeResponse({ period: 'day', start_date: '2026-05-01', end_date: '2026-05-01' }))
+    getDashboardLeaderboard.mockReturnValueOnce(new Promise(() => {
+      // Background weekly summary remains pending so the explicit tab switch cannot hydrate from cache.
+    }))
     getDashboardLeaderboard.mockReturnValueOnce(new Promise((resolve) => {
       resolveWeek = resolve
     }))
@@ -316,6 +341,30 @@ describe('LeaderboardView', () => {
             balance: 20,
             is_current_user: false,
           },
+          {
+            rank: 2,
+            user_id: 3,
+            display_name: 'Cora',
+            email_masked: 'c***@example.com',
+            avatar_url: null,
+            actual_cost: 3.1,
+            requests: 12,
+            tokens: 1800,
+            balance: 14,
+            is_current_user: false,
+          },
+          {
+            rank: 3,
+            user_id: 4,
+            display_name: 'Dana',
+            email_masked: 'd***@example.com',
+            avatar_url: null,
+            actual_cost: 2.7,
+            requests: 10,
+            tokens: 660_000_000,
+            balance: 9,
+            is_current_user: false,
+          },
         ],
         current_user_entry: {
           rank: 28,
@@ -343,9 +392,13 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('我的信息')
-    expect(wrapper.text()).toContain('#28')
-    expect(wrapper.text()).toContain('Me')
+    const record = wrapper.get('[data-testid="leaderboard-my-record"]')
+    expect(record.text()).toContain('你的战绩')
+    expect(record.text()).toContain('当前第 28 名，消耗 <0.1M')
+    expect(record.text()).toContain('距离前三还差')
+    expect(record.text()).toContain('6.6亿')
+    expect(record.text()).toContain('token')
+    expect(record.text()).not.toContain('Me')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$7.00')
     expect(wrapper.text()).not.toContain('$4.25')
     expect(wrapper.text()).not.toContain('$0.50')
@@ -366,12 +419,62 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="leaderboard-my-info"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('Alice')
-    expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).toContain('900')
+    const record = wrapper.get('[data-testid="leaderboard-my-record"]')
+    expect(record.text()).toContain('你的战绩')
+    expect(record.text()).toContain('当前第 1 名，消耗 <0.1M')
+    expect(record.text()).toContain('掌控token的神')
+    expect(record.text()).not.toContain('Alice')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$11.00')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('余额')
-    expect(wrapper.find('[data-testid="leaderboard-my-info"]').findAll('[data-testid="leaderboard-my-token"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="leaderboard-my-info"]').findAll('[data-testid="leaderboard-my-token"]')).toHaveLength(0)
+  })
+
+  it('shows the distance to enter the visible board when current user is unranked', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        ranking: Array.from({ length: 10 }, (_, index) => ({
+          rank: index + 1,
+          user_id: index + 1,
+          display_name: `User ${index + 1}`,
+          email_masked: `u***${index + 1}@example.com`,
+          avatar_url: null,
+          actual_cost: 10 - index,
+          requests: 10 + index,
+          tokens: 2_000 - index * 100,
+          balance: 1,
+          is_current_user: false,
+        })),
+        current_user_entry: {
+          rank: 0,
+          user_id: 99,
+          display_name: 'Hidden Me',
+          email_masked: 'h***@example.com',
+          avatar_url: null,
+          actual_cost: 0.2,
+          requests: 1,
+          tokens: 718,
+          balance: 1,
+          is_current_user: true,
+        },
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const record = wrapper.get('[data-testid="leaderboard-my-record"]')
+    expect(record.text()).toContain('暂未上榜，消耗 <0.1M')
+    expect(record.text()).toContain('距离上榜还差')
+    expect(record.text()).toContain('383')
+    expect(record.text()).not.toContain('Hidden Me')
   })
 
   it('hides visible leaderboard spending totals and row amounts', async () => {
@@ -411,6 +514,7 @@ describe('LeaderboardView', () => {
             tokens: 1000,
             cost_per_1m_tokens: 10000,
             balance: 1,
+            rank_change: 1,
             is_current_user: false,
           },
           {
@@ -478,6 +582,7 @@ describe('LeaderboardView', () => {
             tokens: 1000,
             cost_per_1m_tokens: 10000,
             balance: 1,
+            rank_change: 1,
             is_current_user: false,
           },
           {
@@ -495,6 +600,7 @@ describe('LeaderboardView', () => {
             tokens: 2000,
             cost_per_1m_tokens: 500,
             balance: 2,
+            rank_change: -1,
             is_current_user: false,
           },
         ],
@@ -519,6 +625,7 @@ describe('LeaderboardView', () => {
     expect(ranking.text()).toContain('更新 16:00:00')
     expect(ranking.text()).toContain('Pricey')
     expect(ranking.text()).toContain('Efficient')
+    expect(ranking.findAll('[data-testid="leaderboard-rank-change"]').map((node) => node.text())).toEqual(['+1', '-1'])
     expect(ranking.text()).toContain('2,000')
     expect(ranking.findAll('[data-testid="leaderboard-token-bar-fill"]')).toHaveLength(2)
     expect(ranking.findAll('[data-testid="leaderboard-token-segment-input"]')).toHaveLength(2)
@@ -772,7 +879,7 @@ describe('LeaderboardView', () => {
     expect(wrapper.findAll('[data-testid="leaderboard-badge-icon"]')).toHaveLength(0)
   })
 
-  it('renders compact personal badge icons and collapses overflow badges in my info', async () => {
+  it('keeps personal badges out of the record card while rank titles still collapse on rows', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
         ranking: [
@@ -817,14 +924,18 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    const badges = wrapper.findAll('[data-testid="leaderboard-my-badge-icon"]').slice(0, 3)
-    expect(badges.map((badge) => badge.text())).toEqual(['周', '月', '肝'])
-    expect(badges.map((badge) => badge.attributes('data-badge'))).toEqual([
+    const record = wrapper.get('[data-testid="leaderboard-my-record"]')
+    expect(record.text()).toContain('当前第 16 名')
+    expect(record.text()).not.toContain('Decorated')
+    expect(wrapper.findAll('[data-testid="leaderboard-my-badge-icon"]')).toHaveLength(0)
+
+    const titles = wrapper.findAll('[data-testid="leaderboard-rank-title"]')
+    expect(titles.map((title) => title.text())).toEqual(['周榜王', '月榜王'])
+    expect(titles.map((title) => title.attributes('data-badge'))).toEqual([
       'weekly_token_king',
       'monthly_token_king',
-      'total_token_king',
     ])
-    expect(wrapper.find('.leaderboard-badge-overflow').text()).toBe('+5')
+    expect(wrapper.find('.leaderboard-token-title-more').text()).toBe('+4')
   })
 
   it('renders at most 10 ranking items', async () => {
@@ -923,12 +1034,18 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="leaderboard-daily-reward"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('每周排名奖励')
-    expect(wrapper.text()).toContain('上周积分消费未超过最低开启门槛')
+    expect(wrapper.text()).toContain('上周奖励')
+    expect(wrapper.text()).toContain('统计周期')
+    const rewardStatus = wrapper.get('[data-testid="leaderboard-daily-reward-status"]')
+    expect(rewardStatus.text()).toContain('门槛未达成')
+    expect(rewardStatus.attributes('title')).toBe('上周积分消费未超过最低开启门槛')
     expect(wrapper.text()).not.toContain('上周积分消费门槛')
     expect(wrapper.text()).not.toContain('$80.00 / $100.00')
     expect(wrapper.text()).toContain('第 1 名奖励')
-    expect(wrapper.text()).toContain('按名次发放')
+    expect(wrapper.text()).toContain('✪ 5.00')
+    expect(wrapper.text()).toContain('✪ 3.00')
+    expect(wrapper.text()).toContain('✪ 1.00')
+    expect(wrapper.text()).not.toContain('按名次发放')
     expect(wrapper.text()).toContain('上周前三')
     expect(wrapper.text()).toContain('上周第一名')
     expect(wrapper.text()).toContain('上周第二名')
@@ -937,9 +1054,109 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).toContain('B*b')
     expect(wrapper.text()).toContain('C***l')
     expect(wrapper.text()).not.toContain('Alice Winner')
-    expect(wrapper.text()).toContain('奖励目标进度')
+    expect(wrapper.text()).toContain('上周排名')
+    expect(wrapper.text()).toContain('上周奖励门槛')
     expect(wrapper.text()).toContain('80%')
+    expect(wrapper.text()).toContain('本周冲榜进度')
     expect(wrapper.text()).not.toContain('$5.00')
+  })
+
+  it('shows reached text for completed last-week threshold and weekly rush distance', async () => {
+    const weeklyResponse = makeResponse({
+      period: 'week',
+      ranking: [
+        {
+          rank: 1,
+          user_id: 11,
+          display_name: 'Top One',
+          email_masked: 't***@example.com',
+          avatar_url: null,
+          actual_cost: 9,
+          requests: 20,
+          tokens: 2_000_000,
+          balance: 3,
+          is_current_user: false,
+        },
+        {
+          rank: 2,
+          user_id: 12,
+          display_name: 'Second',
+          email_masked: 's***@example.com',
+          avatar_url: null,
+          actual_cost: 6,
+          requests: 18,
+          tokens: 1_400_000,
+          balance: 3,
+          is_current_user: false,
+        },
+        {
+          rank: 3,
+          user_id: 13,
+          display_name: 'Third',
+          email_masked: 't***@example.com',
+          avatar_url: null,
+          actual_cost: 5,
+          requests: 16,
+          tokens: 800_000,
+          balance: 3,
+          is_current_user: false,
+        },
+      ],
+      current_user_entry: {
+        rank: 9,
+        user_id: 99,
+        display_name: 'Me',
+        email_masked: 'm***@example.com',
+        avatar_url: null,
+        actual_cost: 2,
+        requests: 8,
+        tokens: 600_000,
+        balance: 3,
+        is_current_user: true,
+      },
+    })
+    getDashboardLeaderboard
+      .mockResolvedValueOnce(
+        makeResponse({
+          daily_rewards: {
+            reward_date: '2026-05-06',
+            settlement_timezone: 'Asia/Shanghai',
+            settlement_ready: true,
+            claim_available_at: '2026-05-07T00:30:00+08:00',
+            enabled: true,
+            min_total_actual_cost: 100,
+            yesterday_total_actual_cost: 120,
+            threshold_met: true,
+            rewards: [
+              { rank: 1, amount: 5 },
+              { rank: 2, amount: 3 },
+              { rank: 3, amount: 1 },
+            ],
+            current_user_rank: 2,
+            current_user_reward_amount: 3,
+            can_claim: true,
+            claimed: false,
+            reason: 'eligible',
+          },
+        })
+      )
+      .mockResolvedValueOnce(weeklyResponse)
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('上周奖励门槛')
+    expect(wrapper.text()).toContain('已达成')
+    expect(wrapper.text()).toContain('本周冲榜进度')
+    expect(wrapper.text()).toContain('距离前三还差 20万 token')
   })
 
   it('shows development preview top users when the reward payload has no winners', async () => {
@@ -1025,7 +1242,9 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('上周榜结算中')
+    const settlingStatus = wrapper.get('[data-testid="leaderboard-daily-reward-status"]')
+    expect(settlingStatus.text()).toContain('结算中')
+    expect(settlingStatus.attributes('title')).toContain('结算中')
     expect(wrapper.get('[data-testid="leaderboard-daily-reward-claim"]').attributes('disabled')).toBeDefined()
   })
 
@@ -1075,7 +1294,9 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     expect(claimDashboardLeaderboardDailyReward).toHaveBeenCalledTimes(1)
-    expect(wrapper.text()).toContain('上周奖励已领取')
+    const claimedStatus = wrapper.get('[data-testid="leaderboard-daily-reward-status"]')
+    expect(claimedStatus.text()).toContain('已领取')
+    expect(claimedStatus.attributes('title')).toBe('上周奖励已领取')
     expect(wrapper.get('[data-testid="leaderboard-daily-reward-claim"]').text()).toContain('已领取')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$16.00')
   })

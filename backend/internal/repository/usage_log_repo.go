@@ -2649,7 +2649,8 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 	}
 
 	conditions := make([]string, 0, 2)
-	args := make([]any, 0, 4)
+	previousConditions := make([]string, 0, 2)
+	args := make([]any, 0, 6)
 	if !startTime.IsZero() {
 		args = append(args, startTime)
 		conditions = append(conditions, fmt.Sprintf("u.created_at >= $%d", len(args)))
@@ -2662,6 +2663,17 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	previousWhereClause := "WHERE false"
+	if !startTime.IsZero() && !endTime.IsZero() && endTime.After(startTime) {
+		window := endTime.Sub(startTime)
+		previousStart := startTime.Add(-window)
+		args = append(args, previousStart)
+		previousConditions = append(previousConditions, fmt.Sprintf("created_at >= $%d", len(args)))
+		args = append(args, startTime)
+		previousConditions = append(previousConditions, fmt.Sprintf("created_at < $%d", len(args)))
+		previousWhereClause = "WHERE " + strings.Join(previousConditions, " AND ")
 	}
 
 	limitArg := len(args) + 1
@@ -2687,7 +2699,24 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 			%s
 			GROUP BY u.user_id, us.username, us.email, us.balance, ua.url
 		),
-		ranked AS (
+		previous_user_spend AS (
+			SELECT
+				user_id,
+				COALESCE(SUM(actual_cost), 0) as previous_actual_cost,
+				COUNT(*) as previous_requests,
+				COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as previous_tokens
+			FROM usage_logs
+			%s
+			GROUP BY user_id
+		),
+		previous_ranked AS (
+			SELECT
+				ROW_NUMBER() OVER (ORDER BY previous_tokens DESC, previous_actual_cost DESC, user_id ASC) as previous_rank,
+				user_id,
+				previous_tokens
+			FROM previous_user_spend
+		),
+		current_ranked AS (
 			SELECT
 				ROW_NUMBER() OVER (ORDER BY tokens DESC, actual_cost DESC, user_id ASC) as rank,
 				user_id,
@@ -2707,6 +2736,17 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 				COALESCE(SUM(requests) OVER (), 0) as total_requests,
 				COALESCE(SUM(tokens) OVER (), 0) as total_tokens
 			FROM user_spend
+		),
+		ranked AS (
+			SELECT
+				current_ranked.*,
+				CASE
+					WHEN previous_ranked.previous_rank IS NULL THEN NULL
+					ELSE previous_ranked.previous_rank - current_ranked.rank
+				END as rank_change,
+				previous_ranked.previous_tokens
+			FROM current_ranked
+			LEFT JOIN previous_ranked ON previous_ranked.user_id = current_ranked.user_id
 		),
 		selected AS (
 			SELECT *
@@ -2728,12 +2768,13 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 			cache_read_tokens,
 			tokens,
 			cost_per_1m_tokens,
+			rank_change,
 			total_actual_cost,
 			total_requests,
 			total_tokens
 		FROM selected
 		ORDER BY rank ASC
-	`, whereClause, limitArg, currentUserArg)
+	`, whereClause, previousWhereClause, limitArg, currentUserArg)
 
 	args = append(args, limit, currentUserID)
 	rows, err := r.sql.QueryContext(ctx, query, args...)
@@ -2755,6 +2796,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 	for rows.Next() {
 		var row UserLeaderboardItem
 		var avatarURL sql.NullString
+		var rankChange sql.NullInt64
 		if err = rows.Scan(
 			&row.Rank,
 			&row.UserID,
@@ -2770,6 +2812,7 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 			&row.CacheReadTokens,
 			&row.Tokens,
 			&row.CostPer1M,
+			&rankChange,
 			&totalActualCost,
 			&totalRequests,
 			&totalTokens,
@@ -2779,6 +2822,10 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 		if avatarURL.Valid && strings.TrimSpace(avatarURL.String) != "" {
 			value := avatarURL.String
 			row.AvatarURL = &value
+		}
+		if rankChange.Valid {
+			value := rankChange.Int64
+			row.RankChange = &value
 		}
 		row.IsCurrentUser = row.UserID == currentUserID
 		if row.Rank <= int64(limit) {

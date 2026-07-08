@@ -2069,6 +2069,7 @@ export interface UserLeaderboardItem {
   cost_per_1m_tokens: number
   balance: number
   badges?: LeaderboardBadge[]
+  rank_change?: number | null
   is_current_user: boolean
 }
 

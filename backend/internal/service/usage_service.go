@@ -20,7 +20,7 @@ var (
 	ErrUsageLogNotFound = infraerrors.NotFound("USAGE_LOG_NOT_FOUND", "usage log not found")
 )
 
-const leaderboardStatsCacheTTL = 30 * time.Second
+const leaderboardStatsCacheTTL = 5 * time.Minute
 
 // CreateUsageLogRequest 创建使用日志请求
 type CreateUsageLogRequest struct {
@@ -800,6 +800,10 @@ func cloneUserLeaderboardItem(item usagestats.UserLeaderboardItem) usagestats.Us
 	if item.AvatarURL != nil {
 		avatarURL := *item.AvatarURL
 		item.AvatarURL = &avatarURL
+	}
+	if item.RankChange != nil {
+		rankChange := *item.RankChange
+		item.RankChange = &rankChange
 	}
 	item.Badges = cloneStrings(item.Badges)
 	return item
