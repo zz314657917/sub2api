@@ -35,6 +35,7 @@ import tutorialsAPI from './tutorials'
 import imageCreatorStorageAPI from './imageCreatorStorage'
 import adminTicketsAPI from './tickets'
 import modelMarketAdminAPI from './modelMarket'
+import adminGroupBuyAPI from './groupBuy'
 
 /**
  * Unified admin API object for convenient access
@@ -71,7 +72,8 @@ export const adminAPI = {
   tutorials: tutorialsAPI,
   imageCreatorStorage: imageCreatorStorageAPI,
   tickets: adminTicketsAPI,
-  modelMarket: modelMarketAdminAPI
+  modelMarket: modelMarketAdminAPI,
+  groupBuy: adminGroupBuyAPI
 }
 
 export {
@@ -106,7 +108,8 @@ export {
   tutorialsAPI,
   imageCreatorStorageAPI,
   adminTicketsAPI,
-  modelMarketAdminAPI
+  modelMarketAdminAPI,
+  adminGroupBuyAPI
 }
 
 export default adminAPI

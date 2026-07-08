@@ -122,6 +122,9 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 }
 
 func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrderRequest, cfg *PaymentConfig) (*dbent.SubscriptionPlan, error) {
+	if req.OrderType == payment.OrderTypeGroupBuy {
+		return nil, infraerrors.BadRequest("GROUP_BUY_ORDER_ROUTE_REQUIRED", "group buy orders must be created from the group-buy endpoint")
+	}
 	if req.OrderType == payment.OrderTypeBalance && cfg.BalanceDisabled {
 		return nil, infraerrors.Forbidden("BALANCE_PAYMENT_DISABLED", "balance recharge has been disabled")
 	}

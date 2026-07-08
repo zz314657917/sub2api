@@ -115,6 +115,10 @@ type GroupEdges struct {
 	Subscriptions []*UserSubscription `json:"subscriptions,omitempty"`
 	// UsageLogs holds the value of the usage_logs edge.
 	UsageLogs []*UsageLog `json:"usage_logs,omitempty"`
+	// GroupBuyPlans holds the value of the group_buy_plans edge.
+	GroupBuyPlans []*GroupBuyPlan `json:"group_buy_plans,omitempty"`
+	// GroupBuyEntitlements holds the value of the group_buy_entitlements edge.
+	GroupBuyEntitlements []*GroupBuyEntitlement `json:"group_buy_entitlements,omitempty"`
 	// Accounts holds the value of the accounts edge.
 	Accounts []*Account `json:"accounts,omitempty"`
 	// AllowedUsers holds the value of the allowed_users edge.
@@ -125,7 +129,7 @@ type GroupEdges struct {
 	UserAllowedGroups []*UserAllowedGroup `json:"user_allowed_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [8]bool
+	loadedTypes [10]bool
 }
 
 // APIKeysOrErr returns the APIKeys value or an error if the edge
@@ -164,10 +168,28 @@ func (e GroupEdges) UsageLogsOrErr() ([]*UsageLog, error) {
 	return nil, &NotLoadedError{edge: "usage_logs"}
 }
 
+// GroupBuyPlansOrErr returns the GroupBuyPlans value or an error if the edge
+// was not loaded in eager-loading.
+func (e GroupEdges) GroupBuyPlansOrErr() ([]*GroupBuyPlan, error) {
+	if e.loadedTypes[4] {
+		return e.GroupBuyPlans, nil
+	}
+	return nil, &NotLoadedError{edge: "group_buy_plans"}
+}
+
+// GroupBuyEntitlementsOrErr returns the GroupBuyEntitlements value or an error if the edge
+// was not loaded in eager-loading.
+func (e GroupEdges) GroupBuyEntitlementsOrErr() ([]*GroupBuyEntitlement, error) {
+	if e.loadedTypes[5] {
+		return e.GroupBuyEntitlements, nil
+	}
+	return nil, &NotLoadedError{edge: "group_buy_entitlements"}
+}
+
 // AccountsOrErr returns the Accounts value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupEdges) AccountsOrErr() ([]*Account, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[6] {
 		return e.Accounts, nil
 	}
 	return nil, &NotLoadedError{edge: "accounts"}
@@ -176,7 +198,7 @@ func (e GroupEdges) AccountsOrErr() ([]*Account, error) {
 // AllowedUsersOrErr returns the AllowedUsers value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupEdges) AllowedUsersOrErr() ([]*User, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[7] {
 		return e.AllowedUsers, nil
 	}
 	return nil, &NotLoadedError{edge: "allowed_users"}
@@ -185,7 +207,7 @@ func (e GroupEdges) AllowedUsersOrErr() ([]*User, error) {
 // AccountGroupsOrErr returns the AccountGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupEdges) AccountGroupsOrErr() ([]*AccountGroup, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[8] {
 		return e.AccountGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "account_groups"}
@@ -194,7 +216,7 @@ func (e GroupEdges) AccountGroupsOrErr() ([]*AccountGroup, error) {
 // UserAllowedGroupsOrErr returns the UserAllowedGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupEdges) UserAllowedGroupsOrErr() ([]*UserAllowedGroup, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[9] {
 		return e.UserAllowedGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "user_allowed_groups"}
@@ -527,6 +549,16 @@ func (_m *Group) QuerySubscriptions() *UserSubscriptionQuery {
 // QueryUsageLogs queries the "usage_logs" edge of the Group entity.
 func (_m *Group) QueryUsageLogs() *UsageLogQuery {
 	return NewGroupClient(_m.config).QueryUsageLogs(_m)
+}
+
+// QueryGroupBuyPlans queries the "group_buy_plans" edge of the Group entity.
+func (_m *Group) QueryGroupBuyPlans() *GroupBuyPlanQuery {
+	return NewGroupClient(_m.config).QueryGroupBuyPlans(_m)
+}
+
+// QueryGroupBuyEntitlements queries the "group_buy_entitlements" edge of the Group entity.
+func (_m *Group) QueryGroupBuyEntitlements() *GroupBuyEntitlementQuery {
+	return NewGroupClient(_m.config).QueryGroupBuyEntitlements(_m)
 }
 
 // QueryAccounts queries the "accounts" edge of the Group entity.

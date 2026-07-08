@@ -9,7 +9,7 @@
           <div class="flex h-16 w-16 items-center justify-center rounded-full bg-[#7f9d8a]/15 dark:bg-[#7f9d8a]/15">
             <Icon name="check" size="lg" class="text-[#5f7f68] dark:text-[#9ab3a0]" />
           </div>
-          <p class="text-lg font-bold text-gray-900 dark:text-white">{{ props.orderType === 'subscription' ? t('payment.result.subscriptionSuccess') : t('payment.result.success') }}</p>
+          <p class="text-lg font-bold text-gray-900 dark:text-white">{{ successTitle }}</p>
           <div v-if="paidOrder" class="w-full rounded-xl bg-gray-50 p-4 dark:bg-dark-800">
             <div class="space-y-2 text-sm">
               <div class="flex justify-between">
@@ -207,6 +207,12 @@ const scanHint = computed(() => {
   if (isAlipay.value) return t('payment.qr.scanAlipayHint')
   if (isWxpay.value) return t('payment.qr.scanWxpayHint')
   return ''
+})
+
+const successTitle = computed(() => {
+  if (props.orderType === 'subscription') return t('payment.result.subscriptionSuccess')
+  if (props.orderType === 'group_buy') return t('payment.result.groupBuySuccess')
+  return t('payment.result.success')
 })
 
 const countdownDisplay = computed(() => {

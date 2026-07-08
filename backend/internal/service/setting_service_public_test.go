@@ -78,6 +78,27 @@ func TestSettingService_GetPublicSettings_ExposesTablePreferences(t *testing.T) 
 	require.Equal(t, []int{20, 50, 100}, settings.TablePageSizeOptions)
 }
 
+func TestSettingService_GetPublicSettings_ExposesGroupBuyProductName(t *testing.T) {
+	repo := &settingPublicRepoStub{
+		values: map[string]string{
+			SettingKeyGroupBuyProductName: " 我的拼团 ",
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{})
+
+	settings, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "我的拼团", settings.GroupBuyProductName)
+}
+
+func TestSettingService_GetPublicSettings_DefaultsGroupBuyProductName(t *testing.T) {
+	svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{})
+
+	settings, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "Token拼拼拼", settings.GroupBuyProductName)
+}
+
 func TestSettingService_GetPublicSettings_ExposesHomeHeroCopy(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{

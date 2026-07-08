@@ -22,4 +22,10 @@ describe('resolveDocumentTitle', () => {
     expect(before).toBe('Admin Dashboard - Alpha')
     expect(after).toBe('Admin Dashboard - Beta')
   })
+
+  it('Token 拼团标题使用公开设置里的自定义功能名称', () => {
+    expect(resolveDocumentTitle('Group Buy', 'My Site', 'nav.groupBuy', {
+      group_buy_product_name: '我的拼团',
+    } as any)).toBe('我的拼团 - My Site')
+  })
 })

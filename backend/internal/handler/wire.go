@@ -40,6 +40,7 @@ func ProvideAdminHandlers(
 	contentModerationHandler *admin.ContentModerationHandler,
 	paymentHandler *admin.PaymentHandler,
 	affiliateHandler *admin.AffiliateHandler,
+	groupBuyHandler *admin.GroupBuyHandler,
 	imageCreatorStorageHandler *admin.ImageCreatorStorageGovernanceHandler,
 	adminTicketHandler *admin.TicketHandler,
 ) *AdminHandlers {
@@ -75,6 +76,7 @@ func ProvideAdminHandlers(
 		ContentModeration:      contentModerationHandler,
 		Payment:                paymentHandler,
 		Affiliate:              affiliateHandler,
+		GroupBuy:               groupBuyHandler,
 		ImageCreatorStorage:    imageCreatorStorageHandler,
 		Ticket:                 adminTicketHandler,
 	}
@@ -115,6 +117,7 @@ func ProvideHandlers(
 	settingHandler *SettingHandler,
 	totpHandler *TotpHandler,
 	paymentHandler *PaymentHandler,
+	groupBuyHandler *GroupBuyHandler,
 	paymentWebhookHandler *PaymentWebhookHandler,
 	membershipHandler *MembershipHandler,
 	availableChannelHandler *AvailableChannelHandler,
@@ -145,6 +148,7 @@ func ProvideHandlers(
 		Setting:          settingHandler,
 		Totp:             totpHandler,
 		Payment:          paymentHandler,
+		GroupBuy:         groupBuyHandler,
 		PaymentWebhook:   paymentWebhookHandler,
 		Membership:       membershipHandler,
 		AvailableChannel: availableChannelHandler,
@@ -176,6 +180,7 @@ var ProviderSet = wire.NewSet(
 	NewTotpHandler,
 	ProvideSettingHandler,
 	NewPaymentHandler,
+	NewGroupBuyHandler,
 	NewPaymentWebhookHandler,
 	NewMembershipHandler,
 	NewAvailableChannelHandler,
@@ -212,6 +217,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewContentModerationHandler,
 	admin.NewPaymentHandler,
 	admin.NewAffiliateHandler,
+	admin.NewGroupBuyHandler,
 	admin.NewImageCreatorStorageGovernanceHandler,
 	admin.NewTicketHandler,
 

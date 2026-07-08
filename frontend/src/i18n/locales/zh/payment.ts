@@ -183,6 +183,7 @@ export default {
     result: {
       success: '支付成功',
       subscriptionSuccess: '订阅成功',
+      groupBuySuccess: 'Token拼拼拼份额付款成功',
       processing: '支付处理中',
       processingHint: '支付结果仍在确认中，页面会自动刷新。',
       failed: '支付失败',

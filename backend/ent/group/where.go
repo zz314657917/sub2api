@@ -1802,6 +1802,52 @@ func HasUsageLogsWith(preds ...predicate.UsageLog) predicate.Group {
 	})
 }
 
+// HasGroupBuyPlans applies the HasEdge predicate on the "group_buy_plans" edge.
+func HasGroupBuyPlans() predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyPlansTable, GroupBuyPlansColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGroupBuyPlansWith applies the HasEdge predicate on the "group_buy_plans" edge with a given conditions (other predicates).
+func HasGroupBuyPlansWith(preds ...predicate.GroupBuyPlan) predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := newGroupBuyPlansStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasGroupBuyEntitlements applies the HasEdge predicate on the "group_buy_entitlements" edge.
+func HasGroupBuyEntitlements() predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyEntitlementsTable, GroupBuyEntitlementsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGroupBuyEntitlementsWith applies the HasEdge predicate on the "group_buy_entitlements" edge with a given conditions (other predicates).
+func HasGroupBuyEntitlementsWith(preds ...predicate.GroupBuyEntitlement) predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := newGroupBuyEntitlementsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAccounts applies the HasEdge predicate on the "accounts" edge.
 func HasAccounts() predicate.Group {
 	return predicate.Group(func(s *sql.Selector) {

@@ -177,6 +177,17 @@ func RegisterUserRoutes(
 			channels.GET("/available", h.AvailableChannel.List)
 		}
 
+		// 平台托管 Pro 容量合购
+		groupBuy := authenticated.Group("/group-buy")
+		{
+			groupBuy.GET("/plans", h.GroupBuy.ListPlans)
+			groupBuy.GET("/activity", h.GroupBuy.Activity)
+			groupBuy.POST("/orders", h.GroupBuy.CreateOrder)
+			groupBuy.GET("/my/seats", h.GroupBuy.MySeats)
+			groupBuy.GET("/my/orders", h.GroupBuy.MyOrders)
+			groupBuy.POST("/seats/:id/bind-key", h.GroupBuy.BindKey)
+		}
+
 		// 使用记录
 		usage := authenticated.Group("/usage")
 		{

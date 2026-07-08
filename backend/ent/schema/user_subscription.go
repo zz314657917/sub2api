@@ -99,6 +99,8 @@ func (UserSubscription) Edges() []ent.Edge {
 			Field("assigned_by").
 			Unique(),
 		edge.To("usage_logs", UsageLog.Type),
+		edge.To("group_buy_seats", GroupBuySeat.Type),
+		edge.To("group_buy_entitlements", GroupBuyEntitlement.Type),
 	}
 }
 

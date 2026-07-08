@@ -137,6 +137,8 @@ func (APIKey) Edges() []ent.Edge {
 			Field("group_id").
 			Unique(),
 		edge.To("usage_logs", UsageLog.Type),
+		edge.To("group_buy_seats", GroupBuySeat.Type),
+		edge.To("group_buy_entitlements", GroupBuyEntitlement.Type),
 	}
 }
 

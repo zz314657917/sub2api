@@ -147,6 +147,9 @@ type SystemSettings struct {
 	AffiliateRiskScanIntervalMinutes int
 	AccountShareEnabled              bool
 	ExternalCapacityReferenceEnabled bool
+	GroupBuyEnabled                  bool
+	GroupBuyProductName              string
+	GroupBuyDescription              string
 	AccountShareOwnerRatePercent     float64
 	AccountShareFreezeHours          int
 	AccountShareAutoReview           bool
@@ -318,7 +321,10 @@ type PublicSettings struct {
 	ChannelMonitorDefaultIntervalSeconds int  `json:"channel_monitor_default_interval_seconds"`
 
 	// Available Channels feature (user-facing aggregate view)
-	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled bool   `json:"available_channels_enabled"`
+	GroupBuyEnabled          bool   `json:"group_buy_enabled"`
+	GroupBuyProductName      string `json:"group_buy_product_name"`
+	GroupBuyDescription      string `json:"group_buy_description"`
 
 	// Affiliate (邀请返利) feature toggle
 	AffiliateEnabled bool `json:"affiliate_enabled"`

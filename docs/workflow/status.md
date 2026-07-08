@@ -1,21 +1,21 @@
 ---
 phase: done
-current_sprint: upstream-main-v0144-safe-patches-s53
+current_sprint: group-buy-v1
 total_sprints: 53
-pending_action: Start next approved Sprint or release validation
+pending_action: review report and user review
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-04 03:28 +08:00
+last_verified: 2026-07-08 18:50 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0144-safe-patches-s53`
-- 当前目标：S53 已 no-ff 合入 `main`，等待推送确认。
-- 当前结论：S53 已重放 `token_expired` 非重试、Responses 映射模型计费、Codex access-only import 防误合并；计划内定向验证 PASS。
-- 当前默认续做提示：如果用户说“继续”，推送 `main` 并确认 `origin/main`；推送后进入 release validation 或 S54 性能/容量批次。
+- 当前 Sprint：`group-buy-v1`
+- 当前目标：`Token拼拼拼` 拼团管理 v1.1 已在隔离 worktree `E:/codex-worktrees/sub2api/group-buy-v1` 实现并完成代码级 QA。
+- 当前结论：拼团数据模型、用户/后台接口、份额锁定、满份成团、自动/手动开团、超时退款待处理、权益汇总、API Key 绑定、用户/后台前端页面已实现；定向后端/前端验证、真实 Chrome 截图、本地容器更新、真实 Postgres 迁移 smoke 和最终 diff hygiene 已 PASS。最新小修已将旧的车系命名统一为“拼团管理/拼团”，并将侧栏图标切换为 `gift`；本地 `sub2api` 容器已更新到 `sub2api:codex-20260708-1842-pin-tuan`，`sub2api:local` 指向新镜像。
+- 当前默认续做提示：如果用户说“继续”，优先按 `review-and-verification` 报告中的未验证风险做真实 provider webhook/refund 环境测试；不要回到旧 S53。
 - 当前已确认事实：
   - S53 contract：`docs/workflow/tasks/upstream-main-v0144-safe-patches-s53.md`。
   - S53 集成分支：`codex/upstream-main-v0144-s53-safe-patches`。

@@ -28,6 +28,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/invoicerequest"
@@ -87,6 +92,16 @@ type Client struct {
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
+	// GroupBuyEntitlement is the client for interacting with the GroupBuyEntitlement builders.
+	GroupBuyEntitlement *GroupBuyEntitlementClient
+	// GroupBuyEvent is the client for interacting with the GroupBuyEvent builders.
+	GroupBuyEvent *GroupBuyEventClient
+	// GroupBuyPlan is the client for interacting with the GroupBuyPlan builders.
+	GroupBuyPlan *GroupBuyPlanClient
+	// GroupBuyRound is the client for interacting with the GroupBuyRound builders.
+	GroupBuyRound *GroupBuyRoundClient
+	// GroupBuySeat is the client for interacting with the GroupBuySeat builders.
+	GroupBuySeat *GroupBuySeatClient
 	// IdempotencyRecord is the client for interacting with the IdempotencyRecord builders.
 	IdempotencyRecord *IdempotencyRecordClient
 	// IdentityAdoptionDecision is the client for interacting with the IdentityAdoptionDecision builders.
@@ -159,6 +174,11 @@ func (c *Client) init() {
 	c.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(c.config)
 	c.ErrorPassthroughRule = NewErrorPassthroughRuleClient(c.config)
 	c.Group = NewGroupClient(c.config)
+	c.GroupBuyEntitlement = NewGroupBuyEntitlementClient(c.config)
+	c.GroupBuyEvent = NewGroupBuyEventClient(c.config)
+	c.GroupBuyPlan = NewGroupBuyPlanClient(c.config)
+	c.GroupBuyRound = NewGroupBuyRoundClient(c.config)
+	c.GroupBuySeat = NewGroupBuySeatClient(c.config)
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
 	c.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(c.config)
 	c.InvoiceRequest = NewInvoiceRequestClient(c.config)
@@ -288,6 +308,11 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
+		GroupBuyEntitlement:           NewGroupBuyEntitlementClient(cfg),
+		GroupBuyEvent:                 NewGroupBuyEventClient(cfg),
+		GroupBuyPlan:                  NewGroupBuyPlanClient(cfg),
+		GroupBuyRound:                 NewGroupBuyRoundClient(cfg),
+		GroupBuySeat:                  NewGroupBuySeatClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
 		InvoiceRequest:                NewInvoiceRequestClient(cfg),
@@ -344,6 +369,11 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ChannelMonitorRequestTemplate: NewChannelMonitorRequestTemplateClient(cfg),
 		ErrorPassthroughRule:          NewErrorPassthroughRuleClient(cfg),
 		Group:                         NewGroupClient(cfg),
+		GroupBuyEntitlement:           NewGroupBuyEntitlementClient(cfg),
+		GroupBuyEvent:                 NewGroupBuyEventClient(cfg),
+		GroupBuyPlan:                  NewGroupBuyPlanClient(cfg),
+		GroupBuyRound:                 NewGroupBuyRoundClient(cfg),
+		GroupBuySeat:                  NewGroupBuySeatClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
 		InvoiceRequest:                NewInvoiceRequestClient(cfg),
@@ -401,8 +431,9 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.InvoiceRequest,
-		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
+		c.GroupBuyEntitlement, c.GroupBuyEvent, c.GroupBuyPlan, c.GroupBuyRound,
+		c.GroupBuySeat, c.IdempotencyRecord, c.IdentityAdoptionDecision,
+		c.InvoiceRequest, c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
 		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
 		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.SupportTicket,
 		c.SupportTicketMessage, c.TLSFingerprintProfile, c.UsageCleanupTask,
@@ -421,8 +452,9 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
-		c.IdempotencyRecord, c.IdentityAdoptionDecision, c.InvoiceRequest,
-		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
+		c.GroupBuyEntitlement, c.GroupBuyEvent, c.GroupBuyPlan, c.GroupBuyRound,
+		c.GroupBuySeat, c.IdempotencyRecord, c.IdentityAdoptionDecision,
+		c.InvoiceRequest, c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
 		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
 		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.SupportTicket,
 		c.SupportTicketMessage, c.TLSFingerprintProfile, c.UsageCleanupTask,
@@ -462,6 +494,16 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.ErrorPassthroughRule.mutate(ctx, m)
 	case *GroupMutation:
 		return c.Group.mutate(ctx, m)
+	case *GroupBuyEntitlementMutation:
+		return c.GroupBuyEntitlement.mutate(ctx, m)
+	case *GroupBuyEventMutation:
+		return c.GroupBuyEvent.mutate(ctx, m)
+	case *GroupBuyPlanMutation:
+		return c.GroupBuyPlan.mutate(ctx, m)
+	case *GroupBuyRoundMutation:
+		return c.GroupBuyRound.mutate(ctx, m)
+	case *GroupBuySeatMutation:
+		return c.GroupBuySeat.mutate(ctx, m)
 	case *IdempotencyRecordMutation:
 		return c.IdempotencyRecord.mutate(ctx, m)
 	case *IdentityAdoptionDecisionMutation:
@@ -664,6 +706,38 @@ func (c *APIKeyClient) QueryUsageLogs(_m *APIKey) *UsageLogQuery {
 			sqlgraph.From(apikey.Table, apikey.FieldID, id),
 			sqlgraph.To(usagelog.Table, usagelog.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, apikey.UsageLogsTable, apikey.UsageLogsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroupBuySeats queries the group_buy_seats edge of a APIKey.
+func (c *APIKeyClient) QueryGroupBuySeats(_m *APIKey) *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, id),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, apikey.GroupBuySeatsTable, apikey.GroupBuySeatsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroupBuyEntitlements queries the group_buy_entitlements edge of a APIKey.
+func (c *APIKeyClient) QueryGroupBuyEntitlements(_m *APIKey) *GroupBuyEntitlementQuery {
+	query := (&GroupBuyEntitlementClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, id),
+			sqlgraph.To(groupbuyentitlement.Table, groupbuyentitlement.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, apikey.GroupBuyEntitlementsTable, apikey.GroupBuyEntitlementsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -2590,6 +2664,38 @@ func (c *GroupClient) QueryUsageLogs(_m *Group) *UsageLogQuery {
 	return query
 }
 
+// QueryGroupBuyPlans queries the group_buy_plans edge of a Group.
+func (c *GroupClient) QueryGroupBuyPlans(_m *Group) *GroupBuyPlanQuery {
+	query := (&GroupBuyPlanClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(groupbuyplan.Table, groupbuyplan.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.GroupBuyPlansTable, group.GroupBuyPlansColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroupBuyEntitlements queries the group_buy_entitlements edge of a Group.
+func (c *GroupClient) QueryGroupBuyEntitlements(_m *Group) *GroupBuyEntitlementQuery {
+	query := (&GroupBuyEntitlementClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(groupbuyentitlement.Table, groupbuyentitlement.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.GroupBuyEntitlementsTable, group.GroupBuyEntitlementsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAccounts queries the accounts edge of a Group.
 func (c *GroupClient) QueryAccounts(_m *Group) *AccountQuery {
 	query := (&AccountClient{config: c.config}).Query()
@@ -2678,6 +2784,1023 @@ func (c *GroupClient) mutate(ctx context.Context, m *GroupMutation) (Value, erro
 		return (&GroupDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown Group mutation op: %q", m.Op())
+	}
+}
+
+// GroupBuyEntitlementClient is a client for the GroupBuyEntitlement schema.
+type GroupBuyEntitlementClient struct {
+	config
+}
+
+// NewGroupBuyEntitlementClient returns a client for the GroupBuyEntitlement from the given config.
+func NewGroupBuyEntitlementClient(c config) *GroupBuyEntitlementClient {
+	return &GroupBuyEntitlementClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `groupbuyentitlement.Hooks(f(g(h())))`.
+func (c *GroupBuyEntitlementClient) Use(hooks ...Hook) {
+	c.hooks.GroupBuyEntitlement = append(c.hooks.GroupBuyEntitlement, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `groupbuyentitlement.Intercept(f(g(h())))`.
+func (c *GroupBuyEntitlementClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GroupBuyEntitlement = append(c.inters.GroupBuyEntitlement, interceptors...)
+}
+
+// Create returns a builder for creating a GroupBuyEntitlement entity.
+func (c *GroupBuyEntitlementClient) Create() *GroupBuyEntitlementCreate {
+	mutation := newGroupBuyEntitlementMutation(c.config, OpCreate)
+	return &GroupBuyEntitlementCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GroupBuyEntitlement entities.
+func (c *GroupBuyEntitlementClient) CreateBulk(builders ...*GroupBuyEntitlementCreate) *GroupBuyEntitlementCreateBulk {
+	return &GroupBuyEntitlementCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GroupBuyEntitlementClient) MapCreateBulk(slice any, setFunc func(*GroupBuyEntitlementCreate, int)) *GroupBuyEntitlementCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GroupBuyEntitlementCreateBulk{err: fmt.Errorf("calling to GroupBuyEntitlementClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GroupBuyEntitlementCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GroupBuyEntitlementCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GroupBuyEntitlement.
+func (c *GroupBuyEntitlementClient) Update() *GroupBuyEntitlementUpdate {
+	mutation := newGroupBuyEntitlementMutation(c.config, OpUpdate)
+	return &GroupBuyEntitlementUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GroupBuyEntitlementClient) UpdateOne(_m *GroupBuyEntitlement) *GroupBuyEntitlementUpdateOne {
+	mutation := newGroupBuyEntitlementMutation(c.config, OpUpdateOne, withGroupBuyEntitlement(_m))
+	return &GroupBuyEntitlementUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GroupBuyEntitlementClient) UpdateOneID(id int64) *GroupBuyEntitlementUpdateOne {
+	mutation := newGroupBuyEntitlementMutation(c.config, OpUpdateOne, withGroupBuyEntitlementID(id))
+	return &GroupBuyEntitlementUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GroupBuyEntitlement.
+func (c *GroupBuyEntitlementClient) Delete() *GroupBuyEntitlementDelete {
+	mutation := newGroupBuyEntitlementMutation(c.config, OpDelete)
+	return &GroupBuyEntitlementDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GroupBuyEntitlementClient) DeleteOne(_m *GroupBuyEntitlement) *GroupBuyEntitlementDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GroupBuyEntitlementClient) DeleteOneID(id int64) *GroupBuyEntitlementDeleteOne {
+	builder := c.Delete().Where(groupbuyentitlement.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GroupBuyEntitlementDeleteOne{builder}
+}
+
+// Query returns a query builder for GroupBuyEntitlement.
+func (c *GroupBuyEntitlementClient) Query() *GroupBuyEntitlementQuery {
+	return &GroupBuyEntitlementQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGroupBuyEntitlement},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a GroupBuyEntitlement entity by its id.
+func (c *GroupBuyEntitlementClient) Get(ctx context.Context, id int64) (*GroupBuyEntitlement, error) {
+	return c.Query().Where(groupbuyentitlement.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GroupBuyEntitlementClient) GetX(ctx context.Context, id int64) *GroupBuyEntitlement {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a GroupBuyEntitlement.
+func (c *GroupBuyEntitlementClient) QueryUser(_m *GroupBuyEntitlement) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyentitlement.Table, groupbuyentitlement.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyentitlement.UserTable, groupbuyentitlement.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryTargetGroup queries the target_group edge of a GroupBuyEntitlement.
+func (c *GroupBuyEntitlementClient) QueryTargetGroup(_m *GroupBuyEntitlement) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyentitlement.Table, groupbuyentitlement.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyentitlement.TargetGroupTable, groupbuyentitlement.TargetGroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySubscription queries the subscription edge of a GroupBuyEntitlement.
+func (c *GroupBuyEntitlementClient) QuerySubscription(_m *GroupBuyEntitlement) *UserSubscriptionQuery {
+	query := (&UserSubscriptionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyentitlement.Table, groupbuyentitlement.FieldID, id),
+			sqlgraph.To(usersubscription.Table, usersubscription.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyentitlement.SubscriptionTable, groupbuyentitlement.SubscriptionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryBoundAPIKey queries the bound_api_key edge of a GroupBuyEntitlement.
+func (c *GroupBuyEntitlementClient) QueryBoundAPIKey(_m *GroupBuyEntitlement) *APIKeyQuery {
+	query := (&APIKeyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyentitlement.Table, groupbuyentitlement.FieldID, id),
+			sqlgraph.To(apikey.Table, apikey.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyentitlement.BoundAPIKeyTable, groupbuyentitlement.BoundAPIKeyColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *GroupBuyEntitlementClient) Hooks() []Hook {
+	return c.hooks.GroupBuyEntitlement
+}
+
+// Interceptors returns the client interceptors.
+func (c *GroupBuyEntitlementClient) Interceptors() []Interceptor {
+	return c.inters.GroupBuyEntitlement
+}
+
+func (c *GroupBuyEntitlementClient) mutate(ctx context.Context, m *GroupBuyEntitlementMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GroupBuyEntitlementCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GroupBuyEntitlementUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GroupBuyEntitlementUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GroupBuyEntitlementDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GroupBuyEntitlement mutation op: %q", m.Op())
+	}
+}
+
+// GroupBuyEventClient is a client for the GroupBuyEvent schema.
+type GroupBuyEventClient struct {
+	config
+}
+
+// NewGroupBuyEventClient returns a client for the GroupBuyEvent from the given config.
+func NewGroupBuyEventClient(c config) *GroupBuyEventClient {
+	return &GroupBuyEventClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `groupbuyevent.Hooks(f(g(h())))`.
+func (c *GroupBuyEventClient) Use(hooks ...Hook) {
+	c.hooks.GroupBuyEvent = append(c.hooks.GroupBuyEvent, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `groupbuyevent.Intercept(f(g(h())))`.
+func (c *GroupBuyEventClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GroupBuyEvent = append(c.inters.GroupBuyEvent, interceptors...)
+}
+
+// Create returns a builder for creating a GroupBuyEvent entity.
+func (c *GroupBuyEventClient) Create() *GroupBuyEventCreate {
+	mutation := newGroupBuyEventMutation(c.config, OpCreate)
+	return &GroupBuyEventCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GroupBuyEvent entities.
+func (c *GroupBuyEventClient) CreateBulk(builders ...*GroupBuyEventCreate) *GroupBuyEventCreateBulk {
+	return &GroupBuyEventCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GroupBuyEventClient) MapCreateBulk(slice any, setFunc func(*GroupBuyEventCreate, int)) *GroupBuyEventCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GroupBuyEventCreateBulk{err: fmt.Errorf("calling to GroupBuyEventClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GroupBuyEventCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GroupBuyEventCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GroupBuyEvent.
+func (c *GroupBuyEventClient) Update() *GroupBuyEventUpdate {
+	mutation := newGroupBuyEventMutation(c.config, OpUpdate)
+	return &GroupBuyEventUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GroupBuyEventClient) UpdateOne(_m *GroupBuyEvent) *GroupBuyEventUpdateOne {
+	mutation := newGroupBuyEventMutation(c.config, OpUpdateOne, withGroupBuyEvent(_m))
+	return &GroupBuyEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GroupBuyEventClient) UpdateOneID(id int64) *GroupBuyEventUpdateOne {
+	mutation := newGroupBuyEventMutation(c.config, OpUpdateOne, withGroupBuyEventID(id))
+	return &GroupBuyEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GroupBuyEvent.
+func (c *GroupBuyEventClient) Delete() *GroupBuyEventDelete {
+	mutation := newGroupBuyEventMutation(c.config, OpDelete)
+	return &GroupBuyEventDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GroupBuyEventClient) DeleteOne(_m *GroupBuyEvent) *GroupBuyEventDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GroupBuyEventClient) DeleteOneID(id int64) *GroupBuyEventDeleteOne {
+	builder := c.Delete().Where(groupbuyevent.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GroupBuyEventDeleteOne{builder}
+}
+
+// Query returns a query builder for GroupBuyEvent.
+func (c *GroupBuyEventClient) Query() *GroupBuyEventQuery {
+	return &GroupBuyEventQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGroupBuyEvent},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a GroupBuyEvent entity by its id.
+func (c *GroupBuyEventClient) Get(ctx context.Context, id int64) (*GroupBuyEvent, error) {
+	return c.Query().Where(groupbuyevent.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GroupBuyEventClient) GetX(ctx context.Context, id int64) *GroupBuyEvent {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryPlan queries the plan edge of a GroupBuyEvent.
+func (c *GroupBuyEventClient) QueryPlan(_m *GroupBuyEvent) *GroupBuyPlanQuery {
+	query := (&GroupBuyPlanClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyevent.Table, groupbuyevent.FieldID, id),
+			sqlgraph.To(groupbuyplan.Table, groupbuyplan.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyevent.PlanTable, groupbuyevent.PlanColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRound queries the round edge of a GroupBuyEvent.
+func (c *GroupBuyEventClient) QueryRound(_m *GroupBuyEvent) *GroupBuyRoundQuery {
+	query := (&GroupBuyRoundClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyevent.Table, groupbuyevent.FieldID, id),
+			sqlgraph.To(groupbuyround.Table, groupbuyround.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyevent.RoundTable, groupbuyevent.RoundColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySeat queries the seat edge of a GroupBuyEvent.
+func (c *GroupBuyEventClient) QuerySeat(_m *GroupBuyEvent) *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyevent.Table, groupbuyevent.FieldID, id),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyevent.SeatTable, groupbuyevent.SeatColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUser queries the user edge of a GroupBuyEvent.
+func (c *GroupBuyEventClient) QueryUser(_m *GroupBuyEvent) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyevent.Table, groupbuyevent.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyevent.UserTable, groupbuyevent.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *GroupBuyEventClient) Hooks() []Hook {
+	return c.hooks.GroupBuyEvent
+}
+
+// Interceptors returns the client interceptors.
+func (c *GroupBuyEventClient) Interceptors() []Interceptor {
+	return c.inters.GroupBuyEvent
+}
+
+func (c *GroupBuyEventClient) mutate(ctx context.Context, m *GroupBuyEventMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GroupBuyEventCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GroupBuyEventUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GroupBuyEventUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GroupBuyEventDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GroupBuyEvent mutation op: %q", m.Op())
+	}
+}
+
+// GroupBuyPlanClient is a client for the GroupBuyPlan schema.
+type GroupBuyPlanClient struct {
+	config
+}
+
+// NewGroupBuyPlanClient returns a client for the GroupBuyPlan from the given config.
+func NewGroupBuyPlanClient(c config) *GroupBuyPlanClient {
+	return &GroupBuyPlanClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `groupbuyplan.Hooks(f(g(h())))`.
+func (c *GroupBuyPlanClient) Use(hooks ...Hook) {
+	c.hooks.GroupBuyPlan = append(c.hooks.GroupBuyPlan, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `groupbuyplan.Intercept(f(g(h())))`.
+func (c *GroupBuyPlanClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GroupBuyPlan = append(c.inters.GroupBuyPlan, interceptors...)
+}
+
+// Create returns a builder for creating a GroupBuyPlan entity.
+func (c *GroupBuyPlanClient) Create() *GroupBuyPlanCreate {
+	mutation := newGroupBuyPlanMutation(c.config, OpCreate)
+	return &GroupBuyPlanCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GroupBuyPlan entities.
+func (c *GroupBuyPlanClient) CreateBulk(builders ...*GroupBuyPlanCreate) *GroupBuyPlanCreateBulk {
+	return &GroupBuyPlanCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GroupBuyPlanClient) MapCreateBulk(slice any, setFunc func(*GroupBuyPlanCreate, int)) *GroupBuyPlanCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GroupBuyPlanCreateBulk{err: fmt.Errorf("calling to GroupBuyPlanClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GroupBuyPlanCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GroupBuyPlanCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GroupBuyPlan.
+func (c *GroupBuyPlanClient) Update() *GroupBuyPlanUpdate {
+	mutation := newGroupBuyPlanMutation(c.config, OpUpdate)
+	return &GroupBuyPlanUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GroupBuyPlanClient) UpdateOne(_m *GroupBuyPlan) *GroupBuyPlanUpdateOne {
+	mutation := newGroupBuyPlanMutation(c.config, OpUpdateOne, withGroupBuyPlan(_m))
+	return &GroupBuyPlanUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GroupBuyPlanClient) UpdateOneID(id int64) *GroupBuyPlanUpdateOne {
+	mutation := newGroupBuyPlanMutation(c.config, OpUpdateOne, withGroupBuyPlanID(id))
+	return &GroupBuyPlanUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GroupBuyPlan.
+func (c *GroupBuyPlanClient) Delete() *GroupBuyPlanDelete {
+	mutation := newGroupBuyPlanMutation(c.config, OpDelete)
+	return &GroupBuyPlanDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GroupBuyPlanClient) DeleteOne(_m *GroupBuyPlan) *GroupBuyPlanDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GroupBuyPlanClient) DeleteOneID(id int64) *GroupBuyPlanDeleteOne {
+	builder := c.Delete().Where(groupbuyplan.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GroupBuyPlanDeleteOne{builder}
+}
+
+// Query returns a query builder for GroupBuyPlan.
+func (c *GroupBuyPlanClient) Query() *GroupBuyPlanQuery {
+	return &GroupBuyPlanQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGroupBuyPlan},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a GroupBuyPlan entity by its id.
+func (c *GroupBuyPlanClient) Get(ctx context.Context, id int64) (*GroupBuyPlan, error) {
+	return c.Query().Where(groupbuyplan.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GroupBuyPlanClient) GetX(ctx context.Context, id int64) *GroupBuyPlan {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryTargetGroup queries the target_group edge of a GroupBuyPlan.
+func (c *GroupBuyPlanClient) QueryTargetGroup(_m *GroupBuyPlan) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyplan.Table, groupbuyplan.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyplan.TargetGroupTable, groupbuyplan.TargetGroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRounds queries the rounds edge of a GroupBuyPlan.
+func (c *GroupBuyPlanClient) QueryRounds(_m *GroupBuyPlan) *GroupBuyRoundQuery {
+	query := (&GroupBuyRoundClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyplan.Table, groupbuyplan.FieldID, id),
+			sqlgraph.To(groupbuyround.Table, groupbuyround.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyplan.RoundsTable, groupbuyplan.RoundsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySeats queries the seats edge of a GroupBuyPlan.
+func (c *GroupBuyPlanClient) QuerySeats(_m *GroupBuyPlan) *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyplan.Table, groupbuyplan.FieldID, id),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyplan.SeatsTable, groupbuyplan.SeatsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryEvents queries the events edge of a GroupBuyPlan.
+func (c *GroupBuyPlanClient) QueryEvents(_m *GroupBuyPlan) *GroupBuyEventQuery {
+	query := (&GroupBuyEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyplan.Table, groupbuyplan.FieldID, id),
+			sqlgraph.To(groupbuyevent.Table, groupbuyevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyplan.EventsTable, groupbuyplan.EventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *GroupBuyPlanClient) Hooks() []Hook {
+	return c.hooks.GroupBuyPlan
+}
+
+// Interceptors returns the client interceptors.
+func (c *GroupBuyPlanClient) Interceptors() []Interceptor {
+	return c.inters.GroupBuyPlan
+}
+
+func (c *GroupBuyPlanClient) mutate(ctx context.Context, m *GroupBuyPlanMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GroupBuyPlanCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GroupBuyPlanUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GroupBuyPlanUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GroupBuyPlanDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GroupBuyPlan mutation op: %q", m.Op())
+	}
+}
+
+// GroupBuyRoundClient is a client for the GroupBuyRound schema.
+type GroupBuyRoundClient struct {
+	config
+}
+
+// NewGroupBuyRoundClient returns a client for the GroupBuyRound from the given config.
+func NewGroupBuyRoundClient(c config) *GroupBuyRoundClient {
+	return &GroupBuyRoundClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `groupbuyround.Hooks(f(g(h())))`.
+func (c *GroupBuyRoundClient) Use(hooks ...Hook) {
+	c.hooks.GroupBuyRound = append(c.hooks.GroupBuyRound, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `groupbuyround.Intercept(f(g(h())))`.
+func (c *GroupBuyRoundClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GroupBuyRound = append(c.inters.GroupBuyRound, interceptors...)
+}
+
+// Create returns a builder for creating a GroupBuyRound entity.
+func (c *GroupBuyRoundClient) Create() *GroupBuyRoundCreate {
+	mutation := newGroupBuyRoundMutation(c.config, OpCreate)
+	return &GroupBuyRoundCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GroupBuyRound entities.
+func (c *GroupBuyRoundClient) CreateBulk(builders ...*GroupBuyRoundCreate) *GroupBuyRoundCreateBulk {
+	return &GroupBuyRoundCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GroupBuyRoundClient) MapCreateBulk(slice any, setFunc func(*GroupBuyRoundCreate, int)) *GroupBuyRoundCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GroupBuyRoundCreateBulk{err: fmt.Errorf("calling to GroupBuyRoundClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GroupBuyRoundCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GroupBuyRoundCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GroupBuyRound.
+func (c *GroupBuyRoundClient) Update() *GroupBuyRoundUpdate {
+	mutation := newGroupBuyRoundMutation(c.config, OpUpdate)
+	return &GroupBuyRoundUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GroupBuyRoundClient) UpdateOne(_m *GroupBuyRound) *GroupBuyRoundUpdateOne {
+	mutation := newGroupBuyRoundMutation(c.config, OpUpdateOne, withGroupBuyRound(_m))
+	return &GroupBuyRoundUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GroupBuyRoundClient) UpdateOneID(id int64) *GroupBuyRoundUpdateOne {
+	mutation := newGroupBuyRoundMutation(c.config, OpUpdateOne, withGroupBuyRoundID(id))
+	return &GroupBuyRoundUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GroupBuyRound.
+func (c *GroupBuyRoundClient) Delete() *GroupBuyRoundDelete {
+	mutation := newGroupBuyRoundMutation(c.config, OpDelete)
+	return &GroupBuyRoundDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GroupBuyRoundClient) DeleteOne(_m *GroupBuyRound) *GroupBuyRoundDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GroupBuyRoundClient) DeleteOneID(id int64) *GroupBuyRoundDeleteOne {
+	builder := c.Delete().Where(groupbuyround.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GroupBuyRoundDeleteOne{builder}
+}
+
+// Query returns a query builder for GroupBuyRound.
+func (c *GroupBuyRoundClient) Query() *GroupBuyRoundQuery {
+	return &GroupBuyRoundQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGroupBuyRound},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a GroupBuyRound entity by its id.
+func (c *GroupBuyRoundClient) Get(ctx context.Context, id int64) (*GroupBuyRound, error) {
+	return c.Query().Where(groupbuyround.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GroupBuyRoundClient) GetX(ctx context.Context, id int64) *GroupBuyRound {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryPlan queries the plan edge of a GroupBuyRound.
+func (c *GroupBuyRoundClient) QueryPlan(_m *GroupBuyRound) *GroupBuyPlanQuery {
+	query := (&GroupBuyPlanClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyround.Table, groupbuyround.FieldID, id),
+			sqlgraph.To(groupbuyplan.Table, groupbuyplan.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyround.PlanTable, groupbuyround.PlanColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySeats queries the seats edge of a GroupBuyRound.
+func (c *GroupBuyRoundClient) QuerySeats(_m *GroupBuyRound) *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyround.Table, groupbuyround.FieldID, id),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyround.SeatsTable, groupbuyround.SeatsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryEvents queries the events edge of a GroupBuyRound.
+func (c *GroupBuyRoundClient) QueryEvents(_m *GroupBuyRound) *GroupBuyEventQuery {
+	query := (&GroupBuyEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyround.Table, groupbuyround.FieldID, id),
+			sqlgraph.To(groupbuyevent.Table, groupbuyevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyround.EventsTable, groupbuyround.EventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *GroupBuyRoundClient) Hooks() []Hook {
+	return c.hooks.GroupBuyRound
+}
+
+// Interceptors returns the client interceptors.
+func (c *GroupBuyRoundClient) Interceptors() []Interceptor {
+	return c.inters.GroupBuyRound
+}
+
+func (c *GroupBuyRoundClient) mutate(ctx context.Context, m *GroupBuyRoundMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GroupBuyRoundCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GroupBuyRoundUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GroupBuyRoundUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GroupBuyRoundDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GroupBuyRound mutation op: %q", m.Op())
+	}
+}
+
+// GroupBuySeatClient is a client for the GroupBuySeat schema.
+type GroupBuySeatClient struct {
+	config
+}
+
+// NewGroupBuySeatClient returns a client for the GroupBuySeat from the given config.
+func NewGroupBuySeatClient(c config) *GroupBuySeatClient {
+	return &GroupBuySeatClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `groupbuyseat.Hooks(f(g(h())))`.
+func (c *GroupBuySeatClient) Use(hooks ...Hook) {
+	c.hooks.GroupBuySeat = append(c.hooks.GroupBuySeat, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `groupbuyseat.Intercept(f(g(h())))`.
+func (c *GroupBuySeatClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GroupBuySeat = append(c.inters.GroupBuySeat, interceptors...)
+}
+
+// Create returns a builder for creating a GroupBuySeat entity.
+func (c *GroupBuySeatClient) Create() *GroupBuySeatCreate {
+	mutation := newGroupBuySeatMutation(c.config, OpCreate)
+	return &GroupBuySeatCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GroupBuySeat entities.
+func (c *GroupBuySeatClient) CreateBulk(builders ...*GroupBuySeatCreate) *GroupBuySeatCreateBulk {
+	return &GroupBuySeatCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GroupBuySeatClient) MapCreateBulk(slice any, setFunc func(*GroupBuySeatCreate, int)) *GroupBuySeatCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GroupBuySeatCreateBulk{err: fmt.Errorf("calling to GroupBuySeatClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GroupBuySeatCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GroupBuySeatCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GroupBuySeat.
+func (c *GroupBuySeatClient) Update() *GroupBuySeatUpdate {
+	mutation := newGroupBuySeatMutation(c.config, OpUpdate)
+	return &GroupBuySeatUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GroupBuySeatClient) UpdateOne(_m *GroupBuySeat) *GroupBuySeatUpdateOne {
+	mutation := newGroupBuySeatMutation(c.config, OpUpdateOne, withGroupBuySeat(_m))
+	return &GroupBuySeatUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GroupBuySeatClient) UpdateOneID(id int64) *GroupBuySeatUpdateOne {
+	mutation := newGroupBuySeatMutation(c.config, OpUpdateOne, withGroupBuySeatID(id))
+	return &GroupBuySeatUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GroupBuySeat.
+func (c *GroupBuySeatClient) Delete() *GroupBuySeatDelete {
+	mutation := newGroupBuySeatMutation(c.config, OpDelete)
+	return &GroupBuySeatDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GroupBuySeatClient) DeleteOne(_m *GroupBuySeat) *GroupBuySeatDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GroupBuySeatClient) DeleteOneID(id int64) *GroupBuySeatDeleteOne {
+	builder := c.Delete().Where(groupbuyseat.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GroupBuySeatDeleteOne{builder}
+}
+
+// Query returns a query builder for GroupBuySeat.
+func (c *GroupBuySeatClient) Query() *GroupBuySeatQuery {
+	return &GroupBuySeatQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGroupBuySeat},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a GroupBuySeat entity by its id.
+func (c *GroupBuySeatClient) Get(ctx context.Context, id int64) (*GroupBuySeat, error) {
+	return c.Query().Where(groupbuyseat.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GroupBuySeatClient) GetX(ctx context.Context, id int64) *GroupBuySeat {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryRound queries the round edge of a GroupBuySeat.
+func (c *GroupBuySeatClient) QueryRound(_m *GroupBuySeat) *GroupBuyRoundQuery {
+	query := (&GroupBuyRoundClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
+			sqlgraph.To(groupbuyround.Table, groupbuyround.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyseat.RoundTable, groupbuyseat.RoundColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPlan queries the plan edge of a GroupBuySeat.
+func (c *GroupBuySeatClient) QueryPlan(_m *GroupBuySeat) *GroupBuyPlanQuery {
+	query := (&GroupBuyPlanClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
+			sqlgraph.To(groupbuyplan.Table, groupbuyplan.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyseat.PlanTable, groupbuyseat.PlanColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUser queries the user edge of a GroupBuySeat.
+func (c *GroupBuySeatClient) QueryUser(_m *GroupBuySeat) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyseat.UserTable, groupbuyseat.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryOrder queries the order edge of a GroupBuySeat.
+func (c *GroupBuySeatClient) QueryOrder(_m *GroupBuySeat) *PaymentOrderQuery {
+	query := (&PaymentOrderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
+			sqlgraph.To(paymentorder.Table, paymentorder.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, true, groupbuyseat.OrderTable, groupbuyseat.OrderColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySubscription queries the subscription edge of a GroupBuySeat.
+func (c *GroupBuySeatClient) QuerySubscription(_m *GroupBuySeat) *UserSubscriptionQuery {
+	query := (&UserSubscriptionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
+			sqlgraph.To(usersubscription.Table, usersubscription.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyseat.SubscriptionTable, groupbuyseat.SubscriptionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryBoundAPIKey queries the bound_api_key edge of a GroupBuySeat.
+func (c *GroupBuySeatClient) QueryBoundAPIKey(_m *GroupBuySeat) *APIKeyQuery {
+	query := (&APIKeyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
+			sqlgraph.To(apikey.Table, apikey.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyseat.BoundAPIKeyTable, groupbuyseat.BoundAPIKeyColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryEvents queries the events edge of a GroupBuySeat.
+func (c *GroupBuySeatClient) QueryEvents(_m *GroupBuySeat) *GroupBuyEventQuery {
+	query := (&GroupBuyEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
+			sqlgraph.To(groupbuyevent.Table, groupbuyevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyseat.EventsTable, groupbuyseat.EventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *GroupBuySeatClient) Hooks() []Hook {
+	return c.hooks.GroupBuySeat
+}
+
+// Interceptors returns the client interceptors.
+func (c *GroupBuySeatClient) Interceptors() []Interceptor {
+	return c.inters.GroupBuySeat
+}
+
+func (c *GroupBuySeatClient) mutate(ctx context.Context, m *GroupBuySeatMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GroupBuySeatCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GroupBuySeatUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GroupBuySeatUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GroupBuySeatDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GroupBuySeat mutation op: %q", m.Op())
 	}
 }
 
@@ -3378,6 +4501,22 @@ func (c *PaymentOrderClient) QueryUser(_m *PaymentOrder) *UserQuery {
 			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, id),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, paymentorder.UserTable, paymentorder.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroupBuySeat queries the group_buy_seat edge of a PaymentOrder.
+func (c *PaymentOrderClient) QueryGroupBuySeat(_m *PaymentOrder) *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, id),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, paymentorder.GroupBuySeatTable, paymentorder.GroupBuySeatColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -5798,6 +6937,54 @@ func (c *UserClient) QueryPaymentOrders(_m *User) *PaymentOrderQuery {
 	return query
 }
 
+// QueryGroupBuySeats queries the group_buy_seats edge of a User.
+func (c *UserClient) QueryGroupBuySeats(_m *User) *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.GroupBuySeatsTable, user.GroupBuySeatsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroupBuyEvents queries the group_buy_events edge of a User.
+func (c *UserClient) QueryGroupBuyEvents(_m *User) *GroupBuyEventQuery {
+	query := (&GroupBuyEventClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(groupbuyevent.Table, groupbuyevent.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.GroupBuyEventsTable, user.GroupBuyEventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroupBuyEntitlements queries the group_buy_entitlements edge of a User.
+func (c *UserClient) QueryGroupBuyEntitlements(_m *User) *GroupBuyEntitlementQuery {
+	query := (&GroupBuyEntitlementClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(groupbuyentitlement.Table, groupbuyentitlement.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.GroupBuyEntitlementsTable, user.GroupBuyEntitlementsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryInvoiceRequests queries the invoice_requests edge of a User.
 func (c *UserClient) QueryInvoiceRequests(_m *User) *InvoiceRequestQuery {
 	query := (&InvoiceRequestClient{config: c.config}).Query()
@@ -6509,6 +7696,38 @@ func (c *UserSubscriptionClient) QueryUsageLogs(_m *UserSubscription) *UsageLogQ
 	return query
 }
 
+// QueryGroupBuySeats queries the group_buy_seats edge of a UserSubscription.
+func (c *UserSubscriptionClient) QueryGroupBuySeats(_m *UserSubscription) *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usersubscription.Table, usersubscription.FieldID, id),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, usersubscription.GroupBuySeatsTable, usersubscription.GroupBuySeatsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroupBuyEntitlements queries the group_buy_entitlements edge of a UserSubscription.
+func (c *UserSubscriptionClient) QueryGroupBuyEntitlements(_m *UserSubscription) *GroupBuyEntitlementQuery {
+	query := (&GroupBuyEntitlementClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usersubscription.Table, usersubscription.FieldID, id),
+			sqlgraph.To(groupbuyentitlement.Table, groupbuyentitlement.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, usersubscription.GroupBuyEntitlementsTable, usersubscription.GroupBuyEntitlementsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *UserSubscriptionClient) Hooks() []Hook {
 	hooks := c.hooks.UserSubscription
@@ -6542,7 +7761,8 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, InvoiceRequest,
+		Group, GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRound,
+		GroupBuySeat, IdempotencyRecord, IdentityAdoptionDecision, InvoiceRequest,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
 		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
 		SubscriptionPlan, SupportTicket, SupportTicketMessage, TLSFingerprintProfile,
@@ -6553,7 +7773,8 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, InvoiceRequest,
+		Group, GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRound,
+		GroupBuySeat, IdempotencyRecord, IdentityAdoptionDecision, InvoiceRequest,
 		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
 		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
 		SubscriptionPlan, SupportTicket, SupportTicketMessage, TLSFingerprintProfile,

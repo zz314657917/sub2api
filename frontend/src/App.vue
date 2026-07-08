@@ -135,7 +135,7 @@ onMounted(async () => {
   await appStore.fetchPublicSettings()
 
   // Re-resolve document title now that siteName is available
-  document.title = resolveDocumentTitle(route.meta.title, appStore.siteName, route.meta.titleKey as string)
+  document.title = resolveDocumentTitle(route.meta.title, appStore.siteName, route.meta.titleKey as string, appStore.cachedPublicSettings)
 })
 </script>
 

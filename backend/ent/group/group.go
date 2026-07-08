@@ -104,6 +104,10 @@ const (
 	EdgeSubscriptions = "subscriptions"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
+	// EdgeGroupBuyPlans holds the string denoting the group_buy_plans edge name in mutations.
+	EdgeGroupBuyPlans = "group_buy_plans"
+	// EdgeGroupBuyEntitlements holds the string denoting the group_buy_entitlements edge name in mutations.
+	EdgeGroupBuyEntitlements = "group_buy_entitlements"
 	// EdgeAccounts holds the string denoting the accounts edge name in mutations.
 	EdgeAccounts = "accounts"
 	// EdgeAllowedUsers holds the string denoting the allowed_users edge name in mutations.
@@ -142,6 +146,20 @@ const (
 	UsageLogsInverseTable = "usage_logs"
 	// UsageLogsColumn is the table column denoting the usage_logs relation/edge.
 	UsageLogsColumn = "group_id"
+	// GroupBuyPlansTable is the table that holds the group_buy_plans relation/edge.
+	GroupBuyPlansTable = "group_buy_plans"
+	// GroupBuyPlansInverseTable is the table name for the GroupBuyPlan entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyplan" package.
+	GroupBuyPlansInverseTable = "group_buy_plans"
+	// GroupBuyPlansColumn is the table column denoting the group_buy_plans relation/edge.
+	GroupBuyPlansColumn = "target_group_id"
+	// GroupBuyEntitlementsTable is the table that holds the group_buy_entitlements relation/edge.
+	GroupBuyEntitlementsTable = "group_buy_entitlements"
+	// GroupBuyEntitlementsInverseTable is the table name for the GroupBuyEntitlement entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyentitlement" package.
+	GroupBuyEntitlementsInverseTable = "group_buy_entitlements"
+	// GroupBuyEntitlementsColumn is the table column denoting the group_buy_entitlements relation/edge.
+	GroupBuyEntitlementsColumn = "target_group_id"
 	// AccountsTable is the table that holds the accounts relation/edge. The primary key declared below.
 	AccountsTable = "account_groups"
 	// AccountsInverseTable is the table name for the Account entity.
@@ -560,6 +578,34 @@ func ByUsageLogs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByGroupBuyPlansCount orders the results by group_buy_plans count.
+func ByGroupBuyPlansCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupBuyPlansStep(), opts...)
+	}
+}
+
+// ByGroupBuyPlans orders the results by group_buy_plans terms.
+func ByGroupBuyPlans(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupBuyPlansStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByGroupBuyEntitlementsCount orders the results by group_buy_entitlements count.
+func ByGroupBuyEntitlementsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupBuyEntitlementsStep(), opts...)
+	}
+}
+
+// ByGroupBuyEntitlements orders the results by group_buy_entitlements terms.
+func ByGroupBuyEntitlements(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupBuyEntitlementsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAccountsCount orders the results by accounts count.
 func ByAccountsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -641,6 +687,20 @@ func newUsageLogsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UsageLogsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, UsageLogsTable, UsageLogsColumn),
+	)
+}
+func newGroupBuyPlansStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupBuyPlansInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyPlansTable, GroupBuyPlansColumn),
+	)
+}
+func newGroupBuyEntitlementsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupBuyEntitlementsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyEntitlementsTable, GroupBuyEntitlementsColumn),
 	)
 }
 func newAccountsStep() *sqlgraph.Step {

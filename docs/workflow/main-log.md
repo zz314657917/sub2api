@@ -140,3 +140,10 @@
 260708 0120 | ui-warm-leftovers-s54 | local-container-updated | codex | 127.0.0.1:62080, sub2api:codex-20260708-0115-warm-ui-workers, health/smoke pass
 260708 0317 | upstream-v0146-small-safe-patches-s55 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-v0146-small-safe-patches-s55-result.md, docs/workflow/qa-reports/upstream-v0146-small-safe-patches-s55-qa.md
 260708 0357 | upstream-v0146-backend-safe-patches-s56 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-v0146-backend-safe-patches-s56-result.md, docs/workflow/qa-reports/upstream-v0146-backend-safe-patches-s56-qa.md
+260708 0601 | group-buy-v1 | implementation-and-qa-pass | codex | docs/workflow/worker-results/group-buy-v1-result.md, docs/workflow/qa-reports/group-buy-v1-qa.md
+260708 1138 | group-buy-v1 | chrome-screenshot-pass | codex | user desktop/mobile + admin desktop screenshots in output/playwright
+260708 1545 | group-buy-v1 | v1.1-contract-and-target-tests-pass | codex | Token拼拼拼 share-car contract, entitlement deactivation fix, backend/frontend targeted checks
+260708 1632 | group-buy-v1 | local-container-and-migration-smoke-pass | codex | sub2api:codex-20260708-1615-token-pinpinpin, 186 checksum restored, 187 share-car upgrade applied
+260708 1635 | group-buy-v1 | final-hygiene-pass | codex | git diff --check, conflict marker scan, denied-path audit
+260708 1839 | group-buy-v1 | naming-icon-polish | codex | visible 份额车/拼车 copy changed to 拼团管理/拼团; sidebar icon switched to gift
+260708 1850 | group-buy-v1 | local-container-updated | codex | sub2api:codex-20260708-1842-pin-tuan healthy at 127.0.0.1:62080; backup image/container retained

@@ -69,9 +69,13 @@ type UserSubscriptionEdges struct {
 	AssignedByUser *User `json:"assigned_by_user,omitempty"`
 	// UsageLogs holds the value of the usage_logs edge.
 	UsageLogs []*UsageLog `json:"usage_logs,omitempty"`
+	// GroupBuySeats holds the value of the group_buy_seats edge.
+	GroupBuySeats []*GroupBuySeat `json:"group_buy_seats,omitempty"`
+	// GroupBuyEntitlements holds the value of the group_buy_entitlements edge.
+	GroupBuyEntitlements []*GroupBuyEntitlement `json:"group_buy_entitlements,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [6]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -114,6 +118,24 @@ func (e UserSubscriptionEdges) UsageLogsOrErr() ([]*UsageLog, error) {
 		return e.UsageLogs, nil
 	}
 	return nil, &NotLoadedError{edge: "usage_logs"}
+}
+
+// GroupBuySeatsOrErr returns the GroupBuySeats value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserSubscriptionEdges) GroupBuySeatsOrErr() ([]*GroupBuySeat, error) {
+	if e.loadedTypes[4] {
+		return e.GroupBuySeats, nil
+	}
+	return nil, &NotLoadedError{edge: "group_buy_seats"}
+}
+
+// GroupBuyEntitlementsOrErr returns the GroupBuyEntitlements value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserSubscriptionEdges) GroupBuyEntitlementsOrErr() ([]*GroupBuyEntitlement, error) {
+	if e.loadedTypes[5] {
+		return e.GroupBuyEntitlements, nil
+	}
+	return nil, &NotLoadedError{edge: "group_buy_entitlements"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -289,6 +311,16 @@ func (_m *UserSubscription) QueryAssignedByUser() *UserQuery {
 // QueryUsageLogs queries the "usage_logs" edge of the UserSubscription entity.
 func (_m *UserSubscription) QueryUsageLogs() *UsageLogQuery {
 	return NewUserSubscriptionClient(_m.config).QueryUsageLogs(_m)
+}
+
+// QueryGroupBuySeats queries the "group_buy_seats" edge of the UserSubscription entity.
+func (_m *UserSubscription) QueryGroupBuySeats() *GroupBuySeatQuery {
+	return NewUserSubscriptionClient(_m.config).QueryGroupBuySeats(_m)
+}
+
+// QueryGroupBuyEntitlements queries the "group_buy_entitlements" edge of the UserSubscription entity.
+func (_m *UserSubscription) QueryGroupBuyEntitlements() *GroupBuyEntitlementQuery {
+	return NewUserSubscriptionClient(_m.config).QueryGroupBuyEntitlements(_m)
 }
 
 // Update returns a builder for updating this UserSubscription.

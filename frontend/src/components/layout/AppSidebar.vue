@@ -368,6 +368,7 @@ import { paymentAPI } from '@/api/payment'
 import { adminTicketsAPI } from '@/api/admin/tickets'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
+import { resolveGroupBuyProductName } from '@/utils/groupBuyProduct'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
 type NavItemAction = 'studioBridgeLaunch'
@@ -451,6 +452,7 @@ const siteName = computed(() => appStore.siteName)
 const siteLogo = computed(() => appStore.siteLogo)
 const siteVersion = computed(() => appStore.siteVersion)
 const settingsLoaded = computed(() => appStore.publicSettingsLoaded)
+const groupBuyProductName = computed(() => resolveGroupBuyProductName(appStore.cachedPublicSettings))
 
 // Console navigation uses line icons for legibility; the public homepage keeps the pixel icon system.
 const DashboardIcon: IconName = 'grid'
@@ -486,6 +488,7 @@ const ContentIcon: IconName = 'book'
 // yet. Admin-only flags (not in public settings) stay inline below.
 const flagChannelMonitor = makeSidebarFlag(FeatureFlags.channelMonitor)
 const flagPayment = makeSidebarFlag(FeatureFlags.payment)
+const flagGroupBuy = makeSidebarFlag(FeatureFlags.groupBuy)
 const flagAvailableChannels = makeSidebarFlag(FeatureFlags.availableChannels)
 const flagAffiliate = makeSidebarFlag(FeatureFlags.affiliate)
 const flagAccountShare = makeSidebarFlag(FeatureFlags.accountShare)
@@ -499,6 +502,7 @@ const ticketUnreadBadgeLabel = computed(() => (ticketUnreadTotal.value > 99 ? '9
 const adminTicketAttentionBadgeLabel = computed(() => (adminTicketUnreadTotal.value > 99 ? '99+' : String(adminTicketUnreadTotal.value)))
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
+const flagGroupBuyUser = () => flagPayment() !== false && flagGroupBuy() !== false
 const WELFARE_BADGE_REFRESH_MS = 60_000
 const TICKET_UNREAD_BADGE_REFRESH_MS = 60_000
 const SIDEBAR_TOUR_TARGET_EVENT = 'sub2api:sidebar-tour-target'
@@ -533,6 +537,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
     { path: '/usage', label: t('nav.usageAndSubscriptions'), icon: UsageIcon, hideInSimpleMode: true },
     { path: '/tickets', label: t('nav.tickets'), icon: TicketIcon, hideInSimpleMode: true },
     { path: '/purchase', label: t('nav.buySubscription'), icon: RechargeSubscriptionIcon, hideInSimpleMode: true, featureFlag: flagPayment },
+    { path: '/group-buy', label: groupBuyProductName.value, icon: GiftIcon, hideInSimpleMode: true, featureFlag: flagGroupBuyUser },
     { path: '/affiliate', label: t('nav.affiliate'), icon: TeamIcon, hideInSimpleMode: true, featureFlag: flagAffiliate },
     welfareItem,
   ]
@@ -640,6 +645,7 @@ const adminNavItems = computed((): NavItem[] => {
       children: [
         { path: '/admin/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true },
         { path: '/admin/orders/plans', label: t('nav.paymentPlans'), icon: PriceTagIcon, hideInSimpleMode: true, featureFlag: flagAdminPayment },
+        { path: '/admin/group-buy', label: t('nav.groupBuyManagement'), icon: GiftIcon, hideInSimpleMode: true, featureFlag: flagAdminPayment },
         { path: '/admin/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
         { path: '/admin/promo-codes', label: t('nav.promoCodes'), icon: GiftIcon, hideInSimpleMode: true },
         {

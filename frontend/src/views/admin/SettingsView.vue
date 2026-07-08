@@ -5005,7 +5005,7 @@
         <!-- /Tab: Login Agreement -->
 
 	        <!-- Tab: Features (功能开关) -->
-        <div v-show="activeTab === 'features'" class="space-y-6">
+        <div v-show="activeTab === 'features'" class="space-y-6" data-testid="settings-features-tab">
 
         <div class="card">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
@@ -5182,6 +5182,54 @@
                 </p>
               </div>
               <Toggle v-model="form.available_channels_enabled" />
+            </div>
+          </div>
+        </div>
+
+        <div class="card" data-testid="group-buy-feature-settings">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ form.group_buy_product_name || 'Token拼拼拼' }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              控制用户端拼团入口、功能名称、页面说明和下单能力；后台拼团管理始终保留。
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  启用 {{ form.group_buy_product_name || 'Token拼拼拼' }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  关闭后用户端入口隐藏，拼团列表和下单接口拒绝访问。
+                </p>
+              </div>
+              <Toggle v-model="form.group_buy_enabled" />
+            </div>
+            <div>
+              <label class="input-label">功能名称</label>
+              <input
+                v-model.trim="form.group_buy_product_name"
+                type="text"
+                class="input"
+                placeholder="Token拼拼拼"
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                展示在用户端侧边栏、页面标题和相关功能文案中。
+              </p>
+            </div>
+            <div>
+              <label class="input-label">用户页顶部描述</label>
+              <textarea
+                v-model.trim="form.group_buy_description"
+                rows="2"
+                class="input"
+                placeholder="按份额拼团，满份后开通 Token拼拼拼 权益。"
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                展示在用户端 {{ form.group_buy_product_name || 'Token拼拼拼' }} 页面标题下方。
+              </p>
             </div>
           </div>
         </div>
@@ -6371,7 +6419,7 @@
         </div>
 
         <!-- Tab: Payment -->
-        <div v-show="activeTab === 'payment'" class="space-y-6">
+        <div v-show="activeTab === 'payment'" class="space-y-6" data-testid="settings-payment-tab">
           <!-- Payment System Settings -->
           <div class="card">
             <div
@@ -8284,6 +8332,9 @@ const form = reactive<SettingsForm>({
   backend_mode_enabled: false,
   hide_ccs_import_button: false,
   payment_enabled: false,
+  group_buy_enabled: true,
+  group_buy_product_name: 'Token拼拼拼',
+  group_buy_description: '按份额拼团，满份后开通 Token拼拼拼 权益；额度按后台订阅分组执行，使用自己的平台 API Key。',
   risk_control_enabled: false,
   payment_min_amount: 1,
   payment_max_amount: 10000,
@@ -10101,6 +10152,9 @@ async function saveSettings() {
         form.antigravity_user_agent_version?.trim() || "",
       // Payment configuration
       payment_enabled: form.payment_enabled,
+      group_buy_enabled: form.group_buy_enabled,
+      group_buy_product_name: form.group_buy_product_name?.trim() || 'Token拼拼拼',
+      group_buy_description: form.group_buy_description?.trim() || '',
       risk_control_enabled: form.risk_control_enabled,
       payment_min_amount: Number(form.payment_min_amount) || 0,
       payment_max_amount: Number(form.payment_max_amount) || 0,

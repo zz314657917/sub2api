@@ -962,6 +962,52 @@ func HasUsageLogsWith(preds ...predicate.UsageLog) predicate.UserSubscription {
 	})
 }
 
+// HasGroupBuySeats applies the HasEdge predicate on the "group_buy_seats" edge.
+func HasGroupBuySeats() predicate.UserSubscription {
+	return predicate.UserSubscription(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, GroupBuySeatsTable, GroupBuySeatsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGroupBuySeatsWith applies the HasEdge predicate on the "group_buy_seats" edge with a given conditions (other predicates).
+func HasGroupBuySeatsWith(preds ...predicate.GroupBuySeat) predicate.UserSubscription {
+	return predicate.UserSubscription(func(s *sql.Selector) {
+		step := newGroupBuySeatsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasGroupBuyEntitlements applies the HasEdge predicate on the "group_buy_entitlements" edge.
+func HasGroupBuyEntitlements() predicate.UserSubscription {
+	return predicate.UserSubscription(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyEntitlementsTable, GroupBuyEntitlementsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGroupBuyEntitlementsWith applies the HasEdge predicate on the "group_buy_entitlements" edge with a given conditions (other predicates).
+func HasGroupBuyEntitlementsWith(preds ...predicate.GroupBuyEntitlement) predicate.UserSubscription {
+	return predicate.UserSubscription(func(s *sql.Selector) {
+		step := newGroupBuyEntitlementsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.UserSubscription) predicate.UserSubscription {
 	return predicate.UserSubscription(sql.AndPredicates(predicates...))

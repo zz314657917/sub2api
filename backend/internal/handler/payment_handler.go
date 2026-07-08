@@ -276,6 +276,10 @@ func (h *PaymentHandler) CreateOrder(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
+	if strings.TrimSpace(req.OrderType) == payment.OrderTypeGroupBuy {
+		response.ErrorFrom(c, infraerrors.BadRequest("GROUP_BUY_ORDER_ROUTE_REQUIRED", "group buy orders must be created from the group-buy endpoint"))
+		return
+	}
 	if strings.TrimSpace(req.WechatResumeToken) != "" {
 		claims, err := h.paymentService.ParseWeChatPaymentResumeToken(req.WechatResumeToken)
 		if err != nil {
@@ -284,6 +288,10 @@ func (h *PaymentHandler) CreateOrder(c *gin.Context) {
 		}
 		if err := applyWeChatPaymentResumeClaims(&req, claims); err != nil {
 			response.ErrorFrom(c, err)
+			return
+		}
+		if strings.TrimSpace(req.OrderType) == payment.OrderTypeGroupBuy {
+			response.ErrorFrom(c, infraerrors.BadRequest("GROUP_BUY_ORDER_ROUTE_REQUIRED", "group buy orders must be created from the group-buy endpoint"))
 			return
 		}
 	}

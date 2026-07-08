@@ -183,6 +183,7 @@ export default {
     result: {
       success: 'Payment Successful',
       subscriptionSuccess: 'Subscription Successful',
+      groupBuySuccess: 'Token Pin Share Paid',
       processing: 'Payment Processing',
       processingHint: 'Payment confirmation is still pending. This page will refresh automatically.',
       failed: 'Payment Failed',

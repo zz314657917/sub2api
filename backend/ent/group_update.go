@@ -15,6 +15,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
@@ -788,6 +790,36 @@ func (_u *GroupUpdate) AddUsageLogs(v ...*UsageLog) *GroupUpdate {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// AddGroupBuyPlanIDs adds the "group_buy_plans" edge to the GroupBuyPlan entity by IDs.
+func (_u *GroupUpdate) AddGroupBuyPlanIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.AddGroupBuyPlanIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyPlans adds the "group_buy_plans" edges to the GroupBuyPlan entity.
+func (_u *GroupUpdate) AddGroupBuyPlans(v ...*GroupBuyPlan) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyPlanIDs(ids...)
+}
+
+// AddGroupBuyEntitlementIDs adds the "group_buy_entitlements" edge to the GroupBuyEntitlement entity by IDs.
+func (_u *GroupUpdate) AddGroupBuyEntitlementIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.AddGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyEntitlements adds the "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *GroupUpdate) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyEntitlementIDs(ids...)
+}
+
 // AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
 func (_u *GroupUpdate) AddAccountIDs(ids ...int64) *GroupUpdate {
 	_u.mutation.AddAccountIDs(ids...)
@@ -905,6 +937,48 @@ func (_u *GroupUpdate) RemoveUsageLogs(v ...*UsageLog) *GroupUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveUsageLogIDs(ids...)
+}
+
+// ClearGroupBuyPlans clears all "group_buy_plans" edges to the GroupBuyPlan entity.
+func (_u *GroupUpdate) ClearGroupBuyPlans() *GroupUpdate {
+	_u.mutation.ClearGroupBuyPlans()
+	return _u
+}
+
+// RemoveGroupBuyPlanIDs removes the "group_buy_plans" edge to GroupBuyPlan entities by IDs.
+func (_u *GroupUpdate) RemoveGroupBuyPlanIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.RemoveGroupBuyPlanIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyPlans removes "group_buy_plans" edges to GroupBuyPlan entities.
+func (_u *GroupUpdate) RemoveGroupBuyPlans(v ...*GroupBuyPlan) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyPlanIDs(ids...)
+}
+
+// ClearGroupBuyEntitlements clears all "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *GroupUpdate) ClearGroupBuyEntitlements() *GroupUpdate {
+	_u.mutation.ClearGroupBuyEntitlements()
+	return _u
+}
+
+// RemoveGroupBuyEntitlementIDs removes the "group_buy_entitlements" edge to GroupBuyEntitlement entities by IDs.
+func (_u *GroupUpdate) RemoveGroupBuyEntitlementIDs(ids ...int64) *GroupUpdate {
+	_u.mutation.RemoveGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyEntitlements removes "group_buy_entitlements" edges to GroupBuyEntitlement entities.
+func (_u *GroupUpdate) RemoveGroupBuyEntitlements(v ...*GroupBuyEntitlement) *GroupUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyEntitlementIDs(ids...)
 }
 
 // ClearAccounts clears all "accounts" edges to the Account entity.
@@ -1418,6 +1492,96 @@ func (_u *GroupUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usagelog.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyPlansCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyPlansTable,
+			Columns: []string{group.GroupBuyPlansColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyplan.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyPlansIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyPlansCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyPlansTable,
+			Columns: []string{group.GroupBuyPlansColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyplan.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyPlansIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyPlansTable,
+			Columns: []string{group.GroupBuyPlansColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyplan.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyEntitlementsTable,
+			Columns: []string{group.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyEntitlementsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyEntitlementsTable,
+			Columns: []string{group.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyEntitlementsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyEntitlementsTable,
+			Columns: []string{group.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -2311,6 +2475,36 @@ func (_u *GroupUpdateOne) AddUsageLogs(v ...*UsageLog) *GroupUpdateOne {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// AddGroupBuyPlanIDs adds the "group_buy_plans" edge to the GroupBuyPlan entity by IDs.
+func (_u *GroupUpdateOne) AddGroupBuyPlanIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.AddGroupBuyPlanIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyPlans adds the "group_buy_plans" edges to the GroupBuyPlan entity.
+func (_u *GroupUpdateOne) AddGroupBuyPlans(v ...*GroupBuyPlan) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyPlanIDs(ids...)
+}
+
+// AddGroupBuyEntitlementIDs adds the "group_buy_entitlements" edge to the GroupBuyEntitlement entity by IDs.
+func (_u *GroupUpdateOne) AddGroupBuyEntitlementIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.AddGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyEntitlements adds the "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *GroupUpdateOne) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyEntitlementIDs(ids...)
+}
+
 // AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
 func (_u *GroupUpdateOne) AddAccountIDs(ids ...int64) *GroupUpdateOne {
 	_u.mutation.AddAccountIDs(ids...)
@@ -2428,6 +2622,48 @@ func (_u *GroupUpdateOne) RemoveUsageLogs(v ...*UsageLog) *GroupUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveUsageLogIDs(ids...)
+}
+
+// ClearGroupBuyPlans clears all "group_buy_plans" edges to the GroupBuyPlan entity.
+func (_u *GroupUpdateOne) ClearGroupBuyPlans() *GroupUpdateOne {
+	_u.mutation.ClearGroupBuyPlans()
+	return _u
+}
+
+// RemoveGroupBuyPlanIDs removes the "group_buy_plans" edge to GroupBuyPlan entities by IDs.
+func (_u *GroupUpdateOne) RemoveGroupBuyPlanIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.RemoveGroupBuyPlanIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyPlans removes "group_buy_plans" edges to GroupBuyPlan entities.
+func (_u *GroupUpdateOne) RemoveGroupBuyPlans(v ...*GroupBuyPlan) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyPlanIDs(ids...)
+}
+
+// ClearGroupBuyEntitlements clears all "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *GroupUpdateOne) ClearGroupBuyEntitlements() *GroupUpdateOne {
+	_u.mutation.ClearGroupBuyEntitlements()
+	return _u
+}
+
+// RemoveGroupBuyEntitlementIDs removes the "group_buy_entitlements" edge to GroupBuyEntitlement entities by IDs.
+func (_u *GroupUpdateOne) RemoveGroupBuyEntitlementIDs(ids ...int64) *GroupUpdateOne {
+	_u.mutation.RemoveGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyEntitlements removes "group_buy_entitlements" edges to GroupBuyEntitlement entities.
+func (_u *GroupUpdateOne) RemoveGroupBuyEntitlements(v ...*GroupBuyEntitlement) *GroupUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyEntitlementIDs(ids...)
 }
 
 // ClearAccounts clears all "accounts" edges to the Account entity.
@@ -2971,6 +3207,96 @@ func (_u *GroupUpdateOne) sqlSave(ctx context.Context) (_node *Group, err error)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usagelog.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyPlansCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyPlansTable,
+			Columns: []string{group.GroupBuyPlansColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyplan.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyPlansIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyPlansCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyPlansTable,
+			Columns: []string{group.GroupBuyPlansColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyplan.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyPlansIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyPlansTable,
+			Columns: []string{group.GroupBuyPlansColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyplan.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyEntitlementsTable,
+			Columns: []string{group.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyEntitlementsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyEntitlementsTable,
+			Columns: []string{group.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyEntitlementsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.GroupBuyEntitlementsTable,
+			Columns: []string{group.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

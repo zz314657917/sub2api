@@ -180,6 +180,8 @@ func (PaymentOrder) Edges() []ent.Edge {
 			Field("user_id").
 			Unique().
 			Required(),
+		edge.To("group_buy_seat", GroupBuySeat.Type).
+			Unique(),
 	}
 }
 

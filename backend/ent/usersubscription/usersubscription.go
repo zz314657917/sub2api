@@ -57,6 +57,10 @@ const (
 	EdgeAssignedByUser = "assigned_by_user"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
+	// EdgeGroupBuySeats holds the string denoting the group_buy_seats edge name in mutations.
+	EdgeGroupBuySeats = "group_buy_seats"
+	// EdgeGroupBuyEntitlements holds the string denoting the group_buy_entitlements edge name in mutations.
+	EdgeGroupBuyEntitlements = "group_buy_entitlements"
 	// Table holds the table name of the usersubscription in the database.
 	Table = "user_subscriptions"
 	// UserTable is the table that holds the user relation/edge.
@@ -87,6 +91,20 @@ const (
 	UsageLogsInverseTable = "usage_logs"
 	// UsageLogsColumn is the table column denoting the usage_logs relation/edge.
 	UsageLogsColumn = "subscription_id"
+	// GroupBuySeatsTable is the table that holds the group_buy_seats relation/edge.
+	GroupBuySeatsTable = "group_buy_seats"
+	// GroupBuySeatsInverseTable is the table name for the GroupBuySeat entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyseat" package.
+	GroupBuySeatsInverseTable = "group_buy_seats"
+	// GroupBuySeatsColumn is the table column denoting the group_buy_seats relation/edge.
+	GroupBuySeatsColumn = "subscription_id"
+	// GroupBuyEntitlementsTable is the table that holds the group_buy_entitlements relation/edge.
+	GroupBuyEntitlementsTable = "group_buy_entitlements"
+	// GroupBuyEntitlementsInverseTable is the table name for the GroupBuyEntitlement entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyentitlement" package.
+	GroupBuyEntitlementsInverseTable = "group_buy_entitlements"
+	// GroupBuyEntitlementsColumn is the table column denoting the group_buy_entitlements relation/edge.
+	GroupBuyEntitlementsColumn = "subscription_id"
 )
 
 // Columns holds all SQL columns for usersubscription fields.
@@ -276,6 +294,34 @@ func ByUsageLogs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newUsageLogsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByGroupBuySeatsCount orders the results by group_buy_seats count.
+func ByGroupBuySeatsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupBuySeatsStep(), opts...)
+	}
+}
+
+// ByGroupBuySeats orders the results by group_buy_seats terms.
+func ByGroupBuySeats(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupBuySeatsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByGroupBuyEntitlementsCount orders the results by group_buy_entitlements count.
+func ByGroupBuyEntitlementsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupBuyEntitlementsStep(), opts...)
+	}
+}
+
+// ByGroupBuyEntitlements orders the results by group_buy_entitlements terms.
+func ByGroupBuyEntitlements(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupBuyEntitlementsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newUserStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -302,5 +348,19 @@ func newUsageLogsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UsageLogsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, UsageLogsTable, UsageLogsColumn),
+	)
+}
+func newGroupBuySeatsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupBuySeatsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuySeatsTable, GroupBuySeatsColumn),
+	)
+}
+func newGroupBuyEntitlementsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupBuyEntitlementsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyEntitlementsTable, GroupBuyEntitlementsColumn),
 	)
 }

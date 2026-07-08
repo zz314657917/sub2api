@@ -21,6 +21,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorrequesttemplate"
 	"github.com/Wei-Shaw/sub2api/ent/errorpassthroughrule"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/invoicerequest"
@@ -453,6 +458,141 @@ func (f TraverseGroup) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.GroupQuery", q)
+}
+
+// The GroupBuyEntitlementFunc type is an adapter to allow the use of ordinary function as a Querier.
+type GroupBuyEntitlementFunc func(context.Context, *ent.GroupBuyEntitlementQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f GroupBuyEntitlementFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.GroupBuyEntitlementQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.GroupBuyEntitlementQuery", q)
+}
+
+// The TraverseGroupBuyEntitlement type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseGroupBuyEntitlement func(context.Context, *ent.GroupBuyEntitlementQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseGroupBuyEntitlement) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseGroupBuyEntitlement) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.GroupBuyEntitlementQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.GroupBuyEntitlementQuery", q)
+}
+
+// The GroupBuyEventFunc type is an adapter to allow the use of ordinary function as a Querier.
+type GroupBuyEventFunc func(context.Context, *ent.GroupBuyEventQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f GroupBuyEventFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.GroupBuyEventQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.GroupBuyEventQuery", q)
+}
+
+// The TraverseGroupBuyEvent type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseGroupBuyEvent func(context.Context, *ent.GroupBuyEventQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseGroupBuyEvent) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseGroupBuyEvent) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.GroupBuyEventQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.GroupBuyEventQuery", q)
+}
+
+// The GroupBuyPlanFunc type is an adapter to allow the use of ordinary function as a Querier.
+type GroupBuyPlanFunc func(context.Context, *ent.GroupBuyPlanQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f GroupBuyPlanFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.GroupBuyPlanQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.GroupBuyPlanQuery", q)
+}
+
+// The TraverseGroupBuyPlan type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseGroupBuyPlan func(context.Context, *ent.GroupBuyPlanQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseGroupBuyPlan) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseGroupBuyPlan) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.GroupBuyPlanQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.GroupBuyPlanQuery", q)
+}
+
+// The GroupBuyRoundFunc type is an adapter to allow the use of ordinary function as a Querier.
+type GroupBuyRoundFunc func(context.Context, *ent.GroupBuyRoundQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f GroupBuyRoundFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.GroupBuyRoundQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.GroupBuyRoundQuery", q)
+}
+
+// The TraverseGroupBuyRound type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseGroupBuyRound func(context.Context, *ent.GroupBuyRoundQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseGroupBuyRound) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseGroupBuyRound) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.GroupBuyRoundQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.GroupBuyRoundQuery", q)
+}
+
+// The GroupBuySeatFunc type is an adapter to allow the use of ordinary function as a Querier.
+type GroupBuySeatFunc func(context.Context, *ent.GroupBuySeatQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f GroupBuySeatFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.GroupBuySeatQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.GroupBuySeatQuery", q)
+}
+
+// The TraverseGroupBuySeat type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseGroupBuySeat func(context.Context, *ent.GroupBuySeatQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseGroupBuySeat) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseGroupBuySeat) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.GroupBuySeatQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.GroupBuySeatQuery", q)
 }
 
 // The IdempotencyRecordFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1132,6 +1272,16 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.ErrorPassthroughRuleQuery, predicate.ErrorPassthroughRule, errorpassthroughrule.OrderOption]{typ: ent.TypeErrorPassthroughRule, tq: q}, nil
 	case *ent.GroupQuery:
 		return &query[*ent.GroupQuery, predicate.Group, group.OrderOption]{typ: ent.TypeGroup, tq: q}, nil
+	case *ent.GroupBuyEntitlementQuery:
+		return &query[*ent.GroupBuyEntitlementQuery, predicate.GroupBuyEntitlement, groupbuyentitlement.OrderOption]{typ: ent.TypeGroupBuyEntitlement, tq: q}, nil
+	case *ent.GroupBuyEventQuery:
+		return &query[*ent.GroupBuyEventQuery, predicate.GroupBuyEvent, groupbuyevent.OrderOption]{typ: ent.TypeGroupBuyEvent, tq: q}, nil
+	case *ent.GroupBuyPlanQuery:
+		return &query[*ent.GroupBuyPlanQuery, predicate.GroupBuyPlan, groupbuyplan.OrderOption]{typ: ent.TypeGroupBuyPlan, tq: q}, nil
+	case *ent.GroupBuyRoundQuery:
+		return &query[*ent.GroupBuyRoundQuery, predicate.GroupBuyRound, groupbuyround.OrderOption]{typ: ent.TypeGroupBuyRound, tq: q}, nil
+	case *ent.GroupBuySeatQuery:
+		return &query[*ent.GroupBuySeatQuery, predicate.GroupBuySeat, groupbuyseat.OrderOption]{typ: ent.TypeGroupBuySeat, tq: q}, nil
 	case *ent.IdempotencyRecordQuery:
 		return &query[*ent.IdempotencyRecordQuery, predicate.IdempotencyRecord, idempotencyrecord.OrderOption]{typ: ent.TypeIdempotencyRecord, tq: q}, nil
 	case *ent.IdentityAdoptionDecisionQuery:
