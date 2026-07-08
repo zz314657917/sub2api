@@ -59,6 +59,18 @@ export interface RefundResult {
   subscription_days_deducted?: number
 }
 
+export interface AdminOrderQueryParams {
+  page?: number
+  page_size?: number
+  status?: string
+  payment_type?: string
+  user_id?: number
+  keyword?: string
+  start_date?: string
+  end_date?: string
+  order_type?: string
+}
+
 export const adminPaymentAPI = {
   // ==================== Config ====================
 
@@ -84,18 +96,13 @@ export const adminPaymentAPI = {
   // ==================== Orders ====================
 
   /** Get all orders (paginated, with filters) */
-  getOrders(params?: {
-    page?: number
-    page_size?: number
-    status?: string
-    payment_type?: string
-    user_id?: number
-    keyword?: string
-    start_date?: string
-    end_date?: string
-    order_type?: string
-  }) {
+  getOrders(params?: AdminOrderQueryParams) {
     return apiClient.get<BasePaginationResponse<PaymentOrder>>('/admin/payment/orders', { params })
+  },
+
+  /** Get stats for the current admin order filters */
+  getOrderStats(params?: AdminOrderQueryParams) {
+    return apiClient.get<DashboardStats>('/admin/payment/orders/stats', { params })
   },
 
   /** Get a specific order by ID */

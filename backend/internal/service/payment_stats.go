@@ -53,6 +53,83 @@ func (s *PaymentService) GetDashboardStats(ctx context.Context, days int) (*Dash
 	return st, nil
 }
 
+func buildPaymentOrderStats(orders []*dbent.PaymentOrder, seriesRange paymentStatsRange) *DashboardStats {
+	st := &DashboardStats{}
+	paidStatuses := map[string]struct{}{
+		OrderStatusCompleted:  {},
+		OrderStatusPaid:       {},
+		OrderStatusRecharging: {},
+	}
+	paidOrders := make([]*dbent.PaymentOrder, 0, len(orders))
+	pendingCount := 0
+	for _, order := range orders {
+		if order == nil {
+			continue
+		}
+		if order.Status == OrderStatusPending {
+			pendingCount++
+		}
+		if _, ok := paidStatuses[order.Status]; !ok || order.PaidAt == nil {
+			continue
+		}
+		if seriesRange.Start != nil && order.PaidAt.Before(*seriesRange.Start) {
+			continue
+		}
+		if seriesRange.End != nil && !order.PaidAt.Before(*seriesRange.End) {
+			continue
+		}
+		paidOrders = append(paidOrders, order)
+	}
+	now := time.Now()
+	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	computeBasicStats(st, paidOrders, todayStart)
+	st.PendingOrders = pendingCount
+	st.PaymentMethods = buildMethodDistribution(paidOrders)
+	st.TopUsers = buildTopUsers(paidOrders)
+	if seriesRange.Days > 0 && seriesRange.SeriesStart != nil {
+		st.DailySeries = buildDailySeries(paidOrders, *seriesRange.SeriesStart, seriesRange.Days)
+	}
+	return st
+}
+
+type paymentStatsRange struct {
+	Start       *time.Time
+	End         *time.Time
+	SeriesStart *time.Time
+	Days        int
+}
+
+func paymentOrderStatsRange(p OrderListParams) paymentStatsRange {
+	if p.StartTime == nil && p.EndTime == nil {
+		return paymentStatsRange{}
+	}
+	end := time.Now()
+	if p.EndTime != nil {
+		end = *p.EndTime
+	}
+	start := end.AddDate(0, 0, -30)
+	if p.StartTime != nil {
+		start = *p.StartTime
+	}
+	if end.Before(start) {
+		end = start
+	}
+	days := int(math.Ceil(end.Sub(start).Hours() / 24))
+	if days < 1 {
+		days = 1
+	}
+	if days > 120 {
+		days = 120
+	}
+	seriesStart := start.AddDate(0, 0, -1)
+	return paymentStatsRange{
+		Start:       &start,
+		End:         &end,
+		SeriesStart: &seriesStart,
+		Days:        days,
+	}
+}
+
 func computeBasicStats(st *DashboardStats, orders []*dbent.PaymentOrder, todayStart time.Time) {
 	var totalAmount, todayAmount float64
 	var todayCount int

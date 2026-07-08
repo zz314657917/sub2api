@@ -7,13 +7,88 @@
           <div class="flex-1 sm:max-w-64">
             <input v-model="orderSearch" type="text" :placeholder="t('payment.admin.searchOrders')" class="input" @input="debounceLoadOrders" />
           </div>
-          <Select v-model="orderFilters.status" :options="statusFilterOptions" class="w-36" @change="loadOrders" />
-          <Select v-model="orderFilters.payment_type" :options="paymentTypeFilterOptions" class="w-40" @change="loadOrders" />
-          <Select v-model="orderFilters.order_type" :options="orderTypeFilterOptions" class="w-36" @change="loadOrders" />
+          <Select v-model="orderFilters.status" :options="statusFilterOptions" class="w-36" @change="applyOrderFilters" />
+          <Select v-model="orderFilters.payment_type" :options="paymentTypeFilterOptions" class="w-40" @change="applyOrderFilters" />
+          <Select v-model="orderFilters.order_type" :options="orderTypeFilterOptions" class="w-36" @change="applyOrderFilters" />
           <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
-            <button @click="loadOrders" :disabled="ordersLoading" class="btn btn-secondary" :title="t('common.refresh')">
-              <Icon name="refresh" size="md" :class="ordersLoading ? 'animate-spin' : ''" />
+            <button @click="refreshOrdersAndStats" :disabled="ordersLoading || orderStatsLoading" class="btn btn-secondary" :title="t('common.refresh')">
+              <Icon name="refresh" size="md" :class="ordersLoading || orderStatsLoading ? 'animate-spin' : ''" />
             </button>
+          </div>
+        </div>
+        <div class="mt-4 flex flex-wrap items-end gap-3 border-t border-[#eadfd6] pt-4 dark:border-dark-600">
+          <div class="space-y-1">
+            <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('payment.admin.dateRange') }}</p>
+            <div class="inline-flex rounded-lg border border-[#d8cec2] bg-[#fffaf5] p-1 dark:border-dark-600 dark:bg-dark-800">
+              <button
+                v-for="preset in dateRangePresets"
+                :key="preset.value"
+                type="button"
+                class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
+                :class="datePreset === preset.value ? 'bg-[#141413] text-white shadow-sm dark:bg-[#cc785c]' : 'text-gray-600 hover:bg-[#f3e7df] dark:text-gray-300 dark:hover:bg-[#cc785c]/12'"
+                @click="setDatePreset(preset.value)"
+              >
+                {{ preset.label }}
+              </button>
+            </div>
+          </div>
+          <template v-if="datePreset === 'custom'">
+            <label class="space-y-1">
+              <span class="block text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('payment.admin.startDate') }}</span>
+              <input v-model="customDateRange.start" type="date" class="input w-40" @change="applyCustomDateRange" />
+            </label>
+            <label class="space-y-1">
+              <span class="block text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('payment.admin.endDate') }}</span>
+              <input v-model="customDateRange.end" type="date" class="input w-40" @change="applyCustomDateRange" />
+            </label>
+          </template>
+        </div>
+      </div>
+
+      <!-- Filtered Stats -->
+      <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div class="card p-4">
+          <div class="flex items-center gap-3">
+            <div class="rounded-lg bg-[#f3e7df] p-2 dark:bg-[#cc785c]/15">
+              <Icon name="dollar" size="md" class="text-[#a9583e] dark:text-[#f0b89e]" :stroke-width="2" />
+            </div>
+            <div class="min-w-0">
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('payment.admin.filteredRevenue') }}</p>
+              <p class="truncate text-xl font-bold text-gray-900 dark:text-white">{{ formatStatsMoney(orderStats?.total_amount || 0) }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center gap-3">
+            <div class="rounded-lg bg-[#f3e7df] p-2 dark:bg-[#cc785c]/15">
+              <Icon name="chart" size="md" class="text-[#a9583e] dark:text-[#f0b89e]" :stroke-width="2" />
+            </div>
+            <div>
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('payment.admin.filteredOrders') }}</p>
+              <p class="text-xl font-bold text-gray-900 dark:text-white">{{ orderStats?.total_count || 0 }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center gap-3">
+            <div class="rounded-lg bg-[#f7eadc] p-2 dark:bg-amber-500/15">
+              <Icon name="chart" size="md" class="text-amber-700 dark:text-amber-300" :stroke-width="2" />
+            </div>
+            <div class="min-w-0">
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('payment.admin.avgAmount') }}</p>
+              <p class="truncate text-xl font-bold text-gray-900 dark:text-white">{{ formatStatsMoney(orderStats?.avg_amount || 0) }}</p>
+            </div>
+          </div>
+        </div>
+        <div class="card p-4">
+          <div class="flex items-center gap-3">
+            <div class="rounded-lg bg-[#f5f0e8] p-2 dark:bg-dark-700">
+              <Icon name="clock" size="md" class="text-[#6f6a5f] dark:text-gray-300" :stroke-width="2" />
+            </div>
+            <div>
+              <p class="text-xs font-medium text-gray-500 dark:text-gray-400">{{ t('payment.admin.pendingOrders') }}</p>
+              <p class="text-xl font-bold text-gray-900 dark:text-white">{{ orderStats?.pending_orders || 0 }}</p>
+            </div>
           </div>
         </div>
       </div>
@@ -125,6 +200,7 @@ import { formatOrderDateTime } from '@/components/payment/orderUtils'
 import { formatCreditAmount } from '@/utils/credits'
 import { formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import type { PaymentOrder } from '@/types/payment'
+import type { DashboardStats } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -147,10 +223,15 @@ const { t } = i18n
 const appStore = useAppStore()
 
 const ordersLoading = ref(false)
+const orderStatsLoading = ref(false)
 const orders = ref<PaymentOrder[]>([])
+const orderStats = ref<DashboardStats | null>(null)
 const orderSearch = ref('')
 const orderFilters = reactive({ status: '', payment_type: '', order_type: '' })
 const orderPagination = reactive({ page: 1, page_size: 20, total: 0 })
+type DatePreset = 'all' | '7d' | '30d' | 'custom'
+const datePreset = ref<DatePreset>('7d')
+const customDateRange = reactive({ start: '', end: '' })
 const selectedOrder = ref<PaymentOrder | null>(null)
 const showDetailDialog = ref(false)
 const showRefundDialog = ref(false)
@@ -161,7 +242,78 @@ const orderAuditLogs = ref<AuditLog[]>([])
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 function debounceLoadOrders() {
   if (debounceTimer) clearTimeout(debounceTimer)
-  debounceTimer = setTimeout(() => loadOrders(), 300)
+  debounceTimer = setTimeout(() => applyOrderFilters(), 300)
+}
+
+const dateRangePresets = computed(() => [
+  { value: 'all' as DatePreset, label: t('payment.admin.allTime') },
+  { value: '7d' as DatePreset, label: t('payment.admin.last7Days') },
+  { value: '30d' as DatePreset, label: t('payment.admin.last30Days') },
+  { value: 'custom' as DatePreset, label: t('payment.admin.customRange') },
+])
+
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function relativeDateRange(days: number): { start: string; end: string } {
+  const end = new Date()
+  const start = new Date(end)
+  start.setDate(end.getDate() - days + 1)
+  return { start: formatLocalDate(start), end: formatLocalDate(end) }
+}
+
+function activeDateRange(): { start_date?: string; end_date?: string } {
+  if (datePreset.value === 'all') return {}
+  if (datePreset.value === '7d') {
+    const range = relativeDateRange(7)
+    return { start_date: range.start, end_date: range.end }
+  }
+  if (datePreset.value === '30d') {
+    const range = relativeDateRange(30)
+    return { start_date: range.start, end_date: range.end }
+  }
+  return {
+    start_date: customDateRange.start || undefined,
+    end_date: customDateRange.end || undefined,
+  }
+}
+
+function buildOrderQueryParams() {
+  return {
+    keyword: orderSearch.value || undefined,
+    status: orderFilters.status || undefined,
+    payment_type: orderFilters.payment_type || undefined,
+    order_type: orderFilters.order_type || undefined,
+    ...activeDateRange(),
+  }
+}
+
+function applyOrderFilters() {
+  orderPagination.page = 1
+  refreshOrdersAndStats()
+}
+
+function setDatePreset(preset: DatePreset) {
+  datePreset.value = preset
+  if (preset === 'custom' && (!customDateRange.start || !customDateRange.end)) {
+    const range = relativeDateRange(7)
+    customDateRange.start = range.start
+    customDateRange.end = range.end
+  }
+  applyOrderFilters()
+}
+
+function applyCustomDateRange() {
+  if (datePreset.value !== 'custom') return
+  applyOrderFilters()
+}
+
+async function refreshOrdersAndStats() {
+  await Promise.all([loadOrders(), loadOrderStats()])
 }
 
 async function loadOrders() {
@@ -169,14 +321,23 @@ async function loadOrders() {
   try {
     const res = await adminPaymentAPI.getOrders({
       page: orderPagination.page, page_size: orderPagination.page_size,
-      keyword: orderSearch.value || undefined, status: orderFilters.status || undefined,
-      payment_type: orderFilters.payment_type || undefined, order_type: orderFilters.order_type || undefined,
+      ...buildOrderQueryParams(),
     })
     orders.value = res.data.items || []
     orderPagination.total = res.data.total || 0
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
   } finally { ordersLoading.value = false }
+}
+
+async function loadOrderStats() {
+  orderStatsLoading.value = true
+  try {
+    const res = await adminPaymentAPI.getOrderStats(buildOrderQueryParams())
+    orderStats.value = res.data
+  } catch (err: unknown) {
+    appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
+  } finally { orderStatsLoading.value = false }
 }
 
 function handleOrderPageChange(page: number) { orderPagination.page = page; loadOrders() }
@@ -223,12 +384,12 @@ async function showOrderDetail(order: PaymentOrder) {
 }
 
 async function handleCancelOrder(order: PaymentOrder) {
-  try { await adminPaymentAPI.cancelOrder(order.id); appStore.showSuccess(t('payment.admin.orderCancelled')); loadOrders() }
+  try { await adminPaymentAPI.cancelOrder(order.id); appStore.showSuccess(t('payment.admin.orderCancelled')); refreshOrdersAndStats() }
   catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
 }
 
 async function handleRetryOrder(order: PaymentOrder) {
-  try { await adminPaymentAPI.retryRecharge(order.id); appStore.showSuccess(t('payment.admin.retrySuccess')); loadOrders() }
+  try { await adminPaymentAPI.retryRecharge(order.id); appStore.showSuccess(t('payment.admin.retrySuccess')); refreshOrdersAndStats() }
   catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
 }
 
@@ -246,13 +407,13 @@ async function handleRefund(data: { amount: number; reason: string; deduct_balan
     if (res.data.success) {
       appStore.showSuccess(t('payment.admin.refundSuccess'))
       showRefundDialog.value = false
-      loadOrders()
+      refreshOrdersAndStats()
       return
     }
     if (isRefundPendingWarning(res.data.warning)) {
       appStore.showSuccess(t('payment.admin.refundPending'))
       showRefundDialog.value = false
-      loadOrders()
+      refreshOrdersAndStats()
       return
     }
     appStore.showError(res.data.warning || t('common.error'))
@@ -271,7 +432,7 @@ async function handleQueryRefund(order: PaymentOrder) {
     } else {
       appStore.showError(res.data.warning || t('common.error'))
     }
-    loadOrders()
+    refreshOrdersAndStats()
   } catch (err: unknown) {
     appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error')))
   } finally {
@@ -302,5 +463,9 @@ function formatGatewayAmount(value: number, order: PaymentOrder): string {
   return formatPaymentAmount(value, normalizePaymentCurrency(order.currency), localeCode())
 }
 
-onMounted(() => loadOrders())
+function formatStatsMoney(value: number): string {
+  return formatPaymentAmount(value, 'CNY', localeCode())
+}
+
+onMounted(() => refreshOrdersAndStats())
 </script>
