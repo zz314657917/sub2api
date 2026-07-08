@@ -285,6 +285,9 @@ type SystemSettings struct {
 	// User-owned account sharing pool feature switch
 	AccountShareEnabled bool `json:"account_share_enabled"`
 
+	// User-facing channel status shared capacity pool visibility switch
+	AccountShareChannelStatusVisible bool `json:"account_share_channel_status_visible"`
+
 	// Public shared capacity reference feature switch
 	ExternalCapacityReferenceEnabled bool `json:"external_capacity_reference_enabled"`
 
@@ -381,6 +384,8 @@ type PublicSettings struct {
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 
 	AccountShareEnabled bool `json:"account_share_enabled"`
+
+	AccountShareChannelStatusVisible bool `json:"account_share_channel_status_visible"`
 
 	ExternalCapacityReferenceEnabled bool `json:"external_capacity_reference_enabled"`
 

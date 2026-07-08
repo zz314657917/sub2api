@@ -35,6 +35,8 @@ export default {
           description: 'Allow regular users to upload upstream accounts for private use or reviewed public sharing. When off, the user entry is hidden and related endpoints are denied.',
           enabled: 'Enable User Account Sharing Pool',
           enabledHint: 'Admins can still manage system accounts; regular users cannot see My Accounts or add/import/authorize accounts.',
+          channelStatusVisible: 'Show Shared Capacity on Channel Status',
+          channelStatusVisibleHint: 'When off, only the platform shared capacity pool and my account capacity pool are hidden from Channel Status. Shared account management, scheduling, and My Accounts stay unchanged.',
           externalCapacityReferenceEnabled: 'Enable Public Shared Capacity Reference',
           externalCapacityReferenceEnabledHint: 'When off, the user monitor page hides public shared pool reference data and the backend does not request the external monitor. Off by default.',
         },

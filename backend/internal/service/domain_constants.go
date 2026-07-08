@@ -134,6 +134,7 @@ const WeChatConnectSyntheticEmailDomain = "@wechat-connect.invalid"
 
 const (
 	SettingKeyAccountShareEnabled              = "account_share_enabled"
+	SettingKeyAccountShareChannelStatusVisible = "account_share_channel_status_visible"
 	SettingKeyExternalCapacityReferenceEnabled = "external_capacity_reference_enabled"
 	SettingKeyAccountShareOwnerRate            = "account_share_owner_rate"
 	SettingKeyAccountShareFreezeHours          = "account_share_freeze_hours"

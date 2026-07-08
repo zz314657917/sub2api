@@ -969,6 +969,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAvailableChannelsEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyAccountShareEnabled,
+		SettingKeyAccountShareChannelStatusVisible,
 		SettingKeyExternalCapacityReferenceEnabled,
 		SettingKeyRiskControlEnabled,
 		SettingKeyWelfareEnabled,
@@ -1089,6 +1090,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		AffiliateEnabled:                 settings[SettingKeyAffiliateEnabled] == "true",
 		AccountShareEnabled:              settings[SettingKeyAccountShareEnabled] != "false",
+		AccountShareChannelStatusVisible: settings[SettingKeyAccountShareChannelStatusVisible] != "false",
 		ExternalCapacityReferenceEnabled: ExternalCapacityReferenceFeatureEnabled && settings[SettingKeyExternalCapacityReferenceEnabled] == "true",
 
 		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
@@ -1319,6 +1321,7 @@ type PublicSettingsInjectionPayload struct {
 	AvailableChannelsEnabled             bool `json:"available_channels_enabled"`
 	AffiliateEnabled                     bool `json:"affiliate_enabled"`
 	AccountShareEnabled                  bool `json:"account_share_enabled"`
+	AccountShareChannelStatusVisible     bool `json:"account_share_channel_status_visible"`
 	ExternalCapacityReferenceEnabled     bool `json:"external_capacity_reference_enabled"`
 	RiskControlEnabled                   bool `json:"risk_control_enabled"`
 	WelfareEnabled                       bool `json:"welfare_enabled"`
@@ -1397,6 +1400,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		AccountShareEnabled:                  settings.AccountShareEnabled,
+		AccountShareChannelStatusVisible:     settings.AccountShareChannelStatusVisible,
 		ExternalCapacityReferenceEnabled:     ExternalCapacityReferenceFeatureEnabled && settings.ExternalCapacityReferenceEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
 		WelfareEnabled:                       settings.WelfareEnabled,
@@ -2117,6 +2121,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 
 	// User-owned account sharing pool.
 	updates[SettingKeyAccountShareEnabled] = strconv.FormatBool(settings.AccountShareEnabled)
+	updates[SettingKeyAccountShareChannelStatusVisible] = strconv.FormatBool(settings.AccountShareChannelStatusVisible)
 	updates[SettingKeyExternalCapacityReferenceEnabled] = strconv.FormatBool(ExternalCapacityReferenceFeatureEnabled && settings.ExternalCapacityReferenceEnabled)
 	settings.AccountShareOwnerRatePercent = clampAccountShareOwnerRate(settings.AccountShareOwnerRatePercent)
 	updates[SettingKeyAccountShareOwnerRate] = strconv.FormatFloat(settings.AccountShareOwnerRatePercent, 'f', 8, 64)
@@ -3243,6 +3248,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 
 		// User-owned account sharing pool.
 		SettingKeyAccountShareEnabled:              "true",
+		SettingKeyAccountShareChannelStatusVisible: "true",
 		SettingKeyExternalCapacityReferenceEnabled: "false",
 		SettingKeyAccountShareOwnerRate:            strconv.FormatFloat(AccountShareOwnerRatePercentDefault, 'f', 8, 64),
 		SettingKeyAccountShareFreezeHours:          strconv.Itoa(AccountShareFreezeHoursDefault),
@@ -3705,6 +3711,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.AffiliateEnabled = settings[SettingKeyAffiliateEnabled] == "true"
 
 	result.AccountShareEnabled = settings[SettingKeyAccountShareEnabled] != "false"
+	result.AccountShareChannelStatusVisible = settings[SettingKeyAccountShareChannelStatusVisible] != "false"
 	result.ExternalCapacityReferenceEnabled = ExternalCapacityReferenceFeatureEnabled && settings[SettingKeyExternalCapacityReferenceEnabled] == "true"
 	if ownerRate, err := strconv.ParseFloat(settings[SettingKeyAccountShareOwnerRate], 64); err == nil {
 		result.AccountShareOwnerRatePercent = clampAccountShareOwnerRate(ownerRate)

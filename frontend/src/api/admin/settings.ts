@@ -585,6 +585,7 @@ export interface SystemSettings {
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: boolean;
   account_share_enabled: boolean;
+  account_share_channel_status_visible: boolean;
   external_capacity_reference_enabled: boolean;
 
   // Welfare feature switches and daily check-in reward settings
@@ -839,6 +840,7 @@ export interface UpdateSettingsRequest {
   // Affiliate (邀请返利) feature switch
   affiliate_enabled?: boolean;
   account_share_enabled?: boolean;
+  account_share_channel_status_visible?: boolean;
   external_capacity_reference_enabled?: boolean;
 
   // Welfare feature switches and daily check-in reward settings

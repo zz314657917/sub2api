@@ -11,6 +11,7 @@ func TestSettingService_ParseAccountShareSettings(t *testing.T) {
 	svc := NewSettingService(nil, &config.Config{})
 	settings := svc.parseSettings(map[string]string{
 		SettingKeyAccountShareEnabled:              "true",
+		SettingKeyAccountShareChannelStatusVisible: "false",
 		SettingKeyExternalCapacityReferenceEnabled: "true",
 		SettingKeyAccountShareOwnerRate:            "85.5",
 		SettingKeyAccountShareFreezeHours:          "24",
@@ -20,6 +21,9 @@ func TestSettingService_ParseAccountShareSettings(t *testing.T) {
 
 	if !settings.AccountShareEnabled {
 		t.Fatal("expected account sharing enabled")
+	}
+	if settings.AccountShareChannelStatusVisible {
+		t.Fatal("expected channel status shared pool hidden")
 	}
 	if settings.ExternalCapacityReferenceEnabled {
 		t.Fatal("expected external capacity reference sealed off")
@@ -42,6 +46,7 @@ func TestSettingService_BuildAccountShareSettingsUpdatesClampsValues(t *testing.
 	svc := NewSettingService(nil, &config.Config{})
 	updates, err := svc.buildSystemSettingsUpdates(context.Background(), &SystemSettings{
 		AccountShareEnabled:              true,
+		AccountShareChannelStatusVisible: false,
 		ExternalCapacityReferenceEnabled: true,
 		AccountShareOwnerRatePercent:     150,
 		AccountShareFreezeHours:          AccountShareFreezeHoursMax + 1,
@@ -54,6 +59,9 @@ func TestSettingService_BuildAccountShareSettingsUpdatesClampsValues(t *testing.
 
 	if updates[SettingKeyAccountShareEnabled] != "true" {
 		t.Fatalf("share enabled update = %q", updates[SettingKeyAccountShareEnabled])
+	}
+	if updates[SettingKeyAccountShareChannelStatusVisible] != "false" {
+		t.Fatalf("share channel status visible update = %q", updates[SettingKeyAccountShareChannelStatusVisible])
 	}
 	if updates[SettingKeyExternalCapacityReferenceEnabled] != "false" {
 		t.Fatalf("external capacity reference update = %q", updates[SettingKeyExternalCapacityReferenceEnabled])

@@ -404,6 +404,7 @@ export interface PublicSettings {
   available_channels_enabled: boolean
   affiliate_enabled: boolean
   account_share_enabled: boolean
+  account_share_channel_status_visible?: boolean
   external_capacity_reference_enabled?: boolean
   welfare_enabled?: boolean
   welfare_daily_checkin_enabled?: boolean

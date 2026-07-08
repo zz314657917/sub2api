@@ -309,6 +309,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 
 		AffiliateEnabled:                 settings.AffiliateEnabled,
 		AccountShareEnabled:              settings.AccountShareEnabled,
+		AccountShareChannelStatusVisible: settings.AccountShareChannelStatusVisible,
 		ExternalCapacityReferenceEnabled: settings.ExternalCapacityReferenceEnabled,
 		StudioBridgeLuoyeAI:              studioBridgeSettingsToDTO(settings.StudioBridgeLuoyeAI),
 	}
@@ -701,6 +702,9 @@ type UpdateSettingsRequest struct {
 
 	// User-owned account sharing pool feature switch
 	AccountShareEnabled *bool `json:"account_share_enabled"`
+
+	// User-facing channel status shared capacity pool visibility switch
+	AccountShareChannelStatusVisible *bool `json:"account_share_channel_status_visible"`
 
 	// Public shared capacity reference feature switch
 	ExternalCapacityReferenceEnabled *bool `json:"external_capacity_reference_enabled"`
@@ -1822,6 +1826,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.AccountShareEnabled
 		}(),
+		AccountShareChannelStatusVisible: func() bool {
+			if req.AccountShareChannelStatusVisible != nil {
+				return *req.AccountShareChannelStatusVisible
+			}
+			return previousSettings.AccountShareChannelStatusVisible
+		}(),
 		ExternalCapacityReferenceEnabled: func() bool {
 			if req.ExternalCapacityReferenceEnabled != nil {
 				return *req.ExternalCapacityReferenceEnabled
@@ -2171,6 +2181,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 
 		AffiliateEnabled:                 updatedSettings.AffiliateEnabled,
 		AccountShareEnabled:              updatedSettings.AccountShareEnabled,
+		AccountShareChannelStatusVisible: updatedSettings.AccountShareChannelStatusVisible,
 		ExternalCapacityReferenceEnabled: updatedSettings.ExternalCapacityReferenceEnabled,
 		StudioBridgeLuoyeAI:              studioBridgeSettingsToDTO(updatedSettings.StudioBridgeLuoyeAI),
 
@@ -2707,6 +2718,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AccountShareEnabled != after.AccountShareEnabled {
 		changed = append(changed, "account_share_enabled")
+	}
+	if before.AccountShareChannelStatusVisible != after.AccountShareChannelStatusVisible {
+		changed = append(changed, "account_share_channel_status_visible")
 	}
 	if before.ExternalCapacityReferenceEnabled != after.ExternalCapacityReferenceEnabled {
 		changed = append(changed, "external_capacity_reference_enabled")

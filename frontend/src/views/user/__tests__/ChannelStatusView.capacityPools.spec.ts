@@ -218,6 +218,23 @@ describe('ChannelStatusView capacity pools', () => {
     expect(wrapper.text()).not.toContain('channelStatus.capacityPools.shared')
   })
 
+  it('does not request or render capacity pools when channel status visibility is disabled', async () => {
+    appStoreState.cachedPublicSettings = {
+      account_share_enabled: true,
+      account_share_channel_status_visible: false,
+      external_capacity_reference_enabled: false,
+      channel_monitor_enabled: true,
+    }
+
+    const wrapper = mountView()
+
+    await flushPromises()
+
+    expect(fetchCapacityPools).not.toHaveBeenCalled()
+    expect(wrapper.text()).not.toContain('channelStatus.capacityPools.mine')
+    expect(wrapper.text()).not.toContain('channelStatus.capacityPools.shared')
+  })
+
   it('hides capacity pools and groups without accounts', async () => {
     fetchCapacityPools.mockResolvedValueOnce({
       mine: {

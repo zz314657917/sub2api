@@ -146,6 +146,7 @@ type SystemSettings struct {
 	AffiliateAPICallRewardAmount     float64
 	AffiliateRiskScanIntervalMinutes int
 	AccountShareEnabled              bool
+	AccountShareChannelStatusVisible bool
 	ExternalCapacityReferenceEnabled bool
 	AccountShareOwnerRatePercent     float64
 	AccountShareFreezeHours          int
@@ -325,6 +326,9 @@ type PublicSettings struct {
 
 	// User-owned account sharing feature toggle
 	AccountShareEnabled bool `json:"account_share_enabled"`
+
+	// User-facing channel status shared capacity pool visibility toggle
+	AccountShareChannelStatusVisible bool `json:"account_share_channel_status_visible"`
 
 	// Public shared capacity reference feature toggle
 	ExternalCapacityReferenceEnabled bool `json:"external_capacity_reference_enabled"`

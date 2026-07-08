@@ -324,6 +324,8 @@ describe('useAppStore', () => {
         custom_endpoints: [],
         linuxdo_oauth_enabled: false,
         backend_mode_enabled: false,
+        account_share_enabled: true,
+        account_share_channel_status_visible: false,
         external_capacity_reference_enabled: false,
         version: '1.0.0'
       })
@@ -333,6 +335,7 @@ describe('useAppStore', () => {
 
       expect((window as any).__APP_CONFIG__.table_default_page_size).toBe(1000)
       expect((window as any).__APP_CONFIG__.table_page_size_options).toEqual([20, 100, 1000])
+      expect((window as any).__APP_CONFIG__.account_share_channel_status_visible).toBe(false)
       expect(localStorage.getItem('table-page-size')).toBeNull()
       expect(localStorage.getItem('table-page-size-source')).toBeNull()
     })

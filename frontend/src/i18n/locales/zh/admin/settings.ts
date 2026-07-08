@@ -35,6 +35,8 @@ export default {
           description: '允许普通用户上传自己的上游账号，私有自用或申请公开共享。关闭后普通用户侧入口隐藏，相关接口拒绝访问。',
           enabled: '启用用户账号共享池',
           enabledHint: '关闭后管理员仍可管理系统账号；普通用户看不到“我的账号”，也不能新增、导入或授权账号。',
+          channelStatusVisible: '渠道状态显示共享容量池',
+          channelStatusVisibleHint: '关闭后仅隐藏用户端“渠道状态”里的平台共享容量池和我的账号容量池，不影响共享账号管理、调度或用户账号入口。',
           externalCapacityReferenceEnabled: '启用公开共享容量参考',
           externalCapacityReferenceEnabledHint: '关闭时用户监控页不显示公开共享号池参考，后端也不会请求外部监控数据。默认关闭。',
         },

@@ -126,7 +126,8 @@ func TestSettingHandler_GetPublicSettings_ExposesAccountShareEnabled(t *testing.
 
 	repo := &settingHandlerPublicRepoStub{
 		values: map[string]string{
-			service.SettingKeyAccountShareEnabled: "false",
+			service.SettingKeyAccountShareEnabled:              "false",
+			service.SettingKeyAccountShareChannelStatusVisible: "false",
 		},
 	}
 	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "test-version")
@@ -148,6 +149,9 @@ func TestSettingHandler_GetPublicSettings_ExposesAccountShareEnabled(t *testing.
 	value, ok := resp.Data["account_share_enabled"]
 	require.True(t, ok)
 	require.False(t, value.(bool))
+	visible, ok := resp.Data["account_share_channel_status_visible"]
+	require.True(t, ok)
+	require.False(t, visible.(bool))
 }
 
 func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {

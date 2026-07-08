@@ -447,6 +447,7 @@ const baseSettingsResponse = {
   leaderboard_daily_reward_rank_2_amount: 0,
   leaderboard_daily_reward_rank_3_amount: 0,
   account_share_enabled: true,
+  account_share_channel_status_visible: true,
   external_capacity_reference_enabled: false,
   affiliate_enabled: false,
 };
@@ -805,6 +806,34 @@ describe("admin SettingsView payment visible method controls", () => {
         leaderboard_daily_reward_rank_1_amount: 9,
         leaderboard_daily_reward_rank_2_amount: 0,
         leaderboard_daily_reward_rank_3_amount: 3,
+      }),
+    );
+  });
+
+  it("saves shared capacity visibility for channel status", async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+
+    expect(
+      (
+        wrapper.get('[data-testid="account-share-channel-status-visible"]')
+          .element as HTMLInputElement
+      ).checked,
+    ).toBe(true);
+
+    await wrapper
+      .get('[data-testid="account-share-channel-status-visible"]')
+      .setValue(false);
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        account_share_enabled: true,
+        account_share_channel_status_visible: false,
       }),
     );
   });

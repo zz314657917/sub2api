@@ -5207,6 +5207,20 @@
               </div>
               <Toggle v-model="form.account_share_enabled" />
             </div>
+            <div class="flex items-center justify-between gap-4 border-t border-gray-100 pt-5 dark:border-dark-700">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.accountShare.channelStatusVisible') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.accountShare.channelStatusVisibleHint') }}
+                </p>
+              </div>
+              <Toggle
+                v-model="form.account_share_channel_status_visible"
+                data-testid="account-share-channel-status-visible"
+              />
+            </div>
             <div v-if="externalCapacityReferenceFeatureEnabled" class="flex items-center justify-between gap-4 border-t border-gray-100 pt-5 dark:border-dark-700">
               <div>
                 <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -8447,6 +8461,7 @@ const form = reactive<SettingsForm>({
   // Available Channels feature switch
   available_channels_enabled: false,
   account_share_enabled: true,
+  account_share_channel_status_visible: true,
   external_capacity_reference_enabled: false,
   welfare_enabled: false,
   welfare_daily_checkin_enabled: false,
@@ -10169,6 +10184,8 @@ async function saveSettings() {
       // Available Channels feature switch
       available_channels_enabled: form.available_channels_enabled,
       account_share_enabled: form.account_share_enabled,
+      account_share_channel_status_visible:
+        form.account_share_channel_status_visible,
       external_capacity_reference_enabled:
         form.external_capacity_reference_enabled,
       welfare_enabled: form.welfare_enabled,

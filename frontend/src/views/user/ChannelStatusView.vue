@@ -123,6 +123,9 @@ const detailTitle = computed(() => {
 })
 
 const accountShareEnabled = computed(() => appStore.cachedPublicSettings?.account_share_enabled !== false)
+const accountShareChannelStatusVisible = computed(
+  () => accountShareEnabled.value && appStore.cachedPublicSettings?.account_share_channel_status_visible !== false,
+)
 const externalCapacityReferenceFeatureEnabled = false
 const externalCapacityReferenceEnabled = computed(
   () => externalCapacityReferenceFeatureEnabled
@@ -136,8 +139,8 @@ const visibleCapacityPools = computed<UserAccountCapacityPools | null>(() => {
     external: null,
   }
 })
-const showSharedCapacityPool = computed(() => accountShareEnabled.value && hasVisibleCapacityPool(visibleCapacityPools.value?.shared))
-const showMineCapacityPool = computed(() => accountShareEnabled.value && hasVisibleCapacityPool(visibleCapacityPools.value?.mine))
+const showSharedCapacityPool = computed(() => accountShareChannelStatusVisible.value && hasVisibleCapacityPool(visibleCapacityPools.value?.shared))
+const showMineCapacityPool = computed(() => accountShareChannelStatusVisible.value && hasVisibleCapacityPool(visibleCapacityPools.value?.mine))
 const showCapacityColumn = computed(() => showSharedCapacityPool.value || showMineCapacityPool.value)
 
 // ── Loaders ──
@@ -164,7 +167,7 @@ async function reload(silent = false) {
 }
 
 async function loadCapacityPools(silent = false) {
-  if (!accountShareEnabled.value) {
+  if (!accountShareChannelStatusVisible.value) {
     if (capacityAbortController) capacityAbortController.abort()
     capacityPools.value = null
     capacityLoading.value = false
@@ -255,7 +258,7 @@ watch(
   },
 )
 
-watch(accountShareEnabled, (enabled) => {
+watch(accountShareChannelStatusVisible, (enabled) => {
   if (enabled) {
     void loadCapacityPools(false)
   } else {
