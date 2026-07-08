@@ -63,7 +63,7 @@ export default {
       claimed: 'Granted',
       claimedAt: 'Granted at: {time}',
       expiresAt: 'Valid until: {time}',
-      monthlyBonusNotice: 'If the first purchase already receives a monthly package bonus, this gift may not stack.',
+      monthlyBonusNotice: 'If the first recharge already receives a package bonus, this gift may not stack.',
       cta: 'Buy Credits',
       claim: 'Claim gift',
       claiming: 'Claiming...',

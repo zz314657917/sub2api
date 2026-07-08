@@ -51,7 +51,7 @@ func TestResolveRechargePackageForOrderRequiresEnabledPackage(t *testing.T) {
 	require.Equal(t, "pkg-5", pkg.ID)
 }
 
-func TestRechargePackageCheckoutViewsReflectMonthlyBonusStatus(t *testing.T) {
+func TestRechargePackageCheckoutViewsReflectFirstRechargeBonusStatus(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	user := createRechargePackageTestUser(t, ctx, client, "checkout")
@@ -73,7 +73,7 @@ func TestRechargePackageCheckoutViewsReflectMonthlyBonusStatus(t *testing.T) {
 	require.Equal(t, 10.0, views[0].EffectiveBonusAmount)
 
 	_, err = client.RedeemCode.Create().
-		SetCode(monthlyRechargeBonusRedeemCode(user.ID, "202606")).
+		SetCode(firstRechargePackageBonusRedeemCode(user.ID)).
 		SetType(RedeemTypeMonthlyRecharge).
 		SetValue(10).
 		SetStatus(StatusUsed).
@@ -90,7 +90,7 @@ func TestRechargePackageCheckoutViewsReflectMonthlyBonusStatus(t *testing.T) {
 	require.Equal(t, 0.0, views[0].EffectiveBonusAmount)
 }
 
-func TestAdjustBalanceOrderForMonthlyRechargePackageClaimsOncePerMonth(t *testing.T) {
+func TestAdjustBalanceOrderForRechargePackageClaimsOncePerUser(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	user := createRechargePackageTestUser(t, ctx, client, "claim-once")
@@ -100,7 +100,7 @@ func TestAdjustBalanceOrderForMonthlyRechargePackageClaimsOncePerMonth(t *testin
 	adjusted, err := svc.adjustBalanceOrderForMonthlyRechargePackage(ctx, first)
 	require.NoError(t, err)
 	require.Equal(t, 60.0, adjusted.Amount)
-	require.True(t, monthlyRechargeBonusCodeExists(t, ctx, client, user.ID, "202606"))
+	require.True(t, firstRechargePackageBonusCodeExists(t, ctx, client, user.ID))
 	require.Equal(t, 1, monthlyRechargeBonusAuditCount(t, ctx, client, first.ID, monthlyRechargeBonusAudit))
 	require.Equal(t, 0, monthlyRechargeBonusAuditCount(t, ctx, client, first.ID, welfareFirstRechargeBonusAudit))
 
@@ -113,11 +113,12 @@ func TestAdjustBalanceOrderForMonthlyRechargePackageClaimsOncePerMonth(t *testin
 	nextMonth := createRechargePackageTestOrder(t, ctx, client, user, "next-month", 50, 60, "202607")
 	adjusted, err = svc.adjustBalanceOrderForMonthlyRechargePackage(ctx, nextMonth)
 	require.NoError(t, err)
-	require.Equal(t, 60.0, adjusted.Amount)
-	require.True(t, monthlyRechargeBonusCodeExists(t, ctx, client, user.ID, "202607"))
+	require.Equal(t, 50.0, adjusted.Amount)
+	require.False(t, monthlyRechargeBonusCodeExists(t, ctx, client, user.ID, "202607"))
+	require.Equal(t, 1, monthlyRechargeBonusAuditCount(t, ctx, client, nextMonth.ID, "MONTHLY_RECHARGE_BONUS_SKIPPED"))
 }
 
-func TestAdjustBalanceOrderForMonthlyRechargePackageZeroBonusStillConsumesMonthlyFirst(t *testing.T) {
+func TestAdjustBalanceOrderForRechargePackageZeroBonusStillConsumesFirstRecharge(t *testing.T) {
 	ctx := context.Background()
 	client := newPaymentConfigServiceTestClient(t)
 	user := createRechargePackageTestUser(t, ctx, client, "zero-bonus-first")
@@ -127,7 +128,7 @@ func TestAdjustBalanceOrderForMonthlyRechargePackageZeroBonusStillConsumesMonthl
 	adjusted, err := svc.adjustBalanceOrderForMonthlyRechargePackage(ctx, first)
 	require.NoError(t, err)
 	require.Equal(t, 5.0, adjusted.Amount)
-	require.True(t, monthlyRechargeBonusCodeExists(t, ctx, client, user.ID, "202606"))
+	require.True(t, firstRechargePackageBonusCodeExists(t, ctx, client, user.ID))
 	require.Equal(t, 1, monthlyRechargeBonusAuditCount(t, ctx, client, first.ID, monthlyRechargeBonusAudit))
 	require.Equal(t, 0, monthlyRechargeBonusAuditCount(t, ctx, client, first.ID, welfareFirstRechargeBonusAudit))
 
@@ -136,6 +137,31 @@ func TestAdjustBalanceOrderForMonthlyRechargePackageZeroBonusStillConsumesMonthl
 	require.NoError(t, err)
 	require.Equal(t, 50.0, adjusted.Amount)
 	require.Equal(t, 1, monthlyRechargeBonusAuditCount(t, ctx, client, second.ID, "MONTHLY_RECHARGE_BONUS_SKIPPED"))
+}
+
+func TestRechargePackageLegacyMonthlyClaimBlocksFirstRechargeBonus(t *testing.T) {
+	ctx := context.Background()
+	client := newPaymentConfigServiceTestClient(t)
+	user := createRechargePackageTestUser(t, ctx, client, "legacy-monthly-claim")
+	now := time.Date(2026, 6, 10, 8, 0, 0, 0, time.UTC)
+	_, err := client.RedeemCode.Create().
+		SetCode(monthlyRechargeBonusRedeemCode(user.ID, "202606")).
+		SetType(RedeemTypeMonthlyRecharge).
+		SetValue(10).
+		SetStatus(StatusUsed).
+		SetUsedBy(user.ID).
+		SetUsedAt(now).
+		Save(ctx)
+	require.NoError(t, err)
+	svc := &PaymentService{entClient: client}
+
+	order := createRechargePackageTestOrder(t, ctx, client, user, "legacy-monthly-claim", 50, 60, "202607")
+	adjusted, err := svc.adjustBalanceOrderForMonthlyRechargePackage(ctx, order)
+
+	require.NoError(t, err)
+	require.Equal(t, 50.0, adjusted.Amount)
+	require.False(t, firstRechargePackageBonusCodeExists(t, ctx, client, user.ID))
+	require.Equal(t, 1, monthlyRechargeBonusAuditCount(t, ctx, client, order.ID, "MONTHLY_RECHARGE_BONUS_SKIPPED"))
 }
 
 func TestMonthlyRechargeBonusClaimReleasedWhenBalanceRedeemFails(t *testing.T) {
@@ -158,7 +184,7 @@ func TestMonthlyRechargeBonusClaimReleasedWhenBalanceRedeemFails(t *testing.T) {
 	err := svc.doBalance(ctx, order)
 
 	require.Error(t, err)
-	require.False(t, monthlyRechargeBonusCodeExists(t, ctx, client, user.ID, "202606"))
+	require.False(t, firstRechargePackageBonusCodeExists(t, ctx, client, user.ID))
 	require.Equal(t, 0, monthlyRechargeBonusAuditCount(t, ctx, client, order.ID, monthlyRechargeBonusAudit))
 	reloaded, err := client.PaymentOrder.Get(ctx, order.ID)
 	require.NoError(t, err)
@@ -355,6 +381,15 @@ func monthlyRechargeBonusCodeExists(t *testing.T, ctx context.Context, client *d
 	t.Helper()
 	exists, err := client.RedeemCode.Query().
 		Where(redeemcode.CodeEQ(monthlyRechargeBonusRedeemCode(userID, period))).
+		Exist(ctx)
+	require.NoError(t, err)
+	return exists
+}
+
+func firstRechargePackageBonusCodeExists(t *testing.T, ctx context.Context, client *dbent.Client, userID int64) bool {
+	t.Helper()
+	exists, err := client.RedeemCode.Query().
+		Where(redeemcode.CodeEQ(firstRechargePackageBonusRedeemCode(userID))).
 		Exist(ctx)
 	require.NoError(t, err)
 	return exists

@@ -10,6 +10,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
+	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -67,8 +68,10 @@ func (s *PaymentService) MonthlyRechargeBonusClaimStatus(ctx context.Context, us
 	if s == nil || s.entClient == nil || userID <= 0 {
 		return false, nil, nil
 	}
-	code := monthlyRechargeBonusRedeemCode(userID, monthlyRechargeBonusPeriod(s.nowTime()))
-	reward, err := s.entClient.RedeemCode.Query().Where(redeemcode.CodeEQ(code)).Only(ctx)
+	reward, err := s.entClient.RedeemCode.Query().
+		Where(firstRechargePackageBonusPredicate(userID)).
+		Order(redeemcode.ByUsedAt(), redeemcode.ByCreatedAt()).
+		First(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
 			return false, nil, nil
@@ -135,7 +138,7 @@ func (s *PaymentService) adjustBalanceOrderForMonthlyRechargePackage(ctx context
 		SetAmount(o.PayAmount).
 		Save(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("remove duplicate monthly recharge bonus: %w", err)
+		return nil, fmt.Errorf("remove duplicate first recharge package bonus: %w", err)
 	}
 	s.writeAuditLog(ctx, o.ID, "MONTHLY_RECHARGE_BONUS_SKIPPED", "system", map[string]any{
 		"package_id":      decision.Package.ID,
@@ -143,7 +146,7 @@ func (s *PaymentService) adjustBalanceOrderForMonthlyRechargePackage(ctx context
 		"credited_amount": o.PayAmount,
 		"bonus_amount":    0,
 		"period":          decision.Period,
-		"reason":          "monthly bonus already claimed",
+		"reason":          "first recharge package bonus already claimed",
 	})
 	return updated, nil
 }
@@ -152,10 +155,15 @@ func (s *PaymentService) tryClaimMonthlyRechargeBonus(ctx context.Context, o *db
 	if s == nil || s.entClient == nil || o == nil || o.UserID <= 0 {
 		return false, nil
 	}
-	code := monthlyRechargeBonusRedeemCode(o.UserID, decision.Period)
-	if s.monthlyRechargeBonusClaimedByOrder(ctx, code, o.ID) {
+	if claimedByOrder, _ := s.firstRechargePackageBonusClaimedByOrder(ctx, o.UserID, decision.Period, o.ID); claimedByOrder {
 		return true, nil
 	}
+	if claimed, _, err := s.MonthlyRechargeBonusClaimStatus(ctx, o.UserID); err != nil {
+		return false, err
+	} else if claimed {
+		return false, nil
+	}
+	code := firstRechargePackageBonusRedeemCode(o.UserID)
 	now := time.Now().UTC()
 	detail := map[string]any{
 		"package_id":      decision.Package.ID,
@@ -201,8 +209,8 @@ func (s *PaymentService) releaseMonthlyRechargeBonusClaimForOrder(ctx context.Co
 	if strings.TrimSpace(decision.Package.ID) == "" || decision.Period == "" {
 		return
 	}
-	code := monthlyRechargeBonusRedeemCode(o.UserID, decision.Period)
-	if !s.monthlyRechargeBonusClaimedByOrder(ctx, code, o.ID) {
+	claimed, code := s.firstRechargePackageBonusClaimedByOrder(ctx, o.UserID, decision.Period, o.ID)
+	if !claimed {
 		return
 	}
 	if _, err := s.entClient.RedeemCode.Delete().
@@ -250,6 +258,15 @@ func (s *PaymentService) monthlyRechargeBonusClaimedByOrder(ctx context.Context,
 		return false
 	}
 	return exists
+}
+
+func (s *PaymentService) firstRechargePackageBonusClaimedByOrder(ctx context.Context, userID int64, period string, orderID int64) (bool, string) {
+	for _, code := range firstRechargePackageBonusRedeemCodes(userID, period) {
+		if s.monthlyRechargeBonusClaimedByOrder(ctx, code, orderID) {
+			return true, code
+		}
+	}
+	return false, ""
 }
 
 func monthlyRechargeDecisionFromOrder(o *dbent.PaymentOrder) rechargePackageOrderDecision {
@@ -301,6 +318,26 @@ func (s *PaymentService) nowTime() time.Time {
 
 func monthlyRechargeBonusRedeemCode(userID int64, period string) string {
 	return "MRB" + strings.ReplaceAll(period, "-", "") + "U" + strings.ToUpper(strconv.FormatInt(userID, 36))
+}
+
+func firstRechargePackageBonusRedeemCode(userID int64) string {
+	return "FRPB" + strings.ToUpper(strconv.FormatInt(userID, 36))
+}
+
+func firstRechargePackageBonusRedeemCodes(userID int64, period string) []string {
+	codes := []string{firstRechargePackageBonusRedeemCode(userID)}
+	if strings.TrimSpace(period) != "" {
+		codes = append(codes, monthlyRechargeBonusRedeemCode(userID, period))
+	}
+	return codes
+}
+
+func firstRechargePackageBonusPredicate(userID int64) predicate.RedeemCode {
+	return redeemcode.And(
+		redeemcode.TypeEQ(RedeemTypeMonthlyRecharge),
+		redeemcode.StatusEQ(StatusUsed),
+		redeemcode.UsedByEQ(userID),
+	)
 }
 
 func stringSnapshotValue(snapshot map[string]any, key string) string {

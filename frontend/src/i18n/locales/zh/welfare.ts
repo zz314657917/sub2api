@@ -63,7 +63,7 @@ export default {
       claimed: '已发放',
       claimedAt: '发放时间：{time}',
       expiresAt: '有效期至：{time}',
-      monthlyBonusNotice: '如果首笔购买已领取每月首购档位赠送，礼包可能不再额外叠加。',
+      monthlyBonusNotice: '如果首笔购买已领取首次充值档位赠送，礼包可能不再额外叠加。',
       cta: '去购买',
       claim: '领取礼包',
       claiming: '领取中...',
