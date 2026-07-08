@@ -7,6 +7,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -54,25 +55,82 @@ func (h *PaymentHandler) GetDashboard(c *gin.Context) {
 // GET /api/v1/admin/payment/orders
 func (h *PaymentHandler) ListOrders(c *gin.Context) {
 	page, pageSize := response.ParsePagination(c)
-	var userID int64
-	if uid := c.Query("user_id"); uid != "" {
-		if v, err := strconv.ParseInt(uid, 10, 64); err == nil {
-			userID = v
-		}
+	userID, params, ok := h.parseOrderListParams(c)
+	if !ok {
+		return
 	}
-	orders, total, err := h.paymentService.AdminListOrders(c.Request.Context(), userID, service.OrderListParams{
-		Page:        page,
-		PageSize:    pageSize,
-		Status:      c.Query("status"),
-		OrderType:   c.Query("order_type"),
-		PaymentType: c.Query("payment_type"),
-		Keyword:     c.Query("keyword"),
-	})
+	params.Page = page
+	params.PageSize = pageSize
+	orders, total, err := h.paymentService.AdminListOrders(c.Request.Context(), userID, params)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
 	response.Paginated(c, sanitizeAdminPaymentOrdersForResponse(orders), int64(total), page, pageSize)
+}
+
+// GetOrderStats returns stats for the currently filtered admin order list.
+// GET /api/v1/admin/payment/orders/stats
+func (h *PaymentHandler) GetOrderStats(c *gin.Context) {
+	userID, params, ok := h.parseOrderListParams(c)
+	if !ok {
+		return
+	}
+	stats, err := h.paymentService.AdminOrderStats(c.Request.Context(), userID, params)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, stats)
+}
+
+func (h *PaymentHandler) parseOrderListParams(c *gin.Context) (int64, service.OrderListParams, bool) {
+	var userID int64
+	if uid := c.Query("user_id"); uid != "" {
+		v, err := strconv.ParseInt(uid, 10, 64)
+		if err != nil {
+			response.BadRequest(c, "Invalid user_id")
+			return 0, service.OrderListParams{}, false
+		}
+		userID = v
+	}
+	params := service.OrderListParams{
+		Status:      c.Query("status"),
+		OrderType:   c.Query("order_type"),
+		PaymentType: c.Query("payment_type"),
+		Keyword:     c.Query("keyword"),
+	}
+	start, ok := parseAdminOrderDateParam(c, "start_date", false)
+	if !ok {
+		return 0, service.OrderListParams{}, false
+	}
+	end, ok := parseAdminOrderDateParam(c, "end_date", true)
+	if !ok {
+		return 0, service.OrderListParams{}, false
+	}
+	if start != nil && end != nil && !end.After(*start) {
+		response.BadRequest(c, "end_date must be after or equal to start_date")
+		return 0, service.OrderListParams{}, false
+	}
+	params.StartTime = start
+	params.EndTime = end
+	return userID, params, true
+}
+
+func parseAdminOrderDateParam(c *gin.Context, key string, endOfDay bool) (*time.Time, bool) {
+	raw := c.Query(key)
+	if raw == "" {
+		return nil, true
+	}
+	parsed, err := timezone.ParseInUserLocation("2006-01-02", raw, c.Query("timezone"))
+	if err != nil {
+		response.BadRequest(c, "Invalid "+key+" format, use YYYY-MM-DD")
+		return nil, false
+	}
+	if endOfDay {
+		parsed = parsed.AddDate(0, 0, 1)
+	}
+	return &parsed, true
 }
 
 // GetOrderDetail returns detailed information about a single order.

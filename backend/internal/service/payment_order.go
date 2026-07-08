@@ -850,6 +850,7 @@ func (s *PaymentService) GetUserOrders(ctx context.Context, userID int64, p Orde
 	if p.PaymentType != "" {
 		q = q.Where(paymentorder.PaymentTypeEQ(p.PaymentType))
 	}
+	applyPaymentOrderCreatedRange(q, p)
 	total, err := q.Clone().Count(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("count user orders: %w", err)
@@ -884,6 +885,7 @@ func (s *PaymentService) AdminListOrders(ctx context.Context, userID int64, p Or
 			paymentorder.UserNameContainsFold(p.Keyword),
 		))
 	}
+	applyPaymentOrderCreatedRange(q, p)
 	total, err := q.Clone().Count(ctx)
 	if err != nil {
 		return nil, 0, fmt.Errorf("count admin orders: %w", err)
@@ -894,4 +896,42 @@ func (s *PaymentService) AdminListOrders(ctx context.Context, userID int64, p Or
 		return nil, 0, fmt.Errorf("query admin orders: %w", err)
 	}
 	return orders, total, nil
+}
+
+func (s *PaymentService) AdminOrderStats(ctx context.Context, userID int64, p OrderListParams) (*DashboardStats, error) {
+	q := s.entClient.PaymentOrder.Query()
+	if userID > 0 {
+		q = q.Where(paymentorder.UserIDEQ(userID))
+	}
+	if p.Status != "" {
+		q = q.Where(paymentorder.StatusEQ(p.Status))
+	}
+	if p.OrderType != "" {
+		q = q.Where(paymentorder.OrderTypeEQ(p.OrderType))
+	}
+	if p.PaymentType != "" {
+		q = q.Where(paymentorder.PaymentTypeEQ(p.PaymentType))
+	}
+	if p.Keyword != "" {
+		q = q.Where(paymentorder.Or(
+			paymentorder.OutTradeNoContainsFold(p.Keyword),
+			paymentorder.UserEmailContainsFold(p.Keyword),
+			paymentorder.UserNameContainsFold(p.Keyword),
+		))
+	}
+	applyPaymentOrderCreatedRange(q, p)
+	orders, err := q.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("query admin order stats: %w", err)
+	}
+	return buildPaymentOrderStats(orders, paymentOrderStatsRange(p)), nil
+}
+
+func applyPaymentOrderCreatedRange(q *dbent.PaymentOrderQuery, p OrderListParams) {
+	if p.StartTime != nil {
+		q.Where(paymentorder.CreatedAtGTE(*p.StartTime))
+	}
+	if p.EndTime != nil {
+		q.Where(paymentorder.CreatedAtLT(*p.EndTime))
+	}
 }
