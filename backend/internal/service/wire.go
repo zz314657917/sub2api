@@ -544,6 +544,208 @@ func ProvideStudioBridgeService(
 	return svc
 }
 
+func ProvideMembershipServices(membershipService *MembershipService) []*MembershipService {
+	return []*MembershipService{membershipService}
+}
+
+func ProvideAdminService(
+	userRepo UserRepository,
+	groupRepo GroupRepository,
+	accountRepo AccountRepository,
+	proxyRepo ProxyRepository,
+	apiKeyRepo APIKeyRepository,
+	redeemCodeRepo RedeemCodeRepository,
+	userGroupRateRepo UserGroupRateRepository,
+	userRPMCache UserRPMCache,
+	billingCacheService *BillingCacheService,
+	proxyProber ProxyExitInfoProber,
+	proxyLatencyCache ProxyLatencyCache,
+	authCacheInvalidator APIKeyAuthCacheInvalidator,
+	entClient *dbent.Client,
+	settingService *SettingService,
+	defaultSubAssigner DefaultSubscriptionAssigner,
+	userSubRepo UserSubscriptionRepository,
+	privacyClientFactory PrivacyClientFactory,
+	systemTicketSvc *SystemTicketService,
+) AdminService {
+	svc := NewAdminService(
+		userRepo,
+		groupRepo,
+		accountRepo,
+		proxyRepo,
+		apiKeyRepo,
+		redeemCodeRepo,
+		userGroupRateRepo,
+		userRPMCache,
+		billingCacheService,
+		proxyProber,
+		proxyLatencyCache,
+		authCacheInvalidator,
+		entClient,
+		settingService,
+		defaultSubAssigner,
+		userSubRepo,
+		privacyClientFactory,
+	)
+	if setter, ok := svc.(interface {
+		SetSystemTicketService(*SystemTicketService)
+	}); ok {
+		setter.SetSystemTicketService(systemTicketSvc)
+	}
+	return svc
+}
+
+func ProvideGatewayService(
+	accountRepo AccountRepository,
+	groupRepo GroupRepository,
+	usageLogRepo UsageLogRepository,
+	usageBillingRepo UsageBillingRepository,
+	userRepo UserRepository,
+	userSubRepo UserSubscriptionRepository,
+	userGroupRateRepo UserGroupRateRepository,
+	cache GatewayCache,
+	cfg *config.Config,
+	schedulerSnapshot *SchedulerSnapshotService,
+	concurrencyService *ConcurrencyService,
+	billingService *BillingService,
+	rateLimitService *RateLimitService,
+	billingCacheService *BillingCacheService,
+	identityService *IdentityService,
+	httpUpstream HTTPUpstream,
+	deferredService *DeferredService,
+	claudeTokenProvider *ClaudeTokenProvider,
+	sessionLimitCache SessionLimitCache,
+	rpmCache RPMCache,
+	digestStore *DigestSessionStore,
+	settingService *SettingService,
+	tlsFPProfileService *TLSFingerprintProfileService,
+	channelService *ChannelService,
+	resolver *ModelPricingResolver,
+	balanceNotifyService *BalanceNotifyService,
+	welfareService *WelfareService,
+	affiliateService *AffiliateService,
+	membershipServices []*MembershipService,
+) *GatewayService {
+	svc := NewGatewayService(
+		accountRepo,
+		groupRepo,
+		usageLogRepo,
+		usageBillingRepo,
+		userRepo,
+		userSubRepo,
+		userGroupRateRepo,
+		cache,
+		cfg,
+		schedulerSnapshot,
+		concurrencyService,
+		billingService,
+		rateLimitService,
+		billingCacheService,
+		identityService,
+		httpUpstream,
+		deferredService,
+		claudeTokenProvider,
+		sessionLimitCache,
+		rpmCache,
+		digestStore,
+		settingService,
+		tlsFPProfileService,
+		channelService,
+		resolver,
+		balanceNotifyService,
+		welfareService,
+		membershipServices...,
+	)
+	svc.SetAffiliateService(affiliateService)
+	return svc
+}
+
+func ProvideOpenAIGatewayService(
+	accountRepo AccountRepository,
+	usageLogRepo UsageLogRepository,
+	usageBillingRepo UsageBillingRepository,
+	userRepo UserRepository,
+	userSubRepo UserSubscriptionRepository,
+	userGroupRateRepo UserGroupRateRepository,
+	cache GatewayCache,
+	cfg *config.Config,
+	schedulerSnapshot *SchedulerSnapshotService,
+	concurrencyService *ConcurrencyService,
+	billingService *BillingService,
+	rateLimitService *RateLimitService,
+	billingCacheService *BillingCacheService,
+	httpUpstream HTTPUpstream,
+	deferredService *DeferredService,
+	openAITokenProvider *OpenAITokenProvider,
+	grokTokenProvider *GrokTokenProvider,
+	resolver *ModelPricingResolver,
+	channelService *ChannelService,
+	balanceNotifyService *BalanceNotifyService,
+	settingService *SettingService,
+	welfareService *WelfareService,
+	affiliateService *AffiliateService,
+	openAIVideoTaskRepo OpenAIVideoTaskRepository,
+	backupObjectStoreFactory BackupObjectStoreFactory,
+	membershipServices []*MembershipService,
+) *OpenAIGatewayService {
+	svc := NewOpenAIGatewayService(
+		accountRepo,
+		usageLogRepo,
+		usageBillingRepo,
+		userRepo,
+		userSubRepo,
+		userGroupRateRepo,
+		cache,
+		cfg,
+		schedulerSnapshot,
+		concurrencyService,
+		billingService,
+		rateLimitService,
+		billingCacheService,
+		httpUpstream,
+		deferredService,
+		openAITokenProvider,
+		grokTokenProvider,
+		resolver,
+		channelService,
+		balanceNotifyService,
+		settingService,
+		welfareService,
+		membershipServices...,
+	)
+	svc.SetAffiliateService(affiliateService)
+	svc.SetOpenAIVideoTaskRepository(openAIVideoTaskRepo)
+	svc.SetImageInputObjectStoreFactory(backupObjectStoreFactory)
+	return svc
+}
+
+func ProvideAffiliateService(
+	repo AffiliateRepository,
+	settingService *SettingService,
+	authCacheInvalidator APIKeyAuthCacheInvalidator,
+	billingCacheService *BillingCacheService,
+	systemTicketSvc *SystemTicketService,
+) *AffiliateService {
+	svc := NewAffiliateService(repo, settingService, authCacheInvalidator, billingCacheService)
+	svc.SetSystemTicketService(systemTicketSvc)
+	return svc
+}
+
+func ProvideWelfareService(
+	repo WelfareRepository,
+	userRepo UserRepository,
+	redeemRepo RedeemCodeRepository,
+	settingRepo SettingRepository,
+	entClient *dbent.Client,
+	authCacheInvalidator APIKeyAuthCacheInvalidator,
+	billingCacheService *BillingCacheService,
+	systemTicketSvc *SystemTicketService,
+) *WelfareService {
+	svc := NewWelfareService(repo, userRepo, redeemRepo, settingRepo, entClient, authCacheInvalidator, billingCacheService)
+	svc.SetSystemTicketService(systemTicketSvc)
+	return svc
+}
+
 func ProvideOpsService(
 	opsRepo OpsRepository,
 	settingRepo SettingRepository,
@@ -600,9 +802,9 @@ var ProviderSet = wire.NewSet(
 	ProvideBillingCacheService,
 	NewAnnouncementService,
 	NewTutorialPageService,
-	NewAdminService,
-	NewGatewayService,
-	NewOpenAIGatewayService,
+	ProvideAdminService,
+	ProvideGatewayService,
+	ProvideOpenAIGatewayService,
 	NewOAuthService,
 	ProvideOpenAIOAuthService,
 	NewGrokOAuthService,
@@ -642,6 +844,7 @@ var ProviderSet = wire.NewSet(
 	NewSubscriptionService,
 	wire.Bind(new(DefaultSubscriptionAssigner), new(*SubscriptionService)),
 	NewMembershipService,
+	ProvideMembershipServices,
 	ProvideConcurrencyService,
 	ProvideUserMessageQueueService,
 	NewUsageRecordWorkerPool,
@@ -673,15 +876,16 @@ var ProviderSet = wire.NewSet(
 	NewChannelService,
 	NewModelPricingResolver,
 	NewContentModerationService,
-	NewAffiliateService,
+	ProvideAffiliateService,
 	NewPromptFavoriteService,
 	NewTicketService,
 	NewSystemTicketService,
 	NewCanvasServiceWithDeps,
+	wire.Bind(new(CanvasImageTaskCreator), new(*ImageCreatorService)),
 	ProvideImageCreatorService,
 	ProvideStudioBridgeService,
 	NewImageCreatorStorageGovernanceService,
-	NewWelfareService,
+	ProvideWelfareService,
 	ProvidePaymentConfigService,
 	ProvidePaymentService,
 	ProvidePaymentOrderExpiryService,
