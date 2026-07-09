@@ -11,6 +11,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 )
@@ -478,6 +480,40 @@ func (_c *PaymentOrderCreate) SetUser(v *User) *PaymentOrderCreate {
 	return _c.SetUserID(v.ID)
 }
 
+// SetGroupBuySeatID sets the "group_buy_seat" edge to the GroupBuySeat entity by ID.
+func (_c *PaymentOrderCreate) SetGroupBuySeatID(id int64) *PaymentOrderCreate {
+	_c.mutation.SetGroupBuySeatID(id)
+	return _c
+}
+
+// SetNillableGroupBuySeatID sets the "group_buy_seat" edge to the GroupBuySeat entity by ID if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableGroupBuySeatID(id *int64) *PaymentOrderCreate {
+	if id != nil {
+		_c = _c.SetGroupBuySeatID(*id)
+	}
+	return _c
+}
+
+// SetGroupBuySeat sets the "group_buy_seat" edge to the GroupBuySeat entity.
+func (_c *PaymentOrderCreate) SetGroupBuySeat(v *GroupBuySeat) *PaymentOrderCreate {
+	return _c.SetGroupBuySeatID(v.ID)
+}
+
+// AddGroupBuyRefundIDs adds the "group_buy_refunds" edge to the GroupBuyRefund entity by IDs.
+func (_c *PaymentOrderCreate) AddGroupBuyRefundIDs(ids ...int64) *PaymentOrderCreate {
+	_c.mutation.AddGroupBuyRefundIDs(ids...)
+	return _c
+}
+
+// AddGroupBuyRefunds adds the "group_buy_refunds" edges to the GroupBuyRefund entity.
+func (_c *PaymentOrderCreate) AddGroupBuyRefunds(v ...*GroupBuyRefund) *PaymentOrderCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddGroupBuyRefundIDs(ids...)
+}
+
 // Mutation returns the PaymentOrderMutation object of the builder.
 func (_c *PaymentOrderCreate) Mutation() *PaymentOrderMutation {
 	return _c.mutation
@@ -868,6 +904,38 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.UserID = nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.GroupBuySeatIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2O,
+			Inverse: false,
+			Table:   paymentorder.GroupBuySeatTable,
+			Columns: []string{paymentorder.GroupBuySeatColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.GroupBuyRefundsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   paymentorder.GroupBuyRefundsTable,
+			Columns: []string{paymentorder.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

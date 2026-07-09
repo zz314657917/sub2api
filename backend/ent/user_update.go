@@ -15,6 +15,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/invoicerequest"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/pendingauthsession"
@@ -590,6 +594,66 @@ func (_u *UserUpdate) AddPaymentOrders(v ...*PaymentOrder) *UserUpdate {
 	return _u.AddPaymentOrderIDs(ids...)
 }
 
+// AddGroupBuySeatIDs adds the "group_buy_seats" edge to the GroupBuySeat entity by IDs.
+func (_u *UserUpdate) AddGroupBuySeatIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddGroupBuySeatIDs(ids...)
+	return _u
+}
+
+// AddGroupBuySeats adds the "group_buy_seats" edges to the GroupBuySeat entity.
+func (_u *UserUpdate) AddGroupBuySeats(v ...*GroupBuySeat) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuySeatIDs(ids...)
+}
+
+// AddGroupBuyEventIDs adds the "group_buy_events" edge to the GroupBuyEvent entity by IDs.
+func (_u *UserUpdate) AddGroupBuyEventIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddGroupBuyEventIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyEvents adds the "group_buy_events" edges to the GroupBuyEvent entity.
+func (_u *UserUpdate) AddGroupBuyEvents(v ...*GroupBuyEvent) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyEventIDs(ids...)
+}
+
+// AddGroupBuyEntitlementIDs adds the "group_buy_entitlements" edge to the GroupBuyEntitlement entity by IDs.
+func (_u *UserUpdate) AddGroupBuyEntitlementIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyEntitlements adds the "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *UserUpdate) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyEntitlementIDs(ids...)
+}
+
+// AddGroupBuyRefundIDs adds the "group_buy_refunds" edge to the GroupBuyRefund entity by IDs.
+func (_u *UserUpdate) AddGroupBuyRefundIDs(ids ...int64) *UserUpdate {
+	_u.mutation.AddGroupBuyRefundIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyRefunds adds the "group_buy_refunds" edges to the GroupBuyRefund entity.
+func (_u *UserUpdate) AddGroupBuyRefunds(v ...*GroupBuyRefund) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyRefundIDs(ids...)
+}
+
 // AddInvoiceRequestIDs adds the "invoice_requests" edge to the InvoiceRequest entity by IDs.
 func (_u *UserUpdate) AddInvoiceRequestIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddInvoiceRequestIDs(ids...)
@@ -863,6 +927,90 @@ func (_u *UserUpdate) RemovePaymentOrders(v ...*PaymentOrder) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePaymentOrderIDs(ids...)
+}
+
+// ClearGroupBuySeats clears all "group_buy_seats" edges to the GroupBuySeat entity.
+func (_u *UserUpdate) ClearGroupBuySeats() *UserUpdate {
+	_u.mutation.ClearGroupBuySeats()
+	return _u
+}
+
+// RemoveGroupBuySeatIDs removes the "group_buy_seats" edge to GroupBuySeat entities by IDs.
+func (_u *UserUpdate) RemoveGroupBuySeatIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveGroupBuySeatIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuySeats removes "group_buy_seats" edges to GroupBuySeat entities.
+func (_u *UserUpdate) RemoveGroupBuySeats(v ...*GroupBuySeat) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuySeatIDs(ids...)
+}
+
+// ClearGroupBuyEvents clears all "group_buy_events" edges to the GroupBuyEvent entity.
+func (_u *UserUpdate) ClearGroupBuyEvents() *UserUpdate {
+	_u.mutation.ClearGroupBuyEvents()
+	return _u
+}
+
+// RemoveGroupBuyEventIDs removes the "group_buy_events" edge to GroupBuyEvent entities by IDs.
+func (_u *UserUpdate) RemoveGroupBuyEventIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveGroupBuyEventIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyEvents removes "group_buy_events" edges to GroupBuyEvent entities.
+func (_u *UserUpdate) RemoveGroupBuyEvents(v ...*GroupBuyEvent) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyEventIDs(ids...)
+}
+
+// ClearGroupBuyEntitlements clears all "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *UserUpdate) ClearGroupBuyEntitlements() *UserUpdate {
+	_u.mutation.ClearGroupBuyEntitlements()
+	return _u
+}
+
+// RemoveGroupBuyEntitlementIDs removes the "group_buy_entitlements" edge to GroupBuyEntitlement entities by IDs.
+func (_u *UserUpdate) RemoveGroupBuyEntitlementIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyEntitlements removes "group_buy_entitlements" edges to GroupBuyEntitlement entities.
+func (_u *UserUpdate) RemoveGroupBuyEntitlements(v ...*GroupBuyEntitlement) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyEntitlementIDs(ids...)
+}
+
+// ClearGroupBuyRefunds clears all "group_buy_refunds" edges to the GroupBuyRefund entity.
+func (_u *UserUpdate) ClearGroupBuyRefunds() *UserUpdate {
+	_u.mutation.ClearGroupBuyRefunds()
+	return _u
+}
+
+// RemoveGroupBuyRefundIDs removes the "group_buy_refunds" edge to GroupBuyRefund entities by IDs.
+func (_u *UserUpdate) RemoveGroupBuyRefundIDs(ids ...int64) *UserUpdate {
+	_u.mutation.RemoveGroupBuyRefundIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyRefunds removes "group_buy_refunds" edges to GroupBuyRefund entities.
+func (_u *UserUpdate) RemoveGroupBuyRefunds(v ...*GroupBuyRefund) *UserUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyRefundIDs(ids...)
 }
 
 // ClearInvoiceRequests clears all "invoice_requests" edges to the InvoiceRequest entity.
@@ -1608,6 +1756,186 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(paymentorder.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuySeatsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuySeatsTable,
+			Columns: []string{user.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuySeatsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuySeatsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuySeatsTable,
+			Columns: []string{user.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuySeatsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuySeatsTable,
+			Columns: []string{user.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEventsTable,
+			Columns: []string{user.GroupBuyEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyEventsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEventsTable,
+			Columns: []string{user.GroupBuyEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEventsTable,
+			Columns: []string{user.GroupBuyEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEntitlementsTable,
+			Columns: []string{user.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyEntitlementsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEntitlementsTable,
+			Columns: []string{user.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyEntitlementsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEntitlementsTable,
+			Columns: []string{user.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyRefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyRefundsTable,
+			Columns: []string{user.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyRefundsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyRefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyRefundsTable,
+			Columns: []string{user.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyRefundsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyRefundsTable,
+			Columns: []string{user.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -2364,6 +2692,66 @@ func (_u *UserUpdateOne) AddPaymentOrders(v ...*PaymentOrder) *UserUpdateOne {
 	return _u.AddPaymentOrderIDs(ids...)
 }
 
+// AddGroupBuySeatIDs adds the "group_buy_seats" edge to the GroupBuySeat entity by IDs.
+func (_u *UserUpdateOne) AddGroupBuySeatIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddGroupBuySeatIDs(ids...)
+	return _u
+}
+
+// AddGroupBuySeats adds the "group_buy_seats" edges to the GroupBuySeat entity.
+func (_u *UserUpdateOne) AddGroupBuySeats(v ...*GroupBuySeat) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuySeatIDs(ids...)
+}
+
+// AddGroupBuyEventIDs adds the "group_buy_events" edge to the GroupBuyEvent entity by IDs.
+func (_u *UserUpdateOne) AddGroupBuyEventIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddGroupBuyEventIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyEvents adds the "group_buy_events" edges to the GroupBuyEvent entity.
+func (_u *UserUpdateOne) AddGroupBuyEvents(v ...*GroupBuyEvent) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyEventIDs(ids...)
+}
+
+// AddGroupBuyEntitlementIDs adds the "group_buy_entitlements" edge to the GroupBuyEntitlement entity by IDs.
+func (_u *UserUpdateOne) AddGroupBuyEntitlementIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyEntitlements adds the "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *UserUpdateOne) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyEntitlementIDs(ids...)
+}
+
+// AddGroupBuyRefundIDs adds the "group_buy_refunds" edge to the GroupBuyRefund entity by IDs.
+func (_u *UserUpdateOne) AddGroupBuyRefundIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.AddGroupBuyRefundIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyRefunds adds the "group_buy_refunds" edges to the GroupBuyRefund entity.
+func (_u *UserUpdateOne) AddGroupBuyRefunds(v ...*GroupBuyRefund) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyRefundIDs(ids...)
+}
+
 // AddInvoiceRequestIDs adds the "invoice_requests" edge to the InvoiceRequest entity by IDs.
 func (_u *UserUpdateOne) AddInvoiceRequestIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddInvoiceRequestIDs(ids...)
@@ -2637,6 +3025,90 @@ func (_u *UserUpdateOne) RemovePaymentOrders(v ...*PaymentOrder) *UserUpdateOne 
 		ids[i] = v[i].ID
 	}
 	return _u.RemovePaymentOrderIDs(ids...)
+}
+
+// ClearGroupBuySeats clears all "group_buy_seats" edges to the GroupBuySeat entity.
+func (_u *UserUpdateOne) ClearGroupBuySeats() *UserUpdateOne {
+	_u.mutation.ClearGroupBuySeats()
+	return _u
+}
+
+// RemoveGroupBuySeatIDs removes the "group_buy_seats" edge to GroupBuySeat entities by IDs.
+func (_u *UserUpdateOne) RemoveGroupBuySeatIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveGroupBuySeatIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuySeats removes "group_buy_seats" edges to GroupBuySeat entities.
+func (_u *UserUpdateOne) RemoveGroupBuySeats(v ...*GroupBuySeat) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuySeatIDs(ids...)
+}
+
+// ClearGroupBuyEvents clears all "group_buy_events" edges to the GroupBuyEvent entity.
+func (_u *UserUpdateOne) ClearGroupBuyEvents() *UserUpdateOne {
+	_u.mutation.ClearGroupBuyEvents()
+	return _u
+}
+
+// RemoveGroupBuyEventIDs removes the "group_buy_events" edge to GroupBuyEvent entities by IDs.
+func (_u *UserUpdateOne) RemoveGroupBuyEventIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveGroupBuyEventIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyEvents removes "group_buy_events" edges to GroupBuyEvent entities.
+func (_u *UserUpdateOne) RemoveGroupBuyEvents(v ...*GroupBuyEvent) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyEventIDs(ids...)
+}
+
+// ClearGroupBuyEntitlements clears all "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *UserUpdateOne) ClearGroupBuyEntitlements() *UserUpdateOne {
+	_u.mutation.ClearGroupBuyEntitlements()
+	return _u
+}
+
+// RemoveGroupBuyEntitlementIDs removes the "group_buy_entitlements" edge to GroupBuyEntitlement entities by IDs.
+func (_u *UserUpdateOne) RemoveGroupBuyEntitlementIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyEntitlements removes "group_buy_entitlements" edges to GroupBuyEntitlement entities.
+func (_u *UserUpdateOne) RemoveGroupBuyEntitlements(v ...*GroupBuyEntitlement) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyEntitlementIDs(ids...)
+}
+
+// ClearGroupBuyRefunds clears all "group_buy_refunds" edges to the GroupBuyRefund entity.
+func (_u *UserUpdateOne) ClearGroupBuyRefunds() *UserUpdateOne {
+	_u.mutation.ClearGroupBuyRefunds()
+	return _u
+}
+
+// RemoveGroupBuyRefundIDs removes the "group_buy_refunds" edge to GroupBuyRefund entities by IDs.
+func (_u *UserUpdateOne) RemoveGroupBuyRefundIDs(ids ...int64) *UserUpdateOne {
+	_u.mutation.RemoveGroupBuyRefundIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyRefunds removes "group_buy_refunds" edges to GroupBuyRefund entities.
+func (_u *UserUpdateOne) RemoveGroupBuyRefunds(v ...*GroupBuyRefund) *UserUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyRefundIDs(ids...)
 }
 
 // ClearInvoiceRequests clears all "invoice_requests" edges to the InvoiceRequest entity.
@@ -3412,6 +3884,186 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(paymentorder.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuySeatsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuySeatsTable,
+			Columns: []string{user.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuySeatsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuySeatsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuySeatsTable,
+			Columns: []string{user.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuySeatsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuySeatsTable,
+			Columns: []string{user.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEventsTable,
+			Columns: []string{user.GroupBuyEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyEventsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyEventsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEventsTable,
+			Columns: []string{user.GroupBuyEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyEventsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEventsTable,
+			Columns: []string{user.GroupBuyEventsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEntitlementsTable,
+			Columns: []string{user.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyEntitlementsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEntitlementsTable,
+			Columns: []string{user.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyEntitlementsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyEntitlementsTable,
+			Columns: []string{user.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyRefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyRefundsTable,
+			Columns: []string{user.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyRefundsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyRefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyRefundsTable,
+			Columns: []string{user.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyRefundsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyRefundsTable,
+			Columns: []string{user.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

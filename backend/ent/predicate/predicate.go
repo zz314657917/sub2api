@@ -45,6 +45,24 @@ type ErrorPassthroughRule func(*sql.Selector)
 // Group is the predicate function for group builders.
 type Group func(*sql.Selector)
 
+// GroupBuyEntitlement is the predicate function for groupbuyentitlement builders.
+type GroupBuyEntitlement func(*sql.Selector)
+
+// GroupBuyEvent is the predicate function for groupbuyevent builders.
+type GroupBuyEvent func(*sql.Selector)
+
+// GroupBuyPlan is the predicate function for groupbuyplan builders.
+type GroupBuyPlan func(*sql.Selector)
+
+// GroupBuyRefund is the predicate function for groupbuyrefund builders.
+type GroupBuyRefund func(*sql.Selector)
+
+// GroupBuyRound is the predicate function for groupbuyround builders.
+type GroupBuyRound func(*sql.Selector)
+
+// GroupBuySeat is the predicate function for groupbuyseat builders.
+type GroupBuySeat func(*sql.Selector)
+
 // IdempotencyRecord is the predicate function for idempotencyrecord builders.
 type IdempotencyRecord func(*sql.Selector)
 

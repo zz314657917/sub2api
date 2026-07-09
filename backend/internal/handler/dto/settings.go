@@ -246,7 +246,10 @@ type SystemSettings struct {
 	ChannelMonitorDefaultIntervalSeconds int  `json:"channel_monitor_default_interval_seconds"`
 
 	// Available Channels feature switch (user-facing aggregate view)
-	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled bool   `json:"available_channels_enabled"`
+	GroupBuyEnabled          bool   `json:"group_buy_enabled"`
+	GroupBuyProductName      string `json:"group_buy_product_name"`
+	GroupBuyDescription      string `json:"group_buy_description"`
 
 	LeaderboardRewardMode                    string  `json:"reward_mode"`
 	LeaderboardRedPacketPoolAmount           float64 `json:"red_packet_pool_amount"`
@@ -385,7 +388,10 @@ type PublicSettings struct {
 	ChannelMonitorEnabled                bool `json:"channel_monitor_enabled"`
 	ChannelMonitorDefaultIntervalSeconds int  `json:"channel_monitor_default_interval_seconds"`
 
-	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled bool   `json:"available_channels_enabled"`
+	GroupBuyEnabled          bool   `json:"group_buy_enabled"`
+	GroupBuyProductName      string `json:"group_buy_product_name"`
+	GroupBuyDescription      string `json:"group_buy_description"`
 
 	AffiliateEnabled bool `json:"affiliate_enabled"`
 

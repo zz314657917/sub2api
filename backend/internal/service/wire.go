@@ -886,6 +886,7 @@ var ProviderSet = wire.NewSet(
 	ProvideStudioBridgeService,
 	NewImageCreatorStorageGovernanceService,
 	ProvideWelfareService,
+	NewGroupBuyService,
 	ProvidePaymentConfigService,
 	ProvidePaymentService,
 	ProvidePaymentOrderExpiryService,

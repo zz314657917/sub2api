@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 )
@@ -107,9 +108,13 @@ type PaymentOrder struct {
 type PaymentOrderEdges struct {
 	// User holds the value of the user edge.
 	User *User `json:"user,omitempty"`
+	// GroupBuySeat holds the value of the group_buy_seat edge.
+	GroupBuySeat *GroupBuySeat `json:"group_buy_seat,omitempty"`
+	// GroupBuyRefunds holds the value of the group_buy_refunds edge.
+	GroupBuyRefunds []*GroupBuyRefund `json:"group_buy_refunds,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [3]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -121,6 +126,26 @@ func (e PaymentOrderEdges) UserOrErr() (*User, error) {
 		return nil, &NotFoundError{label: user.Label}
 	}
 	return nil, &NotLoadedError{edge: "user"}
+}
+
+// GroupBuySeatOrErr returns the GroupBuySeat value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e PaymentOrderEdges) GroupBuySeatOrErr() (*GroupBuySeat, error) {
+	if e.GroupBuySeat != nil {
+		return e.GroupBuySeat, nil
+	} else if e.loadedTypes[1] {
+		return nil, &NotFoundError{label: groupbuyseat.Label}
+	}
+	return nil, &NotLoadedError{edge: "group_buy_seat"}
+}
+
+// GroupBuyRefundsOrErr returns the GroupBuyRefunds value or an error if the edge
+// was not loaded in eager-loading.
+func (e PaymentOrderEdges) GroupBuyRefundsOrErr() ([]*GroupBuyRefund, error) {
+	if e.loadedTypes[2] {
+		return e.GroupBuyRefunds, nil
+	}
+	return nil, &NotLoadedError{edge: "group_buy_refunds"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -432,6 +457,16 @@ func (_m *PaymentOrder) Value(name string) (ent.Value, error) {
 // QueryUser queries the "user" edge of the PaymentOrder entity.
 func (_m *PaymentOrder) QueryUser() *UserQuery {
 	return NewPaymentOrderClient(_m.config).QueryUser(_m)
+}
+
+// QueryGroupBuySeat queries the "group_buy_seat" edge of the PaymentOrder entity.
+func (_m *PaymentOrder) QueryGroupBuySeat() *GroupBuySeatQuery {
+	return NewPaymentOrderClient(_m.config).QueryGroupBuySeat(_m)
+}
+
+// QueryGroupBuyRefunds queries the "group_buy_refunds" edge of the PaymentOrder entity.
+func (_m *PaymentOrder) QueryGroupBuyRefunds() *GroupBuyRefundQuery {
+	return NewPaymentOrderClient(_m.config).QueryGroupBuyRefunds(_m)
 }
 
 // Update returns a builder for updating this PaymentOrder.

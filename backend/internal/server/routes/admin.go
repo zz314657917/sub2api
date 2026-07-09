@@ -110,8 +110,32 @@ func RegisterAdminRoutes(
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
 
+		// 合购管理
+		registerGroupBuyRoutes(admin, h)
+
 		// 生图存储治理
 		registerImageCreatorStorageGovernanceRoutes(admin, h)
+	}
+}
+
+func registerGroupBuyRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	groupBuy := admin.Group("/group-buy")
+	{
+		plans := groupBuy.Group("/plans")
+		{
+			plans.GET("", h.Admin.GroupBuy.ListPlans)
+			plans.POST("", h.Admin.GroupBuy.CreatePlan)
+			plans.PUT("/:id", h.Admin.GroupBuy.UpdatePlan)
+			plans.DELETE("/:id", h.Admin.GroupBuy.DeletePlan)
+			plans.POST("/:id/rounds", h.Admin.GroupBuy.CreateRound)
+		}
+		rounds := groupBuy.Group("/rounds")
+		{
+			rounds.GET("", h.Admin.GroupBuy.ListRounds)
+			rounds.POST("/:id/close", h.Admin.GroupBuy.CloseRound)
+			rounds.POST("/:id/retry-activation", h.Admin.GroupBuy.RetryActivation)
+			rounds.POST("/:id/process-refunds", h.Admin.GroupBuy.ProcessRefunds)
+		}
 	}
 }
 

@@ -420,6 +420,9 @@ const baseSettingsResponse = {
   rewrite_message_cache_control: false,
   antigravity_user_agent_version: "",
   payment_enabled: true,
+  group_buy_enabled: true,
+  group_buy_product_name: "Token拼拼拼",
+  group_buy_description: "按份额拼团，满份后开通 Token拼拼拼 权益。",
   payment_min_amount: 1,
   payment_max_amount: 10000,
   payment_daily_limit: 50000,
@@ -657,6 +660,49 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(payload).not.toHaveProperty("payment_visible_method_wxpay_source");
     expect(payload).not.toHaveProperty("payment_visible_method_alipay_enabled");
     expect(payload).not.toHaveProperty("payment_visible_method_wxpay_enabled");
+  });
+
+  it("places Token拼拼拼 controls in feature switches instead of payment settings", async () => {
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openPaymentTab(wrapper);
+
+    const paymentTab = wrapper.find('[data-testid="settings-payment-tab"]');
+    expect(paymentTab.exists()).toBe(true);
+    expect(paymentTab.text()).not.toContain("控制用户端拼团入口、功能名称、页面说明和下单能力");
+    expect(paymentTab.text()).not.toContain("用户页顶部描述");
+
+    await openFeaturesTab(wrapper);
+
+    const groupBuySettings = wrapper.find('[data-testid="group-buy-feature-settings"]');
+    expect(groupBuySettings.exists()).toBe(true);
+    expect(groupBuySettings.text()).toContain("Token拼拼拼");
+    expect(groupBuySettings.text()).toContain("控制用户端拼团入口、功能名称、页面说明和下单能力");
+    expect(groupBuySettings.text()).toContain("功能名称");
+    expect(groupBuySettings.text()).toContain("用户页顶部描述");
+
+    const productName = groupBuySettings
+      .findAll("input")
+      .find((node) => (node.element as HTMLInputElement).value === "Token拼拼拼");
+    expect(productName).toBeDefined();
+    await productName?.setValue("我的拼团");
+
+    const description = groupBuySettings
+      .findAll("textarea")
+      .find((node) => (node.element as HTMLTextAreaElement).value.includes("Token拼拼拼"));
+    expect(description).toBeDefined();
+    await description?.setValue("自定义我的拼团顶部说明");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        group_buy_enabled: true,
+        group_buy_product_name: "我的拼团",
+        group_buy_description: "自定义我的拼团顶部说明",
+      }),
+    );
   });
 
   it("loads and submits configured recharge packages", async () => {

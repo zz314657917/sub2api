@@ -192,6 +192,7 @@ import { openSupportPopup } from '@/utils/supportPopup'
 import { hasSupportContent } from '@/utils/supportContent'
 import { useAnnouncementStore } from '@/stores/announcements'
 import { formatCreditAmount } from '@/utils/credits'
+import { resolveGroupBuyProductName } from '@/utils/groupBuyProduct'
 import type { UserAnnouncement } from '@/types'
 
 const router = useRouter()
@@ -249,6 +250,9 @@ const pageTitle = computed(() => {
         ? adminSettingsStore.customMenuItems.find((item) => item.id === id)
         : undefined)
     if (menuItem?.label) return menuItem.label
+  }
+  if (route.name === 'GroupBuy') {
+    return resolveGroupBuyProductName(appStore.cachedPublicSettings)
   }
   const titleKey = route.meta.titleKey as string
   if (titleKey) {

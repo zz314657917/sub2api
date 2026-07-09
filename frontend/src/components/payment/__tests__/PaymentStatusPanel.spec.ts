@@ -162,4 +162,29 @@ describe('PaymentStatusPanel', () => {
     expect(wrapper.text()).toContain('payment.result.success')
     expect(wrapper.emitted('success')).toHaveLength(1)
   })
+
+  it('uses group-buy success copy for group-buy orders', async () => {
+    pollOrderStatus.mockResolvedValue(orderFactory('COMPLETED'))
+
+    const wrapper = mount(PaymentStatusPanel, {
+      props: {
+        orderId: 42,
+        qrCode: 'https://pay.example.com/qr/42',
+        expiresAt: '2099-01-01T12:30:00Z',
+        paymentType: 'alipay',
+        orderType: 'group_buy',
+      },
+      global: {
+        stubs: {
+          Icon: true,
+        },
+      },
+    })
+
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(3000)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('payment.result.groupBuySuccess')
+  })
 })

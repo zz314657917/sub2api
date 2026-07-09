@@ -85,9 +85,13 @@ type APIKeyEdges struct {
 	Group *Group `json:"group,omitempty"`
 	// UsageLogs holds the value of the usage_logs edge.
 	UsageLogs []*UsageLog `json:"usage_logs,omitempty"`
+	// GroupBuySeats holds the value of the group_buy_seats edge.
+	GroupBuySeats []*GroupBuySeat `json:"group_buy_seats,omitempty"`
+	// GroupBuyEntitlements holds the value of the group_buy_entitlements edge.
+	GroupBuyEntitlements []*GroupBuyEntitlement `json:"group_buy_entitlements,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [5]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -119,6 +123,24 @@ func (e APIKeyEdges) UsageLogsOrErr() ([]*UsageLog, error) {
 		return e.UsageLogs, nil
 	}
 	return nil, &NotLoadedError{edge: "usage_logs"}
+}
+
+// GroupBuySeatsOrErr returns the GroupBuySeats value or an error if the edge
+// was not loaded in eager-loading.
+func (e APIKeyEdges) GroupBuySeatsOrErr() ([]*GroupBuySeat, error) {
+	if e.loadedTypes[3] {
+		return e.GroupBuySeats, nil
+	}
+	return nil, &NotLoadedError{edge: "group_buy_seats"}
+}
+
+// GroupBuyEntitlementsOrErr returns the GroupBuyEntitlements value or an error if the edge
+// was not loaded in eager-loading.
+func (e APIKeyEdges) GroupBuyEntitlementsOrErr() ([]*GroupBuyEntitlement, error) {
+	if e.loadedTypes[4] {
+		return e.GroupBuyEntitlements, nil
+	}
+	return nil, &NotLoadedError{edge: "group_buy_entitlements"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -346,6 +368,16 @@ func (_m *APIKey) QueryGroup() *GroupQuery {
 // QueryUsageLogs queries the "usage_logs" edge of the APIKey entity.
 func (_m *APIKey) QueryUsageLogs() *UsageLogQuery {
 	return NewAPIKeyClient(_m.config).QueryUsageLogs(_m)
+}
+
+// QueryGroupBuySeats queries the "group_buy_seats" edge of the APIKey entity.
+func (_m *APIKey) QueryGroupBuySeats() *GroupBuySeatQuery {
+	return NewAPIKeyClient(_m.config).QueryGroupBuySeats(_m)
+}
+
+// QueryGroupBuyEntitlements queries the "group_buy_entitlements" edge of the APIKey entity.
+func (_m *APIKey) QueryGroupBuyEntitlements() *GroupBuyEntitlementQuery {
+	return NewAPIKeyClient(_m.config).QueryGroupBuyEntitlements(_m)
 }
 
 // Update returns a builder for updating this APIKey.

@@ -165,6 +165,78 @@ func (f GroupFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupMutation", m)
 }
 
+// The GroupBuyEntitlementFunc type is an adapter to allow the use of ordinary
+// function as GroupBuyEntitlement mutator.
+type GroupBuyEntitlementFunc func(context.Context, *ent.GroupBuyEntitlementMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f GroupBuyEntitlementFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.GroupBuyEntitlementMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupBuyEntitlementMutation", m)
+}
+
+// The GroupBuyEventFunc type is an adapter to allow the use of ordinary
+// function as GroupBuyEvent mutator.
+type GroupBuyEventFunc func(context.Context, *ent.GroupBuyEventMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f GroupBuyEventFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.GroupBuyEventMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupBuyEventMutation", m)
+}
+
+// The GroupBuyPlanFunc type is an adapter to allow the use of ordinary
+// function as GroupBuyPlan mutator.
+type GroupBuyPlanFunc func(context.Context, *ent.GroupBuyPlanMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f GroupBuyPlanFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.GroupBuyPlanMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupBuyPlanMutation", m)
+}
+
+// The GroupBuyRefundFunc type is an adapter to allow the use of ordinary
+// function as GroupBuyRefund mutator.
+type GroupBuyRefundFunc func(context.Context, *ent.GroupBuyRefundMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f GroupBuyRefundFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.GroupBuyRefundMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupBuyRefundMutation", m)
+}
+
+// The GroupBuyRoundFunc type is an adapter to allow the use of ordinary
+// function as GroupBuyRound mutator.
+type GroupBuyRoundFunc func(context.Context, *ent.GroupBuyRoundMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f GroupBuyRoundFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.GroupBuyRoundMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupBuyRoundMutation", m)
+}
+
+// The GroupBuySeatFunc type is an adapter to allow the use of ordinary
+// function as GroupBuySeat mutator.
+type GroupBuySeatFunc func(context.Context, *ent.GroupBuySeatMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f GroupBuySeatFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.GroupBuySeatMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.GroupBuySeatMutation", m)
+}
+
 // The IdempotencyRecordFunc type is an adapter to allow the use of ordinary
 // function as IdempotencyRecord mutator.
 type IdempotencyRecordFunc func(context.Context, *ent.IdempotencyRecordMutation) (ent.Value, error)

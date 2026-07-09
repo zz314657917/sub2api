@@ -418,6 +418,19 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/group-buy',
+    name: 'GroupBuy',
+    component: () => import('@/views/user/GroupBuyView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Group Buy',
+      titleKey: 'nav.groupBuy',
+      requiresPayment: true,
+      requiresGroupBuy: true
+    }
+  },
+  {
     path: '/orders',
     name: 'OrderList',
     component: () => import('@/views/user/UserOrdersView.vue'),
@@ -602,6 +615,18 @@ const routes: RouteRecordRaw[] = [
       title: 'Subscription Management',
       titleKey: 'admin.subscriptions.title',
       descriptionKey: 'admin.subscriptions.description'
+    }
+  },
+  {
+    path: '/admin/group-buy',
+    name: 'AdminGroupBuy',
+    component: () => import('@/views/admin/group-buy/AdminGroupBuyView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Group Buy Management',
+      titleKey: 'nav.groupBuyManagement',
+      requiresPayment: true
     }
   },
   {
@@ -940,10 +965,10 @@ router.beforeEach(async (to, _from, next) => {
       const siteName = appStore.siteName || 'Sub2API'
       document.title = `${menuItem.label} - ${siteName}`
     } else {
-      document.title = resolveDocumentTitle(to.meta.title, appStore.siteName, to.meta.titleKey as string)
+      document.title = resolveDocumentTitle(to.meta.title, appStore.siteName, to.meta.titleKey as string, appStore.cachedPublicSettings)
     }
   } else {
-    document.title = resolveDocumentTitle(to.meta.title, appStore.siteName, to.meta.titleKey as string)
+    document.title = resolveDocumentTitle(to.meta.title, appStore.siteName, to.meta.titleKey as string, appStore.cachedPublicSettings)
   }
 
   // Check if route requires authentication
@@ -1014,10 +1039,15 @@ router.beforeEach(async (to, _from, next) => {
   // Check payment requirement (internal payment system only)
   if (to.meta.requiresPayment) {
     const paymentEnabled = appStore.cachedPublicSettings?.payment_enabled
-    if (!paymentEnabled) {
+    if (paymentEnabled === false) {
       next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
       return
     }
+  }
+
+  if (to.meta.requiresGroupBuy && !isFeatureFlagEnabled(FeatureFlags.groupBuy)) {
+    next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+    return
   }
 
   if (to.meta.requiresRiskControl) {

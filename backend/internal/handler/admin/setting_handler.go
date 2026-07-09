@@ -280,6 +280,9 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 
 		AvailableChannelsEnabled:                  settings.AvailableChannelsEnabled,
+		GroupBuyEnabled:                           settings.GroupBuyEnabled,
+		GroupBuyProductName:                       settings.GroupBuyProductName,
+		GroupBuyDescription:                       settings.GroupBuyDescription,
 		LeaderboardRewardMode:                     settings.LeaderboardRewardMode,
 		LeaderboardRedPacketPoolAmount:            settings.LeaderboardRedPacketPoolAmount,
 		LeaderboardRedPacketMinAmount:             settings.LeaderboardRedPacketMinAmount,
@@ -544,6 +547,9 @@ type UpdateSettingsRequest struct {
 	HideCcsImportButton         bool                    `json:"hide_ccs_import_button"`
 	PurchaseSubscriptionEnabled *bool                   `json:"purchase_subscription_enabled"`
 	PurchaseSubscriptionURL     *string                 `json:"purchase_subscription_url"`
+	GroupBuyEnabled             *bool                   `json:"group_buy_enabled"`
+	GroupBuyProductName         *string                 `json:"group_buy_product_name"`
+	GroupBuyDescription         *string                 `json:"group_buy_description"`
 	TableDefaultPageSize        int                     `json:"table_default_page_size"`
 	TablePageSizeOptions        []int                   `json:"table_page_size_options"`
 	CustomMenuItems             *[]dto.CustomMenuItem   `json:"custom_menu_items"`
@@ -1775,6 +1781,24 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.AvailableChannelsEnabled
 		}(),
+		GroupBuyEnabled: func() bool {
+			if req.GroupBuyEnabled != nil {
+				return *req.GroupBuyEnabled
+			}
+			return previousSettings.GroupBuyEnabled
+		}(),
+		GroupBuyProductName: func() string {
+			if req.GroupBuyProductName != nil {
+				return strings.TrimSpace(*req.GroupBuyProductName)
+			}
+			return previousSettings.GroupBuyProductName
+		}(),
+		GroupBuyDescription: func() string {
+			if req.GroupBuyDescription != nil {
+				return strings.TrimSpace(*req.GroupBuyDescription)
+			}
+			return previousSettings.GroupBuyDescription
+		}(),
 		LeaderboardRewardMode: func() string {
 			if req.LeaderboardRewardMode != nil {
 				return *req.LeaderboardRewardMode
@@ -2183,6 +2207,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
 
 		AvailableChannelsEnabled:                  updatedSettings.AvailableChannelsEnabled,
+		GroupBuyEnabled:                           updatedSettings.GroupBuyEnabled,
+		GroupBuyProductName:                       updatedSettings.GroupBuyProductName,
+		GroupBuyDescription:                       updatedSettings.GroupBuyDescription,
 		LeaderboardRewardMode:                     updatedSettings.LeaderboardRewardMode,
 		LeaderboardRedPacketPoolAmount:            updatedSettings.LeaderboardRedPacketPoolAmount,
 		LeaderboardRedPacketMinAmount:             updatedSettings.LeaderboardRedPacketMinAmount,
@@ -2671,6 +2698,15 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AvailableChannelsEnabled != after.AvailableChannelsEnabled {
 		changed = append(changed, "available_channels_enabled")
+	}
+	if before.GroupBuyEnabled != after.GroupBuyEnabled {
+		changed = append(changed, "group_buy_enabled")
+	}
+	if before.GroupBuyProductName != after.GroupBuyProductName {
+		changed = append(changed, "group_buy_product_name")
+	}
+	if before.GroupBuyDescription != after.GroupBuyDescription {
+		changed = append(changed, "group_buy_description")
 	}
 	if before.LeaderboardRewardMode != after.LeaderboardRewardMode {
 		changed = append(changed, "reward_mode")

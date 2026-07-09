@@ -534,6 +534,9 @@ export interface SystemSettings {
 
   // Payment configuration
   payment_enabled: boolean;
+  group_buy_enabled: boolean;
+  group_buy_product_name: string;
+  group_buy_description: string;
   risk_control_enabled: boolean;
   payment_min_amount: number;
   payment_max_amount: number;
@@ -796,6 +799,9 @@ export interface UpdateSettingsRequest {
   antigravity_user_agent_version?: string;
   // Payment configuration
   payment_enabled?: boolean;
+  group_buy_enabled?: boolean;
+  group_buy_product_name?: string;
+  group_buy_description?: string;
   risk_control_enabled?: boolean;
   payment_min_amount?: number;
   payment_max_amount?: number;

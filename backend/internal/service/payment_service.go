@@ -196,7 +196,13 @@ type PaymentService struct {
 	membershipSvc    *MembershipService
 	systemTicketSvc  *SystemTicketService
 	welfareService   *WelfareService
+	groupBuySvc      groupBuyFulfillmentService
 	now              func() time.Time
+}
+
+type groupBuyFulfillmentService interface {
+	HandleGroupBuyOrderPaid(ctx context.Context, orderID int64) error
+	ReleaseGroupBuySeatForOrder(ctx context.Context, orderID int64, reason string) error
 }
 
 func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, loadBalancer payment.LoadBalancer, redeemService *RedeemService, subscriptionSvc *SubscriptionService, configService *PaymentConfigService, userRepo UserRepository, groupRepo GroupRepository, affiliateService *AffiliateService, membershipSvc ...*MembershipService) *PaymentService {
@@ -218,6 +224,12 @@ func (s *PaymentService) SetSystemTicketService(systemTicketSvc *SystemTicketSer
 func (s *PaymentService) SetWelfareService(welfareService *WelfareService) {
 	if s != nil {
 		s.welfareService = welfareService
+	}
+}
+
+func (s *PaymentService) SetGroupBuyFulfillment(groupBuySvc groupBuyFulfillmentService) {
+	if s != nil {
+		s.groupBuySvc = groupBuySvc
 	}
 }
 

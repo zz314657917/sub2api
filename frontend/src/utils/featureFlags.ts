@@ -109,6 +109,11 @@ export const FeatureFlags = {
     mode: 'opt-out',
     label: 'Payment',
   }),
+  groupBuy: defineFlag({
+    key: 'group_buy_enabled',
+    mode: 'opt-out',
+    label: 'Token PinPinPin',
+  }),
   riskControl: defineFlag({
     key: 'risk_control_enabled',
     mode: 'opt-in',

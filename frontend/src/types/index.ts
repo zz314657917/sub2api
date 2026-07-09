@@ -402,6 +402,9 @@ export interface PublicSettings {
   channel_monitor_enabled: boolean
   channel_monitor_default_interval_seconds: number
   available_channels_enabled: boolean
+  group_buy_enabled?: boolean
+  group_buy_product_name?: string
+  group_buy_description?: string
   affiliate_enabled: boolean
   account_share_enabled: boolean
   account_share_channel_status_visible?: boolean

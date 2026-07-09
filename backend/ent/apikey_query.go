@@ -15,6 +15,8 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -23,14 +25,16 @@ import (
 // APIKeyQuery is the builder for querying APIKey entities.
 type APIKeyQuery struct {
 	config
-	ctx           *QueryContext
-	order         []apikey.OrderOption
-	inters        []Interceptor
-	predicates    []predicate.APIKey
-	withUser      *UserQuery
-	withGroup     *GroupQuery
-	withUsageLogs *UsageLogQuery
-	modifiers     []func(*sql.Selector)
+	ctx                      *QueryContext
+	order                    []apikey.OrderOption
+	inters                   []Interceptor
+	predicates               []predicate.APIKey
+	withUser                 *UserQuery
+	withGroup                *GroupQuery
+	withUsageLogs            *UsageLogQuery
+	withGroupBuySeats        *GroupBuySeatQuery
+	withGroupBuyEntitlements *GroupBuyEntitlementQuery
+	modifiers                []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -126,6 +130,50 @@ func (_q *APIKeyQuery) QueryUsageLogs() *UsageLogQuery {
 			sqlgraph.From(apikey.Table, apikey.FieldID, selector),
 			sqlgraph.To(usagelog.Table, usagelog.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, apikey.UsageLogsTable, apikey.UsageLogsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGroupBuySeats chains the current query on the "group_buy_seats" edge.
+func (_q *APIKeyQuery) QueryGroupBuySeats() *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, selector),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, apikey.GroupBuySeatsTable, apikey.GroupBuySeatsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGroupBuyEntitlements chains the current query on the "group_buy_entitlements" edge.
+func (_q *APIKeyQuery) QueryGroupBuyEntitlements() *GroupBuyEntitlementQuery {
+	query := (&GroupBuyEntitlementClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, selector),
+			sqlgraph.To(groupbuyentitlement.Table, groupbuyentitlement.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, apikey.GroupBuyEntitlementsTable, apikey.GroupBuyEntitlementsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -320,14 +368,16 @@ func (_q *APIKeyQuery) Clone() *APIKeyQuery {
 		return nil
 	}
 	return &APIKeyQuery{
-		config:        _q.config,
-		ctx:           _q.ctx.Clone(),
-		order:         append([]apikey.OrderOption{}, _q.order...),
-		inters:        append([]Interceptor{}, _q.inters...),
-		predicates:    append([]predicate.APIKey{}, _q.predicates...),
-		withUser:      _q.withUser.Clone(),
-		withGroup:     _q.withGroup.Clone(),
-		withUsageLogs: _q.withUsageLogs.Clone(),
+		config:                   _q.config,
+		ctx:                      _q.ctx.Clone(),
+		order:                    append([]apikey.OrderOption{}, _q.order...),
+		inters:                   append([]Interceptor{}, _q.inters...),
+		predicates:               append([]predicate.APIKey{}, _q.predicates...),
+		withUser:                 _q.withUser.Clone(),
+		withGroup:                _q.withGroup.Clone(),
+		withUsageLogs:            _q.withUsageLogs.Clone(),
+		withGroupBuySeats:        _q.withGroupBuySeats.Clone(),
+		withGroupBuyEntitlements: _q.withGroupBuyEntitlements.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -364,6 +414,28 @@ func (_q *APIKeyQuery) WithUsageLogs(opts ...func(*UsageLogQuery)) *APIKeyQuery 
 		opt(query)
 	}
 	_q.withUsageLogs = query
+	return _q
+}
+
+// WithGroupBuySeats tells the query-builder to eager-load the nodes that are connected to
+// the "group_buy_seats" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *APIKeyQuery) WithGroupBuySeats(opts ...func(*GroupBuySeatQuery)) *APIKeyQuery {
+	query := (&GroupBuySeatClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withGroupBuySeats = query
+	return _q
+}
+
+// WithGroupBuyEntitlements tells the query-builder to eager-load the nodes that are connected to
+// the "group_buy_entitlements" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *APIKeyQuery) WithGroupBuyEntitlements(opts ...func(*GroupBuyEntitlementQuery)) *APIKeyQuery {
+	query := (&GroupBuyEntitlementClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withGroupBuyEntitlements = query
 	return _q
 }
 
@@ -445,10 +517,12 @@ func (_q *APIKeyQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*APIKe
 	var (
 		nodes       = []*APIKey{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [5]bool{
 			_q.withUser != nil,
 			_q.withGroup != nil,
 			_q.withUsageLogs != nil,
+			_q.withGroupBuySeats != nil,
+			_q.withGroupBuyEntitlements != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -488,6 +562,22 @@ func (_q *APIKeyQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*APIKe
 		if err := _q.loadUsageLogs(ctx, query, nodes,
 			func(n *APIKey) { n.Edges.UsageLogs = []*UsageLog{} },
 			func(n *APIKey, e *UsageLog) { n.Edges.UsageLogs = append(n.Edges.UsageLogs, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withGroupBuySeats; query != nil {
+		if err := _q.loadGroupBuySeats(ctx, query, nodes,
+			func(n *APIKey) { n.Edges.GroupBuySeats = []*GroupBuySeat{} },
+			func(n *APIKey, e *GroupBuySeat) { n.Edges.GroupBuySeats = append(n.Edges.GroupBuySeats, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withGroupBuyEntitlements; query != nil {
+		if err := _q.loadGroupBuyEntitlements(ctx, query, nodes,
+			func(n *APIKey) { n.Edges.GroupBuyEntitlements = []*GroupBuyEntitlement{} },
+			func(n *APIKey, e *GroupBuyEntitlement) {
+				n.Edges.GroupBuyEntitlements = append(n.Edges.GroupBuyEntitlements, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -580,6 +670,72 @@ func (_q *APIKeyQuery) loadUsageLogs(ctx context.Context, query *UsageLogQuery, 
 		node, ok := nodeids[fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "api_key_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *APIKeyQuery) loadGroupBuySeats(ctx context.Context, query *GroupBuySeatQuery, nodes []*APIKey, init func(*APIKey), assign func(*APIKey, *GroupBuySeat)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*APIKey)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(groupbuyseat.FieldBoundAPIKeyID)
+	}
+	query.Where(predicate.GroupBuySeat(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(apikey.GroupBuySeatsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.BoundAPIKeyID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "bound_api_key_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "bound_api_key_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *APIKeyQuery) loadGroupBuyEntitlements(ctx context.Context, query *GroupBuyEntitlementQuery, nodes []*APIKey, init func(*APIKey), assign func(*APIKey, *GroupBuyEntitlement)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*APIKey)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(groupbuyentitlement.FieldBoundAPIKeyID)
+	}
+	query.Where(predicate.GroupBuyEntitlement(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(apikey.GroupBuyEntitlementsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.BoundAPIKeyID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "bound_api_key_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "bound_api_key_id" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

@@ -40,6 +40,18 @@ type Tx struct {
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
 	// Group is the client for interacting with the Group builders.
 	Group *GroupClient
+	// GroupBuyEntitlement is the client for interacting with the GroupBuyEntitlement builders.
+	GroupBuyEntitlement *GroupBuyEntitlementClient
+	// GroupBuyEvent is the client for interacting with the GroupBuyEvent builders.
+	GroupBuyEvent *GroupBuyEventClient
+	// GroupBuyPlan is the client for interacting with the GroupBuyPlan builders.
+	GroupBuyPlan *GroupBuyPlanClient
+	// GroupBuyRefund is the client for interacting with the GroupBuyRefund builders.
+	GroupBuyRefund *GroupBuyRefundClient
+	// GroupBuyRound is the client for interacting with the GroupBuyRound builders.
+	GroupBuyRound *GroupBuyRoundClient
+	// GroupBuySeat is the client for interacting with the GroupBuySeat builders.
+	GroupBuySeat *GroupBuySeatClient
 	// IdempotencyRecord is the client for interacting with the IdempotencyRecord builders.
 	IdempotencyRecord *IdempotencyRecordClient
 	// IdentityAdoptionDecision is the client for interacting with the IdentityAdoptionDecision builders.
@@ -232,6 +244,12 @@ func (tx *Tx) init() {
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
 	tx.Group = NewGroupClient(tx.config)
+	tx.GroupBuyEntitlement = NewGroupBuyEntitlementClient(tx.config)
+	tx.GroupBuyEvent = NewGroupBuyEventClient(tx.config)
+	tx.GroupBuyPlan = NewGroupBuyPlanClient(tx.config)
+	tx.GroupBuyRefund = NewGroupBuyRefundClient(tx.config)
+	tx.GroupBuyRound = NewGroupBuyRoundClient(tx.config)
+	tx.GroupBuySeat = NewGroupBuySeatClient(tx.config)
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)
 	tx.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(tx.config)
 	tx.InvoiceRequest = NewInvoiceRequestClient(tx.config)

@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -12,6 +13,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -20,12 +23,14 @@ import (
 // PaymentOrderQuery is the builder for querying PaymentOrder entities.
 type PaymentOrderQuery struct {
 	config
-	ctx        *QueryContext
-	order      []paymentorder.OrderOption
-	inters     []Interceptor
-	predicates []predicate.PaymentOrder
-	withUser   *UserQuery
-	modifiers  []func(*sql.Selector)
+	ctx                 *QueryContext
+	order               []paymentorder.OrderOption
+	inters              []Interceptor
+	predicates          []predicate.PaymentOrder
+	withUser            *UserQuery
+	withGroupBuySeat    *GroupBuySeatQuery
+	withGroupBuyRefunds *GroupBuyRefundQuery
+	modifiers           []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -77,6 +82,50 @@ func (_q *PaymentOrderQuery) QueryUser() *UserQuery {
 			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, selector),
 			sqlgraph.To(user.Table, user.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, paymentorder.UserTable, paymentorder.UserColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGroupBuySeat chains the current query on the "group_buy_seat" edge.
+func (_q *PaymentOrderQuery) QueryGroupBuySeat() *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, selector),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.O2O, false, paymentorder.GroupBuySeatTable, paymentorder.GroupBuySeatColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGroupBuyRefunds chains the current query on the "group_buy_refunds" edge.
+func (_q *PaymentOrderQuery) QueryGroupBuyRefunds() *GroupBuyRefundQuery {
+	query := (&GroupBuyRefundClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, selector),
+			sqlgraph.To(groupbuyrefund.Table, groupbuyrefund.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, paymentorder.GroupBuyRefundsTable, paymentorder.GroupBuyRefundsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -271,12 +320,14 @@ func (_q *PaymentOrderQuery) Clone() *PaymentOrderQuery {
 		return nil
 	}
 	return &PaymentOrderQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]paymentorder.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.PaymentOrder{}, _q.predicates...),
-		withUser:   _q.withUser.Clone(),
+		config:              _q.config,
+		ctx:                 _q.ctx.Clone(),
+		order:               append([]paymentorder.OrderOption{}, _q.order...),
+		inters:              append([]Interceptor{}, _q.inters...),
+		predicates:          append([]predicate.PaymentOrder{}, _q.predicates...),
+		withUser:            _q.withUser.Clone(),
+		withGroupBuySeat:    _q.withGroupBuySeat.Clone(),
+		withGroupBuyRefunds: _q.withGroupBuyRefunds.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -291,6 +342,28 @@ func (_q *PaymentOrderQuery) WithUser(opts ...func(*UserQuery)) *PaymentOrderQue
 		opt(query)
 	}
 	_q.withUser = query
+	return _q
+}
+
+// WithGroupBuySeat tells the query-builder to eager-load the nodes that are connected to
+// the "group_buy_seat" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *PaymentOrderQuery) WithGroupBuySeat(opts ...func(*GroupBuySeatQuery)) *PaymentOrderQuery {
+	query := (&GroupBuySeatClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withGroupBuySeat = query
+	return _q
+}
+
+// WithGroupBuyRefunds tells the query-builder to eager-load the nodes that are connected to
+// the "group_buy_refunds" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *PaymentOrderQuery) WithGroupBuyRefunds(opts ...func(*GroupBuyRefundQuery)) *PaymentOrderQuery {
+	query := (&GroupBuyRefundClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withGroupBuyRefunds = query
 	return _q
 }
 
@@ -372,8 +445,10 @@ func (_q *PaymentOrderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*PaymentOrder{}
 		_spec       = _q.querySpec()
-		loadedTypes = [1]bool{
+		loadedTypes = [3]bool{
 			_q.withUser != nil,
+			_q.withGroupBuySeat != nil,
+			_q.withGroupBuyRefunds != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -400,6 +475,19 @@ func (_q *PaymentOrderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	if query := _q.withUser; query != nil {
 		if err := _q.loadUser(ctx, query, nodes, nil,
 			func(n *PaymentOrder, e *User) { n.Edges.User = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withGroupBuySeat; query != nil {
+		if err := _q.loadGroupBuySeat(ctx, query, nodes, nil,
+			func(n *PaymentOrder, e *GroupBuySeat) { n.Edges.GroupBuySeat = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withGroupBuyRefunds; query != nil {
+		if err := _q.loadGroupBuyRefunds(ctx, query, nodes,
+			func(n *PaymentOrder) { n.Edges.GroupBuyRefunds = []*GroupBuyRefund{} },
+			func(n *PaymentOrder, e *GroupBuyRefund) { n.Edges.GroupBuyRefunds = append(n.Edges.GroupBuyRefunds, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -432,6 +520,69 @@ func (_q *PaymentOrderQuery) loadUser(ctx context.Context, query *UserQuery, nod
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *PaymentOrderQuery) loadGroupBuySeat(ctx context.Context, query *GroupBuySeatQuery, nodes []*PaymentOrder, init func(*PaymentOrder), assign func(*PaymentOrder, *GroupBuySeat)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*PaymentOrder)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(groupbuyseat.FieldOrderID)
+	}
+	query.Where(predicate.GroupBuySeat(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(paymentorder.GroupBuySeatColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.OrderID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "order_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "order_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *PaymentOrderQuery) loadGroupBuyRefunds(ctx context.Context, query *GroupBuyRefundQuery, nodes []*PaymentOrder, init func(*PaymentOrder), assign func(*PaymentOrder, *GroupBuyRefund)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*PaymentOrder)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(groupbuyrefund.FieldOrderID)
+	}
+	query.Where(predicate.GroupBuyRefund(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(paymentorder.GroupBuyRefundsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.OrderID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "order_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "order_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

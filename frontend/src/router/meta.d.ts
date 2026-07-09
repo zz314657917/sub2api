@@ -50,6 +50,12 @@ declare module 'vue-router' {
     requiresPayment?: boolean
 
     /**
+     * Whether this route requires Token拼拼拼 to be enabled
+     * @default false
+     */
+    requiresGroupBuy?: boolean
+
+    /**
      * Whether this route requires user account sharing to be enabled
      * @default false
      */

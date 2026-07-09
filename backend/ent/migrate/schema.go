@@ -723,6 +723,478 @@ var (
 			},
 		},
 	}
+	// GroupBuyEntitlementsColumns holds the columns for the "group_buy_entitlements" table.
+	GroupBuyEntitlementsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "product_key", Type: field.TypeString, Size: 64, Default: "token_pinpinpin"},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "inactive"},
+		{Name: "active_share_count", Type: field.TypeInt, Default: 0},
+		{Name: "last_activated_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "refreshed_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deactivated_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "bound_api_key_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "target_group_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "subscription_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "managed_subscription_id", Type: field.TypeInt64, Nullable: true},
+	}
+	// GroupBuyEntitlementsTable holds the schema information for the "group_buy_entitlements" table.
+	GroupBuyEntitlementsTable = &schema.Table{
+		Name:       "group_buy_entitlements",
+		Columns:    GroupBuyEntitlementsColumns,
+		PrimaryKey: []*schema.Column{GroupBuyEntitlementsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "group_buy_entitlements_api_keys_group_buy_entitlements",
+				Columns:    []*schema.Column{GroupBuyEntitlementsColumns[10]},
+				RefColumns: []*schema.Column{APIKeysColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "group_buy_entitlements_groups_group_buy_entitlements",
+				Columns:    []*schema.Column{GroupBuyEntitlementsColumns[11]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "group_buy_entitlements_users_group_buy_entitlements",
+				Columns:    []*schema.Column{GroupBuyEntitlementsColumns[12]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "group_buy_entitlements_user_subscriptions_group_buy_entitlements",
+				Columns:    []*schema.Column{GroupBuyEntitlementsColumns[13]},
+				RefColumns: []*schema.Column{UserSubscriptionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "group_buy_entitlements_user_subscriptions_managed_group_buy_entitlements",
+				Columns:    []*schema.Column{GroupBuyEntitlementsColumns[14]},
+				RefColumns: []*schema.Column{UserSubscriptionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "groupbuyentitlement_user_id_product_key",
+				Unique:  true,
+				Columns: []*schema.Column{GroupBuyEntitlementsColumns[12], GroupBuyEntitlementsColumns[1]},
+			},
+			{
+				Name:    "groupbuyentitlement_status",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEntitlementsColumns[2]},
+			},
+			{
+				Name:    "groupbuyentitlement_target_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEntitlementsColumns[11]},
+			},
+			{
+				Name:    "groupbuyentitlement_subscription_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEntitlementsColumns[13]},
+			},
+			{
+				Name:    "groupbuyentitlement_managed_subscription_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEntitlementsColumns[14]},
+			},
+			{
+				Name:    "groupbuyentitlement_bound_api_key_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEntitlementsColumns[10]},
+			},
+			{
+				Name:    "groupbuyentitlement_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEntitlementsColumns[5]},
+			},
+		},
+	}
+	// GroupBuyEventsColumns holds the columns for the "group_buy_events" table.
+	GroupBuyEventsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "event_type", Type: field.TypeString, Size: 48},
+		{Name: "message", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "metadata", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "plan_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "round_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "seat_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "user_id", Type: field.TypeInt64, Nullable: true},
+	}
+	// GroupBuyEventsTable holds the schema information for the "group_buy_events" table.
+	GroupBuyEventsTable = &schema.Table{
+		Name:       "group_buy_events",
+		Columns:    GroupBuyEventsColumns,
+		PrimaryKey: []*schema.Column{GroupBuyEventsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "group_buy_events_group_buy_plans_events",
+				Columns:    []*schema.Column{GroupBuyEventsColumns[5]},
+				RefColumns: []*schema.Column{GroupBuyPlansColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "group_buy_events_group_buy_rounds_events",
+				Columns:    []*schema.Column{GroupBuyEventsColumns[6]},
+				RefColumns: []*schema.Column{GroupBuyRoundsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "group_buy_events_group_buy_seats_events",
+				Columns:    []*schema.Column{GroupBuyEventsColumns[7]},
+				RefColumns: []*schema.Column{GroupBuySeatsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "group_buy_events_users_group_buy_events",
+				Columns:    []*schema.Column{GroupBuyEventsColumns[8]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "groupbuyevent_plan_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEventsColumns[5]},
+			},
+			{
+				Name:    "groupbuyevent_round_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEventsColumns[6]},
+			},
+			{
+				Name:    "groupbuyevent_seat_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEventsColumns[7]},
+			},
+			{
+				Name:    "groupbuyevent_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEventsColumns[8]},
+			},
+			{
+				Name:    "groupbuyevent_event_type",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEventsColumns[1]},
+			},
+			{
+				Name:    "groupbuyevent_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyEventsColumns[4]},
+			},
+		},
+	}
+	// GroupBuyPlansColumns holds the columns for the "group_buy_plans" table.
+	GroupBuyPlansColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "title", Type: field.TypeString, Size: 120},
+		{Name: "description", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "product_key", Type: field.TypeString, Size: 64, Default: "token_pinpinpin"},
+		{Name: "total_shares", Type: field.TypeInt, Default: 10},
+		{Name: "seat_count", Type: field.TypeInt, Default: 10},
+		{Name: "price_per_share", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "price_per_seat", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "price_label", Type: field.TypeString, Size: 120, Default: ""},
+		{Name: "quota_per_share_label", Type: field.TypeString, Size: 255, Default: ""},
+		{Name: "quota_label", Type: field.TypeString, Size: 255, Default: ""},
+		{Name: "max_shares_per_user", Type: field.TypeInt, Default: 10},
+		{Name: "tier_group_ids", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "tier_rules", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "validity_days", Type: field.TypeInt, Default: 30},
+		{Name: "timeout_minutes", Type: field.TypeInt, Default: 1440},
+		{Name: "launch_mode", Type: field.TypeString, Size: 16, Default: "auto"},
+		{Name: "refund_mode", Type: field.TypeString, Size: 32, Default: "balance_credit"},
+		{Name: "agreement_text", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "sort_order", Type: field.TypeInt, Default: 0},
+		{Name: "last_round_created_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "deleted_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "target_group_id", Type: field.TypeInt64},
+	}
+	// GroupBuyPlansTable holds the schema information for the "group_buy_plans" table.
+	GroupBuyPlansTable = &schema.Table{
+		Name:       "group_buy_plans",
+		Columns:    GroupBuyPlansColumns,
+		PrimaryKey: []*schema.Column{GroupBuyPlansColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "group_buy_plans_groups_group_buy_plans",
+				Columns:    []*schema.Column{GroupBuyPlansColumns[25]},
+				RefColumns: []*schema.Column{GroupsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "groupbuyplan_product_key",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyPlansColumns[5]},
+			},
+			{
+				Name:    "groupbuyplan_status",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyPlansColumns[21]},
+			},
+			{
+				Name:    "groupbuyplan_sort_order",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyPlansColumns[22]},
+			},
+			{
+				Name:    "groupbuyplan_target_group_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyPlansColumns[25]},
+			},
+			{
+				Name:    "groupbuyplan_deleted_at",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyPlansColumns[24]},
+			},
+		},
+	}
+	// GroupBuyRefundsColumns holds the columns for the "group_buy_refunds" table.
+	GroupBuyRefundsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "mode", Type: field.TypeString, Size: 32},
+		{Name: "status", Type: field.TypeString, Size: 24, Default: "processing"},
+		{Name: "amount", Type: field.TypeFloat64, SchemaType: map[string]string{"postgres": "decimal(20,2)"}},
+		{Name: "idempotency_key", Type: field.TypeString, Size: 120},
+		{Name: "note", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "processed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "seat_id", Type: field.TypeInt64},
+		{Name: "order_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "user_id", Type: field.TypeInt64},
+	}
+	// GroupBuyRefundsTable holds the schema information for the "group_buy_refunds" table.
+	GroupBuyRefundsTable = &schema.Table{
+		Name:       "group_buy_refunds",
+		Columns:    GroupBuyRefundsColumns,
+		PrimaryKey: []*schema.Column{GroupBuyRefundsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "group_buy_refunds_group_buy_seats_refunds",
+				Columns:    []*schema.Column{GroupBuyRefundsColumns[9]},
+				RefColumns: []*schema.Column{GroupBuySeatsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "group_buy_refunds_payment_orders_group_buy_refunds",
+				Columns:    []*schema.Column{GroupBuyRefundsColumns[10]},
+				RefColumns: []*schema.Column{PaymentOrdersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "group_buy_refunds_users_group_buy_refunds",
+				Columns:    []*schema.Column{GroupBuyRefundsColumns[11]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "groupbuyrefund_seat_id",
+				Unique:  true,
+				Columns: []*schema.Column{GroupBuyRefundsColumns[9]},
+			},
+			{
+				Name:    "groupbuyrefund_idempotency_key",
+				Unique:  true,
+				Columns: []*schema.Column{GroupBuyRefundsColumns[4]},
+			},
+			{
+				Name:    "groupbuyrefund_order_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyRefundsColumns[10]},
+			},
+			{
+				Name:    "groupbuyrefund_status",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyRefundsColumns[2]},
+			},
+			{
+				Name:    "groupbuyrefund_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyRefundsColumns[11]},
+			},
+		},
+	}
+	// GroupBuyRoundsColumns holds the columns for the "group_buy_rounds" table.
+	GroupBuyRoundsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "status", Type: field.TypeString, Size: 20, Default: "open"},
+		{Name: "total_shares", Type: field.TypeInt},
+		{Name: "paid_shares", Type: field.TypeInt, Default: 0},
+		{Name: "reserved_shares", Type: field.TypeInt, Default: 0},
+		{Name: "total_seats", Type: field.TypeInt},
+		{Name: "paid_seats", Type: field.TypeInt, Default: 0},
+		{Name: "reserved_seats", Type: field.TypeInt, Default: 0},
+		{Name: "deadline_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "started_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "closed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "close_reason", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "plan_id", Type: field.TypeInt64},
+	}
+	// GroupBuyRoundsTable holds the schema information for the "group_buy_rounds" table.
+	GroupBuyRoundsTable = &schema.Table{
+		Name:       "group_buy_rounds",
+		Columns:    GroupBuyRoundsColumns,
+		PrimaryKey: []*schema.Column{GroupBuyRoundsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "group_buy_rounds_group_buy_plans_rounds",
+				Columns:    []*schema.Column{GroupBuyRoundsColumns[14]},
+				RefColumns: []*schema.Column{GroupBuyPlansColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "groupbuyround_plan_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyRoundsColumns[14]},
+			},
+			{
+				Name:    "groupbuyround_status",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyRoundsColumns[1]},
+			},
+			{
+				Name:    "groupbuyround_deadline_at",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyRoundsColumns[8]},
+			},
+			{
+				Name:    "groupbuyround_created_at",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuyRoundsColumns[12]},
+			},
+		},
+	}
+	// GroupBuySeatsColumns holds the columns for the "group_buy_seats" table.
+	GroupBuySeatsColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt64, Increment: true},
+		{Name: "status", Type: field.TypeString, Size: 24, Default: "locked"},
+		{Name: "share_count", Type: field.TypeInt, Default: 1},
+		{Name: "policy_snapshot", Type: field.TypeJSON, Nullable: true, SchemaType: map[string]string{"postgres": "jsonb"}},
+		{Name: "locked_until", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "paid_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "activated_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "expires_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "bound_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "refund_processed_at", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "refund_note", Type: field.TypeString, Nullable: true, SchemaType: map[string]string{"postgres": "text"}},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "updated_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "bound_api_key_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "plan_id", Type: field.TypeInt64},
+		{Name: "round_id", Type: field.TypeInt64},
+		{Name: "order_id", Type: field.TypeInt64, Unique: true, Nullable: true},
+		{Name: "user_id", Type: field.TypeInt64},
+		{Name: "subscription_id", Type: field.TypeInt64, Nullable: true},
+	}
+	// GroupBuySeatsTable holds the schema information for the "group_buy_seats" table.
+	GroupBuySeatsTable = &schema.Table{
+		Name:       "group_buy_seats",
+		Columns:    GroupBuySeatsColumns,
+		PrimaryKey: []*schema.Column{GroupBuySeatsColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "group_buy_seats_api_keys_group_buy_seats",
+				Columns:    []*schema.Column{GroupBuySeatsColumns[13]},
+				RefColumns: []*schema.Column{APIKeysColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "group_buy_seats_group_buy_plans_seats",
+				Columns:    []*schema.Column{GroupBuySeatsColumns[14]},
+				RefColumns: []*schema.Column{GroupBuyPlansColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "group_buy_seats_group_buy_rounds_seats",
+				Columns:    []*schema.Column{GroupBuySeatsColumns[15]},
+				RefColumns: []*schema.Column{GroupBuyRoundsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "group_buy_seats_payment_orders_group_buy_seat",
+				Columns:    []*schema.Column{GroupBuySeatsColumns[16]},
+				RefColumns: []*schema.Column{PaymentOrdersColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+			{
+				Symbol:     "group_buy_seats_users_group_buy_seats",
+				Columns:    []*schema.Column{GroupBuySeatsColumns[17]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "group_buy_seats_user_subscriptions_group_buy_seats",
+				Columns:    []*schema.Column{GroupBuySeatsColumns[18]},
+				RefColumns: []*schema.Column{UserSubscriptionsColumns[0]},
+				OnDelete:   schema.SetNull,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "groupbuyseat_round_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuySeatsColumns[15]},
+			},
+			{
+				Name:    "groupbuyseat_plan_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuySeatsColumns[14]},
+			},
+			{
+				Name:    "groupbuyseat_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuySeatsColumns[17]},
+			},
+			{
+				Name:    "groupbuyseat_order_id",
+				Unique:  true,
+				Columns: []*schema.Column{GroupBuySeatsColumns[16]},
+				Annotation: &entsql.IndexAnnotation{
+					Where: "order_id IS NOT NULL",
+				},
+			},
+			{
+				Name:    "groupbuyseat_status",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuySeatsColumns[1]},
+			},
+			{
+				Name:    "groupbuyseat_locked_until",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuySeatsColumns[4]},
+			},
+			{
+				Name:    "groupbuyseat_expires_at",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuySeatsColumns[7]},
+			},
+			{
+				Name:    "groupbuyseat_round_id_user_id",
+				Unique:  false,
+				Columns: []*schema.Column{GroupBuySeatsColumns[15], GroupBuySeatsColumns[17]},
+			},
+		},
+	}
 	// IdempotencyRecordsColumns holds the columns for the "idempotency_records" table.
 	IdempotencyRecordsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1799,6 +2271,9 @@ var (
 		{Name: "starts_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "expires_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "active"},
+		{Name: "source_type", Type: field.TypeString, Size: 64, Default: "standard"},
+		{Name: "source_id", Type: field.TypeInt64, Nullable: true},
+		{Name: "managed_by_group_buy", Type: field.TypeBool, Default: false},
 		{Name: "daily_window_start", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "weekly_window_start", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
 		{Name: "monthly_window_start", Type: field.TypeTime, Nullable: true, SchemaType: map[string]string{"postgres": "timestamptz"}},
@@ -1819,19 +2294,19 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "user_subscriptions_groups_subscriptions",
-				Columns:    []*schema.Column{UserSubscriptionsColumns[15]},
+				Columns:    []*schema.Column{UserSubscriptionsColumns[18]},
 				RefColumns: []*schema.Column{GroupsColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "user_subscriptions_users_subscriptions",
-				Columns:    []*schema.Column{UserSubscriptionsColumns[16]},
+				Columns:    []*schema.Column{UserSubscriptionsColumns[19]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.NoAction,
 			},
 			{
 				Symbol:     "user_subscriptions_users_assigned_subscriptions",
-				Columns:    []*schema.Column{UserSubscriptionsColumns[17]},
+				Columns:    []*schema.Column{UserSubscriptionsColumns[20]},
 				RefColumns: []*schema.Column{UsersColumns[0]},
 				OnDelete:   schema.SetNull,
 			},
@@ -1840,12 +2315,12 @@ var (
 			{
 				Name:    "usersubscription_user_id",
 				Unique:  false,
-				Columns: []*schema.Column{UserSubscriptionsColumns[16]},
+				Columns: []*schema.Column{UserSubscriptionsColumns[19]},
 			},
 			{
 				Name:    "usersubscription_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{UserSubscriptionsColumns[15]},
+				Columns: []*schema.Column{UserSubscriptionsColumns[18]},
 			},
 			{
 				Name:    "usersubscription_status",
@@ -1860,17 +2335,32 @@ var (
 			{
 				Name:    "usersubscription_user_id_status_expires_at",
 				Unique:  false,
-				Columns: []*schema.Column{UserSubscriptionsColumns[16], UserSubscriptionsColumns[6], UserSubscriptionsColumns[5]},
+				Columns: []*schema.Column{UserSubscriptionsColumns[19], UserSubscriptionsColumns[6], UserSubscriptionsColumns[5]},
 			},
 			{
 				Name:    "usersubscription_assigned_by",
 				Unique:  false,
-				Columns: []*schema.Column{UserSubscriptionsColumns[17]},
+				Columns: []*schema.Column{UserSubscriptionsColumns[20]},
+			},
+			{
+				Name:    "usersubscription_source_type_source_id",
+				Unique:  false,
+				Columns: []*schema.Column{UserSubscriptionsColumns[7], UserSubscriptionsColumns[8]},
+			},
+			{
+				Name:    "usersubscription_managed_by_group_buy",
+				Unique:  false,
+				Columns: []*schema.Column{UserSubscriptionsColumns[9]},
 			},
 			{
 				Name:    "usersubscription_user_id_group_id",
 				Unique:  false,
-				Columns: []*schema.Column{UserSubscriptionsColumns[16], UserSubscriptionsColumns[15]},
+				Columns: []*schema.Column{UserSubscriptionsColumns[19], UserSubscriptionsColumns[18]},
+			},
+			{
+				Name:    "usersubscription_user_id_group_id_source_type",
+				Unique:  false,
+				Columns: []*schema.Column{UserSubscriptionsColumns[19], UserSubscriptionsColumns[18], UserSubscriptionsColumns[7]},
 			},
 			{
 				Name:    "usersubscription_deleted_at",
@@ -1894,6 +2384,12 @@ var (
 		ChannelMonitorRequestTemplatesTable,
 		ErrorPassthroughRulesTable,
 		GroupsTable,
+		GroupBuyEntitlementsTable,
+		GroupBuyEventsTable,
+		GroupBuyPlansTable,
+		GroupBuyRefundsTable,
+		GroupBuyRoundsTable,
+		GroupBuySeatsTable,
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
 		InvoiceRequestsTable,
@@ -1972,6 +2468,44 @@ func init() {
 	}
 	GroupsTable.Annotation = &entsql.Annotation{
 		Table: "groups",
+	}
+	GroupBuyEntitlementsTable.ForeignKeys[0].RefTable = APIKeysTable
+	GroupBuyEntitlementsTable.ForeignKeys[1].RefTable = GroupsTable
+	GroupBuyEntitlementsTable.ForeignKeys[2].RefTable = UsersTable
+	GroupBuyEntitlementsTable.ForeignKeys[3].RefTable = UserSubscriptionsTable
+	GroupBuyEntitlementsTable.ForeignKeys[4].RefTable = UserSubscriptionsTable
+	GroupBuyEntitlementsTable.Annotation = &entsql.Annotation{
+		Table: "group_buy_entitlements",
+	}
+	GroupBuyEventsTable.ForeignKeys[0].RefTable = GroupBuyPlansTable
+	GroupBuyEventsTable.ForeignKeys[1].RefTable = GroupBuyRoundsTable
+	GroupBuyEventsTable.ForeignKeys[2].RefTable = GroupBuySeatsTable
+	GroupBuyEventsTable.ForeignKeys[3].RefTable = UsersTable
+	GroupBuyEventsTable.Annotation = &entsql.Annotation{
+		Table: "group_buy_events",
+	}
+	GroupBuyPlansTable.ForeignKeys[0].RefTable = GroupsTable
+	GroupBuyPlansTable.Annotation = &entsql.Annotation{
+		Table: "group_buy_plans",
+	}
+	GroupBuyRefundsTable.ForeignKeys[0].RefTable = GroupBuySeatsTable
+	GroupBuyRefundsTable.ForeignKeys[1].RefTable = PaymentOrdersTable
+	GroupBuyRefundsTable.ForeignKeys[2].RefTable = UsersTable
+	GroupBuyRefundsTable.Annotation = &entsql.Annotation{
+		Table: "group_buy_refunds",
+	}
+	GroupBuyRoundsTable.ForeignKeys[0].RefTable = GroupBuyPlansTable
+	GroupBuyRoundsTable.Annotation = &entsql.Annotation{
+		Table: "group_buy_rounds",
+	}
+	GroupBuySeatsTable.ForeignKeys[0].RefTable = APIKeysTable
+	GroupBuySeatsTable.ForeignKeys[1].RefTable = GroupBuyPlansTable
+	GroupBuySeatsTable.ForeignKeys[2].RefTable = GroupBuyRoundsTable
+	GroupBuySeatsTable.ForeignKeys[3].RefTable = PaymentOrdersTable
+	GroupBuySeatsTable.ForeignKeys[4].RefTable = UsersTable
+	GroupBuySeatsTable.ForeignKeys[5].RefTable = UserSubscriptionsTable
+	GroupBuySeatsTable.Annotation = &entsql.Annotation{
+		Table: "group_buy_seats",
 	}
 	IdempotencyRecordsTable.Annotation = &entsql.Annotation{
 		Table: "idempotency_records",

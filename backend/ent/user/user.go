@@ -85,6 +85,14 @@ const (
 	EdgePromoCodeUsages = "promo_code_usages"
 	// EdgePaymentOrders holds the string denoting the payment_orders edge name in mutations.
 	EdgePaymentOrders = "payment_orders"
+	// EdgeGroupBuySeats holds the string denoting the group_buy_seats edge name in mutations.
+	EdgeGroupBuySeats = "group_buy_seats"
+	// EdgeGroupBuyEvents holds the string denoting the group_buy_events edge name in mutations.
+	EdgeGroupBuyEvents = "group_buy_events"
+	// EdgeGroupBuyEntitlements holds the string denoting the group_buy_entitlements edge name in mutations.
+	EdgeGroupBuyEntitlements = "group_buy_entitlements"
+	// EdgeGroupBuyRefunds holds the string denoting the group_buy_refunds edge name in mutations.
+	EdgeGroupBuyRefunds = "group_buy_refunds"
 	// EdgeInvoiceRequests holds the string denoting the invoice_requests edge name in mutations.
 	EdgeInvoiceRequests = "invoice_requests"
 	// EdgeAuthIdentities holds the string denoting the auth_identities edge name in mutations.
@@ -165,6 +173,34 @@ const (
 	PaymentOrdersInverseTable = "payment_orders"
 	// PaymentOrdersColumn is the table column denoting the payment_orders relation/edge.
 	PaymentOrdersColumn = "user_id"
+	// GroupBuySeatsTable is the table that holds the group_buy_seats relation/edge.
+	GroupBuySeatsTable = "group_buy_seats"
+	// GroupBuySeatsInverseTable is the table name for the GroupBuySeat entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyseat" package.
+	GroupBuySeatsInverseTable = "group_buy_seats"
+	// GroupBuySeatsColumn is the table column denoting the group_buy_seats relation/edge.
+	GroupBuySeatsColumn = "user_id"
+	// GroupBuyEventsTable is the table that holds the group_buy_events relation/edge.
+	GroupBuyEventsTable = "group_buy_events"
+	// GroupBuyEventsInverseTable is the table name for the GroupBuyEvent entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyevent" package.
+	GroupBuyEventsInverseTable = "group_buy_events"
+	// GroupBuyEventsColumn is the table column denoting the group_buy_events relation/edge.
+	GroupBuyEventsColumn = "user_id"
+	// GroupBuyEntitlementsTable is the table that holds the group_buy_entitlements relation/edge.
+	GroupBuyEntitlementsTable = "group_buy_entitlements"
+	// GroupBuyEntitlementsInverseTable is the table name for the GroupBuyEntitlement entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyentitlement" package.
+	GroupBuyEntitlementsInverseTable = "group_buy_entitlements"
+	// GroupBuyEntitlementsColumn is the table column denoting the group_buy_entitlements relation/edge.
+	GroupBuyEntitlementsColumn = "user_id"
+	// GroupBuyRefundsTable is the table that holds the group_buy_refunds relation/edge.
+	GroupBuyRefundsTable = "group_buy_refunds"
+	// GroupBuyRefundsInverseTable is the table name for the GroupBuyRefund entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyrefund" package.
+	GroupBuyRefundsInverseTable = "group_buy_refunds"
+	// GroupBuyRefundsColumn is the table column denoting the group_buy_refunds relation/edge.
+	GroupBuyRefundsColumn = "user_id"
 	// InvoiceRequestsTable is the table that holds the invoice_requests relation/edge.
 	InvoiceRequestsTable = "invoice_requests"
 	// InvoiceRequestsInverseTable is the table name for the InvoiceRequest entity.
@@ -583,6 +619,62 @@ func ByPaymentOrders(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByGroupBuySeatsCount orders the results by group_buy_seats count.
+func ByGroupBuySeatsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupBuySeatsStep(), opts...)
+	}
+}
+
+// ByGroupBuySeats orders the results by group_buy_seats terms.
+func ByGroupBuySeats(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupBuySeatsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByGroupBuyEventsCount orders the results by group_buy_events count.
+func ByGroupBuyEventsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupBuyEventsStep(), opts...)
+	}
+}
+
+// ByGroupBuyEvents orders the results by group_buy_events terms.
+func ByGroupBuyEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupBuyEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByGroupBuyEntitlementsCount orders the results by group_buy_entitlements count.
+func ByGroupBuyEntitlementsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupBuyEntitlementsStep(), opts...)
+	}
+}
+
+// ByGroupBuyEntitlements orders the results by group_buy_entitlements terms.
+func ByGroupBuyEntitlements(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupBuyEntitlementsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByGroupBuyRefundsCount orders the results by group_buy_refunds count.
+func ByGroupBuyRefundsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupBuyRefundsStep(), opts...)
+	}
+}
+
+// ByGroupBuyRefunds orders the results by group_buy_refunds terms.
+func ByGroupBuyRefunds(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupBuyRefundsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByInvoiceRequestsCount orders the results by invoice_requests count.
 func ByInvoiceRequestsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -720,6 +812,34 @@ func newPaymentOrdersStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PaymentOrdersInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, PaymentOrdersTable, PaymentOrdersColumn),
+	)
+}
+func newGroupBuySeatsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupBuySeatsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuySeatsTable, GroupBuySeatsColumn),
+	)
+}
+func newGroupBuyEventsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupBuyEventsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyEventsTable, GroupBuyEventsColumn),
+	)
+}
+func newGroupBuyEntitlementsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupBuyEntitlementsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyEntitlementsTable, GroupBuyEntitlementsColumn),
+	)
+}
+func newGroupBuyRefundsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupBuyRefundsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyRefundsTable, GroupBuyRefundsColumn),
 	)
 }
 func newInvoiceRequestsStep() *sqlgraph.Step {

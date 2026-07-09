@@ -967,6 +967,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyAvailableChannelsEnabled,
+		SettingKeyGroupBuyEnabled,
+		SettingKeyGroupBuyProductName,
+		SettingKeyGroupBuyDescription,
 		SettingKeyAffiliateEnabled,
 		SettingKeyAccountShareEnabled,
 		SettingKeyAccountShareChannelStatusVisible,
@@ -1087,6 +1090,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
+		GroupBuyEnabled:          !isFalseSettingValue(settings[SettingKeyGroupBuyEnabled]),
+		GroupBuyProductName:      normalizeGroupBuyProductName(settings[SettingKeyGroupBuyProductName]),
+		GroupBuyDescription:      strings.TrimSpace(settings[SettingKeyGroupBuyDescription]),
 
 		AffiliateEnabled:                 settings[SettingKeyAffiliateEnabled] == "true",
 		AccountShareEnabled:              settings[SettingKeyAccountShareEnabled] != "false",
@@ -1316,19 +1322,22 @@ type PublicSettingsInjectionPayload struct {
 	// Feature flags — MUST match the opt-in/opt-out registry in
 	// frontend/src/utils/featureFlags.ts. Missing a field here is the bug
 	// that hid the "可用渠道" menu on page refresh.
-	ChannelMonitorEnabled                bool `json:"channel_monitor_enabled"`
-	ChannelMonitorDefaultIntervalSeconds int  `json:"channel_monitor_default_interval_seconds"`
-	AvailableChannelsEnabled             bool `json:"available_channels_enabled"`
-	AffiliateEnabled                     bool `json:"affiliate_enabled"`
-	AccountShareEnabled                  bool `json:"account_share_enabled"`
-	AccountShareChannelStatusVisible     bool `json:"account_share_channel_status_visible"`
-	ExternalCapacityReferenceEnabled     bool `json:"external_capacity_reference_enabled"`
-	RiskControlEnabled                   bool `json:"risk_control_enabled"`
-	WelfareEnabled                       bool `json:"welfare_enabled"`
-	WelfareDailyCheckinEnabled           bool `json:"welfare_daily_checkin_enabled"`
-	WelfareRechargeEnabled               bool `json:"welfare_recharge_enabled"`
-	WelfareVIPEnabled                    bool `json:"welfare_vip_enabled"`
-	WelfareNewUserTrialEnabled           bool `json:"welfare_new_user_trial_enabled"`
+	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
+	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
+	AvailableChannelsEnabled             bool   `json:"available_channels_enabled"`
+	GroupBuyEnabled                      bool   `json:"group_buy_enabled"`
+	GroupBuyProductName                  string `json:"group_buy_product_name"`
+	GroupBuyDescription                  string `json:"group_buy_description"`
+	AffiliateEnabled                     bool   `json:"affiliate_enabled"`
+	AccountShareEnabled                  bool   `json:"account_share_enabled"`
+	AccountShareChannelStatusVisible     bool   `json:"account_share_channel_status_visible"`
+	ExternalCapacityReferenceEnabled     bool   `json:"external_capacity_reference_enabled"`
+	RiskControlEnabled                   bool   `json:"risk_control_enabled"`
+	WelfareEnabled                       bool   `json:"welfare_enabled"`
+	WelfareDailyCheckinEnabled           bool   `json:"welfare_daily_checkin_enabled"`
+	WelfareRechargeEnabled               bool   `json:"welfare_recharge_enabled"`
+	WelfareVIPEnabled                    bool   `json:"welfare_vip_enabled"`
+	WelfareNewUserTrialEnabled           bool   `json:"welfare_new_user_trial_enabled"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.
@@ -1398,6 +1407,9 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
+		GroupBuyEnabled:                      settings.GroupBuyEnabled,
+		GroupBuyProductName:                  settings.GroupBuyProductName,
+		GroupBuyDescription:                  settings.GroupBuyDescription,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		AccountShareEnabled:                  settings.AccountShareEnabled,
 		AccountShareChannelStatusVisible:     settings.AccountShareChannelStatusVisible,
@@ -2053,6 +2065,9 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 
 	// Available channels feature switch
 	updates[SettingKeyAvailableChannelsEnabled] = strconv.FormatBool(settings.AvailableChannelsEnabled)
+	updates[SettingKeyGroupBuyEnabled] = strconv.FormatBool(settings.GroupBuyEnabled)
+	updates[SettingKeyGroupBuyProductName] = normalizeGroupBuyProductName(settings.GroupBuyProductName)
+	updates[SettingKeyGroupBuyDescription] = strings.TrimSpace(settings.GroupBuyDescription)
 
 	// Affiliate (邀请返利) feature switch
 	settings.LeaderboardRewardMode = NormalizeLeaderboardRewardMode(settings.LeaderboardRewardMode, settings.LeaderboardDailyRewardEnabled)
@@ -2553,6 +2568,25 @@ func (s *SettingService) IsBackendModeEnabled(ctx context.Context) bool {
 		return val
 	}
 	return false
+}
+
+func (s *SettingService) IsGroupBuyEnabled(ctx context.Context) bool {
+	if s == nil || s.settingRepo == nil {
+		return true
+	}
+	value, err := s.settingRepo.GetValue(ctx, SettingKeyGroupBuyEnabled)
+	if err != nil {
+		return true
+	}
+	return !isFalseSettingValue(value)
+}
+
+func normalizeGroupBuyProductName(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return "Token拼拼拼"
+	}
+	return trimmed
 }
 
 type gatewayForwardingSettingsResult struct {
@@ -3235,6 +3269,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyLeaderboardLotteryAmount:                  "0",
 		SettingKeyLeaderboardLotteryCron:                    defaultLeaderboardLotteryCron,
 		SettingKeyAvailableChannelsEnabled:                  "false",
+		SettingKeyGroupBuyEnabled:                           "true",
+		SettingKeyGroupBuyProductName:                       "Token拼拼拼",
+		SettingKeyGroupBuyDescription:                       "按份额拼团，满份后开通 Token拼拼拼 权益；使用自己的平台 API Key。",
 		SettingKeyLeaderboardDailyRewardEnabled:             "false",
 		SettingKeyLeaderboardDailyRewardMinTotalActualCost:  "0",
 		SettingKeyLeaderboardDailyRewardRank1Amount:         "0",
@@ -3693,6 +3730,9 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// Available channels feature (default: disabled; strict true)
 	result.AvailableChannelsEnabled = settings[SettingKeyAvailableChannelsEnabled] == "true"
+	result.GroupBuyEnabled = !isFalseSettingValue(settings[SettingKeyGroupBuyEnabled])
+	result.GroupBuyProductName = normalizeGroupBuyProductName(settings[SettingKeyGroupBuyProductName])
+	result.GroupBuyDescription = strings.TrimSpace(settings[SettingKeyGroupBuyDescription])
 
 	legacyLeaderboardEnabled := settings[SettingKeyLeaderboardDailyRewardEnabled] == "true"
 	result.LeaderboardRewardMode = NormalizeLeaderboardRewardMode(settings[SettingKeyLeaderboardRewardMode], legacyLeaderboardEnabled)

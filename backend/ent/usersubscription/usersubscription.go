@@ -31,6 +31,12 @@ const (
 	FieldExpiresAt = "expires_at"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldSourceType holds the string denoting the source_type field in the database.
+	FieldSourceType = "source_type"
+	// FieldSourceID holds the string denoting the source_id field in the database.
+	FieldSourceID = "source_id"
+	// FieldManagedByGroupBuy holds the string denoting the managed_by_group_buy field in the database.
+	FieldManagedByGroupBuy = "managed_by_group_buy"
 	// FieldDailyWindowStart holds the string denoting the daily_window_start field in the database.
 	FieldDailyWindowStart = "daily_window_start"
 	// FieldWeeklyWindowStart holds the string denoting the weekly_window_start field in the database.
@@ -57,6 +63,12 @@ const (
 	EdgeAssignedByUser = "assigned_by_user"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
+	// EdgeGroupBuySeats holds the string denoting the group_buy_seats edge name in mutations.
+	EdgeGroupBuySeats = "group_buy_seats"
+	// EdgeGroupBuyEntitlements holds the string denoting the group_buy_entitlements edge name in mutations.
+	EdgeGroupBuyEntitlements = "group_buy_entitlements"
+	// EdgeManagedGroupBuyEntitlements holds the string denoting the managed_group_buy_entitlements edge name in mutations.
+	EdgeManagedGroupBuyEntitlements = "managed_group_buy_entitlements"
 	// Table holds the table name of the usersubscription in the database.
 	Table = "user_subscriptions"
 	// UserTable is the table that holds the user relation/edge.
@@ -87,6 +99,27 @@ const (
 	UsageLogsInverseTable = "usage_logs"
 	// UsageLogsColumn is the table column denoting the usage_logs relation/edge.
 	UsageLogsColumn = "subscription_id"
+	// GroupBuySeatsTable is the table that holds the group_buy_seats relation/edge.
+	GroupBuySeatsTable = "group_buy_seats"
+	// GroupBuySeatsInverseTable is the table name for the GroupBuySeat entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyseat" package.
+	GroupBuySeatsInverseTable = "group_buy_seats"
+	// GroupBuySeatsColumn is the table column denoting the group_buy_seats relation/edge.
+	GroupBuySeatsColumn = "subscription_id"
+	// GroupBuyEntitlementsTable is the table that holds the group_buy_entitlements relation/edge.
+	GroupBuyEntitlementsTable = "group_buy_entitlements"
+	// GroupBuyEntitlementsInverseTable is the table name for the GroupBuyEntitlement entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyentitlement" package.
+	GroupBuyEntitlementsInverseTable = "group_buy_entitlements"
+	// GroupBuyEntitlementsColumn is the table column denoting the group_buy_entitlements relation/edge.
+	GroupBuyEntitlementsColumn = "subscription_id"
+	// ManagedGroupBuyEntitlementsTable is the table that holds the managed_group_buy_entitlements relation/edge.
+	ManagedGroupBuyEntitlementsTable = "group_buy_entitlements"
+	// ManagedGroupBuyEntitlementsInverseTable is the table name for the GroupBuyEntitlement entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyentitlement" package.
+	ManagedGroupBuyEntitlementsInverseTable = "group_buy_entitlements"
+	// ManagedGroupBuyEntitlementsColumn is the table column denoting the managed_group_buy_entitlements relation/edge.
+	ManagedGroupBuyEntitlementsColumn = "managed_subscription_id"
 )
 
 // Columns holds all SQL columns for usersubscription fields.
@@ -100,6 +133,9 @@ var Columns = []string{
 	FieldStartsAt,
 	FieldExpiresAt,
 	FieldStatus,
+	FieldSourceType,
+	FieldSourceID,
+	FieldManagedByGroupBuy,
 	FieldDailyWindowStart,
 	FieldWeeklyWindowStart,
 	FieldMonthlyWindowStart,
@@ -139,6 +175,12 @@ var (
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	StatusValidator func(string) error
+	// DefaultSourceType holds the default value on creation for the "source_type" field.
+	DefaultSourceType string
+	// SourceTypeValidator is a validator for the "source_type" field. It is called by the builders before save.
+	SourceTypeValidator func(string) error
+	// DefaultManagedByGroupBuy holds the default value on creation for the "managed_by_group_buy" field.
+	DefaultManagedByGroupBuy bool
 	// DefaultDailyUsageUsd holds the default value on creation for the "daily_usage_usd" field.
 	DefaultDailyUsageUsd float64
 	// DefaultWeeklyUsageUsd holds the default value on creation for the "weekly_usage_usd" field.
@@ -195,6 +237,21 @@ func ByExpiresAt(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// BySourceType orders the results by the source_type field.
+func BySourceType(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceType, opts...).ToFunc()
+}
+
+// BySourceID orders the results by the source_id field.
+func BySourceID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceID, opts...).ToFunc()
+}
+
+// ByManagedByGroupBuy orders the results by the managed_by_group_buy field.
+func ByManagedByGroupBuy(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldManagedByGroupBuy, opts...).ToFunc()
 }
 
 // ByDailyWindowStart orders the results by the daily_window_start field.
@@ -276,6 +333,48 @@ func ByUsageLogs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newUsageLogsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByGroupBuySeatsCount orders the results by group_buy_seats count.
+func ByGroupBuySeatsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupBuySeatsStep(), opts...)
+	}
+}
+
+// ByGroupBuySeats orders the results by group_buy_seats terms.
+func ByGroupBuySeats(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupBuySeatsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByGroupBuyEntitlementsCount orders the results by group_buy_entitlements count.
+func ByGroupBuyEntitlementsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newGroupBuyEntitlementsStep(), opts...)
+	}
+}
+
+// ByGroupBuyEntitlements orders the results by group_buy_entitlements terms.
+func ByGroupBuyEntitlements(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newGroupBuyEntitlementsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByManagedGroupBuyEntitlementsCount orders the results by managed_group_buy_entitlements count.
+func ByManagedGroupBuyEntitlementsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newManagedGroupBuyEntitlementsStep(), opts...)
+	}
+}
+
+// ByManagedGroupBuyEntitlements orders the results by managed_group_buy_entitlements terms.
+func ByManagedGroupBuyEntitlements(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newManagedGroupBuyEntitlementsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newUserStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -302,5 +401,26 @@ func newUsageLogsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(UsageLogsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, UsageLogsTable, UsageLogsColumn),
+	)
+}
+func newGroupBuySeatsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupBuySeatsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuySeatsTable, GroupBuySeatsColumn),
+	)
+}
+func newGroupBuyEntitlementsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(GroupBuyEntitlementsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyEntitlementsTable, GroupBuyEntitlementsColumn),
+	)
+}
+func newManagedGroupBuyEntitlementsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ManagedGroupBuyEntitlementsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, ManagedGroupBuyEntitlementsTable, ManagedGroupBuyEntitlementsColumn),
 	)
 }

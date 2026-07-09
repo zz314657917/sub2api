@@ -419,4 +419,32 @@ describe('readPaymentRecoverySnapshot', () => {
     expect(restored?.countryCode).toBe('')
     expect(restored?.paymentEnv).toBe('')
   })
+
+  it('preserves group-buy recovery snapshots', () => {
+    const restored = readPaymentRecoverySnapshot(JSON.stringify({
+      orderId: 46,
+      amount: 128,
+      qrCode: '',
+      expiresAt: '2099-01-01T00:10:00.000Z',
+      paymentType: 'stripe',
+      payUrl: '/payment/stripe?order_id=46',
+      outTradeNo: 'sub2_group_46',
+      clientSecret: 'cs_group_buy',
+      intentId: '',
+      currency: 'CNY',
+      countryCode: '',
+      paymentEnv: '',
+      payAmount: 128,
+      orderType: 'group_buy',
+      paymentMode: '',
+      resumeToken: 'resume-group-46',
+      createdAt: Date.UTC(2099, 0, 1, 0, 0, 0),
+    }), {
+      now: Date.UTC(2099, 0, 1, 0, 1, 0),
+      resumeToken: 'resume-group-46',
+    })
+
+    expect(restored?.orderId).toBe(46)
+    expect(restored?.orderType).toBe('group_buy')
+  })
 })

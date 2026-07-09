@@ -14,6 +14,8 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -496,6 +498,36 @@ func (_u *APIKeyUpdate) AddUsageLogs(v ...*UsageLog) *APIKeyUpdate {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// AddGroupBuySeatIDs adds the "group_buy_seats" edge to the GroupBuySeat entity by IDs.
+func (_u *APIKeyUpdate) AddGroupBuySeatIDs(ids ...int64) *APIKeyUpdate {
+	_u.mutation.AddGroupBuySeatIDs(ids...)
+	return _u
+}
+
+// AddGroupBuySeats adds the "group_buy_seats" edges to the GroupBuySeat entity.
+func (_u *APIKeyUpdate) AddGroupBuySeats(v ...*GroupBuySeat) *APIKeyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuySeatIDs(ids...)
+}
+
+// AddGroupBuyEntitlementIDs adds the "group_buy_entitlements" edge to the GroupBuyEntitlement entity by IDs.
+func (_u *APIKeyUpdate) AddGroupBuyEntitlementIDs(ids ...int64) *APIKeyUpdate {
+	_u.mutation.AddGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyEntitlements adds the "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *APIKeyUpdate) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *APIKeyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyEntitlementIDs(ids...)
+}
+
 // Mutation returns the APIKeyMutation object of the builder.
 func (_u *APIKeyUpdate) Mutation() *APIKeyMutation {
 	return _u.mutation
@@ -532,6 +564,48 @@ func (_u *APIKeyUpdate) RemoveUsageLogs(v ...*UsageLog) *APIKeyUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveUsageLogIDs(ids...)
+}
+
+// ClearGroupBuySeats clears all "group_buy_seats" edges to the GroupBuySeat entity.
+func (_u *APIKeyUpdate) ClearGroupBuySeats() *APIKeyUpdate {
+	_u.mutation.ClearGroupBuySeats()
+	return _u
+}
+
+// RemoveGroupBuySeatIDs removes the "group_buy_seats" edge to GroupBuySeat entities by IDs.
+func (_u *APIKeyUpdate) RemoveGroupBuySeatIDs(ids ...int64) *APIKeyUpdate {
+	_u.mutation.RemoveGroupBuySeatIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuySeats removes "group_buy_seats" edges to GroupBuySeat entities.
+func (_u *APIKeyUpdate) RemoveGroupBuySeats(v ...*GroupBuySeat) *APIKeyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuySeatIDs(ids...)
+}
+
+// ClearGroupBuyEntitlements clears all "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *APIKeyUpdate) ClearGroupBuyEntitlements() *APIKeyUpdate {
+	_u.mutation.ClearGroupBuyEntitlements()
+	return _u
+}
+
+// RemoveGroupBuyEntitlementIDs removes the "group_buy_entitlements" edge to GroupBuyEntitlement entities by IDs.
+func (_u *APIKeyUpdate) RemoveGroupBuyEntitlementIDs(ids ...int64) *APIKeyUpdate {
+	_u.mutation.RemoveGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyEntitlements removes "group_buy_entitlements" edges to GroupBuyEntitlement entities.
+func (_u *APIKeyUpdate) RemoveGroupBuyEntitlements(v ...*GroupBuyEntitlement) *APIKeyUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyEntitlementIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -844,6 +918,96 @@ func (_u *APIKeyUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usagelog.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuySeatsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuySeatsTable,
+			Columns: []string{apikey.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuySeatsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuySeatsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuySeatsTable,
+			Columns: []string{apikey.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuySeatsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuySeatsTable,
+			Columns: []string{apikey.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuyEntitlementsTable,
+			Columns: []string{apikey.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyEntitlementsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuyEntitlementsTable,
+			Columns: []string{apikey.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyEntitlementsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuyEntitlementsTable,
+			Columns: []string{apikey.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1334,6 +1498,36 @@ func (_u *APIKeyUpdateOne) AddUsageLogs(v ...*UsageLog) *APIKeyUpdateOne {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// AddGroupBuySeatIDs adds the "group_buy_seats" edge to the GroupBuySeat entity by IDs.
+func (_u *APIKeyUpdateOne) AddGroupBuySeatIDs(ids ...int64) *APIKeyUpdateOne {
+	_u.mutation.AddGroupBuySeatIDs(ids...)
+	return _u
+}
+
+// AddGroupBuySeats adds the "group_buy_seats" edges to the GroupBuySeat entity.
+func (_u *APIKeyUpdateOne) AddGroupBuySeats(v ...*GroupBuySeat) *APIKeyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuySeatIDs(ids...)
+}
+
+// AddGroupBuyEntitlementIDs adds the "group_buy_entitlements" edge to the GroupBuyEntitlement entity by IDs.
+func (_u *APIKeyUpdateOne) AddGroupBuyEntitlementIDs(ids ...int64) *APIKeyUpdateOne {
+	_u.mutation.AddGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyEntitlements adds the "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *APIKeyUpdateOne) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *APIKeyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyEntitlementIDs(ids...)
+}
+
 // Mutation returns the APIKeyMutation object of the builder.
 func (_u *APIKeyUpdateOne) Mutation() *APIKeyMutation {
 	return _u.mutation
@@ -1370,6 +1564,48 @@ func (_u *APIKeyUpdateOne) RemoveUsageLogs(v ...*UsageLog) *APIKeyUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveUsageLogIDs(ids...)
+}
+
+// ClearGroupBuySeats clears all "group_buy_seats" edges to the GroupBuySeat entity.
+func (_u *APIKeyUpdateOne) ClearGroupBuySeats() *APIKeyUpdateOne {
+	_u.mutation.ClearGroupBuySeats()
+	return _u
+}
+
+// RemoveGroupBuySeatIDs removes the "group_buy_seats" edge to GroupBuySeat entities by IDs.
+func (_u *APIKeyUpdateOne) RemoveGroupBuySeatIDs(ids ...int64) *APIKeyUpdateOne {
+	_u.mutation.RemoveGroupBuySeatIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuySeats removes "group_buy_seats" edges to GroupBuySeat entities.
+func (_u *APIKeyUpdateOne) RemoveGroupBuySeats(v ...*GroupBuySeat) *APIKeyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuySeatIDs(ids...)
+}
+
+// ClearGroupBuyEntitlements clears all "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *APIKeyUpdateOne) ClearGroupBuyEntitlements() *APIKeyUpdateOne {
+	_u.mutation.ClearGroupBuyEntitlements()
+	return _u
+}
+
+// RemoveGroupBuyEntitlementIDs removes the "group_buy_entitlements" edge to GroupBuyEntitlement entities by IDs.
+func (_u *APIKeyUpdateOne) RemoveGroupBuyEntitlementIDs(ids ...int64) *APIKeyUpdateOne {
+	_u.mutation.RemoveGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyEntitlements removes "group_buy_entitlements" edges to GroupBuyEntitlement entities.
+func (_u *APIKeyUpdateOne) RemoveGroupBuyEntitlements(v ...*GroupBuyEntitlement) *APIKeyUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyEntitlementIDs(ids...)
 }
 
 // Where appends a list predicates to the APIKeyUpdate builder.
@@ -1712,6 +1948,96 @@ func (_u *APIKeyUpdateOne) sqlSave(ctx context.Context) (_node *APIKey, err erro
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usagelog.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuySeatsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuySeatsTable,
+			Columns: []string{apikey.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuySeatsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuySeatsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuySeatsTable,
+			Columns: []string{apikey.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuySeatsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuySeatsTable,
+			Columns: []string{apikey.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuyEntitlementsTable,
+			Columns: []string{apikey.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyEntitlementsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuyEntitlementsTable,
+			Columns: []string{apikey.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyEntitlementsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.GroupBuyEntitlementsTable,
+			Columns: []string{apikey.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

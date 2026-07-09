@@ -136,6 +136,11 @@ func (s *PaymentService) cancelCore(ctx context.Context, o *dbent.PaymentOrder, 
 			auditAction = "ORDER_EXPIRED"
 		}
 		s.writeAuditLog(ctx, o.ID, auditAction, op, map[string]any{"detail": ad})
+		if o.OrderType == payment.OrderTypeGroupBuy && s.groupBuySvc != nil {
+			if err := s.groupBuySvc.ReleaseGroupBuySeatForOrder(ctx, o.ID, ad); err != nil {
+				slog.Warn("release group buy seat after order cancel failed", "orderID", o.ID, "error", err)
+			}
+		}
 	}
 	return checkPaidResultCancelled, nil
 }

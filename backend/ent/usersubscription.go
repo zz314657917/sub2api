@@ -35,6 +35,12 @@ type UserSubscription struct {
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
+	// SourceType holds the value of the "source_type" field.
+	SourceType string `json:"source_type,omitempty"`
+	// SourceID holds the value of the "source_id" field.
+	SourceID *int64 `json:"source_id,omitempty"`
+	// ManagedByGroupBuy holds the value of the "managed_by_group_buy" field.
+	ManagedByGroupBuy bool `json:"managed_by_group_buy,omitempty"`
 	// DailyWindowStart holds the value of the "daily_window_start" field.
 	DailyWindowStart *time.Time `json:"daily_window_start,omitempty"`
 	// WeeklyWindowStart holds the value of the "weekly_window_start" field.
@@ -69,9 +75,15 @@ type UserSubscriptionEdges struct {
 	AssignedByUser *User `json:"assigned_by_user,omitempty"`
 	// UsageLogs holds the value of the usage_logs edge.
 	UsageLogs []*UsageLog `json:"usage_logs,omitempty"`
+	// GroupBuySeats holds the value of the group_buy_seats edge.
+	GroupBuySeats []*GroupBuySeat `json:"group_buy_seats,omitempty"`
+	// GroupBuyEntitlements holds the value of the group_buy_entitlements edge.
+	GroupBuyEntitlements []*GroupBuyEntitlement `json:"group_buy_entitlements,omitempty"`
+	// ManagedGroupBuyEntitlements holds the value of the managed_group_buy_entitlements edge.
+	ManagedGroupBuyEntitlements []*GroupBuyEntitlement `json:"managed_group_buy_entitlements,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [7]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -116,16 +128,45 @@ func (e UserSubscriptionEdges) UsageLogsOrErr() ([]*UsageLog, error) {
 	return nil, &NotLoadedError{edge: "usage_logs"}
 }
 
+// GroupBuySeatsOrErr returns the GroupBuySeats value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserSubscriptionEdges) GroupBuySeatsOrErr() ([]*GroupBuySeat, error) {
+	if e.loadedTypes[4] {
+		return e.GroupBuySeats, nil
+	}
+	return nil, &NotLoadedError{edge: "group_buy_seats"}
+}
+
+// GroupBuyEntitlementsOrErr returns the GroupBuyEntitlements value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserSubscriptionEdges) GroupBuyEntitlementsOrErr() ([]*GroupBuyEntitlement, error) {
+	if e.loadedTypes[5] {
+		return e.GroupBuyEntitlements, nil
+	}
+	return nil, &NotLoadedError{edge: "group_buy_entitlements"}
+}
+
+// ManagedGroupBuyEntitlementsOrErr returns the ManagedGroupBuyEntitlements value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserSubscriptionEdges) ManagedGroupBuyEntitlementsOrErr() ([]*GroupBuyEntitlement, error) {
+	if e.loadedTypes[6] {
+		return e.ManagedGroupBuyEntitlements, nil
+	}
+	return nil, &NotLoadedError{edge: "managed_group_buy_entitlements"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*UserSubscription) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case usersubscription.FieldManagedByGroupBuy:
+			values[i] = new(sql.NullBool)
 		case usersubscription.FieldDailyUsageUsd, usersubscription.FieldWeeklyUsageUsd, usersubscription.FieldMonthlyUsageUsd:
 			values[i] = new(sql.NullFloat64)
-		case usersubscription.FieldID, usersubscription.FieldUserID, usersubscription.FieldGroupID, usersubscription.FieldAssignedBy:
+		case usersubscription.FieldID, usersubscription.FieldUserID, usersubscription.FieldGroupID, usersubscription.FieldSourceID, usersubscription.FieldAssignedBy:
 			values[i] = new(sql.NullInt64)
-		case usersubscription.FieldStatus, usersubscription.FieldNotes:
+		case usersubscription.FieldStatus, usersubscription.FieldSourceType, usersubscription.FieldNotes:
 			values[i] = new(sql.NullString)
 		case usersubscription.FieldCreatedAt, usersubscription.FieldUpdatedAt, usersubscription.FieldDeletedAt, usersubscription.FieldStartsAt, usersubscription.FieldExpiresAt, usersubscription.FieldDailyWindowStart, usersubscription.FieldWeeklyWindowStart, usersubscription.FieldMonthlyWindowStart, usersubscription.FieldAssignedAt:
 			values[i] = new(sql.NullTime)
@@ -198,6 +239,25 @@ func (_m *UserSubscription) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field status", values[i])
 			} else if value.Valid {
 				_m.Status = value.String
+			}
+		case usersubscription.FieldSourceType:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field source_type", values[i])
+			} else if value.Valid {
+				_m.SourceType = value.String
+			}
+		case usersubscription.FieldSourceID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field source_id", values[i])
+			} else if value.Valid {
+				_m.SourceID = new(int64)
+				*_m.SourceID = value.Int64
+			}
+		case usersubscription.FieldManagedByGroupBuy:
+			if value, ok := values[i].(*sql.NullBool); !ok {
+				return fmt.Errorf("unexpected type %T for field managed_by_group_buy", values[i])
+			} else if value.Valid {
+				_m.ManagedByGroupBuy = value.Bool
 			}
 		case usersubscription.FieldDailyWindowStart:
 			if value, ok := values[i].(*sql.NullTime); !ok {
@@ -291,6 +351,21 @@ func (_m *UserSubscription) QueryUsageLogs() *UsageLogQuery {
 	return NewUserSubscriptionClient(_m.config).QueryUsageLogs(_m)
 }
 
+// QueryGroupBuySeats queries the "group_buy_seats" edge of the UserSubscription entity.
+func (_m *UserSubscription) QueryGroupBuySeats() *GroupBuySeatQuery {
+	return NewUserSubscriptionClient(_m.config).QueryGroupBuySeats(_m)
+}
+
+// QueryGroupBuyEntitlements queries the "group_buy_entitlements" edge of the UserSubscription entity.
+func (_m *UserSubscription) QueryGroupBuyEntitlements() *GroupBuyEntitlementQuery {
+	return NewUserSubscriptionClient(_m.config).QueryGroupBuyEntitlements(_m)
+}
+
+// QueryManagedGroupBuyEntitlements queries the "managed_group_buy_entitlements" edge of the UserSubscription entity.
+func (_m *UserSubscription) QueryManagedGroupBuyEntitlements() *GroupBuyEntitlementQuery {
+	return NewUserSubscriptionClient(_m.config).QueryManagedGroupBuyEntitlements(_m)
+}
+
 // Update returns a builder for updating this UserSubscription.
 // Note that you need to call UserSubscription.Unwrap() before calling this method if this UserSubscription
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -339,6 +414,17 @@ func (_m *UserSubscription) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
+	builder.WriteString(", ")
+	builder.WriteString("source_type=")
+	builder.WriteString(_m.SourceType)
+	builder.WriteString(", ")
+	if v := _m.SourceID; v != nil {
+		builder.WriteString("source_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	builder.WriteString("managed_by_group_buy=")
+	builder.WriteString(fmt.Sprintf("%v", _m.ManagedByGroupBuy))
 	builder.WriteString(", ")
 	if v := _m.DailyWindowStart; v != nil {
 		builder.WriteString("daily_window_start=")

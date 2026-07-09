@@ -53,6 +53,8 @@ export default {
     github: 'GitHub',
     mySubscriptions: 'My Subscriptions',
     buySubscription: 'Buy Credits / Subscription',
+    groupBuy: 'Token Pin',
+    groupBuyManagement: 'Group Buy',
     docs: 'Docs',
     myOrders: 'My Orders',
     orderManagement: 'Orders',

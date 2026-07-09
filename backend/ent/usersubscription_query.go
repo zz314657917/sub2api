@@ -14,6 +14,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -23,15 +25,18 @@ import (
 // UserSubscriptionQuery is the builder for querying UserSubscription entities.
 type UserSubscriptionQuery struct {
 	config
-	ctx                *QueryContext
-	order              []usersubscription.OrderOption
-	inters             []Interceptor
-	predicates         []predicate.UserSubscription
-	withUser           *UserQuery
-	withGroup          *GroupQuery
-	withAssignedByUser *UserQuery
-	withUsageLogs      *UsageLogQuery
-	modifiers          []func(*sql.Selector)
+	ctx                             *QueryContext
+	order                           []usersubscription.OrderOption
+	inters                          []Interceptor
+	predicates                      []predicate.UserSubscription
+	withUser                        *UserQuery
+	withGroup                       *GroupQuery
+	withAssignedByUser              *UserQuery
+	withUsageLogs                   *UsageLogQuery
+	withGroupBuySeats               *GroupBuySeatQuery
+	withGroupBuyEntitlements        *GroupBuyEntitlementQuery
+	withManagedGroupBuyEntitlements *GroupBuyEntitlementQuery
+	modifiers                       []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -149,6 +154,72 @@ func (_q *UserSubscriptionQuery) QueryUsageLogs() *UsageLogQuery {
 			sqlgraph.From(usersubscription.Table, usersubscription.FieldID, selector),
 			sqlgraph.To(usagelog.Table, usagelog.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, usersubscription.UsageLogsTable, usersubscription.UsageLogsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGroupBuySeats chains the current query on the "group_buy_seats" edge.
+func (_q *UserSubscriptionQuery) QueryGroupBuySeats() *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usersubscription.Table, usersubscription.FieldID, selector),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, usersubscription.GroupBuySeatsTable, usersubscription.GroupBuySeatsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryGroupBuyEntitlements chains the current query on the "group_buy_entitlements" edge.
+func (_q *UserSubscriptionQuery) QueryGroupBuyEntitlements() *GroupBuyEntitlementQuery {
+	query := (&GroupBuyEntitlementClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usersubscription.Table, usersubscription.FieldID, selector),
+			sqlgraph.To(groupbuyentitlement.Table, groupbuyentitlement.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, usersubscription.GroupBuyEntitlementsTable, usersubscription.GroupBuyEntitlementsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryManagedGroupBuyEntitlements chains the current query on the "managed_group_buy_entitlements" edge.
+func (_q *UserSubscriptionQuery) QueryManagedGroupBuyEntitlements() *GroupBuyEntitlementQuery {
+	query := (&GroupBuyEntitlementClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usersubscription.Table, usersubscription.FieldID, selector),
+			sqlgraph.To(groupbuyentitlement.Table, groupbuyentitlement.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, usersubscription.ManagedGroupBuyEntitlementsTable, usersubscription.ManagedGroupBuyEntitlementsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -343,15 +414,18 @@ func (_q *UserSubscriptionQuery) Clone() *UserSubscriptionQuery {
 		return nil
 	}
 	return &UserSubscriptionQuery{
-		config:             _q.config,
-		ctx:                _q.ctx.Clone(),
-		order:              append([]usersubscription.OrderOption{}, _q.order...),
-		inters:             append([]Interceptor{}, _q.inters...),
-		predicates:         append([]predicate.UserSubscription{}, _q.predicates...),
-		withUser:           _q.withUser.Clone(),
-		withGroup:          _q.withGroup.Clone(),
-		withAssignedByUser: _q.withAssignedByUser.Clone(),
-		withUsageLogs:      _q.withUsageLogs.Clone(),
+		config:                          _q.config,
+		ctx:                             _q.ctx.Clone(),
+		order:                           append([]usersubscription.OrderOption{}, _q.order...),
+		inters:                          append([]Interceptor{}, _q.inters...),
+		predicates:                      append([]predicate.UserSubscription{}, _q.predicates...),
+		withUser:                        _q.withUser.Clone(),
+		withGroup:                       _q.withGroup.Clone(),
+		withAssignedByUser:              _q.withAssignedByUser.Clone(),
+		withUsageLogs:                   _q.withUsageLogs.Clone(),
+		withGroupBuySeats:               _q.withGroupBuySeats.Clone(),
+		withGroupBuyEntitlements:        _q.withGroupBuyEntitlements.Clone(),
+		withManagedGroupBuyEntitlements: _q.withManagedGroupBuyEntitlements.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -399,6 +473,39 @@ func (_q *UserSubscriptionQuery) WithUsageLogs(opts ...func(*UsageLogQuery)) *Us
 		opt(query)
 	}
 	_q.withUsageLogs = query
+	return _q
+}
+
+// WithGroupBuySeats tells the query-builder to eager-load the nodes that are connected to
+// the "group_buy_seats" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserSubscriptionQuery) WithGroupBuySeats(opts ...func(*GroupBuySeatQuery)) *UserSubscriptionQuery {
+	query := (&GroupBuySeatClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withGroupBuySeats = query
+	return _q
+}
+
+// WithGroupBuyEntitlements tells the query-builder to eager-load the nodes that are connected to
+// the "group_buy_entitlements" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserSubscriptionQuery) WithGroupBuyEntitlements(opts ...func(*GroupBuyEntitlementQuery)) *UserSubscriptionQuery {
+	query := (&GroupBuyEntitlementClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withGroupBuyEntitlements = query
+	return _q
+}
+
+// WithManagedGroupBuyEntitlements tells the query-builder to eager-load the nodes that are connected to
+// the "managed_group_buy_entitlements" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *UserSubscriptionQuery) WithManagedGroupBuyEntitlements(opts ...func(*GroupBuyEntitlementQuery)) *UserSubscriptionQuery {
+	query := (&GroupBuyEntitlementClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withManagedGroupBuyEntitlements = query
 	return _q
 }
 
@@ -480,11 +587,14 @@ func (_q *UserSubscriptionQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 	var (
 		nodes       = []*UserSubscription{}
 		_spec       = _q.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [7]bool{
 			_q.withUser != nil,
 			_q.withGroup != nil,
 			_q.withAssignedByUser != nil,
 			_q.withUsageLogs != nil,
+			_q.withGroupBuySeats != nil,
+			_q.withGroupBuyEntitlements != nil,
+			_q.withManagedGroupBuyEntitlements != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -530,6 +640,31 @@ func (_q *UserSubscriptionQuery) sqlAll(ctx context.Context, hooks ...queryHook)
 		if err := _q.loadUsageLogs(ctx, query, nodes,
 			func(n *UserSubscription) { n.Edges.UsageLogs = []*UsageLog{} },
 			func(n *UserSubscription, e *UsageLog) { n.Edges.UsageLogs = append(n.Edges.UsageLogs, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withGroupBuySeats; query != nil {
+		if err := _q.loadGroupBuySeats(ctx, query, nodes,
+			func(n *UserSubscription) { n.Edges.GroupBuySeats = []*GroupBuySeat{} },
+			func(n *UserSubscription, e *GroupBuySeat) { n.Edges.GroupBuySeats = append(n.Edges.GroupBuySeats, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withGroupBuyEntitlements; query != nil {
+		if err := _q.loadGroupBuyEntitlements(ctx, query, nodes,
+			func(n *UserSubscription) { n.Edges.GroupBuyEntitlements = []*GroupBuyEntitlement{} },
+			func(n *UserSubscription, e *GroupBuyEntitlement) {
+				n.Edges.GroupBuyEntitlements = append(n.Edges.GroupBuyEntitlements, e)
+			}); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withManagedGroupBuyEntitlements; query != nil {
+		if err := _q.loadManagedGroupBuyEntitlements(ctx, query, nodes,
+			func(n *UserSubscription) { n.Edges.ManagedGroupBuyEntitlements = []*GroupBuyEntitlement{} },
+			func(n *UserSubscription, e *GroupBuyEntitlement) {
+				n.Edges.ManagedGroupBuyEntitlements = append(n.Edges.ManagedGroupBuyEntitlements, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -654,6 +789,105 @@ func (_q *UserSubscriptionQuery) loadUsageLogs(ctx context.Context, query *Usage
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "subscription_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserSubscriptionQuery) loadGroupBuySeats(ctx context.Context, query *GroupBuySeatQuery, nodes []*UserSubscription, init func(*UserSubscription), assign func(*UserSubscription, *GroupBuySeat)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*UserSubscription)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(groupbuyseat.FieldSubscriptionID)
+	}
+	query.Where(predicate.GroupBuySeat(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(usersubscription.GroupBuySeatsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SubscriptionID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "subscription_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "subscription_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserSubscriptionQuery) loadGroupBuyEntitlements(ctx context.Context, query *GroupBuyEntitlementQuery, nodes []*UserSubscription, init func(*UserSubscription), assign func(*UserSubscription, *GroupBuyEntitlement)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*UserSubscription)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(groupbuyentitlement.FieldSubscriptionID)
+	}
+	query.Where(predicate.GroupBuyEntitlement(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(usersubscription.GroupBuyEntitlementsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SubscriptionID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "subscription_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "subscription_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *UserSubscriptionQuery) loadManagedGroupBuyEntitlements(ctx context.Context, query *GroupBuyEntitlementQuery, nodes []*UserSubscription, init func(*UserSubscription), assign func(*UserSubscription, *GroupBuyEntitlement)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*UserSubscription)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(groupbuyentitlement.FieldManagedSubscriptionID)
+	}
+	query.Where(predicate.GroupBuyEntitlement(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(usersubscription.ManagedGroupBuyEntitlementsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.ManagedSubscriptionID
+		if fk == nil {
+			return fmt.Errorf(`foreign-key "managed_subscription_id" is nil for node %v`, n.ID)
+		}
+		node, ok := nodeids[*fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "managed_subscription_id" returned %v for node %v`, *fk, n.ID)
 		}
 		assign(node, n)
 	}

@@ -12,6 +12,8 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
@@ -101,6 +103,48 @@ func (_c *UserSubscriptionCreate) SetStatus(v string) *UserSubscriptionCreate {
 func (_c *UserSubscriptionCreate) SetNillableStatus(v *string) *UserSubscriptionCreate {
 	if v != nil {
 		_c.SetStatus(*v)
+	}
+	return _c
+}
+
+// SetSourceType sets the "source_type" field.
+func (_c *UserSubscriptionCreate) SetSourceType(v string) *UserSubscriptionCreate {
+	_c.mutation.SetSourceType(v)
+	return _c
+}
+
+// SetNillableSourceType sets the "source_type" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableSourceType(v *string) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetSourceType(*v)
+	}
+	return _c
+}
+
+// SetSourceID sets the "source_id" field.
+func (_c *UserSubscriptionCreate) SetSourceID(v int64) *UserSubscriptionCreate {
+	_c.mutation.SetSourceID(v)
+	return _c
+}
+
+// SetNillableSourceID sets the "source_id" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableSourceID(v *int64) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetSourceID(*v)
+	}
+	return _c
+}
+
+// SetManagedByGroupBuy sets the "managed_by_group_buy" field.
+func (_c *UserSubscriptionCreate) SetManagedByGroupBuy(v bool) *UserSubscriptionCreate {
+	_c.mutation.SetManagedByGroupBuy(v)
+	return _c
+}
+
+// SetNillableManagedByGroupBuy sets the "managed_by_group_buy" field if the given value is not nil.
+func (_c *UserSubscriptionCreate) SetNillableManagedByGroupBuy(v *bool) *UserSubscriptionCreate {
+	if v != nil {
+		_c.SetManagedByGroupBuy(*v)
 	}
 	return _c
 }
@@ -275,6 +319,51 @@ func (_c *UserSubscriptionCreate) AddUsageLogs(v ...*UsageLog) *UserSubscription
 	return _c.AddUsageLogIDs(ids...)
 }
 
+// AddGroupBuySeatIDs adds the "group_buy_seats" edge to the GroupBuySeat entity by IDs.
+func (_c *UserSubscriptionCreate) AddGroupBuySeatIDs(ids ...int64) *UserSubscriptionCreate {
+	_c.mutation.AddGroupBuySeatIDs(ids...)
+	return _c
+}
+
+// AddGroupBuySeats adds the "group_buy_seats" edges to the GroupBuySeat entity.
+func (_c *UserSubscriptionCreate) AddGroupBuySeats(v ...*GroupBuySeat) *UserSubscriptionCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddGroupBuySeatIDs(ids...)
+}
+
+// AddGroupBuyEntitlementIDs adds the "group_buy_entitlements" edge to the GroupBuyEntitlement entity by IDs.
+func (_c *UserSubscriptionCreate) AddGroupBuyEntitlementIDs(ids ...int64) *UserSubscriptionCreate {
+	_c.mutation.AddGroupBuyEntitlementIDs(ids...)
+	return _c
+}
+
+// AddGroupBuyEntitlements adds the "group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_c *UserSubscriptionCreate) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *UserSubscriptionCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddGroupBuyEntitlementIDs(ids...)
+}
+
+// AddManagedGroupBuyEntitlementIDs adds the "managed_group_buy_entitlements" edge to the GroupBuyEntitlement entity by IDs.
+func (_c *UserSubscriptionCreate) AddManagedGroupBuyEntitlementIDs(ids ...int64) *UserSubscriptionCreate {
+	_c.mutation.AddManagedGroupBuyEntitlementIDs(ids...)
+	return _c
+}
+
+// AddManagedGroupBuyEntitlements adds the "managed_group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_c *UserSubscriptionCreate) AddManagedGroupBuyEntitlements(v ...*GroupBuyEntitlement) *UserSubscriptionCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddManagedGroupBuyEntitlementIDs(ids...)
+}
+
 // Mutation returns the UserSubscriptionMutation object of the builder.
 func (_c *UserSubscriptionCreate) Mutation() *UserSubscriptionMutation {
 	return _c.mutation
@@ -330,6 +419,14 @@ func (_c *UserSubscriptionCreate) defaults() error {
 		v := usersubscription.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.SourceType(); !ok {
+		v := usersubscription.DefaultSourceType
+		_c.mutation.SetSourceType(v)
+	}
+	if _, ok := _c.mutation.ManagedByGroupBuy(); !ok {
+		v := usersubscription.DefaultManagedByGroupBuy
+		_c.mutation.SetManagedByGroupBuy(v)
+	}
 	if _, ok := _c.mutation.DailyUsageUsd(); !ok {
 		v := usersubscription.DefaultDailyUsageUsd
 		_c.mutation.SetDailyUsageUsd(v)
@@ -379,6 +476,17 @@ func (_c *UserSubscriptionCreate) check() error {
 		if err := usersubscription.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "UserSubscription.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.SourceType(); !ok {
+		return &ValidationError{Name: "source_type", err: errors.New(`ent: missing required field "UserSubscription.source_type"`)}
+	}
+	if v, ok := _c.mutation.SourceType(); ok {
+		if err := usersubscription.SourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "source_type", err: fmt.Errorf(`ent: validator failed for field "UserSubscription.source_type": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ManagedByGroupBuy(); !ok {
+		return &ValidationError{Name: "managed_by_group_buy", err: errors.New(`ent: missing required field "UserSubscription.managed_by_group_buy"`)}
 	}
 	if _, ok := _c.mutation.DailyUsageUsd(); !ok {
 		return &ValidationError{Name: "daily_usage_usd", err: errors.New(`ent: missing required field "UserSubscription.daily_usage_usd"`)}
@@ -448,6 +556,18 @@ func (_c *UserSubscriptionCreate) createSpec() (*UserSubscription, *sqlgraph.Cre
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(usersubscription.FieldStatus, field.TypeString, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.SourceType(); ok {
+		_spec.SetField(usersubscription.FieldSourceType, field.TypeString, value)
+		_node.SourceType = value
+	}
+	if value, ok := _c.mutation.SourceID(); ok {
+		_spec.SetField(usersubscription.FieldSourceID, field.TypeInt64, value)
+		_node.SourceID = &value
+	}
+	if value, ok := _c.mutation.ManagedByGroupBuy(); ok {
+		_spec.SetField(usersubscription.FieldManagedByGroupBuy, field.TypeBool, value)
+		_node.ManagedByGroupBuy = value
 	}
 	if value, ok := _c.mutation.DailyWindowStart(); ok {
 		_spec.SetField(usersubscription.FieldDailyWindowStart, field.TypeTime, value)
@@ -541,6 +661,54 @@ func (_c *UserSubscriptionCreate) createSpec() (*UserSubscription, *sqlgraph.Cre
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usagelog.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.GroupBuySeatsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.GroupBuySeatsTable,
+			Columns: []string{usersubscription.GroupBuySeatsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.GroupBuyEntitlementsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.GroupBuyEntitlementsTable,
+			Columns: []string{usersubscription.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.ManagedGroupBuyEntitlementsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.ManagedGroupBuyEntitlementsTable,
+			Columns: []string{usersubscription.ManagedGroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -687,6 +855,54 @@ func (u *UserSubscriptionUpsert) SetStatus(v string) *UserSubscriptionUpsert {
 // UpdateStatus sets the "status" field to the value that was provided on create.
 func (u *UserSubscriptionUpsert) UpdateStatus() *UserSubscriptionUpsert {
 	u.SetExcluded(usersubscription.FieldStatus)
+	return u
+}
+
+// SetSourceType sets the "source_type" field.
+func (u *UserSubscriptionUpsert) SetSourceType(v string) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldSourceType, v)
+	return u
+}
+
+// UpdateSourceType sets the "source_type" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateSourceType() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldSourceType)
+	return u
+}
+
+// SetSourceID sets the "source_id" field.
+func (u *UserSubscriptionUpsert) SetSourceID(v int64) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldSourceID, v)
+	return u
+}
+
+// UpdateSourceID sets the "source_id" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateSourceID() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldSourceID)
+	return u
+}
+
+// AddSourceID adds v to the "source_id" field.
+func (u *UserSubscriptionUpsert) AddSourceID(v int64) *UserSubscriptionUpsert {
+	u.Add(usersubscription.FieldSourceID, v)
+	return u
+}
+
+// ClearSourceID clears the value of the "source_id" field.
+func (u *UserSubscriptionUpsert) ClearSourceID() *UserSubscriptionUpsert {
+	u.SetNull(usersubscription.FieldSourceID)
+	return u
+}
+
+// SetManagedByGroupBuy sets the "managed_by_group_buy" field.
+func (u *UserSubscriptionUpsert) SetManagedByGroupBuy(v bool) *UserSubscriptionUpsert {
+	u.Set(usersubscription.FieldManagedByGroupBuy, v)
+	return u
+}
+
+// UpdateManagedByGroupBuy sets the "managed_by_group_buy" field to the value that was provided on create.
+func (u *UserSubscriptionUpsert) UpdateManagedByGroupBuy() *UserSubscriptionUpsert {
+	u.SetExcluded(usersubscription.FieldManagedByGroupBuy)
 	return u
 }
 
@@ -993,6 +1209,62 @@ func (u *UserSubscriptionUpsertOne) SetStatus(v string) *UserSubscriptionUpsertO
 func (u *UserSubscriptionUpsertOne) UpdateStatus() *UserSubscriptionUpsertOne {
 	return u.Update(func(s *UserSubscriptionUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetSourceType sets the "source_type" field.
+func (u *UserSubscriptionUpsertOne) SetSourceType(v string) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetSourceType(v)
+	})
+}
+
+// UpdateSourceType sets the "source_type" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateSourceType() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateSourceType()
+	})
+}
+
+// SetSourceID sets the "source_id" field.
+func (u *UserSubscriptionUpsertOne) SetSourceID(v int64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetSourceID(v)
+	})
+}
+
+// AddSourceID adds v to the "source_id" field.
+func (u *UserSubscriptionUpsertOne) AddSourceID(v int64) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddSourceID(v)
+	})
+}
+
+// UpdateSourceID sets the "source_id" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateSourceID() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateSourceID()
+	})
+}
+
+// ClearSourceID clears the value of the "source_id" field.
+func (u *UserSubscriptionUpsertOne) ClearSourceID() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearSourceID()
+	})
+}
+
+// SetManagedByGroupBuy sets the "managed_by_group_buy" field.
+func (u *UserSubscriptionUpsertOne) SetManagedByGroupBuy(v bool) *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetManagedByGroupBuy(v)
+	})
+}
+
+// UpdateManagedByGroupBuy sets the "managed_by_group_buy" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertOne) UpdateManagedByGroupBuy() *UserSubscriptionUpsertOne {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateManagedByGroupBuy()
 	})
 }
 
@@ -1491,6 +1763,62 @@ func (u *UserSubscriptionUpsertBulk) SetStatus(v string) *UserSubscriptionUpsert
 func (u *UserSubscriptionUpsertBulk) UpdateStatus() *UserSubscriptionUpsertBulk {
 	return u.Update(func(s *UserSubscriptionUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetSourceType sets the "source_type" field.
+func (u *UserSubscriptionUpsertBulk) SetSourceType(v string) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetSourceType(v)
+	})
+}
+
+// UpdateSourceType sets the "source_type" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateSourceType() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateSourceType()
+	})
+}
+
+// SetSourceID sets the "source_id" field.
+func (u *UserSubscriptionUpsertBulk) SetSourceID(v int64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetSourceID(v)
+	})
+}
+
+// AddSourceID adds v to the "source_id" field.
+func (u *UserSubscriptionUpsertBulk) AddSourceID(v int64) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.AddSourceID(v)
+	})
+}
+
+// UpdateSourceID sets the "source_id" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateSourceID() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateSourceID()
+	})
+}
+
+// ClearSourceID clears the value of the "source_id" field.
+func (u *UserSubscriptionUpsertBulk) ClearSourceID() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.ClearSourceID()
+	})
+}
+
+// SetManagedByGroupBuy sets the "managed_by_group_buy" field.
+func (u *UserSubscriptionUpsertBulk) SetManagedByGroupBuy(v bool) *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.SetManagedByGroupBuy(v)
+	})
+}
+
+// UpdateManagedByGroupBuy sets the "managed_by_group_buy" field to the value that was provided on create.
+func (u *UserSubscriptionUpsertBulk) UpdateManagedByGroupBuy() *UserSubscriptionUpsertBulk {
+	return u.Update(func(s *UserSubscriptionUpsert) {
+		s.UpdateManagedByGroupBuy()
 	})
 }
 
