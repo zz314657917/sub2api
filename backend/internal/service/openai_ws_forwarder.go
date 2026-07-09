@@ -4109,7 +4109,7 @@ func (s *OpenAIGatewayService) SelectAccountByPreviousResponseIDForCapability(
 	if !account.SupportsOpenAIEndpointCapability(requiredCapability) {
 		return nil, nil
 	}
-	account = s.recheckSelectedOpenAIAccountFromDB(ctx, account, requestedModel, requireCompact, requiredCapability, defaultAccountCapabilityForOpenAIEndpoint(requiredCapability))
+	account = s.recheckSelectedOpenAIAccountFromDB(ctx, account, PlatformOpenAI, requestedModel, requireCompact, requiredCapability, defaultAccountCapabilityForOpenAIEndpoint(requiredCapability))
 	if account == nil {
 		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
 		return nil, nil

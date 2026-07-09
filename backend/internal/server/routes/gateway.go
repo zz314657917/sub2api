@@ -41,6 +41,18 @@ func RegisterGatewayRoutes(
 	requireGroupAnthropic := middleware.RequireGroupAssignment(settingService, middleware.AnthropicErrorWriter)
 	requireGroupGoogle := middleware.RequireGroupAssignment(settingService, middleware.GoogleErrorWriter)
 
+	isOpenAIResponsesCompatibleGatewayPlatform := func(c *gin.Context) bool {
+		switch getGroupPlatform(c) {
+		case service.PlatformOpenAI, service.PlatformGrok:
+			return true
+		default:
+			return false
+		}
+	}
+	isOpenAIGatewayPlatform := func(c *gin.Context) bool {
+		return getGroupPlatform(c) == service.PlatformOpenAI
+	}
+
 	// API网关（Claude API兼容）
 	gateway := r.Group("/v1")
 	gateway.Use(bodyLimit)
@@ -55,7 +67,7 @@ func RegisterGatewayRoutes(
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/messages", false) {
 				return
 			}
-			if getGroupPlatform(c) == service.PlatformOpenAI {
+			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 				h.OpenAIGateway.Messages(c)
 				return
 			}
@@ -66,8 +78,19 @@ func RegisterGatewayRoutes(
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/messages/count_tokens", false) {
 				return
 			}
-			if getGroupPlatform(c) == service.PlatformOpenAI {
+			if isOpenAIGatewayPlatform(c) {
 				h.OpenAIGateway.CountTokens(c)
+				return
+			}
+			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
+				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
+				c.JSON(http.StatusNotFound, gin.H{
+					"type": "error",
+					"error": gin.H{
+						"type":    "not_found_error",
+						"message": "Token counting is not supported for this platform",
+					},
+				})
 				return
 			}
 			h.Gateway.CountTokens(c)
@@ -80,7 +103,7 @@ func RegisterGatewayRoutes(
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
 				return
 			}
-			if getGroupPlatform(c) == service.PlatformOpenAI {
+			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 				h.OpenAIGateway.Responses(c)
 				return
 			}
@@ -90,7 +113,7 @@ func RegisterGatewayRoutes(
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
 				return
 			}
-			if getGroupPlatform(c) == service.PlatformOpenAI {
+			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 				h.OpenAIGateway.Responses(c)
 				return
 			}
@@ -102,7 +125,7 @@ func RegisterGatewayRoutes(
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/chat/completions", false) {
 				return
 			}
-			if getGroupPlatform(c) == service.PlatformOpenAI {
+			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 				h.OpenAIGateway.ChatCompletions(c)
 				return
 			}
@@ -218,7 +241,7 @@ func RegisterGatewayRoutes(
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
 			return
 		}
-		if getGroupPlatform(c) == service.PlatformOpenAI {
+		if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 			h.OpenAIGateway.Responses(c)
 			return
 		}
@@ -239,7 +262,7 @@ func RegisterGatewayRoutes(
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/chat/completions", false) {
 			return
 		}
-		if getGroupPlatform(c) == service.PlatformOpenAI {
+		if isOpenAIResponsesCompatibleGatewayPlatform(c) {
 			h.OpenAIGateway.ChatCompletions(c)
 			return
 		}

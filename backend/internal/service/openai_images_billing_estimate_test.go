@@ -42,6 +42,7 @@ func TestOpenAIGatewayServiceEstimateOpenAIImagesCost_UsesVoucherPreflightAmount
 		nil,
 		&DeferredService{},
 		nil,
+		nil,
 		NewModelPricingResolver(channelService, billingService),
 		channelService,
 		nil,

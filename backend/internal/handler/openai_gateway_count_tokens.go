@@ -98,6 +98,7 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	if preferredMappedModel != "" {
 		currentRoutingModel = preferredMappedModel
 	}
+	requestPlatform := openAICompatibleRequestPlatform(apiKey)
 	selection, _, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
 		c.Request.Context(),
 		apiKey.GroupID,
@@ -108,6 +109,7 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 		service.OpenAIUpstreamTransportAny,
 		service.OpenAIEndpointCapabilityChatCompletions,
 		false,
+		requestPlatform,
 	)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	if err != nil {

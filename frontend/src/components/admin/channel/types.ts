@@ -196,6 +196,7 @@ export function getPlatformTagClass(platform: string): string {
     case 'openai': return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
     case 'gemini': return 'bg-[#fffaf5] text-[#6c6a64] ring-1 ring-[#d8cec2] dark:bg-[#8e8b82]/15 dark:text-[#d8cec2] dark:ring-[#8e8b82]/40'
     case 'antigravity': return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
+    case 'grok': return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300'
     default: return 'bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-400'
   }
 }
@@ -207,6 +208,7 @@ export function getPlatformTextClass(platform: string): string {
     case 'openai': return 'text-[#a9583e] dark:text-[#f0b89e]'
     case 'gemini': return 'text-[#6c6a64] dark:text-[#d8cec2]'
     case 'antigravity': return 'text-purple-700 dark:text-purple-400'
+    case 'grok': return 'text-slate-700 dark:text-slate-300'
     default: return ''
   }
 }
