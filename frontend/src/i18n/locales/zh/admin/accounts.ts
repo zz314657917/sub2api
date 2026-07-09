@@ -352,6 +352,9 @@ export default {
         grokResetUnsupported: '不支持重置',
         grokResetUnsupportedTooltip: 'xAI 未向 Grok OAuth 账号开放重置额度接口',
         grokNoHeaders: '未观察到配额响应头',
+        grokLastStatus: '状态 {status}',
+        grokLastProbe: '探测 {time}',
+        grokLastHeadersSeen: '响应头 {time}',
         passiveSampled: '被动采样',
         activeQuery: '查询',
         activeQueryFailed: '额度探测失败，已显示上次快照'

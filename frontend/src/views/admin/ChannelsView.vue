@@ -777,6 +777,13 @@ const fallbackModelSuggestions: Record<GroupPlatform, string[]> = {
     'claude-*',
     'gemini-*',
   ],
+  grok: [
+    'grok-4.3',
+    'grok-build-0.1',
+    'grok-4.20-0309-reasoning',
+    'grok-4.20-0309-non-reasoning',
+    'grok-*',
+  ],
 }
 
 // ── Helpers ──

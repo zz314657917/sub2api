@@ -387,10 +387,13 @@
           {{ t('admin.accounts.usageWindow.grokRetryAfter', { time: grokRetryAfterLabel }) }}
         </div>
         <div v-if="grokQuotaUnknown" class="text-[10px] text-gray-500 dark:text-gray-400">
-          {{ t('admin.accounts.usageWindow.grokUnknown') }}
+          {{ grokQuotaUnknownLabel }}
         </div>
         <div v-else-if="usageInfo.error" class="truncate text-xs text-amber-600 dark:text-amber-400 max-w-[200px]" :title="usageInfo.error">
           {{ usageErrorLabel }}
+        </div>
+        <div v-if="grokQuotaStatusLine" class="text-[10px] text-gray-500 dark:text-gray-400">
+          {{ grokQuotaStatusLine }}
         </div>
         <GrokQuotaProbeCell :account="account" />
       </div>
@@ -611,7 +614,7 @@ import userAPI from '@/api/user'
 import type { Account, AccountUsageInfo, GeminiCredentials, WindowStats } from '@/types'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { enqueueUsageRequest } from '@/utils/usageLoadQueue'
-import { formatCompactNumber } from '@/utils/format'
+import { formatCompactNumber, formatRelativeTime } from '@/utils/format'
 import Icon from '@/components/icons/Icon.vue'
 import UsageProgressBar from './UsageProgressBar.vue'
 import AccountQuotaInfo from './AccountQuotaInfo.vue'
@@ -1069,6 +1072,34 @@ const grokQuotaUnknown = computed(() => {
   if (props.account.platform !== 'grok') return false
   if (grokRequestQuotaBar.value || grokTokenQuotaBar.value) return false
   return usageInfo.value?.grok_quota_snapshot_state !== 'observed'
+})
+const grokQuotaUnknownLabel = computed(() => {
+  return usageInfo.value?.grok_quota_snapshot_state === 'no_headers'
+    ? t('admin.accounts.usageWindow.grokNoHeaders')
+    : t('admin.accounts.usageWindow.grokUnknown')
+})
+const grokQuotaStatusLine = computed(() => {
+  if (props.account.platform !== 'grok') return null
+  const parts: string[] = []
+  const status = usageInfo.value?.grok_last_status_code
+  if (status) {
+    parts.push(t('admin.accounts.usageWindow.grokLastStatus', { status }))
+  }
+  if (usageInfo.value?.grok_last_quota_probe_at) {
+    parts.push(
+      t('admin.accounts.usageWindow.grokLastProbe', {
+        time: formatRelativeTime(usageInfo.value.grok_last_quota_probe_at)
+      })
+    )
+  }
+  if (usageInfo.value?.grok_last_headers_seen_at) {
+    parts.push(
+      t('admin.accounts.usageWindow.grokLastHeadersSeen', {
+        time: formatRelativeTime(usageInfo.value.grok_last_headers_seen_at)
+      })
+    )
+  }
+  return parts.length > 0 ? parts.join(' | ') : null
 })
 const grokLocalUsage = computed(() => usageInfo.value?.grok_local_usage || props.todayStats || null)
 const grokEntitlementLabel = computed(() => {
