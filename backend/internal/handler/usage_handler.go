@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"os"
 	"regexp"
@@ -885,11 +886,7 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 	if leaderboard.Ranking == nil {
 		leaderboard.Ranking = []usagestats.UserLeaderboardItem{}
 	}
-	modelRanking, totalModels, err := h.usageService.GetLeaderboardModelRanking(c.Request.Context(), startTime, endTime, limit)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
+	modelRanking, totalModels := h.getOptionalLeaderboardModelRanking(c.Request.Context(), startTime, endTime, limit)
 	leaderboard.ModelRanking = modelRanking
 	leaderboard.TotalModels = totalModels
 	if leaderboard.ModelRanking == nil {
@@ -909,6 +906,16 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 	finalizeUserLeaderboardResponse(leaderboard)
 
 	response.Success(c, leaderboard)
+}
+
+func (h *UsageHandler) getOptionalLeaderboardModelRanking(ctx context.Context, startTime, endTime time.Time, limit int) ([]usagestats.UserLeaderboardModelItem, int64) {
+	modelCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	modelRanking, totalModels, err := h.usageService.GetLeaderboardModelRanking(modelCtx, startTime, endTime, limit)
+	if err != nil {
+		return []usagestats.UserLeaderboardModelItem{}, 0
+	}
+	return modelRanking, totalModels
 }
 
 // ClaimDashboardLeaderboardDailyReward handles claiming last week's top-10 reward.

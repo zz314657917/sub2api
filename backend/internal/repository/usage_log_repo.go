@@ -2647,6 +2647,9 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 	if limit <= 0 {
 		limit = 10
 	}
+	if shouldUseDailyStatsUserLeaderboard(startTime, endTime) {
+		return r.getUserLeaderboardFromDailyStats(ctx, startTime, endTime, limit, currentUserID)
+	}
 
 	conditions := make([]string, 0, 2)
 	previousConditions := make([]string, 0, 2)
@@ -2852,6 +2855,224 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 		TotalRequests:    totalRequests,
 		TotalTokens:      totalTokens,
 	}, nil
+}
+
+func shouldUseDailyStatsUserLeaderboard(startTime, endTime time.Time) bool {
+	if startTime.IsZero() || endTime.IsZero() {
+		return true
+	}
+	return endTime.After(startTime) && endTime.Sub(startTime) >= 28*24*time.Hour
+}
+
+func (r *usageLogRepository) getUserLeaderboardFromDailyStats(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (result *UserLeaderboardResponse, err error) {
+	conditions := make([]string, 0, 2)
+	previousConditions := make([]string, 0, 2)
+	args := make([]any, 0, 6)
+	if !startTime.IsZero() {
+		args = append(args, leaderboardDailyStatsDateArg(startTime))
+		conditions = append(conditions, fmt.Sprintf("stats.usage_date >= $%d::date", len(args)))
+	}
+	if !endTime.IsZero() {
+		args = append(args, leaderboardDailyStatsDateArg(endTime))
+		conditions = append(conditions, fmt.Sprintf("stats.usage_date < $%d::date", len(args)))
+	}
+
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	previousWhereClause := "WHERE false"
+	rankNewExpr := "false"
+	if !startTime.IsZero() && !endTime.IsZero() && endTime.After(startTime) {
+		window := endTime.Sub(startTime)
+		previousStart := startTime.Add(-window)
+		args = append(args, leaderboardDailyStatsDateArg(previousStart))
+		previousConditions = append(previousConditions, fmt.Sprintf("usage_date >= $%d::date", len(args)))
+		args = append(args, leaderboardDailyStatsDateArg(startTime))
+		previousConditions = append(previousConditions, fmt.Sprintf("usage_date < $%d::date", len(args)))
+		previousWhereClause = "WHERE " + strings.Join(previousConditions, " AND ")
+		rankNewExpr = "EXISTS (SELECT 1 FROM previous_user_spend) AND previous_ranked.previous_rank IS NULL"
+	}
+
+	limitArg := len(args) + 1
+	currentUserArg := len(args) + 2
+	query := fmt.Sprintf(`
+		WITH user_spend AS (
+			SELECT
+				stats.user_id,
+				COALESCE(us.username, '') as username,
+				COALESCE(us.email, '') as email,
+				COALESCE(ua.url, '') as avatar_url,
+				COALESCE(us.balance, 0) as balance,
+				COALESCE(SUM(stats.actual_cost), 0)::float8 as actual_cost,
+				COALESCE(SUM(stats.requests), 0)::bigint as requests,
+				COALESCE(SUM(stats.tokens), 0)::bigint as tokens
+			FROM user_usage_daily_stats stats
+			LEFT JOIN users us ON stats.user_id = us.id
+			LEFT JOIN user_avatars ua ON stats.user_id = ua.user_id
+			%s
+			GROUP BY stats.user_id, us.username, us.email, us.balance, ua.url
+		),
+		previous_user_spend AS (
+			SELECT
+				user_id,
+				COALESCE(SUM(actual_cost), 0)::float8 as previous_actual_cost,
+				COALESCE(SUM(requests), 0)::bigint as previous_requests,
+				COALESCE(SUM(tokens), 0)::bigint as previous_tokens
+			FROM user_usage_daily_stats
+			%s
+			GROUP BY user_id
+		),
+		previous_ranked AS (
+			SELECT
+				ROW_NUMBER() OVER (ORDER BY previous_tokens DESC, previous_actual_cost DESC, user_id ASC) as previous_rank,
+				user_id,
+				previous_tokens
+			FROM previous_user_spend
+		),
+		current_ranked AS (
+			SELECT
+				ROW_NUMBER() OVER (ORDER BY tokens DESC, actual_cost DESC, user_id ASC) as rank,
+				user_id,
+				username,
+				email,
+				avatar_url,
+				balance,
+				actual_cost,
+				requests,
+				tokens as input_tokens,
+				0::bigint as output_tokens,
+				0::bigint as cache_creation_tokens,
+				0::bigint as cache_read_tokens,
+				tokens,
+				CASE WHEN tokens > 0 THEN actual_cost * 1000000.0 / tokens ELSE 0 END as cost_per_1m_tokens,
+				COALESCE(SUM(actual_cost) OVER (), 0)::float8 as total_actual_cost,
+				COALESCE(SUM(requests) OVER (), 0)::bigint as total_requests,
+				COALESCE(SUM(tokens) OVER (), 0)::bigint as total_tokens
+			FROM user_spend
+		),
+		ranked AS (
+			SELECT
+				current_ranked.*,
+				CASE
+					WHEN previous_ranked.previous_rank IS NULL THEN NULL
+					ELSE previous_ranked.previous_rank - current_ranked.rank
+				END as rank_change,
+				%s as rank_new,
+				previous_ranked.previous_tokens
+			FROM current_ranked
+			LEFT JOIN previous_ranked ON previous_ranked.user_id = current_ranked.user_id
+		),
+		selected AS (
+			SELECT *
+			FROM ranked
+			WHERE rank <= $%d OR user_id = $%d
+		)
+		SELECT
+			rank,
+			user_id,
+			username,
+			email,
+			NULLIF(avatar_url, '') as avatar_url,
+			balance,
+			actual_cost,
+			requests,
+			input_tokens,
+			output_tokens,
+			cache_creation_tokens,
+			cache_read_tokens,
+			tokens,
+			cost_per_1m_tokens,
+			rank_change,
+			rank_new,
+			total_actual_cost,
+			total_requests,
+			total_tokens
+		FROM selected
+		ORDER BY rank ASC
+	`, whereClause, previousWhereClause, rankNewExpr, limitArg, currentUserArg)
+
+	args = append(args, limit, currentUserID)
+	rows, err := r.sql.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+			result = nil
+		}
+	}()
+
+	ranking := make([]UserLeaderboardItem, 0)
+	var currentUserEntry *UserLeaderboardItem
+	totalActualCost := 0.0
+	totalRequests := int64(0)
+	totalTokens := int64(0)
+	for rows.Next() {
+		var row UserLeaderboardItem
+		var avatarURL sql.NullString
+		var rankChange sql.NullInt64
+		if err = rows.Scan(
+			&row.Rank,
+			&row.UserID,
+			&row.Username,
+			&row.Email,
+			&avatarURL,
+			&row.Balance,
+			&row.ActualCost,
+			&row.Requests,
+			&row.InputTokens,
+			&row.OutputTokens,
+			&row.CacheCreationTokens,
+			&row.CacheReadTokens,
+			&row.Tokens,
+			&row.CostPer1M,
+			&rankChange,
+			&row.RankNew,
+			&totalActualCost,
+			&totalRequests,
+			&totalTokens,
+		); err != nil {
+			return nil, err
+		}
+		if avatarURL.Valid && strings.TrimSpace(avatarURL.String) != "" {
+			value := avatarURL.String
+			row.AvatarURL = &value
+		}
+		if rankChange.Valid {
+			value := rankChange.Int64
+			row.RankChange = &value
+		}
+		row.IsCurrentUser = row.UserID == currentUserID
+		if row.Rank <= int64(limit) {
+			ranking = append(ranking, row)
+		}
+		if row.IsCurrentUser {
+			current := row
+			currentUserEntry = &current
+		}
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return &UserLeaderboardResponse{
+		Ranking:          ranking,
+		CurrentUserEntry: currentUserEntry,
+		TotalActualCost:  totalActualCost,
+		TotalRequests:    totalRequests,
+		TotalTokens:      totalTokens,
+	}, nil
+}
+
+func leaderboardDailyStatsDateArg(value time.Time) string {
+	loc, err := time.LoadLocation(usageStatsTimezoneName())
+	if err != nil {
+		loc = time.UTC
+	}
+	return value.In(loc).Format("2006-01-02")
 }
 
 // GetLeaderboardDailyChampions returns the top token user for each day in the

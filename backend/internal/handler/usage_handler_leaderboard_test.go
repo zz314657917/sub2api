@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -34,6 +35,7 @@ type userLeaderboardUsageRepo struct {
 	modelLimit       int
 	modelRanking     []usagestats.UserLeaderboardModelItem
 	totalModels      int64
+	modelErr         error
 	championStart    time.Time
 	championEnd      time.Time
 	dailyChampions   []usagestats.UserLeaderboardDailyChampion
@@ -76,6 +78,9 @@ func (r *userLeaderboardUsageRepo) GetLeaderboardModelRanking(ctx context.Contex
 	r.modelStart = startTime
 	r.modelEnd = endTime
 	r.modelLimit = limit
+	if r.modelErr != nil {
+		return nil, 0, r.modelErr
+	}
 	if r.modelRanking != nil {
 		return r.modelRanking, r.totalModels, nil
 	}
@@ -227,6 +232,34 @@ func TestUsageHandlerDashboardLeaderboardIncludesModelRanking(t *testing.T) {
 	require.Contains(t, body, `"total_models":8`)
 	require.Contains(t, body, `"model_ranking":[{"rank":1,"model":"gpt-5.5","requests":12,"input_tokens":700,"output_tokens":300,"tokens":1000,"growth_percent":87.3,"rank_change":1}`)
 	require.Contains(t, body, `{"rank":2,"model":"claude-opus-4-8","requests":5,"input_tokens":400,"output_tokens":100,"tokens":500}`)
+}
+
+func TestUsageHandlerDashboardLeaderboardReturnsRankingWhenModelRankingFails(t *testing.T) {
+	t.Setenv("SUB2API_LEADERBOARD_SAMPLE_MODELS", "false")
+	repo := &userLeaderboardUsageRepo{
+		response: &usagestats.UserLeaderboardResponse{
+			Ranking: []usagestats.UserLeaderboardItem{
+				{Rank: 1, UserID: 42, Username: "winner", ActualCost: 9.5, Requests: 2, Tokens: 100, IsCurrentUser: true},
+			},
+			CurrentUserEntry: &usagestats.UserLeaderboardItem{Rank: 1, UserID: 42, Username: "winner", ActualCost: 9.5, Requests: 2, Tokens: 100, IsCurrentUser: true},
+			TotalActualCost:  9.5,
+			TotalRequests:    2,
+			TotalTokens:      100,
+		},
+		modelErr: errors.New("model ranking timeout"),
+	}
+	router := newUserLeaderboardRouter(repo, 42)
+
+	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard?period=month&timezone=Asia/Shanghai", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	body := rec.Body.String()
+	require.Contains(t, body, `"ranking":[{"rank":1`)
+	require.Contains(t, body, `"display_name":"w***r"`)
+	require.Contains(t, body, `"model_ranking":[]`)
+	require.Contains(t, body, `"total_models":0`)
 }
 
 func TestUsageHandlerDashboardLeaderboardIncludesMaskedDailyChampions(t *testing.T) {
