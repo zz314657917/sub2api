@@ -180,6 +180,12 @@ type SystemSettings struct {
 	AvailableChannelsEnabled bool `json:"available_channels_enabled"`
 
 	// Leaderboard daily reward feature
+	LeaderboardRewardMode                    string  `json:"reward_mode"`
+	LeaderboardRedPacketPoolAmount           float64 `json:"red_packet_pool_amount"`
+	LeaderboardRedPacketMinAmount            float64 `json:"red_packet_min_amount"`
+	LeaderboardRedPacketMaxAmount            float64 `json:"red_packet_max_amount"`
+	LeaderboardLotteryAmount                 float64 `json:"lottery_amount"`
+	LeaderboardLotteryCron                   string  `json:"lottery_cron"`
 	LeaderboardDailyRewardEnabled            bool    `json:"leaderboard_daily_reward_enabled"`
 	LeaderboardDailyRewardMinTotalActualCost float64 `json:"leaderboard_daily_reward_min_total_actual_cost"`
 	LeaderboardDailyRewardRank1Amount        float64 `json:"leaderboard_daily_reward_rank_1_amount"`

@@ -115,30 +115,47 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.settling': '上周榜结算中，{time} 后可领取',
     'leaderboard.dailyReward.thresholdNotMet': '上周积分消费未超过最低开启门槛',
     'leaderboard.dailyReward.notTopThree': '只有上周榜前三名可以领取',
+    'leaderboard.dailyReward.notTopTen': '只有上周榜前 10 名参与奖励',
     'leaderboard.dailyReward.notRanked': '你上周暂无上榜积分消费',
     'leaderboard.dailyReward.zeroReward': '当前名次奖励积分为 0',
     'leaderboard.dailyReward.eligible': '你已符合领取条件',
+    'leaderboard.dailyReward.redPacketReady': '你有一个待领取红包',
     'leaderboard.dailyReward.alreadyClaimed': '上周奖励已领取',
     'leaderboard.dailyReward.statusDisabled': '未开启',
     'leaderboard.dailyReward.statusSettling': '结算中',
     'leaderboard.dailyReward.statusThresholdNotMet': '门槛未达成',
     'leaderboard.dailyReward.statusNotTopThree': '未进前三',
+    'leaderboard.dailyReward.statusNotTopTen': '未进前十',
     'leaderboard.dailyReward.statusNotRanked': '未上榜',
     'leaderboard.dailyReward.statusZeroReward': '无奖励',
     'leaderboard.dailyReward.statusReady': '可领取',
     'leaderboard.dailyReward.statusClaimed': '已领取',
     'leaderboard.dailyReward.claim': '领取奖励',
+    'leaderboard.dailyReward.redPacketClaim': '领取红包',
     'leaderboard.dailyReward.claiming': '领取中...',
     'leaderboard.dailyReward.claimed': '已领取',
     'leaderboard.dailyReward.claimFailed': '领取排行榜奖励失败',
     'leaderboard.dailyReward.rankLabel': '第 {rank} 名',
     'leaderboard.dailyReward.rankReward': '第 {rank} 名奖励',
-    'leaderboard.dailyReward.lastWeekTopUsersTitle': '上周前三',
+    'leaderboard.dailyReward.lastWeekTopUsersTitle': '上周前 10 Token 消耗',
     'leaderboard.dailyReward.lastWeekRank1': '上周第一名',
     'leaderboard.dailyReward.lastWeekRank2': '上周第二名',
     'leaderboard.dailyReward.lastWeekRank3': '上周第三名',
     'leaderboard.dailyReward.lastWeekRankLabel': '上周第 {rank} 名',
     'leaderboard.dailyReward.noTopUser': '暂无上榜',
+    'leaderboard.dailyReward.topUserTokens': '{tokens} tokens',
+    'leaderboard.dailyReward.redPacketRange': '红包范围',
+    'leaderboard.dailyReward.redPacketPool': '总池 {amount}',
+    'leaderboard.dailyReward.redPacketPendingAmount': '待抽取金额',
+    'leaderboard.dailyReward.redPacketClaimedAmount': '已抽金额',
+    'leaderboard.dailyReward.redPacketPending': '点击后随机抽取',
+    'leaderboard.dailyReward.lotteryDrawTime': '开奖时间',
+    'leaderboard.dailyReward.lotteryPrize': '抽奖金额',
+    'leaderboard.dailyReward.lotteryResult': '开奖结果',
+    'leaderboard.dailyReward.lotteryPending': '等待开奖',
+    'leaderboard.dailyReward.lotteryWinner': '中奖用户：{name}',
+    'leaderboard.dailyReward.lotteryWon': '你已中奖 {amount}',
+    'leaderboard.dailyReward.lotteryNotWon': '未中奖',
     'common.loading': '加载中...',
     'common.refresh': '刷新',
   }
@@ -232,6 +249,7 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
       settlement_ready: true,
       claim_available_at: '2026-05-07T00:30:00+08:00',
       enabled: false,
+      reward_mode: 'disabled',
       min_total_actual_cost: 0,
       yesterday_total_actual_cost: 0,
       threshold_met: false,
@@ -241,9 +259,16 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
         { rank: 3, amount: 0 },
       ],
       top_users: [
-        { rank: 1, display_name: 'A***e', email_masked: 'a***e@example.com' },
-        { rank: 2, display_name: 'B*b', email_masked: 'b***b@example.com' },
-        { rank: 3, display_name: 'C***l', email_masked: 'c***l@example.com' },
+        { rank: 1, display_name: 'A***e', email_masked: 'a***e@example.com', tokens: 9_000_000 },
+        { rank: 2, display_name: 'B*b', email_masked: 'b***b@example.com', tokens: 8_000_000 },
+        { rank: 3, display_name: 'C***l', email_masked: 'c***l@example.com', tokens: 7_000_000 },
+        { rank: 4, display_name: 'D***n', email_masked: 'd***n@example.com', tokens: 6_000_000 },
+        { rank: 5, display_name: 'E***a', email_masked: 'e***a@example.com', tokens: 5_000_000 },
+        { rank: 6, display_name: 'F***y', email_masked: 'f***y@example.com', tokens: 4_000_000 },
+        { rank: 7, display_name: 'G***o', email_masked: 'g***o@example.com', tokens: 3_000_000 },
+        { rank: 8, display_name: 'H***i', email_masked: 'h***i@example.com', tokens: 2_000_000 },
+        { rank: 9, display_name: 'I***n', email_masked: 'i***n@example.com', tokens: 1_000_000 },
+        { rank: 10, display_name: 'J***e', email_masked: 'j***e@example.com', tokens: 500_000 },
       ],
       current_user_rank: 0,
       current_user_reward_amount: 0,
@@ -1092,7 +1117,7 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).toContain('当前周期暂无可展示的使用记录')
   })
 
-  it('renders weekly rewards with threshold-not-met copy', async () => {
+  it('always renders last week top 10 token usage and hides claim controls when rewards are disabled', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
         daily_rewards: {
@@ -1100,25 +1125,25 @@ describe('LeaderboardView', () => {
           settlement_timezone: 'Asia/Shanghai',
           settlement_ready: true,
           claim_available_at: '2026-05-07T00:30:00+08:00',
-          enabled: true,
+          enabled: false,
+          reward_mode: 'disabled',
           min_total_actual_cost: 100,
           yesterday_total_actual_cost: 80,
           threshold_met: false,
-          rewards: [
-            { rank: 1, amount: 5 },
-            { rank: 2, amount: 3 },
-            { rank: 3, amount: 1 },
-          ],
+          rewards: [],
           top_users: [
-            { rank: 1, display_name: 'A***e', email_masked: 'a***e@example.com' },
-            { rank: 2, display_name: 'B*b', email_masked: 'b***b@example.com' },
-            { rank: 3, display_name: 'C***l', email_masked: 'c***l@example.com' },
+            ...Array.from({ length: 10 }, (_, index) => ({
+              rank: index + 1,
+              display_name: `Top ${index + 1}`,
+              email_masked: `top${index + 1}@example.com`,
+              tokens: 10_000_000 - index * 500_000,
+            })),
           ],
           current_user_rank: 1,
-          current_user_reward_amount: 5,
+          current_user_reward_amount: 0,
           can_claim: false,
           claimed: false,
-          reason: 'threshold_not_met',
+          reason: 'disabled',
         },
       })
     )
@@ -1138,28 +1163,19 @@ describe('LeaderboardView', () => {
     expect(wrapper.text()).toContain('上周奖励')
     expect(wrapper.text()).toContain('统计周期')
     const rewardStatus = wrapper.get('[data-testid="leaderboard-daily-reward-status"]')
-    expect(rewardStatus.text()).toContain('门槛未达成')
-    expect(rewardStatus.attributes('title')).toBe('上周积分消费未超过最低开启门槛')
-    expect(wrapper.text()).not.toContain('上周积分消费门槛')
-    expect(wrapper.text()).not.toContain('$80.00 / $100.00')
-    expect(wrapper.text()).toContain('第 1 名奖励')
-    expect(wrapper.text()).toContain('✪ 5.00')
-    expect(wrapper.text()).toContain('✪ 3.00')
-    expect(wrapper.text()).toContain('✪ 1.00')
-    expect(wrapper.text()).not.toContain('按名次发放')
-    expect(wrapper.text()).toContain('上周前三')
+    expect(rewardStatus.text()).toContain('未开启')
+    expect(rewardStatus.attributes('title')).toBe('奖励功能暂未开启')
+    expect(wrapper.get('[data-testid="leaderboard-weekly-top10"]').text()).toContain('上周前 10 Token 消耗')
     expect(wrapper.text()).toContain('上周第一名')
-    expect(wrapper.text()).toContain('上周第二名')
-    expect(wrapper.text()).toContain('上周第三名')
-    expect(wrapper.text()).toContain('A***e')
-    expect(wrapper.text()).toContain('B*b')
-    expect(wrapper.text()).toContain('C***l')
-    expect(wrapper.text()).not.toContain('Alice Winner')
+    expect(wrapper.text()).toContain('Top 10')
+    expect(wrapper.text()).toContain('1000万 tokens')
+    expect(wrapper.text()).not.toContain('第 1 名奖励')
+    expect(wrapper.text()).not.toContain('上周前三')
+    expect(wrapper.find('[data-testid="leaderboard-daily-reward-claim"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="leaderboard-red-packet-reward"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="leaderboard-lottery-reward"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('上周排名')
-    expect(wrapper.text()).toContain('上周奖励门槛')
-    expect(wrapper.text()).toContain('80%')
     expect(wrapper.text()).toContain('本周冲榜进度')
-    expect(wrapper.text()).not.toContain('$5.00')
   })
 
   it('shows reached text for completed last-week threshold and weekly rush distance', async () => {
@@ -1225,14 +1241,14 @@ describe('LeaderboardView', () => {
             settlement_ready: true,
             claim_available_at: '2026-05-07T00:30:00+08:00',
             enabled: true,
+            reward_mode: 'red_packet',
+            red_packet_pool_amount: 30,
+            red_packet_min_amount: 1,
+            red_packet_max_amount: 8,
             min_total_actual_cost: 100,
             yesterday_total_actual_cost: 120,
             threshold_met: true,
-            rewards: [
-              { rank: 1, amount: 5 },
-              { rank: 2, amount: 3 },
-              { rank: 3, amount: 1 },
-            ],
+            rewards: [],
             current_user_rank: 2,
             current_user_reward_amount: 3,
             can_claim: true,
@@ -1254,13 +1270,13 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('上周奖励门槛')
-    expect(wrapper.text()).toContain('已达成')
+    expect(wrapper.text()).toContain('红包范围')
+    expect(wrapper.text()).toContain('✪ 1.00 - ✪ 8.00')
     expect(wrapper.text()).toContain('本周冲榜进度')
     expect(wrapper.text()).toContain('距离前三还差 20万 token')
   })
 
-  it('shows development preview top users when the reward payload has no winners', async () => {
+  it('shows development preview top 10 users when the reward payload has no winners', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
         daily_rewards: {
@@ -1269,14 +1285,14 @@ describe('LeaderboardView', () => {
           settlement_ready: true,
           claim_available_at: '2026-05-07T00:30:00+08:00',
           enabled: true,
+          reward_mode: 'red_packet',
+          red_packet_pool_amount: 20,
+          red_packet_min_amount: 1,
+          red_packet_max_amount: 5,
           min_total_actual_cost: 100,
           yesterday_total_actual_cost: 0,
           threshold_met: false,
-          rewards: [
-            { rank: 1, amount: 5 },
-            { rank: 2, amount: 3 },
-            { rank: 3, amount: 1 },
-          ],
+          rewards: [],
           top_users: [],
           current_user_rank: 0,
           current_user_reward_amount: 0,
@@ -1298,15 +1314,16 @@ describe('LeaderboardView', () => {
 
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="leaderboard-weekly-winners"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('上周前三')
+    expect(wrapper.find('[data-testid="leaderboard-weekly-top10"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('上周前 10 Token 消耗')
     expect(wrapper.text()).toContain('落***尘')
     expect(wrapper.text()).toContain('138****5678')
     expect(wrapper.text()).toContain('t***d@example.com')
+    expect(wrapper.text()).toContain('last***top')
     expect(wrapper.text()).not.toContain('暂无上榜')
   })
 
-  it('shows settling state before weekly rewards can be claimed', async () => {
+  it('shows settling state before red packet rewards can be claimed', async () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
         daily_rewards: {
@@ -1315,14 +1332,14 @@ describe('LeaderboardView', () => {
           settlement_ready: false,
           claim_available_at: '2026-05-07T00:30:00+08:00',
           enabled: true,
+          reward_mode: 'red_packet',
+          red_packet_pool_amount: 20,
+          red_packet_min_amount: 1,
+          red_packet_max_amount: 5,
           min_total_actual_cost: 100,
           yesterday_total_actual_cost: 120,
           threshold_met: true,
-          rewards: [
-            { rank: 1, amount: 5 },
-            { rank: 2, amount: 3 },
-            { rank: 3, amount: 1 },
-          ],
+          rewards: [],
           current_user_rank: 1,
           current_user_reward_amount: 5,
           can_claim: false,
@@ -1356,25 +1373,26 @@ describe('LeaderboardView', () => {
       settlement_ready: true,
       claim_available_at: '2026-05-07T00:30:00+08:00',
       enabled: true,
+      reward_mode: 'red_packet',
+      red_packet_pool_amount: 20,
+      red_packet_min_amount: 1,
+      red_packet_max_amount: 5,
       min_total_actual_cost: 100,
       yesterday_total_actual_cost: 120,
       threshold_met: true,
-      rewards: [
-        { rank: 1, amount: 5 },
-        { rank: 2, amount: 3 },
-        { rank: 3, amount: 1 },
-      ],
+      rewards: [],
       current_user_rank: 1,
-      current_user_reward_amount: 5,
+      current_user_reward_amount: 0,
       can_claim: true,
       claimed: false,
       reason: 'eligible',
     }
     getDashboardLeaderboard.mockResolvedValue(makeResponse({ daily_rewards: claimRewards }))
     claimDashboardLeaderboardDailyReward.mockResolvedValue({
-      claimed_amount: 5,
+      red_packet_amount: 4.25,
       daily_rewards: {
         ...claimRewards,
+        current_user_reward_amount: 4.25,
         can_claim: false,
         claimed: true,
         reason: 'already_claimed',
@@ -1399,7 +1417,58 @@ describe('LeaderboardView', () => {
     expect(claimedStatus.text()).toContain('已领取')
     expect(claimedStatus.attributes('title')).toBe('上周奖励已领取')
     expect(wrapper.get('[data-testid="leaderboard-daily-reward-claim"]').text()).toContain('已领取')
+    expect(wrapper.get('[data-testid="leaderboard-red-packet-reward"]').text()).toContain('已抽金额')
+    expect(wrapper.get('[data-testid="leaderboard-red-packet-reward"]').text()).toContain('4.25')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$16.00')
+  })
+
+  it('renders lottery reward draw time and not-won result without a claim button', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        daily_rewards: {
+          reward_date: '2026-05-06',
+          settlement_timezone: 'Asia/Shanghai',
+          settlement_ready: true,
+          claim_available_at: '2026-05-07T00:30:00+08:00',
+          enabled: true,
+          reward_mode: 'lottery',
+          lottery_amount: 12,
+          lottery_cron: '0 10 * * 1',
+          lottery_draw_at: '2026-05-11T10:00:00+08:00',
+          lottery_winner_rank: 2,
+          lottery_winner_user_id: 22,
+          lottery_winner_display_name: 'Lucky User',
+          min_total_actual_cost: 100,
+          yesterday_total_actual_cost: 120,
+          threshold_met: true,
+          rewards: [],
+          current_user_rank: 4,
+          current_user_reward_amount: 0,
+          can_claim: false,
+          claimed: false,
+          reason: 'not_won',
+        },
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const lottery = wrapper.get('[data-testid="leaderboard-lottery-reward"]')
+    expect(lottery.text()).toContain('开奖时间')
+    expect(lottery.text()).toContain('2026')
+    expect(lottery.text()).toContain('抽奖金额')
+    expect(lottery.text()).toContain('12.00')
+    expect(lottery.text()).toContain('中奖用户：Lucky User')
+    expect(wrapper.find('[data-testid="leaderboard-daily-reward-claim"]').exists()).toBe(false)
   })
 
   it('colors token bars by rank without row background frames', async () => {

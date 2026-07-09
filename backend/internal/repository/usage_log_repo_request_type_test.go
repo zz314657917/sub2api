@@ -764,11 +764,12 @@ func TestUsageLogRepositoryLeaderboardDailyRewardClaimCreateAndRead(t *testing.T
 	rewardDate := "2026-05-04~2026-05-10"
 
 	mock.ExpectQuery("INSERT INTO leaderboard_daily_reward_claims").
-		WithArgs(rewardDate, int64(42), 1, 5.0, 101.0, nil).
+		WithArgs(rewardDate, int64(42), 1, 5.0, 101.0, nil, service.LeaderboardRewardModeRedPacket, nil, nil).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(99), createdAt))
 
 	claim := &service.LeaderboardDailyRewardClaim{
 		RewardDate:      rewardDate,
+		RewardMode:      service.LeaderboardRewardModeRedPacket,
 		UserID:          42,
 		Rank:            1,
 		Amount:          5,
@@ -778,17 +779,18 @@ func TestUsageLogRepositoryLeaderboardDailyRewardClaimCreateAndRead(t *testing.T
 	require.Equal(t, int64(99), claim.ID)
 
 	mock.ExpectQuery("SELECT id, reward_date::text, user_id, rank, amount, total_actual_cost, redeem_code_id, created_at").
-		WithArgs(rewardDate, int64(42)).
+		WithArgs(rewardDate, int64(42), service.LeaderboardRewardModeRedPacket).
 		WillReturnRows(sqlmock.NewRows([]string{
-			"id", "reward_date", "user_id", "rank", "amount", "total_actual_cost", "redeem_code_id", "created_at",
-		}).AddRow(int64(99), rewardDate, int64(42), 1, 5.0, 101.0, int64(700), createdAt))
+			"id", "reward_date", "user_id", "rank", "amount", "total_actual_cost", "redeem_code_id", "created_at", "reward_mode", "packet_id", "lottery_run_id",
+		}).AddRow(int64(99), rewardDate, int64(42), 1, 5.0, 101.0, int64(700), createdAt, service.LeaderboardRewardModeRedPacket, nil, nil))
 
-	got, err := repo.GetLeaderboardDailyRewardClaim(context.Background(), rewardDate, 42)
+	got, err := repo.GetLeaderboardDailyRewardClaimByMode(context.Background(), rewardDate, service.LeaderboardRewardModeRedPacket, 42)
 	require.NoError(t, err)
 	require.Equal(t, int64(99), got.ID)
 	require.Equal(t, rewardDate, got.RewardDate)
 	require.NotNil(t, got.RedeemCodeID)
 	require.Equal(t, int64(700), *got.RedeemCodeID)
+	require.Equal(t, service.LeaderboardRewardModeRedPacket, got.RewardMode)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -807,6 +809,77 @@ func TestUsageLogRepositoryLeaderboardDailyRewardClaimUniqueConflict(t *testing.
 		TotalActualCost: 101,
 	})
 	require.ErrorIs(t, err, service.ErrLeaderboardDailyRewardAlreadyClaimed)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUsageLogRepositoryLeaderboardRedPacketEnsureGetAndClaim(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+	rewardDate := "2026-05-04~2026-05-10"
+	claimedAt := time.Date(2026, 5, 14, 12, 1, 0, 0, time.UTC)
+	createdAt := time.Date(2026, 5, 14, 12, 0, 0, 0, time.UTC)
+
+	mock.ExpectExec("INSERT INTO leaderboard_red_packets").
+		WithArgs(rewardDate, 1, 1.25).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	mock.ExpectExec("INSERT INTO leaderboard_red_packets").
+		WithArgs(rewardDate, 2, 2.75).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	require.NoError(t, repo.EnsureLeaderboardRedPackets(context.Background(), rewardDate, []float64{1.25, 2.75}))
+
+	mock.ExpectQuery("FROM leaderboard_red_packets").
+		WithArgs(rewardDate).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "reward_date", "packet_no", "amount", "claimed_by", "claim_id", "claimed_at", "created_at"}).
+			AddRow(int64(1), rewardDate, 1, 1.25, int64(42), int64(100), claimedAt, createdAt).
+			AddRow(int64(2), rewardDate, 2, 2.75, nil, nil, nil, createdAt))
+	packets, err := repo.GetLeaderboardRedPackets(context.Background(), rewardDate)
+	require.NoError(t, err)
+	require.Len(t, packets, 2)
+	require.NotNil(t, packets[0].ClaimedBy)
+	require.Equal(t, int64(42), *packets[0].ClaimedBy)
+
+	mock.ExpectQuery("WITH picked AS").
+		WithArgs(rewardDate, int64(42), int64(100)).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "reward_date", "packet_no", "amount", "claimed_by", "claim_id", "claimed_at", "created_at"}).
+			AddRow(int64(1), rewardDate, 1, 1.25, int64(42), int64(100), claimedAt, createdAt))
+	claimed, err := repo.ClaimRandomLeaderboardRedPacket(context.Background(), rewardDate, 42, 100)
+	require.NoError(t, err)
+	require.Equal(t, 1.25, claimed.Amount)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestUsageLogRepositoryLeaderboardLotteryRunCreateGetAndAttach(t *testing.T) {
+	db, mock := newSQLMock(t)
+	repo := &usageLogRepository{sql: db}
+	rewardDate := "2026-05-04~2026-05-10"
+	createdAt := time.Date(2026, 5, 14, 12, 0, 0, 0, time.UTC)
+
+	run := &service.LeaderboardLotteryRun{
+		RewardDate:      rewardDate,
+		WinnerUserID:    42,
+		WinnerRank:      2,
+		Amount:          8,
+		TotalActualCost: 101,
+	}
+	mock.ExpectQuery("INSERT INTO leaderboard_lottery_runs").
+		WithArgs(rewardDate, int64(42), 2, 8.0, 101.0, nil).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(int64(900), createdAt))
+	require.NoError(t, repo.CreateLeaderboardLotteryRun(context.Background(), run))
+	require.Equal(t, int64(900), run.ID)
+
+	mock.ExpectQuery("FROM leaderboard_lottery_runs").
+		WithArgs(rewardDate).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "reward_date", "winner_user_id", "winner_rank", "amount", "total_actual_cost", "redeem_code_id", "created_at"}).
+			AddRow(int64(900), rewardDate, int64(42), 2, 8.0, 101.0, int64(700), createdAt))
+	got, err := repo.GetLeaderboardLotteryRun(context.Background(), rewardDate)
+	require.NoError(t, err)
+	require.NotNil(t, got.RedeemCodeID)
+	require.Equal(t, int64(700), *got.RedeemCodeID)
+
+	mock.ExpectExec("UPDATE leaderboard_lottery_runs").
+		WithArgs(int64(900), int64(701)).
+		WillReturnResult(sqlmock.NewResult(0, 1))
+	require.NoError(t, repo.AttachLeaderboardLotteryRunRedeemCode(context.Background(), 900, 701))
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 

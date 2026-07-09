@@ -140,3 +140,5 @@
 260708 0120 | ui-warm-leftovers-s54 | local-container-updated | codex | 127.0.0.1:62080, sub2api:codex-20260708-0115-warm-ui-workers, health/smoke pass
 260708 0317 | upstream-v0146-small-safe-patches-s55 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-v0146-small-safe-patches-s55-result.md, docs/workflow/qa-reports/upstream-v0146-small-safe-patches-s55-qa.md
 260708 0357 | upstream-v0146-backend-safe-patches-s56 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-v0146-backend-safe-patches-s56-result.md, docs/workflow/qa-reports/upstream-v0146-backend-safe-patches-s56-qa.md
+260709 0000 | leaderboard-reward-modes-s57 | contract-draft | codex | docs/workflow/tasks/leaderboard-reward-modes-s57.md
+260709 0000 | leaderboard-reward-modes-s57 | workers-dispatched | codex | backend-worker, frontend-worker

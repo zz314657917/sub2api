@@ -619,6 +619,11 @@ func finalizeLeaderboardDailyRewards(payload *usagestats.LeaderboardDailyRewards
 	}
 	for i := range payload.TopUsers {
 		finalizeLeaderboardDailyRewardTopUser(&payload.TopUsers[i])
+		if payload.TopUsers[i].LotteryWinner {
+			payload.LotteryWinnerDisplayName = &payload.TopUsers[i].DisplayName
+			payload.LotteryWinnerEmailMasked = &payload.TopUsers[i].EmailMasked
+			payload.LotteryWinnerUserID = nil
+		}
 	}
 }
 
@@ -906,7 +911,7 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 	response.Success(c, leaderboard)
 }
 
-// ClaimDashboardLeaderboardDailyReward handles claiming last week's top-3 reward.
+// ClaimDashboardLeaderboardDailyReward handles claiming last week's top-10 reward.
 // POST /api/v1/usage/dashboard/leaderboard/daily-reward/claim
 func (h *UsageHandler) ClaimDashboardLeaderboardDailyReward(c *gin.Context) {
 	subject, ok := middleware2.GetAuthSubjectFromContext(c)

@@ -19,6 +19,7 @@ import type {
 export type {
   LeaderboardBadge,
   LeaderboardPeriod,
+  LeaderboardRewardMode,
   LeaderboardDailyRewards,
   UserLeaderboardDailyChampion,
   LeaderboardDailyRewardTopUser,
@@ -296,7 +297,9 @@ export async function getDashboardLeaderboard(params: {
 
 export interface LeaderboardDailyRewardClaimResponse {
   daily_rewards: LeaderboardDailyRewards
-  claimed_amount: number
+  claimed_amount?: number
+  red_packet_amount?: number
+  lottery_amount?: number
 }
 
 export async function claimDashboardLeaderboardDailyReward(): Promise<LeaderboardDailyRewardClaimResponse> {

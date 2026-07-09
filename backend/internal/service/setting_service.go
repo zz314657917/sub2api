@@ -2055,10 +2055,26 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyAvailableChannelsEnabled] = strconv.FormatBool(settings.AvailableChannelsEnabled)
 
 	// Affiliate (邀请返利) feature switch
+	settings.LeaderboardRewardMode = NormalizeLeaderboardRewardMode(settings.LeaderboardRewardMode, settings.LeaderboardDailyRewardEnabled)
+	settings.LeaderboardRedPacketPoolAmount = normalizeNonNegativeFloat(settings.LeaderboardRedPacketPoolAmount)
+	settings.LeaderboardRedPacketMinAmount = normalizeNonNegativeFloat(settings.LeaderboardRedPacketMinAmount)
+	settings.LeaderboardRedPacketMaxAmount = normalizeNonNegativeFloat(settings.LeaderboardRedPacketMaxAmount)
+	if settings.LeaderboardRedPacketMaxAmount > 0 && settings.LeaderboardRedPacketMaxAmount < settings.LeaderboardRedPacketMinAmount {
+		settings.LeaderboardRedPacketMaxAmount = settings.LeaderboardRedPacketMinAmount
+	}
+	settings.LeaderboardLotteryAmount = normalizeNonNegativeFloat(settings.LeaderboardLotteryAmount)
+	settings.LeaderboardLotteryCron = normalizeLeaderboardLotteryCron(settings.LeaderboardLotteryCron)
+	settings.LeaderboardDailyRewardEnabled = settings.LeaderboardRewardMode != LeaderboardRewardModeDisabled
 	settings.LeaderboardDailyRewardMinTotalActualCost = normalizeNonNegativeFloat(settings.LeaderboardDailyRewardMinTotalActualCost)
 	settings.LeaderboardDailyRewardRank1Amount = normalizeNonNegativeFloat(settings.LeaderboardDailyRewardRank1Amount)
 	settings.LeaderboardDailyRewardRank2Amount = normalizeNonNegativeFloat(settings.LeaderboardDailyRewardRank2Amount)
 	settings.LeaderboardDailyRewardRank3Amount = normalizeNonNegativeFloat(settings.LeaderboardDailyRewardRank3Amount)
+	updates[SettingKeyLeaderboardRewardMode] = settings.LeaderboardRewardMode
+	updates[SettingKeyLeaderboardRedPacketPoolAmount] = strconv.FormatFloat(settings.LeaderboardRedPacketPoolAmount, 'f', 8, 64)
+	updates[SettingKeyLeaderboardRedPacketMinAmount] = strconv.FormatFloat(settings.LeaderboardRedPacketMinAmount, 'f', 8, 64)
+	updates[SettingKeyLeaderboardRedPacketMaxAmount] = strconv.FormatFloat(settings.LeaderboardRedPacketMaxAmount, 'f', 8, 64)
+	updates[SettingKeyLeaderboardLotteryAmount] = strconv.FormatFloat(settings.LeaderboardLotteryAmount, 'f', 8, 64)
+	updates[SettingKeyLeaderboardLotteryCron] = settings.LeaderboardLotteryCron
 	updates[SettingKeyLeaderboardDailyRewardEnabled] = strconv.FormatBool(settings.LeaderboardDailyRewardEnabled)
 	updates[SettingKeyLeaderboardDailyRewardMinTotalActualCost] = strconv.FormatFloat(settings.LeaderboardDailyRewardMinTotalActualCost, 'f', 8, 64)
 	updates[SettingKeyLeaderboardDailyRewardRank1Amount] = strconv.FormatFloat(settings.LeaderboardDailyRewardRank1Amount, 'f', 8, 64)
@@ -3212,6 +3228,12 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyChannelMonitorDefaultIntervalSeconds: "60",
 
 		// Available channels feature (default disabled; opt-in)
+		SettingKeyLeaderboardRewardMode:                     LeaderboardRewardModeDisabled,
+		SettingKeyLeaderboardRedPacketPoolAmount:            "0",
+		SettingKeyLeaderboardRedPacketMinAmount:             "0",
+		SettingKeyLeaderboardRedPacketMaxAmount:             "0",
+		SettingKeyLeaderboardLotteryAmount:                  "0",
+		SettingKeyLeaderboardLotteryCron:                    defaultLeaderboardLotteryCron,
 		SettingKeyAvailableChannelsEnabled:                  "false",
 		SettingKeyLeaderboardDailyRewardEnabled:             "false",
 		SettingKeyLeaderboardDailyRewardMinTotalActualCost:  "0",
@@ -3672,7 +3694,17 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	// Available channels feature (default: disabled; strict true)
 	result.AvailableChannelsEnabled = settings[SettingKeyAvailableChannelsEnabled] == "true"
 
-	result.LeaderboardDailyRewardEnabled = settings[SettingKeyLeaderboardDailyRewardEnabled] == "true"
+	legacyLeaderboardEnabled := settings[SettingKeyLeaderboardDailyRewardEnabled] == "true"
+	result.LeaderboardRewardMode = NormalizeLeaderboardRewardMode(settings[SettingKeyLeaderboardRewardMode], legacyLeaderboardEnabled)
+	result.LeaderboardDailyRewardEnabled = result.LeaderboardRewardMode != LeaderboardRewardModeDisabled
+	result.LeaderboardRedPacketPoolAmount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardRedPacketPoolAmount], 0)
+	result.LeaderboardRedPacketMinAmount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardRedPacketMinAmount], 0)
+	result.LeaderboardRedPacketMaxAmount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardRedPacketMaxAmount], 0)
+	if result.LeaderboardRedPacketMaxAmount > 0 && result.LeaderboardRedPacketMaxAmount < result.LeaderboardRedPacketMinAmount {
+		result.LeaderboardRedPacketMaxAmount = result.LeaderboardRedPacketMinAmount
+	}
+	result.LeaderboardLotteryAmount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardLotteryAmount], 0)
+	result.LeaderboardLotteryCron = normalizeLeaderboardLotteryCron(settings[SettingKeyLeaderboardLotteryCron])
 	result.LeaderboardDailyRewardMinTotalActualCost = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardMinTotalActualCost], 0)
 	result.LeaderboardDailyRewardRank1Amount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardRank1Amount], 0)
 	result.LeaderboardDailyRewardRank2Amount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardRank2Amount], 0)

@@ -207,6 +207,9 @@ func TestAPIContracts(t *testing.T) {
 					"status": "active",
 					"ip_whitelist": null,
 					"ip_blacklist": null,
+					"is_default": true,
+					"multi_group_routes": [],
+					"account_pool_strategy": "shared_only",
 					"last_used_at": null,
 					"current_concurrency": 0,
 					"quota": 0,
@@ -257,6 +260,9 @@ func TestAPIContracts(t *testing.T) {
 							"status": "active",
 							"ip_whitelist": null,
 							"ip_blacklist": null,
+							"is_default": true,
+							"multi_group_routes": [],
+							"account_pool_strategy": "shared_only",
 							"last_used_at": null,
 							"current_concurrency": 0,
 							"quota": 0,
@@ -337,6 +343,11 @@ func TestAPIContracts(t *testing.T) {
 						"allow_messages_dispatch": false,
 						"fallback_group_id": null,
 						"fallback_group_id_on_invalid_request": null,
+						"routing_scope": "inference",
+						"peak_rate_enabled": false,
+						"peak_start": "",
+						"peak_end": "",
+						"peak_rate_multiplier": 0,
 						"require_oauth_only": false,
 						"require_privacy_set": false,
 						"rpm_limit": 0,
@@ -765,6 +776,8 @@ func TestAPIContracts(t *testing.T) {
 					"affiliate_rebate_freeze_hours": 0,
 					"affiliate_rebate_duration_days": 0,
 					"affiliate_rebate_per_invitee_cap": 0,
+					"affiliate_api_call_reward_amount": 0,
+					"affiliate_risk_scan_interval_minutes": 20,
 					"default_user_rpm_limit": 0,
 					"default_subscriptions": [],
 					"enable_model_fallback": false,
@@ -791,6 +804,7 @@ func TestAPIContracts(t *testing.T) {
 					"antigravity_user_agent_version": "",
 					"enable_fingerprint_unification": true,
 					"enable_metadata_passthrough": false,
+					"external_capacity_reference_enabled": false,
 					"web_search_emulation_enabled": false,
 					"payment_visible_method_alipay_source": "easypay_alipay",
 					"payment_visible_method_wxpay_source": "official_wxpay",
@@ -817,6 +831,8 @@ func TestAPIContracts(t *testing.T) {
 					"payment_help_image_url": "",
 					"payment_help_text": "",
 					"payment_enabled_types": null,
+					"payment_faq_items": [],
+					"payment_recharge_packages": null,
 					"payment_cancel_rate_limit_enabled": false,
 					"payment_cancel_rate_limit_max": 0,
 					"payment_cancel_rate_limit_window": 0,
@@ -832,6 +848,12 @@ func TestAPIContracts(t *testing.T) {
 					"channel_monitor_enabled": true,
 					"channel_monitor_default_interval_seconds": 60,
 					"available_channels_enabled": false,
+					"reward_mode": "disabled",
+					"red_packet_pool_amount": 0,
+					"red_packet_min_amount": 0,
+					"red_packet_max_amount": 0,
+					"lottery_amount": 0,
+					"lottery_cron": "0 12 * * 4",
 					"leaderboard_daily_reward_enabled": false,
 					"leaderboard_daily_reward_min_total_actual_cost": 0,
 					"leaderboard_daily_reward_rank_1_amount": 0,
@@ -839,10 +861,26 @@ func TestAPIContracts(t *testing.T) {
 					"leaderboard_daily_reward_rank_3_amount": 0,
 					"risk_control_enabled": false,
 					"affiliate_enabled": false,
+					"registration_risk_enabled": true,
+					"registration_risk_successful_registrations_per_ip": 3,
+					"registration_risk_window_hours": 24,
+					"registration_risk_ip_user_agent_attempts": 20,
+					"registration_risk_email_domain_attempts": 30,
+					"registration_risk_short_window_seconds": 600,
 					"support_popup_title": "",
 					"support_popup_description": "",
 					"support_popup_footer": "",
 					"support_popup_items": [],
+					"studio_bridge_luoye_ai": {
+						"enabled": false,
+						"site_name": "落叶创艺",
+						"launch_return_url": "http://127.0.0.1:8081/auth/sub2api/launch",
+						"recharge_return_url": "http://127.0.0.1:62080/purchase",
+						"allowed_return_domains": [],
+						"default_chat_group": "",
+						"default_image_group": "",
+						"default_video_group": ""
+					},
 					"wechat_connect_enabled": false,
 					"wechat_connect_app_id": "",
 					"wechat_connect_app_secret_configured": false,
@@ -871,6 +909,10 @@ func TestAPIContracts(t *testing.T) {
 					"welfare_daily_checkin_milestone_28_amount": 0,
 					"welfare_recharge_enabled": false,
 					"welfare_vip_enabled": false,
+					"welfare_first_recharge_bonus_amount": 5,
+					"welfare_first_recharge_bonus_valid_days": 0,
+					"welfare_first_recharge_bonus_stack_monthly": false,
+					"welfare_voucher_valid_days": 0,
 					"welfare_new_user_trial_enabled": false,
 					"welfare_new_user_trial_quota_amount": 0.1,
 					"welfare_new_user_trial_success_reward_amount": 0,
@@ -1007,6 +1049,8 @@ func TestAPIContracts(t *testing.T) {
 					"affiliate_rebate_freeze_hours": 0,
 					"affiliate_rebate_duration_days": 0,
 					"affiliate_rebate_per_invitee_cap": 0,
+					"affiliate_api_call_reward_amount": 0,
+					"affiliate_risk_scan_interval_minutes": 20,
 					"default_user_rpm_limit": 0,
 					"default_subscriptions": [],
 					"enable_model_fallback": false,
@@ -1026,6 +1070,7 @@ func TestAPIContracts(t *testing.T) {
 					"backend_mode_enabled": false,
 					"enable_fingerprint_unification": true,
 					"enable_metadata_passthrough": false,
+					"external_capacity_reference_enabled": false,
 					"enable_cch_signing": false,
 					"enable_anthropic_cache_ttl_1h_injection": false,
 					"rewrite_message_cache_control": false,
@@ -1054,6 +1099,8 @@ func TestAPIContracts(t *testing.T) {
 					"payment_product_name_suffix": "",
 					"payment_help_image_url": "",
 					"payment_help_text": "",
+					"payment_faq_items": [],
+					"payment_recharge_packages": null,
 					"payment_cancel_rate_limit_enabled": false,
 					"payment_cancel_rate_limit_max": 0,
 					"payment_cancel_rate_limit_window": 0,
@@ -1069,6 +1116,12 @@ func TestAPIContracts(t *testing.T) {
 					"channel_monitor_enabled": true,
 					"channel_monitor_default_interval_seconds": 60,
 					"available_channels_enabled": false,
+					"reward_mode": "disabled",
+					"red_packet_pool_amount": 0,
+					"red_packet_min_amount": 0,
+					"red_packet_max_amount": 0,
+					"lottery_amount": 0,
+					"lottery_cron": "0 12 * * 4",
 					"leaderboard_daily_reward_enabled": false,
 					"leaderboard_daily_reward_min_total_actual_cost": 0,
 					"leaderboard_daily_reward_rank_1_amount": 0,
@@ -1076,10 +1129,26 @@ func TestAPIContracts(t *testing.T) {
 					"leaderboard_daily_reward_rank_3_amount": 0,
 					"risk_control_enabled": false,
 					"affiliate_enabled": false,
+					"registration_risk_enabled": true,
+					"registration_risk_successful_registrations_per_ip": 3,
+					"registration_risk_window_hours": 24,
+					"registration_risk_ip_user_agent_attempts": 20,
+					"registration_risk_email_domain_attempts": 30,
+					"registration_risk_short_window_seconds": 600,
 					"support_popup_title": "",
 					"support_popup_description": "",
 					"support_popup_footer": "",
 					"support_popup_items": [],
+					"studio_bridge_luoye_ai": {
+						"enabled": false,
+						"site_name": "落叶创艺",
+						"launch_return_url": "http://127.0.0.1:8081/auth/sub2api/launch",
+						"recharge_return_url": "http://127.0.0.1:62080/purchase",
+						"allowed_return_domains": [],
+						"default_chat_group": "",
+						"default_image_group": "",
+						"default_video_group": ""
+					},
 					"wechat_connect_enabled": true,
 					"wechat_connect_app_id": "wx-open-config",
 					"wechat_connect_app_secret_configured": true,
@@ -1139,6 +1208,10 @@ func TestAPIContracts(t *testing.T) {
 					"welfare_daily_checkin_milestone_28_amount": 0,
 					"welfare_recharge_enabled": false,
 					"welfare_vip_enabled": false,
+					"welfare_first_recharge_bonus_amount": 5,
+					"welfare_first_recharge_bonus_valid_days": 0,
+					"welfare_first_recharge_bonus_stack_monthly": false,
+					"welfare_voucher_valid_days": 0,
 					"welfare_new_user_trial_enabled": false,
 					"welfare_new_user_trial_quota_amount": 0.1,
 					"welfare_new_user_trial_success_reward_amount": 0,
@@ -1692,6 +1765,14 @@ func (s *stubAccountRepo) ListByGroup(ctx context.Context, groupID int64) ([]ser
 	return nil, errors.New("not implemented")
 }
 
+func (s *stubAccountRepo) ListAllByGroup(ctx context.Context, groupID int64) ([]service.Account, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (s *stubAccountRepo) UpdateGroupAccountPriorities(ctx context.Context, groupID int64, updates []service.GroupAccountPriorityUpdate) error {
+	return errors.New("not implemented")
+}
+
 func (s *stubAccountRepo) ListActive(ctx context.Context) ([]service.Account, error) {
 	return nil, errors.New("not implemented")
 }
@@ -1859,6 +1940,14 @@ func (stubProxyRepo) ListWithFiltersAndAccountCount(ctx context.Context, params 
 	return nil, nil, errors.New("not implemented")
 }
 
+func (stubProxyRepo) ListGlobalWithFilters(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]service.Proxy, *pagination.PaginationResult, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
+func (stubProxyRepo) ListGlobalWithFiltersAndAccountCount(ctx context.Context, params pagination.PaginationParams, protocol, status, search string) ([]service.ProxyWithAccountCount, *pagination.PaginationResult, error) {
+	return nil, nil, errors.New("not implemented")
+}
+
 func (stubProxyRepo) ListActive(ctx context.Context) ([]service.Proxy, error) {
 	return nil, errors.New("not implemented")
 }
@@ -1867,11 +1956,35 @@ func (stubProxyRepo) ListActiveWithAccountCount(ctx context.Context) ([]service.
 	return nil, errors.New("not implemented")
 }
 
+func (stubProxyRepo) ListActiveGlobal(ctx context.Context) ([]service.Proxy, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (stubProxyRepo) ListActiveGlobalWithAccountCount(ctx context.Context) ([]service.ProxyWithAccountCount, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (stubProxyRepo) ListUserOwned(ctx context.Context, userID int64) ([]service.Proxy, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (stubProxyRepo) ListActiveUserOwned(ctx context.Context, userID int64) ([]service.Proxy, error) {
+	return nil, errors.New("not implemented")
+}
+
+func (stubProxyRepo) GetUserOwnedByID(ctx context.Context, userID, proxyID int64) (*service.Proxy, error) {
+	return nil, service.ErrProxyNotFound
+}
+
 func (stubProxyRepo) ExistsByHostPortAuth(ctx context.Context, host string, port int, username, password string) (bool, error) {
 	return false, errors.New("not implemented")
 }
 
 func (stubProxyRepo) CountAccountsByProxyID(ctx context.Context, proxyID int64) (int64, error) {
+	return 0, errors.New("not implemented")
+}
+
+func (stubProxyRepo) CountUserOwnedAccountsByProxyID(ctx context.Context, userID, proxyID int64) (int64, error) {
 	return 0, errors.New("not implemented")
 }
 
@@ -2526,7 +2639,7 @@ func (r *stubUsageLogRepo) GetAccountUsageStats(ctx context.Context, accountID i
 }
 
 func (r *stubUsageLogRepo) GetStatsWithFilters(ctx context.Context, filters usagestats.UsageLogFilters) (*usagestats.UsageStats, error) {
-	return nil, errors.New("not implemented")
+	return r.GetUserStatsAggregated(ctx, filters.UserID, time.Time{}, time.Time{})
 }
 func (r *stubUsageLogRepo) GetAllGroupUsageSummary(ctx context.Context, todayStart time.Time) ([]usagestats.GroupUsageSummary, error) {
 	return nil, errors.New("not implemented")

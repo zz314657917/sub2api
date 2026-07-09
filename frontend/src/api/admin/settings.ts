@@ -47,6 +47,7 @@ export type PaymentVisibleMethodSource =
   | "official_wxpay"
   | "easypay_wxpay";
 export type WeChatConnectMode = "open" | "mp" | "mobile";
+export type LeaderboardRewardMode = "disabled" | "red_packet" | "lottery";
 
 export interface PaymentVisibleMethodSourceOption {
   value: PaymentVisibleMethodSource;
@@ -575,7 +576,13 @@ export interface SystemSettings {
   // Available Channels feature switch
   available_channels_enabled: boolean;
 
-  // Leaderboard daily reward feature switch and balance amounts
+  // Leaderboard reward mode and balance amounts
+  reward_mode?: LeaderboardRewardMode;
+  red_packet_pool_amount?: number;
+  red_packet_min_amount?: number;
+  red_packet_max_amount?: number;
+  lottery_amount?: number;
+  lottery_cron?: string;
   leaderboard_daily_reward_enabled: boolean;
   leaderboard_daily_reward_min_total_actual_cost: number;
   leaderboard_daily_reward_rank_1_amount: number;
@@ -830,7 +837,13 @@ export interface UpdateSettingsRequest {
   // Available Channels feature switch
   available_channels_enabled?: boolean;
 
-  // Leaderboard daily reward feature switch and balance amounts
+  // Leaderboard reward mode and balance amounts
+  reward_mode?: LeaderboardRewardMode;
+  red_packet_pool_amount?: number;
+  red_packet_min_amount?: number;
+  red_packet_max_amount?: number;
+  lottery_amount?: number;
+  lottery_cron?: string;
   leaderboard_daily_reward_enabled?: boolean;
   leaderboard_daily_reward_min_total_actual_cost?: number;
   leaderboard_daily_reward_rank_1_amount?: number;

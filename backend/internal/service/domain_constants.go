@@ -377,11 +377,25 @@ const (
 	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
 
 	// Leaderboard daily reward settings. Defaults are disabled with zero threshold/rewards.
-	SettingKeyLeaderboardDailyRewardEnabled            = "leaderboard_daily_reward_enabled"
-	SettingKeyLeaderboardDailyRewardMinTotalActualCost = "leaderboard_daily_reward_min_total_actual_cost"
-	SettingKeyLeaderboardDailyRewardRank1Amount        = "leaderboard_daily_reward_rank_1_amount"
-	SettingKeyLeaderboardDailyRewardRank2Amount        = "leaderboard_daily_reward_rank_2_amount"
-	SettingKeyLeaderboardDailyRewardRank3Amount        = "leaderboard_daily_reward_rank_3_amount"
+	SettingKeyLeaderboardDailyRewardMode                 = "leaderboard_daily_reward_mode"
+	SettingKeyLeaderboardDailyRewardRedPacketTotalAmount = "leaderboard_daily_reward_red_packet_pool_amount"
+	SettingKeyLeaderboardDailyRewardRedPacketMinAmount   = "leaderboard_daily_reward_red_packet_min_amount"
+	SettingKeyLeaderboardDailyRewardRedPacketMaxAmount   = "leaderboard_daily_reward_red_packet_max_amount"
+	SettingKeyLeaderboardDailyRewardLotteryAmount        = "leaderboard_daily_reward_lottery_amount"
+	SettingKeyLeaderboardDailyRewardLotteryCron          = "leaderboard_daily_reward_lottery_cron"
+	SettingKeyLeaderboardDailyRewardEnabled              = "leaderboard_daily_reward_enabled"
+	SettingKeyLeaderboardDailyRewardMinTotalActualCost   = "leaderboard_daily_reward_min_total_actual_cost"
+	SettingKeyLeaderboardDailyRewardRank1Amount          = "leaderboard_daily_reward_rank_1_amount"
+	SettingKeyLeaderboardDailyRewardRank2Amount          = "leaderboard_daily_reward_rank_2_amount"
+	SettingKeyLeaderboardDailyRewardRank3Amount          = "leaderboard_daily_reward_rank_3_amount"
+
+	// Compatibility aliases for settings DTO code.
+	SettingKeyLeaderboardRewardMode          = SettingKeyLeaderboardDailyRewardMode
+	SettingKeyLeaderboardRedPacketPoolAmount = SettingKeyLeaderboardDailyRewardRedPacketTotalAmount
+	SettingKeyLeaderboardRedPacketMinAmount  = SettingKeyLeaderboardDailyRewardRedPacketMinAmount
+	SettingKeyLeaderboardRedPacketMaxAmount  = SettingKeyLeaderboardDailyRewardRedPacketMaxAmount
+	SettingKeyLeaderboardLotteryAmount       = SettingKeyLeaderboardDailyRewardLotteryAmount
+	SettingKeyLeaderboardLotteryCron         = SettingKeyLeaderboardDailyRewardLotteryCron
 
 	// Welfare system settings.
 	SettingKeyWelfareEnabled                            = "welfare_enabled"

@@ -280,6 +280,12 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 
 		AvailableChannelsEnabled:                  settings.AvailableChannelsEnabled,
+		LeaderboardRewardMode:                     settings.LeaderboardRewardMode,
+		LeaderboardRedPacketPoolAmount:            settings.LeaderboardRedPacketPoolAmount,
+		LeaderboardRedPacketMinAmount:             settings.LeaderboardRedPacketMinAmount,
+		LeaderboardRedPacketMaxAmount:             settings.LeaderboardRedPacketMaxAmount,
+		LeaderboardLotteryAmount:                  settings.LeaderboardLotteryAmount,
+		LeaderboardLotteryCron:                    settings.LeaderboardLotteryCron,
 		LeaderboardDailyRewardEnabled:             settings.LeaderboardDailyRewardEnabled,
 		LeaderboardDailyRewardMinTotalActualCost:  settings.LeaderboardDailyRewardMinTotalActualCost,
 		LeaderboardDailyRewardRank1Amount:         settings.LeaderboardDailyRewardRank1Amount,
@@ -669,6 +675,12 @@ type UpdateSettingsRequest struct {
 	// Available Channels feature switch (user-facing)
 	AvailableChannelsEnabled *bool `json:"available_channels_enabled"`
 
+	LeaderboardRewardMode                    *string  `json:"reward_mode"`
+	LeaderboardRedPacketPoolAmount           *float64 `json:"red_packet_pool_amount"`
+	LeaderboardRedPacketMinAmount            *float64 `json:"red_packet_min_amount"`
+	LeaderboardRedPacketMaxAmount            *float64 `json:"red_packet_max_amount"`
+	LeaderboardLotteryAmount                 *float64 `json:"lottery_amount"`
+	LeaderboardLotteryCron                   *string  `json:"lottery_cron"`
 	LeaderboardDailyRewardEnabled            *bool    `json:"leaderboard_daily_reward_enabled"`
 	LeaderboardDailyRewardMinTotalActualCost *float64 `json:"leaderboard_daily_reward_min_total_actual_cost"`
 	LeaderboardDailyRewardRank1Amount        *float64 `json:"leaderboard_daily_reward_rank_1_amount"`
@@ -1763,6 +1775,25 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.AvailableChannelsEnabled
 		}(),
+		LeaderboardRewardMode: func() string {
+			if req.LeaderboardRewardMode != nil {
+				return *req.LeaderboardRewardMode
+			}
+			if req.LeaderboardDailyRewardEnabled != nil {
+				return service.NormalizeLeaderboardRewardMode("", *req.LeaderboardDailyRewardEnabled)
+			}
+			return previousSettings.LeaderboardRewardMode
+		}(),
+		LeaderboardRedPacketPoolAmount: float64ValueOrDefault(req.LeaderboardRedPacketPoolAmount, previousSettings.LeaderboardRedPacketPoolAmount),
+		LeaderboardRedPacketMinAmount:  float64ValueOrDefault(req.LeaderboardRedPacketMinAmount, previousSettings.LeaderboardRedPacketMinAmount),
+		LeaderboardRedPacketMaxAmount:  float64ValueOrDefault(req.LeaderboardRedPacketMaxAmount, previousSettings.LeaderboardRedPacketMaxAmount),
+		LeaderboardLotteryAmount:       float64ValueOrDefault(req.LeaderboardLotteryAmount, previousSettings.LeaderboardLotteryAmount),
+		LeaderboardLotteryCron: func() string {
+			if req.LeaderboardLotteryCron != nil {
+				return *req.LeaderboardLotteryCron
+			}
+			return previousSettings.LeaderboardLotteryCron
+		}(),
 		LeaderboardDailyRewardEnabled: func() bool {
 			if req.LeaderboardDailyRewardEnabled != nil {
 				return *req.LeaderboardDailyRewardEnabled
@@ -2152,6 +2183,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
 
 		AvailableChannelsEnabled:                  updatedSettings.AvailableChannelsEnabled,
+		LeaderboardRewardMode:                     updatedSettings.LeaderboardRewardMode,
+		LeaderboardRedPacketPoolAmount:            updatedSettings.LeaderboardRedPacketPoolAmount,
+		LeaderboardRedPacketMinAmount:             updatedSettings.LeaderboardRedPacketMinAmount,
+		LeaderboardRedPacketMaxAmount:             updatedSettings.LeaderboardRedPacketMaxAmount,
+		LeaderboardLotteryAmount:                  updatedSettings.LeaderboardLotteryAmount,
+		LeaderboardLotteryCron:                    updatedSettings.LeaderboardLotteryCron,
 		LeaderboardDailyRewardEnabled:             updatedSettings.LeaderboardDailyRewardEnabled,
 		LeaderboardDailyRewardMinTotalActualCost:  updatedSettings.LeaderboardDailyRewardMinTotalActualCost,
 		LeaderboardDailyRewardRank1Amount:         updatedSettings.LeaderboardDailyRewardRank1Amount,
@@ -2634,6 +2671,24 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AvailableChannelsEnabled != after.AvailableChannelsEnabled {
 		changed = append(changed, "available_channels_enabled")
+	}
+	if before.LeaderboardRewardMode != after.LeaderboardRewardMode {
+		changed = append(changed, "reward_mode")
+	}
+	if before.LeaderboardRedPacketPoolAmount != after.LeaderboardRedPacketPoolAmount {
+		changed = append(changed, "red_packet_pool_amount")
+	}
+	if before.LeaderboardRedPacketMinAmount != after.LeaderboardRedPacketMinAmount {
+		changed = append(changed, "red_packet_min_amount")
+	}
+	if before.LeaderboardRedPacketMaxAmount != after.LeaderboardRedPacketMaxAmount {
+		changed = append(changed, "red_packet_max_amount")
+	}
+	if before.LeaderboardLotteryAmount != after.LeaderboardLotteryAmount {
+		changed = append(changed, "lottery_amount")
+	}
+	if before.LeaderboardLotteryCron != after.LeaderboardLotteryCron {
+		changed = append(changed, "lottery_cron")
 	}
 	if before.LeaderboardDailyRewardEnabled != after.LeaderboardDailyRewardEnabled {
 		changed = append(changed, "leaderboard_daily_reward_enabled")
