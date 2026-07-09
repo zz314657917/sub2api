@@ -2053,6 +2053,7 @@ export interface UserSpendingRankingResponse {
 
 export type LeaderboardPeriod = 'day' | 'week' | 'month' | 'all'
 export type LeaderboardBadge = 'weekly_token_king' | 'monthly_token_king' | 'total_token_king' | 'night_owl' | 'burst_token_king' | 'checkin_king' | 'cost_saver' | 'cost_burner'
+export type LeaderboardRewardMode = 'disabled' | 'red_packet' | 'lottery'
 
 export interface UserLeaderboardItem {
   rank: number
@@ -2107,8 +2108,16 @@ export interface LeaderboardDailyRewardTier {
 
 export interface LeaderboardDailyRewardTopUser {
   rank: number
+  user_id?: number
   display_name: string
   email_masked?: string
+  tokens?: number
+  claimed?: boolean
+  claimed_amount?: number | null
+  red_packet_amount?: number | null
+  lottery_amount?: number | null
+  is_current_user?: boolean
+  lottery_winner?: boolean
 }
 
 export interface LeaderboardDailyRewards {
@@ -2120,6 +2129,17 @@ export interface LeaderboardDailyRewards {
   min_total_actual_cost: number
   yesterday_total_actual_cost: number
   threshold_met: boolean
+  reward_mode?: LeaderboardRewardMode
+  red_packet_pool_amount?: number
+  red_packet_min_amount?: number
+  red_packet_max_amount?: number
+  lottery_amount?: number
+  lottery_cron?: string
+  lottery_draw_at?: string
+  lottery_winner_rank?: number | null
+  lottery_winner_user_id?: number | null
+  lottery_winner_display_name?: string | null
+  lottery_winner_email_masked?: string | null
   rewards: LeaderboardDailyRewardTier[]
   top_users?: LeaderboardDailyRewardTopUser[]
   current_user_rank: number

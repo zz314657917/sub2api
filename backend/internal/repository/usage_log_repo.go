@@ -3293,15 +3293,29 @@ func (r *usageLogRepository) leaderboardRewardClaimExecutor(ctx context.Context)
 }
 
 func (r *usageLogRepository) GetLeaderboardDailyRewardClaim(ctx context.Context, rewardDate string, userID int64) (*service.LeaderboardDailyRewardClaim, error) {
+	return r.getLeaderboardDailyRewardClaim(ctx, rewardDate, "", userID)
+}
+
+func (r *usageLogRepository) GetLeaderboardDailyRewardClaimByMode(ctx context.Context, rewardDate, rewardMode string, userID int64) (*service.LeaderboardDailyRewardClaim, error) {
+	return r.getLeaderboardDailyRewardClaim(ctx, rewardDate, rewardMode, userID)
+}
+
+func (r *usageLogRepository) getLeaderboardDailyRewardClaim(ctx context.Context, rewardDate, rewardMode string, userID int64) (*service.LeaderboardDailyRewardClaim, error) {
 	exec, err := r.leaderboardRewardClaimExecutor(ctx)
 	if err != nil {
 		return nil, err
 	}
+	mode := service.NormalizeLeaderboardDailyRewardMode(rewardMode)
+	if strings.TrimSpace(rewardMode) == "" {
+		mode = ""
+	}
 	rows, err := exec.QueryContext(ctx, `
-		SELECT id, reward_date::text, user_id, rank, amount, total_actual_cost, redeem_code_id, created_at
+		SELECT id, reward_date::text, user_id, rank, amount, total_actual_cost, redeem_code_id, created_at, reward_mode, packet_id, lottery_run_id
 		FROM leaderboard_daily_reward_claims
-		WHERE reward_date = $1 AND user_id = $2
-	`, rewardDate, userID)
+		WHERE reward_date = $1
+		  AND user_id = $2
+		  AND ($3 = '' OR reward_mode = $3)
+	`, rewardDate, userID, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -3315,6 +3329,9 @@ func (r *usageLogRepository) GetLeaderboardDailyRewardClaim(ctx context.Context,
 	}
 	var claim service.LeaderboardDailyRewardClaim
 	var redeemCodeID sql.NullInt64
+	var rewardModeValue sql.NullString
+	var packetID sql.NullInt64
+	var lotteryRunID sql.NullInt64
 	if err := rows.Scan(
 		&claim.ID,
 		&claim.RewardDate,
@@ -3324,11 +3341,23 @@ func (r *usageLogRepository) GetLeaderboardDailyRewardClaim(ctx context.Context,
 		&claim.TotalActualCost,
 		&redeemCodeID,
 		&claim.CreatedAt,
+		&rewardModeValue,
+		&packetID,
+		&lotteryRunID,
 	); err != nil {
 		return nil, err
 	}
 	if redeemCodeID.Valid {
 		claim.RedeemCodeID = &redeemCodeID.Int64
+	}
+	if rewardModeValue.Valid {
+		claim.RewardMode = rewardModeValue.String
+	}
+	if packetID.Valid {
+		claim.PacketID = &packetID.Int64
+	}
+	if lotteryRunID.Valid {
+		claim.LotteryRunID = &lotteryRunID.Int64
 	}
 	return &claim, nil
 }
@@ -3340,11 +3369,11 @@ func (r *usageLogRepository) CreateLeaderboardDailyRewardClaim(ctx context.Conte
 	}
 	rows, err := exec.QueryContext(ctx, `
 		INSERT INTO leaderboard_daily_reward_claims (
-			reward_date, user_id, rank, amount, total_actual_cost, redeem_code_id
+			reward_date, user_id, rank, amount, total_actual_cost, redeem_code_id, reward_mode, packet_id, lottery_run_id
 		)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		VALUES ($1, $2, $3, $4, $5, $6, COALESCE(NULLIF($7, ''), 'red_packet'), $8, $9)
 		RETURNING id, created_at
-	`, claim.RewardDate, claim.UserID, claim.Rank, claim.Amount, claim.TotalActualCost, claim.RedeemCodeID)
+	`, claim.RewardDate, claim.UserID, claim.Rank, claim.Amount, claim.TotalActualCost, claim.RedeemCodeID, claim.RewardMode, claim.PacketID, claim.LotteryRunID)
 	if err != nil {
 		if isLeaderboardRewardUniqueViolation(err) {
 			return service.ErrLeaderboardDailyRewardAlreadyClaimed
@@ -3382,6 +3411,237 @@ func (r *usageLogRepository) AttachLeaderboardDailyRewardClaimRedeemCode(ctx con
 		return service.ErrLeaderboardDailyRewardClaimNotFound
 	}
 	return nil
+}
+
+func (r *usageLogRepository) EnsureLeaderboardRedPackets(ctx context.Context, rewardDate string, amounts []float64) error {
+	exec, err := r.leaderboardRewardClaimExecutor(ctx)
+	if err != nil {
+		return err
+	}
+	for i, amount := range amounts {
+		if _, err := exec.ExecContext(ctx, `
+			INSERT INTO leaderboard_red_packets (reward_date, packet_no, amount)
+			VALUES ($1, $2, $3)
+			ON CONFLICT (reward_date, packet_no) DO NOTHING
+		`, rewardDate, i+1, amount); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *usageLogRepository) ClaimRandomLeaderboardRedPacket(ctx context.Context, rewardDate string, userID int64, claimID int64) (*service.LeaderboardRedPacket, error) {
+	exec, err := r.leaderboardRewardClaimExecutor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := exec.QueryContext(ctx, `
+		WITH picked AS (
+			SELECT id
+			FROM leaderboard_red_packets
+			WHERE reward_date = $1 AND claimed_by IS NULL
+			ORDER BY random()
+			FOR UPDATE SKIP LOCKED
+			LIMIT 1
+		),
+		updated AS (
+			UPDATE leaderboard_red_packets p
+			SET claimed_by = $2, claim_id = $3, claimed_at = NOW()
+			FROM picked
+			WHERE p.id = picked.id
+			RETURNING p.id, p.reward_date, p.packet_no, p.amount, p.claimed_by, p.claim_id, p.claimed_at, p.created_at
+		),
+		claim_update AS (
+			UPDATE leaderboard_daily_reward_claims c
+			SET amount = updated.amount, packet_id = updated.id
+			FROM updated
+			WHERE c.id = $3
+			RETURNING 1
+		)
+		SELECT id, reward_date, packet_no, amount, claimed_by, claim_id, claimed_at, created_at FROM updated
+	`, rewardDate, userID, claimID)
+	if err != nil {
+		if isLeaderboardRewardUniqueViolation(err) {
+			return nil, service.ErrLeaderboardDailyRewardAlreadyClaimed
+		}
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	packet, err := scanLeaderboardRedPacketRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return packet, nil
+}
+
+func (r *usageLogRepository) GetLeaderboardRedPackets(ctx context.Context, rewardDate string) ([]service.LeaderboardRedPacket, error) {
+	exec, err := r.leaderboardRewardClaimExecutor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := exec.QueryContext(ctx, `
+		SELECT id, reward_date, packet_no, amount, claimed_by, claim_id, claimed_at, created_at
+		FROM leaderboard_red_packets
+		WHERE reward_date = $1
+		ORDER BY packet_no ASC
+	`, rewardDate)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	var packets []service.LeaderboardRedPacket
+	for rows.Next() {
+		packet, err := scanLeaderboardRedPacketRow(rows)
+		if err != nil {
+			return nil, err
+		}
+		packets = append(packets, *packet)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if len(packets) == 0 {
+		return nil, service.ErrLeaderboardDailyRewardClaimNotFound
+	}
+	return packets, nil
+}
+
+func (r *usageLogRepository) GetLeaderboardLotteryRun(ctx context.Context, rewardDate string) (*service.LeaderboardLotteryRun, error) {
+	exec, err := r.leaderboardRewardClaimExecutor(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := exec.QueryContext(ctx, `
+		SELECT id, reward_date, winner_user_id, winner_rank, amount, total_actual_cost, redeem_code_id, created_at
+		FROM leaderboard_lottery_runs
+		WHERE reward_date = $1
+	`, rewardDate)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return nil, service.ErrLeaderboardDailyRewardClaimNotFound
+	}
+	run, err := scanLeaderboardLotteryRunRow(rows)
+	if err != nil {
+		return nil, err
+	}
+	return run, nil
+}
+
+func (r *usageLogRepository) CreateLeaderboardLotteryRun(ctx context.Context, run *service.LeaderboardLotteryRun) error {
+	exec, err := r.leaderboardRewardClaimExecutor(ctx)
+	if err != nil {
+		return err
+	}
+	rows, err := exec.QueryContext(ctx, `
+		INSERT INTO leaderboard_lottery_runs (
+			reward_date, winner_user_id, winner_rank, amount, total_actual_cost, redeem_code_id
+		)
+		VALUES ($1, $2, $3, $4, $5, $6)
+		RETURNING id, created_at
+	`, run.RewardDate, run.WinnerUserID, run.WinnerRank, run.Amount, run.TotalActualCost, run.RedeemCodeID)
+	if err != nil {
+		if isLeaderboardRewardUniqueViolation(err) {
+			return service.ErrLeaderboardDailyRewardAlreadyClaimed
+		}
+		return err
+	}
+	defer func() { _ = rows.Close() }()
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		return fmt.Errorf("create leaderboard lottery run returned no row")
+	}
+	return rows.Scan(&run.ID, &run.CreatedAt)
+}
+
+func (r *usageLogRepository) AttachLeaderboardLotteryRunRedeemCode(ctx context.Context, runID, redeemCodeID int64) error {
+	exec, err := r.leaderboardRewardClaimExecutor(ctx)
+	if err != nil {
+		return err
+	}
+	result, err := exec.ExecContext(ctx, `
+		UPDATE leaderboard_lottery_runs
+		SET redeem_code_id = $2
+		WHERE id = $1 AND redeem_code_id IS NULL
+	`, runID, redeemCodeID)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return service.ErrLeaderboardDailyRewardClaimNotFound
+	}
+	return nil
+}
+
+func scanLeaderboardRedPacketRows(rows *sql.Rows) (*service.LeaderboardRedPacket, error) {
+	if !rows.Next() {
+		if err := rows.Err(); err != nil {
+			return nil, err
+		}
+		return nil, service.ErrLeaderboardRedPacketUnavailable
+	}
+	return scanLeaderboardRedPacketRow(rows)
+}
+
+func scanLeaderboardRedPacketRow(scanner interface{ Scan(...any) error }) (*service.LeaderboardRedPacket, error) {
+	var packet service.LeaderboardRedPacket
+	var claimedBy sql.NullInt64
+	var claimID sql.NullInt64
+	var claimedAt sql.NullTime
+	if err := scanner.Scan(
+		&packet.ID,
+		&packet.RewardDate,
+		&packet.PacketNo,
+		&packet.Amount,
+		&claimedBy,
+		&claimID,
+		&claimedAt,
+		&packet.CreatedAt,
+	); err != nil {
+		return nil, err
+	}
+	if claimedBy.Valid {
+		packet.ClaimedBy = &claimedBy.Int64
+	}
+	if claimID.Valid {
+		packet.ClaimID = &claimID.Int64
+	}
+	if claimedAt.Valid {
+		packet.ClaimedAt = &claimedAt.Time
+	}
+	return &packet, nil
+}
+
+func scanLeaderboardLotteryRunRow(scanner interface{ Scan(...any) error }) (*service.LeaderboardLotteryRun, error) {
+	var run service.LeaderboardLotteryRun
+	var redeemCodeID sql.NullInt64
+	if err := scanner.Scan(
+		&run.ID,
+		&run.RewardDate,
+		&run.WinnerUserID,
+		&run.WinnerRank,
+		&run.Amount,
+		&run.TotalActualCost,
+		&redeemCodeID,
+		&run.CreatedAt,
+	); err != nil {
+		return nil, err
+	}
+	if redeemCodeID.Valid {
+		run.RedeemCodeID = &redeemCodeID.Int64
+	}
+	return &run, nil
 }
 
 func isLeaderboardRewardUniqueViolation(err error) bool {

@@ -180,15 +180,26 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.payment.rechargePackageSortOrder": "排序",
     "admin.settings.openaiExperimentalScheduler.title": "OpenAI 实验调度策略",
     "admin.settings.openaiExperimentalScheduler.description": "默认关闭。开启后仅影响本网关在 OpenAI 账号间的实验性调度选择逻辑，不代表上游 OpenAI 官方能力。",
-    "admin.settings.features.leaderboardDailyReward.title": "排行榜每周奖励",
-    "admin.settings.features.leaderboardDailyReward.description": "按上周消费榜结算前三名积分奖励。",
+    "admin.settings.features.leaderboardDailyReward.title": "排行榜奖励玩法",
+    "admin.settings.features.leaderboardDailyReward.description": "设置上周前 10 Token 消耗榜的奖励模式：关闭、红包或抽奖。",
     "admin.settings.features.leaderboardDailyReward.enabled": "启用每周奖励",
-    "admin.settings.features.leaderboardDailyReward.enabledHint": "仅当上周总消费严格超过最低门槛时可领取。",
+    "admin.settings.features.leaderboardDailyReward.enabledHint": "旧版兼容开关；新配置以奖励模式为准。",
+    "admin.settings.features.leaderboardDailyReward.mode": "奖励模式",
+    "admin.settings.features.leaderboardDailyReward.modeHint": "关闭时只展示上周前 10 消耗；红包可由前 10 各领一次；抽奖从前 10 中开出 1 人。",
+    "admin.settings.features.leaderboardDailyReward.modes.disabled": "关闭奖励",
+    "admin.settings.features.leaderboardDailyReward.modes.redPacket": "红包模式",
+    "admin.settings.features.leaderboardDailyReward.modes.lottery": "抽奖模式",
     "admin.settings.features.leaderboardDailyReward.minTotalActualCost": "上周总消费最低门槛",
-    "admin.settings.features.leaderboardDailyReward.minTotalActualCostHint": "必须严格超过该金额才开启上周榜奖励。",
+    "admin.settings.features.leaderboardDailyReward.minTotalActualCostHint": "低于该门槛时仍展示上周前 10，但不开放奖励领取或开奖。",
     "admin.settings.features.leaderboardDailyReward.rank1Amount": "第 1 名",
     "admin.settings.features.leaderboardDailyReward.rank2Amount": "第 2 名",
     "admin.settings.features.leaderboardDailyReward.rank3Amount": "第 3 名",
+    "admin.settings.features.leaderboardDailyReward.redPacketPoolAmount": "红包总池",
+    "admin.settings.features.leaderboardDailyReward.redPacketMinAmount": "单个最小金额",
+    "admin.settings.features.leaderboardDailyReward.redPacketMaxAmount": "单个最大金额",
+    "admin.settings.features.leaderboardDailyReward.lotteryAmount": "抽奖金额",
+    "admin.settings.features.leaderboardDailyReward.lotteryCron": "开奖 Cron",
+    "admin.settings.features.leaderboardDailyReward.lotteryCronHint": "按服务端时区解释，例如 0 12 * * 4 表示每周四 12:00。",
     "admin.settings.site.uploadImage": "上传图片",
     "admin.settings.site.remove": "移除",
   };
@@ -441,6 +452,12 @@ const baseSettingsResponse = {
   channel_monitor_enabled: true,
   channel_monitor_default_interval_seconds: 60,
   available_channels_enabled: false,
+  reward_mode: "disabled",
+  red_packet_pool_amount: 0,
+  red_packet_min_amount: 0,
+  red_packet_max_amount: 0,
+  lottery_amount: 0,
+  lottery_cron: "0 12 * * 4",
   leaderboard_daily_reward_enabled: false,
   leaderboard_daily_reward_min_total_actual_cost: 0,
   leaderboard_daily_reward_rank_1_amount: 0,
@@ -765,14 +782,15 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
-  it("loads and submits leaderboard weekly reward settings", async () => {
+  it("loads and submits leaderboard red packet reward settings", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,
+      reward_mode: "red_packet",
+      red_packet_pool_amount: 30,
+      red_packet_min_amount: 1,
+      red_packet_max_amount: 8,
       leaderboard_daily_reward_enabled: true,
       leaderboard_daily_reward_min_total_actual_cost: 100,
-      leaderboard_daily_reward_rank_1_amount: 9,
-      leaderboard_daily_reward_rank_2_amount: 6,
-      leaderboard_daily_reward_rank_3_amount: 3,
     });
 
     const wrapper = mountView();
@@ -780,32 +798,80 @@ describe("admin SettingsView payment visible method controls", () => {
     await flushPromises();
     await openFeaturesTab(wrapper);
 
-    expect(wrapper.text()).toContain("排行榜每周奖励");
+    expect(wrapper.text()).toContain("排行榜奖励玩法");
     expect(
       (
-        wrapper.get('[data-testid="leaderboard-daily-reward-enabled"]')
-          .element as HTMLInputElement
-      ).checked,
-    ).toBe(true);
+        wrapper.get('[data-testid="leaderboard-reward-mode"]')
+          .element as HTMLSelectElement
+      ).value,
+    ).toBe("red_packet");
     expect(
       (
         wrapper.get('[data-testid="leaderboard-daily-reward-min-total"]')
           .element as HTMLInputElement
       ).value,
     ).toBe("100");
+    expect(
+      (
+        wrapper.get('[data-testid="leaderboard-red-packet-pool"]')
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("30");
 
-    await wrapper.get('[data-testid="leaderboard-daily-reward-rank-2"]').setValue("-5");
+    await wrapper.get('[data-testid="leaderboard-red-packet-max"]').setValue("-5");
     await wrapper.find("form").trigger("submit.prevent");
     await flushPromises();
 
     expect(updateSettings).toHaveBeenCalledTimes(1);
     expect(updateSettings).toHaveBeenCalledWith(
       expect.objectContaining({
+        reward_mode: "red_packet",
+        red_packet_pool_amount: 30,
+        red_packet_min_amount: 1,
+        red_packet_max_amount: 0,
+        lottery_amount: 0,
+        lottery_cron: "0 12 * * 4",
         leaderboard_daily_reward_enabled: true,
         leaderboard_daily_reward_min_total_actual_cost: 100,
-        leaderboard_daily_reward_rank_1_amount: 9,
         leaderboard_daily_reward_rank_2_amount: 0,
-        leaderboard_daily_reward_rank_3_amount: 3,
+      }),
+    );
+  });
+
+  it("maps legacy enabled leaderboard rewards to red packet mode and submits lottery fields", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      reward_mode: undefined,
+      leaderboard_daily_reward_enabled: true,
+      lottery_amount: 15,
+      lottery_cron: "0 22 * * 0",
+    });
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openFeaturesTab(wrapper);
+
+    expect(
+      (
+        wrapper.get('[data-testid="leaderboard-reward-mode"]')
+          .element as HTMLSelectElement
+      ).value,
+    ).toBe("red_packet");
+
+    await wrapper.get('[data-testid="leaderboard-reward-mode"]').setValue("lottery");
+    await flushPromises();
+    await wrapper.get('[data-testid="leaderboard-lottery-amount"]').setValue("18.5");
+    await wrapper.get('[data-testid="leaderboard-lottery-cron"]').setValue("0 21 * * 1");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reward_mode: "lottery",
+        lottery_amount: 18.5,
+        lottery_cron: "0 21 * * 1",
+        leaderboard_daily_reward_enabled: true,
       }),
     );
   });

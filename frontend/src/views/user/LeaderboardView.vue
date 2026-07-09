@@ -294,18 +294,7 @@
                   </span>
                 </div>
 
-                <div class="leaderboard-reward-tiers mt-3">
-                  <div
-                    v-for="tier in rewardTiers"
-                    :key="tier.rank"
-                    class="leaderboard-reward-tier-card rounded-lg p-2 text-center"
-                  >
-                    <p class="leaderboard-side-label leaderboard-reward-tier-label">{{ t('leaderboard.dailyReward.rankReward', { rank: tier.rank }) }}</p>
-                    <p class="leaderboard-side-value leaderboard-reward-tier-value">{{ tier.amountText }}</p>
-                  </div>
-                </div>
-
-                <div v-if="rewardTopUsers.length" class="leaderboard-weekly-winners mt-3" data-testid="leaderboard-weekly-winners">
+                <div v-if="rewardTopUsers.length" class="leaderboard-weekly-winners mt-3" data-testid="leaderboard-weekly-top10">
                   <div class="leaderboard-weekly-winners-header">
                     <span>{{ t('leaderboard.dailyReward.lastWeekTopUsersTitle') }}</span>
                     <span>{{ dailyRewards.reward_date || '-' }}</span>
@@ -315,9 +304,12 @@
                       v-for="winner in rewardTopUsers"
                       :key="winner.rank"
                       class="leaderboard-weekly-winner-row"
+                      :class="{ 'leaderboard-weekly-winner-row--highlighted': winner.highlighted }"
                     >
                       <span class="leaderboard-weekly-winner-rank">{{ rewardTopUserRankLabel(winner.rank) }}</span>
                       <span class="leaderboard-weekly-winner-name">{{ winner.displayName }}</span>
+                      <span v-if="winner.metaText" class="leaderboard-weekly-winner-meta">{{ winner.metaText }}</span>
+                      <span class="leaderboard-weekly-winner-tokens">{{ winner.tokenText }}</span>
                     </div>
                   </div>
                 </div>
@@ -328,27 +320,49 @@
                     <span class="leaderboard-side-value font-semibold">{{ formatRewardRankLabel(dailyRewards.current_user_rank) }}</span>
                   </div>
                   <div class="mt-2 flex items-center justify-between gap-3">
-                    <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.targetProgress') }}</span>
-                    <span class="leaderboard-side-value font-semibold">{{ dailyRewardGoalProgressText }}</span>
-                  </div>
-                  <div class="mt-2 flex items-center justify-between gap-3">
                     <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.weeklyRushProgress') }}</span>
                     <span class="leaderboard-side-value leaderboard-weekly-rush-value font-semibold">{{ weeklyRushProgressText }}</span>
                   </div>
-                  <div
-                    class="leaderboard-reward-progress-track mt-3 h-2 overflow-hidden rounded-full"
-                    :aria-label="`${t('leaderboard.dailyReward.targetProgress')} ${dailyRewardGoalProgressText}`"
-                  >
-                    <div
-                      class="leaderboard-reward-progress-fill h-full rounded-full transition-all duration-300"
-                      :style="{ width: dailyRewardGoalProgressWidth }"
-                    ></div>
+                </div>
+
+                <div
+                  v-if="leaderboardRewardMode === 'red_packet'"
+                  class="leaderboard-reward-mode-card mt-3 rounded-lg p-3 text-sm"
+                  data-testid="leaderboard-red-packet-reward"
+                >
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.redPacketRange') }}</span>
+                    <span class="leaderboard-side-value font-semibold">{{ redPacketRangeText }}</span>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between gap-3">
+                    <span class="leaderboard-side-label">{{ t(redPacketAmountLabelKey) }}</span>
+                    <span class="leaderboard-side-value font-semibold">{{ redPacketAmountText }}</span>
+                  </div>
+                </div>
+
+                <div
+                  v-else-if="leaderboardRewardMode === 'lottery'"
+                  class="leaderboard-reward-mode-card mt-3 rounded-lg p-3 text-sm"
+                  data-testid="leaderboard-lottery-reward"
+                >
+                  <div class="flex items-center justify-between gap-3">
+                    <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.lotteryDrawTime') }}</span>
+                    <span class="leaderboard-side-value font-semibold">{{ lotteryDrawTimeText }}</span>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between gap-3">
+                    <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.lotteryPrize') }}</span>
+                    <span class="leaderboard-side-value font-semibold">{{ lotteryPrizeText }}</span>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between gap-3">
+                    <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.lotteryResult') }}</span>
+                    <span class="leaderboard-side-value leaderboard-weekly-rush-value font-semibold">{{ lotteryResultText }}</span>
                   </div>
                 </div>
 
                 <p v-if="claimError" class="mt-3 text-sm text-red-600 dark:text-red-400">{{ claimError }}</p>
 
                 <button
+                  v-if="leaderboardRewardMode === 'red_packet'"
                   class="btn btn-primary leaderboard-reward-claim mt-3 w-full"
                   type="button"
                   :disabled="!dailyRewards.can_claim || claimingReward"
@@ -481,7 +495,7 @@ import {
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { usageAPI } from '@/api'
-import type { LeaderboardBadge, LeaderboardDailyRewardTopUser, LeaderboardDailyRewards, LeaderboardPeriod, UserLeaderboardDailyChampion, UserLeaderboardItem, UserLeaderboardResponse } from '@/api/usage'
+import type { LeaderboardBadge, LeaderboardDailyRewardTopUser, LeaderboardDailyRewards, LeaderboardPeriod, LeaderboardRewardMode, UserLeaderboardDailyChampion, UserLeaderboardItem, UserLeaderboardResponse } from '@/api/usage'
 import type { UserLeaderboardTokenTrendPoint } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
@@ -526,6 +540,9 @@ type RollingTokenPart = {
 type RewardTopUserView = {
   rank: number
   displayName: string
+  tokenText: string
+  metaText: string
+  highlighted: boolean
 }
 
 type ChampionCalendarDay = {
@@ -586,9 +603,16 @@ const leaderboardTitleBadges: LeaderboardBadge[] = [
   'checkin_king',
 ]
 const devRewardTopUsers: LeaderboardDailyRewardTopUser[] = [
-  { rank: 1, display_name: '落***尘' },
-  { rank: 2, display_name: '138****5678' },
-  { rank: 3, display_name: 't***d@example.com' },
+  { rank: 1, display_name: '落***尘', tokens: 9_800_000 },
+  { rank: 2, display_name: '138****5678', tokens: 7_600_000 },
+  { rank: 3, display_name: 't***d@example.com', tokens: 6_400_000 },
+  { rank: 4, display_name: 'n***a@example.com', tokens: 5_200_000 },
+  { rank: 5, display_name: 'API User', tokens: 4_100_000 },
+  { rank: 6, display_name: 'm***o@example.com', tokens: 3_700_000 },
+  { rank: 7, display_name: 'wx***88', tokens: 3_100_000 },
+  { rank: 8, display_name: 'q***n@example.com', tokens: 2_600_000 },
+  { rank: 9, display_name: 'dev***user', tokens: 1_900_000 },
+  { rank: 10, display_name: 'last***top', tokens: 1_200_000 },
 ]
 
 const periodOptions = computed(() => [
@@ -642,6 +666,7 @@ const rankingItems = computed<UserLeaderboardItem[]>(() => {
 const maxRankingTokens = computed(() => Math.max(0, ...rankingItems.value.map((item) => item.tokens)))
 const activeRankingEmpty = computed(() => rankingItems.value.length === 0)
 const dailyRewards = computed<LeaderboardDailyRewards | null>(() => leaderboard.value?.daily_rewards ?? null)
+const leaderboardRewardMode = computed<LeaderboardRewardMode>(() => normalizeLeaderboardRewardMode(dailyRewards.value))
 const myEntry = computed<UserLeaderboardItem | null>(() => {
   if (leaderboard.value?.current_user_entry) return leaderboard.value.current_user_entry
   return rankingItems.value.find((item) => item.is_current_user) ?? null
@@ -799,22 +824,6 @@ const recentTokenTrendChartOptions = computed(() => ({
   },
 }))
 
-const rewardTiers = computed(() => {
-  const rewardsByRank = new Map<number, number>()
-  for (const reward of dailyRewards.value?.rewards ?? []) {
-    if (reward.rank >= 1 && reward.rank <= 3) {
-      rewardsByRank.set(reward.rank, Number(reward.amount))
-    }
-  }
-  return [1, 2, 3].map((rank) => {
-    const amount = rewardsByRank.get(rank)
-    return {
-      rank,
-      amount,
-      amountText: amount === undefined ? t('leaderboard.dailyReward.rewardAmountHidden') : formatRewardAmount(amount),
-    }
-  })
-})
 const rewardTopUsers = computed<RewardTopUserView[]>(() => {
   const usersByRank = new Map<number, LeaderboardDailyRewardTopUser>()
   const sourceUsers = dailyRewards.value?.top_users?.length
@@ -823,42 +832,24 @@ const rewardTopUsers = computed<RewardTopUserView[]>(() => {
       ? devRewardTopUsers
       : []
   for (const user of sourceUsers) {
-    if (user.rank >= 1 && user.rank <= 3 && rewardTopUserHasName(user)) {
+    if (user.rank >= 1 && user.rank <= leaderboardLimit && rewardTopUserHasName(user)) {
       usersByRank.set(user.rank, user)
     }
   }
-  return [1, 2, 3]
+  return Array.from({ length: leaderboardLimit }, (_, index) => index + 1)
     .map((rank) => {
       const user = usersByRank.get(rank)
       if (!user) return null
       return {
         rank,
         displayName: rewardTopUserDisplayName(user),
+        tokenText: formatRewardTopUserTokens(user),
+        metaText: rewardTopUserMetaText(user),
+        highlighted: user.is_current_user === true || user.lottery_winner === true,
       }
     })
     .filter((user): user is RewardTopUserView => user != null)
 })
-
-const dailyRewardGoalProgressPercent = computed(() => {
-  const reward = dailyRewards.value
-  if (!reward) return 0
-
-  const target = Number(reward.min_total_actual_cost)
-  const current = Number(reward.yesterday_total_actual_cost)
-  if (!Number.isFinite(target) || target <= 0) {
-    return reward.threshold_met ? 100 : 0
-  }
-  if (reward.threshold_met) return 100
-  if (!Number.isFinite(current) || current <= 0) return 0
-
-  return Math.min(99, Math.max(0, Math.floor((current / target) * 100)))
-})
-const dailyRewardGoalProgressText = computed(() =>
-  dailyRewards.value?.threshold_met
-    ? t('leaderboard.dailyReward.progressReached')
-    : t('leaderboard.dailyReward.progressPercent', { percent: dailyRewardGoalProgressPercent.value })
-)
-const dailyRewardGoalProgressWidth = computed(() => `${dailyRewardGoalProgressPercent.value}%`)
 
 const weeklyRushProgressText = computed(() => {
   if (!weekLeaderboard.value) return t('leaderboard.dailyReward.weeklyRushLoading')
@@ -870,24 +861,28 @@ const weeklyRushProgressText = computed(() => {
 })
 
 const dailyRewardReasonText = computed(() => {
+  if (leaderboardRewardMode.value === 'disabled') return t('leaderboard.dailyReward.disabled')
   const reason = dailyRewards.value?.reason
-  if (reason === 'eligible') return t('leaderboard.dailyReward.eligible')
+  if (reason === 'eligible') return leaderboardRewardMode.value === 'red_packet'
+    ? t('leaderboard.dailyReward.redPacketReady')
+    : t('leaderboard.dailyReward.eligible')
   if (reason === 'already_claimed') return t('leaderboard.dailyReward.alreadyClaimed')
   if (reason === 'settling') return t('leaderboard.dailyReward.settling', { time: formatDateTime(dailyRewards.value?.claim_available_at || '') })
   if (reason === 'threshold_not_met') return t('leaderboard.dailyReward.thresholdNotMet')
-  if (reason === 'not_top_three') return t('leaderboard.dailyReward.notTopThree')
+  if (reason === 'not_top_three' || reason === 'not_top_ten') return t('leaderboard.dailyReward.notTopTen')
   if (reason === 'not_ranked') return t('leaderboard.dailyReward.notRanked')
   if (reason === 'zero_reward') return t('leaderboard.dailyReward.zeroReward')
   return t('leaderboard.dailyReward.disabled')
 })
 
 const dailyRewardStatusText = computed(() => {
+  if (leaderboardRewardMode.value === 'disabled') return t('leaderboard.dailyReward.statusDisabled')
   const reason = dailyRewards.value?.reason
   if (reason === 'eligible') return t('leaderboard.dailyReward.statusReady')
   if (reason === 'already_claimed') return t('leaderboard.dailyReward.statusClaimed')
   if (reason === 'settling') return t('leaderboard.dailyReward.statusSettling')
   if (reason === 'threshold_not_met') return t('leaderboard.dailyReward.statusThresholdNotMet')
-  if (reason === 'not_top_three') return t('leaderboard.dailyReward.statusNotTopThree')
+  if (reason === 'not_top_three' || reason === 'not_top_ten') return t('leaderboard.dailyReward.statusNotTopTen')
   if (reason === 'not_ranked') return t('leaderboard.dailyReward.statusNotRanked')
   if (reason === 'zero_reward') return t('leaderboard.dailyReward.statusZeroReward')
   return t('leaderboard.dailyReward.statusDisabled')
@@ -903,7 +898,53 @@ const dailyRewardStatusClass = computed(() => {
 const claimButtonText = computed(() => {
   if (claimingReward.value) return t('leaderboard.dailyReward.claiming')
   if (dailyRewards.value?.claimed) return t('leaderboard.dailyReward.claimed')
-  return t('leaderboard.dailyReward.claim')
+  return t('leaderboard.dailyReward.redPacketClaim')
+})
+
+const redPacketRangeText = computed(() => {
+  const min = Math.max(0, Number(dailyRewards.value?.red_packet_min_amount ?? 0))
+  const max = Math.max(0, Number(dailyRewards.value?.red_packet_max_amount ?? 0))
+  if (max > 0 && max >= min) return `${formatRewardAmount(min)} - ${formatRewardAmount(max)}`
+  const pool = Math.max(0, Number(dailyRewards.value?.red_packet_pool_amount ?? 0))
+  return pool > 0 ? t('leaderboard.dailyReward.redPacketPool', { amount: formatRewardAmount(pool) }) : '-'
+})
+
+const redPacketAmountLabelKey = computed(() =>
+  dailyRewards.value?.claimed ? 'leaderboard.dailyReward.redPacketClaimedAmount' : 'leaderboard.dailyReward.redPacketPendingAmount'
+)
+
+const redPacketAmountText = computed(() => {
+  const amount = Number(dailyRewards.value?.current_user_reward_amount ?? 0)
+  if (dailyRewards.value?.claimed && amount > 0) return formatRewardAmount(amount)
+  if (dailyRewards.value?.can_claim) return t('leaderboard.dailyReward.redPacketPending')
+  return amount > 0 ? formatRewardAmount(amount) : '-'
+})
+
+const lotteryPrizeText = computed(() =>
+  formatRewardAmount(Number(dailyRewards.value?.lottery_amount ?? 0))
+)
+
+const lotteryDrawTimeText = computed(() => {
+  const drawAt = dailyRewards.value?.lottery_draw_at
+  if (drawAt) return formatDateTime(drawAt)
+  return dailyRewards.value?.lottery_cron?.trim() || '-'
+})
+
+const lotteryResultText = computed(() => {
+  const reward = dailyRewards.value
+  if (!reward) return '-'
+  const winnerName = reward.lottery_winner_display_name?.trim()
+    || reward.lottery_winner_email_masked?.trim()
+    || ''
+  if (winnerName) {
+    if (reward.claimed || reward.current_user_rank === reward.lottery_winner_rank) {
+      return t('leaderboard.dailyReward.lotteryWon', { amount: formatRewardAmount(Number(reward.lottery_amount ?? reward.current_user_reward_amount ?? 0)) })
+    }
+    return t('leaderboard.dailyReward.lotteryWinner', { name: winnerName })
+  }
+  if (reward.reason === 'lottery_pending' || !reward.settlement_ready) return t('leaderboard.dailyReward.lotteryPending')
+  if (reward.current_user_rank > 0 && reward.current_user_rank <= leaderboardLimit) return t('leaderboard.dailyReward.lotteryNotWon')
+  return t('leaderboard.dailyReward.notTopTen')
 })
 
 async function loadLeaderboard() {
@@ -972,7 +1013,7 @@ async function claimDailyReward() {
     const result = await usageAPI.claimDashboardLeaderboardDailyReward()
     if (leaderboard.value) {
       leaderboard.value.daily_rewards = result.daily_rewards
-      applyClaimedBalance(result.claimed_amount)
+      applyClaimedBalance(result.claimed_amount ?? result.red_packet_amount ?? result.lottery_amount ?? 0)
       writeLeaderboardSessionCache(period.value, leaderboard.value)
     }
   } catch (err) {
@@ -1508,6 +1549,31 @@ function formatRewardAmount(value: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
+}
+
+function formatRewardTopUserTokens(user: LeaderboardDailyRewardTopUser): string {
+  const tokens = Math.max(0, Math.floor(Number(user.tokens ?? 0)))
+  return tokens > 0 ? t('leaderboard.dailyReward.topUserTokens', { tokens: formatCompactChineseTokens(tokens) }) : '-'
+}
+
+function rewardTopUserMetaText(user: LeaderboardDailyRewardTopUser): string {
+  if (leaderboardRewardMode.value === 'red_packet') {
+    const amount = Number(user.claimed_amount ?? user.red_packet_amount ?? 0)
+    if (amount > 0) return t('leaderboard.dailyReward.redPacketUserClaimed', { amount: formatRewardAmount(amount) })
+    if (user.claimed) return t('leaderboard.dailyReward.redPacketUserClaimedNoAmount')
+  }
+  if (leaderboardRewardMode.value === 'lottery' && user.lottery_winner) {
+    const amount = Number(user.lottery_amount ?? dailyRewards.value?.lottery_amount ?? 0)
+    return t('leaderboard.dailyReward.lotteryUserWinner', { amount: formatRewardAmount(amount) })
+  }
+  if (user.is_current_user) return t('leaderboard.currentUser')
+  return ''
+}
+
+function normalizeLeaderboardRewardMode(reward: LeaderboardDailyRewards | null): LeaderboardRewardMode {
+  const mode = reward?.reward_mode
+  if (mode === 'red_packet' || mode === 'lottery' || mode === 'disabled') return mode
+  return reward?.enabled ? 'red_packet' : 'disabled'
 }
 
 function leaderboardTokenMetricsLabel(item: UserLeaderboardItem): string {
@@ -2423,41 +2489,10 @@ onUnmounted(() => {
   color: rgb(109 103 93);
 }
 
-.leaderboard-reward-tiers {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.45rem;
-}
-
-.leaderboard-reward-tier-card,
-.leaderboard-reward-progress-card {
+.leaderboard-reward-progress-card,
+.leaderboard-reward-mode-card {
   border: 1px solid rgb(214 202 186 / 0.34);
   background: rgb(250 247 239 / 0.34);
-}
-
-.leaderboard-reward-tier-card {
-  min-width: 0;
-  padding-inline: 0.34rem;
-}
-
-.leaderboard-reward-tier-label {
-  overflow: hidden;
-  font-size: 0.72rem;
-  font-weight: 500;
-  line-height: 1.22;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.leaderboard-reward-tier-value {
-  overflow: hidden;
-  margin-top: 0.22rem;
-  color: rgb(35 32 28);
-  font-size: 0.78rem;
-  font-weight: 800;
-  line-height: 1.2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .leaderboard-reward-progress-track {
@@ -2514,9 +2549,13 @@ onUnmounted(() => {
 .leaderboard-weekly-winner-row {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(5.6rem, auto) minmax(0, 1fr);
+  grid-template-columns: minmax(3.5rem, auto) minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 0.65rem;
+}
+
+.leaderboard-weekly-winner-row--highlighted {
+  font-weight: 800;
 }
 
 .leaderboard-weekly-winner-rank {
@@ -2530,8 +2569,15 @@ onUnmounted(() => {
   color: rgb(35 32 28);
   font-size: 0.875rem;
   font-weight: 800;
-  text-align: right;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-weekly-winner-meta,
+.leaderboard-weekly-winner-tokens {
+  color: rgb(109 103 93);
+  font-size: 0.75rem;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -3148,8 +3194,8 @@ onUnmounted(() => {
   color: rgb(243 239 231);
 }
 
-:global(.dark .leaderboard-reward-tier-card),
-:global(.dark .leaderboard-reward-progress-card) {
+:global(.dark .leaderboard-reward-progress-card),
+:global(.dark .leaderboard-reward-mode-card) {
   border-color: rgb(214 183 157 / 0.12);
   background: rgb(14 14 13 / 0.24);
 }
@@ -3197,6 +3243,11 @@ onUnmounted(() => {
 
 :global(.dark .leaderboard-weekly-winner-name) {
   color: rgb(243 239 231);
+}
+
+:global(.dark .leaderboard-weekly-winner-meta),
+:global(.dark .leaderboard-weekly-winner-tokens) {
+  color: rgb(168 159 145);
 }
 
 :global(.dark .leaderboard-token-rank-avatar) {

@@ -247,12 +247,18 @@ type LeaderboardDailyRewardTier struct {
 
 // LeaderboardDailyRewardTopUser represents one masked last-week top user.
 type LeaderboardDailyRewardTopUser struct {
-	Rank        int64  `json:"rank"`
-	DisplayName string `json:"display_name"`
-	EmailMasked string `json:"email_masked,omitempty"`
-	UserID      int64  `json:"-"`
-	Username    string `json:"-"`
-	Email       string `json:"-"`
+	Rank          int64    `json:"rank"`
+	UserID        int64    `json:"user_id,omitempty"`
+	DisplayName   string   `json:"display_name"`
+	EmailMasked   string   `json:"email_masked,omitempty"`
+	Tokens        int64    `json:"tokens,omitempty"`
+	ActualCost    float64  `json:"actual_cost,omitempty"`
+	Claimed       bool     `json:"claimed,omitempty"`
+	ClaimedAmount *float64 `json:"claimed_amount,omitempty"`
+	IsCurrentUser bool     `json:"is_current_user,omitempty"`
+	LotteryWinner bool     `json:"lottery_winner,omitempty"`
+	Username      string   `json:"-"`
+	Email         string   `json:"-"`
 }
 
 // LeaderboardDailyRewards represents last week's reward settlement status.
@@ -265,6 +271,19 @@ type LeaderboardDailyRewards struct {
 	MinTotalActualCost       float64                         `json:"min_total_actual_cost"`
 	YesterdayTotalActualCost float64                         `json:"yesterday_total_actual_cost"`
 	ThresholdMet             bool                            `json:"threshold_met"`
+	RewardMode               string                          `json:"reward_mode,omitempty"`
+	RedPacketPoolAmount      float64                         `json:"red_packet_pool_amount,omitempty"`
+	RedPacketMinAmount       float64                         `json:"red_packet_min_amount,omitempty"`
+	RedPacketMaxAmount       float64                         `json:"red_packet_max_amount,omitempty"`
+	RedPacketCount           int                             `json:"red_packet_count,omitempty"`
+	RedPacketClaimedCount    int                             `json:"red_packet_claimed_count,omitempty"`
+	LotteryAmount            float64                         `json:"lottery_amount,omitempty"`
+	LotteryCron              string                          `json:"lottery_cron,omitempty"`
+	LotteryDrawAt            string                          `json:"lottery_draw_at,omitempty"`
+	LotteryWinnerRank        *int64                          `json:"lottery_winner_rank,omitempty"`
+	LotteryWinnerUserID      *int64                          `json:"lottery_winner_user_id,omitempty"`
+	LotteryWinnerDisplayName *string                         `json:"lottery_winner_display_name,omitempty"`
+	LotteryWinnerEmailMasked *string                         `json:"lottery_winner_email_masked,omitempty"`
 	Rewards                  []LeaderboardDailyRewardTier    `json:"rewards"`
 	TopUsers                 []LeaderboardDailyRewardTopUser `json:"top_users"`
 	CurrentUserRank          int64                           `json:"current_user_rank"`

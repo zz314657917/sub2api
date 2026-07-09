@@ -21,6 +21,9 @@ type leaderboardRewardUsageRepo struct {
 	createdClaims    []LeaderboardDailyRewardClaim
 	attachedClaimID  int64
 	attachedRedeemID int64
+	packets          []LeaderboardRedPacket
+	lotteryRun       *LeaderboardLotteryRun
+	lotteryAttachID  int64
 	leaderboardCalls []leaderboardRewardCall
 }
 
@@ -52,6 +55,20 @@ func (r *leaderboardRewardUsageRepo) GetLeaderboardDailyRewardClaim(context.Cont
 	return &claim, nil
 }
 
+func (r *leaderboardRewardUsageRepo) GetLeaderboardDailyRewardClaimByMode(_ context.Context, rewardDate, rewardMode string, userID int64) (*LeaderboardDailyRewardClaim, error) {
+	for i := range r.createdClaims {
+		claim := r.createdClaims[i]
+		if claim.RewardDate == rewardDate && claim.RewardMode == rewardMode && claim.UserID == userID {
+			return &claim, nil
+		}
+	}
+	if r.claim != nil {
+		claim := *r.claim
+		return &claim, nil
+	}
+	return nil, ErrLeaderboardDailyRewardClaimNotFound
+}
+
 func (r *leaderboardRewardUsageRepo) CreateLeaderboardDailyRewardClaim(_ context.Context, claim *LeaderboardDailyRewardClaim) error {
 	if r.createClaimErr != nil {
 		return r.createClaimErr
@@ -65,6 +82,77 @@ func (r *leaderboardRewardUsageRepo) CreateLeaderboardDailyRewardClaim(_ context
 func (r *leaderboardRewardUsageRepo) AttachLeaderboardDailyRewardClaimRedeemCode(_ context.Context, claimID, redeemCodeID int64) error {
 	r.attachedClaimID = claimID
 	r.attachedRedeemID = redeemCodeID
+	for i := range r.createdClaims {
+		if r.createdClaims[i].ID == claimID {
+			r.createdClaims[i].RedeemCodeID = &redeemCodeID
+			return nil
+		}
+	}
+	return nil
+}
+
+func (r *leaderboardRewardUsageRepo) EnsureLeaderboardRedPackets(_ context.Context, rewardDate string, amounts []float64) error {
+	if len(r.packets) == 0 {
+		for i, amount := range amounts {
+			r.packets = append(r.packets, LeaderboardRedPacket{
+				ID:         int64(i + 1),
+				RewardDate: rewardDate,
+				PacketNo:   i + 1,
+				Amount:     amount,
+			})
+		}
+	}
+	return nil
+}
+
+func (r *leaderboardRewardUsageRepo) GetLeaderboardRedPackets(context.Context, string) ([]LeaderboardRedPacket, error) {
+	if len(r.packets) == 0 {
+		return nil, ErrLeaderboardDailyRewardClaimNotFound
+	}
+	out := make([]LeaderboardRedPacket, len(r.packets))
+	copy(out, r.packets)
+	return out, nil
+}
+
+func (r *leaderboardRewardUsageRepo) ClaimRandomLeaderboardRedPacket(_ context.Context, _ string, userID int64, claimID int64) (*LeaderboardRedPacket, error) {
+	if len(r.packets) == 0 {
+		return nil, ErrLeaderboardRedPacketUnavailable
+	}
+	for i := range r.packets {
+		if r.packets[i].ClaimedBy == nil {
+			r.packets[i].ClaimedBy = &userID
+			r.packets[i].ClaimID = &claimID
+			return &r.packets[i], nil
+		}
+	}
+	return nil, ErrLeaderboardRedPacketUnavailable
+}
+
+func (r *leaderboardRewardUsageRepo) GetLeaderboardLotteryRun(context.Context, string) (*LeaderboardLotteryRun, error) {
+	if r.lotteryRun == nil {
+		return nil, ErrLeaderboardDailyRewardClaimNotFound
+	}
+	run := *r.lotteryRun
+	return &run, nil
+}
+
+func (r *leaderboardRewardUsageRepo) CreateLeaderboardLotteryRun(_ context.Context, run *LeaderboardLotteryRun) error {
+	if r.lotteryRun != nil {
+		return ErrLeaderboardDailyRewardAlreadyClaimed
+	}
+	run.ID = 900
+	run.CreatedAt = time.Date(2026, 5, 14, 12, 0, 0, 0, time.UTC)
+	copyRun := *run
+	r.lotteryRun = &copyRun
+	return nil
+}
+
+func (r *leaderboardRewardUsageRepo) AttachLeaderboardLotteryRunRedeemCode(_ context.Context, runID, redeemCodeID int64) error {
+	if r.lotteryRun == nil || r.lotteryRun.ID != runID || r.lotteryRun.RedeemCodeID != nil {
+		return ErrLeaderboardDailyRewardClaimNotFound
+	}
+	r.lotteryRun.RedeemCodeID = &redeemCodeID
+	r.lotteryAttachID = redeemCodeID
 	return nil
 }
 
@@ -137,7 +225,19 @@ func leaderboardRewardResponse(rank int64, total float64) *usagestats.UserLeader
 }
 
 func leaderboardRewardSettings(enabled bool, minTotal, rank1, rank2, rank3 float64) *leaderboardRewardSettingRepo {
+	mode := LeaderboardRewardModeDisabled
+	pool := 0.0
+	if enabled {
+		mode = LeaderboardRewardModeRedPacket
+		pool = rank1 + rank2 + rank3
+	}
 	return &leaderboardRewardSettingRepo{values: map[string]string{
+		SettingKeyLeaderboardRewardMode:                    mode,
+		SettingKeyLeaderboardRedPacketPoolAmount:           strconvFloat(pool),
+		SettingKeyLeaderboardRedPacketMinAmount:            "0",
+		SettingKeyLeaderboardRedPacketMaxAmount:            "0",
+		SettingKeyLeaderboardLotteryAmount:                 "0",
+		SettingKeyLeaderboardLotteryCron:                   defaultLeaderboardLotteryCron,
 		SettingKeyLeaderboardDailyRewardEnabled:            strconvBool(enabled),
 		SettingKeyLeaderboardDailyRewardMinTotalActualCost: strconvFloat(minTotal),
 		SettingKeyLeaderboardDailyRewardRank1Amount:        strconvFloat(rank1),
@@ -211,7 +311,7 @@ func TestLeaderboardDailyRewardsRequiresStrictlyGreaterThanThreshold(t *testing.
 	require.Equal(t, leaderboardRewardReasonThresholdNotMet, got.Reason)
 }
 
-func TestLeaderboardDailyRewardsTopThreeCanClaimWhenThresholdMet(t *testing.T) {
+func TestLeaderboardDailyRewardsTopTenCanClaimWhenThresholdMet(t *testing.T) {
 	usageRepo := &leaderboardRewardUsageRepo{response: leaderboardRewardResponse(2, 101)}
 	svc := NewUsageService(usageRepo, nil, nil, nil)
 	svc.SetLeaderboardRewardDependencies(leaderboardRewardSettings(true, 100, 5, 3, 1), nil)
@@ -245,13 +345,13 @@ func TestLeaderboardDailyRewardsIncludesLastWeekTopUsers(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, []usagestats.LeaderboardDailyRewardTopUser{
-		{Rank: 1, UserID: 11, Username: "Alpha Winner", Email: "alpha@example.com"},
-		{Rank: 2, UserID: 42, Username: "Beta Winner", Email: "beta@example.com"},
-		{Rank: 3, UserID: 33, Username: "Gamma Winner", Email: "gamma@example.com"},
+		{Rank: 1, UserID: 11, Username: "Alpha Winner", Email: "alpha@example.com", Tokens: 300},
+		{Rank: 2, UserID: 42, Username: "Beta Winner", Email: "beta@example.com", Tokens: 200},
+		{Rank: 3, UserID: 33, Username: "Gamma Winner", Email: "gamma@example.com", Tokens: 100},
 	}, got.TopUsers)
 }
 
-func TestLeaderboardDailyRewardsNonTopThreeCannotClaim(t *testing.T) {
+func TestLeaderboardDailyRewardsTopTenCanClaimRedPacket(t *testing.T) {
 	usageRepo := &leaderboardRewardUsageRepo{response: leaderboardRewardResponse(4, 101)}
 	svc := NewUsageService(usageRepo, nil, nil, nil)
 	svc.SetLeaderboardRewardDependencies(leaderboardRewardSettings(true, 100, 5, 3, 1), nil)
@@ -259,8 +359,136 @@ func TestLeaderboardDailyRewardsNonTopThreeCannotClaim(t *testing.T) {
 	got, err := svc.getLeaderboardDailyRewards(context.Background(), 42, leaderboardRewardTestNow(t))
 
 	require.NoError(t, err)
-	require.False(t, got.CanClaim)
-	require.Equal(t, leaderboardRewardReasonNotTopThree, got.Reason)
+	require.True(t, got.CanClaim)
+	require.Equal(t, leaderboardRewardReasonEligible, got.Reason)
+}
+
+func TestLeaderboardRedPacketSplitKeepsTotalAndBounds(t *testing.T) {
+	amounts := splitLeaderboardRedPacketAmounts("2026-05-04~2026-05-10", 100, 10, 1, 20)
+
+	require.Len(t, amounts, 10)
+	var total float64
+	for _, amount := range amounts {
+		require.GreaterOrEqual(t, amount, 1.0)
+		require.LessOrEqual(t, amount, 20.0)
+		total += amount
+	}
+	require.InDelta(t, 100.0, total, 0.00000001)
+}
+
+func TestLeaderboardRedPacketSplitKeepsTotalWhenBoundsAreInfeasible(t *testing.T) {
+	amounts := splitLeaderboardRedPacketAmounts("2026-05-04~2026-05-10", 100, 10, 20, 5)
+
+	require.Len(t, amounts, 10)
+	var total float64
+	for _, amount := range amounts {
+		total += amount
+	}
+	require.InDelta(t, 100.0, total, 0.00000001)
+}
+
+func TestLeaderboardLotteryDefaultDrawAtThursdayNoon(t *testing.T) {
+	require.NoError(t, apptimezone.Init("Asia/Shanghai"))
+	periodEnd := time.Date(2026, 5, 11, 0, 0, 0, 0, apptimezone.Location())
+
+	got := leaderboardLotteryDrawAt(periodEnd, defaultLeaderboardLotteryCron)
+
+	require.Equal(t, time.Date(2026, 5, 14, 12, 0, 0, 0, apptimezone.Location()), got)
+}
+
+func TestLeaderboardLotterySettlementIsIdempotent(t *testing.T) {
+	rewardDate := "2026-05-04~2026-05-10"
+	usageRepo := &leaderboardRewardUsageRepo{}
+	userRepo := &leaderboardRewardUserRepo{}
+	redeemRepo := &leaderboardRewardRedeemRepo{}
+	svc := NewUsageService(usageRepo, userRepo, nil, nil)
+	svc.SetLeaderboardRewardDependencies(&leaderboardRewardSettingRepo{values: map[string]string{
+		SettingKeyLeaderboardRewardMode:                    LeaderboardRewardModeLottery,
+		SettingKeyLeaderboardLotteryAmount:                 "8",
+		SettingKeyLeaderboardLotteryCron:                   defaultLeaderboardLotteryCron,
+		SettingKeyLeaderboardDailyRewardMinTotalActualCost: "100",
+	}}, redeemRepo)
+	topUsers := []usagestats.LeaderboardDailyRewardTopUser{
+		{Rank: 1, UserID: 11},
+		{Rank: 2, UserID: 42},
+		{Rank: 3, UserID: 33},
+	}
+	now := leaderboardRewardTestNow(t)
+
+	first, err := svc.settleLeaderboardLotteryRewardFromTopUsers(leaderboardRewardTxContext(), rewardDate, topUsers, 101, leaderboardDailyRewardSettings{
+		Mode:          LeaderboardRewardModeLottery,
+		LotteryAmount: 8,
+		LotteryCron:   defaultLeaderboardLotteryCron,
+	}, now)
+	require.NoError(t, err)
+	require.NotNil(t, first)
+	require.Len(t, usageRepo.createdClaims, 1)
+	require.Len(t, redeemRepo.created, 1)
+	require.Equal(t, []float64{8}, userRepo.grants)
+
+	second, err := svc.settleLeaderboardLotteryRewardFromTopUsers(leaderboardRewardTxContext(), rewardDate, topUsers, 101, leaderboardDailyRewardSettings{
+		Mode:          LeaderboardRewardModeLottery,
+		LotteryAmount: 8,
+		LotteryCron:   defaultLeaderboardLotteryCron,
+	}, now)
+	require.NoError(t, err)
+	require.NotNil(t, second)
+	require.Len(t, usageRepo.createdClaims, 1)
+	require.Len(t, redeemRepo.created, 1)
+	require.Equal(t, []float64{8}, userRepo.grants)
+}
+
+func TestSettleDueLeaderboardLotteryRewardsDrawsAfterCron(t *testing.T) {
+	require.NoError(t, apptimezone.Init("Asia/Shanghai"))
+	response := leaderboardRewardResponse(1, 101)
+	response.Ranking = []usagestats.UserLeaderboardItem{
+		{Rank: 1, UserID: 11, Tokens: 500},
+		{Rank: 2, UserID: 42, Tokens: 300},
+	}
+	usageRepo := &leaderboardRewardUsageRepo{response: response}
+	userRepo := &leaderboardRewardUserRepo{}
+	redeemRepo := &leaderboardRewardRedeemRepo{}
+	svc := NewUsageService(usageRepo, userRepo, nil, nil)
+	svc.SetLeaderboardRewardDependencies(&leaderboardRewardSettingRepo{values: map[string]string{
+		SettingKeyLeaderboardRewardMode:                    LeaderboardRewardModeLottery,
+		SettingKeyLeaderboardLotteryAmount:                 "9",
+		SettingKeyLeaderboardLotteryCron:                   defaultLeaderboardLotteryCron,
+		SettingKeyLeaderboardDailyRewardMinTotalActualCost: "100",
+	}}, redeemRepo)
+
+	beforeDraw := time.Date(2026, 5, 14, 11, 59, 0, 0, apptimezone.Location())
+	require.NoError(t, svc.SettleDueLeaderboardLotteryRewards(leaderboardRewardTxContext(), beforeDraw))
+	require.Nil(t, usageRepo.lotteryRun)
+
+	afterDraw := time.Date(2026, 5, 14, 12, 0, 0, 0, apptimezone.Location())
+	require.NoError(t, svc.SettleDueLeaderboardLotteryRewards(leaderboardRewardTxContext(), afterDraw))
+	require.NotNil(t, usageRepo.lotteryRun)
+	require.Len(t, redeemRepo.created, 1)
+	require.Equal(t, []float64{9}, userRepo.grants)
+}
+
+func TestClaimLeaderboardLotteryRewardDrawsBeforeStatusRefresh(t *testing.T) {
+	usageRepo := &leaderboardRewardUsageRepo{response: leaderboardRewardResponse(1, 101)}
+	userRepo := &leaderboardRewardUserRepo{}
+	redeemRepo := &leaderboardRewardRedeemRepo{}
+	svc := NewUsageService(usageRepo, userRepo, nil, nil)
+	svc.SetLeaderboardRewardDependencies(&leaderboardRewardSettingRepo{values: map[string]string{
+		SettingKeyLeaderboardRewardMode:                    LeaderboardRewardModeLottery,
+		SettingKeyLeaderboardLotteryAmount:                 "8",
+		SettingKeyLeaderboardLotteryCron:                   defaultLeaderboardLotteryCron,
+		SettingKeyLeaderboardDailyRewardMinTotalActualCost: "100",
+	}}, redeemRepo)
+
+	got, err := svc.claimLeaderboardDailyReward(leaderboardRewardTxContext(), 42, leaderboardRewardTestNow(t))
+
+	require.NoError(t, err)
+	require.Equal(t, 8.0, got.ClaimedAmount)
+	require.NotNil(t, usageRepo.lotteryRun)
+	require.NotNil(t, usageRepo.lotteryRun.RedeemCodeID)
+	require.Len(t, usageRepo.createdClaims, 1)
+	require.Equal(t, LeaderboardRewardModeLottery, usageRepo.createdClaims[0].RewardMode)
+	require.Len(t, redeemRepo.created, 1)
+	require.Equal(t, []float64{8}, userRepo.grants)
 }
 
 func TestClaimLeaderboardDailyRewardAddsBalanceAndAuditRecord(t *testing.T) {
@@ -273,9 +501,9 @@ func TestClaimLeaderboardDailyRewardAddsBalanceAndAuditRecord(t *testing.T) {
 	got, err := svc.claimLeaderboardDailyReward(leaderboardRewardTxContext(), 42, leaderboardRewardTestNow(t))
 
 	require.NoError(t, err)
-	require.Equal(t, 5.0, got.ClaimedAmount)
+	require.Greater(t, got.ClaimedAmount, 0.0)
 	require.Empty(t, userRepo.updates)
-	require.Equal(t, []float64{5}, userRepo.grants)
+	require.Equal(t, []float64{got.ClaimedAmount}, userRepo.grants)
 	require.Len(t, redeemRepo.created, 1)
 	require.Equal(t, RedeemTypeLeaderboardReward, redeemRepo.created[0].Type)
 	require.Equal(t, StatusUsed, redeemRepo.created[0].Status)
@@ -284,6 +512,7 @@ func TestClaimLeaderboardDailyRewardAddsBalanceAndAuditRecord(t *testing.T) {
 	require.Equal(t, int64(100), usageRepo.attachedClaimID)
 	require.Equal(t, int64(700), usageRepo.attachedRedeemID)
 	require.True(t, got.DailyRewards.Claimed)
+	require.Equal(t, LeaderboardRewardModeRedPacket, usageRepo.createdClaims[0].RewardMode)
 }
 
 func TestClaimLeaderboardDailyRewardDuplicateClaimConflictsBeforeSideEffects(t *testing.T) {

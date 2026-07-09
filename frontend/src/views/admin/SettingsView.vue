@@ -5536,22 +5536,21 @@
             </p>
           </div>
           <div class="space-y-5 p-6">
-            <div class="flex items-center justify-between gap-4">
-              <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('admin.settings.features.leaderboardDailyReward.enabled') }}
-                </label>
-                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('admin.settings.features.leaderboardDailyReward.enabledHint') }}
-                </p>
-              </div>
-              <Toggle
-                v-model="form.leaderboard_daily_reward_enabled"
-                data-testid="leaderboard-daily-reward-enabled"
+            <div>
+              <label class="input-label">
+                {{ t('admin.settings.features.leaderboardDailyReward.mode') }}
+              </label>
+              <Select
+                v-model="form.reward_mode"
+                :options="leaderboardRewardModeOptions"
+                data-testid="leaderboard-reward-mode"
               />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.settings.features.leaderboardDailyReward.modeHint') }}
+              </p>
             </div>
 
-            <div class="grid gap-4 md:grid-cols-2">
+            <div v-if="form.reward_mode !== 'disabled'" class="grid gap-4 md:grid-cols-2">
               <div>
                 <label class="input-label">
                   {{ t('admin.settings.features.leaderboardDailyReward.minTotalActualCost') }}
@@ -5568,46 +5567,78 @@
                   {{ t('admin.settings.features.leaderboardDailyReward.minTotalActualCostHint') }}
                 </p>
               </div>
-              <div class="grid grid-cols-3 gap-3">
-                <div>
-                  <label class="input-label">
-                    {{ t('admin.settings.features.leaderboardDailyReward.rank1Amount') }}
-                  </label>
-                  <input
-                    v-model.number="form.leaderboard_daily_reward_rank_1_amount"
-                    data-testid="leaderboard-daily-reward-rank-1"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    class="input"
-                  />
-                </div>
-                <div>
-                  <label class="input-label">
-                    {{ t('admin.settings.features.leaderboardDailyReward.rank2Amount') }}
-                  </label>
-                  <input
-                    v-model.number="form.leaderboard_daily_reward_rank_2_amount"
-                    data-testid="leaderboard-daily-reward-rank-2"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    class="input"
-                  />
-                </div>
-                <div>
-                  <label class="input-label">
-                    {{ t('admin.settings.features.leaderboardDailyReward.rank3Amount') }}
-                  </label>
-                  <input
-                    v-model.number="form.leaderboard_daily_reward_rank_3_amount"
-                    data-testid="leaderboard-daily-reward-rank-3"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    class="input"
-                  />
-                </div>
+            </div>
+
+            <div v-if="form.reward_mode === 'red_packet'" class="grid gap-4 md:grid-cols-3">
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.leaderboardDailyReward.redPacketPoolAmount') }}
+                </label>
+                <input
+                  v-model.number="form.red_packet_pool_amount"
+                  data-testid="leaderboard-red-packet-pool"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="input"
+                />
+              </div>
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.leaderboardDailyReward.redPacketMinAmount') }}
+                </label>
+                <input
+                  v-model.number="form.red_packet_min_amount"
+                  data-testid="leaderboard-red-packet-min"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="input"
+                />
+              </div>
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.leaderboardDailyReward.redPacketMaxAmount') }}
+                </label>
+                <input
+                  v-model.number="form.red_packet_max_amount"
+                  data-testid="leaderboard-red-packet-max"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="input"
+                />
+              </div>
+            </div>
+
+            <div v-else-if="form.reward_mode === 'lottery'" class="grid gap-4 md:grid-cols-2">
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.leaderboardDailyReward.lotteryAmount') }}
+                </label>
+                <input
+                  v-model.number="form.lottery_amount"
+                  data-testid="leaderboard-lottery-amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="input"
+                />
+              </div>
+              <div>
+                <label class="input-label">
+                  {{ t('admin.settings.features.leaderboardDailyReward.lotteryCron') }}
+                </label>
+                <input
+                  v-model.trim="form.lottery_cron"
+                  data-testid="leaderboard-lottery-cron"
+                  type="text"
+                  class="input"
+                  placeholder="0 12 * * 4"
+                />
+                <p class="mt-1 text-xs text-gray-400">
+                  {{ t('admin.settings.features.leaderboardDailyReward.lotteryCronHint') }}
+                </p>
               </div>
             </div>
           </div>
@@ -7615,6 +7646,7 @@ import type {
 import type {
   AuthSourceDefaultsState,
   AuthSourceType,
+  LeaderboardRewardMode,
   SystemSettings,
   UpdateSettingsRequest,
   DefaultSubscriptionSetting,
@@ -7682,6 +7714,33 @@ const paymentMethodsHref = computed(() =>
     ? "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md#支持的支付方式"
     : "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT.md#supported-payment-methods",
 );
+
+const leaderboardRewardModeOptions = computed(() => [
+  {
+    value: "disabled",
+    label: t("admin.settings.features.leaderboardDailyReward.modes.disabled"),
+  },
+  {
+    value: "red_packet",
+    label: t("admin.settings.features.leaderboardDailyReward.modes.redPacket"),
+  },
+  {
+    value: "lottery",
+    label: t("admin.settings.features.leaderboardDailyReward.modes.lottery"),
+  },
+]);
+
+function normalizeLeaderboardRewardMode(settings: Partial<SystemSettings>): LeaderboardRewardMode {
+  const mode = settings.reward_mode;
+  if (mode === "red_packet" || mode === "lottery" || mode === "disabled") {
+    return mode;
+  }
+  return settings.leaderboard_daily_reward_enabled ? "red_packet" : "disabled";
+}
+
+function normalizeMoney(value: unknown): number {
+  return Math.max(0, Number(value) || 0);
+}
 
 type SettingsTab =
   | "general"
@@ -8484,6 +8543,12 @@ const form = reactive<SettingsForm>({
   welfare_first_recharge_bonus_amount: 5,
   welfare_first_recharge_bonus_valid_days: 0,
   welfare_first_recharge_bonus_stack_monthly: false,
+  reward_mode: "disabled",
+  red_packet_pool_amount: 0,
+  red_packet_min_amount: 0,
+  red_packet_max_amount: 0,
+  lottery_amount: 0,
+  lottery_cron: "0 12 * * 4",
   leaderboard_daily_reward_enabled: false,
   leaderboard_daily_reward_min_total_actual_cost: 0,
   leaderboard_daily_reward_rank_1_amount: 0,
@@ -9518,6 +9583,13 @@ async function loadSettings() {
         (form as Record<string, unknown>)[key] = value;
       }
     }
+    form.reward_mode = normalizeLeaderboardRewardMode(settings);
+    form.leaderboard_daily_reward_enabled = form.reward_mode !== "disabled";
+    form.red_packet_pool_amount = normalizeMoney(settings.red_packet_pool_amount);
+    form.red_packet_min_amount = normalizeMoney(settings.red_packet_min_amount);
+    form.red_packet_max_amount = normalizeMoney(settings.red_packet_max_amount);
+    form.lottery_amount = normalizeMoney(settings.lottery_amount);
+    form.lottery_cron = String(settings.lottery_cron ?? form.lottery_cron);
     if (!backendHasAffiliateApiCallRewardAmount && affiliateApiCallRewardAmountOverride.value !== null) {
       form.affiliate_api_call_reward_amount = affiliateApiCallRewardAmountOverride.value;
     }
@@ -10227,23 +10299,20 @@ async function saveSettings() {
       welfare_first_recharge_bonus_valid_days: welfareFirstRechargeBonusValidDays,
       welfare_first_recharge_bonus_stack_monthly:
         form.welfare_first_recharge_bonus_stack_monthly,
-      leaderboard_daily_reward_enabled: form.leaderboard_daily_reward_enabled,
+      reward_mode: form.reward_mode,
+      red_packet_pool_amount: normalizeMoney(form.red_packet_pool_amount),
+      red_packet_min_amount: normalizeMoney(form.red_packet_min_amount),
+      red_packet_max_amount: normalizeMoney(form.red_packet_max_amount),
+      lottery_amount: normalizeMoney(form.lottery_amount),
+      lottery_cron: form.lottery_cron?.trim() || "",
+      leaderboard_daily_reward_enabled: form.reward_mode !== "disabled",
       leaderboard_daily_reward_min_total_actual_cost: Math.max(
         0,
         Number(form.leaderboard_daily_reward_min_total_actual_cost) || 0,
       ),
-      leaderboard_daily_reward_rank_1_amount: Math.max(
-        0,
-        Number(form.leaderboard_daily_reward_rank_1_amount) || 0,
-      ),
-      leaderboard_daily_reward_rank_2_amount: Math.max(
-        0,
-        Number(form.leaderboard_daily_reward_rank_2_amount) || 0,
-      ),
-      leaderboard_daily_reward_rank_3_amount: Math.max(
-        0,
-        Number(form.leaderboard_daily_reward_rank_3_amount) || 0,
-      ),
+      leaderboard_daily_reward_rank_1_amount: 0,
+      leaderboard_daily_reward_rank_2_amount: 0,
+      leaderboard_daily_reward_rank_3_amount: 0,
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,
     };
