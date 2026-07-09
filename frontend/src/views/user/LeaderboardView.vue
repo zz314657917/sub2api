@@ -319,6 +319,10 @@
                     >
                       <span class="leaderboard-weekly-winner-user">
                         <span class="leaderboard-weekly-winner-rank">{{ rewardTopUserRankLabel(winner.rank) }}</span>
+                        <span class="leaderboard-weekly-winner-avatar" data-testid="leaderboard-weekly-winner-avatar" aria-hidden="true">
+                          <img v-if="winner.avatarUrl" :src="winner.avatarUrl" alt="" loading="lazy">
+                          <span v-else>{{ winner.avatarInitial }}</span>
+                        </span>
                         <span class="leaderboard-weekly-winner-name">{{ winner.displayName }}</span>
                       </span>
                       <span class="leaderboard-weekly-winner-stat">
@@ -392,6 +396,10 @@
                   <div class="mt-2 flex items-center justify-between gap-3">
                     <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.lotteryResult') }}</span>
                     <span class="leaderboard-side-value leaderboard-weekly-rush-value font-semibold">{{ lotteryResultText }}</span>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between gap-3">
+                    <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.lastWeekLotteryWinner') }}</span>
+                    <span class="leaderboard-side-value leaderboard-weekly-rush-value font-semibold">{{ lastWeekLotteryWinnerText }}</span>
                   </div>
                 </div>
 
@@ -581,8 +589,11 @@ type RollingTokenPart = {
 type RewardTopUserView = {
   rank: number
   displayName: string
+  avatarUrl: string
+  avatarInitial: string
   tokenText: string
   metaText: string
+  lotteryWinner: boolean
   highlighted: boolean
   placeholder: boolean
 }
@@ -885,8 +896,11 @@ const rewardTopUsers = computed<RewardTopUserView[]>(() => {
         return {
           rank,
           displayName: t('leaderboard.dailyReward.noTopUser'),
+          avatarUrl: '',
+          avatarInitial: '-',
           tokenText: '-',
           metaText: '',
+          lotteryWinner: false,
           highlighted: false,
           placeholder: true,
         }
@@ -894,8 +908,11 @@ const rewardTopUsers = computed<RewardTopUserView[]>(() => {
       return {
         rank,
         displayName: rewardTopUserDisplayName(user),
+        avatarUrl: rewardTopUserAvatarUrl(user),
+        avatarInitial: rewardTopUserAvatarInitial(user),
         tokenText: formatRewardTopUserTokens(user),
         metaText: rewardTopUserMetaText(user),
+        lotteryWinner: user.lottery_winner === true,
         highlighted: user.is_current_user === true || user.lottery_winner === true,
         placeholder: false,
       }
@@ -1006,14 +1023,11 @@ const lotteryDrawTimeText = computed(() => {
 const lotteryResultText = computed(() => {
   const reward = dailyRewards.value
   if (!reward) return '-'
-  const winnerName = reward.lottery_winner_display_name?.trim()
-    || reward.lottery_winner_email_masked?.trim()
-    || ''
-  if (winnerName) {
+  if (lastWeekLotteryWinnerName.value) {
     if (reward.claimed || reward.current_user_rank === reward.lottery_winner_rank) {
       return t('leaderboard.dailyReward.lotteryWon', { amount: formatRewardAmount(Number(reward.lottery_amount ?? reward.current_user_reward_amount ?? 0)) })
     }
-    return t('leaderboard.dailyReward.lotteryWinner', { name: winnerName })
+    return t('leaderboard.dailyReward.lotteryNotWon')
   }
   if (reward.reason === 'lottery_pending' || !reward.settlement_ready) {
     return formatLotteryCountdown(reward.lottery_draw_at)
@@ -1022,6 +1036,20 @@ const lotteryResultText = computed(() => {
   if (reward.current_user_rank > 0 && reward.current_user_rank <= leaderboardLimit) return t('leaderboard.dailyReward.lotteryNotWon')
   return t('leaderboard.dailyReward.notTopTen')
 })
+
+const lastWeekLotteryWinnerName = computed(() => {
+  const reward = dailyRewards.value
+  return reward?.lottery_winner_display_name?.trim()
+    || reward?.lottery_winner_email_masked?.trim()
+    || rewardTopUsers.value.find((user) => user.lotteryWinner)?.displayName
+    || ''
+})
+
+const lastWeekLotteryWinnerText = computed(() =>
+  lastWeekLotteryWinnerName.value
+    ? t('leaderboard.dailyReward.lotteryWinner', { name: lastWeekLotteryWinnerName.value })
+    : t('leaderboard.dailyReward.lotteryNoWinner')
+)
 
 async function loadLeaderboard() {
   const currentSeq = ++loadSeq
@@ -1730,6 +1758,14 @@ function formatRewardRankLabel(rank: number): string {
 
 function rewardTopUserRankLabel(rank: number): string {
   return String(rank)
+}
+
+function rewardTopUserAvatarUrl(user?: LeaderboardDailyRewardTopUser): string {
+  return user?.avatar_url?.trim() || ''
+}
+
+function rewardTopUserAvatarInitial(user?: LeaderboardDailyRewardTopUser): string {
+  return Array.from(rewardTopUserDisplayName(user).trim())[0]?.toUpperCase() || 'U'
 }
 
 function rewardTopUserDisplayName(user?: LeaderboardDailyRewardTopUser): string {
@@ -2783,7 +2819,7 @@ onUnmounted(() => {
 .leaderboard-weekly-winners-list {
   display: grid;
   gap: 0.45rem;
-  max-height: 11.7rem;
+  max-height: calc(5 * 2.14rem + 4 * 0.45rem);
   overflow-y: auto;
   padding-right: 0.18rem;
   scrollbar-color: rgb(181 166 143 / 0.7) transparent;
@@ -2805,6 +2841,7 @@ onUnmounted(() => {
 
 .leaderboard-weekly-winner-row {
   display: grid;
+  min-height: 2.14rem;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -2822,7 +2859,7 @@ onUnmounted(() => {
 .leaderboard-weekly-winner-user {
   display: grid;
   min-width: 0;
-  grid-template-columns: 1.35rem minmax(0, 1fr);
+  grid-template-columns: 1.35rem 1.62rem minmax(0, 1fr);
   align-items: center;
   gap: 0.42rem;
 }
@@ -2831,6 +2868,29 @@ onUnmounted(() => {
   color: rgb(109 103 93);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
+}
+
+.leaderboard-weekly-winner-avatar {
+  display: inline-flex;
+  width: 1.55rem;
+  height: 1.55rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid rgb(255 253 248 / 0.88);
+  border-radius: 9999px;
+  background: linear-gradient(135deg, rgb(223 211 190), rgb(196 111 80 / 0.34));
+  color: rgb(84 76 66);
+  font-size: 0.68rem;
+  font-weight: 900;
+  line-height: 1;
+  box-shadow: 0 0.22rem 0.52rem rgb(84 76 66 / 0.12);
+}
+
+.leaderboard-weekly-winner-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .leaderboard-weekly-winner-name {
@@ -3537,6 +3597,13 @@ onUnmounted(() => {
 :global(.dark .leaderboard-weekly-winners-header),
 :global(.dark .leaderboard-weekly-winner-rank) {
   color: rgb(168 159 145);
+}
+
+:global(.dark .leaderboard-weekly-winner-avatar) {
+  border-color: rgb(20 20 19 / 0.92);
+  background: linear-gradient(135deg, rgb(50 45 38), rgb(196 111 80 / 0.22));
+  color: rgb(243 239 231);
+  box-shadow: 0 0 0 1px rgb(214 183 157 / 0.14);
 }
 
 :global(.dark .leaderboard-weekly-winner-name) {

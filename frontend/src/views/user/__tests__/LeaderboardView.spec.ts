@@ -155,6 +155,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.lotteryDrawTime': '开奖时间',
     'leaderboard.dailyReward.lotteryPrize': '抽奖金额',
     'leaderboard.dailyReward.lotteryResult': '开奖结果',
+    'leaderboard.dailyReward.lastWeekLotteryWinner': '上周中奖用户',
     'leaderboard.dailyReward.lotteryPending': '等待开奖',
     'leaderboard.dailyReward.lotteryCountdownHours': '{hours}小时后开奖',
     'leaderboard.dailyReward.lotteryCountdownMinutes': '{minutes}分钟后开奖',
@@ -264,7 +265,7 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
         { rank: 3, amount: 0 },
       ],
       top_users: [
-        { rank: 1, display_name: 'A***e', email_masked: 'a***e@example.com', tokens: 9_000_000 },
+        { rank: 1, display_name: 'A***e', email_masked: 'a***e@example.com', avatar_url: 'https://cdn.example.com/a.png', tokens: 9_000_000 },
         { rank: 2, display_name: 'B*b', email_masked: 'b***b@example.com', tokens: 8_000_000 },
         { rank: 3, display_name: 'C***l', email_masked: 'c***l@example.com', tokens: 7_000_000 },
         { rank: 4, display_name: 'D***n', email_masked: 'd***n@example.com', tokens: 6_000_000 },
@@ -1150,6 +1151,7 @@ describe('LeaderboardView', () => {
               rank: index + 1,
               display_name: `Top ${index + 1}`,
               email_masked: `top${index + 1}@example.com`,
+              avatar_url: index === 0 ? 'https://cdn.example.com/a.png' : undefined,
               tokens: 10_000_000 - index * 500_000,
             })),
           ],
@@ -1186,6 +1188,10 @@ describe('LeaderboardView', () => {
     expect(weeklyTop10.text()).not.toContain('2026-05-10')
     expect(weeklyTop10.get('[data-testid="leaderboard-weekly-top10-scroll"]').exists()).toBe(true)
     expect(weeklyTop10.get('.leaderboard-weekly-winner-rank').text()).toBe('1')
+    expect(weeklyTop10.get('[data-testid="leaderboard-weekly-winner-avatar"] img').attributes('src')).toBe('https://cdn.example.com/a.png')
+    expect(weeklyTop10.element.innerHTML.indexOf('leaderboard-weekly-winner-avatar')).toBeLessThan(
+      weeklyTop10.element.innerHTML.indexOf('leaderboard-weekly-winner-name'),
+    )
     const weeklyRows = weeklyTop10.findAll('.leaderboard-weekly-winner-row')
     expect(weeklyRows).toHaveLength(10)
     expect(weeklyTop10.findAll('.leaderboard-weekly-winner-row--placeholder')).toHaveLength(5)
@@ -1501,6 +1507,9 @@ describe('LeaderboardView', () => {
     expect(lottery.text()).toContain('2026')
     expect(lottery.text()).toContain('抽奖金额')
     expect(lottery.text()).toContain('12.00')
+    expect(lottery.text()).toContain('开奖结果')
+    expect(lottery.text()).toContain('未中奖')
+    expect(lottery.text()).toContain('上周中奖用户')
     expect(lottery.text()).toContain('中奖用户：Lucky User')
     expect(wrapper.find('[data-testid="leaderboard-daily-reward-claim"]').exists()).toBe(false)
   })

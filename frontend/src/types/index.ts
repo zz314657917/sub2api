@@ -2127,6 +2127,7 @@ export interface LeaderboardDailyRewardTopUser {
   user_id?: number
   display_name: string
   email_masked?: string
+  avatar_url?: string | null
   tokens?: number
   claimed?: boolean
   claimed_amount?: number | null

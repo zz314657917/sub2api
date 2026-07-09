@@ -251,6 +251,7 @@ type LeaderboardDailyRewardTopUser struct {
 	UserID        int64    `json:"user_id,omitempty"`
 	DisplayName   string   `json:"display_name"`
 	EmailMasked   string   `json:"email_masked,omitempty"`
+	AvatarURL     *string  `json:"avatar_url,omitempty"`
 	Tokens        int64    `json:"tokens,omitempty"`
 	ActualCost    float64  `json:"actual_cost,omitempty"`
 	Claimed       bool     `json:"claimed,omitempty"`

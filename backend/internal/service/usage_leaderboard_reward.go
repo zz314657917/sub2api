@@ -896,6 +896,7 @@ func leaderboardDailyRewardTopUsers(items []usagestats.UserLeaderboardItem) []us
 			UserID:      item.UserID,
 			DisplayName: item.DisplayName,
 			EmailMasked: item.EmailMasked,
+			AvatarURL:   item.AvatarURL,
 			Username:    item.Username,
 			Email:       item.Email,
 			Tokens:      item.Tokens,

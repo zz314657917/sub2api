@@ -154,6 +154,7 @@ export default {
       lotteryDrawTime: 'Draw time',
       lotteryPrize: 'Prize',
       lotteryResult: 'Result',
+      lastWeekLotteryWinner: 'Last week winner',
       lotteryPending: 'Pending draw',
       lotteryCountdownHours: 'Draw in {hours}h',
       lotteryCountdownMinutes: 'Draw in {minutes}m',

@@ -67,6 +67,11 @@ func TestUsageServiceGetUserLeaderboardCachesStatsAndReturnsClones(t *testing.T)
 					{Rank: 1, UserID: 42, Username: "alice", Email: "alice@example.com", Tokens: 100, AvatarURL: &avatarURL, Badges: []string{usagestats.LeaderboardBadgeWeeklyTokenKing}, RankNew: true},
 				},
 				CurrentUserEntry: &usagestats.UserLeaderboardItem{Rank: 1, UserID: 42, Tokens: 100},
+				DailyRewards: &usagestats.LeaderboardDailyRewards{
+					TopUsers: []usagestats.LeaderboardDailyRewardTopUser{
+						{Rank: 1, DisplayName: "Alice", AvatarURL: &avatarURL, Tokens: 100},
+					},
+				},
 			},
 		},
 	}
@@ -82,6 +87,8 @@ func TestUsageServiceGetUserLeaderboardCachesStatsAndReturnsClones(t *testing.T)
 	*first.Ranking[0].AvatarURL = "mutated"
 	first.Ranking[0].RankNew = false
 	first.CurrentUserEntry.Tokens = 999
+	*first.DailyRewards.TopUsers[0].AvatarURL = "mutated"
+	first.DailyRewards.TopUsers[0].Tokens = 999
 
 	second, err := svc.GetUserLeaderboard(context.Background(), start, end, 10, 42)
 	require.NoError(t, err)
@@ -91,6 +98,8 @@ func TestUsageServiceGetUserLeaderboardCachesStatsAndReturnsClones(t *testing.T)
 	require.Equal(t, avatarURL, *second.Ranking[0].AvatarURL)
 	require.True(t, second.Ranking[0].RankNew)
 	require.Equal(t, int64(100), second.CurrentUserEntry.Tokens)
+	require.Equal(t, avatarURL, *second.DailyRewards.TopUsers[0].AvatarURL)
+	require.Equal(t, int64(100), second.DailyRewards.TopUsers[0].Tokens)
 }
 
 func TestUsageServiceGetUserLeaderboardCacheKeyIncludesCurrentUser(t *testing.T) {

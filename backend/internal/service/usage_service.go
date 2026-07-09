@@ -864,6 +864,12 @@ func cloneLeaderboardDailyRewards(rewards *usagestats.LeaderboardDailyRewards) *
 	if rewards.TopUsers != nil {
 		clone.TopUsers = make([]usagestats.LeaderboardDailyRewardTopUser, len(rewards.TopUsers))
 		copy(clone.TopUsers, rewards.TopUsers)
+		for i := range clone.TopUsers {
+			if clone.TopUsers[i].AvatarURL != nil {
+				avatarURL := *clone.TopUsers[i].AvatarURL
+				clone.TopUsers[i].AvatarURL = &avatarURL
+			}
+		}
 	}
 	return &clone
 }

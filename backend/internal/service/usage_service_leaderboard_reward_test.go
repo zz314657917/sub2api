@@ -327,11 +327,12 @@ func TestLeaderboardDailyRewardsTopTenCanClaimWhenThresholdMet(t *testing.T) {
 }
 
 func TestLeaderboardDailyRewardsIncludesLastWeekTopUsers(t *testing.T) {
+	avatarURL := "https://cdn.example.com/alpha.png"
 	usageRepo := &leaderboardRewardUsageRepo{
 		response: &usagestats.UserLeaderboardResponse{
 			TotalActualCost: 101,
 			Ranking: []usagestats.UserLeaderboardItem{
-				{Rank: 1, UserID: 11, Username: "Alpha Winner", Email: "alpha@example.com", Tokens: 300},
+				{Rank: 1, UserID: 11, Username: "Alpha Winner", Email: "alpha@example.com", AvatarURL: &avatarURL, Tokens: 300},
 				{Rank: 2, UserID: 42, Username: "Beta Winner", Email: "beta@example.com", Tokens: 200, IsCurrentUser: true},
 				{Rank: 3, UserID: 33, Username: "Gamma Winner", Email: "gamma@example.com", Tokens: 100},
 			},
@@ -345,7 +346,7 @@ func TestLeaderboardDailyRewardsIncludesLastWeekTopUsers(t *testing.T) {
 
 	require.NoError(t, err)
 	require.Equal(t, []usagestats.LeaderboardDailyRewardTopUser{
-		{Rank: 1, UserID: 11, Username: "Alpha Winner", Email: "alpha@example.com", Tokens: 300},
+		{Rank: 1, UserID: 11, Username: "Alpha Winner", Email: "alpha@example.com", AvatarURL: &avatarURL, Tokens: 300},
 		{Rank: 2, UserID: 42, Username: "Beta Winner", Email: "beta@example.com", Tokens: 200},
 		{Rank: 3, UserID: 33, Username: "Gamma Winner", Email: "gamma@example.com", Tokens: 100},
 	}, got.TopUsers)
