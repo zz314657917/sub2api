@@ -111,6 +111,17 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).not.toContain('leaderboard-side-profile')
   })
 
+  it('keeps the Thursday promo as a compact right-side banner', () => {
+    expect(leaderboardView).toContain("import crazyThursdayBannerUrl from '@/assets/leaderboard/crazy-thursday-v50.png'")
+    expect(leaderboardView).toContain('data-testid="leaderboard-thursday-banner"')
+    expect(leaderboardView).toContain('leaderboard-thursday-banner-copy')
+    expect(leaderboardView).toContain('疯狂星期四')
+    expect(leaderboardView).toContain('V你50')
+    expect(leaderboardView).toContain('height: 5.75rem')
+    expect(leaderboardView).toContain('object-fit: cover')
+    expect(leaderboardView).toContain(':global(.dark .leaderboard-thursday-banner)')
+  })
+
   it('shows last week top 10 token usage and reward-mode panels instead of old rank reward cards', () => {
     expect(leaderboardView).toContain('function formatRewardAmount(value: number): string')
     expect(leaderboardView).toContain('data-testid="leaderboard-weekly-top10"')

@@ -275,6 +275,14 @@
                 </p>
               </div>
 
+              <div class="leaderboard-thursday-banner" data-testid="leaderboard-thursday-banner">
+                <img :src="crazyThursdayBannerUrl" alt="" loading="lazy">
+                <div class="leaderboard-thursday-banner-copy" aria-label="疯狂星期四 V你50">
+                  <span>疯狂星期四</span>
+                  <strong>V你50</strong>
+                </div>
+              </div>
+
               <div v-if="dailyRewards" class="leaderboard-reward-panel" data-testid="leaderboard-daily-reward">
                 <div class="leaderboard-reward-head">
                   <div class="min-w-0">
@@ -497,6 +505,7 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import { formatDateTime, formatNumber, formatTime } from '@/utils/format'
 import { formatCreditAmount } from '@/utils/credits'
+import crazyThursdayBannerUrl from '@/assets/leaderboard/crazy-thursday-v50.png'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
@@ -2392,6 +2401,68 @@ onUnmounted(() => {
     0 0.45rem 1.25rem rgb(60 49 36 / 0.04);
 }
 
+.leaderboard-thursday-banner {
+  position: relative;
+  height: 5.75rem;
+  margin-top: 0.85rem;
+  overflow: hidden;
+  border: 1px solid rgb(218 184 132 / 0.35);
+  border-radius: 0.5rem;
+  background: rgb(247 240 229);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.55),
+    0 0.35rem 0.9rem rgb(196 111 80 / 0.08);
+}
+
+.leaderboard-thursday-banner img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 56%;
+}
+
+.leaderboard-thursday-banner::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgb(112 39 27 / 0.7), rgb(112 39 27 / 0.32) 42%, transparent 76%);
+  pointer-events: none;
+  content: "";
+}
+
+.leaderboard-thursday-banner-copy {
+  position: absolute;
+  inset: 0 auto 0 0;
+  z-index: 1;
+  display: flex;
+  width: 48%;
+  min-width: 8.6rem;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0.75rem 0.8rem 0.78rem;
+  color: rgb(255 253 248);
+  line-height: 1;
+  text-shadow: 0 1px 0 rgb(68 41 32 / 0.28);
+}
+
+.leaderboard-thursday-banner-copy span,
+.leaderboard-thursday-banner-copy strong {
+  display: block;
+  overflow-wrap: anywhere;
+  letter-spacing: 0;
+}
+
+.leaderboard-thursday-banner-copy span {
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.leaderboard-thursday-banner-copy strong {
+  margin-top: 0.34rem;
+  font-size: 1.72rem;
+  font-weight: 950;
+}
+
 .leaderboard-record-kicker {
   color: rgb(109 103 93);
   font-size: 0.78rem;
@@ -3204,6 +3275,18 @@ onUnmounted(() => {
 
 :global(.dark .leaderboard-record-progress strong) {
   color: rgb(214 183 157);
+}
+
+:global(.dark .leaderboard-thursday-banner) {
+  border-color: rgb(214 183 157 / 0.18);
+  background: rgb(35 32 28);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 0.45rem 1rem rgb(0 0 0 / 0.16);
+}
+
+:global(.dark .leaderboard-thursday-banner::after) {
+  background: linear-gradient(90deg, rgb(20 20 19 / 0.76), rgb(20 20 19 / 0.34) 42%, transparent 76%);
 }
 
 :global(.dark .leaderboard-side-label) {
