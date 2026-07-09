@@ -150,7 +150,7 @@ export default {
       redPacketUserClaimed: 'Claimed {amount}',
       redPacketUserClaimedNoAmount: 'Claimed',
       lotteryRule: 'Rule',
-      lotteryRuleText: 'Randomly select 1 user from last week\'s top 10 to receive the prize.',
+      lotteryRuleText: 'Randomly select 1 ranked user to receive credits.',
       lotteryDrawTime: 'Draw time',
       lotteryPrize: 'Prize',
       lotteryResult: 'Result',

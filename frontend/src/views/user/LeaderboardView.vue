@@ -308,12 +308,19 @@
                       v-for="winner in rewardTopUsers"
                       :key="winner.rank"
                       class="leaderboard-weekly-winner-row"
-                      :class="{ 'leaderboard-weekly-winner-row--highlighted': winner.highlighted }"
+                      :class="{
+                        'leaderboard-weekly-winner-row--highlighted': winner.highlighted,
+                        'leaderboard-weekly-winner-row--placeholder': winner.placeholder,
+                      }"
                     >
-                      <span class="leaderboard-weekly-winner-rank">{{ rewardTopUserRankLabel(winner.rank) }}</span>
-                      <span class="leaderboard-weekly-winner-name">{{ winner.displayName }}</span>
-                      <span v-if="winner.metaText" class="leaderboard-weekly-winner-meta">{{ winner.metaText }}</span>
-                      <span class="leaderboard-weekly-winner-tokens">{{ winner.tokenText }}</span>
+                      <span class="leaderboard-weekly-winner-user">
+                        <span class="leaderboard-weekly-winner-rank">{{ rewardTopUserRankLabel(winner.rank) }}</span>
+                        <span class="leaderboard-weekly-winner-name">{{ winner.displayName }}</span>
+                      </span>
+                      <span class="leaderboard-weekly-winner-stat">
+                        <span v-if="winner.metaText" class="leaderboard-weekly-winner-meta">{{ winner.metaText }}</span>
+                        <span class="leaderboard-weekly-winner-tokens">{{ winner.tokenText }}</span>
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -569,6 +576,7 @@ type RewardTopUserView = {
   tokenText: string
   metaText: string
   highlighted: boolean
+  placeholder: boolean
 }
 
 type ChampionCalendarDay = {
@@ -865,16 +873,25 @@ const rewardTopUsers = computed<RewardTopUserView[]>(() => {
   return Array.from({ length: leaderboardLimit }, (_, index) => index + 1)
     .map((rank) => {
       const user = usersByRank.get(rank)
-      if (!user) return null
+      if (!user) {
+        return {
+          rank,
+          displayName: t('leaderboard.dailyReward.noTopUser'),
+          tokenText: '-',
+          metaText: '',
+          highlighted: false,
+          placeholder: true,
+        }
+      }
       return {
         rank,
         displayName: rewardTopUserDisplayName(user),
         tokenText: formatRewardTopUserTokens(user),
         metaText: rewardTopUserMetaText(user),
         highlighted: user.is_current_user === true || user.lottery_winner === true,
+        placeholder: false,
       }
     })
-    .filter((user): user is RewardTopUserView => user != null)
 })
 
 const weeklyRushProgressText = computed(() => {
@@ -2707,18 +2724,31 @@ onUnmounted(() => {
 .leaderboard-weekly-winner-row {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(3.5rem, auto) minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.65rem;
+  gap: 0.75rem;
 }
 
 .leaderboard-weekly-winner-row--highlighted {
   font-weight: 800;
 }
 
+.leaderboard-weekly-winner-row--placeholder {
+  opacity: 0.66;
+}
+
+.leaderboard-weekly-winner-user {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 1.35rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.42rem;
+}
+
 .leaderboard-weekly-winner-rank {
   color: rgb(109 103 93);
   font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
 }
 
 .leaderboard-weekly-winner-name {
@@ -2729,6 +2759,15 @@ onUnmounted(() => {
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.leaderboard-weekly-winner-stat {
+  display: flex;
+  min-width: 4.8rem;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  text-align: right;
 }
 
 .leaderboard-weekly-winner-meta,

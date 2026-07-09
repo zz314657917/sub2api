@@ -151,7 +151,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.redPacketClaimedAmount': '已抽金额',
     'leaderboard.dailyReward.redPacketPending': '点击后随机抽取',
     'leaderboard.dailyReward.lotteryRule': '玩法说明',
-    'leaderboard.dailyReward.lotteryRuleText': '从上周前 10 名上榜用户中随机抽 1 名赠送。',
+    'leaderboard.dailyReward.lotteryRuleText': '上榜用户随机抽1位赠送积分',
     'leaderboard.dailyReward.lotteryDrawTime': '开奖时间',
     'leaderboard.dailyReward.lotteryPrize': '抽奖金额',
     'leaderboard.dailyReward.lotteryResult': '开奖结果',
@@ -1144,7 +1144,7 @@ describe('LeaderboardView', () => {
           threshold_met: false,
           rewards: [],
           top_users: [
-            ...Array.from({ length: 10 }, (_, index) => ({
+            ...Array.from({ length: 5 }, (_, index) => ({
               rank: index + 1,
               display_name: `Top ${index + 1}`,
               email_masked: `top${index + 1}@example.com`,
@@ -1184,10 +1184,16 @@ describe('LeaderboardView', () => {
     expect(weeklyTop10.text()).not.toContain('2026-05-10')
     expect(weeklyTop10.get('[data-testid="leaderboard-weekly-top10-scroll"]').exists()).toBe(true)
     expect(weeklyTop10.get('.leaderboard-weekly-winner-rank').text()).toBe('1')
+    const weeklyRows = weeklyTop10.findAll('.leaderboard-weekly-winner-row')
+    expect(weeklyRows).toHaveLength(10)
+    expect(weeklyTop10.findAll('.leaderboard-weekly-winner-row--placeholder')).toHaveLength(5)
     expect(weeklyTop10.text()).not.toContain('No.1')
     expect(weeklyTop10.text()).not.toContain('#1')
     expect(weeklyTop10.text()).not.toContain('上周第一名')
-    expect(wrapper.text()).toContain('Top 10')
+    expect(weeklyRows[4].text()).toContain('5')
+    expect(weeklyRows[4].text()).toContain('Top 5')
+    expect(weeklyRows[9].text()).toContain('10')
+    expect(weeklyRows[9].text()).toContain('暂无上榜')
     expect(wrapper.text()).toContain('1000万 tokens')
     expect(wrapper.text()).not.toContain('第 1 名奖励')
     expect(wrapper.text()).not.toContain('上周前三')
@@ -1488,7 +1494,7 @@ describe('LeaderboardView', () => {
 
     const lottery = wrapper.get('[data-testid="leaderboard-lottery-reward"]')
     expect(lottery.text()).toContain('玩法说明')
-    expect(lottery.text()).toContain('从上周前 10 名上榜用户中随机抽 1 名赠送。')
+    expect(lottery.text()).toContain('上榜用户随机抽1位赠送积分')
     expect(lottery.text()).toContain('开奖时间')
     expect(lottery.text()).toContain('2026')
     expect(lottery.text()).toContain('抽奖金额')
