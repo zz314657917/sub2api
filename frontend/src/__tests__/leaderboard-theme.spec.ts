@@ -77,6 +77,8 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).toContain('leaderboard-token-ranking-card--with-illustration')
     expect(leaderboardView).toContain('min-height: 5.8rem')
     expect(leaderboardView).toContain('max-height: 7.4rem')
+    expect(leaderboardView).toContain('margin-top: auto')
+    expect(leaderboardView).toContain('padding-bottom: 1.05rem')
     expect(leaderboardView).toContain(':global(.dark .leaderboard-ranking-illustration)')
     expect(leaderboardView.indexOf('leaderboard-token-rank-list')).toBeLessThan(
       leaderboardView.indexOf('data-testid="leaderboard-ranking-illustration"'),

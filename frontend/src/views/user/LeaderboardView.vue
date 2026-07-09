@@ -2166,6 +2166,7 @@ onUnmounted(() => {
   display: grid;
   gap: 0.42rem;
   padding-top: 0.82rem;
+  padding-bottom: 1.05rem;
 }
 
 .leaderboard-ranking-illustration {
@@ -2176,7 +2177,7 @@ onUnmounted(() => {
   overflow: hidden;
   border: 1px solid rgb(214 202 186 / 0.38);
   border-radius: 0.58rem;
-  margin-top: 1.05rem;
+  margin-top: auto;
   background: rgb(250 247 239 / 0.74);
 }
 
