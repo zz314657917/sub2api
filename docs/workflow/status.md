@@ -1,21 +1,29 @@
 ---
-phase: done
-current_sprint: upstream-main-v0144-safe-patches-s53
-total_sprints: 53
-pending_action: Start next approved Sprint or release validation
+phase: in_progress
+current_sprint: frontend-warm-theme-home-auth-and-user-surface-followup
+total_sprints: 56
+pending_action: fold 2026-07-08 frontend/home/leaderboard/shared-account changes into next planned sprint
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-04 03:28 +08:00
+last_verified: 2026-07-09 00:00 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`done`
-- 当前 Sprint：`upstream-main-v0144-safe-patches-s53`
-- 当前目标：S53 已 no-ff 合入 `main`，等待推送确认。
-- 当前结论：S53 已重放 `token_expired` 非重试、Responses 映射模型计费、Codex access-only import 防误合并；计划内定向验证 PASS。
-- 当前默认续做提示：如果用户说“继续”，推送 `main` 并确认 `origin/main`；推送后进入 release validation 或 S54 性能/容量批次。
+- 当前阶段：`in_progress`
+- 当前 Sprint：`frontend-warm-theme-home-auth-and-user-surface-followup`
+- 当前目标：把 2026-07-08 的暖白/陶土/黑灰全前端统一、首页内嵌登录注册、排行榜增强、共享账号渠道状态可见性和首充福利 only 语义，收口成新的默认产品入口与验收基线。
+- 当前结论：`640b9341d`、`7a457f25d`、`71dad20f9`、`ebc477720`、`eaf8dba78` 已把默认续做入口从 S53 推送收尾，前移到用户可见前端/支付/共享账号设置面；旧的 `upstream-main-v0144-safe-patches-s53` 结果仍成立，但已退成稳定背景层。
+- 当前默认续做提示：如果用户说“继续”，优先按“首页认证入口 + 暖白控制台/公共页 + leaderboard 新语义 + shared account channel status visibility + first-time recharge bonus”这条链路判断，而不是默认回到 S53 推送或纯上游 patch 语境。
+- 历史背景事实：
+  - `640b9341d feat(frontend): unify warm public and console UI` 已把公共页、认证页、控制台基础壳、首页和大量后台/用户面板统一到暖白/陶土/黑灰体系。
+  - 首页当前默认入口已变为 `/home` 右侧内嵌认证卡片；登录/注册仍复用原业务逻辑，但默认用户路径已不再是独立暗色登录页。
+  - `7a457f25d feat: add channel status visibility setting for shared accounts` 已把 shared account 的 channel status 暴露收口为后台可配置的稳定权限边界。
+  - `71dad20f9 fix(payment): make recharge package bonus first-time only` 已把充值 bonus 收口为首充 only 语义，后续支付/福利验收必须带上这个前提。
+  - `ebc477720` 与 `eaf8dba78` 已把 leaderboard 稳定面继续扩展到 rank movement、new rank 和 cached refresh state。
+  - `d722d24a6 merge: upstream v0.1.146 backend safe patch s56` 与 `30d4da899 docs: record upstream s56 backend safe patch validation` 已说明 S56 级别的后端安全补丁和验证记录也已进入背景层，但本轮默认用户面主线优先级更高。
+  - `55d0e1ec3 fix(models): support non-v1 OpenAI models URLs` 已进入近期稳定兼容背景，后续模型目录/同步问题排查不应继续假设所有 OpenAI models URL 都固定带 `/v1`。
 - 当前已确认事实：
   - S53 contract：`docs/workflow/tasks/upstream-main-v0144-safe-patches-s53.md`。
   - S53 集成分支：`codex/upstream-main-v0144-s53-safe-patches`。

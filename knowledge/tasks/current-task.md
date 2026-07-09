@@ -225,8 +225,45 @@
   - 本轮中途发现 `origin/main` 新增 `6f99b9d8f feat(user): merge subscriptions into usage page`，已改用 r2 merge worktree 基于最新远端重新合并，避免覆盖远端提交。
   - 冲突或大功能 upstream 候选仍暂缓：websearch 历史块过滤、请求体解析错误日志、image_gen namespace、Grok video、messages fallback、batch image 系列。
 
+## 2026-07-08 S56 upstream 后端安全小补丁
+
+- 已完成：先用临时 worktree `E:/codex-worktrees/sub2api/candidate-probe-s56` 探测剩余候选，再在正式隔离 worktree `E:/codex-worktrees/sub2api/upstream-s56-backend-safe-patches` cherry-pick 两个无冲突后端小修，最后通过 `E:/codex-worktrees/sub2api/main-merge-s56` 合回并推送到 `origin/main`。
+- 已合入远端主线：
+  - `d722d24a6 merge: upstream v0.1.146 backend safe patch s56`，当前 `origin/main` 已确认指向该提交。
+  - S56 包含 `e76e0499d fix: sanitize payment response NUL bytes` 和 `f881ff7cb fix(models): support non-v1 OpenAI models URLs`。
+- 验证：
+  - `go test ./internal/service -run "Test.*(Payment.*Order|PaymentOrder|NUL|UpstreamModels|ModelsURL|OpenAIModels)" -count=1`：通过。
+  - `git diff --check origin/main..HEAD`：通过。
+- 清理：
+  - 已删除本轮临时 worktree：`candidate-probe-s56`、`upstream-s56-backend-safe-patches`、`main-merge-s56`。
+  - 已删除本轮临时分支：`codex/candidate-probe-s56`、`codex/upstream-s56-backend-safe-patches`、`codex/main-merge-s56`。
+- 注意：
+  - 本轮一开始误把 `git merge` 在主目录触发，造成短暂冲突状态；已立即执行 `git merge --abort`，主目录恢复到原本的 4 个 UI 脏改文件状态，未 reset 用户文件。
+  - S56 未更新本地 `62080` 容器；当前运行容器仍是前端首页账号入口收口后的镜像状态。
+  - 探测结果：仍有大量 upstream 候选存在冲突或范围偏大；干净但低价值的 `b197ba61c` 仅测试文案未纳入 S56。
+
+## 2026-07-09 Grok 本地容器更新
+
+- 背景：用户导入 Grok 账号后点“检测”显示 Claude 模型列表；排查确认旧本地容器仍运行 `5c27b1243`，缺少 `PlatformGrok` 检测路径，未知平台会落到 Claude 测试分支。
+- 已完成：使用 `local-docker-update-guard` 获取并释放 `sub2api` 容器锁，在干净 worktree `E:/codex-worktrees/sub2api/grok-local-runtime-origin-main` 基于 `origin/main@13f745da3` 构建 Linux/amd64 embed 二进制，并替换本地 `sub2api` 容器内 `/app/sub2api`。
+- 当前容器：
+  - 运行端口：`127.0.0.1:62080->8080/tcp`。
+  - 容器状态：`healthy`。
+  - 容器内版本：`Sub2API 0.1.126 (commit: 13f745da3, built: 2026-07-09T13:07:49Z)`。
+  - 容器内二进制 hash：`7bbc2d97542905fe62d51f87e95b93ceb4b01bf57928612a44db392b525824b1`。
+  - 新镜像 tag：`sub2api:codex-20260709-grok-origin-main`；`sub2api:local` 已指向该镜像。
+  - 回滚镜像 tag：`sub2api:before-codex-20260709-grok-origin-main`。
+- 验证：
+  - `go test ./internal/pkg/xai ./internal/service -run 'Test.*(Grok|XAI|Quota|Token|Scheduler|Gateway)' -count=1`：通过。
+  - `go test ./internal/handler/admin ./internal/server/routes -run 'Test.*(Grok|AvailableModels|GatewayRoutes)' -count=1`：通过。
+  - `npm.cmd run build`：通过，仍只有既有 Vite dynamic/static import chunk 警告、大 chunk 警告、Browserslist 过期提示和 Node `DEP0190` 警告。
+  - HTTP smoke：`/health` 返回 `200 {"status":"ok"}`；`/home`、`/admin/accounts`、`/my-accounts`、`/api/v1/settings/public` 返回正常。
+- 注意：
+  - 本轮只更新本地容器运行态，不提交业务代码；Grok 核心支持此前已在 `origin/main`。
+  - `upstream/main` 仍有后续 Grok 改进候选，如 `b480545c1 fix: improve Grok OAuth, image, and usage flows`、`1a0a6ea9a fix: stabilize Grok quota probe model`，后续应独立评估合并。
+
 ## 下一步
 
-1. 如要让本地 `62080` 容器吃到 S55 后端补丁，需按 `local-docker-update-guard` 获取锁后重新构建/替换容器二进制并跑 `/health` smoke。
-2. 如继续 upstream 合并，优先单独评估仍暂缓的冲突项；不要直接全量合 `upstream/main` 或 `v0.1.146`。
+1. 如继续 Grok 排查，先在后台账号页刷新后重新检测 Grok 账号；如果仍失败，优先查 token、代理、上游响应或 Cloudflare，而不是再按 Claude fallback 定位。
+2. 如继续 upstream 合并，优先单独评估仍暂缓的冲突项和 `upstream/main` 后续 Grok 改进；不要直接全量合 `upstream/main` 或 `v0.1.146+`。
 3. 如继续 UI 收口，建议按用户截图逐页处理后台公告管理、渠道/监控、设置页深层弹窗、订阅创建/编辑弹窗、风控开关开启后的 `/admin/risk-control` 实际内容；不要机械替换品牌色或危险/成功/警告语义色。

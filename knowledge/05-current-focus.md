@@ -1,68 +1,85 @@
 # 当前主线
 
-最后更新：2026-06-27
+最后更新：2026-07-09
 
 ## 当前阶段
 
-Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保持、共享额度窗口、5 月底那批 chat image workspace / embedded session / 模型目录同步、6 月初的 upstream sync / `reference_pricing` 收口，以及 6 月 7 日前后的 OpenAI 网关稳态、account capability routing、用户控制台与 `key/base-url` 归一都仍然成立，但它们已经从“最新主线”退成稳定背景层；当前更靠近主线的是 Studio Bridge / 落叶AI生产联调。
+Sub2API 近期稳定主线又前移了一次。Studio Bridge / 落叶AI生产联调、共享分组/支付治理、S44/S53 这一段上游安全补丁都仍然成立，但它们已经从“最近默认续做入口”退成稳定背景层；当前更靠近主线的是 2026-07-08 形成的新一轮用户面收口，包括暖白/陶土/黑灰全前端统一、首页内嵌登录注册、排行榜增强、共享账号渠道状态可见性，以及首充福利与充值页细节约束。
 
 ## 当前重点
 
-1. Studio Bridge / 落叶AI生产联调，已经成为当前最高频的主线
+1. 暖白/陶土/黑灰全前端统一 + 首页内嵌登录注册，已经成为当前最高频的默认产品面
+   - `640b9341d feat(frontend): unify warm public and console UI` 把公共页、认证页、控制台基础壳、首页和大量后台/用户面板统一到暖白、陶土、黑灰体系；这说明当前续做不应再把主线只理解成 bridge/payments/upstream patch，而要把“整体用户可见界面风格与入口一致性”当成新的默认背景。
+   - 首页入口已经从独立 `/login` / `/register` 暗色页，前移到 `/home` 右侧内嵌认证卡片；登录/注册、OAuth、邀请码、优惠码、Turnstile、2FA 等仍复用原业务逻辑，但当前默认入口心智已变成“公共首页即认证入口 + 已登录回仪表盘”。
+   - 这条主线会直接影响后续公共页、认证页、用户控制台、404、setup 和 key usage 的验收；如果知识入口还停在 6 月末 Studio Bridge/S43 语境，会明显低估当前前端基线变动面。
+
+2. 排行榜 / 数据台继续前移，已经不再只是 6 月 24 日那轮模型榜补齐
+   - 2026-07-08 的 `feat(leaderboard): show rank movement` 和 `feat(leaderboard): show new rank and cached refresh state` 说明当前 leaderboard 稳定面已继续扩展到“排名变化 + 新晋标记 + 缓存刷新状态”。
+   - 这意味着当前用户数据台默认不只包含模型榜、Token 占比和增长百分比，还包含榜单状态反馈与更强的周期对比语义；后续若再看 dashboard / leaderboard，不应继续按 6 月 24 日的旧卡片结构理解。
+
+3. 共享账号渠道状态可见性，已经进入新的稳定权限边界
+   - `7a457f25d feat: add channel status visibility setting for shared accounts` 说明共享账号的 `channel status` 是否对用户侧可见，已经进入后台设置与公共载荷边界，而不再是前端临时展示细节。
+   - 这条约束会直接影响共享账号可见字段、用户监控页、容量池解释和客服排障口径；后续涉及 shared account 展示时，应默认先看后台 visibility setting，而不是先改用户页文案。
+
+4. 首充福利 bonus 已收口为“仅首次”语义，不能再按宽松赠送理解
+   - `71dad20f9 fix(payment): make recharge package bonus first-time only` 把充值套餐 bonus 收口到首次充值语义，说明当前支付/福利默认边界已从“存在福利”进一步前移到“福利触发条件必须稳定一致”。
+   - 后续再改支付页、福利页、套餐说明或后台设置时，不能只记得有首充奖励，还要明确“首充 only”已经是稳定产品约束。
+
+5. Studio Bridge / 落叶AI生产联调，现已降为当前前端统一主线之前的稳定背景层
    - `fe2f80be1 feat: add studio bridge integration` 已把 Sub2API 扩展为落叶AI的账号、充值、余额、默认分组、配置和扣费真源。
    - 这说明当前默认续做心智应先落在“bridge launch/redeem 是否闭环、默认分组和 internal secret 是否配置正确、预扣/确认/退款是否能稳定联调、团队空间 actor/payer 语义是否跑通”，而不是继续把主线只理解成 OpenAI gateway 或旧工作区迁移。
    - 6 月 10 日到 11 日的新稳定事实是：本地 Studio Bridge 配置现在会在 env secret 存在、配置为空或仍是占位值时自动补齐；默认聊天/生图分组会从 active groups 动态选择，不再硬编码旧 group id；继续排查本地 `STUDIO_BRIDGE_DISABLED` / `STUDIO_BRIDGE_GROUP_REQUIRED` 时，先看 env secret、active image group 和占位配置，而不是先怀疑 launch/redeem 本身失效。
 
-2. 当前用户侧入口已经从 OpenWebUI / 旧聊天生图入口，切到落叶AI启动链路
+6. 当前用户侧入口已经从 OpenWebUI / 旧聊天生图入口，切到落叶AI启动链路
    - `/studio-bridge/launch` 已作为 `/chat-images` 的 alias，避免注册/登录 redirect 到 404。
    - 这会直接影响默认产品入口、登录回跳、用户认知和浏览器验收路径，已经值得作为稳定事实记录，而不该只留在 `current-task` 里。
    - 近期还补齐了侧栏直接启动 Studio Bridge 的路径；因此当前用户入口不只是一张落地页，而是“`/chat-images` alias + sidebar launch + 登录/注册后回跳”的整条链路。
 
-3. session-probe 已从临时调试页进入默认验收面
+7. session-probe 已从临时调试页进入默认验收面
    - 6 月 10 日新增 `session-probe` iframe 探针后，当前最小 smoke 不再只是“launch 到 `/image` 返回 200”，还要确认 iframe 只请求 `/studio-bridge/session-probe`，并且 CSP / `frame-ancestors` 允许落叶AI宿主域名，而不是错误回退到根路径 iframe 或被浏览器拦截。
    - 这条约束直接影响登录态恢复、余额摘要展示和落叶AI内页是否能稳定读取 Sub2API 会话，不应继续只留在任务时间轴里。
 
-4. OpenAI 网关稳态、账号能力路由和控制台归一，现已降为 Studio Bridge 之前的稳定背景层
+8. OpenAI 网关稳态、账号能力路由和控制台归一，现已降为 Studio Bridge 之前的稳定背景层
    - gateway/auth/session、prompt cache、routed API key capabilities、`key/base-url` 归一仍然有效，但它们已不再代表 6 月 9 日最靠前的默认改动面。
    - 后续继续做模型广场、嵌入工作区、公共入口或上游合成时仍要遵守这些约束，但如果要快速判断“仓库现在主要在做什么”，应优先看 Studio Bridge 配置、真实用户闭环和跨仓库联调。
    - 但最近的 `default API key` / route groups 收口仍是这层背景里必须保住的约束：Studio Bridge 和默认 key 路由改造之后，普通更新路径仍要继续校验分组权限，不能因为补 bridge 入口就放松 API key route group 校验。
 
-5. 首充福利与注册来源信息已经进入当前后台稳定面
+9. 首充福利与注册来源信息已经进入当前后台稳定面
    - 6 月 10 日新增首充福利 bonus，说明当前“充值闭环”已不只包含支付成功和余额回写，还包含用户福利/运营奖励规则；后续再改充值、福利、用户余额历史或兑换页时，不应把它当成独立于 Studio Bridge 的边缘功能。
    - `register ip` 已进入管理员用户列表稳定字段，说明当前认证/用户治理也在同步前移；后续排查新用户试用、福利领取和风控限制时，应默认考虑注册来源信息，而不是只看 user id 或 email。
 
-6. 支付套餐配置与用户 IP 画像，已经进入当前后台稳定面
+10. 支付套餐配置与用户 IP 画像，已经进入当前后台稳定面
    - 2026-06-13~2026-06-14 的新提交说明，最近高频改动不再只是“首充福利 + Studio Bridge 充值回跳”，而是继续推进到“可配置充值套餐 + 后台支付兑现/恢复 + 用户注册/最近登录 IP 画像”。
    - 这意味着当前支付面已经从单次支付成功与余额回写，进一步前移到“套餐定义、支付恢复、用户支付页展示、福利兑现、后台治理”一整条链路。
    - 同期进入后台稳定面的还有用户 IP 字段；后续做风控、异常支付、OAuth 注册来源或新用户治理时，不应再把 IP 当成一次性排障字段。
 
-7. 账号级图片输入 URL 化，已经进入当前稳定兼容面
+11. 账号级图片输入 URL 化，已经进入当前稳定兼容面
    - 2026-06-21 的图片链路改动说明，当前图片输入能力不应再只按“平台名”或“APIMart 特例”理解，而要按上游账号 `extra` 显式声明的能力决定是否把本地图片改写成对象存储 URL。
    - 当前稳定边界包括：`image_input_transport=object_url`、可选的 `image_upload_limit_bytes`，以及普通 OpenAI-compatible 上游只有在声明支持 `image_urls` / `mask_url` 时才走 JSON URL 字段改写。
    - 这条能力会直接影响账号编辑页、上游兼容性排查、multipart 失败归因与 failover 后的再次请求；后续如果再看到 “Part exceeded maximum size of 1024KB” 一类问题，不应先假设是 Sub2API 全局上传限制。
 
-8. 排行榜 / 模型榜已进入新的当前用户台面
+12. 排行榜 / 模型榜已进入新的当前用户台面
    - 2026-06-24 的主线不再只停在 Studio Bridge、支付治理或账号能力兼容；用户台 `leaderboard` 已新增模型榜、Token 占比、增长百分比和排名变化，并有模型商图标语义。
    - 这说明当前默认产品面已经包含“用户可见数据台”的持续演进，后续如果再看 dashboard/leaderboard，不应继续按旧的单一 Token 榜理解。
    - 模型榜当前稳定边界包括：后端 `model_ranking` 聚合、上一周期对比的 `growth_percent` / `rank_change`、前端榜单卡片内嵌切换，以及移动端右侧指标区响应式堆叠。
 
-9. 教程 CMS / 登录跳转 / 共享额度窗口仍是基础层，但已经更远离当前高频主线
+13. 教程 CMS / 登录跳转 / 共享额度窗口仍是基础层，但已经更远离当前高频主线
    - 这些能力已经从“当前主线”退到“稳定背景约束”。
    - 当前补知识时，更值得优先解释 OpenAI 网关稳态、账号能力与控制台链路，而不是重复教程页或旧工作区迁移背景。
 
-10. 2026-06-17 的上游小步合成结果，已经进入当前稳定背景层
+14. 2026-06-17 的上游小步合成结果，已经进入当前稳定背景层
    - `v0.1.137` 的 S15/S16/S17 不是新的默认产品主线，但已经形成新的稳定工程边界：安全与兼容补丁、计费兜底、thinking 协议过滤、Responses probe 能力校验、API Key ACL IP 拒绝信息，以及 OpenAI OAuth 上游 quota/reset 入口都已落盘。
    - 这些结论之所以值得进入当前焦点，而不是只留在 task 快照里，是因为它们会直接影响后续继续合上游、排查 OpenAI/Anthropic/国产模型兼容、做管理员账户运维或解释为什么某些 patch 可以继续小步迁、某些 migration-heavy 变更仍应跳过。
    - 当前默认心智应是：Studio Bridge / 支付治理仍是产品主链，上游合成则进入“低风险小步、保护本地定制、不 merge 大链路”的稳定工程主线。
 
-11. 2026-06-26 的 S21 / S22 follow-up safe patches，已经把“最近默认续做入口”从 leaderboard 小任务前移到新一轮上游收口
+15. 2026-06-26 的 S21 / S22 follow-up safe patches，已经把“最近默认续做入口”从 leaderboard 小任务前移到新一轮上游收口
    - S21 已稳定落地 Spark `image_generation` tool strip、OpenAI weekly reset 二次确认、usage cache token 明细展示和邮箱绑定后缀白名单。
    - 当前默认续做不应再停在 6/24 的 leaderboard 视觉/交互语境；更接近事实的是“在不覆盖本地 Studio Bridge、支付和公共页定制的前提下，继续小步吸上游安全/兼容修复”。
    - S22 仍是候选评估，不应误写成“已完成主线”；支付/订阅/余额预扣、order currency、Antigravity fallback、GPT-5.5 instructions fallback、ops chart UI、Claude terminal template、payment supported-types 继续属于跳过或待独立 Sprint 的范围。
 
 ## 已稳定结论
 
-- `knowledge/tasks/current-task.md` 仍适合记录动态交付快照，但当前稳定主线已经不该只停在 2026-06-08 的 gateway auth / prompt cache 语境；最近默认续做心智已继续推进到 Studio Bridge、真实用户闭环和落叶AI生产联调层。
+- `knowledge/tasks/current-task.md` 仍适合记录动态交付快照，但当前稳定主线已经不该只停在 2026-06-08 的 gateway auth / prompt cache 语境；最近默认续做心智已先推进到 Studio Bridge、真实用户闭环和落叶AI生产联调层，再进一步前移到 2026-07-08 的前端统一风格、首页认证入口和排行榜/共享账号展示收口层。
 - 教程页现在是稳定公共内容链路，不再只是公共前端文案；但如果只看它，会低估最近聊天生图与嵌入工作区改动的影响范围。
 - 登录后保留目标跳转仍是默认心智，而且最近又进一步延伸到 embedded session 恢复；后续涉及登录/注册/launch/redeem 和用户页入口时，不应假设“丢 token 后直接重新登录”就是可接受行为。
 - 模型广场 `reference_pricing` 当前只用于展示，不写入渠道价格，不影响 billing、倍率和扣费链路；后续如果再扩展模型信息展示，应保持这个边界不被误判。
@@ -72,6 +89,10 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
 - 如果存在 `STUDIO_BRIDGE_LUOYE_AI_INTERNAL_SECRET`，且当前本地配置为空、缺 secret/group、禁用或仍是 `example.com` 占位，系统会自动修复本地 launch return URL、充值回跳 URL 和 `127.0.0.1/localhost` allowed domains；正式域名配置不会被这套本地自修复覆盖。
 - 默认生图分组不再硬编码旧 id，而是优先选择第一个 active 且 `allow_image_generation=true` 的 image group；默认聊天分组优先 text group，缺失时可复用 image group。
 - `reserve / commit / refund` 的预扣/确认/退款语义已经进入当前默认联调面；后续排查任务失败、余额不足或取消回退时，应优先把它当成默认知识，而不是临时接口细节。
+- 首页右侧内嵌认证卡片已经成为当前默认用户入口；后续再改登录/注册、公共首页、回跳或 OAuth 展示时，不应继续按“独立登录页才是主入口”的旧心智理解。
+- 暖白/陶土/黑灰主题当前不只是首页样式，而是公共页、认证页、控制台和多数用户/后台弹窗的共享视觉基线；后续 UI 验收不应只盯单页是否能用，还要检查是否回退到旧绿/旧蓝主色体系。
+- 共享账号 `channel status` 可见性设置已经进入稳定后台设置面；后续 shared account 用户视图与容量状态解释必须默认考虑这个开关。
+- 充值套餐 bonus 当前稳定语义是“首充 only”，不是任意充值包都重复赠送。
 - Studio Bridge 当前最小浏览器 smoke 还应确认 session-probe iframe 只打 `/studio-bridge/session-probe`，且 `frame-ancestors` / CSP 对落叶AI父页面放行；如果这里退化，即使 launch token 和 redeem 仍返回 200，用户态也可能表现为“已登录但余额/会话不同步”。
 - 首充福利 bonus、注册 IP 和用户福利页已经进入最近稳定产品面；后续改支付、用户列表、福利配置或充值页时，要把它们视为与 Studio Bridge 同期生效的后台默认约束。
 - 可配置充值套餐已经进入当前稳定支付面；后续改支付页、后台设置、支付恢复或兑现逻辑时，要默认考虑“套餐来自后台配置”而不是固定面额。
@@ -113,6 +134,9 @@ Sub2API 近期稳定主线又前移了一次。教程 CMS、登录后跳转保�
 - 不要把 session-probe 当成可删的调试页；当前它已经进入默认会话恢复和 iframe 安全边界。
 - 不要把首充福利 bonus 或注册 IP 当成纯运营字段；它们已经进入支付兑现、新用户治理和后台用户视图的稳定数据面。
 - 不要把可配置充值套餐当成单纯设置页小功能；它实际影响用户支付入口、恢复逻辑、福利兑现和后续验收基线。
+- 不要把 2026-07-08 的前端统一主题误判成纯视觉换肤；它已经改变了首页认证入口、公共页与控制台的默认心智和验收路径。
+- 不要把共享账号渠道状态可见性误判成单页展示逻辑；它已经进入后台设置、用户可见字段和客服解释口径的稳定权限边界。
+- 不要把首充福利 bonus 继续理解成宽松运营文案；当前稳定语义已经收口为首次充值才触发。
 - 不要把用户 IP 字段当成临时调试字段；它已经进入用户治理、风控和运营判断的默认后台视图。
 - 不要把图片输入 URL 化误判成 APIMart 专属分支；当前它是账号能力驱动的兼容层，普通 OpenAI-compatible 上游也可能需要。
 - 不要把上游 `Part exceeded maximum size of 1024KB` 误判成 Sub2API 本地统一上传上限；当前更多是在提示目标上游 multipart part 限制与账号能力配置不匹配。
