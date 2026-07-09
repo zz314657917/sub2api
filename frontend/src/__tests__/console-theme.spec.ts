@@ -70,6 +70,7 @@ const userBalanceModal = readFileSync(resolve(process.cwd(), 'src/components/adm
 const userBalanceHistoryModal = readFileSync(resolve(process.cwd(), 'src/components/admin/user/UserBalanceHistoryModal.vue'), 'utf8')
 const versionBadge = readFileSync(resolve(process.cwd(), 'src/components/common/VersionBadge.vue'), 'utf8')
 const backupView = readFileSync(resolve(process.cwd(), 'src/views/admin/BackupView.vue'), 'utf8')
+const dataTable = readFileSync(resolve(process.cwd(), 'src/components/common/DataTable.vue'), 'utf8')
 
 const consoleComponents = [
   appSidebar,
@@ -109,6 +110,19 @@ describe('console visual direction', () => {
     expect(consoleUi).toContain('linear-gradient(180deg, #020617')
     expect(consoleUi).toContain('.dark .console-sidebar')
     expect(consoleUi).toContain('.dark .console-header')
+  })
+
+  it('keeps console data tables on warm surfaces instead of cold gray sticky panels', () => {
+    expect(consoleUi).toContain('--table-header-bg: rgba(250, 249, 245, 0.97)')
+    expect(consoleUi).toContain('--table-sticky-bg: rgba(255, 252, 246, 0.98)')
+    expect(consoleUi).toContain('border-color: rgba(216, 206, 194, 0.5)')
+    expect(consoleUi).toContain('color: #504f49')
+    expect(dataTable).toContain('--table-header-bg: rgba(250, 249, 245, 0.96)')
+    expect(dataTable).toContain('--table-sticky-bg: rgba(255, 252, 246, 0.98)')
+    expect(dataTable).toContain('background-color: rgba(216, 206, 194, 0.22)')
+    expect(dataTable).toContain('background-color: rgba(160, 153, 144, 0.78)')
+    expect(dataTable).not.toContain('background-color: rgb(249 250 251)')
+    expect(dataTable).not.toContain('background-color: white;')
   })
 
   it('keeps decorative console backdrop layers behind content', () => {

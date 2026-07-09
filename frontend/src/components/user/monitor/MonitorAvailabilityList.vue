@@ -65,26 +65,33 @@
 
     <div
       v-else
-      class="mt-4 space-y-5"
+      class="monitor-availability-group-grid mt-4"
       :class="{ 'monitor-availability-list__scroll': isScrollable }"
       data-testid="monitor-availability-scroll"
     >
       <section
         v-for="group in groups"
         :key="group.key"
+        class="monitor-availability-group-card"
+        data-testid="monitor-availability-group-card"
       >
-        <h3
-          class="border-b border-gray-200/80 pb-2 text-sm font-semibold text-gray-700 dark:border-dark-700 dark:text-gray-200"
-        >
-          {{ group.title }}
-        </h3>
+        <div class="flex items-start justify-between gap-3 border-b border-[#e7e0d7]/90 pb-3">
+          <h3 class="min-w-0 text-sm font-semibold text-[#26251e]">
+            {{ group.title }}
+          </h3>
+          <span
+            class="shrink-0 rounded-full border border-[#e0d8ce] bg-[#f5f1ea] px-2.5 py-1 text-xs font-medium text-[#75685e]"
+          >
+            {{ t('channelStatus.availabilityPanel.modelCount', { count: group.rows.length }) }}
+          </span>
+        </div>
 
-        <div class="divide-y divide-gray-100 dark:divide-dark-700/70">
+        <div class="mt-1 divide-y divide-[#ece5dc]">
           <button
             v-for="row in group.rows"
             :key="row.key"
             type="button"
-            class="group w-full rounded-lg py-3 text-left transition hover:bg-gray-50/80 focus:outline-none focus:ring-2 focus:ring-primary-500/30 dark:hover:bg-dark-700/50"
+            class="group w-full rounded-lg px-2 py-3 text-left transition hover:bg-[#f7f2eb]/80 focus:outline-none focus:ring-2 focus:ring-[#a66a43]/25"
             data-testid="monitor-availability-row"
             @click="emit('rowClick', row.monitor)"
           >
@@ -94,23 +101,23 @@
                 :class="dotClass(row.tone)"
               ></span>
               <span
-                class="min-w-0 flex-1 truncate text-sm font-medium text-gray-900 dark:text-gray-100"
+                class="min-w-0 flex-1 truncate text-sm font-medium text-[#2b2922]"
               >
                 {{ displayModelLabel(row.model) }}
               </span>
               <span
-                class="flex-shrink-0 text-xs tabular-nums text-gray-500 dark:text-gray-400"
+                class="flex-shrink-0 text-xs tabular-nums text-[#75685e]"
               >
                 {{ formatPercent(row.availability) }}
               </span>
             </div>
 
             <div class="mt-1.5 flex items-center gap-2 pl-4">
-              <span class="w-10 flex-shrink-0 text-xs text-gray-500 dark:text-gray-400">
+              <span class="w-10 flex-shrink-0 text-xs text-[#8c8175]">
                 {{ t('channelStatus.availabilityPanel.availabilityLabel') }}
               </span>
               <span
-                class="h-1 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-dark-700"
+                class="h-1 w-full overflow-hidden rounded-full bg-[#e8dfd5]"
                 role="progressbar"
                 :aria-valuemin="0"
                 :aria-valuemax="100"
@@ -358,9 +365,26 @@ function barWidth(value: number | null): number {
   max-height: clamp(24rem, calc(100vh - 18rem), 40rem);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 0.25rem;
-  scrollbar-color: rgb(148 163 184 / 0.7) transparent;
+  padding-right: 0.35rem;
+  scrollbar-color: rgb(166 106 67 / 0.45) transparent;
   scrollbar-width: thin;
+}
+
+.monitor-availability-group-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 20rem), 1fr));
+  gap: 0.9rem;
+  align-items: start;
+}
+
+.monitor-availability-group-card {
+  min-width: 0;
+  border: 1px solid rgb(225 216 204 / 0.95);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgb(255 254 252 / 0.96), rgb(250 247 242 / 0.92));
+  padding: 0.85rem;
+  box-shadow: 0 10px 24px rgb(88 72 52 / 0.07);
 }
 
 .monitor-availability-list__scroll::-webkit-scrollbar {
@@ -368,7 +392,7 @@ function barWidth(value: number | null): number {
 }
 
 .monitor-availability-list__scroll::-webkit-scrollbar-thumb {
-  background-color: rgb(148 163 184 / 0.55);
+  background-color: rgb(166 106 67 / 0.38);
   border-radius: 999px;
 }
 </style>

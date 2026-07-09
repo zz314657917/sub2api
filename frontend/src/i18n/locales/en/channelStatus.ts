@@ -14,6 +14,7 @@ export default {
       searchPlaceholder: 'Search service name',
       groupSuffix: 'Stability Monitor',
       availabilityLabel: 'Availability',
+      modelCount: '{count} models',
       noResultsTitle: 'No matching services',
       noResultsDescription: 'Try a different keyword.',
       legend: {

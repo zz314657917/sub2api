@@ -535,9 +535,9 @@
 }
 
 .console-shell .table th {
-    border-color: rgba(148, 163, 184, 0.18);
-    background: rgba(248, 250, 252, 0.88);
-    color: #475569;
+    border-color: rgba(216, 206, 194, 0.5);
+    background: rgba(250, 249, 245, 0.94);
+    color: #504f49;
 }
 
 .dark .console-shell .table th {
@@ -547,8 +547,8 @@
 }
 
 .console-shell .table td {
-    border-color: rgba(148, 163, 184, 0.14);
-    color: #334155;
+    border-color: rgba(216, 206, 194, 0.34);
+    color: #3d3d3a;
 }
 
 .dark .console-shell .table td {
@@ -566,7 +566,11 @@
 
 .console-shell .table-scroll-container,
 .console-shell .table-wrapper {
-    background: var(--console-surface-soft);
+    --table-header-bg: rgba(250, 249, 245, 0.97);
+    --table-sticky-bg: rgba(255, 252, 246, 0.98);
+    --table-sticky-hover-bg: rgba(250, 246, 239, 0.98);
+    --table-sticky-shadow: rgba(75, 52, 40, 0.08);
+    background: rgba(250, 249, 245, 0.72);
 }
 
 .dark .console-shell .table-scroll-container,
@@ -583,6 +587,19 @@
 .dark .console-shell .sticky-header-cell,
 .dark .console-shell .table-wrapper .table-header {
     background: rgb(24 34 50);
+}
+
+.console-shell .sticky-header-cell,
+.console-shell .table-wrapper .table-header {
+    background: var(--table-header-bg);
+}
+
+.console-shell tbody .sticky-col {
+    background: var(--table-sticky-bg);
+}
+
+.console-shell tbody tr:hover .sticky-col {
+    background: var(--table-sticky-hover-bg);
 }
 
 .dark .console-shell tbody .sticky-col {

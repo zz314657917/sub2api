@@ -5,12 +5,13 @@ import type { UserMonitorView } from '@/api/channelMonitor'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: (key: string) => {
+    t: (key: string, params?: Record<string, unknown>) => {
       const messages: Record<string, string> = {
         'channelStatus.availabilityPanel.title': '服务可用性',
         'channelStatus.availabilityPanel.searchPlaceholder': '搜索服务名称',
         'channelStatus.availabilityPanel.groupSuffix': '稳定性监听',
         'channelStatus.availabilityPanel.availabilityLabel': '可用率',
+        'channelStatus.availabilityPanel.modelCount': `${params?.count} 个模型`,
         'channelStatus.availabilityPanel.noResultsTitle': '没有匹配的服务',
         'channelStatus.availabilityPanel.noResultsDescription': '换个关键词试试。',
         'channelStatus.availabilityPanel.legend.abnormal': '异常',
@@ -52,6 +53,19 @@ const items: UserMonitorView[] = [
     ],
     timeline: [],
   },
+  {
+    id: 2,
+    name: 'openai chat channel',
+    provider: 'openai',
+    group_name: '对话模型',
+    primary_model: 'gpt-5-mini',
+    primary_status: 'operational',
+    primary_latency_ms: 210,
+    primary_ping_latency_ms: 55,
+    availability_7d: 99.9,
+    extra_models: [],
+    timeline: [],
+  },
 ]
 
 function mountList() {
@@ -89,15 +103,21 @@ describe('MonitorAvailabilityList', () => {
 
     expect(wrapper.text()).toContain('服务可用性')
     expect(wrapper.text()).toContain('绘图模型 稳定性监听')
+    expect(wrapper.text()).toContain('对话模型 稳定性监听')
+    expect(wrapper.text()).toContain('3 个模型')
+    expect(wrapper.text()).toContain('1 个模型')
     expect(wrapper.text()).toContain('gemini-3.1-flash-image-preview')
     expect(wrapper.text()).toContain('gemini-3-pro-image-preview')
     expect(wrapper.text()).toContain('gemini-2.5-flash-image')
+    expect(wrapper.text()).toContain('gpt-5-mini')
     expect(wrapper.text()).toContain('99.31%')
     expect(wrapper.text()).toContain('97.66%')
     expect(wrapper.text()).toContain('98.64%')
+    expect(wrapper.text()).toContain('99.90%')
     expect(wrapper.text()).toContain('异常')
     expect(wrapper.text()).toContain('正常')
-    expect(wrapper.findAll('[data-testid="monitor-availability-row"]')).toHaveLength(3)
+    expect(wrapper.findAll('[data-testid="monitor-availability-group-card"]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-testid="monitor-availability-row"]')).toHaveLength(4)
 
     const progressBars = wrapper.findAll('[role="progressbar"]')
     expect(progressBars[0].attributes('aria-valuenow')).toBe('99.31')
@@ -113,8 +133,10 @@ describe('MonitorAvailabilityList', () => {
     await wrapper.get('[data-testid="monitor-availability-search"]').setValue('2.5')
 
     expect(wrapper.findAll('[data-testid="monitor-availability-row"]')).toHaveLength(1)
+    expect(wrapper.findAll('[data-testid="monitor-availability-group-card"]')).toHaveLength(1)
     expect(wrapper.text()).not.toContain('gemini-3.1-flash-image-preview')
     expect(wrapper.text()).not.toContain('gemini-3-pro-image-preview')
+    expect(wrapper.text()).not.toContain('gpt-5-mini')
     expect(wrapper.text()).toContain('gemini-2.5-flash-image')
   })
 

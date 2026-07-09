@@ -715,6 +715,10 @@ defineExpose({
 /* 表格横向滚动 */
 .table-wrapper {
   --select-col-width: 52px; /* 勾选列宽度：px-6 (24px*2) + checkbox (16px) */
+  --table-header-bg: rgba(250, 249, 245, 0.96);
+  --table-sticky-bg: rgba(255, 252, 246, 0.98);
+  --table-sticky-hover-bg: rgba(250, 246, 239, 0.98);
+  --table-sticky-shadow: rgba(75, 52, 40, 0.08);
   position: relative;
   overflow-x: auto;
   overflow-y: auto;
@@ -728,11 +732,12 @@ defineExpose({
   position: sticky;
   top: 0;
   z-index: 200;
-  background-color: rgb(249 250 251);
+  background: var(--table-header-bg);
 }
 
 .dark .table-wrapper .table-header {
-  background-color: rgb(31 41 55);
+  --table-header-bg: rgba(24, 34, 50, 0.94);
+  background: var(--table-header-bg);
 }
 
 /* 表体保持在表头下方 */
@@ -746,11 +751,12 @@ defineExpose({
   position: sticky;
   top: 0;
   z-index: 210; /* 必须高于所有表体内容 */
-  background-color: rgb(249 250 251);
+  background: var(--table-header-bg);
 }
 
 .dark .sticky-header-cell {
-  background-color: rgb(31 41 55);
+  --table-header-bg: rgba(24, 34, 50, 0.94);
+  background: var(--table-header-bg);
 }
 
 /* Sticky 列基础样式 */
@@ -786,20 +792,22 @@ defineExpose({
 
 /* 表体 sticky 列背景 */
 tbody .sticky-col {
-  background-color: white;
+  background: var(--table-sticky-bg);
 }
 
 .dark tbody .sticky-col {
-  background-color: rgb(17 24 39);
+  --table-sticky-bg: rgba(10, 18, 32, 0.98);
+  background: var(--table-sticky-bg);
 }
 
 /* hover 状态保持 */
 tbody tr:hover .sticky-col {
-  background-color: rgb(249 250 251);
+  background: var(--table-sticky-hover-bg);
 }
 
 .dark tbody tr:hover .sticky-col {
-  background-color: rgb(31 41 55);
+  --table-sticky-hover-bg: rgba(20, 30, 46, 0.98);
+  background: var(--table-sticky-hover-bg);
 }
 
 /* 阴影只在可滚动时显示 */
@@ -812,7 +820,7 @@ tbody tr:hover .sticky-col {
   bottom: 0;
   width: 10px;
   transform: translateX(100%);
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.04), transparent);
+  background: linear-gradient(to right, var(--table-sticky-shadow), transparent);
   pointer-events: none;
 }
 
@@ -825,7 +833,7 @@ tbody tr:hover .sticky-col {
   bottom: 0;
   width: 10px;
   transform: translateX(100%);
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.04), transparent);
+  background: linear-gradient(to right, var(--table-sticky-shadow), transparent);
   pointer-events: none;
 }
 
@@ -838,18 +846,20 @@ tbody tr:hover .sticky-col {
   bottom: 0;
   width: 10px;
   transform: translateX(-100%);
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.04), transparent);
+  background: linear-gradient(to left, var(--table-sticky-shadow), transparent);
   pointer-events: none;
 }
 
 /* 暗色模式阴影 */
 .dark .is-scrollable .sticky-col-left::after,
 .dark .is-scrollable .sticky-col-left-second::after {
-  background: linear-gradient(to right, rgba(0, 0, 0, 0.08), transparent);
+  --table-sticky-shadow: rgba(0, 0, 0, 0.14);
+  background: linear-gradient(to right, var(--table-sticky-shadow), transparent);
 }
 
 .dark .is-scrollable .sticky-col-right::before {
-  background: linear-gradient(to left, rgba(0, 0, 0, 0.08), transparent);
+  --table-sticky-shadow: rgba(0, 0, 0, 0.14);
+  background: linear-gradient(to left, var(--table-sticky-shadow), transparent);
 }
 </style>
 
@@ -873,7 +883,7 @@ tbody tr:hover .sticky-col {
 }
 
 .table-wrapper::-webkit-scrollbar-track {
-  background-color: rgba(0, 0, 0, 0.03) !important;
+  background-color: rgba(216, 206, 194, 0.22) !important;
   border-radius: 6px !important;
   margin: 0 4px !important;
 }
@@ -883,14 +893,14 @@ tbody tr:hover .sticky-col {
 
 /* 常驻、不透明的滑块，无视鼠标是否 hover 都在那！ */
 .table-wrapper::-webkit-scrollbar-thumb {
-  background-color: rgba(107, 114, 128, 0.75) !important; 
+  background-color: rgba(160, 153, 144, 0.78) !important;
   border-radius: 6px !important;
   border: 2px solid transparent !important;
   background-clip: padding-box !important;
   -webkit-appearance: none !important;
 }
 .table-wrapper::-webkit-scrollbar-thumb:hover {
-  background-color: rgba(75, 85, 99, 0.9) !important;
+  background-color: rgba(169, 88, 62, 0.72) !important;
 }
 
 .dark .table-wrapper::-webkit-scrollbar-thumb {
@@ -904,7 +914,7 @@ tbody tr:hover .sticky-col {
 @supports (-moz-appearance:none) {
   .table-wrapper {
     scrollbar-width: thin !important;
-    scrollbar-color: rgba(156, 163, 175, 0.5) rgba(0, 0, 0, 0.03) !important;
+    scrollbar-color: rgba(160, 153, 144, 0.68) rgba(216, 206, 194, 0.22) !important;
   }
   .dark .table-wrapper {
     scrollbar-color: rgba(75, 85, 99, 0.5) rgba(255, 255, 255, 0.05) !important;

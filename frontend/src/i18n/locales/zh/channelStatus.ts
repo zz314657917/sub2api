@@ -14,6 +14,7 @@ export default {
       searchPlaceholder: '搜索服务名称',
       groupSuffix: '稳定性监听',
       availabilityLabel: '可用率',
+      modelCount: '{count} 个模型',
       noResultsTitle: '没有匹配的服务',
       noResultsDescription: '换个关键词试试。',
       legend: {
