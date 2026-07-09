@@ -50,7 +50,29 @@ var (
 		Mode:                    "chat",
 		SupportsPromptCaching:   true,
 	}
+	openAIGPT56SolFallbackPricing   = newOpenAIGPT56FallbackLiteLLMPricing(5e-6, 30e-6)
+	openAIGPT56TerraFallbackPricing = newOpenAIGPT56FallbackLiteLLMPricing(2.5e-6, 15e-6)
+	openAIGPT56LunaFallbackPricing  = newOpenAIGPT56FallbackLiteLLMPricing(1e-6, 6e-6)
 )
+
+func newOpenAIGPT56FallbackLiteLLMPricing(inputCostPerToken, outputCostPerToken float64) *LiteLLMModelPricing {
+	return &LiteLLMModelPricing{
+		InputCostPerToken:               inputCostPerToken,
+		InputCostPerTokenPriority:       inputCostPerToken * 2,
+		OutputCostPerToken:              outputCostPerToken,
+		OutputCostPerTokenPriority:      outputCostPerToken * 2,
+		CacheCreationInputTokenCost:     inputCostPerToken * 1.25,
+		CacheReadInputTokenCost:         inputCostPerToken * 0.1,
+		CacheReadInputTokenCostPriority: inputCostPerToken * 0.2,
+		LongContextInputTokenThreshold:  272000,
+		LongContextInputCostMultiplier:  2.0,
+		LongContextOutputCostMultiplier: 1.5,
+		LiteLLMProvider:                 "openai",
+		Mode:                            "chat",
+		SupportsPromptCaching:           true,
+		SupportsServiceTier:             true,
+	}
+}
 
 // LiteLLMModelPricing LiteLLM价格数据结构
 // 只保留我们需要的字段，使用指针来处理可能缺失的值
@@ -803,11 +825,10 @@ func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
 		}
 	}
 
-	// GPT-5.6（sol / terra / luna）回退到 GPT-5.4 定价
-	if strings.HasPrefix(model, "gpt-5.6") {
+	if pricing, staticName := openAIGPT56StaticFallbackPricing(model); pricing != nil {
 		logger.With(zap.String("component", "service.pricing")).
-			Info(fmt.Sprintf("[Pricing] OpenAI fallback matched %s -> %s", model, "gpt-5.4(static)"))
-		return openAIGPT54FallbackPricing
+			Info(fmt.Sprintf("[Pricing] OpenAI fallback matched %s -> %s", model, staticName))
+		return pricing
 	}
 
 	// GPT-5.5 回退到 GPT-5.4 定价
@@ -853,6 +874,19 @@ func (s *PricingService) matchOpenAIModel(model string) *LiteLLMModelPricing {
 	}
 
 	return nil
+}
+
+func openAIGPT56StaticFallbackPricing(model string) (*LiteLLMModelPricing, string) {
+	switch {
+	case strings.HasPrefix(model, "gpt-5.6-sol"):
+		return openAIGPT56SolFallbackPricing, "gpt-5.6-sol(static)"
+	case strings.HasPrefix(model, "gpt-5.6-terra"):
+		return openAIGPT56TerraFallbackPricing, "gpt-5.6-terra(static)"
+	case strings.HasPrefix(model, "gpt-5.6-luna"):
+		return openAIGPT56LunaFallbackPricing, "gpt-5.6-luna(static)"
+	default:
+		return nil, ""
+	}
 }
 
 // generateOpenAIModelVariants 生成 OpenAI 模型的回退变体列表

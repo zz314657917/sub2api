@@ -232,10 +232,10 @@ func (s *BillingService) initFallbackPricing() {
 	s.fallbackPrices["gpt-5.5"] = s.fallbackPrices["gpt-5.4"]
 	s.fallbackPrices["gpt-5.5-pro"] = s.fallbackPrices["gpt-5.4"]
 
-	// GPT-5.6（sol / terra / luna）暂无独立定价，回退到 GPT-5.4。
-	s.fallbackPrices["gpt-5.6-sol"] = s.fallbackPrices["gpt-5.4"]
-	s.fallbackPrices["gpt-5.6-terra"] = s.fallbackPrices["gpt-5.4"]
-	s.fallbackPrices["gpt-5.6-luna"] = s.fallbackPrices["gpt-5.4"]
+	// GPT-5.6 preview family pricing.
+	s.fallbackPrices["gpt-5.6-sol"] = newOpenAIGPT56FallbackModelPricing(5e-6, 30e-6)
+	s.fallbackPrices["gpt-5.6-terra"] = newOpenAIGPT56FallbackModelPricing(2.5e-6, 15e-6)
+	s.fallbackPrices["gpt-5.6-luna"] = newOpenAIGPT56FallbackModelPricing(1e-6, 6e-6)
 
 	s.fallbackPrices["gpt-5.4-mini"] = &ModelPricing{
 		InputPricePerToken:     7.5e-7,
@@ -334,6 +334,22 @@ func (s *BillingService) initFallbackPricing() {
 		InputPricePerToken:     1e-6,
 		OutputPricePerToken:    2e-6,
 		SupportsCacheBreakdown: false,
+	}
+}
+
+func newOpenAIGPT56FallbackModelPricing(inputPricePerToken, outputPricePerToken float64) *ModelPricing {
+	return &ModelPricing{
+		InputPricePerToken:             inputPricePerToken,
+		InputPricePerTokenPriority:     inputPricePerToken * 2,
+		OutputPricePerToken:            outputPricePerToken,
+		OutputPricePerTokenPriority:    outputPricePerToken * 2,
+		CacheCreationPricePerToken:     inputPricePerToken * 1.25,
+		CacheReadPricePerToken:         inputPricePerToken * 0.1,
+		CacheReadPricePerTokenPriority: inputPricePerToken * 0.2,
+		SupportsCacheBreakdown:         false,
+		LongContextInputThreshold:      openAIGPT54LongContextInputThreshold,
+		LongContextInputMultiplier:     openAIGPT54LongContextInputMultiplier,
+		LongContextOutputMultiplier:    openAIGPT54LongContextOutputMultiplier,
 	}
 }
 
