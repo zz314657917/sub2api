@@ -155,6 +155,8 @@ export default {
       lotteryPrize: '中奖金额',
       lotteryResult: '中奖结果',
       lotteryPending: '待开奖',
+      lotteryCountdownHours: '{hours}小时后开奖',
+      lotteryCountdownMinutes: '{minutes}分钟后开奖',
       lotteryWinner: '{name} 中奖',
       lotteryWon: '你已中奖 {amount}',
       lotteryNotWon: '未中奖',

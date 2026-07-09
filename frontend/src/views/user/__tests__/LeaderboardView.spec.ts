@@ -156,6 +156,8 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.lotteryPrize': '抽奖金额',
     'leaderboard.dailyReward.lotteryResult': '开奖结果',
     'leaderboard.dailyReward.lotteryPending': '等待开奖',
+    'leaderboard.dailyReward.lotteryCountdownHours': '{hours}小时后开奖',
+    'leaderboard.dailyReward.lotteryCountdownMinutes': '{minutes}分钟后开奖',
     'leaderboard.dailyReward.lotteryWinner': '中奖用户：{name}',
     'leaderboard.dailyReward.lotteryWon': '你已中奖 {amount}',
     'leaderboard.dailyReward.lotteryNotWon': '未中奖',
@@ -1501,6 +1503,56 @@ describe('LeaderboardView', () => {
     expect(lottery.text()).toContain('12.00')
     expect(lottery.text()).toContain('中奖用户：Lucky User')
     expect(wrapper.find('[data-testid="leaderboard-daily-reward-claim"]').exists()).toBe(false)
+  })
+
+  it('renders lottery pending result as a draw countdown in hours and minutes', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-05-11T08:00:00+08:00'))
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        daily_rewards: {
+          reward_date: '2026-05-06',
+          settlement_timezone: 'Asia/Shanghai',
+          settlement_ready: false,
+          claim_available_at: '2026-05-07T00:30:00+08:00',
+          enabled: true,
+          reward_mode: 'lottery',
+          lottery_amount: 12,
+          lottery_cron: '0 10 * * 1',
+          lottery_draw_at: '2026-05-11T10:00:00+08:00',
+          min_total_actual_cost: 100,
+          yesterday_total_actual_cost: 120,
+          threshold_met: true,
+          rewards: [],
+          current_user_rank: 4,
+          current_user_reward_amount: 0,
+          can_claim: false,
+          claimed: false,
+          reason: 'lottery_pending',
+        },
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const lottery = wrapper.get('[data-testid="leaderboard-lottery-reward"]')
+    expect(lottery.text()).toContain('2小时后开奖')
+    expect(lottery.text()).not.toContain('等待开奖')
+
+    vi.setSystemTime(new Date('2026-05-11T09:14:00+08:00'))
+    await vi.advanceTimersByTimeAsync(60_000)
+    await flushPromises()
+
+    expect(lottery.text()).toContain('45分钟后开奖')
   })
 
   it('colors token bars by rank without row background frames', async () => {

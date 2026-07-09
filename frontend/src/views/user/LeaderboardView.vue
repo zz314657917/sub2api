@@ -555,9 +555,11 @@ const claimError = ref('')
 const tokenTickerSeed = ref(0)
 const visualTokenIncrement = ref(0)
 const visualTokenTick = ref(0)
+const lotteryCountdownNow = ref(Date.now())
 const leaderboardLimit = 10
 const visibleRankTitleLimit = 2
 const visualTokenTickerIntervalMs = 3000
+const lotteryCountdownIntervalMs = 60 * 1000
 const visualTokenTickerSteps = [37, 54, 62, 81, 95, 128, 143, 166, 218]
 const championTooltipWidth = 240
 const championTooltipHeight = 98
@@ -569,6 +571,7 @@ const leaderboardSessionCacheVersion = 'v1'
 const leaderboardSessionCacheTTL = 5 * 60 * 1000
 let loadSeq = 0
 let visualTokenTickerID: number | null = null
+let lotteryCountdownTimerID: number | null = null
 
 type RollingTokenPart = {
   type: 'digit' | 'separator'
@@ -1012,7 +1015,10 @@ const lotteryResultText = computed(() => {
     }
     return t('leaderboard.dailyReward.lotteryWinner', { name: winnerName })
   }
-  if (reward.reason === 'lottery_pending' || !reward.settlement_ready) return t('leaderboard.dailyReward.lotteryPending')
+  if (reward.reason === 'lottery_pending' || !reward.settlement_ready) {
+    return formatLotteryCountdown(reward.lottery_draw_at)
+      || t('leaderboard.dailyReward.lotteryPending')
+  }
   if (reward.current_user_rank > 0 && reward.current_user_rank <= leaderboardLimit) return t('leaderboard.dailyReward.lotteryNotWon')
   return t('leaderboard.dailyReward.notTopTen')
 })
@@ -1493,6 +1499,37 @@ function stopVisualTokenTicker() {
   visualTokenTickerID = null
 }
 
+function startLotteryCountdownTimer() {
+  stopLotteryCountdownTimer()
+  lotteryCountdownNow.value = Date.now()
+  lotteryCountdownTimerID = window.setInterval(() => {
+    lotteryCountdownNow.value = Date.now()
+  }, lotteryCountdownIntervalMs)
+}
+
+function stopLotteryCountdownTimer() {
+  if (lotteryCountdownTimerID == null) return
+  window.clearInterval(lotteryCountdownTimerID)
+  lotteryCountdownTimerID = null
+}
+
+function formatLotteryCountdown(drawAt?: string | null): string {
+  if (!drawAt) return ''
+  const drawTime = new Date(drawAt).getTime()
+  if (!Number.isFinite(drawTime)) return ''
+  const remainingMs = drawTime - lotteryCountdownNow.value
+  if (remainingMs <= 0) return t('leaderboard.dailyReward.lotteryPending')
+  const remainingMinutes = Math.max(1, Math.ceil(remainingMs / 60_000))
+  if (remainingMinutes > 60) {
+    return t('leaderboard.dailyReward.lotteryCountdownHours', {
+      hours: Math.floor(remainingMinutes / 60),
+    })
+  }
+  return t('leaderboard.dailyReward.lotteryCountdownMinutes', {
+    minutes: remainingMinutes,
+  })
+}
+
 function tokenBarWidth(item: UserLeaderboardItem): string {
   if (maxRankingTokens.value <= 0 || item.tokens <= 0) return '0%'
   return `${Math.min(84, Math.max(4, (item.tokens / maxRankingTokens.value) * 84))}%`
@@ -1804,6 +1841,7 @@ function leaderboardBadgeTitle(badge: LeaderboardBadge): string {
 
 onMounted(() => {
   startVisualTokenTicker()
+  startLotteryCountdownTimer()
   loadLeaderboard()
   window.addEventListener('scroll', hideChampionTooltip, true)
   window.addEventListener('scroll', hideTokenBarTooltip, true)
@@ -1813,6 +1851,7 @@ onMounted(() => {
 
 onUnmounted(() => {
   stopVisualTokenTicker()
+  stopLotteryCountdownTimer()
   hideChampionTooltip()
   hideTokenBarTooltip()
   window.removeEventListener('scroll', hideChampionTooltip, true)
