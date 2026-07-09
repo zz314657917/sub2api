@@ -335,6 +335,16 @@ func ShareCountLTE(v int) predicate.GroupBuySeat {
 	return predicate.GroupBuySeat(sql.FieldLTE(FieldShareCount, v))
 }
 
+// PolicySnapshotIsNil applies the IsNil predicate on the "policy_snapshot" field.
+func PolicySnapshotIsNil() predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldIsNull(FieldPolicySnapshot))
+}
+
+// PolicySnapshotNotNil applies the NotNil predicate on the "policy_snapshot" field.
+func PolicySnapshotNotNil() predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(sql.FieldNotNull(FieldPolicySnapshot))
+}
+
 // SubscriptionIDEQ applies the EQ predicate on the "subscription_id" field.
 func SubscriptionIDEQ(v int64) predicate.GroupBuySeat {
 	return predicate.GroupBuySeat(sql.FieldEQ(FieldSubscriptionID, v))
@@ -980,6 +990,29 @@ func HasBoundAPIKey() predicate.GroupBuySeat {
 func HasBoundAPIKeyWith(preds ...predicate.APIKey) predicate.GroupBuySeat {
 	return predicate.GroupBuySeat(func(s *sql.Selector) {
 		step := newBoundAPIKeyStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasRefunds applies the HasEdge predicate on the "refunds" edge.
+func HasRefunds() predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, RefundsTable, RefundsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasRefundsWith applies the HasEdge predicate on the "refunds" edge with a given conditions (other predicates).
+func HasRefundsWith(preds ...predicate.GroupBuyRefund) predicate.GroupBuySeat {
+	return predicate.GroupBuySeat(func(s *sql.Selector) {
+		step := newRefundsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

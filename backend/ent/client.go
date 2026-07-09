@@ -31,6 +31,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -98,6 +99,8 @@ type Client struct {
 	GroupBuyEvent *GroupBuyEventClient
 	// GroupBuyPlan is the client for interacting with the GroupBuyPlan builders.
 	GroupBuyPlan *GroupBuyPlanClient
+	// GroupBuyRefund is the client for interacting with the GroupBuyRefund builders.
+	GroupBuyRefund *GroupBuyRefundClient
 	// GroupBuyRound is the client for interacting with the GroupBuyRound builders.
 	GroupBuyRound *GroupBuyRoundClient
 	// GroupBuySeat is the client for interacting with the GroupBuySeat builders.
@@ -177,6 +180,7 @@ func (c *Client) init() {
 	c.GroupBuyEntitlement = NewGroupBuyEntitlementClient(c.config)
 	c.GroupBuyEvent = NewGroupBuyEventClient(c.config)
 	c.GroupBuyPlan = NewGroupBuyPlanClient(c.config)
+	c.GroupBuyRefund = NewGroupBuyRefundClient(c.config)
 	c.GroupBuyRound = NewGroupBuyRoundClient(c.config)
 	c.GroupBuySeat = NewGroupBuySeatClient(c.config)
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
@@ -311,6 +315,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		GroupBuyEntitlement:           NewGroupBuyEntitlementClient(cfg),
 		GroupBuyEvent:                 NewGroupBuyEventClient(cfg),
 		GroupBuyPlan:                  NewGroupBuyPlanClient(cfg),
+		GroupBuyRefund:                NewGroupBuyRefundClient(cfg),
 		GroupBuyRound:                 NewGroupBuyRoundClient(cfg),
 		GroupBuySeat:                  NewGroupBuySeatClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
@@ -372,6 +377,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		GroupBuyEntitlement:           NewGroupBuyEntitlementClient(cfg),
 		GroupBuyEvent:                 NewGroupBuyEventClient(cfg),
 		GroupBuyPlan:                  NewGroupBuyPlanClient(cfg),
+		GroupBuyRefund:                NewGroupBuyRefundClient(cfg),
 		GroupBuyRound:                 NewGroupBuyRoundClient(cfg),
 		GroupBuySeat:                  NewGroupBuySeatClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
@@ -431,14 +437,15 @@ func (c *Client) Use(hooks ...Hook) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
-		c.GroupBuyEntitlement, c.GroupBuyEvent, c.GroupBuyPlan, c.GroupBuyRound,
-		c.GroupBuySeat, c.IdempotencyRecord, c.IdentityAdoptionDecision,
-		c.InvoiceRequest, c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
-		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
-		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.SupportTicket,
-		c.SupportTicketMessage, c.TLSFingerprintProfile, c.UsageCleanupTask,
-		c.UsageLog, c.User, c.UserAllowedGroup, c.UserAttributeDefinition,
-		c.UserAttributeValue, c.UserSubscription,
+		c.GroupBuyEntitlement, c.GroupBuyEvent, c.GroupBuyPlan, c.GroupBuyRefund,
+		c.GroupBuyRound, c.GroupBuySeat, c.IdempotencyRecord,
+		c.IdentityAdoptionDecision, c.InvoiceRequest, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.SupportTicket, c.SupportTicketMessage,
+		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
+		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -452,14 +459,15 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.AuthIdentity, c.AuthIdentityChannel, c.ChannelMonitor,
 		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
-		c.GroupBuyEntitlement, c.GroupBuyEvent, c.GroupBuyPlan, c.GroupBuyRound,
-		c.GroupBuySeat, c.IdempotencyRecord, c.IdentityAdoptionDecision,
-		c.InvoiceRequest, c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
-		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
-		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.SupportTicket,
-		c.SupportTicketMessage, c.TLSFingerprintProfile, c.UsageCleanupTask,
-		c.UsageLog, c.User, c.UserAllowedGroup, c.UserAttributeDefinition,
-		c.UserAttributeValue, c.UserSubscription,
+		c.GroupBuyEntitlement, c.GroupBuyEvent, c.GroupBuyPlan, c.GroupBuyRefund,
+		c.GroupBuyRound, c.GroupBuySeat, c.IdempotencyRecord,
+		c.IdentityAdoptionDecision, c.InvoiceRequest, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.SupportTicket, c.SupportTicketMessage,
+		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
+		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -500,6 +508,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.GroupBuyEvent.mutate(ctx, m)
 	case *GroupBuyPlanMutation:
 		return c.GroupBuyPlan.mutate(ctx, m)
+	case *GroupBuyRefundMutation:
+		return c.GroupBuyRefund.mutate(ctx, m)
 	case *GroupBuyRoundMutation:
 		return c.GroupBuyRound.mutate(ctx, m)
 	case *GroupBuySeatMutation:
@@ -2943,6 +2953,22 @@ func (c *GroupBuyEntitlementClient) QuerySubscription(_m *GroupBuyEntitlement) *
 	return query
 }
 
+// QueryManagedSubscription queries the managed_subscription edge of a GroupBuyEntitlement.
+func (c *GroupBuyEntitlementClient) QueryManagedSubscription(_m *GroupBuyEntitlement) *UserSubscriptionQuery {
+	query := (&UserSubscriptionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyentitlement.Table, groupbuyentitlement.FieldID, id),
+			sqlgraph.To(usersubscription.Table, usersubscription.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyentitlement.ManagedSubscriptionTable, groupbuyentitlement.ManagedSubscriptionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryBoundAPIKey queries the bound_api_key edge of a GroupBuyEntitlement.
 func (c *GroupBuyEntitlementClient) QueryBoundAPIKey(_m *GroupBuyEntitlement) *APIKeyQuery {
 	query := (&APIKeyClient{config: c.config}).Query()
@@ -3378,6 +3404,187 @@ func (c *GroupBuyPlanClient) mutate(ctx context.Context, m *GroupBuyPlanMutation
 	}
 }
 
+// GroupBuyRefundClient is a client for the GroupBuyRefund schema.
+type GroupBuyRefundClient struct {
+	config
+}
+
+// NewGroupBuyRefundClient returns a client for the GroupBuyRefund from the given config.
+func NewGroupBuyRefundClient(c config) *GroupBuyRefundClient {
+	return &GroupBuyRefundClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `groupbuyrefund.Hooks(f(g(h())))`.
+func (c *GroupBuyRefundClient) Use(hooks ...Hook) {
+	c.hooks.GroupBuyRefund = append(c.hooks.GroupBuyRefund, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `groupbuyrefund.Intercept(f(g(h())))`.
+func (c *GroupBuyRefundClient) Intercept(interceptors ...Interceptor) {
+	c.inters.GroupBuyRefund = append(c.inters.GroupBuyRefund, interceptors...)
+}
+
+// Create returns a builder for creating a GroupBuyRefund entity.
+func (c *GroupBuyRefundClient) Create() *GroupBuyRefundCreate {
+	mutation := newGroupBuyRefundMutation(c.config, OpCreate)
+	return &GroupBuyRefundCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of GroupBuyRefund entities.
+func (c *GroupBuyRefundClient) CreateBulk(builders ...*GroupBuyRefundCreate) *GroupBuyRefundCreateBulk {
+	return &GroupBuyRefundCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *GroupBuyRefundClient) MapCreateBulk(slice any, setFunc func(*GroupBuyRefundCreate, int)) *GroupBuyRefundCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &GroupBuyRefundCreateBulk{err: fmt.Errorf("calling to GroupBuyRefundClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*GroupBuyRefundCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &GroupBuyRefundCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for GroupBuyRefund.
+func (c *GroupBuyRefundClient) Update() *GroupBuyRefundUpdate {
+	mutation := newGroupBuyRefundMutation(c.config, OpUpdate)
+	return &GroupBuyRefundUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *GroupBuyRefundClient) UpdateOne(_m *GroupBuyRefund) *GroupBuyRefundUpdateOne {
+	mutation := newGroupBuyRefundMutation(c.config, OpUpdateOne, withGroupBuyRefund(_m))
+	return &GroupBuyRefundUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *GroupBuyRefundClient) UpdateOneID(id int64) *GroupBuyRefundUpdateOne {
+	mutation := newGroupBuyRefundMutation(c.config, OpUpdateOne, withGroupBuyRefundID(id))
+	return &GroupBuyRefundUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for GroupBuyRefund.
+func (c *GroupBuyRefundClient) Delete() *GroupBuyRefundDelete {
+	mutation := newGroupBuyRefundMutation(c.config, OpDelete)
+	return &GroupBuyRefundDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *GroupBuyRefundClient) DeleteOne(_m *GroupBuyRefund) *GroupBuyRefundDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *GroupBuyRefundClient) DeleteOneID(id int64) *GroupBuyRefundDeleteOne {
+	builder := c.Delete().Where(groupbuyrefund.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &GroupBuyRefundDeleteOne{builder}
+}
+
+// Query returns a query builder for GroupBuyRefund.
+func (c *GroupBuyRefundClient) Query() *GroupBuyRefundQuery {
+	return &GroupBuyRefundQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeGroupBuyRefund},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a GroupBuyRefund entity by its id.
+func (c *GroupBuyRefundClient) Get(ctx context.Context, id int64) (*GroupBuyRefund, error) {
+	return c.Query().Where(groupbuyrefund.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *GroupBuyRefundClient) GetX(ctx context.Context, id int64) *GroupBuyRefund {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QuerySeat queries the seat edge of a GroupBuyRefund.
+func (c *GroupBuyRefundClient) QuerySeat(_m *GroupBuyRefund) *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyrefund.Table, groupbuyrefund.FieldID, id),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyrefund.SeatTable, groupbuyrefund.SeatColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryOrder queries the order edge of a GroupBuyRefund.
+func (c *GroupBuyRefundClient) QueryOrder(_m *GroupBuyRefund) *PaymentOrderQuery {
+	query := (&PaymentOrderClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyrefund.Table, groupbuyrefund.FieldID, id),
+			sqlgraph.To(paymentorder.Table, paymentorder.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyrefund.OrderTable, groupbuyrefund.OrderColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUser queries the user edge of a GroupBuyRefund.
+func (c *GroupBuyRefundClient) QueryUser(_m *GroupBuyRefund) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyrefund.Table, groupbuyrefund.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyrefund.UserTable, groupbuyrefund.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *GroupBuyRefundClient) Hooks() []Hook {
+	return c.hooks.GroupBuyRefund
+}
+
+// Interceptors returns the client interceptors.
+func (c *GroupBuyRefundClient) Interceptors() []Interceptor {
+	return c.inters.GroupBuyRefund
+}
+
+func (c *GroupBuyRefundClient) mutate(ctx context.Context, m *GroupBuyRefundMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&GroupBuyRefundCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&GroupBuyRefundUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&GroupBuyRefundUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&GroupBuyRefundDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown GroupBuyRefund mutation op: %q", m.Op())
+	}
+}
+
 // GroupBuyRoundClient is a client for the GroupBuyRound schema.
 type GroupBuyRoundClient struct {
 	config
@@ -3756,6 +3963,22 @@ func (c *GroupBuySeatClient) QueryBoundAPIKey(_m *GroupBuySeat) *APIKeyQuery {
 			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
 			sqlgraph.To(apikey.Table, apikey.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyseat.BoundAPIKeyTable, groupbuyseat.BoundAPIKeyColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRefunds queries the refunds edge of a GroupBuySeat.
+func (c *GroupBuySeatClient) QueryRefunds(_m *GroupBuySeat) *GroupBuyRefundQuery {
+	query := (&GroupBuyRefundClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
+			sqlgraph.To(groupbuyrefund.Table, groupbuyrefund.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyseat.RefundsTable, groupbuyseat.RefundsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -4517,6 +4740,22 @@ func (c *PaymentOrderClient) QueryGroupBuySeat(_m *PaymentOrder) *GroupBuySeatQu
 			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, id),
 			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
 			sqlgraph.Edge(sqlgraph.O2O, false, paymentorder.GroupBuySeatTable, paymentorder.GroupBuySeatColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroupBuyRefunds queries the group_buy_refunds edge of a PaymentOrder.
+func (c *PaymentOrderClient) QueryGroupBuyRefunds(_m *PaymentOrder) *GroupBuyRefundQuery {
+	query := (&GroupBuyRefundClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, id),
+			sqlgraph.To(groupbuyrefund.Table, groupbuyrefund.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, paymentorder.GroupBuyRefundsTable, paymentorder.GroupBuyRefundsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -6985,6 +7224,22 @@ func (c *UserClient) QueryGroupBuyEntitlements(_m *User) *GroupBuyEntitlementQue
 	return query
 }
 
+// QueryGroupBuyRefunds queries the group_buy_refunds edge of a User.
+func (c *UserClient) QueryGroupBuyRefunds(_m *User) *GroupBuyRefundQuery {
+	query := (&GroupBuyRefundClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(groupbuyrefund.Table, groupbuyrefund.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.GroupBuyRefundsTable, user.GroupBuyRefundsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryInvoiceRequests queries the invoice_requests edge of a User.
 func (c *UserClient) QueryInvoiceRequests(_m *User) *InvoiceRequestQuery {
 	query := (&InvoiceRequestClient{config: c.config}).Query()
@@ -7728,6 +7983,22 @@ func (c *UserSubscriptionClient) QueryGroupBuyEntitlements(_m *UserSubscription)
 	return query
 }
 
+// QueryManagedGroupBuyEntitlements queries the managed_group_buy_entitlements edge of a UserSubscription.
+func (c *UserSubscriptionClient) QueryManagedGroupBuyEntitlements(_m *UserSubscription) *GroupBuyEntitlementQuery {
+	query := (&GroupBuyEntitlementClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(usersubscription.Table, usersubscription.FieldID, id),
+			sqlgraph.To(groupbuyentitlement.Table, groupbuyentitlement.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, usersubscription.ManagedGroupBuyEntitlementsTable, usersubscription.ManagedGroupBuyEntitlementsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *UserSubscriptionClient) Hooks() []Hook {
 	hooks := c.hooks.UserSubscription
@@ -7761,25 +8032,25 @@ type (
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
-		Group, GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRound,
-		GroupBuySeat, IdempotencyRecord, IdentityAdoptionDecision, InvoiceRequest,
-		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, SupportTicket, SupportTicketMessage, TLSFingerprintProfile,
-		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
-		UserAttributeValue, UserSubscription []ent.Hook
+		Group, GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRefund,
+		GroupBuyRound, GroupBuySeat, IdempotencyRecord, IdentityAdoptionDecision,
+		InvoiceRequest, PaymentAuditLog, PaymentOrder, PaymentProviderInstance,
+		PendingAuthSession, PromoCode, PromoCodeUsage, Proxy, RedeemCode,
+		SecuritySecret, Setting, SubscriptionPlan, SupportTicket, SupportTicketMessage,
+		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
+		UserAttributeDefinition, UserAttributeValue, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
 		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
-		Group, GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRound,
-		GroupBuySeat, IdempotencyRecord, IdentityAdoptionDecision, InvoiceRequest,
-		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, SupportTicket, SupportTicketMessage, TLSFingerprintProfile,
-		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
-		UserAttributeValue, UserSubscription []ent.Interceptor
+		Group, GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRefund,
+		GroupBuyRound, GroupBuySeat, IdempotencyRecord, IdentityAdoptionDecision,
+		InvoiceRequest, PaymentAuditLog, PaymentOrder, PaymentProviderInstance,
+		PendingAuthSession, PromoCode, PromoCodeUsage, Proxy, RedeemCode,
+		SecuritySecret, Setting, SubscriptionPlan, SupportTicket, SupportTicketMessage,
+		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
+		UserAttributeDefinition, UserAttributeValue, UserSubscription []ent.Interceptor
 	}
 )
 

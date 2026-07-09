@@ -28,6 +28,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -83,6 +84,7 @@ const (
 	TypeGroupBuyEntitlement           = "GroupBuyEntitlement"
 	TypeGroupBuyEvent                 = "GroupBuyEvent"
 	TypeGroupBuyPlan                  = "GroupBuyPlan"
+	TypeGroupBuyRefund                = "GroupBuyRefund"
 	TypeGroupBuyRound                 = "GroupBuyRound"
 	TypeGroupBuySeat                  = "GroupBuySeat"
 	TypeIdempotencyRecord             = "IdempotencyRecord"
@@ -19090,31 +19092,33 @@ func (m *GroupMutation) ResetEdge(name string) error {
 // GroupBuyEntitlementMutation represents an operation that mutates the GroupBuyEntitlement nodes in the graph.
 type GroupBuyEntitlementMutation struct {
 	config
-	op                    Op
-	typ                   string
-	id                    *int64
-	product_key           *string
-	status                *string
-	active_share_count    *int
-	addactive_share_count *int
-	last_activated_at     *time.Time
-	expires_at            *time.Time
-	refreshed_at          *time.Time
-	deactivated_at        *time.Time
-	created_at            *time.Time
-	updated_at            *time.Time
-	clearedFields         map[string]struct{}
-	user                  *int64
-	cleareduser           bool
-	target_group          *int64
-	clearedtarget_group   bool
-	subscription          *int64
-	clearedsubscription   bool
-	bound_api_key         *int64
-	clearedbound_api_key  bool
-	done                  bool
-	oldValue              func(context.Context) (*GroupBuyEntitlement, error)
-	predicates            []predicate.GroupBuyEntitlement
+	op                          Op
+	typ                         string
+	id                          *int64
+	product_key                 *string
+	status                      *string
+	active_share_count          *int
+	addactive_share_count       *int
+	last_activated_at           *time.Time
+	expires_at                  *time.Time
+	refreshed_at                *time.Time
+	deactivated_at              *time.Time
+	created_at                  *time.Time
+	updated_at                  *time.Time
+	clearedFields               map[string]struct{}
+	user                        *int64
+	cleareduser                 bool
+	target_group                *int64
+	clearedtarget_group         bool
+	subscription                *int64
+	clearedsubscription         bool
+	managed_subscription        *int64
+	clearedmanaged_subscription bool
+	bound_api_key               *int64
+	clearedbound_api_key        bool
+	done                        bool
+	oldValue                    func(context.Context) (*GroupBuyEntitlement, error)
+	predicates                  []predicate.GroupBuyEntitlement
 }
 
 var _ ent.Mutation = (*GroupBuyEntitlementMutation)(nil)
@@ -19475,6 +19479,55 @@ func (m *GroupBuyEntitlementMutation) SubscriptionIDCleared() bool {
 func (m *GroupBuyEntitlementMutation) ResetSubscriptionID() {
 	m.subscription = nil
 	delete(m.clearedFields, groupbuyentitlement.FieldSubscriptionID)
+}
+
+// SetManagedSubscriptionID sets the "managed_subscription_id" field.
+func (m *GroupBuyEntitlementMutation) SetManagedSubscriptionID(i int64) {
+	m.managed_subscription = &i
+}
+
+// ManagedSubscriptionID returns the value of the "managed_subscription_id" field in the mutation.
+func (m *GroupBuyEntitlementMutation) ManagedSubscriptionID() (r int64, exists bool) {
+	v := m.managed_subscription
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldManagedSubscriptionID returns the old "managed_subscription_id" field's value of the GroupBuyEntitlement entity.
+// If the GroupBuyEntitlement object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyEntitlementMutation) OldManagedSubscriptionID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldManagedSubscriptionID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldManagedSubscriptionID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldManagedSubscriptionID: %w", err)
+	}
+	return oldValue.ManagedSubscriptionID, nil
+}
+
+// ClearManagedSubscriptionID clears the value of the "managed_subscription_id" field.
+func (m *GroupBuyEntitlementMutation) ClearManagedSubscriptionID() {
+	m.managed_subscription = nil
+	m.clearedFields[groupbuyentitlement.FieldManagedSubscriptionID] = struct{}{}
+}
+
+// ManagedSubscriptionIDCleared returns if the "managed_subscription_id" field was cleared in this mutation.
+func (m *GroupBuyEntitlementMutation) ManagedSubscriptionIDCleared() bool {
+	_, ok := m.clearedFields[groupbuyentitlement.FieldManagedSubscriptionID]
+	return ok
+}
+
+// ResetManagedSubscriptionID resets all changes to the "managed_subscription_id" field.
+func (m *GroupBuyEntitlementMutation) ResetManagedSubscriptionID() {
+	m.managed_subscription = nil
+	delete(m.clearedFields, groupbuyentitlement.FieldManagedSubscriptionID)
 }
 
 // SetBoundAPIKeyID sets the "bound_api_key_id" field.
@@ -19862,6 +19915,33 @@ func (m *GroupBuyEntitlementMutation) ResetSubscription() {
 	m.clearedsubscription = false
 }
 
+// ClearManagedSubscription clears the "managed_subscription" edge to the UserSubscription entity.
+func (m *GroupBuyEntitlementMutation) ClearManagedSubscription() {
+	m.clearedmanaged_subscription = true
+	m.clearedFields[groupbuyentitlement.FieldManagedSubscriptionID] = struct{}{}
+}
+
+// ManagedSubscriptionCleared reports if the "managed_subscription" edge to the UserSubscription entity was cleared.
+func (m *GroupBuyEntitlementMutation) ManagedSubscriptionCleared() bool {
+	return m.ManagedSubscriptionIDCleared() || m.clearedmanaged_subscription
+}
+
+// ManagedSubscriptionIDs returns the "managed_subscription" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// ManagedSubscriptionID instead. It exists only for internal usage by the builders.
+func (m *GroupBuyEntitlementMutation) ManagedSubscriptionIDs() (ids []int64) {
+	if id := m.managed_subscription; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetManagedSubscription resets all changes to the "managed_subscription" edge.
+func (m *GroupBuyEntitlementMutation) ResetManagedSubscription() {
+	m.managed_subscription = nil
+	m.clearedmanaged_subscription = false
+}
+
 // ClearBoundAPIKey clears the "bound_api_key" edge to the APIKey entity.
 func (m *GroupBuyEntitlementMutation) ClearBoundAPIKey() {
 	m.clearedbound_api_key = true
@@ -19923,7 +20003,7 @@ func (m *GroupBuyEntitlementMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupBuyEntitlementMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 14)
 	if m.user != nil {
 		fields = append(fields, groupbuyentitlement.FieldUserID)
 	}
@@ -19941,6 +20021,9 @@ func (m *GroupBuyEntitlementMutation) Fields() []string {
 	}
 	if m.subscription != nil {
 		fields = append(fields, groupbuyentitlement.FieldSubscriptionID)
+	}
+	if m.managed_subscription != nil {
+		fields = append(fields, groupbuyentitlement.FieldManagedSubscriptionID)
 	}
 	if m.bound_api_key != nil {
 		fields = append(fields, groupbuyentitlement.FieldBoundAPIKeyID)
@@ -19983,6 +20066,8 @@ func (m *GroupBuyEntitlementMutation) Field(name string) (ent.Value, bool) {
 		return m.TargetGroupID()
 	case groupbuyentitlement.FieldSubscriptionID:
 		return m.SubscriptionID()
+	case groupbuyentitlement.FieldManagedSubscriptionID:
+		return m.ManagedSubscriptionID()
 	case groupbuyentitlement.FieldBoundAPIKeyID:
 		return m.BoundAPIKeyID()
 	case groupbuyentitlement.FieldLastActivatedAt:
@@ -20018,6 +20103,8 @@ func (m *GroupBuyEntitlementMutation) OldField(ctx context.Context, name string)
 		return m.OldTargetGroupID(ctx)
 	case groupbuyentitlement.FieldSubscriptionID:
 		return m.OldSubscriptionID(ctx)
+	case groupbuyentitlement.FieldManagedSubscriptionID:
+		return m.OldManagedSubscriptionID(ctx)
 	case groupbuyentitlement.FieldBoundAPIKeyID:
 		return m.OldBoundAPIKeyID(ctx)
 	case groupbuyentitlement.FieldLastActivatedAt:
@@ -20082,6 +20169,13 @@ func (m *GroupBuyEntitlementMutation) SetField(name string, value ent.Value) err
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetSubscriptionID(v)
+		return nil
+	case groupbuyentitlement.FieldManagedSubscriptionID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetManagedSubscriptionID(v)
 		return nil
 	case groupbuyentitlement.FieldBoundAPIKeyID:
 		v, ok := value.(int64)
@@ -20183,6 +20277,9 @@ func (m *GroupBuyEntitlementMutation) ClearedFields() []string {
 	if m.FieldCleared(groupbuyentitlement.FieldSubscriptionID) {
 		fields = append(fields, groupbuyentitlement.FieldSubscriptionID)
 	}
+	if m.FieldCleared(groupbuyentitlement.FieldManagedSubscriptionID) {
+		fields = append(fields, groupbuyentitlement.FieldManagedSubscriptionID)
+	}
 	if m.FieldCleared(groupbuyentitlement.FieldBoundAPIKeyID) {
 		fields = append(fields, groupbuyentitlement.FieldBoundAPIKeyID)
 	}
@@ -20214,6 +20311,9 @@ func (m *GroupBuyEntitlementMutation) ClearField(name string) error {
 		return nil
 	case groupbuyentitlement.FieldSubscriptionID:
 		m.ClearSubscriptionID()
+		return nil
+	case groupbuyentitlement.FieldManagedSubscriptionID:
+		m.ClearManagedSubscriptionID()
 		return nil
 	case groupbuyentitlement.FieldBoundAPIKeyID:
 		m.ClearBoundAPIKeyID()
@@ -20253,6 +20353,9 @@ func (m *GroupBuyEntitlementMutation) ResetField(name string) error {
 	case groupbuyentitlement.FieldSubscriptionID:
 		m.ResetSubscriptionID()
 		return nil
+	case groupbuyentitlement.FieldManagedSubscriptionID:
+		m.ResetManagedSubscriptionID()
+		return nil
 	case groupbuyentitlement.FieldBoundAPIKeyID:
 		m.ResetBoundAPIKeyID()
 		return nil
@@ -20280,7 +20383,7 @@ func (m *GroupBuyEntitlementMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *GroupBuyEntitlementMutation) AddedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.user != nil {
 		edges = append(edges, groupbuyentitlement.EdgeUser)
 	}
@@ -20289,6 +20392,9 @@ func (m *GroupBuyEntitlementMutation) AddedEdges() []string {
 	}
 	if m.subscription != nil {
 		edges = append(edges, groupbuyentitlement.EdgeSubscription)
+	}
+	if m.managed_subscription != nil {
+		edges = append(edges, groupbuyentitlement.EdgeManagedSubscription)
 	}
 	if m.bound_api_key != nil {
 		edges = append(edges, groupbuyentitlement.EdgeBoundAPIKey)
@@ -20312,6 +20418,10 @@ func (m *GroupBuyEntitlementMutation) AddedIDs(name string) []ent.Value {
 		if id := m.subscription; id != nil {
 			return []ent.Value{*id}
 		}
+	case groupbuyentitlement.EdgeManagedSubscription:
+		if id := m.managed_subscription; id != nil {
+			return []ent.Value{*id}
+		}
 	case groupbuyentitlement.EdgeBoundAPIKey:
 		if id := m.bound_api_key; id != nil {
 			return []ent.Value{*id}
@@ -20322,7 +20432,7 @@ func (m *GroupBuyEntitlementMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *GroupBuyEntitlementMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	return edges
 }
 
@@ -20334,7 +20444,7 @@ func (m *GroupBuyEntitlementMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *GroupBuyEntitlementMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 4)
+	edges := make([]string, 0, 5)
 	if m.cleareduser {
 		edges = append(edges, groupbuyentitlement.EdgeUser)
 	}
@@ -20343,6 +20453,9 @@ func (m *GroupBuyEntitlementMutation) ClearedEdges() []string {
 	}
 	if m.clearedsubscription {
 		edges = append(edges, groupbuyentitlement.EdgeSubscription)
+	}
+	if m.clearedmanaged_subscription {
+		edges = append(edges, groupbuyentitlement.EdgeManagedSubscription)
 	}
 	if m.clearedbound_api_key {
 		edges = append(edges, groupbuyentitlement.EdgeBoundAPIKey)
@@ -20360,6 +20473,8 @@ func (m *GroupBuyEntitlementMutation) EdgeCleared(name string) bool {
 		return m.clearedtarget_group
 	case groupbuyentitlement.EdgeSubscription:
 		return m.clearedsubscription
+	case groupbuyentitlement.EdgeManagedSubscription:
+		return m.clearedmanaged_subscription
 	case groupbuyentitlement.EdgeBoundAPIKey:
 		return m.clearedbound_api_key
 	}
@@ -20378,6 +20493,9 @@ func (m *GroupBuyEntitlementMutation) ClearEdge(name string) error {
 		return nil
 	case groupbuyentitlement.EdgeSubscription:
 		m.ClearSubscription()
+		return nil
+	case groupbuyentitlement.EdgeManagedSubscription:
+		m.ClearManagedSubscription()
 		return nil
 	case groupbuyentitlement.EdgeBoundAPIKey:
 		m.ClearBoundAPIKey()
@@ -20398,6 +20516,9 @@ func (m *GroupBuyEntitlementMutation) ResetEdge(name string) error {
 		return nil
 	case groupbuyentitlement.EdgeSubscription:
 		m.ResetSubscription()
+		return nil
+	case groupbuyentitlement.EdgeManagedSubscription:
+		m.ResetManagedSubscription()
 		return nil
 	case groupbuyentitlement.EdgeBoundAPIKey:
 		m.ResetBoundAPIKey()
@@ -21447,6 +21568,8 @@ type GroupBuyPlanMutation struct {
 	max_shares_per_user    *int
 	addmax_shares_per_user *int
 	tier_group_ids         *map[string]int64
+	tier_rules             *[]domain.GroupBuyTierRule
+	appendtier_rules       []domain.GroupBuyTierRule
 	validity_days          *int
 	addvalidity_days       *int
 	timeout_minutes        *int
@@ -22240,6 +22363,71 @@ func (m *GroupBuyPlanMutation) ResetTierGroupIds() {
 	delete(m.clearedFields, groupbuyplan.FieldTierGroupIds)
 }
 
+// SetTierRules sets the "tier_rules" field.
+func (m *GroupBuyPlanMutation) SetTierRules(dbtr []domain.GroupBuyTierRule) {
+	m.tier_rules = &dbtr
+	m.appendtier_rules = nil
+}
+
+// TierRules returns the value of the "tier_rules" field in the mutation.
+func (m *GroupBuyPlanMutation) TierRules() (r []domain.GroupBuyTierRule, exists bool) {
+	v := m.tier_rules
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTierRules returns the old "tier_rules" field's value of the GroupBuyPlan entity.
+// If the GroupBuyPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyPlanMutation) OldTierRules(ctx context.Context) (v []domain.GroupBuyTierRule, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTierRules is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTierRules requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTierRules: %w", err)
+	}
+	return oldValue.TierRules, nil
+}
+
+// AppendTierRules adds dbtr to the "tier_rules" field.
+func (m *GroupBuyPlanMutation) AppendTierRules(dbtr []domain.GroupBuyTierRule) {
+	m.appendtier_rules = append(m.appendtier_rules, dbtr...)
+}
+
+// AppendedTierRules returns the list of values that were appended to the "tier_rules" field in this mutation.
+func (m *GroupBuyPlanMutation) AppendedTierRules() ([]domain.GroupBuyTierRule, bool) {
+	if len(m.appendtier_rules) == 0 {
+		return nil, false
+	}
+	return m.appendtier_rules, true
+}
+
+// ClearTierRules clears the value of the "tier_rules" field.
+func (m *GroupBuyPlanMutation) ClearTierRules() {
+	m.tier_rules = nil
+	m.appendtier_rules = nil
+	m.clearedFields[groupbuyplan.FieldTierRules] = struct{}{}
+}
+
+// TierRulesCleared returns if the "tier_rules" field was cleared in this mutation.
+func (m *GroupBuyPlanMutation) TierRulesCleared() bool {
+	_, ok := m.clearedFields[groupbuyplan.FieldTierRules]
+	return ok
+}
+
+// ResetTierRules resets all changes to the "tier_rules" field.
+func (m *GroupBuyPlanMutation) ResetTierRules() {
+	m.tier_rules = nil
+	m.appendtier_rules = nil
+	delete(m.clearedFields, groupbuyplan.FieldTierRules)
+}
+
 // SetValidityDays sets the "validity_days" field.
 func (m *GroupBuyPlanMutation) SetValidityDays(i int) {
 	m.validity_days = &i
@@ -22886,7 +23074,7 @@ func (m *GroupBuyPlanMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupBuyPlanMutation) Fields() []string {
-	fields := make([]string, 0, 24)
+	fields := make([]string, 0, 25)
 	if m.created_at != nil {
 		fields = append(fields, groupbuyplan.FieldCreatedAt)
 	}
@@ -22931,6 +23119,9 @@ func (m *GroupBuyPlanMutation) Fields() []string {
 	}
 	if m.tier_group_ids != nil {
 		fields = append(fields, groupbuyplan.FieldTierGroupIds)
+	}
+	if m.tier_rules != nil {
+		fields = append(fields, groupbuyplan.FieldTierRules)
 	}
 	if m.validity_days != nil {
 		fields = append(fields, groupbuyplan.FieldValidityDays)
@@ -22997,6 +23188,8 @@ func (m *GroupBuyPlanMutation) Field(name string) (ent.Value, bool) {
 		return m.TargetGroupID()
 	case groupbuyplan.FieldTierGroupIds:
 		return m.TierGroupIds()
+	case groupbuyplan.FieldTierRules:
+		return m.TierRules()
 	case groupbuyplan.FieldValidityDays:
 		return m.ValidityDays()
 	case groupbuyplan.FieldTimeoutMinutes:
@@ -23054,6 +23247,8 @@ func (m *GroupBuyPlanMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldTargetGroupID(ctx)
 	case groupbuyplan.FieldTierGroupIds:
 		return m.OldTierGroupIds(ctx)
+	case groupbuyplan.FieldTierRules:
+		return m.OldTierRules(ctx)
 	case groupbuyplan.FieldValidityDays:
 		return m.OldValidityDays(ctx)
 	case groupbuyplan.FieldTimeoutMinutes:
@@ -23185,6 +23380,13 @@ func (m *GroupBuyPlanMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetTierGroupIds(v)
+		return nil
+	case groupbuyplan.FieldTierRules:
+		v, ok := value.([]domain.GroupBuyTierRule)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTierRules(v)
 		return nil
 	case groupbuyplan.FieldValidityDays:
 		v, ok := value.(int)
@@ -23384,6 +23586,9 @@ func (m *GroupBuyPlanMutation) ClearedFields() []string {
 	if m.FieldCleared(groupbuyplan.FieldTierGroupIds) {
 		fields = append(fields, groupbuyplan.FieldTierGroupIds)
 	}
+	if m.FieldCleared(groupbuyplan.FieldTierRules) {
+		fields = append(fields, groupbuyplan.FieldTierRules)
+	}
 	if m.FieldCleared(groupbuyplan.FieldAgreementText) {
 		fields = append(fields, groupbuyplan.FieldAgreementText)
 	}
@@ -23412,6 +23617,9 @@ func (m *GroupBuyPlanMutation) ClearField(name string) error {
 		return nil
 	case groupbuyplan.FieldTierGroupIds:
 		m.ClearTierGroupIds()
+		return nil
+	case groupbuyplan.FieldTierRules:
+		m.ClearTierRules()
 		return nil
 	case groupbuyplan.FieldAgreementText:
 		m.ClearAgreementText()
@@ -23474,6 +23682,9 @@ func (m *GroupBuyPlanMutation) ResetField(name string) error {
 		return nil
 	case groupbuyplan.FieldTierGroupIds:
 		m.ResetTierGroupIds()
+		return nil
+	case groupbuyplan.FieldTierRules:
+		m.ResetTierRules()
 		return nil
 	case groupbuyplan.FieldValidityDays:
 		m.ResetValidityDays()
@@ -23658,6 +23869,1114 @@ func (m *GroupBuyPlanMutation) ResetEdge(name string) error {
 		return nil
 	}
 	return fmt.Errorf("unknown GroupBuyPlan edge %s", name)
+}
+
+// GroupBuyRefundMutation represents an operation that mutates the GroupBuyRefund nodes in the graph.
+type GroupBuyRefundMutation struct {
+	config
+	op              Op
+	typ             string
+	id              *int64
+	mode            *string
+	status          *string
+	amount          *float64
+	addamount       *float64
+	idempotency_key *string
+	note            *string
+	processed_at    *time.Time
+	created_at      *time.Time
+	updated_at      *time.Time
+	clearedFields   map[string]struct{}
+	seat            *int64
+	clearedseat     bool
+	_order          *int64
+	cleared_order   bool
+	user            *int64
+	cleareduser     bool
+	done            bool
+	oldValue        func(context.Context) (*GroupBuyRefund, error)
+	predicates      []predicate.GroupBuyRefund
+}
+
+var _ ent.Mutation = (*GroupBuyRefundMutation)(nil)
+
+// groupbuyrefundOption allows management of the mutation configuration using functional options.
+type groupbuyrefundOption func(*GroupBuyRefundMutation)
+
+// newGroupBuyRefundMutation creates new mutation for the GroupBuyRefund entity.
+func newGroupBuyRefundMutation(c config, op Op, opts ...groupbuyrefundOption) *GroupBuyRefundMutation {
+	m := &GroupBuyRefundMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeGroupBuyRefund,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withGroupBuyRefundID sets the ID field of the mutation.
+func withGroupBuyRefundID(id int64) groupbuyrefundOption {
+	return func(m *GroupBuyRefundMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *GroupBuyRefund
+		)
+		m.oldValue = func(ctx context.Context) (*GroupBuyRefund, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().GroupBuyRefund.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withGroupBuyRefund sets the old GroupBuyRefund of the mutation.
+func withGroupBuyRefund(node *GroupBuyRefund) groupbuyrefundOption {
+	return func(m *GroupBuyRefundMutation) {
+		m.oldValue = func(context.Context) (*GroupBuyRefund, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m GroupBuyRefundMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m GroupBuyRefundMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *GroupBuyRefundMutation) ID() (id int64, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *GroupBuyRefundMutation) IDs(ctx context.Context) ([]int64, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int64{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().GroupBuyRefund.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetSeatID sets the "seat_id" field.
+func (m *GroupBuyRefundMutation) SetSeatID(i int64) {
+	m.seat = &i
+}
+
+// SeatID returns the value of the "seat_id" field in the mutation.
+func (m *GroupBuyRefundMutation) SeatID() (r int64, exists bool) {
+	v := m.seat
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSeatID returns the old "seat_id" field's value of the GroupBuyRefund entity.
+// If the GroupBuyRefund object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRefundMutation) OldSeatID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSeatID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSeatID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSeatID: %w", err)
+	}
+	return oldValue.SeatID, nil
+}
+
+// ResetSeatID resets all changes to the "seat_id" field.
+func (m *GroupBuyRefundMutation) ResetSeatID() {
+	m.seat = nil
+}
+
+// SetOrderID sets the "order_id" field.
+func (m *GroupBuyRefundMutation) SetOrderID(i int64) {
+	m._order = &i
+}
+
+// OrderID returns the value of the "order_id" field in the mutation.
+func (m *GroupBuyRefundMutation) OrderID() (r int64, exists bool) {
+	v := m._order
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldOrderID returns the old "order_id" field's value of the GroupBuyRefund entity.
+// If the GroupBuyRefund object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRefundMutation) OldOrderID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldOrderID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldOrderID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldOrderID: %w", err)
+	}
+	return oldValue.OrderID, nil
+}
+
+// ClearOrderID clears the value of the "order_id" field.
+func (m *GroupBuyRefundMutation) ClearOrderID() {
+	m._order = nil
+	m.clearedFields[groupbuyrefund.FieldOrderID] = struct{}{}
+}
+
+// OrderIDCleared returns if the "order_id" field was cleared in this mutation.
+func (m *GroupBuyRefundMutation) OrderIDCleared() bool {
+	_, ok := m.clearedFields[groupbuyrefund.FieldOrderID]
+	return ok
+}
+
+// ResetOrderID resets all changes to the "order_id" field.
+func (m *GroupBuyRefundMutation) ResetOrderID() {
+	m._order = nil
+	delete(m.clearedFields, groupbuyrefund.FieldOrderID)
+}
+
+// SetUserID sets the "user_id" field.
+func (m *GroupBuyRefundMutation) SetUserID(i int64) {
+	m.user = &i
+}
+
+// UserID returns the value of the "user_id" field in the mutation.
+func (m *GroupBuyRefundMutation) UserID() (r int64, exists bool) {
+	v := m.user
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUserID returns the old "user_id" field's value of the GroupBuyRefund entity.
+// If the GroupBuyRefund object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRefundMutation) OldUserID(ctx context.Context) (v int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUserID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUserID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUserID: %w", err)
+	}
+	return oldValue.UserID, nil
+}
+
+// ResetUserID resets all changes to the "user_id" field.
+func (m *GroupBuyRefundMutation) ResetUserID() {
+	m.user = nil
+}
+
+// SetMode sets the "mode" field.
+func (m *GroupBuyRefundMutation) SetMode(s string) {
+	m.mode = &s
+}
+
+// Mode returns the value of the "mode" field in the mutation.
+func (m *GroupBuyRefundMutation) Mode() (r string, exists bool) {
+	v := m.mode
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldMode returns the old "mode" field's value of the GroupBuyRefund entity.
+// If the GroupBuyRefund object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRefundMutation) OldMode(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldMode is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldMode requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldMode: %w", err)
+	}
+	return oldValue.Mode, nil
+}
+
+// ResetMode resets all changes to the "mode" field.
+func (m *GroupBuyRefundMutation) ResetMode() {
+	m.mode = nil
+}
+
+// SetStatus sets the "status" field.
+func (m *GroupBuyRefundMutation) SetStatus(s string) {
+	m.status = &s
+}
+
+// Status returns the value of the "status" field in the mutation.
+func (m *GroupBuyRefundMutation) Status() (r string, exists bool) {
+	v := m.status
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldStatus returns the old "status" field's value of the GroupBuyRefund entity.
+// If the GroupBuyRefund object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRefundMutation) OldStatus(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldStatus is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldStatus requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldStatus: %w", err)
+	}
+	return oldValue.Status, nil
+}
+
+// ResetStatus resets all changes to the "status" field.
+func (m *GroupBuyRefundMutation) ResetStatus() {
+	m.status = nil
+}
+
+// SetAmount sets the "amount" field.
+func (m *GroupBuyRefundMutation) SetAmount(f float64) {
+	m.amount = &f
+	m.addamount = nil
+}
+
+// Amount returns the value of the "amount" field in the mutation.
+func (m *GroupBuyRefundMutation) Amount() (r float64, exists bool) {
+	v := m.amount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAmount returns the old "amount" field's value of the GroupBuyRefund entity.
+// If the GroupBuyRefund object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRefundMutation) OldAmount(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAmount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAmount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAmount: %w", err)
+	}
+	return oldValue.Amount, nil
+}
+
+// AddAmount adds f to the "amount" field.
+func (m *GroupBuyRefundMutation) AddAmount(f float64) {
+	if m.addamount != nil {
+		*m.addamount += f
+	} else {
+		m.addamount = &f
+	}
+}
+
+// AddedAmount returns the value that was added to the "amount" field in this mutation.
+func (m *GroupBuyRefundMutation) AddedAmount() (r float64, exists bool) {
+	v := m.addamount
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAmount resets all changes to the "amount" field.
+func (m *GroupBuyRefundMutation) ResetAmount() {
+	m.amount = nil
+	m.addamount = nil
+}
+
+// SetIdempotencyKey sets the "idempotency_key" field.
+func (m *GroupBuyRefundMutation) SetIdempotencyKey(s string) {
+	m.idempotency_key = &s
+}
+
+// IdempotencyKey returns the value of the "idempotency_key" field in the mutation.
+func (m *GroupBuyRefundMutation) IdempotencyKey() (r string, exists bool) {
+	v := m.idempotency_key
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIdempotencyKey returns the old "idempotency_key" field's value of the GroupBuyRefund entity.
+// If the GroupBuyRefund object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRefundMutation) OldIdempotencyKey(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIdempotencyKey is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIdempotencyKey requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIdempotencyKey: %w", err)
+	}
+	return oldValue.IdempotencyKey, nil
+}
+
+// ResetIdempotencyKey resets all changes to the "idempotency_key" field.
+func (m *GroupBuyRefundMutation) ResetIdempotencyKey() {
+	m.idempotency_key = nil
+}
+
+// SetNote sets the "note" field.
+func (m *GroupBuyRefundMutation) SetNote(s string) {
+	m.note = &s
+}
+
+// Note returns the value of the "note" field in the mutation.
+func (m *GroupBuyRefundMutation) Note() (r string, exists bool) {
+	v := m.note
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldNote returns the old "note" field's value of the GroupBuyRefund entity.
+// If the GroupBuyRefund object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRefundMutation) OldNote(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldNote is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldNote requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldNote: %w", err)
+	}
+	return oldValue.Note, nil
+}
+
+// ClearNote clears the value of the "note" field.
+func (m *GroupBuyRefundMutation) ClearNote() {
+	m.note = nil
+	m.clearedFields[groupbuyrefund.FieldNote] = struct{}{}
+}
+
+// NoteCleared returns if the "note" field was cleared in this mutation.
+func (m *GroupBuyRefundMutation) NoteCleared() bool {
+	_, ok := m.clearedFields[groupbuyrefund.FieldNote]
+	return ok
+}
+
+// ResetNote resets all changes to the "note" field.
+func (m *GroupBuyRefundMutation) ResetNote() {
+	m.note = nil
+	delete(m.clearedFields, groupbuyrefund.FieldNote)
+}
+
+// SetProcessedAt sets the "processed_at" field.
+func (m *GroupBuyRefundMutation) SetProcessedAt(t time.Time) {
+	m.processed_at = &t
+}
+
+// ProcessedAt returns the value of the "processed_at" field in the mutation.
+func (m *GroupBuyRefundMutation) ProcessedAt() (r time.Time, exists bool) {
+	v := m.processed_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProcessedAt returns the old "processed_at" field's value of the GroupBuyRefund entity.
+// If the GroupBuyRefund object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRefundMutation) OldProcessedAt(ctx context.Context) (v *time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProcessedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProcessedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProcessedAt: %w", err)
+	}
+	return oldValue.ProcessedAt, nil
+}
+
+// ClearProcessedAt clears the value of the "processed_at" field.
+func (m *GroupBuyRefundMutation) ClearProcessedAt() {
+	m.processed_at = nil
+	m.clearedFields[groupbuyrefund.FieldProcessedAt] = struct{}{}
+}
+
+// ProcessedAtCleared returns if the "processed_at" field was cleared in this mutation.
+func (m *GroupBuyRefundMutation) ProcessedAtCleared() bool {
+	_, ok := m.clearedFields[groupbuyrefund.FieldProcessedAt]
+	return ok
+}
+
+// ResetProcessedAt resets all changes to the "processed_at" field.
+func (m *GroupBuyRefundMutation) ResetProcessedAt() {
+	m.processed_at = nil
+	delete(m.clearedFields, groupbuyrefund.FieldProcessedAt)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *GroupBuyRefundMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *GroupBuyRefundMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the GroupBuyRefund entity.
+// If the GroupBuyRefund object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRefundMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *GroupBuyRefundMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUpdatedAt sets the "updated_at" field.
+func (m *GroupBuyRefundMutation) SetUpdatedAt(t time.Time) {
+	m.updated_at = &t
+}
+
+// UpdatedAt returns the value of the "updated_at" field in the mutation.
+func (m *GroupBuyRefundMutation) UpdatedAt() (r time.Time, exists bool) {
+	v := m.updated_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldUpdatedAt returns the old "updated_at" field's value of the GroupBuyRefund entity.
+// If the GroupBuyRefund object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuyRefundMutation) OldUpdatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldUpdatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldUpdatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldUpdatedAt: %w", err)
+	}
+	return oldValue.UpdatedAt, nil
+}
+
+// ResetUpdatedAt resets all changes to the "updated_at" field.
+func (m *GroupBuyRefundMutation) ResetUpdatedAt() {
+	m.updated_at = nil
+}
+
+// ClearSeat clears the "seat" edge to the GroupBuySeat entity.
+func (m *GroupBuyRefundMutation) ClearSeat() {
+	m.clearedseat = true
+	m.clearedFields[groupbuyrefund.FieldSeatID] = struct{}{}
+}
+
+// SeatCleared reports if the "seat" edge to the GroupBuySeat entity was cleared.
+func (m *GroupBuyRefundMutation) SeatCleared() bool {
+	return m.clearedseat
+}
+
+// SeatIDs returns the "seat" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// SeatID instead. It exists only for internal usage by the builders.
+func (m *GroupBuyRefundMutation) SeatIDs() (ids []int64) {
+	if id := m.seat; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetSeat resets all changes to the "seat" edge.
+func (m *GroupBuyRefundMutation) ResetSeat() {
+	m.seat = nil
+	m.clearedseat = false
+}
+
+// ClearOrder clears the "order" edge to the PaymentOrder entity.
+func (m *GroupBuyRefundMutation) ClearOrder() {
+	m.cleared_order = true
+	m.clearedFields[groupbuyrefund.FieldOrderID] = struct{}{}
+}
+
+// OrderCleared reports if the "order" edge to the PaymentOrder entity was cleared.
+func (m *GroupBuyRefundMutation) OrderCleared() bool {
+	return m.OrderIDCleared() || m.cleared_order
+}
+
+// OrderIDs returns the "order" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// OrderID instead. It exists only for internal usage by the builders.
+func (m *GroupBuyRefundMutation) OrderIDs() (ids []int64) {
+	if id := m._order; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetOrder resets all changes to the "order" edge.
+func (m *GroupBuyRefundMutation) ResetOrder() {
+	m._order = nil
+	m.cleared_order = false
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *GroupBuyRefundMutation) ClearUser() {
+	m.cleareduser = true
+	m.clearedFields[groupbuyrefund.FieldUserID] = struct{}{}
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *GroupBuyRefundMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *GroupBuyRefundMutation) UserIDs() (ids []int64) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *GroupBuyRefundMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// Where appends a list predicates to the GroupBuyRefundMutation builder.
+func (m *GroupBuyRefundMutation) Where(ps ...predicate.GroupBuyRefund) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the GroupBuyRefundMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *GroupBuyRefundMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.GroupBuyRefund, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *GroupBuyRefundMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *GroupBuyRefundMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (GroupBuyRefund).
+func (m *GroupBuyRefundMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *GroupBuyRefundMutation) Fields() []string {
+	fields := make([]string, 0, 11)
+	if m.seat != nil {
+		fields = append(fields, groupbuyrefund.FieldSeatID)
+	}
+	if m._order != nil {
+		fields = append(fields, groupbuyrefund.FieldOrderID)
+	}
+	if m.user != nil {
+		fields = append(fields, groupbuyrefund.FieldUserID)
+	}
+	if m.mode != nil {
+		fields = append(fields, groupbuyrefund.FieldMode)
+	}
+	if m.status != nil {
+		fields = append(fields, groupbuyrefund.FieldStatus)
+	}
+	if m.amount != nil {
+		fields = append(fields, groupbuyrefund.FieldAmount)
+	}
+	if m.idempotency_key != nil {
+		fields = append(fields, groupbuyrefund.FieldIdempotencyKey)
+	}
+	if m.note != nil {
+		fields = append(fields, groupbuyrefund.FieldNote)
+	}
+	if m.processed_at != nil {
+		fields = append(fields, groupbuyrefund.FieldProcessedAt)
+	}
+	if m.created_at != nil {
+		fields = append(fields, groupbuyrefund.FieldCreatedAt)
+	}
+	if m.updated_at != nil {
+		fields = append(fields, groupbuyrefund.FieldUpdatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *GroupBuyRefundMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case groupbuyrefund.FieldSeatID:
+		return m.SeatID()
+	case groupbuyrefund.FieldOrderID:
+		return m.OrderID()
+	case groupbuyrefund.FieldUserID:
+		return m.UserID()
+	case groupbuyrefund.FieldMode:
+		return m.Mode()
+	case groupbuyrefund.FieldStatus:
+		return m.Status()
+	case groupbuyrefund.FieldAmount:
+		return m.Amount()
+	case groupbuyrefund.FieldIdempotencyKey:
+		return m.IdempotencyKey()
+	case groupbuyrefund.FieldNote:
+		return m.Note()
+	case groupbuyrefund.FieldProcessedAt:
+		return m.ProcessedAt()
+	case groupbuyrefund.FieldCreatedAt:
+		return m.CreatedAt()
+	case groupbuyrefund.FieldUpdatedAt:
+		return m.UpdatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *GroupBuyRefundMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case groupbuyrefund.FieldSeatID:
+		return m.OldSeatID(ctx)
+	case groupbuyrefund.FieldOrderID:
+		return m.OldOrderID(ctx)
+	case groupbuyrefund.FieldUserID:
+		return m.OldUserID(ctx)
+	case groupbuyrefund.FieldMode:
+		return m.OldMode(ctx)
+	case groupbuyrefund.FieldStatus:
+		return m.OldStatus(ctx)
+	case groupbuyrefund.FieldAmount:
+		return m.OldAmount(ctx)
+	case groupbuyrefund.FieldIdempotencyKey:
+		return m.OldIdempotencyKey(ctx)
+	case groupbuyrefund.FieldNote:
+		return m.OldNote(ctx)
+	case groupbuyrefund.FieldProcessedAt:
+		return m.OldProcessedAt(ctx)
+	case groupbuyrefund.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	case groupbuyrefund.FieldUpdatedAt:
+		return m.OldUpdatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown GroupBuyRefund field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GroupBuyRefundMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case groupbuyrefund.FieldSeatID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSeatID(v)
+		return nil
+	case groupbuyrefund.FieldOrderID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetOrderID(v)
+		return nil
+	case groupbuyrefund.FieldUserID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUserID(v)
+		return nil
+	case groupbuyrefund.FieldMode:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetMode(v)
+		return nil
+	case groupbuyrefund.FieldStatus:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetStatus(v)
+		return nil
+	case groupbuyrefund.FieldAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAmount(v)
+		return nil
+	case groupbuyrefund.FieldIdempotencyKey:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIdempotencyKey(v)
+		return nil
+	case groupbuyrefund.FieldNote:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetNote(v)
+		return nil
+	case groupbuyrefund.FieldProcessedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProcessedAt(v)
+		return nil
+	case groupbuyrefund.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	case groupbuyrefund.FieldUpdatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetUpdatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown GroupBuyRefund field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *GroupBuyRefundMutation) AddedFields() []string {
+	var fields []string
+	if m.addamount != nil {
+		fields = append(fields, groupbuyrefund.FieldAmount)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *GroupBuyRefundMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case groupbuyrefund.FieldAmount:
+		return m.AddedAmount()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *GroupBuyRefundMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case groupbuyrefund.FieldAmount:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAmount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown GroupBuyRefund numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *GroupBuyRefundMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(groupbuyrefund.FieldOrderID) {
+		fields = append(fields, groupbuyrefund.FieldOrderID)
+	}
+	if m.FieldCleared(groupbuyrefund.FieldNote) {
+		fields = append(fields, groupbuyrefund.FieldNote)
+	}
+	if m.FieldCleared(groupbuyrefund.FieldProcessedAt) {
+		fields = append(fields, groupbuyrefund.FieldProcessedAt)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *GroupBuyRefundMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *GroupBuyRefundMutation) ClearField(name string) error {
+	switch name {
+	case groupbuyrefund.FieldOrderID:
+		m.ClearOrderID()
+		return nil
+	case groupbuyrefund.FieldNote:
+		m.ClearNote()
+		return nil
+	case groupbuyrefund.FieldProcessedAt:
+		m.ClearProcessedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown GroupBuyRefund nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *GroupBuyRefundMutation) ResetField(name string) error {
+	switch name {
+	case groupbuyrefund.FieldSeatID:
+		m.ResetSeatID()
+		return nil
+	case groupbuyrefund.FieldOrderID:
+		m.ResetOrderID()
+		return nil
+	case groupbuyrefund.FieldUserID:
+		m.ResetUserID()
+		return nil
+	case groupbuyrefund.FieldMode:
+		m.ResetMode()
+		return nil
+	case groupbuyrefund.FieldStatus:
+		m.ResetStatus()
+		return nil
+	case groupbuyrefund.FieldAmount:
+		m.ResetAmount()
+		return nil
+	case groupbuyrefund.FieldIdempotencyKey:
+		m.ResetIdempotencyKey()
+		return nil
+	case groupbuyrefund.FieldNote:
+		m.ResetNote()
+		return nil
+	case groupbuyrefund.FieldProcessedAt:
+		m.ResetProcessedAt()
+		return nil
+	case groupbuyrefund.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	case groupbuyrefund.FieldUpdatedAt:
+		m.ResetUpdatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown GroupBuyRefund field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *GroupBuyRefundMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.seat != nil {
+		edges = append(edges, groupbuyrefund.EdgeSeat)
+	}
+	if m._order != nil {
+		edges = append(edges, groupbuyrefund.EdgeOrder)
+	}
+	if m.user != nil {
+		edges = append(edges, groupbuyrefund.EdgeUser)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *GroupBuyRefundMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case groupbuyrefund.EdgeSeat:
+		if id := m.seat; id != nil {
+			return []ent.Value{*id}
+		}
+	case groupbuyrefund.EdgeOrder:
+		if id := m._order; id != nil {
+			return []ent.Value{*id}
+		}
+	case groupbuyrefund.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *GroupBuyRefundMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *GroupBuyRefundMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *GroupBuyRefundMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.clearedseat {
+		edges = append(edges, groupbuyrefund.EdgeSeat)
+	}
+	if m.cleared_order {
+		edges = append(edges, groupbuyrefund.EdgeOrder)
+	}
+	if m.cleareduser {
+		edges = append(edges, groupbuyrefund.EdgeUser)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *GroupBuyRefundMutation) EdgeCleared(name string) bool {
+	switch name {
+	case groupbuyrefund.EdgeSeat:
+		return m.clearedseat
+	case groupbuyrefund.EdgeOrder:
+		return m.cleared_order
+	case groupbuyrefund.EdgeUser:
+		return m.cleareduser
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *GroupBuyRefundMutation) ClearEdge(name string) error {
+	switch name {
+	case groupbuyrefund.EdgeSeat:
+		m.ClearSeat()
+		return nil
+	case groupbuyrefund.EdgeOrder:
+		m.ClearOrder()
+		return nil
+	case groupbuyrefund.EdgeUser:
+		m.ClearUser()
+		return nil
+	}
+	return fmt.Errorf("unknown GroupBuyRefund unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *GroupBuyRefundMutation) ResetEdge(name string) error {
+	switch name {
+	case groupbuyrefund.EdgeSeat:
+		m.ResetSeat()
+		return nil
+	case groupbuyrefund.EdgeOrder:
+		m.ResetOrder()
+		return nil
+	case groupbuyrefund.EdgeUser:
+		m.ResetUser()
+		return nil
+	}
+	return fmt.Errorf("unknown GroupBuyRefund edge %s", name)
 }
 
 // GroupBuyRoundMutation represents an operation that mutates the GroupBuyRound nodes in the graph.
@@ -25180,6 +26499,7 @@ type GroupBuySeatMutation struct {
 	status               *string
 	share_count          *int
 	addshare_count       *int
+	policy_snapshot      *domain.GroupBuyPolicySnapshot
 	locked_until         *time.Time
 	paid_at              *time.Time
 	activated_at         *time.Time
@@ -25202,6 +26522,9 @@ type GroupBuySeatMutation struct {
 	clearedsubscription  bool
 	bound_api_key        *int64
 	clearedbound_api_key bool
+	refunds              map[int64]struct{}
+	removedrefunds       map[int64]struct{}
+	clearedrefunds       bool
 	events               map[int64]struct{}
 	removedevents        map[int64]struct{}
 	clearedevents        bool
@@ -25555,6 +26878,55 @@ func (m *GroupBuySeatMutation) AddedShareCount() (r int, exists bool) {
 func (m *GroupBuySeatMutation) ResetShareCount() {
 	m.share_count = nil
 	m.addshare_count = nil
+}
+
+// SetPolicySnapshot sets the "policy_snapshot" field.
+func (m *GroupBuySeatMutation) SetPolicySnapshot(dbps domain.GroupBuyPolicySnapshot) {
+	m.policy_snapshot = &dbps
+}
+
+// PolicySnapshot returns the value of the "policy_snapshot" field in the mutation.
+func (m *GroupBuySeatMutation) PolicySnapshot() (r domain.GroupBuyPolicySnapshot, exists bool) {
+	v := m.policy_snapshot
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldPolicySnapshot returns the old "policy_snapshot" field's value of the GroupBuySeat entity.
+// If the GroupBuySeat object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupBuySeatMutation) OldPolicySnapshot(ctx context.Context) (v domain.GroupBuyPolicySnapshot, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldPolicySnapshot is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldPolicySnapshot requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldPolicySnapshot: %w", err)
+	}
+	return oldValue.PolicySnapshot, nil
+}
+
+// ClearPolicySnapshot clears the value of the "policy_snapshot" field.
+func (m *GroupBuySeatMutation) ClearPolicySnapshot() {
+	m.policy_snapshot = nil
+	m.clearedFields[groupbuyseat.FieldPolicySnapshot] = struct{}{}
+}
+
+// PolicySnapshotCleared returns if the "policy_snapshot" field was cleared in this mutation.
+func (m *GroupBuySeatMutation) PolicySnapshotCleared() bool {
+	_, ok := m.clearedFields[groupbuyseat.FieldPolicySnapshot]
+	return ok
+}
+
+// ResetPolicySnapshot resets all changes to the "policy_snapshot" field.
+func (m *GroupBuySeatMutation) ResetPolicySnapshot() {
+	m.policy_snapshot = nil
+	delete(m.clearedFields, groupbuyseat.FieldPolicySnapshot)
 }
 
 // SetSubscriptionID sets the "subscription_id" field.
@@ -26232,6 +27604,60 @@ func (m *GroupBuySeatMutation) ResetBoundAPIKey() {
 	m.clearedbound_api_key = false
 }
 
+// AddRefundIDs adds the "refunds" edge to the GroupBuyRefund entity by ids.
+func (m *GroupBuySeatMutation) AddRefundIDs(ids ...int64) {
+	if m.refunds == nil {
+		m.refunds = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.refunds[ids[i]] = struct{}{}
+	}
+}
+
+// ClearRefunds clears the "refunds" edge to the GroupBuyRefund entity.
+func (m *GroupBuySeatMutation) ClearRefunds() {
+	m.clearedrefunds = true
+}
+
+// RefundsCleared reports if the "refunds" edge to the GroupBuyRefund entity was cleared.
+func (m *GroupBuySeatMutation) RefundsCleared() bool {
+	return m.clearedrefunds
+}
+
+// RemoveRefundIDs removes the "refunds" edge to the GroupBuyRefund entity by IDs.
+func (m *GroupBuySeatMutation) RemoveRefundIDs(ids ...int64) {
+	if m.removedrefunds == nil {
+		m.removedrefunds = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.refunds, ids[i])
+		m.removedrefunds[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedRefunds returns the removed IDs of the "refunds" edge to the GroupBuyRefund entity.
+func (m *GroupBuySeatMutation) RemovedRefundsIDs() (ids []int64) {
+	for id := range m.removedrefunds {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// RefundsIDs returns the "refunds" edge IDs in the mutation.
+func (m *GroupBuySeatMutation) RefundsIDs() (ids []int64) {
+	for id := range m.refunds {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetRefunds resets all changes to the "refunds" edge.
+func (m *GroupBuySeatMutation) ResetRefunds() {
+	m.refunds = nil
+	m.clearedrefunds = false
+	m.removedrefunds = nil
+}
+
 // AddEventIDs adds the "events" edge to the GroupBuyEvent entity by ids.
 func (m *GroupBuySeatMutation) AddEventIDs(ids ...int64) {
 	if m.events == nil {
@@ -26320,7 +27746,7 @@ func (m *GroupBuySeatMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupBuySeatMutation) Fields() []string {
-	fields := make([]string, 0, 17)
+	fields := make([]string, 0, 18)
 	if m.round != nil {
 		fields = append(fields, groupbuyseat.FieldRoundID)
 	}
@@ -26338,6 +27764,9 @@ func (m *GroupBuySeatMutation) Fields() []string {
 	}
 	if m.share_count != nil {
 		fields = append(fields, groupbuyseat.FieldShareCount)
+	}
+	if m.policy_snapshot != nil {
+		fields = append(fields, groupbuyseat.FieldPolicySnapshot)
 	}
 	if m.subscription != nil {
 		fields = append(fields, groupbuyseat.FieldSubscriptionID)
@@ -26392,6 +27821,8 @@ func (m *GroupBuySeatMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case groupbuyseat.FieldShareCount:
 		return m.ShareCount()
+	case groupbuyseat.FieldPolicySnapshot:
+		return m.PolicySnapshot()
 	case groupbuyseat.FieldSubscriptionID:
 		return m.SubscriptionID()
 	case groupbuyseat.FieldBoundAPIKeyID:
@@ -26435,6 +27866,8 @@ func (m *GroupBuySeatMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldStatus(ctx)
 	case groupbuyseat.FieldShareCount:
 		return m.OldShareCount(ctx)
+	case groupbuyseat.FieldPolicySnapshot:
+		return m.OldPolicySnapshot(ctx)
 	case groupbuyseat.FieldSubscriptionID:
 		return m.OldSubscriptionID(ctx)
 	case groupbuyseat.FieldBoundAPIKeyID:
@@ -26507,6 +27940,13 @@ func (m *GroupBuySeatMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetShareCount(v)
+		return nil
+	case groupbuyseat.FieldPolicySnapshot:
+		v, ok := value.(domain.GroupBuyPolicySnapshot)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPolicySnapshot(v)
 		return nil
 	case groupbuyseat.FieldSubscriptionID:
 		v, ok := value.(int64)
@@ -26633,6 +28073,9 @@ func (m *GroupBuySeatMutation) ClearedFields() []string {
 	if m.FieldCleared(groupbuyseat.FieldOrderID) {
 		fields = append(fields, groupbuyseat.FieldOrderID)
 	}
+	if m.FieldCleared(groupbuyseat.FieldPolicySnapshot) {
+		fields = append(fields, groupbuyseat.FieldPolicySnapshot)
+	}
 	if m.FieldCleared(groupbuyseat.FieldSubscriptionID) {
 		fields = append(fields, groupbuyseat.FieldSubscriptionID)
 	}
@@ -26676,6 +28119,9 @@ func (m *GroupBuySeatMutation) ClearField(name string) error {
 	switch name {
 	case groupbuyseat.FieldOrderID:
 		m.ClearOrderID()
+		return nil
+	case groupbuyseat.FieldPolicySnapshot:
+		m.ClearPolicySnapshot()
 		return nil
 	case groupbuyseat.FieldSubscriptionID:
 		m.ClearSubscriptionID()
@@ -26730,6 +28176,9 @@ func (m *GroupBuySeatMutation) ResetField(name string) error {
 	case groupbuyseat.FieldShareCount:
 		m.ResetShareCount()
 		return nil
+	case groupbuyseat.FieldPolicySnapshot:
+		m.ResetPolicySnapshot()
+		return nil
 	case groupbuyseat.FieldSubscriptionID:
 		m.ResetSubscriptionID()
 		return nil
@@ -26769,7 +28218,7 @@ func (m *GroupBuySeatMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *GroupBuySeatMutation) AddedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.round != nil {
 		edges = append(edges, groupbuyseat.EdgeRound)
 	}
@@ -26787,6 +28236,9 @@ func (m *GroupBuySeatMutation) AddedEdges() []string {
 	}
 	if m.bound_api_key != nil {
 		edges = append(edges, groupbuyseat.EdgeBoundAPIKey)
+	}
+	if m.refunds != nil {
+		edges = append(edges, groupbuyseat.EdgeRefunds)
 	}
 	if m.events != nil {
 		edges = append(edges, groupbuyseat.EdgeEvents)
@@ -26822,6 +28274,12 @@ func (m *GroupBuySeatMutation) AddedIDs(name string) []ent.Value {
 		if id := m.bound_api_key; id != nil {
 			return []ent.Value{*id}
 		}
+	case groupbuyseat.EdgeRefunds:
+		ids := make([]ent.Value, 0, len(m.refunds))
+		for id := range m.refunds {
+			ids = append(ids, id)
+		}
+		return ids
 	case groupbuyseat.EdgeEvents:
 		ids := make([]ent.Value, 0, len(m.events))
 		for id := range m.events {
@@ -26834,7 +28292,10 @@ func (m *GroupBuySeatMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *GroupBuySeatMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
+	if m.removedrefunds != nil {
+		edges = append(edges, groupbuyseat.EdgeRefunds)
+	}
 	if m.removedevents != nil {
 		edges = append(edges, groupbuyseat.EdgeEvents)
 	}
@@ -26845,6 +28306,12 @@ func (m *GroupBuySeatMutation) RemovedEdges() []string {
 // the given name in this mutation.
 func (m *GroupBuySeatMutation) RemovedIDs(name string) []ent.Value {
 	switch name {
+	case groupbuyseat.EdgeRefunds:
+		ids := make([]ent.Value, 0, len(m.removedrefunds))
+		for id := range m.removedrefunds {
+			ids = append(ids, id)
+		}
+		return ids
 	case groupbuyseat.EdgeEvents:
 		ids := make([]ent.Value, 0, len(m.removedevents))
 		for id := range m.removedevents {
@@ -26857,7 +28324,7 @@ func (m *GroupBuySeatMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *GroupBuySeatMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 7)
+	edges := make([]string, 0, 8)
 	if m.clearedround {
 		edges = append(edges, groupbuyseat.EdgeRound)
 	}
@@ -26875,6 +28342,9 @@ func (m *GroupBuySeatMutation) ClearedEdges() []string {
 	}
 	if m.clearedbound_api_key {
 		edges = append(edges, groupbuyseat.EdgeBoundAPIKey)
+	}
+	if m.clearedrefunds {
+		edges = append(edges, groupbuyseat.EdgeRefunds)
 	}
 	if m.clearedevents {
 		edges = append(edges, groupbuyseat.EdgeEvents)
@@ -26898,6 +28368,8 @@ func (m *GroupBuySeatMutation) EdgeCleared(name string) bool {
 		return m.clearedsubscription
 	case groupbuyseat.EdgeBoundAPIKey:
 		return m.clearedbound_api_key
+	case groupbuyseat.EdgeRefunds:
+		return m.clearedrefunds
 	case groupbuyseat.EdgeEvents:
 		return m.clearedevents
 	}
@@ -26951,6 +28423,9 @@ func (m *GroupBuySeatMutation) ResetEdge(name string) error {
 		return nil
 	case groupbuyseat.EdgeBoundAPIKey:
 		m.ResetBoundAPIKey()
+		return nil
+	case groupbuyseat.EdgeRefunds:
+		m.ResetRefunds()
 		return nil
 	case groupbuyseat.EdgeEvents:
 		m.ResetEvents()
@@ -31123,6 +32598,9 @@ type PaymentOrderMutation struct {
 	cleareduser              bool
 	group_buy_seat           *int64
 	clearedgroup_buy_seat    bool
+	group_buy_refunds        map[int64]struct{}
+	removedgroup_buy_refunds map[int64]struct{}
+	clearedgroup_buy_refunds bool
 	done                     bool
 	oldValue                 func(context.Context) (*PaymentOrder, error)
 	predicates               []predicate.PaymentOrder
@@ -33099,6 +34577,60 @@ func (m *PaymentOrderMutation) ResetGroupBuySeat() {
 	m.clearedgroup_buy_seat = false
 }
 
+// AddGroupBuyRefundIDs adds the "group_buy_refunds" edge to the GroupBuyRefund entity by ids.
+func (m *PaymentOrderMutation) AddGroupBuyRefundIDs(ids ...int64) {
+	if m.group_buy_refunds == nil {
+		m.group_buy_refunds = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.group_buy_refunds[ids[i]] = struct{}{}
+	}
+}
+
+// ClearGroupBuyRefunds clears the "group_buy_refunds" edge to the GroupBuyRefund entity.
+func (m *PaymentOrderMutation) ClearGroupBuyRefunds() {
+	m.clearedgroup_buy_refunds = true
+}
+
+// GroupBuyRefundsCleared reports if the "group_buy_refunds" edge to the GroupBuyRefund entity was cleared.
+func (m *PaymentOrderMutation) GroupBuyRefundsCleared() bool {
+	return m.clearedgroup_buy_refunds
+}
+
+// RemoveGroupBuyRefundIDs removes the "group_buy_refunds" edge to the GroupBuyRefund entity by IDs.
+func (m *PaymentOrderMutation) RemoveGroupBuyRefundIDs(ids ...int64) {
+	if m.removedgroup_buy_refunds == nil {
+		m.removedgroup_buy_refunds = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.group_buy_refunds, ids[i])
+		m.removedgroup_buy_refunds[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedGroupBuyRefunds returns the removed IDs of the "group_buy_refunds" edge to the GroupBuyRefund entity.
+func (m *PaymentOrderMutation) RemovedGroupBuyRefundsIDs() (ids []int64) {
+	for id := range m.removedgroup_buy_refunds {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// GroupBuyRefundsIDs returns the "group_buy_refunds" edge IDs in the mutation.
+func (m *PaymentOrderMutation) GroupBuyRefundsIDs() (ids []int64) {
+	for id := range m.group_buy_refunds {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetGroupBuyRefunds resets all changes to the "group_buy_refunds" edge.
+func (m *PaymentOrderMutation) ResetGroupBuyRefunds() {
+	m.group_buy_refunds = nil
+	m.clearedgroup_buy_refunds = false
+	m.removedgroup_buy_refunds = nil
+}
+
 // Where appends a list predicates to the PaymentOrderMutation builder.
 func (m *PaymentOrderMutation) Where(ps ...predicate.PaymentOrder) {
 	m.predicates = append(m.predicates, ps...)
@@ -34088,12 +35620,15 @@ func (m *PaymentOrderMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *PaymentOrderMutation) AddedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.user != nil {
 		edges = append(edges, paymentorder.EdgeUser)
 	}
 	if m.group_buy_seat != nil {
 		edges = append(edges, paymentorder.EdgeGroupBuySeat)
+	}
+	if m.group_buy_refunds != nil {
+		edges = append(edges, paymentorder.EdgeGroupBuyRefunds)
 	}
 	return edges
 }
@@ -34110,30 +35645,50 @@ func (m *PaymentOrderMutation) AddedIDs(name string) []ent.Value {
 		if id := m.group_buy_seat; id != nil {
 			return []ent.Value{*id}
 		}
+	case paymentorder.EdgeGroupBuyRefunds:
+		ids := make([]ent.Value, 0, len(m.group_buy_refunds))
+		for id := range m.group_buy_refunds {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *PaymentOrderMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
+	if m.removedgroup_buy_refunds != nil {
+		edges = append(edges, paymentorder.EdgeGroupBuyRefunds)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *PaymentOrderMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case paymentorder.EdgeGroupBuyRefunds:
+		ids := make([]ent.Value, 0, len(m.removedgroup_buy_refunds))
+		for id := range m.removedgroup_buy_refunds {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *PaymentOrderMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 2)
+	edges := make([]string, 0, 3)
 	if m.cleareduser {
 		edges = append(edges, paymentorder.EdgeUser)
 	}
 	if m.clearedgroup_buy_seat {
 		edges = append(edges, paymentorder.EdgeGroupBuySeat)
+	}
+	if m.clearedgroup_buy_refunds {
+		edges = append(edges, paymentorder.EdgeGroupBuyRefunds)
 	}
 	return edges
 }
@@ -34146,6 +35701,8 @@ func (m *PaymentOrderMutation) EdgeCleared(name string) bool {
 		return m.cleareduser
 	case paymentorder.EdgeGroupBuySeat:
 		return m.clearedgroup_buy_seat
+	case paymentorder.EdgeGroupBuyRefunds:
+		return m.clearedgroup_buy_refunds
 	}
 	return false
 }
@@ -34173,6 +35730,9 @@ func (m *PaymentOrderMutation) ResetEdge(name string) error {
 		return nil
 	case paymentorder.EdgeGroupBuySeat:
 		m.ResetGroupBuySeat()
+		return nil
+	case paymentorder.EdgeGroupBuyRefunds:
+		m.ResetGroupBuyRefunds()
 		return nil
 	}
 	return fmt.Errorf("unknown PaymentOrder edge %s", name)
@@ -51008,6 +52568,9 @@ type UserMutation struct {
 	group_buy_entitlements        map[int64]struct{}
 	removedgroup_buy_entitlements map[int64]struct{}
 	clearedgroup_buy_entitlements bool
+	group_buy_refunds             map[int64]struct{}
+	removedgroup_buy_refunds      map[int64]struct{}
+	clearedgroup_buy_refunds      bool
 	invoice_requests              map[int64]struct{}
 	removedinvoice_requests       map[int64]struct{}
 	clearedinvoice_requests       bool
@@ -52904,6 +54467,60 @@ func (m *UserMutation) ResetGroupBuyEntitlements() {
 	m.removedgroup_buy_entitlements = nil
 }
 
+// AddGroupBuyRefundIDs adds the "group_buy_refunds" edge to the GroupBuyRefund entity by ids.
+func (m *UserMutation) AddGroupBuyRefundIDs(ids ...int64) {
+	if m.group_buy_refunds == nil {
+		m.group_buy_refunds = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.group_buy_refunds[ids[i]] = struct{}{}
+	}
+}
+
+// ClearGroupBuyRefunds clears the "group_buy_refunds" edge to the GroupBuyRefund entity.
+func (m *UserMutation) ClearGroupBuyRefunds() {
+	m.clearedgroup_buy_refunds = true
+}
+
+// GroupBuyRefundsCleared reports if the "group_buy_refunds" edge to the GroupBuyRefund entity was cleared.
+func (m *UserMutation) GroupBuyRefundsCleared() bool {
+	return m.clearedgroup_buy_refunds
+}
+
+// RemoveGroupBuyRefundIDs removes the "group_buy_refunds" edge to the GroupBuyRefund entity by IDs.
+func (m *UserMutation) RemoveGroupBuyRefundIDs(ids ...int64) {
+	if m.removedgroup_buy_refunds == nil {
+		m.removedgroup_buy_refunds = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.group_buy_refunds, ids[i])
+		m.removedgroup_buy_refunds[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedGroupBuyRefunds returns the removed IDs of the "group_buy_refunds" edge to the GroupBuyRefund entity.
+func (m *UserMutation) RemovedGroupBuyRefundsIDs() (ids []int64) {
+	for id := range m.removedgroup_buy_refunds {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// GroupBuyRefundsIDs returns the "group_buy_refunds" edge IDs in the mutation.
+func (m *UserMutation) GroupBuyRefundsIDs() (ids []int64) {
+	for id := range m.group_buy_refunds {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetGroupBuyRefunds resets all changes to the "group_buy_refunds" edge.
+func (m *UserMutation) ResetGroupBuyRefunds() {
+	m.group_buy_refunds = nil
+	m.clearedgroup_buy_refunds = false
+	m.removedgroup_buy_refunds = nil
+}
+
 // AddInvoiceRequestIDs adds the "invoice_requests" edge to the InvoiceRequest entity by ids.
 func (m *UserMutation) AddInvoiceRequestIDs(ids ...int64) {
 	if m.invoice_requests == nil {
@@ -53763,7 +55380,7 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 18)
 	if m.api_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -53802,6 +55419,9 @@ func (m *UserMutation) AddedEdges() []string {
 	}
 	if m.group_buy_entitlements != nil {
 		edges = append(edges, user.EdgeGroupBuyEntitlements)
+	}
+	if m.group_buy_refunds != nil {
+		edges = append(edges, user.EdgeGroupBuyRefunds)
 	}
 	if m.invoice_requests != nil {
 		edges = append(edges, user.EdgeInvoiceRequests)
@@ -53900,6 +55520,12 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeGroupBuyRefunds:
+		ids := make([]ent.Value, 0, len(m.group_buy_refunds))
+		for id := range m.group_buy_refunds {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeInvoiceRequests:
 		ids := make([]ent.Value, 0, len(m.invoice_requests))
 		for id := range m.invoice_requests {
@@ -53930,7 +55556,7 @@ func (m *UserMutation) AddedIDs(name string) []ent.Value {
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 18)
 	if m.removedapi_keys != nil {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -53969,6 +55595,9 @@ func (m *UserMutation) RemovedEdges() []string {
 	}
 	if m.removedgroup_buy_entitlements != nil {
 		edges = append(edges, user.EdgeGroupBuyEntitlements)
+	}
+	if m.removedgroup_buy_refunds != nil {
+		edges = append(edges, user.EdgeGroupBuyRefunds)
 	}
 	if m.removedinvoice_requests != nil {
 		edges = append(edges, user.EdgeInvoiceRequests)
@@ -54067,6 +55696,12 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case user.EdgeGroupBuyRefunds:
+		ids := make([]ent.Value, 0, len(m.removedgroup_buy_refunds))
+		for id := range m.removedgroup_buy_refunds {
+			ids = append(ids, id)
+		}
+		return ids
 	case user.EdgeInvoiceRequests:
 		ids := make([]ent.Value, 0, len(m.removedinvoice_requests))
 		for id := range m.removedinvoice_requests {
@@ -54097,7 +55732,7 @@ func (m *UserMutation) RemovedIDs(name string) []ent.Value {
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 17)
+	edges := make([]string, 0, 18)
 	if m.clearedapi_keys {
 		edges = append(edges, user.EdgeAPIKeys)
 	}
@@ -54136,6 +55771,9 @@ func (m *UserMutation) ClearedEdges() []string {
 	}
 	if m.clearedgroup_buy_entitlements {
 		edges = append(edges, user.EdgeGroupBuyEntitlements)
+	}
+	if m.clearedgroup_buy_refunds {
+		edges = append(edges, user.EdgeGroupBuyRefunds)
 	}
 	if m.clearedinvoice_requests {
 		edges = append(edges, user.EdgeInvoiceRequests)
@@ -54182,6 +55820,8 @@ func (m *UserMutation) EdgeCleared(name string) bool {
 		return m.clearedgroup_buy_events
 	case user.EdgeGroupBuyEntitlements:
 		return m.clearedgroup_buy_entitlements
+	case user.EdgeGroupBuyRefunds:
+		return m.clearedgroup_buy_refunds
 	case user.EdgeInvoiceRequests:
 		return m.clearedinvoice_requests
 	case user.EdgeAuthIdentities:
@@ -54244,6 +55884,9 @@ func (m *UserMutation) ResetEdge(name string) error {
 		return nil
 	case user.EdgeGroupBuyEntitlements:
 		m.ResetGroupBuyEntitlements()
+		return nil
+	case user.EdgeGroupBuyRefunds:
+		m.ResetGroupBuyRefunds()
 		return nil
 	case user.EdgeInvoiceRequests:
 		m.ResetInvoiceRequests()
@@ -56480,45 +58123,52 @@ func (m *UserAttributeValueMutation) ResetEdge(name string) error {
 // UserSubscriptionMutation represents an operation that mutates the UserSubscription nodes in the graph.
 type UserSubscriptionMutation struct {
 	config
-	op                            Op
-	typ                           string
-	id                            *int64
-	created_at                    *time.Time
-	updated_at                    *time.Time
-	deleted_at                    *time.Time
-	starts_at                     *time.Time
-	expires_at                    *time.Time
-	status                        *string
-	daily_window_start            *time.Time
-	weekly_window_start           *time.Time
-	monthly_window_start          *time.Time
-	daily_usage_usd               *float64
-	adddaily_usage_usd            *float64
-	weekly_usage_usd              *float64
-	addweekly_usage_usd           *float64
-	monthly_usage_usd             *float64
-	addmonthly_usage_usd          *float64
-	assigned_at                   *time.Time
-	notes                         *string
-	clearedFields                 map[string]struct{}
-	user                          *int64
-	cleareduser                   bool
-	group                         *int64
-	clearedgroup                  bool
-	assigned_by_user              *int64
-	clearedassigned_by_user       bool
-	usage_logs                    map[int64]struct{}
-	removedusage_logs             map[int64]struct{}
-	clearedusage_logs             bool
-	group_buy_seats               map[int64]struct{}
-	removedgroup_buy_seats        map[int64]struct{}
-	clearedgroup_buy_seats        bool
-	group_buy_entitlements        map[int64]struct{}
-	removedgroup_buy_entitlements map[int64]struct{}
-	clearedgroup_buy_entitlements bool
-	done                          bool
-	oldValue                      func(context.Context) (*UserSubscription, error)
-	predicates                    []predicate.UserSubscription
+	op                                    Op
+	typ                                   string
+	id                                    *int64
+	created_at                            *time.Time
+	updated_at                            *time.Time
+	deleted_at                            *time.Time
+	starts_at                             *time.Time
+	expires_at                            *time.Time
+	status                                *string
+	source_type                           *string
+	source_id                             *int64
+	addsource_id                          *int64
+	managed_by_group_buy                  *bool
+	daily_window_start                    *time.Time
+	weekly_window_start                   *time.Time
+	monthly_window_start                  *time.Time
+	daily_usage_usd                       *float64
+	adddaily_usage_usd                    *float64
+	weekly_usage_usd                      *float64
+	addweekly_usage_usd                   *float64
+	monthly_usage_usd                     *float64
+	addmonthly_usage_usd                  *float64
+	assigned_at                           *time.Time
+	notes                                 *string
+	clearedFields                         map[string]struct{}
+	user                                  *int64
+	cleareduser                           bool
+	group                                 *int64
+	clearedgroup                          bool
+	assigned_by_user                      *int64
+	clearedassigned_by_user               bool
+	usage_logs                            map[int64]struct{}
+	removedusage_logs                     map[int64]struct{}
+	clearedusage_logs                     bool
+	group_buy_seats                       map[int64]struct{}
+	removedgroup_buy_seats                map[int64]struct{}
+	clearedgroup_buy_seats                bool
+	group_buy_entitlements                map[int64]struct{}
+	removedgroup_buy_entitlements         map[int64]struct{}
+	clearedgroup_buy_entitlements         bool
+	managed_group_buy_entitlements        map[int64]struct{}
+	removedmanaged_group_buy_entitlements map[int64]struct{}
+	clearedmanaged_group_buy_entitlements bool
+	done                                  bool
+	oldValue                              func(context.Context) (*UserSubscription, error)
+	predicates                            []predicate.UserSubscription
 }
 
 var _ ent.Mutation = (*UserSubscriptionMutation)(nil)
@@ -56918,6 +58568,148 @@ func (m *UserSubscriptionMutation) OldStatus(ctx context.Context) (v string, err
 // ResetStatus resets all changes to the "status" field.
 func (m *UserSubscriptionMutation) ResetStatus() {
 	m.status = nil
+}
+
+// SetSourceType sets the "source_type" field.
+func (m *UserSubscriptionMutation) SetSourceType(s string) {
+	m.source_type = &s
+}
+
+// SourceType returns the value of the "source_type" field in the mutation.
+func (m *UserSubscriptionMutation) SourceType() (r string, exists bool) {
+	v := m.source_type
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceType returns the old "source_type" field's value of the UserSubscription entity.
+// If the UserSubscription object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserSubscriptionMutation) OldSourceType(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceType is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceType requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceType: %w", err)
+	}
+	return oldValue.SourceType, nil
+}
+
+// ResetSourceType resets all changes to the "source_type" field.
+func (m *UserSubscriptionMutation) ResetSourceType() {
+	m.source_type = nil
+}
+
+// SetSourceID sets the "source_id" field.
+func (m *UserSubscriptionMutation) SetSourceID(i int64) {
+	m.source_id = &i
+	m.addsource_id = nil
+}
+
+// SourceID returns the value of the "source_id" field in the mutation.
+func (m *UserSubscriptionMutation) SourceID() (r int64, exists bool) {
+	v := m.source_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceID returns the old "source_id" field's value of the UserSubscription entity.
+// If the UserSubscription object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserSubscriptionMutation) OldSourceID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceID: %w", err)
+	}
+	return oldValue.SourceID, nil
+}
+
+// AddSourceID adds i to the "source_id" field.
+func (m *UserSubscriptionMutation) AddSourceID(i int64) {
+	if m.addsource_id != nil {
+		*m.addsource_id += i
+	} else {
+		m.addsource_id = &i
+	}
+}
+
+// AddedSourceID returns the value that was added to the "source_id" field in this mutation.
+func (m *UserSubscriptionMutation) AddedSourceID() (r int64, exists bool) {
+	v := m.addsource_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearSourceID clears the value of the "source_id" field.
+func (m *UserSubscriptionMutation) ClearSourceID() {
+	m.source_id = nil
+	m.addsource_id = nil
+	m.clearedFields[usersubscription.FieldSourceID] = struct{}{}
+}
+
+// SourceIDCleared returns if the "source_id" field was cleared in this mutation.
+func (m *UserSubscriptionMutation) SourceIDCleared() bool {
+	_, ok := m.clearedFields[usersubscription.FieldSourceID]
+	return ok
+}
+
+// ResetSourceID resets all changes to the "source_id" field.
+func (m *UserSubscriptionMutation) ResetSourceID() {
+	m.source_id = nil
+	m.addsource_id = nil
+	delete(m.clearedFields, usersubscription.FieldSourceID)
+}
+
+// SetManagedByGroupBuy sets the "managed_by_group_buy" field.
+func (m *UserSubscriptionMutation) SetManagedByGroupBuy(b bool) {
+	m.managed_by_group_buy = &b
+}
+
+// ManagedByGroupBuy returns the value of the "managed_by_group_buy" field in the mutation.
+func (m *UserSubscriptionMutation) ManagedByGroupBuy() (r bool, exists bool) {
+	v := m.managed_by_group_buy
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldManagedByGroupBuy returns the old "managed_by_group_buy" field's value of the UserSubscription entity.
+// If the UserSubscription object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserSubscriptionMutation) OldManagedByGroupBuy(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldManagedByGroupBuy is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldManagedByGroupBuy requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldManagedByGroupBuy: %w", err)
+	}
+	return oldValue.ManagedByGroupBuy, nil
+}
+
+// ResetManagedByGroupBuy resets all changes to the "managed_by_group_buy" field.
+func (m *UserSubscriptionMutation) ResetManagedByGroupBuy() {
+	m.managed_by_group_buy = nil
 }
 
 // SetDailyWindowStart sets the "daily_window_start" field.
@@ -57625,6 +59417,60 @@ func (m *UserSubscriptionMutation) ResetGroupBuyEntitlements() {
 	m.removedgroup_buy_entitlements = nil
 }
 
+// AddManagedGroupBuyEntitlementIDs adds the "managed_group_buy_entitlements" edge to the GroupBuyEntitlement entity by ids.
+func (m *UserSubscriptionMutation) AddManagedGroupBuyEntitlementIDs(ids ...int64) {
+	if m.managed_group_buy_entitlements == nil {
+		m.managed_group_buy_entitlements = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.managed_group_buy_entitlements[ids[i]] = struct{}{}
+	}
+}
+
+// ClearManagedGroupBuyEntitlements clears the "managed_group_buy_entitlements" edge to the GroupBuyEntitlement entity.
+func (m *UserSubscriptionMutation) ClearManagedGroupBuyEntitlements() {
+	m.clearedmanaged_group_buy_entitlements = true
+}
+
+// ManagedGroupBuyEntitlementsCleared reports if the "managed_group_buy_entitlements" edge to the GroupBuyEntitlement entity was cleared.
+func (m *UserSubscriptionMutation) ManagedGroupBuyEntitlementsCleared() bool {
+	return m.clearedmanaged_group_buy_entitlements
+}
+
+// RemoveManagedGroupBuyEntitlementIDs removes the "managed_group_buy_entitlements" edge to the GroupBuyEntitlement entity by IDs.
+func (m *UserSubscriptionMutation) RemoveManagedGroupBuyEntitlementIDs(ids ...int64) {
+	if m.removedmanaged_group_buy_entitlements == nil {
+		m.removedmanaged_group_buy_entitlements = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.managed_group_buy_entitlements, ids[i])
+		m.removedmanaged_group_buy_entitlements[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedManagedGroupBuyEntitlements returns the removed IDs of the "managed_group_buy_entitlements" edge to the GroupBuyEntitlement entity.
+func (m *UserSubscriptionMutation) RemovedManagedGroupBuyEntitlementsIDs() (ids []int64) {
+	for id := range m.removedmanaged_group_buy_entitlements {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ManagedGroupBuyEntitlementsIDs returns the "managed_group_buy_entitlements" edge IDs in the mutation.
+func (m *UserSubscriptionMutation) ManagedGroupBuyEntitlementsIDs() (ids []int64) {
+	for id := range m.managed_group_buy_entitlements {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetManagedGroupBuyEntitlements resets all changes to the "managed_group_buy_entitlements" edge.
+func (m *UserSubscriptionMutation) ResetManagedGroupBuyEntitlements() {
+	m.managed_group_buy_entitlements = nil
+	m.clearedmanaged_group_buy_entitlements = false
+	m.removedmanaged_group_buy_entitlements = nil
+}
+
 // Where appends a list predicates to the UserSubscriptionMutation builder.
 func (m *UserSubscriptionMutation) Where(ps ...predicate.UserSubscription) {
 	m.predicates = append(m.predicates, ps...)
@@ -57659,7 +59505,7 @@ func (m *UserSubscriptionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserSubscriptionMutation) Fields() []string {
-	fields := make([]string, 0, 17)
+	fields := make([]string, 0, 20)
 	if m.created_at != nil {
 		fields = append(fields, usersubscription.FieldCreatedAt)
 	}
@@ -57683,6 +59529,15 @@ func (m *UserSubscriptionMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, usersubscription.FieldStatus)
+	}
+	if m.source_type != nil {
+		fields = append(fields, usersubscription.FieldSourceType)
+	}
+	if m.source_id != nil {
+		fields = append(fields, usersubscription.FieldSourceID)
+	}
+	if m.managed_by_group_buy != nil {
+		fields = append(fields, usersubscription.FieldManagedByGroupBuy)
 	}
 	if m.daily_window_start != nil {
 		fields = append(fields, usersubscription.FieldDailyWindowStart)
@@ -57735,6 +59590,12 @@ func (m *UserSubscriptionMutation) Field(name string) (ent.Value, bool) {
 		return m.ExpiresAt()
 	case usersubscription.FieldStatus:
 		return m.Status()
+	case usersubscription.FieldSourceType:
+		return m.SourceType()
+	case usersubscription.FieldSourceID:
+		return m.SourceID()
+	case usersubscription.FieldManagedByGroupBuy:
+		return m.ManagedByGroupBuy()
 	case usersubscription.FieldDailyWindowStart:
 		return m.DailyWindowStart()
 	case usersubscription.FieldWeeklyWindowStart:
@@ -57778,6 +59639,12 @@ func (m *UserSubscriptionMutation) OldField(ctx context.Context, name string) (e
 		return m.OldExpiresAt(ctx)
 	case usersubscription.FieldStatus:
 		return m.OldStatus(ctx)
+	case usersubscription.FieldSourceType:
+		return m.OldSourceType(ctx)
+	case usersubscription.FieldSourceID:
+		return m.OldSourceID(ctx)
+	case usersubscription.FieldManagedByGroupBuy:
+		return m.OldManagedByGroupBuy(ctx)
 	case usersubscription.FieldDailyWindowStart:
 		return m.OldDailyWindowStart(ctx)
 	case usersubscription.FieldWeeklyWindowStart:
@@ -57861,6 +59728,27 @@ func (m *UserSubscriptionMutation) SetField(name string, value ent.Value) error 
 		}
 		m.SetStatus(v)
 		return nil
+	case usersubscription.FieldSourceType:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceType(v)
+		return nil
+	case usersubscription.FieldSourceID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceID(v)
+		return nil
+	case usersubscription.FieldManagedByGroupBuy:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetManagedByGroupBuy(v)
+		return nil
 	case usersubscription.FieldDailyWindowStart:
 		v, ok := value.(time.Time)
 		if !ok {
@@ -57932,6 +59820,9 @@ func (m *UserSubscriptionMutation) SetField(name string, value ent.Value) error 
 // this mutation.
 func (m *UserSubscriptionMutation) AddedFields() []string {
 	var fields []string
+	if m.addsource_id != nil {
+		fields = append(fields, usersubscription.FieldSourceID)
+	}
 	if m.adddaily_usage_usd != nil {
 		fields = append(fields, usersubscription.FieldDailyUsageUsd)
 	}
@@ -57949,6 +59840,8 @@ func (m *UserSubscriptionMutation) AddedFields() []string {
 // was not set, or was not defined in the schema.
 func (m *UserSubscriptionMutation) AddedField(name string) (ent.Value, bool) {
 	switch name {
+	case usersubscription.FieldSourceID:
+		return m.AddedSourceID()
 	case usersubscription.FieldDailyUsageUsd:
 		return m.AddedDailyUsageUsd()
 	case usersubscription.FieldWeeklyUsageUsd:
@@ -57964,6 +59857,13 @@ func (m *UserSubscriptionMutation) AddedField(name string) (ent.Value, bool) {
 // type.
 func (m *UserSubscriptionMutation) AddField(name string, value ent.Value) error {
 	switch name {
+	case usersubscription.FieldSourceID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddSourceID(v)
+		return nil
 	case usersubscription.FieldDailyUsageUsd:
 		v, ok := value.(float64)
 		if !ok {
@@ -57996,6 +59896,9 @@ func (m *UserSubscriptionMutation) ClearedFields() []string {
 	if m.FieldCleared(usersubscription.FieldDeletedAt) {
 		fields = append(fields, usersubscription.FieldDeletedAt)
 	}
+	if m.FieldCleared(usersubscription.FieldSourceID) {
+		fields = append(fields, usersubscription.FieldSourceID)
+	}
 	if m.FieldCleared(usersubscription.FieldDailyWindowStart) {
 		fields = append(fields, usersubscription.FieldDailyWindowStart)
 	}
@@ -58027,6 +59930,9 @@ func (m *UserSubscriptionMutation) ClearField(name string) error {
 	switch name {
 	case usersubscription.FieldDeletedAt:
 		m.ClearDeletedAt()
+		return nil
+	case usersubscription.FieldSourceID:
+		m.ClearSourceID()
 		return nil
 	case usersubscription.FieldDailyWindowStart:
 		m.ClearDailyWindowStart()
@@ -58075,6 +59981,15 @@ func (m *UserSubscriptionMutation) ResetField(name string) error {
 	case usersubscription.FieldStatus:
 		m.ResetStatus()
 		return nil
+	case usersubscription.FieldSourceType:
+		m.ResetSourceType()
+		return nil
+	case usersubscription.FieldSourceID:
+		m.ResetSourceID()
+		return nil
+	case usersubscription.FieldManagedByGroupBuy:
+		m.ResetManagedByGroupBuy()
+		return nil
 	case usersubscription.FieldDailyWindowStart:
 		m.ResetDailyWindowStart()
 		return nil
@@ -58108,7 +60023,7 @@ func (m *UserSubscriptionMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserSubscriptionMutation) AddedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.user != nil {
 		edges = append(edges, usersubscription.EdgeUser)
 	}
@@ -58126,6 +60041,9 @@ func (m *UserSubscriptionMutation) AddedEdges() []string {
 	}
 	if m.group_buy_entitlements != nil {
 		edges = append(edges, usersubscription.EdgeGroupBuyEntitlements)
+	}
+	if m.managed_group_buy_entitlements != nil {
+		edges = append(edges, usersubscription.EdgeManagedGroupBuyEntitlements)
 	}
 	return edges
 }
@@ -58164,13 +60082,19 @@ func (m *UserSubscriptionMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case usersubscription.EdgeManagedGroupBuyEntitlements:
+		ids := make([]ent.Value, 0, len(m.managed_group_buy_entitlements))
+		for id := range m.managed_group_buy_entitlements {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserSubscriptionMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.removedusage_logs != nil {
 		edges = append(edges, usersubscription.EdgeUsageLogs)
 	}
@@ -58179,6 +60103,9 @@ func (m *UserSubscriptionMutation) RemovedEdges() []string {
 	}
 	if m.removedgroup_buy_entitlements != nil {
 		edges = append(edges, usersubscription.EdgeGroupBuyEntitlements)
+	}
+	if m.removedmanaged_group_buy_entitlements != nil {
+		edges = append(edges, usersubscription.EdgeManagedGroupBuyEntitlements)
 	}
 	return edges
 }
@@ -58205,13 +60132,19 @@ func (m *UserSubscriptionMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case usersubscription.EdgeManagedGroupBuyEntitlements:
+		ids := make([]ent.Value, 0, len(m.removedmanaged_group_buy_entitlements))
+		for id := range m.removedmanaged_group_buy_entitlements {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserSubscriptionMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 6)
+	edges := make([]string, 0, 7)
 	if m.cleareduser {
 		edges = append(edges, usersubscription.EdgeUser)
 	}
@@ -58229,6 +60162,9 @@ func (m *UserSubscriptionMutation) ClearedEdges() []string {
 	}
 	if m.clearedgroup_buy_entitlements {
 		edges = append(edges, usersubscription.EdgeGroupBuyEntitlements)
+	}
+	if m.clearedmanaged_group_buy_entitlements {
+		edges = append(edges, usersubscription.EdgeManagedGroupBuyEntitlements)
 	}
 	return edges
 }
@@ -58249,6 +60185,8 @@ func (m *UserSubscriptionMutation) EdgeCleared(name string) bool {
 		return m.clearedgroup_buy_seats
 	case usersubscription.EdgeGroupBuyEntitlements:
 		return m.clearedgroup_buy_entitlements
+	case usersubscription.EdgeManagedGroupBuyEntitlements:
+		return m.clearedmanaged_group_buy_entitlements
 	}
 	return false
 }
@@ -58291,6 +60229,9 @@ func (m *UserSubscriptionMutation) ResetEdge(name string) error {
 		return nil
 	case usersubscription.EdgeGroupBuyEntitlements:
 		m.ResetGroupBuyEntitlements()
+		return nil
+	case usersubscription.EdgeManagedGroupBuyEntitlements:
+		m.ResetManagedGroupBuyEntitlements()
 		return nil
 	}
 	return fmt.Errorf("unknown UserSubscription edge %s", name)

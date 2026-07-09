@@ -880,6 +880,16 @@ func TierGroupIdsNotNil() predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldNotNull(FieldTierGroupIds))
 }
 
+// TierRulesIsNil applies the IsNil predicate on the "tier_rules" field.
+func TierRulesIsNil() predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldIsNull(FieldTierRules))
+}
+
+// TierRulesNotNil applies the NotNil predicate on the "tier_rules" field.
+func TierRulesNotNil() predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNotNull(FieldTierRules))
+}
+
 // ValidityDaysEQ applies the EQ predicate on the "validity_days" field.
 func ValidityDaysEQ(v int) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldEQ(FieldValidityDays, v))

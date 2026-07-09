@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -16,6 +17,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // GroupBuySeat is the model entity for the GroupBuySeat schema.
@@ -35,6 +37,8 @@ type GroupBuySeat struct {
 	Status string `json:"status,omitempty"`
 	// ShareCount holds the value of the "share_count" field.
 	ShareCount int `json:"share_count,omitempty"`
+	// PolicySnapshot holds the value of the "policy_snapshot" field.
+	PolicySnapshot domain.GroupBuyPolicySnapshot `json:"policy_snapshot,omitempty"`
 	// SubscriptionID holds the value of the "subscription_id" field.
 	SubscriptionID *int64 `json:"subscription_id,omitempty"`
 	// BoundAPIKeyID holds the value of the "bound_api_key_id" field.
@@ -77,11 +81,13 @@ type GroupBuySeatEdges struct {
 	Subscription *UserSubscription `json:"subscription,omitempty"`
 	// BoundAPIKey holds the value of the bound_api_key edge.
 	BoundAPIKey *APIKey `json:"bound_api_key,omitempty"`
+	// Refunds holds the value of the refunds edge.
+	Refunds []*GroupBuyRefund `json:"refunds,omitempty"`
 	// Events holds the value of the events edge.
 	Events []*GroupBuyEvent `json:"events,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [7]bool
+	loadedTypes [8]bool
 }
 
 // RoundOrErr returns the Round value or an error if the edge
@@ -150,10 +156,19 @@ func (e GroupBuySeatEdges) BoundAPIKeyOrErr() (*APIKey, error) {
 	return nil, &NotLoadedError{edge: "bound_api_key"}
 }
 
+// RefundsOrErr returns the Refunds value or an error if the edge
+// was not loaded in eager-loading.
+func (e GroupBuySeatEdges) RefundsOrErr() ([]*GroupBuyRefund, error) {
+	if e.loadedTypes[6] {
+		return e.Refunds, nil
+	}
+	return nil, &NotLoadedError{edge: "refunds"}
+}
+
 // EventsOrErr returns the Events value or an error if the edge
 // was not loaded in eager-loading.
 func (e GroupBuySeatEdges) EventsOrErr() ([]*GroupBuyEvent, error) {
-	if e.loadedTypes[6] {
+	if e.loadedTypes[7] {
 		return e.Events, nil
 	}
 	return nil, &NotLoadedError{edge: "events"}
@@ -164,6 +179,8 @@ func (*GroupBuySeat) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
+		case groupbuyseat.FieldPolicySnapshot:
+			values[i] = new([]byte)
 		case groupbuyseat.FieldID, groupbuyseat.FieldRoundID, groupbuyseat.FieldPlanID, groupbuyseat.FieldUserID, groupbuyseat.FieldOrderID, groupbuyseat.FieldShareCount, groupbuyseat.FieldSubscriptionID, groupbuyseat.FieldBoundAPIKeyID:
 			values[i] = new(sql.NullInt64)
 		case groupbuyseat.FieldStatus, groupbuyseat.FieldRefundNote:
@@ -227,6 +244,14 @@ func (_m *GroupBuySeat) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field share_count", values[i])
 			} else if value.Valid {
 				_m.ShareCount = int(value.Int64)
+			}
+		case groupbuyseat.FieldPolicySnapshot:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field policy_snapshot", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.PolicySnapshot); err != nil {
+					return fmt.Errorf("unmarshal field policy_snapshot: %w", err)
+				}
 			}
 		case groupbuyseat.FieldSubscriptionID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -346,6 +371,11 @@ func (_m *GroupBuySeat) QueryBoundAPIKey() *APIKeyQuery {
 	return NewGroupBuySeatClient(_m.config).QueryBoundAPIKey(_m)
 }
 
+// QueryRefunds queries the "refunds" edge of the GroupBuySeat entity.
+func (_m *GroupBuySeat) QueryRefunds() *GroupBuyRefundQuery {
+	return NewGroupBuySeatClient(_m.config).QueryRefunds(_m)
+}
+
 // QueryEvents queries the "events" edge of the GroupBuySeat entity.
 func (_m *GroupBuySeat) QueryEvents() *GroupBuyEventQuery {
 	return NewGroupBuySeatClient(_m.config).QueryEvents(_m)
@@ -393,6 +423,9 @@ func (_m *GroupBuySeat) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("share_count=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ShareCount))
+	builder.WriteString(", ")
+	builder.WriteString("policy_snapshot=")
+	builder.WriteString(fmt.Sprintf("%v", _m.PolicySnapshot))
 	builder.WriteString(", ")
 	if v := _m.SubscriptionID; v != nil {
 		builder.WriteString("subscription_id=")

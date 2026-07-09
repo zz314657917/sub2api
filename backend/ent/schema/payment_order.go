@@ -182,6 +182,7 @@ func (PaymentOrder) Edges() []ent.Edge {
 			Required(),
 		edge.To("group_buy_seat", GroupBuySeat.Type).
 			Unique(),
+		edge.To("group_buy_refunds", GroupBuyRefund.Type),
 	}
 }
 

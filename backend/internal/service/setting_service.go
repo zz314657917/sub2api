@@ -3244,7 +3244,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAvailableChannelsEnabled:                  "false",
 		SettingKeyGroupBuyEnabled:                           "true",
 		SettingKeyGroupBuyProductName:                       "Token拼拼拼",
-		SettingKeyGroupBuyDescription:                       "按份额拼团，满份后开通 Token拼拼拼 权益；额度按后台订阅分组执行，使用自己的平台 API Key。",
+		SettingKeyGroupBuyDescription:                       "按份额拼团，满份后开通 Token拼拼拼 权益；使用自己的平台 API Key。",
 		SettingKeyLeaderboardDailyRewardEnabled:             "false",
 		SettingKeyLeaderboardDailyRewardMinTotalActualCost:  "0",
 		SettingKeyLeaderboardDailyRewardRank1Amount:         "0",

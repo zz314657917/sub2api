@@ -22,6 +22,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -937,15 +938,15 @@ func init() {
 	// groupbuyentitlement.DefaultActiveShareCount holds the default value on creation for the active_share_count field.
 	groupbuyentitlement.DefaultActiveShareCount = groupbuyentitlementDescActiveShareCount.Default.(int)
 	// groupbuyentitlementDescRefreshedAt is the schema descriptor for refreshed_at field.
-	groupbuyentitlementDescRefreshedAt := groupbuyentitlementFields[9].Descriptor()
+	groupbuyentitlementDescRefreshedAt := groupbuyentitlementFields[10].Descriptor()
 	// groupbuyentitlement.DefaultRefreshedAt holds the default value on creation for the refreshed_at field.
 	groupbuyentitlement.DefaultRefreshedAt = groupbuyentitlementDescRefreshedAt.Default.(func() time.Time)
 	// groupbuyentitlementDescCreatedAt is the schema descriptor for created_at field.
-	groupbuyentitlementDescCreatedAt := groupbuyentitlementFields[11].Descriptor()
+	groupbuyentitlementDescCreatedAt := groupbuyentitlementFields[12].Descriptor()
 	// groupbuyentitlement.DefaultCreatedAt holds the default value on creation for the created_at field.
 	groupbuyentitlement.DefaultCreatedAt = groupbuyentitlementDescCreatedAt.Default.(func() time.Time)
 	// groupbuyentitlementDescUpdatedAt is the schema descriptor for updated_at field.
-	groupbuyentitlementDescUpdatedAt := groupbuyentitlementFields[12].Descriptor()
+	groupbuyentitlementDescUpdatedAt := groupbuyentitlementFields[13].Descriptor()
 	// groupbuyentitlement.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	groupbuyentitlement.DefaultUpdatedAt = groupbuyentitlementDescUpdatedAt.Default.(func() time.Time)
 	// groupbuyentitlement.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -1034,35 +1035,61 @@ func init() {
 	// groupbuyplan.DefaultMaxSharesPerUser holds the default value on creation for the max_shares_per_user field.
 	groupbuyplan.DefaultMaxSharesPerUser = groupbuyplanDescMaxSharesPerUser.Default.(int)
 	// groupbuyplanDescValidityDays is the schema descriptor for validity_days field.
-	groupbuyplanDescValidityDays := groupbuyplanFields[13].Descriptor()
+	groupbuyplanDescValidityDays := groupbuyplanFields[14].Descriptor()
 	// groupbuyplan.DefaultValidityDays holds the default value on creation for the validity_days field.
 	groupbuyplan.DefaultValidityDays = groupbuyplanDescValidityDays.Default.(int)
 	// groupbuyplanDescTimeoutMinutes is the schema descriptor for timeout_minutes field.
-	groupbuyplanDescTimeoutMinutes := groupbuyplanFields[14].Descriptor()
+	groupbuyplanDescTimeoutMinutes := groupbuyplanFields[15].Descriptor()
 	// groupbuyplan.DefaultTimeoutMinutes holds the default value on creation for the timeout_minutes field.
 	groupbuyplan.DefaultTimeoutMinutes = groupbuyplanDescTimeoutMinutes.Default.(int)
 	// groupbuyplanDescLaunchMode is the schema descriptor for launch_mode field.
-	groupbuyplanDescLaunchMode := groupbuyplanFields[15].Descriptor()
+	groupbuyplanDescLaunchMode := groupbuyplanFields[16].Descriptor()
 	// groupbuyplan.DefaultLaunchMode holds the default value on creation for the launch_mode field.
 	groupbuyplan.DefaultLaunchMode = groupbuyplanDescLaunchMode.Default.(string)
 	// groupbuyplan.LaunchModeValidator is a validator for the "launch_mode" field. It is called by the builders before save.
 	groupbuyplan.LaunchModeValidator = groupbuyplanDescLaunchMode.Validators[0].(func(string) error)
 	// groupbuyplanDescRefundMode is the schema descriptor for refund_mode field.
-	groupbuyplanDescRefundMode := groupbuyplanFields[16].Descriptor()
+	groupbuyplanDescRefundMode := groupbuyplanFields[17].Descriptor()
 	// groupbuyplan.DefaultRefundMode holds the default value on creation for the refund_mode field.
 	groupbuyplan.DefaultRefundMode = groupbuyplanDescRefundMode.Default.(string)
 	// groupbuyplan.RefundModeValidator is a validator for the "refund_mode" field. It is called by the builders before save.
 	groupbuyplan.RefundModeValidator = groupbuyplanDescRefundMode.Validators[0].(func(string) error)
 	// groupbuyplanDescStatus is the schema descriptor for status field.
-	groupbuyplanDescStatus := groupbuyplanFields[18].Descriptor()
+	groupbuyplanDescStatus := groupbuyplanFields[19].Descriptor()
 	// groupbuyplan.DefaultStatus holds the default value on creation for the status field.
 	groupbuyplan.DefaultStatus = groupbuyplanDescStatus.Default.(string)
 	// groupbuyplan.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	groupbuyplan.StatusValidator = groupbuyplanDescStatus.Validators[0].(func(string) error)
 	// groupbuyplanDescSortOrder is the schema descriptor for sort_order field.
-	groupbuyplanDescSortOrder := groupbuyplanFields[19].Descriptor()
+	groupbuyplanDescSortOrder := groupbuyplanFields[20].Descriptor()
 	// groupbuyplan.DefaultSortOrder holds the default value on creation for the sort_order field.
 	groupbuyplan.DefaultSortOrder = groupbuyplanDescSortOrder.Default.(int)
+	groupbuyrefundFields := schema.GroupBuyRefund{}.Fields()
+	_ = groupbuyrefundFields
+	// groupbuyrefundDescMode is the schema descriptor for mode field.
+	groupbuyrefundDescMode := groupbuyrefundFields[3].Descriptor()
+	// groupbuyrefund.ModeValidator is a validator for the "mode" field. It is called by the builders before save.
+	groupbuyrefund.ModeValidator = groupbuyrefundDescMode.Validators[0].(func(string) error)
+	// groupbuyrefundDescStatus is the schema descriptor for status field.
+	groupbuyrefundDescStatus := groupbuyrefundFields[4].Descriptor()
+	// groupbuyrefund.DefaultStatus holds the default value on creation for the status field.
+	groupbuyrefund.DefaultStatus = groupbuyrefundDescStatus.Default.(string)
+	// groupbuyrefund.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	groupbuyrefund.StatusValidator = groupbuyrefundDescStatus.Validators[0].(func(string) error)
+	// groupbuyrefundDescIdempotencyKey is the schema descriptor for idempotency_key field.
+	groupbuyrefundDescIdempotencyKey := groupbuyrefundFields[6].Descriptor()
+	// groupbuyrefund.IdempotencyKeyValidator is a validator for the "idempotency_key" field. It is called by the builders before save.
+	groupbuyrefund.IdempotencyKeyValidator = groupbuyrefundDescIdempotencyKey.Validators[0].(func(string) error)
+	// groupbuyrefundDescCreatedAt is the schema descriptor for created_at field.
+	groupbuyrefundDescCreatedAt := groupbuyrefundFields[9].Descriptor()
+	// groupbuyrefund.DefaultCreatedAt holds the default value on creation for the created_at field.
+	groupbuyrefund.DefaultCreatedAt = groupbuyrefundDescCreatedAt.Default.(func() time.Time)
+	// groupbuyrefundDescUpdatedAt is the schema descriptor for updated_at field.
+	groupbuyrefundDescUpdatedAt := groupbuyrefundFields[10].Descriptor()
+	// groupbuyrefund.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	groupbuyrefund.DefaultUpdatedAt = groupbuyrefundDescUpdatedAt.Default.(func() time.Time)
+	// groupbuyrefund.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	groupbuyrefund.UpdateDefaultUpdatedAt = groupbuyrefundDescUpdatedAt.UpdateDefault.(func() time.Time)
 	groupbuyroundFields := schema.GroupBuyRound{}.Fields()
 	_ = groupbuyroundFields
 	// groupbuyroundDescStatus is the schema descriptor for status field.
@@ -1118,11 +1145,11 @@ func init() {
 	// groupbuyseat.DefaultShareCount holds the default value on creation for the share_count field.
 	groupbuyseat.DefaultShareCount = groupbuyseatDescShareCount.Default.(int)
 	// groupbuyseatDescCreatedAt is the schema descriptor for created_at field.
-	groupbuyseatDescCreatedAt := groupbuyseatFields[15].Descriptor()
+	groupbuyseatDescCreatedAt := groupbuyseatFields[16].Descriptor()
 	// groupbuyseat.DefaultCreatedAt holds the default value on creation for the created_at field.
 	groupbuyseat.DefaultCreatedAt = groupbuyseatDescCreatedAt.Default.(func() time.Time)
 	// groupbuyseatDescUpdatedAt is the schema descriptor for updated_at field.
-	groupbuyseatDescUpdatedAt := groupbuyseatFields[16].Descriptor()
+	groupbuyseatDescUpdatedAt := groupbuyseatFields[17].Descriptor()
 	// groupbuyseat.DefaultUpdatedAt holds the default value on creation for the updated_at field.
 	groupbuyseat.DefaultUpdatedAt = groupbuyseatDescUpdatedAt.Default.(func() time.Time)
 	// groupbuyseat.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
@@ -2476,20 +2503,30 @@ func init() {
 	usersubscription.DefaultStatus = usersubscriptionDescStatus.Default.(string)
 	// usersubscription.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	usersubscription.StatusValidator = usersubscriptionDescStatus.Validators[0].(func(string) error)
+	// usersubscriptionDescSourceType is the schema descriptor for source_type field.
+	usersubscriptionDescSourceType := usersubscriptionFields[5].Descriptor()
+	// usersubscription.DefaultSourceType holds the default value on creation for the source_type field.
+	usersubscription.DefaultSourceType = usersubscriptionDescSourceType.Default.(string)
+	// usersubscription.SourceTypeValidator is a validator for the "source_type" field. It is called by the builders before save.
+	usersubscription.SourceTypeValidator = usersubscriptionDescSourceType.Validators[0].(func(string) error)
+	// usersubscriptionDescManagedByGroupBuy is the schema descriptor for managed_by_group_buy field.
+	usersubscriptionDescManagedByGroupBuy := usersubscriptionFields[7].Descriptor()
+	// usersubscription.DefaultManagedByGroupBuy holds the default value on creation for the managed_by_group_buy field.
+	usersubscription.DefaultManagedByGroupBuy = usersubscriptionDescManagedByGroupBuy.Default.(bool)
 	// usersubscriptionDescDailyUsageUsd is the schema descriptor for daily_usage_usd field.
-	usersubscriptionDescDailyUsageUsd := usersubscriptionFields[8].Descriptor()
+	usersubscriptionDescDailyUsageUsd := usersubscriptionFields[11].Descriptor()
 	// usersubscription.DefaultDailyUsageUsd holds the default value on creation for the daily_usage_usd field.
 	usersubscription.DefaultDailyUsageUsd = usersubscriptionDescDailyUsageUsd.Default.(float64)
 	// usersubscriptionDescWeeklyUsageUsd is the schema descriptor for weekly_usage_usd field.
-	usersubscriptionDescWeeklyUsageUsd := usersubscriptionFields[9].Descriptor()
+	usersubscriptionDescWeeklyUsageUsd := usersubscriptionFields[12].Descriptor()
 	// usersubscription.DefaultWeeklyUsageUsd holds the default value on creation for the weekly_usage_usd field.
 	usersubscription.DefaultWeeklyUsageUsd = usersubscriptionDescWeeklyUsageUsd.Default.(float64)
 	// usersubscriptionDescMonthlyUsageUsd is the schema descriptor for monthly_usage_usd field.
-	usersubscriptionDescMonthlyUsageUsd := usersubscriptionFields[10].Descriptor()
+	usersubscriptionDescMonthlyUsageUsd := usersubscriptionFields[13].Descriptor()
 	// usersubscription.DefaultMonthlyUsageUsd holds the default value on creation for the monthly_usage_usd field.
 	usersubscription.DefaultMonthlyUsageUsd = usersubscriptionDescMonthlyUsageUsd.Default.(float64)
 	// usersubscriptionDescAssignedAt is the schema descriptor for assigned_at field.
-	usersubscriptionDescAssignedAt := usersubscriptionFields[12].Descriptor()
+	usersubscriptionDescAssignedAt := usersubscriptionFields[15].Descriptor()
 	// usersubscription.DefaultAssignedAt holds the default value on creation for the assigned_at field.
 	usersubscription.DefaultAssignedAt = usersubscriptionDescAssignedAt.Default.(func() time.Time)
 }

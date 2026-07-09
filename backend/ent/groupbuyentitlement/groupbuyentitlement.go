@@ -26,6 +26,8 @@ const (
 	FieldTargetGroupID = "target_group_id"
 	// FieldSubscriptionID holds the string denoting the subscription_id field in the database.
 	FieldSubscriptionID = "subscription_id"
+	// FieldManagedSubscriptionID holds the string denoting the managed_subscription_id field in the database.
+	FieldManagedSubscriptionID = "managed_subscription_id"
 	// FieldBoundAPIKeyID holds the string denoting the bound_api_key_id field in the database.
 	FieldBoundAPIKeyID = "bound_api_key_id"
 	// FieldLastActivatedAt holds the string denoting the last_activated_at field in the database.
@@ -46,6 +48,8 @@ const (
 	EdgeTargetGroup = "target_group"
 	// EdgeSubscription holds the string denoting the subscription edge name in mutations.
 	EdgeSubscription = "subscription"
+	// EdgeManagedSubscription holds the string denoting the managed_subscription edge name in mutations.
+	EdgeManagedSubscription = "managed_subscription"
 	// EdgeBoundAPIKey holds the string denoting the bound_api_key edge name in mutations.
 	EdgeBoundAPIKey = "bound_api_key"
 	// Table holds the table name of the groupbuyentitlement in the database.
@@ -71,6 +75,13 @@ const (
 	SubscriptionInverseTable = "user_subscriptions"
 	// SubscriptionColumn is the table column denoting the subscription relation/edge.
 	SubscriptionColumn = "subscription_id"
+	// ManagedSubscriptionTable is the table that holds the managed_subscription relation/edge.
+	ManagedSubscriptionTable = "group_buy_entitlements"
+	// ManagedSubscriptionInverseTable is the table name for the UserSubscription entity.
+	// It exists in this package in order to avoid circular dependency with the "usersubscription" package.
+	ManagedSubscriptionInverseTable = "user_subscriptions"
+	// ManagedSubscriptionColumn is the table column denoting the managed_subscription relation/edge.
+	ManagedSubscriptionColumn = "managed_subscription_id"
 	// BoundAPIKeyTable is the table that holds the bound_api_key relation/edge.
 	BoundAPIKeyTable = "group_buy_entitlements"
 	// BoundAPIKeyInverseTable is the table name for the APIKey entity.
@@ -89,6 +100,7 @@ var Columns = []string{
 	FieldActiveShareCount,
 	FieldTargetGroupID,
 	FieldSubscriptionID,
+	FieldManagedSubscriptionID,
 	FieldBoundAPIKeyID,
 	FieldLastActivatedAt,
 	FieldExpiresAt,
@@ -167,6 +179,11 @@ func BySubscriptionID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldSubscriptionID, opts...).ToFunc()
 }
 
+// ByManagedSubscriptionID orders the results by the managed_subscription_id field.
+func ByManagedSubscriptionID(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldManagedSubscriptionID, opts...).ToFunc()
+}
+
 // ByBoundAPIKeyID orders the results by the bound_api_key_id field.
 func ByBoundAPIKeyID(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldBoundAPIKeyID, opts...).ToFunc()
@@ -223,6 +240,13 @@ func BySubscriptionField(field string, opts ...sql.OrderTermOption) OrderOption 
 	}
 }
 
+// ByManagedSubscriptionField orders the results by managed_subscription field.
+func ByManagedSubscriptionField(field string, opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newManagedSubscriptionStep(), sql.OrderByField(field, opts...))
+	}
+}
+
 // ByBoundAPIKeyField orders the results by bound_api_key field.
 func ByBoundAPIKeyField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -248,6 +272,13 @@ func newSubscriptionStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(SubscriptionInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, SubscriptionTable, SubscriptionColumn),
+	)
+}
+func newManagedSubscriptionStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(ManagedSubscriptionInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2O, true, ManagedSubscriptionTable, ManagedSubscriptionColumn),
 	)
 }
 func newBoundAPIKeyStep() *sqlgraph.Step {

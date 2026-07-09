@@ -1,6 +1,6 @@
 import { apiClient } from '../client'
 import type { BasePaginationResponse } from '@/types'
-import type { GroupBuyPlan, GroupBuyRound } from '@/types/groupBuy'
+import type { GroupBuyPlan, GroupBuyRound, GroupBuyTier } from '@/types/groupBuy'
 
 export interface GroupBuyPlanPayload {
   title: string
@@ -16,6 +16,7 @@ export interface GroupBuyPlanPayload {
   max_shares_per_user: number
   target_group_id: number
   tier_group_ids: Record<string, number>
+  tier_rules: GroupBuyTier[]
   launch_mode: 'auto' | 'manual'
   validity_days: number
   timeout_minutes: number

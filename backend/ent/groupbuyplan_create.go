@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // GroupBuyPlanCreate is the builder for creating a GroupBuyPlan entity.
@@ -193,6 +194,12 @@ func (_c *GroupBuyPlanCreate) SetTargetGroupID(v int64) *GroupBuyPlanCreate {
 // SetTierGroupIds sets the "tier_group_ids" field.
 func (_c *GroupBuyPlanCreate) SetTierGroupIds(v map[string]int64) *GroupBuyPlanCreate {
 	_c.mutation.SetTierGroupIds(v)
+	return _c
+}
+
+// SetTierRules sets the "tier_rules" field.
+func (_c *GroupBuyPlanCreate) SetTierRules(v []domain.GroupBuyTierRule) *GroupBuyPlanCreate {
+	_c.mutation.SetTierRules(v)
 	return _c
 }
 
@@ -664,6 +671,10 @@ func (_c *GroupBuyPlanCreate) createSpec() (*GroupBuyPlan, *sqlgraph.CreateSpec)
 		_spec.SetField(groupbuyplan.FieldTierGroupIds, field.TypeJSON, value)
 		_node.TierGroupIds = value
 	}
+	if value, ok := _c.mutation.TierRules(); ok {
+		_spec.SetField(groupbuyplan.FieldTierRules, field.TypeJSON, value)
+		_node.TierRules = value
+	}
 	if value, ok := _c.mutation.ValidityDays(); ok {
 		_spec.SetField(groupbuyplan.FieldValidityDays, field.TypeInt, value)
 		_node.ValidityDays = value
@@ -1024,6 +1035,24 @@ func (u *GroupBuyPlanUpsert) UpdateTierGroupIds() *GroupBuyPlanUpsert {
 // ClearTierGroupIds clears the value of the "tier_group_ids" field.
 func (u *GroupBuyPlanUpsert) ClearTierGroupIds() *GroupBuyPlanUpsert {
 	u.SetNull(groupbuyplan.FieldTierGroupIds)
+	return u
+}
+
+// SetTierRules sets the "tier_rules" field.
+func (u *GroupBuyPlanUpsert) SetTierRules(v []domain.GroupBuyTierRule) *GroupBuyPlanUpsert {
+	u.Set(groupbuyplan.FieldTierRules, v)
+	return u
+}
+
+// UpdateTierRules sets the "tier_rules" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsert) UpdateTierRules() *GroupBuyPlanUpsert {
+	u.SetExcluded(groupbuyplan.FieldTierRules)
+	return u
+}
+
+// ClearTierRules clears the value of the "tier_rules" field.
+func (u *GroupBuyPlanUpsert) ClearTierRules() *GroupBuyPlanUpsert {
+	u.SetNull(groupbuyplan.FieldTierRules)
 	return u
 }
 
@@ -1458,6 +1487,27 @@ func (u *GroupBuyPlanUpsertOne) UpdateTierGroupIds() *GroupBuyPlanUpsertOne {
 func (u *GroupBuyPlanUpsertOne) ClearTierGroupIds() *GroupBuyPlanUpsertOne {
 	return u.Update(func(s *GroupBuyPlanUpsert) {
 		s.ClearTierGroupIds()
+	})
+}
+
+// SetTierRules sets the "tier_rules" field.
+func (u *GroupBuyPlanUpsertOne) SetTierRules(v []domain.GroupBuyTierRule) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetTierRules(v)
+	})
+}
+
+// UpdateTierRules sets the "tier_rules" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertOne) UpdateTierRules() *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateTierRules()
+	})
+}
+
+// ClearTierRules clears the value of the "tier_rules" field.
+func (u *GroupBuyPlanUpsertOne) ClearTierRules() *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.ClearTierRules()
 	})
 }
 
@@ -2082,6 +2132,27 @@ func (u *GroupBuyPlanUpsertBulk) UpdateTierGroupIds() *GroupBuyPlanUpsertBulk {
 func (u *GroupBuyPlanUpsertBulk) ClearTierGroupIds() *GroupBuyPlanUpsertBulk {
 	return u.Update(func(s *GroupBuyPlanUpsert) {
 		s.ClearTierGroupIds()
+	})
+}
+
+// SetTierRules sets the "tier_rules" field.
+func (u *GroupBuyPlanUpsertBulk) SetTierRules(v []domain.GroupBuyTierRule) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetTierRules(v)
+	})
+}
+
+// UpdateTierRules sets the "tier_rules" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertBulk) UpdateTierRules() *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateTierRules()
+	})
+}
+
+// ClearTierRules clears the value of the "tier_rules" field.
+func (u *GroupBuyPlanUpsertBulk) ClearTierRules() *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.ClearTierRules()
 	})
 }
 

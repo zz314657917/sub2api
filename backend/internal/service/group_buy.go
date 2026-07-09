@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
@@ -40,19 +41,25 @@ const (
 	GroupBuyRoundStatusFailed     = "failed"
 	GroupBuyRoundStatusCancelled  = "cancelled"
 
-	GroupBuySeatStatusLocked        = "locked"
-	GroupBuySeatStatusReleased      = "released"
-	GroupBuySeatStatusPaid          = "paid"
-	GroupBuySeatStatusActive        = "active"
-	GroupBuySeatStatusRefundPending = "refund_pending"
-	GroupBuySeatStatusRefunded      = "refunded"
-	GroupBuySeatStatusCancelled     = "cancelled"
+	GroupBuySeatStatusLocked           = "locked"
+	GroupBuySeatStatusReleased         = "released"
+	GroupBuySeatStatusPaid             = "paid"
+	GroupBuySeatStatusActive           = "active"
+	GroupBuySeatStatusRefundPending    = "refund_pending"
+	GroupBuySeatStatusRefundProcessing = "refund_processing"
+	GroupBuySeatStatusRefunded         = "refunded"
+	GroupBuySeatStatusCancelled        = "cancelled"
 
 	GroupBuyEntitlementStatusActive   = "active"
 	GroupBuyEntitlementStatusInactive = "inactive"
 
 	GroupBuyRefundModeBalanceCredit  = "balance_credit"
 	GroupBuyRefundModeProviderRefund = "provider_refund"
+
+	GroupBuyRefundStatusProcessing      = "processing"
+	GroupBuyRefundStatusSucceeded       = "succeeded"
+	GroupBuyRefundStatusPendingProvider = "pending_provider"
+	GroupBuyRefundStatusFailed          = "failed"
 
 	defaultGroupBuyTotalShares     = 10
 	defaultGroupBuyMaxUserShares   = 10
@@ -75,7 +82,7 @@ var (
 	ErrGroupBuyPlanNotFound       = infraerrors.NotFound("GROUP_BUY_PLAN_NOT_FOUND", "group buy plan not found")
 	ErrGroupBuyPlanUnavailable    = infraerrors.Forbidden("GROUP_BUY_PLAN_UNAVAILABLE", "group buy plan is unavailable")
 	ErrGroupBuyTargetGroupInvalid = infraerrors.BadRequest("GROUP_BUY_TARGET_GROUP_INVALID", "target groups must be active subscription groups")
-	ErrGroupBuyTierMappingInvalid = infraerrors.BadRequest("GROUP_BUY_TIER_MAPPING_INVALID", "tier group mapping must include shares 1 through 10")
+	ErrGroupBuyTierMappingInvalid = infraerrors.BadRequest("GROUP_BUY_TIER_MAPPING_INVALID", "tier rules must cover the configured share range without gaps or overlaps")
 	ErrGroupBuyShareUnavailable   = infraerrors.Conflict("GROUP_BUY_SHARE_UNAVAILABLE", "not enough shares are available in this round")
 	ErrGroupBuyShareLimitExceeded = infraerrors.Conflict("GROUP_BUY_SHARE_LIMIT_EXCEEDED", "share count exceeds user limit")
 	ErrGroupBuyRoundUnavailable   = infraerrors.Conflict("GROUP_BUY_ROUND_UNAVAILABLE", "no open round is available")
@@ -153,6 +160,7 @@ type GroupBuyPlanInput struct {
 	TargetGroupID      int64               `json:"target_group_id"`
 	TierGroupIDs       map[string]int64    `json:"tier_group_ids"`
 	TierGroups         []GroupBuyTierInput `json:"tier_groups"`
+	TierRules          []GroupBuyTierInput `json:"tier_rules"`
 	ValidityDays       int                 `json:"validity_days"`
 	TimeoutMinutes     int                 `json:"timeout_minutes"`
 	LaunchMode         string              `json:"launch_mode"`
@@ -163,8 +171,11 @@ type GroupBuyPlanInput struct {
 }
 
 type GroupBuyTierInput struct {
-	ShareCount    int   `json:"share_count"`
-	TargetGroupID int64 `json:"target_group_id"`
+	ShareCount    int    `json:"share_count"`
+	MinShares     int    `json:"min_shares"`
+	MaxShares     int    `json:"max_shares"`
+	TargetGroupID int64  `json:"target_group_id"`
+	Label         string `json:"label"`
 }
 
 type GroupBuyCreateOrderInput struct {
@@ -200,6 +211,7 @@ type GroupBuyPlanView struct {
 	TargetGroup        *GroupBuyGroupView `json:"target_group,omitempty"`
 	TierGroupIDs       map[string]int64   `json:"tier_group_ids"`
 	TierGroups         []GroupBuyTierView `json:"tier_groups"`
+	TierRules          []GroupBuyTierView `json:"tier_rules"`
 	ValidityDays       int                `json:"validity_days"`
 	TimeoutMinutes     int                `json:"timeout_minutes"`
 	LaunchMode         string             `json:"launch_mode"`
@@ -214,7 +226,10 @@ type GroupBuyPlanView struct {
 
 type GroupBuyTierView struct {
 	ShareCount    int                `json:"share_count"`
+	MinShares     int                `json:"min_shares"`
+	MaxShares     int                `json:"max_shares"`
 	TargetGroupID int64              `json:"target_group_id"`
+	Label         string             `json:"label"`
 	TargetGroup   *GroupBuyGroupView `json:"target_group,omitempty"`
 }
 
@@ -281,6 +296,7 @@ type GroupBuyEntitlementView struct {
 	TargetGroup      *GroupBuyGroupView `json:"target_group,omitempty"`
 	SubscriptionID   *int64             `json:"subscription_id,omitempty"`
 	BoundAPIKeyID    *int64             `json:"bound_api_key_id,omitempty"`
+	EntitlementLabel string             `json:"entitlement_label,omitempty"`
 	LastActivatedAt  *time.Time         `json:"last_activated_at,omitempty"`
 	ExpiresAt        *time.Time         `json:"expires_at,omitempty"`
 	RefreshedAt      *time.Time         `json:"refreshed_at,omitempty"`
@@ -511,7 +527,7 @@ func (s *GroupBuyService) lockSharesAndCreateOrder(ctx context.Context, req Crea
 	if lockedPlan.Status != GroupBuyPlanStatusActive {
 		return nil, nil, nil, ErrGroupBuyPlanUnavailable
 	}
-	if err := s.validateTierGroupIDsInTx(txCtx, tx, lockedPlan.TierGroupIds); err != nil {
+	if err := s.validatePlanTierRulesInTx(txCtx, tx, lockedPlan); err != nil {
 		return nil, nil, nil, err
 	}
 	if err := s.paymentSvc.checkPendingLimit(txCtx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
@@ -557,7 +573,6 @@ func (s *GroupBuyService) lockSharesAndCreateOrder(ctx context.Context, req Crea
 		selectedInstanceID = strings.TrimSpace(sel.InstanceID)
 		selectedProviderKey = strings.TrimSpace(sel.ProviderKey)
 	}
-	targetGroupID := targetGroupIDForShareCount(lockedPlan.TierGroupIds, shareCount)
 	orderBuilder := tx.PaymentOrder.Create().
 		SetUserID(req.UserID).
 		SetUserEmail(user.Email).
@@ -572,7 +587,6 @@ func (s *GroupBuyService) lockSharesAndCreateOrder(ctx context.Context, req Crea
 		SetPaymentTradeNo("").
 		SetOrderType(payment.OrderTypeGroupBuy).
 		SetPlanID(lockedPlan.ID).
-		SetSubscriptionGroupID(targetGroupID).
 		SetSubscriptionDays(lockedPlan.ValidityDays).
 		SetStatus(OrderStatusPending).
 		SetExpiresAt(expiresAt).
@@ -599,6 +613,7 @@ func (s *GroupBuyService) lockSharesAndCreateOrder(ctx context.Context, req Crea
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("set group buy payment code: %w", err)
 	}
+	policySnapshot := buildGroupBuyPolicySnapshot(lockedPlan, s.now())
 	seat, err := tx.GroupBuySeat.Create().
 		SetRoundID(round.ID).
 		SetPlanID(lockedPlan.ID).
@@ -606,6 +621,7 @@ func (s *GroupBuyService) lockSharesAndCreateOrder(ctx context.Context, req Crea
 		SetOrderID(order.ID).
 		SetStatus(GroupBuySeatStatusLocked).
 		SetShareCount(shareCount).
+		SetPolicySnapshot(policySnapshot).
 		SetLockedUntil(expiresAt).
 		Save(txCtx)
 	if err != nil {
@@ -740,7 +756,14 @@ func (s *GroupBuyService) releaseExpiredLockedSeatsForRoundTx(ctx context.Contex
 	for _, seat := range seats {
 		order := seat.Edges.Order
 		if order != nil && order.Status == OrderStatusPending {
-			continue
+			if _, err := tx.PaymentOrder.Update().
+				Where(paymentorder.IDEQ(order.ID), paymentorder.StatusEQ(OrderStatusPending)).
+				SetStatus(OrderStatusExpired).
+				SetFailedAt(now).
+				SetFailedReason("group buy share lock expired").
+				Save(ctx); err != nil {
+				return releasedShares, fmt.Errorf("expire group buy payment order: %w", err)
+			}
 		}
 		if err := tx.GroupBuySeat.UpdateOneID(seat.ID).
 			SetStatus(GroupBuySeatStatusReleased).
@@ -936,7 +959,7 @@ func (s *GroupBuyService) claimRoundActivation(ctx context.Context, roundID int6
 	if err != nil {
 		return nil, nil, nil, false, fmt.Errorf("load group buy plan: %w", err)
 	}
-	if err := s.validateTierGroupIDsInTx(txCtx, tx, plan.TierGroupIds); err != nil {
+	if err := s.validatePlanTierRulesInTx(txCtx, tx, plan); err != nil {
 		return nil, nil, nil, false, err
 	}
 	seatQuery := tx.GroupBuySeat.Query().
@@ -1203,7 +1226,6 @@ func (s *GroupBuyService) RefreshUserEntitlement(ctx context.Context, userID int
 	}
 	totalShares := 0
 	var maxExpires *time.Time
-	var planForMapping *dbent.GroupBuyPlan
 	var lastActivated *time.Time
 	for _, seat := range seats {
 		if seat.Edges.Plan == nil || seat.Edges.Plan.ProductKey != GroupBuyProductTokenPinPinPin {
@@ -1218,36 +1240,35 @@ func (s *GroupBuyService) RefreshUserEntitlement(ctx context.Context, userID int
 			t := *seat.ActivatedAt
 			lastActivated = &t
 		}
-		if planForMapping == nil {
-			planForMapping = seat.Edges.Plan
-		}
 	}
 	if totalShares > groupBuyMaxShareCount {
 		totalShares = groupBuyMaxShareCount
 	}
-	if planForMapping == nil {
-		planForMapping, _ = s.latestProductPlan(ctx)
-	}
+	policyPlan, _ := s.latestProductPlan(ctx)
 
 	ent, err := s.getOrCreateEntitlement(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	if totalShares <= 0 || planForMapping == nil {
+	if totalShares <= 0 || policyPlan == nil {
 		ent, err = s.deactivateEntitlement(ctx, ent)
 		if err != nil {
 			return nil, err
 		}
 		return s.entitlementView(ctx, ent), nil
 	}
-	targetGroupID := targetGroupIDForShareCount(planForMapping.TierGroupIds, totalShares)
+	tierRule, ok := resolveTierRuleForShareCount(normalizedPlanTierRules(policyPlan), totalShares)
+	if !ok {
+		return nil, ErrGroupBuyTierMappingInvalid
+	}
+	targetGroupID := tierRule.TargetGroupID
 	if targetGroupID <= 0 {
 		return nil, ErrGroupBuyTierMappingInvalid
 	}
 	if err := s.validateTargetGroup(ctx, targetGroupID); err != nil {
 		return nil, err
 	}
-	sub, err := s.ensureEntitlementSubscription(ctx, userID, targetGroupID, maxExpires, ent.SubscriptionID, totalShares)
+	sub, err := s.ensureEntitlementSubscription(ctx, userID, targetGroupID, maxExpires, ent.ManagedSubscriptionID, ent.ID, totalShares)
 	if err != nil {
 		return nil, err
 	}
@@ -1257,6 +1278,7 @@ func (s *GroupBuyService) RefreshUserEntitlement(ctx context.Context, userID int
 		SetActiveShareCount(totalShares).
 		SetTargetGroupID(targetGroupID).
 		SetSubscriptionID(sub.ID).
+		SetManagedSubscriptionID(sub.ID).
 		SetNillableLastActivatedAt(lastActivated).
 		SetNillableExpiresAt(maxExpires).
 		SetRefreshedAt(now).
@@ -1265,10 +1287,7 @@ func (s *GroupBuyService) RefreshUserEntitlement(ctx context.Context, userID int
 	if err != nil {
 		return nil, fmt.Errorf("update group buy entitlement: %w", err)
 	}
-	if previousGroupID > 0 && previousGroupID != targetGroupID && ent.BoundAPIKeyID != nil {
-		_, _ = s.apiKeySvc.Update(ctx, *ent.BoundAPIKeyID, userID, UpdateAPIKeyRequest{GroupID: &targetGroupID})
-	}
-	if ent.BoundAPIKeyID != nil {
+	if ent.BoundAPIKeyID != nil && (previousGroupID == 0 || previousGroupID != targetGroupID) {
 		_, _ = s.apiKeySvc.Update(ctx, *ent.BoundAPIKeyID, userID, UpdateAPIKeyRequest{GroupID: &targetGroupID})
 	}
 	s.createEvent(ctx, &groupBuyEventInput{
@@ -1278,6 +1297,7 @@ func (s *GroupBuyService) RefreshUserEntitlement(ctx context.Context, userID int
 		Metadata: map[string]any{
 			"active_share_count": totalShares,
 			"target_group_id":    targetGroupID,
+			"tier_label":         tierRule.Label,
 			"subscription_id":    sub.ID,
 		},
 	})
@@ -1310,8 +1330,12 @@ func (s *GroupBuyService) getOrCreateEntitlement(ctx context.Context, userID int
 
 func (s *GroupBuyService) deactivateEntitlement(ctx context.Context, ent *dbent.GroupBuyEntitlement) (*dbent.GroupBuyEntitlement, error) {
 	now := s.now()
-	if ent.SubscriptionID != nil {
-		if sub, err := s.entClient.UserSubscription.Get(ctx, *ent.SubscriptionID); err == nil && subscriptionNotesContainGroupBuyEntitlement(psStringValue(sub.Notes)) {
+	managedSubscriptionID := ent.ManagedSubscriptionID
+	if managedSubscriptionID == nil {
+		managedSubscriptionID = ent.SubscriptionID
+	}
+	if managedSubscriptionID != nil {
+		if sub, err := s.entClient.UserSubscription.Get(ctx, *managedSubscriptionID); err == nil && isGroupBuyManagedSubscription(sub) {
 			_, _ = s.entClient.UserSubscription.UpdateOneID(sub.ID).
 				SetStatus(SubscriptionStatusExpired).
 				SetExpiresAt(now).
@@ -1324,6 +1348,7 @@ func (s *GroupBuyService) deactivateEntitlement(ctx context.Context, ent *dbent.
 		SetActiveShareCount(0).
 		ClearTargetGroupID().
 		ClearSubscriptionID().
+		ClearManagedSubscriptionID().
 		ClearExpiresAt().
 		SetRefreshedAt(now).
 		SetDeactivatedAt(now).
@@ -1334,45 +1359,72 @@ func (s *GroupBuyService) deactivateEntitlement(ctx context.Context, ent *dbent.
 	return ent, nil
 }
 
-func (s *GroupBuyService) ensureEntitlementSubscription(ctx context.Context, userID, groupID int64, expiresAt *time.Time, previousSubscriptionID *int64, shares int) (*dbent.UserSubscription, error) {
+func (s *GroupBuyService) ensureEntitlementSubscription(ctx context.Context, userID, groupID int64, expiresAt *time.Time, managedSubscriptionID *int64, entitlementID int64, shares int) (*dbent.UserSubscription, error) {
 	now := s.now()
 	if expiresAt == nil || !expiresAt.After(now) {
 		t := now.AddDate(0, 0, 1)
 		expiresAt = &t
 	}
 	note := fmt.Sprintf("%s shares=%d refreshed=%s", groupBuySubscriptionNotePrefix, shares, now.UTC().Format(time.RFC3339))
-	if previousSubscriptionID != nil {
-		if prev, err := s.entClient.UserSubscription.Get(ctx, *previousSubscriptionID); err == nil && prev.GroupID != groupID && subscriptionNotesContainGroupBuyEntitlement(psStringValue(prev.Notes)) {
+	if managedSubscriptionID != nil {
+		if prev, err := s.entClient.UserSubscription.Get(ctx, *managedSubscriptionID); err == nil && isGroupBuyManagedSubscription(prev) {
+			if prev.GroupID == groupID {
+				notes := appendSubscriptionNotes(psStringValue(prev.Notes), note)
+				sub, err := s.entClient.UserSubscription.UpdateOneID(prev.ID).
+					SetStatus(SubscriptionStatusActive).
+					SetExpiresAt(*expiresAt).
+					SetSourceType("group_buy").
+					SetSourceID(entitlementID).
+					SetManagedByGroupBuy(true).
+					SetNotes(notes).
+					Save(ctx)
+				if err != nil {
+					return nil, fmt.Errorf("update group buy subscription: %w", err)
+				}
+				s.subscriptionSvc.InvalidateSubCache(userID, groupID)
+				return sub, nil
+			}
 			_, _ = s.entClient.UserSubscription.UpdateOneID(prev.ID).SetStatus(SubscriptionStatusExpired).SetExpiresAt(now).Save(ctx)
 			s.subscriptionSvc.InvalidateSubCache(prev.UserID, prev.GroupID)
 		}
 	}
-	sub, err := s.entClient.UserSubscription.Query().
-		Where(usersubscription.UserIDEQ(userID), usersubscription.GroupIDEQ(groupID)).
-		Only(ctx)
-	if err == nil {
-		notes := appendSubscriptionNotes(psStringValue(sub.Notes), note)
-		sub, err = s.entClient.UserSubscription.UpdateOneID(sub.ID).
+	existing, err := s.entClient.UserSubscription.Query().
+		Where(
+			usersubscription.UserIDEQ(userID),
+			usersubscription.GroupIDEQ(groupID),
+			usersubscription.SourceTypeEQ("group_buy"),
+			usersubscription.SourceIDEQ(entitlementID),
+		).
+		First(ctx)
+	if err != nil && !dbent.IsNotFound(err) {
+		return nil, fmt.Errorf("load existing group buy subscription: %w", err)
+	}
+	if existing != nil && isGroupBuyManagedSubscription(existing) {
+		notes := appendSubscriptionNotes(psStringValue(existing.Notes), note)
+		sub, err := s.entClient.UserSubscription.UpdateOneID(existing.ID).
 			SetStatus(SubscriptionStatusActive).
 			SetExpiresAt(*expiresAt).
+			SetSourceType("group_buy").
+			SetSourceID(entitlementID).
+			SetManagedByGroupBuy(true).
 			SetNotes(notes).
 			Save(ctx)
 		if err != nil {
-			return nil, fmt.Errorf("update group buy subscription: %w", err)
+			return nil, fmt.Errorf("restore group buy subscription: %w", err)
 		}
 		s.subscriptionSvc.InvalidateSubCache(userID, groupID)
 		return sub, nil
 	}
-	if !dbent.IsNotFound(err) {
-		return nil, err
-	}
 	windowStart := startOfDay(now)
-	sub, err = s.entClient.UserSubscription.Create().
+	sub, err := s.entClient.UserSubscription.Create().
 		SetUserID(userID).
 		SetGroupID(groupID).
 		SetStartsAt(now).
 		SetExpiresAt(*expiresAt).
 		SetStatus(SubscriptionStatusActive).
+		SetSourceType("group_buy").
+		SetSourceID(entitlementID).
+		SetManagedByGroupBuy(true).
 		SetDailyWindowStart(windowStart).
 		SetWeeklyWindowStart(windowStart).
 		SetMonthlyWindowStart(windowStart).
@@ -1528,6 +1580,7 @@ func (s *GroupBuyService) AdminCreatePlan(ctx context.Context, input GroupBuyPla
 		SetMaxSharesPerUser(input.MaxSharesPerUser).
 		SetTargetGroupID(input.TargetGroupID).
 		SetTierGroupIds(input.TierGroupIDs).
+		SetTierRules(tierRuleInputsToDomain(input.TierRules)).
 		SetValidityDays(input.ValidityDays).
 		SetTimeoutMinutes(input.TimeoutMinutes).
 		SetLaunchMode(input.LaunchMode).
@@ -1569,6 +1622,7 @@ func (s *GroupBuyService) AdminUpdatePlan(ctx context.Context, id int64, input G
 		SetMaxSharesPerUser(input.MaxSharesPerUser).
 		SetTargetGroupID(input.TargetGroupID).
 		SetTierGroupIds(input.TierGroupIDs).
+		SetTierRules(tierRuleInputsToDomain(input.TierRules)).
 		SetValidityDays(input.ValidityDays).
 		SetTimeoutMinutes(input.TimeoutMinutes).
 		SetLaunchMode(input.LaunchMode).
@@ -1630,7 +1684,7 @@ func (s *GroupBuyService) AdminCreateRound(ctx context.Context, planID int64) (*
 	if plan.Status != GroupBuyPlanStatusActive {
 		return nil, ErrGroupBuyPlanUnavailable
 	}
-	if err := s.validateTierGroupIDsInTx(txCtx, tx, plan.TierGroupIds); err != nil {
+	if err := s.validatePlanTierRulesInTx(txCtx, tx, plan); err != nil {
 		return nil, err
 	}
 	existingQuery := tx.GroupBuyRound.Query().
@@ -1781,9 +1835,100 @@ func (s *GroupBuyService) processSeatRefund(ctx context.Context, plan *dbent.Gro
 		}
 	}
 	now := s.now()
+	mode := normalizeGroupBuyRefundMode(plan.RefundMode)
+	amount := plan.PricePerShare * float64(seat.ShareCount)
+	if order != nil && order.Amount > 0 {
+		amount = order.Amount
+	}
 	note := "Token拼拼拼 未满份退款"
-	if plan.RefundMode == GroupBuyRefundModeProviderRefund {
+	if mode == GroupBuyRefundModeProviderRefund {
 		note = "Token拼拼拼 未满份，等待原路退款"
+	}
+	existingRefund, err := s.entClient.GroupBuyRefund.Query().
+		Where(groupbuyrefund.SeatIDEQ(seat.ID)).
+		Only(ctx)
+	if err != nil && !dbent.IsNotFound(err) {
+		return fmt.Errorf("load group buy refund record: %w", err)
+	}
+	if existingRefund != nil {
+		switch existingRefund.Status {
+		case GroupBuyRefundStatusSucceeded:
+			_, _ = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
+				SetStatus(GroupBuySeatStatusRefunded).
+				SetNillableRefundProcessedAt(existingRefund.ProcessedAt).
+				SetRefundNote(psStringValue(existingRefund.Note)).
+				SetUpdatedAt(now).
+				Save(ctx)
+			return nil
+		case GroupBuyRefundStatusPendingProvider, GroupBuyRefundStatusProcessing:
+			_, _ = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
+				SetStatus(GroupBuySeatStatusRefundProcessing).
+				SetRefundNote(psStringValue(existingRefund.Note)).
+				SetUpdatedAt(now).
+				Save(ctx)
+			return nil
+		}
+	}
+	updated, err := s.entClient.GroupBuySeat.Update().
+		Where(groupbuyseat.IDEQ(seat.ID), groupbuyseat.StatusEQ(GroupBuySeatStatusRefundPending)).
+		SetStatus(GroupBuySeatStatusRefundProcessing).
+		SetRefundNote(note).
+		SetUpdatedAt(now).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("claim group buy refund: %w", err)
+	}
+	if updated == 0 {
+		current, getErr := s.entClient.GroupBuySeat.Get(ctx, seat.ID)
+		if getErr != nil {
+			return getErr
+		}
+		if current.Status == GroupBuySeatStatusRefunded || current.Status == GroupBuySeatStatusRefundProcessing {
+			return nil
+		}
+		return ErrGroupBuyInvalidStatus.WithMetadata(map[string]string{"seat_status": current.Status})
+	}
+	refund := existingRefund
+	if refund == nil {
+		create := s.entClient.GroupBuyRefund.Create().
+			SetSeatID(seat.ID).
+			SetUserID(seat.UserID).
+			SetMode(mode).
+			SetStatus(GroupBuyRefundStatusProcessing).
+			SetAmount(amount).
+			SetIdempotencyKey(groupBuyRefundIdempotencyKey(seat)).
+			SetNote(note)
+		if order != nil {
+			create.SetOrderID(order.ID)
+		}
+		refund, err = create.Save(ctx)
+		if err != nil {
+			if dbent.IsConstraintError(err) {
+				return nil
+			}
+			_, _ = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
+				SetStatus(GroupBuySeatStatusRefundPending).
+				SetUpdatedAt(now).
+				Save(ctx)
+			return fmt.Errorf("create group buy refund record: %w", err)
+		}
+	} else {
+		refund, err = s.entClient.GroupBuyRefund.UpdateOneID(refund.ID).
+			SetMode(mode).
+			SetStatus(GroupBuyRefundStatusProcessing).
+			SetAmount(amount).
+			SetNote(note).
+			SetUpdatedAt(now).
+			Save(ctx)
+		if err != nil {
+			_, _ = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
+				SetStatus(GroupBuySeatStatusRefundPending).
+				SetUpdatedAt(now).
+				Save(ctx)
+			return fmt.Errorf("retry group buy refund record: %w", err)
+		}
+	}
+	if mode == GroupBuyRefundModeProviderRefund {
 		if order != nil {
 			_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).
 				SetStatus(OrderStatusRefundPending).
@@ -1793,14 +1938,26 @@ func (s *GroupBuyService) processSeatRefund(ctx context.Context, plan *dbent.Gro
 				SetRefundRequestedBy("admin").
 				Save(ctx)
 		}
+		if _, err := s.entClient.GroupBuyRefund.UpdateOneID(refund.ID).
+			SetStatus(GroupBuyRefundStatusPendingProvider).
+			SetProcessedAt(now).
+			SetUpdatedAt(now).
+			Save(ctx); err != nil {
+			return fmt.Errorf("mark group buy provider refund pending: %w", err)
+		}
 		_, err := s.entClient.GroupBuySeat.UpdateOneID(seat.ID).SetRefundNote(note).SetUpdatedAt(now).Save(ctx)
 		return err
 	}
-	amount := plan.PricePerShare * float64(seat.ShareCount)
-	if order != nil && order.Amount > 0 {
-		amount = order.Amount
-	}
 	if err := grantWelfareBalance(ctx, s.userRepo, seat.UserID, amount); err != nil {
+		_, _ = s.entClient.GroupBuyRefund.UpdateOneID(refund.ID).
+			SetStatus(GroupBuyRefundStatusFailed).
+			SetNote(note + ": " + err.Error()).
+			SetUpdatedAt(now).
+			Save(ctx)
+		_, _ = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
+			SetStatus(GroupBuySeatStatusRefundPending).
+			SetUpdatedAt(now).
+			Save(ctx)
 		return fmt.Errorf("credit group buy refund balance: %w", err)
 	}
 	s.invalidateBalanceCaches(ctx, seat.UserID)
@@ -1812,7 +1969,15 @@ func (s *GroupBuyService) processSeatRefund(ctx context.Context, plan *dbent.Gro
 			SetRefundAt(now).
 			Save(ctx)
 	}
-	_, err := s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
+	_, err = s.entClient.GroupBuyRefund.UpdateOneID(refund.ID).
+		SetStatus(GroupBuyRefundStatusSucceeded).
+		SetProcessedAt(now).
+		SetUpdatedAt(now).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("mark group buy refund record succeeded: %w", err)
+	}
+	_, err = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
 		SetStatus(GroupBuySeatStatusRefunded).
 		SetRefundProcessedAt(now).
 		SetRefundNote(note).
@@ -1833,6 +1998,16 @@ func (s *GroupBuyService) processSeatRefund(ctx context.Context, plan *dbent.Gro
 	return nil
 }
 
+func groupBuyRefundIdempotencyKey(seat *dbent.GroupBuySeat) string {
+	if seat == nil {
+		return "group_buy_refund_unknown"
+	}
+	if seat.OrderID != nil {
+		return fmt.Sprintf("group_buy_refund_seat_%d_order_%d", seat.ID, *seat.OrderID)
+	}
+	return fmt.Sprintf("group_buy_refund_seat_%d", seat.ID)
+}
+
 func (s *GroupBuyService) loadAvailablePlan(ctx context.Context, planID int64) (*dbent.GroupBuyPlan, error) {
 	plan, err := s.entClient.GroupBuyPlan.Query().
 		Where(groupbuyplan.IDEQ(planID), groupbuyplan.DeletedAtIsNil()).
@@ -1846,7 +2021,7 @@ func (s *GroupBuyService) loadAvailablePlan(ctx context.Context, planID int64) (
 	if plan.Status != GroupBuyPlanStatusActive {
 		return nil, ErrGroupBuyPlanUnavailable
 	}
-	if err := s.validateTierGroupIDs(ctx, plan.TierGroupIds); err != nil {
+	if err := validateDomainTierRules(normalizedPlanTierRules(plan), plan.TotalShares); err != nil {
 		return nil, err
 	}
 	return plan, nil
@@ -1854,7 +2029,7 @@ func (s *GroupBuyService) loadAvailablePlan(ctx context.Context, planID int64) (
 
 func (s *GroupBuyService) latestProductPlan(ctx context.Context) (*dbent.GroupBuyPlan, error) {
 	return s.entClient.GroupBuyPlan.Query().
-		Where(groupbuyplan.ProductKeyEQ(GroupBuyProductTokenPinPinPin), groupbuyplan.DeletedAtIsNil()).
+		Where(groupbuyplan.ProductKeyEQ(GroupBuyProductTokenPinPinPin), groupbuyplan.StatusEQ(GroupBuyPlanStatusActive), groupbuyplan.DeletedAtIsNil()).
 		Order(dbent.Asc(groupbuyplan.FieldSortOrder), dbent.Desc(groupbuyplan.FieldID)).
 		First(ctx)
 }
@@ -1911,84 +2086,303 @@ func (s *GroupBuyService) validatePlanInput(ctx context.Context, input *GroupBuy
 	input.LaunchMode = normalizeGroupBuyLaunchMode(input.LaunchMode)
 	input.RefundMode = normalizeGroupBuyRefundMode(input.RefundMode)
 	input.Status = normalizeGroupBuyPlanStatus(input.Status)
-	input.TierGroupIDs = normalizeTierGroupIDs(input.TierGroupIDs, input.TierGroups)
-	if len(input.TierGroupIDs) == 0 && input.TargetGroupID > 0 {
-		input.TierGroupIDs = map[string]int64{}
-		for i := 1; i <= groupBuyMaxShareCount; i++ {
-			input.TierGroupIDs[strconv.Itoa(i)] = input.TargetGroupID
-		}
-	}
-	if err := validateTierGroupIDShape(input.TierGroupIDs); err != nil {
+	input.TierRules = normalizeTierRuleInputs(input.TotalShares, input.TargetGroupID, input.TierRules, input.TierGroups, input.TierGroupIDs)
+	if err := validateTierRuleShape(input.TierRules, input.TotalShares); err != nil {
 		return err
 	}
-	input.TargetGroupID = targetGroupIDForShareCount(input.TierGroupIDs, input.TotalShares)
+	input.TierGroupIDs = tierRulesToExactMapping(input.TierRules, input.TotalShares)
+	input.TargetGroupID = targetGroupIDForShareCount(input.TierRules, input.TotalShares)
 	if input.TargetGroupID <= 0 {
-		input.TargetGroupID = targetGroupIDForShareCount(input.TierGroupIDs, groupBuyMaxShareCount)
+		input.TargetGroupID = input.TierRules[len(input.TierRules)-1].TargetGroupID
 	}
-	return s.validateTierGroupIDs(ctx, input.TierGroupIDs)
+	return s.validateTierRules(ctx, input.TierRules)
 }
 
-func normalizeTierGroupIDs(raw map[string]int64, tiers []GroupBuyTierInput) map[string]int64 {
-	out := map[string]int64{}
+func normalizeTierRuleInputs(totalShares int, fallbackGroupID int64, primary []GroupBuyTierInput, legacy []GroupBuyTierInput, raw map[string]int64) []GroupBuyTierInput {
+	source := primary
+	if len(source) == 0 {
+		source = legacy
+	}
+	out := make([]GroupBuyTierInput, 0, len(source))
+	for _, tier := range source {
+		minShares := tier.MinShares
+		maxShares := tier.MaxShares
+		if minShares <= 0 && maxShares <= 0 && tier.ShareCount > 0 {
+			minShares = tier.ShareCount
+			maxShares = tier.ShareCount
+		}
+		if maxShares <= 0 {
+			maxShares = minShares
+		}
+		label := strings.TrimSpace(tier.Label)
+		if label == "" && minShares > 0 && maxShares > 0 {
+			if minShares == maxShares {
+				label = fmt.Sprintf("%d 份", minShares)
+			} else {
+				label = fmt.Sprintf("%d-%d 份", minShares, maxShares)
+			}
+		}
+		if tier.TargetGroupID > 0 {
+			out = append(out, GroupBuyTierInput{
+				ShareCount:    tier.ShareCount,
+				MinShares:     minShares,
+				MaxShares:     maxShares,
+				TargetGroupID: tier.TargetGroupID,
+				Label:         label,
+			})
+		}
+	}
+	if len(out) > 0 {
+		return normalizeTierRuleOrder(out)
+	}
+	if len(raw) > 0 {
+		return exactTierMapToRules(raw, totalShares)
+	}
+	if fallbackGroupID > 0 {
+		return []GroupBuyTierInput{{
+			MinShares:     groupBuyMinShareCount,
+			MaxShares:     totalShares,
+			TargetGroupID: fallbackGroupID,
+			Label:         "默认档位",
+		}}
+	}
+	return nil
+}
+
+func exactTierMapToRules(raw map[string]int64, totalShares int) []GroupBuyTierInput {
+	type exactTier struct {
+		share   int
+		groupID int64
+	}
+	items := make([]exactTier, 0, len(raw))
 	for key, value := range raw {
 		if value <= 0 {
 			continue
 		}
 		share, err := strconv.Atoi(strings.TrimSpace(key))
-		if err != nil || share < groupBuyMinShareCount || share > groupBuyMaxShareCount {
+		if err != nil || share < groupBuyMinShareCount || share > totalShares {
 			continue
 		}
-		out[strconv.Itoa(share)] = value
+		items = append(items, exactTier{share: share, groupID: value})
 	}
-	for _, tier := range tiers {
-		if tier.ShareCount >= groupBuyMinShareCount && tier.ShareCount <= groupBuyMaxShareCount && tier.TargetGroupID > 0 {
-			out[strconv.Itoa(tier.ShareCount)] = tier.TargetGroupID
+	sort.Slice(items, func(i, j int) bool { return items[i].share < items[j].share })
+	out := make([]GroupBuyTierInput, 0, len(items))
+	for i := 0; i < len(items); {
+		start := items[i].share
+		end := start
+		groupID := items[i].groupID
+		i++
+		for i < len(items) && items[i].share == end+1 && items[i].groupID == groupID {
+			end = items[i].share
+			i++
+		}
+		label := fmt.Sprintf("%d 份", start)
+		if start != end {
+			label = fmt.Sprintf("%d-%d 份", start, end)
+		}
+		out = append(out, GroupBuyTierInput{MinShares: start, MaxShares: end, TargetGroupID: groupID, Label: label})
+	}
+	return out
+}
+
+func normalizeTierRuleOrder(rules []GroupBuyTierInput) []GroupBuyTierInput {
+	out := make([]GroupBuyTierInput, 0, len(rules))
+	for _, rule := range rules {
+		out = append(out, rule)
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].MinShares == out[j].MinShares {
+			return out[i].MaxShares < out[j].MaxShares
+		}
+		return out[i].MinShares < out[j].MinShares
+	})
+	return out
+}
+
+func validateTierRuleShape(rules []GroupBuyTierInput, totalShares int) error {
+	if totalShares <= 0 {
+		totalShares = defaultGroupBuyTotalShares
+	}
+	if len(rules) == 0 {
+		return ErrGroupBuyTierMappingInvalid
+	}
+	expected := groupBuyMinShareCount
+	for _, rule := range normalizeTierRuleOrder(rules) {
+		if rule.MinShares != expected || rule.MaxShares < rule.MinShares || rule.TargetGroupID <= 0 || rule.MaxShares > totalShares {
+			return ErrGroupBuyTierMappingInvalid.WithMetadata(map[string]string{
+				"expected_min_shares": strconv.Itoa(expected),
+			})
+		}
+		expected = rule.MaxShares + 1
+	}
+	if expected != totalShares+1 {
+		return ErrGroupBuyTierMappingInvalid.WithMetadata(map[string]string{"missing_share_count": strconv.Itoa(expected)})
+	}
+	return nil
+}
+
+func (s *GroupBuyService) validateTierRules(ctx context.Context, rules []GroupBuyTierInput) error {
+	seen := map[int64]struct{}{}
+	for _, rule := range rules {
+		if _, ok := seen[rule.TargetGroupID]; ok {
+			continue
+		}
+		seen[rule.TargetGroupID] = struct{}{}
+		if err := s.validateTargetGroup(ctx, rule.TargetGroupID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *GroupBuyService) validatePlanTierRulesInTx(ctx context.Context, tx *dbent.Tx, plan *dbent.GroupBuyPlan) error {
+	rules := normalizedPlanTierRules(plan)
+	if err := validateDomainTierRules(rules, plan.TotalShares); err != nil {
+		return err
+	}
+	seen := map[int64]struct{}{}
+	for _, rule := range rules {
+		if _, ok := seen[rule.TargetGroupID]; ok {
+			continue
+		}
+		seen[rule.TargetGroupID] = struct{}{}
+		if err := s.validateTargetGroupInTx(ctx, tx, rule.TargetGroupID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validateDomainTierRules(rules []domain.GroupBuyTierRule, totalShares int) error {
+	if len(rules) == 0 {
+		return ErrGroupBuyTierMappingInvalid
+	}
+	expected := groupBuyMinShareCount
+	for _, rule := range rules {
+		if rule.MinShares != expected || rule.MaxShares < rule.MinShares || rule.TargetGroupID <= 0 || rule.MaxShares > totalShares {
+			return ErrGroupBuyTierMappingInvalid.WithMetadata(map[string]string{"expected_min_shares": strconv.Itoa(expected)})
+		}
+		expected = rule.MaxShares + 1
+	}
+	if expected != totalShares+1 {
+		return ErrGroupBuyTierMappingInvalid.WithMetadata(map[string]string{"missing_share_count": strconv.Itoa(expected)})
+	}
+	return nil
+}
+
+func tierRuleInputsToDomain(rules []GroupBuyTierInput) []domain.GroupBuyTierRule {
+	ordered := normalizeTierRuleOrder(rules)
+	out := make([]domain.GroupBuyTierRule, 0, len(ordered))
+	for _, rule := range ordered {
+		label := strings.TrimSpace(rule.Label)
+		if label == "" {
+			if rule.MinShares == rule.MaxShares {
+				label = fmt.Sprintf("%d 份", rule.MinShares)
+			} else {
+				label = fmt.Sprintf("%d-%d 份", rule.MinShares, rule.MaxShares)
+			}
+		}
+		out = append(out, domain.GroupBuyTierRule{
+			MinShares:     rule.MinShares,
+			MaxShares:     rule.MaxShares,
+			TargetGroupID: rule.TargetGroupID,
+			Label:         label,
+		})
+	}
+	return out
+}
+
+func domainTierRulesToInputs(rules []domain.GroupBuyTierRule) []GroupBuyTierInput {
+	out := make([]GroupBuyTierInput, 0, len(rules))
+	for _, rule := range rules {
+		out = append(out, GroupBuyTierInput{
+			MinShares:     rule.MinShares,
+			MaxShares:     rule.MaxShares,
+			TargetGroupID: rule.TargetGroupID,
+			Label:         rule.Label,
+		})
+	}
+	return out
+}
+
+func normalizedPlanTierRules(plan *dbent.GroupBuyPlan) []domain.GroupBuyTierRule {
+	if plan == nil {
+		return nil
+	}
+	rules := append([]domain.GroupBuyTierRule(nil), plan.TierRules...)
+	if len(rules) == 0 {
+		rules = tierRuleInputsToDomain(exactTierMapToRules(plan.TierGroupIds, plan.TotalShares))
+	}
+	if len(rules) == 0 && plan.TargetGroupID > 0 {
+		rules = []domain.GroupBuyTierRule{{
+			MinShares:     groupBuyMinShareCount,
+			MaxShares:     plan.TotalShares,
+			TargetGroupID: plan.TargetGroupID,
+			Label:         "默认档位",
+		}}
+	}
+	sort.SliceStable(rules, func(i, j int) bool {
+		if rules[i].MinShares == rules[j].MinShares {
+			return rules[i].MaxShares < rules[j].MaxShares
+		}
+		return rules[i].MinShares < rules[j].MinShares
+	})
+	return rules
+}
+
+func tierRulesToExactMapping(rules []GroupBuyTierInput, totalShares int) map[string]int64 {
+	out := map[string]int64{}
+	for _, rule := range rules {
+		maxShares := rule.MaxShares
+		if maxShares > totalShares {
+			maxShares = totalShares
+		}
+		for share := rule.MinShares; share <= maxShares; share++ {
+			out[strconv.Itoa(share)] = rule.TargetGroupID
 		}
 	}
 	return out
 }
 
-func validateTierGroupIDShape(mapping map[string]int64) error {
-	for i := groupBuyMinShareCount; i <= groupBuyMaxShareCount; i++ {
-		if mapping[strconv.Itoa(i)] <= 0 {
-			return ErrGroupBuyTierMappingInvalid.WithMetadata(map[string]string{"missing_share_count": strconv.Itoa(i)})
+func resolveTierRuleForShareCount(rules []domain.GroupBuyTierRule, shareCount int) (domain.GroupBuyTierRule, bool) {
+	for _, rule := range rules {
+		if shareCount >= rule.MinShares && shareCount <= rule.MaxShares {
+			return rule, true
 		}
 	}
-	return nil
+	return domain.GroupBuyTierRule{}, false
+}
+
+func targetGroupIDForShareCount(rules []GroupBuyTierInput, shareCount int) int64 {
+	rule, ok := resolveTierRuleForShareCount(tierRuleInputsToDomain(rules), shareCount)
+	if !ok {
+		return 0
+	}
+	return rule.TargetGroupID
+}
+
+func buildGroupBuyPolicySnapshot(plan *dbent.GroupBuyPlan, capturedAt time.Time) domain.GroupBuyPolicySnapshot {
+	if plan == nil {
+		return domain.GroupBuyPolicySnapshot{}
+	}
+	return domain.GroupBuyPolicySnapshot{
+		ProductKey:          plan.ProductKey,
+		PlanID:              plan.ID,
+		TotalShares:         plan.TotalShares,
+		QuotaPerShareLabel:  plan.QuotaPerShareLabel,
+		TierRules:           normalizedPlanTierRules(plan),
+		LegacyTierGroupIDs:  copyTierGroupIDs(plan.TierGroupIds),
+		TargetGroupID:       plan.TargetGroupID,
+		CapturedAtUnixMilli: capturedAt.UnixMilli(),
+	}
 }
 
 func (s *GroupBuyService) validateTierGroupIDs(ctx context.Context, mapping map[string]int64) error {
-	if err := validateTierGroupIDShape(mapping); err != nil {
+	rules := exactTierMapToRules(mapping, groupBuyMaxShareCount)
+	if err := validateTierRuleShape(rules, groupBuyMaxShareCount); err != nil {
 		return err
 	}
-	seen := map[int64]struct{}{}
-	for _, groupID := range mapping {
-		if _, ok := seen[groupID]; ok {
-			continue
-		}
-		seen[groupID] = struct{}{}
-		if err := s.validateTargetGroup(ctx, groupID); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (s *GroupBuyService) validateTierGroupIDsInTx(ctx context.Context, tx *dbent.Tx, mapping map[string]int64) error {
-	if err := validateTierGroupIDShape(mapping); err != nil {
-		return err
-	}
-	seen := map[int64]struct{}{}
-	for _, groupID := range mapping {
-		if _, ok := seen[groupID]; ok {
-			continue
-		}
-		seen[groupID] = struct{}{}
-		if err := s.validateTargetGroupInTx(ctx, tx, groupID); err != nil {
-			return err
-		}
-	}
-	return nil
+	return s.validateTierRules(ctx, rules)
 }
 
 func (s *GroupBuyService) validateTargetGroup(ctx context.Context, groupID int64) error {
@@ -2015,20 +2409,11 @@ func (s *GroupBuyService) validateTargetGroupInTx(ctx context.Context, tx *dbent
 	return nil
 }
 
-func targetGroupIDForShareCount(mapping map[string]int64, shareCount int) int64 {
-	if shareCount <= 0 {
-		return 0
-	}
-	if shareCount > groupBuyMaxShareCount {
-		shareCount = groupBuyMaxShareCount
-	}
-	return mapping[strconv.Itoa(shareCount)]
-}
-
 func (s *GroupBuyService) planView(ctx context.Context, p *dbent.GroupBuyPlan) GroupBuyPlanView {
 	if p == nil {
 		return GroupBuyPlanView{}
 	}
+	rules := normalizedPlanTierRules(p)
 	view := GroupBuyPlanView{
 		ID:                 p.ID,
 		Title:              p.Title,
@@ -2057,7 +2442,8 @@ func (s *GroupBuyService) planView(ctx context.Context, p *dbent.GroupBuyPlan) G
 	if g := p.Edges.TargetGroup; g != nil {
 		view.TargetGroup = groupViewFromEnt(g)
 	}
-	view.TierGroups = s.tierGroupViews(ctx, p.TierGroupIds)
+	view.TierRules = s.tierRuleViews(ctx, rules)
+	view.TierGroups = view.TierRules
 	if len(p.Edges.Rounds) > 0 {
 		view.CurrentRound = roundView(p.Edges.Rounds[0])
 	}
@@ -2072,19 +2458,18 @@ func copyTierGroupIDs(in map[string]int64) map[string]int64 {
 	return out
 }
 
-func (s *GroupBuyService) tierGroupViews(ctx context.Context, mapping map[string]int64) []GroupBuyTierView {
-	keys := make([]int, 0, len(mapping))
-	for raw := range mapping {
-		if k, err := strconv.Atoi(raw); err == nil {
-			keys = append(keys, k)
-		}
-	}
-	sort.Ints(keys)
-	out := make([]GroupBuyTierView, 0, len(keys))
+func (s *GroupBuyService) tierRuleViews(ctx context.Context, rules []domain.GroupBuyTierRule) []GroupBuyTierView {
+	out := make([]GroupBuyTierView, 0, len(rules))
 	groupCache := map[int64]*GroupBuyGroupView{}
-	for _, share := range keys {
-		groupID := mapping[strconv.Itoa(share)]
-		tier := GroupBuyTierView{ShareCount: share, TargetGroupID: groupID}
+	for _, rule := range rules {
+		groupID := rule.TargetGroupID
+		tier := GroupBuyTierView{
+			ShareCount:    rule.MaxShares,
+			MinShares:     rule.MinShares,
+			MaxShares:     rule.MaxShares,
+			TargetGroupID: groupID,
+			Label:         rule.Label,
+		}
 		if groupID > 0 {
 			if cached, ok := groupCache[groupID]; ok {
 				tier.TargetGroup = cached
@@ -2178,7 +2563,26 @@ func (s *GroupBuyService) entitlementView(ctx context.Context, ent *dbent.GroupB
 			view.TargetGroup = groupViewFromEnt(g)
 		}
 	}
+	view.EntitlementLabel = s.entitlementTierLabel(ctx, ent)
 	return view
+}
+
+func (s *GroupBuyService) entitlementTierLabel(ctx context.Context, ent *dbent.GroupBuyEntitlement) string {
+	if ent == nil || ent.ActiveShareCount <= 0 {
+		return ""
+	}
+	if plan, err := s.latestProductPlan(ctx); err == nil && plan != nil {
+		if rule, ok := resolveTierRuleForShareCount(normalizedPlanTierRules(plan), ent.ActiveShareCount); ok {
+			if label := strings.TrimSpace(rule.Label); label != "" {
+				return label
+			}
+			if rule.MinShares == rule.MaxShares {
+				return fmt.Sprintf("%d 份权益", rule.MinShares)
+			}
+			return fmt.Sprintf("%d-%d 份权益", rule.MinShares, rule.MaxShares)
+		}
+	}
+	return fmt.Sprintf("%d 份权益", ent.ActiveShareCount)
 }
 
 func roundView(round *dbent.GroupBuyRound) *GroupBuyRoundView {
@@ -2337,6 +2741,16 @@ func subscriptionNotesContainGroupBuyEntitlement(notes string) bool {
 		}
 	}
 	return false
+}
+
+func isGroupBuyManagedSubscription(sub *dbent.UserSubscription) bool {
+	if sub == nil {
+		return false
+	}
+	if sub.ManagedByGroupBuy || strings.EqualFold(strings.TrimSpace(sub.SourceType), "group_buy") {
+		return true
+	}
+	return subscriptionNotesContainGroupBuyEntitlement(psStringValue(sub.Notes))
 }
 
 func (s *GroupBuyService) groupBuyPlanForUpdate(q *dbent.GroupBuyPlanQuery) *dbent.GroupBuyPlanQuery {

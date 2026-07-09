@@ -46,6 +46,8 @@ type Tx struct {
 	GroupBuyEvent *GroupBuyEventClient
 	// GroupBuyPlan is the client for interacting with the GroupBuyPlan builders.
 	GroupBuyPlan *GroupBuyPlanClient
+	// GroupBuyRefund is the client for interacting with the GroupBuyRefund builders.
+	GroupBuyRefund *GroupBuyRefundClient
 	// GroupBuyRound is the client for interacting with the GroupBuyRound builders.
 	GroupBuyRound *GroupBuyRoundClient
 	// GroupBuySeat is the client for interacting with the GroupBuySeat builders.
@@ -245,6 +247,7 @@ func (tx *Tx) init() {
 	tx.GroupBuyEntitlement = NewGroupBuyEntitlementClient(tx.config)
 	tx.GroupBuyEvent = NewGroupBuyEventClient(tx.config)
 	tx.GroupBuyPlan = NewGroupBuyPlanClient(tx.config)
+	tx.GroupBuyRefund = NewGroupBuyRefundClient(tx.config)
 	tx.GroupBuyRound = NewGroupBuyRoundClient(tx.config)
 	tx.GroupBuySeat = NewGroupBuySeatClient(tx.config)
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)

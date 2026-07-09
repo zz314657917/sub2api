@@ -44,6 +44,8 @@ const (
 	FieldTargetGroupID = "target_group_id"
 	// FieldTierGroupIds holds the string denoting the tier_group_ids field in the database.
 	FieldTierGroupIds = "tier_group_ids"
+	// FieldTierRules holds the string denoting the tier_rules field in the database.
+	FieldTierRules = "tier_rules"
 	// FieldValidityDays holds the string denoting the validity_days field in the database.
 	FieldValidityDays = "validity_days"
 	// FieldTimeoutMinutes holds the string denoting the timeout_minutes field in the database.
@@ -120,6 +122,7 @@ var Columns = []string{
 	FieldMaxSharesPerUser,
 	FieldTargetGroupID,
 	FieldTierGroupIds,
+	FieldTierRules,
 	FieldValidityDays,
 	FieldTimeoutMinutes,
 	FieldLaunchMode,

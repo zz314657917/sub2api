@@ -26,6 +26,8 @@ const (
 	FieldStatus = "status"
 	// FieldShareCount holds the string denoting the share_count field in the database.
 	FieldShareCount = "share_count"
+	// FieldPolicySnapshot holds the string denoting the policy_snapshot field in the database.
+	FieldPolicySnapshot = "policy_snapshot"
 	// FieldSubscriptionID holds the string denoting the subscription_id field in the database.
 	FieldSubscriptionID = "subscription_id"
 	// FieldBoundAPIKeyID holds the string denoting the bound_api_key_id field in the database.
@@ -60,6 +62,8 @@ const (
 	EdgeSubscription = "subscription"
 	// EdgeBoundAPIKey holds the string denoting the bound_api_key edge name in mutations.
 	EdgeBoundAPIKey = "bound_api_key"
+	// EdgeRefunds holds the string denoting the refunds edge name in mutations.
+	EdgeRefunds = "refunds"
 	// EdgeEvents holds the string denoting the events edge name in mutations.
 	EdgeEvents = "events"
 	// Table holds the table name of the groupbuyseat in the database.
@@ -106,6 +110,13 @@ const (
 	BoundAPIKeyInverseTable = "api_keys"
 	// BoundAPIKeyColumn is the table column denoting the bound_api_key relation/edge.
 	BoundAPIKeyColumn = "bound_api_key_id"
+	// RefundsTable is the table that holds the refunds relation/edge.
+	RefundsTable = "group_buy_refunds"
+	// RefundsInverseTable is the table name for the GroupBuyRefund entity.
+	// It exists in this package in order to avoid circular dependency with the "groupbuyrefund" package.
+	RefundsInverseTable = "group_buy_refunds"
+	// RefundsColumn is the table column denoting the refunds relation/edge.
+	RefundsColumn = "seat_id"
 	// EventsTable is the table that holds the events relation/edge.
 	EventsTable = "group_buy_events"
 	// EventsInverseTable is the table name for the GroupBuyEvent entity.
@@ -124,6 +135,7 @@ var Columns = []string{
 	FieldOrderID,
 	FieldStatus,
 	FieldShareCount,
+	FieldPolicySnapshot,
 	FieldSubscriptionID,
 	FieldBoundAPIKeyID,
 	FieldLockedUntil,
@@ -297,6 +309,20 @@ func ByBoundAPIKeyField(field string, opts ...sql.OrderTermOption) OrderOption {
 	}
 }
 
+// ByRefundsCount orders the results by refunds count.
+func ByRefundsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newRefundsStep(), opts...)
+	}
+}
+
+// ByRefunds orders the results by refunds terms.
+func ByRefunds(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newRefundsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByEventsCount orders the results by events count.
 func ByEventsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -350,6 +376,13 @@ func newBoundAPIKeyStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(BoundAPIKeyInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2O, true, BoundAPIKeyTable, BoundAPIKeyColumn),
+	)
+}
+func newRefundsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(RefundsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, RefundsTable, RefundsColumn),
 	)
 }
 func newEventsStep() *sqlgraph.Step {

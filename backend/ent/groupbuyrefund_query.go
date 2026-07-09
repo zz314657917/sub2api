@@ -4,7 +4,6 @@ package ent
 
 import (
 	"context"
-	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -20,77 +19,55 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/user"
 )
 
-// PaymentOrderQuery is the builder for querying PaymentOrder entities.
-type PaymentOrderQuery struct {
+// GroupBuyRefundQuery is the builder for querying GroupBuyRefund entities.
+type GroupBuyRefundQuery struct {
 	config
-	ctx                 *QueryContext
-	order               []paymentorder.OrderOption
-	inters              []Interceptor
-	predicates          []predicate.PaymentOrder
-	withUser            *UserQuery
-	withGroupBuySeat    *GroupBuySeatQuery
-	withGroupBuyRefunds *GroupBuyRefundQuery
-	modifiers           []func(*sql.Selector)
+	ctx        *QueryContext
+	order      []groupbuyrefund.OrderOption
+	inters     []Interceptor
+	predicates []predicate.GroupBuyRefund
+	withSeat   *GroupBuySeatQuery
+	withOrder  *PaymentOrderQuery
+	withUser   *UserQuery
+	modifiers  []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
 }
 
-// Where adds a new predicate for the PaymentOrderQuery builder.
-func (_q *PaymentOrderQuery) Where(ps ...predicate.PaymentOrder) *PaymentOrderQuery {
+// Where adds a new predicate for the GroupBuyRefundQuery builder.
+func (_q *GroupBuyRefundQuery) Where(ps ...predicate.GroupBuyRefund) *GroupBuyRefundQuery {
 	_q.predicates = append(_q.predicates, ps...)
 	return _q
 }
 
 // Limit the number of records to be returned by this query.
-func (_q *PaymentOrderQuery) Limit(limit int) *PaymentOrderQuery {
+func (_q *GroupBuyRefundQuery) Limit(limit int) *GroupBuyRefundQuery {
 	_q.ctx.Limit = &limit
 	return _q
 }
 
 // Offset to start from.
-func (_q *PaymentOrderQuery) Offset(offset int) *PaymentOrderQuery {
+func (_q *GroupBuyRefundQuery) Offset(offset int) *GroupBuyRefundQuery {
 	_q.ctx.Offset = &offset
 	return _q
 }
 
 // Unique configures the query builder to filter duplicate records on query.
 // By default, unique is set to true, and can be disabled using this method.
-func (_q *PaymentOrderQuery) Unique(unique bool) *PaymentOrderQuery {
+func (_q *GroupBuyRefundQuery) Unique(unique bool) *GroupBuyRefundQuery {
 	_q.ctx.Unique = &unique
 	return _q
 }
 
 // Order specifies how the records should be ordered.
-func (_q *PaymentOrderQuery) Order(o ...paymentorder.OrderOption) *PaymentOrderQuery {
+func (_q *GroupBuyRefundQuery) Order(o ...groupbuyrefund.OrderOption) *GroupBuyRefundQuery {
 	_q.order = append(_q.order, o...)
 	return _q
 }
 
-// QueryUser chains the current query on the "user" edge.
-func (_q *PaymentOrderQuery) QueryUser() *UserQuery {
-	query := (&UserClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, selector),
-			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, paymentorder.UserTable, paymentorder.UserColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
-// QueryGroupBuySeat chains the current query on the "group_buy_seat" edge.
-func (_q *PaymentOrderQuery) QueryGroupBuySeat() *GroupBuySeatQuery {
+// QuerySeat chains the current query on the "seat" edge.
+func (_q *GroupBuyRefundQuery) QuerySeat() *GroupBuySeatQuery {
 	query := (&GroupBuySeatClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
@@ -101,9 +78,9 @@ func (_q *PaymentOrderQuery) QueryGroupBuySeat() *GroupBuySeatQuery {
 			return nil, err
 		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, selector),
+			sqlgraph.From(groupbuyrefund.Table, groupbuyrefund.FieldID, selector),
 			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
-			sqlgraph.Edge(sqlgraph.O2O, false, paymentorder.GroupBuySeatTable, paymentorder.GroupBuySeatColumn),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyrefund.SeatTable, groupbuyrefund.SeatColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -111,9 +88,9 @@ func (_q *PaymentOrderQuery) QueryGroupBuySeat() *GroupBuySeatQuery {
 	return query
 }
 
-// QueryGroupBuyRefunds chains the current query on the "group_buy_refunds" edge.
-func (_q *PaymentOrderQuery) QueryGroupBuyRefunds() *GroupBuyRefundQuery {
-	query := (&GroupBuyRefundClient{config: _q.config}).Query()
+// QueryOrder chains the current query on the "order" edge.
+func (_q *GroupBuyRefundQuery) QueryOrder() *PaymentOrderQuery {
+	query := (&PaymentOrderClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
 			return nil, err
@@ -123,9 +100,9 @@ func (_q *PaymentOrderQuery) QueryGroupBuyRefunds() *GroupBuyRefundQuery {
 			return nil, err
 		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(paymentorder.Table, paymentorder.FieldID, selector),
-			sqlgraph.To(groupbuyrefund.Table, groupbuyrefund.FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, false, paymentorder.GroupBuyRefundsTable, paymentorder.GroupBuyRefundsColumn),
+			sqlgraph.From(groupbuyrefund.Table, groupbuyrefund.FieldID, selector),
+			sqlgraph.To(paymentorder.Table, paymentorder.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyrefund.OrderTable, groupbuyrefund.OrderColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -133,21 +110,43 @@ func (_q *PaymentOrderQuery) QueryGroupBuyRefunds() *GroupBuyRefundQuery {
 	return query
 }
 
-// First returns the first PaymentOrder entity from the query.
-// Returns a *NotFoundError when no PaymentOrder was found.
-func (_q *PaymentOrderQuery) First(ctx context.Context) (*PaymentOrder, error) {
+// QueryUser chains the current query on the "user" edge.
+func (_q *GroupBuyRefundQuery) QueryUser() *UserQuery {
+	query := (&UserClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyrefund.Table, groupbuyrefund.FieldID, selector),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyrefund.UserTable, groupbuyrefund.UserColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// First returns the first GroupBuyRefund entity from the query.
+// Returns a *NotFoundError when no GroupBuyRefund was found.
+func (_q *GroupBuyRefundQuery) First(ctx context.Context) (*GroupBuyRefund, error) {
 	nodes, err := _q.Limit(1).All(setContextOp(ctx, _q.ctx, ent.OpQueryFirst))
 	if err != nil {
 		return nil, err
 	}
 	if len(nodes) == 0 {
-		return nil, &NotFoundError{paymentorder.Label}
+		return nil, &NotFoundError{groupbuyrefund.Label}
 	}
 	return nodes[0], nil
 }
 
 // FirstX is like First, but panics if an error occurs.
-func (_q *PaymentOrderQuery) FirstX(ctx context.Context) *PaymentOrder {
+func (_q *GroupBuyRefundQuery) FirstX(ctx context.Context) *GroupBuyRefund {
 	node, err := _q.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -155,22 +154,22 @@ func (_q *PaymentOrderQuery) FirstX(ctx context.Context) *PaymentOrder {
 	return node
 }
 
-// FirstID returns the first PaymentOrder ID from the query.
-// Returns a *NotFoundError when no PaymentOrder ID was found.
-func (_q *PaymentOrderQuery) FirstID(ctx context.Context) (id int64, err error) {
+// FirstID returns the first GroupBuyRefund ID from the query.
+// Returns a *NotFoundError when no GroupBuyRefund ID was found.
+func (_q *GroupBuyRefundQuery) FirstID(ctx context.Context) (id int64, err error) {
 	var ids []int64
 	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
 		return
 	}
 	if len(ids) == 0 {
-		err = &NotFoundError{paymentorder.Label}
+		err = &NotFoundError{groupbuyrefund.Label}
 		return
 	}
 	return ids[0], nil
 }
 
 // FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *PaymentOrderQuery) FirstIDX(ctx context.Context) int64 {
+func (_q *GroupBuyRefundQuery) FirstIDX(ctx context.Context) int64 {
 	id, err := _q.FirstID(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -178,10 +177,10 @@ func (_q *PaymentOrderQuery) FirstIDX(ctx context.Context) int64 {
 	return id
 }
 
-// Only returns a single PaymentOrder entity found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one PaymentOrder entity is found.
-// Returns a *NotFoundError when no PaymentOrder entities are found.
-func (_q *PaymentOrderQuery) Only(ctx context.Context) (*PaymentOrder, error) {
+// Only returns a single GroupBuyRefund entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one GroupBuyRefund entity is found.
+// Returns a *NotFoundError when no GroupBuyRefund entities are found.
+func (_q *GroupBuyRefundQuery) Only(ctx context.Context) (*GroupBuyRefund, error) {
 	nodes, err := _q.Limit(2).All(setContextOp(ctx, _q.ctx, ent.OpQueryOnly))
 	if err != nil {
 		return nil, err
@@ -190,14 +189,14 @@ func (_q *PaymentOrderQuery) Only(ctx context.Context) (*PaymentOrder, error) {
 	case 1:
 		return nodes[0], nil
 	case 0:
-		return nil, &NotFoundError{paymentorder.Label}
+		return nil, &NotFoundError{groupbuyrefund.Label}
 	default:
-		return nil, &NotSingularError{paymentorder.Label}
+		return nil, &NotSingularError{groupbuyrefund.Label}
 	}
 }
 
 // OnlyX is like Only, but panics if an error occurs.
-func (_q *PaymentOrderQuery) OnlyX(ctx context.Context) *PaymentOrder {
+func (_q *GroupBuyRefundQuery) OnlyX(ctx context.Context) *GroupBuyRefund {
 	node, err := _q.Only(ctx)
 	if err != nil {
 		panic(err)
@@ -205,10 +204,10 @@ func (_q *PaymentOrderQuery) OnlyX(ctx context.Context) *PaymentOrder {
 	return node
 }
 
-// OnlyID is like Only, but returns the only PaymentOrder ID in the query.
-// Returns a *NotSingularError when more than one PaymentOrder ID is found.
+// OnlyID is like Only, but returns the only GroupBuyRefund ID in the query.
+// Returns a *NotSingularError when more than one GroupBuyRefund ID is found.
 // Returns a *NotFoundError when no entities are found.
-func (_q *PaymentOrderQuery) OnlyID(ctx context.Context) (id int64, err error) {
+func (_q *GroupBuyRefundQuery) OnlyID(ctx context.Context) (id int64, err error) {
 	var ids []int64
 	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
 		return
@@ -217,15 +216,15 @@ func (_q *PaymentOrderQuery) OnlyID(ctx context.Context) (id int64, err error) {
 	case 1:
 		id = ids[0]
 	case 0:
-		err = &NotFoundError{paymentorder.Label}
+		err = &NotFoundError{groupbuyrefund.Label}
 	default:
-		err = &NotSingularError{paymentorder.Label}
+		err = &NotSingularError{groupbuyrefund.Label}
 	}
 	return
 }
 
 // OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *PaymentOrderQuery) OnlyIDX(ctx context.Context) int64 {
+func (_q *GroupBuyRefundQuery) OnlyIDX(ctx context.Context) int64 {
 	id, err := _q.OnlyID(ctx)
 	if err != nil {
 		panic(err)
@@ -233,18 +232,18 @@ func (_q *PaymentOrderQuery) OnlyIDX(ctx context.Context) int64 {
 	return id
 }
 
-// All executes the query and returns a list of PaymentOrders.
-func (_q *PaymentOrderQuery) All(ctx context.Context) ([]*PaymentOrder, error) {
+// All executes the query and returns a list of GroupBuyRefunds.
+func (_q *GroupBuyRefundQuery) All(ctx context.Context) ([]*GroupBuyRefund, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryAll)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return nil, err
 	}
-	qr := querierAll[[]*PaymentOrder, *PaymentOrderQuery]()
-	return withInterceptors[[]*PaymentOrder](ctx, _q, qr, _q.inters)
+	qr := querierAll[[]*GroupBuyRefund, *GroupBuyRefundQuery]()
+	return withInterceptors[[]*GroupBuyRefund](ctx, _q, qr, _q.inters)
 }
 
 // AllX is like All, but panics if an error occurs.
-func (_q *PaymentOrderQuery) AllX(ctx context.Context) []*PaymentOrder {
+func (_q *GroupBuyRefundQuery) AllX(ctx context.Context) []*GroupBuyRefund {
 	nodes, err := _q.All(ctx)
 	if err != nil {
 		panic(err)
@@ -252,20 +251,20 @@ func (_q *PaymentOrderQuery) AllX(ctx context.Context) []*PaymentOrder {
 	return nodes
 }
 
-// IDs executes the query and returns a list of PaymentOrder IDs.
-func (_q *PaymentOrderQuery) IDs(ctx context.Context) (ids []int64, err error) {
+// IDs executes the query and returns a list of GroupBuyRefund IDs.
+func (_q *GroupBuyRefundQuery) IDs(ctx context.Context) (ids []int64, err error) {
 	if _q.ctx.Unique == nil && _q.path != nil {
 		_q.Unique(true)
 	}
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryIDs)
-	if err = _q.Select(paymentorder.FieldID).Scan(ctx, &ids); err != nil {
+	if err = _q.Select(groupbuyrefund.FieldID).Scan(ctx, &ids); err != nil {
 		return nil, err
 	}
 	return ids, nil
 }
 
 // IDsX is like IDs, but panics if an error occurs.
-func (_q *PaymentOrderQuery) IDsX(ctx context.Context) []int64 {
+func (_q *GroupBuyRefundQuery) IDsX(ctx context.Context) []int64 {
 	ids, err := _q.IDs(ctx)
 	if err != nil {
 		panic(err)
@@ -274,16 +273,16 @@ func (_q *PaymentOrderQuery) IDsX(ctx context.Context) []int64 {
 }
 
 // Count returns the count of the given query.
-func (_q *PaymentOrderQuery) Count(ctx context.Context) (int, error) {
+func (_q *GroupBuyRefundQuery) Count(ctx context.Context) (int, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryCount)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return 0, err
 	}
-	return withInterceptors[int](ctx, _q, querierCount[*PaymentOrderQuery](), _q.inters)
+	return withInterceptors[int](ctx, _q, querierCount[*GroupBuyRefundQuery](), _q.inters)
 }
 
 // CountX is like Count, but panics if an error occurs.
-func (_q *PaymentOrderQuery) CountX(ctx context.Context) int {
+func (_q *GroupBuyRefundQuery) CountX(ctx context.Context) int {
 	count, err := _q.Count(ctx)
 	if err != nil {
 		panic(err)
@@ -292,7 +291,7 @@ func (_q *PaymentOrderQuery) CountX(ctx context.Context) int {
 }
 
 // Exist returns true if the query has elements in the graph.
-func (_q *PaymentOrderQuery) Exist(ctx context.Context) (bool, error) {
+func (_q *GroupBuyRefundQuery) Exist(ctx context.Context) (bool, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryExist)
 	switch _, err := _q.FirstID(ctx); {
 	case IsNotFound(err):
@@ -305,7 +304,7 @@ func (_q *PaymentOrderQuery) Exist(ctx context.Context) (bool, error) {
 }
 
 // ExistX is like Exist, but panics if an error occurs.
-func (_q *PaymentOrderQuery) ExistX(ctx context.Context) bool {
+func (_q *GroupBuyRefundQuery) ExistX(ctx context.Context) bool {
 	exist, err := _q.Exist(ctx)
 	if err != nil {
 		panic(err)
@@ -313,57 +312,57 @@ func (_q *PaymentOrderQuery) ExistX(ctx context.Context) bool {
 	return exist
 }
 
-// Clone returns a duplicate of the PaymentOrderQuery builder, including all associated steps. It can be
+// Clone returns a duplicate of the GroupBuyRefundQuery builder, including all associated steps. It can be
 // used to prepare common query builders and use them differently after the clone is made.
-func (_q *PaymentOrderQuery) Clone() *PaymentOrderQuery {
+func (_q *GroupBuyRefundQuery) Clone() *GroupBuyRefundQuery {
 	if _q == nil {
 		return nil
 	}
-	return &PaymentOrderQuery{
-		config:              _q.config,
-		ctx:                 _q.ctx.Clone(),
-		order:               append([]paymentorder.OrderOption{}, _q.order...),
-		inters:              append([]Interceptor{}, _q.inters...),
-		predicates:          append([]predicate.PaymentOrder{}, _q.predicates...),
-		withUser:            _q.withUser.Clone(),
-		withGroupBuySeat:    _q.withGroupBuySeat.Clone(),
-		withGroupBuyRefunds: _q.withGroupBuyRefunds.Clone(),
+	return &GroupBuyRefundQuery{
+		config:     _q.config,
+		ctx:        _q.ctx.Clone(),
+		order:      append([]groupbuyrefund.OrderOption{}, _q.order...),
+		inters:     append([]Interceptor{}, _q.inters...),
+		predicates: append([]predicate.GroupBuyRefund{}, _q.predicates...),
+		withSeat:   _q.withSeat.Clone(),
+		withOrder:  _q.withOrder.Clone(),
+		withUser:   _q.withUser.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
 }
 
+// WithSeat tells the query-builder to eager-load the nodes that are connected to
+// the "seat" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *GroupBuyRefundQuery) WithSeat(opts ...func(*GroupBuySeatQuery)) *GroupBuyRefundQuery {
+	query := (&GroupBuySeatClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withSeat = query
+	return _q
+}
+
+// WithOrder tells the query-builder to eager-load the nodes that are connected to
+// the "order" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *GroupBuyRefundQuery) WithOrder(opts ...func(*PaymentOrderQuery)) *GroupBuyRefundQuery {
+	query := (&PaymentOrderClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withOrder = query
+	return _q
+}
+
 // WithUser tells the query-builder to eager-load the nodes that are connected to
 // the "user" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *PaymentOrderQuery) WithUser(opts ...func(*UserQuery)) *PaymentOrderQuery {
+func (_q *GroupBuyRefundQuery) WithUser(opts ...func(*UserQuery)) *GroupBuyRefundQuery {
 	query := (&UserClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
 	_q.withUser = query
-	return _q
-}
-
-// WithGroupBuySeat tells the query-builder to eager-load the nodes that are connected to
-// the "group_buy_seat" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *PaymentOrderQuery) WithGroupBuySeat(opts ...func(*GroupBuySeatQuery)) *PaymentOrderQuery {
-	query := (&GroupBuySeatClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withGroupBuySeat = query
-	return _q
-}
-
-// WithGroupBuyRefunds tells the query-builder to eager-load the nodes that are connected to
-// the "group_buy_refunds" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *PaymentOrderQuery) WithGroupBuyRefunds(opts ...func(*GroupBuyRefundQuery)) *PaymentOrderQuery {
-	query := (&GroupBuyRefundClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withGroupBuyRefunds = query
 	return _q
 }
 
@@ -373,19 +372,19 @@ func (_q *PaymentOrderQuery) WithGroupBuyRefunds(opts ...func(*GroupBuyRefundQue
 // Example:
 //
 //	var v []struct {
-//		UserID int64 `json:"user_id,omitempty"`
+//		SeatID int64 `json:"seat_id,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
-//	client.PaymentOrder.Query().
-//		GroupBy(paymentorder.FieldUserID).
+//	client.GroupBuyRefund.Query().
+//		GroupBy(groupbuyrefund.FieldSeatID).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
-func (_q *PaymentOrderQuery) GroupBy(field string, fields ...string) *PaymentOrderGroupBy {
+func (_q *GroupBuyRefundQuery) GroupBy(field string, fields ...string) *GroupBuyRefundGroupBy {
 	_q.ctx.Fields = append([]string{field}, fields...)
-	grbuild := &PaymentOrderGroupBy{build: _q}
+	grbuild := &GroupBuyRefundGroupBy{build: _q}
 	grbuild.flds = &_q.ctx.Fields
-	grbuild.label = paymentorder.Label
+	grbuild.label = groupbuyrefund.Label
 	grbuild.scan = grbuild.Scan
 	return grbuild
 }
@@ -396,26 +395,26 @@ func (_q *PaymentOrderQuery) GroupBy(field string, fields ...string) *PaymentOrd
 // Example:
 //
 //	var v []struct {
-//		UserID int64 `json:"user_id,omitempty"`
+//		SeatID int64 `json:"seat_id,omitempty"`
 //	}
 //
-//	client.PaymentOrder.Query().
-//		Select(paymentorder.FieldUserID).
+//	client.GroupBuyRefund.Query().
+//		Select(groupbuyrefund.FieldSeatID).
 //		Scan(ctx, &v)
-func (_q *PaymentOrderQuery) Select(fields ...string) *PaymentOrderSelect {
+func (_q *GroupBuyRefundQuery) Select(fields ...string) *GroupBuyRefundSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
-	sbuild := &PaymentOrderSelect{PaymentOrderQuery: _q}
-	sbuild.label = paymentorder.Label
+	sbuild := &GroupBuyRefundSelect{GroupBuyRefundQuery: _q}
+	sbuild.label = groupbuyrefund.Label
 	sbuild.flds, sbuild.scan = &_q.ctx.Fields, sbuild.Scan
 	return sbuild
 }
 
-// Aggregate returns a PaymentOrderSelect configured with the given aggregations.
-func (_q *PaymentOrderQuery) Aggregate(fns ...AggregateFunc) *PaymentOrderSelect {
+// Aggregate returns a GroupBuyRefundSelect configured with the given aggregations.
+func (_q *GroupBuyRefundQuery) Aggregate(fns ...AggregateFunc) *GroupBuyRefundSelect {
 	return _q.Select().Aggregate(fns...)
 }
 
-func (_q *PaymentOrderQuery) prepareQuery(ctx context.Context) error {
+func (_q *GroupBuyRefundQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range _q.inters {
 		if inter == nil {
 			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
@@ -427,7 +426,7 @@ func (_q *PaymentOrderQuery) prepareQuery(ctx context.Context) error {
 		}
 	}
 	for _, f := range _q.ctx.Fields {
-		if !paymentorder.ValidColumn(f) {
+		if !groupbuyrefund.ValidColumn(f) {
 			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
 	}
@@ -441,21 +440,21 @@ func (_q *PaymentOrderQuery) prepareQuery(ctx context.Context) error {
 	return nil
 }
 
-func (_q *PaymentOrderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*PaymentOrder, error) {
+func (_q *GroupBuyRefundQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*GroupBuyRefund, error) {
 	var (
-		nodes       = []*PaymentOrder{}
+		nodes       = []*GroupBuyRefund{}
 		_spec       = _q.querySpec()
 		loadedTypes = [3]bool{
+			_q.withSeat != nil,
+			_q.withOrder != nil,
 			_q.withUser != nil,
-			_q.withGroupBuySeat != nil,
-			_q.withGroupBuyRefunds != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
-		return (*PaymentOrder).scanValues(nil, columns)
+		return (*GroupBuyRefund).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
-		node := &PaymentOrder{config: _q.config}
+		node := &GroupBuyRefund{config: _q.config}
 		nodes = append(nodes, node)
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
@@ -472,31 +471,91 @@ func (_q *PaymentOrderQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := _q.withSeat; query != nil {
+		if err := _q.loadSeat(ctx, query, nodes, nil,
+			func(n *GroupBuyRefund, e *GroupBuySeat) { n.Edges.Seat = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withOrder; query != nil {
+		if err := _q.loadOrder(ctx, query, nodes, nil,
+			func(n *GroupBuyRefund, e *PaymentOrder) { n.Edges.Order = e }); err != nil {
+			return nil, err
+		}
+	}
 	if query := _q.withUser; query != nil {
 		if err := _q.loadUser(ctx, query, nodes, nil,
-			func(n *PaymentOrder, e *User) { n.Edges.User = e }); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withGroupBuySeat; query != nil {
-		if err := _q.loadGroupBuySeat(ctx, query, nodes, nil,
-			func(n *PaymentOrder, e *GroupBuySeat) { n.Edges.GroupBuySeat = e }); err != nil {
-			return nil, err
-		}
-	}
-	if query := _q.withGroupBuyRefunds; query != nil {
-		if err := _q.loadGroupBuyRefunds(ctx, query, nodes,
-			func(n *PaymentOrder) { n.Edges.GroupBuyRefunds = []*GroupBuyRefund{} },
-			func(n *PaymentOrder, e *GroupBuyRefund) { n.Edges.GroupBuyRefunds = append(n.Edges.GroupBuyRefunds, e) }); err != nil {
+			func(n *GroupBuyRefund, e *User) { n.Edges.User = e }); err != nil {
 			return nil, err
 		}
 	}
 	return nodes, nil
 }
 
-func (_q *PaymentOrderQuery) loadUser(ctx context.Context, query *UserQuery, nodes []*PaymentOrder, init func(*PaymentOrder), assign func(*PaymentOrder, *User)) error {
+func (_q *GroupBuyRefundQuery) loadSeat(ctx context.Context, query *GroupBuySeatQuery, nodes []*GroupBuyRefund, init func(*GroupBuyRefund), assign func(*GroupBuyRefund, *GroupBuySeat)) error {
 	ids := make([]int64, 0, len(nodes))
-	nodeids := make(map[int64][]*PaymentOrder)
+	nodeids := make(map[int64][]*GroupBuyRefund)
+	for i := range nodes {
+		fk := nodes[i].SeatID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(groupbuyseat.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "seat_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *GroupBuyRefundQuery) loadOrder(ctx context.Context, query *PaymentOrderQuery, nodes []*GroupBuyRefund, init func(*GroupBuyRefund), assign func(*GroupBuyRefund, *PaymentOrder)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*GroupBuyRefund)
+	for i := range nodes {
+		if nodes[i].OrderID == nil {
+			continue
+		}
+		fk := *nodes[i].OrderID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(paymentorder.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "order_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *GroupBuyRefundQuery) loadUser(ctx context.Context, query *UserQuery, nodes []*GroupBuyRefund, init func(*GroupBuyRefund), assign func(*GroupBuyRefund, *User)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*GroupBuyRefund)
 	for i := range nodes {
 		fk := nodes[i].UserID
 		if _, ok := nodeids[fk]; !ok {
@@ -523,71 +582,8 @@ func (_q *PaymentOrderQuery) loadUser(ctx context.Context, query *UserQuery, nod
 	}
 	return nil
 }
-func (_q *PaymentOrderQuery) loadGroupBuySeat(ctx context.Context, query *GroupBuySeatQuery, nodes []*PaymentOrder, init func(*PaymentOrder), assign func(*PaymentOrder, *GroupBuySeat)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int64]*PaymentOrder)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
-	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(groupbuyseat.FieldOrderID)
-	}
-	query.Where(predicate.GroupBuySeat(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(paymentorder.GroupBuySeatColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		fk := n.OrderID
-		if fk == nil {
-			return fmt.Errorf(`foreign-key "order_id" is nil for node %v`, n.ID)
-		}
-		node, ok := nodeids[*fk]
-		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "order_id" returned %v for node %v`, *fk, n.ID)
-		}
-		assign(node, n)
-	}
-	return nil
-}
-func (_q *PaymentOrderQuery) loadGroupBuyRefunds(ctx context.Context, query *GroupBuyRefundQuery, nodes []*PaymentOrder, init func(*PaymentOrder), assign func(*PaymentOrder, *GroupBuyRefund)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int64]*PaymentOrder)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
-		if init != nil {
-			init(nodes[i])
-		}
-	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(groupbuyrefund.FieldOrderID)
-	}
-	query.Where(predicate.GroupBuyRefund(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(paymentorder.GroupBuyRefundsColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		fk := n.OrderID
-		if fk == nil {
-			return fmt.Errorf(`foreign-key "order_id" is nil for node %v`, n.ID)
-		}
-		node, ok := nodeids[*fk]
-		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "order_id" returned %v for node %v`, *fk, n.ID)
-		}
-		assign(node, n)
-	}
-	return nil
-}
 
-func (_q *PaymentOrderQuery) sqlCount(ctx context.Context) (int, error) {
+func (_q *GroupBuyRefundQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
 	if len(_q.modifiers) > 0 {
 		_spec.Modifiers = _q.modifiers
@@ -599,8 +595,8 @@ func (_q *PaymentOrderQuery) sqlCount(ctx context.Context) (int, error) {
 	return sqlgraph.CountNodes(ctx, _q.driver, _spec)
 }
 
-func (_q *PaymentOrderQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(paymentorder.Table, paymentorder.Columns, sqlgraph.NewFieldSpec(paymentorder.FieldID, field.TypeInt64))
+func (_q *GroupBuyRefundQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := sqlgraph.NewQuerySpec(groupbuyrefund.Table, groupbuyrefund.Columns, sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64))
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
@@ -609,14 +605,20 @@ func (_q *PaymentOrderQuery) querySpec() *sqlgraph.QuerySpec {
 	}
 	if fields := _q.ctx.Fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
-		_spec.Node.Columns = append(_spec.Node.Columns, paymentorder.FieldID)
+		_spec.Node.Columns = append(_spec.Node.Columns, groupbuyrefund.FieldID)
 		for i := range fields {
-			if fields[i] != paymentorder.FieldID {
+			if fields[i] != groupbuyrefund.FieldID {
 				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 			}
 		}
+		if _q.withSeat != nil {
+			_spec.Node.AddColumnOnce(groupbuyrefund.FieldSeatID)
+		}
+		if _q.withOrder != nil {
+			_spec.Node.AddColumnOnce(groupbuyrefund.FieldOrderID)
+		}
 		if _q.withUser != nil {
-			_spec.Node.AddColumnOnce(paymentorder.FieldUserID)
+			_spec.Node.AddColumnOnce(groupbuyrefund.FieldUserID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {
@@ -642,12 +644,12 @@ func (_q *PaymentOrderQuery) querySpec() *sqlgraph.QuerySpec {
 	return _spec
 }
 
-func (_q *PaymentOrderQuery) sqlQuery(ctx context.Context) *sql.Selector {
+func (_q *GroupBuyRefundQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	builder := sql.Dialect(_q.driver.Dialect())
-	t1 := builder.Table(paymentorder.Table)
+	t1 := builder.Table(groupbuyrefund.Table)
 	columns := _q.ctx.Fields
 	if len(columns) == 0 {
-		columns = paymentorder.Columns
+		columns = groupbuyrefund.Columns
 	}
 	selector := builder.Select(t1.Columns(columns...)...).From(t1)
 	if _q.sql != nil {
@@ -680,7 +682,7 @@ func (_q *PaymentOrderQuery) sqlQuery(ctx context.Context) *sql.Selector {
 // ForUpdate locks the selected rows against concurrent updates, and prevent them from being
 // updated, deleted or "selected ... for update" by other sessions, until the transaction is
 // either committed or rolled-back.
-func (_q *PaymentOrderQuery) ForUpdate(opts ...sql.LockOption) *PaymentOrderQuery {
+func (_q *GroupBuyRefundQuery) ForUpdate(opts ...sql.LockOption) *GroupBuyRefundQuery {
 	if _q.driver.Dialect() == dialect.Postgres {
 		_q.Unique(false)
 	}
@@ -693,7 +695,7 @@ func (_q *PaymentOrderQuery) ForUpdate(opts ...sql.LockOption) *PaymentOrderQuer
 // ForShare behaves similarly to ForUpdate, except that it acquires a shared mode lock
 // on any rows that are read. Other sessions can read the rows, but cannot modify them
 // until your transaction commits.
-func (_q *PaymentOrderQuery) ForShare(opts ...sql.LockOption) *PaymentOrderQuery {
+func (_q *GroupBuyRefundQuery) ForShare(opts ...sql.LockOption) *GroupBuyRefundQuery {
 	if _q.driver.Dialect() == dialect.Postgres {
 		_q.Unique(false)
 	}
@@ -703,28 +705,28 @@ func (_q *PaymentOrderQuery) ForShare(opts ...sql.LockOption) *PaymentOrderQuery
 	return _q
 }
 
-// PaymentOrderGroupBy is the group-by builder for PaymentOrder entities.
-type PaymentOrderGroupBy struct {
+// GroupBuyRefundGroupBy is the group-by builder for GroupBuyRefund entities.
+type GroupBuyRefundGroupBy struct {
 	selector
-	build *PaymentOrderQuery
+	build *GroupBuyRefundQuery
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
-func (_g *PaymentOrderGroupBy) Aggregate(fns ...AggregateFunc) *PaymentOrderGroupBy {
+func (_g *GroupBuyRefundGroupBy) Aggregate(fns ...AggregateFunc) *GroupBuyRefundGroupBy {
 	_g.fns = append(_g.fns, fns...)
 	return _g
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_g *PaymentOrderGroupBy) Scan(ctx context.Context, v any) error {
+func (_g *GroupBuyRefundGroupBy) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _g.build.ctx, ent.OpQueryGroupBy)
 	if err := _g.build.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*PaymentOrderQuery, *PaymentOrderGroupBy](ctx, _g.build, _g, _g.build.inters, v)
+	return scanWithInterceptors[*GroupBuyRefundQuery, *GroupBuyRefundGroupBy](ctx, _g.build, _g, _g.build.inters, v)
 }
 
-func (_g *PaymentOrderGroupBy) sqlScan(ctx context.Context, root *PaymentOrderQuery, v any) error {
+func (_g *GroupBuyRefundGroupBy) sqlScan(ctx context.Context, root *GroupBuyRefundQuery, v any) error {
 	selector := root.sqlQuery(ctx).Select()
 	aggregation := make([]string, 0, len(_g.fns))
 	for _, fn := range _g.fns {
@@ -751,28 +753,28 @@ func (_g *PaymentOrderGroupBy) sqlScan(ctx context.Context, root *PaymentOrderQu
 	return sql.ScanSlice(rows, v)
 }
 
-// PaymentOrderSelect is the builder for selecting fields of PaymentOrder entities.
-type PaymentOrderSelect struct {
-	*PaymentOrderQuery
+// GroupBuyRefundSelect is the builder for selecting fields of GroupBuyRefund entities.
+type GroupBuyRefundSelect struct {
+	*GroupBuyRefundQuery
 	selector
 }
 
 // Aggregate adds the given aggregation functions to the selector query.
-func (_s *PaymentOrderSelect) Aggregate(fns ...AggregateFunc) *PaymentOrderSelect {
+func (_s *GroupBuyRefundSelect) Aggregate(fns ...AggregateFunc) *GroupBuyRefundSelect {
 	_s.fns = append(_s.fns, fns...)
 	return _s
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_s *PaymentOrderSelect) Scan(ctx context.Context, v any) error {
+func (_s *GroupBuyRefundSelect) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _s.ctx, ent.OpQuerySelect)
 	if err := _s.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*PaymentOrderQuery, *PaymentOrderSelect](ctx, _s.PaymentOrderQuery, _s, _s.inters, v)
+	return scanWithInterceptors[*GroupBuyRefundQuery, *GroupBuyRefundSelect](ctx, _s.GroupBuyRefundQuery, _s, _s.inters, v)
 }
 
-func (_s *PaymentOrderSelect) sqlScan(ctx context.Context, root *PaymentOrderQuery, v any) error {
+func (_s *GroupBuyRefundSelect) sqlScan(ctx context.Context, root *GroupBuyRefundQuery, v any) error {
 	selector := root.sqlQuery(ctx)
 	aggregation := make([]string, 0, len(_s.fns))
 	for _, fn := range _s.fns {

@@ -14,12 +14,14 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // GroupBuySeatUpdate is the builder for updating GroupBuySeat entities.
@@ -129,6 +131,26 @@ func (_u *GroupBuySeatUpdate) SetNillableShareCount(v *int) *GroupBuySeatUpdate 
 // AddShareCount adds value to the "share_count" field.
 func (_u *GroupBuySeatUpdate) AddShareCount(v int) *GroupBuySeatUpdate {
 	_u.mutation.AddShareCount(v)
+	return _u
+}
+
+// SetPolicySnapshot sets the "policy_snapshot" field.
+func (_u *GroupBuySeatUpdate) SetPolicySnapshot(v domain.GroupBuyPolicySnapshot) *GroupBuySeatUpdate {
+	_u.mutation.SetPolicySnapshot(v)
+	return _u
+}
+
+// SetNillablePolicySnapshot sets the "policy_snapshot" field if the given value is not nil.
+func (_u *GroupBuySeatUpdate) SetNillablePolicySnapshot(v *domain.GroupBuyPolicySnapshot) *GroupBuySeatUpdate {
+	if v != nil {
+		_u.SetPolicySnapshot(*v)
+	}
+	return _u
+}
+
+// ClearPolicySnapshot clears the value of the "policy_snapshot" field.
+func (_u *GroupBuySeatUpdate) ClearPolicySnapshot() *GroupBuySeatUpdate {
+	_u.mutation.ClearPolicySnapshot()
 	return _u
 }
 
@@ -348,6 +370,21 @@ func (_u *GroupBuySeatUpdate) SetBoundAPIKey(v *APIKey) *GroupBuySeatUpdate {
 	return _u.SetBoundAPIKeyID(v.ID)
 }
 
+// AddRefundIDs adds the "refunds" edge to the GroupBuyRefund entity by IDs.
+func (_u *GroupBuySeatUpdate) AddRefundIDs(ids ...int64) *GroupBuySeatUpdate {
+	_u.mutation.AddRefundIDs(ids...)
+	return _u
+}
+
+// AddRefunds adds the "refunds" edges to the GroupBuyRefund entity.
+func (_u *GroupBuySeatUpdate) AddRefunds(v ...*GroupBuyRefund) *GroupBuySeatUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRefundIDs(ids...)
+}
+
 // AddEventIDs adds the "events" edge to the GroupBuyEvent entity by IDs.
 func (_u *GroupBuySeatUpdate) AddEventIDs(ids ...int64) *GroupBuySeatUpdate {
 	_u.mutation.AddEventIDs(ids...)
@@ -402,6 +439,27 @@ func (_u *GroupBuySeatUpdate) ClearSubscription() *GroupBuySeatUpdate {
 func (_u *GroupBuySeatUpdate) ClearBoundAPIKey() *GroupBuySeatUpdate {
 	_u.mutation.ClearBoundAPIKey()
 	return _u
+}
+
+// ClearRefunds clears all "refunds" edges to the GroupBuyRefund entity.
+func (_u *GroupBuySeatUpdate) ClearRefunds() *GroupBuySeatUpdate {
+	_u.mutation.ClearRefunds()
+	return _u
+}
+
+// RemoveRefundIDs removes the "refunds" edge to GroupBuyRefund entities by IDs.
+func (_u *GroupBuySeatUpdate) RemoveRefundIDs(ids ...int64) *GroupBuySeatUpdate {
+	_u.mutation.RemoveRefundIDs(ids...)
+	return _u
+}
+
+// RemoveRefunds removes "refunds" edges to GroupBuyRefund entities.
+func (_u *GroupBuySeatUpdate) RemoveRefunds(v ...*GroupBuyRefund) *GroupBuySeatUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRefundIDs(ids...)
 }
 
 // ClearEvents clears all "events" edges to the GroupBuyEvent entity.
@@ -500,6 +558,12 @@ func (_u *GroupBuySeatUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.AddedShareCount(); ok {
 		_spec.AddField(groupbuyseat.FieldShareCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.PolicySnapshot(); ok {
+		_spec.SetField(groupbuyseat.FieldPolicySnapshot, field.TypeJSON, value)
+	}
+	if _u.mutation.PolicySnapshotCleared() {
+		_spec.ClearField(groupbuyseat.FieldPolicySnapshot, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.LockedUntil(); ok {
 		_spec.SetField(groupbuyseat.FieldLockedUntil, field.TypeTime, value)
@@ -720,6 +784,51 @@ func (_u *GroupBuySeatUpdate) sqlSave(ctx context.Context) (_node int, err error
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.RefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.RefundsTable,
+			Columns: []string{groupbuyseat.RefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRefundsIDs(); len(nodes) > 0 && !_u.mutation.RefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.RefundsTable,
+			Columns: []string{groupbuyseat.RefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RefundsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.RefundsTable,
+			Columns: []string{groupbuyseat.RefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.EventsCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.O2M,
@@ -879,6 +988,26 @@ func (_u *GroupBuySeatUpdateOne) SetNillableShareCount(v *int) *GroupBuySeatUpda
 // AddShareCount adds value to the "share_count" field.
 func (_u *GroupBuySeatUpdateOne) AddShareCount(v int) *GroupBuySeatUpdateOne {
 	_u.mutation.AddShareCount(v)
+	return _u
+}
+
+// SetPolicySnapshot sets the "policy_snapshot" field.
+func (_u *GroupBuySeatUpdateOne) SetPolicySnapshot(v domain.GroupBuyPolicySnapshot) *GroupBuySeatUpdateOne {
+	_u.mutation.SetPolicySnapshot(v)
+	return _u
+}
+
+// SetNillablePolicySnapshot sets the "policy_snapshot" field if the given value is not nil.
+func (_u *GroupBuySeatUpdateOne) SetNillablePolicySnapshot(v *domain.GroupBuyPolicySnapshot) *GroupBuySeatUpdateOne {
+	if v != nil {
+		_u.SetPolicySnapshot(*v)
+	}
+	return _u
+}
+
+// ClearPolicySnapshot clears the value of the "policy_snapshot" field.
+func (_u *GroupBuySeatUpdateOne) ClearPolicySnapshot() *GroupBuySeatUpdateOne {
+	_u.mutation.ClearPolicySnapshot()
 	return _u
 }
 
@@ -1098,6 +1227,21 @@ func (_u *GroupBuySeatUpdateOne) SetBoundAPIKey(v *APIKey) *GroupBuySeatUpdateOn
 	return _u.SetBoundAPIKeyID(v.ID)
 }
 
+// AddRefundIDs adds the "refunds" edge to the GroupBuyRefund entity by IDs.
+func (_u *GroupBuySeatUpdateOne) AddRefundIDs(ids ...int64) *GroupBuySeatUpdateOne {
+	_u.mutation.AddRefundIDs(ids...)
+	return _u
+}
+
+// AddRefunds adds the "refunds" edges to the GroupBuyRefund entity.
+func (_u *GroupBuySeatUpdateOne) AddRefunds(v ...*GroupBuyRefund) *GroupBuySeatUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddRefundIDs(ids...)
+}
+
 // AddEventIDs adds the "events" edge to the GroupBuyEvent entity by IDs.
 func (_u *GroupBuySeatUpdateOne) AddEventIDs(ids ...int64) *GroupBuySeatUpdateOne {
 	_u.mutation.AddEventIDs(ids...)
@@ -1152,6 +1296,27 @@ func (_u *GroupBuySeatUpdateOne) ClearSubscription() *GroupBuySeatUpdateOne {
 func (_u *GroupBuySeatUpdateOne) ClearBoundAPIKey() *GroupBuySeatUpdateOne {
 	_u.mutation.ClearBoundAPIKey()
 	return _u
+}
+
+// ClearRefunds clears all "refunds" edges to the GroupBuyRefund entity.
+func (_u *GroupBuySeatUpdateOne) ClearRefunds() *GroupBuySeatUpdateOne {
+	_u.mutation.ClearRefunds()
+	return _u
+}
+
+// RemoveRefundIDs removes the "refunds" edge to GroupBuyRefund entities by IDs.
+func (_u *GroupBuySeatUpdateOne) RemoveRefundIDs(ids ...int64) *GroupBuySeatUpdateOne {
+	_u.mutation.RemoveRefundIDs(ids...)
+	return _u
+}
+
+// RemoveRefunds removes "refunds" edges to GroupBuyRefund entities.
+func (_u *GroupBuySeatUpdateOne) RemoveRefunds(v ...*GroupBuyRefund) *GroupBuySeatUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveRefundIDs(ids...)
 }
 
 // ClearEvents clears all "events" edges to the GroupBuyEvent entity.
@@ -1280,6 +1445,12 @@ func (_u *GroupBuySeatUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuySe
 	}
 	if value, ok := _u.mutation.AddedShareCount(); ok {
 		_spec.AddField(groupbuyseat.FieldShareCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.PolicySnapshot(); ok {
+		_spec.SetField(groupbuyseat.FieldPolicySnapshot, field.TypeJSON, value)
+	}
+	if _u.mutation.PolicySnapshotCleared() {
+		_spec.ClearField(groupbuyseat.FieldPolicySnapshot, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.LockedUntil(); ok {
 		_spec.SetField(groupbuyseat.FieldLockedUntil, field.TypeTime, value)
@@ -1493,6 +1664,51 @@ func (_u *GroupBuySeatUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuySe
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(apikey.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.RefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.RefundsTable,
+			Columns: []string{groupbuyseat.RefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedRefundsIDs(); len(nodes) > 0 && !_u.mutation.RefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.RefundsTable,
+			Columns: []string{groupbuyseat.RefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RefundsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.RefundsTable,
+			Columns: []string{groupbuyseat.RefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

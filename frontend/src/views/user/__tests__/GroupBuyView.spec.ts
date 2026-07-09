@@ -91,11 +91,12 @@ const plan = {
   price_per_seat: 128,
   price_label: '每份 128 元',
   quota_per_share_label: '单份约 50 USD 月额度',
-  quota_label: '按 10 倍订阅分组限额执行',
+  quota_label: '单份约 50 USD 月额度',
   max_shares_per_user: 10,
   target_group_id: 7,
   tier_group_ids: Object.fromEntries(Array.from({ length: 10 }, (_, index) => [String(index + 1), 7])),
-  tier_groups: [],
+  tier_groups: [{ min_shares: 1, max_shares: 10, target_group_id: 7, label: '通用权益' }],
+  tier_rules: [{ min_shares: 1, max_shares: 10, target_group_id: 7, label: '通用权益' }],
   validity_days: 30,
   timeout_minutes: 1440,
   launch_mode: 'auto',
@@ -186,6 +187,7 @@ describe('GroupBuyView', () => {
           active_share_count: 2,
           target_group_id: 7,
           target_group: { id: 7, name: 'Token拼拼拼 2 份档', platform: 'openai', monthly_limit_usd: 100 },
+          entitlement_label: '2 份权益',
           subscription_id: 71,
           bound_api_key_id: undefined,
           expires_at: '2099-02-01T00:00:00Z',
@@ -248,7 +250,7 @@ describe('GroupBuyView', () => {
     expect(wrapper.text()).toContain('份额付款成功，等待满份成团')
     expect(wrapper.text()).toContain('后台配置的我的拼团顶部说明')
     expect(wrapper.text()).toContain('只使用自己的平台 API Key')
-    expect(wrapper.text()).toContain('额度按后台订阅分组执行')
+    expect(wrapper.text()).toContain('满份成团后按有效份额开通权益')
     expect(wrapper.text()).not.toContain('不共享官方账号或官方 API Key')
   })
 
@@ -290,7 +292,7 @@ describe('GroupBuyView', () => {
     expect(wrapper.text()).toContain('已开通')
     expect(wrapper.text()).toContain('待退款')
     expect(wrapper.text()).toContain('当前有效份额')
-    expect(wrapper.text()).toContain('Token拼拼拼 2 份档')
+    expect(wrapper.text()).toContain('2 份权益')
 
     const input = wrapper.find('input[placeholder="API Key ID"]')
     await input.setValue('9')

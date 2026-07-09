@@ -33,6 +33,8 @@ type GroupBuyEntitlement struct {
 	TargetGroupID *int64 `json:"target_group_id,omitempty"`
 	// SubscriptionID holds the value of the "subscription_id" field.
 	SubscriptionID *int64 `json:"subscription_id,omitempty"`
+	// ManagedSubscriptionID holds the value of the "managed_subscription_id" field.
+	ManagedSubscriptionID *int64 `json:"managed_subscription_id,omitempty"`
 	// BoundAPIKeyID holds the value of the "bound_api_key_id" field.
 	BoundAPIKeyID *int64 `json:"bound_api_key_id,omitempty"`
 	// LastActivatedAt holds the value of the "last_activated_at" field.
@@ -61,11 +63,13 @@ type GroupBuyEntitlementEdges struct {
 	TargetGroup *Group `json:"target_group,omitempty"`
 	// Subscription holds the value of the subscription edge.
 	Subscription *UserSubscription `json:"subscription,omitempty"`
+	// ManagedSubscription holds the value of the managed_subscription edge.
+	ManagedSubscription *UserSubscription `json:"managed_subscription,omitempty"`
 	// BoundAPIKey holds the value of the bound_api_key edge.
 	BoundAPIKey *APIKey `json:"bound_api_key,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [4]bool
+	loadedTypes [5]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -101,12 +105,23 @@ func (e GroupBuyEntitlementEdges) SubscriptionOrErr() (*UserSubscription, error)
 	return nil, &NotLoadedError{edge: "subscription"}
 }
 
+// ManagedSubscriptionOrErr returns the ManagedSubscription value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e GroupBuyEntitlementEdges) ManagedSubscriptionOrErr() (*UserSubscription, error) {
+	if e.ManagedSubscription != nil {
+		return e.ManagedSubscription, nil
+	} else if e.loadedTypes[3] {
+		return nil, &NotFoundError{label: usersubscription.Label}
+	}
+	return nil, &NotLoadedError{edge: "managed_subscription"}
+}
+
 // BoundAPIKeyOrErr returns the BoundAPIKey value or an error if the edge
 // was not loaded in eager-loading, or loaded but was not found.
 func (e GroupBuyEntitlementEdges) BoundAPIKeyOrErr() (*APIKey, error) {
 	if e.BoundAPIKey != nil {
 		return e.BoundAPIKey, nil
-	} else if e.loadedTypes[3] {
+	} else if e.loadedTypes[4] {
 		return nil, &NotFoundError{label: apikey.Label}
 	}
 	return nil, &NotLoadedError{edge: "bound_api_key"}
@@ -117,7 +132,7 @@ func (*GroupBuyEntitlement) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case groupbuyentitlement.FieldID, groupbuyentitlement.FieldUserID, groupbuyentitlement.FieldActiveShareCount, groupbuyentitlement.FieldTargetGroupID, groupbuyentitlement.FieldSubscriptionID, groupbuyentitlement.FieldBoundAPIKeyID:
+		case groupbuyentitlement.FieldID, groupbuyentitlement.FieldUserID, groupbuyentitlement.FieldActiveShareCount, groupbuyentitlement.FieldTargetGroupID, groupbuyentitlement.FieldSubscriptionID, groupbuyentitlement.FieldManagedSubscriptionID, groupbuyentitlement.FieldBoundAPIKeyID:
 			values[i] = new(sql.NullInt64)
 		case groupbuyentitlement.FieldProductKey, groupbuyentitlement.FieldStatus:
 			values[i] = new(sql.NullString)
@@ -181,6 +196,13 @@ func (_m *GroupBuyEntitlement) assignValues(columns []string, values []any) erro
 			} else if value.Valid {
 				_m.SubscriptionID = new(int64)
 				*_m.SubscriptionID = value.Int64
+			}
+		case groupbuyentitlement.FieldManagedSubscriptionID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field managed_subscription_id", values[i])
+			} else if value.Valid {
+				_m.ManagedSubscriptionID = new(int64)
+				*_m.ManagedSubscriptionID = value.Int64
 			}
 		case groupbuyentitlement.FieldBoundAPIKeyID:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -256,6 +278,11 @@ func (_m *GroupBuyEntitlement) QuerySubscription() *UserSubscriptionQuery {
 	return NewGroupBuyEntitlementClient(_m.config).QuerySubscription(_m)
 }
 
+// QueryManagedSubscription queries the "managed_subscription" edge of the GroupBuyEntitlement entity.
+func (_m *GroupBuyEntitlement) QueryManagedSubscription() *UserSubscriptionQuery {
+	return NewGroupBuyEntitlementClient(_m.config).QueryManagedSubscription(_m)
+}
+
 // QueryBoundAPIKey queries the "bound_api_key" edge of the GroupBuyEntitlement entity.
 func (_m *GroupBuyEntitlement) QueryBoundAPIKey() *APIKeyQuery {
 	return NewGroupBuyEntitlementClient(_m.config).QueryBoundAPIKey(_m)
@@ -303,6 +330,11 @@ func (_m *GroupBuyEntitlement) String() string {
 	builder.WriteString(", ")
 	if v := _m.SubscriptionID; v != nil {
 		builder.WriteString("subscription_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.ManagedSubscriptionID; v != nil {
+		builder.WriteString("managed_subscription_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

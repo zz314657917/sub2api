@@ -135,6 +135,26 @@ func (_u *GroupBuyEntitlementUpdate) ClearSubscriptionID() *GroupBuyEntitlementU
 	return _u
 }
 
+// SetManagedSubscriptionID sets the "managed_subscription_id" field.
+func (_u *GroupBuyEntitlementUpdate) SetManagedSubscriptionID(v int64) *GroupBuyEntitlementUpdate {
+	_u.mutation.SetManagedSubscriptionID(v)
+	return _u
+}
+
+// SetNillableManagedSubscriptionID sets the "managed_subscription_id" field if the given value is not nil.
+func (_u *GroupBuyEntitlementUpdate) SetNillableManagedSubscriptionID(v *int64) *GroupBuyEntitlementUpdate {
+	if v != nil {
+		_u.SetManagedSubscriptionID(*v)
+	}
+	return _u
+}
+
+// ClearManagedSubscriptionID clears the value of the "managed_subscription_id" field.
+func (_u *GroupBuyEntitlementUpdate) ClearManagedSubscriptionID() *GroupBuyEntitlementUpdate {
+	_u.mutation.ClearManagedSubscriptionID()
+	return _u
+}
+
 // SetBoundAPIKeyID sets the "bound_api_key_id" field.
 func (_u *GroupBuyEntitlementUpdate) SetBoundAPIKeyID(v int64) *GroupBuyEntitlementUpdate {
 	_u.mutation.SetBoundAPIKeyID(v)
@@ -250,6 +270,11 @@ func (_u *GroupBuyEntitlementUpdate) SetSubscription(v *UserSubscription) *Group
 	return _u.SetSubscriptionID(v.ID)
 }
 
+// SetManagedSubscription sets the "managed_subscription" edge to the UserSubscription entity.
+func (_u *GroupBuyEntitlementUpdate) SetManagedSubscription(v *UserSubscription) *GroupBuyEntitlementUpdate {
+	return _u.SetManagedSubscriptionID(v.ID)
+}
+
 // SetBoundAPIKey sets the "bound_api_key" edge to the APIKey entity.
 func (_u *GroupBuyEntitlementUpdate) SetBoundAPIKey(v *APIKey) *GroupBuyEntitlementUpdate {
 	return _u.SetBoundAPIKeyID(v.ID)
@@ -275,6 +300,12 @@ func (_u *GroupBuyEntitlementUpdate) ClearTargetGroup() *GroupBuyEntitlementUpda
 // ClearSubscription clears the "subscription" edge to the UserSubscription entity.
 func (_u *GroupBuyEntitlementUpdate) ClearSubscription() *GroupBuyEntitlementUpdate {
 	_u.mutation.ClearSubscription()
+	return _u
+}
+
+// ClearManagedSubscription clears the "managed_subscription" edge to the UserSubscription entity.
+func (_u *GroupBuyEntitlementUpdate) ClearManagedSubscription() *GroupBuyEntitlementUpdate {
+	_u.mutation.ClearManagedSubscription()
 	return _u
 }
 
@@ -473,6 +504,35 @@ func (_u *GroupBuyEntitlementUpdate) sqlSave(ctx context.Context) (_node int, er
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.ManagedSubscriptionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyentitlement.ManagedSubscriptionTable,
+			Columns: []string{groupbuyentitlement.ManagedSubscriptionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ManagedSubscriptionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyentitlement.ManagedSubscriptionTable,
+			Columns: []string{groupbuyentitlement.ManagedSubscriptionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _u.mutation.BoundAPIKeyCleared() {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -625,6 +685,26 @@ func (_u *GroupBuyEntitlementUpdateOne) ClearSubscriptionID() *GroupBuyEntitleme
 	return _u
 }
 
+// SetManagedSubscriptionID sets the "managed_subscription_id" field.
+func (_u *GroupBuyEntitlementUpdateOne) SetManagedSubscriptionID(v int64) *GroupBuyEntitlementUpdateOne {
+	_u.mutation.SetManagedSubscriptionID(v)
+	return _u
+}
+
+// SetNillableManagedSubscriptionID sets the "managed_subscription_id" field if the given value is not nil.
+func (_u *GroupBuyEntitlementUpdateOne) SetNillableManagedSubscriptionID(v *int64) *GroupBuyEntitlementUpdateOne {
+	if v != nil {
+		_u.SetManagedSubscriptionID(*v)
+	}
+	return _u
+}
+
+// ClearManagedSubscriptionID clears the value of the "managed_subscription_id" field.
+func (_u *GroupBuyEntitlementUpdateOne) ClearManagedSubscriptionID() *GroupBuyEntitlementUpdateOne {
+	_u.mutation.ClearManagedSubscriptionID()
+	return _u
+}
+
 // SetBoundAPIKeyID sets the "bound_api_key_id" field.
 func (_u *GroupBuyEntitlementUpdateOne) SetBoundAPIKeyID(v int64) *GroupBuyEntitlementUpdateOne {
 	_u.mutation.SetBoundAPIKeyID(v)
@@ -740,6 +820,11 @@ func (_u *GroupBuyEntitlementUpdateOne) SetSubscription(v *UserSubscription) *Gr
 	return _u.SetSubscriptionID(v.ID)
 }
 
+// SetManagedSubscription sets the "managed_subscription" edge to the UserSubscription entity.
+func (_u *GroupBuyEntitlementUpdateOne) SetManagedSubscription(v *UserSubscription) *GroupBuyEntitlementUpdateOne {
+	return _u.SetManagedSubscriptionID(v.ID)
+}
+
 // SetBoundAPIKey sets the "bound_api_key" edge to the APIKey entity.
 func (_u *GroupBuyEntitlementUpdateOne) SetBoundAPIKey(v *APIKey) *GroupBuyEntitlementUpdateOne {
 	return _u.SetBoundAPIKeyID(v.ID)
@@ -765,6 +850,12 @@ func (_u *GroupBuyEntitlementUpdateOne) ClearTargetGroup() *GroupBuyEntitlementU
 // ClearSubscription clears the "subscription" edge to the UserSubscription entity.
 func (_u *GroupBuyEntitlementUpdateOne) ClearSubscription() *GroupBuyEntitlementUpdateOne {
 	_u.mutation.ClearSubscription()
+	return _u
+}
+
+// ClearManagedSubscription clears the "managed_subscription" edge to the UserSubscription entity.
+func (_u *GroupBuyEntitlementUpdateOne) ClearManagedSubscription() *GroupBuyEntitlementUpdateOne {
+	_u.mutation.ClearManagedSubscription()
 	return _u
 }
 
@@ -983,6 +1074,35 @@ func (_u *GroupBuyEntitlementUpdateOne) sqlSave(ctx context.Context) (_node *Gro
 			Inverse: true,
 			Table:   groupbuyentitlement.SubscriptionTable,
 			Columns: []string{groupbuyentitlement.SubscriptionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ManagedSubscriptionCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyentitlement.ManagedSubscriptionTable,
+			Columns: []string{groupbuyentitlement.ManagedSubscriptionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ManagedSubscriptionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyentitlement.ManagedSubscriptionTable,
+			Columns: []string{groupbuyentitlement.ManagedSubscriptionColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),

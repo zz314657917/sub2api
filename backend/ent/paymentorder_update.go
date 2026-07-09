@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
@@ -739,6 +740,21 @@ func (_u *PaymentOrderUpdate) SetGroupBuySeat(v *GroupBuySeat) *PaymentOrderUpda
 	return _u.SetGroupBuySeatID(v.ID)
 }
 
+// AddGroupBuyRefundIDs adds the "group_buy_refunds" edge to the GroupBuyRefund entity by IDs.
+func (_u *PaymentOrderUpdate) AddGroupBuyRefundIDs(ids ...int64) *PaymentOrderUpdate {
+	_u.mutation.AddGroupBuyRefundIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyRefunds adds the "group_buy_refunds" edges to the GroupBuyRefund entity.
+func (_u *PaymentOrderUpdate) AddGroupBuyRefunds(v ...*GroupBuyRefund) *PaymentOrderUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyRefundIDs(ids...)
+}
+
 // Mutation returns the PaymentOrderMutation object of the builder.
 func (_u *PaymentOrderUpdate) Mutation() *PaymentOrderMutation {
 	return _u.mutation
@@ -754,6 +770,27 @@ func (_u *PaymentOrderUpdate) ClearUser() *PaymentOrderUpdate {
 func (_u *PaymentOrderUpdate) ClearGroupBuySeat() *PaymentOrderUpdate {
 	_u.mutation.ClearGroupBuySeat()
 	return _u
+}
+
+// ClearGroupBuyRefunds clears all "group_buy_refunds" edges to the GroupBuyRefund entity.
+func (_u *PaymentOrderUpdate) ClearGroupBuyRefunds() *PaymentOrderUpdate {
+	_u.mutation.ClearGroupBuyRefunds()
+	return _u
+}
+
+// RemoveGroupBuyRefundIDs removes the "group_buy_refunds" edge to GroupBuyRefund entities by IDs.
+func (_u *PaymentOrderUpdate) RemoveGroupBuyRefundIDs(ids ...int64) *PaymentOrderUpdate {
+	_u.mutation.RemoveGroupBuyRefundIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyRefunds removes "group_buy_refunds" edges to GroupBuyRefund entities.
+func (_u *PaymentOrderUpdate) RemoveGroupBuyRefunds(v ...*GroupBuyRefund) *PaymentOrderUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyRefundIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -1120,6 +1157,51 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyRefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   paymentorder.GroupBuyRefundsTable,
+			Columns: []string{paymentorder.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyRefundsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyRefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   paymentorder.GroupBuyRefundsTable,
+			Columns: []string{paymentorder.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyRefundsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   paymentorder.GroupBuyRefundsTable,
+			Columns: []string{paymentorder.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1856,6 +1938,21 @@ func (_u *PaymentOrderUpdateOne) SetGroupBuySeat(v *GroupBuySeat) *PaymentOrderU
 	return _u.SetGroupBuySeatID(v.ID)
 }
 
+// AddGroupBuyRefundIDs adds the "group_buy_refunds" edge to the GroupBuyRefund entity by IDs.
+func (_u *PaymentOrderUpdateOne) AddGroupBuyRefundIDs(ids ...int64) *PaymentOrderUpdateOne {
+	_u.mutation.AddGroupBuyRefundIDs(ids...)
+	return _u
+}
+
+// AddGroupBuyRefunds adds the "group_buy_refunds" edges to the GroupBuyRefund entity.
+func (_u *PaymentOrderUpdateOne) AddGroupBuyRefunds(v ...*GroupBuyRefund) *PaymentOrderUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddGroupBuyRefundIDs(ids...)
+}
+
 // Mutation returns the PaymentOrderMutation object of the builder.
 func (_u *PaymentOrderUpdateOne) Mutation() *PaymentOrderMutation {
 	return _u.mutation
@@ -1871,6 +1968,27 @@ func (_u *PaymentOrderUpdateOne) ClearUser() *PaymentOrderUpdateOne {
 func (_u *PaymentOrderUpdateOne) ClearGroupBuySeat() *PaymentOrderUpdateOne {
 	_u.mutation.ClearGroupBuySeat()
 	return _u
+}
+
+// ClearGroupBuyRefunds clears all "group_buy_refunds" edges to the GroupBuyRefund entity.
+func (_u *PaymentOrderUpdateOne) ClearGroupBuyRefunds() *PaymentOrderUpdateOne {
+	_u.mutation.ClearGroupBuyRefunds()
+	return _u
+}
+
+// RemoveGroupBuyRefundIDs removes the "group_buy_refunds" edge to GroupBuyRefund entities by IDs.
+func (_u *PaymentOrderUpdateOne) RemoveGroupBuyRefundIDs(ids ...int64) *PaymentOrderUpdateOne {
+	_u.mutation.RemoveGroupBuyRefundIDs(ids...)
+	return _u
+}
+
+// RemoveGroupBuyRefunds removes "group_buy_refunds" edges to GroupBuyRefund entities.
+func (_u *PaymentOrderUpdateOne) RemoveGroupBuyRefunds(v ...*GroupBuyRefund) *PaymentOrderUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveGroupBuyRefundIDs(ids...)
 }
 
 // Where appends a list predicates to the PaymentOrderUpdate builder.
@@ -2267,6 +2385,51 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyseat.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.GroupBuyRefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   paymentorder.GroupBuyRefundsTable,
+			Columns: []string{paymentorder.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedGroupBuyRefundsIDs(); len(nodes) > 0 && !_u.mutation.GroupBuyRefundsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   paymentorder.GroupBuyRefundsTable,
+			Columns: []string{paymentorder.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.GroupBuyRefundsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   paymentorder.GroupBuyRefundsTable,
+			Columns: []string{paymentorder.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

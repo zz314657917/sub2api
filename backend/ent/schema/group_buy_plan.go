@@ -2,6 +2,7 @@ package schema
 
 import (
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
@@ -67,6 +68,9 @@ func (GroupBuyPlan) Fields() []ent.Field {
 			Default(10),
 		field.Int64("target_group_id"),
 		field.JSON("tier_group_ids", map[string]int64{}).
+			Optional().
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
+		field.JSON("tier_rules", []domain.GroupBuyTierRule{}).
 			Optional().
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		field.Int("validity_days").

@@ -28,6 +28,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -130,6 +131,7 @@ func checkColumn(t, c string) error {
 			groupbuyentitlement.Table:           groupbuyentitlement.ValidColumn,
 			groupbuyevent.Table:                 groupbuyevent.ValidColumn,
 			groupbuyplan.Table:                  groupbuyplan.ValidColumn,
+			groupbuyrefund.Table:                groupbuyrefund.ValidColumn,
 			groupbuyround.Table:                 groupbuyround.ValidColumn,
 			groupbuyseat.Table:                  groupbuyseat.ValidColumn,
 			idempotencyrecord.Table:             idempotencyrecord.ValidColumn,

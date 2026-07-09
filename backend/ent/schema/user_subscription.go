@@ -45,6 +45,14 @@ func (UserSubscription) Fields() []ent.Field {
 		field.String("status").
 			MaxLen(20).
 			Default(domain.SubscriptionStatusActive),
+		field.String("source_type").
+			MaxLen(64).
+			Default("standard"),
+		field.Int64("source_id").
+			Optional().
+			Nillable(),
+		field.Bool("managed_by_group_buy").
+			Default(false),
 
 		field.Time("daily_window_start").
 			Optional().
@@ -101,6 +109,7 @@ func (UserSubscription) Edges() []ent.Edge {
 		edge.To("usage_logs", UsageLog.Type),
 		edge.To("group_buy_seats", GroupBuySeat.Type),
 		edge.To("group_buy_entitlements", GroupBuyEntitlement.Type),
+		edge.To("managed_group_buy_entitlements", GroupBuyEntitlement.Type),
 	}
 }
 
@@ -113,9 +122,12 @@ func (UserSubscription) Indexes() []ent.Index {
 		// 活跃订阅查询复合索引（线上由 SQL 迁移创建部分索引，schema 仅用于模型可读性对齐）
 		index.Fields("user_id", "status", "expires_at"),
 		index.Fields("assigned_by"),
+		index.Fields("source_type", "source_id"),
+		index.Fields("managed_by_group_buy"),
 		// 唯一约束通过部分索引实现（WHERE deleted_at IS NULL），支持软删除后重新订阅
-		// 见迁移文件 016_soft_delete_partial_unique_indexes.sql
+		// 见迁移文件 016_soft_delete_partial_unique_indexes.sql；合购托管订阅通过 source_type 与普通订阅隔离。
 		index.Fields("user_id", "group_id"),
+		index.Fields("user_id", "group_id", "source_type"),
 		index.Fields("deleted_at"),
 	}
 }

@@ -137,6 +137,7 @@ func (User) Edges() []ent.Edge {
 		edge.To("group_buy_seats", GroupBuySeat.Type),
 		edge.To("group_buy_events", GroupBuyEvent.Type),
 		edge.To("group_buy_entitlements", GroupBuyEntitlement.Type),
+		edge.To("group_buy_refunds", GroupBuyRefund.Type),
 		edge.To("invoice_requests", InvoiceRequest.Type),
 		edge.To("auth_identities", AuthIdentity.Type).
 			Annotations(entsql.OnDelete(entsql.Cascade)),

@@ -85,6 +85,11 @@ func SubscriptionID(v int64) predicate.GroupBuyEntitlement {
 	return predicate.GroupBuyEntitlement(sql.FieldEQ(FieldSubscriptionID, v))
 }
 
+// ManagedSubscriptionID applies equality check predicate on the "managed_subscription_id" field. It's identical to ManagedSubscriptionIDEQ.
+func ManagedSubscriptionID(v int64) predicate.GroupBuyEntitlement {
+	return predicate.GroupBuyEntitlement(sql.FieldEQ(FieldManagedSubscriptionID, v))
+}
+
 // BoundAPIKeyID applies equality check predicate on the "bound_api_key_id" field. It's identical to BoundAPIKeyIDEQ.
 func BoundAPIKeyID(v int64) predicate.GroupBuyEntitlement {
 	return predicate.GroupBuyEntitlement(sql.FieldEQ(FieldBoundAPIKeyID, v))
@@ -368,6 +373,36 @@ func SubscriptionIDIsNil() predicate.GroupBuyEntitlement {
 // SubscriptionIDNotNil applies the NotNil predicate on the "subscription_id" field.
 func SubscriptionIDNotNil() predicate.GroupBuyEntitlement {
 	return predicate.GroupBuyEntitlement(sql.FieldNotNull(FieldSubscriptionID))
+}
+
+// ManagedSubscriptionIDEQ applies the EQ predicate on the "managed_subscription_id" field.
+func ManagedSubscriptionIDEQ(v int64) predicate.GroupBuyEntitlement {
+	return predicate.GroupBuyEntitlement(sql.FieldEQ(FieldManagedSubscriptionID, v))
+}
+
+// ManagedSubscriptionIDNEQ applies the NEQ predicate on the "managed_subscription_id" field.
+func ManagedSubscriptionIDNEQ(v int64) predicate.GroupBuyEntitlement {
+	return predicate.GroupBuyEntitlement(sql.FieldNEQ(FieldManagedSubscriptionID, v))
+}
+
+// ManagedSubscriptionIDIn applies the In predicate on the "managed_subscription_id" field.
+func ManagedSubscriptionIDIn(vs ...int64) predicate.GroupBuyEntitlement {
+	return predicate.GroupBuyEntitlement(sql.FieldIn(FieldManagedSubscriptionID, vs...))
+}
+
+// ManagedSubscriptionIDNotIn applies the NotIn predicate on the "managed_subscription_id" field.
+func ManagedSubscriptionIDNotIn(vs ...int64) predicate.GroupBuyEntitlement {
+	return predicate.GroupBuyEntitlement(sql.FieldNotIn(FieldManagedSubscriptionID, vs...))
+}
+
+// ManagedSubscriptionIDIsNil applies the IsNil predicate on the "managed_subscription_id" field.
+func ManagedSubscriptionIDIsNil() predicate.GroupBuyEntitlement {
+	return predicate.GroupBuyEntitlement(sql.FieldIsNull(FieldManagedSubscriptionID))
+}
+
+// ManagedSubscriptionIDNotNil applies the NotNil predicate on the "managed_subscription_id" field.
+func ManagedSubscriptionIDNotNil() predicate.GroupBuyEntitlement {
+	return predicate.GroupBuyEntitlement(sql.FieldNotNull(FieldManagedSubscriptionID))
 }
 
 // BoundAPIKeyIDEQ applies the EQ predicate on the "bound_api_key_id" field.
@@ -731,6 +766,29 @@ func HasSubscription() predicate.GroupBuyEntitlement {
 func HasSubscriptionWith(preds ...predicate.UserSubscription) predicate.GroupBuyEntitlement {
 	return predicate.GroupBuyEntitlement(func(s *sql.Selector) {
 		step := newSubscriptionStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasManagedSubscription applies the HasEdge predicate on the "managed_subscription" edge.
+func HasManagedSubscription() predicate.GroupBuyEntitlement {
+	return predicate.GroupBuyEntitlement(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, ManagedSubscriptionTable, ManagedSubscriptionColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasManagedSubscriptionWith applies the HasEdge predicate on the "managed_subscription" edge with a given conditions (other predicates).
+func HasManagedSubscriptionWith(preds ...predicate.UserSubscription) predicate.GroupBuyEntitlement {
+	return predicate.GroupBuyEntitlement(func(s *sql.Selector) {
+		step := newManagedSubscriptionStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

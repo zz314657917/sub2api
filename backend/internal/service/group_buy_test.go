@@ -20,19 +20,16 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-func TestGroupBuyAdminCreatePlanRequiresCompleteTierMapping(t *testing.T) {
+func TestGroupBuyAdminCreatePlanAcceptsTierRanges(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "groupbuy_plan_tier_mapping")
 	groupRepo := newGroupBuyGroupRepoStub()
 	svc := newGroupBuyTestService(client, groupRepo, nil)
 
-	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
-	groupRepo.groups[groupID] = &Group{ID: groupID, Status: StatusActive, Platform: PlatformOpenAI, SubscriptionType: SubscriptionTypeSubscription}
-
-	incomplete := map[string]int64{}
-	for i := 1; i <= 9; i++ {
-		incomplete[strconv.Itoa(i)] = groupID
-	}
+	groupLow := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	groupHigh := createGroupBuyTestGroup(t, ctx, client, 2, 300)
+	groupRepo.groups[groupLow] = &Group{ID: groupLow, Status: StatusActive, Platform: PlatformOpenAI, SubscriptionType: SubscriptionTypeSubscription}
+	groupRepo.groups[groupHigh] = &Group{ID: groupHigh, Status: StatusActive, Platform: PlatformOpenAI, SubscriptionType: SubscriptionTypeSubscription}
 
 	_, err := svc.AdminCreatePlan(ctx, GroupBuyPlanInput{
 		Title:              "Token拼拼拼 10 份团",
@@ -40,30 +37,75 @@ func TestGroupBuyAdminCreatePlanRequiresCompleteTierMapping(t *testing.T) {
 		PricePerShare:      12,
 		QuotaPerShareLabel: "每份 50 USD/月",
 		MaxSharesPerUser:   10,
-		TierGroupIDs:       incomplete,
-		ValidityDays:       30,
-		TimeoutMinutes:     60,
-		Status:             GroupBuyPlanStatusActive,
+		TierRules: []GroupBuyTierInput{
+			{MinShares: 1, MaxShares: 4, TargetGroupID: groupLow, Label: "基础档"},
+			{MinShares: 6, MaxShares: 10, TargetGroupID: groupHigh, Label: "高阶档"},
+		},
+		ValidityDays:   30,
+		TimeoutMinutes: 60,
+		Status:         GroupBuyPlanStatusActive,
 	})
 	require.ErrorIs(t, err, ErrGroupBuyTierMappingInvalid)
 
-	complete := groupBuyTestTierMap(groupID)
 	plan, err := svc.AdminCreatePlan(ctx, GroupBuyPlanInput{
 		Title:              "Token拼拼拼 10 份团",
 		TotalShares:        10,
 		PricePerShare:      12,
 		QuotaPerShareLabel: "每份 50 USD/月",
 		MaxSharesPerUser:   10,
-		TierGroupIDs:       complete,
-		ValidityDays:       30,
-		TimeoutMinutes:     60,
-		LaunchMode:         GroupBuyLaunchModeManual,
-		Status:             GroupBuyPlanStatusActive,
+		TierRules: []GroupBuyTierInput{
+			{MinShares: 1, MaxShares: 4, TargetGroupID: groupLow, Label: "基础档"},
+			{MinShares: 5, MaxShares: 10, TargetGroupID: groupHigh, Label: "高阶档"},
+		},
+		ValidityDays:   30,
+		TimeoutMinutes: 60,
+		LaunchMode:     GroupBuyLaunchModeManual,
+		Status:         GroupBuyPlanStatusActive,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, plan)
-	require.Equal(t, groupID, plan.TargetGroupID)
+	require.Equal(t, groupHigh, plan.TargetGroupID)
+	require.Len(t, plan.TierRules, 2)
+	require.Equal(t, "基础档", plan.TierRules[0].Label)
+	require.Equal(t, "高阶档", plan.TierRules[1].Label)
 	require.Equal(t, 10, len(plan.TierGroupIDs))
+}
+
+func TestGroupBuyTierResolverRejectsGapsOverlapsAndInvalidGroups(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_tier_resolver")
+	groupRepo := newGroupBuyGroupRepoStub()
+	svc := newGroupBuyTestService(client, groupRepo, nil)
+
+	groupA := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	groupB := createGroupBuyTestGroup(t, ctx, client, 5, 500)
+	groupRepo.groups[groupA] = &Group{ID: groupA, Status: StatusActive, Platform: PlatformOpenAI, SubscriptionType: SubscriptionTypeSubscription}
+	groupRepo.groups[groupB] = &Group{ID: groupB, Status: StatusActive, Platform: PlatformOpenAI, SubscriptionType: SubscriptionTypeSubscription}
+
+	valid := []GroupBuyTierInput{
+		{MinShares: 1, MaxShares: 3, TargetGroupID: groupA, Label: "1-3 份"},
+		{MinShares: 4, MaxShares: 10, TargetGroupID: groupB, Label: "4-10 份"},
+	}
+	require.NoError(t, validateTierRuleShape(valid, 10))
+	rule, ok := resolveTierRuleForShareCount(tierRuleInputsToDomain(valid), 3)
+	require.True(t, ok)
+	require.Equal(t, groupA, rule.TargetGroupID)
+	rule, ok = resolveTierRuleForShareCount(tierRuleInputsToDomain(valid), 4)
+	require.True(t, ok)
+	require.Equal(t, groupB, rule.TargetGroupID)
+	require.NoError(t, svc.validateTierRules(ctx, valid))
+
+	require.ErrorIs(t, validateTierRuleShape([]GroupBuyTierInput{
+		{MinShares: 1, MaxShares: 3, TargetGroupID: groupA},
+		{MinShares: 5, MaxShares: 10, TargetGroupID: groupB},
+	}, 10), ErrGroupBuyTierMappingInvalid)
+	require.ErrorIs(t, validateTierRuleShape([]GroupBuyTierInput{
+		{MinShares: 1, MaxShares: 5, TargetGroupID: groupA},
+		{MinShares: 5, MaxShares: 10, TargetGroupID: groupB},
+	}, 10), ErrGroupBuyTierMappingInvalid)
+	require.ErrorIs(t, svc.validateTierRules(ctx, []GroupBuyTierInput{
+		{MinShares: 1, MaxShares: 10, TargetGroupID: 99999},
+	}), ErrGroupBuyTargetGroupInvalid)
 }
 
 func TestGroupBuyManualPlanWithoutOpenRoundRejectsShareOrder(t *testing.T) {
@@ -174,8 +216,177 @@ func TestGroupBuyRefreshUserEntitlementAggregatesSharesAndExpiresToInactive(t *t
 	require.False(t, expiredSub.ExpiresAt.After(svc.now()))
 }
 
+func TestGroupBuyRefreshUserEntitlementDoesNotOverwriteNormalSubscription(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_normal_subscription_isolation")
+	now := time.Date(2026, 7, 8, 10, 0, 0, 0, time.UTC)
+	user := createGroupBuyTestUser(t, ctx, client, "normal-subscription@example.com")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlanWithTierRules(t, ctx, client, []domain.GroupBuyTierRule{
+		{MinShares: 1, MaxShares: 10, TargetGroupID: groupID, Label: "通用权益"},
+	}, GroupBuyLaunchModeManual, 10)
+	round := createGroupBuyTestRound(t, ctx, client, plan.ID, now, 10)
+	createGroupBuyTestActiveSeat(t, ctx, client, plan.ID, round.ID, user.ID, 2, now.Add(-time.Hour), now.AddDate(0, 0, 10))
+
+	normalSub, err := client.UserSubscription.Create().
+		SetUserID(user.ID).
+		SetGroupID(groupID).
+		SetStartsAt(now.Add(-24 * time.Hour)).
+		SetExpiresAt(now.AddDate(0, 1, 0)).
+		SetStatus(SubscriptionStatusActive).
+		SetSourceType("standard").
+		SetNotes("normal paid subscription").
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
+	svc.now = func() time.Time { return now }
+
+	ent, err := svc.RefreshUserEntitlement(ctx, user.ID)
+	require.NoError(t, err)
+	require.NotNil(t, ent.SubscriptionID)
+	require.NotEqual(t, normalSub.ID, *ent.SubscriptionID)
+
+	reloadedNormal, err := client.UserSubscription.Get(ctx, normalSub.ID)
+	require.NoError(t, err)
+	require.Equal(t, SubscriptionStatusActive, reloadedNormal.Status)
+	require.Equal(t, "standard", reloadedNormal.SourceType)
+	require.False(t, reloadedNormal.ManagedByGroupBuy)
+
+	managed, err := client.UserSubscription.Get(ctx, *ent.SubscriptionID)
+	require.NoError(t, err)
+	require.Equal(t, "group_buy", managed.SourceType)
+	require.True(t, managed.ManagedByGroupBuy)
+	require.NotNil(t, managed.SourceID)
+	require.Equal(t, ent.ID, *managed.SourceID)
+}
+
+func TestGroupBuyRefundProcessingIsIdempotent(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_refund_idempotent")
+	now := time.Date(2026, 7, 8, 10, 0, 0, 0, time.UTC)
+	user := createGroupBuyTestUser(t, ctx, client, "refund@example.com")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 10)
+	round := createGroupBuyTestRound(t, ctx, client, plan.ID, now, 10)
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(24).
+		SetPayAmount(24).
+		SetRechargeCode("gb-refund").
+		SetOutTradeNo("gb_refund_1").
+		SetPaymentType(payment.TypeStripe).
+		SetPaymentTradeNo("trade").
+		SetOrderType(payment.OrderTypeGroupBuy).
+		SetStatus(OrderStatusCompleted).
+		SetExpiresAt(now.Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("example.test").
+		Save(ctx)
+	require.NoError(t, err)
+	seat, err := client.GroupBuySeat.Create().
+		SetRoundID(round.ID).
+		SetPlanID(plan.ID).
+		SetUserID(user.ID).
+		SetOrderID(order.ID).
+		SetStatus(GroupBuySeatStatusRefundPending).
+		SetShareCount(2).
+		Save(ctx)
+	require.NoError(t, err)
+
+	userRepo := &groupBuyUserRepoStub{users: map[int64]*User{user.ID: user}}
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
+	svc.userRepo = userRepo
+	svc.now = func() time.Time { return now }
+
+	require.NoError(t, svc.processSeatRefund(ctx, plan, seat))
+	require.NoError(t, svc.processSeatRefund(ctx, plan, seat))
+	require.Equal(t, 1, userRepo.balanceUpdates)
+	require.Equal(t, 24.0, userRepo.balanceTotal)
+
+	refundCount, err := client.GroupBuyRefund.Query().Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, refundCount)
+	reloadedSeat, err := client.GroupBuySeat.Get(ctx, seat.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefunded, reloadedSeat.Status)
+}
+
+func TestGroupBuyExpiredLockedSeatReleasesSharesAndExpiresOrder(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_expired_lock_release")
+	now := time.Date(2026, 7, 8, 10, 0, 0, 0, time.UTC)
+	user := createGroupBuyTestUser(t, ctx, client, "expired-lock@example.com")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 10)
+	round, err := client.GroupBuyRound.Create().
+		SetPlanID(plan.ID).
+		SetStatus(GroupBuyRoundStatusOpen).
+		SetTotalShares(10).
+		SetPaidShares(0).
+		SetReservedShares(3).
+		SetTotalSeats(10).
+		SetPaidSeats(0).
+		SetReservedSeats(3).
+		SetDeadlineAt(now.Add(time.Hour)).
+		SetStartedAt(now.Add(-time.Hour)).
+		Save(ctx)
+	require.NoError(t, err)
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(36).
+		SetPayAmount(36).
+		SetRechargeCode("gb-expire").
+		SetOutTradeNo("gb_expire_1").
+		SetPaymentType(payment.TypeStripe).
+		SetPaymentTradeNo("").
+		SetOrderType(payment.OrderTypeGroupBuy).
+		SetStatus(OrderStatusPending).
+		SetExpiresAt(now.Add(-time.Minute)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("example.test").
+		Save(ctx)
+	require.NoError(t, err)
+	seat, err := client.GroupBuySeat.Create().
+		SetRoundID(round.ID).
+		SetPlanID(plan.ID).
+		SetUserID(user.ID).
+		SetOrderID(order.ID).
+		SetStatus(GroupBuySeatStatusLocked).
+		SetShareCount(3).
+		SetLockedUntil(now.Add(-time.Minute)).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
+	svc.now = func() time.Time { return now }
+	tx, err := client.Tx(ctx)
+	require.NoError(t, err)
+	released, err := svc.releaseExpiredLockedSeatsForRoundTx(dbent.NewTxContext(ctx, tx), tx, round.ID)
+	require.NoError(t, err)
+	require.NoError(t, tx.Commit())
+	require.Equal(t, 3, released)
+
+	reloadedSeat, err := client.GroupBuySeat.Get(ctx, seat.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusReleased, reloadedSeat.Status)
+	reloadedOrder, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusExpired, reloadedOrder.Status)
+	reloadedRound, err := client.GroupBuyRound.Get(ctx, round.ID)
+	require.NoError(t, err)
+	require.Equal(t, 0, reloadedRound.ReservedShares)
+	require.Equal(t, 0, reloadedRound.ReservedSeats)
+}
+
 type groupBuyUserRepoStub struct {
-	users map[int64]*User
+	users          map[int64]*User
+	balanceUpdates int
+	balanceTotal   float64
 }
 
 func (s *groupBuyUserRepoStub) Create(context.Context, *User) error { panic("unexpected Create call") }
@@ -218,8 +429,10 @@ func (s *groupBuyUserRepoStub) GetLatestUsedAtByUserID(context.Context, int64) (
 func (s *groupBuyUserRepoStub) UpdateUserLastActiveAt(context.Context, int64, time.Time) error {
 	panic("unexpected UpdateUserLastActiveAt call")
 }
-func (s *groupBuyUserRepoStub) UpdateBalance(context.Context, int64, float64) error {
-	panic("unexpected UpdateBalance call")
+func (s *groupBuyUserRepoStub) UpdateBalance(_ context.Context, _ int64, amount float64) error {
+	s.balanceUpdates++
+	s.balanceTotal += amount
+	return nil
 }
 func (s *groupBuyUserRepoStub) DeductBalance(context.Context, int64, float64) error {
 	panic("unexpected DeductBalance call")
@@ -635,6 +848,38 @@ func createGroupBuyTestPlanWithTierMap(t *testing.T, ctx context.Context, client
 		SetMaxSharesPerUser(10).
 		SetTargetGroupID(targetGroupID).
 		SetTierGroupIds(tierMap).
+		SetValidityDays(30).
+		SetTimeoutMinutes(60).
+		SetLaunchMode(launchMode).
+		SetRefundMode(GroupBuyRefundModeBalanceCredit).
+		SetStatus(GroupBuyPlanStatusActive).
+		Save(ctx)
+	require.NoError(t, err)
+	return plan
+}
+
+func createGroupBuyTestPlanWithTierRules(t *testing.T, ctx context.Context, client *dbent.Client, rules []domain.GroupBuyTierRule, launchMode string, totalShares int) *dbent.GroupBuyPlan {
+	t.Helper()
+	targetGroupID := int64(0)
+	if rule, ok := resolveTierRuleForShareCount(rules, totalShares); ok {
+		targetGroupID = rule.TargetGroupID
+	}
+	if targetGroupID <= 0 && len(rules) > 0 {
+		targetGroupID = rules[len(rules)-1].TargetGroupID
+	}
+	plan, err := client.GroupBuyPlan.Create().
+		SetTitle("Token拼拼拼 10 份团").
+		SetProductKey(GroupBuyProductTokenPinPinPin).
+		SetTotalShares(totalShares).
+		SetSeatCount(totalShares).
+		SetPricePerShare(12).
+		SetPricePerSeat(12).
+		SetQuotaPerShareLabel("每份 50 USD/月").
+		SetQuotaLabel("每份 50 USD/月").
+		SetMaxSharesPerUser(10).
+		SetTargetGroupID(targetGroupID).
+		SetTierGroupIds(tierRulesToExactMapping(domainTierRulesToInputs(rules), totalShares)).
+		SetTierRules(rules).
 		SetValidityDays(30).
 		SetTimeoutMinutes(60).
 		SetLaunchMode(launchMode).

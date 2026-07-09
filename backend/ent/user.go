@@ -101,6 +101,8 @@ type UserEdges struct {
 	GroupBuyEvents []*GroupBuyEvent `json:"group_buy_events,omitempty"`
 	// GroupBuyEntitlements holds the value of the group_buy_entitlements edge.
 	GroupBuyEntitlements []*GroupBuyEntitlement `json:"group_buy_entitlements,omitempty"`
+	// GroupBuyRefunds holds the value of the group_buy_refunds edge.
+	GroupBuyRefunds []*GroupBuyRefund `json:"group_buy_refunds,omitempty"`
 	// InvoiceRequests holds the value of the invoice_requests edge.
 	InvoiceRequests []*InvoiceRequest `json:"invoice_requests,omitempty"`
 	// AuthIdentities holds the value of the auth_identities edge.
@@ -113,7 +115,7 @@ type UserEdges struct {
 	UserAllowedGroups []*UserAllowedGroup `json:"user_allowed_groups,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [18]bool
+	loadedTypes [19]bool
 }
 
 // APIKeysOrErr returns the APIKeys value or an error if the edge
@@ -233,10 +235,19 @@ func (e UserEdges) GroupBuyEntitlementsOrErr() ([]*GroupBuyEntitlement, error) {
 	return nil, &NotLoadedError{edge: "group_buy_entitlements"}
 }
 
+// GroupBuyRefundsOrErr returns the GroupBuyRefunds value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) GroupBuyRefundsOrErr() ([]*GroupBuyRefund, error) {
+	if e.loadedTypes[13] {
+		return e.GroupBuyRefunds, nil
+	}
+	return nil, &NotLoadedError{edge: "group_buy_refunds"}
+}
+
 // InvoiceRequestsOrErr returns the InvoiceRequests value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) InvoiceRequestsOrErr() ([]*InvoiceRequest, error) {
-	if e.loadedTypes[13] {
+	if e.loadedTypes[14] {
 		return e.InvoiceRequests, nil
 	}
 	return nil, &NotLoadedError{edge: "invoice_requests"}
@@ -245,7 +256,7 @@ func (e UserEdges) InvoiceRequestsOrErr() ([]*InvoiceRequest, error) {
 // AuthIdentitiesOrErr returns the AuthIdentities value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) AuthIdentitiesOrErr() ([]*AuthIdentity, error) {
-	if e.loadedTypes[14] {
+	if e.loadedTypes[15] {
 		return e.AuthIdentities, nil
 	}
 	return nil, &NotLoadedError{edge: "auth_identities"}
@@ -254,7 +265,7 @@ func (e UserEdges) AuthIdentitiesOrErr() ([]*AuthIdentity, error) {
 // PendingAuthSessionsOrErr returns the PendingAuthSessions value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) PendingAuthSessionsOrErr() ([]*PendingAuthSession, error) {
-	if e.loadedTypes[15] {
+	if e.loadedTypes[16] {
 		return e.PendingAuthSessions, nil
 	}
 	return nil, &NotLoadedError{edge: "pending_auth_sessions"}
@@ -263,7 +274,7 @@ func (e UserEdges) PendingAuthSessionsOrErr() ([]*PendingAuthSession, error) {
 // SupportTicketsOrErr returns the SupportTickets value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) SupportTicketsOrErr() ([]*SupportTicket, error) {
-	if e.loadedTypes[16] {
+	if e.loadedTypes[17] {
 		return e.SupportTickets, nil
 	}
 	return nil, &NotLoadedError{edge: "support_tickets"}
@@ -272,7 +283,7 @@ func (e UserEdges) SupportTicketsOrErr() ([]*SupportTicket, error) {
 // UserAllowedGroupsOrErr returns the UserAllowedGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e UserEdges) UserAllowedGroupsOrErr() ([]*UserAllowedGroup, error) {
-	if e.loadedTypes[17] {
+	if e.loadedTypes[18] {
 		return e.UserAllowedGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "user_allowed_groups"}
@@ -546,6 +557,11 @@ func (_m *User) QueryGroupBuyEvents() *GroupBuyEventQuery {
 // QueryGroupBuyEntitlements queries the "group_buy_entitlements" edge of the User entity.
 func (_m *User) QueryGroupBuyEntitlements() *GroupBuyEntitlementQuery {
 	return NewUserClient(_m.config).QueryGroupBuyEntitlements(_m)
+}
+
+// QueryGroupBuyRefunds queries the "group_buy_refunds" edge of the User entity.
+func (_m *User) QueryGroupBuyRefunds() *GroupBuyRefundQuery {
+	return NewUserClient(_m.config).QueryGroupBuyRefunds(_m)
 }
 
 // QueryInvoiceRequests queries the "invoice_requests" edge of the User entity.

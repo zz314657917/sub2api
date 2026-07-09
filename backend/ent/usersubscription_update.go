@@ -129,6 +129,61 @@ func (_u *UserSubscriptionUpdate) SetNillableStatus(v *string) *UserSubscription
 	return _u
 }
 
+// SetSourceType sets the "source_type" field.
+func (_u *UserSubscriptionUpdate) SetSourceType(v string) *UserSubscriptionUpdate {
+	_u.mutation.SetSourceType(v)
+	return _u
+}
+
+// SetNillableSourceType sets the "source_type" field if the given value is not nil.
+func (_u *UserSubscriptionUpdate) SetNillableSourceType(v *string) *UserSubscriptionUpdate {
+	if v != nil {
+		_u.SetSourceType(*v)
+	}
+	return _u
+}
+
+// SetSourceID sets the "source_id" field.
+func (_u *UserSubscriptionUpdate) SetSourceID(v int64) *UserSubscriptionUpdate {
+	_u.mutation.ResetSourceID()
+	_u.mutation.SetSourceID(v)
+	return _u
+}
+
+// SetNillableSourceID sets the "source_id" field if the given value is not nil.
+func (_u *UserSubscriptionUpdate) SetNillableSourceID(v *int64) *UserSubscriptionUpdate {
+	if v != nil {
+		_u.SetSourceID(*v)
+	}
+	return _u
+}
+
+// AddSourceID adds value to the "source_id" field.
+func (_u *UserSubscriptionUpdate) AddSourceID(v int64) *UserSubscriptionUpdate {
+	_u.mutation.AddSourceID(v)
+	return _u
+}
+
+// ClearSourceID clears the value of the "source_id" field.
+func (_u *UserSubscriptionUpdate) ClearSourceID() *UserSubscriptionUpdate {
+	_u.mutation.ClearSourceID()
+	return _u
+}
+
+// SetManagedByGroupBuy sets the "managed_by_group_buy" field.
+func (_u *UserSubscriptionUpdate) SetManagedByGroupBuy(v bool) *UserSubscriptionUpdate {
+	_u.mutation.SetManagedByGroupBuy(v)
+	return _u
+}
+
+// SetNillableManagedByGroupBuy sets the "managed_by_group_buy" field if the given value is not nil.
+func (_u *UserSubscriptionUpdate) SetNillableManagedByGroupBuy(v *bool) *UserSubscriptionUpdate {
+	if v != nil {
+		_u.SetManagedByGroupBuy(*v)
+	}
+	return _u
+}
+
 // SetDailyWindowStart sets the "daily_window_start" field.
 func (_u *UserSubscriptionUpdate) SetDailyWindowStart(v time.Time) *UserSubscriptionUpdate {
 	_u.mutation.SetDailyWindowStart(v)
@@ -380,6 +435,21 @@ func (_u *UserSubscriptionUpdate) AddGroupBuyEntitlements(v ...*GroupBuyEntitlem
 	return _u.AddGroupBuyEntitlementIDs(ids...)
 }
 
+// AddManagedGroupBuyEntitlementIDs adds the "managed_group_buy_entitlements" edge to the GroupBuyEntitlement entity by IDs.
+func (_u *UserSubscriptionUpdate) AddManagedGroupBuyEntitlementIDs(ids ...int64) *UserSubscriptionUpdate {
+	_u.mutation.AddManagedGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// AddManagedGroupBuyEntitlements adds the "managed_group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *UserSubscriptionUpdate) AddManagedGroupBuyEntitlements(v ...*GroupBuyEntitlement) *UserSubscriptionUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddManagedGroupBuyEntitlementIDs(ids...)
+}
+
 // Mutation returns the UserSubscriptionMutation object of the builder.
 func (_u *UserSubscriptionUpdate) Mutation() *UserSubscriptionMutation {
 	return _u.mutation
@@ -466,6 +536,27 @@ func (_u *UserSubscriptionUpdate) RemoveGroupBuyEntitlements(v ...*GroupBuyEntit
 	return _u.RemoveGroupBuyEntitlementIDs(ids...)
 }
 
+// ClearManagedGroupBuyEntitlements clears all "managed_group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *UserSubscriptionUpdate) ClearManagedGroupBuyEntitlements() *UserSubscriptionUpdate {
+	_u.mutation.ClearManagedGroupBuyEntitlements()
+	return _u
+}
+
+// RemoveManagedGroupBuyEntitlementIDs removes the "managed_group_buy_entitlements" edge to GroupBuyEntitlement entities by IDs.
+func (_u *UserSubscriptionUpdate) RemoveManagedGroupBuyEntitlementIDs(ids ...int64) *UserSubscriptionUpdate {
+	_u.mutation.RemoveManagedGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// RemoveManagedGroupBuyEntitlements removes "managed_group_buy_entitlements" edges to GroupBuyEntitlement entities.
+func (_u *UserSubscriptionUpdate) RemoveManagedGroupBuyEntitlements(v ...*GroupBuyEntitlement) *UserSubscriptionUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveManagedGroupBuyEntitlementIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *UserSubscriptionUpdate) Save(ctx context.Context) (int, error) {
 	if err := _u.defaults(); err != nil {
@@ -515,6 +606,11 @@ func (_u *UserSubscriptionUpdate) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "UserSubscription.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SourceType(); ok {
+		if err := usersubscription.SourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "source_type", err: fmt.Errorf(`ent: validator failed for field "UserSubscription.source_type": %w`, err)}
+		}
+	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "UserSubscription.user"`)
 	}
@@ -553,6 +649,21 @@ func (_u *UserSubscriptionUpdate) sqlSave(ctx context.Context) (_node int, err e
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(usersubscription.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SourceType(); ok {
+		_spec.SetField(usersubscription.FieldSourceType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SourceID(); ok {
+		_spec.SetField(usersubscription.FieldSourceID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSourceID(); ok {
+		_spec.AddField(usersubscription.FieldSourceID, field.TypeInt64, value)
+	}
+	if _u.mutation.SourceIDCleared() {
+		_spec.ClearField(usersubscription.FieldSourceID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.ManagedByGroupBuy(); ok {
+		_spec.SetField(usersubscription.FieldManagedByGroupBuy, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.DailyWindowStart(); ok {
 		_spec.SetField(usersubscription.FieldDailyWindowStart, field.TypeTime, value)
@@ -821,6 +932,51 @@ func (_u *UserSubscriptionUpdate) sqlSave(ctx context.Context) (_node int, err e
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.ManagedGroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.ManagedGroupBuyEntitlementsTable,
+			Columns: []string{usersubscription.ManagedGroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedManagedGroupBuyEntitlementsIDs(); len(nodes) > 0 && !_u.mutation.ManagedGroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.ManagedGroupBuyEntitlementsTable,
+			Columns: []string{usersubscription.ManagedGroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ManagedGroupBuyEntitlementsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.ManagedGroupBuyEntitlementsTable,
+			Columns: []string{usersubscription.ManagedGroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{usersubscription.Label}
@@ -933,6 +1089,61 @@ func (_u *UserSubscriptionUpdateOne) SetStatus(v string) *UserSubscriptionUpdate
 func (_u *UserSubscriptionUpdateOne) SetNillableStatus(v *string) *UserSubscriptionUpdateOne {
 	if v != nil {
 		_u.SetStatus(*v)
+	}
+	return _u
+}
+
+// SetSourceType sets the "source_type" field.
+func (_u *UserSubscriptionUpdateOne) SetSourceType(v string) *UserSubscriptionUpdateOne {
+	_u.mutation.SetSourceType(v)
+	return _u
+}
+
+// SetNillableSourceType sets the "source_type" field if the given value is not nil.
+func (_u *UserSubscriptionUpdateOne) SetNillableSourceType(v *string) *UserSubscriptionUpdateOne {
+	if v != nil {
+		_u.SetSourceType(*v)
+	}
+	return _u
+}
+
+// SetSourceID sets the "source_id" field.
+func (_u *UserSubscriptionUpdateOne) SetSourceID(v int64) *UserSubscriptionUpdateOne {
+	_u.mutation.ResetSourceID()
+	_u.mutation.SetSourceID(v)
+	return _u
+}
+
+// SetNillableSourceID sets the "source_id" field if the given value is not nil.
+func (_u *UserSubscriptionUpdateOne) SetNillableSourceID(v *int64) *UserSubscriptionUpdateOne {
+	if v != nil {
+		_u.SetSourceID(*v)
+	}
+	return _u
+}
+
+// AddSourceID adds value to the "source_id" field.
+func (_u *UserSubscriptionUpdateOne) AddSourceID(v int64) *UserSubscriptionUpdateOne {
+	_u.mutation.AddSourceID(v)
+	return _u
+}
+
+// ClearSourceID clears the value of the "source_id" field.
+func (_u *UserSubscriptionUpdateOne) ClearSourceID() *UserSubscriptionUpdateOne {
+	_u.mutation.ClearSourceID()
+	return _u
+}
+
+// SetManagedByGroupBuy sets the "managed_by_group_buy" field.
+func (_u *UserSubscriptionUpdateOne) SetManagedByGroupBuy(v bool) *UserSubscriptionUpdateOne {
+	_u.mutation.SetManagedByGroupBuy(v)
+	return _u
+}
+
+// SetNillableManagedByGroupBuy sets the "managed_by_group_buy" field if the given value is not nil.
+func (_u *UserSubscriptionUpdateOne) SetNillableManagedByGroupBuy(v *bool) *UserSubscriptionUpdateOne {
+	if v != nil {
+		_u.SetManagedByGroupBuy(*v)
 	}
 	return _u
 }
@@ -1188,6 +1399,21 @@ func (_u *UserSubscriptionUpdateOne) AddGroupBuyEntitlements(v ...*GroupBuyEntit
 	return _u.AddGroupBuyEntitlementIDs(ids...)
 }
 
+// AddManagedGroupBuyEntitlementIDs adds the "managed_group_buy_entitlements" edge to the GroupBuyEntitlement entity by IDs.
+func (_u *UserSubscriptionUpdateOne) AddManagedGroupBuyEntitlementIDs(ids ...int64) *UserSubscriptionUpdateOne {
+	_u.mutation.AddManagedGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// AddManagedGroupBuyEntitlements adds the "managed_group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *UserSubscriptionUpdateOne) AddManagedGroupBuyEntitlements(v ...*GroupBuyEntitlement) *UserSubscriptionUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddManagedGroupBuyEntitlementIDs(ids...)
+}
+
 // Mutation returns the UserSubscriptionMutation object of the builder.
 func (_u *UserSubscriptionUpdateOne) Mutation() *UserSubscriptionMutation {
 	return _u.mutation
@@ -1274,6 +1500,27 @@ func (_u *UserSubscriptionUpdateOne) RemoveGroupBuyEntitlements(v ...*GroupBuyEn
 	return _u.RemoveGroupBuyEntitlementIDs(ids...)
 }
 
+// ClearManagedGroupBuyEntitlements clears all "managed_group_buy_entitlements" edges to the GroupBuyEntitlement entity.
+func (_u *UserSubscriptionUpdateOne) ClearManagedGroupBuyEntitlements() *UserSubscriptionUpdateOne {
+	_u.mutation.ClearManagedGroupBuyEntitlements()
+	return _u
+}
+
+// RemoveManagedGroupBuyEntitlementIDs removes the "managed_group_buy_entitlements" edge to GroupBuyEntitlement entities by IDs.
+func (_u *UserSubscriptionUpdateOne) RemoveManagedGroupBuyEntitlementIDs(ids ...int64) *UserSubscriptionUpdateOne {
+	_u.mutation.RemoveManagedGroupBuyEntitlementIDs(ids...)
+	return _u
+}
+
+// RemoveManagedGroupBuyEntitlements removes "managed_group_buy_entitlements" edges to GroupBuyEntitlement entities.
+func (_u *UserSubscriptionUpdateOne) RemoveManagedGroupBuyEntitlements(v ...*GroupBuyEntitlement) *UserSubscriptionUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveManagedGroupBuyEntitlementIDs(ids...)
+}
+
 // Where appends a list predicates to the UserSubscriptionUpdate builder.
 func (_u *UserSubscriptionUpdateOne) Where(ps ...predicate.UserSubscription) *UserSubscriptionUpdateOne {
 	_u.mutation.Where(ps...)
@@ -1336,6 +1583,11 @@ func (_u *UserSubscriptionUpdateOne) check() error {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "UserSubscription.status": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.SourceType(); ok {
+		if err := usersubscription.SourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "source_type", err: fmt.Errorf(`ent: validator failed for field "UserSubscription.source_type": %w`, err)}
+		}
+	}
 	if _u.mutation.UserCleared() && len(_u.mutation.UserIDs()) > 0 {
 		return errors.New(`ent: clearing a required unique edge "UserSubscription.user"`)
 	}
@@ -1391,6 +1643,21 @@ func (_u *UserSubscriptionUpdateOne) sqlSave(ctx context.Context) (_node *UserSu
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(usersubscription.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SourceType(); ok {
+		_spec.SetField(usersubscription.FieldSourceType, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.SourceID(); ok {
+		_spec.SetField(usersubscription.FieldSourceID, field.TypeInt64, value)
+	}
+	if value, ok := _u.mutation.AddedSourceID(); ok {
+		_spec.AddField(usersubscription.FieldSourceID, field.TypeInt64, value)
+	}
+	if _u.mutation.SourceIDCleared() {
+		_spec.ClearField(usersubscription.FieldSourceID, field.TypeInt64)
+	}
+	if value, ok := _u.mutation.ManagedByGroupBuy(); ok {
+		_spec.SetField(usersubscription.FieldManagedByGroupBuy, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.DailyWindowStart(); ok {
 		_spec.SetField(usersubscription.FieldDailyWindowStart, field.TypeTime, value)
@@ -1649,6 +1916,51 @@ func (_u *UserSubscriptionUpdateOne) sqlSave(ctx context.Context) (_node *UserSu
 			Inverse: false,
 			Table:   usersubscription.GroupBuyEntitlementsTable,
 			Columns: []string{usersubscription.GroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.ManagedGroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.ManagedGroupBuyEntitlementsTable,
+			Columns: []string{usersubscription.ManagedGroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedManagedGroupBuyEntitlementsIDs(); len(nodes) > 0 && !_u.mutation.ManagedGroupBuyEntitlementsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.ManagedGroupBuyEntitlementsTable,
+			Columns: []string{usersubscription.ManagedGroupBuyEntitlementsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.ManagedGroupBuyEntitlementsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   usersubscription.ManagedGroupBuyEntitlementsTable,
+			Columns: []string{usersubscription.ManagedGroupBuyEntitlementsColumn},
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),

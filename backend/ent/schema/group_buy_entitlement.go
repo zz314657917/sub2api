@@ -40,6 +40,9 @@ func (GroupBuyEntitlement) Fields() []ent.Field {
 		field.Int64("subscription_id").
 			Optional().
 			Nillable(),
+		field.Int64("managed_subscription_id").
+			Optional().
+			Nillable(),
 		field.Int64("bound_api_key_id").
 			Optional().
 			Nillable(),
@@ -84,6 +87,10 @@ func (GroupBuyEntitlement) Edges() []ent.Edge {
 			Ref("group_buy_entitlements").
 			Field("subscription_id").
 			Unique(),
+		edge.From("managed_subscription", UserSubscription.Type).
+			Ref("managed_group_buy_entitlements").
+			Field("managed_subscription_id").
+			Unique(),
 		edge.From("bound_api_key", APIKey.Type).
 			Ref("group_buy_entitlements").
 			Field("bound_api_key_id").
@@ -97,6 +104,7 @@ func (GroupBuyEntitlement) Indexes() []ent.Index {
 		index.Fields("status"),
 		index.Fields("target_group_id"),
 		index.Fields("subscription_id"),
+		index.Fields("managed_subscription_id"),
 		index.Fields("bound_api_key_id"),
 		index.Fields("expires_at"),
 	}

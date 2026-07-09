@@ -10,6 +10,7 @@ import (
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
+	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
@@ -17,6 +18,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // GroupBuyPlanUpdate is the builder for updating GroupBuyPlan entities.
@@ -256,6 +258,24 @@ func (_u *GroupBuyPlanUpdate) SetTierGroupIds(v map[string]int64) *GroupBuyPlanU
 // ClearTierGroupIds clears the value of the "tier_group_ids" field.
 func (_u *GroupBuyPlanUpdate) ClearTierGroupIds() *GroupBuyPlanUpdate {
 	_u.mutation.ClearTierGroupIds()
+	return _u
+}
+
+// SetTierRules sets the "tier_rules" field.
+func (_u *GroupBuyPlanUpdate) SetTierRules(v []domain.GroupBuyTierRule) *GroupBuyPlanUpdate {
+	_u.mutation.SetTierRules(v)
+	return _u
+}
+
+// AppendTierRules appends value to the "tier_rules" field.
+func (_u *GroupBuyPlanUpdate) AppendTierRules(v []domain.GroupBuyTierRule) *GroupBuyPlanUpdate {
+	_u.mutation.AppendTierRules(v)
+	return _u
+}
+
+// ClearTierRules clears the value of the "tier_rules" field.
+func (_u *GroupBuyPlanUpdate) ClearTierRules() *GroupBuyPlanUpdate {
+	_u.mutation.ClearTierRules()
 	return _u
 }
 
@@ -714,6 +734,17 @@ func (_u *GroupBuyPlanUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if _u.mutation.TierGroupIdsCleared() {
 		_spec.ClearField(groupbuyplan.FieldTierGroupIds, field.TypeJSON)
 	}
+	if value, ok := _u.mutation.TierRules(); ok {
+		_spec.SetField(groupbuyplan.FieldTierRules, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedTierRules(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, groupbuyplan.FieldTierRules, value)
+		})
+	}
+	if _u.mutation.TierRulesCleared() {
+		_spec.ClearField(groupbuyplan.FieldTierRules, field.TypeJSON)
+	}
 	if value, ok := _u.mutation.ValidityDays(); ok {
 		_spec.SetField(groupbuyplan.FieldValidityDays, field.TypeInt, value)
 	}
@@ -1167,6 +1198,24 @@ func (_u *GroupBuyPlanUpdateOne) SetTierGroupIds(v map[string]int64) *GroupBuyPl
 // ClearTierGroupIds clears the value of the "tier_group_ids" field.
 func (_u *GroupBuyPlanUpdateOne) ClearTierGroupIds() *GroupBuyPlanUpdateOne {
 	_u.mutation.ClearTierGroupIds()
+	return _u
+}
+
+// SetTierRules sets the "tier_rules" field.
+func (_u *GroupBuyPlanUpdateOne) SetTierRules(v []domain.GroupBuyTierRule) *GroupBuyPlanUpdateOne {
+	_u.mutation.SetTierRules(v)
+	return _u
+}
+
+// AppendTierRules appends value to the "tier_rules" field.
+func (_u *GroupBuyPlanUpdateOne) AppendTierRules(v []domain.GroupBuyTierRule) *GroupBuyPlanUpdateOne {
+	_u.mutation.AppendTierRules(v)
+	return _u
+}
+
+// ClearTierRules clears the value of the "tier_rules" field.
+func (_u *GroupBuyPlanUpdateOne) ClearTierRules() *GroupBuyPlanUpdateOne {
+	_u.mutation.ClearTierRules()
 	return _u
 }
 
@@ -1654,6 +1703,17 @@ func (_u *GroupBuyPlanUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuyPl
 	}
 	if _u.mutation.TierGroupIdsCleared() {
 		_spec.ClearField(groupbuyplan.FieldTierGroupIds, field.TypeJSON)
+	}
+	if value, ok := _u.mutation.TierRules(); ok {
+		_spec.SetField(groupbuyplan.FieldTierRules, field.TypeJSON, value)
+	}
+	if value, ok := _u.mutation.AppendedTierRules(); ok {
+		_spec.AddModifier(func(u *sql.UpdateBuilder) {
+			sqljson.Append(u, groupbuyplan.FieldTierRules, value)
+		})
+	}
+	if _u.mutation.TierRulesCleared() {
+		_spec.ClearField(groupbuyplan.FieldTierRules, field.TypeJSON)
 	}
 	if value, ok := _u.mutation.ValidityDays(); ok {
 		_spec.SetField(groupbuyplan.FieldValidityDays, field.TypeInt, value)

@@ -23,15 +23,16 @@ import (
 // GroupBuyEntitlementQuery is the builder for querying GroupBuyEntitlement entities.
 type GroupBuyEntitlementQuery struct {
 	config
-	ctx              *QueryContext
-	order            []groupbuyentitlement.OrderOption
-	inters           []Interceptor
-	predicates       []predicate.GroupBuyEntitlement
-	withUser         *UserQuery
-	withTargetGroup  *GroupQuery
-	withSubscription *UserSubscriptionQuery
-	withBoundAPIKey  *APIKeyQuery
-	modifiers        []func(*sql.Selector)
+	ctx                     *QueryContext
+	order                   []groupbuyentitlement.OrderOption
+	inters                  []Interceptor
+	predicates              []predicate.GroupBuyEntitlement
+	withUser                *UserQuery
+	withTargetGroup         *GroupQuery
+	withSubscription        *UserSubscriptionQuery
+	withManagedSubscription *UserSubscriptionQuery
+	withBoundAPIKey         *APIKeyQuery
+	modifiers               []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -127,6 +128,28 @@ func (_q *GroupBuyEntitlementQuery) QuerySubscription() *UserSubscriptionQuery {
 			sqlgraph.From(groupbuyentitlement.Table, groupbuyentitlement.FieldID, selector),
 			sqlgraph.To(usersubscription.Table, usersubscription.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyentitlement.SubscriptionTable, groupbuyentitlement.SubscriptionColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryManagedSubscription chains the current query on the "managed_subscription" edge.
+func (_q *GroupBuyEntitlementQuery) QueryManagedSubscription() *UserSubscriptionQuery {
+	query := (&UserSubscriptionClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyentitlement.Table, groupbuyentitlement.FieldID, selector),
+			sqlgraph.To(usersubscription.Table, usersubscription.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyentitlement.ManagedSubscriptionTable, groupbuyentitlement.ManagedSubscriptionColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -343,15 +366,16 @@ func (_q *GroupBuyEntitlementQuery) Clone() *GroupBuyEntitlementQuery {
 		return nil
 	}
 	return &GroupBuyEntitlementQuery{
-		config:           _q.config,
-		ctx:              _q.ctx.Clone(),
-		order:            append([]groupbuyentitlement.OrderOption{}, _q.order...),
-		inters:           append([]Interceptor{}, _q.inters...),
-		predicates:       append([]predicate.GroupBuyEntitlement{}, _q.predicates...),
-		withUser:         _q.withUser.Clone(),
-		withTargetGroup:  _q.withTargetGroup.Clone(),
-		withSubscription: _q.withSubscription.Clone(),
-		withBoundAPIKey:  _q.withBoundAPIKey.Clone(),
+		config:                  _q.config,
+		ctx:                     _q.ctx.Clone(),
+		order:                   append([]groupbuyentitlement.OrderOption{}, _q.order...),
+		inters:                  append([]Interceptor{}, _q.inters...),
+		predicates:              append([]predicate.GroupBuyEntitlement{}, _q.predicates...),
+		withUser:                _q.withUser.Clone(),
+		withTargetGroup:         _q.withTargetGroup.Clone(),
+		withSubscription:        _q.withSubscription.Clone(),
+		withManagedSubscription: _q.withManagedSubscription.Clone(),
+		withBoundAPIKey:         _q.withBoundAPIKey.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -388,6 +412,17 @@ func (_q *GroupBuyEntitlementQuery) WithSubscription(opts ...func(*UserSubscript
 		opt(query)
 	}
 	_q.withSubscription = query
+	return _q
+}
+
+// WithManagedSubscription tells the query-builder to eager-load the nodes that are connected to
+// the "managed_subscription" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *GroupBuyEntitlementQuery) WithManagedSubscription(opts ...func(*UserSubscriptionQuery)) *GroupBuyEntitlementQuery {
+	query := (&UserSubscriptionClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withManagedSubscription = query
 	return _q
 }
 
@@ -480,10 +515,11 @@ func (_q *GroupBuyEntitlementQuery) sqlAll(ctx context.Context, hooks ...queryHo
 	var (
 		nodes       = []*GroupBuyEntitlement{}
 		_spec       = _q.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [5]bool{
 			_q.withUser != nil,
 			_q.withTargetGroup != nil,
 			_q.withSubscription != nil,
+			_q.withManagedSubscription != nil,
 			_q.withBoundAPIKey != nil,
 		}
 	)
@@ -523,6 +559,12 @@ func (_q *GroupBuyEntitlementQuery) sqlAll(ctx context.Context, hooks ...queryHo
 	if query := _q.withSubscription; query != nil {
 		if err := _q.loadSubscription(ctx, query, nodes, nil,
 			func(n *GroupBuyEntitlement, e *UserSubscription) { n.Edges.Subscription = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withManagedSubscription; query != nil {
+		if err := _q.loadManagedSubscription(ctx, query, nodes, nil,
+			func(n *GroupBuyEntitlement, e *UserSubscription) { n.Edges.ManagedSubscription = e }); err != nil {
 			return nil, err
 		}
 	}
@@ -628,6 +670,38 @@ func (_q *GroupBuyEntitlementQuery) loadSubscription(ctx context.Context, query 
 	}
 	return nil
 }
+func (_q *GroupBuyEntitlementQuery) loadManagedSubscription(ctx context.Context, query *UserSubscriptionQuery, nodes []*GroupBuyEntitlement, init func(*GroupBuyEntitlement), assign func(*GroupBuyEntitlement, *UserSubscription)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*GroupBuyEntitlement)
+	for i := range nodes {
+		if nodes[i].ManagedSubscriptionID == nil {
+			continue
+		}
+		fk := *nodes[i].ManagedSubscriptionID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(usersubscription.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "managed_subscription_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 func (_q *GroupBuyEntitlementQuery) loadBoundAPIKey(ctx context.Context, query *APIKeyQuery, nodes []*GroupBuyEntitlement, init func(*GroupBuyEntitlement), assign func(*GroupBuyEntitlement, *APIKey)) error {
 	ids := make([]int64, 0, len(nodes))
 	nodeids := make(map[int64][]*GroupBuyEntitlement)
@@ -697,6 +771,9 @@ func (_q *GroupBuyEntitlementQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withSubscription != nil {
 			_spec.Node.AddColumnOnce(groupbuyentitlement.FieldSubscriptionID)
+		}
+		if _q.withManagedSubscription != nil {
+			_spec.Node.AddColumnOnce(groupbuyentitlement.FieldManagedSubscriptionID)
 		}
 		if _q.withBoundAPIKey != nil {
 			_spec.Node.AddColumnOnce(groupbuyentitlement.FieldBoundAPIKeyID)

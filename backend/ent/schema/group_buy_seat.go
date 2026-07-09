@@ -3,6 +3,8 @@ package schema
 import (
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/domain"
+
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/entsql"
@@ -36,6 +38,9 @@ func (GroupBuySeat) Fields() []ent.Field {
 			Default("locked"),
 		field.Int("share_count").
 			Default(1),
+		field.JSON("policy_snapshot", domain.GroupBuyPolicySnapshot{}).
+			Optional().
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 		field.Int64("subscription_id").
 			Optional().
 			Nillable(),
@@ -110,6 +115,7 @@ func (GroupBuySeat) Edges() []ent.Edge {
 			Ref("group_buy_seats").
 			Field("bound_api_key_id").
 			Unique(),
+		edge.To("refunds", GroupBuyRefund.Type),
 		edge.To("events", GroupBuyEvent.Type),
 	}
 }

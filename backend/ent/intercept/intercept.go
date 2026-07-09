@@ -24,6 +24,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
@@ -539,6 +540,33 @@ func (f TraverseGroupBuyPlan) Traverse(ctx context.Context, q ent.Query) error {
 		return f(ctx, q)
 	}
 	return fmt.Errorf("unexpected query type %T. expect *ent.GroupBuyPlanQuery", q)
+}
+
+// The GroupBuyRefundFunc type is an adapter to allow the use of ordinary function as a Querier.
+type GroupBuyRefundFunc func(context.Context, *ent.GroupBuyRefundQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f GroupBuyRefundFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.GroupBuyRefundQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.GroupBuyRefundQuery", q)
+}
+
+// The TraverseGroupBuyRefund type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseGroupBuyRefund func(context.Context, *ent.GroupBuyRefundQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseGroupBuyRefund) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseGroupBuyRefund) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.GroupBuyRefundQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.GroupBuyRefundQuery", q)
 }
 
 // The GroupBuyRoundFunc type is an adapter to allow the use of ordinary function as a Querier.
@@ -1278,6 +1306,8 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.GroupBuyEventQuery, predicate.GroupBuyEvent, groupbuyevent.OrderOption]{typ: ent.TypeGroupBuyEvent, tq: q}, nil
 	case *ent.GroupBuyPlanQuery:
 		return &query[*ent.GroupBuyPlanQuery, predicate.GroupBuyPlan, groupbuyplan.OrderOption]{typ: ent.TypeGroupBuyPlan, tq: q}, nil
+	case *ent.GroupBuyRefundQuery:
+		return &query[*ent.GroupBuyRefundQuery, predicate.GroupBuyRefund, groupbuyrefund.OrderOption]{typ: ent.TypeGroupBuyRefund, tq: q}, nil
 	case *ent.GroupBuyRoundQuery:
 		return &query[*ent.GroupBuyRoundQuery, predicate.GroupBuyRound, groupbuyround.OrderOption]{typ: ent.TypeGroupBuyRound, tq: q}, nil
 	case *ent.GroupBuySeatQuery:

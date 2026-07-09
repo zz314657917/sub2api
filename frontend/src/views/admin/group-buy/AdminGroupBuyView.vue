@@ -17,14 +17,14 @@
 
         <div v-if="subscriptionGroups.length === 0" class="admin-group-buy-alert">
           <Icon name="exclamationTriangle" size="sm" />
-          <span>需要先创建并启用 `subscription` 类型分组，Token拼拼拼 才能绑定真实可用额度。</span>
+          <span>需要先创建并启用订阅权益模板，拼团才能绑定真实可用额度。</span>
         </div>
 
         <section class="admin-group-buy-panel">
           <div class="admin-group-buy-panel-head">
             <div>
               <h2>拼团计划</h2>
-              <p>配置份额、价格、开团模式和 1 到 10 份订阅分组。</p>
+              <p>配置份额、价格、开团模式和权益档位区间规则。</p>
             </div>
           </div>
 
@@ -47,8 +47,8 @@
               <div class="admin-group-buy-price">{{ priceDisplay(plan) }}<small v-if="!plan.price_label">/份</small></div>
               <dl class="admin-group-buy-meta">
                 <div><dt>当前团</dt><dd>{{ currentRoundSummary(plan) }}</dd></div>
-                <div><dt>单份额度</dt><dd>{{ plan.quota_per_share_label || plan.quota_label || '按订阅分组执行' }}</dd></div>
-                <div><dt>最高档位</dt><dd>{{ plan.target_group?.name || `#${plan.target_group_id}` }}</dd></div>
+                <div><dt>单份额度</dt><dd>{{ plan.quota_per_share_label || plan.quota_label || '未填写' }}</dd></div>
+                <div><dt>权益档位</dt><dd>{{ tierSummary(plan) }}</dd></div>
                 <div><dt>有效期</dt><dd>{{ plan.validity_days }} 天</dd></div>
                 <div><dt>截止</dt><dd>{{ timeoutLabel(plan.timeout_minutes) }}</dd></div>
                 <div><dt>退款</dt><dd>{{ refundModeLabel(plan.refund_mode) }}</dd></div>
@@ -106,11 +106,11 @@
               <span>操作</span>
             </div>
             <div v-for="round in rounds" :key="round.id" class="admin-group-buy-table-row">
-              <span>#{{ round.id }}</span>
-              <span>{{ planTitle(round.plan_id) }}</span>
-              <span><b class="admin-group-buy-badge" :class="roundStatusClass(round.status)">{{ roundStatusLabel(round.status) }}</b></span>
-              <span>{{ round.paid_shares ?? round.paid_seats }} 已付 / {{ round.reserved_shares ?? round.reserved_seats }} 预留 / {{ round.total_shares ?? round.total_seats }} 总份</span>
-              <span>{{ formatDateTime(round.deadline_at) }}</span>
+              <span data-label="团次">#{{ round.id }}</span>
+              <span data-label="计划">{{ planTitle(round.plan_id) }}</span>
+              <span data-label="状态"><b class="admin-group-buy-badge" :class="roundStatusClass(round.status)">{{ roundStatusLabel(round.status) }}</b></span>
+              <span data-label="份额">{{ round.paid_shares ?? round.paid_seats }} 已付 / {{ round.reserved_shares ?? round.reserved_seats }} 预留 / {{ round.total_shares ?? round.total_seats }} 总份</span>
+              <span data-label="截止时间">{{ formatDateTime(round.deadline_at) }}</span>
               <span class="admin-group-buy-table-actions">
                 <button type="button" :disabled="round.status !== 'open' || actionRoundId === round.id" @click="closeRound(round)">关闭</button>
                 <button type="button" :disabled="!canRetryActivation(round) || actionRoundId === round.id" @click="retryActivation(round)">重试成团</button>
@@ -196,30 +196,50 @@
 
             <label class="admin-group-buy-full">
               <span>单份月额度展示文案</span>
-              <input v-model.trim="planForm.quota_per_share_label" placeholder="例如：单份约 50 USD 月额度，实际按订阅分组执行" />
+              <input v-model.trim="planForm.quota_per_share_label" placeholder="例如：单份约 50 USD 月额度" />
             </label>
 
             <section class="admin-group-buy-tiers">
               <div class="admin-group-buy-tier-head">
                 <div>
-                  <h3>1 到 10 份阶梯分组</h3>
-                  <p>这里决定用户最终额度。要做份额叠加，请分别创建 1 到 10 份档的 active subscription 分组，并把月额度设为单份额度的对应倍数。</p>
+                  <h3>权益档位区间规则</h3>
+                  <p>用少量区间覆盖 1 到总份额，每个区间绑定一个已启用的订阅权益模板。</p>
                 </div>
-                <button type="button" class="admin-group-buy-secondary" @click="fillTiersWithSelectedGroup">同额度填满</button>
+                <div class="admin-group-buy-tier-actions">
+                  <button type="button" class="admin-group-buy-secondary" @click="fillTiersWithSelectedGroup">一档覆盖全部</button>
+                  <button type="button" class="admin-group-buy-secondary" @click="addTierRule">添加档位</button>
+                </div>
               </div>
               <p class="admin-group-buy-tier-note">
-                示例：单份月额度为 10000，则 1 份档分组月额度 10000、2 份档 20000，依次配置到 10 份档。所有档位选同一个分组时，买多份不会增加可用月额度。
+                示例：1-3 份绑定基础权益，4-7 份绑定进阶权益，8-10 份绑定旗舰权益。区间必须连续覆盖 1 到总份额。
               </p>
               <div class="admin-group-buy-tier-grid">
-                <label v-for="share in tierShares" :key="share">
-                  <span>{{ share }} 份</span>
-                  <select v-model.number="planForm.tier_group_ids[String(share)]" required>
-                    <option :value="0" disabled>选择订阅分组</option>
-                    <option v-for="group in subscriptionGroups" :key="group.id" :value="group.id">
-                      {{ group.name }} · {{ group.platform }}{{ group.monthly_limit_usd != null ? ` · 月 ${group.monthly_limit_usd}` : '' }}
-                    </option>
-                  </select>
-                </label>
+                <div v-for="(tier, index) in planForm.tier_rules" :key="index" class="admin-group-buy-tier-rule">
+                  <label>
+                    <span>起始份额</span>
+                    <input v-model.number="tier.min_shares" type="number" min="1" max="10" required />
+                  </label>
+                  <label>
+                    <span>结束份额</span>
+                    <input v-model.number="tier.max_shares" type="number" min="1" max="10" required />
+                  </label>
+                  <label>
+                    <span>档位名称</span>
+                    <input v-model.trim="tier.label" placeholder="例如：基础权益" />
+                  </label>
+                  <label>
+                    <span>权益模板</span>
+                    <select v-model.number="tier.target_group_id" required>
+                      <option :value="0" disabled>选择权益模板</option>
+                      <option v-for="group in subscriptionGroups" :key="group.id" :value="group.id">
+                        {{ group.name }} · {{ group.platform }}{{ group.monthly_limit_usd != null ? ` · 月 ${group.monthly_limit_usd}` : '' }}
+                      </option>
+                    </select>
+                  </label>
+                  <button type="button" class="admin-group-buy-danger admin-group-buy-tier-remove" :disabled="planForm.tier_rules.length <= 1" @click="removeTierRule(index)">
+                    <Icon name="trash" size="sm" />
+                  </button>
+                </div>
               </div>
             </section>
 
@@ -255,12 +275,11 @@ import { extractApiErrorMessage } from '@/utils/apiError'
 import { resolveGroupBuyProductName } from '@/utils/groupBuyProduct'
 import { formatPaymentAmount } from '@/components/payment/currency'
 import type { AdminGroup, BasePaginationResponse } from '@/types'
-import type { GroupBuyLaunchMode, GroupBuyPlan, GroupBuyPlanStatus, GroupBuyRefundMode, GroupBuyRound, GroupBuyRoundStatus } from '@/types/groupBuy'
+import type { GroupBuyLaunchMode, GroupBuyPlan, GroupBuyPlanStatus, GroupBuyRefundMode, GroupBuyRound, GroupBuyRoundStatus, GroupBuyTier } from '@/types/groupBuy'
 import type { GroupBuyPlanPayload } from '@/api/admin/groupBuy'
 
 const appStore = useAppStore()
 
-const tierShares = Array.from({ length: 10 }, (_, index) => index + 1)
 const groupBuyProductName = computed(() => resolveGroupBuyProductName(appStore.cachedPublicSettings))
 const defaultAgreementText = computed(() => `我理解 ${groupBuyProductName.value} 为平台托管容量份额权益，不是官方 OpenAI Pro 子账号，不共享任何上游账号或官方 API Key。`)
 
@@ -294,6 +313,7 @@ const planForm = reactive({
   max_shares_per_user: 10,
   target_group_id: 0,
   tier_group_ids: {} as Record<string, number>,
+  tier_rules: [] as GroupBuyTier[],
   launch_mode: 'auto' as GroupBuyLaunchMode,
   validity_days: 30,
   timeout_minutes: 1440,
@@ -316,7 +336,7 @@ const canSubmitPlan = computed(() =>
   && planForm.max_shares_per_user <= 10
   && planForm.validity_days > 0
   && planForm.timeout_minutes >= 5
-  && tierShares.every((share) => Number(planForm.tier_group_ids[String(share)] || 0) > 0),
+  && validateTierRules(planForm.tier_rules, Number(planForm.total_shares)),
 )
 
 async function refreshAll() {
@@ -370,17 +390,16 @@ function openCreatePlan() {
   resetPlanForm()
   const firstGroupID = subscriptionGroups.value[0]?.id || 0
   if (firstGroupID) {
-    for (const share of tierShares) {
-      planForm.tier_group_ids[String(share)] = firstGroupID
-    }
     planForm.target_group_id = firstGroupID
+    planForm.tier_rules = [buildTierRule(1, Number(planForm.total_shares), firstGroupID, '默认权益')]
   }
   planDialogOpen.value = true
 }
 
 function openEditPlan(plan: GroupBuyPlan) {
   editingPlan.value = plan
-  const tiers = normalizeTierMap(plan.tier_group_ids, plan.target_group_id)
+  const tierRules = normalizeTierRules(plan)
+  const targetGroupID = targetGroupIDForShares(tierRules, totalShares(plan)) || plan.target_group_id
   Object.assign(planForm, {
     title: plan.title,
     description: plan.description || '',
@@ -389,8 +408,9 @@ function openEditPlan(plan: GroupBuyPlan) {
     price_label: plan.price_label || '',
     quota_per_share_label: plan.quota_per_share_label || plan.quota_label || '',
     max_shares_per_user: plan.max_shares_per_user || 10,
-    target_group_id: plan.target_group_id,
-    tier_group_ids: tiers,
+    target_group_id: targetGroupID,
+    tier_group_ids: tierRulesToMap(tierRules, totalShares(plan)),
+    tier_rules: tierRules,
     launch_mode: plan.launch_mode || 'auto',
     validity_days: plan.validity_days,
     timeout_minutes: plan.timeout_minutes,
@@ -403,20 +423,19 @@ function openEditPlan(plan: GroupBuyPlan) {
 }
 
 function resetPlanForm() {
-  const tiers: Record<string, number> = {}
-  for (const share of tierShares) {
-    tiers[String(share)] = 0
-  }
+  const firstGroupID = subscriptionGroups.value[0]?.id || 0
+  const rules = firstGroupID ? [buildTierRule(1, 10, firstGroupID, '默认权益')] : [buildTierRule(1, 10, 0, '默认权益')]
   Object.assign(planForm, {
     title: '',
     description: `${groupBuyProductName.value} 平台托管容量份额，满份后自动开通。`,
     total_shares: 10,
     price_per_share: 0,
     price_label: '',
-    quota_per_share_label: '单份月额度按后台订阅分组执行',
+    quota_per_share_label: '单份月额度待填写',
     max_shares_per_user: 10,
-    target_group_id: 0,
-    tier_group_ids: tiers,
+    target_group_id: firstGroupID,
+    tier_group_ids: tierRulesToMap(rules, 10),
+    tier_rules: rules,
     launch_mode: 'auto',
     validity_days: 30,
     timeout_minutes: 1440,
@@ -435,14 +454,27 @@ function closePlanDialog() {
 function fillTiersWithSelectedGroup() {
   const groupID = Number(planForm.target_group_id || subscriptionGroups.value[0]?.id || 0)
   if (!groupID) return
-  for (const share of tierShares) {
-    planForm.tier_group_ids[String(share)] = groupID
-  }
+  planForm.target_group_id = groupID
+  planForm.tier_rules = [buildTierRule(1, Number(planForm.total_shares), groupID, '默认权益')]
+}
+
+function addTierRule() {
+  const total = Number(planForm.total_shares || 10)
+  const last = planForm.tier_rules[planForm.tier_rules.length - 1]
+  const nextMin = Math.min(total, Number(last?.max_shares || 0) + 1)
+  const groupID = Number(last?.target_group_id || planForm.target_group_id || subscriptionGroups.value[0]?.id || 0)
+  planForm.tier_rules.push(buildTierRule(nextMin, total, groupID, ''))
+}
+
+function removeTierRule(index: number) {
+  if (planForm.tier_rules.length <= 1) return
+  planForm.tier_rules.splice(index, 1)
 }
 
 function buildPlanPayload(): GroupBuyPlanPayload {
-  const tierGroupIds = normalizeTierMap(planForm.tier_group_ids, planForm.target_group_id)
   const totalShares = Number(planForm.total_shares)
+  const tierRules = normalizeTierRulesFromForm(planForm.tier_rules, totalShares)
+  const tierGroupIds = tierRulesToMap(tierRules, totalShares)
   return {
     title: planForm.title.trim(),
     description: planForm.description.trim(),
@@ -455,8 +487,9 @@ function buildPlanPayload(): GroupBuyPlanPayload {
     quota_per_share_label: planForm.quota_per_share_label.trim(),
     quota_label: planForm.quota_per_share_label.trim(),
     max_shares_per_user: Number(planForm.max_shares_per_user),
-    target_group_id: Number(tierGroupIds[String(totalShares)] || tierGroupIds['10'] || planForm.target_group_id),
+    target_group_id: Number(targetGroupIDForShares(tierRules, totalShares) || planForm.target_group_id),
     tier_group_ids: tierGroupIds,
+    tier_rules: tierRules,
     launch_mode: planForm.launch_mode,
     validity_days: Number(planForm.validity_days),
     timeout_minutes: Number(planForm.timeout_minutes),
@@ -571,16 +604,99 @@ function canRetryActivation(round: GroupBuyRound): boolean {
   return round.status === 'activating' || (round.status === 'open' && paid >= total)
 }
 
-function normalizeTierMap(raw?: Record<string, number>, fallback = 0): Record<string, number> {
+function totalShares(plan: GroupBuyPlan): number {
+  return Number(plan.total_shares || plan.seat_count || 10)
+}
+
+function buildTierRule(minShares: number, maxShares: number, groupID: number, label: string): GroupBuyTier {
+  return {
+    min_shares: Number(minShares),
+    max_shares: Number(maxShares),
+    target_group_id: Number(groupID || 0),
+    label,
+  }
+}
+
+function normalizeTierRules(plan: GroupBuyPlan): GroupBuyTier[] {
+  const total = totalShares(plan)
+  const source = (plan.tier_rules?.length ? plan.tier_rules : plan.tier_groups) || []
+  const rules = source
+    .map((tier) => {
+      const minShares = Number(tier.min_shares || tier.share_count || 0)
+      const maxShares = Number(tier.max_shares || tier.share_count || minShares)
+      return buildTierRule(minShares, maxShares, Number(tier.target_group_id || 0), tier.label || tierLabel(minShares, maxShares))
+    })
+    .filter((tier) => tier.min_shares > 0 && tier.max_shares >= tier.min_shares && tier.target_group_id > 0)
+    .sort((a, b) => a.min_shares - b.min_shares || a.max_shares - b.max_shares)
+  if (rules.length > 0) return rules
+  return exactTierMapToRules(plan.tier_group_ids, total, plan.target_group_id)
+}
+
+function normalizeTierRulesFromForm(raw: GroupBuyTier[], totalShares: number): GroupBuyTier[] {
+  return raw
+    .map((tier) => {
+      const minShares = clampShare(Number(tier.min_shares || 0), totalShares)
+      const maxShares = clampShare(Number(tier.max_shares || minShares), totalShares)
+      return buildTierRule(minShares, maxShares, Number(tier.target_group_id || 0), tier.label?.trim() || tierLabel(minShares, maxShares))
+    })
+    .sort((a, b) => a.min_shares - b.min_shares || a.max_shares - b.max_shares)
+}
+
+function validateTierRules(rules: GroupBuyTier[], totalShares: number): boolean {
+  if (!rules.length || totalShares <= 0) return false
+  let expected = 1
+  for (const tier of normalizeTierRulesFromForm(rules, totalShares)) {
+    if (tier.min_shares !== expected || tier.max_shares < tier.min_shares || tier.max_shares > totalShares || !tier.target_group_id) return false
+    expected = tier.max_shares + 1
+  }
+  return expected === totalShares + 1
+}
+
+function exactTierMapToRules(raw?: Record<string, number>, totalShares = 10, fallback = 0): GroupBuyTier[] {
+  const rules: GroupBuyTier[] = []
+  let currentGroup = 0
+  let start = 0
+  for (let share = 1; share <= totalShares; share++) {
+    const groupID = Number(raw?.[String(share)] || fallback || 0)
+    if (groupID !== currentGroup) {
+      if (currentGroup > 0) rules.push(buildTierRule(start, share - 1, currentGroup, tierLabel(start, share - 1)))
+      currentGroup = groupID
+      start = share
+    }
+  }
+  if (currentGroup > 0) rules.push(buildTierRule(start, totalShares, currentGroup, tierLabel(start, totalShares)))
+  return rules
+}
+
+function tierRulesToMap(rules: GroupBuyTier[], totalShares: number): Record<string, number> {
   const out: Record<string, number> = {}
-  for (const share of tierShares) {
-    out[String(share)] = Number(raw?.[String(share)] || fallback || 0)
+  for (const tier of rules) {
+    for (let share = tier.min_shares; share <= Math.min(tier.max_shares, totalShares); share++) {
+      out[String(share)] = Number(tier.target_group_id || 0)
+    }
   }
   return out
 }
 
-function totalShares(plan: GroupBuyPlan): number {
-  return Number(plan.total_shares || plan.seat_count || 10)
+function targetGroupIDForShares(rules: GroupBuyTier[], shares: number): number {
+  const target = rules.find((tier) => shares >= tier.min_shares && shares <= tier.max_shares)
+  return Number(target?.target_group_id || 0)
+}
+
+function tierLabel(minShares: number, maxShares: number): string {
+  return minShares === maxShares ? `${minShares} 份权益` : `${minShares}-${maxShares} 份权益`
+}
+
+function tierSummary(plan: GroupBuyPlan): string {
+  const rules = normalizeTierRules(plan)
+  if (!rules.length) return '未配置'
+  if (rules.length === 1) return rules[0].label || tierLabel(rules[0].min_shares, rules[0].max_shares)
+  return `${rules.length} 个档位 · 最高 ${rules[rules.length - 1].label || tierLabel(rules[rules.length - 1].min_shares, rules[rules.length - 1].max_shares)}`
+}
+
+function clampShare(value: number, totalShares: number): number {
+  if (!Number.isFinite(value) || value <= 0) return 1
+  return Math.min(Math.max(Math.trunc(value), 1), Math.max(1, totalShares))
 }
 
 function pricePerShare(plan: GroupBuyPlan): number {
@@ -981,6 +1097,7 @@ onMounted(() => {
 .admin-group-buy-form-grid select,
 .admin-group-buy-full input,
 .admin-group-buy-full textarea,
+.admin-group-buy-tier-grid input,
 .admin-group-buy-tier-grid select {
   width: 100%;
   border: 1px solid var(--agb-border-strong);
@@ -995,6 +1112,7 @@ onMounted(() => {
 .admin-group-buy-form-grid select:focus,
 .admin-group-buy-full input:focus,
 .admin-group-buy-full textarea:focus,
+.admin-group-buy-tier-grid input:focus,
 .admin-group-buy-tier-grid select:focus {
   border-color: rgba(204, 120, 92, 0.58);
   box-shadow: 0 0 0 3px var(--agb-ring);
@@ -1069,6 +1187,7 @@ onMounted(() => {
 .admin-group-buy-form-grid select,
 .admin-group-buy-full input,
 .admin-group-buy-full textarea,
+.admin-group-buy-tier-grid input,
 .admin-group-buy-tier-grid select {
   min-height: 2.55rem;
   padding: 0.65rem 0.8rem;
@@ -1090,8 +1209,34 @@ onMounted(() => {
 .admin-group-buy-tier-grid {
   margin-top: 1rem;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.75rem;
+}
+
+.admin-group-buy-tier-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  justify-content: flex-end;
+}
+
+.admin-group-buy-tier-rule {
+  display: grid;
+  grid-template-columns: 0.65fr 0.65fr minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  gap: 0.75rem;
+  align-items: end;
+  border-top: 1px solid var(--agb-border);
+  padding-top: 0.75rem;
+}
+
+.admin-group-buy-tier-rule:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.admin-group-buy-tier-remove {
+  min-height: 2.55rem;
+  padding-inline: 0.75rem;
 }
 
 .admin-group-buy-modal-actions {
@@ -1117,8 +1262,45 @@ onMounted(() => {
   }
   .admin-group-buy-plan-grid,
   .admin-group-buy-form-grid,
-  .admin-group-buy-tier-grid {
+  .admin-group-buy-tier-grid,
+  .admin-group-buy-tier-rule {
     grid-template-columns: 1fr;
+  }
+  .admin-group-buy-table {
+    overflow-x: visible;
+  }
+  .admin-group-buy-table-head {
+    display: none;
+  }
+  .admin-group-buy-table-row {
+    min-width: 0;
+    grid-template-columns: 1fr;
+    gap: 0.55rem;
+    border: 1px solid var(--agb-border);
+    border-radius: 0.5rem;
+    background: var(--agb-surface-soft);
+    padding: 0.85rem;
+  }
+  .admin-group-buy-table-row + .admin-group-buy-table-row {
+    margin-top: 0.75rem;
+  }
+  .admin-group-buy-table-row > span:not(.admin-group-buy-table-actions) {
+    display: grid;
+    grid-template-columns: 5.2rem minmax(0, 1fr);
+    gap: 0.75rem;
+    align-items: center;
+    min-width: 0;
+    color: var(--agb-muted-strong);
+  }
+  .admin-group-buy-table-row > span:not(.admin-group-buy-table-actions)::before {
+    content: attr(data-label);
+    color: var(--agb-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+  }
+  .admin-group-buy-table-actions {
+    justify-content: flex-start;
+    padding-top: 0.25rem;
   }
 }
 
@@ -1163,6 +1345,7 @@ onMounted(() => {
 :global(.dark) .admin-group-buy-full input,
 :global(.dark) .admin-group-buy-full textarea,
 :global(.dark) .admin-group-buy-filter select,
+:global(.dark) .admin-group-buy-tier-grid input,
 :global(.dark) .admin-group-buy-tier-grid select,
 :global(.dark) .admin-group-buy-modal-close,
 :global(.dark) .admin-group-buy-tiers {

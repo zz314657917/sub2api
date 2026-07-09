@@ -2486,6 +2486,29 @@ func HasGroupBuySeatWith(preds ...predicate.GroupBuySeat) predicate.PaymentOrder
 	})
 }
 
+// HasGroupBuyRefunds applies the HasEdge predicate on the "group_buy_refunds" edge.
+func HasGroupBuyRefunds() predicate.PaymentOrder {
+	return predicate.PaymentOrder(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, GroupBuyRefundsTable, GroupBuyRefundsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasGroupBuyRefundsWith applies the HasEdge predicate on the "group_buy_refunds" edge with a given conditions (other predicates).
+func HasGroupBuyRefundsWith(preds ...predicate.GroupBuyRefund) predicate.PaymentOrder {
+	return predicate.PaymentOrder(func(s *sql.Selector) {
+		step := newGroupBuyRefundsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // And groups predicates with the AND operator between them.
 func And(predicates ...predicate.PaymentOrder) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.AndPredicates(predicates...))

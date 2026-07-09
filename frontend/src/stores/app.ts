@@ -366,7 +366,7 @@ export const useAppStore = defineStore('app', () => {
         available_channels_enabled: false,
         group_buy_enabled: true,
         group_buy_product_name: 'Token拼拼拼',
-        group_buy_description: '按份额拼团，满份后开通 Token拼拼拼 权益；额度按后台订阅分组执行，使用自己的平台 API Key。',
+        group_buy_description: '按份额拼团，满份后开通 Token拼拼拼 权益；使用自己的平台 API Key。',
         risk_control_enabled: false,
         account_share_enabled: true,
         external_capacity_reference_enabled: false,

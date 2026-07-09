@@ -14,11 +14,13 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // GroupBuySeatCreate is the builder for creating a GroupBuySeat entity.
@@ -85,6 +87,20 @@ func (_c *GroupBuySeatCreate) SetShareCount(v int) *GroupBuySeatCreate {
 func (_c *GroupBuySeatCreate) SetNillableShareCount(v *int) *GroupBuySeatCreate {
 	if v != nil {
 		_c.SetShareCount(*v)
+	}
+	return _c
+}
+
+// SetPolicySnapshot sets the "policy_snapshot" field.
+func (_c *GroupBuySeatCreate) SetPolicySnapshot(v domain.GroupBuyPolicySnapshot) *GroupBuySeatCreate {
+	_c.mutation.SetPolicySnapshot(v)
+	return _c
+}
+
+// SetNillablePolicySnapshot sets the "policy_snapshot" field if the given value is not nil.
+func (_c *GroupBuySeatCreate) SetNillablePolicySnapshot(v *domain.GroupBuyPolicySnapshot) *GroupBuySeatCreate {
+	if v != nil {
+		_c.SetPolicySnapshot(*v)
 	}
 	return _c
 }
@@ -273,6 +289,21 @@ func (_c *GroupBuySeatCreate) SetBoundAPIKey(v *APIKey) *GroupBuySeatCreate {
 	return _c.SetBoundAPIKeyID(v.ID)
 }
 
+// AddRefundIDs adds the "refunds" edge to the GroupBuyRefund entity by IDs.
+func (_c *GroupBuySeatCreate) AddRefundIDs(ids ...int64) *GroupBuySeatCreate {
+	_c.mutation.AddRefundIDs(ids...)
+	return _c
+}
+
+// AddRefunds adds the "refunds" edges to the GroupBuyRefund entity.
+func (_c *GroupBuySeatCreate) AddRefunds(v ...*GroupBuyRefund) *GroupBuySeatCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddRefundIDs(ids...)
+}
+
 // AddEventIDs adds the "events" edge to the GroupBuyEvent entity by IDs.
 func (_c *GroupBuySeatCreate) AddEventIDs(ids ...int64) *GroupBuySeatCreate {
 	_c.mutation.AddEventIDs(ids...)
@@ -413,6 +444,10 @@ func (_c *GroupBuySeatCreate) createSpec() (*GroupBuySeat, *sqlgraph.CreateSpec)
 		_spec.SetField(groupbuyseat.FieldShareCount, field.TypeInt, value)
 		_node.ShareCount = value
 	}
+	if value, ok := _c.mutation.PolicySnapshot(); ok {
+		_spec.SetField(groupbuyseat.FieldPolicySnapshot, field.TypeJSON, value)
+		_node.PolicySnapshot = value
+	}
 	if value, ok := _c.mutation.LockedUntil(); ok {
 		_spec.SetField(groupbuyseat.FieldLockedUntil, field.TypeTime, value)
 		_node.LockedUntil = &value
@@ -549,6 +584,22 @@ func (_c *GroupBuySeatCreate) createSpec() (*GroupBuySeat, *sqlgraph.CreateSpec)
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
 		_node.BoundAPIKeyID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.RefundsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.RefundsTable,
+			Columns: []string{groupbuyseat.RefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.EventsIDs(); len(nodes) > 0 {
@@ -700,6 +751,24 @@ func (u *GroupBuySeatUpsert) UpdateShareCount() *GroupBuySeatUpsert {
 // AddShareCount adds v to the "share_count" field.
 func (u *GroupBuySeatUpsert) AddShareCount(v int) *GroupBuySeatUpsert {
 	u.Add(groupbuyseat.FieldShareCount, v)
+	return u
+}
+
+// SetPolicySnapshot sets the "policy_snapshot" field.
+func (u *GroupBuySeatUpsert) SetPolicySnapshot(v domain.GroupBuyPolicySnapshot) *GroupBuySeatUpsert {
+	u.Set(groupbuyseat.FieldPolicySnapshot, v)
+	return u
+}
+
+// UpdatePolicySnapshot sets the "policy_snapshot" field to the value that was provided on create.
+func (u *GroupBuySeatUpsert) UpdatePolicySnapshot() *GroupBuySeatUpsert {
+	u.SetExcluded(groupbuyseat.FieldPolicySnapshot)
+	return u
+}
+
+// ClearPolicySnapshot clears the value of the "policy_snapshot" field.
+func (u *GroupBuySeatUpsert) ClearPolicySnapshot() *GroupBuySeatUpsert {
+	u.SetNull(groupbuyseat.FieldPolicySnapshot)
 	return u
 }
 
@@ -1017,6 +1086,27 @@ func (u *GroupBuySeatUpsertOne) AddShareCount(v int) *GroupBuySeatUpsertOne {
 func (u *GroupBuySeatUpsertOne) UpdateShareCount() *GroupBuySeatUpsertOne {
 	return u.Update(func(s *GroupBuySeatUpsert) {
 		s.UpdateShareCount()
+	})
+}
+
+// SetPolicySnapshot sets the "policy_snapshot" field.
+func (u *GroupBuySeatUpsertOne) SetPolicySnapshot(v domain.GroupBuyPolicySnapshot) *GroupBuySeatUpsertOne {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.SetPolicySnapshot(v)
+	})
+}
+
+// UpdatePolicySnapshot sets the "policy_snapshot" field to the value that was provided on create.
+func (u *GroupBuySeatUpsertOne) UpdatePolicySnapshot() *GroupBuySeatUpsertOne {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.UpdatePolicySnapshot()
+	})
+}
+
+// ClearPolicySnapshot clears the value of the "policy_snapshot" field.
+func (u *GroupBuySeatUpsertOne) ClearPolicySnapshot() *GroupBuySeatUpsertOne {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.ClearPolicySnapshot()
 	})
 }
 
@@ -1529,6 +1619,27 @@ func (u *GroupBuySeatUpsertBulk) AddShareCount(v int) *GroupBuySeatUpsertBulk {
 func (u *GroupBuySeatUpsertBulk) UpdateShareCount() *GroupBuySeatUpsertBulk {
 	return u.Update(func(s *GroupBuySeatUpsert) {
 		s.UpdateShareCount()
+	})
+}
+
+// SetPolicySnapshot sets the "policy_snapshot" field.
+func (u *GroupBuySeatUpsertBulk) SetPolicySnapshot(v domain.GroupBuyPolicySnapshot) *GroupBuySeatUpsertBulk {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.SetPolicySnapshot(v)
+	})
+}
+
+// UpdatePolicySnapshot sets the "policy_snapshot" field to the value that was provided on create.
+func (u *GroupBuySeatUpsertBulk) UpdatePolicySnapshot() *GroupBuySeatUpsertBulk {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.UpdatePolicySnapshot()
+	})
+}
+
+// ClearPolicySnapshot clears the value of the "policy_snapshot" field.
+func (u *GroupBuySeatUpsertBulk) ClearPolicySnapshot() *GroupBuySeatUpsertBulk {
+	return u.Update(func(s *GroupBuySeatUpsert) {
+		s.ClearPolicySnapshot()
 	})
 }
 

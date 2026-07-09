@@ -102,7 +102,7 @@
               </div>
               <ul class="group-buy-rules">
                 <li>只使用自己的平台 API Key。</li>
-                <li>额度按后台订阅分组执行。</li>
+                <li>满份成团后按有效份额开通权益。</li>
               </ul>
             </section>
           </aside>
@@ -112,7 +112,7 @@
           <div class="group-buy-panel-head">
             <div>
               <h2>使用与绑定</h2>
-              <p>满份成团后，系统会汇总你的有效份额并切换到对应订阅分组。绑定记录会保留，下次成团后自动恢复。</p>
+              <p>满份成团后，系统会汇总你的有效份额并开通对应权益档位。绑定记录会保留，下次成团后自动恢复。</p>
             </div>
             <button type="button" class="group-buy-secondary" :disabled="seatsLoading" aria-label="刷新份额" @click="fetchSeats">
               <Icon name="refresh" size="sm" :class="{ 'animate-spin': seatsLoading }" />
@@ -125,8 +125,8 @@
               <strong>{{ entitlement?.active_share_count ?? 0 }} 份</strong>
             </div>
             <div>
-              <p class="group-buy-caption">当前档位</p>
-              <strong>{{ entitlement?.target_group?.name || (entitlement?.status === 'active' ? `分组 #${entitlement.target_group_id}` : '未生效') }}</strong>
+              <p class="group-buy-caption">当前权益档位</p>
+              <strong>{{ entitlement?.entitlement_label || (entitlement?.status === 'active' ? `${entitlement.active_share_count} 份权益` : '未生效') }}</strong>
             </div>
             <div>
               <p class="group-buy-caption">绑定 API Key</p>
@@ -139,7 +139,7 @@
           </div>
 
           <p v-if="entitlement && entitlement.status !== 'active' && entitlement.bound_api_key_id" class="group-buy-inline-note">
-            当前有效份额为 0，{{ groupBuyProductName }} 权益已失效；绑定记录保留，后续成团会自动切回对应分组。
+            当前有效份额为 0，{{ groupBuyProductName }} 权益已失效；绑定记录保留，后续成团会自动恢复权益。
           </p>
 
           <div v-if="seats.length === 0" class="group-buy-empty group-buy-empty-soft">
@@ -153,7 +153,7 @@
                   <h3>{{ seat.plan?.title || `份额批次 #${seat.id}` }}</h3>
                   <span class="group-buy-status" :class="seatStatusClass(seat.status)">{{ seatStatusLabel(seat.status) }}</span>
                 </div>
-                <p>{{ seat.share_count || 1 }} 份 · {{ seat.plan?.quota_per_share_label || seat.plan?.quota_label || '按订阅分组额度执行' }}</p>
+                <p>{{ seat.share_count || 1 }} 份 · {{ seat.plan?.quota_per_share_label || seat.plan?.quota_label || '单份额度待填写' }}</p>
                 <p v-if="seat.round" class="group-buy-caption">团次 #{{ seat.round.id }} · {{ roundStatusLabel(seat.round.status, seat.plan) }}</p>
                 <p class="group-buy-caption">到期：{{ seat.expires_at ? formatDateTime(seat.expires_at) : '-' }}</p>
               </div>
@@ -239,6 +239,7 @@
               <div class="group-buy-modal-summary">
                 <div><span>单份价格</span><b>{{ priceDisplay(selectedPlan) }}</b></div>
                 <div><span>份额数量</span><b>{{ selectedShareCount }} 份</b></div>
+                <div><span>预计总额度</span><b>{{ estimatedQuotaLabel(selectedPlan, selectedShareCount) }}</b></div>
                 <div><span>应付总价</span><b>{{ formatMoney(selectedOrderAmount) }}</b></div>
                 <div><span>付款方式</span><b>{{ selectedPaymentLabel }}</b></div>
                 <div><span>权益有效期</span><b>{{ selectedPlan.validity_days }} 天</b></div>
@@ -326,7 +327,7 @@ const bindingSeatId = ref<number | null>(null)
 const bindKeyIds = reactive<Record<number, number | undefined>>({})
 const paymentMethods = ['alipay', 'wxpay', 'stripe', 'airwallex']
 const groupBuyProductName = computed(() => resolveGroupBuyProductName(appStore.cachedPublicSettings))
-const defaultGroupBuyDescription = computed(() => `按份额拼团，满份后开通 ${groupBuyProductName.value} 权益；额度按后台订阅分组执行，使用自己的平台 API Key。`)
+const defaultGroupBuyDescription = computed(() => `按份额拼团，满份后开通 ${groupBuyProductName.value} 权益；使用自己的平台 API Key。`)
 const defaultAgreementText = computed(() => `我理解 ${groupBuyProductName.value} 为平台托管容量份额权益，不是官方 OpenAI Pro 子账号，不共享任何上游账号或官方 API Key。`)
 const groupBuyDescription = computed(() => appStore.cachedPublicSettings?.group_buy_description?.trim() || defaultGroupBuyDescription.value)
 
@@ -569,7 +570,16 @@ function priceDisplay(plan: GroupBuyPlan): string {
 }
 
 function quotaPerShareLabel(plan: GroupBuyPlan): string {
-  return plan.quota_per_share_label || plan.quota_label || '单份月额度按后台订阅分组执行'
+  return plan.quota_per_share_label || plan.quota_label || '单份月额度待填写'
+}
+
+function estimatedQuotaLabel(plan: GroupBuyPlan, shares: number): string {
+  const label = quotaPerShareLabel(plan)
+  const match = label.match(/(\d+(?:\.\d+)?)/)
+  if (!match) return `${shares} 份权益`
+  const value = Number(match[1])
+  if (!Number.isFinite(value)) return `${shares} 份权益`
+  return label.replace(match[1], String(Number((value * shares).toFixed(2))))
 }
 
 function maxPurchasableShares(plan: GroupBuyPlan): number {
@@ -640,6 +650,7 @@ function seatStatusLabel(status: string): string {
     case 'paid': return '待满份'
     case 'active': return '已开通'
     case 'refund_pending': return '待退款'
+    case 'refund_processing': return '退款中'
     case 'refunded': return '已退款'
     case 'released': return '已释放'
     case 'cancelled': return '已取消'

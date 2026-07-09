@@ -54,6 +54,9 @@ type GroupBuyEvent func(*sql.Selector)
 // GroupBuyPlan is the predicate function for groupbuyplan builders.
 type GroupBuyPlan func(*sql.Selector)
 
+// GroupBuyRefund is the predicate function for groupbuyrefund builders.
+type GroupBuyRefund func(*sql.Selector)
+
 // GroupBuyRound is the predicate function for groupbuyround builders.
 type GroupBuyRound func(*sql.Selector)
 

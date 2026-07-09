@@ -102,6 +102,20 @@ func (_c *GroupBuyEntitlementCreate) SetNillableSubscriptionID(v *int64) *GroupB
 	return _c
 }
 
+// SetManagedSubscriptionID sets the "managed_subscription_id" field.
+func (_c *GroupBuyEntitlementCreate) SetManagedSubscriptionID(v int64) *GroupBuyEntitlementCreate {
+	_c.mutation.SetManagedSubscriptionID(v)
+	return _c
+}
+
+// SetNillableManagedSubscriptionID sets the "managed_subscription_id" field if the given value is not nil.
+func (_c *GroupBuyEntitlementCreate) SetNillableManagedSubscriptionID(v *int64) *GroupBuyEntitlementCreate {
+	if v != nil {
+		_c.SetManagedSubscriptionID(*v)
+	}
+	return _c
+}
+
 // SetBoundAPIKeyID sets the "bound_api_key_id" field.
 func (_c *GroupBuyEntitlementCreate) SetBoundAPIKeyID(v int64) *GroupBuyEntitlementCreate {
 	_c.mutation.SetBoundAPIKeyID(v)
@@ -213,6 +227,11 @@ func (_c *GroupBuyEntitlementCreate) SetTargetGroup(v *Group) *GroupBuyEntitleme
 // SetSubscription sets the "subscription" edge to the UserSubscription entity.
 func (_c *GroupBuyEntitlementCreate) SetSubscription(v *UserSubscription) *GroupBuyEntitlementCreate {
 	return _c.SetSubscriptionID(v.ID)
+}
+
+// SetManagedSubscription sets the "managed_subscription" edge to the UserSubscription entity.
+func (_c *GroupBuyEntitlementCreate) SetManagedSubscription(v *UserSubscription) *GroupBuyEntitlementCreate {
+	return _c.SetManagedSubscriptionID(v.ID)
 }
 
 // SetBoundAPIKey sets the "bound_api_key" edge to the APIKey entity.
@@ -431,6 +450,23 @@ func (_c *GroupBuyEntitlementCreate) createSpec() (*GroupBuyEntitlement, *sqlgra
 		_node.SubscriptionID = &nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.ManagedSubscriptionIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyentitlement.ManagedSubscriptionTable,
+			Columns: []string{groupbuyentitlement.ManagedSubscriptionColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(usersubscription.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.ManagedSubscriptionID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	if nodes := _c.mutation.BoundAPIKeyIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -587,6 +623,24 @@ func (u *GroupBuyEntitlementUpsert) UpdateSubscriptionID() *GroupBuyEntitlementU
 // ClearSubscriptionID clears the value of the "subscription_id" field.
 func (u *GroupBuyEntitlementUpsert) ClearSubscriptionID() *GroupBuyEntitlementUpsert {
 	u.SetNull(groupbuyentitlement.FieldSubscriptionID)
+	return u
+}
+
+// SetManagedSubscriptionID sets the "managed_subscription_id" field.
+func (u *GroupBuyEntitlementUpsert) SetManagedSubscriptionID(v int64) *GroupBuyEntitlementUpsert {
+	u.Set(groupbuyentitlement.FieldManagedSubscriptionID, v)
+	return u
+}
+
+// UpdateManagedSubscriptionID sets the "managed_subscription_id" field to the value that was provided on create.
+func (u *GroupBuyEntitlementUpsert) UpdateManagedSubscriptionID() *GroupBuyEntitlementUpsert {
+	u.SetExcluded(groupbuyentitlement.FieldManagedSubscriptionID)
+	return u
+}
+
+// ClearManagedSubscriptionID clears the value of the "managed_subscription_id" field.
+func (u *GroupBuyEntitlementUpsert) ClearManagedSubscriptionID() *GroupBuyEntitlementUpsert {
+	u.SetNull(groupbuyentitlement.FieldManagedSubscriptionID)
 	return u
 }
 
@@ -833,6 +887,27 @@ func (u *GroupBuyEntitlementUpsertOne) UpdateSubscriptionID() *GroupBuyEntitleme
 func (u *GroupBuyEntitlementUpsertOne) ClearSubscriptionID() *GroupBuyEntitlementUpsertOne {
 	return u.Update(func(s *GroupBuyEntitlementUpsert) {
 		s.ClearSubscriptionID()
+	})
+}
+
+// SetManagedSubscriptionID sets the "managed_subscription_id" field.
+func (u *GroupBuyEntitlementUpsertOne) SetManagedSubscriptionID(v int64) *GroupBuyEntitlementUpsertOne {
+	return u.Update(func(s *GroupBuyEntitlementUpsert) {
+		s.SetManagedSubscriptionID(v)
+	})
+}
+
+// UpdateManagedSubscriptionID sets the "managed_subscription_id" field to the value that was provided on create.
+func (u *GroupBuyEntitlementUpsertOne) UpdateManagedSubscriptionID() *GroupBuyEntitlementUpsertOne {
+	return u.Update(func(s *GroupBuyEntitlementUpsert) {
+		s.UpdateManagedSubscriptionID()
+	})
+}
+
+// ClearManagedSubscriptionID clears the value of the "managed_subscription_id" field.
+func (u *GroupBuyEntitlementUpsertOne) ClearManagedSubscriptionID() *GroupBuyEntitlementUpsertOne {
+	return u.Update(func(s *GroupBuyEntitlementUpsert) {
+		s.ClearManagedSubscriptionID()
 	})
 }
 
@@ -1261,6 +1336,27 @@ func (u *GroupBuyEntitlementUpsertBulk) UpdateSubscriptionID() *GroupBuyEntitlem
 func (u *GroupBuyEntitlementUpsertBulk) ClearSubscriptionID() *GroupBuyEntitlementUpsertBulk {
 	return u.Update(func(s *GroupBuyEntitlementUpsert) {
 		s.ClearSubscriptionID()
+	})
+}
+
+// SetManagedSubscriptionID sets the "managed_subscription_id" field.
+func (u *GroupBuyEntitlementUpsertBulk) SetManagedSubscriptionID(v int64) *GroupBuyEntitlementUpsertBulk {
+	return u.Update(func(s *GroupBuyEntitlementUpsert) {
+		s.SetManagedSubscriptionID(v)
+	})
+}
+
+// UpdateManagedSubscriptionID sets the "managed_subscription_id" field to the value that was provided on create.
+func (u *GroupBuyEntitlementUpsertBulk) UpdateManagedSubscriptionID() *GroupBuyEntitlementUpsertBulk {
+	return u.Update(func(s *GroupBuyEntitlementUpsert) {
+		s.UpdateManagedSubscriptionID()
+	})
+}
+
+// ClearManagedSubscriptionID clears the value of the "managed_subscription_id" field.
+func (u *GroupBuyEntitlementUpsertBulk) ClearManagedSubscriptionID() *GroupBuyEntitlementUpsertBulk {
+	return u.Update(func(s *GroupBuyEntitlementUpsert) {
+		s.ClearManagedSubscriptionID()
 	})
 }
 

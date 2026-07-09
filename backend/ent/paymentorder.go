@@ -110,9 +110,11 @@ type PaymentOrderEdges struct {
 	User *User `json:"user,omitempty"`
 	// GroupBuySeat holds the value of the group_buy_seat edge.
 	GroupBuySeat *GroupBuySeat `json:"group_buy_seat,omitempty"`
+	// GroupBuyRefunds holds the value of the group_buy_refunds edge.
+	GroupBuyRefunds []*GroupBuyRefund `json:"group_buy_refunds,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [3]bool
 }
 
 // UserOrErr returns the User value or an error if the edge
@@ -135,6 +137,15 @@ func (e PaymentOrderEdges) GroupBuySeatOrErr() (*GroupBuySeat, error) {
 		return nil, &NotFoundError{label: groupbuyseat.Label}
 	}
 	return nil, &NotLoadedError{edge: "group_buy_seat"}
+}
+
+// GroupBuyRefundsOrErr returns the GroupBuyRefunds value or an error if the edge
+// was not loaded in eager-loading.
+func (e PaymentOrderEdges) GroupBuyRefundsOrErr() ([]*GroupBuyRefund, error) {
+	if e.loadedTypes[2] {
+		return e.GroupBuyRefunds, nil
+	}
+	return nil, &NotLoadedError{edge: "group_buy_refunds"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -451,6 +462,11 @@ func (_m *PaymentOrder) QueryUser() *UserQuery {
 // QueryGroupBuySeat queries the "group_buy_seat" edge of the PaymentOrder entity.
 func (_m *PaymentOrder) QueryGroupBuySeat() *GroupBuySeatQuery {
 	return NewPaymentOrderClient(_m.config).QueryGroupBuySeat(_m)
+}
+
+// QueryGroupBuyRefunds queries the "group_buy_refunds" edge of the PaymentOrder entity.
+func (_m *PaymentOrder) QueryGroupBuyRefunds() *GroupBuyRefundQuery {
+	return NewPaymentOrderClient(_m.config).QueryGroupBuyRefunds(_m)
 }
 
 // Update returns a builder for updating this PaymentOrder.

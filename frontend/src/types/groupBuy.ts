@@ -2,7 +2,7 @@ import type { CreateOrderResult, PaymentOrder } from './payment'
 
 export type GroupBuyPlanStatus = 'active' | 'disabled'
 export type GroupBuyRoundStatus = 'open' | 'activating' | 'active' | 'failed' | 'cancelled'
-export type GroupBuySeatStatus = 'locked' | 'released' | 'paid' | 'active' | 'refund_pending' | 'refunded' | 'cancelled'
+export type GroupBuySeatStatus = 'locked' | 'released' | 'paid' | 'active' | 'refund_pending' | 'refund_processing' | 'refunded' | 'cancelled'
 export type GroupBuyRefundMode = 'balance_credit' | 'provider_refund'
 export type GroupBuyLaunchMode = 'auto' | 'manual'
 export type GroupBuyEntitlementStatus = 'active' | 'inactive'
@@ -37,8 +37,11 @@ export interface GroupBuyRound {
 }
 
 export interface GroupBuyTier {
-  share_count: number
+  share_count?: number
+  min_shares: number
+  max_shares: number
   target_group_id: number
+  label?: string
   target_group?: GroupBuyGroupView
 }
 
@@ -59,6 +62,7 @@ export interface GroupBuyPlan {
   target_group?: GroupBuyGroupView
   tier_group_ids: Record<string, number>
   tier_groups: GroupBuyTier[]
+  tier_rules: GroupBuyTier[]
   validity_days: number
   timeout_minutes: number
   launch_mode: GroupBuyLaunchMode
@@ -105,6 +109,7 @@ export interface GroupBuyEntitlement {
   target_group?: GroupBuyGroupView
   subscription_id?: number
   bound_api_key_id?: number
+  entitlement_label?: string
   last_activated_at?: string
   expires_at?: string
   refreshed_at?: string

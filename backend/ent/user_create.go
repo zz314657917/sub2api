@@ -17,6 +17,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/invoicerequest"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
@@ -565,6 +566,21 @@ func (_c *UserCreate) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *UserCr
 		ids[i] = v[i].ID
 	}
 	return _c.AddGroupBuyEntitlementIDs(ids...)
+}
+
+// AddGroupBuyRefundIDs adds the "group_buy_refunds" edge to the GroupBuyRefund entity by IDs.
+func (_c *UserCreate) AddGroupBuyRefundIDs(ids ...int64) *UserCreate {
+	_c.mutation.AddGroupBuyRefundIDs(ids...)
+	return _c
+}
+
+// AddGroupBuyRefunds adds the "group_buy_refunds" edges to the GroupBuyRefund entity.
+func (_c *UserCreate) AddGroupBuyRefunds(v ...*GroupBuyRefund) *UserCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddGroupBuyRefundIDs(ids...)
 }
 
 // AddInvoiceRequestIDs adds the "invoice_requests" edge to the InvoiceRequest entity by IDs.
@@ -1172,6 +1188,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.GroupBuyRefundsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.GroupBuyRefundsTable,
+			Columns: []string{user.GroupBuyRefundsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(groupbuyrefund.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

@@ -16,6 +16,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
@@ -37,6 +38,7 @@ type GroupBuySeatQuery struct {
 	withOrder        *PaymentOrderQuery
 	withSubscription *UserSubscriptionQuery
 	withBoundAPIKey  *APIKeyQuery
+	withRefunds      *GroupBuyRefundQuery
 	withEvents       *GroupBuyEventQuery
 	modifiers        []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
@@ -200,6 +202,28 @@ func (_q *GroupBuySeatQuery) QueryBoundAPIKey() *APIKeyQuery {
 			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, selector),
 			sqlgraph.To(apikey.Table, apikey.FieldID),
 			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyseat.BoundAPIKeyTable, groupbuyseat.BoundAPIKeyColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryRefunds chains the current query on the "refunds" edge.
+func (_q *GroupBuySeatQuery) QueryRefunds() *GroupBuyRefundQuery {
+	query := (&GroupBuyRefundClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, selector),
+			sqlgraph.To(groupbuyrefund.Table, groupbuyrefund.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyseat.RefundsTable, groupbuyseat.RefundsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -427,6 +451,7 @@ func (_q *GroupBuySeatQuery) Clone() *GroupBuySeatQuery {
 		withOrder:        _q.withOrder.Clone(),
 		withSubscription: _q.withSubscription.Clone(),
 		withBoundAPIKey:  _q.withBoundAPIKey.Clone(),
+		withRefunds:      _q.withRefunds.Clone(),
 		withEvents:       _q.withEvents.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
@@ -497,6 +522,17 @@ func (_q *GroupBuySeatQuery) WithBoundAPIKey(opts ...func(*APIKeyQuery)) *GroupB
 		opt(query)
 	}
 	_q.withBoundAPIKey = query
+	return _q
+}
+
+// WithRefunds tells the query-builder to eager-load the nodes that are connected to
+// the "refunds" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *GroupBuySeatQuery) WithRefunds(opts ...func(*GroupBuyRefundQuery)) *GroupBuySeatQuery {
+	query := (&GroupBuyRefundClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withRefunds = query
 	return _q
 }
 
@@ -589,13 +625,14 @@ func (_q *GroupBuySeatQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*GroupBuySeat{}
 		_spec       = _q.querySpec()
-		loadedTypes = [7]bool{
+		loadedTypes = [8]bool{
 			_q.withRound != nil,
 			_q.withPlan != nil,
 			_q.withUser != nil,
 			_q.withOrder != nil,
 			_q.withSubscription != nil,
 			_q.withBoundAPIKey != nil,
+			_q.withRefunds != nil,
 			_q.withEvents != nil,
 		}
 	)
@@ -653,6 +690,13 @@ func (_q *GroupBuySeatQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	if query := _q.withBoundAPIKey; query != nil {
 		if err := _q.loadBoundAPIKey(ctx, query, nodes, nil,
 			func(n *GroupBuySeat, e *APIKey) { n.Edges.BoundAPIKey = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withRefunds; query != nil {
+		if err := _q.loadRefunds(ctx, query, nodes,
+			func(n *GroupBuySeat) { n.Edges.Refunds = []*GroupBuyRefund{} },
+			func(n *GroupBuySeat, e *GroupBuyRefund) { n.Edges.Refunds = append(n.Edges.Refunds, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -846,6 +890,36 @@ func (_q *GroupBuySeatQuery) loadBoundAPIKey(ctx context.Context, query *APIKeyQ
 		for i := range nodes {
 			assign(nodes[i], n)
 		}
+	}
+	return nil
+}
+func (_q *GroupBuySeatQuery) loadRefunds(ctx context.Context, query *GroupBuyRefundQuery, nodes []*GroupBuySeat, init func(*GroupBuySeat), assign func(*GroupBuySeat, *GroupBuyRefund)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*GroupBuySeat)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(groupbuyrefund.FieldSeatID)
+	}
+	query.Where(predicate.GroupBuyRefund(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(groupbuyseat.RefundsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.SeatID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "seat_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
 	}
 	return nil
 }

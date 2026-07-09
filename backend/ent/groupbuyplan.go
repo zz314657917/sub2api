@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
 
 // GroupBuyPlan is the model entity for the GroupBuyPlan schema.
@@ -49,6 +50,8 @@ type GroupBuyPlan struct {
 	TargetGroupID int64 `json:"target_group_id,omitempty"`
 	// TierGroupIds holds the value of the "tier_group_ids" field.
 	TierGroupIds map[string]int64 `json:"tier_group_ids,omitempty"`
+	// TierRules holds the value of the "tier_rules" field.
+	TierRules []domain.GroupBuyTierRule `json:"tier_rules,omitempty"`
 	// ValidityDays holds the value of the "validity_days" field.
 	ValidityDays int `json:"validity_days,omitempty"`
 	// TimeoutMinutes holds the value of the "timeout_minutes" field.
@@ -131,7 +134,7 @@ func (*GroupBuyPlan) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case groupbuyplan.FieldTierGroupIds:
+		case groupbuyplan.FieldTierGroupIds, groupbuyplan.FieldTierRules:
 			values[i] = new([]byte)
 		case groupbuyplan.FieldPricePerShare, groupbuyplan.FieldPricePerSeat:
 			values[i] = new(sql.NullFloat64)
@@ -253,6 +256,14 @@ func (_m *GroupBuyPlan) assignValues(columns []string, values []any) error {
 			} else if value != nil && len(*value) > 0 {
 				if err := json.Unmarshal(*value, &_m.TierGroupIds); err != nil {
 					return fmt.Errorf("unmarshal field tier_group_ids: %w", err)
+				}
+			}
+		case groupbuyplan.FieldTierRules:
+			if value, ok := values[i].(*[]byte); !ok {
+				return fmt.Errorf("unexpected type %T for field tier_rules", values[i])
+			} else if value != nil && len(*value) > 0 {
+				if err := json.Unmarshal(*value, &_m.TierRules); err != nil {
+					return fmt.Errorf("unmarshal field tier_rules: %w", err)
 				}
 			}
 		case groupbuyplan.FieldValidityDays:
@@ -414,6 +425,9 @@ func (_m *GroupBuyPlan) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("tier_group_ids=")
 	builder.WriteString(fmt.Sprintf("%v", _m.TierGroupIds))
+	builder.WriteString(", ")
+	builder.WriteString("tier_rules=")
+	builder.WriteString(fmt.Sprintf("%v", _m.TierRules))
 	builder.WriteString(", ")
 	builder.WriteString("validity_days=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ValidityDays))
