@@ -323,6 +323,23 @@
                     <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.lastWeekRank') }}</span>
                     <span class="leaderboard-side-value font-semibold">{{ formatRewardRankLabel(dailyRewards.current_user_rank) }}</span>
                   </div>
+                  <div class="leaderboard-threshold-progress mt-2" data-testid="leaderboard-threshold-progress">
+                    <div class="flex items-center justify-between gap-3">
+                      <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.activationThresholdPercent') }}</span>
+                      <span class="leaderboard-side-value font-semibold">{{ lastWeekThresholdPercentText }}</span>
+                    </div>
+                    <div
+                      class="leaderboard-reward-progress-track mt-2"
+                      role="progressbar"
+                      :aria-label="t('leaderboard.dailyReward.activationThresholdPercent')"
+                      :aria-valuenow="lastWeekThresholdPercent"
+                      aria-valuemin="0"
+                      aria-valuemax="100"
+                      :title="lastWeekThresholdProgressTitle"
+                    >
+                      <span class="leaderboard-reward-progress-fill" :style="lastWeekThresholdProgressStyle"></span>
+                    </div>
+                  </div>
                   <div class="mt-2 flex items-center justify-between gap-3">
                     <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.weeklyRushProgress') }}</span>
                     <span class="leaderboard-side-value leaderboard-weekly-rush-value font-semibold">{{ weeklyRushProgressText }}</span>
@@ -864,6 +881,28 @@ const weeklyRushProgressText = computed(() => {
   if (progress.value === '--') return t('leaderboard.dailyReward.weeklyRushNoData')
   return `${progress.prefix} ${progress.value}${progress.suffix ? ` ${progress.suffix}` : ''}`
 })
+
+const lastWeekThresholdPercent = computed(() => {
+  const target = Math.max(0, Number(dailyRewards.value?.min_total_actual_cost ?? 0))
+  const current = Math.max(0, Number(dailyRewards.value?.yesterday_total_actual_cost ?? 0))
+  if (target <= 0) return 100
+  return Math.min(100, Math.max(0, (current / target) * 100))
+})
+
+const lastWeekThresholdPercentText = computed(() =>
+  t('leaderboard.dailyReward.progressPercent', { percent: formatRewardPercent(lastWeekThresholdPercent.value) })
+)
+
+const lastWeekThresholdProgressStyle = computed(() => ({
+  width: `${lastWeekThresholdPercent.value}%`,
+}))
+
+const lastWeekThresholdProgressTitle = computed(() =>
+  t('leaderboard.dailyReward.progress', {
+    current: formatRewardAmount(Number(dailyRewards.value?.yesterday_total_actual_cost ?? 0)),
+    target: formatRewardAmount(Number(dailyRewards.value?.min_total_actual_cost ?? 0)),
+  })
+)
 
 const dailyRewardReasonText = computed(() => {
   if (leaderboardRewardMode.value === 'disabled') return t('leaderboard.dailyReward.disabled')
@@ -1554,6 +1593,10 @@ function formatRewardAmount(value: number): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })
+}
+
+function formatRewardPercent(value: number): string {
+  return value.toFixed(1).replace(/\.0$/, '')
 }
 
 function formatRewardTopUserTokens(user: LeaderboardDailyRewardTopUser): string {
@@ -2572,11 +2615,19 @@ onUnmounted(() => {
 }
 
 .leaderboard-reward-progress-track {
+  display: block;
+  height: 0.42rem;
+  overflow: hidden;
+  border-radius: 999px;
   background: rgb(222 212 196 / 0.72);
 }
 
 .leaderboard-reward-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
   background: linear-gradient(90deg, rgb(95 143 129), rgb(196 111 80));
+  transition: width 0.25s ease;
 }
 
 .leaderboard-weekly-rush-value {

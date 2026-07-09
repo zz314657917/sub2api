@@ -101,6 +101,7 @@ export default {
       rewardAmountHidden: 'Rank-based',
       lastWeekRank: 'Last week rank',
       targetProgress: 'Last week reward threshold',
+      activationThresholdPercent: 'Last week activation threshold',
       weeklyRushProgress: 'This week push',
       weeklyRushLoading: 'Calculating',
       weeklyRushNoData: 'No progress yet',

@@ -150,10 +150,12 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).toContain("t('leaderboard.dailyReward.lastWeekRank')")
     expect(leaderboardView).toContain('weeklyRushProgressText')
     expect(leaderboardView).toContain("t('leaderboard.dailyReward.weeklyRushProgress')")
+    expect(leaderboardView).toContain("t('leaderboard.dailyReward.activationThresholdPercent')")
+    expect(leaderboardView).toContain('lastWeekThresholdPercentText')
+    expect(leaderboardView).toContain('data-testid="leaderboard-threshold-progress"')
     expect(leaderboardView).toContain('loadWeekLeaderboardSummary')
     expect(leaderboardView).toContain('justify-content: space-between')
     expect(leaderboardView).toContain('max-width: 7.8rem')
-    expect(leaderboardView).not.toContain('dailyRewardGoalProgressText')
     expect(leaderboardView).not.toContain("t('leaderboard.myRank')")
   })
 

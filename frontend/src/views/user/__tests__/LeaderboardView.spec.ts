@@ -105,6 +105,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.rewardAmountHidden': '按名次发放',
     'leaderboard.dailyReward.lastWeekRank': '上周排名',
     'leaderboard.dailyReward.targetProgress': '上周奖励门槛',
+    'leaderboard.dailyReward.activationThresholdPercent': '上周开启门槛',
     'leaderboard.dailyReward.weeklyRushProgress': '本周冲榜进度',
     'leaderboard.dailyReward.weeklyRushLoading': '计算中',
     'leaderboard.dailyReward.weeklyRushNoData': '暂无进度',
@@ -1289,6 +1290,10 @@ describe('LeaderboardView', () => {
 
     expect(wrapper.text()).toContain('红包范围')
     expect(wrapper.text()).toContain('✪ 1.00 - ✪ 8.00')
+    expect(wrapper.text()).toContain('上周开启门槛')
+    expect(wrapper.text()).toContain('100%')
+    expect(wrapper.get('[data-testid="leaderboard-threshold-progress"]').exists()).toBe(true)
+    expect(wrapper.get('[role="progressbar"]').attributes('aria-valuenow')).toBe('100')
     expect(wrapper.text()).toContain('本周冲榜进度')
     expect(wrapper.text()).toContain('距离前三还差 20万 token')
   })

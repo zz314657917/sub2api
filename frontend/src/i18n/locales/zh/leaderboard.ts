@@ -101,6 +101,7 @@ export default {
       rewardAmountHidden: '按名次发放',
       lastWeekRank: '上周排名',
       targetProgress: '上周奖励门槛',
+      activationThresholdPercent: '上周开启门槛',
       weeklyRushProgress: '本周冲榜进度',
       weeklyRushLoading: '计算中',
       weeklyRushNoData: '暂无进度',
