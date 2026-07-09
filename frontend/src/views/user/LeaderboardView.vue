@@ -106,7 +106,7 @@
             </section>
 
             <template v-else>
-              <section class="leaderboard-token-ranking-card" data-testid="leaderboard-token-ranking">
+              <section class="leaderboard-token-ranking-card leaderboard-token-ranking-card--with-illustration" data-testid="leaderboard-token-ranking">
                 <div class="leaderboard-ranking-card-toolbar">
                   <div class="leaderboard-ranking-switch" role="tablist" :aria-label="t('leaderboard.periodLabel')">
                     <button
@@ -248,6 +248,10 @@
                       </div>
                     </div>
                   </article>
+                </div>
+
+                <div class="leaderboard-ranking-illustration" data-testid="leaderboard-ranking-illustration" aria-hidden="true">
+                  <img :src="leaderboardRushBannerUrl" alt="" loading="lazy">
                 </div>
               </section>
             </template>
@@ -534,6 +538,7 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import { formatDateTime, formatNumber, formatTime } from '@/utils/format'
 import { formatCreditAmount } from '@/utils/credits'
 import crazyThursdayBannerUrl from '@/assets/leaderboard/crazy-thursday-v50.png'
+import leaderboardRushBannerUrl from '@/assets/leaderboard/leaderboard-rush-banner.jpg'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
@@ -2115,6 +2120,9 @@ onUnmounted(() => {
 }
 
 .leaderboard-token-ranking-card {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
   overflow: hidden;
   border: 1px solid rgb(214 202 186 / 0.72);
   border-radius: 0.75rem;
@@ -2127,6 +2135,10 @@ onUnmounted(() => {
 
 .leaderboard-token-ranking-card {
   overflow: hidden;
+}
+
+.leaderboard-token-ranking-card--with-illustration {
+  gap: 0;
 }
 
 .leaderboard-token-ranking-updated {
@@ -2154,6 +2166,36 @@ onUnmounted(() => {
   display: grid;
   gap: 0.42rem;
   padding-top: 0.82rem;
+}
+
+.leaderboard-ranking-illustration {
+  position: relative;
+  min-height: 5.8rem;
+  max-height: 7.4rem;
+  flex: 1 1 auto;
+  overflow: hidden;
+  border: 1px solid rgb(214 202 186 / 0.38);
+  border-radius: 0.58rem;
+  margin-top: 1.05rem;
+  background: rgb(250 247 239 / 0.74);
+}
+
+.leaderboard-ranking-illustration::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgb(255 253 248 / 0.42), transparent 36%, rgb(116 61 45 / 0.08)),
+    linear-gradient(180deg, transparent, rgb(35 32 28 / 0.06));
+  pointer-events: none;
+  content: "";
+}
+
+.leaderboard-ranking-illustration img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 58%;
 }
 
 .leaderboard-token-rank-row {
@@ -3336,6 +3378,17 @@ onUnmounted(() => {
   box-shadow: 0 0.85rem 2rem rgb(0 0 0 / 0.18);
 }
 
+:global(.dark .leaderboard-ranking-illustration) {
+  border-color: rgb(214 183 157 / 0.16);
+  background: rgb(20 20 19 / 0.5);
+}
+
+:global(.dark .leaderboard-ranking-illustration::after) {
+  background:
+    linear-gradient(90deg, rgb(20 20 19 / 0.26), transparent 42%, rgb(0 0 0 / 0.18)),
+    linear-gradient(180deg, transparent, rgb(0 0 0 / 0.22));
+}
+
 :global(.dark .leaderboard-token-rank-row-current) {
   background: rgb(95 143 129 / 0.14);
 }
@@ -3619,6 +3672,12 @@ onUnmounted(() => {
     gap: 0.45rem;
     min-height: 3.18rem;
     padding: 0.18rem 0;
+  }
+
+  .leaderboard-ranking-illustration {
+    min-height: 5.15rem;
+    max-height: 5.15rem;
+    margin-top: 0.82rem;
   }
 
   .leaderboard-token-rank-user {

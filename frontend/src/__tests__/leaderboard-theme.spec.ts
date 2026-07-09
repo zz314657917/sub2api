@@ -72,6 +72,15 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).toContain('leaderboard-token-tooltip')
     expect(leaderboardView).toContain('leaderboard-token-tooltip-table')
     expect(leaderboardView).toContain('role="table"')
+    expect(leaderboardView).toContain("import leaderboardRushBannerUrl from '@/assets/leaderboard/leaderboard-rush-banner.jpg'")
+    expect(leaderboardView).toContain('data-testid="leaderboard-ranking-illustration"')
+    expect(leaderboardView).toContain('leaderboard-token-ranking-card--with-illustration')
+    expect(leaderboardView).toContain('min-height: 5.8rem')
+    expect(leaderboardView).toContain('max-height: 7.4rem')
+    expect(leaderboardView).toContain(':global(.dark .leaderboard-ranking-illustration)')
+    expect(leaderboardView.indexOf('leaderboard-token-rank-list')).toBeLessThan(
+      leaderboardView.indexOf('data-testid="leaderboard-ranking-illustration"'),
+    )
     expect(leaderboardView).not.toContain(':title="leaderboardTokenMetricsLabel(item)"')
     expect(leaderboardView).toContain(':aria-label="leaderboardTokenMetricsLabel(item)"')
     expect(leaderboardView).toContain('leaderboard.inputTokensShort')
