@@ -1614,10 +1614,7 @@ function formatRewardRankLabel(rank: number): string {
 }
 
 function rewardTopUserRankLabel(rank: number): string {
-  if (rank === 1) return t('leaderboard.dailyReward.lastWeekRank1')
-  if (rank === 2) return t('leaderboard.dailyReward.lastWeekRank2')
-  if (rank === 3) return t('leaderboard.dailyReward.lastWeekRank3')
-  return t('leaderboard.dailyReward.lastWeekRankLabel', { rank })
+  return `No.${rank}`
 }
 
 function rewardTopUserDisplayName(user?: LeaderboardDailyRewardTopUser): string {
