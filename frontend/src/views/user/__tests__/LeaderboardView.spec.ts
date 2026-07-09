@@ -747,6 +747,8 @@ describe('LeaderboardView', () => {
     const ranking = wrapper.get('[data-testid="leaderboard-token-ranking"]')
     expect(ranking.text()).not.toContain('Token Top 2')
     expect(ranking.text()).toContain('更新 16:00:00')
+    expect(ranking.text()).toContain('No.1')
+    expect(ranking.text()).not.toContain('#1')
     expect(ranking.text()).toContain('Pricey')
     expect(ranking.text()).toContain('Efficient')
     const rankChanges = ranking.findAll('[data-testid="leaderboard-rank-change"]')

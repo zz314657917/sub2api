@@ -165,7 +165,7 @@
                       :class="hasLeaderboardRankSecondary(item) ? '' : 'leaderboard-token-rank-user--name-only'"
                     >
                       <div class="leaderboard-token-rank-main">
-                        <span class="leaderboard-token-rank-index">#{{ item.rank }}</span>
+                        <span class="leaderboard-token-rank-index">No.{{ item.rank }}</span>
                         <span class="leaderboard-token-rank-avatar" data-testid="leaderboard-rank-avatar" aria-hidden="true">
                           <img
                             v-if="leaderboardAvatarUrl(item)"
