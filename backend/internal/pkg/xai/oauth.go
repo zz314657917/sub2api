@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
 )
 
 const (
@@ -19,17 +21,24 @@ const (
 	DefaultAuthorizeURL = OAuthIssuer + "/oauth2/authorize"
 	DefaultTokenURL     = OAuthIssuer + "/oauth2/token"
 	DefaultBaseURL      = "https://api.x.ai/v1"
+	DefaultCLIBaseURL   = "https://cli-chat-proxy.grok.com/v1"
 	DefaultClientID     = "b1a00492-073a-47ea-816f-4c329264a828"
 	DefaultScope        = "openid profile email offline_access grok-cli:access api:access"
 	DefaultRedirectURI  = "http://127.0.0.1:56121/callback"
 	SessionTTL          = 30 * time.Minute
 
-	EnvAuthorizeURL = "XAI_OAUTH_AUTHORIZE_URL"
-	EnvTokenURL     = "XAI_OAUTH_TOKEN_URL"
-	EnvClientID     = "XAI_OAUTH_CLIENT_ID"
-	EnvScope        = "XAI_OAUTH_SCOPE"
-	EnvRedirectURI  = "XAI_OAUTH_REDIRECT_URI"
-	EnvBaseURL      = "XAI_BASE_URL"
+	EnvAuthorizeURL            = "XAI_OAUTH_AUTHORIZE_URL"
+	EnvTokenURL                = "XAI_OAUTH_TOKEN_URL"
+	EnvClientID                = "XAI_OAUTH_CLIENT_ID"
+	EnvScope                   = "XAI_OAUTH_SCOPE"
+	EnvRedirectURI             = "XAI_OAUTH_REDIRECT_URI"
+	EnvBaseURL                 = "XAI_BASE_URL"
+	EnvAllowUnsafeURLOverrides = "XAI_ALLOW_UNSAFE_URL_OVERRIDES"
+)
+
+var (
+	oauthEndpointAllowedHosts = []string{"x.ai", "*.x.ai"}
+	baseURLAllowedHosts       = []string{"api.x.ai", "cli-chat-proxy.grok.com"}
 )
 
 // OAuthSession stores one PKCE OAuth flow.
@@ -115,8 +124,16 @@ func EffectiveAuthorizeURL() string {
 	return envOrDefault(EnvAuthorizeURL, DefaultAuthorizeURL)
 }
 
+func ValidatedAuthorizeURL() (string, error) {
+	return ValidateOAuthEndpointURL(EffectiveAuthorizeURL())
+}
+
 func EffectiveTokenURL() string {
 	return envOrDefault(EnvTokenURL, DefaultTokenURL)
+}
+
+func ValidatedTokenURL() (string, error) {
+	return ValidateOAuthEndpointURL(EffectiveTokenURL())
 }
 
 func EffectiveClientID() string {
@@ -141,11 +158,73 @@ func EffectiveBaseURL(override string) string {
 	return strings.TrimRight(envOrDefault(EnvBaseURL, DefaultBaseURL), "/")
 }
 
+func ValidatedBaseURL(override string) (string, error) {
+	return ValidateBaseURL(EffectiveBaseURL(override))
+}
+
+func ValidateOAuthEndpointURL(raw string) (string, error) {
+	if AllowUnsafeURLOverrides() {
+		return urlvalidator.ValidateURLFormat(raw, true)
+	}
+	return urlvalidator.ValidateHTTPSURL(raw, urlvalidator.ValidationOptions{
+		AllowedHosts:     oauthEndpointAllowedHosts,
+		RequireAllowlist: true,
+		AllowPrivate:     false,
+	})
+}
+
+func ValidateBaseURL(raw string) (string, error) {
+	if AllowUnsafeURLOverrides() {
+		return urlvalidator.ValidateURLFormat(raw, true)
+	}
+	normalized, err := urlvalidator.ValidateHTTPSURL(raw, urlvalidator.ValidationOptions{
+		AllowedHosts:     baseURLAllowedHosts,
+		RequireAllowlist: true,
+		AllowPrivate:     false,
+	})
+	if err != nil {
+		return "", err
+	}
+	return normalizeKnownBaseURLPath(normalized)
+}
+
+func normalizeKnownBaseURLPath(raw string) (string, error) {
+	parsed, err := url.Parse(raw)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return "", fmt.Errorf("invalid url: %s", raw)
+	}
+	path := strings.TrimRight(parsed.Path, "/")
+	if path == "" {
+		parsed.Path = "/v1"
+		parsed.RawPath = ""
+		return strings.TrimRight(parsed.String(), "/"), nil
+	}
+	if path != "/v1" {
+		return "", fmt.Errorf("base URL path must be /v1")
+	}
+	parsed.Path = path
+	parsed.RawPath = ""
+	return strings.TrimRight(parsed.String(), "/"), nil
+}
+
+func AllowUnsafeURLOverrides() bool {
+	return envBool(EnvAllowUnsafeURLOverrides)
+}
+
 func envOrDefault(key, fallback string) string {
 	if value := strings.TrimSpace(os.Getenv(key)); value != "" {
 		return value
 	}
 	return fallback
+}
+
+func envBool(key string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(key))) {
+	case "1", "true", "yes", "y", "on":
+		return true
+	default:
+		return false
+	}
 }
 
 func GenerateRandomBytes(n int) ([]byte, error) {
@@ -256,8 +335,20 @@ func ParseAuthorizationInput(raw string) AuthorizationInput {
 	return AuthorizationInput{Code: trimmed}
 }
 
-func BuildResponsesURL(baseURL string) string {
-	return EffectiveBaseURL(baseURL) + "/responses"
+func BuildResponsesURL(baseURL string) (string, error) {
+	validatedBaseURL, err := ValidatedBaseURL(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base url: %w", err)
+	}
+	return validatedBaseURL + "/responses", nil
+}
+
+func BuildChatCompletionsURL(baseURL string) (string, error) {
+	validatedBaseURL, err := ValidatedBaseURL(baseURL)
+	if err != nil {
+		return "", fmt.Errorf("invalid base url: %w", err)
+	}
+	return validatedBaseURL + "/chat/completions", nil
 }
 
 // TokenResponse represents xAI OAuth token responses.
