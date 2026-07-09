@@ -535,6 +535,7 @@ describe('LeaderboardView', () => {
     expect(thursdayBanner.text()).toContain('V你50')
     expect(thursdayBanner.get('img').attributes('alt')).toBe('')
     expect(thursdayBanner.get('.leaderboard-thursday-banner-copy').attributes('aria-label')).toBe('疯狂星期四 V你50')
+    expect(thursdayBanner.element.compareDocumentPosition(record.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$11.00')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('余额')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').findAll('[data-testid="leaderboard-my-token"]')).toHaveLength(0)

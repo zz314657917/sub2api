@@ -119,6 +119,9 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).toContain('V你50')
     expect(leaderboardView).toContain('height: 5.75rem')
     expect(leaderboardView).toContain('object-fit: cover')
+    expect(leaderboardView.indexOf('data-testid="leaderboard-thursday-banner"')).toBeLessThan(
+      leaderboardView.indexOf('data-testid="leaderboard-my-record"'),
+    )
     expect(leaderboardView).toContain(':global(.dark .leaderboard-thursday-banner)')
   })
 

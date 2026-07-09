@@ -255,6 +255,14 @@
 
           <aside class="leaderboard-side-stack xl:sticky xl:top-20 xl:self-start">
             <section class="card leaderboard-side-card p-5" data-testid="leaderboard-my-info">
+              <div class="leaderboard-thursday-banner" data-testid="leaderboard-thursday-banner">
+                <img :src="crazyThursdayBannerUrl" alt="" loading="lazy">
+                <div class="leaderboard-thursday-banner-copy" aria-label="疯狂星期四 V你50">
+                  <span>疯狂星期四</span>
+                  <strong>V你50</strong>
+                </div>
+              </div>
+
               <div class="leaderboard-record-card" data-testid="leaderboard-my-record">
                 <p class="leaderboard-record-kicker">{{ t('leaderboard.record.title') }}</p>
                 <p class="leaderboard-record-headline">{{ myRecordHeadline }}</p>
@@ -273,14 +281,6 @@
                     </span>
                   </template>
                 </p>
-              </div>
-
-              <div class="leaderboard-thursday-banner" data-testid="leaderboard-thursday-banner">
-                <img :src="crazyThursdayBannerUrl" alt="" loading="lazy">
-                <div class="leaderboard-thursday-banner-copy" aria-label="疯狂星期四 V你50">
-                  <span>疯狂星期四</span>
-                  <strong>V你50</strong>
-                </div>
               </div>
 
               <div v-if="dailyRewards" class="leaderboard-reward-panel" data-testid="leaderboard-daily-reward">
@@ -2404,7 +2404,6 @@ onUnmounted(() => {
 .leaderboard-thursday-banner {
   position: relative;
   height: 5.75rem;
-  margin-top: 0.85rem;
   overflow: hidden;
   border: 1px solid rgb(218 184 132 / 0.35);
   border-radius: 0.5rem;
@@ -2412,6 +2411,10 @@ onUnmounted(() => {
   box-shadow:
     inset 0 1px 0 rgb(255 255 255 / 0.55),
     0 0.35rem 0.9rem rgb(196 111 80 / 0.08);
+}
+
+.leaderboard-thursday-banner + .leaderboard-record-card {
+  margin-top: 0.85rem;
 }
 
 .leaderboard-thursday-banner img {
