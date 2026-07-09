@@ -279,10 +279,6 @@
                 <div class="leaderboard-reward-head">
                   <div class="min-w-0">
                     <h2 class="leaderboard-reward-title">{{ t('leaderboard.dailyReward.title') }}</h2>
-                    <p class="leaderboard-reward-period">
-                      <span>{{ t('leaderboard.dailyReward.settlementDate') }}</span>
-                      <span>{{ dailyRewards.reward_date || '-' }}</span>
-                    </p>
                   </div>
                   <span
                     class="leaderboard-reward-status"
@@ -297,9 +293,9 @@
                 <div v-if="rewardTopUsers.length" class="leaderboard-weekly-winners mt-3" data-testid="leaderboard-weekly-top10">
                   <div class="leaderboard-weekly-winners-header">
                     <span>{{ t('leaderboard.dailyReward.lastWeekTopUsersTitle') }}</span>
-                    <span>{{ dailyRewards.reward_date || '-' }}</span>
+                    <span>{{ rewardWeekRangeLabel }}</span>
                   </div>
-                  <div class="leaderboard-weekly-winners-list">
+                  <div class="leaderboard-weekly-winners-list" data-testid="leaderboard-weekly-top10-scroll">
                     <div
                       v-for="winner in rewardTopUsers"
                       :key="winner.rank"
@@ -1556,6 +1552,25 @@ function formatRewardTopUserTokens(user: LeaderboardDailyRewardTopUser): string 
   return tokens > 0 ? t('leaderboard.dailyReward.topUserTokens', { tokens: formatCompactChineseTokens(tokens) }) : '-'
 }
 
+const rewardWeekRangeLabel = computed(() => {
+  return formatShortDateRange(dailyRewards.value?.reward_date)
+})
+
+function formatShortDateRange(value?: string): string {
+  const parts = String(value || '')
+    .split('~')
+    .map((part) => formatShortMonthDay(part.trim()))
+    .filter(Boolean)
+  if (parts.length >= 2) return `${parts[0]}~${parts[1]}`
+  return parts[0] || '-'
+}
+
+function formatShortMonthDay(value?: string): string {
+  const [, month = '', day = ''] = String(value || '').match(/^\d{4}-(\d{2})-(\d{2})/) ?? []
+  if (!month || !day) return ''
+  return `${month}-${day}`
+}
+
 function rewardTopUserMetaText(user: LeaderboardDailyRewardTopUser): string {
   if (leaderboardRewardMode.value === 'red_packet') {
     const amount = Number(user.claimed_amount ?? user.red_packet_amount ?? 0)
@@ -2448,16 +2463,6 @@ onUnmounted(() => {
   line-height: 1.3;
 }
 
-.leaderboard-reward-period {
-  display: grid;
-  min-width: 0;
-  gap: 0.12rem;
-  margin-top: 0.32rem;
-  color: rgb(109 103 93);
-  font-size: 0.75rem;
-  line-height: 1.35;
-}
-
 .leaderboard-reward-status {
   flex: 0 0 auto;
   display: inline-flex;
@@ -2544,6 +2549,24 @@ onUnmounted(() => {
 .leaderboard-weekly-winners-list {
   display: grid;
   gap: 0.45rem;
+  max-height: 11.7rem;
+  overflow-y: auto;
+  padding-right: 0.18rem;
+  scrollbar-color: rgb(181 166 143 / 0.7) transparent;
+  scrollbar-width: thin;
+}
+
+.leaderboard-weekly-winners-list::-webkit-scrollbar {
+  width: 0.38rem;
+}
+
+.leaderboard-weekly-winners-list::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgb(181 166 143 / 0.72);
+}
+
+.leaderboard-weekly-winners-list::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .leaderboard-weekly-winner-row {
@@ -3210,10 +3233,6 @@ onUnmounted(() => {
 
 :global(.dark .leaderboard-reward-title) {
   color: rgb(243 239 231);
-}
-
-:global(.dark .leaderboard-reward-period) {
-  color: rgb(168 159 145);
 }
 
 :global(.dark .leaderboard-reward-status--claimed) {

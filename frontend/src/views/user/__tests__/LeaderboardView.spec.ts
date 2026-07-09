@@ -1121,7 +1121,7 @@ describe('LeaderboardView', () => {
     getDashboardLeaderboard.mockResolvedValue(
       makeResponse({
         daily_rewards: {
-          reward_date: '2026-05-06',
+          reward_date: '2026-05-04~2026-05-10',
           settlement_timezone: 'Asia/Shanghai',
           settlement_ready: true,
           claim_available_at: '2026-05-07T00:30:00+08:00',
@@ -1161,11 +1161,16 @@ describe('LeaderboardView', () => {
 
     expect(wrapper.find('[data-testid="leaderboard-daily-reward"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('上周奖励')
-    expect(wrapper.text()).toContain('统计周期')
+    expect(wrapper.text()).not.toContain('统计周期')
     const rewardStatus = wrapper.get('[data-testid="leaderboard-daily-reward-status"]')
     expect(rewardStatus.text()).toContain('未开启')
     expect(rewardStatus.attributes('title')).toBe('奖励功能暂未开启')
-    expect(wrapper.get('[data-testid="leaderboard-weekly-top10"]').text()).toContain('上周前 10 Token 消耗')
+    const weeklyTop10 = wrapper.get('[data-testid="leaderboard-weekly-top10"]')
+    expect(weeklyTop10.text()).toContain('上周前 10 Token 消耗')
+    expect(weeklyTop10.text()).toContain('05-04~05-10')
+    expect(weeklyTop10.text()).not.toContain('2026-05-04')
+    expect(weeklyTop10.text()).not.toContain('2026-05-10')
+    expect(weeklyTop10.get('[data-testid="leaderboard-weekly-top10-scroll"]').exists()).toBe(true)
     expect(wrapper.text()).toContain('上周第一名')
     expect(wrapper.text()).toContain('Top 10')
     expect(wrapper.text()).toContain('1000万 tokens')
