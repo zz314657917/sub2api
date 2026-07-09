@@ -367,6 +367,10 @@
                   data-testid="leaderboard-lottery-reward"
                 >
                   <div class="flex items-center justify-between gap-3">
+                    <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.lotteryRule') }}</span>
+                    <span class="leaderboard-side-value leaderboard-lottery-rule-value font-semibold">{{ t('leaderboard.dailyReward.lotteryRuleText') }}</span>
+                  </div>
+                  <div class="mt-2 flex items-center justify-between gap-3">
                     <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.lotteryDrawTime') }}</span>
                     <span class="leaderboard-side-value font-semibold">{{ lotteryDrawTimeText }}</span>
                   </div>
@@ -2637,6 +2641,15 @@ onUnmounted(() => {
   text-align: right;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.leaderboard-lottery-rule-value {
+  min-width: 0;
+  max-width: 12rem;
+  color: rgb(116 61 45);
+  line-height: 1.35;
+  text-align: right;
+  white-space: normal;
 }
 
 .leaderboard-reward-claim {

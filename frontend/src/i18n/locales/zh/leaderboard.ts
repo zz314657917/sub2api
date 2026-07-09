@@ -149,6 +149,8 @@ export default {
       redPacketPending: '随机待抽取',
       redPacketUserClaimed: '已抽 {amount}',
       redPacketUserClaimedNoAmount: '已抽取',
+      lotteryRule: '玩法说明',
+      lotteryRuleText: '从上周前 10 名上榜用户中随机抽 1 名赠送。',
       lotteryDrawTime: '开奖时间',
       lotteryPrize: '中奖金额',
       lotteryResult: '中奖结果',

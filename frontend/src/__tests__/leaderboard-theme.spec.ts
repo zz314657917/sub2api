@@ -134,6 +134,8 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).toContain('data-testid="leaderboard-red-packet-reward"')
     expect(leaderboardView).toContain('leaderboardRewardMode === \'lottery\'')
     expect(leaderboardView).toContain('data-testid="leaderboard-lottery-reward"')
+    expect(leaderboardView).toContain("t('leaderboard.dailyReward.lotteryRule')")
+    expect(leaderboardView).toContain("t('leaderboard.dailyReward.lotteryRuleText')")
     expect(leaderboardView).toContain('redPacketRangeText')
     expect(leaderboardView).toContain('lotteryDrawTimeText')
     expect(leaderboardView).not.toContain('amountText')

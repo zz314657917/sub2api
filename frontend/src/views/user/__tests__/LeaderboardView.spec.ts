@@ -150,6 +150,8 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.dailyReward.redPacketPendingAmount': '待抽取金额',
     'leaderboard.dailyReward.redPacketClaimedAmount': '已抽金额',
     'leaderboard.dailyReward.redPacketPending': '点击后随机抽取',
+    'leaderboard.dailyReward.lotteryRule': '玩法说明',
+    'leaderboard.dailyReward.lotteryRuleText': '从上周前 10 名上榜用户中随机抽 1 名赠送。',
     'leaderboard.dailyReward.lotteryDrawTime': '开奖时间',
     'leaderboard.dailyReward.lotteryPrize': '抽奖金额',
     'leaderboard.dailyReward.lotteryResult': '开奖结果',
@@ -1485,6 +1487,8 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     const lottery = wrapper.get('[data-testid="leaderboard-lottery-reward"]')
+    expect(lottery.text()).toContain('玩法说明')
+    expect(lottery.text()).toContain('从上周前 10 名上榜用户中随机抽 1 名赠送。')
     expect(lottery.text()).toContain('开奖时间')
     expect(lottery.text()).toContain('2026')
     expect(lottery.text()).toContain('抽奖金额')
