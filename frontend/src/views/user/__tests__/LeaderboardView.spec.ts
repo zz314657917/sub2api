@@ -254,11 +254,14 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
       settlement_timezone: 'Asia/Shanghai',
       settlement_ready: true,
       claim_available_at: '2026-05-07T00:30:00+08:00',
-      enabled: false,
-      reward_mode: 'disabled',
-      min_total_actual_cost: 0,
-      yesterday_total_actual_cost: 0,
-      threshold_met: false,
+      enabled: true,
+      reward_mode: 'red_packet',
+      red_packet_pool_amount: 20,
+      red_packet_min_amount: 1,
+      red_packet_max_amount: 5,
+      min_total_actual_cost: 100,
+      yesterday_total_actual_cost: 120,
+      threshold_met: true,
       rewards: [
         { rank: 1, amount: 0 },
         { rank: 2, amount: 0 },
@@ -280,7 +283,7 @@ function makeResponse(overrides: Record<string, unknown> = {}) {
       current_user_reward_amount: 0,
       can_claim: false,
       claimed: false,
-      reason: 'disabled',
+      reason: 'not_ranked',
     },
     ...overrides,
   }
@@ -1176,11 +1179,11 @@ describe('LeaderboardView', () => {
     await flushPromises()
 
     expect(wrapper.find('[data-testid="leaderboard-daily-reward"]').exists()).toBe(true)
-    expect(wrapper.text()).toContain('上周奖励')
+    expect(wrapper.find('[data-testid="leaderboard-thursday-banner"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="leaderboard-my-record"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('上周奖励')
     expect(wrapper.text()).not.toContain('统计周期')
-    const rewardStatus = wrapper.get('[data-testid="leaderboard-daily-reward-status"]')
-    expect(rewardStatus.text()).toContain('未开启')
-    expect(rewardStatus.attributes('title')).toBe('奖励功能暂未开启')
+    expect(wrapper.find('[data-testid="leaderboard-daily-reward-status"]').exists()).toBe(false)
     const weeklyTop10 = wrapper.get('[data-testid="leaderboard-weekly-top10"]')
     expect(weeklyTop10.text()).toContain('上周前 10 Token 消耗')
     expect(weeklyTop10.text()).toContain('05-04~05-10')
@@ -1208,8 +1211,10 @@ describe('LeaderboardView', () => {
     expect(wrapper.find('[data-testid="leaderboard-daily-reward-claim"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="leaderboard-red-packet-reward"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="leaderboard-lottery-reward"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('上周排名')
-    expect(wrapper.text()).toContain('本周冲榜进度')
+    expect(wrapper.find('[data-testid="leaderboard-threshold-progress"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('上周排名')
+    expect(wrapper.text()).not.toContain('上周开启门槛')
+    expect(wrapper.text()).not.toContain('本周冲榜进度')
   })
 
   it('shows reached text for completed last-week threshold and weekly rush distance', async () => {

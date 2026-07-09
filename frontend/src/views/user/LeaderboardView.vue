@@ -259,7 +259,7 @@
 
           <aside class="leaderboard-side-stack xl:sticky xl:top-20 xl:self-start">
             <section class="card leaderboard-side-card p-5" data-testid="leaderboard-my-info">
-              <div class="leaderboard-thursday-banner" data-testid="leaderboard-thursday-banner">
+              <div v-if="showRewardExtras" class="leaderboard-thursday-banner" data-testid="leaderboard-thursday-banner">
                 <img :src="crazyThursdayBannerUrl" alt="" loading="lazy">
                 <div class="leaderboard-thursday-banner-copy" aria-label="疯狂星期四 V你50">
                   <span>疯狂星期四</span>
@@ -267,7 +267,7 @@
                 </div>
               </div>
 
-              <div class="leaderboard-record-card" data-testid="leaderboard-my-record">
+              <div v-if="showRewardExtras" class="leaderboard-record-card" data-testid="leaderboard-my-record">
                 <p class="leaderboard-record-kicker">{{ t('leaderboard.record.title') }}</p>
                 <p class="leaderboard-record-headline">{{ myRecordHeadline }}</p>
                 <p
@@ -288,7 +288,7 @@
               </div>
 
               <div v-if="dailyRewards" class="leaderboard-reward-panel" data-testid="leaderboard-daily-reward">
-                <div class="leaderboard-reward-head">
+                <div v-if="showRewardExtras" class="leaderboard-reward-head">
                   <div class="min-w-0">
                     <h2 class="leaderboard-reward-title">{{ t('leaderboard.dailyReward.title') }}</h2>
                   </div>
@@ -333,7 +333,7 @@
                   </div>
                 </div>
 
-                <div class="leaderboard-reward-progress-card mt-3 rounded-lg p-3 text-sm">
+                <div v-if="showRewardExtras" class="leaderboard-reward-progress-card mt-3 rounded-lg p-3 text-sm">
                   <div class="flex items-center justify-between gap-3">
                     <span class="leaderboard-side-label">{{ t('leaderboard.dailyReward.lastWeekRank') }}</span>
                     <span class="leaderboard-side-value font-semibold">{{ formatRewardRankLabel(dailyRewards.current_user_rank) }}</span>
@@ -362,7 +362,7 @@
                 </div>
 
                 <div
-                  v-if="leaderboardRewardMode === 'red_packet'"
+                  v-if="showRewardExtras && leaderboardRewardMode === 'red_packet'"
                   class="leaderboard-reward-mode-card mt-3 rounded-lg p-3 text-sm"
                   data-testid="leaderboard-red-packet-reward"
                 >
@@ -377,7 +377,7 @@
                 </div>
 
                 <div
-                  v-else-if="leaderboardRewardMode === 'lottery'"
+                  v-else-if="showRewardExtras && leaderboardRewardMode === 'lottery'"
                   class="leaderboard-reward-mode-card mt-3 rounded-lg p-3 text-sm"
                   data-testid="leaderboard-lottery-reward"
                 >
@@ -403,10 +403,10 @@
                   </div>
                 </div>
 
-                <p v-if="claimError" class="mt-3 text-sm text-red-600 dark:text-red-400">{{ claimError }}</p>
+                <p v-if="showRewardExtras && claimError" class="mt-3 text-sm text-red-600 dark:text-red-400">{{ claimError }}</p>
 
                 <button
-                  v-if="leaderboardRewardMode === 'red_packet'"
+                  v-if="showRewardExtras && leaderboardRewardMode === 'red_packet'"
                   class="btn btn-primary leaderboard-reward-claim mt-3 w-full"
                   type="button"
                   :disabled="!dailyRewards.can_claim || claimingReward"
@@ -720,6 +720,7 @@ const maxRankingTokens = computed(() => Math.max(0, ...rankingItems.value.map((i
 const activeRankingEmpty = computed(() => rankingItems.value.length === 0)
 const dailyRewards = computed<LeaderboardDailyRewards | null>(() => leaderboard.value?.daily_rewards ?? null)
 const leaderboardRewardMode = computed<LeaderboardRewardMode>(() => normalizeLeaderboardRewardMode(dailyRewards.value))
+const showRewardExtras = computed(() => leaderboardRewardMode.value !== 'disabled')
 const myEntry = computed<UserLeaderboardItem | null>(() => {
   if (leaderboard.value?.current_user_entry) return leaderboard.value.current_user_entry
   return rankingItems.value.find((item) => item.is_current_user) ?? null
@@ -1729,9 +1730,10 @@ function rewardTopUserMetaText(user: LeaderboardDailyRewardTopUser): string {
 }
 
 function normalizeLeaderboardRewardMode(reward: LeaderboardDailyRewards | null): LeaderboardRewardMode {
+  if (!reward?.enabled) return 'disabled'
   const mode = reward?.reward_mode
   if (mode === 'red_packet' || mode === 'lottery' || mode === 'disabled') return mode
-  return reward?.enabled ? 'red_packet' : 'disabled'
+  return 'red_packet'
 }
 
 function leaderboardTokenMetricsLabel(item: UserLeaderboardItem): string {
