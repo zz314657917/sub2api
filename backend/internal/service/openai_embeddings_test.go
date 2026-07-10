@@ -104,3 +104,30 @@ func TestForwardEmbeddings_APIKeyPassthroughRecordsUsageAndBatchInput(t *testing
 	require.Equal(t, "float", gjson.GetBytes(upstream.lastBody, "encoding_format").String())
 	require.Equal(t, int64(256), gjson.GetBytes(upstream.lastBody, "dimensions").Int())
 }
+
+func TestExtractOpenAIEmbeddingsUsageCapturesCacheWriteTokens(t *testing.T) {
+	usage := extractOpenAIEmbeddingsUsage([]byte(`{
+		"usage":{
+			"input_tokens":20,
+			"output_tokens":2,
+			"input_tokens_details":{"cached_tokens":3,"cache_write_tokens":7}
+		}
+	}`))
+
+	require.Equal(t, 20, usage.InputTokens)
+	require.Equal(t, 2, usage.OutputTokens)
+	require.Equal(t, 3, usage.CacheReadInputTokens)
+	require.Equal(t, 7, usage.CacheCreationInputTokens)
+}
+
+func TestExtractOpenAIEmbeddingsUsageNestedZeroOverridesLegacyAlias(t *testing.T) {
+	usage := extractOpenAIEmbeddingsUsage([]byte(`{
+		"usage":{
+			"input_tokens":20,
+			"cache_creation_input_tokens":19,
+			"input_tokens_details":{"cache_write_tokens":0}
+		}
+	}`))
+
+	require.Zero(t, usage.CacheCreationInputTokens)
+}

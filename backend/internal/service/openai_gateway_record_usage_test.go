@@ -180,7 +180,7 @@ func expectedOpenAICost(t *testing.T, svc *OpenAIGatewayService, model string, u
 	t.Helper()
 
 	cost, err := svc.billingService.CalculateCost(model, UsageTokens{
-		InputTokens:         max(usage.InputTokens-usage.CacheReadInputTokens, 0),
+		InputTokens:         max(usage.InputTokens-usage.CacheReadInputTokens-usage.CacheCreationInputTokens, 0),
 		OutputTokens:        usage.OutputTokens,
 		CacheCreationTokens: usage.CacheCreationInputTokens,
 		CacheReadTokens:     usage.CacheReadInputTokens,
@@ -1018,6 +1018,150 @@ func TestOpenAIGatewayServiceRecordUsage_ClampsActualInputTokensToZero(t *testin
 	require.NoError(t, err)
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, 0, usageRepo.lastLog.InputTokens)
+}
+
+func TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndStats(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	subRepo := &openAIRecordUsageSubRepoStub{}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc.billingService = NewBillingService(svc.cfg, &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"gpt-5.6-sol": {
+			InputCostPerToken:       5e-6,
+			OutputCostPerToken:      30e-6,
+			CacheReadInputTokenCost: 0.5e-6,
+		},
+	}})
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_gpt56_cache_write",
+			Usage: OpenAIUsage{
+				InputTokens:              1000,
+				OutputTokens:             50,
+				CacheCreationInputTokens: 200,
+				CacheReadInputTokens:     100,
+			},
+			Model:    "gpt-5.6-sol",
+			Duration: time.Second,
+		},
+		APIKey:  &APIKey{ID: 1056},
+		User:    &User{ID: 2056},
+		Account: &Account{ID: 3056},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.Equal(t, 700, usageRepo.lastLog.InputTokens)
+	require.Equal(t, 200, usageRepo.lastLog.CacheCreationTokens)
+	require.Equal(t, 100, usageRepo.lastLog.CacheReadTokens)
+	require.Equal(t, 1050, usageRepo.lastLog.TotalTokens())
+	require.InDelta(t, 700*5e-6, usageRepo.lastLog.InputCost, 1e-12)
+	require.InDelta(t, 200*6.25e-6, usageRepo.lastLog.CacheCreationCost, 1e-12)
+	require.InDelta(t, 100*0.5e-6, usageRepo.lastLog.CacheReadCost, 1e-12)
+	require.InDelta(t, 50*30e-6, usageRepo.lastLog.OutputCost, 1e-12)
+	require.InDelta(t, usageRepo.lastLog.TotalCost*1.1, usageRepo.lastLog.ActualCost, 1e-12)
+}
+
+func TestGPT56CacheWritePricingPolicyPreservesExplicitZeroAndContextTiers(t *testing.T) {
+	billing := NewBillingService(&config.Config{}, nil)
+	resolver := NewModelPricingResolver(nil, billing)
+	zero := 0.0
+	inputPrice := 5e-6
+	cacheWritePrice := inputPrice * 1.25
+
+	t.Run("flat channel explicit zero", func(t *testing.T) {
+		basePricing := &ModelPricing{
+			InputPricePerToken:         inputPrice,
+			CacheCreationPricePerToken: cacheWritePrice,
+		}
+		resolved := &ResolvedPricing{
+			Mode:        BillingModeToken,
+			BasePricing: basePricing,
+		}
+		resolver.applyTokenOverrides(&ChannelModelPricing{CacheWritePrice: &zero}, resolved)
+
+		cost, err := billing.CalculateCostUnified(CostInput{
+			Model:          "gpt-5.6-sol",
+			Tokens:         UsageTokens{CacheCreationTokens: 100},
+			RateMultiplier: 1,
+			Resolver:       resolver,
+			Resolved:       resolved,
+		})
+
+		require.NoError(t, err)
+		require.NotSame(t, basePricing, resolved.BasePricing)
+		require.False(t, basePricing.CacheCreationPriceExplicit)
+		require.InDelta(t, cacheWritePrice, basePricing.CacheCreationPricePerToken, 1e-12)
+		require.True(t, resolved.BasePricing.CacheCreationPriceExplicit)
+		require.Zero(t, cost.CacheCreationCost)
+	})
+
+	t.Run("interval explicit zero and cache write context", func(t *testing.T) {
+		resolved := &ResolvedPricing{
+			Mode: BillingModeToken,
+			BasePricing: &ModelPricing{
+				InputPricePerToken:         inputPrice,
+				CacheCreationPricePerToken: cacheWritePrice,
+			},
+		}
+		resolver.applyTokenOverrides(&ChannelModelPricing{Intervals: []PricingInterval{{
+			MinTokens:       0,
+			InputPrice:      &inputPrice,
+			CacheWritePrice: &zero,
+		}}}, resolved)
+
+		cost, err := billing.CalculateCostUnified(CostInput{
+			Model:          "gpt-5.6-sol",
+			Tokens:         UsageTokens{CacheCreationTokens: 100},
+			RateMultiplier: 1,
+			Resolver:       resolver,
+			Resolved:       resolved,
+		})
+
+		require.NoError(t, err)
+		require.True(t, resolver.GetIntervalPricing(resolved, 100).CacheCreationPriceExplicit)
+		require.Zero(t, cost.CacheCreationCost)
+	})
+
+	t.Run("per request context tier", func(t *testing.T) {
+		maxLowTier := 50
+		lowPrice := 0.05
+		highPrice := 0.20
+		resolved := &ResolvedPricing{
+			Mode:                   BillingModePerRequest,
+			DefaultPerRequestPrice: lowPrice,
+			RequestTiers: []PricingInterval{
+				{MinTokens: 0, MaxTokens: &maxLowTier, PerRequestPrice: &lowPrice},
+				{MinTokens: maxLowTier, PerRequestPrice: &highPrice},
+			},
+		}
+
+		cost, err := billing.CalculateCostUnified(CostInput{
+			Model:          "gpt-5.6-sol",
+			Tokens:         UsageTokens{CacheCreationTokens: 100},
+			RequestCount:   1,
+			RateMultiplier: 1,
+			Resolver:       resolver,
+			Resolved:       resolved,
+		})
+
+		require.NoError(t, err)
+		require.InDelta(t, highPrice, cost.TotalCost, 1e-12)
+	})
+
+	t.Run("long context threshold", func(t *testing.T) {
+		cost, err := billing.CalculateCost("gpt-5.6-sol", UsageTokens{
+			InputTokens:         100000,
+			CacheCreationTokens: 173000,
+			OutputTokens:        10,
+		}, 1)
+
+		require.NoError(t, err)
+		require.InDelta(t, 100000*inputPrice*2, cost.InputCost, 1e-12)
+		require.InDelta(t, 173000*cacheWritePrice*2, cost.CacheCreationCost, 1e-12)
+		require.InDelta(t, 10*30e-6*1.5, cost.OutputCost, 1e-12)
+	})
 }
 
 func TestOpenAIGatewayServiceRecordUsage_Gpt54LongContextBillsWholeSession(t *testing.T) {

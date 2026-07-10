@@ -791,6 +791,37 @@ func TestOpenAIGatewayService_Forward_WSv2_ResponseDoneUsageParsed(t *testing.T)
 	require.Equal(t, 4, result.Usage.ImageOutputTokens)
 }
 
+func TestPopulateOpenAIUsageFromResponseJSONCapturesCanonicalCacheWrite(t *testing.T) {
+	tests := []struct {
+		name      string
+		body      string
+		wantWrite int
+	}{
+		{
+			name:      "positive cache write",
+			body:      `{"usage":{"input_tokens":20,"output_tokens":2,"input_tokens_details":{"cached_tokens":3,"cache_write_tokens":7}}}`,
+			wantWrite: 7,
+		},
+		{
+			name:      "nested zero overrides legacy alias",
+			body:      `{"usage":{"input_tokens":20,"output_tokens":2,"cache_creation_input_tokens":19,"input_tokens_details":{"cached_tokens":3,"cache_write_tokens":0}}}`,
+			wantWrite: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			usage := OpenAIUsage{CacheCreationInputTokens: 99}
+			populateOpenAIUsageFromResponseJSON([]byte(tt.body), &usage)
+
+			require.Equal(t, 20, usage.InputTokens)
+			require.Equal(t, 2, usage.OutputTokens)
+			require.Equal(t, 3, usage.CacheReadInputTokens)
+			require.Equal(t, tt.wantWrite, usage.CacheCreationInputTokens)
+		})
+	}
+}
+
 func TestOpenAIGatewayService_Forward_WSv1_Unsupported(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

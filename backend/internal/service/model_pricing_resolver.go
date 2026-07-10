@@ -148,6 +148,10 @@ func (r *ModelPricingResolver) applyTokenOverrides(chPricing *ChannelModelPricin
 	// 否则用 flat 字段覆盖 BasePricing
 	if resolved.BasePricing == nil {
 		resolved.BasePricing = &ModelPricing{}
+	} else {
+		// 渠道覆盖是请求级状态，不能修改 BillingService 共享的 fallback 指针。
+		cloned := *resolved.BasePricing
+		resolved.BasePricing = &cloned
 	}
 
 	if chPricing.InputPrice != nil {
@@ -160,6 +164,7 @@ func (r *ModelPricingResolver) applyTokenOverrides(chPricing *ChannelModelPricin
 	}
 	if chPricing.CacheWritePrice != nil {
 		resolved.BasePricing.CacheCreationPricePerToken = *chPricing.CacheWritePrice
+		resolved.BasePricing.CacheCreationPriceExplicit = true
 		resolved.BasePricing.CacheCreation5mPrice = *chPricing.CacheWritePrice
 		resolved.BasePricing.CacheCreation1hPrice = *chPricing.CacheWritePrice
 	}
@@ -227,6 +232,7 @@ func intervalToModelPricing(iv *PricingInterval, supportsCacheBreakdown bool) *M
 	}
 	if iv.CacheWritePrice != nil {
 		pricing.CacheCreationPricePerToken = *iv.CacheWritePrice
+		pricing.CacheCreationPriceExplicit = true
 		pricing.CacheCreation5mPrice = *iv.CacheWritePrice
 		pricing.CacheCreation1hPrice = *iv.CacheWritePrice
 	}

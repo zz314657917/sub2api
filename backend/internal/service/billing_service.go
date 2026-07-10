@@ -50,6 +50,7 @@ type ModelPricing struct {
 	OutputPricePerToken            float64 // 每token输出价格 (USD)
 	OutputPricePerTokenPriority    float64 // priority service tier 下每token输出价格 (USD)
 	CacheCreationPricePerToken     float64 // 缓存创建每token价格 (USD)
+	CacheCreationPriceExplicit     bool    // 是否由渠道显式设定（为 true 时即使 == 0 也不回退）
 	CacheReadPricePerToken         float64 // 缓存读取每token价格 (USD)
 	CacheReadPricePerTokenPriority float64 // priority service tier 下缓存读取每token价格 (USD)
 	CacheCreation5mPrice           float64 // 5分钟缓存创建每token价格 (USD)
@@ -574,6 +575,9 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 	if channelPricing == nil {
 		return pricing, nil
 	}
+	// 防止渠道覆盖修改 fallbackPrices 中的共享指针。
+	cloned := *pricing
+	pricing = &cloned
 	if channelPricing.InputPrice != nil {
 		pricing.InputPricePerToken = *channelPricing.InputPrice
 		pricing.InputPricePerTokenPriority = *channelPricing.InputPrice
@@ -584,6 +588,7 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 	}
 	if channelPricing.CacheWritePrice != nil {
 		pricing.CacheCreationPricePerToken = *channelPricing.CacheWritePrice
+		pricing.CacheCreationPriceExplicit = true
 		pricing.CacheCreation5mPrice = *channelPricing.CacheWritePrice
 		pricing.CacheCreation1hPrice = *channelPricing.CacheWritePrice
 	}
@@ -654,7 +659,7 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 
 // calculateTokenCost 按 token 区间计费
 func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input CostInput) (*CostBreakdown, error) {
-	totalContext := input.Tokens.InputTokens + input.Tokens.CacheReadTokens
+	totalContext := input.Tokens.InputTokens + input.Tokens.CacheCreationTokens + input.Tokens.CacheReadTokens
 
 	pricing := input.Resolver.GetIntervalPricing(resolved, totalContext)
 	if pricing == nil {
@@ -794,7 +799,7 @@ func (s *BillingService) calculatePerRequestCost(resolved *ResolvedPricing, inpu
 	}
 
 	if unitPrice == 0 {
-		totalContext := input.Tokens.InputTokens + input.Tokens.CacheReadTokens
+		totalContext := input.Tokens.InputTokens + input.Tokens.CacheCreationTokens + input.Tokens.CacheReadTokens
 		unitPrice = input.Resolver.GetRequestTierPriceByContext(resolved, totalContext)
 	}
 
@@ -841,21 +846,32 @@ func (s *BillingService) applyModelSpecificPricingPolicy(model string, pricing *
 	if pricing == nil {
 		return nil
 	}
-	if !isOpenAIGPT54Model(model) {
+	normalized := normalizeKnownOpenAICodexModel(model)
+	isGPT56 := normalized == "gpt-5.6-sol" || normalized == "gpt-5.6-terra" || normalized == "gpt-5.6-luna"
+	usesLongContextPricing := isOpenAIGPT54Model(model)
+	if !isGPT56 && !usesLongContextPricing {
 		return pricing
 	}
-	if pricing.LongContextInputThreshold > 0 && pricing.LongContextInputMultiplier > 0 && pricing.LongContextOutputMultiplier > 0 {
+	needsLongContextPolicy := usesLongContextPricing &&
+		(pricing.LongContextInputThreshold <= 0 || pricing.LongContextInputMultiplier <= 0 || pricing.LongContextOutputMultiplier <= 0)
+	needsCacheCreationPolicy := isGPT56 && !pricing.CacheCreationPriceExplicit && pricing.CacheCreationPricePerToken <= 0
+	if !needsLongContextPolicy && !needsCacheCreationPolicy {
 		return pricing
 	}
 	cloned := *pricing
-	if cloned.LongContextInputThreshold <= 0 {
-		cloned.LongContextInputThreshold = openAIGPT54LongContextInputThreshold
+	if needsCacheCreationPolicy {
+		cloned.CacheCreationPricePerToken = cloned.InputPricePerToken * 1.25
 	}
-	if cloned.LongContextInputMultiplier <= 0 {
-		cloned.LongContextInputMultiplier = openAIGPT54LongContextInputMultiplier
-	}
-	if cloned.LongContextOutputMultiplier <= 0 {
-		cloned.LongContextOutputMultiplier = openAIGPT54LongContextOutputMultiplier
+	if usesLongContextPricing {
+		if cloned.LongContextInputThreshold <= 0 {
+			cloned.LongContextInputThreshold = openAIGPT54LongContextInputThreshold
+		}
+		if cloned.LongContextInputMultiplier <= 0 {
+			cloned.LongContextInputMultiplier = openAIGPT54LongContextInputMultiplier
+		}
+		if cloned.LongContextOutputMultiplier <= 0 {
+			cloned.LongContextOutputMultiplier = openAIGPT54LongContextOutputMultiplier
+		}
 	}
 	return &cloned
 }
@@ -867,7 +883,7 @@ func (s *BillingService) shouldApplySessionLongContextPricing(tokens UsageTokens
 	if pricing.LongContextInputMultiplier <= 1 && pricing.LongContextOutputMultiplier <= 1 {
 		return false
 	}
-	totalInputTokens := tokens.InputTokens + tokens.CacheReadTokens
+	totalInputTokens := tokens.InputTokens + tokens.CacheCreationTokens + tokens.CacheReadTokens
 	return totalInputTokens > pricing.LongContextInputThreshold
 }
 

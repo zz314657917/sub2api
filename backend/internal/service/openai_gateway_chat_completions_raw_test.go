@@ -91,7 +91,7 @@ func TestForwardAsRawChatCompletions_ForcesStreamUsageUpstreamAndPassesUsageDown
 	upstreamBody := strings.Join([]string{
 		`data: {"id":"chatcmpl_1","object":"chat.completion.chunk","model":"gpt-5.4","choices":[{"index":0,"delta":{"content":"ok"}}]}`,
 		"",
-		`data: {"id":"chatcmpl_1","object":"chat.completion.chunk","model":"gpt-5.4","choices":[],"usage":{"prompt_tokens":9,"completion_tokens":4,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":3}}}`,
+		`data: {"id":"chatcmpl_1","object":"chat.completion.chunk","model":"gpt-5.6-sol","choices":[],"usage":{"prompt_tokens":9,"completion_tokens":4,"total_tokens":13,"prompt_tokens_details":{"cached_tokens":3,"cache_write_tokens":2}}}`,
 		"",
 		"data: [DONE]",
 		"",
@@ -114,11 +114,63 @@ func TestForwardAsRawChatCompletions_ForcesStreamUsageUpstreamAndPassesUsageDown
 	require.Equal(t, 9, result.Usage.InputTokens)
 	require.Equal(t, 4, result.Usage.OutputTokens)
 	require.Equal(t, 3, result.Usage.CacheReadInputTokens)
+	require.Equal(t, 2, result.Usage.CacheCreationInputTokens)
 	require.NotNil(t, upstream.lastReq)
 	require.NoError(t, upstream.lastReq.Context().Err())
 	require.True(t, gjson.GetBytes(upstream.lastBody, "stream_options.include_usage").Bool())
 	require.Contains(t, rec.Body.String(), `"usage"`)
 	require.Contains(t, rec.Body.String(), "data: [DONE]")
+}
+
+func TestForwardAsRawChatCompletions_NonStreamingCapturesCacheWriteUsage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	tests := []struct {
+		name      string
+		usageJSON string
+		wantWrite int
+	}{
+		{
+			name:      "positive cache write",
+			usageJSON: `{"prompt_tokens":12,"completion_tokens":3,"total_tokens":15,"prompt_tokens_details":{"cached_tokens":4,"cache_write_tokens":6}}`,
+			wantWrite: 6,
+		},
+		{
+			name:      "nested zero overrides legacy alias",
+			usageJSON: `{"prompt_tokens":12,"completion_tokens":3,"total_tokens":15,"cache_creation_input_tokens":19,"prompt_tokens_details":{"cached_tokens":4,"cache_write_tokens":0}}`,
+			wantWrite: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := []byte(`{"model":"gpt-5.6-sol","messages":[{"role":"user","content":"hello"}],"stream":false}`)
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+			c.Request.Header.Set("Content-Type", "application/json")
+
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body: io.NopCloser(strings.NewReader(
+					`{"id":"chatcmpl_cache","object":"chat.completion","model":"gpt-5.6-sol","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop"}],"usage":` + tt.usageJSON + `}`,
+				)),
+			}}
+			svc := &OpenAIGatewayService{
+				cfg:          rawChatCompletionsTestConfig(),
+				httpUpstream: upstream,
+			}
+
+			result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+
+			require.NoError(t, err)
+			require.NotNil(t, result)
+			require.Equal(t, 12, result.Usage.InputTokens)
+			require.Equal(t, 4, result.Usage.CacheReadInputTokens)
+			require.Equal(t, tt.wantWrite, result.Usage.CacheCreationInputTokens)
+		})
+	}
 }
 
 func TestForwardAsRawChatCompletions_TransportErrorReturnsFailover(t *testing.T) {
