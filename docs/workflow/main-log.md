@@ -142,3 +142,24 @@
 260708 0357 | upstream-v0146-backend-safe-patches-s56 | implementation-and-qa-pass | codex | docs/workflow/worker-results/upstream-v0146-backend-safe-patches-s56-result.md, docs/workflow/qa-reports/upstream-v0146-backend-safe-patches-s56-qa.md
 260709 0000 | leaderboard-reward-modes-s57 | contract-draft | codex | docs/workflow/tasks/leaderboard-reward-modes-s57.md
 260709 0000 | leaderboard-reward-modes-s57 | workers-dispatched | codex | backend-worker, frontend-worker
+260710 2344 | studio-bridge-model-scoped-apimart-billing | contract-approved | codex | docs/workflow/tasks/studio-bridge-model-scoped-apimart-billing.md
+260710 2348 | tutorial-reading-flow-s60-to-model-discovery-ux-s62 | contracts-approved | codex | docs/workflow/tasks/tutorial-reading-flow-s60.md, docs/workflow/tasks/tutorial-markdown-interactions-s61.md, docs/workflow/tasks/model-discovery-ux-s62.md
+260710 2348 | tutorial-reading-flow-s60-to-model-discovery-ux-s62 | workers-dispatched | codex | tutorial-reading, tutorial-markdown, model-discovery
+260711 0049 | tutorial-markdown-interactions-s61 | implementation-pass | codex | docs/workflow/worker-results/tutorial-markdown-interactions-s61-result.md
+260711 0049 | tutorial-reading-flow-s60-to-model-discovery-ux-s62 | evaluator-fix-dispatched | codex | tutorial aria/user-copy, model focus/direct-link
+260711 0059 | tutorial-reading-flow-s60-to-model-discovery-ux-s62 | implementation-and-fix-pass | codex | docs/workflow/worker-results/tutorial-reading-flow-s60-result.md, docs/workflow/worker-results/tutorial-markdown-interactions-s61-result.md, docs/workflow/worker-results/model-discovery-ux-s62-result.md
+260711 0059 | tutorial-reading-flow-s60-to-model-discovery-ux-s62 | integrated-tests-pass | codex | 5 files / 29 tests, vue-tsc, git diff --check
+260711 0108 | tutorial-reading-flow-s60-to-model-discovery-ux-s62 | qa-fail-contract-path | qa-worker | public-pages.spec.ts missing from S60 Allowed Paths
+260711 0108 | tutorial-reading-flow-s60 | contract-amended | codex | public-pages.spec.ts single S60 assertion scope approved
+260711 0114 | tutorial-reading-flow-s60 | browser-fix-dispatched | codex | prevent low-resolution screenshot upscaling
+260711 0129 | tutorial-reading-flow-s60-to-model-discovery-ux-s62 | independent-qa-pass | qa-worker | 5 files / 29 tests, typecheck, build, git diff --check
+260711 0129 | tutorial-reading-flow-s60-to-model-discovery-ux-s62 | browser-qa-pass | codex | 1280x720, 1024x768, 390x844 screenshots and geometry
+260711 0150 | public-docs-layout-toolbar-s63 | contract-approved | codex | docs/workflow/tasks/public-docs-layout-toolbar-s63.md
+260711 0200 | public-docs-layout-toolbar-s63 | workers-dispatched | codex | tutorial-layout, model-toolbar
+260711 0214 | public-docs-layout-toolbar-s63 | integrated-tests-pass | codex | 4 files / 26 tests, typecheck, build, git diff --check
+260711 0216 | public-docs-layout-toolbar-s63 | browser-qa-pass | codex | 2560x900, 1280x720, 390x844 geometry and screenshots
+260711 0216 | public-docs-layout-toolbar-s63 | done | codex | docs/workflow/qa-reports/public-docs-layout-toolbar-s63-qa.md
+260711 0220 | tutorial-toc-content-adjacency-s64 | contract-approved | codex | docs/workflow/tasks/tutorial-toc-content-adjacency-s64.md
+260711 0232 | tutorial-toc-content-adjacency-s64 | tests-and-browser-qa-pass | codex | 3 files / 21 tests, typecheck, 2560/1280/390 screenshots
+260711 0232 | tutorial-toc-content-adjacency-s64 | done | codex | docs/workflow/qa-reports/tutorial-toc-content-adjacency-s64-qa.md
+260710 2358 | studio-bridge-model-scoped-apimart-billing | qa-pass | codex | docs/workflow/qa-reports/studio-bridge-model-scoped-apimart-billing-qa.md

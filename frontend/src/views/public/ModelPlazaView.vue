@@ -10,33 +10,85 @@
           <h1>模型定价</h1>
           <p>公开展示推理、图像和视频模型价格。实际扣费以控制台使用记录为准。</p>
         </div>
-        <button class="model-refresh-button" type="button" :disabled="loading" @click="loadCatalog">
-          <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
-          刷新
-        </button>
+        <div class="model-hero-actions">
+          <RouterLink class="model-tutorial-link" to="/tutorial/getting-started">
+            <Icon name="book" size="sm" />
+            接入教程
+            <Icon name="arrowRight" size="sm" />
+          </RouterLink>
+          <button class="model-refresh-button" type="button" :disabled="loading" @click="loadCatalog">
+            <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
+            刷新目录
+          </button>
+        </div>
       </section>
 
       <section class="model-toolbar">
         <div class="model-search-box">
           <Icon name="search" size="sm" />
-          <input v-model="searchQuery" type="search" placeholder="搜索模型、规格或分组..." />
+          <input
+            v-model="searchQuery"
+            data-testid="model-search-input"
+            type="search"
+            aria-label="搜索模型、规格或分组"
+            placeholder="搜索模型、规格或分组..."
+          />
+          <button
+            v-if="searchQuery"
+            class="model-search-clear"
+            type="button"
+            aria-label="清空搜索"
+            title="清空搜索"
+            @click="searchQuery = ''"
+          >
+            <Icon name="x" size="sm" />
+          </button>
         </div>
 
-        <div class="model-category-tabs" aria-label="模型类型筛选">
-          <button
-            v-for="item in categoryTabs"
-            :key="item.value"
-            type="button"
-            :class="{ 'is-active': selectedCategory === item.value }"
-            @click="selectedCategory = item.value"
-          >
-            <span>{{ item.label }}</span>
-            <small>{{ item.count }}</small>
-          </button>
+        <div class="model-filter-row">
+          <div class="model-category-tabs" aria-label="模型类型筛选">
+            <button
+              v-for="item in categoryTabs"
+              :key="item.value"
+              type="button"
+              :class="{ 'is-active': selectedCategory === item.value }"
+              :aria-pressed="selectedCategory === item.value"
+              @click="selectedCategory = item.value"
+            >
+              <span>{{ item.label }}</span>
+              <small>{{ item.count }}</small>
+            </button>
+          </div>
+          <p class="model-result-count" data-testid="model-result-count" aria-live="polite">
+            共 <strong>{{ visibleRowCount }}</strong> 个型号/规格，来自
+            <strong>{{ visibleGroups.length }}</strong> 个分组
+          </p>
         </div>
       </section>
 
-      <section v-if="loadError" class="model-message-card">
+      <section class="model-price-context" aria-label="价格口径说明">
+        <Icon name="infoCircle" size="md" />
+        <div>
+          <p>
+            <strong>分组价格：</strong>当前选择的账号分组仅用于价格预览，不代表匿名访问者或登录账号的实际分组；最终以控制台显示为准。
+          </p>
+          <p><strong>✪ 单位：</strong>✪ 是本站额度单位，不代表人民币或美元；实际扣费以使用记录为准。</p>
+        </div>
+      </section>
+
+      <section v-if="loadError && hasCatalogData" class="model-refresh-warning" role="status">
+        <Icon name="exclamationCircle" size="md" />
+        <div>
+          <strong>目录刷新失败，正在显示上次成功加载的内容。</strong>
+          <span>{{ loadError }}</span>
+        </div>
+        <button type="button" :disabled="loading" @click="loadCatalog">
+          <Icon name="refresh" size="sm" :class="loading ? 'animate-spin' : ''" />
+          再次刷新
+        </button>
+      </section>
+
+      <section v-if="loadError && !hasCatalogData" class="model-message-card">
         <Icon name="exclamationCircle" size="lg" />
         <div>
           <h2>模型目录加载失败</h2>
@@ -91,6 +143,7 @@
 
           <div class="model-table-shell" :class="{ 'is-scrollable': hasScrollableRows(group) }">
             <div
+              :id="`model-table-${group.id}`"
               class="model-table-wrap"
               :class="{ 'is-scrollable': hasScrollableRows(group) }"
               :data-scroll-group-id="group.id"
@@ -112,7 +165,11 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="row in enabledRows(group)" :key="row.id">
+                  <tr
+                    v-for="(row, rowIndex) in enabledRows(group)"
+                    :key="row.id"
+                    :class="{ 'is-mobile-preview-hidden': isMobilePreviewRowHidden(group, rowIndex) }"
+                  >
                     <template v-if="group.category === 'chat'">
                       <td data-label="模型名称">
                         <div class="model-name-cell">
@@ -164,6 +221,19 @@
               />
             </span>
           </div>
+          <button
+            v-if="hasMobilePreviewRows(group)"
+            class="model-mobile-preview-toggle"
+            type="button"
+            :aria-expanded="isMobileGroupExpanded(group.id)"
+            :aria-controls="`model-table-${group.id}`"
+            data-testid="model-mobile-preview-toggle"
+            @click="toggleMobileGroup(group.id)"
+          >
+            <Icon :name="isMobileGroupExpanded(group.id) ? 'chevronUp' : 'chevronDown'" size="sm" />
+            <span v-if="isMobileGroupExpanded(group.id)">收起完整列表</span>
+            <span v-else>展开其余 {{ mobilePreviewRemainingRows(group) }} 个型号/规格</span>
+          </button>
         </article>
       </section>
 
@@ -210,6 +280,8 @@ const searchQuery = ref('')
 const selectedCategory = ref<CategoryFilter>('all')
 const scrollIndicators = reactive<Record<string, { height: number; top: number }>>({})
 const selectedRateGroupIds = reactive<Record<string, number>>({})
+const expandedMobileGroupIds = reactive<Record<string, boolean>>({})
+const MOBILE_ROW_PREVIEW_LIMIT = 6
 let activeScrollbarDrag: ScrollbarDragState | null = null
 const catalog = ref<ModelMarketCatalog>({
   version: 1,
@@ -217,38 +289,33 @@ const catalog = ref<ModelMarketCatalog>({
 })
 
 const enabledGroups = computed(() => catalog.value.groups.filter((group) => group.enabled))
+const hasCatalogData = computed(() => enabledGroups.value.some((group) => enabledRows(group).length > 0))
+const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCase())
 
-const visibleGroups = computed(() => {
-  const query = searchQuery.value.trim().toLowerCase()
-  return enabledGroups.value.filter((group) => {
-    if (selectedCategory.value !== 'all' && group.category !== selectedCategory.value) return false
-    if (!query) return enabledRows(group).length > 0
+const searchFilteredGroups = computed<ModelMarketGroup[]>(() => enabledGroups.value.flatMap((group) => {
+  const rows = enabledRows(group)
+  if (rows.length === 0) return []
 
-    const groupMatches = [
-      cleanModelDisplayName(group.title, ''),
-      cleanModelDisplayName(group.description, ''),
-      group.platform
-    ].some((value) => (value || '').toLowerCase().includes(query))
-    const rowMatches = enabledRows(group).some((row) =>
-      [
-        cleanModelDisplayName(row.model, ''),
-        cleanModelDisplayName(row.spec, ''),
-        row.input_price,
-        row.output_price,
-        row.our_price,
-        group.hide_official_price ? '' : row.official_price,
-        group.hide_saving ? '' : row.saving,
-        cleanModelDisplayName(row.note, '')
-      ].some((value) => (value || '').toLowerCase().includes(query))
-    )
-    return groupMatches || rowMatches
-  })
-})
+  const query = normalizedSearchQuery.value
+  const matchingRows = !query || groupMatchesSearch(group, query)
+    ? rows
+    : rows.filter((row) => rowMatchesSearch(group, row, query))
+
+  return matchingRows.length > 0 ? [{ ...group, rows: matchingRows }] : []
+}))
+
+const visibleGroups = computed(() => searchFilteredGroups.value.filter((group) => (
+  selectedCategory.value === 'all' || group.category === selectedCategory.value
+)))
+
+const visibleRowCount = computed(() => countGroupRows(visibleGroups.value))
 
 const categoryTabs = computed(() => {
   const count = (category: CategoryFilter) => {
-    if (category === 'all') return enabledGroups.value.length
-    return enabledGroups.value.filter((group) => group.category === category).length
+    const groups = category === 'all'
+      ? searchFilteredGroups.value
+      : searchFilteredGroups.value.filter((group) => group.category === category)
+    return countGroupRows(groups)
   }
   return [
     { value: 'all' as const, label: '全部', count: count('all') },
@@ -264,6 +331,7 @@ async function loadCatalog(): Promise<void> {
   try {
     catalog.value = normalizeCatalog(await modelMarketAPI.getCatalog())
     initializeSelectedRateGroups()
+    pruneExpandedMobileGroups()
     await nextTick()
     refreshScrollIndicators()
   } catch (error: any) {
@@ -292,15 +360,47 @@ function enabledRows(group: ModelMarketGroup) {
   return group.rows.filter((row) => row.enabled)
 }
 
+function countGroupRows(groups: ModelMarketGroup[]): number {
+  return groups.reduce((total, group) => total + enabledRows(group).length, 0)
+}
+
+function groupMatchesSearch(group: ModelMarketGroup, query: string): boolean {
+  return searchValuesMatch([
+    group.title,
+    group.description,
+    group.platform
+  ], query)
+}
+
+function rowMatchesSearch(
+  group: ModelMarketGroup,
+  row: ModelMarketGroup['rows'][number],
+  query: string
+): boolean {
+  return searchValuesMatch([
+    row.model,
+    row.spec,
+    row.input_price,
+    row.output_price,
+    row.our_price,
+    group.hide_official_price ? '' : row.official_price,
+    group.hide_saving ? '' : row.saving,
+    row.note
+  ], query)
+}
+
+function searchValuesMatch(values: unknown[], query: string): boolean {
+  return values.some((value) => searchableText(value).includes(query))
+}
+
+function searchableText(value: unknown): string {
+  if (typeof value !== 'string' || !value.trim()) return ''
+  return cleanModelDisplayName(value, '').toLowerCase()
+}
+
 function groupRateOptions(group: ModelMarketGroup): ModelMarketAccountGroup[] {
   return (group.supported_groups ?? [])
     .filter((item) => item.id > 0 && Number.isFinite(item.effective_rate_multiplier))
-    .sort((a, b) => {
-      if (a.effective_rate_multiplier === b.effective_rate_multiplier) {
-        return a.name.localeCompare(b.name)
-      }
-      return a.effective_rate_multiplier - b.effective_rate_multiplier
-    })
 }
 
 function initializeSelectedRateGroups(): void {
@@ -314,7 +414,7 @@ function initializeSelectedRateGroups(): void {
     }
     const current = selectedRateGroupIds[group.id]
     if (!options.some((option) => option.id === current)) {
-      selectedRateGroupIds[group.id] = options[0].id
+      selectedRateGroupIds[group.id] = defaultRateGroupId(options)
     }
   }
   Object.keys(selectedRateGroupIds).forEach((groupId) => {
@@ -328,7 +428,15 @@ function selectedRateGroupId(group: ModelMarketGroup): number | '' {
   const options = groupRateOptions(group)
   if (options.length === 0) return ''
   const current = selectedRateGroupIds[group.id]
-  return options.some((option) => option.id === current) ? current : options[0].id
+  return options.some((option) => option.id === current) ? current : defaultRateGroupId(options)
+}
+
+function defaultRateGroupId(options: ModelMarketAccountGroup[]): number {
+  return options.reduce((closest, option) => {
+    const closestDistance = Math.abs(closest.effective_rate_multiplier - 1)
+    const optionDistance = Math.abs(option.effective_rate_multiplier - 1)
+    return optionDistance < closestDistance ? option : closest
+  }).id
 }
 
 function updateSelectedRateGroup(groupId: string, value: number): void {
@@ -400,6 +508,43 @@ function formatCompactRate(value: number): string {
 
 function hasScrollableRows(group: ModelMarketGroup): boolean {
   return enabledRows(group).length > 10
+}
+
+function hasMobilePreviewRows(group: ModelMarketGroup): boolean {
+  return enabledRows(group).length > MOBILE_ROW_PREVIEW_LIMIT
+}
+
+function isMobileGroupExpanded(groupId: string): boolean {
+  return expandedMobileGroupIds[groupId] === true
+}
+
+function isMobilePreviewRowHidden(group: ModelMarketGroup, rowIndex: number): boolean {
+  return hasMobilePreviewRows(group)
+    && !isMobileGroupExpanded(group.id)
+    && rowIndex >= MOBILE_ROW_PREVIEW_LIMIT
+}
+
+function mobilePreviewRemainingRows(group: ModelMarketGroup): number {
+  return Math.max(0, enabledRows(group).length - MOBILE_ROW_PREVIEW_LIMIT)
+}
+
+function toggleMobileGroup(groupId: string): void {
+  expandedMobileGroupIds[groupId] = !isMobileGroupExpanded(groupId)
+}
+
+function pruneExpandedMobileGroups(): void {
+  const activeGroupIds = new Set(catalog.value.groups.map((group) => group.id))
+  Object.keys(expandedMobileGroupIds).forEach((groupId) => {
+    if (!activeGroupIds.has(groupId)) {
+      delete expandedMobileGroupIds[groupId]
+    }
+  })
+}
+
+function collapseMobileGroups(): void {
+  Object.keys(expandedMobileGroupIds).forEach((groupId) => {
+    delete expandedMobileGroupIds[groupId]
+  })
 }
 
 function showOfficialPriceColumn(group: ModelMarketGroup): boolean {
@@ -600,6 +745,8 @@ function resetFilters(): void {
   selectedCategory.value = 'all'
 }
 
+watch([searchQuery, selectedCategory], collapseMobileGroups)
+
 watch(visibleGroups, async () => {
   await nextTick()
   refreshScrollIndicators()
@@ -667,35 +814,73 @@ onBeforeUnmount(() => {
   font-weight: 350;
 }
 
+.model-hero-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.model-tutorial-link,
 .model-refresh-button,
+.model-refresh-warning button,
 .model-message-card button {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.45rem;
-  border-radius: 999px;
-  border: 1px solid #cc785c;
-  background: #cc785c;
-  padding: 0.62rem 0.86rem;
-  color: #ffffff;
-  font-size: 0.82rem;
+  min-height: 2.55rem;
+  border-radius: 8px;
+  padding: 0.58rem 0.78rem;
+  font-size: 0.8rem;
   font-weight: 500;
+  text-decoration: none;
 }
 
-.model-refresh-button:disabled {
+.model-tutorial-link,
+.model-message-card button {
+  border: 1px solid #cc785c;
+  background: #cc785c;
+  color: #ffffff;
+}
+
+.model-refresh-button,
+.model-refresh-warning button {
+  border: 1px solid var(--public-border-strong);
+  background: rgba(250, 249, 245, 0.78);
+  color: var(--public-muted-strong);
+}
+
+.model-refresh-button:disabled,
+.model-refresh-warning button:disabled {
   cursor: not-allowed;
   opacity: 0.62;
 }
 
+.model-tutorial-link:focus-visible,
+.model-refresh-button:focus-visible,
+.model-refresh-warning button:focus-visible,
+.model-message-card button:focus-visible,
+.model-search-clear:focus-visible,
+.model-category-tabs button:focus-visible,
+.model-group-rate-select select:focus-visible,
+.model-mobile-preview-toggle:focus-visible {
+  outline: 2px solid var(--public-accent);
+  outline-offset: 2px;
+}
+
 .model-toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.9rem;
-  border-radius: 8px;
-  border: 1px solid var(--public-border);
-  background: rgba(250, 249, 245, 0.88);
-  padding: 0.85rem;
-  box-shadow: var(--public-shadow-soft);
-  backdrop-filter: blur(16px);
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.62rem;
+}
+
+.model-filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 1rem;
 }
 
 .model-search-box {
@@ -708,6 +893,27 @@ onBeforeUnmount(() => {
   background: #faf9f5;
   padding: 0 0.85rem;
   color: var(--public-muted);
+}
+
+.model-search-box:focus-within {
+  border-color: var(--public-accent);
+  box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.2);
+}
+
+.model-search-clear {
+  display: inline-flex;
+  width: 1.85rem;
+  height: 1.85rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: var(--public-muted);
+}
+
+.model-search-clear:hover {
+  background: #eee8df;
+  color: var(--public-text);
 }
 
 .model-search-box input {
@@ -724,14 +930,24 @@ onBeforeUnmount(() => {
   color: var(--public-muted-soft);
 }
 
+.model-result-count {
+  flex: 0 0 auto;
+  color: var(--public-muted);
+  font-size: 0.74rem;
+  font-weight: 350;
+  text-align: right;
+}
+
+.model-result-count strong {
+  color: var(--public-text);
+  font-weight: 520;
+}
+
 .model-category-tabs {
   display: inline-flex;
   align-items: center;
-  gap: 0.28rem;
-  border-radius: 8px;
-  border: 1px solid var(--public-border);
-  background: #f5f0e8;
-  padding: 0.24rem;
+  min-width: 0;
+  gap: 0.18rem;
 }
 
 .model-category-tabs button {
@@ -739,23 +955,97 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 0.42rem;
   min-height: 2.2rem;
-  border-radius: 6px;
-  padding: 0.34rem 0.65rem;
+  border-bottom: 2px solid transparent;
+  border-radius: 4px 4px 0 0;
+  padding: 0.34rem 0.62rem 0.28rem;
   color: var(--public-muted-strong);
   font-size: 0.8rem;
   font-weight: 500;
 }
 
 .model-category-tabs button.is-active {
-  background: #faf9f5;
+  border-bottom-color: var(--public-accent);
+  background: rgba(204, 120, 92, 0.08);
   color: var(--public-accent);
-  box-shadow: var(--public-shadow-soft);
 }
 
 .model-category-tabs small {
   color: var(--public-muted-soft);
   font-size: 0.72rem;
   font-weight: 500;
+}
+
+.model-price-context {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-top: 0.75rem;
+  border-left: 3px solid #cc785c;
+  background: rgba(245, 240, 232, 0.72);
+  padding: 0.68rem 0.78rem;
+  color: var(--public-muted-strong);
+}
+
+.model-price-context > svg {
+  margin-top: 0.08rem;
+  flex: 0 0 auto;
+  color: var(--public-accent);
+}
+
+.model-price-context div {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.model-price-context p {
+  font-size: 0.75rem;
+  font-weight: 350;
+  line-height: 1.5;
+}
+
+.model-price-context strong {
+  color: var(--public-text);
+  font-weight: 520;
+}
+
+.model-refresh-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-top: 0.75rem;
+  border: 1px solid rgba(169, 88, 62, 0.24);
+  background: rgba(249, 235, 228, 0.86);
+  padding: 0.65rem 0.72rem;
+  color: #8f4c36;
+}
+
+.model-refresh-warning > svg {
+  flex: 0 0 auto;
+}
+
+.model-refresh-warning div {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.model-refresh-warning strong {
+  color: #783f2d;
+  font-size: 0.78rem;
+  font-weight: 520;
+}
+
+.model-refresh-warning span {
+  overflow-wrap: anywhere;
+  font-size: 0.72rem;
+}
+
+.model-refresh-warning button {
+  min-height: 2.25rem;
+  margin-left: auto;
+  background: #faf9f5;
+  color: #783f2d;
+  white-space: nowrap;
 }
 
 .model-card-grid {
@@ -918,6 +1208,10 @@ onBeforeUnmount(() => {
 
 .model-scrollbar-thumb:active {
   cursor: grabbing;
+}
+
+.model-mobile-preview-toggle {
+  display: none;
 }
 
 .model-table-wrap.is-scrollable .model-pricing-table th {
@@ -1110,10 +1404,6 @@ onBeforeUnmount(() => {
     flex-direction: column;
   }
 
-  .model-toolbar {
-    grid-template-columns: 1fr;
-  }
-
   .model-group-rate-select {
     width: 100%;
   }
@@ -1126,6 +1416,15 @@ onBeforeUnmount(() => {
 
   .model-category-tabs {
     overflow-x: auto;
+  }
+
+  .model-refresh-warning {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .model-refresh-warning button {
+    margin-left: 1.9rem;
   }
 
   .model-pricing-table {
@@ -1236,16 +1535,29 @@ onBeforeUnmount(() => {
     line-height: 1.55;
   }
 
+  .model-hero-actions {
+    width: 100%;
+  }
+
+  .model-tutorial-link {
+    flex: 1 1 auto;
+  }
+
   .model-refresh-button,
+  .model-tutorial-link,
+  .model-refresh-warning button,
   .model-message-card button {
     min-height: 2.55rem;
     justify-content: center;
     padding-inline: 0.78rem;
   }
 
+  .model-refresh-button {
+    flex: 0 0 auto;
+  }
+
   .model-toolbar {
     gap: 0.65rem;
-    padding: 0.72rem;
   }
 
   .model-search-box {
@@ -1259,6 +1571,16 @@ onBeforeUnmount(() => {
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 0.22rem;
     overflow: visible;
+  }
+
+  .model-filter-row {
+    display: grid;
+    gap: 0.35rem;
+  }
+
+  .model-result-count {
+    justify-self: start;
+    text-align: left;
   }
 
   .model-category-tabs button {
@@ -1308,11 +1630,30 @@ onBeforeUnmount(() => {
   }
 
   .model-table-wrap.is-scrollable {
-    max-height: 26rem;
+    max-height: none;
+    overflow-y: visible;
   }
 
   .model-scrollbar-rail {
     display: none;
+  }
+
+  .model-pricing-table tr.is-mobile-preview-hidden {
+    display: none;
+  }
+
+  .model-mobile-preview-toggle {
+    display: flex;
+    width: 100%;
+    min-height: 2.75rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    border-top: 1px solid var(--public-border);
+    background: rgba(245, 240, 232, 0.72);
+    color: var(--public-accent);
+    font-size: 0.76rem;
+    font-weight: 520;
   }
 
   .model-pricing-table tr {

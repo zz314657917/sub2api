@@ -27,7 +27,7 @@
             </span>
           </h1>
 
-          <p class="home-mimo-description" aria-live="polite">
+          <p class="home-mimo-description">
             <Transition name="home-subtitle-slide" mode="out-in">
               <span :key="heroDescriptionText" class="home-mimo-description-text">
                 {{ heroDescriptionText }}
@@ -35,29 +35,53 @@
             </Transition>
           </p>
 
-          <div class="home-command-pill" :aria-label="t('home.apiEntryAriaLabel')">
+          <button
+            type="button"
+            class="home-command-pill"
+            :aria-label="`${t('home.copyApiEntry')}: ${publicApiEntryUrl}`"
+            @click="copyApiEntryUrl"
+          >
             <span>{{ t('home.apiEntryLabel') }}</span>
             <code>{{ publicApiEntryUrl }}</code>
-          </div>
+            <span class="home-command-copy-state">
+              <Icon :name="apiEntryCopied ? 'check' : 'copy'" size="xs" aria-hidden="true" />
+              <span>{{ apiEntryCopied ? t('home.apiEntryCopied') : t('home.copyApiEntry') }}</span>
+            </span>
+          </button>
 
           <div class="home-mimo-actions">
-            <router-link :to="isAuthenticated ? dashboardPath : '/register'" class="home-action-button is-primary">
+            <router-link v-if="isAuthenticated" :to="dashboardPath" class="home-action-button is-primary">
               <span class="home-button-inner">
-                <span>{{ isAuthenticated ? t('home.goToDashboard') : t('home.claimButton') }}</span>
+                <span>{{ t('home.goToDashboard') }}</span>
                 <Icon name="arrowRight" size="sm" class="home-button-icon" aria-hidden="true" />
               </span>
             </router-link>
-            <router-link to="/tutorial/getting-started" class="home-action-button">
+            <button v-else type="button" class="home-action-button is-primary" @click="openAuthPanel">
+              <span class="home-button-inner">
+                <span>{{ t('home.claimButton') }}</span>
+                <Icon name="arrowRight" size="sm" class="home-button-icon" aria-hidden="true" />
+              </span>
+            </button>
+            <router-link to="/tutorial/getting-started" class="home-action-button is-secondary">
               <span class="home-button-inner">
                 <span>{{ t('home.quickStartButton') }}</span>
               </span>
             </router-link>
           </div>
+
+          <ul class="home-trust-signals" :aria-label="t('home.trustSignalsLabel')">
+            <li v-for="item in trustSignals" :key="item">
+              <Icon name="check" size="xs" aria-hidden="true" />
+              <span>{{ item }}</span>
+            </li>
+          </ul>
         </div>
 
         <AuthAccessPanel
           v-if="!isAuthenticated"
+          id="home-auth-panel"
           class="home-auth-panel"
+          :class="{ 'is-mobile-open': mobileAuthExpanded }"
           embedded
           :initial-mode="authMode"
         />
@@ -176,6 +200,10 @@
             </div>
           </div>
         </div>
+        <router-link to="/models" class="home-model-carousel-link">
+          <span>{{ t('home.modelCarousel.viewAll') }}</span>
+          <Icon name="arrowRight" size="xs" aria-hidden="true" />
+        </router-link>
       </div>
     </section>
 
@@ -213,12 +241,17 @@
               class="home-faq-question-row"
               type="button"
               :aria-expanded="activeFaqIndex === index"
+              :aria-controls="`home-faq-answer-${index}`"
               @click="activeFaqIndex = activeFaqIndex === index ? -1 : index"
             >
               <h3>{{ item.question }}</h3>
               <span class="home-faq-plus" aria-hidden="true">{{ activeFaqIndex === index ? '-' : '+' }}</span>
             </button>
-            <p v-if="activeFaqIndex === index" class="home-faq-answer">
+            <p
+              v-if="activeFaqIndex === index"
+              :id="`home-faq-answer-${index}`"
+              class="home-faq-answer"
+            >
               {{ item.answer }}
             </p>
           </article>
@@ -237,9 +270,12 @@
         <p class="home-final-cta-description">
           {{ t('home.finalCta.description') }}
         </p>
-        <router-link :to="isAuthenticated ? dashboardPath : '/register'" class="home-final-cta-button">
-          <span>{{ isAuthenticated ? t('home.goToDashboard') : t('home.finalCta.button') }}</span>
+        <router-link v-if="isAuthenticated" :to="dashboardPath" class="home-final-cta-button">
+          <span>{{ t('home.goToDashboard') }}</span>
         </router-link>
+        <button v-else type="button" class="home-final-cta-button" @click="openAuthPanel">
+          <span>{{ t('home.finalCta.button') }}</span>
+        </button>
       </div>
     </section>
 
@@ -269,23 +305,19 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { useAuthStore, useAppStore } from '@/stores'
-import type { LoginAgreementDocument } from '@/types'
 import { usageAPI, type UserDashboardStats } from '@/api/usage'
 import { formatCreditAmount } from '@/utils/credits'
+import { useClipboard } from '@/composables/useClipboard'
+import { toLegalDocumentLink, type LegalDocumentLink } from '@/utils/legalDocuments'
 import ModelIcon from '@/components/common/ModelIcon.vue'
 import AuthAccessPanel from '@/components/auth/AuthAccessPanel.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PublicTopNav from './public/components/PublicTopNav.vue'
 import PublicRevealBackdrop from './public/components/PublicRevealBackdrop.vue'
-
-type FooterLegalDocument = {
-  documentId: string
-  title: string
-}
 
 type ModelCarouselItem = {
   model: string
@@ -344,6 +376,7 @@ const { t } = useI18n()
 const route = useRoute()
 const activeFaqIndex = ref(0)
 const activeHeroDescriptionIndex = ref(0)
+const mobileAuthExpanded = ref(route.path === '/login' || route.path === '/register')
 const accountWorkbenchStats = ref<UserDashboardStats | null>(null)
 const accountWorkbenchLoading = ref(false)
 const accountWorkbenchError = ref(false)
@@ -356,7 +389,13 @@ const faqItems = computed<HomeFaqItem[]>(() => [0, 1, 2, 3].map(index => ({
 
 const authStore = useAuthStore()
 const appStore = useAppStore()
+const { copied: apiEntryCopied, copyToClipboard } = useClipboard()
 const authMode = computed(() => props.authMode)
+const trustSignals = computed(() => [
+  t('home.trustSignals.compatible'),
+  t('home.trustSignals.routing'),
+  t('home.trustSignals.traceable')
+])
 
 // Site settings - directly from appStore (already initialized from injected config)
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
@@ -373,22 +412,35 @@ const heroTitleBottom = computed(() =>
 const heroHeadline = computed(() => `${heroTitleTop.value} ${heroTitleBottom.value}`.trim())
 const currentYear = new Date().getFullYear()
 
-function toFooterLegalDocument(doc: LoginAgreementDocument): FooterLegalDocument | null {
-  const title = doc.title?.trim()
-  const documentId = (doc.id || title || '').trim()
-
-  if (!title || !documentId) {
-    return null
-  }
-
-  return { documentId, title }
-}
-
 const footerLegalDocuments = computed(() =>
   (appStore.cachedPublicSettings?.login_agreement_documents ?? [])
-    .map(toFooterLegalDocument)
-    .filter((doc): doc is FooterLegalDocument => doc !== null)
+    .map(doc => toLegalDocumentLink(doc, {
+      terms: t('home.footer.terms'),
+      privacy: t('home.footer.privacy'),
+      'usage-policy': t('home.footer.usagePolicy'),
+      'supported-regions': t('home.footer.supportedRegions'),
+      'service-specific-terms': t('home.footer.serviceSpecificTerms')
+    }))
+    .filter((doc): doc is LegalDocumentLink => doc !== null)
 )
+
+async function copyApiEntryUrl(): Promise<void> {
+  await copyToClipboard(publicApiEntryUrl.value, t('home.apiEntryCopied'))
+}
+
+async function openAuthPanel(): Promise<void> {
+  mobileAuthExpanded.value = true
+  await nextTick()
+
+  const panel = document.getElementById('home-auth-panel')
+  panel?.scrollIntoView({
+    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+    block: 'center'
+  })
+  panel
+    ?.querySelector<HTMLInputElement>('input:not([type="hidden"]):not(:disabled)')
+    ?.focus({ preventScroll: true })
+}
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '')
@@ -737,12 +789,26 @@ onBeforeUnmount(() => {
   border-radius: 8px;
   background: rgba(250, 249, 245, 0.82);
   padding: 0.45rem 1.25rem;
+  color: #141413;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.72),
     0 10px 24px rgba(20, 20, 19, 0.035);
 }
 
-.home-command-pill span {
+.home-command-pill:hover {
+  border-color: #cc785c;
+  background: #fffaf5;
+}
+
+.home-command-pill:focus-visible {
+  outline: 2px solid var(--public-ring);
+  outline-offset: 3px;
+}
+
+.home-command-pill > span:first-child {
   color: #8e8b82;
   font-size: 0.76rem;
   font-weight: 500;
@@ -759,12 +825,44 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
+.home-command-copy-state {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.34rem;
+  color: #a9583e;
+  font-size: 0.76rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+
 .home-mimo-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-start;
   gap: 1.1rem;
   margin-top: 2rem;
+}
+
+.home-trust-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.62rem 1rem;
+  margin: 1.15rem 0 0;
+  padding: 0;
+  color: #504f49;
+  font-size: 0.78rem;
+  list-style: none;
+}
+
+.home-trust-signals li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.32rem;
+}
+
+.home-trust-signals svg {
+  color: #a9583e;
 }
 
 .home-auth-panel {
@@ -934,6 +1032,9 @@ onBeforeUnmount(() => {
   border-radius: 999px;
   background: rgba(250, 249, 245, 0.68);
   color: #141413;
+  cursor: pointer;
+  font: inherit;
+  text-decoration: none;
   transition:
     transform 120ms ease,
     border-color 120ms ease,
@@ -1267,6 +1368,24 @@ onBeforeUnmount(() => {
     0 7px 14px rgba(20, 20, 19, 0.035);
 }
 
+.home-model-carousel-link {
+  display: inline-flex;
+  min-height: 2.7rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.42rem;
+  margin-top: 1.35rem;
+  color: #2a2924;
+  font-size: 0.86rem;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 0.24em;
+}
+
+.home-model-carousel-link:hover {
+  color: #a9583e;
+}
+
 @keyframes home-model-marquee {
   from {
     transform: translateX(0);
@@ -1444,10 +1563,13 @@ onBeforeUnmount(() => {
   min-height: 3.05rem;
   align-items: center;
   justify-content: center;
+  border: 0;
   margin-top: 1.75rem;
   border-radius: 999px;
   background: #cc785c;
   color: #fffaf5;
+  cursor: pointer;
+  font: inherit;
   font-size: 0.95rem;
   font-weight: 700;
   line-height: 1.2;
@@ -1545,8 +1667,8 @@ onBeforeUnmount(() => {
     grid-template-columns: 1fr;
     width: min(100%, 34rem);
     min-height: auto;
-    gap: 2rem;
-    padding: 2.9rem 0 3.8rem;
+    gap: 1.45rem;
+    padding: 2.55rem 0 3rem;
     text-align: center;
   }
 
@@ -1570,11 +1692,20 @@ onBeforeUnmount(() => {
 
   .home-command-pill {
     display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
     justify-content: stretch;
-    gap: 0.24rem;
+    gap: 0.24rem 0.75rem;
     border-radius: 22px;
     padding: 0.72rem 0.9rem;
     text-align: left;
+  }
+
+  .home-command-pill > span:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .home-command-pill code {
+    align-self: center;
   }
 
   .home-mimo-actions {
@@ -1583,6 +1714,29 @@ onBeforeUnmount(() => {
 
   .home-action-button {
     width: 100%;
+  }
+
+  .home-action-button.is-secondary {
+    min-width: 0;
+    width: auto;
+    border-color: transparent;
+    background: transparent;
+    text-decoration: underline;
+    text-underline-offset: 0.24em;
+  }
+
+  .home-action-button.is-secondary .home-button-inner {
+    min-height: 2.25rem;
+    padding: 0.3rem 0.65rem;
+  }
+
+  .home-trust-signals {
+    justify-content: center;
+    margin-top: 0.75rem;
+  }
+
+  .home-auth-panel:not(.is-mobile-open) {
+    display: none;
   }
 
   .home-account-workbench {

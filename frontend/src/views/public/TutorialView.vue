@@ -7,7 +7,7 @@
       class="tutorial-main relative z-10 mx-auto"
       :class="{ 'is-article-route': !isIndexRoute, 'is-index-route': isIndexRoute }"
     >
-      <section class="tutorial-overview">
+      <section v-if="isIndexRoute" class="tutorial-overview">
         <div class="tutorial-intro">
           <span class="tutorial-kicker">AI 接入教程</span>
           <h1>从快速开始到工具配置</h1>
@@ -25,19 +25,20 @@
         </div>
 
         <div class="beginner-path" aria-label="接入路线图">
-          <article
+          <router-link
             v-for="(page, index) in orderedPages.slice(0, 4)"
             :key="page.slug"
+            :to="`/tutorial/${page.slug}`"
             class="beginner-step"
           >
             <span>{{ String(index + 1).padStart(2, '0') }}</span>
             <strong>{{ page.title }}</strong>
             <p>{{ page.description }}</p>
-          </article>
+          </router-link>
         </div>
       </section>
 
-      <div v-if="loading" class="tutorial-loading">
+      <div v-if="loading && orderedPages.length === 0" class="tutorial-loading" role="status" aria-live="polite">
         <div class="tutorial-spinner"></div>
         <span>加载教程中...</span>
       </div>
@@ -51,24 +52,8 @@
           <button type="button" @click="refreshPages">重试</button>
         </div>
 
-        <section class="tutorial-reader">
-          <aside class="tutorial-sidebar" aria-label="接入教程目录">
-            <p class="tutorial-sidebar-title">教程目录</p>
-            <nav class="tutorial-tabs">
-              <router-link
-                v-for="page in orderedPages"
-                :key="page.slug"
-                :to="`/tutorial/${page.slug}`"
-                class="tutorial-tab-link"
-                :class="{ 'is-active': activeSlug === page.slug }"
-              >
-                <strong>{{ page.title }}</strong>
-                <span>{{ page.category || '教程' }}</span>
-              </router-link>
-            </nav>
-          </aside>
-
-          <article v-if="isIndexRoute" class="tutorial-main-column">
+        <section v-if="isIndexRoute" class="tutorial-reader tutorial-reader--index">
+          <article class="tutorial-main-column">
             <header class="tutorial-article-head">
               <div>
                 <span>目录</span>
@@ -80,62 +65,239 @@
               </button>
             </header>
 
-            <div class="tutorial-directory-grid">
+            <div class="tutorial-index-controls">
+              <label class="tutorial-search">
+                <span>搜索教程</span>
+                <input
+                  v-model.trim="searchQuery"
+                  type="search"
+                  placeholder="搜索标题、分类或内容简介"
+                />
+              </label>
+
+              <div class="tutorial-category-filter" role="group" aria-label="教程分类">
+                <button
+                  type="button"
+                  :class="{ 'is-active': selectedCategory === 'all' }"
+                  :aria-pressed="selectedCategory === 'all'"
+                  @click="selectedCategory = 'all'"
+                >
+                  全部
+                </button>
+                <button
+                  v-for="category in tutorialCategories"
+                  :key="category"
+                  type="button"
+                  :class="{ 'is-active': selectedCategory === category }"
+                  :aria-pressed="selectedCategory === category"
+                  @click="selectedCategory = category"
+                >
+                  {{ category }}
+                </button>
+              </div>
+            </div>
+
+            <div v-if="categoryGroups.length === 0" class="tutorial-directory-empty">
+              <strong>没有匹配的教程</strong>
+              <p>换一个关键词或分类继续查找。</p>
+              <button type="button" @click="resetDirectoryFilters">清除筛选</button>
+            </div>
+
+            <div v-else class="tutorial-category-groups">
+              <section v-for="group in categoryGroups" :key="group.category" class="tutorial-category-group">
+                <header>
+                  <h3>{{ group.category }}</h3>
+                  <span>{{ group.pages.length }} 篇</span>
+                </header>
+                <div class="tutorial-directory-grid">
+                  <router-link
+                    v-for="page in group.pages"
+                    :key="page.slug"
+                    :to="`/tutorial/${page.slug}`"
+                    class="tutorial-directory-card"
+                  >
+                    <span>{{ page.category || '教程' }}</span>
+                    <strong>{{ page.title }}</strong>
+                    <p>{{ page.description }}</p>
+                  </router-link>
+                </div>
+              </section>
+            </div>
+          </article>
+        </section>
+
+        <section v-else class="tutorial-reader tutorial-reader--detail">
+          <aside class="tutorial-sidebar" aria-label="接入教程目录">
+            <p class="tutorial-sidebar-title">教程目录</p>
+            <nav class="tutorial-tabs">
               <router-link
                 v-for="page in orderedPages"
                 :key="page.slug"
                 :to="`/tutorial/${page.slug}`"
-                class="tutorial-directory-card"
+                class="tutorial-tab-link"
+                :class="{ 'is-active': activeSlug === page.slug }"
+                :aria-current="activeSlug === page.slug ? 'page' : undefined"
               >
-                <span>{{ page.category || '教程' }}</span>
                 <strong>{{ page.title }}</strong>
-                <p>{{ page.description }}</p>
+                <span>{{ page.category || '教程' }}</span>
               </router-link>
-            </div>
-          </article>
+            </nav>
+          </aside>
 
-          <article v-else-if="activePage" class="tutorial-main-column">
-            <header class="tutorial-article-head">
-              <div>
-                <span>{{ activePage.category || '教程' }}</span>
-                <h2>{{ activePage.title }}</h2>
-                <p>{{ activePage.description }}</p>
-              </div>
-              <button type="button" class="tutorial-refresh" :disabled="loading" @click="refreshPages">
-                刷新
+          <div class="tutorial-detail-column">
+            <div class="tutorial-mobile-directory">
+              <button
+                type="button"
+                class="tutorial-mobile-directory-toggle"
+                aria-controls="tutorial-mobile-directory-list"
+                :aria-expanded="mobileDirectoryOpen"
+                @click="mobileDirectoryOpen = !mobileDirectoryOpen"
+              >
+                <span>当前教程</span>
+                <strong>{{ activePageTitle }}</strong>
+                <span>{{ mobileDirectoryOpen ? '收起目录' : '展开目录' }}</span>
               </button>
-            </header>
-
-            <div class="tutorial-content-shell">
-              <div
-                ref="contentRef"
-                class="tutorial-content"
-                v-html="renderedHtml"
-                @click="handleContentClick"
-              ></div>
-
-              <aside v-if="tocItems.length" class="tutorial-toc" aria-label="当前文章目录">
-                <p>本页目录</p>
-                <button
-                  v-for="item in tocItems"
-                  :key="item.id"
-                  type="button"
-                  :class="[`toc-level-${item.level}`, { 'is-active': activeHeadingId === item.id }]"
-                  @click="scrollToHeading(item.id)"
+              <nav
+                v-show="mobileDirectoryOpen"
+                id="tutorial-mobile-directory-list"
+                class="tutorial-mobile-directory-list"
+                aria-label="移动端教程目录"
+              >
+                <router-link
+                  v-for="page in orderedPages"
+                  :key="page.slug"
+                  :to="`/tutorial/${page.slug}`"
+                  :class="{ 'is-active': activeSlug === page.slug }"
+                  :aria-current="activeSlug === page.slug ? 'page' : undefined"
+                  @click="mobileDirectoryOpen = false"
                 >
-                  {{ item.text }}
-                </button>
-              </aside>
+                  <strong>{{ page.title }}</strong>
+                  <span>{{ page.category || '教程' }}</span>
+                </router-link>
+              </nav>
             </div>
-          </article>
 
-          <div v-else class="tutorial-empty">
-            <h2>教程不存在</h2>
-            <p>该页面未发布或已下线，请从左侧选择其他教程。</p>
-            <router-link v-if="firstPage" :to="`/tutorial/${firstPage.slug}`" class="guide-action-link">
-              返回快速开始
-            </router-link>
+            <div
+              v-if="detailState === 'loading' || (loading && detailState === 'idle')"
+              class="tutorial-detail-state tutorial-detail-state--loading"
+              role="status"
+              aria-live="polite"
+            >
+              <div class="tutorial-spinner"></div>
+              <strong>正在加载当前教程</strong>
+              <p>正文准备好后会直接显示在这里。</p>
+            </div>
+
+            <div v-else-if="detailState === 'error'" class="tutorial-detail-state tutorial-detail-state--error" role="alert">
+              <span>加载失败</span>
+              <h2>暂时无法打开这篇教程</h2>
+              <p>{{ detailError }}</p>
+              <div class="tutorial-state-actions">
+                <button type="button" @click="retryActivePage">重试</button>
+                <router-link to="/tutorial">返回教程目录</router-link>
+              </div>
+            </div>
+
+            <div v-else-if="detailState === 'notFound'" class="tutorial-empty tutorial-detail-state--not-found">
+              <span>404</span>
+              <h2>教程不存在</h2>
+              <p>该页面未发布或已下线，请从教程目录选择其他内容。</p>
+              <router-link to="/tutorial" class="guide-action-link">返回教程目录</router-link>
+            </div>
+
+            <article v-else-if="activePage" class="tutorial-main-column tutorial-article">
+              <header class="tutorial-article-head tutorial-article-head--compact">
+                <div>
+                  <div class="tutorial-article-meta">
+                    <span>{{ activePage.category || '教程' }}</span>
+                    <span>{{ articleProgressLabel }}</span>
+                  </div>
+                  <h1>{{ activePage.title }}</h1>
+                  <p>{{ activePage.description }}</p>
+                </div>
+                <button type="button" class="tutorial-refresh" :disabled="loading" @click="refreshPages">
+                  刷新
+                </button>
+              </header>
+
+              <div class="tutorial-content-shell">
+                <details v-if="tocItems.length" class="tutorial-mobile-toc">
+                  <summary>
+                    <span>本页目录</span>
+                    <small>{{ tocItems.length }} 个章节</small>
+                  </summary>
+                  <nav aria-label="移动端当前文章目录">
+                    <button
+                      v-for="item in tocItems"
+                      :key="item.id"
+                      type="button"
+                      :class="[`toc-level-${item.level}`, { 'is-active': activeHeadingId === item.id }]"
+                      :aria-current="activeHeadingId === item.id ? 'location' : undefined"
+                      @click="navigateToHeading(item.id)"
+                    >
+                      {{ item.text }}
+                    </button>
+                  </nav>
+                </details>
+
+                <div
+                  ref="contentRef"
+                  class="tutorial-content"
+                  v-html="renderedHtml"
+                  @click="handleContentClick"
+                  @keydown="handleContentKeydown"
+                ></div>
+
+              </div>
+
+              <nav class="tutorial-article-pagination" aria-label="教程篇间导航">
+                <router-link
+                  v-if="previousPage"
+                  :to="`/tutorial/${previousPage.slug}`"
+                  class="tutorial-page-link tutorial-page-link--previous"
+                >
+                  <span>上一篇</span>
+                  <strong>{{ previousPage.title }}</strong>
+                </router-link>
+                <span v-else class="tutorial-page-link tutorial-page-link--disabled">
+                  <span>上一篇</span>
+                  <strong>已经是第一篇</strong>
+                </span>
+
+                <router-link
+                  v-if="nextPage"
+                  :to="`/tutorial/${nextPage.slug}`"
+                  class="tutorial-page-link tutorial-page-link--next"
+                >
+                  <span>下一篇</span>
+                  <strong>{{ nextPage.title }}</strong>
+                </router-link>
+                <span v-else class="tutorial-page-link tutorial-page-link--next tutorial-page-link--disabled">
+                  <span>下一篇</span>
+                  <strong>已经是最后一篇</strong>
+                </span>
+              </nav>
+            </article>
+
+            <div v-else class="tutorial-detail-state tutorial-detail-state--loading" role="status">
+              <div class="tutorial-spinner"></div>
+              <strong>正在准备教程内容</strong>
+            </div>
           </div>
+
+          <aside v-if="tocItems.length" class="tutorial-toc" aria-label="当前文章目录">
+            <p>本页目录</p>
+            <button
+              v-for="item in tocItems"
+              :key="item.id"
+              type="button"
+              :class="[`toc-level-${item.level}`, { 'is-active': activeHeadingId === item.id }]"
+              :aria-current="activeHeadingId === item.id ? 'location' : undefined"
+              @click="navigateToHeading(item.id)"
+            >
+              {{ item.text }}
+            </button>
+          </aside>
         </section>
       </template>
     </main>
@@ -148,7 +310,13 @@
       :aria-label="imagePreview.alt || '教程截图预览'"
       @click.self="closeImagePreview"
     >
-      <button type="button" class="tutorial-image-lightbox__close" @click="closeImagePreview">
+      <button
+        ref="lightboxCloseRef"
+        type="button"
+        class="tutorial-image-lightbox__close"
+        aria-label="关闭图片预览"
+        @click="closeImagePreview"
+      >
         关闭
       </button>
       <figure>
@@ -169,6 +337,8 @@ import { renderTutorialMarkdown, type TutorialTocItem } from '@/utils/tutorialMa
 import PublicRevealBackdrop from './components/PublicRevealBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
 import { tutorialFallbackPages } from './tutorialFallback'
+
+type DetailState = 'idle' | 'loading' | 'ready' | 'error' | 'notFound'
 
 const route = useRoute()
 const router = useRouter()
@@ -205,8 +375,17 @@ const renderedHtml = ref('')
 const tocItems = ref<TutorialTocItem[]>([])
 const activeHeadingId = ref('')
 const contentRef = ref<HTMLElement | null>(null)
+const detailState = ref<DetailState>('idle')
+const detailError = ref('')
+const searchQuery = ref('')
+const selectedCategory = ref('all')
+const mobileDirectoryOpen = ref(false)
 const imagePreview = ref<{ src: string; alt: string; caption: string } | null>(null)
+const lightboxCloseRef = ref<HTMLButtonElement | null>(null)
 let observer: IntersectionObserver | null = null
+let detailRequestId = 0
+let imagePreviewTrigger: HTMLElement | null = null
+const copyFeedbackTimers = new Map<HTMLButtonElement, number>()
 
 const orderedPages = computed(() => {
   return [...summaries.value].sort((a, b) => {
@@ -221,19 +400,56 @@ const routeSlug = computed(() => String(route.params.slug || ''))
 const isIndexRoute = computed(() => !routeSlug.value)
 const activeSlug = computed(() => routeSlug.value)
 const activePage = computed(() => loadedPages.value[activeSlug.value] ?? null)
+const activeSummary = computed(() => orderedPages.value.find((page) => page.slug === activeSlug.value) ?? null)
+const activePageTitle = computed(() => activePage.value?.title || activeSummary.value?.title || '教程详情')
+const activePageIndex = computed(() => orderedPages.value.findIndex((page) => page.slug === activeSlug.value))
+const previousPage = computed(() => {
+  const index = activePageIndex.value
+  return index > 0 ? orderedPages.value[index - 1] : null
+})
+const nextPage = computed(() => {
+  const index = activePageIndex.value
+  return index >= 0 && index < orderedPages.value.length - 1 ? orderedPages.value[index + 1] : null
+})
+const articleProgressLabel = computed(() => {
+  if (activePageIndex.value < 0) return `共 ${orderedPages.value.length} 篇`
+  return `第 ${activePageIndex.value + 1} 篇，共 ${orderedPages.value.length} 篇`
+})
+const tutorialCategories = computed(() => {
+  return Array.from(new Set(orderedPages.value.map((page) => page.category || '教程')))
+})
+const filteredPages = computed(() => {
+  const query = searchQuery.value.trim().toLowerCase()
+  return orderedPages.value.filter((page) => {
+    const category = page.category || '教程'
+    if (selectedCategory.value !== 'all' && category !== selectedCategory.value) return false
+    if (!query) return true
+    return [page.title, page.description, category, page.slug].some((value) => value.toLowerCase().includes(query))
+  })
+})
+const categoryGroups = computed(() => {
+  const groups = new Map<string, TutorialPageSummary[]>()
+  filteredPages.value.forEach((page) => {
+    const category = page.category || '教程'
+    const pages = groups.get(category) ?? []
+    pages.push(page)
+    groups.set(category, pages)
+  })
+  return Array.from(groups, ([category, pages]) => ({ category, pages }))
+})
 const sourceNotice = computed(() => {
   if (sourceState.value === 'fallback-empty') {
     return {
       type: 'empty',
-      title: '后台暂无已发布教程',
-      description: '当前显示内置默认教程，管理员发布教程后前台会自动切换到后台内容。'
+      title: '当前暂时使用备用教程',
+      description: '最新教程正在准备中，你可以先继续阅读当前内容。'
     }
   }
   if (sourceState.value === 'fallback-error') {
     return {
       type: 'error',
-      title: '教程 CMS 暂不可用',
-      description: sourceError.value || '当前显示内置默认教程，请稍后重试或检查后端教程接口。'
+      title: '当前暂时使用备用教程',
+      description: '教程内容暂时无法更新，你可以先继续阅读当前内容，稍后再试。'
     }
   }
   return null
@@ -253,11 +469,39 @@ function setFallbackPages(reason: 'empty' | 'error', message = '') {
 }
 
 function normalizeHash(hash: string): string {
-  return hash.replace(/^#/, '').trim().toLowerCase()
+  const raw = hash.replace(/^#/, '').trim()
+  try {
+    return decodeURIComponent(raw).toLowerCase()
+  } catch {
+    return raw.toLowerCase()
+  }
 }
 
 function resolveLegacyHashTarget(): string {
   return legacyHashRedirects[normalizeHash(route.hash)] ?? ''
+}
+
+function getErrorStatus(error: unknown): number | undefined {
+  return (error as { response?: { status?: number } })?.response?.status
+}
+
+function getErrorMessage(error: unknown, fallback: string): string {
+  const responseMessage = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
+  if (responseMessage) return responseMessage
+  return error instanceof Error && error.message ? error.message : fallback
+}
+
+function cachePage(page: TutorialPage) {
+  loadedPages.value = { ...loadedPages.value, [page.slug]: page }
+  if (!summaries.value.some((summary) => summary.slug === page.slug)) {
+    summaries.value = [...summaries.value, fallbackSummary(page)]
+  }
+}
+
+function removeCachedPage(slug: string) {
+  const nextPages = { ...loadedPages.value }
+  delete nextPages[slug]
+  loadedPages.value = nextPages
 }
 
 async function loadPages(force = false) {
@@ -275,40 +519,87 @@ async function loadPages(force = false) {
     sourceError.value = ''
     summaries.value = items
     loadedPages.value = {}
-  } catch (error: any) {
-    setFallbackPages('error', error?.message || '公开教程接口请求失败，当前显示内置默认教程。')
+  } catch (error: unknown) {
+    setFallbackPages('error', getErrorMessage(error, '公开教程接口请求失败，当前显示内置默认教程。'))
   } finally {
     loading.value = false
   }
 }
 
-async function ensurePage(slug: string) {
-  if (!slug || loadedPages.value[slug]) return
-  const fallback = tutorialFallbackPages.find((page) => page.slug === slug)
-  if (usingFallback.value) {
-    if (fallback) loadedPages.value[slug] = fallback
+async function ensurePage(slug: string, force = false) {
+  if (!slug) {
+    detailState.value = 'idle'
+    detailError.value = ''
     return
   }
+
+  if (!force && loadedPages.value[slug]) {
+    detailState.value = 'ready'
+    detailError.value = ''
+    return
+  }
+
+  const requestId = ++detailRequestId
+  const fallback = tutorialFallbackPages.find((page) => page.slug === slug)
+  detailState.value = 'loading'
+  detailError.value = ''
+
+  if (usingFallback.value && fallback) {
+    cachePage(fallback)
+    detailState.value = 'ready'
+    return
+  }
+
+  if (sourceState.value === 'fallback-error' && !fallback) {
+    detailState.value = 'error'
+    detailError.value = sourceError.value || '教程服务暂不可用，请稍后重试。'
+    return
+  }
+
   try {
-    loadedPages.value[slug] = await tutorialsAPI.getBySlug(slug)
-  } catch (error: any) {
-    if (fallback) {
-      sourceState.value = 'fallback-error'
-      sourceError.value = error?.message || '教程详情接口请求失败，当前显示内置默认教程。'
-      loadedPages.value[slug] = fallback
+    const page = await tutorialsAPI.getBySlug(slug)
+    cachePage(page)
+    if (requestId === detailRequestId && activeSlug.value === slug) {
+      detailState.value = 'ready'
     }
+  } catch (error: unknown) {
+    if (requestId !== detailRequestId || activeSlug.value !== slug) return
+    removeCachedPage(slug)
+    if (getErrorStatus(error) === 404) {
+      detailState.value = 'notFound'
+      detailError.value = ''
+      return
+    }
+    detailState.value = 'error'
+    detailError.value = getErrorMessage(error, '教程详情加载失败，请稍后重试。')
   }
 }
 
 async function refreshPages() {
   await loadPages(true)
-  await ensurePage(activeSlug.value)
+  if (isIndexRoute.value) return
+  await ensurePage(activeSlug.value, true)
   await renderActivePage()
+}
+
+async function retryActivePage() {
+  const fallback = tutorialFallbackPages.find((page) => page.slug === activeSlug.value)
+  if (sourceState.value === 'fallback-error' && !fallback) {
+    await refreshPages()
+    return
+  }
+  await ensurePage(activeSlug.value, true)
+  await renderActivePage()
+}
+
+function resetDirectoryFilters() {
+  searchQuery.value = ''
+  selectedCategory.value = 'all'
 }
 
 async function renderActivePage() {
   const page = activePage.value
-  if (!page) {
+  if (!page || detailState.value !== 'ready') {
     renderedHtml.value = ''
     tocItems.value = []
     activeHeadingId.value = ''
@@ -319,7 +610,9 @@ async function renderActivePage() {
   tocItems.value = result.toc.filter((item) => item.level >= 2 && item.level <= 3)
   activeHeadingId.value = tocItems.value[0]?.id ?? ''
   await nextTick()
+  enhanceRenderedContent()
   setupHeadingObserver()
+  scrollToRouteHash('auto')
 }
 
 function setupHeadingObserver() {
@@ -344,46 +637,164 @@ function setupHeadingObserver() {
   headings.forEach((heading) => observer?.observe(heading))
 }
 
-function scrollToHeading(id: string) {
-  const heading = contentRef.value?.querySelector<HTMLElement>(`#${CSS.escape(id)}`)
-  if (!heading) return
-  heading.scrollIntoView({ behavior: 'smooth', block: 'start' })
+function findHeading(id: string): HTMLElement | null {
+  const root = contentRef.value
+  if (!root) return null
+  return Array.from(root.querySelectorAll<HTMLElement>('[id]')).find((element) => element.id === id) ?? null
+}
+
+function routeHeadingId(): string {
+  const raw = route.hash.replace(/^#/, '')
+  try {
+    return decodeURIComponent(raw)
+  } catch {
+    return raw
+  }
+}
+
+function scrollToHeading(id: string, behavior: ScrollBehavior = 'smooth'): boolean {
+  const heading = findHeading(id)
+  if (!heading) return false
+  activeHeadingId.value = id
+  heading.scrollIntoView({ behavior, block: 'start' })
+  return true
+}
+
+function scrollToRouteHash(behavior: ScrollBehavior = 'auto') {
+  const id = routeHeadingId()
+  if (id) scrollToHeading(id, behavior)
+}
+
+async function navigateToHeading(id: string) {
+  if (routeHeadingId() !== id) {
+    await router.push({ path: route.path, query: route.query, hash: `#${id}` })
+  }
+  await nextTick()
+  scrollToHeading(id, 'smooth')
+}
+
+function configureCopyButton(button: HTMLButtonElement) {
+  button.dataset.copyLabel = button.dataset.copyLabel || button.textContent?.trim() || '复制'
+  button.setAttribute('aria-label', button.getAttribute('aria-label') || '复制代码')
+}
+
+function enhanceRenderedContent() {
+  const root = contentRef.value
+  if (!root) return
+
+  root.querySelectorAll<HTMLButtonElement>('[data-copy-code]').forEach(configureCopyButton)
+  root.querySelectorAll<HTMLPreElement>('pre').forEach((pre) => {
+    if (pre.closest('.tutorial-command-block')) return
+    const code = pre.querySelector('code')
+    if (!code) return
+
+    const block = document.createElement('div')
+    block.className = 'tutorial-command-block tutorial-code-block'
+    const header = document.createElement('div')
+    header.className = 'command-block-header'
+    const title = document.createElement('span')
+    const languageClass = Array.from(code.classList).find((className) => className.startsWith('language-'))
+    title.textContent = languageClass ? languageClass.replace('language-', '') : '代码'
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.className = 'copy-command-button'
+    button.dataset.copyCode = encodeURIComponent(code.textContent || '')
+    button.textContent = '复制'
+    configureCopyButton(button)
+    header.append(title, button)
+    pre.replaceWith(block)
+    block.append(header, pre)
+  })
+
+  root.querySelectorAll<HTMLElement>('.tutorial-screenshot-card').forEach((card) => {
+    const image = card.querySelector<HTMLImageElement>('img')
+    card.tabIndex = 0
+    card.setAttribute('role', 'button')
+    card.setAttribute('aria-label', `预览图片：${image?.alt || '教程截图'}`)
+  })
+}
+
+function showCopyFeedback(button: HTMLButtonElement, state: 'success' | 'error') {
+  const previousTimer = copyFeedbackTimers.get(button)
+  if (previousTimer) window.clearTimeout(previousTimer)
+
+  button.dataset.copyState = state
+  button.textContent = state === 'success' ? '已复制' : '复制失败'
+  const timer = window.setTimeout(() => {
+    button.textContent = button.dataset.copyLabel || '复制'
+    delete button.dataset.copyState
+    copyFeedbackTimers.delete(button)
+  }, 2200)
+  copyFeedbackTimers.set(button, timer)
 }
 
 async function handleContentClick(event: MouseEvent) {
-  const target = event.target as HTMLElement | null
+  const target = event.target instanceof Element ? event.target : null
   const copyButton = target?.closest<HTMLButtonElement>('[data-copy-code]')
   if (copyButton) {
-    const encoded = copyButton.dataset.copyCode || ''
-    const text = decodeURIComponent(encoded)
     try {
+      const encoded = copyButton.dataset.copyCode || ''
+      const text = decodeURIComponent(encoded)
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable')
       await navigator.clipboard.writeText(text)
+      showCopyFeedback(copyButton, 'success')
       appStore.showSuccess('已复制命令')
     } catch {
+      showCopyFeedback(copyButton, 'error')
       appStore.showError('复制失败，请手动选择命令')
     }
     return
   }
 
   const screenshotCard = target?.closest<HTMLElement>('.tutorial-screenshot-card')
-  const image = screenshotCard?.querySelector<HTMLImageElement>('img')
-  if (!screenshotCard || !image) return
+  if (screenshotCard) openImagePreview(screenshotCard)
+}
+
+function handleContentKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  const target = event.target instanceof Element ? event.target : null
+  const screenshotCard = target?.closest<HTMLElement>('.tutorial-screenshot-card')
+  if (!screenshotCard) return
+  event.preventDefault()
+  openImagePreview(screenshotCard)
+}
+
+function openImagePreview(screenshotCard: HTMLElement) {
+  const image = screenshotCard.querySelector<HTMLImageElement>('img')
+  if (!image) return
+  imagePreviewTrigger = screenshotCard
   imagePreview.value = {
     src: image.currentSrc || image.src,
     alt: image.alt || '教程截图',
     caption: screenshotCard.querySelector('figcaption')?.textContent?.trim() || image.alt || ''
   }
+  nextTick(() => lightboxCloseRef.value?.focus())
 }
 
 function closeImagePreview() {
+  if (!imagePreview.value) return
+  const trigger = imagePreviewTrigger
   imagePreview.value = null
+  imagePreviewTrigger = null
+  nextTick(() => {
+    if (trigger?.isConnected) trigger.focus()
+  })
+}
+
+function clearImagePreview() {
+  imagePreview.value = null
+  imagePreviewTrigger = null
 }
 
 function handleGlobalKeydown(event: KeyboardEvent) {
-  if (event.key === 'Escape') closeImagePreview()
+  if (event.key === 'Escape' && imagePreview.value) {
+    event.preventDefault()
+    closeImagePreview()
+  }
 }
 
 function handleLegacyHashRedirect() {
+  if (!isIndexRoute.value) return
   const target = resolveLegacyHashTarget()
   if (!target || routeSlug.value === target) return
   if (target) {
@@ -392,21 +803,31 @@ function handleLegacyHashRedirect() {
 }
 
 watch(
-  () => [route.hash, routeSlug.value],
-  () => handleLegacyHashRedirect()
+  () => route.hash,
+  async () => {
+    if (isIndexRoute.value) {
+      handleLegacyHashRedirect()
+      return
+    }
+    await nextTick()
+    scrollToRouteHash('auto')
+  }
 )
 
 watch(
   activeSlug,
   async (slug) => {
-    closeImagePreview()
+    mobileDirectoryOpen.value = false
+    clearImagePreview()
     await ensurePage(slug)
     await renderActivePage()
   }
 )
 
-watch(activePage, () => {
-  renderActivePage()
+watch(tutorialCategories, (categories) => {
+  if (selectedCategory.value !== 'all' && !categories.includes(selectedCategory.value)) {
+    selectedCategory.value = 'all'
+  }
 })
 
 onMounted(async () => {
@@ -420,6 +841,8 @@ onMounted(async () => {
 onUnmounted(() => {
   window.removeEventListener('keydown', handleGlobalKeydown)
   observer?.disconnect()
+  copyFeedbackTimers.forEach((timer) => window.clearTimeout(timer))
+  copyFeedbackTimers.clear()
 })
 </script>
 
@@ -443,6 +866,11 @@ onUnmounted(() => {
   padding: 1.25rem clamp(1rem, 2vw, 2rem) 4rem;
 }
 
+.tutorial-main.is-article-route {
+  width: 100%;
+  padding-top: 0.75rem;
+}
+
 .tutorial-overview {
   display: grid;
   grid-template-columns: minmax(0, 1.35fr) minmax(26rem, 0.85fr);
@@ -455,7 +883,9 @@ onUnmounted(() => {
 .tutorial-sidebar,
 .tutorial-main-column,
 .tutorial-empty,
-.tutorial-loading {
+.tutorial-loading,
+.tutorial-detail-state,
+.tutorial-mobile-directory {
   border: 1px solid var(--tutorial-border);
   border-radius: 8px;
   background: var(--tutorial-panel);
@@ -525,7 +955,7 @@ onUnmounted(() => {
   margin: 0;
   max-width: 12em;
   font-family: var(--public-font-display);
-  font-size: clamp(2rem, 5vw, 4.1rem);
+  font-size: 3.8rem;
   font-weight: 400;
   line-height: 0.98;
 }
@@ -576,6 +1006,15 @@ onUnmounted(() => {
   border: 1px solid var(--tutorial-border);
   border-radius: 8px;
   background: rgba(245, 240, 232, 0.82);
+  color: var(--tutorial-text);
+  text-decoration: none;
+  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+}
+
+.beginner-step:hover {
+  border-color: var(--tutorial-border-strong);
+  background: var(--public-accent-soft);
+  transform: translateY(-1px);
 }
 
 .beginner-step span {
@@ -601,6 +1040,41 @@ onUnmounted(() => {
   display: grid;
   grid-template-columns: 18rem minmax(0, 1fr);
   gap: 1rem;
+}
+
+.tutorial-reader--index {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.tutorial-reader--detail {
+  grid-template-columns:
+    clamp(11.25rem, 14vw, 18rem)
+    minmax(0, 1fr)
+    minmax(0, 50rem)
+    clamp(9.5rem, 12vw, 15rem)
+    minmax(0, 1fr);
+  align-items: start;
+  gap: clamp(0.75rem, 1.5vw, 2rem);
+}
+
+.tutorial-reader--detail > .tutorial-sidebar {
+  grid-column: 1;
+}
+
+.tutorial-detail-column {
+  grid-column: 3;
+  width: 100%;
+  min-width: 0;
+  max-width: 50rem;
+  justify-self: center;
+}
+
+.tutorial-reader--detail > .tutorial-toc {
+  grid-column: 4;
+}
+
+.tutorial-mobile-directory {
+  display: none;
 }
 
 .tutorial-sidebar {
@@ -669,6 +1143,16 @@ onUnmounted(() => {
   padding: 1rem;
 }
 
+.tutorial-article {
+  width: 100%;
+  padding: 0 clamp(0.25rem, 1vw, 0.75rem);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
 .tutorial-article-head {
   display: flex;
   justify-content: space-between;
@@ -686,12 +1170,40 @@ onUnmounted(() => {
 .tutorial-article-head h2 {
   margin: 0.2rem 0;
   font-family: var(--public-font-display);
-  font-size: clamp(1.6rem, 3vw, 2.6rem);
+  font-size: 2.35rem;
   font-weight: 400;
+}
+
+.tutorial-article-head h1 {
+  margin: 0.25rem 0 0.45rem;
+  font-family: var(--public-font-display);
+  font-size: 2.25rem;
+  font-weight: 400;
+  line-height: 1.08;
 }
 
 .tutorial-article-head p {
   margin: 0;
+  color: var(--tutorial-muted);
+}
+
+.tutorial-article-head--compact {
+  align-items: flex-start;
+  padding: 0.15rem 0.15rem 0.9rem;
+}
+
+.tutorial-article-head--compact > div {
+  min-width: 0;
+}
+
+.tutorial-article-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 0.75rem;
+}
+
+.tutorial-article-meta span + span {
   color: var(--tutorial-muted);
 }
 
@@ -708,17 +1220,133 @@ onUnmounted(() => {
 
 .tutorial-content-shell {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 12rem;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
   align-items: start;
   margin-top: 1rem;
+}
+
+.tutorial-content-shell > .tutorial-content {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.tutorial-mobile-toc {
+  display: none;
+}
+
+.tutorial-index-controls {
+  display: grid;
+  gap: 0.8rem;
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 8px;
+  background: rgba(245, 240, 232, 0.58);
+}
+
+.tutorial-search {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.tutorial-search span {
+  color: var(--tutorial-muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.tutorial-search input {
+  width: 100%;
+  min-height: 2.65rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--tutorial-border-strong);
+  border-radius: 8px;
+  outline: none;
+  background: #faf9f5;
+  color: var(--tutorial-text);
+}
+
+.tutorial-search input:focus-visible {
+  border-color: var(--public-accent);
+  box-shadow: 0 0 0 3px rgba(204, 120, 92, 0.14);
+}
+
+.tutorial-category-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.tutorial-category-filter button {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.75rem;
+  border: 1px solid var(--tutorial-border-strong);
+  border-radius: 999px;
+  background: #faf9f5;
+  color: var(--tutorial-muted);
+  font-size: 0.86rem;
+}
+
+.tutorial-category-filter button:hover,
+.tutorial-category-filter button.is-active {
+  border-color: rgba(204, 120, 92, 0.42);
+  background: var(--public-accent-soft);
+  color: var(--public-accent-strong);
+}
+
+.tutorial-category-groups {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1.2rem;
+}
+
+.tutorial-category-group > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0 0.15rem;
+}
+
+.tutorial-category-group h3 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.tutorial-category-group > header span {
+  color: var(--tutorial-muted);
+  font-size: 0.78rem;
+}
+
+.tutorial-directory-empty {
+  margin-top: 1rem;
+  padding: 2rem 1rem;
+  border: 1px dashed var(--tutorial-border-strong);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.tutorial-directory-empty p {
+  margin: 0.35rem 0 0.9rem;
+  color: var(--tutorial-muted);
+}
+
+.tutorial-directory-empty button {
+  min-height: 2.25rem;
+  padding: 0.45rem 0.8rem;
+  border: 1px solid var(--tutorial-border-strong);
+  border-radius: 999px;
+  background: #faf9f5;
+  color: var(--public-accent);
 }
 
 .tutorial-directory-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
   gap: 0.8rem;
-  margin-top: 1rem;
+  margin-top: 0.65rem;
 }
 
 .tutorial-directory-card {
@@ -852,6 +1480,18 @@ onUnmounted(() => {
   color: #faf9f5;
 }
 
+.tutorial-content :deep(.copy-command-button[data-copy-state='success']) {
+  border-color: rgba(172, 205, 162, 0.7);
+  background: rgba(172, 205, 162, 0.18);
+  color: #f4f7ed;
+}
+
+.tutorial-content :deep(.copy-command-button[data-copy-state='error']) {
+  border-color: rgba(239, 154, 134, 0.72);
+  background: rgba(239, 154, 134, 0.16);
+  color: #fff1ed;
+}
+
 .tutorial-content :deep(pre) {
   margin: 0;
   overflow-x: auto;
@@ -882,7 +1522,8 @@ onUnmounted(() => {
 
 .tutorial-content :deep(.tutorial-screenshot-card) {
   display: inline-grid;
-  width: min(100%, 48rem);
+  width: fit-content;
+  max-width: 100%;
   margin: 0.75rem 0.5rem 0.75rem 0;
   overflow: hidden;
   border: 1px solid var(--tutorial-border);
@@ -899,9 +1540,16 @@ onUnmounted(() => {
   transform: translateY(-1px);
 }
 
+.tutorial-content :deep(.tutorial-screenshot-card:focus-visible) {
+  outline: 3px solid rgba(204, 120, 92, 0.24);
+  outline-offset: 3px;
+  border-color: var(--public-accent);
+}
+
 .tutorial-content :deep(.tutorial-screenshot-card img) {
   display: block;
-  width: 100%;
+  width: auto;
+  max-width: 100%;
   height: auto;
   object-fit: contain;
   background: #f5f0e8;
@@ -920,7 +1568,7 @@ onUnmounted(() => {
   display: grid;
   place-items: center;
   padding: clamp(1rem, 3vw, 2rem);
-  background: rgba(2, 6, 23, 0.86);
+  background: rgba(20, 20, 19, 0.9);
   backdrop-filter: blur(12px);
 }
 
@@ -937,15 +1585,15 @@ onUnmounted(() => {
   max-width: 100%;
   max-height: min(82vh, calc(100vh - 7rem));
   object-fit: contain;
-  border: 1px solid rgba(226, 232, 240, 0.22);
+  border: 1px solid rgba(250, 249, 245, 0.24);
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.96);
+  background: #181715;
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.48);
 }
 
 .tutorial-image-lightbox figcaption {
   max-width: min(96vw, 76rem);
-  color: rgba(226, 232, 240, 0.86);
+  color: rgba(250, 249, 245, 0.86);
   text-align: center;
   font-size: 0.92rem;
 }
@@ -956,16 +1604,16 @@ onUnmounted(() => {
   right: 1rem;
   min-height: 2.35rem;
   padding: 0.45rem 0.8rem;
-  border: 1px solid rgba(134, 239, 172, 0.36);
+  border: 1px solid rgba(250, 249, 245, 0.32);
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.86);
-  color: #dcfce7;
+  background: rgba(20, 20, 19, 0.88);
+  color: #faf9f5;
   font-weight: 500;
 }
 
 .tutorial-image-lightbox__close:hover {
-  border-color: rgba(134, 239, 172, 0.7);
-  background: rgba(22, 163, 74, 0.18);
+  border-color: rgba(204, 120, 92, 0.8);
+  background: rgba(204, 120, 92, 0.2);
 }
 
 .tutorial-toc {
@@ -1002,6 +1650,104 @@ onUnmounted(() => {
   font-size: 0.8rem;
 }
 
+.tutorial-detail-state {
+  min-height: 16rem;
+  padding: 2rem;
+}
+
+.tutorial-detail-state--loading {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+}
+
+.tutorial-detail-state--loading p,
+.tutorial-detail-state--error p {
+  margin: 0.45rem 0 0;
+  color: var(--tutorial-muted);
+}
+
+.tutorial-detail-state--error > span,
+.tutorial-detail-state--not-found > span {
+  color: var(--public-accent);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.tutorial-detail-state--error h2,
+.tutorial-detail-state--not-found h2 {
+  margin: 0.35rem 0 0;
+  font-family: var(--public-font-display);
+  font-size: 2rem;
+  font-weight: 400;
+}
+
+.tutorial-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.tutorial-state-actions button,
+.tutorial-state-actions a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.35rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid var(--tutorial-border-strong);
+  border-radius: 999px;
+  background: #faf9f5;
+  color: var(--public-accent);
+  font-weight: 500;
+}
+
+.tutorial-article-pagination {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--tutorial-border);
+}
+
+.tutorial-page-link {
+  display: grid;
+  min-width: 0;
+  gap: 0.25rem;
+  padding: 0.85rem;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 8px;
+  background: rgba(245, 240, 232, 0.62);
+  color: var(--tutorial-text);
+}
+
+.tutorial-page-link:hover {
+  border-color: var(--tutorial-border-strong);
+  background: var(--public-accent-soft);
+}
+
+.tutorial-page-link > span {
+  color: var(--tutorial-muted);
+  font-size: 0.75rem;
+}
+
+.tutorial-page-link strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tutorial-page-link--next {
+  text-align: right;
+}
+
+.tutorial-page-link--disabled {
+  opacity: 0.55;
+}
+
 .tutorial-empty,
 .tutorial-loading {
   padding: 2rem;
@@ -1029,28 +1775,176 @@ onUnmounted(() => {
   }
 }
 
+@media (min-width: 1101px) and (max-width: 1360px) {
+  .tutorial-tabs span {
+    display: none;
+  }
+}
+
 @media (max-width: 1100px) {
   .tutorial-overview,
-  .tutorial-reader,
+  .tutorial-reader--detail,
   .tutorial-content-shell {
     grid-template-columns: 1fr;
   }
 
-  .tutorial-sidebar,
+  .tutorial-reader--detail > .tutorial-sidebar,
   .tutorial-toc {
-    position: static;
-    max-height: none;
+    display: none;
   }
 
-  .tutorial-tabs {
+  .tutorial-detail-column {
+    grid-column: 1;
+  }
+
+  .tutorial-mobile-directory {
+    display: block;
+    margin-bottom: 0.75rem;
+    padding: 0.55rem;
+  }
+
+  .tutorial-mobile-directory-toggle {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    width: 100%;
+    min-height: 3.25rem;
+    align-items: center;
+    gap: 0.2rem 0.8rem;
+    padding: 0.55rem 0.65rem;
+    border-radius: 7px;
+    text-align: left;
+    color: var(--tutorial-text);
+  }
+
+  .tutorial-mobile-directory-toggle > span:first-child {
+    grid-column: 1;
+    color: var(--public-accent);
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+
+  .tutorial-mobile-directory-toggle strong {
+    grid-column: 1;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.98rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tutorial-mobile-directory-toggle > span:last-child {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    color: var(--tutorial-muted);
+    font-size: 0.8rem;
+  }
+
+  .tutorial-mobile-directory-toggle:hover,
+  .tutorial-mobile-directory-toggle:focus-visible {
+    background: var(--public-accent-soft);
+  }
+
+  .tutorial-mobile-directory-list {
+    display: grid;
+    gap: 0.4rem;
+    max-height: min(60vh, 28rem);
+    margin-top: 0.45rem;
+    padding-top: 0.45rem;
+    overflow-y: auto;
+    border-top: 1px solid var(--tutorial-border);
+  }
+
+  .tutorial-mobile-directory-list a {
     display: flex;
-    overflow-x: auto;
-    padding-bottom: 0.2rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    min-height: 2.6rem;
+    padding: 0.55rem 0.65rem;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    color: var(--tutorial-muted);
   }
 
-  .tutorial-tabs a {
-    min-width: 10.5rem;
-    padding: 0.48rem 0.62rem;
+  .tutorial-mobile-directory-list a.is-active {
+    border-color: var(--tutorial-border-strong);
+    background: var(--public-accent-soft);
+    color: var(--public-accent-strong);
+  }
+
+  .tutorial-mobile-directory-list strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tutorial-mobile-directory-list span {
+    flex: 0 0 auto;
+    font-size: 0.75rem;
+  }
+
+  .tutorial-mobile-toc {
+    display: block;
+    grid-column: 1;
+    padding: 0.7rem 0.8rem;
+    border: 1px solid var(--tutorial-border);
+    border-radius: 8px;
+    background: rgba(245, 240, 232, 0.62);
+  }
+
+  .tutorial-mobile-toc summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    min-height: 2rem;
+    color: var(--tutorial-text);
+    cursor: pointer;
+    list-style: none;
+    font-weight: 600;
+  }
+
+  .tutorial-mobile-toc summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .tutorial-mobile-toc summary small {
+    color: var(--tutorial-muted);
+    font-size: 0.75rem;
+    font-weight: 400;
+  }
+
+  .tutorial-mobile-toc nav {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 0.55rem;
+    padding-top: 0.55rem;
+    border-top: 1px solid var(--tutorial-border);
+  }
+
+  .tutorial-mobile-toc button {
+    min-height: 2.35rem;
+    padding: 0.45rem 0.5rem;
+    border-radius: 7px;
+    text-align: left;
+    color: var(--tutorial-muted);
+  }
+
+  .tutorial-mobile-toc button:hover,
+  .tutorial-mobile-toc button.is-active {
+    background: var(--public-accent-soft);
+    color: var(--public-accent-strong);
+  }
+
+  .tutorial-mobile-toc .toc-level-3 {
+    padding-left: 1rem;
+    font-size: 0.82rem;
+  }
+
+  .tutorial-content-shell > .tutorial-content {
+    grid-column: 1;
+    grid-row: auto;
   }
 }
 
@@ -1063,36 +1957,41 @@ onUnmounted(() => {
     width: min(100%, 34rem);
   }
 
-  .tutorial-main.is-article-route .tutorial-overview {
-    display: none;
-  }
-
-  .tutorial-main.is-article-route .tutorial-sidebar-title {
-    display: none;
-  }
-
-  .tutorial-main.is-article-route .tutorial-sidebar {
-    padding: 0.55rem;
-  }
-
-  .tutorial-main.is-index-route .beginner-path {
-    display: none;
+  .tutorial-main.is-article-route {
+    padding-top: 0.45rem;
   }
 
   .tutorial-intro h1 {
-    font-size: clamp(1.65rem, 8vw, 2.05rem);
+    font-size: 2rem;
   }
 
   .tutorial-source-notice {
     display: grid;
   }
 
-  .beginner-path {
-    grid-template-columns: 1fr;
+  .tutorial-main.is-index-route .beginner-path {
+    display: none;
+  }
+
+  .beginner-step {
+    min-height: 0;
   }
 
   .tutorial-article-head {
     display: grid;
+  }
+
+  .tutorial-article-head h1,
+  .tutorial-article-head h2 {
+    font-size: 1.75rem;
+  }
+
+  .tutorial-refresh {
+    justify-self: start;
+  }
+
+  .tutorial-mobile-directory-toggle {
+    min-height: 3.5rem;
   }
 
   .tutorial-directory-grid {
@@ -1101,6 +2000,19 @@ onUnmounted(() => {
 
   .tutorial-directory-card {
     min-height: auto;
+  }
+
+  .tutorial-detail-state {
+    min-height: 13rem;
+    padding: 1.4rem 1rem;
+  }
+
+  .tutorial-article-pagination {
+    grid-template-columns: 1fr;
+  }
+
+  .tutorial-page-link--next {
+    text-align: left;
   }
 }
 </style>

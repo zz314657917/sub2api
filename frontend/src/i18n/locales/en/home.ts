@@ -24,6 +24,14 @@ export default {
     heroGatewayConsole: 'API workspace',
     apiEntryLabel: 'API entry',
     apiEntryAriaLabel: 'OpenAI-compatible API entry URL',
+    copyApiEntry: 'Copy URL',
+    apiEntryCopied: 'API URL copied',
+    trustSignalsLabel: 'Integration assurances',
+    trustSignals: {
+      compatible: 'OpenAI-compatible API',
+      routing: 'Unified model routing',
+      traceable: 'Traceable usage and billing'
+    },
     heroStats: {
       endpoint: 'Unified endpoint',
       billing: 'Traceable billing',
@@ -80,7 +88,8 @@ export default {
       kicker: 'Model coverage',
       title: 'Access a broad set of top-tier models',
       highlight: '',
-      description: 'Coding, reasoning, image, and multimodal capabilities can live behind the same entry point and account-pool policy.'
+      description: 'Coding, reasoning, image, and multimodal capabilities can live behind the same entry point and account-pool policy.',
+      viewAll: 'View all models and pricing'
     },
     faq: {
       ariaLabel: 'Frequently asked questions',
@@ -278,6 +287,8 @@ export default {
       linksLabel: 'Footer links',
       terms: 'Terms',
       privacy: 'Privacy Policy',
-      usagePolicy: 'Usage Policy'
+      usagePolicy: 'Usage Policy',
+      supportedRegions: 'Supported Regions',
+      serviceSpecificTerms: 'Service-specific Terms'
     }
   }

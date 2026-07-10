@@ -73,12 +73,7 @@ import { useI18n } from 'vue-i18n'
 import LoginView from '@/views/auth/LoginView.vue'
 import RegisterView from '@/views/auth/RegisterView.vue'
 import { useAppStore } from '@/stores'
-import type { LoginAgreementDocument } from '@/types'
-
-type AgreementDocumentLink = {
-  documentId: string
-  title: string
-}
+import { toLegalDocumentLink, type LegalDocumentLink } from '@/utils/legalDocuments'
 
 const props = withDefaults(defineProps<{
   initialMode?: 'login' | 'register'
@@ -99,7 +94,7 @@ const panelSubtitle = computed(() =>
   activeMode.value === 'login' ? t('auth.accessLoginSubtitle') : t('auth.accessRegisterSubtitle')
 )
 const agreementDocumentLinks = computed(() =>
-  buildAgreementDocumentLinks(appStore.cachedPublicSettings?.login_agreement_documents ?? [])
+  buildAgreementDocumentLinks()
 )
 
 watch(
@@ -109,21 +104,17 @@ watch(
   }
 )
 
-function toAgreementDocumentLink(doc: LoginAgreementDocument): AgreementDocumentLink | null {
-  const title = doc.title?.trim()
-  const documentId = (doc.id || title || '').trim()
-
-  if (!title || !documentId) {
-    return null
+function buildAgreementDocumentLinks(): LegalDocumentLink[] {
+  const titleFallbacks = {
+    terms: t('home.footer.terms'),
+    privacy: t('home.footer.privacy'),
+    'usage-policy': t('home.footer.usagePolicy'),
+    'supported-regions': t('home.footer.supportedRegions'),
+    'service-specific-terms': t('home.footer.serviceSpecificTerms')
   }
-
-  return { documentId, title }
-}
-
-function buildAgreementDocumentLinks(docs: LoginAgreementDocument[]): AgreementDocumentLink[] {
-  const links = docs
-    .map(toAgreementDocumentLink)
-    .filter((doc): doc is AgreementDocumentLink => doc !== null)
+  const links = (appStore.cachedPublicSettings?.login_agreement_documents ?? [])
+    .map(doc => toLegalDocumentLink(doc, titleFallbacks))
+    .filter((doc): doc is LegalDocumentLink => doc !== null)
 
   if (links.length <= 2) {
     return links
@@ -132,7 +123,7 @@ function buildAgreementDocumentLinks(docs: LoginAgreementDocument[]): AgreementD
   const preferred = [
     links.find(isTermsDocument),
     links.find(isPolicyDocument)
-  ].filter((doc): doc is AgreementDocumentLink => doc !== undefined)
+  ].filter((doc): doc is LegalDocumentLink => doc !== undefined)
 
   const unique = preferred.filter(
     (doc, index, list) => list.findIndex((item) => item.documentId === doc.documentId) === index
@@ -141,15 +132,16 @@ function buildAgreementDocumentLinks(docs: LoginAgreementDocument[]): AgreementD
   return unique.length > 0 ? unique : links.slice(0, 2)
 }
 
-function isTermsDocument(doc: AgreementDocumentLink): boolean {
+function isTermsDocument(doc: LegalDocumentLink): boolean {
   const normalized = `${doc.documentId} ${doc.title}`.toLowerCase()
   return normalized.includes('terms')
 }
 
-function isPolicyDocument(doc: AgreementDocumentLink): boolean {
+function isPolicyDocument(doc: LegalDocumentLink): boolean {
   const normalized = `${doc.documentId} ${doc.title}`.toLowerCase()
   return normalized.includes('privacy') || normalized.includes('policy') || normalized.includes('usage')
 }
+
 </script>
 
 <style scoped>

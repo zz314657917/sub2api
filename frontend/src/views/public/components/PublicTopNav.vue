@@ -31,6 +31,10 @@
       <div class="public-nav-actions">
         <LocaleSwitcher class="public-locale-switcher" />
 
+        <router-link v-if="!isAuthenticated" to="/login" class="public-auth-button public-login-button">
+          <span>{{ t('home.login') }}</span>
+        </router-link>
+
         <router-link v-if="showDashboardButton" :to="dashboardPath" class="public-auth-button">
           <span>{{ t('home.goToDashboard') }}</span>
           <Icon name="arrowRight" size="xs" aria-hidden="true" />
@@ -382,8 +386,16 @@ function isNavItemActive(item: { activePaths: string[] }): boolean {
   }
 
   .public-auth-button {
-    min-height: 2.2rem;
+    min-height: 2.5rem;
     padding: 0.3rem 0.68rem;
+  }
+
+  .public-mobile-nav .public-nav-link {
+    min-height: 2.5rem;
+  }
+
+  .public-login-button {
+    padding-inline: 0.62rem;
   }
 
 }

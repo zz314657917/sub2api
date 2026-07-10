@@ -24,6 +24,14 @@ export default {
     heroGatewayConsole: 'API 工作台',
     apiEntryLabel: 'API 入口',
     apiEntryAriaLabel: '兼容 OpenAI 的 API 入口网址',
+    copyApiEntry: '复制地址',
+    apiEntryCopied: 'API 地址已复制',
+    trustSignalsLabel: '接入保障',
+    trustSignals: {
+      compatible: '兼容 OpenAI 接口',
+      routing: '多模型统一路由',
+      traceable: '用量与账单可查'
+    },
     heroStats: {
       endpoint: '统一端点',
       billing: '账单可追踪',
@@ -80,7 +88,8 @@ export default {
       kicker: '模型接入范围',
       title: '提供众多顶级优质大模型',
       highlight: '',
-      description: '从编码、推理到图像和多模态能力，统一放进同一个入口和账号池策略里。'
+      description: '从编码、推理到图像和多模态能力，统一放进同一个入口和账号池策略里。',
+      viewAll: '查看全部模型与价格'
     },
     faq: {
       ariaLabel: '常见问题解答',
@@ -278,6 +287,8 @@ export default {
       linksLabel: '页脚链接',
       terms: '服务条款',
       privacy: '隐私政策',
-      usagePolicy: '使用政策'
+      usagePolicy: '使用政策',
+      supportedRegions: '支持地区',
+      serviceSpecificTerms: '特定服务条款'
     }
   }

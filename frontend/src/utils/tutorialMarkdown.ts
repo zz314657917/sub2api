@@ -1,4 +1,4 @@
-import { marked } from 'marked'
+import { marked, Renderer } from 'marked'
 import DOMPurify from 'dompurify'
 
 export interface TutorialTocItem {
@@ -25,6 +25,27 @@ function escapeHtml(value: string): string {
     .replace(/'/g, '&#39;')
 }
 
+function normalizeCodeLanguage(value: string): string {
+  return value.trim().split(/\s+/, 1)[0] || 'text'
+}
+
+function renderCodeBlock(code: string, rawLanguage = '', title = ''): string {
+  const language = normalizeCodeLanguage(rawLanguage)
+  const escapedLanguage = escapeHtml(language)
+  const escapedTitle = escapeHtml(title.trim())
+  const titleMarkup = escapedTitle
+    ? `<span class="command-block-title">${escapedTitle}</span><span class="command-block-label-separator" aria-hidden="true"> · </span>`
+    : ''
+
+  return `<div class="tutorial-command-block command-block"><div class="command-block-header"><span class="command-block-label">${titleMarkup}<span class="command-block-language">${escapedLanguage}</span></span><button type="button" class="copy-command-button" data-copy-code="${encodeURIComponent(code)}">复制</button></div><pre><code class="language-${escapedLanguage}">${escapeHtml(code)}</code></pre></div>`
+}
+
+function parseMarkdown(markdown: string): string {
+  const renderer = new Renderer()
+  renderer.code = ({ text, lang }) => renderCodeBlock(text, lang || '')
+  return marked.parse(markdown, { renderer }) as string
+}
+
 function parseAttributes(raw: string): Record<string, string> {
   const attrs: Record<string, string> = {}
   const attrRe = /([a-zA-Z0-9_-]+)="([^"]*)"/g
@@ -48,13 +69,8 @@ function renderShortcodes(markdown: string): string {
     /\[\[command([^\]]*)\]\]([\s\S]*?)\[\[\/command\]\]/g,
     (_match, rawAttrs: string, body: string) => {
       const attrs = parseAttributes(rawAttrs)
-      const title = escapeHtml(attrs.title || '命令')
-      const lang = escapeHtml(attrs.lang || '')
-      const code = escapeHtml(body.replace(/^\n|\n$/g, ''))
-      const codeClass = lang ? ` class="language-${lang}"` : ''
-      return preserveBlock(
-        `<div class="tutorial-command-block command-block"><div class="command-block-header"><span>${title}</span><button type="button" class="copy-command-button" data-copy-code="${encodeURIComponent(body.replace(/^\n|\n$/g, ''))}">复制</button></div><pre><code${codeClass}>${code}</code></pre></div>`
-      )
+      const code = body.replace(/^\n|\n$/g, '')
+      return preserveBlock(renderCodeBlock(code, attrs.lang || '', attrs.title || '命令'))
     }
   )
 
@@ -64,7 +80,7 @@ function renderShortcodes(markdown: string): string {
       const attrs = parseAttributes(rawAttrs)
       const type = escapeHtml(attrs.type || 'tip')
       const title = escapeHtml(attrs.title || '提示')
-      const content = marked.parse(body.trim()) as string
+      const content = parseMarkdown(body.trim())
       return preserveBlock(`<div class="tutorial-callout tutorial-callout-${type}"><strong>${title}</strong>${content}</div>`)
     }
   )
@@ -105,7 +121,7 @@ function generateHeadingId(text: string, index: number): string {
 }
 
 export function renderTutorialMarkdown(markdown: string, options: TutorialRenderOptions = {}): TutorialRenderResult {
-  const rendered = marked.parse(renderShortcodes(markdown || '')) as string
+  const rendered = parseMarkdown(renderShortcodes(markdown || ''))
   const sanitized = DOMPurify.sanitize(rendered, {
     ADD_ATTR: ['target', 'rel', 'loading', 'data-copy-code']
   })

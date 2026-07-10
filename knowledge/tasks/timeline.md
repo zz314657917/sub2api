@@ -489,3 +489,26 @@
 - 关键决策：仍不碰 Ent、migrations、VERSION、Studio/Canvas/支付/公共页；OpenAI image failover、Anthropic cooldown、account list parameter batching、token refresh retry amplification/outbox dedup、OpenAI quota UI、cyber_policy、channel monitor jitter、Claude OAuth system prompt blocks 继续拆成后续独立 Sprint。
 - 验证记录：S16 service/handler/middleware 定向测试通过，S15+S16 宽 service/repository/apicompat 测试通过，`git diff --check` 通过，denied-path audit 为 `NO_DENIED_PATHS`，lockfile scan 为 `NO_FORM_DATA_405`。
 - 证据入口：`docs/workflow/tasks/upstream-main-v0137-small-compat-s16.md`、`docs/workflow/worker-results/upstream-main-v0137-small-compat-s16-result.md`、`docs/workflow/qa-reports/upstream-main-v0137-small-compat-s16-qa.md`。
+
+## 2026-07-11 01:29 +08:00 - 公共教程与模型广场 S60-S62 完成
+
+- 当前阶段：P/G/E `tutorial-reading-flow-s60`、`tutorial-markdown-interactions-s61`、`model-discovery-ux-s62` 已完成并通过独立 QA。
+- 本段重点：把教程从重复总览卡片页收口为可搜索索引 + 连续阅读详情；补 hash 深链、移动目录、篇间导航、普通代码复制、lightbox 焦点与截图自然尺寸；模型广场补行级搜索、价格语义、移动长表展开和 stale refresh。
+- 多智能体：三个开发 worker 分别负责 TutorialView、tutorialMarkdown、ModelPlazaView，独立 QA Worker 运行 29 项测试、typecheck、production build 与 diff 审计；主 Codex 完成三视口浏览器几何验收和最终裁决。
+- 关键决策：移动教程索引保留主 CTA、隐藏与目录重复的四张路线卡；模型比较器不纳入 S62；共享 `public-pages.spec.ts` 只补批 S60 对应断言，不覆盖既有 S58/S59 dirty 内容。
+- 验证记录：5 files / 29 tests、`npm.cmd run typecheck`、`npm.cmd run build`、`git diff --check` 均通过；`1280x720`、`1024x768`、`390x844` 教程/模型页面无横向溢出，截图与 QA 证据见 `docs/workflow/qa-reports/public-learning-model-discovery-s60-s62-qa.md`。
+
+## 2026-07-11 02:16 +08:00 - 教程三栏与模型扁平工具栏 S63 完成
+
+- 当前阶段：P/G/E `public-docs-layout-toolbar-s63` 已完成并进入 `done`。
+- 本段重点：教程详情从“左目录 + 正文内嵌 TOC”改为左右导航贴近页面两侧、中间保留 800px 干净正文；模型广场把搜索、分类和结果统计从嵌套面板改成两层扁平工具栏。
+- 多智能体：Tutorial worker 与 Model worker 按互斥 ownership 实现；主 Codex 审 diff、同步公共静态断言、执行统一测试/构建和五个视口截图验收。
+- 关键决策：宽屏保留左右 sticky 导航，中等桌面隐藏左目录次要分类标签，`<=1100px` 保留移动折叠交互；结果数量是筛选状态说明，不作为第三个控件。
+- 验证记录：4 files / 26 tests、typecheck、production build、`git diff --check` PASS；教程 `2560x900` / `1280x720` / `390x844` 与模型 `1280x720` / `390x844` 无横向溢出，QA 见 `docs/workflow/qa-reports/public-docs-layout-toolbar-s63-qa.md`。
+
+## 2026-07-11 02:32 +08:00 - 本页目录贴近正文 S64 完成
+
+- 当前阶段：P/G/E `tutorial-toc-content-adjacency-s64` 已完成并进入 `done`。
+- 本段重点：保留左教程目录贴边和正文居中，将右侧本页目录从视口最右侧移动到正文右侧邻接位置。
+- 关键决策：不改 DOM、正文宽度和移动断点；通过五列 grid 的前后弹性列保持正文位置，同时把 TOC 固定在正文后一列。
+- 验证记录：3 files / 21 tests、typecheck、`git diff --check` PASS；`2560px` 正文到 TOC `32px`，`1280px` 为 `19px`，`390px` 移动交互与无溢出检查 PASS。

@@ -1,18 +1,33 @@
 ---
-phase: in_progress
-current_sprint: frontend-warm-theme-home-auth-and-user-surface-followup
-total_sprints: 56
-pending_action: fold 2026-07-08 frontend/home/leaderboard/shared-account changes into next planned sprint
+phase: done
+current_sprint: tutorial-toc-content-adjacency-s64
+total_sprints: 64
+pending_action: scoped review and optional commit or local container update
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-09 00:00 +08:00
+last_verified: 2026-07-11 02:32 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`in_progress`
-- 当前 Sprint：`frontend-warm-theme-home-auth-and-user-surface-followup`
+- 当前阶段：`done`
+- 当前 Sprint：`tutorial-toc-content-adjacency-s64`。
+- 当前 contract：`docs/workflow/tasks/tutorial-toc-content-adjacency-s64.md`，只把桌面本页目录从视口右侧移到正文右侧邻接位置。
+- S64 已完成：`2560px` 正文到 TOC 间距 `32px`，`1280px` 间距 `19px`；正文保持 `800px`，移动目录/TOC 无回归。
+- S64 验证：3 files / 21 tests、typecheck、`git diff --check` 与 `2560x900` / `1280x720` / `390x844` 截图验收 PASS，证据见 `docs/workflow/qa-reports/tutorial-toc-content-adjacency-s64-qa.md`。
+- 当前 contract：`docs/workflow/tasks/public-docs-layout-toolbar-s63.md`，只调整教程详情三栏和模型工具栏视觉层级。
+- S63 已完成：教程详情为左目录/中正文/右 TOC 三个同级列，宽屏正文 `800px` 且文章无整卡背景；模型搜索独占一行，分类与数量统计同一条扁平行。
+- S63 验证：4 files / 26 tests、typecheck、production build、`git diff --check` 全部 PASS；`2560x900`、`1280x720`、`390x844` 浏览器几何与截图验收 PASS，证据见 `docs/workflow/qa-reports/public-docs-layout-toolbar-s63-qa.md`。
+- 已批准 contract：`docs/workflow/tasks/tutorial-reading-flow-s60.md`、`tutorial-markdown-interactions-s61.md`、`model-discovery-ux-s62.md`。
+- 多智能体偏差记录：当前 runtime 未暴露 Agent Matrix 指定的 `deepseek-v4-pro`；本轮按用户明确授权使用可用的继承模型 worker，Final Evaluator 仍由主 Codex 执行。
+- S60-S62 实现与 Evaluator 退修已完成；主线程合并验证为 5 files / 29 tests、`vue-tsc --noEmit`、`git diff --check` 全部通过。
+- 首轮独立 QA 唯一 FAIL 为 S60 contract 漏列共享 `public-pages.spec.ts`；Planner 已补批仅同步 S60 文案/行为断言的窄范围，业务实现无需回滚。
+- 独立 QA 重跑 PASS：5 files / 29 tests、typecheck、production build、`git diff --check` 全部通过；`1280x720`、`1024x768`、`390x844` 浏览器门禁通过，证据见 `docs/workflow/qa-reports/public-learning-model-discovery-s60-s62-qa.md`。
+- 当前 contract：`docs/workflow/tasks/home-reveal-background-cover-s59.md`，只允许修正 reveal 背景缩放/定位和对应测试。
+- S59 已完成：hero 背景改为容器级 `cover`，桌面保留低对比度全幅背景与局部 reveal，触屏、窄屏和 reduced-motion 使用静态背景；定向 Vitest 2 files / 29 tests、生产构建、三个视口 Chrome 验收与 `git diff --check` 均通过，QA 证据见 `docs/workflow/qa-reports/home-reveal-background-cover-s59-qa.md`。
+- 当前 contract：`docs/workflow/tasks/home-conversion-accessibility-s58.md`，已完成 Planner/Evaluator 边界复核；允许进入前端实现，不允许修改数据库协议数据、后端或部署配置。
+- S58 已完成：定向 Vitest 5 files / 43 tests、生产构建、桌面/移动 Chrome 验收与 `git diff --check` 均通过；QA 证据见 `docs/workflow/qa-reports/home-conversion-accessibility-s58-qa.md`。
 - 当前目标：把 2026-07-08 的暖白/陶土/黑灰全前端统一、首页内嵌登录注册、排行榜增强、共享账号渠道状态可见性和首充福利 only 语义，收口成新的默认产品入口与验收基线。
 - 当前结论：`640b9341d`、`7a457f25d`、`71dad20f9`、`ebc477720`、`eaf8dba78` 已把默认续做入口从 S53 推送收尾，前移到用户可见前端/支付/共享账号设置面；旧的 `upstream-main-v0144-safe-patches-s53` 结果仍成立，但已退成稳定背景层。
 - 当前默认续做提示：如果用户说“继续”，优先按“首页认证入口 + 暖白控制台/公共页 + leaderboard 新语义 + shared account channel status visibility + first-time recharge bonus”这条链路判断，而不是默认回到 S53 推送或纯上游 patch 语境。

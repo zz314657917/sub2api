@@ -1,14 +1,62 @@
 # 当前任务快照
 
-最后更新：2026-07-08 01:22 +08:00
+最后更新：2026-07-11 02:32 +08:00
 
 ## 背景
 
 - 仓库：`F:/mcplugins/sub2api`。
-- 当前任务：执行“Sub2API 全前端统一暖白 / 陶土 / 黑灰风格 + 首页内嵌登录注册多智能体计划”。
+- 当前任务：完成 S58-S63 首页、教程阅读布局、Markdown 交互与模型发现体验优化；保留后续协议原始数据修复与本地容器更新边界。
 - 目标：保留当前 MiMo/Xiaomi 首页方向和鼠标 reveal 效果，在首页右侧内嵌注册/登录卡片；同时把公共页、认证页、基础控制台 token、setup/key usage/404 收口到暖白、陶土、黑灰极简风格。
-- 多智能体：主 Codex 执行集成与验证；子智能体 `019f3b25-8bc8-7d61-9c03-c7f49a755f37` 只读复核 `/models`、`/setup` 和旧色残留，未修改文件。
+- 多智能体：S60-S63 由主 Codex 负责 Planner/Final Evaluator；教程、Markdown、模型和 S63 布局 worker 分域实现，统一执行测试/typecheck/build/diff 与浏览器门禁；runtime 未暴露 Agent Matrix 指定的 `deepseek-v4-pro`，本轮按用户明确授权使用可用继承模型并记录偏差。
 - 明确边界：未 stage、未提交、未回滚 unrelated dirty files；仍需提交时必须 scoped staging，不能 `git add .`。
+
+## 2026-07-11 S64 本页目录贴近正文
+
+- 宽屏教程 grid 增加正文前后弹性列，左教程目录继续贴近页面左边，正文仍保持居中和 `800px` 宽度。
+- 右侧本页目录改为正文后的邻接列；`2560x900` 正文到 TOC 为 `32px`，`1280x720` 为 `19px`。
+- `<=1100px` 显式把正文重置到第一列，桌面 TOC 隐藏，移动目录与移动 TOC 保持原行为。
+- 验证：3 files / 21 tests、typecheck、`git diff --check` 与三个视口截图 PASS。
+- QA：`docs/workflow/qa-reports/tutorial-toc-content-adjacency-s64-qa.md`；当前预览仍为 `http://127.0.0.1:62087/tutorial/getting-started`。
+
+## 2026-07-11 S63 教程三栏与模型工具栏收口
+
+- 教程详情在宽屏使用左教程目录、中间 `50rem` 正文、右本页目录三个同级列；`2560x900` 左右目录距视口边缘均为 `32px`，正文 `800px`。
+- 正文整体去掉卡片背景、边框与阴影；局部 callout、代码块和截图继续保留必要边界。
+- `1101-1360px` 隐藏左目录的次要分类标签，避免 1280 桌面截断；`<=1100px` 继续使用移动目录和移动 TOC。
+- 模型搜索独占第一行；分类 tabs 与“共 N 个型号/规格，来自 M 个分组”同一条扁平 filter row；toolbar/tabs 不再使用嵌套面板。
+- 验证：4 files / 26 tests、typecheck、production build、`git diff --check` PASS；`2560x900`、`1280x720`、`390x844` 截图与几何验收 PASS。
+- QA：`docs/workflow/qa-reports/public-docs-layout-toolbar-s63-qa.md`；截图位于 `output/playwright/*-s63-*.png`。
+- 当前预览继续为 `http://127.0.0.1:62087/tutorial/getting-started`、`http://127.0.0.1:62087/models`；本轮未更新 `62080` 容器。
+
+## 2026-07-11 S60-S62 教程与模型发现体验优化
+
+- 教程索引保留品牌总览并新增搜索、分类分组；移动端隐藏重复的四张路线卡但保留新手 CTA，搜索进入 `390x844` 首屏。
+- 教程详情不再重复大 Hero，桌面使用 sticky 目录，平板/移动使用当前教程折叠目录；本页 TOC 位于正文前，hash 深链、篇间进度、上一篇/下一篇可用。
+- 详情 loading/error/404 分离；普通 fenced code 与 `[[command]]` 统一复制结构并提供局部反馈；lightbox 支持键盘与焦点恢复；低分辨率截图不再被放大。
+- 模型广场改为行级搜索与分类组合，增加结果数量、价格分组/`✪` 说明、教程入口和刷新失败保留旧目录；移动长表默认 6 行并可展开/收起，无不可发现的内滚动。
+- 验证：独立 QA 5 files / 29 tests、typecheck、production build、`git diff --check` 全部通过；Browser `1280x720`、`1024x768`、`390x844` 验收通过。
+- QA：`docs/workflow/qa-reports/public-learning-model-discovery-s60-s62-qa.md`；截图位于 `output/playwright/tutorial-s60-*.png` 与 `models-s62-*.png`。
+- 当前预览：`http://127.0.0.1:62087/tutorial`、`/models`，代理 `http://127.0.0.1:62080`；本轮未更新 `62080` 容器。
+
+## 2026-07-10 S59 首页 reveal 背景覆盖修复
+
+- 根因：hero 背景存在 `2048px` 最大宽度且只按宽度缩放，移动端另有固定 `18rem` 高度、`48rem` 背景宽度和顶部偏移；canvas mask 全不透明时还会让未揭示区域看起来像背景缺失。
+- 修复：hero 图片层统一使用 `inset: 0`、`height: 100%`、`background-position: center center` 和 `background-size: cover`。
+- 桌面精细指针继续保留 canvas reveal，基础遮罩透明度改为 `0.88`，整幅背景低对比度可见；触屏、窄屏和 reduced-motion 禁用动态 mask，静态背景透明度为 `0.12`。
+- 验证：`home-theme public-pages` 共 2 files / 29 tests 通过；`npm.cmd run build` 通过；`2560x900`、`1366x768`、`390x844` Chrome 验收均无空带或横向溢出；`git diff --check` 通过。
+- QA：`docs/workflow/qa-reports/home-reveal-background-cover-s59-qa.md`；截图位于 `output/playwright/home-s59-*-final.png`。
+- 当前预览继续保留：`http://127.0.0.1:62087/home`，代理 `http://127.0.0.1:62080`；本轮未更新 `62080` 容器。
+
+## 2026-07-10 S58 首页转化与可访问性收口
+
+- 首页未登录主 CTA 改为原地展开、滚动并聚焦内嵌认证面板；移动 `/home` 初始折叠完整表单，`/login`、`/register` 仍直接显示对应表单。
+- API 入口改为可复制控件，提供复制状态与 toast；首页增加“兼容 OpenAI 接口 / 多模型统一路由 / 用量与账单可查”可信信息。
+- 公共顶栏恢复明确登录入口，移动触控高度提升；模型展示补“查看全部模型与价格”入口。
+- 协议标题为 `????` / Unicode replacement character 时，首页页脚和认证面板按 document id 使用本地化回退标题；数据库原始标题未修改。
+- FAQ 补 `aria-controls` / answer `id`，轮换营销副标题移除 `aria-live`。
+- 验证：`home-theme public-pages public-smoke auth-theme legalDocuments` 共 5 files / 43 tests 通过；`npm.cmd run build` 通过；桌面 `1440x1000`、移动 `390x844` Chrome 验收通过且无横向溢出。
+- 当前预览：`http://127.0.0.1:62087/home`，代理 `http://127.0.0.1:62080`；本轮未更新 `62080` 容器。
+- 截图：`output/playwright/home-s58-desktop.png`、`home-s58-mobile-initial.png`、`home-s58-mobile-expanded.png`。
 
 ## 本轮已完成
 

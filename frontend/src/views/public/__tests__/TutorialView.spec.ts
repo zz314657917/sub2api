@@ -1,0 +1,293 @@
+import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
+import { defineComponent, nextTick } from 'vue'
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { TutorialPage, TutorialPageSummary } from '@/types'
+import TutorialView from '../TutorialView.vue'
+
+const { getBySlugMock, listMock, showErrorMock, showSuccessMock } = vi.hoisted(() => ({
+  getBySlugMock: vi.fn(),
+  listMock: vi.fn(),
+  showErrorMock: vi.fn(),
+  showSuccessMock: vi.fn(),
+}))
+
+vi.mock('@/api/tutorials', () => ({
+  default: {
+    getBySlug: getBySlugMock,
+    list: listMock,
+  },
+}))
+
+vi.mock('@/stores/app', () => ({
+  useAppStore: () => ({
+    showError: showErrorMock,
+    showSuccess: showSuccessMock,
+  }),
+}))
+
+const timestamp = '2026-07-10T00:00:00Z'
+const tutorialPages: TutorialPage[] = [
+  {
+    id: 1,
+    slug: 'getting-started',
+    title: '快速开始',
+    description: '完成第一次 API 接入。',
+    category: '入门',
+    sort_order: 10,
+    status: 'published',
+    created_at: timestamp,
+    updated_at: timestamp,
+    published_at: timestamp,
+    content_md: `
+# 快速开始
+
+这是第一段正文，直达详情时应立即可见。
+
+## 安装
+
+先完成安装。
+
+\`\`\`bash
+echo plain
+\`\`\`
+
+[[command title="短代码命令"]]
+echo shortcode
+[[/command]]
+
+## 验证
+
+[[screenshot src="/tutorial/example.png" alt="示例截图" caption="验证界面"]]
+`.trim(),
+  },
+  {
+    id: 2,
+    slug: 'advanced',
+    title: '进阶配置',
+    description: '继续配置高级工具。',
+    category: '工具配置',
+    sort_order: 20,
+    status: 'published',
+    created_at: timestamp,
+    updated_at: timestamp,
+    published_at: timestamp,
+    content_md: '# 进阶配置\n\n进阶正文。\n\n## 调整\n\n完成调整。',
+  },
+]
+
+const summaries: TutorialPageSummary[] = tutorialPages.map(({ content_md: _content, ...page }) => page)
+const mountedWrappers: VueWrapper[] = []
+const scrollIntoViewMock = vi.fn()
+const originalScrollIntoView = HTMLElement.prototype.scrollIntoView
+
+class IntersectionObserverMock {
+  observe = vi.fn()
+  disconnect = vi.fn()
+  unobserve = vi.fn()
+}
+
+function createTutorialRouter(): Router {
+  const routeComponent = defineComponent({ template: '<div />' })
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/tutorial', name: 'Tutorial', component: routeComponent },
+      { path: '/tutorial/:slug', name: 'TutorialPage', component: routeComponent },
+      { path: '/models', name: 'Models', component: routeComponent },
+    ],
+  })
+}
+
+async function mountTutorial(path: string) {
+  const router = createTutorialRouter()
+  await router.push(path)
+  await router.isReady()
+  const wrapper = mount(TutorialView, {
+    attachTo: document.body,
+    global: {
+      plugins: [router],
+      stubs: {
+        PublicRevealBackdrop: true,
+        PublicTopNav: true,
+      },
+    },
+  })
+  mountedWrappers.push(wrapper)
+  await flushPromises()
+  await nextTick()
+  return { router, wrapper }
+}
+
+function errorWithStatus(status: number, message: string) {
+  return Object.assign(new Error(message), {
+    response: { status, data: { message } },
+  })
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  listMock.mockResolvedValue(summaries)
+  getBySlugMock.mockImplementation(async (slug: string) => {
+    const page = tutorialPages.find((item) => item.slug === slug)
+    if (!page) throw errorWithStatus(404, '教程不存在')
+    return page
+  })
+  Object.defineProperty(window, 'IntersectionObserver', {
+    configurable: true,
+    value: IntersectionObserverMock,
+  })
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: function scrollIntoView(options?: ScrollIntoViewOptions) {
+      scrollIntoViewMock(this.id, options)
+    },
+  })
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText: vi.fn().mockResolvedValue(undefined) },
+  })
+})
+
+afterEach(() => {
+  mountedWrappers.splice(0).forEach((wrapper) => wrapper.unmount())
+  document.body.innerHTML = ''
+  Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
+    configurable: true,
+    value: originalScrollIntoView,
+  })
+})
+
+describe('TutorialView reading flow', () => {
+  it('keeps overview, recommended routes, search, and category groups on the index only', async () => {
+    const { wrapper } = await mountTutorial('/tutorial')
+
+    expect(wrapper.find('.tutorial-overview').exists()).toBe(true)
+    expect(wrapper.findAll('.beginner-step')).toHaveLength(2)
+    expect(wrapper.find('.tutorial-index-controls').exists()).toBe(true)
+    expect(wrapper.findAll('.tutorial-category-group')).toHaveLength(2)
+    expect(wrapper.find('.tutorial-article').exists()).toBe(false)
+
+    await wrapper.find('input[type="search"]').setValue('进阶')
+
+    const cards = wrapper.findAll('.tutorial-directory-card')
+    expect(cards).toHaveLength(1)
+    expect(cards[0].text()).toContain('进阶配置')
+  })
+
+  it('opens detail without the index hero and keeps progress, mobile directory, toc, and hash history in sync', async () => {
+    const { router, wrapper } = await mountTutorial('/tutorial/getting-started#安装-0')
+
+    expect(wrapper.find('.tutorial-overview').exists()).toBe(false)
+    expect(wrapper.find('.tutorial-article h1').text()).toBe('快速开始')
+    expect(wrapper.find('.tutorial-article-head').text()).toContain('第 1 篇，共 2 篇')
+    expect(wrapper.find('.tutorial-content').text()).toContain('这是第一段正文')
+    expect(wrapper.find('.tutorial-sidebar').exists()).toBe(true)
+    expect(wrapper.find('.tutorial-reader--detail > .tutorial-sidebar').exists()).toBe(true)
+    expect(wrapper.find('.tutorial-reader--detail > .tutorial-detail-column').exists()).toBe(true)
+    expect(wrapper.find('.tutorial-reader--detail > .tutorial-toc').exists()).toBe(true)
+    expect(wrapper.find('.tutorial-content-shell > .tutorial-toc').exists()).toBe(false)
+    expect(wrapper.find('.tutorial-mobile-directory-toggle').text()).toContain('快速开始')
+    expect(wrapper.find('.tutorial-mobile-toc').element.nextElementSibling).toBe(
+      wrapper.find('.tutorial-content').element
+    )
+    expect(wrapper.find('.tutorial-page-link--next').text()).toContain('进阶配置')
+    expect(scrollIntoViewMock).toHaveBeenCalledWith('安装-0', { behavior: 'auto', block: 'start' })
+
+    const directoryToggle = wrapper.find('.tutorial-mobile-directory-toggle')
+    expect(directoryToggle.attributes('aria-expanded')).toBe('false')
+    await directoryToggle.trigger('click')
+    expect(directoryToggle.attributes('aria-expanded')).toBe('true')
+    expect(wrapper.find('#tutorial-mobile-directory-list').isVisible()).toBe(true)
+
+    const desktopTocButtons = wrapper.findAll('.tutorial-toc button')
+    await desktopTocButtons[1].trigger('click')
+    await flushPromises()
+    expect(router.currentRoute.value.hash).toBe('#验证-1')
+
+    scrollIntoViewMock.mockClear()
+    router.back()
+    await flushPromises()
+    await nextTick()
+    expect(router.currentRoute.value.hash).toBe('#安装-0')
+    expect(scrollIntoViewMock).toHaveBeenCalledWith('安装-0', { behavior: 'auto', block: 'start' })
+  })
+
+  it('separates detail loading, retryable error, and 404 states', async () => {
+    let resolvePage: ((page: TutorialPage) => void) | undefined
+    getBySlugMock.mockImplementationOnce(
+      () =>
+        new Promise<TutorialPage>((resolve) => {
+          resolvePage = resolve
+        })
+    )
+
+    const loadingMount = await mountTutorial('/tutorial/getting-started')
+    expect(loadingMount.wrapper.find('.tutorial-detail-state--loading').exists()).toBe(true)
+    resolvePage?.(tutorialPages[0])
+    await flushPromises()
+    await nextTick()
+    expect(loadingMount.wrapper.find('.tutorial-article').exists()).toBe(true)
+    loadingMount.wrapper.unmount()
+
+    getBySlugMock
+      .mockRejectedValueOnce(errorWithStatus(503, '服务暂不可用'))
+      .mockResolvedValueOnce(tutorialPages[0])
+    const errorMount = await mountTutorial('/tutorial/getting-started')
+    expect(errorMount.wrapper.find('.tutorial-detail-state--error').text()).toContain('服务暂不可用')
+    expect(errorMount.wrapper.find('.tutorial-detail-state--not-found').exists()).toBe(false)
+    await errorMount.wrapper.find('.tutorial-state-actions button').trigger('click')
+    await flushPromises()
+    expect(errorMount.wrapper.find('.tutorial-article').exists()).toBe(true)
+    errorMount.wrapper.unmount()
+
+    getBySlugMock.mockRejectedValueOnce(errorWithStatus(404, '教程不存在'))
+    const missingMount = await mountTutorial('/tutorial/missing')
+    expect(missingMount.wrapper.find('.tutorial-detail-state--not-found').text()).toContain('教程不存在')
+    expect(missingMount.wrapper.find('.tutorial-detail-state--error').exists()).toBe(false)
+  })
+
+  it('shows feedback on the exact ordinary and shortcode copy buttons', async () => {
+    const { wrapper } = await mountTutorial('/tutorial/getting-started')
+    const buttons = wrapper.findAll<HTMLButtonElement>('[data-copy-code]')
+    const plainButton = buttons.find((button) => decodeURIComponent(button.attributes('data-copy-code')) === 'echo plain')
+    const shortcodeButton = buttons.find(
+      (button) => decodeURIComponent(button.attributes('data-copy-code')) === 'echo shortcode'
+    )
+
+    expect(plainButton).toBeDefined()
+    expect(shortcodeButton).toBeDefined()
+    await plainButton!.trigger('click')
+    await flushPromises()
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('echo plain')
+    expect(plainButton!.text()).toBe('已复制')
+    expect(shortcodeButton!.text()).toBe('复制')
+
+    vi.mocked(navigator.clipboard.writeText).mockRejectedValueOnce(new Error('clipboard denied'))
+    await shortcodeButton!.trigger('click')
+    await flushPromises()
+    expect(shortcodeButton!.text()).toBe('复制失败')
+    expect(plainButton!.text()).toBe('已复制')
+    expect(showErrorMock).toHaveBeenCalledWith('复制失败，请手动选择命令')
+  })
+
+  it('opens screenshots from the keyboard, focuses the dialog, and restores focus after Escape', async () => {
+    const { wrapper } = await mountTutorial('/tutorial/getting-started')
+    const screenshot = wrapper.find<HTMLElement>('.tutorial-screenshot-card')
+
+    expect(screenshot.attributes('tabindex')).toBe('0')
+    expect(screenshot.attributes('role')).toBe('button')
+    screenshot.element.focus()
+    await screenshot.trigger('keydown', { key: 'Enter' })
+    await nextTick()
+
+    const closeButton = wrapper.find<HTMLButtonElement>('.tutorial-image-lightbox__close')
+    expect(wrapper.find('.tutorial-image-lightbox').exists()).toBe(true)
+    expect(document.activeElement).toBe(closeButton.element)
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    await nextTick()
+    expect(wrapper.find('.tutorial-image-lightbox').exists()).toBe(false)
+    expect(document.activeElement).toBe(screenshot.element)
+  })
+})

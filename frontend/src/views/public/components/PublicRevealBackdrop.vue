@@ -84,7 +84,7 @@ function fillMask(alpha = 1): void {
   const canvas = canvasRef.value
   if (!canvas || !ctx) return
   ctx.globalCompositeOperation = 'source-over'
-  const baseAlpha = 1
+  const baseAlpha = variant.value === 'hero' ? 0.88 : 1
   const resolvedAlpha = Math.min(alpha, baseAlpha)
   ctx.fillStyle = resolvedAlpha >= 1 ? '#faf9f5' : `rgba(250, 249, 245, ${resolvedAlpha})`
   ctx.clearRect(0, 0, canvas.width, canvas.height)
@@ -365,8 +365,8 @@ onBeforeUnmount(() => {
 .public-reveal-backdrop.is-hero .public-reveal-image {
   inset: 0;
   height: 100%;
-  background-position: center 18%;
-  background-size: min(2048px, max(100vw, 90rem)) auto;
+  background-position: center center;
+  background-size: cover;
   opacity: 1;
   image-rendering: auto;
   filter: saturate(0.9) sepia(0.12) contrast(1.12);
@@ -390,7 +390,7 @@ onBeforeUnmount(() => {
 }
 
 .public-reveal-backdrop.is-hero.is-static .public-reveal-image {
-  opacity: 0;
+  opacity: 0.12;
 }
 
 @media (max-width: 768px), (hover: none), (pointer: coarse), (prefers-reduced-motion: reduce) {
@@ -404,10 +404,11 @@ onBeforeUnmount(() => {
   }
 
   .public-reveal-backdrop.is-hero .public-reveal-image {
-    inset: 4.2rem 0 auto;
-    height: 18rem;
-    background-size: 48rem auto;
-    opacity: 0;
+    inset: 0;
+    height: 100%;
+    background-position: center center;
+    background-size: cover;
+    opacity: 0.12;
   }
 }
 </style>
