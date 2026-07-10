@@ -59,6 +59,7 @@ func TestAccountTestService_TestAccountConnection_OpenAICompactOAuthSuccessPersi
 	require.Equal(t, codexCLIVersion, upstream.lastReq.Header.Get("Version"))
 	require.NotEmpty(t, upstream.lastReq.Header.Get("Session_Id"))
 	require.Equal(t, codexCLIUserAgent, upstream.lastReq.Header.Get("User-Agent"))
+	require.Equal(t, openAIDefaultCodexOriginator, upstream.lastReq.Header.Get("Originator"))
 	require.Equal(t, "chatgpt-acc", upstream.lastReq.Header.Get("chatgpt-account-id"))
 	require.Equal(t, "gpt-5.4", gjson.GetBytes(upstream.lastBody, "model").String())
 
@@ -221,6 +222,50 @@ func TestAccountTestService_TestAccountConnection_OpenAICompactOAuth4297dExhaust
 		t.Fatalf("OpenAI OAuth compact 7d probe should not write rate_limit_reset_at: %v", resetAt)
 	case <-time.After(200 * time.Millisecond):
 	}
+}
+
+func TestAccountTestService_TestAccountConnection_OpenAIImageOAuthEnforcesFinalCodexIdentity(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	account := Account{
+		ID:          24,
+		Name:        "openai-image-oauth",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"access_token":       "oauth-token",
+			"chatgpt_account_id": "chatgpt-acc",
+			"user_agent":         "cccc/0.142.0 (Ubuntu 22.4.0; x86_64) screen (codex-tui; 0.142.0)",
+		},
+	}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body: io.NopCloser(strings.NewReader(strings.Join([]string{
+			"data: {\"type\":\"response.output_item.done\",\"item\":{\"id\":\"ig_123\",\"type\":\"image_generation_call\",\"result\":\"iVBORw0KGgo=\",\"output_format\":\"png\",\"revised_prompt\":\"cat\"}}\n\n",
+			"data: {\"type\":\"response.completed\",\"response\":{\"id\":\"resp_test\",\"output\":[{\"id\":\"ig_123\",\"type\":\"image_generation_call\",\"result\":\"iVBORw0KGgo=\",\"output_format\":\"png\",\"revised_prompt\":\"cat\"}]}}\n\n",
+		}, ""))),
+	}}
+	svc := &AccountTestService{
+		accountRepo:  &stubOpenAIAccountRepo{accounts: []Account{account}},
+		httpUpstream: upstream,
+	}
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/api/v1/admin/accounts/24/test", bytes.NewReader(nil))
+
+	err := svc.TestAccountConnection(c, account.ID, "gpt-image-1", "", "")
+	require.NoError(t, err)
+	require.Equal(t, chatgptCodexAPIURL, upstream.lastReq.URL.String())
+	require.Equal(t, "codex-tui", upstream.lastReq.Header.Get("Originator"))
+	require.Equal(t, "codex-tui/0.142.0 (Ubuntu 22.4.0; x86_64) screen (codex-tui; 0.142.0)", upstream.lastReq.Header.Get("User-Agent"))
+	require.Equal(t, "chatgpt-acc", upstream.lastReq.Header.Get("chatgpt-account-id"))
+	require.Contains(t, rec.Body.String(), `"type":"image"`)
+	require.Contains(t, rec.Body.String(), `"type":"test_complete"`)
 }
 
 func TestAccountTestService_TestAccountConnection_OpenAICompactAPIKeyUsesCompactPath(t *testing.T) {
