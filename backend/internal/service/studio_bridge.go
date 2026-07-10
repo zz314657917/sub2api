@@ -17,6 +17,7 @@ import (
 const (
 	StudioBridgeAppLuoyeAI            = "luoye-ai"
 	StudioBridgeAmountUnitAPIMartCost = "apimart_cost"
+	studioBridgeFixedPriceImageModel  = "gpt-image-2"
 )
 
 const (
@@ -37,6 +38,7 @@ var (
 	ErrStudioBridgeInvalidReturn      = infraerrors.BadRequest("STUDIO_BRIDGE_RETURN_URL_INVALID", "return url is not allowed")
 	ErrStudioBridgeChargeKeyEmpty     = infraerrors.BadRequest("STUDIO_BRIDGE_CHARGE_KEY_REQUIRED", "charge_key is required")
 	ErrStudioBridgeAmountInvalid      = infraerrors.BadRequest("STUDIO_BRIDGE_AMOUNT_INVALID", "amount must be positive")
+	ErrStudioBridgeAmountUnitInvalid  = infraerrors.BadRequest("STUDIO_BRIDGE_AMOUNT_UNIT_INVALID", "apimart_cost is not supported for fixed-price gpt-image-2")
 	ErrStudioBridgeConflict           = infraerrors.Conflict("STUDIO_BRIDGE_CHARGE_CONFLICT", "charge_key fingerprint conflict")
 	ErrStudioBridgeInsufficient       = infraerrors.BadRequest("STUDIO_BRIDGE_INSUFFICIENT_BALANCE", "insufficient balance")
 	ErrStudioBridgeGroupRequired      = infraerrors.BadRequest("STUDIO_BRIDGE_GROUP_REQUIRED", "at least one default studio bridge API route is required when studio bridge is enabled")
@@ -446,6 +448,9 @@ func normalizeStudioBridgeChargeCommand(cmd *StudioBridgeChargeCommand) error {
 	if rawAmount <= 0 {
 		return ErrStudioBridgeAmountInvalid
 	}
+	if normalizeStudioBridgeAmountUnit(cmd.AmountUnit) == StudioBridgeAmountUnitAPIMartCost && isStudioBridgeFixedPriceImageModel(cmd.Model) {
+		return ErrStudioBridgeAmountUnitInvalid
+	}
 	cmd.rawAmount = rawAmount
 	cmd.Amount = NormalizeStudioBridgeChargeAmount(*cmd, rawAmount)
 	return nil
@@ -563,7 +568,12 @@ func normalizeStudioBridgeAmountUnit(unit string) string {
 }
 
 func isStudioBridgeAPIMartCostAmount(cmd StudioBridgeChargeCommand) bool {
-	return normalizeStudioBridgeAmountUnit(cmd.AmountUnit) == StudioBridgeAmountUnitAPIMartCost
+	return normalizeStudioBridgeAmountUnit(cmd.AmountUnit) == StudioBridgeAmountUnitAPIMartCost &&
+		!isStudioBridgeFixedPriceImageModel(cmd.Model)
+}
+
+func isStudioBridgeFixedPriceImageModel(model string) bool {
+	return strings.EqualFold(strings.TrimSpace(model), studioBridgeFixedPriceImageModel)
 }
 
 func StudioBridgeAmountUnitFromFingerprint(fingerprint string) string {

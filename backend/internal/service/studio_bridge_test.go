@@ -498,7 +498,7 @@ func TestStudioBridgeCommitCreatesUsageLogOnceWithNetAmount(t *testing.T) {
 	require.Equal(t, 1, repo.usageLogCalls)
 }
 
-func TestStudioBridgeAPIMartImageChargeUsesSub2APIMultiplier(t *testing.T) {
+func TestStudioBridgeAPIMartImageChargeUsesSub2APIMultiplierForOfficialModel(t *testing.T) {
 	ctx := context.Background()
 	repo := &studioBridgeRepoStub{balance: 10}
 	svc := newStudioBridgeTestService(t, repo)
@@ -510,7 +510,7 @@ func TestStudioBridgeAPIMartImageChargeUsesSub2APIMultiplier(t *testing.T) {
 		AmountUnit: " APIMART_COST ",
 		TaskID:     "task-apimart",
 		Mode:       "edit",
-		Model:      "gpt-image-2",
+		Model:      "gpt-image-2-official",
 	}
 
 	reserved, err := svc.Reserve(ctx, cmd, "secret")
@@ -533,6 +533,50 @@ func TestStudioBridgeAPIMartImageChargeUsesSub2APIMultiplier(t *testing.T) {
 	require.Equal(t, "committed", duplicate.Status)
 	require.InDelta(t, 0.2184, duplicate.Amount, 0.000001)
 	require.Equal(t, 1, repo.reserveCalls)
+}
+
+func TestStudioBridgeAPIMartImageChargeRejectsFixedPriceGPTImage2Model(t *testing.T) {
+	ctx := context.Background()
+	repo := &studioBridgeRepoStub{balance: 10}
+	svc := newStudioBridgeTestService(t, repo)
+
+	reserved, err := svc.Reserve(ctx, StudioBridgeChargeCommand{
+		AppID:      StudioBridgeAppLuoyeAI,
+		UserID:     42,
+		ChargeKey:  "task:42:image:apimart-regular",
+		Amount:     0.0085,
+		AmountUnit: StudioBridgeAmountUnitAPIMartCost,
+		TaskID:     "task-apimart-regular",
+		Mode:       "generate",
+		Model:      "gpt-image-2",
+	}, "secret")
+
+	require.ErrorIs(t, err, ErrStudioBridgeAmountUnitInvalid)
+	require.Nil(t, reserved)
+	require.Zero(t, repo.reserveCalls)
+	require.InDelta(t, 10, repo.balance, 0.000001)
+}
+
+func TestStudioBridgeAPIMartImageChargeKeepsOtherCostBasedModels(t *testing.T) {
+	ctx := context.Background()
+	repo := &studioBridgeRepoStub{balance: 10}
+	svc := newStudioBridgeTestService(t, repo)
+
+	reserved, err := svc.Reserve(ctx, StudioBridgeChargeCommand{
+		AppID:      StudioBridgeAppLuoyeAI,
+		UserID:     42,
+		ChargeKey:  "task:42:image:apimart-midjourney",
+		Amount:     0.03,
+		AmountUnit: StudioBridgeAmountUnitAPIMartCost,
+		TaskID:     "task-apimart-midjourney",
+		Mode:       "generate",
+		Model:      "midjourney",
+	}, "secret")
+
+	require.NoError(t, err)
+	require.True(t, reserved.Applied)
+	require.InDelta(t, 0.252, reserved.Amount, 0.000001)
+	require.InDelta(t, 9.748, repo.balance, 0.000001)
 }
 
 func TestStudioBridgeImageChargeWithoutAPIMartAmountUnitKeepsAmount(t *testing.T) {
