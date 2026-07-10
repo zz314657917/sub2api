@@ -113,7 +113,7 @@ const (
 	windowStatsCacheTTL     = 1 * time.Minute
 	openAIProbeCacheTTL     = 10 * time.Minute
 	openAIProbeErrorTTL     = 30 * time.Second
-	openAICodexProbeVersion = "0.125.0"
+	openAICodexProbeVersion = "0.144.1"
 )
 
 // UsageCache 封装账户使用量相关的缓存
@@ -711,7 +711,7 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 	req.Header.Set("Authorization", "Bearer "+accessToken)
 	req.Header.Set("Accept", "text/event-stream")
 	req.Header.Set("OpenAI-Beta", "responses=experimental")
-	req.Header.Set("Originator", "codex_cli_rs")
+	req.Header.Set("Originator", openAIDefaultCodexOriginator)
 	req.Header.Set("Version", openAICodexProbeVersion)
 	req.Header.Set("User-Agent", codexCLIUserAgent)
 	if s.identityCache != nil {
@@ -719,6 +719,7 @@ func (s *AccountUsageService) probeOpenAICodexSnapshot(ctx context.Context, acco
 			req.Header.Set("User-Agent", strings.TrimSpace(fp.UserAgent))
 		}
 	}
+	enforceCodexIdentityHeaders(req.Header)
 	if chatgptAccountID := account.GetChatGPTAccountID(); chatgptAccountID != "" {
 		req.Header.Set("chatgpt-account-id", chatgptAccountID)
 	}

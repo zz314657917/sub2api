@@ -45,7 +45,7 @@ const (
 	openaiPlatformAPIURL            = "https://api.openai.com/v1/responses"
 	openaiPlatformAPIInputTokensURL = "https://api.openai.com/v1/responses/input_tokens"
 	openaiStickySessionTTL          = time.Hour // 粘性会话TTL
-	codexCLIUserAgent               = "codex_cli_rs/0.125.0"
+	codexCLIUserAgent               = "codex_cli_rs/0.144.1"
 	// codex_cli_only 拒绝时单个请求头日志长度上限（字符）
 	codexCLIOnlyHeaderValueMaxBytes = 256
 
@@ -59,7 +59,7 @@ const (
 	openAIWSRetryBackoffMaxDefault     = 2 * time.Second
 	openAIWSRetryJitterRatioDefault    = 0.2
 	openAICompactSessionSeedKey        = "openai_compact_session_seed"
-	codexCLIVersion                    = "0.125.0"
+	codexCLIVersion                    = "0.144.1"
 	// Codex 限额快照仅用于后台展示/诊断，不需要每个成功请求都立即落库。
 	openAICodexSnapshotPersistMinInterval = 30 * time.Second
 	// 配额自动暂停时，超过该时长仍未刷新的 used% 快照视为陈旧，不再据此暂停账号。
@@ -1342,15 +1342,21 @@ func (s *OpenAIGatewayService) GenerateSessionHashWithFallback(c *gin.Context, b
 }
 
 func resolveOpenAIUpstreamOriginator(c *gin.Context, isOfficialClient bool) string {
+	if isOpenAICompatMessagesBridgeContext(c) {
+		return ""
+	}
 	if c != nil {
 		if originator := strings.TrimSpace(c.GetHeader("originator")); originator != "" {
-			return originator
+			if openai.IsCodexOfficialClientOriginator(originator) {
+				return originator
+			}
+			return openAIDefaultCodexOriginator
 		}
 	}
 	if isOfficialClient {
-		return "codex_cli_rs"
+		return openAIDefaultCodexOriginator
 	}
-	return "opencode"
+	return openAIDefaultCodexOriginator
 }
 
 // BindStickySession sets session -> account binding with standard TTL.
@@ -3706,7 +3712,7 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 			req.Header.Set("OpenAI-Beta", "responses=experimental")
 		}
 		if req.Header.Get("originator") == "" {
-			req.Header.Set("originator", "codex_cli_rs")
+			req.Header.Set("originator", openAIDefaultCodexOriginator)
 		}
 		// 用隔离后的 session 标识符覆盖客户端透传值，防止跨用户会话碰撞。
 		if clientSessionID == "" {
@@ -3731,10 +3737,11 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 	if s.cfg != nil && s.cfg.Gateway.ForceCodexCLI {
 		req.Header.Set("user-agent", codexCLIUserAgent)
 	}
-	// OAuth 安全透传：对非 Codex UA 统一兜底，降低被上游风控拦截概率。
-	if account.Type == AccountTypeOAuth && !openai.IsCodexCLIRequest(req.Header.Get("user-agent")) {
+	// OAuth 安全透传：仅当最终 UA 不是官方 Codex 家族时才兜底默认 identity。
+	if account.Type == AccountTypeOAuth && !isOpenAICompatMessagesBridgeContext(c) && !openai.IsCodexOfficialClientRequest(req.Header.Get("user-agent")) {
 		req.Header.Set("user-agent", codexCLIUserAgent)
 	}
+	enforceCodexIdentityHeaders(req.Header)
 
 	if req.Header.Get("content-type") == "" {
 		req.Header.Set("content-type", "application/json")
@@ -4518,6 +4525,10 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 	if s.cfg != nil && s.cfg.Gateway.ForceCodexCLI {
 		req.Header.Set("user-agent", codexCLIUserAgent)
 	}
+	if account.Type == AccountTypeOAuth && !isOpenAICompatMessagesBridgeContext(c) && !openai.IsCodexOfficialClientRequest(req.Header.Get("user-agent")) {
+		req.Header.Set("user-agent", codexCLIUserAgent)
+	}
+	enforceCodexIdentityHeaders(req.Header)
 
 	// Ensure required headers exist
 	if req.Header.Get("content-type") == "" {
