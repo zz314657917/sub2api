@@ -173,3 +173,5 @@
 260711 1129 | upstream-v0151-runtime-wave1-s66 | done | codex | docs/workflow/qa-reports/upstream-v0151-runtime-wave1-s66-qa.md
 260711 1131 | upstream-v0151-protocol-wave2-s67 | contracts-approved | codex | docs/workflow/tasks/upstream-gpt56-max-effort-s67a.md, docs/workflow/tasks/upstream-codex-mcp-tool-bridge-s67b.md, docs/workflow/tasks/upstream-compact-ops-stream-log-s67c.md
 260711 1131 | upstream-v0151-protocol-wave2-s67 | workers-dispatched | codex | gpt56-max-effort-s67a, codex-mcp-tool-bridge-s67b, compact-ops-stream-log-s67c
+260711 1158 | upstream-v0151-protocol-wave2-s67 | workers-integrated | codex | c52b46b8f, 7fb2392ae, efd2806c6, fbe5dd123
+260711 1158 | upstream-v0151-protocol-wave2-s67 | independent-qa-dispatched | qa-worker | docs/workflow/qa-reports/upstream-v0151-protocol-wave2-s67-qa.md
