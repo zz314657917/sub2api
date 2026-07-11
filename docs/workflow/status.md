@@ -1,23 +1,24 @@
 ---
-phase: qa
+phase: fix
 current_sprint: upstream-v0151-protocol-wave2-s67
 total_sprints: 67
-pending_action: run independent combined QA for integrated S67 wave
+pending_action: implement and review S67b streaming lifecycle fix1
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 11:58 +08:00
+last_verified: 2026-07-11 12:12 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`qa`。
+- 当前阶段：`fix`。
 - 当前 Sprint：`upstream-v0151-protocol-wave2-s67`。
 - 已批准三个互斥 contract：`upstream-gpt56-max-effort-s67a`、`upstream-codex-mcp-tool-bridge-s67b`、`upstream-compact-ops-stream-log-s67c`。
 - `openai_gateway_messages.go` 由 S67b 独占并同时完成 message fallback effort-candidate 调整；S67a 不得修改该文件。
 - S67 第一轮集成后再单独启动 Codex `image_gen` namespace strip，避免与 GPT 核心网关 ownership 重叠。
 - 三个 S67 Worker 均已从共同基线 `09bfc7e9b` 完成实现、合规 result 和独立代码审查；主分支按 Ops logging、GPT effort、MCP bridge 顺序集成到 `fbe5dd123`。
-- S67a/S67b 独立审查均为 PASS，S67c 经主控逐段比对上游实现后 PASS；当前唯一合法动作是在独立 worktree 对组合结果执行 runtime QA 并写入 `docs/workflow/qa-reports/upstream-v0151-protocol-wave2-s67-qa.md`。
+- 首轮独立 QA 已按 `docs/workflow/qa-reports/upstream-v0151-protocol-wave2-s67-qa.md` 判定 FAIL：S67b tool-only 流的 streamed/final output index 不一致，reasoning-plus-tool 缺完整 reasoning item lifecycle。
+- 已批准 fix contract：`docs/workflow/tasks/upstream-codex-mcp-tool-bridge-s67b-fix1.md`。只适配祖先 `f10bca815` 的 response-stream state/index/lifecycle 子集，不引入其 request-direction 大重构。
 - S66 历史阶段：`done`。
 - 当前 Sprint：`upstream-v0151-runtime-wave1-s66`。
 - 已批准三个互斥实现 contract：`upstream-runtime-hotfixes-s66a`、`upstream-anthropic-grok-usage-s66b`、`upstream-remote-compact-reliability-s66c`。

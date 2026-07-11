@@ -175,3 +175,5 @@
 260711 1131 | upstream-v0151-protocol-wave2-s67 | workers-dispatched | codex | gpt56-max-effort-s67a, codex-mcp-tool-bridge-s67b, compact-ops-stream-log-s67c
 260711 1158 | upstream-v0151-protocol-wave2-s67 | workers-integrated | codex | c52b46b8f, 7fb2392ae, efd2806c6, fbe5dd123
 260711 1158 | upstream-v0151-protocol-wave2-s67 | independent-qa-dispatched | qa-worker | docs/workflow/qa-reports/upstream-v0151-protocol-wave2-s67-qa.md
+260711 1212 | upstream-v0151-protocol-wave2-s67 | independent-qa-fail | qa-worker | tool-only output index mismatch, reasoning lifecycle missing
+260711 1212 | upstream-codex-mcp-tool-bridge-s67b-fix1 | contract-approved | codex | docs/workflow/tasks/upstream-codex-mcp-tool-bridge-s67b-fix1.md
