@@ -182,3 +182,5 @@
 260711 1223 | upstream-v0151-protocol-wave2-s67 | independent-retest-dispatched | qa-worker | original failures plus combined regression
 260711 1230 | upstream-v0151-protocol-wave2-s67 | independent-retest-pass | qa-worker | docs/workflow/qa-reports/upstream-v0151-protocol-wave2-s67-retest1.md
 260711 1230 | upstream-v0151-protocol-wave2-s67 | done | codex | initial FAIL closed by d1c858392 and retest1 PASS
+260711 1232 | upstream-codex-image-tool-strip-policy-s68a | planner-dependency-found | codex | d3a1835ed requires skipped f385cdceb policy
+260711 1232 | upstream-codex-image-tool-strip-policy-s68a | contracts-drafted | codex | backend policy and dedicated account UI

@@ -1,18 +1,22 @@
 ---
-phase: done
-current_sprint: upstream-v0151-protocol-wave2-s67
-total_sprints: 67
-pending_action: prepare S68a Codex image tool strip policy contract
+phase: contract-draft
+current_sprint: upstream-codex-image-tool-strip-policy-s68a
+total_sprints: 68
+pending_action: review S68a backend and UI contracts
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 12:30 +08:00
+last_verified: 2026-07-11 12:32 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`done`。
-- 当前 Sprint：`upstream-v0151-protocol-wave2-s67`。
+- 当前阶段：`contract-draft`。
+- 当前 Sprint：`upstream-codex-image-tool-strip-policy-s68a`。
+- Planner 已确认 `d3a1835ed` 依赖本地缺失的 `f385cdceb` 账号策略，且现有 UI 没有安全的任意 `extra` 编辑入口；S68a 因此拆成 backend policy 与专用 UI 两个互斥 draft contract。
+- 当前只允许审查 `docs/workflow/tasks/upstream-codex-image-tool-strip-policy-s68a-backend.md` 和 `docs/workflow/tasks/upstream-codex-image-tool-strip-policy-s68a-ui.md`，不得在 contract 批准前启动实现。
+- S67 历史阶段：`done`。
+- S67 Sprint：`upstream-v0151-protocol-wave2-s67`。
 - 已批准三个互斥 contract：`upstream-gpt56-max-effort-s67a`、`upstream-codex-mcp-tool-bridge-s67b`、`upstream-compact-ops-stream-log-s67c`。
 - `openai_gateway_messages.go` 由 S67b 独占并同时完成 message fallback effort-candidate 调整；S67a 不得修改该文件。
 - S67 第一轮集成后再单独启动 Codex `image_gen` namespace strip，避免与 GPT 核心网关 ownership 重叠。
