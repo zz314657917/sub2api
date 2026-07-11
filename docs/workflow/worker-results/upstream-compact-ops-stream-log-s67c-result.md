@@ -1,4 +1,4 @@
-DONE
+### DONE: upstream-compact-ops-stream-log-s67c
 
 # Worker Result: upstream-compact-ops-stream-log-s67c
 
