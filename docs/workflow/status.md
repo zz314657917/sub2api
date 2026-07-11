@@ -15,6 +15,7 @@ last_verified: 2026-07-11 17:06 +08:00
 - Current Sprint: `leaderboard-participation-exclusion-s70`.
 - New product scope is isolated from completed S69: a per-platform-user `exclude_from_leaderboard` control must exclude users before raw/daily-stats ranks, daily champions, badges, and reward eligibility, while preserving billing and ordinary usage reporting.
 - Final evaluator: PASS. The administrator-controlled user exclusion is persisted, invalidates leaderboard caches, and excludes the user from rank, champion, badge, reward, model, and trend paths. S65-S70 were merged into `main` as `d6ff6a158` and pushed to `origin/main`; no deployment or container update was performed.
+- Post-release cleanup removed the fully merged local S69/S70 branches and remote S70/group-buy branches; local and origin now retain only `main` for this repository.
 
 - 当前阶段：`done`。
 - 历史 Sprint：`upstream-gpt56-priority-cache-billing-s69`。

@@ -226,3 +226,4 @@
 260711 1626 | leaderboard-participation-exclusion-s70 | done | codex | final evaluator PASS; no commit, push, deploy, or container update
 260711 1706 | upstream-v0151-s65-s70 | merged-main | codex | d6ff6a158; post-merge backend, frontend 62 tests, typecheck, migrations and diff-check PASS
 260711 1706 | upstream-v0151-s65-s70 | pushed-main | codex | origin/main verified at d6ff6a158
+260711 1708 | upstream-v0151-s65-s70 | merged-branches-cleaned | codex | local main only; origin main only; upstream refs preserved

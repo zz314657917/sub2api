@@ -11,7 +11,7 @@
 
 ## 当前目标
 
-- S70 已完成并通过独立 QA；S65-S70 已发布到 `origin/main`，当前只需清理已完全合并的 feature 分支。
+- S70 已完成并通过独立 QA；S65-S70 已发布到 `origin/main`，已合并 feature 分支也已清理。
 - 支付并发补丁 `fc66a30ff` 继续单独审计，不与普通协议/运行时补丁混合。
 
 ## 本次已完成
@@ -57,8 +57,7 @@
 
 ## 下一步
 
-1. 清理分支 -> 验证：仅删除已被 `main` 完整包含且远端同步成功的本地/远端 feature 分支；保留未合并分支。
-2. 选择下一独立 Sprint -> 验证：重新审计 remaining upstream 候选并另立 contract；`fc66a30ff` 继续保持支付高风险隔离边界。
+1. 选择下一独立 Sprint -> 验证：重新审计 remaining upstream 候选并另立 contract；`fc66a30ff` 继续保持支付高风险隔离边界。
 
 ## 验证记录
 
@@ -67,3 +66,4 @@
 - `git diff --name-only 2b3b5514e..07399e50d`：恰好 8 个 contract allowed paths；`git diff --check` PASS。
 - 独立 code review 与 fresh QA：PASS，无阻断 finding。
 - S69 cleanup audit：worker 两笔和 QA 一笔均 `git cherry = -`；清理后 `git worktree list` 仅剩当前集成工作树。
+- 主线清理审计：本地只剩 `main`；origin 只剩 `origin/main`，已删除完全合并的 S69、S70 和旧 `group-buy-v1` 分支。
