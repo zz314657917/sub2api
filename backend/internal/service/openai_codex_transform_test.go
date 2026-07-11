@@ -837,6 +837,51 @@ func TestApplyCodexOAuthTransform_KeepsImageGenerationToolForNonSpark(t *testing
 	require.True(t, hasOpenAIImageGenerationTool(reqBody))
 }
 
+func TestStripOpenAIImageGenerationTools(t *testing.T) {
+	t.Run("removes flat image tool and matching choice", func(t *testing.T) {
+		reqBody := map[string]any{
+			"tools": []any{
+				map[string]any{"type": "function", "name": "shell"},
+				map[string]any{"type": "image_generation", "output_format": "png"},
+				map[string]any{"type": "namespace", "name": "image_gen"},
+			},
+			"tool_choice": map[string]any{"type": "image_generation"},
+		}
+
+		require.True(t, stripOpenAIImageGenerationTools(reqBody))
+		require.NotContains(t, reqBody, "tool_choice")
+		tools, ok := reqBody["tools"].([]any)
+		require.True(t, ok)
+		require.Len(t, tools, 2)
+		require.Equal(t, "function", tools[0].(map[string]any)["type"])
+		require.Equal(t, "namespace", tools[1].(map[string]any)["type"])
+	})
+
+	t.Run("removes matching choice without tools", func(t *testing.T) {
+		reqBody := map[string]any{
+			"tool_choice": map[string]any{
+				"tool": map[string]any{"type": "image_generation"},
+			},
+		}
+
+		require.True(t, stripOpenAIImageGenerationTools(reqBody))
+		require.Empty(t, reqBody)
+	})
+
+	t.Run("leaves namespace and unrelated choice unchanged", func(t *testing.T) {
+		reqBody := map[string]any{
+			"tools": []any{
+				map[string]any{"type": "namespace", "name": "image_gen"},
+			},
+			"tool_choice": map[string]any{"type": "namespace", "name": "image_gen"},
+		}
+
+		require.False(t, stripOpenAIImageGenerationTools(reqBody))
+		require.Contains(t, reqBody, "tool_choice")
+		require.Len(t, reqBody["tools"], 1)
+	})
+}
+
 func TestNormalizeOpenAIResponsesImageOnlyModel_BuildsImageToolRequest(t *testing.T) {
 	reqBody := map[string]any{
 		"model":         "gpt-image-2",

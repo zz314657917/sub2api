@@ -172,6 +172,28 @@ func TestStripCodexSparkImageGenerationToolFromRawPayload(t *testing.T) {
 	})
 }
 
+func TestStripOpenAIImageGenerationToolFromRawPayload(t *testing.T) {
+	payload := []byte(`{
+		"type":"response.create",
+		"model":"gpt-5.4",
+		"tools":[
+			{"type":"function","name":"shell"},
+			{"type":"image_generation","output_format":"png"},
+			{"type":"namespace","name":"image_gen"}
+		],
+		"tool_choice":{"type":"image_generation"}
+	}`)
+
+	updated, changed, err := stripOpenAIImageGenerationToolFromRawPayload(payload)
+
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.False(t, gjson.GetBytes(updated, `tools.#(type=="image_generation")`).Exists())
+	require.True(t, gjson.GetBytes(updated, `tools.#(type=="function")`).Exists())
+	require.True(t, gjson.GetBytes(updated, `tools.#(type=="namespace")`).Exists())
+	require.False(t, gjson.GetBytes(updated, "tool_choice").Exists())
+}
+
 func TestAlignStoreDisabledPreviousResponseID(t *testing.T) {
 	t.Parallel()
 
