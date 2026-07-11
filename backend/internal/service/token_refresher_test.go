@@ -195,6 +195,12 @@ func TestClaudeTokenRefresher_CanRefresh(t *testing.T) {
 			want:     true,
 		},
 		{
+			name:     "anthropic setup-token with refresh token - can refresh",
+			platform: PlatformAnthropic,
+			accType:  AccountTypeSetupToken,
+			want:     true,
+		},
+		{
 			name:     "anthropic api-key - cannot refresh",
 			platform: PlatformAnthropic,
 			accType:  AccountTypeAPIKey,
@@ -216,15 +222,30 @@ func TestClaudeTokenRefresher_CanRefresh(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			credentials := map[string]any{}
+			if tt.accType == AccountTypeSetupToken {
+				credentials["refresh_token"] = "setup-refresh-token"
+			}
 			account := &Account{
-				Platform: tt.platform,
-				Type:     tt.accType,
+				Platform:    tt.platform,
+				Type:        tt.accType,
+				Credentials: credentials,
 			}
 
 			got := refresher.CanRefresh(account)
 			require.Equal(t, tt.want, got)
 		})
 	}
+
+	t.Run("anthropic setup-token without refresh token - cannot refresh", func(t *testing.T) {
+		account := &Account{
+			Platform:    PlatformAnthropic,
+			Type:        AccountTypeSetupToken,
+			Credentials: map[string]any{"refresh_token": "   "},
+		}
+
+		require.False(t, refresher.CanRefresh(account))
+	})
 }
 
 func TestOpenAITokenRefresher_CanRefresh(t *testing.T) {
