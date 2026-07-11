@@ -180,3 +180,5 @@
 260711 1214 | upstream-codex-mcp-tool-bridge-s67b-fix1 | worker-dispatched | codex | E:/codex-worktrees/sub2api/upstream-codex-mcp-tool-bridge-s67b-fix1
 260711 1223 | upstream-codex-mcp-tool-bridge-s67b-fix1 | fix-integrated | codex | d1c858392
 260711 1223 | upstream-v0151-protocol-wave2-s67 | independent-retest-dispatched | qa-worker | original failures plus combined regression
+260711 1230 | upstream-v0151-protocol-wave2-s67 | independent-retest-pass | qa-worker | docs/workflow/qa-reports/upstream-v0151-protocol-wave2-s67-retest1.md
+260711 1230 | upstream-v0151-protocol-wave2-s67 | done | codex | initial FAIL closed by d1c858392 and retest1 PASS
