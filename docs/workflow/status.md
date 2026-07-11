@@ -1,8 +1,8 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-v0151-runtime-wave1-s66
 total_sprints: 66
-pending_action: dispatch three isolated generator workers
+pending_action: review three worker results and integrate approved commits
 project_type: web
 qa_mode: runtime
 approval_required: false
@@ -11,11 +11,12 @@ last_verified: 2026-07-11 10:52 +08:00
 
 # Workflow Status
 
-- 当前阶段：`contract-approved`。
+- 当前阶段：`build`。
 - 当前 Sprint：`upstream-v0151-runtime-wave1-s66`。
 - 已批准三个互斥实现 contract：`upstream-runtime-hotfixes-s66a`、`upstream-anthropic-grok-usage-s66b`、`upstream-remote-compact-reliability-s66c`。
 - S66 第一波只处理 setup-token/ops/Windows WS 小修、Anthropic/Grok 用量兼容和 remote compact 可靠性；GPT-5.6 max、image_gen、MCP tool bridge 与支付并发加固不在本波范围。
 - 用户已明确授权多智能体；每个 Generator 使用 `E:/codex-worktrees/sub2api/<task-id>` 独立 worktree，主 Codex 负责 diff 审核、集成、统一 QA 和最终裁决。
+- 三个 Worker 已从共同基线 `2549e0b3a` 派发；当前等待各分支提交与 worker result，禁止主线程提前修改其业务 ownership。
 - S65 历史阶段：`done`。
 - 当前 Sprint：`upstream-latency-health-column-s65`。
 - 当前 contract：`docs/workflow/tasks/upstream-latency-health-column-s65.md`，只移植上游合并延迟健康列，不带排行、筛选、tab 或整页布局重构。
