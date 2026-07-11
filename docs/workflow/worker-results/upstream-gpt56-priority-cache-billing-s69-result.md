@@ -30,6 +30,7 @@
 - Service pricing and RecordUsage regressions: PASS.
 - WebSocket cache creation / usage regressions: PASS.
 - Default service package compile: PASS.
+- Full clean-worktree Acceptance Commands: PASS (`base=6283f1aa66b1a467c59fa8a99c9d7351b61d0dcc`, `changed=8`, `required tests=6`).
 - `git diff --check`: PASS.
 
 ## Contract Compliance
@@ -41,4 +42,3 @@
 
 - No live upstream billing request was issued; evidence is deterministic service and RecordUsage tests.
 - Unit-tag suites were intentionally excluded per contract because of unrelated existing compile drift.
-- Full clean-worktree Acceptance Commands will be executed after this result and all implementation files are committed.
