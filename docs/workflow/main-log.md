@@ -224,3 +224,5 @@
 260711 1540 | leaderboard-participation-exclusion-s70 | contract-approved | codex | revised evaluator review PASS; begin scoped implementation verification
 260711 1626 | leaderboard-participation-exclusion-s70 | qa-pass | codex | docs/workflow/qa-reports/leaderboard-participation-exclusion-s70-qa.md
 260711 1626 | leaderboard-participation-exclusion-s70 | done | codex | final evaluator PASS; no commit, push, deploy, or container update
+260711 1706 | upstream-v0151-s65-s70 | merged-main | codex | d6ff6a158; post-merge backend, frontend 62 tests, typecheck, migrations and diff-check PASS
+260711 1706 | upstream-v0151-s65-s70 | pushed-main | codex | origin/main verified at d6ff6a158

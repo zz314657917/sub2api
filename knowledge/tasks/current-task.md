@@ -1,17 +1,17 @@
 # 当前任务快照
 
-最后更新：2026-07-11 17:01 +08:00
+最后更新：2026-07-11 17:06 +08:00
 
 ## 背景
 
 - 仓库：`F:/mcplugins/sub2api`。
-- 当前分支：`codex/leaderboard-participation-exclusion-s70`。
+- 当前分支：`main`。
 - 本轮主线：检查并分批适配上游 `v0.1.150` / `v0.1.151` 可合并内容，使用 Planner / Generator / Evaluator 与独立 worktree 控制范围。
-- 发布边界：当前 feature branch 已推送；尚未合入 `main`、未部署、未更新本地容器。
+- 发布边界：S65-S70 已合入并推送到 `main`；未部署、未更新本地容器。
 
 ## 当前目标
 
-- S70 已完成并通过独立 QA；当前动作是按用户授权把已审计的 S65-S70 集成历史合入 `main`、推送并清理已合并分支。
+- S70 已完成并通过独立 QA；S65-S70 已发布到 `origin/main`，当前只需清理已完全合并的 feature 分支。
 - 支付并发补丁 `fc66a30ff` 继续单独审计，不与普通协议/运行时补丁混合。
 
 ## 本次已完成
@@ -28,6 +28,7 @@
 - S69 worker 与 QA 临时分支在 `git cherry codex/upstream-latency-health-column <branch>` 全部显示 patch-equivalent (`-`) 后删除；当前只剩集成工作树。
 - S70：新增平台用户 `exclude_from_leaderboard` 管理开关，覆盖 migration 190、Ent、admin DTO/API、前端编辑弹窗、排行榜/冠军/徽章/奖励过滤和缓存失效；独立 QA PASS。
 - S70 实现提交 `997f423ff`，workflow/QA 提交 `4dc2b462e`，均已推送到 `origin/codex/leaderboard-participation-exclusion-s70`。
+- S65-S70 主线合并提交为 `d6ff6a158`；合并后 backend 定向回归、frontend `6 files / 62 tests`、typecheck、migration tests 和 `git diff --check` 均 PASS，`origin/main` 已核对到同一提交。
 
 ## 已确认事实
 
@@ -50,14 +51,14 @@
 
 ## 当前结论
 
-- `leaderboard-participation-exclusion-s70` 最终 `PASS / done`；S65-S70 发布前多智能体复核无业务阻断。
+- `leaderboard-participation-exclusion-s70` 最终 `PASS / done`；S65-S70 发布前多智能体复核无业务阻断，已合入并推送主线。
 - S70 QA 报告：`docs/workflow/qa-reports/leaderboard-participation-exclusion-s70-qa.md`。
 - 当前集成分支可继续做剩余 upstream 候选审计，但任何新候选都应另立 contract；不得把 `fc66a30ff` 混入普通补丁波次。
 
 ## 下一步
 
-1. 合入主线 -> 验证：在 clean `main` 上合并当前 feature branch，运行 backend 定向回归、frontend typecheck 和 `git diff --check`，再推送并核对 `origin/main`。
-2. 清理分支 -> 验证：仅删除已被 `main` 完整包含且远端同步成功的本地/远端 feature 分支；保留未合并分支。
+1. 清理分支 -> 验证：仅删除已被 `main` 完整包含且远端同步成功的本地/远端 feature 分支；保留未合并分支。
+2. 选择下一独立 Sprint -> 验证：重新审计 remaining upstream 候选并另立 contract；`fc66a30ff` 继续保持支付高风险隔离边界。
 
 ## 验证记录
 
