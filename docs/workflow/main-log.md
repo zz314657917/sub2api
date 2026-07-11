@@ -198,3 +198,4 @@
 260711 1343 | upstream-codex-imagegen-namespace-strip-s68b-fix1 | worker-dispatched | generator-worker | continue on 36fe56441 in existing S68b worktree
 260711 1402 | upstream-codex-imagegen-namespace-strip-s68b-fix1 | review-pass | review-worker | prior P1 and P2 findings closed
 260711 1402 | upstream-codex-imagegen-namespace-strip-s68b | workers-integrated | codex | 7593079a9 and 19066c93d
+260711 1404 | upstream-codex-imagegen-namespace-strip-s68b | independent-qa-dispatched | qa-worker | E:/codex-worktrees/sub2api/upstream-codex-imagegen-namespace-strip-s68b-qa
