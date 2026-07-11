@@ -163,3 +163,64 @@
 260711 0232 | tutorial-toc-content-adjacency-s64 | tests-and-browser-qa-pass | codex | 3 files / 21 tests, typecheck, 2560/1280/390 screenshots
 260711 0232 | tutorial-toc-content-adjacency-s64 | done | codex | docs/workflow/qa-reports/tutorial-toc-content-adjacency-s64-qa.md
 260710 2358 | studio-bridge-model-scoped-apimart-billing | qa-pass | codex | docs/workflow/qa-reports/studio-bridge-model-scoped-apimart-billing-qa.md
+260711 1021 | upstream-latency-health-column-s65 | contract-approved | codex | docs/workflow/tasks/upstream-latency-health-column-s65.md
+260711 1032 | upstream-latency-health-column-s65 | qa-pass | codex | 4 files / 31 tests, theme 2 files / 24 tests, typecheck, build, diff-check
+260711 1032 | upstream-latency-health-column-s65 | done | codex | docs/workflow/qa-reports/upstream-latency-health-column-s65-qa.md
+260711 1052 | upstream-v0151-runtime-wave1-s66 | contracts-approved | codex | docs/workflow/tasks/upstream-runtime-hotfixes-s66a.md, docs/workflow/tasks/upstream-anthropic-grok-usage-s66b.md, docs/workflow/tasks/upstream-remote-compact-reliability-s66c.md
+260711 1052 | upstream-v0151-runtime-wave1-s66 | workers-dispatched | codex | runtime-hotfixes-s66a, anthropic-grok-usage-s66b, remote-compact-reliability-s66c
+260711 1129 | upstream-v0151-runtime-wave1-s66 | workers-integrated | codex | d826463f1, 7e4420c04, 696d23875
+260711 1129 | upstream-v0151-runtime-wave1-s66 | independent-qa-pass | qa-worker | targeted, compact count=20, full handler, diff/path audit
+260711 1129 | upstream-v0151-runtime-wave1-s66 | done | codex | docs/workflow/qa-reports/upstream-v0151-runtime-wave1-s66-qa.md
+260711 1131 | upstream-v0151-protocol-wave2-s67 | contracts-approved | codex | docs/workflow/tasks/upstream-gpt56-max-effort-s67a.md, docs/workflow/tasks/upstream-codex-mcp-tool-bridge-s67b.md, docs/workflow/tasks/upstream-compact-ops-stream-log-s67c.md
+260711 1131 | upstream-v0151-protocol-wave2-s67 | workers-dispatched | codex | gpt56-max-effort-s67a, codex-mcp-tool-bridge-s67b, compact-ops-stream-log-s67c
+260711 1158 | upstream-v0151-protocol-wave2-s67 | workers-integrated | codex | c52b46b8f, 7fb2392ae, efd2806c6, fbe5dd123
+260711 1158 | upstream-v0151-protocol-wave2-s67 | independent-qa-dispatched | qa-worker | docs/workflow/qa-reports/upstream-v0151-protocol-wave2-s67-qa.md
+260711 1212 | upstream-v0151-protocol-wave2-s67 | independent-qa-fail | qa-worker | tool-only output index mismatch, reasoning lifecycle missing
+260711 1212 | upstream-codex-mcp-tool-bridge-s67b-fix1 | contract-approved | codex | docs/workflow/tasks/upstream-codex-mcp-tool-bridge-s67b-fix1.md
+260711 1214 | upstream-codex-mcp-tool-bridge-s67b-fix1 | worker-dispatched | codex | E:/codex-worktrees/sub2api/upstream-codex-mcp-tool-bridge-s67b-fix1
+260711 1223 | upstream-codex-mcp-tool-bridge-s67b-fix1 | fix-integrated | codex | d1c858392
+260711 1223 | upstream-v0151-protocol-wave2-s67 | independent-retest-dispatched | qa-worker | original failures plus combined regression
+260711 1230 | upstream-v0151-protocol-wave2-s67 | independent-retest-pass | qa-worker | docs/workflow/qa-reports/upstream-v0151-protocol-wave2-s67-retest1.md
+260711 1230 | upstream-v0151-protocol-wave2-s67 | done | codex | initial FAIL closed by d1c858392 and retest1 PASS
+260711 1232 | upstream-codex-image-tool-strip-policy-s68a | planner-dependency-found | codex | d3a1835ed requires skipped f385cdceb policy
+260711 1232 | upstream-codex-image-tool-strip-policy-s68a | contracts-drafted | codex | backend policy and dedicated account UI
+260711 1234 | upstream-codex-image-tool-strip-policy-s68a | contracts-approved | codex | backend and UI ownership disjoint
+260711 1235 | upstream-codex-image-tool-strip-policy-s68a | workers-dispatched | codex | backend policy and dedicated account UI
+260711 1301 | upstream-codex-image-tool-strip-policy-s68a | workers-integrated | codex | 51b310c30, 471d8eb2e, 5eef03f1a, 2f68fdc90
+260711 1301 | upstream-codex-image-tool-strip-policy-s68a | independent-qa-dispatched | qa-worker | backend policy plus account UI
+260711 1310 | upstream-codex-image-tool-strip-policy-s68a | independent-qa-pass | qa-worker | docs/workflow/qa-reports/upstream-codex-image-tool-strip-policy-s68a-qa.md
+260711 1310 | upstream-codex-image-tool-strip-policy-s68a | done | codex | policy prerequisite ready for S68b
+260711 1311 | upstream-codex-imagegen-namespace-strip-s68b | contract-drafted | codex | adapt d3a1835ed on S68a policy prerequisite
+260711 1312 | upstream-codex-imagegen-namespace-strip-s68b | contract-approved | codex | explicit passthrough forwarded-body acceptance added
+260711 1317 | upstream-codex-imagegen-namespace-strip-s68b | worker-dispatched | generator-worker | E:/codex-worktrees/sub2api/upstream-codex-imagegen-namespace-strip-s68b
+260711 1343 | upstream-codex-imagegen-namespace-strip-s68b | worker-review-fail | review-worker | WS ingress passthrough bypasses parsed strip
+260711 1343 | upstream-codex-imagegen-namespace-strip-s68b-fix1 | contract-approved | codex | add WS passthrough plus OAuth and invalid-raw evidence
+260711 1343 | upstream-codex-imagegen-namespace-strip-s68b-fix1 | worker-dispatched | generator-worker | continue on 36fe56441 in existing S68b worktree
+260711 1402 | upstream-codex-imagegen-namespace-strip-s68b-fix1 | review-pass | review-worker | prior P1 and P2 findings closed
+260711 1402 | upstream-codex-imagegen-namespace-strip-s68b | workers-integrated | codex | 7593079a9 and 19066c93d
+260711 1404 | upstream-codex-imagegen-namespace-strip-s68b | independent-qa-dispatched | qa-worker | E:/codex-worktrees/sub2api/upstream-codex-imagegen-namespace-strip-s68b-qa
+260711 1413 | upstream-codex-imagegen-namespace-strip-s68b | independent-qa-pass | qa-worker | docs/workflow/qa-reports/upstream-codex-imagegen-namespace-strip-s68b-qa.md
+260711 1413 | upstream-codex-imagegen-namespace-strip-s68b | done | codex | initial review FAIL closed by fix1 and combined QA PASS
+260711 1418 | upstream-v0151-s66-s68 | temporary-worktrees-cleaned | codex | 15 clean patch-equivalent worktrees and branches removed
+260711 1436 | upstream-v0151-remaining-s69 | planner-audit-complete | codex | protocol and ops covered; Priority cache billing is highest remaining gap
+260711 1436 | upstream-gpt56-priority-cache-billing-s69 | contract-drafted | codex | isolate Priority cache-write price chain from de28eba3c
+260711 1444 | upstream-gpt56-priority-cache-billing-s69 | contract-revised | codex | move required tests out of broken unit-tag suites and add non-vacuous/path gates
+260711 1451 | upstream-gpt56-priority-cache-billing-s69 | contract-revised-2 | codex | require native exit-code checks and a clean committed worker tree before path audit
+260711 1453 | upstream-gpt56-priority-cache-billing-s69 | contract-approved | codex | semantic reviewer PASS and command-gate retest PASS on 4af31b1e4
+260711 1454 | upstream-gpt56-priority-cache-billing-s69 | worker-start | codex | E:\codex-worktrees\sub2api\upstream-gpt56-priority-cache-billing-s69
+260711 1454 | upstream-gpt56-priority-cache-billing-s69 | worker-fail | worker | E:\codex-worktrees\sub2api\upstream-gpt56-priority-cache-billing-s69\docs\workflow\worker-results\upstream-gpt56-priority-cache-billing-s69-worker.json
+260711 1456 | upstream-gpt56-priority-cache-billing-s69 | worker-model-fallback | codex | deepseek-v4-pro returned model 404; use explicitly authorized available collaboration worker in the same isolated worktree
+260711 1514 | upstream-gpt56-priority-cache-billing-s69 | code-review-pass | review-worker | no blocking findings; 8 allowed paths and billing semantics verified
+260711 1514 | upstream-gpt56-priority-cache-billing-s69 | worker-integrated | codex | d5a1aef0b and 07399e50d
+260711 1521 | upstream-gpt56-priority-cache-billing-s69 | independent-qa-pass | qa-worker | docs/workflow/qa-reports/upstream-gpt56-priority-cache-billing-s69-qa.md
+260711 1521 | upstream-gpt56-priority-cache-billing-s69 | done | codex | final evaluator PASS; no main merge, push, deploy, or container update
+260711 1524 | upstream-gpt56-priority-cache-billing-s69 | temporary-worktrees-cleaned | codex | worker and QA branches clean and patch-equivalent before deletion; only integration worktree remains
+260711 1701 | leaderboard-participation-exclusion-s70 | premerge-docs-reconciled | codex | align pushed feature-branch facts before main merge
+260711 1529 | leaderboard-participation-exclusion-s70 | contract-draft | codex | docs/workflow/tasks/leaderboard-participation-exclusion-s70.md
+260711 1531 | leaderboard-participation-exclusion-s70 | contract-approved | codex | evaluator review PASS; raw/daily ranks, champions, badges, reward eligibility, and cache invalidation defined
+260711 1533 | leaderboard-participation-exclusion-s70 | contract-revised | codex | allow the shared service.User mapper in backend/internal/repository/api_key_repo.go
+260711 1534 | leaderboard-participation-exclusion-s70 | contract-approved | codex | revised evaluator review PASS; shared mapper change stays within user persistence scope
+260711 1539 | leaderboard-participation-exclusion-s70 | contract-revised-2 | codex | integration-tagged repository acceptance added for the real database exclusion test
+260711 1540 | leaderboard-participation-exclusion-s70 | contract-approved | codex | revised evaluator review PASS; begin scoped implementation verification
+260711 1626 | leaderboard-participation-exclusion-s70 | qa-pass | codex | docs/workflow/qa-reports/leaderboard-participation-exclusion-s70-qa.md
+260711 1626 | leaderboard-participation-exclusion-s70 | done | codex | final evaluator PASS; no commit, push, deploy, or container update

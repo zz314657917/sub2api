@@ -143,15 +143,16 @@ type CreateUserInput struct {
 }
 
 type UpdateUserInput struct {
-	Email         string
-	Password      string
-	Username      *string
-	Notes         *string
-	Balance       *float64 // 使用指针区分"未提供"和"设置为0"
-	Concurrency   *int     // 使用指针区分"未提供"和"设置为0"
-	RPMLimit      *int     // 使用指针区分"未提供"和"设置为0"
-	Status        string
-	AllowedGroups *[]int64 // 使用指针区分"未提供"和"设置为空数组"
+	Email                  string
+	Password               string
+	Username               *string
+	Notes                  *string
+	Balance                *float64 // 使用指针区分"未提供"和"设置为0"
+	Concurrency            *int     // 使用指针区分"未提供"和"设置为0"
+	RPMLimit               *int     // 使用指针区分"未提供"和"设置为0"
+	Status                 string
+	ExcludeFromLeaderboard *bool
+	AllowedGroups          *[]int64 // 使用指针区分"未提供"和"设置为空数组"
 	// GroupRates 用户专属分组倍率配置
 	// map[groupID]*rate，nil 表示删除该分组的专属倍率
 	GroupRates map[int64]*float64
@@ -551,28 +552,33 @@ type accountShareFilterRepository interface {
 
 // adminServiceImpl implements AdminService
 type adminServiceImpl struct {
-	userRepo             UserRepository
-	groupRepo            GroupRepository
-	accountRepo          AccountRepository
-	proxyRepo            ProxyRepository
-	apiKeyRepo           APIKeyRepository
-	redeemCodeRepo       RedeemCodeRepository
-	userGroupRateRepo    UserGroupRateRepository
-	userRPMCache         UserRPMCache
-	billingCacheService  *BillingCacheService
-	proxyProber          ProxyExitInfoProber
-	proxyLatencyCache    ProxyLatencyCache
-	authCacheInvalidator APIKeyAuthCacheInvalidator
-	entClient            *dbent.Client // 用于开启数据库事务
-	settingService       *SettingService
-	defaultSubAssigner   DefaultSubscriptionAssigner
-	userSubRepo          UserSubscriptionRepository
-	privacyClientFactory PrivacyClientFactory
-	systemTicketSvc      *SystemTicketService
+	userRepo                    UserRepository
+	groupRepo                   GroupRepository
+	accountRepo                 AccountRepository
+	proxyRepo                   ProxyRepository
+	apiKeyRepo                  APIKeyRepository
+	redeemCodeRepo              RedeemCodeRepository
+	userGroupRateRepo           UserGroupRateRepository
+	userRPMCache                UserRPMCache
+	billingCacheService         *BillingCacheService
+	proxyProber                 ProxyExitInfoProber
+	proxyLatencyCache           ProxyLatencyCache
+	authCacheInvalidator        APIKeyAuthCacheInvalidator
+	entClient                   *dbent.Client // 用于开启数据库事务
+	settingService              *SettingService
+	defaultSubAssigner          DefaultSubscriptionAssigner
+	userSubRepo                 UserSubscriptionRepository
+	privacyClientFactory        PrivacyClientFactory
+	systemTicketSvc             *SystemTicketService
+	leaderboardCacheInvalidator leaderboardCacheInvalidator
 }
 
 type userGroupRateBatchReader interface {
 	GetByUserIDs(ctx context.Context, userIDs []int64) (map[int64]map[int64]float64, error)
+}
+
+type leaderboardCacheInvalidator interface {
+	InvalidateLeaderboardCaches()
 }
 
 // NewAdminService creates a new AdminService
@@ -619,6 +625,12 @@ func NewAdminService(
 func (s *adminServiceImpl) SetSystemTicketService(systemTicketSvc *SystemTicketService) {
 	if s != nil {
 		s.systemTicketSvc = systemTicketSvc
+	}
+}
+
+func (s *adminServiceImpl) SetLeaderboardCacheInvalidator(invalidator leaderboardCacheInvalidator) {
+	if s != nil {
+		s.leaderboardCacheInvalidator = invalidator
 	}
 }
 
@@ -835,6 +847,7 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	oldStatus := user.Status
 	oldRole := user.Role
 	oldRPMLimit := user.RPMLimit
+	oldExcludeFromLeaderboard := user.ExcludeFromLeaderboard
 	oldAllowedGroups := append([]int64(nil), user.AllowedGroups...)
 	oldGroupRates := map[int64]float64{}
 	if input.GroupRates != nil && s.userGroupRateRepo != nil {
@@ -864,6 +877,9 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 
 	if input.Status != "" {
 		user.Status = input.Status
+	}
+	if input.ExcludeFromLeaderboard != nil {
+		user.ExcludeFromLeaderboard = *input.ExcludeFromLeaderboard
 	}
 
 	if input.Concurrency != nil {
@@ -915,6 +931,9 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		if user.Concurrency != oldConcurrency || user.Status != oldStatus || user.Role != oldRole || user.RPMLimit != oldRPMLimit || !sameInt64Set(user.AllowedGroups, oldAllowedGroups) {
 			s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, user.ID)
 		}
+	}
+	if user.ExcludeFromLeaderboard != oldExcludeFromLeaderboard && s.leaderboardCacheInvalidator != nil {
+		s.leaderboardCacheInvalidator.InvalidateLeaderboardCaches()
 	}
 
 	concurrencyDiff := user.Concurrency - oldConcurrency

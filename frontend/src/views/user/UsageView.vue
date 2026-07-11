@@ -331,20 +331,23 @@
             </div>
           </template>
 
-          <template #cell-first_token="{ row }">
-            <span
-              v-if="row.first_token_ms != null"
-              class="text-sm text-gray-600 dark:text-gray-400"
-            >
-              {{ formatDuration(row.first_token_ms) }}
-            </span>
-            <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
-          </template>
-
-          <template #cell-duration="{ row }">
-            <span class="text-sm text-gray-600 dark:text-gray-400">{{
-              formatDuration(row.duration_ms)
-            }}</span>
+          <template #cell-latency="{ row }">
+            <div class="flex items-stretch gap-2">
+              <span
+                class="w-1 shrink-0 rounded-full"
+                :class="row.first_token_ms != null
+                  ? ['bg-gradient-to-b from-40% to-60%', LATENCY_BAR_FROM_CLASSES[firstTokenSeverity(row.first_token_ms)], LATENCY_BAR_TO_CLASSES[durationSeverity(row.duration_ms ?? 0)]]
+                  : LATENCY_BAR_CLASSES[durationSeverity(row.duration_ms ?? 0)]"
+                aria-hidden="true"
+              ></span>
+              <div class="grid grid-cols-[max-content_max-content] items-baseline gap-x-2 gap-y-0.5 text-xs">
+                <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyFirstToken') }}</span>
+                <span v-if="row.first_token_ms != null" class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[firstTokenSeverity(row.first_token_ms)]">{{ formatDuration(row.first_token_ms) }}</span>
+                <span v-else class="text-gray-400 dark:text-gray-500">-</span>
+                <span class="text-gray-400 dark:text-gray-500">{{ t('usage.latencyDuration') }}</span>
+                <span class="font-medium tabular-nums" :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]">{{ formatDuration(row.duration_ms) }}</span>
+              </div>
+            </div>
           </template>
 
           <template #cell-created_at="{ value }">
@@ -722,6 +725,14 @@ import { formatCreditAmount } from '@/utils/credits'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatCacheTokens, formatMultiplier } from '@/utils/formatters'
 import { formatTokenPricePerMillion } from '@/utils/usagePricing'
+import {
+  LATENCY_BAR_CLASSES,
+  LATENCY_BAR_FROM_CLASSES,
+  LATENCY_BAR_TO_CLASSES,
+  LATENCY_TEXT_CLASSES,
+  durationSeverity,
+  firstTokenSeverity,
+} from '@/utils/latencyHealth'
 import { getUsageServiceTierLabel } from '@/utils/usageServiceTier'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'
 import {
@@ -758,9 +769,9 @@ const tokenTooltipData = ref<UsageLog | null>(null)
 // Usage stats from API
 const usageStats = ref<UsageStatsResponse | null>(null)
 
-const COLUMN_VISIBILITY_KEY = 'usage-visible-columns:v2'
-const LEGACY_COLUMN_VISIBILITY_KEYS = ['usage-visible-columns:v1']
-const MIGRATED_DEFAULT_VISIBLE_COLUMNS = ['cache_read']
+const COLUMN_VISIBILITY_KEY = 'usage-visible-columns:v3'
+const LEGACY_COLUMN_VISIBILITY_KEYS = ['usage-visible-columns:v2', 'usage-visible-columns:v1']
+const MIGRATED_DEFAULT_VISIBLE_COLUMNS = ['cache_read', 'latency']
 const DEFAULT_VISIBLE_COLUMNS = [
   'api_key',
   'group',
@@ -770,8 +781,7 @@ const DEFAULT_VISIBLE_COLUMNS = [
   'tokens',
   'cache_read',
   'cost',
-  'first_token',
-  'duration',
+  'latency',
   'created_at',
   'actions'
 ]
@@ -788,8 +798,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'tokens', label: t('usage.tokens'), sortable: false },
   { key: 'cache_read', label: t('usage.cacheRead'), sortable: false },
   { key: 'cost', label: t('usage.cost'), sortable: false },
-  { key: 'first_token', label: t('usage.firstToken'), sortable: false },
-  { key: 'duration', label: t('usage.duration'), sortable: false },
+  { key: 'latency', label: t('usage.latency'), sortable: false },
   { key: 'created_at', label: t('usage.time'), sortable: true },
   { key: 'user_agent', label: t('usage.userAgent'), sortable: false },
   { key: 'actions', label: t('usage.details'), sortable: false }
@@ -938,7 +947,10 @@ const formatDuration = (ms: number | null | undefined): string => {
   if (ms == null) return '-'
   const safeMs = toFiniteNumber(ms)
   if (safeMs < 1000) return `${safeMs.toFixed(0)}ms`
-  return `${(safeMs / 1000).toFixed(2)}s`
+  if (safeMs < 60_000) return `${(safeMs / 1000).toFixed(2)}s`
+  const totalSec = Math.round(safeMs / 1000)
+  if (totalSec < 3600) return `${Math.floor(totalSec / 60)}m ${totalSec % 60}s`
+  return `${Math.floor(totalSec / 3600)}h ${Math.floor((totalSec % 3600) / 60)}m`
 }
 
 const imageUnitPrice = (row: UsageLog | null): number => {

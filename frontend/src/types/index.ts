@@ -102,6 +102,7 @@ export interface User {
 export interface AdminUser extends User {
   // 管理员备注（普通用户接口不返回）
   notes: string
+  exclude_from_leaderboard: boolean
   register_ip?: string
   last_login_ip?: string
   last_used_at?: string | null
@@ -2205,6 +2206,7 @@ export interface UpdateUserRequest {
   balance?: number
   concurrency?: number
   status?: 'active' | 'disabled'
+  exclude_from_leaderboard?: boolean
   allowed_groups?: number[] | null
   // 用户专属分组倍率配置 (group_id -> rate_multiplier | null)
   // null 表示删除该分组的专属倍率

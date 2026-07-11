@@ -519,6 +519,13 @@ export default {
         codexImageGenerationBridgeBadgeInherit: 'Channel policy',
         codexImageGenerationBridgeBadgeEnabled: 'Account on',
         codexImageGenerationBridgeBadgeDisabled: 'Account off',
+        codexImageToolPolicy: 'Explicit Codex image tool policy',
+        codexImageToolPolicyDesc:
+          'Controls client-provided image_generation tools in Codex /responses text requests. Standalone image-generation endpoints are unaffected.',
+        codexImageToolPolicyAllow: 'Allow',
+        codexImageToolPolicyAllowDesc: 'Default behavior. Keep client-provided image_generation tools.',
+        codexImageToolPolicyStrip: 'Remove',
+        codexImageToolPolicyStripDesc: 'Remove image_generation tools and matching tool_choice before forwarding.',
         compactMode: 'Compact mode',
         compactModeDesc:
           'Controls how this account participates in /responses/compact routing. Auto follows probe results, Force On always allows, Force Off always excludes.',

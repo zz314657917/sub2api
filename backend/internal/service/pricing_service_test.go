@@ -37,6 +37,25 @@ func TestParsePricingData_ParsesPriorityAndServiceTierFields(t *testing.T) {
 	require.True(t, pricing.SupportsServiceTier)
 }
 
+func TestParsePricingData_ParsesPriorityCacheCreationField(t *testing.T) {
+	svc := &PricingService{}
+	data, err := svc.parsePricingData([]byte(`{
+		"gpt-5.6-sol": {
+			"input_cost_per_token": 0.000005,
+			"output_cost_per_token": 0.00003,
+			"cache_creation_input_token_cost_priority": 0.0000125
+		},
+		"gpt-5.6-zero": {
+			"input_cost_per_token": 0.000005,
+			"output_cost_per_token": 0.00003,
+			"cache_creation_input_token_cost_priority": 0
+		}
+	}`))
+	require.NoError(t, err)
+	require.InDelta(t, 12.5e-6, data["gpt-5.6-sol"].CacheCreationInputTokenCostPriority, 1e-12)
+	require.Zero(t, data["gpt-5.6-zero"].CacheCreationInputTokenCostPriority)
+}
+
 func TestGetModelPricing_Gpt53CodexSparkUsesGpt51CodexPricing(t *testing.T) {
 	sparkPricing := &LiteLLMModelPricing{InputCostPerToken: 1}
 	gpt53Pricing := &LiteLLMModelPricing{InputCostPerToken: 9}
@@ -139,15 +158,16 @@ func TestDefaultPricingIncludesGpt56PreviewPrices(t *testing.T) {
 	svc.pricingData = pricingData
 
 	cases := []struct {
-		model     string
-		input     float64
-		output    float64
-		cacheRead float64
-		cacheMake float64
+		model             string
+		input             float64
+		output            float64
+		cacheRead         float64
+		cacheMake         float64
+		cacheMakePriority float64
 	}{
-		{model: "gpt-5.6-sol", input: 5e-6, output: 30e-6, cacheRead: 0.5e-6, cacheMake: 6.25e-6},
-		{model: "gpt-5.6-terra", input: 2.5e-6, output: 15e-6, cacheRead: 0.25e-6, cacheMake: 3.125e-6},
-		{model: "gpt-5.6-luna", input: 1e-6, output: 6e-6, cacheRead: 0.1e-6, cacheMake: 1.25e-6},
+		{model: "gpt-5.6-sol", input: 5e-6, output: 30e-6, cacheRead: 0.5e-6, cacheMake: 6.25e-6, cacheMakePriority: 12.5e-6},
+		{model: "gpt-5.6-terra", input: 2.5e-6, output: 15e-6, cacheRead: 0.25e-6, cacheMake: 3.125e-6, cacheMakePriority: 6.25e-6},
+		{model: "gpt-5.6-luna", input: 1e-6, output: 6e-6, cacheRead: 0.1e-6, cacheMake: 1.25e-6, cacheMakePriority: 2.5e-6},
 	}
 	for _, tc := range cases {
 		t.Run(tc.model, func(t *testing.T) {
@@ -157,6 +177,7 @@ func TestDefaultPricingIncludesGpt56PreviewPrices(t *testing.T) {
 			require.InDelta(t, tc.output, got.OutputCostPerToken, 1e-12)
 			require.InDelta(t, tc.cacheRead, got.CacheReadInputTokenCost, 1e-12)
 			require.InDelta(t, tc.cacheMake, got.CacheCreationInputTokenCost, 1e-12)
+			require.InDelta(t, tc.cacheMakePriority, got.CacheCreationInputTokenCostPriority, 1e-12)
 			require.True(t, got.SupportsPromptCaching)
 			require.True(t, got.SupportsServiceTier)
 		})
@@ -192,6 +213,7 @@ func TestGetModelPricing_Gpt56PreviewUsesDedicatedStaticFallbackWhenRemoteMissin
 			require.InDelta(t, tc.cacheRead, got.CacheReadInputTokenCost, 1e-12)
 			require.InDelta(t, tc.cacheRead*2, got.CacheReadInputTokenCostPriority, 1e-12)
 			require.InDelta(t, tc.cacheMake, got.CacheCreationInputTokenCost, 1e-12)
+			require.InDelta(t, tc.cacheMake*2, got.CacheCreationInputTokenCostPriority, 1e-12)
 			require.Equal(t, 272000, got.LongContextInputTokenThreshold)
 			require.True(t, got.SupportsPromptCaching)
 			require.True(t, got.SupportsServiceTier)

@@ -149,6 +149,20 @@ func (_c *UserCreate) SetNillableStatus(v *string) *UserCreate {
 	return _c
 }
 
+// SetExcludeFromLeaderboard sets the "exclude_from_leaderboard" field.
+func (_c *UserCreate) SetExcludeFromLeaderboard(v bool) *UserCreate {
+	_c.mutation.SetExcludeFromLeaderboard(v)
+	return _c
+}
+
+// SetNillableExcludeFromLeaderboard sets the "exclude_from_leaderboard" field if the given value is not nil.
+func (_c *UserCreate) SetNillableExcludeFromLeaderboard(v *bool) *UserCreate {
+	if v != nil {
+		_c.SetExcludeFromLeaderboard(*v)
+	}
+	return _c
+}
+
 // SetUsername sets the "username" field.
 func (_c *UserCreate) SetUsername(v string) *UserCreate {
 	_c.mutation.SetUsername(v)
@@ -710,6 +724,10 @@ func (_c *UserCreate) defaults() error {
 		v := user.DefaultStatus
 		_c.mutation.SetStatus(v)
 	}
+	if _, ok := _c.mutation.ExcludeFromLeaderboard(); !ok {
+		v := user.DefaultExcludeFromLeaderboard
+		_c.mutation.SetExcludeFromLeaderboard(v)
+	}
 	if _, ok := _c.mutation.Username(); !ok {
 		v := user.DefaultUsername
 		_c.mutation.SetUsername(v)
@@ -802,6 +820,9 @@ func (_c *UserCreate) check() error {
 		if err := user.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "User.status": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.ExcludeFromLeaderboard(); !ok {
+		return &ValidationError{Name: "exclude_from_leaderboard", err: errors.New(`ent: missing required field "User.exclude_from_leaderboard"`)}
 	}
 	if _, ok := _c.mutation.Username(); !ok {
 		return &ValidationError{Name: "username", err: errors.New(`ent: missing required field "User.username"`)}
@@ -918,6 +939,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(user.FieldStatus, field.TypeString, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.ExcludeFromLeaderboard(); ok {
+		_spec.SetField(user.FieldExcludeFromLeaderboard, field.TypeBool, value)
+		_node.ExcludeFromLeaderboard = value
 	}
 	if value, ok := _c.mutation.Username(); ok {
 		_spec.SetField(user.FieldUsername, field.TypeString, value)
@@ -1441,6 +1466,18 @@ func (u *UserUpsert) UpdateStatus() *UserUpsert {
 	return u
 }
 
+// SetExcludeFromLeaderboard sets the "exclude_from_leaderboard" field.
+func (u *UserUpsert) SetExcludeFromLeaderboard(v bool) *UserUpsert {
+	u.Set(user.FieldExcludeFromLeaderboard, v)
+	return u
+}
+
+// UpdateExcludeFromLeaderboard sets the "exclude_from_leaderboard" field to the value that was provided on create.
+func (u *UserUpsert) UpdateExcludeFromLeaderboard() *UserUpsert {
+	u.SetExcluded(user.FieldExcludeFromLeaderboard)
+	return u
+}
+
 // SetUsername sets the "username" field.
 func (u *UserUpsert) SetUsername(v string) *UserUpsert {
 	u.Set(user.FieldUsername, v)
@@ -1856,6 +1893,20 @@ func (u *UserUpsertOne) SetStatus(v string) *UserUpsertOne {
 func (u *UserUpsertOne) UpdateStatus() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetExcludeFromLeaderboard sets the "exclude_from_leaderboard" field.
+func (u *UserUpsertOne) SetExcludeFromLeaderboard(v bool) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetExcludeFromLeaderboard(v)
+	})
+}
+
+// UpdateExcludeFromLeaderboard sets the "exclude_from_leaderboard" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateExcludeFromLeaderboard() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateExcludeFromLeaderboard()
 	})
 }
 
@@ -2480,6 +2531,20 @@ func (u *UserUpsertBulk) SetStatus(v string) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdateStatus() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetExcludeFromLeaderboard sets the "exclude_from_leaderboard" field.
+func (u *UserUpsertBulk) SetExcludeFromLeaderboard(v bool) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetExcludeFromLeaderboard(v)
+	})
+}
+
+// UpdateExcludeFromLeaderboard sets the "exclude_from_leaderboard" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateExcludeFromLeaderboard() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateExcludeFromLeaderboard()
 	})
 }
 

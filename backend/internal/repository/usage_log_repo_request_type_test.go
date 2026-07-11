@@ -794,7 +794,7 @@ func TestUsageLogRepositoryGetUserLeaderboardBadgeLeaders(t *testing.T) {
 		"cost_burner_user_id",
 	}).AddRow(int64(2), int64(9), int64(8), int64(7), int64(6), int64(5), int64(9), int64(2))
 
-	mock.ExpectQuery("WITH weekly_tokens AS").
+	mock.ExpectQuery(`(?s)WITH leaderboard_user_stats AS.*exclude_from_leaderboard`).
 		WithArgs("2026-05-04", "2026-05-11", "2026-05-01", "2026-06-01", "2026-05-04", "2026-05-11", sqlmock.AnyArg(), sqlmock.AnyArg(), sqlmock.AnyArg()).
 		WillReturnRows(rows)
 

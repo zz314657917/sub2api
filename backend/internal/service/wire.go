@@ -567,6 +567,7 @@ func ProvideAdminService(
 	userSubRepo UserSubscriptionRepository,
 	privacyClientFactory PrivacyClientFactory,
 	systemTicketSvc *SystemTicketService,
+	usageService *UsageService,
 ) AdminService {
 	svc := NewAdminService(
 		userRepo,
@@ -591,6 +592,11 @@ func ProvideAdminService(
 		SetSystemTicketService(*SystemTicketService)
 	}); ok {
 		setter.SetSystemTicketService(systemTicketSvc)
+	}
+	if setter, ok := svc.(interface {
+		SetLeaderboardCacheInvalidator(leaderboardCacheInvalidator)
+	}); ok {
+		setter.SetLeaderboardCacheInvalidator(usageService)
 	}
 	return svc
 }

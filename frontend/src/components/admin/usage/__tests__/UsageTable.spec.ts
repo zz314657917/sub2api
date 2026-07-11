@@ -22,6 +22,8 @@ const messages: Record<string, string> = {
   'usage.original': 'Original',
   'usage.userBilled': 'User billed',
   'usage.accountBilled': 'Account billed',
+  'usage.latencyFirstToken': 'First',
+  'usage.latencyDuration': 'Total',
   'usage.imageUnit': ' images',
   'usage.imageCount': 'Image count',
   'usage.imageBillingSize': 'Billing size',
@@ -63,6 +65,7 @@ const DataTableStub = {
         <slot name="cell-billing_mode" :row="row" />
         <slot name="cell-tokens" :row="row" />
         <slot name="cell-cost" :row="row" />
+        <slot name="cell-latency" :row="row" />
       </div>
     </div>
   `,
@@ -109,6 +112,41 @@ describe('admin UsageTable tooltip', () => {
       height: 20,
       toJSON: () => ({}),
     } as DOMRect)
+  })
+
+  it('renders paired first-token and total-duration health states', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, request_id: 'req-latency-paired', first_token_ms: 1_500, duration_ms: 2_050 }],
+        loading: false,
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    expect(wrapper.text()).toContain('First1.50s')
+    expect(wrapper.text()).toContain('Total2.05s')
+    const bar = wrapper.find('.w-1')
+    expect(bar.classes()).toContain('bg-gradient-to-b')
+    expect(bar.classes()).toContain('from-emerald-500')
+    expect(bar.classes()).toContain('to-emerald-500')
+  })
+
+  it('uses total-duration health when first-token data is missing', () => {
+    const wrapper = mount(UsageTable, {
+      props: {
+        data: [{ ...baseImageRow, request_id: 'req-latency-total-only', first_token_ms: null, duration_ms: 67_000 }],
+        loading: false,
+        columns: [],
+      },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    expect(wrapper.text()).toContain('First-')
+    expect(wrapper.text()).toContain('Total1m 7s')
+    const bar = wrapper.find('.w-1')
+    expect(bar.classes()).toContain('bg-amber-400')
+    expect(bar.classes()).not.toContain('bg-gradient-to-b')
   })
 
   it('shows service tier and billing breakdown in cost tooltip', async () => {

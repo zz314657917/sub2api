@@ -23,6 +23,7 @@ const messages: Record<string, string> = {
   'admin.dashboard.day': 'Day',
   'admin.dashboard.hour': 'Hour',
   'admin.usage.failedToLoadUser': 'Failed to load user',
+  'usage.latency': 'Latency Health',
 }
 
 const formatLocalDate = (date: Date): string => {
@@ -84,6 +85,10 @@ vi.mock('vue-router', () => ({
 
 const AppLayoutStub = { template: '<div><slot /></div>' }
 const UsageFiltersStub = { template: '<div><slot name="after-reset" /></div>' }
+const UsageTableStub = {
+  props: ['columns'],
+  template: '<div data-test="usage-columns">{{ columns.map((column) => column.key).join(",") }}</div>',
+}
 const ModelDistributionChartStub = {
   props: ['metric'],
   emits: ['update:metric'],
@@ -146,7 +151,7 @@ describe('admin UsageView distribution metric toggles', () => {
           AppLayout: AppLayoutStub,
           UsageStatsCards: true,
           UsageFilters: UsageFiltersStub,
-          UsageTable: true,
+          UsageTable: UsageTableStub,
           UsageExportProgress: true,
           UsageCleanupDialog: true,
           UserBalanceHistoryModal: true,
@@ -163,6 +168,11 @@ describe('admin UsageView distribution metric toggles', () => {
 
     vi.advanceTimersByTime(120)
     await flushPromises()
+
+    const usageColumns = wrapper.find('[data-test="usage-columns"]').text()
+    expect(usageColumns).toContain('latency')
+    expect(usageColumns).not.toContain('first_token')
+    expect(usageColumns).not.toContain('duration')
 
     expect(getSnapshotV2).toHaveBeenCalledTimes(1)
     const now = new Date()

@@ -92,6 +92,9 @@ const messages: Record<string, string> = {
   'usage.cost': 'Cost',
   'usage.firstToken': 'First Token',
   'usage.duration': 'Duration',
+  'usage.latency': 'Latency Health',
+  'usage.latencyFirstToken': 'First',
+  'usage.latencyDuration': 'Total',
   'usage.time': 'Time',
   'usage.userAgent': 'User Agent',
   'usage.ws': 'WS',
@@ -578,7 +581,7 @@ describe('user UsageView', () => {
 
     expect(wrapper.find('.table-row').exists()).toBe(true)
     expect(wrapper.text()).toContain('gpt-5.5')
-    expect(wrapper.find('.table-cell[data-column="duration"]').text()).toContain('-')
+    expect(wrapper.find('.table-cell[data-column="latency"]').text()).toContain('-')
     expect(wrapper.find('.table-cell[data-column="cost"]').text()).toContain('✪ 0.001000')
   })
 
@@ -630,7 +633,8 @@ describe('user UsageView', () => {
 
     expect(headerText()).toContain('Billing Group')
     expect(headerText()).toContain('Cache Read')
-    expect(headerText()).toContain('First Token')
+    expect(headerText()).toContain('Latency Health')
+    expect(headerText()).not.toContain('First Token')
     expect(headerText()).not.toContain('Endpoint')
     expect(headerText()).not.toContain('Reasoning Effort')
     expect(headerText()).not.toContain('User Agent')
@@ -642,7 +646,20 @@ describe('user UsageView', () => {
     await nextTick()
 
     expect(headerText()).toContain('Reasoning Effort')
-    expect(window.localStorage.getItem('usage-visible-columns:v2')).toContain('reasoning_effort')
+    expect(window.localStorage.getItem('usage-visible-columns:v3')).toContain('reasoning_effort')
+  })
+
+  it('migrates v2 timing columns to the combined latency column', async () => {
+    window.localStorage.setItem('usage-visible-columns:v2', JSON.stringify([
+      'api_key', 'model', 'first_token', 'duration', 'created_at', 'actions',
+    ]))
+
+    const wrapper = await mountUsageView()
+    const headerText = wrapper.find('.table-headers').text()
+
+    expect(headerText).toContain('Latency Health')
+    expect(headerText).not.toContain('First Token')
+    expect(window.localStorage.getItem('usage-visible-columns:v3')).toContain('latency')
   })
 
   it('opens row details with group, request, user-agent, token, and cost data', async () => {

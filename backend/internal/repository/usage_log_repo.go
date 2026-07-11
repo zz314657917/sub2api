@@ -2651,8 +2651,8 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 		return r.getUserLeaderboardFromDailyStats(ctx, startTime, endTime, limit, currentUserID)
 	}
 
-	conditions := make([]string, 0, 2)
-	previousConditions := make([]string, 0, 2)
+	conditions := []string{"COALESCE(us.exclude_from_leaderboard, false) = false"}
+	previousConditions := make([]string, 0, 3)
 	args := make([]any, 0, 6)
 	if !startTime.IsZero() {
 		args = append(args, startTime)
@@ -2674,9 +2674,10 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 		window := endTime.Sub(startTime)
 		previousStart := startTime.Add(-window)
 		args = append(args, previousStart)
-		previousConditions = append(previousConditions, fmt.Sprintf("created_at >= $%d", len(args)))
+		previousConditions = append(previousConditions, "COALESCE(previous_user.exclude_from_leaderboard, false) = false")
+		previousConditions = append(previousConditions, fmt.Sprintf("previous_usage.created_at >= $%d", len(args)))
 		args = append(args, startTime)
-		previousConditions = append(previousConditions, fmt.Sprintf("created_at < $%d", len(args)))
+		previousConditions = append(previousConditions, fmt.Sprintf("previous_usage.created_at < $%d", len(args)))
 		previousWhereClause = "WHERE " + strings.Join(previousConditions, " AND ")
 		rankNewExpr = "EXISTS (SELECT 1 FROM previous_user_spend) AND previous_ranked.previous_rank IS NULL"
 	}
@@ -2706,13 +2707,14 @@ func (r *usageLogRepository) GetUserLeaderboard(ctx context.Context, startTime, 
 		),
 		previous_user_spend AS (
 			SELECT
-				user_id,
-				COALESCE(SUM(actual_cost), 0) as previous_actual_cost,
+				previous_usage.user_id,
+				COALESCE(SUM(previous_usage.actual_cost), 0) as previous_actual_cost,
 				COUNT(*) as previous_requests,
-				COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as previous_tokens
-			FROM usage_logs
+				COALESCE(SUM(previous_usage.input_tokens + previous_usage.output_tokens + previous_usage.cache_creation_tokens + previous_usage.cache_read_tokens), 0) as previous_tokens
+			FROM usage_logs previous_usage
+			LEFT JOIN users previous_user ON previous_usage.user_id = previous_user.id
 			%s
-			GROUP BY user_id
+			GROUP BY previous_usage.user_id
 		),
 		previous_ranked AS (
 			SELECT
@@ -2865,8 +2867,8 @@ func shouldUseDailyStatsUserLeaderboard(startTime, endTime time.Time) bool {
 }
 
 func (r *usageLogRepository) getUserLeaderboardFromDailyStats(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (result *UserLeaderboardResponse, err error) {
-	conditions := make([]string, 0, 2)
-	previousConditions := make([]string, 0, 2)
+	conditions := []string{"COALESCE(us.exclude_from_leaderboard, false) = false"}
+	previousConditions := make([]string, 0, 3)
 	args := make([]any, 0, 6)
 	if !startTime.IsZero() {
 		args = append(args, leaderboardDailyStatsDateArg(startTime))
@@ -2888,9 +2890,10 @@ func (r *usageLogRepository) getUserLeaderboardFromDailyStats(ctx context.Contex
 		window := endTime.Sub(startTime)
 		previousStart := startTime.Add(-window)
 		args = append(args, leaderboardDailyStatsDateArg(previousStart))
-		previousConditions = append(previousConditions, fmt.Sprintf("usage_date >= $%d::date", len(args)))
+		previousConditions = append(previousConditions, "COALESCE(previous_user.exclude_from_leaderboard, false) = false")
+		previousConditions = append(previousConditions, fmt.Sprintf("previous_stats.usage_date >= $%d::date", len(args)))
 		args = append(args, leaderboardDailyStatsDateArg(startTime))
-		previousConditions = append(previousConditions, fmt.Sprintf("usage_date < $%d::date", len(args)))
+		previousConditions = append(previousConditions, fmt.Sprintf("previous_stats.usage_date < $%d::date", len(args)))
 		previousWhereClause = "WHERE " + strings.Join(previousConditions, " AND ")
 		rankNewExpr = "EXISTS (SELECT 1 FROM previous_user_spend) AND previous_ranked.previous_rank IS NULL"
 	}
@@ -2916,13 +2919,14 @@ func (r *usageLogRepository) getUserLeaderboardFromDailyStats(ctx context.Contex
 		),
 		previous_user_spend AS (
 			SELECT
-				user_id,
-				COALESCE(SUM(actual_cost), 0)::float8 as previous_actual_cost,
-				COALESCE(SUM(requests), 0)::bigint as previous_requests,
-				COALESCE(SUM(tokens), 0)::bigint as previous_tokens
-			FROM user_usage_daily_stats
+				previous_stats.user_id,
+				COALESCE(SUM(previous_stats.actual_cost), 0)::float8 as previous_actual_cost,
+				COALESCE(SUM(previous_stats.requests), 0)::bigint as previous_requests,
+				COALESCE(SUM(previous_stats.tokens), 0)::bigint as previous_tokens
+			FROM user_usage_daily_stats previous_stats
+			LEFT JOIN users previous_user ON previous_stats.user_id = previous_user.id
 			%s
-			GROUP BY user_id
+			GROUP BY previous_stats.user_id
 		),
 		previous_ranked AS (
 			SELECT
@@ -3097,6 +3101,7 @@ func (r *usageLogRepository) GetLeaderboardDailyChampions(ctx context.Context, s
 			WHERE stats.usage_date >= $1::date
 				AND stats.usage_date < $2::date
 				AND COALESCE(stats.tokens, 0) > 0
+				AND COALESCE(us.exclude_from_leaderboard, false) = false
 		)
 		SELECT
 			usage_date::text,
@@ -3157,16 +3162,16 @@ func (r *usageLogRepository) GetLeaderboardModelRanking(ctx context.Context, sta
 		limit = 10
 	}
 
-	conditions := make([]string, 0, 2)
-	previousConditions := make([]string, 0, 2)
+	conditions := []string{"COALESCE(leader_user.exclude_from_leaderboard, false) = false"}
+	previousConditions := make([]string, 0, 3)
 	args := make([]any, 0, 5)
 	if !startTime.IsZero() {
 		args = append(args, startTime)
-		conditions = append(conditions, fmt.Sprintf("created_at >= $%d", len(args)))
+		conditions = append(conditions, fmt.Sprintf("usage.created_at >= $%d", len(args)))
 	}
 	if !endTime.IsZero() {
 		args = append(args, endTime)
-		conditions = append(conditions, fmt.Sprintf("created_at < $%d", len(args)))
+		conditions = append(conditions, fmt.Sprintf("usage.created_at < $%d", len(args)))
 	}
 
 	whereClause := ""
@@ -3179,9 +3184,10 @@ func (r *usageLogRepository) GetLeaderboardModelRanking(ctx context.Context, sta
 		window := endTime.Sub(startTime)
 		previousStart := startTime.Add(-window)
 		args = append(args, previousStart)
-		previousConditions = append(previousConditions, fmt.Sprintf("created_at >= $%d", len(args)))
+		previousConditions = append(previousConditions, "COALESCE(previous_user.exclude_from_leaderboard, false) = false")
+		previousConditions = append(previousConditions, fmt.Sprintf("previous_usage.created_at >= $%d", len(args)))
 		args = append(args, startTime)
-		previousConditions = append(previousConditions, fmt.Sprintf("created_at < $%d", len(args)))
+		previousConditions = append(previousConditions, fmt.Sprintf("previous_usage.created_at < $%d", len(args)))
 		previousWhereClause = "WHERE " + strings.Join(previousConditions, " AND ")
 	}
 
@@ -3189,23 +3195,25 @@ func (r *usageLogRepository) GetLeaderboardModelRanking(ctx context.Context, sta
 	query := fmt.Sprintf(`
 		WITH model_usage AS (
 			SELECT
-				COALESCE(NULLIF(TRIM(model), ''), 'unknown') as model,
+				COALESCE(NULLIF(TRIM(usage.model), ''), 'unknown') as model,
 				COUNT(*) as requests,
-				COALESCE(SUM(input_tokens), 0) as input_tokens,
-				COALESCE(SUM(output_tokens), 0) as output_tokens,
-				COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens
-			FROM usage_logs
+				COALESCE(SUM(usage.input_tokens), 0) as input_tokens,
+				COALESCE(SUM(usage.output_tokens), 0) as output_tokens,
+				COALESCE(SUM(usage.input_tokens + usage.output_tokens + usage.cache_creation_tokens + usage.cache_read_tokens), 0) as tokens
+			FROM usage_logs usage
+			LEFT JOIN users leader_user ON usage.user_id = leader_user.id
 			%s
-			GROUP BY COALESCE(NULLIF(TRIM(model), ''), 'unknown')
+			GROUP BY COALESCE(NULLIF(TRIM(usage.model), ''), 'unknown')
 		),
 		previous_model_usage AS (
 			SELECT
-				COALESCE(NULLIF(TRIM(model), ''), 'unknown') as model,
+				COALESCE(NULLIF(TRIM(previous_usage.model), ''), 'unknown') as model,
 				COUNT(*) as previous_requests,
-				COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as previous_tokens
-			FROM usage_logs
+				COALESCE(SUM(previous_usage.input_tokens + previous_usage.output_tokens + previous_usage.cache_creation_tokens + previous_usage.cache_read_tokens), 0) as previous_tokens
+			FROM usage_logs previous_usage
+			LEFT JOIN users previous_user ON previous_usage.user_id = previous_user.id
 			%s
-			GROUP BY COALESCE(NULLIF(TRIM(model), ''), 'unknown')
+			GROUP BY COALESCE(NULLIF(TRIM(previous_usage.model), ''), 'unknown')
 		),
 		previous_ranked AS (
 			SELECT
@@ -3284,14 +3292,61 @@ func (r *usageLogRepository) GetLeaderboardModelRanking(ctx context.Context, sta
 	return items, totalModels, nil
 }
 
+// GetLeaderboardRecentTokenTrend returns daily token totals for users that
+// participate in leaderboard results without changing generic usage reporting.
+func (r *usageLogRepository) GetLeaderboardRecentTokenTrend(ctx context.Context, startTime, endTime time.Time) (points []usagestats.UserLeaderboardTokenTrendPoint, err error) {
+	query := fmt.Sprintf(`
+		SELECT
+			TO_CHAR(usage.created_at, '%s') AS date,
+			COALESCE(SUM(usage.input_tokens + usage.output_tokens + usage.cache_creation_tokens + usage.cache_read_tokens), 0) AS total_tokens
+		FROM usage_logs usage
+		LEFT JOIN users leaderboard_user ON usage.user_id = leaderboard_user.id
+		WHERE usage.created_at >= $1
+			AND usage.created_at < $2
+			AND COALESCE(leaderboard_user.exclude_from_leaderboard, false) = false
+		GROUP BY date
+		ORDER BY date ASC
+	`, safeDateFormat("day"))
+
+	rows, err := r.sql.QueryContext(ctx, query, startTime, endTime)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+			points = nil
+		}
+	}()
+
+	points = make([]usagestats.UserLeaderboardTokenTrendPoint, 0)
+	for rows.Next() {
+		var point usagestats.UserLeaderboardTokenTrendPoint
+		if err = rows.Scan(&point.Date, &point.TotalTokens); err != nil {
+			return nil, err
+		}
+		points = append(points, point)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return points, nil
+}
+
 // GetUserLeaderboardBadgeLeaders returns user IDs that should receive special leaderboard badges.
 func (r *usageLogRepository) GetUserLeaderboardBadgeLeaders(ctx context.Context, weekStart, weekEnd, monthStart, monthEnd, costStart, costEnd time.Time, userTZ string) (*UserLeaderboardBadgeLeaders, error) {
 	query := `
-		WITH weekly_tokens AS (
+		WITH leaderboard_user_stats AS (
+			SELECT stats.*
+			FROM user_usage_daily_stats stats
+			LEFT JOIN users us ON stats.user_id = us.id
+			WHERE COALESCE(us.exclude_from_leaderboard, false) = false
+		),
+		weekly_tokens AS (
 			SELECT
 				user_id,
 				COALESCE(SUM(tokens), 0) AS tokens
-			FROM user_usage_daily_stats
+			FROM leaderboard_user_stats
 			WHERE usage_date >= $1::date AND usage_date < $2::date
 			GROUP BY user_id
 			HAVING COALESCE(SUM(tokens), 0) > 0
@@ -3302,7 +3357,7 @@ func (r *usageLogRepository) GetUserLeaderboardBadgeLeaders(ctx context.Context,
 			SELECT
 				user_id,
 				COALESCE(SUM(tokens), 0) AS tokens
-			FROM user_usage_daily_stats
+			FROM leaderboard_user_stats
 			WHERE usage_date >= $3::date AND usage_date < $4::date
 			GROUP BY user_id
 			HAVING COALESCE(SUM(tokens), 0) > 0
@@ -3313,7 +3368,7 @@ func (r *usageLogRepository) GetUserLeaderboardBadgeLeaders(ctx context.Context,
 			SELECT
 				user_id,
 				COALESCE(SUM(tokens), 0) AS tokens
-			FROM user_usage_daily_stats
+			FROM leaderboard_user_stats
 			GROUP BY user_id
 			HAVING COALESCE(SUM(tokens), 0) > 0
 			ORDER BY tokens DESC, user_id ASC
@@ -3324,7 +3379,7 @@ func (r *usageLogRepository) GetUserLeaderboardBadgeLeaders(ctx context.Context,
 				user_id,
 				usage_date,
 				COALESCE(tokens, 0) AS tokens
-			FROM user_usage_daily_stats
+			FROM leaderboard_user_stats
 			WHERE usage_date >= $7::date AND usage_date < $9::date
 		),
 		burst_candidates AS (
@@ -3353,7 +3408,7 @@ func (r *usageLogRepository) GetUserLeaderboardBadgeLeaders(ctx context.Context,
 			SELECT
 				user_id,
 				usage_date
-			FROM user_usage_daily_stats
+			FROM leaderboard_user_stats
 			WHERE usage_date <= $8::date
 				AND requests > 0
 		),
@@ -3383,7 +3438,7 @@ func (r *usageLogRepository) GetUserLeaderboardBadgeLeaders(ctx context.Context,
 				user_id,
 				COALESCE(SUM(actual_cost), 0) AS actual_cost,
 				COALESCE(SUM(tokens), 0) AS tokens
-			FROM user_usage_daily_stats
+			FROM leaderboard_user_stats
 			WHERE ($5::date IS NULL OR usage_date >= $5::date)
 				AND ($6::date IS NULL OR usage_date < $6::date)
 			GROUP BY user_id
@@ -3394,7 +3449,7 @@ func (r *usageLogRepository) GetUserLeaderboardBadgeLeaders(ctx context.Context,
 			SELECT
 				user_id,
 				COALESCE(SUM(night_requests), 0) AS night_requests
-			FROM user_usage_daily_stats
+			FROM leaderboard_user_stats
 			WHERE ($5::date IS NULL OR usage_date >= $5::date)
 				AND ($6::date IS NULL OR usage_date < $6::date)
 			GROUP BY user_id

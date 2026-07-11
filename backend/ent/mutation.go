@@ -52509,6 +52509,7 @@ type UserMutation struct {
 	concurrency                   *int
 	addconcurrency                *int
 	status                        *string
+	exclude_from_leaderboard      *bool
 	username                      *string
 	notes                         *string
 	totp_secret_encrypted         *string
@@ -53061,6 +53062,42 @@ func (m *UserMutation) OldStatus(ctx context.Context) (v string, err error) {
 // ResetStatus resets all changes to the "status" field.
 func (m *UserMutation) ResetStatus() {
 	m.status = nil
+}
+
+// SetExcludeFromLeaderboard sets the "exclude_from_leaderboard" field.
+func (m *UserMutation) SetExcludeFromLeaderboard(b bool) {
+	m.exclude_from_leaderboard = &b
+}
+
+// ExcludeFromLeaderboard returns the value of the "exclude_from_leaderboard" field in the mutation.
+func (m *UserMutation) ExcludeFromLeaderboard() (r bool, exists bool) {
+	v := m.exclude_from_leaderboard
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldExcludeFromLeaderboard returns the old "exclude_from_leaderboard" field's value of the User entity.
+// If the User object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *UserMutation) OldExcludeFromLeaderboard(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldExcludeFromLeaderboard is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldExcludeFromLeaderboard requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldExcludeFromLeaderboard: %w", err)
+	}
+	return oldValue.ExcludeFromLeaderboard, nil
+}
+
+// ResetExcludeFromLeaderboard resets all changes to the "exclude_from_leaderboard" field.
+func (m *UserMutation) ResetExcludeFromLeaderboard() {
+	m.exclude_from_leaderboard = nil
 }
 
 // SetUsername sets the "username" field.
@@ -54771,7 +54808,7 @@ func (m *UserMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *UserMutation) Fields() []string {
-	fields := make([]string, 0, 25)
+	fields := make([]string, 0, 26)
 	if m.created_at != nil {
 		fields = append(fields, user.FieldCreatedAt)
 	}
@@ -54798,6 +54835,9 @@ func (m *UserMutation) Fields() []string {
 	}
 	if m.status != nil {
 		fields = append(fields, user.FieldStatus)
+	}
+	if m.exclude_from_leaderboard != nil {
+		fields = append(fields, user.FieldExcludeFromLeaderboard)
 	}
 	if m.username != nil {
 		fields = append(fields, user.FieldUsername)
@@ -54873,6 +54913,8 @@ func (m *UserMutation) Field(name string) (ent.Value, bool) {
 		return m.Concurrency()
 	case user.FieldStatus:
 		return m.Status()
+	case user.FieldExcludeFromLeaderboard:
+		return m.ExcludeFromLeaderboard()
 	case user.FieldUsername:
 		return m.Username()
 	case user.FieldNotes:
@@ -54932,6 +54974,8 @@ func (m *UserMutation) OldField(ctx context.Context, name string) (ent.Value, er
 		return m.OldConcurrency(ctx)
 	case user.FieldStatus:
 		return m.OldStatus(ctx)
+	case user.FieldExcludeFromLeaderboard:
+		return m.OldExcludeFromLeaderboard(ctx)
 	case user.FieldUsername:
 		return m.OldUsername(ctx)
 	case user.FieldNotes:
@@ -55035,6 +55079,13 @@ func (m *UserMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetStatus(v)
+		return nil
+	case user.FieldExcludeFromLeaderboard:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetExcludeFromLeaderboard(v)
 		return nil
 	case user.FieldUsername:
 		v, ok := value.(string)
@@ -55325,6 +55376,9 @@ func (m *UserMutation) ResetField(name string) error {
 		return nil
 	case user.FieldStatus:
 		m.ResetStatus()
+		return nil
+	case user.FieldExcludeFromLeaderboard:
+		m.ResetExcludeFromLeaderboard()
 		return nil
 	case user.FieldUsername:
 		m.ResetUsername()

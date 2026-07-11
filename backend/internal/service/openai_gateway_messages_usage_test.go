@@ -56,3 +56,14 @@ func TestExtractCCStreamUsageCapturesCacheWriteTokens(t *testing.T) {
 	require.Equal(t, 4, got.CacheReadInputTokens)
 	require.Equal(t, 6, got.CacheCreationInputTokens)
 }
+
+func TestExtractOpenAIReasoningEffortFromFallbackCandidatesUsesSuffixFallback(t *testing.T) {
+	effort := extractOpenAIReasoningEffortFromFallbackCandidates(
+		[]byte(`{"input":"hi"}`),
+		"gpt-5",
+		"gpt-5-high",
+	)
+
+	require.NotNil(t, effort)
+	require.Equal(t, "high", *effort)
+}

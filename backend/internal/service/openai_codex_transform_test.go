@@ -837,6 +837,90 @@ func TestApplyCodexOAuthTransform_KeepsImageGenerationToolForNonSpark(t *testing
 	require.True(t, hasOpenAIImageGenerationTool(reqBody))
 }
 
+func TestStripOpenAIImageGenerationTools(t *testing.T) {
+	imageNamespace := func() map[string]any {
+		return map[string]any{
+			"type": "namespace",
+			"name": "image_gen",
+			"tools": []any{
+				map[string]any{"type": "function", "name": "imagegen"},
+			},
+		}
+	}
+	codeNamespace := func() map[string]any {
+		return map[string]any{
+			"type": "namespace",
+			"name": "code_tools",
+			"tools": []any{
+				map[string]any{"type": "function", "name": "run"},
+			},
+		}
+	}
+
+	t.Run("strips namespace formats and empty carriers", func(t *testing.T) {
+		reqBody := map[string]any{
+			"model": "gpt-5.5",
+			"tools": []any{
+				map[string]any{"type": "function", "name": "shell"},
+				map[string]any{"type": "image_generation", "output_format": "png"},
+				imageNamespace(),
+				codeNamespace(),
+			},
+			"input": []any{
+				map[string]any{"type": "message", "role": "user", "content": "hello"},
+				map[string]any{"type": "additional_tools", "tools": []any{imageNamespace(), codeNamespace()}},
+				map[string]any{"type": "additional_tools", "tools": []any{imageNamespace()}},
+			},
+			"tool_choice": map[string]any{"tool": map[string]any{"type": "namespace", "namespace": "image_gen"}},
+		}
+
+		require.True(t, stripOpenAIImageGenerationTools(reqBody))
+		require.False(t, hasOpenAIImageGenerationTool(reqBody))
+		require.NotContains(t, reqBody, "tool_choice")
+		tools, ok := reqBody["tools"].([]any)
+		require.True(t, ok)
+		require.Len(t, tools, 2)
+		require.Equal(t, "shell", tools[0].(map[string]any)["name"])
+		require.Equal(t, "code_tools", tools[1].(map[string]any)["name"])
+		input, ok := reqBody["input"].([]any)
+		require.True(t, ok)
+		require.Len(t, input, 2)
+		require.Equal(t, "message", input[0].(map[string]any)["type"])
+		additionalTools := input[1].(map[string]any)["tools"].([]any)
+		require.Len(t, additionalTools, 1)
+		require.Equal(t, "code_tools", additionalTools[0].(map[string]any)["name"])
+		require.False(t, stripOpenAIImageGenerationTools(reqBody), "stripping should be idempotent")
+	})
+
+	t.Run("keeps non-image declarations", func(t *testing.T) {
+		reqBody := map[string]any{
+			"tools": []any{
+				codeNamespace(),
+				map[string]any{"type": "function", "name": "imagegen"},
+			},
+			"input": []any{
+				map[string]any{"type": "additional_tools", "tools": []any{codeNamespace()}},
+			},
+			"tool_choice": "auto",
+		}
+
+		require.False(t, stripOpenAIImageGenerationTools(reqBody))
+		require.Equal(t, "auto", reqBody["tool_choice"])
+		require.False(t, hasOpenAIImageGenerationTool(reqBody))
+	})
+
+	t.Run("keeps custom imagegen function choice", func(t *testing.T) {
+		reqBody := map[string]any{
+			"tool_choice": map[string]any{
+				"function": map[string]any{"name": "imagegen"},
+			},
+		}
+
+		require.False(t, stripOpenAIImageGenerationTools(reqBody))
+		require.Contains(t, reqBody, "tool_choice")
+	})
+}
+
 func TestNormalizeOpenAIResponsesImageOnlyModel_BuildsImageToolRequest(t *testing.T) {
 	reqBody := map[string]any{
 		"model":         "gpt-image-2",

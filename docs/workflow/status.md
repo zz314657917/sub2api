@@ -1,18 +1,67 @@
 ---
 phase: done
-current_sprint: tutorial-toc-content-adjacency-s64
-total_sprints: 64
-pending_action: scoped review and optional commit or local container update
+current_sprint: leaderboard-participation-exclusion-s70
+total_sprints: 70
+pending_action: merge the reviewed S65-S70 integration branch into main and push
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 02:32 +08:00
+last_verified: 2026-07-11 17:01 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`done`
-- 当前 Sprint：`tutorial-toc-content-adjacency-s64`。
+- Current phase: `done`.
+- Current Sprint: `leaderboard-participation-exclusion-s70`.
+- New product scope is isolated from completed S69: a per-platform-user `exclude_from_leaderboard` control must exclude users before raw/daily-stats ranks, daily champions, badges, and reward eligibility, while preserving billing and ordinary usage reporting.
+- Final evaluator: PASS. The administrator-controlled user exclusion is persisted, invalidates leaderboard caches, and excludes the user from rank, champion, badge, reward, model, and trend paths. Commits `997f423ff` and `4dc2b462e` are present on and pushed to `origin/codex/leaderboard-participation-exclusion-s70`; merge to `main`, deployment, and container update have not yet been performed.
+
+- 当前阶段：`done`。
+- 历史 Sprint：`upstream-gpt56-priority-cache-billing-s69`。
+- S69 独立 QA 报告 `docs/workflow/qa-reports/upstream-gpt56-priority-cache-billing-s69-qa.md` 首行 PASS；主控最终裁决为 DONE。GPT-5.6 Priority cache-write 专价、override、272k、Flex、breakdown 和 RecordUsage 均已闭环。S69 已随当前 feature branch 推送，但尚未合入 `main` 或部署。
+- S69 Generator 实现已集成为 `d5a1aef0b`，worker result 收口为 `07399e50d`；独立代码审查 PASS，8 个 changed paths 全部在 contract allowlist；随后 fresh worktree 独立 QA 也已 PASS。
+- S69 contract 经两项独立 Evaluator 复核通过：计费语义 PASS；验收命令在补齐 native exit-code、clean worktree 和精确测试枚举门禁后 PASS。下一合法动作是从批准 HEAD 派发单一 billing Generator worker。
+- S69 draft contract 已生成：只补 GPT-5.6 Priority cache-write 价格从静态/动态/override 到结算与 RecordUsage 的完整链；裸别名、用户级 Fast/Flex、usage breakdown、Cyber migration、支付与前端明确冻结。
+- 三组 S69 Planner 审计确认：协议/Ops/Grok 候选均已等价覆盖或应跳过；真正最高优先级缺口是 GPT-5.6 Priority cache-write 仍按 Standard 价格少计费。
+- 独立组合 QA 报告 `docs/workflow/qa-reports/upstream-codex-imagegen-namespace-strip-s68b-qa.md` 判定 PASS；主控最终裁决为 DONE。S68 未合入 `main`、未推送、未部署。
+- S66-S68 的 15 个临时 worktree/branch 已在确认工作树干净且 `git cherry HEAD <branch>` 无 unique commit 后清理；当前只保留集成工作树。
+- S68b 初始实现与 fix1 已集成为 `7593079a9`、`19066c93d`；组合 diff 经主控关键验收、独立 fix1 复核和独立组合 QA PASS。
+- S68b 初始 worker commit `36fe56441` 经主控关键验收 PASS，但独立 review 曾判定 FAIL：本地 `OpenAIWSIngressModePassthrough` 在 parsed ingress 前提前返回，首帧和后续帧均绕过图片声明 strip；该 finding 已由 fix1 关闭后统一集成。
+- Fix1 contract 已由原 Generator 完成：WS passthrough 首帧/后续帧、invalid raw JSON 与 OAuth HTTP passthrough actual-body 证据均已补齐，独立复核确认此前 P1/P2 finding 全部关闭。
+- S68b backend worker 已在独立 worktree `E:/codex-worktrees/sub2api/upstream-codex-imagegen-namespace-strip-s68b` 完成初始实现与 fix1；两笔实现均已进入当前集成分支。
+- S68b draft contract 已生成：基于 S68a policy PASS，只扩展 namespace、Responses Lite、passthrough/raw 和 WS stripping；策略 UI 与 apicompat 明确冻结。
+- S68b contract 已通过主控审查，并补充 HTTP passthrough 实际 forwarded-body 的独立验收；API-key/OAuth passthrough 与完整 WS ingress 证据均已由 fix1 和组合 QA闭环。
+- S68a 历史阶段：`done`。
+- S68a Sprint：`upstream-codex-image-tool-strip-policy-s68a`。
+- Planner 已确认 `d3a1835ed` 依赖本地缺失的 `f385cdceb` 账号策略，且现有 UI 没有安全的任意 `extra` 编辑入口；S68a 因此拆成 backend policy 与专用 UI 两个互斥 draft contract。
+- Backend 与 UI worker 均已完成并经独立审查；UI 的 nested precedence 与 alias normalization 两项 finding 已由 follow-up 提交闭环。组合分支集成到 `2f68fdc90`，fresh backend service、组件 `30/30` 和 typecheck 均 PASS。
+- 当前唯一合法动作是在独立 worktree 对 S68a 执行组合 QA；namespace、Responses Lite `additional_tools` 和 passthrough 仍属于后续 S68b，不能在 QA 中扩实现。
+- 独立 QA 已按 `docs/workflow/qa-reports/upstream-codex-image-tool-strip-policy-s68a-qa.md` 判定 PASS；S68a 当前裁决为 DONE，可作为 S68b 的策略与维护入口前置。
+- S67 历史阶段：`done`。
+- S67 Sprint：`upstream-v0151-protocol-wave2-s67`。
+- 已批准三个互斥 contract：`upstream-gpt56-max-effort-s67a`、`upstream-codex-mcp-tool-bridge-s67b`、`upstream-compact-ops-stream-log-s67c`。
+- `openai_gateway_messages.go` 由 S67b 独占并同时完成 message fallback effort-candidate 调整；S67a 不得修改该文件。
+- S67 第一轮集成后再单独启动 Codex `image_gen` namespace strip，避免与 GPT 核心网关 ownership 重叠。
+- 三个 S67 Worker 均已从共同基线 `09bfc7e9b` 完成实现、合规 result 和独立代码审查；主分支按 Ops logging、GPT effort、MCP bridge 顺序集成到 `fbe5dd123`。
+- 首轮独立 QA 已按 `docs/workflow/qa-reports/upstream-v0151-protocol-wave2-s67-qa.md` 判定 FAIL：S67b tool-only 流的 streamed/final output index 不一致，reasoning-plus-tool 缺完整 reasoning item lifecycle。
+- 已批准 fix contract：`docs/workflow/tasks/upstream-codex-mcp-tool-bridge-s67b-fix1.md`。只适配祖先 `f10bca815` 的 response-stream state/index/lifecycle 子集，不引入其 request-direction 大重构。
+- Fix1 已集成为 `d1c858392`：动态 output index、reasoning/message 完整生命周期和 streamed-vs-terminal 索引断言均已进入组合分支。当前唯一合法动作是由原 QA owner 在新 worktree 复测原失败场景与 S67 组合回归。
+- Retest1 已按 `docs/workflow/qa-reports/upstream-v0151-protocol-wave2-s67-retest1.md` 判定 PASS：初次 tool-only index 与 reasoning lifecycle 两项阻断均已闭环，完整 apicompat、S67 service 组合、Ops 定向、完整 handler 和路径审计通过。
+- S67 当前裁决为 DONE。下一步只能先处理 `d3a1835ed` 缺失的 `f385cdceb` 账号级图片工具策略前置；不得直接启动 namespace strip 实现。
+- S66 历史阶段：`done`。
+- 当前 Sprint：`upstream-v0151-runtime-wave1-s66`。
+- 已批准三个互斥实现 contract：`upstream-runtime-hotfixes-s66a`、`upstream-anthropic-grok-usage-s66b`、`upstream-remote-compact-reliability-s66c`。
+- S66 第一波只处理 setup-token/ops/Windows WS 小修、Anthropic/Grok 用量兼容和 remote compact 可靠性；GPT-5.6 max、image_gen、MCP tool bridge 与支付并发加固不在本波范围。
+- 用户已明确授权多智能体；每个 Generator 使用 `E:/codex-worktrees/sub2api/<task-id>` 独立 worktree，主 Codex 负责 diff 审核、集成、统一 QA 和最终裁决。
+- 三个 Worker 均从共同基线 `2549e0b3a` 完成独立分支实现和 worker result，主线程已按 ownership 审查后集成。
+- S66 第一波已集成：`d826463f1`（Anthropic cache creation + Grok effort）、`7e4420c04`（setup-token/ops/Windows WS）、`696d23875`（remote compact reliability）。
+- 独立 QA：`docs/workflow/qa-reports/upstream-v0151-runtime-wave1-s66-qa.md` 首行 PASS；定向回归、compact `count=20`、完整 handler、diff/path audit 全部通过。
+- 已知非阻断项：完整 service 包仍有既有 `group_peak_rate` 时区断言漂移；race 因 `CGO_ENABLED=0` 且主机无 `gcc` 未执行；未做真实上游 compact 或物理 Windows reset 联调。
+- 下一波候选：GPT-5.6 `max`/effort candidates、Codex `image_gen` namespace strip、MCP/custom/tool_search bridge；支付并发大补丁继续保持独立审计边界。
+- S65 历史阶段：`done`。
+- 当前 Sprint：`upstream-latency-health-column-s65`。
+- 当前 contract：`docs/workflow/tasks/upstream-latency-health-column-s65.md`，只移植上游合并延迟健康列，不带排行、筛选、tab 或整页布局重构。
+- S65 已完成：管理端和用户端用量明细改为合并延迟健康列，首字/总耗时使用上下渐变色条和四档阈值；4 files / 31 tests、主题 2 files / 24 tests、typecheck、build 与 `git diff --check` PASS，证据见 `docs/workflow/qa-reports/upstream-latency-health-column-s65-qa.md`。
 - 当前 contract：`docs/workflow/tasks/tutorial-toc-content-adjacency-s64.md`，只把桌面本页目录从视口右侧移到正文右侧邻接位置。
 - S64 已完成：`2560px` 正文到 TOC 间距 `32px`，`1280px` 间距 `19px`；正文保持 `800px`，移动目录/TOC 无回归。
 - S64 验证：3 files / 21 tests、typecheck、`git diff --check` 与 `2560x900` / `1280x720` / `390x844` 截图验收 PASS，证据见 `docs/workflow/qa-reports/tutorial-toc-content-adjacency-s64-qa.md`。

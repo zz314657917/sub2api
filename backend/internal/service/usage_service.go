@@ -86,6 +86,10 @@ type leaderboardModelRankingRepository interface {
 	GetLeaderboardModelRanking(ctx context.Context, startTime, endTime time.Time, limit int) ([]usagestats.UserLeaderboardModelItem, int64, error)
 }
 
+type leaderboardRecentTrendRepository interface {
+	GetLeaderboardRecentTokenTrend(ctx context.Context, startTime, endTime time.Time) ([]usagestats.UserLeaderboardTokenTrendPoint, error)
+}
+
 type leaderboardDailyChampionsRepository interface {
 	GetLeaderboardDailyChampions(ctx context.Context, startTime, endTime time.Time) ([]usagestats.UserLeaderboardDailyChampion, error)
 }
@@ -222,6 +226,24 @@ func (s *UsageService) invalidateUsageCaches(ctx context.Context, userID int64, 
 		return
 	}
 	s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
+}
+
+// InvalidateLeaderboardCaches clears cached leaderboard data after an
+// administrator changes whether a user participates in leaderboard results.
+func (s *UsageService) InvalidateLeaderboardCaches() {
+	if s == nil {
+		return
+	}
+	s.badgeCacheMu.Lock()
+	s.badgeCache = make(map[string]leaderboardBadgeCacheEntry)
+	s.badgeCacheMu.Unlock()
+
+	s.leaderboardCacheMu.Lock()
+	s.userLeaderboardCache = make(map[string]leaderboardUserCacheEntry)
+	s.modelRankingCache = make(map[string]leaderboardModelRankingCacheEntry)
+	s.recentTrendCache = make(map[string]leaderboardRecentTrendCacheEntry)
+	s.dailyChampionsCache = make(map[string]leaderboardDailyChampionsCacheEntry)
+	s.leaderboardCacheMu.Unlock()
 }
 
 // GetByID 根据ID获取使用日志
@@ -454,17 +476,25 @@ func (s *UsageService) GetLeaderboardRecentTokenTrend(ctx context.Context, start
 		if points, ok := s.getCachedLeaderboardRecentTrend(cacheKey, time.Now()); ok {
 			return points, nil
 		}
-		trend, err := s.usageRepo.GetUsageTrendWithFilters(ctx, startTime, endTime, "day", 0, 0, 0, 0, "", nil, nil, nil)
-		if err != nil {
-			return nil, err
-		}
-
-		points := make([]usagestats.UserLeaderboardTokenTrendPoint, 0, len(trend))
-		for _, item := range trend {
-			points = append(points, usagestats.UserLeaderboardTokenTrendPoint{
-				Date:        item.Date,
-				TotalTokens: item.TotalTokens,
-			})
+		var points []usagestats.UserLeaderboardTokenTrendPoint
+		if repo, ok := s.usageRepo.(leaderboardRecentTrendRepository); ok {
+			trendPoints, trendErr := repo.GetLeaderboardRecentTokenTrend(ctx, startTime, endTime)
+			if trendErr != nil {
+				return nil, trendErr
+			}
+			points = trendPoints
+		} else {
+			trend, trendErr := s.usageRepo.GetUsageTrendWithFilters(ctx, startTime, endTime, "day", 0, 0, 0, 0, "", nil, nil, nil)
+			if trendErr != nil {
+				return nil, trendErr
+			}
+			points = make([]usagestats.UserLeaderboardTokenTrendPoint, 0, len(trend))
+			for _, item := range trend {
+				points = append(points, usagestats.UserLeaderboardTokenTrendPoint{
+					Date:        item.Date,
+					TotalTokens: item.TotalTokens,
+				})
+			}
 		}
 		s.setCachedLeaderboardRecentTrend(cacheKey, points, time.Now())
 		return cloneLeaderboardRecentTrend(points), nil

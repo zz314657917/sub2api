@@ -33,6 +33,8 @@ const (
 	FieldConcurrency = "concurrency"
 	// FieldStatus holds the string denoting the status field in the database.
 	FieldStatus = "status"
+	// FieldExcludeFromLeaderboard holds the string denoting the exclude_from_leaderboard field in the database.
+	FieldExcludeFromLeaderboard = "exclude_from_leaderboard"
 	// FieldUsername holds the string denoting the username field in the database.
 	FieldUsername = "username"
 	// FieldNotes holds the string denoting the notes field in the database.
@@ -250,6 +252,7 @@ var Columns = []string{
 	FieldBalance,
 	FieldConcurrency,
 	FieldStatus,
+	FieldExcludeFromLeaderboard,
 	FieldUsername,
 	FieldNotes,
 	FieldTotpSecretEncrypted,
@@ -314,6 +317,8 @@ var (
 	DefaultStatus string
 	// StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	StatusValidator func(string) error
+	// DefaultExcludeFromLeaderboard holds the default value on creation for the "exclude_from_leaderboard" field.
+	DefaultExcludeFromLeaderboard bool
 	// DefaultUsername holds the default value on creation for the "username" field.
 	DefaultUsername string
 	// UsernameValidator is a validator for the "username" field. It is called by the builders before save.
@@ -397,6 +402,11 @@ func ByConcurrency(opts ...sql.OrderTermOption) OrderOption {
 // ByStatus orders the results by the status field.
 func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldStatus, opts...).ToFunc()
+}
+
+// ByExcludeFromLeaderboard orders the results by the exclude_from_leaderboard field.
+func ByExcludeFromLeaderboard(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldExcludeFromLeaderboard, opts...).ToFunc()
 }
 
 // ByUsername orders the results by the username field.
