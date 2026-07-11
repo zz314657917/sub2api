@@ -186,3 +186,5 @@
 260711 1232 | upstream-codex-image-tool-strip-policy-s68a | contracts-drafted | codex | backend policy and dedicated account UI
 260711 1234 | upstream-codex-image-tool-strip-policy-s68a | contracts-approved | codex | backend and UI ownership disjoint
 260711 1235 | upstream-codex-image-tool-strip-policy-s68a | workers-dispatched | codex | backend policy and dedicated account UI
+260711 1301 | upstream-codex-image-tool-strip-policy-s68a | workers-integrated | codex | 51b310c30, 471d8eb2e, 5eef03f1a, 2f68fdc90
+260711 1301 | upstream-codex-image-tool-strip-policy-s68a | independent-qa-dispatched | qa-worker | backend policy plus account UI

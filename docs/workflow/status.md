@@ -1,20 +1,21 @@
 ---
-phase: build
+phase: qa
 current_sprint: upstream-codex-image-tool-strip-policy-s68a
 total_sprints: 68
-pending_action: review and integrate S68a backend and UI worker results
+pending_action: run independent combined QA for integrated S68a policy prerequisite
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 12:35 +08:00
+last_verified: 2026-07-11 13:01 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`build`。
+- 当前阶段：`qa`。
 - 当前 Sprint：`upstream-codex-image-tool-strip-policy-s68a`。
 - Planner 已确认 `d3a1835ed` 依赖本地缺失的 `f385cdceb` 账号策略，且现有 UI 没有安全的任意 `extra` 编辑入口；S68a 因此拆成 backend policy 与专用 UI 两个互斥 draft contract。
-- Backend 与 UI contract 已通过主控审查并从共同基线 `5a9ae78d8` 派发到独立 worktree；当前等待实现、result、测试和主控 diff review。
+- Backend 与 UI worker 均已完成并经独立审查；UI 的 nested precedence 与 alias normalization 两项 finding 已由 follow-up 提交闭环。组合分支集成到 `2f68fdc90`，fresh backend service、组件 `30/30` 和 typecheck 均 PASS。
+- 当前唯一合法动作是在独立 worktree 对 S68a 执行组合 QA；namespace、Responses Lite `additional_tools` 和 passthrough 仍属于后续 S68b，不能在 QA 中扩实现。
 - S67 历史阶段：`done`。
 - S67 Sprint：`upstream-v0151-protocol-wave2-s67`。
 - 已批准三个互斥 contract：`upstream-gpt56-max-effort-s67a`、`upstream-codex-mcp-tool-bridge-s67b`、`upstream-compact-ops-stream-log-s67c`。
