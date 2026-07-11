@@ -1,20 +1,20 @@
 ---
-phase: contract-draft
+phase: contract-approved
 current_sprint: upstream-codex-image-tool-strip-policy-s68a
 total_sprints: 68
-pending_action: review S68a backend and UI contracts
+pending_action: dispatch S68a backend and UI workers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 12:32 +08:00
+last_verified: 2026-07-11 12:34 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`contract-draft`。
+- 当前阶段：`contract-approved`。
 - 当前 Sprint：`upstream-codex-image-tool-strip-policy-s68a`。
 - Planner 已确认 `d3a1835ed` 依赖本地缺失的 `f385cdceb` 账号策略，且现有 UI 没有安全的任意 `extra` 编辑入口；S68a 因此拆成 backend policy 与专用 UI 两个互斥 draft contract。
-- 当前只允许审查 `docs/workflow/tasks/upstream-codex-image-tool-strip-policy-s68a-backend.md` 和 `docs/workflow/tasks/upstream-codex-image-tool-strip-policy-s68a-ui.md`，不得在 contract 批准前启动实现。
+- Backend 与 UI contract 已通过主控审查：字段完整、ownership 互斥、验收命令可执行，且明确排除 S68b namespace/passthrough 范围。当前下一合法动作是派发两个独立 worker。
 - S67 历史阶段：`done`。
 - S67 Sprint：`upstream-v0151-protocol-wave2-s67`。
 - 已批准三个互斥 contract：`upstream-gpt56-max-effort-s67a`、`upstream-codex-mcp-tool-bridge-s67b`、`upstream-compact-ops-stream-log-s67c`。
