@@ -1,17 +1,22 @@
 ---
-phase: done
-current_sprint: upstream-v0151-runtime-wave1-s66
-total_sprints: 66
-pending_action: plan wave 2 for GPT-5.6 max, image_gen stripping, and MCP tool bridge
+phase: contract-approved
+current_sprint: upstream-v0151-protocol-wave2-s67
+total_sprints: 67
+pending_action: dispatch GPT-5.6 effort, MCP bridge, and compact Ops workers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 11:29 +08:00
+last_verified: 2026-07-11 11:31 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`done`。
+- 当前阶段：`contract-approved`。
+- 当前 Sprint：`upstream-v0151-protocol-wave2-s67`。
+- 已批准三个互斥 contract：`upstream-gpt56-max-effort-s67a`、`upstream-codex-mcp-tool-bridge-s67b`、`upstream-compact-ops-stream-log-s67c`。
+- `openai_gateway_messages.go` 由 S67b 独占并同时完成 message fallback effort-candidate 调整；S67a 不得修改该文件。
+- S67 第一轮集成后再单独启动 Codex `image_gen` namespace strip，避免与 GPT 核心网关 ownership 重叠。
+- S66 历史阶段：`done`。
 - 当前 Sprint：`upstream-v0151-runtime-wave1-s66`。
 - 已批准三个互斥实现 contract：`upstream-runtime-hotfixes-s66a`、`upstream-anthropic-grok-usage-s66b`、`upstream-remote-compact-reliability-s66c`。
 - S66 第一波只处理 setup-token/ops/Windows WS 小修、Anthropic/Grok 用量兼容和 remote compact 可靠性；GPT-5.6 max、image_gen、MCP tool bridge 与支付并发加固不在本波范围。
