@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-07-11 14:18 +08:00
+最后更新：2026-07-11 15:24 +08:00
 
 ## 背景
 
@@ -11,7 +11,7 @@
 
 ## 当前目标
 
-- S68 已完成，S66-S68 临时 worktree/branch 已清理；下一阶段审计剩余 upstream v0.1.151 候选。
+- S69 已完成并通过独立 QA；S66-S69 临时 worktree/branch 已清理。下一阶段只审计剩余 upstream v0.1.151 候选，不自动合入 `main`。
 - 支付并发补丁 `fc66a30ff` 继续单独审计，不与普通协议/运行时补丁混合。
 
 ## 本次已完成
@@ -22,6 +22,10 @@
 - S68b 初始 review 发现 `OpenAIWSIngressModePassthrough` 绕过 parsed strip；fix1 已补首帧/后续帧 adapter strip、invalid raw JSON 与 OAuth actual forwarded-body 覆盖。
 - 组合实现提交：`7593079a9`、`19066c93d`；QA 报告提交：`c2529cd4e`。
 - 已清理 15 个 S66-S68 临时 worktree/branch；清理前均确认工作树干净且相对当前 HEAD 无 patch-unique commit。
+- S69：修复 GPT-5.6 Sol/Terra/Luna 在 `service_tier=priority` 时 cache creation 仍按 Standard 价计费的问题，贯通 static/dynamic/embedded JSON、channel/interval override、272k long-context、Flex 与真实 `RecordUsage`。
+- S69 实现提交 `d5a1aef0b`，worker result `07399e50d`，独立 QA 报告 `f7a2d67a9`，workflow 收口 `0a962b30e`。
+- `deepseek-v4-pro` 外部 worker 返回 model 404；按用户已明确授权多智能体，Generator/QA 改用当前可用协作 agent，并在 result/QA 报告中记录偏差。
+- S69 worker 与 QA 临时分支在 `git cherry codex/upstream-latency-health-column <branch>` 全部显示 patch-equivalent (`-`) 后删除；当前只剩集成工作树。
 
 ## 已确认事实
 
@@ -30,29 +34,33 @@
 - HTTP passthrough 同时替换 `body` 与实际交给 forwarder 的 `originalBody`；API-key 与 OAuth recorder 均证明上游收到 stripped body。
 - WS parsed ingress 与 passthrough mode 都通过 upstream capture 验证；passthrough 首帧和后续 text frame 在 fast policy/hooks/usage metadata/actual relay 前 strip，非 text frame保持原样。
 - S67 apicompat custom/tool_search/namespace/tool-choice 与 messages fallback 保持性测试通过。
+- GPT-5.6 cache-write 每 token：Sol Standard/Priority `6.25e-6 / 12.5e-6`，Terra `3.125e-6 / 6.25e-6`，Luna `1.25e-6 / 2.5e-6`。
+- Priority 先选专用 cache-write 价，再在输入侧总量 `Input + CacheCreation + CacheRead > 272000` 时乘 `2.0`；`==272000` 不触发。Flex 继续取 Standard 后乘 `0.5`。
+- channel/interval `CacheWritePrice` 同时覆盖 Standard/Priority 且保留显式零；5m/1h breakdown 不读取新的 flat Priority 字段。
 
 ## 待验证点
 
 - 未向真实 OpenAI/Codex 上游发送 HTTP 或 WS 请求；当前证据来自 in-process HTTP recorder 与 WS capture。
 - 未运行完整 `internal/service` 套件；该套件存在既有 `group_peak_rate` 时区断言漂移，本轮按合同只跑定向回归与 compile-only。
 - 未执行 race、生产部署、本地容器更新、`main` 合并或远端推送。
+- 未发送真实 OpenAI Priority 请求；S69 证据来自 deterministic service/resolver/WS/RecordUsage 测试。
+- `-tags=unit` suite 仍有既有无关编译漂移，按 S69 contract 未作为验收证据。
 
 ## 当前结论
 
-- `upstream-codex-imagegen-namespace-strip-s68b` 最终 `PASS / done`。
-- QA 报告：`docs/workflow/qa-reports/upstream-codex-imagegen-namespace-strip-s68b-qa.md`。
+- `upstream-gpt56-priority-cache-billing-s69` 最终 `PASS / done`。
+- QA 报告：`docs/workflow/qa-reports/upstream-gpt56-priority-cache-billing-s69-qa.md`。
 - 当前集成分支可继续做剩余 upstream 候选审计，但任何新候选都应另立 contract；不得把 `fc66a30ff` 混入普通补丁波次。
 
 ## 下一步
 
-1. 刷新并审计 upstream v0.1.151 剩余提交 -> 验证：按可独立移植 / 依赖较大 / 单独高风险分类，明确本地祖先依赖与冲突面。
+1. 选择下一独立 upstream Sprint -> 验证：优先在裸 `gpt-5.6` alias/catalog、用户级 Fast/Flex、usage breakdown legacy filter 中单独立 contract；`fc66a30ff` 继续作为支付高风险审计，不混入普通补丁。
 2. 如用户明确要求合入主线 -> 验证：先审当前分支相对 `main`/`origin/main` 的提交范围，再 merge、定向回归、push verify；默认不自动执行。
 
 ## 验证记录
 
-- 原 S68b primary/policy/apicompat/fallback/compile acceptance：全部 PASS。
-- Fix1 focused strip 与 WS passthrough effort/billing/session 回归：全部 PASS。
-- `TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughImageNamespaceStripAcrossTurns -count=3`：PASS。
-- `git diff --check 5869f7b08..HEAD`：PASS。
-- Allowed/Denied path audit：10 个允许 backend source/test 路径、workflow 证据路径，无 bridge/apicompat source/fallback source/frontend/billing/migration/deploy 越界修改。
-- Worktree/branch cleanup audit：15 个目标均 `dirty=0`、`git cherry HEAD <branch>` unique count 为 `0`；清理后 `git worktree list` 仅剩当前集成工作树。
+- S69 exact test discovery：6/6；六项必需测试 PASS。
+- pricing/RecordUsage service regressions、WS `CacheCreation|Usage`、default service compile：PASS。
+- `git diff --name-only 2b3b5514e..07399e50d`：恰好 8 个 contract allowed paths；`git diff --check` PASS。
+- 独立 code review 与 fresh QA：PASS，无阻断 finding。
+- S69 cleanup audit：worker 两笔和 QA 一笔均 `git cherry = -`；清理后 `git worktree list` 仅剩当前集成工作树。

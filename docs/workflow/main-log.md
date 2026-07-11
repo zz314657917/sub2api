@@ -214,3 +214,4 @@
 260711 1514 | upstream-gpt56-priority-cache-billing-s69 | worker-integrated | codex | d5a1aef0b and 07399e50d
 260711 1521 | upstream-gpt56-priority-cache-billing-s69 | independent-qa-pass | qa-worker | docs/workflow/qa-reports/upstream-gpt56-priority-cache-billing-s69-qa.md
 260711 1521 | upstream-gpt56-priority-cache-billing-s69 | done | codex | final evaluator PASS; no main merge, push, deploy, or container update
+260711 1524 | upstream-gpt56-priority-cache-billing-s69 | temporary-worktrees-cleaned | codex | worker and QA branches clean and patch-equivalent before deletion; only integration worktree remains
