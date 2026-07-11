@@ -185,3 +185,4 @@
 260711 1232 | upstream-codex-image-tool-strip-policy-s68a | planner-dependency-found | codex | d3a1835ed requires skipped f385cdceb policy
 260711 1232 | upstream-codex-image-tool-strip-policy-s68a | contracts-drafted | codex | backend policy and dedicated account UI
 260711 1234 | upstream-codex-image-tool-strip-policy-s68a | contracts-approved | codex | backend and UI ownership disjoint
+260711 1235 | upstream-codex-image-tool-strip-policy-s68a | workers-dispatched | codex | backend policy and dedicated account UI
