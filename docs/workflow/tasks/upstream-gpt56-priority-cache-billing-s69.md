@@ -77,14 +77,24 @@ Close the remaining GPT-5.6 underbilling gap: when `service_tier` is `priority`,
 ```powershell
 Push-Location backend
 $requiredPattern = "^(TestGPT56PriorityCacheWriteTierAndLongContextMatrix|TestGPT56PriorityCacheWriteChannelAndIntervalOverrides|TestGPT56PriorityCacheWritePreservesCacheBreakdown|TestOpenAIGatewayServiceRecordUsage_GPT56PriorityPersistsDedicatedCacheWriteCost|TestParsePricingData_ParsesPriorityCacheCreationField|TestDefaultPricingIncludesGpt56PreviewPrices)$"
-$listed = @(go test ./internal/service -list $requiredPattern | Where-Object { $_ -match '^Test' })
+$listOutput = @(go test ./internal/service -list $requiredPattern)
+if ($LASTEXITCODE -ne 0) { throw "S69 required test discovery failed" }
+$listed = @($listOutput | Where-Object { $_ -match '^Test' })
 if ($listed.Count -ne 6) { throw "S69 required tests missing: $($listed -join ', ')" }
 go test ./internal/service -run $requiredPattern -count=1
+if ($LASTEXITCODE -ne 0) { throw "S69 required tests failed" }
 go test ./internal/service -run "^(TestParsePricingData_.*|TestGetModelPricing_.*|TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndStats|TestOpenAIGatewayServiceRecordUsage_ServiceTier.*)$" -count=1
+if ($LASTEXITCODE -ne 0) { throw "S69 service regressions failed" }
 go test ./internal/service/openai_ws_v2 -run "CacheCreation|Usage" -count=1
+if ($LASTEXITCODE -ne 0) { throw "S69 websocket regressions failed" }
 go test ./internal/service -run "^$" -count=1
+if ($LASTEXITCODE -ne 0) { throw "S69 default service compile failed" }
 Pop-Location
+$dirty = @(git status --porcelain --untracked-files=all)
+if ($LASTEXITCODE -ne 0) { throw "S69 git status failed" }
+if ($dirty.Count -gt 0) { throw "S69 acceptance requires a clean committed worktree: $($dirty -join ', ')" }
 $base = (git merge-base HEAD codex/upstream-latency-health-column).Trim()
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($base)) { throw "S69 merge-base lookup failed" }
 $allowed = @(
   "backend/internal/service/billing_service.go",
   "backend/internal/service/pricing_service.go",
@@ -96,9 +106,11 @@ $allowed = @(
   "docs/workflow/worker-results/upstream-gpt56-priority-cache-billing-s69-result.md"
 )
 $changed = @(git diff --name-only "$base..HEAD")
+if ($LASTEXITCODE -ne 0) { throw "S69 changed-path lookup failed" }
 $unexpected = @($changed | Where-Object { $_ -notin $allowed })
 if ($unexpected.Count -gt 0) { throw "S69 path audit failed: $($unexpected -join ', ')" }
 git diff --check "$base..HEAD"
+if ($LASTEXITCODE -ne 0) { throw "S69 diff check failed" }
 ```
 
 ## Output

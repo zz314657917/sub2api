@@ -205,3 +205,4 @@
 260711 1436 | upstream-v0151-remaining-s69 | planner-audit-complete | codex | protocol and ops covered; Priority cache billing is highest remaining gap
 260711 1436 | upstream-gpt56-priority-cache-billing-s69 | contract-drafted | codex | isolate Priority cache-write price chain from de28eba3c
 260711 1444 | upstream-gpt56-priority-cache-billing-s69 | contract-revised | codex | move required tests out of broken unit-tag suites and add non-vacuous/path gates
+260711 1451 | upstream-gpt56-priority-cache-billing-s69 | contract-revised-2 | codex | require native exit-code checks and a clean committed worker tree before path audit
