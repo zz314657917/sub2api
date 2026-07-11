@@ -1,22 +1,26 @@
 ---
-phase: build
+phase: done
 current_sprint: upstream-v0151-runtime-wave1-s66
 total_sprints: 66
-pending_action: review three worker results and integrate approved commits
+pending_action: plan wave 2 for GPT-5.6 max, image_gen stripping, and MCP tool bridge
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 10:52 +08:00
+last_verified: 2026-07-11 11:29 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`build`。
+- 当前阶段：`done`。
 - 当前 Sprint：`upstream-v0151-runtime-wave1-s66`。
 - 已批准三个互斥实现 contract：`upstream-runtime-hotfixes-s66a`、`upstream-anthropic-grok-usage-s66b`、`upstream-remote-compact-reliability-s66c`。
 - S66 第一波只处理 setup-token/ops/Windows WS 小修、Anthropic/Grok 用量兼容和 remote compact 可靠性；GPT-5.6 max、image_gen、MCP tool bridge 与支付并发加固不在本波范围。
 - 用户已明确授权多智能体；每个 Generator 使用 `E:/codex-worktrees/sub2api/<task-id>` 独立 worktree，主 Codex 负责 diff 审核、集成、统一 QA 和最终裁决。
-- 三个 Worker 已从共同基线 `2549e0b3a` 派发；当前等待各分支提交与 worker result，禁止主线程提前修改其业务 ownership。
+- 三个 Worker 均从共同基线 `2549e0b3a` 完成独立分支实现和 worker result，主线程已按 ownership 审查后集成。
+- S66 第一波已集成：`d826463f1`（Anthropic cache creation + Grok effort）、`7e4420c04`（setup-token/ops/Windows WS）、`696d23875`（remote compact reliability）。
+- 独立 QA：`docs/workflow/qa-reports/upstream-v0151-runtime-wave1-s66-qa.md` 首行 PASS；定向回归、compact `count=20`、完整 handler、diff/path audit 全部通过。
+- 已知非阻断项：完整 service 包仍有既有 `group_peak_rate` 时区断言漂移；race 因 `CGO_ENABLED=0` 且主机无 `gcc` 未执行；未做真实上游 compact 或物理 Windows reset 联调。
+- 下一波候选：GPT-5.6 `max`/effort candidates、Codex `image_gen` namespace strip、MCP/custom/tool_search bridge；支付并发大补丁继续保持独立审计边界。
 - S65 历史阶段：`done`。
 - 当前 Sprint：`upstream-latency-health-column-s65`。
 - 当前 contract：`docs/workflow/tasks/upstream-latency-health-column-s65.md`，只移植上游合并延迟健康列，不带排行、筛选、tab 或整页布局重构。

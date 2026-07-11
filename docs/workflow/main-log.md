@@ -168,3 +168,6 @@
 260711 1032 | upstream-latency-health-column-s65 | done | codex | docs/workflow/qa-reports/upstream-latency-health-column-s65-qa.md
 260711 1052 | upstream-v0151-runtime-wave1-s66 | contracts-approved | codex | docs/workflow/tasks/upstream-runtime-hotfixes-s66a.md, docs/workflow/tasks/upstream-anthropic-grok-usage-s66b.md, docs/workflow/tasks/upstream-remote-compact-reliability-s66c.md
 260711 1052 | upstream-v0151-runtime-wave1-s66 | workers-dispatched | codex | runtime-hotfixes-s66a, anthropic-grok-usage-s66b, remote-compact-reliability-s66c
+260711 1129 | upstream-v0151-runtime-wave1-s66 | workers-integrated | codex | d826463f1, 7e4420c04, 696d23875
+260711 1129 | upstream-v0151-runtime-wave1-s66 | independent-qa-pass | qa-worker | targeted, compact count=20, full handler, diff/path audit
+260711 1129 | upstream-v0151-runtime-wave1-s66 | done | codex | docs/workflow/qa-reports/upstream-v0151-runtime-wave1-s66-qa.md
