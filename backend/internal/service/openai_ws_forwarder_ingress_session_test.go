@@ -428,7 +428,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_InjectsCodexImag
 	require.Equal(t, "auto", gjson.Get(upstreamWrite, "tool_choice").String())
 }
 
-func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_AccountPolicyStripsExplicitImageTool(t *testing.T) {
+func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_ImageNamespaceStripByAccountPolicy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	cfg := &config.Config{}
@@ -536,7 +536,23 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_AccountPolicyStr
 	}()
 
 	writeCtx, cancelWrite := context.WithTimeout(context.Background(), 3*time.Second)
-	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.1","stream":false,"tools":[{"type":"function","name":"shell","parameters":{"type":"object"}},{"type":"image_generation","model":"gpt-image-2"}],"tool_choice":{"type":"image_generation"}}`))
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{
+		"type":"response.create",
+		"model":"gpt-5.1",
+		"stream":false,
+		"tools":[
+			{"type":"function","name":"shell","parameters":{"type":"object"}},
+			{"type":"function","name":"imagegen","parameters":{"type":"object"}},
+			{"type":"namespace","name":"image_gen"},
+			{"type":"namespace","name":"code_tools"}
+		],
+		"input":[
+			{"type":"message","role":"user","content":"hello"},
+			{"type":"additional_tools","tools":[{"type":"namespace","name":"image_gen"},{"type":"namespace","name":"browser_tools"}]},
+			{"type":"additional_tools","tools":[{"type":"image_generation"}]}
+		],
+		"tool_choice":{"type":"namespace","namespace":"image_gen"}
+	}`))
 	cancelWrite()
 	require.NoError(t, err)
 
@@ -556,8 +572,13 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_AccountPolicyStr
 
 	require.Len(t, captureConn.writes, 1)
 	upstreamWrite := requestToJSONString(captureConn.writes[0])
-	require.False(t, gjson.Get(upstreamWrite, `tools.#(type=="image_generation")`).Exists())
-	require.True(t, gjson.Get(upstreamWrite, `tools.#(type=="function")`).Exists())
+	require.False(t, IsImageGenerationIntent(openAIResponsesEndpoint, "", []byte(upstreamWrite)))
+	require.True(t, gjson.Get(upstreamWrite, `tools.#(name=="shell")`).Exists())
+	require.True(t, gjson.Get(upstreamWrite, `tools.#(name=="imagegen")`).Exists())
+	require.True(t, gjson.Get(upstreamWrite, `tools.#(name=="code_tools")`).Exists())
+	require.Equal(t, "hello", gjson.Get(upstreamWrite, "input.0.content").String())
+	require.Equal(t, "browser_tools", gjson.Get(upstreamWrite, "input.1.tools.0.name").String())
+	require.Len(t, gjson.Get(upstreamWrite, "input").Array(), 2)
 	require.False(t, gjson.Get(upstreamWrite, "tool_choice").Exists())
 }
 
