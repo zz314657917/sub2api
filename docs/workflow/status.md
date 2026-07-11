@@ -1,18 +1,20 @@
 ---
 phase: done
-current_sprint: tutorial-toc-content-adjacency-s64
-total_sprints: 64
-pending_action: scoped review and optional commit or local container update
+current_sprint: upstream-latency-health-column-s65
+total_sprints: 65
+pending_action: scoped review and optional merge or push
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 02:32 +08:00
+last_verified: 2026-07-11 10:32 +08:00
 ---
 
 # Workflow Status
 
 - 当前阶段：`done`
-- 当前 Sprint：`tutorial-toc-content-adjacency-s64`。
+- 当前 Sprint：`upstream-latency-health-column-s65`。
+- 当前 contract：`docs/workflow/tasks/upstream-latency-health-column-s65.md`，只移植上游合并延迟健康列，不带排行、筛选、tab 或整页布局重构。
+- S65 已完成：管理端和用户端用量明细改为合并延迟健康列，首字/总耗时使用上下渐变色条和四档阈值；4 files / 31 tests、主题 2 files / 24 tests、typecheck、build 与 `git diff --check` PASS，证据见 `docs/workflow/qa-reports/upstream-latency-health-column-s65-qa.md`。
 - 当前 contract：`docs/workflow/tasks/tutorial-toc-content-adjacency-s64.md`，只把桌面本页目录从视口右侧移到正文右侧邻接位置。
 - S64 已完成：`2560px` 正文到 TOC 间距 `32px`，`1280px` 间距 `19px`；正文保持 `800px`，移动目录/TOC 无回归。
 - S64 验证：3 files / 21 tests、typecheck、`git diff --check` 与 `2560x900` / `1280x720` / `390x844` 截图验收 PASS，证据见 `docs/workflow/qa-reports/tutorial-toc-content-adjacency-s64-qa.md`。

@@ -163,3 +163,6 @@
 260711 0232 | tutorial-toc-content-adjacency-s64 | tests-and-browser-qa-pass | codex | 3 files / 21 tests, typecheck, 2560/1280/390 screenshots
 260711 0232 | tutorial-toc-content-adjacency-s64 | done | codex | docs/workflow/qa-reports/tutorial-toc-content-adjacency-s64-qa.md
 260710 2358 | studio-bridge-model-scoped-apimart-billing | qa-pass | codex | docs/workflow/qa-reports/studio-bridge-model-scoped-apimart-billing-qa.md
+260711 1021 | upstream-latency-health-column-s65 | contract-approved | codex | docs/workflow/tasks/upstream-latency-health-column-s65.md
+260711 1032 | upstream-latency-health-column-s65 | qa-pass | codex | 4 files / 31 tests, theme 2 files / 24 tests, typecheck, build, diff-check
+260711 1032 | upstream-latency-health-column-s65 | done | codex | docs/workflow/qa-reports/upstream-latency-health-column-s65-qa.md
