@@ -195,3 +195,4 @@
 260711 1317 | upstream-codex-imagegen-namespace-strip-s68b | worker-dispatched | generator-worker | E:/codex-worktrees/sub2api/upstream-codex-imagegen-namespace-strip-s68b
 260711 1343 | upstream-codex-imagegen-namespace-strip-s68b | worker-review-fail | review-worker | WS ingress passthrough bypasses parsed strip
 260711 1343 | upstream-codex-imagegen-namespace-strip-s68b-fix1 | contract-approved | codex | add WS passthrough plus OAuth and invalid-raw evidence
+260711 1343 | upstream-codex-imagegen-namespace-strip-s68b-fix1 | worker-dispatched | generator-worker | continue on 36fe56441 in existing S68b worktree
