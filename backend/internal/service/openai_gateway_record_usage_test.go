@@ -1063,6 +1063,53 @@ func TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndSt
 	require.InDelta(t, usageRepo.lastLog.TotalCost*1.1, usageRepo.lastLog.ActualCost, 1e-12)
 }
 
+func TestOpenAIGatewayServiceRecordUsage_GPT56PriorityPersistsDedicatedCacheWriteCost(t *testing.T) {
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	userRepo := &openAIRecordUsageUserRepoStub{}
+	subRepo := &openAIRecordUsageSubRepoStub{}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc.billingService = NewBillingService(svc.cfg, &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"gpt-5.6-sol": {
+			InputCostPerToken:                   5e-6,
+			InputCostPerTokenPriority:           10e-6,
+			OutputCostPerToken:                  30e-6,
+			OutputCostPerTokenPriority:          60e-6,
+			CacheCreationInputTokenCost:         6.25e-6,
+			CacheCreationInputTokenCostPriority: 12.5e-6,
+			CacheReadInputTokenCost:             0.5e-6,
+			CacheReadInputTokenCostPriority:     1e-6,
+		},
+	}})
+	serviceTier := "priority"
+
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID:   "resp_gpt56_priority_cache_write",
+			ServiceTier: &serviceTier,
+			Usage: OpenAIUsage{
+				InputTokens:              300,
+				CacheCreationInputTokens: 200,
+				CacheReadInputTokens:     100,
+			},
+			Model:    "gpt-5.6-sol",
+			Duration: time.Second,
+		},
+		APIKey:  &APIKey{ID: 1057},
+		User:    &User{ID: 2057},
+		Account: &Account{ID: 3057},
+	})
+
+	require.NoError(t, err)
+	require.NotNil(t, usageRepo.lastLog)
+	require.NotNil(t, usageRepo.lastLog.ServiceTier)
+	require.Equal(t, serviceTier, *usageRepo.lastLog.ServiceTier)
+	expectedCacheCreation := 200 * 12.5e-6
+	expectedTotal := expectedCacheCreation + 100*1e-6
+	require.InDelta(t, expectedCacheCreation, usageRepo.lastLog.CacheCreationCost, 1e-12)
+	require.InDelta(t, expectedTotal, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, expectedTotal*1.1, usageRepo.lastLog.ActualCost, 1e-12)
+}
+
 func TestGPT56CacheWritePricingPolicyPreservesExplicitZeroAndContextTiers(t *testing.T) {
 	billing := NewBillingService(&config.Config{}, nil)
 	resolver := NewModelPricingResolver(nil, billing)
