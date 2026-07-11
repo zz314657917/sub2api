@@ -188,3 +188,5 @@
 260711 1235 | upstream-codex-image-tool-strip-policy-s68a | workers-dispatched | codex | backend policy and dedicated account UI
 260711 1301 | upstream-codex-image-tool-strip-policy-s68a | workers-integrated | codex | 51b310c30, 471d8eb2e, 5eef03f1a, 2f68fdc90
 260711 1301 | upstream-codex-image-tool-strip-policy-s68a | independent-qa-dispatched | qa-worker | backend policy plus account UI
+260711 1310 | upstream-codex-image-tool-strip-policy-s68a | independent-qa-pass | qa-worker | docs/workflow/qa-reports/upstream-codex-image-tool-strip-policy-s68a-qa.md
+260711 1310 | upstream-codex-image-tool-strip-policy-s68a | done | codex | policy prerequisite ready for S68b
