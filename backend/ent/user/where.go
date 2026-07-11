@@ -100,6 +100,11 @@ func Status(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldStatus, v))
 }
 
+// ExcludeFromLeaderboard applies equality check predicate on the "exclude_from_leaderboard" field. It's identical to ExcludeFromLeaderboardEQ.
+func ExcludeFromLeaderboard(v bool) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldExcludeFromLeaderboard, v))
+}
+
 // Username applies equality check predicate on the "username" field. It's identical to UsernameEQ.
 func Username(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldUsername, v))
@@ -648,6 +653,16 @@ func StatusEqualFold(v string) predicate.User {
 // StatusContainsFold applies the ContainsFold predicate on the "status" field.
 func StatusContainsFold(v string) predicate.User {
 	return predicate.User(sql.FieldContainsFold(FieldStatus, v))
+}
+
+// ExcludeFromLeaderboardEQ applies the EQ predicate on the "exclude_from_leaderboard" field.
+func ExcludeFromLeaderboardEQ(v bool) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldExcludeFromLeaderboard, v))
+}
+
+// ExcludeFromLeaderboardNEQ applies the NEQ predicate on the "exclude_from_leaderboard" field.
+func ExcludeFromLeaderboardNEQ(v bool) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldExcludeFromLeaderboard, v))
 }
 
 // UsernameEQ applies the EQ predicate on the "username" field.

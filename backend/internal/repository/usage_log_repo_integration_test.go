@@ -92,6 +92,50 @@ func (s *UsageLogRepoSuite) TestGetUserLeaderboardRankNewUsesPreviousWindow() {
 	s.Require().True(withPreviousRows.Ranking[0].RankNew, "current user missing from a non-empty previous window should be marked as new")
 }
 
+func (s *UsageLogRepoSuite) TestGetUserLeaderboardExcludesMarkedUsers() {
+	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-leaderboard-exclusion"})
+	included := mustCreateUser(s.T(), s.client, &service.User{Email: "leaderboard-included@test.com"})
+	excluded := mustCreateUser(s.T(), s.client, &service.User{Email: "leaderboard-excluded@test.com"})
+	includedKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: included.ID, Key: "sk-leaderboard-included", Name: "included"})
+	excludedKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: excluded.ID, Key: "sk-leaderboard-excluded", Name: "excluded"})
+
+	_, err := s.client.User.UpdateOneID(excluded.ID).SetExcludeFromLeaderboard(true).Save(s.ctx)
+	s.Require().NoError(err)
+	s.createUsageLog(included, includedKey, account, 100, 50, 1.0, start.Add(time.Hour))
+	s.createUsageLog(excluded, excludedKey, account, 1000, 500, 10.0, start.Add(2*time.Hour))
+
+	raw, err := s.repo.GetUserLeaderboard(s.ctx, start, end, 10, excluded.ID)
+	s.Require().NoError(err)
+	s.Require().Len(raw.Ranking, 1)
+	s.Require().Equal(included.ID, raw.Ranking[0].UserID)
+	s.Require().Nil(raw.CurrentUserEntry)
+	s.Require().Equal(int64(150), raw.TotalTokens)
+
+	allTime, err := s.repo.GetUserLeaderboard(s.ctx, time.Time{}, time.Time{}, 10, excluded.ID)
+	s.Require().NoError(err)
+	s.Require().Len(allTime.Ranking, 1)
+	s.Require().Equal(included.ID, allTime.Ranking[0].UserID)
+	s.Require().Nil(allTime.CurrentUserEntry)
+
+	champions, err := s.repo.GetLeaderboardDailyChampions(s.ctx, start, end)
+	s.Require().NoError(err)
+	s.Require().Len(champions, 1)
+	s.Require().Equal(included.ID, champions[0].UserID)
+
+	models, totalModels, err := s.repo.GetLeaderboardModelRanking(s.ctx, start, end, 10)
+	s.Require().NoError(err)
+	s.Require().Equal(int64(1), totalModels)
+	s.Require().Len(models, 1)
+	s.Require().Equal(int64(150), models[0].Tokens)
+
+	trend, err := s.repo.GetLeaderboardRecentTokenTrend(s.ctx, start, end)
+	s.Require().NoError(err)
+	s.Require().Len(trend, 1)
+	s.Require().Equal(int64(150), trend[0].TotalTokens)
+}
+
 // --- Create / GetByID ---
 
 func (s *UsageLogRepoSuite) TestCreate() {

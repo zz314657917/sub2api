@@ -90,6 +90,7 @@ func (r *userRepository) Create(ctx context.Context, userIn *service.User) error
 		SetBalance(userIn.Balance).
 		SetConcurrency(userIn.Concurrency).
 		SetStatus(userIn.Status).
+		SetExcludeFromLeaderboard(userIn.ExcludeFromLeaderboard).
 		SetSignupSource(userSignupSourceOrDefault(userIn.SignupSource)).
 		SetRegisterIP(userIn.RegisterIP).
 		SetLastLoginIP(userIn.LastLoginIP).
@@ -226,6 +227,7 @@ func (r *userRepository) Update(ctx context.Context, userIn *service.User) error
 		SetBalance(userIn.Balance).
 		SetConcurrency(userIn.Concurrency).
 		SetStatus(userIn.Status).
+		SetExcludeFromLeaderboard(userIn.ExcludeFromLeaderboard).
 		SetRegisterIP(registerIP).
 		SetLastLoginIP(lastLoginIP).
 		SetBalanceNotifyEnabled(userIn.BalanceNotifyEnabled).
@@ -988,6 +990,7 @@ func applyUserEntityToService(dst *service.User, src *dbent.User) {
 		return
 	}
 	dst.ID = src.ID
+	dst.ExcludeFromLeaderboard = src.ExcludeFromLeaderboard
 	dst.SignupSource = src.SignupSource
 	dst.RegisterIP = src.RegisterIP
 	dst.LastLoginIP = src.LastLoginIP

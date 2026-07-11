@@ -169,6 +169,20 @@ func (_u *UserUpdate) SetNillableStatus(v *string) *UserUpdate {
 	return _u
 }
 
+// SetExcludeFromLeaderboard sets the "exclude_from_leaderboard" field.
+func (_u *UserUpdate) SetExcludeFromLeaderboard(v bool) *UserUpdate {
+	_u.mutation.SetExcludeFromLeaderboard(v)
+	return _u
+}
+
+// SetNillableExcludeFromLeaderboard sets the "exclude_from_leaderboard" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableExcludeFromLeaderboard(v *bool) *UserUpdate {
+	if v != nil {
+		_u.SetExcludeFromLeaderboard(*v)
+	}
+	return _u
+}
+
 // SetUsername sets the "username" field.
 func (_u *UserUpdate) SetUsername(v string) *UserUpdate {
 	_u.mutation.SetUsername(v)
@@ -1229,6 +1243,9 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(user.FieldStatus, field.TypeString, value)
 	}
+	if value, ok := _u.mutation.ExcludeFromLeaderboard(); ok {
+		_spec.SetField(user.FieldExcludeFromLeaderboard, field.TypeBool, value)
+	}
 	if value, ok := _u.mutation.Username(); ok {
 		_spec.SetField(user.FieldUsername, field.TypeString, value)
 	}
@@ -2263,6 +2280,20 @@ func (_u *UserUpdateOne) SetStatus(v string) *UserUpdateOne {
 func (_u *UserUpdateOne) SetNillableStatus(v *string) *UserUpdateOne {
 	if v != nil {
 		_u.SetStatus(*v)
+	}
+	return _u
+}
+
+// SetExcludeFromLeaderboard sets the "exclude_from_leaderboard" field.
+func (_u *UserUpdateOne) SetExcludeFromLeaderboard(v bool) *UserUpdateOne {
+	_u.mutation.SetExcludeFromLeaderboard(v)
+	return _u
+}
+
+// SetNillableExcludeFromLeaderboard sets the "exclude_from_leaderboard" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableExcludeFromLeaderboard(v *bool) *UserUpdateOne {
+	if v != nil {
+		_u.SetExcludeFromLeaderboard(*v)
 	}
 	return _u
 }
@@ -3356,6 +3387,9 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.Status(); ok {
 		_spec.SetField(user.FieldStatus, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.ExcludeFromLeaderboard(); ok {
+		_spec.SetField(user.FieldExcludeFromLeaderboard, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.Username(); ok {
 		_spec.SetField(user.FieldUsername, field.TypeString, value)

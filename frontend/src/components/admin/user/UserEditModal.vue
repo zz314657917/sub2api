@@ -49,6 +49,19 @@
         />
         <p class="input-hint">{{ t('admin.users.form.rpmLimitHint') }}</p>
       </div>
+      <div class="flex items-start gap-3">
+        <input
+          id="exclude-from-leaderboard"
+          v-model="form.exclude_from_leaderboard"
+          type="checkbox"
+          class="mt-1 h-4 w-4"
+          aria-describedby="exclude-from-leaderboard-hint"
+        />
+        <div>
+          <label for="exclude-from-leaderboard" class="input-label mb-0">{{ t('admin.users.form.excludeFromLeaderboard') }}</label>
+          <p id="exclude-from-leaderboard-hint" class="input-hint">{{ t('admin.users.form.excludeFromLeaderboardHint') }}</p>
+        </div>
+      </div>
       <UserAttributeForm v-model="form.customAttributes" :user-id="user?.id" />
     </form>
     <template #footer>
@@ -78,11 +91,11 @@ const emit = defineEmits(['close', 'success'])
 const { t } = useI18n(); const appStore = useAppStore(); const { copyToClipboard } = useClipboard()
 
 const submitting = ref(false); const passwordCopied = ref(false)
-const form = reactive({ email: '', password: '', username: '', notes: '', concurrency: 1, rpm_limit: 0, customAttributes: {} as UserAttributeValuesMap })
+const form = reactive({ email: '', password: '', username: '', notes: '', concurrency: 1, rpm_limit: 0, exclude_from_leaderboard: false, customAttributes: {} as UserAttributeValuesMap })
 
 watch(() => props.user, (u) => {
   if (u) {
-    Object.assign(form, { email: u.email, password: '', username: u.username || '', notes: u.notes || '', concurrency: u.concurrency, rpm_limit: u.rpm_limit ?? 0, customAttributes: {} })
+    Object.assign(form, { email: u.email, password: '', username: u.username || '', notes: u.notes || '', concurrency: u.concurrency, rpm_limit: u.rpm_limit ?? 0, exclude_from_leaderboard: u.exclude_from_leaderboard ?? false, customAttributes: {} })
     passwordCopied.value = false
   }
 }, { immediate: true })
@@ -109,7 +122,7 @@ const handleUpdateUser = async () => {
   }
   submitting.value = true
   try {
-    const data: any = { email: form.email, username: form.username, notes: form.notes, concurrency: form.concurrency, rpm_limit: form.rpm_limit }
+    const data: any = { email: form.email, username: form.username, notes: form.notes, concurrency: form.concurrency, rpm_limit: form.rpm_limit, exclude_from_leaderboard: form.exclude_from_leaderboard }
     if (form.password.trim()) data.password = form.password.trim()
     await adminAPI.users.update(props.user.id, data)
     if (Object.keys(form.customAttributes).length > 0) await adminAPI.userAttributes.updateUserAttributeValues(props.user.id, form.customAttributes)

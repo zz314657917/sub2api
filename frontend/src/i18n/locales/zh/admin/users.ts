@@ -127,7 +127,9 @@ export default {
         selectStatus: '选择状态',
         rpmLimit: '每分钟请求数 (RPM)',
         rpmLimitPlaceholder: '0 表示不限制',
-        rpmLimitHint: '该用户每分钟最大请求数，0 = 不限制；仅在所用分组未设置 rpm_limit 时作为兜底生效'
+        rpmLimitHint: '该用户每分钟最大请求数，0 = 不限制；仅在所用分组未设置 rpm_limit 时作为兜底生效',
+        excludeFromLeaderboard: '不参与排行榜',
+        excludeFromLeaderboardHint: '开启后，该用户不会出现在排行榜、每日冠军、排行榜徽章或奖励名单中。'
       },
       adjustBalance: '调整积分',
       adjustConcurrency: '调整并发数',
