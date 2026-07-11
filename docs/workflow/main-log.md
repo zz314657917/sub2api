@@ -193,3 +193,5 @@
 260711 1311 | upstream-codex-imagegen-namespace-strip-s68b | contract-drafted | codex | adapt d3a1835ed on S68a policy prerequisite
 260711 1312 | upstream-codex-imagegen-namespace-strip-s68b | contract-approved | codex | explicit passthrough forwarded-body acceptance added
 260711 1317 | upstream-codex-imagegen-namespace-strip-s68b | worker-dispatched | generator-worker | E:/codex-worktrees/sub2api/upstream-codex-imagegen-namespace-strip-s68b
+260711 1343 | upstream-codex-imagegen-namespace-strip-s68b | worker-review-fail | review-worker | WS ingress passthrough bypasses parsed strip
+260711 1343 | upstream-codex-imagegen-namespace-strip-s68b-fix1 | contract-approved | codex | add WS passthrough plus OAuth and invalid-raw evidence
