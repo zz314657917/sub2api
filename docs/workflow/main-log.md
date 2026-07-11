@@ -215,3 +215,11 @@
 260711 1521 | upstream-gpt56-priority-cache-billing-s69 | independent-qa-pass | qa-worker | docs/workflow/qa-reports/upstream-gpt56-priority-cache-billing-s69-qa.md
 260711 1521 | upstream-gpt56-priority-cache-billing-s69 | done | codex | final evaluator PASS; no main merge, push, deploy, or container update
 260711 1524 | upstream-gpt56-priority-cache-billing-s69 | temporary-worktrees-cleaned | codex | worker and QA branches clean and patch-equivalent before deletion; only integration worktree remains
+260711 1529 | leaderboard-participation-exclusion-s70 | contract-draft | codex | docs/workflow/tasks/leaderboard-participation-exclusion-s70.md
+260711 1531 | leaderboard-participation-exclusion-s70 | contract-approved | codex | evaluator review PASS; raw/daily ranks, champions, badges, reward eligibility, and cache invalidation defined
+260711 1533 | leaderboard-participation-exclusion-s70 | contract-revised | codex | allow the shared service.User mapper in backend/internal/repository/api_key_repo.go
+260711 1534 | leaderboard-participation-exclusion-s70 | contract-approved | codex | revised evaluator review PASS; shared mapper change stays within user persistence scope
+260711 1539 | leaderboard-participation-exclusion-s70 | contract-revised-2 | codex | integration-tagged repository acceptance added for the real database exclusion test
+260711 1540 | leaderboard-participation-exclusion-s70 | contract-approved | codex | revised evaluator review PASS; begin scoped implementation verification
+260711 1626 | leaderboard-participation-exclusion-s70 | qa-pass | codex | docs/workflow/qa-reports/leaderboard-participation-exclusion-s70-qa.md
+260711 1626 | leaderboard-participation-exclusion-s70 | done | codex | final evaluator PASS; no commit, push, deploy, or container update

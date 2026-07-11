@@ -1,15 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-gpt56-priority-cache-billing-s69
-total_sprints: 69
-pending_action: review the next isolated upstream candidate after S69
+current_sprint: leaderboard-participation-exclusion-s70
+total_sprints: 70
+pending_action: await scoped staging, commit, or the next independent Sprint
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 15:21 +08:00
+last_verified: 2026-07-11 16:26 +08:00
 ---
 
 # Workflow Status
+
+- Current phase: `done`.
+- Current Sprint: `leaderboard-participation-exclusion-s70`.
+- New product scope is isolated from completed S69: a per-platform-user `exclude_from_leaderboard` control must exclude users before raw/daily-stats ranks, daily champions, badges, and reward eligibility, while preserving billing and ordinary usage reporting.
+- Final evaluator: PASS. The administrator-controlled user exclusion is persisted, invalidates leaderboard caches, and excludes the user from rank, champion, badge, reward, model, and trend paths. No commit, push, deployment, or container update was performed.
 
 - 当前阶段：`done`。
 - 当前 Sprint：`upstream-gpt56-priority-cache-billing-s69`。
