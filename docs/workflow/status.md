@@ -6,7 +6,7 @@ pending_action: audit remaining upstream v0.1.151 candidates; keep payment concu
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 14:13 +08:00
+last_verified: 2026-07-11 14:18 +08:00
 ---
 
 # Workflow Status
@@ -14,6 +14,7 @@ last_verified: 2026-07-11 14:13 +08:00
 - 当前阶段：`done`。
 - 当前 Sprint：`upstream-codex-imagegen-namespace-strip-s68b`。
 - 独立组合 QA 报告 `docs/workflow/qa-reports/upstream-codex-imagegen-namespace-strip-s68b-qa.md` 判定 PASS；主控最终裁决为 DONE。S68 未合入 `main`、未推送、未部署。
+- S66-S68 的 15 个临时 worktree/branch 已在确认工作树干净且 `git cherry HEAD <branch>` 无 unique commit 后清理；当前只保留集成工作树。
 - S68b 初始实现与 fix1 已集成为 `7593079a9`、`19066c93d`；组合 diff 经主控关键验收、独立 fix1 复核和独立组合 QA PASS。
 - S68b 初始 worker commit `36fe56441` 经主控关键验收 PASS，但独立 review 曾判定 FAIL：本地 `OpenAIWSIngressModePassthrough` 在 parsed ingress 前提前返回，首帧和后续帧均绕过图片声明 strip；该 finding 已由 fix1 关闭后统一集成。
 - Fix1 contract 已由原 Generator 完成：WS passthrough 首帧/后续帧、invalid raw JSON 与 OAuth HTTP passthrough actual-body 证据均已补齐，独立复核确认此前 P1/P2 finding 全部关闭。

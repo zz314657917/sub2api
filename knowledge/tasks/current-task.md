@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-07-11 14:13 +08:00
+最后更新：2026-07-11 14:18 +08:00
 
 ## 背景
 
@@ -11,7 +11,7 @@
 
 ## 当前目标
 
-- S68 已完成；下一阶段先清理已完成的 S66-S68 临时 worktree/branch，再审计剩余 upstream v0.1.151 候选。
+- S68 已完成，S66-S68 临时 worktree/branch 已清理；下一阶段审计剩余 upstream v0.1.151 候选。
 - 支付并发补丁 `fc66a30ff` 继续单独审计，不与普通协议/运行时补丁混合。
 
 ## 本次已完成
@@ -21,6 +21,7 @@
 - S68b：完成 flat `image_generation`、`image_gen` namespace、Responses Lite `additional_tools`、matching `tool_choice` 在 managed HTTP、API-key/OAuth passthrough、parsed WS、WS passthrough 与 Spark 的一致 strip。
 - S68b 初始 review 发现 `OpenAIWSIngressModePassthrough` 绕过 parsed strip；fix1 已补首帧/后续帧 adapter strip、invalid raw JSON 与 OAuth actual forwarded-body 覆盖。
 - 组合实现提交：`7593079a9`、`19066c93d`；QA 报告提交：`c2529cd4e`。
+- 已清理 15 个 S66-S68 临时 worktree/branch；清理前均确认工作树干净且相对当前 HEAD 无 patch-unique commit。
 
 ## 已确认事实
 
@@ -44,9 +45,8 @@
 
 ## 下一步
 
-1. 清理 S66-S68 已完成临时 worktree/branch -> 验证：`git worktree list` 不再包含已合入集成分支且工作树干净的临时项，保留有未合并/脏改的引用。
-2. 刷新并审计 upstream v0.1.151 剩余提交 -> 验证：按可独立移植 / 依赖较大 / 单独高风险分类，明确本地祖先依赖与冲突面。
-3. 如用户明确要求合入主线 -> 验证：先审当前分支相对 `main`/`origin/main` 的提交范围，再 merge、定向回归、push verify；默认不自动执行。
+1. 刷新并审计 upstream v0.1.151 剩余提交 -> 验证：按可独立移植 / 依赖较大 / 单独高风险分类，明确本地祖先依赖与冲突面。
+2. 如用户明确要求合入主线 -> 验证：先审当前分支相对 `main`/`origin/main` 的提交范围，再 merge、定向回归、push verify；默认不自动执行。
 
 ## 验证记录
 
@@ -55,3 +55,4 @@
 - `TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughImageNamespaceStripAcrossTurns -count=3`：PASS。
 - `git diff --check 5869f7b08..HEAD`：PASS。
 - Allowed/Denied path audit：10 个允许 backend source/test 路径、workflow 证据路径，无 bridge/apicompat source/fallback source/frontend/billing/migration/deploy 越界修改。
+- Worktree/branch cleanup audit：15 个目标均 `dirty=0`、`git cherry HEAD <branch>` unique count 为 `0`；清理后 `git worktree list` 仅剩当前集成工作树。

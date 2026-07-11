@@ -1,14 +1,14 @@
 # 项目时间轴
 
-## 2026-07-11 14:13 +08:00 - 上游 Codex image_gen namespace strip S68 收口
+## 2026-07-11 14:18 +08:00 - 上游 Codex image_gen namespace strip S68 收口
 
 - 当前阶段：S68a 账号策略前置与 S68b namespace/passthrough 扩展均已完成，workflow 最终裁决为 `done`；当前仍在 `codex/upstream-latency-health-column` 集成分支，未合入 `main`、未推送、未部署。
 - 本段重点：把 Codex 显式图片工具 `strip` 策略覆盖到顶层 `image_generation`、`image_gen` namespace、Responses Lite `additional_tools`、匹配的 `tool_choice`、managed HTTP、API-key/OAuth passthrough、parsed WS、WS passthrough 首帧/后续帧和 Spark。
-- 已完成：初始实现 `7593079a9`、WS passthrough fix1 `19066c93d`、独立 QA 报告 `docs/workflow/qa-reports/upstream-codex-imagegen-namespace-strip-s68b-qa.md`；实际 forwarded body 由 HTTP recorder 与 WS capture 验证。
+- 已完成：初始实现 `7593079a9`、WS passthrough fix1 `19066c93d`、独立 QA 报告 `docs/workflow/qa-reports/upstream-codex-imagegen-namespace-strip-s68b-qa.md`；实际 forwarded body 由 HTTP recorder 与 WS capture 验证；15 个干净且 patch-equivalent 的 S66-S68 临时 worktree/branch 已清理。
 - 关键决策：初始 review 发现本地 `OpenAIWSIngressModePassthrough` 绕过 parsed ingress，未接受 worker 自行缩窄合同；通过 fix1 扩展 adapter ownership，并补 invalid raw JSON 与 OAuth actual-body 证据。支付并发大补丁 `fc66a30ff` 继续保持独立审计边界。
-- 验证记录：原 S68b 与 fix1 全部定向 service/apicompat/fallback/compile 命令 PASS；两轮 WS passthrough capture `-count=3` PASS；`5869f7b08..HEAD` 路径审计与 `git diff --check` PASS，无 denied-path 改动。
+- 验证记录：原 S68b 与 fix1 全部定向 service/apicompat/fallback/compile 命令 PASS；两轮 WS passthrough capture `-count=3` PASS；`5869f7b08..HEAD` 路径审计与 `git diff --check` PASS，无 denied-path 改动；清理后 `git worktree list` 仅剩当前集成工作树。
 - 遗留问题：未连接真实 OpenAI/Codex 上游，未跑已知受 `group_peak_rate` 时区断言漂移影响的完整 service 套件，未做 race 或生产部署。
-- 下一步：先清理已完成的 S66-S68 临时 worktree/branch并复核引用；再审计剩余 upstream v0.1.151 候选。只有用户明确要求时才合入 `main`、推送或更新本地容器。
+- 下一步：审计剩余 upstream v0.1.151 候选。只有用户明确要求时才合入 `main`、推送或更新本地容器。
 
 ## 2026-06-24 01:37 +08:00 - 排行榜 tab 收进榜单卡片
 

@@ -201,3 +201,4 @@
 260711 1404 | upstream-codex-imagegen-namespace-strip-s68b | independent-qa-dispatched | qa-worker | E:/codex-worktrees/sub2api/upstream-codex-imagegen-namespace-strip-s68b-qa
 260711 1413 | upstream-codex-imagegen-namespace-strip-s68b | independent-qa-pass | qa-worker | docs/workflow/qa-reports/upstream-codex-imagegen-namespace-strip-s68b-qa.md
 260711 1413 | upstream-codex-imagegen-namespace-strip-s68b | done | codex | initial review FAIL closed by fix1 and combined QA PASS
+260711 1418 | upstream-v0151-s66-s68 | temporary-worktrees-cleaned | codex | 15 clean patch-equivalent worktrees and branches removed
