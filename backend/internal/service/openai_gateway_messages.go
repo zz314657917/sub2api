@@ -93,6 +93,11 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	if err != nil {
 		return nil, fmt.Errorf("convert anthropic to responses: %w", err)
 	}
+	reasoningEffort := extractOpenAIReasoningEffortFromFallbackCandidates(body, upstreamModel, billingModel, originalModel)
+	if reasoningEffort == nil && responsesReq.Reasoning != nil && responsesReq.Reasoning.Effort != "" {
+		effort := responsesReq.Reasoning.Effort
+		reasoningEffort = &effort
+	}
 
 	// Upstream always uses streaming (upstream may not support sync mode).
 	// The client's original preference determines the response format.
@@ -396,9 +401,8 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 			st := responsesReq.ServiceTier
 			result.ServiceTier = &st
 		}
-		if responsesReq.Reasoning != nil && responsesReq.Reasoning.Effort != "" {
-			re := responsesReq.Reasoning.Effort
-			result.ReasoningEffort = &re
+		if reasoningEffort != nil {
+			result.ReasoningEffort = reasoningEffort
 		}
 	}
 
@@ -412,6 +416,22 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	}
 
 	return result, handleErr
+}
+
+// extractOpenAIReasoningEffortFromFallbackCandidates preserves suffix-derived
+// effort when OAuth normalization strips the suffix from the upstream model.
+// The shared extractor becomes variadic in the paired GPT-5.6 patch; keeping the
+// candidate loop local lets this fallback patch remain independently testable.
+func extractOpenAIReasoningEffortFromFallbackCandidates(body []byte, models ...string) *string {
+	for _, model := range models {
+		if strings.TrimSpace(model) == "" {
+			continue
+		}
+		if effort := extractOpenAIReasoningEffortFromBody(body, model); effort != nil {
+			return effort
+		}
+	}
+	return nil
 }
 
 func ensureCodexOAuthInstructionsField(reqBody map[string]any) {
