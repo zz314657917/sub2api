@@ -29,9 +29,10 @@ Close the remaining GPT-5.6 underbilling gap: when `service_tier` is `priority`,
 - A non-nil channel or interval `CacheWritePrice` overrides both Standard and Priority cache-write prices with the configured value and marks the override explicit; a configured zero remains zero for both tiers.
 - For GPT-5.6 pricing that is not explicitly overridden, missing Standard cache-write price derives from `input * 1.25`, and missing Priority cache-write price derives from `priority input * 1.25`.
 - Standard uses the Standard cache-write price; Priority uses the dedicated Priority price; Flex continues applying the existing `0.5` tier multiplier to Standard pricing.
-- Session long-context pricing remains exclusive above `272000` input-side tokens and multiplies the already-selected cache-write tier price by the existing input multiplier.
-- Existing cache breakdown 5m/1h semantics and non-GPT-5.6 model pricing remain unchanged.
-- `RecordUsage` with GPT-5.6 cache-creation tokens and `service_tier=priority` persists the Priority cache-creation cost, proving the real usage-recording path passes the tier into billing.
+- Session long-context input-side total is `InputTokens + CacheCreationTokens + CacheReadTokens`; only totals `> 272000` trigger the policy, while `== 272000` does not.
+- Priority selects the dedicated cache-write price before applying the existing `2.0` long-context input multiplier; Flex uses Standard cache-write pricing and then applies the existing `0.5` tier multiplier.
+- Existing cache breakdown 5m/1h semantics and non-GPT-5.6 model pricing remain unchanged; breakdown mode continues reading its 5m/1h fields and does not switch to the new flat Priority field.
+- `RecordUsage` with GPT-5.6 cache-creation tokens and `Result.ServiceTier=priority` persists `ServiceTier`, the dedicated Priority `CacheCreationCost`, and matching `TotalCost` / `ActualCost`, proving the real usage-recording path passes the tier into billing.
 
 ## Context
 
@@ -44,11 +45,10 @@ Close the remaining GPT-5.6 underbilling gap: when `service_tier` is `priority`,
 ## Allowed Paths
 
 - `backend/internal/service/billing_service.go`
-- `backend/internal/service/billing_service_test.go`
 - `backend/internal/service/pricing_service.go`
 - `backend/internal/service/pricing_service_test.go`
 - `backend/internal/service/model_pricing_resolver.go`
-- `backend/internal/service/model_pricing_resolver_test.go`
+- `backend/internal/service/gpt56_priority_cache_billing_test.go`
 - `backend/internal/service/openai_gateway_record_usage_test.go`
 - `backend/resources/model-pricing/model_prices_and_context_window.json`
 - `docs/workflow/worker-results/upstream-gpt56-priority-cache-billing-s69-result.md`
@@ -56,6 +56,7 @@ Close the remaining GPT-5.6 underbilling gap: when `service_tier` is `priority`,
 ## Denied Paths
 
 - Usage extraction/apicompat, gateway forwarders, repositories, handlers, DTOs, API key middleware, settings, and billing cache services.
+- Unit-tag suites including `billing_service_test.go` and `model_pricing_resolver_test.go`; current unrelated `-tags=unit` compile drift must not be used as S69 evidence or repaired here.
 - Bare `gpt-5.6` alias/catalog/OpenCode work, user-scoped Fast/Flex policy, usage breakdown legacy filtering, and Cyber request-type migrations.
 - Payment, subscription, balance/quota mutation, frontend, migrations, deployment, and production configuration.
 - `fc66a30ff` and all payment-concurrency paths.
@@ -65,6 +66,7 @@ Close the remaining GPT-5.6 underbilling gap: when `service_tier` is `priority`,
 
 - Preserve the current unified `ModelPricingResolver`; do not import upstream file-layout refactors.
 - Preserve existing Standard/Flex/long-context and 5m/1h cache breakdown calculations except for selecting the dedicated Priority cache-write price.
+- Put all new tier matrix, channel/interval override, explicit-zero, long-context boundary, and 5m/1h preservation assertions in the untagged `gpt56_priority_cache_billing_test.go` or another explicitly allowed untagged test file; unit-tag tests do not count as PASS evidence.
 - Channel and interval overrides are authoritative for both Standard and Priority, including zero; do not apply an automatic 2x multiplier to an explicit override.
 - Do not add a new database field, setting, API, UI control, model alias, or pricing source.
 - Do not change cache token extraction, token bucket separation, usage log schema, payment settlement, or subscription deduction.
@@ -74,13 +76,29 @@ Close the remaining GPT-5.6 underbilling gap: when `service_tier` is `priority`,
 
 ```powershell
 Push-Location backend
-go test ./internal/service -run "Test.*GPT56.*(Priority|CacheWrite|CacheCreation|LongContext)|TestParsePricingData_.*Priority|Test.*Channel.*CacheWrite|Test.*Interval.*CacheWrite|TestOpenAIGatewayServiceRecordUsage_.*GPT56.*Priority" -count=1
-go test ./internal/service -run "TestBillingService_GPT56|TestCalculateCost_.*(Priority|Flex|LongContext)|TestGPT56CacheWritePricingPolicyPreservesExplicitZeroAndContextTiers|TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndStats|TestOpenAIGatewayServiceRecordUsage_ServiceTier" -count=1
-go test ./internal/service -run "TestParsePricingData|TestGetModelPricing|TestResolve_|TestCalculateCost" -count=1
+$requiredPattern = "^(TestGPT56PriorityCacheWriteTierAndLongContextMatrix|TestGPT56PriorityCacheWriteChannelAndIntervalOverrides|TestGPT56PriorityCacheWritePreservesCacheBreakdown|TestOpenAIGatewayServiceRecordUsage_GPT56PriorityPersistsDedicatedCacheWriteCost|TestParsePricingData_ParsesPriorityCacheCreationField|TestDefaultPricingIncludesGpt56PreviewPrices)$"
+$listed = @(go test ./internal/service -list $requiredPattern | Where-Object { $_ -match '^Test' })
+if ($listed.Count -ne 6) { throw "S69 required tests missing: $($listed -join ', ')" }
+go test ./internal/service -run $requiredPattern -count=1
+go test ./internal/service -run "^(TestParsePricingData_.*|TestGetModelPricing_.*|TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndStats|TestOpenAIGatewayServiceRecordUsage_ServiceTier.*)$" -count=1
 go test ./internal/service/openai_ws_v2 -run "CacheCreation|Usage" -count=1
 go test ./internal/service -run "^$" -count=1
 Pop-Location
-git diff --check
+$base = (git merge-base HEAD codex/upstream-latency-health-column).Trim()
+$allowed = @(
+  "backend/internal/service/billing_service.go",
+  "backend/internal/service/pricing_service.go",
+  "backend/internal/service/pricing_service_test.go",
+  "backend/internal/service/model_pricing_resolver.go",
+  "backend/internal/service/gpt56_priority_cache_billing_test.go",
+  "backend/internal/service/openai_gateway_record_usage_test.go",
+  "backend/resources/model-pricing/model_prices_and_context_window.json",
+  "docs/workflow/worker-results/upstream-gpt56-priority-cache-billing-s69-result.md"
+)
+$changed = @(git diff --name-only "$base..HEAD")
+$unexpected = @($changed | Where-Object { $_ -notin $allowed })
+if ($unexpected.Count -gt 0) { throw "S69 path audit failed: $($unexpected -join ', ')" }
+git diff --check "$base..HEAD"
 ```
 
 ## Output
