@@ -207,3 +207,6 @@
 260711 1444 | upstream-gpt56-priority-cache-billing-s69 | contract-revised | codex | move required tests out of broken unit-tag suites and add non-vacuous/path gates
 260711 1451 | upstream-gpt56-priority-cache-billing-s69 | contract-revised-2 | codex | require native exit-code checks and a clean committed worker tree before path audit
 260711 1453 | upstream-gpt56-priority-cache-billing-s69 | contract-approved | codex | semantic reviewer PASS and command-gate retest PASS on 4af31b1e4
+260711 1454 | upstream-gpt56-priority-cache-billing-s69 | worker-start | codex | E:\codex-worktrees\sub2api\upstream-gpt56-priority-cache-billing-s69
+260711 1454 | upstream-gpt56-priority-cache-billing-s69 | worker-fail | worker | E:\codex-worktrees\sub2api\upstream-gpt56-priority-cache-billing-s69\docs\workflow\worker-results\upstream-gpt56-priority-cache-billing-s69-worker.json
+260711 1456 | upstream-gpt56-priority-cache-billing-s69 | worker-model-fallback | codex | deepseek-v4-pro returned model 404; use explicitly authorized available collaboration worker in the same isolated worktree
