@@ -1,18 +1,22 @@
 ---
-phase: done
-current_sprint: upstream-codex-image-tool-strip-policy-s68a
+phase: contract-draft
+current_sprint: upstream-codex-imagegen-namespace-strip-s68b
 total_sprints: 68
-pending_action: draft S68b Codex image_gen namespace strip contract
+pending_action: review S68b Codex image_gen namespace strip contract
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 13:10 +08:00
+last_verified: 2026-07-11 13:11 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`done`。
-- 当前 Sprint：`upstream-codex-image-tool-strip-policy-s68a`。
+- 当前阶段：`contract-draft`。
+- 当前 Sprint：`upstream-codex-imagegen-namespace-strip-s68b`。
+- S68b draft contract 已生成：基于 S68a policy PASS，只扩展 namespace、Responses Lite、passthrough/raw 和 WS stripping；策略 UI 与 apicompat 明确冻结。
+- 当前只允许审查 `docs/workflow/tasks/upstream-codex-imagegen-namespace-strip-s68b.md`，不得在批准前启动实现。
+- S68a 历史阶段：`done`。
+- S68a Sprint：`upstream-codex-image-tool-strip-policy-s68a`。
 - Planner 已确认 `d3a1835ed` 依赖本地缺失的 `f385cdceb` 账号策略，且现有 UI 没有安全的任意 `extra` 编辑入口；S68a 因此拆成 backend policy 与专用 UI 两个互斥 draft contract。
 - Backend 与 UI worker 均已完成并经独立审查；UI 的 nested precedence 与 alias normalization 两项 finding 已由 follow-up 提交闭环。组合分支集成到 `2f68fdc90`，fresh backend service、组件 `30/30` 和 typecheck 均 PASS。
 - 当前唯一合法动作是在独立 worktree 对 S68a 执行组合 QA；namespace、Responses Lite `additional_tools` 和 passthrough 仍属于后续 S68b，不能在 QA 中扩实现。
