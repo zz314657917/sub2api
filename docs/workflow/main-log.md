@@ -212,3 +212,5 @@
 260711 1456 | upstream-gpt56-priority-cache-billing-s69 | worker-model-fallback | codex | deepseek-v4-pro returned model 404; use explicitly authorized available collaboration worker in the same isolated worktree
 260711 1514 | upstream-gpt56-priority-cache-billing-s69 | code-review-pass | review-worker | no blocking findings; 8 allowed paths and billing semantics verified
 260711 1514 | upstream-gpt56-priority-cache-billing-s69 | worker-integrated | codex | d5a1aef0b and 07399e50d
+260711 1521 | upstream-gpt56-priority-cache-billing-s69 | independent-qa-pass | qa-worker | docs/workflow/qa-reports/upstream-gpt56-priority-cache-billing-s69-qa.md
+260711 1521 | upstream-gpt56-priority-cache-billing-s69 | done | codex | final evaluator PASS; no main merge, push, deploy, or container update
