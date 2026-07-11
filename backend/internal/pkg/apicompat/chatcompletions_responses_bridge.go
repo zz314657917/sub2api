@@ -797,18 +797,28 @@ func ChatUsageToResponsesUsage(usage *ChatUsage) *ResponsesUsage {
 // ChatCompletionsToResponsesStreamState tracks state while converting Chat
 // Completions SSE chunks into Responses SSE events.
 type ChatCompletionsToResponsesStreamState struct {
-	ResponseID     string
-	Model          string
-	Created        int64
-	SequenceNumber int
-	CreatedSent    bool
-	CompletedSent  bool
+	ResponseID      string
+	Model           string
+	Created         int64
+	SequenceNumber  int
+	CreatedSent     bool
+	CompletedSent   bool
+	nextOutputIndex int
+
+	ReasoningItemID string
+	ReasoningIndex  int
+	ReasoningOpen   bool
+	ReasoningDone   bool
 
 	MessageItemID string
-	Text          strings.Builder
-	Reasoning     strings.Builder
-	ToolCalls     map[int]*ChatToolCall
-	ToolItemIDs   map[int]string
+	MessageIndex  int
+	TextPartOpen  bool
+
+	Text            strings.Builder
+	Reasoning       strings.Builder
+	ToolCalls       map[int]*ChatToolCall
+	ToolItemIDs     map[int]string
+	ToolOutputIndex map[int]int
 
 	// CustomTools 是客户端请求中 custom/freeform 工具的名字集合（见
 	// CustomToolNames）。命中的调用按 custom_tool_call 生命周期下发，codex 才能
@@ -851,11 +861,18 @@ func NewChatCompletionsToResponsesStreamState(model string) *ChatCompletionsToRe
 		Created:          time.Now().Unix(),
 		ToolCalls:        make(map[int]*ChatToolCall),
 		ToolItemIDs:      make(map[int]string),
+		ToolOutputIndex:  make(map[int]int),
 		toolIsCustom:     make(map[int]bool),
 		toolIsToolSearch: make(map[int]bool),
 		toolNamespace:    make(map[int]NamespacedToolName),
 		toolAnnounced:    make(map[int]bool),
 	}
+}
+
+func (state *ChatCompletionsToResponsesStreamState) allocOutputIndex() int {
+	index := state.nextOutputIndex
+	state.nextOutputIndex++
+	return index
 }
 
 // ChatCompletionsChunkToResponsesEvents converts one Chat Completions stream
@@ -881,22 +898,26 @@ func ChatCompletionsChunkToResponsesEvents(
 	events = append(events, ensureChatToResponsesCreated(state)...)
 
 	for _, choice := range chunk.Choices {
-		if choice.Delta.Content != nil {
+		if choice.Delta.ReasoningContent != nil && *choice.Delta.ReasoningContent != "" {
+			events = append(events, ensureChatReasoningItem(state)...)
+			_, _ = state.Reasoning.WriteString(*choice.Delta.ReasoningContent)
+			events = append(events, chatToResponsesEvent(state, "response.reasoning_summary_text.delta", &ResponsesStreamEvent{
+				OutputIndex:  state.ReasoningIndex,
+				SummaryIndex: 0,
+				Delta:        *choice.Delta.ReasoningContent,
+				ItemID:       state.ReasoningItemID,
+			}))
+		}
+		if choice.Delta.Content != nil && *choice.Delta.Content != "" {
+			events = append(events, closeChatReasoningItem(state)...)
 			events = append(events, ensureChatToResponsesMessageItem(state)...)
+			events = append(events, ensureChatToResponsesTextPart(state)...)
 			_, _ = state.Text.WriteString(*choice.Delta.Content)
 			events = append(events, chatToResponsesEvent(state, "response.output_text.delta", &ResponsesStreamEvent{
-				OutputIndex:  0,
+				OutputIndex:  state.MessageIndex,
 				ContentIndex: 0,
 				Delta:        *choice.Delta.Content,
 				ItemID:       state.MessageItemID,
-			}))
-		}
-		if choice.Delta.ReasoningContent != nil {
-			_, _ = state.Reasoning.WriteString(*choice.Delta.ReasoningContent)
-			events = append(events, chatToResponsesEvent(state, "response.reasoning_summary_text.delta", &ResponsesStreamEvent{
-				OutputIndex:  0,
-				SummaryIndex: 0,
-				Delta:        *choice.Delta.ReasoningContent,
 			}))
 		}
 		for _, toolCall := range choice.Delta.ToolCalls {
@@ -906,6 +927,7 @@ func ChatCompletionsChunkToResponsesEvents(
 			}
 			stored, ok := state.ToolCalls[idx]
 			if !ok {
+				events = append(events, closeChatReasoningItem(state)...)
 				copyCall := toolCall
 				if copyCall.ID == "" {
 					copyCall.ID = generateItemID()
@@ -919,6 +941,7 @@ func ChatCompletionsChunkToResponsesEvents(
 				state.ToolCalls[idx] = &copyCall
 				stored = &copyCall
 				state.ToolItemIDs[idx] = generateItemID()
+				state.ToolOutputIndex[idx] = state.allocOutputIndex()
 			} else {
 				if toolCall.ID != "" {
 					stored.ID = toolCall.ID
@@ -932,7 +955,7 @@ func ChatCompletionsChunkToResponsesEvents(
 				stored.Function.Arguments += toolCall.Function.Arguments
 				if state.toolAnnounced[idx] && !state.toolIsCustom[idx] && !state.toolIsToolSearch[idx] {
 					events = append(events, chatToResponsesEvent(state, "response.function_call_arguments.delta", &ResponsesStreamEvent{
-						OutputIndex: idx + 1,
+						OutputIndex: state.ToolOutputIndex[idx],
 						ItemID:      state.ToolItemIDs[idx],
 						Delta:       toolCall.Function.Arguments,
 						CallID:      stored.ID,
@@ -956,6 +979,7 @@ func FinalizeChatCompletionsResponsesStream(state *ChatCompletionsToResponsesStr
 	}
 	var events []ResponsesStreamEvent
 	events = append(events, ensureChatToResponsesCreated(state)...)
+	events = append(events, closeChatReasoningItem(state)...)
 
 	// Some chat-compatible upstreams, notably DeepSeek reasoning models, can
 	// finish with reasoning_content only. Surface that text as a visible message
@@ -963,19 +987,28 @@ func FinalizeChatCompletionsResponsesStream(state *ChatCompletionsToResponsesStr
 	events = append(events, synthesizeChatReasoningFallbackMessage(state)...)
 
 	if state.MessageItemID != "" {
-		events = append(events, chatToResponsesEvent(state, "response.output_text.done", &ResponsesStreamEvent{
-			OutputIndex:  0,
-			ContentIndex: 0,
-			Text:         state.Text.String(),
-			ItemID:       state.MessageItemID,
-		}))
+		if state.TextPartOpen {
+			events = append(events, chatToResponsesEvent(state, "response.output_text.done", &ResponsesStreamEvent{
+				OutputIndex:  state.MessageIndex,
+				ContentIndex: 0,
+				Text:         state.Text.String(),
+				ItemID:       state.MessageItemID,
+			}))
+			events = append(events, chatToResponsesEvent(state, "response.content_part.done", &ResponsesStreamEvent{
+				OutputIndex:  state.MessageIndex,
+				ContentIndex: 0,
+				ItemID:       state.MessageItemID,
+				Part:         &ResponsesContentPart{Type: "output_text", Text: state.Text.String()},
+			}))
+		}
 		events = append(events, chatToResponsesEvent(state, "response.output_item.done", &ResponsesStreamEvent{
-			OutputIndex: 0,
+			OutputIndex: state.MessageIndex,
 			Item: &ResponsesOutput{
-				Type:   "message",
-				ID:     state.MessageItemID,
-				Role:   "assistant",
-				Status: "completed",
+				Type:    "message",
+				ID:      state.MessageItemID,
+				Role:    "assistant",
+				Content: []ResponsesContentPart{{Type: "output_text", Text: state.Text.String()}},
+				Status:  "completed",
 			},
 		}))
 	}
@@ -1034,9 +1067,10 @@ func synthesizeChatReasoningFallbackMessage(state *ChatCompletionsToResponsesStr
 
 	var events []ResponsesStreamEvent
 	events = append(events, ensureChatToResponsesMessageItem(state)...)
+	events = append(events, ensureChatToResponsesTextPart(state)...)
 	_, _ = state.Text.WriteString(text)
 	events = append(events, chatToResponsesEvent(state, "response.output_text.delta", &ResponsesStreamEvent{
-		OutputIndex:  0,
+		OutputIndex:  state.MessageIndex,
 		ContentIndex: 0,
 		Delta:        text,
 		ItemID:       state.MessageItemID,
@@ -1049,14 +1083,82 @@ func ensureChatToResponsesMessageItem(state *ChatCompletionsToResponsesStreamSta
 		return nil
 	}
 	state.MessageItemID = generateItemID()
+	state.MessageIndex = state.allocOutputIndex()
 	return []ResponsesStreamEvent{chatToResponsesEvent(state, "response.output_item.added", &ResponsesStreamEvent{
-		OutputIndex: 0,
+		OutputIndex: state.MessageIndex,
 		Item: &ResponsesOutput{
-			Type:   "message",
-			ID:     state.MessageItemID,
-			Role:   "assistant",
-			Status: "in_progress",
+			Type:    "message",
+			ID:      state.MessageItemID,
+			Role:    "assistant",
+			Content: []ResponsesContentPart{{Type: "output_text"}},
+			Status:  "in_progress",
 		},
+	})}
+}
+
+func ensureChatReasoningItem(state *ChatCompletionsToResponsesStreamState) []ResponsesStreamEvent {
+	if state.ReasoningOpen || state.ReasoningDone {
+		return nil
+	}
+	state.ReasoningOpen = true
+	state.ReasoningItemID = generateItemID()
+	state.ReasoningIndex = state.allocOutputIndex()
+	return []ResponsesStreamEvent{
+		chatToResponsesEvent(state, "response.output_item.added", &ResponsesStreamEvent{
+			OutputIndex: state.ReasoningIndex,
+			Item:        &ResponsesOutput{Type: "reasoning", ID: state.ReasoningItemID, Status: "in_progress"},
+		}),
+		chatToResponsesEvent(state, "response.reasoning_summary_part.added", &ResponsesStreamEvent{
+			OutputIndex:  state.ReasoningIndex,
+			SummaryIndex: 0,
+			ItemID:       state.ReasoningItemID,
+			Part:         &ResponsesContentPart{Type: "summary_text"},
+		}),
+	}
+}
+
+func closeChatReasoningItem(state *ChatCompletionsToResponsesStreamState) []ResponsesStreamEvent {
+	if !state.ReasoningOpen {
+		return nil
+	}
+	state.ReasoningOpen = false
+	state.ReasoningDone = true
+	reasoning := state.Reasoning.String()
+	return []ResponsesStreamEvent{
+		chatToResponsesEvent(state, "response.reasoning_summary_text.done", &ResponsesStreamEvent{
+			OutputIndex:  state.ReasoningIndex,
+			SummaryIndex: 0,
+			Text:         reasoning,
+			ItemID:       state.ReasoningItemID,
+		}),
+		chatToResponsesEvent(state, "response.reasoning_summary_part.done", &ResponsesStreamEvent{
+			OutputIndex:  state.ReasoningIndex,
+			SummaryIndex: 0,
+			ItemID:       state.ReasoningItemID,
+			Part:         &ResponsesContentPart{Type: "summary_text", Text: reasoning},
+		}),
+		chatToResponsesEvent(state, "response.output_item.done", &ResponsesStreamEvent{
+			OutputIndex: state.ReasoningIndex,
+			Item: &ResponsesOutput{
+				Type:    "reasoning",
+				ID:      state.ReasoningItemID,
+				Status:  "completed",
+				Summary: []ResponsesSummary{{Type: "summary_text", Text: reasoning}},
+			},
+		}),
+	}
+}
+
+func ensureChatToResponsesTextPart(state *ChatCompletionsToResponsesStreamState) []ResponsesStreamEvent {
+	if state.TextPartOpen {
+		return nil
+	}
+	state.TextPartOpen = true
+	return []ResponsesStreamEvent{chatToResponsesEvent(state, "response.content_part.added", &ResponsesStreamEvent{
+		OutputIndex:  state.MessageIndex,
+		ContentIndex: 0,
+		ItemID:       state.MessageItemID,
+		Part:         &ResponsesContentPart{Type: "output_text", Text: ""},
 	})}
 }
 
@@ -1090,7 +1192,7 @@ func announceChatToolItem(
 		itemName, itemNamespace = namespace.Name, namespace.Namespace
 	}
 	events := []ResponsesStreamEvent{chatToResponsesEvent(state, "response.output_item.added", &ResponsesStreamEvent{
-		OutputIndex: idx + 1,
+		OutputIndex: state.ToolOutputIndex[idx],
 		Item: &ResponsesOutput{
 			Type:      itemType,
 			ID:        state.ToolItemIDs[idx],
@@ -1102,7 +1204,7 @@ func announceChatToolItem(
 	})}
 	if !isCustom && !isToolSearch && stored.Function.Arguments != "" {
 		events = append(events, chatToResponsesEvent(state, "response.function_call_arguments.delta", &ResponsesStreamEvent{
-			OutputIndex: idx + 1,
+			OutputIndex: state.ToolOutputIndex[idx],
 			ItemID:      state.ToolItemIDs[idx],
 			Delta:       stored.Function.Arguments,
 			CallID:      stored.ID,
@@ -1125,7 +1227,7 @@ func closeChatToolItems(state *ChatCompletionsToResponsesStreamState) []Response
 		if strings.TrimSpace(arguments) == "" {
 			arguments = "{}"
 		}
-		outputIndex := idx + 1
+		outputIndex := state.ToolOutputIndex[idx]
 		if state.toolIsCustom[idx] {
 			input := extractCustomToolCallInput(arguments)
 			if input != "" {
@@ -1200,28 +1302,32 @@ func closeChatToolItems(state *ChatCompletionsToResponsesStreamState) []Response
 }
 
 func (state *ChatCompletionsToResponsesStreamState) chatOutput() []ResponsesOutput {
-	var outputs []ResponsesOutput
-	if state.Reasoning.Len() > 0 {
-		outputs = append(outputs, ResponsesOutput{
+	if state.nextOutputIndex == 0 {
+		return []ResponsesOutput{emptyResponsesMessageOutput()}
+	}
+	outputs := make([]ResponsesOutput, state.nextOutputIndex)
+	if state.ReasoningItemID != "" {
+		outputs[state.ReasoningIndex] = ResponsesOutput{
 			Type: "reasoning",
-			ID:   generateItemID(),
+			ID:   state.ReasoningItemID,
 			Summary: []ResponsesSummary{{
 				Type: "summary_text",
 				Text: state.Reasoning.String(),
 			}},
-		})
+			Status: "completed",
+		}
 	}
-	if state.MessageItemID != "" || len(state.ToolCalls) == 0 {
-		outputs = append(outputs, ResponsesOutput{
+	if state.MessageItemID != "" {
+		outputs[state.MessageIndex] = ResponsesOutput{
 			Type: "message",
-			ID:   nonEmpty(state.MessageItemID, generateItemID()),
+			ID:   state.MessageItemID,
 			Role: "assistant",
 			Content: []ResponsesContentPart{{
 				Type: "output_text",
 				Text: state.Text.String(),
 			}},
 			Status: "completed",
-		})
+		}
 	}
 	for i := 0; i < len(state.ToolCalls); i++ {
 		toolCall, ok := state.ToolCalls[i]
@@ -1232,40 +1338,41 @@ func (state *ChatCompletionsToResponsesStreamState) chatOutput() []ResponsesOutp
 		if strings.TrimSpace(arguments) == "" {
 			arguments = "{}"
 		}
+		outputIndex := state.ToolOutputIndex[i]
 		if state.toolIsCustom[i] {
-			outputs = append(outputs, ResponsesOutput{
+			outputs[outputIndex] = ResponsesOutput{
 				Type:   "custom_tool_call",
-				ID:     generateItemID(),
+				ID:     state.ToolItemIDs[i],
 				CallID: toolCall.ID,
 				Name:   toolCall.Function.Name,
 				Input:  extractCustomToolCallInput(arguments),
 				Status: "completed",
-			})
+			}
 			continue
 		}
 		if state.toolIsToolSearch[i] {
-			outputs = append(outputs, ResponsesOutput{
+			outputs[outputIndex] = ResponsesOutput{
 				Type:      "tool_search_call",
-				ID:        generateItemID(),
+				ID:        state.ToolItemIDs[i],
 				CallID:    toolCall.ID,
 				Arguments: arguments,
 				Status:    "completed",
-			})
+			}
 			continue
 		}
 		name, namespace := toolCall.Function.Name, ""
 		if ns, ok := state.toolNamespace[i]; ok {
 			name, namespace = ns.Name, ns.Namespace
 		}
-		outputs = append(outputs, ResponsesOutput{
+		outputs[outputIndex] = ResponsesOutput{
 			Type:      "function_call",
-			ID:        generateItemID(),
+			ID:        state.ToolItemIDs[i],
 			CallID:    toolCall.ID,
 			Name:      name,
 			Namespace: namespace,
 			Arguments: arguments,
 			Status:    "completed",
-		})
+		}
 	}
 	return outputs
 }
