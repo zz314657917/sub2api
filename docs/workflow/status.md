@@ -1,18 +1,19 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-gpt56-priority-cache-billing-s69
 total_sprints: 69
-pending_action: dispatch S69 Priority cache billing Generator worker
+pending_action: run independent S69 Priority cache billing QA
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 14:53 +08:00
+last_verified: 2026-07-11 15:14 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`contract-approved`。
+- 当前阶段：`build`。
 - 当前 Sprint：`upstream-gpt56-priority-cache-billing-s69`。
+- S69 Generator 实现已集成为 `d5a1aef0b`，worker result 收口为 `07399e50d`；独立代码审查 PASS，8 个 changed paths 全部在 contract allowlist。下一合法动作是在 fresh worktree 执行独立 QA。
 - S69 contract 经两项独立 Evaluator 复核通过：计费语义 PASS；验收命令在补齐 native exit-code、clean worktree 和精确测试枚举门禁后 PASS。下一合法动作是从批准 HEAD 派发单一 billing Generator worker。
 - S69 draft contract 已生成：只补 GPT-5.6 Priority cache-write 价格从静态/动态/override 到结算与 RecordUsage 的完整链；裸别名、用户级 Fast/Flex、usage breakdown、Cyber migration、支付与前端明确冻结。
 - 三组 S69 Planner 审计确认：协议/Ops/Grok 候选均已等价覆盖或应跳过；真正最高优先级缺口是 GPT-5.6 Priority cache-write 仍按 Standard 价格少计费。
