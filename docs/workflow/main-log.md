@@ -202,3 +202,5 @@
 260711 1413 | upstream-codex-imagegen-namespace-strip-s68b | independent-qa-pass | qa-worker | docs/workflow/qa-reports/upstream-codex-imagegen-namespace-strip-s68b-qa.md
 260711 1413 | upstream-codex-imagegen-namespace-strip-s68b | done | codex | initial review FAIL closed by fix1 and combined QA PASS
 260711 1418 | upstream-v0151-s66-s68 | temporary-worktrees-cleaned | codex | 15 clean patch-equivalent worktrees and branches removed
+260711 1436 | upstream-v0151-remaining-s69 | planner-audit-complete | codex | protocol and ops covered; Priority cache billing is highest remaining gap
+260711 1436 | upstream-gpt56-priority-cache-billing-s69 | contract-drafted | codex | isolate Priority cache-write price chain from de28eba3c

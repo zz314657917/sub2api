@@ -1,18 +1,20 @@
 ---
-phase: done
-current_sprint: upstream-codex-imagegen-namespace-strip-s68b
-total_sprints: 68
-pending_action: audit remaining upstream v0.1.151 candidates; keep payment concurrency separate
+phase: contract-draft
+current_sprint: upstream-gpt56-priority-cache-billing-s69
+total_sprints: 69
+pending_action: independently review S69 Priority cache billing contract
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 14:18 +08:00
+last_verified: 2026-07-11 14:36 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`done`。
-- 当前 Sprint：`upstream-codex-imagegen-namespace-strip-s68b`。
+- 当前阶段：`contract-draft`。
+- 当前 Sprint：`upstream-gpt56-priority-cache-billing-s69`。
+- S69 draft contract 已生成：只补 GPT-5.6 Priority cache-write 价格从静态/动态/override 到结算与 RecordUsage 的完整链；裸别名、用户级 Fast/Flex、usage breakdown、Cyber migration、支付与前端明确冻结。
+- 三组 S69 Planner 审计确认：协议/Ops/Grok 候选均已等价覆盖或应跳过；真正最高优先级缺口是 GPT-5.6 Priority cache-write 仍按 Standard 价格少计费。
 - 独立组合 QA 报告 `docs/workflow/qa-reports/upstream-codex-imagegen-namespace-strip-s68b-qa.md` 判定 PASS；主控最终裁决为 DONE。S68 未合入 `main`、未推送、未部署。
 - S66-S68 的 15 个临时 worktree/branch 已在确认工作树干净且 `git cherry HEAD <branch>` 无 unique commit 后清理；当前只保留集成工作树。
 - S68b 初始实现与 fix1 已集成为 `7593079a9`、`19066c93d`；组合 diff 经主控关键验收、独立 fix1 复核和独立组合 QA PASS。
