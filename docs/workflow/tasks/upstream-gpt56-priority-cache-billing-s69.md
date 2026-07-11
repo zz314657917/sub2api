@@ -6,7 +6,7 @@
 
 ## Status
 
-`draft`
+`approved`
 
 ## Role
 
