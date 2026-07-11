@@ -201,6 +201,61 @@ func TestOpenAIGatewayServiceForward_PassthroughImageNamespaceStripForAPIKey(t *
 	assertOpenAIGatewayImageNamespaceStrip(t, true)
 }
 
+func TestOpenAIGatewayServiceForward_OAuthPassthroughImageNamespaceStripUsesForwardedBody(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	upstream := &httpUpstreamRecorder{
+		resp: &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+			Body: io.NopCloser(strings.NewReader(strings.Join([]string{
+				`data: {"type":"response.completed","response":{"id":"resp_oauth_stripped_namespace","model":"gpt-5.5","usage":{"input_tokens":2,"output_tokens":1}}}`,
+				"",
+				"data: [DONE]",
+				"",
+			}, "\n"))),
+		},
+	}
+	svc := newOpenAIImageGenerationControlTestService(upstream)
+	c, _ := newOpenAIImageGenerationControlTestContext(false, "codex_cli_rs/0.144.1")
+	account := newOpenAIImageGenerationControlTestAccount()
+	account.Type = AccountTypeOAuth
+	account.Credentials = map[string]any{
+		"access_token":       "oauth-token",
+		"chatgpt_account_id": "chatgpt-account",
+	}
+	account.Extra = map[string]any{
+		featureKeyCodexImageGenerationExplicitToolPolicy: codexImageGenerationExplicitToolPolicyStrip,
+		"openai_passthrough":                             true,
+	}
+	body := []byte(`{
+		"model":"gpt-5.5",
+		"instructions":"Keep the ordinary request content.",
+		"stream":false,
+		"tools":[
+			{"type":"namespace","name":"image_gen"},
+			{"type":"namespace","name":"code_tools"},
+			{"type":"function","name":"imagegen","parameters":{"type":"object"}}
+		],
+		"input":[{"type":"message","role":"user","content":"write code"}],
+		"tool_choice":{"type":"namespace","namespace":"image_gen"}
+	}`)
+
+	result, err := svc.Forward(context.Background(), c, account, body)
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.NotNil(t, upstream.lastReq)
+	var forwarded map[string]any
+	require.NoError(t, json.Unmarshal(upstream.lastBody, &forwarded))
+	require.False(t, hasOpenAIImageGenerationTool(forwarded))
+	require.NotContains(t, forwarded, "tool_choice")
+	require.Equal(t, "Keep the ordinary request content.", gjson.GetBytes(upstream.lastBody, "instructions").String())
+	require.Equal(t, "write code", gjson.GetBytes(upstream.lastBody, "input.0.content").String())
+	require.True(t, gjson.GetBytes(upstream.lastBody, `tools.#(name=="code_tools")`).Exists())
+	require.True(t, gjson.GetBytes(upstream.lastBody, `tools.#(name=="imagegen")`).Exists())
+}
+
 func TestOpenAIGatewayServiceForward_DefaultAllowPreservesImageNamespace(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

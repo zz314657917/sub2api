@@ -247,6 +247,16 @@ func TestStripOpenAIImageGenerationToolsFromRawPayload(t *testing.T) {
 		require.False(t, changed)
 		require.Equal(t, payload, updated)
 	})
+
+	t.Run("invalid JSON returns original payload and error", func(t *testing.T) {
+		payload := []byte(`{"type":"response.create","tools":[{"type":"namespace","name":"image_gen"}]`)
+
+		updated, changed, err := stripOpenAIImageGenerationToolsFromRawPayload(payload)
+
+		require.Error(t, err)
+		require.False(t, changed)
+		require.Equal(t, payload, updated)
+	})
 }
 
 func TestAlignStoreDisabledPreviousResponseID(t *testing.T) {

@@ -817,7 +817,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughModeR
 	}()
 
 	writeCtx, cancelWrite := context.WithTimeout(context.Background(), 3*time.Second)
-	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.1","stream":false,"service_tier":"fast","reasoning":{"effort":"HIGH"}}`))
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.1","stream":false,"service_tier":"fast","reasoning":{"effort":"HIGH"},"tools":[{"type":"namespace","name":"image_gen"}],"tool_choice":"auto"}`))
 	cancelWrite()
 	require.NoError(t, err)
 
@@ -857,6 +857,218 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughModeR
 
 	require.Equal(t, 1, captureDialer.DialCount(), "passthrough 模式应直接建立上游 websocket")
 	require.Len(t, upstreamConn.writes, 1, "passthrough 模式应透传首条 response.create")
+	require.True(t, gjson.Get(requestToJSONString(upstreamConn.writes[0]), `tools.#(name=="image_gen")`).Exists())
+	require.Equal(t, "auto", gjson.Get(requestToJSONString(upstreamConn.writes[0]), "tool_choice").String())
+}
+
+func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughImageNamespaceStripAcrossTurns(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	cfg := &config.Config{}
+	cfg.Security.URLAllowlist.Enabled = false
+	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
+	cfg.Gateway.OpenAIWS.Enabled = true
+	cfg.Gateway.OpenAIWS.OAuthEnabled = true
+	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
+	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
+	cfg.Gateway.OpenAIWS.DialTimeoutSeconds = 3
+	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 3
+	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3
+
+	upstreamConn := &openAIWSCaptureConn{
+		readDelays: []time.Duration{0, 200 * time.Millisecond},
+		events: [][]byte{
+			[]byte(`{"type":"response.completed","response":{"id":"resp_passthrough_strip_1","model":"gpt-5.1","usage":{"input_tokens":2,"output_tokens":3}}}`),
+			[]byte(`{"type":"response.completed","response":{"id":"resp_passthrough_strip_2","model":"gpt-5.1","usage":{"input_tokens":4,"output_tokens":5}}}`),
+		},
+	}
+	captureDialer := &openAIWSCaptureDialer{conn: upstreamConn}
+	svc := &OpenAIGatewayService{
+		cfg:                       cfg,
+		httpUpstream:              &httpUpstreamRecorder{},
+		cache:                     &stubGatewayCache{},
+		openaiWSResolver:          NewOpenAIWSProtocolResolver(cfg),
+		toolCorrector:             NewCodexToolCorrector(),
+		openaiWSPassthroughDialer: captureDialer,
+	}
+	account := &Account{
+		ID:          454,
+		Name:        "openai-ingress-passthrough-image-strip",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{"api_key": "sk-test"},
+		Extra: map[string]any{
+			"openai_apikey_responses_websockets_v2_mode":     OpenAIWSIngressModePassthrough,
+			featureKeyCodexImageGenerationExplicitToolPolicy: codexImageGenerationExplicitToolPolicyStrip,
+		},
+	}
+
+	serverErrCh := make(chan error, 1)
+	resultCh := make(chan *OpenAIForwardResult, 2)
+	beforeRequestPayloadCh := make(chan []byte, 1)
+	hooks := &OpenAIWSIngressHooks{
+		BeforeRequest: func(turn int, payload []byte, _ string) error {
+			if turn == 2 {
+				beforeRequestPayloadCh <- append([]byte(nil), payload...)
+			}
+			return nil
+		},
+		AfterTurn: func(_ int, result *OpenAIForwardResult, turnErr error) {
+			if turnErr == nil && result != nil {
+				resultCh <- result
+			}
+		},
+	}
+
+	wsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := coderws.Accept(w, r, &coderws.AcceptOptions{CompressionMode: coderws.CompressionContextTakeover})
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		defer func() { _ = conn.CloseNow() }()
+
+		rec := httptest.NewRecorder()
+		ginCtx, _ := gin.CreateTestContext(rec)
+		req := r.Clone(r.Context())
+		req.Header = req.Header.Clone()
+		req.Header.Set("User-Agent", "codex_cli_rs/0.144.1")
+		ginCtx.Request = req
+
+		readCtx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		msgType, firstMessage, readErr := conn.Read(readCtx)
+		cancel()
+		if readErr != nil {
+			serverErrCh <- readErr
+			return
+		}
+		if msgType != coderws.MessageText && msgType != coderws.MessageBinary {
+			serverErrCh <- errors.New("unsupported websocket client message type")
+			return
+		}
+		serverErrCh <- svc.ProxyResponsesWebSocketFromClient(r.Context(), ginCtx, conn, account, "sk-test", firstMessage, hooks)
+	}))
+	defer wsServer.Close()
+
+	dialCtx, cancelDial := context.WithTimeout(context.Background(), 3*time.Second)
+	clientConn, _, err := coderws.Dial(dialCtx, "ws"+strings.TrimPrefix(wsServer.URL, "http"), nil)
+	cancelDial()
+	require.NoError(t, err)
+	defer func() { _ = clientConn.CloseNow() }()
+
+	firstFrame := []byte(`{
+		"type":"response.create",
+		"model":"gpt-5.1",
+		"stream":false,
+		"tools":[
+			{"type":"image_generation"},
+			{"type":"namespace","name":"image_gen"},
+			{"type":"namespace","name":"code_tools"},
+			{"type":"function","name":"imagegen"}
+		],
+		"input":[
+			{"type":"message","role":"user","content":"first"},
+			{"type":"additional_tools","tools":[{"type":"namespace","name":"image_gen"},{"type":"namespace","name":"browser_tools"}]},
+			{"type":"additional_tools","tools":[{"type":"image_generation"}]}
+		],
+		"tool_choice":{"type":"namespace","name":"image_gen"}
+	}`)
+	writeCtx, cancelWrite := context.WithTimeout(context.Background(), 3*time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, firstFrame)
+	cancelWrite()
+	require.NoError(t, err)
+
+	readCtx, cancelRead := context.WithTimeout(context.Background(), 3*time.Second)
+	_, firstEvent, readErr := clientConn.Read(readCtx)
+	cancelRead()
+	require.NoError(t, readErr)
+	require.Equal(t, "resp_passthrough_strip_1", gjson.GetBytes(firstEvent, "response.id").String())
+
+	binaryFrame := []byte(`{"type":"response.create","marker":"binary-unchanged","tools":[{"type":"namespace","name":"image_gen"}]}`)
+	writeCtx, cancelWrite = context.WithTimeout(context.Background(), 3*time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageBinary, binaryFrame)
+	cancelWrite()
+	require.NoError(t, err)
+
+	cancelFrame := []byte(`{"type":"response.cancel","marker":"cancel-unchanged"}`)
+	writeCtx, cancelWrite = context.WithTimeout(context.Background(), 3*time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, cancelFrame)
+	cancelWrite()
+	require.NoError(t, err)
+
+	secondFrame := []byte(`{
+		"type":"response.create",
+		"stream":false,
+		"tools":[{"type":"function","name":"shell"}],
+		"input":[
+			{"type":"message","role":"user","content":"second"},
+			{"type":"additional_tools","tools":[{"type":"image_generation"}]}
+		],
+		"tool_choice":{"tool":{"type":"namespace","namespace":"image_gen"}}
+	}`)
+	writeCtx, cancelWrite = context.WithTimeout(context.Background(), 3*time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, secondFrame)
+	cancelWrite()
+	require.NoError(t, err)
+
+	readCtx, cancelRead = context.WithTimeout(context.Background(), 3*time.Second)
+	_, secondEvent, readErr := clientConn.Read(readCtx)
+	cancelRead()
+	require.NoError(t, readErr)
+	require.Equal(t, "resp_passthrough_strip_2", gjson.GetBytes(secondEvent, "response.id").String())
+	_ = clientConn.Close(coderws.StatusNormalClosure, "done")
+
+	select {
+	case serverErr := <-serverErrCh:
+		if serverErr != nil {
+			require.Contains(t, serverErr.Error(), "StatusNormalClosure")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("等待 image strip passthrough websocket 结束超时")
+	}
+
+	for _, wantID := range []string{"resp_passthrough_strip_1", "resp_passthrough_strip_2"} {
+		select {
+		case result := <-resultCh:
+			require.Equal(t, wantID, result.RequestID)
+		case <-time.After(2 * time.Second):
+			t.Fatalf("未收到 passthrough turn result: %s", wantID)
+		}
+	}
+	select {
+	case hookedPayload := <-beforeRequestPayloadCh:
+		require.False(t, IsImageGenerationIntent(openAIResponsesEndpoint, "", hookedPayload))
+		require.Equal(t, "second", gjson.GetBytes(hookedPayload, "input.0.content").String())
+	case <-time.After(2 * time.Second):
+		t.Fatal("未收到 second-turn BeforeRequest payload")
+	}
+
+	require.Equal(t, 1, captureDialer.DialCount())
+	require.Len(t, upstreamConn.writes, 4)
+	firstUpstream := requestToJSONString(upstreamConn.writes[0])
+	require.False(t, IsImageGenerationIntent(openAIResponsesEndpoint, "", []byte(firstUpstream)))
+	require.True(t, gjson.Get(firstUpstream, `tools.#(name=="code_tools")`).Exists())
+	require.True(t, gjson.Get(firstUpstream, `tools.#(name=="imagegen")`).Exists())
+	require.Equal(t, "browser_tools", gjson.Get(firstUpstream, "input.1.tools.0.name").String())
+	require.Len(t, gjson.Get(firstUpstream, "input").Array(), 2)
+	require.False(t, gjson.Get(firstUpstream, "tool_choice").Exists())
+
+	binaryUpstream := requestToJSONString(upstreamConn.writes[1])
+	require.Equal(t, "binary-unchanged", gjson.Get(binaryUpstream, "marker").String())
+	require.True(t, gjson.Get(binaryUpstream, `tools.#(name=="image_gen")`).Exists())
+	cancelUpstream := requestToJSONString(upstreamConn.writes[2])
+	require.Equal(t, "response.cancel", gjson.Get(cancelUpstream, "type").String())
+	require.Equal(t, "cancel-unchanged", gjson.Get(cancelUpstream, "marker").String())
+	secondUpstream := requestToJSONString(upstreamConn.writes[3])
+	require.False(t, IsImageGenerationIntent(openAIResponsesEndpoint, "", []byte(secondUpstream)))
+	require.True(t, gjson.Get(secondUpstream, `tools.#(name=="shell")`).Exists())
+	require.Equal(t, "second", gjson.Get(secondUpstream, "input.0.content").String())
+	require.False(t, gjson.Get(secondUpstream, "tool_choice").Exists())
 }
 
 func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughHeadersUsePromptCacheAndTurnState(t *testing.T) {
@@ -952,7 +1164,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughHeade
 	}()
 
 	writeCtx, cancelWrite := context.WithTimeout(context.Background(), 3*time.Second)
-	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.1","stream":false,"prompt_cache_key":"pcache_passthrough"}`))
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.1","stream":false,"prompt_cache_key":"pcache_passthrough","tools":[{"type":"namespace","name":"image_gen"}],"tool_choice":"auto"}`))
 	cancelWrite()
 	require.NoError(t, err)
 
@@ -975,6 +1187,10 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughHeade
 	require.Equal(t, isolateOpenAISessionID(0, "pcache_passthrough"), captureDialer.lastHeaders.Get("session_id"))
 	require.Equal(t, "turn-state-1", captureDialer.lastHeaders.Get(openAIWSTurnStateHeader))
 	require.Equal(t, "turn-meta-1", captureDialer.lastHeaders.Get(openAIWSTurnMetadataHeader))
+	require.Len(t, upstreamConn.writes, 1)
+	upstreamWrite := requestToJSONString(upstreamConn.writes[0])
+	require.True(t, gjson.Get(upstreamWrite, `tools.#(name=="image_gen")`).Exists())
+	require.Equal(t, "auto", gjson.Get(upstreamWrite, "tool_choice").String())
 }
 
 func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_ModeOffReturnsPolicyViolation(t *testing.T) {
