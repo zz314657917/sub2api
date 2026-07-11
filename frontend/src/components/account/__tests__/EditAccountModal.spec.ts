@@ -149,6 +149,20 @@ function buildAccount() {
   } as any
 }
 
+function buildOpenAIAccount(type: 'apikey' | 'oauth' | 'setup-token') {
+  const account = buildAccount()
+  account.type = type
+  if (type !== 'apikey') {
+    account.name = type === 'oauth' ? 'OpenAI OAuth' : 'OpenAI Setup Token'
+    account.credentials = {
+      access_token: 'access-token',
+      refresh_token: 'refresh-token'
+    }
+    delete account.credentials_status
+  }
+  return account
+}
+
 function buildVertexAccount() {
   return {
     id: 2,
@@ -385,6 +399,63 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.codex_image_generation_bridge).toBe(true)
     expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_image_generation_bridge_enabled')
+  })
+
+  for (const accountType of ['apikey', 'oauth', 'setup-token'] as const) {
+    it(`loads and clears Codex image tool strip policy for OpenAI ${accountType}`, async () => {
+      const account = buildOpenAIAccount(accountType)
+      account.extra = {
+        codex_image_generation_explicit_tool_policy: 'strip',
+        unknown_policy_neighbor: `${accountType}-keep`
+      }
+      updateAccountMock.mockReset()
+      checkMixedChannelRiskMock.mockReset()
+      checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+      updateAccountMock.mockResolvedValue(account)
+
+      const wrapper = mountModal(account)
+
+      expect(wrapper.get('[data-testid="codex-image-tool-policy-strip"]').attributes('aria-pressed')).toBe('true')
+      await wrapper.get('[data-testid="codex-image-tool-policy-allow"]').trigger('click')
+      await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+      expect(updateAccountMock).toHaveBeenCalledTimes(1)
+      expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.unknown_policy_neighbor).toBe(`${accountType}-keep`)
+      expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('codex_image_generation_explicit_tool_policy')
+    })
+
+    it(`defaults to allow and saves Codex image tool strip policy for OpenAI ${accountType}`, async () => {
+      const account = buildOpenAIAccount(accountType)
+      account.extra = {
+        codex_image_generation_explicit_tool_policy: 'unexpected',
+        unknown_policy_neighbor: `${accountType}-keep`
+      }
+      updateAccountMock.mockReset()
+      checkMixedChannelRiskMock.mockReset()
+      checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+      updateAccountMock.mockResolvedValue(account)
+
+      const wrapper = mountModal(account)
+
+      expect(wrapper.get('[data-testid="codex-image-tool-policy-allow"]').attributes('aria-pressed')).toBe('true')
+      await wrapper.get('[data-testid="codex-image-tool-policy-strip"]').trigger('click')
+      await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+      expect(updateAccountMock).toHaveBeenCalledTimes(1)
+      expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toEqual(expect.objectContaining({
+        codex_image_generation_explicit_tool_policy: 'strip',
+        unknown_policy_neighbor: `${accountType}-keep`
+      }))
+    })
+  }
+
+  it('keeps setup-token Codex image policy controls isolated from other OpenAI settings', () => {
+    const wrapper = mountModal(buildOpenAIAccount('setup-token'))
+
+    expect(wrapper.get('[data-testid="codex-image-tool-policy-allow"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="codex-image-bridge-inherit"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="openai-responses-mode-select"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="openai-image-input-object-url-toggle"]').exists()).toBe(false)
   })
 
   it('submits OpenAI APIKey image input object URL marker', async () => {

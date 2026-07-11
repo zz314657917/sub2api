@@ -1392,6 +1392,59 @@
         </div>
       </div>
 
+      <!-- OpenAI Codex explicit image_generation tool policy -->
+      <div
+        v-if="isOpenAICodexImageToolPolicySupportedAccount(account)"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="overflow-hidden rounded-lg border border-[#d8cec2] bg-[#fffaf5]/70 shadow-sm dark:border-[#cc785c]/30 dark:bg-[#cc785c]/8">
+          <div class="flex items-start gap-3 px-4 py-3">
+            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-[#a9583e] shadow-sm ring-1 ring-[#d8cec2] dark:bg-dark-800 dark:text-[#f0b89e] dark:ring-[#cc785c]/30">
+              <Icon name="filter" size="sm" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <label class="input-label mb-0">{{ t('admin.accounts.openai.codexImageToolPolicy') }}</label>
+              <p class="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                {{ t('admin.accounts.openai.codexImageToolPolicyDesc') }}
+              </p>
+            </div>
+          </div>
+          <div class="border-t border-[#d8cec2] bg-white/70 p-2 dark:border-[#cc785c]/30 dark:bg-dark-800/70">
+            <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <button
+                v-for="option in codexImageToolPolicyOptions"
+                :key="option.value"
+                type="button"
+                :data-testid="`codex-image-tool-policy-${option.value}`"
+                :aria-pressed="codexImageToolPolicyMode === option.value"
+                @click="codexImageToolPolicyMode = option.value"
+                :class="[
+                  'group flex min-h-[68px] items-start gap-2 rounded-md border px-3 py-2 text-left transition-all',
+                  codexImageToolPolicyMode === option.value
+                    ? 'border-[#cc785c] bg-[#fffaf5] text-[#141413] shadow-sm ring-1 ring-[#cc785c]/30 dark:border-[#cc785c]/70 dark:bg-[#cc785c]/12 dark:text-[#f0b89e] dark:ring-[#cc785c]/35'
+                    : 'border-transparent bg-transparent text-slate-600 hover:border-gray-200 hover:bg-gray-50 dark:text-slate-300 dark:hover:border-dark-500 dark:hover:bg-dark-700'
+                ]"
+              >
+                <span
+                  :class="[
+                    'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
+                    codexImageToolPolicyMode === option.value
+                      ? 'border-[#cc785c] bg-[#cc785c] text-white'
+                      : 'border-gray-300 text-transparent group-hover:border-gray-400 dark:border-dark-500'
+                  ]"
+                >
+                  <Icon name="check" size="xs" :stroke-width="2" />
+                </span>
+                <span class="min-w-0">
+                  <span class="block text-sm font-medium">{{ option.label }}</span>
+                  <span class="mt-0.5 block text-xs leading-4 text-slate-500 dark:text-slate-400">{{ option.description }}</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- OpenAI WS Mode 三态（off/ctx_pool/passthrough） -->
       <div
         v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'apikey')"
@@ -2574,6 +2627,8 @@ const openAIImageUploadLimitBytes = ref<number | null>(OPENAI_IMAGE_DEFAULT_UPLO
 const openAIImageURLFieldsSupported = ref(true)
 type CodexImageGenerationBridgeMode = 'inherit' | 'enabled' | 'disabled'
 const codexImageGenerationBridgeMode = ref<CodexImageGenerationBridgeMode>('inherit')
+type CodexImageToolPolicyMode = 'allow' | 'strip'
+const codexImageToolPolicyMode = ref<CodexImageToolPolicyMode>('allow')
 type AnthropicAPIKeyAuthScheme = 'x_api_key' | 'authorization_bearer'
 const anthropicPassthroughEnabled = ref(false)
 const anthropicAPIKeyAuthScheme = ref<AnthropicAPIKeyAuthScheme>('x_api_key')
@@ -2645,6 +2700,10 @@ function applySupportedCapabilitiesToExtra(updatePayload: Record<string, unknown
 
 function isOpenAIShareDisplaySupportedAccount(account?: Pick<Account, 'platform' | 'type'> | null): boolean {
   return account?.platform === 'openai' && (account.type === 'apikey' || account.type === 'oauth')
+}
+function isOpenAICodexImageToolPolicySupportedAccount(account?: Pick<Account, 'platform' | 'type'> | null): boolean {
+  return account?.platform === 'openai' &&
+    (account.type === 'oauth' || account.type === 'setup-token' || account.type === 'apikey')
 }
 function getAccountStringField(account: Account, extra: Record<string, unknown> | undefined, key: string): string {
   const extraValue = extra?.[key]
@@ -2775,6 +2834,22 @@ const codexImageGenerationBridgeOptions = computed<Array<{
     value: 'disabled',
     label: t('admin.accounts.openai.codexImageGenerationBridgeDisabled'),
     description: t('admin.accounts.openai.codexImageGenerationBridgeDisabledDesc')
+  }
+])
+const codexImageToolPolicyOptions = computed<Array<{
+  value: CodexImageToolPolicyMode
+  label: string
+  description: string
+}>>(() => [
+  {
+    value: 'allow',
+    label: t('admin.accounts.openai.codexImageToolPolicyAllow'),
+    description: t('admin.accounts.openai.codexImageToolPolicyAllowDesc')
+  },
+  {
+    value: 'strip',
+    label: t('admin.accounts.openai.codexImageToolPolicyStrip'),
+    description: t('admin.accounts.openai.codexImageToolPolicyStripDesc')
   }
 ])
 const codexImageGenerationBridgeBadgeLabel = computed(() => {
@@ -3085,9 +3160,15 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   openAIImageUploadLimitBytes.value = OPENAI_IMAGE_DEFAULT_UPLOAD_LIMIT_BYTES
   openAIImageURLFieldsSupported.value = true
   codexImageGenerationBridgeMode.value = 'inherit'
+  codexImageToolPolicyMode.value = 'allow'
   anthropicPassthroughEnabled.value = false
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
   webSearchEmulationMode.value = 'default'
+  if (isOpenAICodexImageToolPolicySupportedAccount(newAccount)) {
+    codexImageToolPolicyMode.value = extra?.codex_image_generation_explicit_tool_policy === 'strip'
+      ? 'strip'
+      : 'allow'
+  }
   if (newAccount.platform === 'openai' && (newAccount.type === 'oauth' || newAccount.type === 'apikey')) {
     openaiPassthroughEnabled.value = extra?.openai_passthrough === true || extra?.openai_oauth_passthrough === true
     openAICompactMode.value = (extra?.openai_compact_mode as OpenAICompactMode) || 'auto'
@@ -4311,6 +4392,19 @@ const handleSubmit = async () => {
         delete newExtra.auto_pause_7d_disabled
       }
 
+      updatePayload.extra = newExtra
+    }
+
+    // Keep setup-token policy persistence independent from the broader OAuth/API Key controls.
+    if (isOpenAICodexImageToolPolicySupportedAccount(props.account)) {
+      const currentExtra = (updatePayload.extra as Record<string, unknown>) ||
+        (props.account.extra as Record<string, unknown>) || {}
+      const newExtra: Record<string, unknown> = { ...currentExtra }
+      if (codexImageToolPolicyMode.value === 'strip') {
+        newExtra.codex_image_generation_explicit_tool_policy = 'strip'
+      } else {
+        delete newExtra.codex_image_generation_explicit_tool_policy
+      }
       updatePayload.extra = newExtra
     }
 
