@@ -514,6 +514,54 @@ describe('EditAccountModal', () => {
     expect(wrapper.get('[data-testid="codex-image-tool-policy-strip"]').attributes('aria-pressed')).toBe('false')
   })
 
+  it('normalizes a top-level REMOVE Codex image tool policy alias and saves canonical strip', async () => {
+    const account = buildOpenAIAccount('oauth')
+    account.extra = {
+      codex_image_generation_explicit_tool_policy: ' REMOVE ',
+      unknown_policy_neighbor: 'keep'
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    expect(wrapper.get('[data-testid="codex-image-tool-policy-strip"]').attributes('aria-pressed')).toBe('true')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toEqual(expect.objectContaining({
+      codex_image_generation_explicit_tool_policy: 'strip',
+      unknown_policy_neighbor: 'keep'
+    }))
+  })
+
+  it('normalizes a nested Drop Codex image tool policy alias and saves canonical strip', async () => {
+    const account = buildOpenAIAccount('setup-token')
+    account.extra = {
+      openai: {
+        codex_image_generation_explicit_tool_policy: 'Drop',
+        nested_neighbor: 'keep'
+      }
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    expect(wrapper.get('[data-testid="codex-image-tool-policy-strip"]').attributes('aria-pressed')).toBe('true')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toEqual(expect.objectContaining({
+      codex_image_generation_explicit_tool_policy: 'strip',
+      openai: {
+        nested_neighbor: 'keep'
+      }
+    }))
+  })
+
   it('keeps setup-token Codex image policy controls isolated from other OpenAI settings', () => {
     const wrapper = mountModal(buildOpenAIAccount('setup-token'))
 

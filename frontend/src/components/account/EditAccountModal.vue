@@ -2705,15 +2705,22 @@ function isOpenAICodexImageToolPolicySupportedAccount(account?: Pick<Account, 'p
   return account?.platform === 'openai' &&
     (account.type === 'oauth' || account.type === 'setup-token' || account.type === 'apikey')
 }
+function normalizeCodexImageToolPolicyMode(value: string): CodexImageToolPolicyMode {
+  const normalized = value.trim().toLowerCase()
+  return normalized === 'strip' || normalized === 'remove' || normalized === 'drop'
+    ? 'strip'
+    : 'allow'
+}
 function resolveCodexImageToolPolicyMode(extra?: Record<string, unknown>): CodexImageToolPolicyMode {
   const topLevelPolicy = extra?.codex_image_generation_explicit_tool_policy
   if (typeof topLevelPolicy === 'string') {
-    return topLevelPolicy === 'strip' ? 'strip' : 'allow'
+    return normalizeCodexImageToolPolicyMode(topLevelPolicy)
   }
   const nestedOpenAIExtra = extra?.openai
   if (nestedOpenAIExtra !== null && typeof nestedOpenAIExtra === 'object' && !Array.isArray(nestedOpenAIExtra)) {
-    return (nestedOpenAIExtra as Record<string, unknown>).codex_image_generation_explicit_tool_policy === 'strip'
-      ? 'strip'
+    const nestedPolicy = (nestedOpenAIExtra as Record<string, unknown>).codex_image_generation_explicit_tool_policy
+    return typeof nestedPolicy === 'string'
+      ? normalizeCodexImageToolPolicyMode(nestedPolicy)
       : 'allow'
   }
   return 'allow'
