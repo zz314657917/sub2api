@@ -1,17 +1,17 @@
 # 当前任务快照
 
-最后更新：2026-07-11 15:24 +08:00
+最后更新：2026-07-11 17:01 +08:00
 
 ## 背景
 
 - 仓库：`F:/mcplugins/sub2api`。
-- 当前分支：`codex/upstream-latency-health-column`。
+- 当前分支：`codex/leaderboard-participation-exclusion-s70`。
 - 本轮主线：检查并分批适配上游 `v0.1.150` / `v0.1.151` 可合并内容，使用 Planner / Generator / Evaluator 与独立 worktree 控制范围。
-- 发布边界：当前成果未合入 `main`、未推送、未更新本地容器。
+- 发布边界：当前 feature branch 已推送；尚未合入 `main`、未部署、未更新本地容器。
 
 ## 当前目标
 
-- S69 已完成并通过独立 QA；S66-S69 临时 worktree/branch 已清理。下一阶段只审计剩余 upstream v0.1.151 候选，不自动合入 `main`。
+- S70 已完成并通过独立 QA；当前动作是按用户授权把已审计的 S65-S70 集成历史合入 `main`、推送并清理已合并分支。
 - 支付并发补丁 `fc66a30ff` 继续单独审计，不与普通协议/运行时补丁混合。
 
 ## 本次已完成
@@ -26,6 +26,8 @@
 - S69 实现提交 `d5a1aef0b`，worker result `07399e50d`，独立 QA 报告 `f7a2d67a9`，workflow 收口 `0a962b30e`。
 - `deepseek-v4-pro` 外部 worker 返回 model 404；按用户已明确授权多智能体，Generator/QA 改用当前可用协作 agent，并在 result/QA 报告中记录偏差。
 - S69 worker 与 QA 临时分支在 `git cherry codex/upstream-latency-health-column <branch>` 全部显示 patch-equivalent (`-`) 后删除；当前只剩集成工作树。
+- S70：新增平台用户 `exclude_from_leaderboard` 管理开关，覆盖 migration 190、Ent、admin DTO/API、前端编辑弹窗、排行榜/冠军/徽章/奖励过滤和缓存失效；独立 QA PASS。
+- S70 实现提交 `997f423ff`，workflow/QA 提交 `4dc2b462e`，均已推送到 `origin/codex/leaderboard-participation-exclusion-s70`。
 
 ## 已确认事实
 
@@ -48,14 +50,14 @@
 
 ## 当前结论
 
-- `upstream-gpt56-priority-cache-billing-s69` 最终 `PASS / done`。
-- QA 报告：`docs/workflow/qa-reports/upstream-gpt56-priority-cache-billing-s69-qa.md`。
+- `leaderboard-participation-exclusion-s70` 最终 `PASS / done`；S65-S70 发布前多智能体复核无业务阻断。
+- S70 QA 报告：`docs/workflow/qa-reports/leaderboard-participation-exclusion-s70-qa.md`。
 - 当前集成分支可继续做剩余 upstream 候选审计，但任何新候选都应另立 contract；不得把 `fc66a30ff` 混入普通补丁波次。
 
 ## 下一步
 
-1. 选择下一独立 upstream Sprint -> 验证：优先在裸 `gpt-5.6` alias/catalog、用户级 Fast/Flex、usage breakdown legacy filter 中单独立 contract；`fc66a30ff` 继续作为支付高风险审计，不混入普通补丁。
-2. 如用户明确要求合入主线 -> 验证：先审当前分支相对 `main`/`origin/main` 的提交范围，再 merge、定向回归、push verify；默认不自动执行。
+1. 合入主线 -> 验证：在 clean `main` 上合并当前 feature branch，运行 backend 定向回归、frontend typecheck 和 `git diff --check`，再推送并核对 `origin/main`。
+2. 清理分支 -> 验证：仅删除已被 `main` 完整包含且远端同步成功的本地/远端 feature 分支；保留未合并分支。
 
 ## 验证记录
 

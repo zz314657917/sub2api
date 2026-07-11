@@ -2,11 +2,11 @@
 phase: done
 current_sprint: leaderboard-participation-exclusion-s70
 total_sprints: 70
-pending_action: await scoped staging, commit, or the next independent Sprint
+pending_action: merge the reviewed S65-S70 integration branch into main and push
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 16:26 +08:00
+last_verified: 2026-07-11 17:01 +08:00
 ---
 
 # Workflow Status
@@ -14,11 +14,11 @@ last_verified: 2026-07-11 16:26 +08:00
 - Current phase: `done`.
 - Current Sprint: `leaderboard-participation-exclusion-s70`.
 - New product scope is isolated from completed S69: a per-platform-user `exclude_from_leaderboard` control must exclude users before raw/daily-stats ranks, daily champions, badges, and reward eligibility, while preserving billing and ordinary usage reporting.
-- Final evaluator: PASS. The administrator-controlled user exclusion is persisted, invalidates leaderboard caches, and excludes the user from rank, champion, badge, reward, model, and trend paths. No commit, push, deployment, or container update was performed.
+- Final evaluator: PASS. The administrator-controlled user exclusion is persisted, invalidates leaderboard caches, and excludes the user from rank, champion, badge, reward, model, and trend paths. Commits `997f423ff` and `4dc2b462e` are present on and pushed to `origin/codex/leaderboard-participation-exclusion-s70`; merge to `main`, deployment, and container update have not yet been performed.
 
 - 当前阶段：`done`。
-- 当前 Sprint：`upstream-gpt56-priority-cache-billing-s69`。
-- S69 独立 QA 报告 `docs/workflow/qa-reports/upstream-gpt56-priority-cache-billing-s69-qa.md` 首行 PASS；主控最终裁决为 DONE。GPT-5.6 Priority cache-write 专价、override、272k、Flex、breakdown 和 RecordUsage 均已闭环。S69 未合入 `main`、未推送、未部署。
+- 历史 Sprint：`upstream-gpt56-priority-cache-billing-s69`。
+- S69 独立 QA 报告 `docs/workflow/qa-reports/upstream-gpt56-priority-cache-billing-s69-qa.md` 首行 PASS；主控最终裁决为 DONE。GPT-5.6 Priority cache-write 专价、override、272k、Flex、breakdown 和 RecordUsage 均已闭环。S69 已随当前 feature branch 推送，但尚未合入 `main` 或部署。
 - S69 Generator 实现已集成为 `d5a1aef0b`，worker result 收口为 `07399e50d`；独立代码审查 PASS，8 个 changed paths 全部在 contract allowlist；随后 fresh worktree 独立 QA 也已 PASS。
 - S69 contract 经两项独立 Evaluator 复核通过：计费语义 PASS；验收命令在补齐 native exit-code、clean worktree 和精确测试枚举门禁后 PASS。下一合法动作是从批准 HEAD 派发单一 billing Generator worker。
 - S69 draft contract 已生成：只补 GPT-5.6 Priority cache-write 价格从静态/动态/override 到结算与 RecordUsage 的完整链；裸别名、用户级 Fast/Flex、usage breakdown、Cyber migration、支付与前端明确冻结。
