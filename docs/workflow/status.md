@@ -1,20 +1,21 @@
 ---
-phase: fix
-current_sprint: upstream-codex-imagegen-namespace-strip-s68b-fix1
+phase: retest
+current_sprint: upstream-codex-imagegen-namespace-strip-s68b
 total_sprints: 68
-pending_action: review S68b fix1 worker result and combined diff
+pending_action: dispatch independent combined QA for S68b
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 13:43 +08:00
+last_verified: 2026-07-11 14:02 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`fix`。
-- 当前 Sprint：`upstream-codex-imagegen-namespace-strip-s68b-fix1`。
+- 当前阶段：`retest`。
+- 当前 Sprint：`upstream-codex-imagegen-namespace-strip-s68b`。
+- S68b 初始实现与 fix1 已集成为 `7593079a9`、`19066c93d`；组合 diff 经主控关键验收与独立 fix1 复核 PASS，下一合法动作是从集成 HEAD 派发独立组合 QA。
 - S68b 初始 worker commit `36fe56441` 经主控关键验收 PASS，但独立 review 判定 FAIL：本地 `OpenAIWSIngressModePassthrough` 在 parsed ingress 前提前返回，首帧和后续帧均绕过图片声明 strip；初始提交暂不集成。
-- Fix1 contract 已批准并退回原 Generator：只扩展 WS passthrough adapter ownership，并补 invalid raw JSON 与 OAuth HTTP passthrough actual-body 证据；下一合法动作是审查 fix1 result 与组合 diff。
+- Fix1 contract 已由原 Generator 完成：WS passthrough 首帧/后续帧、invalid raw JSON 与 OAuth HTTP passthrough actual-body 证据均已补齐，独立复核确认此前 P1/P2 finding 全部关闭。
 - S68b backend worker 已在独立 worktree `E:/codex-worktrees/sub2api/upstream-codex-imagegen-namespace-strip-s68b` 完成初始实现；该提交保留在 worker 分支等待 fix1 闭环后统一审查集成。
 - S68b draft contract 已生成：基于 S68a policy PASS，只扩展 namespace、Responses Lite、passthrough/raw 和 WS stripping；策略 UI 与 apicompat 明确冻结。
 - S68b contract 已通过主控审查，并补充 HTTP passthrough 实际 forwarded-body 的独立验收；初始实现的 API-key passthrough 证据有效，但完整 WS ingress finding 必须由 fix1 关闭。

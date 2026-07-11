@@ -196,3 +196,5 @@
 260711 1343 | upstream-codex-imagegen-namespace-strip-s68b | worker-review-fail | review-worker | WS ingress passthrough bypasses parsed strip
 260711 1343 | upstream-codex-imagegen-namespace-strip-s68b-fix1 | contract-approved | codex | add WS passthrough plus OAuth and invalid-raw evidence
 260711 1343 | upstream-codex-imagegen-namespace-strip-s68b-fix1 | worker-dispatched | generator-worker | continue on 36fe56441 in existing S68b worktree
+260711 1402 | upstream-codex-imagegen-namespace-strip-s68b-fix1 | review-pass | review-worker | prior P1 and P2 findings closed
+260711 1402 | upstream-codex-imagegen-namespace-strip-s68b | workers-integrated | codex | 7593079a9 and 19066c93d
