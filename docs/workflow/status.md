@@ -1,8 +1,8 @@
 ---
-phase: contract-approved
+phase: build
 current_sprint: upstream-v0151-protocol-wave2-s67
 total_sprints: 67
-pending_action: dispatch GPT-5.6 effort, MCP bridge, and compact Ops workers
+pending_action: review and integrate three S67 worker results
 project_type: web
 qa_mode: runtime
 approval_required: false
@@ -11,11 +11,12 @@ last_verified: 2026-07-11 11:31 +08:00
 
 # Workflow Status
 
-- 当前阶段：`contract-approved`。
+- 当前阶段：`build`。
 - 当前 Sprint：`upstream-v0151-protocol-wave2-s67`。
 - 已批准三个互斥 contract：`upstream-gpt56-max-effort-s67a`、`upstream-codex-mcp-tool-bridge-s67b`、`upstream-compact-ops-stream-log-s67c`。
 - `openai_gateway_messages.go` 由 S67b 独占并同时完成 message fallback effort-candidate 调整；S67a 不得修改该文件。
 - S67 第一轮集成后再单独启动 Codex `image_gen` namespace strip，避免与 GPT 核心网关 ownership 重叠。
+- 三个 S67 Worker 已从共同基线 `09bfc7e9b` 派发到独立 worktree，当前等待实现和测试结果。
 - S66 历史阶段：`done`。
 - 当前 Sprint：`upstream-v0151-runtime-wave1-s66`。
 - 已批准三个互斥实现 contract：`upstream-runtime-hotfixes-s66a`、`upstream-anthropic-grok-usage-s66b`、`upstream-remote-compact-reliability-s66c`。
