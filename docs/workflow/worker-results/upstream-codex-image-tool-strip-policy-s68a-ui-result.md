@@ -4,13 +4,13 @@
 
 - Added a dedicated warm-white/terracotta `allow` / `strip` control beside the existing Codex image bridge card.
 - Exposed the control for OpenAI OAuth, setup-token, and API Key accounts without broadening setup-token access to unrelated OpenAI settings.
-- Loaded only the exact persisted `strip` value as `strip`; absent or unknown values resolve to `allow`.
-- Cloned the latest `updatePayload.extra` or account `extra` before adding/removing `codex_image_generation_explicit_tool_policy`, preserving unknown keys.
-- Added focused coverage for all three account types, both save paths, load behavior, unknown-key preservation, and setup-token control isolation.
+- Matched backend precedence by reading a string top-level policy first, then falling back to the nested `extra.openai` policy only when the top-level value is absent or non-string.
+- Cloned the latest `updatePayload.extra` or account `extra` and its nested `openai` map before removing legacy nested policy state and normalizing the top-level policy, preserving neighboring unknown keys.
+- Added focused coverage for all three account types, both save paths, top-level/nested precedence, unknown-key preservation, and setup-token control isolation.
 
 ## Verification
 
-- `npm.cmd run test:run -- src/components/account/__tests__/EditAccountModal.spec.ts`: PASS (`25/25` tests).
+- `npm.cmd run test:run -- src/components/account/__tests__/EditAccountModal.spec.ts`: PASS (`28/28` tests).
 - `npm.cmd run typecheck`: PASS.
 - `git diff --check`: PASS.
 

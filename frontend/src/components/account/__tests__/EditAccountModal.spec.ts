@@ -428,7 +428,11 @@ describe('EditAccountModal', () => {
       const account = buildOpenAIAccount(accountType)
       account.extra = {
         codex_image_generation_explicit_tool_policy: 'unexpected',
-        unknown_policy_neighbor: `${accountType}-keep`
+        unknown_policy_neighbor: `${accountType}-keep`,
+        openai: {
+          codex_image_generation_explicit_tool_policy: 'strip',
+          nested_policy_neighbor: `${accountType}-nested-keep`
+        }
       }
       updateAccountMock.mockReset()
       checkMixedChannelRiskMock.mockReset()
@@ -444,10 +448,71 @@ describe('EditAccountModal', () => {
       expect(updateAccountMock).toHaveBeenCalledTimes(1)
       expect(updateAccountMock.mock.calls[0]?.[1]?.extra).toEqual(expect.objectContaining({
         codex_image_generation_explicit_tool_policy: 'strip',
-        unknown_policy_neighbor: `${accountType}-keep`
+        unknown_policy_neighbor: `${accountType}-keep`,
+        openai: {
+          nested_policy_neighbor: `${accountType}-nested-keep`
+        }
       }))
     })
   }
+
+  it('loads a nested-only Codex image tool strip policy', () => {
+    const account = buildOpenAIAccount('oauth')
+    account.extra = {
+      openai: {
+        codex_image_generation_explicit_tool_policy: 'strip'
+      }
+    }
+
+    const wrapper = mountModal(account)
+
+    expect(wrapper.get('[data-testid="codex-image-tool-policy-strip"]').attributes('aria-pressed')).toBe('true')
+  })
+
+  it('clears top-level and nested Codex image tool policies while preserving neighboring extra keys', async () => {
+    const account = buildOpenAIAccount('setup-token')
+    account.extra = {
+      codex_image_generation_explicit_tool_policy: 'strip',
+      top_level_neighbor: 'top-keep',
+      openai: {
+        codex_image_generation_explicit_tool_policy: 'strip',
+        nested_neighbor: 'nested-keep'
+      }
+    }
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset()
+    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
+    updateAccountMock.mockResolvedValue(account)
+
+    const wrapper = mountModal(account)
+
+    await wrapper.get('[data-testid="codex-image-tool-policy-allow"]').trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    const submittedExtra = updateAccountMock.mock.calls[0]?.[1]?.extra
+    expect(submittedExtra).not.toHaveProperty('codex_image_generation_explicit_tool_policy')
+    expect(submittedExtra).toEqual(expect.objectContaining({
+      top_level_neighbor: 'top-keep',
+      openai: {
+        nested_neighbor: 'nested-keep'
+      }
+    }))
+  })
+
+  it('prefers an unknown top-level Codex image tool policy over nested strip', () => {
+    const account = buildOpenAIAccount('apikey')
+    account.extra = {
+      codex_image_generation_explicit_tool_policy: 'unexpected',
+      openai: {
+        codex_image_generation_explicit_tool_policy: 'strip'
+      }
+    }
+
+    const wrapper = mountModal(account)
+
+    expect(wrapper.get('[data-testid="codex-image-tool-policy-allow"]').attributes('aria-pressed')).toBe('true')
+    expect(wrapper.get('[data-testid="codex-image-tool-policy-strip"]').attributes('aria-pressed')).toBe('false')
+  })
 
   it('keeps setup-token Codex image policy controls isolated from other OpenAI settings', () => {
     const wrapper = mountModal(buildOpenAIAccount('setup-token'))

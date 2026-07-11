@@ -2705,6 +2705,19 @@ function isOpenAICodexImageToolPolicySupportedAccount(account?: Pick<Account, 'p
   return account?.platform === 'openai' &&
     (account.type === 'oauth' || account.type === 'setup-token' || account.type === 'apikey')
 }
+function resolveCodexImageToolPolicyMode(extra?: Record<string, unknown>): CodexImageToolPolicyMode {
+  const topLevelPolicy = extra?.codex_image_generation_explicit_tool_policy
+  if (typeof topLevelPolicy === 'string') {
+    return topLevelPolicy === 'strip' ? 'strip' : 'allow'
+  }
+  const nestedOpenAIExtra = extra?.openai
+  if (nestedOpenAIExtra !== null && typeof nestedOpenAIExtra === 'object' && !Array.isArray(nestedOpenAIExtra)) {
+    return (nestedOpenAIExtra as Record<string, unknown>).codex_image_generation_explicit_tool_policy === 'strip'
+      ? 'strip'
+      : 'allow'
+  }
+  return 'allow'
+}
 function getAccountStringField(account: Account, extra: Record<string, unknown> | undefined, key: string): string {
   const extraValue = extra?.[key]
   if (typeof extraValue === 'string') {
@@ -3165,9 +3178,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
   webSearchEmulationMode.value = 'default'
   if (isOpenAICodexImageToolPolicySupportedAccount(newAccount)) {
-    codexImageToolPolicyMode.value = extra?.codex_image_generation_explicit_tool_policy === 'strip'
-      ? 'strip'
-      : 'allow'
+    codexImageToolPolicyMode.value = resolveCodexImageToolPolicyMode(extra)
   }
   if (newAccount.platform === 'openai' && (newAccount.type === 'oauth' || newAccount.type === 'apikey')) {
     openaiPassthroughEnabled.value = extra?.openai_passthrough === true || extra?.openai_oauth_passthrough === true
@@ -4400,6 +4411,14 @@ const handleSubmit = async () => {
       const currentExtra = (updatePayload.extra as Record<string, unknown>) ||
         (props.account.extra as Record<string, unknown>) || {}
       const newExtra: Record<string, unknown> = { ...currentExtra }
+      const nestedOpenAIExtra = newExtra.openai
+      if (nestedOpenAIExtra !== null && typeof nestedOpenAIExtra === 'object' && !Array.isArray(nestedOpenAIExtra)) {
+        const newNestedOpenAIExtra: Record<string, unknown> = {
+          ...(nestedOpenAIExtra as Record<string, unknown>)
+        }
+        delete newNestedOpenAIExtra.codex_image_generation_explicit_tool_policy
+        newExtra.openai = newNestedOpenAIExtra
+      }
       if (codexImageToolPolicyMode.value === 'strip') {
         newExtra.codex_image_generation_explicit_tool_policy = 'strip'
       } else {
