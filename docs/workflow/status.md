@@ -1,17 +1,22 @@
 ---
-phase: done
-current_sprint: upstream-latency-health-column-s65
-total_sprints: 65
-pending_action: scoped review and optional merge or push
+phase: contract-approved
+current_sprint: upstream-v0151-runtime-wave1-s66
+total_sprints: 66
+pending_action: dispatch three isolated generator workers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 10:32 +08:00
+last_verified: 2026-07-11 10:52 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`done`
+- 当前阶段：`contract-approved`。
+- 当前 Sprint：`upstream-v0151-runtime-wave1-s66`。
+- 已批准三个互斥实现 contract：`upstream-runtime-hotfixes-s66a`、`upstream-anthropic-grok-usage-s66b`、`upstream-remote-compact-reliability-s66c`。
+- S66 第一波只处理 setup-token/ops/Windows WS 小修、Anthropic/Grok 用量兼容和 remote compact 可靠性；GPT-5.6 max、image_gen、MCP tool bridge 与支付并发加固不在本波范围。
+- 用户已明确授权多智能体；每个 Generator 使用 `E:/codex-worktrees/sub2api/<task-id>` 独立 worktree，主 Codex 负责 diff 审核、集成、统一 QA 和最终裁决。
+- S65 历史阶段：`done`。
 - 当前 Sprint：`upstream-latency-health-column-s65`。
 - 当前 contract：`docs/workflow/tasks/upstream-latency-health-column-s65.md`，只移植上游合并延迟健康列，不带排行、筛选、tab 或整页布局重构。
 - S65 已完成：管理端和用户端用量明细改为合并延迟健康列，首字/总耗时使用上下渐变色条和四档阈值；4 files / 31 tests、主题 2 files / 24 tests、typecheck、build 与 `git diff --check` PASS，证据见 `docs/workflow/qa-reports/upstream-latency-health-column-s65-qa.md`。

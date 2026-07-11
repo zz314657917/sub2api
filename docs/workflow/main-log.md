@@ -166,3 +166,4 @@
 260711 1021 | upstream-latency-health-column-s65 | contract-approved | codex | docs/workflow/tasks/upstream-latency-health-column-s65.md
 260711 1032 | upstream-latency-health-column-s65 | qa-pass | codex | 4 files / 31 tests, theme 2 files / 24 tests, typecheck, build, diff-check
 260711 1032 | upstream-latency-health-column-s65 | done | codex | docs/workflow/qa-reports/upstream-latency-health-column-s65-qa.md
+260711 1052 | upstream-v0151-runtime-wave1-s66 | contracts-approved | codex | docs/workflow/tasks/upstream-runtime-hotfixes-s66a.md, docs/workflow/tasks/upstream-anthropic-grok-usage-s66b.md, docs/workflow/tasks/upstream-remote-compact-reliability-s66c.md
