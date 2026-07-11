@@ -1,20 +1,20 @@
 ---
-phase: contract-draft
+phase: contract-approved
 current_sprint: upstream-codex-imagegen-namespace-strip-s68b
 total_sprints: 68
-pending_action: review S68b Codex image_gen namespace strip contract
+pending_action: dispatch S68b Codex image_gen namespace strip worker
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 13:11 +08:00
+last_verified: 2026-07-11 13:12 +08:00
 ---
 
 # Workflow Status
 
-- 当前阶段：`contract-draft`。
+- 当前阶段：`contract-approved`。
 - 当前 Sprint：`upstream-codex-imagegen-namespace-strip-s68b`。
 - S68b draft contract 已生成：基于 S68a policy PASS，只扩展 namespace、Responses Lite、passthrough/raw 和 WS stripping；策略 UI 与 apicompat 明确冻结。
-- 当前只允许审查 `docs/workflow/tasks/upstream-codex-imagegen-namespace-strip-s68b.md`，不得在批准前启动实现。
+- S68b contract 已通过主控审查，并补充 HTTP passthrough 实际 forwarded-body 的独立验收；当前下一合法动作是派发单一 backend worker。
 - S68a 历史阶段：`done`。
 - S68a Sprint：`upstream-codex-image-tool-strip-policy-s68a`。
 - Planner 已确认 `d3a1835ed` 依赖本地缺失的 `f385cdceb` 账号策略，且现有 UI 没有安全的任意 `extra` 编辑入口；S68a 因此拆成 backend policy 与专用 UI 两个互斥 draft contract。

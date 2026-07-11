@@ -191,3 +191,4 @@
 260711 1310 | upstream-codex-image-tool-strip-policy-s68a | independent-qa-pass | qa-worker | docs/workflow/qa-reports/upstream-codex-image-tool-strip-policy-s68a-qa.md
 260711 1310 | upstream-codex-image-tool-strip-policy-s68a | done | codex | policy prerequisite ready for S68b
 260711 1311 | upstream-codex-imagegen-namespace-strip-s68b | contract-drafted | codex | adapt d3a1835ed on S68a policy prerequisite
+260711 1312 | upstream-codex-imagegen-namespace-strip-s68b | contract-approved | codex | explicit passthrough forwarded-body acceptance added
