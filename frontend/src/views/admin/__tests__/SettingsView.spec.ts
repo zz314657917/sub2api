@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 
+import enAdminSettings from "@/i18n/locales/en/admin/settings";
+import zhAdminSettings from "@/i18n/locales/zh/admin/settings";
 import SettingsView from "../SettingsView.vue";
 
 const {
@@ -1016,6 +1018,103 @@ describe("admin SettingsView payment visible method controls", () => {
         antigravity_user_agent_version: "1.23.2",
       }),
     );
+  });
+
+  it("loads, edits, and submits OpenAI Fast policy user IDs without widening scope", async () => {
+    const userScopeKeys = [
+      "userIds",
+      "userIdsHint",
+      "userIdPlaceholder",
+      "addUserId",
+      "removeUserId",
+    ];
+    for (const locale of [enAdminSettings, zhAdminSettings]) {
+      const fastPolicy = locale.openaiFastPolicy as Record<string, unknown>;
+      const betaPolicy = locale.betaPolicy as Record<string, unknown>;
+      for (const key of userScopeKeys) {
+        expect(fastPolicy[key]).toEqual(expect.any(String));
+        expect(String(fastPolicy[key]).trim()).not.toBe("");
+        expect(betaPolicy).not.toHaveProperty(key);
+      }
+    }
+
+    const loadedRule = {
+      service_tier: "priority" as const,
+      action: "pass" as const,
+      scope: "all" as const,
+      user_ids: [42, 73],
+      model_whitelist: [],
+    };
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      openai_fast_policy_settings: { rules: [loadedRule] },
+    });
+
+    const wrapper = mountView();
+    await flushPromises();
+
+    expect(
+      (
+        wrapper.get('[data-testid="openai-fast-policy-user-id-0-0"]')
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("42");
+    expect(
+      (
+        wrapper.get('[data-testid="openai-fast-policy-user-id-0-1"]')
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("73");
+
+    await wrapper
+      .get('[data-testid="openai-fast-policy-add-user-id-0"]')
+      .trigger("click");
+    await flushPromises();
+    expect(
+      (
+        wrapper.get('[data-testid="openai-fast-policy-user-id-0-2"]')
+          .element as HTMLInputElement
+      ).value,
+    ).toBe("0");
+
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(
+      updateSettings.mock.calls[0]?.[0].openai_fast_policy_settings.rules[0]
+        .user_ids,
+    ).toEqual([42, 73, 0]);
+
+    await wrapper
+      .get('[data-testid="openai-fast-policy-user-id-0-0"]')
+      .setValue("420");
+    await wrapper
+      .get('[data-testid="openai-fast-policy-remove-user-id-0-1"]')
+      .trigger("click");
+    await wrapper
+      .get('[data-testid="openai-fast-policy-user-id-0-1"]')
+      .setValue("88");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(
+      updateSettings.mock.calls[1]?.[0].openai_fast_policy_settings.rules[0]
+        .user_ids,
+    ).toEqual([420, 88]);
+    expect(loadedRule.user_ids).toEqual([42, 73]);
+
+    await wrapper
+      .get('[data-testid="openai-fast-policy-remove-user-id-0-1"]')
+      .trigger("click");
+    await wrapper
+      .get('[data-testid="openai-fast-policy-remove-user-id-0-0"]')
+      .trigger("click");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(
+      updateSettings.mock.calls[2]?.[0].openai_fast_policy_settings.rules[0]
+        .user_ids,
+    ).toBeUndefined();
   });
 
   it("updates provider enablement immediately and reloads providers", async () => {

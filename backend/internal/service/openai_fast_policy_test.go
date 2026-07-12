@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
@@ -136,6 +137,91 @@ func TestEvaluateOpenAIFastPolicy_ScopeFiltersOAuth(t *testing.T) {
 	apiKeyAccount := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
 	action, _ = svc.evaluateOpenAIFastPolicy(context.Background(), apiKeyAccount, "gpt-4", OpenAIFastTierPriority)
 	require.Equal(t, BetaPolicyActionPass, action)
+}
+
+func TestOpenAIFastPolicyUserScope_MatchingAndPrecedenceMatrix(t *testing.T) {
+	apiKeyAccount := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	precedenceSettings := &OpenAIFastPolicySettings{
+		Rules: []OpenAIFastPolicyRule{
+			{
+				ServiceTier: OpenAIFastTierPriority,
+				Action:      BetaPolicyActionFilter,
+				Scope:       BetaPolicyScopeAll,
+			},
+			{
+				ServiceTier: OpenAIFastTierPriority,
+				Action:      BetaPolicyActionPass,
+				Scope:       BetaPolicyScopeAll,
+				UserIDs:     []int64{42},
+			},
+			{
+				ServiceTier:  OpenAIFastTierPriority,
+				Action:       BetaPolicyActionBlock,
+				Scope:        BetaPolicyScopeAll,
+				UserIDs:      []int64{42},
+				ErrorMessage: "later user rule must not win",
+			},
+		},
+	}
+	svc := newOpenAIGatewayServiceWithSettings(t, precedenceSettings)
+
+	contextForValue := func(value any) context.Context {
+		ctx := context.Background()
+		if value != nil {
+			ctx = context.WithValue(ctx, ctxkey.APIKeyUserID, value)
+		}
+		return ctx
+	}
+	for _, tc := range []struct {
+		name   string
+		value  any
+		action string
+	}{
+		{name: "matching trusted user overrides earlier global rule", value: int64(42), action: BetaPolicyActionPass},
+		{name: "different user falls through to global", value: int64(43), action: BetaPolicyActionFilter},
+		{name: "missing user falls through to global", action: BetaPolicyActionFilter},
+		{name: "zero user falls through to global", value: int64(0), action: BetaPolicyActionFilter},
+		{name: "negative user falls through to global", value: int64(-1), action: BetaPolicyActionFilter},
+		{name: "wrong context type falls through to global", value: 42, action: BetaPolicyActionFilter},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			action, _ := svc.evaluateOpenAIFastPolicy(contextForValue(tc.value), apiKeyAccount, "gpt-5.6-sol", OpenAIFastTierPriority)
+			require.Equal(t, tc.action, action)
+		})
+	}
+
+	intersectionSettings := &OpenAIFastPolicySettings{
+		Rules: []OpenAIFastPolicyRule{
+			{
+				ServiceTier:          OpenAIFastTierPriority,
+				Action:               BetaPolicyActionBlock,
+				Scope:                BetaPolicyScopeAPIKey,
+				UserIDs:              []int64{42},
+				ErrorMessage:         "matched model",
+				ModelWhitelist:       []string{"gpt-5.6*"},
+				FallbackAction:       BetaPolicyActionFilter,
+				FallbackErrorMessage: "model fallback",
+			},
+		},
+	}
+	intersectionSvc := newOpenAIGatewayServiceWithSettings(t, intersectionSettings)
+	trustedUserCtx := contextForValue(int64(42))
+
+	action, message := intersectionSvc.evaluateOpenAIFastPolicy(trustedUserCtx, apiKeyAccount, "gpt-5.6-luna", OpenAIFastTierPriority)
+	require.Equal(t, BetaPolicyActionBlock, action)
+	require.Equal(t, "matched model", message)
+
+	action, message = intersectionSvc.evaluateOpenAIFastPolicy(trustedUserCtx, apiKeyAccount, "gpt-4.1", OpenAIFastTierPriority)
+	require.Equal(t, BetaPolicyActionFilter, action)
+	require.Equal(t, "model fallback", message)
+
+	oauthAccount := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+	action, _ = intersectionSvc.evaluateOpenAIFastPolicy(trustedUserCtx, oauthAccount, "gpt-5.6-luna", OpenAIFastTierPriority)
+	require.Equal(t, BetaPolicyActionPass, action, "scope must intersect with trusted user matching")
+	action, _ = intersectionSvc.evaluateOpenAIFastPolicy(trustedUserCtx, apiKeyAccount, "gpt-5.6-luna", OpenAIFastTierFlex)
+	require.Equal(t, BetaPolicyActionPass, action, "tier must intersect with trusted user matching")
+	action, _ = intersectionSvc.evaluateOpenAIFastPolicy(contextForValue(int64(43)), apiKeyAccount, "gpt-5.6-luna", OpenAIFastTierPriority)
+	require.Equal(t, BetaPolicyActionPass, action, "different user must skip the scoped rule")
 }
 
 func TestApplyOpenAIFastPolicyToBody_DefaultPassesPriorityAndFast(t *testing.T) {
@@ -303,4 +389,53 @@ func TestSetOpenAIFastPolicySettings_Validation(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, got.Rules, 1)
 	require.Equal(t, OpenAIFastTierPriority, got.Rules[0].ServiceTier)
+}
+
+func TestOpenAIFastPolicyUserScope_ValidationAndRoundTrip(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		userIDs []int64
+		message string
+	}{
+		{name: "zero", userIDs: []int64{0}, message: "must be positive"},
+		{name: "negative", userIDs: []int64{-7}, message: "must be positive"},
+		{name: "duplicate", userIDs: []int64{42, 73, 42}, message: "duplicates user_id 42"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := &openAIFastPolicyRepoStub{values: map[string]string{}}
+			svc := NewSettingService(repo, &config.Config{})
+			err := svc.SetOpenAIFastPolicySettings(context.Background(), &OpenAIFastPolicySettings{
+				Rules: []OpenAIFastPolicyRule{{
+					ServiceTier: OpenAIFastTierPriority,
+					Action:      BetaPolicyActionPass,
+					Scope:       BetaPolicyScopeAll,
+					UserIDs:     tc.userIDs,
+				}},
+			})
+			require.ErrorContains(t, err, tc.message)
+			require.NotContains(t, repo.values, SettingKeyOpenAIFastPolicySettings)
+		})
+	}
+
+	repo := &openAIFastPolicyRepoStub{values: map[string]string{}}
+	svc := NewSettingService(repo, &config.Config{})
+	wantUserIDs := []int64{42, 73}
+	err := svc.SetOpenAIFastPolicySettings(context.Background(), &OpenAIFastPolicySettings{
+		Rules: []OpenAIFastPolicyRule{{
+			ServiceTier:    " PRIORITY ",
+			Action:         BetaPolicyActionFilter,
+			Scope:          BetaPolicyScopeAll,
+			UserIDs:        append([]int64(nil), wantUserIDs...),
+			ModelWhitelist: []string{"gpt-5.6*"},
+			FallbackAction: BetaPolicyActionPass,
+		}},
+	})
+	require.NoError(t, err)
+	require.Equal(t, int64(2), gjson.Get(repo.values[SettingKeyOpenAIFastPolicySettings], "rules.0.user_ids.#").Int())
+
+	got, err := svc.GetOpenAIFastPolicySettings(context.Background())
+	require.NoError(t, err)
+	require.Len(t, got.Rules, 1)
+	require.Equal(t, OpenAIFastTierPriority, got.Rules[0].ServiceTier)
+	require.Equal(t, wantUserIDs, got.Rules[0].UserIDs)
 }

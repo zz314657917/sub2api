@@ -286,3 +286,24 @@ func TestOpenAIFastPolicySettingsFromDTO_NormalizesServiceTier(t *testing.T) {
 		require.Equal(t, service.OpenAIFastTierAny, out.Rules[2].ServiceTier)
 	})
 }
+
+func TestOpenAIFastPolicySettingsFromDTO_PreservesUserIDs(t *testing.T) {
+	wantUserIDs := []int64{42, 73}
+	in := &dto.OpenAIFastPolicySettings{
+		Rules: []dto.OpenAIFastPolicyRule{{
+			ServiceTier: "PRIORITY",
+			Action:      "filter",
+			Scope:       "all",
+			UserIDs:     append([]int64(nil), wantUserIDs...),
+		}},
+	}
+
+	serviceSettings := openaiFastPolicySettingsFromDTO(in)
+	require.NotNil(t, serviceSettings)
+	require.Equal(t, service.OpenAIFastTierPriority, serviceSettings.Rules[0].ServiceTier)
+	require.Equal(t, wantUserIDs, serviceSettings.Rules[0].UserIDs)
+
+	roundTrip := openaiFastPolicySettingsToDTO(serviceSettings)
+	require.NotNil(t, roundTrip)
+	require.Equal(t, wantUserIDs, roundTrip.Rules[0].UserIDs)
+}
