@@ -6,6 +6,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -977,6 +978,164 @@ func TestBuildRequestTypeFilterConditionLegacyFallback(t *testing.T) {
 			require.Equal(t, []any{tt.wantArg}, args)
 		})
 	}
+}
+
+func TestBuildRequestTypeFilterConditionWithAliasLegacyFallbackMatrix(t *testing.T) {
+	tests := []struct {
+		name      string
+		request   int16
+		wantWhere string
+		wantArg   int16
+	}{
+		{
+			name:      "sync_with_aliased_legacy_fallback",
+			request:   int16(service.RequestTypeSync),
+			wantWhere: "(ul.request_type = $3 OR (ul.request_type = 0 AND ul.stream = FALSE AND ul.openai_ws_mode = FALSE))",
+			wantArg:   int16(service.RequestTypeSync),
+		},
+		{
+			name:      "stream_with_aliased_legacy_fallback",
+			request:   int16(service.RequestTypeStream),
+			wantWhere: "(ul.request_type = $3 OR (ul.request_type = 0 AND ul.stream = TRUE AND ul.openai_ws_mode = FALSE))",
+			wantArg:   int16(service.RequestTypeStream),
+		},
+		{
+			name:      "ws_v2_with_aliased_legacy_fallback",
+			request:   int16(service.RequestTypeWSV2),
+			wantWhere: "(ul.request_type = $3 OR (ul.request_type = 0 AND ul.openai_ws_mode = TRUE))",
+			wantArg:   int16(service.RequestTypeWSV2),
+		},
+		{
+			name:      "invalid_request_type_stays_aliased_unknown",
+			request:   int16(99),
+			wantWhere: "ul.request_type = $3",
+			wantArg:   int16(service.RequestTypeUnknown),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			where, args := buildRequestTypeFilterConditionWithAlias(3, tt.request, "ul")
+			require.Equal(t, tt.wantWhere, where)
+			require.Equal(t, []any{tt.wantArg}, args)
+		})
+	}
+}
+
+func TestGetUserBreakdownStatsRequestTypeLegacyFallbackMatrix(t *testing.T) {
+	start := time.Date(2026, 7, 1, 0, 0, 0, 0, time.UTC)
+	end := start.Add(24 * time.Hour)
+	streamFalse := false
+	streamTrue := true
+	billingType := int8(service.BillingTypeBalance)
+
+	tests := []struct {
+		name          string
+		dim           usagestats.UserBreakdownDimension
+		limit         int
+		wantCondition string
+		wantArgs      []driver.Value
+		wantFragments []string
+	}{
+		{
+			name: "sync_preserves_dimensions_and_extra_stream_filter",
+			dim: usagestats.UserBreakdownDimension{
+				GroupID:      7,
+				Model:        "gpt-5.6",
+				ModelType:    "requested",
+				Endpoint:     "/v1/responses -> https://upstream.example/v1/responses",
+				EndpointType: "path",
+				UserID:       42,
+				APIKeyID:     52,
+				AccountID:    62,
+				RequestType:  requestTypePtr(service.RequestTypeSync),
+				Stream:       &streamFalse,
+				BillingType:  &billingType,
+			},
+			limit:         5,
+			wantCondition: "(ul.request_type = $9 OR (ul.request_type = 0 AND ul.stream = FALSE AND ul.openai_ws_mode = FALSE))",
+			wantArgs: []driver.Value{
+				start, end, int64(7), "gpt-5.6", "/v1/responses -> https://upstream.example/v1/responses",
+				int64(42), int64(52), int64(62), int16(service.RequestTypeSync), false, billingType,
+			},
+			wantFragments: []string{
+				"AND ul.group_id = $3",
+				"AND COALESCE(NULLIF(TRIM(requested_model), ''), model) = $4",
+				"AND ul.inbound_endpoint || ' -> ' || ul.upstream_endpoint = $5",
+				"AND ul.user_id = $6",
+				"AND ul.api_key_id = $7",
+				"AND ul.account_id = $8",
+				"AND ul.stream = $10",
+				"AND ul.billing_type = $11",
+			},
+		},
+		{
+			name: "stream_uses_only_stream_legacy_rows_and_extra_stream_filter",
+			dim: usagestats.UserBreakdownDimension{
+				RequestType: requestTypePtr(service.RequestTypeStream),
+				Stream:      &streamTrue,
+			},
+			limit:         7,
+			wantCondition: "(ul.request_type = $3 OR (ul.request_type = 0 AND ul.stream = TRUE AND ul.openai_ws_mode = FALSE))",
+			wantArgs:      []driver.Value{start, end, int16(service.RequestTypeStream), true},
+			wantFragments: []string{"AND ul.stream = $4"},
+		},
+		{
+			name: "ws_v2_uses_only_openai_ws_legacy_rows",
+			dim: usagestats.UserBreakdownDimension{
+				RequestType: requestTypePtr(service.RequestTypeWSV2),
+			},
+			limit:         9,
+			wantCondition: "(ul.request_type = $3 OR (ul.request_type = 0 AND ul.openai_ws_mode = TRUE))",
+			wantArgs:      []driver.Value{start, end, int16(service.RequestTypeWSV2)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var capturedQuery string
+			db, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherFunc(func(_, actualSQL string) error {
+				capturedQuery = actualSQL
+				return nil
+			})))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = db.Close() })
+			repo := &usageLogRepository{sql: db}
+
+			mock.ExpectQuery("user breakdown query").
+				WithArgs(tt.wantArgs...).
+				WillReturnRows(sqlmock.NewRows([]string{
+					"user_id", "email", "requests", "total_tokens", "cost", "actual_cost", "account_cost",
+				}).AddRow(int64(42), "user@example.com", int64(3), int64(90), 1.5, 1.25, 0.75))
+
+			rows, err := repo.GetUserBreakdownStats(context.Background(), start, end, tt.dim, tt.limit)
+			require.NoError(t, err)
+			require.Equal(t, []usagestats.UserBreakdownItem{{
+				UserID:      42,
+				Email:       "user@example.com",
+				Requests:    3,
+				TotalTokens: 90,
+				Cost:        1.5,
+				ActualCost:  1.25,
+				AccountCost: 0.75,
+			}}, rows)
+			require.NoError(t, mock.ExpectationsWereMet())
+
+			normalizedQuery := strings.Join(strings.Fields(capturedQuery), " ")
+			require.Contains(t, normalizedQuery, tt.wantCondition)
+			for _, fragment := range tt.wantFragments {
+				require.Contains(t, normalizedQuery, fragment)
+			}
+			require.Contains(t, normalizedQuery, "GROUP BY ul.user_id, u.email ORDER BY actual_cost DESC")
+			require.Contains(t, normalizedQuery, fmt.Sprintf("LIMIT %d", tt.limit))
+			require.NotContains(t, normalizedQuery, "exclude_from_leaderboard")
+		})
+	}
+}
+
+func requestTypePtr(requestType service.RequestType) *int16 {
+	value := int16(requestType)
+	return &value
 }
 
 type usageLogScannerStub struct {
