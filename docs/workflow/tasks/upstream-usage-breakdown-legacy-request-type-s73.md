@@ -71,7 +71,7 @@ $allowed = @(
 )
 $unexpected = @(git diff --name-only "$base..HEAD" | Where-Object { $_ -notin $allowed })
 if ($unexpected.Count -gt 0) { throw "S73 path audit failed: $($unexpected -join ', ')" }
-$productionDiff = @(git diff --function-context --unified=0 "$base..HEAD" -- backend/internal/repository/usage_log_repo.go)
+$productionDiff = @(git diff --unified=0 "$base..HEAD" -- backend/internal/repository/usage_log_repo.go)
 $unexpectedHunks = @($productionDiff | Where-Object { $_ -match '^@@' -and $_ -notmatch 'buildRequestTypeFilterCondition|GetUserBreakdownStats' })
 if ($unexpectedHunks.Count -gt 0) { throw "S73 production hunk audit failed: $($unexpectedHunks -join ', ')" }
 git diff --check "$base..HEAD"

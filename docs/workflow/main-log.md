@@ -229,3 +229,4 @@
 260711 1708 | upstream-v0151-s65-s70 | merged-branches-cleaned | codex | local main only; origin main only; upstream refs preserved
 260712 1047 | upstream-v0151-followups-s71-s73 | contracts-drafted | codex | user Fast/Flex, bare GPT-5.6 alias/catalog, legacy request_type
 260712 1104 | upstream-v0151-followups-s71-s73 | contracts-revised | codex | close test-discovery, frontend dependency, SQL preservation, and hunk-audit gaps
+260712 1112 | upstream-usage-breakdown-legacy-request-type-s73 | contract-revised-2 | codex | use zero-context hunk headers so legal helper changes are attributed correctly
