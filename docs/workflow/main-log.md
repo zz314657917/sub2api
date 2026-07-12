@@ -227,14 +227,30 @@
 260711 1706 | upstream-v0151-s65-s70 | merged-main | codex | d6ff6a158; post-merge backend, frontend 62 tests, typecheck, migrations and diff-check PASS
 260711 1706 | upstream-v0151-s65-s70 | pushed-main | codex | origin/main verified at d6ff6a158
 260711 1708 | upstream-v0151-s65-s70 | merged-branches-cleaned | codex | local main only; origin main only; upstream refs preserved
-260712 1919 | support-ticket-user-context-s71 | contract-draft | codex | docs/workflow/tasks/support-ticket-user-context-s71.md
-260712 1922 | support-ticket-user-context-s71 | contract-revised | codex | add repository SQL assertion, service regression, and admin-only DTO mapper boundary
-260712 1924 | support-ticket-user-context-s71 | contract-approved | evaluator | revised contract PASS; begin scoped implementation
-260712 1942 | support-ticket-user-context-s71 | qa-pass | qa-worker | docs/workflow/qa-reports/support-ticket-user-context-s71-qa.md
-260712 1942 | support-ticket-user-context-s71 | done | codex | final evaluator PASS; no deployment or container update
-260712 1952 | admin-usage-column-menu-layer-s72 | contract-draft | codex | docs/workflow/tasks/admin-usage-column-menu-layer-s72.md
-260712 1956 | admin-usage-column-menu-layer-s72 | contract-revised | codex | dynamically elevate only the open column menu above sticky table headers
-260712 1958 | admin-usage-column-menu-layer-s72 | contract-approved | evaluator | dynamic z-index contract PASS; begin scoped implementation
-260712 2007 | admin-usage-column-menu-layer-s72 | build-pass | generator | docs/workflow/worker-results/admin-usage-column-menu-layer-s72-result.md; targeted Vitest, typecheck, and production build PASS
-260712 2009 | admin-usage-column-menu-layer-s72 | qa-pass | qa-worker | docs/workflow/qa-reports/admin-usage-column-menu-layer-s72-qa.md
-260712 2009 | admin-usage-column-menu-layer-s72 | done | codex | final evaluator PASS; no deployment or container update
+260712 1047 | upstream-v0151-followups-s71-s73 | contracts-drafted | codex | user Fast/Flex, bare GPT-5.6 alias/catalog, legacy request_type
+260712 1104 | upstream-v0151-followups-s71-s73 | contracts-revised | codex | close test-discovery, frontend dependency, SQL preservation, and hunk-audit gaps
+260712 1105 | upstream-usage-breakdown-legacy-request-type-s73 | contract-revised-2 | codex | use zero-context hunk headers so legal helper changes are attributed correctly
+260712 1106 | upstream-v0151-followups-s71-s73 | contracts-approved | codex | independent semantic and command-gate reviews PASS at b570c012e
+260712 1121 | upstream-gpt56-bare-alias-catalog-s72 | generator-done | collaboration-worker | 0485dc47c; clean contract acceptance PASS
+260712 1121 | upstream-usage-breakdown-legacy-request-type-s73 | generator-done | collaboration-worker | e38ec1e9a; clean contract acceptance PASS
+260712 1137 | upstream-openai-fast-flex-user-scope-s71 | generator-done | collaboration-worker | df096d972; initial contract acceptance PASS
+260712 1146 | upstream-openai-fast-flex-user-scope-s71 | code-review-fail | review-worker | Fast/Flex user-scope i18n keys were placed under betaPolicy
+260712 1151 | upstream-openai-fast-flex-user-scope-s71 | fix-retest-pass | generator-and-review | 24c22c9a9; locale namespace regression closed
+260712 1200 | upstream-openai-fast-flex-user-scope-s71 | independent-qa-pass | qa-worker | 5460adc89; integrated as f1997dcf9 plus report 489d66ba7
+260712 1209 | upstream-gpt56-bare-alias-catalog-s72 | independent-qa-pass | qa-worker | 94fd92c63; integrated as a8e3ee4a4 plus report bf2a1dc77
+260712 1216 | upstream-usage-breakdown-legacy-request-type-s73 | independent-qa-pass | qa-worker | b2e23b626; integrated as 40b710e73 plus report 5e4b08af9
+260712 1221 | upstream-v0151-followups-s71-s73 | combined-regression-pass | codex | backend 4+6+2, frontend 46/46, typecheck and 35-path audit PASS
+260712 1221 | upstream-v0151-followups-s71-s73 | done | codex | final evaluator PASS; no main merge, push, deploy, or container update
+260712 1230 | upstream-v0151-followups-s71-s73 | temporary-worktrees-cleaned | codex | 6 clean Generator/QA branches had only patch-equivalent commits and were removed
+260712 1919 | support-ticket-user-context-s74 | contract-draft | codex | docs/workflow/spec.md#s74-addendum-support-ticket-user-context
+260712 1922 | support-ticket-user-context-s74 | contract-revised | codex | add repository SQL assertion, service regression, and admin-only DTO mapper boundary
+260712 1924 | support-ticket-user-context-s74 | contract-approved | evaluator | revised contract PASS; begin scoped implementation
+260712 1942 | support-ticket-user-context-s74 | qa-pass | qa-worker | f6ee836d4; targeted Go, frontend, typecheck, build, and diff checks PASS
+260712 1942 | support-ticket-user-context-s74 | done | codex | final evaluator PASS; no deployment or container update
+260712 1952 | admin-usage-column-menu-layer-s75 | contract-draft | codex | docs/workflow/spec.md#s75-addendum-admin-usage-column-menu-stacking
+260712 1956 | admin-usage-column-menu-layer-s75 | contract-revised | codex | dynamically elevate only the open column menu above sticky table headers
+260712 1958 | admin-usage-column-menu-layer-s75 | contract-approved | evaluator | dynamic z-index contract PASS; begin scoped implementation
+260712 2007 | admin-usage-column-menu-layer-s75 | build-pass | generator | f6ee836d4; targeted Vitest, typecheck, production build, and compiled CSS PASS
+260712 2009 | admin-usage-column-menu-layer-s75 | qa-pass | qa-worker | f6ee836d4; two targeted tests and target diff check PASS
+260712 2009 | admin-usage-column-menu-layer-s75 | done | codex | final evaluator PASS; no deployment or container update
+260712 2046 | workflow-sprint-id-reconciliation | conflict-resolved | codex | preserve upstream S71-S73 artifacts; relabel later ticket and usage records to S74-S75

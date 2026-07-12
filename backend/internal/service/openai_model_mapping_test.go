@@ -305,6 +305,31 @@ func TestNormalizeOpenAIModelForUpstream(t *testing.T) {
 	}
 }
 
+func TestNormalizeOpenAIModelForUpstream_BareGPT56AccountScopes(t *testing.T) {
+	tests := []struct {
+		name    string
+		account *Account
+		model   string
+		want    string
+	}{
+		{name: "nil account routes bare alias", model: "gpt-5.6", want: "gpt-5.6-sol"},
+		{name: "oauth routes bare alias", account: &Account{Type: AccountTypeOAuth}, model: "gpt-5.6-max", want: "gpt-5.6-sol"},
+		{name: "oauth preserves explicit terra", account: &Account{Type: AccountTypeOAuth}, model: "gpt-5.6-terra-max", want: "gpt-5.6-terra"},
+		{name: "oauth preserves explicit luna", account: &Account{Type: AccountTypeOAuth}, model: "openai/gpt-5.6-luna-xhigh", want: "gpt-5.6-luna"},
+		{name: "oauth passes unknown suffix through", account: &Account{Type: AccountTypeOAuth}, model: "gpt-5.6-solstice", want: "gpt-5.6-solstice"},
+		{name: "apikey preserves bare alias", account: &Account{Type: AccountTypeAPIKey}, model: "gpt-5.6", want: "gpt-5.6"},
+		{name: "apikey preserves provider prefix", account: &Account{Type: AccountTypeAPIKey}, model: " openai/gpt-5.6 ", want: "openai/gpt-5.6"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := normalizeOpenAIModelForUpstream(tt.account, tt.model); got != tt.want {
+				t.Fatalf("normalizeOpenAIModelForUpstream(...) = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestUsageBillingModelCandidatesPreserveGPT55ProModel(t *testing.T) {
 	candidates := usageBillingModelCandidates("openai/gpt-5.5-pro")
 

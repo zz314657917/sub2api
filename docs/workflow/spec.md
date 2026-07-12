@@ -7,7 +7,7 @@ last_verified: 2026-07-03 19:30 +08:00
 
 # Workflow Spec
 
-## S72 Addendum: admin usage column-menu stacking
+## S75 Addendum: admin usage column-menu stacking
 
 ### 一句话目标
 
@@ -19,7 +19,7 @@ last_verified: 2026-07-03 19:30 +08:00
 - 不修改 `DataTable`、`UsageTable`、筛选状态、菜单交互或请求逻辑，也不引入 Teleport。
 - 视图测试锁定菜单打开/关闭时筛选卡片的动态层级；跑定向 Vitest、typecheck、production build 与 `git diff --check`。
 
-## S71 Addendum: support ticket user context
+## S74 Addendum: support ticket user context
 
 ### 一句话目标
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	coderws "github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -65,6 +67,200 @@ func TestWSResponseCreate_ExplicitFilterStripsServiceTier(t *testing.T) {
 	require.NoError(t, err)
 	require.Nil(t, blocked)
 	require.NotContains(t, string(updated), `"service_tier"`)
+}
+
+func TestOpenAIWSUserScopedFastPolicy_ParsedIngressFirstAndFollowupFrames(t *testing.T) {
+	assertOpenAIWSUserScopedFastPolicyRelay(t, false)
+}
+
+func TestOpenAIWSUserScopedFastPolicy_PassthroughFirstAndFollowupFrames(t *testing.T) {
+	assertOpenAIWSUserScopedFastPolicyRelay(t, true)
+}
+
+type openAIWSUserScopedFastPolicyCapture struct {
+	writes  []map[string]any
+	headers http.Header
+}
+
+func assertOpenAIWSUserScopedFastPolicyRelay(t *testing.T, passthrough bool) {
+	t.Helper()
+	for _, tc := range []struct {
+		name          string
+		trustedUserID int64
+		wantTier      bool
+	}{
+		{name: "matching trusted user", trustedUserID: 42, wantTier: true},
+		{name: "different trusted user ignores spoofed identity", trustedUserID: 43, wantTier: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			capture := runOpenAIWSUserScopedFastPolicyRelay(t, passthrough, tc.trustedUserID, 42)
+			require.Len(t, capture.writes, 2, "real relay must forward both first and follow-up response.create frames")
+			require.Empty(t, capture.headers.Get("x-sub2api-user-id"), "client-controlled identity header must not reach the upstream handshake")
+			for index, payload := range capture.writes {
+				require.Equal(t, float64(42), payload["user_id"], "frame %d must retain the spoof marker used by the assertion", index+1)
+				_, hasTier := payload["service_tier"]
+				if tc.wantTier {
+					require.True(t, hasTier, "matching trusted user frame %d must keep service_tier", index+1)
+					require.Equal(t, OpenAIFastTierPriority, payload["service_tier"])
+				} else {
+					require.False(t, hasTier, "spoofed body/header identity must not keep service_tier on frame %d", index+1)
+				}
+			}
+		})
+	}
+}
+
+func runOpenAIWSUserScopedFastPolicyRelay(t *testing.T, passthrough bool, trustedUserID, spoofedUserID int64) openAIWSUserScopedFastPolicyCapture {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+
+	cfg := &config.Config{}
+	cfg.Security.URLAllowlist.Enabled = false
+	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
+	cfg.Gateway.OpenAIWS.Enabled = true
+	cfg.Gateway.OpenAIWS.OAuthEnabled = true
+	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
+	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = passthrough
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
+	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
+	cfg.Gateway.OpenAIWS.MinIdlePerAccount = 0
+	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
+	cfg.Gateway.OpenAIWS.QueueLimitPerConn = 8
+	cfg.Gateway.OpenAIWS.DialTimeoutSeconds = 3
+	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 3
+	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3
+
+	upstreamConn := &openAIWSCaptureConn{
+		readDelays: []time.Duration{0, 150 * time.Millisecond},
+		events: [][]byte{
+			[]byte(`{"type":"response.completed","response":{"id":"resp_user_scope_1","model":"gpt-5.5","usage":{"input_tokens":1,"output_tokens":1}}}`),
+			[]byte(`{"type":"response.completed","response":{"id":"resp_user_scope_2","model":"gpt-5.5","usage":{"input_tokens":1,"output_tokens":1}}}`),
+		},
+	}
+	captureDialer := &openAIWSCaptureDialer{conn: upstreamConn}
+	pool := newOpenAIWSConnPool(cfg)
+	pool.setClientDialerForTest(captureDialer)
+
+	settings := &OpenAIFastPolicySettings{
+		Rules: []OpenAIFastPolicyRule{
+			{
+				ServiceTier: OpenAIFastTierPriority,
+				Action:      BetaPolicyActionFilter,
+				Scope:       BetaPolicyScopeAll,
+			},
+			{
+				ServiceTier: OpenAIFastTierPriority,
+				Action:      BetaPolicyActionPass,
+				Scope:       BetaPolicyScopeAll,
+				UserIDs:     []int64{42},
+			},
+		},
+	}
+	rawSettings, err := json.Marshal(settings)
+	require.NoError(t, err)
+	repo := &openAIFastPolicyRepoStub{values: map[string]string{SettingKeyOpenAIFastPolicySettings: string(rawSettings)}}
+	svc := &OpenAIGatewayService{
+		cfg:                       cfg,
+		httpUpstream:              &httpUpstreamRecorder{},
+		cache:                     &stubGatewayCache{},
+		openaiWSResolver:          NewOpenAIWSProtocolResolver(cfg),
+		toolCorrector:             NewCodexToolCorrector(),
+		openaiWSPool:              pool,
+		openaiWSPassthroughDialer: captureDialer,
+		settingService:            NewSettingService(repo, cfg),
+	}
+
+	account := &Account{
+		ID:          905,
+		Name:        "openai-ws-user-scope",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{"api_key": "sk-test"},
+		Extra: map[string]any{
+			"responses_websockets_v2_enabled": true,
+		},
+	}
+	if passthrough {
+		account.Extra["openai_apikey_responses_websockets_v2_mode"] = OpenAIWSIngressModePassthrough
+	}
+
+	serverErrCh := make(chan error, 1)
+	wsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, acceptErr := coderws.Accept(w, r, &coderws.AcceptOptions{CompressionMode: coderws.CompressionContextTakeover})
+		if acceptErr != nil {
+			serverErrCh <- acceptErr
+			return
+		}
+		defer func() { _ = conn.CloseNow() }()
+
+		trustedCtx := context.WithValue(r.Context(), ctxkey.APIKeyUserID, trustedUserID)
+		rec := httptest.NewRecorder()
+		ginCtx, _ := gin.CreateTestContext(rec)
+		req := r.Clone(trustedCtx)
+		req.Header = req.Header.Clone()
+		req.Header.Set("User-Agent", "unit-test-agent/1.0")
+		ginCtx.Request = req
+
+		readCtx, cancel := context.WithTimeout(trustedCtx, 3*time.Second)
+		msgType, firstMessage, readErr := conn.Read(readCtx)
+		cancel()
+		if readErr != nil {
+			serverErrCh <- readErr
+			return
+		}
+		if msgType != coderws.MessageText && msgType != coderws.MessageBinary {
+			serverErrCh <- errors.New("unsupported websocket client message type")
+			return
+		}
+		serverErrCh <- svc.ProxyResponsesWebSocketFromClient(trustedCtx, ginCtx, conn, account, "sk-test", firstMessage, nil)
+	}))
+	defer wsServer.Close()
+
+	dialCtx, cancelDial := context.WithTimeout(context.Background(), 3*time.Second)
+	clientConn, _, err := coderws.Dial(dialCtx, "ws"+strings.TrimPrefix(wsServer.URL, "http"), &coderws.DialOptions{
+		HTTPHeader: http.Header{"x-sub2api-user-id": []string{fmt.Sprint(spoofedUserID)}},
+	})
+	cancelDial()
+	require.NoError(t, err)
+	defer func() { _ = clientConn.CloseNow() }()
+
+	writeMessage := func(payload string) {
+		writeCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		require.NoError(t, clientConn.Write(writeCtx, coderws.MessageText, []byte(payload)))
+	}
+	readMessage := func(responseID string) {
+		readCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		_, event, readErr := clientConn.Read(readCtx)
+		require.NoError(t, readErr)
+		require.Equal(t, responseID, gjson.GetBytes(event, "response.id").String())
+	}
+
+	writeMessage(fmt.Sprintf(`{"type":"response.create","model":"gpt-5.5","stream":false,"service_tier":"priority","user_id":%d,"metadata":{"user_id":%d}}`, spoofedUserID, spoofedUserID))
+	readMessage("resp_user_scope_1")
+	writeMessage(fmt.Sprintf(`{"type":"response.create","stream":false,"service_tier":"priority","user_id":%d,"metadata":{"user_id":%d},"previous_response_id":"resp_user_scope_1"}`, spoofedUserID, spoofedUserID))
+	readMessage("resp_user_scope_2")
+	_ = clientConn.Close(coderws.StatusNormalClosure, "done")
+
+	select {
+	case serverErr := <-serverErrCh:
+		if serverErr != nil {
+			require.Contains(t, serverErr.Error(), "StatusNormalClosure")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("waiting for user-scoped websocket relay to stop timed out")
+	}
+	svc.CloseOpenAIWSPool()
+
+	captureDialer.mu.Lock()
+	upstreamHeaders := cloneHeader(captureDialer.lastHeaders)
+	captureDialer.mu.Unlock()
+	return openAIWSUserScopedFastPolicyCapture{writes: upstreamConn.writes, headers: upstreamHeaders}
 }
 
 func TestWSResponseCreate_FlexPassThrough(t *testing.T) {

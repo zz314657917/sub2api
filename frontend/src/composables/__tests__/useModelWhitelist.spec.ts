@@ -4,7 +4,12 @@ vi.mock('@/api/admin/accounts', () => ({
   getAntigravityDefaultModelMapping: vi.fn()
 }))
 
-import { buildModelMappingObject, getModelsByPlatform, splitModelMappingObject } from '../useModelWhitelist'
+import {
+  buildModelMappingObject,
+  getModelsByPlatform,
+  getPresetMappingsByPlatform,
+  splitModelMappingObject
+} from '../useModelWhitelist'
 
 describe('useModelWhitelist', () => {
   it('openai 模型列表包含 GPT-5.4 官方快照', () => {
@@ -14,6 +19,21 @@ describe('useModelWhitelist', () => {
     expect(models).toContain('gpt-5.4-mini')
     expect(models).toContain('gpt-5.4-2026-03-05')
     expect(models).toContain('codex-auto-review')
+  })
+
+  it('exposes bare GPT-5.6 in whitelist and preset mappings without collapsing explicit variants', () => {
+    const models = getModelsByPlatform('openai').filter((model) => model.startsWith('gpt-5.6'))
+    expect(models).toEqual(['gpt-5.6', 'gpt-5.6-sol', 'gpt-5.6-terra', 'gpt-5.6-luna'])
+
+    const mappings = getPresetMappingsByPlatform('openai')
+      .filter((mapping) => mapping.from.startsWith('gpt-5.6'))
+      .map(({ label, from, to }) => ({ label, from, to }))
+    expect(mappings).toEqual([
+      { label: 'GPT-5.6', from: 'gpt-5.6', to: 'gpt-5.6' },
+      { label: 'GPT-5.6 Sol', from: 'gpt-5.6-sol', to: 'gpt-5.6-sol' },
+      { label: 'GPT-5.6 Terra', from: 'gpt-5.6-terra', to: 'gpt-5.6-terra' },
+      { label: 'GPT-5.6 Luna', from: 'gpt-5.6-luna', to: 'gpt-5.6-luna' }
+    ])
   })
 
   it('openai 模型列表不再暴露已下线的 ChatGPT 登录 Codex 模型', () => {

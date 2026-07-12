@@ -76,6 +76,48 @@ describe('UseKeyModal', () => {
     expect(codeBlock.text()).not.toContain('"name": "GPT-5.4 Nano"')
   })
 
+  it('generates OpenCode config for bare and explicit GPT-5.6 max variants', async () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-test',
+        baseUrl: 'https://example.com/v1',
+        platform: 'openai'
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    const opencodeTab = wrapper.findAll('button').find((button) =>
+      button.text().includes('keys.useKeyModal.cliTabs.opencode')
+    )
+    expect(opencodeTab).toBeDefined()
+    await opencodeTab!.trigger('click')
+    await nextTick()
+
+    const parsed = JSON.parse(wrapper.find('pre code').text())
+    const models = parsed.provider.openai.models
+    const expectedNames = {
+      'gpt-5.6': 'GPT-5.6 (Sol)',
+      'gpt-5.6-sol': 'GPT-5.6 Sol',
+      'gpt-5.6-terra': 'GPT-5.6 Terra',
+      'gpt-5.6-luna': 'GPT-5.6 Luna'
+    }
+    for (const [model, name] of Object.entries(expectedNames)) {
+      expect(models[model].name).toBe(name)
+      expect(models[model].limit).toEqual({ context: 1050000, output: 128000 })
+      expect(Object.keys(models[model].variants)).toEqual(['low', 'medium', 'high', 'xhigh', 'max'])
+    }
+  })
+
   it('renders OpenAI-compatible config for smart-routed keys without a group', () => {
     const wrapper = mount(UseKeyModal, {
       props: {
