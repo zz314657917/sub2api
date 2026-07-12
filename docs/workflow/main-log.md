@@ -231,3 +231,14 @@
 260712 1104 | upstream-v0151-followups-s71-s73 | contracts-revised | codex | close test-discovery, frontend dependency, SQL preservation, and hunk-audit gaps
 260712 1105 | upstream-usage-breakdown-legacy-request-type-s73 | contract-revised-2 | codex | use zero-context hunk headers so legal helper changes are attributed correctly
 260712 1106 | upstream-v0151-followups-s71-s73 | contracts-approved | codex | independent semantic and command-gate reviews PASS at b570c012e
+260712 1121 | upstream-gpt56-bare-alias-catalog-s72 | generator-done | collaboration-worker | 0485dc47c; clean contract acceptance PASS
+260712 1121 | upstream-usage-breakdown-legacy-request-type-s73 | generator-done | collaboration-worker | e38ec1e9a; clean contract acceptance PASS
+260712 1137 | upstream-openai-fast-flex-user-scope-s71 | generator-done | collaboration-worker | df096d972; initial contract acceptance PASS
+260712 1146 | upstream-openai-fast-flex-user-scope-s71 | code-review-fail | review-worker | Fast/Flex user-scope i18n keys were placed under betaPolicy
+260712 1151 | upstream-openai-fast-flex-user-scope-s71 | fix-retest-pass | generator-and-review | 24c22c9a9; locale namespace regression closed
+260712 1200 | upstream-openai-fast-flex-user-scope-s71 | independent-qa-pass | qa-worker | 5460adc89; integrated as f1997dcf9 plus report 489d66ba7
+260712 1209 | upstream-gpt56-bare-alias-catalog-s72 | independent-qa-pass | qa-worker | 94fd92c63; integrated as a8e3ee4a4 plus report bf2a1dc77
+260712 1216 | upstream-usage-breakdown-legacy-request-type-s73 | independent-qa-pass | qa-worker | b2e23b626; integrated as 40b710e73 plus report 5e4b08af9
+260712 1221 | upstream-v0151-followups-s71-s73 | combined-regression-pass | codex | backend 4+6+2, frontend 46/46, typecheck and 35-path audit PASS
+260712 1221 | upstream-v0151-followups-s71-s73 | done | codex | final evaluator PASS; no main merge, push, deploy, or container update
+260712 1230 | upstream-v0151-followups-s71-s73 | temporary-worktrees-cleaned | codex | 6 clean Generator/QA branches had only patch-equivalent commits and were removed

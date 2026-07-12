@@ -1,19 +1,25 @@
 ---
-phase: contract-approved
-current_sprint: upstream-openai-fast-flex-user-scope-s71
+phase: done
+current_sprint: upstream-v0151-followups-s71-s73
 total_sprints: 73
-pending_action: dispatch S71 user-scoped Fast/Flex Generator
+pending_action: await explicit authorization to merge the integration branch into main or start another independent Sprint
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-12 11:06 +08:00
+last_verified: 2026-07-12 12:30 +08:00
 ---
 
 # Workflow Status
 
-- Current phase: `contract-approved`; S71-S73 passed independent semantic and command-gate reviews.
-- Current wave: user-scoped Fast/Flex -> bare GPT-5.6 alias/catalog -> UserBreakdown legacy request-type fallback.
-- All three contracts use isolated ownership and explicitly freeze payment concurrency `fc66a30ff`, Cyber migration, deployment, and the main-worktree `knowledge/05-current-focus.md` change.
+- Current phase: `done`; S71-S73 were integrated in order and each passed fresh independent QA.
+- Integration branch: `codex/upstream-v0151-followups-s71-s73`; final evaluated head before workflow closeout: `5e4b08af9`.
+- S71 adds trusted user-scoped Fast/Flex policy across managed HTTP, API-key/OAuth passthrough HTTP, parsed WS, passthrough WS, DTO/settings, and the admin UI. Independent review found one i18n namespace bug; fix commit `24c22c9a9` and retest closed it before integration.
+- S72 adds the strict bare `gpt-5.6` Sol alias/catalog, billing candidates, frontend whitelist/preset, and OpenCode `max` variants without collapsing unknown suffixes or explicit Terra/Luna models.
+- S73 adds aliased legacy `request_type` fallback only to `GetUserBreakdownStats`, preserving RequestType+Stream AND semantics, seven-column scans, ordering/LIMIT, leaderboard behavior, and ordinary inclusion of leaderboard-excluded users.
+- Combined verification passed backend exact discovery `S71=4 / S72=6 / S73=2`, HTTP/WS and repository regressions, frontend `3 files / 46 tests`, typecheck, and a 35-path contract/workflow audit.
+- Final evidence: `docs/workflow/qa-reports/upstream-v0151-followups-s71-s73-qa.md` plus the three Sprint QA reports. No main merge, remote push, deployment, or container update was performed.
+- All three contracts kept payment concurrency `fc66a30ff`, Cyber migration, deployment, and the main-worktree `knowledge/05-current-focus.md` change outside scope.
+- Cleanup audit proved all six Generator/QA branches patch-equivalent (`git cherry` only `-` entries); their clean worktrees and local branches were removed. The integration worktree remains.
 
 - Current phase: `done`.
 - Current Sprint: `leaderboard-participation-exclusion-s70`.

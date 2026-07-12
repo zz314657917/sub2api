@@ -522,3 +522,13 @@
 - 本段重点：保留左教程目录贴边和正文居中，将右侧本页目录从视口最右侧移动到正文右侧邻接位置。
 - 关键决策：不改 DOM、正文宽度和移动断点；通过五列 grid 的前后弹性列保持正文位置，同时把 TOC 固定在正文后一列。
 - 验证记录：3 files / 21 tests、typecheck、`git diff --check` PASS；`2560px` 正文到 TOC `32px`，`1280px` 为 `19px`，`390px` 移动交互与无溢出检查 PASS。
+
+## 2026-07-12 12:21 +08:00 - 上游 follow-up S71-S73 集成验收完成
+
+- 当前阶段：P/G/E `upstream-v0151-followups-s71-s73` 已在隔离集成分支完成，尚未合入 `main`、未推送、未部署、未更新容器。
+- 本段重点：依次完成用户级 OpenAI Fast/Flex 策略、裸 `gpt-5.6` Sol alias/catalog、UserBreakdown legacy `request_type` fallback。
+- 多智能体：三个 Generator、三次预集成语义审查、三个 fresh integration QA worktree；S71 首轮 review 找到 i18n namespace 错位，原 Generator 修复后独立复审与正式 QA 均 PASS。
+- 验证记录：S71/S72/S73 精确后端 discovery 为 `4/6/2`；HTTP/WS capture、repository/leaderboard 回归通过；前端 `3 files / 46 tests` 与 typecheck 通过；35 个变更路径全部落在合同与 workflow 允许集合。
+- 证据入口：`docs/workflow/qa-reports/upstream-v0151-followups-s71-s73-qa.md`，以及三个 Sprint 独立 QA 报告。
+- 清理记录：6 个 Generator/QA 分支的 `git cherry` 均无 `+` unique commit；对应 clean worktree 与本地分支已删除，仅保留汇总 worktree。
+- 下一步：只有在用户明确授权后，才把 `codex/upstream-v0151-followups-s71-s73` 合入 `main` 并推送；支付并发补丁 `fc66a30ff` 继续单独审计。
