@@ -25,6 +25,8 @@ Allow a Fast/Flex policy rule to target trusted platform user IDs, with user-sco
 - User, scope, tier, and model matching intersect; current whitelist/fallback action semantics remain unchanged.
 - Zero, negative, or duplicate IDs are rejected by backend validation. The UI does not silently convert invalid user input into a global rule.
 - Managed HTTP, API-key/OAuth passthrough HTTP, parsed WebSocket, and passthrough WebSocket first/follow-up frames use the same evaluator and trusted identity.
+- HTTP evidence uses fake upstream capture for managed, API-key passthrough, and OAuth passthrough requests. WebSocket evidence runs through the real proxy relay and captures first/follow-up upstream frames; helper-only assertions do not satisfy this criterion.
+- Matching/non-matching users and spoofed body/header identity are asserted on the captured upstream payloads.
 - UI loads, clones, edits, removes, and submits exact IDs; an empty list becomes global only after an explicit clear.
 
 ## Context
@@ -61,6 +63,7 @@ Allow a Fast/Flex policy rule to target trusted platform user IDs, with user-sco
 - Reuse `ctxkey.APIKeyUserID`. Do not trust client-controlled body/header identity.
 - Preserve `pass/filter/block`; do not introduce `force_priority` or another action.
 - Preserve current scope, tier, whitelist, fallback, and group-internal first-match behavior.
+- Frontend acceptance may create a temporary junction to the main worktree's existing `frontend/node_modules`; it must remove only that junction after the checks and must not install or update dependencies.
 - Do not repair unrelated unit-tag or full-suite drift.
 
 ## Acceptance Commands
@@ -72,17 +75,38 @@ $serviceList = @(go test ./internal/service -list $servicePattern)
 if ($LASTEXITCODE -ne 0 -or @($serviceList | Where-Object { $_ -match '^Test' }).Count -ne 4) { throw "S71 service test discovery failed" }
 go test ./internal/service -run $servicePattern -count=1
 if ($LASTEXITCODE -ne 0) { throw "S71 service tests failed" }
+$middlewarePattern = "^TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToManagedAndPassthroughHTTP$"
+$middlewareList = @(go test ./internal/server/middleware -list $middlewarePattern)
+if ($LASTEXITCODE -ne 0 -or @($middlewareList | Where-Object { $_ -match '^Test' }).Count -ne 1) { throw "S71 HTTP test discovery failed" }
 go test ./internal/server/middleware -run "^TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToManagedAndPassthroughHTTP$" -count=1
 if ($LASTEXITCODE -ne 0) { throw "S71 HTTP forwarding test failed" }
+$dtoPattern = "^TestOpenAIFastPolicySettingsFromDTO_PreservesUserIDs$"
+$dtoList = @(go test ./internal/handler/admin -list $dtoPattern)
+if ($LASTEXITCODE -ne 0 -or @($dtoList | Where-Object { $_ -match '^Test' }).Count -ne 1) { throw "S71 DTO test discovery failed" }
 go test ./internal/handler/admin -run "^TestOpenAIFastPolicySettingsFromDTO_PreservesUserIDs$" -count=1
 if ($LASTEXITCODE -ne 0) { throw "S71 DTO test failed" }
 go test ./internal/service -run "Test.*OpenAIFastPolicy|Test.*PassthroughBilling" -count=1
 if ($LASTEXITCODE -ne 0) { throw "S71 service regressions failed" }
 Pop-Location
-cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/views/admin/__tests__/SettingsView.spec.ts -t `"loads, edits, and submits OpenAI Fast policy user IDs without widening scope`""
-if ($LASTEXITCODE -ne 0) { throw "S71 frontend test failed" }
-cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend run typecheck"
-if ($LASTEXITCODE -ne 0) { throw "S71 frontend typecheck failed" }
+$frontendModules = Join-Path $PWD "frontend/node_modules"
+$sharedModules = "F:/mcplugins/sub2api/frontend/node_modules"
+$createdModulesJunction = $false
+if (-not (Test-Path -LiteralPath $frontendModules)) {
+  if (-not (Test-Path -LiteralPath $sharedModules)) { throw "Shared frontend dependencies are unavailable" }
+  New-Item -ItemType Junction -Path $frontendModules -Target $sharedModules | Out-Null
+  $createdModulesJunction = $true
+}
+try {
+  $frontendTest = "loads, edits, and submits OpenAI Fast policy user IDs without widening scope"
+  $frontendList = @(cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest list src/views/admin/__tests__/SettingsView.spec.ts -t `"$frontendTest`" --no-color")
+  if ($LASTEXITCODE -ne 0 -or @($frontendList | Where-Object { $_ -match [regex]::Escape($frontendTest) }).Count -ne 1) { throw "S71 frontend test discovery failed" }
+  cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/views/admin/__tests__/SettingsView.spec.ts -t `"$frontendTest`""
+  if ($LASTEXITCODE -ne 0) { throw "S71 frontend test failed" }
+  cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend run typecheck"
+  if ($LASTEXITCODE -ne 0) { throw "S71 frontend typecheck failed" }
+} finally {
+  if ($createdModulesJunction) { Remove-Item -LiteralPath $frontendModules -Force }
+}
 $dirty = @(git status --porcelain --untracked-files=all)
 if ($dirty.Count -gt 0) { throw "S71 acceptance requires a clean committed worktree: $($dirty -join ', ')" }
 $base = (git merge-base HEAD codex/upstream-v0151-followups-s71-s73).Trim()

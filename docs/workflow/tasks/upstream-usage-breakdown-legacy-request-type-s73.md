@@ -25,6 +25,7 @@ Make UserBreakdown request-type filters include legacy rows whose canonical `req
 - WS v2 fallback includes only `request_type=0, openai_ws_mode=true`.
 - Explicit nonzero request types remain authoritative; legacy flags do not reclassify them.
 - Current RequestType+Stream extra-AND behavior, seven-column scan, actual-cost ordering, limits, dimensions, and S70 leaderboard exclusion behavior remain unchanged.
+- The required SQL matrix executes a non-empty seven-column row scan, asserts the extra Stream AND when both filters are present, preserves `ORDER BY actual_cost DESC` and `LIMIT`, and proves ordinary breakdown SQL does not contain `exclude_from_leaderboard`.
 
 ## Allowed Paths
 
@@ -41,6 +42,7 @@ Make UserBreakdown request-type filters include legacy rows whose canonical `req
 - Do not copy upstream `usage_log_repo_trend.go`; local query lives in `usage_log_repo.go`.
 - Use only untagged tests. Do not repair unrelated unit-tag drift.
 - Ordinary breakdown continues to include leaderboard-excluded users.
+- Production hunks are limited to `buildRequestTypeFilterCondition`, its new alias-aware helper, and `GetUserBreakdownStats`; changes to any leaderboard function are forbidden even though they share the same file.
 
 ## Acceptance Commands
 
@@ -53,6 +55,10 @@ go test ./internal/repository -run $pattern -count=1
 if ($LASTEXITCODE -ne 0) { throw "S73 required tests failed" }
 go test ./internal/repository -run "^(TestBuildRequestTypeFilterConditionLegacyFallback|TestBuildRequestTypeFilterConditionWithAliasLegacyFallbackMatrix|TestGetUserBreakdownStatsRequestTypeLegacyFallbackMatrix)$" -count=1
 if ($LASTEXITCODE -ne 0) { throw "S73 request-type regressions failed" }
+$leaderboardList = @(go test ./internal/repository -list "^TestUsageLogRepositoryGetUserLeaderboard")
+if ($LASTEXITCODE -ne 0 -or @($leaderboardList | Where-Object { $_ -match '^Test' }).Count -lt 1) { throw "S73 leaderboard regression discovery failed" }
+go test ./internal/repository -run "^TestUsageLogRepositoryGetUserLeaderboard" -count=1
+if ($LASTEXITCODE -ne 0) { throw "S73 leaderboard regressions failed" }
 go test ./internal/repository -run "^$" -count=1
 if ($LASTEXITCODE -ne 0) { throw "S73 repository compile failed" }
 Pop-Location
@@ -65,6 +71,9 @@ $allowed = @(
 )
 $unexpected = @(git diff --name-only "$base..HEAD" | Where-Object { $_ -notin $allowed })
 if ($unexpected.Count -gt 0) { throw "S73 path audit failed: $($unexpected -join ', ')" }
+$productionDiff = @(git diff --function-context --unified=0 "$base..HEAD" -- backend/internal/repository/usage_log_repo.go)
+$unexpectedHunks = @($productionDiff | Where-Object { $_ -match '^@@' -and $_ -notmatch 'buildRequestTypeFilterCondition|GetUserBreakdownStats' })
+if ($unexpectedHunks.Count -gt 0) { throw "S73 production hunk audit failed: $($unexpectedHunks -join ', ')" }
 git diff --check "$base..HEAD"
 if ($LASTEXITCODE -ne 0) { throw "S73 diff check failed" }
 ```
