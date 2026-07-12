@@ -46,19 +46,28 @@ const (
 )
 
 type SupportTicket struct {
-	ID                 int64      `json:"id"`
-	UserID             int64      `json:"user_id"`
-	Title              string     `json:"title"`
-	Status             string     `json:"status"`
-	TicketType         string     `json:"ticket_type"`
-	SystemKey          string     `json:"system_key,omitempty"`
-	LastMessagePreview string     `json:"last_message_preview"`
-	LastMessageAt      time.Time  `json:"last_message_at"`
-	UserUnreadCount    int        `json:"user_unread_count"`
-	AdminUnreadCount   int        `json:"admin_unread_count"`
-	CreatedAt          time.Time  `json:"created_at"`
-	UpdatedAt          time.Time  `json:"updated_at"`
-	ClosedAt           *time.Time `json:"closed_at,omitempty"`
+	ID                 int64              `json:"id"`
+	UserID             int64              `json:"user_id"`
+	User               *TicketUserSummary `json:"-"`
+	Title              string             `json:"title"`
+	Status             string             `json:"status"`
+	TicketType         string             `json:"ticket_type"`
+	SystemKey          string             `json:"system_key,omitempty"`
+	LastMessagePreview string             `json:"last_message_preview"`
+	LastMessageAt      time.Time          `json:"last_message_at"`
+	UserUnreadCount    int                `json:"user_unread_count"`
+	AdminUnreadCount   int                `json:"admin_unread_count"`
+	CreatedAt          time.Time          `json:"created_at"`
+	UpdatedAt          time.Time          `json:"updated_at"`
+	ClosedAt           *time.Time         `json:"closed_at,omitempty"`
+}
+
+// TicketUserSummary is the minimal user context loaded with an admin ticket.
+// It is deliberately kept separate from the full administrator user response.
+type TicketUserSummary struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
 }
 
 type SupportTicketMessage struct {

@@ -32,7 +32,7 @@ func (r *ticketRepository) ListTickets(ctx context.Context, filter service.Ticke
 
 	offset := (filter.Page - 1) * filter.PageSize
 	queryArgs := append(append([]any{}, args...), filter.PageSize, offset)
-	query := ticketSelectSQL() + where + `
+	query := ticketWithUserSelectSQL() + where + `
 		ORDER BY ` + ticketOrderBySQL(filter) + `
 		LIMIT $` + placeholder(len(queryArgs)-1) + ` OFFSET $` + placeholder(len(queryArgs)) + `
 	`
@@ -44,7 +44,7 @@ func (r *ticketRepository) ListTickets(ctx context.Context, filter service.Ticke
 
 	items := make([]service.SupportTicket, 0)
 	for rows.Next() {
-		item, err := scanTicket(rows)
+		item, err := scanTicketWithUser(rows)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -62,12 +62,12 @@ func ticketOrderBySQL(filter service.TicketListFilter) string {
 		if filter.UnreadFor == service.TicketSenderUser {
 			unreadField = "user_unread_count"
 		}
-		return `CASE WHEN ticket_type = 'system' THEN 0 ELSE 1 END, ` + unreadField + ` DESC, last_message_at DESC, id DESC`
+		return `CASE WHEN support_tickets.ticket_type = 'system' THEN 0 ELSE 1 END, support_tickets.` + unreadField + ` DESC, support_tickets.last_message_at DESC, support_tickets.id DESC`
 	}
 	if filter.SortOrder == "asc" {
-		return `CASE WHEN ticket_type = 'system' THEN 0 ELSE 1 END, last_message_at ASC, id ASC`
+		return `CASE WHEN support_tickets.ticket_type = 'system' THEN 0 ELSE 1 END, support_tickets.last_message_at ASC, support_tickets.id ASC`
 	}
-	return `CASE WHEN ticket_type = 'system' THEN 0 ELSE 1 END, last_message_at DESC, id DESC`
+	return `CASE WHEN support_tickets.ticket_type = 'system' THEN 0 ELSE 1 END, support_tickets.last_message_at DESC, support_tickets.id DESC`
 }
 
 func (r *ticketRepository) GetUserUnreadSummary(ctx context.Context, userID int64) (service.TicketUnreadSummary, error) {
@@ -136,14 +136,15 @@ func (r *ticketRepository) createTicketWithMessage(ctx context.Context, userID i
 }
 
 func (r *ticketRepository) GetTicket(ctx context.Context, ticketID int64) (*service.SupportTicket, error) {
-	query := ticketSelectSQL() + ` WHERE id = $1`
+	query := ticketWithUserSelectSQL() + ` WHERE support_tickets.id = $1`
 	var ticket service.SupportTicket
-	if err := scanSingleRow(ctx, r.sql, query, []any{ticketID}, ticketScanDest(&ticket)...); err != nil {
+	if err := scanSingleRow(ctx, r.sql, query, []any{ticketID}, ticketWithUserScanDest(&ticket)...); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
 		}
 		return nil, err
 	}
+	normalizeTicketUserSummary(&ticket)
 	return &ticket, nil
 }
 
@@ -349,15 +350,15 @@ func buildTicketWhere(filter service.TicketListFilter) (string, []any) {
 	args := make([]any, 0, 2)
 	if filter.UserID > 0 {
 		args = append(args, filter.UserID)
-		clauses = append(clauses, `user_id = $`+placeholder(len(args)))
+		clauses = append(clauses, `support_tickets.user_id = $`+placeholder(len(args)))
 	}
 	if filter.Status != "" {
 		args = append(args, filter.Status)
-		clauses = append(clauses, `status = $`+placeholder(len(args)))
+		clauses = append(clauses, `support_tickets.status = $`+placeholder(len(args)))
 	}
 	if filter.TicketType != "" {
 		args = append(args, filter.TicketType)
-		clauses = append(clauses, `ticket_type = $`+placeholder(len(args)))
+		clauses = append(clauses, `support_tickets.ticket_type = $`+placeholder(len(args)))
 	}
 	if filter.EventType != "" {
 		args = append(args, filter.EventType)
@@ -381,18 +382,18 @@ func buildTicketWhere(filter service.TicketListFilter) (string, []any) {
 	}
 	if !filter.DateFrom.IsZero() {
 		args = append(args, filter.DateFrom.UTC())
-		clauses = append(clauses, `last_message_at >= $`+placeholder(len(args)))
+		clauses = append(clauses, `support_tickets.last_message_at >= $`+placeholder(len(args)))
 	}
 	if !filter.DateTo.IsZero() {
 		args = append(args, endOfTicketFilterDay(filter.DateTo))
-		clauses = append(clauses, `last_message_at < $`+placeholder(len(args)))
+		clauses = append(clauses, `support_tickets.last_message_at < $`+placeholder(len(args)))
 	}
 	if filter.UnreadOnly {
 		switch filter.UnreadFor {
 		case service.TicketSenderUser:
-			clauses = append(clauses, `user_unread_count > 0`)
+			clauses = append(clauses, `support_tickets.user_unread_count > 0`)
 		case service.TicketSenderAdmin:
-			clauses = append(clauses, `admin_unread_count > 0`)
+			clauses = append(clauses, `support_tickets.admin_unread_count > 0`)
 		}
 	}
 	if filter.Search != "" {
@@ -430,10 +431,21 @@ func endOfTicketFilterDay(value time.Time) time.Time {
 
 func ticketSelectSQL() string {
 	return `
-		SELECT id, user_id, title, status, ticket_type, COALESCE(system_key, ''),
-			last_message_preview, last_message_at,
-			user_unread_count, admin_unread_count, created_at, updated_at, closed_at
+		SELECT support_tickets.id, support_tickets.user_id, support_tickets.title, support_tickets.status, support_tickets.ticket_type, COALESCE(support_tickets.system_key, ''),
+			support_tickets.last_message_preview, support_tickets.last_message_at,
+			support_tickets.user_unread_count, support_tickets.admin_unread_count, support_tickets.created_at, support_tickets.updated_at, support_tickets.closed_at
 		FROM support_tickets
+	`
+}
+
+func ticketWithUserSelectSQL() string {
+	return `
+		SELECT support_tickets.id, support_tickets.user_id, support_tickets.title, support_tickets.status, support_tickets.ticket_type, COALESCE(support_tickets.system_key, ''),
+			support_tickets.last_message_preview, support_tickets.last_message_at,
+			support_tickets.user_unread_count, support_tickets.admin_unread_count, support_tickets.created_at, support_tickets.updated_at, support_tickets.closed_at,
+			COALESCE(ticket_user.id, 0), COALESCE(ticket_user.username, ''), COALESCE(ticket_user.email, '')
+		FROM support_tickets
+		LEFT JOIN users ticket_user ON ticket_user.id = support_tickets.user_id
 	`
 }
 
@@ -442,6 +454,15 @@ func scanTicket(row interface{ Scan(dest ...any) error }) (service.SupportTicket
 	if err := row.Scan(ticketScanDest(&ticket)...); err != nil {
 		return ticket, err
 	}
+	return ticket, nil
+}
+
+func scanTicketWithUser(row interface{ Scan(dest ...any) error }) (service.SupportTicket, error) {
+	var ticket service.SupportTicket
+	if err := row.Scan(ticketWithUserScanDest(&ticket)...); err != nil {
+		return ticket, err
+	}
+	normalizeTicketUserSummary(&ticket)
 	return ticket, nil
 }
 
@@ -460,6 +481,21 @@ func ticketScanDest(ticket *service.SupportTicket) []any {
 		&ticket.CreatedAt,
 		&ticket.UpdatedAt,
 		&ticket.ClosedAt,
+	}
+}
+
+func ticketWithUserScanDest(ticket *service.SupportTicket) []any {
+	ticket.User = &service.TicketUserSummary{}
+	return append(ticketScanDest(ticket),
+		&ticket.User.ID,
+		&ticket.User.Username,
+		&ticket.User.Email,
+	)
+}
+
+func normalizeTicketUserSummary(ticket *service.SupportTicket) {
+	if ticket.User != nil && ticket.User.ID == 0 {
+		ticket.User = nil
 	}
 }
 

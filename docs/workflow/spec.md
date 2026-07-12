@@ -7,6 +7,32 @@ last_verified: 2026-07-03 19:30 +08:00
 
 # Workflow Spec
 
+## S72 Addendum: admin usage column-menu stacking
+
+### 一句话目标
+
+- 修复管理端使用记录中“列设置”及筛选下拉被固定表头/记录遮挡的问题，让筛选卡片的浮层稳定位于表格之上。
+
+### 边界与验收
+
+- `UsageFilters` 当前为 `z-30`，而 `DataTable` 固定表头最高为 `z-index: 220`；仅在 `showColumnDropdown` 为真时，从 `UsageView` 向筛选组件传入 `z-[221]`。
+- 不修改 `DataTable`、`UsageTable`、筛选状态、菜单交互或请求逻辑，也不引入 Teleport。
+- 视图测试锁定菜单打开/关闭时筛选卡片的动态层级；跑定向 Vitest、typecheck、production build 与 `git diff --check`。
+
+## S71 Addendum: support ticket user context
+
+### 一句话目标
+
+- 让管理员在工单管理中直接看到用户的用户名和注册邮箱，并可从工单详情以只读方式打开现有用户信息弹窗，查看最近使用、订阅订单和充值/余额流水。
+
+### 边界与验收
+
+- 管理端工单列表和详情只增加 `{ id, username, email }` 用户摘要；用户侧工单接口不能新增该字段，完整 `AdminUser` 只能在管理员主动点击后通过既有 `/admin/users/:id` 接口获取。
+- 资料摘要必须由工单查询一次性关联用户表获得，不能在前端按工单逐条请求用户，避免 N+1。
+- 管理端必须使用独立的 ticket DTO mapper 填充摘要；原有用户侧 mapper 和序列化结果必须继续不含 `user` 摘要，并由定向测试锁定。
+- `UserBalanceHistoryModal` 在工单页以 `hideActions` 只读模式复用；最近使用请求最近 30 条，并以固定高度的纵向滚动区域展示，不应撑高整个弹窗。
+- 不修改数据库 schema、支付/余额/订阅业务、鉴权路由或用户端工单界面。
+
 ## S45 Addendum: affiliate risk scoring and alert scanner
 
 ### 一句话目标

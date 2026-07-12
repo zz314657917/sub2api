@@ -32,6 +32,8 @@ export default {
   noTicketSelected: 'Select a ticket on the left',
   noMessages: 'No messages yet',
   userInfo: 'User #{id}',
+  viewUserInfo: 'User Information',
+  userInfoLoadFailed: 'Failed to load user information',
   sent: 'Reply sent',
   closedSuccess: 'Ticket closed',
   reopenedSuccess: 'Ticket reopened',

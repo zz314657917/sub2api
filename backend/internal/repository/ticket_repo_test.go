@@ -1,12 +1,23 @@
 package repository
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
+
+func TestTicketWithUserSelectSQL_UsesSingleUserJoin(t *testing.T) {
+	query := ticketWithUserSelectSQL()
+
+	require.Contains(t, query, "LEFT JOIN users ticket_user ON ticket_user.id = support_tickets.user_id")
+	require.Contains(t, query, "COALESCE(ticket_user.id, 0)")
+	require.Contains(t, query, "COALESCE(ticket_user.username, '')")
+	require.Contains(t, query, "COALESCE(ticket_user.email, '')")
+	require.Equal(t, 1, strings.Count(query, "JOIN users"))
+}
 
 func TestBuildTicketWhere_SystemAuditFilters(t *testing.T) {
 	from := time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC)

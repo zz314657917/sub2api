@@ -227,3 +227,14 @@
 260711 1706 | upstream-v0151-s65-s70 | merged-main | codex | d6ff6a158; post-merge backend, frontend 62 tests, typecheck, migrations and diff-check PASS
 260711 1706 | upstream-v0151-s65-s70 | pushed-main | codex | origin/main verified at d6ff6a158
 260711 1708 | upstream-v0151-s65-s70 | merged-branches-cleaned | codex | local main only; origin main only; upstream refs preserved
+260712 1919 | support-ticket-user-context-s71 | contract-draft | codex | docs/workflow/tasks/support-ticket-user-context-s71.md
+260712 1922 | support-ticket-user-context-s71 | contract-revised | codex | add repository SQL assertion, service regression, and admin-only DTO mapper boundary
+260712 1924 | support-ticket-user-context-s71 | contract-approved | evaluator | revised contract PASS; begin scoped implementation
+260712 1942 | support-ticket-user-context-s71 | qa-pass | qa-worker | docs/workflow/qa-reports/support-ticket-user-context-s71-qa.md
+260712 1942 | support-ticket-user-context-s71 | done | codex | final evaluator PASS; no deployment or container update
+260712 1952 | admin-usage-column-menu-layer-s72 | contract-draft | codex | docs/workflow/tasks/admin-usage-column-menu-layer-s72.md
+260712 1956 | admin-usage-column-menu-layer-s72 | contract-revised | codex | dynamically elevate only the open column menu above sticky table headers
+260712 1958 | admin-usage-column-menu-layer-s72 | contract-approved | evaluator | dynamic z-index contract PASS; begin scoped implementation
+260712 2007 | admin-usage-column-menu-layer-s72 | build-pass | generator | docs/workflow/worker-results/admin-usage-column-menu-layer-s72-result.md; targeted Vitest, typecheck, and production build PASS
+260712 2009 | admin-usage-column-menu-layer-s72 | qa-pass | qa-worker | docs/workflow/qa-reports/admin-usage-column-menu-layer-s72-qa.md
+260712 2009 | admin-usage-column-menu-layer-s72 | done | codex | final evaluator PASS; no deployment or container update

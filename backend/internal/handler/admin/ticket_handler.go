@@ -38,7 +38,7 @@ func (h *TicketHandler) List(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Paginated(c, dto.ToTickets(items), total, filter.Page, filter.PageSize)
+	response.Paginated(c, dto.ToAdminTickets(items), total, filter.Page, filter.PageSize)
 }
 
 func (h *TicketHandler) CreateForUser(c *gin.Context) {
@@ -61,7 +61,7 @@ func (h *TicketHandler) CreateForUser(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Created(c, dto.ToTicket(*ticket))
+	response.Created(c, dto.ToAdminTicket(*ticket))
 }
 
 func (h *TicketHandler) Get(c *gin.Context) {
@@ -74,7 +74,7 @@ func (h *TicketHandler) Get(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, dto.ToTicketDetail(detail))
+	response.Success(c, dto.ToAdminTicketDetail(detail))
 }
 
 func (h *TicketHandler) AddMessage(c *gin.Context) {
@@ -97,7 +97,7 @@ func (h *TicketHandler) AddMessage(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Created(c, dto.ToTicketDetail(detail))
+	response.Created(c, dto.ToAdminTicketDetail(detail))
 }
 
 func (h *TicketHandler) MarkRead(c *gin.Context) {
@@ -110,7 +110,7 @@ func (h *TicketHandler) MarkRead(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, gin.H{"ticket": dto.ToTicket(*ticket)})
+	response.Success(c, gin.H{"ticket": dto.ToAdminTicket(*ticket)})
 }
 
 func (h *TicketHandler) Close(c *gin.Context) {
@@ -123,7 +123,7 @@ func (h *TicketHandler) Close(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, gin.H{"ticket": dto.ToTicket(*ticket)})
+	response.Success(c, gin.H{"ticket": dto.ToAdminTicket(*ticket)})
 }
 
 func (h *TicketHandler) Reopen(c *gin.Context) {
@@ -136,7 +136,7 @@ func (h *TicketHandler) Reopen(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, gin.H{"ticket": dto.ToTicket(*ticket)})
+	response.Success(c, gin.H{"ticket": dto.ToAdminTicket(*ticket)})
 }
 
 func parseTicketListFilter(c *gin.Context) service.TicketListFilter {

@@ -114,7 +114,7 @@
                   <span v-if="ticket.admin_unread_count > 0" class="unread-pill">{{ ticket.admin_unread_count }}</span>
                 </div>
                 <p class="ticket-list-user">
-                  {{ ticket.user?.email || ticket.user?.username || t('admin.tickets.userInfo', { id: ticket.user_id }) }}
+                  {{ formatTicketUser(ticket) }}
                 </p>
                 <p class="ticket-list-preview">{{ formatTicketPreview(ticket.last_message_preview) }}</p>
               </div>
@@ -154,13 +154,23 @@
             </button>
             <h2 class="truncate text-lg font-semibold text-gray-900 dark:text-white">{{ selectedTicket.title }}</h2>
             <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">
-              #{{ selectedTicket.id }} · {{ selectedTicket.user?.email || selectedTicket.user?.username || t('admin.tickets.userInfo', { id: selectedTicket.user_id }) }} · {{ formatDateTime(selectedTicket.created_at) }}
+              #{{ selectedTicket.id }} · {{ formatTicketUser(selectedTicket) }} · {{ formatDateTime(selectedTicket.created_at) }}
             </p>
             <div v-if="selectedIsSystem" class="mt-2">
               <span class="badge badge-warning">{{ t('admin.tickets.readOnlyStatus') }}</span>
             </div>
           </div>
           <div class="flex shrink-0 flex-wrap items-center gap-2">
+            <button
+              type="button"
+              data-test="ticket-user-info"
+              class="btn btn-secondary btn-sm"
+              :disabled="userInfoLoading"
+              @click="handleOpenUserInfo"
+            >
+              <Icon name="user" size="sm" />
+              {{ t('admin.tickets.viewUserInfo') }}
+            </button>
             <button v-if="selectedTicket.admin_unread_count > 0" class="btn btn-secondary btn-sm" :disabled="acting" @click="handleMarkRead">
               <Icon name="check" size="sm" />
               {{ t('admin.tickets.markRead') }}
@@ -223,6 +233,12 @@
       </section>
     </div>
   </AppLayout>
+  <UserBalanceHistoryModal
+    :show="showUserInfoModal"
+    :user="userInfo"
+    :hide-actions="true"
+    @close="closeUserInfoModal"
+  />
 </template>
 
 <script setup lang="ts">
@@ -232,10 +248,12 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import SystemTicketMetadataDetails from '@/components/tickets/SystemTicketMetadataDetails.vue'
+import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
+import { usersAPI } from '@/api/admin'
 import { adminTicketsAPI } from '@/api/admin/tickets'
 import { useAppStore } from '@/stores/app'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
-import type { AdminSupportTicketSortBy, SupportTicket, SupportTicketMessage, SupportTicketStatus, SupportTicketType } from '@/types'
+import type { AdminSupportTicketSortBy, AdminUser, SupportTicket, SupportTicketMessage, SupportTicketStatus, SupportTicketType } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -249,9 +267,12 @@ const loading = ref(false)
 const detailLoading = ref(false)
 const sending = ref(false)
 const acting = ref(false)
+const userInfoLoading = ref(false)
 const showMobileList = ref(true)
+const showUserInfoModal = ref(false)
 const replyContent = ref('')
 const messageListRef = ref<HTMLElement | null>(null)
+const userInfo = ref<AdminUser | null>(null)
 let searchTimer: ReturnType<typeof setTimeout> | null = null
 
 const filters = reactive({
@@ -307,6 +328,17 @@ function statusClass(status: SupportTicketStatus, ticketType: SupportTicket['tic
     'badge',
     ticketType === 'system' ? 'badge-warning' : status === 'closed' ? 'badge-gray' : status === 'pending_admin' ? 'badge-warning' : 'badge-success',
   ]
+}
+
+function formatTicketUser(ticket: SupportTicket): string {
+  const user = ticket.user
+  if (!user) return t('admin.tickets.userInfo', { id: ticket.user_id })
+
+  const details = [user.username, user.email]
+    .map((value) => value?.trim())
+    .filter((value): value is string => Boolean(value))
+
+  return details.length > 0 ? details.join(' · ') : t('admin.tickets.userInfo', { id: ticket.user_id })
 }
 
 function senderLabel(senderType: SupportTicketMessage['sender_type']) {
@@ -416,6 +448,25 @@ async function selectTicket(ticketId: number, closeMobileList = true) {
   selectedTicketId.value = ticketId
   if (closeMobileList) showMobileList.value = false
   await loadDetail(ticketId)
+}
+
+async function handleOpenUserInfo() {
+  if (!selectedTicket.value) return
+
+  userInfoLoading.value = true
+  try {
+    userInfo.value = await usersAPI.getById(selectedTicket.value.user_id)
+    showUserInfoModal.value = true
+  } catch {
+    appStore.showError(t('admin.tickets.userInfoLoadFailed'))
+  } finally {
+    userInfoLoading.value = false
+  }
+}
+
+function closeUserInfoModal() {
+  showUserInfoModal.value = false
+  userInfo.value = null
 }
 
 function reloadFromFirstPage() {
@@ -577,12 +628,10 @@ onMounted(() => {
 
 .ticket-list-user {
   margin-top: 0.25rem;
-  overflow: hidden;
   color: rgb(107 114 128);
   font-size: 0.75rem;
   line-height: 1.125rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .ticket-list-preview {

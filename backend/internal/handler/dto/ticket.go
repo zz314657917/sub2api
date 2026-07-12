@@ -22,6 +22,17 @@ type Ticket struct {
 	ClosedAt           *time.Time `json:"closed_at,omitempty"`
 }
 
+type AdminTicket struct {
+	Ticket
+	User *TicketUserSummary `json:"user,omitempty"`
+}
+
+type TicketUserSummary struct {
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+	Email    string `json:"email"`
+}
+
 type TicketMessage struct {
 	ID           int64     `json:"id"`
 	TicketID     int64     `json:"ticket_id"`
@@ -36,6 +47,11 @@ type TicketMessage struct {
 
 type TicketDetail struct {
 	Ticket   Ticket          `json:"ticket"`
+	Messages []TicketMessage `json:"messages"`
+}
+
+type AdminTicketDetail struct {
+	Ticket   AdminTicket     `json:"ticket"`
 	Messages []TicketMessage `json:"messages"`
 }
 
@@ -74,6 +90,29 @@ func ToTickets(tickets []service.SupportTicket) []Ticket {
 	return out
 }
 
+func ToAdminTicket(ticket service.SupportTicket) AdminTicket {
+	adminTicket := AdminTicket{Ticket: ToTicket(ticket)}
+	if ticket.User != nil {
+		adminTicket.User = &TicketUserSummary{
+			ID:       ticket.User.ID,
+			Username: ticket.User.Username,
+			Email:    ticket.User.Email,
+		}
+	}
+	return adminTicket
+}
+
+func ToAdminTickets(tickets []service.SupportTicket) []AdminTicket {
+	if tickets == nil {
+		return []AdminTicket{}
+	}
+	out := make([]AdminTicket, 0, len(tickets))
+	for _, ticket := range tickets {
+		out = append(out, ToAdminTicket(ticket))
+	}
+	return out
+}
+
 func ToTicketMessage(message service.SupportTicketMessage) TicketMessage {
 	return TicketMessage{
 		ID:           message.ID,
@@ -105,6 +144,16 @@ func ToTicketDetail(detail *service.TicketDetail) TicketDetail {
 	}
 	return TicketDetail{
 		Ticket:   ToTicket(*detail.Ticket),
+		Messages: ToTicketMessages(detail.Messages),
+	}
+}
+
+func ToAdminTicketDetail(detail *service.TicketDetail) AdminTicketDetail {
+	if detail == nil || detail.Ticket == nil {
+		return AdminTicketDetail{Messages: []TicketMessage{}}
+	}
+	return AdminTicketDetail{
+		Ticket:   ToAdminTicket(*detail.Ticket),
 		Messages: ToTicketMessages(detail.Messages),
 	}
 }

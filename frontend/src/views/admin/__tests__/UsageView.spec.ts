@@ -84,7 +84,7 @@ vi.mock('vue-router', () => ({
 }))
 
 const AppLayoutStub = { template: '<div><slot /></div>' }
-const UsageFiltersStub = { template: '<div><slot name="after-reset" /></div>' }
+const UsageFiltersStub = { template: '<div data-test="usage-filter-surface"><slot name="after-reset" /></div>' }
 const UsageTableStub = {
   props: ['columns'],
   template: '<div data-test="usage-columns">{{ columns.map((column) => column.key).join(",") }}</div>',
@@ -202,5 +202,40 @@ describe('admin UsageView distribution metric toggles', () => {
     expect(modelChart.find('.metric').text()).toBe('actual_cost')
     expect(groupChart.find('.metric').text()).toBe('actual_cost')
     expect(getSnapshotV2).toHaveBeenCalledTimes(1)
+  })
+
+  it('elevates the filter surface only while the column settings menu is open', async () => {
+    const wrapper = mount(UsageView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+          UsageStatsCards: true,
+          UsageFilters: UsageFiltersStub,
+          UsageTable: UsageTableStub,
+          UsageExportProgress: true,
+          UsageCleanupDialog: true,
+          UserBalanceHistoryModal: true,
+          Pagination: true,
+          Select: true,
+          DateRangePicker: true,
+          Icon: true,
+          TokenUsageTrend: true,
+          ModelDistributionChart: ModelDistributionChartStub,
+          GroupDistributionChart: GroupDistributionChartStub,
+        },
+      },
+    })
+
+    vi.advanceTimersByTime(120)
+    await flushPromises()
+
+    const filterSurface = wrapper.get('[data-test="usage-filter-surface"]')
+    expect(filterSurface.classes()).not.toContain('z-[221]')
+
+    await wrapper.get('[data-test="usage-column-settings"]').trigger('click')
+    expect(filterSurface.classes()).toContain('z-[221]')
+
+    await wrapper.get('[data-test="usage-column-settings"]').trigger('click')
+    expect(filterSurface.classes()).not.toContain('z-[221]')
   })
 })

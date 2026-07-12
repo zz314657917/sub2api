@@ -81,7 +81,7 @@
           <p class="text-sm text-gray-500 dark:text-dark-400">{{ t('admin.users.noRecentUsageRecords') }}</p>
         </div>
 
-        <div v-else class="space-y-2">
+        <div v-else data-test="recent-usage-list" class="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
           <div
             v-for="log in recentUsage"
             :key="log.id"
@@ -364,7 +364,7 @@ const totalRecharged = ref(0)
 const recentUsage = ref<AdminUsageLog[]>([])
 const subscriptionOrders = ref<PaymentOrder[]>([])
 const pageSize = 15
-const recentUsageLimit = 5
+const recentUsageLimit = 30
 const subscriptionOrdersLimit = 5
 const typeFilter = ref('')
 

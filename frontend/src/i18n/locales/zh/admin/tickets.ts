@@ -32,6 +32,8 @@ export default {
   noTicketSelected: '选择左侧工单查看会话',
   noMessages: '暂无消息',
   userInfo: '用户 #{id}',
+  viewUserInfo: '用户信息',
+  userInfoLoadFailed: '加载用户信息失败',
   sent: '已回复',
   closedSuccess: '已关闭工单',
   reopenedSuccess: '已重开工单',

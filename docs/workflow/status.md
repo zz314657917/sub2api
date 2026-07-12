@@ -1,23 +1,31 @@
 ---
 phase: done
-current_sprint: leaderboard-participation-exclusion-s70
-total_sprints: 70
-pending_action: select the next independent Sprint after the S65-S70 main release
+current_sprint: admin-usage-column-menu-layer-s72
+total_sprints: 72
+pending_action: select the next independent Sprint after the completed S72 stacking fix
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 17:06 +08:00
+last_verified: 2026-07-12 20:09 +08:00
 ---
 
 # Workflow Status
 
 - Current phase: `done`.
-- Current Sprint: `leaderboard-participation-exclusion-s70`.
-- New product scope is isolated from completed S69: a per-platform-user `exclude_from_leaderboard` control must exclude users before raw/daily-stats ranks, daily champions, badges, and reward eligibility, while preserving billing and ordinary usage reporting.
-- Final evaluator: PASS. The administrator-controlled user exclusion is persisted, invalidates leaderboard caches, and excludes the user from rank, champion, badge, reward, model, and trend paths. S65-S70 were merged into `main` as `d6ff6a158` and pushed to `origin/main`; no deployment or container update was performed.
+- Current Sprint: `admin-usage-column-menu-layer-s72`.
+- Final evaluator: PASS. `UsageView` adds `z-[221]` to the `UsageFilters` root only while the column-settings menu is open, putting it just above the `DataTable` sticky-header maximum of 220 and restoring its normal `z-30` layer when closed.
+- Independent QA: PASS. The S72 targeted Vitest suite (2 tests), typecheck, production build, compiled-CSS inspection, and target diff check passed; implementation remains limited to `UsageView.vue` and its test.
+- Runtime caveat: no authenticated administrator browser smoke was run because Docker, PostgreSQL, and Redis are unavailable; direct Compose in this worktree would reuse existing persisted data. No deployment or container update was performed.
+- Historical S71: admin ticket list/detail return only the joined user summary; the detail opens the existing read-only user-information modal, and recent usage requests 30 scrollable records. Targeted Go tests, 11 frontend tests, typecheck, production build, and target diff check passed.
+- Historical S70: the administrator-controlled leaderboard exclusion was persisted, invalidated leaderboard caches, and excluded the user from rank, champion, badge, reward, model, and trend paths. S65-S70 were merged into `main` as `d6ff6a158` and pushed to `origin/main`; no deployment or container update was performed.
 - Post-release cleanup removed the fully merged local S69/S70 branches and remote S70/group-buy branches; local and origin now retain only `main` for this repository.
 
 - 当前阶段：`done`。
+- 当前 Sprint：`admin-usage-column-menu-layer-s72`。
+- 最终 Evaluator：PASS。`UsageView` 仅在列设置菜单打开时给 `UsageFilters` 根卡片追加 `z-[221]`，恰好高于 `DataTable` 固定表头最高层级 220；关闭后恢复原有 `z-30`。
+- 独立 QA：PASS。S72 定向 Vitest（2 个测试）、typecheck、production build、编译 CSS 检查和目标 diff check 均通过；实现限定在 `UsageView.vue` 及其测试。
+- 运行态缺口：Docker、PostgreSQL、Redis 不可用，因此未做带真实管理员会话的浏览器 smoke；直接在本工作树启动 Compose 会复用已有持久化数据。本轮未部署、未更新容器。
+- 历史 S71：管理端工单列表/详情现已返回最小用户摘要；详情可打开既有只读用户信息弹窗；最近使用请求 30 条并在固定滚动区展示。定向 Go 测试、前端 11 个用例、类型检查、生产构建和目标 diff check 均通过。
 - 历史 Sprint：`upstream-gpt56-priority-cache-billing-s69`。
 - S69 独立 QA 报告 `docs/workflow/qa-reports/upstream-gpt56-priority-cache-billing-s69-qa.md` 首行 PASS；主控最终裁决为 DONE。GPT-5.6 Priority cache-write 专价、override、272k、Flex、breakdown 和 RecordUsage 均已闭环。S69 已随 S65-S70 集成历史合入并推送到 `main`；尚未部署。
 - S69 Generator 实现已集成为 `d5a1aef0b`，worker result 收口为 `07399e50d`；独立代码审查 PASS，8 个 changed paths 全部在 contract allowlist；随后 fresh worktree 独立 QA 也已 PASS。

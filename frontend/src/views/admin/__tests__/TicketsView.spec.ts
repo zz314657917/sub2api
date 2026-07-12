@@ -12,6 +12,10 @@ const { list, get, createMessage, close, reopen, markRead } = vi.hoisted(() => (
   markRead: vi.fn(),
 }))
 
+const { getUserById } = vi.hoisted(() => ({
+  getUserById: vi.fn(),
+}))
+
 const { showError, showSuccess } = vi.hoisted(() => ({
   showError: vi.fn(),
   showSuccess: vi.fn(),
@@ -33,6 +37,13 @@ vi.mock('@/api/admin/tickets', () => ({
     markRead,
     close,
     reopen,
+  },
+}))
+
+vi.mock('@/api/admin', () => ({
+  adminAPI: {},
+  usersAPI: {
+    getById: getUserById,
   },
 }))
 
@@ -114,6 +125,10 @@ function mountView() {
         AppLayout: { template: '<div><slot /></div>' },
         Icon: { template: '<span />' },
         Pagination: { template: '<div />' },
+        UserBalanceHistoryModal: {
+          props: ['show', 'user', 'hideActions'],
+          template: '<div data-test="ticket-user-history-modal" :data-show="show" :data-user-id="user ? user.id : null" :data-hide-actions="hideActions ? \'true\' : \'false\'" />',
+        },
       },
     },
   })
@@ -139,6 +154,11 @@ describe('admin TicketsView', () => {
     close.mockReset().mockResolvedValue(undefined)
     reopen.mockReset().mockResolvedValue(undefined)
     markRead.mockReset().mockResolvedValue(undefined)
+    getUserById.mockReset().mockResolvedValue({
+      id: 12,
+      email: 'user@example.com',
+      username: 'user',
+    })
     showError.mockReset()
     showSuccess.mockReset()
   })
@@ -155,11 +175,53 @@ describe('admin TicketsView', () => {
     expect(markRead).toHaveBeenCalledWith(9)
     expect(wrapper.find('.unread-pill').exists()).toBe(false)
     expect(wrapper.text()).toContain('账单问题')
+    expect(wrapper.text()).toContain('user · user@example.com')
     expect(wrapper.text()).toContain('user@example.com')
     expect(wrapper.text()).toContain('用户留言')
     expect(wrapper.text()).toContain('admin.tickets.supportDefaultHint')
     expect(dispatchSpy).toHaveBeenCalledWith(expect.objectContaining({ type: 'sub2api:ticket-unread-updated' }))
     dispatchSpy.mockRestore()
+  })
+
+  it('falls back to the user ID when the ticket summary is absent', async () => {
+    list.mockResolvedValueOnce({
+      items: [{ ...ticket(), user: null }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+    get.mockResolvedValueOnce({ ticket: { ...ticket(), user: null }, messages: [] })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('admin.tickets.userInfo:{"id":12}')
+  })
+
+  it('loads the full user and opens the read-only user information modal', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="ticket-user-info"]').trigger('click')
+    await flushPromises()
+
+    expect(getUserById).toHaveBeenCalledWith(12)
+    const modal = wrapper.get('[data-test="ticket-user-history-modal"]')
+    expect(modal.attributes('data-show')).toBe('true')
+    expect(modal.attributes('data-user-id')).toBe('12')
+    expect(modal.attributes('data-hide-actions')).toBe('true')
+  })
+
+  it('shows the localized error when loading user information fails', async () => {
+    getUserById.mockRejectedValueOnce(new Error())
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="ticket-user-info"]').trigger('click')
+    await flushPromises()
+
+    expect(showError).toHaveBeenCalledWith('admin.tickets.userInfoLoadFailed')
   })
 
   it('keeps admin unread list state on mobile until the admin opens a conversation', async () => {

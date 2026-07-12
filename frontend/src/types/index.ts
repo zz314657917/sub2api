@@ -127,6 +127,12 @@ export type SupportTicketActionType =
 export type AdminSupportTicketSortBy = 'last_message_at' | 'unread_first'
 export type SortOrder = 'asc' | 'desc'
 
+export interface SupportTicketUserSummary {
+  id: number
+  username: string
+  email: string
+}
+
 export interface SupportTicket {
   id: number
   user_id: number
@@ -141,7 +147,7 @@ export interface SupportTicket {
   created_at: string
   updated_at: string
   closed_at?: string | null
-  user?: User | null
+  user?: SupportTicketUserSummary | null
 }
 
 export interface SupportTicketMessage {

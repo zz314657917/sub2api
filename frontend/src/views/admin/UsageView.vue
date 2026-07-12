@@ -64,10 +64,11 @@
           <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
         </div>
       </div>
-      <UsageFilters v-model="filters" :start-date="startDate" :end-date="endDate" :exporting="exporting" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
+      <UsageFilters v-model="filters" :start-date="startDate" :end-date="endDate" :exporting="exporting" :class="{ 'z-[221]': showColumnDropdown }" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
         <template #after-reset>
           <div class="relative" ref="columnDropdownRef">
             <button
+              data-test="usage-column-settings"
               @click="showColumnDropdown = !showColumnDropdown"
               class="btn btn-secondary px-2 md:px-3"
               :title="t('admin.users.columnSettings')"
