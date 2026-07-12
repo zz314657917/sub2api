@@ -6,7 +6,7 @@
 
 ## Status
 
-`draft`
+`approved`
 
 ## Role
 
@@ -78,9 +78,9 @@ try {
   $whitelistTest = "exposes bare GPT-5.6 in whitelist and preset mappings without collapsing explicit variants"
   $openCodeTest = "generates OpenCode config for bare and explicit GPT-5.6 max variants"
   $whitelistList = @(cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest list src/composables/__tests__/useModelWhitelist.spec.ts -t `"$whitelistTest`" --no-color")
-  if ($LASTEXITCODE -ne 0 -or @($whitelistList | Where-Object { $_ -match [regex]::Escape($whitelistTest) }).Count -ne 1) { throw "S72 whitelist test discovery failed" }
+  if ($LASTEXITCODE -ne 0 -or @($whitelistList | Where-Object { $_ -match ([regex]::Escape($whitelistTest) + '$') }).Count -ne 1) { throw "S72 whitelist test discovery failed" }
   $openCodeList = @(cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest list src/components/keys/__tests__/UseKeyModal.spec.ts -t `"$openCodeTest`" --no-color")
-  if ($LASTEXITCODE -ne 0 -or @($openCodeList | Where-Object { $_ -match [regex]::Escape($openCodeTest) }).Count -ne 1) { throw "S72 OpenCode test discovery failed" }
+  if ($LASTEXITCODE -ne 0 -or @($openCodeList | Where-Object { $_ -match ([regex]::Escape($openCodeTest) + '$') }).Count -ne 1) { throw "S72 OpenCode test discovery failed" }
   cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/composables/__tests__/useModelWhitelist.spec.ts -t `"$whitelistTest`""
   if ($LASTEXITCODE -ne 0) { throw "S72 whitelist test failed" }
   cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/components/keys/__tests__/UseKeyModal.spec.ts -t `"$openCodeTest`""

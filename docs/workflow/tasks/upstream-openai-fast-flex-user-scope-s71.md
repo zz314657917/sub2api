@@ -6,7 +6,7 @@
 
 ## Status
 
-`draft`
+`approved`
 
 ## Role
 
@@ -99,7 +99,7 @@ if (-not (Test-Path -LiteralPath $frontendModules)) {
 try {
   $frontendTest = "loads, edits, and submits OpenAI Fast policy user IDs without widening scope"
   $frontendList = @(cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest list src/views/admin/__tests__/SettingsView.spec.ts -t `"$frontendTest`" --no-color")
-  if ($LASTEXITCODE -ne 0 -or @($frontendList | Where-Object { $_ -match [regex]::Escape($frontendTest) }).Count -ne 1) { throw "S71 frontend test discovery failed" }
+  if ($LASTEXITCODE -ne 0 -or @($frontendList | Where-Object { $_ -match ([regex]::Escape($frontendTest) + '$') }).Count -ne 1) { throw "S71 frontend test discovery failed" }
   cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend exec vitest run src/views/admin/__tests__/SettingsView.spec.ts -t `"$frontendTest`""
   if ($LASTEXITCODE -ne 0) { throw "S71 frontend test failed" }
   cmd.exe /d /s /c "corepack.cmd pnpm --dir frontend run typecheck"
