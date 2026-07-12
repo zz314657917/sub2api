@@ -2,29 +2,31 @@
 phase: done
 current_sprint: upstream-v0151-followups-s71-s73
 total_sprints: 75
-pending_action: run merged-main regression, publish S71-S73 to origin/main, and clean release branches
+pending_action: publish the validated release commit to origin/main, verify the remote head, and clean merged release branches
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-12 20:46 +08:00
+last_verified: 2026-07-12 20:58 +08:00
 ---
 
 # Workflow Status
 
-- Current phase: `done`; S71-S73 were integrated in order and each passed fresh independent QA.
-- Integration branch: `codex/upstream-v0151-followups-s71-s73`; final evaluated head before workflow closeout: `5e4b08af9`.
+- Current phase: `done`; S71-S73 were integrated in order, merged with the latest local main, and passed fresh post-merge regression.
+- Release merge `ccac358e4` has parents `f6ee836d4` (latest main) and `d101ac2d2` (S71-S73 integration/workflow closeout). The final evaluated business head before integration closeout was `5e4b08af9`.
 - S71 adds trusted user-scoped Fast/Flex policy across managed HTTP, API-key/OAuth passthrough HTTP, parsed WS, passthrough WS, DTO/settings, and the admin UI. Independent review found one i18n namespace bug; fix commit `24c22c9a9` and retest closed it before integration.
 - S72 adds the strict bare `gpt-5.6` Sol alias/catalog, billing candidates, frontend whitelist/preset, and OpenCode `max` variants without collapsing unknown suffixes or explicit Terra/Luna models.
 - S73 adds aliased legacy `request_type` fallback only to `GetUserBreakdownStats`, preserving RequestType+Stream AND semantics, seven-column scans, ordering/LIMIT, leaderboard behavior, and ordinary inclusion of leaderboard-excluded users.
-- Combined verification passed backend exact discovery `S71=4 / S72=6 / S73=2`, HTTP/WS and repository regressions, frontend `3 files / 46 tests`, typecheck, and a 35-path contract/workflow audit.
-- Final evidence: `docs/workflow/qa-reports/upstream-v0151-followups-s71-s73-qa.md` plus the three Sprint QA reports. No main merge, remote push, deployment, or container update was performed.
+- Post-merge verification passed backend exact discovery `S71=4 / S72=6 / S73=2`, Fast/Flex HTTP/WS/DTO/service regressions, legacy request-type and leaderboard regressions, S74 ticket regressions, and repository compile-only checks.
+- Post-merge frontend verification passed `6 files / 59 tests`, `vue-tsc --noEmit`, and the production build. Existing router-link, stale `caniuse-lite`, Vite import/chunk-size, and Node `DEP0190` warnings remained non-blocking.
+- Final merge audit found no business-path overlap between the two parents, verified all 39 business blobs against their owning parent, confirmed all ten S71-S73 artifacts, and found no conflict markers or unmerged index entries.
+- Final evidence: `docs/workflow/qa-reports/upstream-v0151-followups-s71-s73-qa.md`, the three Sprint QA reports, and the post-merge release audit. Remote push has not yet occurred at this snapshot; no deployment or container update was performed.
 - All three contracts kept payment concurrency `fc66a30ff`, Cyber migration, deployment, and the main-worktree `knowledge/05-current-focus.md` change outside scope.
-- Cleanup audit proved all six Generator/QA branches patch-equivalent (`git cherry` only `-` entries); their clean worktrees and local branches were removed. The integration worktree remains.
+- Cleanup audit proved all six Generator/QA branches patch-equivalent (`git cherry` only `-` entries); their clean worktrees and local branches were removed. The integration and release worktrees remain only until remote publication is verified.
 
 - Current phase: `done`.
 - Historical S75: `admin-usage-column-menu-layer-s75`.
 - Final evaluator: PASS. `UsageView` adds `z-[221]` to the `UsageFilters` root only while the column-settings menu is open, putting it just above the `DataTable` sticky-header maximum of 220 and restoring its normal `z-30` layer when closed.
-- Independent QA: PASS. The S72 targeted Vitest suite (2 tests), typecheck, production build, compiled-CSS inspection, and target diff check passed; implementation remains limited to `UsageView.vue` and its test.
+- Independent QA: PASS. The S75 targeted Vitest suite (2 tests), typecheck, production build, compiled-CSS inspection, and target diff check passed; implementation remains limited to `UsageView.vue` and its test.
 - Runtime caveat: no authenticated administrator browser smoke was run because Docker, PostgreSQL, and Redis are unavailable; direct Compose in this worktree would reuse existing persisted data. No deployment or container update was performed.
 - Historical S74: admin ticket list/detail return only the joined user summary; the detail opens the existing read-only user-information modal, and recent usage requests 30 scrollable records. Targeted Go tests, 11 frontend tests, typecheck, production build, and target diff check passed.
 - Historical S70: the administrator-controlled leaderboard exclusion was persisted, invalidated leaderboard caches, and excluded the user from rank, champion, badge, reward, model, and trend paths. S65-S70 were merged into `main` as `d6ff6a158` and pushed to `origin/main`; no deployment or container update was performed.
@@ -33,7 +35,7 @@ last_verified: 2026-07-12 20:46 +08:00
 - 当前阶段：`done`。
 - 历史 S75：`admin-usage-column-menu-layer-s75`。
 - 最终 Evaluator：PASS。`UsageView` 仅在列设置菜单打开时给 `UsageFilters` 根卡片追加 `z-[221]`，恰好高于 `DataTable` 固定表头最高层级 220；关闭后恢复原有 `z-30`。
-- 独立 QA：PASS。S72 定向 Vitest（2 个测试）、typecheck、production build、编译 CSS 检查和目标 diff check 均通过；实现限定在 `UsageView.vue` 及其测试。
+- 独立 QA：PASS。S75 定向 Vitest（2 个测试）、typecheck、production build、编译 CSS 检查和目标 diff check 均通过；实现限定在 `UsageView.vue` 及其测试。
 - 运行态缺口：Docker、PostgreSQL、Redis 不可用，因此未做带真实管理员会话的浏览器 smoke；直接在本工作树启动 Compose 会复用已有持久化数据。本轮未部署、未更新容器。
 - 历史 S74：管理端工单列表/详情现已返回最小用户摘要；详情可打开既有只读用户信息弹窗；最近使用请求 30 条并在固定滚动区展示。定向 Go 测试、前端 11 个用例、类型检查、生产构建和目标 diff check 均通过。
 - 历史 Sprint：`upstream-gpt56-priority-cache-billing-s69`。

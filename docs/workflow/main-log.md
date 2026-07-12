@@ -254,3 +254,6 @@
 260712 2009 | admin-usage-column-menu-layer-s75 | qa-pass | qa-worker | f6ee836d4; two targeted tests and target diff check PASS
 260712 2009 | admin-usage-column-menu-layer-s75 | done | codex | final evaluator PASS; no deployment or container update
 260712 2046 | workflow-sprint-id-reconciliation | conflict-resolved | codex | preserve upstream S71-S73 artifacts; relabel later ticket and usage records to S74-S75
+260712 2047 | upstream-v0151-followups-s71-s73 | release-merge-created | codex | ccac358e4; parents f6ee836d4 and d101ac2d2
+260712 2058 | upstream-v0151-followups-s71-s73 | post-merge-regression-pass | codex | backend S71 4/4, S72 6/6, S73 2/2 plus S74; frontend 59/59, typecheck and build PASS
+260712 2058 | upstream-v0151-followups-s71-s73 | post-merge-audit-pass | review-worker | parent/blob/artifact audit PASS; S74-S75 numbering reconciled; ready for scoped publication

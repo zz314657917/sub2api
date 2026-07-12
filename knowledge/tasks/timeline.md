@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-07-12 20:58 +08:00 - 上游 S71-S73 合并态发布门禁完成
+
+- 当前阶段：release merge `ccac358e4` 已把最新主线 `f6ee836d4` 与 S71-S73 集成 `d101ac2d2` 合并；post-merge 回归和独立结构审计均 PASS，当前只待精确提交、推送与已合并分支清理。
+- 本段重点：合入用户级 Fast/Flex、裸 `gpt-5.6` Sol alias/catalog、UserBreakdown legacy `request_type` fallback，同时完整保留主线工单用户上下文和 UsageView 菜单层级功能，并把后两项重编号为 S74/S75。
+- 已完成：后端 S71 `4/4`、S72 `6/6`、S73 `2/2` 及相关 HTTP/WS/DTO/repository/S74 回归 PASS；前端 `6 files / 59 tests`、typecheck、production build PASS；39 个业务 blob、10 个 workflow artifact 与冲突标记审计 PASS。
+- 关键决策：两侧业务路径交集为 0，只有三个 workflow/handoff 文件需人工整合；支付并发 `fc66a30ff`、Cyber migration、部署和用户自己的 `knowledge/05-current-focus.md` 修改继续排除在本轮范围外。
+- 验证记录：merge 两个父提交与祖先关系正确；S74/S75 旧 exact task ID 清零；release worktree 无 `frontend/node_modules` junction 或 `backend/internal/web/dist` 生成改动；仅有既有前端非阻断警告。
+- 遗留问题：未做真实 OpenAI/Codex、真实 PostgreSQL、管理员登录态浏览器 smoke、race、部署或容器更新；远端发布需以 fetch 后基线检查和 `git ls-remote` 结果为准。
+- 下一步：只暂存四个 workflow/handoff 文件并提交；确认 `origin/main` 未移动后推送，随后 fast-forward 本地 `main`、复核用户文件 SHA256 并清理已合并 worktree/branch。
+
 ## 2026-07-11 14:18 +08:00 - 上游 Codex image_gen namespace strip S68 收口
 
 - 当前阶段：S68a 账号策略前置与 S68b namespace/passthrough 扩展均已完成，workflow 最终裁决为 `done`；当前仍在 `codex/upstream-latency-health-column` 集成分支，未合入 `main`、未推送、未部署。
