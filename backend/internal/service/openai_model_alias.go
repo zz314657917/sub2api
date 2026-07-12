@@ -63,14 +63,11 @@ func normalizeKnownOpenAICodexModel(model string) string {
 			return mapped
 		}
 	}
+	if mapped, handled := normalizeOpenAIGPT56Alias(normalized); handled {
+		return mapped
+	}
 
 	switch {
-	case strings.Contains(normalized, "gpt-5.6-sol"):
-		return "gpt-5.6-sol"
-	case strings.Contains(normalized, "gpt-5.6-terra"):
-		return "gpt-5.6-terra"
-	case strings.Contains(normalized, "gpt-5.6-luna"):
-		return "gpt-5.6-luna"
 	case strings.Contains(normalized, "gpt-5.5-pro"):
 		return "gpt-5.5-pro"
 	case strings.Contains(normalized, "gpt-5.5"):
@@ -98,14 +95,51 @@ func normalizeKnownOpenAICodexModel(model string) string {
 	}
 }
 
-func isOpenAIGPT56Model(model string) bool {
-	normalized := canonicalizeOpenAIModelAliasSpelling(model)
-	for _, prefix := range []string{"gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"} {
-		if normalized == prefix || strings.HasPrefix(normalized, prefix+"-") {
-			return true
+func normalizeOpenAIGPT56Alias(normalized string) (string, bool) {
+	const prefix = "gpt-5.6"
+	if normalized == prefix {
+		return "gpt-5.6-sol", true
+	}
+
+	suffix, ok := strings.CutPrefix(normalized, prefix+"-")
+	if !ok {
+		return "", false
+	}
+
+	variants := []struct {
+		name   string
+		target string
+	}{
+		{name: "sol", target: "gpt-5.6-sol"},
+		{name: "terra", target: "gpt-5.6-terra"},
+		{name: "luna", target: "gpt-5.6-luna"},
+	}
+	for _, variant := range variants {
+		if suffix == variant.name {
+			return variant.target, true
+		}
+		if variantSuffix, found := strings.CutPrefix(suffix, variant.name+"-"); found {
+			if isOpenAIGPT56Suffix(variantSuffix) {
+				return variant.target, true
+			}
+			return "", true
 		}
 	}
-	return false
+
+	if isOpenAIGPT56Suffix(suffix) {
+		return "gpt-5.6-sol", true
+	}
+	return "", true
+}
+
+func isOpenAIGPT56Suffix(suffix string) bool {
+	return suffix == "max" || isKnownCodexModelSuffix(suffix)
+}
+
+func isOpenAIGPT56Model(model string) bool {
+	normalized := canonicalizeOpenAIModelAliasSpelling(model)
+	mapped, handled := normalizeOpenAIGPT56Alias(normalized)
+	return handled && mapped != ""
 }
 
 func appendUsageBillingModelCandidate(candidates []string, seen map[string]struct{}, model string) []string {
