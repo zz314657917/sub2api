@@ -1,15 +1,19 @@
 ---
-phase: done
-current_sprint: leaderboard-participation-exclusion-s70
-total_sprints: 70
-pending_action: select the next independent Sprint after the S65-S70 main release
+phase: contract-draft
+current_sprint: upstream-openai-fast-flex-user-scope-s71
+total_sprints: 73
+pending_action: independently review S71-S73 follow-up contracts
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-11 17:06 +08:00
+last_verified: 2026-07-12 10:47 +08:00
 ---
 
 # Workflow Status
+
+- Current phase: `contract-draft` for S71; S72 and S73 are queued draft contracts.
+- Current wave: user-scoped Fast/Flex -> bare GPT-5.6 alias/catalog -> UserBreakdown legacy request-type fallback.
+- All three contracts use isolated ownership and explicitly freeze payment concurrency `fc66a30ff`, Cyber migration, deployment, and the main-worktree `knowledge/05-current-focus.md` change.
 
 - Current phase: `done`.
 - Current Sprint: `leaderboard-participation-exclusion-s70`.
