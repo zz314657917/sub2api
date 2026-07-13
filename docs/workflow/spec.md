@@ -365,3 +365,27 @@ last_verified: 2026-07-03 19:30 +08:00
   - account list parameter batching
   - token refresh retry amplification / outbox dedup
 - 若继续做前端全量测试收口，应另开“前端稳定化”任务，不与上游 patch Sprint 混合。
+
+# S76 Addendum: upstream v0.1.152 low-risk compatibility
+
+## Goal
+
+Selectively port three independently testable `v0.1.152` improvements without importing the release's migration, billing, account-model, or prompt-cache chains.
+
+## Approved Scope
+
+- Replace Fast/Flex raw user-ID editing with email search and exact-ID preservation.
+- Strip unsupported reasoning fields only for known Grok Composer aliases.
+- Diagnose OpenAI-compatible no-account failures using the API key group's actual platform.
+
+## Explicitly Deferred
+
+- xAI API-key account support and Grok free OAuth prompt caching.
+- Codex alpha/search routing, per-call billing, migration `174`, and Ent generated changes.
+- Grok quota persistence/capacity UI, CLI proxy routing, deployment, VERSION, and release-wide merge.
+
+## Acceptance Boundary
+
+- Targeted backend service/handler tests, selector/i18n Vitest, frontend typecheck, and path/diff audit must pass.
+- No existing user ID may be silently dropped or converted into a global Fast/Flex rule.
+- Non-Composer Grok requests and existing account-selection/failover loops must remain unchanged; Count Tokens may align with the shared 404/503 no-account classifier.

@@ -113,14 +113,20 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	if err != nil {
-		reqLog.Warn("openai_count_tokens.account_select_failed", zap.Error(err))
-		markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
-		h.anthropicErrorResponse(c, http.StatusServiceUnavailable, "api_error", "Service temporarily unavailable")
+		reqLog.Warn("openai_count_tokens.account_select_failed", zap.Error(openAICompatibleSelectionErrorForLog(err, requestPlatform)))
+		cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, currentRoutingModel, reqModel, requestPlatform)
+		if !cls.ModelNotFound {
+			markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
+		}
+		h.anthropicErrorResponse(c, cls.Status, cls.ErrType, cls.Message)
 		return
 	}
 	if selection == nil || selection.Account == nil {
-		markOpsRoutingCapacityLimited(c)
-		h.anthropicErrorResponse(c, http.StatusServiceUnavailable, "api_error", "No available accounts")
+		cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, currentRoutingModel, reqModel, requestPlatform)
+		if !cls.ModelNotFound {
+			markOpsRoutingCapacityLimited(c)
+		}
+		h.anthropicErrorResponse(c, cls.Status, cls.ErrType, cls.Message)
 		return
 	}
 

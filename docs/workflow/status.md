@@ -1,16 +1,21 @@
 ---
 phase: done
-current_sprint: upstream-v0151-followups-s71-s73
-total_sprints: 75
-pending_action: publish the validated release commit to origin/main, verify the remote head, and clean merged release branches
+current_sprint: upstream-v0152-low-risk-compat-s76
+total_sprints: 76
+pending_action: review and merge the validated S76 branch into local main; do not deploy or update containers as part of this sprint
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-12 20:58 +08:00
+last_verified: 2026-07-13 15:59 +08:00
 ---
 
 # Workflow Status
 
+- Current phase: `done`; S76 final evaluator PASS. Fast/Flex email search selection, Grok Composer reasoning sanitization, and platform-aware no-account diagnostics are implemented in the isolated branch.
+- S76 evidence: `docs/workflow/worker-results/upstream-v0152-low-risk-compat-s76-result.md` and `docs/workflow/qa-reports/upstream-v0152-low-risk-compat-s76-qa.md`.
+- Fresh verification passed backend service 2/2, handler 2/2, frontend selector/i18n 6/6, Settings integration 1/1, typecheck, production build, 18-path allowlist audit, and `git diff --check`.
+- No authenticated browser or live Grok upstream smoke was run. The existing full `unit`-tag service suite remains non-compiling for unrelated legacy test drift; S76 uses exact-discovery default-tag tests.
+- No deployment, container update, migration, billing, account-type, prompt-cache, or `knowledge/**` change was performed.
 - Current phase: `done`; S71-S73 were integrated in order, merged with the latest local main, and passed fresh post-merge regression.
 - Release merge `ccac358e4` has parents `f6ee836d4` (latest main) and `d101ac2d2` (S71-S73 integration/workflow closeout). The final evaluated business head before integration closeout was `5e4b08af9`.
 - S71 adds trusted user-scoped Fast/Flex policy across managed HTTP, API-key/OAuth passthrough HTTP, parsed WS, passthrough WS, DTO/settings, and the admin UI. Independent review found one i18n namespace bug; fix commit `24c22c9a9` and retest closed it before integration.

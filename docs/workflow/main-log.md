@@ -257,3 +257,11 @@
 260712 2047 | upstream-v0151-followups-s71-s73 | release-merge-created | codex | ccac358e4; parents f6ee836d4 and d101ac2d2
 260712 2058 | upstream-v0151-followups-s71-s73 | post-merge-regression-pass | codex | backend S71 4/4, S72 6/6, S73 2/2 plus S74; frontend 59/59, typecheck and build PASS
 260712 2058 | upstream-v0151-followups-s71-s73 | post-merge-audit-pass | review-worker | parent/blob/artifact audit PASS; S74-S75 numbering reconciled; ready for scoped publication
+260713 1215 | upstream-v0152-low-risk-compat-s76 | contract-draft | codex | three isolated low-risk v0.1.152 subsets; migration, billing, account types, prompt cache denied
+260713 1218 | upstream-v0152-low-risk-compat-s76 | contract-approved | evaluator | scope, paths, stop rules, and targeted acceptance commands PASS
+260713 1242 | upstream-v0152-low-risk-compat-s76 | contract-revised | evaluator | add unit build tag and exact discovery gates after no-tests-run detection
+260713 1248 | upstream-v0152-low-risk-compat-s76 | contract-revised | evaluator | isolate S76 assertions in default-tag tests because existing unit-tag suite does not compile
+260713 1558 | upstream-v0152-low-risk-compat-s76 | contract-revised | evaluator | update S71 Settings integration contract for selector-based user ID editing
+260713 1559 | upstream-v0152-low-risk-compat-s76 | contract-revised | evaluator | clarify Count Tokens adoption of the existing shared 404/503 classifier
+260713 1600 | upstream-v0152-low-risk-compat-s76 | qa-pass | codex | backend 2+2, frontend 6+1, typecheck, build, 18-path pre-report audit, and diff check PASS
+260713 1600 | upstream-v0152-low-risk-compat-s76 | done | codex | final evaluator PASS; no deploy, container update, migration, billing, or knowledge write
