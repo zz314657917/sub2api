@@ -216,6 +216,39 @@ vi.mock("vue-i18n", async () => {
 });
 
 const AppLayoutStub = { template: "<div><slot /></div>" };
+const OpenAIFastPolicyUserSelectorStub = defineComponent({
+  props: {
+    modelValue: {
+      type: Array,
+      default: () => [],
+    },
+  },
+  emits: ["update:modelValue"],
+  setup(props, { emit }) {
+    return () =>
+      h("div", { "data-testid": "openai-fast-policy-user-selector" }, [
+        h("span", { "data-testid": "openai-fast-policy-selected-ids" }, JSON.stringify(props.modelValue)),
+        h(
+          "button",
+          {
+            type: "button",
+            "data-testid": "openai-fast-policy-select-users",
+            onClick: () => emit("update:modelValue", [420, 88]),
+          },
+          "select users",
+        ),
+        h(
+          "button",
+          {
+            type: "button",
+            "data-testid": "openai-fast-policy-clear-users",
+            onClick: () => emit("update:modelValue", []),
+          },
+          "clear users",
+        ),
+      ]);
+  },
+});
 const ToggleStub = defineComponent({
   props: {
     modelValue: {
@@ -490,6 +523,7 @@ function mountView() {
         ProxySelector: true,
         ImageUpload: ImageUploadStub,
         BackupSettings: true,
+        OpenAIFastPolicyUserSelector: OpenAIFastPolicyUserSelectorStub,
       },
     },
   });
@@ -1024,9 +1058,11 @@ describe("admin SettingsView payment visible method controls", () => {
     const userScopeKeys = [
       "userIds",
       "userIdsHint",
-      "userIdPlaceholder",
-      "addUserId",
-      "removeUserId",
+      "userSearchPlaceholder",
+      "userSearchEmpty",
+      "userDeleted",
+      "userIdFallback",
+      "removeUser",
     ];
     for (const locale of [enAdminSettings, zhAdminSettings]) {
       const fastPolicy = locale.openaiFastPolicy as Record<string, unknown>;
@@ -1054,45 +1090,19 @@ describe("admin SettingsView payment visible method controls", () => {
     await flushPromises();
 
     expect(
-      (
-        wrapper.get('[data-testid="openai-fast-policy-user-id-0-0"]')
-          .element as HTMLInputElement
-      ).value,
-    ).toBe("42");
-    expect(
-      (
-        wrapper.get('[data-testid="openai-fast-policy-user-id-0-1"]')
-          .element as HTMLInputElement
-      ).value,
-    ).toBe("73");
-
-    await wrapper
-      .get('[data-testid="openai-fast-policy-add-user-id-0"]')
-      .trigger("click");
-    await flushPromises();
-    expect(
-      (
-        wrapper.get('[data-testid="openai-fast-policy-user-id-0-2"]')
-          .element as HTMLInputElement
-      ).value,
-    ).toBe("0");
+      wrapper.get('[data-testid="openai-fast-policy-selected-ids"]').text(),
+    ).toBe("[42,73]");
 
     await wrapper.find("form").trigger("submit.prevent");
     await flushPromises();
     expect(
       updateSettings.mock.calls[0]?.[0].openai_fast_policy_settings.rules[0]
         .user_ids,
-    ).toEqual([42, 73, 0]);
+    ).toEqual([42, 73]);
 
     await wrapper
-      .get('[data-testid="openai-fast-policy-user-id-0-0"]')
-      .setValue("420");
-    await wrapper
-      .get('[data-testid="openai-fast-policy-remove-user-id-0-1"]')
+      .get('[data-testid="openai-fast-policy-select-users"]')
       .trigger("click");
-    await wrapper
-      .get('[data-testid="openai-fast-policy-user-id-0-1"]')
-      .setValue("88");
     await wrapper.find("form").trigger("submit.prevent");
     await flushPromises();
 
@@ -1103,10 +1113,7 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(loadedRule.user_ids).toEqual([42, 73]);
 
     await wrapper
-      .get('[data-testid="openai-fast-policy-remove-user-id-0-1"]')
-      .trigger("click");
-    await wrapper
-      .get('[data-testid="openai-fast-policy-remove-user-id-0-0"]')
+      .get('[data-testid="openai-fast-policy-clear-users"]')
       .trigger("click");
     await wrapper.find("form").trigger("submit.prevent");
     await flushPromises();
