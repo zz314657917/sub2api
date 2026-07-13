@@ -2,7 +2,7 @@
 phase: done
 current_sprint: upstream-v0152-low-risk-compat-s76
 total_sprints: 76
-pending_action: review and merge the validated S76 branch into local main; do not deploy or update containers as part of this sprint
+pending_action: push the two validated S76 commits on local main when publication is requested; do not deploy or update containers as part of this sprint
 project_type: web
 qa_mode: runtime
 approval_required: false
@@ -12,6 +12,7 @@ last_verified: 2026-07-13 15:59 +08:00
 # Workflow Status
 
 - Current phase: `done`; S76 final evaluator PASS. Fast/Flex email search selection, Grok Composer reasoning sanitization, and platform-aware no-account diagnostics are implemented in the isolated branch.
+- S76 was merged into local `main` as `bff599ee1` with validated implementation parent `e9ddb900f`; the branch has not been pushed or deployed.
 - S76 evidence: `docs/workflow/worker-results/upstream-v0152-low-risk-compat-s76-result.md` and `docs/workflow/qa-reports/upstream-v0152-low-risk-compat-s76-qa.md`.
 - Fresh verification passed backend service 2/2, handler 2/2, frontend selector/i18n 6/6, Settings integration 1/1, typecheck, production build, 18-path allowlist audit, and `git diff --check`.
 - No authenticated browser or live Grok upstream smoke was run. The existing full `unit`-tag service suite remains non-compiling for unrelated legacy test drift; S76 uses exact-discovery default-tag tests.

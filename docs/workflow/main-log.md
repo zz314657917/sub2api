@@ -265,3 +265,4 @@
 260713 1559 | upstream-v0152-low-risk-compat-s76 | contract-revised | evaluator | clarify Count Tokens adoption of the existing shared 404/503 classifier
 260713 1600 | upstream-v0152-low-risk-compat-s76 | qa-pass | codex | backend 2+2, frontend 6+1, typecheck, build, 18-path pre-report audit, and diff check PASS
 260713 1600 | upstream-v0152-low-risk-compat-s76 | done | codex | final evaluator PASS; no deploy, container update, migration, billing, or knowledge write
+260713 1602 | upstream-v0152-low-risk-compat-s76 | merged-to-main | codex | bff599ee1; validated implementation e9ddb900f; push and deployment not performed
