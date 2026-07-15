@@ -8567,6 +8567,15 @@ func (s *GatewayService) getUserGroupRateMultiplier(ctx context.Context, userID,
 	return resolver.Resolve(ctx, userID, groupID, groupDefaultMultiplier)
 }
 
+// ResolveUserGroupRateMultiplier returns the effective non-peak token multiplier used by billing.
+func (s *GatewayService) ResolveUserGroupRateMultiplier(ctx context.Context, userID, groupID int64, groupDefaultMultiplier float64) float64 {
+	multiplier := s.getUserGroupRateMultiplier(ctx, userID, groupID, groupDefaultMultiplier)
+	if s != nil && s.membershipService != nil {
+		multiplier = s.membershipService.ApplyRateMultiplier(ctx, userID, multiplier)
+	}
+	return multiplier
+}
+
 // RecordUsageInput 记录使用量的输入参数
 type RecordUsageInput struct {
 	Result             *ForwardResult

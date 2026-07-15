@@ -52,6 +52,7 @@
 - `backend/internal/service/crs_sync*.go`
 - `backend/internal/service/domain_constants.go`
 - `backend/internal/service/gateway_usage_billing.go`
+- `backend/internal/service/gateway_service.go`
 - `backend/internal/service/http_upstream_profile*.go`
 - `backend/internal/service/openai_endpoint_url*.go`
 - `backend/internal/service/openai_gateway_usage.go`
@@ -131,4 +132,3 @@ git ls-files -u
 - Stop if the gateway introspection endpoint cannot preserve existing API-key auth and group/user rate semantics without exposing private account-cost data.
 - Stop if CAS protection cannot distinguish stale probe results from concurrent administrator edits.
 - Stop if focused tests show local custom billing, gateway routing, account duplication, proxy invalidation, CRS scheduling, or frontend account workflows regress.
-
