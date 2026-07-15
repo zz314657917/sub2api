@@ -108,6 +108,7 @@ func provideCleanup(
 	groupBuyLifecycle *service.GroupBuyLifecycleService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
 	promptAudit *securityaudit.PromptService,
+	upstreamBillingProbe *service.UpstreamBillingProbeService,
 ) func() {
 	return func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -295,6 +296,12 @@ func provideCleanup(
 			{"ChannelMonitorRunner", func() error {
 				if channelMonitorRunner != nil {
 					channelMonitorRunner.Stop()
+				}
+				return nil
+			}},
+			{"UpstreamBillingProbeService", func() error {
+				if upstreamBillingProbe != nil {
+					upstreamBillingProbe.Stop()
 				}
 				return nil
 			}},

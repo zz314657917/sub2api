@@ -37,6 +37,9 @@
           <button :disabled="loading" class="btn btn-secondary btn-sm" @click="$emit('refresh-token')">
             {{ t('admin.accounts.bulkActions.refreshToken') }}
           </button>
+          <button :disabled="loading" class="btn btn-secondary btn-sm" @click="$emit('probe-upstream-billing')">
+            {{ t('admin.accounts.bulkActions.probeUpstreamBilling') }}
+          </button>
           <button :disabled="loading" class="btn btn-success btn-sm" @click="$emit('toggle-schedulable', true)">
             {{ t('admin.accounts.bulkActions.enableScheduling') }}
           </button>
@@ -102,6 +105,7 @@ defineEmits<{
   'toggle-schedulable': [schedulable: boolean]
   'reset-status': []
   'refresh-token': []
+  'probe-upstream-billing': []
   'share-status': [status: 'active' | 'rejected' | 'suspended']
   'share-status-filtered': [status: 'active' | 'rejected' | 'suspended']
 }>()

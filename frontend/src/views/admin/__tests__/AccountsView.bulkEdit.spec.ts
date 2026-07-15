@@ -13,6 +13,8 @@ const {
   getAllGroups,
   setShareStatus,
   batchSetShareStatus,
+  getUpstreamBillingProbeSettings,
+  probeUpstreamBillingBatch,
   appStore,
   routeName,
   writeText
@@ -26,6 +28,8 @@ const {
   getAllGroups: vi.fn(),
   setShareStatus: vi.fn(),
   batchSetShareStatus: vi.fn(),
+  getUpstreamBillingProbeSettings: vi.fn(),
+  probeUpstreamBillingBatch: vi.fn(),
   appStore: {
     showError: vi.fn(),
     showSuccess: vi.fn(),
@@ -47,7 +51,9 @@ vi.mock('@/api/admin', () => ({
       batchRefresh: vi.fn(),
       toggleSchedulable: vi.fn(),
       setShareStatus,
-      batchSetShareStatus
+      batchSetShareStatus,
+      getUpstreamBillingProbeSettings,
+      probeUpstreamBillingBatch
     },
     proxies: {
       getAll: getAllProxies
@@ -115,7 +121,7 @@ const DataTableStub = {
 
 const AccountBulkActionsBarStub = {
   props: ['selectedIds', 'showDeleteAction', 'showSystemActions', 'showShareReviewActions', 'loading'],
-  emits: ['delete', 'edit-filtered', 'share-status', 'share-status-filtered'],
+  emits: ['delete', 'edit-filtered', 'share-status', 'share-status-filtered', 'probe-upstream-billing'],
   template: `
     <div
       data-test="bulk-actions"
@@ -132,6 +138,13 @@ const AccountBulkActionsBarStub = {
         delete
       </button>
       <button data-test="edit-filtered" @click="$emit('edit-filtered')">edit filtered</button>
+      <button
+        v-if="showSystemActions && selectedIds.length > 0"
+        data-test="probe-upstream-billing"
+        @click="$emit('probe-upstream-billing')"
+      >
+        probe
+      </button>
       <button
         v-if="showShareReviewActions && selectedIds.length > 0"
         data-test="approve-share"
@@ -153,6 +166,11 @@ const AccountBulkActionsBarStub = {
 const BulkEditAccountModalStub = {
   props: ['show', 'target'],
   template: '<div data-test="bulk-edit-modal" :data-show="String(show)" :data-target-mode="target?.mode ?? \'\'"></div>'
+}
+
+const PaginationStub = {
+  emits: ['update:page'],
+  template: '<button data-test="next-page" @click="$emit(\'update:page\', 2)">next</button>'
 }
 
 const BaseDialogStub = {
@@ -186,6 +204,8 @@ describe('admin AccountsView bulk edit scope', () => {
     getAllGroups.mockReset()
     setShareStatus.mockReset()
     batchSetShareStatus.mockReset()
+    getUpstreamBillingProbeSettings.mockReset()
+    probeUpstreamBillingBatch.mockReset()
     appStore.showError.mockReset()
     appStore.showSuccess.mockReset()
     appStore.showInfo.mockReset()
@@ -235,6 +255,75 @@ describe('admin AccountsView bulk edit scope', () => {
       failed_ids: [],
       results: []
     })
+    getUpstreamBillingProbeSettings.mockResolvedValue({ enabled: true, interval_minutes: 30 })
+    probeUpstreamBillingBatch.mockResolvedValue([])
+  })
+
+  it('submits selected account IDs from every page for backend eligibility checks', async () => {
+    const account = (id: number) => ({
+      id,
+      name: `account-${id}`,
+      platform: 'openai',
+      type: 'apikey',
+      status: 'active',
+      schedulable: true,
+      groups: [],
+      credentials: {},
+      extra: {},
+      created_at: '2026-07-13T00:00:00Z',
+      updated_at: '2026-07-13T00:00:00Z'
+    })
+    listAccounts
+      .mockResolvedValueOnce({ items: [account(7)], total: 2, page: 1, page_size: 1, pages: 2 })
+      .mockResolvedValueOnce({ items: [account(11)], total: 2, page: 2, page_size: 1, pages: 2 })
+
+    const wrapper = mount(AccountsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: { template: '<div><slot name="table" /><slot name="pagination" /></div>' },
+          DataTable: DataTableStub,
+          Pagination: PaginationStub,
+          ConfirmDialog: ConfirmDialogStub,
+          BaseDialog: BaseDialogStub,
+          AccountTableActions: true,
+          AccountTableFilters: true,
+          AccountBulkActionsBar: AccountBulkActionsBarStub,
+          AccountActionMenu: true,
+          ImportDataModal: true,
+          ReAuthAccountModal: true,
+          AccountTestModal: true,
+          AccountStatsModal: true,
+          ScheduledTestsPanel: true,
+          SyncFromCrsModal: true,
+          TempUnschedStatusModal: true,
+          ErrorPassthroughRulesModal: true,
+          TLSFingerprintProfilesModal: true,
+          TotpStepUpDialog: true,
+          CreateAccountModal: true,
+          EditAccountModal: true,
+          BulkEditAccountModal: BulkEditAccountModalStub,
+          PlatformTypeBadge: true,
+          AccountCapacityCell: true,
+          AccountStatusIndicator: true,
+          AccountTodayStatsCell: true,
+          AccountGroupsCell: true,
+          AccountUsageCell: true,
+          UpstreamBillingRateCell: true,
+          Icon: true
+        }
+      }
+    })
+
+    await flushPromises()
+    await wrapper.get('[data-test="select-cell"] input').trigger('change')
+    await wrapper.get('[data-test="next-page"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-test="select-cell"] input').trigger('change')
+    await wrapper.get('[data-test="probe-upstream-billing"]').trigger('click')
+    await flushPromises()
+
+    expect(probeUpstreamBillingBatch).toHaveBeenCalledWith([7, 11])
   })
 
   it('opens bulk edit in filtered-results mode from the bulk actions dropdown', async () => {

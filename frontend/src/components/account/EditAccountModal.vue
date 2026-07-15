@@ -1522,6 +1522,23 @@
         </div>
       </div>
 
+      <div
+        v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+        class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div>
+          <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
+          </p>
+        </div>
+        <Toggle
+          v-model="upstreamBillingAutoProbeEnabled"
+          data-testid="upstream-billing-auto-probe"
+          :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
+        />
+      </div>
+
       <!-- OpenAI API Key image input transport -->
       <div
         v-if="account?.platform === 'openai' && account?.type === 'apikey'"
@@ -2460,6 +2477,7 @@ import type { Account, Proxy, AdminGroup, CheckMixedChannelResponse, OpenAICompa
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
+import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
@@ -2669,6 +2687,7 @@ const shareDisplay5hUsed = ref<number | null>(null)
 const shareDisplay7dLimit = ref<number | null>(null)
 const shareDisplay7dUsed = ref<number | null>(null)
 const accountCapabilityValues: AccountCapability[] = ['chat', 'image', 'video', 'embedding']
+const upstreamBillingAutoProbeEnabled = ref(false)
 
 function normalizeAccountCapabilities(value: unknown): AccountCapability[] {
   if (!Array.isArray(value)) {
@@ -3162,6 +3181,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   mixedScheduling.value = extra?.mixed_scheduling === true
   allowOverages.value = extra?.allow_overages === true
   accountSupportedCapabilities.value = normalizeAccountCapabilities(extra?.supported_capabilities)
+  upstreamBillingAutoProbeEnabled.value = extra?.upstream_billing_probe_enabled === true
 
   // Load OpenAI passthrough toggle (OpenAI OAuth/API Key)
   openaiPassthroughEnabled.value = false
@@ -4367,6 +4387,7 @@ const handleSubmit = async () => {
         } else {
           newExtra.openai_responses_mode = openAIResponsesMode.value
         }
+        newExtra.upstream_billing_probe_enabled = upstreamBillingAutoProbeEnabled.value
         writeOpenAIImageInputTransportToExtra(newExtra)
       }
 

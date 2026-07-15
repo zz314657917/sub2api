@@ -50,7 +50,9 @@ func ProvideAdminHandlers(
 	imageCreatorStorageHandler *admin.ImageCreatorStorageGovernanceHandler,
 	adminTicketHandler *admin.TicketHandler,
 	auditLogHandler *admin.AuditLogHandler,
+	upstreamBillingProbe *service.UpstreamBillingProbeService,
 ) *AdminHandlers {
+	accountHandler.SetUpstreamBillingProbeService(upstreamBillingProbe)
 	return &AdminHandlers{
 		Dashboard:              dashboardHandler,
 		User:                   userHandler,

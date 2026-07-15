@@ -923,6 +923,7 @@ var ProviderSet = wire.NewSet(
 	ProvideRateLimitService,
 	ProvideAccountUsageService,
 	ProvideAccountTestService,
+	ProvideUpstreamBillingProbeService,
 	ProvideSettingService,
 	wire.Bind(new(UserAccountShareSettings), new(*SettingService)),
 	wire.Bind(new(CafePublicSettings), new(*SettingService)),

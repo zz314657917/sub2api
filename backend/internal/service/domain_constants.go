@@ -149,6 +149,7 @@ const (
 	SettingKeyAccountShareFreezeHours          = "account_share_freeze_hours"
 	SettingKeyAccountShareAutoReview           = "account_share_auto_review"
 	SettingKeyAccountShareUserAccountLimit     = "account_share_user_account_limit"
+	SettingKeyUpstreamBillingProbeSettings     = "upstream_billing_probe_settings"
 )
 
 const ExternalCapacityReferenceFeatureEnabled = false

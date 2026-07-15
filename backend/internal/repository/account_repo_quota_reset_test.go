@@ -32,11 +32,15 @@ func TestAccountRepositoryResetQuotaUsedResetsShareDisplayWindowBaseline(t *test
 type recordingSQLExecutor struct {
 	queries []string
 	args    [][]any
+	err     error
 }
 
 func (e *recordingSQLExecutor) ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error) {
 	e.queries = append(e.queries, query)
 	e.args = append(e.args, append([]any(nil), args...))
+	if e.err != nil {
+		return nil, e.err
+	}
 	return sqlmock.NewResult(1, 1), nil
 }
 
