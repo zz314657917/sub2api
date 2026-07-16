@@ -266,3 +266,18 @@
 260713 1600 | upstream-v0152-low-risk-compat-s76 | qa-pass | codex | backend 2+2, frontend 6+1, typecheck, build, 18-path pre-report audit, and diff check PASS
 260713 1600 | upstream-v0152-low-risk-compat-s76 | done | codex | final evaluator PASS; no deploy, container update, migration, billing, or knowledge write
 260713 1602 | upstream-v0152-low-risk-compat-s76 | merged-to-main | codex | bff599ee1; validated implementation e9ddb900f; push and deployment not performed
+260716 1400 | upstream-main-compat-s77 | contract-draft | codex | docs/workflow/tasks/upstream-main-compat-s77.md; live upstream/main 09c6c6d74; isolated worktree
+260716 1400 | upstream-main-compat-s77 | contract-approved | evaluator | ownership/path/acceptance review PASS; worker gate pending deepseek-v4-pro availability
+260716 1400 | upstream-main-compat-s77 | worker-blocked | codex | deepseek-v4-pro unavailable in local Claude CLI; awaiting explicit exception; no business diff
+260716 1405 | upstream-main-compat-s77 | worker-model-exception-approved | user | explicitly allow Codex worker to replace unavailable deepseek-v4-pro
+260716 1405 | upstream-main-compat-s77 | build-start | codex | WS and Grok isolated workers plus root-owned frontend slice
+260716 1509 | upstream-main-compat-s77 | worker-complete | codex | Grok 95bbb32ed and WS 73202aa54 reviewed/cherry-picked; WS worker report finalized after stalled worker session
+260716 1510 | upstream-main-compat-s77 | integration-commit | codex | 279b9f18d; root WS/Grok platform call-sites, handler permission regression, TablePageLayout scroll fix
+260716 1510 | upstream-main-compat-s77 | qa-start | codex | focused Go, frontend, diff, allowlist, denied-path, and conflict-marker checks
+260716 2321 | upstream-main-compat-s77 | qa-pass | codex | focused Go 4 packages, TablePageLayout Vitest, typecheck, build, allowlist, denied-path, conflict-marker, and diff checks PASS; full service retains unrelated group_peak_rate drift
+260716 2321 | upstream-main-compat-s77 | done | codex | final evaluator PASS; no push, deploy, container update, migration, billing, or knowledge change
+260716 2339 | upstream-main-compat-s77 | independent-review-fail | evaluator | P1: passthrough relay could forward malformed upstream text JSON; focused regex also omitted several core tests
+260716 2339 | upstream-main-compat-s77 | fix-pass | codex | passthrough adapter validates every upstream text frame; before/after-output tests and OpenAI Responses/Chat/WS regressions added
+260716 2339 | upstream-main-compat-s77 | retest-start | codex | exact config, handler, service, and routes Go test patterns passed; frontend and final path audit pending
+260716 2349 | upstream-main-compat-s77 | retest-pass | evaluator | passthrough before/after-output relay tests, exact Go discovery, frontend checks, 27-path audit, cached diff, and conflict checks PASS
+260716 2349 | upstream-main-compat-s77 | done | evaluator | final PASS; no push, deploy, container update, migration, billing, or knowledge change

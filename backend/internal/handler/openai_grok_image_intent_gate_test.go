@@ -45,12 +45,46 @@ func TestOpenAIGatewayHandlerResponses_GrokExplicitImageSignalsStillHitPermissio
 	}
 }
 
+func TestOpenAIGatewayHandlerResponses_OpenAIPassiveImageNamespacePreservesLegacyPermissionGate(t *testing.T) {
+	body := `{"model":"gpt-5.5","tools":[{"type":"namespace","name":"image_gen"}],"tool_choice":"auto","input":"write code"}`
+	rec := runOpenAIResponsesImagePermissionGateTest(t, service.PlatformOpenAI, body)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Contains(t, rec.Body.String(), service.ImageGenerationPermissionMessage())
+}
+
+func TestOpenAIGatewayHandlerChatCompletions_OpenAIPassiveImageNamespacePreservesLegacyPermissionGate(t *testing.T) {
+	body := `{"model":"gpt-5.5","tools":[{"type":"namespace","name":"image_gen"}],"tool_choice":"auto","messages":[{"role":"user","content":"write code"}]}`
+	rec := runOpenAIChatCompletionsImagePermissionGateTest(t, service.PlatformOpenAI, body)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Contains(t, rec.Body.String(), service.ImageGenerationPermissionMessage())
+}
+
 func runOpenAIResponsesImagePermissionGateTest(t *testing.T, platform string, body string) *httptest.ResponseRecorder {
+	return runOpenAIImagePermissionGateTest(t, platform, "/v1/responses", body, func(h *OpenAIGatewayHandler, c *gin.Context) {
+		h.Responses(c)
+	})
+}
+
+func runOpenAIChatCompletionsImagePermissionGateTest(t *testing.T, platform string, body string) *httptest.ResponseRecorder {
+	return runOpenAIImagePermissionGateTest(t, platform, "/v1/chat/completions", body, func(h *OpenAIGatewayHandler, c *gin.Context) {
+		h.ChatCompletions(c)
+	})
+}
+
+func runOpenAIImagePermissionGateTest(
+	t *testing.T,
+	platform string,
+	path string,
+	body string,
+	invoke func(*OpenAIGatewayHandler, *gin.Context),
+) *httptest.ResponseRecorder {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
+	c.Request = httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 
 	groupID := int64(6301)
@@ -78,6 +112,6 @@ func runOpenAIResponsesImagePermissionGateTest(t *testing.T, platform string, bo
 		imageLimiter: &imageConcurrencyLimiter{},
 	}
 
-	h.Responses(c)
+	invoke(h, c)
 	return rec
 }

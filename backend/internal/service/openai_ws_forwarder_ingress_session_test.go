@@ -1169,6 +1169,128 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughModeR
 	require.Equal(t, "auto", gjson.Get(requestToJSONString(upstreamConn.writes[0]), "tool_choice").String())
 }
 
+func runPassthroughMalformedUpstreamEventScenario(t *testing.T, events [][]byte, wantFirstEvent bool) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+
+	cfg := &config.Config{}
+	cfg.Security.URLAllowlist.Enabled = false
+	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
+	cfg.Gateway.OpenAIWS.Enabled = true
+	cfg.Gateway.OpenAIWS.OAuthEnabled = true
+	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
+	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.ModeRouterV2Enabled = true
+	cfg.Gateway.OpenAIWS.IngressModeDefault = OpenAIWSIngressModeCtxPool
+	cfg.Gateway.OpenAIWS.DialTimeoutSeconds = 3
+	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 3
+	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3
+
+	upstreamConn := &openAIWSCaptureConn{events: events}
+	captureDialer := &openAIWSCaptureDialer{conn: upstreamConn}
+	svc := &OpenAIGatewayService{
+		cfg:                       cfg,
+		httpUpstream:              &httpUpstreamRecorder{},
+		cache:                     &stubGatewayCache{},
+		openaiWSResolver:          NewOpenAIWSProtocolResolver(cfg),
+		toolCorrector:             NewCodexToolCorrector(),
+		openaiWSPassthroughDialer: captureDialer,
+	}
+	account := &Account{
+		ID:          455,
+		Name:        "openai-ingress-passthrough-malformed",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{"api_key": "sk-test"},
+		Extra: map[string]any{
+			"openai_apikey_responses_websockets_v2_mode": OpenAIWSIngressModePassthrough,
+		},
+	}
+
+	serverErrCh := make(chan error, 1)
+	wsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := coderws.Accept(w, r, &coderws.AcceptOptions{
+			CompressionMode: coderws.CompressionContextTakeover,
+		})
+		if err != nil {
+			serverErrCh <- err
+			return
+		}
+		defer func() { _ = conn.CloseNow() }()
+
+		rec := httptest.NewRecorder()
+		ginCtx, _ := gin.CreateTestContext(rec)
+		ginCtx.Request = r.Clone(r.Context())
+
+		readCtx, cancelRead := context.WithTimeout(r.Context(), 3*time.Second)
+		msgType, firstMessage, readErr := conn.Read(readCtx)
+		cancelRead()
+		if readErr != nil {
+			serverErrCh <- readErr
+			return
+		}
+		if msgType != coderws.MessageText && msgType != coderws.MessageBinary {
+			serverErrCh <- errors.New("unsupported websocket client message type")
+			return
+		}
+		serverErrCh <- svc.ProxyResponsesWebSocketFromClient(r.Context(), ginCtx, conn, account, "sk-test", firstMessage, nil)
+	}))
+	defer wsServer.Close()
+
+	dialCtx, cancelDial := context.WithTimeout(context.Background(), 3*time.Second)
+	clientConn, _, err := coderws.Dial(dialCtx, "ws"+strings.TrimPrefix(wsServer.URL, "http"), nil)
+	cancelDial()
+	require.NoError(t, err)
+	defer func() { _ = clientConn.CloseNow() }()
+
+	writeCtx, cancelWrite := context.WithTimeout(context.Background(), 3*time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.1","stream":true,"input":"hello"}`))
+	cancelWrite()
+	require.NoError(t, err)
+
+	readCtx, cancelRead := context.WithTimeout(context.Background(), 3*time.Second)
+	_, firstEvent, firstReadErr := clientConn.Read(readCtx)
+	cancelRead()
+	if wantFirstEvent {
+		require.NoError(t, firstReadErr)
+		require.Equal(t, "response.output_text.delta", gjson.GetBytes(firstEvent, "type").String())
+		require.NotContains(t, string(firstEvent), "unexpected-tail")
+		readCtx, cancelRead = context.WithTimeout(context.Background(), 3*time.Second)
+		_, _, firstReadErr = clientConn.Read(readCtx)
+		cancelRead()
+	}
+	require.Error(t, firstReadErr)
+
+	select {
+	case proxyErr := <-serverErrCh:
+		if wantFirstEvent {
+			require.Contains(t, proxyErr.Error(), "after downstream output")
+		} else {
+			var failoverErr *UpstreamFailoverError
+			require.ErrorAs(t, proxyErr, &failoverErr)
+			require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("passthrough relay did not stop after malformed upstream event")
+	}
+}
+
+func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughRejectsMalformedEventBeforeOutput(t *testing.T) {
+	runPassthroughMalformedUpstreamEventScenario(t, [][]byte{
+		[]byte(`{"type":"response.in_progress"}unexpected-tail`),
+	}, false)
+}
+
+func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughRejectsMalformedEventAfterOutput(t *testing.T) {
+	runPassthroughMalformedUpstreamEventScenario(t, [][]byte{
+		[]byte(`{"type":"response.output_text.delta","delta":"ok"}`),
+		[]byte(`{"type":"response.in_progress"}unexpected-tail`),
+	}, true)
+}
+
 func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughImageNamespaceStripAcrossTurns(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

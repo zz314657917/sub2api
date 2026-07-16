@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -192,6 +193,21 @@ func openAIWSPassthroughRequestModelFromSessionFrame(payload []byte) string {
 }
 
 const openaiWSV2PassthroughModeFields = "ws_mode=passthrough ws_router=v2"
+
+func validateOpenAIWSPassthroughUpstreamPayload(payload []byte, wroteDownstream bool, responseHeaders http.Header) error {
+	if json.Valid(payload) {
+		return nil
+	}
+	invalidErr := errors.New("upstream websocket returned malformed Responses event JSON")
+	if wroteDownstream {
+		return fmt.Errorf("%w after downstream output", invalidErr)
+	}
+	return &UpstreamFailoverError{
+		StatusCode:      http.StatusBadGateway,
+		ResponseBody:    append([]byte(nil), payload...),
+		ResponseHeaders: cloneHeader(responseHeaders),
+	}
+}
 
 var _ openaiwsv2.FrameConn = (*openAIWSClientFrameConn)(nil)
 
@@ -580,7 +596,19 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 				}
 			},
 			BeforeWriteClient: func(msgType coderws.MessageType, payload []byte, wroteDownstream bool) error {
-				if msgType != coderws.MessageText || wroteDownstream {
+				if msgType != coderws.MessageText {
+					return nil
+				}
+				if validationErr := validateOpenAIWSPassthroughUpstreamPayload(payload, wroteDownstream, handshakeHeaders); validationErr != nil {
+					logOpenAIWSV2Passthrough(
+						"invalid_event_json account_id=%d bytes=%d wrote_downstream=%v",
+						account.ID,
+						len(payload),
+						wroteDownstream,
+					)
+					return validationErr
+				}
+				if wroteDownstream {
 					return nil
 				}
 				if eventType, _, _ := parseOpenAIWSEventEnvelope(payload); eventType != "error" {

@@ -725,6 +725,51 @@ func TestOpenAIResponsesWebSocket_FirstMessageTimeoutUsesConfig(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 }
 
+func TestOpenAIResponsesWebSocket_OpenAIPassiveImageNamespacePreservesLegacyPermissionGate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := newOpenAIHandlerForPreviousResponseIDValidation(t, nil)
+	groupID := int64(8801)
+	apiKey := &service.APIKey{
+		ID:      8802,
+		GroupID: &groupID,
+		Group: &service.Group{
+			ID:                   groupID,
+			Platform:             service.PlatformOpenAI,
+			AllowImageGeneration: false,
+		},
+		User: &service.User{ID: 8803},
+	}
+	subject := middleware.AuthSubject{UserID: 8803, Concurrency: 1}
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyAPIKey), apiKey)
+		c.Set(string(middleware.ContextKeyUser), subject)
+		c.Next()
+	})
+	router.GET("/openai/v1/responses", h.ResponsesWebSocket)
+	wsServer := httptest.NewServer(router)
+	defer wsServer.Close()
+
+	dialCtx, cancelDial := context.WithTimeout(context.Background(), 3*time.Second)
+	clientConn, _, err := coderws.Dial(dialCtx, "ws"+strings.TrimPrefix(wsServer.URL, "http")+"/openai/v1/responses", nil)
+	cancelDial()
+	require.NoError(t, err)
+	defer func() { _ = clientConn.CloseNow() }()
+
+	writeCtx, cancelWrite := context.WithTimeout(context.Background(), 3*time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.5","stream":false,"tools":[{"type":"namespace","name":"image_gen"}],"tool_choice":"auto","input":"write code"}`))
+	cancelWrite()
+	require.NoError(t, err)
+
+	readCtx, cancelRead := context.WithTimeout(context.Background(), 3*time.Second)
+	_, _, err = clientConn.Read(readCtx)
+	cancelRead()
+	var closeErr coderws.CloseError
+	require.ErrorAs(t, err, &closeErr)
+	require.Equal(t, coderws.StatusPolicyViolation, closeErr.Code)
+	require.Contains(t, closeErr.Reason, service.ImageGenerationPermissionMessage())
+}
+
 func TestOpenAIResponsesWebSocket_PreviousResponseIDKindLoggedBeforeAcquireFailure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
