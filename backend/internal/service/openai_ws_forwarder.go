@@ -95,6 +95,60 @@ func wrapOpenAIWSFallback(reason string, err error) error {
 	return &openAIWSFallbackError{Reason: strings.TrimSpace(reason), Err: err}
 }
 
+type openAIWSClientReadResult struct {
+	messageType coderws.MessageType
+	payload     []byte
+	err         error
+}
+
+// ReadOpenAIWSClientMessage joins a blocking websocket reader after timeout or
+// cancellation. Closing the connection is required to make a blocked read exit
+// deterministically when the read context is not observed immediately.
+func ReadOpenAIWSClientMessage(
+	controlCtx context.Context,
+	conn *coderws.Conn,
+	timeout time.Duration,
+	timeoutStatus coderws.StatusCode,
+	timeoutReason string,
+) (coderws.MessageType, []byte, error) {
+	if conn == nil {
+		return 0, nil, errors.New("openai websocket client connection is nil")
+	}
+	if controlCtx == nil {
+		controlCtx = context.Background()
+	}
+
+	readDone := make(chan openAIWSClientReadResult, 1)
+	go func() {
+		messageType, payload, err := conn.Read(context.Background())
+		readDone <- openAIWSClientReadResult{messageType: messageType, payload: payload, err: err}
+	}()
+
+	var timeoutCh <-chan time.Time
+	var timer *time.Timer
+	if timeout > 0 {
+		timer = time.NewTimer(timeout)
+		timeoutCh = timer.C
+		defer timer.Stop()
+	}
+
+	closeAndJoin := func(status coderws.StatusCode, reason string, cause error) (coderws.MessageType, []byte, error) {
+		_ = conn.Close(status, reason)
+		_ = conn.CloseNow()
+		<-readDone
+		return 0, nil, NewOpenAIWSClientCloseError(status, reason, cause)
+	}
+
+	select {
+	case result := <-readDone:
+		return result.messageType, result.payload, result.err
+	case <-timeoutCh:
+		return closeAndJoin(timeoutStatus, timeoutReason, context.DeadlineExceeded)
+	case <-controlCtx.Done():
+		return closeAndJoin(coderws.StatusGoingAway, "websocket request canceled", controlCtx.Err())
+	}
+}
+
 // OpenAIWSClientCloseError 表示应以指定 WebSocket close code 主动关闭客户端连接的错误。
 type OpenAIWSClientCloseError struct {
 	statusCode coderws.StatusCode
@@ -2151,6 +2205,26 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 			setOpsUpstreamError(c, 0, sanitizeUpstreamErrorMessage(readErr.Error()), "")
 			return nil, fmt.Errorf("openai ws read event: %w", readErr)
 		}
+		if !json.Valid(message) {
+			eventType, _, _ := parseOpenAIWSEventEnvelope(message)
+			if eventType == "" {
+				eventType = "unknown"
+			}
+			lease.MarkBroken()
+			logOpenAIWSModeInfo(
+				"invalid_event_json account_id=%d conn_id=%s event_type=%s bytes=%d wrote_downstream=%v",
+				account.ID,
+				truncateOpenAIWSLogValue(connID, openAIWSIDValueMaxLen),
+				truncateOpenAIWSLogValue(eventType, openAIWSLogValueMaxLen),
+				len(message),
+				wroteDownstream,
+			)
+			invalidErr := errors.New("upstream websocket returned malformed Responses event JSON")
+			if !wroteDownstream {
+				return nil, wrapOpenAIWSFallback("invalid_event_json", invalidErr)
+			}
+			return nil, fmt.Errorf("%w after downstream output", invalidErr)
+		}
 
 		eventType, eventResponseID, responseField := parseOpenAIWSEventEnvelope(message)
 		if eventType == "" {
@@ -2728,7 +2802,13 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	}
 
 	readClientMessage := func() ([]byte, error) {
-		msgType, payload, readErr := clientConn.Read(ctx)
+		msgType, payload, readErr := ReadOpenAIWSClientMessage(
+			ctx,
+			clientConn,
+			s.openAIWSReadTimeout(),
+			coderws.StatusNormalClosure,
+			"websocket idle timeout",
+		)
 		if readErr != nil {
 			return nil, readErr
 		}
@@ -3107,6 +3187,31 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					fmt.Errorf("read upstream websocket event: %w", readErr),
 					wroteDownstream,
 				)
+			}
+			if !json.Valid(upstreamMessage) {
+				eventType, _, _ := parseOpenAIWSEventEnvelope(upstreamMessage)
+				if eventType == "" {
+					eventType = "unknown"
+				}
+				lease.MarkBroken()
+				logOpenAIWSModeInfo(
+					"invalid_event_json account_id=%d turn=%d conn_id=%s event_type=%s bytes=%d wrote_downstream=%v",
+					account.ID,
+					turn,
+					truncateOpenAIWSLogValue(lease.ConnID(), openAIWSIDValueMaxLen),
+					truncateOpenAIWSLogValue(eventType, openAIWSLogValueMaxLen),
+					len(upstreamMessage),
+					wroteDownstream,
+				)
+				invalidErr := errors.New("upstream websocket returned malformed Responses event JSON")
+				if !wroteDownstream {
+					return nil, &UpstreamFailoverError{
+						StatusCode:      http.StatusBadGateway,
+						ResponseBody:    append([]byte(nil), upstreamMessage...),
+						ResponseHeaders: cloneHeader(lease.HandshakeHeaders()),
+					}
+				}
+				return nil, wrapOpenAIWSIngressTurnError("invalid_event_json", fmt.Errorf("%w after downstream output", invalidErr), true)
 			}
 
 			eventType, eventResponseID, _ := parseOpenAIWSEventEnvelope(upstreamMessage)

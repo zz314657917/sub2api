@@ -18,6 +18,314 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+func TestReadOpenAIWSClientMessage_TimeoutClosesAndJoinsReader(t *testing.T) {
+	controlCtx := context.Background()
+	serverResult := make(chan error, 1)
+	readStarted := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := coderws.Accept(w, r, nil)
+		if err != nil {
+			serverResult <- err
+			return
+		}
+		defer func() { _ = conn.CloseNow() }()
+		close(readStarted)
+		_, _, err = ReadOpenAIWSClientMessage(
+			controlCtx,
+			conn,
+			25*time.Millisecond,
+			coderws.StatusNormalClosure,
+			"websocket idle timeout",
+		)
+		serverResult <- err
+	}))
+	defer server.Close()
+
+	dialCtx, cancelDial := context.WithTimeout(context.Background(), time.Second)
+	clientConn, _, err := coderws.Dial(dialCtx, "ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	cancelDial()
+	require.NoError(t, err)
+	defer func() { _ = clientConn.CloseNow() }()
+	<-readStarted
+
+	readCtx, cancelRead := context.WithTimeout(context.Background(), time.Second)
+	_, _, err = clientConn.Read(readCtx)
+	cancelRead()
+	var clientClose coderws.CloseError
+	require.ErrorAs(t, err, &clientClose)
+	require.Equal(t, coderws.StatusNormalClosure, clientClose.Code)
+	require.Equal(t, "websocket idle timeout", clientClose.Reason)
+
+	select {
+	case serverErr := <-serverResult:
+		var closeErr *OpenAIWSClientCloseError
+		require.ErrorAs(t, serverErr, &closeErr)
+		require.Equal(t, coderws.StatusNormalClosure, closeErr.StatusCode())
+		require.Equal(t, "websocket idle timeout", closeErr.Reason())
+	case <-time.After(time.Second):
+		t.Fatal("blocked websocket reader did not exit after timeout close")
+	}
+}
+
+func TestReadOpenAIWSClientMessage_CancellationClosesAndJoinsReader(t *testing.T) {
+	controlCtx, cancelControl := context.WithCancel(context.Background())
+	serverResult := make(chan error, 1)
+	readStarted := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := coderws.Accept(w, r, nil)
+		if err != nil {
+			serverResult <- err
+			return
+		}
+		defer func() { _ = conn.CloseNow() }()
+		close(readStarted)
+		_, _, err = ReadOpenAIWSClientMessage(controlCtx, conn, 0, 0, "")
+		serverResult <- err
+	}))
+	defer server.Close()
+
+	dialCtx, cancelDial := context.WithTimeout(context.Background(), time.Second)
+	clientConn, _, err := coderws.Dial(dialCtx, "ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	cancelDial()
+	require.NoError(t, err)
+	defer func() { _ = clientConn.CloseNow() }()
+	<-readStarted
+	cancelControl()
+
+	readCtx, cancelRead := context.WithTimeout(context.Background(), time.Second)
+	_, _, err = clientConn.Read(readCtx)
+	cancelRead()
+	var clientClose coderws.CloseError
+	require.ErrorAs(t, err, &clientClose)
+	require.Equal(t, coderws.StatusGoingAway, clientClose.Code)
+	require.Equal(t, "websocket request canceled", clientClose.Reason)
+
+	select {
+	case serverErr := <-serverResult:
+		var closeErr *OpenAIWSClientCloseError
+		require.ErrorAs(t, serverErr, &closeErr)
+		require.Equal(t, coderws.StatusGoingAway, closeErr.StatusCode())
+	case <-time.After(time.Second):
+		t.Fatal("blocked websocket reader did not exit after cancellation")
+	}
+}
+
+func newMalformedWSV2ForwardTest(t *testing.T, events [][]byte) (*OpenAIGatewayService, *gin.Context, *httptest.ResponseRecorder, *openAIWSCaptureConn, *Account) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+
+	cfg := &config.Config{}
+	cfg.Security.URLAllowlist.Enabled = false
+	cfg.Gateway.OpenAIWS.Enabled = true
+	cfg.Gateway.OpenAIWS.APIKeyEnabled = true
+	cfg.Gateway.OpenAIWS.ResponsesWebsocketsV2 = true
+	cfg.Gateway.OpenAIWS.MaxConnsPerAccount = 1
+	cfg.Gateway.OpenAIWS.MaxIdlePerAccount = 1
+	cfg.Gateway.OpenAIWS.QueueLimitPerConn = 8
+	cfg.Gateway.OpenAIWS.DialTimeoutSeconds = 3
+	cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 5
+	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3
+
+	captureConn := &openAIWSCaptureConn{events: events}
+	pool := newOpenAIWSConnPool(cfg)
+	pool.setClientDialerForTest(&openAIWSCaptureDialer{conn: captureConn})
+	svc := &OpenAIGatewayService{
+		cfg:              cfg,
+		cache:            &stubGatewayCache{},
+		httpUpstream:     &httpUpstreamRecorder{},
+		openaiWSResolver: NewOpenAIWSProtocolResolver(cfg),
+		openaiWSPool:     pool,
+		toolCorrector:    NewCodexToolCorrector(),
+	}
+	account := &Account{
+		ID:          4,
+		Name:        "ws-malformed-event",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Credentials: map[string]any{"api_key": "sk-test"},
+		Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+	}
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
+	groupID := int64(1)
+	c.Set("api_key", &APIKey{GroupID: &groupID})
+	return svc, c, recorder, captureConn, account
+}
+
+func TestOpenAIGatewayService_Forward_WSv2RejectsMalformedEventBeforeOutput(t *testing.T) {
+	svc, c, recorder, captureConn, account := newMalformedWSV2ForwardTest(t, [][]byte{
+		[]byte(`{"type":"response.in_progress"}unexpected-tail`),
+		[]byte(`{"type":"response.completed","response":{"id":"resp_never_reached"}}`),
+	})
+
+	result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.6-sol","stream":true,"input":"hello"}`))
+	require.Error(t, err)
+	var fallbackErr *openAIWSFallbackError
+	require.ErrorAs(t, err, &fallbackErr)
+	require.Equal(t, "invalid_event_json", fallbackErr.Reason)
+	require.Nil(t, result)
+	require.Empty(t, recorder.Body.String())
+	require.True(t, captureConn.closed)
+}
+
+func TestOpenAIGatewayService_Forward_WSv2RejectsMalformedEventAfterOutput(t *testing.T) {
+	svc, c, recorder, captureConn, account := newMalformedWSV2ForwardTest(t, [][]byte{
+		[]byte(`{"type":"response.output_text.delta","delta":"ok","sequence_number":1}`),
+		[]byte(`{"type":"response.in_progress"}unexpected-tail`),
+	})
+
+	result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.6-sol","stream":true,"input":"hello"}`))
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "after downstream output")
+	require.Nil(t, result)
+	require.Contains(t, recorder.Body.String(), `"delta":"ok"`)
+	require.NotContains(t, recorder.Body.String(), "unexpected-tail")
+	require.True(t, captureConn.closed)
+}
+
+func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_RejectsMalformedEventBeforeOutput(t *testing.T) {
+	svc, _, _, captureConn, account := newMalformedWSV2ForwardTest(t, [][]byte{
+		[]byte(`{"type":"response.in_progress"}unexpected-tail`),
+	})
+	account.Credentials["base_url"] = "https://example.invalid"
+
+	serverErr := make(chan error, 1)
+	wsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := coderws.Accept(w, r, nil)
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		defer func() { _ = conn.CloseNow() }()
+
+		readCtx, cancelRead := context.WithTimeout(r.Context(), time.Second)
+		msgType, firstMessage, readErr := conn.Read(readCtx)
+		cancelRead()
+		if readErr != nil {
+			serverErr <- readErr
+			return
+		}
+		if msgType != coderws.MessageText && msgType != coderws.MessageBinary {
+			serverErr <- errors.New("unexpected client message type")
+			return
+		}
+
+		recorder := httptest.NewRecorder()
+		ginCtx, _ := gin.CreateTestContext(recorder)
+		ginCtx.Request = r.Clone(r.Context())
+		groupID := int64(1)
+		ginCtx.Set("api_key", &APIKey{GroupID: &groupID})
+		proxyErr := svc.ProxyResponsesWebSocketFromClient(r.Context(), ginCtx, conn, account, "sk-test", firstMessage, nil)
+		_ = conn.Close(coderws.StatusInternalError, "malformed upstream event")
+		serverErr <- proxyErr
+	}))
+	defer wsServer.Close()
+
+	dialCtx, cancelDial := context.WithTimeout(context.Background(), time.Second)
+	clientConn, _, err := coderws.Dial(dialCtx, "ws"+strings.TrimPrefix(wsServer.URL, "http"), nil)
+	cancelDial()
+	require.NoError(t, err)
+	defer func() { _ = clientConn.CloseNow() }()
+
+	writeCtx, cancelWrite := context.WithTimeout(context.Background(), time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.6-sol","stream":true,"input":"hello"}`))
+	cancelWrite()
+	require.NoError(t, err)
+
+	readCtx, cancelRead := context.WithTimeout(context.Background(), time.Second)
+	_, payload, readErr := clientConn.Read(readCtx)
+	cancelRead()
+	if readErr == nil {
+		require.NotContains(t, string(payload), "unexpected-tail")
+		t.Fatal("malformed upstream event reached ingress client")
+	}
+
+	select {
+	case proxyErr := <-serverErr:
+		var failoverErr *UpstreamFailoverError
+		require.ErrorAs(t, proxyErr, &failoverErr)
+		require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
+	case <-time.After(time.Second):
+		t.Fatal("ingress proxy did not return after malformed upstream event")
+	}
+	require.True(t, captureConn.closed)
+}
+
+func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_InterTurnReadTimeoutClosesClient(t *testing.T) {
+	svc, _, _, _, account := newMalformedWSV2ForwardTest(t, [][]byte{
+		[]byte(`{"type":"response.completed","response":{"id":"resp_idle","model":"gpt-5.6"}}`),
+	})
+	svc.cfg.Gateway.OpenAIWS.ReadTimeoutSeconds = 1
+	account.Credentials["base_url"] = "https://example.invalid"
+
+	serverErr := make(chan error, 1)
+	wsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := coderws.Accept(w, r, nil)
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		defer func() { _ = conn.CloseNow() }()
+		readCtx, cancelRead := context.WithTimeout(r.Context(), time.Second)
+		msgType, firstMessage, readErr := conn.Read(readCtx)
+		cancelRead()
+		if readErr != nil {
+			serverErr <- readErr
+			return
+		}
+		if msgType != coderws.MessageText && msgType != coderws.MessageBinary {
+			serverErr <- errors.New("unexpected client message type")
+			return
+		}
+		recorder := httptest.NewRecorder()
+		ginCtx, _ := gin.CreateTestContext(recorder)
+		ginCtx.Request = r.Clone(r.Context())
+		groupID := int64(1)
+		ginCtx.Set("api_key", &APIKey{GroupID: &groupID})
+		serverErr <- svc.ProxyResponsesWebSocketFromClient(r.Context(), ginCtx, conn, account, "sk-test", firstMessage, nil)
+	}))
+	defer wsServer.Close()
+
+	dialCtx, cancelDial := context.WithTimeout(context.Background(), time.Second)
+	clientConn, _, err := coderws.Dial(dialCtx, "ws"+strings.TrimPrefix(wsServer.URL, "http"), nil)
+	cancelDial()
+	require.NoError(t, err)
+	defer func() { _ = clientConn.CloseNow() }()
+
+	writeCtx, cancelWrite := context.WithTimeout(context.Background(), time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.6-sol","stream":false,"input":"hello"}`))
+	cancelWrite()
+	require.NoError(t, err)
+
+	readCtx, cancelRead := context.WithTimeout(context.Background(), time.Second)
+	msgType, payload, err := clientConn.Read(readCtx)
+	cancelRead()
+	require.NoError(t, err)
+	require.Equal(t, coderws.MessageText, msgType)
+	require.Equal(t, "response.completed", gjson.GetBytes(payload, "type").String())
+
+	closeReadCtx, cancelCloseRead := context.WithTimeout(context.Background(), 3*time.Second)
+	_, _, err = clientConn.Read(closeReadCtx)
+	cancelCloseRead()
+	var clientClose coderws.CloseError
+	require.ErrorAs(t, err, &clientClose)
+	require.Equal(t, coderws.StatusNormalClosure, clientClose.Code)
+	require.Equal(t, "websocket idle timeout", clientClose.Reason)
+
+	select {
+	case proxyErr := <-serverErr:
+		var closeErr *OpenAIWSClientCloseError
+		require.ErrorAs(t, proxyErr, &closeErr)
+		require.Equal(t, coderws.StatusNormalClosure, closeErr.StatusCode())
+	case <-time.After(time.Second):
+		t.Fatal("ingress proxy did not exit after inter-turn timeout")
+	}
+}
+
 func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_KeepLeaseAcrossTurns(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
