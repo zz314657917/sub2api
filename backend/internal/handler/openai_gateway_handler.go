@@ -250,7 +250,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	setOpsRequestContext(c, reqModel, reqStream, body)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
 
-	imageIntent := service.IsImageGenerationIntent("/v1/responses", reqModel, body)
+	imageIntent := service.IsImageGenerationIntentForPlatform("/v1/responses", reqModel, body, openAICompatibleRequestPlatform(apiKey))
 	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, reqModel, imageIntent); !ok {
 		return
 	} else {
@@ -1382,7 +1382,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	setOpsRequestContext(c, reqModel, true, firstMessage)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeWSV2))
 
-	imageIntent := service.IsImageGenerationIntent("/v1/responses", reqModel, firstMessage)
+	imageIntent := service.IsImageGenerationIntentForPlatform("/v1/responses", reqModel, firstMessage, openAICompatibleRequestPlatform(apiKey))
 	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, reqModel, imageIntent); !ok {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "API key group is unavailable")
 		return
