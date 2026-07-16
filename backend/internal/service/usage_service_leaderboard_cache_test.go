@@ -123,7 +123,7 @@ func TestUsageServiceGetUserLeaderboardCacheKeyIncludesCurrentUser(t *testing.T)
 	require.Equal(t, int64(99), second.CurrentUserEntry.UserID)
 }
 
-func TestUsageServiceGetLeaderboardModelRankingAndRecentTrendUseShortCache(t *testing.T) {
+func TestUsageServiceGetLeaderboardModelRankingAndRecentTrendUseCache(t *testing.T) {
 	growth := 12.5
 	rankChange := int64(1)
 	repo := &leaderboardStatsCacheUsageRepo{

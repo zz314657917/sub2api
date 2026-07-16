@@ -20,7 +20,7 @@ var (
 	ErrUsageLogNotFound = infraerrors.NotFound("USAGE_LOG_NOT_FOUND", "usage log not found")
 )
 
-const leaderboardStatsCacheTTL = 5 * time.Minute
+const leaderboardStatsCacheTTL = time.Hour
 
 // CreateUsageLogRequest 创建使用日志请求
 type CreateUsageLogRequest struct {
@@ -218,10 +218,6 @@ func (s *UsageService) Create(ctx context.Context, req CreateUsageLogRequest) (*
 }
 
 func (s *UsageService) invalidateUsageCaches(ctx context.Context, userID int64, balanceUpdated bool) {
-	s.badgeCacheMu.Lock()
-	s.badgeCache = make(map[string]leaderboardBadgeCacheEntry)
-	s.badgeCacheMu.Unlock()
-
 	if !balanceUpdated || s.authCacheInvalidator == nil {
 		return
 	}
@@ -765,10 +761,8 @@ func leaderboardBadgeTimeKey(value time.Time) string {
 	return value.UTC().Format(time.RFC3339Nano)
 }
 
-func leaderboardBadgeCacheExpiry(userTZ string, now time.Time) time.Time {
-	loc := leaderboardBadgeCacheLocation(userTZ)
-	localNow := now.In(loc)
-	return time.Date(localNow.Year(), localNow.Month(), localNow.Day()+1, 0, 0, 0, 0, loc)
+func leaderboardBadgeCacheExpiry(_ string, now time.Time) time.Time {
+	return now.Add(leaderboardStatsCacheTTL)
 }
 
 func normalizeLeaderboardBadgeCacheTimezone(userTZ string) string {
@@ -780,14 +774,6 @@ func normalizeLeaderboardBadgeCacheTimezone(userTZ string) string {
 		return apptimezone.Name()
 	}
 	return value
-}
-
-func leaderboardBadgeCacheLocation(userTZ string) *time.Location {
-	value := normalizeLeaderboardBadgeCacheTimezone(userTZ)
-	if loc, err := time.LoadLocation(value); err == nil {
-		return loc
-	}
-	return apptimezone.Location()
 }
 
 func cloneLeaderboardBadgeLeaders(leaders *usagestats.UserLeaderboardBadgeLeaders) *usagestats.UserLeaderboardBadgeLeaders {

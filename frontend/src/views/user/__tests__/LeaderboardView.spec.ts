@@ -83,6 +83,8 @@ vi.mock('vue-i18n', async (importOriginal) => {
     'leaderboard.record.headlineRanked': '当前第 {rank} 名，消耗 {tokens}',
     'leaderboard.record.headlineUnranked': '暂未上榜，消耗 {tokens}',
     'leaderboard.record.distanceToBoard': '距离上榜还差',
+    'leaderboard.record.waitingDraw': '等待开奖',
+    'leaderboard.record.waitingDrawNextRank': '等待开奖，下一名距离你',
     'leaderboard.record.distanceToTopThree': '距离前三还差',
     'leaderboard.record.distanceToSecond': '距离第二还差',
     'leaderboard.record.distanceToFirst': '距离第一还差',
@@ -510,9 +512,9 @@ describe('LeaderboardView', () => {
     const record = wrapper.get('[data-testid="leaderboard-my-record"]')
     expect(record.text()).toContain('你的战绩')
     expect(record.text()).toContain('当前第 28 名，消耗 <0.1M')
-    expect(record.text()).toContain('距离前三还差')
-    expect(record.text()).toContain('6.6亿')
-    expect(record.text()).toContain('token')
+    expect(record.text()).toContain('等待开奖')
+    expect(record.text()).not.toContain('下一名距离你')
+    expect(record.text()).not.toContain('距离前三还差')
     expect(record.text()).not.toContain('Me')
     expect(wrapper.find('[data-testid="leaderboard-my-info"]').text()).not.toContain('$7.00')
     expect(wrapper.text()).not.toContain('$4.25')
@@ -537,7 +539,8 @@ describe('LeaderboardView', () => {
     const record = wrapper.get('[data-testid="leaderboard-my-record"]')
     expect(record.text()).toContain('你的战绩')
     expect(record.text()).toContain('当前第 1 名，消耗 <0.1M')
-    expect(record.text()).toContain('掌控token的神')
+    expect(record.text()).toContain('等待开奖')
+    expect(record.text()).not.toContain('掌控token的神')
     expect(record.text()).not.toContain('Alice')
     const thursdayBanner = wrapper.get('[data-testid="leaderboard-thursday-banner"]')
     expect(thursdayBanner.text()).toContain('疯狂星期四')
@@ -596,6 +599,80 @@ describe('LeaderboardView', () => {
     expect(record.text()).toContain('距离上榜还差')
     expect(record.text()).toContain('383')
     expect(record.text()).not.toContain('Hidden Me')
+  })
+
+  it('shows the next ranked user token gap after the current user is ranked', async () => {
+    getDashboardLeaderboard.mockResolvedValue(
+      makeResponse({
+        ranking: [
+          {
+            rank: 1,
+            user_id: 1,
+            display_name: 'First',
+            email_masked: 'f***@example.com',
+            avatar_url: null,
+            actual_cost: 3,
+            requests: 10,
+            tokens: 2_000,
+            balance: 1,
+            is_current_user: false,
+          },
+          {
+            rank: 2,
+            user_id: 99,
+            display_name: 'Me',
+            email_masked: 'm***@example.com',
+            avatar_url: null,
+            actual_cost: 2,
+            requests: 8,
+            tokens: 1_500,
+            balance: 1,
+            is_current_user: true,
+          },
+          {
+            rank: 3,
+            user_id: 3,
+            display_name: 'Third',
+            email_masked: 't***@example.com',
+            avatar_url: null,
+            actual_cost: 1,
+            requests: 6,
+            tokens: 1_200,
+            balance: 1,
+            is_current_user: false,
+          },
+        ],
+        current_user_entry: {
+          rank: 2,
+          user_id: 99,
+          display_name: 'Me',
+          email_masked: 'm***@example.com',
+          avatar_url: null,
+          actual_cost: 2,
+          requests: 8,
+          tokens: 1_500,
+          balance: 1,
+          is_current_user: true,
+        },
+      })
+    )
+    const { default: LeaderboardView } = await import('../LeaderboardView.vue')
+
+    const wrapper = mount(LeaderboardView, {
+      global: {
+        stubs: {
+          AppLayout: AppLayoutStub,
+        },
+      },
+    })
+
+    await flushPromises()
+
+    const record = wrapper.get('[data-testid="leaderboard-my-record"]')
+    expect(record.text()).toContain('等待开奖，下一名距离你')
+    expect(record.text()).toContain('301')
+    expect(record.text()).toContain('token')
+    expect(record.text()).not.toContain('距离第一还差')
   })
 
   it('hides visible leaderboard spending totals and row amounts', async () => {

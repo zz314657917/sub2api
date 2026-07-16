@@ -225,8 +225,8 @@ describe('leaderboard visual identity', () => {
     expect(leaderboardView).not.toContain(':global(.dark) .leaderboard-token-ranking-card')
   })
 
-  it('uses a short session cache so reopening the leaderboard can render before refresh completes', () => {
-    expect(leaderboardView).toContain('const leaderboardSessionCacheTTL = 5 * 60 * 1000')
+  it('uses a session cache so reopening the leaderboard can render before refresh completes', () => {
+    expect(leaderboardView).toContain('const leaderboardSessionCacheTTL = 60 * 60 * 1000')
     expect(leaderboardView).toContain('window.sessionStorage.getItem(leaderboardSessionCacheKey(value))')
     expect(leaderboardView).toContain('loading.value = !cached')
     expect(leaderboardView).toContain('const refreshingLeaderboard = ref(false)')

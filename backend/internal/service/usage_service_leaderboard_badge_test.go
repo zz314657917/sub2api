@@ -76,7 +76,7 @@ func TestUsageServiceGetUserLeaderboardBadgeLeadersDoesNotCacheEmptyResult(t *te
 	require.Equal(t, 2, repo.calls)
 }
 
-func TestUsageServiceInvalidateUsageCachesClearsLeaderboardBadgeCache(t *testing.T) {
+func TestUsageServiceInvalidateUsageCachesKeepsLeaderboardBadgeCache(t *testing.T) {
 	repo := &leaderboardBadgeUsageRepo{
 		callLeaders: []*usagestats.UserLeaderboardBadgeLeaders{
 			{WeeklyTokenKingUserID: 42},
@@ -95,6 +95,6 @@ func TestUsageServiceInvalidateUsageCachesClearsLeaderboardBadgeCache(t *testing
 
 	second, err := svc.GetUserLeaderboardBadgeLeaders(context.Background(), start, end, start, end, start, end, "Asia/Shanghai")
 	require.NoError(t, err)
-	require.Equal(t, int64(99), second.WeeklyTokenKingUserID)
-	require.Equal(t, 2, repo.calls)
+	require.Equal(t, int64(42), second.WeeklyTokenKingUserID)
+	require.Equal(t, 1, repo.calls)
 }

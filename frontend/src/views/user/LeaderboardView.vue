@@ -279,7 +279,7 @@
                   </template>
                   <template v-else>
                     <span>{{ myRecordProgress.prefix }}</span>
-                    <span>
+                    <span v-if="myRecordProgress.showDistance !== false">
                       <strong>{{ myRecordProgress.value }}</strong>
                       <span v-if="myRecordProgress.suffix" class="leaderboard-record-unit">{{ myRecordProgress.suffix }}</span>
                     </span>
@@ -576,7 +576,7 @@ const championTooltipViewportPadding = 12
 const tokenBarTooltipHeight = 136
 const tokenBarTooltipGap = 18
 const leaderboardSessionCacheVersion = 'v1'
-const leaderboardSessionCacheTTL = 5 * 60 * 1000
+const leaderboardSessionCacheTTL = 60 * 60 * 1000
 let loadSeq = 0
 let visualTokenTickerID: number | null = null
 let lotteryCountdownTimerID: number | null = null
@@ -639,6 +639,7 @@ type LeaderboardRecordProgress = {
   value: string
   suffix: string
   isDeity: boolean
+  showDistance?: boolean
 }
 
 type LeaderboardSessionCacheSnapshot = {
@@ -745,25 +746,8 @@ const myRecordHeadline = computed(() => {
 const myRecordProgress = computed<LeaderboardRecordProgress>(() => {
   const rank = myRankNumber.value
 
-  if (rank === 1) {
-    return {
-      prefix: '',
-      value: t('leaderboard.record.deity'),
-      suffix: '',
-      isDeity: true,
-    }
-  }
-
-  if (rank === 2 || rank === 3) {
-    const targetRank = rank - 1
-    return buildRecordProgress(
-      targetRank === 1 ? t('leaderboard.record.distanceToFirst') : t('leaderboard.record.distanceToSecond'),
-      findLeaderboardEntryByRank(targetRank),
-    )
-  }
-
-  if (rank > 3) {
-    return buildRecordProgress(t('leaderboard.record.distanceToTopThree'), findLeaderboardEntryByRank(3))
+  if (rank > 0) {
+    return buildRankedRecordProgress(findLeaderboardEntryByRank(rank + 1))
   }
 
   const boardEntryIndex = Math.min(leaderboardLimit, rankingItems.value.length) - 1
@@ -1322,6 +1306,28 @@ function buildRecordProgress(prefix: string, target: UserLeaderboardItem | null)
   const distance = Math.max(0, Math.floor(Number(target.tokens ?? 0)) - myTokenTotal.value + 1)
   return {
     prefix,
+    value: formatRecordDistanceTokens(distance),
+    suffix: 'token',
+    isDeity: false,
+  }
+}
+
+function buildRankedRecordProgress(nextRankEntry: UserLeaderboardItem | null): LeaderboardRecordProgress {
+  const waitingDraw = t('leaderboard.record.waitingDraw')
+  if (!nextRankEntry) {
+    return {
+      prefix: waitingDraw,
+      value: '',
+      suffix: '',
+      isDeity: false,
+      showDistance: false,
+    }
+  }
+
+  const nextRankTokens = Math.max(0, Math.floor(Number(nextRankEntry.tokens ?? 0)))
+  const distance = Math.max(0, myTokenTotal.value - nextRankTokens + 1)
+  return {
+    prefix: t('leaderboard.record.waitingDrawNextRank'),
     value: formatRecordDistanceTokens(distance),
     suffix: 'token',
     isDeity: false,
