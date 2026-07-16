@@ -284,3 +284,78 @@ func TestResolveAPIKeyRouteForJSONModelEnforcesDeferredGroupBilling(t *testing.T
 	require.True(t, c.IsAborted())
 	require.Equal(t, http.StatusForbidden, c.Writer.Status())
 }
+
+func TestResolveAPIKeyRouteForJSONModel_GrokImageIntentPassiveNamespaceUsesTextRoute(t *testing.T) {
+	c := newGrokImageIntentRoutingContext(`{"model":"grok-4.5","tools":[{"type":"namespace","name":"image_gen"}],"tool_choice":"auto"}`)
+
+	ok := resolveAPIKeyRouteForJSONModel(c, service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{}), "/v1/responses", false)
+
+	require.True(t, ok)
+	resolved, exists := servermiddleware.GetAPIKeyFromContext(c)
+	require.True(t, exists)
+	require.NotNil(t, resolved.Group)
+	require.Equal(t, int64(3), *resolved.GroupID)
+	require.Equal(t, service.PlatformGrok, resolved.Group.Platform)
+}
+
+func TestResolveAPIKeyRouteForJSONModel_GrokImageIntentExplicitSignalUsesImageRoute(t *testing.T) {
+	c := newGrokImageIntentRoutingContext(`{"model":"grok-4.5","tools":[{"type":"namespace","name":"image_gen"}],"tool_choice":{"type":"namespace","name":"image_gen"}}`)
+
+	ok := resolveAPIKeyRouteForJSONModel(c, service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{}), "/v1/responses", false)
+
+	require.True(t, ok)
+	resolved, exists := servermiddleware.GetAPIKeyFromContext(c)
+	require.True(t, exists)
+	require.NotNil(t, resolved.Group)
+	require.Equal(t, int64(2), *resolved.GroupID)
+	require.Equal(t, service.PlatformOpenAI, resolved.Group.Platform)
+}
+
+func newGrokImageIntentRoutingContext(body string) *gin.Context {
+	groupID := int64(1)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
+	c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
+		GroupID: &groupID,
+		Group: &service.Group{
+			ID:       groupID,
+			Platform: service.PlatformGrok,
+			Status:   service.StatusActive,
+			Hydrated: true,
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{
+				ID:                   2,
+				Platform:             service.PlatformOpenAI,
+				Status:               service.StatusActive,
+				AllowImageGeneration: true,
+				Hydrated:             true,
+			},
+			{
+				ID:       3,
+				Platform: service.PlatformGrok,
+				Status:   service.StatusActive,
+				Hydrated: true,
+			},
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{
+				GroupID:       2,
+				Enabled:       true,
+				Priority:      1,
+				Weight:        1,
+				ImageOnly:     true,
+				ModelPatterns: []string{"grok-*"},
+			},
+			{
+				GroupID:       3,
+				Enabled:       true,
+				Priority:      2,
+				Weight:        1,
+				TextOnly:      true,
+				ModelPatterns: []string{"grok-*"},
+			},
+		},
+	})
+	return c
+}

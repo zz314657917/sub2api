@@ -46,6 +46,33 @@ func IsImageGenerationIntent(endpoint string, requestedModel string, body []byte
 	return openAIJSONToolChoiceSelectsImageGeneration(gjson.GetBytes(body, "tool_choice"))
 }
 
+// IsImageGenerationIntentForPlatform applies provider-specific intent rules
+// while preserving IsImageGenerationIntent for callers that do not know the
+// effective provider. Grok advertises the image_gen namespace on ordinary
+// requests, so a declaration with an automatic tool choice is not itself an
+// image-generation request there.
+func IsImageGenerationIntentForPlatform(endpoint string, requestedModel string, body []byte, platform string) bool {
+	if !strings.EqualFold(strings.TrimSpace(platform), PlatformGrok) {
+		return IsImageGenerationIntent(endpoint, requestedModel, body)
+	}
+	return isExplicitGrokImageGenerationIntent(endpoint, requestedModel, body)
+}
+
+func isExplicitGrokImageGenerationIntent(endpoint string, requestedModel string, body []byte) bool {
+	if IsImageGenerationEndpoint(endpoint) || isOpenAIImageGenerationModel(requestedModel) {
+		return true
+	}
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return false
+	}
+	if isOpenAIImageGenerationModel(openAIJSONString(gjson.GetBytes(body, "model"))) {
+		return true
+	}
+	return openAIJSONToolsContainNativeImageGeneration(gjson.GetBytes(body, "tools")) ||
+		openAIJSONInputContainsNativeImageGeneration(gjson.GetBytes(body, "input")) ||
+		openAIJSONToolChoiceSelectsExplicitImageGeneration(gjson.GetBytes(body, "tool_choice"))
+}
+
 // IsImageGenerationIntentMap is the map-backed variant used after service-side request mutation.
 func IsImageGenerationIntentMap(endpoint string, requestedModel string, reqBody map[string]any) bool {
 	if IsImageGenerationEndpoint(endpoint) {
@@ -64,6 +91,28 @@ func IsImageGenerationIntentMap(endpoint string, requestedModel string, reqBody 
 		return true
 	}
 	return openAIAnyToolChoiceSelectsImageGeneration(reqBody["tool_choice"])
+}
+
+// IsImageGenerationIntentMapForPlatform is the map-backed counterpart used
+// after service-side request mutation. It intentionally ignores passive Grok
+// namespace catalogs while retaining native tools, image models, and explicit
+// tool selections as image intent.
+func IsImageGenerationIntentMapForPlatform(endpoint string, requestedModel string, reqBody map[string]any, platform string) bool {
+	if !strings.EqualFold(strings.TrimSpace(platform), PlatformGrok) {
+		return IsImageGenerationIntentMap(endpoint, requestedModel, reqBody)
+	}
+	if IsImageGenerationEndpoint(endpoint) || isOpenAIImageGenerationModel(requestedModel) {
+		return true
+	}
+	if reqBody == nil {
+		return false
+	}
+	if isOpenAIImageGenerationModel(firstNonEmptyString(reqBody["model"])) {
+		return true
+	}
+	return mapToolsContainNativeImageGeneration(reqBody["tools"]) ||
+		mapInputContainsNativeImageGeneration(reqBody["input"]) ||
+		openAIAnyToolChoiceSelectsExplicitImageGeneration(reqBody["tool_choice"])
 }
 
 // IsImageGenerationEndpoint identifies dedicated generated-image endpoints.
@@ -108,6 +157,18 @@ func openAIJSONToolsContainImageGeneration(tools gjson.Result) bool {
 	return found
 }
 
+func openAIJSONToolsContainNativeImageGeneration(tools gjson.Result) bool {
+	if !tools.IsArray() {
+		return false
+	}
+	found := false
+	tools.ForEach(func(_, item gjson.Result) bool {
+		found = isOpenAIImageGenerationType(openAIJSONString(item.Get("type")))
+		return !found
+	})
+	return found
+}
+
 func openAIJSONString(value gjson.Result) string {
 	if value.Type != gjson.String {
 		return ""
@@ -145,6 +206,21 @@ func openAIJSONInputContainsImageGenTool(input gjson.Result) bool {
 			return true
 		}
 		found = openAIJSONToolsContainImageGeneration(item.Get("tools"))
+		return !found
+	})
+	return found
+}
+
+func openAIJSONInputContainsNativeImageGeneration(input gjson.Result) bool {
+	if !input.IsArray() {
+		return false
+	}
+	found := false
+	input.ForEach(func(_, item gjson.Result) bool {
+		if openAIJSONString(item.Get("type")) != "additional_tools" {
+			return true
+		}
+		found = openAIJSONToolsContainNativeImageGeneration(item.Get("tools"))
 		return !found
 	})
 	return found
@@ -210,6 +286,45 @@ func openAIJSONToolChoiceSelectsImageGeneration(choice gjson.Result) bool {
 	return false
 }
 
+func openAIJSONToolChoiceSelectsExplicitImageGeneration(choice gjson.Result) bool {
+	if openAIJSONToolChoiceSelectsImageGeneration(choice) {
+		return true
+	}
+	if !choice.IsObject() {
+		return false
+	}
+	if tool := choice.Get("tool"); tool.IsObject() && openAIJSONToolChoiceSelectsExplicitImageGeneration(tool) {
+		return true
+	}
+	if isOpenAIImageGenFunctionReference(
+		openAIJSONString(choice.Get("namespace")),
+		openAIJSONString(choice.Get("name")),
+	) {
+		return true
+	}
+	if fn := choice.Get("function"); fn.IsObject() {
+		return isOpenAIImageGenFunctionReference(
+			openAIJSONString(fn.Get("namespace")),
+			openAIJSONString(fn.Get("name")),
+		)
+	}
+	return false
+}
+
+func isOpenAIImageGenFunctionReference(namespace string, name string) bool {
+	namespace = strings.TrimSpace(namespace)
+	name = strings.TrimSpace(name)
+	if namespace == "image_gen" && name == "imagegen" {
+		return true
+	}
+	switch name {
+	case "image_gen.imagegen", "image_gen__imagegen":
+		return true
+	default:
+		return false
+	}
+}
+
 func openAIAnyToolChoiceSelectsImageGeneration(choice any) bool {
 	switch v := choice.(type) {
 	case string:
@@ -228,6 +343,63 @@ func openAIAnyToolChoiceSelectsImageGeneration(choice any) bool {
 			return true
 		}
 		if fn, ok := v["function"].(map[string]any); ok && isOpenAIImageGenerationType(firstNonEmptyString(fn["name"])) {
+			return true
+		}
+	}
+	return false
+}
+
+func openAIAnyToolChoiceSelectsExplicitImageGeneration(choice any) bool {
+	if openAIAnyToolChoiceSelectsImageGeneration(choice) {
+		return true
+	}
+	v, ok := choice.(map[string]any)
+	if !ok {
+		return false
+	}
+	if tool, ok := v["tool"].(map[string]any); ok && openAIAnyToolChoiceSelectsExplicitImageGeneration(tool) {
+		return true
+	}
+	if isOpenAIImageGenFunctionReference(
+		firstNonEmptyString(v["namespace"]),
+		firstNonEmptyString(v["name"]),
+	) {
+		return true
+	}
+	if fn, ok := v["function"].(map[string]any); ok {
+		return isOpenAIImageGenFunctionReference(
+			firstNonEmptyString(fn["namespace"]),
+			firstNonEmptyString(fn["name"]),
+		)
+	}
+	return false
+}
+
+func mapToolsContainNativeImageGeneration(rawTools any) bool {
+	tools, ok := rawTools.([]any)
+	if !ok {
+		return false
+	}
+	for _, rawTool := range tools {
+		tool, ok := rawTool.(map[string]any)
+		if ok && isOpenAIImageGenerationType(firstNonEmptyString(tool["type"])) {
+			return true
+		}
+	}
+	return false
+}
+
+func mapInputContainsNativeImageGeneration(rawInput any) bool {
+	items, ok := rawInput.([]any)
+	if !ok {
+		return false
+	}
+	for _, rawItem := range items {
+		item, ok := rawItem.(map[string]any)
+		if !ok || strings.TrimSpace(firstNonEmptyString(item["type"])) != "additional_tools" {
+			continue
+		}
+		if mapToolsContainNativeImageGeneration(item["tools"]) {
 			return true
 		}
 	}

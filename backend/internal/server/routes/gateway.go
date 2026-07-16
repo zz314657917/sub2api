@@ -538,7 +538,7 @@ func resolveAPIKeyRouteForJSONModel(c *gin.Context, apiKeyService *service.APIKe
 	if gjson.ValidBytes(body) {
 		requestedModel = gjson.GetBytes(body, "model").String()
 	}
-	imageIntent := imageEndpoint || service.IsImageGenerationIntent(endpoint, requestedModel, body)
+	imageIntent := imageEndpoint || service.IsImageGenerationIntentForPlatform(endpoint, requestedModel, body, getGroupPlatform(c))
 	if _, ok := middleware.ResolveAPIKeyForModelRequest(c, apiKeyService, apiKey, requestedModel, imageIntent); !ok {
 		c.Abort()
 		return false

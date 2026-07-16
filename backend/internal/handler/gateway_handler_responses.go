@@ -86,7 +86,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	setOpsRequestContext(c, reqModel, reqStream, body)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
 
-	imageIntent := service.IsImageGenerationIntent("/v1/responses", reqModel, body)
+	imageIntent := service.IsImageGenerationIntentForPlatform("/v1/responses", reqModel, body, openAICompatibleRequestPlatform(apiKey))
 	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, reqModel, imageIntent); !ok {
 		return
 	} else {
