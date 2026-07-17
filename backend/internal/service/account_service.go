@@ -124,6 +124,7 @@ type AccountBulkUpdate struct {
 	Schedulable    *bool
 	Credentials    map[string]any
 	Extra          map[string]any
+	ProbeEnabled   *bool
 }
 
 type GroupAccountPriorityUpdate struct {
