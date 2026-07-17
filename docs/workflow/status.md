@@ -1,15 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-v0152-low-risk-compat-s76
-total_sprints: 76
-pending_action: push the two validated S76 commits on local main when publication is requested; do not deploy or update containers as part of this sprint
+current_sprint: upstream-main-compat-s77
+total_sprints: 77
+pending_action: no further S77 action; do not deploy or update containers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-13 15:59 +08:00
+last_verified: 2026-07-16 23:49 +08:00
 ---
 
 # Workflow Status
+
+- S77 contract `docs/workflow/tasks/upstream-main-compat-s77.md` passed independent contract review at 2026-07-16 14:00 +08:00. The approved scope is limited to WS reliability, platform-aware Grok image intent, and TablePageLayout horizontal scrolling; migration, Ent, billing, payment, scheduler, deployment, VERSION, and `knowledge/**` remain denied.
+- The user explicitly authorized Codex workers to replace the unavailable `deepseek-v4-pro` worker on 2026-07-16. S77 may proceed to build with that model exception recorded; no deployment or container update is authorized.
+- S77 implementation commits are `0ce58e7d6` (Grok worker), `864a760e3` (WS worker), and `279b9f18d` (root WS/Grok platform call-sites plus TablePageLayout). An independent evaluator found and scoped a passthrough malformed-JSON P1; the adapter now validates every upstream text frame and has before/after-output regression coverage. Post-fix focused QA is in progress. The full default-tag service package still has unrelated `group_peak_rate` timezone/peak assertion drift.
+- S77 post-fix final evaluator: `PASS`. No Ent, migration, billing, scheduler, payment, deployment, VERSION, container, or `knowledge/**` path is authorized or changed; no push, deployment, or container update was performed.
 
 - Current phase: `done`; S76 final evaluator PASS. Fast/Flex email search selection, Grok Composer reasoning sanitization, and platform-aware no-account diagnostics are implemented in the isolated branch.
 - S76 was merged into local `main` as `bff599ee1` with validated implementation parent `e9ddb900f`; the branch has not been pushed or deployed.

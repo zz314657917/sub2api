@@ -692,6 +692,84 @@ func TestOpenAIResponsesWebSocket_RejectsMessageIDAsPreviousResponseID(t *testin
 	require.Contains(t, strings.ToLower(closeErr.Reason), "previous_response_id")
 }
 
+func TestOpenAIResponsesWebSocket_FirstMessageTimeoutUsesConfig(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	logSink, restore := captureHandlerStructuredLog(t)
+	defer restore()
+
+	h := newOpenAIHandlerForPreviousResponseIDValidation(t, nil)
+	h.cfg = &config.Config{}
+	h.cfg.Gateway.OpenAIWS.ClientFirstMessageTimeoutSeconds = 1
+	wsServer := newOpenAIWSHandlerTestServer(t, h, middleware.AuthSubject{UserID: 1, Concurrency: 1})
+	defer wsServer.Close()
+
+	dialCtx, cancelDial := context.WithTimeout(context.Background(), 3*time.Second)
+	clientConn, _, err := coderws.Dial(dialCtx, "ws"+strings.TrimPrefix(wsServer.URL, "http")+"/openai/v1/responses", nil)
+	cancelDial()
+	require.NoError(t, err)
+	defer func() { _ = clientConn.CloseNow() }()
+
+	started := time.Now()
+	readCtx, cancelRead := context.WithTimeout(context.Background(), 5*time.Second)
+	_, _, err = clientConn.Read(readCtx)
+	cancelRead()
+	elapsed := time.Since(started)
+
+	require.Error(t, err)
+	require.NotErrorIs(t, err, context.DeadlineExceeded)
+	require.GreaterOrEqual(t, elapsed, 500*time.Millisecond)
+	require.Less(t, elapsed, 4*time.Second)
+	require.Eventually(t, func() bool {
+		return logSink.ContainsMessageAtLevel("openai.websocket_read_first_message_failed", "warn") &&
+			logSink.ContainsFieldValue("read_timeout", "1s")
+	}, time.Second, 10*time.Millisecond)
+}
+
+func TestOpenAIResponsesWebSocket_OpenAIPassiveImageNamespacePreservesLegacyPermissionGate(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := newOpenAIHandlerForPreviousResponseIDValidation(t, nil)
+	groupID := int64(8801)
+	apiKey := &service.APIKey{
+		ID:      8802,
+		GroupID: &groupID,
+		Group: &service.Group{
+			ID:                   groupID,
+			Platform:             service.PlatformOpenAI,
+			AllowImageGeneration: false,
+		},
+		User: &service.User{ID: 8803},
+	}
+	subject := middleware.AuthSubject{UserID: 8803, Concurrency: 1}
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyAPIKey), apiKey)
+		c.Set(string(middleware.ContextKeyUser), subject)
+		c.Next()
+	})
+	router.GET("/openai/v1/responses", h.ResponsesWebSocket)
+	wsServer := httptest.NewServer(router)
+	defer wsServer.Close()
+
+	dialCtx, cancelDial := context.WithTimeout(context.Background(), 3*time.Second)
+	clientConn, _, err := coderws.Dial(dialCtx, "ws"+strings.TrimPrefix(wsServer.URL, "http")+"/openai/v1/responses", nil)
+	cancelDial()
+	require.NoError(t, err)
+	defer func() { _ = clientConn.CloseNow() }()
+
+	writeCtx, cancelWrite := context.WithTimeout(context.Background(), 3*time.Second)
+	err = clientConn.Write(writeCtx, coderws.MessageText, []byte(`{"type":"response.create","model":"gpt-5.5","stream":false,"tools":[{"type":"namespace","name":"image_gen"}],"tool_choice":"auto","input":"write code"}`))
+	cancelWrite()
+	require.NoError(t, err)
+
+	readCtx, cancelRead := context.WithTimeout(context.Background(), 3*time.Second)
+	_, _, err = clientConn.Read(readCtx)
+	cancelRead()
+	var closeErr coderws.CloseError
+	require.ErrorAs(t, err, &closeErr)
+	require.Equal(t, coderws.StatusPolicyViolation, closeErr.Code)
+	require.Contains(t, closeErr.Reason, service.ImageGenerationPermissionMessage())
+}
+
 func TestOpenAIResponsesWebSocket_PreviousResponseIDKindLoggedBeforeAcquireFailure(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

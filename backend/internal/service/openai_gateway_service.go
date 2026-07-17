@@ -2625,7 +2625,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	if isCodexSparkModel(account.GetMappedModel(reqModel)) && stripCodexSparkImageGenerationTools(reqBody) {
 		sparkImageToolStripped = true
 	}
-	if IsImageGenerationIntentMap(openAIResponsesEndpoint, reqModel, reqBody) && !imageGenerationAllowed {
+	if IsImageGenerationIntentMapForPlatform(openAIResponsesEndpoint, reqModel, reqBody, account.Platform) && !imageGenerationAllowed {
 		MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalFeatureGate)
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": gin.H{
@@ -2971,7 +2971,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 	}
 
-	if IsImageGenerationIntentMap(openAIResponsesEndpoint, reqModel, reqBody) && !imageGenerationAllowed {
+	if IsImageGenerationIntentMapForPlatform(openAIResponsesEndpoint, reqModel, reqBody, account.Platform) && !imageGenerationAllowed {
 		MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalFeatureGate)
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": gin.H{
@@ -2985,7 +2985,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	imageSizeTier := ""
 	imageInputSize := ""
 	imageQuality := ""
-	if IsImageGenerationIntentMap(openAIResponsesEndpoint, reqModel, reqBody) {
+	if IsImageGenerationIntentMapForPlatform(openAIResponsesEndpoint, reqModel, reqBody, account.Platform) {
 		var imageCfgErr error
 		imageCfg, imageCfgErr := resolveOpenAIResponsesImageBillingConfigDetailed(reqBody, billingModel)
 		if imageCfgErr != nil {
@@ -3482,7 +3482,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	body = updatedBody
 
 	apiKey := getAPIKeyFromContext(c)
-	if IsImageGenerationIntent(openAIResponsesEndpoint, reqModel, body) && !GroupAllowsImageGeneration(apiKeyGroup(apiKey)) {
+	if IsImageGenerationIntentForPlatform(openAIResponsesEndpoint, reqModel, body, account.Platform) && !GroupAllowsImageGeneration(apiKeyGroup(apiKey)) {
 		MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalFeatureGate)
 		c.JSON(http.StatusForbidden, gin.H{
 			"error": gin.H{
@@ -3496,7 +3496,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 	imageSizeTier := ""
 	imageInputSize := ""
 	imageQuality := ""
-	if IsImageGenerationIntent(openAIResponsesEndpoint, reqModel, body) {
+	if IsImageGenerationIntentForPlatform(openAIResponsesEndpoint, reqModel, body, account.Platform) {
 		var imageCfgErr error
 		imageCfg, imageCfgErr := resolveOpenAIResponsesImageBillingConfigDetailedFromBody(body, reqModel)
 		if imageCfgErr != nil {

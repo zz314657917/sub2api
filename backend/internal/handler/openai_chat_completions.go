@@ -86,7 +86,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 	setOpsRequestContext(c, reqModel, reqStream, body)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
 
-	imageIntent := service.IsImageGenerationIntent("/v1/chat/completions", reqModel, body)
+	imageIntent := service.IsImageGenerationIntentForPlatform("/v1/chat/completions", reqModel, body, openAICompatibleRequestPlatform(apiKey))
 	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, reqModel, imageIntent); !ok {
 		return
 	} else {

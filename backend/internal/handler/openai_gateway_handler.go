@@ -250,7 +250,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 	setOpsRequestContext(c, reqModel, reqStream, body)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
 
-	imageIntent := service.IsImageGenerationIntent("/v1/responses", reqModel, body)
+	imageIntent := service.IsImageGenerationIntentForPlatform("/v1/responses", reqModel, body, openAICompatibleRequestPlatform(apiKey))
 	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, reqModel, imageIntent); !ok {
 		return
 	} else {
@@ -1333,9 +1333,14 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	wsConn.SetReadLimit(16 * 1024 * 1024)
 
 	ctx := c.Request.Context()
-	readCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
-	msgType, firstMessage, err := wsConn.Read(readCtx)
-	cancel()
+	firstMessageTimeout := service.ResolveOpenAIWSClientFirstMessageTimeout(h.cfg)
+	msgType, firstMessage, err := service.ReadOpenAIWSClientMessage(
+		ctx,
+		wsConn,
+		firstMessageTimeout,
+		coderws.StatusPolicyViolation,
+		"missing first response.create message",
+	)
 	if err != nil {
 		closeStatus, closeReason := summarizeWSCloseErrorForLog(err)
 		reqLog.Warn("openai.websocket_read_first_message_failed",
@@ -1343,7 +1348,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			zap.String("client_ip", clientIP),
 			zap.String("close_status", closeStatus),
 			zap.String("close_reason", closeReason),
-			zap.Duration("read_timeout", 30*time.Second),
+			zap.Duration("read_timeout", firstMessageTimeout),
 		)
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "missing first response.create message")
 		return
@@ -1377,7 +1382,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	setOpsRequestContext(c, reqModel, true, firstMessage)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeWSV2))
 
-	imageIntent := service.IsImageGenerationIntent("/v1/responses", reqModel, firstMessage)
+	imageIntent := service.IsImageGenerationIntentForPlatform("/v1/responses", reqModel, firstMessage, openAICompatibleRequestPlatform(apiKey))
 	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, reqModel, imageIntent); !ok {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "API key group is unavailable")
 		return
