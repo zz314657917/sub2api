@@ -281,3 +281,7 @@
 260716 2339 | upstream-main-compat-s77 | retest-start | codex | exact config, handler, service, and routes Go test patterns passed; frontend and final path audit pending
 260716 2349 | upstream-main-compat-s77 | retest-pass | evaluator | passthrough before/after-output relay tests, exact Go discovery, frontend checks, 27-path audit, cached diff, and conflict checks PASS
 260716 2349 | upstream-main-compat-s77 | done | evaluator | final PASS; no push, deploy, container update, migration, billing, or knowledge change
+260718 0720 | upstream-main-compat-s78 | contract-draft | codex | narrowed to 08e994ad8 and 980a46ffb after local topology review; 174ea22ee deferred
+260718 0721 | upstream-main-compat-s78 | contract-approved | evaluator | allowed paths, denied paths, and focused frontend acceptance PASS
+260718 0722 | upstream-main-compat-s78 | qa-pass | codex | Stripe Vitest 5/5, typecheck, production build, allowlist, and diff check PASS
+260718 0722 | upstream-main-compat-s78 | done | evaluator | final PASS; branch remains isolated; no push, deploy, or container update
