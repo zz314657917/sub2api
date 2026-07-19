@@ -1,15 +1,18 @@
 ---
 phase: done
-current_sprint: upstream-main-compat-s77
-total_sprints: 77
-pending_action: no further S77 action; do not deploy or update containers
+current_sprint: upstream-main-compat-s78
+total_sprints: 78
+pending_action: S78 validated in isolation; merge only when requested; do not deploy or update containers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-16 23:49 +08:00
+last_verified: 2026-07-18 07:22 +08:00
 ---
 
 # Workflow Status
+
+- S78 contract `docs/workflow/tasks/upstream-main-compat-s78.md` passed independent contract review. The approved scope is Stripe lazy loading/chunk isolation and missing OpenAI Mobile RT/AT labels; the Grok Codex template commit `174ea22ee` is explicitly deferred because the local UI has no matching template.
+- S78 implementation is complete in isolated branch `codex/upstream-main-compat-s78` from merged S77 baseline `6113b0f5e`; focused Vitest, typecheck, production build, allowlist, and diff checks passed. No push, deployment, container update, backend, migration, billing, or knowledge change was performed.
 
 - S77 contract `docs/workflow/tasks/upstream-main-compat-s77.md` passed independent contract review at 2026-07-16 14:00 +08:00. The approved scope is limited to WS reliability, platform-aware Grok image intent, and TablePageLayout horizontal scrolling; migration, Ent, billing, payment, scheduler, deployment, VERSION, and `knowledge/**` remain denied.
 - The user explicitly authorized Codex workers to replace the unavailable `deepseek-v4-pro` worker on 2026-07-16. S77 may proceed to build with that model exception recorded; no deployment or container update is authorized.
