@@ -116,6 +116,14 @@ func NewGatewayHandler(
 	}
 }
 
+func parseAnthropicGatewayRequestBody(body []byte) (*service.ParsedRequest, []byte, error) {
+	parsedReq, err := service.ParseGatewayRequest(body, domain.PlatformAnthropic)
+	if err != nil {
+		return nil, body, err
+	}
+	return parsedReq, parsedReq.Body, nil
+}
+
 // Messages handles Claude API compatible messages endpoint
 // POST /v1/messages
 func (h *GatewayHandler) Messages(c *gin.Context) {
@@ -158,7 +166,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 	setOpsRequestContext(c, "", false, body)
 
-	parsedReq, err := service.ParseGatewayRequest(body, domain.PlatformAnthropic)
+	parsedReq, body, err := parseAnthropicGatewayRequestBody(body)
 	if err != nil {
 		logRequestBodyParseFailure(reqLog, body, err)
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
@@ -2164,7 +2172,7 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 
 	setOpsRequestContext(c, "", false, body)
 
-	parsedReq, err := service.ParseGatewayRequest(body, domain.PlatformAnthropic)
+	parsedReq, body, err := parseAnthropicGatewayRequestBody(body)
 	if err != nil {
 		logRequestBodyParseFailure(reqLog, body, err)
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")

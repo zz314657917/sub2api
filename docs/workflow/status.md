@@ -1,15 +1,24 @@
 ---
 phase: done
-current_sprint: upstream-main-compat-s78
-total_sprints: 78
-pending_action: S78 validated in isolation; merge only when requested; do not deploy or update containers
+current_sprint: upstream-main-compat-s79
+total_sprints: 79
+pending_action: create the scoped S79 commit, then await explicit authorization before any local main merge
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-18 07:22 +08:00
+last_verified: 2026-07-20 01:01 +08:00
 ---
 
 # Workflow Status
+
+- S79 final Evaluator: `PASS`. Fresh default-tag service/handler discovery and runs, locale Vitest 2/2, typecheck, build, path/conflict/diff audits, legacy-test preservation, and protected knowledge hashes all passed. The branch remains isolated; no push, deployment, container update, or local-main merge is authorized.
+- S79 implementation is complete in the isolated worktree. Default-tag Go discovery and focused service/handler tests, locale Vitest 2/2, typecheck, and production build passed; independent code/path review and final repository gates are in progress.
+- S79 contract independently passed after adding exact test-discovery gates, shared handler body-propagation proof for all three call sites, force-tracked workflow evidence, protected knowledge hashes, and explicit stop rules. Build is authorized only inside the S79 worktree.
+- S79 Planner amendment: local `gateway_request_test.go` is unit-tagged, so the parser regression moved to allowlisted default-tag `gateway_request_s79_test.go`; this is a test-topology correction only.
+- S79 Planner amendment 2: local `channel_monitor_checker_body_test.go` is also unit-tagged, so the monitor regression likewise moved to default-tag `channel_monitor_checker_s79_test.go`; implementation scope is unchanged.
+
+- S79 approved contract `docs/workflow/tasks/upstream-main-compat-s79.md` is limited to four low-risk `v0.1.161` behavior ports: Antigravity paid-tier preservation, Anthropic monitor text-block extraction, Claude Code trailing `[1m]` normalization, and unit-neutral subscription-plan validity copy. Deployment/Compose, protocol state machines, routing, subscription renewal, migrations, billing, security, VERSION, and `knowledge/**` remain denied.
+- S78 was freshly revalidated on 2026-07-20 (Vitest 5/5, typecheck, production build, diff check) and merged into local `main` as `e50c51274`; it was not pushed or deployed and no container was updated.
 
 - S78 contract `docs/workflow/tasks/upstream-main-compat-s78.md` passed independent contract review. The approved scope is Stripe lazy loading/chunk isolation and missing OpenAI Mobile RT/AT labels; the Grok Codex template commit `174ea22ee` is explicitly deferred because the local UI has no matching template.
 - S78 implementation is complete in isolated branch `codex/upstream-main-compat-s78` from merged S77 baseline `6113b0f5e`; focused Vitest, typecheck, production build, allowlist, and diff checks passed. No push, deployment, container update, backend, migration, billing, or knowledge change was performed.

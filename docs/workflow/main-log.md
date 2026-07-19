@@ -285,3 +285,13 @@
 260718 0721 | upstream-main-compat-s78 | contract-approved | evaluator | allowed paths, denied paths, and focused frontend acceptance PASS
 260718 0722 | upstream-main-compat-s78 | qa-pass | codex | Stripe Vitest 5/5, typecheck, production build, allowlist, and diff check PASS
 260718 0722 | upstream-main-compat-s78 | done | evaluator | final PASS; branch remains isolated; no push, deploy, or container update
+260720 0009 | upstream-main-compat-s78 | merged-to-main | codex | e50c51274 after fresh Vitest 5/5, typecheck, build, diff check; no push or deploy
+260720 0010 | upstream-main-compat-s79 | contract-draft | codex | four low-risk v0.1.161 behavior slices; isolated worktree from e50c51274
+260720 0025 | upstream-main-compat-s79 | contract-approved | evaluator | exact discovery, three handler call sites, locale keys, ignored evidence, and protected knowledge gates PASS
+260720 0025 | upstream-main-compat-s79 | build-start | codex | isolated implementation authorized; no push, deploy, container update, or main merge
+260720 0026 | upstream-main-compat-s79 | contract-amended | planner | use default-tag gateway_request_s79_test.go because existing gateway_request_test.go is unit-tagged
+260720 0030 | upstream-main-compat-s79 | contract-amended | planner | move monitor regression to default-tag channel_monitor_checker_s79_test.go; keep legacy unit file untouched
+260720 0046 | upstream-main-compat-s79 | build-complete | codex | four behavior slices implemented; default-tag Go, locale Vitest 2/2, typecheck, and build PASS
+260720 0046 | upstream-main-compat-s79 | qa-start | evaluator | independent backend and scope/UI reviews plus final acceptance and tracking gates
+260720 0101 | upstream-main-compat-s79 | qa-pass | evaluator | default-tag Go discovery/run, locale Vitest 2/2, typecheck, build, 17-path pre-report audit, conflict/diff/hash gates PASS
+260720 0101 | upstream-main-compat-s79 | done | evaluator | final PASS; pre-commit evidence tracking pending; no push, deploy, container update, or main merge

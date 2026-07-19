@@ -7,6 +7,20 @@ last_verified: 2026-07-03 19:30 +08:00
 
 # Workflow Spec
 
+## S79 Addendum: upstream v0.1.161 low-risk compatibility
+
+### 一句话目标
+
+- 在不整体合并 `v0.1.161` 的前提下，把四个互不扩张的低风险行为移植到本地：Antigravity 付费 tier 保留、Anthropic 监控文本块提取、Claude Code `[1m]` 后缀归一化、套餐有效期动态单位文案。
+
+### 边界与验收
+
+- Antigravity 的异常状态与原因继续保留，但已识别的 `Pro/Ultra` 不再被 `IneligibleTiers` 覆盖为 `Abnormal`。
+- Anthropic monitor 只拼接 `content[]` 中的 `type=text` 块；thinking/tool 块不参与 challenge 判断。
+- `[1m]` 只在 Anthropic 请求模型末尾按大小写不敏感方式剥离，可处理重复后缀；归一化必须进入实际 handler 转发 body，其他协议和中间后缀保持不变。
+- 现有 payment locale key 不改名，只去掉“天/days”的写死文案，继续由 `validity_unit` 表达单位。
+- 不修改 deploy/Compose、Responses SSE、Grok media、routing、subscription assignment、migration、billing、security、VERSION、lockfile 或 `knowledge/**`。
+
 ## S75 Addendum: admin usage column-menu stacking
 
 ### 一句话目标
