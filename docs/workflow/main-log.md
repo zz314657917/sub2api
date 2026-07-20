@@ -336,3 +336,4 @@
 260721 0130 | upstream-main-compat-s87 | dependency-restore | codex | pnpm 10.33.4 frozen install restored 973 packages in isolated worktree; package manifest and lockfile unchanged
 260721 0131 | upstream-main-compat-s87 | qa-pass | evaluator | S87 handler/service/middleware tests, S85 failover regression, frontend Vitest 2/2, typecheck, build, allowlist, conflict, unmerged-index, and diff gates PASS
 260721 0133 | upstream-main-compat-s87 | done | evaluator | final PASS; scoped commit/review remains; no push, deployment, container update, or knowledge change
+260721 0140 | upstream-main-compat-s87 | local-merge-cleanup | codex | main fast-forwarded to 628c990d7; clean merged worktree/branch removed; source push remains unauthorized

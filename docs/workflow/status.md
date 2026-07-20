@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-main-compat-s87
 total_sprints: 87
-pending_action: scoped commit/review; do not push, deploy, or update containers
+pending_action: source push only after explicit authorization; do not deploy or update containers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-21 01:33 +08:00
+last_verified: 2026-07-21 01:40 +08:00
 ---
 
 # Workflow Status
@@ -31,6 +31,11 @@ last_verified: 2026-07-21 01:33 +08:00
   discovery, allowlist, conflict, unmerged-index, and diff gates. The
   plan-currency candidate `a05b87321` remains deferred. No push, deployment,
   container update, or knowledge-file change occurred.
+
+- S87 was fast-forwarded into local `main` as `628c990d7` after final PASS.
+  The clean S87 worktree and fully merged local branch were removed with
+  non-force Git operations. Local `main` is ahead of `origin/main`; no push,
+  deployment, or container update has occurred.
 
 - S82-S86 integration final Evaluator: `PASS`. Local Usage S82 plus upstream
   compatibility S82, S83, S84, and stacked S85-S86 are combined in four merge
