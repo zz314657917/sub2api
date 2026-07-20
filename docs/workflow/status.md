@@ -1,16 +1,21 @@
 ---
 phase: done
-current_sprint: upstream-main-compat-s79
-total_sprints: 79
-pending_action: create the scoped S79 commit, then await explicit authorization before any local main merge
+current_sprint: upstream-main-compat-s80
+total_sprints: 80
+pending_action: create the scoped S80 commit, then await explicit authorization before any local main merge
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-20 01:01 +08:00
+last_verified: 2026-07-20 08:52 +08:00
 ---
 
 # Workflow Status
 
+- S80 final Evaluator: `PASS`. Six password-mode renders, six shell syntax checks, three baseline/current topology comparisons, path/diff/conflict gates, and protected hashes passed without contacting Docker daemon. Runtime Redis `CONFIG GET` remains explicitly deferred.
+- S80 implementation is complete: six empty/non-empty-password command renders and three baseline/current topology comparisons passed without contacting Docker daemon. Independent diff review and fresh static Compose evaluation are in progress.
+- S80 contract independently passed after adding hard gates for unmerged index entries, cached conflict markers, and an exact nine-path staged allowlist. Build is authorized only inside the isolated S80 worktree.
+- S80 draft contract ports upstream `be74deae7` to the three built-in Redis Compose topologies. It changes only shell line continuations; container/volume operations, runtime smoke, auth redesign, standalone/external Redis, docs, code, migrations, and `knowledge/**` remain denied.
+- S79 was fast-forwarded into local `main` as `366e590b3` after its final PASS. It was not pushed or deployed, no container was updated, and all three protected primary-checkout knowledge hashes remained unchanged.
 - S79 final Evaluator: `PASS`. Fresh default-tag service/handler discovery and runs, locale Vitest 2/2, typecheck, build, path/conflict/diff audits, legacy-test preservation, and protected knowledge hashes all passed. The branch remains isolated; no push, deployment, container update, or local-main merge is authorized.
 - S79 implementation is complete in the isolated worktree. Default-tag Go discovery and focused service/handler tests, locale Vitest 2/2, typecheck, and production build passed; independent code/path review and final repository gates are in progress.
 - S79 contract independently passed after adding exact test-discovery gates, shared handler body-propagation proof for all three call sites, force-tracked workflow evidence, protected knowledge hashes, and explicit stop rules. Build is authorized only inside the S79 worktree.

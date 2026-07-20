@@ -217,12 +217,14 @@ services:
     volumes:
       # Local directory mapping for easy migration
       - ./redis_data:/data
+    # Keep the inner shell script as one continued command so every Redis
+    # persistence/auth flag is passed to redis-server.
     command: >
         sh -c '
-          redis-server
-          --save 60 1
-          --appendonly yes
-          --appendfsync everysec
+          redis-server \
+          --save 60 1 \
+          --appendonly yes \
+          --appendfsync everysec \
           ${REDIS_PASSWORD:+--requirepass "$REDIS_PASSWORD"}'
     environment:
       - TZ=${TZ:-Asia/Shanghai}

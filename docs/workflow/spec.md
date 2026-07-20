@@ -7,6 +7,20 @@ last_verified: 2026-07-03 19:30 +08:00
 
 # Workflow Spec
 
+## S80 Addendum: Redis Compose command continuation
+
+### 一句话目标
+
+- 把上游 `be74deae7` 的 Redis 启动参数续行修复移植到本地三个内置 Redis 的 Compose，确保 RDB、AOF、fsync 与可选密码参数真正传给同一次 `redis-server` 调用。
+
+### 边界与验收
+
+- 只修改 `docker-compose.yml`、`docker-compose.local.yml`、`docker-compose.dev.yml` 的 Redis command；本地/开发文件是与上游主文件同构的行为补齐。
+- 保持 Redis image、容器名、healthcheck、`REDISCLI_AUTH`、volume、network、端口和其他服务完全不变。
+- `docker-compose.standalone.yml` 使用外部 Redis，不修改。
+- 验收只做 Docker Compose 静态渲染、空/非空受控密码命令检查和路径审计；不启动、更新、重启或删除任何容器/volume。
+- 任意特殊字符密码的 shell 安全化、真实 Redis `CONFIG GET`、磁盘增长评估和部署均属于后续独立任务。
+
 ## S79 Addendum: upstream v0.1.161 low-risk compatibility
 
 ### 一句话目标

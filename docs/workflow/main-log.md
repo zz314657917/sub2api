@@ -295,3 +295,13 @@
 260720 0046 | upstream-main-compat-s79 | qa-start | evaluator | independent backend and scope/UI reviews plus final acceptance and tracking gates
 260720 0101 | upstream-main-compat-s79 | qa-pass | evaluator | default-tag Go discovery/run, locale Vitest 2/2, typecheck, build, 17-path pre-report audit, conflict/diff/hash gates PASS
 260720 0101 | upstream-main-compat-s79 | done | evaluator | final PASS; pre-commit evidence tracking pending; no push, deploy, container update, or main merge
+260720 0837 | upstream-main-compat-s79 | merged-to-main | codex | fast-forward to 366e590b3; protected knowledge hashes unchanged; no push or deploy
+260720 0837 | upstream-main-compat-s80 | upstream-audit | planner | upstream/main remains d4b9797ff; be74deae7 still active; local main/local/dev share the defect
+260720 0837 | upstream-main-compat-s80 | contract-draft | codex | three Compose command blocks only; runtime/container operations explicitly deferred
+260720 0842 | upstream-main-compat-s80 | contract-revised | evaluator | add non-empty unmerged-index assertion and exact nine-path staged allowlist comparison
+260720 0845 | upstream-main-compat-s80 | contract-approved | evaluator | Compose assertions, daemon-free boundary, unmerged/conflict/diff gates, and exact nine-path staging PASS
+260720 0845 | upstream-main-compat-s80 | build-start | codex | hand-port continuations to main/local/dev Compose only; no container operations
+260720 0848 | upstream-main-compat-s80 | build-complete | codex | six password-mode renders and three topology comparisons PASS; only command blocks changed
+260720 0848 | upstream-main-compat-s80 | qa-start | evaluator | independent config diff review plus fresh daemon-free Compose acceptance
+260720 0852 | upstream-main-compat-s80 | qa-pass | evaluator | 6 command renders, 6 shell syntax checks, 3 topology comparisons, path/diff/hash gates PASS
+260720 0852 | upstream-main-compat-s80 | done | evaluator | final PASS; runtime CONFIG GET deferred; no container, merge, push, or deploy action
