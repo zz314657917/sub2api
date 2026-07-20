@@ -1,16 +1,21 @@
 ---
 phase: done
-current_sprint: upstream-main-compat-s81
-total_sprints: 81
-pending_action: create the scoped S81 commit, then await explicit authorization before any local main merge
+current_sprint: upstream-main-compat-s83
+total_sprints: 83
+pending_action: create the scoped S83 commit, then await primary S82 workflow reconciliation before any local main merge
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-20 09:54 +08:00
+last_verified: 2026-07-20 12:40 +08:00
 ---
 
 # Workflow Status
 
+- S83 final Evaluator: `PASS`. Fresh Vitest 2/2, typecheck, production build, local-owner review, exact path/conflict/diff, and protected-hash gates passed. Browser smoke was not run for this static formatting batch.
+- S83 implementation is complete. Focused formatter Vitest 2/2, typecheck, build, local-owner/static checks, and business diff checks passed; fresh Evaluator retest is in progress.
+- S83 contract amended: local `views/user/SubscriptionsView.vue` is only a shell; the user expiry owner is `components/user/UserSubscriptionsPanel.vue`. The allowlist and acceptance checks now target that local owner.
+- S83 contract review: `PASS`. The four business paths, ten-item tracking allowlist, invalid-date/locale/status freezes, UsageView boundary, and protected-hash gates are explicit and executable.
+- S83 draft contract ports upstream `337960302`: minute-level expiry timestamps in admin/user subscription views, with status, remaining-days, timezone, and UsageView explicitly frozen.
 - S81 final Evaluator: `PASS`. Baseline, exact discovery, focused/count=10, broader subscription regression, line-level diff, helper freeze, path/conflict/diff, and protected-hash gates passed. Live database/cache integration remains unverified.
 - S81 implementation is complete. Exact 11-test discovery/run, focused `count=10`, and broader subscription assignment/window regressions passed; evidence-first diff and final path gates are in progress.
 - S81 contract passed evidence-first review: expired/active/suspended branches, admin note deduplication, assignment provenance, frozen purchase semantics, exact discovery, and nine-path gates are explicit and executable.

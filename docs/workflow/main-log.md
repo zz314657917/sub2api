@@ -313,3 +313,12 @@
 260720 0951 | upstream-main-compat-s81 | qa-start | evaluator | fresh service tests, line-level diff review, helper freeze, and path/hash gates
 260720 0954 | upstream-main-compat-s81 | qa-pass | evaluator | baseline + 11 exact + count=10 + broader subscription regressions and path/diff/hash gates PASS
 260720 0954 | upstream-main-compat-s81 | done | evaluator | final PASS; live DB/cache smoke deferred; no merge/push/deploy/container action
+260720 1200 | upstream-main-compat-s83 | contract-draft | codex | port 337960302 subscription expiry display only; UsageView S82 work remains external
+260720 1205 | upstream-main-compat-s83 | contract-approved | evaluator | four business paths, ten-path gate, and frozen subscription semantics PASS
+260720 1205 | upstream-main-compat-s83 | build-start | codex | minute formatter plus admin/user subscription expiry displays only
+260720 1208 | upstream-main-compat-s83 | contract-amended | planner | local user expiry owner is UserSubscriptionsPanel.vue; upstream view path not copied
+260720 1235 | upstream-main-compat-s83 | contract-approved | evaluator | amended local-owner allowlist and acceptance gates PASS
+260720 1235 | upstream-main-compat-s83 | build-complete | codex | formatter Vitest 2/2, typecheck, build, static owner and diff checks PASS
+260720 1235 | upstream-main-compat-s83 | qa-start | evaluator | fresh formatter test plus subscription-line, path, conflict, and hash review
+260720 1240 | upstream-main-compat-s83 | qa-pass | evaluator | fresh Vitest 2/2, typecheck, build, owner/static/path/diff/hash gates PASS
+260720 1240 | upstream-main-compat-s83 | done | evaluator | final PASS; primary S82 workflow conflict remains external; no merge/push/deploy/container action

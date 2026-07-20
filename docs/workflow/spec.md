@@ -7,6 +7,18 @@ last_verified: 2026-07-03 19:30 +08:00
 
 # Workflow Spec
 
+## S83 Addendum: minute-level subscription expiry display
+
+### 一句话目标
+
+- 在管理员和用户订阅页面将有效期时间显示到分钟，保留现有日期 locale、失效状态和剩余天数逻辑。
+
+### 边界与验收
+
+- 复用 `formatDate` 新增分钟级 helper，只替换管理员订阅视图和本地 `UserSubscriptionsPanel` 的有效期展示；不修改 API、后端、计费、时区或 UsageView。
+- 无效日期继续显示空字符串，状态文案和剩余天数计算保持不变。
+- 定向 Vitest、typecheck、production build、十项路径审计和 protected-hash gate 必须通过。
+
 ## S81 Addendum: renew expired admin subscription assignments
 
 ### 一句话目标
