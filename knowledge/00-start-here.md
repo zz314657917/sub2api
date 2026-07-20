@@ -1,6 +1,6 @@
 # Sub2API 知识库入口
 
-最后更新：2026-06-28
+最后更新：2026-07-20
 
 ## 项目定位
 
@@ -35,25 +35,20 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 
 ## 当前仓库状态提示
 
-- 当前默认续做主线已经从 6 月上旬的 OpenAI 网关稳态、account capability routing、用户控制台和 `key/base-url` 归一，继续前移到 Studio Bridge / 落叶AI生产联调。
-- `knowledge/tasks/current-task.md` 现在同时记录“当前会话正在处理的局部任务”和“仓库默认主线分流”。如果你看到其他入口还停在 gateway prompt cache、模型广场、首页、文案或 i18n 整理，不要误判成仓库整体主线仍停在那一层；最近更高频的默认开发成本已经落到 Studio Bridge、真实充值/扣费闭环和跨仓库联调链路。
-- 遇到入口摘要与任务快照冲突时，先用 `knowledge/05-current-focus.md` 判断稳定主线，再用 `knowledge/tasks/current-task.md` 判断当前会话具体在做哪一条线。
-- 当前工作区仍可能同时存在并行主线的未提交改动，开始新任务前先执行 `git status --short`，确认哪些文件属于本轮目标。
+- 当前默认续做主线已经从 2026-07-16~2026-07-17 的 `S77 done`，继续前移到 2026-07-20 已通过组合验收的本地 Usage S82 与 upstream compatibility S82-S86 集成线。
+- `knowledge/tasks/current-task.md` 应优先记录“现在默认从哪条主线继续”，不再适合停留在 2026-07-12 的 release push / fast-forward / cleanup 清单。
+- 遇到入口摘要与 workflow 文档冲突时，先以 `docs/workflow/status.md` 的当前 Sprint/phase 为准，再用 `knowledge/05-current-focus.md` 判断稳定主线，用 `knowledge/tasks/current-task.md` 判断当前会话快照。
+- 当前工作区仍可能同时存在并行主线的未提交改动；开始新任务前先执行 `git status --short`，确认哪些文件属于本轮目标。
 - 不要清理、回滚或格式化与当前目标无关的文件。
 
 ## 当前默认心智
 
-- OpenAI 网关稳态、账号能力路由、控制台状态面板和 `key/base-url` 归一仍然成立，但它们已从“最近主线”退成 Studio Bridge 之前的稳定背景层。
-- 现在更值得优先理解的是 Sub2API 如何作为落叶AI的账号、充值、余额、默认分组、bridge internal secret 和扣费真源，以及 `/chat-images` / `/studio-bridge/launch` 如何成为当前用户侧创作入口。
-- 2026-06-10~2026-06-11 已稳定的新事实，不应继续只埋在任务快照里：
-  - Studio Bridge 本地配置在 env secret 存在且配置为空、禁用、缺 secret/group 或仍是 `example.com` 占位时，会自动修复成本地默认 launch / recharge / allowed domains 配置。
-  - 默认生图分组不再硬编码为 `4`，会动态选择第一个 active 且允许生图的 image group；聊天分组优先 text group，缺失时复用 image group。
-  - `session-probe` iframe/CSP 已成为默认验收面的一部分；本地浏览器 smoke 需确认只请求 `/studio-bridge/session-probe`，且不会再出现 `frame-ancestors 'none'`。
-  - `/usage` 表格空白不代表扣费没入账；Studio Bridge 记录里 `duration_ms = null` 等字段会让前端格式化炸掉，相关修复已进入稳定知识。
-- 2026-06-26 的默认续做入口又补进了一条独立工程主线：在 Studio Bridge / 支付治理之外，`upstream-main-v0138-followup-safe-patches-s21/s22` 已成为当前默认工程语境的一部分。
-  - S21 已稳定落地 Spark `image_generation` tool strip、OpenAI weekly reset 二次确认、usage cache token 明细展示和邮箱绑定后缀白名单。
-  - S22 当前结论是“后端 OpenAI/Codex 兼容小修已完成定向 QA，但支付/订阅/余额预扣和前端产品面仍保持跳过”。
-- 继续做聊天生图、嵌入工作区、模型市场或上游合成时，不要只看单个前端页面；通常要把 launch token、会话恢复、默认分组、预扣/确认/退款、团队空间 actor/payer 和 OpenAI 路径背景一起当成一条链路理解。
+- 当前最靠前的用户面变化是 Usage 记录模型名按需显示 reasoning effort、WS mode 前置条件文案更准确，以及订阅到期时间显示到分钟。
+- 当前最靠前的后端兼容变化是 buffered Anthropic 响应强制 JSON Content-Type、同账号重试不再误触 cache billing，以及 proxy quality 增加 Grok/xAI 可达性检查。
+- `S76-S81`、`S77` 的 WS/Grok/TablePageLayout 兼容补强和排行榜按小时刷新都已进入更早一层的稳定背景；继续排查设置、网关、账号能力或 UI 时不能回退到 `S65-S70` 之前的心智。
+- 当前集成已经 `PASS / publish-ready`，但此刻仍未验证远端推送，也未部署、未更新容器；知识入口不能把代码发布等同于运行环境发布。
+- Studio Bridge / 落叶AI、暖白前端统一、共享账号渠道状态可见性、首充 bonus only、以及更早的上游 safe patches 仍然成立，但它们已经退成当前集成线之前的稳定背景层。
+- 继续做聊天生图、嵌入工作区、模型市场、OpenAI/Codex 网关兼容或排行榜相关工作时，不要只看单个页面或单个 Sprint；通常要把最新 workflow 状态、默认主线和旧的产品背景一起看成一条连续链路。
 
 ## 知识维护规则
 
