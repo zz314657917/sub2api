@@ -313,3 +313,10 @@
 260720 0951 | upstream-main-compat-s81 | qa-start | evaluator | fresh service tests, line-level diff review, helper freeze, and path/hash gates
 260720 0954 | upstream-main-compat-s81 | qa-pass | evaluator | baseline + 11 exact + count=10 + broader subscription regressions and path/diff/hash gates PASS
 260720 0954 | upstream-main-compat-s81 | done | evaluator | final PASS; live DB/cache smoke deferred; no merge/push/deploy/container action
+260720 1300 | upstream-main-compat-s84 | contract-draft | codex | port 01062c324 buffered JSON Content-Type only; local signature adaptation required
+260720 1305 | upstream-main-compat-s84 | contract-approved | evaluator | buffered-only header, local test signature, frozen paths and eight-path gate PASS
+260720 1305 | upstream-main-compat-s84 | build-start | codex | JSON Content-Type override plus local buffered response regression only
+260720 1320 | upstream-main-compat-s84 | build-complete | codex | focused/broader Go tests, gofmt, header ownership and diff checks PASS
+260720 1320 | upstream-main-compat-s84 | qa-start | evaluator | fresh service tests plus buffered/streaming line and eight-path review
+260720 1330 | upstream-main-compat-s84 | qa-pass | evaluator | fresh independent-cache Go tests, line review, ownership/path/diff/hash gates PASS
+260720 1330 | upstream-main-compat-s84 | done | evaluator | final PASS; primary S82 workflow conflict remains external; no merge/push/deploy/container action
