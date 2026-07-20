@@ -44,6 +44,17 @@ last_verified: 2026-07-03 19:30 +08:00
 - 按本地函数签名重写回归测试，不直接复制上游测试参数。
 - 定向 Go 测试、gofmt、八项路径审计、冲突/diff 和 protected-hash gate 必须通过。
 
+## S85 Addendum: avoid cache billing on same-account retry
+
+### 一句话目标
+
+- 同账号重试期间不因 sticky/bound session 单独强制缓存计费；真正切换账号或上游显式要求时仍保持缓存计费。
+
+### 边界与验收
+
+- 只修改 failover 状态中的 `ForceCacheBilling` 判定和对应 handler 测试；不修改重试次数/延时、账号切换、临时封禁、错误分类或计费计算。
+- 定向及 broader handler 测试、gofmt、八项路径审计、冲突/diff 和 protected-hash gate 必须通过。
+
 ## S81 Addendum: renew expired admin subscription assignments
 
 ### 一句话目标
@@ -484,3 +495,17 @@ recorded.
 - For admin mapping chains, annotate only the requested model (the first step).
 - Do not change backend capture, API types, exports, filters, dashboards,
   billing, persistence, deployment, or `knowledge/**`.
+
+# S86 Addendum: Grok proxy quality target
+
+## Goal
+
+Add xAI/Grok reachability to the existing administrator proxy quality check.
+
+## Scope Boundary
+
+- Probe `GET https://api.x.ai/v1/models` through the selected proxy and treat
+  HTTP 401 as reachable.
+- Display the result target as `Grok` in the existing table.
+- Do not change scoring, timeouts, other targets, persistence, table layout,
+  deployment, containers, or `knowledge/**`.
