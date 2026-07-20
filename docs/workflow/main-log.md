@@ -326,3 +326,13 @@
 260720 1334 | upstream-main-integration-s82-s86 | publish-ready | evaluator | origin/main remains ancestor; authorized fast-forward/push next; no deploy or container update
 260720 1342 | upstream-main-integration-s82-s86 | published | codex | local main, origin/main, and ls-remote matched 7f5e02030; no deploy or container update
 260720 1348 | upstream-main-integration-s82-s86 | local-cleanup | codex | clean ancestor audit passed; removed merged S76-S86 and integration worktrees/branches with non-force commands
+260721 0055 | upstream-main-compat-s87 | contract-draft | planner | four v0.1.162 behavior slices scoped in isolated worktree; S85 retained as regression gate
+260721 0102 | upstream-main-compat-s87 | contract-amended | evaluator | deferred a05b87321 after proving missing local currency schema/API prerequisite; S87 now has three slices
+260721 0110 | upstream-main-compat-s87 | contract-draft-amended | evaluator | quota scope narrowed to three registered Responses roots with exact subpath matching; re-review required
+260721 0113 | upstream-main-compat-s87 | contract-approved | evaluator | null/omitted IP preservation, invalid-write guard, and Responses-only quota matrix added; implementation authorized
+260721 0124 | upstream-main-compat-s87 | build | codex | backend S87 tests, S85 regression, static frontend source, allowlist, conflict, and diff gates PASS
+260721 0122 | upstream-main-compat-s87 | frontend-vitest | evaluator | AvailableChannelsTable.spec.ts PASS, 1 file/2 tests via existing pnpm-store entrypoint; initial vue-tsc blocked by broken baseline Airwallex dependency
+260721 0124 | upstream-main-compat-s87 | qa-blocked | evaluator | npm Vitest wrapper unavailable; initial typecheck hit broken baseline Airwallex dependency; dependency restoration required
+260721 0130 | upstream-main-compat-s87 | dependency-restore | codex | pnpm 10.33.4 frozen install restored 973 packages in isolated worktree; package manifest and lockfile unchanged
+260721 0131 | upstream-main-compat-s87 | qa-pass | evaluator | S87 handler/service/middleware tests, S85 failover regression, frontend Vitest 2/2, typecheck, build, allowlist, conflict, unmerged-index, and diff gates PASS
+260721 0133 | upstream-main-compat-s87 | done | evaluator | final PASS; scoped commit/review remains; no push, deployment, container update, or knowledge change

@@ -199,8 +199,8 @@ type UpdateAPIKeyRequest struct {
 	MultiGroupRoutes    []domain.APIKeyMultiGroupRoute `json:"multi_group_routes"` // nil=不修改, 空数组=清空
 	AccountPoolStrategy *string                        `json:"account_pool_strategy"`
 	Status              *string                        `json:"status"`
-	IPWhitelist         []string                       `json:"ip_whitelist"` // IP 白名单（空数组清空）
-	IPBlacklist         []string                       `json:"ip_blacklist"` // IP 黑名单（空数组清空）
+	IPWhitelist         *[]string                      `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
+	IPBlacklist         *[]string                      `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
 
 	// Quota fields
 	Quota           *float64   `json:"quota"`       // Quota limit in USD (nil = no change, 0 = unlimited)
@@ -985,15 +985,15 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	}
 
 	// 验证 IP 白名单格式
-	if len(req.IPWhitelist) > 0 {
-		if invalid := ip.ValidateIPPatterns(req.IPWhitelist); len(invalid) > 0 {
+	if req.IPWhitelist != nil && len(*req.IPWhitelist) > 0 {
+		if invalid := ip.ValidateIPPatterns(*req.IPWhitelist); len(invalid) > 0 {
 			return nil, fmt.Errorf("%w: %v", ErrInvalidIPPattern, invalid)
 		}
 	}
 
 	// 验证 IP 黑名单格式
-	if len(req.IPBlacklist) > 0 {
-		if invalid := ip.ValidateIPPatterns(req.IPBlacklist); len(invalid) > 0 {
+	if req.IPBlacklist != nil && len(*req.IPBlacklist) > 0 {
+		if invalid := ip.ValidateIPPatterns(*req.IPBlacklist); len(invalid) > 0 {
 			return nil, fmt.Errorf("%w: %v", ErrInvalidIPPattern, invalid)
 		}
 	}
@@ -1076,9 +1076,8 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		}
 	}
 
-	// 更新 IP 限制（空数组会清空设置）
-	apiKey.IPWhitelist = req.IPWhitelist
-	apiKey.IPBlacklist = req.IPBlacklist
+	// 更新 IP 限制（nil 不修改，空数组清空设置）
+	applyAPIKeyIPRestrictions(apiKey, req.IPWhitelist, req.IPBlacklist)
 
 	// Update rate limit configuration
 	if req.RateLimit5h != nil {
@@ -1114,6 +1113,20 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	}
 
 	return apiKey, nil
+}
+
+// applyAPIKeyIPRestrictions applies only the IP lists explicitly present in a
+// partial update. A non-nil empty slice intentionally clears the list.
+func applyAPIKeyIPRestrictions(apiKey *APIKey, whitelist, blacklist *[]string) {
+	if apiKey == nil {
+		return
+	}
+	if whitelist != nil {
+		apiKey.IPWhitelist = *whitelist
+	}
+	if blacklist != nil {
+		apiKey.IPBlacklist = *blacklist
+	}
 }
 
 // Delete 删除API Key

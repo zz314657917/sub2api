@@ -169,7 +169,7 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			// Key 状态检查
 			switch apiKey.Status {
 			case service.StatusAPIKeyQuotaExhausted:
-				AbortWithError(c, 429, "API_KEY_QUOTA_EXHAUSTED", "API key 额度已用完")
+				abortWithAPIKeyQuotaError(c)
 				return
 			case service.StatusAPIKeyExpired:
 				AbortWithError(c, 403, "API_KEY_EXPIRED", "API key 已过期")
@@ -182,7 +182,7 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				return
 			}
 			if apiKey.IsQuotaExhausted() {
-				AbortWithError(c, 429, "API_KEY_QUOTA_EXHAUSTED", "API key 额度已用完")
+				abortWithAPIKeyQuotaError(c)
 				return
 			}
 
@@ -213,6 +213,35 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		c.Next()
 		applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, currentAPIKeyFromContext(c, apiKey))
 	}
+}
+
+func abortWithAPIKeyQuotaError(c *gin.Context) {
+	const message = "API key 额度已用完"
+	if isOpenAIResponsesAPIKeyRequest(c) {
+		abortWithOpenAIQuotaError(c, http.StatusTooManyRequests, message)
+		return
+	}
+	AbortWithError(c, http.StatusTooManyRequests, "API_KEY_QUOTA_EXHAUSTED", message)
+}
+
+func isOpenAIResponsesAPIKeyRequest(c *gin.Context) bool {
+	if c == nil || c.Request == nil || c.Request.URL == nil {
+		return false
+	}
+	path := strings.TrimRight(strings.ToLower(strings.TrimSpace(c.Request.URL.Path)), "/")
+	if !isModelAwareBillingEndpoint(path) {
+		return false
+	}
+	for _, root := range []string{
+		"/v1/responses",
+		"/responses",
+		"/backend-api/codex/responses",
+	} {
+		if path == root || strings.HasPrefix(path, root+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 // SetAPIKeyContext stores the effective API key and updates request-scoped

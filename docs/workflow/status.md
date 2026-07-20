@@ -1,15 +1,36 @@
 ---
 phase: done
-current_sprint: upstream-main-integration-s82-s86
-total_sprints: 86
-pending_action: no further S82-S86 action; do not deploy or update containers
+current_sprint: upstream-main-compat-s87
+total_sprints: 87
+pending_action: scoped commit/review; do not push, deploy, or update containers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-20 13:48 +08:00
+last_verified: 2026-07-21 01:33 +08:00
 ---
 
 # Workflow Status
+
+- S87 amended contract selects three low-risk `v0.1.162` behavior ports:
+  API-key IP-list partial updates, OpenAI-compatible quota errors, and
+  Available Channels scrolling. The plan-currency display commit `a05b87321`
+  is deferred because its required local schema/API prerequisite is absent.
+  S85 is already present as `24ade9b71` and is a regression gate, not a new
+  implementation slice.
+- S87 worktree is `E:/codex-worktrees/sub2api/upstream-main-compat-s87` from
+  clean local baseline `3418267b3`; no business code, push, deployment, or
+  container operation has occurred. Quota scope is limited to the three
+  registered Responses roots with exact subpath matching. Backend focused QA,
+  Available Channels Vitest, frontend typecheck, and production build are green.
+  The frontend dependency tree was restored in the isolated worktree with
+  pnpm `10.33.4` under `--frozen-lockfile`; manifests and lockfiles remain
+  unchanged.
+
+- S87 final Evaluator: `PASS`. The three approved v0.1.162 behavior ports pass
+  focused backend/frontend checks, S85 failover regression, exact test
+  discovery, allowlist, conflict, unmerged-index, and diff gates. The
+  plan-currency candidate `a05b87321` remains deferred. No push, deployment,
+  container update, or knowledge-file change occurred.
 
 - S82-S86 integration final Evaluator: `PASS`. Local Usage S82 plus upstream
   compatibility S82, S83, S84, and stacked S85-S86 are combined in four merge

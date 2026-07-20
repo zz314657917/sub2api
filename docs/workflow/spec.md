@@ -509,3 +509,33 @@ Add xAI/Grok reachability to the existing administrator proxy quality check.
 - Display the result target as `Grok` in the existing table.
 - Do not change scoring, timeouts, other targets, persistence, table layout,
   deployment, containers, or `knowledge/**`.
+
+# S87 Addendum: upstream v0.1.162 low-risk compatibility
+
+## Goal
+
+Selectively port three independently testable `v0.1.162` fixes without merging
+upstream history or importing its security, media, identity, audit, branding,
+migration, or VERSION changes.
+
+## Scope Boundary
+
+- Preserve API-key IP lists on omitted partial-update fields while retaining
+  explicit empty-array clearing and validation.
+- Return standard OpenAI `insufficient_quota` errors on the local Responses
+  roots without changing existing protocol-specific error formats.
+- Restore Available Channels scrolling through the existing `.table-wrapper`
+  layout contract.
+- Do not port `a05b87321` in isolation: its upstream currency field/schema/API
+  prerequisite is absent locally and requires a separate migration-heavy plan.
+- Treat existing S85 commit `24ade9b71` as a required regression gate; do not
+  modify failover/billing behavior in S87.
+
+## Explicitly Deferred
+
+- S3 ephemeral encryption-key protection, Grok chained video proxying, Codex
+  model manifests, Agent Identity team isolation, Prompt Audit fail-closed,
+  batch-image i18n, dark-theme bundles, branding SVG, VERSION changes, and the
+  subscription-plan currency display chain (`a05b87321` plus its prerequisite).
+- Ent, migrations, billing calculation, scheduler, payment execution, account
+  routing, deployment, containers, and `knowledge/**`.
