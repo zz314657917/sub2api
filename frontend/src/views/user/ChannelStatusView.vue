@@ -26,25 +26,35 @@
           />
         </div>
 
-        <section data-testid="channel-monitor-panel">
-          <MonitorAvailabilityList
+        <section class="space-y-3" data-testid="channel-monitor-panel">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div class="min-w-0">
+              <h2 class="text-base font-bold text-gray-900 dark:text-white">
+                {{ t('channelStatus.monitorTitle') }}
+              </h2>
+              <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('channelStatus.monitorDescription') }}
+              </p>
+            </div>
+
+            <MonitorHero
+              :overall-status="overallStatus"
+              :window="currentWindow"
+              :loading="loading"
+              :auto-refresh="autoRefresh"
+              @update:window="handleWindowChange"
+              @refresh="manualReload"
+            />
+          </div>
+
+          <MonitorCardGrid
             :items="items"
             :window="currentWindow"
+            :countdown-seconds="autoRefresh.countdown.value"
             :loading="loading"
             :detail-cache="detailCache"
-            @row-click="openDetail"
-          >
-            <template #actions>
-              <MonitorHero
-                :overall-status="overallStatus"
-                :window="currentWindow"
-                :loading="loading"
-                :auto-refresh="autoRefresh"
-                @update:window="handleWindowChange"
-                @refresh="manualReload"
-              />
-            </template>
-          </MonitorAvailabilityList>
+            @card-click="openDetail"
+          />
         </section>
       </div>
     </div>
@@ -77,7 +87,7 @@ import MonitorHero, {
   type OverallStatus,
 } from '@/components/user/monitor/MonitorHero.vue'
 import AccountCapacityPools from '@/components/user/monitor/AccountCapacityPools.vue'
-import MonitorAvailabilityList from '@/components/user/monitor/MonitorAvailabilityList.vue'
+import MonitorCardGrid from '@/components/user/monitor/MonitorCardGrid.vue'
 import MonitorDetailDialog from '@/components/user/MonitorDetailDialog.vue'
 import { DEFAULT_INTERVAL_SECONDS, STATUS_OPERATIONAL } from '@/constants/channelMonitor'
 import { useAutoRefresh } from '@/composables/useAutoRefresh'

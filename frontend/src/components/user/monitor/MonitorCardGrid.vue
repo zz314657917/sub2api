@@ -2,7 +2,7 @@
   <div>
     <div
       v-if="loading && items.length === 0"
-      class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+      class="monitor-card-grid grid gap-5"
     >
       <div
         v-for="i in 6"
@@ -33,7 +33,8 @@
 
     <div
       v-else
-      class="grid gap-5 grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4"
+      class="monitor-card-grid grid gap-5"
+      data-testid="monitor-card-grid"
     >
       <MonitorCard
         v-for="item in items"
@@ -79,3 +80,9 @@ function resolveAvailability(item: UserMonitorView): number | null {
   return props.window === '15d' ? primary.availability_15d ?? null : primary.availability_30d ?? null
 }
 </script>
+
+<style scoped>
+.monitor-card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+}
+</style>

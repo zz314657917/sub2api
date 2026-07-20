@@ -59,7 +59,7 @@ function mountView() {
       stubs: {
         AppLayout: { template: '<div><slot /></div>' },
         MonitorHero: { template: '<div />' },
-        MonitorAvailabilityList: { template: '<div />' },
+        MonitorCardGrid: { template: '<div data-testid="monitor-card-grid" />' },
         MonitorDetailDialog: { template: '<div />' },
       },
     },
@@ -173,6 +173,7 @@ describe('ChannelStatusView capacity pools', () => {
     await flushPromises()
 
     expect(fetchCapacityPools).toHaveBeenCalledTimes(1)
+    expect(wrapper.get('[data-testid="monitor-card-grid"]')).toBeTruthy()
     expect(wrapper.get('[data-testid="channel-status-layout"]').classes()).toContain('xl:grid-cols-2')
     const capacityColumn = wrapper.get('[data-testid="capacity-column"]')
     expect(capacityColumn.text()).toContain('channelStatus.capacityPools.shared')
