@@ -325,3 +325,4 @@
 260720 1334 | upstream-main-integration-s82-s86 | qa-pass | evaluator | frontend 7 files/55 tests, typecheck, build, broader service/handler regressions, blob/artifact/path/conflict/diff gates PASS
 260720 1334 | upstream-main-integration-s82-s86 | publish-ready | evaluator | origin/main remains ancestor; authorized fast-forward/push next; no deploy or container update
 260720 1342 | upstream-main-integration-s82-s86 | published | codex | local main, origin/main, and ls-remote matched 7f5e02030; no deploy or container update
+260720 1348 | upstream-main-integration-s82-s86 | local-cleanup | codex | clean ancestor audit passed; removed merged S76-S86 and integration worktrees/branches with non-force commands

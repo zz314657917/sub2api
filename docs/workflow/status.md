@@ -6,7 +6,7 @@ pending_action: no further S82-S86 action; do not deploy or update containers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-20 13:42 +08:00
+last_verified: 2026-07-20 13:48 +08:00
 ---
 
 # Workflow Status
@@ -27,6 +27,9 @@ last_verified: 2026-07-20 13:42 +08:00
 - Source publish completed under the user's explicit authorization: local
   `main`, `origin/main`, and `git ls-remote` all matched release head
   `7f5e02030` after push. No deployment or container update was performed.
+- Local cleanup completed after a fresh clean-worktree and remote-ancestor
+  audit: S76-S86 plus the S82-S86 integration worktree/branches were removed
+  with non-force Git commands; only the primary `main` worktree remains.
 - S82 draft contract scopes a conditional reasoning-effort suffix to the
   requested model in user/admin usage-record tables. Backend, exports,
   dashboards, column defaults, deployment, and `knowledge/**` remain denied.

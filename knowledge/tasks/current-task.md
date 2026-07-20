@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-07-20 13:42 +08:00
+最后更新：2026-07-20 13:48 +08:00
 
 ## 背景
 
@@ -12,9 +12,9 @@
 
 ## 当前目标
 
-- 关闭 S82-S86 集成发布任务，并保留可直接恢复的最终证据。
-- 只清理已证明进入 `origin/main` 的 S82-S86 worktree/branch；未证明合并的分支继续保留。
+- S82-S86 集成发布任务已关闭，当前没有遗留发布动作。
 - 后续新的上游更新从 fresh fetch 与新增提交审计重新开始，不沿用本轮 PASS 代替新审计。
+- 部署或容器更新仍必须由用户另行明确授权。
 
 ## 本次已完成
 
@@ -22,6 +22,7 @@
 - upstream compatibility S82-S86 已进入主线：WS mode 前置说明、订阅到分钟、buffered Anthropic JSON Content-Type、同账号重试 cache billing 修正和 Grok proxy quality。
 - S82、S83、S84、stacked S85-S86 通过四个 merge commit 集成；workflow closeout、组合 QA 和三份知识文档均已纳入发布历史。
 - `main` 已正常推送到 `origin/main`，没有 force push。
+- S76-S86 与最终集成共 12 个已合并 worktree/branch 已在 clean + ancestor 审计后用非强制 Git 命令清理。
 
 ## 已确认事实
 
@@ -29,6 +30,7 @@
 - 五个来源提交都是发布 head 的祖先；22 个业务路径逐一匹配所属来源 blob，18 份 Sprint artifact 齐全，最终发布前范围为 47 路径。
 - 无 unmerged index 项、真实冲突标记、业务 blob mismatch 或 `git diff --check` 问题。
 - S86 已包含 S85，因此没有重复 merge S85；源码推送不等于运行环境部署。
+- 清理后只剩主工作树 `F:/mcplugins/sub2api`；主工作树 `frontend/node_modules` 未被 Junction 清理影响。
 
 ## 待验证点
 
