@@ -42,6 +42,52 @@ describe('UseKeyModal', () => {
     expect(codeBlocks[0].text()).not.toContain('base_url = "https://ai.3zapi.top/"')
   })
 
+  it('renders current Codex defaults for HTTP and WebSocket configs', async () => {
+    const wrapper = mount(UseKeyModal, {
+      props: {
+        show: true,
+        apiKey: 'sk-test',
+        baseUrl: 'https://ai.3zapi.top',
+        platform: 'openai'
+      },
+      global: {
+        stubs: {
+          BaseDialog: {
+            template: '<div><slot /><slot name="footer" /></div>'
+          },
+          Icon: {
+            template: '<span />'
+          }
+        }
+      }
+    })
+
+    const assertCurrentDefaults = (config: string) => {
+      expect(config).toContain('model = "gpt-5.6-sol"')
+      expect(config).toContain('review_model = "gpt-5.5"')
+      expect(config).toContain('name = "3Z API"')
+      expect(config).toContain('request_max_retries = 0')
+      expect(config).toContain('stream_max_retries = 1')
+      expect(config).not.toContain('model = "gpt-5.4"')
+      expect(config).not.toContain('model_context_window')
+      expect(config).not.toContain('model_auto_compact_token_limit')
+    }
+
+    assertCurrentDefaults(wrapper.findAll('pre code')[0].text())
+
+    const wsTab = wrapper.findAll('button').find((button) =>
+      button.text().includes('keys.useKeyModal.cliTabs.codexCliWs')
+    )
+    expect(wsTab).toBeDefined()
+    await wsTab!.trigger('click')
+    await nextTick()
+
+    const wsConfig = wrapper.findAll('pre code')[0].text()
+    assertCurrentDefaults(wsConfig)
+    expect(wsConfig).toContain('supports_websockets = true')
+    expect(wsConfig).toContain('responses_websockets_v2 = true')
+  })
+
   it('renders GPT-5.4 mini entry in OpenCode config', async () => {
     const wrapper = mount(UseKeyModal, {
       props: {
