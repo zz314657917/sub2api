@@ -320,3 +320,7 @@
 260720 1124 | usage-model-reasoning-effort-s82 | qa-start | evaluator | path, conflict, diff, pre-existing knowledge-diff, and evidence review
 260720 1124 | usage-model-reasoning-effort-s82 | qa-pass | evaluator | six frontend business paths, 33 tests, typecheck, build, and diff gates PASS
 260720 1126 | usage-model-reasoning-effort-s82 | done | evaluator | final PASS; no browser smoke, deploy, container update, or knowledge-file inclusion
+260720 1330 | upstream-main-integration-s82-s86 | merge-start | codex | integrate local Usage S82 with reviewed upstream compatibility S82-S86 from origin/main 37e0b493c
+260720 1332 | upstream-main-integration-s82-s86 | merge-complete | codex | four merge commits preserve S82, S83, S84, and stacked S85-S86 without business conflicts
+260720 1334 | upstream-main-integration-s82-s86 | qa-pass | evaluator | frontend 7 files/55 tests, typecheck, build, broader service/handler regressions, blob/artifact/path/conflict/diff gates PASS
+260720 1334 | upstream-main-integration-s82-s86 | publish-ready | evaluator | origin/main remains ancestor; authorized fast-forward/push next; no deploy or container update

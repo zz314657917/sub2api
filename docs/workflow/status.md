@@ -1,16 +1,31 @@
 ---
 phase: done
-current_sprint: usage-model-reasoning-effort-s82
-total_sprints: 82
-pending_action: no further S82 action; do not deploy or update containers
+current_sprint: upstream-main-integration-s82-s86
+total_sprints: 86
+pending_action: fast-forward main, push origin/main, and verify remote SHA; do not deploy or update containers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-20 11:26 +08:00
+last_verified: 2026-07-20 13:34 +08:00
 ---
 
 # Workflow Status
 
+- S82-S86 integration final Evaluator: `PASS`. Local Usage S82 plus upstream
+  compatibility S82, S83, S84, and stacked S85-S86 are combined in four merge
+  commits without a business conflict.
+- Combined verification passed frontend Vitest `7 files / 55 tests`, frontend
+  typecheck, production build (`1088 modules`), broader Anthropic/proxy-quality
+  service regressions, and broader `TestHandleFailoverError_` handler
+  regressions.
+- Final integration audit passed all five source-ancestor checks, 22 business-
+  blob comparisons, 18 expected artifact checks, the exact 43-path audit,
+  unmerged/conflict scans, and `git diff --check`.
+- Refreshed `origin/main` remains `37e0b493c` and is an ancestor of the
+  integration head. Refreshed `upstream/main` is `db4295d646`; this release is
+  a selective behavior port and does not merge the unreviewed upstream tail.
+- Release is publish-ready under the user's explicit authorization. It has not
+  yet been pushed, deployed, or used to update a container.
 - S82 draft contract scopes a conditional reasoning-effort suffix to the
   requested model in user/admin usage-record tables. Backend, exports,
   dashboards, column defaults, deployment, and `knowledge/**` remain denied.
