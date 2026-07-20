@@ -1,16 +1,22 @@
 ---
 phase: done
-current_sprint: upstream-main-compat-s81
-total_sprints: 81
-pending_action: create the scoped S81 commit, then await explicit authorization before any local main merge
+current_sprint: upstream-main-compat-s82
+total_sprints: 82
+pending_action: await explicit authorization before any local main merge of S82
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-20 09:54 +08:00
+last_verified: 2026-07-20 11:15 +08:00
 ---
 
 # Workflow Status
 
+- S82 scoped commit now exists on isolated branch `codex/upstream-main-compat-s82`; it has not been merged, pushed, deployed, or used to update a container.
+- S82 final Evaluator: `PASS`. Fresh locale Vitest 1/1, typecheck, production build, runtime-vocabulary review, config-value freeze, exact path/conflict/diff, and protected-hash gates passed. Browser smoke is unnecessary for this static help-copy batch and was not run.
+- S82 implementation is complete. Locale Vitest 1/1, typecheck, production build, config-value freeze, business diff, conflict/diff, and protected-hash checks passed; fresh Evaluator retest is in progress.
+- S82 contract review: `PASS`. The local runtime/frontend vocabulary is exactly `off / ctx_pool / passthrough`; the five business paths, eleven-item tracking allowlist, prerequisite assertions, runtime freeze, and protected-hash gates are explicit and executable.
+- S82 draft contract adapts upstream `8b75dd557`: document the global v2-router prerequisite for account WS modes, while retaining the local `off / ctx_pool / passthrough` vocabulary and rejecting upstream's unsupported account-level `http_bridge` wording.
+- S81 was fast-forwarded into local `main` as `631a8f5a8`; it was not pushed or deployed, no container was touched, and protected knowledge hashes remained unchanged.
 - S81 final Evaluator: `PASS`. Baseline, exact discovery, focused/count=10, broader subscription regression, line-level diff, helper freeze, path/conflict/diff, and protected-hash gates passed. Live database/cache integration remains unverified.
 - S81 implementation is complete. Exact 11-test discovery/run, focused `count=10`, and broader subscription assignment/window regressions passed; evidence-first diff and final path gates are in progress.
 - S81 contract passed evidence-first review: expired/active/suspended branches, admin note deduplication, assignment provenance, frozen purchase semantics, exact discovery, and nine-path gates are explicit and executable.

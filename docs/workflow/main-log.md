@@ -313,3 +313,12 @@
 260720 0951 | upstream-main-compat-s81 | qa-start | evaluator | fresh service tests, line-level diff review, helper freeze, and path/hash gates
 260720 0954 | upstream-main-compat-s81 | qa-pass | evaluator | baseline + 11 exact + count=10 + broader subscription regressions and path/diff/hash gates PASS
 260720 0954 | upstream-main-compat-s81 | done | evaluator | final PASS; live DB/cache smoke deferred; no merge/push/deploy/container action
+260720 1000 | upstream-main-compat-s81 | merged-to-main | codex | fast-forward to 631a8f5a8; protected knowledge hashes unchanged; no push/deploy/container action
+260720 1000 | upstream-main-compat-s82 | contract-draft | codex | adapt 8b75dd557 prerequisite docs to local off/ctx_pool/passthrough vocabulary; runtime frozen
+260720 1005 | upstream-main-compat-s82 | contract-approved | evaluator | local vocabulary, five business paths, eleven-path tracking, and protected-hash gates PASS
+260720 1005 | upstream-main-compat-s82 | build-start | codex | README/config comments plus bilingual locale help and focused Vitest only
+260720 1105 | upstream-main-compat-s82 | build-complete | codex | locale Vitest 1/1, typecheck, build, config-value freeze, path/diff/hash gates PASS
+260720 1105 | upstream-main-compat-s82 | qa-start | evaluator | fresh locale test plus business-line, runtime-vocabulary, and eleven-path review
+260720 1110 | upstream-main-compat-s82 | qa-pass | evaluator | fresh Vitest 1/1, typecheck, build, runtime/config/path/diff/hash gates PASS
+260720 1110 | upstream-main-compat-s82 | done | evaluator | final PASS; no merge/push/deploy/container action
+260720 1115 | upstream-main-compat-s82 | commit-created | codex | isolated branch only; awaiting explicit local-main merge authorization
