@@ -454,6 +454,33 @@ func (s *SubscriptionService) assignSubscriptionWithReuse(ctx context.Context, i
 		if getErr != nil {
 			return nil, false, getErr
 		}
+		now := time.Now()
+		if sub.Status == SubscriptionStatusExpired ||
+			(sub.Status != SubscriptionStatusSuspended && !sub.ExpiresAt.After(now)) {
+			validityDays := normalizeAssignValidityDays(input.ValidityDays)
+			newExpiresAt := now.AddDate(0, 0, validityDays)
+			if newExpiresAt.After(MaxExpiresAt) {
+				newExpiresAt = MaxExpiresAt
+			}
+			renewalNotes := input.Notes
+			if strings.TrimSpace(sub.Notes) == strings.TrimSpace(input.Notes) {
+				renewalNotes = ""
+			}
+			if err := s.updateExistingSubscriptionTerm(ctx, sub, renewalNotes, now, newExpiresAt, true); err != nil {
+				return nil, false, err
+			}
+			s.InvalidateSubCache(input.UserID, input.GroupID)
+			if s.billingCacheService != nil {
+				userID, groupID := input.UserID, input.GroupID
+				go func() {
+					cacheCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					_ = s.billingCacheService.InvalidateSubscription(cacheCtx, userID, groupID)
+				}()
+			}
+			renewed, getErr := s.userSubRepo.GetByID(ctx, sub.ID)
+			return renewed, true, getErr
+		}
 		if conflictReason, conflict := detectAssignSemanticConflict(sub, input); conflict {
 			return nil, false, ErrSubscriptionAssignConflict.WithMetadata(map[string]string{
 				"conflict_reason": conflictReason,

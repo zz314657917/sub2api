@@ -305,3 +305,11 @@
 260720 0848 | upstream-main-compat-s80 | qa-start | evaluator | independent config diff review plus fresh daemon-free Compose acceptance
 260720 0852 | upstream-main-compat-s80 | qa-pass | evaluator | 6 command renders, 6 shell syntax checks, 3 topology comparisons, path/diff/hash gates PASS
 260720 0852 | upstream-main-compat-s80 | done | evaluator | final PASS; runtime CONFIG GET deferred; no container, merge, push, or deploy action
+260720 0944 | upstream-main-compat-s80 | merged-to-main | codex | fast-forward to f62f8bbce; protected knowledge hashes unchanged; no push/deploy/container action
+260720 0944 | upstream-main-compat-s81 | contract-draft | codex | expired admin assignment renewal only; suspended and AssignOrExtend semantics frozen
+260720 0948 | upstream-main-compat-s81 | contract-approved | evaluator | branch semantics, 11-test discovery, provenance, frozen helpers, and nine-path gates PASS
+260720 0948 | upstream-main-compat-s81 | build-start | codex | service renewal branch plus default-tag regression updates only
+260720 0951 | upstream-main-compat-s81 | build-complete | codex | 11 exact tests, count=10, and broader subscription regressions PASS
+260720 0951 | upstream-main-compat-s81 | qa-start | evaluator | fresh service tests, line-level diff review, helper freeze, and path/hash gates
+260720 0954 | upstream-main-compat-s81 | qa-pass | evaluator | baseline + 11 exact + count=10 + broader subscription regressions and path/diff/hash gates PASS
+260720 0954 | upstream-main-compat-s81 | done | evaluator | final PASS; live DB/cache smoke deferred; no merge/push/deploy/container action

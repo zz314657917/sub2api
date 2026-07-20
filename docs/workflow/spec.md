@@ -7,6 +7,20 @@ last_verified: 2026-07-03 19:30 +08:00
 
 # Workflow Spec
 
+## S81 Addendum: renew expired admin subscription assignments
+
+### 一句话目标
+
+- 管理员重新分配已过期的同分组订阅时，复用原记录并从当前时间开启新周期，而不是返回成功但继续保持过期。
+
+### 边界与验收
+
+- 仅修改 admin assignment 的复用分支；单个/批量分配都复用同一逻辑。
+- 新周期重置 starts/expires、active 状态、日/周/月窗口与用量，并保留原 ID 和分配来源。
+- suspended 无论是否已过期都不得自动恢复；有效 active 订阅的幂等复用/冲突语义保持。
+- 管理员相同备注不重复追加，不同备注追加一次；购买/兑换使用的 `AssignOrExtendSubscription` 仍记录每次事件，即相同备注继续追加。
+- 不修改 repository、schema、migration、handler、frontend、billing、payment、redeem 或部署配置。
+
 ## S80 Addendum: Redis Compose command continuation
 
 ### 一句话目标

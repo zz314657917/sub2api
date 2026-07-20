@@ -1,16 +1,21 @@
 ---
 phase: done
-current_sprint: upstream-main-compat-s80
-total_sprints: 80
-pending_action: create the scoped S80 commit, then await explicit authorization before any local main merge
+current_sprint: upstream-main-compat-s81
+total_sprints: 81
+pending_action: create the scoped S81 commit, then await explicit authorization before any local main merge
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-20 08:52 +08:00
+last_verified: 2026-07-20 09:54 +08:00
 ---
 
 # Workflow Status
 
+- S81 final Evaluator: `PASS`. Baseline, exact discovery, focused/count=10, broader subscription regression, line-level diff, helper freeze, path/conflict/diff, and protected-hash gates passed. Live database/cache integration remains unverified.
+- S81 implementation is complete. Exact 11-test discovery/run, focused `count=10`, and broader subscription assignment/window regressions passed; evidence-first diff and final path gates are in progress.
+- S81 contract passed evidence-first review: expired/active/suspended branches, admin note deduplication, assignment provenance, frozen purchase semantics, exact discovery, and nine-path gates are explicit and executable.
+- S81 draft contract ports upstream `1db10dc55`: admin assignment renews an expired reusable subscription row and resets its term/windows/usage, while suspended subscriptions and `AssignOrExtendSubscription` behavior remain unchanged.
+- S80 was fast-forwarded into local `main` as `f62f8bbce`; it was not pushed or deployed, no container was touched, and protected knowledge hashes remained unchanged.
 - S80 final Evaluator: `PASS`. Six password-mode renders, six shell syntax checks, three baseline/current topology comparisons, path/diff/conflict gates, and protected hashes passed without contacting Docker daemon. Runtime Redis `CONFIG GET` remains explicitly deferred.
 - S80 implementation is complete: six empty/non-empty-password command renders and three baseline/current topology comparisons passed without contacting Docker daemon. Independent diff review and fresh static Compose evaluation are in progress.
 - S80 contract independently passed after adding hard gates for unmerged index entries, cached conflict markers, and an exact nine-path staged allowlist. Build is authorized only inside the isolated S80 worktree.
