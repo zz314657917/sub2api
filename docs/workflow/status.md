@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-main-integration-s82-s86
 total_sprints: 86
-pending_action: fast-forward main, push origin/main, and verify remote SHA; do not deploy or update containers
+pending_action: no further S82-S86 action; do not deploy or update containers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-20 13:34 +08:00
+last_verified: 2026-07-20 13:42 +08:00
 ---
 
 # Workflow Status
@@ -24,8 +24,9 @@ last_verified: 2026-07-20 13:34 +08:00
 - Refreshed `origin/main` remains `37e0b493c` and is an ancestor of the
   integration head. Refreshed `upstream/main` is `db4295d646`; this release is
   a selective behavior port and does not merge the unreviewed upstream tail.
-- Release is publish-ready under the user's explicit authorization. It has not
-  yet been pushed, deployed, or used to update a container.
+- Source publish completed under the user's explicit authorization: local
+  `main`, `origin/main`, and `git ls-remote` all matched release head
+  `7f5e02030` after push. No deployment or container update was performed.
 - S82 draft contract scopes a conditional reasoning-effort suffix to the
   requested model in user/admin usage-record tables. Backend, exports,
   dashboards, column defaults, deployment, and `knowledge/**` remain denied.
