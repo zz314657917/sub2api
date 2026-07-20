@@ -442,3 +442,17 @@ Selectively port three independently testable `v0.1.152` improvements without im
 - Targeted backend service/handler tests, selector/i18n Vitest, frontend typecheck, and path/diff audit must pass.
 - No existing user ID may be silently dropped or converted into a global Fast/Flex rule.
 - Non-Composer Grok requests and existing account-selection/failover loops must remain unchanged; Count Tokens may align with the shared 404/503 no-account classifier.
+
+# S86 Addendum: Grok proxy quality target
+
+## Goal
+
+Add xAI/Grok reachability to the existing administrator proxy quality check.
+
+## Scope Boundary
+
+- Probe `GET https://api.x.ai/v1/models` through the selected proxy and treat
+  HTTP 401 as reachable.
+- Display the result target as `Grok` in the existing table.
+- Do not change scoring, timeouts, other targets, persistence, table layout,
+  deployment, containers, or `knowledge/**`.

@@ -1,16 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-compat-s85
-total_sprints: 85
-pending_action: create the scoped S85 commit, then await primary S82 workflow reconciliation before any local main merge
+current_sprint: upstream-main-compat-s86
+total_sprints: 86
+pending_action: create the scoped S86 commit, then keep the stacked S85/S86 branch isolated until primary S82 reconciliation
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-20 14:30 +08:00
+last_verified: 2026-07-20 15:00 +08:00
 ---
 
 # Workflow Status
 
+- S86 final Evaluator: `PASS`. Fresh focused Go tests, repeated frontend typecheck/build, exact semantic/path/conflict/diff, and protected-hash gates passed. Live proxy/browser smoke was not run.
+- S86 implementation is complete. Focused proxy-quality Go tests, frontend typecheck/build, gofmt, and initial diff review passed; fresh Evaluator retest is in progress.
+- S86 contract review: `PASS`. The exact xAI endpoint, 401 reachability semantics, unchanged scoring/transport/UI layout, nine-path allowlist, and protected-hash gates are explicit and executable.
+- S86 draft contract ports upstream `b8c640d21`: proxy quality checks add the canonical xAI models target and the result table displays `Grok`; unrelated upstream table styling is excluded.
 - S85 final Evaluator: `PASS`. Fresh independent-cache focused/broader handler tests, gofmt, state review, exact path/conflict/diff, and protected-hash gates passed. Live billing smoke was not run.
 - S85 implementation is complete. Focused/broader handler tests, gofmt, static ForceCacheBilling state, and business diff checks passed; fresh Evaluator retest is in progress.
 - S85 contract review: `PASS`. Local retry constant/signature, ForceCacheBilling state transitions, frozen retry/switch semantics, eight-item allowlist, and protected-hash gates are explicit and executable.

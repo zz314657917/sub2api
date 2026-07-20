@@ -320,3 +320,10 @@
 260720 1420 | upstream-main-compat-s85 | qa-start | evaluator | fresh independent-cache handler tests plus transition/path/hash review
 260720 1430 | upstream-main-compat-s85 | qa-pass | evaluator | fresh independent-cache focused/broader tests, state/path/diff/hash gates PASS
 260720 1430 | upstream-main-compat-s85 | done | evaluator | final PASS; primary S82 workflow conflict remains external; no merge/push/deploy/container action
+260720 1435 | upstream-main-compat-s86 | contract-draft | codex | port b8c640d21 Grok proxy-quality target only; upstream table styling excluded
+260720 1440 | upstream-main-compat-s86 | contract-approved | evaluator | endpoint, 401 semantics, frozen behavior, nine-path and protected-hash gates PASS
+260720 1440 | upstream-main-compat-s86 | build-start | codex | one proxy target, two backend regressions, and one frontend label branch only
+260720 1450 | upstream-main-compat-s86 | build-complete | codex | focused Go tests, frontend typecheck/build, gofmt and diff check PASS
+260720 1450 | upstream-main-compat-s86 | qa-start | evaluator | fresh Go cache plus exact semantic, path, conflict, diff, and protected-hash gates
+260720 1500 | upstream-main-compat-s86 | qa-pass | evaluator | fresh Go, repeated frontend compile/build, semantic/path/diff/hash gates PASS
+260720 1500 | upstream-main-compat-s86 | done | evaluator | final PASS; no merge/push/deploy/container action; primary S82 conflict remains external
