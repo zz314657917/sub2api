@@ -7,6 +7,19 @@ last_verified: 2026-07-03 19:30 +08:00
 
 # Workflow Spec
 
+## S82 Addendum: clarify OpenAI WS account-mode prerequisite
+
+### 一句话目标
+
+- 明确账号级 OpenAI Responses WS mode 只有在全局 `gateway.openai_ws.mode_router_v2_enabled=true` 时生效，避免管理员配置后仍走 legacy 路由却缺少提示。
+
+### 边界与验收
+
+- 只修改 README、示例配置注释、中英文账号帮助文案与定向 locale 测试；不修改任何运行时配置值或路由代码。
+- 本地账号级模式继续限定为 `off / ctx_pool / passthrough`；上游新增的账号级 `http_bridge` 不属于本地能力，不能写入帮助文案。
+- 本地 `http_bridge_enabled` 仍只是大首包 HTTP fallback 开关，与账号级模式保持区分。
+- 定向 Vitest、typecheck、production build、精确十一项路径审计和 protected-hash gate 必须通过。
+
 ## S81 Addendum: renew expired admin subscription assignments
 
 ### 一句话目标

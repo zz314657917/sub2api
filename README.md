@@ -536,6 +536,25 @@ go generate ./cmd/server
 
 ---
 
+## OpenAI Responses WebSocket Account Modes
+
+Account-level WS modes such as `ctx_pool` and `passthrough` take effect only
+when the v2 mode router is enabled globally:
+
+```yaml
+gateway:
+  openai_ws:
+    mode_router_v2_enabled: true
+```
+
+Or set `GATEWAY_OPENAI_WS_MODE_ROUTER_V2_ENABLED=true` in the environment.
+When the switch is disabled, account-level WS mode selections are ignored and
+the gateway retains its legacy routing behavior. The separate
+`http_bridge_enabled` option controls oversized first-message fallback and is
+not an account-level mode.
+
+---
+
 ## Simple Mode
 
 Simple Mode is designed for individual developers or internal teams who want quick access without full SaaS features.
