@@ -1,78 +1,97 @@
 # 当前主线
 
-最后更新：2026-07-09
+最后更新：2026-07-20
 
 ## 当前阶段
 
-Sub2API 近期稳定主线又前移了一次。Studio Bridge / 落叶AI生产联调、共享分组/支付治理、S44/S53 这一段上游安全补丁都仍然成立，但它们已经从“最近默认续做入口”退成稳定背景层；当前更靠近主线的是 2026-07-08 形成的新一轮用户面收口，包括暖白/陶土/黑灰全前端统一、首页内嵌登录注册、排行榜增强、共享账号渠道状态可见性，以及首充福利与充值页细节约束。
+Sub2API 近期稳定主线再次前移。截至 2026-07-20，本地 Usage S82 与 upstream compatibility S82-S86 已完成组合集成和最终验收；默认续做心智应先落在 `S82-S86 integration PASS + publish pending + 未部署/未更新容器`，而不是停在 `S77 done` 或更早的发布快照。
 
 ## 当前重点
 
-1. 暖白/陶土/黑灰全前端统一 + 首页内嵌登录注册，已经成为当前最高频的默认产品面
-   - `640b9341d feat(frontend): unify warm public and console UI` 把公共页、认证页、控制台基础壳、首页和大量后台/用户面板统一到暖白、陶土、黑灰体系；这说明当前续做不应再把主线只理解成 bridge/payments/upstream patch，而要把“整体用户可见界面风格与入口一致性”当成新的默认背景。
-   - 首页入口已经从独立 `/login` / `/register` 暗色页，前移到 `/home` 右侧内嵌认证卡片；登录/注册、OAuth、邀请码、优惠码、Turnstile、2FA 等仍复用原业务逻辑，但当前默认入口心智已变成“公共首页即认证入口 + 已登录回仪表盘”。
-   - 这条主线会直接影响后续公共页、认证页、用户控制台、404、setup 和 key usage 的验收；如果知识入口还停在 6 月末 Studio Bridge/S43 语境，会明显低估当前前端基线变动面。
+1. S82-S86 组合集成已通过最终门禁，当前只剩 scoped publish 收尾
+   - 集成分支 `codex/upstream-main-integration-s82-s86` 已用四个 merge commit 合入 upstream compatibility S82、S83、S84 和 stacked S85-S86；S86 已包含 S85，不应重复 merge。
+   - 组合验收通过前端 `7 files / 55 tests`、typecheck、production build、service/handler 回归、22 个业务 blob、18 份 workflow artifact 和 43 路径审计。
+   - 当前结论是 `PASS / publish-ready`，不是“已部署”；远端 SHA 验证、发布 closeout 和已合并分支清理仍属于本轮收尾。
 
-2. 排行榜 / 数据台继续前移，已经不再只是 6 月 24 日那轮模型榜补齐
+2. Usage reasoning effort、WS mode 说明和订阅时间精度进入最新用户面
+   - 本地 Usage S82 会在 `reasoning_effort` 存在时把它附加到用户/管理员 Usage 记录的模型显示名；字段为空时保持原显示。
+   - upstream S82 只修正文档和 UI 文案，明确 WS account mode 依赖 Mode Router V2，不引入本地不存在的 account-level `http_bridge` 模式。
+   - upstream S83 复用既有 locale-aware 日期格式，把管理员和用户订阅到期时间显示到分钟，不改变剩余天数或过期状态逻辑。
+
+3. Anthropic 响应、cache billing failover 和 Grok proxy quality 进入最新后端兼容面
+   - S84 保证 buffered Anthropic compatibility 响应在过滤上游 header 后仍以 JSON Content-Type 返回，streaming 路径不变。
+   - S85 保证绑定 session 的同账号重试不再强制 cache billing；只有首次真实切换账号或显式 failover flag 才触发。
+   - S86 把 Grok/xAI `GET /v1/models` 纳入 proxy quality 检查，并只把 HTTP 401 视作未认证可达信号。
+
+4. `S76-S81`、`S77` 和排行榜小时刷新已退成前一层稳定背景，但不能丢失
+   - `S77` 的 passthrough malformed-JSON 校验、platform-aware Grok image intent gating 和 `TablePageLayout` 水平滚动保持仍是当前网关/UI 基线。
+   - `S76` 的 Fast/Flex email search selection、Grok Composer reasoning sanitization、platform-aware no-account diagnostics，以及 S78-S81 已验收的小步兼容改动都随当前主线保留。
+   - 2026-07-17 的 `feat(leaderboard): refresh rankings hourly` 仍是榜单时效的默认运行约束；后续不能只按旧的 cached refresh 文案理解。
+
+5. `S65-S70`、暖白前端统一、共享账号渠道状态可见性和首充 only 语义仍成立，但都已退成更早的稳定背景层
+   - `d6ff6a158`、`640b9341d`、`7a457f25d`、`71dad20f9` 这些能力仍要保住，但它们不再代表 2026-07-19 时最近的默认续做入口。
+   - 当前补知识或恢复上下文时，如果入口还把“发布后基线”或“7 月 8 日用户面收口”写成最近主线，会明显低估 `S77` 和 7 月 17 日排行榜刷新带来的基线前移。
+
+6. 排行榜 / 数据台继续前移，已经不再只是 6 月 24 日那轮模型榜补齐
    - 2026-07-08 的 `feat(leaderboard): show rank movement` 和 `feat(leaderboard): show new rank and cached refresh state` 说明当前 leaderboard 稳定面已继续扩展到“排名变化 + 新晋标记 + 缓存刷新状态”。
    - 这意味着当前用户数据台默认不只包含模型榜、Token 占比和增长百分比，还包含榜单状态反馈与更强的周期对比语义；后续若再看 dashboard / leaderboard，不应继续按 6 月 24 日的旧卡片结构理解。
 
-3. 共享账号渠道状态可见性，已经进入新的稳定权限边界
+7. 共享账号渠道状态可见性，已经进入新的稳定权限边界
    - `7a457f25d feat: add channel status visibility setting for shared accounts` 说明共享账号的 `channel status` 是否对用户侧可见，已经进入后台设置与公共载荷边界，而不再是前端临时展示细节。
    - 这条约束会直接影响共享账号可见字段、用户监控页、容量池解释和客服排障口径；后续涉及 shared account 展示时，应默认先看后台 visibility setting，而不是先改用户页文案。
 
-4. 首充福利 bonus 已收口为“仅首次”语义，不能再按宽松赠送理解
+8. 首充福利 bonus 已收口为“仅首次”语义，不能再按宽松赠送理解
    - `71dad20f9 fix(payment): make recharge package bonus first-time only` 把充值套餐 bonus 收口到首次充值语义，说明当前支付/福利默认边界已从“存在福利”进一步前移到“福利触发条件必须稳定一致”。
    - 后续再改支付页、福利页、套餐说明或后台设置时，不能只记得有首充奖励，还要明确“首充 only”已经是稳定产品约束。
 
-5. Studio Bridge / 落叶AI生产联调，现已降为当前前端统一主线之前的稳定背景层
+9. Studio Bridge / 落叶AI生产联调，现已降为当前前端统一主线之前的稳定背景层
    - `fe2f80be1 feat: add studio bridge integration` 已把 Sub2API 扩展为落叶AI的账号、充值、余额、默认分组、配置和扣费真源。
    - 这说明当前默认续做心智应先落在“bridge launch/redeem 是否闭环、默认分组和 internal secret 是否配置正确、预扣/确认/退款是否能稳定联调、团队空间 actor/payer 语义是否跑通”，而不是继续把主线只理解成 OpenAI gateway 或旧工作区迁移。
    - 6 月 10 日到 11 日的新稳定事实是：本地 Studio Bridge 配置现在会在 env secret 存在、配置为空或仍是占位值时自动补齐；默认聊天/生图分组会从 active groups 动态选择，不再硬编码旧 group id；继续排查本地 `STUDIO_BRIDGE_DISABLED` / `STUDIO_BRIDGE_GROUP_REQUIRED` 时，先看 env secret、active image group 和占位配置，而不是先怀疑 launch/redeem 本身失效。
 
-6. 当前用户侧入口已经从 OpenWebUI / 旧聊天生图入口，切到落叶AI启动链路
+10. 当前用户侧入口已经从 OpenWebUI / 旧聊天生图入口，切到落叶AI启动链路
    - `/studio-bridge/launch` 已作为 `/chat-images` 的 alias，避免注册/登录 redirect 到 404。
    - 这会直接影响默认产品入口、登录回跳、用户认知和浏览器验收路径，已经值得作为稳定事实记录，而不该只留在 `current-task` 里。
    - 近期还补齐了侧栏直接启动 Studio Bridge 的路径；因此当前用户入口不只是一张落地页，而是“`/chat-images` alias + sidebar launch + 登录/注册后回跳”的整条链路。
 
-7. session-probe 已从临时调试页进入默认验收面
+11. session-probe 已从临时调试页进入默认验收面
    - 6 月 10 日新增 `session-probe` iframe 探针后，当前最小 smoke 不再只是“launch 到 `/image` 返回 200”，还要确认 iframe 只请求 `/studio-bridge/session-probe`，并且 CSP / `frame-ancestors` 允许落叶AI宿主域名，而不是错误回退到根路径 iframe 或被浏览器拦截。
    - 这条约束直接影响登录态恢复、余额摘要展示和落叶AI内页是否能稳定读取 Sub2API 会话，不应继续只留在任务时间轴里。
 
-8. OpenAI 网关稳态、账号能力路由和控制台归一，现已降为 Studio Bridge 之前的稳定背景层
+12. OpenAI 网关稳态、账号能力路由和控制台归一，现已降为 Studio Bridge 之前的稳定背景层
    - gateway/auth/session、prompt cache、routed API key capabilities、`key/base-url` 归一仍然有效，但它们已不再代表 6 月 9 日最靠前的默认改动面。
    - 后续继续做模型广场、嵌入工作区、公共入口或上游合成时仍要遵守这些约束，但如果要快速判断“仓库现在主要在做什么”，应优先看 Studio Bridge 配置、真实用户闭环和跨仓库联调。
    - 但最近的 `default API key` / route groups 收口仍是这层背景里必须保住的约束：Studio Bridge 和默认 key 路由改造之后，普通更新路径仍要继续校验分组权限，不能因为补 bridge 入口就放松 API key route group 校验。
 
-9. 首充福利与注册来源信息已经进入当前后台稳定面
+13. 首充福利与注册来源信息已经进入当前后台稳定面
    - 6 月 10 日新增首充福利 bonus，说明当前“充值闭环”已不只包含支付成功和余额回写，还包含用户福利/运营奖励规则；后续再改充值、福利、用户余额历史或兑换页时，不应把它当成独立于 Studio Bridge 的边缘功能。
    - `register ip` 已进入管理员用户列表稳定字段，说明当前认证/用户治理也在同步前移；后续排查新用户试用、福利领取和风控限制时，应默认考虑注册来源信息，而不是只看 user id 或 email。
 
-10. 支付套餐配置与用户 IP 画像，已经进入当前后台稳定面
+14. 支付套餐配置与用户 IP 画像，已经进入当前后台稳定面
    - 2026-06-13~2026-06-14 的新提交说明，最近高频改动不再只是“首充福利 + Studio Bridge 充值回跳”，而是继续推进到“可配置充值套餐 + 后台支付兑现/恢复 + 用户注册/最近登录 IP 画像”。
    - 这意味着当前支付面已经从单次支付成功与余额回写，进一步前移到“套餐定义、支付恢复、用户支付页展示、福利兑现、后台治理”一整条链路。
    - 同期进入后台稳定面的还有用户 IP 字段；后续做风控、异常支付、OAuth 注册来源或新用户治理时，不应再把 IP 当成一次性排障字段。
 
-11. 账号级图片输入 URL 化，已经进入当前稳定兼容面
+15. 账号级图片输入 URL 化，已经进入当前稳定兼容面
    - 2026-06-21 的图片链路改动说明，当前图片输入能力不应再只按“平台名”或“APIMart 特例”理解，而要按上游账号 `extra` 显式声明的能力决定是否把本地图片改写成对象存储 URL。
    - 当前稳定边界包括：`image_input_transport=object_url`、可选的 `image_upload_limit_bytes`，以及普通 OpenAI-compatible 上游只有在声明支持 `image_urls` / `mask_url` 时才走 JSON URL 字段改写。
    - 这条能力会直接影响账号编辑页、上游兼容性排查、multipart 失败归因与 failover 后的再次请求；后续如果再看到 “Part exceeded maximum size of 1024KB” 一类问题，不应先假设是 Sub2API 全局上传限制。
 
-12. 排行榜 / 模型榜已进入新的当前用户台面
+16. 排行榜 / 模型榜已进入新的当前用户台面
    - 2026-06-24 的主线不再只停在 Studio Bridge、支付治理或账号能力兼容；用户台 `leaderboard` 已新增模型榜、Token 占比、增长百分比和排名变化，并有模型商图标语义。
    - 这说明当前默认产品面已经包含“用户可见数据台”的持续演进，后续如果再看 dashboard/leaderboard，不应继续按旧的单一 Token 榜理解。
    - 模型榜当前稳定边界包括：后端 `model_ranking` 聚合、上一周期对比的 `growth_percent` / `rank_change`、前端榜单卡片内嵌切换，以及移动端右侧指标区响应式堆叠。
 
-13. 教程 CMS / 登录跳转 / 共享额度窗口仍是基础层，但已经更远离当前高频主线
+17. 教程 CMS / 登录跳转 / 共享额度窗口仍是基础层，但已经更远离当前高频主线
    - 这些能力已经从“当前主线”退到“稳定背景约束”。
    - 当前补知识时，更值得优先解释 OpenAI 网关稳态、账号能力与控制台链路，而不是重复教程页或旧工作区迁移背景。
 
-14. 2026-06-17 的上游小步合成结果，已经进入当前稳定背景层
+18. 2026-06-17 的上游小步合成结果，已经进入当前稳定背景层
    - `v0.1.137` 的 S15/S16/S17 不是新的默认产品主线，但已经形成新的稳定工程边界：安全与兼容补丁、计费兜底、thinking 协议过滤、Responses probe 能力校验、API Key ACL IP 拒绝信息，以及 OpenAI OAuth 上游 quota/reset 入口都已落盘。
    - 这些结论之所以值得进入当前焦点，而不是只留在 task 快照里，是因为它们会直接影响后续继续合上游、排查 OpenAI/Anthropic/国产模型兼容、做管理员账户运维或解释为什么某些 patch 可以继续小步迁、某些 migration-heavy 变更仍应跳过。
    - 当前默认心智应是：Studio Bridge / 支付治理仍是产品主链，上游合成则进入“低风险小步、保护本地定制、不 merge 大链路”的稳定工程主线。
 
-15. 2026-06-26 的 S21 / S22 follow-up safe patches，已经把“最近默认续做入口”从 leaderboard 小任务前移到新一轮上游收口
+19. 2026-06-26 的 S21 / S22 follow-up safe patches，已经把“最近默认续做入口”从 leaderboard 小任务前移到新一轮上游收口
    - S21 已稳定落地 Spark `image_generation` tool strip、OpenAI weekly reset 二次确认、usage cache token 明细展示和邮箱绑定后缀白名单。
    - 当前默认续做不应再停在 6/24 的 leaderboard 视觉/交互语境；更接近事实的是“在不覆盖本地 Studio Bridge、支付和公共页定制的前提下，继续小步吸上游安全/兼容修复”。
    - S22 仍是候选评估，不应误写成“已完成主线”；支付/订阅/余额预扣、order currency、Antigravity fallback、GPT-5.5 instructions fallback、ops chart UI、Claude terminal template、payment supported-types 继续属于跳过或待独立 Sprint 的范围。
