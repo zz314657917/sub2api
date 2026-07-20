@@ -32,6 +32,18 @@ last_verified: 2026-07-03 19:30 +08:00
 - 无效日期继续显示空字符串，状态文案和剩余天数计算保持不变。
 - 定向 Vitest、typecheck、production build、十项路径审计和 protected-hash gate 必须通过。
 
+## S84 Addendum: buffered Anthropic JSON content type
+
+### 一句话目标
+
+- 修复 OpenAI-compatible Anthropic buffered 响应被上游 SSE header 污染的问题，确保非流式 JSON 响应声明 `application/json`。
+
+### 边界与验收
+
+- 只在 buffered 转换路径 `c.JSON` 前覆盖 Content-Type；流式 SSE、响应 body、usage、计费和 failover 不变。
+- 按本地函数签名重写回归测试，不直接复制上游测试参数。
+- 定向 Go 测试、gofmt、八项路径审计、冲突/diff 和 protected-hash gate 必须通过。
+
 ## S81 Addendum: renew expired admin subscription assignments
 
 ### 一句话目标

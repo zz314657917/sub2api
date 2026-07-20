@@ -1911,3 +1911,36 @@ func TestForwardAsAnthropic_UpstreamRequestIgnoresClientCancel(t *testing.T) {
 	require.NotNil(t, upstream.lastReq)
 	require.NoError(t, upstream.lastReq.Context().Err())
 }
+
+func TestHandleAnthropicBufferedStreamingResponse_OverridesUpstreamContentType(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body: io.NopCloser(strings.NewReader(
+			`data: {"type":"response.completed","response":{"id":"resp_buffered_json","object":"response","model":"gpt-5.4","status":"completed","output":[{"type":"message","id":"msg_1","role":"assistant","status":"completed","content":[{"type":"output_text","text":"ok"}]}],"usage":{"input_tokens":15,"output_tokens":6,"total_tokens":21,"input_tokens_details":{"cached_tokens":5}}}}` + "\n\n",
+		)),
+	}
+	cfg := &config.Config{}
+	svc := &OpenAIGatewayService{
+		cfg:                  cfg,
+		responseHeaderFilter: compileResponseHeaderFilter(cfg),
+	}
+
+	result, err := svc.handleAnthropicBufferedStreamingResponse(
+		resp, c, "claude-sonnet-4-5", "gpt-5.4", "gpt-5.4", time.Now(),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "application/json; charset=utf-8", rec.Header().Get("Content-Type"))
+	require.NotContains(t, rec.Header().Get("Content-Type"), "text/event-stream")
+	require.Equal(t, "resp_buffered_json", gjson.Get(rec.Body.String(), "id").String())
+	require.Equal(t, float64(10), gjson.Get(rec.Body.String(), "usage.input_tokens").Float())
+	require.Equal(t, float64(6), gjson.Get(rec.Body.String(), "usage.output_tokens").Float())
+	require.Equal(t, float64(5), gjson.Get(rec.Body.String(), "usage.cache_read_input_tokens").Float())
+}
