@@ -83,6 +83,6 @@ function resolveAvailability(item: UserMonitorView): number | null {
 
 <style scoped>
 .monitor-card-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
 }
 </style>
