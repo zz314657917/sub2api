@@ -39,18 +39,18 @@
                  class="break-all"
                  :class="i === 0 ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
                  :style="i > 0 ? `padding-left: ${i * 0.75}rem` : ''">
-              <span v-if="i > 0" class="mr-0.5">↳</span>{{ step }}
+              <span v-if="i > 0" class="mr-0.5">↳</span>{{ i === 0 ? displayModelWithReasoningEffort(step, row.reasoning_effort) : step }}
             </div>
           </div>
           <div v-else-if="row.upstream_model && row.upstream_model !== row.model" class="space-y-0.5 text-xs">
             <div class="break-all font-medium text-gray-900 dark:text-white">
-              {{ displayModelLabel(row.model) }}
+              {{ displayModelWithReasoningEffort(row.model, row.reasoning_effort) }}
             </div>
             <div class="break-all text-gray-500 dark:text-gray-400">
               <span class="mr-0.5">↳</span>{{ displayModelLabel(row.upstream_model) }}
             </div>
           </div>
-          <span v-else class="font-medium text-gray-900 dark:text-white">{{ displayModelLabel(row.model) }}</span>
+          <span v-else class="font-medium text-gray-900 dark:text-white">{{ displayModelWithReasoningEffort(row.model, row.reasoning_effort) }}</span>
         </template>
 
         <template #cell-reasoning_effort="{ row }">
@@ -421,7 +421,7 @@ import {
   formatImageSizeBreakdown,
   formatImageSizeSource,
 } from '@/utils/imageUsage'
-import { displayModelChain, displayModelLabel } from '@/utils/modelDisplay'
+import { displayModelChain, displayModelLabel, displayModelWithReasoningEffort } from '@/utils/modelDisplay'
 
 /** Compute the account-billed cost for display: (account_stats_cost ?? total_cost) * rate_multiplier */
 function accountBilled(row: { total_cost?: number | null; account_stats_cost?: number | null; account_rate_multiplier?: number | null }): number {

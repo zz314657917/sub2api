@@ -431,3 +431,19 @@ Selectively port three independently testable `v0.1.152` improvements without im
 - Targeted backend service/handler tests, selector/i18n Vitest, frontend typecheck, and path/diff audit must pass.
 - No existing user ID may be silently dropped or converted into a global Fast/Flex rule.
 - Non-Composer Grok requests and existing account-selection/failover loops must remain unchanged; Count Tokens may align with the shared 404/503 no-account classifier.
+
+# S82 Addendum: usage-record model reasoning effort
+
+## Goal
+
+Show a normalized reasoning-effort suffix immediately after the requested model
+name in user and administrator usage-record tables when a meaningful effort is
+recorded.
+
+## Scope Boundary
+
+- Reuse existing model-label sanitization and reasoning-effort formatting.
+- Keep the standalone reasoning-effort column unchanged.
+- For admin mapping chains, annotate only the requested model (the first step).
+- Do not change backend capture, API types, exports, filters, dashboards,
+  billing, persistence, deployment, or `knowledge/**`.

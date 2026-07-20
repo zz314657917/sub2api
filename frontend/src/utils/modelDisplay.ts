@@ -1,3 +1,5 @@
+import { formatReasoningEffort } from './format'
+
 const UPSTREAM_BRAND_PATTERN = /(?:^|[\s._-]+)(?:\(|\[)?\s*api[\s_-]*mart\b\s*(?:\)|\])?/gi
 
 function stripUpstreamBrand(value: string): string {
@@ -21,6 +23,16 @@ export function cleanModelDisplayName(value: unknown, fallback = '模型'): stri
 
 export function displayModelLabel(model?: string | null, label?: string | null): string {
   return cleanModelDisplayName(label || model || '', model || '模型')
+}
+
+export function displayModelWithReasoningEffort(
+  model?: string | null,
+  reasoningEffort?: string | null,
+): string {
+  const modelLabel = displayModelLabel(model)
+  const effortLabel = formatReasoningEffort(reasoningEffort)
+
+  return effortLabel === '-' ? modelLabel : `${modelLabel} (${effortLabel})`
 }
 
 export function displayModelChain(chain?: string | null): string {

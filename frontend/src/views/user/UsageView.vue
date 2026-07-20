@@ -176,8 +176,8 @@
             <span v-else class="text-sm text-gray-400 dark:text-gray-500">-</span>
           </template>
 
-          <template #cell-model="{ value }">
-            <span class="font-medium text-gray-900 dark:text-white">{{ displayModelLabel(value) }}</span>
+          <template #cell-model="{ value, row }">
+            <span class="font-medium text-gray-900 dark:text-white">{{ displayModelWithReasoningEffort(value, row.reasoning_effort) }}</span>
           </template>
 
           <template #cell-reasoning_effort="{ row }">
@@ -648,7 +648,7 @@
               </div>
               <div>
                 <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.model') }}</div>
-                <div class="mt-1 break-all font-medium text-gray-900 dark:text-white">{{ displayModelLabel(selectedUsageLog.model) }}</div>
+                <div class="mt-1 break-all font-medium text-gray-900 dark:text-white">{{ displayModelWithReasoningEffort(selectedUsageLog.model, selectedUsageLog.reasoning_effort) }}</div>
               </div>
               <div>
                 <div class="text-xs text-gray-500 dark:text-gray-400">{{ t('usage.endpoint') }}</div>
@@ -749,7 +749,7 @@ import {
   formatImageSizeBreakdown,
   formatImageSizeSource,
 } from '@/utils/imageUsage'
-import { displayModelLabel } from '@/utils/modelDisplay'
+import { displayModelLabel, displayModelWithReasoningEffort } from '@/utils/modelDisplay'
 
 const { t } = useI18n()
 const appStore = useAppStore()

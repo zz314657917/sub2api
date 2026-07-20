@@ -204,6 +204,7 @@ describe('admin UsageTable tooltip', () => {
       request_id: 'req-admin-model-1',
       model: 'claude-sonnet-4',
       upstream_model: 'claude-sonnet-4-20250514',
+      reasoning_effort: 'medium',
       actual_cost: 0,
       total_cost: 0,
       account_rate_multiplier: 1,
@@ -233,8 +234,9 @@ describe('admin UsageTable tooltip', () => {
     })
 
     const text = wrapper.text()
-    expect(text).toContain('claude-sonnet-4')
+    expect(text).toContain('claude-sonnet-4 (Medium)')
     expect(text).toContain('claude-sonnet-4-20250514')
+    expect(text.match(/\(Medium\)/g)).toHaveLength(1)
   })
 
   it('hides upstream brand suffixes from visible model labels', () => {
@@ -243,6 +245,7 @@ describe('admin UsageTable tooltip', () => {
       model: 'gpt-image-2',
       upstream_model: 'grok-imagine-1.5-apimart',
       model_mapping_chain: 'gpt-image-2 → grok-imagine-1.5-apimart',
+      reasoning_effort: 'high',
       actual_cost: 0,
       total_cost: 0,
       account_rate_multiplier: 1,
@@ -272,8 +275,10 @@ describe('admin UsageTable tooltip', () => {
     })
 
     const text = wrapper.text()
+    expect(text).toContain('gpt-image-2 (High)')
     expect(text).toContain('grok-imagine-1.5')
     expect(text).not.toMatch(/apimart/i)
+    expect(text.match(/\(High\)/g)).toHaveLength(1)
   })
 
   it.each([

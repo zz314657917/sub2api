@@ -580,9 +580,15 @@ describe('user UsageView', () => {
     ])
 
     expect(wrapper.find('.table-row').exists()).toBe(true)
-    expect(wrapper.text()).toContain('gpt-5.5')
+    expect(wrapper.find('.table-cell[data-column="model"]').text()).toBe('gpt-5.5 (XHigh)')
     expect(wrapper.find('.table-cell[data-column="latency"]').text()).toContain('-')
     expect(wrapper.find('.table-cell[data-column="cost"]').text()).toContain('✪ 0.001000')
+  })
+
+  it('omits the model suffix when no reasoning effort was recorded', async () => {
+    const wrapper = await mountUsageView([baseUsageLog({ reasoning_effort: null })])
+
+    expect(wrapper.find('.table-cell[data-column="model"]').text()).toBe('gpt-5.5')
   })
 
   it('passes group filter to usage list and stats requests', async () => {

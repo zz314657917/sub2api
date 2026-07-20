@@ -313,3 +313,10 @@
 260720 0951 | upstream-main-compat-s81 | qa-start | evaluator | fresh service tests, line-level diff review, helper freeze, and path/hash gates
 260720 0954 | upstream-main-compat-s81 | qa-pass | evaluator | baseline + 11 exact + count=10 + broader subscription regressions and path/diff/hash gates PASS
 260720 0954 | upstream-main-compat-s81 | done | evaluator | final PASS; live DB/cache smoke deferred; no merge/push/deploy/container action
+260720 1112 | usage-model-reasoning-effort-s82 | contract-draft | codex | user/admin usage-record model suffix only; backend, exports, dashboards, deploy, and knowledge denied
+260720 1114 | usage-model-reasoning-effort-s82 | contract-approved | evaluator | existing UsageLog field reaches both tables; six frontend business/test paths and acceptance gates approved
+260720 1114 | usage-model-reasoning-effort-s82 | build-start | codex | shared display helper plus user/admin usage-record rendering and focused regressions only
+260720 1120 | usage-model-reasoning-effort-s82 | build-complete | codex | focused Vitest 33/33, typecheck, and production build PASS
+260720 1124 | usage-model-reasoning-effort-s82 | qa-start | evaluator | path, conflict, diff, pre-existing knowledge-diff, and evidence review
+260720 1124 | usage-model-reasoning-effort-s82 | qa-pass | evaluator | six frontend business paths, 33 tests, typecheck, build, and diff gates PASS
+260720 1126 | usage-model-reasoning-effort-s82 | done | evaluator | final PASS; no browser smoke, deploy, container update, or knowledge-file inclusion

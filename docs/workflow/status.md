@@ -1,16 +1,30 @@
 ---
 phase: done
-current_sprint: upstream-main-compat-s81
-total_sprints: 81
-pending_action: create the scoped S81 commit, then await explicit authorization before any local main merge
+current_sprint: usage-model-reasoning-effort-s82
+total_sprints: 82
+pending_action: no further S82 action; do not deploy or update containers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-20 09:54 +08:00
+last_verified: 2026-07-20 11:26 +08:00
 ---
 
 # Workflow Status
 
+- S82 draft contract scopes a conditional reasoning-effort suffix to the
+  requested model in user/admin usage-record tables. Backend, exports,
+  dashboards, column defaults, deployment, and `knowledge/**` remain denied.
+- S82 contract passed review: `UsageLog.reasoning_effort` already reaches both
+  target tables; the six frontend business/test paths and acceptance commands
+  are sufficient, with no backend or migration work required.
+- S82 implementation is complete: shared model display helper, user usage row/
+  detail, admin usage row/chain, and focused tests pass. Typecheck, production
+  build, diff, path, conflict, and pre-existing knowledge-diff gates are in
+  final QA.
+- S82 final Evaluator: `PASS`. Focused Vitest 33/33, frontend typecheck,
+  production build, six-path allowlist, conflict, diff, evidence, and
+  pre-existing knowledge-diff gates passed. No browser smoke, deployment, or
+  container update was performed.
 - S81 final Evaluator: `PASS`. Baseline, exact discovery, focused/count=10, broader subscription regression, line-level diff, helper freeze, path/conflict/diff, and protected-hash gates passed. Live database/cache integration remains unverified.
 - S81 implementation is complete. Exact 11-test discovery/run, focused `count=10`, and broader subscription assignment/window regressions passed; evidence-first diff and final path gates are in progress.
 - S81 contract passed evidence-first review: expired/active/suspended branches, admin note deduplication, assignment provenance, frozen purchase semantics, exact discovery, and nine-path gates are explicit and executable.
