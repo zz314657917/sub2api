@@ -313,3 +313,10 @@
 260720 0951 | upstream-main-compat-s81 | qa-start | evaluator | fresh service tests, line-level diff review, helper freeze, and path/hash gates
 260720 0954 | upstream-main-compat-s81 | qa-pass | evaluator | baseline + 11 exact + count=10 + broader subscription regressions and path/diff/hash gates PASS
 260720 0954 | upstream-main-compat-s81 | done | evaluator | final PASS; live DB/cache smoke deferred; no merge/push/deploy/container action
+260720 1400 | upstream-main-compat-s85 | contract-draft | codex | port a2acbf553 failover cache-billing decision only; local retry signature adapted
+260720 1405 | upstream-main-compat-s85 | contract-approved | evaluator | local retry topology, semantic freezes, and eight-path gate PASS
+260720 1405 | upstream-main-compat-s85 | build-start | codex | same-account cache-billing decision plus local handler regressions only
+260720 1420 | upstream-main-compat-s85 | build-complete | codex | focused/broader handler tests, gofmt, state/static and diff checks PASS
+260720 1420 | upstream-main-compat-s85 | qa-start | evaluator | fresh independent-cache handler tests plus transition/path/hash review
+260720 1430 | upstream-main-compat-s85 | qa-pass | evaluator | fresh independent-cache focused/broader tests, state/path/diff/hash gates PASS
+260720 1430 | upstream-main-compat-s85 | done | evaluator | final PASS; primary S82 workflow conflict remains external; no merge/push/deploy/container action

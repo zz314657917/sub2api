@@ -1,16 +1,20 @@
 ---
 phase: done
-current_sprint: upstream-main-compat-s81
-total_sprints: 81
-pending_action: create the scoped S81 commit, then await explicit authorization before any local main merge
+current_sprint: upstream-main-compat-s85
+total_sprints: 85
+pending_action: create the scoped S85 commit, then await primary S82 workflow reconciliation before any local main merge
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-20 09:54 +08:00
+last_verified: 2026-07-20 14:30 +08:00
 ---
 
 # Workflow Status
 
+- S85 final Evaluator: `PASS`. Fresh independent-cache focused/broader handler tests, gofmt, state review, exact path/conflict/diff, and protected-hash gates passed. Live billing smoke was not run.
+- S85 implementation is complete. Focused/broader handler tests, gofmt, static ForceCacheBilling state, and business diff checks passed; fresh Evaluator retest is in progress.
+- S85 contract review: `PASS`. Local retry constant/signature, ForceCacheBilling state transitions, frozen retry/switch semantics, eight-item allowlist, and protected-hash gates are explicit and executable.
+- S85 draft contract ports upstream `a2acbf553`: same-account retries no longer force cache billing solely from bound sessions; explicit force billing and actual account switches remain unchanged.
 - S81 final Evaluator: `PASS`. Baseline, exact discovery, focused/count=10, broader subscription regression, line-level diff, helper freeze, path/conflict/diff, and protected-hash gates passed. Live database/cache integration remains unverified.
 - S81 implementation is complete. Exact 11-test discovery/run, focused `count=10`, and broader subscription assignment/window regressions passed; evidence-first diff and final path gates are in progress.
 - S81 contract passed evidence-first review: expired/active/suspended branches, admin note deduplication, assignment provenance, frozen purchase semantics, exact discovery, and nine-path gates are explicit and executable.
