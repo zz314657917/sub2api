@@ -2,11 +2,11 @@
 phase: done
 current_sprint: default-key-fallback-group-s93
 total_sprints: 93
-pending_action: source-only complete; no commit, push, deployment, or container refresh
+pending_action: published; deployment and container refresh remain unauthorized
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-21 23:04 +08:00
+last_verified: 2026-07-22 01:41 +08:00
 ---
 
 # S93 Current Sprint
@@ -21,14 +21,15 @@ last_verified: 2026-07-21 23:04 +08:00
 - Explicit backfill updates only each user's lowest-ID non-deleted key when its
   `group_id` is null. Existing groups, secondary keys, routes, and other key
   fields remain unchanged; changed auth-cache entries are invalidated.
-- S93 final Evaluator: `PASS / source-only`. Default-tag service and handler
+- S93 final Evaluator: `PASS / published`. Default-tag service and handler
   tests, PostgreSQL repository integration, SettingsView `23/23` Vitest,
   frontend typecheck, production build (`1089 modules`), diff, conflict-marker,
   and unmerged-index checks pass.
 - The aggregate `go test -tags=unit ./internal/service ...` gate remains blocked
   at compile time by pre-existing test drift (`stringPtr`, billing signatures,
   and Grok runtime-block helpers). Default-tag S93 tests cover the implemented
-  behavior. No commit, push, deployment, or container refresh was performed.
+  behavior. Feature commit `01fd0784b` is pushed to `origin/main`; no deployment
+  or container refresh was performed.
 
 # S92 Current Sprint
 

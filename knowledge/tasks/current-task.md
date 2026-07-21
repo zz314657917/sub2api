@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-07-21 23:04 +08:00
+最后更新：2026-07-22 01:41 +08:00
 
 ## 背景
 
@@ -94,12 +94,13 @@
   最低 ID、未软删除且 `group_id IS NULL` 的默认 Key；已有分组、后续 Key、
   专用路由和其他字段不变，实际变更 key 的认证缓存逐个失效。
 - 管理端回填要求选择值已保存，执行前确认，完成后显示实际更新数量。
-- S93 最终结论：`PASS / source-only`；未提交、未推送、未部署、未更新容器。
+- S93 最终结论：`PASS / published`；功能提交 `01fd0784b` 已推送到
+  `origin/main`，未部署、未更新容器。
 
 ## 下一步
 
-1. 如用户明确要求提交/推送，复核 S89-S93 精确路径后做
-   scoped staging；如要求更新容器，另走 `local-docker-update-guard`。
+1. 如用户明确要求更新容器，另走 `local-docker-update-guard`；否则保持已推送
+   状态，不把源码发布等同于运行环境更新。
 
 ## 验证记录
 
@@ -114,3 +115,5 @@
 - 2026-07-21 23:04 +08:00：S93 default-tag service/handler、PostgreSQL repository
   integration、SettingsView `23/23`、typecheck、production build `1089 modules`、
   diff/conflict/unmerged 检查 PASS；unit-tag service 聚合仍被既有测试漂移阻塞编译。
+- 2026-07-22 01:41 +08:00：S93 功能提交 `01fd0784b` 已推送；本地 `HEAD`、
+  `origin/main` 与 `git ls-remote` 远端 SHA 一致，工作树干净。

@@ -367,3 +367,5 @@
 260721 2304 | default-key-fallback-group-s93 | build | codex | settings field/UI, default-key base group, guarded backfill endpoint, cache invalidation, and focused regressions implemented
 260721 2304 | default-key-fallback-group-s93 | qa-pass | evaluator | default-tag Go, PostgreSQL integration, SettingsView 23/23, typecheck, build 1089 modules, diff/conflict/unmerged gates PASS
 260721 2304 | default-key-fallback-group-s93 | done | evaluator | final PASS/source-only; unit-tag aggregate retains unrelated compile drift; no commit, push, deployment, or container refresh
+260722 0141 | default-key-fallback-group-s93 | commit | codex | feature commit 01fd0784b created from the exact 63-path staged boundary
+260722 0141 | default-key-fallback-group-s93 | push | codex | origin/main and git ls-remote both verified at 01fd0784b; deployment and container refresh remain unauthorized
