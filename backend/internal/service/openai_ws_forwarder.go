@@ -2275,6 +2275,9 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 					message = corrected
 				}
 			}
+			if normalized, changed := normalizeOpenAIResponsesCustomToolNamespaces(message); changed {
+				message = normalized
+			}
 		}
 		if openAIWSEventShouldParseUsage(eventType) {
 			parseOpenAIWSResponseUsageFromCompletedEvent(message, usage)
@@ -3319,6 +3322,9 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					if corrected, changed := s.toolCorrector.CorrectToolCallsInSSEBytes(upstreamMessage); changed {
 						upstreamMessage = corrected
 					}
+				}
+				if normalized, changed := normalizeOpenAIResponsesCustomToolNamespaces(upstreamMessage); changed {
+					upstreamMessage = normalized
 				}
 				if err := writeClientMessage(upstreamMessage); err != nil {
 					if isOpenAIWSClientDisconnectError(err) {

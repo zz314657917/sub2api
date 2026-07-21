@@ -4199,6 +4199,11 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 				trimmedData = strings.TrimSpace(string(normalizedData))
 				line = "data: " + string(normalizedData)
 			}
+			if normalizedData, normalized := normalizeOpenAIResponsesCustomToolNamespaces(dataBytes); normalized {
+				dataBytes = normalizedData
+				trimmedData = strings.TrimSpace(string(normalizedData))
+				line = "data: " + string(normalizedData)
+			}
 			eventType := strings.TrimSpace(gjson.Get(trimmedData, "type").String())
 			if eventType == "response.failed" {
 				failedMessage = extractOpenAISSEErrorMessage(dataBytes)
@@ -4344,6 +4349,9 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	}
 	if originalModel != "" && mappedModel != "" && originalModel != mappedModel {
 		body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
+	}
+	if normalized, changed := normalizeOpenAIResponsesCustomToolNamespaces(body); changed {
+		body = normalized
 	}
 	if !writeOpenAICompactSSEBridge(c, resp.StatusCode, body) {
 		c.Data(resp.StatusCode, contentType, body)
@@ -5088,6 +5096,11 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 				line = "data: " + data
 				eventType = strings.TrimSpace(gjson.GetBytes(dataBytes, "type").String())
 			}
+			if normalizedData, normalized := normalizeOpenAIResponsesCustomToolNamespaces(dataBytes); normalized {
+				dataBytes = normalizedData
+				data = string(normalizedData)
+				line = "data: " + data
+			}
 			if sanitizedData, sanitized := sanitizeOpenAIResponseFailedEventForClient(dataBytes, eventType); sanitized {
 				dataBytes = sanitizedData
 				data = string(sanitizedData)
@@ -5399,7 +5412,64 @@ func (s *OpenAIGatewayService) correctToolCallsInResponseBody(body []byte) []byt
 	if normalized, changed := normalizeOpenAIResponsesFunctionCallArguments(updated); changed {
 		updated = normalized
 	}
+	if normalized, changed := normalizeOpenAIResponsesCustomToolNamespaces(updated); changed {
+		updated = normalized
+	}
 	return updated
+}
+
+func normalizeOpenAIResponsesCustomToolNamespaces(data []byte) ([]byte, bool) {
+	if len(bytes.TrimSpace(data)) == 0 ||
+		!bytes.Contains(data, []byte(`"custom_tool_call"`)) ||
+		!bytes.Contains(data, []byte(`"namespace"`)) {
+		return data, false
+	}
+	if !gjson.ValidBytes(data) {
+		return data, false
+	}
+
+	updated := data
+	changed := false
+	normalizeItemAtPath := func(itemPath string) {
+		fieldPath := func(field string) string {
+			if itemPath == "" {
+				return field
+			}
+			return itemPath + "." + field
+		}
+		if gjson.GetBytes(updated, fieldPath("type")).String() != "custom_tool_call" {
+			return
+		}
+		name := gjson.GetBytes(updated, fieldPath("name"))
+		namespace := gjson.GetBytes(updated, fieldPath("namespace"))
+		if !name.Exists() || name.Type != gjson.String ||
+			!namespace.Exists() || namespace.Type != gjson.String ||
+			name.Str != namespace.Str {
+			return
+		}
+		next, err := sjson.DeleteBytes(updated, fieldPath("namespace"))
+		if err != nil {
+			return
+		}
+		updated = next
+		changed = true
+	}
+	normalizeOutputAtPath := func(outputPath string) {
+		count := int(gjson.GetBytes(updated, outputPath+".#").Int())
+		for i := 0; i < count; i++ {
+			normalizeItemAtPath(outputPath + "." + strconv.Itoa(i))
+		}
+	}
+
+	normalizeItemAtPath("")
+	normalizeItemAtPath("item")
+	normalizeOutputAtPath("output")
+	normalizeOutputAtPath("response.output")
+
+	if !changed {
+		return data, false
+	}
+	return updated, true
 }
 
 func normalizeOpenAIResponsesFunctionCallArguments(data []byte) ([]byte, bool) {
@@ -5643,6 +5713,9 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	// Replace model in response if needed
 	if originalModel != mappedModel {
 		body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
+	}
+	if normalized, changed := normalizeOpenAIResponsesCustomToolNamespaces(body); changed {
+		body = normalized
 	}
 
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
