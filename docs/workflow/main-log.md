@@ -337,3 +337,9 @@
 260721 0131 | upstream-main-compat-s87 | qa-pass | evaluator | S87 handler/service/middleware tests, S85 failover regression, frontend Vitest 2/2, typecheck, build, allowlist, conflict, unmerged-index, and diff gates PASS
 260721 0133 | upstream-main-compat-s87 | done | evaluator | final PASS; scoped commit/review remains; no push, deployment, container update, or knowledge change
 260721 0140 | upstream-main-compat-s87 | local-merge-cleanup | codex | main fast-forwarded to 628c990d7; clean merged worktree/branch removed; source push remains unauthorized
+260721 1032 | multi-group-route-fail-closed-s88 | contract-draft | planner | incompatible model-aware default-group fallback only; single-group, billing, scheduler, frontend, deploy, and containers frozen
+260721 1032 | multi-group-route-fail-closed-s88 | contract-approved | evaluator | scope, platform, explicit-rule, compatible-default, single-group, and acceptance gates PASS; implementation authorized
+260721 1117 | multi-group-route-fail-closed-s88 | build | codex | fail-closed default compatibility guard, stable middleware 403, and nine focused regressions implemented
+260721 1117 | multi-group-route-fail-closed-s88 | qa-pass | evaluator | S88 count=10, existing routing regressions, compile, allowlist, conflict, and diff gates PASS; baseline peak-rate pollution isolated
+260721 1117 | multi-group-route-fail-closed-s88 | done | evaluator | final PASS; no commit, push, deployment, or container update performed
+260721 1212 | multi-group-route-fail-closed-s88 | commit-prepared | codex | exact 11-path staged audit and fresh focused tests PASS; source push, deployment, and container update remain unauthorized

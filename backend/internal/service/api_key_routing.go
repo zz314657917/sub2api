@@ -29,7 +29,7 @@ func (k *APIKey) ResolveForModelRequest(path, forcePlatform, requestedModel stri
 
 // ResolveForModelRequestWithGroupSkipper is the model-aware variant used after
 // gateway handlers parse the request body. If no model-specific route matches,
-// it falls back to the same priority/weight behavior as ResolveForRequest.
+// it falls back only when the default group remains compatible with the request.
 func (k *APIKey) ResolveForModelRequestWithGroupSkipper(path, forcePlatform, requestedModel string, imageIntent bool, skipGroup func(groupID int64) bool) *APIKey {
 	return k.resolveForRequest(path, forcePlatform, requestedModel, imageIntent, true, skipGroup)
 }
@@ -40,6 +40,9 @@ func (k *APIKey) resolveForRequest(path, forcePlatform, requestedModel string, i
 	}
 	selected := k.selectRouteGroup(path, forcePlatform, requestedModel, imageIntent, modelAware, skipGroup)
 	if selected == nil {
+		if modelAware && !k.canFallbackToDefaultGroup(path, forcePlatform, requestedModel, imageIntent) {
+			return nil
+		}
 		return k
 	}
 	if k.Group != nil && k.Group.ID == selected.ID {
@@ -62,12 +65,7 @@ func (k *APIKey) selectRouteGroup(path, forcePlatform, requestedModel string, im
 	if len(groups) == 0 {
 		return nil
 	}
-	platforms := preferredPlatformsForPath(path, forcePlatform)
-	if modelAware && strings.TrimSpace(forcePlatform) == "" {
-		if modelPlatforms := preferredPlatformsForModel(requestedModel); len(modelPlatforms) > 0 {
-			platforms = modelPlatforms
-		}
-	}
+	platforms := preferredPlatformsForRequest(path, forcePlatform, requestedModel, modelAware)
 	routingScope := RoutingScopeForRequest(path, requestedModel, imageIntent)
 	if modelAware && (strings.TrimSpace(requestedModel) != "" || imageIntent) {
 		if imageIntent {
@@ -95,6 +93,54 @@ func (k *APIKey) selectRouteGroup(path, forcePlatform, requestedModel string, im
 		return nil
 	}
 	return selectBestRouteGroup(candidates)
+}
+
+func (k *APIKey) canFallbackToDefaultGroup(path, forcePlatform, requestedModel string, imageIntent bool) bool {
+	if k == nil || k.GroupID == nil || !IsGroupContextValid(k.Group) || *k.GroupID != k.Group.ID {
+		return false
+	}
+	platforms := preferredPlatformsForRequest(path, forcePlatform, requestedModel, true)
+	if len(platforms) > 0 && !containsString(platforms, k.Group.Platform) {
+		return false
+	}
+	routingScope := RoutingScopeForRequest(path, requestedModel, imageIntent)
+	if !apiKeyRouteMatchesGroupScope(k.Group, routingScope) {
+		return false
+	}
+
+	hasExplicitRoute := false
+	for _, route := range k.MultiGroupRoutes {
+		if !route.Enabled || route.GroupID != k.Group.ID {
+			continue
+		}
+		if !apiKeyRouteHasModelRules(route) {
+			return true
+		}
+		hasExplicitRoute = true
+		if apiKeyRouteMatchesModelRequest(route, k.Group, requestedModel, imageIntent) {
+			return true
+		}
+	}
+	return !hasExplicitRoute
+}
+
+func preferredPlatformsForRequest(path, forcePlatform, requestedModel string, modelAware bool) []string {
+	platforms := preferredPlatformsForPath(path, forcePlatform)
+	if modelAware && strings.TrimSpace(forcePlatform) == "" {
+		if modelPlatforms := preferredPlatformsForModel(requestedModel); len(modelPlatforms) > 0 {
+			return modelPlatforms
+		}
+	}
+	return platforms
+}
+
+func containsString(values []string, target string) bool {
+	for _, value := range values {
+		if value == target {
+			return true
+		}
+	}
+	return false
 }
 
 func selectBestRouteGroup(candidates []apiKeyRouteCandidate) *Group {

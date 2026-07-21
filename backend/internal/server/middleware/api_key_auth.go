@@ -296,7 +296,8 @@ func ResolveAPIKeyForModelRequest(c *gin.Context, apiKeyService *service.APIKeyS
 	forcePlatform, _ := GetForcePlatformFromContext(c)
 	resolved := apiKeyService.ResolveForModelRequest(c.Request.Context(), apiKey, c.Request.URL.Path, forcePlatform, requestedModel, imageIntent)
 	if resolved == nil {
-		resolved = apiKey
+		AbortWithError(c, http.StatusForbidden, "NO_MATCHING_GROUP_ROUTE", "No available group route matches the requested model or request type")
+		return nil, false
 	}
 	if abortIfAPIKeyGroupUnavailable(c, resolved) {
 		return nil, false

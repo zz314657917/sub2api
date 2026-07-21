@@ -1,15 +1,39 @@
 ---
 phase: done
-current_sprint: upstream-main-compat-s87
-total_sprints: 87
+current_sprint: multi-group-route-fail-closed-s88
+total_sprints: 88
 pending_action: source push only after explicit authorization; do not deploy or update containers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-21 01:40 +08:00
+last_verified: 2026-07-21 12:12 +08:00
 ---
 
 # Workflow Status
+
+- S88 draft contract scopes a model-aware multi-group fallback guard: an
+  incompatible default group must not receive a request after all configured
+  route candidates fail. Compatible default fallback and single-group behavior
+  remain frozen as regressions; no push, deployment, or container update is
+  authorized.
+- S88 contract review: `PASS`. The approved change is limited to final
+  model-aware fallback compatibility checks and a stable 403 rejection;
+  pre-body routing, compatible defaults, single-group keys, persistence,
+  billing, account scheduling, frontend, deployment, and containers are
+  frozen.
+- S88 final Evaluator: `PASS`. Incompatible default scope/platform and
+  explicit model rules now fail closed with HTTP 403 code
+  `NO_MATCHING_GROUP_ROUTE`; compatible fallback, matching routes,
+  single-group keys, and pre-body routing pass focused regressions.
+- S88 fresh evidence: 9 tests discovered, service/middleware S88 tests passed
+  at `count=10`, existing request/model routing regressions and dependent
+  compile checks passed. The aggregate service package retains only the known
+  `group_peak_rate` global-timezone failures reproduced at clean baseline
+  `96021f068`; isolated peak tests pass. No push, deployment, or container
+  update occurred.
+- S88 scoped commit was authorized after final PASS and prepared with an exact
+  11-path staged allowlist. Source push, deployment, and container update remain
+  unauthorized.
 
 - S87 amended contract selects three low-risk `v0.1.162` behavior ports:
   API-key IP-list partial updates, OpenAI-compatible quota errors, and

@@ -539,3 +539,19 @@ migration, or VERSION changes.
   subscription-plan currency display chain (`a05b87321` plus its prerequisite).
 - Ent, migrations, billing calculation, scheduler, payment execution, account
   routing, deployment, containers, and `knowledge/**`.
+
+# S88 Addendum: model-aware multi-group fallback isolation
+
+## Goal
+
+Prevent parsed model-aware requests from falling back to an incompatible API
+key default group after all multi-group route candidates are rejected.
+
+## Scope Boundary
+
+- Preserve compatible default-group fallback and all single-group behavior.
+- Reject only when the default group's routing scope/platform is incompatible,
+  or its enabled explicit route rules do not match the request.
+- Return a stable 403 route error before billing or account scheduling.
+- Do not change persistence, routing configuration, channel restrictions,
+  billing, account scheduling, frontend behavior, deployment, or containers.
