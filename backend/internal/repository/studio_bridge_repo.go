@@ -790,6 +790,10 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 				user_id,
 				usage_date,
 				requests,
+				input_tokens,
+				output_tokens,
+				cache_creation_tokens,
+				cache_read_tokens,
 				tokens,
 				actual_cost,
 				night_requests,
@@ -799,6 +803,10 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 				user_id,
 				(created_at AT TIME ZONE 'Asia/Shanghai')::date,
 				1,
+				0,
+				0,
+				0,
+				0,
 				0,
 				actual_cost,
 				CASE
@@ -810,6 +818,10 @@ func (r *studioBridgeRepository) createChargeUsageLog(ctx context.Context, exec 
 			FROM inserted
 			ON CONFLICT (user_id, usage_date) DO UPDATE SET
 				requests = user_usage_daily_stats.requests + EXCLUDED.requests,
+				input_tokens = user_usage_daily_stats.input_tokens + EXCLUDED.input_tokens,
+				output_tokens = user_usage_daily_stats.output_tokens + EXCLUDED.output_tokens,
+				cache_creation_tokens = user_usage_daily_stats.cache_creation_tokens + EXCLUDED.cache_creation_tokens,
+				cache_read_tokens = user_usage_daily_stats.cache_read_tokens + EXCLUDED.cache_read_tokens,
 				tokens = user_usage_daily_stats.tokens + EXCLUDED.tokens,
 				actual_cost = user_usage_daily_stats.actual_cost + EXCLUDED.actual_cost,
 				night_requests = user_usage_daily_stats.night_requests + EXCLUDED.night_requests,

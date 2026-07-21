@@ -660,8 +660,8 @@ func TestUsageLogRepositoryGetUserLeaderboardUsesDailyStatsForLongWindows(t *tes
 		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "input_tokens", "output_tokens", "cache_creation_tokens", "cache_read_tokens", "tokens", "cost_per_1m_tokens",
 		"rank_change", "rank_new", "total_actual_cost", "total_requests", "total_tokens",
 	}).
-		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 18.0, int64(90), int64(9000), int64(0), int64(0), int64(0), int64(9000), 2000.0, int64(1), false, 40.0, int64(120), int64(16000)).
-		AddRow(int64(3), int64(9), "outside", "outside@example.com", nil, 0.75, 4.0, int64(10), int64(1000), int64(0), int64(0), int64(0), int64(1000), 4000.0, nil, true, 40.0, int64(120), int64(16000))
+		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 18.0, int64(90), int64(6000), int64(2500), int64(300), int64(200), int64(9000), 2000.0, int64(1), false, 40.0, int64(120), int64(16000)).
+		AddRow(int64(3), int64(9), "outside", "outside@example.com", nil, 0.75, 4.0, int64(10), int64(600), int64(250), int64(100), int64(50), int64(1000), 4000.0, nil, true, 40.0, int64(120), int64(16000))
 
 	mock.ExpectQuery(`(?s)FROM user_usage_daily_stats stats.*ROW_NUMBER\(\) OVER \(ORDER BY tokens DESC, actual_cost DESC, user_id ASC\)`).
 		WithArgs("2026-05-01", "2026-06-01", "2026-03-31", "2026-05-01", 1, int64(9)).
@@ -671,8 +671,10 @@ func TestUsageLogRepositoryGetUserLeaderboardUsesDailyStatsForLongWindows(t *tes
 	require.NoError(t, err)
 	require.Len(t, got.Ranking, 1)
 	require.Equal(t, int64(2), got.Ranking[0].UserID)
-	require.Equal(t, int64(9000), got.Ranking[0].InputTokens)
-	require.Equal(t, int64(0), got.Ranking[0].OutputTokens)
+	require.Equal(t, int64(6000), got.Ranking[0].InputTokens)
+	require.Equal(t, int64(2500), got.Ranking[0].OutputTokens)
+	require.Equal(t, int64(300), got.Ranking[0].CacheCreationTokens)
+	require.Equal(t, int64(200), got.Ranking[0].CacheReadTokens)
 	require.NotNil(t, got.CurrentUserEntry)
 	require.Equal(t, int64(9), got.CurrentUserEntry.UserID)
 	require.True(t, got.CurrentUserEntry.RankNew)
@@ -688,7 +690,7 @@ func TestUsageLogRepositoryGetUserLeaderboardUsesDailyStatsForAllTime(t *testing
 		"rank", "user_id", "username", "email", "avatar_url", "balance", "actual_cost", "requests", "input_tokens", "output_tokens", "cache_creation_tokens", "cache_read_tokens", "tokens", "cost_per_1m_tokens",
 		"rank_change", "rank_new", "total_actual_cost", "total_requests", "total_tokens",
 	}).
-		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 18.0, int64(90), int64(9000), int64(0), int64(0), int64(0), int64(9000), 2000.0, nil, false, 18.0, int64(90), int64(9000))
+		AddRow(int64(1), int64(2), "beta", "beta@example.com", nil, 1.25, 18.0, int64(90), int64(6000), int64(2500), int64(300), int64(200), int64(9000), 2000.0, nil, false, 18.0, int64(90), int64(9000))
 
 	mock.ExpectQuery(`(?s)FROM user_usage_daily_stats stats.*WHERE rank <= \$1 OR user_id = \$2`).
 		WithArgs(10, int64(2)).
@@ -698,6 +700,10 @@ func TestUsageLogRepositoryGetUserLeaderboardUsesDailyStatsForAllTime(t *testing
 	require.NoError(t, err)
 	require.Len(t, got.Ranking, 1)
 	require.Equal(t, int64(2), got.Ranking[0].UserID)
+	require.Equal(t, int64(6000), got.Ranking[0].InputTokens)
+	require.Equal(t, int64(2500), got.Ranking[0].OutputTokens)
+	require.Equal(t, int64(300), got.Ranking[0].CacheCreationTokens)
+	require.Equal(t, int64(200), got.Ranking[0].CacheReadTokens)
 	require.NotNil(t, got.CurrentUserEntry)
 	require.Equal(t, int64(2), got.CurrentUserEntry.UserID)
 	require.NoError(t, mock.ExpectationsWereMet())
