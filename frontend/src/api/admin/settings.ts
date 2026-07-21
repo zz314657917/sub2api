@@ -70,6 +70,7 @@ export interface StudioBridgeAppSettings {
   default_chat_group: string;
   default_image_group: string;
   default_video_group: string;
+  default_fallback_group: string;
   default_api_routes?: StudioBridgeDefaultAPIRoute[];
   internal_secret?: string;
   secret_configured?: boolean;
@@ -914,6 +915,18 @@ export async function updateSettings(
   return data;
 }
 
+export interface DefaultKeyFallbackBackfillResult {
+  group_id: number;
+  updated: number;
+}
+
+export async function backfillDefaultKeyFallback(): Promise<DefaultKeyFallbackBackfillResult> {
+  const { data } = await apiClient.post<DefaultKeyFallbackBackfillResult>(
+    "/admin/settings/default-key-fallback/backfill",
+  );
+  return data;
+}
+
 export async function getMembershipSettings(): Promise<MembershipSettings> {
   const { data } = await apiClient.get<MembershipSettings>(
     "/admin/settings/membership",
@@ -1291,6 +1304,7 @@ export async function resetWebSearchUsage(payload: {
 export const settingsAPI = {
   getSettings,
   updateSettings,
+  backfillDefaultKeyFallback,
   getMembershipSettings,
   updateMembershipSettings,
   testSmtpConnection,

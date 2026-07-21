@@ -421,6 +421,12 @@ func (_c *GroupCreate) SetModelRouting(v map[string][]int64) *GroupCreate {
 	return _c
 }
 
+// SetModelMatchPatterns sets the "model_match_patterns" field.
+func (_c *GroupCreate) SetModelMatchPatterns(v []string) *GroupCreate {
+	_c.mutation.SetModelMatchPatterns(v)
+	return _c
+}
+
 // SetModelRoutingEnabled sets the "model_routing_enabled" field.
 func (_c *GroupCreate) SetModelRoutingEnabled(v bool) *GroupCreate {
 	_c.mutation.SetModelRoutingEnabled(v)
@@ -798,6 +804,10 @@ func (_c *GroupCreate) defaults() error {
 		v := group.DefaultClaudeCodeOnly
 		_c.mutation.SetClaudeCodeOnly(v)
 	}
+	if _, ok := _c.mutation.ModelMatchPatterns(); !ok {
+		v := group.DefaultModelMatchPatterns
+		_c.mutation.SetModelMatchPatterns(v)
+	}
 	if _, ok := _c.mutation.ModelRoutingEnabled(); !ok {
 		v := group.DefaultModelRoutingEnabled
 		_c.mutation.SetModelRoutingEnabled(v)
@@ -935,6 +945,9 @@ func (_c *GroupCreate) check() error {
 	}
 	if _, ok := _c.mutation.ClaudeCodeOnly(); !ok {
 		return &ValidationError{Name: "claude_code_only", err: errors.New(`ent: missing required field "Group.claude_code_only"`)}
+	}
+	if _, ok := _c.mutation.ModelMatchPatterns(); !ok {
+		return &ValidationError{Name: "model_match_patterns", err: errors.New(`ent: missing required field "Group.model_match_patterns"`)}
 	}
 	if _, ok := _c.mutation.ModelRoutingEnabled(); !ok {
 		return &ValidationError{Name: "model_routing_enabled", err: errors.New(`ent: missing required field "Group.model_routing_enabled"`)}
@@ -1116,6 +1129,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.ModelRouting(); ok {
 		_spec.SetField(group.FieldModelRouting, field.TypeJSON, value)
 		_node.ModelRouting = value
+	}
+	if value, ok := _c.mutation.ModelMatchPatterns(); ok {
+		_spec.SetField(group.FieldModelMatchPatterns, field.TypeJSON, value)
+		_node.ModelMatchPatterns = value
 	}
 	if value, ok := _c.mutation.ModelRoutingEnabled(); ok {
 		_spec.SetField(group.FieldModelRoutingEnabled, field.TypeBool, value)
@@ -1820,6 +1837,18 @@ func (u *GroupUpsert) UpdateModelRouting() *GroupUpsert {
 // ClearModelRouting clears the value of the "model_routing" field.
 func (u *GroupUpsert) ClearModelRouting() *GroupUpsert {
 	u.SetNull(group.FieldModelRouting)
+	return u
+}
+
+// SetModelMatchPatterns sets the "model_match_patterns" field.
+func (u *GroupUpsert) SetModelMatchPatterns(v []string) *GroupUpsert {
+	u.Set(group.FieldModelMatchPatterns, v)
+	return u
+}
+
+// UpdateModelMatchPatterns sets the "model_match_patterns" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateModelMatchPatterns() *GroupUpsert {
+	u.SetExcluded(group.FieldModelMatchPatterns)
 	return u
 }
 
@@ -2562,6 +2591,20 @@ func (u *GroupUpsertOne) UpdateModelRouting() *GroupUpsertOne {
 func (u *GroupUpsertOne) ClearModelRouting() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.ClearModelRouting()
+	})
+}
+
+// SetModelMatchPatterns sets the "model_match_patterns" field.
+func (u *GroupUpsertOne) SetModelMatchPatterns(v []string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetModelMatchPatterns(v)
+	})
+}
+
+// UpdateModelMatchPatterns sets the "model_match_patterns" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateModelMatchPatterns() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateModelMatchPatterns()
 	})
 }
 
@@ -3494,6 +3537,20 @@ func (u *GroupUpsertBulk) UpdateModelRouting() *GroupUpsertBulk {
 func (u *GroupUpsertBulk) ClearModelRouting() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.ClearModelRouting()
+	})
+}
+
+// SetModelMatchPatterns sets the "model_match_patterns" field.
+func (u *GroupUpsertBulk) SetModelMatchPatterns(v []string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetModelMatchPatterns(v)
+	})
+}
+
+// UpdateModelMatchPatterns sets the "model_match_patterns" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateModelMatchPatterns() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateModelMatchPatterns()
 	})
 }
 

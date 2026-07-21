@@ -6285,6 +6285,63 @@
                 </button>
               </div>
             </div>
+            <div class="border-b border-gray-100 p-6 dark:border-dark-700">
+              <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+                <div>
+                  <label class="input-label">默认 Key 兜底分组</label>
+                  <Select
+                    v-model="form.studio_bridge_luoye_ai.default_fallback_group"
+                    data-testid="default-key-fallback-group"
+                    :options="studioBridgeFallbackGroupOptions(form.studio_bridge_luoye_ai.default_fallback_group)"
+                    placeholder="选择兜底分组"
+                    searchable
+                  >
+                    <template #selected="{ option }">
+                      <span
+                        v-if="!option || (option as StudioBridgeGroupOption).kind"
+                        :class="[
+                          'truncate text-sm',
+                          (option as StudioBridgeGroupOption | null)?.kind === 'legacy'
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-gray-400',
+                        ]"
+                      >
+                        {{
+                          (option as StudioBridgeGroupOption | null)?.label ||
+                          "选择兜底分组"
+                        }}
+                      </span>
+                      <GroupBadge
+                        v-else
+                        :name="(option as StudioBridgeGroupOption).label"
+                        :platform="(option as StudioBridgeGroupOption).platform"
+                        :subscription-type="(option as StudioBridgeGroupOption).subscriptionType"
+                        :rate-multiplier="(option as StudioBridgeGroupOption).rate"
+                      />
+                    </template>
+                  </Select>
+                  <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    适用于全站新用户自动生成的默认 API Key；专用路由均不匹配时才使用此分组。
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  data-testid="backfill-default-key-fallback"
+                  class="btn btn-secondary inline-flex items-center justify-center gap-1.5"
+                  :disabled="
+                    defaultKeyFallbackBackfilling ||
+                    !form.studio_bridge_luoye_ai.default_fallback_group
+                  "
+                  @click="backfillDefaultKeyFallbackGroup"
+                >
+                  <Icon name="database" size="sm" />
+                  {{ defaultKeyFallbackBackfilling ? "补齐中..." : "补齐已有未分组默认 Key" }}
+                </button>
+              </div>
+              <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">
+                仅补齐每个用户尚未选择基础分组的默认 Key，不修改专用路由、非默认 Key 或已有分组。
+              </p>
+            </div>
             <div class="space-y-3 p-6">
               <div
                 v-if="form.studio_bridge_luoye_ai.default_api_routes.length === 0"
@@ -8048,6 +8105,8 @@ const adminApiKeyOperating = ref(false);
 const newAdminApiKey = ref("");
 const subscriptionGroups = ref<AdminGroup[]>([]);
 const studioBridgeGroups = ref<AdminGroup[]>([]);
+const defaultKeyFallbackBackfilling = ref(false);
+const savedDefaultKeyFallbackGroup = ref("");
 const membershipLoading = ref(true);
 const membershipSaving = ref(false);
 const membershipSettings = reactive<MembershipSettings>({
@@ -8339,6 +8398,7 @@ function normalizeStudioBridgeFormSettings(
     default_chat_group: value?.default_chat_group || "",
     default_image_group: value?.default_image_group || "",
     default_video_group: value?.default_video_group || "",
+    default_fallback_group: value?.default_fallback_group || "",
     default_api_routes: defaultAPIRoutes,
     internal_secret: "",
     secret_configured: value?.secret_configured === true,
@@ -8869,6 +8929,70 @@ const studioBridgeBaseGroupOptions = computed<StudioBridgeGroupOption[]>(() =>
     rate: group.rate_multiplier,
   })),
 );
+
+const studioBridgeActiveGroupOptions = computed<StudioBridgeGroupOption[]>(() =>
+  studioBridgeGroups.value
+    .filter((group) => group.status === "active")
+    .map((group) => ({
+      value: String(group.id),
+      label: group.name,
+      description: group.description,
+      platform: group.platform,
+      subscriptionType: group.subscription_type,
+      rate: group.rate_multiplier,
+    })),
+);
+
+function studioBridgeFallbackGroupOptions(
+  groupID: string,
+): StudioBridgeGroupOption[] {
+  const currentValue = String(groupID || "").trim();
+  const options: StudioBridgeGroupOption[] = [
+    { value: "", label: "不设置兜底分组", description: null, kind: "empty" },
+    ...studioBridgeActiveGroupOptions.value,
+  ];
+  if (
+    currentValue &&
+    !options.some((option) => option.value === currentValue)
+  ) {
+    options.splice(1, 0, {
+      value: currentValue,
+      label: `当前配置值：${currentValue}`,
+      description: "这个值不在现有启用分组中；重新选择一个分组即可替换。",
+      kind: "legacy",
+    });
+  }
+  return options;
+}
+
+async function backfillDefaultKeyFallbackGroup() {
+  const selectedGroup =
+    form.studio_bridge_luoye_ai.default_fallback_group.trim();
+  if (!selectedGroup) {
+    appStore.showError("请先选择并保存默认 Key 兜底分组。");
+    return;
+  }
+  if (selectedGroup !== savedDefaultKeyFallbackGroup.value) {
+    appStore.showError("默认 Key 兜底分组已修改，请先保存系统设置再执行补齐。");
+    return;
+  }
+  if (
+    !confirm(
+      "确认补齐已有用户的未分组默认 API Key？已有分组和专用路由不会被修改。",
+    )
+  ) {
+    return;
+  }
+  defaultKeyFallbackBackfilling.value = true;
+  try {
+    const result = await adminAPI.settings.backfillDefaultKeyFallback();
+    appStore.showSuccess(`已补齐 ${result.updated} 个未分组默认 API Key。`);
+  } catch (error: unknown) {
+    appStore.showError(extractApiErrorMessage(error));
+  } finally {
+    defaultKeyFallbackBackfilling.value = false;
+  }
+}
 
 function studioBridgeRouteGroupOptions(groupID: string): StudioBridgeGroupOption[] {
   const currentValue = String(groupID || "").trim();
@@ -9717,6 +9841,8 @@ async function loadSettings() {
     form.studio_bridge_luoye_ai = normalizeStudioBridgeFormSettings(
       settings.studio_bridge_luoye_ai,
     );
+    savedDefaultKeyFallbackGroup.value =
+      form.studio_bridge_luoye_ai.default_fallback_group;
     form.linuxdo_connect_client_secret = "";
     form.github_oauth_client_secret = "";
     form.google_oauth_client_secret = "";
@@ -10306,6 +10432,8 @@ async function saveSettings() {
           form.studio_bridge_luoye_ai.default_image_group.trim(),
         default_video_group:
           form.studio_bridge_luoye_ai.default_video_group.trim(),
+        default_fallback_group:
+          form.studio_bridge_luoye_ai.default_fallback_group.trim(),
         default_api_routes: normalizedStudioBridgeDefaultAPIRoutesForSave(),
         internal_secret:
           form.studio_bridge_luoye_ai.internal_secret?.trim() || undefined,
@@ -10456,6 +10584,8 @@ async function saveSettings() {
     form.studio_bridge_luoye_ai = normalizeStudioBridgeFormSettings(
       updated.studio_bridge_luoye_ai,
     );
+    savedDefaultKeyFallbackGroup.value =
+      form.studio_bridge_luoye_ai.default_fallback_group;
     if (backendReturnedAffiliateApiCallRewardAmount) {
       affiliateApiCallRewardAmountOverride.value = null;
     } else {

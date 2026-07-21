@@ -73,6 +73,7 @@ type StudioBridgeAppSettings struct {
 	DefaultChatGroup     string                        `json:"default_chat_group"`
 	DefaultImageGroup    string                        `json:"default_image_group"`
 	DefaultVideoGroup    string                        `json:"default_video_group"`
+	DefaultFallbackGroup string                        `json:"default_fallback_group"`
 	DefaultAPIRoutes     []StudioBridgeDefaultAPIRoute `json:"default_api_routes,omitempty"`
 	InternalSecret       string                        `json:"internal_secret,omitempty"`
 	SecretConfigured     bool                          `json:"secret_configured,omitempty"`

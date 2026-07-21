@@ -2,6 +2,7 @@ package handler
 
 import (
 	"github.com/Wei-Shaw/sub2api/internal/handler/admin"
+	"github.com/Wei-Shaw/sub2api/internal/repository"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/google/wire"
@@ -82,6 +83,17 @@ func ProvideAdminHandlers(
 		ImageCreatorStorage:    imageCreatorStorageHandler,
 		Ticket:                 adminTicketHandler,
 	}
+}
+
+// ProvideGroupHandler wires the explicit administrator-triggered model-match
+// migration into the existing group management handler.
+func ProvideGroupHandler(
+	adminService service.AdminService,
+	dashboardService *service.DashboardService,
+	groupCapacityService *service.GroupCapacityService,
+	migration *repository.GroupModelMatchMigration,
+) *admin.GroupHandler {
+	return admin.NewGroupHandler(adminService, dashboardService, groupCapacityService, migration)
 }
 
 // ProvideSystemHandler creates admin.SystemHandler with UpdateService
@@ -190,7 +202,7 @@ var ProviderSet = wire.NewSet(
 	// Admin handlers
 	admin.NewDashboardHandler,
 	admin.NewUserHandler,
-	admin.NewGroupHandler,
+	ProvideGroupHandler,
 	admin.NewAccountHandler,
 	admin.NewAnnouncementHandler,
 	admin.NewTutorialPageHandler,

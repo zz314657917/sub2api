@@ -318,6 +318,8 @@ func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	{
 		groups.GET("", h.Admin.Group.List)
 		groups.GET("/all", h.Admin.Group.GetAll)
+		groups.GET("/model-match-migration/preflight", h.Admin.Group.PreflightModelMatchMigration)
+		groups.POST("/model-match-migration/switch", h.Admin.Group.SwitchModelMatchMigration)
 		groups.GET("/usage-summary", h.Admin.Group.GetUsageSummary)
 		groups.GET("/capacity-summary", h.Admin.Group.GetCapacitySummary)
 		groups.PUT("/sort-order", h.Admin.Group.UpdateSortOrder)
@@ -525,6 +527,7 @@ func registerSettingsRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	{
 		adminSettings.GET("", h.Admin.Setting.GetSettings)
 		adminSettings.PUT("", h.Admin.Setting.UpdateSettings)
+		adminSettings.POST("/default-key-fallback/backfill", h.APIKey.BackfillDefaultKeyFallbackGroup)
 		adminSettings.POST("/test-smtp", h.Admin.Setting.TestSMTPConnection)
 		adminSettings.POST("/send-test-email", h.Admin.Setting.SendTestEmail)
 		// Admin API Key 管理

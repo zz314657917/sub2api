@@ -1,15 +1,103 @@
 ---
 phase: done
-current_sprint: multi-group-route-fail-closed-s88
-total_sprints: 88
-pending_action: source push only after explicit authorization; do not deploy or update containers
+current_sprint: default-key-fallback-group-s93
+total_sprints: 93
+pending_action: source-only complete; no commit, push, deployment, or container refresh
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-21 12:12 +08:00
+last_verified: 2026-07-21 23:04 +08:00
 ---
 
+# S93 Current Sprint
+
+- S93 contract is approved. Administrators can select an active fallback group
+  for system-created default API keys under External Access, while existing
+  purpose-specific default routes remain higher-priority candidates.
+- New default keys persist the fallback as their base `group_id`; system-only
+  permission bypass applies to both the base group and purpose routes. Runtime
+  fallback still checks active group context, platform, routing scope, and the
+  S91 group-owned model rules.
+- Explicit backfill updates only each user's lowest-ID non-deleted key when its
+  `group_id` is null. Existing groups, secondary keys, routes, and other key
+  fields remain unchanged; changed auth-cache entries are invalidated.
+- S93 final Evaluator: `PASS / source-only`. Default-tag service and handler
+  tests, PostgreSQL repository integration, SettingsView `23/23` Vitest,
+  frontend typecheck, production build (`1089 modules`), diff, conflict-marker,
+  and unmerged-index checks pass.
+- The aggregate `go test -tags=unit ./internal/service ...` gate remains blocked
+  at compile time by pre-existing test drift (`stringPtr`, billing signatures,
+  and Grok runtime-block helpers). Default-tag S93 tests cover the implemented
+  behavior. No commit, push, deployment, or container refresh was performed.
+
+# S92 Current Sprint
+
+- S92 contract is approved. User API-key multi-group routes now expose only
+  group selection, drag order, enabled state, add, and remove. The client
+  writes continuous priority plus fixed compatibility defaults (`weight=1`,
+  `cooldown_seconds=30`) and drops legacy scope fields on save.
+- S91 group-owned model matching, backend rejection/cleanup, and the running
+  local container are frozen. No backend, migration, deployment, or container
+  change is authorized in S92.
+- S92 implementation is complete. User routes now derive strict priority from
+  drag order, reject duplicate groups, and normalize compatibility fields while
+  omitting legacy model/scope fields.
+- S92 final Evaluator: `PASS / source-only`. Focused user KeysView Vitest passed
+  `2 files / 16 tests`; typecheck, production build (`1089 modules`), diff,
+  and unmerged-index checks passed. No commit, push, deployment, or container
+  refresh was performed.
+
 # Workflow Status
+
+- S91 contract is approved. Model matching moves to administrator-maintained
+  `groups.model_match_patterns`; API-key users keep only group, priority,
+  weight, cooldown, enabled, and existing operational route fields. The
+  implementation must guard migration until every effective selectable group
+  has a rule, then clear legacy route rules atomically and invalidate auth
+  snapshots.
+- S91 implementation is complete in the primary checkout. Existing S89/S90
+  uncommitted frontend changes remain protected and are not part of this
+  sprint's scope.
+- S91 final Evaluator: `PASS / source-only`. Group-owned model rules, legacy
+  API-key write rejection and cleanup, model-aware priority/weight routing,
+  `/v1/models` parity, cache snapshot versioning, and guarded migration are
+  implemented within the approved paths.
+- S91 evidence: focused Go routing/model/API rejection/cache checks, handler and
+  repository tests, Ent compile checks, and migration dry-run/block/cleanup
+  tests pass. The S91 frontend Vitest set passes `3 files / 20 tests`; frontend
+  typecheck and production build (`1088 modules`) pass; `git diff --check` and
+  unmerged-index checks pass.
+- Known baseline failures remain outside S91: full `internal/service` still
+  fails the existing `group_peak_rate` timezone/multiplier cases, and the
+  `admin/user` frontend aggregate still has the existing 5 failing files / 18
+  tests (`ImageCreatorView`, `ChatStudioView`, `ChatImageStudioView`,
+  `CanvasView`, `support-popup-settings`). No S91 test is among those failures.
+- No commit, push, deployment, or container refresh was performed.
+
+- S90 contract is approved. The API-key editor will hide the complete account-
+  pool strategy field only when public settings explicitly return
+  `account_share_enabled: false`; missing/loading settings remain visible for
+  backwards compatibility, and hidden state must not change submitted values.
+- S90 implementation is complete in the primary checkout. The field now uses
+  the existing public-settings response, and focused pre-QA Vitest passed 2
+  files / 18 tests; final QA gates are complete.
+- S90 final Evaluator: `PASS`. Focused KeysView Vitest passed 2 files / 18
+  tests, typecheck and production build (`1088 modules`) passed, and diff plus
+  unmerged-index gates are clean. A hidden `private_only` edit value remains
+  unchanged in the submitted update payload. No commit, push, deployment, or
+  container update occurred.
+
+- S89 final Evaluator: `PASS`. The API-key dialog now uses the existing
+  extra-wide width; key settings occupy the desktop left column and the
+  multi-group route editor occupies the right column from the first row. Long
+  route lists have independent viewport-bounded scrolling, while sub-`lg`
+  layouts remain single-column.
+- S89 evidence: layout Vitest `3/3`, combined key/routing regressions `15/15`,
+  frontend typecheck, production build (`1088 modules`), and diff checks pass.
+  Authenticated screenshot smoke was unavailable because the in-app browser
+  had no login state and Chrome control was unavailable. Model matching,
+  backend, persistence, group administration, deployment, and containers are
+  unchanged; no commit or push occurred.
 
 - S88 draft contract scopes a model-aware multi-group fallback guard: an
   incompatible default group must not receive a request after all configured

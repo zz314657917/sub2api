@@ -169,13 +169,14 @@ func TestAdminService_CreateGroup_WithImagePricing(t *testing.T) {
 	price4K := 0.30
 
 	input := &CreateGroupInput{
-		Name:           "test-group",
-		Description:    "Test group",
-		Platform:       PlatformAntigravity,
-		RateMultiplier: 1.0,
-		ImagePrice1K:   &price1K,
-		ImagePrice2K:   &price2K,
-		ImagePrice4K:   &price4K,
+		Name:               "test-group",
+		Description:        "Test group",
+		Platform:           PlatformAntigravity,
+		RateMultiplier:     1.0,
+		ModelMatchPatterns: []string{"*"},
+		ImagePrice1K:       &price1K,
+		ImagePrice2K:       &price2K,
+		ImagePrice4K:       &price4K,
 	}
 
 	group, err := svc.CreateGroup(context.Background(), input)
@@ -198,10 +199,11 @@ func TestAdminService_CreateGroup_NilImagePricing(t *testing.T) {
 	svc := &adminServiceImpl{groupRepo: repo}
 
 	input := &CreateGroupInput{
-		Name:           "test-group",
-		Description:    "Test group",
-		Platform:       PlatformAntigravity,
-		RateMultiplier: 1.0,
+		Name:               "test-group",
+		Description:        "Test group",
+		Platform:           PlatformAntigravity,
+		RateMultiplier:     1.0,
+		ModelMatchPatterns: []string{"*"},
 		// ImagePrice 字段全部为 nil
 	}
 
@@ -225,14 +227,15 @@ func TestAdminService_CreateGroup_TreatsNonPositiveSubscriptionLimitAsUnlimited(
 	weekly := 350.0
 
 	group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
-		Name:             "subscription-group",
-		Description:      "Test group",
-		Platform:         PlatformOpenAI,
-		RateMultiplier:   1.0,
-		SubscriptionType: SubscriptionTypeSubscription,
-		DailyLimitUSD:    &zero,
-		WeeklyLimitUSD:   &weekly,
-		MonthlyLimitUSD:  &negative,
+		Name:               "subscription-group",
+		Description:        "Test group",
+		Platform:           PlatformOpenAI,
+		RateMultiplier:     1.0,
+		ModelMatchPatterns: []string{"*"},
+		SubscriptionType:   SubscriptionTypeSubscription,
+		DailyLimitUSD:      &zero,
+		WeeklyLimitUSD:     &weekly,
+		MonthlyLimitUSD:    &negative,
 	})
 
 	require.NoError(t, err)
@@ -530,10 +533,11 @@ func TestAdminService_CreateGroup_NormalizesMessagesDispatchModelConfig(t *testi
 	svc := &adminServiceImpl{groupRepo: repo}
 
 	group, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
-		Name:           "dispatch-group",
-		Description:    "dispatch config",
-		Platform:       PlatformOpenAI,
-		RateMultiplier: 1.0,
+		Name:               "dispatch-group",
+		Description:        "dispatch config",
+		Platform:           PlatformOpenAI,
+		RateMultiplier:     1.0,
+		ModelMatchPatterns: []string{"*"},
 		MessagesDispatchModelConfig: OpenAIMessagesDispatchModelConfig{
 			OpusMappedModel:   " gpt-5.4-high ",
 			SonnetMappedModel: " gpt-5.3-codex ",
@@ -594,6 +598,7 @@ func TestAdminService_CreateGroup_ClearsMessagesDispatchFieldsForNonOpenAIPlatfo
 		Description:           "non-openai",
 		Platform:              PlatformAnthropic,
 		RateMultiplier:        1.0,
+		ModelMatchPatterns:    []string{"*"},
 		AllowMessagesDispatch: true,
 		DefaultMappedModel:    "gpt-5.4",
 		MessagesDispatchModelConfig: OpenAIMessagesDispatchModelConfig{
@@ -881,6 +886,7 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsUnsupportedPlatfo
 		Name:                            "g1",
 		Platform:                        PlatformOpenAI,
 		RateMultiplier:                  1.0,
+		ModelMatchPatterns:              []string{"*"},
 		SubscriptionType:                SubscriptionTypeStandard,
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	})
@@ -902,6 +908,7 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsSubscription(t *t
 		Name:                            "g1",
 		Platform:                        PlatformAnthropic,
 		RateMultiplier:                  1.0,
+		ModelMatchPatterns:              []string{"*"},
 		SubscriptionType:                SubscriptionTypeSubscription,
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	})
@@ -957,6 +964,7 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsFallbackGroup(t *
 				Name:                            "g1",
 				Platform:                        PlatformAnthropic,
 				RateMultiplier:                  1.0,
+				ModelMatchPatterns:              []string{"*"},
 				SubscriptionType:                SubscriptionTypeStandard,
 				FallbackGroupIDOnInvalidRequest: &fallbackID,
 			})
@@ -976,6 +984,7 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackNotFound(t *testing.T) {
 		Name:                            "g1",
 		Platform:                        PlatformAnthropic,
 		RateMultiplier:                  1.0,
+		ModelMatchPatterns:              []string{"*"},
 		SubscriptionType:                SubscriptionTypeStandard,
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	})
@@ -997,6 +1006,7 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackAllowsAntigravity(t *tes
 		Name:                            "g1",
 		Platform:                        PlatformAntigravity,
 		RateMultiplier:                  1.0,
+		ModelMatchPatterns:              []string{"*"},
 		SubscriptionType:                SubscriptionTypeStandard,
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	})
@@ -1015,6 +1025,7 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackClearsOnZero(t *testing.
 		Name:                            "g1",
 		Platform:                        PlatformAnthropic,
 		RateMultiplier:                  1.0,
+		ModelMatchPatterns:              []string{"*"},
 		SubscriptionType:                SubscriptionTypeStandard,
 		FallbackGroupIDOnInvalidRequest: &zero,
 	})

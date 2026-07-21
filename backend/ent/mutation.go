@@ -15329,6 +15329,8 @@ type GroupMutation struct {
 	fallback_group_id_on_invalid_request    *int64
 	addfallback_group_id_on_invalid_request *int64
 	model_routing                           *map[string][]int64
+	model_match_patterns                    *[]string
+	appendmodel_match_patterns              []string
 	model_routing_enabled                   *bool
 	mcp_xml_inject                          *bool
 	supported_model_scopes                  *[]string
@@ -16906,6 +16908,57 @@ func (m *GroupMutation) ResetModelRouting() {
 	delete(m.clearedFields, group.FieldModelRouting)
 }
 
+// SetModelMatchPatterns sets the "model_match_patterns" field.
+func (m *GroupMutation) SetModelMatchPatterns(s []string) {
+	m.model_match_patterns = &s
+	m.appendmodel_match_patterns = nil
+}
+
+// ModelMatchPatterns returns the value of the "model_match_patterns" field in the mutation.
+func (m *GroupMutation) ModelMatchPatterns() (r []string, exists bool) {
+	v := m.model_match_patterns
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldModelMatchPatterns returns the old "model_match_patterns" field's value of the Group entity.
+// If the Group object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *GroupMutation) OldModelMatchPatterns(ctx context.Context) (v []string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldModelMatchPatterns is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldModelMatchPatterns requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldModelMatchPatterns: %w", err)
+	}
+	return oldValue.ModelMatchPatterns, nil
+}
+
+// AppendModelMatchPatterns adds s to the "model_match_patterns" field.
+func (m *GroupMutation) AppendModelMatchPatterns(s []string) {
+	m.appendmodel_match_patterns = append(m.appendmodel_match_patterns, s...)
+}
+
+// AppendedModelMatchPatterns returns the list of values that were appended to the "model_match_patterns" field in this mutation.
+func (m *GroupMutation) AppendedModelMatchPatterns() ([]string, bool) {
+	if len(m.appendmodel_match_patterns) == 0 {
+		return nil, false
+	}
+	return m.appendmodel_match_patterns, true
+}
+
+// ResetModelMatchPatterns resets all changes to the "model_match_patterns" field.
+func (m *GroupMutation) ResetModelMatchPatterns() {
+	m.model_match_patterns = nil
+	m.appendmodel_match_patterns = nil
+}
+
 // SetModelRoutingEnabled sets the "model_routing_enabled" field.
 func (m *GroupMutation) SetModelRoutingEnabled(b bool) {
 	m.model_routing_enabled = &b
@@ -17823,7 +17876,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 40)
+	fields := make([]string, 0, 41)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -17910,6 +17963,9 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.model_routing != nil {
 		fields = append(fields, group.FieldModelRouting)
+	}
+	if m.model_match_patterns != nil {
+		fields = append(fields, group.FieldModelMatchPatterns)
 	}
 	if m.model_routing_enabled != nil {
 		fields = append(fields, group.FieldModelRoutingEnabled)
@@ -18010,6 +18066,8 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.FallbackGroupIDOnInvalidRequest()
 	case group.FieldModelRouting:
 		return m.ModelRouting()
+	case group.FieldModelMatchPatterns:
+		return m.ModelMatchPatterns()
 	case group.FieldModelRoutingEnabled:
 		return m.ModelRoutingEnabled()
 	case group.FieldMcpXMLInject:
@@ -18099,6 +18157,8 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldFallbackGroupIDOnInvalidRequest(ctx)
 	case group.FieldModelRouting:
 		return m.OldModelRouting(ctx)
+	case group.FieldModelMatchPatterns:
+		return m.OldModelMatchPatterns(ctx)
 	case group.FieldModelRoutingEnabled:
 		return m.OldModelRoutingEnabled(ctx)
 	case group.FieldMcpXMLInject:
@@ -18332,6 +18392,13 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetModelRouting(v)
+		return nil
+	case group.FieldModelMatchPatterns:
+		v, ok := value.([]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetModelMatchPatterns(v)
 		return nil
 	case group.FieldModelRoutingEnabled:
 		v, ok := value.(bool)
@@ -18785,6 +18852,9 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldModelRouting:
 		m.ResetModelRouting()
+		return nil
+	case group.FieldModelMatchPatterns:
+		m.ResetModelMatchPatterns()
 		return nil
 	case group.FieldModelRoutingEnabled:
 		m.ResetModelRoutingEnabled()

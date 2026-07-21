@@ -18,6 +18,7 @@ func TestS88ModelAwareRouteRejectsImageDefaultForTextRequest(t *testing.T) {
 			Hydrated:             true,
 			RoutingScope:         GroupRoutingScopeImage,
 			AllowImageGeneration: true,
+			ModelMatchPatterns:   []string{"*"},
 		},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: groupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true},
@@ -34,11 +35,12 @@ func TestS88ModelAwareRouteRejectsExplicitImageOnlyDefaultForTextRequest(t *test
 	key := &APIKey{
 		GroupID: &groupID,
 		Group: &Group{
-			ID:           groupID,
-			Platform:     PlatformOpenAI,
-			Status:       StatusActive,
-			Hydrated:     true,
-			RoutingScope: GroupRoutingScopeInference,
+			ID:                 groupID,
+			Platform:           PlatformOpenAI,
+			Status:             StatusActive,
+			Hydrated:           true,
+			RoutingScope:       GroupRoutingScopeInference,
+			ModelMatchPatterns: []string{"*"},
 		},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: groupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true},
@@ -55,11 +57,12 @@ func TestS88ModelAwareRouteRejectsMismatchedDefaultModelPattern(t *testing.T) {
 	key := &APIKey{
 		GroupID: &groupID,
 		Group: &Group{
-			ID:           groupID,
-			Platform:     PlatformOpenAI,
-			Status:       StatusActive,
-			Hydrated:     true,
-			RoutingScope: GroupRoutingScopeInference,
+			ID:                 groupID,
+			Platform:           PlatformOpenAI,
+			Status:             StatusActive,
+			Hydrated:           true,
+			RoutingScope:       GroupRoutingScopeInference,
+			ModelMatchPatterns: []string{"claude-*"},
 		},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: groupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"claude-*"}},
@@ -77,11 +80,12 @@ func TestS88ModelAwareRouteKeepsCompatibleTextDefaultFallback(t *testing.T) {
 	key := &APIKey{
 		GroupID: &defaultGroupID,
 		Group: &Group{
-			ID:           defaultGroupID,
-			Platform:     PlatformOpenAI,
-			Status:       StatusActive,
-			Hydrated:     true,
-			RoutingScope: GroupRoutingScopeInference,
+			ID:                 defaultGroupID,
+			Platform:           PlatformOpenAI,
+			Status:             StatusActive,
+			Hydrated:           true,
+			RoutingScope:       GroupRoutingScopeInference,
+			ModelMatchPatterns: []string{"*"},
 		},
 		MultiGroupRouteGroups: []*Group{
 			{
@@ -119,16 +123,17 @@ func TestS88ModelAwareRouteKeepsMatchingConfiguredRoute(t *testing.T) {
 		},
 		MultiGroupRouteGroups: []*Group{
 			{
-				ID:           textGroupID,
-				Platform:     PlatformOpenAI,
-				Status:       StatusActive,
-				Hydrated:     true,
-				RoutingScope: GroupRoutingScopeInference,
+				ID:                 textGroupID,
+				Platform:           PlatformOpenAI,
+				Status:             StatusActive,
+				Hydrated:           true,
+				RoutingScope:       GroupRoutingScopeInference,
+				ModelMatchPatterns: []string{"gpt-*"},
 			},
 		},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: defaultGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true},
-			{GroupID: textGroupID, Priority: 2, Weight: 1, Enabled: true, TextOnly: true, ModelPatterns: []string{"gpt-*"}},
+			{GroupID: textGroupID, Priority: 2, Weight: 1, Enabled: true, TextOnly: true, ModelPatterns: []string{"claude-*"}},
 		},
 	}
 
@@ -177,12 +182,12 @@ func TestS88ModelAwareRouteLeavesSingleGroupKeyUnchanged(t *testing.T) {
 	key := &APIKey{
 		GroupID: &groupID,
 		Group: &Group{
-			ID:                   groupID,
-			Platform:             PlatformOpenAI,
-			Status:               StatusActive,
-			Hydrated:             true,
-			RoutingScope:         GroupRoutingScopeImage,
-			AllowImageGeneration: true,
+			ID:                 groupID,
+			Platform:           PlatformOpenAI,
+			Status:             StatusActive,
+			Hydrated:           true,
+			RoutingScope:       GroupRoutingScopeInference,
+			ModelMatchPatterns: []string{"*"},
 		},
 	}
 

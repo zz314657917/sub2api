@@ -323,3 +323,18 @@ func (h *APIKeyHandler) GetUserGroupRates(c *gin.Context) {
 
 	response.Success(c, rates)
 }
+
+// BackfillDefaultKeyFallbackGroup applies the configured system fallback only
+// to existing users' ungrouped default API keys.
+// POST /api/v1/admin/settings/default-key-fallback/backfill
+func (h *APIKeyHandler) BackfillDefaultKeyFallbackGroup(c *gin.Context) {
+	groupID, updated, err := h.apiKeyService.BackfillDefaultKeyFallbackGroup(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{
+		"group_id": groupID,
+		"updated":  updated,
+	})
+}

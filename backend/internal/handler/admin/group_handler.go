@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
+	"github.com/Wei-Shaw/sub2api/internal/repository"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -20,6 +22,7 @@ type GroupHandler struct {
 	adminService         service.AdminService
 	dashboardService     *service.DashboardService
 	groupCapacityService *service.GroupCapacityService
+	modelMatchMigration  *repository.GroupModelMatchMigration
 }
 
 type optionalLimitField struct {
@@ -72,11 +75,16 @@ func (f optionalLimitField) ToServiceInput() *float64 {
 }
 
 // NewGroupHandler creates a new admin group handler
-func NewGroupHandler(adminService service.AdminService, dashboardService *service.DashboardService, groupCapacityService *service.GroupCapacityService) *GroupHandler {
+func NewGroupHandler(adminService service.AdminService, dashboardService *service.DashboardService, groupCapacityService *service.GroupCapacityService, migrations ...*repository.GroupModelMatchMigration) *GroupHandler {
+	var modelMatchMigration *repository.GroupModelMatchMigration
+	if len(migrations) > 0 {
+		modelMatchMigration = migrations[0]
+	}
 	return &GroupHandler{
 		adminService:         adminService,
 		dashboardService:     dashboardService,
 		groupCapacityService: groupCapacityService,
+		modelMatchMigration:  modelMatchMigration,
 	}
 }
 
@@ -109,6 +117,7 @@ type CreateGroupRequest struct {
 	// 模型路由配置（仅 anthropic 平台使用）
 	ModelRouting        map[string][]int64 `json:"model_routing"`
 	ModelRoutingEnabled bool               `json:"model_routing_enabled"`
+	ModelMatchPatterns  []string           `json:"model_match_patterns"`
 	MCPXMLInject        *bool              `json:"mcp_xml_inject"`
 	// 支持的模型系列（仅 antigravity 平台使用）
 	SupportedModelScopes []string `json:"supported_model_scopes"`
@@ -155,6 +164,7 @@ type UpdateGroupRequest struct {
 	// 模型路由配置（仅 anthropic 平台使用）
 	ModelRouting        map[string][]int64 `json:"model_routing"`
 	ModelRoutingEnabled *bool              `json:"model_routing_enabled"`
+	ModelMatchPatterns  *[]string          `json:"model_match_patterns"`
 	MCPXMLInject        *bool              `json:"mcp_xml_inject"`
 	// 支持的模型系列（仅 antigravity 平台使用）
 	SupportedModelScopes *[]string `json:"supported_model_scopes"`
@@ -278,6 +288,54 @@ func (h *GroupHandler) GetModelsListCandidates(c *gin.Context) {
 	response.Success(c, gin.H{"models": models})
 }
 
+// PreflightModelMatchMigration returns the audit list for the explicit S91
+// switch. It never writes data.
+// GET /api/v1/admin/groups/model-match-migration/preflight
+func (h *GroupHandler) PreflightModelMatchMigration(c *gin.Context) {
+	if h.modelMatchMigration == nil {
+		response.InternalError(c, "group model match migration is unavailable")
+		return
+	}
+	report, err := h.modelMatchMigration.Preflight(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, report)
+}
+
+type groupModelMatchMigrationSwitchRequest struct {
+	DryRun bool `json:"dry_run"`
+}
+
+// SwitchModelMatchMigration performs the explicit S91 switch. A dry-run only
+// returns the audit report; a real switch is blocked when active groups have
+// no administrator-owned model rules.
+// POST /api/v1/admin/groups/model-match-migration/switch
+func (h *GroupHandler) SwitchModelMatchMigration(c *gin.Context) {
+	if h.modelMatchMigration == nil {
+		response.InternalError(c, "group model match migration is unavailable")
+		return
+	}
+	var req groupModelMatchMigrationSwitchRequest
+	if c.Request.ContentLength > 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			response.BadRequest(c, "Invalid request: "+err.Error())
+			return
+		}
+	}
+	report, err := h.modelMatchMigration.Switch(c.Request.Context(), req.DryRun)
+	if err != nil {
+		if !req.DryRun && len(report.UnconfiguredGroups) > 0 {
+			response.Error(c, http.StatusConflict, err.Error())
+			return
+		}
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, report)
+}
+
 // Create handles creating a new group
 // POST /api/v1/admin/groups
 func (h *GroupHandler) Create(c *gin.Context) {
@@ -313,6 +371,7 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		FallbackGroupIDOnInvalidRequest: req.FallbackGroupIDOnInvalidRequest,
 		ModelRouting:                    req.ModelRouting,
 		ModelRoutingEnabled:             req.ModelRoutingEnabled,
+		ModelMatchPatterns:              req.ModelMatchPatterns,
 		MCPXMLInject:                    req.MCPXMLInject,
 		SupportedModelScopes:            req.SupportedModelScopes,
 		AllowMessagesDispatch:           req.AllowMessagesDispatch,
@@ -374,6 +433,7 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		FallbackGroupIDOnInvalidRequest: req.FallbackGroupIDOnInvalidRequest,
 		ModelRouting:                    req.ModelRouting,
 		ModelRoutingEnabled:             req.ModelRoutingEnabled,
+		ModelMatchPatterns:              req.ModelMatchPatterns,
 		MCPXMLInject:                    req.MCPXMLInject,
 		SupportedModelScopes:            req.SupportedModelScopes,
 		AllowMessagesDispatch:           req.AllowMessagesDispatch,

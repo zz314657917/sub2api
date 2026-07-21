@@ -1126,7 +1126,10 @@ func (h *GatewayHandler) routedAPIKeyModelCatalog(ctx context.Context, apiKey *s
 
 	groups := apiKeyRouteGroupsByIDForModels(apiKey)
 	if len(groups) == 0 {
-		return routedAPIKeyModelCatalog{}, false
+		// A configured multi-group key is authoritative even when its group
+		// snapshots are stale or unavailable. Do not fall back to the default
+		// group catalog and expose models that cannot be routed.
+		return routedAPIKeyModelCatalog{Catalog: service.ModelCatalog{Object: "model_catalog"}}, true
 	}
 
 	itemsByID := make(map[string]service.ModelCatalogItem)
@@ -1165,7 +1168,7 @@ func (h *GatewayHandler) routedAPIKeyModelCatalog(ctx context.Context, apiKey *s
 		}
 	}
 	if len(itemsByID) == 0 {
-		return routedAPIKeyModelCatalog{}, false
+		return routedAPIKeyModelCatalog{Catalog: service.ModelCatalog{Object: "model_catalog"}}, true
 	}
 
 	items := make([]service.ModelCatalogItem, 0, len(itemsByID))
@@ -1226,8 +1229,12 @@ func modelsForAPIKeyRoute(route domain.APIKeyMultiGroupRoute, group *service.Gro
 	if routeCapability == "" || !apiKeyRouteCanExposeCapability(route, group, routeCapability) {
 		return nil
 	}
-	out := make([]string, 0, len(available)+len(route.ModelPatterns))
-	seen := make(map[string]struct{}, len(available)+len(route.ModelPatterns))
+	patterns := service.NormalizeGroupModelMatchPatterns(group.ModelMatchPatterns)
+	if len(patterns) == 0 {
+		return nil
+	}
+	out := make([]string, 0, len(available)+len(patterns))
+	seen := make(map[string]struct{}, len(available)+len(patterns))
 	availableSet := make(map[string]struct{}, len(available))
 	for _, model := range available {
 		model = strings.TrimSpace(model)
@@ -1251,16 +1258,8 @@ func modelsForAPIKeyRoute(route domain.APIKeyMultiGroupRoute, group *service.Gro
 		out = append(out, model)
 	}
 
-	patterns := normalizedModelPatternsForGateway(route.ModelPatterns)
-	if len(patterns) == 0 {
-		for _, model := range available {
-			appendModel(model)
-		}
-		return out
-	}
-
 	for _, model := range available {
-		if modelMatchesAnyGatewayPattern(model, patterns) {
+		if group.MatchesModel(model) {
 			appendModel(model)
 		}
 	}
@@ -1314,69 +1313,6 @@ func apiKeyRouteCanExposeCapability(route domain.APIKeyMultiGroupRoute, group *s
 	default:
 		return false
 	}
-}
-
-func normalizedModelPatternsForGateway(patterns []string) []string {
-	out := make([]string, 0, len(patterns))
-	seen := make(map[string]struct{}, len(patterns))
-	for _, pattern := range patterns {
-		pattern = strings.TrimSpace(pattern)
-		if pattern == "" {
-			continue
-		}
-		key := strings.ToLower(pattern)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		out = append(out, pattern)
-	}
-	return out
-}
-
-func modelMatchesAnyGatewayPattern(model string, patterns []string) bool {
-	for _, pattern := range patterns {
-		if gatewayModelPatternMatches(pattern, model) {
-			return true
-		}
-	}
-	return false
-}
-
-func gatewayModelPatternMatches(pattern, model string) bool {
-	pattern = strings.ToLower(strings.TrimSpace(pattern))
-	model = strings.ToLower(strings.TrimSpace(model))
-	if pattern == "" || model == "" {
-		return false
-	}
-	if pattern == "*" {
-		return true
-	}
-	if !strings.Contains(pattern, "*") {
-		return pattern == model
-	}
-	segments := strings.Split(pattern, "*")
-	position := 0
-	for i, segment := range segments {
-		if segment == "" {
-			continue
-		}
-		index := strings.Index(model[position:], segment)
-		if index < 0 {
-			return false
-		}
-		if i == 0 && !strings.HasPrefix(pattern, "*") && index != 0 {
-			return false
-		}
-		position += index + len(segment)
-	}
-	if !strings.HasSuffix(pattern, "*") && len(segments) > 0 {
-		last := segments[len(segments)-1]
-		if last != "" && !strings.HasSuffix(model, last) {
-			return false
-		}
-	}
-	return true
 }
 
 func mergeModelCatalogCapabilities(left, right []string) []string {

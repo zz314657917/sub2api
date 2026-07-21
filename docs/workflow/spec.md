@@ -555,3 +555,138 @@ key default group after all multi-group route candidates are rejected.
 - Return a stable 403 route error before billing or account scheduling.
 - Do not change persistence, routing configuration, channel restrictions,
   billing, account scheduling, frontend behavior, deployment, or containers.
+
+# S89 Addendum: API-key editor split layout
+
+## Goal
+
+Make the API-key create/edit dialog wider and keep multi-group route editing in
+a dedicated right column on desktop, with independent scrolling for long route
+lists.
+
+## Scope Boundary
+
+- Use the existing extra-wide dialog width and responsive Tailwind layout.
+- Keep basic, quota, and advanced settings in the left column; keep the route
+  editor in the right column at desktop widths and return to one column below
+  `lg`.
+- Preserve all route fields, payloads, validation, and backend behavior.
+- Do not migrate model matching into group administration in S89; that requires
+  a separate persistence and routing contract.
+
+# S90 Addendum: account-pool strategy feature visibility
+
+## Goal
+
+Hide the API-key editor's account-pool strategy control when the system has
+explicitly disabled account sharing.
+
+## Scope Boundary
+
+- Read the existing `account_share_enabled` value from the public settings
+  already loaded by `KeysView`.
+- Hide the whole label/select/hint block only for explicit `false`.
+- Preserve visible behavior when the setting is missing or still loading.
+- Preserve form state and create/update payloads while the control is hidden.
+- Do not change backend behavior, admin settings, translations, deployment, or
+  containers.
+
+# S91 Addendum: group model-match centralization
+
+## Goal
+
+Make model eligibility an administrator-owned group property. API-key users
+select groups and tune priority/weight; they no longer author per-route model
+patterns. Route selection and `/v1/models` must use the same group rule set,
+while channel `restrict_models` remains the final channel-level hard limit.
+
+## Scope Boundary
+
+- Add independent `groups.model_match_patterns` JSONB storage and expose it
+  through group service/admin DTOs and the group editor.
+- Normalize rules by trimming, lower-casing, removing duplicates, and requiring
+  at least one rule; `*` is the explicit match-all rule.
+- Reject ordinary-user writes containing legacy route `model_patterns`; retain
+  only the minimum legacy read/clear path required for the switch migration.
+- Filter multi-group route candidates by group rules before priority/weight
+  selection and use the same filter for `/v1/models` aggregation.
+- Add a guarded migration/preflight: list unconfigured effective groups and
+  legacy rules/conflicts, refuse partial switching, then transactionally clear
+  legacy API-key route rules and invalidate auth-cache snapshots.
+- Do not reuse `model_routing` or `models_list_config`; do not change channel
+  restriction semantics, billing, deployment, containers, or unrelated pages.
+
+## Acceptance Boundary
+
+- Focused Go tests cover normalization, wildcard/case matching, priority,
+  weight, no-match error, API rejection, cache version, models aggregation,
+  and migration preflight/cleanup.
+- Group editor and API-key editor Vitest regressions, frontend typecheck,
+  production build, migration dry-run/preflight, `git diff --check`, and
+  unmerged-index checks pass.
+- No selectable active group may remain ruleless at switch time, and no legacy
+  `model_patterns` may remain after cleanup.
+
+# S92 Addendum: user route priority-only editor
+
+## Goal
+
+Reduce API-key multi-group route configuration to group selection, drag order,
+enabled state, add, and remove. The administrator-owned group model rules from
+S91 determine model eligibility; ordinary users should not configure routing
+weights, cooldowns, scope flags, presets, or model patterns.
+
+## Scope Boundary
+
+- Derive `priority` from the displayed route order as `index + 1` after every
+  reorder, add, remove, and enable action.
+- Load legacy routes sorted by positive priority, stable by source order, then
+  renumber them continuously before display and save.
+- Emit `weight=1`, `cooldown_seconds=30`, and current `enabled` for API
+  compatibility; omit `model_patterns`, `image_only`, and `text_only`.
+- Reject duplicate route groups in the editor and preserve account-pool
+  strategy visibility and hidden-state payload behavior from S90.
+- Do not change backend contracts, group rules, channel restrictions, billing,
+  admin UI, translations, deployment, containers, or unrelated views.
+
+## Acceptance Boundary
+
+- Focused user KeysView tests prove order-derived priorities, legacy route
+  normalization, fixed compatibility defaults, dropped legacy scope/model
+  fields, duplicate rejection, and unchanged account-pool behavior.
+- Frontend typecheck, production build, `git diff --check`, and unmerged-index
+  checks pass.
+
+# S93 Addendum: default API-key fallback group
+
+## Goal
+
+Let administrators choose one active group as the base fallback for every
+system-created default API key, without replacing the purpose-specific default
+routes used for chat, image, video, or other configured model patterns.
+
+## Scope Boundary
+
+- Store the optional group ID as `studio_bridge_luoye_ai.default_fallback_group`
+  and expose it under System Settings -> External Access.
+- New system-created default keys write that group to base `group_id` and retain
+  configured `default_api_routes` as higher-priority multi-group routes.
+- Bypass user group ownership checks only for system-created defaults; ordinary
+  user-created API keys retain existing permission checks.
+- Validate fallback compatibility at request time against active group context,
+  platform, routing scope, and administrator-owned model rules.
+- Provide an explicit, confirmed backfill action that updates only each user's
+  lowest-ID non-deleted key when its base group is null. Preserve every other
+  key field and invalidate only the changed auth-cache entries.
+- Do not add a schema migration, run automatic backfill, change billing/account
+  scheduling, deploy, update containers, commit, or push.
+
+## Acceptance Boundary
+
+- Default-tag service/handler tests cover creation, fallback routing, settings
+  validation, backfill errors, success, and cache invalidation.
+- PostgreSQL integration proves the guarded lowest-ID update and preservation of
+  grouped defaults, secondary keys, routes, and soft-deleted predecessors.
+- SettingsView Vitest covers settings round-trip, explicit confirmation,
+  backfill invocation, and success count; typecheck and production build pass.
+- `git diff --check`, conflict-marker scan, and unmerged-index checks pass.

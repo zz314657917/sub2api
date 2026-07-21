@@ -12,6 +12,7 @@ const keysCreate = vi.hoisted(() => vi.fn())
 const keysUpdate = vi.hoisted(() => vi.fn())
 const availableGroups = vi.hoisted(() => vi.fn())
 const userGroupRates = vi.hoisted(() => vi.fn())
+const getPublicSettings = vi.hoisted(() => vi.fn())
 
 vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
@@ -41,7 +42,7 @@ vi.mock('@/api', () => ({
     update: keysUpdate,
   },
   authAPI: {
-    getPublicSettings: vi.fn().mockResolvedValue({}),
+    getPublicSettings,
   },
   usageAPI: {
     getDashboardApiKeysUsage: vi.fn().mockResolvedValue({ stats: {} }),
@@ -122,6 +123,24 @@ describe('KeysView create query', () => {
     })
     availableGroups.mockReset().mockResolvedValue([])
     userGroupRates.mockReset().mockResolvedValue({})
+    getPublicSettings.mockReset().mockResolvedValue({ account_share_enabled: true })
+  })
+
+  it.each([
+    ['disabled', { account_share_enabled: false }, false],
+    ['enabled', { account_share_enabled: true }, true],
+    ['missing for backwards compatibility', {}, true],
+  ])('controls account-pool strategy visibility when sharing is %s', async (_case, settings, expected) => {
+    getPublicSettings.mockResolvedValue(settings)
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.openCreateModal()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="account-pool-strategy"]').exists()).toBe(expected)
   })
 
   it('opens the create key dialog when create=1 is present', async () => {
@@ -137,7 +156,7 @@ describe('KeysView create query', () => {
     })
   })
 
-  it('renumbers multi-group route priorities after route order changes', async () => {
+  it('derives route priority from drag order and resets legacy route knobs', async () => {
     const wrapper = mountView()
     await flushPromises()
 
@@ -155,262 +174,165 @@ describe('KeysView create query', () => {
     await setupState.handleSubmit()
 
     const routes = keysCreate.mock.calls[0][8]
-    expect(routes.map((route: { group_id: number; priority: number }) => ({
-      group_id: route.group_id,
-      priority: route.priority,
-    }))).toEqual([
-      { group_id: 2, priority: 1 },
-      { group_id: 1, priority: 2 },
-      { group_id: 3, priority: 3 },
-    ])
-  })
-
-  it('optimal preset is the default and generates equal-priority routes from available groups', async () => {
-    availableGroups.mockResolvedValue([
-      groupFixture(1, 'OpenAI', 1),
-      groupFixture(2, 'Gemini', 1.2),
-      groupFixture(3, 'Image', 1, { routing_scope: 'image' }),
-    ])
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    const setupState = (wrapper.vm as any).$?.setupState
-    setupState.openCreateModal()
-    setupState.formData.name = 'Optimal Key'
-
-    await setupState.handleSubmit()
-
-    const routes = keysCreate.mock.calls[0][8]
-    expect(routes.map((route: { group_id: number; priority: number; weight: number }) => ({
-      group_id: route.group_id,
-      priority: route.priority,
-      weight: route.weight,
-      text_only: route.text_only,
-      image_only: route.image_only,
-    }))).toEqual([
-      { group_id: 1, priority: 1, weight: 1, text_only: true, image_only: undefined },
-      { group_id: 2, priority: 1, weight: 1, text_only: true, image_only: undefined },
-      { group_id: 3, priority: 1, weight: 1, text_only: undefined, image_only: true },
-    ])
-  })
-
-  it('auto preset remains compatible with equal-priority scoped routes', async () => {
-    availableGroups.mockResolvedValue([
-      groupFixture(1, 'OpenAI', 1),
-      groupFixture(2, 'Gemini', 1.2),
-      groupFixture(3, 'Image', 1, { routing_scope: 'image' }),
-    ])
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    const setupState = (wrapper.vm as any).$?.setupState
-    setupState.openCreateModal()
-    setupState.formData.name = 'Auto Key'
-    setupState.applyRoutingPreset('auto')
-
-    await setupState.handleSubmit()
-
-    const routes = keysCreate.mock.calls[0][8]
-    expect(routes.map((route: { group_id: number; priority: number; weight: number }) => ({
-      group_id: route.group_id,
-      priority: route.priority,
-      weight: route.weight,
-      text_only: route.text_only,
-      image_only: route.image_only,
-    }))).toEqual([
-      { group_id: 1, priority: 1, weight: 1, text_only: true, image_only: undefined },
-      { group_id: 2, priority: 1, weight: 1, text_only: true, image_only: undefined },
-      { group_id: 3, priority: 1, weight: 1, text_only: undefined, image_only: true },
-    ])
-  })
-
-  it('auto preset separates inference, image, video, and embedding groups by routing scope', async () => {
-    availableGroups.mockResolvedValue([
-      groupFixture(1, 'Inference', 1),
-      groupFixture(2, 'Image', 1, { routing_scope: 'image' }),
-      groupFixture(3, 'Video', 1, { routing_scope: 'video' }),
-      groupFixture(4, 'Embedding', 1, { routing_scope: 'embedding' }),
-    ])
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    const setupState = (wrapper.vm as any).$?.setupState
-    setupState.openCreateModal()
-    setupState.formData.name = 'Scoped Key'
-
-    await setupState.handleSubmit()
-
-    const routes = keysCreate.mock.calls[0][8]
     expect(routes).toEqual([
-      { group_id: 1, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, text_only: true },
-      { group_id: 2, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, image_only: true },
-      { group_id: 3, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, model_patterns: ['doubao-seedance-*', '*-video-*'] },
-      { group_id: 4, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true, model_patterns: ['*embedding*'] },
+      { group_id: 2, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true },
+      { group_id: 1, priority: 2, weight: 1, cooldown_seconds: 30, enabled: true },
+      { group_id: 3, priority: 3, weight: 1, cooldown_seconds: 30, enabled: true },
     ])
   })
 
-  it('speed preset keeps routes in one priority pool and applies descending weights', async () => {
-    availableGroups.mockResolvedValue([
-      groupFixture(1, 'A', 1),
-      groupFixture(2, 'B', 1),
-      groupFixture(3, 'C', 1),
-      groupFixture(4, 'Image A', 1, { routing_scope: 'image' }),
-      groupFixture(5, 'Image B', 1, { routing_scope: 'image' }),
-    ])
-
+  it('loads legacy routes in priority order and drops user-managed scope/model fields', async () => {
     const wrapper = mountView()
     await flushPromises()
 
     const setupState = (wrapper.vm as any).$?.setupState
-    setupState.openCreateModal()
-    setupState.formData.name = 'Speed Key'
-    setupState.applyRoutingPreset('speed')
+    setupState.editKey({
+      id: 11,
+      name: 'Legacy Key',
+      group_id: 1,
+      multi_group_routes: [
+        routeFormFixture('late', 3, {
+          priority: 20,
+          weight: 9,
+          cooldown_seconds: 1,
+          image_only: true,
+          model_patterns: ['old-*'],
+        }),
+        routeFormFixture('early', 2, {
+          priority: 2,
+          weight: 4,
+          cooldown_seconds: 90,
+          text_only: true,
+          enabled: false,
+        }),
+      ],
+      account_pool_strategy: 'shared_only',
+      status: 'active',
+      ip_whitelist: [],
+      ip_blacklist: [],
+      quota: 0,
+      quota_used: 0,
+      rate_limit_5h: 0,
+      rate_limit_1d: 0,
+      rate_limit_7d: 0,
+      expires_at: null,
+    })
 
     await setupState.handleSubmit()
 
-    const routes = keysCreate.mock.calls[0][8]
-    expect(routes.map((route: { group_id: number; priority: number; weight: number; cooldown_seconds: number; text_only?: boolean; image_only?: boolean }) => ({
-      group_id: route.group_id,
-      priority: route.priority,
-      weight: route.weight,
-      cooldown_seconds: route.cooldown_seconds,
-      text_only: route.text_only,
-      image_only: route.image_only,
-    }))).toEqual([
-      { group_id: 1, priority: 1, weight: 3, cooldown_seconds: 15, text_only: true, image_only: undefined },
-      { group_id: 2, priority: 1, weight: 2, cooldown_seconds: 15, text_only: true, image_only: undefined },
-      { group_id: 3, priority: 1, weight: 1, cooldown_seconds: 15, text_only: true, image_only: undefined },
-      { group_id: 4, priority: 1, weight: 2, cooldown_seconds: 15, text_only: undefined, image_only: true },
-      { group_id: 5, priority: 1, weight: 1, cooldown_seconds: 15, text_only: undefined, image_only: true },
+    expect(keysUpdate.mock.calls[0][1].multi_group_routes).toEqual([
+      { group_id: 2, priority: 1, weight: 1, cooldown_seconds: 30, enabled: false },
+      { group_id: 3, priority: 2, weight: 1, cooldown_seconds: 30, enabled: true },
     ])
   })
 
-  it('cost preset orders routes by effective user multiplier', async () => {
-    availableGroups.mockResolvedValue([
-      groupFixture(1, 'Standard', 1.2),
-      groupFixture(2, 'Discount', 1),
-      groupFixture(3, 'User Discount', 1.5),
-    ])
-    userGroupRates.mockResolvedValue({ 3: 0.6 })
-
+  it('rejects duplicate groups in the user route list', async () => {
     const wrapper = mountView()
     await flushPromises()
 
     const setupState = (wrapper.vm as any).$?.setupState
     setupState.openCreateModal()
-    setupState.formData.name = 'Cost Key'
-    setupState.applyRoutingPreset('cost')
-
-    await setupState.handleSubmit()
-
-    const routes = keysCreate.mock.calls[0][8]
-    expect(routes
-      .filter((route: { text_only?: boolean }) => route.text_only)
-      .map((route: { group_id: number; priority: number }) => ({
-      group_id: route.group_id,
-      priority: route.priority,
-    }))).toEqual([
-      { group_id: 3, priority: 1 },
-      { group_id: 2, priority: 2 },
-      { group_id: 1, priority: 3 },
-    ])
-  })
-
-  it('manual routes are not overwritten after group/rate reload sync', async () => {
-    availableGroups.mockResolvedValue([
-      groupFixture(1, 'A', 1),
-      groupFixture(2, 'B', 2),
-    ])
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    const setupState = (wrapper.vm as any).$?.setupState
-    setupState.openCreateModal()
-    setupState.formData.name = 'Manual Key'
-    setupState.formData.group_id = 2
-    setupState.formData.enable_multi_group_routing = true
-    setupState.formData.multi_group_routes = [
-      routeFormFixture('manual', 2, { priority: 1, weight: 7, cooldown_seconds: 44 }),
-    ]
-    setupState.markRoutingManual()
-    setupState.syncCurrentRoutingPreset()
-
-    await setupState.handleSubmit()
-
-    const routes = keysCreate.mock.calls[0][8]
-    expect(routes).toEqual([
-      { group_id: 2, priority: 1, weight: 7, cooldown_seconds: 44, enabled: true },
-    ])
-  })
-
-  it('preserves manual model patterns and route scope flags in payload', async () => {
-    availableGroups.mockResolvedValue([
-      groupFixture(1, 'Image', 1),
-    ])
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    const setupState = (wrapper.vm as any).$?.setupState
-    setupState.openCreateModal()
-    setupState.formData.name = 'Pattern Key'
     setupState.formData.group_id = 1
     setupState.formData.enable_multi_group_routing = true
     setupState.formData.multi_group_routes = [
-      routeFormFixture('pattern', 1, {
-        model_patterns_text: 'gpt-image-*\nclaude-*',
-        image_only: true,
-      }),
+      routeFormFixture('duplicate-a', 2),
+      routeFormFixture('duplicate-b', 2),
     ]
-    setupState.markRoutingManual()
 
     await setupState.handleSubmit()
 
-    const routes = keysCreate.mock.calls[0][8]
-    expect(routes).toEqual([
-      {
-        group_id: 1,
-        priority: 1,
-        weight: 1,
-        cooldown_seconds: 30,
-        enabled: true,
-        model_patterns: ['gpt-image-*', 'claude-*'],
-        image_only: true,
-      },
-    ])
+    expect(keysCreate).not.toHaveBeenCalled()
   })
 
-  it('cost preset orders image routes by independent image multiplier', async () => {
-    availableGroups.mockResolvedValue([
-      groupFixture(1, 'Text Cheap Image Expensive', 0.5, { routing_scope: 'image', image_rate_independent: true, image_rate_multiplier: 2 }),
-      groupFixture(2, 'Text Expensive Image Cheap', 2, { routing_scope: 'image', image_rate_independent: true, image_rate_multiplier: 0.3 }),
-      groupFixture(3, 'Shared Middle', 1, { routing_scope: 'image' }),
-    ])
-
+  it('keeps priorities continuous when adding and removing routes', async () => {
     const wrapper = mountView()
     await flushPromises()
 
     const setupState = (wrapper.vm as any).$?.setupState
     setupState.openCreateModal()
-    setupState.formData.name = 'Image Cost Key'
-    setupState.applyRoutingPreset('cost')
+    setupState.formData.group_id = 1
+    setupState.formData.enable_multi_group_routing = true
+    setupState.formData.multi_group_routes = [routeFormFixture('first', 1)]
+    setupState.addMultiGroupRoute()
+    expect(setupState.formData.multi_group_routes.map((route: { priority: number }) => route.priority)).toEqual([1, 2])
+    setupState.removeMultiGroupRoute(0)
+    expect(setupState.formData.multi_group_routes.map((route: { priority: number }) => route.priority)).toEqual([1])
+  })
+
+  it('preserves enabled state while normalizing all compatibility fields', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.openCreateModal()
+    setupState.formData.group_id = 1
+    setupState.formData.enable_multi_group_routing = true
+    setupState.formData.multi_group_routes = [
+      routeFormFixture('disabled', 1, {
+        weight: 99,
+        cooldown_seconds: 999,
+        enabled: false,
+        image_only: true,
+        text_only: true,
+        model_patterns: ['should-not-send'],
+      }),
+    ]
 
     await setupState.handleSubmit()
 
-    const routes = keysCreate.mock.calls[0][8]
-    const imageRoutes = routes.filter((route: { image_only?: boolean }) => route.image_only)
-    expect(imageRoutes.map((route: { group_id: number; priority: number }) => ({
-      group_id: route.group_id,
-      priority: route.priority,
-    }))).toEqual([
-      { group_id: 2, priority: 1 },
-      { group_id: 3, priority: 2 },
-      { group_id: 1, priority: 3 },
+    expect(keysCreate.mock.calls[0][8]).toEqual([
+      { group_id: 1, priority: 1, weight: 1, cooldown_seconds: 30, enabled: false },
     ])
+  })
+
+  it('does not include legacy model patterns in any route payload', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.openCreateModal()
+    setupState.formData.group_id = 1
+    setupState.formData.enable_multi_group_routing = true
+    setupState.formData.multi_group_routes = [routeFormFixture('pattern', 1, {
+      model_patterns: ['gpt-*'],
+    })]
+
+    await setupState.handleSubmit()
+
+    expect(keysCreate.mock.calls[0][8][0]).not.toHaveProperty('model_patterns')
+  })
+
+  it('keeps route order stable when legacy priorities tie', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.editKey({
+      id: 12,
+      name: 'Stable Key',
+      group_id: 1,
+      multi_group_routes: [
+        { group_id: 3, priority: 1, weight: 8, cooldown_seconds: 8, enabled: true },
+        { group_id: 2, priority: 1, weight: 2, cooldown_seconds: 8, enabled: true },
+      ],
+      account_pool_strategy: 'shared_only',
+      status: 'active',
+      ip_whitelist: [],
+      ip_blacklist: [],
+      quota: 0,
+      quota_used: 0,
+      rate_limit_5h: 0,
+      rate_limit_1d: 0,
+      rate_limit_7d: 0,
+      expires_at: null,
+    })
+
+    await setupState.handleSubmit()
+
+    expect(keysUpdate.mock.calls[0][1].multi_group_routes.map((route: { group_id: number }) => route.group_id)).toEqual([3, 2])
+    expect(keysUpdate.mock.calls[0][1].multi_group_routes.every((route: { weight: number; cooldown_seconds: number }, index: number) => (
+      route.weight === 1 && route.cooldown_seconds === 30 && route.priority === index + 1
+    ))).toBe(true)
   })
 
   it('does not overwrite a touched default group when rates load after the dialog opens', async () => {
@@ -436,7 +358,9 @@ describe('KeysView create query', () => {
     expect(setupState.formData.group_id).toBe(2)
   })
 
-  it('preserves existing equal-priority weighted routes when editing and saving', async () => {
+  it('preserves existing routes and hidden account-pool strategy when editing and saving', async () => {
+    getPublicSettings.mockResolvedValue({ account_share_enabled: false })
+
     const wrapper = mountView()
     await flushPromises()
 
@@ -452,7 +376,7 @@ describe('KeysView create query', () => {
         { group_id: 1, priority: 10, weight: 3, cooldown_seconds: 30, enabled: true },
         { group_id: 2, priority: 10, weight: 1, cooldown_seconds: 30, enabled: true },
       ],
-      account_pool_strategy: 'shared_only',
+      account_pool_strategy: 'private_only',
       status: 'active',
       ip_whitelist: [],
       ip_blacklist: [],
@@ -474,9 +398,10 @@ describe('KeysView create query', () => {
     await setupState.handleSubmit()
 
     expect(keysUpdate.mock.calls[0][1].multi_group_routes).toEqual([
-      { group_id: 1, priority: 10, weight: 3, cooldown_seconds: 30, enabled: true },
-      { group_id: 2, priority: 10, weight: 1, cooldown_seconds: 30, enabled: true },
+      { group_id: 1, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true },
+      { group_id: 2, priority: 2, weight: 1, cooldown_seconds: 30, enabled: true },
     ])
+    expect(keysUpdate.mock.calls[0][1].account_pool_strategy).toBe('private_only')
   })
 })
 
@@ -488,9 +413,9 @@ function routeFormFixture(
     weight: number
     cooldown_seconds: number
     enabled: boolean
-    model_patterns_text: string
     image_only: boolean
     text_only: boolean
+    model_patterns: string[]
   }> = {},
 ) {
   return {
@@ -500,9 +425,9 @@ function routeFormFixture(
     weight: overrides.weight ?? 1,
     cooldown_seconds: overrides.cooldown_seconds ?? 30,
     enabled: overrides.enabled ?? true,
-    model_patterns_text: overrides.model_patterns_text ?? '',
     image_only: overrides.image_only ?? false,
     text_only: overrides.text_only ?? false,
+    model_patterns: overrides.model_patterns ?? [],
   }
 }
 

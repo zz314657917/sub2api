@@ -504,11 +504,15 @@
     <BaseDialog
       :show="showCreateModal || showEditModal"
       :title="showEditModal ? t('keys.editKey') : t('keys.createKey')"
-      width="wide"
+      width="extra-wide"
       @close="closeModals"
     >
-      <form id="key-form" @submit.prevent="handleSubmit" class="space-y-5">
-        <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/40">
+      <form
+        id="key-form"
+        class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)] lg:items-start"
+        @submit.prevent="handleSubmit"
+      >
+        <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/40 lg:col-start-1">
           <div class="mb-4 flex items-start gap-3">
             <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/12 dark:text-[#f0b89e]">
               <Icon name="key" size="md" />
@@ -534,48 +538,6 @@
                 :placeholder="t('keys.namePlaceholder')"
                 data-tour="key-form-name"
               />
-            </div>
-
-            <div>
-              <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <label class="input-label mb-0">{{ t('keys.routingPresetLabel') }}</label>
-                <span class="text-xs text-gray-400 dark:text-gray-500">
-                  {{
-                    routingPreset === 'manual'
-                      ? t('keys.routingPreset.manual.label')
-                      : t('keys.routingPresetAutoApplied')
-                  }}
-                </span>
-              </div>
-              <div class="grid gap-3 md:grid-cols-2">
-                <button
-                  v-for="option in routingPresetOptions"
-                  :key="option.value"
-                  type="button"
-                  :data-testid="`routing-preset-${option.value}`"
-                  :class="[
-                    'flex min-h-[5rem] items-start gap-3 rounded-lg border p-3 text-left transition-colors',
-                    presetToneClasses(option)
-                  ]"
-                  @click="applyRoutingPreset(option.value)"
-                >
-                  <span
-                    :class="[
-                      'flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg',
-                      presetIconClasses(option)
-                    ]"
-                  >
-                    <Icon :name="option.icon" size="sm" />
-                  </span>
-                  <span class="min-w-0">
-                    <span class="block text-sm font-semibold">{{ option.title }}</span>
-                    <span class="mt-1 block text-xs leading-5 opacity-80">{{ option.description }}</span>
-                  </span>
-                </button>
-              </div>
-              <div class="mt-3 rounded-lg border border-[#d8cec2] bg-[#fffaf5] px-3 py-2 text-xs leading-5 text-[#6c6a64] dark:border-[#cc785c]/30 dark:bg-[#cc785c]/10 dark:text-[#f0b89e]">
-                {{ t('keys.routingPresetHint') }}
-              </div>
             </div>
 
             <div>
@@ -634,39 +596,142 @@
               </p>
             </div>
 
-            <div v-if="formData.enable_multi_group_routing" class="rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-800/50">
-              <div class="flex flex-wrap items-center justify-between gap-3">
-                <div class="text-sm text-gray-700 dark:text-gray-200">
-                  <span class="font-medium">{{ t('keys.groupPrioritySelection') }}</span>
-                  <span class="ml-2 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t('keys.multiGroupRouteCount', { count: formData.multi_group_routes.length }) }}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  class="btn btn-secondary text-sm"
-                  @click="applyRoutingPreset('manual')"
-                >
-                  <Icon name="menu" size="sm" class="mr-2" />
-                  {{ t('keys.manualRouteSelection') }}
-                </button>
-              </div>
-              <div class="mt-3 flex flex-wrap gap-2">
-                <span
-                  v-for="(route, index) in formData.multi_group_routes"
-                  :key="route.client_id"
-                  class="inline-flex items-center rounded-md bg-white px-2 py-1 text-xs text-gray-600 shadow-sm dark:bg-dark-900 dark:text-gray-300"
-                >
-                  {{ index + 1 }}.
-                  {{ groupOptions.find((group) => group.value === route.group_id)?.label || t('keys.noGroup') }}
-                  <span v-if="route.weight > 1" class="ml-1 text-gray-400">x{{ route.weight }}</span>
-                </span>
-              </div>
-            </div>
           </div>
         </section>
 
-        <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/40">
+        <aside class="key-route-panel rounded-xl border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-800/40 lg:sticky lg:top-0 lg:col-start-2 lg:row-start-1 lg:row-span-3">
+          <div class="flex items-start justify-between gap-4">
+            <div>
+              <label class="input-label mb-1">{{ t('keys.multiGroupRouting') }}</label>
+              <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">
+                {{ t('keys.multiGroupRoutingHint') }}
+              </p>
+            </div>
+            <button
+              type="button"
+              :aria-label="t('keys.multiGroupRouting')"
+              :aria-pressed="formData.enable_multi_group_routing"
+              @click="toggleMultiGroupRouting"
+              :class="[
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                formData.enable_multi_group_routing
+                  ? 'bg-primary-600'
+                  : 'bg-gray-200 dark:bg-dark-600'
+              ]"
+            >
+              <span
+                :class="[
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  formData.enable_multi_group_routing ? 'translate-x-5' : 'translate-x-0'
+                ]"
+              />
+            </button>
+          </div>
+
+          <div v-if="formData.enable_multi_group_routing" class="mt-3 space-y-3">
+            <VueDraggable
+              v-model="formData.multi_group_routes"
+              :animation="200"
+              handle=".route-drag-handle"
+              class="space-y-3 lg:max-h-[calc(100vh-20rem)] lg:overflow-y-auto lg:overscroll-contain lg:pr-1"
+              @end="handleRouteOrderChanged"
+            >
+              <div
+                v-for="(route, index) in formData.multi_group_routes"
+                :key="route.client_id"
+                class="rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900/40"
+              >
+                <div class="mb-3 flex items-center justify-between gap-3">
+                  <div class="flex items-center gap-2">
+                    <button
+                      type="button"
+                      class="route-drag-handle inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 active:cursor-grabbing dark:text-gray-500 dark:hover:bg-dark-700 dark:hover:text-gray-300"
+                      :title="t('keys.dragRoute')"
+                    >
+                      <Icon name="menu" size="sm" />
+                    </button>
+                    <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
+                      {{ index + 1 }}
+                    </span>
+                    <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
+                      t('keys.routeConfig')
+                    }}</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-dark-600 dark:text-gray-300">
+                      <input
+                        v-model="route.enabled"
+                        type="checkbox"
+                        class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span>{{ t('keys.routeEnabled') }}</span>
+                    </label>
+                    <button
+                      type="button"
+                      class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-dark-600 dark:text-gray-400 dark:hover:border-red-900/60 dark:hover:bg-red-900/20 dark:hover:text-red-300"
+                      :title="t('keys.removeRoute')"
+                      @click="removeMultiGroupRoute(index)"
+                    >
+                      <Icon name="trash" size="sm" />
+                    </button>
+                  </div>
+                </div>
+
+                <div class="grid gap-3">
+                  <div>
+                    <label class="input-label">{{ t('keys.groupLabel') }}</label>
+                    <Select
+                      :model-value="route.group_id"
+                      :options="groupOptions"
+                      :placeholder="t('keys.selectGroup')"
+                      :searchable="true"
+                      :search-placeholder="t('keys.searchGroup')"
+                      @update:model-value="updateRouteGroup(route, $event)"
+                    >
+                      <template #selected="{ option }">
+                        <GroupBadge
+                          v-if="option"
+                          :name="(option as unknown as GroupOption).label"
+                          :platform="(option as unknown as GroupOption).platform"
+                          :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                          :rate-multiplier="(option as unknown as GroupOption).rate"
+                          :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                          :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
+                          :peak-start="(option as unknown as GroupOption).peakStart"
+                          :peak-end="(option as unknown as GroupOption).peakEnd"
+                          :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
+                        />
+                        <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
+                      </template>
+                      <template #option="{ option, selected }">
+                        <GroupOptionItem
+                          :name="(option as unknown as GroupOption).label"
+                          :platform="(option as unknown as GroupOption).platform"
+                          :subscription-type="(option as unknown as GroupOption).subscriptionType"
+                          :rate-multiplier="(option as unknown as GroupOption).rate"
+                          :user-rate-multiplier="(option as unknown as GroupOption).userRate"
+                          :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
+                          :peak-start="(option as unknown as GroupOption).peakStart"
+                          :peak-end="(option as unknown as GroupOption).peakEnd"
+                          :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
+                          :description="(option as unknown as GroupOption).description"
+                          :selected="selected"
+                        />
+                      </template>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </VueDraggable>
+
+            <button type="button" class="btn btn-secondary" @click="addMultiGroupRoute">
+              <Icon name="plus" size="sm" class="mr-2" />
+              {{ t('keys.addRoute') }}
+            </button>
+          </div>
+        </aside>
+
+        <section class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/40 lg:col-start-1">
           <div class="mb-4 flex items-start gap-3">
             <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/12 dark:text-[#f0b89e] dark:ring-[#cc785c]/30">
               <Icon name="creditCard" size="md" />
@@ -745,7 +810,7 @@
           </div>
         </section>
 
-        <details class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/40" open>
+        <details class="rounded-xl border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900/40 lg:col-start-1" open>
           <summary class="flex cursor-pointer list-none items-center justify-between gap-3">
             <span class="flex items-start gap-3">
               <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300">
@@ -764,7 +829,7 @@
           </summary>
 
           <div class="mt-4 space-y-5">
-            <div>
+            <div v-if="accountShareEnabled" data-testid="account-pool-strategy">
               <label class="input-label">{{ t('keys.accountPoolStrategyLabel') }}</label>
               <Select
                 v-model="formData.account_pool_strategy"
@@ -773,199 +838,6 @@
               <p class="mt-2 text-xs leading-5 text-gray-500 dark:text-gray-400">
                 {{ t('keys.accountPoolStrategyHint') }}
               </p>
-            </div>
-
-            <div class="space-y-3 rounded-lg border border-gray-200 bg-gray-50/70 p-4 dark:border-dark-700 dark:bg-dark-800/40">
-              <div class="flex items-start justify-between gap-4">
-                <div>
-                  <label class="input-label mb-1">{{ t('keys.multiGroupRouting') }}</label>
-                  <p class="text-xs leading-5 text-gray-500 dark:text-gray-400">
-                    {{ t('keys.multiGroupRoutingHint') }}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  @click="toggleMultiGroupRouting"
-                  :class="[
-                    'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-                    formData.enable_multi_group_routing
-                      ? 'bg-primary-600'
-                      : 'bg-gray-200 dark:bg-dark-600'
-                  ]"
-                >
-                  <span
-                    :class="[
-                      'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                      formData.enable_multi_group_routing ? 'translate-x-5' : 'translate-x-0'
-                    ]"
-                  />
-                </button>
-              </div>
-
-              <div v-if="formData.enable_multi_group_routing" class="space-y-3">
-                <VueDraggable
-                  v-model="formData.multi_group_routes"
-                  :animation="200"
-                  handle=".route-drag-handle"
-                  class="space-y-3"
-                  @end="handleRouteOrderChanged"
-                >
-                  <div
-                    v-for="(route, index) in formData.multi_group_routes"
-                    :key="route.client_id"
-                    class="rounded-lg border border-gray-200 bg-white p-3 dark:border-dark-700 dark:bg-dark-900/40"
-                  >
-                    <div class="mb-3 flex items-center justify-between gap-3">
-                      <div class="flex items-center gap-2">
-                        <button
-                          type="button"
-                          class="route-drag-handle inline-flex h-8 w-8 cursor-grab items-center justify-center rounded-lg text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600 active:cursor-grabbing dark:text-gray-500 dark:hover:bg-dark-700 dark:hover:text-gray-300"
-                          :title="t('keys.dragRoute')"
-                        >
-                          <Icon name="menu" size="sm" />
-                        </button>
-                        <span class="flex h-6 w-6 items-center justify-center rounded-full bg-primary-50 text-xs font-semibold text-primary-600 dark:bg-primary-900/30 dark:text-primary-300">
-                          {{ index + 1 }}
-                        </span>
-                        <span class="text-sm font-medium text-gray-700 dark:text-gray-200">{{
-                          t('keys.routeConfig')
-                        }}</span>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-dark-600 dark:text-gray-300">
-                          <input
-                            v-model="route.enabled"
-                            type="checkbox"
-                            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                            @change="markRoutingManual"
-                          />
-                          <span>{{ t('keys.routeEnabled') }}</span>
-                        </label>
-                        <button
-                          type="button"
-                          class="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 text-gray-500 transition-colors hover:border-red-200 hover:bg-red-50 hover:text-red-600 dark:border-dark-600 dark:text-gray-400 dark:hover:border-red-900/60 dark:hover:bg-red-900/20 dark:hover:text-red-300"
-                          :title="t('keys.removeRoute')"
-                          @click="removeMultiGroupRoute(index)"
-                        >
-                          <Icon name="trash" size="sm" />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div class="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_minmax(8rem,1fr)]">
-                      <div>
-                        <label class="input-label">{{ t('keys.groupLabel') }}</label>
-                        <Select
-                          :model-value="route.group_id"
-                          :options="groupOptions"
-                          :placeholder="t('keys.selectGroup')"
-                          :searchable="true"
-                          :search-placeholder="t('keys.searchGroup')"
-                          @update:model-value="updateRouteGroup(route, $event)"
-                        >
-                          <template #selected="{ option }">
-                            <GroupBadge
-                              v-if="option"
-                              :name="(option as unknown as GroupOption).label"
-                              :platform="(option as unknown as GroupOption).platform"
-                              :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                              :rate-multiplier="(option as unknown as GroupOption).rate"
-                              :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                              :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                              :peak-start="(option as unknown as GroupOption).peakStart"
-                              :peak-end="(option as unknown as GroupOption).peakEnd"
-                              :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-                            />
-                            <span v-else class="text-gray-400">{{ t('keys.selectGroup') }}</span>
-                          </template>
-                          <template #option="{ option, selected }">
-                            <GroupOptionItem
-                              :name="(option as unknown as GroupOption).label"
-                              :platform="(option as unknown as GroupOption).platform"
-                              :subscription-type="(option as unknown as GroupOption).subscriptionType"
-                              :rate-multiplier="(option as unknown as GroupOption).rate"
-                              :user-rate-multiplier="(option as unknown as GroupOption).userRate"
-                              :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                              :peak-start="(option as unknown as GroupOption).peakStart"
-                              :peak-end="(option as unknown as GroupOption).peakEnd"
-                              :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-                              :description="(option as unknown as GroupOption).description"
-                              :selected="selected"
-                            />
-                          </template>
-                        </Select>
-                      </div>
-                      <div>
-                        <label class="input-label">{{ t('keys.priority') }}</label>
-                        <div class="flex h-10 items-center rounded-lg border border-gray-200 bg-gray-50 px-3 text-sm font-semibold text-gray-700 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200">
-                          {{ index + 1 }}
-                        </div>
-                      </div>
-                      <div>
-                        <label class="input-label">{{ t('keys.weight') }}</label>
-                        <input
-                          v-model.number="route.weight"
-                          type="number"
-                          min="1"
-                          class="input"
-                          @input="markRoutingManual"
-                        />
-                      </div>
-                      <div>
-                        <label class="input-label">{{ t('keys.cooldownSeconds') }}</label>
-                        <input
-                          v-model.number="route.cooldown_seconds"
-                          type="number"
-                          min="0"
-                          class="input"
-                          @input="markRoutingManual"
-                        />
-                      </div>
-                    </div>
-
-                    <div class="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
-                      <div>
-                        <label class="input-label">{{ t('keys.modelPatterns') }}</label>
-                        <textarea
-                          v-model="route.model_patterns_text"
-                          rows="2"
-                          class="input min-h-[4.5rem] resize-y"
-                          :placeholder="t('keys.modelPatternsPlaceholder')"
-                          @input="markRoutingManual"
-                        />
-                        <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                          {{ t('keys.modelPatternsHint') }}
-                        </p>
-                      </div>
-                      <div class="flex flex-wrap items-start gap-2 pt-6 lg:w-56">
-                        <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-dark-600 dark:text-gray-300">
-                          <input
-                            v-model="route.image_only"
-                            type="checkbox"
-                            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                            @change="markRoutingManual"
-                          />
-                          <span>{{ t('keys.routeImageOnly') }}</span>
-                        </label>
-                        <label class="inline-flex h-9 items-center gap-2 rounded-lg border border-gray-200 px-3 text-sm text-gray-600 dark:border-dark-600 dark:text-gray-300">
-                          <input
-                            v-model="route.text_only"
-                            type="checkbox"
-                            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                            @change="markRoutingManual"
-                          />
-                          <span>{{ t('keys.routeTextOnly') }}</span>
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                </VueDraggable>
-
-                <button type="button" class="btn btn-secondary" @click="addMultiGroupRoute">
-                  <Icon name="plus" size="sm" class="mr-2" />
-                  {{ t('keys.addRoute') }}
-                </button>
-              </div>
             </div>
 
             <!-- Custom Key Section (only for create) -->
@@ -1580,7 +1452,6 @@ import type {
   AccountPoolStrategy,
   ApiKey,
   ApiKeyMultiGroupRoute,
-  ApiKeyRoutingPreset,
   Group,
   PublicSettings,
   SubscriptionType,
@@ -1639,20 +1510,7 @@ interface ApiKeyMultiGroupRouteForm {
   client_id: string
   group_id: number | null
   priority: number
-  weight: number
-  cooldown_seconds: number
   enabled: boolean
-  model_patterns_text: string
-  image_only: boolean
-  text_only: boolean
-}
-
-interface RoutingPresetOption {
-  value: ApiKeyRoutingPreset
-  title: string
-  description: string
-  icon: 'sparkles' | 'dollar' | 'bolt' | 'shield' | 'menu'
-  tone: 'cyan' | 'blue' | 'emerald' | 'orange' | 'rose' | 'gray'
 }
 
 const appStore = useAppStore()
@@ -1706,14 +1564,13 @@ const showResetRateLimitDialog = ref(false)
 const showUseKeyModal = ref(false)
 const showCcsClientSelect = ref(false)
 const showCockpitToolsInstallDialog = ref(false)
-const routingPreset = ref<ApiKeyRoutingPreset>('optimal')
-const defaultGroupTouched = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
 const pendingCockpitToolsRow = ref<ApiKey | null>(null)
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const groupSelectorKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
+const accountShareEnabled = computed(() => publicSettings.value?.account_share_enabled !== false)
 const dropdownRef = ref<HTMLElement | null>(null)
 const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
 const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
@@ -1840,109 +1697,7 @@ const statusOptions = computed(() => [
   { value: 'inactive', label: t('common.inactive') }
 ])
 
-const routingPresetOptions = computed<RoutingPresetOption[]>(() => [
-  {
-    value: 'optimal',
-    title: t('keys.routingPreset.optimal.title'),
-    description: t('keys.routingPreset.optimal.description'),
-    icon: 'sparkles',
-    tone: 'cyan'
-  },
-  {
-    value: 'auto',
-    title: t('keys.routingPreset.auto.title'),
-    description: t('keys.routingPreset.auto.description'),
-    icon: 'sparkles',
-    tone: 'blue'
-  },
-  {
-    value: 'cost',
-    title: t('keys.routingPreset.cost.title'),
-    description: t('keys.routingPreset.cost.description'),
-    icon: 'dollar',
-    tone: 'emerald'
-  },
-  {
-    value: 'speed',
-    title: t('keys.routingPreset.speed.title'),
-    description: t('keys.routingPreset.speed.description'),
-    icon: 'bolt',
-    tone: 'orange'
-  },
-  {
-    value: 'stability',
-    title: t('keys.routingPreset.stability.title'),
-    description: t('keys.routingPreset.stability.description'),
-    icon: 'shield',
-    tone: 'rose'
-  }
-])
-
 const createRouteClientId = () => `route-${Date.now()}-${routeClientIdSeed++}`
-
-const effectiveGroupRate = (group: GroupOption) => group.userRate ?? group.rate ?? 1
-
-const effectiveImageGroupRate = (group: GroupOption) => {
-  if (group.imageRateIndependent) {
-    return group.imageRate
-  }
-  return effectiveGroupRate(group)
-}
-
-const routeKindModelPatterns: Record<'video' | 'embedding', string> = {
-  video: 'doubao-seedance-*\n*-video-*',
-  embedding: '*embedding*'
-}
-
-const presetToneClasses = (option: RoutingPresetOption) => {
-  const selected = routingPreset.value === option.value
-  const toneClasses: Record<RoutingPresetOption['tone'], string> = {
-    cyan: selected
-      ? 'border-[#cc785c] bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#cc785c]/60 dark:border-[#cc785c] dark:bg-[#cc785c]/10 dark:text-[#f0b89e]'
-      : 'border-gray-200 bg-white text-gray-700 hover:border-[#d8cec2] hover:bg-[#fffaf5] dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-[#cc785c]/50 dark:hover:bg-[#cc785c]/10',
-    blue: selected
-      ? 'border-[#cc785c] bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#cc785c]/60 dark:border-[#cc785c] dark:bg-[#cc785c]/10 dark:text-[#f0b89e]'
-      : 'border-gray-200 bg-white text-gray-700 hover:border-[#d8cec2] hover:bg-[#fffaf5] dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-[#cc785c]/50 dark:hover:bg-[#cc785c]/10',
-    emerald: selected
-      ? 'border-[#cc785c] bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#cc785c]/60 dark:border-[#cc785c] dark:bg-[#cc785c]/10 dark:text-[#f0b89e]'
-      : 'border-gray-200 bg-white text-gray-700 hover:border-[#d8cec2] hover:bg-[#fffaf5] dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-[#cc785c]/50 dark:hover:bg-[#cc785c]/10',
-    orange: selected
-      ? 'border-orange-500 bg-orange-50 text-orange-800 ring-1 ring-orange-500 dark:border-orange-400 dark:bg-orange-500/10 dark:text-orange-200'
-      : 'border-gray-200 bg-white text-gray-700 hover:border-orange-300 hover:bg-orange-50/50 dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-orange-500/50 dark:hover:bg-orange-500/10',
-    rose: selected
-      ? 'border-rose-500 bg-rose-50 text-rose-800 ring-1 ring-rose-500 dark:border-rose-400 dark:bg-rose-500/10 dark:text-rose-200'
-      : 'border-gray-200 bg-white text-gray-700 hover:border-rose-300 hover:bg-rose-50/50 dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-rose-500/50 dark:hover:bg-rose-500/10',
-    gray: selected
-      ? 'border-gray-500 bg-gray-50 text-gray-800 ring-1 ring-gray-500 dark:border-gray-400 dark:bg-dark-700 dark:text-gray-200'
-      : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50 dark:border-dark-700 dark:bg-dark-900/40 dark:text-gray-300 dark:hover:border-gray-500/50 dark:hover:bg-dark-800'
-  }
-  return toneClasses[option.tone]
-}
-
-const presetIconClasses = (option: RoutingPresetOption) => {
-  const selected = routingPreset.value === option.value
-  const toneClasses: Record<RoutingPresetOption['tone'], string> = {
-    cyan: selected
-      ? 'bg-[#141413] text-white'
-      : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/12 dark:text-[#f0b89e]',
-    blue: selected
-      ? 'bg-[#141413] text-white'
-      : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/12 dark:text-[#f0b89e]',
-    emerald: selected
-      ? 'bg-[#141413] text-white'
-      : 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/12 dark:text-[#f0b89e]',
-    orange: selected
-      ? 'bg-orange-500 text-white'
-      : 'bg-orange-50 text-orange-600 dark:bg-orange-500/15 dark:text-orange-300',
-    rose: selected
-      ? 'bg-rose-500 text-white'
-      : 'bg-rose-50 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300',
-    gray: selected
-      ? 'bg-gray-500 text-white'
-      : 'bg-gray-100 text-gray-600 dark:bg-dark-700 dark:text-gray-300'
-  }
-  return toneClasses[option.tone]
-}
 
 const renumberMultiGroupRoutePriorities = () => {
   formData.value.multi_group_routes.forEach((route, index) => {
@@ -1952,140 +1707,21 @@ const renumberMultiGroupRoutePriorities = () => {
 
 const createDefaultRoute = (
   groupId: number | null = formData.value.group_id,
-  overrides: Partial<
-    Pick<
-      ApiKeyMultiGroupRouteForm,
-      'weight' | 'cooldown_seconds' | 'enabled' | 'model_patterns_text' | 'image_only' | 'text_only'
-    >
-  > = {}
 ): ApiKeyMultiGroupRouteForm => ({
   client_id: createRouteClientId(),
   group_id: groupId,
   priority: formData.value.multi_group_routes.length + 1,
-  weight: overrides.weight ?? 1,
-  cooldown_seconds: overrides.cooldown_seconds ?? 30,
-  enabled: overrides.enabled ?? true,
-  model_patterns_text: overrides.model_patterns_text ?? '',
-  image_only: overrides.image_only ?? false,
-  text_only: overrides.text_only ?? false
+  enabled: true
 })
 
 const getNextRouteGroupId = () => {
   const used = new Set(
-    formData.value.multi_group_routes
-      .filter((route) => !route.model_patterns_text.trim() && !route.image_only && !route.text_only)
-      .map((route) => route.group_id)
+    formData.value.multi_group_routes.map((route) => route.group_id)
   )
   return groups.value.find((group) => !used.has(group.id))?.id ?? formData.value.group_id
 }
 
-const sortPresetGroups = (
-  routeGroups: GroupOption[],
-  preset: ApiKeyRoutingPreset,
-  rateResolver: (group: GroupOption) => number
-): GroupOption[] => {
-  const available = [...routeGroups]
-  if (available.length === 0) {
-    return []
-  }
-  if (preset === 'cost') {
-    return available.sort((a, b) => {
-      const rateDiff = rateResolver(a) - rateResolver(b)
-      return rateDiff === 0 ? a.label.localeCompare(b.label) : rateDiff
-    })
-  }
-  return available
-}
-
-const buildPresetRouteGroups = (
-  preset: ApiKeyRoutingPreset,
-  kind: 'text' | 'image' | 'video' | 'embedding'
-): GroupOption[] => {
-  const available = groupOptions.value.filter((group) => group.status === 'active')
-  const routeGroups = available.filter((group) => {
-    if (kind === 'text') {
-      return group.routingScope === 'inference'
-    }
-    if (kind === 'image') {
-      return group.routingScope === 'image' && group.platform === 'openai' && group.allowImageGeneration
-    }
-    return group.routingScope === kind
-  })
-  return sortPresetGroups(routeGroups, preset, kind === 'image' ? effectiveImageGroupRate : effectiveGroupRate)
-}
-
-const buildPresetRouteForms = (
-  preset: ApiKeyRoutingPreset,
-  routeGroups: GroupOption[],
-  scopeOverrides: Partial<Pick<ApiKeyMultiGroupRouteForm, 'image_only' | 'text_only' | 'model_patterns_text'>>
-) => routeGroups.map((group, index) => {
-  let weight = 1
-  let cooldownSeconds = 30
-  let priority = index + 1
-  if (preset === 'optimal' || preset === 'auto') {
-    priority = 1
-  }
-  if (preset === 'speed') {
-    priority = 1
-    weight = Math.max(routeGroups.length - index, 1)
-    cooldownSeconds = 15
-  } else if (preset === 'stability') {
-    cooldownSeconds = 60
-  }
-  return {
-    ...createDefaultRoute(group.value, {
-      weight,
-      cooldown_seconds: cooldownSeconds,
-      ...scopeOverrides
-    }),
-    priority
-  }
-})
-
-const buildPresetRoutes = (preset: ApiKeyRoutingPreset): ApiKeyMultiGroupRouteForm[] => {
-  const textRoutes = buildPresetRouteForms(preset, buildPresetRouteGroups(preset, 'text'), {
-    text_only: true
-  })
-  const imageRoutes = buildPresetRouteForms(preset, buildPresetRouteGroups(preset, 'image'), {
-    image_only: true
-  })
-  const videoRoutes = buildPresetRouteForms(preset, buildPresetRouteGroups(preset, 'video'), {
-    model_patterns_text: routeKindModelPatterns.video
-  })
-  const embeddingRoutes = buildPresetRouteForms(preset, buildPresetRouteGroups(preset, 'embedding'), {
-    model_patterns_text: routeKindModelPatterns.embedding
-  })
-  return [...textRoutes, ...imageRoutes, ...videoRoutes, ...embeddingRoutes]
-}
-
-const applyRoutingPreset = (
-  preset: ApiKeyRoutingPreset,
-  options: { preserveTouchedDefaultGroup?: boolean } = {}
-) => {
-  routingPreset.value = preset
-  if (preset === 'manual') {
-    formData.value.enable_multi_group_routing = formData.value.multi_group_routes.length > 0
-    return
-  }
-  const routes = buildPresetRoutes(preset)
-  if (routes.length === 0) {
-    formData.value.enable_multi_group_routing = false
-    formData.value.multi_group_routes = []
-    return
-  }
-  formData.value.enable_multi_group_routing = true
-  formData.value.multi_group_routes = routes
-  if (!options.preserveTouchedDefaultGroup || !defaultGroupTouched.value || formData.value.group_id === null) {
-    formData.value.group_id = routes[0]?.group_id ?? formData.value.group_id
-  }
-}
-
-const markRoutingManual = () => {
-  routingPreset.value = 'manual'
-}
-
 const toggleMultiGroupRouting = () => {
-  markRoutingManual()
   formData.value.enable_multi_group_routing = !formData.value.enable_multi_group_routing
   if (formData.value.enable_multi_group_routing && formData.value.multi_group_routes.length === 0) {
     formData.value.multi_group_routes = [createDefaultRoute()]
@@ -2094,61 +1730,32 @@ const toggleMultiGroupRouting = () => {
 }
 
 const addMultiGroupRoute = () => {
-  markRoutingManual()
   formData.value.multi_group_routes.push(createDefaultRoute(getNextRouteGroupId()))
   renumberMultiGroupRoutePriorities()
 }
 
 const removeMultiGroupRoute = (index: number) => {
-  markRoutingManual()
   formData.value.multi_group_routes.splice(index, 1)
   renumberMultiGroupRoutePriorities()
 }
 
 const handleRouteOrderChanged = () => {
-  markRoutingManual()
   renumberMultiGroupRoutePriorities()
 }
 
 const updateRouteGroup = (route: ApiKeyMultiGroupRouteForm, value: string | number | boolean | null) => {
-  markRoutingManual()
   route.group_id = typeof value === 'number' ? value : null
 }
 
 const handleDefaultGroupChanged = (value: string | number | boolean | null) => {
-  defaultGroupTouched.value = true
   formData.value.group_id = typeof value === 'number' ? value : null
 }
-
-const syncCurrentRoutingPreset = () => {
-  if (!showCreateModal.value || showEditModal.value || routingPreset.value === 'manual') {
-    return
-  }
-  applyRoutingPreset(routingPreset.value, { preserveTouchedDefaultGroup: true })
-}
-
-const parseModelPatternsText = (value: string): string[] => {
-  return (value || '')
-    .split(/[\n,]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .filter((item, index, arr) =>
-      arr.findIndex((candidate) => candidate.toLowerCase() === item.toLowerCase()) === index
-    )
-}
-
-const formatModelPatternsText = (patterns?: string[]) => (patterns || []).join('\n')
 
 const normalizeRouteForm = (route: ApiKeyMultiGroupRoute): ApiKeyMultiGroupRouteForm => ({
   client_id: createRouteClientId(),
   group_id: route.group_id,
   priority: route.priority || 100,
-  weight: route.weight > 0 ? route.weight : 1,
-  cooldown_seconds: route.cooldown_seconds >= 0 ? route.cooldown_seconds : 30,
-  enabled: route.enabled,
-  model_patterns_text: formatModelPatternsText(route.model_patterns),
-  image_only: Boolean(route.image_only),
-  text_only: Boolean(route.text_only)
+  enabled: route.enabled
 })
 
 const normalizeRouteForms = (routes: ApiKeyMultiGroupRoute[]): ApiKeyMultiGroupRouteForm[] => {
@@ -2160,33 +1767,22 @@ const normalizeRouteForms = (routes: ApiKeyMultiGroupRoute[]): ApiKeyMultiGroupR
       return priorityA === priorityB ? a.index - b.index : priorityA - priorityB
     })
     .map(({ route }) => normalizeRouteForm(route))
+  normalized.forEach((route, index) => {
+    route.priority = index + 1
+  })
   return normalized
 }
 
 const buildMultiGroupRoutes = (): ApiKeyMultiGroupRoute[] => {
-  return formData.value.multi_group_routes.map((route) => {
-    const modelPatterns = parseModelPatternsText(route.model_patterns_text)
+  return formData.value.multi_group_routes.map((route, index) => {
     return {
       group_id: route.group_id as number,
-      priority: Number.isFinite(route.priority) && route.priority > 0 ? Number(route.priority) : 100,
-      weight: Number.isFinite(route.weight) ? Math.max(1, Number(route.weight)) : 1,
-      cooldown_seconds: Number.isFinite(route.cooldown_seconds)
-        ? Math.max(0, Number(route.cooldown_seconds))
-        : 30,
-      enabled: route.enabled,
-      ...(modelPatterns.length > 0 ? { model_patterns: modelPatterns } : {}),
-      ...(route.image_only ? { image_only: true } : {}),
-      ...(route.text_only ? { text_only: true } : {})
+      priority: index + 1,
+      weight: 1,
+      cooldown_seconds: 30,
+      enabled: Boolean(route.enabled)
     }
   })
-}
-
-const routeScopeKey = (route: ApiKeyMultiGroupRouteForm) => {
-  const patterns = parseModelPatternsText(route.model_patterns_text)
-    .map((pattern) => pattern.toLowerCase())
-    .sort()
-    .join(',')
-  return `${route.group_id}|${route.image_only ? 'image' : ''}|${route.text_only ? 'text' : ''}|${patterns}`
 }
 
 const validateMultiGroupRoutes = (): ApiKeyMultiGroupRoute[] | null => {
@@ -2201,12 +1797,8 @@ const validateMultiGroupRoutes = (): ApiKeyMultiGroupRoute[] | null => {
     appStore.showError(t('keys.routeGroupRequired'))
     return null
   }
-  if (formData.value.multi_group_routes.some((route) => route.image_only && route.text_only)) {
-    appStore.showError(t('keys.routeScopeConflict'))
-    return null
-  }
-  const routeScopes = formData.value.multi_group_routes.map(routeScopeKey)
-  if (new Set(routeScopes).size !== routeScopes.length) {
+  const routeGroupIds = formData.value.multi_group_routes.map((route) => route.group_id)
+  if (new Set(routeGroupIds).size !== routeGroupIds.length) {
     appStore.showError(t('keys.routeDuplicateGroup'))
     return null
   }
@@ -2366,7 +1958,6 @@ const loadApiKeys = async () => {
 const loadGroups = async () => {
   try {
     groups.value = await userGroupsAPI.getAvailable()
-    syncCurrentRoutingPreset()
   } catch (error) {
     console.error('Failed to load groups:', error)
   }
@@ -2375,7 +1966,6 @@ const loadGroups = async () => {
 const loadUserGroupRates = async () => {
   try {
     userGroupRates.value = await userGroupsAPI.getUserGroupRates()
-    syncCurrentRoutingPreset()
   } catch (error) {
     console.error('Failed to load user group rates:', error)
   }
@@ -2419,8 +2009,6 @@ const handleSort = (key: string, order: 'asc' | 'desc') => {
 
 const editKey = (key: ApiKey) => {
   selectedKey.value = key
-  routingPreset.value = 'manual'
-  defaultGroupTouched.value = true
   const hasIPRestriction = (key.ip_whitelist?.length > 0) || (key.ip_blacklist?.length > 0)
   const hasExpiration = !!key.expires_at
   const multiGroupRoutes = normalizeRouteForms(key.multi_group_routes || [])
@@ -2536,7 +2124,6 @@ const openCreateModal = () => {
   showEditModal.value = false
   closeModals()
   showCreateModal.value = true
-  applyRoutingPreset('optimal')
 }
 
 const handleSubmit = async () => {
@@ -2694,8 +2281,6 @@ const closeModals = () => {
   showCreateModal.value = false
   showEditModal.value = false
   selectedKey.value = null
-  routingPreset.value = 'optimal'
-  defaultGroupTouched.value = false
   formData.value = {
     name: '',
     group_id: null,

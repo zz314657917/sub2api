@@ -232,6 +232,7 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 				group.FieldFallbackGroupIDOnInvalidRequest,
 				group.FieldModelRoutingEnabled,
 				group.FieldModelRouting,
+				group.FieldModelMatchPatterns,
 				group.FieldMcpXMLInject,
 				group.FieldSupportedModelScopes,
 				group.FieldAllowMessagesDispatch,
@@ -527,6 +528,49 @@ func (r *apiKeyRepository) VerifyOwnership(ctx context.Context, userID int64, ap
 func (r *apiKeyRepository) CountByUserID(ctx context.Context, userID int64) (int64, error) {
 	count, err := r.activeQuery().Where(apikey.UserIDEQ(userID)).Count(ctx)
 	return int64(count), err
+}
+
+// BackfillDefaultKeyFallbackGroup updates the lowest non-deleted API-key ID per
+// user only when that default key is still ungrouped. RETURNING provides the
+// exact cache keys changed by the guarded update.
+func (r *apiKeyRepository) BackfillDefaultKeyFallbackGroup(ctx context.Context, groupID int64) ([]string, error) {
+	if groupID <= 0 {
+		return nil, service.ErrDefaultKeyFallbackGroupInvalid
+	}
+	placeholder := "$1"
+	if r.isSQLite() {
+		placeholder = "?"
+	}
+	rows, err := r.executor(ctx).QueryContext(ctx, `
+		WITH default_keys AS (
+			SELECT MIN(id) AS id
+			FROM api_keys
+			WHERE deleted_at IS NULL
+			GROUP BY user_id
+		)
+		UPDATE api_keys
+		SET group_id = `+placeholder+`, updated_at = CURRENT_TIMESTAMP
+		WHERE deleted_at IS NULL
+			AND group_id IS NULL
+			AND id IN (SELECT id FROM default_keys)
+		RETURNING key`, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	keys := make([]string, 0)
+	for rows.Next() {
+		var key string
+		if err := rows.Scan(&key); err != nil {
+			return nil, err
+		}
+		keys = append(keys, key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return keys, nil
 }
 
 func (r *apiKeyRepository) ExistsByKey(ctx context.Context, key string) (bool, error) {
@@ -940,6 +984,15 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 func marshalAPIKeyMultiGroupRoutes(routes []domain.APIKeyMultiGroupRoute) (string, error) {
 	if routes == nil {
 		routes = []domain.APIKeyMultiGroupRoute{}
+	} else {
+		// Legacy model patterns remain readable for the explicit S91 migration,
+		// but the repository must not write them back on ordinary API-key saves.
+		sanitized := make([]domain.APIKeyMultiGroupRoute, len(routes))
+		copy(sanitized, routes)
+		for i := range sanitized {
+			sanitized[i].ModelPatterns = nil
+		}
+		routes = sanitized
 	}
 	data, err := json.Marshal(routes)
 	if err != nil {
@@ -1226,6 +1279,7 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 		FallbackGroupIDOnInvalidRequest: g.FallbackGroupIDOnInvalidRequest,
 		ModelRouting:                    g.ModelRouting,
 		ModelRoutingEnabled:             g.ModelRoutingEnabled,
+		ModelMatchPatterns:              service.NormalizeGroupModelMatchPatterns(g.ModelMatchPatterns),
 		MCPXMLInject:                    g.McpXMLInject,
 		SupportedModelScopes:            g.SupportedModelScopes,
 		SortOrder:                       g.SortOrder,

@@ -487,6 +487,7 @@ func TestImageCreatorServiceCreateTaskAllowsRouteImageGroup(t *testing.T) {
 				Hydrated:             true,
 				RoutingScope:         GroupRoutingScopeImage,
 				AllowImageGeneration: true,
+				ModelMatchPatterns:   []string{"gpt-image-*"},
 			},
 		},
 	}}, &fakeImageGenerator{}, ImageCreatorServiceOptions{
@@ -738,6 +739,7 @@ func TestImageCreatorServiceProcessTaskAllowsRouteImageGroup(t *testing.T) {
 				Hydrated:             true,
 				RoutingScope:         GroupRoutingScopeImage,
 				AllowImageGeneration: true,
+				ModelMatchPatterns:   []string{"gpt-image-*"},
 			},
 		},
 	}}, generator, ImageCreatorServiceOptions{

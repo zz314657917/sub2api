@@ -35,12 +35,15 @@ var (
 	ErrAPIKeyQuotaExhausted = infraerrors.TooManyRequests("API_KEY_QUOTA_EXHAUSTED", "api key 额度已用完")
 
 	// Rate limit errors
-	ErrAPIKeyRateLimit5hExceeded = infraerrors.TooManyRequests("API_KEY_RATE_5H_EXCEEDED", "api key 5小时限额已用完")
-	ErrAPIKeyRateLimit1dExceeded = infraerrors.TooManyRequests("API_KEY_RATE_1D_EXCEEDED", "api key 日限额已用完")
-	ErrAPIKeyRateLimit7dExceeded = infraerrors.TooManyRequests("API_KEY_RATE_7D_EXCEEDED", "api key 7天限额已用完")
-	ErrAPIKeyRouteInvalid        = infraerrors.BadRequest("API_KEY_ROUTE_INVALID", "api key multi-group route is invalid")
-	ErrAPIKeyPoolStrategyInvalid = infraerrors.BadRequest("API_KEY_POOL_STRATEGY_INVALID", "api key account pool strategy is invalid")
-	ErrAPIKeyDefaultProtected    = infraerrors.Forbidden("API_KEY_DEFAULT_PROTECTED", "默认 API Key 不能删除，可修改它的分组或模型路由")
+	ErrAPIKeyRateLimit5hExceeded         = infraerrors.TooManyRequests("API_KEY_RATE_5H_EXCEEDED", "api key 5小时限额已用完")
+	ErrAPIKeyRateLimit1dExceeded         = infraerrors.TooManyRequests("API_KEY_RATE_1D_EXCEEDED", "api key 日限额已用完")
+	ErrAPIKeyRateLimit7dExceeded         = infraerrors.TooManyRequests("API_KEY_RATE_7D_EXCEEDED", "api key 7天限额已用完")
+	ErrAPIKeyRouteInvalid                = infraerrors.BadRequest("API_KEY_ROUTE_INVALID", "api key multi-group route is invalid")
+	ErrAPIKeyModelPatternsManagedByGroup = infraerrors.BadRequest("API_KEY_MODEL_PATTERNS_MANAGED_BY_GROUP", "model patterns are managed by the group administrator")
+	ErrAPIKeyPoolStrategyInvalid         = infraerrors.BadRequest("API_KEY_POOL_STRATEGY_INVALID", "api key account pool strategy is invalid")
+	ErrAPIKeyDefaultProtected            = infraerrors.Forbidden("API_KEY_DEFAULT_PROTECTED", "默认 API Key 不能删除，可修改它的分组或模型路由")
+	ErrDefaultKeyFallbackGroupRequired   = infraerrors.BadRequest("DEFAULT_KEY_FALLBACK_GROUP_REQUIRED", "请先在系统设置中选择默认 Key 兜底分组")
+	ErrDefaultKeyFallbackGroupInvalid    = infraerrors.BadRequest("DEFAULT_KEY_FALLBACK_GROUP_INVALID", "默认 Key 兜底分组不存在或未启用")
 )
 
 const (
@@ -534,7 +537,9 @@ func normalizeAPIKeyMultiGroupRoutes(routes []domain.APIKeyMultiGroupRoute) []do
 	out := make([]domain.APIKeyMultiGroupRoute, 0, len(routes))
 	seen := make(map[string]struct{}, len(routes))
 	for _, route := range routes {
-		route.ModelPatterns = normalizeAPIKeyRouteModelPatterns(route.ModelPatterns)
+		// Request model matching is administrator-owned on the group. Keep the
+		// legacy field readable for migration, but never persist it again.
+		route.ModelPatterns = nil
 		if route.GroupID <= 0 {
 			out = append(out, route)
 			continue
@@ -558,38 +563,8 @@ func normalizeAPIKeyMultiGroupRoutes(routes []domain.APIKeyMultiGroupRoute) []do
 	return out
 }
 
-func normalizeAPIKeyRouteModelPatterns(patterns []string) []string {
-	if len(patterns) == 0 {
-		return nil
-	}
-	out := make([]string, 0, len(patterns))
-	seen := make(map[string]struct{}, len(patterns))
-	for _, pattern := range patterns {
-		pattern = strings.TrimSpace(pattern)
-		if pattern == "" {
-			continue
-		}
-		key := strings.ToLower(pattern)
-		if _, ok := seen[key]; ok {
-			continue
-		}
-		seen[key] = struct{}{}
-		out = append(out, pattern)
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
 func apiKeyRouteDedupKey(route domain.APIKeyMultiGroupRoute) string {
-	patterns := make([]string, 0, len(route.ModelPatterns))
-	for _, pattern := range route.ModelPatterns {
-		if pattern = strings.TrimSpace(pattern); pattern != "" {
-			patterns = append(patterns, strings.ToLower(pattern))
-		}
-	}
-	return fmt.Sprintf("%d|%t|%t|%s", route.GroupID, route.ImageOnly, route.TextOnly, strings.Join(patterns, "\n"))
+	return fmt.Sprintf("%d|%t|%t", route.GroupID, route.ImageOnly, route.TextOnly)
 }
 
 func (s *APIKeyService) validateAPIKeyRouteGroups(ctx context.Context, user *User, routes []domain.APIKeyMultiGroupRoute, skipPermissionCheck bool) error {
@@ -647,9 +622,12 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		}
 
 		// 检查用户是否可以绑定该分组
-		if !s.canUserBindGroup(ctx, user, group) {
+		if !req.SkipGroupPermissionCheck && !s.canUserBindGroup(ctx, user, group) {
 			return nil, ErrGroupNotAllowed
 		}
+	}
+	if !req.SkipGroupPermissionCheck && apiKeyRoutesContainModelPatterns(req.MultiGroupRoutes) {
+		return nil, ErrAPIKeyModelPatternsManagedByGroup
 	}
 	multiGroupRoutes := normalizeAPIKeyMultiGroupRoutes(req.MultiGroupRoutes)
 	if err := s.validateAPIKeyRouteGroups(ctx, user, multiGroupRoutes, req.SkipGroupPermissionCheck); err != nil {
@@ -744,9 +722,11 @@ func (s *APIKeyService) EnsureInitialKey(ctx context.Context, userID int64) (*AP
 	if count > 0 {
 		return nil, false, nil
 	}
+	fallbackGroupID, routes := s.buildInitialDefaultAPIKeyRouting(ctx)
 	key, err := s.Create(ctx, userID, CreateAPIKeyRequest{
 		Name:                     DefaultAPIKeyName,
-		MultiGroupRoutes:         s.buildInitialDefaultAPIKeyRoutes(ctx),
+		GroupID:                  fallbackGroupID,
+		MultiGroupRoutes:         routes,
 		AccountPoolStrategy:      AccountPoolStrategySharedOnly,
 		SkipGroupPermissionCheck: true,
 	})
@@ -757,16 +737,20 @@ func (s *APIKeyService) EnsureInitialKey(ctx context.Context, userID int64) (*AP
 	return key, true, nil
 }
 
-func (s *APIKeyService) buildInitialDefaultAPIKeyRoutes(ctx context.Context) []domain.APIKeyMultiGroupRoute {
+func (s *APIKeyService) buildInitialDefaultAPIKeyRouting(ctx context.Context) (*int64, []domain.APIKeyMultiGroupRoute) {
 	if s == nil || s.studioBridgeDefaults == nil || s.groupRepo == nil {
-		return nil
+		return nil, nil
 	}
 	settings, err := s.studioBridgeDefaults.GetStudioBridgeLuoyeAISettings(ctx)
 	if err != nil || settings == nil {
-		return nil
+		return nil, nil
+	}
+	var fallbackGroupID *int64
+	if groupID := s.validStudioBridgeFallbackGroupID(ctx, settings.DefaultFallbackGroup); groupID > 0 {
+		fallbackGroupID = &groupID
 	}
 	if routes := s.buildInitialDefaultAPIKeyRoutesFromSettings(ctx, settings.DefaultAPIRoutes); len(routes) > 0 {
-		return routes
+		return fallbackGroupID, routes
 	}
 	routes := make([]domain.APIKeyMultiGroupRoute, 0, 3)
 	if groupID := s.validStudioBridgeDefaultGroupID(ctx, settings.DefaultChatGroup); groupID > 0 {
@@ -796,13 +780,49 @@ func (s *APIKeyService) buildInitialDefaultAPIKeyRoutes(ctx context.Context) []d
 			Weight:          apiKeyRouteDefaultWeight,
 			CooldownSeconds: apiKeyRouteDefaultCooldown,
 			Enabled:         true,
-			ModelPatterns:   []string{"doubao-seedance-*", "*-video-*"},
 		})
 	}
 	if len(routes) == 0 {
-		return nil
+		return fallbackGroupID, nil
 	}
-	return routes
+	return fallbackGroupID, routes
+}
+
+type defaultAPIKeyFallbackBackfillRepository interface {
+	BackfillDefaultKeyFallbackGroup(ctx context.Context, groupID int64) ([]string, error)
+}
+
+// BackfillDefaultKeyFallbackGroup fills only each user's current default key
+// when it is still ungrouped. Existing routes and explicitly selected groups
+// remain untouched.
+func (s *APIKeyService) BackfillDefaultKeyFallbackGroup(ctx context.Context) (int64, int, error) {
+	if s == nil || s.studioBridgeDefaults == nil || s.groupRepo == nil {
+		return 0, 0, ErrDefaultKeyFallbackGroupRequired
+	}
+	settings, err := s.studioBridgeDefaults.GetStudioBridgeLuoyeAISettings(ctx)
+	if err != nil || settings == nil || strings.TrimSpace(settings.DefaultFallbackGroup) == "" {
+		return 0, 0, ErrDefaultKeyFallbackGroupRequired
+	}
+	groupID := parseStudioBridgeDefaultGroupID(settings.DefaultFallbackGroup)
+	if groupID <= 0 {
+		return 0, 0, ErrDefaultKeyFallbackGroupInvalid
+	}
+	group, err := s.groupRepo.GetByID(ctx, groupID)
+	if err != nil || group == nil || !group.IsActive() {
+		return 0, 0, ErrDefaultKeyFallbackGroupInvalid
+	}
+	backfiller, ok := s.apiKeyRepo.(defaultAPIKeyFallbackBackfillRepository)
+	if !ok {
+		return 0, 0, fmt.Errorf("default key fallback backfill is unavailable")
+	}
+	keys, err := backfiller.BackfillDefaultKeyFallbackGroup(ctx, groupID)
+	if err != nil {
+		return 0, 0, fmt.Errorf("backfill default key fallback group: %w", err)
+	}
+	for _, key := range keys {
+		s.InvalidateAuthCacheByKey(ctx, key)
+	}
+	return groupID, len(keys), nil
 }
 
 func (s *APIKeyService) buildInitialDefaultAPIKeyRoutesFromSettings(ctx context.Context, settingsRoutes []StudioBridgeDefaultAPIRoute) []domain.APIKeyMultiGroupRoute {
@@ -821,7 +841,6 @@ func (s *APIKeyService) buildInitialDefaultAPIKeyRoutesFromSettings(ctx context.
 			Weight:          settingsRoute.Weight,
 			CooldownSeconds: settingsRoute.CooldownSeconds,
 			Enabled:         settingsRoute.Enabled,
-			ModelPatterns:   settingsRoute.ModelPatterns,
 			ImageOnly:       settingsRoute.ImageOnly,
 			TextOnly:        settingsRoute.TextOnly,
 		}
@@ -840,6 +859,18 @@ func (s *APIKeyService) validStudioBridgeDefaultGroupID(ctx context.Context, raw
 		return 0
 	}
 	return group.ID
+}
+
+func (s *APIKeyService) validStudioBridgeFallbackGroupID(ctx context.Context, raw string) int64 {
+	groupID := parseStudioBridgeDefaultGroupID(raw)
+	if groupID <= 0 || s == nil || s.groupRepo == nil {
+		return 0
+	}
+	group, err := s.groupRepo.GetByID(ctx, groupID)
+	if err != nil || group == nil || !group.IsActive() {
+		return 0
+	}
+	return groupID
 }
 
 func parseStudioBridgeDefaultGroupID(raw string) int64 {
@@ -983,6 +1014,9 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if apiKey.UserID != userID {
 		return nil, ErrInsufficientPerms
 	}
+	if apiKeyRoutesContainModelPatterns(req.MultiGroupRoutes) {
+		return nil, ErrAPIKeyModelPatternsManagedByGroup
+	}
 
 	// 验证 IP 白名单格式
 	if req.IPWhitelist != nil && len(*req.IPWhitelist) > 0 {
@@ -1032,6 +1066,9 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 		}
 		apiKey.MultiGroupRoutes = routes
 	}
+	// Clear any legacy route rules carried by a pre-S91 key before persisting
+	// unrelated updates as well.
+	apiKey.MultiGroupRoutes = normalizeAPIKeyMultiGroupRoutes(apiKey.MultiGroupRoutes)
 	if req.AccountPoolStrategy != nil {
 		if !IsValidAccountPoolStrategy(*req.AccountPoolStrategy) {
 			return nil, ErrAPIKeyPoolStrategyInvalid
@@ -1113,6 +1150,15 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	}
 
 	return apiKey, nil
+}
+
+func apiKeyRoutesContainModelPatterns(routes []domain.APIKeyMultiGroupRoute) bool {
+	for _, route := range routes {
+		if route.ModelPatterns != nil {
+			return true
+		}
+	}
+	return false
 }
 
 // applyAPIKeyIPRestrictions applies only the IP lists explicitly present in a

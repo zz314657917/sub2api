@@ -1575,6 +1575,18 @@
           </p>
         </div>
 
+        <!-- 分组请求模型匹配（由管理员统一维护） -->
+        <div class="border-t pt-4">
+          <label class="input-label">{{ t("admin.groups.modelMatch.title") }}</label>
+          <textarea
+            v-model="createForm.model_match_patterns_text"
+            rows="3"
+            class="input min-h-[5rem] resize-y"
+            :placeholder="t('admin.groups.modelMatch.placeholder')"
+          />
+          <p class="input-hint">{{ t("admin.groups.modelMatch.hint") }}</p>
+        </div>
+
         <!-- 模型路由配置（仅 anthropic 平台） -->
         <div v-if="createForm.platform === 'anthropic'" class="border-t pt-4">
           <div class="mb-1.5 flex items-center gap-1">
@@ -3007,6 +3019,18 @@
           </p>
         </div>
 
+        <!-- 分组请求模型匹配（由管理员统一维护） -->
+        <div class="border-t pt-4">
+          <label class="input-label">{{ t("admin.groups.modelMatch.title") }}</label>
+          <textarea
+            v-model="editForm.model_match_patterns_text"
+            rows="3"
+            class="input min-h-[5rem] resize-y"
+            :placeholder="t('admin.groups.modelMatch.placeholder')"
+          />
+          <p class="input-hint">{{ t("admin.groups.modelMatch.hint") }}</p>
+        </div>
+
         <!-- 模型路由配置（仅 anthropic 平台） -->
         <div v-if="editForm.platform === 'anthropic'" class="border-t pt-4">
           <div class="mb-1.5 flex items-center gap-1">
@@ -3761,6 +3785,7 @@ const createForm = reactive({
   require_privacy_set: false,
   // 模型路由开关
   model_routing_enabled: false,
+  model_match_patterns_text: "",
   // 支持的模型系列（仅 antigravity 平台）
   supported_model_scopes: ["claude", "gemini_text", "gemini_image"] as string[],
   // MCP XML 协议注入开关（仅 antigravity 平台）
@@ -4099,6 +4124,7 @@ const editForm = reactive({
   require_privacy_set: false,
   // 模型路由开关
   model_routing_enabled: false,
+  model_match_patterns_text: "",
   // 支持的模型系列（仅 antigravity 平台）
   supported_model_scopes: ["claude", "gemini_text", "gemini_image"] as string[],
   // MCP XML 协议注入开关（仅 antigravity 平台）
@@ -4716,8 +4742,17 @@ const closeCreateModal = () => {
   createForm.mcp_xml_inject = true;
   createForm.copy_accounts_from_group_ids = [];
   createForm.rpm_limit = 0;
+  createForm.model_match_patterns_text = "";
   resetModelsListState(createModelsListState);
   createModelRoutingRules.value = [];
+};
+
+const normalizeGroupModelMatchPatternsText = (value: string): string[] => {
+  const patterns = (value || "")
+    .split(/[\n,]/)
+    .map((pattern) => pattern.trim().toLowerCase())
+    .filter(Boolean);
+  return [...new Set(patterns)].sort();
 };
 
 const normalizeOptionalLimit = (
@@ -4757,6 +4792,13 @@ const handleCreateGroup = async () => {
     appStore.showError(t("admin.groups.nameRequired"));
     return;
   }
+  const modelMatchPatterns = normalizeGroupModelMatchPatternsText(
+    createForm.model_match_patterns_text,
+  );
+  if (modelMatchPatterns.length === 0) {
+    appStore.showError(t("admin.groups.modelMatch.required"));
+    return;
+  }
   submitting.value = true;
   try {
     // 构建请求数据，包含模型路由配置
@@ -4774,6 +4816,7 @@ const handleCreateGroup = async () => {
       model_routing: convertRoutingRulesToApiFormat(
         createModelRoutingRules.value,
       ),
+      model_match_patterns: modelMatchPatterns,
       models_list_config: buildModelsListConfig(createModelsListState),
       supported_model_scopes: normalizeSupportedModelScopesForPlatform(
         createForm.platform,
@@ -4873,6 +4916,7 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.require_oauth_only = group.require_oauth_only ?? false;
   editForm.require_privacy_set = group.require_privacy_set ?? false;
   editForm.model_routing_enabled = group.model_routing_enabled || false;
+  editForm.model_match_patterns_text = (group.model_match_patterns || []).join("\n");
   editForm.supported_model_scopes = group.supported_model_scopes || [
     "claude",
     "gemini_text",
@@ -4904,6 +4948,7 @@ const closeEditModal = () => {
   editForm.peak_start = "";
   editForm.peak_end = "";
   editForm.peak_rate_multiplier = 1.0;
+  editForm.model_match_patterns_text = "";
   resetMessagesDispatchFormState(editForm);
   resetModelsListState(editModelsListState);
 };
@@ -4912,6 +4957,13 @@ const handleUpdateGroup = async () => {
   if (!editingGroup.value) return;
   if (!editForm.name.trim()) {
     appStore.showError(t("admin.groups.nameRequired"));
+    return;
+  }
+  const modelMatchPatterns = normalizeGroupModelMatchPatternsText(
+    editForm.model_match_patterns_text,
+  );
+  if (modelMatchPatterns.length === 0) {
+    appStore.showError(t("admin.groups.modelMatch.required"));
     return;
   }
 
@@ -4938,6 +4990,7 @@ const handleUpdateGroup = async () => {
       model_routing: convertRoutingRulesToApiFormat(
         editModelRoutingRules.value,
       ),
+      model_match_patterns: modelMatchPatterns,
       models_list_config: buildModelsListConfig(editModelsListState),
       supported_model_scopes: normalizeSupportedModelScopesForPlatform(
         editForm.platform,

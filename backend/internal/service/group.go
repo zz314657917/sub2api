@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -56,6 +57,10 @@ type Group struct {
 	ModelRouting        map[string][]int64
 	ModelRoutingEnabled bool
 
+	// ModelMatchPatterns are administrator-owned request model rules for API-key
+	// group routing. "*" explicitly permits every model.
+	ModelMatchPatterns []string
+
 	// MCP XML 协议注入开关（仅 antigravity 平台使用）
 	MCPXMLInject bool
 
@@ -107,6 +112,88 @@ func (g *Group) AllowsRoutingScope(scope string) bool {
 		return true
 	}
 	return g.EffectiveRoutingScope() == NormalizeGroupRoutingScope(scope, false)
+}
+
+// NormalizeGroupModelMatchPatterns canonicalizes administrator-owned model
+// rules. Empty input is retained as an empty slice so migration preflight can
+// identify groups that still need configuration.
+func NormalizeGroupModelMatchPatterns(patterns []string) []string {
+	if len(patterns) == 0 {
+		return []string{}
+	}
+	out := make([]string, 0, len(patterns))
+	seen := make(map[string]struct{}, len(patterns))
+	for _, pattern := range patterns {
+		pattern = strings.ToLower(strings.TrimSpace(pattern))
+		if pattern == "" {
+			continue
+		}
+		if _, exists := seen[pattern]; exists {
+			continue
+		}
+		seen[pattern] = struct{}{}
+		out = append(out, pattern)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// ValidateGroupModelMatchPatterns normalizes rules and rejects an empty rule
+// set at the administrator write boundary.
+func ValidateGroupModelMatchPatterns(patterns []string) ([]string, error) {
+	normalized := NormalizeGroupModelMatchPatterns(patterns)
+	if len(normalized) == 0 {
+		return nil, ErrGroupModelMatchPatternsRequired
+	}
+	return normalized, nil
+}
+
+// MatchesModel reports whether this group allows a requested model. An empty
+// group rule set is intentionally a non-match; it is a migration blocker.
+func (g *Group) MatchesModel(requestedModel string) bool {
+	if g == nil {
+		return false
+	}
+	model := strings.ToLower(strings.TrimSpace(requestedModel))
+	for _, pattern := range g.ModelMatchPatterns {
+		if matchModelPatternAny(pattern, model) {
+			return true
+		}
+	}
+	return false
+}
+
+func matchModelPatternAny(pattern, model string) bool {
+	pattern = strings.ToLower(strings.TrimSpace(pattern))
+	if pattern == "" {
+		return false
+	}
+	if pattern == "*" {
+		return true
+	}
+	if !strings.Contains(pattern, "*") {
+		return pattern == model
+	}
+	parts := strings.Split(pattern, "*")
+	remaining := model
+	if first := parts[0]; first != "" {
+		if !strings.HasPrefix(remaining, first) {
+			return false
+		}
+		remaining = remaining[len(first):]
+	}
+	for _, part := range parts[1 : len(parts)-1] {
+		if part == "" {
+			continue
+		}
+		idx := strings.Index(remaining, part)
+		if idx < 0 {
+			return false
+		}
+		remaining = remaining[idx+len(part):]
+	}
+	last := parts[len(parts)-1]
+	return last == "" || strings.HasSuffix(remaining, last)
 }
 
 func (g *Group) HasDailyLimit() bool {

@@ -62,8 +62,14 @@ func (r *studioBridgeGroupRepoStub) Create(context.Context, *Group) error {
 	panic("unexpected Create call")
 }
 
-func (r *studioBridgeGroupRepoStub) GetByID(context.Context, int64) (*Group, error) {
-	panic("unexpected GetByID call")
+func (r *studioBridgeGroupRepoStub) GetByID(_ context.Context, id int64) (*Group, error) {
+	for i := range r.groups {
+		if r.groups[i].ID == id {
+			group := r.groups[i]
+			return &group, nil
+		}
+	}
+	return nil, ErrGroupNotFound
 }
 
 func (r *studioBridgeGroupRepoStub) GetByIDLite(context.Context, int64) (*Group, error) {
@@ -192,4 +198,34 @@ func TestSettingServiceParsesLegacyStudioBridgeGroupsAsDefaultAPIRoutes(t *testi
 		{GroupID: "12", Priority: 1, Weight: 1, CooldownSeconds: 30, Enabled: true, ImageOnly: true},
 		{GroupID: "13", Priority: 1, Weight: 1, CooldownSeconds: 30, Enabled: true, ModelPatterns: []string{"doubao-seedance-*", "*-video-*"}},
 	}, parsed.DefaultAPIRoutes)
+}
+
+func TestSettingServiceRoundTripsDefaultKeyFallbackGroup(t *testing.T) {
+	raw, err := marshalStudioBridgeAppSettings(StudioBridgeAppSettings{
+		DefaultFallbackGroup: " 42 ",
+	})
+	require.NoError(t, err)
+
+	parsed := parseStudioBridgeAppSettings(raw)
+
+	require.Equal(t, "42", parsed.DefaultFallbackGroup)
+	require.Contains(t, raw, `"default_fallback_group":"42"`)
+}
+
+func TestSettingServiceValidatesDefaultKeyFallbackGroupOnWrite(t *testing.T) {
+	svc := NewSettingService(&writableStudioBridgeSettingRepo{}, &config.Config{})
+	svc.SetStudioBridgeDefaultGroupReader(&studioBridgeGroupRepoStub{groups: []Group{
+		{ID: 42, Status: StatusActive},
+		{ID: 43, Status: StatusDisabled},
+	}})
+
+	require.NoError(t, svc.validateDefaultKeyFallbackGroup(context.Background(), StudioBridgeAppSettings{
+		DefaultFallbackGroup: "42",
+	}))
+	for _, fallback := range []string{"bad", "43", "99"} {
+		err := svc.validateDefaultKeyFallbackGroup(context.Background(), StudioBridgeAppSettings{
+			DefaultFallbackGroup: fallback,
+		})
+		require.ErrorIs(t, err, ErrDefaultKeyFallbackGroupInvalid)
+	}
 }

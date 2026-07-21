@@ -35,7 +35,13 @@ func (k *APIKey) ResolveForModelRequestWithGroupSkipper(path, forcePlatform, req
 }
 
 func (k *APIKey) resolveForRequest(path, forcePlatform, requestedModel string, imageIntent bool, modelAware bool, skipGroup func(groupID int64) bool) *APIKey {
-	if k == nil || len(k.MultiGroupRoutes) == 0 {
+	if k == nil {
+		return k
+	}
+	if len(k.MultiGroupRoutes) == 0 {
+		if modelAware && k.GroupID != nil && !k.canFallbackToDefaultGroup(path, forcePlatform, requestedModel, imageIntent) {
+			return nil
+		}
 		return k
 	}
 	selected := k.selectRouteGroup(path, forcePlatform, requestedModel, imageIntent, modelAware, skipGroup)
@@ -96,7 +102,7 @@ func (k *APIKey) selectRouteGroup(path, forcePlatform, requestedModel string, im
 }
 
 func (k *APIKey) canFallbackToDefaultGroup(path, forcePlatform, requestedModel string, imageIntent bool) bool {
-	if k == nil || k.GroupID == nil || !IsGroupContextValid(k.Group) || *k.GroupID != k.Group.ID {
+	if k == nil || k.GroupID == nil || !IsGroupContextValid(k.Group) || !k.Group.IsActive() || *k.GroupID != k.Group.ID {
 		return false
 	}
 	platforms := preferredPlatformsForRequest(path, forcePlatform, requestedModel, true)
@@ -107,19 +113,19 @@ func (k *APIKey) canFallbackToDefaultGroup(path, forcePlatform, requestedModel s
 	if !apiKeyRouteMatchesGroupScope(k.Group, routingScope) {
 		return false
 	}
+	if !k.Group.MatchesModel(requestedModel) {
+		return false
+	}
 
 	hasExplicitRoute := false
 	for _, route := range k.MultiGroupRoutes {
 		if !route.Enabled || route.GroupID != k.Group.ID {
 			continue
 		}
-		if !apiKeyRouteHasModelRules(route) {
-			return true
-		}
-		hasExplicitRoute = true
 		if apiKeyRouteMatchesModelRequest(route, k.Group, requestedModel, imageIntent) {
 			return true
 		}
+		hasExplicitRoute = true
 	}
 	return !hasExplicitRoute
 }
@@ -231,7 +237,7 @@ func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, sk
 			}
 		}
 		if modelAware {
-			hasModelRules := apiKeyRouteHasModelRules(route)
+			hasModelRules := apiKeyRouteHasModelRules(route, group)
 			if explicitRulesOnly && !hasModelRules {
 				continue
 			}
@@ -259,8 +265,8 @@ func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, sk
 	return candidates
 }
 
-func apiKeyRouteHasModelRules(route domain.APIKeyMultiGroupRoute) bool {
-	return len(route.ModelPatterns) > 0 || route.ImageOnly || route.TextOnly
+func apiKeyRouteHasModelRules(route domain.APIKeyMultiGroupRoute, group *Group) bool {
+	return (group != nil && len(group.ModelMatchPatterns) > 0) || route.ImageOnly || route.TextOnly
 }
 
 func apiKeyRouteMatchesGroupScope(group *Group, routingScope string) bool {
@@ -290,15 +296,7 @@ func apiKeyRouteMatchesModelRequest(route domain.APIKeyMultiGroupRoute, group *G
 	if imageIntent && (group == nil || group.Platform != PlatformOpenAI || !group.AllowImageGeneration) {
 		return false
 	}
-	if len(route.ModelPatterns) == 0 {
-		return true
-	}
-	for _, pattern := range route.ModelPatterns {
-		if matchAPIKeyRouteModelPattern(pattern, requestedModel) {
-			return true
-		}
-	}
-	return false
+	return group != nil && group.MatchesModel(requestedModel)
 }
 
 func RoutingScopeForRequest(path, requestedModel string, imageIntent bool) string {
@@ -329,45 +327,6 @@ func IsEmbeddingEndpoint(endpoint string) bool {
 func isEmbeddingModel(model string) bool {
 	model = strings.ToLower(strings.TrimSpace(model))
 	return strings.Contains(model, "embedding") || strings.Contains(model, "embeddings")
-}
-
-func matchAPIKeyRouteModelPattern(pattern, model string) bool {
-	pattern = strings.ToLower(strings.TrimSpace(pattern))
-	model = strings.ToLower(strings.TrimSpace(model))
-	if pattern == "" {
-		return false
-	}
-	if pattern == "*" {
-		return true
-	}
-	if !strings.Contains(pattern, "*") {
-		return pattern == model
-	}
-	segments := strings.Split(pattern, "*")
-	remaining := model
-	if first := segments[0]; first != "" {
-		if !strings.HasPrefix(remaining, first) {
-			return false
-		}
-		remaining = remaining[len(first):]
-	}
-	lastIndex := len(segments) - 1
-	for i := 1; i < lastIndex; i++ {
-		segment := segments[i]
-		if segment == "" {
-			continue
-		}
-		index := strings.Index(remaining, segment)
-		if index < 0 {
-			return false
-		}
-		remaining = remaining[index+len(segment):]
-	}
-	last := segments[lastIndex]
-	if last == "" {
-		return true
-	}
-	return strings.HasSuffix(remaining, last)
 }
 
 func pickWeightedRouteGroup(candidates []apiKeyRouteCandidate) *Group {

@@ -729,6 +729,7 @@ export interface AdminGroup extends Group {
   // 模型路由配置（仅管理员可见，内部信息）
   model_routing: Record<string, number[]> | null
   model_routing_enabled: boolean
+  model_match_patterns: string[]
 
   // MCP XML 协议注入（仅 antigravity 平台使用）
   mcp_xml_inject: boolean
@@ -869,6 +870,7 @@ export interface CreateGroupRequest {
   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig
   model_routing?: Record<string, number[]> | null
   model_routing_enabled?: boolean
+  model_match_patterns?: string[]
   rpm_limit?: number
   require_oauth_only?: boolean
   require_privacy_set?: boolean
@@ -909,6 +911,7 @@ export interface UpdateGroupRequest {
   messages_dispatch_model_config?: OpenAIMessagesDispatchModelConfig
   model_routing?: Record<string, number[]> | null
   model_routing_enabled?: boolean
+  model_match_patterns?: string[]
   rpm_limit?: number
   require_oauth_only?: boolean
   require_privacy_set?: boolean

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
@@ -169,6 +170,57 @@ func (s *APIKeyRepoSuite) TestUpdate_ClearGroupID() {
 	got, err := s.repo.GetByID(s.ctx, key.ID)
 	s.Require().NoError(err)
 	s.Require().Nil(got.GroupID, "expected GroupID to be cleared")
+}
+
+func (s *APIKeyRepoSuite) TestBackfillDefaultKeyFallback() {
+	fallback := s.mustCreateGroup("g-default-fallback")
+	existing := s.mustCreateGroup("g-existing-default")
+
+	ungroupedUser := s.mustCreateUser("fallback-ungrouped@test.com")
+	ungroupedDefault := s.mustCreateApiKey(ungroupedUser.ID, "sk-fallback-default", "Default", nil)
+	ungroupedDefault.MultiGroupRoutes = []domain.APIKeyMultiGroupRoute{{
+		GroupID:  fallback.ID,
+		Priority: 7,
+		Weight:   2,
+		Enabled:  true,
+	}}
+	s.Require().NoError(s.repo.Update(s.ctx, ungroupedDefault))
+	ungroupedSecondary := s.mustCreateApiKey(ungroupedUser.ID, "sk-fallback-secondary", "Secondary", nil)
+
+	groupedUser := s.mustCreateUser("fallback-grouped@test.com")
+	groupedDefault := s.mustCreateApiKey(groupedUser.ID, "sk-grouped-default", "Default", &existing.ID)
+	groupedSecondary := s.mustCreateApiKey(groupedUser.ID, "sk-grouped-secondary", "Secondary", nil)
+
+	deletedFirstUser := s.mustCreateUser("fallback-deleted-first@test.com")
+	deletedFirst := s.mustCreateApiKey(deletedFirstUser.ID, "sk-deleted-first", "Deleted", nil)
+	s.Require().NoError(s.repo.Delete(s.ctx, deletedFirst.ID))
+	activeDefault := s.mustCreateApiKey(deletedFirstUser.ID, "sk-active-default", "Default", nil)
+
+	keys, err := s.repo.BackfillDefaultKeyFallbackGroup(s.ctx, fallback.ID)
+
+	s.Require().NoError(err)
+	s.Require().ElementsMatch([]string{"sk-fallback-default", "sk-active-default"}, keys)
+
+	gotUngroupedDefault, err := s.repo.GetByID(s.ctx, ungroupedDefault.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(fallback.ID, *gotUngroupedDefault.GroupID)
+	s.Require().Equal(ungroupedDefault.MultiGroupRoutes, gotUngroupedDefault.MultiGroupRoutes)
+
+	gotUngroupedSecondary, err := s.repo.GetByID(s.ctx, ungroupedSecondary.ID)
+	s.Require().NoError(err)
+	s.Require().Nil(gotUngroupedSecondary.GroupID)
+
+	gotGroupedDefault, err := s.repo.GetByID(s.ctx, groupedDefault.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(existing.ID, *gotGroupedDefault.GroupID)
+
+	gotGroupedSecondary, err := s.repo.GetByID(s.ctx, groupedSecondary.ID)
+	s.Require().NoError(err)
+	s.Require().Nil(gotGroupedSecondary.GroupID)
+
+	gotActiveDefault, err := s.repo.GetByID(s.ctx, activeDefault.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(fallback.ID, *gotActiveDefault.GroupID)
 }
 
 // --- Delete ---

@@ -246,15 +246,15 @@ func TestGatewayModels_MultiGroupRoutesAggregateRoutableModels(t *testing.T) {
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, ModelMatchPatterns: []string{"gpt-*"}, Hydrated: true},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true, ModelPatterns: []string{"gpt-*"}},
 			{GroupID: imageGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true, ModelPatterns: []string{"gpt-image-*"}},
 			{GroupID: videoGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"doubao-seedance-*"}},
 		},
 		MultiGroupRouteGroups: []*service.Group{
-			{ID: imageGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeImage, AllowImageGeneration: true, Hydrated: true},
-			{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, Hydrated: true},
+			{ID: imageGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeImage, ModelMatchPatterns: []string{"gpt-image-*"}, AllowImageGeneration: true, Hydrated: true},
+			{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, ModelMatchPatterns: []string{"doubao-seedance-*"}, Hydrated: true},
 		},
 	})
 
@@ -308,7 +308,7 @@ func TestGatewayModels_ForcedPlatformSkipsMultiGroupRouteAggregation(t *testing.
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	c.Set(string(middleware2.ContextKeyForcePlatform), service.PlatformGemini)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, ModelMatchPatterns: []string{"gpt-*"}, Hydrated: true},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true, ModelPatterns: []string{"gpt-*"}},
 			{GroupID: imageGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true, ModelPatterns: []string{"gpt-image-*"}},
@@ -380,15 +380,15 @@ func TestGatewayModelCatalog_MultiGroupRoutesAggregateCapabilities(t *testing.T)
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1/model-catalog", nil)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, ModelMatchPatterns: []string{"gpt-*"}, Hydrated: true},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
 			{GroupID: imageGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true},
 			{GroupID: videoGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"sora-*"}},
 		},
 		MultiGroupRouteGroups: []*service.Group{
-			{ID: imageGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeImage, AllowImageGeneration: true, Hydrated: true},
-			{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, Hydrated: true},
+			{ID: imageGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeImage, ModelMatchPatterns: []string{"gpt-image-*"}, AllowImageGeneration: true, Hydrated: true},
+			{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, ModelMatchPatterns: []string{"sora-*"}, Hydrated: true},
 		},
 	})
 
@@ -439,13 +439,13 @@ func TestGatewayModels_MultiGroupRoutesExpandVideoWildcardFromDefaultCatalog(t *
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, ModelMatchPatterns: []string{"gpt-*"}, Hydrated: true},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true, ModelPatterns: []string{"gpt-*"}},
 			{GroupID: videoGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"doubao-seedance-*"}},
 		},
 		MultiGroupRouteGroups: []*service.Group{
-			{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, Hydrated: true},
+			{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, ModelMatchPatterns: []string{"doubao-seedance-*"}, Hydrated: true},
 		},
 	})
 
@@ -499,7 +499,7 @@ func TestGatewayModels_MultiGroupRoutesDoNotExposeUnsupportedExactPattern(t *tes
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, ModelMatchPatterns: []string{"gpt-*"}, Hydrated: true},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
 			{GroupID: videoGroupID, Priority: 1, Weight: 1, Enabled: true, ModelPatterns: []string{"veo3.1-fast"}},
@@ -519,6 +519,51 @@ func TestGatewayModels_MultiGroupRoutesDoNotExposeUnsupportedExactPattern(t *tes
 	require.Contains(t, ids, "gpt-5.4")
 	require.NotContains(t, ids, "veo3.1-fast")
 	require.NotContains(t, ids, "sora-2")
+}
+
+func TestGatewayModels_MultiGroupRoutesDoNotFallbackWhenGroupRulesRejectAllModels(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	groupID := int64(10058)
+	h := newGatewayModelsHandlerForTest(
+		&gatewayModelsAccountRepoStub{
+			byGroup: map[int64][]service.Account{
+				groupID: {
+					{
+						ID:       1,
+						Platform: service.PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{"gpt-5.4": "gpt-5.4"},
+						},
+					},
+				},
+			},
+		},
+	)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		Group: &service.Group{
+			ID:                 groupID,
+			Platform:           service.PlatformOpenAI,
+			Status:             service.StatusActive,
+			RoutingScope:       service.GroupRoutingScopeInference,
+			ModelMatchPatterns: []string{"claude-*"},
+			Hydrated:           true,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{{
+			GroupID: groupID, Priority: 1, Weight: 1, Enabled: true,
+		}},
+	})
+
+	h.Models(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var got gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.Empty(t, got.Data)
 }
 
 func TestGatewayModels_MultiGroupRoutesDoNotExposeImageGroupWhenGenerationDisabled(t *testing.T) {
@@ -559,7 +604,7 @@ func TestGatewayModels_MultiGroupRoutesDoNotExposeImageGroupWhenGenerationDisabl
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, Hydrated: true},
+		Group: &service.Group{ID: chatGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeInference, ModelMatchPatterns: []string{"gpt-*"}, Hydrated: true},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: chatGroupID, Priority: 1, Weight: 1, Enabled: true, TextOnly: true},
 			{GroupID: imageGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true},
@@ -606,7 +651,7 @@ func TestGatewayModelCatalog_MultiGroupRoutesClassifyCustomVideoScopeModel(t *te
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1/model-catalog", nil)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		Group: &service.Group{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, Hydrated: true},
+		Group: &service.Group{ID: videoGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive, RoutingScope: service.GroupRoutingScopeVideo, ModelMatchPatterns: []string{"custom-motion-model"}, Hydrated: true},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
 			{GroupID: videoGroupID, Priority: 1, Weight: 1, Enabled: true},
 		},

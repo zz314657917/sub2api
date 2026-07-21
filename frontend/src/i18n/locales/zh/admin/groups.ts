@@ -297,6 +297,12 @@ export default {
         searchAccountPlaceholder: '搜索账号...',
         accountsHint: '选择此模型模式优先使用的账号'
       },
+      modelMatch: {
+        title: '请求模型匹配',
+        placeholder: 'gpt-4o\ngpt-image-*\nclaude-*',
+        hint: '每行或用逗号填写一条规则；自动去重、去空格并统一小写。使用 * 表示允许所有模型。',
+        required: '至少填写一条请求模型匹配规则'
+      },
       mcpXml: {
         title: 'MCP XML 协议注入',
         tooltip: '启用后，当请求包含 MCP 工具时，会在 system prompt 中注入 XML 格式调用协议提示词。关闭此选项可避免对某些客户端造成干扰。',

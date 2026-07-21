@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
 import type { ApiKey } from '@/types'
 import KeysView from '../KeysView.vue'
+
+const keysViewSource = readFileSync(resolve(process.cwd(), 'src/views/user/KeysView.vue'), 'utf8')
 
 const {
   listKeys,
@@ -264,5 +268,20 @@ describe('user KeysView column settings', () => {
     const wrapper = await mountView()
 
     expect(wrapper.get('[data-test="current-concurrency"]').text()).toBe('3')
+  })
+})
+
+describe('user KeysView editor layout', () => {
+  it('uses an extra-wide dialog with a bounded multi-group route editor in the desktop right column', () => {
+    expect(keysViewSource).toContain('width="extra-wide"')
+    expect(keysViewSource).toContain('<aside class="key-route-panel')
+    expect(keysViewSource).toContain('lg:grid-cols-[minmax(0,1fr)_minmax(28rem,36rem)]')
+    expect(keysViewSource).toContain('lg:col-start-2 lg:row-start-1 lg:row-span-3')
+    expect(keysViewSource).toContain('lg:max-h-[calc(100vh-20rem)] lg:overflow-y-auto')
+    expect(keysViewSource).not.toContain('routingPresetOptions')
+    expect(keysViewSource).not.toContain('v-model.number="route.weight"')
+    expect(keysViewSource).not.toContain('v-model.number="route.cooldown_seconds"')
+    expect(keysViewSource).not.toContain('v-model="route.image_only"')
+    expect(keysViewSource).not.toContain('v-model="route.text_only"')
   })
 })

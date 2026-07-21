@@ -354,7 +354,7 @@ func TestStudioBridgeCreateLaunchAllowsDefaultKeyImageRoute(t *testing.T) {
 			{GroupID: 20, Priority: 1, Weight: 1, CooldownSeconds: 30, Enabled: true, ImageOnly: true},
 		},
 		MultiGroupRouteGroups: []*Group{
-			{ID: 20, Name: "image", Status: StatusActive, Platform: PlatformOpenAI, RoutingScope: GroupRoutingScopeImage, AllowImageGeneration: true, Hydrated: true},
+			{ID: 20, Name: "image", Status: StatusActive, Platform: PlatformOpenAI, RoutingScope: GroupRoutingScopeImage, AllowImageGeneration: true, ModelMatchPatterns: []string{"gpt-image-*"}, Hydrated: true},
 		},
 		AccountPoolStrategy: AccountPoolStrategySharedOnly,
 	}, map[int64]*Group{

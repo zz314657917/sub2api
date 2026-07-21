@@ -136,6 +136,13 @@ func (Group) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
 			Comment("模型路由配置：模型模式 -> 优先账号ID列表"),
 
+		// 分组请求模型匹配规则（added by migration 191）。
+		// 空数组只允许出现在迁移前的历史数据中；管理员保存时由服务层校验至少一条规则。
+		field.JSON("model_match_patterns", []string{}).
+			Default([]string{}).
+			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
+			Comment("分组允许匹配的请求模型模式；* 表示全部模型"),
+
 		// 模型路由开关 (added by migration 041)
 		field.Bool("model_routing_enabled").
 			Default(false).

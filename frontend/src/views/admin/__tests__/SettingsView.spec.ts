@@ -9,6 +9,7 @@ import SettingsView from "../SettingsView.vue";
 const {
   getSettings,
   updateSettings,
+  backfillDefaultKeyFallback,
   getWebSearchEmulationConfig,
   updateWebSearchEmulationConfig,
   getAdminApiKey,
@@ -31,6 +32,7 @@ const {
 } = vi.hoisted(() => ({
   getSettings: vi.fn(),
   updateSettings: vi.fn(),
+  backfillDefaultKeyFallback: vi.fn(),
   getWebSearchEmulationConfig: vi.fn(),
   updateWebSearchEmulationConfig: vi.fn(),
   getAdminApiKey: vi.fn(),
@@ -59,6 +61,7 @@ vi.mock("@/api", () => ({
     settings: {
       getSettings,
       updateSettings,
+      backfillDefaultKeyFallback,
       getWebSearchEmulationConfig,
       updateWebSearchEmulationConfig,
       getAdminApiKey,
@@ -505,6 +508,18 @@ const baseSettingsResponse = {
   account_share_channel_status_visible: true,
   external_capacity_reference_enabled: false,
   affiliate_enabled: false,
+  studio_bridge_luoye_ai: {
+    enabled: false,
+    site_name: "落叶创艺",
+    allowed_return_domains: [],
+    launch_return_url: "http://127.0.0.1:8081/auth/sub2api/launch",
+    recharge_return_url: "http://127.0.0.1:62080/purchase",
+    default_chat_group: "",
+    default_image_group: "",
+    default_video_group: "",
+    default_fallback_group: "7",
+    default_api_routes: [],
+  },
 };
 
 function mountView() {
@@ -569,10 +584,21 @@ async function openFeaturesTab(wrapper: ReturnType<typeof mountView>) {
   await flushPromises();
 }
 
+async function openExternalAppsTab(wrapper: ReturnType<typeof mountView>) {
+  const externalAppsTabButton = wrapper
+    .findAll("button")
+    .find((node) => node.text().includes("admin.settings.tabs.externalApps"));
+
+  expect(externalAppsTabButton).toBeDefined();
+  await externalAppsTabButton?.trigger("click");
+  await flushPromises();
+}
+
 describe("admin SettingsView payment visible method controls", () => {
   beforeEach(() => {
     getSettings.mockReset();
     updateSettings.mockReset();
+    backfillDefaultKeyFallback.mockReset();
     getWebSearchEmulationConfig.mockReset();
     updateWebSearchEmulationConfig.mockReset();
     getAdminApiKey.mockReset();
@@ -599,6 +625,7 @@ describe("admin SettingsView payment visible method controls", () => {
       ...baseSettingsResponse,
       ...payload,
     }));
+    backfillDefaultKeyFallback.mockResolvedValue({ group_id: 7, updated: 3 });
     getWebSearchEmulationConfig.mockResolvedValue({
       enabled: false,
       providers: [],
@@ -1199,6 +1226,49 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(wrapper.text()).not.toContain("OpenAI 高级调度器");
   });
 
+  it("round-trips the default key fallback group and explicitly backfills existing defaults", async () => {
+    getGroups.mockResolvedValueOnce([
+      {
+        id: 7,
+        name: "默认文本组",
+        description: "fallback",
+        platform: "openai",
+        subscription_type: "standard",
+        status: "active",
+        rate_multiplier: 1,
+      },
+    ]);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    const wrapper = mountView();
+
+    await flushPromises();
+    await openExternalAppsTab(wrapper);
+
+    const selector = wrapper.get('[data-testid="default-key-fallback-group"]');
+    expect((selector.element as HTMLSelectElement).value).toBe("7");
+    expect(wrapper.text()).toContain("适用于全站新用户自动生成的默认 API Key");
+
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        studio_bridge_luoye_ai: expect.objectContaining({
+          default_fallback_group: "7",
+        }),
+      }),
+    );
+
+    await wrapper
+      .get('[data-testid="backfill-default-key-fallback"]')
+      .trigger("click");
+    await flushPromises();
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(backfillDefaultKeyFallback).toHaveBeenCalledTimes(1);
+    expect(showSuccess).toHaveBeenCalledWith("已补齐 3 个未分组默认 API Key。");
+    confirmSpy.mockRestore();
+  });
+
   it("passes translated upload and remove labels to the payment help image uploader", async () => {
     const wrapper = mountView();
 
@@ -1222,6 +1292,7 @@ describe("admin SettingsView wechat connect controls", () => {
   beforeEach(() => {
     getSettings.mockReset();
     updateSettings.mockReset();
+    backfillDefaultKeyFallback.mockReset();
     getWebSearchEmulationConfig.mockReset();
     updateWebSearchEmulationConfig.mockReset();
     getAdminApiKey.mockReset();
@@ -1251,6 +1322,7 @@ describe("admin SettingsView wechat connect controls", () => {
       payment_visible_method_wxpay_source: "official_wxpay",
       ...payload,
     }));
+    backfillDefaultKeyFallback.mockResolvedValue({ group_id: 7, updated: 0 });
     getWebSearchEmulationConfig.mockResolvedValue({
       enabled: false,
       providers: [],

@@ -265,6 +265,12 @@ export default {
         searchAccountPlaceholder: 'Search accounts...',
         accountsHint: 'Select accounts to prioritize for this model pattern'
       },
+      modelMatch: {
+        title: 'Request model matching',
+        placeholder: 'gpt-4o\ngpt-image-*\nclaude-*',
+        hint: 'Enter one rule per line or comma-separated. Rules are trimmed, lower-cased, and deduplicated. Use * to allow every model.',
+        required: 'At least one request model matching rule is required'
+      },
       mcpXml: {
         title: 'MCP XML Protocol Injection',
         tooltip: 'When enabled, if the request contains MCP tools, an XML format call protocol prompt will be injected into the system prompt. Disable this to avoid interference with certain clients.',

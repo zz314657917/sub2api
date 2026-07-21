@@ -343,3 +343,27 @@
 260721 1117 | multi-group-route-fail-closed-s88 | qa-pass | evaluator | S88 count=10, existing routing regressions, compile, allowlist, conflict, and diff gates PASS; baseline peak-rate pollution isolated
 260721 1117 | multi-group-route-fail-closed-s88 | done | evaluator | final PASS; no commit, push, deployment, or container update performed
 260721 1212 | multi-group-route-fail-closed-s88 | commit-prepared | codex | exact 11-path staged audit and fresh focused tests PASS; source push, deployment, and container update remain unauthorized
+260721 1315 | key-editor-split-layout-s89 | contract-draft | planner | extra-wide API-key dialog and desktop route-editor right column only; backend, model semantics, deploy, and containers frozen
+260721 1315 | key-editor-split-layout-s89 | contract-approved | evaluator | responsive split, bounded route scroll, mobile fallback, route behavior freeze, and frontend acceptance gates approved
+260721 1324 | key-editor-split-layout-s89 | build | codex | top-level desktop split and bounded route-list scrolling implemented; route payload and model semantics unchanged
+260721 1324 | key-editor-split-layout-s89 | qa-pass | evaluator | layout 3/3, combined key regressions 15/15, typecheck, build 1088 modules, and diff gates PASS; authenticated screenshot unavailable
+260721 1324 | key-editor-split-layout-s89 | done | evaluator | final PASS; local preview remains on 127.0.0.1:3000; no commit, push, deployment, or container update
+260721 1346 | account-pool-strategy-feature-visibility-s90 | contract-draft | codex | docs/workflow/tasks/account-pool-strategy-feature-visibility-s90.md
+260721 1346 | account-pool-strategy-feature-visibility-s90 | contract-approved | codex | frontend-only explicit-false visibility boundary
+260721 1348 | account-pool-strategy-feature-visibility-s90 | implementation-pass | codex | frontend/src/views/user/KeysView.vue, frontend/src/views/user/__tests__/KeysView.createQuery.spec.ts
+260721 1350 | account-pool-strategy-feature-visibility-s90 | qa-pass | codex | 18/18 Vitest, typecheck, build 1088 modules, diff/unmerged pass
+260721 1400 | group-model-match-centralization-s91 | contract-draft | planner | docs/workflow/tasks/group-model-match-centralization-s91.md
+260721 1401 | group-model-match-centralization-s91 | contract-approved | evaluator | group-owned rules, guarded cleanup, user-write rejection, route/models parity, and focused gates approved
+260721 1402 | group-model-match-centralization-s91 | build-start | codex | primary checkout preserves S89/S90 dirty changes; implementation authorized
+260721 1927 | group-model-match-centralization-s91 | contract-scope-amended | evaluator | added required repository, DTO, admin-route, wiring, generated wiring, translation, and frontend type paths; no behavior scope change
+260721 1928 | group-model-match-centralization-s91 | qa-pass | evaluator | focused Go routing/handler/repository/Ent checks, migration dry-run/block/cleanup, frontend 3 files/20 tests, typecheck, build 1088 modules, diff and unmerged-index gates PASS
+260721 1929 | group-model-match-centralization-s91 | done | evaluator | final PASS/source-only; full service and admin/user aggregate retain known baseline failures; no commit, push, deployment, or container refresh
+260721 2230 | key-route-priority-only-s92 | contract-draft | planner | user route editor reduced to group order/enabled state; backend compatibility fields normalized client-side
+260721 2231 | key-route-priority-only-s92 | contract-approved | evaluator | allowed paths, fixed payload defaults, legacy normalization, duplicate guard, and S90 regression gates PASS
+260721 2244 | key-route-priority-only-s92 | qa-pass | evaluator | focused Vitest 2 files/16 tests, typecheck, production build 1089 modules, source audit, diff, and unmerged-index checks PASS
+260721 2246 | key-route-priority-only-s92 | done | evaluator | final PASS/source-only; no commit, push, deployment, or container refresh
+260721 2304 | default-key-fallback-group-s93 | contract-approved | evaluator | provisional S92 identity moved to S93; fallback, explicit backfill, permission, and preservation boundaries approved
+260721 2304 | default-key-fallback-group-s93 | contract-amended | evaluator | executable default-tag focused tests are required; unrelated unit-tag package compile drift is a documented diagnostic
+260721 2304 | default-key-fallback-group-s93 | build | codex | settings field/UI, default-key base group, guarded backfill endpoint, cache invalidation, and focused regressions implemented
+260721 2304 | default-key-fallback-group-s93 | qa-pass | evaluator | default-tag Go, PostgreSQL integration, SettingsView 23/23, typecheck, build 1089 modules, diff/conflict/unmerged gates PASS
+260721 2304 | default-key-fallback-group-s93 | done | evaluator | final PASS/source-only; unit-tag aggregate retains unrelated compile drift; no commit, push, deployment, or container refresh

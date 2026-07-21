@@ -14,7 +14,7 @@ import (
 	"github.com/dgraph-io/ristretto"
 )
 
-const apiKeyAuthSnapshotVersion = 15 // v15: include group peak rate fields
+const apiKeyAuthSnapshotVersion = 16 // v16: include administrator-owned group model match patterns
 
 type apiKeyAuthCacheConfig struct {
 	l1Size        int
@@ -292,6 +292,7 @@ func apiKeyAuthGroupSnapshotFromGroup(group *Group) *APIKeyAuthGroupSnapshot {
 		FallbackGroupIDOnInvalidRequest: group.FallbackGroupIDOnInvalidRequest,
 		ModelRouting:                    group.ModelRouting,
 		ModelRoutingEnabled:             group.ModelRoutingEnabled,
+		ModelMatchPatterns:              NormalizeGroupModelMatchPatterns(group.ModelMatchPatterns),
 		MCPXMLInject:                    group.MCPXMLInject,
 		SupportedModelScopes:            group.SupportedModelScopes,
 		AllowMessagesDispatch:           group.AllowMessagesDispatch,
@@ -386,6 +387,7 @@ func groupFromAPIKeyAuthSnapshot(snapshot *APIKeyAuthGroupSnapshot) *Group {
 		FallbackGroupIDOnInvalidRequest: snapshot.FallbackGroupIDOnInvalidRequest,
 		ModelRouting:                    snapshot.ModelRouting,
 		ModelRoutingEnabled:             snapshot.ModelRoutingEnabled,
+		ModelMatchPatterns:              NormalizeGroupModelMatchPatterns(snapshot.ModelMatchPatterns),
 		MCPXMLInject:                    snapshot.MCPXMLInject,
 		SupportedModelScopes:            snapshot.SupportedModelScopes,
 		AllowMessagesDispatch:           snapshot.AllowMessagesDispatch,

@@ -9,8 +9,9 @@ import (
 )
 
 var (
-	ErrGroupNotFound = infraerrors.NotFound("GROUP_NOT_FOUND", "group not found")
-	ErrGroupExists   = infraerrors.Conflict("GROUP_EXISTS", "group name already exists")
+	ErrGroupNotFound                   = infraerrors.NotFound("GROUP_NOT_FOUND", "group not found")
+	ErrGroupExists                     = infraerrors.Conflict("GROUP_EXISTS", "group name already exists")
+	ErrGroupModelMatchPatternsRequired = infraerrors.BadRequest("GROUP_MODEL_MATCH_PATTERNS_REQUIRED", "at least one model match pattern is required")
 )
 
 type GroupRepository interface {

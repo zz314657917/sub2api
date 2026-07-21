@@ -293,6 +293,7 @@ func normalizeStudioBridgeAppSettingsForSave(cfg StudioBridgeAppSettings) *Studi
 	cfg.DefaultChatGroup = strings.TrimSpace(cfg.DefaultChatGroup)
 	cfg.DefaultImageGroup = strings.TrimSpace(cfg.DefaultImageGroup)
 	cfg.DefaultVideoGroup = strings.TrimSpace(cfg.DefaultVideoGroup)
+	cfg.DefaultFallbackGroup = strings.TrimSpace(cfg.DefaultFallbackGroup)
 	cfg.DefaultAPIRoutes = normalizeStudioBridgeDefaultAPIRoutes(cfg.DefaultAPIRoutes)
 	if len(cfg.DefaultAPIRoutes) == 0 {
 		cfg.DefaultAPIRoutes = legacyStudioBridgeDefaultAPIRoutes(cfg)
@@ -312,6 +313,22 @@ func validateStudioBridgeAppSettings(cfg StudioBridgeAppSettings) error {
 	}
 	if len(routes) == 0 {
 		return ErrStudioBridgeGroupRequired
+	}
+	return nil
+}
+
+func (s *SettingService) validateDefaultKeyFallbackGroup(ctx context.Context, cfg StudioBridgeAppSettings) error {
+	raw := strings.TrimSpace(cfg.DefaultFallbackGroup)
+	if raw == "" {
+		return nil
+	}
+	groupID := parseStudioBridgeDefaultGroupID(raw)
+	if groupID <= 0 || s == nil || s.studioBridgeDefaultGroupReader == nil {
+		return ErrDefaultKeyFallbackGroupInvalid
+	}
+	group, err := s.studioBridgeDefaultGroupReader.GetByID(ctx, groupID)
+	if err != nil || group == nil || !group.IsActive() {
+		return ErrDefaultKeyFallbackGroupInvalid
 	}
 	return nil
 }
@@ -1724,6 +1741,9 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 	if err := validateStudioBridgeAppSettings(settings.StudioBridgeLuoyeAI); err != nil {
 		return err
 	}
+	if err := s.validateDefaultKeyFallbackGroup(ctx, settings.StudioBridgeLuoyeAI); err != nil {
+		return err
+	}
 	updates, err := s.buildSystemSettingsUpdates(ctx, settings)
 	if err != nil {
 		return err
@@ -1761,6 +1781,9 @@ func (s *SettingService) OIDCSecurityWriteDefaults(ctx context.Context) (bool, b
 // UpdateSettingsWithAuthSourceDefaults persists system settings and auth-source defaults in a single write.
 func (s *SettingService) UpdateSettingsWithAuthSourceDefaults(ctx context.Context, settings *SystemSettings, authDefaults *AuthSourceDefaultSettings) error {
 	if err := validateStudioBridgeAppSettings(settings.StudioBridgeLuoyeAI); err != nil {
+		return err
+	}
+	if err := s.validateDefaultKeyFallbackGroup(ctx, settings.StudioBridgeLuoyeAI); err != nil {
 		return err
 	}
 	updates, err := s.buildSystemSettingsUpdates(ctx, settings)

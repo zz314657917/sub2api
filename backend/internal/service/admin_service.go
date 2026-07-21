@@ -226,6 +226,7 @@ type CreateGroupInput struct {
 	// 模型路由配置（仅 anthropic 平台使用）
 	ModelRouting        map[string][]int64
 	ModelRoutingEnabled bool // 是否启用模型路由
+	ModelMatchPatterns  []string
 	MCPXMLInject        *bool
 	// 支持的模型系列（仅 antigravity 平台使用）
 	SupportedModelScopes []string
@@ -273,6 +274,7 @@ type UpdateGroupInput struct {
 	// 模型路由配置（仅 anthropic 平台使用）
 	ModelRouting        map[string][]int64
 	ModelRoutingEnabled *bool // 是否启用模型路由
+	ModelMatchPatterns  *[]string
 	MCPXMLInject        *bool
 	// 支持的模型系列（仅 antigravity 平台使用）
 	SupportedModelScopes *[]string
@@ -1989,6 +1991,10 @@ func requiredAccountCapabilityForGroup(group *Group) AccountCapability {
 }
 
 func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error) {
+	modelMatchPatterns, err := ValidateGroupModelMatchPatterns(input.ModelMatchPatterns)
+	if err != nil {
+		return nil, ErrGroupModelMatchPatternsRequired
+	}
 	if input.RateMultiplier <= 0 {
 		return nil, errors.New("rate_multiplier must be > 0")
 	}
@@ -2111,6 +2117,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		FallbackGroupID:                 input.FallbackGroupID,
 		FallbackGroupIDOnInvalidRequest: fallbackOnInvalidRequest,
 		ModelRouting:                    input.ModelRouting,
+		ModelMatchPatterns:              modelMatchPatterns,
 		MCPXMLInject:                    mcpXMLInject,
 		SupportedModelScopes:            input.SupportedModelScopes,
 		AllowMessagesDispatch:           input.AllowMessagesDispatch,
@@ -2369,6 +2376,13 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	// 模型路由配置
 	if input.ModelRouting != nil {
 		group.ModelRouting = input.ModelRouting
+	}
+	if input.ModelMatchPatterns != nil {
+		normalized, err := ValidateGroupModelMatchPatterns(*input.ModelMatchPatterns)
+		if err != nil {
+			return nil, ErrGroupModelMatchPatternsRequired
+		}
+		group.ModelMatchPatterns = normalized
 	}
 	if input.ModelRoutingEnabled != nil {
 		group.ModelRoutingEnabled = *input.ModelRoutingEnabled

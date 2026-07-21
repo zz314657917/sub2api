@@ -84,6 +84,15 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 	multiGroupRoutes := k.MultiGroupRoutes
 	if multiGroupRoutes == nil {
 		multiGroupRoutes = []domain.APIKeyMultiGroupRoute{}
+	} else {
+		// Legacy route model patterns remain readable internally for the S91
+		// migration, but are no longer exposed through API-key DTOs.
+		routes := make([]domain.APIKeyMultiGroupRoute, len(multiGroupRoutes))
+		copy(routes, multiGroupRoutes)
+		for i := range routes {
+			routes[i].ModelPatterns = nil
+		}
+		multiGroupRoutes = routes
 	}
 	out := &APIKey{
 		ID:                  k.ID,
@@ -164,6 +173,7 @@ func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
 		Group:                       groupFromServiceBase(g),
 		ModelRouting:                g.ModelRouting,
 		ModelRoutingEnabled:         g.ModelRoutingEnabled,
+		ModelMatchPatterns:          g.ModelMatchPatterns,
 		MCPXMLInject:                g.MCPXMLInject,
 		DefaultMappedModel:          g.DefaultMappedModel,
 		MessagesDispatchModelConfig: g.MessagesDispatchModelConfig,
