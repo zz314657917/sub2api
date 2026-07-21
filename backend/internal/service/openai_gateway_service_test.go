@@ -2855,6 +2855,67 @@ func TestExtractOpenAIUsageFromJSONBytes_AcceptsResponseAndChatUsageShapes(t *te
 	require.Zero(t, usage.CacheReadInputTokens, "官方嵌套缓存读取字段显式为零时仍应优先于兼容顶层别名")
 }
 
+func TestExtractOpenAIUsageFromJSONBytes_MergesHostedImageGenToolUsage(t *testing.T) {
+	tests := []struct {
+		name            string
+		body            string
+		wantInput       int
+		wantOutput      int
+		wantImageInput  int
+		wantImageOutput int
+	}{
+		{
+			name:      "top-level tool usage",
+			body:      `{"usage":{"input_tokens":5000,"output_tokens":200},"tool_usage":{"image_gen":{"input_tokens_details":{"image_tokens":2800},"output_tokens_details":{"image_tokens":150}}}}`,
+			wantInput: 5000, wantOutput: 200, wantImageInput: 2800, wantImageOutput: 150,
+		},
+		{
+			name:      "response tool usage",
+			body:      `{"type":"response.completed","response":{"usage":{"input_tokens":43792,"output_tokens":1005},"tool_usage":{"image_gen":{"input_tokens_details":{"image_tokens":7620},"output_tokens_details":{"image_tokens":186}}}}}`,
+			wantInput: 43792, wantOutput: 1005, wantImageInput: 7620, wantImageOutput: 186,
+		},
+		{
+			name:      "base image output preserved",
+			body:      `{"usage":{"input_tokens":100,"output_tokens":50,"output_tokens_details":{"image_tokens":30}},"tool_usage":{"image_gen":{"input_tokens_details":{"image_tokens":200},"output_tokens_details":{"image_tokens":100}}}}`,
+			wantInput: 100, wantOutput: 50, wantImageInput: 200, wantImageOutput: 30,
+		},
+		{
+			name:      "without tool usage",
+			body:      `{"usage":{"input_tokens":100,"output_tokens":50}}`,
+			wantInput: 100, wantOutput: 50,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			usage, ok := extractOpenAIUsageFromJSONBytes([]byte(tt.body))
+			require.True(t, ok)
+			require.Equal(t, tt.wantInput, usage.InputTokens)
+			require.Equal(t, tt.wantOutput, usage.OutputTokens)
+			require.Equal(t, tt.wantImageInput, usage.ImageInputTokens)
+			require.Equal(t, tt.wantImageOutput, usage.ImageOutputTokens)
+		})
+	}
+}
+
+func TestMergeHostedImageGenToolUsage_EmptyImageGen(t *testing.T) {
+	for _, body := range []string{`{}`, `{"image_gen":null}`, `{"image_gen":42}`} {
+		usage := OpenAIUsage{InputTokens: 100, OutputTokens: 50}
+		mergeHostedImageGenToolUsage(gjson.Get(body, "image_gen"), &usage)
+		require.Equal(t, OpenAIUsage{InputTokens: 100, OutputTokens: 50}, usage)
+	}
+}
+
+func TestParseSSEUsageBytes_ResponseCompletedWithImageGen(t *testing.T) {
+	svc := &OpenAIGatewayService{}
+	usage := &OpenAIUsage{}
+	svc.parseSSEUsageBytes([]byte(`{"type":"response.completed","response":{"usage":{"input_tokens":10000,"output_tokens":500},"tool_usage":{"image_gen":{"input_tokens_details":{"image_tokens":3800},"output_tokens_details":{"image_tokens":186}}}}}`), usage)
+	require.Equal(t, 10000, usage.InputTokens)
+	require.Equal(t, 500, usage.OutputTokens)
+	require.Equal(t, 3800, usage.ImageInputTokens)
+	require.Equal(t, 186, usage.ImageOutputTokens)
+}
+
 func TestExtractCodexFinalResponse_SampleReplay(t *testing.T) {
 	body := strings.Join([]string{
 		`event: message`,
