@@ -390,3 +390,5 @@
 260722 1427 | upstream-subscription-days-round-up-s100 | build | codex | upstream d0fa8c63f behavior applied to three service/test paths; unit build tag adapted for local test discovery
 260722 1427 | upstream-subscription-days-round-up-s100 | qa-pass | evaluator | focused and broader progress tests, test discovery, gofmt, diff, conflict, allowlist, and index gates PASS
 260722 1427 | upstream-subscription-days-round-up-s100 | done | evaluator | final PASS/source-only; no deployment or container refresh
+260722 1428 | upstream-subscription-days-round-up-s100 | commit | codex | feature commit e567ecbb5 created from exact eight-path staged boundary
+260722 1428 | upstream-subscription-days-round-up-s100 | push | codex | origin/main advanced to e567ecbb5; deployment and container refresh remain unauthorized

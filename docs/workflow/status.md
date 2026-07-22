@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-subscription-days-round-up-s100
 total_sprints: 100
-pending_action: S100 source-only PASS; commit and push are authorized by the approved upstream plan
+pending_action: S100 published; draft the next independent frontend i18n contract before implementation
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-22 14:27 +08:00
+last_verified: 2026-07-22 14:28 +08:00
 ---
 
 # S100 Current Sprint
@@ -18,10 +18,11 @@ last_verified: 2026-07-22 14:27 +08:00
   offset. Frontend, billing, persistence, migrations, deployment, and calendar
   day/timezone redesign are explicitly denied.
 - Contract: `docs/workflow/tasks/upstream-subscription-days-round-up-s100.md`.
-- S100 final Evaluator: `PASS / source-only`. Test discovery confirmed both the
+- S100 final Evaluator: `PASS / published`. Test discovery confirmed both the
   deterministic boundary test and progress DTO test; focused and broader
   progress regressions, formatting, diff, conflict, allowlist, and index gates
-  pass. Deployment and container refresh were not run.
+  pass. Commit `e567ecbb5` is published on `origin/main`. Deployment and
+  container refresh were not run.
 
 # S99 Current Sprint
 
