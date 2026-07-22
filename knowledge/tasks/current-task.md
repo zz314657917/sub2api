@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-07-22 15:22 +08:00
+最后更新：2026-07-22 17:17 +08:00
 
 ## S102 当前目标
 
@@ -10,12 +10,13 @@
 
 ## S102 当前结论
 
-- 已完成并通过 `PASS / source-only`：`operational` 使用 `bg-emerald-500`，
+- 已完成并通过 `PASS / published`：`operational` 使用 `bg-emerald-500`，
   `degraded` 使用 `bg-orange-500`，`failed/error` 使用 `bg-red-500`。
 - `MonitorTimeline` 专用测试 `2/2`、typecheck、生产构建（1089 modules）、
   diff/冲突/索引门禁和 1000px 浏览器截图均通过。
 - 本地预览仍为 `http://127.0.0.1:62080/monitor`；浏览器使用合成 API 数据，
-  本机没有 8080 后端，因此真实 API/auth 未验证。未部署、未更新容器、未推送。
+  本机没有 8080 后端，因此真实 API/auth 未验证。S101/S102 组合提交
+  `fd8719b4c` 已推送；未部署、未更新容器。
 
 ## S101 当前结论
 
@@ -28,7 +29,8 @@
   1706px 桌面和 390px 移动 Playwright 截图及 DOM 边界检查。
 - 本地 Vite 预览：`http://127.0.0.1:62080/monitor`。视觉验证使用 Playwright
   拦截的合成认证与监控数据；本机没有 8080 后端监听，因此真实 API/auth 未验证。
-- 当前工作区仍有 S101 源码和 workflow 文档未提交；没有部署、容器更新或推送。
+- S101 与 S102 已在组合提交 `fd8719b4c` 中推送到 `origin/main`；没有部署或
+  容器更新。
 
 ## 下一步
 

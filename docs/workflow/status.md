@@ -2,11 +2,11 @@
 phase: done
 current_sprint: channel-monitor-timeline-status-colors-s102
 total_sprints: 102
-pending_action: S102 source-only PASS; next independent frontend or upstream patch requires a new contract
+pending_action: S101 and S102 published; next independent frontend or upstream patch requires a new contract
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-22 15:26 +08:00
+last_verified: 2026-07-22 17:17 +08:00
 ---
 
 # S102 Current Sprint
@@ -19,10 +19,11 @@ last_verified: 2026-07-22 15:26 +08:00
 - Implementation uses `bg-emerald-500`, `bg-orange-500`, and `bg-red-500` for
   operational, degraded, and failed/error states respectively; gray empty
   placeholders and all timeline geometry remain unchanged.
-- S102 final Evaluator: `PASS / source-only`. MonitorTimeline tests pass `2/2`,
+- S102 final Evaluator: `PASS / published`. MonitorTimeline tests pass `2/2`,
   typecheck and production build pass, and a 1000px browser screenshot confirms
   green/orange/red distinction. Real backend/auth, deployment, and container
-  refresh were not run.
+  refresh were not run. Combined S101/S102 commit `fd8719b4c` is published on
+  `origin/main`.
 - QA report: `docs/workflow/qa-reports/channel-monitor-timeline-status-colors-s102-qa.md`.
 
 # S101 Current Sprint
@@ -36,11 +37,12 @@ last_verified: 2026-07-22 15:26 +08:00
 - Implementation removes the fixed 3px minimum from each bar, lets the
   timeline root shrink within the card, and adds a focused 60-bar/order/status
   regression. Focused Vitest passes `1 file / 2 tests`.
-- S101 final Evaluator: `PASS / source-only`. MonitorTimeline plus channel
+- S101 final Evaluator: `PASS / published`. MonitorTimeline plus channel
   capacity regressions pass `2 files / 9 tests`; typecheck and production build
   pass; desktop 1706px and mobile 390px browser screenshots show all 60 bars
   inside each card, with no document horizontal overflow. Real backend/auth,
-  deployment, and container refresh were not run.
+  deployment, and container refresh were not run. Combined S101/S102 commit
+  `fd8719b4c` is published on `origin/main`.
 - QA report: `docs/workflow/qa-reports/channel-monitor-timeline-overflow-s101-qa.md`.
 
 # S100 Current Sprint
