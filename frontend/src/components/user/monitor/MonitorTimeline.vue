@@ -1,5 +1,8 @@
 <template>
-  <div class="mt-4 pt-3 border-t border-gray-100 dark:border-dark-700/60">
+  <div
+    class="mt-4 min-w-0 w-full pt-3 border-t border-gray-100 dark:border-dark-700/60"
+    data-testid="monitor-timeline"
+  >
     <div
       class="flex justify-between text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2"
     >
@@ -13,14 +16,19 @@
     >
       {{ t('monitorCommon.maintenancePaused') }}
     </div>
-    <div v-else class="flex items-end gap-[2px] h-5 w-full">
+    <div
+      v-else
+      class="flex items-end gap-[2px] h-5 w-full"
+      data-testid="monitor-timeline-bars"
+    >
       <div
         v-for="(bar, idx) in displayBars"
         :key="idx"
-        class="flex-1 min-w-[3px] rounded-sm"
+        class="flex-1 min-w-0 rounded-sm"
         :class="bar.colorClass"
         :style="{ height: bar.heightPct + '%' }"
         :title="bar.title"
+        data-testid="monitor-timeline-bar"
       ></div>
     </div>
 
@@ -60,7 +68,7 @@ interface Bar {
 }
 
 // 4 级高度 + 颜色双重编码：高=好+绿，短=坏+红，灰=未测试。
-// 长绿(正常) > 中黄(降级) > 短红(失败/系统错误) > 很短灰(未测试)。
+// 长绿(正常) > 中橙(降级) > 短红(失败/系统错误) > 很短灰(未测试)。
 const STATUS_HEIGHT: Record<string, number> = {
   operational: 100,
   degraded: 65,
@@ -70,8 +78,8 @@ const STATUS_HEIGHT: Record<string, number> = {
 }
 
 const STATUS_COLOR: Record<string, string> = {
-  operational: 'bg-[#9c7b62]',
-  degraded: 'bg-amber-500',
+  operational: 'bg-emerald-500',
+  degraded: 'bg-orange-500',
   failed: 'bg-red-500',
   error: 'bg-red-500',
   empty: 'bg-gray-300 dark:bg-dark-600',

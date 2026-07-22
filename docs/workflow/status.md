@@ -1,13 +1,47 @@
 ---
 phase: done
-current_sprint: upstream-subscription-days-round-up-s100
-total_sprints: 100
-pending_action: S100 published; draft the next independent frontend i18n contract before implementation
+current_sprint: channel-monitor-timeline-status-colors-s102
+total_sprints: 102
+pending_action: S102 source-only PASS; next independent frontend or upstream patch requires a new contract
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-22 14:28 +08:00
+last_verified: 2026-07-22 15:26 +08:00
 ---
+
+# S102 Current Sprint
+
+- S102 contract is approved. Use green for operational, orange for degraded,
+  red for failed/error, and gray for empty timeline placeholders.
+- Preserve all existing status calculation, bar heights/order/count, tooltips,
+  and responsive width behavior.
+- Contract: `docs/workflow/tasks/channel-monitor-timeline-status-colors-s102.md`.
+- Implementation uses `bg-emerald-500`, `bg-orange-500`, and `bg-red-500` for
+  operational, degraded, and failed/error states respectively; gray empty
+  placeholders and all timeline geometry remain unchanged.
+- S102 final Evaluator: `PASS / source-only`. MonitorTimeline tests pass `2/2`,
+  typecheck and production build pass, and a 1000px browser screenshot confirms
+  green/orange/red distinction. Real backend/auth, deployment, and container
+  refresh were not run.
+- QA report: `docs/workflow/qa-reports/channel-monitor-timeline-status-colors-s102-qa.md`.
+
+# S101 Current Sprint
+
+- S101 contract is approved. The 60 monitor timeline bars must shrink within
+  the card content width instead of imposing the previous 298px intrinsic
+  minimum and pushing the `NOW` edge past the card.
+- Preserve bar count/order, status encoding, tooltips, labels, maintenance
+  behavior, card/grid sizing, monitor APIs, and data semantics.
+- Contract: `docs/workflow/tasks/channel-monitor-timeline-overflow-s101.md`.
+- Implementation removes the fixed 3px minimum from each bar, lets the
+  timeline root shrink within the card, and adds a focused 60-bar/order/status
+  regression. Focused Vitest passes `1 file / 2 tests`.
+- S101 final Evaluator: `PASS / source-only`. MonitorTimeline plus channel
+  capacity regressions pass `2 files / 9 tests`; typecheck and production build
+  pass; desktop 1706px and mobile 390px browser screenshots show all 60 bars
+  inside each card, with no document horizontal overflow. Real backend/auth,
+  deployment, and container refresh were not run.
+- QA report: `docs/workflow/qa-reports/channel-monitor-timeline-overflow-s101-qa.md`.
 
 # S100 Current Sprint
 

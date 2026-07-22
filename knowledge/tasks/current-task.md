@@ -1,6 +1,39 @@
 # 当前任务快照
 
-最后更新：2026-07-22 14:28 +08:00
+最后更新：2026-07-22 15:22 +08:00
+
+## S102 当前目标
+
+- 将渠道监控时间线柱子改为更易辨识的语义色：正常绿、降级橙、失败/错误红、
+  未测试灰；不改状态判定、柱高、顺序、数量和响应式宽度。
+- Contract：`docs/workflow/tasks/channel-monitor-timeline-status-colors-s102.md`。
+
+## S102 当前结论
+
+- 已完成并通过 `PASS / source-only`：`operational` 使用 `bg-emerald-500`，
+  `degraded` 使用 `bg-orange-500`，`failed/error` 使用 `bg-red-500`。
+- `MonitorTimeline` 专用测试 `2/2`、typecheck、生产构建（1089 modules）、
+  diff/冲突/索引门禁和 1000px 浏览器截图均通过。
+- 本地预览仍为 `http://127.0.0.1:62080/monitor`；浏览器使用合成 API 数据，
+  本机没有 8080 后端，因此真实 API/auth 未验证。未部署、未更新容器、未推送。
+
+## S101 当前结论
+
+- S101 `channel-monitor-timeline-overflow-s101` 已完成：监控卡时间线不再被
+  60 根柱条的固定最小宽度撑出卡片，桌面和移动布局均保持 60 根完整柱条。
+- `MonitorTimeline.vue` 使用 `min-w-0 w-full`，柱条使用 `min-w-0`；新增
+  `MonitorTimeline.spec.ts` 覆盖柱条数量、顺序、状态编码和收缩约束。
+- 验证通过：专用测试 `2/2`，连同 `ChannelStatusView.capacityPools` 为
+  `2 files / 9 tests`，`vue-tsc`，生产构建（1089 modules），diff/冲突/索引门禁，
+  1706px 桌面和 390px 移动 Playwright 截图及 DOM 边界检查。
+- 本地 Vite 预览：`http://127.0.0.1:62080/monitor`。视觉验证使用 Playwright
+  拦截的合成认证与监控数据；本机没有 8080 后端监听，因此真实 API/auth 未验证。
+- 当前工作区仍有 S101 源码和 workflow 文档未提交；没有部署、容器更新或推送。
+
+## 下一步
+
+1. 下一项前端或上游迁移必须先建立独立 contract，再实现和验收。
+2. 不要把真实后端部署或容器刷新混入本次纯 UI 修复。
 
 ## 背景
 

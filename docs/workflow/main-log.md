@@ -392,3 +392,13 @@
 260722 1427 | upstream-subscription-days-round-up-s100 | done | evaluator | final PASS/source-only; no deployment or container refresh
 260722 1428 | upstream-subscription-days-round-up-s100 | commit | codex | feature commit e567ecbb5 created from exact eight-path staged boundary
 260722 1428 | upstream-subscription-days-round-up-s100 | push | codex | origin/main advanced to e567ecbb5; deployment and container refresh remain unauthorized
+260722 1458 | channel-monitor-timeline-overflow-s101 | contract-draft | planner | screenshot and source establish 298px timeline intrinsic width inside roughly 263px card content
+260722 1458 | channel-monitor-timeline-overflow-s101 | contract-approved | evaluator | shrink-only fix, 60-bar preservation, focused test, build, and desktop/mobile visual gates approved
+260722 1500 | channel-monitor-timeline-overflow-s101 | build | codex | fixed timeline intrinsic width and added 60-bar/order/status regression; focused Vitest 2/2 PASS
+260722 1520 | channel-monitor-timeline-overflow-s101 | qa-pass | evaluator | 2 files/9 tests, typecheck, build, diff, conflict, index, and desktop/mobile DOM geometry PASS
+260722 1520 | channel-monitor-timeline-overflow-s101 | done | evaluator | final PASS/source-only; mocked browser data only, no real backend/auth, deployment, or container refresh
+260722 1522 | channel-monitor-timeline-status-colors-s102 | contract-draft | planner | semantic green/orange/red timeline palette; geometry and status behavior frozen
+260722 1522 | channel-monitor-timeline-status-colors-s102 | contract-approved | evaluator | existing Tailwind palette, focused color assertions, and no API/data scope approved
+260722 1526 | channel-monitor-timeline-status-colors-s102 | build | codex | green/orange/red status palette applied; focused test 2/2 and typecheck PASS
+260722 1526 | channel-monitor-timeline-status-colors-s102 | qa-pass | evaluator | production build 1089 modules, diff, conflict, index, and screenshot distinction PASS
+260722 1526 | channel-monitor-timeline-status-colors-s102 | done | evaluator | final PASS/source-only; mocked browser data only, no real backend/auth, deployment, or container refresh
