@@ -1,13 +1,27 @@
 ---
 phase: done
-current_sprint: expired-subscription-route-skip-s99
-total_sprints: 99
-pending_action: S98/S99 published; start the next approved upstream patch contract before implementation
+current_sprint: upstream-subscription-days-round-up-s100
+total_sprints: 100
+pending_action: S100 source-only PASS; commit and push are authorized by the approved upstream plan
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-22 14:23 +08:00
+last_verified: 2026-07-22 14:27 +08:00
 ---
+
+# S100 Current Sprint
+
+- S100 contract is approved. Port only upstream `d0fa8c63f`: positive partial
+  subscription days round up, exact days remain exact, and expired durations
+  remain zero.
+- The patch applies cleanly to the current local service with one context-line
+  offset. Frontend, billing, persistence, migrations, deployment, and calendar
+  day/timezone redesign are explicitly denied.
+- Contract: `docs/workflow/tasks/upstream-subscription-days-round-up-s100.md`.
+- S100 final Evaluator: `PASS / source-only`. Test discovery confirmed both the
+  deterministic boundary test and progress DTO test; focused and broader
+  progress regressions, formatting, diff, conflict, allowlist, and index gates
+  pass. Deployment and container refresh were not run.
 
 # S99 Current Sprint
 

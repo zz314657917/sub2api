@@ -1,55 +1,37 @@
 # 当前任务快照
 
-最后更新：2026-07-22 14:23 +08:00
+最后更新：2026-07-22 14:27 +08:00
 
 ## 背景
 
 - 仓库：`F:/mcplugins/sub2api`。
-- API Key 多分组路由此前会选中已过期的订阅分组，随后鉴权返回订阅错误，无法继续尝试后续优先级。
-- 当前工作树还保留用户此前未提交的 KeysView 紧凑单行路由、右侧滚动和重复分组隐藏改动；S99 在此基础上继续实现，没有回滚这些改动。
+- S98/S99 组合功能提交 `34b1844ab` 和 workflow 收口提交 `be5d4114d` 已推送。
+- 当前按已批准的上游差异计划推进独立小步迁移，不整体 merge `upstream/main`。
 
 ## 当前目标
 
-- 已完成：订阅不存在、已过期或已暂停时跳过该多分组路由，继续后续优先级。
-- 已完成：保留失效路由配置，续费后无需清理即可自动恢复。
-- 已完成：用量超限和数据库临时错误不切换分组，保持原错误语义。
+- S100：移植上游 `d0fa8c63f`，将订阅剩余天数从向下截断改为正数向上取整。
+- 保持 24 小时 duration 语义，不扩展成用户时区日历日，不触碰前端、计费、持久化或部署。
 
 ## 本次已完成
 
-- 认证中间件通过请求级 API Key 副本记录失效订阅分组，未污染认证缓存对象。
-- 模型路由、初始路由、默认分组兜底、`/v1/models` 和 `/v1/model-catalog` 都过滤请求级失效分组；全部不可用时返回 `NO_MATCHING_GROUP_ROUTE`。
-- Key 更新允许保留原有失效 base group 和 route group，但新增分组仍执行当前权限/订阅检查。
-- Key 编辑器使用 `route_groups` 快照恢复失效分组名称，显示“订阅已失效/分组不可用”，选项不可重新选择但可以保留或删除。
-- S99 QA 报告：`docs/workflow/qa-reports/expired-subscription-route-skip-s99-qa.md`。
-
-## 已确认事实
-
-- 只有 `ErrSubscriptionNotFound`、`ErrSubscriptionExpired`、`ErrSubscriptionSuspended` 会标记路由可跳过。
-- 日/周/月额度错误及临时持久化错误不会标记路由失效，因此不会静默切换计费分组。
-- 单分组 Key 不进入失效路由预扫描，原行为保持不变。
-- 本地 `62080` 容器未更新；`62100` Vite 预览仍在运行，浏览器当前无登录态。
-
-## 待验证点
-
-- 已登录浏览器 smoke -> 验证：打开含失效订阅路由的 Key 编辑弹窗，检查标签、禁选、删除和长列表滚动，不提交表单。
-- 真实订阅续费端到端 -> 验证：在隔离数据中让高优先级订阅过期，确认请求落到后续分组；续费后确认无需编辑 Key 即恢复高优先级。
-- 本地容器运行态 -> 验证：仅在用户明确要求后按 `local-docker-update-guard` 更新 `62080`，再跑健康检查和调用 smoke。
-
-## 当前结论
-
-- `PASS / published`：S98/S99 代码、定向回归、类型检查、生产构建和 Git 静态门禁通过。
-- 组合功能提交 `34b1844ab` 已推送到 `origin/main`；未部署、未更新容器。
-
-## 下一步
-
-1. 按已批准的上游差异计划起草 S100-A contract，优先迁移订阅剩余天数向上取整，不直接 merge `upstream/main`。
-2. 用户要求更新容器 -> 验证：先取得本地容器更新锁，再重建/替换 `62080` 并验证健康状态与实际路由行为。
-3. 需要 UI 证据 -> 验证：取得已有登录态后完成只读 Key 编辑弹窗 smoke。
+- `DaysRemaining()` 复用可确定测试的 `daysRemainingAt(now)`。
+- 过期和恰好到期返回 `0`；不足一天返回 `1`；超过整天的余数向上取整。
+- progress DTO 的剩余天数断言收敛为精确值。
+- 上游新增测试移除 `unit` build tag，使其进入本地默认 service 测试集，避开既有 unit-tag 聚合编译漂移。
 
 ## 验证记录
 
-- 2026-07-22 12:07 +08:00：S99 service、unit-tag middleware、handler 及 S88/S91/S93 扩展路由回归 PASS。
-- 2026-07-22 12:07 +08:00：KeysView Vitest `2 files / 18 tests` PASS。
-- 2026-07-22 12:09 +08:00：frontend typecheck、production build `1089 modules`、gofmt、diff、冲突标记和未合并索引检查 PASS。
-- 2026-07-22 12:09 +08:00：浏览器访问 `62100/keys` 被重定向到登录页，未进行登录或表单写操作。
-- 2026-07-22 14:23 +08:00：功能提交 `34b1844ab` 已推送到 `origin/main`，未部署、未更新容器。
+- 测试发现同时列出 `TestCalculateProgress_BasicFields` 和 `TestUserSubscriptionDaysRemainingAt`。
+- focused 和 broader progress service tests PASS。
+- `gofmt -d`、`git diff --check`、冲突标记、精确路径和未合并索引检查 PASS。
+
+## 当前结论
+
+- `PASS / source-only`：S100 已达到提交条件。
+- 未部署、未更新容器；24 小时 duration 语义未改为日历日。
+
+## 下一步
+
+1. 按精确 allowlist 提交并推送 S100。
+2. 进入下一独立 Sprint，手工迁移上游零散硬编码文案本地化；Responses SSE 热路径优化随后单独处理。

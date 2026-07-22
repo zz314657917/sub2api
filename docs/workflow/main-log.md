@@ -385,3 +385,8 @@
 260722 1421 | key-route-editor-polish-s98 | done | evaluator | frontend-only PASS/source-only; unavailable-route behavior remains governed by S99
 260722 1423 | expired-subscription-route-skip-s99 | commit | codex | combined S98/S99 feature commit 34b1844ab created from exact 20-path staged boundary
 260722 1423 | expired-subscription-route-skip-s99 | push | codex | origin/main advanced to 34b1844ab; deployment and container refresh remain unauthorized
+260722 1423 | upstream-subscription-days-round-up-s100 | contract-draft | planner | docs/workflow/tasks/upstream-subscription-days-round-up-s100.md; exact 24-hour ceil semantics and three source/test paths
+260722 1423 | upstream-subscription-days-round-up-s100 | contract-approved | evaluator | deterministic boundary tests, allowlist, and no frontend/migration/billing prerequisites
+260722 1427 | upstream-subscription-days-round-up-s100 | build | codex | upstream d0fa8c63f behavior applied to three service/test paths; unit build tag adapted for local test discovery
+260722 1427 | upstream-subscription-days-round-up-s100 | qa-pass | evaluator | focused and broader progress tests, test discovery, gofmt, diff, conflict, allowlist, and index gates PASS
+260722 1427 | upstream-subscription-days-round-up-s100 | done | evaluator | final PASS/source-only; no deployment or container refresh
