@@ -2,11 +2,11 @@
 phase: done
 current_sprint: expired-subscription-route-skip-s99
 total_sprints: 99
-pending_action: source-only PASS; commit, push, deployment, and container refresh require explicit authorization
+pending_action: S98/S99 published; start the next approved upstream patch contract before implementation
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-22 14:21 +08:00
+last_verified: 2026-07-22 14:23 +08:00
 ---
 
 # S99 Current Sprint
@@ -23,21 +23,23 @@ last_verified: 2026-07-22 14:21 +08:00
   add a newly unauthorized group. The editor restores unavailable route names
   from `route_groups`, labels subscription routes as expired, keeps them
   non-selectable, and still allows removal.
-- S99 final Evaluator: `PASS / source-only`. Focused service, middleware,
+- S99 final Evaluator: `PASS / published`. Focused service, middleware,
   handler and S88/S91/S93 routing regressions pass; KeysView is `18/18`,
   typecheck and production build (`1089 modules`) pass, and formatting/diff/
-  conflict/unmerged gates pass. Authenticated browser smoke, real DB/Redis
-  renewal smoke, commit, push, deployment, and container refresh were not run.
+  conflict/unmerged gates pass. Feature commit `34b1844ab` is published on
+  `origin/main`. Authenticated browser smoke, real DB/Redis renewal smoke,
+  deployment, and container refresh were not run.
 
 # S98 Current Sprint
 
 - S98 is complete. The API-key multi-group route editor keeps its header compact,
   preserves bounded scrolling, hides groups selected by another route, and
   disables Add Route when a row is incomplete or every available group is used.
-- S98 final Evaluator: `PASS / source-only`. KeysView focused Vitest is `18/18`,
+- S98 final Evaluator: `PASS / published`. KeysView focused Vitest is `18/18`,
   typecheck and production build (`1089 modules`) pass, and diff/conflict/index
   gates pass. The S99 unavailable-route state was verified in the same frontend
   files but remains covered by the separate S99 contract and backend tests.
+  The shared feature commit is `34b1844ab` on `origin/main`.
 
 # S97 Current Sprint
 

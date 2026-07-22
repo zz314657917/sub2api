@@ -383,3 +383,5 @@
 260722 1209 | expired-subscription-route-skip-s99 | done | evaluator | final PASS/source-only; authenticated browser, real DB/Redis, commit, push, deployment, and container refresh not run
 260722 1421 | key-route-editor-polish-s98 | qa-pass | evaluator | KeysView 18/18, typecheck, build 1089 modules, and diff/conflict/index gates PASS
 260722 1421 | key-route-editor-polish-s98 | done | evaluator | frontend-only PASS/source-only; unavailable-route behavior remains governed by S99
+260722 1423 | expired-subscription-route-skip-s99 | commit | codex | combined S98/S99 feature commit 34b1844ab created from exact 20-path staged boundary
+260722 1423 | expired-subscription-route-skip-s99 | push | codex | origin/main advanced to 34b1844ab; deployment and container refresh remain unauthorized
