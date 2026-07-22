@@ -14,8 +14,8 @@
   CustomPageView 404 文案和中英文 common locale 已本地化。
 - 聚焦测试 `2 files / 9 tests`、typecheck、生产构建（1089 modules）、
   静态目标、diff/冲突/索引门禁均通过。未做登录态浏览器 smoke、部署或容器更新。
-- 功能与 QA 提交 `f2720fdbb` 已推送并与 `origin/main`、远端 `main` 一致；
-  当前仅剩本次 workflow publication 提交。
+- 功能与 QA 提交 `f2720fdbb` 及 workflow publication 提交 `abd590761` 均已
+  推送，并与 `origin/main`、远端 `main` 一致；本 Sprint 已全部收口。
 - 支付自定义方式 placeholder 因本地没有对应 UI/字段而跳过，后续若补齐前置
   功能需另开 contract；本次不加入 orphan locale key。
 - 只允许 4 个现有前端业务/locale 文件及 workflow 记录；支付自定义方式
