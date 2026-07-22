@@ -411,3 +411,8 @@
 260722 1722 | upstream-frontend-hardcoded-i18n-s103 | done | evaluator | final PASS/source-only; no browser auth, deployment, or container refresh
 260722 1723 | upstream-frontend-hardcoded-i18n-s103 | commit | codex | feature/QA commit f2720fdbb created from exact nine-path allowlist
 260722 1723 | upstream-frontend-hardcoded-i18n-s103 | push | codex | feature commit f2720fdbb verified on local main, origin/main, and ls-remote; payment placeholder remains skipped
+260722 2112 | upstream-openai-inactive-workspace-plan-s104 | contract-draft | planner | upstream d0b8760eb scoped to token-plan preservation, inactive workspace filtering, and three business/test paths
+260722 2112 | upstream-openai-inactive-workspace-plan-s104 | contract-approved | evaluator | isolated service fallback behavior, exact allowlist, and focused regression gates approved
+260722 2116 | upstream-openai-inactive-workspace-plan-s104 | build | codex | token-derived plan preservation and inactive/expired workspace filtering implemented in three service/test paths
+260722 2116 | upstream-openai-inactive-workspace-plan-s104 | qa-pass | evaluator | focused count=10, broader OAuth regressions, gofmt, diff, conflict, allowlist, and index gates PASS
+260722 2116 | upstream-openai-inactive-workspace-plan-s104 | done | evaluator | final PASS/source-only; no live K12 credential, deployment, or container refresh

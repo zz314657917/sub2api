@@ -1,13 +1,35 @@
 ---
 phase: done
-current_sprint: upstream-frontend-hardcoded-i18n-s103
-total_sprints: 103
-pending_action: S103 source-only PASS; create the next independent contract before another frontend or upstream patch
+current_sprint: upstream-openai-inactive-workspace-plan-s104
+total_sprints: 104
+pending_action: S104 source-only PASS; publish the scoped patch when authorized, without deployment or container refresh
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-22 17:22 +08:00
+last_verified: 2026-07-22 21:16 +08:00
 ---
+
+# S104 Current Sprint
+
+- S104 contract is approved for a manual behavior port of upstream
+  `d0b8760eb`: preserve token-derived OpenAI/K12 plan types and skip inactive
+  or expired workspace candidates during `accounts/check` fallback selection.
+- The exact business allowlist is two OpenAI OAuth/privacy service files plus
+  the existing subscription test file. Codex import identity, PAT/Agent
+  Identity, persistence, scheduler, gateway, frontend, migrations, billing,
+  deployment, and containers remain frozen.
+- Contract:
+  `docs/workflow/tasks/upstream-openai-inactive-workspace-plan-s104.md`.
+- Contract review: `PASS`; the local topology matches the isolated upstream
+  three-file patch and has no schema or feature-chain prerequisite.
+- Implementation is complete: token-derived plan types are preserved and
+  inactive/expired workspace candidates are skipped during fallback selection.
+- Final Evaluator: `PASS / source-only`. Four focused tests pass at `count=10`,
+  broader OpenAI OAuth/account-info regressions pass, and formatting, diff,
+  conflict, allowlist, and index gates pass. No live K12 credential, deployment,
+  or container refresh was used.
+- QA report:
+  `docs/workflow/qa-reports/upstream-openai-inactive-workspace-plan-s104-qa.md`.
 
 # S103 Current Sprint
 

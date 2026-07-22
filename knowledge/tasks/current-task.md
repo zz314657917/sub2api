@@ -1,6 +1,23 @@
 # 当前任务快照
 
-最后更新：2026-07-22 17:22 +08:00
+最后更新：2026-07-22 21:16 +08:00
+
+## S104 当前目标
+
+- 手工迁移上游 `d0b8760eb`：保留 token/JWT 已识别的 OpenAI/K12
+  `plan_type`，并在 `accounts/check` fallback 中跳过停用或过期 workspace。
+- Contract：
+  `docs/workflow/tasks/upstream-openai-inactive-workspace-plan-s104.md`。
+
+## S104 当前结论
+
+- 已完成并通过 `PASS / source-only`：K12 等 token-derived plan 不再被
+  无效 workspace 的内部 billing plan 覆盖；当前 plan 为空时仍可使用有效
+  `accounts/check` 候选回退。
+- 4 个聚焦测试连续 10 轮通过，更宽的 OpenAI OAuth/account-info 回归通过，
+  gofmt、diff、冲突、allowlist 和未合并索引门禁通过。
+- 未使用真实 K12 凭据，未部署、未更新容器；`at-*` PAT 和 K12
+  `gpt-5.6-sol` 503 不属于本 Sprint。
 
 ## S103 当前目标
 
@@ -54,8 +71,8 @@
 
 ## 下一步
 
-1. 下一项前端或上游迁移必须先建立独立 contract，再实现和验收。
-2. 不要把真实后端部署或容器刷新混入本次纯 UI 修复。
+1. 按授权发布 S104 精确补丁；不要混入 PAT 或 Agent Identity 功能链。
+2. 需要确认真实 K12 效果时，另做脱敏账号运行态 smoke，并单独授权容器更新。
 
 ## 背景
 

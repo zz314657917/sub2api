@@ -7,6 +7,30 @@ last_verified: 2026-07-03 19:30 +08:00
 
 # Workflow Spec
 
+## S104 Addendum: preserve OpenAI plan type across inactive workspaces
+
+### Goal
+
+- Preserve a token-derived OpenAI/K12 plan type when ChatGPT
+  `accounts/check` also returns inactive workspace billing metadata.
+
+### Scope Boundary
+
+- Skip deactivated, disabled, deleted, inactive, suspended, and expired
+  workspace candidates when selecting fallback account information.
+- Apply the `accounts/check` plan type only when the token did not provide one;
+  keep subscription-expiry, email, privacy, timeout, and logging behavior.
+- Do not change Codex session identity matching, PAT/Agent Identity support,
+  persistence, scheduler routing, gateway behavior, frontend, migrations,
+  billing, deployment, or containers.
+
+### Acceptance Boundary
+
+- Focused service tests cover expired/deactivated candidate rejection and
+  token-plan preservation while retaining empty-plan fallback behavior.
+- Formatting, exact allowlist, conflict-marker, unmerged-index, and
+  `git diff --check` gates must pass.
+
 ## S82 Addendum: clarify OpenAI WS account-mode prerequisite
 
 ### 一句话目标
