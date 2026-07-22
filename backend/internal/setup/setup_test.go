@@ -88,6 +88,55 @@ func TestWriteConfigFileKeepsDefaultUserConcurrency(t *testing.T) {
 	}
 }
 
+func TestWriteConfigFileIncludesRedisUsername(t *testing.T) {
+	t.Setenv("DATA_DIR", t.TempDir())
+
+	if err := writeConfigFile(&SetupConfig{
+		Redis: RedisConfig{
+			Host:     "redis",
+			Port:     6379,
+			Username: "app-user",
+		},
+	}); err != nil {
+		t.Fatalf("writeConfigFile() error = %v", err)
+	}
+
+	data, err := os.ReadFile(GetConfigFilePath())
+	if err != nil {
+		t.Fatalf("ReadFile() error = %v", err)
+	}
+
+	if !strings.Contains(string(data), "username: app-user") {
+		t.Fatalf("config missing Redis username, got:\n%s", string(data))
+	}
+}
+
+func TestNormalizeRedisUsername(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     string
+		want      string
+		wantValid bool
+	}{
+		{name: "empty keeps default user", input: "", want: "", wantValid: true},
+		{name: "trims surrounding whitespace", input: "  app-user  ", want: "app-user", wantValid: true},
+		{name: "accepts maximum length", input: strings.Repeat("x", maxRedisUsernameLength), want: strings.Repeat("x", maxRedisUsernameLength), wantValid: true},
+		{name: "rejects over maximum length", input: strings.Repeat("x", maxRedisUsernameLength+1), want: strings.Repeat("x", maxRedisUsernameLength+1), wantValid: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, valid := normalizeRedisUsername(tc.input)
+			if got != tc.want {
+				t.Fatalf("normalizeRedisUsername() value = %q, want %q", got, tc.want)
+			}
+			if valid != tc.wantValid {
+				t.Fatalf("normalizeRedisUsername() valid = %v, want %v", valid, tc.wantValid)
+			}
+		})
+	}
+}
+
 func TestBuildDatabaseConnectionDSNsUsesPostgresForBootstrap(t *testing.T) {
 	cfg := &DatabaseConfig{
 		Host:     "db",

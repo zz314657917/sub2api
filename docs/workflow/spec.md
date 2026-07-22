@@ -690,3 +690,33 @@ routes used for chat, image, video, or other configured model patterns.
 - SettingsView Vitest covers settings round-trip, explicit confirmation,
   backfill invocation, and success count; typecheck and production build pass.
 - `git diff --check`, conflict-marker scan, and unmerged-index checks pass.
+
+# S97 Addendum: Redis ACL username compatibility
+
+## Goal
+
+Port the upstream Redis ACL username support as a local behavior slice. An
+optional username must flow through runtime Redis clients, setup-time
+connection tests, the setup wizard, and deployment examples without changing
+the existing default-user behavior.
+
+## Scope Boundary
+
+- Add only the `redis.username` / `REDIS_USERNAME` field and its setup-wizard
+  representation.
+- Trim setup input, reject values longer than 128 characters, and pass the
+  validated value to `redis.Options.Username`.
+- Keep password, DB, TLS, host, port, Redis URL behavior, migrations, generated
+  code, containers, deployment, and unrelated UI unchanged.
+- Adapt the behavior manually to the local topology; do not merge upstream
+  history.
+
+## Acceptance Boundary
+
+- Config, Redis option, and setup config tests prove empty and non-empty
+  username behavior plus the length guard.
+- English/Chinese setup labels, placeholders, form state, and review output
+  remain type-safe; frontend typecheck and production build pass.
+- README, config examples, `.env.example`, and all built-in Compose files
+  forward `REDIS_USERNAME`.
+- Allowlist, conflict-marker, unmerged-index, and `git diff --check` gates pass.

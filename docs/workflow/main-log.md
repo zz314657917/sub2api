@@ -369,3 +369,8 @@
 260721 2304 | default-key-fallback-group-s93 | done | evaluator | final PASS/source-only; unit-tag aggregate retains unrelated compile drift; no commit, push, deployment, or container refresh
 260722 0141 | default-key-fallback-group-s93 | commit | codex | feature commit 01fd0784b created from the exact 63-path staged boundary
 260722 0141 | default-key-fallback-group-s93 | push | codex | origin/main and git ls-remote both verified at 01fd0784b; deployment and container refresh remain unauthorized
+260722 1051 | upstream-main-redis-acl-s97 | contract-draft | codex | docs/workflow/tasks/upstream-main-redis-acl-s97.md; manual port of upstream 49200d474; no implementation or publish
+260722 1051 | upstream-main-redis-acl-s97 | contract-approved | evaluator | allowlist, default-user compatibility, validation bounds, and focused gates approved
+260722 1103 | upstream-main-redis-acl-s97 | build | codex | focused Go tests, frontend typecheck/build, and normalizeRedisUsername boundary tests passed
+260722 1103 | upstream-main-redis-acl-s97 | qa | evaluator | PASS; allowlist, locale/review wiring, diff, conflict, and unmerged-index gates passed
+260722 1103 | upstream-main-redis-acl-s97 | done | evaluator | final PASS/source-only; no Redis runtime, deployment, or container refresh
