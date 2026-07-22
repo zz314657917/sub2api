@@ -2,7 +2,7 @@
 phase: done
 current_sprint: upstream-main-redis-acl-s97
 total_sprints: 97
-pending_action: published; deployment and container refresh remain unauthorized
+pending_action: deployment and container refresh remain unauthorized
 project_type: web
 qa_mode: runtime
 approval_required: false
@@ -17,7 +17,8 @@ last_verified: 2026-07-22 11:03 +08:00
 - Direct upstream merge is denied because the local and upstream histories are
   structurally divergent. The implementation stayed within the S97 allowlist;
   focused Go tests, frontend typecheck/build, and path/conflict gates passed.
-  No deployment or container refresh was performed.
+  Commit `8b70a55a8` is published on `origin/main`. No deployment or container
+  refresh was performed.
 
 # S93 Current Sprint
 

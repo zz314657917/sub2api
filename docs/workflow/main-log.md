@@ -374,3 +374,5 @@
 260722 1103 | upstream-main-redis-acl-s97 | build | codex | focused Go tests, frontend typecheck/build, and normalizeRedisUsername boundary tests passed
 260722 1103 | upstream-main-redis-acl-s97 | qa | evaluator | PASS; allowlist, locale/review wiring, diff, conflict, and unmerged-index gates passed
 260722 1103 | upstream-main-redis-acl-s97 | done | evaluator | final PASS/source-only; no Redis runtime, deployment, or container refresh
+260722 1104 | upstream-main-redis-acl-s97 | commit | codex | feature commit 8b70a55a8 created from exact 22-path staged boundary; KeysView changes excluded
+260722 1104 | upstream-main-redis-acl-s97 | push | codex | origin/main and git ls-remote verified at 8b70a55a8; deployment and container refresh remain unauthorized
