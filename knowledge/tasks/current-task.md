@@ -1,6 +1,24 @@
 # 当前任务快照
 
-最后更新：2026-07-22 17:17 +08:00
+最后更新：2026-07-22 17:22 +08:00
+
+## S103 当前目标
+
+- 手工迁移上游 `3401a971a` 的适用前端硬编码文案本地化：AppHeader 的两个
+  aria-label、CustomPageView 的 404 文案，并补齐中英文 common locale。
+- Contract：`docs/workflow/tasks/upstream-frontend-hardcoded-i18n-s103.md`。
+
+## S103 当前结论
+
+- 已完成并通过 `PASS / source-only`：AppHeader 两个 aria-label、
+  CustomPageView 404 文案和中英文 common locale 已本地化。
+- 聚焦测试 `2 files / 9 tests`、typecheck、生产构建（1089 modules）、
+  静态目标、diff/冲突/索引门禁均通过。未做登录态浏览器 smoke、部署或容器更新。
+- 支付自定义方式 placeholder 因本地没有对应 UI/字段而跳过，后续若补齐前置
+  功能需另开 contract；本次不加入 orphan locale key。
+- 只允许 4 个现有前端业务/locale 文件及 workflow 记录；支付自定义方式
+  placeholder 因本地没有对应 UI/字段而跳过，不整体合并上游，不改 backend、
+  API、计费、数据库、部署或容器。
 
 ## S102 当前目标
 

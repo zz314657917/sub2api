@@ -404,3 +404,8 @@
 260722 1526 | channel-monitor-timeline-status-colors-s102 | done | evaluator | final PASS/source-only; mocked browser data only, no real backend/auth, deployment, or container refresh
 260722 1717 | channel-monitor-timeline-status-colors-s102 | commit | codex | combined S101/S102 source, regression, contracts, QA, and workflow evidence committed as fd8719b4c
 260722 1717 | channel-monitor-timeline-status-colors-s102 | push | codex | local main, origin/main, and ls-remote verified at fd8719b4c; no deployment or container refresh
+260722 1718 | upstream-frontend-hardcoded-i18n-s103 | contract-draft | planner | upstream 3401a971a reviewed as presentation-only; local useI18n context and missing payment prerequisite identified
+260722 1718 | upstream-frontend-hardcoded-i18n-s103 | contract-approved | evaluator | partial four-file port approved; payment placeholder skipped because local custom-method prerequisite is absent
+260722 1722 | upstream-frontend-hardcoded-i18n-s103 | build | codex | localized AppHeader and CustomPageView with three common keys; payment placeholder left skipped
+260722 1722 | upstream-frontend-hardcoded-i18n-s103 | qa-pass | evaluator | focused tests 2 files/9 tests, typecheck, build, static, diff, conflict, and index gates PASS
+260722 1722 | upstream-frontend-hardcoded-i18n-s103 | done | evaluator | final PASS/source-only; no browser auth, deployment, or container refresh

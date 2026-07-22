@@ -5,7 +5,7 @@
         <button
           @click="toggleMobileSidebar"
           class="console-icon-button inline-flex h-10 w-10 items-center justify-center lg:hidden"
-          aria-label="Toggle Menu"
+          :aria-label="t('common.toggleMenu')"
         >
           <Icon name="menu" size="md" />
         </button>
@@ -81,7 +81,7 @@
           <button
             @click="toggleDropdown"
             class="console-user-button flex items-center gap-2 p-1.5 transition-colors"
-            aria-label="User Menu"
+            :aria-label="t('common.userMenu')"
           >
             <div class="console-avatar flex h-8 w-8 items-center justify-center overflow-hidden text-sm font-semibold text-white">
               <img

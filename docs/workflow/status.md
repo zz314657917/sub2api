@@ -1,13 +1,29 @@
 ---
 phase: done
-current_sprint: channel-monitor-timeline-status-colors-s102
-total_sprints: 102
-pending_action: S101 and S102 published; next independent frontend or upstream patch requires a new contract
+current_sprint: upstream-frontend-hardcoded-i18n-s103
+total_sprints: 103
+pending_action: S103 source-only PASS; create the next independent contract before another frontend or upstream patch
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-22 17:17 +08:00
+last_verified: 2026-07-22 17:22 +08:00
 ---
+
+# S103 Current Sprint
+
+- S103 contract is approved for a partial port of upstream `3401a971a`:
+  AppHeader aria-labels, CustomPageView not-found text, and the English/Chinese
+  common locale keys. The payment custom-method placeholder is skipped because
+  the local PaymentProviderDialog has no matching custom-method UI or field.
+- Payment behavior, APIs, backend, billing, and deployment remain frozen; the
+  absent payment prerequisite is recorded rather than recreated.
+- Contract: `docs/workflow/tasks/upstream-frontend-hardcoded-i18n-s103.md`.
+- S103 implementation is complete within the four-file applicable allowlist.
+- Final Evaluator: `PASS / source-only`. Focused frontend tests pass `2 files /
+  9 tests`, typecheck and production build pass, and static/allowlist gates
+  pass. The payment custom-method placeholder remains skipped because its local
+  prerequisite is absent; no deployment or container refresh was run.
+- QA report: `docs/workflow/qa-reports/upstream-frontend-hardcoded-i18n-s103-qa.md`.
 
 # S102 Current Sprint
 
