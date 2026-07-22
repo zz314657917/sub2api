@@ -7,6 +7,33 @@ last_verified: 2026-07-03 19:30 +08:00
 
 # Workflow Spec
 
+## S105 Addendum: filter admin accounts by OpenAI plan type
+
+### Goal
+
+- Distinguish OpenAI `Plus`, `Pro`, `K12`, `Team`, `Free`, `Other`, and
+  `Unrecognized` accounts in account management and filter them consistently.
+
+### Scope Boundary
+
+- Filter the persisted `credentials.plan_type` in the repository before count
+  and pagination; a selected plan category implicitly limits the query to
+  OpenAI accounts.
+- Propagate the same `plan_type` through list, owner/share list, filtered bulk
+  edit, filtered share-status changes, and filtered export.
+- Keep `share_display_tier` display-only. Do not rewrite credentials, add
+  manual plan editing, change import/OAuth enrichment, add schema/migrations,
+  or touch scheduler, gateway, billing, deployment, and containers.
+
+### Acceptance Boundary
+
+- Repository integration tests cover known aliases, K12, other, unrecognized,
+  OpenAI scoping, total, and pagination behavior.
+- Service/handler tests prove list, filtered bulk, and export propagation;
+  frontend tests cover filter snapshots and normalized badge labels.
+- Focused Go/Vitest, typecheck, production build, formatting, exact allowlist,
+  conflict-marker, unmerged-index, and `git diff --check` gates must pass.
+
 ## S104 Addendum: preserve OpenAI plan type across inactive workspaces
 
 ### Goal

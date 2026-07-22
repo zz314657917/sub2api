@@ -1,6 +1,29 @@
 # 当前任务快照
 
-最后更新：2026-07-22 21:16 +08:00
+最后更新：2026-07-22 22:04 +08:00
+
+## S105 当前目标
+
+- 在管理员账号管理中增加 OpenAI 套餐分类与筛选：`Plus / Pro / K12 /
+  Team / Free / 其他 / 未识别`。
+- 列表、共享账号列表、按筛选批量编辑、按筛选批量共享状态和按筛选导出使用
+  同一个 `credentials.plan_type` 条件；`share_display_tier` 只影响展示。
+- Contract：`docs/workflow/tasks/admin-account-plan-type-filter-s105.md`。
+
+## S105 当前状态
+
+- 已完成并通过 `PASS / source-only`：管理员账号列表可按 `Plus / Pro / K12 /
+  Team / Free / 其他 / 未识别` 筛选，列表、共享账号、按筛选批量编辑、按筛选
+  共享状态和按筛选导出使用同一个 `credentials.plan_type` 条件。
+- 仓储集成、聚焦 service/handler、全量 handler/repository、Vitest `13/13`、
+  typecheck、生产构建（1089 modules）、格式、diff、冲突、allowlist 和未合并
+  索引门禁通过。
+- 全量 service 仍只失败于既有 peak-rate 时区基线；测试启动日志为 UTC，
+  与 S105 无关。未使用真实 K12 凭据或登录态浏览器 smoke。
+- 不改数据库 schema/migration，不重写凭据，不增加手动套餐编辑，不改导入/OAuth
+  enrichment、调度、网关、计费、部署或容器。
+- 当前 `main` 比 `origin/main` 领先 S104 本地提交 `cb4e0b4aa`；S105 本轮作为
+  本地提交保留，不推送。
 
 ## S104 当前目标
 
@@ -71,7 +94,8 @@
 
 ## 下一步
 
-1. 按授权发布 S104 精确补丁；不要混入 PAT 或 Agent Identity 功能链。
+1. 用户单独授权后再推送 S104/S105；验证：`HEAD`、`origin/main` 和
+   `git ls-remote` 一致。
 2. 需要确认真实 K12 效果时，另做脱敏账号运行态 smoke，并单独授权容器更新。
 
 ## 背景

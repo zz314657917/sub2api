@@ -416,3 +416,7 @@
 260722 2116 | upstream-openai-inactive-workspace-plan-s104 | build | codex | token-derived plan preservation and inactive/expired workspace filtering implemented in three service/test paths
 260722 2116 | upstream-openai-inactive-workspace-plan-s104 | qa-pass | evaluator | focused count=10, broader OAuth regressions, gofmt, diff, conflict, allowlist, and index gates PASS
 260722 2116 | upstream-openai-inactive-workspace-plan-s104 | done | evaluator | final PASS/source-only; no live K12 credential, deployment, or container refresh
+260722 2129 | admin-account-plan-type-filter-s105 | contract-approved | Codex | docs/workflow/tasks/admin-account-plan-type-filter-s105.md
+260722 2201 | admin-account-plan-type-filter-s105 | build | codex | repository-to-frontend plan filter, normalized badges, filtered bulk/share/export propagation, and focused regressions implemented
+260722 2204 | admin-account-plan-type-filter-s105 | qa-pass | evaluator | repository integration, focused service/handler, handler/repository full packages, Vitest 13/13, typecheck, build 1089 modules, and static gates PASS
+260722 2204 | admin-account-plan-type-filter-s105 | done | evaluator | final PASS/source-only; aggregate service retains only existing UTC peak-rate failures; no live K12, push, deployment, or container refresh

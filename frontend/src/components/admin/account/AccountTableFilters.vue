@@ -11,6 +11,7 @@
     <Select :model-value="filters.type" class="w-40" :options="tOpts" @update:model-value="updateType" @change="$emit('change')" />
     <Select :model-value="filters.status" class="w-40" :options="sOpts" @update:model-value="updateStatus" @change="$emit('change')" />
     <Select :model-value="filters.privacy_mode" class="w-40" :options="privacyOpts" @update:model-value="updatePrivacyMode" @change="$emit('change')" />
+    <Select :model-value="filters.plan_type" class="w-40" :options="planTypeOpts" @update:model-value="updatePlanType" @change="$emit('change')" />
     <Select v-if="showOwnerFilter" :model-value="filters.owner_filter" class="w-40" :options="ownerOpts" @update:model-value="updateOwnerFilter" @change="$emit('change')" />
     <Select v-if="showShareModeFilter" :model-value="filters.share_mode" class="w-40" :options="shareModeOpts" @update:model-value="updateShareMode" @change="$emit('change')" />
     <Select v-if="showShareStatusFilter" :model-value="filters.share_status" class="w-44" :options="shareStatusOpts" @update:model-value="updateShareStatus" @change="$emit('change')" />
@@ -40,6 +41,7 @@ const updatePlatform = (value: string | number | boolean | null) => { emit('upda
 const updateType = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, type: value }) }
 const updateStatus = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, status: value }) }
 const updatePrivacyMode = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, privacy_mode: value }) }
+const updatePlanType = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, plan_type: value }) }
 const updateOwnerFilter = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, owner_filter: value }) }
 const updateShareMode = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, share_mode: value }) }
 const updateShareStatus = (value: string | number | boolean | null) => { emit('update:filters', { ...props.filters, share_status: value }) }
@@ -53,6 +55,16 @@ const privacyOpts = computed(() => [
   { value: 'training_off', label: 'Privacy' },
   { value: 'training_set_cf_blocked', label: 'CF' },
   { value: 'training_set_failed', label: 'Fail' }
+])
+const planTypeOpts = computed(() => [
+  { value: '', label: t('admin.accounts.allPlanTypes') },
+  { value: 'plus', label: 'Plus' },
+  { value: 'pro', label: 'Pro' },
+  { value: 'k12', label: 'K12' },
+  { value: 'team', label: 'Team' },
+  { value: 'free', label: 'Free' },
+  { value: 'other', label: t('admin.accounts.planTypeOther') },
+  { value: 'unrecognized', label: t('admin.accounts.planTypeUnrecognized') }
 ])
 const ownerOpts = computed(() => [
   { value: '', label: t('admin.accounts.share.allOwners') },

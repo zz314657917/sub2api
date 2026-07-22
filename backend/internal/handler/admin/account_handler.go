@@ -159,6 +159,7 @@ type BulkUpdateAccountFilters struct {
 	Group       string `json:"group"`
 	Search      string `json:"search"`
 	PrivacyMode string `json:"privacy_mode"`
+	PlanType    string `json:"plan_type"`
 	OwnerFilter string `json:"owner_filter"`
 	ShareMode   string `json:"share_mode"`
 	ShareStatus string `json:"share_status"`
@@ -236,6 +237,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 	status := c.Query("status")
 	search := c.Query("search")
 	privacyMode := strings.TrimSpace(c.Query("privacy_mode"))
+	planType := strings.TrimSpace(c.Query("plan_type"))
 	ownerFilter := strings.TrimSpace(c.Query("owner_filter"))
 	shareMode := strings.TrimSpace(c.Query("share_mode"))
 	shareStatus := strings.TrimSpace(c.Query("share_status"))
@@ -276,7 +278,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 		ownerUserID = &parsedOwnerUserID
 	}
 
-	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, ownerUserID, ownerFilter, shareMode, shareStatus, sortBy, sortOrder)
+	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, planType, ownerUserID, ownerFilter, shareMode, shareStatus, sortBy, sortOrder)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -398,7 +400,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 		result[i] = item
 	}
 
-	etag := buildAccountsListETag(result, total, page, pageSize, platform, accountType, status, search, lite)
+	etag := buildAccountsListETag(result, total, page, pageSize, platform, accountType, status, search, planType, lite)
 	if etag != "" {
 		c.Header("ETag", etag)
 		c.Header("Vary", "If-None-Match")
@@ -469,6 +471,7 @@ func buildAccountsListETag(
 	total int64,
 	page, pageSize int,
 	platform, accountType, status, search string,
+	planType string,
 	lite bool,
 ) string {
 	payload := struct {
@@ -479,6 +482,7 @@ func buildAccountsListETag(
 		AccountType string                   `json:"type"`
 		Status      string                   `json:"status"`
 		Search      string                   `json:"search"`
+		PlanType    string                   `json:"plan_type"`
 		Lite        bool                     `json:"lite"`
 		Items       []AccountWithConcurrency `json:"items"`
 	}{
@@ -489,6 +493,7 @@ func buildAccountsListETag(
 		AccountType: accountType,
 		Status:      status,
 		Search:      search,
+		PlanType:    planType,
 		Lite:        lite,
 		Items:       items,
 	}
@@ -1642,6 +1647,7 @@ func toServiceBulkUpdateAccountFilters(filters *BulkUpdateAccountFilters) *servi
 		Group:       filters.Group,
 		Search:      filters.Search,
 		PrivacyMode: filters.PrivacyMode,
+		PlanType:    filters.PlanType,
 		OwnerFilter: filters.OwnerFilter,
 		ShareMode:   filters.ShareMode,
 		ShareStatus: filters.ShareStatus,
@@ -2418,7 +2424,7 @@ func (h *AccountHandler) BatchRefreshTier(c *gin.Context) {
 	accounts := make([]*service.Account, 0)
 
 	if len(req.AccountIDs) == 0 {
-		allAccounts, _, err := h.adminService.ListAccounts(ctx, 1, 10000, "gemini", "oauth", "", "", 0, "", nil, "", "", "", "name", "asc")
+		allAccounts, _, err := h.adminService.ListAccounts(ctx, 1, 10000, "gemini", "oauth", "", "", 0, "", "", nil, "", "", "", "name", "asc")
 		if err != nil {
 			response.ErrorFrom(c, err)
 			return

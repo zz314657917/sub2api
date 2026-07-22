@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -16,6 +17,33 @@ var (
 
 const AccountListGroupUngrouped int64 = -1
 const AccountPrivacyModeUnsetFilter = "__unset__"
+
+const (
+	AccountPlanTypeFilterPlus         = "plus"
+	AccountPlanTypeFilterPro          = "pro"
+	AccountPlanTypeFilterK12          = "k12"
+	AccountPlanTypeFilterTeam         = "team"
+	AccountPlanTypeFilterFree         = "free"
+	AccountPlanTypeFilterOther        = "other"
+	AccountPlanTypeFilterUnrecognized = "unrecognized"
+)
+
+func NormalizeAccountPlanTypeFilter(value string) (string, error) {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	switch normalized {
+	case "",
+		AccountPlanTypeFilterPlus,
+		AccountPlanTypeFilterPro,
+		AccountPlanTypeFilterK12,
+		AccountPlanTypeFilterTeam,
+		AccountPlanTypeFilterFree,
+		AccountPlanTypeFilterOther,
+		AccountPlanTypeFilterUnrecognized:
+		return normalized, nil
+	default:
+		return "", infraerrors.BadRequest("INVALID_PLAN_TYPE_FILTER", "invalid plan type filter")
+	}
+}
 
 type AccountRepository interface {
 	Create(ctx context.Context, account *Account) error

@@ -41,6 +41,7 @@ type accountRepoStubForBulkUpdate struct {
 		search      string
 		groupID     int64
 		privacyMode string
+		planType    string
 		ownerFilter string
 		shareMode   string
 		shareStatus string
@@ -111,7 +112,11 @@ func (s *accountRepoStubForBulkUpdate) UpdateGroupAccountPriorities(_ context.Co
 	return nil
 }
 
-func (s *accountRepoStubForBulkUpdate) ListWithFilters(_ context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error) {
+func (s *accountRepoStubForBulkUpdate) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error) {
+	return s.ListWithPlanFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, "")
+}
+
+func (s *accountRepoStubForBulkUpdate) ListWithPlanFilters(_ context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode, planType string) ([]Account, *pagination.PaginationResult, error) {
 	s.listCalled = true
 	s.lastListParams = params
 	s.lastListFilters.platform = platform
@@ -120,6 +125,7 @@ func (s *accountRepoStubForBulkUpdate) ListWithFilters(_ context.Context, params
 	s.lastListFilters.search = search
 	s.lastListFilters.groupID = groupID
 	s.lastListFilters.privacyMode = privacyMode
+	s.lastListFilters.planType = planType
 	if s.listErr != nil {
 		return nil, nil, s.listErr
 	}
@@ -129,7 +135,11 @@ func (s *accountRepoStubForBulkUpdate) ListWithFilters(_ context.Context, params
 	return s.listData, &pagination.PaginationResult{Total: int64(len(s.listData))}, nil
 }
 
-func (s *accountRepoStubForBulkUpdate) ListWithShareFilters(_ context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, _ *int64, ownerFilter, shareMode, shareStatus string) ([]Account, *pagination.PaginationResult, error) {
+func (s *accountRepoStubForBulkUpdate) ListWithShareFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string) ([]Account, *pagination.PaginationResult, error) {
+	return s.ListWithSharePlanFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, "", ownerUserID, ownerFilter, shareMode, shareStatus)
+}
+
+func (s *accountRepoStubForBulkUpdate) ListWithSharePlanFilters(_ context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode, planType string, _ *int64, ownerFilter, shareMode, shareStatus string) ([]Account, *pagination.PaginationResult, error) {
 	s.listCalled = true
 	s.lastListParams = params
 	s.lastListFilters.platform = platform
@@ -138,6 +148,7 @@ func (s *accountRepoStubForBulkUpdate) ListWithShareFilters(_ context.Context, p
 	s.lastListFilters.search = search
 	s.lastListFilters.groupID = groupID
 	s.lastListFilters.privacyMode = privacyMode
+	s.lastListFilters.planType = planType
 	s.lastListFilters.ownerFilter = ownerFilter
 	s.lastListFilters.shareMode = shareMode
 	s.lastListFilters.shareStatus = shareStatus
@@ -273,6 +284,7 @@ func TestAdminServiceBulkUpdateAccounts_ResolvesIDsFromFilters(t *testing.T) {
 	filtersValue.Elem().FieldByName("Status").SetString(StatusActive)
 	filtersValue.Elem().FieldByName("Group").SetString("12")
 	filtersValue.Elem().FieldByName("PrivacyMode").SetString(PrivacyModeCFBlocked)
+	filtersValue.Elem().FieldByName("PlanType").SetString(AccountPlanTypeFilterK12)
 	filtersValue.Elem().FieldByName("Search").SetString("bulk-target")
 	filtersValue.Elem().FieldByName("OwnerFilter").SetString("user_owned")
 	filtersValue.Elem().FieldByName("ShareMode").SetString(AccountShareModePublic)
@@ -288,6 +300,7 @@ func TestAdminServiceBulkUpdateAccounts_ResolvesIDsFromFilters(t *testing.T) {
 	require.Equal(t, "bulk-target", repo.lastListFilters.search)
 	require.Equal(t, int64(12), repo.lastListFilters.groupID)
 	require.Equal(t, PrivacyModeCFBlocked, repo.lastListFilters.privacyMode)
+	require.Equal(t, AccountPlanTypeFilterK12, repo.lastListFilters.planType)
 	require.Equal(t, "user_owned", repo.lastListFilters.ownerFilter)
 	require.Equal(t, AccountShareModePublic, repo.lastListFilters.shareMode)
 	require.Equal(t, AccountShareStatusPendingReview, repo.lastListFilters.shareStatus)
@@ -350,6 +363,7 @@ func TestAdminService_BulkSetAccountShareStatus_ResolvesIDsFromFilters(t *testin
 		Group:       "12",
 		Search:      "bulk-target",
 		PrivacyMode: PrivacyModeCFBlocked,
+		PlanType:    AccountPlanTypeFilterK12,
 		OwnerFilter: "user_owned",
 		ShareMode:   AccountShareModePublic,
 		ShareStatus: AccountShareStatusPendingReview,
@@ -363,6 +377,7 @@ func TestAdminService_BulkSetAccountShareStatus_ResolvesIDsFromFilters(t *testin
 	require.Equal(t, "bulk-target", repo.lastListFilters.search)
 	require.Equal(t, int64(12), repo.lastListFilters.groupID)
 	require.Equal(t, PrivacyModeCFBlocked, repo.lastListFilters.privacyMode)
+	require.Equal(t, AccountPlanTypeFilterK12, repo.lastListFilters.planType)
 	require.Equal(t, "user_owned", repo.lastListFilters.ownerFilter)
 	require.Equal(t, AccountShareModePublic, repo.lastListFilters.shareMode)
 	require.Equal(t, AccountShareStatusPendingReview, repo.lastListFilters.shareStatus)

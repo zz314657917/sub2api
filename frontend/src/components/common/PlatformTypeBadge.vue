@@ -98,13 +98,17 @@ const typeLabel = computed(() => {
 })
 
 const planLabel = computed(() => {
-  if (!props.planType) return ''
-  const lower = props.planType.toLowerCase()
+  const lower = props.planType?.trim().toLowerCase() || ''
+  if (!lower) {
+    return props.platform === 'openai' ? t('admin.accounts.planTypeUnrecognized') : ''
+  }
   switch (lower) {
     case 'plus':
       return 'Plus'
     case 'team':
       return 'Team'
+    case 'k12':
+      return 'K12'
     case 'chatgptpro':
     case 'pro':
       return 'Pro'
@@ -113,7 +117,7 @@ const planLabel = computed(() => {
     case 'abnormal':
       return t('admin.accounts.subscriptionAbnormal')
     default:
-      return props.planType
+      return t('admin.accounts.planTypeOther')
   }
 })
 

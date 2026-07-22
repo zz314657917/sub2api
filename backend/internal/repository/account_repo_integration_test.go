@@ -246,6 +246,7 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 		search      string
 		groupID     int64
 		privacyMode string
+		planType    string
 		wantCount   int
 		validate    func(accounts []service.Account)
 	}{
@@ -433,6 +434,71 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 				s.ElementsMatch([]string{"privacy-unset", "privacy-empty"}, names)
 			},
 		},
+		{
+			name: "filter_by_plan_type_plus_is_openai_scoped",
+			setup: func(client *dbent.Client) {
+				mustCreateAccount(s.T(), client, &service.Account{Name: "openai-plus", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "Plus"}})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "anthropic-plus", Platform: service.PlatformAnthropic, Credentials: map[string]any{"plan_type": "plus"}})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "openai-pro", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "pro"}})
+			},
+			planType:  service.AccountPlanTypeFilterPlus,
+			wantCount: 1,
+			validate: func(accounts []service.Account) {
+				s.Require().Equal("openai-plus", accounts[0].Name)
+			},
+		},
+		{
+			name: "filter_by_plan_type_pro_aliases",
+			setup: func(client *dbent.Client) {
+				mustCreateAccount(s.T(), client, &service.Account{Name: "pro-short", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "pro"}})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "pro-chatgpt", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "ChatGPTPro"}})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "plus", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "plus"}})
+			},
+			planType:  service.AccountPlanTypeFilterPro,
+			wantCount: 2,
+			validate: func(accounts []service.Account) {
+				s.ElementsMatch([]string{"pro-short", "pro-chatgpt"}, []string{accounts[0].Name, accounts[1].Name})
+			},
+		},
+		{
+			name: "filter_by_plan_type_k12_trims_and_ignores_case",
+			setup: func(client *dbent.Client) {
+				mustCreateAccount(s.T(), client, &service.Account{Name: "k12", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": " K12 "}})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "team", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "team"}})
+			},
+			planType:  service.AccountPlanTypeFilterK12,
+			wantCount: 1,
+			validate: func(accounts []service.Account) {
+				s.Require().Equal("k12", accounts[0].Name)
+			},
+		},
+		{
+			name: "filter_by_plan_type_other",
+			setup: func(client *dbent.Client) {
+				mustCreateAccount(s.T(), client, &service.Account{Name: "education", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "education"}})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "free", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "free"}})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "missing", Platform: service.PlatformOpenAI, Credentials: map[string]any{}})
+			},
+			planType:  service.AccountPlanTypeFilterOther,
+			wantCount: 1,
+			validate: func(accounts []service.Account) {
+				s.Require().Equal("education", accounts[0].Name)
+			},
+		},
+		{
+			name: "filter_by_plan_type_unrecognized",
+			setup: func(client *dbent.Client) {
+				mustCreateAccount(s.T(), client, &service.Account{Name: "missing", Platform: service.PlatformOpenAI, Credentials: map[string]any{}})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "blank", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "  "}})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "other-platform-missing", Platform: service.PlatformAnthropic, Credentials: map[string]any{}})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "plus", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "plus"}})
+			},
+			planType:  service.AccountPlanTypeFilterUnrecognized,
+			wantCount: 2,
+			validate: func(accounts []service.Account) {
+				s.ElementsMatch([]string{"missing", "blank"}, []string{accounts[0].Name, accounts[1].Name})
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -445,7 +511,7 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 
 			tt.setup(client)
 
-			accounts, page, err := repo.ListWithFilters(ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, tt.platform, tt.accType, tt.status, tt.search, tt.groupID, tt.privacyMode)
+			accounts, page, err := repo.ListWithPlanFilters(ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, tt.platform, tt.accType, tt.status, tt.search, tt.groupID, tt.privacyMode, tt.planType)
 			s.Require().NoError(err)
 			s.Require().Len(accounts, tt.wantCount)
 			s.Require().NotNil(page)
@@ -455,6 +521,24 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 			}
 		})
 	}
+}
+
+func (s *AccountRepoSuite) TestListWithFilters_PlanTypePagination() {
+	mustCreateAccount(s.T(), s.client, &service.Account{Name: "plus-a", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "plus"}})
+	mustCreateAccount(s.T(), s.client, &service.Account{Name: "plus-b", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "PLUS"}})
+	mustCreateAccount(s.T(), s.client, &service.Account{Name: "pro", Platform: service.PlatformOpenAI, Credentials: map[string]any{"plan_type": "pro"}})
+
+	accounts, page, err := s.repo.ListWithPlanFilters(
+		s.ctx,
+		pagination.PaginationParams{Page: 2, PageSize: 1, SortBy: "name", SortOrder: "asc"},
+		"", "", "", "", 0, "", service.AccountPlanTypeFilterPlus,
+	)
+	s.Require().NoError(err)
+	s.Require().Len(accounts, 1)
+	s.Require().Equal("plus-b", accounts[0].Name)
+	s.Require().Equal(int64(2), page.Total)
+	s.Require().Equal(2, page.Page)
+	s.Require().Equal(1, page.PageSize)
 }
 
 func (s *AccountRepoSuite) TestListOpsAccountsForStatsFiltersAndLoadsGroups() {

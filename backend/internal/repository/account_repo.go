@@ -485,6 +485,10 @@ func (r *accountRepository) List(ctx context.Context, params pagination.Paginati
 }
 
 func (r *accountRepository) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
+	return r.ListWithPlanFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, "")
+}
+
+func (r *accountRepository) ListWithPlanFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode, planType string) ([]service.Account, *pagination.PaginationResult, error) {
 	q := r.client.Account.Query()
 
 	if platform != "" {
@@ -576,6 +580,7 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 			}
 		}))
 	}
+	q = applyAccountPlanTypeFilter(q, planType)
 
 	// Clone before Count so interceptor-appended predicates do not pollute
 	// the subsequent list query.
@@ -601,6 +606,47 @@ func (r *accountRepository) ListWithFilters(ctx context.Context, params paginati
 		return nil, nil, err
 	}
 	return outAccounts, paginationResultFromTotal(int64(total), params), nil
+}
+
+func applyAccountPlanTypeFilter(q *dbent.AccountQuery, planType string) *dbent.AccountQuery {
+	normalized := strings.ToLower(strings.TrimSpace(planType))
+	if normalized == "" {
+		return q
+	}
+
+	return q.Where(
+		dbaccount.PlatformEQ(service.PlatformOpenAI),
+		dbpredicate.Account(func(s *entsql.Selector) {
+			column := s.C(dbaccount.FieldCredentials)
+			expression := "LOWER(BTRIM(COALESCE(" + column + "->>'plan_type', '')))"
+			knownValues := []any{"plus", "pro", "chatgptpro", "k12", "team", "free"}
+
+			switch normalized {
+			case service.AccountPlanTypeFilterPlus,
+				service.AccountPlanTypeFilterK12,
+				service.AccountPlanTypeFilterTeam,
+				service.AccountPlanTypeFilterFree:
+				s.Where(entsql.P(func(b *entsql.Builder) {
+					b.WriteString(expression).WriteString(" = ").Arg(normalized)
+				}))
+			case service.AccountPlanTypeFilterPro:
+				s.Where(entsql.P(func(b *entsql.Builder) {
+					b.WriteString(expression).WriteString(" IN (").Args("pro", "chatgptpro").WriteByte(')')
+				}))
+			case service.AccountPlanTypeFilterOther:
+				s.Where(entsql.P(func(b *entsql.Builder) {
+					b.WriteString(expression).WriteString(" <> ").Arg("")
+					b.WriteString(" AND ").WriteString(expression).WriteString(" NOT IN (").Args(knownValues...).WriteByte(')')
+				}))
+			case service.AccountPlanTypeFilterUnrecognized:
+				s.Where(entsql.P(func(b *entsql.Builder) {
+					b.WriteString(expression).WriteString(" = ").Arg("")
+				}))
+			default:
+				s.Where(entsql.False())
+			}
+		}),
+	)
 }
 
 func (r *accountRepository) ListUserOwned(ctx context.Context, userID int64, params pagination.PaginationParams) ([]service.Account, *pagination.PaginationResult, error) {
@@ -947,6 +993,10 @@ func (r *accountRepository) TransferAvailableShareToBalance(ctx context.Context,
 }
 
 func (r *accountRepository) ListWithShareFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string) ([]service.Account, *pagination.PaginationResult, error) {
+	return r.ListWithSharePlanFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, "", ownerUserID, ownerFilter, shareMode, shareStatus)
+}
+
+func (r *accountRepository) ListWithSharePlanFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode, planType string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string) ([]service.Account, *pagination.PaginationResult, error) {
 	q := r.client.Account.Query()
 
 	if platform != "" {
@@ -1038,6 +1088,7 @@ func (r *accountRepository) ListWithShareFilters(ctx context.Context, params pag
 			}
 		}))
 	}
+	q = applyAccountPlanTypeFilter(q, planType)
 	if ownerUserID != nil && *ownerUserID > 0 {
 		q = q.Where(dbaccount.OwnerUserIDEQ(*ownerUserID))
 	} else {

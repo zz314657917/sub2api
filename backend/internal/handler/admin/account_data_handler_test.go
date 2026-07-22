@@ -68,8 +68,30 @@ func setupAccountDataRouter() (*gin.Engine, *stubAdminService) {
 	)
 
 	router.GET("/api/v1/admin/accounts/data", h.ExportData)
+	router.GET("/api/v1/admin/accounts", h.List)
 	router.POST("/api/v1/admin/accounts/data", h.ImportData)
 	return router, adminSvc
+}
+
+func TestListAccountsPassesPlanTypeFilter(t *testing.T) {
+	router, adminSvc := setupAccountDataRouter()
+	adminSvc.accounts = []service.Account{{
+		ID:          1,
+		Name:        "k12",
+		Platform:    service.PlatformOpenAI,
+		Type:        service.AccountTypeOAuth,
+		Status:      service.StatusActive,
+		Schedulable: true,
+		Credentials: map[string]any{"plan_type": "k12"},
+	}}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts?plan_type=k12", nil)
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, 1, adminSvc.lastListAccounts.calls)
+	require.Equal(t, "k12", adminSvc.lastListAccounts.planType)
 }
 
 func TestExportDataIncludesSecrets(t *testing.T) {
@@ -181,7 +203,7 @@ func TestExportDataPassesAccountFiltersAndSort(t *testing.T) {
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/v1/admin/accounts/data?platform=openai&type=oauth&status=active&group=12&privacy_mode=blocked&search=keyword&sort_by=priority&sort_order=desc",
+		"/api/v1/admin/accounts/data?platform=openai&type=oauth&status=active&group=12&privacy_mode=blocked&plan_type=k12&search=keyword&sort_by=priority&sort_order=desc",
 		nil,
 	)
 	router.ServeHTTP(rec, req)
@@ -193,6 +215,7 @@ func TestExportDataPassesAccountFiltersAndSort(t *testing.T) {
 	require.Equal(t, "active", adminSvc.lastListAccounts.status)
 	require.Equal(t, int64(12), adminSvc.lastListAccounts.groupID)
 	require.Equal(t, "blocked", adminSvc.lastListAccounts.privacyMode)
+	require.Equal(t, "k12", adminSvc.lastListAccounts.planType)
 	require.Equal(t, "keyword", adminSvc.lastListAccounts.search)
 	require.Equal(t, "priority", adminSvc.lastListAccounts.sortBy)
 	require.Equal(t, "desc", adminSvc.lastListAccounts.sortOrder)

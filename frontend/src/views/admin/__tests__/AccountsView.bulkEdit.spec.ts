@@ -250,7 +250,9 @@ describe('admin AccountsView bulk edit scope', () => {
           ConfirmDialog: ConfirmDialogStub,
           BaseDialog: BaseDialogStub,
           AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
-          AccountTableFilters: { template: '<div></div>' },
+          AccountTableFilters: {
+            template: '<button data-test="set-k12-filter" @click="$emit(\'update:filters\', { plan_type: \'k12\' })"></button>'
+          },
           AccountBulkActionsBar: AccountBulkActionsBarStub,
           AccountActionMenu: true,
           ImportDataModal: true,
@@ -277,8 +279,12 @@ describe('admin AccountsView bulk edit scope', () => {
     })
 
     await flushPromises()
+    await wrapper.get('[data-test="set-k12-filter"]').trigger('click')
     await wrapper.get('[data-test="edit-filtered"]').trigger('click')
     await flushPromises()
+
+    const previewCall = listAccounts.mock.calls[listAccounts.mock.calls.length - 1]
+    expect(previewCall[2]).toMatchObject({ plan_type: 'k12' })
 
     expect(wrapper.get('[data-test="bulk-edit-modal"]').attributes('data-show')).toBe('true')
     expect(wrapper.get('[data-test="bulk-edit-modal"]').attributes('data-target-mode')).toBe('filtered')

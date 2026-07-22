@@ -78,7 +78,7 @@ type AdminService interface {
 	ReplaceUserGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (*ReplaceUserGroupResult, error)
 
 	// Account management
-	ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string, sortBy, sortOrder string) ([]Account, int64, error)
+	ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode, planType string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string, sortBy, sortOrder string) ([]Account, int64, error)
 	GetAccount(ctx context.Context, id int64) (*Account, error)
 	GetAccountsByIDs(ctx context.Context, ids []int64) ([]*Account, error)
 	CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error)
@@ -358,6 +358,7 @@ type BulkUpdateAccountFilters struct {
 	Group       string
 	Search      string
 	PrivacyMode string
+	PlanType    string
 	OwnerFilter string
 	ShareMode   string
 	ShareStatus string
@@ -558,6 +559,14 @@ var ErrRPMStatusUnavailable = infraerrors.New(http.StatusNotImplemented, "RPM_ST
 
 type accountShareFilterRepository interface {
 	ListWithShareFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string) ([]Account, *pagination.PaginationResult, error)
+}
+
+type accountPlanFilterRepository interface {
+	ListWithPlanFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode, planType string) ([]Account, *pagination.PaginationResult, error)
+}
+
+type accountSharePlanFilterRepository interface {
+	ListWithSharePlanFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode, planType string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string) ([]Account, *pagination.PaginationResult, error)
 }
 
 // adminServiceImpl implements AdminService
@@ -3132,8 +3141,12 @@ func (s *adminServiceImpl) ReplaceUserGroup(ctx context.Context, userID, oldGrou
 }
 
 // Account management implementations
-func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string, sortBy, sortOrder string) ([]Account, int64, error) {
+func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode, planType string, ownerUserID *int64, ownerFilter, shareMode, shareStatus string, sortBy, sortOrder string) ([]Account, int64, error) {
 	params := pagination.PaginationParams{Page: page, PageSize: pageSize, SortBy: sortBy, SortOrder: sortOrder}
+	normalizedPlanType, normalizeErr := NormalizeAccountPlanTypeFilter(planType)
+	if normalizeErr != nil {
+		return nil, 0, normalizeErr
+	}
 
 	hasShareFilters := ownerUserID != nil ||
 		strings.TrimSpace(ownerFilter) != "" ||
@@ -3146,11 +3159,25 @@ func (s *adminServiceImpl) ListAccounts(ctx context.Context, page, pageSize int,
 		err      error
 	)
 	if hasShareFilters {
-		shareRepo, ok := s.accountRepo.(accountShareFilterRepository)
-		if !ok {
-			return nil, 0, fmt.Errorf("account repository does not support share filters")
+		if normalizedPlanType != "" {
+			sharePlanRepo, ok := s.accountRepo.(accountSharePlanFilterRepository)
+			if !ok {
+				return nil, 0, fmt.Errorf("account repository does not support share plan filters")
+			}
+			accounts, result, err = sharePlanRepo.ListWithSharePlanFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, normalizedPlanType, ownerUserID, ownerFilter, shareMode, shareStatus)
+		} else {
+			shareRepo, ok := s.accountRepo.(accountShareFilterRepository)
+			if !ok {
+				return nil, 0, fmt.Errorf("account repository does not support share filters")
+			}
+			accounts, result, err = shareRepo.ListWithShareFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, ownerUserID, ownerFilter, shareMode, shareStatus)
 		}
-		accounts, result, err = shareRepo.ListWithShareFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, ownerUserID, ownerFilter, shareMode, shareStatus)
+	} else if normalizedPlanType != "" {
+		planRepo, ok := s.accountRepo.(accountPlanFilterRepository)
+		if !ok {
+			return nil, 0, fmt.Errorf("account repository does not support plan filters")
+		}
+		accounts, result, err = planRepo.ListWithPlanFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode, normalizedPlanType)
 	} else {
 		accounts, result, err = s.accountRepo.ListWithFilters(ctx, params, platform, accountType, status, search, groupID, privacyMode)
 	}
@@ -3590,6 +3617,7 @@ func (s *adminServiceImpl) resolveBulkUpdateTargetIDs(ctx context.Context, filte
 			filters.Search,
 			groupID,
 			filters.PrivacyMode,
+			filters.PlanType,
 			nil,
 			filters.OwnerFilter,
 			filters.ShareMode,

@@ -633,6 +633,7 @@ type AccountBulkEditTarget =
         group?: string
         search?: string
         privacy_mode?: string
+        plan_type?: string
         owner_filter?: string
         share_mode?: string
         share_status?: string
@@ -1025,6 +1026,7 @@ const {
     type: '',
     status: '',
     privacy_mode: '',
+    plan_type: '',
     owner_filter: '',
     share_mode: '',
     share_status: '',
@@ -1262,6 +1264,7 @@ const refreshAccountsIncrementally = async () => {
         type?: string
         status?: string
         privacy_mode?: string
+        plan_type?: string
         owner_filter?: string
         share_mode?: string
         share_status?: string
@@ -1813,6 +1816,7 @@ const buildBulkEditFilterSnapshot = () => {
     group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
+    plan_type: typeof rawParams.plan_type === 'string' ? rawParams.plan_type : '',
     owner_filter: typeof rawParams.owner_filter === 'string' ? rawParams.owner_filter : '',
     share_mode: typeof rawParams.share_mode === 'string' ? rawParams.share_mode : '',
     share_status: typeof rawParams.share_status === 'string' ? rawParams.share_status : '',
@@ -1860,6 +1864,26 @@ const handleBulkUpdated = () => {
 const handleDataImported = () => { showImportData.value = false; reload() }
 const ACCOUNT_UNGROUPED_GROUP_QUERY_VALUE = 'ungrouped'
 const ACCOUNT_PRIVACY_MODE_UNSET_QUERY_VALUE = '__unset__'
+const classifyAccountPlanType = (account: Account): string => {
+  if (account.platform !== 'openai') return ''
+  const rawPlanType = typeof account.credentials?.plan_type === 'string'
+    ? account.credentials.plan_type.trim().toLowerCase()
+    : ''
+  switch (rawPlanType) {
+    case 'plus':
+    case 'k12':
+    case 'team':
+    case 'free':
+      return rawPlanType
+    case 'pro':
+    case 'chatgptpro':
+      return 'pro'
+    case '':
+      return 'unrecognized'
+    default:
+      return 'other'
+  }
+}
 const buildAccountQueryFilters = () => ({
   ...(() => {
     applyFixedAccountScope()
@@ -1869,6 +1893,7 @@ const buildAccountQueryFilters = () => ({
       status: params.status || '',
       group: params.group || '',
       privacy_mode: params.privacy_mode || '',
+      plan_type: params.plan_type || '',
       owner_filter: params.owner_filter || '',
       share_mode: params.share_mode || '',
       share_status: params.share_status || '',
@@ -1917,6 +1942,7 @@ const accountMatchesCurrentFilters = (account: Account) => {
       return false
     }
   }
+  if (filters.plan_type && classifyAccountPlanType(account) !== filters.plan_type) return false
   if (filters.owner_filter === 'system' && account.owner_user_id) return false
   if (filters.owner_filter === 'user' && !account.owner_user_id) return false
   if (filters.share_mode && account.share_mode !== filters.share_mode) return false

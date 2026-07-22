@@ -1,13 +1,39 @@
 ---
 phase: done
-current_sprint: upstream-openai-inactive-workspace-plan-s104
-total_sprints: 104
-pending_action: S104 source-only PASS; publish the scoped patch when authorized, without deployment or container refresh
+current_sprint: admin-account-plan-type-filter-s105
+total_sprints: 105
+pending_action: S105 source-only PASS; keep the scoped commit local until push authorization, without deployment or container refresh
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-22 21:16 +08:00
+last_verified: 2026-07-22 22:04 +08:00
 ---
+
+# S105 Current Sprint
+
+- S105 contract is approved for an admin OpenAI plan filter with `Plus`,
+  `Pro`, `K12`, `Team`, `Free`, `Other`, and `Unrecognized` categories.
+- Filtering uses persisted `credentials.plan_type` at repository level before
+  count/pagination and propagates through owner/share lists, filtered bulk
+  actions, and filtered export. `share_display_tier` remains display-only.
+- Schema/migrations, stored credential rewrites, manual plan editing, import
+  and OAuth enrichment, scheduler/gateway, billing, deployment, and containers
+  remain frozen.
+- Contract: `docs/workflow/tasks/admin-account-plan-type-filter-s105.md`.
+- Contract review: `PASS`; the current list/bulk/export topology has a shared
+  service boundary and the JSONB filter needs no schema prerequisite.
+- Implementation is complete across repository, service, handler, list ETag,
+  frontend list/share filters, filtered bulk actions, filtered export, and
+  normalized plan badges.
+- Final Evaluator: `PASS / source-only`. Repository integration, focused
+  service/handler tests, full handler/repository packages, Vitest `13/13`,
+  frontend typecheck, production build, formatting, diff, conflict, allowlist,
+  and unmerged-index gates pass. The aggregate service package still has only
+  the existing peak-rate timezone failures reproduced with UTC initialization.
+- No authenticated browser smoke, live K12 credential, push, deployment, or
+  container refresh was performed.
+- QA report:
+  `docs/workflow/qa-reports/admin-account-plan-type-filter-s105-qa.md`.
 
 # S104 Current Sprint
 
