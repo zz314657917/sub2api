@@ -19,10 +19,11 @@ last_verified: 2026-07-22 17:22 +08:00
   absent payment prerequisite is recorded rather than recreated.
 - Contract: `docs/workflow/tasks/upstream-frontend-hardcoded-i18n-s103.md`.
 - S103 implementation is complete within the four-file applicable allowlist.
-- Final Evaluator: `PASS / source-only`. Focused frontend tests pass `2 files /
+- Final Evaluator: `PASS / published`. Focused frontend tests pass `2 files /
   9 tests`, typecheck and production build pass, and static/allowlist gates
   pass. The payment custom-method placeholder remains skipped because its local
-  prerequisite is absent; no deployment or container refresh was run.
+  prerequisite is absent. Feature/QA commit `f2720fdbb` is published on
+  `origin/main`; no deployment or container refresh was run.
 - QA report: `docs/workflow/qa-reports/upstream-frontend-hardcoded-i18n-s103-qa.md`.
 
 # S102 Current Sprint

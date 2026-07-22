@@ -409,3 +409,5 @@
 260722 1722 | upstream-frontend-hardcoded-i18n-s103 | build | codex | localized AppHeader and CustomPageView with three common keys; payment placeholder left skipped
 260722 1722 | upstream-frontend-hardcoded-i18n-s103 | qa-pass | evaluator | focused tests 2 files/9 tests, typecheck, build, static, diff, conflict, and index gates PASS
 260722 1722 | upstream-frontend-hardcoded-i18n-s103 | done | evaluator | final PASS/source-only; no browser auth, deployment, or container refresh
+260722 1723 | upstream-frontend-hardcoded-i18n-s103 | commit | codex | feature/QA commit f2720fdbb created from exact nine-path allowlist
+260722 1723 | upstream-frontend-hardcoded-i18n-s103 | push | codex | feature commit f2720fdbb verified on local main, origin/main, and ls-remote; payment placeholder remains skipped
