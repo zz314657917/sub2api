@@ -1,13 +1,43 @@
 ---
 phase: done
-current_sprint: upstream-main-redis-acl-s97
-total_sprints: 97
-pending_action: deployment and container refresh remain unauthorized
+current_sprint: expired-subscription-route-skip-s99
+total_sprints: 99
+pending_action: source-only PASS; commit, push, deployment, and container refresh require explicit authorization
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-22 11:03 +08:00
+last_verified: 2026-07-22 14:21 +08:00
 ---
+
+# S99 Current Sprint
+
+- S99 is complete. Multi-group routing marks missing, expired, or suspended
+  subscription groups unavailable on a request-local API Key copy, skips them,
+  and continues through existing priority and model matching without deleting
+  saved routes. Usage-limit and persistence errors do not trigger failover.
+- Default-group fallback now requires current group/subscription eligibility;
+  when every enabled route and the default group are unusable, authentication
+  returns `NO_MATCHING_GROUP_ROUTE`. `/v1/models` and `/v1/model-catalog` omit
+  request-scoped unavailable routes.
+- Key updates can preserve existing unavailable base/route bindings but cannot
+  add a newly unauthorized group. The editor restores unavailable route names
+  from `route_groups`, labels subscription routes as expired, keeps them
+  non-selectable, and still allows removal.
+- S99 final Evaluator: `PASS / source-only`. Focused service, middleware,
+  handler and S88/S91/S93 routing regressions pass; KeysView is `18/18`,
+  typecheck and production build (`1089 modules`) pass, and formatting/diff/
+  conflict/unmerged gates pass. Authenticated browser smoke, real DB/Redis
+  renewal smoke, commit, push, deployment, and container refresh were not run.
+
+# S98 Current Sprint
+
+- S98 is complete. The API-key multi-group route editor keeps its header compact,
+  preserves bounded scrolling, hides groups selected by another route, and
+  disables Add Route when a row is incomplete or every available group is used.
+- S98 final Evaluator: `PASS / source-only`. KeysView focused Vitest is `18/18`,
+  typecheck and production build (`1089 modules`) pass, and diff/conflict/index
+  gates pass. The S99 unavailable-route state was verified in the same frontend
+  files but remains covered by the separate S99 contract and backend tests.
 
 # S97 Current Sprint
 

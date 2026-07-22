@@ -1134,7 +1134,7 @@ func (h *GatewayHandler) routedAPIKeyModelCatalog(ctx context.Context, apiKey *s
 
 	itemsByID := make(map[string]service.ModelCatalogItem)
 	for _, route := range apiKey.MultiGroupRoutes {
-		if !route.Enabled {
+		if !route.Enabled || apiKey.IsRouteGroupUnavailable(route.GroupID) {
 			continue
 		}
 		group := groups[route.GroupID]

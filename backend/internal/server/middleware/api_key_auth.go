@@ -114,7 +114,14 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			AbortWithError(c, 401, "USER_INACTIVE", "User account is not active")
 			return
 		}
+		if cfg.RunMode != config.RunModeSimple && c.Request.URL.Path != "/v1/usage" {
+			apiKey = withUnavailableSubscriptionRouteGroups(c.Request.Context(), apiKey, subscriptionService)
+		}
 		apiKey = resolveAPIKeyForRequest(c, apiKeyService, apiKey)
+		if apiKey == nil {
+			AbortWithError(c, http.StatusForbidden, "NO_MATCHING_GROUP_ROUTE", "No available group route matches the request")
+			return
+		}
 		if abortIfAPIKeyGroupUnavailable(c, apiKey) {
 			return
 		}
@@ -213,6 +220,65 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		c.Next()
 		applyAPIKeyRouteCooldownAfterRequest(c, apiKeyService, currentAPIKeyFromContext(c, apiKey))
 	}
+}
+
+func withUnavailableSubscriptionRouteGroups(ctx context.Context, apiKey *service.APIKey, subscriptionService *service.SubscriptionService) *service.APIKey {
+	if apiKey == nil || subscriptionService == nil || len(apiKey.MultiGroupRoutes) == 0 {
+		return apiKey
+	}
+	userID := apiKey.UserID
+	if userID <= 0 && apiKey.User != nil {
+		userID = apiKey.User.ID
+	}
+	if userID <= 0 {
+		return apiKey
+	}
+
+	groups := make(map[int64]*service.Group, len(apiKey.MultiGroupRouteGroups)+1)
+	if service.IsGroupContextValid(apiKey.Group) {
+		groups[apiKey.Group.ID] = apiKey.Group
+	}
+	for _, group := range apiKey.MultiGroupRouteGroups {
+		if service.IsGroupContextValid(group) {
+			groups[group.ID] = group
+		}
+	}
+
+	groupIDs := make(map[int64]struct{}, len(apiKey.MultiGroupRoutes)+1)
+	for _, route := range apiKey.MultiGroupRoutes {
+		if route.Enabled && route.GroupID > 0 {
+			groupIDs[route.GroupID] = struct{}{}
+		}
+	}
+	if apiKey.GroupID != nil && *apiKey.GroupID > 0 {
+		groupIDs[*apiKey.GroupID] = struct{}{}
+	}
+
+	unavailable := make(map[int64]struct{})
+	for groupID := range groupIDs {
+		group := groups[groupID]
+		if group == nil || !group.IsActive() || !group.IsSubscriptionType() {
+			continue
+		}
+		subscription, err := subscriptionService.GetActiveSubscription(ctx, userID, groupID)
+		if err != nil {
+			if isSkippableSubscriptionRouteError(err) {
+				unavailable[groupID] = struct{}{}
+			}
+			continue
+		}
+		_, err = subscriptionService.ValidateAndCheckLimits(subscription, group)
+		if isSkippableSubscriptionRouteError(err) {
+			unavailable[groupID] = struct{}{}
+		}
+	}
+	return apiKey.WithUnavailableRouteGroups(unavailable)
+}
+
+func isSkippableSubscriptionRouteError(err error) bool {
+	return errors.Is(err, service.ErrSubscriptionNotFound) ||
+		errors.Is(err, service.ErrSubscriptionExpired) ||
+		errors.Is(err, service.ErrSubscriptionSuspended)
 }
 
 func abortWithAPIKeyQuotaError(c *gin.Context) {

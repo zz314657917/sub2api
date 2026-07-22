@@ -37,10 +37,13 @@ type APIKey struct {
 	GroupID               *int64
 	MultiGroupRoutes      []domain.APIKeyMultiGroupRoute
 	MultiGroupRouteGroups []*Group
-	AccountPoolStrategy   string
-	Status                string
-	IPWhitelist           []string
-	IPBlacklist           []string
+	// UnavailableRouteGroupIDs is populated on a request-local copy by auth
+	// middleware. It must never be written back to the auth cache or repository.
+	UnavailableRouteGroupIDs map[int64]struct{} `json:"-"`
+	AccountPoolStrategy      string
+	Status                   string
+	IPWhitelist              []string
+	IPBlacklist              []string
 	// 预编译的 IP 规则，用于认证热路径避免重复 ParseIP/ParseCIDR。
 	CompiledIPWhitelist *ip.CompiledIPRules `json:"-"`
 	CompiledIPBlacklist *ip.CompiledIPRules `json:"-"`
@@ -66,6 +69,26 @@ type APIKey struct {
 	Window5hStart *time.Time // Start of current 5h window
 	Window1dStart *time.Time // Start of current 1d window
 	Window7dStart *time.Time // Start of current 7d window
+}
+
+func (k *APIKey) WithUnavailableRouteGroups(groupIDs map[int64]struct{}) *APIKey {
+	if k == nil || len(groupIDs) == 0 {
+		return k
+	}
+	clone := *k
+	clone.UnavailableRouteGroupIDs = make(map[int64]struct{}, len(groupIDs))
+	for groupID := range groupIDs {
+		clone.UnavailableRouteGroupIDs[groupID] = struct{}{}
+	}
+	return &clone
+}
+
+func (k *APIKey) IsRouteGroupUnavailable(groupID int64) bool {
+	if k == nil || groupID <= 0 || len(k.UnavailableRouteGroupIDs) == 0 {
+		return false
+	}
+	_, unavailable := k.UnavailableRouteGroupIDs[groupID]
+	return unavailable
 }
 
 func (k *APIKey) IsActive() bool {

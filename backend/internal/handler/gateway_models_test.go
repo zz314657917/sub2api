@@ -269,6 +269,51 @@ func TestGatewayModels_MultiGroupRoutesAggregateRoutableModels(t *testing.T) {
 	require.NotZero(t, got.Data[0].Created)
 }
 
+func TestS99GatewayModelsExcludeUnavailableSubscriptionRoutes(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	expiredGroupID := int64(10034)
+	availableGroupID := int64(10035)
+	h := newGatewayModelsHandlerForTest(
+		&gatewayModelsAccountRepoStub{byGroup: map[int64][]service.Account{
+			expiredGroupID: {{
+				ID: 1, Platform: service.PlatformOpenAI,
+				Credentials: map[string]any{"model_mapping": map[string]any{"gpt-expired": "gpt-expired"}},
+			}},
+			availableGroupID: {{
+				ID: 2, Platform: service.PlatformOpenAI,
+				Credentials: map[string]any{"model_mapping": map[string]any{"gpt-available": "gpt-available"}},
+			}},
+		}},
+	)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodGet, "/v1/models", nil)
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
+		Group: &service.Group{
+			ID: expiredGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive,
+			RoutingScope: service.GroupRoutingScopeInference, ModelMatchPatterns: []string{"gpt-*"}, Hydrated: true,
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: expiredGroupID, Priority: 1, Weight: 1, Enabled: true},
+			{GroupID: availableGroupID, Priority: 2, Weight: 1, Enabled: true},
+		},
+		MultiGroupRouteGroups: []*service.Group{{
+			ID: availableGroupID, Platform: service.PlatformOpenAI, Status: service.StatusActive,
+			RoutingScope: service.GroupRoutingScopeInference, ModelMatchPatterns: []string{"gpt-*"}, Hydrated: true,
+		}},
+		UnavailableRouteGroupIDs: map[int64]struct{}{expiredGroupID: {}},
+	})
+
+	h.Models(c)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var got gatewayModelsResponseForTest
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
+	require.Equal(t, []string{"gpt-available"}, modelIDsForTest(got.Data))
+}
+
 func TestGatewayModels_ForcedPlatformSkipsMultiGroupRouteAggregation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

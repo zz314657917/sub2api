@@ -245,6 +245,11 @@ describe('KeysView create query', () => {
   })
 
   it('keeps priorities continuous when adding and removing routes', async () => {
+    availableGroups.mockResolvedValue([
+      groupFixture(1, 'A', 1),
+      groupFixture(2, 'B', 1),
+    ])
+
     const wrapper = mountView()
     await flushPromises()
 
@@ -257,6 +262,42 @@ describe('KeysView create query', () => {
     expect(setupState.formData.multi_group_routes.map((route: { priority: number }) => route.priority)).toEqual([1, 2])
     setupState.removeMultiGroupRoute(0)
     expect(setupState.formData.multi_group_routes.map((route: { priority: number }) => route.priority)).toEqual([1])
+  })
+
+  it('hides groups selected by other routes and stops adding when every group is used', async () => {
+    availableGroups.mockResolvedValue([
+      groupFixture(1, 'A', 1),
+      groupFixture(2, 'B', 1),
+      groupFixture(3, 'C', 1),
+    ])
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.openCreateModal()
+    setupState.formData.enable_multi_group_routing = true
+    setupState.formData.multi_group_routes = [
+      routeFormFixture('route-a', 1),
+      routeFormFixture('route-b', 2),
+    ]
+
+    expect(setupState.getRouteGroupOptions(setupState.formData.multi_group_routes[0]).map((option: { value: number }) => option.value)).toEqual([1, 3])
+    expect(setupState.getRouteGroupOptions(setupState.formData.multi_group_routes[1]).map((option: { value: number }) => option.value)).toEqual([2, 3])
+    expect(setupState.canAddMultiGroupRoute).toBe(true)
+
+    setupState.addMultiGroupRoute()
+    expect(setupState.formData.multi_group_routes.map((route: { group_id: number }) => route.group_id)).toEqual([1, 2, 3])
+    expect(setupState.canAddMultiGroupRoute).toBe(false)
+
+    setupState.addMultiGroupRoute()
+    expect(setupState.formData.multi_group_routes).toHaveLength(3)
+
+    setupState.formData.multi_group_routes = [
+      routeFormFixture('route-a', 1),
+      { ...routeFormFixture('route-empty', 2), group_id: null },
+    ]
+    expect(setupState.canAddMultiGroupRoute).toBe(false)
   })
 
   it('preserves enabled state while normalizing all compatibility fields', async () => {
@@ -402,6 +443,54 @@ describe('KeysView create query', () => {
       { group_id: 2, priority: 2, weight: 1, cooldown_seconds: 30, enabled: true },
     ])
     expect(keysUpdate.mock.calls[0][1].account_pool_strategy).toBe('private_only')
+  })
+
+  it('shows an unavailable saved route group and preserves it on edit', async () => {
+    availableGroups.mockResolvedValue([groupFixture(1, 'Available', 1)])
+    const expiredGroup = groupFixture(9, 'Expired Plan', 1, {
+      subscription_type: 'subscription',
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    const setupState = (wrapper.vm as any).$?.setupState
+    setupState.editKey({
+      id: 19,
+      name: 'Stale Route Key',
+      key: 'sk-stale',
+      group_id: 1,
+      route_groups: [expiredGroup],
+      multi_group_routes: [
+        { group_id: 9, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true },
+      ],
+      account_pool_strategy: 'shared_only',
+      status: 'active',
+      ip_whitelist: [],
+      ip_blacklist: [],
+      quota: 0,
+      quota_used: 0,
+      rate_limit_5h: 0,
+      rate_limit_1d: 0,
+      rate_limit_7d: 0,
+      expires_at: null,
+    })
+
+    const route = setupState.formData.multi_group_routes[0]
+    const options = setupState.getRouteGroupOptions(route)
+    expect(options[0]).toMatchObject({
+      value: 9,
+      label: 'Expired Plan · keys.routeSubscriptionExpired',
+      disabled: true,
+      unavailable: true,
+    })
+    expect(options.map((option: { value: number }) => option.value)).toEqual([9, 1])
+
+    await setupState.handleSubmit()
+
+    expect(keysUpdate.mock.calls[0][1].multi_group_routes).toEqual([
+      { group_id: 9, priority: 1, weight: 1, cooldown_seconds: 30, enabled: true },
+    ])
   })
 })
 

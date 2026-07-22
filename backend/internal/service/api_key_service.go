@@ -296,6 +296,9 @@ func (s *APIKeyService) ResolveForRequest(ctx context.Context, apiKey *APIKey, p
 		return nil
 	}
 	resolved := apiKey.ResolveForRequestWithGroupSkipper(path, forcePlatform, func(groupID int64) bool {
+		if apiKey.IsRouteGroupUnavailable(groupID) {
+			return true
+		}
 		if s == nil {
 			return false
 		}
@@ -311,6 +314,9 @@ func (s *APIKeyService) ResolveForModelRequest(ctx context.Context, apiKey *APIK
 		return nil
 	}
 	resolved := apiKey.ResolveForModelRequestWithGroupSkipper(path, forcePlatform, requestedModel, imageIntent, func(groupID int64) bool {
+		if apiKey.IsRouteGroupUnavailable(groupID) {
+			return true
+		}
 		if s == nil {
 			return false
 		}
@@ -567,18 +573,21 @@ func apiKeyRouteDedupKey(route domain.APIKeyMultiGroupRoute) string {
 	return fmt.Sprintf("%d|%t|%t", route.GroupID, route.ImageOnly, route.TextOnly)
 }
 
-func (s *APIKeyService) validateAPIKeyRouteGroups(ctx context.Context, user *User, routes []domain.APIKeyMultiGroupRoute, skipPermissionCheck bool) error {
+func (s *APIKeyService) validateAPIKeyRouteGroups(ctx context.Context, user *User, routes []domain.APIKeyMultiGroupRoute, skipPermissionCheck bool, preservedGroupIDs map[int64]struct{}) error {
 	if len(routes) == 0 {
 		return nil
-	}
-	if s.groupRepo == nil {
-		return ErrAPIKeyRouteInvalid
 	}
 	for _, route := range routes {
 		if route.GroupID <= 0 {
 			return ErrAPIKeyRouteInvalid
 		}
 		if route.ImageOnly && route.TextOnly {
+			return ErrAPIKeyRouteInvalid
+		}
+		if _, preserved := preservedGroupIDs[route.GroupID]; preserved {
+			continue
+		}
+		if s.groupRepo == nil {
 			return ErrAPIKeyRouteInvalid
 		}
 		group, err := s.groupRepo.GetByID(ctx, route.GroupID)
@@ -630,7 +639,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		return nil, ErrAPIKeyModelPatternsManagedByGroup
 	}
 	multiGroupRoutes := normalizeAPIKeyMultiGroupRoutes(req.MultiGroupRoutes)
-	if err := s.validateAPIKeyRouteGroups(ctx, user, multiGroupRoutes, req.SkipGroupPermissionCheck); err != nil {
+	if err := s.validateAPIKeyRouteGroups(ctx, user, multiGroupRoutes, req.SkipGroupPermissionCheck, nil); err != nil {
 		return nil, err
 	}
 	if !IsValidAccountPoolStrategy(req.AccountPoolStrategy) {
@@ -1039,18 +1048,21 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 
 	if req.GroupID != nil {
 		// 验证分组权限
-		user, err := s.userRepo.GetByID(ctx, userID)
-		if err != nil {
-			return nil, fmt.Errorf("get user: %w", err)
-		}
+		preservingExistingGroup := apiKey.GroupID != nil && *apiKey.GroupID == *req.GroupID
+		if !preservingExistingGroup {
+			user, err := s.userRepo.GetByID(ctx, userID)
+			if err != nil {
+				return nil, fmt.Errorf("get user: %w", err)
+			}
 
-		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
-		if err != nil {
-			return nil, fmt.Errorf("get group: %w", err)
-		}
+			group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
+			if err != nil {
+				return nil, fmt.Errorf("get group: %w", err)
+			}
 
-		if !s.canUserBindGroup(ctx, user, group) {
-			return nil, ErrGroupNotAllowed
+			if !s.canUserBindGroup(ctx, user, group) {
+				return nil, ErrGroupNotAllowed
+			}
 		}
 
 		apiKey.GroupID = req.GroupID
@@ -1061,7 +1073,13 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 			return nil, fmt.Errorf("get user: %w", err)
 		}
 		routes := normalizeAPIKeyMultiGroupRoutes(req.MultiGroupRoutes)
-		if err := s.validateAPIKeyRouteGroups(ctx, user, routes, false); err != nil {
+		preservedGroupIDs := make(map[int64]struct{}, len(apiKey.MultiGroupRoutes))
+		for _, route := range apiKey.MultiGroupRoutes {
+			if route.GroupID > 0 {
+				preservedGroupIDs[route.GroupID] = struct{}{}
+			}
+		}
+		if err := s.validateAPIKeyRouteGroups(ctx, user, routes, false, preservedGroupIDs); err != nil {
 			return nil, err
 		}
 		apiKey.MultiGroupRoutes = routes

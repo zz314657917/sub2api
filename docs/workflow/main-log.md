@@ -376,3 +376,10 @@
 260722 1103 | upstream-main-redis-acl-s97 | done | evaluator | final PASS/source-only; no Redis runtime, deployment, or container refresh
 260722 1104 | upstream-main-redis-acl-s97 | commit | codex | feature commit 8b70a55a8 created from exact 22-path staged boundary; KeysView changes excluded
 260722 1104 | upstream-main-redis-acl-s97 | push | codex | origin/main and git ls-remote verified at 8b70a55a8; deployment and container refresh remain unauthorized
+260722 1144 | expired-subscription-route-skip-s99 | contract-draft | planner | docs/workflow/tasks/expired-subscription-route-skip-s99.md; temporary subscription eligibility fallback, model-catalog parity, and stale editor state
+260722 1144 | expired-subscription-route-skip-s99 | contract-approved | evaluator | skippable errors, failover exclusions, request-local cache safety, preservation boundary, and acceptance gates approved
+260722 1209 | expired-subscription-route-skip-s99 | build | codex | request-local subscription eligibility skip, catalog parity, update preservation, and stale-route editor state implemented
+260722 1209 | expired-subscription-route-skip-s99 | qa-pass | evaluator | focused Go routing/auth/catalog, KeysView 18/18, typecheck, build 1089 modules, and diff gates PASS
+260722 1209 | expired-subscription-route-skip-s99 | done | evaluator | final PASS/source-only; authenticated browser, real DB/Redis, commit, push, deployment, and container refresh not run
+260722 1421 | key-route-editor-polish-s98 | qa-pass | evaluator | KeysView 18/18, typecheck, build 1089 modules, and diff/conflict/index gates PASS
+260722 1421 | key-route-editor-polish-s98 | done | evaluator | frontend-only PASS/source-only; unavailable-route behavior remains governed by S99

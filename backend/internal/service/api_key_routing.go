@@ -46,6 +46,9 @@ func (k *APIKey) resolveForRequest(path, forcePlatform, requestedModel string, i
 	}
 	selected := k.selectRouteGroup(path, forcePlatform, requestedModel, imageIntent, modelAware, skipGroup)
 	if selected == nil {
+		if k.hasEnabledRoutes() && !k.hasUsableEnabledRouteGroup() && !k.canUseDefaultGroup() {
+			return nil
+		}
 		if modelAware && !k.canFallbackToDefaultGroup(path, forcePlatform, requestedModel, imageIntent) {
 			return nil
 		}
@@ -73,6 +76,9 @@ func (k *APIKey) selectRouteGroup(path, forcePlatform, requestedModel string, im
 	}
 	platforms := preferredPlatformsForRequest(path, forcePlatform, requestedModel, modelAware)
 	routingScope := RoutingScopeForRequest(path, requestedModel, imageIntent)
+	if isAPIKeyModelCatalogPath(path) {
+		routingScope = ""
+	}
 	if modelAware && (strings.TrimSpace(requestedModel) != "" || imageIntent) {
 		if imageIntent {
 			candidates := k.routeCandidates(groups, platforms, skipGroup, requestedModel, imageIntent, routingScope, true, true, true)
@@ -102,7 +108,7 @@ func (k *APIKey) selectRouteGroup(path, forcePlatform, requestedModel string, im
 }
 
 func (k *APIKey) canFallbackToDefaultGroup(path, forcePlatform, requestedModel string, imageIntent bool) bool {
-	if k == nil || k.GroupID == nil || !IsGroupContextValid(k.Group) || !k.Group.IsActive() || *k.GroupID != k.Group.ID {
+	if !k.canUseDefaultGroup() {
 		return false
 	}
 	platforms := preferredPlatformsForRequest(path, forcePlatform, requestedModel, true)
@@ -128,6 +134,43 @@ func (k *APIKey) canFallbackToDefaultGroup(path, forcePlatform, requestedModel s
 		hasExplicitRoute = true
 	}
 	return !hasExplicitRoute
+}
+
+func (k *APIKey) canUseDefaultGroup() bool {
+	return k != nil &&
+		k.GroupID != nil &&
+		IsGroupContextValid(k.Group) &&
+		k.Group.IsActive() &&
+		*k.GroupID == k.Group.ID &&
+		!k.IsRouteGroupUnavailable(k.Group.ID)
+}
+
+func (k *APIKey) hasEnabledRoutes() bool {
+	if k == nil {
+		return false
+	}
+	for _, route := range k.MultiGroupRoutes {
+		if route.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
+func (k *APIKey) hasUsableEnabledRouteGroup() bool {
+	if k == nil {
+		return false
+	}
+	groups := k.routeGroupsByID()
+	for _, route := range k.MultiGroupRoutes {
+		if !route.Enabled || k.IsRouteGroupUnavailable(route.GroupID) {
+			continue
+		}
+		if group := groups[route.GroupID]; group != nil && group.IsActive() {
+			return true
+		}
+	}
+	return false
 }
 
 func preferredPlatformsForRequest(path, forcePlatform, requestedModel string, modelAware bool) []string {
@@ -228,7 +271,7 @@ func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, sk
 		if group == nil || !group.IsActive() {
 			continue
 		}
-		if !apiKeyRouteMatchesGroupScope(group, routingScope) {
+		if routingScope != "" && !apiKeyRouteMatchesGroupScope(group, routingScope) {
 			continue
 		}
 		if len(platformSet) > 0 {
@@ -263,6 +306,11 @@ func (k *APIKey) routeCandidates(groups map[int64]*Group, platforms []string, sk
 		})
 	}
 	return candidates
+}
+
+func isAPIKeyModelCatalogPath(path string) bool {
+	path = strings.TrimRight(strings.ToLower(strings.TrimSpace(path)), "/")
+	return path == "/v1/models" || path == "/v1/model-catalog"
 }
 
 func apiKeyRouteHasModelRules(route domain.APIKeyMultiGroupRoute, group *Group) bool {
