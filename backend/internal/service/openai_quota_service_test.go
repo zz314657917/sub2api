@@ -47,11 +47,14 @@ func (r *openAIQuotaProxyRepoStub) GetByID(ctx context.Context, id int64) (*Prox
 func withOpenAIQuotaTestURLs(t *testing.T, serverURL string) {
 	t.Helper()
 	oldUsageURL := chatGPTUsageURL
+	oldCreditsURL := chatGPTRateLimitCreditsURL
 	oldResetURL := chatGPTRateLimitResetURL
 	chatGPTUsageURL = serverURL + "/backend-api/wham/usage"
+	chatGPTRateLimitCreditsURL = serverURL + "/backend-api/wham/rate-limit-reset-credits"
 	chatGPTRateLimitResetURL = serverURL + "/backend-api/wham/rate-limit-reset-credits/consume"
 	t.Cleanup(func() {
 		chatGPTUsageURL = oldUsageURL
+		chatGPTRateLimitCreditsURL = oldCreditsURL
 		chatGPTRateLimitResetURL = oldResetURL
 	})
 }
