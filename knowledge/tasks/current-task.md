@@ -1,6 +1,53 @@
 # 当前任务快照
 
-最后更新：2026-07-22 22:04 +08:00
+最后更新：2026-07-23 19:14 +08:00
+
+## 背景
+
+- S109 在隔离 worktree `E:/codex-worktrees/sub2api-pricing-s109` 手工迁移上游模型定价与图片输入计费修复；主工作树的用户脏改保持未触碰。
+- 本地与上游架构已明显分叉，本轮只迁移可独立验证的 pricing/image usage 语义，不整体 merge `upstream/main`。
+
+## 当前目标
+
+- 对齐 LiteLLM 和渠道图片输入价、Claude 模型名、GLM-5.2 官方价、OpenAI OAuth 图片 usage，以及 usage log/API/UI 对账。
+- Contract：`docs/workflow/tasks/upstream-model-pricing-alignment-s109.md`。
+
+## 本次已完成
+
+- 图片输入 token/费用已贯通 billing、账号统计、repository、migration、DTO/API 和管理员/用户 usage 页面。
+- hosted `tool_usage.image_gen` 保留独立图片 token；普通 usage 仍做有界解析和总量钳制。
+- 长上下文图片 token 比例拆分使用无溢出乘除，总输入使用非负饱和加法。
+- 可用渠道 fallback 和 token/image 模式均展示 LiteLLM `InputCostPerImageToken`。
+
+## 已确认事实
+
+- composite 别名计费缺少本地约 2,000 行平台/gateway 前置链，按 stop rule 留到独立 Sprint。
+- 上游已刷新到 `cb24522dd` / `v0.1.164`，没有新的模型单价补丁。
+- migration 193/194 连续；usage 单条 INSERT 为 53 个数据参数，timezone 为 `$54`。
+
+## 待验证点
+
+- 未执行生产数据库实迁、真实 OpenAI OAuth 图片请求或登录态浏览器 smoke。
+- `go test -tags=unit ./internal/service` 仍被既有重复 `stringPtr`、旧 billing 测试签名和缺失 Grok helper 阻断；不得将聚合 unit suite 写为 PASS。
+
+## 当前结论
+
+- `PASS / source-only`：四项最终复审 finding 已修复，完整 S109 backend/frontend 门禁和三路审查覆盖均通过。
+- 当前待精确提交并从隔离分支推送到远端 `main`；未部署、未更新容器。
+
+## 下一步
+
+1. 精确暂存 contract allowlist 文件和 workflow/handoff 产物；验证：cached path、cached diff、`git diff --cached --check`。
+2. fetch 后确认 `origin/main` 未移动，提交并推送 `HEAD:main`；验证：`HEAD`、`origin/main`、`git ls-remote origin refs/heads/main` 一致。
+3. 用 publication 提交记录远端 parity；不更新或清理 dirty 主工作树，不部署、不更新容器。
+
+## 验证记录
+
+- focused/default-tag service、宽范围 pricing/billing/image/record-usage、repository、migration integration、`/api/v1/usage` contract 全部 PASS。
+- 前端 Vitest `3 files / 33 tests`、typecheck、production build（1089 modules）、scoped ESLint PASS。
+- gofmt、56 路径 allowlist、diff、冲突标记和未合并索引门禁 PASS；三路智能体审查覆盖无阻断 finding。
+
+## 历史快照
 
 ## S105 当前目标
 

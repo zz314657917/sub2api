@@ -164,7 +164,7 @@ func TestGetModelPricing_GLM52UsesOfficialGLM51Price(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got)
 	require.InDelta(t, 1.4e-6, got.InputPricePerToken, 1e-12)
-	require.InDelta(t, 3.2e-6, got.OutputPricePerToken, 1e-12)
+	require.InDelta(t, 4.4e-6, got.OutputPricePerToken, 1e-12)
 }
 
 func TestGetModelPricing_UnknownClaudeModelFallsBackToSonnet(t *testing.T) {
@@ -524,26 +524,91 @@ func TestGetModelPricing_DoubaoEmbeddingVisionImageInputRate(t *testing.T) {
 	}
 }
 
+func TestGetModelPricing_ImageOnlyLiteLLMEntryFallsBackForTokenBilling(t *testing.T) {
+	svc := newTestBillingService()
+	svc.pricingService = &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"gpt-5.4": {
+			InputCostPerImageToken: 8e-6,
+			TokenPricingAbsent:     true,
+		},
+	}}
+
+	pricing, err := svc.GetModelPricing("gpt-5.4")
+	require.NoError(t, err)
+	require.InDelta(t, 2.5e-6, pricing.InputPricePerToken, 1e-12)
+	require.InDelta(t, 15e-6, pricing.OutputPricePerToken, 1e-12)
+}
+
 func TestCalculateCost_DoubaoEmbeddingVisionDifferentialInput(t *testing.T) {
 	svc := newTestBillingService()
 
 	mixed := UsageTokens{InputTokens: 1340, ImageInputTokens: 28}
 	cost, err := svc.CalculateCost("doubao-embedding-vision", mixed, 1.0)
 	require.NoError(t, err)
-	wantMixed := float64(1312)*0.098e-6 + float64(28)*0.252e-6
-	require.InDelta(t, wantMixed, cost.InputCost, 1e-15)
-	require.InDelta(t, wantMixed, cost.TotalCost, 1e-15)
+	wantText := float64(1312) * 0.098e-6
+	wantImage := float64(28) * 0.252e-6
+	require.InDelta(t, wantText, cost.InputCost, 1e-15)
+	require.InDelta(t, wantImage, cost.ImageInputCost, 1e-15)
+	require.InDelta(t, wantText+wantImage, cost.TotalCost, 1e-15)
 	require.Zero(t, cost.OutputCost)
 
 	textOnly := UsageTokens{InputTokens: 1340}
 	costText, err := svc.CalculateCost("doubao-embedding-vision", textOnly, 1.0)
 	require.NoError(t, err)
 	require.InDelta(t, float64(1340)*0.098e-6, costText.InputCost, 1e-15)
+	require.Zero(t, costText.ImageInputCost)
 
 	weird := UsageTokens{InputTokens: 10, ImageInputTokens: 50}
 	costWeird, err := svc.CalculateCost("doubao-embedding-vision", weird, 1.0)
 	require.NoError(t, err)
-	require.InDelta(t, float64(10)*0.252e-6, costWeird.InputCost, 1e-15)
+	require.Zero(t, costWeird.InputCost)
+	require.InDelta(t, float64(10)*0.252e-6, costWeird.ImageInputCost, 1e-15)
+	require.InDelta(t, float64(10)*0.252e-6, costWeird.TotalCost, 1e-15)
+}
+
+func TestIntervalToModelPricing_ChannelImagePriceSemantics(t *testing.T) {
+	interval := &PricingInterval{
+		InputPrice:  testPtrFloat64(2e-6),
+		OutputPrice: testPtrFloat64(8e-6),
+	}
+	withImages := intervalToModelPricing(interval, false, &ChannelModelPricing{
+		ImageInputPrice:  testPtrFloat64(6e-6),
+		ImageOutputPrice: testPtrFloat64(18e-6),
+	})
+	require.InDelta(t, 6e-6, withImages.ImageInputPricePerToken, 1e-12)
+	require.InDelta(t, 18e-6, withImages.ImageOutputPricePerToken, 1e-12)
+	require.True(t, withImages.ImageOutputPriceExplicit)
+
+	withoutImages := intervalToModelPricing(interval, false, &ChannelModelPricing{})
+	require.Zero(t, withoutImages.ImageInputPricePerToken,
+		"zero image input price falls back to the interval text input price during billing")
+	require.Zero(t, withoutImages.ImageOutputPricePerToken,
+		"channel image output price is authoritative; nil keeps the established zero-price behavior")
+	require.True(t, withoutImages.ImageOutputPriceExplicit)
+}
+
+func TestComputeTokenBreakdown_GptImage2ImageEditIssue4386(t *testing.T) {
+	svc := newTestBillingService()
+	pricing := &ModelPricing{
+		InputPricePerToken:       5e-6,
+		ImageInputPricePerToken:  8e-6,
+		OutputPricePerToken:      10e-6,
+		ImageOutputPricePerToken: 30e-6,
+		ImageOutputPriceExplicit: true,
+	}
+	tokens := UsageTokens{
+		InputTokens:       371,
+		ImageInputTokens:  352,
+		OutputTokens:      439,
+		ImageOutputTokens: 439,
+	}
+
+	cost := svc.computeTokenBreakdown(pricing, tokens, 1.0, "", false)
+	require.InDelta(t, float64(19)*5e-6, cost.InputCost, 1e-15)
+	require.InDelta(t, float64(352)*8e-6, cost.ImageInputCost, 1e-15)
+	require.Zero(t, cost.OutputCost)
+	require.InDelta(t, float64(439)*30e-6, cost.ImageOutputCost, 1e-15)
+	require.InDelta(t, 0.016081, cost.TotalCost, 1e-9)
 }
 
 func TestCalculateCostWithLongContext_BelowThreshold(t *testing.T) {
@@ -611,6 +676,44 @@ func TestCalculateCostWithLongContext_AboveThreshold_CacheBelowThreshold(t *test
 	// 正常费用不含长上下文
 	normalCost, _ := svc.CalculateCost("claude-sonnet-4", tokens, 1.0)
 	require.True(t, cost.ActualCost > normalCost.ActualCost, "长上下文费用应高于正常费用")
+}
+
+func TestCalculateCostWithLongContext_PreservesAndSplitsImageInputCost(t *testing.T) {
+	svc := &BillingService{
+		cfg: &config.Config{},
+		fallbackPrices: map[string]*ModelPricing{
+			"long-image-model": {
+				InputPricePerToken:      3e-6,
+				ImageInputPricePerToken: 9e-6,
+				OutputPricePerToken:     15e-6,
+				CacheReadPricePerToken:  0.3e-6,
+			},
+		},
+	}
+	tokens := UsageTokens{
+		InputTokens:      150000,
+		ImageInputTokens: 60000,
+		OutputTokens:     1000,
+		CacheReadTokens:  100000,
+	}
+
+	cost, err := svc.CalculateCostWithLongContext("long-image-model", tokens, 1.0, 200000, 2.0)
+	require.NoError(t, err)
+
+	// 输入按 100k/50k 拆分，图片输入按同一比例拆为 40k/20k。
+	// 明细和 TotalCost 保持倍率前成本，ActualCost 才应用范围外 2x。
+	expectedTextInput := float64(60000+30000) * 3e-6
+	expectedImageInput := float64(40000+20000) * 9e-6
+	expectedOutput := float64(tokens.OutputTokens) * 15e-6
+	expectedCacheRead := float64(tokens.CacheReadTokens) * 0.3e-6
+	expectedTotal := expectedTextInput + expectedImageInput + expectedOutput + expectedCacheRead
+	expectedActual := float64(60000)*3e-6 + float64(40000)*9e-6 + expectedOutput + expectedCacheRead +
+		(float64(30000)*3e-6+float64(20000)*9e-6)*2
+
+	require.InDelta(t, expectedTextInput, cost.InputCost, 1e-12)
+	require.InDelta(t, expectedImageInput, cost.ImageInputCost, 1e-12)
+	require.InDelta(t, expectedTotal, cost.TotalCost, 1e-12)
+	require.InDelta(t, expectedActual, cost.ActualCost, 1e-12)
 }
 
 func TestCalculateCostWithLongContext_DisabledThreshold(t *testing.T) {

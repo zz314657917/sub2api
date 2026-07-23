@@ -420,3 +420,13 @@
 260722 2201 | admin-account-plan-type-filter-s105 | build | codex | repository-to-frontend plan filter, normalized badges, filtered bulk/share/export propagation, and focused regressions implemented
 260722 2204 | admin-account-plan-type-filter-s105 | qa-pass | evaluator | repository integration, focused service/handler, handler/repository full packages, Vitest 13/13, typecheck, build 1089 modules, and static gates PASS
 260722 2204 | admin-account-plan-type-filter-s105 | done | evaluator | final PASS/source-only; aggregate service retains only existing UTC peak-rate failures; no live K12, push, deployment, or container refresh
+260723 1827 | upstream-model-pricing-alignment-s109 | contract-approved | evaluator | applicable pricing/image-input scope approved; composite prerequisite chain explicitly excluded
+260723 1827 | upstream-model-pricing-alignment-s109 | build | codex | pricing, channel, OAuth image usage, persistence, API, and frontend reconciliation implemented in isolated worktree
+260723 1827 | upstream-model-pricing-alignment-s109 | qa-start | evaluator | focused/broad backend, migration, usage API, typecheck, Vitest 33/33, build, lint, gofmt, diff, and conflict gates PASS; final multi-agent review pending
+260723 1855 | upstream-model-pricing-alignment-s109 | qa-fix | codex | fixed explicit token/image UI classification, GLM stale assertion, bounded OpenAI usage parsing, and long-context test multiplier semantics
+260723 1855 | upstream-model-pricing-alignment-s109 | qa-pass | evaluator | default-tag service, repository, migration, usage API, Vitest 33/33, typecheck, build, lint, formatting, allowlist, and three-agent review PASS
+260723 1855 | upstream-model-pricing-alignment-s109 | done | evaluator | final PASS/source-only; unit-tag aggregate compile drift and live upstream/browser/deployment gaps recorded as non-S109 risks
+260723 1906 | upstream-model-pricing-alignment-s109 | qa-fail | evaluator | revoked 18:55 PASS after backend review found account-stats image pricing, hosted tool usage clamping, long-context overflow, and available-channel image price gaps
+260723 1906 | upstream-model-pricing-alignment-s109 | fix | codex | implemented bounded hosted usage semantics, safe long-context arithmetic, account-stats image split, and available-channel image-input pricing; retest pending
+260723 1912 | upstream-model-pricing-alignment-s109 | qa-pass | evaluator | four final-review fixes, complete S109 backend/frontend gates, and renewed three-agent review PASS; unit-tag baseline limitation retained
+260723 1912 | upstream-model-pricing-alignment-s109 | done | evaluator | final PASS/source-only; exact scoped publication approved, no deployment or container refresh

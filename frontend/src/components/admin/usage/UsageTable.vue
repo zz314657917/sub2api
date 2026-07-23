@@ -121,6 +121,18 @@
                   <span v-if="row.cache_ttl_overridden" :title="t('usage.cacheTtlOverriddenHint')" class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-rose-100 text-rose-600 ring-1 ring-inset ring-rose-200 dark:bg-rose-500/20 dark:text-rose-400 dark:ring-rose-500/30 cursor-help">R</span>
                 </div>
               </div>
+              <div v-if="hasImageInputTokens(row)" class="flex items-center gap-2">
+                <div class="inline-flex items-center gap-1 text-fuchsia-600 dark:text-fuchsia-400">
+                  <Icon name="image" size="sm" class="h-3.5 w-3.5" />
+                  <span class="font-medium">{{ row.image_input_tokens.toLocaleString() }}</span>
+                </div>
+              </div>
+              <div v-if="hasImageOutputTokens(row)" class="flex items-center gap-2">
+                <div class="inline-flex items-center gap-1 text-pink-600 dark:text-pink-400">
+                  <Icon name="image" size="sm" class="h-3.5 w-3.5" />
+                  <span class="font-medium">{{ row.image_output_tokens.toLocaleString() }}</span>
+                </div>
+              </div>
             </div>
             <!-- Token Detail Tooltip -->
             <div
@@ -223,13 +235,29 @@
         <div class="space-y-1.5">
           <div>
             <div class="text-xs font-semibold text-[#504f49] mb-1 dark:text-gray-300">{{ t('usage.tokenDetails') }}</div>
-            <div v-if="tokenTooltipData && tokenTooltipData.input_tokens > 0" class="flex items-center justify-between gap-4">
+            <div v-if="tokenTooltipData && tokenTooltipData.input_tokens > 0 && !hasImageInputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
               <span class="text-[#6c6a64] dark:text-gray-400">{{ t('admin.usage.inputTokens') }}</span>
               <span class="font-medium text-[#141413] dark:text-white">{{ tokenTooltipData.input_tokens.toLocaleString() }}</span>
             </div>
-            <div v-if="tokenTooltipData && tokenTooltipData.output_tokens > 0" class="flex items-center justify-between gap-4">
+            <div v-if="tokenTooltipData && hasImageInputTokens(tokenTooltipData) && textInputTokens(tokenTooltipData) > 0" class="flex items-center justify-between gap-4">
+              <span class="text-[#6c6a64] dark:text-gray-400">{{ t('admin.usage.inputTokens') }}</span>
+              <span class="font-medium text-[#141413] dark:text-white">{{ textInputTokens(tokenTooltipData).toLocaleString() }}</span>
+            </div>
+            <div v-if="tokenTooltipData && hasImageInputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
+              <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.imageInputTokens') }}</span>
+              <span class="font-medium text-fuchsia-600 dark:text-fuchsia-300">{{ tokenTooltipData.image_input_tokens.toLocaleString() }}</span>
+            </div>
+            <div v-if="tokenTooltipData && tokenTooltipData.output_tokens > 0 && !hasImageOutputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
               <span class="text-[#6c6a64] dark:text-gray-400">{{ t('admin.usage.outputTokens') }}</span>
               <span class="font-medium text-[#141413] dark:text-white">{{ tokenTooltipData.output_tokens.toLocaleString() }}</span>
+            </div>
+            <div v-if="tokenTooltipData && hasImageOutputTokens(tokenTooltipData) && textOutputTokens(tokenTooltipData) > 0" class="flex items-center justify-between gap-4">
+              <span class="text-[#6c6a64] dark:text-gray-400">{{ t('admin.usage.outputTokens') }}</span>
+              <span class="font-medium text-[#141413] dark:text-white">{{ textOutputTokens(tokenTooltipData).toLocaleString() }}</span>
+            </div>
+            <div v-if="tokenTooltipData && hasImageOutputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
+              <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.imageOutputTokens') }}</span>
+              <span class="font-medium text-pink-600 dark:text-pink-300">{{ tokenTooltipData.image_output_tokens.toLocaleString() }}</span>
             </div>
             <div v-if="tokenTooltipData && tokenTooltipData.cache_creation_tokens > 0">
               <!-- 有 5m/1h 明细时，展开显示 -->
@@ -296,9 +324,17 @@
               <span class="text-[#6c6a64] dark:text-gray-400">{{ t('admin.usage.inputCost') }}</span>
               <span class="font-medium text-[#141413] dark:text-white">${{ tooltipData.input_cost.toFixed(6) }}</span>
             </div>
+            <div v-if="tooltipData && hasImageInputCost(tooltipData)" class="flex items-center justify-between gap-4">
+              <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.imageInputCost') }}</span>
+              <span class="font-medium text-fuchsia-600 dark:text-fuchsia-300">${{ tooltipData.image_input_cost.toFixed(6) }}</span>
+            </div>
             <div v-if="tooltipData && tooltipData.output_cost > 0" class="flex items-center justify-between gap-4">
               <span class="text-[#6c6a64] dark:text-gray-400">{{ t('admin.usage.outputCost') }}</span>
               <span class="font-medium text-[#141413] dark:text-white">${{ tooltipData.output_cost.toFixed(6) }}</span>
+            </div>
+            <div v-if="tooltipData && hasImageOutputCost(tooltipData)" class="flex items-center justify-between gap-4">
+              <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.imageOutputCost') }}</span>
+              <span class="font-medium text-pink-600 dark:text-pink-300">${{ tooltipData.image_output_cost.toFixed(6) }}</span>
             </div>
             <!-- Token billing: show unit prices per 1M tokens -->
             <template v-if="tooltipData && isImageUsage(tooltipData)">
@@ -336,13 +372,21 @@
               </div>
             </template>
             <template v-else-if="!tooltipData?.billing_mode || tooltipData.billing_mode === BILLING_MODE_TOKEN">
-              <div v-if="tooltipData && tooltipData.input_tokens > 0" class="flex items-center justify-between gap-4">
+              <div v-if="tooltipData && textInputTokens(tooltipData) > 0" class="flex items-center justify-between gap-4">
                 <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.inputTokenPrice') }}</span>
-                <span class="font-medium text-[#f0b89e]">{{ formatTokenPricePerMillion(tooltipData.input_cost, tooltipData.input_tokens) }} {{ t('usage.perMillionTokens') }}</span>
+                <span class="font-medium text-[#f0b89e]">{{ formatTokenPricePerMillion(tooltipData.input_cost, textInputTokens(tooltipData)) }} {{ t('usage.perMillionTokens') }}</span>
               </div>
-              <div v-if="tooltipData && tooltipData.output_tokens > 0" class="flex items-center justify-between gap-4">
+              <div v-if="tooltipData && hasImageInputTokens(tooltipData)" class="flex items-center justify-between gap-4">
+                <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.imageInputTokenPrice') }}</span>
+                <span class="font-medium text-fuchsia-600 dark:text-fuchsia-300">{{ formatTokenPricePerMillion(tooltipData.image_input_cost, tooltipData.image_input_tokens) }} {{ t('usage.perMillionTokens') }}</span>
+              </div>
+              <div v-if="tooltipData && tooltipData.output_cost > 0 && textOutputTokens(tooltipData) > 0" class="flex items-center justify-between gap-4">
                 <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.outputTokenPrice') }}</span>
-                <span class="font-medium text-[#a9583e] dark:text-[#f0b89e]">{{ formatTokenPricePerMillion(tooltipData.output_cost, tooltipData.output_tokens) }} {{ t('usage.perMillionTokens') }}</span>
+                <span class="font-medium text-[#a9583e] dark:text-[#f0b89e]">{{ formatTokenPricePerMillion(tooltipData.output_cost, textOutputTokens(tooltipData)) }} {{ t('usage.perMillionTokens') }}</span>
+              </div>
+              <div v-if="tooltipData && hasImageOutputTokens(tooltipData)" class="flex items-center justify-between gap-4">
+                <span class="text-[#6c6a64] dark:text-gray-400">{{ t('usage.imageOutputTokenPrice') }}</span>
+                <span class="font-medium text-pink-600 dark:text-pink-300">{{ formatTokenPricePerMillion(tooltipData.image_output_cost, tooltipData.image_output_tokens) }} {{ t('usage.perMillionTokens') }}</span>
               </div>
             </template>
             <div v-else class="flex items-center justify-between gap-4">
@@ -413,13 +457,19 @@ import {
   durationSeverity,
   firstTokenSeverity,
 } from '@/utils/latencyHealth'
-import { getBillingModeLabel, getBillingModeBadgeClass, BILLING_MODE_TOKEN, BILLING_MODE_IMAGE } from '@/utils/billingMode'
+import { getBillingModeLabel, getBillingModeBadgeClass, BILLING_MODE_TOKEN, BILLING_MODE_PER_REQUEST, BILLING_MODE_IMAGE } from '@/utils/billingMode'
 import {
   formatImageBillingSize,
   formatImageInputSize,
   formatImageOutputSize,
   formatImageSizeBreakdown,
   formatImageSizeSource,
+  hasImageInputTokens,
+  textInputTokens,
+  hasImageInputCost,
+  hasImageOutputTokens,
+  textOutputTokens,
+  hasImageOutputCost,
 } from '@/utils/imageUsage'
 import { displayModelChain, displayModelLabel, displayModelWithReasoningEffort } from '@/utils/modelDisplay'
 
@@ -437,15 +487,19 @@ function imageUnitPrice(row: AdminUsageLog | null): number {
   return Number.isFinite(price) ? price : 0
 }
 
-function isImageUsage(row: Pick<AdminUsageLog, 'image_count'> | null | undefined): boolean {
-  return (row?.image_count ?? 0) > 0
-}
-
 function getDisplayBillingMode(row: Pick<AdminUsageLog, 'billing_mode' | 'image_count'> | null | undefined): string | null | undefined {
-  if (isImageUsage(row)) {
+  if (row?.billing_mode) {
+    return row.billing_mode
+  }
+  if ((row?.image_count ?? 0) > 0) {
     return BILLING_MODE_IMAGE
   }
   return row?.billing_mode
+}
+
+function isImageUsage(row: Pick<AdminUsageLog, 'billing_mode' | 'image_count'> | null | undefined): boolean {
+  const mode = getDisplayBillingMode(row)
+  return mode === BILLING_MODE_IMAGE || mode === BILLING_MODE_PER_REQUEST
 }
 
 import DataTable from '@/components/common/DataTable.vue'

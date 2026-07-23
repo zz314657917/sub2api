@@ -384,6 +384,7 @@ func TestOpenAIGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputToke
 	groupRate := 1.0
 	usage := OpenAIUsage{
 		InputTokens:       1000,
+		ImageInputTokens:  200,
 		OutputTokens:      600,
 		ImageOutputTokens: 100,
 	}
@@ -422,6 +423,7 @@ func TestOpenAIGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputToke
 	require.NoError(t, err)
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, 3.0, usageRepo.lastLog.RateMultiplier)
+	require.Equal(t, usage.ImageInputTokens, usageRepo.lastLog.ImageInputTokens)
 	require.Equal(t, usage.ImageOutputTokens, usageRepo.lastLog.ImageOutputTokens)
 
 	expected, err := svc.billingService.CalculateCostUnified(CostInput{
@@ -430,6 +432,7 @@ func TestOpenAIGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputToke
 		GroupID: i64p(groupID),
 		Tokens: UsageTokens{
 			InputTokens:       usage.InputTokens,
+			ImageInputTokens:  usage.ImageInputTokens,
 			OutputTokens:      usage.OutputTokens,
 			ImageOutputTokens: usage.ImageOutputTokens,
 		},
@@ -440,6 +443,7 @@ func TestOpenAIGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputToke
 	expectedActual := expected.TotalCost * 3.0
 
 	require.InDelta(t, expected.TotalCost, usageRepo.lastLog.TotalCost, 1e-12)
+	require.InDelta(t, expected.ImageInputCost, usageRepo.lastLog.ImageInputCost, 1e-12)
 	require.InDelta(t, expected.ImageOutputCost, usageRepo.lastLog.ImageOutputCost, 1e-12)
 	require.InDelta(t, expectedActual, usageRepo.lastLog.ActualCost, 1e-12)
 	require.InDelta(t, expectedActual, userRepo.lastAmount, 1e-12)
@@ -2207,12 +2211,14 @@ func newOpenAIImageChannelPricingResolverForTest(t *testing.T, groupID int64, mo
 func newOpenAITokenImageChannelPricingResolverForTest(t *testing.T, groupID int64, model string) *ModelPricingResolver {
 	t.Helper()
 	inputPrice := 3e-6
+	imageInputPrice := 6e-6
 	outputPrice := 15e-6
 	imageOutputPrice := 15e-6
 	cache := newEmptyChannelCache()
 	cache.pricingByGroupModel[channelModelKey{groupID: groupID, model: model}] = &ChannelModelPricing{
 		BillingMode:      BillingModeToken,
 		InputPrice:       &inputPrice,
+		ImageInputPrice:  &imageInputPrice,
 		OutputPrice:      &outputPrice,
 		ImageOutputPrice: &imageOutputPrice,
 	}

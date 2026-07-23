@@ -65,7 +65,12 @@ func tryModelFilePricing(billingService *BillingService, model string, tokens Us
 	if err != nil || pricing == nil {
 		return nil
 	}
-	cost := float64(tokens.InputTokens)*pricing.InputPricePerToken +
+	cost := calculateInputTokenStatsCost(
+		tokens.InputTokens,
+		tokens.ImageInputTokens,
+		pricing.InputPricePerToken,
+		pricing.ImageInputPricePerToken,
+	) +
 		float64(tokens.OutputTokens)*pricing.OutputPricePerToken +
 		float64(tokens.CacheCreationTokens)*pricing.CacheCreationPricePerToken +
 		float64(tokens.CacheReadTokens)*pricing.CacheReadPricePerToken +
@@ -193,6 +198,7 @@ func calculateTokenStatsCost(pricing *ChannelModelPricing, tokens UsageTokens) *
 				OutputPrice:     iv.OutputPrice,
 				CacheWritePrice: iv.CacheWritePrice,
 				CacheReadPrice:  iv.CacheReadPrice,
+				ImageInputPrice: pricing.ImageInputPrice,
 				PerRequestPrice: iv.PerRequestPrice,
 			}
 		}
@@ -203,7 +209,12 @@ func calculateTokenStatsCost(pricing *ChannelModelPricing, tokens UsageTokens) *
 		}
 		return *ptr
 	}
-	cost := float64(tokens.InputTokens)*deref(p.InputPrice) +
+	cost := calculateInputTokenStatsCost(
+		tokens.InputTokens,
+		tokens.ImageInputTokens,
+		deref(p.InputPrice),
+		deref(p.ImageInputPrice),
+	) +
 		float64(tokens.OutputTokens)*deref(p.OutputPrice) +
 		float64(tokens.CacheCreationTokens)*deref(p.CacheWritePrice) +
 		float64(tokens.CacheReadTokens)*deref(p.CacheReadPrice) +
@@ -212,6 +223,22 @@ func calculateTokenStatsCost(pricing *ChannelModelPricing, tokens UsageTokens) *
 		return nil
 	}
 	return &cost
+}
+
+func calculateInputTokenStatsCost(inputTokens, imageInputTokens int, inputPrice, imageInputPrice float64) float64 {
+	if inputTokens <= 0 {
+		return 0
+	}
+	if imageInputTokens < 0 {
+		imageInputTokens = 0
+	}
+	if imageInputTokens > inputTokens {
+		imageInputTokens = inputTokens
+	}
+	if imageInputPrice == 0 {
+		imageInputPrice = inputPrice
+	}
+	return float64(inputTokens-imageInputTokens)*inputPrice + float64(imageInputTokens)*imageInputPrice
 }
 
 // applyAccountStatsCost resolves the account stats cost for a usage log entry.

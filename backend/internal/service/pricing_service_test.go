@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -54,6 +55,150 @@ func TestParsePricingData_ParsesPriorityCacheCreationField(t *testing.T) {
 	require.NoError(t, err)
 	require.InDelta(t, 12.5e-6, data["gpt-5.6-sol"].CacheCreationInputTokenCostPriority, 1e-12)
 	require.Zero(t, data["gpt-5.6-zero"].CacheCreationInputTokenCostPriority)
+}
+
+func TestParsePricingData_ParsesImageInputTokenPrice(t *testing.T) {
+	svc := &PricingService{}
+	data, err := svc.parsePricingData([]byte(`{
+		"gpt-image-2": {
+			"input_cost_per_token": 0.000005,
+			"output_cost_per_token": 0.00001,
+			"input_cost_per_image_token": 0.000008,
+			"output_cost_per_image_token": 0.00003
+		},
+		"image-only": {
+			"input_cost_per_image_token": 0.000008
+		}
+	}`))
+	require.NoError(t, err)
+	require.InDelta(t, 8e-6, data["gpt-image-2"].InputCostPerImageToken, 1e-12)
+	require.False(t, data["gpt-image-2"].TokenPricingAbsent)
+	require.InDelta(t, 8e-6, data["image-only"].InputCostPerImageToken, 1e-12)
+	require.True(t, data["image-only"].TokenPricingAbsent)
+}
+
+func TestDefaultBuild_AvailableChannelPricingPreservesImageInputPrice(t *testing.T) {
+	imageInputPrice := 8e-6
+	require.False(t, pricingNeedsFallback(&ChannelModelPricing{ImageInputPrice: &imageInputPrice}))
+
+	for _, mode := range []string{"chat", "image_generation"} {
+		t.Run(mode, func(t *testing.T) {
+			got := synthesizePricingFromLiteLLM(&LiteLLMModelPricing{
+				Mode:                        mode,
+				InputCostPerToken:           3e-6,
+				InputCostPerImageToken:      imageInputPrice,
+				OutputCostPerImageToken:     4e-5,
+				CacheReadInputTokenCost:     3e-7,
+				CacheCreationInputTokenCost: 3.75e-6,
+			}, nil)
+			require.NotNil(t, got)
+			require.NotNil(t, got.ImageInputPrice)
+			require.InDelta(t, imageInputPrice, *got.ImageInputPrice, 1e-12)
+		})
+	}
+}
+
+func TestDefaultBuild_GLM52FallbackUsesOfficialGLM51Price(t *testing.T) {
+	svc := NewBillingService(nil, nil)
+
+	got, err := svc.GetModelPricing("glm-5.2")
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.InDelta(t, 1.4e-6, got.InputPricePerToken, 1e-12)
+	require.InDelta(t, 4.4e-6, got.OutputPricePerToken, 1e-12)
+	require.InDelta(t, 0.26e-6, got.CacheReadPricePerToken, 1e-12)
+}
+
+func TestDefaultBuild_LongContextPreservesImageInputCost(t *testing.T) {
+	svc := NewBillingService(&config.Config{}, nil)
+	svc.fallbackPrices["glm-5.2"] = &ModelPricing{
+		InputPricePerToken:      3e-6,
+		ImageInputPricePerToken: 9e-6,
+		OutputPricePerToken:     15e-6,
+		CacheReadPricePerToken:  0.3e-6,
+	}
+	tokens := UsageTokens{
+		InputTokens:      150000,
+		ImageInputTokens: 60000,
+		OutputTokens:     1000,
+		CacheReadTokens:  100000,
+	}
+
+	cost, err := svc.CalculateCostWithLongContext("glm-5.2", tokens, 1.0, 200000, 2.0)
+	require.NoError(t, err)
+
+	expectedTextInput := float64(60000+30000) * 3e-6
+	expectedImageInput := float64(40000+20000) * 9e-6
+	expectedTotal := expectedTextInput + expectedImageInput + float64(tokens.OutputTokens)*15e-6 + float64(tokens.CacheReadTokens)*0.3e-6
+	expectedActual := float64(60000)*3e-6 + float64(40000)*9e-6 + float64(tokens.OutputTokens)*15e-6 + float64(tokens.CacheReadTokens)*0.3e-6 +
+		(float64(30000)*3e-6+float64(20000)*9e-6)*2
+	require.InDelta(t, expectedTextInput, cost.InputCost, 1e-12)
+	require.InDelta(t, expectedImageInput, cost.ImageInputCost, 1e-12)
+	require.InDelta(t, expectedTotal, cost.TotalCost, 1e-12)
+	require.InDelta(t, expectedActual, cost.ActualCost, 1e-12)
+}
+
+func TestDefaultBuild_AccountStatsPricingUsesImageInputPrice(t *testing.T) {
+	inputPrice := 0.001
+	imageInputPrice := 0.004
+	outputPrice := 0.002
+	pricing := &ChannelModelPricing{
+		BillingMode:     BillingModeToken,
+		InputPrice:      &inputPrice,
+		ImageInputPrice: &imageInputPrice,
+		OutputPrice:     &outputPrice,
+	}
+	tokens := UsageTokens{InputTokens: 100, ImageInputTokens: 40, OutputTokens: 50}
+
+	customCost := calculateStatsCost(pricing, tokens, 1)
+	require.NotNil(t, customCost)
+	require.InDelta(t, 0.32, *customCost, 1e-12)
+
+	svc := NewBillingService(&config.Config{}, nil)
+	svc.fallbackPrices["glm-5.2"] = &ModelPricing{
+		InputPricePerToken:      0.001,
+		ImageInputPricePerToken: 0.004,
+		OutputPricePerToken:     0.002,
+	}
+	modelCost := tryModelFilePricing(svc, "glm-5.2", tokens)
+	require.NotNil(t, modelCost)
+	require.InDelta(t, 0.32, *modelCost, 1e-12)
+}
+
+func TestDefaultBuild_AccountStatsImageInputFallbackAndBounds(t *testing.T) {
+	require.InDelta(t, 0.1, calculateInputTokenStatsCost(100, 40, 0.001, 0), 1e-12)
+	require.InDelta(t, 0.4, calculateInputTokenStatsCost(100, 400, 0.001, 0.004), 1e-12)
+	require.Zero(t, calculateInputTokenStatsCost(100, -1, 0, 0.004))
+}
+
+func TestDefaultBuild_ProportionalTokenCountAvoidsIntegerOverflow(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	require.Equal(t, maxInt-3, proportionalTokenCount(maxInt-1, maxInt-2, maxInt))
+	require.Equal(t, 1, proportionalTokenCount(3, 2, 4))
+	require.Zero(t, proportionalTokenCount(3, 2, 0))
+}
+
+func TestDefaultBuild_LongContextTotalAvoidsIntegerOverflow(t *testing.T) {
+	maxInt := int(^uint(0) >> 1)
+	require.Equal(t, maxInt, saturatingAddNonNegativeInts(maxInt-5, 10))
+
+	svc := NewBillingService(&config.Config{}, nil)
+	svc.fallbackPrices["glm-5.2"] = &ModelPricing{
+		InputPricePerToken:      1e-6,
+		ImageInputPricePerToken: 2e-6,
+		CacheReadPricePerToken:  1e-7,
+	}
+	tokens := UsageTokens{
+		InputTokens:      maxInt/2 + 100,
+		ImageInputTokens: maxInt/2 + 100,
+		CacheReadTokens:  maxInt/2 + 100,
+	}
+
+	cost, err := svc.CalculateCostWithLongContext("glm-5.2", tokens, 1, maxInt/2, 2)
+	require.NoError(t, err)
+	require.NotNil(t, cost)
+	require.GreaterOrEqual(t, cost.ImageInputCost, 0.0)
+	require.Greater(t, cost.ActualCost, cost.TotalCost)
 }
 
 func TestGetModelPricing_Gpt53CodexSparkUsesGpt51CodexPricing(t *testing.T) {

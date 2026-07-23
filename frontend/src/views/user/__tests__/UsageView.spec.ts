@@ -56,6 +56,12 @@ const messages: Record<string, string> = {
   'admin.usage.cacheReadTokens': 'Cache Read Tokens',
   'usage.inputTokenPrice': 'Input price',
   'usage.outputTokenPrice': 'Output price',
+  'usage.imageInputTokens': 'Image input tokens',
+  'usage.imageInputTokenPrice': 'Image input price',
+  'usage.imageInputCost': 'Image input cost',
+  'usage.imageOutputTokens': 'Image output tokens',
+  'usage.imageOutputTokenPrice': 'Image output price',
+  'usage.imageOutputCost': 'Image output cost',
   'usage.perMillionTokens': '/ 1M tokens',
   'usage.serviceTier': 'Service tier',
   'usage.serviceTierPriority': 'Fast',
@@ -279,6 +285,10 @@ const baseUsageLog = (overrides: Record<string, unknown> = {}) => ({
   image_output_size: null,
   image_size_source: null,
   image_size_breakdown: null,
+  image_input_tokens: 0,
+  image_input_cost: 0,
+  image_output_tokens: 0,
+  image_output_cost: 0,
   cache_ttl_overridden: false,
   first_token_ms: 12,
   duration_ms: 345,
@@ -791,6 +801,44 @@ describe('user UsageView', () => {
     await nextTick()
 
     expect(wrapper.text()).toContain('943 (18.9%)')
+  })
+
+  it('shows separate text and image input/output usage', async () => {
+    const row = baseUsageLog({
+      image_count: 1,
+      billing_mode: 'token',
+      input_tokens: 371,
+      image_input_tokens: 352,
+      output_tokens: 439,
+      image_output_tokens: 400,
+      input_cost: 0.000095,
+      image_input_cost: 0.002816,
+      output_cost: 0.00039,
+      image_output_cost: 0.012,
+      total_cost: 0.015301,
+      actual_cost: 0.015301,
+    })
+    const wrapper = await mountUsageView([row])
+    const setupState = (wrapper.vm as any).$?.setupState
+
+    setupState.tokenTooltipData = row
+    setupState.tokenTooltipVisible = true
+    setupState.tooltipData = row
+    setupState.tooltipVisible = true
+    await nextTick()
+
+    const text = wrapper.text()
+    expect(wrapper.find('.table-cell[data-column="billing_mode"]').text()).toContain('Token')
+    expect(text).toContain('Image input tokens')
+    expect(text).toContain('352')
+    expect(text).toContain('Image output tokens')
+    expect(text).toContain('400')
+    expect(text).toContain('Image input cost')
+    expect(text).toContain('$0.002816')
+    expect(text).toContain('Image output cost')
+    expect(text).toContain('$0.012000')
+    expect(text).toContain('$8.0000 / 1M tokens')
+    expect(text).toContain('$30.0000 / 1M tokens')
   })
 
   it('exports historical image rows with image billing mode derived from image_count', async () => {

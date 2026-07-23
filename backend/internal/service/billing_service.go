@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/bits"
 	"strings"
 	"sync"
 
@@ -107,7 +108,8 @@ type UsageTokens struct {
 
 // CostBreakdown 费用明细
 type CostBreakdown struct {
-	InputCost         float64
+	InputCost         float64 // 文本输入费用（不含图片输入）
+	ImageInputCost    float64 // 图片输入 token 费用
 	OutputCost        float64
 	ImageOutputCost   float64
 	CacheCreationCost float64
@@ -753,7 +755,8 @@ func (s *BillingService) computeTokenBreakdown(
 		if imageInputPrice == 0 {
 			imageInputPrice = inputPrice
 		}
-		bd.InputCost = float64(textInputTokens)*inputPrice + float64(imageInputTokens)*imageInputPrice
+		bd.InputCost = float64(textInputTokens) * inputPrice
+		bd.ImageInputCost = float64(imageInputTokens) * imageInputPrice
 	} else {
 		bd.InputCost = float64(tokens.InputTokens) * inputPrice
 	}
@@ -781,13 +784,14 @@ func (s *BillingService) computeTokenBreakdown(
 
 	if tierMultiplier != 1.0 {
 		bd.InputCost *= tierMultiplier
+		bd.ImageInputCost *= tierMultiplier
 		bd.OutputCost *= tierMultiplier
 		bd.ImageOutputCost *= tierMultiplier
 		bd.CacheCreationCost *= tierMultiplier
 		bd.CacheReadCost *= tierMultiplier
 	}
 
-	bd.TotalCost = bd.InputCost + bd.OutputCost + bd.ImageOutputCost +
+	bd.TotalCost = bd.InputCost + bd.ImageInputCost + bd.OutputCost + bd.ImageOutputCost +
 		bd.CacheCreationCost + bd.CacheReadCost
 	bd.ActualCost = bd.TotalCost * rateMultiplier
 
@@ -913,7 +917,8 @@ func (s *BillingService) shouldApplySessionLongContextPricing(tokens UsageTokens
 	if pricing.LongContextInputMultiplier <= 1 && pricing.LongContextOutputMultiplier <= 1 {
 		return false
 	}
-	totalInputTokens := tokens.InputTokens + tokens.CacheCreationTokens + tokens.CacheReadTokens
+	totalInputTokens := saturatingAddNonNegativeInts(tokens.InputTokens, tokens.CacheCreationTokens)
+	totalInputTokens = saturatingAddNonNegativeInts(totalInputTokens, tokens.CacheReadTokens)
 	return totalInputTokens > pricing.LongContextInputThreshold
 }
 
@@ -949,7 +954,7 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 	}
 
 	// 计算总输入 token（缓存读取 + 新输入）
-	total := tokens.CacheReadTokens + tokens.InputTokens
+	total := saturatingAddNonNegativeInts(tokens.CacheReadTokens, tokens.InputTokens)
 	if total <= threshold {
 		return s.CalculateCost(model, tokens, rateMultiplier)
 	}
@@ -972,9 +977,23 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 		outRangeInputTokens = tokens.InputTokens - inRangeInputTokens
 	}
 
+	// 图片输入 token 是 InputTokens 的子集，但 usage 不包含它们在上下文中的
+	// 精确位置。按阈值内外的输入 token 比例拆分，既保持总数守恒，也避免把
+	// 全部图片费用武断地归到某一侧。
+	imageInputTokens := tokens.ImageInputTokens
+	if imageInputTokens < 0 {
+		imageInputTokens = 0
+	}
+	if imageInputTokens > tokens.InputTokens {
+		imageInputTokens = tokens.InputTokens
+	}
+	inRangeImageInputTokens := proportionalTokenCount(imageInputTokens, inRangeInputTokens, tokens.InputTokens)
+	outRangeImageInputTokens := imageInputTokens - inRangeImageInputTokens
+
 	// 范围内部分：正常计费
 	inRangeTokens := UsageTokens{
 		InputTokens:           inRangeInputTokens,
+		ImageInputTokens:      inRangeImageInputTokens,
 		OutputTokens:          tokens.OutputTokens, // 输出只算一次
 		CacheCreationTokens:   tokens.CacheCreationTokens,
 		CacheReadTokens:       inRangeCacheTokens,
@@ -989,8 +1008,9 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 
 	// 范围外部分：× extraMultiplier 计费
 	outRangeTokens := UsageTokens{
-		InputTokens:     outRangeInputTokens,
-		CacheReadTokens: outRangeCacheTokens,
+		InputTokens:      outRangeInputTokens,
+		ImageInputTokens: outRangeImageInputTokens,
+		CacheReadTokens:  outRangeCacheTokens,
 	}
 	outRangeCost, err := s.CalculateCost(model, outRangeTokens, rateMultiplier*extraMultiplier)
 	if err != nil {
@@ -1000,6 +1020,7 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 	// 合并成本
 	return &CostBreakdown{
 		InputCost:         inRangeCost.InputCost + outRangeCost.InputCost,
+		ImageInputCost:    inRangeCost.ImageInputCost + outRangeCost.ImageInputCost,
 		OutputCost:        inRangeCost.OutputCost,
 		ImageOutputCost:   inRangeCost.ImageOutputCost,
 		CacheCreationCost: inRangeCost.CacheCreationCost,
@@ -1007,6 +1028,35 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 		TotalCost:         inRangeCost.TotalCost + outRangeCost.TotalCost,
 		ActualCost:        inRangeCost.ActualCost + outRangeCost.ActualCost,
 	}, nil
+}
+
+func proportionalTokenCount(value, part, total int) int {
+	if value <= 0 || part <= 0 || total <= 0 {
+		return 0
+	}
+	if value > total {
+		value = total
+	}
+	if part > total {
+		part = total
+	}
+	hi, lo := bits.Mul64(uint64(value), uint64(part))
+	quotient, _ := bits.Div64(hi, lo, uint64(total))
+	return int(quotient)
+}
+
+func saturatingAddNonNegativeInts(a, b int) int {
+	if a < 0 {
+		a = 0
+	}
+	if b < 0 {
+		b = 0
+	}
+	maxInt := int(^uint(0) >> 1)
+	if a > maxInt-b {
+		return maxInt
+	}
+	return a + b
 }
 
 // ListSupportedModels 列出所有支持的模型（现在总是返回true，因为有模糊匹配）

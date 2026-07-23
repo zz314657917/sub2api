@@ -1,13 +1,28 @@
 ---
 phase: done
-current_sprint: admin-account-plan-type-filter-s105
-total_sprints: 105
-pending_action: S105 source-only PASS; keep the scoped commit local until push authorization, without deployment or container refresh
+current_sprint: upstream-model-pricing-alignment-s109
+total_sprints: 109
+pending_action: publish the approved S109 commit to main, verify remote parity, then start the next approved sprint
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-22 22:04 +08:00
+last_verified: 2026-07-23 19:12 +08:00
 ---
+
+# S109 Current Sprint
+
+- S109 contract is approved for manual upstream pricing alignment: LiteLLM image-input token price, channel `image_input_price`, Claude model-name normalization, GLM-5.2 fallback, OpenAI OAuth image tool usage, and complete image token/cost persistence and UI reconciliation.
+- Composite alias billing was audited and moved out of scope because the local branch lacks the complete composite platform and gateway billing prerequisite chain.
+- Implementation remains isolated in worktree `E:/codex-worktrees/sub2api-pricing-s109`; the primary worktree remains untouched with its pre-existing user changes.
+- The 18:55 PASS was revoked after final backend review found four gaps: account statistics omitted image-input pricing, hosted tool usage was incorrectly clamped to top-level totals, long-context arithmetic could overflow, and available-channel fallback omitted image-input price.
+- All four fixes passed focused and broad default-tag tests, repository/migration/API gates, frontend checks, and renewed three-agent review.
+- The aggregate unit-tag service package remains blocked by pre-existing compile drift (`stringPtr`, legacy billing signatures, and Grok runtime-block helpers). Default-tag GLM-5.2 and long-context image-cost regressions execute and pass; the unit suite is not reported as green.
+- The aggregate `TestAPIContracts` table still exposes a pre-existing settings snapshot drift (`group_buy_*` and `studio_bridge.default_fallback_group`); the S109 `/usage` contract passes independently.
+- Final Evaluator: `PASS / source-only`. Exact scoped commit, merge, push and remote parity verification are approved.
+- No deployment, container refresh, live upstream request, or authenticated browser smoke is in scope.
+- Contract: `docs/workflow/tasks/upstream-model-pricing-alignment-s109.md`.
+- Worker result: `docs/workflow/worker-results/upstream-model-pricing-alignment-s109-result.md`.
+- QA report: `docs/workflow/qa-reports/upstream-model-pricing-alignment-s109-qa.md`.
 
 # S105 Current Sprint
 

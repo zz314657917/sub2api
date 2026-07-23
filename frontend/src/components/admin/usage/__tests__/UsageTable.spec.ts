@@ -12,6 +12,12 @@ const messages: Record<string, string> = {
   'admin.usage.cacheReadCost': 'Cache Read Cost',
   'usage.inputTokenPrice': 'Input price',
   'usage.outputTokenPrice': 'Output price',
+  'usage.imageInputTokens': 'Image input tokens',
+  'usage.imageInputTokenPrice': 'Image input price',
+  'usage.imageInputCost': 'Image input cost',
+  'usage.imageOutputTokens': 'Image output tokens',
+  'usage.imageOutputTokenPrice': 'Image output price',
+  'usage.imageOutputCost': 'Image output cost',
   'usage.perMillionTokens': '/ 1M tokens',
   'usage.serviceTier': 'Service tier',
   'usage.serviceTierPriority': 'Fast',
@@ -97,6 +103,10 @@ const baseImageRow = {
   image_output_size: null,
   image_size_source: null,
   image_size_breakdown: null,
+  image_input_tokens: 0,
+  image_input_cost: 0,
+  image_output_tokens: 0,
+  image_output_cost: 0,
 }
 
 describe('admin UsageTable tooltip', () => {
@@ -197,6 +207,53 @@ describe('admin UsageTable tooltip', () => {
     expect(text).toContain('$5.0000 / 1M tokens')
     expect(text).toContain('$30.0000 / 1M tokens')
     expect(text).toContain('$0.069568')
+  })
+
+  it('splits image input and output token usage from text usage', async () => {
+    const row = {
+      ...baseImageRow,
+      request_id: 'req-admin-image-token-split',
+      billing_mode: 'token',
+      image_count: 1,
+      input_tokens: 371,
+      image_input_tokens: 352,
+      output_tokens: 439,
+      image_output_tokens: 400,
+      input_cost: 0.000095,
+      image_input_cost: 0.002816,
+      output_cost: 0.00039,
+      image_output_cost: 0.012,
+      total_cost: 0.015301,
+      actual_cost: 0.015301,
+    }
+    const wrapper = mount(UsageTable, {
+      props: { data: [row], loading: false, columns: [] },
+      global: { stubs: { DataTable: DataTableStub, EmptyState: true, Icon: true, Teleport: true } },
+    })
+
+    expect(wrapper.text()).toContain('Token')
+    expect(wrapper.text()).toContain('352')
+    expect(wrapper.text()).toContain('400')
+
+    const tooltipTriggers = wrapper.findAll('.group.relative')
+    await tooltipTriggers[0].trigger('mouseenter')
+    await nextTick()
+    expect(wrapper.text()).toContain('Image input tokens')
+    expect(wrapper.text()).toContain('352')
+    expect(wrapper.text()).toContain('Image output tokens')
+    expect(wrapper.text()).toContain('400')
+    expect(wrapper.text()).toContain('19')
+    expect(wrapper.text()).toContain('39')
+
+    await tooltipTriggers[0].trigger('mouseleave')
+    await tooltipTriggers[tooltipTriggers.length - 1].trigger('mouseenter')
+    await nextTick()
+    expect(wrapper.text()).toContain('Image input cost')
+    expect(wrapper.text()).toContain('$0.002816')
+    expect(wrapper.text()).toContain('Image output cost')
+    expect(wrapper.text()).toContain('$0.012000')
+    expect(wrapper.text()).toContain('$8.0000 / 1M tokens')
+    expect(wrapper.text()).toContain('$30.0000 / 1M tokens')
   })
 
   it('shows requested and upstream models separately for admin rows', () => {

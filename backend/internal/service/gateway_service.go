@@ -8880,6 +8880,7 @@ func newUserTrialOverageCost(cost *CostBreakdown, trialAmount float64) *CostBrea
 	if actualCost > 0 {
 		ratio := overage / actualCost
 		result.InputCost *= ratio
+		result.ImageInputCost *= ratio
 		result.OutputCost *= ratio
 		result.ImageOutputCost *= ratio
 		result.CacheCreationCost *= ratio
@@ -9556,6 +9557,7 @@ func (s *GatewayService) buildRecordUsageLog(
 	}
 	if cost != nil {
 		usageLog.InputCost = cost.InputCost
+		usageLog.ImageInputCost = cost.ImageInputCost
 		usageLog.OutputCost = cost.OutputCost
 		usageLog.ImageOutputCost = cost.ImageOutputCost
 		usageLog.CacheCreationCost = cost.CacheCreationCost

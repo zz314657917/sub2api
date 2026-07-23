@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-07-23 19:14 +08:00 - 上游模型定价与图片输入计费 S109 通过发布门禁
+
+- 当前阶段：S109 四项最终复审 finding 已修复，P/G/E 恢复 `done`，当前为 `PASS / source-only`，待精确提交和远端发布。
+- 本段重点：对齐 LiteLLM/渠道图片输入价、GLM-5.2 官方价、Claude 名称归一、OpenAI OAuth 图片 usage，并贯通 usage log/API/UI 对账。
+- 已完成：账号统计按文本/图片输入子集拆分；hosted tool usage 不再错误钳制；长上下文使用饱和加法和无溢出比例；可用渠道展示图片输入价；migration 193/194 和 53+timezone 参数链一致。
+- 关键决策：composite 别名计费因缺少完整平台/gateway 前置链移出 S109；不整体 merge 上游，不触碰账号导入、部署或容器。
+- 验证记录：后端 focused/broad、repository、migration integration、usage API contract PASS；前端 33 tests、typecheck、1089-module build、ESLint PASS；56 路径 allowlist、diff/冲突/索引和三路审查覆盖 PASS。
+- 遗留问题：未做生产 DB 实迁、真实 OAuth 图片请求、登录态浏览器 smoke；完整 unit-tag service 仍受既有测试编译漂移阻断。
+- 下一步：精确暂存并提交；fetch 确认远端基线后推送 `HEAD:main`，再记录远端 parity，不更新 dirty 主工作树。
+
 ## 2026-07-12 20:58 +08:00 - 上游 S71-S73 合并态发布门禁完成
 
 - 当前阶段：release merge `ccac358e4` 已把最新主线 `f6ee836d4` 与 S71-S73 集成 `d101ac2d2` 合并；post-merge 回归和独立结构审计均 PASS，当前只待精确提交、推送与已合并分支清理。

@@ -217,11 +217,13 @@ func groupIDPtr() *int64 { v := int64(100); return &v }
 
 func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
 	r := newResolverWithChannel(t, []ChannelModelPricing{{
-		Platform:    "anthropic",
-		Models:      []string{"claude-sonnet-4"},
-		BillingMode: BillingModeToken,
-		InputPrice:  testPtrFloat64(10e-6),
-		OutputPrice: testPtrFloat64(50e-6),
+		Platform:         "anthropic",
+		Models:           []string{"claude-sonnet-4"},
+		BillingMode:      BillingModeToken,
+		ImageInputPrice:  testPtrFloat64(6e-6),
+		ImageOutputPrice: testPtrFloat64(18e-6),
+		InputPrice:       testPtrFloat64(10e-6),
+		OutputPrice:      testPtrFloat64(50e-6),
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
@@ -265,9 +267,11 @@ func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
 
 func TestResolve_WithChannelOverride_TokenWithIntervals(t *testing.T) {
 	r := newResolverWithChannel(t, []ChannelModelPricing{{
-		Platform:    "anthropic",
-		Models:      []string{"claude-sonnet-4"},
-		BillingMode: BillingModeToken,
+		Platform:         "anthropic",
+		Models:           []string{"claude-sonnet-4"},
+		BillingMode:      BillingModeToken,
+		ImageInputPrice:  testPtrFloat64(6e-6),
+		ImageOutputPrice: testPtrFloat64(18e-6),
 		Intervals: []PricingInterval{
 			{MinTokens: 0, MaxTokens: testPtrInt(128000), InputPrice: testPtrFloat64(2e-6), OutputPrice: testPtrFloat64(8e-6)},
 			{MinTokens: 128000, MaxTokens: nil, InputPrice: testPtrFloat64(4e-6), OutputPrice: testPtrFloat64(16e-6)},
@@ -288,6 +292,9 @@ func TestResolve_WithChannelOverride_TokenWithIntervals(t *testing.T) {
 	require.NotNil(t, iv)
 	require.InDelta(t, 2e-6, iv.InputPricePerToken, 1e-12)
 	require.InDelta(t, 8e-6, iv.OutputPricePerToken, 1e-12)
+	require.InDelta(t, 6e-6, iv.ImageInputPricePerToken, 1e-12)
+	require.InDelta(t, 18e-6, iv.ImageOutputPricePerToken, 1e-12)
+	require.True(t, iv.ImageOutputPriceExplicit)
 
 	iv2 := r.GetIntervalPricing(resolved, 200000)
 	require.NotNil(t, iv2)
