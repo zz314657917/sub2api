@@ -1,5 +1,21 @@
 # 项目时间轴
 
+## 2026-07-23 23:16 +08:00 - S111 精确发布与远端一致验证
+
+- 当前阶段：S111 已从 `PASS / source-only` 进入 `PASS / published`；功能提交
+  `15496ed12` 已进入远端 `main`。
+- 本段重点：在混合 dirty tree 中只发布 17 个 S111 路径，排除并行 group-buy
+  文件和独立 S110 工作树。
+- 已完成：精确 staging、cached allowlist/diff check、提交、两次 fetch 基线
+  检查、push 和远端一致验证。
+- 关键决策：使用功能提交加独立 workflow closeout；不部署、不更新容器，也
+  不清理或合并 S110。
+- 验证记录：功能提交 author/committer 正确；`HEAD`、`origin/main`、
+  `git ls-remote` 均为 `15496ed12`，divergence 为 `0/0`。
+- 遗留问题：真实 CC Switch/Grok 402、登录态浏览器、部署和完整 unit-tag
+  service 聚合仍未验证或受既有漂移阻断。
+- 下一步：新的上游变化另开 Sprint；运行态或容器变更需单独授权。
+
 ## 2026-07-23 22:54 +08:00 - 上游 v0.1.164 四项小修 S111 收口
 
 - 当前阶段：S111 已完成代码适配与 runtime QA，P/G/E 为 `done`，最终

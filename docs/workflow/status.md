@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-v0164-small-fixes-s111
 total_sprints: 111
-pending_action: S111 is PASS/source-only; await explicit authorization before any scoped commit or push, and do not modify the separate group-buy S110 worktree, deploy, or refresh containers
+pending_action: S111 is PASS/published; start any further upstream work as a new sprint, and do not modify the separate group-buy S110 worktree, deploy, or refresh containers without explicit authorization
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-23 22:54 +08:00
+last_verified: 2026-07-23 23:16 +08:00
 ---
 
 # S111 Current Sprint
@@ -28,8 +28,10 @@ last_verified: 2026-07-23 22:54 +08:00
   and expiry recovery against the production handler.
 - The separate `codex/group-buy-lifecycle-refund-hardening-s110` worktree is
   active and explicitly outside this task.
-- Final Evaluator: `PASS / source-only`. No commit, push, deployment, container
-  refresh, real Grok request, or authenticated browser smoke was performed.
+- Final Evaluator: `PASS / published`. Feature commit `15496ed12` is on
+  `origin/main`; `HEAD`, `origin/main`, and `git ls-remote` match with `0/0`
+  divergence. No deployment, container refresh, real Grok request, or
+  authenticated browser smoke was performed.
 - Contract: `docs/workflow/tasks/upstream-v0164-small-fixes-s111.md`.
 - QA report:
   `docs/workflow/qa-reports/upstream-v0164-small-fixes-s111-qa.md`.

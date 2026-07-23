@@ -1,19 +1,19 @@
 # 当前任务快照
 
-最后更新：2026-07-23 22:54 +08:00
+最后更新：2026-07-23 23:16 +08:00
 
 ## 背景
 
-- 当前主线已包含已发布的 S106-S109 和独立 Agent Identity S108。
+- 当前主线已包含已发布的 S106-S109、S111 和独立 Agent Identity S108。
 - GitHub 最新正式版 `v0.1.164` 已完成只读盘点；整版不适合直接合并。
 - 另有 `codex/group-buy-lifecycle-refund-hardening-s110` 工作树，当前任务不得
   修改或清理它。
 
 ## 当前目标
 
-- 收口 `upstream-v0164-small-fixes-s111`：手工移植 Grok CC Switch、Grok 402
-  冷却、长限流按天显示和 GPT-5.6 Sol 默认排序。
-- 保持 source-only：不提交、不推送、不部署、不更新容器，不触碰 S110。
+- 完成 `upstream-v0164-small-fixes-s111` 发布收口：四项适配已进入远端
+  `main`，workflow 证据同步为 `PASS / published`。
+- 不部署、不更新容器，不触碰独立 S110；后续上游工作另开 Sprint。
 
 ## 本次已完成
 
@@ -24,6 +24,9 @@
 - 完成 focused/broad Go、Vitest `17/17`、typecheck、1090-module production
   build、目标 ESLint、gofmt 和静态门禁。
 - 创建 S111 QA 报告并把 P/G/E phase 收口为 `done`。
+- 精确暂存 17 个 S111 路径，排除并行 group-buy dirt；创建功能提交
+  `15496ed12` 并推送到 `origin/main`。
+- 验证 `HEAD`、`origin/main` 和远端 `main` 均为 `15496ed12`，分歧 `0/0`。
 
 ## 已确认事实
 
@@ -40,20 +43,20 @@
 - 真实 CC Switch deeplink、真实 Grok 402 和管理员登录态浏览器 smoke 未执行。
 - 完整 `go test -tags=unit ./internal/service` 仍受既有 `stringPtr`、billing
   helper 和 Grok runtime-block 测试编译漂移阻断。
-- 提交、推送、部署和容器更新均未授权。
+- 真实部署和容器更新未授权；并行 group-buy 改动仍留在工作树且不属于 S111。
 
 ## 当前结论
 
-- `PASS / source-only`：S111 四项补丁和批准范围内的验证已完成。
-- 当前 P/G/E phase 为 `done`；未提交、未推送、未部署。
+- `PASS / published`：S111 四项补丁、验证和远端发布均已完成。
+- 当前 P/G/E phase 为 `done`；未部署、未更新容器。
 
 ## 下一步
 
-1. 等待用户决定是否提交/推送 -> 验证：若授权，精确暂存十个业务/测试路径
-   和 workflow 证据，ignored contract/QA report 使用 `git add -f`，再审 cached
-   allowlist 和 `git diff --cached --check`。
+1. 新的上游候选或功能 -> 验证：另开 Sprint/contract，不继续扩大 S111。
 2. 如需真实运行态确认 -> 验证：另行授权后执行 CC Switch、Grok 402、登录态
-   浏览器或部署/容器 smoke；这些不属于当前 source-only PASS。
+   浏览器或部署/容器 smoke；这些不属于当前发布证据。
+3. S110 继续由其独立工作树处理 -> 验证：不得把当前主工作树的 group-buy
+   dirt 混入 S111 收口提交。
 
 ## 验证记录
 
@@ -63,4 +66,6 @@
   modules）和目标 ESLint 均通过。
 - `gofmt -d`、exact allowlist、`git diff --check`、冲突标记和未合并索引检查
   均通过；构建只出现既有非阻断告警。
-- `HEAD = origin/main = 7e2013fdd`；主工作树开始时干净。
+- 功能提交 `15496ed12` 包含且仅包含 17 个批准路径，author/committer 为仓库
+  当前配置身份。
+- 推送后 `HEAD = origin/main = remote main = 15496ed12`，分歧为 `0/0`。

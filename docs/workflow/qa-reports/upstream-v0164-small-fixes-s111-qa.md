@@ -8,7 +8,7 @@
 
 ## Verdict
 
-`PASS / source-only`
+`PASS / published`
 
 ## Contract Checked
 
@@ -33,6 +33,11 @@ corepack.cmd pnpm --dir frontend exec eslint <four S111 frontend paths> -> PASS
 gofmt -d <six S111 Go paths> -> PASS (no output)
 git diff --check -> PASS
 git diff --name-only --diff-filter=U -> PASS (no output)
+git diff --cached --check -> PASS
+git fetch origin main -> PASS (remote baseline remained 7e2013fdd)
+git push origin main -> PASS (7e2013fdd..15496ed12)
+git rev-list --left-right --count HEAD...origin/main -> PASS (0 0)
+git ls-remote --heads origin main -> PASS (15496ed12)
 ```
 
 - manual checks:
@@ -47,6 +52,8 @@ console tooltip surface/arrow classes remain present -> PASS
 gpt-5.6-sol is first; bare gpt-5.6 alias remains exactly once -> PASS
 ten business/test paths and workflow artifacts match the approved allowlist -> PASS
 separate group-buy S110 worktree remains outside this task -> PASS
+feature commit contains exactly the 17 approved S111 paths -> PASS
+HEAD, origin/main, and remote main match at 15496ed12 -> PASS
 ```
 
 ## Findings
@@ -55,6 +62,7 @@ separate group-buy S110 worktree remains outside this task -> PASS
 - 默认标签 Grok 402 回归真实执行了生产 handler、repository persistence 调用、调度阻断和冷却过期恢复，避免只依赖当前不可编译的 `unit` 聚合测试。
 - `go test -tags=unit ./internal/service` 仍在编译阶段被仓库既有漂移阻断，包括 `stringPtr` 重复、旧 billing helper 签名和既有 Grok runtime-block 测试引用；未把该聚合套件伪报为通过。
 - 前端生产构建只有既有 Browserslist 数据过期、chunk 切分、large chunk 和 Node `DEP0190` 告警。
+- 功能提交 `15496ed12` 已推送到 `origin/main`；本地、remote-tracking 和远端引用一致，分歧为 `0/0`。
 
 ## Bug Owner Recommendation
 
@@ -66,7 +74,7 @@ separate group-buy S110 worktree remains outside this task -> PASS
 
 ## Retest Scope
 
-- 无待修复项；如后续提交或与其他分支集成，重跑 focused Go/Vitest、typecheck、build、ESLint 和静态门禁即可。
+- 无待修复项；如后续与其他分支集成，重跑 focused Go/Vitest、typecheck、build、ESLint 和静态门禁即可。
 
 ## Unverified Risks
 
