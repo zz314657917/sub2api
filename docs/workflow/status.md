@@ -1,13 +1,69 @@
 ---
 phase: done
-current_sprint: admin-account-plan-type-filter-s105
-total_sprints: 105
-pending_action: S105 source-only PASS; keep the scoped commit local until push authorization, without deployment or container refresh
+current_sprint: user-usage-column-menu-layer-s108
+total_sprints: 108
+pending_action: S108 is source-only PASS; await explicit commit and push authorization together with the existing S106/S107 work, without deployment or container refresh
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-22 22:04 +08:00
+last_verified: 2026-07-23 19:28 +08:00
 ---
+
+# S108 Current Sprint
+
+- S108 contract is approved to keep the user usage column settings menu above
+  the sticky table header while open.
+- Only `frontend/src/views/user/UsageView.vue` and its focused view test may
+  change for the implementation; shared table/layout components stay frozen.
+- The approved implementation dynamically applies `z-[221]` to the filter
+  card only while `showColumnMenu` is true, matching the proven admin pattern.
+- Contract: `docs/workflow/tasks/user-usage-column-menu-layer-s108.md`.
+- Implementation and focused regression are complete. Vitest `20/20`,
+  typecheck, production build (1090 modules), targeted ESLint, and diff gates
+  pass.
+- Browser smoke with synthetic authenticated usage data confirms `filterZ=221`
+  exceeds the maximum sticky-header layer `220`, and the overlapping point is
+  owned by the menu. The clean session has 0 console errors/warnings.
+- Final Evaluator: `PASS / source-only`. No commit, push, deployment, or
+  container refresh was performed.
+- QA report: `docs/workflow/qa-reports/user-usage-column-menu-layer-s108-qa.md`.
+
+# S107 Current Sprint
+
+- S107 contract is approved for the `c5971a6fc` security dependency set:
+  `x/text v0.39.0` plus seven compatible sibling `golang.org/x/*` upgrades.
+- The patch will preserve the local Go version and direct/indirect topology;
+  only `backend/go.mod` and `backend/go.sum` may change.
+- Go source, schema, frontend, deployment, containers, VERSION, and unrelated
+  dependencies remain frozen.
+- Contract: `docs/workflow/tasks/upstream-x-text-security-s107.md`.
+- Contract review: `PASS`; the required older module versions are present
+  locally and no source prerequisite has been identified.
+- Implementation is complete with the exact upstream eight-module version set
+  and no application source changes in S107.
+- Final Evaluator: `PASS / source-only`. Module verification, exact version
+  audit, server build, service compile, and target vulnerability removal pass.
+  Separate Go standard-library and AWS findings remain.
+- QA report: `docs/workflow/qa-reports/upstream-x-text-security-s107-qa.md`.
+
+# S106 Current Sprint
+
+- S106 contract is approved for five isolated upstream behavior ports:
+  `e51e61008`, `bd62c6f66`, `a6ecc202f`, `d0bdd7e77`, and `eba7289a8`.
+- The scheduler cache adaptation includes local monthly quota metadata in
+  addition to the upstream total/daily/weekly fields.
+- Schema, persistence, billing, payment execution, dependencies, deployment,
+  containers, VERSION, and unrelated upstream history remain frozen.
+- Contract: `docs/workflow/tasks/upstream-small-fixes-s106.md`.
+- Contract review: `PASS`; all five behavior boundaries exist locally, two
+  patches apply directly, and three have bounded local-topology adaptations.
+- Implementation and source-only QA are complete. Scheduler focused and
+  integration tests, isolated runner tests, frontend `15/15`, caller
+  regressions, typecheck, production build, formatting, diff, conflict, and
+  index gates pass.
+- Final Evaluator: `PASS / source-only`. The aggregate repository/unit-tag
+  failures are existing unrelated Grok/billing/health test baselines.
+- QA report: `docs/workflow/qa-reports/upstream-small-fixes-s106-qa.md`.
 
 # S105 Current Sprint
 

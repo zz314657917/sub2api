@@ -1,6 +1,46 @@
 # 当前任务快照
 
-最后更新：2026-07-22 22:04 +08:00
+最后更新：2026-07-23 19:28 +08:00
+
+## S108 当前目标与结论
+
+- 修复用户端使用记录右侧列设置菜单被固定表头和记录行遮挡的问题。
+- 已完成并通过 `PASS / source-only`：筛选卡仅在菜单打开时动态应用
+  `relative z-[221]`，高于 `DataTable` 固定表头最大层级 `220`；关闭后移除。
+- 用户端专用测试 `20/20`、typecheck、生产构建（1090 modules）、定向 ESLint、
+  diff 门禁和 1366x768 Chromium 重叠点检查通过；干净浏览器会话 0 error / 0 warning。
+- 浏览器使用合成登录态和 API 数据，未验证真实用户后端数据；未提交、推送、部署或
+  更新容器。
+- Contract：`docs/workflow/tasks/user-usage-column-menu-layer-s108.md`。
+- QA：`docs/workflow/qa-reports/user-usage-column-menu-layer-s108-qa.md`。
+
+## S107 当前目标与结论
+
+- 手工迁移上游 `c5971a6fc`：将 `golang.org/x/text` 升到 `v0.39.0`，并同步
+  上游选定的七个 `golang.org/x/*` 兼容版本。
+- 已完成并通过 `PASS / source-only`：八个模块版本与校验和精确匹配，
+  `go mod verify`、服务端构建、默认 service 生产编译通过，`govulncheck`
+  不再报告目标漏洞 GO-2026-5970。
+- `govulncheck` 仍报告四个独立问题：Go 1.26.3 标准库三项，以及旧 AWS
+  S3/eventstream 一项；需另开安全 Sprint，不能把本仓库称为零漏洞。
+- Contract：`docs/workflow/tasks/upstream-x-text-security-s107.md`。
+
+## S106 当前目标与结论
+
+- 已手工迁移五个上游小修：调度缓存配额元数据、监控 API Key 解密失败停调度、
+  套餐周/月单位显示、倍率有效小数、优惠码本地时间预填。
+- 调度缓存除上游字段外还保留本地 `quota_monthly_limit/used/start`，避免本地
+  月配额耗尽账号在缓存路径重新参与调度。
+- 后端聚焦与集成测试、runner 隔离测试、前端 `15/15`、调用方回归、typecheck、
+  1090 modules 生产构建及格式/diff 门禁通过。
+- Contract：`docs/workflow/tasks/upstream-small-fixes-s106.md`。
+
+## 当前下一步
+
+1. 用户明确授权后，对 S106/S107 精确暂存、复核、提交并推送。
+2. 另开安全 Sprint 升级 Go patch 版本和 AWS SDK，处理剩余四项漏洞。
+3. 并发提交 `55aaedc80` 已在 `main/origin/main`，但其 routes 包当前有 3 个
+   测试失败；该提交不属于 S106/S107，需单独修复。
 
 ## S105 当前目标
 

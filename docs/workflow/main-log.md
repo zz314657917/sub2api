@@ -420,3 +420,10 @@
 260722 2201 | admin-account-plan-type-filter-s105 | build | codex | repository-to-frontend plan filter, normalized badges, filtered bulk/share/export propagation, and focused regressions implemented
 260722 2204 | admin-account-plan-type-filter-s105 | qa-pass | evaluator | repository integration, focused service/handler, handler/repository full packages, Vitest 13/13, typecheck, build 1089 modules, and static gates PASS
 260722 2204 | admin-account-plan-type-filter-s105 | done | evaluator | final PASS/source-only; aggregate service retains only existing UTC peak-rate failures; no live K12, push, deployment, or container refresh
+260723 0952 | upstream-small-fixes-s106 | contract-approved | Codex | docs/workflow/tasks/upstream-small-fixes-s106.md
+260723 1001 | upstream-small-fixes-s106 | qa-pass-source-only | Codex | docs/workflow/qa-reports/upstream-small-fixes-s106-qa.md
+260723 1001 | upstream-x-text-security-s107 | contract-approved | Codex | docs/workflow/tasks/upstream-x-text-security-s107.md
+260723 1011 | upstream-x-text-security-s107 | qa-pass-source-only | Codex | docs/workflow/qa-reports/upstream-x-text-security-s107-qa.md
+260723 1915 | user-usage-column-menu-layer-s108 | contract-approved | Codex | docs/workflow/tasks/user-usage-column-menu-layer-s108.md
+260723 1928 | user-usage-column-menu-layer-s108 | build | codex | dynamic user filter-card z-[221] layer and focused toggle regression implemented
+260723 1928 | user-usage-column-menu-layer-s108 | qa-pass-source-only | evaluator | Vitest 20/20, typecheck, build 1090 modules, ESLint, diff gate, and clean Chromium overlap smoke PASS

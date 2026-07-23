@@ -7,6 +7,71 @@ last_verified: 2026-07-03 19:30 +08:00
 
 # Workflow Spec
 
+## S108 Addendum: user usage column menu layer
+
+### Goal
+
+- Keep the user usage column settings menu above the sticky table header and
+  record rows while it is open.
+
+### Scope Boundary
+
+- Dynamically elevate only the user usage filter card while the existing
+  column menu is open, following the established admin usage solution.
+- Do not change table-wide z-index values, menu behavior, filtering, export,
+  persistence, backend APIs, deployment, or containers.
+
+### Acceptance Boundary
+
+- Focused view regression, frontend typecheck/build, diff/path gates, and a
+  desktop browser smoke must confirm that the menu is not obscured.
+
+## S107 Addendum: x/text security dependency update
+
+### Goal
+
+- Adapt upstream `c5971a6fc` so `golang.org/x/text` reaches `v0.39.0` and
+  GO-2026-5970 is removed from the backend module graph.
+
+### Scope Boundary
+
+- Upgrade only the eight `golang.org/x/*` modules selected by the upstream
+  security commit, preserving the local direct/indirect dependency topology.
+- Do not change Go source, generated code, schema, frontend, deployment,
+  containers, VERSION, or unrelated dependencies.
+
+### Acceptance Boundary
+
+- Exact module-version and checksum review, `go mod verify`, backend build,
+  focused/broad Go regression attempts, vulnerability scan, diff, conflict,
+  and unmerged-index gates must pass or record unrelated baselines explicitly.
+
+## S106 Addendum: selective upstream small fixes
+
+### Goal
+
+- Port five isolated upstream behavior fixes for scheduler quota metadata,
+  monitor decrypt-failure scheduling, subscription validity-unit display,
+  usage multiplier precision, and promo expiry local-time prefill.
+
+### Scope Boundary
+
+- Preserve all local scheduler quota dimensions, including local-only monthly
+  quota fields, while continuing to filter unrelated account metadata.
+- Treat only API-key decryption failure as terminal for channel-monitor
+  scheduling; ordinary failures keep retrying.
+- Keep validity labels aligned with backend day/week/month billing semantics,
+  retain meaningful multiplier decimals, and use the existing local-time
+  formatter for promo edit values.
+- Do not change persistence, schema, billing, payment execution, dependencies,
+  deployment, containers, VERSION, or unrelated upstream behavior.
+
+### Acceptance Boundary
+
+- Focused and broader unit-tag Go tests, focused Vitest regressions, frontend
+  typecheck/build, formatting, exact allowlist, conflict-marker, unmerged-index,
+  and `git diff --check` gates must pass.
+
 ## S105 Addendum: filter admin accounts by OpenAI plan type
 
 ### Goal
