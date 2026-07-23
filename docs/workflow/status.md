@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-model-pricing-alignment-s109
 total_sprints: 109
-pending_action: S106-S109 are published; start only a separately approved next sprint, without deployment or container refresh
+pending_action: S106-S109 and the separate Agent Identity S108 task are published; start only a separately approved next sprint, without deployment or container refresh
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-23 19:47 +08:00
+last_verified: 2026-07-23 21:24 +08:00
 ---
 
 # S109 Current Sprint
@@ -23,6 +23,25 @@ last_verified: 2026-07-23 19:47 +08:00
 - Contract: `docs/workflow/tasks/upstream-model-pricing-alignment-s109.md`.
 - Worker result: `docs/workflow/worker-results/upstream-model-pricing-alignment-s109-result.md`.
 - QA report: `docs/workflow/qa-reports/upstream-model-pricing-alignment-s109-qa.md`.
+
+# Agent Identity S108 Published Task
+
+- `upstream-openai-agent-identity-s108` is a separate task from the later
+  `user-usage-column-menu-layer-s108`; the task IDs collide, but their
+  contracts and evidence paths are distinct.
+- Feature commit `6b87a2d2b` is published on `main`. It adds Ed25519 Agent
+  Identity registration/recovery, snake/camel imports, no-token K12/Team
+  support, HTTP/images/WS/quota integration, and credential redaction.
+- Final Evaluator: `PASS / published`. The original source-only QA report and
+  worker result were recovered from the retired closeout branch without
+  importing its obsolete status/spec/handoff snapshots.
+- Real K12 credentials, external OpenAI runtime, race detector, deployment,
+  container refresh, and authenticated browser smoke remain unverified.
+- Contract: `docs/workflow/tasks/upstream-openai-agent-identity-s108.md`.
+- Worker result:
+  `docs/workflow/worker-results/upstream-openai-agent-identity-s108-result.md`.
+- QA report:
+  `docs/workflow/qa-reports/upstream-openai-agent-identity-s108-qa.md`.
 
 # S108 Recent Sprint
 

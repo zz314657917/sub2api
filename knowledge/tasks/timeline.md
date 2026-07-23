@@ -1,5 +1,21 @@
 # 项目时间轴
 
+## 2026-07-23 21:24 +08:00 - Agent Identity S108 证据归档与分支收口
+
+- 当前阶段：功能提交 `6b87a2d2b` 已是当前 `main` 的祖先；原收口分支仅剩
+  QA/result 两份独有证据，当前按 `PASS / published` 归档。
+- 本段重点：只恢复
+  `upstream-openai-agent-identity-s108-{qa,result}.md`，不 cherry-pick 旧收口
+  提交，避免覆盖后来 S106-S109 的 `status/spec/current-task/timeline`。
+- 关键决策：Agent Identity 的 `upstream-openai-agent-identity-s108` 与后来
+  菜单层级任务 `user-usage-column-menu-layer-s108` 编号碰撞，但合同、业务范围和
+  证据路径互不相同，均予以保留。
+- 验证记录：祖先关系、分支唯一提交、两份主线缺失文件和旧文档覆盖范围已逐项
+  审计；发布前重新执行 Agent Identity focused Go tests 和静态门禁。
+- 遗留问题：真实 K12 Agent Identity、外部 OpenAI 请求、race detector、部署、
+  容器和登录态浏览器 smoke 均未执行，需另行授权。
+- 下一步：新变更另开 contract；不再从已收口的 Agent Identity 分支继续开发。
+
 ## 2026-07-23 19:18 +08:00 - S109 功能提交发布并验证远端一致
 
 - 当前阶段：S109 已从 `PASS / source-only` 进入 `PASS / published`；功能提交 `81f1128b9` 已进入远端 `main`。
