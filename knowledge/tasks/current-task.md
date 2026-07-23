@@ -1,13 +1,13 @@
 # 当前任务快照
 
-最后更新：2026-07-23 19:39 +08:00
+最后更新：2026-07-23 19:47 +08:00
 
 ## 背景
 
 - S109 已从隔离 worktree 发布模型定价与图片输入计费修复，功能提交
   `81f1128b9` 和 publication closeout `b56cf8aaf` 均在 `origin/main`。
-- S106-S108 已拆成 4 个本地提交并与 `origin/main` 合并；业务代码无冲突，
-  只有 workflow/current-task 状态文档需要合并。
+- S106-S108 已拆成 4 个提交并与已发布 S109 合并；业务代码无冲突，状态文档
+  冲突已完整保留双方结论。合并头 `487f6281f` 已推送到 `origin/main`。
 
 ## S109 当前结论
 
@@ -29,8 +29,8 @@
   `relative z-[221]`，高于 `DataTable` 固定表头最大层级 `220`；关闭后移除。
 - 用户端专用测试 `20/20`、typecheck、生产构建（1090 modules）、定向 ESLint、
   diff 门禁和 1366x768 Chromium 重叠点检查通过；干净浏览器会话 0 error / 0 warning。
-- 浏览器使用合成登录态和 API 数据，未验证真实用户后端数据；本地提交已与 S109
-  合并，尚未推送、部署或更新容器。
+- 浏览器使用合成登录态和 API 数据，未验证真实用户后端数据；代码已与 S109 合并
+  并推送，未部署或更新容器。
 - Contract：`docs/workflow/tasks/user-usage-column-menu-layer-s108.md`。
 - QA：`docs/workflow/qa-reports/user-usage-column-menu-layer-s108-qa.md`。
 
@@ -57,10 +57,19 @@
 
 ## 当前下一步
 
-1. 完成合并提交，执行 S106-S109 新鲜集成验证，再推送 `main` 并复核远端 parity。
+1. S106-S109 已全部发布；下一批变更另开 contract，不继续混入当前 Sprint。
 2. 另开安全 Sprint 升级 Go patch 版本和 AWS SDK，处理剩余四项漏洞。
 3. 并发提交 `55aaedc80` 已在 `main/origin/main`，但其 routes 包当前有 3 个
    测试失败；该提交不属于 S106/S107，需单独修复。
+
+## 发布验证
+
+- 后端 scheduler 与隔离 monitor runner 聚焦测试、`go mod verify`、8 个模块精确
+  版本审计、默认 service 编译和 `go build ./cmd/server` 均通过。
+- 前端聚焦 Vitest `5 files / 36 tests`、typecheck、`UsageView` 定向 ESLint、
+  生产构建（1090 modules）通过。
+- `HEAD`、`origin/main`、`git ls-remote origin main` 均为 `487f6281f`，
+  `HEAD...origin/main` 分叉计数为 `0 0`；未部署、未更新容器。
 
 ## 历史快照
 

@@ -2,18 +2,18 @@
 phase: done
 current_sprint: upstream-model-pricing-alignment-s109
 total_sprints: 109
-pending_action: S109 is published; S106-S108 are merged locally with origin/main and await fresh integration verification and push, without deployment or container refresh
+pending_action: S106-S109 are published; start only a separately approved next sprint, without deployment or container refresh
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-23 19:39 +08:00
+last_verified: 2026-07-23 19:47 +08:00
 ---
 
 # S109 Current Sprint
 
 - S109 contract is approved for manual upstream pricing alignment: LiteLLM image-input token price, channel `image_input_price`, Claude model-name normalization, GLM-5.2 fallback, OpenAI OAuth image tool usage, and complete image token/cost persistence and UI reconciliation.
 - Composite alias billing was audited and moved out of scope because the local branch lacks the complete composite platform and gateway billing prerequisite chain.
-- Implementation remains isolated in worktree `E:/codex-worktrees/sub2api-pricing-s109`; the primary worktree remains untouched with its pre-existing user changes.
+- Implementation was prepared in isolated worktree `E:/codex-worktrees/sub2api-pricing-s109`, published, and then integrated with the S106-S108 commits on `main`.
 - The 18:55 PASS was revoked after final backend review found four gaps: account statistics omitted image-input pricing, hosted tool usage was incorrectly clamped to top-level totals, long-context arithmetic could overflow, and available-channel fallback omitted image-input price.
 - All four fixes passed focused and broad default-tag tests, repository/migration/API gates, frontend checks, and renewed three-agent review.
 - The aggregate unit-tag service package remains blocked by pre-existing compile drift (`stringPtr`, legacy billing signatures, and Grok runtime-block helpers). Default-tag GLM-5.2 and long-context image-cost regressions execute and pass; the unit suite is not reported as green.
@@ -34,8 +34,9 @@ last_verified: 2026-07-23 19:39 +08:00
 - Focused Vitest `20/20`, typecheck, production build (1090 modules), targeted
   ESLint, diff gates, and a Chromium overlap smoke pass. The synthetic browser
   smoke did not use real user backend data.
-- Final Evaluator before integration: `PASS / source-only`. The S108 commit is
-  merged locally with published S109; push awaits fresh integration checks.
+- Final Evaluator: `PASS / published`. Focused integrated Vitest passes
+  `5 files / 36 tests`; typecheck, production build (1090 modules), targeted
+  ESLint, and remote parity pass. Merge head `487f6281f` is on `origin/main`.
 - Contract: `docs/workflow/tasks/user-usage-column-menu-layer-s108.md`.
 - QA report: `docs/workflow/qa-reports/user-usage-column-menu-layer-s108-qa.md`.
 
@@ -47,8 +48,9 @@ last_verified: 2026-07-23 19:39 +08:00
 - Module verification, exact version audit, server build, service compile, and
   removal of target vulnerability GO-2026-5970 pass. Separate Go standard
   library and AWS findings remain and require another security Sprint.
-- Final Evaluator before integration: `PASS / source-only`. The S107 commit is
-  merged locally with published S109; push awaits fresh integration checks.
+- Final Evaluator: `PASS / published`. The exact eight-module audit,
+  `go mod verify`, default service compile, server build, integration gates,
+  and remote parity pass. Merge head `487f6281f` is on `origin/main`.
 - Contract: `docs/workflow/tasks/upstream-x-text-security-s107.md`.
 - QA report: `docs/workflow/qa-reports/upstream-x-text-security-s107-qa.md`.
 
@@ -62,8 +64,9 @@ last_verified: 2026-07-23 19:39 +08:00
 - Focused backend and integration tests, isolated runner tests, frontend
   `15/15`, caller regressions, typecheck, production build, and static gates
   pass. Existing unrelated Grok/billing/health aggregate baselines remain.
-- Final Evaluator before integration: `PASS / source-only`. The S106 commit is
-  merged locally with published S109; push awaits fresh integration checks.
+- Final Evaluator: `PASS / published`. Scheduler and isolated monitor-runner
+  focused tests, integrated frontend `5 files / 36 tests`, typecheck, build,
+  static gates, and remote parity pass. Merge head `487f6281f` is published.
 - Contract: `docs/workflow/tasks/upstream-small-fixes-s106.md`.
 - QA report: `docs/workflow/qa-reports/upstream-small-fixes-s106-qa.md`.
 

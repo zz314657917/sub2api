@@ -438,3 +438,6 @@
 260723 1918 | upstream-model-pricing-alignment-s109 | publish | codex | functional head 81f1128b9 pushed to origin/main; HEAD, origin/main, and ls-remote parity verified; primary dirty worktree untouched
 260723 1928 | user-usage-column-menu-layer-s108 | build | codex | dynamic user filter-card z-[221] layer and focused toggle regression implemented
 260723 1928 | user-usage-column-menu-layer-s108 | qa-pass-source-only | evaluator | Vitest 20/20, typecheck, build 1090 modules, ESLint, diff gate, and clean Chromium overlap smoke PASS
+260723 1947 | upstream-small-fixes-s106 | publish | codex | scheduler/runner focused tests, integrated frontend 36/36, compile/build/static gates, and remote parity PASS at merge head 487f6281f
+260723 1947 | upstream-x-text-security-s107 | publish | codex | exact eight-module audit, go mod verify, service/server compile, integrated gates, and remote parity PASS at merge head 487f6281f
+260723 1947 | user-usage-column-menu-layer-s108 | publish | codex | merged UsageView preserves z-[221] and S109 image usage behavior; 36/36, typecheck, build, ESLint, and remote parity PASS at 487f6281f
