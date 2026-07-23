@@ -1,13 +1,38 @@
 ---
 phase: done
-current_sprint: upstream-model-pricing-alignment-s109
-total_sprints: 109
-pending_action: S106-S109 and the separate Agent Identity S108 task are published; start only a separately approved next sprint, without deployment or container refresh
+current_sprint: upstream-v0164-small-fixes-s111
+total_sprints: 111
+pending_action: S111 is PASS/source-only; await explicit authorization before any scoped commit or push, and do not modify the separate group-buy S110 worktree, deploy, or refresh containers
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-23 21:30 +08:00
+last_verified: 2026-07-23 22:54 +08:00
 ---
+
+# S111 Current Sprint
+
+- S111 manually ports four isolated `v0.1.164` behaviors: Grok CC Switch
+  import, Grok 402 cooldown, day-aware model-rate-limit display, and concrete
+  GPT-5.6 Sol default ordering.
+- Grok CC Switch keeps the local normalized homepage and emits `grokbuild`,
+  exactly one `/v1`, and `grok-4.5`; HTTP 402 persists a 30-minute cooldown.
+- Model limit badges use the shared day-aware countdown and complete local
+  tooltip date/time; the local console classes remain intact.
+- `gpt-5.6-sol` is first in the default list while the bare `gpt-5.6` alias is
+  retained exactly once.
+- Focused Go tests, broader OpenAI/admin packages, Vitest `17/17`, typecheck,
+  production build (1090 modules), targeted ESLint, formatting, allowlist,
+  diff, conflict-marker, and unmerged-index gates pass.
+- The aggregate `unit` service suite retains pre-existing compile drift;
+  S111's default-tag 402 regression executes persistence, scheduling block,
+  and expiry recovery against the production handler.
+- The separate `codex/group-buy-lifecycle-refund-hardening-s110` worktree is
+  active and explicitly outside this task.
+- Final Evaluator: `PASS / source-only`. No commit, push, deployment, container
+  refresh, real Grok request, or authenticated browser smoke was performed.
+- Contract: `docs/workflow/tasks/upstream-v0164-small-fixes-s111.md`.
+- QA report:
+  `docs/workflow/qa-reports/upstream-v0164-small-fixes-s111-qa.md`.
 
 # S109 Current Sprint
 

@@ -836,3 +836,30 @@ the existing default-user behavior.
 - README, config examples, `.env.example`, and all built-in Compose files
   forward `REDIS_USERNAME`.
 - Allowlist, conflict-marker, unmerged-index, and `git diff --check` gates pass.
+
+# S111 Addendum: upstream v0.1.164 isolated small fixes
+
+## Goal
+
+Port four low-risk `v0.1.164` behaviors that are missing from the local branch:
+Grok CC Switch import, Grok HTTP 402 cooldown, day-aware model-rate-limit
+display, and concrete GPT-5.6 Sol default ordering.
+
+## Scope Boundary
+
+- Adapt only upstream commits `a3a1575e9`, `ca0d3314c`, `48d58d72f`, and
+  `dd5956be5` to the local URL normalization, Grok policy, and console theme.
+- Preserve all existing non-Grok CC Switch behavior, model-status semantics,
+  OpenAI aliases, and non-402 Grok error handling.
+- Do not include schema, composite groups, Ollama Cloud usage, proxy stream
+  quarantine, payment, billing, dependencies, deployment, or containers.
+- Do not modify the separate group-buy S110 branch or worktree.
+
+## Acceptance Boundary
+
+- Focused Go tests prove 402 cooldown persistence/runtime blocking and
+  concrete GPT-5.6 Sol default ordering through the package and admin API.
+- Focused Vitest proves exact Grok CC Switch endpoints and day-aware status
+  output without regressing existing account status behavior.
+- Frontend typecheck/build, targeted lint, Go formatting, exact allowlist,
+  diff, conflict-marker, and unmerged-index gates pass.

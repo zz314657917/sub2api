@@ -444,3 +444,8 @@
 260723 2124 | upstream-openai-agent-identity-s108 | evidence-recovery | codex | feature 6b87a2d2b is already on main; QA/result retained without obsolete status/spec/handoff snapshots
 260723 2124 | upstream-openai-agent-identity-s108 | done | evaluator | PASS/published; task-ID collision with user-usage-column-menu-layer-s108 documented; real K12 runtime, race, deploy, and container remain unverified
 260723 2130 | upstream-openai-agent-identity-s108 | publish-cleanup | codex | evidence commit 68dc78661 verified on HEAD, origin/main, and remote main; obsolete local closeout branch deleted
+260723 2236 | upstream-v0164-small-fixes-s111 | contract-draft | planner | four isolated v0.1.164 behavior ports; group-buy S110 worktree, schema, billing, deployment, and containers excluded
+260723 2236 | upstream-v0164-small-fixes-s111 | contract-approved | evaluator | exact ten-path business/test allowlist and focused runtime gates approved
+260723 2254 | upstream-v0164-small-fixes-s111 | build | codex | Grok CC Switch, Grok 402 cooldown, day-aware rate-limit display, GPT-5.6 Sol ordering, and focused regressions implemented
+260723 2254 | upstream-v0164-small-fixes-s111 | qa-pass | evaluator | focused Go including 402 x10, OpenAI/admin packages, Vitest 17/17, typecheck, build 1090 modules, ESLint, formatting, allowlist, and static gates PASS
+260723 2254 | upstream-v0164-small-fixes-s111 | done | evaluator | final PASS/source-only; unit-tag baseline limitation and live upstream/browser/deployment gaps recorded; no commit, push, or S110 changes

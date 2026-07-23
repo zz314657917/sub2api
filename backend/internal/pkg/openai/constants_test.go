@@ -18,6 +18,15 @@ func TestDefaultModelsIncludeBareGPT56Alias(t *testing.T) {
 	}
 }
 
+func TestDefaultModelsPreferConcreteGPT56SolForAccountTests(t *testing.T) {
+	if len(DefaultModels) == 0 {
+		t.Fatal("DefaultModels is empty")
+	}
+	if DefaultModels[0].ID != "gpt-5.6-sol" {
+		t.Fatalf("DefaultModels[0].ID = %q, want %q", DefaultModels[0].ID, "gpt-5.6-sol")
+	}
+}
+
 func TestDefaultModelsContainsCodexAutoReview(t *testing.T) {
 	for _, model := range DefaultModels {
 		if model.ID == "codex-auto-review" {

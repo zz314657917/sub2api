@@ -1,64 +1,66 @@
 # 当前任务快照
 
-最后更新：2026-07-23 21:30 +08:00
+最后更新：2026-07-23 22:54 +08:00
 
 ## 背景
 
-- 当前主线已包含 S106-S109，以及独立的 OpenAI Agent Identity 功能提交
-  `6b87a2d2b`。
-- `upstream-openai-agent-identity-s108` 与
-  `user-usage-column-menu-layer-s108` 是两个不同任务；编号碰撞，但合同、代码和
-  证据路径互不相同。
+- 当前主线已包含已发布的 S106-S109 和独立 Agent Identity S108。
+- GitHub 最新正式版 `v0.1.164` 已完成只读盘点；整版不适合直接合并。
+- 另有 `codex/group-buy-lifecycle-refund-hardening-s110` 工作树，当前任务不得
+  修改或清理它。
 
 ## 当前目标
 
-- Agent Identity 验收证据归档、主线推送和本地分支清理已完成。
-- 当前无待合并工作；新上游变更必须另开 contract。
-- 未修改业务代码、依赖、数据库、部署或容器。
+- 收口 `upstream-v0164-small-fixes-s111`：手工移植 Grok CC Switch、Grok 402
+  冷却、长限流按天显示和 GPT-5.6 Sol 默认排序。
+- 保持 source-only：不提交、不推送、不部署、不更新容器，不触碰 S110。
 
 ## 本次已完成
 
-- 确认功能提交 `6b87a2d2b` 是当前 `main` 的祖先。
-- 从旧收口分支仅恢复主线缺失的 QA report 和 worker result；没有 cherry-pick
-  会覆盖 S106-S109 新状态的 `3ddc0d6ab`。
-- 证据提交 `68dc78661` 已推送并验证 `HEAD`、`origin/main`、GitHub `main`
-  一致，分叉计数为 `0 0`。
-- 已删除本地 `codex/upstream-openai-agent-identity-s108`；当前只剩 `main`
-  和主工作树。
-- 已在 workflow 文档中记录 Agent Identity 与菜单层级两个 S108 的编号碰撞。
+- 确认 `v0.1.164` 是当前最新 release，并完成 43 个 release 提交的行为分级。
+- 创建并通过 S111 contract review，明确四项适配和十个业务/测试路径。
+- 完成四项本地适配及回归测试；Grok 402 默认标签测试补齐 repository
+  persistence、调度阻断和过期恢复。
+- 完成 focused/broad Go、Vitest `17/17`、typecheck、1090-module production
+  build、目标 ESLint、gofmt 和静态门禁。
+- 创建 S111 QA 报告并把 P/G/E phase 收口为 `done`。
 
 ## 已确认事实
 
-- Agent Identity 支持 Ed25519 assertion/task 注册与一次恢复、snake/camel
-  导入、无普通 access token 的 K12/Team 账号、HTTP/images/WS/quota/test 路径，
-  以及私钥/assertion 脱敏。
-- S109 模型定价和图片输入计费、S106 小修、S107 安全依赖升级、用户 usage
-  菜单层级 S108 均已发布。
-- 旧分支的业务价值和独有验收证据均已在主线保留；其余内容是过期状态快照。
+- Grok CC Switch 现在导入 `grokbuild`，默认 `grok-4.5`，endpoint 仅保留一个
+  `/v1`，homepage 继续使用本地归一化结果。
+- Grok HTTP 402 现在暂停账号 30 分钟，原因是 `grok payment required`；
+  401、403、429 和 5xx 策略未改。
+- 模型限流使用共享 `formatCountdown`，超过 24 小时显示天数，tooltip 显示
+  完整本地日期时间并保留 console 主题类。
+- `gpt-5.6-sol` 已排到默认列表第一位；裸 `gpt-5.6` 别名仍仅出现一次。
 
 ## 待验证点
 
-- 真实 K12 Agent Identity、外部 OpenAI 请求、race detector、部署、容器和
-  登录态浏览器 smoke 不在本轮授权范围，仍未执行。
-- `go test -tags=unit ./internal/service` 的既有编译漂移，以及 govulncheck
-  剩余 Go 标准库/AWS SDK 问题，需要独立 Sprint 处理。
+- 真实 CC Switch deeplink、真实 Grok 402 和管理员登录态浏览器 smoke 未执行。
+- 完整 `go test -tags=unit ./internal/service` 仍受既有 `stringPtr`、billing
+  helper 和 Grok runtime-block 测试编译漂移阻断。
+- 提交、推送、部署和容器更新均未授权。
 
 ## 当前结论
 
-- `PASS / published`：Agent Identity 功能和验收证据均已进入主线，冗余本地
-  分支/worktree 已清理。
-- 当前 P/G/E phase 为 `done`；本轮不再继续混入新的上游变更。
+- `PASS / source-only`：S111 四项补丁和批准范围内的验证已完成。
+- 当前 P/G/E phase 为 `done`；未提交、未推送、未部署。
 
 ## 下一步
 
-1. 如继续同步上游，先盘点候选并为下一项批准独立 contract。
-2. 安全升级另开 Sprint，处理 Go patch 版本和 AWS SDK 剩余漏洞。
-3. 如需验证真实 K12，单独授权脱敏凭据、外部网络和运行态 smoke。
+1. 等待用户决定是否提交/推送 -> 验证：若授权，精确暂存十个业务/测试路径
+   和 workflow 证据，ignored contract/QA report 使用 `git add -f`，再审 cached
+   allowlist 和 `git diff --cached --check`。
+2. 如需真实运行态确认 -> 验证：另行授权后执行 CC Switch、Grok 402、登录态
+   浏览器或部署/容器 smoke；这些不属于当前 source-only PASS。
 
 ## 验证记录
 
-- fresh `go test`：Agent Identity Admin/DTO、service 模式、server compile PASS。
-- 三项并发/恢复测试以 `-count=10` PASS。
-- `git diff --check`、业务路径为 0、冲突标记、未合并索引和精确暂存门禁 PASS。
-- `68dc78661` 推送后 `HEAD = origin/main = GitHub main`，分叉 `0 0`。
-- 清理后 `git branch -vv` 仅有 `main`，`git worktree list` 仅有主工作树。
+- Grok 402 默认标签回归 `-count=10`、默认模型/available-model focused tests、
+  OpenAI/admin 包测试均通过。
+- 前端 focused Vitest `2 files / 17 tests`、typecheck、production build（1090
+  modules）和目标 ESLint 均通过。
+- `gofmt -d`、exact allowlist、`git diff --check`、冲突标记和未合并索引检查
+  均通过；构建只出现既有非阻断告警。
+- `HEAD = origin/main = 7e2013fdd`；主工作树开始时干净。

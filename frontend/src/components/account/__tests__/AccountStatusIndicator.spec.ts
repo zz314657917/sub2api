@@ -1,14 +1,31 @@
-import { describe, expect, it, vi } from 'vitest'
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import AccountStatusIndicator from '../AccountStatusIndicator.vue'
 import type { Account } from '@/types'
+import { formatCountdown, formatDateTimeToMinute } from '@/utils/format'
+import { i18n } from '@/i18n'
+
+beforeAll(() => {
+  vi.spyOn(i18n.global, 't').mockImplementation(((key: string, params?: Record<string, number | string>) => {
+    if (key === 'common.time.countdown.daysHours') return `${params?.d}d ${params?.h}h`
+    if (key === 'common.time.countdown.hoursMinutes') return `${params?.h}h ${params?.m}m`
+    if (key === 'common.time.countdown.minutes') return `${params?.m}m`
+    if (key === 'common.time.countdown.withSuffix') return `${params?.time} to lift`
+    return key
+  }) as typeof i18n.global.t)
+})
+
+afterAll(() => {
+  vi.restoreAllMocks()
+})
 
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   return {
     ...actual,
     useI18n: () => ({
-      t: (key: string) => key
+      t: (key: string, params?: Record<string, unknown>) =>
+        params ? `${key}:${JSON.stringify(params)}` : key
     })
   }
 })
@@ -43,6 +60,40 @@ function makeAccount(overrides: Partial<Account>): Account {
 }
 
 describe('AccountStatusIndicator', () => {
+  it('超过 24 小时的模型限流显示天数并在提示中包含完整日期', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-23T08:00:00Z'))
+    const resetAt = '2026-07-25T13:00:00Z'
+
+    try {
+      const wrapper = mount(AccountStatusIndicator, {
+        props: {
+          account: makeAccount({
+            extra: {
+              model_rate_limits: {
+                'claude-sonnet-4-5': {
+                  rate_limited_at: '2026-07-23T08:00:00Z',
+                  rate_limit_reset_at: resetAt
+                }
+              }
+            }
+          })
+        },
+        global: {
+          stubs: {
+            Icon: true
+          }
+        }
+      })
+
+      expect(wrapper.text()).toContain(formatCountdown(resetAt))
+      expect(wrapper.text()).toContain(formatDateTimeToMinute(resetAt))
+      expect(wrapper.text()).not.toContain('53h0m')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('模型限流 + overages 启用 + 无 AICredits key → 显示 ⚡ (credits_active)', () => {
     const wrapper = mount(AccountStatusIndicator, {
       props: {

@@ -350,6 +350,13 @@ func TestHandleGrokAccountUpstreamErrorTempUnschedulesReadinessStates(t *testing
 			wantMaxCooldown: 10*time.Minute + time.Second,
 		},
 		{
+			name:            "payment required",
+			status:          http.StatusPaymentRequired,
+			wantReason:      "grok payment required",
+			wantMinCooldown: 30*time.Minute - time.Second,
+			wantMaxCooldown: 30*time.Minute + time.Second,
+		},
+		{
 			name:            "forbidden entitlement",
 			status:          http.StatusForbidden,
 			wantReason:      "grok entitlement or subscription tier denied",

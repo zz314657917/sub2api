@@ -1,5 +1,22 @@
 # 项目时间轴
 
+## 2026-07-23 22:54 +08:00 - 上游 v0.1.164 四项小修 S111 收口
+
+- 当前阶段：S111 已完成代码适配与 runtime QA，P/G/E 为 `done`，最终
+  `PASS / source-only`；未提交、未推送、未部署。
+- 本段重点：只移植 Grok CC Switch、Grok 402 冷却、长模型限流按天显示和
+  GPT-5.6 Sol 默认排序，不整体合并 v0.1.164。
+- 已完成：十个业务/测试路径及 workflow 证据落地；402 默认标签回归覆盖
+  persistence、调度阻断和过期恢复。
+- 关键决策：保留本地 URL 归一化、console 主题和 Grok 错误策略；独立 S110
+  工作树、schema、billing、依赖、部署和容器均排除。
+- 验证记录：focused Go（402 `-count=10`）、OpenAI/admin 包、Vitest `17/17`、
+  typecheck、1090-module build、ESLint、gofmt、allowlist 和静态门禁通过。
+- 遗留问题：真实 CC Switch/Grok 402、登录态浏览器和部署未测；完整 unit-tag
+  service 聚合仍受既有编译漂移阻断。
+- 下一步：若用户授权发布，精确暂存业务和 workflow 文件后提交/推送并验证
+  远端一致；部署或容器更新必须另行授权。
+
 ## 2026-07-23 21:24 +08:00 - Agent Identity S108 证据归档与分支收口
 
 - 当前阶段：功能提交 `6b87a2d2b` 已是当前 `main` 的祖先；原收口分支仅剩
