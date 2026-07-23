@@ -6,6 +6,8 @@ import (
 	"crypto/subtle"
 	"errors"
 	"io"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"strconv"
 	"strings"
@@ -534,14 +536,51 @@ func resolveAPIKeyRouteForJSONModel(c *gin.Context, apiKeyService *service.APIKe
 		return false
 	}
 	c.Request.Body = io.NopCloser(bytes.NewReader(body))
-	requestedModel := ""
-	if gjson.ValidBytes(body) {
-		requestedModel = gjson.GetBytes(body, "model").String()
-	}
+	requestedModel := extractRequestedModel(body, c.GetHeader("Content-Type"))
 	imageIntent := imageEndpoint || service.IsImageGenerationIntentForPlatform(endpoint, requestedModel, body, getGroupPlatform(c))
 	if _, ok := middleware.ResolveAPIKeyForModelRequest(c, apiKeyService, apiKey, requestedModel, imageIntent); !ok {
 		c.Abort()
 		return false
 	}
 	return true
+}
+
+const maxPreRouteModelFieldBytes = 1024
+
+func extractRequestedModel(body []byte, contentType string) string {
+	if gjson.ValidBytes(body) {
+		return strings.TrimSpace(gjson.GetBytes(body, "model").String())
+	}
+
+	mediaType, params, err := mime.ParseMediaType(contentType)
+	if err != nil || !strings.EqualFold(mediaType, "multipart/form-data") {
+		return ""
+	}
+	boundary := strings.TrimSpace(params["boundary"])
+	if boundary == "" {
+		return ""
+	}
+
+	reader := multipart.NewReader(bytes.NewReader(body), boundary)
+	for {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			return ""
+		}
+		if err != nil {
+			return ""
+		}
+		name := strings.TrimSpace(part.FormName())
+		if name != "model" || part.FileName() != "" {
+			_ = part.Close()
+			continue
+		}
+
+		value, readErr := io.ReadAll(io.LimitReader(part, maxPreRouteModelFieldBytes))
+		_ = part.Close()
+		if readErr != nil {
+			return ""
+		}
+		return strings.TrimSpace(string(value))
+	}
 }

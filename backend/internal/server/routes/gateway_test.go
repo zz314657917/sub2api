@@ -1,6 +1,9 @@
 package routes
 
 import (
+	"bytes"
+	"io"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -93,6 +96,57 @@ func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
 		router.ServeHTTP(w, req)
 		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should hit OpenAI images handler", path)
 	}
+}
+
+func TestResolveAPIKeyRouteForJSONModelReadsMultipartImageModel(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
+	require.NoError(t, writer.WriteField("prompt", "edit this image"))
+	part, err := writer.CreateFormFile("image", "input.png")
+	require.NoError(t, err)
+	_, err = io.WriteString(part, "png")
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+
+	defaultGroupID := int64(1)
+	imageGroupID := int64(2)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/images/edits", bytes.NewReader(body.Bytes()))
+	c.Request.Header.Set("Content-Type", writer.FormDataContentType())
+	c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
+		GroupID: &defaultGroupID,
+		Group: &service.Group{
+			ID:       defaultGroupID,
+			Platform: service.PlatformOpenAI,
+			Status:   service.StatusActive,
+			Hydrated: true,
+		},
+		MultiGroupRouteGroups: []*service.Group{
+			{
+				ID:                   imageGroupID,
+				Platform:             service.PlatformOpenAI,
+				Status:               service.StatusActive,
+				RoutingScope:         service.GroupRoutingScopeImage,
+				AllowImageGeneration: true,
+				ModelMatchPatterns:   []string{"gpt-image-*"},
+				Hydrated:             true,
+			},
+		},
+		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{
+			{GroupID: imageGroupID, Priority: 1, Weight: 1, Enabled: true, ImageOnly: true},
+		},
+	})
+
+	ok := resolveAPIKeyRouteForJSONModel(c, service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{}), "/v1/images/edits", true)
+
+	require.True(t, ok)
+	resolved, exists := servermiddleware.GetAPIKeyFromContext(c)
+	require.True(t, exists)
+	require.NotNil(t, resolved.Group)
+	require.Equal(t, imageGroupID, *resolved.GroupID)
 }
 
 func TestGatewayRoutesOpenAIVideosPathsAreRegistered(t *testing.T) {
