@@ -157,13 +157,13 @@ func TestGetModelPricing_FallbackWarnPerModelNotGlobal(t *testing.T) {
 	require.Equal(t, 0, strings.Count(out, "model: GLM-5.2"), out)
 }
 
-func TestGetModelPricing_GLM52FallsBackToGLM5Price(t *testing.T) {
+func TestGetModelPricing_GLM52UsesOfficialGLM51Price(t *testing.T) {
 	svc := newTestBillingService()
 
 	got, err := svc.GetModelPricing("glm-5.2")
 	require.NoError(t, err)
 	require.NotNil(t, got)
-	require.InDelta(t, 1e-6, got.InputPricePerToken, 1e-12)
+	require.InDelta(t, 1.4e-6, got.InputPricePerToken, 1e-12)
 	require.InDelta(t, 3.2e-6, got.OutputPricePerToken, 1e-12)
 }
 

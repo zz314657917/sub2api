@@ -289,6 +289,8 @@ func (s *BillingService) initFallbackPricing() {
 		SupportsCacheBreakdown: false,
 	}
 
+	// GLM-5.2 与 GLM-5.1 使用同一官方 USD 价卡，单独登记避免被 glm-5 旧价抢先匹配。
+	s.fallbackPrices["glm-5.2"] = &ModelPricing{InputPricePerToken: 1.4e-6, OutputPricePerToken: 4.4e-6, CacheReadPricePerToken: 0.26e-6}
 	s.fallbackPrices["glm-5.1"] = &ModelPricing{InputPricePerToken: 1.4e-6, OutputPricePerToken: 4.4e-6, CacheReadPricePerToken: 0.26e-6}
 	s.fallbackPrices["glm-5"] = &ModelPricing{InputPricePerToken: 1e-6, OutputPricePerToken: 3.2e-6, CacheReadPricePerToken: 0.2e-6}
 	s.fallbackPrices["glm-5-turbo"] = &ModelPricing{InputPricePerToken: 1.2e-6, OutputPricePerToken: 4e-6, CacheReadPricePerToken: 0.24e-6}
@@ -407,6 +409,9 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 		return s.fallbackPrices["deepseek-v4-flash"]
 	}
 
+	if strings.Contains(modelLower, "glm-5.2") {
+		return s.fallbackPrices["glm-5.2"]
+	}
 	if strings.Contains(modelLower, "glm-5.1") {
 		return s.fallbackPrices["glm-5.1"]
 	}
@@ -530,6 +535,11 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 	// 1. 优先从动态价格服务获取
 	if s.pricingService != nil {
 		litellmPricing := s.pricingService.GetModelPricing(model)
+		// LiteLLM 中仅有图片价、没有 token 价的条目不能用于 token 计费，
+		// 否则普通请求会被按零价落账；图片计费路径仍直接读取图片价格。
+		if litellmPricing != nil && litellmPricing.TokenPricingAbsent {
+			litellmPricing = nil
+		}
 		if litellmPricing != nil {
 			// 启用 5m/1h 分类计费的条件：
 			// 1. 存在 1h 价格
