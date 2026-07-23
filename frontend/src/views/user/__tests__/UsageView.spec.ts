@@ -655,6 +655,23 @@ describe('user UsageView', () => {
     expect(window.localStorage.getItem('usage-visible-columns:v3')).toContain('reasoning_effort')
   })
 
+  it('elevates the filter surface only while the column settings menu is open', async () => {
+    const wrapper = await mountUsageView()
+    const filterSurface = wrapper.get('[data-test="user-usage-filter-surface"]')
+    const settingsButton = wrapper.get('[data-test="user-usage-column-settings"]')
+
+    expect(filterSurface.classes()).not.toContain('relative')
+    expect(filterSurface.classes()).not.toContain('z-[221]')
+
+    await settingsButton.trigger('click')
+    expect(filterSurface.classes()).toContain('relative')
+    expect(filterSurface.classes()).toContain('z-[221]')
+
+    await settingsButton.trigger('click')
+    expect(filterSurface.classes()).not.toContain('relative')
+    expect(filterSurface.classes()).not.toContain('z-[221]')
+  })
+
   it('migrates v2 timing columns to the combined latency column', async () => {
     window.localStorage.setItem('usage-visible-columns:v2', JSON.stringify([
       'api_key', 'model', 'first_token', 'duration', 'created_at', 'actions',

@@ -19,7 +19,11 @@
       </template>
 
       <template #filters>
-        <div class="card">
+        <div
+          data-test="user-usage-filter-surface"
+          class="card"
+          :class="{ 'relative z-[221]': showColumnMenu }"
+        >
           <div class="px-6 py-4">
           <div class="flex flex-wrap items-end gap-4">
             <!-- API Key Filter -->
@@ -94,7 +98,12 @@
                 {{ exporting ? t('usage.exporting') : t('usage.exportCsv') }}
               </button>
               <div class="relative" ref="columnMenuRef">
-                <button @click="showColumnMenu = !showColumnMenu" class="btn btn-secondary px-2" :title="t('usage.columnSettings')">
+                <button
+                  data-test="user-usage-column-settings"
+                  @click="showColumnMenu = !showColumnMenu"
+                  class="btn btn-secondary px-2"
+                  :title="t('usage.columnSettings')"
+                >
                   <Icon name="cog" size="sm" />
                 </button>
                 <div
