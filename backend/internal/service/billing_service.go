@@ -61,6 +61,7 @@ type ModelPricing struct {
 	LongContextInputMultiplier         float64 // 长上下文整次会话输入倍率
 	LongContextOutputMultiplier        float64 // 长上下文整次会话输出倍率
 	ImageOutputPricePerToken           float64 // 图片输出 token 价格 (USD)
+	ImageOutputPriceExplicit           bool    // 是否由渠道定价显式设定（为 true 时即使 == 0 也不回退）
 }
 
 const (
@@ -767,7 +768,7 @@ func (s *BillingService) computeTokenBreakdown(
 	// 图片输出 token 费用（独立费率）
 	if tokens.ImageOutputTokens > 0 {
 		imgPrice := pricing.ImageOutputPricePerToken
-		if imgPrice == 0 {
+		if imgPrice == 0 && !pricing.ImageOutputPriceExplicit {
 			imgPrice = outputPrice // 回退到常规输出价格
 		}
 		bd.ImageOutputCost = float64(tokens.ImageOutputTokens) * imgPrice
