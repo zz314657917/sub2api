@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-07-23 19:14 +08:00
+最后更新：2026-07-23 19:18 +08:00
 
 ## 背景
 
@@ -32,14 +32,14 @@
 
 ## 当前结论
 
-- `PASS / source-only`：四项最终复审 finding 已修复，完整 S109 backend/frontend 门禁和三路审查覆盖均通过。
-- 当前待精确提交并从隔离分支推送到远端 `main`；未部署、未更新容器。
+- `PASS / published`：四项最终复审 finding 已修复，完整 S109 backend/frontend 门禁和三路审查覆盖均通过。
+- 功能提交 `81f1128b9` 已推送；当次验证 `HEAD`、`origin/main` 和 `git ls-remote origin refs/heads/main` 一致。未部署、未更新容器。
 
 ## 下一步
 
-1. 精确暂存 contract allowlist 文件和 workflow/handoff 产物；验证：cached path、cached diff、`git diff --cached --check`。
-2. fetch 后确认 `origin/main` 未移动，提交并推送 `HEAD:main`；验证：`HEAD`、`origin/main`、`git ls-remote origin refs/heads/main` 一致。
-3. 用 publication 提交记录远端 parity；不更新或清理 dirty 主工作树，不部署、不更新容器。
+1. 推送 publication closeout 提交并复核最终远端 parity。
+2. 保持 dirty 主工作树不更新、不清理；下一批上游候选另开 contract，不与 S109 混入。
+3. 需要运行态验证时，另行授权生产数据迁移、真实 OAuth/browser smoke 或容器更新。
 
 ## 验证记录
 

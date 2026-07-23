@@ -1,5 +1,15 @@
 # 项目时间轴
 
+## 2026-07-23 19:18 +08:00 - S109 功能提交发布并验证远端一致
+
+- 当前阶段：S109 已从 `PASS / source-only` 进入 `PASS / published`；功能提交 `81f1128b9` 已进入远端 `main`。
+- 本段重点：只发布已通过完整门禁的 6 个 S109 提交，不更新 dirty 主工作树，不部署或更新容器。
+- 已完成：推送 `HEAD:main`，并确认 `HEAD`、`origin/main`、`git ls-remote origin refs/heads/main` 均为 `81f1128b9`。
+- 关键决策：publication closeout 仅记录发布证据；下一批上游差异必须另开 contract。
+- 验证记录：远端 fast-forward `6b87a2d2b..81f1128b9` 成功；功能提交是远端 main 祖先；主工作树仍保留原 23 个用户 dirty entries。
+- 遗留问题：生产 DB 实迁、真实 OAuth 图片请求、登录态浏览器 smoke 和容器更新仍未执行。
+- 下一步：推送 closeout 文档提交并复核最终 parity；之后结束 S109，不清理主工作树。
+
 ## 2026-07-23 19:14 +08:00 - 上游模型定价与图片输入计费 S109 通过发布门禁
 
 - 当前阶段：S109 四项最终复审 finding 已修复，P/G/E 恢复 `done`，当前为 `PASS / source-only`，待精确提交和远端发布。
