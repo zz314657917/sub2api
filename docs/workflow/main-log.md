@@ -443,3 +443,4 @@
 260723 1947 | user-usage-column-menu-layer-s108 | publish | codex | merged UsageView preserves z-[221] and S109 image usage behavior; 36/36, typecheck, build, ESLint, and remote parity PASS at 487f6281f
 260723 2124 | upstream-openai-agent-identity-s108 | evidence-recovery | codex | feature 6b87a2d2b is already on main; QA/result retained without obsolete status/spec/handoff snapshots
 260723 2124 | upstream-openai-agent-identity-s108 | done | evaluator | PASS/published; task-ID collision with user-usage-column-menu-layer-s108 documented; real K12 runtime, race, deploy, and container remain unverified
+260723 2130 | upstream-openai-agent-identity-s108 | publish-cleanup | codex | evidence commit 68dc78661 verified on HEAD, origin/main, and remote main; obsolete local closeout branch deleted
