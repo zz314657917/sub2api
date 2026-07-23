@@ -92,6 +92,13 @@ describe('SubscriptionPlanCard', () => {
     expect(wrapper.text()).not.toContain('Imagen')
   })
 
+  it('renders plural admin-form validity units instead of days', () => {
+    expect(mountPlanCard({ ...basePlan, validity_days: 1, validity_unit: 'months' }).text()).toContain('/ payment.perMonth')
+    expect(mountPlanCard({ ...basePlan, validity_days: 3, validity_unit: 'months' }).text()).toContain('/ 3payment.months')
+    expect(mountPlanCard({ ...basePlan, validity_days: 2, validity_unit: 'weeks' }).text()).toContain('/ 2payment.weeks')
+    expect(mountPlanCard({ ...basePlan, validity_days: 30, validity_unit: 'day' }).text()).toContain('/ 30payment.days')
+  })
+
   it('normalizes generated model scope feature copy', () => {
     const wrapper = mountPlanCard({
       ...basePlan,

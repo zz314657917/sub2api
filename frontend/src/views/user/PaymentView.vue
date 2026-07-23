@@ -616,6 +616,7 @@ import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import OrderTable from '@/components/payment/OrderTable.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { formatPaymentAmountCompact, normalizePaymentCurrency } from '@/components/payment/currency'
+import { planValiditySuffix } from '@/components/payment/validity'
 import { formatCreditAmount } from '@/utils/credits'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
@@ -1356,10 +1357,7 @@ function selectRechargePackageByAmount(payAmount: number): string {
 }
 
 function planValiditySuffixFor(plan: SubscriptionPlan): string {
-  const unit = plan.validity_unit || 'day'
-  if (unit === 'month') return t('payment.perMonth')
-  if (unit === 'year') return t('payment.perYear')
-  return `${plan.validity_days}${t('payment.days')}`
+  return planValiditySuffix(plan, t)
 }
 
 function isRecommendedPlan(plan: SubscriptionPlan): boolean {
