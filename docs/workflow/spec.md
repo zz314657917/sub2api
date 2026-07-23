@@ -863,3 +863,31 @@ display, and concrete GPT-5.6 Sol default ordering.
   output without regressing existing account status behavior.
 - Frontend typecheck/build, targeted lint, Go formatting, exact allowlist,
   diff, conflict-marker, and unmerged-index gates pass.
+
+# S112 Addendum: OpenAI OAuth passthrough input normalization
+
+## Goal
+
+Port upstream `851436c55` and `3e26dfa5b` so the local OpenAI OAuth
+passthrough path always sends a list-shaped `input` to the ChatGPT Codex
+endpoint.
+
+## Scope Boundary
+
+- Normalize only the top-level `input` field in
+  `normalizeOpenAIPassthroughOAuthBody`:
+  non-blank strings become one user message, whitespace-only strings become an
+  empty array, and single JSON objects become one-element arrays.
+- Preserve existing arrays, absent input, compact stream/store behavior,
+  unsupported-field removal, and all non-OAuth request paths.
+- Do not modify routing, billing, auth policy, schema, migrations, frontend,
+  deployment, containers, VERSION, group-buy changes, or the separate S110
+  worktree.
+
+## Acceptance Boundary
+
+- Focused normalization tests cover string, whitespace-only string, object,
+  and already-array input.
+- Existing OAuth passthrough stream and compact forwarding tests continue to
+  pass.
+- `gofmt`, exact path audit, and `git diff --check` pass.

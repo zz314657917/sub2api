@@ -1,13 +1,38 @@
 ---
 phase: done
-current_sprint: upstream-v0164-small-fixes-s111
-total_sprints: 111
-pending_action: S111 is PASS/published; start any further upstream work as a new sprint, and do not modify the separate group-buy S110 worktree, deploy, or refresh containers without explicit authorization
+current_sprint: upstream-v0164-openai-passthrough-input-s112
+total_sprints: 112
+pending_action: S112 is committed locally; push only the exact S112 allowlist if explicitly requested, keeping the group-buy S110 worktree and parallel dirt outside the change
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-23 23:16 +08:00
+last_verified: 2026-07-24 00:08 +08:00
 ---
+
+# S112 Current Sprint
+
+- S112 manually ports upstream `851436c55` and `3e26dfa5b` into the local
+  OpenAI OAuth passthrough normalizer.
+- Non-array `input` values are normalized to the ChatGPT Codex list shape;
+  existing arrays, compact stream/store semantics, unsupported-field removal,
+  and non-OAuth paths remain unchanged.
+- Allowed business/test paths are limited to
+  `backend/internal/service/openai_gateway_service.go` and
+  `backend/internal/service/openai_passthrough_normalization_test.go`.
+- Contract: `docs/workflow/tasks/upstream-v0164-openai-passthrough-input-s112.md`.
+- String, whitespace-only string, object, and array `input` cases are covered;
+  compact/non-compact passthrough forwarding behavior remains green.
+- Focused Go tests, gofmt, diff, conflict-marker, unmerged-index, contract-field,
+  and exact path audits pass. Final Evaluator: `PASS / source-only`.
+- The broader `go test ./internal/service -count=1` is not fully green: five
+  existing `TestPeakMultiplier*` groups fail only in the aggregate run, while
+  `go test ./internal/service -run "TestPeakMultiplier" -count=1` passes in
+  isolation. No peak-rate file is in the S112 diff, so this remains a separate
+  global-timezone/test-order baseline risk rather than an S112 blocker.
+- S112 is contained in the local scoped commit; push, deployment, container
+  refresh, and S110/group-buy changes remain excluded.
+- Next legal action: push only after explicit user request, then start the
+  next upstream candidate as a new Sprint.
 
 # S111 Current Sprint
 

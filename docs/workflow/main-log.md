@@ -450,3 +450,9 @@
 260723 2254 | upstream-v0164-small-fixes-s111 | qa-pass | evaluator | focused Go including 402 x10, OpenAI/admin packages, Vitest 17/17, typecheck, build 1090 modules, ESLint, formatting, allowlist, and static gates PASS
 260723 2254 | upstream-v0164-small-fixes-s111 | done | evaluator | final PASS/source-only; unit-tag baseline limitation and live upstream/browser/deployment gaps recorded; no commit, push, or S110 changes
 260723 2316 | upstream-v0164-small-fixes-s111 | publish | codex | feature commit 15496ed12 pushed to origin/main; HEAD, origin/main, ls-remote, and 0/0 divergence verified; group-buy dirt excluded
+260723 2348 | upstream-v0164-openai-passthrough-input-s112 | contract-approved | evaluator | input string/object normalization, compact/non-compact preservation, two-file business/test allowlist
+260723 2352 | upstream-v0164-openai-passthrough-input-s112 | build | codex | added string/object/empty/array input normalization and focused regression coverage
+260723 2353 | upstream-v0164-openai-passthrough-input-s112 | qa-pass | evaluator | focused Go passthrough tests, gofmt, diff, conflict, unmerged-index, contract, and path gates PASS
+260723 2353 | upstream-v0164-openai-passthrough-input-s112 | done | evaluator | PASS/source-only; no commit, push, deployment, container refresh, or group-buy/S110 changes
+260724 0003 | upstream-v0164-openai-passthrough-input-s112 | qa-risk | evaluator | full internal/service run reproduces five aggregate-only TestPeakMultiplier groups; isolated PeakMultiplier run PASS and no peak-rate path changed, so recorded as separate timezone/test-order baseline risk
+260724 0008 | upstream-v0164-openai-passthrough-input-s112 | commit-local | codex | scoped local commit contains the exact S112 allowlist; push, deployment, containers, and group-buy/S110 dirt excluded
