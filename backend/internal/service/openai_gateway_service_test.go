@@ -2880,6 +2880,11 @@ func TestExtractOpenAIUsageFromJSONBytes_MergesHostedImageGenToolUsage(t *testin
 			wantInput: 100, wantOutput: 50, wantImageInput: 200, wantImageOutput: 30,
 		},
 		{
+			name:      "tool image output may exceed top-level output",
+			body:      `{"usage":{"input_tokens":100,"output_tokens":50},"tool_usage":{"image_gen":{"output_tokens_details":{"image_tokens":75}}}}`,
+			wantInput: 100, wantOutput: 50, wantImageOutput: 75,
+		},
+		{
 			name:      "without tool usage",
 			body:      `{"usage":{"input_tokens":100,"output_tokens":50}}`,
 			wantInput: 100, wantOutput: 50,
@@ -2896,6 +2901,44 @@ func TestExtractOpenAIUsageFromJSONBytes_MergesHostedImageGenToolUsage(t *testin
 			require.Equal(t, tt.wantImageOutput, usage.ImageOutputTokens)
 		})
 	}
+}
+
+func TestExtractOpenAIUsage_CapturesImageInputTokens(t *testing.T) {
+	body := []byte(`{"usage":{"input_tokens":371,"input_tokens_details":{"image_tokens":352,"text_tokens":19},"output_tokens":439,"output_tokens_details":{"image_tokens":439,"text_tokens":0},"total_tokens":810}}`)
+	usage, ok := extractOpenAIUsageFromJSONBytes(body)
+	require.True(t, ok)
+	require.Equal(t, 371, usage.InputTokens)
+	require.Equal(t, 352, usage.ImageInputTokens)
+	require.Equal(t, 439, usage.OutputTokens)
+	require.Equal(t, 439, usage.ImageOutputTokens)
+
+	promptStyle := []byte(`{"usage":{"prompt_tokens":100,"prompt_tokens_details":{"image_tokens":80}}}`)
+	usage, ok = extractOpenAIUsageFromJSONBytes(promptStyle)
+	require.True(t, ok)
+	require.Equal(t, 100, usage.InputTokens)
+	require.Equal(t, 80, usage.ImageInputTokens)
+}
+
+func TestExtractOpenAIUsage_BoundsInvalidAndOversizedTokenFields(t *testing.T) {
+	body := []byte(`{"usage":{"input_tokens":-1,"prompt_tokens":12,"output_tokens":9223372036854775808,"completion_tokens":7,"input_tokens_details":{"image_tokens":99,"cached_tokens":-5,"cache_write_tokens":"4"},"output_tokens_details":{"image_tokens":8}}}`)
+	usage, ok := extractOpenAIUsageFromJSONBytes(body)
+	require.True(t, ok)
+	require.Equal(t, 12, usage.InputTokens)
+	require.Equal(t, 7, usage.OutputTokens)
+	require.Equal(t, 12, usage.ImageInputTokens)
+	require.Equal(t, 7, usage.ImageOutputTokens)
+	require.Zero(t, usage.CacheReadInputTokens)
+	require.Zero(t, usage.CacheCreationInputTokens)
+}
+
+func TestExtractOpenAIUsage_BoundsHostedImageToolTokenFields(t *testing.T) {
+	body := []byte(`{"usage":{"input_tokens":10,"output_tokens":6},"tool_usage":{"image_gen":{"input_tokens_details":{"image_tokens":11},"output_tokens_details":{"image_tokens":9223372036854775808}}}}`)
+	usage, ok := extractOpenAIUsageFromJSONBytes(body)
+	require.True(t, ok)
+	require.Equal(t, 10, usage.InputTokens)
+	require.Equal(t, 6, usage.OutputTokens)
+	require.Equal(t, 11, usage.ImageInputTokens)
+	require.Zero(t, usage.ImageOutputTokens)
 }
 
 func TestMergeHostedImageGenToolUsage_EmptyImageGen(t *testing.T) {

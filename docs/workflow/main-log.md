@@ -424,6 +424,17 @@
 260723 1001 | upstream-small-fixes-s106 | qa-pass-source-only | Codex | docs/workflow/qa-reports/upstream-small-fixes-s106-qa.md
 260723 1001 | upstream-x-text-security-s107 | contract-approved | Codex | docs/workflow/tasks/upstream-x-text-security-s107.md
 260723 1011 | upstream-x-text-security-s107 | qa-pass-source-only | Codex | docs/workflow/qa-reports/upstream-x-text-security-s107-qa.md
+260723 1827 | upstream-model-pricing-alignment-s109 | contract-approved | evaluator | applicable pricing/image-input scope approved; composite prerequisite chain explicitly excluded
+260723 1827 | upstream-model-pricing-alignment-s109 | build | codex | pricing, channel, OAuth image usage, persistence, API, and frontend reconciliation implemented in isolated worktree
+260723 1827 | upstream-model-pricing-alignment-s109 | qa-start | evaluator | focused/broad backend, migration, usage API, typecheck, Vitest 33/33, build, lint, gofmt, diff, and conflict gates PASS; final multi-agent review pending
+260723 1855 | upstream-model-pricing-alignment-s109 | qa-fix | codex | fixed explicit token/image UI classification, GLM stale assertion, bounded OpenAI usage parsing, and long-context test multiplier semantics
+260723 1855 | upstream-model-pricing-alignment-s109 | qa-pass | evaluator | default-tag service, repository, migration, usage API, Vitest 33/33, typecheck, build, lint, formatting, allowlist, and three-agent review PASS
+260723 1855 | upstream-model-pricing-alignment-s109 | done | evaluator | final PASS/source-only; unit-tag aggregate compile drift and live upstream/browser/deployment gaps recorded as non-S109 risks
+260723 1906 | upstream-model-pricing-alignment-s109 | qa-fail | evaluator | revoked 18:55 PASS after backend review found account-stats image pricing, hosted tool usage clamping, long-context overflow, and available-channel image price gaps
+260723 1906 | upstream-model-pricing-alignment-s109 | fix | codex | implemented bounded hosted usage semantics, safe long-context arithmetic, account-stats image split, and available-channel image-input pricing; retest pending
+260723 1912 | upstream-model-pricing-alignment-s109 | qa-pass | evaluator | four final-review fixes, complete S109 backend/frontend gates, and renewed three-agent review PASS; unit-tag baseline limitation retained
+260723 1912 | upstream-model-pricing-alignment-s109 | done | evaluator | final PASS/source-only; exact scoped publication approved, no deployment or container refresh
 260723 1915 | user-usage-column-menu-layer-s108 | contract-approved | Codex | docs/workflow/tasks/user-usage-column-menu-layer-s108.md
+260723 1918 | upstream-model-pricing-alignment-s109 | publish | codex | functional head 81f1128b9 pushed to origin/main; HEAD, origin/main, and ls-remote parity verified; primary dirty worktree untouched
 260723 1928 | user-usage-column-menu-layer-s108 | build | codex | dynamic user filter-card z-[221] layer and focused toggle regression implemented
 260723 1928 | user-usage-column-menu-layer-s108 | qa-pass-source-only | evaluator | Vitest 20/20, typecheck, build 1090 modules, ESLint, diff gate, and clean Chromium overlap smoke PASS

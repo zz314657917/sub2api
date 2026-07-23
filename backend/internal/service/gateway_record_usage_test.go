@@ -581,6 +581,26 @@ func TestGatewayServiceRecordUsage_NewUserTrialOverageBillsBalanceRemainder(t *t
 	require.Zero(t, overageCmd.AccountQuotaCost)
 }
 
+func TestNewUserTrialOverageCost_ScalesImageInputCost(t *testing.T) {
+	cost := &CostBreakdown{
+		InputCost:       0.01,
+		ImageInputCost:  0.02,
+		OutputCost:      0.03,
+		ImageOutputCost: 0.04,
+		TotalCost:       0.10,
+		ActualCost:      0.20,
+	}
+
+	overage := newUserTrialOverageCost(cost, 0.05)
+	require.NotNil(t, overage)
+	require.InDelta(t, 0.0075, overage.InputCost, 1e-12)
+	require.InDelta(t, 0.015, overage.ImageInputCost, 1e-12)
+	require.InDelta(t, 0.0225, overage.OutputCost, 1e-12)
+	require.InDelta(t, 0.03, overage.ImageOutputCost, 1e-12)
+	require.InDelta(t, 0.075, overage.TotalCost, 1e-12)
+	require.InDelta(t, 0.15, overage.ActualCost, 1e-12)
+}
+
 func TestGatewayServiceRecordUsage_NewUserTrialOverageBillsSubscriptionRemainder(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}

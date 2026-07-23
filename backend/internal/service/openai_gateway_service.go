@@ -5657,13 +5657,13 @@ func mergeHostedImageGenToolUsage(imageGen gjson.Result, usage *OpenAIUsage) {
 		return
 	}
 	if usage.ImageOutputTokens == 0 {
-		if v := imageGen.Get("output_tokens_details.image_tokens").Int(); v > 0 {
-			usage.ImageOutputTokens = int(v)
+		if v, ok := boundedJSONNonNegativeInt(imageGen.Get("output_tokens_details.image_tokens")); ok && v > 0 {
+			usage.ImageOutputTokens = v
 		}
 	}
 	if usage.ImageInputTokens == 0 {
-		if v := imageGen.Get("input_tokens_details.image_tokens").Int(); v > 0 {
-			usage.ImageInputTokens = int(v)
+		if v, ok := boundedJSONNonNegativeInt(imageGen.Get("input_tokens_details.image_tokens")); ok && v > 0 {
+			usage.ImageInputTokens = v
 		}
 	}
 }
@@ -5699,27 +5699,29 @@ func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, bool) {
 	if !value.Exists() || !value.IsObject() {
 		return OpenAIUsage{}, false
 	}
-	inputTokens := value.Get("input_tokens").Int()
-	if inputTokens == 0 {
-		inputTokens = value.Get("prompt_tokens").Int()
-	}
-	outputTokens := value.Get("output_tokens").Int()
-	if outputTokens == 0 {
-		outputTokens = value.Get("completion_tokens").Int()
-	}
+	inputTokens := firstPositiveBoundedGJSONInt(value.Get("input_tokens"), value.Get("prompt_tokens"))
+	outputTokens := firstPositiveBoundedGJSONInt(value.Get("output_tokens"), value.Get("completion_tokens"))
 	cacheReadTokens := openAICacheReadTokensFromUsage(value)
 	cacheCreationTokens := openAICacheCreationTokensFromUsage(value)
-	imageOutputTokens := value.Get("output_tokens_details.image_tokens").Int()
-	if imageOutputTokens == 0 {
-		imageOutputTokens = value.Get("completion_tokens_details.image_tokens").Int()
-	}
+	imageInputTokens := firstPositiveBoundedGJSONInt(value.Get("input_tokens_details.image_tokens"), value.Get("prompt_tokens_details.image_tokens"))
+	imageOutputTokens := firstPositiveBoundedGJSONInt(value.Get("output_tokens_details.image_tokens"), value.Get("completion_tokens_details.image_tokens"))
 	return OpenAIUsage{
-		InputTokens:              int(inputTokens),
-		OutputTokens:             int(outputTokens),
+		InputTokens:              inputTokens,
+		OutputTokens:             outputTokens,
 		CacheCreationInputTokens: cacheCreationTokens,
 		CacheReadInputTokens:     cacheReadTokens,
-		ImageOutputTokens:        int(imageOutputTokens),
+		ImageInputTokens:         min(imageInputTokens, inputTokens),
+		ImageOutputTokens:        min(imageOutputTokens, outputTokens),
 	}, true
+}
+
+func firstPositiveBoundedGJSONInt(values ...gjson.Result) int {
+	for _, value := range values {
+		if parsed, ok := boundedJSONNonNegativeInt(value); ok && parsed > 0 {
+			return parsed
+		}
+	}
+	return 0
 }
 
 func openAICacheReadTokensFromUsage(value gjson.Result) int {
@@ -5728,11 +5730,12 @@ func openAICacheReadTokensFromUsage(value gjson.Result) int {
 		value.Get("prompt_tokens_details.cached_tokens"),
 	} {
 		if nested.Exists() {
-			return max(int(nested.Int()), 0)
+			parsed, _ := boundedJSONNonNegativeInt(nested)
+			return parsed
 		}
 	}
 
-	return firstPositiveGJSONInt(
+	return firstPositiveBoundedGJSONInt(
 		value.Get("cache_read_input_tokens"),
 		value.Get("cache_read_tokens"),
 		value.Get("cached_tokens"),
@@ -5747,11 +5750,12 @@ func openAICacheCreationTokensFromUsage(value gjson.Result) int {
 		value.Get("prompt_tokens_details.cache_creation_tokens"),
 	} {
 		if nested.Exists() {
-			return max(int(nested.Int()), 0)
+			parsed, _ := boundedJSONNonNegativeInt(nested)
+			return parsed
 		}
 	}
 
-	return firstPositiveGJSONInt(
+	return firstPositiveBoundedGJSONInt(
 		value.Get("cache_write_tokens"),
 		value.Get("cache_creation_input_tokens"),
 		value.Get("cache_write_input_tokens"),
@@ -6709,6 +6713,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		OutputTokens:        result.Usage.OutputTokens,
 		CacheCreationTokens: result.Usage.CacheCreationInputTokens,
 		CacheReadTokens:     result.Usage.CacheReadInputTokens,
+		ImageInputTokens:    result.Usage.ImageInputTokens,
 		ImageOutputTokens:   result.Usage.ImageOutputTokens,
 		ImageCount:          result.ImageCount,
 		ImageSize:           optionalTrimmedStringPtr(result.ImageSize),
@@ -6720,6 +6725,7 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	}
 	if cost != nil {
 		usageLog.InputCost = cost.InputCost
+		usageLog.ImageInputCost = cost.ImageInputCost
 		usageLog.OutputCost = cost.OutputCost
 		usageLog.ImageOutputCost = cost.ImageOutputCost
 		usageLog.CacheCreationCost = cost.CacheCreationCost

@@ -2930,6 +2930,7 @@ func addOpenAIUsage(dst *OpenAIUsage, src OpenAIUsage) {
 		return
 	}
 	dst.InputTokens += src.InputTokens
+	dst.ImageInputTokens += src.ImageInputTokens
 	dst.OutputTokens += src.OutputTokens
 	dst.CacheCreationInputTokens += src.CacheCreationInputTokens
 	dst.CacheReadInputTokens += src.CacheReadInputTokens
@@ -2938,6 +2939,7 @@ func addOpenAIUsage(dst *OpenAIUsage, src OpenAIUsage) {
 
 func (u OpenAIUsage) hasValues() bool {
 	return u.InputTokens > 0 ||
+		u.ImageInputTokens > 0 ||
 		u.OutputTokens > 0 ||
 		u.CacheCreationInputTokens > 0 ||
 		u.CacheReadInputTokens > 0 ||
@@ -2948,6 +2950,9 @@ func buildOpenAIUsageJSON(usage OpenAIUsage) []byte {
 	out := []byte(`{}`)
 	out, _ = sjson.SetBytes(out, "input_tokens", usage.InputTokens)
 	out, _ = sjson.SetBytes(out, "output_tokens", usage.OutputTokens)
+	if usage.ImageInputTokens > 0 {
+		out, _ = sjson.SetBytes(out, "input_tokens_details.image_tokens", usage.ImageInputTokens)
+	}
 	if usage.CacheCreationInputTokens > 0 {
 		out, _ = sjson.SetBytes(out, "cache_creation_input_tokens", usage.CacheCreationInputTokens)
 	}
@@ -3438,6 +3443,12 @@ func mergeOpenAIUsage(dst *OpenAIUsage, body []byte) {
 	if dst == nil {
 		return
 	}
+	if gjson.ValidBytes(body) && gjson.GetBytes(body, "type").String() == "response.completed" {
+		if toolUsage, ok := openAIImagesToolUsageFromGJSON(gjson.GetBytes(body, "response.tool_usage.image_gen")); ok {
+			*dst = toolUsage
+			return
+		}
+	}
 	if parsed, ok := extractOpenAIUsageFromJSONBytes(body); ok {
 		if parsed.InputTokens > 0 {
 			dst.InputTokens = parsed.InputTokens
@@ -3447,6 +3458,9 @@ func mergeOpenAIUsage(dst *OpenAIUsage, body []byte) {
 		}
 		if parsed.CacheReadInputTokens > 0 {
 			dst.CacheReadInputTokens = parsed.CacheReadInputTokens
+		}
+		if parsed.ImageInputTokens > 0 {
+			dst.ImageInputTokens = parsed.ImageInputTokens
 		}
 		if parsed.ImageOutputTokens > 0 {
 			dst.ImageOutputTokens = parsed.ImageOutputTokens

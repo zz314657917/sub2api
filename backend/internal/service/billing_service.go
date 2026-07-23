@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/bits"
 	"strings"
 	"sync"
 
@@ -61,6 +62,7 @@ type ModelPricing struct {
 	LongContextInputMultiplier         float64 // 长上下文整次会话输入倍率
 	LongContextOutputMultiplier        float64 // 长上下文整次会话输出倍率
 	ImageOutputPricePerToken           float64 // 图片输出 token 价格 (USD)
+	ImageOutputPriceExplicit           bool    // 是否由渠道定价显式设定（为 true 时即使 == 0 也不回退）
 }
 
 const (
@@ -106,7 +108,8 @@ type UsageTokens struct {
 
 // CostBreakdown 费用明细
 type CostBreakdown struct {
-	InputCost         float64
+	InputCost         float64 // 文本输入费用（不含图片输入）
+	ImageInputCost    float64 // 图片输入 token 费用
 	OutputCost        float64
 	ImageOutputCost   float64
 	CacheCreationCost float64
@@ -289,6 +292,8 @@ func (s *BillingService) initFallbackPricing() {
 		SupportsCacheBreakdown: false,
 	}
 
+	// GLM-5.2 与 GLM-5.1 使用同一官方 USD 价卡，单独登记避免被 glm-5 旧价抢先匹配。
+	s.fallbackPrices["glm-5.2"] = &ModelPricing{InputPricePerToken: 1.4e-6, OutputPricePerToken: 4.4e-6, CacheReadPricePerToken: 0.26e-6}
 	s.fallbackPrices["glm-5.1"] = &ModelPricing{InputPricePerToken: 1.4e-6, OutputPricePerToken: 4.4e-6, CacheReadPricePerToken: 0.26e-6}
 	s.fallbackPrices["glm-5"] = &ModelPricing{InputPricePerToken: 1e-6, OutputPricePerToken: 3.2e-6, CacheReadPricePerToken: 0.2e-6}
 	s.fallbackPrices["glm-5-turbo"] = &ModelPricing{InputPricePerToken: 1.2e-6, OutputPricePerToken: 4e-6, CacheReadPricePerToken: 0.24e-6}
@@ -407,6 +412,9 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 		return s.fallbackPrices["deepseek-v4-flash"]
 	}
 
+	if strings.Contains(modelLower, "glm-5.2") {
+		return s.fallbackPrices["glm-5.2"]
+	}
 	if strings.Contains(modelLower, "glm-5.1") {
 		return s.fallbackPrices["glm-5.1"]
 	}
@@ -530,6 +538,11 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 	// 1. 优先从动态价格服务获取
 	if s.pricingService != nil {
 		litellmPricing := s.pricingService.GetModelPricing(model)
+		// LiteLLM 中仅有图片价、没有 token 价的条目不能用于 token 计费，
+		// 否则普通请求会被按零价落账；图片计费路径仍直接读取图片价格。
+		if litellmPricing != nil && litellmPricing.TokenPricingAbsent {
+			litellmPricing = nil
+		}
 		if litellmPricing != nil {
 			// 启用 5m/1h 分类计费的条件：
 			// 1. 存在 1h 价格
@@ -552,6 +565,7 @@ func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 				LongContextInputThreshold:          litellmPricing.LongContextInputTokenThreshold,
 				LongContextInputMultiplier:         litellmPricing.LongContextInputCostMultiplier,
 				LongContextOutputMultiplier:        litellmPricing.LongContextOutputCostMultiplier,
+				ImageInputPricePerToken:            litellmPricing.InputCostPerImageToken,
 				ImageOutputPricePerToken:           litellmPricing.OutputCostPerImageToken,
 			}), nil
 		}
@@ -604,6 +618,8 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 	if channelPricing.ImageOutputPrice != nil {
 		pricing.ImageOutputPricePerToken = *channelPricing.ImageOutputPrice
 	}
+	pricing.ImageOutputPriceExplicit = true
+	applyChannelImageInputPrice(channelPricing, pricing)
 	return pricing, nil
 }
 
@@ -739,7 +755,8 @@ func (s *BillingService) computeTokenBreakdown(
 		if imageInputPrice == 0 {
 			imageInputPrice = inputPrice
 		}
-		bd.InputCost = float64(textInputTokens)*inputPrice + float64(imageInputTokens)*imageInputPrice
+		bd.InputCost = float64(textInputTokens) * inputPrice
+		bd.ImageInputCost = float64(imageInputTokens) * imageInputPrice
 	} else {
 		bd.InputCost = float64(tokens.InputTokens) * inputPrice
 	}
@@ -754,7 +771,7 @@ func (s *BillingService) computeTokenBreakdown(
 	// 图片输出 token 费用（独立费率）
 	if tokens.ImageOutputTokens > 0 {
 		imgPrice := pricing.ImageOutputPricePerToken
-		if imgPrice == 0 {
+		if imgPrice == 0 && !pricing.ImageOutputPriceExplicit {
 			imgPrice = outputPrice // 回退到常规输出价格
 		}
 		bd.ImageOutputCost = float64(tokens.ImageOutputTokens) * imgPrice
@@ -767,13 +784,14 @@ func (s *BillingService) computeTokenBreakdown(
 
 	if tierMultiplier != 1.0 {
 		bd.InputCost *= tierMultiplier
+		bd.ImageInputCost *= tierMultiplier
 		bd.OutputCost *= tierMultiplier
 		bd.ImageOutputCost *= tierMultiplier
 		bd.CacheCreationCost *= tierMultiplier
 		bd.CacheReadCost *= tierMultiplier
 	}
 
-	bd.TotalCost = bd.InputCost + bd.OutputCost + bd.ImageOutputCost +
+	bd.TotalCost = bd.InputCost + bd.ImageInputCost + bd.OutputCost + bd.ImageOutputCost +
 		bd.CacheCreationCost + bd.CacheReadCost
 	bd.ActualCost = bd.TotalCost * rateMultiplier
 
@@ -899,7 +917,8 @@ func (s *BillingService) shouldApplySessionLongContextPricing(tokens UsageTokens
 	if pricing.LongContextInputMultiplier <= 1 && pricing.LongContextOutputMultiplier <= 1 {
 		return false
 	}
-	totalInputTokens := tokens.InputTokens + tokens.CacheCreationTokens + tokens.CacheReadTokens
+	totalInputTokens := saturatingAddNonNegativeInts(tokens.InputTokens, tokens.CacheCreationTokens)
+	totalInputTokens = saturatingAddNonNegativeInts(totalInputTokens, tokens.CacheReadTokens)
 	return totalInputTokens > pricing.LongContextInputThreshold
 }
 
@@ -935,7 +954,7 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 	}
 
 	// 计算总输入 token（缓存读取 + 新输入）
-	total := tokens.CacheReadTokens + tokens.InputTokens
+	total := saturatingAddNonNegativeInts(tokens.CacheReadTokens, tokens.InputTokens)
 	if total <= threshold {
 		return s.CalculateCost(model, tokens, rateMultiplier)
 	}
@@ -958,9 +977,23 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 		outRangeInputTokens = tokens.InputTokens - inRangeInputTokens
 	}
 
+	// 图片输入 token 是 InputTokens 的子集，但 usage 不包含它们在上下文中的
+	// 精确位置。按阈值内外的输入 token 比例拆分，既保持总数守恒，也避免把
+	// 全部图片费用武断地归到某一侧。
+	imageInputTokens := tokens.ImageInputTokens
+	if imageInputTokens < 0 {
+		imageInputTokens = 0
+	}
+	if imageInputTokens > tokens.InputTokens {
+		imageInputTokens = tokens.InputTokens
+	}
+	inRangeImageInputTokens := proportionalTokenCount(imageInputTokens, inRangeInputTokens, tokens.InputTokens)
+	outRangeImageInputTokens := imageInputTokens - inRangeImageInputTokens
+
 	// 范围内部分：正常计费
 	inRangeTokens := UsageTokens{
 		InputTokens:           inRangeInputTokens,
+		ImageInputTokens:      inRangeImageInputTokens,
 		OutputTokens:          tokens.OutputTokens, // 输出只算一次
 		CacheCreationTokens:   tokens.CacheCreationTokens,
 		CacheReadTokens:       inRangeCacheTokens,
@@ -975,8 +1008,9 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 
 	// 范围外部分：× extraMultiplier 计费
 	outRangeTokens := UsageTokens{
-		InputTokens:     outRangeInputTokens,
-		CacheReadTokens: outRangeCacheTokens,
+		InputTokens:      outRangeInputTokens,
+		ImageInputTokens: outRangeImageInputTokens,
+		CacheReadTokens:  outRangeCacheTokens,
 	}
 	outRangeCost, err := s.CalculateCost(model, outRangeTokens, rateMultiplier*extraMultiplier)
 	if err != nil {
@@ -986,6 +1020,7 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 	// 合并成本
 	return &CostBreakdown{
 		InputCost:         inRangeCost.InputCost + outRangeCost.InputCost,
+		ImageInputCost:    inRangeCost.ImageInputCost + outRangeCost.ImageInputCost,
 		OutputCost:        inRangeCost.OutputCost,
 		ImageOutputCost:   inRangeCost.ImageOutputCost,
 		CacheCreationCost: inRangeCost.CacheCreationCost,
@@ -993,6 +1028,35 @@ func (s *BillingService) CalculateCostWithLongContext(model string, tokens Usage
 		TotalCost:         inRangeCost.TotalCost + outRangeCost.TotalCost,
 		ActualCost:        inRangeCost.ActualCost + outRangeCost.ActualCost,
 	}, nil
+}
+
+func proportionalTokenCount(value, part, total int) int {
+	if value <= 0 || part <= 0 || total <= 0 {
+		return 0
+	}
+	if value > total {
+		value = total
+	}
+	if part > total {
+		part = total
+	}
+	hi, lo := bits.Mul64(uint64(value), uint64(part))
+	quotient, _ := bits.Div64(hi, lo, uint64(total))
+	return int(quotient)
+}
+
+func saturatingAddNonNegativeInts(a, b int) int {
+	if a < 0 {
+		a = 0
+	}
+	if b < 0 {
+		b = 0
+	}
+	maxInt := int(^uint(0) >> 1)
+	if a > maxInt-b {
+		return maxInt
+	}
+	return a + b
 }
 
 // ListSupportedModels 列出所有支持的模型（现在总是返回true，因为有模糊匹配）

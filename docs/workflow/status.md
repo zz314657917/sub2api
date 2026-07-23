@@ -1,68 +1,70 @@
 ---
 phase: done
-current_sprint: user-usage-column-menu-layer-s108
-total_sprints: 108
-pending_action: S108 is source-only PASS; await explicit commit and push authorization together with the existing S106/S107 work, without deployment or container refresh
+current_sprint: upstream-model-pricing-alignment-s109
+total_sprints: 109
+pending_action: S109 is published; S106-S108 are merged locally with origin/main and await fresh integration verification and push, without deployment or container refresh
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-23 19:28 +08:00
+last_verified: 2026-07-23 19:39 +08:00
 ---
 
-# S108 Current Sprint
+# S109 Current Sprint
 
-- S108 contract is approved to keep the user usage column settings menu above
-  the sticky table header while open.
-- Only `frontend/src/views/user/UsageView.vue` and its focused view test may
-  change for the implementation; shared table/layout components stay frozen.
-- The approved implementation dynamically applies `z-[221]` to the filter
-  card only while `showColumnMenu` is true, matching the proven admin pattern.
+- S109 contract is approved for manual upstream pricing alignment: LiteLLM image-input token price, channel `image_input_price`, Claude model-name normalization, GLM-5.2 fallback, OpenAI OAuth image tool usage, and complete image token/cost persistence and UI reconciliation.
+- Composite alias billing was audited and moved out of scope because the local branch lacks the complete composite platform and gateway billing prerequisite chain.
+- Implementation remains isolated in worktree `E:/codex-worktrees/sub2api-pricing-s109`; the primary worktree remains untouched with its pre-existing user changes.
+- The 18:55 PASS was revoked after final backend review found four gaps: account statistics omitted image-input pricing, hosted tool usage was incorrectly clamped to top-level totals, long-context arithmetic could overflow, and available-channel fallback omitted image-input price.
+- All four fixes passed focused and broad default-tag tests, repository/migration/API gates, frontend checks, and renewed three-agent review.
+- The aggregate unit-tag service package remains blocked by pre-existing compile drift (`stringPtr`, legacy billing signatures, and Grok runtime-block helpers). Default-tag GLM-5.2 and long-context image-cost regressions execute and pass; the unit suite is not reported as green.
+- The aggregate `TestAPIContracts` table still exposes a pre-existing settings snapshot drift (`group_buy_*` and `studio_bridge.default_fallback_group`); the S109 `/usage` contract passes independently.
+- Final Evaluator: `PASS / published`. Functional head `81f1128b9` was pushed to `origin/main` and matched `git ls-remote`; the closeout commit only records publication evidence.
+- No deployment, container refresh, live upstream request, or authenticated browser smoke is in scope.
+- Contract: `docs/workflow/tasks/upstream-model-pricing-alignment-s109.md`.
+- Worker result: `docs/workflow/worker-results/upstream-model-pricing-alignment-s109-result.md`.
+- QA report: `docs/workflow/qa-reports/upstream-model-pricing-alignment-s109-qa.md`.
+
+# S108 Recent Sprint
+
+- S108 keeps the user usage column settings menu above the sticky table header
+  while open.
+- The filter card dynamically applies `z-[221]` only while `showColumnMenu` is
+  true, matching the proven admin pattern without changing shared table/layout
+  components.
+- Focused Vitest `20/20`, typecheck, production build (1090 modules), targeted
+  ESLint, diff gates, and a Chromium overlap smoke pass. The synthetic browser
+  smoke did not use real user backend data.
+- Final Evaluator before integration: `PASS / source-only`. The S108 commit is
+  merged locally with published S109; push awaits fresh integration checks.
 - Contract: `docs/workflow/tasks/user-usage-column-menu-layer-s108.md`.
-- Implementation and focused regression are complete. Vitest `20/20`,
-  typecheck, production build (1090 modules), targeted ESLint, and diff gates
-  pass.
-- Browser smoke with synthetic authenticated usage data confirms `filterZ=221`
-  exceeds the maximum sticky-header layer `220`, and the overlapping point is
-  owned by the menu. The clean session has 0 console errors/warnings.
-- Final Evaluator: `PASS / source-only`. No commit, push, deployment, or
-  container refresh was performed.
 - QA report: `docs/workflow/qa-reports/user-usage-column-menu-layer-s108-qa.md`.
 
-# S107 Current Sprint
+# S107 Recent Sprint
 
-- S107 contract is approved for the `c5971a6fc` security dependency set:
-  `x/text v0.39.0` plus seven compatible sibling `golang.org/x/*` upgrades.
-- The patch will preserve the local Go version and direct/indirect topology;
-  only `backend/go.mod` and `backend/go.sum` may change.
-- Go source, schema, frontend, deployment, containers, VERSION, and unrelated
-  dependencies remain frozen.
+- S107 ports the `c5971a6fc` security dependency set: `x/text v0.39.0` plus
+  seven compatible sibling `golang.org/x/*` upgrades while preserving the Go
+  version and direct/indirect topology.
+- Module verification, exact version audit, server build, service compile, and
+  removal of target vulnerability GO-2026-5970 pass. Separate Go standard
+  library and AWS findings remain and require another security Sprint.
+- Final Evaluator before integration: `PASS / source-only`. The S107 commit is
+  merged locally with published S109; push awaits fresh integration checks.
 - Contract: `docs/workflow/tasks/upstream-x-text-security-s107.md`.
-- Contract review: `PASS`; the required older module versions are present
-  locally and no source prerequisite has been identified.
-- Implementation is complete with the exact upstream eight-module version set
-  and no application source changes in S107.
-- Final Evaluator: `PASS / source-only`. Module verification, exact version
-  audit, server build, service compile, and target vulnerability removal pass.
-  Separate Go standard-library and AWS findings remain.
 - QA report: `docs/workflow/qa-reports/upstream-x-text-security-s107-qa.md`.
 
-# S106 Current Sprint
+# S106 Recent Sprint
 
-- S106 contract is approved for five isolated upstream behavior ports:
-  `e51e61008`, `bd62c6f66`, `a6ecc202f`, `d0bdd7e77`, and `eba7289a8`.
-- The scheduler cache adaptation includes local monthly quota metadata in
-  addition to the upstream total/daily/weekly fields.
-- Schema, persistence, billing, payment execution, dependencies, deployment,
-  containers, VERSION, and unrelated upstream history remain frozen.
+- S106 ports five isolated upstream behavior fixes for scheduler quota cache
+  metadata, monitor API-key decryption handling, plan period labels, effective
+  multipliers, and local-time coupon defaults.
+- The scheduler cache adaptation retains local monthly quota metadata in
+  addition to upstream total/daily/weekly fields.
+- Focused backend and integration tests, isolated runner tests, frontend
+  `15/15`, caller regressions, typecheck, production build, and static gates
+  pass. Existing unrelated Grok/billing/health aggregate baselines remain.
+- Final Evaluator before integration: `PASS / source-only`. The S106 commit is
+  merged locally with published S109; push awaits fresh integration checks.
 - Contract: `docs/workflow/tasks/upstream-small-fixes-s106.md`.
-- Contract review: `PASS`; all five behavior boundaries exist locally, two
-  patches apply directly, and three have bounded local-topology adaptations.
-- Implementation and source-only QA are complete. Scheduler focused and
-  integration tests, isolated runner tests, frontend `15/15`, caller
-  regressions, typecheck, production build, formatting, diff, conflict, and
-  index gates pass.
-- Final Evaluator: `PASS / source-only`. The aggregate repository/unit-tag
-  failures are existing unrelated Grok/billing/health test baselines.
 - QA report: `docs/workflow/qa-reports/upstream-small-fixes-s106-qa.md`.
 
 # S105 Current Sprint
