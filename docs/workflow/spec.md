@@ -836,3 +836,35 @@ the existing default-user behavior.
 - README, config examples, `.env.example`, and all built-in Compose files
   forward `REDIS_USERNAME`.
 - Allowlist, conflict-marker, unmerged-index, and `git diff --check` gates pass.
+
+# S110 Addendum: group-buy lifecycle and refund hardening
+
+## Goal
+
+Close the confirmed lifecycle, refund consistency, purchase-policy, admin
+operability, and public-data gaps in the existing group-buy feature without
+changing its share semantics or storage schema.
+
+## Scope Boundary
+
+- Start and stop a 60-second lifecycle service for timed-out rounds, expired
+  entitlements, and provider-refund reconciliation.
+- Use the existing payment refund pipeline for provider refunds and keep the
+  payment order as provider state source of truth.
+- Make balance-credit refunds transactional; quarantine ambiguous historical
+  `processing` balance records as `needs_review`.
+- Extend the JSON purchase snapshot with validity/refund fields and resolve
+  entitlements from the most recent active purchase snapshot.
+- Add admin round refund summaries and participant/order/refund detail, enable
+  refunds for both `failed` and `cancelled`, and minimize public activity DTOs.
+- Keep 10-share limits, manual refund initiation, schema, billing, deployment,
+  containers, and unrelated admin/user surfaces unchanged.
+
+## Acceptance Boundary
+
+- Provider stubs prove success, pending query, failure, and idempotent retry;
+  database tests prove atomic balance updates and historical quarantine.
+- Runner tests prove immediate/tick execution and clean stop; Wire compile and
+  cleanup tests include the new service.
+- Backend handlers, admin/user Vitest, typecheck, build, browser smoke, formatting,
+  allowlist, conflict, and diff gates pass.

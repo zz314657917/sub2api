@@ -277,6 +277,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	paymentHandler := admin.NewPaymentHandler(paymentService, paymentConfigService)
 	affiliateHandler := admin.NewAffiliateHandler(affiliateService, adminService)
 	groupBuyService := service.NewGroupBuyService(client, paymentService, settingService, subscriptionService, apiKeyService, userRepository, groupRepository, billingCacheService, apiKeyAuthCacheInvalidator)
+	groupBuyLifecycleService := service.ProvideGroupBuyLifecycleService(groupBuyService)
 	groupBuyHandler := admin.NewGroupBuyHandler(groupBuyService)
 	imageCreatorStorageGovernanceRepository := repository.NewImageCreatorStorageGovernanceRepository(db)
 	imageCreatorStorageGovernanceService := service.NewImageCreatorStorageGovernanceService(imageCreatorStorageGovernanceRepository, imageCreatorService, configConfig)
@@ -316,7 +317,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	scheduledTestRunnerService := service.ProvideScheduledTestRunnerService(scheduledTestPlanRepository, scheduledTestService, accountTestService, rateLimitService, configConfig)
 	paymentOrderExpiryService := service.ProvidePaymentOrderExpiryService(paymentService)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
-	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, affiliateRiskScannerService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, leaderboardLotteryRunner, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, imageCreatorService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner)
+	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, affiliateRiskScannerService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, leaderboardLotteryRunner, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, imageCreatorService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, groupBuyLifecycleService, channelMonitorRunner)
 	application := &Application{
 		Server:  httpServer,
 		Cleanup: v2,
@@ -374,6 +375,7 @@ func provideCleanup(
 	scheduledTestRunner *service.ScheduledTestRunnerService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
+	groupBuyLifecycle *service.GroupBuyLifecycleService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
 ) func() {
 	return func() {
@@ -537,6 +539,12 @@ func provideCleanup(
 			{"PaymentOrderExpiryService", func() error {
 				if paymentOrderExpiry != nil {
 					paymentOrderExpiry.Stop()
+				}
+				return nil
+			}},
+			{"GroupBuyLifecycleService", func() error {
+				if groupBuyLifecycle != nil {
+					groupBuyLifecycle.Stop()
 				}
 				return nil
 			}},

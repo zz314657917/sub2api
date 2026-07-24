@@ -3,12 +3,16 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"strconv"
 	"testing"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/enttest"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
+	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
@@ -216,6 +220,47 @@ func TestGroupBuyRefreshUserEntitlementAggregatesSharesAndExpiresToInactive(t *t
 	require.False(t, expiredSub.ExpiresAt.After(svc.now()))
 }
 
+func TestGroupBuyRefreshUserEntitlementUsesLatestSeatPolicySnapshot(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_entitlement_policy_snapshot")
+	now := time.Date(2026, 7, 8, 10, 0, 0, 0, time.UTC)
+	user := createGroupBuyTestUser(t, ctx, client, "snapshot@example.com")
+	oldGroup := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	newGroup := createGroupBuyTestGroup(t, ctx, client, 2, 100)
+	plan := createGroupBuyTestPlanWithTierRules(t, ctx, client, []domain.GroupBuyTierRule{
+		{MinShares: 1, MaxShares: 10, TargetGroupID: newGroup, Label: "当前计划"},
+	}, GroupBuyLaunchModeManual, 10)
+	round := createGroupBuyTestRound(t, ctx, client, plan.ID, now, 10)
+	_, err := client.GroupBuySeat.Create().
+		SetRoundID(round.ID).
+		SetPlanID(plan.ID).
+		SetUserID(user.ID).
+		SetStatus(GroupBuySeatStatusActive).
+		SetShareCount(2).
+		SetActivatedAt(now.Add(-time.Hour)).
+		SetExpiresAt(now.AddDate(0, 0, 10)).
+		SetPolicySnapshot(domain.GroupBuyPolicySnapshot{
+			ProductKey:   GroupBuyProductTokenPinPinPin,
+			PlanID:       plan.ID,
+			TotalShares:  10,
+			ValidityDays: 30,
+			RefundMode:   GroupBuyRefundModeBalanceCredit,
+			TierRules:    []domain.GroupBuyTierRule{{MinShares: 1, MaxShares: 10, TargetGroupID: oldGroup, Label: "购买时策略"}},
+		}).Save(ctx)
+	require.NoError(t, err)
+
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroups(map[int64]*Group{
+		oldGroup: {ID: oldGroup, Status: StatusActive, Platform: PlatformOpenAI, SubscriptionType: SubscriptionTypeSubscription},
+		newGroup: {ID: newGroup, Status: StatusActive, Platform: PlatformOpenAI, SubscriptionType: SubscriptionTypeSubscription},
+	}), nil)
+	svc.now = func() time.Time { return now }
+
+	ent, err := svc.RefreshUserEntitlement(ctx, user.ID)
+	require.NoError(t, err)
+	require.NotNil(t, ent.TargetGroupID)
+	require.Equal(t, oldGroup, *ent.TargetGroupID)
+}
+
 func TestGroupBuyRefreshUserEntitlementDoesNotOverwriteNormalSubscription(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "groupbuy_normal_subscription_isolation")
@@ -301,8 +346,12 @@ func TestGroupBuyRefundProcessingIsIdempotent(t *testing.T) {
 	svc.userRepo = userRepo
 	svc.now = func() time.Time { return now }
 
-	require.NoError(t, svc.processSeatRefund(ctx, plan, seat))
-	require.NoError(t, svc.processSeatRefund(ctx, plan, seat))
+	outcome, err := svc.processSeatRefund(ctx, plan, seat)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundStatusSucceeded, outcome)
+	outcome, err = svc.processSeatRefund(ctx, plan, seat)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundStatusSucceeded, outcome)
 	require.Equal(t, 1, userRepo.balanceUpdates)
 	require.Equal(t, 24.0, userRepo.balanceTotal)
 
@@ -312,6 +361,384 @@ func TestGroupBuyRefundProcessingIsIdempotent(t *testing.T) {
 	reloadedSeat, err := client.GroupBuySeat.Get(ctx, seat.ID)
 	require.NoError(t, err)
 	require.Equal(t, GroupBuySeatStatusRefunded, reloadedSeat.Status)
+}
+
+type groupBuyRefundExecution struct {
+	orderStatus string
+	result      *RefundResult
+	err         error
+}
+
+type groupBuyPaymentRefundStub struct {
+	client          *dbent.Client
+	executions      []groupBuyRefundExecution
+	queryStatus     string
+	hasPendingAudit bool
+	prepareCalls    int
+	executeCalls    int
+	queryCalls      int
+}
+
+func (s *groupBuyPaymentRefundStub) PrepareRefund(ctx context.Context, orderID int64, amount float64, reason string, _, _ bool) (*RefundPlan, *RefundResult, error) {
+	s.prepareCalls++
+	order, err := s.client.PaymentOrder.Get(ctx, orderID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &RefundPlan{OrderID: orderID, Order: order, RefundAmount: amount, Reason: reason}, nil, nil
+}
+
+func (s *groupBuyPaymentRefundStub) ExecuteRefund(ctx context.Context, plan *RefundPlan) (*RefundResult, error) {
+	index := s.executeCalls
+	s.executeCalls++
+	if index >= len(s.executions) {
+		return nil, errors.New("unexpected provider refund execution")
+	}
+	execution := s.executions[index]
+	if execution.orderStatus != "" {
+		if _, err := s.client.PaymentOrder.UpdateOneID(plan.OrderID).SetStatus(execution.orderStatus).Save(ctx); err != nil {
+			return nil, err
+		}
+	}
+	return execution.result, execution.err
+}
+
+func (s *groupBuyPaymentRefundStub) QueryAndFinalizeRefund(ctx context.Context, orderID int64) (*RefundResult, error) {
+	s.queryCalls++
+	if s.queryStatus != "" {
+		if _, err := s.client.PaymentOrder.UpdateOneID(orderID).SetStatus(s.queryStatus).Save(ctx); err != nil {
+			return nil, err
+		}
+	}
+	succeeded := s.queryStatus == OrderStatusRefunded || s.queryStatus == OrderStatusPartiallyRefunded
+	return &RefundResult{Success: succeeded}, nil
+}
+
+func (s *groupBuyPaymentRefundStub) hasAuditLog(_ context.Context, _ int64, action string) bool {
+	return action == "REFUND_PENDING" && s.hasPendingAudit
+}
+
+func TestGroupBuyProviderRefundSuccessIsIdempotent(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_provider_refund_success")
+	plan, seat, order := createGroupBuyProviderRefundFixture(t, ctx, client, "success")
+	stub := &groupBuyPaymentRefundStub{
+		client: client,
+		executions: []groupBuyRefundExecution{{
+			orderStatus: OrderStatusRefunded,
+			result:      &RefundResult{Success: true},
+		}},
+	}
+	svc := newGroupBuyTestService(client, nil, nil)
+	svc.refundSvc = stub
+
+	outcome, err := svc.processSeatRefund(ctx, plan, seat)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundStatusSucceeded, outcome)
+
+	reloadedSeat, err := client.GroupBuySeat.Query().Where(groupbuyseat.IDEQ(seat.ID)).WithOrder().Only(ctx)
+	require.NoError(t, err)
+	outcome, err = svc.processSeatRefund(ctx, plan, reloadedSeat)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundStatusSucceeded, outcome)
+	require.Equal(t, 1, stub.executeCalls)
+	require.Equal(t, 1, stub.prepareCalls)
+
+	reloadedOrder, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusRefunded, reloadedOrder.Status)
+	reloadedSeat, err = client.GroupBuySeat.Get(ctx, seat.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefunded, reloadedSeat.Status)
+	refundCount, err := client.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(seat.ID)).Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, refundCount)
+}
+
+func TestGroupBuyProviderRefundPendingIsReconciled(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_provider_refund_pending")
+	plan, seat, order := createGroupBuyProviderRefundFixture(t, ctx, client, "pending")
+	stub := &groupBuyPaymentRefundStub{
+		client:          client,
+		hasPendingAudit: true,
+		queryStatus:     OrderStatusRefunded,
+		executions: []groupBuyRefundExecution{{
+			orderStatus: OrderStatusRefundPending,
+			result:      &RefundResult{Success: false, Warning: "pending"},
+		}},
+	}
+	svc := newGroupBuyTestService(client, nil, nil)
+	svc.refundSvc = stub
+
+	outcome, err := svc.processSeatRefund(ctx, plan, seat)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundStatusPendingProvider, outcome)
+
+	finalized, err := svc.ReconcilePendingProviderRefunds(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, finalized)
+	require.Equal(t, 1, stub.queryCalls)
+
+	reloadedOrder, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusRefunded, reloadedOrder.Status)
+	refund, err := client.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(seat.ID)).Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundStatusSucceeded, refund.Status)
+	reloadedSeat, err := client.GroupBuySeat.Get(ctx, seat.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefunded, reloadedSeat.Status)
+}
+
+func TestGroupBuyProviderRefundFailureCanRetry(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_provider_refund_retry")
+	plan, seat, _ := createGroupBuyProviderRefundFixture(t, ctx, client, "retry")
+	stub := &groupBuyPaymentRefundStub{
+		client: client,
+		executions: []groupBuyRefundExecution{
+			{orderStatus: OrderStatusRefundFailed, err: errors.New("provider refund failed")},
+			{orderStatus: OrderStatusRefunded, result: &RefundResult{Success: true}},
+		},
+	}
+	svc := newGroupBuyTestService(client, nil, nil)
+	svc.refundSvc = stub
+
+	outcome, err := svc.processSeatRefund(ctx, plan, seat)
+	require.Error(t, err)
+	require.Equal(t, GroupBuyRefundStatusFailed, outcome)
+
+	reloadedSeat, err := client.GroupBuySeat.Query().Where(groupbuyseat.IDEQ(seat.ID)).WithOrder().Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefundPending, reloadedSeat.Status)
+	outcome, err = svc.processSeatRefund(ctx, plan, reloadedSeat)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundStatusSucceeded, outcome)
+	require.Equal(t, 2, stub.prepareCalls)
+	require.Equal(t, 2, stub.executeCalls)
+
+	refundCount, err := client.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(seat.ID)).Count(ctx)
+	require.NoError(t, err)
+	require.Equal(t, 1, refundCount)
+}
+
+func TestGroupBuyHistoricalBalanceRefundIsQuarantined(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_refund_needs_review")
+	now := time.Date(2026, 7, 8, 10, 0, 0, 0, time.UTC)
+	user := createGroupBuyTestUser(t, ctx, client, "refund-review@example.com")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 10)
+	round := createGroupBuyTestRound(t, ctx, client, plan.ID, now, 10)
+	_, err := client.GroupBuyRound.UpdateOneID(round.ID).
+		SetStatus(GroupBuyRoundStatusFailed).
+		Save(ctx)
+	require.NoError(t, err)
+	seat, err := client.GroupBuySeat.Create().
+		SetRoundID(round.ID).
+		SetPlanID(plan.ID).
+		SetUserID(user.ID).
+		SetStatus(GroupBuySeatStatusRefundProcessing).
+		SetShareCount(1).
+		Save(ctx)
+	require.NoError(t, err)
+	_, err = client.GroupBuyRefund.Create().
+		SetSeatID(seat.ID).
+		SetUserID(user.ID).
+		SetMode(GroupBuyRefundModeBalanceCredit).
+		SetStatus(GroupBuyRefundStatusProcessing).
+		SetAmount(plan.PricePerShare).
+		SetIdempotencyKey("historical-processing-" + strconv.FormatInt(seat.ID, 10)).
+		Save(ctx)
+	require.NoError(t, err)
+
+	userRepo := &groupBuyUserRepoStub{users: map[int64]*User{user.ID: user}}
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
+	svc.userRepo = userRepo
+	svc.now = func() time.Time { return now }
+
+	result, err := svc.AdminProcessRefunds(ctx, round.ID)
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Failed)
+	require.Zero(t, result.Processed)
+	require.Len(t, result.Failures, 1)
+	require.Equal(t, 0, userRepo.balanceUpdates)
+
+	review, err := client.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(seat.ID)).Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundStatusNeedsReview, review.Status)
+	reloadedSeat, err := client.GroupBuySeat.Get(ctx, seat.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefundProcessing, reloadedSeat.Status)
+}
+
+func TestGroupBuyAlreadyRefundedBalanceOrderIsPersistedForReview(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_refunded_order_needs_review")
+	now := time.Date(2026, 7, 8, 10, 0, 0, 0, time.UTC)
+	user := createGroupBuyTestUser(t, ctx, client, "refunded-order-review@example.com")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 10)
+	round := createGroupBuyTestRound(t, ctx, client, plan.ID, now, 10)
+	_, err := client.GroupBuyRound.UpdateOneID(round.ID).
+		SetStatus(GroupBuyRoundStatusFailed).
+		Save(ctx)
+	require.NoError(t, err)
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(12).
+		SetPayAmount(12).
+		SetRechargeCode("gb-refunded-review").
+		SetOutTradeNo("gb_refunded_review_1").
+		SetPaymentType(payment.TypeStripe).
+		SetPaymentTradeNo("trade-refunded-review").
+		SetOrderType(payment.OrderTypeGroupBuy).
+		SetStatus(OrderStatusRefunded).
+		SetExpiresAt(now.Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("example.test").
+		Save(ctx)
+	require.NoError(t, err)
+	seat, err := client.GroupBuySeat.Create().
+		SetRoundID(round.ID).
+		SetPlanID(plan.ID).
+		SetUserID(user.ID).
+		SetOrderID(order.ID).
+		SetStatus(GroupBuySeatStatusRefundPending).
+		SetShareCount(1).
+		SetPolicySnapshot(buildGroupBuyPolicySnapshot(plan, now)).
+		Save(ctx)
+	require.NoError(t, err)
+
+	userRepo := &groupBuyUserRepoStub{users: map[int64]*User{user.ID: user}}
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
+	svc.userRepo = userRepo
+	svc.now = func() time.Time { return now }
+
+	result, err := svc.AdminProcessRefunds(ctx, round.ID)
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Failed)
+	require.Zero(t, result.Processed)
+	require.Equal(t, 0, userRepo.balanceUpdates)
+
+	review, err := client.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(seat.ID)).Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundModeBalanceCredit, review.Mode)
+	require.Equal(t, GroupBuyRefundStatusNeedsReview, review.Status)
+	reloadedSeat, err := client.GroupBuySeat.Get(ctx, seat.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefundProcessing, reloadedSeat.Status)
+}
+
+func TestGroupBuyHistoricalProviderRefundIsQuarantinedBeforeRetry(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_provider_refund_needs_review")
+	now := time.Date(2026, 7, 8, 10, 0, 0, 0, time.UTC)
+	user := createGroupBuyTestUser(t, ctx, client, "provider-review@example.com")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 10)
+	round := createGroupBuyTestRound(t, ctx, client, plan.ID, now, 10)
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(12).
+		SetPayAmount(12).
+		SetRechargeCode("gb-provider-review").
+		SetOutTradeNo("gb_provider_review_1").
+		SetPaymentType(payment.TypeStripe).
+		SetPaymentTradeNo("trade-provider-review").
+		SetOrderType(payment.OrderTypeGroupBuy).
+		SetStatus(OrderStatusCompleted).
+		SetExpiresAt(now.Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("example.test").
+		Save(ctx)
+	require.NoError(t, err)
+	seat, err := client.GroupBuySeat.Create().
+		SetRoundID(round.ID).
+		SetPlanID(plan.ID).
+		SetUserID(user.ID).
+		SetOrderID(order.ID).
+		SetStatus(GroupBuySeatStatusRefundProcessing).
+		SetShareCount(1).
+		Save(ctx)
+	require.NoError(t, err)
+	_, err = client.GroupBuyRefund.Create().
+		SetSeatID(seat.ID).
+		SetOrderID(order.ID).
+		SetUserID(user.ID).
+		SetMode(GroupBuyRefundModeProviderRefund).
+		SetStatus(GroupBuyRefundStatusProcessing).
+		SetAmount(order.Amount).
+		SetIdempotencyKey("provider-processing-" + strconv.FormatInt(seat.ID, 10)).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
+	svc.now = func() time.Time { return now }
+
+	outcome, err := svc.processSeatRefund(ctx, plan, seat)
+	require.Error(t, err)
+	require.Equal(t, GroupBuyRefundStatusNeedsReview, outcome)
+	review, err := client.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(seat.ID)).Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundStatusNeedsReview, review.Status)
+}
+
+func TestGroupBuyBalanceRefundRollsBackWhenBalanceGrantFails(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_refund_transaction_rollback")
+	now := time.Date(2026, 7, 8, 10, 0, 0, 0, time.UTC)
+	user := createGroupBuyTestUser(t, ctx, client, "refund-rollback@example.com")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 10)
+	round := createGroupBuyTestRound(t, ctx, client, plan.ID, now, 10)
+	seat, err := client.GroupBuySeat.Create().
+		SetRoundID(round.ID).
+		SetPlanID(plan.ID).
+		SetUserID(user.ID).
+		SetStatus(GroupBuySeatStatusRefundPending).
+		SetShareCount(1).
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
+	svc.userRepo = &groupBuyFailingBalanceRepo{}
+	svc.now = func() time.Time { return now }
+
+	outcome, err := svc.processSeatRefund(ctx, plan, seat)
+	require.Error(t, err)
+	require.Equal(t, GroupBuyRefundStatusFailed, outcome)
+
+	reloadedUser, err := client.User.Get(ctx, user.ID)
+	require.NoError(t, err)
+	require.Zero(t, reloadedUser.Balance)
+	refundCount, err := client.GroupBuyRefund.Query().Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, refundCount)
+	reloadedSeat, err := client.GroupBuySeat.Get(ctx, seat.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefundPending, reloadedSeat.Status)
+}
+
+type groupBuyFailingBalanceRepo struct {
+	UserRepository
+}
+
+func (r *groupBuyFailingBalanceRepo) AddBalance(ctx context.Context, userID int64, amount float64) error {
+	tx := dbent.TxFromContext(ctx)
+	if tx == nil {
+		return errors.New("transaction context is missing")
+	}
+	_, err := tx.Client().User.Update().Where(user.IDEQ(userID)).AddBalance(amount).Save(ctx)
+	if err != nil {
+		return err
+	}
+	return errors.New("forced balance grant failure")
 }
 
 func TestGroupBuyExpiredLockedSeatReleasesSharesAndExpiresOrder(t *testing.T) {
@@ -888,6 +1315,47 @@ func createGroupBuyTestPlanWithTierRules(t *testing.T, ctx context.Context, clie
 		Save(ctx)
 	require.NoError(t, err)
 	return plan
+}
+
+func createGroupBuyProviderRefundFixture(t *testing.T, ctx context.Context, client *dbent.Client, name string) (*dbent.GroupBuyPlan, *dbent.GroupBuySeat, *dbent.PaymentOrder) {
+	t.Helper()
+	user := createGroupBuyTestUser(t, ctx, client, "provider-"+name+"@example.com")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 10)
+	plan, err := client.GroupBuyPlan.UpdateOneID(plan.ID).
+		SetRefundMode(GroupBuyRefundModeProviderRefund).
+		Save(ctx)
+	require.NoError(t, err)
+	round := createGroupBuyTestRound(t, ctx, client, plan.ID, time.Now().UTC(), 10)
+	order, err := client.PaymentOrder.Create().
+		SetUserID(user.ID).
+		SetUserEmail(user.Email).
+		SetUserName(user.Username).
+		SetAmount(12).
+		SetPayAmount(12).
+		SetRechargeCode("gb-provider-" + name).
+		SetOutTradeNo("gb_provider_" + name).
+		SetPaymentType(payment.TypeStripe).
+		SetPaymentTradeNo("trade-provider-" + name).
+		SetOrderType(payment.OrderTypeGroupBuy).
+		SetStatus(OrderStatusCompleted).
+		SetExpiresAt(time.Now().Add(time.Hour)).
+		SetClientIP("127.0.0.1").
+		SetSrcHost("api.example.com").
+		Save(ctx)
+	require.NoError(t, err)
+	seat, err := client.GroupBuySeat.Create().
+		SetRoundID(round.ID).
+		SetPlanID(plan.ID).
+		SetUserID(user.ID).
+		SetOrderID(order.ID).
+		SetStatus(GroupBuySeatStatusRefundPending).
+		SetShareCount(1).
+		SetPolicySnapshot(domain.GroupBuyPolicySnapshot{RefundMode: GroupBuyRefundModeProviderRefund}).
+		Save(ctx)
+	require.NoError(t, err)
+	seat.Edges.Order = order
+	return plan, seat, order
 }
 
 func createGroupBuyTestRound(t *testing.T, ctx context.Context, client *dbent.Client, planID int64, started time.Time, totalShares int) *dbent.GroupBuyRound {

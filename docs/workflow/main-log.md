@@ -444,3 +444,6 @@
 260723 2124 | upstream-openai-agent-identity-s108 | evidence-recovery | codex | feature 6b87a2d2b is already on main; QA/result retained without obsolete status/spec/handoff snapshots
 260723 2124 | upstream-openai-agent-identity-s108 | done | evaluator | PASS/published; task-ID collision with user-usage-column-menu-layer-s108 documented; real K12 runtime, race, deploy, and container remain unverified
 260723 2130 | upstream-openai-agent-identity-s108 | publish-cleanup | codex | evidence commit 68dc78661 verified on HEAD, origin/main, and remote main; obsolete local closeout branch deleted
+260723 2221 | group-buy-lifecycle-refund-hardening-s110 | contract-approved | evaluator | current-main P1/P2 re-review PASS; payment refund source-of-truth, snapshot, runner, admin detail, and no-migration boundaries approved
+260723 2300 | group-buy-lifecycle-refund-hardening-s110 | qa-pass-source-only | evaluator | focused group-buy/refund/lifecycle/Wire/frontend gates PASS; full service retains known peak-rate/worker baseline; authenticated admin browser and live provider remain unverified
+260724 1238 | group-buy-lifecycle-refund-hardening-s110 | final-evaluator-pass | codex | fixed cancellable lifecycle shutdown and added provider refund success/pending/failure/retry stubs; fresh backend/frontend/static gates PASS; scoped publication authorized

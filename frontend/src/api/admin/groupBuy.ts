@@ -1,6 +1,6 @@
 import { apiClient } from '../client'
 import type { BasePaginationResponse } from '@/types'
-import type { GroupBuyPlan, GroupBuyRound, GroupBuyTier } from '@/types/groupBuy'
+import type { GroupBuyAdminSeat, GroupBuyPlan, GroupBuyRefundBatchResult, GroupBuyRound, GroupBuyTier } from '@/types/groupBuy'
 
 export interface GroupBuyPlanPayload {
   title: string
@@ -51,6 +51,10 @@ const adminGroupBuyAPI = {
     return apiClient.get<BasePaginationResponse<GroupBuyRound>>('/admin/group-buy/rounds', { params })
   },
 
+  listRoundSeats(id: number) {
+    return apiClient.get<GroupBuyAdminSeat[]>(`/admin/group-buy/rounds/${id}/seats`)
+  },
+
   closeRound(id: number, reason: string) {
     return apiClient.post(`/admin/group-buy/rounds/${id}/close`, { reason })
   },
@@ -60,7 +64,7 @@ const adminGroupBuyAPI = {
   },
 
   processRefunds(id: number) {
-    return apiClient.post<{ processed: number }>(`/admin/group-buy/rounds/${id}/process-refunds`)
+    return apiClient.post<GroupBuyRefundBatchResult>(`/admin/group-buy/rounds/${id}/process-refunds`)
   },
 }
 

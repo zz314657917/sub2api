@@ -1,13 +1,37 @@
 ---
 phase: done
-current_sprint: upstream-model-pricing-alignment-s109
-total_sprints: 109
-pending_action: S106-S109 and the separate Agent Identity S108 task are published; start only a separately approved next sprint, without deployment or container refresh
+current_sprint: group-buy-lifecycle-refund-hardening-s110
+total_sprints: 110
+pending_action: S110 final Evaluator PASS; publish only the scoped S110 branch and verify remote parity; do not deploy, refresh containers, expand to 20 shares, or add migrations
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-23 21:30 +08:00
+last_verified: 2026-07-24 12:38 +08:00
 ---
+
+# S110 Current Sprint
+
+- S110 contract is approved for the confirmed group-buy P1/P2 gaps: lifecycle
+  runner wiring, real provider refunds, atomic balance refunds, purchase snapshot
+  protection, cancelled-round UI parity, admin refund details, and public
+  activity DTO minimization.
+- Existing payment refund state is the provider source of truth. Historical
+  balance refund records stuck in `processing` must become `needs_review` and
+  must not be replayed automatically.
+- Database migrations, generated Ent code, 20-share expansion, automatic
+  refund initiation, deployment, containers, commit, and push are frozen.
+- Contract:
+  `docs/workflow/tasks/group-buy-lifecycle-refund-hardening-s110.md`.
+- Contract review: `PASS`; implementation completed in isolated worktree
+  `E:/codex-worktrees/sub2api/group-buy-lifecycle-refund-hardening-s110`.
+- Worker result: `docs/workflow/worker-results/group-buy-lifecycle-refund-hardening-s110-result.md`.
+- QA report: `docs/workflow/qa-reports/group-buy-lifecycle-refund-hardening-s110-qa.md`.
+- Final review fixed lifecycle shutdown cancellation and added direct provider
+  refund success/idempotency, pending reconciliation, failure, and retry tests.
+- Focused backend/Wire/frontend gates and static allowlist gates pass. Full service
+  aggregate retains pre-existing peak-rate and worker-pool failures. Authenticated
+  admin browser smoke and live provider calls remain unverified.
+- Final Evaluator: `PASS / source-only`; scoped branch publication is authorized.
 
 # S109 Current Sprint
 
