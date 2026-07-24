@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-07-24 12:38 +08:00
+最后更新：2026-07-24 12:43 +08:00
 
 ## 背景
 
@@ -10,9 +10,8 @@
 
 ## 当前目标
 
-- 将 Final Evaluator 已判定 PASS 的 S110 精确提交并推送到
-  `codex/group-buy-lifecycle-refund-hardening-s110`。
-- 推送后验证本地 `HEAD` 与远端分支一致。
+- S110 已完成代码审查、验证、提交和独立分支推送。
+- 当前等待用户决定是否创建 PR 或合并主线；未授权部署或刷新容器。
 
 ## 本次已完成
 
@@ -21,6 +20,8 @@
 - 原路退款复用现有支付退款管线，支持成功、pending 对账、失败重试和幂等收口。
 - 最终复审修复 `Stop()` 无法取消运行中 lifecycle 操作的问题，并补齐对应回归测试。
 - 管理端增加退款汇总、参与者/订单/退款详情和 cancelled 团退款；前端修复协议默认值与编辑弹窗误关闭。
+- 功能提交 `bf467b3c3` 已推送到
+  `origin/codex/group-buy-lifecycle-refund-hardening-s110`。
 
 ## 已确认事实
 
@@ -37,14 +38,14 @@
 
 ## 当前结论
 
-- `PASS / source-only`：S110 的代码评审、定向回归、编译、前端检查和静态门禁已通过。
-- 当前 P/G/E phase 为 `done`；仅剩精确暂存、提交、推送和远端一致性验证。
+- `PASS / published branch`：S110 的代码评审、定向回归、编译、前端检查和静态门禁已通过并推送。
+- 当前 P/G/E phase 为 `done`；没有待处理的源代码工作。
 
 ## 下一步
 
-1. 动作：按 S110 allowlist 精确暂存 -> 验证：检查 cached name-only、cached diff-check 和 denied path。
-2. 动作：提交并推送独立分支 -> 验证：比较 `HEAD`、`origin/codex/group-buy-lifecycle-refund-hardening-s110` 和 `git ls-remote`。
-3. 动作：回写 published 证据 -> 验证：`status.md`、`main-log.md` 和本文件一致。
+1. 动作：如需进入主线，创建并审查 S110 PR -> 验证：CI 与目标分支 diff 仅包含 S110。
+2. 动作：合并后按需做授权管理员 smoke -> 验证：详情弹窗和退款结果提示符合 QA 清单。
+3. 动作：真实渠道验证需单独授权 sandbox -> 验证：订单、拼团退款和份额状态一致。
 
 ## 验证记录
 

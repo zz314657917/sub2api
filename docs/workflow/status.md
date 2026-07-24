@@ -2,7 +2,7 @@
 phase: done
 current_sprint: group-buy-lifecycle-refund-hardening-s110
 total_sprints: 110
-pending_action: S110 final Evaluator PASS; publish only the scoped S110 branch and verify remote parity; do not deploy, refresh containers, expand to 20 shares, or add migrations
+pending_action: S110 published on its scoped branch; open or merge a PR only when requested; do not deploy, refresh containers, expand to 20 shares, or add migrations
 project_type: web
 qa_mode: runtime
 approval_required: false
@@ -31,7 +31,8 @@ last_verified: 2026-07-24 12:38 +08:00
 - Focused backend/Wire/frontend gates and static allowlist gates pass. Full service
   aggregate retains pre-existing peak-rate and worker-pool failures. Authenticated
   admin browser smoke and live provider calls remain unverified.
-- Final Evaluator: `PASS / source-only`; scoped branch publication is authorized.
+- Final Evaluator: `PASS / published branch`; feature commit `bf467b3c3` is on
+  `origin/codex/group-buy-lifecycle-refund-hardening-s110`.
 
 # S109 Current Sprint
 
