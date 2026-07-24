@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-v0164-openai-passthrough-input-s112
 total_sprints: 112
-pending_action: S112 is committed locally; push only the exact S112 allowlist if explicitly requested, keeping the group-buy S110 worktree and parallel dirt outside the change
+pending_action: S112 is PASS/published; start further upstream work as a new sprint, keeping the group-buy S110 worktree and parallel dirt outside the change
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-24 00:08 +08:00
+last_verified: 2026-07-24 09:02 +08:00
 ---
 
 # S112 Current Sprint
@@ -29,10 +29,10 @@ last_verified: 2026-07-24 00:08 +08:00
   `go test ./internal/service -run "TestPeakMultiplier" -count=1` passes in
   isolation. No peak-rate file is in the S112 diff, so this remains a separate
   global-timezone/test-order baseline risk rather than an S112 blocker.
-- S112 is contained in the local scoped commit; push, deployment, container
-  refresh, and S110/group-buy changes remain excluded.
-- Next legal action: push only after explicit user request, then start the
-  next upstream candidate as a new Sprint.
+- S112 feature commit `2cd0f519c` and this publish closeout are on
+  `origin/main`; deployment, container refresh, and S110/group-buy changes
+  remain excluded.
+- Next legal action: start the next upstream candidate as a new Sprint.
 
 # S111 Current Sprint
 

@@ -456,3 +456,4 @@
 260723 2353 | upstream-v0164-openai-passthrough-input-s112 | done | evaluator | PASS/source-only; no commit, push, deployment, container refresh, or group-buy/S110 changes
 260724 0003 | upstream-v0164-openai-passthrough-input-s112 | qa-risk | evaluator | full internal/service run reproduces five aggregate-only TestPeakMultiplier groups; isolated PeakMultiplier run PASS and no peak-rate path changed, so recorded as separate timezone/test-order baseline risk
 260724 0008 | upstream-v0164-openai-passthrough-input-s112 | commit-local | codex | scoped local commit contains the exact S112 allowlist; push, deployment, containers, and group-buy/S110 dirt excluded
+260724 0902 | upstream-v0164-openai-passthrough-input-s112 | publish | codex | feature commit 2cd0f519c and publish closeout pushed to origin/main; HEAD, origin/main, remote main, and 0/0 divergence verified; group-buy dirt excluded
