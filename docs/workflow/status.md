@@ -2,11 +2,11 @@
 phase: done
 current_sprint: user-proxy-smart-input-s113
 total_sprints: 113
-pending_action: S113 PASS/source-only; authenticated API smoke, live proxy connection, deployment, and container refresh remain out of scope
+pending_action: S113 PASS/published; authenticated API smoke, live proxy connection, deployment, and container refresh remain out of scope
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-25 16:59 +08:00
+last_verified: 2026-07-25 23:59 +08:00
 ---
 
 # S113 Current Sprint
@@ -18,8 +18,12 @@ last_verified: 2026-07-25 16:59 +08:00
 - Implementation and QA are complete within the approved frontend allowlist.
 - Focused parser/import tests (20/20), typecheck, production build (1091 modules),
   targeted ESLint, diff checks, and unauthenticated browser reachability pass.
-- Final Evaluator: PASS/source-only. Authenticated persistence, live proxy
-  connectivity, deployment, and container refresh were not run.
+- Final Evaluator: PASS/source-only; publish closeout completed. Authenticated
+  persistence, live proxy connectivity, deployment, and container refresh were
+  not run.
+- Feature commit `0f8178a1d` is published on `origin/main`; local `HEAD`,
+  `origin/main`, and remote `main` are aligned. Deployment and container refresh
+  remain out of scope.
 
 # S112 Current Sprint
 
