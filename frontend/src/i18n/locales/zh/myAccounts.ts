@@ -39,7 +39,20 @@ export default {
     proxy: {
       title: '代理',
       hint: '授权和令牌兑换会使用你选择的代理。',
-      manage: '管理我的代理'
+      manage: '管理我的代理',
+      smartInputLabel: '智能识别（支持动态/静态代理 IP）',
+      smartInputPlaceholder: '例如：socks5h://proxy.example.com:9004:用户名:密码',
+      smartInputButton: '识别填入',
+      smartInputHint: '支持每行一个 socks5/socks5h/http/https URL，也支持 host:port:用户名:密码 或 用户名:密码@host:port。',
+      smartInputInvalid: '无法识别代理格式，请检查协议、主机和端口。',
+      smartInputSuccess: '已识别并填入代理信息',
+      smartInputBatchDetected: '已识别 {count} 条代理，请确认后批量添加。',
+      smartInputBatchDuplicates: '（已跳过 {count} 条重复项）',
+      smartInputBatchSave: '批量添加 {count} 条',
+      smartInputBatchSuccess: '已添加 {count} 条代理',
+      smartInputBatchPartial: '已添加 {created} 条，{failed} 条失败，请检查后重试剩余项。',
+      smartInputBatchInvalid: '有 {count} 行无法识别，请修正后重试。',
+      smartInputBatchEditInvalid: '编辑已有代理时只能输入一行。'
     },
     transfer: '转积分',
     transferSuccess: '已转入积分：{amount}',

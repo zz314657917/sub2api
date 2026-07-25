@@ -5,6 +5,23 @@ qa_mode: runtime
 last_verified: 2026-07-03 19:30 +08:00
 ---
 
+## S113 Addendum: user proxy smart input
+
+### Goal
+
+- 在用户“我的代理”和管理员批量导入入口统一支持
+  `scheme://host:port:username:password` 冒号分隔格式，同时保留标准
+  `scheme://username:password@host:port` URL。
+
+### Scope Boundary
+
+- 只增加前端代理文本解析、用户单条/多行表单创建、管理员批量导入复用和对应测试/提示文案。
+- 复用现有 `http`、`https`、`socks5`、`socks5h` 结构化 API；不修改后端、数据库、部署、容器或运行时代理实现。
+
+### Acceptance Boundary
+
+- 解析器覆盖正常、认证、IPv6、额外冒号和无效输入；用户侧多行输入逐条校验并批量创建；前端定向测试、typecheck、生产构建和 diff 门禁通过。
+
 # Workflow Spec
 
 ## S108 Addendum: user usage column menu layer

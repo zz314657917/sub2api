@@ -853,6 +853,51 @@
           </button>
         </div>
 
+        <div class="mt-5">
+          <label class="input-label">{{ t('myAccounts.proxy.smartInputLabel') }}</label>
+          <textarea
+            v-model="proxyInput"
+            data-testid="my-accounts-proxy-smart-input"
+            rows="3"
+            class="input font-mono text-sm"
+            :placeholder="t('myAccounts.proxy.smartInputPlaceholder')"
+          ></textarea>
+          <div class="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-dark-400">
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm"
+              data-testid="my-accounts-proxy-smart-parse"
+              @click="applyProxyInput"
+            >
+              <Icon name="refresh" size="sm" />
+              <span>{{ t('myAccounts.proxy.smartInputButton') }}</span>
+            </button>
+            <span>{{ t('myAccounts.proxy.smartInputHint') }}</span>
+          </div>
+          <div
+            v-if="proxyBatch.length > 0"
+            class="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-700 dark:border-primary-900/60 dark:bg-primary-950/30 dark:text-primary-300"
+          >
+            <span>
+              {{ t('myAccounts.proxy.smartInputBatchDetected', { count: proxyBatch.length }) }}
+              <span v-if="proxyBatchDuplicateCount > 0" class="text-xs opacity-80">
+                {{ t('myAccounts.proxy.smartInputBatchDuplicates', { count: proxyBatchDuplicateCount }) }}
+              </span>
+            </span>
+            <button
+              type="button"
+              class="btn btn-primary btn-sm"
+              data-testid="my-accounts-proxy-smart-batch-save"
+              :disabled="savingProxy"
+              @click="saveProxyBatch"
+            >
+              <Icon v-if="savingProxy" name="refresh" size="sm" class="animate-spin" />
+              <Icon v-else name="plus" size="sm" />
+              <span>{{ t('myAccounts.proxy.smartInputBatchSave', { count: proxyBatch.length }) }}</span>
+            </button>
+          </div>
+        </div>
+
         <div class="mt-5 grid gap-4 md:grid-cols-2">
           <Input v-model="proxyForm.name" label="名称" placeholder="美国住宅代理" />
           <div>
@@ -870,7 +915,7 @@
 
         <div class="mt-5 flex justify-end gap-3">
           <button class="btn btn-secondary" @click="resetProxyForm">清空</button>
-          <button class="btn btn-primary" :disabled="savingProxy" @click="saveProxy">
+          <button class="btn btn-primary" :disabled="savingProxy || proxyBatch.length > 0" @click="saveProxy">
             <Icon v-if="savingProxy" name="refresh" size="sm" class="animate-spin" />
             <span>{{ editingProxyId ? '保存代理' : '新增代理' }}</span>
           </button>
@@ -934,6 +979,7 @@ import { formatCurrency, formatDateTime, formatDateTimeLocalInput, formatNumber,
 import { formatCreditAmount } from '@/utils/credits'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { parseOAuthCallbackInput } from '@/utils/oauthCallback'
+import { parseProxyInput, type ParsedProxyInput } from '@/utils/proxyInput'
 import { useTableSelection } from '@/composables/useTableSelection'
 import type { Account, AccountPlatform, AccountShareMode, AccountShareStatus, Proxy, ProxyProtocol, UserAccountAuthURLRequest, UserAccountShareSummary } from '@/types'
 import type { Column } from '@/components/common/types'
@@ -1037,6 +1083,9 @@ const proxyForm = reactive({
   password: '',
   status: 'active' as 'active' | 'inactive'
 })
+const proxyInput = ref('')
+const proxyBatch = ref<ParsedProxyInput[]>([])
+const proxyBatchDuplicateCount = ref(0)
 const importContent = ref('')
 const importFileInput = ref<HTMLInputElement | null>(null)
 const importFolderInput = ref<HTMLInputElement | null>(null)
@@ -1510,6 +1559,9 @@ function resetProxyForm(): void {
   proxyForm.username = ''
   proxyForm.password = ''
   proxyForm.status = 'active'
+  proxyInput.value = ''
+  proxyBatch.value = []
+  proxyBatchDuplicateCount.value = 0
 }
 
 async function openProxyModal(): Promise<void> {
@@ -1527,9 +1579,95 @@ function editProxy(proxy: Proxy): void {
   proxyForm.username = proxy.username ?? ''
   proxyForm.password = ''
   proxyForm.status = proxy.status
+  proxyInput.value = ''
+  proxyBatch.value = []
+  proxyBatchDuplicateCount.value = 0
+}
+
+function proxyInputLines(raw: string): string[] {
+  return raw
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+}
+
+function proxyDisplayName(parsed: ParsedProxyInput): string {
+  const displayHost = parsed.host.includes(':') ? `[${parsed.host}]` : parsed.host
+  return `${displayHost}:${parsed.port}`
+}
+
+function proxyBatchKey(parsed: ParsedProxyInput): string {
+  return `${parsed.protocol}|${parsed.host}|${parsed.port}|${parsed.username}|${parsed.password}`
+}
+
+function applyProxyInput(): void {
+  const lines = proxyInputLines(proxyInput.value)
+  proxyBatch.value = []
+  proxyBatchDuplicateCount.value = 0
+
+  if (lines.length === 0) {
+    appStore.showError(t('myAccounts.proxy.smartInputInvalid'))
+    return
+  }
+
+  if (lines.length > 1) {
+    if (editingProxyId.value) {
+      appStore.showError(t('myAccounts.proxy.smartInputBatchEditInvalid'))
+      return
+    }
+
+    const parsedBatch: ParsedProxyInput[] = []
+    const seen = new Set<string>()
+    let invalidCount = 0
+    let duplicateCount = 0
+    for (const line of lines) {
+      const parsed = parseProxyInput(line, { defaultProtocol: proxyForm.protocol })
+      if (!parsed) {
+        invalidCount++
+        continue
+      }
+      const key = proxyBatchKey(parsed)
+      if (seen.has(key)) {
+        duplicateCount++
+        continue
+      }
+      seen.add(key)
+      parsedBatch.push(parsed)
+    }
+
+    if (invalidCount > 0 || parsedBatch.length === 0) {
+      appStore.showError(t('myAccounts.proxy.smartInputBatchInvalid', { count: invalidCount || lines.length }))
+      return
+    }
+
+    proxyBatch.value = parsedBatch
+    proxyBatchDuplicateCount.value = duplicateCount
+    proxyInput.value = ''
+    appStore.showSuccess(t('myAccounts.proxy.smartInputBatchDetected', { count: parsedBatch.length }))
+    return
+  }
+
+  const parsed = parseProxyInput(lines[0], { defaultProtocol: proxyForm.protocol })
+  if (!parsed) {
+    appStore.showError(t('myAccounts.proxy.smartInputInvalid'))
+    return
+  }
+
+  proxyForm.protocol = parsed.protocol
+  proxyForm.host = parsed.host
+  proxyForm.port = parsed.port
+  proxyForm.username = parsed.username
+  proxyForm.password = parsed.password
+  if (!proxyForm.name.trim()) {
+    proxyForm.name = proxyDisplayName(parsed)
+  }
+  proxyInput.value = ''
+  appStore.showSuccess(t('myAccounts.proxy.smartInputSuccess'))
 }
 
 async function saveProxy(): Promise<void> {
+  if (proxyBatch.value.length > 0) return
+
   const port = Number(proxyForm.port)
   if (!proxyForm.name.trim() || !proxyForm.host.trim() || !Number.isInteger(port) || port < 1 || port > 65535) {
     appStore.showError('请填写有效的代理名称、主机和端口')
@@ -1568,6 +1706,47 @@ async function saveProxy(): Promise<void> {
     resetProxyForm()
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, '代理保存失败'))
+  } finally {
+    savingProxy.value = false
+  }
+}
+
+async function saveProxyBatch(): Promise<void> {
+  if (proxyBatch.value.length === 0 || editingProxyId.value) return
+
+  savingProxy.value = true
+  const remaining: ParsedProxyInput[] = []
+  let created = 0
+  try {
+    for (const parsed of proxyBatch.value) {
+      try {
+        const saved = await userAPI.createProxy({
+          name: proxyDisplayName(parsed),
+          protocol: parsed.protocol,
+          host: parsed.host,
+          port: parsed.port,
+          username: parsed.username.trim() || null,
+          password: parsed.password.trim() || null
+        })
+        userProxies.value = [saved, ...userProxies.value]
+        created++
+      } catch {
+        remaining.push(parsed)
+      }
+    }
+
+    if (remaining.length === 0) {
+      appStore.showSuccess(t('myAccounts.proxy.smartInputBatchSuccess', { count: created }))
+      resetProxyForm()
+    } else {
+      proxyBatch.value = remaining
+      appStore.showError(
+        t('myAccounts.proxy.smartInputBatchPartial', {
+          created,
+          failed: remaining.length
+        })
+      )
+    }
   } finally {
     savingProxy.value = false
   }

@@ -1,13 +1,25 @@
 ---
 phase: done
-current_sprint: upstream-v0164-openai-passthrough-input-s112
-total_sprints: 112
-pending_action: S112 is PASS/published; start further upstream work as a new sprint, keeping the group-buy S110 worktree and parallel dirt outside the change
+current_sprint: user-proxy-smart-input-s113
+total_sprints: 113
+pending_action: S113 PASS/source-only; authenticated API smoke, live proxy connection, deployment, and container refresh remain out of scope
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-24 09:02 +08:00
+last_verified: 2026-07-25 16:59 +08:00
 ---
+
+# S113 Current Sprint
+
+- Contract approved for unified proxy text parsing in the user proxy modal and
+  admin batch import.
+- The backend protocol whitelist already includes `socks5h`; backend, schema,
+  deployment, and unrelated dirty paths remain frozen.
+- Implementation and QA are complete within the approved frontend allowlist.
+- Focused parser/import tests (20/20), typecheck, production build (1091 modules),
+  targeted ESLint, diff checks, and unauthenticated browser reachability pass.
+- Final Evaluator: PASS/source-only. Authenticated persistence, live proxy
+  connectivity, deployment, and container refresh were not run.
 
 # S112 Current Sprint
 

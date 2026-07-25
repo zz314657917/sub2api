@@ -39,7 +39,20 @@ export default {
     proxy: {
       title: 'Proxy',
       hint: 'Authorization and token exchange will use the selected proxy.',
-      manage: 'Manage my proxies'
+      manage: 'Manage my proxies',
+      smartInputLabel: 'Smart recognition (dynamic/static proxy IP)',
+      smartInputPlaceholder: 'Example: socks5h://proxy.example.com:9004:username:password',
+      smartInputButton: 'Recognize and fill',
+      smartInputHint: 'Supports one proxy per line for socks5/socks5h/http/https URLs, host:port:user:password, and user:password@host:port.',
+      smartInputInvalid: 'Unable to recognize the proxy format. Check the protocol, host, and port.',
+      smartInputSuccess: 'Proxy information recognized and filled',
+      smartInputBatchDetected: 'Recognized {count} proxies. Review and click batch add.',
+      smartInputBatchDuplicates: '({count} duplicates skipped)',
+      smartInputBatchSave: 'Batch add {count}',
+      smartInputBatchSuccess: 'Added {count} proxies',
+      smartInputBatchPartial: 'Added {created}; {failed} failed. Review and retry the remaining entries.',
+      smartInputBatchInvalid: '{count} lines could not be recognized. Fix them and try again.',
+      smartInputBatchEditInvalid: 'Editing an existing proxy only supports one input line.'
     },
     transfer: 'Transfer',
     transferSuccess: 'Transferred to credits: {amount}',

@@ -457,3 +457,13 @@
 260724 0003 | upstream-v0164-openai-passthrough-input-s112 | qa-risk | evaluator | full internal/service run reproduces five aggregate-only TestPeakMultiplier groups; isolated PeakMultiplier run PASS and no peak-rate path changed, so recorded as separate timezone/test-order baseline risk
 260724 0008 | upstream-v0164-openai-passthrough-input-s112 | commit-local | codex | scoped local commit contains the exact S112 allowlist; push, deployment, containers, and group-buy/S110 dirt excluded
 260724 0902 | upstream-v0164-openai-passthrough-input-s112 | publish | codex | feature commit 2cd0f519c and publish closeout pushed to origin/main; HEAD, origin/main, remote main, and 0/0 divergence verified; group-buy dirt excluded
+260725 0000 | user-proxy-smart-input-s113 | contract-approved | Codex | docs/workflow/tasks/user-proxy-smart-input-s113.md
+260725 1616 | user-proxy-smart-input-s113 | build-and-qa-pass | Codex | docs/workflow/qa-reports/user-proxy-smart-input-s113-qa.md
+260725 1616 | user-proxy-smart-input-s113 | done | Evaluator | PASS/source-only; authenticated API, live proxy, deployment, and container refresh out of scope
+260725 1634 | user-proxy-smart-input-s113 | reverify | Codex | focused Vitest 18/18, typecheck, build 1091 modules, targeted ESLint, and diff check PASS
+260725 1637 | user-proxy-smart-input-s113 | reverify | Codex | locale hint correction retained focused Vitest 18/18, targeted ESLint, and diff check PASS
+260725 1653 | user-proxy-smart-input-s113 | contract-amended | Codex | user multi-line batch creation added to the approved scope; success criteria and focused test command expanded
+260725 1654 | user-proxy-smart-input-s113 | extend-and-reverify | Codex | user multi-line batch creation added; focused Vitest 19/19, typecheck, build 1091 modules, and targeted ESLint PASS
+260725 1657 | user-proxy-smart-input-s113 | reverify | Codex | invalid multi-line batch regression added; user proxy focused suite 13/13 PASS
+260725 1658 | user-proxy-smart-input-s113 | final-qa | Evaluator | focused Vitest 20/20, typecheck, targeted ESLint, and diff check PASS
+260725 1659 | user-proxy-smart-input-s113 | final-qa | Evaluator | final typecheck and targeted ESLint rerun PASS after invalid-batch regression

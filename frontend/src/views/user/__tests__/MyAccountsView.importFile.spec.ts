@@ -166,6 +166,105 @@ describe('MyAccountsView import file', () => {
     refreshUser.mockReset()
   })
 
+  it('recognizes compact proxy input and saves structured fields', async () => {
+    userAPI.createProxy.mockResolvedValue({
+      id: 7,
+      name: '203.0.113.10:9004',
+      protocol: 'socks5h',
+      host: '203.0.113.10',
+      port: 9004,
+      username: 'test-user',
+      password: 'test-pass',
+      status: 'active',
+    })
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="my-accounts-open-proxies"]').trigger('click')
+    await flushPromises()
+    await wrapper
+      .get('[data-testid="my-accounts-proxy-smart-input"]')
+      .setValue('socks5h://203.0.113.10:9004:test-user:test-pass')
+    await wrapper.get('[data-testid="my-accounts-proxy-smart-parse"]').trigger('click')
+
+    const saveButton = wrapper.findAll('button').find(button => button.text().includes('新增代理'))
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(userAPI.createProxy).toHaveBeenCalledWith({
+      name: '203.0.113.10:9004',
+      protocol: 'socks5h',
+      host: '203.0.113.10',
+      port: 9004,
+      username: 'test-user',
+      password: 'test-pass',
+      status: 'active',
+    })
+  })
+
+  it('recognizes multiple proxy lines and creates each structured proxy', async () => {
+    let nextId = 10
+    userAPI.createProxy.mockImplementation(async (payload) => ({
+      id: nextId++,
+      ...payload,
+    }))
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="my-accounts-open-proxies"]').trigger('click')
+    await flushPromises()
+    await wrapper
+      .get('[data-testid="my-accounts-proxy-smart-input"]')
+      .setValue([
+        'socks5h://203.0.113.10:9004:test-user:test-pass',
+        'http://http-user:http-pass@proxy.example.com:8080',
+      ].join('\n'))
+    await wrapper.get('[data-testid="my-accounts-proxy-smart-parse"]').trigger('click')
+
+    const batchSaveButton = wrapper.get('[data-testid="my-accounts-proxy-smart-batch-save"]')
+    await batchSaveButton.trigger('click')
+    await flushPromises()
+
+    expect(userAPI.createProxy).toHaveBeenNthCalledWith(1, {
+      name: '203.0.113.10:9004',
+      protocol: 'socks5h',
+      host: '203.0.113.10',
+      port: 9004,
+      username: 'test-user',
+      password: 'test-pass',
+    })
+    expect(userAPI.createProxy).toHaveBeenNthCalledWith(2, {
+      name: 'proxy.example.com:8080',
+      protocol: 'http',
+      host: 'proxy.example.com',
+      port: 8080,
+      username: 'http-user',
+      password: 'http-pass',
+    })
+  })
+
+  it('rejects a multi-line batch when any line is invalid', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="my-accounts-open-proxies"]').trigger('click')
+    await flushPromises()
+    await wrapper
+      .get('[data-testid="my-accounts-proxy-smart-input"]')
+      .setValue([
+        'socks5h://203.0.113.10:9004:test-user:test-pass',
+        'not-a-proxy',
+      ].join('\n'))
+    await wrapper.get('[data-testid="my-accounts-proxy-smart-parse"]').trigger('click')
+
+    expect(wrapper.find('[data-testid="my-accounts-proxy-smart-batch-save"]').exists()).toBe(false)
+    expect(userAPI.createProxy).not.toHaveBeenCalled()
+    expect(showError).toHaveBeenCalledWith('myAccounts.proxy.smartInputBatchInvalid')
+  })
+
   it('reads a selected JSON file, detects platform, and imports with that platform', async () => {
     const wrapper = mountView()
     await flushPromises()

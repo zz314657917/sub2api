@@ -1,6 +1,15 @@
 # 当前任务快照
 
-最后更新：2026-07-23 23:16 +08:00
+最后更新：2026-07-25 16:59 +08:00
+
+## 当前任务（S113）
+
+- 用户代理输入已支持标准代理 URL 和
+  `scheme://host:port:username:password` 紧凑格式，包含 `socks5h`。
+- 用户侧“我的代理”弹窗新增智能识别、单条填充和多行批量创建/生成名称；管理员批量导入复用同一解析器。
+- 变更限制在前端解析器、代理视图、locale、测试和 S113 workflow 证据；后端、数据库、部署、容器及独立 S110 工作树未修改。
+- 验证：focused Vitest 3 files/20 tests、typecheck、1091-module production build、目标 ESLint、`git diff --check` 均通过；未执行认证态 API 持久化或真实代理连接。
+- 关联证据：`docs/workflow/tasks/user-proxy-smart-input-s113.md`、`docs/workflow/qa-reports/user-proxy-smart-input-s113-qa.md`。
 
 ## 背景
 
@@ -11,61 +20,55 @@
 
 ## 当前目标
 
-- 完成 `upstream-v0164-small-fixes-s111` 发布收口：四项适配已进入远端
-  `main`，workflow 证据同步为 `PASS / published`。
-- 不部署、不更新容器，不触碰独立 S110；后续上游工作另开 Sprint。
+- 完成 `user-proxy-smart-input-s113` 的源码交付和 workflow 收口，保留现有
+  结构化代理 API，不扩大到后端、数据库或部署。
+- 不提交、不推送、不部署、不更新容器；不触碰独立 S110 或主工作树中的
+  group-buy dirt。
 
 ## 本次已完成
 
-- 确认 `v0.1.164` 是当前最新 release，并完成 43 个 release 提交的行为分级。
-- 创建并通过 S111 contract review，明确四项适配和十个业务/测试路径。
-- 完成四项本地适配及回归测试；Grok 402 默认标签测试补齐 repository
-  persistence、调度阻断和过期恢复。
-- 完成 focused/broad Go、Vitest `17/17`、typecheck、1090-module production
-  build、目标 ESLint、gofmt 和静态门禁。
-- 创建 S111 QA 报告并把 P/G/E phase 收口为 `done`。
-- 精确暂存 17 个 S111 路径，排除并行 group-buy dirt；创建功能提交
-  `15496ed12` 并推送到 `origin/main`。
-- 验证 `HEAD`、`origin/main` 和远端 `main` 均为 `15496ed12`，分歧 `0/0`。
+- 新增共享 `parseProxyInput`，支持标准 URL、
+  `scheme://host:port:username:password`、裸 `host:port:user:password`、IPv6
+  方括号、URL 编码凭据和密码中的额外冒号。
+- 用户侧“我的代理”弹窗支持单条智能识别、结构化填充和多行批量创建；管理员
+  批量导入复用同一解析器并保留原有重复/无效计数。
+- 完成 S113 contract、QA 报告、status/spec/main-log 和当前任务快照更新。
+- 定向 Vitest `3 files / 20 tests`、typecheck、1091-module production build、
+  目标 ESLint 和 `git diff --check` 均通过。
 
 ## 已确认事实
 
-- Grok CC Switch 现在导入 `grokbuild`，默认 `grok-4.5`，endpoint 仅保留一个
-  `/v1`，homepage 继续使用本地归一化结果。
-- Grok HTTP 402 现在暂停账号 30 分钟，原因是 `grok payment required`；
-  401、403、429 和 5xx 策略未改。
-- 模型限流使用共享 `formatCountdown`，超过 24 小时显示天数，tooltip 显示
-  完整本地日期时间并保留 console 主题类。
-- `gpt-5.6-sol` 已排到默认列表第一位；裸 `gpt-5.6` 别名仍仅出现一次。
+- 后端已有 `http`、`https`、`socks5`、`socks5h` 结构化字段和协议白名单，
+  本次不需要修改后端或数据库。
+- 解析失败会返回空结果并在用户侧显示错误，不会静默提交空主机/端口。
+- 当前代码和测试仍未提交、未推送；工作树中的 group-buy、knowledge 和
+  outputs 改动属于既有并行内容，不纳入 S113。
 
 ## 待验证点
 
-- 真实 CC Switch deeplink、真实 Grok 402 和管理员登录态浏览器 smoke 未执行。
-- 完整 `go test -tags=unit ./internal/service` 仍受既有 `stringPtr`、billing
-  helper 和 Grok runtime-block 测试编译漂移阻断。
-- 真实部署和容器更新未授权；并行 group-buy 改动仍留在工作树且不属于 S111。
+- 未执行认证态的真实 API 持久化或真实代理连接 smoke。
+- 未执行部署、容器更新或生产环境验证。
+- 全仓 ESLint 仍有既有的 3 个非本次改动错误；定向 ESLint 已通过。
 
 ## 当前结论
 
-- `PASS / published`：S111 四项补丁、验证和远端发布均已完成。
-- 当前 P/G/E phase 为 `done`；未部署、未更新容器。
+- `PASS / source-only`：S113 代码和源码级验证完成；运行态认证、部署和容器
+  刷新明确不在本次范围内。
+- 当前 P/G/E phase 为 `done`；未提交、未推送、未部署、未更新容器。
 
 ## 下一步
 
-1. 新的上游候选或功能 -> 验证：另开 Sprint/contract，不继续扩大 S111。
-2. 如需真实运行态确认 -> 验证：另行授权后执行 CC Switch、Grok 402、登录态
-   浏览器或部署/容器 smoke；这些不属于当前发布证据。
-3. S110 继续由其独立工作树处理 -> 验证：不得把当前主工作树的 group-buy
-   dirt 混入 S111 收口提交。
+1. 如需真实运行态确认，另行授权后执行登录态浏览器、API 持久化和代理连接
+   smoke。
+2. 如需发布或部署，另开发布/部署任务；先精确暂存 S113 allowlist，不要混入
+   group-buy、knowledge 或 outputs。
+3. S110 继续由其独立工作树处理，不把主工作树的 group-buy dirt 混入 S113。
 
 ## 验证记录
 
-- Grok 402 默认标签回归 `-count=10`、默认模型/available-model focused tests、
-  OpenAI/admin 包测试均通过。
-- 前端 focused Vitest `2 files / 17 tests`、typecheck、production build（1090
-  modules）和目标 ESLint 均通过。
-- `gofmt -d`、exact allowlist、`git diff --check`、冲突标记和未合并索引检查
-  均通过；构建只出现既有非阻断告警。
-- 功能提交 `15496ed12` 包含且仅包含 17 个批准路径，author/committer 为仓库
-  当前配置身份。
-- 推送后 `HEAD = origin/main = remote main = 15496ed12`，分歧为 `0/0`。
+- `proxyInput.spec.ts`、`MyAccountsView.importFile.spec.ts` 及相关代理导入
+  回归共 3 个文件、20 个测试通过，包含用户侧多行创建和无效批次拒绝。
+- `npm.cmd run typecheck`、生产构建（1091 modules）、目标 ESLint 和
+  `git diff --check` 通过。
+- 本地 Vite/Playwright 仅确认未认证页面可访问并跳转登录；认证态保存 smoke
+  未执行。

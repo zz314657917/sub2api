@@ -897,6 +897,7 @@ import { useClipboard } from '@/composables/useClipboard'
 import { useSwipeSelect } from '@/composables/useSwipeSelect'
 import { useTableSelection } from '@/composables/useTableSelection'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
+import { parseProxyInput } from '@/utils/proxyInput'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -1160,38 +1161,9 @@ const handleDataImported = () => {
   loadProxies()
 }
 
-// Parse proxy URL: protocol://user:pass@host:port or protocol://host:port
-const parseProxyUrl = (
-  line: string
-): {
-  protocol: ProxyProtocol
-  host: string
-  port: number
-  username: string
-  password: string
-} | null => {
-  const trimmed = line.trim()
-  if (!trimmed) return null
-
-  // Regex to parse proxy URL (supports http, https, socks5, socks5h)
-  const regex = /^(https?|socks5h?):\/\/(?:([^:@]+):([^@]+)@)?([^:]+):(\d+)$/i
-  const match = trimmed.match(regex)
-
-  if (!match) return null
-
-  const [, protocol, username, password, host, port] = match
-  const portNum = parseInt(port, 10)
-
-  if (portNum < 1 || portNum > 65535) return null
-
-  return {
-    protocol: protocol.toLowerCase() as ProxyProtocol,
-    host: host.trim(),
-    port: portNum,
-    username: username?.trim() || '',
-    password: password?.trim() || ''
-  }
-}
+// Batch import requires an explicit protocol; user-owned proxy forms can use
+// the selected protocol as a default through the shared parser.
+const parseProxyUrl = (line: string) => parseProxyInput(line, { requireProtocol: true })
 
 const parseBatchInput = () => {
   const lines = batchInput.value.split('\n').filter((l) => l.trim())
