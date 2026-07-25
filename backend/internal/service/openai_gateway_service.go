@@ -2712,8 +2712,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	isCompactRequest := isOpenAIResponsesCompactPath(c)
 
-	// 非透传模式下，instructions 为空时注入默认指令。
-	if isInstructionsEmpty(reqBody) && !compatMessagesBridge {
+	// 仅 OAuth/Codex 账号需要补齐 ChatGPT internal Codex 上游要求的默认指令。
+	// API Key 账号保持 Responses API 请求的 instructions 原样透传，不能根据 User-Agent 推断账号类型。
+	if account.Type == AccountTypeOAuth && isInstructionsEmpty(reqBody) && !compatMessagesBridge {
 		defaultInstructions := defaultCodexSynthInstructions(reqModel)
 		reqBody["instructions"] = defaultInstructions
 		bodyModified = true
