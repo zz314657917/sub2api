@@ -3008,7 +3008,12 @@ func (r *accountRepository) FindByExtraField(ctx context.Context, key string, va
 }
 
 // ListDueUpstreamBillingProbeAccounts bounds result hydration and network work
-// to limit while PostgreSQL performs the due-time filtering and ordering.
+// to limit. PostgreSQL performs the due-time filtering and ordering; MATERIALIZED
+// avoids repeating the defensive timestamp parse expression. Go writes
+// next_probe_at via RFC3339Nano (up to 9 fractional digits), while jsonpath
+// datetime() parses at most microseconds, so fractions beyond 6 digits are
+// trimmed first. Without this, every nanosecond timestamp is treated as
+// malformed and the fail-open ordering pins the cycle to the lowest account IDs.
 func (r *accountRepository) ListDueUpstreamBillingProbeAccounts(ctx context.Context, now time.Time, limit int) ([]service.Account, error) {
 	if limit <= 0 {
 		return []service.Account{}, nil
@@ -3031,8 +3036,17 @@ func (r *accountRepository) ListDueUpstreamBillingProbeAccounts(ctx context.Cont
 			SELECT id, probe_status, next_probe_at,
 				next_probe_at ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?(Z|[+-][0-9]{2}:[0-9]{2})$' AS rfc3339_shape,
 				jsonb_path_query_first_tz(
-					jsonb_build_object('value', replace(regexp_replace(next_probe_at, 'Z$', '+00:00'), 'T', ' ')),
-					'$.value.datetime()', '{}'::jsonb, true
+					jsonb_build_object(
+						'value',
+						replace(regexp_replace(regexp_replace(
+							next_probe_at,
+							'(\.[0-9]{6})[0-9]+(Z|[+-][0-9]{2}:[0-9]{2})$',
+							'\1\2'
+						), 'Z$', '+00:00'), 'T', ' ')
+					),
+					'$.value.datetime()',
+					'{}'::jsonb,
+					true
 				) #>> '{}' AS parsed_next_probe_at
 			FROM candidates
 		), normalized AS (
