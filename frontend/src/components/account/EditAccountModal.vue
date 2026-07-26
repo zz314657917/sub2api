@@ -1288,8 +1288,43 @@
         </div>
         <div>
           <label class="input-label">{{ t('admin.accounts.billingRateMultiplier') }}</label>
-          <input v-model.number="form.rate_multiplier" type="number" min="0" step="0.001" class="input" />
-          <p class="input-hint">{{ t('admin.accounts.billingRateMultiplierHint') }}</p>
+          <input
+            v-model.number="form.rate_multiplier"
+            type="number"
+            min="0"
+            step="0.001"
+            class="input disabled:cursor-not-allowed disabled:opacity-60"
+            data-testid="account-rate-multiplier"
+            :disabled="upstreamBillingRateSyncEnabled"
+          />
+          <p class="input-hint">
+            {{
+              t(
+                upstreamBillingRateSyncEnabled
+                  ? 'admin.accounts.upstreamBilling.syncRateManagedHint'
+                  : 'admin.accounts.billingRateMultiplierHint'
+              )
+            }}
+          </p>
+          <div
+            v-if="account?.type === 'apikey'"
+            class="mt-3 flex items-center justify-between gap-3"
+          >
+            <div class="min-w-0">
+              <p class="text-xs font-medium text-gray-700 dark:text-gray-200">
+                {{ t('admin.accounts.upstreamBilling.syncRate') }}
+              </p>
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.accounts.upstreamBilling.syncRateHint') }}
+              </p>
+            </div>
+            <Toggle
+              :model-value="upstreamBillingRateSyncEnabled"
+              data-testid="upstream-billing-rate-sync"
+              :aria-label="t('admin.accounts.upstreamBilling.syncRate')"
+              @update:model-value="handleUpstreamBillingRateSyncChange"
+            />
+          </div>
         </div>
       </div>
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
@@ -1533,9 +1568,10 @@
           </p>
         </div>
         <Toggle
-          v-model="upstreamBillingAutoProbeEnabled"
+          :model-value="upstreamBillingAutoProbeEnabled"
           data-testid="upstream-billing-auto-probe"
           :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
+          @update:model-value="handleUpstreamBillingAutoProbeChange"
         />
       </div>
 
@@ -3098,6 +3134,20 @@ const form = reactive({
   expires_at: null as number | null
 })
 
+const handleUpstreamBillingRateSyncChange = (enabled: boolean) => {
+  upstreamBillingRateSyncEnabled.value = enabled
+  if (enabled) {
+    upstreamBillingAutoProbeEnabled.value = true
+  }
+}
+
+const handleUpstreamBillingAutoProbeChange = (enabled: boolean) => {
+  upstreamBillingAutoProbeEnabled.value = enabled
+  if (!enabled) {
+    upstreamBillingRateSyncEnabled.value = false
+  }
+}
+
 const statusOptions = computed(() => {
   const options = [
     { value: 'active', label: t('common.active') },
@@ -3973,6 +4023,13 @@ const handleSubmit = async () => {
       updatePayload.load_factor = 0
     }
     updatePayload.auto_pause_on_expired = autoPauseOnExpired.value
+    if (props.account.type === 'apikey') {
+      updatePayload.upstream_billing_probe_enabled = upstreamBillingAutoProbeEnabled.value
+      updatePayload.upstream_billing_rate_sync_enabled = upstreamBillingRateSyncEnabled.value
+      if (upstreamBillingRateSyncEnabled.value) {
+        delete updatePayload.rate_multiplier
+      }
+    }
 
     // For apikey type, handle credentials update
     if (props.account.type === 'apikey') {
@@ -4469,7 +4526,8 @@ const handleSubmit = async () => {
         (props.account.extra as Record<string, unknown>) || {}
       const newExtra: Record<string, unknown> = { ...currentExtra }
       if (props.account.type === 'apikey') {
-        newExtra.upstream_billing_probe_enabled = upstreamBillingAutoProbeEnabled.value
+        delete newExtra.upstream_billing_probe_enabled
+        delete newExtra.upstream_billing_rate_sync_enabled
       }
       // Total quota
       if (editQuotaLimit.value != null && editQuotaLimit.value > 0) {

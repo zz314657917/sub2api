@@ -1787,6 +1787,16 @@ func (s *stubAccountRepo) Update(ctx context.Context, account *service.Account) 
 	return nil
 }
 
+func (s *stubAccountRepo) UpdateWithAccountBillingSettings(
+	ctx context.Context,
+	account *service.Account,
+	probeEnabled *bool,
+	rateSyncEnabled *bool,
+	rateMultiplier *float64,
+) error {
+	return errors.New("not implemented")
+}
+
 func (s *stubAccountRepo) Delete(ctx context.Context, id int64) error {
 	return errors.New("not implemented")
 }

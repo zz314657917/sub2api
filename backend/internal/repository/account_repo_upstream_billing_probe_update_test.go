@@ -91,7 +91,7 @@ func TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot(t *testing.T) 
 				Credentials: map[string]any{"api_key": "sk-test"},
 				Extra:       tt.inputExtra,
 			}
-			got, err := lockAndMergeAccountProbeExtra(context.Background(), client, account, nil)
+			got, err := lockAndMergeAccountProbeExtra(context.Background(), client, account, nil, nil)
 			require.NoError(t, err)
 			if tt.wantSnapshot == nil {
 				require.NotContains(t, got, service.UpstreamBillingProbeExtraKey)
@@ -242,7 +242,7 @@ func TestUpdateWithUpstreamBillingProbeEnabledRollsBackWhenOutboxFails(t *testin
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectQuery(`(?s)SELECT .* FROM "accounts" WHERE "id" = \$1`).
 		WithArgs(int64(27)).
-		WillReturnRows(updatedAccountRows(27, `{"upstream_billing_probe_enabled":false}`))
+		WillReturnRows(updatedAccountRows(27, `{"upstream_billing_probe_enabled":false,"upstream_billing_rate_sync_enabled":false}`))
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO scheduler_outbox")).WillReturnError(errors.New("outbox failed"))
 	mock.ExpectRollback()
 
@@ -266,6 +266,7 @@ func TestUpdateWithUpstreamBillingProbeEnabledRollsBackWhenOutboxFails(t *testin
 
 	require.EqualError(t, err, "outbox failed")
 	require.Equal(t, false, account.Extra[service.UpstreamBillingProbeEnabledExtraKey])
+	require.Equal(t, false, account.Extra[service.UpstreamBillingRateSyncEnabledExtraKey])
 	require.NotContains(t, account.Extra, service.UpstreamBillingProbeExtraKey)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
