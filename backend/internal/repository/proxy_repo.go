@@ -210,7 +210,6 @@ func invalidateProxyProbeSnapshots(ctx context.Context, exec sqlExecutor, proxyI
 		UPDATE accounts
 		SET extra = COALESCE(extra, '{}'::jsonb) - 'upstream_billing_probe', updated_at = NOW()
 		WHERE proxy_id = $1
-			AND platform = 'openai'
 			AND type = 'apikey'
 			AND extra ? 'upstream_billing_probe'
 			AND extra -> 'upstream_billing_probe' <> 'null'::jsonb
