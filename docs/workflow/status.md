@@ -1,13 +1,44 @@
 ---
 phase: done
-current_sprint: user-proxy-smart-input-s113
-total_sprints: 113
-pending_action: S113 PASS/published; authenticated API smoke, live proxy connection, deployment, and container refresh remain out of scope
+current_sprint: upstream-v0165-chatgpt-live-s116
+total_sprints: 116
+pending_action: S115/S116 PASS/source-only; real PostgreSQL/Redis/ChatGPT Live runtime, authenticated browser smoke, deployment, and container refresh remain out of scope
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-25 23:59 +08:00
+last_verified: 2026-07-26 00:20 +08:00
 ---
+
+# S116 Current Sprint
+
+- Contract approved for the v0.1.165 ChatGPT Live realtime gateway.
+- Live is opt-in through persisted `groups.allow_live`, rejects unsupported
+  account modes, and exposes `/v1/live` plus Codex-compatible realtime aliases.
+- Redis-backed call records and live leases cover controller handoff, refresh,
+  expiry, release, and idempotent `request_type=live` usage finalization.
+- Focused Live/session tests, Ent generation, full package compilation, frontend
+  typecheck, production build (1091 modules), formatting, and diff checks pass.
+- Windows fail-closed DeviceCheck behavior is explicit; no synthetic macOS
+  attestation is generated.
+- Final Evaluator: PASS/source-only. Real Redis, macOS DeviceCheck, upstream
+  ChatGPT request, authenticated browser, deployment, and container refresh were
+  not run.
+- Contract: `docs/workflow/tasks/upstream-v0165-chatgpt-live-s116.md`.
+- QA report: `docs/workflow/qa-reports/upstream-v0165-chatgpt-live-s116-qa.md`.
+
+# S115 Current Sprint
+
+- Contract approved for explicit client session-id persistence from the v0.1.165
+  usage change.
+- Supported headers are trimmed, bounded, sanitized, and propagated through the
+  local gateway usage paths; values are never synthesized from prompts/cache
+  keys/request hashes.
+- Single, batch, best-effort insert, scan, DTO mapping, and nullable migration
+  behavior pass focused tests and compile gates.
+- Final Evaluator: PASS/source-only. Real PostgreSQL migration and authenticated
+  usage persistence were not run.
+- Contract: `docs/workflow/tasks/upstream-v0165-usage-session-id-s115.md`.
+- QA report: `docs/workflow/qa-reports/upstream-v0165-usage-session-id-s115-qa.md`.
 
 # S113 Current Sprint
 

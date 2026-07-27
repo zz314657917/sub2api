@@ -215,6 +215,11 @@ export default {
         targetModelPlaceholder: 'e.g., gpt-5.4',
         removeExactMapping: 'Remove Exact Mapping'
       },
+      openaiLive: {
+        title: 'ChatGPT Live sessions',
+        allowLive: 'Allow ChatGPT Live',
+        allowLiveHint: 'When enabled, API keys in this OpenAI group can create realtime sessions through /v1/live.'
+      },
       invalidRequestFallback: {
         title: 'Invalid Request Fallback Group',
         hint: 'Triggered only when upstream explicitly returns prompt too long. Leave empty to disable fallback.',

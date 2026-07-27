@@ -79,6 +79,8 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		zap.Bool("stream", parsed.Stream),
 		zap.Bool("multipart", parsed.Multipart),
 		zap.String("capability", string(parsed.RequiredCapability)),
+		zap.String("img_quality", parsed.Quality),
+		zap.String("img_size", parsed.Size),
 	)
 
 	if resolved, ok := h.resolveAPIKeyForModelRequest(c, apiKey, parsed.Model, true); !ok {
@@ -361,6 +363,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
+		sessionID := service.ExtractClientSessionID(c)
 
 		upstreamModel := ""
 		if result != nil {
@@ -377,6 +380,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				UpstreamEndpoint:    upstreamEndpoint,
 				UserAgent:           userAgent,
 				IPAddress:           clientIP,
+				SessionID:           sessionID,
 				RequestPayloadHash:  requestPayloadHash,
 				RequireBalanceCheck: preflightCost != nil,
 				CostOverride:        preflightCost,

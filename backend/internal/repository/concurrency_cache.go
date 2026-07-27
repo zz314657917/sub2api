@@ -29,6 +29,10 @@ const (
 	userSlotKeyPrefix = "concurrency:user:"
 	// 格式: concurrency:api_key:{apiKeyID}
 	apiKeySlotKeyPrefix = "concurrency:api_key:"
+	liveAccountSlotKeyPrefix = "concurrency:live:account:"
+	liveUserSlotKeyPrefix    = "concurrency:live:user:"
+	liveAPIKeySlotKeyPrefix  = "concurrency:live:api_key:"
+	liveLeaseTTLSeconds      = 60
 	// 等待队列计数器格式: concurrency:wait:{userID}
 	waitQueueKeyPrefix = "concurrency:wait:"
 	// 账号级等待队列计数器格式: wait:account:{accountID}
@@ -282,6 +286,47 @@ func apiKeySlotKey(apiKeyID int64) string {
 	return fmt.Sprintf("%s%d", apiKeySlotKeyPrefix, apiKeyID)
 }
 
+func liveAccountSlotKey(accountID int64) string { return fmt.Sprintf("%s%d", liveAccountSlotKeyPrefix, accountID) }
+func liveUserSlotKey(userID int64) string       { return fmt.Sprintf("%s%d", liveUserSlotKeyPrefix, userID) }
+func liveAPIKeySlotKey(apiKeyID int64) string   { return fmt.Sprintf("%s%d", liveAPIKeySlotKeyPrefix, apiKeyID) }
+
+var acquireLiveLeaseScript = redis.NewScript(`
+local account = KEYS[1]
+local user = KEYS[2]
+local api = KEYS[3]
+local accountMax = tonumber(ARGV[1])
+local userMax = tonumber(ARGV[2])
+local ttl = tonumber(ARGV[3])
+local lease = ARGV[4]
+local now = tonumber(redis.call('TIME')[1])
+local cutoff = now - ttl
+redis.call('ZREMRANGEBYSCORE', account, '-inf', cutoff)
+redis.call('ZREMRANGEBYSCORE', user, '-inf', cutoff)
+redis.call('ZREMRANGEBYSCORE', api, '-inf', cutoff)
+if redis.call('ZSCORE', account, lease) ~= false then return 1 end
+if accountMax > 0 and redis.call('ZCARD', account) >= accountMax then return 0 end
+if userMax > 0 and redis.call('ZCARD', user) >= userMax then return 0 end
+redis.call('ZADD', account, now, lease)
+redis.call('ZADD', user, now, lease)
+redis.call('ZADD', api, now, lease)
+redis.call('EXPIRE', account, ttl)
+redis.call('EXPIRE', user, ttl)
+redis.call('EXPIRE', api, ttl)
+return 1
+`)
+
+var refreshLiveLeaseScript = redis.NewScript(`
+local now = tonumber(redis.call('TIME')[1])
+local cutoff = now - tonumber(ARGV[1])
+local lease = ARGV[2]
+for _, key in ipairs(KEYS) do
+  redis.call('ZREMRANGEBYSCORE', key, '-inf', cutoff)
+  if redis.call('ZSCORE', key, lease) == false then return 0 end
+end
+for _, key in ipairs(KEYS) do redis.call('ZADD', key, now, lease); redis.call('EXPIRE', key, ARGV[1]) end
+return 1
+`)
+
 func waitQueueKey(userID int64) string {
 	return fmt.Sprintf("%s%d", waitQueueKeyPrefix, userID)
 }
@@ -390,6 +435,28 @@ func (c *concurrencyCache) TrackAPIKeySlot(ctx context.Context, apiKeyID int64, 
 func (c *concurrencyCache) ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64, requestID string) error {
 	key := apiKeySlotKey(apiKeyID)
 	return c.rdb.ZRem(ctx, key, requestID).Err()
+}
+
+func (c *concurrencyCache) AcquireLiveLease(ctx context.Context, accountID int64, accountMax int, userID int64, userMax int, apiKeyID int64, leaseID string, _ bool) (bool, error) {
+	if c == nil || c.rdb == nil || leaseID == "" { return false, nil }
+	value, err := acquireLiveLeaseScript.Run(ctx, c.rdb, []string{liveAccountSlotKey(accountID), liveUserSlotKey(userID), liveAPIKeySlotKey(apiKeyID)}, accountMax, userMax, liveLeaseTTLSeconds, leaseID).Int()
+	return value == 1, err
+}
+
+func (c *concurrencyCache) RefreshLiveLease(ctx context.Context, accountID, userID, apiKeyID int64, leaseID string) (bool, error) {
+	if c == nil || c.rdb == nil || leaseID == "" { return false, nil }
+	value, err := refreshLiveLeaseScript.Run(ctx, c.rdb, []string{liveAccountSlotKey(accountID), liveUserSlotKey(userID), liveAPIKeySlotKey(apiKeyID)}, liveLeaseTTLSeconds, leaseID).Int()
+	return value == 1, err
+}
+
+func (c *concurrencyCache) ReleaseLiveLease(ctx context.Context, accountID, userID, apiKeyID int64, leaseID string) error {
+	if c == nil || c.rdb == nil || leaseID == "" { return nil }
+	pipe := c.rdb.TxPipeline()
+	pipe.ZRem(ctx, liveAccountSlotKey(accountID), leaseID)
+	pipe.ZRem(ctx, liveUserSlotKey(userID), leaseID)
+	pipe.ZRem(ctx, liveAPIKeySlotKey(apiKeyID), leaseID)
+	_, err := pipe.Exec(ctx)
+	return err
 }
 
 func (c *concurrencyCache) GetAPIKeyConcurrencyBatch(ctx context.Context, apiKeyIDs []int64) (map[int64]int, error) {

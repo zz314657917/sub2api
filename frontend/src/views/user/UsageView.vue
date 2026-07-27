@@ -910,7 +910,8 @@ const requestTypeOptions = computed(() => [
   { value: null, label: t('usage.allTypes') },
   { value: 'sync', label: t('usage.sync') },
   { value: 'stream', label: t('usage.stream') },
-  { value: 'ws_v2', label: t('usage.ws') }
+  { value: 'ws_v2', label: t('usage.ws') },
+  { value: 'live', label: t('usage.live') }
 ])
 
 const billingModeOptions = computed(() => [
@@ -1163,6 +1164,7 @@ const toggleColumn = (key: string) => {
 
 const getRequestTypeLabel = (log: UsageLog): string => {
   const requestType = resolveUsageRequestType(log)
+  if (requestType === 'live') return t('usage.live')
   if (requestType === 'ws_v2') return t('usage.ws')
   if (requestType === 'stream') return t('usage.stream')
   if (requestType === 'sync') return t('usage.sync')
@@ -1171,6 +1173,7 @@ const getRequestTypeLabel = (log: UsageLog): string => {
 
 const getRequestTypeBadgeClass = (log: UsageLog): string => {
   const requestType = resolveUsageRequestType(log)
+  if (requestType === 'live') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
   if (requestType === 'ws_v2') return 'bg-[#f3e7df] text-[#a9583e] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
   if (requestType === 'stream') return 'bg-[#fffaf5] text-[#a9583e] ring-1 ring-[#d8cec2] dark:bg-[#cc785c]/15 dark:text-[#f0b89e] dark:ring-[#cc785c]/30'
   if (requestType === 'sync') return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
@@ -1180,6 +1183,7 @@ const getRequestTypeBadgeClass = (log: UsageLog): string => {
 
 const getRequestTypeExportText = (log: UsageLog): string => {
   const requestType = resolveUsageRequestType(log)
+  if (requestType === 'live') return 'Live'
   if (requestType === 'ws_v2') return 'WS'
   if (requestType === 'stream') return 'Stream'
   if (requestType === 'sync') return 'Sync'

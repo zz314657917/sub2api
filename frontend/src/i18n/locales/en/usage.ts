@@ -73,6 +73,7 @@ export default {
     latencyDuration: 'Total',
     time: 'Time',
     ws: 'WS',
+    live: 'Live realtime',
     stream: 'Stream',
     sync: 'Sync',
     unknown: 'Unknown',

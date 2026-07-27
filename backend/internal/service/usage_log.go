@@ -19,11 +19,12 @@ const (
 	RequestTypeSync    RequestType = 1
 	RequestTypeStream  RequestType = 2
 	RequestTypeWSV2    RequestType = 3
+	RequestTypeLive    RequestType = 4
 )
 
 func (t RequestType) IsValid() bool {
 	switch t {
-	case RequestTypeUnknown, RequestTypeSync, RequestTypeStream, RequestTypeWSV2:
+	case RequestTypeUnknown, RequestTypeSync, RequestTypeStream, RequestTypeWSV2, RequestTypeLive:
 		return true
 	default:
 		return false
@@ -45,6 +46,8 @@ func (t RequestType) String() string {
 		return "stream"
 	case RequestTypeWSV2:
 		return "ws_v2"
+	case RequestTypeLive:
+		return "live"
 	default:
 		return "unknown"
 	}
@@ -64,8 +67,10 @@ func ParseUsageRequestType(value string) (RequestType, error) {
 		return RequestTypeStream, nil
 	case "ws_v2":
 		return RequestTypeWSV2, nil
+	case "live":
+		return RequestTypeLive, nil
 	default:
-		return RequestTypeUnknown, fmt.Errorf("invalid request_type, allowed values: unknown, sync, stream, ws_v2")
+		return RequestTypeUnknown, fmt.Errorf("invalid request_type, allowed values: unknown, sync, stream, ws_v2, live")
 	}
 }
 
@@ -160,6 +165,8 @@ type UsageLog struct {
 	FirstTokenMs *int
 	UserAgent    *string
 	IPAddress    *string
+	// SessionID is the explicit client-provided request correlation identifier.
+	SessionID    *string
 
 	// Cache TTL Override 标记（管理员强制替换了缓存 TTL 计费）
 	CacheTTLOverridden bool

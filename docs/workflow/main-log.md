@@ -468,3 +468,8 @@
 260725 1658 | user-proxy-smart-input-s113 | final-qa | Evaluator | focused Vitest 20/20, typecheck, targeted ESLint, and diff check PASS
 260725 1659 | user-proxy-smart-input-s113 | final-qa | Evaluator | final typecheck and targeted ESLint rerun PASS after invalid-batch regression
 260725 2359 | user-proxy-smart-input-s113 | publish | Codex | feature commit 0f8178a1d pushed to origin/main; HEAD, origin/main, remote main, and 0/0 divergence verified; group-buy, knowledge, and outputs dirt excluded
+260726 0020 | upstream-v0165-usage-session-id-s115 | build-and-qa-pass | Codex | explicit session_id propagation, nullable migration, usage insert/scan and DTO mapping; focused Go, Ent generation, compile and diff gates PASS
+260726 0020 | upstream-v0165-usage-session-id-s115 | done | Evaluator | PASS/source-only; real PostgreSQL/authenticated usage persistence, deployment and containers remain unverified
+260726 0020 | upstream-v0165-chatgpt-live-s116 | build-and-qa-pass | Codex | opt-in ChatGPT Live routes, Redis call/lease lifecycle, sideband forwarding, usage type, Ent generation, focused Go, compile, frontend typecheck/build and diff gates PASS
+260726 0020 | upstream-v0165-chatgpt-live-s116 | done | Evaluator | PASS/source-only; Windows DeviceCheck fail-closed, real macOS/Redis/ChatGPT upstream, authenticated browser, deployment and containers remain unverified
+260726 0035 | upstream-v0165-chatgpt-live-s116 | review-fix | Codex | Redis call round-trip now persists attestation ciphertext; Live creation reuses local OpenAI content-moderation gate; focused Go/compile/diff retest PASS

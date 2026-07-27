@@ -29,6 +29,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
+	"github.com/Wei-Shaw/sub2api/internal/platform/liveattestation"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
 	"github.com/cespare/xxhash/v2"
@@ -363,6 +364,8 @@ type OpenAIGatewayService struct {
 	welfareService        *WelfareService
 	membershipService     *MembershipService
 	affiliateService      *AffiliateService
+	liveAttestation       liveattestation.Provider
+	liveAttestationCipher SecretEncryptor
 
 	openaiWSPoolOnce              sync.Once
 	openaiWSStateStoreOnce        sync.Once
@@ -453,6 +456,8 @@ func NewOpenAIGatewayService(
 		settingService:        settingService,
 		welfareService:        welfareService,
 		membershipService:     membership,
+		liveAttestation:       liveattestation.NewProvider(),
+		liveAttestationCipher: newLiveAttestationCipher(cfg),
 		responseHeaderFilter:  compileResponseHeaderFilter(cfg),
 		codexSnapshotThrottle: newAccountWriteThrottle(openAICodexSnapshotPersistMinInterval),
 	}
@@ -6534,6 +6539,7 @@ type OpenAIRecordUsageInput struct {
 	UpstreamEndpoint     string
 	UserAgent            string // 请求的 User-Agent
 	IPAddress            string // 请求的客户端 IP 地址
+	SessionID            string // 客户端显式会话标识，仅用于 usage 关联
 	RequestPayloadHash   string
 	RequestIDOverride    string
 	MediaType            string
@@ -6764,6 +6770,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	// 添加 IPAddress
 	if input.IPAddress != "" {
 		usageLog.IPAddress = &input.IPAddress
+	}
+	if input.SessionID != "" {
+		usageLog.SessionID = optionalTrimmedStringPtr(input.SessionID)
 	}
 
 	if apiKey.GroupID != nil {

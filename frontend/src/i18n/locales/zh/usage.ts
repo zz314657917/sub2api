@@ -73,6 +73,7 @@ export default {
     latencyDuration: '总耗时',
     time: '时间',
     ws: 'WS',
+    live: 'Live 实时',
     stream: '流式',
     sync: '同步',
     unknown: '未知',
