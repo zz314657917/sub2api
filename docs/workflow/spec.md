@@ -5,6 +5,31 @@ qa_mode: runtime
 last_verified: 2026-07-03 19:30 +08:00
 ---
 
+## S117 Addendum: preserve omitted admin settings fields
+
+### Goal
+
+- Adapt upstream `0b5903d45` so a partial `PUT /api/v1/admin/settings`
+  payload does not overwrite unrelated value-typed settings with Go zero values.
+
+### Scope Boundary
+
+- Capture the incoming top-level JSON field names before binding the existing
+  request DTO. Preserve omitted value-typed setting keys, including the
+  `smtp_from_email` JSON alias, while retaining explicit empty/false/zero
+  updates and the existing pointer-field merge semantics.
+- Refresh in-process setting caches from persisted settings after a partial
+  write. Preserve all existing validation and auth-source default behavior.
+- Do not modify schema, migrations, frontend, routes, deployment, containers,
+  billing, account routing, or unrelated dirty S114-S116 work.
+
+### Acceptance Boundary
+
+- Handler/service regressions prove partial writes preserve unrelated settings,
+  explicit zero values clear sent fields, JSON aliases remain writable, and
+  full requests retain existing semantics. Focused Go checks, formatting, and
+  static diff/path gates pass.
+
 ## S113 Addendum: user proxy smart input
 
 ### Goal

@@ -473,3 +473,8 @@
 260726 0020 | upstream-v0165-chatgpt-live-s116 | build-and-qa-pass | Codex | opt-in ChatGPT Live routes, Redis call/lease lifecycle, sideband forwarding, usage type, Ent generation, focused Go, compile, frontend typecheck/build and diff gates PASS
 260726 0020 | upstream-v0165-chatgpt-live-s116 | done | Evaluator | PASS/source-only; Windows DeviceCheck fail-closed, real macOS/Redis/ChatGPT upstream, authenticated browser, deployment and containers remain unverified
 260726 0035 | upstream-v0165-chatgpt-live-s116 | review-fix | Codex | Redis call round-trip now persists attestation ciphertext; Live creation reuses local OpenAI content-moderation gate; focused Go/compile/diff retest PASS
+260727 1920 | upstream-v0166-settings-partial-update-s117 | contract-draft | Planner | docs/workflow/tasks/upstream-v0166-settings-partial-update-s117.md
+260727 1920 | upstream-v0166-settings-partial-update-s117 | contract-approved | Evaluator | presence-map scope, aliases, pointer-field behavior, and focused acceptance commands reviewed
+260727 1920 | upstream-v0166-settings-partial-update-s117 | contract-amended | Evaluator | service regression moved from unit-tag suite to default-tag test file after unrelated unit-suite compile drift
+260727 1932 | upstream-v0166-settings-partial-update-s117 | build-and-qa-pass | Codex | focused handler/service tests, existing settings regression, full package compile, gofmt, diff, and allowlist audit PASS
+260727 1932 | upstream-v0166-settings-partial-update-s117 | done | Evaluator | PASS/source-only; unit-tag aggregate and authenticated persistent runtime remain out of scope

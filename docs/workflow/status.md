@@ -1,15 +1,29 @@
 ---
 phase: done
-current_sprint: upstream-v0165-chatgpt-live-s116
-total_sprints: 116
-pending_action: S115/S116 PASS/source-only; real PostgreSQL/Redis/ChatGPT Live runtime, authenticated browser smoke, deployment, and container refresh remain out of scope
+current_sprint: upstream-v0166-settings-partial-update-s117
+total_sprints: 117
+pending_action: S117 PASS/source-only in its isolated worktree; review and merge only after the dirty primary worktree's S115/S116 changes are independently closed
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-26 00:20 +08:00
+last_verified: 2026-07-27 19:32 +08:00
 ---
 
-# S116 Current Sprint
+# S117 Current Sprint
+
+- Adapted upstream `0b5903d45`: the handler records top-level JSON presence,
+  service writes omit absent value-typed settings, and partial writes rebuild
+  caches from stored values. Explicit empty/false/zero values still write.
+- The SMTP JSON alias is mapped explicitly; pointer-field settings retain their
+  existing merge behavior. No migration, frontend, deployment, container,
+  billing, routing, or S115/S116 source changed.
+- Final Evaluator: PASS/source-only. Focused handler/service regressions,
+  existing handler settings regressions, full package compile, formatting,
+  diff, and path audits pass. The existing `unit` service suite remains
+  blocked by unrelated compile drift.
+- QA report: `docs/workflow/qa-reports/upstream-v0166-settings-partial-update-s117-qa.md`.
+
+# S116 Integrated Sprint
 
 - Contract approved for the v0.1.165 ChatGPT Live realtime gateway.
 - Live is opt-in through persisted `groups.allow_live`, rejects unsupported
@@ -26,7 +40,7 @@ last_verified: 2026-07-26 00:20 +08:00
 - Contract: `docs/workflow/tasks/upstream-v0165-chatgpt-live-s116.md`.
 - QA report: `docs/workflow/qa-reports/upstream-v0165-chatgpt-live-s116-qa.md`.
 
-# S115 Current Sprint
+# S115 Integrated Sprint
 
 - Contract approved for explicit client session-id persistence from the v0.1.165
   usage change.
