@@ -472,3 +472,4 @@
 260728 0058 | channel-pricing-model-catalog-s122 | build | Codex | gateway model candidates now merge account mappings with concrete current-channel SupportedModels
 260728 0058 | channel-pricing-model-catalog-s122 | qa-pass | Evaluator | focused models x10, full handler, chatgpt2api bridge, isolated peak baseline, formatting, and static gates PASS
 260728 0058 | channel-pricing-model-catalog-s122 | done | Evaluator | PASS/source-ready; live channel data, deployment, and containers remain unverified
+260728 0102 | channel-pricing-model-catalog-s122 | publish | Codex | feature commit ee5f8abbe pushed to origin/main; remote parity verified; dirty main worktree and other worktrees excluded

@@ -25,4 +25,4 @@
 
 ## Recommendation
 
-PASS / source-ready. Publish the scoped S122 commit, then deploy Sub2API before expecting chatgpt2api to see pricing-only models in a live environment.
+PASS / published. Feature commit `ee5f8abbe` is on `origin/main`; deploy Sub2API before expecting chatgpt2api to see pricing-only models in a live environment.

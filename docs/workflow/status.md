@@ -2,7 +2,7 @@
 phase: done
 current_sprint: channel-pricing-model-catalog-s122
 total_sprints: 122
-pending_action: S122 PASS/source-ready; commit and publish the scoped change, then deploy Sub2API separately
+pending_action: S122 PASS/published; deploy Sub2API separately before live Studio Bridge verification
 project_type: web
 qa_mode: runtime
 approval_required: false
@@ -19,7 +19,7 @@ last_verified: 2026-07-28 00:00 +08:00
 - Implementation merges account mappings with current group/platform channel-supported models; `kimi-k3` is covered as a generic pricing-only regression.
 - Focused model tests at `count=10`, full handler tests, chatgpt2api bridge regressions, formatting, and static gates pass.
 - Aggregate service tests retain only the known five `TestPeakMultiplier*` timezone/order failures; the same tests pass in isolation.
-- Final Evaluator: PASS/source-ready. Live channel data, deployment, and container refresh were not run.
+- Final Evaluator: PASS/published. Feature commit `ee5f8abbe` is on `origin/main`; live channel data, deployment, and container refresh were not run.
 - Worker result: `docs/workflow/worker-results/channel-pricing-model-catalog-s122-result.md`.
 - QA report: `docs/workflow/qa-reports/channel-pricing-model-catalog-s122-qa.md`.
 

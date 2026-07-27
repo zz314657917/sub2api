@@ -26,10 +26,10 @@
 
 ## 当前结论
 
-- `PASS / source-ready`：源码和验证已完成，下一步为定向提交并推送。
+- `PASS / published`：功能提交 `ee5f8abbe` 已推送到 `origin/main`，远端一致性已验证。
 - 尚未使用真实渠道数据做认证态 Studio Bridge 联调，也未部署或更新容器。
 
 ## 下一步
 
-1. 仅提交 S122 allowlist 文件并推送远端 `main`。
-2. 部署 Sub2API 后，用真实渠道定价中的 `kimi-k3` 调用 `/v1/model-catalog`，再刷新 chatgpt2api Canvas 模型列表。
+1. 部署 Sub2API 后，用真实渠道定价中的 `kimi-k3` 调用 `/v1/model-catalog`，再刷新 chatgpt2api Canvas 模型列表。
+2. 不把主工作树现有用户改动或其它 worktree 内容混入 S122。
