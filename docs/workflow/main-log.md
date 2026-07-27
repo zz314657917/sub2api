@@ -468,3 +468,7 @@
 260725 1658 | user-proxy-smart-input-s113 | final-qa | Evaluator | focused Vitest 20/20, typecheck, targeted ESLint, and diff check PASS
 260725 1659 | user-proxy-smart-input-s113 | final-qa | Evaluator | final typecheck and targeted ESLint rerun PASS after invalid-batch regression
 260725 2359 | user-proxy-smart-input-s113 | publish | Codex | feature commit 0f8178a1d pushed to origin/main; HEAD, origin/main, remote main, and 0/0 divergence verified; group-buy, knowledge, and outputs dirt excluded
+260728 0000 | channel-pricing-model-catalog-s122 | contract-approved | Codex | reuse Channel.SupportedModels for current group/platform; billing, routing, schema, frontend, deploy, and containers excluded
+260728 0058 | channel-pricing-model-catalog-s122 | build | Codex | gateway model candidates now merge account mappings with concrete current-channel SupportedModels
+260728 0058 | channel-pricing-model-catalog-s122 | qa-pass | Evaluator | focused models x10, full handler, chatgpt2api bridge, isolated peak baseline, formatting, and static gates PASS
+260728 0058 | channel-pricing-model-catalog-s122 | done | Evaluator | PASS/source-ready; live channel data, deployment, and containers remain unverified

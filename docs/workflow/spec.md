@@ -2,8 +2,27 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-07-03 19:30 +08:00
+last_verified: 2026-07-28 00:00 +08:00
 ---
+
+## S122 Addendum: channel pricing models in gateway catalog
+
+### Goal
+
+- Expose concrete models configured through an active channel's pricing or mapping in the existing `/v1/models` and `/v1/model-catalog` responses, so Studio Bridge consumers discover the same model set shown by Sub2API's available-channel view.
+
+### Scope Boundary
+
+- Merge `Channel.SupportedModels()` into account-derived model candidates only for the requested group and platform.
+- Require at least one schedulable account after platform filtering.
+- Preserve wildcard filtering, sorting, deduplication, short-cache behavior, routing, restriction, and billing semantics.
+- Do not change schema, migrations, frontend, deployment, containers, or model-specific constants.
+
+### Acceptance Boundary
+
+- Focused service tests cover pricing-only discovery, union behavior, platform isolation, wildcard filtering, and no-account fallback.
+- Existing gateway handler model-list/catalog tests remain green; broader package failures must be isolated and documented if they reproduce an established baseline outside the S122 paths.
+- `gofmt`, exact path audit, conflict-marker scan, unmerged-index check, and `git diff --check` pass.
 
 ## S113 Addendum: user proxy smart input
 

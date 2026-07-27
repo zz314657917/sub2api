@@ -1,13 +1,27 @@
 ---
 phase: done
-current_sprint: user-proxy-smart-input-s113
-total_sprints: 113
-pending_action: S113 PASS/published; authenticated API smoke, live proxy connection, deployment, and container refresh remain out of scope
+current_sprint: channel-pricing-model-catalog-s122
+total_sprints: 122
+pending_action: S122 PASS/source-ready; commit and publish the scoped change, then deploy Sub2API separately
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-25 23:59 +08:00
+last_verified: 2026-07-28 00:00 +08:00
 ---
+
+# S122 Current Sprint
+
+- Contract approved to merge concrete channel-supported models into the existing gateway model directory for the current group and platform.
+- The implementation is limited to `GatewayService.GetAvailableModels`, focused service tests, and workflow evidence.
+- Billing, model mapping execution, channel restriction, scheduling, schema, frontend, deployment, and containers remain frozen.
+- Contract: `docs/workflow/tasks/channel-pricing-model-catalog-s122.md`.
+- Contract review: `docs/workflow/channel-pricing-model-catalog-s122-contract-review.md` (PASS).
+- Implementation merges account mappings with current group/platform channel-supported models; `kimi-k3` is covered as a generic pricing-only regression.
+- Focused model tests at `count=10`, full handler tests, chatgpt2api bridge regressions, formatting, and static gates pass.
+- Aggregate service tests retain only the known five `TestPeakMultiplier*` timezone/order failures; the same tests pass in isolation.
+- Final Evaluator: PASS/source-ready. Live channel data, deployment, and container refresh were not run.
+- Worker result: `docs/workflow/worker-results/channel-pricing-model-catalog-s122-result.md`.
+- QA report: `docs/workflow/qa-reports/channel-pricing-model-catalog-s122-qa.md`.
 
 # S113 Current Sprint
 
