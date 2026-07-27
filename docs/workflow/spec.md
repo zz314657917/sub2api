@@ -30,6 +30,31 @@ last_verified: 2026-07-03 19:30 +08:00
   full requests retain existing semantics. Focused Go checks, formatting, and
   static diff/path gates pass.
 
+## S118 Addendum: Gemini pool-mode retry eligibility
+
+### Goal
+
+- Adapt upstream `fd7e2039d` so existing Gemini API-key pool failover paths
+  preserve configured same-account retry eligibility when the error policy
+  otherwise skips handling an upstream error.
+
+### Scope Boundary
+
+- Introduce one shared helper for Gemini pool-mode skipped-policy errors and
+  call it from messages HTTP, native messages, and chat-completions forwarding.
+- Keep retry eligibility gated by `account.IsPoolModeRetryableStatus`; all
+  non-pool accounts, non-failover statuses, error-policy matches, retry counts,
+  cooldowns, and account selection remain unchanged.
+- Do not modify database, migrations, routes, frontend, scheduler, billing,
+  deployment, containers, or S114-S117 work.
+
+### Acceptance Boundary
+
+- Focused tests prove pool 429 and configured 500 paths enter failover with
+  the expected same-account flag, while pool unconfigured 500, non-pool, and
+  400 cases retain current behavior. Go compile, formatting, and diff/path
+  gates pass.
+
 ## S113 Addendum: user proxy smart input
 
 ### Goal

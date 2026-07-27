@@ -1,15 +1,35 @@
 ---
 phase: done
-current_sprint: upstream-v0166-settings-partial-update-s117
-total_sprints: 117
-pending_action: S117 PASS/source-only in its isolated worktree; review and merge only after the dirty primary worktree's S115/S116 changes are independently closed
+current_sprint: upstream-v0166-gemini-pool-retry-s118
+total_sprints: 118
+pending_action: S118 PASS/source-only in its isolated branch; await a later clean-main integration decision, with no push, deployment, or container update authorized
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-27 19:32 +08:00
+last_verified: 2026-07-27 19:44 +08:00
 ---
 
-# S117 Current Sprint
+# S118 Current Sprint
+
+- Draft contract for adapting upstream `fd7e2039d`: Gemini pool-mode upstream
+  errors skipped by the configured error policy must still enter existing
+  failover, carrying same-account retry eligibility only for configured status
+  codes.
+- No retry count, cooldown, scheduler, persistence, route, frontend,
+  deployment, or container behavior is in scope.
+- Evaluator contract review passed: the existing pool-mode and status-policy
+  helpers permit a narrow failover-marker adaptation without scheduler or
+  global retry-policy changes.
+- Implementation and QA pass in the isolated worktree: pool 429, unconfigured
+  pool 500, configured pool 500, pool 400, and non-pool behavior have focused
+  default-tag regression coverage. Full repository compile, formatting, diff,
+  conflict-marker, and path gates pass.
+- Final Evaluator: PASS/source-only. No real Gemini upstream request, live
+  retry-loop observation, deployment, container update, or push was performed.
+- Next legal action: retain this isolated commit until the primary worktree is
+  clean and an explicit integration decision is made.
+
+# S117 Integrated Sprint
 
 - Adapted upstream `0b5903d45`: the handler records top-level JSON presence,
   service writes omit absent value-typed settings, and partial writes rebuild

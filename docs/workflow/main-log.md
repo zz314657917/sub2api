@@ -478,3 +478,9 @@
 260727 1920 | upstream-v0166-settings-partial-update-s117 | contract-amended | Evaluator | service regression moved from unit-tag suite to default-tag test file after unrelated unit-suite compile drift
 260727 1932 | upstream-v0166-settings-partial-update-s117 | build-and-qa-pass | Codex | focused handler/service tests, existing settings regression, full package compile, gofmt, diff, and allowlist audit PASS
 260727 1932 | upstream-v0166-settings-partial-update-s117 | done | Evaluator | PASS/source-only; unit-tag aggregate and authenticated persistent runtime remain out of scope
+260727 1936 | upstream-v0166-gemini-pool-retry-s118 | contract-draft | Planner | docs/workflow/tasks/upstream-v0166-gemini-pool-retry-s118.md
+260727 1936 | upstream-v0166-gemini-pool-retry-s118 | contract-amended | Evaluator | focused regression moved to default-tag Gemini test file because existing unit-tag aggregate has unrelated compile drift
+260727 1936 | upstream-v0166-gemini-pool-retry-s118 | contract-approved | Evaluator | pool/status gate, unchanged global retry behavior, and default-tag acceptance command reviewed
+260727 1944 | upstream-v0166-gemini-pool-retry-s118 | build | Generator | Gemini pool skipped-policy failover marker implemented within the three-file code/test allowlist
+260727 1944 | upstream-v0166-gemini-pool-retry-s118 | final-qa | Evaluator | focused default-tag regression and full repository compile PASS; formatting, diff, conflict-marker, and allowlist checks PASS
+260727 1944 | upstream-v0166-gemini-pool-retry-s118 | done | Evaluator | PASS/source-only; no live upstream request, push, deployment, or container update performed
