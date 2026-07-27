@@ -55,6 +55,31 @@ last_verified: 2026-07-03 19:30 +08:00
   400 cases retain current behavior. Go compile, formatting, and diff/path
   gates pass.
 
+## S119 Addendum: Gemini client-side web-search function preservation
+
+### Goal
+
+- Preserve ordinary Chat Completions function tools named `web_search` when
+  forwarding to Gemini, so Hermes-style client-side tools remain function
+  declarations instead of becoming Gemini's built-in Google Search tool.
+
+### Scope Boundary
+
+- Classify Gemini built-in search only by explicit server-side tool type:
+  `web_search*` or `google_search`.
+- Keep every normal `type: function` tool, regardless of its nested function
+  name, as a function declaration. Do not change request routing, tool-call
+  response handling, persistence, account selection, frontend, deployment,
+  or containers.
+
+### Acceptance Boundary
+
+- A forwarded Chat Completions request containing normal functions named
+  `web_search` and `read_file` keeps both function declarations and emits no
+  Google Search tool. Existing explicit search tool types retain their current
+  built-in conversion. Focused Go tests, repository compile, formatting, and
+  diff/path gates pass.
+
 ## S113 Addendum: user proxy smart input
 
 ### Goal

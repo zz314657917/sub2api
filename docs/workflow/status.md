@@ -1,15 +1,15 @@
 ---
 phase: done
-current_sprint: upstream-v0166-gemini-pool-retry-s118
-total_sprints: 118
-pending_action: S118 PASS/source-only in its isolated branch; await a later clean-main integration decision, with no push, deployment, or container update authorized
+current_sprint: upstream-v0166-gemini-web-search-s119
+total_sprints: 119
+pending_action: S115-S119 are integrated locally for post-integration verification; no push, deployment, or container update is authorized
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-27 19:44 +08:00
+last_verified: 2026-07-27 20:30 +08:00
 ---
 
-# S118 Current Sprint
+# S118 Integrated Sprint
 
 - Draft contract for adapting upstream `fd7e2039d`: Gemini pool-mode upstream
   errors skipped by the configured error policy must still enter existing
@@ -26,8 +26,6 @@ last_verified: 2026-07-27 19:44 +08:00
   conflict-marker, and path gates pass.
 - Final Evaluator: PASS/source-only. No real Gemini upstream request, live
   retry-loop observation, deployment, container update, or push was performed.
-- Next legal action: retain this isolated commit until the primary worktree is
-  clean and an explicit integration decision is made.
 
 # S117 Integrated Sprint
 
@@ -74,6 +72,27 @@ last_verified: 2026-07-27 19:44 +08:00
 - Contract: `docs/workflow/tasks/upstream-v0165-usage-session-id-s115.md`.
 - QA report: `docs/workflow/qa-reports/upstream-v0165-usage-session-id-s115-qa.md`.
 
+# S119 Current Sprint
+
+- Candidate `3e0810611` fixes Gemini conversion that promotes a normal
+  Chat Completions function named `web_search` to Gemini built-in Google
+  Search based on its name alone.
+- The proposed scope changes only the tool-type discriminator and adds a
+  focused HTTP forwarding regression. Explicit server-side `web_search*` and
+  `google_search` tool types must remain Gemini built-ins.
+- No account selection, Gemini request schema beyond tool classification,
+  scheduling, persistence, frontend, deployment, containers, or S114-S118
+  work is in scope.
+- Evaluator contract review passed: the existing explicit-search regression
+  retains server-side conversion, and the missing inverse case is bounded to
+  the existing tool discriminator and Gemini HTTP forwarding test topology.
+- Implementation and QA pass in the isolated worktree. The focused HTTP
+  regression keeps `web_search` and `read_file` as function declarations,
+  while the existing explicit `web_search_20250305` regression remains green.
+  Full Gemini tests, repository compile, formatting, diff, conflict-marker,
+  and path gates pass.
+- Final Evaluator: PASS/source-only. No real Gemini upstream request,
+  deployment, container update, or push was performed.
 # S113 Current Sprint
 
 - Contract approved for unified proxy text parsing in the user proxy modal and

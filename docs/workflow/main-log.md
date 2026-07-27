@@ -484,3 +484,8 @@
 260727 1944 | upstream-v0166-gemini-pool-retry-s118 | build | Generator | Gemini pool skipped-policy failover marker implemented within the three-file code/test allowlist
 260727 1944 | upstream-v0166-gemini-pool-retry-s118 | final-qa | Evaluator | focused default-tag regression and full repository compile PASS; formatting, diff, conflict-marker, and allowlist checks PASS
 260727 1944 | upstream-v0166-gemini-pool-retry-s118 | done | Evaluator | PASS/source-only; no live upstream request, push, deployment, or container update performed
+260727 2024 | upstream-v0166-gemini-web-search-s119 | contract-draft | Planner | docs/workflow/tasks/upstream-v0166-gemini-web-search-s119.md
+260727 2024 | upstream-v0166-gemini-web-search-s119 | contract-approved | Evaluator | explicit server-side web-search regression retained; inverse function-name regression is bounded to the existing Gemini conversion path
+260727 2030 | upstream-v0166-gemini-web-search-s119 | build | Generator | explicit tool-type discriminator retained; normal Chat Completions function names remain client-side declarations
+260727 2030 | upstream-v0166-gemini-web-search-s119 | final-qa | Evaluator | focused and full Gemini tests plus repository compile PASS; formatting, diff, conflict-marker, and allowlist checks PASS
+260727 2030 | upstream-v0166-gemini-web-search-s119 | done | Evaluator | PASS/source-only; no real upstream request, push, deployment, or container update performed
