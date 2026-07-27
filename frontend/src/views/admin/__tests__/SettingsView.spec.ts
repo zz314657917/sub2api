@@ -187,6 +187,8 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.openaiExperimentalScheduler.description": "默认关闭。开启后仅影响本网关在 OpenAI 账号间的实验性调度选择逻辑，不代表上游 OpenAI 官方能力。",
     "admin.settings.features.leaderboardDailyReward.title": "排行榜奖励玩法",
     "admin.settings.features.leaderboardDailyReward.description": "设置上周前 10 Token 消耗榜的奖励模式：关闭、红包或抽奖。",
+    "admin.settings.features.leaderboardDailyReward.minAccountAgeDays": "排行榜最低注册天数",
+    "admin.settings.features.leaderboardDailyReward.minAccountAgeDaysHint": "用户注册满指定天数后才可查看排行榜和领取排行榜奖励；填 0 表示注册后立即开放。",
     "admin.settings.features.leaderboardDailyReward.enabled": "启用每周奖励",
     "admin.settings.features.leaderboardDailyReward.enabledHint": "旧版兼容开关；新配置以奖励模式为准。",
     "admin.settings.features.leaderboardDailyReward.mode": "奖励模式",

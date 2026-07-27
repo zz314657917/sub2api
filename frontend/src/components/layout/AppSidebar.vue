@@ -369,6 +369,7 @@ import { adminTicketsAPI } from '@/api/admin/tickets'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
 import { resolveGroupBuyProductName } from '@/utils/groupBuyProduct'
+import { hasLeaderboardAccountAge } from '@/utils/leaderboardAccess'
 
 type IconName = InstanceType<typeof Icon>['$props']['name']
 type NavItemAction = 'studioBridgeLaunch'
@@ -494,6 +495,11 @@ const flagAffiliate = makeSidebarFlag(FeatureFlags.affiliate)
 const flagAccountShare = makeSidebarFlag(FeatureFlags.accountShare)
 const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagWelfare = makeSidebarFlag(FeatureFlags.welfare)
+const flagLeaderboard = () => hasLeaderboardAccountAge(
+  authStore.user?.created_at,
+  Date.now(),
+  appStore.cachedPublicSettings?.leaderboard_min_account_age_days,
+)
 const welfareClaimBadgeVisible = computed(() => welfareStore.hasClaimableReward)
 const ticketUnreadTotal = ref(0)
 const adminTicketUnreadTotal = ref(0)
@@ -527,7 +533,7 @@ function buildSelfNavItems(withDashboard: boolean): NavItem[] {
   ]
 
   const usageStatusItems: NavItem[] = [
-    { path: '/leaderboard', label: t('nav.leaderboard'), icon: TrophyIcon, hideInSimpleMode: true },
+    { path: '/leaderboard', label: t('nav.leaderboard'), icon: TrophyIcon, hideInSimpleMode: true, featureFlag: flagLeaderboard },
     { path: '/available-channels', label: t('nav.availableChannels'), icon: ChannelIcon, hideInSimpleMode: true, featureFlag: flagAvailableChannels },
     { path: '/monitor', label: t('nav.channelStatus'), icon: SignalIcon, featureFlag: flagChannelMonitor },
   ]

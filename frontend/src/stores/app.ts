@@ -377,6 +377,7 @@ export const useAppStore = defineStore('app', () => {
         welfare_recharge_enabled: false,
         welfare_vip_enabled: false,
         welfare_new_user_trial_enabled: false,
+        leaderboard_min_account_age_days: 7,
       }
     }
 

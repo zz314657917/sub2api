@@ -5,6 +5,42 @@ qa_mode: runtime
 last_verified: 2026-07-03 19:30 +08:00
 ---
 
+## S120 Addendum: leaderboard account-age visibility
+
+### Goal
+
+- Hide the user leaderboard until the signed-in account has been registered
+  for at least the configured number of complete 24-hour periods (default 7),
+  and prevent direct API access during the same period.
+
+### Scope Boundary
+
+- Use the existing user `created_at` value and a persisted system setting
+  `leaderboard_min_account_age_days`; do not add schema or migration changes.
+- The setting defaults to `7`, accepts whole days from `0` through `3650`, and
+  invalid or missing stored values fall back to `7`.
+- Hide the leaderboard sidebar item for ineligible users and redirect direct
+  `/leaderboard` navigation to the appropriate dashboard.
+- Enforce the same age rule before returning leaderboard data and before
+  claiming leaderboard rewards. Missing or invalid registration timestamps
+  fail closed.
+- Expose the setting through the existing administrator settings API/form and
+  public settings response used by the authenticated frontend.
+- Keep ranking participation, exclusion flags, aggregation, caching, reward
+  calculation, deployment, and containers unchanged.
+
+### Acceptance Boundary
+
+- Backend tests prove accounts younger than the effective configured boundary
+  receive HTTP 403 before ranking work or reward claims, while an account
+  exactly at that boundary is eligible.
+- Frontend tests prove the shared age predicate, sidebar gate, and route guard
+  use the configured boundary and default to seven days when the public
+  setting is absent or invalid.
+- Focused Go/Vitest checks, frontend typecheck/build, formatting, exact path
+  audit, conflict-marker scan, unmerged-index check, and `git diff --check`
+  pass.
+
 ## S117 Addendum: preserve omitted admin settings fields
 
 ### Goal

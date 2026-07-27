@@ -5602,6 +5602,24 @@
           <div class="space-y-5 p-6">
             <div>
               <label class="input-label">
+                {{ t('admin.settings.features.leaderboardDailyReward.minAccountAgeDays') }}
+              </label>
+              <input
+                v-model.number="form.leaderboard_min_account_age_days"
+                data-testid="leaderboard-min-account-age-days"
+                type="number"
+                min="0"
+                max="3650"
+                step="1"
+                class="input"
+              />
+              <p class="mt-1 text-xs text-gray-400">
+                {{ t('admin.settings.features.leaderboardDailyReward.minAccountAgeDaysHint') }}
+              </p>
+            </div>
+
+            <div>
+              <label class="input-label">
                 {{ t('admin.settings.features.leaderboardDailyReward.mode') }}
               </label>
               <Select
@@ -8682,6 +8700,7 @@ const form = reactive<SettingsForm>({
   leaderboard_daily_reward_rank_1_amount: 0,
   leaderboard_daily_reward_rank_2_amount: 0,
   leaderboard_daily_reward_rank_3_amount: 0,
+  leaderboard_min_account_age_days: 7,
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: false,
 });
@@ -10513,6 +10532,10 @@ async function saveSettings() {
       leaderboard_daily_reward_rank_1_amount: 0,
       leaderboard_daily_reward_rank_2_amount: 0,
       leaderboard_daily_reward_rank_3_amount: 0,
+      leaderboard_min_account_age_days: Math.min(
+        3650,
+        Math.max(0, Math.trunc(Number(form.leaderboard_min_account_age_days) || 0)),
+      ),
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,
     };

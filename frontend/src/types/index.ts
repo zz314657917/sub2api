@@ -421,6 +421,7 @@ export interface PublicSettings {
   welfare_recharge_enabled?: boolean
   welfare_vip_enabled?: boolean
   welfare_new_user_trial_enabled?: boolean
+  leaderboard_min_account_age_days?: number
 }
 
 export interface AuthResponse {

@@ -1,13 +1,37 @@
 ---
 phase: done
-current_sprint: upstream-v0166-gemini-web-search-s119
-total_sprints: 119
-pending_action: S115-S119 are integrated locally for post-integration verification; no push, deployment, or container update is authorized
+current_sprint: leaderboard-account-age-s120
+total_sprints: 120
+pending_action: none; source-only S120 implementation and QA complete; no push, deployment, or container update performed
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-27 20:30 +08:00
+last_verified: 2026-07-27 22:00 +08:00
 ---
+
+# S120 Current Sprint
+
+- Configuration addendum: limit leaderboard visibility and reward claiming to
+  accounts whose registration timestamp is at least the configured number of
+  complete 24-hour periods old (`leaderboard_min_account_age_days`, default 7).
+- The frontend must hide the sidebar entry and redirect direct navigation; the
+  backend must enforce the same rule before leaderboard reads or reward claims.
+- No schema, migration, ranking/aggregation, cache, deployment, container,
+  commit, or push behavior is in scope.
+- Evaluator contract review passed: the existing authenticated user
+  `created_at`, `UsageService` user repository, sidebar filter, route meta
+  guard, and system settings pipeline support a bounded implementation without
+  schema or migration changes.
+- Configuration is persisted through the administrator system settings form,
+  exposed through public settings/SSR payload, and consumed by both frontend
+  gates and the backend authorization boundary.
+- Invalid or missing configured days fall back to 7; zero is valid and means no
+  account-age delay. Values are bounded to 0-3650 days, and backend
+  authorization remains authoritative.
+- Final source-only QA passed: focused Go/Vitest tests, full Go compile,
+  frontend typecheck/build, formatting, diff, conflict-marker, unmerged-index,
+  and allowed-path checks. No authenticated runtime, deployment, or container
+  update was performed.
 
 # S118 Integrated Sprint
 

@@ -225,4 +225,11 @@ describe('AppSidebar self navigation groups', () => {
     expect(componentSource).toContain('function getSelfMenuItemTour')
     expect(componentSource).toContain("'[data-tour=\"sidebar-my-keys\"]'")
   })
+
+  it('hides leaderboard navigation until the configured account age is reached', () => {
+    expect(componentSource).toContain("import { hasLeaderboardAccountAge } from '@/utils/leaderboardAccess'")
+    expect(componentSource).toContain('const flagLeaderboard = () => hasLeaderboardAccountAge(')
+    expect(componentSource).toContain('appStore.cachedPublicSettings?.leaderboard_min_account_age_days')
+    expect(componentSource).toContain("path: '/leaderboard', label: t('nav.leaderboard'), icon: TrophyIcon, hideInSimpleMode: true, featureFlag: flagLeaderboard")
+  })
 })

@@ -592,6 +592,7 @@ export interface SystemSettings {
   leaderboard_daily_reward_rank_1_amount: number;
   leaderboard_daily_reward_rank_2_amount: number;
   leaderboard_daily_reward_rank_3_amount: number;
+  leaderboard_min_account_age_days: number;
 
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: boolean;
@@ -856,6 +857,7 @@ export interface UpdateSettingsRequest {
   leaderboard_daily_reward_rank_1_amount?: number;
   leaderboard_daily_reward_rank_2_amount?: number;
   leaderboard_daily_reward_rank_3_amount?: number;
+  leaderboard_min_account_age_days?: number;
 
   // Affiliate (邀请返利) feature switch
   affiliate_enabled?: boolean;

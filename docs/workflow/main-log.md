@@ -489,3 +489,11 @@
 260727 2030 | upstream-v0166-gemini-web-search-s119 | build | Generator | explicit tool-type discriminator retained; normal Chat Completions function names remain client-side declarations
 260727 2030 | upstream-v0166-gemini-web-search-s119 | final-qa | Evaluator | focused and full Gemini tests plus repository compile PASS; formatting, diff, conflict-marker, and allowlist checks PASS
 260727 2030 | upstream-v0166-gemini-web-search-s119 | done | Evaluator | PASS/source-only; no real upstream request, push, deployment, or container update performed
+260727 2108 | leaderboard-account-age-s120 | contract-draft | Planner | docs/workflow/tasks/leaderboard-account-age-s120.md
+260727 2108 | leaderboard-account-age-s120 | contract-approved | Evaluator | seven-day boundary, backend authority, frontend UX gate, and no-schema scope reviewed
+260727 2124 | leaderboard-account-age-s120 | build | Generator | backend access gate, frontend sidebar/route gate, focused regressions, full Go compile, typecheck, and production build completed
+260727 2124 | leaderboard-account-age-s120 | final-qa | Evaluator | no auth bypass found; allowed-path, conflict, unmerged-index, diff, Go, Vitest, typecheck, and build checks PASS
+260727 2124 | leaderboard-account-age-s120 | done | Evaluator | PASS/source-only; no authenticated runtime smoke, commit, push, deployment, or container update performed
+260727 2135 | leaderboard-account-age-s120 | amend-contract | Codex | configuration addendum added to the existing settings store, admin form, public settings/SSR payload, and frontend/backend access gates
+260727 2200 | leaderboard-account-age-s120 | build-and-qa-pass | Codex | configured account-age gate, focused Go/Vitest 85/85, full Go compile, frontend typecheck/build, formatting, diff, conflict, unmerged-index, and allowed-path checks PASS
+260727 2200 | leaderboard-account-age-s120 | done | Evaluator | PASS/source-only; no authenticated runtime smoke, commit, push, deployment, or container update performed

@@ -839,6 +839,10 @@ func (h *UsageHandler) DashboardLeaderboard(c *gin.Context) {
 		response.Unauthorized(c, "User not authenticated")
 		return
 	}
+	if err := h.usageService.EnsureLeaderboardAccess(c.Request.Context(), subject.UserID); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	userTZ := c.Query("timezone")
 	period, startTime, endTime, startDate, endDate, err := parseDashboardLeaderboardPeriod(c.DefaultQuery("period", "day"), userTZ, timezone.NowInUserLocation(userTZ))
