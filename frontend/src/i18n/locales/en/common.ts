@@ -100,5 +100,12 @@ export default {
         minutes: '{m}m',
         withSuffix: '{time} to lift'
       }
+    },
+    stepUp: {
+      title: 'Two-Factor Verification Required',
+      hint: 'Enter the 6-digit code from your authenticator app to continue this sensitive operation.',
+      verifyFailed: 'Verification failed, please try again',
+      notEnabled: 'This operation requires two-factor authentication. Please enable TOTP in your profile first.',
+      adminApiKeyForbidden: 'Admin API keys cannot perform this operation. Use a two-factor verified admin session.'
     }
   }

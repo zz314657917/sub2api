@@ -37,6 +37,7 @@ import imageCreatorStorageAPI from './imageCreatorStorage'
 import adminTicketsAPI from './tickets'
 import modelMarketAdminAPI from './modelMarket'
 import adminGroupBuyAPI from './groupBuy'
+import auditAPI from './audit'
 
 /**
  * Unified admin API object for convenient access
@@ -75,7 +76,8 @@ export const adminAPI = {
   imageCreatorStorage: imageCreatorStorageAPI,
   tickets: adminTicketsAPI,
   modelMarket: modelMarketAdminAPI,
-  groupBuy: adminGroupBuyAPI
+  groupBuy: adminGroupBuyAPI,
+  audit: auditAPI
 }
 
 export {
@@ -112,7 +114,8 @@ export {
   imageCreatorStorageAPI,
   adminTicketsAPI,
   modelMarketAdminAPI,
-  adminGroupBuyAPI
+  adminGroupBuyAPI,
+  auditAPI
 }
 
 export default adminAPI
@@ -123,3 +126,4 @@ export type { ErrorPassthroughRule, CreateRuleRequest, UpdateRuleRequest } from 
 export type { BackupAgentHealth, DataManagementConfig } from './dataManagement'
 export type { TLSFingerprintProfile, CreateProfileRequest, UpdateProfileRequest } from './tlsFingerprintProfile'
 export type { ContentModerationConfig, ContentModerationLog, ModerationMode } from './riskControl'
+export type { AuditLog, AuditLogQuery, AuditLogListResponse } from './audit'

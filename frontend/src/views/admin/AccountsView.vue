@@ -561,6 +561,7 @@
     </ConfirmDialog>
     <ErrorPassthroughRulesModal :show="showErrorPassthrough" @close="showErrorPassthrough = false" />
     <TLSFingerprintProfilesModal :show="showTLSFingerprintProfiles" @close="showTLSFingerprintProfiles = false" />
+    <TotpStepUpDialog :controller="accountExportStepUp" />
   </AppLayout>
 </template>
 
@@ -575,6 +576,8 @@ import { adminAPI } from '@/api/admin'
 import { useTableLoader } from '@/composables/useTableLoader'
 import { useSwipeSelect, type SwipeSelectVirtualContext } from '@/composables/useSwipeSelect'
 import { useTableSelection } from '@/composables/useTableSelection'
+import { useStepUp, isStepUpBlocked, isStepUpCancelled, stepUpBlockReason } from '@/composables/useStepUp'
+import TotpStepUpDialog from '@/components/auth/TotpStepUpDialog.vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -757,6 +760,7 @@ const bulkShareFilteredConfirmMessage = computed(() => t('admin.accounts.bulkAct
 }))
 const menu = reactive<{show:boolean, acc:Account|null, pos:{top:number, left:number}|null}>({ show: false, acc: null, pos: null })
 const exportingData = ref(false)
+const accountExportStepUp = useStepUp()
 
 // Account tools dropdown
 const showAccountToolsDropdown = ref(false)
@@ -2018,13 +2022,15 @@ const handleExportData = async () => {
   if (exportingData.value) return
   exportingData.value = true
   try {
-    const dataPayload = await adminAPI.accounts.exportData(
-      selIds.value.length > 0
-        ? { ids: selIds.value, includeProxies: includeProxyOnExport.value }
-        : {
-            includeProxies: includeProxyOnExport.value,
-            filters: buildAccountQueryFilters()
-          }
+    const dataPayload = await accountExportStepUp.run(() =>
+      adminAPI.accounts.exportData(
+        selIds.value.length > 0
+          ? { ids: selIds.value, includeProxies: includeProxyOnExport.value }
+          : {
+              includeProxies: includeProxyOnExport.value,
+              filters: buildAccountQueryFilters()
+            }
+      )
     )
     const timestamp = formatExportTimestamp()
     const filename = `sub2api-account-${timestamp}.json`
@@ -2037,6 +2043,15 @@ const handleExportData = async () => {
     URL.revokeObjectURL(url)
     appStore.showSuccess(t('admin.accounts.dataExported'))
   } catch (error: any) {
+    if (isStepUpCancelled(error)) return
+    if (isStepUpBlocked(error)) {
+      appStore.showError(
+        stepUpBlockReason(error) === 'STEP_UP_ADMIN_API_KEY_FORBIDDEN'
+          ? t('common.stepUp.adminApiKeyForbidden')
+          : t('common.stepUp.notEnabled')
+      )
+      return
+    }
     appStore.showError(error?.message || t('admin.accounts.dataExportFailed'))
   } finally {
     exportingData.value = false
