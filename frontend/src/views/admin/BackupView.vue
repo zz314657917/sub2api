@@ -615,10 +615,12 @@ async function loadImageStorageConfig() {
 async function saveImageStorageConfig() {
   savingImageStorage.value = true
   try {
-    await adminAPI.backup.updateImageStorageConfig(imageStorageForm.value)
+    await backupStepUp.run(() => adminAPI.backup.updateImageStorageConfig(imageStorageForm.value))
     appStore.showSuccess(t('admin.backup.imageStorage.saved'))
     await loadImageStorageConfig()
   } catch (error) {
+    if (isStepUpCancelled(error)) return
+    if (reportStepUpBlocked(error)) return
     appStore.showError((error as { message?: string })?.message || t('errors.networkError'))
   } finally {
     savingImageStorage.value = false

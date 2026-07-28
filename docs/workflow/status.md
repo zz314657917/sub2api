@@ -1,12 +1,12 @@
 ---
-phase: build
+phase: done
 current_sprint: upstream-v0165-audit-log-s121
 total_sprints: 123
-pending_action: Run S121 post-integration QA on the latest origin/main baseline before any push, deployment, or container update
+pending_action: Fetch origin/main immediately before publishing S121; push only if the remote baseline remains unchanged, then verify remote parity. Deployment and container updates remain separate work.
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-29 +08:00
+last_verified: 2026-07-29 01:34 +08:00
 ---
 
 # S121 Current Sprint
@@ -23,9 +23,18 @@ last_verified: 2026-07-29 +08:00
 - Source QA passed focused Go tests, repository transaction rollback tests,
   full Go compilation, frontend Vitest 9/9, typecheck, production build,
   formatting, diff, conflict-marker, migration, and path gates.
-- S121 now preserves S123 async image dependencies in generated Wire code and
-  preserves S121 step-up behavior in the image-storage Backup view; fresh
-  post-integration QA remains required.
+- S121 preserves S123 async image dependencies in generated Wire code. The
+  image-storage credential update now uses the same server and console
+  step-up path as backup S3 configuration, with a route regression test to
+  prevent this protection from drifting.
+- Post-integration QA passed the focused backend gates, full Go compilation,
+  frontend Vitest/typecheck/production build, module verification, formatting,
+  diff, denied-path, conflict-marker, and unmerged-index checks. The local
+  `sub2api-redis` smoke passed `PING`, expiring write/read, and cleanup.
+- Final Evaluator: `PASS / source-only`; the integration branch is ready for
+  a fresh remote-baseline check and publish. PostgreSQL migration execution,
+  authenticated TOTP/browser flow, real S3, deployment, and container update
+  remain unverified or out of scope.
 - Contract: `docs/workflow/tasks/upstream-v0165-audit-log-s121.md`.
 - QA report: `docs/workflow/qa-reports/upstream-v0165-audit-log-s121-qa.md`.
 

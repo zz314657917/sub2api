@@ -40,8 +40,9 @@ last_verified: 2026-07-28 00:00 +08:00
 
 - The isolated implementation now includes the final redaction/session fixes,
   fail-closed security dependency handling, a writer flush barrier, and an
-  atomic repository transaction for clear-plus-trace. Source-level acceptance
-  passed; post-integration QA is required before publication.
+  atomic repository transaction for clear-plus-trace. Source-level and
+  post-integration QA passed; image result-storage credential updates use the
+  same TOTP step-up boundary as backup S3 credentials.
 
 ## S122 Addendum: channel pricing models in gateway catalog
 

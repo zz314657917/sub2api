@@ -60,6 +60,7 @@ audit-log view at `/admin/audit-logs`.
 - `backend/internal/server/middleware/**`
 - `backend/internal/server/router.go`
 - `backend/internal/server/routes/admin.go`
+- `backend/internal/server/routes/admin_step_up_routes_test.go`
 - `backend/internal/server/routes/auth.go`
 - `backend/internal/server/routes/auth_rate_limit_test.go`
 - `backend/internal/server/routes/payment.go`
@@ -124,6 +125,7 @@ audit-log view at `/admin/audit-logs`.
 ```powershell
 cd E:/codex-worktrees/sub2api/upstream-audit-log-s121-clean/backend
 go test ./internal/server/middleware -run "Audit|SessionBinding|StepUp" -count=1
+go test ./internal/server/routes -run "Backup.*StepUp" -count=1
 go test ./internal/service -run "Audit|SessionBinding|StepUp|Auth" -count=1
 go test ./internal/handler/admin -run "Audit|StepUp|Settings" -count=1
 go test ./... -run "^$"
@@ -157,3 +159,6 @@ git diff --name-only HEAD
   transactional clear rollback coverage. These paths remain within the S121
   security/settings boundary and do not alter Ent, deployment, billing, or
   unrelated feature code.
+- 2026-07-29: allow `admin_step_up_routes_test.go` for a regression that keeps
+  image result-storage credential writes behind the same step-up middleware as
+  backup S3 credential writes after S123 integration.
