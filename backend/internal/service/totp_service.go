@@ -43,6 +43,13 @@ type TotpCache interface {
 	ClearVerifyAttempts(ctx context.Context, userID int64) error
 }
 
+// totpStepUpGrantStore is separate from TotpCache to preserve compatibility
+// with existing cache implementations and test doubles.
+type totpStepUpGrantStore interface {
+	SetStepUpGrant(ctx context.Context, userID int64, sessionKey string, ttl time.Duration) error
+	HasStepUpGrant(ctx context.Context, userID int64, sessionKey string) (bool, error)
+}
+
 // SecretEncryptor defines encryption operations for TOTP secrets
 type SecretEncryptor interface {
 	Encrypt(plaintext string) (string, error)
@@ -399,6 +406,34 @@ func (s *TotpService) VerifyCode(ctx context.Context, userID int64, code string)
 	_ = s.cache.ClearVerifyAttempts(ctx, userID)
 
 	return nil
+}
+
+// StepUpGrantTTL is the duration of the TOTP-verified sudo window.
+const StepUpGrantTTL = 15 * time.Minute
+
+// VerifyStepUp verifies a TOTP code and grants the current session a short
+// authorization window for sensitive management operations.
+func (s *TotpService) VerifyStepUp(ctx context.Context, userID int64, sessionKey, code string) (time.Duration, error) {
+	if err := s.VerifyCode(ctx, userID, code); err != nil {
+		return 0, err
+	}
+	cache, ok := s.cache.(totpStepUpGrantStore)
+	if !ok || cache == nil {
+		return 0, fmt.Errorf("step-up grant storage is not configured")
+	}
+	if err := cache.SetStepUpGrant(ctx, userID, sessionKey, StepUpGrantTTL); err != nil {
+		return 0, fmt.Errorf("store step-up grant: %w", err)
+	}
+	return StepUpGrantTTL, nil
+}
+
+// HasStepUpGrant reports whether one user session still has a valid sudo window.
+func (s *TotpService) HasStepUpGrant(ctx context.Context, userID int64, sessionKey string) (bool, error) {
+	cache, ok := s.cache.(totpStepUpGrantStore)
+	if !ok || cache == nil {
+		return false, fmt.Errorf("step-up grant storage is not configured")
+	}
+	return cache.HasStepUpGrant(ctx, userID, sessionKey)
 }
 
 // CreateLoginSession creates a temporary login session for 2FA

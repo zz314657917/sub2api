@@ -33,6 +33,7 @@ func newAuthRoutesTestRouterWithConfig(redisClient *redis.Client, cfg *config.Co
 		servermiddleware.JWTAuthMiddleware(func(c *gin.Context) {
 			c.Next()
 		}),
+		nil,
 		redisClient,
 		nil,
 		cfg,

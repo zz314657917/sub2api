@@ -26,6 +26,9 @@ type SystemSettings struct {
 	FrontendURL                      string
 	InvitationCodeEnabled            bool
 	TotpEnabled                      bool // TOTP 双因素认证
+	SessionBindingEnabled            bool
+	StepUpEnabled                    bool
+	AuditLogRetentionDays            int
 	LoginAgreementEnabled            bool
 	LoginAgreementMode               string
 	LoginAgreementUpdatedAt          string

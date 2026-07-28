@@ -15,6 +15,7 @@ const (
 	totpSetupKeyPrefix    = "totp:setup:"
 	totpLoginKeyPrefix    = "totp:login:"
 	totpAttemptsKeyPrefix = "totp:attempts:"
+	totpStepUpKeyPrefix   = "totp:stepup:"
 	totpAttemptsTTL       = 15 * time.Minute
 )
 
@@ -146,4 +147,25 @@ func (c *TotpCache) GetVerifyAttempts(ctx context.Context, userID int64) (int, e
 func (c *TotpCache) ClearVerifyAttempts(ctx context.Context, userID int64) error {
 	key := fmt.Sprintf("%s%d", totpAttemptsKeyPrefix, userID)
 	return c.rdb.Del(ctx, key).Err()
+}
+
+func totpStepUpKey(userID int64, sessionKey string) string {
+	return fmt.Sprintf("%s%d:%s", totpStepUpKeyPrefix, userID, sessionKey)
+}
+
+// SetStepUpGrant records a TOTP-verified sudo window for one user session.
+func (c *TotpCache) SetStepUpGrant(ctx context.Context, userID int64, sessionKey string, ttl time.Duration) error {
+	return c.rdb.Set(ctx, totpStepUpKey(userID, sessionKey), "1", ttl).Err()
+}
+
+// HasStepUpGrant reports whether the current user session has a valid sudo window.
+func (c *TotpCache) HasStepUpGrant(ctx context.Context, userID int64, sessionKey string) (bool, error) {
+	_, err := c.rdb.Get(ctx, totpStepUpKey(userID, sessionKey)).Result()
+	if err == redis.Nil {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("get step-up grant: %w", err)
+	}
+	return true, nil
 }

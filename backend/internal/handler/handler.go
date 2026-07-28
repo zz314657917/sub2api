@@ -41,6 +41,7 @@ type AdminHandlers struct {
 	GroupBuy               *admin.GroupBuyHandler
 	ImageCreatorStorage    *admin.ImageCreatorStorageGovernanceHandler
 	Ticket                 *admin.TicketHandler
+	AuditLog               *admin.AuditLogHandler
 }
 
 // Handlers contains all HTTP handlers

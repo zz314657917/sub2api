@@ -16,7 +16,9 @@ type APIKeyAuthMiddleware gin.HandlerFunc
 
 // ProviderSet 中间件层的依赖注入
 var ProviderSet = wire.NewSet(
-	NewJWTAuthMiddleware,
-	NewAdminAuthMiddleware,
+	NewJWTAuthMiddlewareWithSessionBinding,
+	NewAdminAuthMiddlewareWithSessionBinding,
 	NewAPIKeyAuthMiddleware,
+	NewAuditLogMiddleware,
+	NewStepUpAuthMiddleware,
 )

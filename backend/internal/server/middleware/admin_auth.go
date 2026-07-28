@@ -17,7 +17,18 @@ func NewAdminAuthMiddleware(
 	userService *service.UserService,
 	settingService *service.SettingService,
 ) AdminAuthMiddleware {
-	return AdminAuthMiddleware(adminAuth(authService, userService, settingService))
+	return NewAdminAuthMiddlewareWithSessionBinding(authService, userService, settingService, nil)
+}
+
+// NewAdminAuthMiddlewareWithSessionBinding wires the optional session-binding
+// guard and security-event audit writer into management-plane JWT validation.
+func NewAdminAuthMiddlewareWithSessionBinding(
+	authService *service.AuthService,
+	userService *service.UserService,
+	settingService *service.SettingService,
+	auditService *service.AuditLogService,
+) AdminAuthMiddleware {
+	return AdminAuthMiddleware(adminAuthWithSessionBinding(authService, userService, settingService, auditService))
 }
 
 // adminAuth 管理员认证中间件实现
@@ -29,6 +40,15 @@ func adminAuth(
 	userService *service.UserService,
 	settingService *service.SettingService,
 ) gin.HandlerFunc {
+	return adminAuthWithSessionBinding(authService, userService, settingService, nil)
+}
+
+func adminAuthWithSessionBinding(
+	authService *service.AuthService,
+	userService *service.UserService,
+	settingService *service.SettingService,
+	auditService *service.AuditLogService,
+) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// WebSocket upgrade requests cannot set Authorization headers in browsers.
 		// For admin WebSocket endpoints (e.g. Ops realtime), allow passing the JWT via
@@ -36,7 +56,7 @@ func adminAuth(
 		//   Sec-WebSocket-Protocol: sub2api-admin, jwt.<token>
 		if isWebSocketUpgradeRequest(c) {
 			if token := extractJWTFromWebSocketSubprotocol(c); token != "" {
-				if !validateJWTForAdmin(c, token, authService, userService) {
+				if !validateJWTForAdminWithSessionBinding(c, token, authService, userService, settingService, auditService) {
 					return
 				}
 				c.Next()
@@ -64,7 +84,7 @@ func adminAuth(
 					AbortWithError(c, 401, "UNAUTHORIZED", "Authorization required")
 					return
 				}
-				if !validateJWTForAdmin(c, token, authService, userService) {
+				if !validateJWTForAdminWithSessionBinding(c, token, authService, userService, settingService, auditService) {
 					return
 				}
 				c.Next()
@@ -146,7 +166,8 @@ func validateAdminAPIKey(
 		Concurrency: admin.Concurrency,
 	})
 	c.Set(string(ContextKeyUserRole), admin.Role)
-	c.Set("auth_method", "admin_api_key")
+	c.Set(ContextKeyAuthEmail, admin.Email)
+	c.Set("auth_method", service.AuditAuthMethodAdminAPIKey)
 	return true
 }
 
@@ -156,6 +177,17 @@ func validateJWTForAdmin(
 	token string,
 	authService *service.AuthService,
 	userService *service.UserService,
+) bool {
+	return validateJWTForAdminWithSessionBinding(c, token, authService, userService, nil, nil)
+}
+
+func validateJWTForAdminWithSessionBinding(
+	c *gin.Context,
+	token string,
+	authService *service.AuthService,
+	userService *service.UserService,
+	settingService *service.SettingService,
+	auditService *service.AuditLogService,
 ) bool {
 	// 验证 JWT token
 	claims, err := authService.ValidateToken(token)
@@ -186,6 +218,9 @@ func validateJWTForAdmin(
 		AbortWithError(c, 401, "TOKEN_REVOKED", "Token has been revoked (password changed)")
 		return false
 	}
+	if !enforceSessionBinding(c, authService, settingService, auditService, claims) {
+		return false
+	}
 
 	// 检查管理员权限
 	if !user.IsAdmin() {
@@ -198,7 +233,9 @@ func validateJWTForAdmin(
 		Concurrency: user.Concurrency,
 	})
 	c.Set(string(ContextKeyUserRole), user.Role)
-	c.Set("auth_method", "jwt")
+	c.Set(ContextKeyAuthEmail, user.Email)
+	c.Set(ContextKeySessionID, claims.SessionID)
+	c.Set("auth_method", service.AuditAuthMethodJWT)
 
 	return true
 }
