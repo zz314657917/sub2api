@@ -5,6 +5,44 @@ qa_mode: runtime
 last_verified: 2026-07-28 00:00 +08:00
 ---
 
+## S121 Addendum: upstream v0.1.165 administrator operation audit logs
+
+### Goal
+
+- Restore the upstream administrator operation-audit capability missing from
+  local `main`, including the redacted audit trail, administrator console,
+  trusted client-IP handling, session IP/User-Agent binding, and TOTP step-up
+  safeguards.
+
+### Scope Boundary
+
+- Apply the final `v0.1.165` behavior rather than only its initial feature
+  commit: no raw bearer/API-key/password/TOTP/refresh-token/cookie/session
+  values may enter audit persistence; session data must remain unavailable to
+  the audit trail.
+- Record only management-plane operations and designated sensitive reads;
+  failure to persist an audit record must not alter the original operation.
+- Add the audit table at local migration sequence `198`; local migration `180`
+  is already occupied by invoice-download tracking and must not be reused.
+- Keep the primary dirty worktree untouched until the isolated implementation
+  has passed review and all source-level acceptance gates.
+
+### Acceptance Boundary
+
+- Focused middleware, service, and administrator-handler tests cover redaction,
+  session binding, step-up verification, API-key restrictions, query/detail and
+  clear behavior. Go compilation, frontend typecheck/build, migration ordering,
+  formatting, diff and path audits pass.
+- PostgreSQL migration execution, authenticated browser interaction, real TOTP,
+  deployment, and container update remain explicitly out of scope.
+
+### S121 Implementation Result
+
+- The isolated implementation now includes the final redaction/session fixes,
+  fail-closed security dependency handling, a writer flush barrier, and an
+  atomic repository transaction for clear-plus-trace. Source-level acceptance
+  passed; post-integration QA is required before publication.
+
 ## S122 Addendum: channel pricing models in gateway catalog
 
 ### Goal

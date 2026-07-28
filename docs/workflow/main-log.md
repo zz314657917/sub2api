@@ -489,6 +489,14 @@
 260727 2030 | upstream-v0166-gemini-web-search-s119 | build | Generator | explicit tool-type discriminator retained; normal Chat Completions function names remain client-side declarations
 260727 2030 | upstream-v0166-gemini-web-search-s119 | final-qa | Evaluator | focused and full Gemini tests plus repository compile PASS; formatting, diff, conflict-marker, and allowlist checks PASS
 260727 2030 | upstream-v0166-gemini-web-search-s119 | done | Evaluator | PASS/source-only; no real upstream request, push, deployment, or container update performed
+260728 0000 | upstream-v0165-audit-log-s121 | contract-draft | Planner | docs/workflow/tasks/upstream-v0165-audit-log-s121.md
+260728 0000 | upstream-v0165-audit-log-s121 | contract-approved | Evaluator | full audit/sanitization/session-binding scope, occupied migration 180, denied paths, and source-level acceptance gates reviewed
+260728 0053 | upstream-v0165-audit-log-s121 | contract-amended | Evaluator | allow settings API types and en/zh security-setting locale files required by the already-approved SettingsView scope
+260728 0104 | upstream-v0165-audit-log-s121 | contract-amended | Evaluator | allow auth route regression constructor update required by the new audit middleware parameter
+260728 0133 | upstream-v0165-audit-log-s121 | contract-amended | Evaluator | allow setting service/view persistence paths and repository transaction regression test required by S121 clear/settings boundary
+260728 0134 | upstream-v0165-audit-log-s121 | review-fix | Codex | refresh flag gating, body restoration, fail-closed dependency checks, writer flush barrier, retained failed batches, and atomic clear trace transaction implemented
+260728 0135 | upstream-v0165-audit-log-s121 | final-qa | Evaluator | focused Go, repository rollback, full compile, frontend 9/9, typecheck, 1099-module build, migration, formatting, diff, conflict-marker, and path gates PASS
+260728 0135 | upstream-v0165-audit-log-s121 | done | Evaluator | PASS/source-only; local commit only, no push, deployment, container update, or primary-worktree integration
 260728 0000 | channel-pricing-model-catalog-s122 | contract-approved | Codex | reuse Channel.SupportedModels for current group/platform; billing, routing, schema, frontend, deploy, and containers excluded
 260728 0058 | channel-pricing-model-catalog-s122 | build | Codex | gateway model candidates now merge account mappings with concrete current-channel SupportedModels
 260728 0058 | channel-pricing-model-catalog-s122 | qa-pass | Evaluator | focused models x10, full handler, chatgpt2api bridge, isolated peak baseline, formatting, and static gates PASS
