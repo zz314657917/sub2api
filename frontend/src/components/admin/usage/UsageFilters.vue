@@ -251,6 +251,7 @@ const userResults = ref<SimpleUser[]>([])
 const showUserDropdown = ref(false)
 const userSearching = ref(false)
 let userSearchTimeout: ReturnType<typeof setTimeout> | null = null
+let userSearchSequence = 0
 
 const apiKeyKeyword = ref('')
 const apiKeyResults = ref<SimpleApiKey[]>([])
@@ -306,6 +307,7 @@ const numericUserIdCandidate = computed(() => {
 })
 
 const debounceUserSearch = () => {
+  userSearchSequence += 1
   if (userSearchTimeout) clearTimeout(userSearchTimeout)
   userSearchTimeout = setTimeout(async () => {
     const keyword = userKeyword.value.trim()
@@ -391,6 +393,15 @@ const clearUser = () => {
   clearApiKey()
   emitChange()
 }
+
+const setUserKeyword = (email: string) => {
+  userKeyword.value = email
+  userResults.value = []
+  showUserDropdown.value = false
+  userSearching.value = false
+}
+
+const getUserSearchRevision = () => userSearchSequence
 
 const selectApiKey = (k: SimpleApiKey) => {
   apiKeyKeyword.value = k.name || String(k.id)
@@ -543,4 +554,6 @@ onUnmounted(() => {
   if (apiKeySearchTimeout) clearTimeout(apiKeySearchTimeout)
   if (accountSearchTimeout) clearTimeout(accountSearchTimeout)
 })
+
+defineExpose({ getUserSearchRevision, setUserKeyword })
 </script>

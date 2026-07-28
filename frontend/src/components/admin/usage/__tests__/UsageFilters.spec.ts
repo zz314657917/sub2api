@@ -157,4 +157,18 @@ describe('UsageFilters dropdown visibility', () => {
     expect(searchApiKeys).toHaveBeenCalledWith(undefined, '')
     expect(wrapper.text()).toContain('No options found')
   })
+
+  it('increments the exposed user-search revision for each user input', async () => {
+    const wrapper = mountFilters()
+    await flushPromises()
+
+    const initialRevision = (wrapper.vm as any).getUserSearchRevision()
+    const userInput = wrapper.get('input[placeholder="Search user by email..."]')
+    await userInput.setValue('first@example.com')
+    const afterFirstInput = (wrapper.vm as any).getUserSearchRevision()
+    await userInput.setValue('second@example.com')
+
+    expect(afterFirstInput).toBe(initialRevision + 1)
+    expect((wrapper.vm as any).getUserSearchRevision()).toBe(afterFirstInput + 1)
+  })
 })
