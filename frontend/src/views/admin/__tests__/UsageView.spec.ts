@@ -1,9 +1,10 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { defineComponent, ref } from 'vue'
 
 import UsageView from '../UsageView.vue'
 
-const { list, getStats, getSnapshotV2, getById } = vi.hoisted(() => {
+const { list, getStats, getSnapshotV2, getModelStats, getById, routeQuery } = vi.hoisted(() => {
   vi.stubGlobal('localStorage', {
     getItem: vi.fn(() => null),
     setItem: vi.fn(),
@@ -14,7 +15,9 @@ const { list, getStats, getSnapshotV2, getById } = vi.hoisted(() => {
     list: vi.fn(),
     getStats: vi.fn(),
     getSnapshotV2: vi.fn(),
+    getModelStats: vi.fn(),
     getById: vi.fn(),
+    routeQuery: {} as Record<string, string>,
   }
 })
 
@@ -41,6 +44,7 @@ vi.mock('@/api/admin', () => ({
     },
     dashboard: {
       getSnapshotV2,
+      getModelStats,
     },
     users: {
       getById,
@@ -79,12 +83,31 @@ vi.mock('vue-i18n', async () => {
 
 vi.mock('vue-router', () => ({
   useRoute: () => ({
-    query: {}
+    query: routeQuery
   })
 }))
 
 const AppLayoutStub = { template: '<div><slot /></div>' }
-const UsageFiltersStub = { template: '<div data-test="usage-filter-surface"><slot name="after-reset" /></div>' }
+const UsageFiltersStub = defineComponent({
+  setup(_, { expose }) {
+    const userKeyword = ref('')
+    let userSearchRevision = 0
+    const setUserKeyword = (email: string) => {
+      userKeyword.value = email
+    }
+    const simulateUserInput = (email: string) => {
+      userSearchRevision += 1
+      userKeyword.value = email
+    }
+    expose({
+      getUserSearchRevision: () => userSearchRevision,
+      setUserKeyword,
+      simulateUserInput,
+    })
+    return { userKeyword }
+  },
+  template: '<div data-test="usage-filter-surface"><span data-test="user-filter-label">{{ userKeyword }}</span><slot name="after-reset" /></div>',
+})
 const UsageTableStub = {
   props: ['columns'],
   template: '<div data-test="usage-columns">{{ columns.map((column) => column.key).join(",") }}</div>',
@@ -110,13 +133,101 @@ const GroupDistributionChartStub = {
   `,
 }
 
+const mountRouteFilteredUsageView = () => mount(UsageView, {
+  global: {
+    stubs: {
+      AppLayout: AppLayoutStub,
+      UsageStatsCards: true,
+      UsageFilters: UsageFiltersStub,
+      UsageTable: true,
+      UsageExportProgress: true,
+      UsageCleanupDialog: true,
+      UserBalanceHistoryModal: true,
+      Pagination: true,
+      Select: true,
+      DateRangePicker: true,
+      Icon: true,
+      TokenUsageTrend: true,
+      ModelDistributionChart: true,
+      GroupDistributionChart: true,
+      EndpointDistributionChart: true,
+    },
+  },
+})
+
+describe('admin UsageView route filters', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
+    list.mockReset().mockResolvedValue({ items: [], total: 0, pages: 0 })
+    getStats.mockReset().mockResolvedValue({
+      total_requests: 0,
+      total_input_tokens: 0,
+      total_output_tokens: 0,
+      total_cache_tokens: 0,
+      total_tokens: 0,
+      total_cost: 0,
+      total_actual_cost: 0,
+      average_duration_ms: 0,
+    })
+    getSnapshotV2.mockReset().mockResolvedValue({ trend: [], models: [], groups: [] })
+    getModelStats.mockReset().mockResolvedValue({ models: [] })
+    getById.mockReset()
+  })
+
+  afterEach(() => {
+    Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
+    vi.useRealTimers()
+  })
+
+  it('shows the routed user email while applying user_id to usage requests', async () => {
+    routeQuery.user_id = '42'
+    getById.mockResolvedValue({ id: 42, email: 'route-user@test.com' })
+
+    const wrapper = mountRouteFilteredUsageView()
+    await flushPromises()
+
+    expect(getById).toHaveBeenCalledWith(42)
+    expect(list).toHaveBeenCalledWith(expect.objectContaining({ user_id: 42 }), expect.anything())
+    expect(wrapper.get('[data-test="user-filter-label"]').text()).toBe('route-user@test.com')
+  })
+
+  it('shows the routed user ID when its label lookup fails', async () => {
+    routeQuery.user_id = '42'
+    getById.mockRejectedValue(new Error('lookup failed'))
+
+    const wrapper = mountRouteFilteredUsageView()
+    await flushPromises()
+
+    expect(wrapper.get('[data-test="user-filter-label"]').text()).toBe('42')
+  })
+
+  it('does not overwrite newer user input after the routed user lookup completes', async () => {
+    routeQuery.user_id = '42'
+    let resolveLookup!: (user: { id: number; email: string }) => void
+    getById.mockReturnValue(new Promise((resolve) => { resolveLookup = resolve }))
+
+    const wrapper = mountRouteFilteredUsageView()
+    await wrapper.vm.$nextTick()
+    ;(wrapper.findComponent(UsageFiltersStub).vm as any).simulateUserInput('new-search@test.com')
+
+    resolveLookup({ id: 42, email: 'route-user@test.com' })
+    await flushPromises()
+
+    expect((wrapper.vm as any).filters.user_id).toBe(42)
+    expect(wrapper.get('[data-test="user-filter-label"]').text()).toBe('new-search@test.com')
+  })
+})
+
 describe('admin UsageView distribution metric toggles', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     list.mockReset()
     getStats.mockReset()
     getSnapshotV2.mockReset()
+    getModelStats.mockReset()
     getById.mockReset()
+    Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
 
     list.mockResolvedValue({
       items: [],
@@ -138,9 +249,11 @@ describe('admin UsageView distribution metric toggles', () => {
       models: [],
       groups: [],
     })
+    getModelStats.mockResolvedValue({ models: [] })
   })
 
   afterEach(() => {
+    Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
     vi.useRealTimers()
   })
 

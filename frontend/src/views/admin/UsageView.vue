@@ -64,7 +64,7 @@
           <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
         </div>
       </div>
-      <UsageFilters v-model="filters" :start-date="startDate" :end-date="endDate" :exporting="exporting" :class="{ 'z-[221]': showColumnDropdown }" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
+      <UsageFilters ref="usageFiltersRef" v-model="filters" :start-date="startDate" :end-date="endDate" :exporting="exporting" :class="{ 'z-[221]': showColumnDropdown }" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
         <template #after-reset>
           <div class="relative" ref="columnDropdownRef">
             <button
@@ -155,6 +155,10 @@ const appStore = useAppStore()
 type DistributionMetric = 'tokens' | 'actual_cost'
 type EndpointSource = 'inbound' | 'upstream' | 'path'
 type ModelDistributionSource = 'requested' | 'upstream' | 'mapping'
+type UsageFiltersExposed = {
+  getUserSearchRevision: () => number
+  setUserKeyword: (email: string) => void
+}
 const route = useRoute()
 const usageStats = ref<AdminUsageStatsResponse | null>(null); const usageLogs = ref<AdminUsageLog[]>([]); const loading = ref(false); const exporting = ref(false)
 const trendData = ref<TrendDataPoint[]>([]); const requestedModelStats = ref<ModelStat[]>([]); const upstreamModelStats = ref<ModelStat[]>([]); const mappingModelStats = ref<ModelStat[]>([]); const groupStats = ref<GroupStat[]>([]); const chartsLoading = ref(false); const modelStatsLoading = ref(false); const granularity = ref<'day' | 'hour'>('hour')
@@ -228,6 +232,7 @@ const getGranularityForRange = (start: string, end: string): 'day' | 'hour' => {
 const defaultRange = getLast24HoursRangeDates()
 const startDate = ref(defaultRange.start); const endDate = ref(defaultRange.end)
 const filters = ref<AdminUsageQueryParams>({ user_id: undefined, model: undefined, group_id: undefined, request_type: undefined, billing_type: null, start_date: startDate.value, end_date: endDate.value })
+const usageFiltersRef = ref<UsageFiltersExposed | null>(null)
 const pagination = reactive({ page: 1, page_size: getPersistedPageSize(), total: 0 })
 const sortState = reactive({
   sort_by: 'created_at',
@@ -265,6 +270,26 @@ const applyRouteQueryFilters = () => {
     end_date: endDate.value
   }
   granularity.value = getGranularityForRange(startDate.value, endDate.value)
+}
+
+const loadRouteUserFilterLabel = async () => {
+  const requestedUserID = filters.value.user_id
+  if (!requestedUserID) return
+
+  const userSearchRevision = usageFiltersRef.value?.getUserSearchRevision()
+  const routeUserFilterIsCurrent = () => (
+    filters.value.user_id === requestedUserID
+    && usageFiltersRef.value?.getUserSearchRevision() === userSearchRevision
+  )
+
+  try {
+    const user = await adminAPI.users.getById(requestedUserID)
+    if (!routeUserFilterIsCurrent()) return
+    usageFiltersRef.value?.setUserKeyword(user.email || String(requestedUserID))
+  } catch {
+    if (!routeUserFilterIsCurrent()) return
+    usageFiltersRef.value?.setUserKeyword(String(requestedUserID))
+  }
 }
 
 const onDateRangeChange = (range: { startDate: string; endDate: string; preset: string | null }) => {
@@ -599,6 +624,7 @@ const handleColumnClickOutside = (event: MouseEvent) => {
 
 onMounted(() => {
   applyRouteQueryFilters()
+  void loadRouteUserFilterLabel()
   loadLogs()
   loadStats()
   loadModelStats(modelDistributionSource.value, true)
