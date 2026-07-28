@@ -99,6 +99,44 @@ last_verified: 2026-07-03 19:30 +08:00
 
 # Workflow Spec
 
+## S123 Addendum: upstream async image task API
+
+### Goal
+
+- Selectively adapt the upstream asynchronous OpenAI-compatible image task API
+  without replacing the local user-console `image-creator` queue or changing
+  existing synchronous Images API behavior.
+
+### Scope Boundary
+
+- Add `/images/generations/async`, `/images/edits/async`, and
+  `/images/tasks/:task_id` under the existing `/v1` and no-prefix gateway
+  routes. Submission returns a task immediately; execution reuses the current
+  image gateway so routing, moderation, concurrency, billing, and failover
+  remain on the existing path.
+- Store task state in Redis, bind reads to both user and API key, and keep task
+  data bounded. Offload final image results to a separately configured
+  S3-compatible object store before persisting the final JSON, so raw
+  `b64_json` data is never retained in Redis.
+- Add file-config and hot-reloadable admin configuration for this feature only.
+  It defaults off, shares existing secret-encryption/step-up controls, and does
+  not reuse or migrate `image_creator.object_storage`.
+- Keep `/v1/images/generations`, `/v1/images/edits`, existing `image-creator`,
+  schema/migrations, deployment/container definitions, and unrelated dirty
+  changes unchanged.
+
+### Acceptance Boundary
+
+- Focused handler/service/repository/config/middleware/route tests cover task
+  lifecycle, ownership, disabled behavior, stream rejection, completion,
+  object-storage failures, setting hot reload, and environment reachability.
+- Frontend tests and typecheck/build cover the admin setting card without
+  exposing stored secrets. Full repository compile, formatting, exact path
+  audit, conflict scan, and `git diff --check` pass.
+- Runtime smoke is separately gated on a disposable Redis instance, writable
+  S3-compatible bucket, and test API key. No deployment or production setting
+  change is authorized by source-only acceptance.
+
 ## S108 Addendum: user usage column menu layer
 
 ### Goal

@@ -587,6 +587,9 @@ func registerBackupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		backup.GET("/s3-config", h.Admin.Backup.GetS3Config)
 		backup.PUT("/s3-config", h.Admin.Backup.UpdateS3Config)
 		backup.POST("/s3-config/test", h.Admin.Backup.TestS3Connection)
+		backup.GET("/image-storage", h.Admin.Backup.GetImageStorageConfig)
+		backup.PUT("/image-storage", h.Admin.Backup.UpdateImageStorageConfig)
+		backup.POST("/image-storage/test", h.Admin.Backup.TestImageStorageConnection)
 
 		// 定时备份配置
 		backup.GET("/schedule", h.Admin.Backup.GetSchedule)

@@ -146,8 +146,8 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 
 		// ── 5. 加载订阅（订阅模式时始终加载） ───────────────────────
 
-		// skipBilling: /v1/usage 只需鉴权，跳过所有计费执行
-		skipBilling := c.Request.URL.Path == "/v1/usage"
+		// 已创建的异步生图任务必须可由原 API Key 查询，即使生成已耗尽余额或额度。
+		skipBilling := c.Request.URL.Path == "/v1/usage" || isAsyncImageTaskRead(c.Request.Method, c.Request.URL.Path)
 
 		var subscription *service.UserSubscription
 		deferGroupBilling := shouldDeferGroupBilling(c, apiKey)
@@ -319,6 +319,13 @@ func SetAPIKeyContext(c *gin.Context, apiKey *service.APIKey) {
 	c.Set(string(ContextKeyAPIKey), apiKey)
 	setAPIKeyAccountPoolContext(c, apiKey)
 	setGroupContext(c, apiKey.Group)
+}
+
+func isAsyncImageTaskRead(method, path string) bool {
+	if method != http.MethodGet {
+		return false
+	}
+	return strings.HasPrefix(path, "/v1/images/tasks/") || strings.HasPrefix(path, "/images/tasks/")
 }
 
 // GetAPIKeyFromContext 从上下文中获取API key

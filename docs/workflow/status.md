@@ -1,15 +1,40 @@
 ---
 phase: done
-current_sprint: upstream-v0166-gemini-web-search-s119
-total_sprints: 119
-pending_action: S115-S119 are integrated locally for post-integration verification; no push, deployment, or container update is authorized
+current_sprint: upstream-async-image-tasks-s123
+total_sprints: 123
+pending_action: S123 Redis storage smoke passed in the isolated worktree; S3, upstream image, API-key, and browser runtime evidence remain absent, with no push, deployment, or container update performed
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-27 20:30 +08:00
+last_verified: 2026-07-28 20:34 +08:00
 ---
 
 # S118 Integrated Sprint
+
+# S123 Contract Approved
+
+- Selectively adapt the upstream async image gateway API with Redis task state,
+  object-storage result offload, and hot admin configuration.
+- The local user-console `image-creator` queue and synchronous Images API are
+  explicitly frozen; no schema, migration, Docker, deployment, or container
+  work is permitted.
+- Contract review confirmed local Redis/AWS SDK prerequisites already exist.
+  The image-store adapter must reuse the local S3 client construction rather
+  than duplicate provider setup.
+- Contract: `docs/workflow/tasks/upstream-async-image-tasks-s123.md`.
+- Implementation adds opt-in gateway async image task routes backed by Redis;
+  completed images are offloaded to S3-compatible storage before task state is
+  retained. The synchronous Images API and `image_creator` remain unchanged.
+- File/environment defaults and encrypted hot admin settings are covered,
+  together with result offload failure, feature disable/poll behavior,
+  ownership isolation, and URL re-hosting guard regressions.
+- Final Evaluator: PASS/source-only plus an isolated Redis storage smoke. Focused backend gates, repository Redis
+  regression, full Go compile, module verification, frontend typecheck and
+  build, Wire regeneration, formatting, diff, conflict-marker, and allowlist
+  checks pass. A real local Redis `PING`, `SET EX`, `TTL`, `GET`, and exact
+  `DEL` smoke passed with a unique cleanup-verified temporary key. No real S3,
+  upstream image request, authenticated browser smoke, deployment, container
+  update, push, or publish was performed.
 
 - Draft contract for adapting upstream `fd7e2039d`: Gemini pool-mode upstream
   errors skipped by the configured error policy must still enter existing

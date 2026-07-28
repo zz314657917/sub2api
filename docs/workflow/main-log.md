@@ -489,3 +489,9 @@
 260727 2030 | upstream-v0166-gemini-web-search-s119 | build | Generator | explicit tool-type discriminator retained; normal Chat Completions function names remain client-side declarations
 260727 2030 | upstream-v0166-gemini-web-search-s119 | final-qa | Evaluator | focused and full Gemini tests plus repository compile PASS; formatting, diff, conflict-marker, and allowlist checks PASS
 260727 2030 | upstream-v0166-gemini-web-search-s119 | done | Evaluator | PASS/source-only; no real upstream request, push, deployment, or container update performed
+260728 1757 | upstream-async-image-tasks-s123 | contract-draft | Planner | selective async image API plan: Redis task state, S3 result offload, hot admin setting; preserve image-creator and sync image routes
+260728 1757 | upstream-async-image-tasks-s123 | contract-approved | Evaluator | local Redis/AWS prerequisites confirmed; API task and image-creator boundaries, default-off storage gate, and acceptance commands approved
+260728 1843 | upstream-async-image-tasks-s123 | build | Generator | async gateway routes, Redis task state, S3 result offload, hot admin config, tests, and Backup UI configuration card completed in the isolated worktree
+260728 1843 | upstream-async-image-tasks-s123 | final-qa | Evaluator | focused backend gates, repository regression, full compile, module verification, frontend typecheck/build, Wire, formatting, diff, conflict-marker, and allowlist checks PASS
+260728 1843 | upstream-async-image-tasks-s123 | done | Evaluator | PASS/source-only; no live Redis/S3/upstream request, authenticated browser smoke, deployment, container update, push, or publish
+260728 2034 | upstream-async-image-tasks-s123 | runtime-redis-smoke | Evaluator | `sub2api-redis` PING, SET EX 60, TTL, GET, exact DEL, and post-delete EXISTS check PASS; S3/upstream/API-key/browser evidence remains absent

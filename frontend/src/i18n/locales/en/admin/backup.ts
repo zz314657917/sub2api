@@ -20,6 +20,27 @@ export default {
         testFailed: 'S3 connection test failed',
         saved: 'S3 configuration saved'
       },
+      imageStorage: {
+        title: 'Async Image Result Storage',
+        description: 'Store gateway async image results in S3-compatible object storage. New tasks are unavailable until this is complete.',
+        enabled: 'Enable async image tasks',
+        reuseBackupS3: 'Reuse backup S3 credentials',
+        endpoint: 'Endpoint',
+        region: 'Region',
+        bucket: 'Bucket',
+        prefix: 'Key Prefix',
+        publicBaseUrl: 'Public Base URL (optional)',
+        presignExpiry: 'Presigned URL Expiry (hours)',
+        maxDownloadBytes: 'Maximum Source Image Bytes',
+        accessKeyId: 'Access Key ID',
+        secretAccessKey: 'Secret Access Key',
+        secretConfigured: 'Already configured, leave empty to keep',
+        forcePathStyle: 'Force Path Style',
+        testConnection: 'Validate Configuration',
+        testSuccess: 'Image storage configuration is valid',
+        testFailed: 'Image storage configuration is invalid',
+        saved: 'Image storage configuration saved'
+      },
       schedule: {
         title: 'Scheduled Backup',
         description: 'Configure automatic scheduled backups',
