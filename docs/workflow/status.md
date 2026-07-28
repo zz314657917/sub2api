@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-async-image-tasks-s123
 total_sprints: 123
-pending_action: S115-S123 are merged in an isolated integration worktree; regression verification and origin/main publication remain pending
+pending_action: S115-S123 are merged and published on origin/main at 1bc6778ef; deployment and remaining runtime verification are separate work
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-28 20:53 +08:00
+last_verified: 2026-07-28 21:32 +08:00
 ---
 
 # S122 Integrated Sprint
@@ -50,6 +50,10 @@ last_verified: 2026-07-28 20:53 +08:00
   upstream image request, authenticated browser smoke, deployment, or container
   update was performed. Commit `01f5d785d` is pushed to the tracked origin
   branch and its remote ref was verified.
+- Integration merge `1bc6778ef` combines S115-S123 with the current S122
+  origin/main head. The merged result passed focused backend regressions, full
+  Go compile, module verification, frontend typecheck/build, formatting, diff,
+  and conflict-marker gates before publication.
 
 - Draft contract for adapting upstream `fd7e2039d`: Gemini pool-mode upstream
   errors skipped by the configured error policy must still enter existing
