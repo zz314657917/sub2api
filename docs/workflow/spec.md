@@ -1022,3 +1022,39 @@ endpoint.
 - Existing OAuth passthrough stream and compact forwarding tests continue to
   pass.
 - `gofmt`, exact path audit, and `git diff --check` pass.
+
+# S124 Addendum: v0.1.166 configuration and usage-query compatibility
+
+## Goal
+
+Port three bounded v0.1.166 behaviors missing from local `main`: honor an
+explicit `CONFIG_FILE` path, allow administrators to list usage records by an
+exact `request_id`, and resolve the user label when the administrator usage
+view is opened with a `user_id` route query.
+
+## Scope Boundary
+
+- Reuse one config-source helper from both full config loading and bootstrap
+  server-address loading. A non-blank `CONFIG_FILE` is the selected file;
+  otherwise preserve the existing `DATA_DIR`, container, local, and system
+  path search order. Environment-variable overrides remain intact.
+- Add only an exact `request_id` condition to administrator usage list queries.
+  Do not add schema, migration, export, dashboard-statistics, or fuzzy-search
+  behavior.
+- When `/admin/usage?user_id=<id>` is opened, fetch that user once and display
+  the email in the existing filter. A concurrent user search must not be
+  overwritten by the route lookup.
+- Do not port v0.1.166 Caddy, affiliate-input, pricing, Grok, protocol,
+  WebSocket, Antigravity, payment, or panel-rate-limit changes in S124.
+
+## Acceptance Boundary
+
+- Focused config, admin handler, and usage repository tests prove explicit
+  file loading, existing fallback paths, trimmed exact request ID filtering,
+  and unchanged missing-filter behavior.
+- Focused UsageFilters and UsageView Vitest cover user-search revision safety
+  and route-query label hydration. Frontend typecheck and production build
+  must pass.
+- `gofmt`, `git diff --check`, allowed-path audit, conflict-marker scan, and
+  full Go compilation must pass. No deploy, container update, push, or primary
+  dirty-worktree changes are in scope.

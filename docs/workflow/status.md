@@ -1,13 +1,30 @@
 ---
 phase: done
-current_sprint: upstream-v0165-audit-log-s121
-total_sprints: 121
-pending_action: Keep the local S121 commit isolated; do not push, deploy, update containers, or touch the primary dirty worktree
+current_sprint: upstream-v0166-config-usage-ui-s124
+total_sprints: 124
+pending_action: Keep the S124 commits local; do not push, deploy, update containers, or modify the primary worktree outside a verified fast-forward integration
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-28 01:33 +08:00
+last_verified: 2026-07-28 20:50 +08:00
 ---
+
+# S124 Current Sprint
+
+- Draft contract for three independently reviewable v0.1.166 behavior ports:
+  `CONFIG_FILE` support, exact administrator usage-log `request_id` filtering,
+  and route-driven user-label hydration in the administrator usage view.
+- The primary worktree has unrelated user edits; S124 must remain in its own
+  worktree and may not touch pricing, Grok, Claude constants, group-buy,
+  knowledge, migrations, deployment, or containers.
+- Evaluator contract review passed: the three behavior slices are bounded to
+  existing config, usage-query, and usage-page seams. Source-level QA passes:
+  focused config/handler/repository tests, full Go compilation, frontend 8/8
+  Vitest, typecheck, production build, formatting, diff, conflict-marker, and
+  allowed-path gates are green. No merge has occurred.
+- Final Evaluator: PASS/source-only. PostgreSQL config/usage runtime,
+  authenticated browser interaction, deployment, container update, and push
+  remain out of scope.
 
 # S121 Current Sprint
 

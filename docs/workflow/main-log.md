@@ -497,3 +497,7 @@
 260728 0134 | upstream-v0165-audit-log-s121 | review-fix | Codex | refresh flag gating, body restoration, fail-closed dependency checks, writer flush barrier, retained failed batches, and atomic clear trace transaction implemented
 260728 0135 | upstream-v0165-audit-log-s121 | final-qa | Evaluator | focused Go, repository rollback, full compile, frontend 9/9, typecheck, 1099-module build, migration, formatting, diff, conflict-marker, and path gates PASS
 260728 0135 | upstream-v0165-audit-log-s121 | done | Evaluator | PASS/source-only; local commit only, no push, deployment, container update, or primary-worktree integration
+260728 2050 | upstream-v0166-config-usage-ui-s124 | contract-draft | Planner | docs/workflow/tasks/upstream-v0166-config-usage-ui-s124.md
+260728 2052 | upstream-v0166-config-usage-ui-s124 | contract-approved | Evaluator | exact list-only request filter, config-source fallback, async UI revision guard, allowed paths, and acceptance commands reviewed
+260728 2105 | upstream-v0166-config-usage-ui-s124 | build | Generator | CONFIG_FILE source helper, exact request_id list predicate, and route user-label hydration implemented in isolated worktree
+260728 2112 | upstream-v0166-config-usage-ui-s124 | final-qa | Evaluator | focused Go, full compile, frontend 8/8, typecheck, 1099-module build, formatting, diff, conflict-marker, and path gates PASS/source-only
