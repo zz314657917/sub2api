@@ -45,6 +45,7 @@ func ProvideAdminHandlers(
 	groupBuyHandler *admin.GroupBuyHandler,
 	imageCreatorStorageHandler *admin.ImageCreatorStorageGovernanceHandler,
 	adminTicketHandler *admin.TicketHandler,
+	auditLogHandler *admin.AuditLogHandler,
 ) *AdminHandlers {
 	return &AdminHandlers{
 		Dashboard:              dashboardHandler,
@@ -82,6 +83,7 @@ func ProvideAdminHandlers(
 		GroupBuy:               groupBuyHandler,
 		ImageCreatorStorage:    imageCreatorStorageHandler,
 		Ticket:                 adminTicketHandler,
+		AuditLog:               auditLogHandler,
 	}
 }
 
@@ -104,6 +106,21 @@ func ProvideSystemHandler(updateService *service.UpdateService, lockService *ser
 // ProvideSettingHandler creates SettingHandler with version from BuildInfo
 func ProvideSettingHandler(settingService *service.SettingService, buildInfo BuildInfo) *SettingHandler {
 	return NewSettingHandler(settingService, buildInfo.Version)
+}
+
+func ProvideAdminSettingHandler(
+	settingService *service.SettingService,
+	emailService *service.EmailService,
+	turnstileService *service.TurnstileService,
+	opsService *service.OpsService,
+	paymentConfigService *service.PaymentConfigService,
+	paymentService *service.PaymentService,
+	totpService *service.TotpService,
+	userService *service.UserService,
+) *admin.SettingHandler {
+	h := admin.NewSettingHandler(settingService, emailService, turnstileService, opsService, paymentConfigService, paymentService)
+	h.SetStepUpDeps(totpService, userService)
+	return h
 }
 
 // ProvideHandlers creates the Handlers struct
@@ -216,7 +233,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewProxyHandler,
 	admin.NewRedeemHandler,
 	admin.NewPromoHandler,
-	admin.NewSettingHandler,
+	ProvideAdminSettingHandler,
 	admin.NewOpsHandler,
 	ProvideSystemHandler,
 	admin.NewSubscriptionHandler,
@@ -235,6 +252,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewGroupBuyHandler,
 	admin.NewImageCreatorStorageGovernanceHandler,
 	admin.NewTicketHandler,
+	admin.NewAuditLogHandler,
 
 	// AdminHandlers and Handlers constructors
 	ProvideAdminHandlers,

@@ -195,6 +195,11 @@ const (
 	// TOTP 双因素认证设置
 	SettingKeyTotpEnabled = "totp_enabled" // 是否启用 TOTP 2FA 功能
 
+	// 会话安全与操作审计设置
+	SettingKeySessionBindingEnabled = "session_binding_enabled"
+	SettingKeyStepUpEnabled         = "step_up_enabled"
+	SettingKeyAuditLogRetentionDays = "audit_log_retention_days"
+
 	// LinuxDo Connect OAuth 登录设置
 	SettingKeyLinuxDoConnectEnabled      = "linuxdo_connect_enabled"
 	SettingKeyLinuxDoConnectClientID     = "linuxdo_connect_client_id"

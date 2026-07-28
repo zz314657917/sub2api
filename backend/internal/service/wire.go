@@ -40,6 +40,12 @@ func ProvideEmailQueueService(emailService *EmailService) *EmailQueueService {
 	return NewEmailQueueService(emailService, 3)
 }
 
+func ProvideAuditLogService(repo AuditLogRepository, settingService *SettingService) *AuditLogService {
+	svc := NewAuditLogService(repo, settingService)
+	svc.Start()
+	return svc
+}
+
 // ProvideOAuthRefreshAPI creates OAuthRefreshAPI with the default lock TTL.
 func ProvideOAuthRefreshAPI(accountRepo AccountRepository, tokenCache GeminiTokenCache) *OAuthRefreshAPI {
 	return NewOAuthRefreshAPI(accountRepo, tokenCache)
@@ -901,6 +907,7 @@ var ProviderSet = wire.NewSet(
 	ProvideOpsScheduledReportService,
 	NewEmailService,
 	ProvideEmailQueueService,
+	ProvideAuditLogService,
 	NewTurnstileService,
 	NewSubscriptionService,
 	wire.Bind(new(DefaultSubscriptionAssigner), new(*SubscriptionService)),

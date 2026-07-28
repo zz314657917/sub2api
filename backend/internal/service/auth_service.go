@@ -57,6 +57,8 @@ type JWTClaims struct {
 	Email        string `json:"email"`
 	Role         string `json:"role"`
 	TokenVersion int64  `json:"token_version"` // Used to invalidate tokens on password change
+	SessionID    string `json:"sid,omitempty"`
+	BindingHash  string `json:"binding_hash,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -1159,6 +1161,10 @@ func isReservedEmail(email string) bool {
 // GenerateToken 生成JWT access token
 // 使用新的access_token_expire_minutes配置项（如果配置了），否则回退到expire_hour
 func (s *AuthService) GenerateToken(user *User) (string, error) {
+	return s.generateTokenWithSession(user, "", "")
+}
+
+func (s *AuthService) generateTokenWithSession(user *User, sessionID, bindingHash string) (string, error) {
 	now := time.Now()
 	var expiresAt time.Time
 	if s.cfg.JWT.AccessTokenExpireMinutes > 0 {
@@ -1173,6 +1179,8 @@ func (s *AuthService) GenerateToken(user *User) (string, error) {
 		Email:        user.Email,
 		Role:         user.Role,
 		TokenVersion: resolvedTokenVersion(user),
+		SessionID:    sessionID,
+		BindingHash:  bindingHash,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -1421,14 +1429,20 @@ func (s *AuthService) GenerateTokenPair(ctx context.Context, user *User, familyI
 		return nil, errors.New("refresh token cache not configured")
 	}
 
-	// 生成Access Token
-	accessToken, err := s.GenerateToken(user)
+	familyID, err := ensureRefreshTokenFamilyID(familyID)
+	if err != nil {
+		return nil, fmt.Errorf("generate refresh token family id: %w", err)
+	}
+	bindingHash := sessionBindingHashFromContext(ctx)
+
+	// Access token and refresh token are bound to the same family/fingerprint.
+	accessToken, err := s.generateTokenWithSession(user, familyID, bindingHash)
 	if err != nil {
 		return nil, fmt.Errorf("generate access token: %w", err)
 	}
 
 	// 生成Refresh Token
-	refreshToken, err := s.generateRefreshToken(ctx, user, familyID)
+	refreshToken, err := s.generateRefreshToken(ctx, user, familyID, bindingHash)
 	if err != nil {
 		return nil, fmt.Errorf("generate refresh token: %w", err)
 	}
@@ -1441,7 +1455,7 @@ func (s *AuthService) GenerateTokenPair(ctx context.Context, user *User, familyI
 }
 
 // generateRefreshToken 生成并存储Refresh Token
-func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, familyID string) (string, error) {
+func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, familyID, bindingHash string) (string, error) {
 	// 生成随机Token
 	tokenBytes := make([]byte, 32)
 	if _, err := rand.Read(tokenBytes); err != nil {
@@ -1452,15 +1466,6 @@ func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, fami
 	// 计算Token哈希（存储哈希而非原始Token）
 	tokenHash := hashToken(rawToken)
 
-	// 如果没有提供familyID，生成新的
-	if familyID == "" {
-		familyBytes := make([]byte, 16)
-		if _, err := rand.Read(familyBytes); err != nil {
-			return "", fmt.Errorf("generate family id: %w", err)
-		}
-		familyID = hex.EncodeToString(familyBytes)
-	}
-
 	now := time.Now()
 	ttl := time.Duration(s.cfg.JWT.RefreshTokenExpireDays) * 24 * time.Hour
 
@@ -1468,6 +1473,7 @@ func (s *AuthService) generateRefreshToken(ctx context.Context, user *User, fami
 		UserID:       user.ID,
 		TokenVersion: resolvedTokenVersion(user),
 		FamilyID:     familyID,
+		BindingHash:  bindingHash,
 		CreatedAt:    now,
 		ExpiresAt:    now.Add(ttl),
 	}
@@ -1524,6 +1530,17 @@ func (s *AuthService) RefreshTokenPair(ctx context.Context, refreshToken string)
 		// 删除过期Token
 		_ = s.refreshTokenCache.DeleteRefreshToken(ctx, tokenHash)
 		return nil, ErrRefreshTokenExpired
+	}
+
+	// The refresh token stores the same network fingerprint as its access token.
+	// A mismatch revokes the whole family before issuing a replacement pair.
+	// Keep the feature flag check here as well as in the access-token middleware:
+	// disabling session binding must restore the pre-binding refresh behavior.
+	if s.settingService != nil && s.settingService.IsSessionBindingEnabled(ctx) && data.BindingHash != "" {
+		if current := sessionBindingHashFromContext(ctx); current != "" && current != data.BindingHash {
+			_ = s.refreshTokenCache.DeleteTokenFamily(ctx, data.FamilyID)
+			return nil, ErrSessionBindingMismatch
+		}
 	}
 
 	// 获取用户信息
@@ -1591,6 +1608,15 @@ func (s *AuthService) RevokeAllUserSessions(ctx context.Context, userID int64) e
 	return s.refreshTokenCache.DeleteUserRefreshTokens(ctx, userID)
 }
 
+// RevokeSessionFamily revokes all refresh tokens in one login-session family.
+// Empty family IDs belong to legacy access tokens and cannot revoke another session.
+func (s *AuthService) RevokeSessionFamily(ctx context.Context, familyID string) error {
+	if s.refreshTokenCache == nil || strings.TrimSpace(familyID) == "" {
+		return nil
+	}
+	return s.refreshTokenCache.DeleteTokenFamily(ctx, familyID)
+}
+
 // RevokeAllUserTokens invalidates both stateless access tokens and refresh sessions.
 // Access/refresh token verification both depend on TokenVersion, so bumping it provides
 // immediate revocation even if refresh-token cache cleanup later fails.
@@ -1615,6 +1641,13 @@ func (s *AuthService) RevokeAllUserTokens(ctx context.Context, userID int64) err
 func hashToken(token string) string {
 	hash := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(hash[:])
+}
+
+func ensureRefreshTokenFamilyID(familyID string) (string, error) {
+	if normalized := strings.TrimSpace(familyID); normalized != "" {
+		return normalized, nil
+	}
+	return randomHexString(16)
 }
 
 func resolvedTokenVersion(user *User) int64 {

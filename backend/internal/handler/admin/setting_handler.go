@@ -62,6 +62,8 @@ type SettingHandler struct {
 	opsService           *service.OpsService
 	paymentConfigService *service.PaymentConfigService
 	paymentService       *service.PaymentService
+	totpService          *service.TotpService
+	userService          *service.UserService
 }
 
 // NewSettingHandler 创建系统设置处理器
@@ -74,6 +76,13 @@ func NewSettingHandler(settingService *service.SettingService, emailService *ser
 		paymentConfigService: paymentConfigService,
 		paymentService:       paymentService,
 	}
+}
+
+// SetStepUpDeps attaches the TOTP dependencies without changing the existing
+// constructor used by handler tests.
+func (h *SettingHandler) SetStepUpDeps(totpService *service.TotpService, userService *service.UserService) {
+	h.totpService = totpService
+	h.userService = userService
 }
 
 // GetSettings 获取所有系统设置
@@ -125,6 +134,9 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		InvitationCodeEnabled:                  settings.InvitationCodeEnabled,
 		TotpEnabled:                            settings.TotpEnabled,
 		TotpEncryptionKeyConfigured:            h.settingService.IsTotpEncryptionKeyConfigured(),
+		SessionBindingEnabled:                  settings.SessionBindingEnabled,
+		StepUpEnabled:                          settings.StepUpEnabled,
+		AuditLogRetentionDays:                  settings.AuditLogRetentionDays,
 		LoginAgreementEnabled:                  settings.LoginAgreementEnabled,
 		LoginAgreementMode:                     settings.LoginAgreementMode,
 		LoginAgreementUpdatedAt:                settings.LoginAgreementUpdatedAt,
@@ -453,6 +465,9 @@ type UpdateSettingsRequest struct {
 	FrontendURL                      string                       `json:"frontend_url"`
 	InvitationCodeEnabled            bool                         `json:"invitation_code_enabled"`
 	TotpEnabled                      bool                         `json:"totp_enabled"` // TOTP 双因素认证
+	SessionBindingEnabled            bool                         `json:"session_binding_enabled"`
+	StepUpEnabled                    bool                         `json:"step_up_enabled"`
+	AuditLogRetentionDays            int                          `json:"audit_log_retention_days"`
 	LoginAgreementEnabled            bool                         `json:"login_agreement_enabled"`
 	LoginAgreementMode               string                       `json:"login_agreement_mode"`
 	LoginAgreementUpdatedAt          string                       `json:"login_agreement_updated_at"`
@@ -933,6 +948,31 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		if !h.settingService.IsTotpEncryptionKeyConfigured() {
 			response.BadRequest(c, "Cannot enable TOTP: TOTP_ENCRYPTION_KEY environment variable must be configured first. Generate a key with 'openssl rand -hex 32' and set it in your environment.")
 			return
+		}
+	}
+	if req.AuditLogRetentionDays < 0 {
+		req.AuditLogRetentionDays = 0
+	}
+	if _, sent := sentFields["step_up_enabled"]; sent {
+		if req.StepUpEnabled && !previousSettings.StepUpEnabled {
+			subject, ok := middleware.GetAuthSubjectFromContext(c)
+			if !ok || h.userService == nil {
+				response.Unauthorized(c, "Admin session required to enable step-up verification")
+				return
+			}
+			user, err := h.userService.GetByID(c.Request.Context(), subject.UserID)
+			if err != nil || !user.TotpEnabled {
+				response.ErrorWithDetails(c, http.StatusForbidden,
+					"Enable TOTP for the current administrator before enabling step-up verification",
+					"STEP_UP_ENABLE_REQUIRES_TOTP", nil)
+				return
+			}
+		}
+		if !req.StepUpEnabled && previousSettings.StepUpEnabled {
+			if h.totpService == nil || h.userService == nil ||
+				!middleware.EnforceStepUpAlways(c, h.totpService, h.userService) {
+				return
+			}
 		}
 	}
 	loginAgreementMode := strings.ToLower(strings.TrimSpace(req.LoginAgreementMode))
@@ -1587,6 +1627,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		FrontendURL:                      req.FrontendURL,
 		InvitationCodeEnabled:            req.InvitationCodeEnabled,
 		TotpEnabled:                      req.TotpEnabled,
+		SessionBindingEnabled:            req.SessionBindingEnabled,
+		StepUpEnabled:                    req.StepUpEnabled,
+		AuditLogRetentionDays:            req.AuditLogRetentionDays,
 		LoginAgreementEnabled:            req.LoginAgreementEnabled,
 		LoginAgreementMode:               loginAgreementMode,
 		LoginAgreementUpdatedAt:          loginAgreementUpdatedAt,
@@ -2104,6 +2147,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		InvitationCodeEnabled:                  updatedSettings.InvitationCodeEnabled,
 		TotpEnabled:                            updatedSettings.TotpEnabled,
 		TotpEncryptionKeyConfigured:            h.settingService.IsTotpEncryptionKeyConfigured(),
+		SessionBindingEnabled:                  updatedSettings.SessionBindingEnabled,
+		StepUpEnabled:                          updatedSettings.StepUpEnabled,
+		AuditLogRetentionDays:                  updatedSettings.AuditLogRetentionDays,
 		LoginAgreementEnabled:                  updatedSettings.LoginAgreementEnabled,
 		LoginAgreementMode:                     updatedSettings.LoginAgreementMode,
 		LoginAgreementUpdatedAt:                updatedSettings.LoginAgreementUpdatedAt,

@@ -238,7 +238,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	registry := payment.ProvideRegistry()
 	defaultLoadBalancer := payment.ProvideDefaultLoadBalancer(client, encryptionKey)
 	paymentService := service.ProvidePaymentService(client, registry, defaultLoadBalancer, redeemService, subscriptionService, paymentConfigService, userRepository, groupRepository, affiliateService, welfareService, systemTicketService, membershipService)
-	settingHandler := admin.NewSettingHandler(settingService, emailService, turnstileService, opsService, paymentConfigService, paymentService)
+	settingHandler := handler.ProvideAdminSettingHandler(settingService, emailService, turnstileService, opsService, paymentConfigService, paymentService, totpService, userService)
 	opsHandler := admin.NewOpsHandler(opsService)
 	updateCache := repository.NewUpdateCache(redisClient)
 	gitHubReleaseClient := repository.ProvideGitHubReleaseClient(configConfig)
@@ -282,7 +282,10 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	imageCreatorStorageGovernanceService := service.NewImageCreatorStorageGovernanceService(imageCreatorStorageGovernanceRepository, imageCreatorService, configConfig)
 	imageCreatorStorageGovernanceHandler := admin.NewImageCreatorStorageGovernanceHandler(imageCreatorStorageGovernanceService)
 	adminTicketHandler := admin.NewTicketHandler(ticketService)
-	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, adminAnnouncementHandler, adminTutorialPageHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, grokOAuthHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, channelMonitorRequestTemplateHandler, contentModerationHandler, paymentHandler, affiliateHandler, groupBuyHandler, imageCreatorStorageGovernanceHandler, adminTicketHandler)
+	auditLogRepository := repository.NewAuditLogRepository(db)
+	auditLogService := service.ProvideAuditLogService(auditLogRepository, settingService)
+	auditLogHandler := admin.NewAuditLogHandler(auditLogService, totpService)
+	adminHandlers := handler.ProvideAdminHandlers(dashboardHandler, adminUserHandler, groupHandler, accountHandler, adminAnnouncementHandler, adminTutorialPageHandler, dataManagementHandler, backupHandler, oAuthHandler, openAIOAuthHandler, geminiOAuthHandler, antigravityOAuthHandler, grokOAuthHandler, proxyHandler, adminRedeemHandler, promoHandler, settingHandler, opsHandler, systemHandler, adminSubscriptionHandler, adminUsageHandler, userAttributeHandler, errorPassthroughHandler, tlsFingerprintProfileHandler, adminAPIKeyHandler, scheduledTestHandler, channelHandler, channelMonitorHandler, channelMonitorRequestTemplateHandler, contentModerationHandler, paymentHandler, affiliateHandler, groupBuyHandler, imageCreatorStorageGovernanceHandler, adminTicketHandler, auditLogHandler)
 	usageRecordWorkerPool := service.NewUsageRecordWorkerPool(configConfig)
 	userMsgQueueCache := repository.NewUserMsgQueueCache(redisClient)
 	userMessageQueueService := service.ProvideUserMessageQueueService(userMsgQueueCache, rpmCache, configConfig)
@@ -298,10 +301,12 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	idempotencyCoordinator := service.ProvideIdempotencyCoordinator(idempotencyRepository, configConfig)
 	idempotencyCleanupService := service.ProvideIdempotencyCleanupService(idempotencyRepository, configConfig)
 	handlers := handler.ProvideHandlers(authHandler, userHandler, userAccountHandler, userProxyHandler, apiKeyHandler, usageHandler, redeemHandler, subscriptionHandler, announcementHandler, tutorialPageHandler, channelMonitorUserHandler, imageCreatorHandler, canvasHandler, promptFavoriteHandler, ticketHandler, studioBridgeHandler, welfareHandler, adminHandlers, gatewayHandler, openAIGatewayHandler, handlerSettingHandler, totpHandler, handlerPaymentHandler, handlerGroupBuyHandler, paymentWebhookHandler, membershipHandler, availableChannelHandler, idempotencyCoordinator, idempotencyCleanupService)
-	jwtAuthMiddleware := middleware.NewJWTAuthMiddleware(authService, userService)
-	adminAuthMiddleware := middleware.NewAdminAuthMiddleware(authService, userService, settingService)
+	jwtAuthMiddleware := middleware.NewJWTAuthMiddlewareWithSessionBinding(authService, userService, settingService, auditLogService)
+	adminAuthMiddleware := middleware.NewAdminAuthMiddlewareWithSessionBinding(authService, userService, settingService, auditLogService)
 	apiKeyAuthMiddleware := middleware.NewAPIKeyAuthMiddleware(apiKeyService, subscriptionService, configConfig)
-	engine := server.ProvideRouter(configConfig, handlers, jwtAuthMiddleware, adminAuthMiddleware, apiKeyAuthMiddleware, apiKeyService, subscriptionService, opsService, settingService, redisClient)
+	auditLogMiddleware := middleware.NewAuditLogMiddleware(auditLogService)
+	stepUpAuthMiddleware := middleware.NewStepUpAuthMiddleware(totpService, userService, settingService)
+	engine := server.ProvideRouter(configConfig, handlers, jwtAuthMiddleware, adminAuthMiddleware, apiKeyAuthMiddleware, auditLogMiddleware, stepUpAuthMiddleware, apiKeyService, subscriptionService, opsService, settingService, redisClient)
 	httpServer := server.ProvideHTTPServer(configConfig, engine)
 	opsMetricsCollector := service.ProvideOpsMetricsCollector(opsRepository, settingRepository, accountRepository, concurrencyService, db, redisClient, configConfig)
 	opsAggregationService := service.ProvideOpsAggregationService(opsRepository, settingRepository, db, redisClient, configConfig)
@@ -316,7 +321,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	scheduledTestRunnerService := service.ProvideScheduledTestRunnerService(scheduledTestPlanRepository, scheduledTestService, accountTestService, rateLimitService, configConfig)
 	paymentOrderExpiryService := service.ProvidePaymentOrderExpiryService(paymentService)
 	channelMonitorRunner := service.ProvideChannelMonitorRunner(channelMonitorService, settingService)
-	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, affiliateRiskScannerService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, leaderboardLotteryRunner, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, imageCreatorService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner)
+	v2 := provideCleanup(client, redisClient, opsMetricsCollector, opsAggregationService, opsAlertEvaluatorService, affiliateRiskScannerService, opsCleanupService, opsScheduledReportService, opsSystemLogSink, schedulerSnapshotService, tokenRefreshService, accountExpiryService, subscriptionExpiryService, usageCleanupService, idempotencyCleanupService, auditLogService, leaderboardLotteryRunner, pricingService, emailQueueService, billingCacheService, usageRecordWorkerPool, subscriptionService, oAuthService, openAIOAuthService, geminiOAuthService, antigravityOAuthService, grokOAuthService, openAIGatewayService, imageCreatorService, scheduledTestRunnerService, backupService, paymentOrderExpiryService, channelMonitorRunner)
 	application := &Application{
 		Server:  httpServer,
 		Cleanup: v2,
@@ -358,6 +363,7 @@ func provideCleanup(
 	subscriptionExpiry *service.SubscriptionExpiryService,
 	usageCleanup *service.UsageCleanupService,
 	idempotencyCleanup *service.IdempotencyCleanupService,
+	auditLog *service.AuditLogService,
 	leaderboardLotteryRunner *service.LeaderboardLotteryRunner,
 	pricing *service.PricingService,
 	emailQueue *service.EmailQueueService,
@@ -443,6 +449,12 @@ func provideCleanup(
 			{"IdempotencyCleanupService", func() error {
 				if idempotencyCleanup != nil {
 					idempotencyCleanup.Stop()
+				}
+				return nil
+			}},
+			{"AuditLogService", func() error {
+				if auditLog != nil {
+					auditLog.Stop()
 				}
 				return nil
 			}},
