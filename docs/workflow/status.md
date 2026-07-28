@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-async-image-tasks-s123
 total_sprints: 123
-pending_action: S123 Redis storage smoke passed in the isolated worktree; S3, upstream image, API-key, and browser runtime evidence remain absent, with no push, deployment, or container update performed
+pending_action: S123 is published as 01f5d785d on origin/codex/upstream-async-image-tasks-s123; S3, upstream image, API-key, and browser runtime evidence remain absent, with no deployment or container update performed
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-28 20:34 +08:00
+last_verified: 2026-07-28 20:53 +08:00
 ---
 
 # S118 Integrated Sprint
@@ -33,8 +33,9 @@ last_verified: 2026-07-28 20:34 +08:00
   build, Wire regeneration, formatting, diff, conflict-marker, and allowlist
   checks pass. A real local Redis `PING`, `SET EX`, `TTL`, `GET`, and exact
   `DEL` smoke passed with a unique cleanup-verified temporary key. No real S3,
-  upstream image request, authenticated browser smoke, deployment, container
-  update, push, or publish was performed.
+  upstream image request, authenticated browser smoke, deployment, or container
+  update was performed. Commit `01f5d785d` is pushed to the tracked origin
+  branch and its remote ref was verified.
 
 - Draft contract for adapting upstream `fd7e2039d`: Gemini pool-mode upstream
   errors skipped by the configured error policy must still enter existing

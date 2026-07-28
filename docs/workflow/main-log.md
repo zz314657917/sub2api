@@ -495,3 +495,4 @@
 260728 1843 | upstream-async-image-tasks-s123 | final-qa | Evaluator | focused backend gates, repository regression, full compile, module verification, frontend typecheck/build, Wire, formatting, diff, conflict-marker, and allowlist checks PASS
 260728 1843 | upstream-async-image-tasks-s123 | done | Evaluator | PASS/source-only; no live Redis/S3/upstream request, authenticated browser smoke, deployment, container update, push, or publish
 260728 2034 | upstream-async-image-tasks-s123 | runtime-redis-smoke | Evaluator | `sub2api-redis` PING, SET EX 60, TTL, GET, exact DEL, and post-delete EXISTS check PASS; S3/upstream/API-key/browser evidence remains absent
+260728 2053 | upstream-async-image-tasks-s123 | published | Evaluator | commit 01f5d785d pushed to origin/codex/upstream-async-image-tasks-s123 and remote ref verified; no deployment or container update
