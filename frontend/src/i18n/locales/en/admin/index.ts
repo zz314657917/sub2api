@@ -23,6 +23,7 @@ import settings from './settings'
 import errorPassthrough from './errorPassthrough'
 import tlsFingerprintProfiles from './tlsFingerprintProfiles'
 import tickets from './tickets'
+import audit from './audit'
 
 export default {
   dashboard,
@@ -50,4 +51,5 @@ export default {
   errorPassthrough,
   tlsFingerprintProfiles,
   tickets,
+  audit,
 }
