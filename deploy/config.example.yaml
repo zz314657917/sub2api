@@ -896,6 +896,23 @@ image_creator:
   download_bytes_per_second: 262144
   local_gateway_base_url: ""
 
+# Gateway OpenAI-compatible async image-task results. This is independent from
+# image_creator and disabled until S3-compatible credentials are complete.
+image_storage:
+  enabled: false
+  endpoint: ""
+  region: "auto"
+  bucket: ""
+  access_key_id: ""
+  secret_access_key: ""
+  prefix: "images/"
+  force_path_style: false
+  # When empty, completed task results contain time-limited S3 presigned URLs.
+  public_base_url: ""
+  presign_expiry_hours: 24
+  # Maximum bytes downloaded when an upstream result supplies a URL instead of base64.
+  max_download_bytes: 33554432
+
 linuxdo_connect:
   enabled: false
   client_id: ""

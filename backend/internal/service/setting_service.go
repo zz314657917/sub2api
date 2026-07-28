@@ -49,6 +49,17 @@ type SettingRepository interface {
 	Delete(ctx context.Context, key string) error
 }
 
+// OmittedSettingKeys marks settings absent from a partial admin update. The
+// settings DTO uses value fields, so omitted values otherwise become
+// indistinguishable from explicit zero-value clears after JSON binding.
+type OmittedSettingKeys map[string]struct{}
+
+func (o OmittedSettingKeys) dropFrom(updates map[string]string) {
+	for key := range o {
+		delete(updates, key)
+	}
+}
+
 // cachedVersionBounds 缓存 Claude Code 版本号上下限（进程内缓存，60s TTL）
 type cachedVersionBounds struct {
 	min       string // 空字符串 = 不检查
@@ -1738,6 +1749,12 @@ func oidcCompatibilityWriteDefault(base config.OIDCConnectConfig, configured boo
 
 // UpdateSettings 更新系统设置
 func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSettings) error {
+	return s.UpdateSettingsOmitting(ctx, settings, nil)
+}
+
+// UpdateSettingsOmitting persists settings while leaving omitted keys at their
+// stored values. A nil omission set preserves whole-document behavior.
+func (s *SettingService) UpdateSettingsOmitting(ctx context.Context, settings *SystemSettings, omitted OmittedSettingKeys) error {
 	if err := validateStudioBridgeAppSettings(settings.StudioBridgeLuoyeAI); err != nil {
 		return err
 	}
@@ -1748,12 +1765,13 @@ func (s *SettingService) UpdateSettings(ctx context.Context, settings *SystemSet
 	if err != nil {
 		return err
 	}
+	omitted.dropFrom(updates)
 
-	err = s.settingRepo.SetMultiple(ctx, updates)
-	if err == nil {
-		s.refreshCachedSettings(settings)
+	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
+		return err
 	}
-	return err
+	s.refreshCachedSettingsAfterWrite(ctx, settings, omitted)
+	return nil
 }
 
 func (s *SettingService) OIDCSecurityWriteDefaults(ctx context.Context) (bool, bool, error) {
@@ -1780,6 +1798,12 @@ func (s *SettingService) OIDCSecurityWriteDefaults(ctx context.Context) (bool, b
 
 // UpdateSettingsWithAuthSourceDefaults persists system settings and auth-source defaults in a single write.
 func (s *SettingService) UpdateSettingsWithAuthSourceDefaults(ctx context.Context, settings *SystemSettings, authDefaults *AuthSourceDefaultSettings) error {
+	return s.UpdateSettingsWithAuthSourceDefaultsOmitting(ctx, settings, authDefaults, nil)
+}
+
+// UpdateSettingsWithAuthSourceDefaultsOmitting persists system settings and
+// auth-source defaults while leaving omitted value-typed settings unchanged.
+func (s *SettingService) UpdateSettingsWithAuthSourceDefaultsOmitting(ctx context.Context, settings *SystemSettings, authDefaults *AuthSourceDefaultSettings, omitted OmittedSettingKeys) error {
 	if err := validateStudioBridgeAppSettings(settings.StudioBridgeLuoyeAI); err != nil {
 		return err
 	}
@@ -1798,12 +1822,13 @@ func (s *SettingService) UpdateSettingsWithAuthSourceDefaults(ctx context.Contex
 	for key, value := range authSourceUpdates {
 		updates[key] = value
 	}
+	omitted.dropFrom(updates)
 
-	err = s.settingRepo.SetMultiple(ctx, updates)
-	if err == nil {
-		s.refreshCachedSettings(settings)
+	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
+		return err
 	}
-	return err
+	s.refreshCachedSettingsAfterWrite(ctx, settings, omitted)
+	return nil
 }
 
 func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, settings *SystemSettings) (map[string]string, error) {
@@ -2265,6 +2290,20 @@ func (s *SettingService) buildAuthSourceDefaultUpdates(ctx context.Context, sett
 	writeProviderDefaultGrantUpdates(updates, googleAuthSourceDefaultKeys, settings.Google)
 	updates[SettingKeyForceEmailOnThirdPartySignup] = strconv.FormatBool(settings.ForceEmailOnThirdPartySignup)
 	return updates, nil
+}
+
+func (s *SettingService) refreshCachedSettingsAfterWrite(ctx context.Context, settings *SystemSettings, omitted OmittedSettingKeys) {
+	if len(omitted) == 0 {
+		s.refreshCachedSettings(settings)
+		return
+	}
+
+	stored, err := s.GetAllSettings(ctx)
+	if err != nil {
+		slog.Warn("refresh cached settings after partial update failed", "error", err)
+		return
+	}
+	s.refreshCachedSettings(stored)
 }
 
 func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {

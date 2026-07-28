@@ -1,15 +1,15 @@
 ---
 phase: done
-current_sprint: channel-pricing-model-catalog-s122
-total_sprints: 122
-pending_action: S122 PASS/published; deploy Sub2API separately before live Studio Bridge verification
+current_sprint: upstream-async-image-tasks-s123
+total_sprints: 123
+pending_action: S115-S123 are merged in an isolated integration worktree; regression verification and origin/main publication remain pending
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-28 00:00 +08:00
+last_verified: 2026-07-28 20:53 +08:00
 ---
 
-# S122 Current Sprint
+# S122 Integrated Sprint
 
 - Contract approved to merge concrete channel-supported models into the existing gateway model directory for the current group and platform.
 - The implementation is limited to `GatewayService.GetAvailableModels`, focused service tests, and workflow evidence.
@@ -23,6 +23,116 @@ last_verified: 2026-07-28 00:00 +08:00
 - Worker result: `docs/workflow/worker-results/channel-pricing-model-catalog-s122-result.md`.
 - QA report: `docs/workflow/qa-reports/channel-pricing-model-catalog-s122-qa.md`.
 
+# S118 Integrated Sprint
+
+# S123 Contract Approved
+
+- Selectively adapt the upstream async image gateway API with Redis task state,
+  object-storage result offload, and hot admin configuration.
+- The local user-console `image-creator` queue and synchronous Images API are
+  explicitly frozen; no schema, migration, Docker, deployment, or container
+  work is permitted.
+- Contract review confirmed local Redis/AWS SDK prerequisites already exist.
+  The image-store adapter must reuse the local S3 client construction rather
+  than duplicate provider setup.
+- Contract: `docs/workflow/tasks/upstream-async-image-tasks-s123.md`.
+- Implementation adds opt-in gateway async image task routes backed by Redis;
+  completed images are offloaded to S3-compatible storage before task state is
+  retained. The synchronous Images API and `image_creator` remain unchanged.
+- File/environment defaults and encrypted hot admin settings are covered,
+  together with result offload failure, feature disable/poll behavior,
+  ownership isolation, and URL re-hosting guard regressions.
+- Final Evaluator: PASS/source-only plus an isolated Redis storage smoke. Focused backend gates, repository Redis
+  regression, full Go compile, module verification, frontend typecheck and
+  build, Wire regeneration, formatting, diff, conflict-marker, and allowlist
+  checks pass. A real local Redis `PING`, `SET EX`, `TTL`, `GET`, and exact
+  `DEL` smoke passed with a unique cleanup-verified temporary key. No real S3,
+  upstream image request, authenticated browser smoke, deployment, or container
+  update was performed. Commit `01f5d785d` is pushed to the tracked origin
+  branch and its remote ref was verified.
+
+- Draft contract for adapting upstream `fd7e2039d`: Gemini pool-mode upstream
+  errors skipped by the configured error policy must still enter existing
+  failover, carrying same-account retry eligibility only for configured status
+  codes.
+- No retry count, cooldown, scheduler, persistence, route, frontend,
+  deployment, or container behavior is in scope.
+- Evaluator contract review passed: the existing pool-mode and status-policy
+  helpers permit a narrow failover-marker adaptation without scheduler or
+  global retry-policy changes.
+- Implementation and QA pass in the isolated worktree: pool 429, unconfigured
+  pool 500, configured pool 500, pool 400, and non-pool behavior have focused
+  default-tag regression coverage. Full repository compile, formatting, diff,
+  conflict-marker, and path gates pass.
+- Final Evaluator: PASS/source-only. No real Gemini upstream request, live
+  retry-loop observation, deployment, container update, or push was performed.
+
+# S117 Integrated Sprint
+
+- Adapted upstream `0b5903d45`: the handler records top-level JSON presence,
+  service writes omit absent value-typed settings, and partial writes rebuild
+  caches from stored values. Explicit empty/false/zero values still write.
+- The SMTP JSON alias is mapped explicitly; pointer-field settings retain their
+  existing merge behavior. No migration, frontend, deployment, container,
+  billing, routing, or S115/S116 source changed.
+- Final Evaluator: PASS/source-only. Focused handler/service regressions,
+  existing handler settings regressions, full package compile, formatting,
+  diff, and path audits pass. The existing `unit` service suite remains
+  blocked by unrelated compile drift.
+- QA report: `docs/workflow/qa-reports/upstream-v0166-settings-partial-update-s117-qa.md`.
+
+# S116 Integrated Sprint
+
+- Contract approved for the v0.1.165 ChatGPT Live realtime gateway.
+- Live is opt-in through persisted `groups.allow_live`, rejects unsupported
+  account modes, and exposes `/v1/live` plus Codex-compatible realtime aliases.
+- Redis-backed call records and live leases cover controller handoff, refresh,
+  expiry, release, and idempotent `request_type=live` usage finalization.
+- Focused Live/session tests, Ent generation, full package compilation, frontend
+  typecheck, production build (1091 modules), formatting, and diff checks pass.
+- Windows fail-closed DeviceCheck behavior is explicit; no synthetic macOS
+  attestation is generated.
+- Final Evaluator: PASS/source-only. Real Redis, macOS DeviceCheck, upstream
+  ChatGPT request, authenticated browser, deployment, and container refresh were
+  not run.
+- Contract: `docs/workflow/tasks/upstream-v0165-chatgpt-live-s116.md`.
+- QA report: `docs/workflow/qa-reports/upstream-v0165-chatgpt-live-s116-qa.md`.
+
+# S115 Integrated Sprint
+
+- Contract approved for explicit client session-id persistence from the v0.1.165
+  usage change.
+- Supported headers are trimmed, bounded, sanitized, and propagated through the
+  local gateway usage paths; values are never synthesized from prompts/cache
+  keys/request hashes.
+- Single, batch, best-effort insert, scan, DTO mapping, and nullable migration
+  behavior pass focused tests and compile gates.
+- Final Evaluator: PASS/source-only. Real PostgreSQL migration and authenticated
+  usage persistence were not run.
+- Contract: `docs/workflow/tasks/upstream-v0165-usage-session-id-s115.md`.
+- QA report: `docs/workflow/qa-reports/upstream-v0165-usage-session-id-s115-qa.md`.
+
+# S119 Current Sprint
+
+- Candidate `3e0810611` fixes Gemini conversion that promotes a normal
+  Chat Completions function named `web_search` to Gemini built-in Google
+  Search based on its name alone.
+- The proposed scope changes only the tool-type discriminator and adds a
+  focused HTTP forwarding regression. Explicit server-side `web_search*` and
+  `google_search` tool types must remain Gemini built-ins.
+- No account selection, Gemini request schema beyond tool classification,
+  scheduling, persistence, frontend, deployment, containers, or S114-S118
+  work is in scope.
+- Evaluator contract review passed: the existing explicit-search regression
+  retains server-side conversion, and the missing inverse case is bounded to
+  the existing tool discriminator and Gemini HTTP forwarding test topology.
+- Implementation and QA pass in the isolated worktree. The focused HTTP
+  regression keeps `web_search` and `read_file` as function declarations,
+  while the existing explicit `web_search_20250305` regression remains green.
+  Full Gemini tests, repository compile, formatting, diff, conflict-marker,
+  and path gates pass.
+- Final Evaluator: PASS/source-only. No real Gemini upstream request,
+  deployment, container update, or push was performed.
 # S113 Current Sprint
 
 - Contract approved for unified proxy text parsing in the user proxy modal and

@@ -516,6 +516,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account)
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
+		sessionID := service.ExtractClientSessionID(c)
 
 		// 使用量记录通过有界 worker 池提交，避免请求热路径创建无界 goroutine。
 		capturedTrialSession := trialSession
@@ -537,6 +538,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 				UpstreamEndpoint:   upstreamEndpoint,
 				UserAgent:          userAgent,
 				IPAddress:          clientIP,
+				SessionID:          sessionID,
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      h.apiKeyService,
 				QuotaPlatform:      quotaPlatform,
@@ -994,6 +996,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account)
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
+		sessionID := service.ExtractClientSessionID(c)
 
 		capturedTrialSession := trialSession
 		capturedTrialRelease := trialRelease
@@ -1014,6 +1017,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 				UpstreamEndpoint:   upstreamEndpoint,
 				UserAgent:          userAgent,
 				IPAddress:          clientIP,
+				SessionID:          sessionID,
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      h.apiKeyService,
 				QuotaPlatform:      quotaPlatform,
@@ -1650,6 +1654,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				inboundEndpoint := GetInboundEndpoint(c)
 				upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account)
 				quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
+				sessionID := service.ExtractClientSessionID(c)
 				capturedTrialSession := trialSession
 				capturedTrialRelease := trialRelease
 				submitMode := h.submitOpenAIUsageRecordTask(ctx, result, func(taskCtx context.Context) {
@@ -1669,6 +1674,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 						UpstreamEndpoint:   upstreamEndpoint,
 						UserAgent:          userAgent,
 						IPAddress:          clientIP,
+						SessionID:          sessionID,
 						RequestPayloadHash: service.HashUsageRequestPayload(firstMessage),
 						APIKeyService:      h.apiKeyService,
 						QuotaPlatform:      quotaPlatform,

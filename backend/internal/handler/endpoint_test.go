@@ -30,6 +30,7 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 		{"/v1/responses/compact/detail", EndpointResponsesCompact},
 		{"/v1/images/generations", EndpointImagesGenerations},
 		{"/v1/images/edits", EndpointImagesEdits},
+		{"/v1/images/tasks/imgtask_123", EndpointImageTasks},
 		{"/v1/midjourney/generations", EndpointMidjourneyGenerations},
 		{"/v1beta/models", EndpointGeminiModels},
 
@@ -38,6 +39,7 @@ func TestNormalizeInboundEndpoint(t *testing.T) {
 		{"/openai/v1/responses", EndpointResponses},
 		{"/openai/v1/images/generations", EndpointImagesGenerations},
 		{"/openai/v1/images/edits", EndpointImagesEdits},
+		{"/openai/v1/images/tasks/imgtask_123", EndpointImageTasks},
 		{"/openai/v1/midjourney/generations", EndpointMidjourneyGenerations},
 		{"/antigravity/v1beta/models/gemini:generateContent", EndpointGeminiModels},
 

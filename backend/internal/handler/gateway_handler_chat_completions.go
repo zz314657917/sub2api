@@ -323,6 +323,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		requestPayloadHash := service.HashUsageRequestPayload(body)
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
+		sessionID := service.ExtractClientSessionID(c)
 
 		capturedTrialSession := trialSession
 		capturedTrialRelease := trialRelease
@@ -343,6 +344,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				UpstreamEndpoint:   upstreamEndpoint,
 				UserAgent:          userAgent,
 				IPAddress:          clientIP,
+				SessionID:          sessionID,
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      h.apiKeyService,
 				ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),

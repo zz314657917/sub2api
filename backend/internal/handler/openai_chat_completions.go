@@ -303,6 +303,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 		inboundEndpoint := GetInboundEndpoint(c)
 		upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account)
 		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
+		sessionID := service.ExtractClientSessionID(c)
 
 		capturedTrialSession := trialSession
 		capturedTrialRelease := trialRelease
@@ -323,6 +324,7 @@ func (h *OpenAIGatewayHandler) ChatCompletions(c *gin.Context) {
 				UpstreamEndpoint:   upstreamEndpoint,
 				UserAgent:          userAgent,
 				IPAddress:          clientIP,
+				SessionID:          sessionID,
 				APIKeyService:      h.apiKeyService,
 				QuotaPlatform:      quotaPlatform,
 				ChannelUsageFields: channelMapping.ToUsageFields(reqModel, result.UpstreamModel),

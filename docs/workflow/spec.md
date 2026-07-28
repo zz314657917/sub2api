@@ -23,6 +23,80 @@ last_verified: 2026-07-28 00:00 +08:00
 - Focused service tests cover pricing-only discovery, union behavior, platform isolation, wildcard filtering, and no-account fallback.
 - Existing gateway handler model-list/catalog tests remain green; broader package failures must be isolated and documented if they reproduce an established baseline outside the S122 paths.
 - `gofmt`, exact path audit, conflict-marker scan, unmerged-index check, and `git diff --check` pass.
+## S117 Addendum: preserve omitted admin settings fields
+
+### Goal
+
+- Adapt upstream `0b5903d45` so a partial `PUT /api/v1/admin/settings`
+  payload does not overwrite unrelated value-typed settings with Go zero values.
+
+### Scope Boundary
+
+- Capture the incoming top-level JSON field names before binding the existing
+  request DTO. Preserve omitted value-typed setting keys, including the
+  `smtp_from_email` JSON alias, while retaining explicit empty/false/zero
+  updates and the existing pointer-field merge semantics.
+- Refresh in-process setting caches from persisted settings after a partial
+  write. Preserve all existing validation and auth-source default behavior.
+- Do not modify schema, migrations, frontend, routes, deployment, containers,
+  billing, account routing, or unrelated dirty S114-S116 work.
+
+### Acceptance Boundary
+
+- Handler/service regressions prove partial writes preserve unrelated settings,
+  explicit zero values clear sent fields, JSON aliases remain writable, and
+  full requests retain existing semantics. Focused Go checks, formatting, and
+  static diff/path gates pass.
+
+## S118 Addendum: Gemini pool-mode retry eligibility
+
+### Goal
+
+- Adapt upstream `fd7e2039d` so existing Gemini API-key pool failover paths
+  preserve configured same-account retry eligibility when the error policy
+  otherwise skips handling an upstream error.
+
+### Scope Boundary
+
+- Introduce one shared helper for Gemini pool-mode skipped-policy errors and
+  call it from messages HTTP, native messages, and chat-completions forwarding.
+- Keep retry eligibility gated by `account.IsPoolModeRetryableStatus`; all
+  non-pool accounts, non-failover statuses, error-policy matches, retry counts,
+  cooldowns, and account selection remain unchanged.
+- Do not modify database, migrations, routes, frontend, scheduler, billing,
+  deployment, containers, or S114-S117 work.
+
+### Acceptance Boundary
+
+- Focused tests prove pool 429 and configured 500 paths enter failover with
+  the expected same-account flag, while pool unconfigured 500, non-pool, and
+  400 cases retain current behavior. Go compile, formatting, and diff/path
+  gates pass.
+
+## S119 Addendum: Gemini client-side web-search function preservation
+
+### Goal
+
+- Preserve ordinary Chat Completions function tools named `web_search` when
+  forwarding to Gemini, so Hermes-style client-side tools remain function
+  declarations instead of becoming Gemini's built-in Google Search tool.
+
+### Scope Boundary
+
+- Classify Gemini built-in search only by explicit server-side tool type:
+  `web_search*` or `google_search`.
+- Keep every normal `type: function` tool, regardless of its nested function
+  name, as a function declaration. Do not change request routing, tool-call
+  response handling, persistence, account selection, frontend, deployment,
+  or containers.
+
+### Acceptance Boundary
+
+- A forwarded Chat Completions request containing normal functions named
+  `web_search` and `read_file` keeps both function declarations and emits no
+  Google Search tool. Existing explicit search tool types retain their current
+  built-in conversion. Focused Go tests, repository compile, formatting, and
+  diff/path gates pass.
 
 ## S113 Addendum: user proxy smart input
 
@@ -42,6 +116,44 @@ last_verified: 2026-07-28 00:00 +08:00
 - 解析器覆盖正常、认证、IPv6、额外冒号和无效输入；用户侧多行输入逐条校验并批量创建；前端定向测试、typecheck、生产构建和 diff 门禁通过。
 
 # Workflow Spec
+
+## S123 Addendum: upstream async image task API
+
+### Goal
+
+- Selectively adapt the upstream asynchronous OpenAI-compatible image task API
+  without replacing the local user-console `image-creator` queue or changing
+  existing synchronous Images API behavior.
+
+### Scope Boundary
+
+- Add `/images/generations/async`, `/images/edits/async`, and
+  `/images/tasks/:task_id` under the existing `/v1` and no-prefix gateway
+  routes. Submission returns a task immediately; execution reuses the current
+  image gateway so routing, moderation, concurrency, billing, and failover
+  remain on the existing path.
+- Store task state in Redis, bind reads to both user and API key, and keep task
+  data bounded. Offload final image results to a separately configured
+  S3-compatible object store before persisting the final JSON, so raw
+  `b64_json` data is never retained in Redis.
+- Add file-config and hot-reloadable admin configuration for this feature only.
+  It defaults off, shares existing secret-encryption/step-up controls, and does
+  not reuse or migrate `image_creator.object_storage`.
+- Keep `/v1/images/generations`, `/v1/images/edits`, existing `image-creator`,
+  schema/migrations, deployment/container definitions, and unrelated dirty
+  changes unchanged.
+
+### Acceptance Boundary
+
+- Focused handler/service/repository/config/middleware/route tests cover task
+  lifecycle, ownership, disabled behavior, stream rejection, completion,
+  object-storage failures, setting hot reload, and environment reachability.
+- Frontend tests and typecheck/build cover the admin setting card without
+  exposing stored secrets. Full repository compile, formatting, exact path
+  audit, conflict scan, and `git diff --check` pass.
+- Runtime smoke is separately gated on a disposable Redis instance, writable
+  S3-compatible bucket, and test API key. No deployment or production setting
+  change is authorized by source-only acceptance.
 
 ## S108 Addendum: user usage column menu layer
 

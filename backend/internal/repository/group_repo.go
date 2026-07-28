@@ -64,6 +64,7 @@ func (r *groupRepository) Create(ctx context.Context, groupIn *service.Group) er
 		SetModelMatchPatterns(service.NormalizeGroupModelMatchPatterns(groupIn.ModelMatchPatterns)).
 		SetMcpXMLInject(groupIn.MCPXMLInject).
 		SetAllowMessagesDispatch(groupIn.AllowMessagesDispatch).
+		SetAllowLive(groupIn.AllowLive).
 		SetRequireOauthOnly(groupIn.RequireOAuthOnly).
 		SetRequirePrivacySet(groupIn.RequirePrivacySet).
 		SetDefaultMappedModel(groupIn.DefaultMappedModel).
@@ -146,6 +147,7 @@ func (r *groupRepository) Update(ctx context.Context, groupIn *service.Group) er
 		SetModelMatchPatterns(service.NormalizeGroupModelMatchPatterns(groupIn.ModelMatchPatterns)).
 		SetMcpXMLInject(groupIn.MCPXMLInject).
 		SetAllowMessagesDispatch(groupIn.AllowMessagesDispatch).
+		SetAllowLive(groupIn.AllowLive).
 		SetRequireOauthOnly(groupIn.RequireOAuthOnly).
 		SetRequirePrivacySet(groupIn.RequirePrivacySet).
 		SetDefaultMappedModel(groupIn.DefaultMappedModel).

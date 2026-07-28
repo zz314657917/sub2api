@@ -957,6 +957,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 				if upstreamReqID == "" {
 					upstreamReqID = resp.Header.Get("x-goog-request-id")
 				}
+				if failoverErr := s.poolModeSkippedFailoverError(c, account, resp.StatusCode, respBody, upstreamReqID); failoverErr != nil {
+					return nil, failoverErr
+				}
 				return nil, s.writeGeminiMappedError(c, account, http.StatusInternalServerError, upstreamReqID, respBody)
 			case ErrorPolicyMatched, ErrorPolicyTempUnscheduled:
 				s.handleGeminiUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
@@ -1467,6 +1470,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 		if s.rateLimitService != nil {
 			switch s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody) {
 			case ErrorPolicySkipped:
+				if failoverErr := s.poolModeSkippedFailoverError(c, account, resp.StatusCode, respBody, requestID); failoverErr != nil {
+					return nil, failoverErr
+				}
 				respBody = unwrapIfNeeded(isOAuth, respBody)
 				contentType := resp.Header.Get("Content-Type")
 				if contentType == "" {
@@ -1693,6 +1699,41 @@ func (s *GeminiMessagesCompatService) shouldFailoverGeminiUpstreamError(statusCo
 		return true
 	default:
 		return statusCode >= 500
+	}
+}
+
+func geminiPoolModeRetryableOnSameAccount(account *Account, statusCode int) bool {
+	return account != nil && account.IsPoolMode() && account.IsPoolModeRetryableStatus(statusCode)
+}
+
+func (s *GeminiMessagesCompatService) poolModeSkippedFailoverError(c *gin.Context, account *Account, statusCode int, respBody []byte, upstreamRequestID string) *UpstreamFailoverError {
+	if !account.IsPoolMode() || !s.shouldFailoverGeminiUpstreamError(statusCode) {
+		return nil
+	}
+
+	upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractUpstreamErrorMessage(respBody)))
+	upstreamDetail := ""
+	if s.cfg != nil && s.cfg.Gateway.LogUpstreamErrorBody {
+		maxBytes := s.cfg.Gateway.LogUpstreamErrorBodyMaxBytes
+		if maxBytes <= 0 {
+			maxBytes = 2048
+		}
+		upstreamDetail = truncateString(string(respBody), maxBytes)
+	}
+	appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
+		Platform:           account.Platform,
+		AccountID:          account.ID,
+		AccountName:        account.Name,
+		UpstreamStatusCode: statusCode,
+		UpstreamRequestID:  upstreamRequestID,
+		Kind:               "failover",
+		Message:            upstreamMsg,
+		Detail:             upstreamDetail,
+	})
+	return &UpstreamFailoverError{
+		StatusCode:             statusCode,
+		ResponseBody:           respBody,
+		RetryableOnSameAccount: geminiPoolModeRetryableOnSameAccount(account, statusCode),
 	}
 }
 
@@ -3440,17 +3481,9 @@ func normalizeGeminiRequestForAIStudio(body []byte) []byte {
 
 func isClaudeWebSearchToolMap(tool map[string]any) bool {
 	toolType, _ := tool["type"].(string)
-	if strings.HasPrefix(toolType, "web_search") || toolType == "google_search" {
-		return true
-	}
-
-	name, _ := tool["name"].(string)
-	switch strings.TrimSpace(name) {
-	case "web_search", "google_search", "web_search_20250305":
-		return true
-	default:
-		return false
-	}
+	// Function names are client-owned. Promote only explicitly typed server-side
+	// search tools to Gemini's built-in Google Search tool.
+	return strings.HasPrefix(toolType, "web_search") || toolType == "google_search"
 }
 
 // cleanToolSchema 清理工具的 JSON Schema，移除 Gemini 不支持的字段

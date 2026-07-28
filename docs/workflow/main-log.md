@@ -468,8 +468,36 @@
 260725 1658 | user-proxy-smart-input-s113 | final-qa | Evaluator | focused Vitest 20/20, typecheck, targeted ESLint, and diff check PASS
 260725 1659 | user-proxy-smart-input-s113 | final-qa | Evaluator | final typecheck and targeted ESLint rerun PASS after invalid-batch regression
 260725 2359 | user-proxy-smart-input-s113 | publish | Codex | feature commit 0f8178a1d pushed to origin/main; HEAD, origin/main, remote main, and 0/0 divergence verified; group-buy, knowledge, and outputs dirt excluded
+260726 0020 | upstream-v0165-usage-session-id-s115 | build-and-qa-pass | Codex | explicit session_id propagation, nullable migration, usage insert/scan and DTO mapping; focused Go, Ent generation, compile and diff gates PASS
+260726 0020 | upstream-v0165-usage-session-id-s115 | done | Evaluator | PASS/source-only; real PostgreSQL/authenticated usage persistence, deployment and containers remain unverified
+260726 0020 | upstream-v0165-chatgpt-live-s116 | build-and-qa-pass | Codex | opt-in ChatGPT Live routes, Redis call/lease lifecycle, sideband forwarding, usage type, Ent generation, focused Go, compile, frontend typecheck/build and diff gates PASS
+260726 0020 | upstream-v0165-chatgpt-live-s116 | done | Evaluator | PASS/source-only; Windows DeviceCheck fail-closed, real macOS/Redis/ChatGPT upstream, authenticated browser, deployment and containers remain unverified
+260726 0035 | upstream-v0165-chatgpt-live-s116 | review-fix | Codex | Redis call round-trip now persists attestation ciphertext; Live creation reuses local OpenAI content-moderation gate; focused Go/compile/diff retest PASS
+260727 1920 | upstream-v0166-settings-partial-update-s117 | contract-draft | Planner | docs/workflow/tasks/upstream-v0166-settings-partial-update-s117.md
+260727 1920 | upstream-v0166-settings-partial-update-s117 | contract-approved | Evaluator | presence-map scope, aliases, pointer-field behavior, and focused acceptance commands reviewed
+260727 1920 | upstream-v0166-settings-partial-update-s117 | contract-amended | Evaluator | service regression moved from unit-tag suite to default-tag test file after unrelated unit-suite compile drift
+260727 1932 | upstream-v0166-settings-partial-update-s117 | build-and-qa-pass | Codex | focused handler/service tests, existing settings regression, full package compile, gofmt, diff, and allowlist audit PASS
+260727 1932 | upstream-v0166-settings-partial-update-s117 | done | Evaluator | PASS/source-only; unit-tag aggregate and authenticated persistent runtime remain out of scope
+260727 1936 | upstream-v0166-gemini-pool-retry-s118 | contract-draft | Planner | docs/workflow/tasks/upstream-v0166-gemini-pool-retry-s118.md
+260727 1936 | upstream-v0166-gemini-pool-retry-s118 | contract-amended | Evaluator | focused regression moved to default-tag Gemini test file because existing unit-tag aggregate has unrelated compile drift
+260727 1936 | upstream-v0166-gemini-pool-retry-s118 | contract-approved | Evaluator | pool/status gate, unchanged global retry behavior, and default-tag acceptance command reviewed
+260727 1944 | upstream-v0166-gemini-pool-retry-s118 | build | Generator | Gemini pool skipped-policy failover marker implemented within the three-file code/test allowlist
+260727 1944 | upstream-v0166-gemini-pool-retry-s118 | final-qa | Evaluator | focused default-tag regression and full repository compile PASS; formatting, diff, conflict-marker, and allowlist checks PASS
+260727 1944 | upstream-v0166-gemini-pool-retry-s118 | done | Evaluator | PASS/source-only; no live upstream request, push, deployment, or container update performed
+260727 2024 | upstream-v0166-gemini-web-search-s119 | contract-draft | Planner | docs/workflow/tasks/upstream-v0166-gemini-web-search-s119.md
+260727 2024 | upstream-v0166-gemini-web-search-s119 | contract-approved | Evaluator | explicit server-side web-search regression retained; inverse function-name regression is bounded to the existing Gemini conversion path
+260727 2030 | upstream-v0166-gemini-web-search-s119 | build | Generator | explicit tool-type discriminator retained; normal Chat Completions function names remain client-side declarations
+260727 2030 | upstream-v0166-gemini-web-search-s119 | final-qa | Evaluator | focused and full Gemini tests plus repository compile PASS; formatting, diff, conflict-marker, and allowlist checks PASS
+260727 2030 | upstream-v0166-gemini-web-search-s119 | done | Evaluator | PASS/source-only; no real upstream request, push, deployment, or container update performed
 260728 0000 | channel-pricing-model-catalog-s122 | contract-approved | Codex | reuse Channel.SupportedModels for current group/platform; billing, routing, schema, frontend, deploy, and containers excluded
 260728 0058 | channel-pricing-model-catalog-s122 | build | Codex | gateway model candidates now merge account mappings with concrete current-channel SupportedModels
 260728 0058 | channel-pricing-model-catalog-s122 | qa-pass | Evaluator | focused models x10, full handler, chatgpt2api bridge, isolated peak baseline, formatting, and static gates PASS
 260728 0058 | channel-pricing-model-catalog-s122 | done | Evaluator | PASS/source-ready; live channel data, deployment, and containers remain unverified
 260728 0102 | channel-pricing-model-catalog-s122 | publish | Codex | feature commit ee5f8abbe pushed to origin/main; remote parity verified; dirty main worktree and other worktrees excluded
+260728 1757 | upstream-async-image-tasks-s123 | contract-draft | Planner | selective async image API plan: Redis task state, S3 result offload, hot admin setting; preserve image-creator and sync image routes
+260728 1757 | upstream-async-image-tasks-s123 | contract-approved | Evaluator | local Redis/AWS prerequisites confirmed; API task and image-creator boundaries, default-off storage gate, and acceptance commands approved
+260728 1843 | upstream-async-image-tasks-s123 | build | Generator | async gateway routes, Redis task state, S3 result offload, hot admin config, tests, and Backup UI configuration card completed in the isolated worktree
+260728 1843 | upstream-async-image-tasks-s123 | final-qa | Evaluator | focused backend gates, repository regression, full compile, module verification, frontend typecheck/build, Wire, formatting, diff, conflict-marker, and allowlist checks PASS
+260728 1843 | upstream-async-image-tasks-s123 | done | Evaluator | PASS/source-only; no live Redis/S3/upstream request, authenticated browser smoke, deployment, container update, push, or publish
+260728 2034 | upstream-async-image-tasks-s123 | runtime-redis-smoke | Evaluator | `sub2api-redis` PING, SET EX 60, TTL, GET, exact DEL, and post-delete EXISTS check PASS; S3/upstream/API-key/browser evidence remains absent
+260728 2053 | upstream-async-image-tasks-s123 | published | Evaluator | commit 01f5d785d pushed to origin/codex/upstream-async-image-tasks-s123 and remote ref verified; no deployment or container update

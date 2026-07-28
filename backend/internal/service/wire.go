@@ -12,6 +12,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/google/wire"
 	"github.com/redis/go-redis/v9"
+	"go.uber.org/zap"
 )
 
 // BuildInfo contains build information
@@ -532,6 +533,28 @@ func ProvideBackupService(
 	return svc
 }
 
+func ProvideImageStorageSettingService(
+	settingRepo SettingRepository,
+	encryptor SecretEncryptor,
+	backup *BackupService,
+	factory ImageStorageFactory,
+	cfg *config.Config,
+) *ImageStorageSettingService {
+	if cfg != nil && cfg.ImageStorage.Enabled && !cfg.ImageStorage.Active() {
+		logger.L().Warn("image_storage is enabled in file configuration but incomplete; async image tasks remain disabled",
+			zap.Strings("missing_keys", cfg.ImageStorage.MissingCredentialKeys()))
+	}
+	var fallback config.ImageStorageConfig
+	if cfg != nil {
+		fallback = cfg.ImageStorage
+	}
+	return NewImageStorageSettingService(settingRepo, encryptor, backup, factory, fallback)
+}
+
+func ProvideImageTaskService(store ImageTaskStore, settings *ImageStorageSettingService) *ImageTaskService {
+	return NewImageTaskServiceWithResolver(store, settings.Resolver(), defaultImageTaskTTL, defaultImageTaskExecutionTimeout)
+}
+
 // ProvideSettingService wires SettingService with group reader and proxy repo.
 func ProvideSettingService(settingRepo SettingRepository, groupRepo GroupRepository, proxyRepo ProxyRepository, cfg *config.Config) *SettingService {
 	svc := NewSettingService(settingRepo, cfg)
@@ -866,6 +889,8 @@ var ProviderSet = wire.NewSet(
 	ProvideAdminService,
 	ProvideGatewayService,
 	ProvideOpenAIGatewayService,
+	ProvideImageStorageSettingService,
+	ProvideImageTaskService,
 	NewOAuthService,
 	ProvideOpenAIOAuthService,
 	NewGrokOAuthService,

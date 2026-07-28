@@ -20,6 +20,27 @@ export default {
         testFailed: 'S3 连接测试失败',
         saved: 'S3 配置已保存'
       },
+      imageStorage: {
+        title: '异步生图结果存储',
+        description: '将网关异步生图结果写入 S3 兼容对象存储。配置完整前不会接受新任务。',
+        enabled: '启用异步生图任务',
+        reuseBackupS3: '复用备份 S3 凭据',
+        endpoint: '端点地址',
+        region: '区域',
+        bucket: '存储桶',
+        prefix: 'Key 前缀',
+        publicBaseUrl: '公开访问基础 URL（可选）',
+        presignExpiry: '预签名 URL 有效期（小时）',
+        maxDownloadBytes: '源图片最大字节数',
+        accessKeyId: 'Access Key ID',
+        secretAccessKey: 'Secret Access Key',
+        secretConfigured: '已配置，留空保持不变',
+        forcePathStyle: '强制路径风格',
+        testConnection: '校验配置',
+        testSuccess: '图片存储配置有效',
+        testFailed: '图片存储配置无效',
+        saved: '图片存储配置已保存'
+      },
       schedule: {
         title: '定时备份',
         description: '配置自动定时备份',

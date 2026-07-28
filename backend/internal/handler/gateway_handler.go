@@ -543,6 +543,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			requestPayloadHash := service.HashUsageRequestPayload(body)
 			inboundEndpoint := GetInboundEndpoint(c)
 			upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
+			sessionID := service.ExtractClientSessionID(c)
 
 			if result.ReasoningEffort == nil {
 				result.ReasoningEffort = service.NormalizeClaudeOutputEffort(parsedReq.OutputEffort)
@@ -576,6 +577,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					UpstreamEndpoint:   upstreamEndpoint,
 					UserAgent:          userAgent,
 					IPAddress:          clientIP,
+					SessionID:          sessionID,
 					RequestPayloadHash: requestPayloadHash,
 					ForceCacheBilling:  fs.ForceCacheBilling,
 					APIKeyService:      h.apiKeyService,
@@ -965,6 +967,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			requestPayloadHash := service.HashUsageRequestPayload(body)
 			inboundEndpoint := GetInboundEndpoint(c)
 			upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
+			sessionID := service.ExtractClientSessionID(c)
 
 			if result.ReasoningEffort == nil {
 				result.ReasoningEffort = service.NormalizeClaudeOutputEffort(parsedReq.OutputEffort)
@@ -998,6 +1001,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					UpstreamEndpoint:   upstreamEndpoint,
 					UserAgent:          userAgent,
 					IPAddress:          clientIP,
+					SessionID:          sessionID,
 					RequestPayloadHash: requestPayloadHash,
 					ForceCacheBilling:  fs.ForceCacheBilling,
 					APIKeyService:      h.apiKeyService,

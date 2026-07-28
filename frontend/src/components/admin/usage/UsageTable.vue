@@ -541,6 +541,7 @@ const tokenTooltipData = ref<AdminUsageLog | null>(null)
 
 const getRequestTypeLabel = (row: AdminUsageLog): string => {
   const requestType = resolveUsageRequestType(row)
+  if (requestType === 'live') return t('usage.live')
   if (requestType === 'ws_v2') return t('usage.ws')
   if (requestType === 'stream') return t('usage.stream')
   if (requestType === 'sync') return t('usage.sync')
@@ -549,6 +550,7 @@ const getRequestTypeLabel = (row: AdminUsageLog): string => {
 
 const getRequestTypeBadgeClass = (row: AdminUsageLog): string => {
   const requestType = resolveUsageRequestType(row)
+  if (requestType === 'live') return 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900 dark:text-emerald-200'
   if (requestType === 'ws_v2') return 'bg-[#fffaf5] text-[#5f7f68] ring-1 ring-[#d8cec2] dark:bg-[#7f9d8a]/15 dark:text-[#9ab3a0] dark:ring-[#7f9d8a]/30'
   if (requestType === 'stream') return 'bg-[#f3e7df] text-[#504f49] dark:bg-[#cc785c]/15 dark:text-[#f0b89e]'
   if (requestType === 'sync') return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'

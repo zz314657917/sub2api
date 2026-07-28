@@ -72,6 +72,7 @@ type Handlers struct {
 	PaymentWebhook   *PaymentWebhookHandler
 	Membership       *MembershipHandler
 	AvailableChannel *AvailableChannelHandler
+	AsyncImage       *AsyncImageHandler
 }
 
 // BuildInfo contains build-time information

@@ -100,6 +100,8 @@ func RegisterGatewayRoutes(
 		gateway.GET("/models", h.Gateway.Models)
 		gateway.GET("/model-catalog", h.Gateway.ModelCatalog)
 		gateway.GET("/usage", h.Gateway.Usage)
+		gateway.POST("/live", h.OpenAIGateway.Live)
+		gateway.GET("/live/:call_id", h.OpenAIGateway.LiveSideband)
 		// OpenAI Responses API: auto-route based on group platform
 		gateway.POST("/responses", func(c *gin.Context) {
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/responses", false) {
@@ -194,6 +196,9 @@ func RegisterGatewayRoutes(
 			}
 			h.OpenAIGateway.Images(c)
 		})
+		gateway.POST("/images/generations/async", h.AsyncImage.Submit)
+		gateway.POST("/images/edits/async", h.AsyncImage.Submit)
+		gateway.GET("/images/tasks/:task_id", h.AsyncImage.Get)
 		gateway.POST("/videos/generations", func(c *gin.Context) {
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/videos/generations", false) {
 				return
@@ -255,6 +260,8 @@ func RegisterGatewayRoutes(
 	codexDirect := r.Group("/backend-api/codex")
 	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic)
 	{
+		codexDirect.POST("/realtime/calls", h.OpenAIGateway.Live)
+		codexDirect.GET("/:call_id", h.OpenAIGateway.LiveSideband)
 		codexDirect.POST("/responses", responsesHandler)
 		codexDirect.POST("/responses/*subpath", responsesHandler)
 		codexDirect.GET("/responses", h.OpenAIGateway.ResponsesWebSocket)
@@ -331,6 +338,9 @@ func RegisterGatewayRoutes(
 		}
 		h.OpenAIGateway.Images(c)
 	})
+	r.POST("/images/generations/async", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, h.AsyncImage.Submit)
+	r.POST("/images/edits/async", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, h.AsyncImage.Submit)
+	r.GET("/images/tasks/:task_id", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, h.AsyncImage.Get)
 	r.POST("/videos/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/videos/generations", false) {
 			return

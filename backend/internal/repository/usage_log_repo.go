@@ -28,7 +28,7 @@ import (
 	gocache "github.com/patrickmn/go-cache"
 )
 
-const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, service_tier, reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, media_type, created_at"
+const usageLogSelectColumns = "id, user_id, api_key_id, account_id, request_id, model, requested_model, upstream_model, group_id, subscription_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, cache_creation_5m_tokens, cache_creation_1h_tokens, image_output_tokens, image_output_cost, image_input_tokens, image_input_cost, input_cost, output_cost, cache_creation_cost, cache_read_cost, total_cost, actual_cost, rate_multiplier, account_rate_multiplier, billing_type, request_type, stream, openai_ws_mode, duration_ms, first_token_ms, user_agent, ip_address, session_id, image_count, image_size, image_input_size, image_output_size, image_size_source, image_size_breakdown, service_tier, reasoning_effort, inbound_endpoint, upstream_endpoint, cache_ttl_overridden, channel_id, model_mapping_chain, billing_tier, billing_mode, account_stats_cost, media_type, created_at"
 
 // usageLogInsertArgTypes must stay in the same order as:
 //  1. prepareUsageLogInsert().args
@@ -73,6 +73,7 @@ var usageLogInsertArgTypes = [...]string{
 	"integer",     // first_token_ms
 	"text",        // user_agent
 	"text",        // ip_address
+	"text",        // session_id
 	"integer",     // image_count
 	"text",        // image_size
 	"text",        // image_input_size
@@ -395,6 +396,7 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			first_token_ms,
 			user_agent,
 			ip_address,
+			session_id,
 			image_count,
 			image_size,
 			image_input_size,
@@ -419,7 +421,7 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			$10, $11, $12, $13,
 			$14, $15, $16, $17,
 			$18, $19, $20, $21, $22, $23,
-			$24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53
+			$24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54
 		)
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
 		RETURNING id, created_at, user_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, actual_cost
@@ -440,7 +442,7 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			)
 			SELECT
 				user_id,
-				(created_at AT TIME ZONE $54)::date AS usage_date,
+				(created_at AT TIME ZONE $55)::date AS usage_date,
 				1 AS requests,
 				COALESCE(input_tokens, 0) AS input_tokens,
 				COALESCE(output_tokens, 0) AS output_tokens,
@@ -449,8 +451,8 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 				COALESCE(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens, 0) AS tokens,
 				actual_cost,
 				CASE
-					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $54) >= 0
-						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $54) < 6 THEN 1
+					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $55) >= 0
+						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $55) < 6 THEN 1
 					ELSE 0
 				END AS night_requests,
 				NOW() AS updated_at
@@ -892,6 +894,7 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 			first_token_ms,
 			user_agent,
 			ip_address,
+			session_id,
 			image_count,
 			image_size,
 			image_input_size,
@@ -974,9 +977,10 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				openai_ws_mode,
 				duration_ms,
 				first_token_ms,
-				user_agent,
-				ip_address,
-				image_count,
+			user_agent,
+			ip_address,
+			session_id,
+			image_count,
 				image_size,
 				image_input_size,
 				image_output_size,
@@ -1029,9 +1033,10 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				openai_ws_mode,
 				duration_ms,
 				first_token_ms,
-				user_agent,
-				ip_address,
-				image_count,
+			user_agent,
+			ip_address,
+			session_id,
+			image_count,
 				image_size,
 				image_input_size,
 				image_output_size,
@@ -1179,6 +1184,7 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			first_token_ms,
 			user_agent,
 			ip_address,
+			session_id,
 			image_count,
 			image_size,
 			image_input_size,
@@ -1261,6 +1267,7 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			first_token_ms,
 			user_agent,
 			ip_address,
+			session_id,
 			image_count,
 			image_size,
 			image_input_size,
@@ -1316,6 +1323,7 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			first_token_ms,
 			user_agent,
 			ip_address,
+			session_id,
 			image_count,
 			image_size,
 			image_input_size,
@@ -1437,6 +1445,7 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			first_token_ms,
 			user_agent,
 			ip_address,
+			session_id,
 			image_count,
 			image_size,
 			image_input_size,
@@ -1461,7 +1470,7 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			$10, $11, $12, $13,
 			$14, $15, $16, $17,
 			$18, $19, $20, $21, $22, $23,
-			$24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53
+			$24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50, $51, $52, $53, $54
 		)
 		ON CONFLICT (request_id, api_key_id) DO NOTHING
 		RETURNING id, created_at, user_id, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens, actual_cost
@@ -1482,7 +1491,7 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			)
 			SELECT
 				user_id,
-				(created_at AT TIME ZONE $54)::date AS usage_date,
+				(created_at AT TIME ZONE $55)::date AS usage_date,
 				1 AS requests,
 				COALESCE(input_tokens, 0) AS input_tokens,
 				COALESCE(output_tokens, 0) AS output_tokens,
@@ -1491,8 +1500,8 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 				COALESCE(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens, 0) AS tokens,
 				actual_cost,
 				CASE
-					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $54) >= 0
-						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $54) < 6 THEN 1
+					WHEN EXTRACT(HOUR FROM created_at AT TIME ZONE $55) >= 0
+						AND EXTRACT(HOUR FROM created_at AT TIME ZONE $55) < 6 THEN 1
 					ELSE 0
 				END AS night_requests,
 				NOW() AS updated_at
@@ -1533,6 +1542,7 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 	firstToken := nullInt(log.FirstTokenMs)
 	userAgent := nullString(log.UserAgent)
 	ipAddress := nullString(log.IPAddress)
+	sessionID := nullString(log.SessionID)
 	imageSize := nullString(log.ImageSize)
 	imageInputSize := nullString(log.ImageInputSize)
 	imageOutputSize := nullString(log.ImageOutputSize)
@@ -1599,6 +1609,7 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 			firstToken,
 			userAgent,
 			ipAddress,
+			sessionID,
 			log.ImageCount,
 			imageSize,
 			imageInputSize,
@@ -5762,6 +5773,7 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		firstTokenMs          sql.NullInt64
 		userAgent             sql.NullString
 		ipAddress             sql.NullString
+		sessionID             sql.NullString
 		imageCount            int
 		imageSize             sql.NullString
 		imageInputSize        sql.NullString
@@ -5819,6 +5831,7 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 		&firstTokenMs,
 		&userAgent,
 		&ipAddress,
+		&sessionID,
 		&imageCount,
 		&imageSize,
 		&imageInputSize,
@@ -5902,6 +5915,9 @@ func scanUsageLog(scanner interface{ Scan(...any) error }) (*service.UsageLog, e
 	}
 	if ipAddress.Valid {
 		log.IPAddress = &ipAddress.String
+	}
+	if sessionID.Valid {
+		log.SessionID = &sessionID.String
 	}
 	if imageSize.Valid {
 		log.ImageSize = &imageSize.String

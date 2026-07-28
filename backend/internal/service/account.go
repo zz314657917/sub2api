@@ -76,6 +76,7 @@ type OpenAIEndpointCapability string
 const (
 	OpenAIEndpointCapabilityChatCompletions OpenAIEndpointCapability = "chat_completions"
 	OpenAIEndpointCapabilityEmbeddings      OpenAIEndpointCapability = "embeddings"
+	OpenAIEndpointCapabilityLive            OpenAIEndpointCapability = "live"
 )
 
 const openAIEndpointCapabilitiesCredentialKey = "openai_capabilities"
@@ -1189,6 +1190,17 @@ func (a *Account) IsOpenAIOAuth() bool {
 	return a.IsOpenAI() && a.Type == AccountTypeOAuth
 }
 
+// IsOpenAIPersonalAccessToken identifies OAuth accounts authenticated with a
+// ChatGPT personal access token. These accounts cannot establish ChatGPT Live
+// sessions, which require the standard OAuth session credentials.
+func (a *Account) IsOpenAIPersonalAccessToken() bool {
+	if !a.IsOpenAIOAuth() {
+		return false
+	}
+	mode := strings.ToLower(strings.TrimSpace(a.GetCredential(openAIAuthModeCredentialKey)))
+	return mode == strings.ToLower(OpenAIAuthModePersonalAccessToken) || mode == "personal_access_token"
+}
+
 func (a *Account) IsOpenAIApiKey() bool {
 	return a.IsOpenAI() && a.Type == AccountTypeAPIKey
 }
@@ -1433,6 +1445,10 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 	}
 	switch capability {
 	case OpenAIEndpointCapabilityChatCompletions:
+	case OpenAIEndpointCapabilityLive:
+		if a.Platform != PlatformOpenAI || a.Type != AccountTypeOAuth || a.IsOpenAIPersonalAccessToken() || a.IsOpenAIAgentIdentity() {
+			return false
+		}
 	case OpenAIEndpointCapabilityEmbeddings:
 		if a.Type != AccountTypeAPIKey {
 			return false
