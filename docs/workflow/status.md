@@ -1,13 +1,33 @@
 ---
 phase: done
-current_sprint: upstream-v0166-gemini-web-search-s119
-total_sprints: 119
-pending_action: S115-S119 are integrated locally for post-integration verification; no push, deployment, or container update is authorized
+current_sprint: upstream-v0165-audit-log-s121
+total_sprints: 121
+pending_action: Keep the local S121 commit isolated; do not push, deploy, update containers, or touch the primary dirty worktree
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-27 20:30 +08:00
+last_verified: 2026-07-28 01:33 +08:00
 ---
+
+# S121 Current Sprint
+
+- Ported the v0.1.165 administrator operation-audit surface in the isolated
+  worktree: PostgreSQL append-only logs, redaction, trusted client IP, session
+  IP/User-Agent binding, TOTP step-up, admin query/detail UI, and transactional
+  clear-with-trace behavior.
+- Refresh binding honors `session_binding_enabled`; disabling the feature no
+  longer blocks refresh. Audit body read failures restore the original request
+  body, and missing step-up/clear dependencies fail closed.
+- Audit writer clear barriers drain accepted records before the transaction;
+  failed batches are retained for retry instead of being dropped.
+- Focused Go tests, repository transaction rollback tests, full Go compilation,
+  frontend Vitest 9/9, typecheck, production build (1099 modules), formatting,
+  diff, conflict-marker, migration, and path gates pass.
+- Final Evaluator: PASS/source-only. PostgreSQL migration execution, Redis/TOTP
+  runtime, authenticated browser interaction, Go race detector, deployment,
+  container refresh, push, and primary-worktree integration remain out of scope.
+- Contract: `docs/workflow/tasks/upstream-v0165-audit-log-s121.md`.
+- QA report: `docs/workflow/qa-reports/upstream-v0165-audit-log-s121-qa.md`.
 
 # S118 Integrated Sprint
 
