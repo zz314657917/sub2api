@@ -500,6 +500,7 @@
 260729 0134 | upstream-v0165-audit-log-s121 | contract-amended | Evaluator | image result-storage credential route regression added after S123 integration; update remains inside S121 step-up/BackupView scope
 260729 0134 | upstream-v0165-audit-log-s121 | post-integration-qa | Evaluator | focused Go, full compile, module verify, Vitest 9/9, typecheck, 1099-module build, format, diff, denied-path, conflict, and unmerged-index gates PASS; local Redis storage smoke PASS
 260729 0134 | upstream-v0165-audit-log-s121 | done | Evaluator | PASS/source-only; ready for fresh origin/main baseline check and publish, with no deployment or container update
+260729 0957 | upstream-v0165-audit-log-s121 | publish | Codex | integration commits c2bb6cc23, 77664007c, ff0323661, and 02ee07d24 pushed to origin/main; HEAD, origin/main, and ls-remote parity verified; no deployment or container update
 260728 0000 | channel-pricing-model-catalog-s122 | contract-approved | Codex | reuse Channel.SupportedModels for current group/platform; billing, routing, schema, frontend, deploy, and containers excluded
 260728 0058 | channel-pricing-model-catalog-s122 | build | Codex | gateway model candidates now merge account mappings with concrete current-channel SupportedModels
 260728 0058 | channel-pricing-model-catalog-s122 | qa-pass | Evaluator | focused models x10, full handler, chatgpt2api bridge, isolated peak baseline, formatting, and static gates PASS

@@ -2,11 +2,11 @@
 phase: done
 current_sprint: upstream-v0165-audit-log-s121
 total_sprints: 123
-pending_action: Fetch origin/main immediately before publishing S121; push only if the remote baseline remains unchanged, then verify remote parity. Deployment and container updates remain separate work.
+pending_action: S121 audit-log integration is published on origin/main at 02ee07d24; deployment and container updates remain separate work.
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-29 01:34 +08:00
+last_verified: 2026-07-29 09:57 +08:00
 ---
 
 # S121 Current Sprint
@@ -31,10 +31,10 @@ last_verified: 2026-07-29 01:34 +08:00
   frontend Vitest/typecheck/production build, module verification, formatting,
   diff, denied-path, conflict-marker, and unmerged-index checks. The local
   `sub2api-redis` smoke passed `PING`, expiring write/read, and cleanup.
-- Final Evaluator: `PASS / source-only`; the integration branch is ready for
-  a fresh remote-baseline check and publish. PostgreSQL migration execution,
-  authenticated TOTP/browser flow, real S3, deployment, and container update
-  remain unverified or out of scope.
+- Final Evaluator: `PASS / source-only`; the four S121 integration commits
+  are published on `origin/main` at `02ee07d24` and remote parity was
+  verified. PostgreSQL migration execution, authenticated TOTP/browser flow,
+  real S3, deployment, and container update remain unverified or out of scope.
 - Contract: `docs/workflow/tasks/upstream-v0165-audit-log-s121.md`.
 - QA report: `docs/workflow/qa-reports/upstream-v0165-audit-log-s121-qa.md`.
 
