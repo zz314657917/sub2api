@@ -1,13 +1,28 @@
 ---
 phase: done
-current_sprint: branch-consolidation-s110-s126
-total_sprints: 126
-pending_action: main is published and Git-level cleanup is complete; do not delete remote refs or apply stashes. Four unregistered physical worktree copies require separate manual cleanup if disk recovery is needed
+current_sprint: openai-model-capacity-retry-five-s127
+total_sprints: 127
+pending_action: S127 source-level QA passed in an isolated worktree; await explicit authorization before commit, merge, push, deployment, or container work
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-30 12:37 +08:00
+last_verified: 2026-07-30 16:21 +08:00
 ---
+
+# S127 Current Sprint
+
+- The exact OpenAI `Selected model is at capacity` failure now carries a
+  same-account retry limit of five through normal HTTP, passthrough HTTP, and
+  pre-output standard/passthrough stream failover paths.
+- The generic failover default remains three; OpenAI Responses, Messages, Chat
+  Completions, and Images use the explicit capacity limit only when present and
+  otherwise keep `account.GetPoolModeRetryCount()`.
+- Focused service and handler tests, repository compilation, formatting, diff,
+  conflict-marker, capacity-constructor, and allowed-path gates pass.
+- Final Evaluator: PASS/source-only. No commit, merge, push, deployment,
+  container refresh, or real external capacity response was performed.
+- Contract: `docs/workflow/tasks/openai-model-capacity-retry-five-s127.md`.
+- QA report: `docs/workflow/qa-reports/openai-model-capacity-retry-five-s127-qa.md`.
 
 # Branch Consolidation Current Sprint
 

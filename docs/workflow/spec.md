@@ -2,8 +2,31 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-07-30 12:20 +08:00
+last_verified: 2026-07-30 16:21 +08:00
 ---
+
+## S127 Addendum: OpenAI capacity failures retry five times
+
+### Goal
+
+- Raise only the exact OpenAI `Selected model is at capacity` same-account
+  retry limit from three to five attempts before existing account failover.
+
+### Scope Boundary
+
+- Carry an explicit retry limit from the capacity classifier to each OpenAI
+  handler failover loop.
+- Retain the generic handler fallback and per-account pool-mode retry settings
+  for every non-capacity error.
+- Do not add configuration, modify model substitution, alter account selection,
+  or change persistence, frontend, deployment, or container behavior.
+
+### Acceptance Boundary
+
+- Focused normal, passthrough, and pre-output stream regressions show the
+  explicit capacity limit is five and other error types leave it unset.
+- Failover-loop coverage proves five retries precede the existing switch path;
+  service and handler checks plus compilation and static path gates pass.
 
 ## Branch Consolidation Addendum: S110-S126 local integration
 

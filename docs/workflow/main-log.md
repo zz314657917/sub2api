@@ -520,3 +520,8 @@
 260730 1220 | branch-consolidation-s110-s126 | final-qa | Evaluator | module verify, repository compile, focused S121/S123/S110/S120 checks, frontend typecheck, diff/unmerged-index gates, and Redis 6380 smoke PASS
 260730 1230 | branch-consolidation-s110-s126 | local-cleanup | Codex | nine redundant local refs removed; only main and the unresolved S121 worktree remain registered; four unregistered physical copies retained for manual Windows cleanup
 260730 1237 | branch-consolidation-s110-s126 | publish-origin-main | Codex | archived and removed the unresolved S121 worktree, then pushed main from origin/main@811a6d3c0 to 86845f9be; no remote refs deleted
+260730 1615 | openai-model-capacity-retry-five-s127 | contract-draft | Planner | capacity-only explicit same-account retry limit of five; generic pool retry defaults, model routing, deployment, and containers excluded
+260730 1615 | openai-model-capacity-retry-five-s127 | contract-approved | Evaluator | optional failover-error limit preserves generic pool retry defaults and does not require scheduler or routing changes
+260730 1621 | openai-model-capacity-retry-five-s127 | build | Generator | capacity-only explicit retry limit propagated through normal, passthrough, stream, and all OpenAI handler retry loops
+260730 1621 | openai-model-capacity-retry-five-s127 | final-qa | Evaluator | focused service/handler tests, repository compile, formatting, diff, conflict-marker, constructor, and path gates PASS
+260730 1621 | openai-model-capacity-retry-five-s127 | done | Evaluator | PASS/source-only; external capacity observation, commit, merge, push, deployment, and container refresh remain unverified or unauthorized
