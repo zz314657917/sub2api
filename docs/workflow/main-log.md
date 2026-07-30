@@ -514,3 +514,7 @@
 260730 1103 | openai-local-group-id-s126 | build | Generator | Responses and Chat upstream entry sanitization plus Images JSON/multipart group_id removal implemented with focused regressions
 260730 1103 | openai-local-group-id-s126 | final-qa | Evaluator | focused and broad OpenAI tests, full Go compile, formatting, diff, conflict-marker, and allowlist gates PASS/source-only
 260730 1103 | openai-local-group-id-s126 | done | Evaluator | PASS/source-only; no real external upstream request, commit, push, deployment, or container update performed
+260730 1220 | branch-consolidation-s110-s126 | local-commits | Codex | Opus 5, Grok Responses, group-buy modal, and workflow updates committed as four isolated local changes
+260730 1220 | branch-consolidation-s110-s126 | merge-origin-main | Codex | origin/main merged as 6bd90ba1b; S121-S123 behavior and evidence retained with no history rewrite
+260730 1220 | branch-consolidation-s110-s126 | merge-s110-s120 | Codex | S110 merged as a397d5966 and S120 merged as 0c74fa192 after focused Go/Vitest/typecheck gates
+260730 1220 | branch-consolidation-s110-s126 | final-qa | Evaluator | module verify, repository compile, focused S121/S123/S110/S120 checks, frontend typecheck, diff/unmerged-index gates, and Redis 6380 smoke PASS

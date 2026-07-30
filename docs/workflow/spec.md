@@ -2,8 +2,34 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-07-03 19:30 +08:00
+last_verified: 2026-07-30 12:20 +08:00
 ---
+
+## Branch Consolidation Addendum: S110-S126 local integration
+
+### Goal
+
+- Consolidate the already reviewed local and upstream feature chains into one
+  non-rewritten `main` history, while preserving each Sprint's contract and QA
+  evidence.
+
+### Scope Boundary
+
+- Integrate `origin/main`, S110 group-buy lifecycle/refund hardening, and S120
+  leaderboard account-age gating with normal merge commits.
+- Keep the existing local S124-S126 and tutorial commits as independent,
+  reviewable commits. Preserve the S114, S115, S125, and S126 workflow
+  artifacts after proving their code patches are already equivalent in `main`.
+- Do not push, deploy, update containers, remove remote branches, apply stashes,
+  or force-remove the unresolved historical S121 worktree.
+
+### Acceptance Boundary
+
+- Every merge leaves no unmerged index entries, passes `git diff --check`, and
+  receives its corresponding focused Go/Vitest/typecheck verification.
+- The final integration passes Go module verification, repository compilation,
+  selected S121/S123/S110/S120 regressions, frontend typecheck, and a local
+  Redis PING/write/read/delete smoke.
 
 ## S126 Addendum: strip local `group_id` from OpenAI upstream payloads
 

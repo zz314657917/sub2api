@@ -1,13 +1,32 @@
 ---
 phase: done
-current_sprint: openai-local-group-id-s126
+current_sprint: branch-consolidation-s110-s126
 total_sprints: 126
-pending_action: Keep S126 local and user-dirty; do not commit, push, deploy, update containers, or alter unrelated changes without separate authorization
+pending_action: Verify final main history, then remove only clean local worktrees and branches whose code/evidence is already retained; do not push, delete remote refs, apply stashes, or force-remove the unresolved S121 worktree
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-30 11:03 +08:00
+last_verified: 2026-07-30 12:20 +08:00
 ---
+
+# Branch Consolidation Current Sprint
+
+- Local commits `1ca5b0e89`, `295176d11`, `5cc202465`, and `3007bbc2e`
+  separated the Opus 5, Grok Responses, group-buy modal, and documentation
+  changes before integration.
+- `origin/main` was merged as `6bd90ba1b`, retaining S121 audit-log security,
+  S122 channel-pricing catalog, S123 async image tasks, S124 compatibility,
+  S125 tutorial configuration, and S126 reliability fixes without rewriting
+  either history.
+- S110 group-buy lifecycle/refund hardening and S120 leaderboard account-age
+  gating were then merged as `a397d5966` and `0c74fa192`.
+- Module verification, repository compilation, focused S121/S123/S110/S120
+  checks, frontend typechecks, and Redis `PING`/TTL/write/read/delete smoke
+  passed. Redis is published locally on `127.0.0.1:6380`; no production or
+  upstream runtime call was made.
+- Workflow evidence from code-equivalent S114, S115, S125, and S126 branches
+  is retained in `docs/workflow/**`. The historical S121 worktree remains
+  excluded from cleanup because it has unresolved conflicts and staged files.
 
 # S126 Current Sprint
 
