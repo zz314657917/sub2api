@@ -3,6 +3,7 @@
  */
 
 import { apiClient } from '../client'
+import type { QuickstartTutorialConfig } from '@/views/public/tutorialQuickstart'
 import type {
   BasePaginationResponse,
   CreateTutorialPageRequest,
@@ -58,13 +59,31 @@ export async function deleteTutorial(id: number): Promise<{ message: string }> {
   return data
 }
 
+export async function getQuickstartConfig(): Promise<QuickstartTutorialConfig> {
+  const { data } = await apiClient.get<QuickstartTutorialConfig>('/admin/tutorials/quickstart-config')
+  return data
+}
+
+export async function updateQuickstartConfig(config: QuickstartTutorialConfig): Promise<QuickstartTutorialConfig> {
+  const { data } = await apiClient.put<QuickstartTutorialConfig>('/admin/tutorials/quickstart-config', config)
+  return data
+}
+
+export async function resetQuickstartConfig(): Promise<QuickstartTutorialConfig> {
+  const { data } = await apiClient.post<QuickstartTutorialConfig>('/admin/tutorials/quickstart-config/reset')
+  return data
+}
+
 const tutorialsAPI = {
   list,
   getById,
   create,
   update,
   updateStatus,
-  delete: deleteTutorial
+  delete: deleteTutorial,
+  getQuickstartConfig,
+  updateQuickstartConfig,
+  resetQuickstartConfig
 }
 
 export default tutorialsAPI

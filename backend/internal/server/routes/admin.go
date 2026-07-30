@@ -426,6 +426,9 @@ func registerTutorialRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	{
 		tutorials.GET("", h.Admin.TutorialPage.List)
 		tutorials.POST("", h.Admin.TutorialPage.Create)
+		tutorials.GET("/quickstart-config", h.Admin.Setting.GetQuickstartTutorialConfig)
+		tutorials.PUT("/quickstart-config", h.Admin.Setting.UpdateQuickstartTutorialConfig)
+		tutorials.POST("/quickstart-config/reset", h.Admin.Setting.ResetQuickstartTutorialConfig)
 		tutorials.GET("/:id", h.Admin.TutorialPage.Get)
 		tutorials.PUT("/:id", h.Admin.TutorialPage.Update)
 		tutorials.PUT("/:id/status", h.Admin.TutorialPage.UpdateStatus)

@@ -283,6 +283,7 @@ const (
 	SettingKeyCustomMenuItems             = "custom_menu_items"             // 自定义菜单项（JSON 数组）
 	SettingKeyCustomEndpoints             = "custom_endpoints"              // 自定义端点列表（JSON 数组）
 	SettingKeyModelMarketCatalog          = "model_market_catalog"          // 模型市场目录（JSON）
+	SettingKeyQuickstartTutorialConfig    = "quickstart_tutorial_config"    // 快速接入教程（JSON）
 
 	// 默认配置
 	SettingKeyDefaultConcurrency   = "default_concurrency"    // 新用户默认并发量

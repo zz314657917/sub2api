@@ -21,6 +21,10 @@
             @input="handleSearch"
           />
           <div class="flex flex-1 justify-end gap-2">
+            <button type="button" class="btn btn-secondary" @click="openQuickstartConfigDialog">
+              <Icon name="cog" size="md" class="mr-1" />
+              快速接入配置
+            </button>
             <button type="button" class="btn btn-secondary" :disabled="loading" @click="loadTutorials">
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
@@ -216,6 +220,43 @@
       </template>
     </BaseDialog>
 
+    <BaseDialog
+      :show="showQuickstartConfigDialog"
+      title="快速接入配置"
+      width="full"
+      :close-on-escape="!quickstartConfigSaving"
+      @close="closeQuickstartConfigDialog"
+    >
+      <div class="space-y-3">
+        <p class="text-sm text-gray-600 dark:text-dark-300">
+          修改平台的 <code>base_url</code> 后，前台信息卡、CLI 配置和 cURL 示例会同步使用新地址。只支持纯文本和 http(s) 地址。
+        </p>
+        <textarea
+          v-model="quickstartConfigJson"
+          data-test="quickstart-config-editor"
+          rows="28"
+          class="input quickstart-config-editor font-mono text-xs"
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+      <template #footer>
+        <div class="flex justify-between gap-3">
+          <button type="button" class="btn btn-secondary" :disabled="quickstartConfigSaving" @click="requestQuickstartConfigReset">
+            恢复内置默认
+          </button>
+          <div class="flex gap-3">
+            <button type="button" class="btn btn-secondary" :disabled="quickstartConfigSaving" @click="closeQuickstartConfigDialog">
+              取消
+            </button>
+            <button type="button" class="btn btn-primary" :disabled="quickstartConfigSaving" @click="saveQuickstartConfig">
+              {{ quickstartConfigSaving ? '保存中...' : '保存配置' }}
+            </button>
+          </div>
+        </div>
+      </template>
+    </BaseDialog>
+
     <ConfirmDialog
       :show="showDeleteDialog"
       title="删除教程"
@@ -248,6 +289,17 @@
       @confirm="discardAndClose"
       @cancel="showDiscardDialog = false"
     />
+
+    <ConfirmDialog
+      :show="showQuickstartResetDialog"
+      title="恢复快速接入默认配置"
+      message="确认恢复内置默认内容？当前已保存的快速接入配置将被覆盖。"
+      confirm-text="恢复默认"
+      cancel-text="取消"
+      danger
+      @confirm="resetQuickstartConfig"
+      @cancel="showQuickstartResetDialog = false"
+    />
   </AppLayout>
 </template>
 
@@ -259,6 +311,7 @@ import { formatDateTime } from '@/utils/format'
 import { renderTutorialMarkdown } from '@/utils/tutorialMarkdown'
 import type { BasePaginationResponse, TutorialPageSummary, TutorialPageStatus } from '@/types'
 import type { Column } from '@/components/common/types'
+import type { QuickstartTutorialConfig } from '@/views/public/tutorialQuickstart'
 
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -280,6 +333,10 @@ const showEditDialog = ref(false)
 const showDeleteDialog = ref(false)
 const showStatusDialog = ref(false)
 const showDiscardDialog = ref(false)
+const showQuickstartConfigDialog = ref(false)
+const showQuickstartResetDialog = ref(false)
+const quickstartConfigSaving = ref(false)
+const quickstartConfigJson = ref('')
 const editingId = ref<number | null>(null)
 const deleteTarget = ref<TutorialPageSummary | null>(null)
 const statusTarget = ref<TutorialPageSummary | null>(null)
@@ -485,6 +542,64 @@ function discardAndClose() {
   closeEdit()
 }
 
+async function openQuickstartConfigDialog() {
+  quickstartConfigSaving.value = true
+  try {
+    const config = await adminAPI.tutorials.getQuickstartConfig()
+    quickstartConfigJson.value = JSON.stringify(config, null, 2)
+    showQuickstartConfigDialog.value = true
+  } catch (error: any) {
+    appStore.showError(error?.message || '加载快速接入配置失败')
+  } finally {
+    quickstartConfigSaving.value = false
+  }
+}
+
+function closeQuickstartConfigDialog() {
+  if (quickstartConfigSaving.value) return
+  showQuickstartConfigDialog.value = false
+  showQuickstartResetDialog.value = false
+}
+
+async function saveQuickstartConfig() {
+  let payload: unknown
+  try {
+    payload = JSON.parse(quickstartConfigJson.value)
+  } catch {
+    appStore.showError('配置必须是有效的 JSON')
+    return
+  }
+
+  quickstartConfigSaving.value = true
+  try {
+    const config = await adminAPI.tutorials.updateQuickstartConfig(payload as QuickstartTutorialConfig)
+    quickstartConfigJson.value = JSON.stringify(config, null, 2)
+    appStore.showSuccess('快速接入配置已保存')
+  } catch (error: any) {
+    appStore.showError(error?.message || '保存快速接入配置失败')
+  } finally {
+    quickstartConfigSaving.value = false
+  }
+}
+
+function requestQuickstartConfigReset() {
+  showQuickstartResetDialog.value = true
+}
+
+async function resetQuickstartConfig() {
+  quickstartConfigSaving.value = true
+  try {
+    const config = await adminAPI.tutorials.resetQuickstartConfig()
+    quickstartConfigJson.value = JSON.stringify(config, null, 2)
+    showQuickstartResetDialog.value = false
+    appStore.showSuccess('已恢复快速接入默认配置')
+  } catch (error: any) {
+    appStore.showError(error?.message || '恢复快速接入默认配置失败')
+  } finally {
+    quickstartConfigSaving.value = false
+  }
+}
+
 async function handleSave() {
   saving.value = true
   try {
@@ -593,6 +708,11 @@ onMounted(loadTutorials)
   min-height: 34rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   line-height: 1.6;
+}
+
+.quickstart-config-editor {
+  min-height: 32rem;
+  resize: vertical;
 }
 
 .tutorial-preview {

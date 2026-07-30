@@ -7,44 +7,158 @@
       class="tutorial-main relative z-10 mx-auto"
       :class="{ 'is-article-route': !isIndexRoute, 'is-index-route': isIndexRoute }"
     >
-      <section v-if="isIndexRoute" class="tutorial-overview">
-        <div class="tutorial-intro">
-          <span class="tutorial-kicker">AI 接入教程</span>
-          <h1>从快速开始到工具配置</h1>
-          <p>
-            最快路线是先安装 Codex App，再创建专用密钥并写入配置。
-          </p>
+      <section v-if="showQuickstart" class="tutorial-quickstart" aria-labelledby="tutorial-quickstart-title">
+        <div class="tutorial-quickstart-head">
+          <div>
+            <span class="tutorial-kicker">{{ quickstartConfig.header.kicker }}</span>
+            <h1 id="tutorial-quickstart-title">{{ quickstartConfig.header.title }}</h1>
+            <p>{{ quickstartConfig.header.description }}</p>
+          </div>
           <div class="tutorial-actions">
-            <router-link v-if="firstPage" :to="`/tutorial/${firstPage.slug}`" class="guide-action-link">
-              新手最快路线
+            <router-link :to="{ path: '/tutorial', query: { view: 'library' } }" class="guide-action-link">
+              {{ quickstartConfig.header.library_action_label }}
             </router-link>
-            <router-link to="/models" class="guide-action-link guide-action-link--ghost">
-              查看模型广场
+            <router-link to="/keys" class="guide-action-link guide-action-link--ghost">
+              {{ quickstartConfig.header.keys_action_label }}
             </router-link>
           </div>
         </div>
 
-        <div class="beginner-path" aria-label="接入路线图">
-          <router-link
-            v-for="(page, index) in orderedPages.slice(0, 4)"
-            :key="page.slug"
-            :to="`/tutorial/${page.slug}`"
-            class="beginner-step"
-          >
-            <span>{{ String(index + 1).padStart(2, '0') }}</span>
-            <strong>{{ page.title }}</strong>
-            <p>{{ page.description }}</p>
-          </router-link>
+        <div class="tutorial-quickstart-controls">
+          <div class="tutorial-quickstart-control">
+            <span>{{ quickstartConfig.header.platform_control_label }}</span>
+            <div class="tutorial-segmented-control" role="group" aria-label="选择模型平台">
+              <button
+                v-for="option in quickstartPlatforms"
+                :key="option.id"
+                type="button"
+                :class="{ 'is-active': quickstartPlatform === option.id }"
+                :aria-pressed="quickstartPlatform === option.id"
+                @click="quickstartPlatform = option.id"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="tutorial-quickstart-control">
+            <span>{{ quickstartConfig.header.terminal_control_label }}</span>
+            <div class="tutorial-segmented-control" role="group" aria-label="选择系统和终端">
+              <button
+                v-for="option in quickstartTerminals"
+                :key="option.value"
+                type="button"
+                :class="{ 'is-active': quickstartTerminal === option.value }"
+                :aria-pressed="quickstartTerminal === option.value"
+                @click="quickstartTerminal = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tutorial-quickstart-facts">
+          <article v-for="fact in quickstartFacts" :key="fact.label" class="tutorial-quickstart-fact">
+            <span>{{ fact.label }}</span>
+            <strong>{{ fact.value }}</strong>
+            <p>{{ fact.description }}</p>
+          </article>
+        </div>
+
+        <div class="tutorial-quickstart-steps">
+          <article v-for="step in quickstartSteps" :key="step.number" class="tutorial-quickstart-step">
+            <header>
+              <span class="tutorial-quickstart-step-number">{{ step.number }}</span>
+              <div>
+                <span v-if="step.kicker" class="tutorial-quickstart-step-kicker">{{ step.kicker }}</span>
+                <h3>{{ step.title }}</h3>
+                <p>{{ step.description }}</p>
+              </div>
+              <span v-if="step.required" class="tutorial-quickstart-required">首次必做</span>
+            </header>
+
+            <div v-if="step.notice" class="tutorial-quickstart-notice">{{ step.notice }}</div>
+
+            <div v-if="step.command" class="tutorial-quickstart-code">
+              <div class="tutorial-quickstart-code-head">
+                <span>{{ step.commandLabel }}</span>
+                <button type="button" @click="copyQuickstartCommand(step.command, $event)">复制</button>
+              </div>
+              <pre><code>{{ step.command }}</code></pre>
+            </div>
+
+            <router-link v-if="step.link" :to="step.link.to" class="tutorial-quickstart-link">
+              {{ step.link.label }}
+            </router-link>
+            <a
+              v-if="step.externalLink"
+              :href="step.externalLink.href"
+              class="tutorial-quickstart-link"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {{ step.externalLink.label }}
+            </a>
+          </article>
+        </div>
+
+        <div class="tutorial-quickstart-followup">
+          <section class="tutorial-quickstart-section">
+            <header>
+              <span class="tutorial-kicker">{{ quickstartConfig.desktop.kicker }}</span>
+              <h3>{{ quickstartConfig.desktop.title }}</h3>
+              <p>{{ quickstartConfig.desktop.description }}</p>
+            </header>
+            <div class="tutorial-quickstart-tile-grid">
+              <article v-for="tile in quickstartDesktopTiles" :key="tile.number" class="tutorial-quickstart-tile">
+                <span>{{ tile.number }}</span>
+                <strong>{{ tile.title }}</strong>
+                <p>{{ tile.description }}</p>
+              </article>
+            </div>
+          </section>
+
+          <section class="tutorial-quickstart-section">
+            <header>
+              <span class="tutorial-kicker">{{ quickstartConfig.api.kicker }}</span>
+              <h3>{{ quickstartConfig.api.title }}</h3>
+              <p>{{ quickstartConfig.api.description }}</p>
+            </header>
+            <div class="tutorial-quickstart-code tutorial-quickstart-code--large">
+              <div class="tutorial-quickstart-code-head">
+                <span>{{ quickstartApiLabel }}</span>
+                <button type="button" @click="copyQuickstartCommand(quickstartApiExample, $event)">复制</button>
+              </div>
+              <pre><code>{{ quickstartApiExample }}</code></pre>
+            </div>
+            <p class="tutorial-quickstart-hint">{{ quickstartConfig.api_hint }}</p>
+          </section>
+
+          <section class="tutorial-quickstart-section">
+            <header>
+              <span class="tutorial-kicker">{{ quickstartConfig.troubleshooting.kicker }}</span>
+              <h3>{{ quickstartConfig.troubleshooting.title }}</h3>
+              <p>{{ quickstartConfig.troubleshooting.description }}</p>
+            </header>
+            <div class="tutorial-quickstart-error-grid">
+              <article v-for="error in quickstartErrors" :key="error.code" class="tutorial-quickstart-error">
+                <span>{{ error.code }}</span>
+                <strong>{{ error.title }}</strong>
+                <p>{{ error.description }}</p>
+              </article>
+            </div>
+          </section>
         </div>
       </section>
 
-      <div v-if="loading && orderedPages.length === 0" class="tutorial-loading" role="status" aria-live="polite">
+      <div v-if="isTutorialLibraryView && loading && orderedPages.length === 0" class="tutorial-loading" role="status" aria-live="polite">
         <div class="tutorial-spinner"></div>
         <span>加载教程中...</span>
       </div>
 
       <template v-else>
-        <div v-if="sourceNotice" class="tutorial-source-notice" :class="`tutorial-source-notice--${sourceNotice.type}`">
+        <div v-if="isTutorialLibraryView && sourceNotice" class="tutorial-source-notice" :class="`tutorial-source-notice--${sourceNotice.type}`">
           <div>
             <strong>{{ sourceNotice.title }}</strong>
             <p>{{ sourceNotice.description }}</p>
@@ -52,13 +166,13 @@
           <button type="button" @click="refreshPages">重试</button>
         </div>
 
-        <section v-if="isIndexRoute" class="tutorial-reader tutorial-reader--index">
+        <section v-if="isTutorialLibraryView" class="tutorial-reader tutorial-reader--index">
           <article class="tutorial-main-column">
             <header class="tutorial-article-head">
               <div>
                 <span>目录</span>
-                <h2>选择一篇教程开始</h2>
-                <p>先按最快路线安装 Codex App 并创建专用密钥，再根据需要进入其他工具配置页。</p>
+                <h1>完整教程目录</h1>
+                <p>按工具、使用场景或排查主题查找需要的教程。</p>
               </div>
               <button type="button" class="tutorial-refresh" :disabled="loading" @click="refreshPages">
                 刷新
@@ -126,7 +240,7 @@
           </article>
         </section>
 
-        <section v-else class="tutorial-reader tutorial-reader--detail">
+        <section v-else-if="!isIndexRoute" class="tutorial-reader tutorial-reader--detail">
           <aside class="tutorial-sidebar" aria-label="接入教程目录">
             <p class="tutorial-sidebar-title">教程目录</p>
             <nav class="tutorial-tabs">
@@ -337,6 +451,11 @@ import { renderTutorialMarkdown, type TutorialTocItem } from '@/utils/tutorialMa
 import PublicRevealBackdrop from './components/PublicRevealBackdrop.vue'
 import PublicTopNav from './components/PublicTopNav.vue'
 import { tutorialFallbackPages } from './tutorialFallback'
+import {
+  defaultQuickstartTutorialConfig,
+  type QuickstartPlatformID,
+  type QuickstartTutorialConfig
+} from './tutorialQuickstart'
 
 type DetailState = 'idle' | 'loading' | 'ready' | 'error' | 'notFound'
 
@@ -387,6 +506,19 @@ let detailRequestId = 0
 let imagePreviewTrigger: HTMLElement | null = null
 const copyFeedbackTimers = new Map<HTMLButtonElement, number>()
 
+type QuickstartTerminal = 'cmd' | 'powershell' | 'unix'
+
+const quickstartConfig = ref<QuickstartTutorialConfig>(defaultQuickstartTutorialConfig)
+const quickstartPlatforms = computed(() => quickstartConfig.value.platforms)
+const quickstartTerminals = [
+  { value: 'cmd', label: 'Windows CMD' },
+  { value: 'powershell', label: 'PowerShell' },
+  { value: 'unix', label: 'macOS / Linux' }
+] as const
+const quickstartPlatform = ref<QuickstartPlatformID>('codex')
+const quickstartTerminal = ref<QuickstartTerminal>('cmd')
+const quickstartErrors = computed(() => quickstartConfig.value.errors)
+
 const orderedPages = computed(() => {
   return [...summaries.value].sort((a, b) => {
     if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order
@@ -395,9 +527,10 @@ const orderedPages = computed(() => {
   })
 })
 
-const firstPage = computed(() => orderedPages.value[0] ?? null)
 const routeSlug = computed(() => String(route.params.slug || ''))
 const isIndexRoute = computed(() => !routeSlug.value)
+const isTutorialLibraryView = computed(() => isIndexRoute.value && route.query.view === 'library')
+const showQuickstart = computed(() => isIndexRoute.value && !isTutorialLibraryView.value)
 const activeSlug = computed(() => routeSlug.value)
 const activePage = computed(() => loadedPages.value[activeSlug.value] ?? null)
 const activeSummary = computed(() => orderedPages.value.find((page) => page.slug === activeSlug.value) ?? null)
@@ -455,6 +588,188 @@ const sourceNotice = computed(() => {
   return null
 })
 
+const quickstartTerminalLabel = computed(() => {
+  return quickstartTerminals.find((option) => option.value === quickstartTerminal.value)?.label || 'Windows CMD'
+})
+
+const quickstartClient = computed(() => {
+  const platform = quickstartPlatforms.value.find((option) => option.id === quickstartPlatform.value)
+    ?? quickstartPlatforms.value[0]
+    ?? defaultQuickstartTutorialConfig.platforms[0]
+  return {
+    name: platform.client_name,
+    baseUrl: platform.base_url,
+    baseUrlDescription: platform.base_url_description,
+    auth: platform.auth_hint,
+    protocol: platform.protocol,
+    model: platform.model_hint
+  }
+})
+
+const quickstartFacts = computed(() => [
+  {
+    label: quickstartConfig.value.facts.base_url_label,
+    value: quickstartClient.value.baseUrl,
+    description: quickstartClient.value.baseUrlDescription
+  },
+  {
+    label: quickstartConfig.value.facts.auth_label,
+    value: quickstartClient.value.auth,
+    description: quickstartConfig.value.facts.auth_description
+  },
+  {
+    label: quickstartConfig.value.facts.protocol_label,
+    value: quickstartClient.value.protocol,
+    description: quickstartConfig.value.facts.protocol_description
+  },
+  {
+    label: quickstartConfig.value.facts.model_label,
+    value: quickstartClient.value.model,
+    description: quickstartConfig.value.facts.model_description
+  }
+])
+
+const quickstartInstallCommand = computed(() => {
+  if (quickstartPlatform.value === 'claude') {
+    return 'npm install -g @anthropic-ai/claude-code --registry=https://registry.npmmirror.com\nclaude --version'
+  }
+  if (quickstartTerminal.value === 'unix') {
+    return 'npm install -g @openai/codex --registry=https://registry.npmmirror.com\ncodex --version'
+  }
+  return 'winget install --id OpenAI.Codex -e\ncodex --version'
+})
+
+const quickstartConfigDirectoryCommand = computed(() => {
+  if (quickstartPlatform.value === 'claude') return ''
+  if (quickstartTerminal.value === 'unix') return 'mkdir -p ~/.codex\ncd ~/.codex'
+  if (quickstartTerminal.value === 'powershell') {
+    return 'New-Item -ItemType Directory -Force "$env:USERPROFILE\\.codex" | Out-Null\nexplorer "$env:USERPROFILE\\.codex"'
+  }
+  return 'if not exist "%USERPROFILE%\\.codex" mkdir "%USERPROFILE%\\.codex"\nexplorer "%USERPROFILE%\\.codex"'
+})
+
+const quickstartConfigDirectoryDescription = computed(() => {
+  if (quickstartPlatform.value === 'claude') {
+    return 'Claude Code 不使用 config.toml。下一步直接在当前终端设置环境变量；需要长期生效时，再将同样的变量写入终端的配置文件。'
+  }
+  if (quickstartTerminal.value === 'unix') {
+    return '默认配置文件是 ~/.codex/config.toml。macOS 可在 Finder 按 Cmd+Shift+G 后输入 ~/.codex；Linux 请在文件管理器按 Ctrl+H 显示隐藏目录。'
+  }
+  return '默认配置文件是 C:\\Users\\你的用户名\\.codex\\config.toml。也可在文件资源管理器地址栏输入 %USERPROFILE%\\.codex；找不到目录时执行下方命令。'
+})
+
+const quickstartConfigDirectoryCommandLabel = computed(() => {
+  if (quickstartPlatform.value === 'claude') return ''
+  if (quickstartTerminal.value === 'unix') return '创建并进入目录'
+  return `${quickstartTerminalLabel.value} - 打开配置目录`
+})
+
+const quickstartConfigSnippet = computed(() => {
+  if (quickstartPlatform.value === 'claude') {
+    if (quickstartTerminal.value === 'unix') {
+      return `export ANTHROPIC_AUTH_TOKEN="你的 API Key"\nexport ANTHROPIC_BASE_URL="${quickstartClient.value.baseUrl}"`
+    }
+    if (quickstartTerminal.value === 'powershell') {
+      return `$env:ANTHROPIC_AUTH_TOKEN="你的 API Key"\n$env:ANTHROPIC_BASE_URL="${quickstartClient.value.baseUrl}"`
+    }
+    return `set ANTHROPIC_AUTH_TOKEN=你的 API Key\nset ANTHROPIC_BASE_URL=${quickstartClient.value.baseUrl}`
+  }
+  return `model = "gpt-5.5"\nmodel_provider = "luoye"\n\n[model_providers.luoye]\nname = "luoye"\nbase_url = "${quickstartClient.value.baseUrl}"\nenv_key = "OPENAI_API_KEY"\nwire_api = "responses"`
+})
+
+const quickstartAuthAndStartCommand = computed(() => {
+  if (quickstartPlatform.value === 'claude') {
+    return `${quickstartConfigSnippet.value}\nclaude`
+  }
+  return '{\n  "OPENAI_API_KEY": "替换成你的 API Key"\n}\n\ncodex'
+})
+
+const quickstartApiLabel = computed(() => {
+  return quickstartPlatform.value === 'claude' ? 'cURL / Anthropic Messages' : 'cURL / OpenAI Responses'
+})
+
+const quickstartApiExample = computed(() => {
+  const continuation = '\\'
+  if (quickstartPlatform.value === 'claude') {
+    return [
+      'curl ' + quickstartClient.value.baseUrl + '/v1/messages ' + continuation,
+      '  -H "x-api-key: 你的 API Key" ' + continuation,
+      '  -H "anthropic-version: 2023-06-01" ' + continuation,
+      '  -H "Content-Type: application/json" ' + continuation,
+      "  -d '{\"model\":\"claude-sonnet-4-5\",\"max_tokens\":128,\"messages\":[{\"role\":\"user\",\"content\":\"你好\"}]}'",
+    ].join('\n')
+  }
+  return [
+    'curl ' + quickstartClient.value.baseUrl + '/responses ' + continuation,
+    '  -H "Authorization: Bearer 你的 API Key" ' + continuation,
+    '  -H "Content-Type: application/json" ' + continuation,
+    "  -d '{\"model\":\"gpt-5.5\",\"input\":\"你好\"}'",
+  ].join('\n')
+})
+
+const quickstartSteps = computed(() => {
+  return [
+    {
+      number: '01',
+      kicker: '准备信息',
+      title: '确认 API Key 和 Base URL',
+      description: `先从控制台复制 ${quickstartClient.value.name} 对应的 API Key。`,
+      commandLabel: '接入信息',
+      command: `${quickstartClient.value.baseUrl}\n${quickstartClient.value.auth}`,
+      required: true,
+      link: { to: '/keys', label: '打开 API 密钥页面' }
+    },
+    {
+      number: '02',
+      kicker: quickstartTerminalLabel.value,
+      title: quickstartPlatform.value === 'claude' ? '安装 Claude Code' : '安装 Codex CLI 或桌面端',
+      description: quickstartPlatform.value === 'claude' ? '需要 Node.js 18 或更高版本；桌面端用户可以跳过 CLI 安装。' : 'Codex App 不要求先安装 Node.js；只有使用 CLI 时才执行下面的安装命令。',
+      commandLabel: '安装命令',
+      command: quickstartInstallCommand.value,
+      required: true,
+      externalLink: quickstartPlatform.value === 'claude'
+        ? undefined
+        : {
+            href: 'https://developers.openai.com/codex/app#getting-started',
+            label: '下载 ChatGPT Desktop（Windows / macOS）'
+          }
+    },
+    {
+      number: '03',
+      kicker: '配置文件位置',
+      title: quickstartPlatform.value === 'claude' ? '确认 Claude 配置方式' : '找到或创建 config.toml',
+      description: quickstartConfigDirectoryDescription.value,
+      commandLabel: quickstartConfigDirectoryCommandLabel.value,
+      command: quickstartConfigDirectoryCommand.value,
+      required: true,
+      notice: quickstartPlatform.value === 'claude'
+        ? undefined
+        : '在打开的目录中新建或编辑 config.toml；确认 Windows 没有把文件保存成 config.toml.txt。'
+    },
+    {
+      number: '04',
+      kicker: quickstartPlatform.value === 'claude' ? '环境变量' : 'config.toml',
+      title: '填写接口配置',
+      description: quickstartPlatform.value === 'claude' ? '将环境变量写入当前终端或 settings.json。' : '将下面内容保存到 config.toml，并把模型替换为账号可用的模型 ID。',
+      commandLabel: quickstartPlatform.value === 'claude' ? quickstartTerminalLabel.value : 'config.toml',
+      command: quickstartConfigSnippet.value,
+      required: true
+    },
+    {
+      number: '05',
+      kicker: '最后一步',
+      title: '填写密钥并启动验证',
+      description: quickstartPlatform.value === 'claude' ? '保存 Token 后运行 claude，看到可交互提示即完成接入。' : '保存 auth.json 后启动 Codex，发送一句简单问题确认模型能正常响应。',
+      commandLabel: quickstartPlatform.value === 'claude' ? quickstartTerminalLabel.value : 'auth.json + 启动命令',
+      command: quickstartAuthAndStartCommand.value,
+      required: true,
+      notice: '真实 API Key 只粘贴到本地配置，不要提交到代码仓库。'
+    }
+  ]
+})
+
+const quickstartDesktopTiles = computed(() => quickstartConfig.value.desktop.tiles)
+
 function fallbackSummary(page: TutorialPage): TutorialPageSummary {
   const { content_md: _content, ...summary } = page
   return summary
@@ -502,6 +817,19 @@ function removeCachedPage(slug: string) {
   const nextPages = { ...loadedPages.value }
   delete nextPages[slug]
   loadedPages.value = nextPages
+}
+
+async function loadQuickstartConfig() {
+  try {
+    const config = await tutorialsAPI.getQuickstartConfig()
+    if (!Array.isArray(config.platforms) || config.platforms.length === 0) return
+    quickstartConfig.value = config
+    if (!config.platforms.some((platform) => platform.id === quickstartPlatform.value)) {
+      quickstartPlatform.value = config.platforms[0].id
+    }
+  } catch (error) {
+    console.warn('Failed to load quickstart tutorial config; using built-in defaults.', error)
+  }
 }
 
 async function loadPages(force = false) {
@@ -728,6 +1056,20 @@ function showCopyFeedback(button: HTMLButtonElement, state: 'success' | 'error')
   copyFeedbackTimers.set(button, timer)
 }
 
+async function copyQuickstartCommand(command: string, event: MouseEvent) {
+  const button = event.currentTarget
+  if (!(button instanceof HTMLButtonElement)) return
+  try {
+    if (!navigator.clipboard?.writeText) throw new Error('Clipboard API unavailable')
+    await navigator.clipboard.writeText(command)
+    showCopyFeedback(button, 'success')
+    appStore.showSuccess('已复制命令')
+  } catch {
+    showCopyFeedback(button, 'error')
+    appStore.showError('复制失败，请手动选择命令')
+  }
+}
+
 async function handleContentClick(event: MouseEvent) {
   const target = event.target instanceof Element ? event.target : null
   const copyButton = target?.closest<HTMLButtonElement>('[data-copy-code]')
@@ -833,7 +1175,7 @@ watch(tutorialCategories, (categories) => {
 onMounted(async () => {
   window.addEventListener('keydown', handleGlobalKeydown)
   handleLegacyHashRedirect()
-  await loadPages()
+  await Promise.all([loadPages(), loadQuickstartConfig()])
   await ensurePage(activeSlug.value)
   await renderActivePage()
 })
@@ -951,7 +1293,8 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.tutorial-intro h1 {
+.tutorial-intro h1,
+.tutorial-intro h2 {
   margin: 0;
   max-width: 12em;
   font-family: var(--public-font-display);
@@ -1961,7 +2304,8 @@ onUnmounted(() => {
     padding-top: 0.45rem;
   }
 
-  .tutorial-intro h1 {
+  .tutorial-intro h1,
+  .tutorial-intro h2 {
     font-size: 2rem;
   }
 
@@ -2013,6 +2357,407 @@ onUnmounted(() => {
 
   .tutorial-page-link--next {
     text-align: left;
+  }
+}
+
+.tutorial-quickstart {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 1px solid var(--tutorial-border);
+  border-radius: 8px;
+  background: rgba(250, 249, 245, 0.9);
+  box-shadow: 0 16px 36px rgba(20, 20, 19, 0.06);
+  backdrop-filter: blur(16px);
+}
+
+.tutorial-quickstart-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.25rem 0.25rem 1.1rem;
+  border-bottom: 1px solid var(--tutorial-border);
+}
+
+.tutorial-quickstart-head h1,
+.tutorial-quickstart-head h2 {
+  margin: 0.15rem 0 0.35rem;
+  font-family: var(--public-font-display);
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 400;
+  line-height: 1.05;
+}
+
+.tutorial-quickstart-head p,
+.tutorial-quickstart-section header p {
+  margin: 0;
+  color: var(--tutorial-muted);
+  line-height: 1.7;
+}
+
+.tutorial-quickstart-head .tutorial-actions {
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.tutorial-quickstart-controls {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  padding: 0.15rem 0.25rem 0;
+}
+
+.tutorial-quickstart-control {
+  display: grid;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.tutorial-quickstart-control > span {
+  color: var(--tutorial-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.tutorial-segmented-control {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border: 1px solid var(--tutorial-border-strong);
+  border-radius: 8px;
+  background: rgba(245, 240, 232, 0.74);
+}
+
+.tutorial-segmented-control button {
+  flex: 1 1 auto;
+  min-height: 2.2rem;
+  padding: 0.45rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--tutorial-muted);
+  font-size: 0.82rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tutorial-segmented-control button:hover,
+.tutorial-segmented-control button.is-active {
+  border-color: rgba(204, 120, 92, 0.38);
+  background: #faf9f5;
+  color: var(--public-accent-strong);
+  box-shadow: 0 3px 10px rgba(20, 20, 19, 0.05);
+}
+
+.tutorial-quickstart-facts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.tutorial-quickstart-fact {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  min-height: 7.6rem;
+  padding: 0.9rem;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 8px;
+  background: rgba(245, 240, 232, 0.72);
+}
+
+.tutorial-quickstart-fact > span,
+.tutorial-quickstart-error > span {
+  color: var(--public-accent-strong);
+  font-size: 0.76rem;
+  font-weight: 600;
+}
+
+.tutorial-quickstart-fact strong {
+  min-width: 0;
+  margin-top: 0.3rem;
+  overflow-wrap: anywhere;
+  color: var(--tutorial-text);
+  font-family: var(--public-font-mono);
+  font-size: 0.9rem;
+  line-height: 1.35;
+}
+
+.tutorial-quickstart-fact p,
+.tutorial-quickstart-error p,
+.tutorial-quickstart-tile p {
+  margin: 0.45rem 0 0;
+  color: var(--tutorial-muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.tutorial-quickstart-steps {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.tutorial-quickstart-step {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 8px;
+  background: rgba(250, 249, 245, 0.9);
+}
+
+.tutorial-quickstart-step > header {
+  display: grid;
+  grid-template-columns: 2.15rem minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.75rem;
+}
+
+.tutorial-quickstart-step-number {
+  display: grid;
+  width: 2.15rem;
+  height: 2.15rem;
+  place-items: center;
+  border: 1px solid rgba(204, 120, 92, 0.48);
+  border-radius: 50%;
+  color: var(--public-accent-strong);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.tutorial-quickstart-step-kicker {
+  color: var(--public-accent-strong);
+  font-size: 0.74rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.tutorial-quickstart-step h3 {
+  margin: 0.15rem 0 0.25rem;
+  color: var(--tutorial-text);
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.tutorial-quickstart-step header p {
+  margin: 0;
+  color: var(--tutorial-muted);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.tutorial-quickstart-required {
+  align-self: start;
+  padding: 0.32rem 0.55rem;
+  border: 1px solid rgba(204, 120, 92, 0.3);
+  border-radius: 999px;
+  background: rgba(204, 120, 92, 0.08);
+  color: var(--public-accent-strong);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.tutorial-quickstart-notice,
+.tutorial-quickstart-hint {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 8px;
+  background: rgba(245, 240, 232, 0.72);
+  color: var(--tutorial-muted);
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.tutorial-quickstart-code {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #2e2c28;
+  border-radius: 8px;
+  background: #181715;
+  color: #faf9f5;
+}
+
+.tutorial-quickstart-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-height: 2.2rem;
+  padding: 0.45rem 0.75rem;
+  border-bottom: 1px solid #35322e;
+  color: #a09d96;
+  font-size: 0.76rem;
+}
+
+.tutorial-quickstart-code-head span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tutorial-quickstart-code-head button {
+  flex: 0 0 auto;
+  min-height: 1.8rem;
+  padding: 0.25rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  color: #e7a084;
+  font-size: 0.76rem;
+}
+
+.tutorial-quickstart-code-head button:hover,
+.tutorial-quickstart-code-head button[data-copy-state='success'] {
+  border-color: rgba(231, 160, 132, 0.42);
+  background: rgba(204, 120, 92, 0.16);
+}
+
+.tutorial-quickstart-code-head button[data-copy-state='error'] {
+  border-color: rgba(248, 113, 113, 0.46);
+  color: #fca5a5;
+}
+
+.tutorial-quickstart-code pre {
+  max-width: 100%;
+  margin: 0;
+  padding: 0.9rem 0.95rem 1rem;
+  overflow-x: auto;
+  color: #faf9f5;
+  font-family: var(--public-font-mono);
+  font-size: 0.82rem;
+  line-height: 1.7;
+  white-space: pre;
+}
+
+.tutorial-quickstart-code code {
+  font-family: inherit;
+}
+
+.tutorial-quickstart-link {
+  justify-self: start;
+  color: var(--public-accent-strong);
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+.tutorial-quickstart-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.tutorial-quickstart-followup {
+  display: grid;
+  gap: 1rem;
+}
+
+.tutorial-quickstart-section {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 8px;
+  background: rgba(250, 249, 245, 0.86);
+}
+
+.tutorial-quickstart-section header h3 {
+  margin: 0.15rem 0 0.25rem;
+  font-size: 1.35rem;
+  font-weight: 600;
+}
+
+.tutorial-quickstart-tile-grid,
+.tutorial-quickstart-error-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.tutorial-quickstart-tile,
+.tutorial-quickstart-error {
+  min-width: 0;
+  padding: 0.9rem;
+  border: 1px solid var(--tutorial-border);
+  border-radius: 8px;
+  background: rgba(245, 240, 232, 0.7);
+}
+
+.tutorial-quickstart-tile > span {
+  color: var(--public-accent-strong);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.tutorial-quickstart-tile strong,
+.tutorial-quickstart-error strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: var(--tutorial-text);
+  font-size: 0.98rem;
+}
+
+.tutorial-quickstart-error-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.tutorial-quickstart-code--large pre {
+  min-height: 7.4rem;
+}
+
+@media (max-width: 900px) {
+  .tutorial-quickstart-controls,
+  .tutorial-quickstart-facts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .tutorial-quickstart-tile-grid,
+  .tutorial-quickstart-error-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .tutorial-quickstart {
+    padding: 0.8rem;
+  }
+
+  .tutorial-quickstart-head {
+    display: grid;
+  }
+
+  .tutorial-quickstart-head .tutorial-actions {
+    width: 100%;
+  }
+
+  .tutorial-quickstart-head .guide-action-link {
+    flex: 1 1 auto;
+  }
+
+  .tutorial-quickstart-controls,
+  .tutorial-quickstart-facts,
+  .tutorial-quickstart-tile-grid,
+  .tutorial-quickstart-error-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tutorial-quickstart-step > header {
+    grid-template-columns: 2rem minmax(0, 1fr);
+  }
+
+  .tutorial-quickstart-step-number {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .tutorial-quickstart-required {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .tutorial-quickstart-code pre {
+    font-size: 0.76rem;
   }
 }
 </style>

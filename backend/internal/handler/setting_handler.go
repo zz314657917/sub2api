@@ -121,6 +121,17 @@ func (h *SettingHandler) GetModelMarketCatalog(c *gin.Context) {
 	response.Success(c, catalog)
 }
 
+// GetQuickstartTutorialConfig returns the public quick-start tutorial content.
+// GET /api/v1/tutorials/quickstart-config
+func (h *SettingHandler) GetQuickstartTutorialConfig(c *gin.Context) {
+	cfg, err := h.settingService.GetQuickstartTutorialConfig(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, cfg)
+}
+
 func publicLoginAgreementDocumentsToDTO(items []service.LoginAgreementDocument) []dto.LoginAgreementDocument {
 	result := make([]dto.LoginAgreementDocument, 0, len(items))
 	for _, item := range items {
