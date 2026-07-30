@@ -1,15 +1,15 @@
 ---
-phase: done
-current_sprint: upstream-v0168-selective-port-s128
-total_sprints: 128
-pending_action: S128 source-level QA passed in the isolated worktree; await explicit authorization before commit, merge, push, deployment, or container work
+phase: contract-approved
+current_sprint: recent-commit-regressions-s130
+total_sprints: 130
+pending_action: Implement only the approved S130 recent-commit regression fixes, then perform focused source-level QA; deployment, container, payment-provider, commit, and push work remain unauthorized
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-30 17:00 +08:00
+last_verified: 2026-07-30 18:15 +08:00
 ---
 
-# S128 Current Sprint
+# S128 Integrated Sprint
 
 - Selectively adapt four independently testable `v0.1.168` compatibility
   fixes: Claude OAuth migrated-system cache breakpoints, Anthropic-compatible
@@ -34,7 +34,34 @@ last_verified: 2026-07-30 17:00 +08:00
   formatting, diff, unmerged-index, and allowed-path gates pass.
 - Contract: `docs/workflow/tasks/upstream-v0168-selective-port-s128.md`.
 - QA report: `docs/workflow/qa-reports/upstream-v0168-selective-port-s128-qa.md`.
-- No commit, merge, push, deployment, or container update was performed.
+- The approved patch was committed locally as `85439ff50` and merged into
+  local `main` as `fbf4ea10e` without conflicts. `origin/main` remains at
+  `49af8e1bb`; no push, deployment, container update, or external runtime
+  smoke was performed.
+
+# S129 Current Sprint
+
+- This documentation-only Sprint reconciles the S128 completion facts across
+  workflow and handoff records.
+- `main` contains `85439ff50` through merge commit `fbf4ea10e`; S128 remains
+  unpublished and `outputs/` remains untracked. The publication preflight must
+  freshly measure the relationship to `origin/main`.
+- No business code, tests, dependency, deployment, container, or remote Git
+  state changed. The next gate is a fresh publication preflight, followed by
+  explicit user authorization before any push.
+- Contract: `docs/workflow/tasks/local-integration-closeout-s129.md`.
+- QA report: `docs/workflow/qa-reports/local-integration-closeout-s129-qa.md`.
+
+# S130 Current Sprint
+
+- Recent-commit review confirmed five bounded regressions: incomplete OpenAI
+  capacity retry coverage, partial-refund false completion, late payment after
+  timed-out release, Grok `tools: null` sanitization, and leaderboard
+  cold-start access enforcement.
+- The approved repair reuses existing retry, refund-pending, quarantine, event,
+  and account-age helpers. It excludes schema/migration changes, real payment
+  or upstream calls, deployment, containers, Git publication, and `outputs/`.
+- Contract: `docs/workflow/tasks/recent-commit-regressions-s130.md`.
 
 # S127 Current Sprint
 

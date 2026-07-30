@@ -5,6 +5,51 @@ qa_mode: runtime
 last_verified: 2026-07-30 17:00 +08:00
 ---
 
+## S130 Addendum: recent-commit regression repair
+
+### Goal
+
+- Correct the confirmed OpenAI capacity retry, group-buy refund lifecycle,
+  Grok tool sanitization, and leaderboard cold-start guard regressions without
+  changing public route contracts or persistence schema.
+
+### Scope Boundary
+
+- Modify only the existing gateway/service and router seams plus focused
+  regressions. Reuse the established refund-pending, needs-review, event, and
+  same-account retry mechanisms.
+- Preserve the S129 local-integration record and untracked `outputs/`. Exclude
+  migrations, payment-provider calls, deployment, containers, remote Git, and
+  unrelated source changes.
+
+### Acceptance Boundary
+
+- Source-level tests demonstrate the repaired state transitions and payload
+  behavior; compile/typecheck, formatting, diff, conflict-marker, and
+  allowlist checks pass. External provider and browser runtime behavior remain
+  explicitly unverified.
+
+## S129 Addendum: S128 local-integration record alignment
+
+### Goal
+
+- Make workflow and handoff records accurately reflect that the selective
+  `v0.1.168` S128 compatibility port has been committed and merged locally,
+  while remaining unpublished.
+
+### Scope Boundary
+
+- Update only workflow evidence and the current-task handoff. Record
+  implementation commit `85439ff50`, merge commit `fbf4ea10e`, and
+  `origin/main@49af8e1bb` without changing any source or runtime behavior.
+- Do not fetch, push, deploy, update containers, or add external smoke claims.
+
+### Acceptance Boundary
+
+- Workflow status, specification, main log, and handoff agree on the local
+  commit relationship, `outputs/` remains untracked, and only contract-allowed
+  documentation paths appear in the diff.
+
 ## S128 Addendum: selective v0.1.168 protocol compatibility ports
 
 ### Goal

@@ -530,3 +530,11 @@
 260730 1700 | upstream-v0168-selective-port-s128 | build | Generator | cache breakpoint, Anthropic synthetic ID/schema, GPT-5.6 max Messages bridge, and Sonnet 5 alias selectively adapted in isolated worktree
 260730 1700 | upstream-v0168-selective-port-s128 | final-qa | Evaluator | focused Go/Antigravity, frontend Vitest/typecheck, repository compile, formatting, diff, unmerged-index, and allowed-path gates PASS/source-only
 260730 1700 | upstream-v0168-selective-port-s128 | done | Evaluator | PASS/source-only; no external upstream request, commit, merge, push, deployment, or container update performed
+260730 1800 | local-integration-closeout-s129 | contract-draft | Planner | docs/workflow/tasks/local-integration-closeout-s129.md; records S128 local merge facts only, with no remote or source changes authorized
+260730 1800 | local-integration-closeout-s129 | contract-approved | Evaluator | only workflow and handoff paths are allowed; local commit graph confirms 49af8e1bb -> 85439ff50 -> fbf4ea10e and origin/main remains unchanged
+260730 1800 | local-integration-closeout-s129 | build | Generator | status, spec, main log, and current-task updated to the verified local-only S128 merge facts; no source or remote changes
+260730 1815 | recent-commit-regressions-s130 | contract-draft | Planner | docs/workflow/tasks/recent-commit-regressions-s130.md; five review-confirmed state and gateway regressions scoped with no migration, provider, deployment, or Git publication
+260730 1815 | recent-commit-regressions-s130 | contract-approved | Evaluator | existing retry/refund/quarantine/event and route-guard seams cover the bounded repair; allowed paths and focused source-level acceptance commands reviewed
+260730 1800 | local-integration-closeout-s129 | final-qa | Evaluator | PASS/documentation-only; allowed paths, diff, unmerged index, worktree state, and local/remote commit relationship verified
+260730 1800 | local-integration-closeout-s129 | done | Evaluator | retain local documentation changes for review; publication preflight is next and push remains unauthorized
+260730 1800 | local-integration-closeout-s129 | contract-amended | Evaluator | one new docs-only local commit is allowed after QA so the handoff does not block publication preflight; no push or existing-history rewrite authorized

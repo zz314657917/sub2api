@@ -1,17 +1,17 @@
 # 当前任务快照
 
-最后更新：2026-07-30 12:37 +08:00
+最后更新：2026-07-30 18:00 +08:00
 
 ## 背景
 
-- 用户要求将当前本地与上游分支整理、合并、分批提交并清理无用 worktree。
-- 本轮采用普通 merge，不重写历史；用户随后授权将已验证的本地 `main` 推送到
-  `origin/main`。远端分支删除、部署、容器更新和 stash 操作仍不在范围内。
+- 用户要求检查上游 `v0.1.168` 与本地差异，并仅选择适合的兼容性行为合入本地。
+- S128 在隔离 worktree 完成 source-level QA 后，用户授权本地提交与普通 merge；推送、
+  部署、容器更新和外部运行态验证仍不在范围内。
 
 ## 当前目标
 
-- `main` 已完成推送和远端一致性核对；仅在需要回收磁盘时手动处理四个已注销的物理
-  worktree 副本。
+- 保持 S128 已验证的本地 merge，完成发布前只读复核；只有在用户明确授权后才推送
+  `origin/main`。
 
 ## 本次已完成
 
@@ -23,40 +23,45 @@
   合并为 `0c74fa192`。
 - S114、S115、S125、S126 的代码补丁已通过 `git cherry` 证明与 `main` 等价，缺失的
   workflow contract/QA/result 文件已补入主线。
-- 已删除 9 条冗余本地 branch ref，并将含冲突的旧 S121 worktree 压缩备份后删除；
-  `git worktree list` 现仅保留主工作区。没有删除远端分支、备份分支或 stash。
+- 已删除 9 条冗余本地 branch ref，并将含冲突的旧 S121 worktree 压缩备份后删除；当前
+  保留主工作区及 S127、S128 两个隔离 worktree。没有删除远端分支、备份分支或 stash。
 - `main` 已成功推送到 `origin/main`，远端从 `811a6d3c0` 前进到 `86845f9be`。
+- S128 的选择性 `v0.1.168` 兼容修复提交为 `85439ff50`，并通过普通 merge
+  `fbf4ea10e` 合入本地 `main`；未产生冲突。
+- S129 已校正 workflow 与 handoff 记录，使其区分本地合入与远端发布状态；未修改业务
+  代码、测试、部署或容器配置。
 
 ## 已确认事实
 
-- 本地 `main` 与 `origin/main` 已对齐；本轮推送前的 22 条提交均已发布。
+- S128 的本地 merge 为 `main@fbf4ea10e`，其上游跟踪基线仍为
+  `origin/main@49af8e1bb`；发布前必须重新测量精确分叉，尚未推送。
 - Redis 实例可通过 `127.0.0.1:6380` 访问；临时键 PING、TTL、GET、DEL 和 EXISTS
   清理均通过。默认 `127.0.0.1:6379` 未映射。
 - `outputs/` 未跟踪且未纳入任何提交；两条历史 stash 未查看、未应用、未删除。
 
 ## 待验证点
 
-- 动作：如需回收磁盘，手动删除 4 个不再含 `.git` 的孤儿目录 -> 验证：目录不存在且
-  `git worktree list` 仍只显示主工作区。
-- 动作：需要运行态交付时另行授权真实 PostgreSQL/S3/上游 OAuth/支付/管理员浏览器
-  smoke -> 验证：对应日志、持久化与端到端行为。
+- 动作：发布前执行 `git fetch --prune origin`、核对 `origin/main...HEAD` 与工作区状态 ->
+  验证：远端仍可安全快进且仅保留预期 S128/S129 提交。
+- 动作：获得明确“推送”授权后执行 `git push origin main` -> 验证：远端 ref、
+  `origin/main` 与本地 `HEAD` 三方一致。
+- 动作：获得测试环境和认证授权后执行 S128 运行态 smoke -> 验证：OAuth mimic cache、
+  Anthropic ID/schema、GPT-5.6 `effort=max` 与 `CSon5` 显示的日志或端到端结果。
 
 ## 当前结论
 
-- `PASS / published`：本轮代码合并、定向回归、全仓 Go 编译、前端类型检查、本地 Redis
-  存储 smoke、提交范围检查和 `origin/main` 推送均已通过；未发现源码级阻断。
-- Git 层分支/worktree 清理已完成；Windows 对 4 个无 `.git` 的目录执行递归删除时被
-  安全策略阻止，因此它们未被强制移除。
-- 不宣称已部署或已完成真实外部上游、支付、对象存储和认证态浏览器验证。
+- `PASS / local-only`：S128 的定向 Go/Antigravity、前端 Vitest/typecheck、全仓 Go
+  编译、格式与 Git 完整性检查已通过；`85439ff50` 已由 `fbf4ea10e` 合入本地 `main`。
+- `outputs/` 未跟踪且未纳入任何提交。没有推送、部署、容器更新或真实上游 OAuth、
+  Anthropic、Gemini、Antigravity、数据库或认证态浏览器验证。
 
 ## 下一步
 
-1. 需要释放磁盘时清理孤儿目录 `integrate-async-image-tasks-main`、
-   `integrate-s121-audit-main`、`leaderboard-account-age-s120` 和 `publish-s125` ->
-   验证：目录消失，且不影响 Git worktree 注册表。
-2. 保留 `backup/pre-s121-split-4161d254b` 和两条 stash -> 验证：不对这些引用执行删除。
-3. 若需要运行态交付，另行授权真实 PostgreSQL/S3/上游 OAuth/支付/管理员浏览器 smoke ->
-   验证：对应日志、持久化与端到端行为。
+1. 执行发布前只读复核 -> 验证：fetch 后的远端关系、`git diff --check`、未合并索引和
+   允许提交范围全部通过。
+2. 等待明确推送授权 -> 验证：仅在用户指令后更新 `origin/main` 并核对三方 ref。
+3. 需要运行态交付时，另行授权并提供测试环境/认证 -> 验证：四个 S128 协议行为的日志、
+   响应和控制台显示。
 
 ## 验证记录
 
@@ -68,3 +73,5 @@
   （1101 modules）：PASS。
 - `git diff --check origin/main..HEAD`、`git diff --cached --check` 和
   `git push origin main`：PASS；远端更新为 `86845f9be`。
+- S128 merge 后：`go test ./... -run '^$'`、`AccountStatusIndicator.spec.ts`（6/6）和
+  前端 typecheck：PASS；`git diff --check`、`git show --check` 与未合并索引检查：PASS。
