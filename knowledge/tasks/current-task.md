@@ -1,19 +1,19 @@
 # 当前任务快照
 
-最后更新：2026-07-30 18:21 +08:00
+最后更新：2026-07-30 20:05 +08:00
 
 ## 背景
 
 - 用户要求检查上游 `v0.1.168` 与本地差异，并仅选择适合的兼容性行为合入本地。
-- S128 在隔离 worktree 完成 source-level QA 后，用户授权本地提交与普通 merge；推送、
-  部署、容器更新和外部运行态验证仍不在范围内。
+- S128 在隔离 worktree 完成 source-level QA 后，用户授权本地提交与普通 merge；随后用户
+  授权整理分批提交并推送。部署、容器更新和外部运行态验证仍不在范围内。
 - 随后近期提交复核确认 OpenAI 容量重试、团购退款、Grok 请求清洗和排行榜首屏守卫的
   五项回归；S130 已完成最小修复与 source-level QA。
 
 ## 当前目标
 
-- 保留 S130 的已验证本地修复，等待用户决定是否整理提交；没有推送、部署、容器或真实
-  支付渠道操作授权。
+- S128-S130 已发布到 `origin/main`；完成 S131 发布回执后，保持工作树边界并等待运行态
+  验证或新的上游审查任务。
 
 ## 本次已完成
 
@@ -35,11 +35,14 @@
 - S130 补齐 11 个 OpenAI failover 构造器的精确容量同账号重试限额；部分退款转人工复核，
   超时释放后的迟到支付转 `refund_pending` 并写入退款排队事件；Grok 清理
   `tools: null`/空数组下的 `tool_choice`；排行榜仅在数值门槛已加载时执行年龄拦截。
+- 已分批推送 S128 功能 `85439ff50`、S128 merge `fbf4ea10e`、S129 交接
+  `108f76602` 与 S130 修复 `ef5881c6b`；推送后本地、`origin/main` 和远端 main 均为
+  `ef5881c6b`。
 
 ## 已确认事实
 
-- S128 的本地 merge 为 `main@fbf4ea10e`，其上游跟踪基线仍为
-  `origin/main@49af8e1bb`；发布前必须重新测量精确分叉，尚未推送。
+- S128-S130 发布后，`main`、`origin/main` 与远端 `refs/heads/main` 已确认一致于
+  `ef5881c6b`；S131 将作为纯文档回执单独推送。
 - Redis 实例可通过 `127.0.0.1:6380` 访问；临时键 PING、TTL、GET、DEL 和 EXISTS
   清理均通过。默认 `127.0.0.1:6379` 未映射。
 - `outputs/` 未跟踪且未纳入任何提交；两条历史 stash 未查看、未应用、未删除。
@@ -61,11 +64,13 @@
   Anthropic、Gemini、Antigravity、数据库或认证态浏览器验证。
 - `PASS / source-level`：S130 的变更和回归证据已通过；正常服务/`unit` 测试二进制仍受
   本轮未修改的陈旧测试源码阻断，真实外部运行态未验证。
+- `PASS / published`：S128-S130 已推送并完成远端 parity；S131 不含业务变更，仅记录
+  此次发布事实。
 
 ## 下一步
 
-1. 用户如需提交，先审阅 S130 允许路径 diff -> 验证：仅包含本轮服务、测试、前端与
-   workflow/handoff 记录。
+1. 推送 S131 文档回执并复核远端一致性 -> 验证：`HEAD`、`origin/main` 与远端 main
+   三方相同，且仅保留未跟踪 `outputs/`。
 2. 用户如需运行态交付，提供测试环境和认证授权 -> 验证：支付、退款、容量重试和首屏
    路由的日志与持久化状态。
 
@@ -83,3 +88,5 @@
   前端 typecheck：PASS；`git diff --check`、`git show --check` 与未合并索引检查：PASS。
 - S130：隔离 Go 回归、`go build ./...`、`go test ./... -run '^$'`、路由 Vitest（44/44）、
   `vue-tsc --noEmit`、格式、11 个 failover 构造器静态审计、diff 和允许路径检查：PASS。
+- 发布前：`git fetch --prune origin`、快进祖先检查、`git diff --check` 与未合并索引：PASS；
+  `git push origin main` 将远端从 `49af8e1bb` 更新到 `ef5881c6b`，随后三方 ref：PASS。

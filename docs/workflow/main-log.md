@@ -541,3 +541,8 @@
 260730 1821 | recent-commit-regressions-s130 | build | Generator | completed bounded OpenAI retry, group-buy refund lifecycle, Grok sanitizer, and leaderboard guard repair with focused regressions
 260730 1821 | recent-commit-regressions-s130 | final-qa | Evaluator | isolated Go regression, repository build/compile probe, frontend 44/44 Vitest/typecheck, formatting, static failover, diff, conflict-marker, and allowed-path gates PASS
 260730 1821 | recent-commit-regressions-s130 | done | Evaluator | PASS/source-only; normal service/unit test suites retain unrelated stale test-source compile drift; no provider, upstream, browser, deployment, container, commit, or push action performed
+260730 2005 | recent-commit-regressions-s130 | published | Codex | committed as ef5881c6b and pushed with the S128/S129 local chain; origin/main, local HEAD, and remote main matched before S131 receipt
+260730 2005 | local-publish-closeout-s131 | contract-approved | Evaluator | docs-only receipt may use one new local commit and fast-forward push; source, runtime, deployment, and outputs remain excluded
+260730 2005 | local-publish-closeout-s131 | build | Generator | workflow, spec, and handoff updated with verified S128-S130 publication facts
+260730 2005 | local-publish-closeout-s131 | final-qa | Evaluator | PASS/documentation-only; allowed-path and ref-parity checks prepared for final receipt push
+260730 2005 | local-publish-closeout-s131 | published | Codex | S131 receipt approved for the authorized fast-forward push; final local, tracking, and remote main parity is required before closeout

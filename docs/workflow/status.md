@@ -1,13 +1,22 @@
 ---
 phase: done
-current_sprint: recent-commit-regressions-s130
-total_sprints: 130
-pending_action: S130 source-level QA passed; retain the bounded patch for review and await explicit authorization before commit, push, deployment, container, or payment-provider runtime work
+current_sprint: local-publish-closeout-s131
+total_sprints: 131
+pending_action: S131 documentation-only publication receipt is ready for its authorized fast-forward push, then verify local and remote refs match; runtime and deployment work remain unauthorized
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-30 18:21 +08:00
+last_verified: 2026-07-30 20:05 +08:00
 ---
+
+# S131 Current Sprint
+
+- The S128-S130 feature chain was verified on `origin/main@ef5881c6b` before
+  this documentation-only closeout receipt.
+- S131 records that publication in workflow and handoff state; its only
+  permitted external action is one final fast-forward push of the receipt.
+- Contract: `docs/workflow/tasks/local-publish-closeout-s131.md`.
+- QA report: `docs/workflow/qa-reports/local-publish-closeout-s131-qa.md`.
 
 # S128 Integrated Sprint
 
@@ -67,8 +76,9 @@ last_verified: 2026-07-30 18:21 +08:00
   diff, conflict-marker, and allowed-path checks pass.
 - QA report: `docs/workflow/qa-reports/recent-commit-regressions-s130-qa.md`.
 - The normal service test suite and unit-tag Grok suite retain unrelated stale
-  test-source compilation failures; no provider, upstream, browser, deployment,
-  container, commit, or push action was performed.
+  test-source compilation failures. The bounded patch was committed as
+  `ef5881c6b` and verified on `origin/main`; no provider, upstream, browser,
+  deployment, or container runtime action was performed.
 
 # S127 Current Sprint
 

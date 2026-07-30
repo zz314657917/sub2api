@@ -5,6 +5,24 @@ qa_mode: runtime
 last_verified: 2026-07-30 17:00 +08:00
 ---
 
+## S131 Addendum: publication receipt for S128-S130
+
+### Goal
+
+- Record the verified `origin/main@ef5881c6b` publication of the selective
+  S128 compatibility port, S129 handoff, and S130 regression repair.
+
+### Scope Boundary
+
+- Change only workflow and handoff evidence, then push the resulting
+  documentation-only receipt. Do not alter source, dependencies, deployment,
+  containers, provider state, or runtime behavior.
+
+### Acceptance Boundary
+
+- Cached paths stay within the S131 allowlist and final local, tracking, and
+  remote main refs match after push. `outputs/` remains untracked.
+
 ## S130 Addendum: recent-commit regression repair
 
 ### Goal
