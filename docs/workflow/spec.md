@@ -2,7 +2,7 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-07-30 17:00 +08:00
+last_verified: 2026-07-31 01:11 +08:00
 ---
 
 ## S131 Addendum: publication receipt for S128-S130
@@ -1220,3 +1220,46 @@ view is opened with a `user_id` route query.
 - `gofmt`, `git diff --check`, allowed-path audit, conflict-marker scan, and
   full Go compilation must pass. No deploy, container update, push, or primary
   dirty-worktree changes are in scope.
+
+# S133 Addendum: administrator group duplication
+
+## Goal
+
+Port upstream `9fc006546` so administrators can create a reviewable inactive
+copy of an existing group without rebuilding omitted configuration from the
+list response.
+
+## Scope Boundary
+
+- Copy the current persisted group configuration and eligible account binding
+  priorities atomically; do not copy group identity, timestamps, active status,
+  or user/API-key ownership.
+- Use the existing administrator idempotency boundary plus one internal
+  nullable group operation identity to recover an already committed copy after
+  an ambiguous response failure.
+- Expose only the duplicate action and localized result state in the existing
+  administrator group list. Do not change unrelated group editing, routing,
+  pricing, or account-priority workflows.
+- Adapt the schema change to migration `199`; do not reuse upstream migration
+  number `181` or touch production data.
+
+## Acceptance Boundary
+
+- Focused service, handler, repository, API-client, and group-view tests cover
+  configuration cloning, unique names, inactive status, exact binding
+  priorities, OAuth-only filtering, and retry recovery.
+- Ent/Wire generation, repository compile/build, frontend typecheck/build,
+  migration ordering/content, formatting, allowlist, conflict-marker,
+  unmerged-index, and `git diff --check` gates pass.
+- No authenticated production browser, production migration, push, deployment,
+  container refresh, or real provider/upstream call is performed.
+
+## S133 QA Result
+
+- `PASS / source-level`: the focused service and handler regressions, frontend
+  API/view regressions, Ent/Wire generation, full Go compile/build probes,
+  frontend typecheck/build, migration-content review, and Git integrity checks
+  passed in the isolated worktree.
+- Existing `unit` API-contract assertions and the `integration` repository
+  package are stale outside S133, so no claim is made for those broad suites or
+  for a real PostgreSQL migration/runtime transaction.

@@ -1,13 +1,33 @@
 ---
 phase: done
-current_sprint: local-publish-closeout-s131
-total_sprints: 131
-pending_action: S131 documentation-only publication receipt is ready for its authorized fast-forward push, then verify local and remote refs match; runtime and deployment work remain unauthorized
+current_sprint: group-duplicate-s133
+total_sprints: 133
+pending_action: Commit the verified S133 worktree and merge it into local main only; no push, deployment, container update, or production migration is authorized
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-30 20:05 +08:00
+last_verified: 2026-07-31 01:11 +08:00
 ---
+
+# S133 Current Sprint
+
+- Adapt upstream `9fc006546` as a complete administrator group-copy feature,
+  not a frontend-only button.
+- Copies are inactive, retain current persisted group configuration and
+  eligible account priorities, and recover ambiguous retries through an
+  internal operation identity.
+- The upstream migration number `181` conflicts with current local history;
+  S133 uses `199_group_duplicate_operation_id.sql` and regenerates Ent/Wire
+  output from the current schemas.
+- Contract review: PASS. The user authorized the complete cross-layer feature
+  after its schema and file impact was disclosed. No worker is invoked.
+- Contract: `docs/workflow/tasks/group-duplicate-s133.md`.
+- Final QA: `PASS / source-level`. Focused service/handler and frontend
+  regressions, generation, full compile/build probes, typecheck, production
+  build, formatting, migration content, and Git integrity checks pass.
+- The existing unit API-contract suite and repository integration suite remain
+  blocked by unrelated test drift; no PostgreSQL migration or live browser/API
+  action was performed.
 
 # S131 Current Sprint
 

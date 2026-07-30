@@ -1,4 +1,8 @@
 export default {
+      duplicate: '复制',
+      duplicating: '复制中',
+      duplicateSuccess: '分组已复制为「{name}」，已默认停用，请确认配置后再启用',
+      duplicateFailed: '复制分组失败',
       title: '分组管理',
       description: '管理 API 密钥分组和费率配置',
       searchGroups: '搜索分组...',

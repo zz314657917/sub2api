@@ -1262,6 +1262,7 @@ func groupEntityToService(g *dbent.Group) *service.Group {
 		IsExclusive:                     g.IsExclusive,
 		Status:                          g.Status,
 		Hydrated:                        true,
+		DuplicateOperationID:            derefString(g.DuplicateOperationID),
 		SubscriptionType:                g.SubscriptionType,
 		RoutingScope:                    service.NormalizeGroupRoutingScope(g.RoutingScope, g.AllowImageGeneration),
 		DailyLimitUSD:                   g.DailyLimitUsd,
