@@ -634,7 +634,7 @@ func ProvideMembershipServices(membershipService *MembershipService) []*Membersh
 
 func ProvideAdminService(
 	userRepo UserRepository,
-	groupRepo GroupRepository,
+	groupRepo AdminGroupRepository,
 	accountRepo AccountRepository,
 	proxyRepo ProxyRepository,
 	apiKeyRepo APIKeyRepository,

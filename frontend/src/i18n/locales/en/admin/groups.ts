@@ -1,4 +1,8 @@
 export default {
+      duplicate: 'Duplicate',
+      duplicating: 'Duplicating',
+      duplicateSuccess: 'Group duplicated as "{name}" and disabled. Review its configuration before enabling it.',
+      duplicateFailed: 'Failed to duplicate group',
       title: 'Group Management',
       description: 'Manage API key groups and rate multipliers',
       searchGroups: 'Search groups...',

@@ -546,3 +546,7 @@
 260730 2005 | local-publish-closeout-s131 | build | Generator | workflow, spec, and handoff updated with verified S128-S130 publication facts
 260730 2005 | local-publish-closeout-s131 | final-qa | Evaluator | PASS/documentation-only; allowed-path and ref-parity checks prepared for final receipt push
 260730 2005 | local-publish-closeout-s131 | published | Codex | S131 receipt approved for the authorized fast-forward push; final local, tracking, and remote main parity is required before closeout
+260731 0041 | group-duplicate-s133 | contract-draft | Planner | docs/workflow/tasks/group-duplicate-s133.md; complete group-copy port scoped to current persistence fields, migration 199, focused regressions, and isolated worktree
+260731 0041 | group-duplicate-s133 | contract-approved | Evaluator | user-authorized schema and cross-layer impact is bounded to internal retry identity, inactive copies, atomic eligible binding priorities, and no publication/runtime action
+260731 0111 | group-duplicate-s133 | build | Generator | current-field-safe port completed with Ent/Wire regeneration, inactive copies, atomic eligible account binding priorities, retry recovery, localized group-list action, and focused regressions
+260731 0111 | group-duplicate-s133 | final-qa | Evaluator | PASS/source-level; focused Go/frontend, full compile/build, typecheck, diff, conflict, migration-content, and allowlist gates pass; existing unit API-contract and integration repository suites have unrelated test drift
