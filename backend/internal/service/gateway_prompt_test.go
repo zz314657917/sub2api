@@ -457,3 +457,53 @@ func TestRewriteSystemForNonClaudeCode(t *testing.T) {
 		})
 	}
 }
+
+func TestRewriteSystemForNonClaudeCodePreservesMigratedSystemCacheControl(t *testing.T) {
+	body := []byte(`{"model":"claude-3","system":[{"type":"text","text":"Stable project instructions","cache_control":{"type":"ephemeral","ttl":"1h"}}],"messages":[{"role":"user","content":"hello"}]}`)
+	system := []any{
+		map[string]any{
+			"type":          "text",
+			"text":          "Stable project instructions",
+			"cache_control": map[string]any{"type": "ephemeral", "ttl": "1h"},
+		},
+	}
+
+	result := rewriteSystemForNonClaudeCode(body, system)
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(result, &parsed))
+
+	messages, ok := parsed["messages"].([]any)
+	require.True(t, ok)
+	require.Len(t, messages, 3)
+	firstMessage, ok := messages[0].(map[string]any)
+	require.True(t, ok)
+	content, ok := firstMessage["content"].([]any)
+	require.True(t, ok)
+	firstBlock, ok := content[0].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "[System Instructions]\nStable project instructions", firstBlock["text"])
+	cacheControl, ok := firstBlock["cache_control"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "ephemeral", cacheControl["type"])
+	require.Equal(t, "1h", cacheControl["ttl"])
+}
+
+func TestRewriteSystemForNonClaudeCodeLeavesMigratedSystemUncachedWithoutBreakpoint(t *testing.T) {
+	body := []byte(`{"model":"claude-3","system":[{"type":"text","text":"Project instructions"}],"messages":[{"role":"user","content":"hello"}]}`)
+	system := []any{map[string]any{"type": "text", "text": "Project instructions"}}
+
+	result := rewriteSystemForNonClaudeCode(body, system)
+	var parsed map[string]any
+	require.NoError(t, json.Unmarshal(result, &parsed))
+
+	messages, ok := parsed["messages"].([]any)
+	require.True(t, ok)
+	firstMessage, ok := messages[0].(map[string]any)
+	require.True(t, ok)
+	content, ok := firstMessage["content"].([]any)
+	require.True(t, ok)
+	firstBlock, ok := content[0].(map[string]any)
+	require.True(t, ok)
+	_, exists := firstBlock["cache_control"]
+	require.False(t, exists)
+}

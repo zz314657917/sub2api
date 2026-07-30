@@ -124,6 +124,78 @@ func TestApplyOpenAICompatModelNormalization(t *testing.T) {
 	})
 }
 
+func TestOpenAICompatAnthropicReasoningEffortPreservesMaxOnlyForGPT56(t *testing.T) {
+	requestWithMax := &apicompat.AnthropicRequest{OutputConfig: &apicompat.AnthropicOutputConfig{Effort: "max"}}
+	requestWithHigh := &apicompat.AnthropicRequest{OutputConfig: &apicompat.AnthropicOutputConfig{Effort: "high"}}
+
+	tests := []struct {
+		name      string
+		request   *apicompat.AnthropicRequest
+		model     string
+		converted string
+		want      string
+	}{
+		{name: "GPT-5.6 Sol keeps max", request: requestWithMax, model: "gpt-5.6-sol", converted: "xhigh", want: "max"},
+		{name: "GPT-5.6 Terra keeps max", request: requestWithMax, model: "gpt-5.6-terra", converted: "xhigh", want: "max"},
+		{name: "GPT-5.4 keeps converted xhigh", request: requestWithMax, model: "gpt-5.4", converted: "xhigh", want: "xhigh"},
+		{name: "non max request keeps converted effort", request: requestWithHigh, model: "gpt-5.6-sol", converted: "high", want: "high"},
+		{name: "nil request keeps converted effort", request: nil, model: "gpt-5.6-sol", converted: "xhigh", want: "xhigh"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, openAICompatAnthropicReasoningEffort(tt.request, tt.model, tt.converted))
+		})
+	}
+}
+
+func TestForwardAsAnthropicPreservesMaxForGPT56(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	body := []byte(`{"model":"gpt-5.6-sol","max_tokens":16,"output_config":{"effort":"max"},"messages":[{"role":"user","content":"hello"}],"stream":false}`)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(body))
+	c.Request.Header.Set("Content-Type", "application/json")
+
+	upstreamBody := strings.Join([]string{
+		`data: {"type":"response.completed","response":{"id":"resp_1","object":"response","model":"gpt-5.6-sol","status":"completed","output":[{"type":"message","id":"msg_1","role":"assistant","status":"completed","content":[{"type":"output_text","text":"ok"}]}],"usage":{"input_tokens":5,"output_tokens":2,"total_tokens":7}}}`,
+		"",
+		"data: [DONE]",
+		"",
+	}, "\n")
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}, "x-request-id": []string{"rid_gpt56_max"}},
+		Body:       io.NopCloser(strings.NewReader(upstreamBody)),
+	}}
+
+	svc := &OpenAIGatewayService{
+		httpUpstream: upstream,
+		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
+	}
+	account := &Account{
+		ID:          1,
+		Name:        "openai-api-key",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Concurrency: 1,
+		Credentials: map[string]any{
+			"api_key":  "sk-test",
+			"base_url": "https://api.openai.com/v1",
+			"model_mapping": map[string]any{
+				"gpt-5.6-sol": "gpt-5.6-sol",
+			},
+		},
+	}
+
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "gpt-5.6-sol")
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Equal(t, "gpt-5.6-sol", gjson.GetBytes(upstream.lastBody, "model").String())
+	require.Equal(t, "max", gjson.GetBytes(upstream.lastBody, "reasoning.effort").String())
+}
+
 func TestForwardAsAnthropic_NormalizesRoutingAndEffortForGpt54XHigh(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)

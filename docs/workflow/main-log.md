@@ -525,3 +525,8 @@
 260730 1621 | openai-model-capacity-retry-five-s127 | build | Generator | capacity-only explicit retry limit propagated through normal, passthrough, stream, and all OpenAI handler retry loops
 260730 1621 | openai-model-capacity-retry-five-s127 | final-qa | Evaluator | focused service/handler tests, repository compile, formatting, diff, conflict-marker, constructor, and path gates PASS
 260730 1621 | openai-model-capacity-retry-five-s127 | done | Evaluator | PASS/source-only; external capacity observation, commit, merge, push, deployment, and container refresh remain unverified or unauthorized
+260730 1643 | upstream-v0168-selective-port-s128 | contract-draft | Planner | docs/workflow/tasks/upstream-v0168-selective-port-s128.md
+260730 1647 | upstream-v0168-selective-port-s128 | contract-approved | Evaluator | behavior ports align with current gateway/compat seams; migrations, config, routing, billing, deployment, and containers excluded
+260730 1700 | upstream-v0168-selective-port-s128 | build | Generator | cache breakpoint, Anthropic synthetic ID/schema, GPT-5.6 max Messages bridge, and Sonnet 5 alias selectively adapted in isolated worktree
+260730 1700 | upstream-v0168-selective-port-s128 | final-qa | Evaluator | focused Go/Antigravity, frontend Vitest/typecheck, repository compile, formatting, diff, unmerged-index, and allowed-path gates PASS/source-only
+260730 1700 | upstream-v0168-selective-port-s128 | done | Evaluator | PASS/source-only; no external upstream request, commit, merge, push, deployment, or container update performed

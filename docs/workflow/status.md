@@ -1,13 +1,40 @@
 ---
 phase: done
-current_sprint: openai-model-capacity-retry-five-s127
-total_sprints: 127
-pending_action: S127 source-level QA passed in an isolated worktree; await explicit authorization before commit, merge, push, deployment, or container work
+current_sprint: upstream-v0168-selective-port-s128
+total_sprints: 128
+pending_action: S128 source-level QA passed in the isolated worktree; await explicit authorization before commit, merge, push, deployment, or container work
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-30 16:21 +08:00
+last_verified: 2026-07-30 17:00 +08:00
 ---
+
+# S128 Current Sprint
+
+- Selectively adapt four independently testable `v0.1.168` compatibility
+  fixes: Claude OAuth migrated-system cache breakpoints, Anthropic-compatible
+  synthesized message IDs/schema, GPT-5.6 `max` reasoning effort in the
+  Messages bridge, and the Claude Sonnet 5 status alias.
+- This is not a tag merge or a cherry-pick. The local tree has diverged from
+  upstream and already contains equivalent ports for passthrough, Live-store,
+  and model-copy fixes.
+- The draft excludes Passkey, Kimi K3, scoped user/API-key updates, Model
+  Plaza, Codex model manifests, Prompt Audit, version metadata, migrations,
+  deployment, and container work.
+- Contract: `docs/workflow/tasks/upstream-v0168-selective-port-s128.md`.
+- Evaluator contract review: PASS. The four behavior slices map to existing
+  local seams, use no migrations/configuration/routing changes, and have
+  focused source-level acceptance gates.
+- Implementation preserves the OAuth-mimic cache breakpoint, normalizes
+  synthesized Anthropic IDs/schema through intercept, Gemini, and
+  Antigravity paths, retains GPT-5.6 `max` in the Messages bridge, and adds
+  the Sonnet 5 status alias.
+- Final Evaluator: PASS/source-only. Focused Go regressions, Antigravity
+  default/unit checks, frontend Vitest/typecheck, repository compilation,
+  formatting, diff, unmerged-index, and allowed-path gates pass.
+- Contract: `docs/workflow/tasks/upstream-v0168-selective-port-s128.md`.
+- QA report: `docs/workflow/qa-reports/upstream-v0168-selective-port-s128-qa.md`.
+- No commit, merge, push, deployment, or container update was performed.
 
 # S127 Current Sprint
 
