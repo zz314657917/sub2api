@@ -10,7 +10,8 @@
 
 ## 当前目标
 
-- 完成 `main` 的最终一致性验证，并仅清理已确认无独有内容且 worktree 干净的本地引用。
+- 本地 `main` 已完成最终验证与 Git 层清理；仅在需要回收磁盘时手动处理四个已注销的
+  物理 worktree 副本。
 
 ## 本次已完成
 
@@ -22,6 +23,8 @@
   合并为 `0c74fa192`。
 - S114、S115、S125、S126 的代码补丁已通过 `git cherry` 证明与 `main` 等价，缺失的
   workflow contract/QA/result 文件已补入主线。
+- 已删除 9 条冗余本地 branch ref；`git worktree list` 仅保留主工作区和含冲突的旧 S121
+  worktree。没有删除远端分支、备份分支或 stash。
 
 ## 已确认事实
 
@@ -32,8 +35,8 @@
 
 ## 待验证点
 
-- 动作：完成本地分支/worktree 删除后复查 main 与工作树 -> 验证：`git status`、
-  `git worktree list`、`git branch --merged main` 和 `git diff --check`。
+- 动作：如需回收磁盘，手动删除 4 个不再含 `.git` 的孤儿目录 -> 验证：目录不存在且
+  `git worktree list` 仍只显示主工作区和旧 S121；不要删除旧 S121 冲突 worktree。
 - 动作：需要发布时单独推送 main 并做远端 parity -> 验证：远端 SHA 与分歧计数。
 - 动作：需要运行态交付时另行授权真实 PostgreSQL/S3/上游 OAuth/支付/管理员浏览器
   smoke -> 验证：对应日志、持久化与端到端行为。
@@ -42,12 +45,15 @@
 
 - `PASS / local-integrated`：本轮代码合并、定向回归、全仓 Go 编译、前端类型检查和
   本地 Redis 存储 smoke 已通过；未发现源码级阻断。
+- Git 层分支/worktree 清理已完成；Windows 对 4 个无 `.git` 的目录执行递归删除时被
+  安全策略阻止，因此它们未被强制移除。
 - 不宣称已部署或已完成真实外部上游、支付、对象存储和认证态浏览器验证。
 
 ## 下一步
 
-1. 清理已合并且干净的本地 worktree/branch -> 验证：删除后 `git worktree prune` 与
-   分支合并状态。
+1. 需要释放磁盘时清理孤儿目录 `integrate-async-image-tasks-main`、
+   `integrate-s121-audit-main`、`leaderboard-account-age-s120` 和 `publish-s125` ->
+   验证：目录消失，且不影响 Git worktree 注册表。
 2. 保留 `backup/pre-s121-split-4161d254b`、两条 stash 和含冲突的旧 S121 worktree ->
    验证：不对这些引用执行强制删除。
 3. 若用户授权发布，再推送 `main` -> 验证：`git ls-remote` 与远端分歧归零。
@@ -58,3 +64,5 @@
 - S110 服务/退款、管理员 handler、Wire cleanup、group-buy Vitest 和 typecheck：PASS。
 - S120 服务/handler、前端路由/侧栏/设置 85 项 Vitest 和 typecheck：PASS。
 - `git diff --check`、暂存区检查和未合并索引检查：PASS。
+- 最终 `go mod verify`、`go test ./... -run '^$'`、前端 typecheck 和 production build
+  （1101 modules）：PASS。

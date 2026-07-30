@@ -2,11 +2,11 @@
 phase: done
 current_sprint: branch-consolidation-s110-s126
 total_sprints: 126
-pending_action: Verify final main history, then remove only clean local worktrees and branches whose code/evidence is already retained; do not push, delete remote refs, apply stashes, or force-remove the unresolved S121 worktree
+pending_action: Local main is validated and Git-level cleanup is complete; do not push, delete remote refs, apply stashes, or force-remove the unresolved S121 worktree. Four unregistered physical worktree copies require separate manual cleanup if disk recovery is needed
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-30 12:20 +08:00
+last_verified: 2026-07-30 12:30 +08:00
 ---
 
 # Branch Consolidation Current Sprint
@@ -27,6 +27,10 @@ last_verified: 2026-07-30 12:20 +08:00
 - Workflow evidence from code-equivalent S114, S115, S125, and S126 branches
   is retained in `docs/workflow/**`. The historical S121 worktree remains
   excluded from cleanup because it has unresolved conflicts and staged files.
+- Nine redundant local refs and all clean Git worktree registrations were
+  removed. Four unregistered physical copies remain because Windows refused
+  recursive removal of non-empty directories; they have no `.git` metadata and
+  are not part of `git worktree list`.
 
 # S126 Current Sprint
 
