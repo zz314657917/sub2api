@@ -2552,6 +2552,12 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return nil, errors.New("codex_cli_only restriction: only codex official clients are allowed")
 	}
 
+	if sanitizedBody, changed, sanitizeErr := stripOpenAILocalGroupID(body); sanitizeErr != nil {
+		return nil, fmt.Errorf("sanitize OpenAI local-only request fields: %w", sanitizeErr)
+	} else if changed {
+		body = sanitizedBody
+	}
+
 	normalizedBody, normalized, err := normalizeOpenAICodexCompactReasoningEffortForAccount(c, account, body)
 	if err != nil {
 		return nil, err
@@ -7392,6 +7398,24 @@ func extractOpenAIRequestMetaFromBody(body []byte) (model string, stream bool, p
 	stream = gjson.GetBytes(body, "stream").Bool()
 	promptCacheKey = strings.TrimSpace(gjson.GetBytes(body, "prompt_cache_key").String())
 	return model, stream, promptCacheKey
+}
+
+const openAILocalGroupIDField = "group_id"
+
+// stripOpenAILocalGroupID removes sub2api routing metadata that strict
+// OpenAI-compatible upstreams reject. Nested application data is untouched.
+func stripOpenAILocalGroupID(body []byte) ([]byte, bool, error) {
+	if len(body) == 0 {
+		return body, false, nil
+	}
+	if !gjson.GetBytes(body, openAILocalGroupIDField).Exists() {
+		return body, false, nil
+	}
+	normalized, err := sjson.DeleteBytes(body, openAILocalGroupIDField)
+	if err != nil {
+		return body, false, fmt.Errorf("delete %s: %w", openAILocalGroupIDField, err)
+	}
+	return normalized, true, nil
 }
 
 // normalizeOpenAIPassthroughOAuthBody 将透传 OAuth 请求体收敛为旧链路关键行为：

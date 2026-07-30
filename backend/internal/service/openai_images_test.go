@@ -132,7 +132,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_JSON(t *testing.T) {
 
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_TransparentBackgroundAliasJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","transparent_background":true}`)
+	body := []byte(`{"model":"gpt-image-2","prompt":"draw a cat","transparent_background":true,"group_id":42}`)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
@@ -152,6 +152,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_TransparentBackgroundAlias
 	require.Equal(t, "application/json", contentType)
 	require.Equal(t, "transparent", gjson.GetBytes(rewritten, "background").String())
 	require.False(t, gjson.GetBytes(rewritten, "transparent_background").Exists())
+	require.False(t, gjson.GetBytes(rewritten, "group_id").Exists())
 }
 
 func TestOpenAIGatewayServiceParseOpenAIImagesRequest_TransparentBackgroundAliasDoesNotOverrideBackground(t *testing.T) {
@@ -280,6 +281,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_TransparentBackgroundAlias
 	require.NoError(t, writer.WriteField("model", "gpt-image-2"))
 	require.NoError(t, writer.WriteField("prompt", "replace background"))
 	require.NoError(t, writer.WriteField("transparent_background", "false"))
+	require.NoError(t, writer.WriteField("group_id", "42"))
 	part, err := writer.CreateFormFile("image", "source.png")
 	require.NoError(t, err)
 	_, err = part.Write([]byte("fake-image-bytes"))
@@ -321,6 +323,7 @@ func TestOpenAIGatewayServiceParseOpenAIImagesRequest_TransparentBackgroundAlias
 	}
 	require.Equal(t, "opaque", fields["background"])
 	require.NotContains(t, fields, "transparent_background")
+	require.NotContains(t, fields, "group_id")
 }
 
 func TestOpenAIImagesRequestModerationBody_JSONEditIncludesInputImageURLs(t *testing.T) {

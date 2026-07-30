@@ -3028,12 +3028,15 @@ func rewriteOpenAIImagesModelAndN(body []byte, contentType string, model string,
 }
 
 func normalizeOpenAIImagesJSONCompatibilityFields(body []byte) ([]byte, error) {
-	transparentBackground := gjson.GetBytes(body, "transparent_background")
-	if !transparentBackground.Exists() {
-		return body, nil
+	rewritten, _, err := stripOpenAILocalGroupID(body)
+	if err != nil {
+		return nil, fmt.Errorf("remove image request local-only fields: %w", err)
 	}
-	rewritten := body
-	if strings.TrimSpace(gjson.GetBytes(body, "background").String()) == "" {
+	transparentBackground := gjson.GetBytes(rewritten, "transparent_background")
+	if !transparentBackground.Exists() {
+		return rewritten, nil
+	}
+	if strings.TrimSpace(gjson.GetBytes(rewritten, "background").String()) == "" {
 		background, ok, err := parseOpenAIImagesTransparentBackgroundJSON(transparentBackground)
 		if err != nil {
 			return nil, err
@@ -3046,7 +3049,7 @@ func normalizeOpenAIImagesJSONCompatibilityFields(body []byte) ([]byte, error) {
 			}
 		}
 	}
-	rewritten, err := sjson.DeleteBytes(rewritten, "transparent_background")
+	rewritten, err = sjson.DeleteBytes(rewritten, "transparent_background")
 	if err != nil {
 		return nil, fmt.Errorf("remove image request transparent_background: %w", err)
 	}
@@ -3086,6 +3089,10 @@ func rewriteOpenAIImagesMultipartModelAndN(body []byte, contentType string, mode
 		}
 
 		formName := strings.TrimSpace(part.FormName())
+		if part.FileName() == "" && formName == openAILocalGroupIDField {
+			_ = part.Close()
+			continue
+		}
 		if formName == "transparent_background" && part.FileName() == "" {
 			data, readErr := io.ReadAll(io.LimitReader(part, openAIImageMaxUploadPartSize))
 			_ = part.Close()

@@ -47,7 +47,7 @@ func TestOpenAIGatewayService_Forward_TextResponsesSetsBillingModelToMappedModel
 	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
 	SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
 
-	body := []byte(`{"model":"gpt-5.4","stream":false,"input":"hello"}`)
+	body := []byte(`{"model":"gpt-5.4","stream":false,"input":"hello","group_id":42}`)
 	result, err := svc.Forward(context.Background(), c, account, body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -55,7 +55,18 @@ func TestOpenAIGatewayService_Forward_TextResponsesSetsBillingModelToMappedModel
 	require.Equal(t, "gpt-5.5", result.BillingModel)
 	require.Equal(t, "gpt-5.5", result.UpstreamModel)
 	require.Equal(t, "gpt-5.5", gjson.GetBytes(upstream.lastBody, "model").String())
+	require.False(t, gjson.GetBytes(upstream.lastBody, "group_id").Exists())
 	require.Equal(t, 0, result.ImageCount)
+}
+
+func TestStripOpenAILocalGroupID_TopLevelOnly(t *testing.T) {
+	body := []byte(`{"model":"gpt-5.4","group_id":42,"metadata":{"group_id":"nested"}}`)
+
+	normalized, changed, err := stripOpenAILocalGroupID(body)
+	require.NoError(t, err)
+	require.True(t, changed)
+	require.False(t, gjson.GetBytes(normalized, "group_id").Exists())
+	require.Equal(t, "nested", gjson.GetBytes(normalized, "metadata.group_id").String())
 }
 
 func TestOpenAIGatewayService_Forward_TextResponsesWithoutMappingKeepsRequestedBillingModel(t *testing.T) {
