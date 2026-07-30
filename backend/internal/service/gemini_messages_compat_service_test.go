@@ -25,6 +25,12 @@ type geminiCompatHTTPUpstreamStub struct {
 	lastReq  *http.Request
 }
 
+func TestGenerateAnthropicMsgIDUsesOfficialShape(t *testing.T) {
+	for range 10 {
+		require.Regexp(t, `^msg_01[0-9A-Za-z]{22}$`, generateAnthropicMsgID())
+	}
+}
+
 func (s *geminiCompatHTTPUpstreamStub) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
 	s.calls++
 	s.lastReq = req

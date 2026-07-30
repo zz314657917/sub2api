@@ -2,8 +2,36 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-07-30 16:21 +08:00
+last_verified: 2026-07-30 17:00 +08:00
 ---
+
+## S128 Addendum: selective v0.1.168 protocol compatibility ports
+
+### Goal
+
+- Adapt four isolated `v0.1.168` compatibility fixes to local architecture
+  without merging the tag: preserve a migrated Claude OAuth system cache
+  breakpoint, generate Anthropic-compatible synthetic message IDs/schema,
+  preserve `max` reasoning effort for GPT-5.6 Messages bridging, and display
+  the Claude Sonnet 5 status alias.
+
+### Scope Boundary
+
+- Port behavior, not upstream file layout or commit history. The local tree
+  combines several upstream files into `gateway_service.go` and
+  `openai_gateway_messages.go`.
+- Preserve existing Claude OAuth cache-control limits, account selection,
+  billing, model mapping, response routing, and OpenAI compatibility logic.
+- Do not change databases, migrations, Passkey/WebAuthn, Kimi, Model Plaza,
+  Prompt Audit, deployment, container configuration, or server versioning.
+
+### Acceptance Boundary
+
+- Focused Go regressions prove each new behavior and prove adjacent legacy
+  behavior remains intact. Backend compile, frontend alias regression and
+  typecheck, formatting, diff, unmerged-index, and allowed-path gates pass.
+- Real OpenAI, Anthropic, Gemini, and Antigravity upstream calls remain out of
+  scope; this Sprint supplies source-level protocol compatibility evidence.
 
 ## S127 Addendum: OpenAI capacity failures retry five times
 

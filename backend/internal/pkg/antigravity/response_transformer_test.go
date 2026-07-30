@@ -80,6 +80,12 @@ func TestGenerateRandomID_Length(t *testing.T) {
 	}
 }
 
+func TestGenerateAnthropicMsgIDUsesOfficialShape(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		require.Regexp(t, `^msg_01[0-9A-Za-z]{22}$`, generateAnthropicMsgID())
+	}
+}
+
 func TestGenerateRandomID_ConcurrentUniqueness(t *testing.T) {
 	// 验证并发调用不会产生重复 ID
 	const goroutines = 100
