@@ -210,6 +210,8 @@ func (s *BillingService) initFallbackPricing() {
 
 	// Claude 4.8 Opus (与4.7同价)
 	s.fallbackPrices["claude-opus-4.8"] = s.fallbackPrices["claude-opus-4.7"]
+	// Claude Opus 5（与4.8同价：$5 输入 / $25 输出 per MTok）
+	s.fallbackPrices["claude-opus-5"] = s.fallbackPrices["claude-opus-4.8"]
 
 	// Gemini 3.1 Pro
 	s.fallbackPrices["gemini-3.1-pro"] = &ModelPricing{
@@ -368,6 +370,10 @@ func (s *BillingService) getFallbackPricing(model string) *ModelPricing {
 
 	// 按模型系列匹配
 	if strings.Contains(modelLower, "opus") {
+		// 先判 Opus 5，避免落入旧 Opus 家族的高价兜底。
+		if strings.Contains(modelLower, "opus-5") || strings.Contains(modelLower, "opus5") {
+			return s.fallbackPrices["claude-opus-5"]
+		}
 		if strings.Contains(modelLower, "4.8") || strings.Contains(modelLower, "4-8") {
 			return s.fallbackPrices["claude-opus-4.8"]
 		}

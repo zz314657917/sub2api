@@ -191,7 +191,7 @@ func PrepareBedrockRequestBodyWithTokens(body []byte, modelID string, betaTokens
 
 	betaTokens = filterBedrockBetaTokens(betaTokens)
 	body = sanitizeBedrockFieldsForBetaTokens(body, betaTokens)
-	body = sanitizeBedrockFable5Thinking(body, modelID)
+	body = sanitizeBedrockThinking(body, modelID)
 
 	// 注入 anthropic_version（Bedrock 要求）
 	body, err = sjson.SetBytes(body, "anthropic_version", "bedrock-2023-05-31")
@@ -333,9 +333,8 @@ func removeCustomFieldFromTools(body []byte) []byte {
 	return body
 }
 
-// claudeVersionRe 匹配 Claude 模型 ID 中的版本号部分
-// 支持 claude-{tier}-{major}-{minor} 和 claude-{tier}-{major}.{minor} 格式
-var claudeVersionRe = regexp.MustCompile(`claude-(?:haiku|sonnet|opus)-(\d+)[-.](\d+)`)
+// claudeVersionRe 匹配 Claude 模型 ID 中的版本号部分。新模型可能只有主版本号。
+var claudeVersionRe = regexp.MustCompile(`claude-(?:haiku|sonnet|opus)-(\d+)(?:[-.](\d+))?`)
 
 // isBedrockClaude45OrNewer 判断 Bedrock 模型 ID 是否为 Claude 4.5 或更新版本
 // Claude 4.5+ 支持 cache_control 中的 ttl 字段（"5m" 和 "1h"）
@@ -349,8 +348,16 @@ func isBedrockClaude45OrNewer(modelID string) bool {
 		return false
 	}
 	major, _ := strconv.Atoi(matches[1])
-	minor, _ := strconv.Atoi(matches[2])
+	minor := claudeVersionMinor(matches)
 	return major > 4 || (major == 4 && minor >= 5)
+}
+
+func claudeVersionMinor(matches []string) int {
+	if len(matches) < 3 || matches[2] == "" {
+		return 0
+	}
+	minor, _ := strconv.Atoi(matches[2])
+	return minor
 }
 
 // sanitizeBedrockCacheControl 清理 system 和 messages 中 cache_control 里
@@ -591,16 +598,30 @@ func bedrockModelSupportsToolSearch(modelID string) bool {
 		return false
 	}
 	major, _ := strconv.Atoi(matches[1])
-	minor, _ := strconv.Atoi(matches[2])
+	minor := claudeVersionMinor(matches)
 	return major > 4 || (major == 4 && minor >= 5)
+}
+
+func isBedrockOpus47OrNewer(modelID string) bool {
+	lower := strings.ToLower(modelID)
+	if !strings.Contains(lower, "opus") {
+		return false
+	}
+	matches := claudeVersionRe.FindStringSubmatch(lower)
+	if matches == nil {
+		return false
+	}
+	major, _ := strconv.Atoi(matches[1])
+	minor := claudeVersionMinor(matches)
+	return major > 4 || (major == 4 && minor >= 7)
 }
 
 func isBedrockFable5(modelID string) bool {
 	return strings.Contains(strings.ToLower(modelID), "claude-fable-5")
 }
 
-func sanitizeBedrockFable5Thinking(body []byte, modelID string) []byte {
-	if !isBedrockFable5(modelID) {
+func sanitizeBedrockThinking(body []byte, modelID string) []byte {
+	if !isBedrockFable5(modelID) && !isBedrockOpus47OrNewer(modelID) {
 		return body
 	}
 	thinking := gjson.GetBytes(body, "thinking")
@@ -616,6 +637,10 @@ func sanitizeBedrockFable5Thinking(body []byte, modelID string) []byte {
 		body, _ = sjson.DeleteBytes(body, "thinking.budget_tokens")
 	}
 	return body
+}
+
+func sanitizeBedrockFable5Thinking(body []byte, modelID string) []byte {
+	return sanitizeBedrockThinking(body, modelID)
 }
 
 // filterBedrockBetaTokens 过滤并转换 beta token 列表，仅保留 Bedrock Invoke 支持的 token
