@@ -1,29 +1,28 @@
 # 当前主线
 
-最后更新：2026-07-20
+最后更新：2026-07-24
 
 ## 当前阶段
 
-Sub2API 近期稳定主线再次前移。截至 2026-07-20，本地 Usage S82 与 upstream compatibility S82-S86 已完成组合集成和最终验收；默认续做心智应先落在 `S82-S86 integration PASS + publish pending + 未部署/未更新容器`，而不是停在 `S77 done` 或更早的发布快照。
+Sub2API 近期稳定主线再次前移。截至 2026-07-24，默认续做心智应先落在 `S111 PASS / published + S112 PASS / source-only（功能提交和发布收口已在 main）+ phase=done + 未部署/未更新容器 + 并行 S110/group-buy dirt 仍在工作树外/工作树内并存`，而不是继续停在 2026-07-20 的 `S82-S86 integration PASS + publish pending`。
 
 ## 当前重点
 
-1. S82-S86 组合集成已通过最终门禁，当前只剩 scoped publish 收尾
-   - 集成分支 `codex/upstream-main-integration-s82-s86` 已用四个 merge commit 合入 upstream compatibility S82、S83、S84 和 stacked S85-S86；S86 已包含 S85，不应重复 merge。
-   - 组合验收通过前端 `7 files / 55 tests`、typecheck、production build、service/handler 回归、22 个业务 blob、18 份 workflow artifact 和 43 路径审计。
-   - 当前结论是 `PASS / publish-ready`，不是“已部署”；远端 SHA 验证、发布 closeout 和已合并分支清理仍属于本轮收尾。
+1. `S111` 已成为当前最近一层已发布主线
+   - 已发布的四项行为是：Grok CC Switch 导入归一、Grok 402 冷却、按天数/本地完整时间显示的 model-rate-limit 倒计时，以及 `gpt-5.6-sol` 默认排序前移。
+   - 这条主线的结论是 `PASS / published`：功能提交 `15496ed12` 已在 `origin/main`，`HEAD`、`origin/main` 和远端 `main` 一致，分歧 `0/0`。
+   - 这仍不等于已部署、已更新容器、已做真实 Grok 请求或已完成登录态浏览器 smoke；知识入口不能把源码发布等同于运行环境发布。
 
-2. Usage reasoning effort、WS mode 说明和订阅时间精度进入最新用户面
-   - 本地 Usage S82 会在 `reasoning_effort` 存在时把它附加到用户/管理员 Usage 记录的模型显示名；字段为空时保持原显示。
-   - upstream S82 只修正文档和 UI 文案，明确 WS account mode 依赖 Mode Router V2，不引入本地不存在的 account-level `http_bridge` 模式。
-   - upstream S83 复用既有 locale-aware 日期格式，把管理员和用户订阅到期时间显示到分钟，不改变剩余天数或过期状态逻辑。
+2. `S112` 已成为当前最近一层 OpenAI OAuth passthrough 稳定兼容面
+   - S112 手工移植 `v0.1.164` 的 passthrough `input` 归一：非数组 `input` 会转成 ChatGPT Codex 列表形态，现有数组输入、compact stream/store 语义、unsupported-field 清理和非 OAuth 路径保持不变。
+   - 这条主线的裁决是 `PASS / source-only`，但功能提交 `2cd0f519c` 和发布收口都已在 `origin/main`；默认续做不能再把最新后端兼容面误写成 S86 或更早。
+   - 更广的 `go test ./internal/service -count=1` 仍保留既有 `TestPeakMultiplier*` 聚合跑失败；这是全局 timezone/test-order 基线风险，不是 S112 本身的阻断。
 
-3. Anthropic 响应、cache billing failover 和 Grok proxy quality 进入最新后端兼容面
-   - S84 保证 buffered Anthropic compatibility 响应在过滤上游 header 后仍以 JSON Content-Type 返回，streaming 路径不变。
-   - S85 保证绑定 session 的同账号重试不再强制 cache billing；只有首次真实切换账号或显式 failover flag 才触发。
-   - S86 把 Grok/xAI `GET /v1/models` 纳入 proxy quality 检查，并只把 HTTP 401 视作未认证可达信号。
+3. 并行 `S110 / group-buy` 已成为当前工作树边界的一部分
+   - 另有 `codex/group-buy-lifecycle-refund-hardening-s110` 独立工作树，且主工作树当前存在 `frontend/src/views/admin/group-buy/AdminGroupBuyView.vue` 与对应测试目录的并行 dirt。
+   - 这意味着后续做任何上游小步迁移、网关兼容或知识回写时，都要先确认本轮范围，不能把 group-buy 路径误混入新的 Sprint、发布或知识结论。
 
-4. `S76-S81`、`S77` 和排行榜小时刷新已退成前一层稳定背景，但不能丢失
+4. `S106-S109`、独立 Agent Identity S108、`S76-S81`、`S77` 和排行榜小时刷新已退成前一层稳定背景，但不能丢失
    - `S77` 的 passthrough malformed-JSON 校验、platform-aware Grok image intent gating 和 `TablePageLayout` 水平滚动保持仍是当前网关/UI 基线。
    - `S76` 的 Fast/Flex email search selection、Grok Composer reasoning sanitization、platform-aware no-account diagnostics，以及 S78-S81 已验收的小步兼容改动都随当前主线保留。
    - 2026-07-17 的 `feat(leaderboard): refresh rankings hourly` 仍是榜单时效的默认运行约束；后续不能只按旧的 cached refresh 文案理解。
@@ -95,6 +94,10 @@ Sub2API 近期稳定主线再次前移。截至 2026-07-20，本地 Usage S82 �
    - S21 已稳定落地 Spark `image_generation` tool strip、OpenAI weekly reset 二次确认、usage cache token 明细展示和邮箱绑定后缀白名单。
    - 当前默认续做不应再停在 6/24 的 leaderboard 视觉/交互语境；更接近事实的是“在不覆盖本地 Studio Bridge、支付和公共页定制的前提下，继续小步吸上游安全/兼容修复”。
    - S22 仍是候选评估，不应误写成“已完成主线”；支付/订阅/余额预扣、order currency、Antigravity fallback、GPT-5.5 instructions fallback、ops chart UI、Claude terminal template、payment supported-types 继续属于跳过或待独立 Sprint 的范围。
+
+20. 2026-07-28 的 `S124 upstream-v0166-config-usage-ui` 已经成为新的上游稳定背景层
+   - `CONFIG_FILE` source helper、exact `request_id` list-only filter、route user-label hydration、allowed paths 和 source-only QA 都已落盘。
+   - 后续再看 configuration / usage 查询兼容性时，应先按 `S124` 的 exact list predicate 和 config-source fallback 理解，不要再回退到旧的模糊过滤或默认配置假设。
 
 ## 已稳定结论
 

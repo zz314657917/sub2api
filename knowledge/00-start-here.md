@@ -1,6 +1,6 @@
 # Sub2API 知识库入口
 
-最后更新：2026-07-20
+最后更新：2026-07-24
 
 ## 项目定位
 
@@ -35,20 +35,20 @@ Sub2API 是 AI API 网关平台，用于把上游 AI 账号、订阅额度和模
 
 ## 当前仓库状态提示
 
-- 当前默认续做主线已经从 2026-07-16~2026-07-17 的 `S77 done`，继续前移到 2026-07-20 已通过组合验收的本地 Usage S82 与 upstream compatibility S82-S86 集成线。
+- 当前默认续做主线已经继续前移到 2026-07-24 的 `S111 published + S112 PASS / source-only`；`S106-S109` 和独立 Agent Identity S108 已退成更早一层的已发布背景。
 - `knowledge/tasks/current-task.md` 应优先记录“现在默认从哪条主线继续”，不再适合停留在 2026-07-12 的 release push / fast-forward / cleanup 清单。
 - 遇到入口摘要与 workflow 文档冲突时，先以 `docs/workflow/status.md` 的当前 Sprint/phase 为准，再用 `knowledge/05-current-focus.md` 判断稳定主线，用 `knowledge/tasks/current-task.md` 判断当前会话快照。
-- 当前工作区仍可能同时存在并行主线的未提交改动；开始新任务前先执行 `git status --short`，确认哪些文件属于本轮目标。
+- 当前工作区仍存在并行 `group-buy` dirt：主工作树有 `frontend/src/views/admin/group-buy/AdminGroupBuyView.vue` 和对应测试目录未提交，且另有 `codex/group-buy-lifecycle-refund-hardening-s110` 独立工作树；开始新任务前先执行 `git status --short`，确认哪些文件属于本轮目标。
 - 不要清理、回滚或格式化与当前目标无关的文件。
 
 ## 当前默认心智
 
-- 当前最靠前的用户面变化是 Usage 记录模型名按需显示 reasoning effort、WS mode 前置条件文案更准确，以及订阅到期时间显示到分钟。
-- 当前最靠前的后端兼容变化是 buffered Anthropic 响应强制 JSON Content-Type、同账号重试不再误触 cache billing，以及 proxy quality 增加 Grok/xAI 可达性检查。
-- `S76-S81`、`S77` 的 WS/Grok/TablePageLayout 兼容补强和排行榜按小时刷新都已进入更早一层的稳定背景；继续排查设置、网关、账号能力或 UI 时不能回退到 `S65-S70` 之前的心智。
-- 当前集成已经 `PASS / publish-ready`，但此刻仍未验证远端推送，也未部署、未更新容器；知识入口不能把代码发布等同于运行环境发布。
+- 当前最靠前的用户面变化已经前移到 `S111`：模型限流倒计时按天数/本地完整时间展示，`gpt-5.6-sol` 默认排序前移，Grok CC Switch 导入值和 endpoint 归一保持本地约束。
+- 当前最靠前的后端兼容变化已经前移到 `S112`：OpenAI OAuth passthrough 会把非数组 `input` 归一成 ChatGPT Codex 列表形态，但不改变数组输入、compact stream/store 语义、unsupported-field 清理和非 OAuth 路径。
+- `S106-S109`、独立 Agent Identity S108、`S76-S81`、`S77` 和排行榜按小时刷新都已进入更早一层的稳定背景；继续排查设置、网关、账号能力或 UI 时不能回退到 7 月 20 日之前的 `S82-S86 publish pending` 心智。
+- 当前 workflow phase 是 `done`；`S111` 已 `PASS / published`，`S112` 是 `PASS / source-only` 但功能提交和发布收口都已在 `origin/main`。这仍不等于已部署、已更新容器或已做真实登录态/上游 smoke。
 - Studio Bridge / 落叶AI、暖白前端统一、共享账号渠道状态可见性、首充 bonus only、以及更早的上游 safe patches 仍然成立，但它们已经退成当前集成线之前的稳定背景层。
-- 继续做聊天生图、嵌入工作区、模型市场、OpenAI/Codex 网关兼容或排行榜相关工作时，不要只看单个页面或单个 Sprint；通常要把最新 workflow 状态、默认主线和旧的产品背景一起看成一条连续链路。
+- 继续做聊天生图、嵌入工作区、模型市场、OpenAI/Codex 网关兼容或排行榜相关工作时，不要只看单个页面或单个 Sprint；通常要把最新 workflow 状态、默认主线、并行 `group-buy` 边界和旧的产品背景一起看成一条连续链路。
 
 ## 知识维护规则
 

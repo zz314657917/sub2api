@@ -5,6 +5,28 @@ qa_mode: runtime
 last_verified: 2026-07-03 19:30 +08:00
 ---
 
+## S126 Addendum: strip local `group_id` from OpenAI upstream payloads
+
+### Goal
+
+- Prevent strict OpenAI-compatible upstreams from rejecting standard API
+  requests with `HTTP 400 Unknown parameter: 'group_id'`.
+
+### Scope Boundary
+
+- Treat only the exact top-level JSON field or multipart form field `group_id`
+  as sub2api-local metadata and remove it at the OpenAI upstream boundary.
+- Cover Responses, Chat Completions, and Images JSON/multipart forwarding while
+  preserving API-key-bound group selection and nested application data.
+- Do not add request-body group routing, generic unknown-field filtering,
+  schema changes, frontend changes, deployment, or container work.
+
+### Acceptance Boundary
+
+- Focused upstream-body regressions cover native Responses, raw Chat
+  Completions, Images JSON, and Images multipart. Backend compilation,
+  formatting, diff, and allowed-path gates pass.
+
 ## S121 Addendum: upstream v0.1.165 administrator operation audit logs
 
 ### Goal

@@ -1,13 +1,62 @@
 ---
 phase: done
-current_sprint: upstream-v0166-config-usage-ui-s124
-total_sprints: 124
-pending_action: Keep the S124 commits local; do not push, deploy, update containers, or modify the primary worktree outside a verified fast-forward integration
+current_sprint: openai-local-group-id-s126
+total_sprints: 126
+pending_action: Keep S126 local and user-dirty; do not commit, push, deploy, update containers, or alter unrelated changes without separate authorization
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-28 20:50 +08:00
+last_verified: 2026-07-30 11:03 +08:00
 ---
+
+# S126 Current Sprint
+
+- Strict OpenAI-compatible upstreams reject the sub2api-local top-level
+  `group_id` field with HTTP 400.
+- Contract approved for a bounded upstream-boundary sanitizer covering
+  Responses, Chat Completions, and Images JSON/multipart requests.
+- Request-body `group_id` does not select a group; existing API-key resolution
+  remains authoritative. Nested `group_id` data remains untouched.
+- Contract: `docs/workflow/tasks/openai-local-group-id-s126.md`.
+- Implementation and source-level QA: PASS. Responses and Chat Completions
+  remove the top-level field before all upstream branches; Images removes it
+  from JSON and multipart forwarding while nested data remains unchanged.
+- Focused upstream-body regressions, broad OpenAI/Images/Chat tests, full Go
+  compile, formatting, diff, conflict-marker, and path gates pass.
+- Final Evaluator: PASS/source-only. No real external strict upstream request,
+  deployment, container refresh, commit, or push was performed.
+- QA report: `docs/workflow/qa-reports/openai-local-group-id-s126-qa.md`.
+- No deployment, container update, commit, push, or unrelated worktree cleanup
+  is authorized.
+
+# S125 Current Sprint
+
+- User requested that the public `/tutorial` quick-start content, including
+  the displayed public domain, become editable from the administrator console.
+- S125 will store a bounded JSON configuration in the existing settings
+  repository, expose dedicated public/admin endpoints, and add the editor to
+  Tutorial Management. It requires no schema migration.
+- The uncommitted quick-start UI already exists in this user-dirty primary
+  worktree; this task intentionally builds on that requested change but must
+  preserve all unrelated modifications.
+- Contract: `docs/workflow/tasks/tutorial-quickstart-config-s125.md`.
+- Evaluator contract review: PASS. The established settings repository JSON
+  pattern supports a bounded config without a migration; a dedicated public
+  endpoint keeps write permissions separate from public reads, while the
+  frontend retains an in-process fallback for unavailable or invalid data.
+- Implementation and source-level QA: PASS. The `quickstart_tutorial_config`
+  setting has dedicated public/admin endpoints and a Tutorial Management
+  editor. The stored plain-text content is validated for shape, HTTP(S) URL,
+  size, and XSS-sensitive markup; public failures use the built-in fallback.
+- Before a dedicated quick-start configuration is first saved, a valid existing
+  `api_base_url` automatically provides the Claude root and Codex `/v1` URL.
+  This prevents a configured `ai.3zapi.com` deployment from displaying the
+  default `.top` domain.
+- Final Evaluator: PASS/source-only. Focused service/Vitest/API tests, full Go
+  compile, frontend typecheck/build, diff and conflict gates pass. Authenticated
+  admin save/reset, PostgreSQL persistence, deployment, container refresh,
+  push, and production browser validation were not executed.
+- QA report: `docs/workflow/qa-reports/tutorial-quickstart-config-s125-qa.md`.
 
 # S124 Current Sprint
 

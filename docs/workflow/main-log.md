@@ -501,3 +501,16 @@
 260728 2052 | upstream-v0166-config-usage-ui-s124 | contract-approved | Evaluator | exact list-only request filter, config-source fallback, async UI revision guard, allowed paths, and acceptance commands reviewed
 260728 2105 | upstream-v0166-config-usage-ui-s124 | build | Generator | CONFIG_FILE source helper, exact request_id list predicate, and route user-label hydration implemented in isolated worktree
 260728 2112 | upstream-v0166-config-usage-ui-s124 | final-qa | Evaluator | focused Go, full compile, frontend 8/8, typecheck, 1099-module build, formatting, diff, conflict-marker, and path gates PASS/source-only
+260729 0000 | tutorial-quickstart-config-s125 | contract-draft | Planner | docs/workflow/tasks/tutorial-quickstart-config-s125.md
+260729 0002 | tutorial-quickstart-config-s125 | contract-approved | Evaluator | dedicated settings JSON config, public read/admin write boundary, fallback, validation, and acceptance gates reviewed
+260729 0035 | tutorial-quickstart-config-s125 | build | Generator | DB-backed quick-start config, public/admin routes, Tutorial Management editor, public fallback, and focused regressions implemented
+260729 0055 | tutorial-quickstart-config-s125 | final-qa | Evaluator | focused service/Vitest/API tests, Go compile, frontend typecheck/build, browser layout smoke, diff and conflict gates PASS
+260729 0055 | tutorial-quickstart-config-s125 | done | Evaluator | PASS/source-only; authenticated admin persistence, deployment, container refresh, push, and production browser validation remain unverified
+260729 2105 | tutorial-quickstart-config-s125 | follow-up-qa | Evaluator | Base URL convention corrected to root URL for Codex and Claude; focused service/Vue tests, full Go compile, frontend typecheck, and diff gate PASS
+260730 1048 | tutorial-quickstart-config-s125 | follow-up-ui-qa | Evaluator | ChatGPT / Codex install step now links to the official ChatGPT Desktop guide; link visibility and safe new-tab attributes covered by Vue test and typecheck
+260730 1101 | tutorial-quickstart-config-s125 | follow-up-config-path-qa | Evaluator | Codex config path discovery is terminal-specific and Claude no longer shows an incorrect .codex directory; Vue regression and typecheck PASS
+260730 1055 | openai-local-group-id-s126 | contract-draft | Planner | docs/workflow/tasks/openai-local-group-id-s126.md
+260730 1055 | openai-local-group-id-s126 | contract-approved | Evaluator | exact top-level/form group_id stripping, API-key routing authority, JSON/multipart preservation, allowlist, and acceptance gates reviewed
+260730 1103 | openai-local-group-id-s126 | build | Generator | Responses and Chat upstream entry sanitization plus Images JSON/multipart group_id removal implemented with focused regressions
+260730 1103 | openai-local-group-id-s126 | final-qa | Evaluator | focused and broad OpenAI tests, full Go compile, formatting, diff, conflict-marker, and allowlist gates PASS/source-only
+260730 1103 | openai-local-group-id-s126 | done | Evaluator | PASS/source-only; no real external upstream request, commit, push, deployment, or container update performed
