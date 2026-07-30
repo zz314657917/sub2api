@@ -144,6 +144,10 @@ func patchGrokResponsesBody(body []byte, upstreamModel string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	out, err = sanitizeGrokResponsesToolChoice(out)
+	if err != nil {
+		return nil, err
+	}
 	for _, unsupportedField := range []string{"prompt_cache_retention", "safety_identifier"} {
 		if gjson.GetBytes(out, unsupportedField).Exists() {
 			out, err = sjson.DeleteBytes(out, unsupportedField)
@@ -153,6 +157,15 @@ func patchGrokResponsesBody(body []byte, upstreamModel string) ([]byte, error) {
 		}
 	}
 	return out, nil
+}
+
+// sanitizeGrokResponsesToolChoice removes tool_choice when the request has no
+// tools array. xAI rejects this orphaned Responses field.
+func sanitizeGrokResponsesToolChoice(body []byte) ([]byte, error) {
+	if gjson.GetBytes(body, "tools").Exists() || !gjson.GetBytes(body, "tool_choice").Exists() {
+		return body, nil
+	}
+	return sjson.DeleteBytes(body, "tool_choice")
 }
 
 func sanitizeGrokResponsesModelCapabilities(body []byte, upstreamModel string) ([]byte, error) {

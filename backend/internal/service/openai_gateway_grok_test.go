@@ -39,6 +39,35 @@ func TestPatchGrokResponsesBodySetsMappedModelAndDropsUnsupportedFields(t *testi
 	require.Equal(t, "high", gjson.GetBytes(patched, "reasoning.effort").String())
 }
 
+func TestPatchGrokResponsesBodyDropsOrphanedToolChoice(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name           string
+		body           string
+		wantToolChoice bool
+	}{
+		{
+			name: "missing tools",
+			body: `{"input":"hello","tool_choice":"auto"}`,
+		},
+		{
+			name:           "tools present",
+			body:           `{"input":"hello","tools":[{"type":"function","name":"lookup"}],"tool_choice":"auto"}`,
+			wantToolChoice: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			patched, err := patchGrokResponsesBody([]byte(tt.body), "grok-4.3")
+			require.NoError(t, err)
+			require.True(t, json.Valid(patched))
+			require.Equal(t, tt.wantToolChoice, gjson.GetBytes(patched, "tool_choice").Exists())
+		})
+	}
+}
+
 func TestExtractGrokResponsesReasoningEffortSupportsOpenAICompatibleField(t *testing.T) {
 	t.Parallel()
 
