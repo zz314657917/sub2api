@@ -74,6 +74,12 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 		return nil, errors.New("codex_cli_only restriction: only codex official clients are allowed")
 	}
 
+	if sanitizedBody, changed, sanitizeErr := stripOpenAILocalGroupID(body); sanitizeErr != nil {
+		return nil, fmt.Errorf("sanitize OpenAI local-only request fields: %w", sanitizeErr)
+	} else if changed {
+		body = sanitizedBody
+	}
+
 	if account.Platform == PlatformGrok {
 		return s.forwardAsRawChatCompletions(ctx, c, account, body, defaultMappedModel)
 	}
