@@ -41,6 +41,17 @@ type userLeaderboardUsageRepo struct {
 	dailyChampions   []usagestats.UserLeaderboardDailyChampion
 }
 
+type leaderboardHandlerUserRepo struct {
+	service.UserRepository
+	createdAt time.Time
+	getCalls  int
+}
+
+func (r *leaderboardHandlerUserRepo) GetByID(context.Context, int64) (*service.User, error) {
+	r.getCalls++
+	return &service.User{ID: 42, CreatedAt: r.createdAt}, nil
+}
+
 func (r *userLeaderboardUsageRepo) GetUserLeaderboard(ctx context.Context, startTime, endTime time.Time, limit int, currentUserID int64) (*usagestats.UserLeaderboardResponse, error) {
 	r.start = startTime
 	r.end = endTime
@@ -97,15 +108,64 @@ func (r *userLeaderboardUsageRepo) GetLeaderboardDailyChampions(ctx context.Cont
 }
 
 func newUserLeaderboardRouter(repo *userLeaderboardUsageRepo, userID int64) *gin.Engine {
+	return newUserLeaderboardRouterWithCreatedAt(repo, userID, time.Now().Add(-8*24*time.Hour))
+}
+
+func newUserLeaderboardRouterWithCreatedAt(repo *userLeaderboardUsageRepo, userID int64, createdAt time.Time) *gin.Engine {
 	gin.SetMode(gin.TestMode)
-	usageSvc := service.NewUsageService(repo, nil, nil, nil)
+	userRepo := &leaderboardHandlerUserRepo{createdAt: createdAt}
+	usageSvc := service.NewUsageService(repo, userRepo, nil, nil)
 	handler := NewUsageHandler(usageSvc, nil)
 	router := gin.New()
 	router.GET("/usage/dashboard/leaderboard", func(c *gin.Context) {
 		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: userID})
 		handler.DashboardLeaderboard(c)
 	})
+	router.POST("/usage/dashboard/leaderboard/daily-reward/claim", func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: userID})
+		handler.ClaimDashboardLeaderboardDailyReward(c)
+	})
 	return router
+}
+
+func TestUsageHandlerDashboardLeaderboardAccountAgeGate(t *testing.T) {
+	t.Run("rejects account younger than seven days before ranking query", func(t *testing.T) {
+		repo := &userLeaderboardUsageRepo{}
+		router := newUserLeaderboardRouterWithCreatedAt(repo, 42, time.Now().Add(-6*24*time.Hour))
+
+		req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusForbidden, rec.Code)
+		require.Contains(t, rec.Body.String(), `"reason":"LEADERBOARD_ACCOUNT_TOO_NEW"`)
+		require.Empty(t, repo.limits)
+	})
+
+	t.Run("allows account at seven-day boundary", func(t *testing.T) {
+		repo := &userLeaderboardUsageRepo{}
+		router := newUserLeaderboardRouterWithCreatedAt(repo, 42, time.Now().Add(-7*24*time.Hour))
+
+		req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/leaderboard", nil)
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.NotEmpty(t, repo.limits)
+	})
+}
+
+func TestUsageHandlerClaimDashboardLeaderboardAccountAgeGate(t *testing.T) {
+	repo := &userLeaderboardUsageRepo{}
+	router := newUserLeaderboardRouterWithCreatedAt(repo, 42, time.Now().Add(-6*24*time.Hour))
+
+	req := httptest.NewRequest(http.MethodPost, "/usage/dashboard/leaderboard/daily-reward/claim", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusForbidden, rec.Code)
+	require.Contains(t, rec.Body.String(), `"reason":"LEADERBOARD_ACCOUNT_TOO_NEW"`)
+	require.Empty(t, repo.limits)
 }
 
 func TestParseDashboardLeaderboardPeriodWeekUsesMondayBoundary(t *testing.T) {

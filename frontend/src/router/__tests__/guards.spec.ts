@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { resolveCompletedSetupRedirectPath } from '@/router/setupRedirect'
 import routerSource from '../index.ts?raw'
+import { hasLeaderboardAccountAge } from '@/utils/leaderboardAccess'
 
 // Mock 导航加载状态
 vi.mock('@/composables/useNavigationLoading', () => {
@@ -56,6 +57,8 @@ interface MockAuthState {
   backendModeEnabled: boolean
   hasPendingAuthSession: boolean
   setupNeedsSetup?: boolean
+  createdAt?: string
+  minimumAccountAgeDays?: unknown
 }
 
 /**
@@ -118,6 +121,14 @@ function simulateGuard(
   // 需要管理员但不是管理员
   if (requiresAdmin && !authState.isAdmin) {
     return '/dashboard'
+  }
+
+  if (toMeta.requiresLeaderboardAge && !hasLeaderboardAccountAge(
+    authState.createdAt,
+    Date.now(),
+    authState.minimumAccountAgeDays,
+  )) {
+    return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
   }
 
   // 简易模式限制
@@ -250,6 +261,31 @@ describe('路由守卫逻辑', () => {
 
     it('访问 /dashboard 允许通过', () => {
       const redirect = simulateGuard('/dashboard', {}, authState)
+      expect(redirect).toBeNull()
+    })
+
+    it('注册未满七天访问排行榜重定向到 dashboard', () => {
+      const redirect = simulateGuard('/leaderboard', { requiresLeaderboardAge: true }, {
+        ...authState,
+        createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+      })
+      expect(redirect).toBe('/dashboard')
+    })
+
+    it('注册满七天访问排行榜允许通过', () => {
+      const redirect = simulateGuard('/leaderboard', { requiresLeaderboardAge: true }, {
+        ...authState,
+        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+      })
+      expect(redirect).toBeNull()
+    })
+
+    it('uses the configured account-age boundary', () => {
+      const redirect = simulateGuard('/leaderboard', { requiresLeaderboardAge: true }, {
+        ...authState,
+        createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        minimumAccountAgeDays: 2,
+      })
       expect(redirect).toBeNull()
     })
 

@@ -14,6 +14,12 @@ declare module 'vue-router' {
     requiresAuth?: boolean
 
     /**
+     * Whether the authenticated account must be at least seven days old.
+     * @default false
+     */
+    requiresLeaderboardAge?: boolean
+
+    /**
      * Whether this route requires admin role
      * @default false
      */

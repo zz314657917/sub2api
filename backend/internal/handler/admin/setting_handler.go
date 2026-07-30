@@ -308,6 +308,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		LeaderboardDailyRewardRank1Amount:         settings.LeaderboardDailyRewardRank1Amount,
 		LeaderboardDailyRewardRank2Amount:         settings.LeaderboardDailyRewardRank2Amount,
 		LeaderboardDailyRewardRank3Amount:         settings.LeaderboardDailyRewardRank3Amount,
+		LeaderboardMinAccountAgeDays:              settings.LeaderboardMinAccountAgeDays,
 		WelfareEnabled:                            settings.WelfareEnabled,
 		WelfareDailyCheckinEnabled:                settings.WelfareDailyCheckinEnabled,
 		WelfareRechargeEnabled:                    settings.WelfareRechargeEnabled,
@@ -747,6 +748,7 @@ type UpdateSettingsRequest struct {
 	LeaderboardDailyRewardRank1Amount        *float64 `json:"leaderboard_daily_reward_rank_1_amount"`
 	LeaderboardDailyRewardRank2Amount        *float64 `json:"leaderboard_daily_reward_rank_2_amount"`
 	LeaderboardDailyRewardRank3Amount        *float64 `json:"leaderboard_daily_reward_rank_3_amount"`
+	LeaderboardMinAccountAgeDays             *int     `json:"leaderboard_min_account_age_days"`
 
 	WelfareEnabled                            *bool    `json:"welfare_enabled"`
 	WelfareDailyCheckinEnabled                *bool    `json:"welfare_daily_checkin_enabled"`
@@ -1961,6 +1963,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		LeaderboardDailyRewardRank1Amount:        float64ValueOrDefault(req.LeaderboardDailyRewardRank1Amount, previousSettings.LeaderboardDailyRewardRank1Amount),
 		LeaderboardDailyRewardRank2Amount:        float64ValueOrDefault(req.LeaderboardDailyRewardRank2Amount, previousSettings.LeaderboardDailyRewardRank2Amount),
 		LeaderboardDailyRewardRank3Amount:        float64ValueOrDefault(req.LeaderboardDailyRewardRank3Amount, previousSettings.LeaderboardDailyRewardRank3Amount),
+		LeaderboardMinAccountAgeDays:             intValueOrDefault(req.LeaderboardMinAccountAgeDays, previousSettings.LeaderboardMinAccountAgeDays),
 		WelfareEnabled: func() bool {
 			if req.WelfareEnabled != nil {
 				return *req.WelfareEnabled
@@ -2357,6 +2360,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		LeaderboardDailyRewardRank1Amount:         updatedSettings.LeaderboardDailyRewardRank1Amount,
 		LeaderboardDailyRewardRank2Amount:         updatedSettings.LeaderboardDailyRewardRank2Amount,
 		LeaderboardDailyRewardRank3Amount:         updatedSettings.LeaderboardDailyRewardRank3Amount,
+		LeaderboardMinAccountAgeDays:              updatedSettings.LeaderboardMinAccountAgeDays,
 		WelfareEnabled:                            updatedSettings.WelfareEnabled,
 		WelfareDailyCheckinEnabled:                updatedSettings.WelfareDailyCheckinEnabled,
 		WelfareRechargeEnabled:                    updatedSettings.WelfareRechargeEnabled,
@@ -2876,6 +2880,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.LeaderboardDailyRewardRank3Amount != after.LeaderboardDailyRewardRank3Amount {
 		changed = append(changed, "leaderboard_daily_reward_rank_3_amount")
+	}
+	if before.LeaderboardMinAccountAgeDays != after.LeaderboardMinAccountAgeDays {
+		changed = append(changed, "leaderboard_min_account_age_days")
 	}
 	if before.WelfareEnabled != after.WelfareEnabled {
 		changed = append(changed, "welfare_enabled")

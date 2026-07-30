@@ -398,6 +398,7 @@ const (
 	SettingKeyLeaderboardDailyRewardRank1Amount          = "leaderboard_daily_reward_rank_1_amount"
 	SettingKeyLeaderboardDailyRewardRank2Amount          = "leaderboard_daily_reward_rank_2_amount"
 	SettingKeyLeaderboardDailyRewardRank3Amount          = "leaderboard_daily_reward_rank_3_amount"
+	SettingKeyLeaderboardMinAccountAgeDays               = "leaderboard_min_account_age_days"
 
 	// Compatibility aliases for settings DTO code.
 	SettingKeyLeaderboardRewardMode          = SettingKeyLeaderboardDailyRewardMode

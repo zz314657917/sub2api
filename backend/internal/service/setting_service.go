@@ -1008,6 +1008,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyWelfareRechargeEnabled,
 		SettingKeyWelfareVIPEnabled,
 		SettingKeyWelfareNewUserTrialEnabled,
+		SettingKeyLeaderboardMinAccountAgeDays,
 		SettingPaymentFAQItems,
 	}
 
@@ -1129,11 +1130,12 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
 
-		WelfareEnabled:             settings[SettingKeyWelfareEnabled] == "true",
-		WelfareDailyCheckinEnabled: settings[SettingKeyWelfareDailyCheckinEnabled] == "true",
-		WelfareRechargeEnabled:     settings[SettingKeyWelfareRechargeEnabled] == "true",
-		WelfareVIPEnabled:          settings[SettingKeyWelfareVIPEnabled] == "true",
-		WelfareNewUserTrialEnabled: settings[SettingKeyWelfareNewUserTrialEnabled] == "true",
+		WelfareEnabled:               settings[SettingKeyWelfareEnabled] == "true",
+		WelfareDailyCheckinEnabled:   settings[SettingKeyWelfareDailyCheckinEnabled] == "true",
+		WelfareRechargeEnabled:       settings[SettingKeyWelfareRechargeEnabled] == "true",
+		WelfareVIPEnabled:            settings[SettingKeyWelfareVIPEnabled] == "true",
+		WelfareNewUserTrialEnabled:   settings[SettingKeyWelfareNewUserTrialEnabled] == "true",
+		LeaderboardMinAccountAgeDays: parseLeaderboardMinimumAccountAgeDays(settings[SettingKeyLeaderboardMinAccountAgeDays]),
 	}, nil
 }
 
@@ -1366,6 +1368,7 @@ type PublicSettingsInjectionPayload struct {
 	WelfareRechargeEnabled               bool   `json:"welfare_recharge_enabled"`
 	WelfareVIPEnabled                    bool   `json:"welfare_vip_enabled"`
 	WelfareNewUserTrialEnabled           bool   `json:"welfare_new_user_trial_enabled"`
+	LeaderboardMinAccountAgeDays         int    `json:"leaderboard_min_account_age_days"`
 }
 
 // GetPublicSettingsForInjection returns public settings in a format suitable for HTML injection.
@@ -1448,6 +1451,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		WelfareRechargeEnabled:               settings.WelfareRechargeEnabled,
 		WelfareVIPEnabled:                    settings.WelfareVIPEnabled,
 		WelfareNewUserTrialEnabled:           settings.WelfareNewUserTrialEnabled,
+		LeaderboardMinAccountAgeDays:         settings.LeaderboardMinAccountAgeDays,
 	}, nil
 }
 
@@ -2146,6 +2150,8 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyLeaderboardDailyRewardRank1Amount] = strconv.FormatFloat(settings.LeaderboardDailyRewardRank1Amount, 'f', 8, 64)
 	updates[SettingKeyLeaderboardDailyRewardRank2Amount] = strconv.FormatFloat(settings.LeaderboardDailyRewardRank2Amount, 'f', 8, 64)
 	updates[SettingKeyLeaderboardDailyRewardRank3Amount] = strconv.FormatFloat(settings.LeaderboardDailyRewardRank3Amount, 'f', 8, 64)
+	settings.LeaderboardMinAccountAgeDays = normalizeLeaderboardMinimumAccountAgeDays(settings.LeaderboardMinAccountAgeDays)
+	updates[SettingKeyLeaderboardMinAccountAgeDays] = strconv.Itoa(settings.LeaderboardMinAccountAgeDays)
 
 	settings.WelfareDailyCheckinRewardMin = normalizeDailyRewardAmount(settings.WelfareDailyCheckinRewardMin)
 	settings.WelfareDailyCheckinRewardMax = normalizeDailyRewardAmount(settings.WelfareDailyCheckinRewardMax)
@@ -3342,6 +3348,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyLeaderboardDailyRewardRank1Amount:         "0",
 		SettingKeyLeaderboardDailyRewardRank2Amount:         "0",
 		SettingKeyLeaderboardDailyRewardRank3Amount:         "0",
+		SettingKeyLeaderboardMinAccountAgeDays:              strconv.Itoa(LeaderboardMinimumAccountAgeDaysDefault),
 		SettingKeyWelfareEnabled:                            "false",
 		SettingKeyWelfareDailyCheckinEnabled:                "false",
 		SettingKeyWelfareRechargeEnabled:                    "false",
@@ -3817,6 +3824,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.LeaderboardDailyRewardRank1Amount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardRank1Amount], 0)
 	result.LeaderboardDailyRewardRank2Amount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardRank2Amount], 0)
 	result.LeaderboardDailyRewardRank3Amount = parseNonNegativeFloatSetting(settings[SettingKeyLeaderboardDailyRewardRank3Amount], 0)
+	result.LeaderboardMinAccountAgeDays = parseLeaderboardMinimumAccountAgeDays(settings[SettingKeyLeaderboardMinAccountAgeDays])
 
 	result.WelfareEnabled = settings[SettingKeyWelfareEnabled] == "true"
 	result.WelfareDailyCheckinEnabled = settings[SettingKeyWelfareDailyCheckinEnabled] == "true"

@@ -197,6 +197,7 @@ type SystemSettings struct {
 	LeaderboardDailyRewardRank1Amount        float64 `json:"leaderboard_daily_reward_rank_1_amount"`
 	LeaderboardDailyRewardRank2Amount        float64 `json:"leaderboard_daily_reward_rank_2_amount"`
 	LeaderboardDailyRewardRank3Amount        float64 `json:"leaderboard_daily_reward_rank_3_amount"`
+	LeaderboardMinAccountAgeDays             int     `json:"leaderboard_min_account_age_days"`
 
 	// Welfare system feature flags and daily check-in configuration
 	WelfareEnabled                            bool    `json:"welfare_enabled"`
@@ -352,11 +353,12 @@ type PublicSettings struct {
 	RiskControlEnabled bool `json:"risk_control_enabled"`
 
 	// Welfare system feature flags
-	WelfareEnabled             bool `json:"welfare_enabled"`
-	WelfareDailyCheckinEnabled bool `json:"welfare_daily_checkin_enabled"`
-	WelfareRechargeEnabled     bool `json:"welfare_recharge_enabled"`
-	WelfareVIPEnabled          bool `json:"welfare_vip_enabled"`
-	WelfareNewUserTrialEnabled bool `json:"welfare_new_user_trial_enabled"`
+	WelfareEnabled               bool `json:"welfare_enabled"`
+	WelfareDailyCheckinEnabled   bool `json:"welfare_daily_checkin_enabled"`
+	WelfareRechargeEnabled       bool `json:"welfare_recharge_enabled"`
+	WelfareVIPEnabled            bool `json:"welfare_vip_enabled"`
+	WelfareNewUserTrialEnabled   bool `json:"welfare_new_user_trial_enabled"`
+	LeaderboardMinAccountAgeDays int  `json:"leaderboard_min_account_age_days"`
 }
 
 type LoginAgreementDocument struct {

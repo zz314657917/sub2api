@@ -102,11 +102,12 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 
 		RiskControlEnabled: settings.RiskControlEnabled,
 
-		WelfareEnabled:             settings.WelfareEnabled,
-		WelfareDailyCheckinEnabled: settings.WelfareDailyCheckinEnabled,
-		WelfareRechargeEnabled:     settings.WelfareRechargeEnabled,
-		WelfareVIPEnabled:          settings.WelfareVIPEnabled,
-		WelfareNewUserTrialEnabled: settings.WelfareNewUserTrialEnabled,
+		WelfareEnabled:               settings.WelfareEnabled,
+		WelfareDailyCheckinEnabled:   settings.WelfareDailyCheckinEnabled,
+		WelfareRechargeEnabled:       settings.WelfareRechargeEnabled,
+		WelfareVIPEnabled:            settings.WelfareVIPEnabled,
+		WelfareNewUserTrialEnabled:   settings.WelfareNewUserTrialEnabled,
+		LeaderboardMinAccountAgeDays: settings.LeaderboardMinAccountAgeDays,
 	})
 }
 

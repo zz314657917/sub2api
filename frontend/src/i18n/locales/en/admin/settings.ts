@@ -88,6 +88,8 @@ export default {
         leaderboardDailyReward: {
             title: 'Leaderboard Reward Mode',
             description: 'Configure last week’s top 10 token usage reward mode: disabled, red packet, or lottery.',
+            minAccountAgeDays: 'Minimum account age for leaderboard',
+            minAccountAgeDaysHint: 'Users can view the leaderboard and claim rewards after this many days; set 0 to allow access immediately.',
             enabled: 'Enable Weekly Rewards',
             enabledHint: 'Legacy compatibility switch. The reward mode is the active control.',
             mode: 'Reward Mode',

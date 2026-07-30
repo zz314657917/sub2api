@@ -292,6 +292,9 @@ func (s *UsageService) getLeaderboardDailyRewards(ctx context.Context, userID in
 
 // ClaimLeaderboardDailyReward grants last week's leaderboard reward to the user.
 func (s *UsageService) ClaimLeaderboardDailyReward(ctx context.Context, userID int64, _ string) (*LeaderboardDailyRewardClaimResult, error) {
+	if err := s.EnsureLeaderboardAccess(ctx, userID); err != nil {
+		return nil, err
+	}
 	return s.claimLeaderboardDailyReward(ctx, userID, timezone.Now())
 }
 

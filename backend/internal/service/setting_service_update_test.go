@@ -346,6 +346,15 @@ func TestSettingService_UpdateSettings_LeaderboardDailyRewardNormalizesAmounts(t
 	require.Equal(t, "10.50000000", repo.updates[SettingKeyLeaderboardDailyRewardRank1Amount])
 	require.Equal(t, "0.00000000", repo.updates[SettingKeyLeaderboardDailyRewardRank2Amount])
 	require.Equal(t, "1.25000000", repo.updates[SettingKeyLeaderboardDailyRewardRank3Amount])
+	require.Equal(t, "7", repo.updates[SettingKeyLeaderboardMinAccountAgeDays])
+
+	err = svc.UpdateSettings(context.Background(), &SystemSettings{LeaderboardMinAccountAgeDays: 0})
+	require.NoError(t, err)
+	require.Equal(t, "0", repo.updates[SettingKeyLeaderboardMinAccountAgeDays])
+
+	err = svc.UpdateSettings(context.Background(), &SystemSettings{LeaderboardMinAccountAgeDays: -1})
+	require.NoError(t, err)
+	require.Equal(t, "7", repo.updates[SettingKeyLeaderboardMinAccountAgeDays])
 }
 
 func TestSettingService_UpdateSettings_WelfareDailyRewardNormalizesToOneDecimal(t *testing.T) {

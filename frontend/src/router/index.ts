@@ -13,6 +13,7 @@ import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveDocumentTitle } from './title'
+import { hasLeaderboardAccountAge } from '@/utils/leaderboardAccess'
 
 if (typeof window !== 'undefined' && 'scrollRestoration' in window.history) {
   window.history.scrollRestoration = 'manual'
@@ -251,6 +252,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
+      requiresLeaderboardAge: true,
       title: 'Leaderboard',
       titleKey: 'leaderboard.title',
       descriptionKey: 'leaderboard.description'
@@ -1044,6 +1046,15 @@ router.beforeEach(async (to, _from, next) => {
   if (requiresAdmin && !authStore.isAdmin) {
     // User is authenticated but not admin, redirect to user dashboard
     next('/dashboard')
+    return
+  }
+
+  if (to.meta.requiresLeaderboardAge && !hasLeaderboardAccountAge(
+    authStore.user?.created_at,
+    Date.now(),
+    appStore.cachedPublicSettings?.leaderboard_min_account_age_days,
+  )) {
+    next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
     return
   }
 
