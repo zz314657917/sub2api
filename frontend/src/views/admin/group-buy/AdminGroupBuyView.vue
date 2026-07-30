@@ -130,7 +130,7 @@
 
     <Teleport to="body">
       <Transition name="modal">
-        <div v-if="planDialogOpen" class="admin-group-buy-modal-backdrop" @click.self="closePlanDialog">
+        <div v-if="planDialogOpen" class="admin-group-buy-modal-backdrop">
           <form class="admin-group-buy-modal" @submit.prevent="savePlan">
             <button type="button" class="admin-group-buy-modal-close" @click="closePlanDialog">
               <Icon name="x" size="sm" />
@@ -318,7 +318,7 @@ const planForm = reactive({
   validity_days: 30,
   timeout_minutes: 1440,
   refund_mode: 'balance_credit' as GroupBuyRefundMode,
-  agreement_text: defaultAgreementText,
+  agreement_text: defaultAgreementText.value,
   status: 'active' as GroupBuyPlanStatus,
   sort_order: 0,
 })
