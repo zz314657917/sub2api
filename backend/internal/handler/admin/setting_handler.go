@@ -419,6 +419,44 @@ func (h *SettingHandler) ResetModelMarketCatalog(c *gin.Context) {
 	response.Success(c, updated)
 }
 
+// GetQuickstartTutorialConfig returns the administrator quick-start guide configuration.
+// GET /api/v1/admin/tutorials/quickstart-config
+func (h *SettingHandler) GetQuickstartTutorialConfig(c *gin.Context) {
+	cfg, err := h.settingService.GetQuickstartTutorialConfig(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, cfg)
+}
+
+// UpdateQuickstartTutorialConfig saves the administrator quick-start guide configuration.
+// PUT /api/v1/admin/tutorials/quickstart-config
+func (h *SettingHandler) UpdateQuickstartTutorialConfig(c *gin.Context) {
+	var cfg service.QuickstartTutorialConfig
+	if err := c.ShouldBindJSON(&cfg); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	updated, err := h.settingService.SetQuickstartTutorialConfig(c.Request.Context(), &cfg)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, updated)
+}
+
+// ResetQuickstartTutorialConfig restores the built-in quick-start guide configuration.
+// POST /api/v1/admin/tutorials/quickstart-config/reset
+func (h *SettingHandler) ResetQuickstartTutorialConfig(c *gin.Context) {
+	updated, err := h.settingService.ResetQuickstartTutorialConfig(c.Request.Context())
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, updated)
+}
+
 func loginAgreementDocumentsToDTO(items []service.LoginAgreementDocument) []dto.LoginAgreementDocument {
 	result := make([]dto.LoginAgreementDocument, 0, len(items))
 	for _, item := range items {

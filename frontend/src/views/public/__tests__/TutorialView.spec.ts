@@ -4,9 +4,11 @@ import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { TutorialPage, TutorialPageSummary } from '@/types'
 import TutorialView from '../TutorialView.vue'
+import { defaultQuickstartTutorialConfig } from '../tutorialQuickstart'
 
-const { getBySlugMock, listMock, showErrorMock, showSuccessMock } = vi.hoisted(() => ({
+const { getBySlugMock, getQuickstartConfigMock, listMock, showErrorMock, showSuccessMock } = vi.hoisted(() => ({
   getBySlugMock: vi.fn(),
+  getQuickstartConfigMock: vi.fn(),
   listMock: vi.fn(),
   showErrorMock: vi.fn(),
   showSuccessMock: vi.fn(),
@@ -15,6 +17,7 @@ const { getBySlugMock, listMock, showErrorMock, showSuccessMock } = vi.hoisted((
 vi.mock('@/api/tutorials', () => ({
   default: {
     getBySlug: getBySlugMock,
+    getQuickstartConfig: getQuickstartConfigMock,
     list: listMock,
   },
 }))
@@ -94,6 +97,7 @@ function createTutorialRouter(): Router {
     routes: [
       { path: '/tutorial', name: 'Tutorial', component: routeComponent },
       { path: '/tutorial/:slug', name: 'TutorialPage', component: routeComponent },
+      { path: '/keys', name: 'Keys', component: routeComponent },
       { path: '/models', name: 'Models', component: routeComponent },
     ],
   })
@@ -128,6 +132,7 @@ function errorWithStatus(status: number, message: string) {
 beforeEach(() => {
   vi.clearAllMocks()
   listMock.mockResolvedValue(summaries)
+  getQuickstartConfigMock.mockResolvedValue(defaultQuickstartTutorialConfig)
   getBySlugMock.mockImplementation(async (slug: string) => {
     const page = tutorialPages.find((item) => item.slug === slug)
     if (!page) throw errorWithStatus(404, '教程不存在')
@@ -159,11 +164,34 @@ afterEach(() => {
 })
 
 describe('TutorialView reading flow', () => {
-  it('keeps overview, recommended routes, search, and category groups on the index only', async () => {
+  it('uses the public quick-start configuration for the Base URL and generated commands', async () => {
+    const config = JSON.parse(JSON.stringify(defaultQuickstartTutorialConfig))
+    config.platforms[0].base_url = 'https://ai.3zapi.com'
+    getQuickstartConfigMock.mockResolvedValue(config)
+
     const { wrapper } = await mountTutorial('/tutorial')
 
-    expect(wrapper.find('.tutorial-overview').exists()).toBe(true)
-    expect(wrapper.findAll('.beginner-step')).toHaveLength(2)
+    expect(wrapper.find('.tutorial-quickstart-facts').text()).toContain('https://ai.3zapi.com')
+    expect(wrapper.find('.tutorial-quickstart-steps').text()).toContain('base_url = "https://ai.3zapi.com"')
+    expect(wrapper.find('.tutorial-quickstart-code--large').text()).toContain('curl https://ai.3zapi.com/responses')
+  })
+
+  it('keeps quick start separate from the searchable full tutorial directory', async () => {
+    const { wrapper: quickstartWrapper } = await mountTutorial('/tutorial')
+
+    expect(quickstartWrapper.find('.tutorial-quickstart').exists()).toBe(true)
+    expect(quickstartWrapper.find('.tutorial-overview').exists()).toBe(false)
+    expect(quickstartWrapper.find('.tutorial-index-controls').exists()).toBe(false)
+    expect(quickstartWrapper.find('.guide-action-link').attributes('href')).toBe('/tutorial?view=library')
+    expect(
+      quickstartWrapper
+        .findAll<HTMLButtonElement>('.tutorial-segmented-control[aria-label="选择模型平台"] button')
+        .map((button) => button.text())
+    ).toEqual(['ChatGPT / Codex', 'Claude'])
+
+    const { wrapper } = await mountTutorial('/tutorial?view=library')
+
+    expect(wrapper.find('.tutorial-quickstart').exists()).toBe(false)
     expect(wrapper.find('.tutorial-index-controls').exists()).toBe(true)
     expect(wrapper.findAll('.tutorial-category-group')).toHaveLength(2)
     expect(wrapper.find('.tutorial-article').exists()).toBe(false)
@@ -173,6 +201,62 @@ describe('TutorialView reading flow', () => {
     const cards = wrapper.findAll('.tutorial-directory-card')
     expect(cards).toHaveLength(1)
     expect(cards[0].text()).toContain('进阶配置')
+  })
+
+  it('renders the quick-start guide and updates platform and terminal variants', async () => {
+    const { wrapper } = await mountTutorial('/tutorial')
+
+    expect(wrapper.find('.tutorial-quickstart').exists()).toBe(true)
+    expect(wrapper.findAll('.tutorial-quickstart-step')).toHaveLength(5)
+    expect(wrapper.find('.tutorial-quickstart-fact').text()).toContain('https://ai.3zapi.top')
+    expect(wrapper.find('[aria-label="选择教程模式"]').exists()).toBe(false)
+    expect(wrapper.find('.tutorial-quickstart-error-grid').text()).toContain('官方算力不足')
+    expect(wrapper.find('.tutorial-quickstart-error-grid').text()).toContain('Selected model is at capacity. Please try a different model.')
+    expect(wrapper.find('.tutorial-quickstart-step:nth-child(3)').text()).toContain(
+      'C:\\Users\\你的用户名\\.codex\\config.toml'
+    )
+    expect(wrapper.find('.tutorial-quickstart-step:nth-child(3)').text()).toContain(
+      'explorer "%USERPROFILE%\\.codex"'
+    )
+
+    const desktopDownloadLink = wrapper.get<HTMLAnchorElement>(
+      'a.tutorial-quickstart-link[href="https://developers.openai.com/codex/app#getting-started"]'
+    )
+    expect(desktopDownloadLink.text()).toContain('下载 ChatGPT Desktop')
+    expect(desktopDownloadLink.attributes('target')).toBe('_blank')
+    expect(desktopDownloadLink.attributes('rel')).toBe('noopener noreferrer')
+
+    const claudeButton = wrapper
+      .findAll<HTMLButtonElement>('.tutorial-segmented-control button')
+      .find((button) => button.text() === 'Claude')
+    expect(claudeButton).toBeDefined()
+    await claudeButton!.trigger('click')
+    expect(wrapper.find('.tutorial-quickstart-facts').text()).toContain('Anthropic Messages')
+    expect(wrapper.find('.tutorial-quickstart-step:nth-child(3)').text()).toContain('Claude Code 不使用 config.toml')
+    expect(
+      wrapper.find('a.tutorial-quickstart-link[href="https://developers.openai.com/codex/app#getting-started"]').exists()
+    ).toBe(false)
+    expect(wrapper.find('.tutorial-quickstart-step:nth-child(2) .tutorial-quickstart-code').text()).toContain(
+      '@anthropic-ai/claude-code'
+    )
+
+    const unixButton = wrapper
+      .findAll<HTMLButtonElement>('.tutorial-segmented-control button')
+      .find((button) => button.text() === 'macOS / Linux')
+    expect(unixButton).toBeDefined()
+    await unixButton!.trigger('click')
+    expect(wrapper.find('.tutorial-quickstart-step:nth-child(3)').text()).toContain('当前终端设置环境变量')
+  })
+
+  it('copies quick-start commands and shows feedback', async () => {
+    const { wrapper } = await mountTutorial('/tutorial')
+    const button = wrapper.find<HTMLButtonElement>('.tutorial-quickstart-code-head button')
+
+    await button.trigger('click')
+    await flushPromises()
+
+    expect(button.text()).toBe('已复制')
+    expect(showSuccessMock).toHaveBeenCalledWith('已复制命令')
   })
 
   it('opens detail without the index hero and keeps progress, mobile directory, toc, and hash history in sync', async () => {

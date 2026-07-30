@@ -228,6 +228,7 @@ func RegisterAuthRoutes(
 	tutorials := v1.Group("/tutorials")
 	{
 		tutorials.GET("", h.TutorialPage.ListPublished)
+		tutorials.GET("/quickstart-config", h.Setting.GetQuickstartTutorialConfig)
 		tutorials.GET("/:slug", h.TutorialPage.GetPublishedBySlug)
 	}
 
