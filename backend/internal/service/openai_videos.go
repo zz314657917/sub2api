@@ -919,10 +919,12 @@ func (s *OpenAIGatewayService) doOpenAICompatibleJSONRequest(c *gin.Context, req
 			if s.rateLimitService != nil {
 				s.rateLimitService.HandleUpstreamError(req.Context(), account, resp.StatusCode, resp.Header, respBody)
 			}
+			capacityRetryLimit := openAIModelCapacityRetryLimit(upstreamMsg, respBody)
 			return nil, resp, &UpstreamFailoverError{
 				StatusCode:             resp.StatusCode,
 				ResponseBody:           respBody,
-				RetryableOnSameAccount: account.IsPoolMode() && isPoolModeRetryableStatus(resp.StatusCode),
+				RetryableOnSameAccount: capacityRetryLimit > 0 || (account.IsPoolMode() && isPoolModeRetryableStatus(resp.StatusCode)),
+				SameAccountRetryLimit:  capacityRetryLimit,
 			}
 		}
 		writeOpenAICompatibleJSONResponse(c, resp, respBody, s.responseHeaderFilter)

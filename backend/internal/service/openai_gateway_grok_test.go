@@ -52,6 +52,14 @@ func TestPatchGrokResponsesBodyDropsOrphanedToolChoice(t *testing.T) {
 			body: `{"input":"hello","tool_choice":"auto"}`,
 		},
 		{
+			name: "null tools",
+			body: `{"input":"hello","tools":null,"tool_choice":"auto"}`,
+		},
+		{
+			name: "empty tools",
+			body: `{"input":"hello","tools":[],"tool_choice":"auto"}`,
+		},
+		{
 			name:           "tools present",
 			body:           `{"input":"hello","tools":[{"type":"function","name":"lookup"}],"tool_choice":"auto"}`,
 			wantToolChoice: true,

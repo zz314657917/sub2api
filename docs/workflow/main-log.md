@@ -538,3 +538,6 @@
 260730 1800 | local-integration-closeout-s129 | final-qa | Evaluator | PASS/documentation-only; allowed paths, diff, unmerged index, worktree state, and local/remote commit relationship verified
 260730 1800 | local-integration-closeout-s129 | done | Evaluator | retain local documentation changes for review; publication preflight is next and push remains unauthorized
 260730 1800 | local-integration-closeout-s129 | contract-amended | Evaluator | one new docs-only local commit is allowed after QA so the handoff does not block publication preflight; no push or existing-history rewrite authorized
+260730 1821 | recent-commit-regressions-s130 | build | Generator | completed bounded OpenAI retry, group-buy refund lifecycle, Grok sanitizer, and leaderboard guard repair with focused regressions
+260730 1821 | recent-commit-regressions-s130 | final-qa | Evaluator | isolated Go regression, repository build/compile probe, frontend 44/44 Vitest/typecheck, formatting, static failover, diff, conflict-marker, and allowed-path gates PASS
+260730 1821 | recent-commit-regressions-s130 | done | Evaluator | PASS/source-only; normal service/unit test suites retain unrelated stale test-source compile drift; no provider, upstream, browser, deployment, container, commit, or push action performed

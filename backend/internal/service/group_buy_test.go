@@ -10,6 +10,7 @@ import (
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/enttest"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -410,7 +411,7 @@ func (s *groupBuyPaymentRefundStub) QueryAndFinalizeRefund(ctx context.Context, 
 			return nil, err
 		}
 	}
-	succeeded := s.queryStatus == OrderStatusRefunded || s.queryStatus == OrderStatusPartiallyRefunded
+	succeeded := s.queryStatus == OrderStatusRefunded
 	return &RefundResult{Success: succeeded}, nil
 }
 
@@ -489,6 +490,96 @@ func TestGroupBuyProviderRefundPendingIsReconciled(t *testing.T) {
 	reloadedSeat, err := client.GroupBuySeat.Get(ctx, seat.ID)
 	require.NoError(t, err)
 	require.Equal(t, GroupBuySeatStatusRefunded, reloadedSeat.Status)
+}
+
+func TestGroupBuyProviderPartialRefundIsQuarantined(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_provider_partial_refund")
+	plan, seat, _ := createGroupBuyProviderRefundFixture(t, ctx, client, "partial")
+	stub := &groupBuyPaymentRefundStub{
+		client: client,
+		executions: []groupBuyRefundExecution{{
+			orderStatus: OrderStatusPartiallyRefunded,
+			result:      &RefundResult{Success: true},
+		}},
+	}
+	svc := newGroupBuyTestService(client, nil, nil)
+	svc.refundSvc = stub
+
+	outcome, err := svc.processSeatRefund(ctx, plan, seat)
+	require.Error(t, err)
+	require.Equal(t, GroupBuyRefundStatusNeedsReview, outcome)
+	require.Equal(t, 1, stub.prepareCalls)
+	require.Equal(t, 1, stub.executeCalls)
+
+	refund, err := client.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(seat.ID)).Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundStatusNeedsReview, refund.Status)
+	reloadedSeat, err := client.GroupBuySeat.Get(ctx, seat.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefundProcessing, reloadedSeat.Status)
+}
+
+func TestGroupBuyPendingProviderPartialRefundIsQuarantined(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_pending_provider_partial_refund")
+	plan, seat, order := createGroupBuyProviderRefundFixture(t, ctx, client, "pending-partial")
+	stub := &groupBuyPaymentRefundStub{
+		client:          client,
+		hasPendingAudit: true,
+		queryStatus:     OrderStatusPartiallyRefunded,
+		executions: []groupBuyRefundExecution{{
+			orderStatus: OrderStatusRefundPending,
+			result:      &RefundResult{Success: false, Warning: "pending"},
+		}},
+	}
+	svc := newGroupBuyTestService(client, nil, nil)
+	svc.refundSvc = stub
+
+	_, err := svc.processSeatRefund(ctx, plan, seat)
+	require.NoError(t, err)
+	finalized, err := svc.ReconcilePendingProviderRefunds(ctx)
+	require.Error(t, err)
+	require.Equal(t, 1, finalized)
+	require.Equal(t, 1, stub.queryCalls)
+
+	reloadedOrder, err := client.PaymentOrder.Get(ctx, order.ID)
+	require.NoError(t, err)
+	require.Equal(t, OrderStatusPartiallyRefunded, reloadedOrder.Status)
+	refund, err := client.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(seat.ID)).Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuyRefundStatusNeedsReview, refund.Status)
+	reloadedSeat, err := client.GroupBuySeat.Get(ctx, seat.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefundProcessing, reloadedSeat.Status)
+}
+
+func TestGroupBuyLatePaymentForReleasedSeatQueuesRefund(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_late_payment_refund")
+	_, seat, _ := createGroupBuyProviderRefundFixture(t, ctx, client, "late-payment")
+	now := time.Date(2026, 7, 30, 18, 30, 0, 0, time.UTC)
+	_, err := client.GroupBuySeat.UpdateOneID(seat.ID).SetStatus(GroupBuySeatStatusReleased).Save(ctx)
+	require.NoError(t, err)
+
+	svc := newGroupBuyTestService(client, nil, nil)
+	svc.now = func() time.Time { return now }
+	require.NoError(t, svc.HandleGroupBuyOrderPaid(ctx, *seat.OrderID))
+
+	reloadedSeat, err := client.GroupBuySeat.Get(ctx, seat.ID)
+	require.NoError(t, err)
+	require.Equal(t, GroupBuySeatStatusRefundPending, reloadedSeat.Status)
+	require.NotNil(t, reloadedSeat.PaidAt)
+	require.Equal(t, now, *reloadedSeat.PaidAt)
+	require.Contains(t, *reloadedSeat.RefundNote, "待原路退款")
+	queued, err := client.GroupBuyEvent.Query().
+		Where(groupbuyevent.SeatIDEQ(seat.ID), groupbuyevent.EventTypeEQ(groupBuyEventRefundQueued)).
+		Only(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "late_payment_after_round_timeout", queued.Metadata["reason"])
+	refunds, err := client.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(seat.ID)).Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, refunds)
 }
 
 func TestGroupBuyProviderRefundFailureCanRetry(t *testing.T) {

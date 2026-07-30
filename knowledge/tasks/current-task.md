@@ -1,17 +1,19 @@
 # 当前任务快照
 
-最后更新：2026-07-30 18:00 +08:00
+最后更新：2026-07-30 18:21 +08:00
 
 ## 背景
 
 - 用户要求检查上游 `v0.1.168` 与本地差异，并仅选择适合的兼容性行为合入本地。
 - S128 在隔离 worktree 完成 source-level QA 后，用户授权本地提交与普通 merge；推送、
   部署、容器更新和外部运行态验证仍不在范围内。
+- 随后近期提交复核确认 OpenAI 容量重试、团购退款、Grok 请求清洗和排行榜首屏守卫的
+  五项回归；S130 已完成最小修复与 source-level QA。
 
 ## 当前目标
 
-- 保持 S128 已验证的本地 merge，完成发布前只读复核；只有在用户明确授权后才推送
-  `origin/main`。
+- 保留 S130 的已验证本地修复，等待用户决定是否整理提交；没有推送、部署、容器或真实
+  支付渠道操作授权。
 
 ## 本次已完成
 
@@ -30,6 +32,9 @@
   `fbf4ea10e` 合入本地 `main`；未产生冲突。
 - S129 已校正 workflow 与 handoff 记录，使其区分本地合入与远端发布状态；未修改业务
   代码、测试、部署或容器配置。
+- S130 补齐 11 个 OpenAI failover 构造器的精确容量同账号重试限额；部分退款转人工复核，
+  超时释放后的迟到支付转 `refund_pending` 并写入退款排队事件；Grok 清理
+  `tools: null`/空数组下的 `tool_choice`；排行榜仅在数值门槛已加载时执行年龄拦截。
 
 ## 已确认事实
 
@@ -38,15 +43,15 @@
 - Redis 实例可通过 `127.0.0.1:6380` 访问；临时键 PING、TTL、GET、DEL 和 EXISTS
   清理均通过。默认 `127.0.0.1:6379` 未映射。
 - `outputs/` 未跟踪且未纳入任何提交；两条历史 stash 未查看、未应用、未删除。
+- S130 隔离 Go 回归、全仓生产构建/compile probe、前端路由 44/44 Vitest、前端 typecheck、
+  格式、diff、冲突标记与允许路径检查通过。
 
 ## 待验证点
 
-- 动作：发布前执行 `git fetch --prune origin`、核对 `origin/main...HEAD` 与工作区状态 ->
-  验证：远端仍可安全快进且仅保留预期 S128/S129 提交。
-- 动作：获得明确“推送”授权后执行 `git push origin main` -> 验证：远端 ref、
-  `origin/main` 与本地 `HEAD` 三方一致。
-- 动作：获得测试环境和认证授权后执行 S128 运行态 smoke -> 验证：OAuth mimic cache、
-  Anthropic ID/schema、GPT-5.6 `effort=max` 与 `CSon5` 显示的日志或端到端结果。
+- 动作：修复仓库既有服务/unit 测试漂移后重跑完整 Go 回归 -> 验证：`stringPtr`、billing
+  测试签名和 Grok runtime-block 测试不再阻断当前包。
+- 动作：获得测试环境和认证授权后验证部分退款、团购超时后迟到支付、容量重试和排行榜首屏 ->
+  验证：支付记录、退款队列、重试日志和路由行为与 S130 一致。
 
 ## 当前结论
 
@@ -54,14 +59,15 @@
   编译、格式与 Git 完整性检查已通过；`85439ff50` 已由 `fbf4ea10e` 合入本地 `main`。
 - `outputs/` 未跟踪且未纳入任何提交。没有推送、部署、容器更新或真实上游 OAuth、
   Anthropic、Gemini、Antigravity、数据库或认证态浏览器验证。
+- `PASS / source-level`：S130 的变更和回归证据已通过；正常服务/`unit` 测试二进制仍受
+  本轮未修改的陈旧测试源码阻断，真实外部运行态未验证。
 
 ## 下一步
 
-1. 执行发布前只读复核 -> 验证：fetch 后的远端关系、`git diff --check`、未合并索引和
-   允许提交范围全部通过。
-2. 等待明确推送授权 -> 验证：仅在用户指令后更新 `origin/main` 并核对三方 ref。
-3. 需要运行态交付时，另行授权并提供测试环境/认证 -> 验证：四个 S128 协议行为的日志、
-   响应和控制台显示。
+1. 用户如需提交，先审阅 S130 允许路径 diff -> 验证：仅包含本轮服务、测试、前端与
+   workflow/handoff 记录。
+2. 用户如需运行态交付，提供测试环境和认证授权 -> 验证：支付、退款、容量重试和首屏
+   路由的日志与持久化状态。
 
 ## 验证记录
 
@@ -75,3 +81,5 @@
   `git push origin main`：PASS；远端更新为 `86845f9be`。
 - S128 merge 后：`go test ./... -run '^$'`、`AccountStatusIndicator.spec.ts`（6/6）和
   前端 typecheck：PASS；`git diff --check`、`git show --check` 与未合并索引检查：PASS。
+- S130：隔离 Go 回归、`go build ./...`、`go test ./... -run '^$'`、路由 Vitest（44/44）、
+  `vue-tsc --noEmit`、格式、11 个 failover 构造器静态审计、diff 和允许路径检查：PASS。

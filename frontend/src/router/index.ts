@@ -1049,11 +1049,14 @@ router.beforeEach(async (to, _from, next) => {
     return
   }
 
-  if (to.meta.requiresLeaderboardAge && !hasLeaderboardAccountAge(
-    authStore.user?.created_at,
-    Date.now(),
-    appStore.cachedPublicSettings?.leaderboard_min_account_age_days,
-  )) {
+  const leaderboardMinimumAccountAgeDays = appStore.cachedPublicSettings?.leaderboard_min_account_age_days
+  if (to.meta.requiresLeaderboardAge &&
+    typeof leaderboardMinimumAccountAgeDays === 'number' &&
+    !hasLeaderboardAccountAge(
+      authStore.user?.created_at,
+      Date.now(),
+      leaderboardMinimumAccountAgeDays,
+    )) {
     next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
     return
   }

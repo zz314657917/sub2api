@@ -76,6 +76,7 @@ const (
 	groupBuyEventSharesReleased   = "shares_released"
 	groupBuyEventEntitlementSync  = "entitlement_synced"
 	groupBuyEventEntitlementBound = "entitlement_bound_key"
+	groupBuyEventRefundQueued     = "refund_queued"
 	groupBuyEventRefundProcessed  = "refund_processed"
 )
 
@@ -880,6 +881,34 @@ func (s *GroupBuyService) HandleGroupBuyOrderPaid(ctx context.Context, orderID i
 			return fmt.Errorf("commit idempotent group buy paid tx: %w", err)
 		}
 		return s.TryActivateRound(ctx, seat.RoundID)
+	}
+	if seat.Status == GroupBuySeatStatusReleased {
+		now := s.now()
+		note := "Token拼拼拼 已超时关闭，支付到账后待原路退款"
+		if err := tx.GroupBuySeat.UpdateOneID(seat.ID).
+			SetStatus(GroupBuySeatStatusRefundPending).
+			SetPaidAt(now).
+			SetRefundNote(note).
+			ClearRefundProcessedAt().
+			SetUpdatedAt(now).
+			Exec(txCtx); err != nil {
+			return fmt.Errorf("queue late group buy payment for refund: %w", err)
+		}
+		if err := s.createEventTxStrict(txCtx, tx.Client(), &groupBuyEventInput{
+			PlanID:    &seat.PlanID,
+			RoundID:   &seat.RoundID,
+			SeatID:    &seat.ID,
+			UserID:    &seat.UserID,
+			EventType: groupBuyEventRefundQueued,
+			Message:   "份额超时释放后支付到账，已进入退款处理",
+			Metadata:  map[string]any{"order_id": orderID, "share_count": seat.ShareCount, "reason": "late_payment_after_round_timeout"},
+		}); err != nil {
+			return fmt.Errorf("record late group buy payment refund event: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("commit late group buy payment refund tx: %w", err)
+		}
+		return nil
 	}
 	if seat.Status != GroupBuySeatStatusLocked {
 		return ErrGroupBuyInvalidStatus.WithMetadata(map[string]string{"seat_status": seat.Status})
@@ -2046,11 +2075,14 @@ func (s *GroupBuyService) processSeatRefund(ctx context.Context, plan *dbent.Gro
 		case GroupBuyRefundStatusNeedsReview:
 			return GroupBuyRefundStatusNeedsReview, fmt.Errorf("refund batch %d requires manual review", seat.ID)
 		case GroupBuyRefundStatusPendingProvider:
-			if order != nil && (order.Status == OrderStatusRefunded || order.Status == OrderStatusPartiallyRefunded) {
+			if order != nil && order.Status == OrderStatusRefunded {
 				if err := s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusSucceeded, GroupBuySeatStatusRefunded, "Token拼拼拼 原路退款已完成"); err != nil {
 					return GroupBuyRefundStatusFailed, err
 				}
 				return GroupBuyRefundStatusSucceeded, nil
+			}
+			if order != nil && order.Status == OrderStatusPartiallyRefunded {
+				return s.quarantineGroupBuyRefund(ctx, seat.ID, "支付渠道仅部分退款，禁止将团购退款结案")
 			}
 			if order == nil || refundSvc == nil || !refundSvc.hasAuditLog(ctx, order.ID, "REFUND_PENDING") {
 				return s.quarantineGroupBuyRefund(ctx, seat.ID, "历史原路退款缺少支付渠道审计证据")
@@ -2243,11 +2275,14 @@ func (s *GroupBuyService) processProviderGroupBuyRefund(ctx context.Context, pla
 	if order == nil {
 		return GroupBuyRefundStatusFailed, fmt.Errorf("provider refund requires a payment order")
 	}
-	if order.Status == OrderStatusRefunded || order.Status == OrderStatusPartiallyRefunded {
+	if order.Status == OrderStatusRefunded {
 		if err := s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusSucceeded, GroupBuySeatStatusRefunded, "Token拼拼拼 原路退款已完成"); err != nil {
 			return GroupBuyRefundStatusFailed, err
 		}
 		return GroupBuyRefundStatusSucceeded, nil
+	}
+	if order.Status == OrderStatusPartiallyRefunded {
+		return s.quarantineGroupBuyRefund(ctx, seat.ID, "支付渠道仅部分退款，禁止将团购退款结案")
 	}
 	if order.Status == OrderStatusRefundPending {
 		if !refundSvc.hasAuditLog(ctx, order.ID, "REFUND_PENDING") {
@@ -2288,7 +2323,10 @@ func (s *GroupBuyService) processProviderGroupBuyRefund(ctx context.Context, pla
 	if err != nil {
 		return GroupBuyRefundStatusFailed, err
 	}
-	if refundResult != nil && refundResult.Success || currentOrder.Status == OrderStatusRefunded || currentOrder.Status == OrderStatusPartiallyRefunded {
+	if currentOrder.Status == OrderStatusPartiallyRefunded {
+		return s.quarantineGroupBuyRefund(ctx, seat.ID, "支付渠道仅部分退款，禁止将团购退款结案")
+	}
+	if refundResult != nil && refundResult.Success || currentOrder.Status == OrderStatusRefunded {
 		if err := s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusSucceeded, GroupBuySeatStatusRefunded, "Token拼拼拼 原路退款已完成"); err != nil {
 			return GroupBuyRefundStatusFailed, err
 		}
@@ -2487,8 +2525,11 @@ func (s *GroupBuyService) reconcilePendingProviderRefund(ctx context.Context, re
 		return true, fmt.Errorf("pending provider refund %d has no order", refund.ID)
 	}
 	switch order.Status {
-	case OrderStatusRefunded, OrderStatusPartiallyRefunded:
+	case OrderStatusRefunded:
 		return true, s.syncGroupBuyRefundState(ctx, seatID, GroupBuyRefundStatusSucceeded, GroupBuySeatStatusRefunded, "Token拼拼拼 原路退款已完成")
+	case OrderStatusPartiallyRefunded:
+		_, quarantineErr := s.quarantineGroupBuyRefund(ctx, seatID, "支付渠道仅部分退款，禁止将团购退款结案")
+		return true, quarantineErr
 	case OrderStatusRefundFailed:
 		_ = s.syncGroupBuyRefundState(ctx, seatID, GroupBuyRefundStatusFailed, GroupBuySeatStatusRefundPending, "Token拼拼拼 原路退款失败，可重新处理")
 		return true, fmt.Errorf("provider refund failed for order %d", order.ID)
@@ -2510,8 +2551,11 @@ func (s *GroupBuyService) reconcilePendingProviderRefund(ctx context.Context, re
 			return false, err
 		}
 		switch current.Status {
-		case OrderStatusRefunded, OrderStatusPartiallyRefunded:
+		case OrderStatusRefunded:
 			return true, s.syncGroupBuyRefundState(ctx, seatID, GroupBuyRefundStatusSucceeded, GroupBuySeatStatusRefunded, "Token拼拼拼 原路退款已完成")
+		case OrderStatusPartiallyRefunded:
+			_, quarantineErr := s.quarantineGroupBuyRefund(ctx, seatID, "支付渠道仅部分退款，禁止将团购退款结案")
+			return true, quarantineErr
 		case OrderStatusRefundFailed:
 			_ = s.syncGroupBuyRefundState(ctx, seatID, GroupBuyRefundStatusFailed, GroupBuySeatStatusRefundPending, "Token拼拼拼 原路退款失败，可重新处理")
 			return true, fmt.Errorf("provider refund failed for order %d", order.ID)

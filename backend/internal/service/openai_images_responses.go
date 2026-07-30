@@ -1805,10 +1805,12 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesOAuth(
 				Message:            upstreamMsg,
 			})
 			s.handleFailoverSideEffects(upstreamCtx, resp, account, respBody)
+			capacityRetryLimit := openAIModelCapacityRetryLimit(upstreamMsg, respBody)
 			return nil, &UpstreamFailoverError{
 				StatusCode:             resp.StatusCode,
 				ResponseBody:           respBody,
-				RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+				RetryableOnSameAccount: capacityRetryLimit > 0 || (account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)),
+				SameAccountRetryLimit:  capacityRetryLimit,
 			}
 		}
 		return s.handleOpenAIImagesErrorResponse(upstreamCtx, resp, c, account, requestModel)
@@ -1967,17 +1969,20 @@ func (s *OpenAIGatewayService) forwardSplitOpenAIImagesOAuth(
 					Message:            upstreamMsg,
 				})
 				s.handleFailoverSideEffects(ctx, resp, account, respBody)
+				capacityRetryLimit := openAIModelCapacityRetryLimit(upstreamMsg, respBody)
 				if len(responseBodies) > 0 {
 					return partialResult(), &UpstreamFailoverError{
 						StatusCode:             resp.StatusCode,
 						ResponseBody:           respBody,
-						RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+						RetryableOnSameAccount: capacityRetryLimit > 0 || (account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)),
+						SameAccountRetryLimit:  capacityRetryLimit,
 					}
 				}
 				return nil, &UpstreamFailoverError{
 					StatusCode:             resp.StatusCode,
 					ResponseBody:           respBody,
-					RetryableOnSameAccount: account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode),
+					RetryableOnSameAccount: capacityRetryLimit > 0 || (account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)),
+					SameAccountRetryLimit:  capacityRetryLimit,
 				}
 			}
 			result, err := s.handleOpenAIImagesErrorResponse(ctx, resp, c, account, requestModel)

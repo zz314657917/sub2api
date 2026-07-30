@@ -1,12 +1,12 @@
 ---
-phase: contract-approved
+phase: done
 current_sprint: recent-commit-regressions-s130
 total_sprints: 130
-pending_action: Implement only the approved S130 recent-commit regression fixes, then perform focused source-level QA; deployment, container, payment-provider, commit, and push work remain unauthorized
+pending_action: S130 source-level QA passed; retain the bounded patch for review and await explicit authorization before commit, push, deployment, container, or payment-provider runtime work
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-30 18:15 +08:00
+last_verified: 2026-07-30 18:21 +08:00
 ---
 
 # S128 Integrated Sprint
@@ -62,6 +62,13 @@ last_verified: 2026-07-30 18:15 +08:00
   and account-age helpers. It excludes schema/migration changes, real payment
   or upstream calls, deployment, containers, Git publication, and `outputs/`.
 - Contract: `docs/workflow/tasks/recent-commit-regressions-s130.md`.
+- Final Evaluator: PASS/source-only. Isolated Go regressions, repository build
+  and compile probe, frontend Vitest/typecheck, formatting, static failover,
+  diff, conflict-marker, and allowed-path checks pass.
+- QA report: `docs/workflow/qa-reports/recent-commit-regressions-s130-qa.md`.
+- The normal service test suite and unit-tag Grok suite retain unrelated stale
+  test-source compilation failures; no provider, upstream, browser, deployment,
+  container, commit, or push action was performed.
 
 # S127 Current Sprint
 

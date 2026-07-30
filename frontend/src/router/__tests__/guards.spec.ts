@@ -123,11 +123,13 @@ function simulateGuard(
     return '/dashboard'
   }
 
-  if (toMeta.requiresLeaderboardAge && !hasLeaderboardAccountAge(
-    authState.createdAt,
-    Date.now(),
-    authState.minimumAccountAgeDays,
-  )) {
+  if (toMeta.requiresLeaderboardAge &&
+    typeof authState.minimumAccountAgeDays === 'number' &&
+    !hasLeaderboardAccountAge(
+      authState.createdAt,
+      Date.now(),
+      authState.minimumAccountAgeDays,
+    )) {
     return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
   }
 
@@ -268,6 +270,7 @@ describe('路由守卫逻辑', () => {
       const redirect = simulateGuard('/leaderboard', { requiresLeaderboardAge: true }, {
         ...authState,
         createdAt: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString(),
+        minimumAccountAgeDays: 7,
       })
       expect(redirect).toBe('/dashboard')
     })
@@ -285,6 +288,23 @@ describe('路由守卫逻辑', () => {
         ...authState,
         createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
         minimumAccountAgeDays: 2,
+      })
+      expect(redirect).toBeNull()
+    })
+
+    it('keeps an explicitly loaded zero-day boundary effective', () => {
+      const redirect = simulateGuard('/leaderboard', { requiresLeaderboardAge: true }, {
+        ...authState,
+        createdAt: new Date().toISOString(),
+        minimumAccountAgeDays: 0,
+      })
+      expect(redirect).toBeNull()
+    })
+
+    it('allows leaderboard navigation while the public setting is not loaded', () => {
+      const redirect = simulateGuard('/leaderboard', { requiresLeaderboardAge: true }, {
+        ...authState,
+        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
       })
       expect(redirect).toBeNull()
     })
