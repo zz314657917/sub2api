@@ -196,6 +196,9 @@ func RegisterGatewayRoutes(
 			}
 			h.OpenAIGateway.Images(c)
 		})
+		gateway.POST("/images/generations/async", h.AsyncImage.Submit)
+		gateway.POST("/images/edits/async", h.AsyncImage.Submit)
+		gateway.GET("/images/tasks/:task_id", h.AsyncImage.Get)
 		gateway.POST("/videos/generations", func(c *gin.Context) {
 			if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/videos/generations", false) {
 				return
@@ -335,6 +338,9 @@ func RegisterGatewayRoutes(
 		}
 		h.OpenAIGateway.Images(c)
 	})
+	r.POST("/images/generations/async", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, h.AsyncImage.Submit)
+	r.POST("/images/edits/async", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, h.AsyncImage.Submit)
+	r.GET("/images/tasks/:task_id", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, h.AsyncImage.Get)
 	r.POST("/videos/generations", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/videos/generations", false) {
 			return

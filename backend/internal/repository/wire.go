@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 
@@ -128,6 +129,7 @@ var ProviderSet = wire.NewSet(
 	NewStudioBridgeStore,
 	NewUpdateCache,
 	NewGeminiTokenCache,
+	NewImageTaskStore,
 	ProvideSchedulerCache,
 	NewSchedulerOutboxRepository,
 	NewProxyLatencyCache,
@@ -143,6 +145,7 @@ var ProviderSet = wire.NewSet(
 	// Backup infrastructure
 	NewPgDumper,
 	NewS3BackupStoreFactory,
+	ProvideImageStorageFactory,
 
 	// HTTP service ports (DI Strategy A: return interface directly)
 	NewTurnstileVerifier,
@@ -173,6 +176,14 @@ var ProviderSet = wire.NewSet(
 func ProvideEnt(cfg *config.Config) (*ent.Client, error) {
 	client, _, err := InitEnt(cfg)
 	return client, err
+}
+
+// ProvideImageStorageFactory keeps S3 construction at the repository edge
+// while allowing the service layer to rebuild an uploader after admin changes.
+func ProvideImageStorageFactory() service.ImageStorageFactory {
+	return func(ctx context.Context, cfg *config.ImageStorageConfig) (service.ImageStorage, error) {
+		return NewS3ImageStorage(ctx, cfg)
+	}
 }
 
 // ProvideSQLDB 从 Ent 客户端提取底层的 *sql.DB 连接。

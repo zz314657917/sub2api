@@ -25,12 +25,15 @@ func newGatewayRoutesTestRouter(platforms ...string) *gin.Engine {
 	if len(platforms) > 0 && strings.TrimSpace(platforms[0]) != "" {
 		platform = strings.TrimSpace(platforms[0])
 	}
+	openAIGatewayHandler := &handler.OpenAIGatewayHandler{}
+	asyncImageHandler := handler.NewAsyncImageHandler(service.NewImageTaskService(nil), openAIGatewayHandler)
 
 	RegisterGatewayRoutes(
 		router,
 		&handler.Handlers{
 			Gateway:       &handler.GatewayHandler{},
-			OpenAIGateway: &handler.OpenAIGatewayHandler{},
+			OpenAIGateway: openAIGatewayHandler,
+			AsyncImage:    asyncImageHandler,
 		},
 		servermiddleware.APIKeyAuthMiddleware(func(c *gin.Context) {
 			groupID := int64(1)
@@ -95,6 +98,24 @@ func TestGatewayRoutesOpenAIImagesPathsAreRegistered(t *testing.T) {
 
 		router.ServeHTTP(w, req)
 		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should hit OpenAI images handler", path)
+	}
+}
+
+func TestGatewayRoutesAsyncImagePathsAreRegistered(t *testing.T) {
+	router := newGatewayRoutesTestRouter()
+	routes := make(map[string]bool)
+	for _, route := range router.Routes() {
+		routes[route.Method+" "+route.Path] = true
+	}
+	for _, route := range []string{
+		"POST /v1/images/generations/async",
+		"POST /v1/images/edits/async",
+		"GET /v1/images/tasks/:task_id",
+		"POST /images/generations/async",
+		"POST /images/edits/async",
+		"GET /images/tasks/:task_id",
+	} {
+		require.True(t, routes[route], "missing route %s", route)
 	}
 }
 

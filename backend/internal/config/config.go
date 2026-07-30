@@ -92,6 +92,7 @@ type Config struct {
 	Gemini                  GeminiConfig                  `mapstructure:"gemini"`
 	Update                  UpdateConfig                  `mapstructure:"update"`
 	Idempotency             IdempotencyConfig             `mapstructure:"idempotency"`
+	ImageStorage            ImageStorageConfig            `mapstructure:"image_storage"`
 }
 
 type LogConfig struct {
@@ -1280,6 +1281,44 @@ type ImageCreatorObjectStorageConfig struct {
 	ForcePathStyle  bool   `mapstructure:"force_path_style"`
 }
 
+// ImageStorageConfig configures S3-compatible storage for asynchronous image
+// task results. It is independent from the user-console image_creator storage.
+type ImageStorageConfig struct {
+	Enabled         bool   `mapstructure:"enabled"`
+	Endpoint        string `mapstructure:"endpoint"`
+	Region          string `mapstructure:"region"`
+	Bucket          string `mapstructure:"bucket"`
+	AccessKeyID     string `mapstructure:"access_key_id"`
+	SecretAccessKey string `mapstructure:"secret_access_key"`
+	Prefix          string `mapstructure:"prefix"`
+	ForcePathStyle  bool   `mapstructure:"force_path_style"`
+	PublicBaseURL   string `mapstructure:"public_base_url"`
+	PresignExpiry   int    `mapstructure:"presign_expiry_hours"`
+	MaxDownloadByte int64  `mapstructure:"max_download_bytes"`
+}
+
+func (c ImageStorageConfig) IsConfigured() bool {
+	return strings.TrimSpace(c.Bucket) != "" && strings.TrimSpace(c.AccessKeyID) != "" && strings.TrimSpace(c.SecretAccessKey) != ""
+}
+
+func (c ImageStorageConfig) Active() bool {
+	return c.Enabled && c.IsConfigured()
+}
+
+func (c ImageStorageConfig) MissingCredentialKeys() []string {
+	missing := make([]string, 0, 3)
+	if strings.TrimSpace(c.Bucket) == "" {
+		missing = append(missing, "bucket")
+	}
+	if strings.TrimSpace(c.AccessKeyID) == "" {
+		missing = append(missing, "access_key_id")
+	}
+	if strings.TrimSpace(c.SecretAccessKey) == "" {
+		missing = append(missing, "secret_access_key")
+	}
+	return missing
+}
+
 func NormalizeRunMode(value string) string {
 	normalized := strings.ToLower(strings.TrimSpace(value))
 	switch normalized {
@@ -1739,6 +1778,20 @@ func setDefaults() {
 	viper.SetDefault("image_creator.cleanup_batch_size", 100)
 	viper.SetDefault("image_creator.download_bytes_per_second", 262144)
 	viper.SetDefault("image_creator.local_gateway_base_url", "")
+
+	// Register every nested key so IMAGE_STORAGE_* environment variables are
+	// reachable through Viper's automatic environment lookup.
+	viper.SetDefault("image_storage.enabled", false)
+	viper.SetDefault("image_storage.endpoint", "")
+	viper.SetDefault("image_storage.region", "auto")
+	viper.SetDefault("image_storage.bucket", "")
+	viper.SetDefault("image_storage.access_key_id", "")
+	viper.SetDefault("image_storage.secret_access_key", "")
+	viper.SetDefault("image_storage.prefix", "images/")
+	viper.SetDefault("image_storage.force_path_style", false)
+	viper.SetDefault("image_storage.public_base_url", "")
+	viper.SetDefault("image_storage.presign_expiry_hours", 24)
+	viper.SetDefault("image_storage.max_download_bytes", int64(32<<20))
 
 	// Idempotency
 	viper.SetDefault("idempotency.observe_only", true)

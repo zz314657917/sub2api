@@ -47,6 +47,31 @@ primary worktree and deployment/container paths untouched -> PASS
 - 未发现明确问题。
 - 本轮修复了 refresh 绑定开关、审计 body 读错恢复、step-up/clear 依赖缺失
   fail-closed、异步 writer barrier、失败批次保留重试，以及清空留痕事务原子性。
+- 整合 S123 后发现图片结果存储配置可写入对象存储凭证却缺少 step-up；已在服务端
+  路由和 BackupView 同步补齐，并用路由回归测试锁定。
+
+## Post-Integration QA (2026-07-29)
+- Integration worktree: `codex/integrate-s121-audit-main`, based on
+  `origin/main@9c875739` before the S121 commits.
+- Commands passed:
+```text
+go test ./internal/server/routes -run "Backup.*StepUp" -count=1 -> PASS
+go test ./internal/server/middleware -run "Audit|SessionBinding|StepUp" -count=1 -> PASS
+go test ./internal/service -run "Audit|SessionBinding|StepUp|Auth" -count=1 -> PASS
+go test ./internal/handler/admin -run "Audit|StepUp|Settings" -count=1 -> PASS
+go mod verify -> PASS
+go test ./... -run "^$" -> PASS
+corepack.cmd pnpm exec vitest run src/composables/__tests__/useStepUp.spec.ts -> PASS, 9/9
+corepack.cmd pnpm run typecheck -> PASS
+corepack.cmd pnpm run build -> PASS, 1099 modules
+git diff --check; git diff --cached --check -> PASS
+conflict-marker, denied-path, and unmerged-index scans -> PASS
+```
+- Runtime smoke: the local `sub2api-redis` container completed `PING`, `SET EX`,
+  `TTL`, `GET`, exact `DEL`, and post-delete `EXISTS` cleanup for a unique key.
+- Remaining unverified: real PostgreSQL migration and persistence, authenticated
+  administrator TOTP/browser interaction, real S3, deployment, and container
+  replacement.
 
 ## Bug Owner Recommendation
 `codex-planner`

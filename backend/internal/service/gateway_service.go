@@ -10304,8 +10304,8 @@ func (s *GatewayService) validateUpstreamBaseURL(raw string) (string, error) {
 	return normalized, nil
 }
 
-// GetAvailableModels returns the list of models available for a group
-// It aggregates model_mapping keys from all schedulable accounts in the group
+// GetAvailableModels returns the list of models available for a group.
+// It aggregates account model mappings and concrete channel-supported models.
 func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64, platform string) []string {
 	cacheKey := modelsListCacheKey(groupID, platform)
 	if s.modelsListCache != nil {
@@ -10342,22 +10342,23 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 		accounts = filtered
 	}
 
-	// Collect unique models from all accounts
+	// Collect unique models from all accounts and the active channel.
 	modelSet := make(map[string]struct{})
-	hasAnyMapping := false
 
 	for _, acc := range accounts {
 		mapping := acc.GetModelMapping()
 		if len(mapping) > 0 {
-			hasAnyMapping = true
 			for model := range mapping {
 				modelSet[model] = struct{}{}
 			}
 		}
 	}
+	if len(accounts) > 0 {
+		s.addChannelSupportedModels(ctx, groupID, platform, modelSet)
+	}
 
-	// If no account has model_mapping, return nil (use default)
-	if !hasAnyMapping {
+	// If neither source provides explicit models, return nil (use defaults).
+	if len(modelSet) == 0 {
 		if s.modelsListCache != nil {
 			s.modelsListCache.Set(cacheKey, []string(nil), s.modelsListCacheTTL)
 			modelsListCacheStoreTotal.Add(1)
@@ -10377,6 +10378,27 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 		modelsListCacheStoreTotal.Add(1)
 	}
 	return cloneStringSlice(models)
+}
+
+func (s *GatewayService) addChannelSupportedModels(ctx context.Context, groupID *int64, platform string, modelSet map[string]struct{}) {
+	if groupID == nil || s.channelService == nil {
+		return
+	}
+	channel, err := s.channelService.GetChannelForGroup(ctx, *groupID)
+	if err != nil || channel == nil {
+		return
+	}
+	normalizedPlatform := strings.TrimSpace(platform)
+	for _, supported := range channel.SupportedModels() {
+		if normalizedPlatform != "" && strings.TrimSpace(supported.Platform) != normalizedPlatform {
+			continue
+		}
+		model := strings.TrimSpace(supported.Name)
+		if model == "" || strings.Contains(model, "*") {
+			continue
+		}
+		modelSet[model] = struct{}{}
+	}
 }
 
 func (s *GatewayService) InvalidateAvailableModelsCache(groupID *int64, platform string) {

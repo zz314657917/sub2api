@@ -28,7 +28,7 @@ const (
 	// 格式: concurrency:user:{userID}
 	userSlotKeyPrefix = "concurrency:user:"
 	// 格式: concurrency:api_key:{apiKeyID}
-	apiKeySlotKeyPrefix = "concurrency:api_key:"
+	apiKeySlotKeyPrefix      = "concurrency:api_key:"
 	liveAccountSlotKeyPrefix = "concurrency:live:account:"
 	liveUserSlotKeyPrefix    = "concurrency:live:user:"
 	liveAPIKeySlotKeyPrefix  = "concurrency:live:api_key:"
@@ -286,9 +286,13 @@ func apiKeySlotKey(apiKeyID int64) string {
 	return fmt.Sprintf("%s%d", apiKeySlotKeyPrefix, apiKeyID)
 }
 
-func liveAccountSlotKey(accountID int64) string { return fmt.Sprintf("%s%d", liveAccountSlotKeyPrefix, accountID) }
-func liveUserSlotKey(userID int64) string       { return fmt.Sprintf("%s%d", liveUserSlotKeyPrefix, userID) }
-func liveAPIKeySlotKey(apiKeyID int64) string   { return fmt.Sprintf("%s%d", liveAPIKeySlotKeyPrefix, apiKeyID) }
+func liveAccountSlotKey(accountID int64) string {
+	return fmt.Sprintf("%s%d", liveAccountSlotKeyPrefix, accountID)
+}
+func liveUserSlotKey(userID int64) string { return fmt.Sprintf("%s%d", liveUserSlotKeyPrefix, userID) }
+func liveAPIKeySlotKey(apiKeyID int64) string {
+	return fmt.Sprintf("%s%d", liveAPIKeySlotKeyPrefix, apiKeyID)
+}
 
 var acquireLiveLeaseScript = redis.NewScript(`
 local account = KEYS[1]
@@ -438,19 +442,25 @@ func (c *concurrencyCache) ReleaseAPIKeySlot(ctx context.Context, apiKeyID int64
 }
 
 func (c *concurrencyCache) AcquireLiveLease(ctx context.Context, accountID int64, accountMax int, userID int64, userMax int, apiKeyID int64, leaseID string, _ bool) (bool, error) {
-	if c == nil || c.rdb == nil || leaseID == "" { return false, nil }
+	if c == nil || c.rdb == nil || leaseID == "" {
+		return false, nil
+	}
 	value, err := acquireLiveLeaseScript.Run(ctx, c.rdb, []string{liveAccountSlotKey(accountID), liveUserSlotKey(userID), liveAPIKeySlotKey(apiKeyID)}, accountMax, userMax, liveLeaseTTLSeconds, leaseID).Int()
 	return value == 1, err
 }
 
 func (c *concurrencyCache) RefreshLiveLease(ctx context.Context, accountID, userID, apiKeyID int64, leaseID string) (bool, error) {
-	if c == nil || c.rdb == nil || leaseID == "" { return false, nil }
+	if c == nil || c.rdb == nil || leaseID == "" {
+		return false, nil
+	}
 	value, err := refreshLiveLeaseScript.Run(ctx, c.rdb, []string{liveAccountSlotKey(accountID), liveUserSlotKey(userID), liveAPIKeySlotKey(apiKeyID)}, liveLeaseTTLSeconds, leaseID).Int()
 	return value == 1, err
 }
 
 func (c *concurrencyCache) ReleaseLiveLease(ctx context.Context, accountID, userID, apiKeyID int64, leaseID string) error {
-	if c == nil || c.rdb == nil || leaseID == "" { return nil }
+	if c == nil || c.rdb == nil || leaseID == "" {
+		return nil
+	}
 	pipe := c.rdb.TxPipeline()
 	pipe.ZRem(ctx, liveAccountSlotKey(accountID), leaseID)
 	pipe.ZRem(ctx, liveUserSlotKey(userID), leaseID)

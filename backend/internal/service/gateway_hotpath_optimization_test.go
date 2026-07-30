@@ -580,6 +580,72 @@ func TestGetAvailableModels_ErrorAndGlobalListBranches(t *testing.T) {
 	require.Equal(t, int64(1), okRepo.listAllCalls.Load())
 }
 
+func TestGetAvailableModels_IncludesChannelSupportedModels(t *testing.T) {
+	groupID := int64(19)
+	channelSvc := &ChannelService{}
+	channelSvc.cache.Store(&channelCache{
+		channelByGroupID: map[int64]*Channel{
+			groupID: {
+				ID:     7,
+				Status: StatusActive,
+				ModelPricing: []ChannelModelPricing{
+					{Platform: PlatformOpenAI, Models: []string{"kimi-k3", "openai-*", "  "}},
+					{Platform: PlatformGemini, Models: []string{"gemini-2.5-pro"}},
+				},
+			},
+		},
+		loadedAt: time.Now(),
+	})
+
+	t.Run("union with account mapping", func(t *testing.T) {
+		repo := &modelsListAccountRepoStub{
+			byGroup: map[int64][]Account{
+				groupID: {
+					{
+						ID:       1,
+						Platform: PlatformOpenAI,
+						Credentials: map[string]any{
+							"model_mapping": map[string]any{"gpt-5.4": "gpt-5.4"},
+						},
+					},
+				},
+			},
+		}
+		svc := &GatewayService{accountRepo: repo, channelService: channelSvc}
+
+		models := svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI)
+		require.Equal(t, []string{"gpt-5.4", "kimi-k3"}, models)
+	})
+
+	t.Run("pricing only", func(t *testing.T) {
+		repo := &modelsListAccountRepoStub{
+			byGroup: map[int64][]Account{
+				groupID: {{ID: 2, Platform: PlatformOpenAI}},
+			},
+		}
+		svc := &GatewayService{accountRepo: repo, channelService: channelSvc}
+
+		models := svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI)
+		require.Equal(t, []string{"kimi-k3"}, models)
+
+		catalog := svc.GetAvailableModelCatalog(context.Background(), &groupID, PlatformOpenAI)
+		require.Equal(t, []string{"kimi-k3"}, catalog.ChatModels)
+		require.Empty(t, catalog.ImageModels)
+		require.Empty(t, catalog.VideoModels)
+	})
+
+	t.Run("requires schedulable account for platform", func(t *testing.T) {
+		repo := &modelsListAccountRepoStub{
+			byGroup: map[int64][]Account{
+				groupID: {{ID: 3, Platform: PlatformGemini}},
+			},
+		}
+		svc := &GatewayService{accountRepo: repo, channelService: channelSvc}
+
+		require.Nil(t, svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI))
+	})
+}
+
 func TestGatewayHotpathHelpers_CacheTTLAndStickyContext(t *testing.T) {
 	t.Run("resolve_user_group_rate_cache_ttl", func(t *testing.T) {
 		require.Equal(t, defaultUserGroupRateCacheTTL, resolveUserGroupRateCacheTTL(nil))
