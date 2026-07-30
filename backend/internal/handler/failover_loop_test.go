@@ -40,6 +40,12 @@ func newTestFailoverErr(statusCode int, retryable, forceBilling bool) *service.U
 	}
 }
 
+func TestSameAccountRetryLimit(t *testing.T) {
+	require.Equal(t, maxSameAccountRetries, sameAccountRetryLimit(nil, maxSameAccountRetries))
+	require.Equal(t, maxSameAccountRetries, sameAccountRetryLimit(&service.UpstreamFailoverError{}, maxSameAccountRetries))
+	require.Equal(t, 5, sameAccountRetryLimit(&service.UpstreamFailoverError{SameAccountRetryLimit: 5}, maxSameAccountRetries))
+}
+
 // ---------------------------------------------------------------------------
 // NewFailoverState 测试
 // ---------------------------------------------------------------------------
@@ -363,6 +369,25 @@ func TestHandleFailoverError_SameAccountRetry(t *testing.T) {
 		require.Len(t, mock.calls, 1)
 		require.Equal(t, int64(100), mock.calls[0].accountID)
 		require.Equal(t, err, mock.calls[0].failoverErr)
+	})
+
+	t.Run("显式五次上限在第六次失败后切换账号", func(t *testing.T) {
+		mock := &mockTempUnscheduler{}
+		fs := NewFailoverState(3, false)
+		err := newTestFailoverErr(400, true, false)
+		err.SameAccountRetryLimit = 5
+
+		for i := 1; i <= 5; i++ {
+			action := fs.HandleFailoverError(context.Background(), mock, 100, "openai", err)
+			require.Equal(t, FailoverContinue, action)
+			require.Equal(t, i, fs.SameAccountRetryCount[100])
+			require.Zero(t, fs.SwitchCount)
+		}
+
+		action := fs.HandleFailoverError(context.Background(), mock, 100, "openai", err)
+		require.Equal(t, FailoverContinue, action)
+		require.Equal(t, 1, fs.SwitchCount)
+		require.Len(t, mock.calls, 1)
 	})
 
 	t.Run("不同账号独立跟踪重试次数", func(t *testing.T) {

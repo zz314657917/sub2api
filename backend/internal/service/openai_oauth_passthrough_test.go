@@ -795,6 +795,7 @@ func TestOpenAIGatewayService_OpenAIPassthrough_Capacity400RetriesBeforeFailover
 			require.ErrorAs(t, err, &failoverErr)
 			require.Equal(t, http.StatusBadRequest, failoverErr.StatusCode)
 			require.True(t, failoverErr.RetryableOnSameAccount)
+			require.Equal(t, 5, failoverErr.SameAccountRetryLimit)
 			require.Contains(t, string(failoverErr.ResponseBody), "Selected model is at capacity")
 			require.False(t, c.Writer.Written(), "capacity passthrough should return failover before writing the client response")
 			require.Empty(t, rec.Body.String())
@@ -925,6 +926,7 @@ func TestOpenAIGatewayService_OpenAIPassthrough_429And529TriggerFailover(t *test
 			require.ErrorAs(t, err, &failoverErr)
 			require.Equal(t, tc.statusCode, failoverErr.StatusCode)
 			require.False(t, failoverErr.RetryableOnSameAccount, "existing passthrough 429/529 failover should not gain capacity-only same-account retries")
+			require.Zero(t, failoverErr.SameAccountRetryLimit, "existing passthrough 429/529 failover must retain the handler fallback retry limit")
 			require.False(t, c.Writer.Written(), "429/529 passthrough 应返回 failover 错误给上层换号，而不是直接向客户端写响应")
 
 			v, ok := c.Get(OpsUpstreamErrorsKey)

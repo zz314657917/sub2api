@@ -419,6 +419,7 @@ func TestOpenAIGatewayService_Forward_TransientProcessingErrorTriggersFailover(t
 	require.ErrorAs(t, err, &failoverErr)
 	require.Equal(t, http.StatusBadRequest, failoverErr.StatusCode)
 	require.False(t, failoverErr.RetryableOnSameAccount, "generic transient 400 should fail over accounts without retrying a non-pool account")
+	require.Zero(t, failoverErr.SameAccountRetryLimit, "generic transient 400 must retain the handler fallback retry limit")
 	require.Contains(t, string(failoverErr.ResponseBody), "An error occurred while processing your request")
 	require.False(t, c.Writer.Written(), "service 层应返回 failover 错误给上层换号，而不是直接向客户端写响应")
 }
@@ -470,6 +471,7 @@ func TestOpenAIGatewayService_Forward_ModelCapacityErrorTriggersFailoverAndSameA
 			require.ErrorAs(t, err, &failoverErr)
 			require.Equal(t, http.StatusBadRequest, failoverErr.StatusCode)
 			require.True(t, failoverErr.RetryableOnSameAccount)
+			require.Equal(t, 5, failoverErr.SameAccountRetryLimit)
 			require.Contains(t, string(failoverErr.ResponseBody), "Selected model is at capacity")
 			require.False(t, c.Writer.Written(), "service should return capacity failover before writing the client response")
 		})

@@ -447,7 +447,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
 					// 池模式：同账号重试
 					if failoverErr.RetryableOnSameAccount {
-						retryLimit := account.GetPoolModeRetryCount()
+						retryLimit := sameAccountRetryLimit(failoverErr, account.GetPoolModeRetryCount())
 						if sameAccountRetryCount[account.ID] < retryLimit {
 							sameAccountRetryCount[account.ID]++
 							reqLog.Warn("openai.pool_mode_same_account_retry",
@@ -934,7 +934,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
 					// 池模式：同账号重试
 					if failoverErr.RetryableOnSameAccount {
-						retryLimit := account.GetPoolModeRetryCount()
+						retryLimit := sameAccountRetryLimit(failoverErr, account.GetPoolModeRetryCount())
 						if sameAccountRetryCount[account.ID] < retryLimit {
 							sameAccountRetryCount[account.ID]++
 							reqLog.Warn("openai_messages.pool_mode_same_account_retry",

@@ -1174,6 +1174,8 @@ func isOpenAIInstructionsRequiredError(upstreamStatusCode int, upstreamMsg strin
 	return false
 }
 
+const openAIModelCapacitySameAccountRetryLimit = 5
+
 func isOpenAIModelCapacityError(upstreamMsg string, upstreamBody []byte) bool {
 	match := func(text string) bool {
 		return strings.Contains(strings.ToLower(strings.TrimSpace(text)), "selected model is at capacity")
@@ -1193,6 +1195,13 @@ func isOpenAIModelCapacityError(upstreamMsg string, upstreamBody []byte) bool {
 		}
 	}
 	return false
+}
+
+func openAIModelCapacityRetryLimit(upstreamMsg string, upstreamBody []byte) int {
+	if isOpenAIModelCapacityError(upstreamMsg, upstreamBody) {
+		return openAIModelCapacitySameAccountRetryLimit
+	}
+	return 0
 }
 
 func isOpenAITransientProcessingError(upstreamStatusCode int, upstreamMsg string, upstreamBody []byte) bool {
@@ -3390,11 +3399,13 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				})
 
 				s.handleFailoverSideEffects(ctx, resp, account, respBody, upstreamModel)
+				capacityRetryLimit := openAIModelCapacityRetryLimit(upstreamMsg, respBody)
 				return nil, &UpstreamFailoverError{
 					StatusCode:   resp.StatusCode,
 					ResponseBody: respBody,
-					RetryableOnSameAccount: isOpenAIModelCapacityError(upstreamMsg, respBody) ||
+					RetryableOnSameAccount: capacityRetryLimit > 0 ||
 						(account.IsPoolMode() && (account.IsPoolModeRetryableStatus(resp.StatusCode) || isOpenAITransientProcessingError(resp.StatusCode, upstreamMsg, respBody))),
+					SameAccountRetryLimit: capacityRetryLimit,
 				}
 			}
 			return s.handleErrorResponse(ctx, resp, c, account, body, upstreamModel)
@@ -3924,11 +3935,13 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 		Detail:               upstreamDetail,
 		UpstreamResponseBody: upstreamDetail,
 	})
+	capacityRetryLimit := openAIModelCapacityRetryLimit(upstreamMsg, body)
 	return &UpstreamFailoverError{
 		StatusCode:             resp.StatusCode,
 		ResponseBody:           body,
 		ResponseHeaders:        resp.Header.Clone(),
-		RetryableOnSameAccount: isOpenAIModelCapacityError(upstreamMsg, body),
+		RetryableOnSameAccount: capacityRetryLimit > 0,
+		SameAccountRetryLimit:  capacityRetryLimit,
 	}
 }
 
@@ -4155,10 +4168,12 @@ func (s *OpenAIGatewayService) newOpenAIStreamFailoverError(
 			"message": message,
 		},
 	})
+	capacityRetryLimit := openAIModelCapacityRetryLimit(message, payload)
 	return &UpstreamFailoverError{
 		StatusCode:             http.StatusBadGateway,
 		ResponseBody:           body,
-		RetryableOnSameAccount: isOpenAIModelCapacityError(message, payload),
+		RetryableOnSameAccount: capacityRetryLimit > 0,
+		SameAccountRetryLimit:  capacityRetryLimit,
 	}
 }
 

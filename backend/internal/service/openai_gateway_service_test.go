@@ -1371,6 +1371,7 @@ func TestOpenAIStreamingResponseFailedBeforeOutputCapacityErrorReturnsFailover(t
 	require.ErrorAs(t, err, &failoverErr)
 	require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
 	require.True(t, failoverErr.RetryableOnSameAccount)
+	require.Equal(t, 5, failoverErr.SameAccountRetryLimit)
 	require.Contains(t, string(failoverErr.ResponseBody), "Selected model is at capacity")
 	require.False(t, c.Writer.Written())
 	require.Empty(t, rec.Body.String())
@@ -1410,6 +1411,7 @@ func TestOpenAIStreamingResponseFailedBeforeOutputServerOverloadedCodeReturnsFai
 	require.ErrorAs(t, err, &failoverErr)
 	require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
 	require.False(t, failoverErr.RetryableOnSameAccount)
+	require.Zero(t, failoverErr.SameAccountRetryLimit)
 	require.Contains(t, string(failoverErr.ResponseBody), "overloaded")
 	require.False(t, c.Writer.Written())
 	require.Empty(t, rec.Body.String())
@@ -1859,6 +1861,7 @@ func TestOpenAIStreamingPassthroughResponseFailedBeforeOutputCapacityErrorRetrie
 	var failoverErr *UpstreamFailoverError
 	require.ErrorAs(t, err, &failoverErr)
 	require.True(t, failoverErr.RetryableOnSameAccount)
+	require.Equal(t, 5, failoverErr.SameAccountRetryLimit)
 	require.Contains(t, string(failoverErr.ResponseBody), "Selected model is at capacity")
 	require.False(t, c.Writer.Written())
 	require.Empty(t, rec.Body.String())

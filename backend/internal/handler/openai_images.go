@@ -292,7 +292,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				if errors.As(err, &failoverErr) {
 					h.gatewayService.ReportOpenAIAccountScheduleResult(account.ID, false, nil)
 					if failoverErr.RetryableOnSameAccount {
-						retryLimit := account.GetPoolModeRetryCount()
+						retryLimit := sameAccountRetryLimit(failoverErr, account.GetPoolModeRetryCount())
 						if sameAccountRetryCount[account.ID] < retryLimit {
 							sameAccountRetryCount[account.ID]++
 							reqLog.Warn("openai.images.pool_mode_same_account_retry",
