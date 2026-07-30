@@ -60,6 +60,7 @@ const (
 	GroupBuyRefundStatusSucceeded       = "succeeded"
 	GroupBuyRefundStatusPendingProvider = "pending_provider"
 	GroupBuyRefundStatusFailed          = "failed"
+	GroupBuyRefundStatusNeedsReview     = "needs_review"
 
 	defaultGroupBuyTotalShares     = 10
 	defaultGroupBuyMaxUserShares   = 10
@@ -96,6 +97,7 @@ var (
 type GroupBuyService struct {
 	entClient            *dbent.Client
 	paymentSvc           *PaymentService
+	refundSvc            groupBuyPaymentRefundService
 	settingSvc           *SettingService
 	subscriptionSvc      *SubscriptionService
 	apiKeySvc            *APIKeyService
@@ -104,6 +106,13 @@ type GroupBuyService struct {
 	billingCacheService  *BillingCacheService
 	authCacheInvalidator APIKeyAuthCacheInvalidator
 	now                  func() time.Time
+}
+
+type groupBuyPaymentRefundService interface {
+	PrepareRefund(ctx context.Context, orderID int64, amount float64, reason string, force, deduct bool) (*RefundPlan, *RefundResult, error)
+	ExecuteRefund(ctx context.Context, plan *RefundPlan) (*RefundResult, error)
+	QueryAndFinalizeRefund(ctx context.Context, orderID int64) (*RefundResult, error)
+	hasAuditLog(ctx context.Context, orderID int64, action string) bool
 }
 
 func NewGroupBuyService(
@@ -120,6 +129,7 @@ func NewGroupBuyService(
 	svc := &GroupBuyService{
 		entClient:            entClient,
 		paymentSvc:           paymentSvc,
+		refundSvc:            paymentSvc,
 		settingSvc:           settingSvc,
 		subscriptionSvc:      subscriptionSvc,
 		apiKeySvc:            apiKeySvc,
@@ -133,6 +143,16 @@ func NewGroupBuyService(
 		paymentSvc.SetGroupBuyFulfillment(svc)
 	}
 	return svc
+}
+
+func (s *GroupBuyService) paymentRefundService() groupBuyPaymentRefundService {
+	if s == nil {
+		return nil
+	}
+	if s.refundSvc != nil {
+		return s.refundSvc
+	}
+	return s.paymentSvc
 }
 
 func (s *GroupBuyService) requireEnabled(ctx context.Context) error {
@@ -243,23 +263,24 @@ type GroupBuyGroupView struct {
 }
 
 type GroupBuyRoundView struct {
-	ID              int64      `json:"id"`
-	PlanID          int64      `json:"plan_id"`
-	Status          string     `json:"status"`
-	TotalShares     int        `json:"total_shares"`
-	PaidShares      int        `json:"paid_shares"`
-	ReservedShares  int        `json:"reserved_shares"`
-	AvailableShares int        `json:"available_shares"`
-	TotalSeats      int        `json:"total_seats"`
-	PaidSeats       int        `json:"paid_seats"`
-	ReservedSeats   int        `json:"reserved_seats"`
-	AvailableSeats  int        `json:"available_seats"`
-	DeadlineAt      time.Time  `json:"deadline_at"`
-	StartedAt       *time.Time `json:"started_at,omitempty"`
-	ClosedAt        *time.Time `json:"closed_at,omitempty"`
-	CloseReason     *string    `json:"close_reason,omitempty"`
-	CreatedAt       time.Time  `json:"created_at"`
-	UpdatedAt       time.Time  `json:"updated_at"`
+	ID              int64                  `json:"id"`
+	PlanID          int64                  `json:"plan_id"`
+	Status          string                 `json:"status"`
+	TotalShares     int                    `json:"total_shares"`
+	PaidShares      int                    `json:"paid_shares"`
+	ReservedShares  int                    `json:"reserved_shares"`
+	AvailableShares int                    `json:"available_shares"`
+	TotalSeats      int                    `json:"total_seats"`
+	PaidSeats       int                    `json:"paid_seats"`
+	ReservedSeats   int                    `json:"reserved_seats"`
+	AvailableSeats  int                    `json:"available_seats"`
+	DeadlineAt      time.Time              `json:"deadline_at"`
+	StartedAt       *time.Time             `json:"started_at,omitempty"`
+	ClosedAt        *time.Time             `json:"closed_at,omitempty"`
+	CloseReason     *string                `json:"close_reason,omitempty"`
+	CreatedAt       time.Time              `json:"created_at"`
+	UpdatedAt       time.Time              `json:"updated_at"`
+	RefundSummary   *GroupBuyRefundSummary `json:"refund_summary,omitempty"`
 }
 
 type GroupBuySeatView struct {
@@ -326,15 +347,60 @@ type PaymentOrderLite struct {
 }
 
 type GroupBuyEventView struct {
-	ID        int64          `json:"id"`
-	PlanID    *int64         `json:"plan_id,omitempty"`
-	RoundID   *int64         `json:"round_id,omitempty"`
-	SeatID    *int64         `json:"seat_id,omitempty"`
-	UserID    *int64         `json:"user_id,omitempty"`
-	EventType string         `json:"event_type"`
-	Message   string         `json:"message"`
-	Metadata  map[string]any `json:"metadata,omitempty"`
-	CreatedAt time.Time      `json:"created_at"`
+	ID        int64     `json:"id"`
+	EventType string    `json:"event_type"`
+	Message   string    `json:"message"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type GroupBuyRefundSummary struct {
+	Total           int     `json:"total"`
+	Pending         int     `json:"pending"`
+	Processing      int     `json:"processing"`
+	PendingProvider int     `json:"pending_provider"`
+	Succeeded       int     `json:"succeeded"`
+	Failed          int     `json:"failed"`
+	NeedsReview     int     `json:"needs_review"`
+	Amount          float64 `json:"amount"`
+}
+
+type GroupBuyRefundView struct {
+	ID          int64      `json:"id"`
+	SeatID      int64      `json:"seat_id"`
+	OrderID     *int64     `json:"order_id,omitempty"`
+	UserID      int64      `json:"user_id"`
+	Mode        string     `json:"mode"`
+	Status      string     `json:"status"`
+	Amount      float64    `json:"amount"`
+	Note        *string    `json:"note,omitempty"`
+	ProcessedAt *time.Time `json:"processed_at,omitempty"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+type GroupBuyParticipantView struct {
+	ID       int64  `json:"id"`
+	Email    string `json:"email"`
+	Username string `json:"username"`
+}
+
+type GroupBuyAdminSeatView struct {
+	GroupBuySeatView
+	User   *GroupBuyParticipantView `json:"user,omitempty"`
+	Refund *GroupBuyRefundView      `json:"refund,omitempty"`
+}
+
+type GroupBuyRefundFailure struct {
+	SeatID  int64  `json:"seat_id"`
+	Message string `json:"message"`
+}
+
+type GroupBuyRefundBatchResult struct {
+	Processed int                     `json:"processed"`
+	Succeeded int                     `json:"succeeded"`
+	Pending   int                     `json:"pending"`
+	Failed    int                     `json:"failed"`
+	Failures  []GroupBuyRefundFailure `json:"failures"`
 }
 
 type GroupBuyCreateOrderResponse struct {
@@ -873,7 +939,6 @@ func (s *GroupBuyService) TryActivateRound(ctx context.Context, roundID int64) e
 	}
 
 	now := s.now()
-	expiresAt := now.AddDate(0, 0, plan.ValidityDays)
 	userIDs := make(map[int64]struct{})
 	activatedSeatIDs := make([]int64, 0, len(seats))
 	for _, seat := range seats {
@@ -882,6 +947,11 @@ func (s *GroupBuyService) TryActivateRound(ctx context.Context, roundID int64) e
 			activatedSeatIDs = append(activatedSeatIDs, seat.ID)
 			continue
 		}
+		validityDays := seat.PolicySnapshot.ValidityDays
+		if validityDays <= 0 {
+			validityDays = plan.ValidityDays
+		}
+		expiresAt := now.AddDate(0, 0, validityDays)
 		if _, err := s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
 			SetStatus(GroupBuySeatStatusActive).
 			SetActivatedAt(now).
@@ -1227,6 +1297,7 @@ func (s *GroupBuyService) RefreshUserEntitlement(ctx context.Context, userID int
 	totalShares := 0
 	var maxExpires *time.Time
 	var lastActivated *time.Time
+	var policyRules []domain.GroupBuyTierRule
 	for _, seat := range seats {
 		if seat.Edges.Plan == nil || seat.Edges.Plan.ProductKey != GroupBuyProductTokenPinPinPin {
 			continue
@@ -1240,24 +1311,28 @@ func (s *GroupBuyService) RefreshUserEntitlement(ctx context.Context, userID int
 			t := *seat.ActivatedAt
 			lastActivated = &t
 		}
+		if len(policyRules) == 0 {
+			policyRules = normalizedPolicySnapshotTierRules(seat.PolicySnapshot)
+			if len(policyRules) == 0 {
+				policyRules = normalizedPlanTierRules(seat.Edges.Plan)
+			}
+		}
 	}
 	if totalShares > groupBuyMaxShareCount {
 		totalShares = groupBuyMaxShareCount
 	}
-	policyPlan, _ := s.latestProductPlan(ctx)
-
 	ent, err := s.getOrCreateEntitlement(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
-	if totalShares <= 0 || policyPlan == nil {
+	if totalShares <= 0 || len(policyRules) == 0 {
 		ent, err = s.deactivateEntitlement(ctx, ent)
 		if err != nil {
 			return nil, err
 		}
 		return s.entitlementView(ctx, ent), nil
 	}
-	tierRule, ok := resolveTierRuleForShareCount(normalizedPlanTierRules(policyPlan), totalShares)
+	tierRule, ok := resolveTierRuleForShareCount(policyRules, totalShares)
 	if !ok {
 		return nil, ErrGroupBuyTierMappingInvalid
 	}
@@ -1735,11 +1810,109 @@ func (s *GroupBuyService) AdminListRounds(ctx context.Context, status string, pa
 	if err != nil {
 		return nil, nil, fmt.Errorf("list group buy rounds: %w", err)
 	}
+	roundIDs := make([]int64, 0, len(rounds))
+	for _, round := range rounds {
+		roundIDs = append(roundIDs, round.ID)
+	}
+	refundSummaries, err := s.groupBuyRefundSummaries(ctx, roundIDs)
+	if err != nil {
+		return nil, nil, err
+	}
 	out := make([]GroupBuyRoundView, 0, len(rounds))
 	for _, round := range rounds {
-		out = append(out, *roundView(round))
+		view := roundView(round)
+		if summary := refundSummaries[round.ID]; summary != nil {
+			view.RefundSummary = summary
+		}
+		out = append(out, *view)
 	}
 	return out, paginationResultFromTotal(int64(total), params), nil
+}
+
+func (s *GroupBuyService) AdminListRoundSeats(ctx context.Context, roundID int64) ([]GroupBuyAdminSeatView, error) {
+	if roundID <= 0 {
+		return nil, ErrGroupBuyRoundNotFound
+	}
+	exists, err := s.entClient.GroupBuyRound.Query().Where(groupbuyround.IDEQ(roundID)).Exist(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("check group buy round: %w", err)
+	}
+	if !exists {
+		return nil, ErrGroupBuyRoundNotFound
+	}
+	seats, err := s.entClient.GroupBuySeat.Query().
+		Where(groupbuyseat.RoundIDEQ(roundID)).
+		WithPlan().
+		WithRound().
+		WithOrder().
+		WithUser().
+		WithRefunds().
+		Order(dbent.Asc(groupbuyseat.FieldID)).
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list group buy round seats: %w", err)
+	}
+	out := make([]GroupBuyAdminSeatView, 0, len(seats))
+	for _, seat := range seats {
+		view := GroupBuyAdminSeatView{GroupBuySeatView: *s.seatView(ctx, seat)}
+		if user := seat.Edges.User; user != nil {
+			view.User = &GroupBuyParticipantView{ID: user.ID, Email: user.Email, Username: user.Username}
+		}
+		if len(seat.Edges.Refunds) > 0 {
+			view.Refund = groupBuyRefundView(seat.Edges.Refunds[0])
+		}
+		out = append(out, view)
+	}
+	return out, nil
+}
+
+func (s *GroupBuyService) groupBuyRefundSummaries(ctx context.Context, roundIDs []int64) (map[int64]*GroupBuyRefundSummary, error) {
+	out := make(map[int64]*GroupBuyRefundSummary, len(roundIDs))
+	if len(roundIDs) == 0 {
+		return out, nil
+	}
+	seats, err := s.entClient.GroupBuySeat.Query().
+		Where(groupbuyseat.RoundIDIn(roundIDs...)).
+		WithRefunds().
+		All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load group buy refund summaries: %w", err)
+	}
+	for _, seat := range seats {
+		var refund *dbent.GroupBuyRefund
+		if len(seat.Edges.Refunds) > 0 {
+			refund = seat.Edges.Refunds[0]
+		}
+		if refund == nil && seat.Status != GroupBuySeatStatusRefundPending && seat.Status != GroupBuySeatStatusRefundProcessing && seat.Status != GroupBuySeatStatusRefunded {
+			continue
+		}
+		summary := out[seat.RoundID]
+		if summary == nil {
+			summary = &GroupBuyRefundSummary{}
+			out[seat.RoundID] = summary
+		}
+		summary.Total++
+		if refund == nil {
+			summary.Pending++
+			continue
+		}
+		summary.Amount += refund.Amount
+		switch refund.Status {
+		case GroupBuyRefundStatusProcessing:
+			summary.Processing++
+		case GroupBuyRefundStatusPendingProvider:
+			summary.PendingProvider++
+		case GroupBuyRefundStatusSucceeded:
+			summary.Succeeded++
+		case GroupBuyRefundStatusNeedsReview:
+			summary.NeedsReview++
+		case GroupBuyRefundStatusFailed:
+			summary.Failed++
+		default:
+			summary.Pending++
+		}
+	}
+	return out, nil
 }
 
 func (s *GroupBuyService) AdminCloseRound(ctx context.Context, roundID int64, reason string) error {
@@ -1793,209 +1966,562 @@ func (s *GroupBuyService) AdminRetryActivation(ctx context.Context, roundID int6
 	return s.TryActivateRound(ctx, roundID)
 }
 
-func (s *GroupBuyService) AdminProcessRefunds(ctx context.Context, roundID int64) (int, error) {
+func (s *GroupBuyService) AdminProcessRefunds(ctx context.Context, roundID int64) (*GroupBuyRefundBatchResult, error) {
+	result := &GroupBuyRefundBatchResult{Failures: []GroupBuyRefundFailure{}}
 	round, err := s.entClient.GroupBuyRound.Query().Where(groupbuyround.IDEQ(roundID)).WithPlan().Only(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
-			return 0, ErrGroupBuyRoundNotFound
+			return nil, ErrGroupBuyRoundNotFound
 		}
-		return 0, err
+		return nil, err
 	}
 	if round.Status != GroupBuyRoundStatusFailed && round.Status != GroupBuyRoundStatusCancelled {
-		return 0, ErrGroupBuyInvalidStatus.WithMetadata(map[string]string{"round_status": round.Status})
+		return nil, ErrGroupBuyInvalidStatus.WithMetadata(map[string]string{"round_status": round.Status})
 	}
 	plan := round.Edges.Plan
 	if plan == nil {
-		return 0, ErrGroupBuyPlanNotFound
+		return nil, ErrGroupBuyPlanNotFound
 	}
 	seats, err := s.entClient.GroupBuySeat.Query().
-		Where(groupbuyseat.RoundIDEQ(round.ID), groupbuyseat.StatusEQ(GroupBuySeatStatusRefundPending)).
+		Where(
+			groupbuyseat.RoundIDEQ(round.ID),
+			groupbuyseat.StatusIn(GroupBuySeatStatusRefundPending, GroupBuySeatStatusRefundProcessing),
+		).
 		WithOrder().
 		All(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("list refund pending share batches: %w", err)
+		return nil, fmt.Errorf("list refund pending share batches: %w", err)
 	}
-	processed := 0
 	for _, seat := range seats {
-		if err := s.processSeatRefund(ctx, plan, seat); err != nil {
-			return processed, err
+		outcome, refundErr := s.processSeatRefund(ctx, plan, seat)
+		if refundErr != nil {
+			result.Failed++
+			result.Failures = append(result.Failures, GroupBuyRefundFailure{SeatID: seat.ID, Message: refundErr.Error()})
+			continue
 		}
-		processed++
+		result.Processed++
+		switch outcome {
+		case GroupBuyRefundStatusSucceeded:
+			result.Succeeded++
+		case GroupBuyRefundStatusPendingProvider, GroupBuyRefundStatusProcessing:
+			result.Pending++
+		default:
+			result.Failed++
+			result.Failures = append(result.Failures, GroupBuyRefundFailure{SeatID: seat.ID, Message: "refund requires manual review"})
+		}
 	}
-	return processed, nil
+	return result, nil
 }
 
-func (s *GroupBuyService) processSeatRefund(ctx context.Context, plan *dbent.GroupBuyPlan, seat *dbent.GroupBuySeat) error {
+func (s *GroupBuyService) processSeatRefund(ctx context.Context, plan *dbent.GroupBuyPlan, seat *dbent.GroupBuySeat) (string, error) {
+	if seat == nil {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("group buy refund seat is missing")
+	}
 	order := seat.Edges.Order
 	if order == nil && seat.OrderID != nil {
 		var err error
 		order, err = s.entClient.PaymentOrder.Get(ctx, *seat.OrderID)
 		if err != nil && !dbent.IsNotFound(err) {
-			return err
+			return GroupBuyRefundStatusFailed, err
 		}
 	}
-	now := s.now()
-	mode := normalizeGroupBuyRefundMode(plan.RefundMode)
-	amount := plan.PricePerShare * float64(seat.ShareCount)
-	if order != nil && order.Amount > 0 {
-		amount = order.Amount
-	}
-	note := "Token拼拼拼 未满份退款"
-	if mode == GroupBuyRefundModeProviderRefund {
-		note = "Token拼拼拼 未满份，等待原路退款"
-	}
+	mode := groupBuyRefundModeForSeat(seat, plan)
+	refundSvc := s.paymentRefundService()
 	existingRefund, err := s.entClient.GroupBuyRefund.Query().
 		Where(groupbuyrefund.SeatIDEQ(seat.ID)).
 		Only(ctx)
 	if err != nil && !dbent.IsNotFound(err) {
-		return fmt.Errorf("load group buy refund record: %w", err)
+		return GroupBuyRefundStatusFailed, fmt.Errorf("load group buy refund record: %w", err)
+	}
+	if existingRefund == nil && seat.Status == GroupBuySeatStatusRefundProcessing {
+		return s.quarantineGroupBuyRefund(ctx, seat.ID, "历史退款处理中但缺少退款记录，禁止自动重放")
 	}
 	if existingRefund != nil {
 		switch existingRefund.Status {
 		case GroupBuyRefundStatusSucceeded:
-			_, _ = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
-				SetStatus(GroupBuySeatStatusRefunded).
-				SetNillableRefundProcessedAt(existingRefund.ProcessedAt).
-				SetRefundNote(psStringValue(existingRefund.Note)).
-				SetUpdatedAt(now).
-				Save(ctx)
-			return nil
-		case GroupBuyRefundStatusPendingProvider, GroupBuyRefundStatusProcessing:
-			_, _ = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
-				SetStatus(GroupBuySeatStatusRefundProcessing).
-				SetRefundNote(psStringValue(existingRefund.Note)).
-				SetUpdatedAt(now).
-				Save(ctx)
-			return nil
-		}
-	}
-	updated, err := s.entClient.GroupBuySeat.Update().
-		Where(groupbuyseat.IDEQ(seat.ID), groupbuyseat.StatusEQ(GroupBuySeatStatusRefundPending)).
-		SetStatus(GroupBuySeatStatusRefundProcessing).
-		SetRefundNote(note).
-		SetUpdatedAt(now).
-		Save(ctx)
-	if err != nil {
-		return fmt.Errorf("claim group buy refund: %w", err)
-	}
-	if updated == 0 {
-		current, getErr := s.entClient.GroupBuySeat.Get(ctx, seat.ID)
-		if getErr != nil {
-			return getErr
-		}
-		if current.Status == GroupBuySeatStatusRefunded || current.Status == GroupBuySeatStatusRefundProcessing {
-			return nil
-		}
-		return ErrGroupBuyInvalidStatus.WithMetadata(map[string]string{"seat_status": current.Status})
-	}
-	refund := existingRefund
-	if refund == nil {
-		create := s.entClient.GroupBuyRefund.Create().
-			SetSeatID(seat.ID).
-			SetUserID(seat.UserID).
-			SetMode(mode).
-			SetStatus(GroupBuyRefundStatusProcessing).
-			SetAmount(amount).
-			SetIdempotencyKey(groupBuyRefundIdempotencyKey(seat)).
-			SetNote(note)
-		if order != nil {
-			create.SetOrderID(order.ID)
-		}
-		refund, err = create.Save(ctx)
-		if err != nil {
-			if dbent.IsConstraintError(err) {
-				return nil
+			if err := s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusSucceeded, GroupBuySeatStatusRefunded, psStringValue(existingRefund.Note)); err != nil {
+				return GroupBuyRefundStatusFailed, err
 			}
-			_, _ = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
-				SetStatus(GroupBuySeatStatusRefundPending).
-				SetUpdatedAt(now).
-				Save(ctx)
-			return fmt.Errorf("create group buy refund record: %w", err)
-		}
-	} else {
-		refund, err = s.entClient.GroupBuyRefund.UpdateOneID(refund.ID).
-			SetMode(mode).
-			SetStatus(GroupBuyRefundStatusProcessing).
-			SetAmount(amount).
-			SetNote(note).
-			SetUpdatedAt(now).
-			Save(ctx)
-		if err != nil {
-			_, _ = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
-				SetStatus(GroupBuySeatStatusRefundPending).
-				SetUpdatedAt(now).
-				Save(ctx)
-			return fmt.Errorf("retry group buy refund record: %w", err)
+			return GroupBuyRefundStatusSucceeded, nil
+		case GroupBuyRefundStatusNeedsReview:
+			return GroupBuyRefundStatusNeedsReview, fmt.Errorf("refund batch %d requires manual review", seat.ID)
+		case GroupBuyRefundStatusPendingProvider:
+			if order != nil && (order.Status == OrderStatusRefunded || order.Status == OrderStatusPartiallyRefunded) {
+				if err := s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusSucceeded, GroupBuySeatStatusRefunded, "Token拼拼拼 原路退款已完成"); err != nil {
+					return GroupBuyRefundStatusFailed, err
+				}
+				return GroupBuyRefundStatusSucceeded, nil
+			}
+			if order == nil || refundSvc == nil || !refundSvc.hasAuditLog(ctx, order.ID, "REFUND_PENDING") {
+				return s.quarantineGroupBuyRefund(ctx, seat.ID, "历史原路退款缺少支付渠道审计证据")
+			}
+			return GroupBuyRefundStatusPendingProvider, nil
+		case GroupBuyRefundStatusProcessing:
+			if mode == GroupBuyRefundModeBalanceCredit {
+				return s.quarantineGroupBuyRefund(ctx, seat.ID, "历史余额退款状态不确定，禁止自动重放")
+			}
+			if order == nil {
+				return s.quarantineGroupBuyRefund(ctx, seat.ID, "历史原路退款执行状态不确定")
+			}
+			if order.Status == OrderStatusRefundPending {
+				if refundSvc == nil || !refundSvc.hasAuditLog(ctx, order.ID, "REFUND_PENDING") {
+					return s.quarantineGroupBuyRefund(ctx, seat.ID, "历史原路退款缺少支付渠道审计证据")
+				}
+				if err := s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusPendingProvider, GroupBuySeatStatusRefundProcessing, "Token拼拼拼 原路退款待渠道确认"); err != nil {
+					return GroupBuyRefundStatusFailed, err
+				}
+				return GroupBuyRefundStatusPendingProvider, nil
+			}
+			if order.Status != OrderStatusRefundFailed {
+				return s.quarantineGroupBuyRefund(ctx, seat.ID, "历史原路退款执行状态不确定")
+			}
 		}
 	}
 	if mode == GroupBuyRefundModeProviderRefund {
-		if order != nil {
-			_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).
-				SetStatus(OrderStatusRefundPending).
-				SetRefundAmount(order.PayAmount).
-				SetRefundRequestReason(note).
-				SetRefundRequestedAt(now).
-				SetRefundRequestedBy("admin").
-				Save(ctx)
-		}
-		if _, err := s.entClient.GroupBuyRefund.UpdateOneID(refund.ID).
-			SetStatus(GroupBuyRefundStatusPendingProvider).
-			SetProcessedAt(now).
-			SetUpdatedAt(now).
-			Save(ctx); err != nil {
-			return fmt.Errorf("mark group buy provider refund pending: %w", err)
-		}
-		_, err := s.entClient.GroupBuySeat.UpdateOneID(seat.ID).SetRefundNote(note).SetUpdatedAt(now).Save(ctx)
-		return err
+		return s.processProviderGroupBuyRefund(ctx, plan, seat, order)
 	}
-	if err := grantWelfareBalance(ctx, s.userRepo, seat.UserID, amount); err != nil {
-		_, _ = s.entClient.GroupBuyRefund.UpdateOneID(refund.ID).
-			SetStatus(GroupBuyRefundStatusFailed).
-			SetNote(note + ": " + err.Error()).
+	return s.processBalanceGroupBuyRefund(ctx, plan, seat.ID)
+}
+
+func groupBuyRefundModeForSeat(seat *dbent.GroupBuySeat, plan *dbent.GroupBuyPlan) string {
+	if seat != nil && strings.TrimSpace(seat.PolicySnapshot.RefundMode) != "" {
+		return normalizeGroupBuyRefundMode(seat.PolicySnapshot.RefundMode)
+	}
+	if plan != nil {
+		return normalizeGroupBuyRefundMode(plan.RefundMode)
+	}
+	return GroupBuyRefundModeBalanceCredit
+}
+
+func groupBuyRefundAmount(plan *dbent.GroupBuyPlan, seat *dbent.GroupBuySeat, order *dbent.PaymentOrder) float64 {
+	if order != nil && order.Amount > 0 {
+		return order.Amount
+	}
+	if plan == nil || seat == nil {
+		return 0
+	}
+	return plan.PricePerShare * float64(seat.ShareCount)
+}
+
+func (s *GroupBuyService) processBalanceGroupBuyRefund(ctx context.Context, plan *dbent.GroupBuyPlan, seatID int64) (string, error) {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("begin group buy balance refund tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	seat, err := s.groupBuySeatForUpdate(tx.GroupBuySeat.Query().Where(groupbuyseat.IDEQ(seatID))).Only(txCtx)
+	if err != nil {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("lock group buy refund seat: %w", err)
+	}
+	var order *dbent.PaymentOrder
+	if seat.OrderID != nil {
+		order, err = tx.PaymentOrder.Get(txCtx, *seat.OrderID)
+		if err != nil && !dbent.IsNotFound(err) {
+			return GroupBuyRefundStatusFailed, err
+		}
+	}
+	refund, err := tx.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(seat.ID)).Only(txCtx)
+	if err != nil && !dbent.IsNotFound(err) {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("load balance refund record: %w", err)
+	}
+	if refund != nil {
+		switch refund.Status {
+		case GroupBuyRefundStatusSucceeded:
+			if _, err := tx.GroupBuySeat.UpdateOneID(seat.ID).SetStatus(GroupBuySeatStatusRefunded).SetNillableRefundProcessedAt(refund.ProcessedAt).SetUpdatedAt(s.now()).Save(txCtx); err != nil {
+				return GroupBuyRefundStatusFailed, err
+			}
+			if err := tx.Commit(); err != nil {
+				return GroupBuyRefundStatusFailed, err
+			}
+			return GroupBuyRefundStatusSucceeded, nil
+		case GroupBuyRefundStatusProcessing, GroupBuyRefundStatusNeedsReview:
+			note := "历史余额退款状态不确定，禁止自动重放"
+			if _, err := tx.GroupBuyRefund.UpdateOneID(refund.ID).SetStatus(GroupBuyRefundStatusNeedsReview).SetNote(note).SetUpdatedAt(s.now()).Save(txCtx); err != nil {
+				return GroupBuyRefundStatusFailed, err
+			}
+			if _, err := tx.GroupBuySeat.UpdateOneID(seat.ID).SetStatus(GroupBuySeatStatusRefundProcessing).SetRefundNote(note).SetUpdatedAt(s.now()).Save(txCtx); err != nil {
+				return GroupBuyRefundStatusFailed, err
+			}
+			if err := tx.Commit(); err != nil {
+				return GroupBuyRefundStatusFailed, err
+			}
+			return GroupBuyRefundStatusNeedsReview, fmt.Errorf("refund batch %d requires manual review", seat.ID)
+		}
+	}
+	if order != nil && (order.Status == OrderStatusRefunded || order.Status == OrderStatusPartiallyRefunded) {
+		now := s.now()
+		note := fmt.Sprintf("订单 %d 已退款，但余额入账无法确认", order.ID)
+		amount := groupBuyRefundAmount(plan, seat, order)
+		if refund == nil {
+			_, err = tx.GroupBuyRefund.Create().
+				SetSeatID(seat.ID).
+				SetOrderID(order.ID).
+				SetUserID(seat.UserID).
+				SetMode(GroupBuyRefundModeBalanceCredit).
+				SetStatus(GroupBuyRefundStatusNeedsReview).
+				SetAmount(amount).
+				SetIdempotencyKey(groupBuyRefundIdempotencyKey(seat)).
+				SetNote(note).
+				Save(txCtx)
+		} else {
+			_, err = tx.GroupBuyRefund.UpdateOneID(refund.ID).
+				SetMode(GroupBuyRefundModeBalanceCredit).
+				SetStatus(GroupBuyRefundStatusNeedsReview).
+				SetAmount(amount).
+				SetNote(note).
+				ClearProcessedAt().
+				SetUpdatedAt(now).
+				Save(txCtx)
+		}
+		if err != nil {
+			return GroupBuyRefundStatusFailed, fmt.Errorf("mark balance refund for review: %w", err)
+		}
+		if _, err := tx.GroupBuySeat.UpdateOneID(seat.ID).
+			SetStatus(GroupBuySeatStatusRefundProcessing).
+			SetRefundNote(note).
+			ClearRefundProcessedAt().
 			SetUpdatedAt(now).
-			Save(ctx)
-		_, _ = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
-			SetStatus(GroupBuySeatStatusRefundPending).
-			SetUpdatedAt(now).
-			Save(ctx)
-		return fmt.Errorf("credit group buy refund balance: %w", err)
+			Save(txCtx); err != nil {
+			return GroupBuyRefundStatusFailed, fmt.Errorf("mark balance refund seat for review: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return GroupBuyRefundStatusFailed, fmt.Errorf("commit balance refund review state: %w", err)
+		}
+		return GroupBuyRefundStatusNeedsReview, fmt.Errorf("refund batch %d requires manual review: %s", seat.ID, note)
+	}
+	if seat.Status != GroupBuySeatStatusRefundPending {
+		return GroupBuyRefundStatusFailed, ErrGroupBuyInvalidStatus.WithMetadata(map[string]string{"seat_status": seat.Status})
+	}
+	now := s.now()
+	note := "Token拼拼拼 未满份，已退回余额"
+	amount := groupBuyRefundAmount(plan, seat, order)
+	if amount <= 0 {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("group buy refund amount is invalid")
+	}
+	if refund == nil {
+		create := tx.GroupBuyRefund.Create().SetSeatID(seat.ID).SetUserID(seat.UserID).SetMode(GroupBuyRefundModeBalanceCredit).SetStatus(GroupBuyRefundStatusProcessing).SetAmount(amount).SetIdempotencyKey(groupBuyRefundIdempotencyKey(seat)).SetNote(note)
+		if order != nil {
+			create.SetOrderID(order.ID)
+		}
+		refund, err = create.Save(txCtx)
+	} else {
+		refund, err = tx.GroupBuyRefund.UpdateOneID(refund.ID).SetMode(GroupBuyRefundModeBalanceCredit).SetStatus(GroupBuyRefundStatusProcessing).SetAmount(amount).SetNote(note).ClearProcessedAt().SetUpdatedAt(now).Save(txCtx)
+	}
+	if err != nil {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("prepare balance refund record: %w", err)
+	}
+	if err := grantWelfareBalance(txCtx, s.userRepo, seat.UserID, amount); err != nil {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("credit group buy refund balance: %w", err)
+	}
+	if order != nil {
+		if _, err := tx.PaymentOrder.UpdateOneID(order.ID).SetStatus(OrderStatusRefunded).SetRefundAmount(amount).SetRefundReason(note).SetRefundAt(now).Save(txCtx); err != nil {
+			return GroupBuyRefundStatusFailed, fmt.Errorf("mark balance refund order: %w", err)
+		}
+	}
+	if _, err := tx.GroupBuyRefund.UpdateOneID(refund.ID).SetStatus(GroupBuyRefundStatusSucceeded).SetProcessedAt(now).SetUpdatedAt(now).Save(txCtx); err != nil {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("mark balance refund succeeded: %w", err)
+	}
+	if _, err := tx.GroupBuySeat.UpdateOneID(seat.ID).SetStatus(GroupBuySeatStatusRefunded).SetRefundProcessedAt(now).SetRefundNote(note).SetUpdatedAt(now).Save(txCtx); err != nil {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("mark balance refund seat: %w", err)
+	}
+	if err := s.createEventTxStrict(txCtx, tx.Client(), &groupBuyEventInput{PlanID: &seat.PlanID, RoundID: &seat.RoundID, SeatID: &seat.ID, UserID: &seat.UserID, EventType: groupBuyEventRefundProcessed, Message: note, Metadata: map[string]any{"amount": amount, "share_count": seat.ShareCount}}); err != nil {
+		return GroupBuyRefundStatusFailed, err
+	}
+	if err := tx.Commit(); err != nil {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("commit balance refund: %w", err)
 	}
 	s.invalidateBalanceCaches(ctx, seat.UserID)
-	if order != nil {
-		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).
-			SetStatus(OrderStatusRefunded).
-			SetRefundAmount(amount).
-			SetRefundReason(note).
-			SetRefundAt(now).
-			Save(ctx)
+	return GroupBuyRefundStatusSucceeded, nil
+}
+
+func (s *GroupBuyService) processProviderGroupBuyRefund(ctx context.Context, plan *dbent.GroupBuyPlan, seat *dbent.GroupBuySeat, order *dbent.PaymentOrder) (string, error) {
+	refundSvc := s.paymentRefundService()
+	if refundSvc == nil {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("payment refund service is unavailable")
 	}
-	_, err = s.entClient.GroupBuyRefund.UpdateOneID(refund.ID).
-		SetStatus(GroupBuyRefundStatusSucceeded).
-		SetProcessedAt(now).
-		SetUpdatedAt(now).
-		Save(ctx)
+	if order == nil {
+		return GroupBuyRefundStatusFailed, fmt.Errorf("provider refund requires a payment order")
+	}
+	if order.Status == OrderStatusRefunded || order.Status == OrderStatusPartiallyRefunded {
+		if err := s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusSucceeded, GroupBuySeatStatusRefunded, "Token拼拼拼 原路退款已完成"); err != nil {
+			return GroupBuyRefundStatusFailed, err
+		}
+		return GroupBuyRefundStatusSucceeded, nil
+	}
+	if order.Status == OrderStatusRefundPending {
+		if !refundSvc.hasAuditLog(ctx, order.ID, "REFUND_PENDING") {
+			return s.quarantineGroupBuyRefund(ctx, seat.ID, "历史原路退款缺少支付渠道审计证据")
+		}
+		if err := s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusPendingProvider, GroupBuySeatStatusRefundProcessing, "Token拼拼拼 原路退款待渠道确认"); err != nil {
+			return GroupBuyRefundStatusFailed, err
+		}
+		return GroupBuyRefundStatusPendingProvider, nil
+	}
+	if order.Status == OrderStatusRefunding {
+		return s.quarantineGroupBuyRefund(ctx, seat.ID, "原路退款执行状态不确定")
+	}
+	note := "Token拼拼拼 未满份原路退款"
+	amount := groupBuyRefundAmount(plan, seat, order)
+	if err := s.claimGroupBuyProviderRefund(ctx, seat, order, amount, note); err != nil {
+		return GroupBuyRefundStatusFailed, err
+	}
+	refundPlan, preResult, err := refundSvc.PrepareRefund(ctx, order.ID, amount, note, false, false)
 	if err != nil {
-		return fmt.Errorf("mark group buy refund record succeeded: %w", err)
+		_ = s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusFailed, GroupBuySeatStatusRefundPending, note+": "+err.Error())
+		return GroupBuyRefundStatusFailed, err
 	}
-	_, err = s.entClient.GroupBuySeat.UpdateOneID(seat.ID).
-		SetStatus(GroupBuySeatStatusRefunded).
-		SetRefundProcessedAt(now).
+	if preResult != nil {
+		message := strings.TrimSpace(preResult.Warning)
+		if message == "" {
+			message = "provider refund preparation failed"
+		}
+		_ = s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusFailed, GroupBuySeatStatusRefundPending, note+": "+message)
+		return GroupBuyRefundStatusFailed, fmt.Errorf("%s", message)
+	}
+	refundResult, err := refundSvc.ExecuteRefund(ctx, refundPlan)
+	if err != nil {
+		_ = s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusFailed, GroupBuySeatStatusRefundPending, note+": "+err.Error())
+		return GroupBuyRefundStatusFailed, err
+	}
+	currentOrder, err := s.entClient.PaymentOrder.Get(ctx, order.ID)
+	if err != nil {
+		return GroupBuyRefundStatusFailed, err
+	}
+	if refundResult != nil && refundResult.Success || currentOrder.Status == OrderStatusRefunded || currentOrder.Status == OrderStatusPartiallyRefunded {
+		if err := s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusSucceeded, GroupBuySeatStatusRefunded, "Token拼拼拼 原路退款已完成"); err != nil {
+			return GroupBuyRefundStatusFailed, err
+		}
+		return GroupBuyRefundStatusSucceeded, nil
+	}
+	if currentOrder.Status == OrderStatusRefundPending {
+		if err := s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusPendingProvider, GroupBuySeatStatusRefundProcessing, "Token拼拼拼 原路退款待渠道确认"); err != nil {
+			return GroupBuyRefundStatusFailed, err
+		}
+		return GroupBuyRefundStatusPendingProvider, nil
+	}
+	warning := "provider refund failed"
+	if refundResult != nil && strings.TrimSpace(refundResult.Warning) != "" {
+		warning = strings.TrimSpace(refundResult.Warning)
+	}
+	_ = s.syncGroupBuyRefundState(ctx, seat.ID, GroupBuyRefundStatusFailed, GroupBuySeatStatusRefundPending, note+": "+warning)
+	return GroupBuyRefundStatusFailed, fmt.Errorf("%s", warning)
+}
+
+func (s *GroupBuyService) claimGroupBuyProviderRefund(ctx context.Context, seat *dbent.GroupBuySeat, order *dbent.PaymentOrder, amount float64, note string) error {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("begin provider refund claim tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	lockedSeat, err := s.groupBuySeatForUpdate(tx.GroupBuySeat.Query().Where(groupbuyseat.IDEQ(seat.ID))).Only(txCtx)
+	if err != nil {
+		return fmt.Errorf("lock provider refund seat: %w", err)
+	}
+	if lockedSeat.Status != GroupBuySeatStatusRefundPending {
+		return ErrGroupBuyInvalidStatus.WithMetadata(map[string]string{"seat_status": lockedSeat.Status})
+	}
+	refund, err := tx.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(lockedSeat.ID)).Only(txCtx)
+	if err != nil && !dbent.IsNotFound(err) {
+		return fmt.Errorf("load provider refund record: %w", err)
+	}
+	now := s.now()
+	if refund == nil {
+		_, err = tx.GroupBuyRefund.Create().
+			SetSeatID(lockedSeat.ID).
+			SetOrderID(order.ID).
+			SetUserID(lockedSeat.UserID).
+			SetMode(GroupBuyRefundModeProviderRefund).
+			SetStatus(GroupBuyRefundStatusProcessing).
+			SetAmount(amount).
+			SetIdempotencyKey(groupBuyRefundIdempotencyKey(lockedSeat)).
+			SetNote(note).
+			Save(txCtx)
+	} else {
+		_, err = tx.GroupBuyRefund.UpdateOneID(refund.ID).
+			SetOrderID(order.ID).
+			SetMode(GroupBuyRefundModeProviderRefund).
+			SetStatus(GroupBuyRefundStatusProcessing).
+			SetAmount(amount).
+			SetNote(note).
+			ClearProcessedAt().
+			SetUpdatedAt(now).
+			Save(txCtx)
+	}
+	if err != nil {
+		return fmt.Errorf("claim provider refund record: %w", err)
+	}
+	if _, err := tx.GroupBuySeat.UpdateOneID(lockedSeat.ID).
+		SetStatus(GroupBuySeatStatusRefundProcessing).
 		SetRefundNote(note).
+		ClearRefundProcessedAt().
 		SetUpdatedAt(now).
-		Save(ctx)
-	if err != nil {
-		return fmt.Errorf("mark group buy refund processed: %w", err)
+		Save(txCtx); err != nil {
+		return fmt.Errorf("claim provider refund seat: %w", err)
 	}
-	s.createEvent(ctx, &groupBuyEventInput{
-		PlanID:    &seat.PlanID,
-		RoundID:   &seat.RoundID,
-		SeatID:    &seat.ID,
-		UserID:    &seat.UserID,
-		EventType: groupBuyEventRefundProcessed,
-		Message:   "Token拼拼拼 未满份，已退回余额",
-		Metadata:  map[string]any{"amount": amount, "share_count": seat.ShareCount},
-	})
-	return nil
+	return tx.Commit()
+}
+
+func (s *GroupBuyService) syncGroupBuyRefundState(ctx context.Context, seatID int64, refundStatus, seatStatus, note string) error {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return fmt.Errorf("begin group buy refund state tx: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+	seat, err := s.groupBuySeatForUpdate(tx.GroupBuySeat.Query().Where(groupbuyseat.IDEQ(seatID)).WithOrder().WithPlan()).Only(txCtx)
+	if err != nil {
+		return fmt.Errorf("lock group buy refund state: %w", err)
+	}
+	refund, err := tx.GroupBuyRefund.Query().Where(groupbuyrefund.SeatIDEQ(seat.ID)).Only(txCtx)
+	if err != nil && !dbent.IsNotFound(err) {
+		return fmt.Errorf("load group buy refund state: %w", err)
+	}
+	now := s.now()
+	wasSucceeded := refund != nil && refund.Status == GroupBuyRefundStatusSucceeded
+	if refund == nil {
+		amount := 0.0
+		if seat.Edges.Order != nil {
+			amount = seat.Edges.Order.Amount
+		}
+		mode := groupBuyRefundModeForSeat(seat, seat.Edges.Plan)
+		create := tx.GroupBuyRefund.Create().
+			SetSeatID(seat.ID).
+			SetUserID(seat.UserID).
+			SetMode(mode).
+			SetStatus(refundStatus).
+			SetAmount(amount).
+			SetIdempotencyKey(groupBuyRefundIdempotencyKey(seat)).
+			SetNote(note)
+		if seat.Edges.Order != nil {
+			create.SetOrderID(seat.Edges.Order.ID)
+		}
+		if refundStatus == GroupBuyRefundStatusSucceeded {
+			create.SetProcessedAt(now)
+		}
+		if _, err := create.Save(txCtx); err != nil {
+			return fmt.Errorf("create group buy refund state: %w", err)
+		}
+	} else {
+		update := tx.GroupBuyRefund.UpdateOneID(refund.ID).
+			SetStatus(refundStatus).
+			SetNote(note).
+			SetUpdatedAt(now)
+		if refundStatus == GroupBuyRefundStatusSucceeded {
+			update.SetProcessedAt(now)
+		} else {
+			update.ClearProcessedAt()
+		}
+		if _, err := update.Save(txCtx); err != nil {
+			return fmt.Errorf("update group buy refund state: %w", err)
+		}
+	}
+	seatUpdate := tx.GroupBuySeat.UpdateOneID(seat.ID).
+		SetStatus(seatStatus).
+		SetRefundNote(note).
+		SetUpdatedAt(now)
+	if refundStatus == GroupBuyRefundStatusSucceeded {
+		seatUpdate.SetRefundProcessedAt(now)
+	} else {
+		seatUpdate.ClearRefundProcessedAt()
+	}
+	if _, err := seatUpdate.Save(txCtx); err != nil {
+		return fmt.Errorf("update group buy refund seat state: %w", err)
+	}
+	if refundStatus == GroupBuyRefundStatusSucceeded && !wasSucceeded {
+		if err := s.createEventTxStrict(txCtx, tx.Client(), &groupBuyEventInput{
+			PlanID: &seat.PlanID, RoundID: &seat.RoundID, SeatID: &seat.ID, UserID: &seat.UserID,
+			EventType: groupBuyEventRefundProcessed, Message: note,
+			Metadata: map[string]any{"share_count": seat.ShareCount, "mode": GroupBuyRefundModeProviderRefund},
+		}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+func (s *GroupBuyService) quarantineGroupBuyRefund(ctx context.Context, seatID int64, reason string) (string, error) {
+	if err := s.syncGroupBuyRefundState(ctx, seatID, GroupBuyRefundStatusNeedsReview, GroupBuySeatStatusRefundProcessing, reason); err != nil {
+		return GroupBuyRefundStatusFailed, err
+	}
+	return GroupBuyRefundStatusNeedsReview, fmt.Errorf("refund batch %d requires manual review: %s", seatID, reason)
+}
+
+func (s *GroupBuyService) ReconcilePendingProviderRefunds(ctx context.Context) (int, error) {
+	if s.paymentRefundService() == nil {
+		return 0, fmt.Errorf("payment refund service is unavailable")
+	}
+	refunds, err := s.entClient.GroupBuyRefund.Query().
+		Where(groupbuyrefund.StatusEQ(GroupBuyRefundStatusPendingProvider)).
+		WithOrder().
+		WithSeat().
+		Order(dbent.Asc(groupbuyrefund.FieldUpdatedAt)).
+		Limit(50).
+		All(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("list pending provider refunds: %w", err)
+	}
+	finalized := 0
+	var firstErr error
+	for _, refund := range refunds {
+		changed, reconcileErr := s.reconcilePendingProviderRefund(ctx, refund)
+		if changed {
+			finalized++
+		}
+		if reconcileErr != nil && firstErr == nil {
+			firstErr = reconcileErr
+		}
+	}
+	return finalized, firstErr
+}
+
+func (s *GroupBuyService) reconcilePendingProviderRefund(ctx context.Context, refund *dbent.GroupBuyRefund) (bool, error) {
+	if refund == nil || refund.Edges.Seat == nil {
+		return false, fmt.Errorf("pending provider refund has no seat")
+	}
+	seatID := refund.Edges.Seat.ID
+	order := refund.Edges.Order
+	if order == nil {
+		_ = s.syncGroupBuyRefundState(ctx, seatID, GroupBuyRefundStatusFailed, GroupBuySeatStatusRefundPending, "原路退款缺少支付订单")
+		return true, fmt.Errorf("pending provider refund %d has no order", refund.ID)
+	}
+	switch order.Status {
+	case OrderStatusRefunded, OrderStatusPartiallyRefunded:
+		return true, s.syncGroupBuyRefundState(ctx, seatID, GroupBuyRefundStatusSucceeded, GroupBuySeatStatusRefunded, "Token拼拼拼 原路退款已完成")
+	case OrderStatusRefundFailed:
+		_ = s.syncGroupBuyRefundState(ctx, seatID, GroupBuyRefundStatusFailed, GroupBuySeatStatusRefundPending, "Token拼拼拼 原路退款失败，可重新处理")
+		return true, fmt.Errorf("provider refund failed for order %d", order.ID)
+	case OrderStatusRefundPending:
+		refundSvc := s.paymentRefundService()
+		if refundSvc == nil {
+			return false, fmt.Errorf("payment refund service is unavailable")
+		}
+		if !refundSvc.hasAuditLog(ctx, order.ID, "REFUND_PENDING") {
+			_, quarantineErr := s.quarantineGroupBuyRefund(ctx, seatID, "历史原路退款缺少支付渠道审计证据")
+			return true, quarantineErr
+		}
+		_, queryErr := refundSvc.QueryAndFinalizeRefund(ctx, order.ID)
+		if queryErr != nil {
+			return false, queryErr
+		}
+		current, err := s.entClient.PaymentOrder.Get(ctx, order.ID)
+		if err != nil {
+			return false, err
+		}
+		switch current.Status {
+		case OrderStatusRefunded, OrderStatusPartiallyRefunded:
+			return true, s.syncGroupBuyRefundState(ctx, seatID, GroupBuyRefundStatusSucceeded, GroupBuySeatStatusRefunded, "Token拼拼拼 原路退款已完成")
+		case OrderStatusRefundFailed:
+			_ = s.syncGroupBuyRefundState(ctx, seatID, GroupBuyRefundStatusFailed, GroupBuySeatStatusRefundPending, "Token拼拼拼 原路退款失败，可重新处理")
+			return true, fmt.Errorf("provider refund failed for order %d", order.ID)
+		default:
+			return false, nil
+		}
+	default:
+		_, quarantineErr := s.quarantineGroupBuyRefund(ctx, seatID, "原路退款订单状态与拼团退款记录不一致")
+		return true, quarantineErr
+	}
 }
 
 func groupBuyRefundIdempotencyKey(seat *dbent.GroupBuySeat) string {
@@ -2369,12 +2895,44 @@ func buildGroupBuyPolicySnapshot(plan *dbent.GroupBuyPlan, capturedAt time.Time)
 		ProductKey:          plan.ProductKey,
 		PlanID:              plan.ID,
 		TotalShares:         plan.TotalShares,
+		ValidityDays:        plan.ValidityDays,
+		RefundMode:          normalizeGroupBuyRefundMode(plan.RefundMode),
 		QuotaPerShareLabel:  plan.QuotaPerShareLabel,
 		TierRules:           normalizedPlanTierRules(plan),
 		LegacyTierGroupIDs:  copyTierGroupIDs(plan.TierGroupIds),
 		TargetGroupID:       plan.TargetGroupID,
 		CapturedAtUnixMilli: capturedAt.UnixMilli(),
 	}
+}
+
+func normalizedPolicySnapshotTierRules(snapshot domain.GroupBuyPolicySnapshot) []domain.GroupBuyTierRule {
+	rules := append([]domain.GroupBuyTierRule(nil), snapshot.TierRules...)
+	if len(rules) == 0 {
+		totalShares := snapshot.TotalShares
+		if totalShares <= 0 {
+			totalShares = groupBuyMaxShareCount
+		}
+		rules = tierRuleInputsToDomain(exactTierMapToRules(snapshot.LegacyTierGroupIDs, totalShares))
+	}
+	if len(rules) == 0 && snapshot.TargetGroupID > 0 {
+		maxShares := snapshot.TotalShares
+		if maxShares <= 0 {
+			maxShares = groupBuyMaxShareCount
+		}
+		rules = []domain.GroupBuyTierRule{{
+			MinShares:     groupBuyMinShareCount,
+			MaxShares:     maxShares,
+			TargetGroupID: snapshot.TargetGroupID,
+			Label:         "默认档位",
+		}}
+	}
+	sort.SliceStable(rules, func(i, j int) bool {
+		if rules[i].MinShares == rules[j].MinShares {
+			return rules[i].MaxShares < rules[j].MaxShares
+		}
+		return rules[i].MinShares < rules[j].MinShares
+	})
+	return rules
 }
 
 func (s *GroupBuyService) validateTierGroupIDs(ctx context.Context, mapping map[string]int64) error {
@@ -2571,15 +3129,30 @@ func (s *GroupBuyService) entitlementTierLabel(ctx context.Context, ent *dbent.G
 	if ent == nil || ent.ActiveShareCount <= 0 {
 		return ""
 	}
-	if plan, err := s.latestProductPlan(ctx); err == nil && plan != nil {
-		if rule, ok := resolveTierRuleForShareCount(normalizedPlanTierRules(plan), ent.ActiveShareCount); ok {
-			if label := strings.TrimSpace(rule.Label); label != "" {
-				return label
+	seats, err := s.entClient.GroupBuySeat.Query().
+		Where(
+			groupbuyseat.UserIDEQ(ent.UserID),
+			groupbuyseat.StatusEQ(GroupBuySeatStatusActive),
+			groupbuyseat.Or(groupbuyseat.ExpiresAtIsNil(), groupbuyseat.ExpiresAtGT(s.now())),
+		).
+		WithPlan().
+		Order(dbent.Desc(groupbuyseat.FieldActivatedAt), dbent.Desc(groupbuyseat.FieldID)).
+		All(ctx)
+	if err == nil {
+		for _, seat := range seats {
+			rules := normalizedPolicySnapshotTierRules(seat.PolicySnapshot)
+			if len(rules) == 0 {
+				rules = normalizedPlanTierRules(seat.Edges.Plan)
 			}
-			if rule.MinShares == rule.MaxShares {
-				return fmt.Sprintf("%d 份权益", rule.MinShares)
+			if rule, ok := resolveTierRuleForShareCount(rules, ent.ActiveShareCount); ok {
+				if label := strings.TrimSpace(rule.Label); label != "" {
+					return label
+				}
+				if rule.MinShares == rule.MaxShares {
+					return fmt.Sprintf("%d 份权益", rule.MinShares)
+				}
+				return fmt.Sprintf("%d-%d 份权益", rule.MinShares, rule.MaxShares)
 			}
-			return fmt.Sprintf("%d-%d 份权益", rule.MinShares, rule.MaxShares)
 		}
 	}
 	return fmt.Sprintf("%d 份权益", ent.ActiveShareCount)
@@ -2634,19 +3207,33 @@ func paymentOrderLite(order *dbent.PaymentOrder) PaymentOrderLite {
 	}
 }
 
+func groupBuyRefundView(refund *dbent.GroupBuyRefund) *GroupBuyRefundView {
+	if refund == nil {
+		return nil
+	}
+	return &GroupBuyRefundView{
+		ID:          refund.ID,
+		SeatID:      refund.SeatID,
+		OrderID:     refund.OrderID,
+		UserID:      refund.UserID,
+		Mode:        refund.Mode,
+		Status:      refund.Status,
+		Amount:      refund.Amount,
+		Note:        refund.Note,
+		ProcessedAt: refund.ProcessedAt,
+		CreatedAt:   refund.CreatedAt,
+		UpdatedAt:   refund.UpdatedAt,
+	}
+}
+
 func eventView(ev *dbent.GroupBuyEvent) GroupBuyEventView {
 	if ev == nil {
 		return GroupBuyEventView{}
 	}
 	return GroupBuyEventView{
 		ID:        ev.ID,
-		PlanID:    ev.PlanID,
-		RoundID:   ev.RoundID,
-		SeatID:    ev.SeatID,
-		UserID:    ev.UserID,
 		EventType: ev.EventType,
 		Message:   psStringValue(ev.Message),
-		Metadata:  ev.Metadata,
 		CreatedAt: ev.CreatedAt,
 	}
 }
@@ -2669,8 +3256,14 @@ func (s *GroupBuyService) createEvent(ctx context.Context, input *groupBuyEventI
 }
 
 func (s *GroupBuyService) createEventTx(ctx context.Context, client *dbent.Client, input *groupBuyEventInput) {
+	if err := s.createEventTxStrict(ctx, client, input); err != nil {
+		slog.Warn("create group buy event failed", "event_type", input.EventType, "error", err)
+	}
+}
+
+func (s *GroupBuyService) createEventTxStrict(ctx context.Context, client *dbent.Client, input *groupBuyEventInput) error {
 	if client == nil || input == nil || strings.TrimSpace(input.EventType) == "" {
-		return
+		return nil
 	}
 	b := client.GroupBuyEvent.Create().
 		SetEventType(strings.TrimSpace(input.EventType)).
@@ -2690,9 +3283,8 @@ func (s *GroupBuyService) createEventTx(ctx context.Context, client *dbent.Clien
 	if input.Metadata != nil {
 		b.SetMetadata(input.Metadata)
 	}
-	if _, err := b.Save(ctx); err != nil {
-		slog.Warn("create group buy event failed", "event_type", input.EventType, "error", err)
-	}
+	_, err := b.Save(ctx)
+	return err
 }
 
 func normalizeGroupBuyRefundMode(mode string) string {

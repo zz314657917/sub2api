@@ -102,6 +102,7 @@
               <span>计划</span>
               <span>状态</span>
               <span>份额</span>
+              <span>退款</span>
               <span>截止时间</span>
               <span>操作</span>
             </div>
@@ -110,11 +111,16 @@
               <span data-label="计划">{{ planTitle(round.plan_id) }}</span>
               <span data-label="状态"><b class="admin-group-buy-badge" :class="roundStatusClass(round.status)">{{ roundStatusLabel(round.status) }}</b></span>
               <span data-label="份额">{{ round.paid_shares ?? round.paid_seats }} 已付 / {{ round.reserved_shares ?? round.reserved_seats }} 预留 / {{ round.total_shares ?? round.total_seats }} 总份</span>
+              <span data-label="退款">{{ refundSummaryLabel(round) }}</span>
               <span data-label="截止时间">{{ formatDateTime(round.deadline_at) }}</span>
               <span class="admin-group-buy-table-actions">
+                <button type="button" :disabled="detailLoading && detailRound?.id === round.id" @click="openRoundDetail(round)">
+                  <Icon name="eye" size="sm" />
+                  详情
+                </button>
                 <button type="button" :disabled="round.status !== 'open' || actionRoundId === round.id" @click="closeRound(round)">关闭</button>
                 <button type="button" :disabled="!canRetryActivation(round) || actionRoundId === round.id" @click="retryActivation(round)">重试成团</button>
-                <button type="button" :disabled="round.status !== 'failed' || actionRoundId === round.id" @click="processRefunds(round)">处理退款</button>
+                <button type="button" :disabled="!canProcessRefunds(round) || actionRoundId === round.id" @click="processRefunds(round)">处理退款</button>
               </span>
             </div>
           </div>
@@ -262,6 +268,53 @@
         </div>
       </Transition>
     </Teleport>
+
+    <Teleport to="body">
+      <Transition name="modal">
+        <div v-if="detailRound" class="admin-group-buy-modal-backdrop" @click.self="closeRoundDetail">
+          <section class="admin-group-buy-modal admin-group-buy-detail" role="dialog" aria-modal="true" :aria-label="`团次 #${detailRound.id} 详情`">
+            <button type="button" class="admin-group-buy-modal-close" aria-label="关闭" @click="closeRoundDetail">
+              <Icon name="x" size="sm" />
+            </button>
+            <p class="admin-group-buy-eyebrow">团次 #{{ detailRound.id }}</p>
+            <h2>{{ planTitle(detailRound.plan_id) }}</h2>
+
+            <div class="admin-group-buy-detail-summary">
+              <div><span>状态</span><b>{{ roundStatusLabel(detailRound.status) }}</b></div>
+              <div><span>已付份额</span><b>{{ detailRound.paid_shares ?? detailRound.paid_seats }}</b></div>
+              <div><span>退款成功</span><b>{{ detailRound.refund_summary?.succeeded || 0 }}</b></div>
+              <div><span>待确认</span><b>{{ pendingRefundCount(detailRound) }}</b></div>
+              <div><span>失败</span><b>{{ detailRound.refund_summary?.failed || 0 }}</b></div>
+              <div><span>人工复核</span><b>{{ detailRound.refund_summary?.needs_review || 0 }}</b></div>
+            </div>
+
+            <div v-if="detailLoading" class="admin-group-buy-empty admin-group-buy-empty-soft">
+              <Icon name="refresh" size="lg" class="animate-spin" />
+            </div>
+            <div v-else-if="roundSeats.length === 0" class="admin-group-buy-empty admin-group-buy-empty-soft">
+              <p>暂无参与记录</p>
+            </div>
+            <div v-else class="admin-group-buy-detail-list">
+              <article v-for="seat in roundSeats" :key="seat.id" class="admin-group-buy-detail-row">
+                <div>
+                  <b>{{ seat.user?.username || seat.user?.email || `用户 #${seat.user_id}` }}</b>
+                  <span>{{ seat.user?.email || `用户 ID ${seat.user_id}` }}</span>
+                </div>
+                <dl>
+                  <div><dt>份额</dt><dd>{{ seat.share_count }}</dd></div>
+                  <div><dt>份额状态</dt><dd>{{ seatStatusLabel(seat.status) }}</dd></div>
+                  <div><dt>订单</dt><dd>{{ seat.order ? `#${seat.order.id} · ${seat.order.status}` : '-' }}</dd></div>
+                  <div><dt>实付</dt><dd>{{ seat.order ? formatMoney(seat.order.pay_amount) : '-' }}</dd></div>
+                  <div><dt>退款方式</dt><dd>{{ seat.refund ? refundModeLabel(seat.refund.mode) : '-' }}</dd></div>
+                  <div><dt>退款状态</dt><dd>{{ seat.refund ? refundStatusLabel(seat.refund.status) : '-' }}</dd></div>
+                </dl>
+                <p v-if="seat.refund?.note">{{ seat.refund.note }}</p>
+              </article>
+            </div>
+          </section>
+        </div>
+      </Transition>
+    </Teleport>
   </AppLayout>
 </template>
 
@@ -275,7 +328,7 @@ import { extractApiErrorMessage } from '@/utils/apiError'
 import { resolveGroupBuyProductName } from '@/utils/groupBuyProduct'
 import { formatPaymentAmount } from '@/components/payment/currency'
 import type { AdminGroup, BasePaginationResponse } from '@/types'
-import type { GroupBuyLaunchMode, GroupBuyPlan, GroupBuyPlanStatus, GroupBuyRefundMode, GroupBuyRound, GroupBuyRoundStatus, GroupBuyTier } from '@/types/groupBuy'
+import type { GroupBuyAdminSeat, GroupBuyLaunchMode, GroupBuyPlan, GroupBuyPlanStatus, GroupBuyRefundMode, GroupBuyRound, GroupBuyRoundStatus, GroupBuySeatStatus, GroupBuyTier } from '@/types/groupBuy'
 import type { GroupBuyPlanPayload } from '@/api/admin/groupBuy'
 
 const appStore = useAppStore()
@@ -295,6 +348,9 @@ const deletingPlanId = ref<number | null>(null)
 const actionRoundId = ref<number | null>(null)
 const actionPlanId = ref<number | null>(null)
 const roundStatusFilter = ref('')
+const detailRound = ref<GroupBuyRound | null>(null)
+const roundSeats = ref<GroupBuyAdminSeat[]>([])
+const detailLoading = ref(false)
 
 const roundPagination = reactive({
   page: 1,
@@ -589,8 +645,16 @@ async function processRefunds(round: GroupBuyRound) {
   actionRoundId.value = round.id
   try {
     const res = await adminAPI.groupBuy.processRefunds(round.id)
-    appStore.showSuccess(`已处理 ${res.data?.processed ?? 0} 个退款批次`)
+    const result = res.data
+    appStore.showSuccess(`退款处理完成：成功 ${result?.succeeded ?? 0}，待确认 ${result?.pending ?? 0}，失败 ${result?.failed ?? 0}`)
+    if ((result?.failed ?? 0) > 0) {
+      appStore.showError(result.failures?.[0]?.message || '部分退款需要重试或人工复核')
+    }
     await loadRounds()
+    if (detailRound.value?.id === round.id) {
+      detailRound.value = rounds.value.find((item) => item.id === round.id) || detailRound.value
+      await loadRoundSeats(round.id)
+    }
   } catch (err: unknown) {
     appStore.showError(extractApiErrorMessage(err, '处理退款失败'))
   } finally {
@@ -598,10 +662,48 @@ async function processRefunds(round: GroupBuyRound) {
   }
 }
 
+async function openRoundDetail(round: GroupBuyRound) {
+  detailRound.value = round
+  await loadRoundSeats(round.id)
+}
+
+async function loadRoundSeats(roundId: number) {
+  detailLoading.value = true
+  try {
+    const res = await adminAPI.groupBuy.listRoundSeats(roundId)
+    roundSeats.value = res.data || []
+  } catch (err: unknown) {
+    appStore.showError(extractApiErrorMessage(err, '团次详情加载失败'))
+    roundSeats.value = []
+  } finally {
+    detailLoading.value = false
+  }
+}
+
+function closeRoundDetail() {
+  detailRound.value = null
+  roundSeats.value = []
+}
+
 function canRetryActivation(round: GroupBuyRound): boolean {
   const paid = round.paid_shares ?? round.paid_seats
   const total = round.total_shares ?? round.total_seats
   return round.status === 'activating' || (round.status === 'open' && paid >= total)
+}
+
+function canProcessRefunds(round: GroupBuyRound): boolean {
+  return round.status === 'failed' || round.status === 'cancelled'
+}
+
+function pendingRefundCount(round: GroupBuyRound): number {
+  const summary = round.refund_summary
+  return (summary?.pending || 0) + (summary?.processing || 0) + (summary?.pending_provider || 0)
+}
+
+function refundSummaryLabel(round: GroupBuyRound): string {
+  const summary = round.refund_summary
+  if (!summary?.total) return '-'
+  return `${summary.succeeded} 已退 / ${pendingRefundCount(round)} 待处理 / ${summary.failed + summary.needs_review} 异常`
 }
 
 function totalShares(plan: GroupBuyPlan): number {
@@ -729,6 +831,31 @@ function timeoutLabel(minutes: number): string {
 
 function refundModeLabel(mode: string): string {
   return mode === 'provider_refund' ? '原路退款' : '退回余额'
+}
+
+function refundStatusLabel(status: string): string {
+  switch (status) {
+    case 'processing': return '处理中'
+    case 'pending_provider': return '渠道待确认'
+    case 'succeeded': return '已退款'
+    case 'failed': return '失败'
+    case 'needs_review': return '人工复核'
+    default: return status
+  }
+}
+
+function seatStatusLabel(status: GroupBuySeatStatus): string {
+  switch (status) {
+    case 'locked': return '待支付'
+    case 'released': return '已释放'
+    case 'paid': return '已支付'
+    case 'active': return '权益生效'
+    case 'refund_pending': return '待退款'
+    case 'refund_processing': return '退款处理中'
+    case 'refunded': return '已退款'
+    case 'cancelled': return '已取消'
+    default: return status
+  }
 }
 
 function launchModeLabel(mode?: string): string {
@@ -1078,7 +1205,7 @@ onMounted(() => {
 .admin-group-buy-table-row {
   display: grid;
   min-width: 980px;
-  grid-template-columns: 0.7fr 1.2fr 0.85fr 1.45fr 1.2fr 1.5fr;
+  grid-template-columns: 0.7fr 1.2fr 0.85fr 1.35fr 1.25fr 1.2fr 1.8fr;
   gap: 1rem;
   align-items: center;
   border-top: 1px solid var(--agb-border);
@@ -1150,6 +1277,89 @@ onMounted(() => {
   overflow-y: auto;
   padding: 1.5rem;
   background: var(--agb-surface);
+}
+
+.admin-group-buy-detail {
+  width: min(100%, 980px);
+}
+
+.admin-group-buy-detail-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.65rem;
+  margin: 1.25rem 0;
+}
+
+.admin-group-buy-detail-summary > div {
+  border: 1px solid var(--agb-border);
+  border-radius: 0.45rem;
+  background: var(--agb-surface-soft);
+  padding: 0.65rem;
+}
+
+.admin-group-buy-detail-summary span,
+.admin-group-buy-detail-summary b {
+  display: block;
+}
+
+.admin-group-buy-detail-summary span {
+  color: var(--agb-muted);
+  font-size: 0.76rem;
+}
+
+.admin-group-buy-detail-summary b {
+  margin-top: 0.25rem;
+  color: var(--agb-text);
+}
+
+.admin-group-buy-detail-list {
+  display: grid;
+  gap: 0.7rem;
+  max-height: 48vh;
+  overflow-y: auto;
+  padding-right: 0.2rem;
+}
+
+.admin-group-buy-detail-row {
+  border: 1px solid var(--agb-border);
+  border-radius: 0.45rem;
+  background: var(--agb-surface-soft);
+  padding: 0.8rem;
+}
+
+.admin-group-buy-detail-row > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.admin-group-buy-detail-row > div span,
+.admin-group-buy-detail-row > p {
+  color: var(--agb-muted);
+  font-size: 0.8rem;
+}
+
+.admin-group-buy-detail-row dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin: 0.7rem 0 0;
+}
+
+.admin-group-buy-detail-row dt {
+  color: var(--agb-muted);
+  font-size: 0.75rem;
+}
+
+.admin-group-buy-detail-row dd {
+  margin: 0.2rem 0 0;
+  color: var(--agb-muted-strong);
+  font-size: 0.84rem;
+  overflow-wrap: anywhere;
+}
+
+.admin-group-buy-detail-row p {
+  margin: 0.65rem 0 0;
 }
 
 .admin-group-buy-modal-close {
@@ -1280,6 +1490,17 @@ onMounted(() => {
     border-radius: 0.5rem;
     background: var(--agb-surface-soft);
     padding: 0.85rem;
+  }
+
+  .admin-group-buy-detail-summary,
+  .admin-group-buy-detail-row dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .admin-group-buy-detail-row > div {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.15rem;
   }
   .admin-group-buy-table-row + .admin-group-buy-table-row {
     margin-top: 0.75rem;

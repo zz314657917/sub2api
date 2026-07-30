@@ -13,6 +13,8 @@ type GroupBuyPolicySnapshot struct {
 	ProductKey          string             `json:"product_key,omitempty"`
 	PlanID              int64              `json:"plan_id,omitempty"`
 	TotalShares         int                `json:"total_shares,omitempty"`
+	ValidityDays        int                `json:"validity_days,omitempty"`
+	RefundMode          string             `json:"refund_mode,omitempty"`
 	QuotaPerShareLabel  string             `json:"quota_per_share_label,omitempty"`
 	TierRules           []GroupBuyTierRule `json:"tier_rules,omitempty"`
 	LegacyTierGroupIDs  map[string]int64   `json:"tier_group_ids,omitempty"`

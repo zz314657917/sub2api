@@ -980,6 +980,7 @@ var ProviderSet = wire.NewSet(
 	NewImageCreatorStorageGovernanceService,
 	ProvideWelfareService,
 	NewGroupBuyService,
+	ProvideGroupBuyLifecycleService,
 	ProvidePaymentConfigService,
 	ProvidePaymentService,
 	ProvidePaymentOrderExpiryService,
@@ -1024,6 +1025,13 @@ func ProvideBalanceNotifyService(emailService *EmailService, settingRepo Setting
 // ProvidePaymentOrderExpiryService creates and starts PaymentOrderExpiryService.
 func ProvidePaymentOrderExpiryService(paymentSvc *PaymentService) *PaymentOrderExpiryService {
 	svc := NewPaymentOrderExpiryService(paymentSvc, 60*time.Second)
+	svc.Start()
+	return svc
+}
+
+// ProvideGroupBuyLifecycleService creates and starts GroupBuyLifecycleService.
+func ProvideGroupBuyLifecycleService(groupBuySvc *GroupBuyService) *GroupBuyLifecycleService {
+	svc := NewGroupBuyLifecycleService(groupBuySvc, 60*time.Second)
 	svc.Start()
 	return svc
 }

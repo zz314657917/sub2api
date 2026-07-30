@@ -110,6 +110,20 @@ func (h *GroupBuyHandler) CreateRound(c *gin.Context) {
 	response.Created(c, round)
 }
 
+func (h *GroupBuyHandler) ListRoundSeats(c *gin.Context) {
+	id, err := parseGroupBuyPositiveInt64Param(c, "id")
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	seats, err := h.groupBuyService.AdminListRoundSeats(c.Request.Context(), id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, seats)
+}
+
 func (h *GroupBuyHandler) CloseRound(c *gin.Context) {
 	id, err := parseGroupBuyPositiveInt64Param(c, "id")
 	if err != nil {
@@ -147,12 +161,12 @@ func (h *GroupBuyHandler) ProcessRefunds(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	processed, err := h.groupBuyService.AdminProcessRefunds(c.Request.Context(), id)
+	result, err := h.groupBuyService.AdminProcessRefunds(c.Request.Context(), id)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, gin.H{"processed": processed})
+	response.Success(c, result)
 }
 
 func parseGroupBuyPositiveInt64Param(c *gin.Context, name string) (int64, error) {

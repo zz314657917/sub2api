@@ -34,6 +34,18 @@ export interface GroupBuyRound {
   close_reason?: string
   created_at: string
   updated_at: string
+  refund_summary?: GroupBuyRefundSummary
+}
+
+export interface GroupBuyRefundSummary {
+  total: number
+  pending: number
+  processing: number
+  pending_provider: number
+  succeeded: number
+  failed: number
+  needs_review: number
+  amount: number
 }
 
 export interface GroupBuyTier {
@@ -129,14 +141,42 @@ export interface PaymentOrderLite extends Pick<PaymentOrder,
 
 export interface GroupBuyEvent {
   id: number
-  plan_id?: number
-  round_id?: number
-  seat_id?: number
-  user_id?: number
   event_type: string
   message: string
-  metadata?: Record<string, unknown>
   created_at: string
+}
+
+export interface GroupBuyRefund {
+  id: number
+  seat_id: number
+  order_id?: number
+  user_id: number
+  mode: GroupBuyRefundMode
+  status: 'processing' | 'pending_provider' | 'succeeded' | 'failed' | 'needs_review'
+  amount: number
+  note?: string
+  processed_at?: string
+  created_at: string
+  updated_at: string
+}
+
+export interface GroupBuyParticipant {
+  id: number
+  email: string
+  username: string
+}
+
+export interface GroupBuyAdminSeat extends GroupBuySeat {
+  user?: GroupBuyParticipant
+  refund?: GroupBuyRefund
+}
+
+export interface GroupBuyRefundBatchResult {
+  processed: number
+  succeeded: number
+  pending: number
+  failed: number
+  failures: Array<{ seat_id: number; message: string }>
 }
 
 export interface CreateGroupBuyOrderRequest {

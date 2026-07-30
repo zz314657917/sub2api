@@ -102,6 +102,7 @@ func provideCleanup(
 	scheduledTestRunner *service.ScheduledTestRunnerService,
 	backupSvc *service.BackupService,
 	paymentOrderExpiry *service.PaymentOrderExpiryService,
+	groupBuyLifecycle *service.GroupBuyLifecycleService,
 	channelMonitorRunner *service.ChannelMonitorRunner,
 ) func() {
 	return func() {
@@ -272,6 +273,12 @@ func provideCleanup(
 			{"PaymentOrderExpiryService", func() error {
 				if paymentOrderExpiry != nil {
 					paymentOrderExpiry.Stop()
+				}
+				return nil
+			}},
+			{"GroupBuyLifecycleService", func() error {
+				if groupBuyLifecycle != nil {
+					groupBuyLifecycle.Stop()
 				}
 				return nil
 			}},

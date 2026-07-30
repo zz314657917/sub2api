@@ -145,6 +145,7 @@ func registerGroupBuyRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		rounds := groupBuy.Group("/rounds")
 		{
 			rounds.GET("", h.Admin.GroupBuy.ListRounds)
+			rounds.GET("/:id/seats", h.Admin.GroupBuy.ListRoundSeats)
 			rounds.POST("/:id/close", h.Admin.GroupBuy.CloseRound)
 			rounds.POST("/:id/retry-activation", h.Admin.GroupBuy.RetryActivation)
 			rounds.POST("/:id/process-refunds", h.Admin.GroupBuy.ProcessRefunds)
