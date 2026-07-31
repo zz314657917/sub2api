@@ -550,3 +550,4 @@
 260731 0041 | group-duplicate-s133 | contract-approved | Evaluator | user-authorized schema and cross-layer impact is bounded to internal retry identity, inactive copies, atomic eligible binding priorities, and no publication/runtime action
 260731 0111 | group-duplicate-s133 | build | Generator | current-field-safe port completed with Ent/Wire regeneration, inactive copies, atomic eligible account binding priorities, retry recovery, localized group-list action, and focused regressions
 260731 0111 | group-duplicate-s133 | final-qa | Evaluator | PASS/source-level; focused Go/frontend, full compile/build, typecheck, diff, conflict, migration-content, and allowlist gates pass; existing unit API-contract and integration repository suites have unrelated test drift
+260731 1050 | group-duplicate-s133 | merged | Codex | feature commit 05f55d18e merged into local main as 43c4ce254; origin/main, deployment, container refresh, and production migration unchanged
