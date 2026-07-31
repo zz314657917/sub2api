@@ -551,3 +551,7 @@
 260731 0111 | group-duplicate-s133 | build | Generator | current-field-safe port completed with Ent/Wire regeneration, inactive copies, atomic eligible account binding priorities, retry recovery, localized group-list action, and focused regressions
 260731 0111 | group-duplicate-s133 | final-qa | Evaluator | PASS/source-level; focused Go/frontend, full compile/build, typecheck, diff, conflict, migration-content, and allowlist gates pass; existing unit API-contract and integration repository suites have unrelated test drift
 260731 1050 | group-duplicate-s133 | merged | Codex | feature commit 05f55d18e merged into local main as 43c4ce254; origin/main, deployment, container refresh, and production migration unchanged
+260731 1253 | audit-i18n-s134 | contract-draft | Planner | docs/workflow/tasks/audit-i18n-s134.md; duplicated admin.audit namespace isolated to two locale modules with one focused regression
+260731 1253 | audit-i18n-s134 | contract-approved | Evaluator | direct small-fix path approved; backend, router, view, deployment, commit, push, and unrelated dirty files denied
+260731 1258 | audit-i18n-s134 | build | Generator | removed duplicate audit namespace from English and Chinese admin locale modules and added complete-message-tree regression coverage
+260731 1258 | audit-i18n-s134 | final-qa | Evaluator | PASS/source-level + production-build; focused and full i18n Vitest, typecheck, build, ESLint, built-locale content, diff, and allowlist checks pass; no browser or deployed runtime exercised
