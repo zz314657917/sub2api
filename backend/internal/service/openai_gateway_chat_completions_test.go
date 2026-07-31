@@ -428,6 +428,9 @@ func TestForwardAsChatCompletions_BufferedTransientResponseFailedTriggersFailove
 	require.ErrorAs(t, err, &failoverErr)
 	require.Equal(t, http.StatusBadGateway, failoverErr.StatusCode)
 	require.Contains(t, string(failoverErr.ResponseBody), "overloaded")
+	require.True(t, failoverErr.RetryableOnSameAccount)
+	require.Equal(t, 3, failoverErr.SameAccountRetryLimit)
+	require.Equal(t, time.Second, failoverErr.SameAccountRetryBackoffBase)
 	require.False(t, c.Writer.Written())
 }
 

@@ -1322,12 +1322,13 @@ func (s *OpenAIGatewayService) forwardOpenAIImagesAPIKey(
 				Message:            upstreamMsg,
 			})
 			s.handleFailoverSideEffects(upstreamCtx, resp, account, respBody)
-			capacityRetryLimit := openAIModelCapacityRetryLimit(upstreamMsg, respBody)
+			retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, respBody)
 			return nil, &UpstreamFailoverError{
-				StatusCode:             resp.StatusCode,
-				ResponseBody:           respBody,
-				RetryableOnSameAccount: capacityRetryLimit > 0 || (account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)),
-				SameAccountRetryLimit:  capacityRetryLimit,
+				StatusCode:                  resp.StatusCode,
+				ResponseBody:                respBody,
+				RetryableOnSameAccount:      retryLimit > 0 || (account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)),
+				SameAccountRetryLimit:       retryLimit,
+				SameAccountRetryBackoffBase: retryBackoffBase,
 			}
 		}
 		return s.handleOpenAIImagesErrorResponse(upstreamCtx, resp, c, account, upstreamModel)
@@ -1503,20 +1504,22 @@ func (s *OpenAIGatewayService) forwardSplitOpenAIImagesAPIKey(
 					Message:            upstreamMsg,
 				})
 				s.handleFailoverSideEffects(ctx, resp, account, respBody)
-				capacityRetryLimit := openAIModelCapacityRetryLimit(upstreamMsg, respBody)
+				retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, respBody)
 				if len(responseBodies) > 0 {
 					return partialResult(), &UpstreamFailoverError{
-						StatusCode:             resp.StatusCode,
-						ResponseBody:           respBody,
-						RetryableOnSameAccount: capacityRetryLimit > 0 || (account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)),
-						SameAccountRetryLimit:  capacityRetryLimit,
+						StatusCode:                  resp.StatusCode,
+						ResponseBody:                respBody,
+						RetryableOnSameAccount:      retryLimit > 0 || (account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)),
+						SameAccountRetryLimit:       retryLimit,
+						SameAccountRetryBackoffBase: retryBackoffBase,
 					}
 				}
 				return nil, &UpstreamFailoverError{
-					StatusCode:             resp.StatusCode,
-					ResponseBody:           respBody,
-					RetryableOnSameAccount: capacityRetryLimit > 0 || (account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)),
-					SameAccountRetryLimit:  capacityRetryLimit,
+					StatusCode:                  resp.StatusCode,
+					ResponseBody:                respBody,
+					RetryableOnSameAccount:      retryLimit > 0 || (account.IsPoolMode() && account.IsPoolModeRetryableStatus(resp.StatusCode)),
+					SameAccountRetryLimit:       retryLimit,
+					SameAccountRetryBackoffBase: retryBackoffBase,
 				}
 			}
 			result, err := s.handleOpenAIImagesErrorResponse(ctx, resp, c, account, upstreamModel)

@@ -46,6 +46,17 @@ func TestSameAccountRetryLimit(t *testing.T) {
 	require.Equal(t, 5, sameAccountRetryLimit(&service.UpstreamFailoverError{SameAccountRetryLimit: 5}, maxSameAccountRetries))
 }
 
+func TestSameAccountRetryDelay(t *testing.T) {
+	require.Equal(t, defaultSameAccountRetryDelay, sameAccountRetryDelay(nil, 1))
+	require.Equal(t, defaultSameAccountRetryDelay, sameAccountRetryDelay(&service.UpstreamFailoverError{}, 2))
+
+	overloadErr := &service.UpstreamFailoverError{SameAccountRetryBackoffBase: time.Second}
+	require.Equal(t, time.Second, sameAccountRetryDelay(overloadErr, 0), "retry count should be clamped to the first attempt")
+	require.Equal(t, time.Second, sameAccountRetryDelay(overloadErr, 1))
+	require.Equal(t, 2*time.Second, sameAccountRetryDelay(overloadErr, 2))
+	require.Equal(t, 3*time.Second, sameAccountRetryDelay(overloadErr, 3))
+}
+
 // ---------------------------------------------------------------------------
 // NewFailoverState 测试
 // ---------------------------------------------------------------------------
@@ -330,7 +341,7 @@ func TestHandleFailoverError_SameAccountRetry(t *testing.T) {
 		require.Equal(t, 0, fs.SwitchCount, "同账号重试不应增加切换计数")
 		require.NotContains(t, fs.FailedAccountIDs, int64(100), "同账号重试不应加入失败列表")
 		require.Empty(t, mock.calls, "同账号重试期间不应调用 TempUnschedule")
-		// 验证等待了 sameAccountRetryDelay (500ms)
+		// 默认同账号重试间隔为 500ms。
 		require.GreaterOrEqual(t, elapsed, 400*time.Millisecond)
 		require.Less(t, elapsed, 2*time.Second)
 	})
@@ -425,6 +436,33 @@ func TestHandleFailoverError_SameAccountRetry(t *testing.T) {
 		require.Equal(t, FailoverContinue, action)
 		require.Len(t, mock.calls, 2, "第二次耗尽也应调用 TempUnschedule")
 	})
+}
+
+func TestHandleFailoverError_OverloadRetryBackoffAndSwitch(t *testing.T) {
+	mock := &mockTempUnscheduler{}
+	fs := NewFailoverState(2, false)
+	err := &service.UpstreamFailoverError{
+		StatusCode:                  503,
+		RetryableOnSameAccount:      true,
+		SameAccountRetryLimit:       3,
+		SameAccountRetryBackoffBase: time.Microsecond,
+	}
+
+	for i := 1; i <= 3; i++ {
+		action := fs.HandleFailoverError(context.Background(), mock, 100, "openai", err)
+		require.Equal(t, FailoverContinue, action)
+		require.Equal(t, i, fs.SameAccountRetryCount[100])
+		require.Zero(t, fs.SwitchCount)
+		require.Empty(t, mock.calls)
+	}
+
+	action := fs.HandleFailoverError(context.Background(), mock, 100, "openai", err)
+	require.Equal(t, FailoverContinue, action)
+	require.Equal(t, 1, fs.SwitchCount, "the fourth overload failure should switch accounts")
+	require.Contains(t, fs.FailedAccountIDs, int64(100))
+	require.Len(t, mock.calls, 1)
+	require.Equal(t, int64(100), mock.calls[0].accountID)
+	require.Same(t, err, mock.calls[0].failoverErr)
 }
 
 // ---------------------------------------------------------------------------
