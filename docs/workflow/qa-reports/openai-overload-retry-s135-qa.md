@@ -8,7 +8,7 @@
 
 ## Verdict
 
-`PASS / source-only`
+`PASS / published`
 
 ## Contract Checked
 
@@ -22,10 +22,10 @@
 - commands run:
 
 ```text
-go test ./internal/service -run <S135 overload/capacity/normal-passthrough-stream regex> -count=1 -> PASS (5.485s)
-go test ./internal/handler -run <S135 retry-limit/delay/loop regex> -count=1 -> PASS (19.418s)
-go test ./internal/handler -run <same-account and overload switch regression regex> -count=1 -> PASS (8.580s)
-go test ./... -run '^$' -> PASS (all backend packages compile; 14.4s)
+go test ./internal/service -run <S135 overload/capacity/normal-passthrough-stream regex> -count=1 -> PASS (fresh publication worktree; 5.504s)
+go test ./internal/handler -run <S135 retry-limit/delay/loop regex> -count=1 -> PASS (fresh publication worktree; 18.649s)
+go test ./internal/handler -run <same-account and overload switch regression regex> -count=1 -> PASS (pre-publication feature worktree; 8.580s)
+go test ./... -run '^$' -> PASS (fresh publication worktree; all backend packages compile; 53.3s)
 go test -tags=unit ./internal/service -run <fallback constructor regression regex> -count=1 -> BLOCKED by pre-existing unit-test source drift (`stringPtr` redeclaration, stale billing signatures, removed Grok runtime-block helpers)
 gofmt -d <all changed Go files> -> PASS (empty output)
 git diff --check -> PASS
@@ -33,6 +33,9 @@ conflict-marker audit -> PASS (no matches)
 unmerged-index audit -> PASS
 allowed-path audit -> PASS
 constructor policy audit -> PASS (all in-scope OpenAI capacity-aware failover constructor sites)
+git fetch origin main -> PASS
+git rev-list --left-right --count HEAD...origin/main -> 0 0 before this documentation receipt
+git rev-parse HEAD origin/main -> 3ef7f36de for both refs before this documentation receipt
 ```
 
 - manual/source checks:
@@ -57,9 +60,11 @@ Responses, Messages, Chat Completions, and Images -> all in-scope failover const
 - Overload matching is restricted to the two structured codes or the complete
   sentence (with an optional final period); generic `overloaded` text and
   extended messages stay on the existing failover behavior.
-- The change remains isolated to the approved worktree. No commit, merge, push,
-  deployment, container refresh, schema, configuration, or persistence action
-  was performed.
+- Feature commit `84915599b` was pushed to its scoped remote branch. The clean
+  publication worktree integrated it on `origin/main@1c1021133` as
+  `3ef7f36de`, then fast-forwarded `origin/main` with fetched ref parity.
+- Publication did not add schema, configuration, persistence, deployment, or
+  container changes.
 
 ## Unverified Risks
 
@@ -71,12 +76,13 @@ Responses, Messages, Chat Completions, and Images -> all in-scope failover const
 - Unit-tag fallback tests remain unexecuted because unrelated pre-existing test
   source drift prevents the package from compiling; the production sources are
   covered by the default package tests and full compile probe.
+- No deployed service or refreshed container was exercised after publication.
 
 ## Recommendation
 
-`PASS`: the narrowed S135 patch is ready for the separately authorized Git
-publication step. Live provider behavior, deployment, and container smoke
-remain unverified.
+`PASS / published`: the narrowed S135 source change is published on
+`origin/main` as `3ef7f36de`. Live provider behavior, deployment, and container
+smoke remain unverified.
 
 ## Knowledge Promotion
 

@@ -2,11 +2,11 @@
 phase: done
 current_sprint: openai-overload-retry-s135
 total_sprints: 135
-pending_action: retain the verified narrowed S135 patch for explicit commit/merge/push authorization
+pending_action: optionally validate S135 against a live provider or deployed container; source publication is complete
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-31 14:30 +08:00
+last_verified: 2026-07-31 15:10 +08:00
 ---
 
 # S135 Current Sprint
@@ -24,14 +24,17 @@ last_verified: 2026-07-31 14:30 +08:00
 - A follow-up review found that Embeddings and Videos did not have a pinned
   same-account retry seam; their temporary S135 extension was withdrawn rather
   than claiming that an outer scheduler retry guarantees account identity.
-- Final QA: `PASS / source-only`. Fresh focused service/handler regressions,
-  full Go compile probe, formatting, diff, conflict-marker, unmerged-index, and
+- Final QA: `PASS / published`. Fresh focused service/handler regressions, full
+  Go compile probe, formatting, diff, conflict-marker, unmerged-index, and
   narrowed allowlist gates pass. The existing Responses, Messages, Chat
   Completions, and Images policy is covered; Embeddings/Videos remain deferred.
 - Contract: `docs/workflow/tasks/openai-overload-retry-s135.md`.
 - QA report: `docs/workflow/qa-reports/openai-overload-retry-s135-qa.md`.
-- No live provider, deployment, container refresh, commit, merge, or push was
-  performed.
+- Feature commit `84915599b` was pushed to
+  `origin/codex/openai-overload-retry-s135`. A clean publication worktree based
+  on `origin/main@1c1021133` integrated it as `3ef7f36de` and fast-forwarded
+  `origin/main`; the fetched local/tracking refs matched before this receipt.
+- No live provider, deployment, or container refresh was performed.
 
 # S133 Current Sprint
 

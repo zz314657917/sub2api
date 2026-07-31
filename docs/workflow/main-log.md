@@ -567,3 +567,4 @@
 260731 1430 | openai-overload-retry-s135 | review-fail | Evaluator | Embeddings/Videos handler audit found scheduler re-entry did not guarantee same-account retry; withdrew that extension and reopened S135 for retest
 260731 1438 | openai-overload-retry-s135 | retest | Evaluator | narrowed service/handler regressions, full compile, formatting, diff, conflict, unmerged-index, and allowlist gates PASS
 260731 1438 | openai-overload-retry-s135 | done | Evaluator | PASS/source-only; Embeddings/Videos explicitly deferred, live provider/deployment/container and Git publication still unperformed
+260731 1510 | openai-overload-retry-s135 | published | Codex | feature commit 84915599b pushed to its scoped remote branch and integrated from origin/main@1c1021133 as 3ef7f36de; origin/main fast-forwarded with fetched ref parity, while live provider/deployment/container validation remains unperformed
