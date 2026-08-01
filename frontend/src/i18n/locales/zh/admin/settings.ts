@@ -30,6 +30,12 @@ export default {
           enabled: '启用可用渠道',
           enabledHint: '关闭后用户端侧边栏入口隐藏，接口返回空数组。',
         },
+        userErrorRequests: {
+          title: '用户错误请求',
+          description: '允许用户查看自己 API 密钥产生的失败请求脱敏记录。',
+          enabled: '允许用户查看错误请求',
+          enabledHint: '默认关闭；账户、网络、身份和重试控制等敏感字段始终不会返回给用户。'
+        },
         accountShare: {
           title: '用户账号共享池',
           description: '允许普通用户上传自己的上游账号，私有自用或申请公开共享。关闭后普通用户侧入口隐藏，相关接口拒绝访问。',

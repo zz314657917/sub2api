@@ -57,6 +57,9 @@ export default {
     reasoningEffort: 'Reasoning Effort',
     endpoint: 'Endpoint',
     endpointDistribution: 'Endpoint Distribution',
+    analyticsTitle: 'Usage Analytics',
+    analyticsDescription: 'Summary and distribution data for the active filters',
+    granularity: 'Granularity',
     inbound: 'Inbound',
     upstream: 'Upstream',
     mapping: 'Mapping',
@@ -122,5 +125,44 @@ export default {
     exportExcelSuccess: 'Usage data exported successfully (Excel format)',
     exportExcelFailed: 'Failed to export usage data',
     imageUnit: ' images',
-    userAgent: 'User-Agent'
+    userAgent: 'User-Agent',
+    tabs: {
+      usage: 'Usage Details',
+      errors: 'Error Requests'
+    },
+    errors: {
+      total: '{count} failed requests',
+      time: 'Time',
+      model: 'Model',
+      endpoint: 'Inbound Endpoint',
+      status: 'Status',
+      category: 'Category',
+      platform: 'Platform',
+      message: 'Error Message',
+      keyName: 'API Key',
+      keyDeleted: 'Deleted',
+      allKeys: 'All API Keys',
+      modelPlaceholder: 'Filter by model',
+      allCategories: 'All Categories',
+      allStatuses: 'All Status Codes',
+      empty: 'No failed requests in this range',
+      failedToLoad: 'Failed to load error requests',
+      categories: {
+        auth: 'Authentication',
+        rate_limit: 'Rate Limit',
+        quota: 'Balance / Subscription',
+        invalid_request: 'Invalid Request',
+        service_unavailable: 'Service Unavailable',
+        upstream: 'Upstream',
+        internal: 'Platform',
+        cyber: 'Safety Policy',
+        other: 'Other'
+      },
+      detail: {
+        title: 'Error Request Details',
+        loadFailed: 'Failed to load error details',
+        upstreamStatus: 'Upstream Status',
+        responseBody: 'Error Response'
+      }
+    }
   }

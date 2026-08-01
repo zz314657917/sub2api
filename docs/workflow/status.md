@@ -1,13 +1,25 @@
 ---
 phase: done
-current_sprint: usage-full-alignment-s135
-total_sprints: 135
-pending_action: Commit S135 locally, then draft/review S136 user Usage frontend contract; no push, deployment, container update, or production migration is authorized
+current_sprint: usage-user-frontend-s136
+total_sprints: 136
+pending_action: Create the authorized local S136 commit, then draft the isolated S137 administrator Usage frontend contract
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-01 07:37 +08:00
+last_verified: 2026-08-01 13:07 +08:00
 ---
+
+# S136 Current Sprint
+
+- Baseline is committed S135 backend foundation `d48370f75`.
+- Scope is user Usage analytics, redacted user error UI, and its opt-in administrator setting only.
+- Contract: `docs/workflow/tasks/usage-user-frontend-s136.md`.
+- Contract review: approved; local component reuse, strict redaction, lazy error loading, exact allowlist, and S137 exclusions are explicit.
+- Implementation and frontend QA: PASS. Filtered analytics, opt-in redacted errors, Settings mapping, responsive desktop/mobile layout, and stale-error refresh behavior are complete.
+- Final evidence: 41/41 focused Vitest, typecheck, changed-file ESLint, 1106-module production build, diff/allowlist/security checks, and mocked Playwright desktop/mobile smoke pass.
+- QA report: `docs/workflow/qa-reports/usage-user-frontend-s136-qa.md`.
+- Administrator Usage error workbench and Token ranking remain deferred to S137.
+- S136 local commit is authorized as the next closeout action; primary-worktree merge, push, deployment, container update, and production migration remain excluded.
 
 # S135 Current Sprint
 

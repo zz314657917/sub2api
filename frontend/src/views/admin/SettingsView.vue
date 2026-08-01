@@ -5250,6 +5250,33 @@
           </div>
         </div>
 
+        <div class="card" data-testid="user-error-request-settings">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.features.userErrorRequests.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.features.userErrorRequests.description') }}
+            </p>
+          </div>
+          <div class="p-6">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.userErrorRequests.enabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.userErrorRequests.enabledHint') }}
+                </p>
+              </div>
+              <Toggle
+                v-model="form.allow_user_view_error_requests"
+                data-testid="allow-user-view-error-requests"
+              />
+            </div>
+          </div>
+        </div>
+
         <div class="card" data-testid="group-buy-feature-settings">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -8725,6 +8752,7 @@ const form = reactive<SettingsForm>({
   channel_monitor_default_interval_seconds: 60,
   // Available Channels feature switch
   available_channels_enabled: false,
+  allow_user_view_error_requests: false,
   account_share_enabled: true,
   account_share_channel_status_visible: true,
   external_capacity_reference_enabled: false,
@@ -10539,6 +10567,7 @@ async function saveSettings() {
         Number(form.channel_monitor_default_interval_seconds) || 60,
       // Available Channels feature switch
       available_channels_enabled: form.available_channels_enabled,
+      allow_user_view_error_requests: form.allow_user_view_error_requests,
       account_share_enabled: form.account_share_enabled,
       account_share_channel_status_visible:
         form.account_share_channel_status_visible,

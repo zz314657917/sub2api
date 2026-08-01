@@ -561,3 +561,10 @@
 260801 0737 | usage-full-alignment-s135 | final-qa | Evaluator | focused tests, public settings schema, migration checks, full compile, formatting, diff, conflict, and allowed-path gates PASS; full package and unit API-contract suites retain unrelated baseline failures
 260801 0737 | usage-full-alignment-s135 | done | Evaluator | PASS/source-level; S136/S137 frontend and admin UI remain separate; commit, merge, push, deployment, and production migration remain unauthorized
 260801 1151 | usage-full-alignment-s135 | commit-authorized | User | local feature-branch commit and continued isolated S136 work authorized; primary dirty worktree merge, push, deployment, containers, and production migration remain excluded
+260801 1151 | usage-full-alignment-s135 | committed | Generator | d48370f75 feat(usage): add user analytics and error request backend; isolated branch clean and not pushed
+260801 1151 | usage-user-frontend-s136 | contract-draft | Planner | user analytics, redacted error tab/detail, and opt-in Settings control on S135 baseline; admin ops/ranking/backend denied
+260801 1151 | usage-user-frontend-s136 | contract-approved | Evaluator | success criteria, strict user DTO boundary, lazy loading, local component preservation, acceptance commands, and stop rules reviewed
+260801 1307 | usage-user-frontend-s136 | contract-amended | Evaluator | added exact frontend/src/stores/app.ts fallback-setting path required for fail-closed behavior; no other store scope added
+260801 1307 | usage-user-frontend-s136 | build | Generator | user analytics, redacted error tab/detail, opt-in Settings control, stale-tab refresh, and responsive desktop/mobile layout completed
+260801 1307 | usage-user-frontend-s136 | final-qa | Evaluator | 41/41 Vitest, typecheck, ESLint, 1106-module build, mocked desktop/mobile Playwright, redaction, diff, conflict, and allowlist gates PASS
+260801 1307 | usage-user-frontend-s136 | done | Evaluator | PASS/frontend + mocked-browser; local commit may proceed, while dirty-main merge, push, deployment, containers, and production runtime remain excluded

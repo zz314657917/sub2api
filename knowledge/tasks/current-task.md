@@ -1,39 +1,52 @@
 # 当前任务快照
 
-最后更新：2026-08-01 11:51 +08:00
+最后更新：2026-08-01 13:07 +08:00
+
+## 背景
+
+- S135 后端基础已提交为 `d48370f75`，S136 在隔离 worktree `E:/codex-worktrees/sub2api/usage-user-frontend-s136` 完成用户 Usage 前端。
+- 主工作树存在重叠用户改动，本轮禁止直接 merge、stash 或回滚主工作树。
 
 ## 当前目标
 
-- 完成 `usage-full-alignment-s135` 后端基础 Sprint 的验收，并为后续分阶段合并提供清晰边界。
-- 当前分支：`codex/usage-full-alignment-s135`。
-- 隔离 worktree：`E:/codex-worktrees/sub2api/usage-full-alignment-s135`。
-- 基线：`main@1c1021133`；上游参考：`upstream/main@7ceabb3fd`。
+- 收口 `usage-user-frontend-s136` 本地提交，并以该提交为基线进入 S137。
+- S137 处理管理员错误请求工作台和管理员 Usage 用户 Token 排行。
 
 ## 本次已完成
 
-- Usage 列表、统计、趋势、模型、分组和 `snapshot-v2` 统一继承用户安全过滤条件，并强制 API Key 所有权。
-- 新增用户错误请求列表/详情 API，服务层强制 `user_id` 归属、排除 `count_tokens`、支持分类/状态/模型/日期/API Key 过滤和稳定排序。
-- 用户错误响应收紧为白名单字段；详情对非拥有者返回 NotFound 语义。
-- 新增 `allow_user_view_error_requests`，默认关闭，设置读取失败 fail closed，并接入 admin/public settings、SSR injection、Wire 和用户路由。
-- 新增 `backend/migrations/200_add_ops_error_logs_user_time_index_notx.sql`，为用户错误分页创建幂等并发部分索引。
-- 新增路由静态断言、归属/脱敏/where/order/设置测试。
+- `/usage` 已加入统计卡、Token 趋势、模型/分组/端点分布，统一传播日期、API Key、分组、模型、请求类型、计费模式、时区和日/小时粒度。
+- 已加入默认关闭的用户错误请求 Tab、懒加载、筛选、排序、分页、列设置、移动卡片、详情按钮和严格脱敏详情。
+- Settings 已接入 `allow_user_view_error_requests`；设置缺失或运行时关闭均 fail closed。
+- 已修复移动端分布图挤压、缓存 tooltip/长分组横向溢出，以及错误 Tab 重新进入时的旧数据问题。
 
-## 验收结论
+## 已确认事实
 
-- QA：`PASS / source-level`，详见 `docs/workflow/qa-reports/usage-full-alignment-s135-qa.md`。
-- 聚焦用户错误、设置、过滤、路由、迁移和 public settings schema 测试通过。
-- `go test -run '^$' ./...` 编译探针通过。
-- 完整四包测试仍有既有失败：`group_peak_rate_test.go` 峰值时区断言，以及 `auth_rate_limit_test.go` Redis 不可用路由 panic；未改动这些文件。
-- `-tags=unit TestAPIContracts` 仍受既有精确 payload 漂移阻断；本 Sprint 新增的 `allow_user_view_error_requests=false` 期望已补齐。
+- 用户错误 DTO/UI 不含 IP、User-Agent、邮箱、账户、上游地址、重试、owner/source 或 API Key 前缀。
+- 用户模式不调用管理员 `user-breakdown` API；保留实际消费，隐藏账户成本。
+- Playwright mock 下 `390x844` 和 `1440x1000` 页面宽度、布局和交互通过，控制台 0 error / 0 warning。
 
-## 尚未执行
+## 待验证点
 
-- 未执行真实 PostgreSQL migration、生产数据库、部署、容器更新、浏览器/API 登录态 smoke 或 push。
-- 删除 API Key owner 快照归属恢复未实现；当前按现有 `user_id` 强制归属，需后续独立 schema contract。
-- 前端用户 Usage、用户错误表、管理员错误请求表和用户排行 UI 延后至 S136/S137。
+- 真实登录后端 smoke -> 验证：实际读取 `/usage`、切换错误 Tab、打开详情并由管理员保存开关。
+- 部署/容器/生产 migration -> 验证：仅在后续明确授权后执行并记录运行态证据。
+- S137 管理员界面 -> 验证：独立 contract、聚焦 Vitest、typecheck/build 和管理员桌面/移动 browser smoke。
+
+## 当前结论
+
+- S136 最终裁决为 `PASS / frontend + mocked-browser`，详见 `docs/workflow/qa-reports/usage-user-frontend-s136-qa.md`。
+- 可做授权范围内的本地提交；不得 merge 脏主工作树、push、部署或更新容器。
 
 ## 下一步
 
-1. 用户已授权本地提交并继续合入；先精确提交 S135，再从该提交创建 S136 隔离分支。主工作树存在重叠脏文档，暂不直接 merge。
-2. S136：先合入用户 Usage 页面、筛选器、趋势/模型/分组图表和用户错误表，复用 S135 API。
-3. S137：再合入管理员错误请求视图、用户排行/Token 排名和完整前端回归，单独评估管理员数据口径与权限。
+1. 本地提交 S136 -> 验证：提交只含 contract 允许路径，提交后工作树干净。
+2. 从 S136 提交创建隔离 S137 worktree -> 验证：基线包含 S135/S136 且不触碰主工作树。
+3. 起草并审核 S137 contract -> 验证：管理员错误工作台和 Token 排行的 API、权限、响应式与验收边界明确。
+
+## 验证记录
+
+- 聚焦 Vitest：8 文件、41/41 PASS。
+- `corepack.cmd pnpm --dir frontend run typecheck`：PASS。
+- changed-file ESLint：PASS。
+- `corepack.cmd pnpm --dir frontend run build`：PASS，1106 modules。
+- Playwright mock：移动/桌面、超长文本、错误卡片/详情及控制台检查 PASS。
+- `git diff --check`、冲突标记、未合并索引、敏感字段和允许路径检查：PASS。
