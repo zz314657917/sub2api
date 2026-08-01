@@ -1174,7 +1174,12 @@ func isOpenAIInstructionsRequiredError(upstreamStatusCode int, upstreamMsg strin
 	return false
 }
 
-const openAIModelCapacitySameAccountRetryLimit = 5
+const (
+	openAIModelCapacitySameAccountRetryLimit    = 5
+	openAIServerOverloadedSameAccountRetryLimit = 3
+	openAIServerOverloadedRetryBackoffBase      = time.Second
+	openAIServerOverloadedMessage               = "our servers are currently overloaded"
+)
 
 func isOpenAIModelCapacityError(upstreamMsg string, upstreamBody []byte) bool {
 	match := func(text string) bool {
@@ -1204,18 +1209,57 @@ func openAIModelCapacityRetryLimit(upstreamMsg string, upstreamBody []byte) int 
 	return 0
 }
 
+func isOpenAIServerOverloadedCode(code string) bool {
+	switch strings.ToLower(strings.TrimSpace(code)) {
+	case "server_is_overloaded", "slow_down":
+		return true
+	default:
+		return false
+	}
+}
+
+func isOpenAIServerOverloadedMessage(message string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(message))
+	// OpenAI has returned the exact sentence both with and without a final dot.
+	normalized = strings.TrimSuffix(normalized, ".")
+	return normalized == openAIServerOverloadedMessage
+}
+
+func isOpenAIServerOverloadedError(upstreamMsg string, upstreamBody []byte) bool {
+	if isOpenAIServerOverloadedMessage(upstreamMsg) {
+		return true
+	}
+	if len(upstreamBody) == 0 {
+		return false
+	}
+	for _, path := range []string{"response.error.code", "error.code", "response.code", "code"} {
+		if isOpenAIServerOverloadedCode(gjson.GetBytes(upstreamBody, path).String()) {
+			return true
+		}
+	}
+	for _, path := range []string{"response.error.message", "error.message", "response.message", "message"} {
+		if isOpenAIServerOverloadedMessage(gjson.GetBytes(upstreamBody, path).String()) {
+			return true
+		}
+	}
+	return isOpenAIServerOverloadedMessage(string(upstreamBody))
+}
+
+func openAISameAccountRetryPolicy(upstreamMsg string, upstreamBody []byte) (int, time.Duration) {
+	if capacityLimit := openAIModelCapacityRetryLimit(upstreamMsg, upstreamBody); capacityLimit > 0 {
+		return capacityLimit, 0
+	}
+	if isOpenAIServerOverloadedError(upstreamMsg, upstreamBody) {
+		return openAIServerOverloadedSameAccountRetryLimit, openAIServerOverloadedRetryBackoffBase
+	}
+	return 0, 0
+}
+
 func isOpenAITransientProcessingError(upstreamStatusCode int, upstreamMsg string, upstreamBody []byte) bool {
 	if upstreamStatusCode != http.StatusBadRequest && upstreamStatusCode != http.StatusServiceUnavailable {
 		return false
 	}
-	hasOpenAIServerOverloadedCode := func(payload []byte) bool {
-		code := strings.ToLower(strings.TrimSpace(gjson.GetBytes(payload, "error.code").String()))
-		if code == "" {
-			code = strings.ToLower(strings.TrimSpace(gjson.GetBytes(payload, "response.error.code").String()))
-		}
-		return code == "server_is_overloaded" || code == "slow_down"
-	}
-	if len(upstreamBody) > 0 && hasOpenAIServerOverloadedCode(upstreamBody) {
+	if isOpenAIServerOverloadedError(upstreamMsg, upstreamBody) {
 		return true
 	}
 	if upstreamStatusCode != http.StatusBadRequest {
@@ -2530,6 +2574,9 @@ func (s *OpenAIGatewayService) shouldFailoverOpenAIUpstreamResponse(statusCode i
 	if isOpenAIContextWindowError(upstreamMsg, upstreamBody) {
 		return false
 	}
+	if isOpenAIServerOverloadedError(upstreamMsg, upstreamBody) {
+		return true
+	}
 	if s.shouldFailoverUpstreamError(statusCode) {
 		return true
 	}
@@ -3399,13 +3446,14 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				})
 
 				s.handleFailoverSideEffects(ctx, resp, account, respBody, upstreamModel)
-				capacityRetryLimit := openAIModelCapacityRetryLimit(upstreamMsg, respBody)
+				retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, respBody)
 				return nil, &UpstreamFailoverError{
 					StatusCode:   resp.StatusCode,
 					ResponseBody: respBody,
-					RetryableOnSameAccount: capacityRetryLimit > 0 ||
+					RetryableOnSameAccount: retryLimit > 0 ||
 						(account.IsPoolMode() && (account.IsPoolModeRetryableStatus(resp.StatusCode) || isOpenAITransientProcessingError(resp.StatusCode, upstreamMsg, respBody))),
-					SameAccountRetryLimit: capacityRetryLimit,
+					SameAccountRetryLimit:       retryLimit,
+					SameAccountRetryBackoffBase: retryBackoffBase,
 				}
 			}
 			return s.handleErrorResponse(ctx, resp, c, account, body, upstreamModel)
@@ -3665,8 +3713,8 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			continue
 		}
 
-		// 透传模式默认保持原样代理；429/529 和精确的模型容量 400
-		// 由网关先触发 failover，避免在可重试错误上直接中断客户端。
+		// 透传模式默认保持原样代理；429/529、模型容量 400 和明确的
+		// OpenAI overload 错误由网关先触发 failover，避免在可重试错误上直接中断客户端。
 		probeMessage := strings.TrimSpace(extractUpstreamErrorMessage(probeBody))
 		if shouldFailoverOpenAIPassthroughResponse(resp.StatusCode, probeMessage, probeBody) {
 			return nil, s.handleFailoverErrorResponsePassthrough(ctx, resp, c, account, body)
@@ -3889,6 +3937,9 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 }
 
 func shouldFailoverOpenAIPassthroughResponse(statusCode int, upstreamMsg string, upstreamBody []byte) bool {
+	if isOpenAIServerOverloadedError(upstreamMsg, upstreamBody) {
+		return true
+	}
 	switch statusCode {
 	case http.StatusTooManyRequests, 529:
 		return true
@@ -3935,13 +3986,14 @@ func (s *OpenAIGatewayService) handleFailoverErrorResponsePassthrough(
 		Detail:               upstreamDetail,
 		UpstreamResponseBody: upstreamDetail,
 	})
-	capacityRetryLimit := openAIModelCapacityRetryLimit(upstreamMsg, body)
+	retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, body)
 	return &UpstreamFailoverError{
-		StatusCode:             resp.StatusCode,
-		ResponseBody:           body,
-		ResponseHeaders:        resp.Header.Clone(),
-		RetryableOnSameAccount: capacityRetryLimit > 0,
-		SameAccountRetryLimit:  capacityRetryLimit,
+		StatusCode:                  resp.StatusCode,
+		ResponseBody:                body,
+		ResponseHeaders:             resp.Header.Clone(),
+		RetryableOnSameAccount:      retryLimit > 0,
+		SameAccountRetryLimit:       retryLimit,
+		SameAccountRetryBackoffBase: retryBackoffBase,
 	}
 }
 
@@ -4168,12 +4220,13 @@ func (s *OpenAIGatewayService) newOpenAIStreamFailoverError(
 			"message": message,
 		},
 	})
-	capacityRetryLimit := openAIModelCapacityRetryLimit(message, payload)
+	retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(message, payload)
 	return &UpstreamFailoverError{
-		StatusCode:             http.StatusBadGateway,
-		ResponseBody:           body,
-		RetryableOnSameAccount: capacityRetryLimit > 0,
-		SameAccountRetryLimit:  capacityRetryLimit,
+		StatusCode:                  http.StatusBadGateway,
+		ResponseBody:                body,
+		RetryableOnSameAccount:      retryLimit > 0,
+		SameAccountRetryLimit:       retryLimit,
+		SameAccountRetryBackoffBase: retryBackoffBase,
 	}
 }
 

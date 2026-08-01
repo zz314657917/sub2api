@@ -2,8 +2,38 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-07-31 01:11 +08:00
+last_verified: 2026-07-31 14:30 +08:00
 ---
+
+## S135 Addendum: OpenAI overload retry with linear backoff
+
+### Goal
+
+- Retry narrowly identified OpenAI server overload failures three times on the
+  same account with 1s, 2s, and 3s delays before existing account failover.
+
+### Scope Boundary
+
+- Recognize only `server_is_overloaded`, `slow_down`, or the exact
+  `Our servers are currently overloaded` phrase.
+- Carry an overload-specific retry limit and linear backoff through existing
+  failover metadata across normal, passthrough, and pre-output stream paths.
+- Apply the same metadata to existing OpenAI compatibility/fallback
+  constructors for Chat Completions, Messages, Responses fallback, and Images
+  so endpoint adaptation does not change retry timing. Embeddings and Videos
+  remain on their existing capacity-only behavior until a pinned-account retry
+  seam is available.
+- Preserve capacity at five fixed 500ms retries and preserve generic pool retry
+  settings for every other error.
+- Do not change schema, configuration, scheduler, persistence, frontend,
+  deployment, containers, or the unrelated primary S134 worktree.
+
+### Acceptance Boundary
+
+- Positive and negative service regressions cover all OpenAI response modes;
+  handler tests prove 1s/2s/3s delay calculation and switch-after-third logic.
+- Focused service/handler tests, repository compilation, formatting, diff,
+  conflict-marker, and allowed-path gates pass.
 
 ## S131 Addendum: publication receipt for S128-S130
 
