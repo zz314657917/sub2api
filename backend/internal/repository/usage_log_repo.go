@@ -4925,6 +4925,9 @@ func (r *usageLogRepository) GetUserBreakdownStats(ctx context.Context, startTim
 			COALESCE(ul.user_id, 0) as user_id,
 			COALESCE(u.email, '') as email,
 			COUNT(*) as requests,
+			COALESCE(SUM(ul.input_tokens), 0) as input_tokens,
+			COALESCE(SUM(ul.output_tokens), 0) as output_tokens,
+			COALESCE(SUM(ul.cache_creation_tokens + ul.cache_read_tokens), 0) as cache_tokens,
 			COALESCE(SUM(ul.input_tokens + ul.output_tokens + ul.cache_creation_tokens + ul.cache_read_tokens), 0) as total_tokens,
 			COALESCE(SUM(ul.total_cost), 0) as cost,
 			COALESCE(SUM(ul.actual_cost), 0) as actual_cost,
@@ -4974,7 +4977,7 @@ func (r *usageLogRepository) GetUserBreakdownStats(ctx context.Context, startTim
 		args = append(args, *dim.BillingType)
 	}
 
-	query += " GROUP BY ul.user_id, u.email ORDER BY actual_cost DESC"
+	query += " GROUP BY ul.user_id, u.email ORDER BY " + userBreakdownSortColumn(dim.SortBy) + " DESC, ul.user_id ASC"
 	if limit > 0 {
 		query += fmt.Sprintf(" LIMIT %d", limit)
 	}
@@ -4997,6 +5000,9 @@ func (r *usageLogRepository) GetUserBreakdownStats(ctx context.Context, startTim
 			&row.UserID,
 			&row.Email,
 			&row.Requests,
+			&row.InputTokens,
+			&row.OutputTokens,
+			&row.CacheTokens,
 			&row.TotalTokens,
 			&row.Cost,
 			&row.ActualCost,
@@ -5010,6 +5016,25 @@ func (r *usageLogRepository) GetUserBreakdownStats(ctx context.Context, startTim
 		return nil, err
 	}
 	return results, nil
+}
+
+func userBreakdownSortColumn(sortBy string) string {
+	switch strings.ToLower(strings.TrimSpace(sortBy)) {
+	case "requests":
+		return "requests"
+	case "input_tokens":
+		return "input_tokens"
+	case "output_tokens":
+		return "output_tokens"
+	case "cache_tokens":
+		return "cache_tokens"
+	case "total_tokens":
+		return "total_tokens"
+	case "actual_cost":
+		return "actual_cost"
+	default:
+		return "actual_cost"
+	}
 }
 
 // GetAllGroupUsageSummary returns today's and cumulative actual_cost for every group.

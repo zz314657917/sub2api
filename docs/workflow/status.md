@@ -1,13 +1,25 @@
 ---
 phase: done
-current_sprint: usage-user-frontend-s136
-total_sprints: 136
-pending_action: Create the authorized local S136 commit, then draft the isolated S137 administrator Usage frontend contract
+current_sprint: usage-admin-frontend-s137
+total_sprints: 137
+pending_action: Keep S137 isolated pending explicit primary integration or publication authorization
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-01 13:07 +08:00
+last_verified: 2026-08-01 14:28 +08:00
 ---
+
+# S137 Current Sprint
+
+- Baseline is committed S136 frontend `4f4d61008` in isolated worktree `E:/codex-worktrees/sub2api/usage-admin-frontend-s137`.
+- The administrator Usage page now provides usage details, lazy error requests, and lazy per-user Token ranking as three tabs.
+- Two bounded backend additions are included because the current frontend contract would otherwise expose non-functional filters: existing Ops repository filters must be wired through the handler, and `user-breakdown` must expose Token components plus a strict sort whitelist.
+- Contract: `docs/workflow/tasks/usage-admin-frontend-s137.md`.
+- Contract review: approved; handler/repository additions use existing filter boundaries and strict sort whitelists, while unsupported ranking billing-mode semantics remain excluded.
+- Implementation and mocked-browser QA: PASS. Errors support the complete approved filters, stable server sorting, pagination, independent columns, detail, responsive cards, and user actions; ranking supports Top 20/50/100/200, Token/request/actual-cost sorting, responsive cards, and Usage user drill-down.
+- Final evidence: focused handler/repository Go tests, 18/18 Vitest, typecheck, changed-file ESLint, 1109-module production build, desktop/mobile Playwright request and overflow checks, clean console, diff, conflict, allowlist, compatibility, and sort-whitelist gates.
+- QA report: `docs/workflow/qa-reports/usage-admin-frontend-s137-qa.md`.
+- Final Evaluator: PASS / source-level + mocked-browser. One local isolated branch commit records S137; no schema, migration, route, permission, primary-worktree merge, push, deployment, container update, or production migration occurred.
 
 # S136 Current Sprint
 

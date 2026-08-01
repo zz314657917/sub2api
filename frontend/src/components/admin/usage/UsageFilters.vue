@@ -165,21 +165,36 @@
         </div>
 
         <!-- Request Type Filter -->
-        <div class="w-full sm:w-auto sm:min-w-[180px]">
+        <div v-if="mode !== 'errors'" class="w-full sm:w-auto sm:min-w-[180px]">
           <label class="input-label">{{ t('usage.type') }}</label>
           <Select v-model="filters.request_type" :options="requestTypeOptions" @change="emitChange" />
         </div>
 
         <!-- Billing Type Filter -->
-        <div class="w-full sm:w-auto sm:min-w-[200px]">
+        <div v-if="mode !== 'errors'" class="w-full sm:w-auto sm:min-w-[200px]">
           <label class="input-label">{{ t('admin.usage.billingType') }}</label>
           <Select v-model="filters.billing_type" :options="billingTypeOptions" @change="emitChange" />
         </div>
 
         <!-- Billing Mode Filter -->
-        <div class="w-full sm:w-auto sm:min-w-[200px]">
+        <div v-if="mode === 'usage'" class="w-full sm:w-auto sm:min-w-[200px]">
           <label class="input-label">{{ t('admin.usage.billingMode') }}</label>
           <Select v-model="filters.billing_mode" :options="billingModeOptions" @change="emitChange" />
+        </div>
+
+        <div v-if="mode === 'errors'" class="w-full sm:w-auto sm:min-w-[180px]">
+          <label class="input-label">{{ t('admin.ops.errorLog.type') }}</label>
+          <Select v-model="filters.error_phase" :options="errorPhaseOptions" @change="emitChange" />
+        </div>
+
+        <div v-if="mode === 'errors'" class="w-full sm:w-auto sm:min-w-[190px]">
+          <label class="input-label">{{ t('usage.errors.category') }}</label>
+          <Select v-model="filters.error_category" :options="errorCategoryOptions" @change="emitChange" />
+        </div>
+
+        <div v-if="mode === 'errors'" class="w-full sm:w-auto sm:min-w-[170px]">
+          <label class="input-label">{{ t('admin.ops.errorLog.status') }}</label>
+          <Select v-model="filters.status_code" :options="statusCodeOptions" @change="emitChange" />
         </div>
 
         <!-- Group Filter -->
@@ -199,12 +214,14 @@
           {{ t('common.reset') }}
         </button>
         <slot name="after-reset" />
-        <button type="button" @click="$emit('cleanup')" class="btn btn-danger">
-          {{ t('admin.usage.cleanup.button') }}
-        </button>
-        <button type="button" @click="$emit('export')" :disabled="exporting" class="btn btn-primary">
-          {{ t('usage.exportExcel') }}
-        </button>
+        <template v-if="mode === 'usage'">
+          <button type="button" @click="$emit('cleanup')" class="btn btn-danger">
+            {{ t('admin.usage.cleanup.button') }}
+          </button>
+          <button type="button" @click="$emit('export')" :disabled="exporting" class="btn btn-primary">
+            {{ t('usage.exportExcel') }}
+          </button>
+        </template>
       </div>
     </div>
   </div>
@@ -216,6 +233,7 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import type { SimpleApiKey, SimpleUser } from '@/api/admin/usage'
+import { COMMON_ERROR_STATUS_CODES } from '@/utils/errorBadges'
 
 type ModelValue = Record<string, any>
 
@@ -225,10 +243,12 @@ interface Props {
   startDate: string
   endDate: string
   showActions?: boolean
+  mode?: 'usage' | 'errors' | 'ranking'
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  showActions: true
+  showActions: true,
+  mode: 'usage'
 })
 const emit = defineEmits([
   'update:modelValue',
@@ -277,6 +297,25 @@ const requestTypeOptions = ref<SelectOption[]>([
   { value: 'live', label: t('usage.live') },
   { value: 'stream', label: t('usage.stream') },
   { value: 'sync', label: t('usage.sync') }
+])
+
+const errorPhaseOptions = computed<SelectOption[]>(() => [
+  { value: null, label: t('admin.usage.errorFilters.allTypes') },
+  { value: 'request', label: t('admin.ops.errorLog.typeRequest') },
+  { value: 'auth', label: t('admin.ops.errorLog.typeAuth') },
+  { value: 'routing', label: t('admin.ops.errorLog.typeRouting') },
+  { value: 'internal', label: t('admin.ops.errorLog.typeInternal') }
+])
+
+const errorCategoryOptions = computed<SelectOption[]>(() => [
+  { value: null, label: t('usage.errors.allCategories') },
+  ...['auth', 'rate_limit', 'quota', 'invalid_request', 'service_unavailable', 'upstream', 'internal', 'cyber']
+    .map((value) => ({ value, label: t(`usage.errors.categories.${value}`) }))
+])
+
+const statusCodeOptions = computed<SelectOption[]>(() => [
+  { value: null, label: t('usage.errors.allStatuses') },
+  ...COMMON_ERROR_STATUS_CODES.map((value) => ({ value, label: String(value) }))
 ])
 
 const billingTypeOptions = ref<SelectOption[]>([

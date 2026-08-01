@@ -48,3 +48,24 @@ func TestResolveModelDimensionExpression(t *testing.T) {
 		})
 	}
 }
+
+func TestGetUserBreakdownStatsSortWhitelist(t *testing.T) {
+	tests := map[string]string{
+		"requests":      "requests",
+		"input_tokens":  "input_tokens",
+		"output_tokens": "output_tokens",
+		"cache_tokens":  "cache_tokens",
+		"total_tokens":  "total_tokens",
+		"actual_cost":   "actual_cost",
+		"cost":          "actual_cost",
+		"created_at":    "actual_cost",
+		"drop table":    "actual_cost",
+		"":              "actual_cost",
+	}
+
+	for input, want := range tests {
+		t.Run(input, func(t *testing.T) {
+			require.Equal(t, want, userBreakdownSortColumn(input))
+		})
+	}
+}

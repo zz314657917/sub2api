@@ -11,6 +11,22 @@ export function mapUserErrorSortKey(key: string): 'created_at' | 'model' | 'stat
   return 'created_at'
 }
 
+export const mapAdminErrorSortKey = mapUserErrorSortKey
+
+export function mapAdminErrorCategory(phase: string, errorType: string): string {
+  if (phase === 'auth') return 'auth'
+  if (phase === 'routing') return 'service_unavailable'
+  if (phase === 'upstream' || phase === 'network') return 'upstream'
+  if (phase === 'internal') return 'internal'
+  if (phase === 'request') {
+    if (errorType === 'rate_limit_error') return 'rate_limit'
+    if (errorType === 'billing_error' || errorType === 'subscription_error') return 'quota'
+    if (errorType === 'invalid_request_error') return 'invalid_request'
+    if (errorType === 'cyber_policy') return 'cyber'
+  }
+  return 'other'
+}
+
 export const COMMON_ERROR_STATUS_CODES = [
   400, 401, 403, 404, 408, 413, 429, 499, 500, 502, 503, 504, 529,
 ]

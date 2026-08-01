@@ -39,6 +39,27 @@ export default {
       ipAddress: 'IP',
       clickToViewBalance: 'Click to view credit history',
       failedToLoadUser: 'Failed to load user info',
+      tabs: {
+        usage: 'Usage Details',
+        errors: 'Error Requests',
+        ranking: 'User Token Ranking'
+      },
+      errorFilters: {
+        allTypes: 'All Error Types'
+      },
+      tokenRanking: {
+        userCount: '{count} users',
+        loadFailed: 'Failed to load user Token ranking',
+        columns: {
+          user: 'User',
+          requests: 'Requests',
+          inputTokens: 'Input',
+          outputTokens: 'Output',
+          cacheTokens: 'Cache',
+          totalTokens: 'Total Token',
+          cost: 'Actual Cost'
+        }
+      },
       cleanup: {
         button: 'Cleanup',
         title: 'Cleanup Usage Records',

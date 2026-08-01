@@ -39,6 +39,27 @@ export default {
       ipAddress: 'IP',
       clickToViewBalance: '点击查看积分记录',
       failedToLoadUser: '加载用户信息失败',
+      tabs: {
+        usage: '用量明细',
+        errors: '错误请求',
+        ranking: '用户 Token 排行'
+      },
+      errorFilters: {
+        allTypes: '全部错误类型'
+      },
+      tokenRanking: {
+        userCount: '共 {count} 位用户',
+        loadFailed: '加载用户 Token 排行失败',
+        columns: {
+          user: '用户',
+          requests: '请求数',
+          inputTokens: '输入',
+          outputTokens: '输出',
+          cacheTokens: '缓存',
+          totalTokens: '总 Token',
+          cost: '实际消费'
+        }
+      },
       cleanup: {
         button: '清理',
         title: '清理使用记录',
