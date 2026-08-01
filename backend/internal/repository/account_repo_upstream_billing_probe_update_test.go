@@ -226,7 +226,7 @@ func TestUpdateCredentialsAtomicallyClearsProbeForOpenAIAPIKeyIdentityChange(t *
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestUpdateWithUpstreamBillingProbeEnabledRollsBackWhenOutboxFails(t *testing.T) {
+func TestUpdateWithAccountBillingSettingsRollsBackWhenOutboxFails(t *testing.T) {
 	db, mock, err := sqlmock.New()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = db.Close() })
@@ -262,7 +262,8 @@ func TestUpdateWithUpstreamBillingProbeEnabledRollsBackWhenOutboxFails(t *testin
 		Schedulable: true,
 	}
 
-	err = repo.UpdateWithUpstreamBillingProbeEnabled(context.Background(), account, false)
+	probeDisabled := false
+	err = repo.UpdateWithAccountBillingSettings(context.Background(), account, &probeDisabled, nil, nil)
 
 	require.EqualError(t, err, "outbox failed")
 	require.Equal(t, false, account.Extra[service.UpstreamBillingProbeEnabledExtraKey])

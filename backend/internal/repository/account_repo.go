@@ -332,17 +332,6 @@ func (r *accountRepository) Update(ctx context.Context, account *service.Account
 	return r.updateAccount(ctx, account, nil, nil, account.RateMultiplier)
 }
 
-// UpdateWithUpstreamBillingProbeEnabled applies an explicit probe switch in the
-// same row-lock transaction as the rest of an admin account edit.
-func (r *accountRepository) UpdateWithUpstreamBillingProbeEnabled(ctx context.Context, account *service.Account, enabled bool) error {
-	var rateSyncEnabled *bool
-	if !enabled {
-		disabled := false
-		rateSyncEnabled = &disabled
-	}
-	return r.updateAccount(ctx, account, &enabled, rateSyncEnabled, nil)
-}
-
 // UpdateWithAccountBillingSettings applies an admin account edit while
 // preserving a concurrently probe-synchronized rate unless the request
 // explicitly includes a manual rate.
