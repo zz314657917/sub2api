@@ -140,6 +140,37 @@ func TestOpenAIGatewayServiceForwardVideoTask_ProxiesStatusRequest(t *testing.T)
 	require.Equal(t, "completed", gjson.Get(rec.Body.String(), "status").String())
 }
 
+func TestOpenAIGatewayServiceForwardVideoTask_RejectsUnsafeTaskID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	account := &Account{
+		ID:       9,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"api_key":  "test-api-key",
+			"base_url": "https://api.apimart.ai",
+		},
+	}
+
+	for _, taskID := range []string{"", " ", ".", "..", " .. ", "task\x00id", "task\rid", "task\nid", "task\r", "task\n"} {
+		t.Run(taskID, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodGet, "/v1/tasks/invalid", nil)
+			upstream := &httpUpstreamRecorder{}
+			svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
+
+			body, err := svc.ForwardVideoTask(context.Background(), c, account, taskID, "zh")
+
+			require.Error(t, err)
+			require.Nil(t, body)
+			require.Nil(t, upstream.lastReq)
+			require.Equal(t, http.StatusBadRequest, rec.Code)
+			require.Contains(t, rec.Body.String(), "task_id is invalid")
+		})
+	}
+}
+
 func TestOpenAIGatewayServiceForwardVideoTask_PreservesAPIMartBusinessErrorBody(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	req := httptest.NewRequest(http.MethodGet, "/v1/tasks/task_missing?language=zh", nil)

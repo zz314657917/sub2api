@@ -811,11 +811,11 @@ func (s *OpenAIGatewayService) ForwardVideoTask(
 	if account == nil || account.Type != AccountTypeAPIKey {
 		return nil, fmt.Errorf("tasks API requires an OpenAI API key account")
 	}
-	taskID = strings.TrimSpace(taskID)
-	if taskID == "" {
-		writeOpenAIVideosError(c, http.StatusBadRequest, "invalid_request_error", "task_id is required")
-		return nil, fmt.Errorf("missing task_id")
+	if err := validateEscapedUpstreamPathSegment("video task id", taskID); err != nil {
+		writeOpenAIVideosError(c, http.StatusBadRequest, "invalid_request_error", "task_id is invalid")
+		return nil, err
 	}
+	taskID = strings.TrimSpace(taskID)
 	token := account.GetOpenAIApiKey()
 	if token == "" {
 		return nil, fmt.Errorf("account %d missing api_key", account.ID)

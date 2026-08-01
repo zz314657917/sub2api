@@ -242,8 +242,8 @@ func (s *BillingService) initFallbackPricing() {
 
 	// GPT-5.6 preview family pricing.
 	s.fallbackPrices["gpt-5.6-sol"] = newOpenAIGPT56FallbackModelPricing(5e-6, 30e-6)
-	s.fallbackPrices["gpt-5.6-terra"] = newOpenAIGPT56FallbackModelPricing(2.5e-6, 15e-6)
-	s.fallbackPrices["gpt-5.6-luna"] = newOpenAIGPT56FallbackModelPricing(1e-6, 6e-6)
+	s.fallbackPrices["gpt-5.6-terra"] = newOpenAIGPT56FallbackModelPricing(2e-6, 12e-6)
+	s.fallbackPrices["gpt-5.6-luna"] = newOpenAIGPT56FallbackModelPricing(0.2e-6, 1.2e-6)
 
 	s.fallbackPrices["gpt-5.4-mini"] = &ModelPricing{
 		InputPricePerToken:     7.5e-7,

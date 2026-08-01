@@ -16,8 +16,8 @@ func TestGPT56PriorityCacheWriteTierAndLongContextMatrix(t *testing.T) {
 		priority float64
 	}{
 		{name: "gpt-5.6-sol", standard: 6.25e-6, priority: 12.5e-6},
-		{name: "gpt-5.6-terra", standard: 3.125e-6, priority: 6.25e-6},
-		{name: "gpt-5.6-luna", standard: 1.25e-6, priority: 2.5e-6},
+		{name: "gpt-5.6-terra", standard: 2.5e-6, priority: 5e-6},
+		{name: "gpt-5.6-luna", standard: 0.25e-6, priority: 0.5e-6},
 	}
 	tiers := []struct {
 		name              string
