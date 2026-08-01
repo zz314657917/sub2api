@@ -1,13 +1,33 @@
 ---
 phase: done
-current_sprint: group-duplicate-s133
-total_sprints: 133
-pending_action: Await optional non-production PostgreSQL/runtime smoke; no push, deployment, container update, or production migration is authorized
+current_sprint: usage-full-alignment-s135
+total_sprints: 135
+pending_action: Commit S135 locally, then draft/review S136 user Usage frontend contract; no push, deployment, container update, or production migration is authorized
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-31 10:50 +08:00
+last_verified: 2026-08-01 07:37 +08:00
 ---
+
+# S135 Current Sprint
+
+- Start the Usage full-alignment backend foundation in an isolated worktree.
+- Scope is limited to user analytics contracts, user-scoped redacted error APIs,
+  the opt-in setting, route/Wire integration, and migration 200.
+- Frontend user/admin Usage tabs, charts, error tables, and Token ranking are
+  deferred to S136/S137 after this contract passes review.
+- Contract: `docs/workflow/tasks/usage-full-alignment-s135.md`.
+- Final QA: `PASS / source-level`; focused regressions, public settings schema,
+  route ordering, migration runner checks, migration package tests, full compile,
+  formatting, diff, conflict, and allowed-path gates pass.
+- The full four-package test command retains unrelated baseline failures in
+  `group_peak_rate_test.go` and `auth_rate_limit_test.go`; neither file changed.
+- The unit API-contract suite also retains unrelated exact-payload drift after
+  the new `allow_user_view_error_requests=false` expectation was aligned.
+- Deleted API Key owner snapshot attribution remains intentionally deferred because
+  S135 forbids schema rewrite; this is recorded as residual risk.
+- The user authorized a local S135 commit and continued isolated S136 work; primary-worktree merge remains blocked by overlapping dirty workflow files.
+- No push, deployment, production migration, or container update is authorized.
 
 # S133 Current Sprint
 

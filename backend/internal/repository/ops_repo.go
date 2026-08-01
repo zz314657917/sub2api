@@ -180,6 +180,28 @@ func opsInsertErrorLogArgs(input *service.OpsInsertErrorLogInput) []any {
 	}
 }
 
+func opsErrorLogsOrderBy(filter *service.OpsErrorLogFilter) string {
+	sortBy := ""
+	sortOrder := ""
+	if filter != nil {
+		sortBy = strings.ToLower(strings.TrimSpace(filter.SortBy))
+		sortOrder = strings.ToLower(strings.TrimSpace(filter.SortOrder))
+	}
+
+	column := "e.created_at"
+	switch sortBy {
+	case "model":
+		column = "COALESCE(NULLIF(TRIM(e.requested_model), ''), e.model)"
+	case "status_code":
+		column = "COALESCE(e.upstream_status_code, e.status_code, 0)"
+	}
+	direction := "DESC"
+	if sortOrder == "asc" {
+		direction = "ASC"
+	}
+	return fmt.Sprintf("%s %s, e.id %s", column, direction, direction)
+}
+
 func (r *opsRepository) ListErrorLogs(ctx context.Context, filter *service.OpsErrorLogFilter) (*service.OpsErrorLogList, error) {
 	if r == nil || r.db == nil {
 		return nil, fmt.Errorf("nil ops repository")
@@ -240,21 +262,25 @@ SELECT
   COALESCE(a.notes, ''),
   e.group_id,
   COALESCE(g.name, ''),
-  CASE WHEN e.client_ip IS NULL THEN NULL ELSE e.client_ip::text END,
+  CASE WHEN e.client_ip IS NULL THEN NULL ELSE host(e.client_ip) END,
   COALESCE(e.request_path, ''),
   e.stream,
   COALESCE(e.inbound_endpoint, ''),
   COALESCE(e.upstream_endpoint, ''),
   COALESCE(e.requested_model, ''),
   COALESCE(e.upstream_model, ''),
-  e.request_type
+  e.request_type,
+  COALESCE(e.user_agent, ''),
+  COALESCE(ak.name, ''),
+  ak.deleted_at
 FROM ops_error_logs e
 LEFT JOIN accounts a ON e.account_id = a.id
 LEFT JOIN groups g ON e.group_id = g.id
 LEFT JOIN users u ON e.user_id = u.id
 LEFT JOIN users u2 ON e.resolved_by_user_id = u2.id
+LEFT JOIN api_keys ak ON ak.id = e.api_key_id
 ` + where + `
-ORDER BY e.created_at DESC
+ORDER BY ` + opsErrorLogsOrderBy(filter) + `
 LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 
 	rows, err := r.db.QueryContext(ctx, selectSQL, argsWithLimit...)
@@ -281,6 +307,8 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 		var resolvedByName string
 		var resolvedRetryID sql.NullInt64
 		var requestType sql.NullInt64
+		var apiKeyName string
+		var apiKeyDeletedAt sql.NullTime
 		if err := rows.Scan(
 			&item.ID,
 			&item.CreatedAt,
@@ -318,6 +346,9 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 			&item.RequestedModel,
 			&item.UpstreamModel,
 			&requestType,
+			&item.UserAgent,
+			&apiKeyName,
+			&apiKeyDeletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -363,6 +394,8 @@ LIMIT $` + itoa(len(args)+1) + ` OFFSET $` + itoa(len(args)+2)
 			v := int16(requestType.Int64)
 			item.RequestType = &v
 		}
+		item.APIKeyName = apiKeyName
+		item.APIKeyDeleted = apiKeyDeletedAt.Valid
 		out = append(out, &item)
 	}
 	if err := rows.Err(); err != nil {
@@ -420,7 +453,7 @@ SELECT
   COALESCE(a.notes, ''),
   e.group_id,
   COALESCE(g.name, ''),
-  CASE WHEN e.client_ip IS NULL THEN NULL ELSE e.client_ip::text END,
+  CASE WHEN e.client_ip IS NULL THEN NULL ELSE host(e.client_ip) END,
   COALESCE(e.request_path, ''),
   e.stream,
   COALESCE(e.inbound_endpoint, ''),
@@ -437,11 +470,14 @@ SELECT
   COALESCE(e.request_body::text, ''),
   e.request_body_truncated,
   e.request_body_bytes,
-  COALESCE(e.request_headers::text, '')
+  COALESCE(e.request_headers::text, ''),
+  COALESCE(ak.name, ''),
+  ak.deleted_at
 FROM ops_error_logs e
 LEFT JOIN users u ON e.user_id = u.id
 LEFT JOIN accounts a ON e.account_id = a.id
 LEFT JOIN groups g ON e.group_id = g.id
+LEFT JOIN api_keys ak ON ak.id = e.api_key_id
 WHERE e.id = $1
 LIMIT 1`
 
@@ -463,6 +499,8 @@ LIMIT 1`
 	var ttft sql.NullInt64
 	var requestBodyBytes sql.NullInt64
 	var requestType sql.NullInt64
+	var apiKeyName string
+	var apiKeyDeletedAt sql.NullTime
 
 	err := r.db.QueryRowContext(ctx, q, id).Scan(
 		&out.ID,
@@ -516,6 +554,8 @@ LIMIT 1`
 		&out.RequestBodyTruncated,
 		&requestBodyBytes,
 		&out.RequestHeaders,
+		&apiKeyName,
+		&apiKeyDeletedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -586,6 +626,8 @@ LIMIT 1`
 		v := int16(requestType.Int64)
 		out.RequestType = &v
 	}
+	out.APIKeyName = apiKeyName
+	out.APIKeyDeleted = apiKeyDeletedAt.Valid
 
 	// Normalize request_body to empty string when stored as JSON null.
 	out.RequestBody = strings.TrimSpace(out.RequestBody)
@@ -1280,6 +1322,12 @@ INSERT INTO ops_system_log_cleanup_audits (
 	return err
 }
 
+var opsLikePatternReplacer = strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`)
+
+func escapeOpsLikePattern(value string) string {
+	return opsLikePatternReplacer.Replace(value)
+}
+
 func buildOpsErrorLogsWhere(filter *service.OpsErrorLogFilter) (string, []any) {
 	clauses := make([]string, 0, 12)
 	args := make([]any, 0, 12)
@@ -1390,6 +1438,35 @@ func buildOpsErrorLogsWhere(filter *service.OpsErrorLogFilter) (string, []any) {
 		args = append(args, like)
 		n := itoa(len(args))
 		clauses = append(clauses, "EXISTS (SELECT 1 FROM users u WHERE u.id = e.user_id AND u.email ILIKE $"+n+")")
+	}
+
+	if filter.UserID != nil && *filter.UserID > 0 {
+		args = append(args, *filter.UserID)
+		clauses = append(clauses, "e.user_id = $"+itoa(len(args)))
+	}
+	if filter.APIKeyID != nil && *filter.APIKeyID > 0 {
+		args = append(args, *filter.APIKeyID)
+		clauses = append(clauses, "e.api_key_id = $"+itoa(len(args)))
+	}
+	if model := strings.TrimSpace(filter.Model); model != "" {
+		if filter.ModelFuzzy {
+			args = append(args, "%"+escapeOpsLikePattern(model)+"%")
+			clauses = append(clauses, "COALESCE(NULLIF(TRIM(e.requested_model), ''), e.model, '') ILIKE $"+itoa(len(args)))
+		} else {
+			args = append(args, model)
+			clauses = append(clauses, "COALESCE(NULLIF(TRIM(e.requested_model), ''), e.model, '') = $"+itoa(len(args)))
+		}
+	}
+	if filter.ExcludeCountTokens {
+		clauses = append(clauses, "COALESCE(e.is_count_tokens, false) = false")
+	}
+	if len(filter.ErrorPhasesAny) > 0 {
+		args = append(args, pq.Array(filter.ErrorPhasesAny))
+		clauses = append(clauses, "e.error_phase = ANY($"+itoa(len(args))+")")
+	}
+	if len(filter.ErrorTypesAny) > 0 {
+		args = append(args, pq.Array(filter.ErrorTypesAny))
+		clauses = append(clauses, "e.error_type = ANY($"+itoa(len(args))+")")
 	}
 
 	return "WHERE " + strings.Join(clauses, " AND "), args

@@ -555,3 +555,9 @@
 260731 1253 | audit-i18n-s134 | contract-approved | Evaluator | direct small-fix path approved; backend, router, view, deployment, commit, push, and unrelated dirty files denied
 260731 1258 | audit-i18n-s134 | build | Generator | removed duplicate audit namespace from English and Chinese admin locale modules and added complete-message-tree regression coverage
 260731 1258 | audit-i18n-s134 | final-qa | Evaluator | PASS/source-level + production-build; focused and full i18n Vitest, typecheck, build, ESLint, built-locale content, diff, and allowlist checks pass; no browser or deployed runtime exercised
+260801 0000 | usage-full-alignment-s135 | contract-draft | Planner | isolated worktree from main@1c1021133; user analytics, redacted user error APIs, opt-in setting, Wire/routes, and migration 200 only
+260801 0005 | usage-full-alignment-s135 | contract-approved | Evaluator | fields, allow/deny paths, stop rules, migration numbering, and diff checks reviewed; backend implementation may begin
+260801 0737 | usage-full-alignment-s135 | build | Generator | backend Usage filters, user error list/detail, opt-in setting, Wire/routes, migration 200, strict redaction, and route assertions completed in isolated worktree
+260801 0737 | usage-full-alignment-s135 | final-qa | Evaluator | focused tests, public settings schema, migration checks, full compile, formatting, diff, conflict, and allowed-path gates PASS; full package and unit API-contract suites retain unrelated baseline failures
+260801 0737 | usage-full-alignment-s135 | done | Evaluator | PASS/source-level; S136/S137 frontend and admin UI remain separate; commit, merge, push, deployment, and production migration remain unauthorized
+260801 1151 | usage-full-alignment-s135 | commit-authorized | User | local feature-branch commit and continued isolated S136 work authorized; primary dirty worktree merge, push, deployment, containers, and production migration remain excluded

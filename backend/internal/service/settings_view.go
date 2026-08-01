@@ -141,6 +141,7 @@ type SystemSettings struct {
 	DefaultConcurrency               int
 	DefaultBalance                   float64
 	RiskControlEnabled               bool
+	AllowUserViewErrorRequests       bool
 	AffiliateEnabled                 bool
 	AffiliateRebateRate              float64
 	AffiliateRebateFreezeHours       int
@@ -351,6 +352,8 @@ type PublicSettings struct {
 
 	// 风控中心功能开关
 	RiskControlEnabled bool `json:"risk_control_enabled"`
+
+	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
 
 	// Welfare system feature flags
 	WelfareEnabled               bool `json:"welfare_enabled"`
