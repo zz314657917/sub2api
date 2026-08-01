@@ -342,8 +342,8 @@ func TestDefaultPricingIncludesGpt56PreviewPrices(t *testing.T) {
 		cacheMakePriority float64
 	}{
 		{model: "gpt-5.6-sol", input: 5e-6, output: 30e-6, cacheRead: 0.5e-6, cacheMake: 6.25e-6, cacheMakePriority: 12.5e-6},
-		{model: "gpt-5.6-terra", input: 2.5e-6, output: 15e-6, cacheRead: 0.25e-6, cacheMake: 3.125e-6, cacheMakePriority: 6.25e-6},
-		{model: "gpt-5.6-luna", input: 1e-6, output: 6e-6, cacheRead: 0.1e-6, cacheMake: 1.25e-6, cacheMakePriority: 2.5e-6},
+		{model: "gpt-5.6-terra", input: 2e-6, output: 12e-6, cacheRead: 0.2e-6, cacheMake: 2.5e-6, cacheMakePriority: 5e-6},
+		{model: "gpt-5.6-luna", input: 0.2e-6, output: 1.2e-6, cacheRead: 0.02e-6, cacheMake: 0.25e-6, cacheMakePriority: 0.5e-6},
 	}
 	for _, tc := range cases {
 		t.Run(tc.model, func(t *testing.T) {
@@ -375,8 +375,8 @@ func TestGetModelPricing_Gpt56PreviewUsesDedicatedStaticFallbackWhenRemoteMissin
 		cacheMake float64
 	}{
 		{model: "gpt-5.6-sol", input: 5e-6, output: 30e-6, cacheRead: 0.5e-6, cacheMake: 6.25e-6},
-		{model: "gpt-5.6-terra", input: 2.5e-6, output: 15e-6, cacheRead: 0.25e-6, cacheMake: 3.125e-6},
-		{model: "gpt-5.6-luna", input: 1e-6, output: 6e-6, cacheRead: 0.1e-6, cacheMake: 1.25e-6},
+		{model: "gpt-5.6-terra", input: 2e-6, output: 12e-6, cacheRead: 0.2e-6, cacheMake: 2.5e-6},
+		{model: "gpt-5.6-luna", input: 0.2e-6, output: 1.2e-6, cacheRead: 0.02e-6, cacheMake: 0.25e-6},
 	}
 	for _, tc := range cases {
 		t.Run(tc.model, func(t *testing.T) {

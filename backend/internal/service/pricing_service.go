@@ -51,8 +51,8 @@ var (
 		SupportsPromptCaching:   true,
 	}
 	openAIGPT56SolFallbackPricing   = newOpenAIGPT56FallbackLiteLLMPricing(5e-6, 30e-6)
-	openAIGPT56TerraFallbackPricing = newOpenAIGPT56FallbackLiteLLMPricing(2.5e-6, 15e-6)
-	openAIGPT56LunaFallbackPricing  = newOpenAIGPT56FallbackLiteLLMPricing(1e-6, 6e-6)
+	openAIGPT56TerraFallbackPricing = newOpenAIGPT56FallbackLiteLLMPricing(2e-6, 12e-6)
+	openAIGPT56LunaFallbackPricing  = newOpenAIGPT56FallbackLiteLLMPricing(0.2e-6, 1.2e-6)
 )
 
 func newOpenAIGPT56FallbackLiteLLMPricing(inputCostPerToken, outputCostPerToken float64) *LiteLLMModelPricing {
