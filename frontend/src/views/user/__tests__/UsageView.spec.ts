@@ -3,6 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
 import UsageView from '../UsageView.vue'
+import type { UserSubscription } from '@/types'
 
 const {
   query,
@@ -767,11 +768,25 @@ describe('user UsageView', () => {
     })
   })
 
-  it('shows subscription empty state on the combined usage page', async () => {
-    getMySubscriptions.mockResolvedValueOnce([])
+  it('keeps loading feedback and hides the subscription panel when no subscriptions exist', async () => {
+    let resolveSubscriptions!: (subscriptions: UserSubscription[]) => void
+    getMySubscriptions.mockReturnValueOnce(
+      new Promise<UserSubscription[]>((resolve) => {
+        resolveSubscriptions = resolve
+      })
+    )
     const wrapper = await mountUsageView()
 
-    expect(wrapper.text()).toContain('No Active Subscriptions')
+    expect(wrapper.find('[data-testid="user-subscriptions-panel"]').exists()).toBe(true)
+    expect(wrapper.find('.animate-spin').exists()).toBe(true)
+
+    resolveSubscriptions([])
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="user-subscriptions-panel"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('No Active Subscriptions')
+    expect(wrapper.find('[data-test="user-usage-analytics"]').exists()).toBe(true)
     expect(wrapper.find('.table-headers').exists()).toBe(true)
   })
 

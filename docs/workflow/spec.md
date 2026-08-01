@@ -5,6 +5,22 @@ qa_mode: runtime
 last_verified: 2026-07-31 01:11 +08:00
 ---
 
+## S138 Addendum: hide empty user subscription panel
+
+### Goal
+
+- Remove the subscription panel from the user Usage layout when the active-subscription request completes with no rows.
+
+### Scope Boundary
+
+- Keep loading feedback while the request is pending and preserve the existing cards and renewal action for non-empty results.
+- Do not change subscription APIs, backend semantics, routing, translations, billing, deployment, containers, or unrelated Usage behavior.
+
+### Acceptance Boundary
+
+- Focused UsageView regression proves the empty panel is absent while usage analytics remain visible; the existing non-empty subscription and renewal regression stays green.
+- Frontend typecheck, production build, diff, conflict-marker, unmerged-index, and allowed-path checks pass.
+
 ## S131 Addendum: publication receipt for S128-S130
 
 ### Goal

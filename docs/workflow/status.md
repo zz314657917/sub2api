@@ -1,13 +1,23 @@
 ---
 phase: done
-current_sprint: usage-admin-frontend-s137
-total_sprints: 137
-pending_action: Keep S137 isolated pending explicit primary integration or publication authorization
+current_sprint: hide-empty-subscriptions-s138
+total_sprints: 138
+pending_action: Await explicit authorization to integrate, push, or refresh the local container
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-01 14:28 +08:00
+last_verified: 2026-08-01 16:47 +08:00
 ---
+
+# S138 Current Sprint
+
+- Hide the user Usage page's subscription panel after the active-subscription request resolves to an empty list.
+- Preserve the loading indicator, non-empty subscription cards, renewal routing, and all usage analytics below the panel.
+- Contract: `docs/workflow/tasks/hide-empty-subscriptions-s138.md`.
+- Contract review: approved as a direct small-fix path with no worker; backend, routing, billing, deployment, and container behavior are excluded.
+- Implementation: the panel now remains mounted only while loading or when active subscriptions exist; focused regression coverage includes the loading-to-empty transition.
+- QA: `PASS / source-level + production-build`; 26/26 focused Vitest, typecheck, ESLint, 1109-module build, diff, conflict-marker, unmerged-index, and allowed-path gates passed.
+- Publication: S138 is committed in the isolated worktree; no primary merge, push, deployment, or container refresh was performed.
 
 # S137 Current Sprint
 
