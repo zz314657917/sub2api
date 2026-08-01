@@ -185,13 +185,14 @@ func (s *OpenAIGatewayService) forwardResponsesViaRawChatCompletions(
 			if s.rateLimitService != nil {
 				s.rateLimitService.HandleUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
 			}
-			capacityRetryLimit := openAIModelCapacityRetryLimit(upstreamMsg, respBody)
+			retryLimit, retryBackoffBase := openAISameAccountRetryPolicy(upstreamMsg, respBody)
 			return nil, &UpstreamFailoverError{
 				StatusCode:   resp.StatusCode,
 				ResponseBody: respBody,
-				RetryableOnSameAccount: capacityRetryLimit > 0 ||
+				RetryableOnSameAccount: retryLimit > 0 ||
 					(account.IsPoolMode() && (account.IsPoolModeRetryableStatus(resp.StatusCode) || isOpenAITransientProcessingError(resp.StatusCode, upstreamMsg, respBody))),
-				SameAccountRetryLimit: capacityRetryLimit,
+				SameAccountRetryLimit:       retryLimit,
+				SameAccountRetryBackoffBase: retryBackoffBase,
 			}
 		}
 		return s.handleErrorResponse(ctx, resp, c, account, chatBody, upstreamModel)

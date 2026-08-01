@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/gin-gonic/gin"
@@ -297,6 +298,59 @@ func TestIsOpenAIModelCapacityError(t *testing.T) {
 	}
 }
 
+func TestIsOpenAIServerOverloadedError(t *testing.T) {
+	tests := []struct {
+		name    string
+		message string
+		body    string
+		want    bool
+	}{
+		{name: "exact message", message: "Our servers are currently overloaded", want: true},
+		{name: "exact message with final punctuation", message: "Our servers are currently overloaded.", want: true},
+		{name: "nested overloaded code", body: `{"response":{"error":{"code":"server_is_overloaded"}}}`, want: true},
+		{name: "slow down code", body: `{"error":{"code":"slow_down"}}`, want: true},
+		{name: "top-level overloaded code", body: `{"code":"server_is_overloaded"}`, want: true},
+		{name: "nested exact message", body: `{"error":{"message":"Our servers are currently overloaded."}}`, want: true},
+		{name: "extended overload message", message: "Our servers are currently overloaded; retry later", want: false},
+		{name: "generic overloaded text", message: "overloaded", want: false},
+		{name: "generic server error", body: `{"error":{"message":"server overloaded"}}`, want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, isOpenAIServerOverloadedError(tc.message, []byte(tc.body)))
+		})
+	}
+}
+
+func TestOpenAISameAccountRetryPolicy(t *testing.T) {
+	capacityLimit, capacityBackoff := openAISameAccountRetryPolicy("Selected model is at capacity", nil)
+	require.Equal(t, 5, capacityLimit)
+	require.Zero(t, capacityBackoff)
+
+	overloadLimit, overloadBackoff := openAISameAccountRetryPolicy("Our servers are currently overloaded", nil)
+	require.Equal(t, 3, overloadLimit)
+	require.Equal(t, time.Second, overloadBackoff)
+
+	genericLimit, genericBackoff := openAISameAccountRetryPolicy("overloaded", []byte(`{"error":{"message":"temporary upstream failure"}}`))
+	require.Zero(t, genericLimit)
+	require.Zero(t, genericBackoff)
+}
+
+func TestShouldFailoverOpenAIUpstreamResponse_ServerOverloadedPhrase(t *testing.T) {
+	svc := &OpenAIGatewayService{}
+	require.True(t, svc.shouldFailoverOpenAIUpstreamResponse(
+		http.StatusBadRequest,
+		"Our servers are currently overloaded",
+		nil,
+	), "the exact overload phrase should fail over even on a 400 response")
+	require.False(t, svc.shouldFailoverOpenAIUpstreamResponse(
+		http.StatusBadRequest,
+		"Our servers are currently overloaded; retry later",
+		nil,
+	), "an extended overload message must not receive the overload-only path")
+}
+
 func TestIsOpenAIContextWindowError(t *testing.T) {
 	require.True(t, isOpenAIContextWindowError(
 		"",
@@ -420,6 +474,7 @@ func TestOpenAIGatewayService_Forward_TransientProcessingErrorTriggersFailover(t
 	require.Equal(t, http.StatusBadRequest, failoverErr.StatusCode)
 	require.False(t, failoverErr.RetryableOnSameAccount, "generic transient 400 should fail over accounts without retrying a non-pool account")
 	require.Zero(t, failoverErr.SameAccountRetryLimit, "generic transient 400 must retain the handler fallback retry limit")
+	require.Zero(t, failoverErr.SameAccountRetryBackoffBase, "generic transient 400 must not gain overload backoff")
 	require.Contains(t, string(failoverErr.ResponseBody), "An error occurred while processing your request")
 	require.False(t, c.Writer.Written(), "service 层应返回 failover 错误给上层换号，而不是直接向客户端写响应")
 }
@@ -472,8 +527,58 @@ func TestOpenAIGatewayService_Forward_ModelCapacityErrorTriggersFailoverAndSameA
 			require.Equal(t, http.StatusBadRequest, failoverErr.StatusCode)
 			require.True(t, failoverErr.RetryableOnSameAccount)
 			require.Equal(t, 5, failoverErr.SameAccountRetryLimit)
+			require.Zero(t, failoverErr.SameAccountRetryBackoffBase)
 			require.Contains(t, string(failoverErr.ResponseBody), "Selected model is at capacity")
 			require.False(t, c.Writer.Written(), "service should return capacity failover before writing the client response")
+		})
+	}
+}
+
+func TestOpenAIGatewayService_Forward_ServerOverloadedTriggersSameAccountRetry(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := []byte(`{"model":"gpt-5.4","stream":false,"input":[{"type":"text","text":"hello"}]}`)
+
+	for _, accountType := range []string{AccountTypeAPIKey, AccountTypeOAuth} {
+		t.Run(accountType, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
+			c.Request.Header.Set("User-Agent", "codex_cli_rs/0.1.0")
+
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusServiceUnavailable,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"Our servers are currently overloaded","code":"server_is_overloaded"}}`)),
+			}}
+			svc := &OpenAIGatewayService{
+				cfg:          &config.Config{Gateway: config.GatewayConfig{ForceCodexCLI: false}},
+				httpUpstream: upstream,
+			}
+			account := &Account{
+				ID:             1001,
+				Name:           "overload account",
+				Platform:       PlatformOpenAI,
+				Type:           accountType,
+				Concurrency:    1,
+				Status:         StatusActive,
+				Schedulable:    true,
+				RateMultiplier: f64p(1),
+			}
+			if accountType == AccountTypeOAuth {
+				account.Credentials = map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"}
+			} else {
+				account.Credentials = map[string]any{"api_key": "sk-test"}
+			}
+
+			_, err := svc.Forward(context.Background(), c, account, body)
+			require.Error(t, err)
+			var failoverErr *UpstreamFailoverError
+			require.ErrorAs(t, err, &failoverErr)
+			require.Equal(t, http.StatusServiceUnavailable, failoverErr.StatusCode)
+			require.True(t, failoverErr.RetryableOnSameAccount)
+			require.Equal(t, 3, failoverErr.SameAccountRetryLimit)
+			require.Equal(t, time.Second, failoverErr.SameAccountRetryBackoffBase)
+			require.False(t, c.Writer.Written(), "overload failover should be returned before writing the client response")
 		})
 	}
 }
