@@ -1372,3 +1372,34 @@ list response.
 - Existing `unit` API-contract assertions and the `integration` repository
   package are stale outside S133, so no claim is made for those broad suites or
   for a real PostgreSQL migration/runtime transaction.
+
+# S135 Addendum: v0.1.169 behavior-level wide integration
+
+## Goal
+
+Integrate the user-approved direct `v0.1.169` behavior slices and only their
+required prerequisites without importing the release-wide upstream history.
+
+## Scope Boundary
+
+- Complete Passkey/WebAuthn, Prompt Audit/Qwen3Guard, and OpenAI proxy stream
+  circuit isolation against the local handler, scheduler, repository, and UI
+  topology.
+- Adapt the approved count-tokens, SMTP, Available Channels, cleanup logging,
+  Compose hardening, Claude validator, OAuth refresh scheduling, billing/test,
+  pricing, and packaged-resource changes where local behavior is missing.
+- Use migrations `200`, `201`, and `202`; keep the existing `199` migration
+  untouched.
+- Preserve blocking-only fail-closed Prompt Audit semantics and avoid storing
+  raw prompts or Guard credentials in PostgreSQL.
+- Do not merge the tag, publish, deploy, rebuild containers, run production
+  migrations, or overwrite the primary worktree.
+
+## Acceptance Boundary
+
+- Focused behavior regressions, backend compile/build, frontend test/typecheck/
+  build, migration and Git integrity checks, Compose hardening checks, and
+  packaged-resource checks must pass without new failures.
+- Browser and fake-Guard runtime checks are required only when the local
+  runtime prerequisites can be exercised without deployment or external-state
+  mutation; otherwise they remain explicitly unverified.

@@ -153,6 +153,13 @@ func runMainServer() {
 		log.Fatalf("Failed to initialize application: %v", err)
 	}
 	defer app.Cleanup()
+	if app.PromptAudit != nil {
+		if err := app.PromptAudit.Start(context.Background()); err != nil {
+			// Prompt Audit is isolated; a degraded startup must remain observable
+			// without taking unrelated gateway APIs offline.
+			log.Printf("Prompt Audit started in degraded state: %v", err)
+		}
+	}
 
 	// 启动服务器
 	go func() {
