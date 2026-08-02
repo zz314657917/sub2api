@@ -46,3 +46,36 @@ func TestBuildOpsErrorLogsWhere_UserQueryUsesExistsSubquery(t *testing.T) {
 		t.Fatalf("where should include EXISTS user email condition: %s", where)
 	}
 }
+
+func TestBuildOpsErrorLogsWhere_UserFiltersAndCountTokens(t *testing.T) {
+	userID := int64(42)
+	keyID := int64(7)
+	where, args := buildOpsErrorLogsWhere(&service.OpsErrorLogFilter{
+		UserID: &userID, APIKeyID: &keyID, Model: "gpt_", ModelFuzzy: true,
+		ExcludeCountTokens: true, ErrorPhasesAny: []string{"upstream", "network"},
+		View: "all",
+	})
+	for _, want := range []string{
+		"e.user_id = $",
+		"e.api_key_id = $",
+		"ILIKE $",
+		"e.is_count_tokens",
+		"e.error_phase = ANY($",
+	} {
+		if !strings.Contains(where, want) {
+			t.Fatalf("where missing %q: %s", want, where)
+		}
+	}
+	if len(args) != 4 {
+		t.Fatalf("args len=%d, want 4", len(args))
+	}
+}
+
+func TestOpsErrorLogsOrderByWhitelist(t *testing.T) {
+	if got := opsErrorLogsOrderBy(&service.OpsErrorLogFilter{SortBy: "model", SortOrder: "asc"}); got != "COALESCE(NULLIF(TRIM(e.requested_model), ''), e.model) ASC, e.id ASC" {
+		t.Fatalf("unexpected model order: %s", got)
+	}
+	if got := opsErrorLogsOrderBy(&service.OpsErrorLogFilter{SortBy: "drop table", SortOrder: "asc"}); got != "e.created_at ASC, e.id ASC" {
+		t.Fatalf("unexpected fallback order: %s", got)
+	}
+}

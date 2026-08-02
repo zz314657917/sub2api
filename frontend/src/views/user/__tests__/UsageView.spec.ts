@@ -3,10 +3,15 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { nextTick } from 'vue'
 
 import UsageView from '../UsageView.vue'
+import type { UserSubscription } from '@/types'
 
 const {
   query,
   getStatsByDateRange,
+  getDashboardModels,
+  getDashboardSnapshotV2,
+  listMyErrorRequests,
+  getMyErrorDetail,
   list,
   getAvailableGroups,
   getMySubscriptions,
@@ -15,9 +20,14 @@ const {
   showWarning,
   showSuccess,
   showInfo,
+  cachedPublicSettings,
 } = vi.hoisted(() => ({
   query: vi.fn(),
   getStatsByDateRange: vi.fn(),
+  getDashboardModels: vi.fn(),
+  getDashboardSnapshotV2: vi.fn(),
+  listMyErrorRequests: vi.fn(),
+  getMyErrorDetail: vi.fn(),
   list: vi.fn(),
   getAvailableGroups: vi.fn(),
   getMySubscriptions: vi.fn(),
@@ -26,6 +36,7 @@ const {
   showWarning: vi.fn(),
   showSuccess: vi.fn(),
   showInfo: vi.fn(),
+  cachedPublicSettings: { allow_user_view_error_requests: false },
 }))
 
 const messages: Record<string, string> = {
@@ -82,6 +93,28 @@ const messages: Record<string, string> = {
   'usage.allApiKeys': 'All API Keys',
   'usage.apiKeyFilter': 'API Key',
   'usage.timeRange': 'Time Range',
+  'usage.analyticsTitle': 'Usage Analytics',
+  'usage.analyticsDescription': 'Analytics for active filters',
+  'usage.granularity': 'Granularity',
+  'usage.tabs.usage': 'Usage Details',
+  'usage.tabs.errors': 'Error Requests',
+  'usage.errors.total': 'Failed requests',
+  'usage.errors.keyName': 'API Key',
+  'usage.errors.allKeys': 'All API Keys',
+  'usage.errors.model': 'Model',
+  'usage.errors.modelPlaceholder': 'Filter by model',
+  'usage.errors.category': 'Category',
+  'usage.errors.allCategories': 'All Categories',
+  'usage.errors.status': 'Status',
+  'usage.errors.allStatuses': 'All Status Codes',
+  'usage.errors.endpoint': 'Inbound Endpoint',
+  'usage.errors.platform': 'Platform',
+  'usage.errors.message': 'Error Message',
+  'usage.errors.time': 'Time',
+  'usage.errors.empty': 'No failed requests',
+  'usage.errors.failedToLoad': 'Failed to load error requests',
+  'admin.dashboard.day': 'Day',
+  'admin.dashboard.hour': 'Hour',
   'usage.exporting': 'Exporting...',
   'usage.exportCsv': 'Export CSV',
   'usage.preparingExport': 'Preparing export...',
@@ -164,6 +197,10 @@ vi.mock('@/api', () => ({
   usageAPI: {
     query,
     getStatsByDateRange,
+    getDashboardModels,
+    getDashboardSnapshotV2,
+    listMyErrorRequests,
+    getMyErrorDetail,
   },
   keysAPI: {
     list,
@@ -174,7 +211,13 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({ showError, showWarning, showSuccess, showInfo }),
+  useAppStore: () => ({
+    showError,
+    showWarning,
+    showSuccess,
+    showInfo,
+    cachedPublicSettings,
+  }),
 }))
 
 vi.mock('@/api/subscriptions', () => ({
@@ -195,6 +238,7 @@ vi.mock('vue-i18n', async () => {
     ...actual,
     useI18n: () => ({
       t: (key: string) => messages[key] ?? key,
+      te: (key: string) => key in messages,
     }),
   }
 })
@@ -360,7 +404,18 @@ const mountUsageView = async (items = [baseUsageLog()]) => {
     total_cost: 0.1,
     total_actual_cost: 0.092883,
     average_duration_ms: 345,
+    endpoints: [],
   })
+  getDashboardModels.mockResolvedValue({ models: [], start_date: '2026-03-01', end_date: '2026-03-08' })
+  getDashboardSnapshotV2.mockResolvedValue({
+    generated_at: '2026-03-08T00:00:00Z',
+    start_date: '2026-03-01',
+    end_date: '2026-03-08',
+    granularity: 'day',
+    trend: [],
+    groups: [],
+  })
+  listMyErrorRequests.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
   list.mockResolvedValue({ items: [{ id: 3, name: 'demo-key' }] })
   getAvailableGroups.mockResolvedValue([availableGroup])
   getMySubscriptions.mockResolvedValue([activeSubscription])
@@ -447,6 +502,10 @@ describe('user UsageView', () => {
     vi.restoreAllMocks()
     query.mockReset()
     getStatsByDateRange.mockReset()
+    getDashboardModels.mockReset()
+    getDashboardSnapshotV2.mockReset()
+    listMyErrorRequests.mockReset()
+    getMyErrorDetail.mockReset()
     list.mockReset()
     getAvailableGroups.mockReset()
     getMySubscriptions.mockReset()
@@ -455,6 +514,7 @@ describe('user UsageView', () => {
     showWarning.mockReset()
     showSuccess.mockReset()
     showInfo.mockReset()
+    cachedPublicSettings.allow_user_view_error_requests = false
     window.localStorage.clear()
 
     Object.defineProperty(window, 'matchMedia', {
@@ -494,6 +554,200 @@ describe('user UsageView', () => {
     vi.restoreAllMocks()
   })
 
+  it('propagates the complete user-safe filter set to table and analytics APIs', async () => {
+    const wrapper = await mountUsageView()
+    const setupState = (wrapper.vm as any).$?.setupState
+
+    query.mockClear()
+    getStatsByDateRange.mockClear()
+    getDashboardModels.mockClear()
+    getDashboardSnapshotV2.mockClear()
+
+    setupState.filters.api_key_id = 3
+    setupState.filters.group_id = 9
+    setupState.filters.model = 'gpt-5.6-sol'
+    setupState.filters.request_type = 'live'
+    setupState.filters.billing_mode = 'per_request'
+    setupState.filters.start_date = '2026-07-01'
+    setupState.filters.end_date = '2026-07-31'
+    setupState.applyFilters()
+    await flushPromises()
+
+    expect(query).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page: 1,
+        api_key_id: 3,
+        group_id: 9,
+        model: 'gpt-5.6-sol',
+        request_type: 'live',
+        billing_mode: 'per_request',
+        start_date: '2026-07-01',
+        end_date: '2026-07-31',
+      }),
+      expect.objectContaining({ signal: expect.any(AbortSignal) })
+    )
+    expect(getStatsByDateRange).toHaveBeenLastCalledWith(
+      '2026-07-01',
+      '2026-07-31',
+      expect.objectContaining({
+        api_key_id: 3,
+        group_id: 9,
+        model: 'gpt-5.6-sol',
+        request_type: 'live',
+        billing_mode: 'per_request',
+        timezone: expect.any(String),
+      })
+    )
+    expect(getDashboardModels).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        api_key_id: 3,
+        group_id: 9,
+        model: 'gpt-5.6-sol',
+        request_type: 'live',
+        billing_mode: 'per_request',
+        start_date: '2026-07-01',
+        end_date: '2026-07-31',
+        timezone: expect.any(String),
+        model_source: 'requested',
+      })
+    )
+    expect(getDashboardSnapshotV2).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        api_key_id: 3,
+        group_id: 9,
+        model: 'gpt-5.6-sol',
+        request_type: 'live',
+        billing_mode: 'per_request',
+        start_date: '2026-07-01',
+        end_date: '2026-07-31',
+        timezone: expect.any(String),
+        granularity: 'day',
+        include_trend: true,
+        include_model_stats: false,
+        include_group_stats: true,
+      })
+    )
+  })
+
+  it('fails closed without exposing or fetching error requests', async () => {
+    const wrapper = await mountUsageView()
+
+    expect(wrapper.find('[data-test="user-usage-tabs"]').exists()).toBe(false)
+    expect(wrapper.find('[data-test="user-error-filters"]').exists()).toBe(false)
+    expect(listMyErrorRequests).not.toHaveBeenCalled()
+  })
+
+  it('loads errors lazily only after opening the enabled tab', async () => {
+    cachedPublicSettings.allow_user_view_error_requests = true
+    const wrapper = await mountUsageView()
+
+    expect(wrapper.find('[data-test="user-usage-tabs"]').exists()).toBe(true)
+    expect(listMyErrorRequests).not.toHaveBeenCalled()
+
+    const errorTab = wrapper.findAll('button').find((button) => button.text() === 'Error Requests')
+    expect(errorTab).toBeTruthy()
+    await errorTab!.trigger('click')
+    await flushPromises()
+
+    expect(listMyErrorRequests).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-test="user-error-filters"]').exists()).toBe(true)
+  })
+
+  it('refreshes cached errors when reopening the tab with updated dates', async () => {
+    cachedPublicSettings.allow_user_view_error_requests = true
+    const wrapper = await mountUsageView()
+    const setupState = (wrapper.vm as any).$?.setupState
+    listMyErrorRequests.mockResolvedValue({
+      items: [{
+        id: 701,
+        created_at: '2026-07-01T00:00:00Z',
+        model: 'gpt-5.6-sol',
+        inbound_endpoint: '/v1/responses',
+        status_code: 429,
+        category: 'rate_limit',
+        platform: 'openai',
+        message: 'Rate limited',
+        key_name: 'demo-key',
+        key_deleted: false,
+      }],
+      total: 1,
+      page: 1,
+      page_size: 20,
+      pages: 1,
+    })
+
+    setupState.switchToErrors()
+    await flushPromises()
+    expect(setupState.errorRows).toHaveLength(1)
+
+    setupState.activeTab = 'usage'
+    setupState.startDate = '2026-07-10'
+    setupState.endDate = '2026-07-20'
+    setupState.switchToErrors()
+    await flushPromises()
+
+    expect(listMyErrorRequests).toHaveBeenCalledTimes(2)
+    expect(listMyErrorRequests).toHaveBeenLastCalledWith(
+      expect.objectContaining({ start_date: '2026-07-10', end_date: '2026-07-20' })
+    )
+  })
+
+  it('propagates owned key, model, category, status, sort and pagination to error requests', async () => {
+    cachedPublicSettings.allow_user_view_error_requests = true
+    const wrapper = await mountUsageView()
+    const setupState = (wrapper.vm as any).$?.setupState
+
+    setupState.switchToErrors()
+    await flushPromises()
+    listMyErrorRequests.mockClear()
+
+    expect(setupState.errorKeyOptions.map((option: { value: number | null }) => option.value)).toEqual([
+      null,
+      3,
+    ])
+
+    setupState.startDate = '2026-07-01'
+    setupState.endDate = '2026-07-31'
+    setupState.errorFilter.api_key_id = 3
+    setupState.errorFilter.model = 'gpt-5.6-sol'
+    setupState.errorFilter.category = 'rate_limit'
+    setupState.errorFilter.status_code = 429
+    setupState.applyErrorFilters()
+    await flushPromises()
+
+    expect(listMyErrorRequests).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        page: 1,
+        api_key_id: 3,
+        model: 'gpt-5.6-sol',
+        category: 'rate_limit',
+        status_code: 429,
+        start_date: '2026-07-01',
+        end_date: '2026-07-31',
+        sort_by: 'created_at',
+        sort_order: 'desc',
+      })
+    )
+
+    setupState.handleErrorSort('status_code', 'asc')
+    await flushPromises()
+    expect(listMyErrorRequests).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, sort_by: 'status_code', sort_order: 'asc' })
+    )
+
+    setupState.handleErrorPageChange(2)
+    await flushPromises()
+    expect(listMyErrorRequests).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 2 })
+    )
+
+    setupState.handleErrorPageSizeChange(50)
+    await flushPromises()
+    expect(listMyErrorRequests).toHaveBeenLastCalledWith(
+      expect.objectContaining({ page: 1, page_size: 50 })
+    )
+  })
+
   it('renders subscriptions above usage records and keeps renewal routing', async () => {
     const wrapper = await mountUsageView()
 
@@ -514,11 +768,25 @@ describe('user UsageView', () => {
     })
   })
 
-  it('shows subscription empty state on the combined usage page', async () => {
-    getMySubscriptions.mockResolvedValueOnce([])
+  it('keeps loading feedback and hides the subscription panel when no subscriptions exist', async () => {
+    let resolveSubscriptions!: (subscriptions: UserSubscription[]) => void
+    getMySubscriptions.mockReturnValueOnce(
+      new Promise<UserSubscription[]>((resolve) => {
+        resolveSubscriptions = resolve
+      })
+    )
     const wrapper = await mountUsageView()
 
-    expect(wrapper.text()).toContain('No Active Subscriptions')
+    expect(wrapper.find('[data-testid="user-subscriptions-panel"]').exists()).toBe(true)
+    expect(wrapper.find('.animate-spin').exists()).toBe(true)
+
+    resolveSubscriptions([])
+    await flushPromises()
+    await nextTick()
+
+    expect(wrapper.find('[data-testid="user-subscriptions-panel"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('No Active Subscriptions')
+    expect(wrapper.find('[data-test="user-usage-analytics"]').exists()).toBe(true)
     expect(wrapper.find('.table-headers').exists()).toBe(true)
   })
 

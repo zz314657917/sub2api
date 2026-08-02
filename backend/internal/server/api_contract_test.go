@@ -864,6 +864,7 @@ func TestAPIContracts(t *testing.T) {
 					"leaderboard_daily_reward_rank_2_amount": 0,
 					"leaderboard_daily_reward_rank_3_amount": 0,
 					"risk_control_enabled": false,
+					"allow_user_view_error_requests": false,
 					"affiliate_enabled": false,
 					"registration_risk_enabled": true,
 					"registration_risk_successful_registrations_per_ip": 3,
@@ -1132,6 +1133,7 @@ func TestAPIContracts(t *testing.T) {
 					"leaderboard_daily_reward_rank_2_amount": 0,
 					"leaderboard_daily_reward_rank_3_amount": 0,
 					"risk_control_enabled": false,
+					"allow_user_view_error_requests": false,
 					"affiliate_enabled": false,
 					"registration_risk_enabled": true,
 					"registration_risk_successful_registrations_per_ip": 3,
@@ -1363,7 +1365,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	adminService := service.NewAdminService(userRepo, groupRepo, &accountRepo, proxyRepo, apiKeyRepo, redeemRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	authHandler := handler.NewAuthHandler(cfg, nil, userService, settingService, nil, redeemService, nil)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
-	usageHandler := handler.NewUsageHandler(usageService, apiKeyService)
+	usageHandler := handler.NewUsageHandler(usageService, apiKeyService, nil, nil)
 	adminSettingHandler := adminhandler.NewSettingHandler(settingService, nil, nil, nil, nil, nil)
 	adminAccountHandler := adminhandler.NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 

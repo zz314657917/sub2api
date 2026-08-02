@@ -57,6 +57,9 @@ export default {
     reasoningEffort: '推理强度',
     endpoint: '端点',
     endpointDistribution: '端点分布',
+    analyticsTitle: '用量分析',
+    analyticsDescription: '按当前筛选条件汇总请求、Token、费用与分布',
+    granularity: '时间粒度',
     inbound: '入站',
     upstream: '上游',
     mapping: '映射',
@@ -122,5 +125,44 @@ export default {
     exportExcelSuccess: '使用数据导出成功（Excel格式）',
     exportExcelFailed: '使用数据导出失败',
     imageUnit: '张',
-    userAgent: 'User-Agent'
+    userAgent: 'User-Agent',
+    tabs: {
+      usage: '用量明细',
+      errors: '错误请求'
+    },
+    errors: {
+      total: '共 {count} 个失败请求',
+      time: '时间',
+      model: '模型',
+      endpoint: '入站端点',
+      status: '状态码',
+      category: '分类',
+      platform: '平台',
+      message: '错误信息',
+      keyName: 'API 密钥',
+      keyDeleted: '已删除',
+      allKeys: '全部密钥',
+      modelPlaceholder: '筛选模型',
+      allCategories: '全部分类',
+      allStatuses: '全部状态码',
+      empty: '所选范围内没有失败请求',
+      failedToLoad: '加载错误请求失败',
+      categories: {
+        auth: '认证失败',
+        rate_limit: '限流',
+        quota: '余额 / 订阅',
+        invalid_request: '参数错误',
+        service_unavailable: '服务暂不可用',
+        upstream: '上游错误',
+        internal: '平台错误',
+        cyber: '安全策略',
+        other: '其他'
+      },
+      detail: {
+        title: '错误请求详情',
+        loadFailed: '加载错误详情失败',
+        upstreamStatus: '上游状态码',
+        responseBody: '错误响应'
+      }
+    }
   }

@@ -100,7 +100,8 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		AccountShareChannelStatusVisible: settings.AccountShareChannelStatusVisible,
 		ExternalCapacityReferenceEnabled: settings.ExternalCapacityReferenceEnabled,
 
-		RiskControlEnabled: settings.RiskControlEnabled,
+		RiskControlEnabled:         settings.RiskControlEnabled,
+		AllowUserViewErrorRequests: settings.AllowUserViewErrorRequests,
 
 		WelfareEnabled:               settings.WelfareEnabled,
 		WelfareDailyCheckinEnabled:   settings.WelfareDailyCheckinEnabled,

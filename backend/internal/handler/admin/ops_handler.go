@@ -74,6 +74,42 @@ func NewOpsHandler(opsService *service.OpsService) *OpsHandler {
 	return &OpsHandler{opsService: opsService}
 }
 
+func applyOpsErrorUsageFilters(c *gin.Context, filter *service.OpsErrorLogFilter) error {
+	filter.Model = strings.TrimSpace(c.Query("model"))
+	if category := strings.ToLower(strings.TrimSpace(c.Query("category"))); category != "" {
+		switch category {
+		case "auth", "service_unavailable", "upstream", "internal", "rate_limit", "quota", "invalid_request", "cyber":
+		default:
+			return fmt.Errorf("invalid category")
+		}
+		filter.ErrorPhasesAny, filter.ErrorTypesAny = service.CategoryToFilter(category)
+	}
+	if value := strings.TrimSpace(c.Query("user_id")); value != "" {
+		id, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || id <= 0 {
+			return fmt.Errorf("invalid user_id")
+		}
+		filter.UserID = &id
+	}
+	if value := strings.TrimSpace(c.Query("api_key_id")); value != "" {
+		id, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || id <= 0 {
+			return fmt.Errorf("invalid api_key_id")
+		}
+		filter.APIKeyID = &id
+	}
+	sortBy := strings.ToLower(strings.TrimSpace(c.Query("sort_by")))
+	if sortBy != "" && sortBy != "created_at" && sortBy != "model" && sortBy != "status_code" {
+		return fmt.Errorf("invalid sort_by")
+	}
+	sortOrder := strings.ToLower(strings.TrimSpace(c.Query("sort_order")))
+	if sortOrder != "" && sortOrder != "asc" && sortOrder != "desc" {
+		return fmt.Errorf("invalid sort_order")
+	}
+	filter.SetSort(sortBy, sortOrder)
+	return nil
+}
+
 // GetErrorLogs lists ops error logs.
 // GET /api/v1/admin/ops/errors
 func (h *OpsHandler) GetErrorLogs(c *gin.Context) {
@@ -112,6 +148,10 @@ func (h *OpsHandler) GetErrorLogs(c *gin.Context) {
 	filter.Source = strings.TrimSpace(c.Query("error_source"))
 	filter.Query = strings.TrimSpace(c.Query("q"))
 	filter.UserQuery = strings.TrimSpace(c.Query("user_query"))
+	if err := applyOpsErrorUsageFilters(c, filter); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
 
 	// Force request errors: client-visible status >= 400.
 	// buildOpsErrorLogsWhere already applies this for non-upstream phase.
@@ -213,6 +253,10 @@ func (h *OpsHandler) ListRequestErrors(c *gin.Context) {
 	filter.Source = strings.TrimSpace(c.Query("error_source"))
 	filter.Query = strings.TrimSpace(c.Query("q"))
 	filter.UserQuery = strings.TrimSpace(c.Query("user_query"))
+	if err := applyOpsErrorUsageFilters(c, filter); err != nil {
+		response.BadRequest(c, err.Error())
+		return
+	}
 
 	// Force request errors: client-visible status >= 400.
 	// buildOpsErrorLogsWhere already applies this for non-upstream phase.

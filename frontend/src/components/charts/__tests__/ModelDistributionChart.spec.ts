@@ -3,6 +3,12 @@ import { mount } from '@vue/test-utils'
 
 import ModelDistributionChart from '../ModelDistributionChart.vue'
 
+const { getUserBreakdown } = vi.hoisted(() => ({
+  getUserBreakdown: vi.fn(),
+}))
+
+vi.mock('@/api/admin/dashboard', () => ({ getUserBreakdown }))
+
 const messages: Record<string, string> = {
   'admin.dashboard.modelDistribution': 'Model Distribution',
   'admin.dashboard.spendingRankingTitle': 'User Spending Ranking',
@@ -126,6 +132,33 @@ describe('ModelDistributionChart', () => {
       dataset: { data: [1.4, 0.2] },
     })
     expect(label).toBe('model-b: $1.40 (87.5%)')
+  })
+
+  it('keeps actual cost and disables admin breakdown in user mode', async () => {
+    getUserBreakdown.mockReset()
+    const wrapper = mount(ModelDistributionChart, {
+      props: {
+        modelStats,
+        showAccountCost: false,
+        enableBreakdown: false,
+      },
+      global: {
+        stubs: {
+          LoadingSpinner: true,
+        },
+      },
+    })
+
+    const headers = wrapper.findAll('thead th').map((header) => header.text())
+    expect(headers).toContain('Actual')
+    expect(headers).not.toContain('admin.dashboard.accountCost')
+
+    const firstRowText = wrapper.findAll('tbody tr')[0].text()
+    expect(firstRowText).toContain('$0.20')
+    expect(firstRowText).not.toContain('$0.25')
+
+    await wrapper.findAll('tbody tr')[0].trigger('click')
+    expect(getUserBreakdown).not.toHaveBeenCalled()
   })
 
   it('sanitizes visible model labels without changing row identity', () => {

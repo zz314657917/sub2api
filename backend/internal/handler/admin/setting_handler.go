@@ -229,6 +229,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		DefaultConcurrency:                     settings.DefaultConcurrency,
 		DefaultBalance:                         settings.DefaultBalance,
 		RiskControlEnabled:                     settings.RiskControlEnabled,
+		AllowUserViewErrorRequests:             settings.AllowUserViewErrorRequests,
 		AffiliateRebateRate:                    settings.AffiliateRebateRate,
 		AffiliateRebateFreezeHours:             settings.AffiliateRebateFreezeHours,
 		AffiliateRebateDurationDays:            settings.AffiliateRebateDurationDays,
@@ -791,7 +792,8 @@ type UpdateSettingsRequest struct {
 	ExternalCapacityReferenceEnabled *bool `json:"external_capacity_reference_enabled"`
 
 	// 风控中心功能开关
-	RiskControlEnabled *bool `json:"risk_control_enabled"`
+	RiskControlEnabled         *bool `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests *bool `json:"allow_user_view_error_requests"`
 
 	// OpenAI fast/flex policy (optional, only updated when provided)
 	OpenAIFastPolicySettings *dto.OpenAIFastPolicySettings `json:"openai_fast_policy_settings,omitempty"`
@@ -2047,6 +2049,12 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.RiskControlEnabled
 		}(),
+		AllowUserViewErrorRequests: func() bool {
+			if req.AllowUserViewErrorRequests != nil {
+				return *req.AllowUserViewErrorRequests
+			}
+			return previousSettings.AllowUserViewErrorRequests
+		}(),
 		StudioBridgeLuoyeAI: func() service.StudioBridgeAppSettings {
 			if req.StudioBridgeLuoyeAI != nil {
 				next := studioBridgeSettingsFromDTO(*req.StudioBridgeLuoyeAI)
@@ -2403,7 +2411,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ExternalCapacityReferenceEnabled: updatedSettings.ExternalCapacityReferenceEnabled,
 		StudioBridgeLuoyeAI:              studioBridgeSettingsToDTO(updatedSettings.StudioBridgeLuoyeAI),
 
-		RiskControlEnabled: updatedSettings.RiskControlEnabled,
+		RiskControlEnabled:         updatedSettings.RiskControlEnabled,
+		AllowUserViewErrorRequests: updatedSettings.AllowUserViewErrorRequests,
 	}
 	if fastPolicy, err := h.settingService.GetOpenAIFastPolicySettings(c.Request.Context()); err != nil {
 		slog.Error("openai_fast_policy_settings_get_failed", "error", err)

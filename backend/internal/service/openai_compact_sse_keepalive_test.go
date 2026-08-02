@@ -43,6 +43,20 @@ func TestRemoteCompactKeepaliveBytesDoNotSuppressFailover(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "business-response")
 }
 
+func TestOpenAIStreamClientOutputStartedIgnoresCompactKeepaliveBytes(t *testing.T) {
+	c, _ := newCompactBridgeTestContext(t, true)
+	stop := StartOpenAICompactSSEKeepalive(c, compactKeepaliveTestInterval)
+	defer stop()
+	waitForCompactKeepalive()
+
+	require.True(t, c.Writer.Written())
+	require.False(t, openAIStreamClientOutputStarted(c, false))
+
+	_, err := c.Writer.Write([]byte("business-response"))
+	require.NoError(t, err)
+	require.True(t, openAIStreamClientOutputStarted(c, false))
+}
+
 func TestRemoteCompactKeepaliveCommittedFailureUsesFailedEvent(t *testing.T) {
 	c, rec := newCompactBridgeTestContext(t, true)
 	stop := StartOpenAICompactSSEKeepalive(c, compactKeepaliveTestInterval)

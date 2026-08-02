@@ -66,6 +66,59 @@ last_verified: 2026-08-03 01:18 +08:00
   on `origin/main@1c1021133` integrated it as `3ef7f36de` and fast-forwarded
   `origin/main`; the fetched local/tracking refs matched before this receipt.
 - No live provider, deployment, or container refresh was performed.
+# S138 Current Sprint
+
+- Hide the user Usage page's subscription panel after the active-subscription request resolves to an empty list.
+- Preserve the loading indicator, non-empty subscription cards, renewal routing, and all usage analytics below the panel.
+- Contract: `docs/workflow/tasks/hide-empty-subscriptions-s138.md`.
+- Contract review: approved as a direct small-fix path with no worker; backend, routing, billing, deployment, and container behavior are excluded.
+- Implementation: the panel now remains mounted only while loading or when active subscriptions exist; focused regression coverage includes the loading-to-empty transition.
+- QA: `PASS / source-level + production-build`; 26/26 focused Vitest, typecheck, ESLint, 1109-module build, diff, conflict-marker, unmerged-index, and allowed-path gates passed.
+- Publication: S138 is committed in the isolated worktree; no primary merge, push, deployment, or container refresh was performed.
+
+# S137 Current Sprint
+
+- Baseline is committed S136 frontend `4f4d61008` in isolated worktree `E:/codex-worktrees/sub2api/usage-admin-frontend-s137`.
+- The administrator Usage page now provides usage details, lazy error requests, and lazy per-user Token ranking as three tabs.
+- Two bounded backend additions are included because the current frontend contract would otherwise expose non-functional filters: existing Ops repository filters must be wired through the handler, and `user-breakdown` must expose Token components plus a strict sort whitelist.
+- Contract: `docs/workflow/tasks/usage-admin-frontend-s137.md`.
+- Contract review: approved; handler/repository additions use existing filter boundaries and strict sort whitelists, while unsupported ranking billing-mode semantics remain excluded.
+- Implementation and mocked-browser QA: PASS. Errors support the complete approved filters, stable server sorting, pagination, independent columns, detail, responsive cards, and user actions; ranking supports Top 20/50/100/200, Token/request/actual-cost sorting, responsive cards, and Usage user drill-down.
+- Final evidence: focused handler/repository Go tests, 18/18 Vitest, typecheck, changed-file ESLint, 1109-module production build, desktop/mobile Playwright request and overflow checks, clean console, diff, conflict, allowlist, compatibility, and sort-whitelist gates.
+- QA report: `docs/workflow/qa-reports/usage-admin-frontend-s137-qa.md`.
+- Final Evaluator: PASS / source-level + mocked-browser. One local isolated branch commit records S137; no schema, migration, route, permission, primary-worktree merge, push, deployment, container update, or production migration occurred.
+
+# S136 Current Sprint
+
+- Baseline is committed S135 backend foundation `d48370f75`.
+- Scope is user Usage analytics, redacted user error UI, and its opt-in administrator setting only.
+- Contract: `docs/workflow/tasks/usage-user-frontend-s136.md`.
+- Contract review: approved; local component reuse, strict redaction, lazy error loading, exact allowlist, and S137 exclusions are explicit.
+- Implementation and frontend QA: PASS. Filtered analytics, opt-in redacted errors, Settings mapping, responsive desktop/mobile layout, and stale-error refresh behavior are complete.
+- Final evidence: 41/41 focused Vitest, typecheck, changed-file ESLint, 1106-module production build, diff/allowlist/security checks, and mocked Playwright desktop/mobile smoke pass.
+- QA report: `docs/workflow/qa-reports/usage-user-frontend-s136-qa.md`.
+- Administrator Usage error workbench and Token ranking remain deferred to S137.
+- S136 local commit is authorized as the next closeout action; primary-worktree merge, push, deployment, container update, and production migration remain excluded.
+
+# S135 Current Sprint
+
+- Start the Usage full-alignment backend foundation in an isolated worktree.
+- Scope is limited to user analytics contracts, user-scoped redacted error APIs,
+  the opt-in setting, route/Wire integration, and migration 200.
+- Frontend user/admin Usage tabs, charts, error tables, and Token ranking are
+  deferred to S136/S137 after this contract passes review.
+- Contract: `docs/workflow/tasks/usage-full-alignment-s135.md`.
+- Final QA: `PASS / source-level`; focused regressions, public settings schema,
+  route ordering, migration runner checks, migration package tests, full compile,
+  formatting, diff, conflict, and allowed-path gates pass.
+- The full four-package test command retains unrelated baseline failures in
+  `group_peak_rate_test.go` and `auth_rate_limit_test.go`; neither file changed.
+- The unit API-contract suite also retains unrelated exact-payload drift after
+  the new `allow_user_view_error_requests=false` expectation was aligned.
+- Deleted API Key owner snapshot attribution remains intentionally deferred because
+  S135 forbids schema rewrite; this is recorded as residual risk.
+- The user authorized a local S135 commit and continued isolated S136 work; primary-worktree merge remains blocked by overlapping dirty workflow files.
+- No push, deployment, production migration, or container update is authorized.
 
 # S133 Current Sprint
 

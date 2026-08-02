@@ -30,6 +30,12 @@ export default {
           enabled: 'Enable Available Channels',
           enabledHint: 'When off, the sidebar entry is hidden and the endpoint returns an empty list.',
         },
+        userErrorRequests: {
+          title: 'User Error Requests',
+          description: 'Let users inspect a redacted list of failed requests from their own API keys.',
+          enabled: 'Allow users to view error requests',
+          enabledHint: 'Off by default. Sensitive account, network, identity, and retry fields are never exposed.'
+        },
         accountShare: {
           title: 'User Account Sharing Pool',
           description: 'Allow regular users to upload upstream accounts for private use or reviewed public sharing. When off, the user entry is hidden and related endpoints are denied.',

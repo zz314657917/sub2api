@@ -2005,7 +2005,7 @@ func TestHandleAnthropicBufferedStreamingResponse_OverridesUpstreamContentType(t
 	}
 
 	result, err := svc.handleAnthropicBufferedStreamingResponse(
-		resp, c, "claude-sonnet-4-5", "gpt-5.4", "gpt-5.4", time.Now(),
+		resp, c, &Account{ID: 1, Platform: PlatformOpenAI}, "claude-sonnet-4-5", "gpt-5.4", "gpt-5.4", time.Now(),
 	)
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -2015,4 +2015,76 @@ func TestHandleAnthropicBufferedStreamingResponse_OverridesUpstreamContentType(t
 	require.Equal(t, float64(10), gjson.Get(rec.Body.String(), "usage.input_tokens").Float())
 	require.Equal(t, float64(6), gjson.Get(rec.Body.String(), "usage.output_tokens").Float())
 	require.Equal(t, float64(5), gjson.Get(rec.Body.String(), "usage.cache_read_input_tokens").Float())
+}
+
+func TestHandleAnthropicBufferedStreamingResponse_RateLimitReturns429Failover(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Retry-After": []string{"4"}},
+		Body: io.NopCloser(strings.NewReader(
+			`data: {"type":"response.failed","response":{"id":"resp_messages_rate","status":"failed","error":{"code":"rate_limit_exceeded","message":"rate limited"}}}` + "\n\n",
+		)),
+	}
+	account := &Account{
+		ID:       1,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"pool_mode":                    true,
+			"pool_mode_retry_status_codes": []any{float64(http.StatusTooManyRequests)},
+		},
+	}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+
+	result, err := svc.handleAnthropicBufferedStreamingResponse(
+		resp, c, account, "claude-sonnet-4-5", "gpt-5.4", "gpt-5.4", time.Now(),
+	)
+	require.Error(t, err)
+	require.Nil(t, result)
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusTooManyRequests, failoverErr.StatusCode)
+	require.True(t, failoverErr.RetryableOnSameAccount)
+	require.Equal(t, "4", failoverErr.ResponseHeaders.Get("Retry-After"))
+	require.False(t, c.Writer.Written())
+}
+
+func TestHandleAnthropicStreamingResponse_RateLimitReturns429FailoverBeforeOutput(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Retry-After": []string{"5"}},
+		Body: io.NopCloser(strings.NewReader(
+			`data: {"type":"response.failed","response":{"id":"resp_messages_stream_rate","status":"failed","error":{"code":"rate_limit_exceeded","message":"rate limited"}}}` + "\n\n",
+		)),
+	}
+	account := &Account{
+		ID:       1,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"pool_mode":                    true,
+			"pool_mode_retry_status_codes": []any{float64(http.StatusTooManyRequests)},
+		},
+	}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+
+	result, err := svc.handleAnthropicStreamingResponse(
+		resp, c, account, "claude-sonnet-4-5", "gpt-5.4", "gpt-5.4", time.Now(),
+	)
+	require.Error(t, err)
+	require.NotNil(t, result)
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusTooManyRequests, failoverErr.StatusCode)
+	require.True(t, failoverErr.RetryableOnSameAccount)
+	require.Equal(t, "5", failoverErr.ResponseHeaders.Get("Retry-After"))
+	require.False(t, c.Writer.Written())
 }

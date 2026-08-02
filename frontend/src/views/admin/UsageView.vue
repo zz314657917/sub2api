@@ -64,9 +64,27 @@
           <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
         </div>
       </div>
-      <UsageFilters ref="usageFiltersRef" v-model="filters" :start-date="startDate" :end-date="endDate" :exporting="exporting" :class="{ 'z-[221]': showColumnDropdown }" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
+      <div class="flex overflow-x-auto border-b border-gray-200 dark:border-dark-700" role="tablist" :aria-label="t('admin.usage.title')">
+        <button
+          v-for="tab in detailTabs"
+          :key="tab.key"
+          type="button"
+          data-testid="usage-detail-tab"
+          class="-mb-px inline-flex flex-shrink-0 items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors"
+          :class="activeTab === tab.key
+            ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+            : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200'"
+          :aria-selected="activeTab === tab.key"
+          @click="switchTab(tab.key)"
+        >
+          <Icon :name="tab.icon" size="sm" />
+          {{ tab.label }}
+        </button>
+      </div>
+
+      <UsageFilters ref="usageFiltersRef" v-model="filters" :mode="activeTab" :start-date="startDate" :end-date="endDate" :exporting="exporting" :class="{ 'z-[221]': showColumnDropdown }" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
         <template #after-reset>
-          <div class="relative" ref="columnDropdownRef">
+          <div v-if="activeTab !== 'ranking'" class="relative" ref="columnDropdownRef">
             <button
               data-test="usage-column-settings"
               @click="showColumnDropdown = !showColumnDropdown"
@@ -83,14 +101,14 @@
               class="absolute right-0 top-full z-50 mt-1 max-h-80 w-48 overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg dark:border-dark-600 dark:bg-dark-800"
             >
               <button
-                v-for="col in toggleableColumns"
+                v-for="col in currentToggleableColumns"
                 :key="col.key"
-                @click="toggleColumn(col.key)"
+                @click="toggleCurrentColumn(col.key)"
                 class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-dark-700"
               >
                 <span>{{ col.label }}</span>
                 <Icon
-                  v-if="isColumnVisible(col.key)"
+                  v-if="isCurrentColumnVisible(col.key)"
                   name="check"
                   size="sm"
                   class="text-primary-500"
@@ -101,17 +119,47 @@
           </div>
         </template>
       </UsageFilters>
-      <UsageTable
-        :data="usageLogs"
-        :loading="loading"
-        :columns="visibleColumns"
-        :server-side-sort="true"
-        :default-sort-key="'created_at'"
-        :default-sort-order="'desc'"
-        @sort="handleSort"
+      <div v-show="activeTab === 'usage'" class="space-y-4">
+        <UsageTable
+          :data="usageLogs"
+          :loading="loading"
+          :columns="visibleColumns"
+          :server-side-sort="true"
+          :default-sort-key="'created_at'"
+          :default-sort-order="'desc'"
+          @sort="handleSort"
+          @userClick="handleUserClick"
+        />
+        <Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
+      </div>
+
+      <OpsErrorLogTable
+        v-show="activeTab === 'errors'"
+        :rows="errorRows"
+        :total="errorPagination.total"
+        :loading="errorLoading"
+        :page="errorPagination.page"
+        :page-size="errorPagination.page_size"
+        :visible-column-keys="errorVisibleColumnKeys"
+        server-side-sort
+        user-clickable
         @userClick="handleUserClick"
+        @openErrorDetail="openErrorDetail"
+        @sort="handleErrorSort"
+        @update:page="handleErrorPageChange"
+        @update:pageSize="handleErrorPageSizeChange"
       />
-      <Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
+
+      <UserTokenRanking
+        v-if="rankingMounted"
+        v-show="activeTab === 'ranking'"
+        ref="rankingRef"
+        :start-date="startDate"
+        :end-date="endDate"
+        :filters="breakdownFilters"
+        :model="filters.model || undefined"
+        @select-user="handleRankingSelectUser"
+      />
     </div>
   </AppLayout>
   <UsageExportProgress :show="exportProgress.show" :progress="exportProgress.progress" :current="exportProgress.current" :total="exportProgress.total" :estimated-time="exportProgress.estimatedTime" @cancel="cancelExport" />
@@ -129,6 +177,7 @@
     :hide-actions="true"
     @close="showBalanceHistoryModal = false; balanceHistoryUser = null"
   />
+  <OpsErrorDetailModal v-model:show="showErrorModal" :error-id="selectedErrorId" error-type="request" />
 </template>
 
 <script setup lang="ts">
@@ -144,7 +193,11 @@ import AppLayout from '@/components/layout/AppLayout.vue'; import Pagination fro
 import UsageStatsCards from '@/components/admin/usage/UsageStatsCards.vue'; import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
 import UsageTable from '@/components/admin/usage/UsageTable.vue'; import UsageExportProgress from '@/components/admin/usage/UsageExportProgress.vue'
 import UsageCleanupDialog from '@/components/admin/usage/UsageCleanupDialog.vue'
+import UserTokenRanking from '@/components/admin/usage/UserTokenRanking.vue'
 import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
+import OpsErrorLogTable from '@/views/admin/ops/components/OpsErrorLogTable.vue'
+import OpsErrorDetailModal from '@/views/admin/ops/components/OpsErrorDetailModal.vue'
+import { listErrorLogs, type OpsErrorLog } from '@/api/admin/ops'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'; import GroupDistributionChart from '@/components/charts/GroupDistributionChart.vue'; import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
 import EndpointDistributionChart from '@/components/charts/EndpointDistributionChart.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -158,6 +211,12 @@ type ModelDistributionSource = 'requested' | 'upstream' | 'mapping'
 type UsageFiltersExposed = {
   getUserSearchRevision: () => number
   setUserKeyword: (email: string) => void
+}
+type DetailTab = 'usage' | 'errors' | 'ranking'
+type AdminUsagePageFilters = AdminUsageQueryParams & {
+  error_phase?: string | null
+  error_category?: string | null
+  status_code?: number | null
 }
 const route = useRoute()
 const usageStats = ref<AdminUsageStatsResponse | null>(null); const usageLogs = ref<AdminUsageLog[]>([]); const loading = ref(false); const exporting = ref(false)
@@ -185,6 +244,22 @@ const cleanupDialogVisible = ref(false)
 // Balance history modal state
 const showBalanceHistoryModal = ref(false)
 const balanceHistoryUser = ref<AdminUser | null>(null)
+const activeTab = ref<DetailTab>('usage')
+const detailTabs = computed(() => [
+  { key: 'usage' as const, label: t('admin.usage.tabs.usage'), icon: 'document' as const },
+  { key: 'errors' as const, label: t('admin.usage.tabs.errors'), icon: 'exclamationTriangle' as const },
+  { key: 'ranking' as const, label: t('admin.usage.tabs.ranking'), icon: 'chart' as const }
+])
+const rankingMounted = ref(false)
+const rankingRef = ref<InstanceType<typeof UserTokenRanking> | null>(null)
+const errorRows = ref<OpsErrorLog[]>([])
+const errorLoading = ref(false)
+const errorPagination = reactive({ page: 1, page_size: getPersistedPageSize(), total: 0 })
+const errorSort = reactive({ sort_by: 'created_at' as 'created_at' | 'model' | 'status_code', sort_order: 'desc' as 'asc' | 'desc' })
+const showErrorModal = ref(false)
+const selectedErrorId = ref<number | null>(null)
+let errorRequestSequence = 0
+let errorsDirty = true
 
 const breakdownFilters = computed(() => {
   const f: Record<string, any> = {}
@@ -205,6 +280,22 @@ const handleUserClick = async (userId: number) => {
   } catch {
     appStore.showError(t('admin.usage.failedToLoadUser'))
   }
+}
+
+const handleRankingSelectUser = (userId: number, email: string) => {
+  filters.value = { ...filters.value, user_id: userId }
+  usageFiltersRef.value?.setUserKeyword(email || String(userId))
+  activeTab.value = 'usage'
+  applyFilters()
+}
+
+const switchTab = (tab: DetailTab) => {
+  activeTab.value = tab
+  showColumnDropdown.value = false
+  if (tab === 'errors' && (errorsDirty || errorRows.value.length === 0)) {
+    void loadAdminErrors()
+  }
+  if (tab === 'ranking') rankingMounted.value = true
 }
 
 const granularityOptions = computed(() => [{ value: 'day', label: t('admin.dashboard.day') }, { value: 'hour', label: t('admin.dashboard.hour') }])
@@ -231,7 +322,7 @@ const getGranularityForRange = (start: string, end: string): 'day' | 'hour' => {
 }
 const defaultRange = getLast24HoursRangeDates()
 const startDate = ref(defaultRange.start); const endDate = ref(defaultRange.end)
-const filters = ref<AdminUsageQueryParams>({ user_id: undefined, model: undefined, group_id: undefined, request_type: undefined, billing_type: null, start_date: startDate.value, end_date: endDate.value })
+const filters = ref<AdminUsagePageFilters>({ user_id: undefined, model: undefined, group_id: undefined, request_type: undefined, billing_type: null, start_date: startDate.value, end_date: endDate.value })
 const usageFiltersRef = ref<UsageFiltersExposed | null>(null)
 const pagination = reactive({ page: 1, page_size: getPersistedPageSize(), total: 0 })
 const sortState = reactive({
@@ -304,6 +395,11 @@ const onDateRangeChange = (range: { startDate: string; endDate: string; preset: 
   applyFilters()
 }
 
+const usageOnlyFilters = (): AdminUsageQueryParams => {
+  const { error_phase: _phase, error_category: _category, status_code: _status, ...usageFilters } = filters.value
+  return usageFilters
+}
+
 const buildUsageListParams = (
   page: number,
   pageSize: number,
@@ -315,7 +411,7 @@ const buildUsageListParams = (
     page,
     page_size: pageSize,
     exact_total: exactTotal,
-    ...filters.value,
+    ...usageOnlyFilters(),
     stream: legacyStream === null ? undefined : legacyStream,
     sort_by: sortState.sort_by,
     sort_order: sortState.sort_order
@@ -338,7 +434,7 @@ const loadStats = async () => {
   try {
     const requestType = filters.value.request_type
     const legacyStream = requestType ? requestTypeToLegacyStream(requestType) : filters.value.stream
-    const s = await adminAPI.usage.getStats({ ...filters.value, stream: legacyStream === null ? undefined : legacyStream })
+    const s = await adminAPI.usage.getStats({ ...usageOnlyFilters(), stream: legacyStream === null ? undefined : legacyStream })
     if (seq !== statsReqSeq) return
     usageStats.value = s
     inboundEndpointStats.value = s.endpoints || []
@@ -445,13 +541,81 @@ const loadChartData = async () => {
     groupStats.value = snapshot.groups || []
   } catch (error) { console.error('Failed to load chart data:', error) } finally { if (seq === chartReqSeq) chartsLoading.value = false }
 }
+
+const toRFC3339 = (date: string | undefined, endOfDay = false) => date
+  ? new Date(`${date}${endOfDay ? 'T23:59:59.999' : 'T00:00:00'}`).toISOString()
+  : undefined
+
+const loadAdminErrors = async () => {
+  const sequence = ++errorRequestSequence
+  errorLoading.value = true
+  try {
+    const response = await listErrorLogs({
+      page: errorPagination.page,
+      page_size: errorPagination.page_size,
+      view: 'all',
+      start_time: toRFC3339(filters.value.start_date || startDate.value),
+      end_time: toRFC3339(filters.value.end_date || endDate.value, true),
+      user_id: filters.value.user_id,
+      api_key_id: filters.value.api_key_id,
+      account_id: filters.value.account_id,
+      group_id: filters.value.group_id,
+      model: filters.value.model || undefined,
+      phase: filters.value.error_phase || undefined,
+      category: filters.value.error_category || undefined,
+      status_codes: filters.value.status_code ? String(filters.value.status_code) : undefined,
+      sort_by: errorSort.sort_by,
+      sort_order: errorSort.sort_order
+    })
+    if (sequence !== errorRequestSequence) return
+    errorRows.value = response.items || []
+    errorPagination.total = response.total
+    errorsDirty = false
+  } catch (error) {
+    if (sequence !== errorRequestSequence) return
+    console.error('Failed to load admin errors:', error)
+    errorRows.value = []
+    errorPagination.total = 0
+    appStore.showError(t('usage.errors.failedToLoad'))
+  } finally {
+    if (sequence === errorRequestSequence) errorLoading.value = false
+  }
+}
+
+const handleErrorSort = (sortBy: string, sortOrder: 'asc' | 'desc') => {
+  if (sortBy !== 'created_at' && sortBy !== 'model' && sortBy !== 'status_code') return
+  errorSort.sort_by = sortBy
+  errorSort.sort_order = sortOrder
+  errorPagination.page = 1
+  void loadAdminErrors()
+}
+
+const handleErrorPageChange = (page: number) => {
+  errorPagination.page = page
+  void loadAdminErrors()
+}
+
+const handleErrorPageSizeChange = (pageSize: number) => {
+  errorPagination.page_size = pageSize
+  errorPagination.page = 1
+  void loadAdminErrors()
+}
+
+const openErrorDetail = (id: number) => {
+  selectedErrorId.value = id
+  showErrorModal.value = true
+}
+
 const applyFilters = () => {
   pagination.page = 1
+  errorPagination.page = 1
+  errorsDirty = true
   resetModelStatsCache()
   loadLogs()
   loadStats()
   loadModelStats(modelDistributionSource.value, true)
   loadChartData()
+  if (activeTab.value === 'errors') void loadAdminErrors()
 }
 const refreshData = () => {
   resetModelStatsCache()
@@ -459,12 +623,23 @@ const refreshData = () => {
   loadStats()
   loadModelStats(modelDistributionSource.value, true)
   loadChartData()
+  if (activeTab.value === 'errors') void loadAdminErrors()
+  if (rankingMounted.value) void rankingRef.value?.reload()
 }
 const resetFilters = () => {
   const range = getLast24HoursRangeDates()
   startDate.value = range.start
   endDate.value = range.end
-  filters.value = { start_date: startDate.value, end_date: endDate.value, request_type: undefined, billing_type: null, billing_mode: undefined }
+  filters.value = {
+    start_date: startDate.value,
+    end_date: endDate.value,
+    request_type: undefined,
+    billing_type: null,
+    billing_mode: undefined,
+    error_phase: null,
+    error_category: null,
+    status_code: null
+  }
   granularity.value = getGranularityForRange(startDate.value, endDate.value)
   applyFilters()
 }
@@ -594,6 +769,56 @@ const toggleColumn = (key: string) => {
   }
 }
 
+const ERROR_ALWAYS_VISIBLE = ['user', 'status', 'created_at', 'actions']
+const ERROR_DEFAULT_HIDDEN_COLUMNS = ['user_agent']
+const ERROR_HIDDEN_COLUMNS_KEY = 'usage-error-hidden-columns'
+const errorAllColumns = computed(() => [
+  { key: 'user', label: t('admin.ops.errorLog.user') },
+  { key: 'api_key', label: t('usage.errors.keyName') },
+  { key: 'account', label: t('admin.ops.errorLog.account') },
+  { key: 'platform', label: t('admin.ops.errorLog.platform') },
+  { key: 'model', label: t('admin.ops.errorLog.model') },
+  { key: 'endpoint', label: t('admin.ops.errorLog.endpoint') },
+  { key: 'group', label: t('admin.ops.errorLog.group') },
+  { key: 'type', label: t('admin.ops.errorLog.type') },
+  { key: 'category', label: t('usage.errors.category') },
+  { key: 'status', label: t('admin.ops.errorLog.status') },
+  { key: 'message', label: t('admin.ops.errorLog.message') },
+  { key: 'created_at', label: t('admin.ops.errorLog.time') },
+  { key: 'user_agent', label: t('usage.userAgent') },
+  { key: 'client_ip', label: t('admin.usage.ipAddress') },
+  { key: 'actions', label: t('admin.ops.errorLog.action') }
+])
+const errorHiddenColumns = reactive<Set<string>>(new Set())
+const errorToggleableColumns = computed(() => errorAllColumns.value.filter((column) => !ERROR_ALWAYS_VISIBLE.includes(column.key)))
+const errorVisibleColumnKeys = computed(() => errorAllColumns.value
+  .filter((column) => ERROR_ALWAYS_VISIBLE.includes(column.key) || !errorHiddenColumns.has(column.key))
+  .map((column) => column.key))
+
+const toggleErrorColumn = (key: string) => {
+  if (errorHiddenColumns.has(key)) errorHiddenColumns.delete(key)
+  else errorHiddenColumns.add(key)
+  try {
+    localStorage.setItem(ERROR_HIDDEN_COLUMNS_KEY, JSON.stringify([...errorHiddenColumns]))
+  } catch (error) {
+    console.error('Failed to save error columns:', error)
+  }
+}
+
+const loadSavedErrorColumns = () => {
+  try {
+    const saved = localStorage.getItem(ERROR_HIDDEN_COLUMNS_KEY)
+    const keys = saved ? JSON.parse(saved) as string[] : ERROR_DEFAULT_HIDDEN_COLUMNS
+    keys.forEach((key) => errorHiddenColumns.add(key))
+  } catch {
+    ERROR_DEFAULT_HIDDEN_COLUMNS.forEach((key) => errorHiddenColumns.add(key))
+  }
+}
+
+const currentToggleableColumns = computed(() => activeTab.value === 'errors' ? errorToggleableColumns.value : toggleableColumns.value)
+const isCurrentColumnVisible = (key: string) => activeTab.value === 'errors' ? !errorHiddenColumns.has(key) : isColumnVisible(key)
+const toggleCurrentColumn = (key: string) => activeTab.value === 'errors' ? toggleErrorColumn(key) : toggleColumn(key)
+
 const loadSavedColumns = () => {
   try {
     const saved = localStorage.getItem(HIDDEN_COLUMNS_KEY)
@@ -632,9 +857,15 @@ onMounted(() => {
     void loadChartData()
   }, 120)
   loadSavedColumns()
+  loadSavedErrorColumns()
   document.addEventListener('click', handleColumnClickOutside)
 })
-onUnmounted(() => { abortController?.abort(); exportAbortController?.abort(); document.removeEventListener('click', handleColumnClickOutside) })
+onUnmounted(() => {
+  abortController?.abort()
+  exportAbortController?.abort()
+  errorRequestSequence++
+  document.removeEventListener('click', handleColumnClickOutside)
+})
 
 watch(modelDistributionSource, (source) => {
   void loadModelStats(source)

@@ -422,6 +422,7 @@ export interface PublicSettings {
   welfare_vip_enabled?: boolean
   welfare_new_user_trial_enabled?: boolean
   leaderboard_min_account_age_days?: number
+  allow_user_view_error_requests?: boolean
 }
 
 export interface AuthResponse {
@@ -1999,11 +2000,14 @@ export interface UsageStatsResponse {
   total_input_tokens: number
   total_output_tokens: number
   total_cache_tokens: number
+  total_cache_creation_tokens: number
+  total_cache_read_tokens: number
   total_tokens: number
   total_cost: number // 标准计费
   total_actual_cost: number // 实际扣除
   average_duration_ms: number
   models?: Record<string, number>
+  endpoints?: EndpointStat[]
 }
 
 // ==================== Trend & Chart Types ====================
@@ -2055,6 +2059,9 @@ export interface UserBreakdownItem {
   user_id: number
   email: string
   requests: number
+  input_tokens: number
+  output_tokens: number
+  cache_tokens: number
   total_tokens: number
   cost: number
   actual_cost: number
@@ -2299,6 +2306,38 @@ export interface ExtendSubscriptionRequest {
 
 // ==================== Query Parameters ====================
 
+export interface UserErrorRequest {
+  id: number
+  created_at: string
+  model: string
+  inbound_endpoint: string
+  status_code: number
+  category: string
+  platform: string
+  message: string
+  key_name: string
+  key_deleted: boolean
+}
+
+export interface UserErrorRequestDetail extends UserErrorRequest {
+  error_body: string
+  upstream_status_code?: number
+}
+
+export interface UserErrorListParams {
+  page?: number
+  page_size?: number
+  start_date?: string
+  end_date?: string
+  timezone?: string
+  model?: string
+  status_code?: number
+  category?: string
+  api_key_id?: number
+  sort_by?: 'created_at' | 'model' | 'status_code'
+  sort_order?: 'asc' | 'desc'
+}
+
 export interface UsageQueryParams {
   page?: number
   page_size?: number
@@ -2313,6 +2352,7 @@ export interface UsageQueryParams {
   billing_mode?: string
   start_date?: string
   end_date?: string
+  timezone?: string
   sort_by?: string
   sort_order?: 'asc' | 'desc'
 }

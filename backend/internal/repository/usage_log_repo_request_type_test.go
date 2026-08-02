@@ -1134,19 +1134,22 @@ func TestGetUserBreakdownStatsRequestTypeLegacyFallbackMatrix(t *testing.T) {
 			mock.ExpectQuery("user breakdown query").
 				WithArgs(tt.wantArgs...).
 				WillReturnRows(sqlmock.NewRows([]string{
-					"user_id", "email", "requests", "total_tokens", "cost", "actual_cost", "account_cost",
-				}).AddRow(int64(42), "user@example.com", int64(3), int64(90), 1.5, 1.25, 0.75))
+					"user_id", "email", "requests", "input_tokens", "output_tokens", "cache_tokens", "total_tokens", "cost", "actual_cost", "account_cost",
+				}).AddRow(int64(42), "user@example.com", int64(3), int64(50), int64(30), int64(10), int64(90), 1.5, 1.25, 0.75))
 
 			rows, err := repo.GetUserBreakdownStats(context.Background(), start, end, tt.dim, tt.limit)
 			require.NoError(t, err)
 			require.Equal(t, []usagestats.UserBreakdownItem{{
-				UserID:      42,
-				Email:       "user@example.com",
-				Requests:    3,
-				TotalTokens: 90,
-				Cost:        1.5,
-				ActualCost:  1.25,
-				AccountCost: 0.75,
+				UserID:       42,
+				Email:        "user@example.com",
+				Requests:     3,
+				InputTokens:  50,
+				OutputTokens: 30,
+				CacheTokens:  10,
+				TotalTokens:  90,
+				Cost:         1.5,
+				ActualCost:   1.25,
+				AccountCost:  0.75,
 			}}, rows)
 			require.NoError(t, mock.ExpectationsWereMet())
 

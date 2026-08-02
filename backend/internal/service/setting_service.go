@@ -1045,6 +1045,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAccountShareChannelStatusVisible,
 		SettingKeyExternalCapacityReferenceEnabled,
 		SettingKeyRiskControlEnabled,
+		SettingKeyAllowUserViewErrorRequests,
 		SettingKeyWelfareEnabled,
 		SettingKeyWelfareDailyCheckinEnabled,
 		SettingKeyWelfareRechargeEnabled,
@@ -1170,7 +1171,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		AccountShareChannelStatusVisible: settings[SettingKeyAccountShareChannelStatusVisible] != "false",
 		ExternalCapacityReferenceEnabled: ExternalCapacityReferenceFeatureEnabled && settings[SettingKeyExternalCapacityReferenceEnabled] == "true",
 
-		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
+		RiskControlEnabled:         settings[SettingKeyRiskControlEnabled] == "true",
+		AllowUserViewErrorRequests: settings[SettingKeyAllowUserViewErrorRequests] == "true",
 
 		WelfareEnabled:               settings[SettingKeyWelfareEnabled] == "true",
 		WelfareDailyCheckinEnabled:   settings[SettingKeyWelfareDailyCheckinEnabled] == "true",
@@ -1253,6 +1255,19 @@ func (s *SettingService) GetAvailableChannelsRuntime(ctx context.Context) Availa
 	return AvailableChannelsRuntime{
 		Enabled: vals[SettingKeyAvailableChannelsEnabled] == "true",
 	}
+}
+
+// IsUserErrorViewAllowed reads the opt-in user error visibility setting.
+// Any settings-store failure fails closed.
+func (s *SettingService) IsUserErrorViewAllowed(ctx context.Context) bool {
+	if s == nil || s.settingRepo == nil {
+		return false
+	}
+	values, err := s.settingRepo.GetMultiple(ctx, []string{SettingKeyAllowUserViewErrorRequests})
+	if err != nil {
+		return false
+	}
+	return values[SettingKeyAllowUserViewErrorRequests] == "true"
 }
 
 // GetAntigravityUserAgentVersion 返回 Antigravity 上游请求使用的版本号。
@@ -1405,6 +1420,7 @@ type PublicSettingsInjectionPayload struct {
 	AccountShareChannelStatusVisible     bool   `json:"account_share_channel_status_visible"`
 	ExternalCapacityReferenceEnabled     bool   `json:"external_capacity_reference_enabled"`
 	RiskControlEnabled                   bool   `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests           bool   `json:"allow_user_view_error_requests"`
 	WelfareEnabled                       bool   `json:"welfare_enabled"`
 	WelfareDailyCheckinEnabled           bool   `json:"welfare_daily_checkin_enabled"`
 	WelfareRechargeEnabled               bool   `json:"welfare_recharge_enabled"`
@@ -1488,6 +1504,7 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		AccountShareChannelStatusVisible:     settings.AccountShareChannelStatusVisible,
 		ExternalCapacityReferenceEnabled:     ExternalCapacityReferenceFeatureEnabled && settings.ExternalCapacityReferenceEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
+		AllowUserViewErrorRequests:           settings.AllowUserViewErrorRequests,
 		WelfareEnabled:                       settings.WelfareEnabled,
 		WelfareDailyCheckinEnabled:           settings.WelfareDailyCheckinEnabled,
 		WelfareRechargeEnabled:               settings.WelfareRechargeEnabled,
@@ -2274,6 +2291,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 
 	// 风控中心功能开关
 	updates[SettingKeyRiskControlEnabled] = strconv.FormatBool(settings.RiskControlEnabled)
+	updates[SettingKeyAllowUserViewErrorRequests] = strconv.FormatBool(settings.AllowUserViewErrorRequests)
 
 	// Claude Code version check
 	updates[SettingKeyMinClaudeCodeVersion] = settings.MinClaudeCodeVersion
@@ -3458,7 +3476,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAccountShareUserAccountLimit:     strconv.Itoa(AccountShareUserAccountLimitDefault),
 
 		// 风控中心功能（默认关闭，显式启用）
-		SettingKeyRiskControlEnabled: "false",
+		SettingKeyRiskControlEnabled:         "false",
+		SettingKeyAllowUserViewErrorRequests: "false",
 
 		// Claude Code version check (default: empty = disabled)
 		SettingKeyMinClaudeCodeVersion: "",
@@ -3989,6 +4008,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// 风控中心功能（默认关闭，严格 true 才启用）
 	result.RiskControlEnabled = settings[SettingKeyRiskControlEnabled] == "true"
+	result.AllowUserViewErrorRequests = settings[SettingKeyAllowUserViewErrorRequests] == "true"
 
 	// Claude Code version check
 	result.MinClaudeCodeVersion = settings[SettingKeyMinClaudeCodeVersion]

@@ -115,7 +115,7 @@ func newUserLeaderboardRouterWithCreatedAt(repo *userLeaderboardUsageRepo, userI
 	gin.SetMode(gin.TestMode)
 	userRepo := &leaderboardHandlerUserRepo{createdAt: createdAt}
 	usageSvc := service.NewUsageService(repo, userRepo, nil, nil)
-	handler := NewUsageHandler(usageSvc, nil)
+	handler := NewUsageHandler(usageSvc, nil, nil, nil)
 	router := gin.New()
 	router.GET("/usage/dashboard/leaderboard", func(c *gin.Context) {
 		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: userID})

@@ -971,6 +971,8 @@ export interface OpsErrorLog {
   user_id?: number | null
   user_email: string
   api_key_id?: number | null
+  api_key_name?: string
+  api_key_deleted?: boolean
   account_id?: number | null
   account_name: string
   account_notes?: string
@@ -987,6 +989,7 @@ export interface OpsErrorLog {
   requested_model?: string
   upstream_model?: string
   request_type?: number | null
+  user_agent?: string
 }
 
 export interface OpsErrorDetail extends OpsErrorLog {
@@ -1144,8 +1147,12 @@ export type OpsErrorListQueryParams = {
   platform?: string
   group_id?: number | null
   account_id?: number | null
+  user_id?: number
+  api_key_id?: number
+  model?: string
 
   phase?: string
+  category?: string
   error_owner?: string
   error_source?: string
   resolved?: string
@@ -1154,6 +1161,8 @@ export type OpsErrorListQueryParams = {
   q?: string
   status_codes?: string
   status_codes_other?: string
+  sort_by?: 'created_at' | 'model' | 'status_code'
+  sort_order?: 'asc' | 'desc'
 }
 
 // Legacy unified endpoints

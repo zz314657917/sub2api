@@ -11,9 +11,13 @@ import type {
   PaginatedResponse,
   TrendDataPoint,
   ModelStat,
+  GroupStat,
   LeaderboardPeriod,
   LeaderboardDailyRewards,
-  UserLeaderboardResponse
+  UserLeaderboardResponse,
+  UserErrorRequest,
+  UserErrorRequestDetail,
+  UserErrorListParams
 } from '@/types'
 
 export type {
@@ -68,6 +72,14 @@ export interface TrendParams {
   start_date?: string
   end_date?: string
   granularity?: 'day' | 'hour'
+  api_key_id?: number
+  model?: string
+  group_id?: number
+  request_type?: UsageQueryParams['request_type']
+  stream?: boolean
+  billing_type?: number | null
+  billing_mode?: string | null
+  timezone?: string
 }
 
 export interface TrendResponse {
@@ -100,6 +112,22 @@ export interface ApiKeyDailyUsageResponse {
   days: number
   start_date: string
   end_date: string
+}
+
+export interface UsageDashboardSnapshotV2Params extends TrendParams {
+  include_trend?: boolean
+  include_model_stats?: boolean
+  include_group_stats?: boolean
+}
+
+export interface UsageDashboardSnapshotV2Response {
+  generated_at: string
+  start_date: string
+  end_date: string
+  granularity: string
+  trend?: TrendDataPoint[]
+  models?: ModelStat[]
+  groups?: GroupStat[]
 }
 
 /**
@@ -177,7 +205,7 @@ export async function getStats(
 export async function getStatsByDateRange(
   startDate: string,
   endDate: string,
-  filters: Pick<UsageQueryParams, 'api_key_id' | 'group_id' | 'model' | 'request_type' | 'stream' | 'billing_type' | 'billing_mode'> = {}
+  filters: Pick<UsageQueryParams, 'api_key_id' | 'group_id' | 'model' | 'request_type' | 'stream' | 'billing_type' | 'billing_mode' | 'timezone'> = {}
 ): Promise<UsageStatsResponse> {
   const params: Record<string, unknown> = {
     start_date: startDate,
@@ -204,6 +232,9 @@ export async function getStatsByDateRange(
   }
   if (filters.billing_mode) {
     params.billing_mode = filters.billing_mode
+  }
+  if (filters.timezone) {
+    params.timezone = filters.timezone
   }
 
   const { data } = await apiClient.get<UsageStatsResponse>('/usage/stats', {
@@ -280,6 +311,15 @@ export async function getDashboardTrend(params?: TrendParams): Promise<TrendResp
 export async function getDashboardModels(params?: {
   start_date?: string
   end_date?: string
+  api_key_id?: number
+  model?: string
+  model_source?: 'requested'
+  group_id?: number
+  request_type?: UsageQueryParams['request_type']
+  stream?: boolean
+  billing_type?: number | null
+  billing_mode?: string | null
+  timezone?: string
 }): Promise<ModelStatsResponse> {
   const { data } = await apiClient.get<ModelStatsResponse>('/usage/dashboard/models', { params })
   return data
@@ -326,6 +366,16 @@ export async function getMyApiKeyDailyUsage(
   return data
 }
 
+export async function getDashboardSnapshotV2(
+  params?: UsageDashboardSnapshotV2Params
+): Promise<UsageDashboardSnapshotV2Response> {
+  const { data } = await apiClient.get<UsageDashboardSnapshotV2Response>(
+    '/usage/dashboard/snapshot-v2',
+    { params }
+  )
+  return data
+}
+
 export interface BatchApiKeyUsageStats {
   api_key_id: number
   today_actual_cost: number
@@ -360,6 +410,20 @@ export async function getDashboardApiKeysUsage(
   return data
 }
 
+export async function listMyErrorRequests(
+  params: UserErrorListParams
+): Promise<PaginatedResponse<UserErrorRequest>> {
+  const { data } = await apiClient.get<PaginatedResponse<UserErrorRequest>>('/usage/errors', {
+    params
+  })
+  return data
+}
+
+export async function getMyErrorDetail(id: number): Promise<UserErrorRequestDetail> {
+  const { data } = await apiClient.get<UserErrorRequestDetail>(`/usage/errors/${id}`)
+  return data
+}
+
 export const usageAPI = {
   list,
   query,
@@ -374,7 +438,10 @@ export const usageAPI = {
   getDashboardLeaderboard,
   claimDashboardLeaderboardDailyReward,
   getMyApiKeyDailyUsage,
-  getDashboardApiKeysUsage
+  getDashboardSnapshotV2,
+  getDashboardApiKeysUsage,
+  listMyErrorRequests,
+  getMyErrorDetail
 }
 
 export default usageAPI

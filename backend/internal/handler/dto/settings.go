@@ -292,7 +292,8 @@ type SystemSettings struct {
 	WelfareNewUserTrialDailyIPActivationLimit int     `json:"welfare_new_user_trial_daily_ip_activation_limit"`
 
 	// 风控中心功能开关
-	RiskControlEnabled bool `json:"risk_control_enabled"`
+	RiskControlEnabled         bool `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
 
 	// Affiliate (邀请返利) feature switch
 	AffiliateEnabled bool `json:"affiliate_enabled"`
@@ -408,7 +409,8 @@ type PublicSettings struct {
 
 	ExternalCapacityReferenceEnabled bool `json:"external_capacity_reference_enabled"`
 
-	RiskControlEnabled bool `json:"risk_control_enabled"`
+	RiskControlEnabled         bool `json:"risk_control_enabled"`
+	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
 
 	WelfareEnabled               bool `json:"welfare_enabled"`
 	WelfareDailyCheckinEnabled   bool `json:"welfare_daily_checkin_enabled"`

@@ -49,6 +49,12 @@ const messages: Record<string, string> = {
   'common.reset': 'Reset',
   'admin.usage.cleanup.button': 'Cleanup',
   'usage.exportExcel': 'Export',
+  'admin.ops.errorLog.type': 'Error Type',
+  'admin.ops.errorLog.status': 'Status',
+  'admin.usage.errorFilters.allTypes': 'All Error Types',
+  'usage.errors.category': 'Category',
+  'usage.errors.allCategories': 'All Categories',
+  'usage.errors.allStatuses': 'All Statuses',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -85,7 +91,7 @@ const SelectStub = {
   template: '<button type="button" class="select-stub">{{ options?.[0]?.label }}</button>',
 }
 
-const mountFilters = () => mount(UsageFilters, {
+const mountFilters = (mode: 'usage' | 'errors' | 'ranking' = 'usage') => mount(UsageFilters, {
   props: {
     modelValue: {
       user_id: undefined,
@@ -95,6 +101,7 @@ const mountFilters = () => mount(UsageFilters, {
     exporting: false,
     startDate: '2026-06-01',
     endDate: '2026-06-01',
+    mode,
   },
   global: {
     stubs: {
@@ -170,5 +177,29 @@ describe('UsageFilters dropdown visibility', () => {
 
     expect(afterFirstInput).toBe(initialRevision + 1)
     expect((wrapper.vm as any).getUserSearchRevision()).toBe(afterFirstInput + 1)
+  })
+
+  it('shows error-specific filters without usage-only billing and destructive actions', async () => {
+    const wrapper = mountFilters('errors')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Error Type')
+    expect(wrapper.text()).toContain('Category')
+    expect(wrapper.text()).toContain('Status')
+    expect(wrapper.text()).not.toContain('Billing Type')
+    expect(wrapper.text()).not.toContain('Billing Mode')
+    expect(wrapper.text()).not.toContain('Cleanup')
+    expect(wrapper.text()).not.toContain('Export')
+  })
+
+  it('keeps supported ranking filters while hiding billing mode and usage actions', async () => {
+    const wrapper = mountFilters('ranking')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Type')
+    expect(wrapper.text()).toContain('Billing Type')
+    expect(wrapper.text()).not.toContain('Billing Mode')
+    expect(wrapper.text()).not.toContain('Cleanup')
+    expect(wrapper.text()).not.toContain('Export')
   })
 })

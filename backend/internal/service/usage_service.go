@@ -922,11 +922,79 @@ func (s *UsageService) GetUserUsageTrendByUserID(ctx context.Context, userID int
 	return trend, nil
 }
 
+// GetUsageTrendWithFilters returns trend data using the shared usage filter shape.
+func (s *UsageService) GetUsageTrendWithFilters(ctx context.Context, startTime, endTime time.Time, granularity string, filters usagestats.UsageLogFilters) ([]usagestats.TrendDataPoint, error) {
+	type usageTrendWithFiltersRepo interface {
+		GetUsageTrendWithUsageFilters(context.Context, time.Time, time.Time, string, usagestats.UsageLogFilters) ([]usagestats.TrendDataPoint, error)
+	}
+	if repo, ok := s.usageRepo.(usageTrendWithFiltersRepo); ok {
+		trend, err := repo.GetUsageTrendWithUsageFilters(ctx, startTime, endTime, granularity, filters)
+		if err != nil {
+			return nil, fmt.Errorf("get usage trend with filters: %w", err)
+		}
+		return trend, nil
+	}
+	trend, err := s.usageRepo.GetUsageTrendWithFilters(ctx, startTime, endTime, granularity, filters.UserID, filters.APIKeyID, filters.AccountID, filters.GroupID, filters.Model, filters.RequestType, filters.Stream, filters.BillingType)
+	if err != nil {
+		return nil, fmt.Errorf("get usage trend with filters: %w", err)
+	}
+	return trend, nil
+}
+
 // GetUserModelStats returns per-user model usage stats.
 func (s *UsageService) GetUserModelStats(ctx context.Context, userID int64, startTime, endTime time.Time) ([]usagestats.ModelStat, error) {
 	stats, err := s.usageRepo.GetUserModelStats(ctx, userID, startTime, endTime)
 	if err != nil {
 		return nil, fmt.Errorf("get user model stats: %w", err)
+	}
+	return stats, nil
+}
+
+// GetModelStatsWithFiltersBySource returns model stats using the shared usage filter shape.
+func (s *UsageService) GetModelStatsWithFiltersBySource(ctx context.Context, startTime, endTime time.Time, filters usagestats.UsageLogFilters, modelSource string) ([]usagestats.ModelStat, error) {
+	normalizedSource := usagestats.NormalizeModelSource(modelSource)
+	type modelStatsWithUsageFiltersRepo interface {
+		GetModelStatsWithUsageFiltersBySource(context.Context, time.Time, time.Time, usagestats.UsageLogFilters, string) ([]usagestats.ModelStat, error)
+	}
+	if repo, ok := s.usageRepo.(modelStatsWithUsageFiltersRepo); ok {
+		stats, err := repo.GetModelStatsWithUsageFiltersBySource(ctx, startTime, endTime, filters, normalizedSource)
+		if err != nil {
+			return nil, fmt.Errorf("get model stats with filters by source: %w", err)
+		}
+		return stats, nil
+	}
+	type modelStatsBySourceRepo interface {
+		GetModelStatsWithFiltersBySource(context.Context, time.Time, time.Time, int64, int64, int64, int64, *int16, *bool, *int8, string) ([]usagestats.ModelStat, error)
+	}
+	if repo, ok := s.usageRepo.(modelStatsBySourceRepo); ok {
+		stats, err := repo.GetModelStatsWithFiltersBySource(ctx, startTime, endTime, filters.UserID, filters.APIKeyID, filters.AccountID, filters.GroupID, filters.RequestType, filters.Stream, filters.BillingType, normalizedSource)
+		if err != nil {
+			return nil, fmt.Errorf("get model stats with filters by source: %w", err)
+		}
+		return stats, nil
+	}
+	stats, err := s.usageRepo.GetModelStatsWithFilters(ctx, startTime, endTime, filters.UserID, filters.APIKeyID, filters.AccountID, filters.GroupID, filters.RequestType, filters.Stream, filters.BillingType)
+	if err != nil {
+		return nil, fmt.Errorf("get model stats with filters: %w", err)
+	}
+	return stats, nil
+}
+
+// GetGroupStatsWithFilters returns group stats using the shared usage filter shape.
+func (s *UsageService) GetGroupStatsWithFilters(ctx context.Context, startTime, endTime time.Time, filters usagestats.UsageLogFilters) ([]usagestats.GroupStat, error) {
+	type groupStatsWithUsageFiltersRepo interface {
+		GetGroupStatsWithUsageFilters(context.Context, time.Time, time.Time, usagestats.UsageLogFilters) ([]usagestats.GroupStat, error)
+	}
+	if repo, ok := s.usageRepo.(groupStatsWithUsageFiltersRepo); ok {
+		stats, err := repo.GetGroupStatsWithUsageFilters(ctx, startTime, endTime, filters)
+		if err != nil {
+			return nil, fmt.Errorf("get group stats with filters: %w", err)
+		}
+		return stats, nil
+	}
+	stats, err := s.usageRepo.GetGroupStatsWithFilters(ctx, startTime, endTime, filters.UserID, filters.APIKeyID, filters.AccountID, filters.GroupID, filters.RequestType, filters.Stream, filters.BillingType)
+	if err != nil {
+		return nil, fmt.Errorf("get group stats with filters: %w", err)
 	}
 	return stats, nil
 }

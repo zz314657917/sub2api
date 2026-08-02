@@ -174,6 +174,7 @@ export interface UserBreakdownParams {
   request_type?: UsageRequestType
   stream?: boolean
   billing_type?: number | null
+  sort_by?: 'requests' | 'input_tokens' | 'output_tokens' | 'cache_tokens' | 'total_tokens' | 'actual_cost'
 }
 
 export interface UserBreakdownResponse {
