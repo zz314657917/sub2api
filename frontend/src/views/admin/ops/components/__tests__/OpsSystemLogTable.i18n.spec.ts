@@ -1,7 +1,55 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
+import enLocale from '@/i18n/locales/en'
+import zhLocale from '@/i18n/locales/zh'
 import OpsSystemLogTable from '../OpsSystemLogTable.vue'
+
+const systemLogKeys = [
+  'title',
+  'description',
+  'queue',
+  'written',
+  'dropped',
+  'failed',
+  'runtimeConfig',
+  'all',
+  'level',
+  'stacktraceThreshold',
+  'samplingInitial',
+  'samplingThereafter',
+  'retentionDays',
+  'caller',
+  'sampling',
+  'saveAndApply',
+  'resetDefaults',
+  'latestWriteError',
+  'timeRange',
+  'startTime',
+  'endTime',
+  'component',
+  'componentPlaceholder',
+  'platform',
+  'model',
+  'keyword',
+  'keywordPlaceholder',
+  'search',
+  'cleanCurrentFilters',
+  'refreshHealth',
+  'empty',
+  'time',
+  'logDetails',
+  'loadFailed',
+  'runtimeConfigActive',
+  'runtimeConfigSaveFailed',
+  'resetRuntimeConfigConfirm',
+  'runtimeConfigReset',
+  'runtimeConfigResetFailed',
+  'cleanupConfirm',
+  'cleanupSuccess',
+  'cleanupFilterRequired',
+  'cleanupFailed'
+] as const
 
 const {
   listSystemLogs,
@@ -94,7 +142,7 @@ describe('OpsSystemLogTable cleanup errors', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const cleanupButton = wrapper.findAll('button').find((button) => button.text().includes('按当前筛选清理'))
+    const cleanupButton = wrapper.find('button.btn-danger')
     expect(cleanupButton).toBeTruthy()
     await cleanupButton!.trigger('click')
     await flushPromises()
@@ -105,5 +153,22 @@ describe('OpsSystemLogTable cleanup errors', () => {
     await flushPromises()
     expect(showError).toHaveBeenLastCalledWith('后端拒绝原因')
     expect(showSuccess).not.toHaveBeenCalled()
+  })
+})
+
+describe('OpsSystemLogTable locale parity', () => {
+  it('defines the same complete system-log key set in Chinese and English', () => {
+    const zhKeys = Object.keys(zhLocale.admin.ops.systemLogs).sort()
+    const enKeys = Object.keys(enLocale.admin.ops.systemLogs).sort()
+    expect(zhKeys).toEqual([...systemLogKeys].sort())
+    expect(enKeys).toEqual([...systemLogKeys].sort())
+
+    for (const key of systemLogKeys) {
+      expect(zhLocale.admin.ops.systemLogs[key]).not.toBe(key)
+      expect(enLocale.admin.ops.systemLogs[key]).toBeTypeOf('string')
+      expect(enLocale.admin.ops.systemLogs[key]).not.toBe('')
+    }
+    expect(zhLocale.admin.ops.systemLogs.cleanupSuccess).toContain('{count}')
+    expect(enLocale.admin.ops.systemLogs.cleanupSuccess).toContain('{count}')
   })
 })
