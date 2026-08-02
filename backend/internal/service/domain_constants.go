@@ -514,3 +514,5 @@ const (
 
 // AdminAPIKeyPrefix is the prefix for admin API keys (distinct from user "sk-" keys).
 const AdminAPIKeyPrefix = "admin-"
+
+const SettingKeyAllowUserViewErrorRequests = "allow_user_view_error_requests"

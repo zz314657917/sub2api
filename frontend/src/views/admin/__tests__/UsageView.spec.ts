@@ -4,7 +4,7 @@ import { defineComponent, ref } from 'vue'
 
 import UsageView from '../UsageView.vue'
 
-const { list, getStats, getSnapshotV2, getModelStats, getById, routeQuery } = vi.hoisted(() => {
+const { list, listErrorLogs, getStats, getSnapshotV2, getModelStats, getById, routeQuery } = vi.hoisted(() => {
   vi.stubGlobal('localStorage', {
     getItem: vi.fn(() => null),
     setItem: vi.fn(),
@@ -13,6 +13,7 @@ const { list, getStats, getSnapshotV2, getModelStats, getById, routeQuery } = vi
 
   return {
     list: vi.fn(),
+    listErrorLogs: vi.fn(),
     getStats: vi.fn(),
     getSnapshotV2: vi.fn(),
     getModelStats: vi.fn(),
@@ -56,6 +57,10 @@ vi.mock('@/api/admin/usage', () => ({
   adminUsageAPI: {
     list: vi.fn(),
   },
+}))
+
+vi.mock('@/api/admin/ops', () => ({
+  listErrorLogs,
 }))
 
 vi.mock('@/stores/app', () => ({
@@ -132,6 +137,24 @@ const GroupDistributionChartStub = {
     </div>
   `,
 }
+const OpsErrorLogTableStub = defineComponent({
+  props: ['rows', 'total', 'loading', 'page', 'pageSize', 'visibleColumnKeys'],
+  emits: ['sort', 'openErrorDetail', 'userClick', 'update:page', 'update:pageSize'],
+  template: `
+    <div data-test="ops-error-table">
+      <button data-test="sort-errors" @click="$emit('sort', 'status_code', 'asc')">sort</button>
+      <button data-test="open-error" @click="$emit('openErrorDetail', 77)">open</button>
+    </div>
+  `,
+})
+const UserTokenRankingStub = defineComponent({
+  props: ['startDate', 'endDate', 'filters', 'model'],
+  emits: ['select-user'],
+  setup(_, { expose }) {
+    expose({ reload: vi.fn() })
+  },
+  template: '<button data-test="ranking-row" @click="$emit(\'select-user\', 9, \'ranked@test.com\')">ranked</button>',
+})
 
 const mountRouteFilteredUsageView = () => mount(UsageView, {
   global: {
@@ -151,6 +174,9 @@ const mountRouteFilteredUsageView = () => mount(UsageView, {
       ModelDistributionChart: true,
       GroupDistributionChart: true,
       EndpointDistributionChart: true,
+      OpsErrorLogTable: OpsErrorLogTableStub,
+      OpsErrorDetailModal: true,
+      UserTokenRanking: UserTokenRankingStub,
     },
   },
 })
@@ -160,6 +186,7 @@ describe('admin UsageView route filters', () => {
     vi.useFakeTimers()
     Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
     list.mockReset().mockResolvedValue({ items: [], total: 0, pages: 0 })
+    listErrorLogs.mockReset().mockResolvedValue({ items: [], total: 0, pages: 0 })
     getStats.mockReset().mockResolvedValue({
       total_requests: 0,
       total_input_tokens: 0,
@@ -275,6 +302,9 @@ describe('admin UsageView distribution metric toggles', () => {
           TokenUsageTrend: true,
           ModelDistributionChart: ModelDistributionChartStub,
           GroupDistributionChart: GroupDistributionChartStub,
+          OpsErrorLogTable: OpsErrorLogTableStub,
+          OpsErrorDetailModal: true,
+          UserTokenRanking: UserTokenRankingStub,
         },
       },
     })
@@ -335,6 +365,9 @@ describe('admin UsageView distribution metric toggles', () => {
           TokenUsageTrend: true,
           ModelDistributionChart: ModelDistributionChartStub,
           GroupDistributionChart: GroupDistributionChartStub,
+          OpsErrorLogTable: OpsErrorLogTableStub,
+          OpsErrorDetailModal: true,
+          UserTokenRanking: UserTokenRankingStub,
         },
       },
     })
@@ -350,5 +383,63 @@ describe('admin UsageView distribution metric toggles', () => {
 
     await wrapper.get('[data-test="usage-column-settings"]').trigger('click')
     expect(filterSurface.classes()).not.toContain('z-[221]')
+  })
+})
+
+describe('admin UsageView detail tabs', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    Object.keys(routeQuery).forEach((key) => delete routeQuery[key])
+    list.mockReset().mockResolvedValue({ items: [], total: 0, pages: 0 })
+    listErrorLogs.mockReset().mockResolvedValue({ items: [], total: 0, pages: 0 })
+    getStats.mockReset().mockResolvedValue({ total_requests: 0, total_tokens: 0 })
+    getSnapshotV2.mockReset().mockResolvedValue({ trend: [], groups: [] })
+    getModelStats.mockReset().mockResolvedValue({ models: [] })
+    getById.mockReset().mockResolvedValue({ id: 9, email: 'ranked@test.com' })
+  })
+
+  afterEach(() => {
+    vi.clearAllTimers()
+    vi.useRealTimers()
+  })
+
+  it('loads errors lazily and propagates server-side sorting', async () => {
+    const wrapper = mountRouteFilteredUsageView()
+    await flushPromises()
+    expect(listErrorLogs).not.toHaveBeenCalled()
+
+    const tabs = wrapper.findAll('[data-testid="usage-detail-tab"]')
+    await tabs[1].trigger('click')
+    await flushPromises()
+
+    expect(listErrorLogs).toHaveBeenCalledWith(expect.objectContaining({
+      page: 1,
+      page_size: expect.any(Number),
+      view: 'all',
+      sort_by: 'created_at',
+      sort_order: 'desc',
+    }))
+
+    await wrapper.get('[data-test="sort-errors"]').trigger('click')
+    await flushPromises()
+    expect(listErrorLogs).toHaveBeenLastCalledWith(expect.objectContaining({
+      sort_by: 'status_code',
+      sort_order: 'asc',
+    }))
+  })
+
+  it('mounts ranking lazily and drills a ranked user into usage details', async () => {
+    const wrapper = mountRouteFilteredUsageView()
+    await flushPromises()
+    expect(wrapper.find('[data-test="ranking-row"]').exists()).toBe(false)
+
+    const tabs = wrapper.findAll('[data-testid="usage-detail-tab"]')
+    await tabs[2].trigger('click')
+    await wrapper.get('[data-test="ranking-row"]').trigger('click')
+    await flushPromises()
+
+    expect(list).toHaveBeenLastCalledWith(expect.objectContaining({ user_id: 9 }), expect.anything())
+    expect(wrapper.get('[data-test="user-filter-label"]').text()).toBe('ranked@test.com')
+    expect(tabs[0].attributes('aria-selected')).toBe('true')
   })
 })

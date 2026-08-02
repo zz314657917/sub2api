@@ -583,6 +583,9 @@ export interface SystemSettings {
   // Available Channels feature switch
   available_channels_enabled: boolean;
 
+  // User error-request visibility (opt-in)
+  allow_user_view_error_requests: boolean;
+
   // Leaderboard reward mode and balance amounts
   reward_mode?: LeaderboardRewardMode;
   red_packet_pool_amount?: number;
@@ -850,6 +853,8 @@ export interface UpdateSettingsRequest {
 
   // Available Channels feature switch
   available_channels_enabled?: boolean;
+
+  allow_user_view_error_requests?: boolean;
 
   // Leaderboard reward mode and balance amounts
   reward_mode?: LeaderboardRewardMode;

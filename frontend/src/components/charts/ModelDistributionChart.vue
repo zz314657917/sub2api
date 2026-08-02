@@ -123,25 +123,27 @@
               <th class="pb-2 text-right">{{ t('admin.dashboard.requests') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.tokens') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.actual') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.accountCost') }}</th>
+              <th v-if="showAccountCost" class="pb-2 text-right">{{ t('admin.dashboard.accountCost') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.standard') }}</th>
             </tr>
           </thead>
           <tbody>
             <template v-for="(model, index) in displayModelStats" :key="model.model">
               <tr
-                class="dashboard-table-row cursor-pointer hover:bg-[#f8efe8] dark:hover:bg-dark-700/40"
-                @click="toggleBreakdown('model', model.model)"
+                class="dashboard-table-row"
+                :class="enableBreakdown ? 'cursor-pointer hover:bg-[#f8efe8] dark:hover:bg-dark-700/40' : ''"
+                @click="enableBreakdown && toggleBreakdown('model', model.model)"
               >
                 <td
-                  class="max-w-[100px] truncate py-2 font-medium text-[#a9583e] hover:text-[#7f3f2a] dark:text-[#f0b89e] dark:hover:text-[#ffd5c2]"
+                  class="max-w-[100px] truncate py-2 font-medium"
+                  :class="enableBreakdown ? 'text-[#a9583e] hover:text-[#7f3f2a] dark:text-[#f0b89e] dark:hover:text-[#ffd5c2]' : 'text-gray-900 dark:text-white'"
                   :title="displayModelLabel(model.model)"
                 >
-                  <span class="inline-flex items-center gap-1">
+                  <span class="flex min-w-0 items-center gap-1">
                     <span class="dashboard-color-dot" :style="{ backgroundColor: getChartColor(index) }"></span>
-                    <svg v-if="expandedKey === `model-${model.model}`" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                    <svg v-else class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                    {{ displayModelLabel(model.model) }}
+                    <svg v-if="enableBreakdown && expandedKey === `model-${model.model}`" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    <svg v-else-if="enableBreakdown" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                    <span class="min-w-0 truncate">{{ displayModelLabel(model.model) }}</span>
                   </span>
                 </td>
                 <td class="py-2 text-right text-gray-600 dark:text-gray-400">
@@ -153,7 +155,7 @@
                 <td class="py-2 text-right text-[#a9583e] dark:text-[#f0b89e]">
                   ${{ formatCost(model.actual_cost) }}
                 </td>
-                <td class="py-2 text-right text-[#a9583e] dark:text-[#f0b89e]">
+                <td v-if="showAccountCost" class="py-2 text-right text-[#a9583e] dark:text-[#f0b89e]">
                   ${{ formatCost(model.account_cost) }}
                 </td>
                 <td class="py-2 text-right text-gray-400 dark:text-gray-500">
@@ -161,7 +163,7 @@
                 </td>
               </tr>
               <tr v-if="expandedKey === `model-${model.model}`">
-                <td colspan="6" class="p-0">
+                <td :colspan="distributionColspan" class="p-0">
                   <UserBreakdownSubTable
                     :items="breakdownItems"
                     :loading="breakdownLoading"
@@ -289,6 +291,8 @@ const props = withDefaults(defineProps<{
   metric?: DistributionMetric
   showSourceToggle?: boolean
   showMetricToggle?: boolean
+  enableBreakdown?: boolean
+  showAccountCost?: boolean
   rankingLoading?: boolean
   rankingError?: boolean
   startDate?: string
@@ -307,6 +311,8 @@ const props = withDefaults(defineProps<{
   metric: 'tokens',
   showSourceToggle: false,
   showMetricToggle: false,
+  enableBreakdown: true,
+  showAccountCost: true,
   rankingLoading: false,
   rankingError: false
 })
@@ -347,6 +353,8 @@ const emit = defineEmits<{
 }>()
 
 const enableRankingView = computed(() => props.enableRankingView)
+const showAccountCost = computed(() => props.showAccountCost)
+const distributionColspan = computed(() => showAccountCost.value ? 6 : 5)
 const activeView = ref<'model_distribution' | 'spending_ranking'>('model_distribution')
 const isDarkMode = computed(() => {
   return document.documentElement.classList.contains('dark')

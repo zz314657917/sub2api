@@ -1,6 +1,9 @@
 package service
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type OpsSystemLog struct {
 	ID              int64          `json:"id"`
@@ -71,6 +74,10 @@ type OpsErrorLog struct {
 	RequestedModel   string `json:"requested_model"`
 	UpstreamModel    string `json:"upstream_model"`
 	RequestType      *int16 `json:"request_type"`
+	UserAgent        string `json:"user_agent"`
+
+	APIKeyName    string `json:"api_key_name,omitempty"`
+	APIKeyDeleted bool   `json:"api_key_deleted,omitempty"`
 }
 
 type OpsErrorLogDetail struct {
@@ -123,6 +130,16 @@ type OpsErrorLogFilter struct {
 	RequestID       string
 	ClientRequestID string
 
+	UserID   *int64
+	APIKeyID *int64
+
+	Model      string
+	ModelFuzzy bool
+
+	ExcludeCountTokens bool
+	ErrorPhasesAny     []string
+	ErrorTypesAny      []string
+
 	// View controls error categorization for list endpoints.
 	// - errors: show actionable errors (exclude business-limited / 429 / 529)
 	// - excluded: only show excluded errors
@@ -131,6 +148,14 @@ type OpsErrorLogFilter struct {
 
 	Page     int
 	PageSize int
+
+	SortBy    string
+	SortOrder string
+}
+
+func (f *OpsErrorLogFilter) SetSort(sortBy, sortOrder string) {
+	f.SortBy = strings.TrimSpace(sortBy)
+	f.SortOrder = strings.TrimSpace(sortOrder)
 }
 
 type OpsErrorLogList struct {

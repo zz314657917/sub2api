@@ -1,61 +1,51 @@
 # 当前任务快照
 
-最后更新：2026-07-31 10:50 +08:00
+最后更新：2026-08-01 16:47 +08:00
 
 ## 背景
 
-- 用户确认截图所示的“分组复制”功能需要完整合入，而不是只加前端按钮。
-- S133 在隔离 worktree `E:/codex-worktrees/sub2api/group-duplicate-s133` 将上游
-  `9fc006546` 适配到本地 `main@93b6c75c`；不推送、不部署、不执行生产迁移。
-- 功能提交 `05f55d18e` 已通过普通 merge 合入本地 `main`，合并提交为 `43c4ce254`。
+- S138 基于 S137 提交 `121e86b2f`，位于隔离 worktree `E:/codex-worktrees/sub2api/hide-empty-subscriptions-s138`。
+- 当前分支为 `codex/hide-empty-subscriptions-s138`；主工作树未被修改。
+- 用户要求在没有有效订阅时隐藏 `/usage` 顶部“暂无有效订阅”卡片。
 
 ## 当前目标
 
-- 保持本地 `main` 的 S133 变更可追溯，等待可选的非生产 PostgreSQL/runtime smoke；
-  主工作区未跟踪 `outputs/` 和并行 S132 worktree 不受影响。
+- 让订阅请求完成且返回空列表后，顶部订阅区域完全退出布局。
+- 保留加载反馈、有订阅卡片、续费行为及下方全部用量内容。
 
 ## 本次已完成
 
-- 新增管理员 `POST /api/v1/admin/groups/:id/duplicate`、列表复制动作和中英文反馈。
-- 副本会保留本地所有已持久化分组配置和合格账号优先级，强制 `inactive`；同一
-  Idempotency-Key 可恢复已提交副本。
-- 使用迁移 `199_group_duplicate_operation_id.sql`，并重新生成 Ent/Wire。
-- 已完成 focused Go 回归、前端 9 项 Vitest、前端 typecheck/build、全仓 Go 编译探针和
-  build、格式与 Git 完整性检查；QA 报告为
-  `docs/workflow/qa-reports/group-duplicate-s133-qa.md`。
+- `UserSubscriptionsPanel` 根节点仅在加载中或存在有效订阅时渲染。
+- 删除不再显示的空状态卡片和不再使用的 `Icon` import。
+- 补充加载中到空结果的回归测试，并断言用量分析和记录表继续存在。
+- 完成 S138 contract、spec、status、main log 和 QA 报告。
 
 ## 已确认事实
 
-- 主工作区当前仅有用户所有的未跟踪 `outputs/`；本次不会将其加入提交。
-- 没有遗留 `CHERRY_PICK_HEAD`；S133 功能已在本地 `main`，隔离分支仍保留作回溯。
-- 本地 `main` 当前比 `origin/main` 前进 2 个提交，未执行推送。
-- `duplicate_operation_id` 为内部字段，不会进入公开 API DTO；部分唯一索引只约束未软删行。
+- 请求 pending 时订阅面板和 spinner 仍存在。
+- 请求成功返回 `[]` 后订阅面板不存在，截图中的“暂无有效订阅”大卡片不再占位。
+- 非空订阅与续费跳转的既有测试继续通过。
+- 改动未触及后端、API、路由、认证、计费、管理员页面、部署或容器。
 
 ## 待验证点
 
-- 动作：修复既有 API contract 和 repository integration 测试漂移后重跑广义套件 ->
-  验证：`TestAPIContracts`、PostgreSQL 事务回滚测试可实际通过。
-- 动作：在非生产 PostgreSQL 环境应用迁移并调用复制接口 -> 验证：副本状态、配置、账号
-  优先级、scheduler outbox 和同一幂等键恢复均符合 S133 合同。
+- 真实登录态浏览器 smoke -> 验证：无订阅用户打开 `/usage` 时直接看到用量分析，有订阅用户仍看到订阅卡片。
+- 本地容器运行态 -> 仅在用户明确要求更新容器后，按容器锁流程构建、替换并健康检查。
 
 ## 当前结论
 
-- `PASS / local-only`：S133 已合入本地 `main`（`43c4ce254`）。无明确实现缺陷、冲突、
-  越界文件或未合并索引项。
-- 未验证真实 PostgreSQL 迁移/事务、认证态浏览器和生产运行态；没有推送、部署、容器更新
-  或外部提供商调用。
+- S138 最终裁决为 `PASS / source-level + production-build`，详见 `docs/workflow/qa-reports/hide-empty-subscriptions-s138-qa.md`。
+- 改动已提交于隔离分支，尚未合入主工作树、未 push、未部署，本地运行容器仍不包含 S138。
 
 ## 下一步
 
-1. 后续获得数据库测试环境时执行真实复制 smoke -> 验证：迁移、绑定优先级、outbox 和
-   幂等恢复的持久化结果。
-2. 如需回收隔离 worktree/分支，先获得明确清理授权 -> 验证：仅删除 S133 临时链接和
-   分支引用，不影响主工作区依赖与并行 S132 worktree。
+1. 如授权合入/push -> 先检查主工作树重叠文件和目标分支关系，再发布当前隔离分支提交。
+2. 如授权更新本地容器 -> 获取容器锁，基于当前隔离分支提交构建并替换，随后执行健康检查和真实 `/usage` smoke。
 
 ## 验证记录
 
-- `go generate ./ent`、`go generate ./cmd/server`、服务/管理员 handler 定向测试：PASS。
-- `go test ./... -run '^$'`、`go build ./...`、前端 Vitest 9/9、typecheck 和 build：PASS。
-- `git diff --check`、暂存检查、冲突标记和未合并索引：PASS。
-- 受既有源码漂移阻断：`go test -tags=unit ./internal/server -run '^TestAPIContracts$'` 和
-  `go test -tags=integration ./internal/repository ...`；详见 S133 QA 报告。
+- 聚焦 Vitest：`UsageView.spec.ts` 1 file、26/26 PASS。
+- typecheck：PASS。
+- changed-file ESLint：PASS，0 warnings。
+- production build：PASS，共 1109 modules。
+- `git diff --check`、冲突标记、未合并索引和 allowed-path audit：PASS。
