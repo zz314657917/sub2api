@@ -6,12 +6,16 @@ import (
 	"encoding/hex"
 	"fmt"
 	"log/slog"
+	"net/textproto"
 	"net/url"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/spf13/viper"
+	"golang.org/x/net/http/httpguts"
 )
 
 const (
@@ -506,15 +510,16 @@ type PricingConfig struct {
 }
 
 type ServerConfig struct {
-	Host               string    `mapstructure:"host"`
-	Port               int       `mapstructure:"port"`
-	Mode               string    `mapstructure:"mode"`                  // debug/release
-	FrontendURL        string    `mapstructure:"frontend_url"`          // 前端基础 URL，用于生成邮件中的外部链接
-	ReadHeaderTimeout  int       `mapstructure:"read_header_timeout"`   // 读取请求头超时（秒）
-	IdleTimeout        int       `mapstructure:"idle_timeout"`          // 空闲连接超时（秒）
-	TrustedProxies     []string  `mapstructure:"trusted_proxies"`       // 可信代理列表（CIDR/IP）
-	MaxRequestBodySize int64     `mapstructure:"max_request_body_size"` // 全局最大请求体限制
-	H2C                H2CConfig `mapstructure:"h2c"`                   // HTTP/2 Cleartext 配置
+	Host                     string    `mapstructure:"host"`
+	Port                     int       `mapstructure:"port"`
+	Mode                     string    `mapstructure:"mode"`                  // debug/release
+	FrontendURL              string    `mapstructure:"frontend_url"`          // 前端基础 URL，用于生成邮件中的外部链接
+	ReadHeaderTimeout        int       `mapstructure:"read_header_timeout"`   // 读取请求头超时（秒）
+	IdleTimeout              int       `mapstructure:"idle_timeout"`          // 空闲连接超时（秒）
+	TrustedProxies           []string  `mapstructure:"trusted_proxies"`       // 可信代理列表（CIDR/IP）
+	TrustedProxiesConfigured bool      `mapstructure:"-" json:"-" yaml:"-"`   // 是否显式配置了可信代理列表
+	MaxRequestBodySize       int64     `mapstructure:"max_request_body_size"` // 全局最大请求体限制
+	H2C                      H2CConfig `mapstructure:"h2c"`                   // HTTP/2 Cleartext 配置
 }
 
 // H2CConfig HTTP/2 Cleartext 配置
@@ -532,12 +537,138 @@ type CORSConfig struct {
 	AllowCredentials bool     `mapstructure:"allow_credentials"`
 }
 
+// MaxForwardedClientIPHeaders bounds the operator-controlled list of headers
+// inspected when raw forwarded-IP compatibility is explicitly enabled.
+const MaxForwardedClientIPHeaders = 16
+
+// ForwardedClientIPSettings is the immutable request/runtime snapshot used by
+// security-sensitive client-IP consumers.
+type ForwardedClientIPSettings struct {
+	TrustForwardedIP bool
+	Headers          []string
+}
+
 type SecurityConfig struct {
 	URLAllowlist    URLAllowlistConfig   `mapstructure:"url_allowlist"`
 	ResponseHeaders ResponseHeaderConfig `mapstructure:"response_headers"`
 	CSP             CSPConfig            `mapstructure:"csp"`
 	ProxyFallback   ProxyFallbackConfig  `mapstructure:"proxy_fallback"`
 	ProxyProbe      ProxyProbeConfig     `mapstructure:"proxy_probe"`
+	// TrustForwardedIPForAPIKeyACL enables the explicitly opted-in legacy raw
+	// forwarded-header path. It is intentionally false by default.
+	TrustForwardedIPForAPIKeyACL  bool                                       `mapstructure:"trust_forwarded_ip_for_api_key_acl"`
+	ForwardedClientIPHeaders      []string                                   `mapstructure:"forwarded_client_ip_headers" json:"forwarded_client_ip_headers" yaml:"forwarded_client_ip_headers"`
+	forwardedClientIPSettingsLive *atomic.Pointer[ForwardedClientIPSettings] `mapstructure:"-" json:"-" yaml:"-"`
+}
+
+// NormalizeForwardedClientIPHeaders trims and canonicalizes HTTP header names,
+// removes case-insensitive duplicates, and rejects empty/invalid/over-limit
+// input before it can reach request handling.
+func NormalizeForwardedClientIPHeaders(headers []string) ([]string, error) {
+	normalized := make([]string, 0, len(headers))
+	seen := make(map[string]struct{}, len(headers))
+	for _, header := range headers {
+		header = strings.TrimSpace(header)
+		if !httpguts.ValidHeaderFieldName(header) {
+			return nil, fmt.Errorf("invalid HTTP header field name %q", header)
+		}
+		canonical := textproto.CanonicalMIMEHeaderKey(header)
+		key := strings.ToLower(canonical)
+		if _, exists := seen[key]; exists {
+			continue
+		}
+		if len(normalized) >= MaxForwardedClientIPHeaders {
+			return nil, fmt.Errorf("forwarded client IP headers must contain at most %d unique names", MaxForwardedClientIPHeaders)
+		}
+		seen[key] = struct{}{}
+		normalized = append(normalized, canonical)
+	}
+	return normalized, nil
+}
+
+func cloneForwardedClientIPHeaders(headers []string) []string {
+	if len(headers) == 0 {
+		return []string{}
+	}
+	return append([]string(nil), headers...)
+}
+
+// A Config is normally initialized during Load before it is shared with the
+// server. The mutex also makes zero-value Config instances safe for focused
+// tests that publish the first live snapshot concurrently.
+var forwardedClientIPSettingsInitMu sync.Mutex
+
+func (c *Config) forwardedClientIPLive() *atomic.Pointer[ForwardedClientIPSettings] {
+	if c == nil {
+		return nil
+	}
+	forwardedClientIPSettingsInitMu.Lock()
+	defer forwardedClientIPSettingsInitMu.Unlock()
+	if c.Security.forwardedClientIPSettingsLive == nil {
+		c.Security.forwardedClientIPSettingsLive = &atomic.Pointer[ForwardedClientIPSettings]{}
+	}
+	return c.Security.forwardedClientIPSettingsLive
+}
+
+// ForwardedClientIPSettings returns a defensive copy of the current live
+// setting. Callers cannot observe a partially updated header slice.
+func (c *Config) ForwardedClientIPSettings() ForwardedClientIPSettings {
+	if c == nil {
+		return ForwardedClientIPSettings{Headers: []string{}}
+	}
+	forwardedClientIPSettingsInitMu.Lock()
+	live := c.Security.forwardedClientIPSettingsLive
+	forwardedClientIPSettingsInitMu.Unlock()
+	if live != nil {
+		if snapshot := live.Load(); snapshot != nil {
+			return ForwardedClientIPSettings{
+				TrustForwardedIP: snapshot.TrustForwardedIP,
+				Headers:          cloneForwardedClientIPHeaders(snapshot.Headers),
+			}
+		}
+	}
+	return ForwardedClientIPSettings{
+		TrustForwardedIP: c.Security.TrustForwardedIPForAPIKeyACL,
+		Headers:          cloneForwardedClientIPHeaders(c.Security.ForwardedClientIPHeaders),
+	}
+}
+
+func (c *Config) TrustForwardedIPForAPIKeyACL() bool {
+	return c.ForwardedClientIPSettings().TrustForwardedIP
+}
+
+// ForwardedClientIPTrustEnabled reports whether the explicitly enabled
+// compatibility mode currently allows raw forwarded headers to participate in
+// security-sensitive client-IP resolution.
+func (c *Config) ForwardedClientIPTrustEnabled() bool {
+	return c != nil && c.TrustForwardedIPForAPIKeyACL()
+}
+
+// SetForwardedClientIPSettings publishes one immutable live snapshot. Invalid
+// headers are never published; callers doing user-facing validation should
+// return the detailed error before calling this method.
+func (c *Config) SetForwardedClientIPSettings(enabled bool, headers []string) {
+	if c == nil {
+		return
+	}
+	normalized, err := NormalizeForwardedClientIPHeaders(headers)
+	if err != nil {
+		enabled = false
+		normalized = []string{}
+	}
+	live := c.forwardedClientIPLive()
+	live.Store(&ForwardedClientIPSettings{
+		TrustForwardedIP: enabled,
+		Headers:          cloneForwardedClientIPHeaders(normalized),
+	})
+}
+
+func (c *Config) SetTrustForwardedIPForAPIKeyACL(enabled bool) {
+	if c == nil {
+		return
+	}
+	current := c.ForwardedClientIPSettings()
+	c.SetForwardedClientIPSettings(enabled, current.Headers)
 }
 
 type URLAllowlistConfig struct {
@@ -1342,6 +1473,10 @@ func LoadForBootstrap() (*Config, error) {
 }
 
 func load(allowMissingJWTSecret bool) (*Config, error) {
+	// Capture explicit values before registering defaults. Viper reports a
+	// defaulted key as set, which would make an absent trusted-proxy list look
+	// intentionally configured and weaken the fail-closed ingress boundary.
+	trustedProxiesConfiguredBeforeDefaults := viper.IsSet("server.trusted_proxies") || viper.InConfig("server.trusted_proxies")
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
 	configureConfigSource(viper.SetConfigFile, viper.AddConfigPath)
@@ -1359,11 +1494,28 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 		}
 		// 配置文件不存在时使用默认值
 	}
+	trustedProxiesEnv, trustedProxiesEnvConfigured := os.LookupEnv("SERVER_TRUSTED_PROXIES")
+	forwardedHeadersEnv, forwardedHeadersEnvConfigured := os.LookupEnv("SECURITY_FORWARDED_CLIENT_IP_HEADERS")
+	trustedProxiesConfigured := trustedProxiesConfiguredBeforeDefaults ||
+		viper.InConfig("server.trusted_proxies") || trustedProxiesEnvConfigured
 
 	var cfg Config
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, fmt.Errorf("unmarshal config error: %w", err)
 	}
+	if trustedProxiesEnvConfigured {
+		cfg.Server.TrustedProxies = normalizeStringSlice(strings.Split(trustedProxiesEnv, ","))
+	}
+	if forwardedHeadersEnvConfigured {
+		if forwardedHeadersEnv == "" {
+			cfg.Security.ForwardedClientIPHeaders = []string{}
+		} else {
+			// Preserve empty interior tokens so the shared validator can reject
+			// malformed operator input instead of silently dropping it.
+			cfg.Security.ForwardedClientIPHeaders = strings.Split(forwardedHeadersEnv, ",")
+		}
+	}
+	cfg.Server.TrustedProxiesConfigured = trustedProxiesConfigured
 
 	cfg.RunMode = NormalizeRunMode(cfg.RunMode)
 	cfg.Server.Mode = strings.ToLower(strings.TrimSpace(cfg.Server.Mode))
@@ -1410,6 +1562,12 @@ func load(allowMissingJWTSecret bool) (*Config, error) {
 	cfg.Security.ResponseHeaders.AdditionalAllowed = normalizeStringSlice(cfg.Security.ResponseHeaders.AdditionalAllowed)
 	cfg.Security.ResponseHeaders.ForceRemove = normalizeStringSlice(cfg.Security.ResponseHeaders.ForceRemove)
 	cfg.Security.CSP.Policy = strings.TrimSpace(cfg.Security.CSP.Policy)
+	forwardedHeaders, err := NormalizeForwardedClientIPHeaders(cfg.Security.ForwardedClientIPHeaders)
+	if err != nil {
+		return nil, fmt.Errorf("security.forwarded_client_ip_headers: %w", err)
+	}
+	cfg.Security.ForwardedClientIPHeaders = forwardedHeaders
+	cfg.SetForwardedClientIPSettings(cfg.Security.TrustForwardedIPForAPIKeyACL, forwardedHeaders)
 	cfg.Log.Level = strings.ToLower(strings.TrimSpace(cfg.Log.Level))
 	cfg.Log.Format = strings.ToLower(strings.TrimSpace(cfg.Log.Format))
 	cfg.Log.ServiceName = strings.TrimSpace(cfg.Log.ServiceName)
@@ -1504,6 +1662,12 @@ func configureConfigSource(setConfigFile, addConfigPath func(string)) {
 }
 
 func setDefaults() {
+	// Bind these list-valued keys without registering defaults. Binding keeps
+	// environment-only deployments visible to Viper's key set while preserving
+	// the distinction between an omitted and explicitly empty trusted-proxy list.
+	_ = viper.BindEnv("server.trusted_proxies", "SERVER_TRUSTED_PROXIES")
+	_ = viper.BindEnv("security.forwarded_client_ip_headers", "SECURITY_FORWARDED_CLIENT_IP_HEADERS")
+
 	viper.SetDefault("run_mode", RunModeStandard)
 
 	// Server
@@ -1513,7 +1677,8 @@ func setDefaults() {
 	viper.SetDefault("server.frontend_url", "")
 	viper.SetDefault("server.read_header_timeout", 30) // 30秒读取请求头
 	viper.SetDefault("server.idle_timeout", 120)       // 120秒空闲超时
-	viper.SetDefault("server.trusted_proxies", []string{})
+	// Do not register a default for trusted_proxies: the HTTP ingress needs to
+	// distinguish an omitted key from an explicitly empty list.
 	viper.SetDefault("server.max_request_body_size", int64(256*1024*1024))
 	// H2C 默认配置
 	viper.SetDefault("server.h2c.enabled", false)
@@ -1570,6 +1735,8 @@ func setDefaults() {
 	viper.SetDefault("security.csp.enabled", true)
 	viper.SetDefault("security.csp.policy", DefaultCSPPolicy)
 	viper.SetDefault("security.proxy_probe.insecure_skip_verify", false)
+	viper.SetDefault("security.trust_forwarded_ip_for_api_key_acl", false)
+	viper.SetDefault("security.forwarded_client_ip_headers", []string{})
 
 	// Security - disable direct fallback on proxy error
 	viper.SetDefault("security.proxy_fallback.allow_direct_on_error", false)
@@ -1961,6 +2128,15 @@ func setDefaults() {
 }
 
 func (c *Config) Validate() error {
+	if c == nil {
+		return fmt.Errorf("config must not be nil")
+	}
+	forwardedHeaders, err := NormalizeForwardedClientIPHeaders(c.Security.ForwardedClientIPHeaders)
+	if err != nil {
+		return fmt.Errorf("security.forwarded_client_ip_headers: %w", err)
+	}
+	c.Security.ForwardedClientIPHeaders = forwardedHeaders
+	c.SetForwardedClientIPSettings(c.Security.TrustForwardedIPForAPIKeyACL, forwardedHeaders)
 	jwtSecret := strings.TrimSpace(c.JWT.Secret)
 	if jwtSecret == "" {
 		return fmt.Errorf("jwt.secret is required")

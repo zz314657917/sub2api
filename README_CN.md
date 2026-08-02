@@ -496,8 +496,18 @@ gateway:
 - `security.response_headers.enabled` 可启用可配置响应头过滤（关闭时使用默认白名单）
 - `security.csp` 配置 Content-Security-Policy
 - `billing.circuit_breaker` 计费异常时 fail-closed
-- `server.trusted_proxies` 启用可信代理解析 X-Forwarded-For
+- `server.trusted_proxies` 配置 Gin 可信客户端 IP 链使用的精确反代 CIDR；
+  未配置或显式设置为空列表时保持 fail-closed
+- `security.trust_forwarded_ip_for_api_key_acl` 显式允许 API Key ACL、操作审计
+  和会话 IP/UA 绑定使用配置的原始转发 IP 请求头（默认 `false`；仅当源站只能
+  通过你控制的反向代理访问时开启）
+- `security.forwarded_client_ip_headers` 配置最多 16 个合法且去重的 HTTP 请求头，
+  开启兼容开关后会在内置转发头之前按顺序检查；也可通过
+  `SECURITY_FORWARDED_CLIENT_IP_HEADERS` 提供
 - `turnstile.required` 在 release 模式强制启用 Turnstile
+
+原始转发 IP 兼容开关默认关闭。只填写由你控制的反向代理写入的请求头；源站可被
+直连时客户端可以伪造这些值。设置热更新只对新请求生效，每个请求使用不可变快照。
 
 **网关防御纵深建议（重点）**
 

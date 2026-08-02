@@ -253,7 +253,26 @@ export default {
         siteKeyHint: 'Get this from your Cloudflare Dashboard',
         cloudflareDashboard: 'Cloudflare Dashboard',
         secretKeyHint: 'Server-side verification key (keep this secret)',
-        secretKeyConfiguredHint: 'Secret key configured. Leave empty to keep the current value.'      },
+        secretKeyConfiguredHint: 'Secret key configured. Leave empty to keep the current value.'
+      },
+      apiKeyAcl: {
+        title: 'API Key IP Access Control',
+        description:
+          'Choose which client IP is used by API Key allowlists/denylists, admin audit logs, and session IP/UA binding',
+        trustForwardedIp: 'Trust forwarded client IP',
+        trustForwardedIpHint:
+          'Disabled by default. Enable only when the origin is reachable exclusively through a trusted reverse proxy. When enabled, configured forwarded headers may be used by API Key ACL, audit, and session binding; the trusted-proxy chain remains authoritative otherwise.',
+        forwardedClientIpHeaders: 'Forwarded client-IP headers',
+        forwardedClientIpHeadersHint:
+          'Optional ordered list of HTTP headers to inspect when trust is enabled. Names are normalized and deduplicated; at most 16 valid header names are accepted.',
+        forwardedClientIpHeadersPlaceholder: 'e.g. CF-Connecting-IP, X-Real-IP',
+        forwardedClientIpHeadersRiskHint:
+          'Only list headers written by a proxy you control. Never enable this for direct client traffic, because clients can forge these values.',
+        removeForwardedClientIpHeader: 'Remove {header}',
+        forwardedClientIpHeaderInvalid: 'Enter a valid HTTP header name.',
+        forwardedClientIpHeaderDuplicate: 'This forwarded client-IP header is already listed.',
+        forwardedClientIpHeadersLimit: 'At most {max} forwarded client-IP headers can be configured.'
+      },
       linuxdo: {
         title: 'LinuxDo Connect Login',
         description: 'Configure LinuxDo Connect OAuth for Sub2API end-user login',

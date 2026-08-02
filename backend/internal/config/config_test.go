@@ -1,9 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -18,6 +20,21 @@ func resetViperWithJWTSecret(t *testing.T) {
 	t.Setenv("CONFIG_FILE", "")
 	t.Setenv("DATA_DIR", "")
 	t.Setenv("JWT_SECRET", strings.Repeat("x", 32))
+}
+
+func unsetEnvForConfigTest(t *testing.T, key string) {
+	t.Helper()
+	previous, existed := os.LookupEnv(key)
+	if err := os.Unsetenv(key); err != nil {
+		t.Fatalf("unset %s: %v", key, err)
+	}
+	t.Cleanup(func() {
+		if existed {
+			_ = os.Setenv(key, previous)
+		} else {
+			_ = os.Unsetenv(key)
+		}
+	})
 }
 
 func TestLoadForBootstrapAllowsMissingJWTSecret(t *testing.T) {
@@ -363,6 +380,195 @@ func TestLoadTrustedProxiesFromConfigFile(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "192.0.2.10", cfg.Server.Host)
 	require.Equal(t, []string{"127.0.0.1/32", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"}, cfg.Server.TrustedProxies)
+	require.True(t, cfg.Server.TrustedProxiesConfigured)
+}
+
+func TestLoadMissingTrustedProxiesIsNotConfigured(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	unsetEnvForConfigTest(t, "SERVER_TRUSTED_PROXIES")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.False(t, cfg.Server.TrustedProxiesConfigured)
+	require.Empty(t, cfg.Server.TrustedProxies)
+	require.False(t, cfg.TrustForwardedIPForAPIKeyACL())
+}
+
+func TestLoadTrustedProxiesFromEnvironmentPreservesExplicitness(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SERVER_TRUSTED_PROXIES", " 127.0.0.1/32, 10.0.0.0/8 ")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.True(t, cfg.Server.TrustedProxiesConfigured)
+	require.Equal(t, []string{"127.0.0.1/32", "10.0.0.0/8"}, cfg.Server.TrustedProxies)
+}
+
+func TestLoadTrustedProxiesEnvironmentExplicitnessTracksCurrentValue(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SERVER_TRUSTED_PROXIES", "9.9.9.9")
+	first, err := Load()
+	require.NoError(t, err)
+	require.True(t, first.Server.TrustedProxiesConfigured)
+	require.Equal(t, []string{"9.9.9.9"}, first.Server.TrustedProxies)
+
+	t.Setenv("SERVER_TRUSTED_PROXIES", "")
+	second, err := Load()
+	require.NoError(t, err)
+	require.True(t, second.Server.TrustedProxiesConfigured)
+	require.Empty(t, second.Server.TrustedProxies)
+}
+
+func TestLoadExplicitEmptyTrustedProxiesFromEnvironmentFailsClosed(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SERVER_TRUSTED_PROXIES", "")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.True(t, cfg.Server.TrustedProxiesConfigured)
+	require.Empty(t, cfg.Server.TrustedProxies)
+	require.False(t, cfg.TrustForwardedIPForAPIKeyACL())
+}
+
+func TestLoadExplicitEmptyTrustedProxiesFromConfigFileIsConfigured(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	configFile := filepath.Join(t.TempDir(), "explicit-empty-proxies.yaml")
+	require.NoError(t, os.WriteFile(configFile, []byte("server:\n  trusted_proxies: []\n"), 0o600))
+	t.Setenv("CONFIG_FILE", configFile)
+	unsetEnvForConfigTest(t, "SERVER_TRUSTED_PROXIES")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.True(t, cfg.Server.TrustedProxiesConfigured)
+	require.Empty(t, cfg.Server.TrustedProxies)
+}
+
+func TestLoadExplicitEmptyTrustedProxiesFromViperIsConfigured(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	unsetEnvForConfigTest(t, "SERVER_TRUSTED_PROXIES")
+	viper.Set("server.trusted_proxies", []string{})
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.True(t, cfg.Server.TrustedProxiesConfigured)
+	require.Empty(t, cfg.Server.TrustedProxies)
+}
+
+func TestNormalizeForwardedClientIPHeaders(t *testing.T) {
+	headers, err := NormalizeForwardedClientIPHeaders([]string{" x-cdn-ip ", "X-CDN-IP", "true-client-ip"})
+	require.NoError(t, err)
+	require.Equal(t, []string{"X-Cdn-Ip", "True-Client-Ip"}, headers)
+
+	_, err = NormalizeForwardedClientIPHeaders([]string{"X-Valid", "X Invalid"})
+	require.Error(t, err)
+
+	tooMany := make([]string, 0, MaxForwardedClientIPHeaders+1)
+	for i := 0; i <= MaxForwardedClientIPHeaders; i++ {
+		tooMany = append(tooMany, fmt.Sprintf("X-Client-IP-%d", i))
+	}
+	_, err = NormalizeForwardedClientIPHeaders(tooMany)
+	require.Error(t, err)
+}
+
+func TestLoadForwardedClientIPHeadersFromEnvironmentDefaultsTrustOff(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SECURITY_FORWARDED_CLIENT_IP_HEADERS", " x-cdn-ip , X-CDN-IP, true-client-ip ")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.False(t, cfg.TrustForwardedIPForAPIKeyACL())
+	require.Equal(t, []string{"X-Cdn-Ip", "True-Client-Ip"}, cfg.ForwardedClientIPSettings().Headers)
+}
+
+func TestLoadForwardedClientIPHeadersRejectsEmptyInteriorEnvironmentToken(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SECURITY_FORWARDED_CLIENT_IP_HEADERS", "X-Client-IP,,X-Real-IP")
+
+	_, err := Load()
+	require.Error(t, err)
+	require.ErrorContains(t, err, "invalid HTTP header field name")
+}
+
+func TestLoadEmptyForwardedClientIPHeadersEnvironmentIsExplicitEmpty(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SECURITY_FORWARDED_CLIENT_IP_HEADERS", "")
+
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Empty(t, cfg.ForwardedClientIPSettings().Headers)
+}
+
+func TestLoadWhitespaceOnlyForwardedClientIPHeadersEnvironmentIsRejected(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("SECURITY_FORWARDED_CLIENT_IP_HEADERS", "   ")
+
+	_, err := Load()
+	require.Error(t, err)
+	require.ErrorContains(t, err, "invalid HTTP header field name")
+}
+
+func TestForwardedClientIPSettingsSnapshotIsDefensiveAndAtomic(t *testing.T) {
+	cfg := &Config{}
+	cfg.SetForwardedClientIPSettings(true, []string{"X-Initial-IP"})
+
+	snapshot := cfg.ForwardedClientIPSettings()
+	require.True(t, snapshot.TrustForwardedIP)
+	require.Equal(t, []string{"X-Initial-Ip"}, snapshot.Headers)
+	snapshot.Headers[0] = "X-Mutated-IP"
+	require.Equal(t, []string{"X-Initial-Ip"}, cfg.ForwardedClientIPSettings().Headers)
+
+	cfg.SetForwardedClientIPSettings(false, []string{"X-Updated-IP"})
+	require.False(t, cfg.ForwardedClientIPSettings().TrustForwardedIP)
+	require.Equal(t, []string{"X-Updated-Ip"}, cfg.ForwardedClientIPSettings().Headers)
+}
+
+func TestForwardedClientIPSettingsConcurrentPublication(t *testing.T) {
+	cfg := &Config{}
+	cfg.SetForwardedClientIPSettings(true, []string{"X-Public-A"})
+
+	const iterations = 1000
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	errorsSeen := make(chan string, 8)
+
+	for _, settings := range []ForwardedClientIPSettings{
+		{TrustForwardedIP: true, Headers: []string{"X-Public-A"}},
+		{TrustForwardedIP: false, Headers: []string{"X-Public-B"}},
+	} {
+		settings := settings
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for i := 0; i < iterations; i++ {
+				cfg.SetForwardedClientIPSettings(settings.TrustForwardedIP, settings.Headers)
+			}
+		}()
+	}
+
+	for i := 0; i < cap(errorsSeen); i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			for j := 0; j < iterations; j++ {
+				snapshot := cfg.ForwardedClientIPSettings()
+				validA := snapshot.TrustForwardedIP && len(snapshot.Headers) == 1 && snapshot.Headers[0] == "X-Public-A"
+				validB := !snapshot.TrustForwardedIP && len(snapshot.Headers) == 1 && snapshot.Headers[0] == "X-Public-B"
+				if !validA && !validB {
+					errorsSeen <- fmt.Sprintf("inconsistent snapshot: %+v", snapshot)
+					return
+				}
+			}
+		}()
+	}
+
+	close(start)
+	wg.Wait()
+	close(errorsSeen)
+	for message := range errorsSeen {
+		t.Errorf("%s", message)
+	}
 }
 
 func TestConfigFileTakesPrecedenceOverDataDir(t *testing.T) {
