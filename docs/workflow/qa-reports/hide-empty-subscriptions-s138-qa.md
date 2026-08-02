@@ -20,7 +20,7 @@
 ## Unverified Risks
 
 - 未执行真实登录态浏览器 smoke；当前 UI 结论来自组件行为审查、聚焦 Vitest 和 production build。
-- 已提交于隔离分支，尚未合入主工作树、push、部署或更新本地容器；当前运行容器不包含 S138。
+- 已合入本地 `main`（merge commit `cc1882afc`），尚未 push、部署或更新本地容器；当前运行容器不包含 S138。
 - Vite 仍报告既有 Browserslist、dynamic/static import、chunk size 和 Node child-process deprecation 警告；本 Sprint 未新增依赖或构建配置，构建本身通过。
 
 ## Contract Compliance
@@ -31,4 +31,4 @@
 
 ## Recommendation
 
-`PASS / source-level + production-build`。S138 已在隔离分支提交；集成、push 和本地容器刷新仍需用户明确授权，并应分别执行对应检查流程。
+`PASS / source-level + production-build`。S138 已合入本地 `main`；push 和本地容器刷新仍需用户明确授权，并应分别执行对应检查流程。
