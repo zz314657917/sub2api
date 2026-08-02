@@ -91,7 +91,8 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 		// 检查 IP 限制（白名单/黑名单）
 		// 注意：错误信息只暴露当前客户端 IP，避免暴露具体的 IP 限制机制
 		if len(apiKey.IPWhitelist) > 0 || len(apiKey.IPBlacklist) > 0 {
-			clientIP := ip.GetTrustedClientIP(c)
+			forwardedIPSettings := cfg.ForwardedClientIPSettings()
+			clientIP := ip.GetSecurityClientIPWithHeaders(c, forwardedIPSettings.TrustForwardedIP, forwardedIPSettings.Headers)
 			allowed, _ := ip.CheckIPRestrictionWithCompiledRules(clientIP, apiKey.CompiledIPWhitelist, apiKey.CompiledIPBlacklist)
 			if !allowed {
 				if clientIP == "" {

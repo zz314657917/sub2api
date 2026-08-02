@@ -465,8 +465,23 @@ Additional security-related options are available in `config.yaml`:
 - `security.response_headers.enabled` to enable configurable response header filtering (disabled uses default allowlist)
 - `security.csp` to control Content-Security-Policy headers
 - `billing.circuit_breaker` to fail closed on billing errors
-- `server.trusted_proxies` to enable X-Forwarded-For parsing
+- `server.trusted_proxies` to configure the exact proxy CIDRs used by Gin's
+  trusted client-IP chain; an absent or explicit empty list keeps this chain
+  fail-closed
+- `security.trust_forwarded_ip_for_api_key_acl` to explicitly allow configured
+  raw forwarded-IP headers for API-key ACL, operation audit, and session IP/UA
+  binding (default: `false`; enable only when the origin is reachable solely
+  through a reverse proxy you control)
+- `security.forwarded_client_ip_headers` to list up to 16 valid, deduplicated
+  HTTP header names checked before the built-in forwarded headers when the
+  compatibility switch is enabled; it can also be supplied through
+  `SECURITY_FORWARDED_CLIENT_IP_HEADERS`
 - `turnstile.required` to require Turnstile in release mode
+
+The forwarded-IP compatibility switch is intentionally disabled by default.
+Only list headers written by a proxy you control; clients can forge them when
+the origin is directly reachable. Settings changes are applied to new requests
+through an immutable request snapshot.
 
 **⚠️ Security Warning: HTTP URL Configuration**
 

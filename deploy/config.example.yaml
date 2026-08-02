@@ -24,8 +24,11 @@ server:
   # 用于生成邮件中的外部链接（例如：重置密码链接）的前端基础地址
   # Example: "https://example.com"
   frontend_url: ""
-  # Trusted proxies for X-Forwarded-For parsing (CIDR/IP). Empty disables trusted proxies.
-  # 信任的代理地址（CIDR/IP 格式），用于解析 X-Forwarded-For 头。留空则禁用代理信任。
+  # Trusted proxy CIDRs used by Gin's security-sensitive client-IP chain.
+  # List only the exact proxy addresses that connect directly to Sub2API.
+  # An absent or explicit [] value keeps the trusted chain fail-closed.
+  # Gin 安全敏感客户端 IP 链使用的可信反代 CIDR。只填写直接连接
+  # Sub2API 的精确反代地址；未配置或显式 [] 时保持 fail-closed。
   trusted_proxies: []
   # Global max request body size in bytes (default: 256MB)
   # 全局最大请求体大小（字节，默认 256MB）
@@ -83,6 +86,16 @@ cors:
 # 安全配置
 # =============================================================================
 security:
+  # Raw forwarded-IP compatibility switch for API-key ACL, operation audit,
+  # and session IP/UA binding. Disabled by default; enable only when the origin
+  # is reachable solely through a reverse proxy you control.
+  # API Key ACL、操作审计和会话 IP/UA 绑定是否信任原始转发 IP。默认关闭；
+  # 仅当源站只能通过你控制的反向代理访问时开启。
+  trust_forwarded_ip_for_api_key_acl: false
+  # Optional ordered custom client-IP headers, maximum 16 unique valid names.
+  # 可选的客户端 IP 自定义请求头，最多 16 个合法且不重复的名称。
+  # Environment / 环境变量: SECURITY_FORWARDED_CLIENT_IP_HEADERS=X-Client-IP,True-Client-IP
+  forwarded_client_ip_headers: []
   url_allowlist:
     # Enable URL allowlist validation (disable to skip all URL checks)
     # 启用 URL 白名单验证（禁用则跳过所有 URL 检查）

@@ -8,40 +8,167 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GetClientIP 从 Gin Context 中提取客户端真实 IP 地址。
-// 按以下优先级检查 Header：
-// 1. CF-Connecting-IP (Cloudflare)
-// 2. X-Real-IP (Nginx)
-// 3. X-Forwarded-For (取第一个非私有 IP)
-// 4. c.ClientIP() (Gin 内置方法)
+const (
+	forwardedIPSettingsKey    = "sub2api.forwarded_ip_settings"
+	legacyForwardedIPTrustKey = "sub2api.legacy_forwarded_ip_trust"
+)
+
+type forwardedIPSettings struct {
+	trustForwarded bool
+	headers        []string
+}
+
+// SetForwardedIPSettings captures the forwarded-IP mode and header list for a
+// request. The slice is copied so a later settings update cannot change the
+// meaning of an in-flight request.
+func SetForwardedIPSettings(c *gin.Context, enabled bool, headers []string) {
+	if c == nil {
+		return
+	}
+	c.Set(forwardedIPSettingsKey, forwardedIPSettings{
+		trustForwarded: enabled,
+		headers:        append([]string(nil), headers...),
+	})
+}
+
+// SetLegacyForwardedIPTrust records the compatibility switch for a request.
+func SetLegacyForwardedIPTrust(c *gin.Context, enabled bool) {
+	if c == nil {
+		return
+	}
+	SetForwardedIPSettings(c, enabled, nil)
+	c.Set(legacyForwardedIPTrustKey, enabled)
+}
+
+func requestForwardedIPSettings(c *gin.Context) (forwardedIPSettings, bool) {
+	if c == nil {
+		return forwardedIPSettings{}, false
+	}
+	value, ok := c.Get(forwardedIPSettingsKey)
+	if !ok {
+		// Keep compatibility with middleware/tests that still publish the
+		// pre-snapshot boolean key. Absence of both keys remains fail-closed.
+		legacyValue, legacyOK := c.Get(legacyForwardedIPTrustKey)
+		if !legacyOK {
+			return forwardedIPSettings{}, false
+		}
+		legacyTrust, legacyTypeOK := legacyValue.(bool)
+		return forwardedIPSettings{trustForwarded: legacyTrust}, legacyTypeOK
+	}
+	settings, ok := value.(forwardedIPSettings)
+	return settings, ok
+}
+
+// requestUsesLegacyForwardedIPTrust defaults to false. A missing snapshot is
+// deliberately fail-closed so callers cannot accidentally trust raw headers
+// by omitting the ingress middleware.
+func requestUsesLegacyForwardedIPTrust(c *gin.Context) bool {
+	settings, ok := requestForwardedIPSettings(c)
+	return ok && settings.trustForwarded
+}
+
+// GetClientIP resolves compatibility metadata while honoring the request
+// snapshot. Security-sensitive callers should use GetSecurityClientIP.
 func GetClientIP(c *gin.Context) string {
-	// 1. Cloudflare
-	if ip := c.GetHeader("CF-Connecting-IP"); ip != "" {
-		return normalizeIP(ip)
+	if c == nil {
+		return ""
 	}
-
-	// 2. Nginx X-Real-IP
-	if ip := c.GetHeader("X-Real-IP"); ip != "" {
-		return normalizeIP(ip)
+	if !requestUsesLegacyForwardedIPTrust(c) {
+		return GetTrustedClientIP(c)
 	}
+	settings, _ := requestForwardedIPSettings(c)
+	return resolveRawForwardedClientIP(c, settings.headers)
+}
 
-	// 3. X-Forwarded-For (多个 IP 时取第一个公网 IP)
-	if xff := c.GetHeader("X-Forwarded-For"); xff != "" {
-		ips := strings.Split(xff, ",")
-		for _, ip := range ips {
-			ip = strings.TrimSpace(ip)
-			if ip != "" && !isPrivateIP(ip) {
-				return normalizeIP(ip)
+func resolveRawForwardedClientIP(c *gin.Context, headers []string) string {
+	if c == nil {
+		return ""
+	}
+	customIP, customFallback := resolveCustomForwardedClientIP(c, headers)
+	if customIP != "" {
+		return customIP
+	}
+	legacyIP, legacyFallback := resolveLegacyForwardedHeaderIP(c)
+	if legacyIP != "" {
+		return legacyIP
+	}
+	if customFallback != "" {
+		return customFallback
+	}
+	if legacyFallback != "" {
+		return legacyFallback
+	}
+	return normalizeIP(c.ClientIP())
+}
+
+func resolveCustomForwardedClientIP(c *gin.Context, headers []string) (string, string) {
+	if c == nil || c.Request == nil {
+		return "", ""
+	}
+	var fallback string
+	for _, header := range headers {
+		for _, value := range c.Request.Header.Values(header) {
+			for _, candidate := range strings.Split(value, ",") {
+				parsed := net.ParseIP(strings.TrimSpace(candidate))
+				if parsed == nil {
+					continue
+				}
+				normalized := parsed.String()
+				if isPrivateIP(normalized) {
+					if fallback == "" {
+						fallback = normalized
+					}
+					continue
+				}
+				return normalized, fallback
 			}
 		}
-		// 如果都是私有 IP，返回第一个
-		if len(ips) > 0 {
-			return normalizeIP(strings.TrimSpace(ips[0]))
+	}
+	return "", fallback
+}
+
+func resolveLegacyForwardedHeaderIP(c *gin.Context) (string, string) {
+	if c == nil {
+		return "", ""
+	}
+	var fallback string
+	if forwarded, ok := parseForwardedIP(c.GetHeader("CF-Connecting-IP")); ok {
+		fallback = forwarded
+		if !isPrivateIP(forwarded) {
+			return forwarded, fallback
 		}
 	}
+	if realIP, ok := parseForwardedIP(c.GetHeader("X-Real-IP")); ok {
+		if fallback == "" {
+			fallback = realIP
+		}
+		if !isPrivateIP(realIP) {
+			return realIP, fallback
+		}
+	}
+	if xff := c.GetHeader("X-Forwarded-For"); xff != "" {
+		ips := strings.Split(xff, ",")
+		for _, candidate := range ips {
+			if parsed, ok := parseForwardedIP(candidate); ok {
+				if fallback == "" && isPrivateIP(parsed) {
+					fallback = parsed
+				}
+				if !isPrivateIP(parsed) {
+					return parsed, fallback
+				}
+			}
+		}
+	}
+	return "", fallback
+}
 
-	// 4. Gin 内置方法
-	return normalizeIP(c.ClientIP())
+func parseForwardedIP(raw string) (string, bool) {
+	normalized := normalizeIP(raw)
+	parsed := net.ParseIP(normalized)
+	if parsed == nil {
+		return "", false
+	}
+	return parsed.String(), true
 }
 
 // GetTrustedClientIP 从 Gin 的可信代理解析链提取客户端 IP。
@@ -52,6 +179,32 @@ func GetTrustedClientIP(c *gin.Context) string {
 		return ""
 	}
 	return normalizeIP(c.ClientIP())
+}
+
+// GetSecurityClientIP returns the one client-IP source shared by ACL, audit and
+// session-binding consumers. The request snapshot, when present, overrides the
+// fallback argument so a hot settings update cannot change an in-flight request.
+func GetSecurityClientIP(c *gin.Context, trustForwarded bool) string {
+	return GetSecurityClientIPWithHeaders(c, trustForwarded, nil)
+}
+
+// GetSecurityClientIPWithHeaders is the ingress fallback for callers that run
+// without SessionBindingContext. A captured request snapshot always wins; the
+// supplied headers are used only when no snapshot exists.
+func GetSecurityClientIPWithHeaders(c *gin.Context, trustForwarded bool, headers []string) string {
+	if requestSettings, ok := requestForwardedIPSettings(c); ok {
+		if !requestSettings.trustForwarded {
+			return GetTrustedClientIP(c)
+		}
+		return resolveRawForwardedClientIP(c, requestSettings.headers)
+	}
+	if !trustForwarded {
+		return GetTrustedClientIP(c)
+	}
+	// An explicit caller opt-in remains supported for compatibility, but it
+	// resolves directly through the raw path rather than changing GetClientIP's
+	// fail-closed default when no request snapshot was captured.
+	return resolveRawForwardedClientIP(c, headers)
 }
 
 // normalizeIP 规范化 IP 地址，去除端口号和空格。

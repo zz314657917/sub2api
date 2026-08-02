@@ -74,6 +74,152 @@ func TestGetTrustedClientIPUsesGinClientIP(t *testing.T) {
 	require.Equal(t, "9.9.9.9", w.Body.String())
 }
 
+func TestGetClientIPDefaultsToTrustedProxyChain(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	require.NoError(t, r.SetTrustedProxies(nil))
+	r.GET("/t", func(c *gin.Context) {
+		c.String(200, GetClientIP(c))
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/t", nil)
+	req.RemoteAddr = "9.9.9.9:12345"
+	req.Header.Set("X-Real-IP", "1.2.3.4")
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, 200, w.Code)
+	require.Equal(t, "9.9.9.9", w.Body.String())
+}
+
+func TestGetSecurityClientIPRejectsMalformedForwardedHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	require.NoError(t, r.SetTrustedProxies(nil))
+	r.GET("/t", func(c *gin.Context) {
+		c.String(200, GetSecurityClientIP(c, true))
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/t", nil)
+	req.RemoteAddr = "9.9.9.9:12345"
+	req.Header.Set("CF-Connecting-IP", "not-an-ip")
+	req.Header.Set("X-Real-IP", "also-not-an-ip")
+	req.Header.Set("X-Forwarded-For", "still-not-an-ip")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, 200, w.Code)
+	require.Equal(t, "9.9.9.9", w.Body.String())
+}
+
+func TestGetSecurityClientIPExplicitFallbackOptInUsesRawHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	require.NoError(t, r.SetTrustedProxies(nil))
+	r.GET("/t", func(c *gin.Context) {
+		c.String(200, GetSecurityClientIP(c, true))
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/t", nil)
+	req.RemoteAddr = "9.9.9.9:12345"
+	req.Header.Set("X-Real-IP", "1.2.3.4")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, 200, w.Code)
+	require.Equal(t, "1.2.3.4", w.Body.String())
+}
+
+func TestGetClientIPExplicitSnapshotOptInUsesLegacyHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	require.NoError(t, r.SetTrustedProxies(nil))
+	r.GET("/t", func(c *gin.Context) {
+		SetLegacyForwardedIPTrust(c, true)
+		c.String(200, GetClientIP(c))
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/t", nil)
+	req.RemoteAddr = "9.9.9.9:12345"
+	req.Header.Set("X-Real-IP", "1.2.3.4")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, 200, w.Code)
+	require.Equal(t, "1.2.3.4", w.Body.String())
+}
+
+func TestGetSecurityClientIPReadsLegacyRequestTrustKey(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	require.NoError(t, r.SetTrustedProxies(nil))
+	r.GET("/t", func(c *gin.Context) {
+		c.Set("sub2api.legacy_forwarded_ip_trust", true)
+		c.String(200, GetSecurityClientIP(c, false))
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/t", nil)
+	req.RemoteAddr = "9.9.9.9:12345"
+	req.Header.Set("X-Real-IP", "1.2.3.4")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, 200, w.Code)
+	require.Equal(t, "1.2.3.4", w.Body.String())
+}
+
+func TestGetSecurityClientIPUsesCustomHeaderOnlyWhenExplicitlyEnabled(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	for _, test := range []struct {
+		name    string
+		enabled bool
+		want    string
+	}{
+		{name: "disabled", enabled: false, want: "9.9.9.9"},
+		{name: "enabled", enabled: true, want: "1.2.3.4"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			r := gin.New()
+			require.NoError(t, r.SetTrustedProxies(nil))
+			r.GET("/t", func(c *gin.Context) {
+				SetForwardedIPSettings(c, test.enabled, []string{"X-CDN-IP"})
+				c.String(200, GetSecurityClientIP(c, false))
+			})
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/t", nil)
+			req.RemoteAddr = "9.9.9.9:12345"
+			req.Header.Set("X-CDN-IP", "1.2.3.4")
+			r.ServeHTTP(w, req)
+
+			require.Equal(t, test.want, w.Body.String())
+		})
+	}
+}
+
+func TestGetSecurityClientIPSnapshotCopiesHeaders(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	require.NoError(t, r.SetTrustedProxies(nil))
+	r.GET("/t", func(c *gin.Context) {
+		headers := []string{"X-Original-IP"}
+		SetForwardedIPSettings(c, true, headers)
+		headers[0] = "X-Mutated-IP"
+		c.String(200, GetSecurityClientIP(c, false))
+	})
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/t", nil)
+	req.RemoteAddr = "9.9.9.9:12345"
+	req.Header.Set("X-Original-IP", "1.2.3.4")
+	req.Header.Set("X-Mutated-IP", "4.4.4.4")
+	r.ServeHTTP(w, req)
+
+	require.Equal(t, "1.2.3.4", w.Body.String())
+}
+
 func TestCheckIPRestrictionWithCompiledRules(t *testing.T) {
 	whitelist := CompileIPRules([]string{"10.0.0.0/8", "192.168.1.2"})
 	blacklist := CompileIPRules([]string{"10.1.1.1"})

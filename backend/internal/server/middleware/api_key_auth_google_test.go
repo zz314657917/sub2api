@@ -323,6 +323,45 @@ func TestApiKeyAuthWithSubscriptionGoogleSetsGroupContext(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 }
 
+func TestApiKeyAuthWithSubscriptionGoogleIPRestrictionUsesExplicitConfiguredForwardedHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	user := &service.User{
+		ID:          7,
+		Role:        service.RoleUser,
+		Status:      service.StatusActive,
+		Balance:     10,
+		Concurrency: 3,
+	}
+	apiKey := &service.APIKey{
+		ID:          100,
+		UserID:      user.ID,
+		Key:         "google-forwarded-header-key",
+		Status:      service.StatusActive,
+		User:        user,
+		IPWhitelist: []string{"1.2.3.4"},
+	}
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	cfg.SetForwardedClientIPSettings(true, []string{"X-Client-IP"})
+	apiKeyService := newTestAPIKeyService(fakeAPIKeyRepo{
+		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
+			clone := *apiKey
+			return &clone, nil
+		},
+	})
+	r := gin.New()
+	r.Use(APIKeyAuthWithSubscriptionGoogle(apiKeyService, nil, cfg))
+	r.GET("/v1beta/test", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	req := httptest.NewRequest(http.MethodGet, "/v1beta/test", nil)
+	req.RemoteAddr = "9.9.9.9:12345"
+	req.Header.Set("x-goog-api-key", apiKey.Key)
+	req.Header.Set("X-Client-IP", "1.2.3.4")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+}
+
 func TestApiKeyAuthWithSubscriptionGoogle_QueryKeyAllowedOnV1Beta(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
