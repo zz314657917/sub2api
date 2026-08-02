@@ -94,8 +94,8 @@
               <div class="truncate font-medium text-gray-900 dark:text-white" :title="row.actor_email">
                 {{ row.actor_email || '—' }}
               </div>
-              <div class="mt-0.5 truncate text-xs text-gray-400">
-                {{ row.actor_role }}<span v-if="row.auth_method"> · {{ authMethodLabel(row.auth_method) }}</span>
+              <div class="mt-0.5 truncate text-xs text-gray-400" :title="actorTitle(row.actor_role, row.auth_method)">
+                {{ actorRoleLabel(row.actor_role) }}<span v-if="row.auth_method"> · {{ authMethodLabel(row.auth_method) }}</span>
               </div>
             </div>
           </template>
@@ -103,7 +103,7 @@
           <template #cell-action="{ row }">
             <div class="min-w-0 max-w-xs">
               <div class="truncate font-mono text-sm text-gray-800 dark:text-gray-200" :title="row.action">
-                {{ row.action }}
+                {{ actionLabel(row.action) }}
               </div>
               <div class="mt-0.5 truncate font-mono text-xs text-gray-400" :title="`${row.method} ${row.path}`">
                 {{ row.method }} {{ row.path }}
@@ -182,8 +182,11 @@
               <span class="h-1.5 w-1.5 rounded-full" :class="statusDotClass(detail.status_code)"></span>
               {{ detail.status_code }} {{ statusText(detail.status_code) }}
             </span>
-            <span class="break-all font-mono text-base font-semibold text-gray-900 dark:text-white">
-              {{ detail.action }}
+            <span
+              class="break-all font-mono text-base font-semibold text-gray-900 dark:text-white"
+              :title="detail.action"
+            >
+              {{ actionLabel(detail.action) }}
             </span>
           </div>
 
@@ -216,14 +219,16 @@
             <div class="mt-1 break-all text-sm font-medium text-gray-900 dark:text-white">
               {{ detail.actor_email || '—' }}
             </div>
-            <div class="mt-0.5 text-xs text-gray-400">{{ detail.actor_role }}</div>
+            <div class="mt-0.5 text-xs text-gray-400" :title="detail.actor_role">
+              {{ actorRoleLabel(detail.actor_role) }}
+            </div>
           </div>
 
           <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-900">
             <div class="text-xs font-bold uppercase tracking-wider text-gray-400">
               {{ t('admin.audit.filters.authMethod') }}
             </div>
-            <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white">
+            <div class="mt-1 text-sm font-medium text-gray-900 dark:text-white" :title="detail.auth_method">
               {{ authMethodLabel(detail.auth_method) || '—' }}
             </div>
             <div v-if="detail.credential_masked" class="mt-0.5 break-all font-mono text-xs text-gray-400">
@@ -367,7 +372,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores'
 
-const { t } = useI18n()
+const { t, te, tm } = useI18n()
 const appStore = useAppStore()
 
 const loading = ref(false)
@@ -485,7 +490,7 @@ const methodOptions = computed(() => [
 const authMethodOptions = computed(() => [
   { value: '', label: t('admin.audit.filters.all') },
   { value: 'jwt', label: 'JWT' },
-  { value: 'admin_api_key', label: 'Admin API Key' }
+  { value: 'admin_api_key', label: t('admin.audit.authMethods.adminApiKey') }
 ])
 
 const resultOptions = computed(() => [
@@ -495,8 +500,41 @@ const resultOptions = computed(() => [
 ])
 
 function authMethodLabel(method: string): string {
-  const found = authMethodOptions.value.find((o) => o.value === method)
-  return found && found.value ? found.label : method
+  const normalized = method.trim().toLowerCase()
+  if (!normalized) return ''
+  if (normalized === 'admin_api_key' || normalized === 'adminapikey') {
+    return t('admin.audit.authMethods.adminApiKey')
+  }
+  if (normalized === 'jwt') return t('admin.audit.authMethods.jwt')
+  return method
+}
+
+function actorRoleLabel(role: string): string {
+  const normalized = role.trim().toLowerCase()
+  if (!normalized) return t('admin.audit.roles.unknown')
+  const key = `admin.audit.roles.${normalized}`
+  return te(key) ? t(key) : role
+}
+
+function actorTitle(role: string, authMethod: string): string {
+  return [role.trim(), authMethod.trim()].filter(Boolean).join(' · ')
+}
+
+function actionLabel(action: string): string {
+  const raw = action.trim()
+  if (!raw) return '—'
+  const actions = (tm as (key: string) => unknown)('admin.audit.actions')
+  if (actions && typeof actions === 'object') {
+    const exactLabel = (actions as Record<string, unknown>)[raw]
+    if (typeof exactLabel === 'string') return exactLabel
+  }
+  return raw
+    .split('.')
+    .map((segment) => {
+      const key = `admin.audit.actionParts.${segment}`
+      return te(key) ? t(key) : segment
+    })
+    .join(' · ')
 }
 
 function toRFC3339(local: string): string | undefined {
