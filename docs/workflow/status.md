@@ -1,13 +1,27 @@
 ---
-phase: done
-current_sprint: audit-log-i18n-s141
-total_sprints: 141
-pending_action: optional authenticated browser smoke after deployment; no deployment is included
+phase: contract-approved
+current_sprint: prompt-audit-s142
+total_sprints: 142
+pending_action: implement Prompt Audit in the isolated worktree; no merge, push, deployment, or container action is included
 project_type: web
 qa_mode: runtime
 approval_required: false
 last_verified: 2026-08-03 01:18 +08:00
 ---
+
+# Prompt Audit S142
+
+- Contract: `docs/workflow/tasks/prompt-audit-s142.md`.
+- Contract review: `APPROVED` for the isolated Prompt Audit/Qwen3Guard slice:
+  administrator API/UI, gateway entry-point hooks, off/async/blocking modes,
+  fail-closed blocking semantics, redacted-only persistence, and migrations
+  `201`/`202` after the existing `200` chain.
+- Passkey, deployment, dependency, billing, proxy-circuit, unrelated release
+  fixes, primary-worktree changes, merge, push, and runtime/provider state are
+  denied. `202.full_prompt` is a compatibility column; runtime writes remain
+  redacted and bounded.
+- Next legal action: Generator implementation in
+  `E:/codex-worktrees/sub2api/prompt-audit-s142`, followed by focused QA.
 
 # Audit Log Display I18n S141
 

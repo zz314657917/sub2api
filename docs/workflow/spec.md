@@ -5,6 +5,37 @@ qa_mode: runtime
 last_verified: 2026-08-03 01:18 +08:00
 ---
 
+## S142 Addendum: Prompt Audit/Qwen3Guard selective port
+
+### Goal
+
+- Adapt the upstream Prompt Audit behavior to the published local baseline,
+  including administrator controls, gateway hooks, Qwen3Guard execution, safe
+  off/async/blocking modes, and complete Chinese/English UI text.
+
+### Scope Boundary
+
+- Keep the change isolated to the Prompt Audit handlers, securityaudit package,
+  required gateway seams, admin routes, frontend feature, locales, and local
+  migrations `201`/`202`.
+- Preserve the existing management audit actions and body-omission rules. Do
+  not persist raw prompts, Guard credentials, cookies, bearer/API keys, or full
+  request bodies. The `202.full_prompt` column is compatibility-only and stores
+  bounded redacted text.
+- Blocking mode fails closed when configuration is unavailable or stale; off
+  and async modes preserve existing request behavior. SSRF and probe-token
+  isolation are mandatory.
+- Exclude Passkey/WebAuthn, deployment/dependencies, billing, SMTP, proxy
+  circuit, unrelated release changes, primary-worktree edits, and publication.
+
+### Acceptance Boundary
+
+- Focused backend securityaudit/handler/route/middleware regressions, compile,
+  frontend feature tests, typecheck/build, migration ordering/content,
+  redaction canaries, conflict/index/path gates pass.
+- No external Guard/provider, authenticated production browser, deployment,
+  container, production migration, commit, merge, or push is performed.
+
 ## S141 Addendum: audit log display localization
 
 ### Goal
