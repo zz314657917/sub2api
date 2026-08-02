@@ -1,13 +1,30 @@
 ---
 phase: done
-current_sprint: client-ip-trust-s140
-total_sprints: 140
-pending_action: runtime proxy/deployment validation remains separate
+current_sprint: audit-log-i18n-s141
+total_sprints: 141
+pending_action: optional authenticated browser smoke after deployment; no deployment is included
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-03 00:47 +08:00
+last_verified: 2026-08-03 01:18 +08:00
 ---
+
+# Audit Log Display I18n S141
+
+- `AuditLogView` now localizes displayed roles, authentication methods, known
+  audit actions, and known action segments in Chinese and English without
+  mutating audit storage, API values, or the action filter query.
+- Exact dotted action identifiers are read from the existing locale object by
+  raw key; unknown role/auth/action values remain visible and raw metadata is
+  retained in titles for operator tracing.
+- Focused locale/component tests, typecheck, changed-file ESLint, production
+  build, exact-action coverage, diff, conflict, unmerged-index, and allowlist
+  gates pass. This is source-level plus production-build QA only.
+- Feature commit `e22566154` was pushed to
+  `origin/codex/audit-log-i18n-s141` and merged into this clean publication
+  worktree as `226802701`; `origin/main` is fast-forwarded by this receipt.
+- No backend, database, deployment, container, or real authenticated browser
+  smoke was performed.
 
 # Client IP Trust Chain S140
 

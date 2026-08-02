@@ -2,8 +2,30 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-08-03 00:49 +08:00
+last_verified: 2026-08-03 01:18 +08:00
 ---
+
+## S141 Addendum: audit log display localization
+
+### Goal
+
+- Localize administrator audit-log roles, authentication methods, fixed action
+  names, and known action segments while preserving raw operational identifiers.
+
+### Scope Boundary
+
+- Change only `AuditLogView` display helpers, its Chinese/English audit locale
+  messages, focused locale/component regressions, and workflow evidence.
+- Do not change audit storage, backend action generation, API contracts,
+  filtering semantics, database migrations, deployment, or containers.
+
+### Acceptance Boundary
+
+- Known values render localized labels in both locales; unknown values safely
+  fall back to their raw identifiers. Exact dotted action names must not be
+  misread as Vue I18n paths or collide with unknown underscore identifiers.
+- Focused tests, typecheck, changed-file lint, production build, locale/action
+  coverage, and Git integrity/path gates pass.
 
 ## S140 Addendum: client IP trust-chain alignment
 
