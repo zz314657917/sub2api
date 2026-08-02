@@ -2,11 +2,11 @@
 phase: done
 current_sprint: prompt-audit-s142
 total_sprints: 142
-pending_action: publish the reviewed S142 feature from a clean publication worktree; runtime/provider/deployment validation remains separate
+pending_action: optional authenticated browser smoke after deployment; publication is complete, runtime/provider/deployment validation remains separate
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-03 03:14 +08:00
+last_verified: 2026-08-03 03:39 +08:00
 ---
 
 # Prompt Audit S142
@@ -24,8 +24,9 @@ last_verified: 2026-08-03 03:14 +08:00
   `E:/codex-worktrees/sub2api/prompt-audit-s142`; worker result and QA report are
   `docs/workflow/worker-results/prompt-audit-s142-result.md` and
   `docs/workflow/qa-reports/prompt-audit-s142-qa.md`.
-- Source/build gates pass. PostgreSQL/Redis/Guard/browser/runtime, deployment,
-  merge, and push remain outside the isolated QA evidence until publication.
+- Source/build gates pass. PostgreSQL/Redis/Guard/browser/runtime and deployment
+  remain unverified. The clean publication merge is `ba06dde55`, pushed to
+  `origin/main`; local HEAD, tracking ref, and remote ref now agree.
 
 # Audit Log Display I18n S141
 
@@ -92,7 +93,7 @@ last_verified: 2026-08-03 03:14 +08:00
 - Contract review: approved as a direct small-fix path with no worker; backend, routing, billing, deployment, and container behavior are excluded.
 - Implementation: the panel now remains mounted only while loading or when active subscriptions exist; focused regression coverage includes the loading-to-empty transition.
 - QA: `PASS / source-level + production-build`; 26/26 focused Vitest, typecheck, ESLint, 1109-module build, diff, conflict-marker, unmerged-index, and allowed-path gates passed.
-- Publication: S138 is committed in the isolated worktree; no primary merge, push, deployment, or container refresh was performed.
+- Publication: S138 is included in local main and the published `origin/main` chain; no deployment, container refresh, or production migration was performed.
 
 # S137 Current Sprint
 
