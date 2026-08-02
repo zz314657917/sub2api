@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { opsAPI, type OpsRuntimeLogConfig, type OpsSystemLog, type OpsSystemLogSinkHealth } from '@/api/admin/ops'
 import Pagination from '@/components/common/Pagination.vue'
 import Select from '@/components/common/Select.vue'
 import { useAppStore } from '@/stores'
+import { extractApiErrorMessage } from '@/utils/apiError'
 
 const appStore = useAppStore()
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
   platformFilter?: string
@@ -315,7 +318,11 @@ const cleanupCurrentFilter = async () => {
     await Promise.all([fetchLogs(), fetchHealth()])
   } catch (err: any) {
     console.error('[OpsSystemLogTable] Failed to cleanup logs', err)
-    appStore.showError(err?.response?.data?.detail || '清理系统日志失败')
+    appStore.showError(
+      extractApiErrorMessage(err, t('admin.ops.systemLogs.cleanupFailed'), {
+        OPS_SYSTEM_LOG_CLEANUP_FILTER_REQUIRED: t('admin.ops.systemLogs.cleanupFilterRequired')
+      })
+    )
   }
 }
 

@@ -26,6 +26,10 @@ export default {
       noData: '暂无数据',
       loadingText: '加载中...',
       ready: '就绪',
+      systemLogs: {
+        cleanupFilterRequired: '清理需要至少一个筛选条件（起止时间或其他字段）',
+        cleanupFailed: '清理系统日志失败'
+      },
       requestsTotal: '请求（总计）',
       slaScope: 'SLA 范围：',
       tokens: 'Token数',
