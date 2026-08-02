@@ -83,6 +83,10 @@ func (h *OpenAIGatewayHandler) Videos(c *gin.Context) {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Videos API is not supported for this platform")
 		return
 	}
+	if decision := h.checkSecurityAudit(c, reqLog, apiKey, subject, "openai_videos", reqModel, body); decision != nil && !decision.AllowNextStage {
+		h.openAISecurityAuditError(c, decision)
+		return
+	}
 
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)

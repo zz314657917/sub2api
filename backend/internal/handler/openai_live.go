@@ -50,7 +50,7 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 		zap.Int64("api_key_id", apiKey.ID),
 		zap.Any("group_id", apiKey.GroupID),
 	)
-	if decision := h.checkContentModeration(
+	if decision := h.checkSecurityAudit(
 		c,
 		reqLog,
 		apiKey,
@@ -58,8 +58,8 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 		service.ContentModerationProtocolOpenAIResponses,
 		model,
 		request.Session,
-	); decision != nil && decision.Blocked {
-		h.errorResponse(c, contentModerationStatus(decision), contentModerationErrorCode(decision), decision.Message)
+	); decision != nil && !decision.AllowNextStage {
+		h.openAISecurityAuditError(c, decision)
 		return
 	}
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)

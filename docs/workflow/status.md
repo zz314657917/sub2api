@@ -1,13 +1,31 @@
 ---
 phase: done
-current_sprint: audit-log-i18n-s141
-total_sprints: 141
-pending_action: optional authenticated browser smoke after deployment; no deployment is included
+current_sprint: prompt-audit-s142
+total_sprints: 142
+pending_action: publish the reviewed S142 feature from a clean publication worktree; runtime/provider/deployment validation remains separate
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-03 01:18 +08:00
+last_verified: 2026-08-03 03:14 +08:00
 ---
+
+# Prompt Audit S142
+
+- Contract: `docs/workflow/tasks/prompt-audit-s142.md`.
+- Contract review: `APPROVED` for the isolated Prompt Audit/Qwen3Guard slice:
+  administrator API/UI, gateway entry-point hooks, off/async/blocking modes,
+  fail-closed blocking semantics, redacted-only persistence, and migrations
+  `201`/`202` after the existing `200` chain.
+- Passkey, deployment, dependency, billing, proxy-circuit, unrelated release
+  fixes, primary-worktree changes, merge, push, and runtime/provider state are
+  denied. `202.full_prompt` is a compatibility column; runtime writes remain
+  redacted and bounded.
+- Implementation and focused QA are complete in
+  `E:/codex-worktrees/sub2api/prompt-audit-s142`; worker result and QA report are
+  `docs/workflow/worker-results/prompt-audit-s142-result.md` and
+  `docs/workflow/qa-reports/prompt-audit-s142-qa.md`.
+- Source/build gates pass. PostgreSQL/Redis/Guard/browser/runtime, deployment,
+  merge, and push remain outside the isolated QA evidence until publication.
 
 # Audit Log Display I18n S141
 

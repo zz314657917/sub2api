@@ -83,6 +83,7 @@ func TestProvideCleanup_WithMinimalDependencies_NoPanic(t *testing.T) {
 		nil, // paymentOrderExpiry
 		nil, // groupBuyLifecycle
 		nil, // channelMonitorRunner
+		nil, // promptAudit
 	)
 
 	require.NotPanics(t, func() {
