@@ -1,13 +1,27 @@
 ---
 phase: done
-current_sprint: openai-overload-retry-s135
-total_sprints: 135
-pending_action: optionally validate S135 against a live provider or deployed container; source publication is complete
+current_sprint: client-ip-trust-s140
+total_sprints: 140
+pending_action: runtime proxy/deployment validation remains separate
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-07-31 15:10 +08:00
+last_verified: 2026-08-03 00:47 +08:00
 ---
+
+# Client IP Trust Chain S140
+
+- Contract `docs/workflow/tasks/client-ip-trust-s140.md` is approved in the
+  isolated worktree `E:/codex-worktrees/sub2api/client-ip-trust-s140`.
+- Scope is limited to explicit trusted-proxy/raw-forwarded-IP policy, request
+  snapshots, API-key ACL parity, audit/session binding, existing settings
+  persistence, and the administrator settings UI.
+- Security default is raw forwarded-header trust disabled. The upstream legacy
+  migration that silently enables it is excluded.
+- Focused QA is PASS/source-level plus production build. The implementation,
+  operator docs, and Chinese/English settings UI are merged into remote `main`;
+  no deployment, container refresh, migration, or production setting change is
+  included. Runtime proxy/deployment validation remains a separate boundary.
 
 # S135 Current Sprint
 

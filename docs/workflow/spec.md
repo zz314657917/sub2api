@@ -2,8 +2,34 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-07-31 14:30 +08:00
+last_verified: 2026-08-03 00:49 +08:00
 ---
+
+## S140 Addendum: client IP trust-chain alignment
+
+### Goal
+
+- Adapt the upstream forwarded-client-IP behavior to the local security seams:
+  explicit trusted proxies, an opt-in raw-header compatibility mode, immutable
+  request snapshots, API-key ACL parity, audit/session binding, existing settings
+  persistence, and the administrator settings UI.
+
+### Scope Boundary
+
+- Raw forwarded-header trust remains disabled by default and is never enabled by
+  an implicit legacy migration. Explicit empty or absent `server.trusted_proxies`
+  remains fail-closed.
+- Custom header names are validated, canonicalized, deduplicated, and capped at
+  16 entries. The request snapshot is the only source used by security consumers.
+- Passkey, prompt-audit, ingress-reject redesign, schema/migration, deployment,
+  container, and primary-worktree publication work are excluded.
+
+### Acceptance Boundary
+
+- Focused backend tests prove forged-header rejection, explicit proxy/custom-header
+  behavior, snapshot stability, ordinary/Google API-key ACL parity, and shared
+  audit/session IP semantics. Frontend settings regressions, typecheck/build,
+  diff/path/integrity checks must also pass.
 
 ## S135 Addendum: OpenAI overload retry with linear backoff
 
