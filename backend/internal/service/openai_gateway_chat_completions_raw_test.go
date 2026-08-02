@@ -439,6 +439,48 @@ func TestHandleChatStreamingResponse_SilentRefusalReasoningSummaryExempt(t *test
 	require.Contains(t, rec.Body.String(), "data: [DONE]")
 }
 
+func TestHandleChatStreamingResponse_RateLimitReturns429Failover(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header: http.Header{
+			"Content-Type": []string{"text/event-stream"},
+			"Retry-After":  []string{"3"},
+		},
+		Body: io.NopCloser(strings.NewReader(strings.Join([]string{
+			`data: {"type":"response.failed","response":{"id":"resp_chat_rate","status":"failed","error":{"code":"rate_limit_exceeded","message":"rate limited"}}}`,
+			"",
+		}, "\n"))),
+	}
+	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig()}
+	account := rawChatCompletionsTestAccount()
+	account.Credentials["pool_mode"] = true
+	account.Credentials["pool_mode_retry_status_codes"] = []any{float64(http.StatusTooManyRequests)}
+
+	result, err := svc.handleChatStreamingResponse(
+		resp,
+		c,
+		account,
+		"gpt-5.5",
+		"gpt-5.5",
+		"gpt-5.5",
+		time.Now(),
+		0,
+	)
+	require.Error(t, err)
+	require.Nil(t, result)
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusTooManyRequests, failoverErr.StatusCode)
+	require.True(t, failoverErr.RetryableOnSameAccount)
+	require.Equal(t, "3", failoverErr.ResponseHeaders.Get("Retry-After"))
+	require.False(t, c.Writer.Written())
+}
+
 func TestForwardAsRawChatCompletions_SilentRefusalNormalContentExempt(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

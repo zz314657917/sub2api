@@ -37,6 +37,36 @@ func TestRemoteCompactBodySignalMarksClientStream(t *testing.T) {
 	require.Equal(t, true, value)
 }
 
+func TestCopyFailoverRetryAfterValidatesAndCopiesHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	t.Run("seconds", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		copyFailoverRetryAfter(c, http.Header{"Retry-After": []string{"4"}})
+		require.Equal(t, "4", rec.Header().Get("Retry-After"))
+	})
+
+	t.Run("rejects unsafe value", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		copyFailoverRetryAfter(c, http.Header{"Retry-After": []string{"4\r\nX-Injected: true"}})
+		require.Empty(t, rec.Header().Get("Retry-After"))
+	})
+
+	t.Run("survives failover exhaustion", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		h := &OpenAIGatewayHandler{}
+		h.handleFailoverExhausted(c, &service.UpstreamFailoverError{
+			StatusCode:      http.StatusTooManyRequests,
+			ResponseHeaders: http.Header{"Retry-After": []string{"6"}},
+		}, false)
+		require.Equal(t, http.StatusTooManyRequests, rec.Code)
+		require.Equal(t, "6", rec.Header().Get("Retry-After"))
+	})
+}
+
 func TestOpenAIHandleStreamingAwareError_JSONEscaping(t *testing.T) {
 	tests := []struct {
 		name    string
