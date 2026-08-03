@@ -254,6 +254,29 @@ const fallbackPlaceholders = [
   "{{report_type}}",
   "{{report_start_time}}",
   "{{report_end_time}}",
+  "{{report_summary_display}}",
+  "{{report_detail_display}}",
+  "{{report_total_requests}}",
+  "{{report_success_count}}",
+  "{{report_sla_error_count}}",
+  "{{report_business_limited_count}}",
+  "{{report_sla}}",
+  "{{report_error_rate}}",
+  "{{report_upstream_error_rate}}",
+  "{{report_upstream_error_count_excl_429_529}}",
+  "{{report_upstream_429_count}}",
+  "{{report_upstream_529_count}}",
+  "{{report_latency_p50}}",
+  "{{report_latency_p99}}",
+  "{{report_ttft_p50}}",
+  "{{report_ttft_p99}}",
+  "{{report_tokens}}",
+  "{{report_qps_current}}",
+  "{{report_qps_peak}}",
+  "{{report_qps_avg}}",
+  "{{report_tps_current}}",
+  "{{report_tps_peak}}",
+  "{{report_tps_avg}}",
   "{{report_html}}",
 ];
 
@@ -289,7 +312,9 @@ const selectedEventDescription = computed(() => {
 });
 
 const placeholderList = computed(() => {
-  const combined = [...placeholders.value, ...fallbackPlaceholders];
+  const combined = placeholders.value.length
+    ? placeholders.value
+    : fallbackPlaceholders;
   return Array.from(
     new Set(
       combined

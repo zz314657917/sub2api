@@ -93,6 +93,20 @@ describe("EmailTemplateEditor", () => {
     );
   });
 
+  it("shows only the selected event placeholders when the template API provides them", async () => {
+    getEmailTemplates.mockResolvedValue({
+      events: [{ value: "auth.verify_code", label: "Verification code" }],
+      locales: ["en", "zh"],
+      placeholders: ["verification_code", "report_html"],
+    });
+
+    const wrapper = mount(EmailTemplateEditor);
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("{{verification_code}}");
+    expect(wrapper.text()).not.toContain("{{report_html}}");
+  });
+
   it("saves and previews the edited event/locale template", async () => {
     const wrapper = mount(EmailTemplateEditor);
     await flushPromises();
