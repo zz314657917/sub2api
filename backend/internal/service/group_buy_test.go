@@ -908,6 +908,9 @@ type groupBuyUserRepoStub struct {
 }
 
 func (s *groupBuyUserRepoStub) Create(context.Context, *User) error { panic("unexpected Create call") }
+func (s *groupBuyUserRepoStub) CreateWithEmailAliasGuard(context.Context, *User) error {
+	panic("unexpected CreateWithEmailAliasGuard call")
+}
 func (s *groupBuyUserRepoStub) GetByID(_ context.Context, id int64) (*User, error) {
 	if user := s.users[id]; user != nil {
 		cp := *user
@@ -966,6 +969,9 @@ func (s *groupBuyUserRepoStub) BatchAddConcurrency(context.Context, []int64, int
 }
 func (s *groupBuyUserRepoStub) ExistsByEmail(context.Context, string) (bool, error) {
 	panic("unexpected ExistsByEmail call")
+}
+func (s *groupBuyUserRepoStub) ExistsByEmailAlias(context.Context, string) (bool, error) {
+	panic("unexpected ExistsByEmailAlias call")
 }
 func (s *groupBuyUserRepoStub) RemoveGroupFromAllowedGroups(context.Context, int64) (int64, error) {
 	panic("unexpected RemoveGroupFromAllowedGroups call")

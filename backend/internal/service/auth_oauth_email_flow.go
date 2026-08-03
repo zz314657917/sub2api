@@ -128,7 +128,8 @@ func (s *AuthService) RegisterOAuthEmailAccount(
 		return nil, nil, err
 	}
 
-	existsEmail, err := s.userRepo.ExistsByEmail(ctx, email)
+	// 该路径同样发放注册赠额，必须使用与本地注册相同的收件箱查重口径。
+	existsEmail, err := s.existsByEmailOrAlias(ctx, email)
 	if err != nil {
 		return nil, nil, ErrServiceUnavailable
 	}
@@ -156,7 +157,7 @@ func (s *AuthService) RegisterOAuthEmailAccount(
 		LastLoginIP:  loginIPFromContext(ctx),
 	}
 
-	if err := s.userRepo.Create(ctx, user); err != nil {
+	if err := s.userRepo.CreateWithEmailAliasGuard(ctx, user); err != nil {
 		if errors.Is(err, ErrEmailExists) {
 			return nil, nil, ErrEmailExists
 		}
@@ -207,7 +208,8 @@ func (s *AuthService) RegisterVerifiedOAuthEmailAccount(
 		return nil, nil, err
 	}
 
-	existsEmail, err := s.userRepo.ExistsByEmail(ctx, email)
+	// 已验证 OAuth 邮箱建号仍会发放注册赠额，因此同样执行收件箱查重。
+	existsEmail, err := s.existsByEmailOrAlias(ctx, email)
 	if err != nil {
 		return nil, nil, ErrServiceUnavailable
 	}
@@ -239,7 +241,7 @@ func (s *AuthService) RegisterVerifiedOAuthEmailAccount(
 		LastLoginIP:  loginIPFromContext(ctx),
 	}
 
-	if err := s.userRepo.Create(ctx, user); err != nil {
+	if err := s.userRepo.CreateWithEmailAliasGuard(ctx, user); err != nil {
 		if errors.Is(err, ErrEmailExists) {
 			return nil, nil, ErrEmailExists
 		}

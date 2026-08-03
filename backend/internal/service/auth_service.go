@@ -231,8 +231,8 @@ func (s *AuthService) registerWithVerificationFromIP(ctx context.Context, email,
 		}
 	}
 
-	// 检查邮箱是否已存在
-	existsEmail, err := s.userRepo.ExistsByEmail(ctx, email)
+	// 检查邮箱是否已存在（包含 + 别名、Gmail 点号和根点变体）。
+	existsEmail, err := s.existsByEmailOrAlias(ctx, email)
 	if err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Database error checking email exists: %v", err)
 		return "", nil, ErrServiceUnavailable
@@ -268,7 +268,7 @@ func (s *AuthService) registerWithVerificationFromIP(ctx context.Context, email,
 		LastLoginIP:  strings.TrimSpace(registerIP),
 	}
 
-	if err := s.userRepo.Create(ctx, user); err != nil {
+	if err := s.userRepo.CreateWithEmailAliasGuard(ctx, user); err != nil {
 		// 优先检查邮箱冲突错误（竞态条件下可能发生）
 		if errors.Is(err, ErrEmailExists) {
 			return "", nil, ErrEmailExists
@@ -338,8 +338,8 @@ func (s *AuthService) SendVerifyCode(ctx context.Context, email string) error {
 		return err
 	}
 
-	// 检查邮箱是否已存在
-	existsEmail, err := s.userRepo.ExistsByEmail(ctx, email)
+	// 在发信前拦截同一收件箱的注册别名，避免消耗发信配额。
+	existsEmail, err := s.existsByEmailOrAlias(ctx, email)
 	if err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Database error checking email exists: %v", err)
 		return ErrServiceUnavailable
@@ -379,8 +379,8 @@ func (s *AuthService) SendVerifyCodeAsync(ctx context.Context, email string) (*S
 		return nil, err
 	}
 
-	// 检查邮箱是否已存在
-	existsEmail, err := s.userRepo.ExistsByEmail(ctx, email)
+	// 在排队前拦截同一收件箱的注册别名，避免批量脚本消耗发信配额。
+	existsEmail, err := s.existsByEmailOrAlias(ctx, email)
 	if err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Database error checking email exists: %v", err)
 		return nil, ErrServiceUnavailable
