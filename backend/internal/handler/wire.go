@@ -104,8 +104,10 @@ func ProvideSystemHandler(updateService *service.UpdateService, lockService *ser
 }
 
 // ProvideSettingHandler creates SettingHandler with version from BuildInfo
-func ProvideSettingHandler(settingService *service.SettingService, buildInfo BuildInfo) *SettingHandler {
-	return NewSettingHandler(settingService, buildInfo.Version)
+func ProvideSettingHandler(settingService *service.SettingService, buildInfo BuildInfo, notificationEmailService *service.NotificationEmailService) *SettingHandler {
+	h := NewSettingHandler(settingService, buildInfo.Version)
+	h.SetNotificationEmailService(notificationEmailService)
+	return h
 }
 
 func ProvideAdminSettingHandler(
@@ -117,9 +119,11 @@ func ProvideAdminSettingHandler(
 	paymentService *service.PaymentService,
 	totpService *service.TotpService,
 	userService *service.UserService,
+	notificationEmailService *service.NotificationEmailService,
 ) *admin.SettingHandler {
 	h := admin.NewSettingHandler(settingService, emailService, turnstileService, opsService, paymentConfigService, paymentService)
 	h.SetStepUpDeps(totpService, userService)
+	h.SetNotificationEmailService(notificationEmailService)
 	return h
 }
 

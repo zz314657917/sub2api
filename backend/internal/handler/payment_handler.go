@@ -315,6 +315,7 @@ func (h *PaymentHandler) CreateOrder(c *gin.Context) {
 		OrderType:         req.OrderType,
 		PlanID:            req.PlanID,
 		RechargePackageID: req.RechargePackageID,
+		Locale:            c.GetHeader("Accept-Language"),
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
