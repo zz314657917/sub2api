@@ -364,4 +364,9 @@ describe('console visual direction', () => {
       expect(source).not.toContain('text-emerald-600')
     }
   })
+
+  it('keeps the balance modal user identity readable in dark mode', () => {
+    expect(userBalanceModal).toContain('text-gray-900 dark:text-gray-100')
+    expect(userBalanceModal).toContain('text-gray-500 dark:text-gray-400')
+  })
 })
