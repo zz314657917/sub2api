@@ -2088,3 +2088,40 @@ func TestHandleAnthropicStreamingResponse_RateLimitReturns429FailoverBeforeOutpu
 	require.Equal(t, "5", failoverErr.ResponseHeaders.Get("Retry-After"))
 	require.False(t, c.Writer.Written())
 }
+
+func TestHandleAnthropicStreamingResponse_RateLimitAfterCreatedReturns429FailoverBeforeOutput(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	rec := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(rec)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Retry-After": []string{"7"}},
+		Body: io.NopCloser(strings.NewReader(
+			`data: {"type":"response.created","response":{"id":"resp_messages_created_rate","status":"in_progress"}}` + "\n\n" +
+				`data: {"type":"response.failed","response":{"id":"resp_messages_created_rate","status":"failed","error":{"code":"rate_limit_exceeded","message":"rate limited"}}}` + "\n\n",
+		)),
+	}
+	account := &Account{
+		ID:       1,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Credentials: map[string]any{
+			"pool_mode":                    true,
+			"pool_mode_retry_status_codes": []any{float64(http.StatusTooManyRequests)},
+		},
+	}
+	svc := &OpenAIGatewayService{cfg: &config.Config{}}
+
+	result, err := svc.handleAnthropicStreamingResponse(
+		resp, c, account, "claude-sonnet-4-5", "gpt-5.4", "gpt-5.4", time.Now(),
+	)
+	require.Error(t, err)
+	require.NotNil(t, result)
+	var failoverErr *UpstreamFailoverError
+	require.ErrorAs(t, err, &failoverErr)
+	require.Equal(t, http.StatusTooManyRequests, failoverErr.StatusCode)
+	require.True(t, failoverErr.RetryableOnSameAccount)
+	require.Equal(t, "7", failoverErr.ResponseHeaders.Get("Retry-After"))
+	require.False(t, c.Writer.Written(), "leading response.created must not commit before rate-limit failover")
+}

@@ -764,6 +764,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 	firstChunk := true
 	clientDisconnected := false
 	clientOutputStarted := false
+	var pendingEvents []apicompat.AnthropicStreamEvent
 	var streamFailoverErr error
 
 	scanner := bufio.NewScanner(resp.Body)
@@ -846,7 +847,17 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 
 		// Convert to Anthropic events
 		events := apicompat.ResponsesEventToAnthropicEvents(&event, state)
+		if eventType == "response.created" {
+			// Keep the synthetic message_start uncommitted until a real model
+			// event arrives. This preserves failover for a leading rate limit.
+			pendingEvents = append(pendingEvents, events...)
+			events = nil
+		}
 		if !clientDisconnected {
+			if len(events) > 0 && len(pendingEvents) > 0 {
+				events = append(pendingEvents, events...)
+				pendingEvents = nil
+			}
 			for _, evt := range events {
 				sse, err := apicompat.ResponsesAnthropicEventToSSE(evt)
 				if err != nil {
@@ -879,6 +890,10 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 			return resultWithUsage(), streamFailoverErr
 		}
 		if finalEvents := apicompat.FinalizeResponsesAnthropicStream(state); len(finalEvents) > 0 && !clientDisconnected {
+			if len(pendingEvents) > 0 {
+				finalEvents = append(pendingEvents, finalEvents...)
+				pendingEvents = nil
+			}
 			for _, evt := range finalEvents {
 				sse, err := apicompat.ResponsesAnthropicEventToSSE(evt)
 				if err != nil {
