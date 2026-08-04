@@ -69,6 +69,15 @@ func RegisterGatewayRoutes(
 			next(c)
 		}
 	}
+	// Codex CLI/App sends client_version when it expects the ChatGPT manifest
+	// envelope. Keep ordinary /models requests on the OpenAI-compatible list.
+	modelsHandler := func(c *gin.Context) {
+		if isOpenAIGatewayPlatform(c) && strings.TrimSpace(c.Query("client_version")) != "" {
+			h.OpenAIGateway.CodexModels(c)
+			return
+		}
+		h.Gateway.Models(c)
+	}
 
 	// API网关（Claude API兼容）
 	gateway := r.Group("/v1")
@@ -112,7 +121,7 @@ func RegisterGatewayRoutes(
 			}
 			h.Gateway.CountTokens(c)
 		})
-		gateway.GET("/models", h.Gateway.Models)
+		gateway.GET("/models", modelsHandler)
 		gateway.GET("/model-catalog", h.Gateway.ModelCatalog)
 		gateway.GET("/usage", h.Gateway.Usage)
 		gateway.POST("/live", h.OpenAIGateway.Live)
@@ -280,7 +289,11 @@ func RegisterGatewayRoutes(
 		codexDirect.POST("/responses", responsesHandler)
 		codexDirect.POST("/responses/*subpath", guardResponsesSubpath(responsesHandler))
 		codexDirect.GET("/responses", h.OpenAIGateway.ResponsesWebSocket)
+		codexDirect.GET("/models", h.OpenAIGateway.CodexModels)
 	}
+	// Root alias used by Codex custom providers. The embedded frontend only
+	// bypasses /models when client_version is present, preserving Model Plaza.
+	r.GET("/models", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, modelsHandler)
 	// OpenAI Chat Completions API（不带v1前缀的别名）— auto-route based on group platform
 	r.POST("/chat/completions", bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gatewayAuth, requireGroupAnthropic, func(c *gin.Context) {
 		if !resolveAPIKeyRouteForJSONModel(c, apiKeyService, "/v1/chat/completions", false) {

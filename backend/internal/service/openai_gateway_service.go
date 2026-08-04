@@ -391,6 +391,7 @@ type OpenAIGatewayService struct {
 	imageInputObjectStoreFactory        BackupObjectStoreFactory
 	imageInputObjectStoreMu             sync.Mutex
 	imageInputObjectStore               BackupObjectStore
+	codexModelsManifestCache            codexModelsManifestCache
 }
 
 // NewOpenAIGatewayService creates a new OpenAIGatewayService

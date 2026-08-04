@@ -88,7 +88,7 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 		path := c.Request.URL.Path
 
 		// Skip API routes
-		if shouldBypassEmbeddedFrontend(path) {
+		if shouldBypassEmbeddedFrontend(path) || isCodexModelsManifestRequest(c) {
 			c.Next()
 			return
 		}
@@ -257,7 +257,7 @@ func ServeEmbeddedFrontend() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		path := c.Request.URL.Path
 
-		if shouldBypassEmbeddedFrontend(path) {
+		if shouldBypassEmbeddedFrontend(path) || isCodexModelsManifestRequest(c) {
 			c.Next()
 			return
 		}
@@ -310,6 +310,12 @@ func shouldBypassEmbeddedFrontend(path string) bool {
 		strings.HasPrefix(trimmed, "/responses/") ||
 		strings.HasPrefix(trimmed, "/images/") ||
 		strings.HasPrefix(trimmed, "/midjourney/")
+}
+
+// /models is also the public Model Plaza page. Only a Codex manifest probe
+// carries client_version, so bypass the SPA middleware for that API shape.
+func isCodexModelsManifestRequest(c *gin.Context) bool {
+	return c != nil && c.Request != nil && c.Request.Method == http.MethodGet && c.Request.URL.Path == "/models" && strings.TrimSpace(c.Query("client_version")) != ""
 }
 
 func serveIndexHTML(c *gin.Context, fsys fs.FS) {
