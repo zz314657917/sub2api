@@ -893,6 +893,48 @@ func (s *SettingService) SetProxyRepository(repo ProxyRepository) {
 	s.proxyRepo = repo
 }
 
+// LoadForwardedClientIPSettings loads the persisted security-IP settings into
+// the config runtime snapshot. Missing values fall back to the file config;
+// malformed persisted headers fail closed and are never auto-enabled.
+func (s *SettingService) LoadForwardedClientIPSettings(ctx context.Context) error {
+	if s == nil || s.cfg == nil || s.settingRepo == nil {
+		return nil
+	}
+
+	values, err := s.settingRepo.GetMultiple(ctx, []string{
+		SettingKeyAPIKeyACLTrustForwardedIP,
+		SettingKeyForwardedClientIPHeaders,
+	})
+	if err != nil {
+		s.cfg.SetForwardedClientIPSettings(false, nil)
+		return fmt.Errorf("get forwarded client ip settings: %w", err)
+	}
+
+	runtimeSettings := s.cfg.ForwardedClientIPSettings()
+	enabled := runtimeSettings.TrustForwardedIP
+	headers := append([]string{}, runtimeSettings.Headers...)
+	if value, ok := values[SettingKeyAPIKeyACLTrustForwardedIP]; ok {
+		enabled = strings.TrimSpace(value) == "true"
+	}
+	if value, ok := values[SettingKeyForwardedClientIPHeaders]; ok {
+		parsed, parseErr := parseForwardedClientIPHeadersSetting(value)
+		if parseErr != nil {
+			s.cfg.SetForwardedClientIPSettings(false, nil)
+			return fmt.Errorf("load forwarded client ip headers: %w", parseErr)
+		}
+		headers = parsed
+	}
+
+	s.cfg.SetForwardedClientIPSettings(enabled, headers)
+	return nil
+}
+
+// LoadAPIKeyACLTrustForwardedIPSetting retains the historical entry point for
+// callers while loading both the toggle and its custom header list.
+func (s *SettingService) LoadAPIKeyACLTrustForwardedIPSetting(ctx context.Context) error {
+	return s.LoadForwardedClientIPSettings(ctx)
+}
+
 // GetAllSettings 获取所有系统设置
 func (s *SettingService) GetAllSettings(ctx context.Context) (*SystemSettings, error) {
 	settings, err := s.settingRepo.GetAll(ctx)
@@ -1864,6 +1906,11 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		normalizedWhitelist = []string{}
 	}
 	settings.RegistrationEmailSuffixWhitelist = normalizedWhitelist
+	normalizedForwardedClientIPHeaders, err := config.NormalizeForwardedClientIPHeaders(settings.ForwardedClientIPHeaders)
+	if err != nil {
+		return nil, infraerrors.BadRequest("INVALID_FORWARDED_CLIENT_IP_HEADERS", err.Error())
+	}
+	settings.ForwardedClientIPHeaders = normalizedForwardedClientIPHeaders
 	alipaySource, err := normalizeVisibleMethodSettingSource("alipay", settings.PaymentVisibleMethodAlipaySource, settings.PaymentVisibleMethodAlipayEnabled)
 	if err != nil {
 		return nil, err
@@ -1961,6 +2008,12 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	if settings.TurnstileSecretKey != "" {
 		updates[SettingKeyTurnstileSecretKey] = settings.TurnstileSecretKey
 	}
+	updates[SettingKeyAPIKeyACLTrustForwardedIP] = strconv.FormatBool(settings.APIKeyACLTrustForwardedIP)
+	forwardedClientIPHeadersJSON, err := json.Marshal(settings.ForwardedClientIPHeaders)
+	if err != nil {
+		return nil, fmt.Errorf("marshal forwarded client IP headers: %w", err)
+	}
+	updates[SettingKeyForwardedClientIPHeaders] = string(forwardedClientIPHeadersJSON)
 
 	// LinuxDo Connect OAuth 登录
 	updates[SettingKeyLinuxDoConnectEnabled] = strconv.FormatBool(settings.LinuxDoConnectEnabled)
@@ -2392,6 +2445,9 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 			settings:  cached.settings,
 			expiresAt: 0,
 		})
+	}
+	if s.cfg != nil {
+		s.cfg.SetForwardedClientIPSettings(settings.APIKeyACLTrustForwardedIP, settings.ForwardedClientIPHeaders)
 	}
 	if s.onUpdate != nil {
 		s.onUpdate() // Invalidate cache after settings update
@@ -3206,6 +3262,19 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	forwardedClientIPTrust := false
+	forwardedClientIPHeaders := []string{}
+	if s != nil && s.cfg != nil {
+		runtimeSettings := s.cfg.ForwardedClientIPSettings()
+		if normalized, normalizeErr := config.NormalizeForwardedClientIPHeaders(runtimeSettings.Headers); normalizeErr == nil {
+			forwardedClientIPTrust = runtimeSettings.TrustForwardedIP
+			forwardedClientIPHeaders = normalized
+		}
+	}
+	forwardedClientIPHeadersJSON, err := json.Marshal(forwardedClientIPHeaders)
+	if err != nil {
+		return fmt.Errorf("marshal default forwarded client IP headers: %w", err)
+	}
 
 	// 初始化默认设置
 	registrationRiskDefaults := s.baseRegistrationRiskLimitConfig()
@@ -3224,6 +3293,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyLoginAgreementMode:                       defaultLoginAgreementMode,
 		SettingKeyLoginAgreementUpdatedAt:                  defaultLoginAgreementDate,
 		SettingKeyLoginAgreementDocuments:                  loginAgreementDocumentsJSON,
+		SettingKeyAPIKeyACLTrustForwardedIP:                strconv.FormatBool(forwardedClientIPTrust),
+		SettingKeyForwardedClientIPHeaders:                 string(forwardedClientIPHeadersJSON),
 		SettingKeySiteName:                                 "Sub2API",
 		SettingKeySiteLogo:                                 "",
 		SettingKeyHomeHeroTitleTop:                         "",
@@ -3454,6 +3525,21 @@ func (s *SettingService) repairLocalStudioBridgeDefaults(ctx context.Context) er
 	return nil
 }
 
+func parseForwardedClientIPHeadersSetting(value string) ([]string, error) {
+	var headers []string
+	if err := json.Unmarshal([]byte(value), &headers); err != nil {
+		return nil, fmt.Errorf("parse forwarded_client_ip_headers: %w", err)
+	}
+	if headers == nil {
+		return nil, fmt.Errorf("parse forwarded_client_ip_headers: value must be a JSON array")
+	}
+	normalized, err := config.NormalizeForwardedClientIPHeaders(headers)
+	if err != nil {
+		return nil, fmt.Errorf("parse forwarded_client_ip_headers: %w", err)
+	}
+	return normalized, nil
+}
+
 // parseSettings 解析设置到结构体
 func (s *SettingService) parseSettings(settings map[string]string) *SystemSettings {
 	emailVerifyEnabled := settings[SettingKeyEmailVerifyEnabled] == "true"
@@ -3461,6 +3547,27 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	loginAgreementUpdatedAt := strings.TrimSpace(settings[SettingKeyLoginAgreementUpdatedAt])
 	if loginAgreementUpdatedAt == "" {
 		loginAgreementUpdatedAt = defaultLoginAgreementDate
+	}
+	forwardedClientIPTrust := false
+	forwardedClientIPHeaders := []string{}
+	if s != nil && s.cfg != nil {
+		runtimeSettings := s.cfg.ForwardedClientIPSettings()
+		forwardedClientIPTrust = runtimeSettings.TrustForwardedIP
+		forwardedClientIPHeaders = append(forwardedClientIPHeaders, runtimeSettings.Headers...)
+	}
+	if value, ok := settings[SettingKeyAPIKeyACLTrustForwardedIP]; ok {
+		forwardedClientIPTrust = strings.TrimSpace(value) == "true"
+	}
+	if value, ok := settings[SettingKeyForwardedClientIPHeaders]; ok {
+		parsed, err := parseForwardedClientIPHeadersSetting(value)
+		if err != nil {
+			// A malformed persisted source must never re-enable raw forwarded trust.
+			slog.Warn("invalid persisted forwarded client IP headers; disabling forwarded trust", "error", err)
+			forwardedClientIPTrust = false
+			forwardedClientIPHeaders = []string{}
+		} else {
+			forwardedClientIPHeaders = parsed
+		}
 	}
 	registrationRiskCfg := registrationRiskLimitConfigFromSettings(settings, s.baseRegistrationRiskLimitConfig())
 	result := &SystemSettings{
@@ -3494,6 +3601,8 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		TurnstileEnabled:                 settings[SettingKeyTurnstileEnabled] == "true",
 		TurnstileSiteKey:                 settings[SettingKeyTurnstileSiteKey],
 		TurnstileSecretKeyConfigured:     settings[SettingKeyTurnstileSecretKey] != "",
+		APIKeyACLTrustForwardedIP:        forwardedClientIPTrust,
+		ForwardedClientIPHeaders:         forwardedClientIPHeaders,
 		SiteName:                         s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
 		SiteLogo:                         settings[SettingKeySiteLogo],
 		SiteSubtitle:                     s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),

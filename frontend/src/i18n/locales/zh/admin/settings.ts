@@ -261,6 +261,20 @@ export default {
         secretKeyHint: '服务端验证密钥（请保密）',
         secretKeyConfiguredHint: '密钥已配置，留空以保留当前值。'
       },
+      apiKeyAcl: {
+        title: 'API Key 客户端 IP 访问控制',
+        description: '控制 API Key 白/黑名单、操作审计日志与会话 IP/UA 绑定使用哪个客户端 IP 判断',
+        trustForwardedIp: '信任反代传递的客户端 IP',
+        trustForwardedIpHint: '默认关闭。仅当源站只能通过你控制的可信反向代理访问时开启；开启后才会按配置的转发请求头解析 API Key ACL、操作审计和会话绑定使用的客户端 IP，否则严格使用可信代理链。',
+        forwardedClientIpHeaders: '客户端 IP 转发请求头',
+        forwardedClientIpHeadersHint: '开启信任后按顺序检查这些 HTTP 请求头。名称会自动规范化并去重，最多配置 16 个合法请求头。',
+        forwardedClientIpHeadersPlaceholder: '例如：CF-Connecting-IP、X-Real-IP',
+        forwardedClientIpHeadersRiskHint: '只填写由你控制的反向代理写入的请求头。不要对直连客户端开启，否则客户端可以伪造这些值。',
+        removeForwardedClientIpHeader: '移除 {header}',
+        forwardedClientIpHeaderInvalid: '请输入合法的 HTTP 请求头名称。',
+        forwardedClientIpHeaderDuplicate: '该客户端 IP 转发请求头已在列表中。',
+        forwardedClientIpHeadersLimit: '最多只能配置 {max} 个客户端 IP 转发请求头。'
+      },
       linuxdo: {
         title: 'LinuxDo Connect 登录',
         description: '配置 LinuxDo Connect OAuth，用于 Sub2API 用户登录',

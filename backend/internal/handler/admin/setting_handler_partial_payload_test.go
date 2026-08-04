@@ -92,6 +92,68 @@ func TestUpdateSettingsSMTPFromAliasIsWritable(t *testing.T) {
 	require.Equal(t, "Example Gateway", repo.values[service.SettingKeySiteName])
 }
 
+func TestUpdateSettingsForwardedClientIPFieldsArePersistedAndReturned(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, repo := newPartialPayloadSettingsHandler(map[string]string{
+		service.SettingKeyAPIKeyACLTrustForwardedIP: "false",
+		service.SettingKeyForwardedClientIPHeaders:  `["X-Existing-IP"]`,
+		service.SettingKeySiteName:                  "Example Gateway",
+	})
+
+	rec := updateSettingsPayload(t, handler, map[string]any{
+		"api_key_acl_trust_forwarded_ip": true,
+		"forwarded_client_ip_headers":    []string{" x-cdn-ip ", "X-CDN-IP", "true-client-ip"},
+	})
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "true", repo.values[service.SettingKeyAPIKeyACLTrustForwardedIP])
+	require.Equal(t, `["X-Cdn-Ip","True-Client-Ip"]`, repo.values[service.SettingKeyForwardedClientIPHeaders])
+
+	var envelope struct {
+		Data map[string]any `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &envelope))
+	require.Equal(t, true, envelope.Data["api_key_acl_trust_forwarded_ip"])
+	require.Equal(t, []any{"X-Cdn-Ip", "True-Client-Ip"}, envelope.Data["forwarded_client_ip_headers"])
+}
+
+func TestUpdateSettingsForwardedClientIPFieldsPreserveOmissionAndAllowExplicitClear(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, repo := newPartialPayloadSettingsHandler(map[string]string{
+		service.SettingKeyAPIKeyACLTrustForwardedIP: "true",
+		service.SettingKeyForwardedClientIPHeaders:  `["X-Existing-IP"]`,
+		service.SettingKeySiteName:                  "Example Gateway",
+	})
+
+	rec := updateSettingsPayload(t, handler, map[string]any{"site_name": "Updated Gateway"})
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "true", repo.values[service.SettingKeyAPIKeyACLTrustForwardedIP])
+	require.Equal(t, `["X-Existing-Ip"]`, repo.values[service.SettingKeyForwardedClientIPHeaders])
+
+	rec = updateSettingsPayload(t, handler, map[string]any{
+		"forwarded_client_ip_headers": []string{},
+	})
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "[]", repo.values[service.SettingKeyForwardedClientIPHeaders])
+}
+
+func TestUpdateSettingsRejectsInvalidForwardedClientIPHeader(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	handler, repo := newPartialPayloadSettingsHandler(map[string]string{
+		service.SettingKeyAPIKeyACLTrustForwardedIP: "false",
+		service.SettingKeyForwardedClientIPHeaders:  `["X-Existing-IP"]`,
+		service.SettingKeySiteName:                  "Example Gateway",
+	})
+
+	rec := updateSettingsPayload(t, handler, map[string]any{
+		"forwarded_client_ip_headers": []string{"X Invalid"},
+	})
+
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, "false", repo.values[service.SettingKeyAPIKeyACLTrustForwardedIP])
+	require.Equal(t, `["X-Existing-IP"]`, repo.values[service.SettingKeyForwardedClientIPHeaders])
+}
+
 func TestOmittedSettingKeysTracksValueFieldsAndAliases(t *testing.T) {
 	omitted := omittedSettingKeys(map[string]json.RawMessage{
 		"smtp_from_email":                     json.RawMessage(`"new@example.com"`),

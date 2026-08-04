@@ -796,8 +796,60 @@ func TestOpenAIGatewayService_OpenAIPassthrough_Capacity400RetriesBeforeFailover
 			require.Equal(t, http.StatusBadRequest, failoverErr.StatusCode)
 			require.True(t, failoverErr.RetryableOnSameAccount)
 			require.Equal(t, 5, failoverErr.SameAccountRetryLimit)
+			require.Zero(t, failoverErr.SameAccountRetryBackoffBase)
 			require.Contains(t, string(failoverErr.ResponseBody), "Selected model is at capacity")
 			require.False(t, c.Writer.Written(), "capacity passthrough should return failover before writing the client response")
+			require.Empty(t, rec.Body.String())
+		})
+	}
+}
+
+func TestOpenAIGatewayService_OpenAIPassthrough_ServerOverloadedRetriesBeforeFailover(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	originalBody := []byte(`{"model":"gpt-5.2","stream":false,"instructions":"local-test-instructions","input":[{"type":"text","text":"hi"}]}`)
+
+	for _, accountType := range []string{AccountTypeOAuth, AccountTypeAPIKey} {
+		t.Run(accountType, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(rec)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(nil))
+			c.Request.Header.Set("User-Agent", "codex_cli_rs/0.1.0")
+
+			upstream := &httpUpstreamRecorder{resp: &http.Response{
+				StatusCode: http.StatusServiceUnavailable,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"Our servers are currently overloaded","code":"server_is_overloaded"}}`)),
+			}}
+			svc := &OpenAIGatewayService{
+				cfg:          &config.Config{Gateway: config.GatewayConfig{ForceCodexCLI: false}},
+				httpUpstream: upstream,
+			}
+			account := &Account{
+				ID:             123,
+				Name:           "overload passthrough",
+				Platform:       PlatformOpenAI,
+				Type:           accountType,
+				Concurrency:    1,
+				Extra:          map[string]any{"openai_passthrough": true},
+				Status:         StatusActive,
+				Schedulable:    true,
+				RateMultiplier: f64p(1),
+			}
+			if accountType == AccountTypeOAuth {
+				account.Credentials = map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"}
+			} else {
+				account.Credentials = map[string]any{"api_key": "sk-test"}
+			}
+
+			_, err := svc.Forward(context.Background(), c, account, originalBody)
+			require.Error(t, err)
+			var failoverErr *UpstreamFailoverError
+			require.ErrorAs(t, err, &failoverErr)
+			require.Equal(t, http.StatusServiceUnavailable, failoverErr.StatusCode)
+			require.True(t, failoverErr.RetryableOnSameAccount)
+			require.Equal(t, 3, failoverErr.SameAccountRetryLimit)
+			require.Equal(t, time.Second, failoverErr.SameAccountRetryBackoffBase)
+			require.False(t, c.Writer.Written(), "overload passthrough should return failover before writing the client response")
 			require.Empty(t, rec.Body.String())
 		})
 	}
@@ -927,6 +979,7 @@ func TestOpenAIGatewayService_OpenAIPassthrough_429And529TriggerFailover(t *test
 			require.Equal(t, tc.statusCode, failoverErr.StatusCode)
 			require.False(t, failoverErr.RetryableOnSameAccount, "existing passthrough 429/529 failover should not gain capacity-only same-account retries")
 			require.Zero(t, failoverErr.SameAccountRetryLimit, "existing passthrough 429/529 failover must retain the handler fallback retry limit")
+			require.Zero(t, failoverErr.SameAccountRetryBackoffBase, "generic passthrough 429/529 must not gain overload backoff")
 			require.False(t, c.Writer.Written(), "429/529 passthrough 应返回 failover 错误给上层换号，而不是直接向客户端写响应")
 
 			v, ok := c.Get(OpsUpstreamErrorsKey)

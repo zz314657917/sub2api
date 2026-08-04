@@ -2,9 +2,117 @@
 repo: sub2api
 project_type: web
 qa_mode: runtime
-last_verified: 2026-07-31 01:11 +08:00
+last_verified: 2026-08-03 01:18 +08:00
 ---
 
+## S142 Addendum: Prompt Audit/Qwen3Guard selective port
+
+### Goal
+
+- Adapt the upstream Prompt Audit behavior to the published local baseline,
+  including administrator controls, gateway hooks, Qwen3Guard execution, safe
+  off/async/blocking modes, and complete Chinese/English UI text.
+
+### Scope Boundary
+
+- Keep the change isolated to the Prompt Audit handlers, securityaudit package,
+  required gateway seams, admin routes, frontend feature, locales, and local
+  migrations `201`/`202`.
+- Preserve the existing management audit actions and body-omission rules. Do
+  not persist raw prompts, Guard credentials, cookies, bearer/API keys, or full
+  request bodies. The `202.full_prompt` column is compatibility-only and stores
+  bounded redacted text.
+- Blocking mode fails closed when configuration is unavailable or stale; off
+  and async modes preserve existing request behavior. SSRF and probe-token
+  isolation are mandatory.
+- Exclude Passkey/WebAuthn, deployment/dependencies, billing, SMTP, proxy
+  circuit, unrelated release changes, primary-worktree edits, and publication.
+
+### Acceptance Boundary
+
+- Focused backend securityaudit/handler/route/middleware regressions, compile,
+  frontend feature tests, typecheck/build, migration ordering/content,
+  redaction canaries, conflict/index/path gates pass.
+- No external Guard/provider, authenticated production browser, deployment,
+  container, production migration, commit, merge, or push is performed.
+
+## S141 Addendum: audit log display localization
+
+### Goal
+
+- Localize administrator audit-log roles, authentication methods, fixed action
+  names, and known action segments while preserving raw operational identifiers.
+
+### Scope Boundary
+
+- Change only `AuditLogView` display helpers, its Chinese/English audit locale
+  messages, focused locale/component regressions, and workflow evidence.
+- Do not change audit storage, backend action generation, API contracts,
+  filtering semantics, database migrations, deployment, or containers.
+
+### Acceptance Boundary
+
+- Known values render localized labels in both locales; unknown values safely
+  fall back to their raw identifiers. Exact dotted action names must not be
+  misread as Vue I18n paths or collide with unknown underscore identifiers.
+- Focused tests, typecheck, changed-file lint, production build, locale/action
+  coverage, and Git integrity/path gates pass.
+
+## S140 Addendum: client IP trust-chain alignment
+
+### Goal
+
+- Adapt the upstream forwarded-client-IP behavior to the local security seams:
+  explicit trusted proxies, an opt-in raw-header compatibility mode, immutable
+  request snapshots, API-key ACL parity, audit/session binding, existing settings
+  persistence, and the administrator settings UI.
+
+### Scope Boundary
+
+- Raw forwarded-header trust remains disabled by default and is never enabled by
+  an implicit legacy migration. Explicit empty or absent `server.trusted_proxies`
+  remains fail-closed.
+- Custom header names are validated, canonicalized, deduplicated, and capped at
+  16 entries. The request snapshot is the only source used by security consumers.
+- Passkey, prompt-audit, ingress-reject redesign, schema/migration, deployment,
+  container, and primary-worktree publication work are excluded.
+
+### Acceptance Boundary
+
+- Focused backend tests prove forged-header rejection, explicit proxy/custom-header
+  behavior, snapshot stability, ordinary/Google API-key ACL parity, and shared
+  audit/session IP semantics. Frontend settings regressions, typecheck/build,
+  diff/path/integrity checks must also pass.
+
+## S135 Addendum: OpenAI overload retry with linear backoff
+
+### Goal
+
+- Retry narrowly identified OpenAI server overload failures three times on the
+  same account with 1s, 2s, and 3s delays before existing account failover.
+
+### Scope Boundary
+
+- Recognize only `server_is_overloaded`, `slow_down`, or the exact
+  `Our servers are currently overloaded` phrase.
+- Carry an overload-specific retry limit and linear backoff through existing
+  failover metadata across normal, passthrough, and pre-output stream paths.
+- Apply the same metadata to existing OpenAI compatibility/fallback
+  constructors for Chat Completions, Messages, Responses fallback, and Images
+  so endpoint adaptation does not change retry timing. Embeddings and Videos
+  remain on their existing capacity-only behavior until a pinned-account retry
+  seam is available.
+- Preserve capacity at five fixed 500ms retries and preserve generic pool retry
+  settings for every other error.
+- Do not change schema, configuration, scheduler, persistence, frontend,
+  deployment, containers, or the unrelated primary S134 worktree.
+
+### Acceptance Boundary
+
+- Positive and negative service regressions cover all OpenAI response modes;
+  handler tests prove 1s/2s/3s delay calculation and switch-after-third logic.
+- Focused service/handler tests, repository compilation, formatting, diff,
+  conflict-marker, and allowed-path gates pass.
 ## S138 Addendum: hide empty user subscription panel
 
 ### Goal
@@ -1279,3 +1387,34 @@ list response.
 - Existing `unit` API-contract assertions and the `integration` repository
   package are stale outside S133, so no claim is made for those broad suites or
   for a real PostgreSQL migration/runtime transaction.
+
+# S135 Addendum: v0.1.169 behavior-level wide integration
+
+## Goal
+
+Integrate the user-approved direct `v0.1.169` behavior slices and only their
+required prerequisites without importing the release-wide upstream history.
+
+## Scope Boundary
+
+- Complete Passkey/WebAuthn, Prompt Audit/Qwen3Guard, and OpenAI proxy stream
+  circuit isolation against the local handler, scheduler, repository, and UI
+  topology.
+- Adapt the approved count-tokens, SMTP, Available Channels, cleanup logging,
+  Compose hardening, Claude validator, OAuth refresh scheduling, billing/test,
+  pricing, and packaged-resource changes where local behavior is missing.
+- Use migrations `200`, `201`, and `202`; keep the existing `199` migration
+  untouched.
+- Preserve blocking-only fail-closed Prompt Audit semantics and avoid storing
+  raw prompts or Guard credentials in PostgreSQL.
+- Do not merge the tag, publish, deploy, rebuild containers, run production
+  migrations, or overwrite the primary worktree.
+
+## Acceptance Boundary
+
+- Focused behavior regressions, backend compile/build, frontend test/typecheck/
+  build, migration and Git integrity checks, Compose hardening checks, and
+  packaged-resource checks must pass without new failures.
+- Browser and fake-Guard runtime checks are required only when the local
+  runtime prerequisites can be exercised without deployment or external-state
+  mutation; otherwise they remain explicitly unverified.

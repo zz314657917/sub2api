@@ -1,14 +1,90 @@
 ---
 phase: done
-current_sprint: hide-empty-subscriptions-s138
-total_sprints: 138
-pending_action: Await explicit authorization to integrate, push, or refresh the local container
+current_sprint: prompt-audit-s142
+total_sprints: 142
+pending_action: optional authenticated browser smoke after deployment; publication is complete, runtime/provider/deployment validation remains separate
 project_type: web
 qa_mode: runtime
 approval_required: false
-last_verified: 2026-08-01 16:47 +08:00
+last_verified: 2026-08-03 03:39 +08:00
 ---
 
+# Prompt Audit S142
+
+- Contract: `docs/workflow/tasks/prompt-audit-s142.md`.
+- Contract review: `APPROVED` for the isolated Prompt Audit/Qwen3Guard slice:
+  administrator API/UI, gateway entry-point hooks, off/async/blocking modes,
+  fail-closed blocking semantics, redacted-only persistence, and migrations
+  `201`/`202` after the existing `200` chain.
+- Passkey, deployment, dependency, billing, proxy-circuit, unrelated release
+  fixes, primary-worktree changes, merge, push, and runtime/provider state are
+  denied. `202.full_prompt` is a compatibility column; runtime writes remain
+  redacted and bounded.
+- Implementation and focused QA are complete in
+  `E:/codex-worktrees/sub2api/prompt-audit-s142`; worker result and QA report are
+  `docs/workflow/worker-results/prompt-audit-s142-result.md` and
+  `docs/workflow/qa-reports/prompt-audit-s142-qa.md`.
+- Source/build gates pass. PostgreSQL/Redis/Guard/browser/runtime and deployment
+  remain unverified. The clean publication merge is `ba06dde55`, pushed to
+  `origin/main`; local HEAD, tracking ref, and remote ref now agree.
+
+# Audit Log Display I18n S141
+
+- `AuditLogView` now localizes displayed roles, authentication methods, known
+  audit actions, and known action segments in Chinese and English without
+  mutating audit storage, API values, or the action filter query.
+- Exact dotted action identifiers are read from the existing locale object by
+  raw key; unknown role/auth/action values remain visible and raw metadata is
+  retained in titles for operator tracing.
+- Focused locale/component tests, typecheck, changed-file ESLint, production
+  build, exact-action coverage, diff, conflict, unmerged-index, and allowlist
+  gates pass. This is source-level plus production-build QA only.
+- Feature commit `e22566154` was pushed to
+  `origin/codex/audit-log-i18n-s141` and merged into this clean publication
+  worktree as `226802701`; `origin/main` is fast-forwarded by this receipt.
+- No backend, database, deployment, container, or real authenticated browser
+  smoke was performed.
+
+# Client IP Trust Chain S140
+
+- Contract `docs/workflow/tasks/client-ip-trust-s140.md` is approved in the
+  isolated worktree `E:/codex-worktrees/sub2api/client-ip-trust-s140`.
+- Scope is limited to explicit trusted-proxy/raw-forwarded-IP policy, request
+  snapshots, API-key ACL parity, audit/session binding, existing settings
+  persistence, and the administrator settings UI.
+- Security default is raw forwarded-header trust disabled. The upstream legacy
+  migration that silently enables it is excluded.
+- Focused QA is PASS/source-level plus production build. The implementation,
+  operator docs, and Chinese/English settings UI are merged into remote `main`;
+  no deployment, container refresh, migration, or production setting change is
+  included. Runtime proxy/deployment validation remains a separate boundary.
+
+# S135 Current Sprint
+
+- OpenAI overload failures now receive a narrow same-account retry policy:
+  `server_is_overloaded`, `slow_down`, and the exact `Our servers are currently
+  overloaded` sentence retry three times with 1s/2s/3s linear delays.
+- The policy is carried through normal HTTP, passthrough HTTP, standard
+  pre-output SSE, and passthrough pre-output SSE failover metadata. Responses,
+  Messages, Chat Completions, and Images consume the per-error delay while
+  retaining the existing account retry-limit fallback.
+- `Selected model is at capacity` remains five retries with the established
+  fixed 500ms default; generic overloaded text, ordinary transient responses,
+  and generic passthrough 429/529 do not gain the overload policy.
+- A follow-up review found that Embeddings and Videos did not have a pinned
+  same-account retry seam; their temporary S135 extension was withdrawn rather
+  than claiming that an outer scheduler retry guarantees account identity.
+- Final QA: `PASS / published`. Fresh focused service/handler regressions, full
+  Go compile probe, formatting, diff, conflict-marker, unmerged-index, and
+  narrowed allowlist gates pass. The existing Responses, Messages, Chat
+  Completions, and Images policy is covered; Embeddings/Videos remain deferred.
+- Contract: `docs/workflow/tasks/openai-overload-retry-s135.md`.
+- QA report: `docs/workflow/qa-reports/openai-overload-retry-s135-qa.md`.
+- Feature commit `84915599b` was pushed to
+  `origin/codex/openai-overload-retry-s135`. A clean publication worktree based
+  on `origin/main@1c1021133` integrated it as `3ef7f36de` and fast-forwarded
+  `origin/main`; the fetched local/tracking refs matched before this receipt.
+- No live provider, deployment, or container refresh was performed.
 # S138 Current Sprint
 
 - Hide the user Usage page's subscription panel after the active-subscription request resolves to an empty list.
@@ -17,7 +93,7 @@ last_verified: 2026-08-01 16:47 +08:00
 - Contract review: approved as a direct small-fix path with no worker; backend, routing, billing, deployment, and container behavior are excluded.
 - Implementation: the panel now remains mounted only while loading or when active subscriptions exist; focused regression coverage includes the loading-to-empty transition.
 - QA: `PASS / source-level + production-build`; 26/26 focused Vitest, typecheck, ESLint, 1109-module build, diff, conflict-marker, unmerged-index, and allowed-path gates passed.
-- Publication: S138 is committed in the isolated worktree; no primary merge, push, deployment, or container refresh was performed.
+- Publication: S138 is included in local main and the published `origin/main` chain; no deployment, container refresh, or production migration was performed.
 
 # S137 Current Sprint
 

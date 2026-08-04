@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { createI18n } from 'vue-i18n'
 
 import en from '../locales/en'
 import zh from '../locales/zh'
@@ -17,5 +18,33 @@ describe('audit log locales', () => {
   it('does not add a duplicate audit namespace', () => {
     expect(zh.admin.audit).not.toHaveProperty('audit')
     expect(en.admin.audit).not.toHaveProperty('audit')
+  })
+
+  it('keeps display labels for audit roles, auth methods, and known actions', () => {
+    expect(zh.admin.audit.roles.admin).toBe('管理员')
+    expect(zh.admin.audit.authMethods.adminApiKey).toBe('管理员 API Key')
+    expect(zh.admin.audit.actions['auth.login']).toBe('登录')
+    expect(zh.admin.audit.actions['admin.accounts.export']).toBe('导出账号')
+    expect(zh.admin.audit.actionParts.delete).toBe('删除')
+
+    expect(en.admin.audit.roles.admin).toBe('Administrator')
+    expect(en.admin.audit.authMethods.adminApiKey).toBe('Admin API Key')
+    expect(en.admin.audit.actions['auth.login']).toBe('Login')
+    expect(en.admin.audit.actions['admin.accounts.export']).toBe('Export accounts')
+    expect(en.admin.audit.actionParts.delete).toBe('Delete')
+  })
+
+  it('keeps exact actions addressable by their raw dotted values', () => {
+    expect('auth.login' in zh.admin.audit.actions).toBe(true)
+    expect('auth.login' in en.admin.audit.actions).toBe(true)
+
+    const i18n = createI18n({
+      legacy: false,
+      locale: 'zh',
+      messages: { zh }
+    })
+    const actions = i18n.global.tm('admin.audit.actions') as Record<string, unknown>
+    expect(actions['auth.login']).toBe('登录')
+    expect(actions['auth_login']).toBeUndefined()
   })
 })

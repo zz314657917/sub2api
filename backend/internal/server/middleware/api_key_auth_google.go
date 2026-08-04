@@ -2,10 +2,12 @@ package middleware
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/googleapi"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -53,6 +55,22 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 		if !apiKey.User.IsActive() {
 			abortWithGoogleError(c, 401, "User account is not active")
 			return
+		}
+
+		// Keep Gemini native API-key authentication aligned with the primary
+		// API-key path so a native endpoint cannot bypass IP ACLs.
+		if len(apiKey.IPWhitelist) > 0 || len(apiKey.IPBlacklist) > 0 {
+			forwardedIPSettings := cfg.ForwardedClientIPSettings()
+			clientIP := ip.GetSecurityClientIPWithHeaders(c, forwardedIPSettings.TrustForwardedIP, forwardedIPSettings.Headers)
+			allowed, _ := ip.CheckIPRestrictionWithCompiledRules(clientIP, apiKey.CompiledIPWhitelist, apiKey.CompiledIPBlacklist)
+			if !allowed {
+				if clientIP == "" {
+					clientIP = "unknown"
+				}
+				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonIPRestriction)
+				abortWithGoogleError(c, 403, fmt.Sprintf("Access denied. Your IP is %s", clientIP))
+				return
+			}
 		}
 		apiKey = resolveAPIKeyForRequest(c, apiKeyService, apiKey)
 		if _, message, ok := validateAPIKeyGroupAvailable(apiKey); !ok {
