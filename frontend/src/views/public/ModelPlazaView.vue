@@ -9,6 +9,7 @@
           <span class="model-title-kicker">Pricing Center</span>
           <h1>模型定价</h1>
           <p>公开展示推理、图像和视频模型价格。实际扣费以控制台使用记录为准。</p>
+          <p v-if="catalog.description" class="model-plaza-description">{{ catalog.description }}</p>
         </div>
         <div class="model-hero-actions">
           <RouterLink class="model-tutorial-link" to="/tutorial/getting-started">
@@ -812,6 +813,10 @@ onBeforeUnmount(() => {
   color: var(--public-muted);
   font-size: 0.86rem;
   font-weight: 350;
+}
+
+.model-plaza-description {
+  white-space: pre-line;
 }
 
 .model-hero-actions {

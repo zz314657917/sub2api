@@ -395,6 +395,12 @@ const (
 	// sidebar entry is hidden. Defaults to false (opt-in feature).
 	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
 
+	// Model Plaza controls the local /models model-market page. It is disabled
+	// by default, and its public visibility is explicitly administrator-owned.
+	SettingKeyModelPlazaEnabled     = "model_plaza_enabled"
+	SettingKeyModelPlazaRequireAuth = "model_plaza_require_auth"
+	SettingKeyModelPlazaDescription = "model_plaza_description"
+
 	// Leaderboard daily reward settings. Defaults are disabled with zero threshold/rewards.
 	SettingKeyLeaderboardDailyRewardMode                 = "leaderboard_daily_reward_mode"
 	SettingKeyLeaderboardDailyRewardRedPacketTotalAmount = "leaderboard_daily_reward_red_packet_pool_amount"

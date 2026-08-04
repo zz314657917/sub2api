@@ -1572,6 +1572,21 @@ func (s *APIKeyService) SearchAPIKeys(ctx context.Context, userID int64, keyword
 	return keys, nil
 }
 
+// GetUserAllowedGroupIDSet returns the exclusive groups a user may see in a
+// public showcase. It does not check subscriptions because visibility and key
+// binding intentionally have different rules.
+func (s *APIKeyService) GetUserAllowedGroupIDSet(ctx context.Context, userID int64) (map[int64]struct{}, error) {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+	allowed := make(map[int64]struct{}, len(user.AllowedGroups))
+	for _, groupID := range user.AllowedGroups {
+		allowed[groupID] = struct{}{}
+	}
+	return allowed, nil
+}
+
 // GetUserGroupRates 获取用户的专属分组倍率配置
 // 返回 map[groupID]rateMultiplier
 func (s *APIKeyService) GetUserGroupRates(ctx context.Context, userID int64) (map[int64]float64, error) {

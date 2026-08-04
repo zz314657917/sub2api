@@ -310,6 +310,9 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 
 		AvailableChannelsEnabled:                  settings.AvailableChannelsEnabled,
+		ModelPlazaEnabled:                         settings.ModelPlazaEnabled,
+		ModelPlazaRequireAuth:                     settings.ModelPlazaRequireAuth,
+		ModelPlazaDescription:                     settings.ModelPlazaDescription,
 		GroupBuyEnabled:                           settings.GroupBuyEnabled,
 		GroupBuyProductName:                       settings.GroupBuyProductName,
 		GroupBuyDescription:                       settings.GroupBuyDescription,
@@ -764,7 +767,10 @@ type UpdateSettingsRequest struct {
 	ChannelMonitorDefaultIntervalSeconds *int  `json:"channel_monitor_default_interval_seconds"`
 
 	// Available Channels feature switch (user-facing)
-	AvailableChannelsEnabled *bool `json:"available_channels_enabled"`
+	AvailableChannelsEnabled *bool   `json:"available_channels_enabled"`
+	ModelPlazaEnabled        *bool   `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth    *bool   `json:"model_plaza_require_auth"`
+	ModelPlazaDescription    *string `json:"model_plaza_description"`
 
 	LeaderboardRewardMode                    *string  `json:"reward_mode"`
 	LeaderboardRedPacketPoolAmount           *float64 `json:"red_packet_pool_amount"`
@@ -1962,6 +1968,24 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.AvailableChannelsEnabled
 		}(),
+		ModelPlazaEnabled: func() bool {
+			if req.ModelPlazaEnabled != nil {
+				return *req.ModelPlazaEnabled
+			}
+			return previousSettings.ModelPlazaEnabled
+		}(),
+		ModelPlazaRequireAuth: func() bool {
+			if req.ModelPlazaRequireAuth != nil {
+				return *req.ModelPlazaRequireAuth
+			}
+			return previousSettings.ModelPlazaRequireAuth
+		}(),
+		ModelPlazaDescription: func() string {
+			if req.ModelPlazaDescription != nil {
+				return strings.TrimSpace(*req.ModelPlazaDescription)
+			}
+			return previousSettings.ModelPlazaDescription
+		}(),
 		GroupBuyEnabled: func() bool {
 			if req.GroupBuyEnabled != nil {
 				return *req.GroupBuyEnabled
@@ -2429,6 +2453,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		ChannelMonitorDefaultIntervalSeconds: updatedSettings.ChannelMonitorDefaultIntervalSeconds,
 
 		AvailableChannelsEnabled:                  updatedSettings.AvailableChannelsEnabled,
+		ModelPlazaEnabled:                         updatedSettings.ModelPlazaEnabled,
+		ModelPlazaRequireAuth:                     updatedSettings.ModelPlazaRequireAuth,
+		ModelPlazaDescription:                     updatedSettings.ModelPlazaDescription,
 		GroupBuyEnabled:                           updatedSettings.GroupBuyEnabled,
 		GroupBuyProductName:                       updatedSettings.GroupBuyProductName,
 		GroupBuyDescription:                       updatedSettings.GroupBuyDescription,
@@ -2935,6 +2962,15 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AvailableChannelsEnabled != after.AvailableChannelsEnabled {
 		changed = append(changed, "available_channels_enabled")
+	}
+	if before.ModelPlazaEnabled != after.ModelPlazaEnabled {
+		changed = append(changed, "model_plaza_enabled")
+	}
+	if before.ModelPlazaRequireAuth != after.ModelPlazaRequireAuth {
+		changed = append(changed, "model_plaza_require_auth")
+	}
+	if before.ModelPlazaDescription != after.ModelPlazaDescription {
+		changed = append(changed, "model_plaza_description")
 	}
 	if before.GroupBuyEnabled != after.GroupBuyEnabled {
 		changed = append(changed, "group_buy_enabled")

@@ -30,6 +30,16 @@ export default {
           enabled: 'Enable Available Channels',
           enabledHint: 'When off, the sidebar entry is hidden and the endpoint returns an empty list.',
         },
+        modelPlaza: {
+          title: 'Model Plaza',
+          description: 'Showcase public models and pricing by account group. Disabled by default.',
+          enabled: 'Enable Model Plaza',
+          enabledHint: 'When enabled, /models becomes available and the backend only returns visible group pricing.',
+          requireAuth: 'Require sign-in to access',
+          requireAuthHint: 'When off, anonymous visitors only see public groups; when on, visitors are redirected to sign in.',
+          priceDescription: 'Page description',
+          priceDescriptionHint: 'Shown at the top of the Model Plaza for billing rules, exchange rates, or promotions.',
+        },
         userErrorRequests: {
           title: 'User Error Requests',
           description: 'Let users inspect a redacted list of failed requests from their own API keys.',

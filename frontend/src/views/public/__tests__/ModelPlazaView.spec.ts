@@ -40,6 +40,7 @@ function createCatalog(): ModelMarketCatalog {
 
   return {
     version: 1,
+    description: '分组定价以管理员发布的可见规则为准。',
     groups: [
       {
         id: 'chat-openai',
@@ -238,6 +239,7 @@ describe('ModelPlazaView model discovery', () => {
     expect(wrapper.get('.model-price-context').text()).toContain('当前选择的账号分组仅用于价格预览')
     expect(wrapper.get('.model-price-context').text()).toContain('不代表匿名访问者或登录账号的实际分组')
     expect(wrapper.get('.model-price-context').text()).toContain('✪ 是本站额度单位，不代表人民币或美元')
+    expect(wrapper.get('.model-plaza-description').text()).toContain('分组定价以管理员发布的可见规则为准。')
     expect((wrapper.get('.model-group-rate-select select').element as HTMLSelectElement).value).toBe('2')
     expect(wrapper.get('.model-market-card[data-category="chat"] .model-price-value').text()).toBe('✪10 / 百万 tokens')
   })

@@ -155,6 +155,9 @@ type SystemSettings struct {
 	AccountShareEnabled              bool
 	AccountShareChannelStatusVisible bool
 	ExternalCapacityReferenceEnabled bool
+	ModelPlazaEnabled                bool
+	ModelPlazaRequireAuth            bool
+	ModelPlazaDescription            string
 	GroupBuyEnabled                  bool
 	GroupBuyProductName              string
 	GroupBuyDescription              string
@@ -342,6 +345,8 @@ type PublicSettings struct {
 
 	// Available Channels feature (user-facing aggregate view)
 	AvailableChannelsEnabled bool   `json:"available_channels_enabled"`
+	ModelPlazaEnabled        bool   `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth    bool   `json:"model_plaza_require_auth"`
 	GroupBuyEnabled          bool   `json:"group_buy_enabled"`
 	GroupBuyProductName      string `json:"group_buy_product_name"`
 	GroupBuyDescription      string `json:"group_buy_description"`

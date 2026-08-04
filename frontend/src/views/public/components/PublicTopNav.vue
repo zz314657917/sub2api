@@ -96,11 +96,19 @@ const dashboardPath = computed(() => (authStore.isAdmin ? '/admin/dashboard' : '
 const isHomeRoute = computed(() => route.path === '/home' || route.path === '/')
 const showDashboardButton = computed(() => isAuthenticated.value && !isHomeRoute.value)
 
-const navItems = computed<Array<{ to: string; label: string; activePaths: string[] }>>(() => [
-  { to: '/home', label: t('home.navHome'), activePaths: ['/home', '/'] },
-  { to: '/tutorial', label: t('home.navTutorial'), activePaths: ['/tutorial'] },
-  { to: '/models', label: t('home.navModels'), activePaths: ['/models'] }
-])
+const navItems = computed<Array<{ to: string; label: string; activePaths: string[] }>>(() => {
+  const items = [
+    { to: '/home', label: t('home.navHome'), activePaths: ['/home', '/'] },
+    { to: '/tutorial', label: t('home.navTutorial'), activePaths: ['/tutorial'] }
+  ]
+  if (
+    appStore.cachedPublicSettings?.model_plaza_enabled === true &&
+    (!appStore.backendModeEnabled || authStore.isAdmin)
+  ) {
+    items.push({ to: '/models', label: t('home.navModels'), activePaths: ['/models'] })
+  }
+  return items
+})
 
 function isNavItemActive(item: { activePaths: string[] }): boolean {
   return item.activePaths.some((path) => route.path === path || (path !== '/' && route.path.startsWith(`${path}/`)))

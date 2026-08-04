@@ -40,6 +40,7 @@
         </router-link>
 
         <router-link
+          v-if="modelPlazaEnabled"
           to="/models"
           class="console-chip flex items-center gap-1.5 px-2.5 py-1.5 text-sm font-semibold transition-colors"
         >
@@ -213,6 +214,10 @@ const docUrl = computed(() => appStore.docUrl)
 const avatarUrl = computed(() => user.value?.avatar_url?.trim() || '')
 const hasSupportButton = computed(() =>
   hasSupportContent(appStore.cachedPublicSettings, appStore.contactInfo)
+)
+const modelPlazaEnabled = computed(() =>
+  appStore.cachedPublicSettings?.model_plaza_enabled === true &&
+  (!appStore.backendModeEnabled || authStore.isAdmin)
 )
 const headerAnnouncements = computed(() => announcementStore.announcements)
 

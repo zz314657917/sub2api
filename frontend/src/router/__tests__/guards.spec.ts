@@ -94,7 +94,7 @@ function simulateGuard(
       return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
     }
     if (authState.backendModeEnabled && !authState.isAuthenticated) {
-      const allowed = ['/login', '/key-usage', '/setup', '/payment/result', '/models']
+      const allowed = ['/login', '/key-usage', '/setup', '/payment/result']
       const callbackPaths = [
         '/auth/callback',
         '/auth/linuxdo/callback',
@@ -489,7 +489,7 @@ describe('路由守卫逻辑', () => {
       expect(redirect).toBeNull()
     })
 
-    it('unauthenticated: /models is allowed', () => {
+    it('unauthenticated: /models is blocked', () => {
       const authState: MockAuthState = {
         isAuthenticated: false,
         isAdmin: false,
@@ -498,7 +498,7 @@ describe('路由守卫逻辑', () => {
         hasPendingAuthSession: false,
       }
       const redirect = simulateGuard('/models', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
+      expect(redirect).toBe('/login')
     })
 
     it('unauthenticated: /setup is allowed', () => {
@@ -672,5 +672,15 @@ describe('订阅入口兼容路由', () => {
     expect(subscriptionsRoute).toContain("beforeEnter: () => ({ path: '/usage', hash: '#subscriptions' })")
     expect(subscriptionsRoute).toContain('requiresAuth: true')
     expect(subscriptionsRoute).toContain('requiresAdmin: false')
+  })
+})
+
+describe('Model Plaza policy guard', () => {
+  it('matches the resolved route and fails closed until public settings load', () => {
+    expect(routerSource).toContain("if (to.name === 'ModelPlaza')")
+    expect(routerSource).toContain('!appStore.publicSettingsLoaded || modelPlaza?.model_plaza_enabled !== true')
+    expect(routerSource).toContain('appStore.backendModeEnabled && (!authStore.isAuthenticated || !authStore.isAdmin)')
+    expect(routerSource).toContain('model_plaza_require_auth === true')
+    expect(routerSource).not.toContain("if (to.path === '/models')")
   })
 })

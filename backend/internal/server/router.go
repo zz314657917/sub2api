@@ -31,6 +31,7 @@ func SetupRouter(
 	r *gin.Engine,
 	handlers *handler.Handlers,
 	jwtAuth middleware2.JWTAuthMiddleware,
+	optionalJWTAuth middleware2.OptionalJWTAuthMiddleware,
 	adminAuth middleware2.AdminAuthMiddleware,
 	apiKeyAuth middleware2.APIKeyAuthMiddleware,
 	auditLog middleware2.AuditLogMiddleware,
@@ -113,7 +114,7 @@ func SetupRouter(
 	}
 
 	// 注册路由
-	registerRoutes(r, handlers, jwtAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, cfg, redisClient)
+	registerRoutes(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, cfg, redisClient)
 
 	return r
 }
@@ -200,6 +201,7 @@ func registerRoutes(
 	r *gin.Engine,
 	h *handler.Handlers,
 	jwtAuth middleware2.JWTAuthMiddleware,
+	optionalJWTAuth middleware2.OptionalJWTAuthMiddleware,
 	adminAuth middleware2.AdminAuthMiddleware,
 	apiKeyAuth middleware2.APIKeyAuthMiddleware,
 	auditLog middleware2.AuditLogMiddleware,
@@ -218,7 +220,7 @@ func registerRoutes(
 	v1 := r.Group("/api/v1")
 
 	// 注册各模块路由
-	routes.RegisterAuthRoutes(v1, h, jwtAuth, auditLog, redisClient, settingService, cfg)
+	routes.RegisterAuthRoutes(v1, h, jwtAuth, optionalJWTAuth, auditLog, redisClient, settingService, cfg)
 	routes.RegisterUserRoutes(v1, h, jwtAuth, auditLog, settingService)
 	routes.RegisterAdminRoutes(v1, h, adminAuth, auditLog, stepUpAuth)
 	routes.RegisterGatewayRoutes(r, h, apiKeyAuth, apiKeyService, subscriptionService, opsService, settingService, cfg)

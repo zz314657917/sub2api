@@ -31,8 +31,11 @@ describe('public tutorial CMS and model plaza pages', () => {
     expect(router).toContain("name: 'ModelPlaza'")
     expect(router).toMatch(/path: '\/models'[\s\S]*?requiresAuth: false/)
     expect(router).toContain("'/tutorial'")
-    expect(router).toContain("'/tutorial', '/models'")
-    expect(router).toMatch(/BACKEND_MODE_ALLOWED_PATHS[\s\S]*?'\/models'/)
+    expect(router).toContain("to.name === 'ModelPlaza'")
+    expect(router).toContain('!appStore.publicSettingsLoaded || modelPlaza?.model_plaza_enabled !== true')
+    expect(router).toContain('model_plaza_require_auth === true')
+    const backendModeAllowedPaths = router.match(/const BACKEND_MODE_ALLOWED_PATHS = \[([^\]]*)\]/)?.[1] ?? ''
+    expect(backendModeAllowedPaths).not.toContain("'/models'")
   })
 
   it('loads published tutorial CMS content with built-in fallback and legacy hash redirects', () => {

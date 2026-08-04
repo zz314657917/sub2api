@@ -17,6 +17,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
@@ -1038,6 +1039,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyAvailableChannelsEnabled,
+		SettingKeyModelPlazaEnabled,
+		SettingKeyModelPlazaRequireAuth,
 		SettingKeyGroupBuyEnabled,
 		SettingKeyGroupBuyProductName,
 		SettingKeyGroupBuyDescription,
@@ -1168,6 +1171,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ChannelMonitorDefaultIntervalSeconds: parseChannelMonitorInterval(settings[SettingKeyChannelMonitorDefaultIntervalSeconds]),
 
 		AvailableChannelsEnabled: settings[SettingKeyAvailableChannelsEnabled] == "true",
+		ModelPlazaEnabled:        settings[SettingKeyModelPlazaEnabled] == "true",
+		ModelPlazaRequireAuth:    settings[SettingKeyModelPlazaRequireAuth] == "true",
 		GroupBuyEnabled:          !isFalseSettingValue(settings[SettingKeyGroupBuyEnabled]),
 		GroupBuyProductName:      normalizeGroupBuyProductName(settings[SettingKeyGroupBuyProductName]),
 		GroupBuyDescription:      strings.TrimSpace(settings[SettingKeyGroupBuyDescription]),
@@ -1278,6 +1283,35 @@ func (s *SettingService) IsUserErrorViewAllowed(ctx context.Context) bool {
 		return false
 	}
 	return values[SettingKeyAllowUserViewErrorRequests] == "true"
+}
+
+// ModelPlazaRuntime is the public access policy for the local model-market
+// page. Settings lookup failures intentionally leave the feature unavailable.
+type ModelPlazaRuntime struct {
+	Enabled     bool
+	RequireAuth bool
+	Description string
+}
+
+const maxModelPlazaDescriptionRunes = 4000
+
+func (s *SettingService) GetModelPlazaRuntime(ctx context.Context) ModelPlazaRuntime {
+	if s == nil || s.settingRepo == nil {
+		return ModelPlazaRuntime{}
+	}
+	values, err := s.settingRepo.GetMultiple(ctx, []string{
+		SettingKeyModelPlazaEnabled,
+		SettingKeyModelPlazaRequireAuth,
+		SettingKeyModelPlazaDescription,
+	})
+	if err != nil {
+		return ModelPlazaRuntime{}
+	}
+	return ModelPlazaRuntime{
+		Enabled:     values[SettingKeyModelPlazaEnabled] == "true",
+		RequireAuth: values[SettingKeyModelPlazaRequireAuth] == "true",
+		Description: strings.TrimSpace(values[SettingKeyModelPlazaDescription]),
+	}
 }
 
 // GetAntigravityUserAgentVersion 返回 Antigravity 上游请求使用的版本号。
@@ -1423,6 +1457,8 @@ type PublicSettingsInjectionPayload struct {
 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
 	ChannelMonitorDefaultIntervalSeconds int    `json:"channel_monitor_default_interval_seconds"`
 	AvailableChannelsEnabled             bool   `json:"available_channels_enabled"`
+	ModelPlazaEnabled                    bool   `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth                bool   `json:"model_plaza_require_auth"`
 	GroupBuyEnabled                      bool   `json:"group_buy_enabled"`
 	GroupBuyProductName                  string `json:"group_buy_product_name"`
 	GroupBuyDescription                  string `json:"group_buy_description"`
@@ -1512,6 +1548,8 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ChannelMonitorEnabled:                settings.ChannelMonitorEnabled,
 		ChannelMonitorDefaultIntervalSeconds: settings.ChannelMonitorDefaultIntervalSeconds,
 		AvailableChannelsEnabled:             settings.AvailableChannelsEnabled,
+		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
+		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
 		GroupBuyEnabled:                      settings.GroupBuyEnabled,
 		GroupBuyProductName:                  settings.GroupBuyProductName,
 		GroupBuyDescription:                  settings.GroupBuyDescription,
@@ -2211,6 +2249,13 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 
 	// Available channels feature switch
 	updates[SettingKeyAvailableChannelsEnabled] = strconv.FormatBool(settings.AvailableChannelsEnabled)
+	updates[SettingKeyModelPlazaEnabled] = strconv.FormatBool(settings.ModelPlazaEnabled)
+	updates[SettingKeyModelPlazaRequireAuth] = strconv.FormatBool(settings.ModelPlazaRequireAuth)
+	modelPlazaDescription := strings.TrimSpace(settings.ModelPlazaDescription)
+	if utf8.RuneCountInString(modelPlazaDescription) > maxModelPlazaDescriptionRunes {
+		return nil, fmt.Errorf("model plaza description must not exceed %d characters", maxModelPlazaDescriptionRunes)
+	}
+	updates[SettingKeyModelPlazaDescription] = modelPlazaDescription
 	updates[SettingKeyGroupBuyEnabled] = strconv.FormatBool(settings.GroupBuyEnabled)
 	updates[SettingKeyGroupBuyProductName] = normalizeGroupBuyProductName(settings.GroupBuyProductName)
 	updates[SettingKeyGroupBuyDescription] = strings.TrimSpace(settings.GroupBuyDescription)
@@ -3519,6 +3564,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyLeaderboardLotteryAmount:                  "0",
 		SettingKeyLeaderboardLotteryCron:                    defaultLeaderboardLotteryCron,
 		SettingKeyAvailableChannelsEnabled:                  "false",
+		SettingKeyModelPlazaEnabled:                         "false",
+		SettingKeyModelPlazaRequireAuth:                     "false",
+		SettingKeyModelPlazaDescription:                     "",
 		SettingKeyGroupBuyEnabled:                           "true",
 		SettingKeyGroupBuyProductName:                       "Token拼拼拼",
 		SettingKeyGroupBuyDescription:                       "按份额拼团，满份后开通 Token拼拼拼 权益；使用自己的平台 API Key。",
@@ -4028,6 +4076,9 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// Available channels feature (default: disabled; strict true)
 	result.AvailableChannelsEnabled = settings[SettingKeyAvailableChannelsEnabled] == "true"
+	result.ModelPlazaEnabled = settings[SettingKeyModelPlazaEnabled] == "true"
+	result.ModelPlazaRequireAuth = settings[SettingKeyModelPlazaRequireAuth] == "true"
+	result.ModelPlazaDescription = strings.TrimSpace(settings[SettingKeyModelPlazaDescription])
 	result.GroupBuyEnabled = !isFalseSettingValue(settings[SettingKeyGroupBuyEnabled])
 	result.GroupBuyProductName = normalizeGroupBuyProductName(settings[SettingKeyGroupBuyProductName])
 	result.GroupBuyDescription = strings.TrimSpace(settings[SettingKeyGroupBuyDescription])

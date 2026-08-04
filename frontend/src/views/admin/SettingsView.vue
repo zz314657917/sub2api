@@ -5394,6 +5394,55 @@
           </div>
         </div>
 
+        <div class="card" data-testid="model-plaza-feature-settings">
+          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              {{ t('admin.settings.features.modelPlaza.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              {{ t('admin.settings.features.modelPlaza.description') }}
+            </p>
+          </div>
+          <div class="space-y-5 p-6">
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.modelPlaza.enabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.modelPlaza.enabledHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.model_plaza_enabled" />
+            </div>
+
+            <div v-if="form.model_plaza_enabled" class="flex items-center justify-between gap-4">
+              <div>
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  {{ t('admin.settings.features.modelPlaza.requireAuth') }}
+                </label>
+                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                  {{ t('admin.settings.features.modelPlaza.requireAuthHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.model_plaza_require_auth" />
+            </div>
+
+            <div v-if="form.model_plaza_enabled">
+              <label class="input-label">{{ t('admin.settings.features.modelPlaza.priceDescription') }}</label>
+              <p class="mb-2 mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                {{ t('admin.settings.features.modelPlaza.priceDescriptionHint') }}
+              </p>
+              <textarea
+                v-model.trim="form.model_plaza_description"
+                rows="4"
+                maxlength="4000"
+                class="input min-h-28 resize-y"
+              />
+            </div>
+          </div>
+        </div>
+
         <div class="card" data-testid="user-error-request-settings">
           <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
             <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
@@ -8977,6 +9026,10 @@ const form = reactive<SettingsForm>({
   channel_monitor_default_interval_seconds: 60,
   // Available Channels feature switch
   available_channels_enabled: false,
+  // Model Plaza feature switch and public access policy
+  model_plaza_enabled: false,
+  model_plaza_require_auth: false,
+  model_plaza_description: '',
   allow_user_view_error_requests: false,
   account_share_enabled: true,
   account_share_channel_status_visible: true,
@@ -10956,6 +11009,10 @@ async function saveSettings() {
         Number(form.channel_monitor_default_interval_seconds) || 60,
       // Available Channels feature switch
       available_channels_enabled: form.available_channels_enabled,
+      // Model Plaza feature switch and public access policy
+      model_plaza_enabled: form.model_plaza_enabled,
+      model_plaza_require_auth: form.model_plaza_require_auth,
+      model_plaza_description: form.model_plaza_description.trim(),
       allow_user_view_error_requests: form.allow_user_view_error_requests,
       account_share_enabled: form.account_share_enabled,
       account_share_channel_status_visible:

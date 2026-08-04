@@ -30,6 +30,16 @@ export default {
           enabled: '启用可用渠道',
           enabledHint: '关闭后用户端侧边栏入口隐藏，接口返回空数组。',
         },
+        modelPlaza: {
+          title: '模型广场',
+          description: '按账号分组展示公开模型与价格；默认关闭。',
+          enabled: '启用模型广场',
+          enabledHint: '开启后会显示 /models 入口，后端只返回可见的分组价格。',
+          requireAuth: '需要登录才可访问',
+          requireAuthHint: '关闭时匿名访客仅能看到公开分组；开启后未登录访问会跳转登录页。',
+          priceDescription: '页面说明',
+          priceDescriptionHint: '展示在模型广场顶部，可说明计费规则、汇率或优惠活动。',
+        },
         userErrorRequests: {
           title: '用户错误请求',
           description: '允许用户查看自己 API 密钥产生的失败请求脱敏记录。',

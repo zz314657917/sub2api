@@ -18,6 +18,7 @@ func RegisterAuthRoutes(
 	v1 *gin.RouterGroup,
 	h *handler.Handlers,
 	jwtAuth servermiddleware.JWTAuthMiddleware,
+	optionalJWTAuth servermiddleware.OptionalJWTAuthMiddleware,
 	auditLog servermiddleware.AuditLogMiddleware,
 	redisClient *redis.Client,
 	settingService *service.SettingService,
@@ -227,8 +228,11 @@ func RegisterAuthRoutes(
 		settings.GET("/email-unsubscribe", h.Setting.UnsubscribeNotificationEmail)
 	}
 
-	// 公开模型市场目录（无需认证）
+	// 公开模型市场目录。匿名访问允许通过；携带 JWT 时以严格校验后的
+	// 用户授权集合过滤专属分组。启用与强制登录由 handler fail-closed 判定。
 	modelMarket := v1.Group("/model-market")
+	modelMarket.Use(gin.HandlerFunc(optionalJWTAuth))
+	modelMarket.Use(servermiddleware.BackendModeUserGuard(settingService))
 	{
 		modelMarket.GET("/catalog", h.Setting.GetModelMarketCatalog)
 	}

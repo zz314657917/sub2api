@@ -12,7 +12,7 @@ const publicCss = readFileSync(resolve(process.cwd(), 'src/views/public/public-p
 const viteConfig = readFileSync(resolve(process.cwd(), 'vite.config.ts'), 'utf8')
 
 describe('public page smoke contracts', () => {
-  it('keeps public entry routes and opens model plaza without login', () => {
+  it('keeps public entry routes and gates model plaza by published policy', () => {
     expect(router).toContain("path: '/home'")
     expect(router).toContain("path: '/tutorial'")
     expect(router).toContain("path: '/tutorial/:slug'")
@@ -22,8 +22,12 @@ describe('public page smoke contracts', () => {
     expect(router).toContain("name: 'ModelPlaza'")
     expect(router).toContain("window.history.scrollRestoration = 'manual'")
     expect(router).toMatch(/path: '\/models'[\s\S]*?requiresAuth: false/)
-    expect(router).toContain("'/tutorial', '/models'")
-    expect(router).toMatch(/BACKEND_MODE_ALLOWED_PATHS[\s\S]*?'\/models'/)
+    expect(router).toContain("to.name === 'ModelPlaza'")
+    expect(router).toContain('!appStore.publicSettingsLoaded || modelPlaza?.model_plaza_enabled !== true')
+    expect(router).toContain('appStore.backendModeEnabled && (!authStore.isAuthenticated || !authStore.isAdmin)')
+    expect(router).toContain('model_plaza_require_auth === true')
+    const backendModeAllowedPaths = router.match(/const BACKEND_MODE_ALLOWED_PATHS = \[([^\]]*)\]/)?.[1] ?? ''
+    expect(backendModeAllowedPaths).not.toContain("'/models'")
   })
 
   it('keeps the setup page on the SPA route while proxying setup APIs in dev', () => {

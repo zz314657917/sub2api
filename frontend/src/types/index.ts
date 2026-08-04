@@ -410,6 +410,8 @@ export interface PublicSettings {
   channel_monitor_enabled: boolean
   channel_monitor_default_interval_seconds: number
   available_channels_enabled: boolean
+  model_plaza_enabled?: boolean
+  model_plaza_require_auth?: boolean
   group_buy_enabled?: boolean
   group_buy_product_name?: string
   group_buy_description?: string

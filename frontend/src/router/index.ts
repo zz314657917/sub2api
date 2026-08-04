@@ -942,7 +942,7 @@ let authInitialized = false
 const navigationLoading = useNavigationLoadingState()
 // 延迟初始化预加载，传入 router 实例
 let routePrefetch: ReturnType<typeof useRoutePrefetch> | null = null
-const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/tutorial', '/models', '/studio-bridge/session-probe']
+const BACKEND_MODE_ALLOWED_PATHS = ['/login', '/key-usage', '/setup', '/payment/result', '/payment/airwallex', '/legal', '/tutorial', '/studio-bridge/session-probe']
 const BACKEND_MODE_CALLBACK_PATHS = [
   '/auth/callback',
   '/auth/linuxdo/callback',
@@ -1014,6 +1014,29 @@ router.beforeEach(async (to, _from, next) => {
   // Check if route requires authentication
   const requiresAuth = to.meta.requiresAuth !== false // Default to true
   const requiresAdmin = to.meta.requiresAdmin === true
+
+  if (to.name === 'ModelPlaza') {
+    if (!appStore.publicSettingsLoaded) {
+      try {
+        await appStore.fetchPublicSettings()
+      } catch (error) {
+        console.warn('Failed to load public settings for model plaza', error)
+      }
+    }
+    const modelPlaza = appStore.cachedPublicSettings
+    if (!appStore.publicSettingsLoaded || modelPlaza?.model_plaza_enabled !== true) {
+      next(authStore.isAuthenticated ? (authStore.isAdmin ? '/admin/dashboard' : '/dashboard') : '/home')
+      return
+    }
+    if (appStore.backendModeEnabled && (!authStore.isAuthenticated || !authStore.isAdmin)) {
+      next('/login')
+      return
+    }
+    if (modelPlaza?.model_plaza_require_auth === true && !authStore.isAuthenticated) {
+      next({ path: '/login', query: { redirect: to.fullPath } })
+      return
+    }
+  }
 
   if (to.path === '/setup') {
     try {

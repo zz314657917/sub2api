@@ -50,6 +50,7 @@ type ModelMarketAccountGroup struct {
 	ImageRateIndependent    bool    `json:"image_rate_independent"`
 	ImageRateMultiplier     float64 `json:"image_rate_multiplier"`
 	EffectiveRateMultiplier float64 `json:"effective_rate_multiplier"`
+	Exclusive               bool    `json:"-"`
 }
 
 type ModelMarketPriceRow struct {
@@ -160,6 +161,7 @@ func modelMarketAccountGroupFromGroup(group *Group, category string) ModelMarket
 		ImageRateIndependent:    group.ImageRateIndependent,
 		ImageRateMultiplier:     group.ImageRateMultiplier,
 		EffectiveRateMultiplier: effectiveRate,
+		Exclusive:               group.IsExclusive,
 	}
 }
 

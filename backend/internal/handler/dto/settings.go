@@ -256,6 +256,9 @@ type SystemSettings struct {
 
 	// Available Channels feature switch (user-facing aggregate view)
 	AvailableChannelsEnabled bool   `json:"available_channels_enabled"`
+	ModelPlazaEnabled        bool   `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth    bool   `json:"model_plaza_require_auth"`
+	ModelPlazaDescription    string `json:"model_plaza_description"`
 	GroupBuyEnabled          bool   `json:"group_buy_enabled"`
 	GroupBuyProductName      string `json:"group_buy_product_name"`
 	GroupBuyDescription      string `json:"group_buy_description"`
@@ -406,6 +409,8 @@ type PublicSettings struct {
 	ChannelMonitorDefaultIntervalSeconds int  `json:"channel_monitor_default_interval_seconds"`
 
 	AvailableChannelsEnabled bool   `json:"available_channels_enabled"`
+	ModelPlazaEnabled        bool   `json:"model_plaza_enabled"`
+	ModelPlazaRequireAuth    bool   `json:"model_plaza_require_auth"`
 	GroupBuyEnabled          bool   `json:"group_buy_enabled"`
 	GroupBuyProductName      string `json:"group_buy_product_name"`
 	GroupBuyDescription      string `json:"group_buy_description"`

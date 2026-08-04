@@ -45,6 +45,7 @@ export interface ModelMarketGroup {
 export interface ModelMarketCatalog {
   version: number
   updated_at?: string
+  description?: string
   groups: ModelMarketGroup[]
 }
 

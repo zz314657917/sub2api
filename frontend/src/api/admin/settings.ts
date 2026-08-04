@@ -594,6 +594,9 @@ export interface SystemSettings {
 
   // Available Channels feature switch
   available_channels_enabled: boolean;
+  model_plaza_enabled: boolean;
+  model_plaza_require_auth: boolean;
+  model_plaza_description: string;
 
   // User error-request visibility (opt-in)
   allow_user_view_error_requests: boolean;
@@ -872,6 +875,9 @@ export interface UpdateSettingsRequest {
 
   // Available Channels feature switch
   available_channels_enabled?: boolean;
+  model_plaza_enabled?: boolean;
+  model_plaza_require_auth?: boolean;
+  model_plaza_description?: string;
 
   allow_user_view_error_requests?: boolean;
 

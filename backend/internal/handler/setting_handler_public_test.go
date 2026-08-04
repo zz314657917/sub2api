@@ -88,7 +88,7 @@ func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 func TestSettingHandler_GetModelMarketCatalog_ReturnsDefaultCatalog(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{}, &config.Config{}), "test-version")
+	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{values: map[string]string{service.SettingKeyModelPlazaEnabled: "true"}}, &config.Config{}), "test-version")
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
