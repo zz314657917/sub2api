@@ -16,9 +16,9 @@
   second time. The uncommitted i18n collision test was rejected because its full-directory glob does
   not match the locale assembly topology and would report false collisions.
 - Retained candidates are not safe for blind merge: S132 stacks Passkey/Kimi/Model Plaza/Codex
-  manifest work and has 13 conflict files; S169 has 32 conflict files plus dirty Prompt Audit work;
-  the remaining detached rate-limit worktree mixes potentially useful 429 handling with six large
-  test-file deletions. Remote refs and upstream refs were not changed.
+  manifest work and has 13 conflict files; S169 has 32 conflict files plus dirty Prompt Audit work.
+  The detached 429 WIP was fully superseded by current main and was archived before cleanup. Remote
+  refs and upstream refs were not changed.
 
 ## Executed Checks
 
@@ -32,6 +32,9 @@
   -> PASS, 1864 modules transformed.
 - `go generate ./cmd/server` -> PASS; the conflict-resolved Wire output stayed stable and preserved
   both Prompt Audit coordinator wiring and notification-email wiring.
+- Mainline 429 regressions -> PASS for safe `Retry-After` propagation, Messages rate-limit failover,
+  Responses/passthrough pool retry and compact-keepalive output accounting. The Chat case remains
+  source-identical but its unit-tag package is blocked by existing unrelated test compile failures.
 - `git diff --check`, `git ls-files -u`, and worktree status checks -> PASS/clean for the temporary
   integration worktree and the removed candidate worktree.
 - Mainline update: `git merge --ff-only codex/s177-integration` -> PASS.
@@ -47,12 +50,13 @@
   S136 and the source-equivalent original S135; removed the duplicate detached Messages worktree.
 - Preserved four dirty worktree states as named stashes before cleanup: `d52a6b61f`, `ccac601e7`,
   `efd01586b` and `919c5052b`.
+- Archived and removed the detached 429 WIP after confirming it would only revert newer mainline
+  protections; recovery stash: `abeba42fc`.
 - No remote branch deletion, push, Docker, database, deployment or production action occurred.
 
 ## Unverified Risks
 
-- S132 and S169 still need independent behavior-level integration contracts and conflict resolution;
-  the rate-limit detached WIP needs reconstruction from current `main` without its six test deletions.
+- S132 and S169 still need independent behavior-level integration contracts and conflict resolution.
 - Migration `190` was not executed against PostgreSQL. Real SMTP, OAuth provider callbacks,
   administrator browser flows, deployment and production behavior remain unverified for S156-S161.
 - S176 remains `BLOCKED / browser-tool`; this branch task does not provide the required browser
@@ -62,5 +66,5 @@
 
 ## Recommendation
 
-`PASS / local-consolidation`：保留当前主线。后续只对 S132、S169 或 detached 429 WIP 建立独立
-行为合同并逐提交适配；不要整支合并，也不要删除远端 refs。
+`PASS / local-consolidation`：保留当前主线。后续只对 S132 或 S169 建立独立行为合同并逐提交
+适配；不要整支合并，也不要删除远端 refs。

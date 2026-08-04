@@ -13,8 +13,9 @@
 - S177 本地分支整合已收口到 `main@8ced00f75`：先完成 S135/S136 历史可达性整合，再把已逐 Sprint
   验证的 S156-S161 邮件功能栈作为明确的堆叠 merge 合入。S156/S157、client-IP S140、i18n S143、
   path-guard S136、等价原始 S135 及临时整合分支/worktree 已清理；四份脏改动先保存为命名 stash。
-  `backup/pre-s177-main-20260804` 与 `backup/pre-s157-merge-20260804` 保留。仅 S132、S169 和一个含
-  未验收 429 WIP 的 detached worktree继续保留；未执行 push、远端删除、Docker、数据库、部署或生产操作。
+  `backup/pre-s177-main-20260804` 与 `backup/pre-s157-merge-20260804` 保留。仅 S132、S169 继续
+  保留；detached 429 WIP 已证实被当前主线覆盖、保存为 `abeba42fc` stash 后清理。未执行 push、远端删除、
+  Docker、数据库、部署或生产操作。
   QA：`docs/workflow/qa-reports/git-branch-consolidation-s177-qa.md`。
 
 - S176 已完成源代码实现、聚焦测试和受保护的本地容器更新：用户页移除“今日使用用户”卡片及独立轮询；管理员可配置标题、说明和整个标题区显示；默认值保持原页面。合同：`docs/workflow/tasks/pixel-cafe-phase30-presentation-settings-s176.md`。
@@ -154,8 +155,8 @@
 
 ## 下一步
 
-1. 如继续整理高风险候选，先为 S132 的独立功能切片或 detached 429 WIP 建立单独合同并从当前 `main`
-   重建 -> 验证：不得整支合并 S132/S169，且 429 WIP 不得携带六个测试文件删除。
+1. 如继续整理高风险候选，先为 S132 的独立功能切片建立单独合同并从当前 `main` 重建 -> 验证：不得
+   整支合并 S132/S169，Passkey 迁移与 S169 的重复实现必须二选一。
 1. 恢复一个可操作的本地浏览器会话并完成 S176 手动验收 -> 验证：捕获桌面截图，确认 `/group-buy` 无“今日使用用户”、可见/隐藏标题区均保留房间内容，`/admin/settings` 显示标题/说明/开关控件。
 2. 浏览器验收通过后更新 S176 QA/status/main-log/current-task 为 `PASS / browser` -> 验证：QA 首行 PASS、截图存在、容器健康和回滚标签仍可见；本轮 Docker guard 已释放。
 
@@ -167,7 +168,9 @@
 
 - S177：`main@8ced00f75`；S156-S161 后端全仓 compile-only、聚焦 alias/OAuth/notification/ops
   tests、Wire generation、前端 4 files / 43 tests、typecheck、1864-module build、gofmt/diff/unmerged
-  checks PASS。清理前四份脏改动已保存为命名 stash；本地保留分支只剩 S132、S169 和三个 backup refs。
+  checks PASS。主线的 Retry-After、429/pool retry、Messages failover 和 compact keepalive 回归也通过；
+  detached 429 WIP 只会回退较新的保护，已存为 `abeba42fc` stash 后删除。清理前四份脏改动已保存为命名
+  stash；本地保留分支只剩 S132、S169 和三个 backup refs。
 - S176：focused Go/Vitest/typecheck/build、Linux amd64 build、gofmt/diff/unmerged checks、guarded image promotion and Compose recreation、`/health` 200、PostgreSQL/Redis health and public-settings HTTP fields all PASS; browser screenshot blocked by local browser transports. Temporary binary cleanup was rejected by local shell safety policy; image/rollback tag and data volume remain retained.
 
 - `go generate ./ent`：PASS；`go generate ./cmd/server`：PASS。
