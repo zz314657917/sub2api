@@ -125,6 +125,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 	if paymentCfg == nil {
 		paymentCfg = &service.PaymentConfig{}
 	}
+	passkeyConfigured, passkeyRPID, passkeyRPOrigins := h.settingService.PasskeyConfiguration()
 
 	payload := dto.SystemSettings{
 		RegistrationEnabled:                    settings.RegistrationEnabled,
@@ -142,6 +143,10 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		InvitationCodeEnabled:                  settings.InvitationCodeEnabled,
 		TotpEnabled:                            settings.TotpEnabled,
 		TotpEncryptionKeyConfigured:            h.settingService.IsTotpEncryptionKeyConfigured(),
+		PasskeyEnabled:                         settings.PasskeyEnabled,
+		PasskeyConfigured:                      passkeyConfigured,
+		PasskeyRPID:                            passkeyRPID,
+		PasskeyRPOrigins:                       passkeyRPOrigins,
 		SessionBindingEnabled:                  settings.SessionBindingEnabled,
 		StepUpEnabled:                          settings.StepUpEnabled,
 		AuditLogRetentionDays:                  settings.AuditLogRetentionDays,
@@ -519,6 +524,7 @@ type UpdateSettingsRequest struct {
 	FrontendURL                      string                       `json:"frontend_url"`
 	InvitationCodeEnabled            bool                         `json:"invitation_code_enabled"`
 	TotpEnabled                      bool                         `json:"totp_enabled"` // TOTP 双因素认证
+	PasskeyEnabled                   *bool                        `json:"passkey_enabled"`
 	SessionBindingEnabled            bool                         `json:"session_binding_enabled"`
 	StepUpEnabled                    bool                         `json:"step_up_enabled"`
 	AuditLogRetentionDays            int                          `json:"audit_log_retention_days"`
@@ -1017,6 +1023,15 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			response.BadRequest(c, "Cannot enable TOTP: TOTP_ENCRYPTION_KEY environment variable must be configured first. Generate a key with 'openssl rand -hex 32' and set it in your environment.")
 			return
 		}
+	}
+	passkeyEnabled := previousSettings.PasskeyEnabled
+	if req.PasskeyEnabled != nil {
+		passkeyEnabled = *req.PasskeyEnabled
+	}
+	passkeyConfigured, _, _ := h.settingService.PasskeyConfiguration()
+	if passkeyEnabled && !passkeyConfigured {
+		response.BadRequest(c, "Cannot enable Passkey: configure a valid WebAuthn relying party first")
+		return
 	}
 	if req.AuditLogRetentionDays < 0 {
 		req.AuditLogRetentionDays = 0
@@ -1695,6 +1710,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		FrontendURL:                      req.FrontendURL,
 		InvitationCodeEnabled:            req.InvitationCodeEnabled,
 		TotpEnabled:                      req.TotpEnabled,
+		PasskeyEnabled:                   passkeyEnabled,
 		SessionBindingEnabled:            req.SessionBindingEnabled,
 		StepUpEnabled:                    req.StepUpEnabled,
 		AuditLogRetentionDays:            req.AuditLogRetentionDays,
@@ -2231,6 +2247,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	if updatedPaymentCfg == nil {
 		updatedPaymentCfg = &service.PaymentConfig{}
 	}
+	passkeyConfigured, passkeyRPID, passkeyRPOrigins := h.settingService.PasskeyConfiguration()
 
 	payload := dto.SystemSettings{
 		RegistrationEnabled:                    updatedSettings.RegistrationEnabled,
@@ -2248,6 +2265,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		InvitationCodeEnabled:                  updatedSettings.InvitationCodeEnabled,
 		TotpEnabled:                            updatedSettings.TotpEnabled,
 		TotpEncryptionKeyConfigured:            h.settingService.IsTotpEncryptionKeyConfigured(),
+		PasskeyEnabled:                         updatedSettings.PasskeyEnabled,
+		PasskeyConfigured:                      passkeyConfigured,
+		PasskeyRPID:                            passkeyRPID,
+		PasskeyRPOrigins:                       passkeyRPOrigins,
 		SessionBindingEnabled:                  updatedSettings.SessionBindingEnabled,
 		StepUpEnabled:                          updatedSettings.StepUpEnabled,
 		AuditLogRetentionDays:                  updatedSettings.AuditLogRetentionDays,
@@ -2544,6 +2565,9 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.TotpEnabled != after.TotpEnabled {
 		changed = append(changed, "totp_enabled")
+	}
+	if before.PasskeyEnabled != after.PasskeyEnabled {
+		changed = append(changed, "passkey_enabled")
 	}
 	if before.LoginAgreementEnabled != after.LoginAgreementEnabled {
 		changed = append(changed, "login_agreement_enabled")

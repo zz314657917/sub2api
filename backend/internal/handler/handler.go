@@ -71,6 +71,7 @@ type Handlers struct {
 	OpenAIGateway    *OpenAIGatewayHandler
 	Setting          *SettingHandler
 	Totp             *TotpHandler
+	Passkey          *PasskeyHandler
 	Payment          *PaymentHandler
 	GroupBuy         *GroupBuyHandler
 	Cafe             *CafeHandler

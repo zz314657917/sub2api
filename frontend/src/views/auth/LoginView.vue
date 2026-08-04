@@ -12,7 +12,18 @@
       </div>
       <!-- Login Form -->
       <form @submit.prevent="handleLogin" class="space-y-5">
-        <div v-if="showOAuthLogin" class="auth-oauth-first space-y-3">
+        <div v-if="showPasskeyLogin || showOAuthLogin" class="auth-oauth-first space-y-3">
+          <button
+            v-if="showPasskeyLogin"
+            type="button"
+            class="auth-passkey-button w-full"
+            :disabled="authActionDisabled"
+            @click="handlePasskeyLogin"
+          >
+            <Icon name="key" size="md" />
+            {{ passkeyLoading ? t('auth.passkeySigningIn') : t('auth.passkeySignIn') }}
+          </button>
+
           <EmailOAuthButtons
             :disabled="authActionDisabled"
             :github-enabled="githubOAuthEnabled"
@@ -239,6 +250,7 @@ const appStore = useAppStore()
 // ==================== State ====================
 
 const isLoading = ref<boolean>(false)
+const passkeyLoading = ref<boolean>(false)
 const errorMessage = ref<string>('')
 const showPassword = ref<boolean>(false)
 const publicSettingsLoaded = ref<boolean>(false)
@@ -254,6 +266,7 @@ const oidcOAuthProviderName = ref<string>('OIDC')
 const githubOAuthEnabled = ref<boolean>(false)
 const googleOAuthEnabled = ref<boolean>(false)
 const passwordResetEnabled = ref<boolean>(false)
+const passkeyEnabled = ref<boolean>(false)
 const loginAgreementEnabled = ref<boolean>(false)
 const loginAgreementMode = ref<'modal' | 'checkbox' | string>('modal')
 const loginAgreementUpdatedAt = ref<string>('')
@@ -292,7 +305,11 @@ const agreementGateActive = computed(
 )
 
 const authActionDisabled = computed(
-  () => isLoading.value || !publicSettingsLoaded.value || agreementGateActive.value
+  () => isLoading.value || passkeyLoading.value || !publicSettingsLoaded.value || agreementGateActive.value
+)
+
+const showPasskeyLogin = computed(
+  () => passkeyEnabled.value && typeof window.PublicKeyCredential !== 'undefined'
 )
 
 const showOAuthLogin = computed(
@@ -347,6 +364,7 @@ onMounted(async () => {
     googleOAuthEnabled.value = settings.google_oauth_enabled
     backendModeEnabled.value = settings.backend_mode_enabled
     passwordResetEnabled.value = settings.password_reset_enabled
+    passkeyEnabled.value = settings.passkey_enabled === true
     applyLoginAgreementSettings(settings)
   } catch (error) {
     console.error('Failed to load public settings:', error)
@@ -554,6 +572,32 @@ async function handleLogin(): Promise<void> {
   }
 }
 
+async function handlePasskeyLogin(): Promise<void> {
+  if (agreementGateActive.value) {
+    appStore.showWarning('请先阅读并同意最新条款后再登录。')
+    if (loginAgreementMode.value !== 'checkbox') {
+      showAgreementModal.value = true
+    }
+    return
+  }
+
+  passkeyLoading.value = true
+  try {
+    await authStore.loginWithPasskey()
+    clearAllAffiliateReferralCodes()
+    appStore.showSuccess(t('auth.loginSuccess'))
+    await router.push(redirectPath.value || '/dashboard')
+  } catch (error: unknown) {
+    const fallback = error instanceof DOMException && error.name === 'NotAllowedError'
+      ? t('auth.passkeyCancelled')
+      : t('auth.passkeyFailed')
+    errorMessage.value = extractI18nErrorMessage(error, t, 'auth.errors', fallback)
+    appStore.showError(errorMessage.value)
+  } finally {
+    passkeyLoading.value = false
+  }
+}
+
 // ==================== 2FA Handlers ====================
 
 async function handle2FAVerify(code: string): Promise<void> {
@@ -665,6 +709,33 @@ function handle2FACancel(): void {
 }
 
 .auth-submit-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.auth-passkey-button {
+  display: inline-flex;
+  min-height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  border: 1px solid #d8cec2;
+  border-radius: 10px;
+  background: rgba(250, 249, 245, 0.76);
+  color: #141413;
+  font-size: 0.875rem;
+  font-weight: 650;
+  transition:
+    border-color 160ms ease,
+    background-color 160ms ease;
+}
+
+.auth-passkey-button:hover:not(:disabled) {
+  border-color: rgba(204, 120, 92, 0.68);
+  background: #fffaf5;
+}
+
+.auth-passkey-button:disabled {
   cursor: not-allowed;
   opacity: 0.62;
 }
