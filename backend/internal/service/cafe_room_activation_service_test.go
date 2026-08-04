@@ -78,7 +78,7 @@ func (r *cafeManagedKeyRepoStub) GetByID(context.Context, int64) (*APIKey, error
 	return &clone, nil
 }
 
-func (r *cafeManagedKeyRepoStub) Update(_ context.Context, key *APIKey) error {
+func (r *cafeManagedKeyRepoStub) Update(_ context.Context, key *APIKey, _ APIKeyUpdateFields) error {
 	clone := *key
 	r.updated = &clone
 	return nil

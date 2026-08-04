@@ -984,7 +984,9 @@ func (s *groupBuyUserRepoStub) GetByEmail(context.Context, string) (*User, error
 func (s *groupBuyUserRepoStub) GetFirstAdmin(context.Context) (*User, error) {
 	panic("unexpected GetFirstAdmin call")
 }
-func (s *groupBuyUserRepoStub) Update(context.Context, *User) error { panic("unexpected Update call") }
+func (s *groupBuyUserRepoStub) Update(context.Context, *User, UserUpdateFields) error {
+	panic("unexpected Update call")
+}
 func (s *groupBuyUserRepoStub) Delete(context.Context, int64) error { panic("unexpected Delete call") }
 func (s *groupBuyUserRepoStub) GetUserAvatar(context.Context, int64) (*UserAvatar, error) {
 	panic("unexpected GetUserAvatar call")
@@ -1017,6 +1019,30 @@ func (s *groupBuyUserRepoStub) UpdateBalance(_ context.Context, _ int64, amount 
 }
 func (s *groupBuyUserRepoStub) DeductBalance(context.Context, int64, float64) error {
 	panic("unexpected DeductBalance call")
+}
+func (s *groupBuyUserRepoStub) AdjustBalance(_ context.Context, id int64, delta float64) (BalanceChange, error) {
+	user := s.users[id]
+	if user == nil {
+		return BalanceChange{}, ErrUserNotFound
+	}
+	change := BalanceChange{Old: user.Balance, New: user.Balance + delta}
+	if change.New < 0 {
+		return change, ErrBalanceNegative
+	}
+	user.Balance = change.New
+	return change, nil
+}
+func (s *groupBuyUserRepoStub) SetBalance(_ context.Context, id int64, value float64) (BalanceChange, error) {
+	user := s.users[id]
+	if user == nil {
+		return BalanceChange{}, ErrUserNotFound
+	}
+	if value < 0 {
+		return BalanceChange{}, ErrBalanceNegative
+	}
+	change := BalanceChange{Old: user.Balance, New: value}
+	user.Balance = value
+	return change, nil
 }
 func (s *groupBuyUserRepoStub) UpdateConcurrency(context.Context, int64, int) error {
 	panic("unexpected UpdateConcurrency call")
@@ -1289,7 +1315,7 @@ func (s *groupBuyAPIKeyRepoStub) GetByKey(context.Context, string) (*APIKey, err
 func (s *groupBuyAPIKeyRepoStub) GetByKeyForAuth(context.Context, string) (*APIKey, error) {
 	panic("unexpected GetByKeyForAuth call")
 }
-func (s *groupBuyAPIKeyRepoStub) Update(_ context.Context, key *APIKey) error {
+func (s *groupBuyAPIKeyRepoStub) Update(_ context.Context, key *APIKey, _ APIKeyUpdateFields) error {
 	cp := *key
 	s.keys[key.ID] = &cp
 	return nil

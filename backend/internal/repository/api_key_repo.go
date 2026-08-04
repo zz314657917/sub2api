@@ -305,10 +305,17 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 	return out, nil
 }
 
-func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) error {
-	routeJSON, err := marshalAPIKeyMultiGroupRoutes(key.MultiGroupRoutes)
-	if err != nil {
-		return err
+func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey, fields service.APIKeyUpdateFields) error {
+	if key == nil || fields.IsEmpty() {
+		return nil
+	}
+	var routeJSON string
+	var err error
+	if fields.MultiGroupRoutes {
+		routeJSON, err = marshalAPIKeyMultiGroupRoutes(key.MultiGroupRoutes)
+		if err != nil {
+			return err
+		}
 	}
 	// 使用原子操作：将软删除检查与更新合并到同一语句，避免竞态条件。
 	// 之前的实现先检查 Exist 再 UpdateOneID，若在两步之间发生软删除，
@@ -317,59 +324,65 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) erro
 	// 同时显式设置 updated_at，避免二次查询带来的并发可见性问题。
 	client := clientFromContext(ctx, r.client)
 	now := time.Now()
-	builder := client.APIKey.Update().
-		Where(apikey.IDEQ(key.ID), apikey.DeletedAtIsNil()).
-		SetName(key.Name).
-		SetStatus(key.Status).
-		SetQuota(key.Quota).
-		SetQuotaUsed(key.QuotaUsed).
-		SetRateLimit5h(key.RateLimit5h).
-		SetRateLimit1d(key.RateLimit1d).
-		SetRateLimit7d(key.RateLimit7d).
-		SetUsage5h(key.Usage5h).
-		SetUsage1d(key.Usage1d).
-		SetUsage7d(key.Usage7d).
-		SetUpdatedAt(now)
-	if key.GroupID != nil {
-		builder.SetGroupID(*key.GroupID)
-	} else {
-		builder.ClearGroupID()
+	builder := client.APIKey.Update().Where(apikey.IDEQ(key.ID), apikey.DeletedAtIsNil()).SetUpdatedAt(now)
+	if fields.Name {
+		builder.SetName(key.Name)
 	}
-
-	// Expiration time
-	if key.ExpiresAt != nil {
-		builder.SetExpiresAt(*key.ExpiresAt)
-	} else {
-		builder.ClearExpiresAt()
+	if fields.Status {
+		builder.SetStatus(key.Status)
 	}
-
-	// Rate limit window start times
-	if key.Window5hStart != nil {
-		builder.SetWindow5hStart(*key.Window5hStart)
-	} else {
-		builder.ClearWindow5hStart()
+	if fields.Quota {
+		builder.SetQuota(key.Quota)
 	}
-	if key.Window1dStart != nil {
-		builder.SetWindow1dStart(*key.Window1dStart)
-	} else {
-		builder.ClearWindow1dStart()
+	if fields.QuotaUsed {
+		builder.SetQuotaUsed(key.QuotaUsed)
 	}
-	if key.Window7dStart != nil {
-		builder.SetWindow7dStart(*key.Window7dStart)
-	} else {
-		builder.ClearWindow7dStart()
+	if fields.RateLimits {
+		builder.SetRateLimit5h(key.RateLimit5h).SetRateLimit1d(key.RateLimit1d).SetRateLimit7d(key.RateLimit7d)
 	}
-
-	// IP 限制字段
-	if len(key.IPWhitelist) > 0 {
-		builder.SetIPWhitelist(key.IPWhitelist)
-	} else {
-		builder.ClearIPWhitelist()
+	if fields.RateLimitUsage {
+		builder.SetUsage5h(key.Usage5h).SetUsage1d(key.Usage1d).SetUsage7d(key.Usage7d)
+		if key.Window5hStart != nil {
+			builder.SetWindow5hStart(*key.Window5hStart)
+		} else {
+			builder.ClearWindow5hStart()
+		}
+		if key.Window1dStart != nil {
+			builder.SetWindow1dStart(*key.Window1dStart)
+		} else {
+			builder.ClearWindow1dStart()
+		}
+		if key.Window7dStart != nil {
+			builder.SetWindow7dStart(*key.Window7dStart)
+		} else {
+			builder.ClearWindow7dStart()
+		}
 	}
-	if len(key.IPBlacklist) > 0 {
-		builder.SetIPBlacklist(key.IPBlacklist)
-	} else {
-		builder.ClearIPBlacklist()
+	if fields.GroupID {
+		if key.GroupID != nil {
+			builder.SetGroupID(*key.GroupID)
+		} else {
+			builder.ClearGroupID()
+		}
+	}
+	if fields.ExpiresAt {
+		if key.ExpiresAt != nil {
+			builder.SetExpiresAt(*key.ExpiresAt)
+		} else {
+			builder.ClearExpiresAt()
+		}
+	}
+	if fields.IPRules {
+		if len(key.IPWhitelist) > 0 {
+			builder.SetIPWhitelist(key.IPWhitelist)
+		} else {
+			builder.ClearIPWhitelist()
+		}
+		if len(key.IPBlacklist) > 0 {
+			builder.SetIPBlacklist(key.IPBlacklist)
+		} else {
+			builder.ClearIPBlacklist()
+		}
 	}
 
 	affected, err := builder.Save(ctx)
@@ -380,11 +393,15 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey) erro
 		// 更新影响行数为 0，说明记录不存在或已被软删除。
 		return service.ErrAPIKeyNotFound
 	}
-	if err := r.setAPIKeyMultiGroupRoutes(ctx, key.ID, routeJSON); err != nil {
-		return err
+	if fields.MultiGroupRoutes {
+		if err := r.setAPIKeyMultiGroupRoutes(ctx, key.ID, routeJSON); err != nil {
+			return err
+		}
 	}
-	if err := r.setAPIKeyAccountPoolStrategy(ctx, key.ID, service.NormalizeAccountPoolStrategy(key.AccountPoolStrategy)); err != nil {
-		return err
+	if fields.AccountPoolStrategy {
+		if err := r.setAPIKeyAccountPoolStrategy(ctx, key.ID, service.NormalizeAccountPoolStrategy(key.AccountPoolStrategy)); err != nil {
+			return err
+		}
 	}
 
 	// 使用同一时间戳回填，避免并发删除导致二次查询失败。

@@ -17,7 +17,7 @@ func (s *leaderboardParticipationUserRepoStub) GetByID(context.Context, int64) (
 	return s.user, nil
 }
 
-func (s *leaderboardParticipationUserRepoStub) Update(_ context.Context, user *User) error {
+func (s *leaderboardParticipationUserRepoStub) Update(_ context.Context, user *User, _ UserUpdateFields) error {
 	clone := *user
 	s.user = &clone
 	return nil

@@ -879,6 +879,7 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	oldExcludeFromLeaderboard := user.ExcludeFromLeaderboard
 	oldAllowedGroups := append([]int64(nil), user.AllowedGroups...)
 	oldGroupRates := map[int64]float64{}
+	var fields UserUpdateFields
 	if input.GroupRates != nil && s.userGroupRateRepo != nil {
 		loaded, loadErr := s.userGroupRateRepo.GetByUserID(ctx, user.ID)
 		if loadErr != nil {
@@ -890,40 +891,49 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 
 	if input.Email != "" {
 		user.Email = input.Email
+		fields.Email = true
 	}
 	if input.Password != "" {
 		if err := user.SetPassword(input.Password); err != nil {
 			return nil, err
 		}
+		fields.PasswordHash = true
 	}
 
 	if input.Username != nil {
 		user.Username = *input.Username
+		fields.Username = true
 	}
 	if input.Notes != nil {
 		user.Notes = *input.Notes
+		fields.Notes = true
 	}
 
 	if input.Status != "" {
 		user.Status = input.Status
+		fields.Status = true
 	}
 	if input.ExcludeFromLeaderboard != nil {
 		user.ExcludeFromLeaderboard = *input.ExcludeFromLeaderboard
+		fields.ExcludeFromLeaderboard = true
 	}
 
 	if input.Concurrency != nil {
 		user.Concurrency = *input.Concurrency
+		fields.Concurrency = true
 	}
 
 	if input.RPMLimit != nil {
 		user.RPMLimit = *input.RPMLimit
+		fields.RPMLimit = true
 	}
 
 	if input.AllowedGroups != nil {
 		user.AllowedGroups = *input.AllowedGroups
+		fields.AllowedGroups = true
 	}
 
-	if err := s.userRepo.Update(ctx, user); err != nil {
+	if err := s.userRepo.Update(ctx, user, fields); err != nil {
 		return nil, err
 	}
 
@@ -1139,25 +1149,22 @@ func (s *adminServiceImpl) UpdateUserBalance(ctx context.Context, userID int64, 
 		return nil, err
 	}
 
-	oldBalance := user.Balance
-
+	var change BalanceChange
 	switch operation {
 	case "set":
-		user.Balance = balance
+		change, err = s.userRepo.SetBalance(ctx, userID, balance)
 	case "add":
-		user.Balance += balance
+		change, err = s.userRepo.AdjustBalance(ctx, userID, balance)
 	case "subtract":
-		user.Balance -= balance
+		change, err = s.userRepo.AdjustBalance(ctx, userID, -balance)
+	default:
+		return nil, errors.New("invalid balance operation")
 	}
-
-	if user.Balance < 0 {
-		return nil, fmt.Errorf("balance cannot be negative, current balance: %.2f, requested operation would result in: %.2f", oldBalance, user.Balance)
-	}
-
-	if err := s.userRepo.Update(ctx, user); err != nil {
+	if err != nil {
 		return nil, err
 	}
-	balanceDiff := user.Balance - oldBalance
+	user.Balance = change.New
+	balanceDiff := change.New - change.Old
 	if s.authCacheInvalidator != nil && balanceDiff != 0 {
 		s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, userID)
 	}
@@ -3002,7 +3009,7 @@ func (s *adminServiceImpl) AdminUpdateAPIKeyGroupID(ctx context.Context, keyID i
 			if addErr := s.userRepo.AddGroupToAllowedGroups(opCtx, apiKey.UserID, gid); addErr != nil {
 				return nil, fmt.Errorf("add group to user allowed groups: %w", addErr)
 			}
-			if err := s.apiKeyRepo.Update(opCtx, apiKey); err != nil {
+			if err := s.apiKeyRepo.Update(opCtx, apiKey, APIKeyUpdateFields{GroupID: true}); err != nil {
 				return nil, fmt.Errorf("update api key: %w", err)
 			}
 			if tx != nil {
@@ -3035,7 +3042,7 @@ func (s *adminServiceImpl) AdminUpdateAPIKeyGroupID(ctx context.Context, keyID i
 	}
 
 	// 非专属分组 / 解绑：无需事务，单步更新即可
-	if err := s.apiKeyRepo.Update(ctx, apiKey); err != nil {
+	if err := s.apiKeyRepo.Update(ctx, apiKey, APIKeyUpdateFields{GroupID: true}); err != nil {
 		return nil, fmt.Errorf("update api key: %w", err)
 	}
 
@@ -3072,7 +3079,7 @@ func (s *adminServiceImpl) AdminResetAPIKeyRateLimitUsage(ctx context.Context, k
 	apiKey.Window5hStart = nil
 	apiKey.Window1dStart = nil
 	apiKey.Window7dStart = nil
-	if err := s.apiKeyRepo.Update(ctx, apiKey); err != nil {
+	if err := s.apiKeyRepo.Update(ctx, apiKey, APIKeyUpdateFields{RateLimitUsage: true}); err != nil {
 		return nil, fmt.Errorf("reset api key rate limit usage: %w", err)
 	}
 	if s.authCacheInvalidator != nil {

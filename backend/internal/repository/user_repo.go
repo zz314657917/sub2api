@@ -186,8 +186,11 @@ func (r *userRepository) GetByEmail(ctx context.Context, email string) (*service
 	return out, nil
 }
 
-func (r *userRepository) Update(ctx context.Context, userIn *service.User) error {
+func (r *userRepository) Update(ctx context.Context, userIn *service.User, fields service.UserUpdateFields) error {
 	if userIn == nil {
+		return nil
+	}
+	if fields.IsEmpty() {
 		return nil
 	}
 
@@ -212,75 +215,94 @@ func (r *userRepository) Update(ctx context.Context, userIn *service.User) error
 		}
 	}
 
-	releaseEmailLock, err := lockRepositoryScopedKeys(
-		txCtx,
-		txClient,
-		txAwareSQLExecutor(txCtx, r.sql, r.client),
-		normalizedEmailUniquenessLockKey(userIn.Email),
-	)
-	if err != nil {
-		return err
-	}
-	defer releaseEmailLock()
+	var oldEmail string
+	// 邮箱唯一性锁、查重与身份同步只在本次确实修改邮箱时执行。不改邮箱的
+	// 更新不应因旧快照中的邮箱状态阻塞或报冲突。
+	if fields.Email {
+		releaseEmailLock, err := lockRepositoryScopedKeys(
+			txCtx,
+			txClient,
+			txAwareSQLExecutor(txCtx, r.sql, r.client),
+			normalizedEmailUniquenessLockKey(userIn.Email),
+		)
+		if err != nil {
+			return err
+		}
+		defer releaseEmailLock()
 
-	if err := ensureNormalizedEmailAvailableWithClient(txCtx, txClient, userIn.ID, userIn.Email); err != nil {
-		return err
-	}
+		if err := ensureNormalizedEmailAvailableWithClient(txCtx, txClient, userIn.ID, userIn.Email); err != nil {
+			return err
+		}
 
-	existing, err := clientFromContext(txCtx, txClient).User.Get(txCtx, userIn.ID)
-	if err != nil {
-		return translatePersistenceError(err, service.ErrUserNotFound, nil)
+		existing, err := clientFromContext(txCtx, txClient).User.Get(txCtx, userIn.ID)
+		if err != nil {
+			return translatePersistenceError(err, service.ErrUserNotFound, nil)
+		}
+		oldEmail = existing.Email
 	}
-	oldEmail := existing.Email
-	registerIP := userIn.RegisterIP
-	if registerIP == "" {
-		registerIP = existing.RegisterIP
+	updateOp := txClient.User.UpdateOneID(userIn.ID)
+	if fields.Email {
+		updateOp.SetEmail(userIn.Email)
 	}
-	lastLoginIP := userIn.LastLoginIP
-	if lastLoginIP == "" {
-		lastLoginIP = existing.LastLoginIP
+	if fields.Username {
+		updateOp.SetUsername(userIn.Username)
 	}
-
-	updateOp := txClient.User.UpdateOneID(userIn.ID).
-		SetEmail(userIn.Email).
-		SetUsername(userIn.Username).
-		SetNotes(userIn.Notes).
-		SetPasswordHash(userIn.PasswordHash).
-		SetRole(userIn.Role).
-		SetBalance(userIn.Balance).
-		SetConcurrency(userIn.Concurrency).
-		SetStatus(userIn.Status).
-		SetExcludeFromLeaderboard(userIn.ExcludeFromLeaderboard).
-		SetRegisterIP(registerIP).
-		SetLastLoginIP(lastLoginIP).
-		SetBalanceNotifyEnabled(userIn.BalanceNotifyEnabled).
-		SetBalanceNotifyThresholdType(userIn.BalanceNotifyThresholdType).
-		SetNillableBalanceNotifyThreshold(userIn.BalanceNotifyThreshold).
-		SetBalanceNotifyExtraEmails(marshalExtraEmails(userIn.BalanceNotifyExtraEmails)).
-		SetTotalRecharged(userIn.TotalRecharged).
-		SetRpmLimit(userIn.RPMLimit)
-	if userIn.SignupSource != "" {
+	if fields.Notes {
+		updateOp.SetNotes(userIn.Notes)
+	}
+	if fields.PasswordHash {
+		updateOp.SetPasswordHash(userIn.PasswordHash)
+	}
+	if fields.Role {
+		updateOp.SetRole(userIn.Role)
+	}
+	if fields.Status {
+		updateOp.SetStatus(userIn.Status)
+	}
+	if fields.Concurrency {
+		updateOp.SetConcurrency(userIn.Concurrency)
+	}
+	if fields.ExcludeFromLeaderboard {
+		updateOp.SetExcludeFromLeaderboard(userIn.ExcludeFromLeaderboard)
+	}
+	if fields.RPMLimit {
+		updateOp.SetRpmLimit(userIn.RPMLimit)
+	}
+	if fields.BalanceNotifySettings {
+		updateOp.SetBalanceNotifyEnabled(userIn.BalanceNotifyEnabled).
+			SetBalanceNotifyThresholdType(userIn.BalanceNotifyThresholdType)
+		if userIn.BalanceNotifyThreshold == nil {
+			updateOp.ClearBalanceNotifyThreshold()
+		} else {
+			updateOp.SetNillableBalanceNotifyThreshold(userIn.BalanceNotifyThreshold)
+		}
+	}
+	if fields.BalanceNotifyExtraEmails {
+		updateOp.SetBalanceNotifyExtraEmails(marshalExtraEmails(userIn.BalanceNotifyExtraEmails))
+	}
+	if fields.SignupSource && userIn.SignupSource != "" {
 		updateOp = updateOp.SetSignupSource(userIn.SignupSource)
 	}
-	if userIn.LastLoginAt != nil {
+	if fields.LastLoginAt && userIn.LastLoginAt != nil {
 		updateOp = updateOp.SetLastLoginAt(*userIn.LastLoginAt)
 	}
-	if userIn.LastActiveAt != nil {
+	if fields.LastActiveAt && userIn.LastActiveAt != nil {
 		updateOp = updateOp.SetLastActiveAt(*userIn.LastActiveAt)
-	}
-	if userIn.BalanceNotifyThreshold == nil {
-		updateOp = updateOp.ClearBalanceNotifyThreshold()
 	}
 	updated, err := updateOp.Save(txCtx)
 	if err != nil {
 		return translatePersistenceError(err, service.ErrUserNotFound, service.ErrEmailExists)
 	}
 
-	if err := r.syncUserAllowedGroupsWithClient(txCtx, txClient, updated.ID, userIn.AllowedGroups); err != nil {
-		return err
+	if fields.AllowedGroups {
+		if err := r.syncUserAllowedGroupsWithClient(txCtx, txClient, updated.ID, userIn.AllowedGroups); err != nil {
+			return err
+		}
 	}
-	if err := replaceEmailAuthIdentityWithClient(txCtx, txClient, updated.ID, oldEmail, updated.Email, "user_repo_update"); err != nil {
-		return err
+	if fields.Email {
+		if err := replaceEmailAuthIdentityWithClient(txCtx, txClient, updated.ID, oldEmail, updated.Email, "user_repo_update"); err != nil {
+			return err
+		}
 	}
 
 	if tx != nil {
@@ -761,6 +783,42 @@ func (r *userRepository) UpdateBalance(ctx context.Context, id int64, amount flo
 		return service.ErrUserNotFound
 	}
 	return nil
+}
+
+func (r *userRepository) AdjustBalance(ctx context.Context, id int64, delta float64) (service.BalanceChange, error) {
+	update := clientFromContext(ctx, r.client).User.Update().Where(dbuser.IDEQ(id))
+	if delta < 0 {
+		update = update.Where(dbuser.BalanceGTE(-delta))
+	}
+	affected, err := update.AddBalance(delta).Save(ctx)
+	if err != nil {
+		return service.BalanceChange{}, translatePersistenceError(err, service.ErrUserNotFound, nil)
+	}
+	if affected == 0 {
+		if _, err := r.client.User.Get(ctx, id); err != nil {
+			return service.BalanceChange{}, translatePersistenceError(err, service.ErrUserNotFound, nil)
+		}
+		return service.BalanceChange{}, service.ErrBalanceNegative
+	}
+	updated, err := r.client.User.Get(ctx, id)
+	if err != nil {
+		return service.BalanceChange{}, translatePersistenceError(err, service.ErrUserNotFound, nil)
+	}
+	return service.BalanceChange{Old: updated.Balance - delta, New: updated.Balance}, nil
+}
+
+func (r *userRepository) SetBalance(ctx context.Context, id int64, value float64) (service.BalanceChange, error) {
+	if value < 0 {
+		return service.BalanceChange{}, service.ErrBalanceNegative
+	}
+	current, err := r.client.User.Get(ctx, id)
+	if err != nil {
+		return service.BalanceChange{}, translatePersistenceError(err, service.ErrUserNotFound, nil)
+	}
+	if err := r.client.User.UpdateOneID(id).SetBalance(value).Exec(ctx); err != nil {
+		return service.BalanceChange{}, translatePersistenceError(err, service.ErrUserNotFound, nil)
+	}
+	return service.BalanceChange{Old: current.Balance, New: value}, nil
 }
 
 func (r *userRepository) AddBalance(ctx context.Context, id int64, amount float64) error {

@@ -28,7 +28,7 @@ func (r *s87HandlerAPIKeyRepo) GetByID(context.Context, int64) (*service.APIKey,
 	return &clone, nil
 }
 
-func (r *s87HandlerAPIKeyRepo) Update(_ context.Context, key *service.APIKey) error {
+func (r *s87HandlerAPIKeyRepo) Update(_ context.Context, key *service.APIKey, _ service.APIKeyUpdateFields) error {
 	clone := *key
 	clone.IPWhitelist = append([]string(nil), key.IPWhitelist...)
 	clone.IPBlacklist = append([]string(nil), key.IPBlacklist...)

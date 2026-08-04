@@ -118,7 +118,7 @@ func TestUserRepositoryUpdateRejectsNormalizedEmailDuplicate(t *testing.T) {
 	require.NoError(t, repo.Create(ctx, second))
 
 	second.Email = " existing@example.com "
-	err := repo.Update(ctx, second)
+	err := repo.Update(ctx, second, service.UserUpdateFields{Email: true})
 	require.ErrorIs(t, err, service.ErrEmailExists)
 }
 
@@ -140,7 +140,7 @@ func TestUserRepositoryUpdatePreservesStoredIPFieldsWhenInputOmitsThem(t *testin
 	user.Username = "renamed"
 	user.RegisterIP = ""
 	user.LastLoginIP = ""
-	require.NoError(t, repo.Update(ctx, user))
+	require.NoError(t, repo.Update(ctx, user, service.UserUpdateFields{Username: true}))
 
 	stored, err := client.User.Get(ctx, user.ID)
 	require.NoError(t, err)
