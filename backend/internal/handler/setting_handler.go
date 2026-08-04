@@ -93,6 +93,10 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		GroupBuyEnabled:          settings.GroupBuyEnabled,
 		GroupBuyProductName:      settings.GroupBuyProductName,
 		GroupBuyDescription:      settings.GroupBuyDescription,
+		PixelCafeEnabled:         settings.PixelCafeEnabled,
+		PixelCafeTitle:           settings.PixelCafeTitle,
+		PixelCafeDescription:     settings.PixelCafeDescription,
+		PixelCafeHeaderVisible:   settings.PixelCafeHeaderVisible,
 
 		AffiliateEnabled: settings.AffiliateEnabled,
 

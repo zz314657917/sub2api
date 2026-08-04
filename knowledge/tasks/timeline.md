@@ -1,5 +1,43 @@
 # 项目时间轴
 
+## 2026-08-03 16:48 +08:00 - Pixel Cafe S152 到期收回合同起草
+
+- 当前阶段：S151 已关闭 `PASS / source-level`；S152 `pixel-cafe-phase8-expiry-s152` 进入 `contract-draft`，尚未授权实现。
+- 本段重点：Phase 8 审计确认 active Cafe Round 的 Binding/Key/Seat 到期收回、Round completed 仍未实现；普通 GroupBuy lifecycle 为防误处理已显式跳过 Cafe Round。
+- 关键决策：S152 只实现独立 active-round expiry 与收回，并接入既有 60 秒 ticker；同时隔离普通 entitlement 刷新。退款、未满 Round timeout、激活补偿、紧急迁移、自动下一轮、一致性 repair、Lobby/Pixi、真实运行态和部署各自单独建 Sprint。
+- 安全边界：Cafe managed Key 保持 `disabled`；收回应在事务提交后失效 auth cache，任何 Key/Binding 对应关系不一致都回滚该 Room，不做自动修复。
+- 证据入口：`docs/workflow/tasks/pixel-cafe-phase8-expiry-s152.md`、`docs/workflow/status.md`、`docs/workflow/main-log.md`。
+
+## 2026-07-31 13:05 +08:00 - S134 审计日志 locale 结构修复完成
+
+- 当前阶段：S134 已完成为 `PASS / source-level + production-build`，等待可选的提交/发布授权。
+- 本段重点：去掉管理员审计日志 locale 模块里重复的 `audit` 外壳，恢复
+  `admin.audit.*` 直达键路径。
+- 已完成：`frontend/src/i18n/locales/en/admin/audit.ts`、`frontend/src/i18n/locales/zh/admin/audit.ts`
+  和 `frontend/src/i18n/__tests__/auditLocales.spec.ts` 已验收通过；`docs/workflow/status.md`、
+  `docs/workflow/main-log.md` 和 `docs/workflow/qa-reports/audit-i18n-s134-qa.md` 已同步。
+- 关键决策：只做 locale 形状修正和回归测试，不碰路由、视图、后端或部署。
+- 验证记录：焦点 Vitest、frontend typecheck、production build、以及目标 `git diff --check`
+  均通过。
+- 遗留问题：未执行浏览器、部署或容器更新；当前工作区还保留 S133 的既有交接/QA 脏改。
+- 下一步：如需提交或发布，先获得明确授权并只暂存 S134 allowlist。
+
+## 2026-07-31 12:27 +08:00 - S133 PostgreSQL 回滚 smoke 补测完成
+
+- 当前阶段：S133 仍是 `PASS / local-only`，补做的非生产 PostgreSQL/Testcontainers
+  回滚 smoke 已通过。
+- 本段重点：清掉 `backend/internal/repository/gateway_cache_live_test.go` 的
+  integration-only 未使用 import，解除 repository 集成套件编译阻断后，执行
+  `TestCreateGroupFromSourceRollsBackWhenOutboxInsertFails`。
+- 已完成：`git diff --check` 通过；`go test -tags=integration ./internal/repository -run
+  '^TestCreateGroupFromSourceRollsBackWhenOutboxInsertFails$' -count=1` 通过。
+- 关键决策：只做测试专用最小修复，不扩展到更大范围的 integration 套件或生产运行态。
+- 验证记录：Testcontainers 能拉起本地 PostgreSQL，回滚 smoke 断言通过，说明 duplicate
+  创建失败时事务回滚和 outbox 清理路径可在本地环境复核。
+- 遗留问题：未跑更广的 `TestAPIContracts` / repository 集成全套，也未做生产浏览器或部署
+  验证。
+- 下一步：若要继续扩大覆盖，另开独立任务重跑更广的 integration 套件；否则本阶段可收口。
+
 ## 2026-07-23 23:16 +08:00 - S111 精确发布与远端一致验证
 
 - 当前阶段：S111 已从 `PASS / source-only` 进入 `PASS / published`；功能提交
@@ -611,3 +649,11 @@
 - 证据入口：`docs/workflow/qa-reports/upstream-v0151-followups-s71-s73-qa.md`，以及三个 Sprint 独立 QA 报告。
 - 清理记录：6 个 Generator/QA 分支的 `git cherry` 均无 `+` unique commit；对应 clean worktree 与本地分支已删除，仅保留汇总 worktree。
 - 下一步：只有在用户明确授权后，才把 `codex/upstream-v0151-followups-s71-s73` 合入 `main` 并推送；支付并发补丁 `fc66a30ff` 继续单独审计。
+
+## 2026-08-03 17:42 +08:00 - Pixel Cafe Phase 8B S153 完成
+
+- 当前阶段：P/G/E `pixel-cafe-phase8b-refund-compensation-s153` 已关闭为 `PASS / source-level`；未提交、未推送、未部署、未更新容器。
+- 本段重点：把 Cafe 未满 Round timeout、paid Seat 退款、Cafe provider pending 对账和 activation compensation 从普通 GroupBuy lifecycle 独立出来，同时保留 S152 active entitlement expiry。
+- 已完成：新 Cafe lifecycle 事务性执行 `open -> failed`、`paid -> refund_pending`、`locked -> released`，再复用 GroupBuyRefund/PaymentOrder 的现有幂等状态机；普通 pending-provider reconciler 显式排除 Cafe。补偿覆盖 `activating` 与 paid-full `open`，后者填补了首次 claim 前异常留下的恢复空洞。
+- 验证记录：Cafe lifecycle/expiry/activation/GroupBuy 聚焦回归、Wire 生成、`cmd/server`、gofmt 和 Git integrity checks PASS。完整 service package 仍只保留 `openai_compat_model_test.go:1877` 的既有 failover 断言漂移。
+- 下一步：S154 单独定义紧急账号迁移与 consistency checker/dry-run repair；真实 PostgreSQL 并发、payment sandbox、JWT/provider/usage runtime smoke、Lobby/Pixi 与部署仍未完成，Cafe managed Key 继续 `disabled`。

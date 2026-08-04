@@ -920,6 +920,7 @@ var ProviderSet = wire.NewSet(
 	ProvideAccountTestService,
 	ProvideSettingService,
 	wire.Bind(new(UserAccountShareSettings), new(*SettingService)),
+	wire.Bind(new(CafePublicSettings), new(*SettingService)),
 	NewDataManagementService,
 	ProvideBackupService,
 	ProvideOpsSystemLogSink,
@@ -979,7 +980,16 @@ var ProviderSet = wire.NewSet(
 	ProvideStudioBridgeService,
 	NewImageCreatorStorageGovernanceService,
 	ProvideWelfareService,
-	NewGroupBuyService,
+	NewCafeRoomActivationService,
+	ProvideCafeRoomExpiryService,
+	ProvideCafeRoomLifecycleService,
+	ProvideCafeRoomMigrationService,
+	ProvideGroupBuyService,
+	NewCafeRoomService,
+	NewCafeLobbyActivityService,
+	wire.Bind(new(CafeLobbyUsageRecorder), new(*CafeLobbyActivityService)),
+	ProvideCafePublicService,
+	NewCafeRoomOrderService,
 	ProvideGroupBuyLifecycleService,
 	ProvidePaymentConfigService,
 	ProvidePaymentService,
@@ -1030,8 +1040,21 @@ func ProvidePaymentOrderExpiryService(paymentSvc *PaymentService) *PaymentOrderE
 }
 
 // ProvideGroupBuyLifecycleService creates and starts GroupBuyLifecycleService.
-func ProvideGroupBuyLifecycleService(groupBuySvc *GroupBuyService) *GroupBuyLifecycleService {
+func ProvideCafeRoomExpiryService(entClient *dbent.Client, apiKeySvc *APIKeyService) *CafeRoomExpiryService {
+	return NewCafeRoomExpiryService(entClient, apiKeySvc)
+}
+
+func ProvideCafeRoomMigrationService(entClient *dbent.Client, apiKeySvc *APIKeyService) *CafeRoomMigrationService {
+	return NewCafeRoomMigrationService(entClient, apiKeySvc)
+}
+
+func ProvideCafeRoomLifecycleService(entClient *dbent.Client, groupBuySvc *GroupBuyService, cafeActivation *CafeRoomActivationService, cafeExpiry *CafeRoomExpiryService) *CafeRoomLifecycleService {
+	return NewCafeRoomLifecycleService(entClient, groupBuySvc, cafeActivation, cafeExpiry)
+}
+
+func ProvideGroupBuyLifecycleService(groupBuySvc *GroupBuyService, cafeLifecycle *CafeRoomLifecycleService) *GroupBuyLifecycleService {
 	svc := NewGroupBuyLifecycleService(groupBuySvc, 60*time.Second)
+	svc.SetCafeRoomLifecycle(cafeLifecycle)
 	svc.Start()
 	return svc
 }

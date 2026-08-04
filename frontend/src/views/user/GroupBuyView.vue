@@ -1,5 +1,5 @@
 <template>
-  <AppLayout>
+  <AppLayout v-if="showLegacyGroupBuy">
     <div class="group-buy-page -m-4 min-h-[calc(100vh-4rem)] md:-m-[1.35rem] lg:-m-[1.6rem]">
       <div class="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
         <header class="group-buy-header group-buy-toolbar">
@@ -268,14 +268,16 @@
       </Transition>
     </Teleport>
   </AppLayout>
+  <PixelCafePage v-else />
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
+import PixelCafePage from '@/features/pixelCafe/PixelCafePage.vue'
 import { groupBuyAPI } from '@/api/groupBuy'
 import { useAppStore } from '@/stores'
 import { extractApiErrorMessage } from '@/utils/apiError'
@@ -298,7 +300,11 @@ type TabID = 'hall' | 'binding' | 'orders'
 type PaymentOutcome = 'success' | 'cancelled' | 'expired'
 
 const appStore = useAppStore()
+const route = useRoute()
 const router = useRouter()
+
+const pixelCafeEnabled = computed(() => appStore.cachedPublicSettings?.pixel_cafe_enabled === true)
+const showLegacyGroupBuy = computed(() => !pixelCafeEnabled.value || route.query.legacy === '1')
 
 const tabs: { id: TabID; label: string }[] = [
   { id: 'hall', label: '拼团大厅' },
@@ -700,6 +706,7 @@ function formatDateTime(value?: string): string {
 }
 
 onMounted(() => {
+  if (!showLegacyGroupBuy.value) return
   void refreshAll()
 })
 </script>

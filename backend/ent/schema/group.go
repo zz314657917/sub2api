@@ -66,6 +66,10 @@ func (Group) Fields() []ent.Field {
 		field.String("status").
 			MaxLen(20).
 			Default(domain.StatusActive),
+		field.String("access_mode").
+			MaxLen(20).
+			Default("normal").
+			Comment("Group access mode: normal or room_managed."),
 		field.String("duplicate_operation_id").
 			MaxLen(64).
 			Optional().
@@ -211,6 +215,8 @@ func (Group) Edges() []ent.Edge {
 		edge.To("usage_logs", UsageLog.Type),
 		edge.To("group_buy_plans", GroupBuyPlan.Type),
 		edge.To("group_buy_entitlements", GroupBuyEntitlement.Type),
+		edge.To("cafe_rooms", CafeRoom.Type),
+		edge.To("account_bindings", APIKeyAccountBinding.Type),
 		edge.From("accounts", Account.Type).
 			Ref("groups").
 			Through("account_groups", AccountGroup.Type),
@@ -226,6 +232,7 @@ func (Group) Indexes() []ent.Index {
 	return []ent.Index{
 		// name 字段已在 Fields() 中声明 Unique()，无需重复索引
 		index.Fields("status"),
+		index.Fields("access_mode"),
 		index.Fields("platform"),
 		index.Fields("subscription_type"),
 		index.Fields("routing_scope"),

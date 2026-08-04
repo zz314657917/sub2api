@@ -165,6 +165,16 @@ func Window7dStart(v time.Time) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldWindow7dStart, v))
 }
 
+// ManagedSourceType applies equality check predicate on the "managed_source_type" field. It's identical to ManagedSourceTypeEQ.
+func ManagedSourceType(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldManagedSourceType, v))
+}
+
+// ManagedSourceID applies equality check predicate on the "managed_source_id" field. It's identical to ManagedSourceIDEQ.
+func ManagedSourceID(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldManagedSourceID, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.APIKey {
 	return predicate.APIKey(sql.FieldEQ(FieldCreatedAt, v))
@@ -1205,6 +1215,121 @@ func MultiGroupRoutesNotNil() predicate.APIKey {
 	return predicate.APIKey(sql.FieldNotNull(FieldMultiGroupRoutes))
 }
 
+// ManagedSourceTypeEQ applies the EQ predicate on the "managed_source_type" field.
+func ManagedSourceTypeEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldManagedSourceType, v))
+}
+
+// ManagedSourceTypeNEQ applies the NEQ predicate on the "managed_source_type" field.
+func ManagedSourceTypeNEQ(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldManagedSourceType, v))
+}
+
+// ManagedSourceTypeIn applies the In predicate on the "managed_source_type" field.
+func ManagedSourceTypeIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldManagedSourceType, vs...))
+}
+
+// ManagedSourceTypeNotIn applies the NotIn predicate on the "managed_source_type" field.
+func ManagedSourceTypeNotIn(vs ...string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldManagedSourceType, vs...))
+}
+
+// ManagedSourceTypeGT applies the GT predicate on the "managed_source_type" field.
+func ManagedSourceTypeGT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldManagedSourceType, v))
+}
+
+// ManagedSourceTypeGTE applies the GTE predicate on the "managed_source_type" field.
+func ManagedSourceTypeGTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldManagedSourceType, v))
+}
+
+// ManagedSourceTypeLT applies the LT predicate on the "managed_source_type" field.
+func ManagedSourceTypeLT(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldManagedSourceType, v))
+}
+
+// ManagedSourceTypeLTE applies the LTE predicate on the "managed_source_type" field.
+func ManagedSourceTypeLTE(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldManagedSourceType, v))
+}
+
+// ManagedSourceTypeContains applies the Contains predicate on the "managed_source_type" field.
+func ManagedSourceTypeContains(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContains(FieldManagedSourceType, v))
+}
+
+// ManagedSourceTypeHasPrefix applies the HasPrefix predicate on the "managed_source_type" field.
+func ManagedSourceTypeHasPrefix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasPrefix(FieldManagedSourceType, v))
+}
+
+// ManagedSourceTypeHasSuffix applies the HasSuffix predicate on the "managed_source_type" field.
+func ManagedSourceTypeHasSuffix(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldHasSuffix(FieldManagedSourceType, v))
+}
+
+// ManagedSourceTypeEqualFold applies the EqualFold predicate on the "managed_source_type" field.
+func ManagedSourceTypeEqualFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEqualFold(FieldManagedSourceType, v))
+}
+
+// ManagedSourceTypeContainsFold applies the ContainsFold predicate on the "managed_source_type" field.
+func ManagedSourceTypeContainsFold(v string) predicate.APIKey {
+	return predicate.APIKey(sql.FieldContainsFold(FieldManagedSourceType, v))
+}
+
+// ManagedSourceIDEQ applies the EQ predicate on the "managed_source_id" field.
+func ManagedSourceIDEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldEQ(FieldManagedSourceID, v))
+}
+
+// ManagedSourceIDNEQ applies the NEQ predicate on the "managed_source_id" field.
+func ManagedSourceIDNEQ(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNEQ(FieldManagedSourceID, v))
+}
+
+// ManagedSourceIDIn applies the In predicate on the "managed_source_id" field.
+func ManagedSourceIDIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldIn(FieldManagedSourceID, vs...))
+}
+
+// ManagedSourceIDNotIn applies the NotIn predicate on the "managed_source_id" field.
+func ManagedSourceIDNotIn(vs ...int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotIn(FieldManagedSourceID, vs...))
+}
+
+// ManagedSourceIDGT applies the GT predicate on the "managed_source_id" field.
+func ManagedSourceIDGT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGT(FieldManagedSourceID, v))
+}
+
+// ManagedSourceIDGTE applies the GTE predicate on the "managed_source_id" field.
+func ManagedSourceIDGTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldGTE(FieldManagedSourceID, v))
+}
+
+// ManagedSourceIDLT applies the LT predicate on the "managed_source_id" field.
+func ManagedSourceIDLT(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLT(FieldManagedSourceID, v))
+}
+
+// ManagedSourceIDLTE applies the LTE predicate on the "managed_source_id" field.
+func ManagedSourceIDLTE(v int64) predicate.APIKey {
+	return predicate.APIKey(sql.FieldLTE(FieldManagedSourceID, v))
+}
+
+// ManagedSourceIDIsNil applies the IsNil predicate on the "managed_source_id" field.
+func ManagedSourceIDIsNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldIsNull(FieldManagedSourceID))
+}
+
+// ManagedSourceIDNotNil applies the NotNil predicate on the "managed_source_id" field.
+func ManagedSourceIDNotNil() predicate.APIKey {
+	return predicate.APIKey(sql.FieldNotNull(FieldManagedSourceID))
+}
+
 // HasUser applies the HasEdge predicate on the "user" edge.
 func HasUser() predicate.APIKey {
 	return predicate.APIKey(func(s *sql.Selector) {
@@ -1312,6 +1437,29 @@ func HasGroupBuyEntitlements() predicate.APIKey {
 func HasGroupBuyEntitlementsWith(preds ...predicate.GroupBuyEntitlement) predicate.APIKey {
 	return predicate.APIKey(func(s *sql.Selector) {
 		step := newGroupBuyEntitlementsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAccountBindings applies the HasEdge predicate on the "account_bindings" edge.
+func HasAccountBindings() predicate.APIKey {
+	return predicate.APIKey(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAccountBindingsWith applies the HasEdge predicate on the "account_bindings" edge with a given conditions (other predicates).
+func HasAccountBindingsWith(preds ...predicate.APIKeyAccountBinding) predicate.APIKey {
+	return predicate.APIKey(func(s *sql.Selector) {
+		step := newAccountBindingsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

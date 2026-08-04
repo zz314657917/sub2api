@@ -92,6 +92,9 @@ func (s *GeminiMessagesCompatService) SelectAccountForModel(ctx context.Context,
 }
 
 func (s *GeminiMessagesCompatService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	if pinnedID, ok := pinnedAccountIDFromContext(ctx); ok {
+		return s.selectPinnedGeminiAccount(ctx, pinnedID, groupID, requestedModel, excludedIDs)
+	}
 	if accountPoolStrategyIsPrivateFirst(ctx) {
 		account, err := s.SelectAccountForModelWithExclusions(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, sessionHash, requestedModel, excludedIDs)
 		if err == nil {
@@ -151,6 +154,24 @@ func (s *GeminiMessagesCompatService) SelectAccountForModelWithExclusions(ctx co
 	}
 
 	return s.hydrateSelectedAccount(ctx, selected)
+}
+
+func (s *GeminiMessagesCompatService) selectPinnedGeminiAccount(ctx context.Context, accountID int64, groupID *int64, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	if s == nil || s.accountRepo == nil || accountID <= 0 {
+		return nil, ErrCafeAccountUnavailable
+	}
+	if _, excluded := excludedIDs[accountID]; excluded {
+		return nil, ErrCafeAccountUnavailable
+	}
+	platform, useMixedScheduling, _, err := s.resolvePlatformAndSchedulingMode(ctx, groupID)
+	if err != nil {
+		return nil, ErrCafeAccountUnavailable
+	}
+	account, err := s.getSchedulableAccount(ctx, accountID)
+	if err != nil || account == nil || !openAIStickyAccountMatchesGroup(account, groupID) || !s.isAccountUsableForRequest(ctx, account, requestedModel, platform, useMixedScheduling) {
+		return nil, ErrCafeAccountUnavailable
+	}
+	return s.hydrateSelectedAccount(ctx, account)
 }
 
 // resolvePlatformAndSchedulingMode 解析目标平台和调度模式。
@@ -511,6 +532,9 @@ func (s *GeminiMessagesCompatService) HasAntigravityAccounts(ctx context.Context
 // 3) OAuth accounts explicitly marked as ai_studio
 // 4) Any remaining Gemini accounts (fallback)
 func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx context.Context, groupID *int64) (*Account, error) {
+	if pinnedID, ok := pinnedAccountIDFromContext(ctx); ok {
+		return s.selectPinnedGeminiAccount(ctx, pinnedID, groupID, "", nil)
+	}
 	accounts, err := s.listSchedulableAccountsOnce(ctx, groupID, PlatformGemini, true)
 	if err != nil {
 		return nil, fmt.Errorf("query accounts failed: %w", err)

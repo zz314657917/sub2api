@@ -115,6 +115,11 @@ func Status(v string) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldStatus, v))
 }
 
+// AccessMode applies equality check predicate on the "access_mode" field. It's identical to AccessModeEQ.
+func AccessMode(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldAccessMode, v))
+}
+
 // DuplicateOperationID applies equality check predicate on the "duplicate_operation_id" field. It's identical to DuplicateOperationIDEQ.
 func DuplicateOperationID(v string) predicate.Group {
 	return predicate.Group(sql.FieldEQ(FieldDuplicateOperationID, v))
@@ -808,6 +813,71 @@ func StatusEqualFold(v string) predicate.Group {
 // StatusContainsFold applies the ContainsFold predicate on the "status" field.
 func StatusContainsFold(v string) predicate.Group {
 	return predicate.Group(sql.FieldContainsFold(FieldStatus, v))
+}
+
+// AccessModeEQ applies the EQ predicate on the "access_mode" field.
+func AccessModeEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldEQ(FieldAccessMode, v))
+}
+
+// AccessModeNEQ applies the NEQ predicate on the "access_mode" field.
+func AccessModeNEQ(v string) predicate.Group {
+	return predicate.Group(sql.FieldNEQ(FieldAccessMode, v))
+}
+
+// AccessModeIn applies the In predicate on the "access_mode" field.
+func AccessModeIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldIn(FieldAccessMode, vs...))
+}
+
+// AccessModeNotIn applies the NotIn predicate on the "access_mode" field.
+func AccessModeNotIn(vs ...string) predicate.Group {
+	return predicate.Group(sql.FieldNotIn(FieldAccessMode, vs...))
+}
+
+// AccessModeGT applies the GT predicate on the "access_mode" field.
+func AccessModeGT(v string) predicate.Group {
+	return predicate.Group(sql.FieldGT(FieldAccessMode, v))
+}
+
+// AccessModeGTE applies the GTE predicate on the "access_mode" field.
+func AccessModeGTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldGTE(FieldAccessMode, v))
+}
+
+// AccessModeLT applies the LT predicate on the "access_mode" field.
+func AccessModeLT(v string) predicate.Group {
+	return predicate.Group(sql.FieldLT(FieldAccessMode, v))
+}
+
+// AccessModeLTE applies the LTE predicate on the "access_mode" field.
+func AccessModeLTE(v string) predicate.Group {
+	return predicate.Group(sql.FieldLTE(FieldAccessMode, v))
+}
+
+// AccessModeContains applies the Contains predicate on the "access_mode" field.
+func AccessModeContains(v string) predicate.Group {
+	return predicate.Group(sql.FieldContains(FieldAccessMode, v))
+}
+
+// AccessModeHasPrefix applies the HasPrefix predicate on the "access_mode" field.
+func AccessModeHasPrefix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasPrefix(FieldAccessMode, v))
+}
+
+// AccessModeHasSuffix applies the HasSuffix predicate on the "access_mode" field.
+func AccessModeHasSuffix(v string) predicate.Group {
+	return predicate.Group(sql.FieldHasSuffix(FieldAccessMode, v))
+}
+
+// AccessModeEqualFold applies the EqualFold predicate on the "access_mode" field.
+func AccessModeEqualFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldEqualFold(FieldAccessMode, v))
+}
+
+// AccessModeContainsFold applies the ContainsFold predicate on the "access_mode" field.
+func AccessModeContainsFold(v string) predicate.Group {
+	return predicate.Group(sql.FieldContainsFold(FieldAccessMode, v))
 }
 
 // DuplicateOperationIDEQ applies the EQ predicate on the "duplicate_operation_id" field.
@@ -1935,6 +2005,52 @@ func HasGroupBuyEntitlements() predicate.Group {
 func HasGroupBuyEntitlementsWith(preds ...predicate.GroupBuyEntitlement) predicate.Group {
 	return predicate.Group(func(s *sql.Selector) {
 		step := newGroupBuyEntitlementsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCafeRooms applies the HasEdge predicate on the "cafe_rooms" edge.
+func HasCafeRooms() predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CafeRoomsTable, CafeRoomsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCafeRoomsWith applies the HasEdge predicate on the "cafe_rooms" edge with a given conditions (other predicates).
+func HasCafeRoomsWith(preds ...predicate.CafeRoom) predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := newCafeRoomsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAccountBindings applies the HasEdge predicate on the "account_bindings" edge.
+func HasAccountBindings() predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAccountBindingsWith applies the HasEdge predicate on the "account_bindings" edge with a given conditions (other predicates).
+func HasAccountBindingsWith(preds ...predicate.APIKeyAccountBinding) predicate.Group {
+	return predicate.Group(func(s *sql.Selector) {
+		step := newAccountBindingsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

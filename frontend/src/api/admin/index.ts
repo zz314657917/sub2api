@@ -38,6 +38,7 @@ import adminTicketsAPI from './tickets'
 import modelMarketAdminAPI from './modelMarket'
 import adminGroupBuyAPI from './groupBuy'
 import auditAPI from './audit'
+import cafeRoomsAPI from './cafeRooms'
 
 /**
  * Unified admin API object for convenient access
@@ -77,7 +78,8 @@ export const adminAPI = {
   tickets: adminTicketsAPI,
   modelMarket: modelMarketAdminAPI,
   groupBuy: adminGroupBuyAPI,
-  audit: auditAPI
+  audit: auditAPI,
+  cafeRooms: cafeRoomsAPI,
 }
 
 export {
@@ -115,7 +117,8 @@ export {
   adminTicketsAPI,
   modelMarketAdminAPI,
   adminGroupBuyAPI,
-  auditAPI
+  auditAPI,
+  cafeRoomsAPI,
 }
 
 export default adminAPI

@@ -205,4 +205,28 @@ describe('KeyUsageView daily detail', () => {
 
     wrapper.unmount()
   })
+
+  it('cancels the ring animation when the view is unmounted', async () => {
+    vi.useFakeTimers()
+    const wrapper = mount(KeyUsageView, {
+      global: {
+        stubs: {
+          RouterLink: { template: '<a><slot /></a>' },
+          LocaleSwitcher: true,
+          Icon: true,
+        },
+      },
+    })
+
+    await wrapper.find('input').setValue('sk-test-key')
+    await wrapper.find('input').trigger('keydown.enter')
+    await flushPromises()
+    await nextTick()
+
+    wrapper.unmount()
+    vi.runAllTimers()
+
+    expect(wrapper.exists()).toBe(false)
+    vi.useRealTimers()
+  })
 })

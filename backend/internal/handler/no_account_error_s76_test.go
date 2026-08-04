@@ -61,3 +61,18 @@ func TestOpenAICompatibleSelectionErrorForLog_PreservesOtherPlatforms(t *testing
 	require.Same(t, err, openAICompatibleSelectionErrorForLog(err, service.PlatformOpenAI))
 	require.NoError(t, openAICompatibleSelectionErrorForLog(nil, service.PlatformGrok))
 }
+
+func TestClassifyNoAccountError_CafeManagedKeyKeepsStableUnavailableCode(t *testing.T) {
+	managedSourceID := int64(701)
+	apiKey := &service.APIKey{
+		ManagedSourceType: service.APIKeyManagedSourceCafeRoomSeat,
+		ManagedSourceID:   &managedSourceID,
+	}
+
+	cls := classifyNoAccountError(context.Background(), nil, apiKey, "", "", service.PlatformOpenAI)
+
+	require.Equal(t, http.StatusForbidden, cls.Status)
+	require.Equal(t, "CAFE_ACCOUNT_UNAVAILABLE", cls.ErrType)
+	require.Equal(t, "the cafe account is temporarily unavailable", cls.Message)
+	require.False(t, cls.ModelNotFound)
+}

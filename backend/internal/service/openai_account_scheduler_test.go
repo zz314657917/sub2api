@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/stretchr/testify/require"
 )
 
@@ -161,6 +162,85 @@ func newSchedulerTestOpenAIWSV2Config() *config.Config {
 
 type openAIAdvancedSchedulerSettingRepoStub struct {
 	values map[string]string
+}
+
+func TestOpenAIGatewayService_PinnedAccountSkipsStickyAndFallbackCandidates(t *testing.T) {
+	groupID := int64(42)
+	pinned := Account{
+		ID:          1,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		GroupIDs:    []int64{groupID},
+	}
+	other := Account{
+		ID:          2,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		GroupIDs:    []int64{groupID},
+	}
+	svc := &OpenAIGatewayService{
+		accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{pinned, other}},
+		cfg:         &config.Config{},
+	}
+	ctx := context.WithValue(context.Background(), ctxkey.APIKeyPinnedAccountID, pinned.ID)
+
+	selection, decision, err := svc.SelectAccountWithScheduler(ctx, &groupID, "previous-response-id", "sticky-session", "gpt-5", nil, OpenAIUpstreamTransportAny, false)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Account)
+	require.Equal(t, pinned.ID, selection.Account.ID)
+	require.Equal(t, "pinned", decision.Layer)
+
+	selection, _, err = svc.SelectAccountWithScheduler(ctx, &groupID, "", "", "gpt-5", map[int64]struct{}{pinned.ID: {}}, OpenAIUpstreamTransportAny, false)
+	require.Nil(t, selection)
+	require.ErrorIs(t, err, ErrCafeAccountUnavailable)
+}
+
+func TestOpenAIGatewayService_PinnedImageAccountDoesNotFallbackToAnotherAccount(t *testing.T) {
+	groupID := int64(43)
+	pinned := Account{
+		ID:          11,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		GroupIDs:    []int64{groupID},
+	}
+	other := Account{
+		ID:          12,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeOAuth,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		GroupIDs:    []int64{groupID},
+	}
+	svc := &OpenAIGatewayService{
+		accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{pinned, other}},
+		cfg:         &config.Config{},
+	}
+	ctx := context.WithValue(context.Background(), ctxkey.APIKeyPinnedAccountID, pinned.ID)
+
+	selection, decision, err := svc.SelectAccountWithSchedulerForImages(ctx, &groupID, "sticky-session", "gpt-image-2", nil, OpenAIImagesCapabilityNative)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Account)
+	require.Equal(t, pinned.ID, selection.Account.ID)
+	require.Equal(t, "pinned", decision.Layer)
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
+	}
+
+	selection, _, err = svc.SelectAccountWithSchedulerForImages(ctx, &groupID, "sticky-session", "gpt-image-2", map[int64]struct{}{pinned.ID: {}}, OpenAIImagesCapabilityNative)
+	require.Nil(t, selection)
+	require.ErrorIs(t, err, ErrCafeAccountUnavailable)
 }
 
 func (s *openAIAdvancedSchedulerSettingRepoStub) Get(ctx context.Context, key string) (*Setting, error) {

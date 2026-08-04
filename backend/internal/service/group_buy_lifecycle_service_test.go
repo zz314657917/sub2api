@@ -19,6 +19,24 @@ type blockingGroupBuyLifecycleOperationsStub struct {
 	started chan struct{}
 }
 
+type cafeRoomExpiryOperationsStub struct {
+	calls int
+}
+
+func (s *cafeRoomExpiryOperationsStub) ExpireCafeRounds(context.Context) (int, error) {
+	s.calls++
+	return s.calls, nil
+}
+
+type cafeRoomLifecycleOperationsStub struct {
+	calls int
+}
+
+func (s *cafeRoomLifecycleOperationsStub) RunCafeLifecycle(context.Context) (int, error) {
+	s.calls++
+	return s.calls, nil
+}
+
 func (s *blockingGroupBuyLifecycleOperationsStub) ExpireRounds(ctx context.Context) (int, error) {
 	close(s.started)
 	<-ctx.Done()
@@ -98,6 +116,37 @@ func TestGroupBuyLifecycleServiceContinuesAfterOperationError(t *testing.T) {
 	svc := NewGroupBuyLifecycleService(ops, time.Hour)
 	svc.runOnce()
 
+	counts := ops.snapshot()
+	require.Equal(t, 1, counts["expire"])
+	require.Equal(t, 1, counts["entitlements"])
+	require.Equal(t, 1, counts["refunds"])
+}
+
+func TestGroupBuyLifecycleServiceRunsOptionalCafeExpiry(t *testing.T) {
+	ops := &groupBuyLifecycleOperationsStub{counts: map[string]int{}}
+	cafeExpiry := &cafeRoomExpiryOperationsStub{}
+	svc := NewGroupBuyLifecycleService(ops, time.Hour)
+	svc.SetCafeRoomExpiry(cafeExpiry)
+	svc.runOnce()
+
+	require.Equal(t, 1, cafeExpiry.calls)
+	counts := ops.snapshot()
+	require.Equal(t, 1, counts["expire"])
+	require.Equal(t, 1, counts["entitlements"])
+	require.Equal(t, 1, counts["refunds"])
+}
+
+func TestGroupBuyLifecycleServicePrefersCompleteCafeLifecycle(t *testing.T) {
+	ops := &groupBuyLifecycleOperationsStub{counts: map[string]int{}}
+	cafeExpiry := &cafeRoomExpiryOperationsStub{}
+	cafeLifecycle := &cafeRoomLifecycleOperationsStub{}
+	svc := NewGroupBuyLifecycleService(ops, time.Hour)
+	svc.SetCafeRoomExpiry(cafeExpiry)
+	svc.SetCafeRoomLifecycle(cafeLifecycle)
+	svc.runOnce()
+
+	require.Equal(t, 1, cafeLifecycle.calls)
+	require.Zero(t, cafeExpiry.calls)
 	counts := ops.snapshot()
 	require.Equal(t, 1, counts["expire"])
 	require.Equal(t, 1, counts["entitlements"])

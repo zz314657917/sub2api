@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
@@ -335,6 +336,118 @@ func (_u *GroupBuyPlanUpdate) SetNillableLaunchMode(v *string) *GroupBuyPlanUpda
 	return _u
 }
 
+// SetFulfillmentMode sets the "fulfillment_mode" field.
+func (_u *GroupBuyPlanUpdate) SetFulfillmentMode(v string) *GroupBuyPlanUpdate {
+	_u.mutation.SetFulfillmentMode(v)
+	return _u
+}
+
+// SetNillableFulfillmentMode sets the "fulfillment_mode" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdate) SetNillableFulfillmentMode(v *string) *GroupBuyPlanUpdate {
+	if v != nil {
+		_u.SetFulfillmentMode(*v)
+	}
+	return _u
+}
+
+// SetRoomKeyQuotaUsd sets the "room_key_quota_usd" field.
+func (_u *GroupBuyPlanUpdate) SetRoomKeyQuotaUsd(v float64) *GroupBuyPlanUpdate {
+	_u.mutation.ResetRoomKeyQuotaUsd()
+	_u.mutation.SetRoomKeyQuotaUsd(v)
+	return _u
+}
+
+// SetNillableRoomKeyQuotaUsd sets the "room_key_quota_usd" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdate) SetNillableRoomKeyQuotaUsd(v *float64) *GroupBuyPlanUpdate {
+	if v != nil {
+		_u.SetRoomKeyQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddRoomKeyQuotaUsd adds value to the "room_key_quota_usd" field.
+func (_u *GroupBuyPlanUpdate) AddRoomKeyQuotaUsd(v float64) *GroupBuyPlanUpdate {
+	_u.mutation.AddRoomKeyQuotaUsd(v)
+	return _u
+}
+
+// SetRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field.
+func (_u *GroupBuyPlanUpdate) SetRoomKeyRateLimit5h(v float64) *GroupBuyPlanUpdate {
+	_u.mutation.ResetRoomKeyRateLimit5h()
+	_u.mutation.SetRoomKeyRateLimit5h(v)
+	return _u
+}
+
+// SetNillableRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdate) SetNillableRoomKeyRateLimit5h(v *float64) *GroupBuyPlanUpdate {
+	if v != nil {
+		_u.SetRoomKeyRateLimit5h(*v)
+	}
+	return _u
+}
+
+// AddRoomKeyRateLimit5h adds value to the "room_key_rate_limit_5h" field.
+func (_u *GroupBuyPlanUpdate) AddRoomKeyRateLimit5h(v float64) *GroupBuyPlanUpdate {
+	_u.mutation.AddRoomKeyRateLimit5h(v)
+	return _u
+}
+
+// SetRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field.
+func (_u *GroupBuyPlanUpdate) SetRoomKeyRateLimit1d(v float64) *GroupBuyPlanUpdate {
+	_u.mutation.ResetRoomKeyRateLimit1d()
+	_u.mutation.SetRoomKeyRateLimit1d(v)
+	return _u
+}
+
+// SetNillableRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdate) SetNillableRoomKeyRateLimit1d(v *float64) *GroupBuyPlanUpdate {
+	if v != nil {
+		_u.SetRoomKeyRateLimit1d(*v)
+	}
+	return _u
+}
+
+// AddRoomKeyRateLimit1d adds value to the "room_key_rate_limit_1d" field.
+func (_u *GroupBuyPlanUpdate) AddRoomKeyRateLimit1d(v float64) *GroupBuyPlanUpdate {
+	_u.mutation.AddRoomKeyRateLimit1d(v)
+	return _u
+}
+
+// SetRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field.
+func (_u *GroupBuyPlanUpdate) SetRoomKeyRateLimit7d(v float64) *GroupBuyPlanUpdate {
+	_u.mutation.ResetRoomKeyRateLimit7d()
+	_u.mutation.SetRoomKeyRateLimit7d(v)
+	return _u
+}
+
+// SetNillableRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdate) SetNillableRoomKeyRateLimit7d(v *float64) *GroupBuyPlanUpdate {
+	if v != nil {
+		_u.SetRoomKeyRateLimit7d(*v)
+	}
+	return _u
+}
+
+// AddRoomKeyRateLimit7d adds value to the "room_key_rate_limit_7d" field.
+func (_u *GroupBuyPlanUpdate) AddRoomKeyRateLimit7d(v float64) *GroupBuyPlanUpdate {
+	_u.mutation.AddRoomKeyRateLimit7d(v)
+	return _u
+}
+
+// SetAutoCreateRoomKey sets the "auto_create_room_key" field.
+func (_u *GroupBuyPlanUpdate) SetAutoCreateRoomKey(v bool) *GroupBuyPlanUpdate {
+	_u.mutation.SetAutoCreateRoomKey(v)
+	return _u
+}
+
+// SetNillableAutoCreateRoomKey sets the "auto_create_room_key" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdate) SetNillableAutoCreateRoomKey(v *bool) *GroupBuyPlanUpdate {
+	if v != nil {
+		_u.SetAutoCreateRoomKey(*v)
+	}
+	return _u
+}
+
 // SetRefundMode sets the "refund_mode" field.
 func (_u *GroupBuyPlanUpdate) SetRefundMode(v string) *GroupBuyPlanUpdate {
 	_u.mutation.SetRefundMode(v)
@@ -494,6 +607,21 @@ func (_u *GroupBuyPlanUpdate) AddEvents(v ...*GroupBuyEvent) *GroupBuyPlanUpdate
 	return _u.AddEventIDs(ids...)
 }
 
+// AddCafeRoomIDs adds the "cafe_rooms" edge to the CafeRoom entity by IDs.
+func (_u *GroupBuyPlanUpdate) AddCafeRoomIDs(ids ...int64) *GroupBuyPlanUpdate {
+	_u.mutation.AddCafeRoomIDs(ids...)
+	return _u
+}
+
+// AddCafeRooms adds the "cafe_rooms" edges to the CafeRoom entity.
+func (_u *GroupBuyPlanUpdate) AddCafeRooms(v ...*CafeRoom) *GroupBuyPlanUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCafeRoomIDs(ids...)
+}
+
 // Mutation returns the GroupBuyPlanMutation object of the builder.
 func (_u *GroupBuyPlanUpdate) Mutation() *GroupBuyPlanMutation {
 	return _u.mutation
@@ -566,6 +694,27 @@ func (_u *GroupBuyPlanUpdate) RemoveEvents(v ...*GroupBuyEvent) *GroupBuyPlanUpd
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveEventIDs(ids...)
+}
+
+// ClearCafeRooms clears all "cafe_rooms" edges to the CafeRoom entity.
+func (_u *GroupBuyPlanUpdate) ClearCafeRooms() *GroupBuyPlanUpdate {
+	_u.mutation.ClearCafeRooms()
+	return _u
+}
+
+// RemoveCafeRoomIDs removes the "cafe_rooms" edge to CafeRoom entities by IDs.
+func (_u *GroupBuyPlanUpdate) RemoveCafeRoomIDs(ids ...int64) *GroupBuyPlanUpdate {
+	_u.mutation.RemoveCafeRoomIDs(ids...)
+	return _u
+}
+
+// RemoveCafeRooms removes "cafe_rooms" edges to CafeRoom entities.
+func (_u *GroupBuyPlanUpdate) RemoveCafeRooms(v ...*CafeRoom) *GroupBuyPlanUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCafeRoomIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -644,6 +793,11 @@ func (_u *GroupBuyPlanUpdate) check() error {
 	if v, ok := _u.mutation.LaunchMode(); ok {
 		if err := groupbuyplan.LaunchModeValidator(v); err != nil {
 			return &ValidationError{Name: "launch_mode", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.launch_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.FulfillmentMode(); ok {
+		if err := groupbuyplan.FulfillmentModeValidator(v); err != nil {
+			return &ValidationError{Name: "fulfillment_mode", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.fulfillment_mode": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.RefundMode(); ok {
@@ -759,6 +913,36 @@ func (_u *GroupBuyPlanUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.LaunchMode(); ok {
 		_spec.SetField(groupbuyplan.FieldLaunchMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.FulfillmentMode(); ok {
+		_spec.SetField(groupbuyplan.FieldFulfillmentMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RoomKeyQuotaUsd(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRoomKeyQuotaUsd(); ok {
+		_spec.AddField(groupbuyplan.FieldRoomKeyQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RoomKeyRateLimit5h(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyRateLimit5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRoomKeyRateLimit5h(); ok {
+		_spec.AddField(groupbuyplan.FieldRoomKeyRateLimit5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RoomKeyRateLimit1d(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyRateLimit1d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRoomKeyRateLimit1d(); ok {
+		_spec.AddField(groupbuyplan.FieldRoomKeyRateLimit1d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RoomKeyRateLimit7d(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyRateLimit7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRoomKeyRateLimit7d(); ok {
+		_spec.AddField(groupbuyplan.FieldRoomKeyRateLimit7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AutoCreateRoomKey(); ok {
+		_spec.SetField(groupbuyplan.FieldAutoCreateRoomKey, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.RefundMode(); ok {
 		_spec.SetField(groupbuyplan.FieldRefundMode, field.TypeString, value)
@@ -947,6 +1131,51 @@ func (_u *GroupBuyPlanUpdate) sqlSave(ctx context.Context) (_node int, err error
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CafeRoomsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyplan.CafeRoomsTable,
+			Columns: []string{groupbuyplan.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCafeRoomsIDs(); len(nodes) > 0 && !_u.mutation.CafeRoomsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyplan.CafeRoomsTable,
+			Columns: []string{groupbuyplan.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CafeRoomsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyplan.CafeRoomsTable,
+			Columns: []string{groupbuyplan.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1275,6 +1504,118 @@ func (_u *GroupBuyPlanUpdateOne) SetNillableLaunchMode(v *string) *GroupBuyPlanU
 	return _u
 }
 
+// SetFulfillmentMode sets the "fulfillment_mode" field.
+func (_u *GroupBuyPlanUpdateOne) SetFulfillmentMode(v string) *GroupBuyPlanUpdateOne {
+	_u.mutation.SetFulfillmentMode(v)
+	return _u
+}
+
+// SetNillableFulfillmentMode sets the "fulfillment_mode" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdateOne) SetNillableFulfillmentMode(v *string) *GroupBuyPlanUpdateOne {
+	if v != nil {
+		_u.SetFulfillmentMode(*v)
+	}
+	return _u
+}
+
+// SetRoomKeyQuotaUsd sets the "room_key_quota_usd" field.
+func (_u *GroupBuyPlanUpdateOne) SetRoomKeyQuotaUsd(v float64) *GroupBuyPlanUpdateOne {
+	_u.mutation.ResetRoomKeyQuotaUsd()
+	_u.mutation.SetRoomKeyQuotaUsd(v)
+	return _u
+}
+
+// SetNillableRoomKeyQuotaUsd sets the "room_key_quota_usd" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdateOne) SetNillableRoomKeyQuotaUsd(v *float64) *GroupBuyPlanUpdateOne {
+	if v != nil {
+		_u.SetRoomKeyQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddRoomKeyQuotaUsd adds value to the "room_key_quota_usd" field.
+func (_u *GroupBuyPlanUpdateOne) AddRoomKeyQuotaUsd(v float64) *GroupBuyPlanUpdateOne {
+	_u.mutation.AddRoomKeyQuotaUsd(v)
+	return _u
+}
+
+// SetRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field.
+func (_u *GroupBuyPlanUpdateOne) SetRoomKeyRateLimit5h(v float64) *GroupBuyPlanUpdateOne {
+	_u.mutation.ResetRoomKeyRateLimit5h()
+	_u.mutation.SetRoomKeyRateLimit5h(v)
+	return _u
+}
+
+// SetNillableRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdateOne) SetNillableRoomKeyRateLimit5h(v *float64) *GroupBuyPlanUpdateOne {
+	if v != nil {
+		_u.SetRoomKeyRateLimit5h(*v)
+	}
+	return _u
+}
+
+// AddRoomKeyRateLimit5h adds value to the "room_key_rate_limit_5h" field.
+func (_u *GroupBuyPlanUpdateOne) AddRoomKeyRateLimit5h(v float64) *GroupBuyPlanUpdateOne {
+	_u.mutation.AddRoomKeyRateLimit5h(v)
+	return _u
+}
+
+// SetRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field.
+func (_u *GroupBuyPlanUpdateOne) SetRoomKeyRateLimit1d(v float64) *GroupBuyPlanUpdateOne {
+	_u.mutation.ResetRoomKeyRateLimit1d()
+	_u.mutation.SetRoomKeyRateLimit1d(v)
+	return _u
+}
+
+// SetNillableRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdateOne) SetNillableRoomKeyRateLimit1d(v *float64) *GroupBuyPlanUpdateOne {
+	if v != nil {
+		_u.SetRoomKeyRateLimit1d(*v)
+	}
+	return _u
+}
+
+// AddRoomKeyRateLimit1d adds value to the "room_key_rate_limit_1d" field.
+func (_u *GroupBuyPlanUpdateOne) AddRoomKeyRateLimit1d(v float64) *GroupBuyPlanUpdateOne {
+	_u.mutation.AddRoomKeyRateLimit1d(v)
+	return _u
+}
+
+// SetRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field.
+func (_u *GroupBuyPlanUpdateOne) SetRoomKeyRateLimit7d(v float64) *GroupBuyPlanUpdateOne {
+	_u.mutation.ResetRoomKeyRateLimit7d()
+	_u.mutation.SetRoomKeyRateLimit7d(v)
+	return _u
+}
+
+// SetNillableRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdateOne) SetNillableRoomKeyRateLimit7d(v *float64) *GroupBuyPlanUpdateOne {
+	if v != nil {
+		_u.SetRoomKeyRateLimit7d(*v)
+	}
+	return _u
+}
+
+// AddRoomKeyRateLimit7d adds value to the "room_key_rate_limit_7d" field.
+func (_u *GroupBuyPlanUpdateOne) AddRoomKeyRateLimit7d(v float64) *GroupBuyPlanUpdateOne {
+	_u.mutation.AddRoomKeyRateLimit7d(v)
+	return _u
+}
+
+// SetAutoCreateRoomKey sets the "auto_create_room_key" field.
+func (_u *GroupBuyPlanUpdateOne) SetAutoCreateRoomKey(v bool) *GroupBuyPlanUpdateOne {
+	_u.mutation.SetAutoCreateRoomKey(v)
+	return _u
+}
+
+// SetNillableAutoCreateRoomKey sets the "auto_create_room_key" field if the given value is not nil.
+func (_u *GroupBuyPlanUpdateOne) SetNillableAutoCreateRoomKey(v *bool) *GroupBuyPlanUpdateOne {
+	if v != nil {
+		_u.SetAutoCreateRoomKey(*v)
+	}
+	return _u
+}
+
 // SetRefundMode sets the "refund_mode" field.
 func (_u *GroupBuyPlanUpdateOne) SetRefundMode(v string) *GroupBuyPlanUpdateOne {
 	_u.mutation.SetRefundMode(v)
@@ -1434,6 +1775,21 @@ func (_u *GroupBuyPlanUpdateOne) AddEvents(v ...*GroupBuyEvent) *GroupBuyPlanUpd
 	return _u.AddEventIDs(ids...)
 }
 
+// AddCafeRoomIDs adds the "cafe_rooms" edge to the CafeRoom entity by IDs.
+func (_u *GroupBuyPlanUpdateOne) AddCafeRoomIDs(ids ...int64) *GroupBuyPlanUpdateOne {
+	_u.mutation.AddCafeRoomIDs(ids...)
+	return _u
+}
+
+// AddCafeRooms adds the "cafe_rooms" edges to the CafeRoom entity.
+func (_u *GroupBuyPlanUpdateOne) AddCafeRooms(v ...*CafeRoom) *GroupBuyPlanUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCafeRoomIDs(ids...)
+}
+
 // Mutation returns the GroupBuyPlanMutation object of the builder.
 func (_u *GroupBuyPlanUpdateOne) Mutation() *GroupBuyPlanMutation {
 	return _u.mutation
@@ -1506,6 +1862,27 @@ func (_u *GroupBuyPlanUpdateOne) RemoveEvents(v ...*GroupBuyEvent) *GroupBuyPlan
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveEventIDs(ids...)
+}
+
+// ClearCafeRooms clears all "cafe_rooms" edges to the CafeRoom entity.
+func (_u *GroupBuyPlanUpdateOne) ClearCafeRooms() *GroupBuyPlanUpdateOne {
+	_u.mutation.ClearCafeRooms()
+	return _u
+}
+
+// RemoveCafeRoomIDs removes the "cafe_rooms" edge to CafeRoom entities by IDs.
+func (_u *GroupBuyPlanUpdateOne) RemoveCafeRoomIDs(ids ...int64) *GroupBuyPlanUpdateOne {
+	_u.mutation.RemoveCafeRoomIDs(ids...)
+	return _u
+}
+
+// RemoveCafeRooms removes "cafe_rooms" edges to CafeRoom entities.
+func (_u *GroupBuyPlanUpdateOne) RemoveCafeRooms(v ...*CafeRoom) *GroupBuyPlanUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCafeRoomIDs(ids...)
 }
 
 // Where appends a list predicates to the GroupBuyPlanUpdate builder.
@@ -1597,6 +1974,11 @@ func (_u *GroupBuyPlanUpdateOne) check() error {
 	if v, ok := _u.mutation.LaunchMode(); ok {
 		if err := groupbuyplan.LaunchModeValidator(v); err != nil {
 			return &ValidationError{Name: "launch_mode", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.launch_mode": %w`, err)}
+		}
+	}
+	if v, ok := _u.mutation.FulfillmentMode(); ok {
+		if err := groupbuyplan.FulfillmentModeValidator(v); err != nil {
+			return &ValidationError{Name: "fulfillment_mode", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.fulfillment_mode": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.RefundMode(); ok {
@@ -1729,6 +2111,36 @@ func (_u *GroupBuyPlanUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuyPl
 	}
 	if value, ok := _u.mutation.LaunchMode(); ok {
 		_spec.SetField(groupbuyplan.FieldLaunchMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.FulfillmentMode(); ok {
+		_spec.SetField(groupbuyplan.FieldFulfillmentMode, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RoomKeyQuotaUsd(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRoomKeyQuotaUsd(); ok {
+		_spec.AddField(groupbuyplan.FieldRoomKeyQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RoomKeyRateLimit5h(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyRateLimit5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRoomKeyRateLimit5h(); ok {
+		_spec.AddField(groupbuyplan.FieldRoomKeyRateLimit5h, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RoomKeyRateLimit1d(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyRateLimit1d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRoomKeyRateLimit1d(); ok {
+		_spec.AddField(groupbuyplan.FieldRoomKeyRateLimit1d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.RoomKeyRateLimit7d(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyRateLimit7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRoomKeyRateLimit7d(); ok {
+		_spec.AddField(groupbuyplan.FieldRoomKeyRateLimit7d, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AutoCreateRoomKey(); ok {
+		_spec.SetField(groupbuyplan.FieldAutoCreateRoomKey, field.TypeBool, value)
 	}
 	if value, ok := _u.mutation.RefundMode(); ok {
 		_spec.SetField(groupbuyplan.FieldRefundMode, field.TypeString, value)
@@ -1917,6 +2329,51 @@ func (_u *GroupBuyPlanUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuyPl
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CafeRoomsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyplan.CafeRoomsTable,
+			Columns: []string{groupbuyplan.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCafeRoomsIDs(); len(nodes) > 0 && !_u.mutation.CafeRoomsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyplan.CafeRoomsTable,
+			Columns: []string{groupbuyplan.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CafeRoomsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyplan.CafeRoomsTable,
+			Columns: []string{groupbuyplan.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

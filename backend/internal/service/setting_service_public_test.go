@@ -99,6 +99,28 @@ func TestSettingService_GetPublicSettings_DefaultsGroupBuyProductName(t *testing
 	require.Equal(t, "Token拼拼拼", settings.GroupBuyProductName)
 }
 
+func TestSettingService_GetPublicSettings_PixelCafeIsOptIn(t *testing.T) {
+	settings, err := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		SettingKeyPixelCafeEnabled:       "true",
+		SettingKeyPixelCafeTitle:         " 自定义网吧 ",
+		SettingKeyPixelCafeDescription:   " 自定义说明 ",
+		SettingKeyPixelCafeHeaderVisible: "false",
+	}}, &config.Config{}).GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, settings.PixelCafeEnabled)
+	require.Equal(t, "自定义网吧", settings.PixelCafeTitle)
+	require.Equal(t, "自定义说明", settings.PixelCafeDescription)
+	require.False(t, settings.PixelCafeHeaderVisible)
+
+	defaults, err := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{}).
+		GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, defaults.PixelCafeEnabled)
+	require.Equal(t, "像素网吧", defaults.PixelCafeTitle)
+	require.Equal(t, "把每个模型分组变成一间可订阅的数字包间。", defaults.PixelCafeDescription)
+	require.True(t, defaults.PixelCafeHeaderVisible)
+}
+
 func TestSettingService_GetPublicSettings_ExposesHomeHeroCopy(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{

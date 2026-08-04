@@ -154,6 +154,42 @@ func TestSettingHandler_GetPublicSettings_ExposesAccountShareEnabled(t *testing.
 	require.False(t, visible.(bool))
 }
 
+func TestSettingHandler_GetPublicSettings_ExposesPixelCafePresentationSettings(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+
+	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{
+		values: map[string]string{
+			service.SettingKeyPixelCafeEnabled:       "true",
+			service.SettingKeyPixelCafeTitle:         "自定义网吧",
+			service.SettingKeyPixelCafeDescription:   "自定义说明",
+			service.SettingKeyPixelCafeHeaderVisible: "false",
+		},
+	}, &config.Config{}), "test-version")
+
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/settings/public", nil)
+
+	h.GetPublicSettings(c)
+
+	require.Equal(t, http.StatusOK, recorder.Code)
+	var resp struct {
+		Code int `json:"code"`
+		Data struct {
+			PixelCafeEnabled       bool   `json:"pixel_cafe_enabled"`
+			PixelCafeTitle         string `json:"pixel_cafe_title"`
+			PixelCafeDescription   string `json:"pixel_cafe_description"`
+			PixelCafeHeaderVisible bool   `json:"pixel_cafe_header_visible"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
+	require.Equal(t, 0, resp.Code)
+	require.True(t, resp.Data.PixelCafeEnabled)
+	require.Equal(t, "自定义网吧", resp.Data.PixelCafeTitle)
+	require.Equal(t, "自定义说明", resp.Data.PixelCafeDescription)
+	require.False(t, resp.Data.PixelCafeHeaderVisible)
+}
+
 func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := NewSettingHandler(service.NewSettingService(&settingHandlerPublicRepoStub{

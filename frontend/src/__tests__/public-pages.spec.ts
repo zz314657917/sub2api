@@ -53,7 +53,7 @@ describe('public tutorial CMS and model plaza pages', () => {
     expect(tutorialView).not.toContain('overflow-hidden text-white')
     expect(tutorialView).toContain('isIndexRoute')
     expect(tutorialView).toContain('tutorial-directory-grid')
-    expect(tutorialView).toContain('选择一篇教程开始')
+    expect(tutorialView).toContain('完整教程目录')
     expect(tutorialView.indexOf('a.sort_order !== b.sort_order')).toBeLessThan(
       tutorialView.indexOf('a.category !== b.category')
     )
@@ -95,7 +95,9 @@ describe('public tutorial CMS and model plaza pages', () => {
     expect(tutorialView).toMatch(
       /\.tutorial-content :deep\(\.tutorial-screenshot-card img\) \{[^}]*width: auto;[^}]*max-width: 100%;/,
     )
-    expect(tutorialView).toMatch(/class="guide-action-link"[^>]*>\s*新手最快路线/)
+    expect(tutorialView).toMatch(
+      /class="guide-action-link"[^>]*>\s*\{\{ quickstartConfig\.header\.library_action_label \}\}/,
+    )
     expect(tutorialView).toMatch(
       /@media \(max-width: 640px\) \{[\s\S]*?\.tutorial-main\.is-index-route \.beginner-path \{[^}]*display: none;/,
     )

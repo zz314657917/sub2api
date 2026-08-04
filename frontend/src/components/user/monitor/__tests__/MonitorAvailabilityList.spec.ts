@@ -3,29 +3,33 @@ import { mount } from '@vue/test-utils'
 import MonitorAvailabilityList from '../MonitorAvailabilityList.vue'
 import type { UserMonitorView } from '@/api/channelMonitor'
 
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key: string, params?: Record<string, unknown>) => {
-      const messages: Record<string, string> = {
-        'channelStatus.availabilityPanel.title': '服务可用性',
-        'channelStatus.availabilityPanel.searchPlaceholder': '搜索服务名称',
-        'channelStatus.availabilityPanel.groupSuffix': '稳定性监听',
-        'channelStatus.availabilityPanel.availabilityLabel': '可用率',
-        'channelStatus.availabilityPanel.modelCount': `${params?.count} 个模型`,
-        'channelStatus.availabilityPanel.noResultsTitle': '没有匹配的服务',
-        'channelStatus.availabilityPanel.noResultsDescription': '换个关键词试试。',
-        'channelStatus.availabilityPanel.legend.abnormal': '异常',
-        'channelStatus.availabilityPanel.legend.normal': '正常',
-        'channelStatus.availabilityPanel.legend.highLatency': '高延迟',
-        'channelStatus.availabilityPanel.legend.maintenance': '维护中',
-        'channelStatus.empty.title': '暂无可显示的渠道',
-        'channelStatus.empty.description': '管理员尚未配置可监控的渠道。',
-        'monitorCommon.providers.gemini': 'Gemini',
-      }
-      return messages[key] ?? key
-    },
-  }),
-}))
+vi.mock('vue-i18n', async () => {
+  const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
+  return {
+    ...actual,
+    useI18n: () => ({
+      t: (key: string, params?: Record<string, unknown>) => {
+        const messages: Record<string, string> = {
+          'channelStatus.availabilityPanel.title': '服务可用性',
+          'channelStatus.availabilityPanel.searchPlaceholder': '搜索服务名称',
+          'channelStatus.availabilityPanel.groupSuffix': '稳定性监听',
+          'channelStatus.availabilityPanel.availabilityLabel': '可用率',
+          'channelStatus.availabilityPanel.modelCount': `${params?.count} 个模型`,
+          'channelStatus.availabilityPanel.noResultsTitle': '没有匹配的服务',
+          'channelStatus.availabilityPanel.noResultsDescription': '换个关键词试试。',
+          'channelStatus.availabilityPanel.legend.abnormal': '异常',
+          'channelStatus.availabilityPanel.legend.normal': '正常',
+          'channelStatus.availabilityPanel.legend.highLatency': '高延迟',
+          'channelStatus.availabilityPanel.legend.maintenance': '维护中',
+          'channelStatus.empty.title': '暂无可显示的渠道',
+          'channelStatus.empty.description': '管理员尚未配置可监控的渠道。',
+          'monitorCommon.providers.gemini': 'Gemini',
+        }
+        return messages[key] ?? key
+      },
+    }),
+  }
+})
 
 const items: UserMonitorView[] = [
   {

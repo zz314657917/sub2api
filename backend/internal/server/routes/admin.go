@@ -116,6 +116,9 @@ func RegisterAdminRoutes(
 		// 合购管理
 		registerGroupBuyRoutes(admin, h)
 
+		// Pixel Cafe 房间管理
+		registerCafeRoomRoutes(admin, h)
+
 		// 生图存储治理
 		registerImageCreatorStorageGovernanceRoutes(admin, h)
 
@@ -150,6 +153,19 @@ func registerGroupBuyRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 			rounds.POST("/:id/retry-activation", h.Admin.GroupBuy.RetryActivation)
 			rounds.POST("/:id/process-refunds", h.Admin.GroupBuy.ProcessRefunds)
 		}
+	}
+}
+
+func registerCafeRoomRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	rooms := admin.Group("/cafe/rooms")
+	{
+		rooms.GET("", h.Admin.CafeRoom.List)
+		rooms.POST("", h.Admin.CafeRoom.Create)
+		rooms.POST("/bulk", h.Admin.CafeRoom.BulkCreate)
+		rooms.GET("/:id", h.Admin.CafeRoom.Get)
+		rooms.PATCH("/:id", h.Admin.CafeRoom.Update)
+		rooms.DELETE("/:id", h.Admin.CafeRoom.Delete)
+		rooms.POST("/:id/open-round", h.Admin.CafeRoom.OpenRound)
 	}
 }
 

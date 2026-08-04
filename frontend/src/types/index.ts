@@ -412,6 +412,10 @@ export interface PublicSettings {
   group_buy_enabled?: boolean
   group_buy_product_name?: string
   group_buy_description?: string
+  pixel_cafe_enabled?: boolean
+  pixel_cafe_title?: string
+  pixel_cafe_description?: string
+  pixel_cafe_header_visible?: boolean
   affiliate_enabled: boolean
   account_share_enabled: boolean
   account_share_channel_status_visible?: boolean

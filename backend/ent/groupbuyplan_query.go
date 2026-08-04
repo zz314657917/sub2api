@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
@@ -32,6 +33,7 @@ type GroupBuyPlanQuery struct {
 	withRounds      *GroupBuyRoundQuery
 	withSeats       *GroupBuySeatQuery
 	withEvents      *GroupBuyEventQuery
+	withCafeRooms   *CafeRoomQuery
 	modifiers       []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
@@ -150,6 +152,28 @@ func (_q *GroupBuyPlanQuery) QueryEvents() *GroupBuyEventQuery {
 			sqlgraph.From(groupbuyplan.Table, groupbuyplan.FieldID, selector),
 			sqlgraph.To(groupbuyevent.Table, groupbuyevent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyplan.EventsTable, groupbuyplan.EventsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCafeRooms chains the current query on the "cafe_rooms" edge.
+func (_q *GroupBuyPlanQuery) QueryCafeRooms() *CafeRoomQuery {
+	query := (&CafeRoomClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyplan.Table, groupbuyplan.FieldID, selector),
+			sqlgraph.To(caferoom.Table, caferoom.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyplan.CafeRoomsTable, groupbuyplan.CafeRoomsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -353,6 +377,7 @@ func (_q *GroupBuyPlanQuery) Clone() *GroupBuyPlanQuery {
 		withRounds:      _q.withRounds.Clone(),
 		withSeats:       _q.withSeats.Clone(),
 		withEvents:      _q.withEvents.Clone(),
+		withCafeRooms:   _q.withCafeRooms.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -400,6 +425,17 @@ func (_q *GroupBuyPlanQuery) WithEvents(opts ...func(*GroupBuyEventQuery)) *Grou
 		opt(query)
 	}
 	_q.withEvents = query
+	return _q
+}
+
+// WithCafeRooms tells the query-builder to eager-load the nodes that are connected to
+// the "cafe_rooms" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *GroupBuyPlanQuery) WithCafeRooms(opts ...func(*CafeRoomQuery)) *GroupBuyPlanQuery {
+	query := (&CafeRoomClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCafeRooms = query
 	return _q
 }
 
@@ -481,11 +517,12 @@ func (_q *GroupBuyPlanQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 	var (
 		nodes       = []*GroupBuyPlan{}
 		_spec       = _q.querySpec()
-		loadedTypes = [4]bool{
+		loadedTypes = [5]bool{
 			_q.withTargetGroup != nil,
 			_q.withRounds != nil,
 			_q.withSeats != nil,
 			_q.withEvents != nil,
+			_q.withCafeRooms != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -533,6 +570,13 @@ func (_q *GroupBuyPlanQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]
 		if err := _q.loadEvents(ctx, query, nodes,
 			func(n *GroupBuyPlan) { n.Edges.Events = []*GroupBuyEvent{} },
 			func(n *GroupBuyPlan, e *GroupBuyEvent) { n.Edges.Events = append(n.Edges.Events, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCafeRooms; query != nil {
+		if err := _q.loadCafeRooms(ctx, query, nodes,
+			func(n *GroupBuyPlan) { n.Edges.CafeRooms = []*CafeRoom{} },
+			func(n *GroupBuyPlan, e *CafeRoom) { n.Edges.CafeRooms = append(n.Edges.CafeRooms, e) }); err != nil {
 			return nil, err
 		}
 	}
@@ -656,6 +700,37 @@ func (_q *GroupBuyPlanQuery) loadEvents(ctx context.Context, query *GroupBuyEven
 		node, ok := nodeids[*fk]
 		if !ok {
 			return fmt.Errorf(`unexpected referenced foreign-key "plan_id" returned %v for node %v`, *fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
+func (_q *GroupBuyPlanQuery) loadCafeRooms(ctx context.Context, query *CafeRoomQuery, nodes []*GroupBuyPlan, init func(*GroupBuyPlan), assign func(*GroupBuyPlan, *CafeRoom)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*GroupBuyPlan)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	query.withFKs = true
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(caferoom.FieldPlanID)
+	}
+	query.Where(predicate.CafeRoom(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(groupbuyplan.CafeRoomsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.PlanID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "plan_id" returned %v for node %v`, fk, n.ID)
 		}
 		assign(node, n)
 	}

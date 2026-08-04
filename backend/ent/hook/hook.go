@@ -21,6 +21,18 @@ func (f APIKeyFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, erro
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.APIKeyMutation", m)
 }
 
+// The APIKeyAccountBindingFunc type is an adapter to allow the use of ordinary
+// function as APIKeyAccountBinding mutator.
+type APIKeyAccountBindingFunc func(context.Context, *ent.APIKeyAccountBindingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f APIKeyAccountBindingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.APIKeyAccountBindingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.APIKeyAccountBindingMutation", m)
+}
+
 // The AccountFunc type is an adapter to allow the use of ordinary
 // function as Account mutator.
 type AccountFunc func(context.Context, *ent.AccountMutation) (ent.Value, error)
@@ -91,6 +103,18 @@ func (f AuthIdentityChannelFunc) Mutate(ctx context.Context, m ent.Mutation) (en
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.AuthIdentityChannelMutation", m)
+}
+
+// The CafeRoomFunc type is an adapter to allow the use of ordinary
+// function as CafeRoom mutator.
+type CafeRoomFunc func(context.Context, *ent.CafeRoomMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f CafeRoomFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.CafeRoomMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.CafeRoomMutation", m)
 }
 
 // The ChannelMonitorFunc type is an adapter to allow the use of ordinary

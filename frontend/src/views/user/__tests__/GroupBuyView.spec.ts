@@ -24,6 +24,7 @@ const {
   cachedPublicSettings: {
     group_buy_product_name: '我的拼团',
     group_buy_description: '后台配置的我的拼团顶部说明',
+    pixel_cafe_enabled: false,
   },
   showError: vi.fn(),
   showSuccess: vi.fn(),
@@ -34,6 +35,7 @@ vi.mock('vue-router', async () => {
   const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
   return {
     ...actual,
+    useRoute: () => ({ query: {} }),
     useRouter: () => ({
       resolve: routerResolve,
     }),
@@ -155,6 +157,7 @@ function mountView() {
     global: {
       stubs: {
         AppLayout: AppLayoutStub,
+        RouterLink: { template: '<a><slot /></a>' },
         Icon: IconStub,
         PaymentStatusPanel: PaymentStatusPanelStub,
         Teleport: true,
@@ -166,6 +169,7 @@ function mountView() {
 
 describe('GroupBuyView', () => {
   beforeEach(() => {
+    cachedPublicSettings.pixel_cafe_enabled = false
     listPlans.mockReset().mockResolvedValue({ data: [plan] })
     activity.mockReset().mockResolvedValue({
       data: [{
@@ -252,6 +256,17 @@ describe('GroupBuyView', () => {
     expect(wrapper.text()).toContain('只使用自己的平台 API Key')
     expect(wrapper.text()).toContain('满份成团后按有效份额开通权益')
     expect(wrapper.text()).not.toContain('不共享官方账号或官方 API Key')
+  })
+
+  it('switches to the Pixel Cafe shell when the opt-in flag is enabled', async () => {
+    cachedPublicSettings.pixel_cafe_enabled = true
+
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('像素网吧')
+    expect(wrapper.text()).toContain('房间发现已接入')
+    expect(listPlans).not.toHaveBeenCalled()
   })
 
   it('keeps submit disabled until the agreement is accepted and then starts group-buy payment', async () => {

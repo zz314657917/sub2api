@@ -1,0 +1,448 @@
+package service
+
+import (
+	"context"
+	"fmt"
+	"strings"
+	"time"
+
+	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
+	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
+	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/internal/payment"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
+
+	"entgo.io/ent/dialect"
+)
+
+const cafeRoomConcurrentRoomCap = 3
+
+var (
+	ErrCafeOrderUnavailable = infraerrors.Conflict("CAFE_ORDER_UNAVAILABLE", "cafe room is not available for orders")
+	ErrCafeSeatUnavailable  = infraerrors.Conflict("CAFE_SEAT_UNAVAILABLE", "selected cafe seat is no longer available")
+	ErrCafeSeatHeld         = infraerrors.Conflict("CAFE_USER_SEAT_EXISTS", "user already has a seat in this cafe round")
+	ErrCafeRoomCapExceeded  = infraerrors.Conflict("CAFE_ROOM_LIMIT_EXCEEDED", "concurrent cafe room seat limit reached")
+	ErrCafeAgreementNeeded  = infraerrors.BadRequest("CAFE_AGREEMENT_REQUIRED", "cafe purchase agreement must be accepted")
+)
+
+// CafeRoomOrderInput intentionally excludes server-owned Room, Plan, Round and account facts.
+type CafeRoomOrderInput struct {
+	UserID            int64
+	RoomID            int64
+	SeatNo            int
+	PaymentType       string
+	OpenID            string
+	ClientIP          string
+	IsMobile          bool
+	IsWeChatBrowser   bool
+	SrcHost           string
+	SrcURL            string
+	ReturnURL         string
+	PaymentSource     string
+	AgreementAccepted bool
+}
+
+type CafeRoomOrderResponse struct {
+	CreateOrderResponse
+	RoomID  int64 `json:"room_id"`
+	RoundID int64 `json:"round_id"`
+	SeatNo  int   `json:"seat_no"`
+}
+
+// CafeRoomOrderService owns the Room-specific order and seat-lock transaction.
+// It delegates payment selection and provider invocation to PaymentService.
+type CafeRoomOrderService struct {
+	entClient   *dbent.Client
+	paymentSvc  *PaymentService
+	groupBuySvc *GroupBuyService
+	settings    CafePublicSettings
+	now         func() time.Time
+}
+
+func NewCafeRoomOrderService(entClient *dbent.Client, paymentSvc *PaymentService, groupBuySvc *GroupBuyService, settings CafePublicSettings) *CafeRoomOrderService {
+	return &CafeRoomOrderService{
+		entClient:   entClient,
+		paymentSvc:  paymentSvc,
+		groupBuySvc: groupBuySvc,
+		settings:    settings,
+		now:         time.Now,
+	}
+}
+
+func (s *CafeRoomOrderService) CreateOrder(ctx context.Context, input CafeRoomOrderInput) (*CafeRoomOrderResponse, error) {
+	if err := s.requireEnabled(ctx); err != nil {
+		return nil, err
+	}
+	if input.UserID <= 0 {
+		return nil, infraerrors.Unauthorized("UNAUTHORIZED", "user not authenticated")
+	}
+	if input.RoomID <= 0 || input.SeatNo <= 0 || strings.TrimSpace(input.PaymentType) == "" {
+		return nil, infraerrors.BadRequest("CAFE_INVALID_ORDER", "room, seat and payment type are required")
+	}
+	if !input.AgreementAccepted {
+		return nil, ErrCafeAgreementNeeded
+	}
+	if s.paymentSvc == nil || s.paymentSvc.configService == nil || s.paymentSvc.userRepo == nil || s.groupBuySvc == nil {
+		return nil, infraerrors.InternalServer("CAFE_ORDER_SERVICE_UNAVAILABLE", "cafe room order service is unavailable")
+	}
+
+	req := CreateOrderRequest{
+		UserID:          input.UserID,
+		PaymentType:     input.PaymentType,
+		OpenID:          input.OpenID,
+		ClientIP:        input.ClientIP,
+		IsMobile:        input.IsMobile,
+		IsWeChatBrowser: input.IsWeChatBrowser,
+		SrcHost:         input.SrcHost,
+		SrcURL:          input.SrcURL,
+		ReturnURL:       input.ReturnURL,
+		PaymentSource:   input.PaymentSource,
+		OrderType:       payment.OrderTypeGroupBuy,
+	}
+	if normalized := NormalizeVisibleMethod(req.PaymentType); normalized != "" {
+		req.PaymentType = normalized
+	}
+
+	room, plan, err := s.loadAvailableRoom(ctx, input.RoomID)
+	if err != nil {
+		return nil, err
+	}
+	cfg, err := s.paymentSvc.configService.GetPaymentConfig(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get payment config: %w", err)
+	}
+	if !cfg.Enabled {
+		return nil, infraerrors.Forbidden("PAYMENT_DISABLED", "payment system is disabled")
+	}
+	if err := s.paymentSvc.checkCancelRateLimit(ctx, input.UserID, cfg); err != nil {
+		return nil, err
+	}
+	if _, err := s.paymentSvc.userRepo.GetByID(ctx, input.UserID); err != nil {
+		return nil, fmt.Errorf("get user: %w", err)
+	}
+
+	orderAmount := plan.PricePerShare
+	req.Amount = orderAmount
+	methodCurrency, err := s.paymentSvc.configService.ValidateMethodCurrencyConsistency(ctx, req.PaymentType)
+	if err != nil {
+		return nil, err
+	}
+	payAmountStr, payAmount, err := calculateCreateOrderPayAmount(orderAmount, cfg.RechargeFeeRate, methodCurrency)
+	if err != nil {
+		return nil, err
+	}
+	sel, err := s.paymentSvc.selectCreateOrderInstance(ctx, req, cfg, payAmount)
+	if err != nil {
+		return nil, err
+	}
+	if err := s.paymentSvc.validateSelectedCreateOrderInstance(ctx, req, sel); err != nil {
+		return nil, err
+	}
+	selectedCurrency := payment.DefaultPaymentCurrency
+	if sel != nil {
+		selectedCurrency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
+	}
+	if selectedCurrency != methodCurrency {
+		payAmountStr, payAmount, err = calculateCreateOrderPayAmount(orderAmount, cfg.RechargeFeeRate, selectedCurrency)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if err := validateSelectedCreateOrderAmountCurrency(payAmountStr, sel); err != nil {
+		return nil, err
+	}
+	if oauthResp, err := s.paymentSvc.maybeBuildWeChatOAuthRequiredResponseForSelection(ctx, req, orderAmount, payAmount, cfg.RechargeFeeRate, sel); err != nil {
+		return nil, err
+	} else if oauthResp != nil {
+		return &CafeRoomOrderResponse{CreateOrderResponse: *oauthResp, RoomID: room.ID}, nil
+	}
+
+	order, round, err := s.lockSeatAndCreateOrder(ctx, req, room.ID, input.SeatNo, cfg, cfg.RechargeFeeRate, payAmount, sel)
+	if err != nil {
+		return nil, err
+	}
+	result, err := s.paymentSvc.invokeProvider(ctx, order, req, cfg, orderAmount, payAmountStr, payAmount, nil, sel)
+	if err != nil {
+		_, _ = s.entClient.PaymentOrder.UpdateOneID(order.ID).SetStatus(OrderStatusFailed).Save(ctx)
+		_ = s.groupBuySvc.ReleaseGroupBuySeatForOrder(context.Background(), order.ID, "provider create failed")
+		return nil, err
+	}
+	return &CafeRoomOrderResponse{CreateOrderResponse: *result, RoomID: room.ID, RoundID: round.ID, SeatNo: input.SeatNo}, nil
+}
+
+func (s *CafeRoomOrderService) lockSeatAndCreateOrder(ctx context.Context, req CreateOrderRequest, roomID int64, seatNo int, cfg *PaymentConfig, feeRate, payAmount float64, sel *payment.InstanceSelection) (*dbent.PaymentOrder, *dbent.GroupBuyRound, error) {
+	tx, err := s.entClient.Tx(ctx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("begin cafe room order transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	txCtx := dbent.NewTxContext(ctx, tx)
+
+	roomQuery := tx.CafeRoom.Query().Where(caferoom.IDEQ(roomID), caferoom.DeletedAtIsNil())
+	lockedRoom, err := s.cafeRoomForUpdate(roomQuery).Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, nil, ErrCafeRoomNotFound
+		}
+		return nil, nil, fmt.Errorf("lock cafe room: %w", err)
+	}
+	if lockedRoom.Status != CafeRoomStatusEnabled || lockedRoom.AccountID == nil {
+		return nil, nil, ErrCafeOrderUnavailable
+	}
+	planQuery := tx.GroupBuyPlan.Query().Where(groupbuyplan.IDEQ(lockedRoom.PlanID), groupbuyplan.DeletedAtIsNil())
+	lockedPlan, err := s.groupBuySvc.groupBuyPlanForUpdate(planQuery).Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, nil, ErrCafePlanNotFound
+		}
+		return nil, nil, fmt.Errorf("lock cafe room plan: %w", err)
+	}
+	if lockedPlan.Status != GroupBuyPlanStatusActive || lockedPlan.FulfillmentMode != CafeRoomFulfillmentMode {
+		return nil, nil, ErrCafeOrderUnavailable
+	}
+	if err := s.paymentSvc.checkPendingLimit(txCtx, tx, req.UserID, cfg.MaxPendingOrders); err != nil {
+		return nil, nil, err
+	}
+	if err := s.paymentSvc.checkDailyLimit(txCtx, tx, req.UserID, lockedPlan.PricePerShare, cfg.DailyLimit); err != nil {
+		return nil, nil, err
+	}
+	activeUser, err := s.cafeUserForUpdate(tx.User.Query().Where(user.IDEQ(req.UserID), user.StatusEQ(StatusActive))).Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, nil, infraerrors.Forbidden("USER_INACTIVE", "user account is disabled")
+		}
+		return nil, nil, fmt.Errorf("lock cafe order user: %w", err)
+	}
+	roundQuery := tx.GroupBuyRound.Query().Where(
+		groupbuyround.CafeRoomIDEQ(lockedRoom.ID),
+		groupbuyround.StatusEQ(CafeRoundStatusOpen),
+		groupbuyround.DeadlineAtGT(s.now()),
+	)
+	round, err := s.groupBuySvc.groupBuyRoundForUpdate(roundQuery).Only(txCtx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, nil, ErrCafeOrderUnavailable
+		}
+		return nil, nil, fmt.Errorf("lock cafe room round: %w", err)
+	}
+	if round.PlanID != lockedPlan.ID || round.AssignedAccountID == nil {
+		return nil, nil, ErrCafeOrderUnavailable
+	}
+	accountReady, err := tx.Account.Query().Where(account.IDEQ(*round.AssignedAccountID), account.StatusEQ(StatusActive)).Exist(txCtx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("check cafe room account: %w", err)
+	}
+	if !accountReady {
+		return nil, nil, ErrCafeOrderUnavailable
+	}
+	if _, err := s.groupBuySvc.releaseExpiredLockedSeatsForRoundTx(txCtx, tx, round.ID); err != nil {
+		return nil, nil, err
+	}
+	round, err = s.groupBuySvc.groupBuyRoundForUpdate(tx.GroupBuyRound.Query().Where(groupbuyround.IDEQ(round.ID))).Only(txCtx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("reload cafe room round: %w", err)
+	}
+	if seatNo > cafeRoundSeatCount(round) || round.PaidSeats+round.ReservedSeats >= cafeRoundSeatCount(round) {
+		return nil, nil, ErrCafeSeatUnavailable
+	}
+	if err := s.checkConcurrentRoomCapTx(txCtx, tx, req.UserID, lockedRoom.ID); err != nil {
+		return nil, nil, err
+	}
+	if held, err := tx.GroupBuySeat.Query().Where(
+		groupbuyseat.RoundIDEQ(round.ID),
+		groupbuyseat.UserIDEQ(req.UserID),
+		groupbuyseat.StatusIn(GroupBuySeatStatusLocked, GroupBuySeatStatusPaid, GroupBuySeatStatusActive, GroupBuySeatStatusRefundPending, GroupBuySeatStatusRefundProcessing),
+	).Exist(txCtx); err != nil {
+		return nil, nil, fmt.Errorf("check existing cafe room seat: %w", err)
+	} else if held {
+		return nil, nil, ErrCafeSeatHeld
+	}
+	if occupied, err := tx.GroupBuySeat.Query().Where(
+		groupbuyseat.RoundIDEQ(round.ID),
+		groupbuyseat.SeatNoEQ(seatNo),
+		groupbuyseat.StatusIn(GroupBuySeatStatusLocked, GroupBuySeatStatusPaid, GroupBuySeatStatusActive, GroupBuySeatStatusRefundPending, GroupBuySeatStatusRefundProcessing),
+	).Exist(txCtx); err != nil {
+		return nil, nil, fmt.Errorf("check cafe room seat availability: %w", err)
+	} else if occupied {
+		return nil, nil, ErrCafeSeatUnavailable
+	}
+
+	outTradeNo, err := s.paymentSvc.allocateOutTradeNo(txCtx, tx)
+	if err != nil {
+		return nil, nil, err
+	}
+	timeoutMin := cfg.OrderTimeoutMin
+	if timeoutMin <= 0 {
+		timeoutMin = defaultOrderTimeoutMin
+	}
+	expiresAt := s.now().Add(time.Duration(timeoutMin) * time.Minute)
+	providerSnapshot := buildPaymentOrderProviderSnapshot(sel, req)
+	orderBuilder := tx.PaymentOrder.Create().
+		SetUserID(req.UserID).
+		SetUserEmail(activeUser.Email).
+		SetUserName(activeUser.Username).
+		SetNillableUserNotes(psNilIfEmpty(activeUser.Notes)).
+		SetAmount(lockedPlan.PricePerShare).
+		SetPayAmount(payAmount).
+		SetFeeRate(feeRate).
+		SetRechargeCode("").
+		SetOutTradeNo(outTradeNo).
+		SetPaymentType(req.PaymentType).
+		SetPaymentTradeNo("").
+		SetOrderType(payment.OrderTypeGroupBuy).
+		SetPlanID(lockedPlan.ID).
+		SetSubscriptionDays(lockedPlan.ValidityDays).
+		SetStatus(OrderStatusPending).
+		SetExpiresAt(expiresAt).
+		SetClientIP(req.ClientIP).
+		SetSrcHost(req.SrcHost)
+	if req.SrcURL != "" {
+		orderBuilder.SetSrcURL(req.SrcURL)
+	}
+	if sel != nil {
+		if instanceID := strings.TrimSpace(sel.InstanceID); instanceID != "" {
+			orderBuilder.SetProviderInstanceID(instanceID)
+		}
+		if providerKey := strings.TrimSpace(sel.ProviderKey); providerKey != "" {
+			orderBuilder.SetProviderKey(providerKey)
+		}
+	}
+	if providerSnapshot != nil {
+		orderBuilder.SetProviderSnapshot(providerSnapshot)
+	}
+	order, err := orderBuilder.Save(txCtx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("create cafe room payment order: %w", err)
+	}
+	order, err = tx.PaymentOrder.UpdateOneID(order.ID).SetRechargeCode(fmt.Sprintf("CAFE-%d-%d", order.ID, s.now().UnixNano()%100000)).Save(txCtx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("set cafe room payment code: %w", err)
+	}
+	seat, err := tx.GroupBuySeat.Create().
+		SetRoundID(round.ID).
+		SetPlanID(lockedPlan.ID).
+		SetUserID(req.UserID).
+		SetOrderID(order.ID).
+		SetStatus(GroupBuySeatStatusLocked).
+		SetShareCount(1).
+		SetSeatNo(seatNo).
+		SetPolicySnapshot(buildGroupBuyPolicySnapshot(lockedPlan, s.now())).
+		SetLockedUntil(expiresAt).
+		Save(txCtx)
+	if err != nil {
+		return nil, nil, translateCafeSeatCreateError(err)
+	}
+	round, err = tx.GroupBuyRound.UpdateOneID(round.ID).
+		AddReservedShares(1).
+		AddReservedSeats(1).
+		SetUpdatedAt(s.now()).
+		Save(txCtx)
+	if err != nil {
+		return nil, nil, fmt.Errorf("reserve cafe room seat: %w", err)
+	}
+	s.groupBuySvc.createEventTx(txCtx, tx.Client(), &groupBuyEventInput{
+		PlanID:    &lockedPlan.ID,
+		RoundID:   &round.ID,
+		SeatID:    &seat.ID,
+		UserID:    &req.UserID,
+		EventType: groupBuyEventSharesLocked,
+		Message:   "用户锁定像素网吧席位",
+		Metadata:  map[string]any{"order_id": order.ID, "seat_no": seatNo, "amount": order.Amount},
+	})
+	if err := tx.Commit(); err != nil {
+		return nil, nil, fmt.Errorf("commit cafe room order transaction: %w", err)
+	}
+	return order, round, nil
+}
+
+func (s *CafeRoomOrderService) checkConcurrentRoomCapTx(ctx context.Context, tx *dbent.Tx, userID, roomID int64) error {
+	seats, err := s.groupBuySvc.groupBuySeatForUpdate(tx.GroupBuySeat.Query().Where(
+		groupbuyseat.UserIDEQ(userID),
+		groupbuyseat.StatusIn(GroupBuySeatStatusLocked, GroupBuySeatStatusPaid, GroupBuySeatStatusActive),
+	).WithRound()).All(ctx)
+	if err != nil {
+		return fmt.Errorf("list current cafe room seats: %w", err)
+	}
+	roomIDs := make(map[int64]struct{})
+	now := s.now()
+	for _, seat := range seats {
+		if seat.Status == GroupBuySeatStatusLocked && seat.LockedUntil != nil && !seat.LockedUntil.After(now) {
+			continue
+		}
+		round := seat.Edges.Round
+		if round == nil || round.CafeRoomID == nil {
+			continue
+		}
+		roomIDs[*round.CafeRoomID] = struct{}{}
+	}
+	if _, alreadyPresent := roomIDs[roomID]; !alreadyPresent && len(roomIDs) >= cafeRoomConcurrentRoomCap {
+		return ErrCafeRoomCapExceeded
+	}
+	return nil
+}
+
+func (s *CafeRoomOrderService) loadAvailableRoom(ctx context.Context, roomID int64) (*dbent.CafeRoom, *dbent.GroupBuyPlan, error) {
+	if s == nil || s.entClient == nil {
+		return nil, nil, infraerrors.InternalServer("CAFE_ORDER_SERVICE_UNAVAILABLE", "cafe room order service is unavailable")
+	}
+	room, err := s.entClient.CafeRoom.Query().Where(caferoom.IDEQ(roomID), caferoom.DeletedAtIsNil()).WithPlan().Only(ctx)
+	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, nil, ErrCafeRoomNotFound
+		}
+		return nil, nil, fmt.Errorf("load cafe room: %w", err)
+	}
+	if room.Status != CafeRoomStatusEnabled || room.AccountID == nil || room.Edges.Plan == nil || room.Edges.Plan.Status != GroupBuyPlanStatusActive || room.Edges.Plan.FulfillmentMode != CafeRoomFulfillmentMode {
+		return nil, nil, ErrCafeOrderUnavailable
+	}
+	return room, room.Edges.Plan, nil
+}
+
+func (s *CafeRoomOrderService) requireEnabled(ctx context.Context) error {
+	if s == nil || s.settings == nil {
+		return ErrCafePublicUnavailable
+	}
+	settings, err := s.settings.GetPublicSettings(ctx)
+	if err != nil {
+		return fmt.Errorf("load public cafe settings: %w", err)
+	}
+	if settings == nil || !settings.PixelCafeEnabled {
+		return ErrCafeDisabled
+	}
+	return nil
+}
+
+func (s *CafeRoomOrderService) cafeRoomForUpdate(q *dbent.CafeRoomQuery) *dbent.CafeRoomQuery {
+	if s.entClient != nil && s.entClient.Driver().Dialect() != dialect.SQLite {
+		return q.ForUpdate()
+	}
+	return q
+}
+
+func (s *CafeRoomOrderService) cafeUserForUpdate(q *dbent.UserQuery) *dbent.UserQuery {
+	if s.entClient != nil && s.entClient.Driver().Dialect() != dialect.SQLite {
+		return q.ForUpdate()
+	}
+	return q
+}
+
+func cafeRoundSeatCount(round *dbent.GroupBuyRound) int {
+	if round == nil {
+		return 0
+	}
+	if round.TotalSeats > 0 {
+		return round.TotalSeats
+	}
+	return round.TotalShares
+}
+
+func translateCafeSeatCreateError(err error) error {
+	if err != nil && strings.Contains(strings.ToLower(err.Error()), "duplicate") {
+		return ErrCafeSeatUnavailable.WithCause(err)
+	}
+	return fmt.Errorf("create cafe room seat: %w", err)
+}

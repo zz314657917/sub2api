@@ -998,6 +998,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyGroupBuyEnabled,
 		SettingKeyGroupBuyProductName,
 		SettingKeyGroupBuyDescription,
+		SettingKeyPixelCafeEnabled,
+		SettingKeyPixelCafeTitle,
+		SettingKeyPixelCafeDescription,
+		SettingKeyPixelCafeHeaderVisible,
 		SettingKeyAffiliateEnabled,
 		SettingKeyAccountShareEnabled,
 		SettingKeyAccountShareChannelStatusVisible,
@@ -1123,6 +1127,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		GroupBuyEnabled:          !isFalseSettingValue(settings[SettingKeyGroupBuyEnabled]),
 		GroupBuyProductName:      normalizeGroupBuyProductName(settings[SettingKeyGroupBuyProductName]),
 		GroupBuyDescription:      strings.TrimSpace(settings[SettingKeyGroupBuyDescription]),
+		PixelCafeEnabled:         settings[SettingKeyPixelCafeEnabled] == "true",
+		PixelCafeTitle:           normalizePixelCafeTitle(settings[SettingKeyPixelCafeTitle]),
+		PixelCafeDescription:     pixelCafeDescriptionFromSettings(settings),
+		PixelCafeHeaderVisible:   !isFalseSettingValue(settings[SettingKeyPixelCafeHeaderVisible]),
 
 		AffiliateEnabled:                 settings[SettingKeyAffiliateEnabled] == "true",
 		AccountShareEnabled:              settings[SettingKeyAccountShareEnabled] != "false",
@@ -1373,6 +1381,10 @@ type PublicSettingsInjectionPayload struct {
 	GroupBuyEnabled                      bool   `json:"group_buy_enabled"`
 	GroupBuyProductName                  string `json:"group_buy_product_name"`
 	GroupBuyDescription                  string `json:"group_buy_description"`
+	PixelCafeEnabled                     bool   `json:"pixel_cafe_enabled"`
+	PixelCafeTitle                       string `json:"pixel_cafe_title"`
+	PixelCafeDescription                 string `json:"pixel_cafe_description"`
+	PixelCafeHeaderVisible               bool   `json:"pixel_cafe_header_visible"`
 	AffiliateEnabled                     bool   `json:"affiliate_enabled"`
 	AccountShareEnabled                  bool   `json:"account_share_enabled"`
 	AccountShareChannelStatusVisible     bool   `json:"account_share_channel_status_visible"`
@@ -1457,6 +1469,10 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		GroupBuyEnabled:                      settings.GroupBuyEnabled,
 		GroupBuyProductName:                  settings.GroupBuyProductName,
 		GroupBuyDescription:                  settings.GroupBuyDescription,
+		PixelCafeEnabled:                     settings.PixelCafeEnabled,
+		PixelCafeTitle:                       settings.PixelCafeTitle,
+		PixelCafeDescription:                 settings.PixelCafeDescription,
+		PixelCafeHeaderVisible:               settings.PixelCafeHeaderVisible,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		AccountShareEnabled:                  settings.AccountShareEnabled,
 		AccountShareChannelStatusVisible:     settings.AccountShareChannelStatusVisible,
@@ -2140,6 +2156,12 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyGroupBuyEnabled] = strconv.FormatBool(settings.GroupBuyEnabled)
 	updates[SettingKeyGroupBuyProductName] = normalizeGroupBuyProductName(settings.GroupBuyProductName)
 	updates[SettingKeyGroupBuyDescription] = strings.TrimSpace(settings.GroupBuyDescription)
+	updates[SettingKeyPixelCafeEnabled] = strconv.FormatBool(settings.PixelCafeEnabled)
+	settings.PixelCafeTitle = normalizePixelCafeTitle(settings.PixelCafeTitle)
+	settings.PixelCafeDescription = strings.TrimSpace(settings.PixelCafeDescription)
+	updates[SettingKeyPixelCafeTitle] = settings.PixelCafeTitle
+	updates[SettingKeyPixelCafeDescription] = settings.PixelCafeDescription
+	updates[SettingKeyPixelCafeHeaderVisible] = strconv.FormatBool(settings.PixelCafeHeaderVisible)
 
 	// Affiliate (邀请返利) feature switch
 	settings.LeaderboardRewardMode = NormalizeLeaderboardRewardMode(settings.LeaderboardRewardMode, settings.LeaderboardDailyRewardEnabled)
@@ -2676,6 +2698,27 @@ func normalizeGroupBuyProductName(value string) string {
 		return "Token拼拼拼"
 	}
 	return trimmed
+}
+
+const (
+	defaultPixelCafeTitle       = "像素网吧"
+	defaultPixelCafeDescription = "把每个模型分组变成一间可订阅的数字包间。"
+)
+
+func normalizePixelCafeTitle(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return defaultPixelCafeTitle
+	}
+	return trimmed
+}
+
+func pixelCafeDescriptionFromSettings(settings map[string]string) string {
+	value, ok := settings[SettingKeyPixelCafeDescription]
+	if !ok {
+		return defaultPixelCafeDescription
+	}
+	return strings.TrimSpace(value)
 }
 
 type gatewayForwardingSettingsResult struct {
@@ -3361,6 +3404,10 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyGroupBuyEnabled:                           "true",
 		SettingKeyGroupBuyProductName:                       "Token拼拼拼",
 		SettingKeyGroupBuyDescription:                       "按份额拼团，满份后开通 Token拼拼拼 权益；使用自己的平台 API Key。",
+		SettingKeyPixelCafeEnabled:                          "false",
+		SettingKeyPixelCafeTitle:                            defaultPixelCafeTitle,
+		SettingKeyPixelCafeDescription:                      defaultPixelCafeDescription,
+		SettingKeyPixelCafeHeaderVisible:                    "true",
 		SettingKeyLeaderboardDailyRewardEnabled:             "false",
 		SettingKeyLeaderboardDailyRewardMinTotalActualCost:  "0",
 		SettingKeyLeaderboardDailyRewardRank1Amount:         "0",
@@ -3827,6 +3874,10 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.GroupBuyEnabled = !isFalseSettingValue(settings[SettingKeyGroupBuyEnabled])
 	result.GroupBuyProductName = normalizeGroupBuyProductName(settings[SettingKeyGroupBuyProductName])
 	result.GroupBuyDescription = strings.TrimSpace(settings[SettingKeyGroupBuyDescription])
+	result.PixelCafeEnabled = settings[SettingKeyPixelCafeEnabled] == "true"
+	result.PixelCafeTitle = normalizePixelCafeTitle(settings[SettingKeyPixelCafeTitle])
+	result.PixelCafeDescription = pixelCafeDescriptionFromSettings(settings)
+	result.PixelCafeHeaderVisible = !isFalseSettingValue(settings[SettingKeyPixelCafeHeaderVisible])
 
 	legacyLeaderboardEnabled := settings[SettingKeyLeaderboardDailyRewardEnabled] == "true"
 	result.LeaderboardRewardMode = NormalizeLeaderboardRewardMode(settings[SettingKeyLeaderboardRewardMode], legacyLeaderboardEnabled)

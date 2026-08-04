@@ -60,6 +60,26 @@ func PlanID(v int64) predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(sql.FieldEQ(FieldPlanID, v))
 }
 
+// CafeRoomID applies equality check predicate on the "cafe_room_id" field. It's identical to CafeRoomIDEQ.
+func CafeRoomID(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldCafeRoomID, v))
+}
+
+// AssignedAccountID applies equality check predicate on the "assigned_account_id" field. It's identical to AssignedAccountIDEQ.
+func AssignedAccountID(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldAssignedAccountID, v))
+}
+
+// RoomCodeSnapshot applies equality check predicate on the "room_code_snapshot" field. It's identical to RoomCodeSnapshotEQ.
+func RoomCodeSnapshot(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldRoomCodeSnapshot, v))
+}
+
+// RoomNameSnapshot applies equality check predicate on the "room_name_snapshot" field. It's identical to RoomNameSnapshotEQ.
+func RoomNameSnapshot(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldRoomNameSnapshot, v))
+}
+
 // Status applies equality check predicate on the "status" field. It's identical to StatusEQ.
 func Status(v string) predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(sql.FieldEQ(FieldStatus, v))
@@ -110,6 +130,26 @@ func ClosedAt(v time.Time) predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(sql.FieldEQ(FieldClosedAt, v))
 }
 
+// ActivatedAt applies equality check predicate on the "activated_at" field. It's identical to ActivatedAtEQ.
+func ActivatedAt(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldActivatedAt, v))
+}
+
+// EntitlementExpiresAt applies equality check predicate on the "entitlement_expires_at" field. It's identical to EntitlementExpiresAtEQ.
+func EntitlementExpiresAt(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldEntitlementExpiresAt, v))
+}
+
+// CompletedAt applies equality check predicate on the "completed_at" field. It's identical to CompletedAtEQ.
+func CompletedAt(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldCompletedAt, v))
+}
+
+// ActivationToken applies equality check predicate on the "activation_token" field. It's identical to ActivationTokenEQ.
+func ActivationToken(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldActivationToken, v))
+}
+
 // CloseReason applies equality check predicate on the "close_reason" field. It's identical to CloseReasonEQ.
 func CloseReason(v string) predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(sql.FieldEQ(FieldCloseReason, v))
@@ -143,6 +183,216 @@ func PlanIDIn(vs ...int64) predicate.GroupBuyRound {
 // PlanIDNotIn applies the NotIn predicate on the "plan_id" field.
 func PlanIDNotIn(vs ...int64) predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(sql.FieldNotIn(FieldPlanID, vs...))
+}
+
+// CafeRoomIDEQ applies the EQ predicate on the "cafe_room_id" field.
+func CafeRoomIDEQ(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldCafeRoomID, v))
+}
+
+// CafeRoomIDNEQ applies the NEQ predicate on the "cafe_room_id" field.
+func CafeRoomIDNEQ(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldCafeRoomID, v))
+}
+
+// CafeRoomIDIn applies the In predicate on the "cafe_room_id" field.
+func CafeRoomIDIn(vs ...int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldCafeRoomID, vs...))
+}
+
+// CafeRoomIDNotIn applies the NotIn predicate on the "cafe_room_id" field.
+func CafeRoomIDNotIn(vs ...int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldCafeRoomID, vs...))
+}
+
+// CafeRoomIDIsNil applies the IsNil predicate on the "cafe_room_id" field.
+func CafeRoomIDIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldCafeRoomID))
+}
+
+// CafeRoomIDNotNil applies the NotNil predicate on the "cafe_room_id" field.
+func CafeRoomIDNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldCafeRoomID))
+}
+
+// AssignedAccountIDEQ applies the EQ predicate on the "assigned_account_id" field.
+func AssignedAccountIDEQ(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldAssignedAccountID, v))
+}
+
+// AssignedAccountIDNEQ applies the NEQ predicate on the "assigned_account_id" field.
+func AssignedAccountIDNEQ(v int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldAssignedAccountID, v))
+}
+
+// AssignedAccountIDIn applies the In predicate on the "assigned_account_id" field.
+func AssignedAccountIDIn(vs ...int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldAssignedAccountID, vs...))
+}
+
+// AssignedAccountIDNotIn applies the NotIn predicate on the "assigned_account_id" field.
+func AssignedAccountIDNotIn(vs ...int64) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldAssignedAccountID, vs...))
+}
+
+// AssignedAccountIDIsNil applies the IsNil predicate on the "assigned_account_id" field.
+func AssignedAccountIDIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldAssignedAccountID))
+}
+
+// AssignedAccountIDNotNil applies the NotNil predicate on the "assigned_account_id" field.
+func AssignedAccountIDNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldAssignedAccountID))
+}
+
+// RoomCodeSnapshotEQ applies the EQ predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldRoomCodeSnapshot, v))
+}
+
+// RoomCodeSnapshotNEQ applies the NEQ predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotNEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldRoomCodeSnapshot, v))
+}
+
+// RoomCodeSnapshotIn applies the In predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldRoomCodeSnapshot, vs...))
+}
+
+// RoomCodeSnapshotNotIn applies the NotIn predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotNotIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldRoomCodeSnapshot, vs...))
+}
+
+// RoomCodeSnapshotGT applies the GT predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotGT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldRoomCodeSnapshot, v))
+}
+
+// RoomCodeSnapshotGTE applies the GTE predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotGTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldRoomCodeSnapshot, v))
+}
+
+// RoomCodeSnapshotLT applies the LT predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotLT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldRoomCodeSnapshot, v))
+}
+
+// RoomCodeSnapshotLTE applies the LTE predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotLTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldRoomCodeSnapshot, v))
+}
+
+// RoomCodeSnapshotContains applies the Contains predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotContains(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContains(FieldRoomCodeSnapshot, v))
+}
+
+// RoomCodeSnapshotHasPrefix applies the HasPrefix predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotHasPrefix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasPrefix(FieldRoomCodeSnapshot, v))
+}
+
+// RoomCodeSnapshotHasSuffix applies the HasSuffix predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotHasSuffix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasSuffix(FieldRoomCodeSnapshot, v))
+}
+
+// RoomCodeSnapshotIsNil applies the IsNil predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldRoomCodeSnapshot))
+}
+
+// RoomCodeSnapshotNotNil applies the NotNil predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldRoomCodeSnapshot))
+}
+
+// RoomCodeSnapshotEqualFold applies the EqualFold predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotEqualFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEqualFold(FieldRoomCodeSnapshot, v))
+}
+
+// RoomCodeSnapshotContainsFold applies the ContainsFold predicate on the "room_code_snapshot" field.
+func RoomCodeSnapshotContainsFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContainsFold(FieldRoomCodeSnapshot, v))
+}
+
+// RoomNameSnapshotEQ applies the EQ predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldRoomNameSnapshot, v))
+}
+
+// RoomNameSnapshotNEQ applies the NEQ predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotNEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldRoomNameSnapshot, v))
+}
+
+// RoomNameSnapshotIn applies the In predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldRoomNameSnapshot, vs...))
+}
+
+// RoomNameSnapshotNotIn applies the NotIn predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotNotIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldRoomNameSnapshot, vs...))
+}
+
+// RoomNameSnapshotGT applies the GT predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotGT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldRoomNameSnapshot, v))
+}
+
+// RoomNameSnapshotGTE applies the GTE predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotGTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldRoomNameSnapshot, v))
+}
+
+// RoomNameSnapshotLT applies the LT predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotLT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldRoomNameSnapshot, v))
+}
+
+// RoomNameSnapshotLTE applies the LTE predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotLTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldRoomNameSnapshot, v))
+}
+
+// RoomNameSnapshotContains applies the Contains predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotContains(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContains(FieldRoomNameSnapshot, v))
+}
+
+// RoomNameSnapshotHasPrefix applies the HasPrefix predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotHasPrefix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasPrefix(FieldRoomNameSnapshot, v))
+}
+
+// RoomNameSnapshotHasSuffix applies the HasSuffix predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotHasSuffix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasSuffix(FieldRoomNameSnapshot, v))
+}
+
+// RoomNameSnapshotIsNil applies the IsNil predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldRoomNameSnapshot))
+}
+
+// RoomNameSnapshotNotNil applies the NotNil predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldRoomNameSnapshot))
+}
+
+// RoomNameSnapshotEqualFold applies the EqualFold predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotEqualFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEqualFold(FieldRoomNameSnapshot, v))
+}
+
+// RoomNameSnapshotContainsFold applies the ContainsFold predicate on the "room_name_snapshot" field.
+func RoomNameSnapshotContainsFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContainsFold(FieldRoomNameSnapshot, v))
 }
 
 // StatusEQ applies the EQ predicate on the "status" field.
@@ -590,6 +840,231 @@ func ClosedAtNotNil() predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(sql.FieldNotNull(FieldClosedAt))
 }
 
+// ActivatedAtEQ applies the EQ predicate on the "activated_at" field.
+func ActivatedAtEQ(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldActivatedAt, v))
+}
+
+// ActivatedAtNEQ applies the NEQ predicate on the "activated_at" field.
+func ActivatedAtNEQ(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldActivatedAt, v))
+}
+
+// ActivatedAtIn applies the In predicate on the "activated_at" field.
+func ActivatedAtIn(vs ...time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldActivatedAt, vs...))
+}
+
+// ActivatedAtNotIn applies the NotIn predicate on the "activated_at" field.
+func ActivatedAtNotIn(vs ...time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldActivatedAt, vs...))
+}
+
+// ActivatedAtGT applies the GT predicate on the "activated_at" field.
+func ActivatedAtGT(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldActivatedAt, v))
+}
+
+// ActivatedAtGTE applies the GTE predicate on the "activated_at" field.
+func ActivatedAtGTE(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldActivatedAt, v))
+}
+
+// ActivatedAtLT applies the LT predicate on the "activated_at" field.
+func ActivatedAtLT(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldActivatedAt, v))
+}
+
+// ActivatedAtLTE applies the LTE predicate on the "activated_at" field.
+func ActivatedAtLTE(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldActivatedAt, v))
+}
+
+// ActivatedAtIsNil applies the IsNil predicate on the "activated_at" field.
+func ActivatedAtIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldActivatedAt))
+}
+
+// ActivatedAtNotNil applies the NotNil predicate on the "activated_at" field.
+func ActivatedAtNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldActivatedAt))
+}
+
+// EntitlementExpiresAtEQ applies the EQ predicate on the "entitlement_expires_at" field.
+func EntitlementExpiresAtEQ(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldEntitlementExpiresAt, v))
+}
+
+// EntitlementExpiresAtNEQ applies the NEQ predicate on the "entitlement_expires_at" field.
+func EntitlementExpiresAtNEQ(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldEntitlementExpiresAt, v))
+}
+
+// EntitlementExpiresAtIn applies the In predicate on the "entitlement_expires_at" field.
+func EntitlementExpiresAtIn(vs ...time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldEntitlementExpiresAt, vs...))
+}
+
+// EntitlementExpiresAtNotIn applies the NotIn predicate on the "entitlement_expires_at" field.
+func EntitlementExpiresAtNotIn(vs ...time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldEntitlementExpiresAt, vs...))
+}
+
+// EntitlementExpiresAtGT applies the GT predicate on the "entitlement_expires_at" field.
+func EntitlementExpiresAtGT(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldEntitlementExpiresAt, v))
+}
+
+// EntitlementExpiresAtGTE applies the GTE predicate on the "entitlement_expires_at" field.
+func EntitlementExpiresAtGTE(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldEntitlementExpiresAt, v))
+}
+
+// EntitlementExpiresAtLT applies the LT predicate on the "entitlement_expires_at" field.
+func EntitlementExpiresAtLT(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldEntitlementExpiresAt, v))
+}
+
+// EntitlementExpiresAtLTE applies the LTE predicate on the "entitlement_expires_at" field.
+func EntitlementExpiresAtLTE(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldEntitlementExpiresAt, v))
+}
+
+// EntitlementExpiresAtIsNil applies the IsNil predicate on the "entitlement_expires_at" field.
+func EntitlementExpiresAtIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldEntitlementExpiresAt))
+}
+
+// EntitlementExpiresAtNotNil applies the NotNil predicate on the "entitlement_expires_at" field.
+func EntitlementExpiresAtNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldEntitlementExpiresAt))
+}
+
+// CompletedAtEQ applies the EQ predicate on the "completed_at" field.
+func CompletedAtEQ(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldCompletedAt, v))
+}
+
+// CompletedAtNEQ applies the NEQ predicate on the "completed_at" field.
+func CompletedAtNEQ(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldCompletedAt, v))
+}
+
+// CompletedAtIn applies the In predicate on the "completed_at" field.
+func CompletedAtIn(vs ...time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldCompletedAt, vs...))
+}
+
+// CompletedAtNotIn applies the NotIn predicate on the "completed_at" field.
+func CompletedAtNotIn(vs ...time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldCompletedAt, vs...))
+}
+
+// CompletedAtGT applies the GT predicate on the "completed_at" field.
+func CompletedAtGT(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldCompletedAt, v))
+}
+
+// CompletedAtGTE applies the GTE predicate on the "completed_at" field.
+func CompletedAtGTE(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldCompletedAt, v))
+}
+
+// CompletedAtLT applies the LT predicate on the "completed_at" field.
+func CompletedAtLT(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldCompletedAt, v))
+}
+
+// CompletedAtLTE applies the LTE predicate on the "completed_at" field.
+func CompletedAtLTE(v time.Time) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldCompletedAt, v))
+}
+
+// CompletedAtIsNil applies the IsNil predicate on the "completed_at" field.
+func CompletedAtIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldCompletedAt))
+}
+
+// CompletedAtNotNil applies the NotNil predicate on the "completed_at" field.
+func CompletedAtNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldCompletedAt))
+}
+
+// ActivationTokenEQ applies the EQ predicate on the "activation_token" field.
+func ActivationTokenEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEQ(FieldActivationToken, v))
+}
+
+// ActivationTokenNEQ applies the NEQ predicate on the "activation_token" field.
+func ActivationTokenNEQ(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNEQ(FieldActivationToken, v))
+}
+
+// ActivationTokenIn applies the In predicate on the "activation_token" field.
+func ActivationTokenIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIn(FieldActivationToken, vs...))
+}
+
+// ActivationTokenNotIn applies the NotIn predicate on the "activation_token" field.
+func ActivationTokenNotIn(vs ...string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotIn(FieldActivationToken, vs...))
+}
+
+// ActivationTokenGT applies the GT predicate on the "activation_token" field.
+func ActivationTokenGT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGT(FieldActivationToken, v))
+}
+
+// ActivationTokenGTE applies the GTE predicate on the "activation_token" field.
+func ActivationTokenGTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldGTE(FieldActivationToken, v))
+}
+
+// ActivationTokenLT applies the LT predicate on the "activation_token" field.
+func ActivationTokenLT(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLT(FieldActivationToken, v))
+}
+
+// ActivationTokenLTE applies the LTE predicate on the "activation_token" field.
+func ActivationTokenLTE(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldLTE(FieldActivationToken, v))
+}
+
+// ActivationTokenContains applies the Contains predicate on the "activation_token" field.
+func ActivationTokenContains(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContains(FieldActivationToken, v))
+}
+
+// ActivationTokenHasPrefix applies the HasPrefix predicate on the "activation_token" field.
+func ActivationTokenHasPrefix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasPrefix(FieldActivationToken, v))
+}
+
+// ActivationTokenHasSuffix applies the HasSuffix predicate on the "activation_token" field.
+func ActivationTokenHasSuffix(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldHasSuffix(FieldActivationToken, v))
+}
+
+// ActivationTokenIsNil applies the IsNil predicate on the "activation_token" field.
+func ActivationTokenIsNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldIsNull(FieldActivationToken))
+}
+
+// ActivationTokenNotNil applies the NotNil predicate on the "activation_token" field.
+func ActivationTokenNotNil() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldNotNull(FieldActivationToken))
+}
+
+// ActivationTokenEqualFold applies the EqualFold predicate on the "activation_token" field.
+func ActivationTokenEqualFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldEqualFold(FieldActivationToken, v))
+}
+
+// ActivationTokenContainsFold applies the ContainsFold predicate on the "activation_token" field.
+func ActivationTokenContainsFold(v string) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(sql.FieldContainsFold(FieldActivationToken, v))
+}
+
 // CloseReasonEQ applies the EQ predicate on the "close_reason" field.
 func CloseReasonEQ(v string) predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(sql.FieldEQ(FieldCloseReason, v))
@@ -806,6 +1281,75 @@ func HasEvents() predicate.GroupBuyRound {
 func HasEventsWith(preds ...predicate.GroupBuyEvent) predicate.GroupBuyRound {
 	return predicate.GroupBuyRound(func(s *sql.Selector) {
 		step := newEventsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCafeRoom applies the HasEdge predicate on the "cafe_room" edge.
+func HasCafeRoom() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, CafeRoomTable, CafeRoomColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCafeRoomWith applies the HasEdge predicate on the "cafe_room" edge with a given conditions (other predicates).
+func HasCafeRoomWith(preds ...predicate.CafeRoom) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(func(s *sql.Selector) {
+		step := newCafeRoomStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAssignedAccount applies the HasEdge predicate on the "assigned_account" edge.
+func HasAssignedAccount() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, AssignedAccountTable, AssignedAccountColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAssignedAccountWith applies the HasEdge predicate on the "assigned_account" edge with a given conditions (other predicates).
+func HasAssignedAccountWith(preds ...predicate.Account) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(func(s *sql.Selector) {
+		step := newAssignedAccountStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasAccountBindings applies the HasEdge predicate on the "account_bindings" edge.
+func HasAccountBindings() predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAccountBindingsWith applies the HasEdge predicate on the "account_bindings" edge with a given conditions (other predicates).
+func HasAccountBindingsWith(preds ...predicate.APIKeyAccountBinding) predicate.GroupBuyRound {
+	return predicate.GroupBuyRound(func(s *sql.Selector) {
+		step := newAccountBindingsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

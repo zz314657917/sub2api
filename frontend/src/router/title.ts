@@ -15,7 +15,10 @@ export function resolveDocumentTitle(
   const normalizedSiteName = typeof siteName === 'string' && siteName.trim() ? siteName.trim() : 'Sub2API'
 
   if (titleKey === 'nav.groupBuy') {
-    return `${resolveGroupBuyProductName(publicSettings)} - ${normalizedSiteName}`
+    const title = publicSettings?.pixel_cafe_enabled === true
+      ? '像素网吧'
+      : resolveGroupBuyProductName(publicSettings)
+    return `${title} - ${normalizedSiteName}`
   }
 
   if (typeof titleKey === 'string' && titleKey.trim()) {

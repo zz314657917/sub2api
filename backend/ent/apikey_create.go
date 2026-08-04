@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyseat"
@@ -330,6 +331,34 @@ func (_c *APIKeyCreate) SetMultiGroupRoutes(v []domain.APIKeyMultiGroupRoute) *A
 	return _c
 }
 
+// SetManagedSourceType sets the "managed_source_type" field.
+func (_c *APIKeyCreate) SetManagedSourceType(v string) *APIKeyCreate {
+	_c.mutation.SetManagedSourceType(v)
+	return _c
+}
+
+// SetNillableManagedSourceType sets the "managed_source_type" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableManagedSourceType(v *string) *APIKeyCreate {
+	if v != nil {
+		_c.SetManagedSourceType(*v)
+	}
+	return _c
+}
+
+// SetManagedSourceID sets the "managed_source_id" field.
+func (_c *APIKeyCreate) SetManagedSourceID(v int64) *APIKeyCreate {
+	_c.mutation.SetManagedSourceID(v)
+	return _c
+}
+
+// SetNillableManagedSourceID sets the "managed_source_id" field if the given value is not nil.
+func (_c *APIKeyCreate) SetNillableManagedSourceID(v *int64) *APIKeyCreate {
+	if v != nil {
+		_c.SetManagedSourceID(*v)
+	}
+	return _c
+}
+
 // SetUser sets the "user" edge to the User entity.
 func (_c *APIKeyCreate) SetUser(v *User) *APIKeyCreate {
 	return _c.SetUserID(v.ID)
@@ -383,6 +412,21 @@ func (_c *APIKeyCreate) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *APIK
 		ids[i] = v[i].ID
 	}
 	return _c.AddGroupBuyEntitlementIDs(ids...)
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_c *APIKeyCreate) AddAccountBindingIDs(ids ...int64) *APIKeyCreate {
+	_c.mutation.AddAccountBindingIDs(ids...)
+	return _c
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_c *APIKeyCreate) AddAccountBindings(v ...*APIKeyAccountBinding) *APIKeyCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAccountBindingIDs(ids...)
 }
 
 // Mutation returns the APIKeyMutation object of the builder.
@@ -476,6 +520,10 @@ func (_c *APIKeyCreate) defaults() error {
 		v := apikey.DefaultUsage7d
 		_c.mutation.SetUsage7d(v)
 	}
+	if _, ok := _c.mutation.ManagedSourceType(); !ok {
+		v := apikey.DefaultManagedSourceType
+		_c.mutation.SetManagedSourceType(v)
+	}
 	return nil
 }
 
@@ -545,6 +593,14 @@ func (_c *APIKeyCreate) check() error {
 	}
 	if _, ok := _c.mutation.Usage7d(); !ok {
 		return &ValidationError{Name: "usage_7d", err: errors.New(`ent: missing required field "APIKey.usage_7d"`)}
+	}
+	if _, ok := _c.mutation.ManagedSourceType(); !ok {
+		return &ValidationError{Name: "managed_source_type", err: errors.New(`ent: missing required field "APIKey.managed_source_type"`)}
+	}
+	if v, ok := _c.mutation.ManagedSourceType(); ok {
+		if err := apikey.ManagedSourceTypeValidator(v); err != nil {
+			return &ValidationError{Name: "managed_source_type", err: fmt.Errorf(`ent: validator failed for field "APIKey.managed_source_type": %w`, err)}
+		}
 	}
 	if len(_c.mutation.UserIDs()) == 0 {
 		return &ValidationError{Name: "user", err: errors.New(`ent: missing required edge "APIKey.user"`)}
@@ -668,6 +724,14 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 		_spec.SetField(apikey.FieldMultiGroupRoutes, field.TypeJSON, value)
 		_node.MultiGroupRoutes = value
 	}
+	if value, ok := _c.mutation.ManagedSourceType(); ok {
+		_spec.SetField(apikey.FieldManagedSourceType, field.TypeString, value)
+		_node.ManagedSourceType = value
+	}
+	if value, ok := _c.mutation.ManagedSourceID(); ok {
+		_spec.SetField(apikey.FieldManagedSourceID, field.TypeInt64, value)
+		_node.ManagedSourceID = &value
+	}
 	if nodes := _c.mutation.UserIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -743,6 +807,22 @@ func (_c *APIKeyCreate) createSpec() (*APIKey, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   apikey.AccountBindingsTable,
+			Columns: []string{apikey.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1195,6 +1275,42 @@ func (u *APIKeyUpsert) UpdateMultiGroupRoutes() *APIKeyUpsert {
 // ClearMultiGroupRoutes clears the value of the "multi_group_routes" field.
 func (u *APIKeyUpsert) ClearMultiGroupRoutes() *APIKeyUpsert {
 	u.SetNull(apikey.FieldMultiGroupRoutes)
+	return u
+}
+
+// SetManagedSourceType sets the "managed_source_type" field.
+func (u *APIKeyUpsert) SetManagedSourceType(v string) *APIKeyUpsert {
+	u.Set(apikey.FieldManagedSourceType, v)
+	return u
+}
+
+// UpdateManagedSourceType sets the "managed_source_type" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateManagedSourceType() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldManagedSourceType)
+	return u
+}
+
+// SetManagedSourceID sets the "managed_source_id" field.
+func (u *APIKeyUpsert) SetManagedSourceID(v int64) *APIKeyUpsert {
+	u.Set(apikey.FieldManagedSourceID, v)
+	return u
+}
+
+// UpdateManagedSourceID sets the "managed_source_id" field to the value that was provided on create.
+func (u *APIKeyUpsert) UpdateManagedSourceID() *APIKeyUpsert {
+	u.SetExcluded(apikey.FieldManagedSourceID)
+	return u
+}
+
+// AddManagedSourceID adds v to the "managed_source_id" field.
+func (u *APIKeyUpsert) AddManagedSourceID(v int64) *APIKeyUpsert {
+	u.Add(apikey.FieldManagedSourceID, v)
+	return u
+}
+
+// ClearManagedSourceID clears the value of the "managed_source_id" field.
+func (u *APIKeyUpsert) ClearManagedSourceID() *APIKeyUpsert {
+	u.SetNull(apikey.FieldManagedSourceID)
 	return u
 }
 
@@ -1702,6 +1818,48 @@ func (u *APIKeyUpsertOne) UpdateMultiGroupRoutes() *APIKeyUpsertOne {
 func (u *APIKeyUpsertOne) ClearMultiGroupRoutes() *APIKeyUpsertOne {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearMultiGroupRoutes()
+	})
+}
+
+// SetManagedSourceType sets the "managed_source_type" field.
+func (u *APIKeyUpsertOne) SetManagedSourceType(v string) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetManagedSourceType(v)
+	})
+}
+
+// UpdateManagedSourceType sets the "managed_source_type" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateManagedSourceType() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateManagedSourceType()
+	})
+}
+
+// SetManagedSourceID sets the "managed_source_id" field.
+func (u *APIKeyUpsertOne) SetManagedSourceID(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetManagedSourceID(v)
+	})
+}
+
+// AddManagedSourceID adds v to the "managed_source_id" field.
+func (u *APIKeyUpsertOne) AddManagedSourceID(v int64) *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddManagedSourceID(v)
+	})
+}
+
+// UpdateManagedSourceID sets the "managed_source_id" field to the value that was provided on create.
+func (u *APIKeyUpsertOne) UpdateManagedSourceID() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateManagedSourceID()
+	})
+}
+
+// ClearManagedSourceID clears the value of the "managed_source_id" field.
+func (u *APIKeyUpsertOne) ClearManagedSourceID() *APIKeyUpsertOne {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearManagedSourceID()
 	})
 }
 
@@ -2375,6 +2533,48 @@ func (u *APIKeyUpsertBulk) UpdateMultiGroupRoutes() *APIKeyUpsertBulk {
 func (u *APIKeyUpsertBulk) ClearMultiGroupRoutes() *APIKeyUpsertBulk {
 	return u.Update(func(s *APIKeyUpsert) {
 		s.ClearMultiGroupRoutes()
+	})
+}
+
+// SetManagedSourceType sets the "managed_source_type" field.
+func (u *APIKeyUpsertBulk) SetManagedSourceType(v string) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetManagedSourceType(v)
+	})
+}
+
+// UpdateManagedSourceType sets the "managed_source_type" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateManagedSourceType() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateManagedSourceType()
+	})
+}
+
+// SetManagedSourceID sets the "managed_source_id" field.
+func (u *APIKeyUpsertBulk) SetManagedSourceID(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.SetManagedSourceID(v)
+	})
+}
+
+// AddManagedSourceID adds v to the "managed_source_id" field.
+func (u *APIKeyUpsertBulk) AddManagedSourceID(v int64) *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.AddManagedSourceID(v)
+	})
+}
+
+// UpdateManagedSourceID sets the "managed_source_id" field to the value that was provided on create.
+func (u *APIKeyUpsertBulk) UpdateManagedSourceID() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.UpdateManagedSourceID()
+	})
+}
+
+// ClearManagedSourceID clears the value of the "managed_source_id" field.
+func (u *APIKeyUpsertBulk) ClearManagedSourceID() *APIKeyUpsertBulk {
+	return u.Update(func(s *APIKeyUpsert) {
+		s.ClearManagedSourceID()
 	})
 }
 

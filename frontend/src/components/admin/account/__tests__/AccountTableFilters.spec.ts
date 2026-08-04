@@ -10,8 +10,8 @@ vi.mock('vue-i18n', () => ({
   })
 }))
 
-const SelectStub = defineComponent({
-  name: 'Select',
+const AccountTableSelectStub = defineComponent({
+  name: 'AccountTableSelect',
   props: {
     modelValue: { type: [String, Number, Boolean], default: '' },
     options: { type: Array, default: () => [] }
@@ -39,13 +39,13 @@ describe('AccountTableFilters plan type filter', () => {
       },
       global: {
         stubs: {
-          Select: SelectStub,
+          Select: AccountTableSelectStub,
           SearchInput: true
         }
       }
     })
 
-    const planSelect = wrapper.findAllComponents(SelectStub).find((select) =>
+    const planSelect = wrapper.findAllComponents(AccountTableSelectStub).find((select) =>
       (select.props('options') as Array<{ value: string }>).some((option) => option.value === 'k12')
     )
     expect(planSelect).toBeDefined()

@@ -52,6 +52,18 @@ const (
 	FieldTimeoutMinutes = "timeout_minutes"
 	// FieldLaunchMode holds the string denoting the launch_mode field in the database.
 	FieldLaunchMode = "launch_mode"
+	// FieldFulfillmentMode holds the string denoting the fulfillment_mode field in the database.
+	FieldFulfillmentMode = "fulfillment_mode"
+	// FieldRoomKeyQuotaUsd holds the string denoting the room_key_quota_usd field in the database.
+	FieldRoomKeyQuotaUsd = "room_key_quota_usd"
+	// FieldRoomKeyRateLimit5h holds the string denoting the room_key_rate_limit_5h field in the database.
+	FieldRoomKeyRateLimit5h = "room_key_rate_limit_5h"
+	// FieldRoomKeyRateLimit1d holds the string denoting the room_key_rate_limit_1d field in the database.
+	FieldRoomKeyRateLimit1d = "room_key_rate_limit_1d"
+	// FieldRoomKeyRateLimit7d holds the string denoting the room_key_rate_limit_7d field in the database.
+	FieldRoomKeyRateLimit7d = "room_key_rate_limit_7d"
+	// FieldAutoCreateRoomKey holds the string denoting the auto_create_room_key field in the database.
+	FieldAutoCreateRoomKey = "auto_create_room_key"
 	// FieldRefundMode holds the string denoting the refund_mode field in the database.
 	FieldRefundMode = "refund_mode"
 	// FieldAgreementText holds the string denoting the agreement_text field in the database.
@@ -72,6 +84,8 @@ const (
 	EdgeSeats = "seats"
 	// EdgeEvents holds the string denoting the events edge name in mutations.
 	EdgeEvents = "events"
+	// EdgeCafeRooms holds the string denoting the cafe_rooms edge name in mutations.
+	EdgeCafeRooms = "cafe_rooms"
 	// Table holds the table name of the groupbuyplan in the database.
 	Table = "group_buy_plans"
 	// TargetGroupTable is the table that holds the target_group relation/edge.
@@ -102,6 +116,13 @@ const (
 	EventsInverseTable = "group_buy_events"
 	// EventsColumn is the table column denoting the events relation/edge.
 	EventsColumn = "plan_id"
+	// CafeRoomsTable is the table that holds the cafe_rooms relation/edge.
+	CafeRoomsTable = "cafe_rooms"
+	// CafeRoomsInverseTable is the table name for the CafeRoom entity.
+	// It exists in this package in order to avoid circular dependency with the "caferoom" package.
+	CafeRoomsInverseTable = "cafe_rooms"
+	// CafeRoomsColumn is the table column denoting the cafe_rooms relation/edge.
+	CafeRoomsColumn = "plan_id"
 )
 
 // Columns holds all SQL columns for groupbuyplan fields.
@@ -126,6 +147,12 @@ var Columns = []string{
 	FieldValidityDays,
 	FieldTimeoutMinutes,
 	FieldLaunchMode,
+	FieldFulfillmentMode,
+	FieldRoomKeyQuotaUsd,
+	FieldRoomKeyRateLimit5h,
+	FieldRoomKeyRateLimit1d,
+	FieldRoomKeyRateLimit7d,
+	FieldAutoCreateRoomKey,
 	FieldRefundMode,
 	FieldAgreementText,
 	FieldStatus,
@@ -187,6 +214,20 @@ var (
 	DefaultLaunchMode string
 	// LaunchModeValidator is a validator for the "launch_mode" field. It is called by the builders before save.
 	LaunchModeValidator func(string) error
+	// DefaultFulfillmentMode holds the default value on creation for the "fulfillment_mode" field.
+	DefaultFulfillmentMode string
+	// FulfillmentModeValidator is a validator for the "fulfillment_mode" field. It is called by the builders before save.
+	FulfillmentModeValidator func(string) error
+	// DefaultRoomKeyQuotaUsd holds the default value on creation for the "room_key_quota_usd" field.
+	DefaultRoomKeyQuotaUsd float64
+	// DefaultRoomKeyRateLimit5h holds the default value on creation for the "room_key_rate_limit_5h" field.
+	DefaultRoomKeyRateLimit5h float64
+	// DefaultRoomKeyRateLimit1d holds the default value on creation for the "room_key_rate_limit_1d" field.
+	DefaultRoomKeyRateLimit1d float64
+	// DefaultRoomKeyRateLimit7d holds the default value on creation for the "room_key_rate_limit_7d" field.
+	DefaultRoomKeyRateLimit7d float64
+	// DefaultAutoCreateRoomKey holds the default value on creation for the "auto_create_room_key" field.
+	DefaultAutoCreateRoomKey bool
 	// DefaultRefundMode holds the default value on creation for the "refund_mode" field.
 	DefaultRefundMode string
 	// RefundModeValidator is a validator for the "refund_mode" field. It is called by the builders before save.
@@ -292,6 +333,36 @@ func ByLaunchMode(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLaunchMode, opts...).ToFunc()
 }
 
+// ByFulfillmentMode orders the results by the fulfillment_mode field.
+func ByFulfillmentMode(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldFulfillmentMode, opts...).ToFunc()
+}
+
+// ByRoomKeyQuotaUsd orders the results by the room_key_quota_usd field.
+func ByRoomKeyQuotaUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoomKeyQuotaUsd, opts...).ToFunc()
+}
+
+// ByRoomKeyRateLimit5h orders the results by the room_key_rate_limit_5h field.
+func ByRoomKeyRateLimit5h(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoomKeyRateLimit5h, opts...).ToFunc()
+}
+
+// ByRoomKeyRateLimit1d orders the results by the room_key_rate_limit_1d field.
+func ByRoomKeyRateLimit1d(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoomKeyRateLimit1d, opts...).ToFunc()
+}
+
+// ByRoomKeyRateLimit7d orders the results by the room_key_rate_limit_7d field.
+func ByRoomKeyRateLimit7d(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoomKeyRateLimit7d, opts...).ToFunc()
+}
+
+// ByAutoCreateRoomKey orders the results by the auto_create_room_key field.
+func ByAutoCreateRoomKey(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAutoCreateRoomKey, opts...).ToFunc()
+}
+
 // ByRefundMode orders the results by the refund_mode field.
 func ByRefundMode(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldRefundMode, opts...).ToFunc()
@@ -370,6 +441,20 @@ func ByEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByCafeRoomsCount orders the results by cafe_rooms count.
+func ByCafeRoomsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCafeRoomsStep(), opts...)
+	}
+}
+
+// ByCafeRooms orders the results by cafe_rooms terms.
+func ByCafeRooms(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCafeRoomsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newTargetGroupStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -396,5 +481,12 @@ func newEventsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(EventsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, EventsTable, EventsColumn),
+	)
+}
+func newCafeRoomsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CafeRoomsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, CafeRoomsTable, CafeRoomsColumn),
 	)
 }

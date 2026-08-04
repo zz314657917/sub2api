@@ -632,6 +632,20 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/pixel-cafe/rooms',
+    name: 'AdminPixelCafeRooms',
+    component: () => import('@/views/admin/pixelCafe/AdminCafeRoomsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      requiresPixelCafe: true,
+      title: 'Pixel Cafe Rooms',
+      titleKey: 'admin.pixelCafe.title',
+      descriptionKey: 'admin.pixelCafe.description',
+      denseWorkspace: true,
+    },
+  },
+  {
     path: '/admin/accounts',
     name: 'AdminAccounts',
     component: () => import('@/views/admin/AccountsView.vue'),
@@ -1072,6 +1086,11 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   if (to.meta.requiresGroupBuy && !isFeatureFlagEnabled(FeatureFlags.groupBuy)) {
+    next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
+    return
+  }
+
+  if (to.meta.requiresPixelCafe && !isFeatureFlagEnabled(FeatureFlags.pixelCafe)) {
     next(authStore.isAdmin ? '/admin/dashboard' : '/dashboard')
     return
   }

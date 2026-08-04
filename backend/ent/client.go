@@ -20,8 +20,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcement"
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
 	"github.com/Wei-Shaw/sub2api/ent/authidentitychannel"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitor"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitordailyrollup"
 	"github.com/Wei-Shaw/sub2api/ent/channelmonitorhistory"
@@ -69,6 +71,8 @@ type Client struct {
 	Schema *migrate.Schema
 	// APIKey is the client for interacting with the APIKey builders.
 	APIKey *APIKeyClient
+	// APIKeyAccountBinding is the client for interacting with the APIKeyAccountBinding builders.
+	APIKeyAccountBinding *APIKeyAccountBindingClient
 	// Account is the client for interacting with the Account builders.
 	Account *AccountClient
 	// AccountGroup is the client for interacting with the AccountGroup builders.
@@ -81,6 +85,8 @@ type Client struct {
 	AuthIdentity *AuthIdentityClient
 	// AuthIdentityChannel is the client for interacting with the AuthIdentityChannel builders.
 	AuthIdentityChannel *AuthIdentityChannelClient
+	// CafeRoom is the client for interacting with the CafeRoom builders.
+	CafeRoom *CafeRoomClient
 	// ChannelMonitor is the client for interacting with the ChannelMonitor builders.
 	ChannelMonitor *ChannelMonitorClient
 	// ChannelMonitorDailyRollup is the client for interacting with the ChannelMonitorDailyRollup builders.
@@ -165,12 +171,14 @@ func NewClient(opts ...Option) *Client {
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
 	c.APIKey = NewAPIKeyClient(c.config)
+	c.APIKeyAccountBinding = NewAPIKeyAccountBindingClient(c.config)
 	c.Account = NewAccountClient(c.config)
 	c.AccountGroup = NewAccountGroupClient(c.config)
 	c.Announcement = NewAnnouncementClient(c.config)
 	c.AnnouncementRead = NewAnnouncementReadClient(c.config)
 	c.AuthIdentity = NewAuthIdentityClient(c.config)
 	c.AuthIdentityChannel = NewAuthIdentityChannelClient(c.config)
+	c.CafeRoom = NewCafeRoomClient(c.config)
 	c.ChannelMonitor = NewChannelMonitorClient(c.config)
 	c.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(c.config)
 	c.ChannelMonitorHistory = NewChannelMonitorHistoryClient(c.config)
@@ -300,12 +308,14 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		ctx:                           ctx,
 		config:                        cfg,
 		APIKey:                        NewAPIKeyClient(cfg),
+		APIKeyAccountBinding:          NewAPIKeyAccountBindingClient(cfg),
 		Account:                       NewAccountClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
 		Announcement:                  NewAnnouncementClient(cfg),
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
 		AuthIdentity:                  NewAuthIdentityClient(cfg),
 		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
+		CafeRoom:                      NewCafeRoomClient(cfg),
 		ChannelMonitor:                NewChannelMonitorClient(cfg),
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
@@ -362,12 +372,14 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		ctx:                           ctx,
 		config:                        cfg,
 		APIKey:                        NewAPIKeyClient(cfg),
+		APIKeyAccountBinding:          NewAPIKeyAccountBindingClient(cfg),
 		Account:                       NewAccountClient(cfg),
 		AccountGroup:                  NewAccountGroupClient(cfg),
 		Announcement:                  NewAnnouncementClient(cfg),
 		AnnouncementRead:              NewAnnouncementReadClient(cfg),
 		AuthIdentity:                  NewAuthIdentityClient(cfg),
 		AuthIdentityChannel:           NewAuthIdentityChannelClient(cfg),
+		CafeRoom:                      NewCafeRoomClient(cfg),
 		ChannelMonitor:                NewChannelMonitorClient(cfg),
 		ChannelMonitorDailyRollup:     NewChannelMonitorDailyRollupClient(cfg),
 		ChannelMonitorHistory:         NewChannelMonitorHistoryClient(cfg),
@@ -433,9 +445,9 @@ func (c *Client) Close() error {
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
 	for _, n := range []interface{ Use(...Hook) }{
-		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
-		c.AuthIdentity, c.AuthIdentityChannel, c.ChannelMonitor,
-		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
+		c.APIKey, c.APIKeyAccountBinding, c.Account, c.AccountGroup, c.Announcement,
+		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.CafeRoom,
+		c.ChannelMonitor, c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
 		c.GroupBuyEntitlement, c.GroupBuyEvent, c.GroupBuyPlan, c.GroupBuyRefund,
 		c.GroupBuyRound, c.GroupBuySeat, c.IdempotencyRecord,
@@ -455,9 +467,9 @@ func (c *Client) Use(hooks ...Hook) {
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
 	for _, n := range []interface{ Intercept(...Interceptor) }{
-		c.APIKey, c.Account, c.AccountGroup, c.Announcement, c.AnnouncementRead,
-		c.AuthIdentity, c.AuthIdentityChannel, c.ChannelMonitor,
-		c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
+		c.APIKey, c.APIKeyAccountBinding, c.Account, c.AccountGroup, c.Announcement,
+		c.AnnouncementRead, c.AuthIdentity, c.AuthIdentityChannel, c.CafeRoom,
+		c.ChannelMonitor, c.ChannelMonitorDailyRollup, c.ChannelMonitorHistory,
 		c.ChannelMonitorRequestTemplate, c.ErrorPassthroughRule, c.Group,
 		c.GroupBuyEntitlement, c.GroupBuyEvent, c.GroupBuyPlan, c.GroupBuyRefund,
 		c.GroupBuyRound, c.GroupBuySeat, c.IdempotencyRecord,
@@ -478,6 +490,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
 	case *APIKeyMutation:
 		return c.APIKey.mutate(ctx, m)
+	case *APIKeyAccountBindingMutation:
+		return c.APIKeyAccountBinding.mutate(ctx, m)
 	case *AccountMutation:
 		return c.Account.mutate(ctx, m)
 	case *AccountGroupMutation:
@@ -490,6 +504,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.AuthIdentity.mutate(ctx, m)
 	case *AuthIdentityChannelMutation:
 		return c.AuthIdentityChannel.mutate(ctx, m)
+	case *CafeRoomMutation:
+		return c.CafeRoom.mutate(ctx, m)
 	case *ChannelMonitorMutation:
 		return c.ChannelMonitor.mutate(ctx, m)
 	case *ChannelMonitorDailyRollupMutation:
@@ -755,6 +771,22 @@ func (c *APIKeyClient) QueryGroupBuyEntitlements(_m *APIKey) *GroupBuyEntitlemen
 	return query
 }
 
+// QueryAccountBindings queries the account_bindings edge of a APIKey.
+func (c *APIKeyClient) QueryAccountBindings(_m *APIKey) *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikey.Table, apikey.FieldID, id),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, apikey.AccountBindingsTable, apikey.AccountBindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *APIKeyClient) Hooks() []Hook {
 	hooks := c.hooks.APIKey
@@ -779,6 +811,251 @@ func (c *APIKeyClient) mutate(ctx context.Context, m *APIKeyMutation) (Value, er
 		return (&APIKeyDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown APIKey mutation op: %q", m.Op())
+	}
+}
+
+// APIKeyAccountBindingClient is a client for the APIKeyAccountBinding schema.
+type APIKeyAccountBindingClient struct {
+	config
+}
+
+// NewAPIKeyAccountBindingClient returns a client for the APIKeyAccountBinding from the given config.
+func NewAPIKeyAccountBindingClient(c config) *APIKeyAccountBindingClient {
+	return &APIKeyAccountBindingClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `apikeyaccountbinding.Hooks(f(g(h())))`.
+func (c *APIKeyAccountBindingClient) Use(hooks ...Hook) {
+	c.hooks.APIKeyAccountBinding = append(c.hooks.APIKeyAccountBinding, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `apikeyaccountbinding.Intercept(f(g(h())))`.
+func (c *APIKeyAccountBindingClient) Intercept(interceptors ...Interceptor) {
+	c.inters.APIKeyAccountBinding = append(c.inters.APIKeyAccountBinding, interceptors...)
+}
+
+// Create returns a builder for creating a APIKeyAccountBinding entity.
+func (c *APIKeyAccountBindingClient) Create() *APIKeyAccountBindingCreate {
+	mutation := newAPIKeyAccountBindingMutation(c.config, OpCreate)
+	return &APIKeyAccountBindingCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of APIKeyAccountBinding entities.
+func (c *APIKeyAccountBindingClient) CreateBulk(builders ...*APIKeyAccountBindingCreate) *APIKeyAccountBindingCreateBulk {
+	return &APIKeyAccountBindingCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *APIKeyAccountBindingClient) MapCreateBulk(slice any, setFunc func(*APIKeyAccountBindingCreate, int)) *APIKeyAccountBindingCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &APIKeyAccountBindingCreateBulk{err: fmt.Errorf("calling to APIKeyAccountBindingClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*APIKeyAccountBindingCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &APIKeyAccountBindingCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for APIKeyAccountBinding.
+func (c *APIKeyAccountBindingClient) Update() *APIKeyAccountBindingUpdate {
+	mutation := newAPIKeyAccountBindingMutation(c.config, OpUpdate)
+	return &APIKeyAccountBindingUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *APIKeyAccountBindingClient) UpdateOne(_m *APIKeyAccountBinding) *APIKeyAccountBindingUpdateOne {
+	mutation := newAPIKeyAccountBindingMutation(c.config, OpUpdateOne, withAPIKeyAccountBinding(_m))
+	return &APIKeyAccountBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *APIKeyAccountBindingClient) UpdateOneID(id int64) *APIKeyAccountBindingUpdateOne {
+	mutation := newAPIKeyAccountBindingMutation(c.config, OpUpdateOne, withAPIKeyAccountBindingID(id))
+	return &APIKeyAccountBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for APIKeyAccountBinding.
+func (c *APIKeyAccountBindingClient) Delete() *APIKeyAccountBindingDelete {
+	mutation := newAPIKeyAccountBindingMutation(c.config, OpDelete)
+	return &APIKeyAccountBindingDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *APIKeyAccountBindingClient) DeleteOne(_m *APIKeyAccountBinding) *APIKeyAccountBindingDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *APIKeyAccountBindingClient) DeleteOneID(id int64) *APIKeyAccountBindingDeleteOne {
+	builder := c.Delete().Where(apikeyaccountbinding.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &APIKeyAccountBindingDeleteOne{builder}
+}
+
+// Query returns a query builder for APIKeyAccountBinding.
+func (c *APIKeyAccountBindingClient) Query() *APIKeyAccountBindingQuery {
+	return &APIKeyAccountBindingQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeAPIKeyAccountBinding},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a APIKeyAccountBinding entity by its id.
+func (c *APIKeyAccountBindingClient) Get(ctx context.Context, id int64) (*APIKeyAccountBinding, error) {
+	return c.Query().Where(apikeyaccountbinding.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *APIKeyAccountBindingClient) GetX(ctx context.Context, id int64) *APIKeyAccountBinding {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryAPIKey queries the api_key edge of a APIKeyAccountBinding.
+func (c *APIKeyAccountBindingClient) QueryAPIKey(_m *APIKeyAccountBinding) *APIKeyQuery {
+	query := (&APIKeyClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID, id),
+			sqlgraph.To(apikey.Table, apikey.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeyaccountbinding.APIKeyTable, apikeyaccountbinding.APIKeyColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryUser queries the user edge of a APIKeyAccountBinding.
+func (c *APIKeyAccountBindingClient) QueryUser(_m *APIKeyAccountBinding) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeyaccountbinding.UserTable, apikeyaccountbinding.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryGroup queries the group edge of a APIKeyAccountBinding.
+func (c *APIKeyAccountBindingClient) QueryGroup(_m *APIKeyAccountBinding) *GroupQuery {
+	query := (&GroupClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID, id),
+			sqlgraph.To(group.Table, group.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeyaccountbinding.GroupTable, apikeyaccountbinding.GroupColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAccount queries the account edge of a APIKeyAccountBinding.
+func (c *APIKeyAccountBindingClient) QueryAccount(_m *APIKeyAccountBinding) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeyaccountbinding.AccountTable, apikeyaccountbinding.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCafeRoom queries the cafe_room edge of a APIKeyAccountBinding.
+func (c *APIKeyAccountBindingClient) QueryCafeRoom(_m *APIKeyAccountBinding) *CafeRoomQuery {
+	query := (&CafeRoomClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID, id),
+			sqlgraph.To(caferoom.Table, caferoom.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeyaccountbinding.CafeRoomTable, apikeyaccountbinding.CafeRoomColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRound queries the round edge of a APIKeyAccountBinding.
+func (c *APIKeyAccountBindingClient) QueryRound(_m *APIKeyAccountBinding) *GroupBuyRoundQuery {
+	query := (&GroupBuyRoundClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID, id),
+			sqlgraph.To(groupbuyround.Table, groupbuyround.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeyaccountbinding.RoundTable, apikeyaccountbinding.RoundColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QuerySeat queries the seat edge of a APIKeyAccountBinding.
+func (c *APIKeyAccountBindingClient) QuerySeat(_m *APIKeyAccountBinding) *GroupBuySeatQuery {
+	query := (&GroupBuySeatClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID, id),
+			sqlgraph.To(groupbuyseat.Table, groupbuyseat.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, apikeyaccountbinding.SeatTable, apikeyaccountbinding.SeatColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *APIKeyAccountBindingClient) Hooks() []Hook {
+	return c.hooks.APIKeyAccountBinding
+}
+
+// Interceptors returns the client interceptors.
+func (c *APIKeyAccountBindingClient) Interceptors() []Interceptor {
+	return c.inters.APIKeyAccountBinding
+}
+
+func (c *APIKeyAccountBindingClient) mutate(ctx context.Context, m *APIKeyAccountBindingMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&APIKeyAccountBindingCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&APIKeyAccountBindingUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&APIKeyAccountBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&APIKeyAccountBindingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown APIKeyAccountBinding mutation op: %q", m.Op())
 	}
 }
 
@@ -931,6 +1208,54 @@ func (c *AccountClient) QueryUsageLogs(_m *Account) *UsageLogQuery {
 			sqlgraph.From(account.Table, account.FieldID, id),
 			sqlgraph.To(usagelog.Table, usagelog.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, account.UsageLogsTable, account.UsageLogsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCafeRooms queries the cafe_rooms edge of a Account.
+func (c *AccountClient) QueryCafeRooms(_m *Account) *CafeRoomQuery {
+	query := (&CafeRoomClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(caferoom.Table, caferoom.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.CafeRoomsTable, account.CafeRoomsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCafeRounds queries the cafe_rounds edge of a Account.
+func (c *AccountClient) QueryCafeRounds(_m *Account) *GroupBuyRoundQuery {
+	query := (&GroupBuyRoundClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(groupbuyround.Table, groupbuyround.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.CafeRoundsTable, account.CafeRoundsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAccountBindings queries the account_bindings edge of a Account.
+func (c *AccountClient) QueryAccountBindings(_m *Account) *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, account.AccountBindingsTable, account.AccountBindingsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -1738,6 +2063,205 @@ func (c *AuthIdentityChannelClient) mutate(ctx context.Context, m *AuthIdentityC
 		return (&AuthIdentityChannelDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown AuthIdentityChannel mutation op: %q", m.Op())
+	}
+}
+
+// CafeRoomClient is a client for the CafeRoom schema.
+type CafeRoomClient struct {
+	config
+}
+
+// NewCafeRoomClient returns a client for the CafeRoom from the given config.
+func NewCafeRoomClient(c config) *CafeRoomClient {
+	return &CafeRoomClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `caferoom.Hooks(f(g(h())))`.
+func (c *CafeRoomClient) Use(hooks ...Hook) {
+	c.hooks.CafeRoom = append(c.hooks.CafeRoom, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `caferoom.Intercept(f(g(h())))`.
+func (c *CafeRoomClient) Intercept(interceptors ...Interceptor) {
+	c.inters.CafeRoom = append(c.inters.CafeRoom, interceptors...)
+}
+
+// Create returns a builder for creating a CafeRoom entity.
+func (c *CafeRoomClient) Create() *CafeRoomCreate {
+	mutation := newCafeRoomMutation(c.config, OpCreate)
+	return &CafeRoomCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of CafeRoom entities.
+func (c *CafeRoomClient) CreateBulk(builders ...*CafeRoomCreate) *CafeRoomCreateBulk {
+	return &CafeRoomCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *CafeRoomClient) MapCreateBulk(slice any, setFunc func(*CafeRoomCreate, int)) *CafeRoomCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &CafeRoomCreateBulk{err: fmt.Errorf("calling to CafeRoomClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*CafeRoomCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &CafeRoomCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for CafeRoom.
+func (c *CafeRoomClient) Update() *CafeRoomUpdate {
+	mutation := newCafeRoomMutation(c.config, OpUpdate)
+	return &CafeRoomUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *CafeRoomClient) UpdateOne(_m *CafeRoom) *CafeRoomUpdateOne {
+	mutation := newCafeRoomMutation(c.config, OpUpdateOne, withCafeRoom(_m))
+	return &CafeRoomUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *CafeRoomClient) UpdateOneID(id int64) *CafeRoomUpdateOne {
+	mutation := newCafeRoomMutation(c.config, OpUpdateOne, withCafeRoomID(id))
+	return &CafeRoomUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for CafeRoom.
+func (c *CafeRoomClient) Delete() *CafeRoomDelete {
+	mutation := newCafeRoomMutation(c.config, OpDelete)
+	return &CafeRoomDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *CafeRoomClient) DeleteOne(_m *CafeRoom) *CafeRoomDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *CafeRoomClient) DeleteOneID(id int64) *CafeRoomDeleteOne {
+	builder := c.Delete().Where(caferoom.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &CafeRoomDeleteOne{builder}
+}
+
+// Query returns a query builder for CafeRoom.
+func (c *CafeRoomClient) Query() *CafeRoomQuery {
+	return &CafeRoomQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeCafeRoom},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a CafeRoom entity by its id.
+func (c *CafeRoomClient) Get(ctx context.Context, id int64) (*CafeRoom, error) {
+	return c.Query().Where(caferoom.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *CafeRoomClient) GetX(ctx context.Context, id int64) *CafeRoom {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryPlan queries the plan edge of a CafeRoom.
+func (c *CafeRoomClient) QueryPlan(_m *CafeRoom) *GroupBuyPlanQuery {
+	query := (&GroupBuyPlanClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(caferoom.Table, caferoom.FieldID, id),
+			sqlgraph.To(groupbuyplan.Table, groupbuyplan.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, caferoom.PlanTable, caferoom.PlanColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAccount queries the account edge of a CafeRoom.
+func (c *CafeRoomClient) QueryAccount(_m *CafeRoom) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(caferoom.Table, caferoom.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, caferoom.AccountTable, caferoom.AccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryRounds queries the rounds edge of a CafeRoom.
+func (c *CafeRoomClient) QueryRounds(_m *CafeRoom) *GroupBuyRoundQuery {
+	query := (&GroupBuyRoundClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(caferoom.Table, caferoom.FieldID, id),
+			sqlgraph.To(groupbuyround.Table, groupbuyround.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, caferoom.RoundsTable, caferoom.RoundsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAccountBindings queries the account_bindings edge of a CafeRoom.
+func (c *CafeRoomClient) QueryAccountBindings(_m *CafeRoom) *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(caferoom.Table, caferoom.FieldID, id),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, caferoom.AccountBindingsTable, caferoom.AccountBindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *CafeRoomClient) Hooks() []Hook {
+	hooks := c.hooks.CafeRoom
+	return append(hooks[:len(hooks):len(hooks)], caferoom.Hooks[:]...)
+}
+
+// Interceptors returns the client interceptors.
+func (c *CafeRoomClient) Interceptors() []Interceptor {
+	inters := c.inters.CafeRoom
+	return append(inters[:len(inters):len(inters)], caferoom.Interceptors[:]...)
+}
+
+func (c *CafeRoomClient) mutate(ctx context.Context, m *CafeRoomMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&CafeRoomCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&CafeRoomUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&CafeRoomUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&CafeRoomDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown CafeRoom mutation op: %q", m.Op())
 	}
 }
 
@@ -2706,6 +3230,38 @@ func (c *GroupClient) QueryGroupBuyEntitlements(_m *Group) *GroupBuyEntitlementQ
 	return query
 }
 
+// QueryCafeRooms queries the cafe_rooms edge of a Group.
+func (c *GroupClient) QueryCafeRooms(_m *Group) *CafeRoomQuery {
+	query := (&CafeRoomClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(caferoom.Table, caferoom.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.CafeRoomsTable, group.CafeRoomsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAccountBindings queries the account_bindings edge of a Group.
+func (c *GroupClient) QueryAccountBindings(_m *Group) *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(group.Table, group.FieldID, id),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, group.AccountBindingsTable, group.AccountBindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAccounts queries the accounts edge of a Group.
 func (c *GroupClient) QueryAccounts(_m *Group) *AccountQuery {
 	query := (&AccountClient{config: c.config}).Query()
@@ -3379,6 +3935,22 @@ func (c *GroupBuyPlanClient) QueryEvents(_m *GroupBuyPlan) *GroupBuyEventQuery {
 	return query
 }
 
+// QueryCafeRooms queries the cafe_rooms edge of a GroupBuyPlan.
+func (c *GroupBuyPlanClient) QueryCafeRooms(_m *GroupBuyPlan) *CafeRoomQuery {
+	query := (&CafeRoomClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyplan.Table, groupbuyplan.FieldID, id),
+			sqlgraph.To(caferoom.Table, caferoom.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyplan.CafeRoomsTable, groupbuyplan.CafeRoomsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *GroupBuyPlanClient) Hooks() []Hook {
 	return c.hooks.GroupBuyPlan
@@ -3741,6 +4313,54 @@ func (c *GroupBuyRoundClient) QueryEvents(_m *GroupBuyRound) *GroupBuyEventQuery
 	return query
 }
 
+// QueryCafeRoom queries the cafe_room edge of a GroupBuyRound.
+func (c *GroupBuyRoundClient) QueryCafeRoom(_m *GroupBuyRound) *CafeRoomQuery {
+	query := (&CafeRoomClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyround.Table, groupbuyround.FieldID, id),
+			sqlgraph.To(caferoom.Table, caferoom.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyround.CafeRoomTable, groupbuyround.CafeRoomColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAssignedAccount queries the assigned_account edge of a GroupBuyRound.
+func (c *GroupBuyRoundClient) QueryAssignedAccount(_m *GroupBuyRound) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyround.Table, groupbuyround.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyround.AssignedAccountTable, groupbuyround.AssignedAccountColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAccountBindings queries the account_bindings edge of a GroupBuyRound.
+func (c *GroupBuyRoundClient) QueryAccountBindings(_m *GroupBuyRound) *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyround.Table, groupbuyround.FieldID, id),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyround.AccountBindingsTable, groupbuyround.AccountBindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *GroupBuyRoundClient) Hooks() []Hook {
 	return c.hooks.GroupBuyRound
@@ -3995,6 +4615,22 @@ func (c *GroupBuySeatClient) QueryEvents(_m *GroupBuySeat) *GroupBuyEventQuery {
 			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
 			sqlgraph.To(groupbuyevent.Table, groupbuyevent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyseat.EventsTable, groupbuyseat.EventsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryAccountBindings queries the account_bindings edge of a GroupBuySeat.
+func (c *GroupBuySeatClient) QueryAccountBindings(_m *GroupBuySeat) *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyseat.Table, groupbuyseat.FieldID, id),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyseat.AccountBindingsTable, groupbuyseat.AccountBindingsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -7240,6 +7876,22 @@ func (c *UserClient) QueryGroupBuyRefunds(_m *User) *GroupBuyRefundQuery {
 	return query
 }
 
+// QueryAccountBindings queries the account_bindings edge of a User.
+func (c *UserClient) QueryAccountBindings(_m *User) *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.AccountBindingsTable, user.AccountBindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryInvoiceRequests queries the invoice_requests edge of a User.
 func (c *UserClient) QueryInvoiceRequests(_m *User) *InvoiceRequestQuery {
 	query := (&InvoiceRequestClient{config: c.config}).Query()
@@ -8029,10 +8681,11 @@ func (c *UserSubscriptionClient) mutate(ctx context.Context, m *UserSubscription
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
-		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
-		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
-		Group, GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRefund,
+		APIKey, APIKeyAccountBinding, Account, AccountGroup, Announcement,
+		AnnouncementRead, AuthIdentity, AuthIdentityChannel, CafeRoom, ChannelMonitor,
+		ChannelMonitorDailyRollup, ChannelMonitorHistory,
+		ChannelMonitorRequestTemplate, ErrorPassthroughRule, Group,
+		GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRefund,
 		GroupBuyRound, GroupBuySeat, IdempotencyRecord, IdentityAdoptionDecision,
 		InvoiceRequest, PaymentAuditLog, PaymentOrder, PaymentProviderInstance,
 		PendingAuthSession, PromoCode, PromoCodeUsage, Proxy, RedeemCode,
@@ -8041,10 +8694,11 @@ type (
 		UserAttributeDefinition, UserAttributeValue, UserSubscription []ent.Hook
 	}
 	inters struct {
-		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
-		AuthIdentityChannel, ChannelMonitor, ChannelMonitorDailyRollup,
-		ChannelMonitorHistory, ChannelMonitorRequestTemplate, ErrorPassthroughRule,
-		Group, GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRefund,
+		APIKey, APIKeyAccountBinding, Account, AccountGroup, Announcement,
+		AnnouncementRead, AuthIdentity, AuthIdentityChannel, CafeRoom, ChannelMonitor,
+		ChannelMonitorDailyRollup, ChannelMonitorHistory,
+		ChannelMonitorRequestTemplate, ErrorPassthroughRule, Group,
+		GroupBuyEntitlement, GroupBuyEvent, GroupBuyPlan, GroupBuyRefund,
 		GroupBuyRound, GroupBuySeat, IdempotencyRecord, IdentityAdoptionDecision,
 		InvoiceRequest, PaymentAuditLog, PaymentOrder, PaymentProviderInstance,
 		PendingAuthSession, PromoCode, PromoCodeUsage, Proxy, RedeemCode,

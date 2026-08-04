@@ -8,19 +8,24 @@ import (
 
 // APIKeyAuthSnapshot API Key 认证缓存快照（仅包含认证所需字段）
 type APIKeyAuthSnapshot struct {
-	Version             int                            `json:"version"`
-	APIKeyID            int64                          `json:"api_key_id"`
-	UserID              int64                          `json:"user_id"`
-	GroupID             *int64                         `json:"group_id,omitempty"`
-	MultiGroupRoutes    []domain.APIKeyMultiGroupRoute `json:"multi_group_routes,omitempty"`
-	AccountPoolStrategy string                         `json:"account_pool_strategy,omitempty"`
-	Name                string                         `json:"name"`
-	Status              string                         `json:"status"`
-	IPWhitelist         []string                       `json:"ip_whitelist,omitempty"`
-	IPBlacklist         []string                       `json:"ip_blacklist,omitempty"`
-	User                APIKeyAuthUserSnapshot         `json:"user"`
-	Group               *APIKeyAuthGroupSnapshot       `json:"group,omitempty"`
-	RouteGroups         []APIKeyAuthGroupSnapshot      `json:"route_groups,omitempty"`
+	Version                 int                            `json:"version"`
+	APIKeyID                int64                          `json:"api_key_id"`
+	UserID                  int64                          `json:"user_id"`
+	PinnedAccountID         int64                          `json:"pinned_account_id,omitempty"`
+	ManagedBindingID        int64                          `json:"managed_binding_id,omitempty"`
+	ManagedBindingExpiresAt *time.Time                     `json:"managed_binding_expires_at,omitempty"`
+	ManagedSourceType       string                         `json:"managed_source_type,omitempty"`
+	ManagedSourceID         *int64                         `json:"managed_source_id,omitempty"`
+	GroupID                 *int64                         `json:"group_id,omitempty"`
+	MultiGroupRoutes        []domain.APIKeyMultiGroupRoute `json:"multi_group_routes,omitempty"`
+	AccountPoolStrategy     string                         `json:"account_pool_strategy,omitempty"`
+	Name                    string                         `json:"name"`
+	Status                  string                         `json:"status"`
+	IPWhitelist             []string                       `json:"ip_whitelist,omitempty"`
+	IPBlacklist             []string                       `json:"ip_blacklist,omitempty"`
+	User                    APIKeyAuthUserSnapshot         `json:"user"`
+	Group                   *APIKeyAuthGroupSnapshot       `json:"group,omitempty"`
+	RouteGroups             []APIKeyAuthGroupSnapshot      `json:"route_groups,omitempty"`
 
 	// Quota fields for API Key independent quota feature
 	Quota     float64 `json:"quota"`      // Quota limit in USD (0 = unlimited)

@@ -1427,6 +1427,9 @@ func (s *GatewayService) SelectAccountForModel(ctx context.Context, groupID *int
 
 // SelectAccountForModelWithExclusions selects an account supporting the requested model while excluding specified accounts.
 func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
+	if pinnedID, ok := pinnedAccountIDFromContext(ctx); ok {
+		return s.selectPinnedAccount(ctx, pinnedID, groupID, requestedModel, "", excludedIDs)
+	}
 	if accountPoolStrategyIsPrivateFirst(ctx) {
 		account, err := s.SelectAccountForModelWithExclusions(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, sessionHash, requestedModel, excludedIDs)
 		if err == nil {
@@ -1489,6 +1492,18 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 // metadataUserID: 用于客户端亲和调度，从中提取客户端 ID
 // sub2apiUserID: 系统用户 ID，用于二维亲和调度
 func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, metadataUserID string, sub2apiUserID int64) (*AccountSelectionResult, error) {
+	if pinnedID, ok := pinnedAccountIDFromContext(ctx); ok {
+		account, err := s.selectPinnedAccount(ctx, pinnedID, groupID, requestedModel, "", excludedIDs)
+		if err != nil {
+			return nil, err
+		}
+		result, acquireErr := s.tryAcquireAccountSlot(ctx, account.ID, account.Concurrency)
+		if acquireErr == nil && result.Acquired {
+			return s.newSelectionResult(ctx, account, true, result.ReleaseFunc, nil)
+		}
+		cfg := s.schedulingConfig()
+		return s.newSelectionResult(ctx, account, false, nil, &AccountWaitPlan{AccountID: account.ID, MaxConcurrency: account.Concurrency, Timeout: cfg.FallbackWaitTimeout, MaxWaiting: cfg.FallbackMaxWaiting})
+	}
 	ctx = withAccountPoolUserID(ctx, sub2apiUserID)
 	if accountPoolStrategyIsPrivateFirst(ctx) {
 		result, err := s.SelectAccountWithLoadAwareness(withAccountPoolStrategy(ctx, AccountPoolStrategyPrivateOnly), groupID, sessionHash, requestedModel, excludedIDs, metadataUserID, sub2apiUserID)
@@ -2855,6 +2870,29 @@ func (s *GatewayService) getSchedulableAccount(ctx context.Context, accountID in
 		return s.schedulerSnapshot.GetAccount(ctx, accountID)
 	}
 	return s.accountRepo.GetByID(ctx, accountID)
+}
+
+func (s *GatewayService) selectPinnedAccount(ctx context.Context, accountID int64, groupID *int64, requestedModel, platform string, excludedIDs map[int64]struct{}) (*Account, error) {
+	if s == nil || s.accountRepo == nil || accountID <= 0 {
+		return nil, ErrCafeAccountUnavailable
+	}
+	if _, excluded := excludedIDs[accountID]; excluded {
+		return nil, ErrCafeAccountUnavailable
+	}
+	account, err := s.getSchedulableAccount(ctx, accountID)
+	if err != nil || account == nil || !account.IsSchedulable() {
+		return nil, ErrCafeAccountUnavailable
+	}
+	if groupID != nil && !openAIStickyAccountMatchesGroup(account, groupID) {
+		return nil, ErrCafeAccountUnavailable
+	}
+	if platform != "" && !strings.EqualFold(account.Platform, platform) {
+		return nil, ErrCafeAccountUnavailable
+	}
+	if requestedModel != "" && !s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) {
+		return nil, ErrCafeAccountUnavailable
+	}
+	return account, nil
 }
 
 func (s *GatewayService) hydrateSelectedAccount(ctx context.Context, account *Account) (*Account, error) {

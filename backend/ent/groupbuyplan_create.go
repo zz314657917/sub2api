@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
@@ -245,6 +246,90 @@ func (_c *GroupBuyPlanCreate) SetNillableLaunchMode(v *string) *GroupBuyPlanCrea
 	return _c
 }
 
+// SetFulfillmentMode sets the "fulfillment_mode" field.
+func (_c *GroupBuyPlanCreate) SetFulfillmentMode(v string) *GroupBuyPlanCreate {
+	_c.mutation.SetFulfillmentMode(v)
+	return _c
+}
+
+// SetNillableFulfillmentMode sets the "fulfillment_mode" field if the given value is not nil.
+func (_c *GroupBuyPlanCreate) SetNillableFulfillmentMode(v *string) *GroupBuyPlanCreate {
+	if v != nil {
+		_c.SetFulfillmentMode(*v)
+	}
+	return _c
+}
+
+// SetRoomKeyQuotaUsd sets the "room_key_quota_usd" field.
+func (_c *GroupBuyPlanCreate) SetRoomKeyQuotaUsd(v float64) *GroupBuyPlanCreate {
+	_c.mutation.SetRoomKeyQuotaUsd(v)
+	return _c
+}
+
+// SetNillableRoomKeyQuotaUsd sets the "room_key_quota_usd" field if the given value is not nil.
+func (_c *GroupBuyPlanCreate) SetNillableRoomKeyQuotaUsd(v *float64) *GroupBuyPlanCreate {
+	if v != nil {
+		_c.SetRoomKeyQuotaUsd(*v)
+	}
+	return _c
+}
+
+// SetRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field.
+func (_c *GroupBuyPlanCreate) SetRoomKeyRateLimit5h(v float64) *GroupBuyPlanCreate {
+	_c.mutation.SetRoomKeyRateLimit5h(v)
+	return _c
+}
+
+// SetNillableRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field if the given value is not nil.
+func (_c *GroupBuyPlanCreate) SetNillableRoomKeyRateLimit5h(v *float64) *GroupBuyPlanCreate {
+	if v != nil {
+		_c.SetRoomKeyRateLimit5h(*v)
+	}
+	return _c
+}
+
+// SetRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field.
+func (_c *GroupBuyPlanCreate) SetRoomKeyRateLimit1d(v float64) *GroupBuyPlanCreate {
+	_c.mutation.SetRoomKeyRateLimit1d(v)
+	return _c
+}
+
+// SetNillableRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field if the given value is not nil.
+func (_c *GroupBuyPlanCreate) SetNillableRoomKeyRateLimit1d(v *float64) *GroupBuyPlanCreate {
+	if v != nil {
+		_c.SetRoomKeyRateLimit1d(*v)
+	}
+	return _c
+}
+
+// SetRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field.
+func (_c *GroupBuyPlanCreate) SetRoomKeyRateLimit7d(v float64) *GroupBuyPlanCreate {
+	_c.mutation.SetRoomKeyRateLimit7d(v)
+	return _c
+}
+
+// SetNillableRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field if the given value is not nil.
+func (_c *GroupBuyPlanCreate) SetNillableRoomKeyRateLimit7d(v *float64) *GroupBuyPlanCreate {
+	if v != nil {
+		_c.SetRoomKeyRateLimit7d(*v)
+	}
+	return _c
+}
+
+// SetAutoCreateRoomKey sets the "auto_create_room_key" field.
+func (_c *GroupBuyPlanCreate) SetAutoCreateRoomKey(v bool) *GroupBuyPlanCreate {
+	_c.mutation.SetAutoCreateRoomKey(v)
+	return _c
+}
+
+// SetNillableAutoCreateRoomKey sets the "auto_create_room_key" field if the given value is not nil.
+func (_c *GroupBuyPlanCreate) SetNillableAutoCreateRoomKey(v *bool) *GroupBuyPlanCreate {
+	if v != nil {
+		_c.SetAutoCreateRoomKey(*v)
+	}
+	return _c
+}
+
 // SetRefundMode sets the "refund_mode" field.
 func (_c *GroupBuyPlanCreate) SetRefundMode(v string) *GroupBuyPlanCreate {
 	_c.mutation.SetRefundMode(v)
@@ -379,6 +464,21 @@ func (_c *GroupBuyPlanCreate) AddEvents(v ...*GroupBuyEvent) *GroupBuyPlanCreate
 	return _c.AddEventIDs(ids...)
 }
 
+// AddCafeRoomIDs adds the "cafe_rooms" edge to the CafeRoom entity by IDs.
+func (_c *GroupBuyPlanCreate) AddCafeRoomIDs(ids ...int64) *GroupBuyPlanCreate {
+	_c.mutation.AddCafeRoomIDs(ids...)
+	return _c
+}
+
+// AddCafeRooms adds the "cafe_rooms" edges to the CafeRoom entity.
+func (_c *GroupBuyPlanCreate) AddCafeRooms(v ...*CafeRoom) *GroupBuyPlanCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCafeRoomIDs(ids...)
+}
+
 // Mutation returns the GroupBuyPlanMutation object of the builder.
 func (_c *GroupBuyPlanCreate) Mutation() *GroupBuyPlanMutation {
 	return _c.mutation
@@ -461,6 +561,30 @@ func (_c *GroupBuyPlanCreate) defaults() {
 	if _, ok := _c.mutation.LaunchMode(); !ok {
 		v := groupbuyplan.DefaultLaunchMode
 		_c.mutation.SetLaunchMode(v)
+	}
+	if _, ok := _c.mutation.FulfillmentMode(); !ok {
+		v := groupbuyplan.DefaultFulfillmentMode
+		_c.mutation.SetFulfillmentMode(v)
+	}
+	if _, ok := _c.mutation.RoomKeyQuotaUsd(); !ok {
+		v := groupbuyplan.DefaultRoomKeyQuotaUsd
+		_c.mutation.SetRoomKeyQuotaUsd(v)
+	}
+	if _, ok := _c.mutation.RoomKeyRateLimit5h(); !ok {
+		v := groupbuyplan.DefaultRoomKeyRateLimit5h
+		_c.mutation.SetRoomKeyRateLimit5h(v)
+	}
+	if _, ok := _c.mutation.RoomKeyRateLimit1d(); !ok {
+		v := groupbuyplan.DefaultRoomKeyRateLimit1d
+		_c.mutation.SetRoomKeyRateLimit1d(v)
+	}
+	if _, ok := _c.mutation.RoomKeyRateLimit7d(); !ok {
+		v := groupbuyplan.DefaultRoomKeyRateLimit7d
+		_c.mutation.SetRoomKeyRateLimit7d(v)
+	}
+	if _, ok := _c.mutation.AutoCreateRoomKey(); !ok {
+		v := groupbuyplan.DefaultAutoCreateRoomKey
+		_c.mutation.SetAutoCreateRoomKey(v)
 	}
 	if _, ok := _c.mutation.RefundMode(); !ok {
 		v := groupbuyplan.DefaultRefundMode
@@ -565,6 +689,29 @@ func (_c *GroupBuyPlanCreate) check() error {
 		if err := groupbuyplan.LaunchModeValidator(v); err != nil {
 			return &ValidationError{Name: "launch_mode", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.launch_mode": %w`, err)}
 		}
+	}
+	if _, ok := _c.mutation.FulfillmentMode(); !ok {
+		return &ValidationError{Name: "fulfillment_mode", err: errors.New(`ent: missing required field "GroupBuyPlan.fulfillment_mode"`)}
+	}
+	if v, ok := _c.mutation.FulfillmentMode(); ok {
+		if err := groupbuyplan.FulfillmentModeValidator(v); err != nil {
+			return &ValidationError{Name: "fulfillment_mode", err: fmt.Errorf(`ent: validator failed for field "GroupBuyPlan.fulfillment_mode": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RoomKeyQuotaUsd(); !ok {
+		return &ValidationError{Name: "room_key_quota_usd", err: errors.New(`ent: missing required field "GroupBuyPlan.room_key_quota_usd"`)}
+	}
+	if _, ok := _c.mutation.RoomKeyRateLimit5h(); !ok {
+		return &ValidationError{Name: "room_key_rate_limit_5h", err: errors.New(`ent: missing required field "GroupBuyPlan.room_key_rate_limit_5h"`)}
+	}
+	if _, ok := _c.mutation.RoomKeyRateLimit1d(); !ok {
+		return &ValidationError{Name: "room_key_rate_limit_1d", err: errors.New(`ent: missing required field "GroupBuyPlan.room_key_rate_limit_1d"`)}
+	}
+	if _, ok := _c.mutation.RoomKeyRateLimit7d(); !ok {
+		return &ValidationError{Name: "room_key_rate_limit_7d", err: errors.New(`ent: missing required field "GroupBuyPlan.room_key_rate_limit_7d"`)}
+	}
+	if _, ok := _c.mutation.AutoCreateRoomKey(); !ok {
+		return &ValidationError{Name: "auto_create_room_key", err: errors.New(`ent: missing required field "GroupBuyPlan.auto_create_room_key"`)}
 	}
 	if _, ok := _c.mutation.RefundMode(); !ok {
 		return &ValidationError{Name: "refund_mode", err: errors.New(`ent: missing required field "GroupBuyPlan.refund_mode"`)}
@@ -687,6 +834,30 @@ func (_c *GroupBuyPlanCreate) createSpec() (*GroupBuyPlan, *sqlgraph.CreateSpec)
 		_spec.SetField(groupbuyplan.FieldLaunchMode, field.TypeString, value)
 		_node.LaunchMode = value
 	}
+	if value, ok := _c.mutation.FulfillmentMode(); ok {
+		_spec.SetField(groupbuyplan.FieldFulfillmentMode, field.TypeString, value)
+		_node.FulfillmentMode = value
+	}
+	if value, ok := _c.mutation.RoomKeyQuotaUsd(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyQuotaUsd, field.TypeFloat64, value)
+		_node.RoomKeyQuotaUsd = value
+	}
+	if value, ok := _c.mutation.RoomKeyRateLimit5h(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyRateLimit5h, field.TypeFloat64, value)
+		_node.RoomKeyRateLimit5h = value
+	}
+	if value, ok := _c.mutation.RoomKeyRateLimit1d(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyRateLimit1d, field.TypeFloat64, value)
+		_node.RoomKeyRateLimit1d = value
+	}
+	if value, ok := _c.mutation.RoomKeyRateLimit7d(); ok {
+		_spec.SetField(groupbuyplan.FieldRoomKeyRateLimit7d, field.TypeFloat64, value)
+		_node.RoomKeyRateLimit7d = value
+	}
+	if value, ok := _c.mutation.AutoCreateRoomKey(); ok {
+		_spec.SetField(groupbuyplan.FieldAutoCreateRoomKey, field.TypeBool, value)
+		_node.AutoCreateRoomKey = value
+	}
 	if value, ok := _c.mutation.RefundMode(); ok {
 		_spec.SetField(groupbuyplan.FieldRefundMode, field.TypeString, value)
 		_node.RefundMode = value
@@ -769,6 +940,22 @@ func (_c *GroupBuyPlanCreate) createSpec() (*GroupBuyPlan, *sqlgraph.CreateSpec)
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CafeRoomsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyplan.CafeRoomsTable,
+			Columns: []string{groupbuyplan.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1101,6 +1288,102 @@ func (u *GroupBuyPlanUpsert) SetLaunchMode(v string) *GroupBuyPlanUpsert {
 // UpdateLaunchMode sets the "launch_mode" field to the value that was provided on create.
 func (u *GroupBuyPlanUpsert) UpdateLaunchMode() *GroupBuyPlanUpsert {
 	u.SetExcluded(groupbuyplan.FieldLaunchMode)
+	return u
+}
+
+// SetFulfillmentMode sets the "fulfillment_mode" field.
+func (u *GroupBuyPlanUpsert) SetFulfillmentMode(v string) *GroupBuyPlanUpsert {
+	u.Set(groupbuyplan.FieldFulfillmentMode, v)
+	return u
+}
+
+// UpdateFulfillmentMode sets the "fulfillment_mode" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsert) UpdateFulfillmentMode() *GroupBuyPlanUpsert {
+	u.SetExcluded(groupbuyplan.FieldFulfillmentMode)
+	return u
+}
+
+// SetRoomKeyQuotaUsd sets the "room_key_quota_usd" field.
+func (u *GroupBuyPlanUpsert) SetRoomKeyQuotaUsd(v float64) *GroupBuyPlanUpsert {
+	u.Set(groupbuyplan.FieldRoomKeyQuotaUsd, v)
+	return u
+}
+
+// UpdateRoomKeyQuotaUsd sets the "room_key_quota_usd" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsert) UpdateRoomKeyQuotaUsd() *GroupBuyPlanUpsert {
+	u.SetExcluded(groupbuyplan.FieldRoomKeyQuotaUsd)
+	return u
+}
+
+// AddRoomKeyQuotaUsd adds v to the "room_key_quota_usd" field.
+func (u *GroupBuyPlanUpsert) AddRoomKeyQuotaUsd(v float64) *GroupBuyPlanUpsert {
+	u.Add(groupbuyplan.FieldRoomKeyQuotaUsd, v)
+	return u
+}
+
+// SetRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field.
+func (u *GroupBuyPlanUpsert) SetRoomKeyRateLimit5h(v float64) *GroupBuyPlanUpsert {
+	u.Set(groupbuyplan.FieldRoomKeyRateLimit5h, v)
+	return u
+}
+
+// UpdateRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsert) UpdateRoomKeyRateLimit5h() *GroupBuyPlanUpsert {
+	u.SetExcluded(groupbuyplan.FieldRoomKeyRateLimit5h)
+	return u
+}
+
+// AddRoomKeyRateLimit5h adds v to the "room_key_rate_limit_5h" field.
+func (u *GroupBuyPlanUpsert) AddRoomKeyRateLimit5h(v float64) *GroupBuyPlanUpsert {
+	u.Add(groupbuyplan.FieldRoomKeyRateLimit5h, v)
+	return u
+}
+
+// SetRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field.
+func (u *GroupBuyPlanUpsert) SetRoomKeyRateLimit1d(v float64) *GroupBuyPlanUpsert {
+	u.Set(groupbuyplan.FieldRoomKeyRateLimit1d, v)
+	return u
+}
+
+// UpdateRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsert) UpdateRoomKeyRateLimit1d() *GroupBuyPlanUpsert {
+	u.SetExcluded(groupbuyplan.FieldRoomKeyRateLimit1d)
+	return u
+}
+
+// AddRoomKeyRateLimit1d adds v to the "room_key_rate_limit_1d" field.
+func (u *GroupBuyPlanUpsert) AddRoomKeyRateLimit1d(v float64) *GroupBuyPlanUpsert {
+	u.Add(groupbuyplan.FieldRoomKeyRateLimit1d, v)
+	return u
+}
+
+// SetRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field.
+func (u *GroupBuyPlanUpsert) SetRoomKeyRateLimit7d(v float64) *GroupBuyPlanUpsert {
+	u.Set(groupbuyplan.FieldRoomKeyRateLimit7d, v)
+	return u
+}
+
+// UpdateRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsert) UpdateRoomKeyRateLimit7d() *GroupBuyPlanUpsert {
+	u.SetExcluded(groupbuyplan.FieldRoomKeyRateLimit7d)
+	return u
+}
+
+// AddRoomKeyRateLimit7d adds v to the "room_key_rate_limit_7d" field.
+func (u *GroupBuyPlanUpsert) AddRoomKeyRateLimit7d(v float64) *GroupBuyPlanUpsert {
+	u.Add(groupbuyplan.FieldRoomKeyRateLimit7d, v)
+	return u
+}
+
+// SetAutoCreateRoomKey sets the "auto_create_room_key" field.
+func (u *GroupBuyPlanUpsert) SetAutoCreateRoomKey(v bool) *GroupBuyPlanUpsert {
+	u.Set(groupbuyplan.FieldAutoCreateRoomKey, v)
+	return u
+}
+
+// UpdateAutoCreateRoomKey sets the "auto_create_room_key" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsert) UpdateAutoCreateRoomKey() *GroupBuyPlanUpsert {
+	u.SetExcluded(groupbuyplan.FieldAutoCreateRoomKey)
 	return u
 }
 
@@ -1564,6 +1847,118 @@ func (u *GroupBuyPlanUpsertOne) SetLaunchMode(v string) *GroupBuyPlanUpsertOne {
 func (u *GroupBuyPlanUpsertOne) UpdateLaunchMode() *GroupBuyPlanUpsertOne {
 	return u.Update(func(s *GroupBuyPlanUpsert) {
 		s.UpdateLaunchMode()
+	})
+}
+
+// SetFulfillmentMode sets the "fulfillment_mode" field.
+func (u *GroupBuyPlanUpsertOne) SetFulfillmentMode(v string) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetFulfillmentMode(v)
+	})
+}
+
+// UpdateFulfillmentMode sets the "fulfillment_mode" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertOne) UpdateFulfillmentMode() *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateFulfillmentMode()
+	})
+}
+
+// SetRoomKeyQuotaUsd sets the "room_key_quota_usd" field.
+func (u *GroupBuyPlanUpsertOne) SetRoomKeyQuotaUsd(v float64) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetRoomKeyQuotaUsd(v)
+	})
+}
+
+// AddRoomKeyQuotaUsd adds v to the "room_key_quota_usd" field.
+func (u *GroupBuyPlanUpsertOne) AddRoomKeyQuotaUsd(v float64) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddRoomKeyQuotaUsd(v)
+	})
+}
+
+// UpdateRoomKeyQuotaUsd sets the "room_key_quota_usd" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertOne) UpdateRoomKeyQuotaUsd() *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateRoomKeyQuotaUsd()
+	})
+}
+
+// SetRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field.
+func (u *GroupBuyPlanUpsertOne) SetRoomKeyRateLimit5h(v float64) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetRoomKeyRateLimit5h(v)
+	})
+}
+
+// AddRoomKeyRateLimit5h adds v to the "room_key_rate_limit_5h" field.
+func (u *GroupBuyPlanUpsertOne) AddRoomKeyRateLimit5h(v float64) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddRoomKeyRateLimit5h(v)
+	})
+}
+
+// UpdateRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertOne) UpdateRoomKeyRateLimit5h() *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateRoomKeyRateLimit5h()
+	})
+}
+
+// SetRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field.
+func (u *GroupBuyPlanUpsertOne) SetRoomKeyRateLimit1d(v float64) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetRoomKeyRateLimit1d(v)
+	})
+}
+
+// AddRoomKeyRateLimit1d adds v to the "room_key_rate_limit_1d" field.
+func (u *GroupBuyPlanUpsertOne) AddRoomKeyRateLimit1d(v float64) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddRoomKeyRateLimit1d(v)
+	})
+}
+
+// UpdateRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertOne) UpdateRoomKeyRateLimit1d() *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateRoomKeyRateLimit1d()
+	})
+}
+
+// SetRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field.
+func (u *GroupBuyPlanUpsertOne) SetRoomKeyRateLimit7d(v float64) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetRoomKeyRateLimit7d(v)
+	})
+}
+
+// AddRoomKeyRateLimit7d adds v to the "room_key_rate_limit_7d" field.
+func (u *GroupBuyPlanUpsertOne) AddRoomKeyRateLimit7d(v float64) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddRoomKeyRateLimit7d(v)
+	})
+}
+
+// UpdateRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertOne) UpdateRoomKeyRateLimit7d() *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateRoomKeyRateLimit7d()
+	})
+}
+
+// SetAutoCreateRoomKey sets the "auto_create_room_key" field.
+func (u *GroupBuyPlanUpsertOne) SetAutoCreateRoomKey(v bool) *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetAutoCreateRoomKey(v)
+	})
+}
+
+// UpdateAutoCreateRoomKey sets the "auto_create_room_key" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertOne) UpdateAutoCreateRoomKey() *GroupBuyPlanUpsertOne {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateAutoCreateRoomKey()
 	})
 }
 
@@ -2209,6 +2604,118 @@ func (u *GroupBuyPlanUpsertBulk) SetLaunchMode(v string) *GroupBuyPlanUpsertBulk
 func (u *GroupBuyPlanUpsertBulk) UpdateLaunchMode() *GroupBuyPlanUpsertBulk {
 	return u.Update(func(s *GroupBuyPlanUpsert) {
 		s.UpdateLaunchMode()
+	})
+}
+
+// SetFulfillmentMode sets the "fulfillment_mode" field.
+func (u *GroupBuyPlanUpsertBulk) SetFulfillmentMode(v string) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetFulfillmentMode(v)
+	})
+}
+
+// UpdateFulfillmentMode sets the "fulfillment_mode" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertBulk) UpdateFulfillmentMode() *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateFulfillmentMode()
+	})
+}
+
+// SetRoomKeyQuotaUsd sets the "room_key_quota_usd" field.
+func (u *GroupBuyPlanUpsertBulk) SetRoomKeyQuotaUsd(v float64) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetRoomKeyQuotaUsd(v)
+	})
+}
+
+// AddRoomKeyQuotaUsd adds v to the "room_key_quota_usd" field.
+func (u *GroupBuyPlanUpsertBulk) AddRoomKeyQuotaUsd(v float64) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddRoomKeyQuotaUsd(v)
+	})
+}
+
+// UpdateRoomKeyQuotaUsd sets the "room_key_quota_usd" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertBulk) UpdateRoomKeyQuotaUsd() *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateRoomKeyQuotaUsd()
+	})
+}
+
+// SetRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field.
+func (u *GroupBuyPlanUpsertBulk) SetRoomKeyRateLimit5h(v float64) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetRoomKeyRateLimit5h(v)
+	})
+}
+
+// AddRoomKeyRateLimit5h adds v to the "room_key_rate_limit_5h" field.
+func (u *GroupBuyPlanUpsertBulk) AddRoomKeyRateLimit5h(v float64) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddRoomKeyRateLimit5h(v)
+	})
+}
+
+// UpdateRoomKeyRateLimit5h sets the "room_key_rate_limit_5h" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertBulk) UpdateRoomKeyRateLimit5h() *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateRoomKeyRateLimit5h()
+	})
+}
+
+// SetRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field.
+func (u *GroupBuyPlanUpsertBulk) SetRoomKeyRateLimit1d(v float64) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetRoomKeyRateLimit1d(v)
+	})
+}
+
+// AddRoomKeyRateLimit1d adds v to the "room_key_rate_limit_1d" field.
+func (u *GroupBuyPlanUpsertBulk) AddRoomKeyRateLimit1d(v float64) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddRoomKeyRateLimit1d(v)
+	})
+}
+
+// UpdateRoomKeyRateLimit1d sets the "room_key_rate_limit_1d" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertBulk) UpdateRoomKeyRateLimit1d() *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateRoomKeyRateLimit1d()
+	})
+}
+
+// SetRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field.
+func (u *GroupBuyPlanUpsertBulk) SetRoomKeyRateLimit7d(v float64) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetRoomKeyRateLimit7d(v)
+	})
+}
+
+// AddRoomKeyRateLimit7d adds v to the "room_key_rate_limit_7d" field.
+func (u *GroupBuyPlanUpsertBulk) AddRoomKeyRateLimit7d(v float64) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.AddRoomKeyRateLimit7d(v)
+	})
+}
+
+// UpdateRoomKeyRateLimit7d sets the "room_key_rate_limit_7d" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertBulk) UpdateRoomKeyRateLimit7d() *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateRoomKeyRateLimit7d()
+	})
+}
+
+// SetAutoCreateRoomKey sets the "auto_create_room_key" field.
+func (u *GroupBuyPlanUpsertBulk) SetAutoCreateRoomKey(v bool) *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.SetAutoCreateRoomKey(v)
+	})
+}
+
+// UpdateAutoCreateRoomKey sets the "auto_create_room_key" field to the value that was provided on create.
+func (u *GroupBuyPlanUpsertBulk) UpdateAutoCreateRoomKey() *GroupBuyPlanUpsertBulk {
+	return u.Update(func(s *GroupBuyPlanUpsert) {
+		s.UpdateAutoCreateRoomKey()
 	})
 }
 

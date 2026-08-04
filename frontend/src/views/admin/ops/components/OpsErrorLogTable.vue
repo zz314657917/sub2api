@@ -89,7 +89,7 @@
 
       <template #cell-status="{ row }">
         <div class="flex flex-wrap items-center gap-1.5">
-          <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium" :class="statusCodeBadgeClass(row.status_code)">
+          <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium" :class="statusBadgeClass(row.status_code)">
             {{ row.status_code }}
           </span>
           <span v-if="row.severity" class="rounded px-1.5 py-0.5 text-[10px] font-medium" :class="getSeverityClass(row.severity)">
@@ -206,6 +206,10 @@ const displayModel = (row: OpsErrorLog) => displayModelLabel(row.upstream_model 
 const formatEndpointTooltip = (row: OpsErrorLog) => [row.inbound_endpoint, row.upstream_endpoint].filter(Boolean).join('\n')
 const formatAccountLabel = (row: OpsErrorLog) => row.account_name || row.account_notes || `#${row.account_id}`
 const formatAccountTooltip = (row: OpsErrorLog) => [row.account_name, row.account_notes, row.account_id ? `#${row.account_id}` : ''].filter(Boolean).join('\n')
+const statusBadgeClass = (code: number) => [
+  statusCodeBadgeClass(code),
+  code === 429 ? 'ring-1 ring-inset ring-[#cc785c]/25 dark:ring-[#cc785c]/30' : '',
+].filter(Boolean).join(' ')
 
 const getTypeBadge = (row: OpsErrorLog) => {
   if (isUpstreamRow(row)) return { label: t('admin.ops.errorLog.typeUpstream'), className: 'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-300' }

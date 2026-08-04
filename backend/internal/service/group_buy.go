@@ -38,6 +38,7 @@ const (
 	GroupBuyRoundStatusOpen       = "open"
 	GroupBuyRoundStatusActivating = "activating"
 	GroupBuyRoundStatusActive     = "active"
+	GroupBuyRoundStatusCompleted  = "completed"
 	GroupBuyRoundStatusFailed     = "failed"
 	GroupBuyRoundStatusCancelled  = "cancelled"
 
@@ -45,6 +46,7 @@ const (
 	GroupBuySeatStatusReleased         = "released"
 	GroupBuySeatStatusPaid             = "paid"
 	GroupBuySeatStatusActive           = "active"
+	GroupBuySeatStatusExpired          = "expired"
 	GroupBuySeatStatusRefundPending    = "refund_pending"
 	GroupBuySeatStatusRefundProcessing = "refund_processing"
 	GroupBuySeatStatusRefunded         = "refunded"
@@ -72,6 +74,7 @@ const (
 	groupBuyEventSharesPaid       = "shares_paid"
 	groupBuyEventRoundCreated     = "round_created"
 	groupBuyEventRoundActivated   = "round_activated"
+	groupBuyEventRoundCompleted   = "round_completed"
 	groupBuyEventRoundFailed      = "round_failed"
 	groupBuyEventSharesReleased   = "shares_released"
 	groupBuyEventEntitlementSync  = "entitlement_synced"
@@ -93,6 +96,7 @@ var (
 	ErrGroupBuyRoundNotFound      = infraerrors.NotFound("GROUP_BUY_ROUND_NOT_FOUND", "group buy round not found")
 	ErrGroupBuyInvalidStatus      = infraerrors.BadRequest("GROUP_BUY_INVALID_STATUS", "invalid group buy status")
 	ErrGroupBuyDisabled           = infraerrors.Forbidden("GROUP_BUY_DISABLED", "Token拼拼拼 is disabled")
+	ErrCafeRoundLifecycleDeferred = infraerrors.Conflict("CAFE_ROUND_LIFECYCLE_DEFERRED", "cafe room lifecycle is handled by the cafe activation service")
 )
 
 type GroupBuyService struct {
@@ -106,7 +110,17 @@ type GroupBuyService struct {
 	groupRepo            GroupRepository
 	billingCacheService  *BillingCacheService
 	authCacheInvalidator APIKeyAuthCacheInvalidator
+	cafeActivation       CafeRoundActivation
 	now                  func() time.Time
+}
+
+// SetCafeRoundActivation wires the Room-only fulfillment owner after the
+// legacy payment callback has been registered. Keeping this injection separate
+// preserves existing GroupBuyService construction in focused tests.
+func (s *GroupBuyService) SetCafeRoundActivation(activation CafeRoundActivation) {
+	if s != nil {
+		s.cafeActivation = activation
+	}
 }
 
 type groupBuyPaymentRefundService interface {
@@ -154,6 +168,23 @@ func (s *GroupBuyService) paymentRefundService() groupBuyPaymentRefundService {
 		return s.refundSvc
 	}
 	return s.paymentSvc
+}
+
+func ProvideGroupBuyService(
+	entClient *dbent.Client,
+	paymentSvc *PaymentService,
+	settingSvc *SettingService,
+	subscriptionSvc *SubscriptionService,
+	apiKeySvc *APIKeyService,
+	userRepo UserRepository,
+	groupRepo GroupRepository,
+	billingCacheService *BillingCacheService,
+	authCacheInvalidator APIKeyAuthCacheInvalidator,
+	cafeActivation *CafeRoomActivationService,
+) *GroupBuyService {
+	svc := NewGroupBuyService(entClient, paymentSvc, settingSvc, subscriptionSvc, apiKeySvc, userRepo, groupRepo, billingCacheService, authCacheInvalidator)
+	svc.SetCafeRoundActivation(cafeActivation)
+	return svc
 }
 
 func (s *GroupBuyService) requireEnabled(ctx context.Context) error {
@@ -229,6 +260,7 @@ type GroupBuyPlanView struct {
 	QuotaLabel         string             `json:"quota_label"`
 	MaxSharesPerUser   int                `json:"max_shares_per_user"`
 	TargetGroupID      int64              `json:"target_group_id"`
+	FulfillmentMode    string             `json:"fulfillment_mode"`
 	TargetGroup        *GroupBuyGroupView `json:"target_group,omitempty"`
 	TierGroupIDs       map[string]int64   `json:"tier_group_ids"`
 	TierGroups         []GroupBuyTierView `json:"tier_groups"`
@@ -426,7 +458,7 @@ func (s *GroupBuyService) ListPlans(ctx context.Context, includeDisabled bool) (
 				Limit(1)
 		})
 	if !includeDisabled {
-		q = q.Where(groupbuyplan.StatusEQ(GroupBuyPlanStatusActive))
+		q = q.Where(groupbuyplan.StatusEQ(GroupBuyPlanStatusActive), groupbuyplan.FulfillmentModeNEQ(CafeRoomFulfillmentMode))
 	}
 	plans, err := q.All(ctx)
 	if err != nil {
@@ -876,9 +908,18 @@ func (s *GroupBuyService) HandleGroupBuyOrderPaid(ctx context.Context, orderID i
 		}
 		return fmt.Errorf("load group buy share batch by order: %w", err)
 	}
+	roundQuery := tx.GroupBuyRound.Query().Where(groupbuyround.IDEQ(seat.RoundID))
+	round, err := s.groupBuyRoundForUpdate(roundQuery).Only(txCtx)
+	if err != nil {
+		return fmt.Errorf("lock group buy round: %w", err)
+	}
+	isCafeRoomRound := round.CafeRoomID != nil
 	if seat.Status == GroupBuySeatStatusActive || seat.Status == GroupBuySeatStatusPaid {
 		if err := tx.Commit(); err != nil {
 			return fmt.Errorf("commit idempotent group buy paid tx: %w", err)
+		}
+		if isCafeRoomRound {
+			return s.activateCafeRoundIfPaidFull(ctx, round)
 		}
 		return s.TryActivateRound(ctx, seat.RoundID)
 	}
@@ -913,11 +954,6 @@ func (s *GroupBuyService) HandleGroupBuyOrderPaid(ctx context.Context, orderID i
 	if seat.Status != GroupBuySeatStatusLocked {
 		return ErrGroupBuyInvalidStatus.WithMetadata(map[string]string{"seat_status": seat.Status})
 	}
-	roundQuery := tx.GroupBuyRound.Query().Where(groupbuyround.IDEQ(seat.RoundID))
-	round, err := s.groupBuyRoundForUpdate(roundQuery).Only(txCtx)
-	if err != nil {
-		return fmt.Errorf("lock group buy round: %w", err)
-	}
 	now := s.now()
 	if err := tx.GroupBuySeat.UpdateOneID(seat.ID).
 		SetStatus(GroupBuySeatStatusPaid).
@@ -945,14 +981,27 @@ func (s *GroupBuyService) HandleGroupBuyOrderPaid(ctx context.Context, orderID i
 		Message:   "份额付款成功，等待满份成团",
 		Metadata:  map[string]any{"order_id": orderID, "share_count": seat.ShareCount},
 	})
-	shouldActivate := round.PaidShares >= round.TotalShares
+	shouldActivate := !isCafeRoomRound && round.PaidShares >= round.TotalShares
 	if err := tx.Commit(); err != nil {
 		return fmt.Errorf("commit group buy paid tx: %w", err)
 	}
 	if shouldActivate {
 		return s.TryActivateRound(ctx, round.ID)
 	}
+	if isCafeRoomRound {
+		return s.activateCafeRoundIfPaidFull(ctx, round)
+	}
 	return nil
+}
+
+func (s *GroupBuyService) activateCafeRoundIfPaidFull(ctx context.Context, round *dbent.GroupBuyRound) error {
+	if round == nil || round.CafeRoomID == nil || round.PaidSeats < cafeRoundSeatCount(round) || round.PaidShares < round.TotalShares {
+		return nil
+	}
+	if s.cafeActivation == nil {
+		return ErrCafeRoundLifecycleDeferred
+	}
+	return s.cafeActivation.ActivateRound(ctx, round.ID)
 }
 
 func (s *GroupBuyService) TryActivateRound(ctx context.Context, roundID int64) error {
@@ -1041,6 +1090,9 @@ func (s *GroupBuyService) claimRoundActivation(ctx context.Context, roundID int6
 			return nil, nil, nil, false, ErrGroupBuyRoundNotFound
 		}
 		return nil, nil, nil, false, fmt.Errorf("lock group buy round: %w", err)
+	}
+	if round.CafeRoomID != nil {
+		return nil, nil, nil, false, ErrCafeRoundLifecycleDeferred
 	}
 	if round.Status == GroupBuyRoundStatusActive || round.Status == GroupBuyRoundStatusFailed || round.Status == GroupBuyRoundStatusCancelled {
 		if err := tx.Commit(); err != nil {
@@ -1230,6 +1282,12 @@ func (s *GroupBuyService) failTimedOutRound(ctx context.Context, roundID int64) 
 		}
 		return false, err
 	}
+	if round.CafeRoomID != nil {
+		if err := tx.Commit(); err != nil {
+			return false, err
+		}
+		return false, nil
+	}
 	if round.Status != GroupBuyRoundStatusOpen || round.PaidShares >= round.TotalShares || round.DeadlineAt.After(s.now()) {
 		if err := tx.Commit(); err != nil {
 			return false, err
@@ -1284,6 +1342,7 @@ func (s *GroupBuyService) RefreshExpiredEntitlements(ctx context.Context) (int, 
 			groupbuyseat.StatusEQ(GroupBuySeatStatusActive),
 			groupbuyseat.ExpiresAtNotNil(),
 			groupbuyseat.ExpiresAtLTE(now),
+			groupbuyseat.HasRoundWith(groupbuyround.CafeRoomIDIsNil()),
 		).
 		All(ctx)
 	if err != nil {
@@ -1316,6 +1375,7 @@ func (s *GroupBuyService) RefreshUserEntitlement(ctx context.Context, userID int
 			groupbuyseat.UserIDEQ(userID),
 			groupbuyseat.StatusEQ(GroupBuySeatStatusActive),
 			groupbuyseat.Or(groupbuyseat.ExpiresAtIsNil(), groupbuyseat.ExpiresAtGT(now)),
+			groupbuyseat.HasRoundWith(groupbuyround.CafeRoomIDIsNil()),
 		).
 		WithPlan().
 		Order(dbent.Desc(groupbuyseat.FieldActivatedAt), dbent.Desc(groupbuyseat.FieldID)).
@@ -1962,6 +2022,9 @@ func (s *GroupBuyService) AdminCloseRound(ctx context.Context, roundID int64, re
 		}
 		return err
 	}
+	if round.CafeRoomID != nil {
+		return ErrCafeRoundLifecycleDeferred
+	}
 	if round.Status != GroupBuyRoundStatusOpen {
 		return ErrGroupBuyInvalidStatus.WithMetadata(map[string]string{"round_status": round.Status})
 	}
@@ -2003,6 +2066,9 @@ func (s *GroupBuyService) AdminProcessRefunds(ctx context.Context, roundID int64
 			return nil, ErrGroupBuyRoundNotFound
 		}
 		return nil, err
+	}
+	if round.CafeRoomID != nil {
+		return nil, ErrCafeRoundLifecycleDeferred
 	}
 	if round.Status != GroupBuyRoundStatusFailed && round.Status != GroupBuyRoundStatusCancelled {
 		return nil, ErrGroupBuyInvalidStatus.WithMetadata(map[string]string{"round_status": round.Status})
@@ -2491,7 +2557,10 @@ func (s *GroupBuyService) ReconcilePendingProviderRefunds(ctx context.Context) (
 		return 0, fmt.Errorf("payment refund service is unavailable")
 	}
 	refunds, err := s.entClient.GroupBuyRefund.Query().
-		Where(groupbuyrefund.StatusEQ(GroupBuyRefundStatusPendingProvider)).
+		Where(
+			groupbuyrefund.StatusEQ(GroupBuyRefundStatusPendingProvider),
+			groupbuyrefund.HasSeatWith(groupbuyseat.HasRoundWith(groupbuyround.CafeRoomIDIsNil())),
+		).
 		WithOrder().
 		WithSeat().
 		Order(dbent.Asc(groupbuyrefund.FieldUpdatedAt)).
@@ -2580,7 +2649,7 @@ func groupBuyRefundIdempotencyKey(seat *dbent.GroupBuySeat) string {
 
 func (s *GroupBuyService) loadAvailablePlan(ctx context.Context, planID int64) (*dbent.GroupBuyPlan, error) {
 	plan, err := s.entClient.GroupBuyPlan.Query().
-		Where(groupbuyplan.IDEQ(planID), groupbuyplan.DeletedAtIsNil()).
+		Where(groupbuyplan.IDEQ(planID), groupbuyplan.DeletedAtIsNil(), groupbuyplan.FulfillmentModeNEQ(CafeRoomFulfillmentMode)).
 		Only(ctx)
 	if err != nil {
 		if dbent.IsNotFound(err) {
@@ -3030,6 +3099,7 @@ func (s *GroupBuyService) planView(ctx context.Context, p *dbent.GroupBuyPlan) G
 		QuotaLabel:         p.QuotaPerShareLabel,
 		MaxSharesPerUser:   p.MaxSharesPerUser,
 		TargetGroupID:      p.TargetGroupID,
+		FulfillmentMode:    p.FulfillmentMode,
 		TierGroupIDs:       copyTierGroupIDs(p.TierGroupIds),
 		ValidityDays:       p.ValidityDays,
 		TimeoutMinutes:     p.TimeoutMinutes,

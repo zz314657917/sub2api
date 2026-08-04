@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyrefund"
@@ -131,6 +132,33 @@ func (_u *GroupBuySeatUpdate) SetNillableShareCount(v *int) *GroupBuySeatUpdate 
 // AddShareCount adds value to the "share_count" field.
 func (_u *GroupBuySeatUpdate) AddShareCount(v int) *GroupBuySeatUpdate {
 	_u.mutation.AddShareCount(v)
+	return _u
+}
+
+// SetSeatNo sets the "seat_no" field.
+func (_u *GroupBuySeatUpdate) SetSeatNo(v int) *GroupBuySeatUpdate {
+	_u.mutation.ResetSeatNo()
+	_u.mutation.SetSeatNo(v)
+	return _u
+}
+
+// SetNillableSeatNo sets the "seat_no" field if the given value is not nil.
+func (_u *GroupBuySeatUpdate) SetNillableSeatNo(v *int) *GroupBuySeatUpdate {
+	if v != nil {
+		_u.SetSeatNo(*v)
+	}
+	return _u
+}
+
+// AddSeatNo adds value to the "seat_no" field.
+func (_u *GroupBuySeatUpdate) AddSeatNo(v int) *GroupBuySeatUpdate {
+	_u.mutation.AddSeatNo(v)
+	return _u
+}
+
+// ClearSeatNo clears the value of the "seat_no" field.
+func (_u *GroupBuySeatUpdate) ClearSeatNo() *GroupBuySeatUpdate {
+	_u.mutation.ClearSeatNo()
 	return _u
 }
 
@@ -400,6 +428,21 @@ func (_u *GroupBuySeatUpdate) AddEvents(v ...*GroupBuyEvent) *GroupBuySeatUpdate
 	return _u.AddEventIDs(ids...)
 }
 
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_u *GroupBuySeatUpdate) AddAccountBindingIDs(ids ...int64) *GroupBuySeatUpdate {
+	_u.mutation.AddAccountBindingIDs(ids...)
+	return _u
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupBuySeatUpdate) AddAccountBindings(v ...*APIKeyAccountBinding) *GroupBuySeatUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountBindingIDs(ids...)
+}
+
 // Mutation returns the GroupBuySeatMutation object of the builder.
 func (_u *GroupBuySeatUpdate) Mutation() *GroupBuySeatMutation {
 	return _u.mutation
@@ -483,6 +526,27 @@ func (_u *GroupBuySeatUpdate) RemoveEvents(v ...*GroupBuyEvent) *GroupBuySeatUpd
 	return _u.RemoveEventIDs(ids...)
 }
 
+// ClearAccountBindings clears all "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupBuySeatUpdate) ClearAccountBindings() *GroupBuySeatUpdate {
+	_u.mutation.ClearAccountBindings()
+	return _u
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to APIKeyAccountBinding entities by IDs.
+func (_u *GroupBuySeatUpdate) RemoveAccountBindingIDs(ids ...int64) *GroupBuySeatUpdate {
+	_u.mutation.RemoveAccountBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAccountBindings removes "account_bindings" edges to APIKeyAccountBinding entities.
+func (_u *GroupBuySeatUpdate) RemoveAccountBindings(v ...*APIKeyAccountBinding) *GroupBuySeatUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountBindingIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *GroupBuySeatUpdate) Save(ctx context.Context) (int, error) {
 	_u.defaults()
@@ -558,6 +622,15 @@ func (_u *GroupBuySeatUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if value, ok := _u.mutation.AddedShareCount(); ok {
 		_spec.AddField(groupbuyseat.FieldShareCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.SeatNo(); ok {
+		_spec.SetField(groupbuyseat.FieldSeatNo, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSeatNo(); ok {
+		_spec.AddField(groupbuyseat.FieldSeatNo, field.TypeInt, value)
+	}
+	if _u.mutation.SeatNoCleared() {
+		_spec.ClearField(groupbuyseat.FieldSeatNo, field.TypeInt)
 	}
 	if value, ok := _u.mutation.PolicySnapshot(); ok {
 		_spec.SetField(groupbuyseat.FieldPolicySnapshot, field.TypeJSON, value)
@@ -874,6 +947,51 @@ func (_u *GroupBuySeatUpdate) sqlSave(ctx context.Context) (_node int, err error
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.AccountBindingsTable,
+			Columns: []string{groupbuyseat.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountBindingsIDs(); len(nodes) > 0 && !_u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.AccountBindingsTable,
+			Columns: []string{groupbuyseat.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.AccountBindingsTable,
+			Columns: []string{groupbuyseat.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{groupbuyseat.Label}
@@ -988,6 +1106,33 @@ func (_u *GroupBuySeatUpdateOne) SetNillableShareCount(v *int) *GroupBuySeatUpda
 // AddShareCount adds value to the "share_count" field.
 func (_u *GroupBuySeatUpdateOne) AddShareCount(v int) *GroupBuySeatUpdateOne {
 	_u.mutation.AddShareCount(v)
+	return _u
+}
+
+// SetSeatNo sets the "seat_no" field.
+func (_u *GroupBuySeatUpdateOne) SetSeatNo(v int) *GroupBuySeatUpdateOne {
+	_u.mutation.ResetSeatNo()
+	_u.mutation.SetSeatNo(v)
+	return _u
+}
+
+// SetNillableSeatNo sets the "seat_no" field if the given value is not nil.
+func (_u *GroupBuySeatUpdateOne) SetNillableSeatNo(v *int) *GroupBuySeatUpdateOne {
+	if v != nil {
+		_u.SetSeatNo(*v)
+	}
+	return _u
+}
+
+// AddSeatNo adds value to the "seat_no" field.
+func (_u *GroupBuySeatUpdateOne) AddSeatNo(v int) *GroupBuySeatUpdateOne {
+	_u.mutation.AddSeatNo(v)
+	return _u
+}
+
+// ClearSeatNo clears the value of the "seat_no" field.
+func (_u *GroupBuySeatUpdateOne) ClearSeatNo() *GroupBuySeatUpdateOne {
+	_u.mutation.ClearSeatNo()
 	return _u
 }
 
@@ -1257,6 +1402,21 @@ func (_u *GroupBuySeatUpdateOne) AddEvents(v ...*GroupBuyEvent) *GroupBuySeatUpd
 	return _u.AddEventIDs(ids...)
 }
 
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_u *GroupBuySeatUpdateOne) AddAccountBindingIDs(ids ...int64) *GroupBuySeatUpdateOne {
+	_u.mutation.AddAccountBindingIDs(ids...)
+	return _u
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupBuySeatUpdateOne) AddAccountBindings(v ...*APIKeyAccountBinding) *GroupBuySeatUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountBindingIDs(ids...)
+}
+
 // Mutation returns the GroupBuySeatMutation object of the builder.
 func (_u *GroupBuySeatUpdateOne) Mutation() *GroupBuySeatMutation {
 	return _u.mutation
@@ -1338,6 +1498,27 @@ func (_u *GroupBuySeatUpdateOne) RemoveEvents(v ...*GroupBuyEvent) *GroupBuySeat
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveEventIDs(ids...)
+}
+
+// ClearAccountBindings clears all "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_u *GroupBuySeatUpdateOne) ClearAccountBindings() *GroupBuySeatUpdateOne {
+	_u.mutation.ClearAccountBindings()
+	return _u
+}
+
+// RemoveAccountBindingIDs removes the "account_bindings" edge to APIKeyAccountBinding entities by IDs.
+func (_u *GroupBuySeatUpdateOne) RemoveAccountBindingIDs(ids ...int64) *GroupBuySeatUpdateOne {
+	_u.mutation.RemoveAccountBindingIDs(ids...)
+	return _u
+}
+
+// RemoveAccountBindings removes "account_bindings" edges to APIKeyAccountBinding entities.
+func (_u *GroupBuySeatUpdateOne) RemoveAccountBindings(v ...*APIKeyAccountBinding) *GroupBuySeatUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountBindingIDs(ids...)
 }
 
 // Where appends a list predicates to the GroupBuySeatUpdate builder.
@@ -1445,6 +1626,15 @@ func (_u *GroupBuySeatUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuySe
 	}
 	if value, ok := _u.mutation.AddedShareCount(); ok {
 		_spec.AddField(groupbuyseat.FieldShareCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.SeatNo(); ok {
+		_spec.SetField(groupbuyseat.FieldSeatNo, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.AddedSeatNo(); ok {
+		_spec.AddField(groupbuyseat.FieldSeatNo, field.TypeInt, value)
+	}
+	if _u.mutation.SeatNoCleared() {
+		_spec.ClearField(groupbuyseat.FieldSeatNo, field.TypeInt)
 	}
 	if value, ok := _u.mutation.PolicySnapshot(); ok {
 		_spec.SetField(groupbuyseat.FieldPolicySnapshot, field.TypeJSON, value)
@@ -1754,6 +1944,51 @@ func (_u *GroupBuySeatUpdateOne) sqlSave(ctx context.Context) (_node *GroupBuySe
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.AccountBindingsTable,
+			Columns: []string{groupbuyseat.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountBindingsIDs(); len(nodes) > 0 && !_u.mutation.AccountBindingsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.AccountBindingsTable,
+			Columns: []string{groupbuyseat.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyseat.AccountBindingsTable,
+			Columns: []string{groupbuyseat.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {

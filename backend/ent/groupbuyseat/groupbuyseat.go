@@ -26,6 +26,8 @@ const (
 	FieldStatus = "status"
 	// FieldShareCount holds the string denoting the share_count field in the database.
 	FieldShareCount = "share_count"
+	// FieldSeatNo holds the string denoting the seat_no field in the database.
+	FieldSeatNo = "seat_no"
 	// FieldPolicySnapshot holds the string denoting the policy_snapshot field in the database.
 	FieldPolicySnapshot = "policy_snapshot"
 	// FieldSubscriptionID holds the string denoting the subscription_id field in the database.
@@ -66,6 +68,8 @@ const (
 	EdgeRefunds = "refunds"
 	// EdgeEvents holds the string denoting the events edge name in mutations.
 	EdgeEvents = "events"
+	// EdgeAccountBindings holds the string denoting the account_bindings edge name in mutations.
+	EdgeAccountBindings = "account_bindings"
 	// Table holds the table name of the groupbuyseat in the database.
 	Table = "group_buy_seats"
 	// RoundTable is the table that holds the round relation/edge.
@@ -124,6 +128,13 @@ const (
 	EventsInverseTable = "group_buy_events"
 	// EventsColumn is the table column denoting the events relation/edge.
 	EventsColumn = "seat_id"
+	// AccountBindingsTable is the table that holds the account_bindings relation/edge.
+	AccountBindingsTable = "api_key_account_bindings"
+	// AccountBindingsInverseTable is the table name for the APIKeyAccountBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "apikeyaccountbinding" package.
+	AccountBindingsInverseTable = "api_key_account_bindings"
+	// AccountBindingsColumn is the table column denoting the account_bindings relation/edge.
+	AccountBindingsColumn = "seat_id"
 )
 
 // Columns holds all SQL columns for groupbuyseat fields.
@@ -135,6 +146,7 @@ var Columns = []string{
 	FieldOrderID,
 	FieldStatus,
 	FieldShareCount,
+	FieldSeatNo,
 	FieldPolicySnapshot,
 	FieldSubscriptionID,
 	FieldBoundAPIKeyID,
@@ -210,6 +222,11 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 // ByShareCount orders the results by the share_count field.
 func ByShareCount(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldShareCount, opts...).ToFunc()
+}
+
+// BySeatNo orders the results by the seat_no field.
+func BySeatNo(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSeatNo, opts...).ToFunc()
 }
 
 // BySubscriptionID orders the results by the subscription_id field.
@@ -336,6 +353,20 @@ func ByEvents(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newEventsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByAccountBindingsCount orders the results by account_bindings count.
+func ByAccountBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAccountBindingsStep(), opts...)
+	}
+}
+
+// ByAccountBindings orders the results by account_bindings terms.
+func ByAccountBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAccountBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newRoundStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -390,5 +421,12 @@ func newEventsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(EventsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, EventsTable, EventsColumn),
+	)
+}
+func newAccountBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AccountBindingsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.O2M, false, AccountBindingsTable, AccountBindingsColumn),
 	)
 }

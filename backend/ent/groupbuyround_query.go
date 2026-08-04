@@ -13,6 +13,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
@@ -23,14 +26,17 @@ import (
 // GroupBuyRoundQuery is the builder for querying GroupBuyRound entities.
 type GroupBuyRoundQuery struct {
 	config
-	ctx        *QueryContext
-	order      []groupbuyround.OrderOption
-	inters     []Interceptor
-	predicates []predicate.GroupBuyRound
-	withPlan   *GroupBuyPlanQuery
-	withSeats  *GroupBuySeatQuery
-	withEvents *GroupBuyEventQuery
-	modifiers  []func(*sql.Selector)
+	ctx                 *QueryContext
+	order               []groupbuyround.OrderOption
+	inters              []Interceptor
+	predicates          []predicate.GroupBuyRound
+	withPlan            *GroupBuyPlanQuery
+	withSeats           *GroupBuySeatQuery
+	withEvents          *GroupBuyEventQuery
+	withCafeRoom        *CafeRoomQuery
+	withAssignedAccount *AccountQuery
+	withAccountBindings *APIKeyAccountBindingQuery
+	modifiers           []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -126,6 +132,72 @@ func (_q *GroupBuyRoundQuery) QueryEvents() *GroupBuyEventQuery {
 			sqlgraph.From(groupbuyround.Table, groupbuyround.FieldID, selector),
 			sqlgraph.To(groupbuyevent.Table, groupbuyevent.FieldID),
 			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyround.EventsTable, groupbuyround.EventsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryCafeRoom chains the current query on the "cafe_room" edge.
+func (_q *GroupBuyRoundQuery) QueryCafeRoom() *CafeRoomQuery {
+	query := (&CafeRoomClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyround.Table, groupbuyround.FieldID, selector),
+			sqlgraph.To(caferoom.Table, caferoom.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyround.CafeRoomTable, groupbuyround.CafeRoomColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAssignedAccount chains the current query on the "assigned_account" edge.
+func (_q *GroupBuyRoundQuery) QueryAssignedAccount() *AccountQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyround.Table, groupbuyround.FieldID, selector),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, groupbuyround.AssignedAccountTable, groupbuyround.AssignedAccountColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryAccountBindings chains the current query on the "account_bindings" edge.
+func (_q *GroupBuyRoundQuery) QueryAccountBindings() *APIKeyAccountBindingQuery {
+	query := (&APIKeyAccountBindingClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(groupbuyround.Table, groupbuyround.FieldID, selector),
+			sqlgraph.To(apikeyaccountbinding.Table, apikeyaccountbinding.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, groupbuyround.AccountBindingsTable, groupbuyround.AccountBindingsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -320,14 +392,17 @@ func (_q *GroupBuyRoundQuery) Clone() *GroupBuyRoundQuery {
 		return nil
 	}
 	return &GroupBuyRoundQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]groupbuyround.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.GroupBuyRound{}, _q.predicates...),
-		withPlan:   _q.withPlan.Clone(),
-		withSeats:  _q.withSeats.Clone(),
-		withEvents: _q.withEvents.Clone(),
+		config:              _q.config,
+		ctx:                 _q.ctx.Clone(),
+		order:               append([]groupbuyround.OrderOption{}, _q.order...),
+		inters:              append([]Interceptor{}, _q.inters...),
+		predicates:          append([]predicate.GroupBuyRound{}, _q.predicates...),
+		withPlan:            _q.withPlan.Clone(),
+		withSeats:           _q.withSeats.Clone(),
+		withEvents:          _q.withEvents.Clone(),
+		withCafeRoom:        _q.withCafeRoom.Clone(),
+		withAssignedAccount: _q.withAssignedAccount.Clone(),
+		withAccountBindings: _q.withAccountBindings.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
@@ -364,6 +439,39 @@ func (_q *GroupBuyRoundQuery) WithEvents(opts ...func(*GroupBuyEventQuery)) *Gro
 		opt(query)
 	}
 	_q.withEvents = query
+	return _q
+}
+
+// WithCafeRoom tells the query-builder to eager-load the nodes that are connected to
+// the "cafe_room" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *GroupBuyRoundQuery) WithCafeRoom(opts ...func(*CafeRoomQuery)) *GroupBuyRoundQuery {
+	query := (&CafeRoomClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withCafeRoom = query
+	return _q
+}
+
+// WithAssignedAccount tells the query-builder to eager-load the nodes that are connected to
+// the "assigned_account" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *GroupBuyRoundQuery) WithAssignedAccount(opts ...func(*AccountQuery)) *GroupBuyRoundQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAssignedAccount = query
+	return _q
+}
+
+// WithAccountBindings tells the query-builder to eager-load the nodes that are connected to
+// the "account_bindings" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *GroupBuyRoundQuery) WithAccountBindings(opts ...func(*APIKeyAccountBindingQuery)) *GroupBuyRoundQuery {
+	query := (&APIKeyAccountBindingClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAccountBindings = query
 	return _q
 }
 
@@ -445,10 +553,13 @@ func (_q *GroupBuyRoundQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 	var (
 		nodes       = []*GroupBuyRound{}
 		_spec       = _q.querySpec()
-		loadedTypes = [3]bool{
+		loadedTypes = [6]bool{
 			_q.withPlan != nil,
 			_q.withSeats != nil,
 			_q.withEvents != nil,
+			_q.withCafeRoom != nil,
+			_q.withAssignedAccount != nil,
+			_q.withAccountBindings != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
@@ -489,6 +600,27 @@ func (_q *GroupBuyRoundQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([
 		if err := _q.loadEvents(ctx, query, nodes,
 			func(n *GroupBuyRound) { n.Edges.Events = []*GroupBuyEvent{} },
 			func(n *GroupBuyRound, e *GroupBuyEvent) { n.Edges.Events = append(n.Edges.Events, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withCafeRoom; query != nil {
+		if err := _q.loadCafeRoom(ctx, query, nodes, nil,
+			func(n *GroupBuyRound, e *CafeRoom) { n.Edges.CafeRoom = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAssignedAccount; query != nil {
+		if err := _q.loadAssignedAccount(ctx, query, nodes, nil,
+			func(n *GroupBuyRound, e *Account) { n.Edges.AssignedAccount = e }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withAccountBindings; query != nil {
+		if err := _q.loadAccountBindings(ctx, query, nodes,
+			func(n *GroupBuyRound) { n.Edges.AccountBindings = []*APIKeyAccountBinding{} },
+			func(n *GroupBuyRound, e *APIKeyAccountBinding) {
+				n.Edges.AccountBindings = append(n.Edges.AccountBindings, e)
+			}); err != nil {
 			return nil, err
 		}
 	}
@@ -587,6 +719,100 @@ func (_q *GroupBuyRoundQuery) loadEvents(ctx context.Context, query *GroupBuyEve
 	}
 	return nil
 }
+func (_q *GroupBuyRoundQuery) loadCafeRoom(ctx context.Context, query *CafeRoomQuery, nodes []*GroupBuyRound, init func(*GroupBuyRound), assign func(*GroupBuyRound, *CafeRoom)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*GroupBuyRound)
+	for i := range nodes {
+		if nodes[i].CafeRoomID == nil {
+			continue
+		}
+		fk := *nodes[i].CafeRoomID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(caferoom.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "cafe_room_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *GroupBuyRoundQuery) loadAssignedAccount(ctx context.Context, query *AccountQuery, nodes []*GroupBuyRound, init func(*GroupBuyRound), assign func(*GroupBuyRound, *Account)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*GroupBuyRound)
+	for i := range nodes {
+		if nodes[i].AssignedAccountID == nil {
+			continue
+		}
+		fk := *nodes[i].AssignedAccountID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(account.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "assigned_account_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
+func (_q *GroupBuyRoundQuery) loadAccountBindings(ctx context.Context, query *APIKeyAccountBindingQuery, nodes []*GroupBuyRound, init func(*GroupBuyRound), assign func(*GroupBuyRound, *APIKeyAccountBinding)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*GroupBuyRound)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(apikeyaccountbinding.FieldRoundID)
+	}
+	query.Where(predicate.APIKeyAccountBinding(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(groupbuyround.AccountBindingsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.RoundID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "round_id" returned %v for node %v`, fk, n.ID)
+		}
+		assign(node, n)
+	}
+	return nil
+}
 
 func (_q *GroupBuyRoundQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
@@ -618,6 +844,12 @@ func (_q *GroupBuyRoundQuery) querySpec() *sqlgraph.QuerySpec {
 		}
 		if _q.withPlan != nil {
 			_spec.Node.AddColumnOnce(groupbuyround.FieldPlanID)
+		}
+		if _q.withCafeRoom != nil {
+			_spec.Node.AddColumnOnce(groupbuyround.FieldCafeRoomID)
+		}
+		if _q.withAssignedAccount != nil {
+			_spec.Node.AddColumnOnce(groupbuyround.FieldAssignedAccountID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {

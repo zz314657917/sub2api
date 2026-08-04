@@ -37,17 +37,22 @@ func classifyNoAccountError(
 	if displayModel == "" {
 		displayModel = routingModel
 	}
-	if diag == nil || apiKey == nil || apiKey.GroupID == nil || routingModel == "" {
-		return fallback
+	if diag != nil && apiKey != nil && apiKey.GroupID != nil && routingModel != "" {
+		result := diag.DiagnoseModelAvailabilityForPlatform(ctx, apiKey.GroupID, routingModel, platform)
+		if result.HasAccountsInPool && !result.HasModelSupport {
+			return noAccountErrorClassification{
+				Status:        http.StatusNotFound,
+				ErrType:       "model_not_found",
+				Message:       fmt.Sprintf("Model %q is not supported by any configured account in this group", displayModel),
+				ModelNotFound: true,
+			}
+		}
 	}
-
-	result := diag.DiagnoseModelAvailabilityForPlatform(ctx, apiKey.GroupID, routingModel, platform)
-	if result.HasAccountsInPool && !result.HasModelSupport {
+	if apiKey != nil && apiKey.IsCafeRoomManaged() {
 		return noAccountErrorClassification{
-			Status:        http.StatusNotFound,
-			ErrType:       "model_not_found",
-			Message:       fmt.Sprintf("Model %q is not supported by any configured account in this group", displayModel),
-			ModelNotFound: true,
+			Status:  http.StatusForbidden,
+			ErrType: "CAFE_ACCOUNT_UNAVAILABLE",
+			Message: "the cafe account is temporarily unavailable",
 		}
 	}
 	return fallback

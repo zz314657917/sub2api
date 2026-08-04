@@ -59,6 +59,7 @@ interface MockAuthState {
   setupNeedsSetup?: boolean
   createdAt?: string
   minimumAccountAgeDays?: unknown
+  pixelCafeEnabled?: boolean
 }
 
 /**
@@ -130,6 +131,10 @@ function simulateGuard(
       Date.now(),
       authState.minimumAccountAgeDays,
     )) {
+    return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
+  }
+
+  if (toMeta.requiresPixelCafe && authState.pixelCafeEnabled !== true) {
     return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
   }
 
@@ -343,6 +348,22 @@ describe('路由守卫逻辑', () => {
 
     it('访问用户页面允许通过', () => {
       const redirect = simulateGuard('/dashboard', {}, authState)
+      expect(redirect).toBeNull()
+    })
+
+    it('像素网吧关闭时禁止直接访问管理房间页', () => {
+      const redirect = simulateGuard('/admin/pixel-cafe/rooms', {
+        requiresAdmin: true,
+        requiresPixelCafe: true,
+      }, authState)
+      expect(redirect).toBe('/admin/dashboard')
+    })
+
+    it('像素网吧开启时允许访问管理房间页', () => {
+      const redirect = simulateGuard('/admin/pixel-cafe/rooms', {
+        requiresAdmin: true,
+        requiresPixelCafe: true,
+      }, { ...authState, pixelCafeEnabled: true })
       expect(redirect).toBeNull()
     })
   })

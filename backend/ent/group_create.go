@@ -13,6 +13,8 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyentitlement"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
@@ -187,6 +189,20 @@ func (_c *GroupCreate) SetStatus(v string) *GroupCreate {
 func (_c *GroupCreate) SetNillableStatus(v *string) *GroupCreate {
 	if v != nil {
 		_c.SetStatus(*v)
+	}
+	return _c
+}
+
+// SetAccessMode sets the "access_mode" field.
+func (_c *GroupCreate) SetAccessMode(v string) *GroupCreate {
+	_c.mutation.SetAccessMode(v)
+	return _c
+}
+
+// SetNillableAccessMode sets the "access_mode" field if the given value is not nil.
+func (_c *GroupCreate) SetNillableAccessMode(v *string) *GroupCreate {
+	if v != nil {
+		_c.SetAccessMode(*v)
 	}
 	return _c
 }
@@ -691,6 +707,36 @@ func (_c *GroupCreate) AddGroupBuyEntitlements(v ...*GroupBuyEntitlement) *Group
 	return _c.AddGroupBuyEntitlementIDs(ids...)
 }
 
+// AddCafeRoomIDs adds the "cafe_rooms" edge to the CafeRoom entity by IDs.
+func (_c *GroupCreate) AddCafeRoomIDs(ids ...int64) *GroupCreate {
+	_c.mutation.AddCafeRoomIDs(ids...)
+	return _c
+}
+
+// AddCafeRooms adds the "cafe_rooms" edges to the CafeRoom entity.
+func (_c *GroupCreate) AddCafeRooms(v ...*CafeRoom) *GroupCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCafeRoomIDs(ids...)
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_c *GroupCreate) AddAccountBindingIDs(ids ...int64) *GroupCreate {
+	_c.mutation.AddAccountBindingIDs(ids...)
+	return _c
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_c *GroupCreate) AddAccountBindings(v ...*APIKeyAccountBinding) *GroupCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAccountBindingIDs(ids...)
+}
+
 // AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
 func (_c *GroupCreate) AddAccountIDs(ids ...int64) *GroupCreate {
 	_c.mutation.AddAccountIDs(ids...)
@@ -799,6 +845,10 @@ func (_c *GroupCreate) defaults() error {
 	if _, ok := _c.mutation.Status(); !ok {
 		v := group.DefaultStatus
 		_c.mutation.SetStatus(v)
+	}
+	if _, ok := _c.mutation.AccessMode(); !ok {
+		v := group.DefaultAccessMode
+		_c.mutation.SetAccessMode(v)
 	}
 	if _, ok := _c.mutation.Platform(); !ok {
 		v := group.DefaultPlatform
@@ -937,6 +987,14 @@ func (_c *GroupCreate) check() error {
 	if v, ok := _c.mutation.Status(); ok {
 		if err := group.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Group.status": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.AccessMode(); !ok {
+		return &ValidationError{Name: "access_mode", err: errors.New(`ent: missing required field "Group.access_mode"`)}
+	}
+	if v, ok := _c.mutation.AccessMode(); ok {
+		if err := group.AccessModeValidator(v); err != nil {
+			return &ValidationError{Name: "access_mode", err: fmt.Errorf(`ent: validator failed for field "Group.access_mode": %w`, err)}
 		}
 	}
 	if v, ok := _c.mutation.DuplicateOperationID(); ok {
@@ -1101,6 +1159,10 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(group.FieldStatus, field.TypeString, value)
 		_node.Status = value
+	}
+	if value, ok := _c.mutation.AccessMode(); ok {
+		_spec.SetField(group.FieldAccessMode, field.TypeString, value)
+		_node.AccessMode = value
 	}
 	if value, ok := _c.mutation.DuplicateOperationID(); ok {
 		_spec.SetField(group.FieldDuplicateOperationID, field.TypeString, value)
@@ -1315,6 +1377,38 @@ func (_c *GroupCreate) createSpec() (*Group, *sqlgraph.CreateSpec) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyentitlement.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CafeRoomsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.CafeRoomsTable,
+			Columns: []string{group.CafeRoomsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   group.AccountBindingsTable,
+			Columns: []string{group.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -1567,6 +1661,18 @@ func (u *GroupUpsert) SetStatus(v string) *GroupUpsert {
 // UpdateStatus sets the "status" field to the value that was provided on create.
 func (u *GroupUpsert) UpdateStatus() *GroupUpsert {
 	u.SetExcluded(group.FieldStatus)
+	return u
+}
+
+// SetAccessMode sets the "access_mode" field.
+func (u *GroupUpsert) SetAccessMode(v string) *GroupUpsert {
+	u.Set(group.FieldAccessMode, v)
+	return u
+}
+
+// UpdateAccessMode sets the "access_mode" field to the value that was provided on create.
+func (u *GroupUpsert) UpdateAccessMode() *GroupUpsert {
+	u.SetExcluded(group.FieldAccessMode)
 	return u
 }
 
@@ -2283,6 +2389,20 @@ func (u *GroupUpsertOne) SetStatus(v string) *GroupUpsertOne {
 func (u *GroupUpsertOne) UpdateStatus() *GroupUpsertOne {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetAccessMode sets the "access_mode" field.
+func (u *GroupUpsertOne) SetAccessMode(v string) *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetAccessMode(v)
+	})
+}
+
+// UpdateAccessMode sets the "access_mode" field to the value that was provided on create.
+func (u *GroupUpsertOne) UpdateAccessMode() *GroupUpsertOne {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateAccessMode()
 	})
 }
 
@@ -3246,6 +3366,20 @@ func (u *GroupUpsertBulk) SetStatus(v string) *GroupUpsertBulk {
 func (u *GroupUpsertBulk) UpdateStatus() *GroupUpsertBulk {
 	return u.Update(func(s *GroupUpsert) {
 		s.UpdateStatus()
+	})
+}
+
+// SetAccessMode sets the "access_mode" field.
+func (u *GroupUpsertBulk) SetAccessMode(v string) *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.SetAccessMode(v)
+	})
+}
+
+// UpdateAccessMode sets the "access_mode" field to the value that was provided on create.
+func (u *GroupUpsertBulk) UpdateAccessMode() *GroupUpsertBulk {
+	return u.Update(func(s *GroupUpsert) {
+		s.UpdateAccessMode()
 	})
 }
 

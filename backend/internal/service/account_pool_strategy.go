@@ -8,6 +8,14 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 )
 
+func pinnedAccountIDFromContext(ctx context.Context) (int64, bool) {
+	if ctx == nil {
+		return 0, false
+	}
+	id, ok := ctx.Value(ctxkey.APIKeyPinnedAccountID).(int64)
+	return id, ok && id > 0
+}
+
 func accountPoolStrategyFromContext(ctx context.Context) (string, bool) {
 	if ctx == nil {
 		return AccountPoolStrategySharedOnly, false

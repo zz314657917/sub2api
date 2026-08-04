@@ -298,6 +298,10 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		GroupBuyEnabled:                           settings.GroupBuyEnabled,
 		GroupBuyProductName:                       settings.GroupBuyProductName,
 		GroupBuyDescription:                       settings.GroupBuyDescription,
+		PixelCafeEnabled:                          settings.PixelCafeEnabled,
+		PixelCafeTitle:                            settings.PixelCafeTitle,
+		PixelCafeDescription:                      settings.PixelCafeDescription,
+		PixelCafeHeaderVisible:                    settings.PixelCafeHeaderVisible,
 		LeaderboardRewardMode:                     settings.LeaderboardRewardMode,
 		LeaderboardRedPacketPoolAmount:            settings.LeaderboardRedPacketPoolAmount,
 		LeaderboardRedPacketMinAmount:             settings.LeaderboardRedPacketMinAmount,
@@ -607,6 +611,10 @@ type UpdateSettingsRequest struct {
 	GroupBuyEnabled             *bool                   `json:"group_buy_enabled"`
 	GroupBuyProductName         *string                 `json:"group_buy_product_name"`
 	GroupBuyDescription         *string                 `json:"group_buy_description"`
+	PixelCafeEnabled            *bool                   `json:"pixel_cafe_enabled"`
+	PixelCafeTitle              *string                 `json:"pixel_cafe_title"`
+	PixelCafeDescription        *string                 `json:"pixel_cafe_description"`
+	PixelCafeHeaderVisible      *bool                   `json:"pixel_cafe_header_visible"`
 	TableDefaultPageSize        int                     `json:"table_default_page_size"`
 	TablePageSizeOptions        []int                   `json:"table_page_size_options"`
 	CustomMenuItems             *[]dto.CustomMenuItem   `json:"custom_menu_items"`
@@ -1936,6 +1944,30 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.GroupBuyDescription
 		}(),
+		PixelCafeEnabled: func() bool {
+			if req.PixelCafeEnabled != nil {
+				return *req.PixelCafeEnabled
+			}
+			return previousSettings.PixelCafeEnabled
+		}(),
+		PixelCafeTitle: func() string {
+			if req.PixelCafeTitle != nil {
+				return strings.TrimSpace(*req.PixelCafeTitle)
+			}
+			return previousSettings.PixelCafeTitle
+		}(),
+		PixelCafeDescription: func() string {
+			if req.PixelCafeDescription != nil {
+				return strings.TrimSpace(*req.PixelCafeDescription)
+			}
+			return previousSettings.PixelCafeDescription
+		}(),
+		PixelCafeHeaderVisible: func() bool {
+			if req.PixelCafeHeaderVisible != nil {
+				return *req.PixelCafeHeaderVisible
+			}
+			return previousSettings.PixelCafeHeaderVisible
+		}(),
 		LeaderboardRewardMode: func() string {
 			if req.LeaderboardRewardMode != nil {
 				return *req.LeaderboardRewardMode
@@ -2357,6 +2389,10 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		GroupBuyEnabled:                           updatedSettings.GroupBuyEnabled,
 		GroupBuyProductName:                       updatedSettings.GroupBuyProductName,
 		GroupBuyDescription:                       updatedSettings.GroupBuyDescription,
+		PixelCafeEnabled:                          updatedSettings.PixelCafeEnabled,
+		PixelCafeTitle:                            updatedSettings.PixelCafeTitle,
+		PixelCafeDescription:                      updatedSettings.PixelCafeDescription,
+		PixelCafeHeaderVisible:                    updatedSettings.PixelCafeHeaderVisible,
 		LeaderboardRewardMode:                     updatedSettings.LeaderboardRewardMode,
 		LeaderboardRedPacketPoolAmount:            updatedSettings.LeaderboardRedPacketPoolAmount,
 		LeaderboardRedPacketMinAmount:             updatedSettings.LeaderboardRedPacketMinAmount,
@@ -2856,6 +2892,18 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.GroupBuyDescription != after.GroupBuyDescription {
 		changed = append(changed, "group_buy_description")
+	}
+	if before.PixelCafeEnabled != after.PixelCafeEnabled {
+		changed = append(changed, "pixel_cafe_enabled")
+	}
+	if before.PixelCafeTitle != after.PixelCafeTitle {
+		changed = append(changed, "pixel_cafe_title")
+	}
+	if before.PixelCafeDescription != after.PixelCafeDescription {
+		changed = append(changed, "pixel_cafe_description")
+	}
+	if before.PixelCafeHeaderVisible != after.PixelCafeHeaderVisible {
+		changed = append(changed, "pixel_cafe_header_visible")
 	}
 	if before.LeaderboardRewardMode != after.LeaderboardRewardMode {
 		changed = append(changed, "reward_mode")

@@ -129,8 +129,24 @@ function makeKey(overrides: Record<string, unknown> = {}) {
       id: 10,
       name: 'OpenAI',
       platform: 'openai',
+      status: 'active',
+      routing_scope: 'inference',
       allow_image_generation: true,
     },
+    route_groups: [{
+      id: 11,
+      name: 'OpenAI Images',
+      platform: 'openai',
+      status: 'active',
+      routing_scope: 'image',
+      allow_image_generation: true,
+    }],
+    multi_group_routes: [{
+      group_id: 11,
+      enabled: true,
+      image_only: true,
+      text_only: false,
+    }],
     ...overrides,
   }
 }

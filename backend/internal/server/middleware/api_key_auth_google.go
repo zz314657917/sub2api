@@ -54,6 +54,12 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			abortWithGoogleError(c, 401, "User account is not active")
 			return
 		}
+		if apiKey.IsCafeRoomManaged() && apiKey.PinnedAccountID <= 0 {
+			// Google native endpoints use a different response envelope, but must
+			// fail closed under the same stable Cafe account-unavailable code.
+			abortWithGoogleError(c, 403, "CAFE_ACCOUNT_UNAVAILABLE")
+			return
+		}
 		apiKey = resolveAPIKeyForRequest(c, apiKeyService, apiKey)
 		if _, message, ok := validateAPIKeyGroupAvailable(apiKey); !ok {
 			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable)

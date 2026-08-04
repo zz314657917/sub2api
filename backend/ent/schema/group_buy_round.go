@@ -26,6 +26,18 @@ func (GroupBuyRound) Annotations() []schema.Annotation {
 func (GroupBuyRound) Fields() []ent.Field {
 	return []ent.Field{
 		field.Int64("plan_id"),
+		field.Int64("cafe_room_id").
+			Optional().
+			Nillable(),
+		field.Int64("assigned_account_id").
+			Optional().
+			Nillable(),
+		field.String("room_code_snapshot").
+			Optional().
+			Nillable(),
+		field.String("room_name_snapshot").
+			Optional().
+			Nillable(),
 		field.String("status").
 			MaxLen(20).
 			Default("open"),
@@ -54,6 +66,21 @@ func (GroupBuyRound) Fields() []ent.Field {
 			Optional().
 			Nillable().
 			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Time("activated_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Time("entitlement_expires_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.Time("completed_at").
+			Optional().
+			Nillable().
+			SchemaType(map[string]string{dialect.Postgres: "timestamptz"}),
+		field.String("activation_token").
+			Optional().
+			Nillable(),
 		field.String("close_reason").
 			Optional().
 			Nillable().
@@ -78,12 +105,26 @@ func (GroupBuyRound) Edges() []ent.Edge {
 			Required(),
 		edge.To("seats", GroupBuySeat.Type),
 		edge.To("events", GroupBuyEvent.Type),
+		edge.From("cafe_room", CafeRoom.Type).
+			Ref("rounds").
+			Field("cafe_room_id").
+			Unique(),
+		edge.From("assigned_account", Account.Type).
+			Ref("cafe_rounds").
+			Field("assigned_account_id").
+			Unique(),
+		edge.To("account_bindings", APIKeyAccountBinding.Type),
 	}
 }
 
 func (GroupBuyRound) Indexes() []ent.Index {
 	return []ent.Index{
 		index.Fields("plan_id"),
+		index.Fields("cafe_room_id"),
+		index.Fields("assigned_account_id"),
+		index.Fields("activation_token").
+			Unique().
+			Annotations(entsql.IndexWhere("activation_token IS NOT NULL")),
 		index.Fields("status"),
 		index.Fields("deadline_at"),
 		index.Fields("created_at"),

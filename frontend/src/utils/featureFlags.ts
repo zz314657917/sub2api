@@ -114,6 +114,11 @@ export const FeatureFlags = {
     mode: 'opt-out',
     label: 'Token PinPinPin',
   }),
+  pixelCafe: defineFlag({
+    key: 'pixel_cafe_enabled',
+    mode: 'opt-in',
+    label: 'Pixel Cafe',
+  }),
   riskControl: defineFlag({
     key: 'risk_control_enabled',
     mode: 'opt-in',

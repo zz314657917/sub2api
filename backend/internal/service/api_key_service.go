@@ -42,6 +42,11 @@ var (
 	ErrAPIKeyModelPatternsManagedByGroup = infraerrors.BadRequest("API_KEY_MODEL_PATTERNS_MANAGED_BY_GROUP", "model patterns are managed by the group administrator")
 	ErrAPIKeyPoolStrategyInvalid         = infraerrors.BadRequest("API_KEY_POOL_STRATEGY_INVALID", "api key account pool strategy is invalid")
 	ErrAPIKeyDefaultProtected            = infraerrors.Forbidden("API_KEY_DEFAULT_PROTECTED", "默认 API Key 不能删除，可修改它的分组或模型路由")
+	ErrCafeManagedKeyProtected           = infraerrors.Forbidden("CAFE_MANAGED_KEY_PROTECTED", "cafe managed API keys only allow name, IP restriction and active/inactive status updates")
+	ErrCafeManagedKeyStatusInvalid       = infraerrors.BadRequest("CAFE_MANAGED_KEY_STATUS_INVALID", "cafe managed API key status must be active or inactive")
+	ErrCafeManagedKeyStateUnavailable    = infraerrors.Conflict("CAFE_MANAGED_KEY_STATE_UNAVAILABLE", "cafe managed API key state cannot be changed safely")
+	ErrCafeManagedKeyEnableUnavailable   = infraerrors.Forbidden("CAFE_MANAGED_KEY_ENABLE_UNAVAILABLE", "cafe managed API key cannot be enabled while its room entitlement is unavailable")
+	ErrCafeAccountUnavailable            = infraerrors.Forbidden("CAFE_ACCOUNT_UNAVAILABLE", "the cafe account is temporarily unavailable")
 	ErrDefaultKeyFallbackGroupRequired   = infraerrors.BadRequest("DEFAULT_KEY_FALLBACK_GROUP_REQUIRED", "请先在系统设置中选择默认 Key 兜底分组")
 	ErrDefaultKeyFallbackGroupInvalid    = infraerrors.BadRequest("DEFAULT_KEY_FALLBACK_GROUP_INVALID", "默认 Key 兜底分组不存在或未启用")
 )
@@ -96,6 +101,14 @@ type APIKeyRepository interface {
 	IncrementRateLimitUsage(ctx context.Context, id int64, cost float64) error
 	ResetRateLimitWindows(ctx context.Context, id int64) error
 	GetRateLimitData(ctx context.Context, id int64) (*APIKeyRateLimitData, error)
+}
+
+// CafeManagedAPIKeyUpdater is implemented by the SQL repository. It keeps a
+// managed-key status change and its entitlement validation in one transaction.
+// It is intentionally optional so existing lightweight API-key test doubles do
+// not need to grow a Cafe-specific dependency.
+type CafeManagedAPIKeyUpdater interface {
+	UpdateCafeManagedAPIKey(ctx context.Context, key *APIKey, desiredStatus string, now time.Time) error
 }
 
 // APIKeyRateLimitData holds rate limit usage and window state for an API key.
@@ -226,6 +239,7 @@ type RateLimitCacheInvalidator interface {
 
 type APIKeyService struct {
 	apiKeyRepo            APIKeyRepository
+	cafeManagedKeyUpdater CafeManagedAPIKeyUpdater
 	userRepo              UserRepository
 	groupRepo             GroupRepository
 	userSubRepo           UserSubscriptionRepository
@@ -254,7 +268,11 @@ func NewAPIKeyService(
 	cfg *config.Config,
 ) *APIKeyService {
 	svc := &APIKeyService{
-		apiKeyRepo:        apiKeyRepo,
+		apiKeyRepo: apiKeyRepo,
+		cafeManagedKeyUpdater: func() CafeManagedAPIKeyUpdater {
+			updater, _ := apiKeyRepo.(CafeManagedAPIKeyUpdater)
+			return updater
+		}(),
 		userRepo:          userRepo,
 		groupRepo:         groupRepo,
 		userSubRepo:       userSubRepo,
@@ -295,6 +313,9 @@ func (s *APIKeyService) ResolveForRequest(ctx context.Context, apiKey *APIKey, p
 	if apiKey == nil {
 		return nil
 	}
+	if apiKey.PinnedAccountID > 0 {
+		return s.resolvePinnedAPIKey(apiKey, path, forcePlatform, "", false)
+	}
 	resolved := apiKey.ResolveForRequestWithGroupSkipper(path, forcePlatform, func(groupID int64) bool {
 		if apiKey.IsRouteGroupUnavailable(groupID) {
 			return true
@@ -313,6 +334,9 @@ func (s *APIKeyService) ResolveForModelRequest(ctx context.Context, apiKey *APIK
 	if apiKey == nil {
 		return nil
 	}
+	if apiKey.PinnedAccountID > 0 {
+		return s.resolvePinnedAPIKey(apiKey, path, forcePlatform, requestedModel, imageIntent)
+	}
 	resolved := apiKey.ResolveForModelRequestWithGroupSkipper(path, forcePlatform, requestedModel, imageIntent, func(groupID int64) bool {
 		if apiKey.IsRouteGroupUnavailable(groupID) {
 			return true
@@ -323,6 +347,33 @@ func (s *APIKeyService) ResolveForModelRequest(ctx context.Context, apiKey *APIK
 		return s.isRouteGroupCooling(ctx, apiKey, groupID)
 	})
 	return s.refreshResolvedAPIKeyGroupState(ctx, apiKey, resolved)
+}
+
+// resolvePinnedAPIKey validates the current Group without considering any
+// multi-group route, cooldown, or fallback candidate.
+func (s *APIKeyService) resolvePinnedAPIKey(apiKey *APIKey, path, forcePlatform, requestedModel string, imageIntent bool) *APIKey {
+	if apiKey == nil || apiKey.Group == nil || !apiKey.Group.IsActive() {
+		return nil
+	}
+	platforms := preferredPlatformsForRequest(path, forcePlatform, requestedModel, requestedModel != "" || imageIntent)
+	if len(platforms) > 0 && !containsString(platforms, apiKey.Group.Platform) {
+		return nil
+	}
+	if !apiKeyRouteMatchesGroupScope(apiKey.Group, RoutingScopeForRequest(path, requestedModel, imageIntent)) {
+		return nil
+	}
+	if requestedModel != "" && !apiKey.Group.MatchesModel(requestedModel) {
+		return nil
+	}
+	if imageIntent && !apiKey.Group.AllowImageGeneration {
+		return nil
+	}
+	clone := *apiKey
+	clone.MultiGroupRoutes = nil
+	clone.MultiGroupRouteGroups = nil
+	clone.UnavailableRouteGroupIDs = nil
+	clone.AccountPoolStrategy = AccountPoolStrategySharedOnly
+	return &clone
 }
 
 func (s *APIKeyService) refreshResolvedAPIKeyGroupState(ctx context.Context, original *APIKey, resolved *APIKey) *APIKey {
@@ -1023,22 +1074,21 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if apiKey.UserID != userID {
 		return nil, ErrInsufficientPerms
 	}
+	if apiKey.IsCafeRoomManaged() && req.Status != nil && *req.Status != StatusAPIKeyActive && *req.Status != "inactive" {
+		return nil, ErrCafeManagedKeyStatusInvalid
+	}
+	if apiKey.IsCafeRoomManaged() && !isCafeManagedAPIKeySafeUpdate(req) {
+		return nil, ErrCafeManagedKeyProtected
+	}
+	if apiKey.IsCafeRoomManaged() && req.Status != nil {
+		return s.updateCafeManagedAPIKey(ctx, apiKey, req)
+	}
 	if apiKeyRoutesContainModelPatterns(req.MultiGroupRoutes) {
 		return nil, ErrAPIKeyModelPatternsManagedByGroup
 	}
 
-	// 验证 IP 白名单格式
-	if req.IPWhitelist != nil && len(*req.IPWhitelist) > 0 {
-		if invalid := ip.ValidateIPPatterns(*req.IPWhitelist); len(invalid) > 0 {
-			return nil, fmt.Errorf("%w: %v", ErrInvalidIPPattern, invalid)
-		}
-	}
-
-	// 验证 IP 黑名单格式
-	if req.IPBlacklist != nil && len(*req.IPBlacklist) > 0 {
-		if invalid := ip.ValidateIPPatterns(*req.IPBlacklist); len(invalid) > 0 {
-			return nil, fmt.Errorf("%w: %v", ErrInvalidIPPattern, invalid)
-		}
+	if err := validateAPIKeyIPRestrictions(req); err != nil {
+		return nil, err
 	}
 
 	// 更新字段
@@ -1193,6 +1243,43 @@ func applyAPIKeyIPRestrictions(apiKey *APIKey, whitelist, blacklist *[]string) {
 	}
 }
 
+func validateAPIKeyIPRestrictions(req UpdateAPIKeyRequest) error {
+	if req.IPWhitelist != nil && len(*req.IPWhitelist) > 0 {
+		if invalid := ip.ValidateIPPatterns(*req.IPWhitelist); len(invalid) > 0 {
+			return fmt.Errorf("%w: %v", ErrInvalidIPPattern, invalid)
+		}
+	}
+	if req.IPBlacklist != nil && len(*req.IPBlacklist) > 0 {
+		if invalid := ip.ValidateIPPatterns(*req.IPBlacklist); len(invalid) > 0 {
+			return fmt.Errorf("%w: %v", ErrInvalidIPPattern, invalid)
+		}
+	}
+	return nil
+}
+
+func (s *APIKeyService) updateCafeManagedAPIKey(ctx context.Context, apiKey *APIKey, req UpdateAPIKeyRequest) (*APIKey, error) {
+	if apiKey == nil || req.Status == nil || s.cafeManagedKeyUpdater == nil {
+		return nil, ErrCafeManagedKeyStateUnavailable
+	}
+	if err := validateAPIKeyIPRestrictions(req); err != nil {
+		return nil, err
+	}
+	if req.Name != nil {
+		apiKey.Name = html.EscapeString(*req.Name)
+	}
+	applyAPIKeyIPRestrictions(apiKey, req.IPWhitelist, req.IPBlacklist)
+	apiKey.Status = *req.Status
+	now := time.Now()
+	if err := s.cafeManagedKeyUpdater.UpdateCafeManagedAPIKey(ctx, apiKey, apiKey.Status, now); err != nil {
+		return nil, fmt.Errorf("update cafe managed api key: %w", err)
+	}
+	apiKey.UpdatedAt = now
+	s.InvalidateAuthCacheByKey(ctx, apiKey.Key)
+	s.compileAPIKeyIPRules(apiKey)
+	s.MarkAPIKeyDefaultState(ctx, apiKey)
+	return apiKey, nil
+}
+
 // Delete 删除API Key
 func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) error {
 	apiKey, err := s.apiKeyRepo.GetByID(ctx, id)
@@ -1203,6 +1290,9 @@ func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) erro
 	// 验证当前用户是否为该 API Key 的所有者
 	if apiKey.UserID != userID {
 		return ErrInsufficientPerms
+	}
+	if apiKey.IsCafeRoomManaged() {
+		return ErrCafeManagedKeyProtected
 	}
 	isDefault, err := s.isDefaultAPIKey(ctx, apiKey)
 	if err != nil {
@@ -1224,6 +1314,20 @@ func (s *APIKeyService) Delete(ctx context.Context, id int64, userID int64) erro
 	s.lastUsedTouchL1.Delete(id)
 
 	return nil
+}
+
+func isCafeManagedAPIKeySafeUpdate(req UpdateAPIKeyRequest) bool {
+	return req.GroupID == nil &&
+		req.MultiGroupRoutes == nil &&
+		req.AccountPoolStrategy == nil &&
+		req.Quota == nil &&
+		req.ExpiresAt == nil &&
+		!req.ClearExpiration &&
+		req.ResetQuota == nil &&
+		req.RateLimit5h == nil &&
+		req.RateLimit1d == nil &&
+		req.RateLimit7d == nil &&
+		req.ResetRateLimitUsage == nil
 }
 
 func (s *APIKeyService) loadDefaultAPIKey(ctx context.Context, userID int64) (*APIKey, error) {

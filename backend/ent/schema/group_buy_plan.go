@@ -80,6 +80,24 @@ func (GroupBuyPlan) Fields() []ent.Field {
 		field.String("launch_mode").
 			MaxLen(16).
 			Default("auto"),
+		field.String("fulfillment_mode").
+			MaxLen(32).
+			Default("aggregate_tier").
+			Comment("Fulfillment mode: aggregate_tier or room_subscription."),
+		field.Float("room_key_quota_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Default(0),
+		field.Float("room_key_rate_limit_5h").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Default(0),
+		field.Float("room_key_rate_limit_1d").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Default(0),
+		field.Float("room_key_rate_limit_7d").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Default(0),
+		field.Bool("auto_create_room_key").
+			Default(true),
 		field.String("refund_mode").
 			MaxLen(32).
 			Default("balance_credit"),
@@ -113,6 +131,7 @@ func (GroupBuyPlan) Edges() []ent.Edge {
 		edge.To("rounds", GroupBuyRound.Type),
 		edge.To("seats", GroupBuySeat.Type),
 		edge.To("events", GroupBuyEvent.Type),
+		edge.To("cafe_rooms", CafeRoom.Type),
 	}
 }
 
@@ -122,6 +141,7 @@ func (GroupBuyPlan) Indexes() []ent.Index {
 		index.Fields("status"),
 		index.Fields("sort_order"),
 		index.Fields("target_group_id"),
+		index.Fields("fulfillment_mode"),
 		index.Fields("deleted_at"),
 	}
 }

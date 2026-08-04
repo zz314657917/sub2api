@@ -116,8 +116,11 @@ describe('ImageCreatorView', () => {
           name: 'Image token',
           status: 'active',
           group: {
+            id: 10,
             name: 'OpenAI',
             platform: 'openai',
+            status: 'active',
+            routing_scope: 'image',
             allow_image_generation: true,
           },
         },

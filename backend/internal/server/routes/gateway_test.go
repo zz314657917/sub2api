@@ -298,10 +298,11 @@ func TestResolveAPIKeyRouteForJSONModelReroutesMessagesBeforeDispatch(t *testing
 	c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
 		GroupID: &defaultGroupID,
 		Group: &service.Group{
-			ID:       defaultGroupID,
-			Platform: service.PlatformAnthropic,
-			Status:   service.StatusActive,
-			Hydrated: true,
+			ID:           defaultGroupID,
+			Platform:     service.PlatformAnthropic,
+			Status:       service.StatusActive,
+			Hydrated:     true,
+			RoutingScope: service.GroupRoutingScopeInference,
 		},
 		MultiGroupRouteGroups: []*service.Group{
 			{
@@ -309,6 +310,8 @@ func TestResolveAPIKeyRouteForJSONModelReroutesMessagesBeforeDispatch(t *testing
 				Platform:              service.PlatformOpenAI,
 				Status:                service.StatusActive,
 				Hydrated:              true,
+				RoutingScope:          service.GroupRoutingScopeInference,
+				ModelMatchPatterns:    []string{"gpt-*"},
 				AllowMessagesDispatch: true,
 			},
 		},
@@ -423,24 +426,29 @@ func newGrokImageIntentRoutingContext(body string) *gin.Context {
 	c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
 		GroupID: &groupID,
 		Group: &service.Group{
-			ID:       groupID,
-			Platform: service.PlatformGrok,
-			Status:   service.StatusActive,
-			Hydrated: true,
+			ID:           groupID,
+			Platform:     service.PlatformGrok,
+			Status:       service.StatusActive,
+			Hydrated:     true,
+			RoutingScope: service.GroupRoutingScopeInference,
 		},
 		MultiGroupRouteGroups: []*service.Group{
 			{
 				ID:                   2,
 				Platform:             service.PlatformOpenAI,
 				Status:               service.StatusActive,
+				RoutingScope:         service.GroupRoutingScopeImage,
+				ModelMatchPatterns:   []string{"grok-*"},
 				AllowImageGeneration: true,
 				Hydrated:             true,
 			},
 			{
-				ID:       3,
-				Platform: service.PlatformGrok,
-				Status:   service.StatusActive,
-				Hydrated: true,
+				ID:                 3,
+				Platform:           service.PlatformGrok,
+				Status:             service.StatusActive,
+				RoutingScope:       service.GroupRoutingScopeInference,
+				ModelMatchPatterns: []string{"grok-*"},
+				Hydrated:           true,
 			},
 		},
 		MultiGroupRoutes: []domain.APIKeyMultiGroupRoute{

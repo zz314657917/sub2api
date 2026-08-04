@@ -9,6 +9,9 @@ import (
 // APIKey is the predicate function for apikey builders.
 type APIKey func(*sql.Selector)
 
+// APIKeyAccountBinding is the predicate function for apikeyaccountbinding builders.
+type APIKeyAccountBinding func(*sql.Selector)
+
 // Account is the predicate function for account builders.
 type Account func(*sql.Selector)
 
@@ -26,6 +29,9 @@ type AuthIdentity func(*sql.Selector)
 
 // AuthIdentityChannel is the predicate function for authidentitychannel builders.
 type AuthIdentityChannel func(*sql.Selector)
+
+// CafeRoom is the predicate function for caferoom builders.
+type CafeRoom func(*sql.Selector)
 
 // ChannelMonitor is the predicate function for channelmonitor builders.
 type ChannelMonitor func(*sql.Selector)

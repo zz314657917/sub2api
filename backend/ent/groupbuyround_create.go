@@ -11,6 +11,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/apikeyaccountbinding"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyevent"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
@@ -28,6 +31,62 @@ type GroupBuyRoundCreate struct {
 // SetPlanID sets the "plan_id" field.
 func (_c *GroupBuyRoundCreate) SetPlanID(v int64) *GroupBuyRoundCreate {
 	_c.mutation.SetPlanID(v)
+	return _c
+}
+
+// SetCafeRoomID sets the "cafe_room_id" field.
+func (_c *GroupBuyRoundCreate) SetCafeRoomID(v int64) *GroupBuyRoundCreate {
+	_c.mutation.SetCafeRoomID(v)
+	return _c
+}
+
+// SetNillableCafeRoomID sets the "cafe_room_id" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableCafeRoomID(v *int64) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetCafeRoomID(*v)
+	}
+	return _c
+}
+
+// SetAssignedAccountID sets the "assigned_account_id" field.
+func (_c *GroupBuyRoundCreate) SetAssignedAccountID(v int64) *GroupBuyRoundCreate {
+	_c.mutation.SetAssignedAccountID(v)
+	return _c
+}
+
+// SetNillableAssignedAccountID sets the "assigned_account_id" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableAssignedAccountID(v *int64) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetAssignedAccountID(*v)
+	}
+	return _c
+}
+
+// SetRoomCodeSnapshot sets the "room_code_snapshot" field.
+func (_c *GroupBuyRoundCreate) SetRoomCodeSnapshot(v string) *GroupBuyRoundCreate {
+	_c.mutation.SetRoomCodeSnapshot(v)
+	return _c
+}
+
+// SetNillableRoomCodeSnapshot sets the "room_code_snapshot" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableRoomCodeSnapshot(v *string) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetRoomCodeSnapshot(*v)
+	}
+	return _c
+}
+
+// SetRoomNameSnapshot sets the "room_name_snapshot" field.
+func (_c *GroupBuyRoundCreate) SetRoomNameSnapshot(v string) *GroupBuyRoundCreate {
+	_c.mutation.SetRoomNameSnapshot(v)
+	return _c
+}
+
+// SetNillableRoomNameSnapshot sets the "room_name_snapshot" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableRoomNameSnapshot(v *string) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetRoomNameSnapshot(*v)
+	}
 	return _c
 }
 
@@ -147,6 +206,62 @@ func (_c *GroupBuyRoundCreate) SetNillableClosedAt(v *time.Time) *GroupBuyRoundC
 	return _c
 }
 
+// SetActivatedAt sets the "activated_at" field.
+func (_c *GroupBuyRoundCreate) SetActivatedAt(v time.Time) *GroupBuyRoundCreate {
+	_c.mutation.SetActivatedAt(v)
+	return _c
+}
+
+// SetNillableActivatedAt sets the "activated_at" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableActivatedAt(v *time.Time) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetActivatedAt(*v)
+	}
+	return _c
+}
+
+// SetEntitlementExpiresAt sets the "entitlement_expires_at" field.
+func (_c *GroupBuyRoundCreate) SetEntitlementExpiresAt(v time.Time) *GroupBuyRoundCreate {
+	_c.mutation.SetEntitlementExpiresAt(v)
+	return _c
+}
+
+// SetNillableEntitlementExpiresAt sets the "entitlement_expires_at" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableEntitlementExpiresAt(v *time.Time) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetEntitlementExpiresAt(*v)
+	}
+	return _c
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (_c *GroupBuyRoundCreate) SetCompletedAt(v time.Time) *GroupBuyRoundCreate {
+	_c.mutation.SetCompletedAt(v)
+	return _c
+}
+
+// SetNillableCompletedAt sets the "completed_at" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableCompletedAt(v *time.Time) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetCompletedAt(*v)
+	}
+	return _c
+}
+
+// SetActivationToken sets the "activation_token" field.
+func (_c *GroupBuyRoundCreate) SetActivationToken(v string) *GroupBuyRoundCreate {
+	_c.mutation.SetActivationToken(v)
+	return _c
+}
+
+// SetNillableActivationToken sets the "activation_token" field if the given value is not nil.
+func (_c *GroupBuyRoundCreate) SetNillableActivationToken(v *string) *GroupBuyRoundCreate {
+	if v != nil {
+		_c.SetActivationToken(*v)
+	}
+	return _c
+}
+
 // SetCloseReason sets the "close_reason" field.
 func (_c *GroupBuyRoundCreate) SetCloseReason(v string) *GroupBuyRoundCreate {
 	_c.mutation.SetCloseReason(v)
@@ -222,6 +337,31 @@ func (_c *GroupBuyRoundCreate) AddEvents(v ...*GroupBuyEvent) *GroupBuyRoundCrea
 		ids[i] = v[i].ID
 	}
 	return _c.AddEventIDs(ids...)
+}
+
+// SetCafeRoom sets the "cafe_room" edge to the CafeRoom entity.
+func (_c *GroupBuyRoundCreate) SetCafeRoom(v *CafeRoom) *GroupBuyRoundCreate {
+	return _c.SetCafeRoomID(v.ID)
+}
+
+// SetAssignedAccount sets the "assigned_account" edge to the Account entity.
+func (_c *GroupBuyRoundCreate) SetAssignedAccount(v *Account) *GroupBuyRoundCreate {
+	return _c.SetAssignedAccountID(v.ID)
+}
+
+// AddAccountBindingIDs adds the "account_bindings" edge to the APIKeyAccountBinding entity by IDs.
+func (_c *GroupBuyRoundCreate) AddAccountBindingIDs(ids ...int64) *GroupBuyRoundCreate {
+	_c.mutation.AddAccountBindingIDs(ids...)
+	return _c
+}
+
+// AddAccountBindings adds the "account_bindings" edges to the APIKeyAccountBinding entity.
+func (_c *GroupBuyRoundCreate) AddAccountBindings(v ...*APIKeyAccountBinding) *GroupBuyRoundCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAccountBindingIDs(ids...)
 }
 
 // Mutation returns the GroupBuyRoundMutation object of the builder.
@@ -369,6 +509,14 @@ func (_c *GroupBuyRoundCreate) createSpec() (*GroupBuyRound, *sqlgraph.CreateSpe
 		_spec = sqlgraph.NewCreateSpec(groupbuyround.Table, sqlgraph.NewFieldSpec(groupbuyround.FieldID, field.TypeInt64))
 	)
 	_spec.OnConflict = _c.conflict
+	if value, ok := _c.mutation.RoomCodeSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldRoomCodeSnapshot, field.TypeString, value)
+		_node.RoomCodeSnapshot = &value
+	}
+	if value, ok := _c.mutation.RoomNameSnapshot(); ok {
+		_spec.SetField(groupbuyround.FieldRoomNameSnapshot, field.TypeString, value)
+		_node.RoomNameSnapshot = &value
+	}
 	if value, ok := _c.mutation.Status(); ok {
 		_spec.SetField(groupbuyround.FieldStatus, field.TypeString, value)
 		_node.Status = value
@@ -408,6 +556,22 @@ func (_c *GroupBuyRoundCreate) createSpec() (*GroupBuyRound, *sqlgraph.CreateSpe
 	if value, ok := _c.mutation.ClosedAt(); ok {
 		_spec.SetField(groupbuyround.FieldClosedAt, field.TypeTime, value)
 		_node.ClosedAt = &value
+	}
+	if value, ok := _c.mutation.ActivatedAt(); ok {
+		_spec.SetField(groupbuyround.FieldActivatedAt, field.TypeTime, value)
+		_node.ActivatedAt = &value
+	}
+	if value, ok := _c.mutation.EntitlementExpiresAt(); ok {
+		_spec.SetField(groupbuyround.FieldEntitlementExpiresAt, field.TypeTime, value)
+		_node.EntitlementExpiresAt = &value
+	}
+	if value, ok := _c.mutation.CompletedAt(); ok {
+		_spec.SetField(groupbuyround.FieldCompletedAt, field.TypeTime, value)
+		_node.CompletedAt = &value
+	}
+	if value, ok := _c.mutation.ActivationToken(); ok {
+		_spec.SetField(groupbuyround.FieldActivationToken, field.TypeString, value)
+		_node.ActivationToken = &value
 	}
 	if value, ok := _c.mutation.CloseReason(); ok {
 		_spec.SetField(groupbuyround.FieldCloseReason, field.TypeString, value)
@@ -463,6 +627,56 @@ func (_c *GroupBuyRoundCreate) createSpec() (*GroupBuyRound, *sqlgraph.CreateSpe
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(groupbuyevent.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.CafeRoomIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyround.CafeRoomTable,
+			Columns: []string{groupbuyround.CafeRoomColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(caferoom.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.CafeRoomID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AssignedAccountIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2O,
+			Inverse: true,
+			Table:   groupbuyround.AssignedAccountTable,
+			Columns: []string{groupbuyround.AssignedAccountColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_node.AssignedAccountID = &nodes[0]
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.AccountBindingsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   groupbuyround.AccountBindingsTable,
+			Columns: []string{groupbuyround.AccountBindingsColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(apikeyaccountbinding.FieldID, field.TypeInt64),
 			},
 		}
 		for _, k := range nodes {
@@ -531,6 +745,78 @@ func (u *GroupBuyRoundUpsert) SetPlanID(v int64) *GroupBuyRoundUpsert {
 // UpdatePlanID sets the "plan_id" field to the value that was provided on create.
 func (u *GroupBuyRoundUpsert) UpdatePlanID() *GroupBuyRoundUpsert {
 	u.SetExcluded(groupbuyround.FieldPlanID)
+	return u
+}
+
+// SetCafeRoomID sets the "cafe_room_id" field.
+func (u *GroupBuyRoundUpsert) SetCafeRoomID(v int64) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldCafeRoomID, v)
+	return u
+}
+
+// UpdateCafeRoomID sets the "cafe_room_id" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateCafeRoomID() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldCafeRoomID)
+	return u
+}
+
+// ClearCafeRoomID clears the value of the "cafe_room_id" field.
+func (u *GroupBuyRoundUpsert) ClearCafeRoomID() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldCafeRoomID)
+	return u
+}
+
+// SetAssignedAccountID sets the "assigned_account_id" field.
+func (u *GroupBuyRoundUpsert) SetAssignedAccountID(v int64) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldAssignedAccountID, v)
+	return u
+}
+
+// UpdateAssignedAccountID sets the "assigned_account_id" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateAssignedAccountID() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldAssignedAccountID)
+	return u
+}
+
+// ClearAssignedAccountID clears the value of the "assigned_account_id" field.
+func (u *GroupBuyRoundUpsert) ClearAssignedAccountID() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldAssignedAccountID)
+	return u
+}
+
+// SetRoomCodeSnapshot sets the "room_code_snapshot" field.
+func (u *GroupBuyRoundUpsert) SetRoomCodeSnapshot(v string) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldRoomCodeSnapshot, v)
+	return u
+}
+
+// UpdateRoomCodeSnapshot sets the "room_code_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateRoomCodeSnapshot() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldRoomCodeSnapshot)
+	return u
+}
+
+// ClearRoomCodeSnapshot clears the value of the "room_code_snapshot" field.
+func (u *GroupBuyRoundUpsert) ClearRoomCodeSnapshot() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldRoomCodeSnapshot)
+	return u
+}
+
+// SetRoomNameSnapshot sets the "room_name_snapshot" field.
+func (u *GroupBuyRoundUpsert) SetRoomNameSnapshot(v string) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldRoomNameSnapshot, v)
+	return u
+}
+
+// UpdateRoomNameSnapshot sets the "room_name_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateRoomNameSnapshot() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldRoomNameSnapshot)
+	return u
+}
+
+// ClearRoomNameSnapshot clears the value of the "room_name_snapshot" field.
+func (u *GroupBuyRoundUpsert) ClearRoomNameSnapshot() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldRoomNameSnapshot)
 	return u
 }
 
@@ -702,6 +988,78 @@ func (u *GroupBuyRoundUpsert) ClearClosedAt() *GroupBuyRoundUpsert {
 	return u
 }
 
+// SetActivatedAt sets the "activated_at" field.
+func (u *GroupBuyRoundUpsert) SetActivatedAt(v time.Time) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldActivatedAt, v)
+	return u
+}
+
+// UpdateActivatedAt sets the "activated_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateActivatedAt() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldActivatedAt)
+	return u
+}
+
+// ClearActivatedAt clears the value of the "activated_at" field.
+func (u *GroupBuyRoundUpsert) ClearActivatedAt() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldActivatedAt)
+	return u
+}
+
+// SetEntitlementExpiresAt sets the "entitlement_expires_at" field.
+func (u *GroupBuyRoundUpsert) SetEntitlementExpiresAt(v time.Time) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldEntitlementExpiresAt, v)
+	return u
+}
+
+// UpdateEntitlementExpiresAt sets the "entitlement_expires_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateEntitlementExpiresAt() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldEntitlementExpiresAt)
+	return u
+}
+
+// ClearEntitlementExpiresAt clears the value of the "entitlement_expires_at" field.
+func (u *GroupBuyRoundUpsert) ClearEntitlementExpiresAt() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldEntitlementExpiresAt)
+	return u
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (u *GroupBuyRoundUpsert) SetCompletedAt(v time.Time) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldCompletedAt, v)
+	return u
+}
+
+// UpdateCompletedAt sets the "completed_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateCompletedAt() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldCompletedAt)
+	return u
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (u *GroupBuyRoundUpsert) ClearCompletedAt() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldCompletedAt)
+	return u
+}
+
+// SetActivationToken sets the "activation_token" field.
+func (u *GroupBuyRoundUpsert) SetActivationToken(v string) *GroupBuyRoundUpsert {
+	u.Set(groupbuyround.FieldActivationToken, v)
+	return u
+}
+
+// UpdateActivationToken sets the "activation_token" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsert) UpdateActivationToken() *GroupBuyRoundUpsert {
+	u.SetExcluded(groupbuyround.FieldActivationToken)
+	return u
+}
+
+// ClearActivationToken clears the value of the "activation_token" field.
+func (u *GroupBuyRoundUpsert) ClearActivationToken() *GroupBuyRoundUpsert {
+	u.SetNull(groupbuyround.FieldActivationToken)
+	return u
+}
+
 // SetCloseReason sets the "close_reason" field.
 func (u *GroupBuyRoundUpsert) SetCloseReason(v string) *GroupBuyRoundUpsert {
 	u.Set(groupbuyround.FieldCloseReason, v)
@@ -788,6 +1146,90 @@ func (u *GroupBuyRoundUpsertOne) SetPlanID(v int64) *GroupBuyRoundUpsertOne {
 func (u *GroupBuyRoundUpsertOne) UpdatePlanID() *GroupBuyRoundUpsertOne {
 	return u.Update(func(s *GroupBuyRoundUpsert) {
 		s.UpdatePlanID()
+	})
+}
+
+// SetCafeRoomID sets the "cafe_room_id" field.
+func (u *GroupBuyRoundUpsertOne) SetCafeRoomID(v int64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetCafeRoomID(v)
+	})
+}
+
+// UpdateCafeRoomID sets the "cafe_room_id" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateCafeRoomID() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateCafeRoomID()
+	})
+}
+
+// ClearCafeRoomID clears the value of the "cafe_room_id" field.
+func (u *GroupBuyRoundUpsertOne) ClearCafeRoomID() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearCafeRoomID()
+	})
+}
+
+// SetAssignedAccountID sets the "assigned_account_id" field.
+func (u *GroupBuyRoundUpsertOne) SetAssignedAccountID(v int64) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetAssignedAccountID(v)
+	})
+}
+
+// UpdateAssignedAccountID sets the "assigned_account_id" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateAssignedAccountID() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateAssignedAccountID()
+	})
+}
+
+// ClearAssignedAccountID clears the value of the "assigned_account_id" field.
+func (u *GroupBuyRoundUpsertOne) ClearAssignedAccountID() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearAssignedAccountID()
+	})
+}
+
+// SetRoomCodeSnapshot sets the "room_code_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) SetRoomCodeSnapshot(v string) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetRoomCodeSnapshot(v)
+	})
+}
+
+// UpdateRoomCodeSnapshot sets the "room_code_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateRoomCodeSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateRoomCodeSnapshot()
+	})
+}
+
+// ClearRoomCodeSnapshot clears the value of the "room_code_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) ClearRoomCodeSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearRoomCodeSnapshot()
+	})
+}
+
+// SetRoomNameSnapshot sets the "room_name_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) SetRoomNameSnapshot(v string) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetRoomNameSnapshot(v)
+	})
+}
+
+// UpdateRoomNameSnapshot sets the "room_name_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateRoomNameSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateRoomNameSnapshot()
+	})
+}
+
+// ClearRoomNameSnapshot clears the value of the "room_name_snapshot" field.
+func (u *GroupBuyRoundUpsertOne) ClearRoomNameSnapshot() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearRoomNameSnapshot()
 	})
 }
 
@@ -984,6 +1426,90 @@ func (u *GroupBuyRoundUpsertOne) UpdateClosedAt() *GroupBuyRoundUpsertOne {
 func (u *GroupBuyRoundUpsertOne) ClearClosedAt() *GroupBuyRoundUpsertOne {
 	return u.Update(func(s *GroupBuyRoundUpsert) {
 		s.ClearClosedAt()
+	})
+}
+
+// SetActivatedAt sets the "activated_at" field.
+func (u *GroupBuyRoundUpsertOne) SetActivatedAt(v time.Time) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetActivatedAt(v)
+	})
+}
+
+// UpdateActivatedAt sets the "activated_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateActivatedAt() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateActivatedAt()
+	})
+}
+
+// ClearActivatedAt clears the value of the "activated_at" field.
+func (u *GroupBuyRoundUpsertOne) ClearActivatedAt() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearActivatedAt()
+	})
+}
+
+// SetEntitlementExpiresAt sets the "entitlement_expires_at" field.
+func (u *GroupBuyRoundUpsertOne) SetEntitlementExpiresAt(v time.Time) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetEntitlementExpiresAt(v)
+	})
+}
+
+// UpdateEntitlementExpiresAt sets the "entitlement_expires_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateEntitlementExpiresAt() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateEntitlementExpiresAt()
+	})
+}
+
+// ClearEntitlementExpiresAt clears the value of the "entitlement_expires_at" field.
+func (u *GroupBuyRoundUpsertOne) ClearEntitlementExpiresAt() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearEntitlementExpiresAt()
+	})
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (u *GroupBuyRoundUpsertOne) SetCompletedAt(v time.Time) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetCompletedAt(v)
+	})
+}
+
+// UpdateCompletedAt sets the "completed_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateCompletedAt() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateCompletedAt()
+	})
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (u *GroupBuyRoundUpsertOne) ClearCompletedAt() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearCompletedAt()
+	})
+}
+
+// SetActivationToken sets the "activation_token" field.
+func (u *GroupBuyRoundUpsertOne) SetActivationToken(v string) *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetActivationToken(v)
+	})
+}
+
+// UpdateActivationToken sets the "activation_token" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertOne) UpdateActivationToken() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateActivationToken()
+	})
+}
+
+// ClearActivationToken clears the value of the "activation_token" field.
+func (u *GroupBuyRoundUpsertOne) ClearActivationToken() *GroupBuyRoundUpsertOne {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearActivationToken()
 	})
 }
 
@@ -1247,6 +1773,90 @@ func (u *GroupBuyRoundUpsertBulk) UpdatePlanID() *GroupBuyRoundUpsertBulk {
 	})
 }
 
+// SetCafeRoomID sets the "cafe_room_id" field.
+func (u *GroupBuyRoundUpsertBulk) SetCafeRoomID(v int64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetCafeRoomID(v)
+	})
+}
+
+// UpdateCafeRoomID sets the "cafe_room_id" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateCafeRoomID() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateCafeRoomID()
+	})
+}
+
+// ClearCafeRoomID clears the value of the "cafe_room_id" field.
+func (u *GroupBuyRoundUpsertBulk) ClearCafeRoomID() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearCafeRoomID()
+	})
+}
+
+// SetAssignedAccountID sets the "assigned_account_id" field.
+func (u *GroupBuyRoundUpsertBulk) SetAssignedAccountID(v int64) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetAssignedAccountID(v)
+	})
+}
+
+// UpdateAssignedAccountID sets the "assigned_account_id" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateAssignedAccountID() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateAssignedAccountID()
+	})
+}
+
+// ClearAssignedAccountID clears the value of the "assigned_account_id" field.
+func (u *GroupBuyRoundUpsertBulk) ClearAssignedAccountID() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearAssignedAccountID()
+	})
+}
+
+// SetRoomCodeSnapshot sets the "room_code_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) SetRoomCodeSnapshot(v string) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetRoomCodeSnapshot(v)
+	})
+}
+
+// UpdateRoomCodeSnapshot sets the "room_code_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateRoomCodeSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateRoomCodeSnapshot()
+	})
+}
+
+// ClearRoomCodeSnapshot clears the value of the "room_code_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) ClearRoomCodeSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearRoomCodeSnapshot()
+	})
+}
+
+// SetRoomNameSnapshot sets the "room_name_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) SetRoomNameSnapshot(v string) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetRoomNameSnapshot(v)
+	})
+}
+
+// UpdateRoomNameSnapshot sets the "room_name_snapshot" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateRoomNameSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateRoomNameSnapshot()
+	})
+}
+
+// ClearRoomNameSnapshot clears the value of the "room_name_snapshot" field.
+func (u *GroupBuyRoundUpsertBulk) ClearRoomNameSnapshot() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearRoomNameSnapshot()
+	})
+}
+
 // SetStatus sets the "status" field.
 func (u *GroupBuyRoundUpsertBulk) SetStatus(v string) *GroupBuyRoundUpsertBulk {
 	return u.Update(func(s *GroupBuyRoundUpsert) {
@@ -1440,6 +2050,90 @@ func (u *GroupBuyRoundUpsertBulk) UpdateClosedAt() *GroupBuyRoundUpsertBulk {
 func (u *GroupBuyRoundUpsertBulk) ClearClosedAt() *GroupBuyRoundUpsertBulk {
 	return u.Update(func(s *GroupBuyRoundUpsert) {
 		s.ClearClosedAt()
+	})
+}
+
+// SetActivatedAt sets the "activated_at" field.
+func (u *GroupBuyRoundUpsertBulk) SetActivatedAt(v time.Time) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetActivatedAt(v)
+	})
+}
+
+// UpdateActivatedAt sets the "activated_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateActivatedAt() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateActivatedAt()
+	})
+}
+
+// ClearActivatedAt clears the value of the "activated_at" field.
+func (u *GroupBuyRoundUpsertBulk) ClearActivatedAt() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearActivatedAt()
+	})
+}
+
+// SetEntitlementExpiresAt sets the "entitlement_expires_at" field.
+func (u *GroupBuyRoundUpsertBulk) SetEntitlementExpiresAt(v time.Time) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetEntitlementExpiresAt(v)
+	})
+}
+
+// UpdateEntitlementExpiresAt sets the "entitlement_expires_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateEntitlementExpiresAt() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateEntitlementExpiresAt()
+	})
+}
+
+// ClearEntitlementExpiresAt clears the value of the "entitlement_expires_at" field.
+func (u *GroupBuyRoundUpsertBulk) ClearEntitlementExpiresAt() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearEntitlementExpiresAt()
+	})
+}
+
+// SetCompletedAt sets the "completed_at" field.
+func (u *GroupBuyRoundUpsertBulk) SetCompletedAt(v time.Time) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetCompletedAt(v)
+	})
+}
+
+// UpdateCompletedAt sets the "completed_at" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateCompletedAt() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateCompletedAt()
+	})
+}
+
+// ClearCompletedAt clears the value of the "completed_at" field.
+func (u *GroupBuyRoundUpsertBulk) ClearCompletedAt() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearCompletedAt()
+	})
+}
+
+// SetActivationToken sets the "activation_token" field.
+func (u *GroupBuyRoundUpsertBulk) SetActivationToken(v string) *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.SetActivationToken(v)
+	})
+}
+
+// UpdateActivationToken sets the "activation_token" field to the value that was provided on create.
+func (u *GroupBuyRoundUpsertBulk) UpdateActivationToken() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.UpdateActivationToken()
+	})
+}
+
+// ClearActivationToken clears the value of the "activation_token" field.
+func (u *GroupBuyRoundUpsertBulk) ClearActivationToken() *GroupBuyRoundUpsertBulk {
+	return u.Update(func(s *GroupBuyRoundUpsert) {
+		s.ClearActivationToken()
 	})
 }
 

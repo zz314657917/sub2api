@@ -170,6 +170,66 @@ func TestGroupBuyDisabledBlocksUserSurfaceButKeepsAdminPlans(t *testing.T) {
 	require.Len(t, adminPlans, 1)
 }
 
+func TestGroupBuyAdminPlanViewExposesFulfillmentMode(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_plan_fulfillment_mode")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 5)
+	_, err := client.GroupBuyPlan.UpdateOneID(plan.ID).
+		SetFulfillmentMode("room_subscription").
+		Save(ctx)
+	require.NoError(t, err)
+
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
+	plans, err := svc.ListPlans(ctx, true)
+	require.NoError(t, err)
+	require.Len(t, plans, 1)
+	require.Equal(t, "room_subscription", plans[0].FulfillmentMode)
+}
+
+func TestGroupBuyUserEndpointsExcludeRoomSubscriptionPlans(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_user_excludes_room_subscription")
+	groupID := createGroupBuyTestGroup(t, ctx, client, 1, 100)
+	plan := createGroupBuyTestPlan(t, ctx, client, groupID, GroupBuyLaunchModeManual, 3)
+	_, err := client.GroupBuyPlan.UpdateOneID(plan.ID).SetFulfillmentMode(CafeRoomFulfillmentMode).Save(ctx)
+	require.NoError(t, err)
+
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(groupID), nil)
+	userPlans, err := svc.ListPlans(ctx, false)
+	require.NoError(t, err)
+	require.Empty(t, userPlans)
+	_, err = svc.loadAvailablePlan(ctx, plan.ID)
+	require.ErrorIs(t, err, ErrGroupBuyPlanNotFound)
+
+	adminPlans, err := svc.ListPlans(ctx, true)
+	require.NoError(t, err)
+	require.Len(t, adminPlans, 1)
+	require.Equal(t, CafeRoomFulfillmentMode, adminPlans[0].FulfillmentMode)
+}
+
+func TestRefreshExpiredEntitlementsIgnoresCafeSeats(t *testing.T) {
+	ctx := context.Background()
+	client := newGroupBuyTestClient(t, "groupbuy_refresh_excludes_cafe")
+	activatedAt := time.Date(2026, 8, 3, 17, 0, 0, 0, time.UTC)
+	fixture := newCafeActivationFixture(t, ctx, client, activatedAt, 1)
+	require.NoError(t, fixture.service.ActivateRound(ctx, fixture.round.ID))
+
+	svc := newGroupBuyTestService(client, newGroupBuyGroupRepoStubWithGroup(fixture.groupID), nil)
+	svc.now = func() time.Time { return activatedAt.AddDate(0, 0, fixture.plan.ValidityDays) }
+	count, err := svc.RefreshExpiredEntitlements(ctx)
+	require.NoError(t, err)
+	require.Zero(t, count)
+	seat, err := client.GroupBuySeat.Query().Where(groupbuyseat.RoundIDEQ(fixture.round.ID)).Only(ctx)
+	require.NoError(t, err)
+	_, err = svc.RefreshUserEntitlement(ctx, seat.UserID)
+	require.NoError(t, err)
+
+	subscriptions, err := client.UserSubscription.Query().Count(ctx)
+	require.NoError(t, err)
+	require.Zero(t, subscriptions)
+}
+
 func TestGroupBuyRefreshUserEntitlementAggregatesSharesAndExpiresToInactive(t *testing.T) {
 	ctx := context.Background()
 	client := newGroupBuyTestClient(t, "groupbuy_entitlement_refresh")

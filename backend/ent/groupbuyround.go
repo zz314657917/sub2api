@@ -9,6 +9,8 @@ import (
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"
+	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/caferoom"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyplan"
 	"github.com/Wei-Shaw/sub2api/ent/groupbuyround"
 )
@@ -20,6 +22,14 @@ type GroupBuyRound struct {
 	ID int64 `json:"id,omitempty"`
 	// PlanID holds the value of the "plan_id" field.
 	PlanID int64 `json:"plan_id,omitempty"`
+	// CafeRoomID holds the value of the "cafe_room_id" field.
+	CafeRoomID *int64 `json:"cafe_room_id,omitempty"`
+	// AssignedAccountID holds the value of the "assigned_account_id" field.
+	AssignedAccountID *int64 `json:"assigned_account_id,omitempty"`
+	// RoomCodeSnapshot holds the value of the "room_code_snapshot" field.
+	RoomCodeSnapshot *string `json:"room_code_snapshot,omitempty"`
+	// RoomNameSnapshot holds the value of the "room_name_snapshot" field.
+	RoomNameSnapshot *string `json:"room_name_snapshot,omitempty"`
 	// Status holds the value of the "status" field.
 	Status string `json:"status,omitempty"`
 	// TotalShares holds the value of the "total_shares" field.
@@ -40,6 +50,14 @@ type GroupBuyRound struct {
 	StartedAt *time.Time `json:"started_at,omitempty"`
 	// ClosedAt holds the value of the "closed_at" field.
 	ClosedAt *time.Time `json:"closed_at,omitempty"`
+	// ActivatedAt holds the value of the "activated_at" field.
+	ActivatedAt *time.Time `json:"activated_at,omitempty"`
+	// EntitlementExpiresAt holds the value of the "entitlement_expires_at" field.
+	EntitlementExpiresAt *time.Time `json:"entitlement_expires_at,omitempty"`
+	// CompletedAt holds the value of the "completed_at" field.
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
+	// ActivationToken holds the value of the "activation_token" field.
+	ActivationToken *string `json:"activation_token,omitempty"`
 	// CloseReason holds the value of the "close_reason" field.
 	CloseReason *string `json:"close_reason,omitempty"`
 	// CreatedAt holds the value of the "created_at" field.
@@ -60,9 +78,15 @@ type GroupBuyRoundEdges struct {
 	Seats []*GroupBuySeat `json:"seats,omitempty"`
 	// Events holds the value of the events edge.
 	Events []*GroupBuyEvent `json:"events,omitempty"`
+	// CafeRoom holds the value of the cafe_room edge.
+	CafeRoom *CafeRoom `json:"cafe_room,omitempty"`
+	// AssignedAccount holds the value of the assigned_account edge.
+	AssignedAccount *Account `json:"assigned_account,omitempty"`
+	// AccountBindings holds the value of the account_bindings edge.
+	AccountBindings []*APIKeyAccountBinding `json:"account_bindings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [3]bool
+	loadedTypes [6]bool
 }
 
 // PlanOrErr returns the Plan value or an error if the edge
@@ -94,16 +118,47 @@ func (e GroupBuyRoundEdges) EventsOrErr() ([]*GroupBuyEvent, error) {
 	return nil, &NotLoadedError{edge: "events"}
 }
 
+// CafeRoomOrErr returns the CafeRoom value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e GroupBuyRoundEdges) CafeRoomOrErr() (*CafeRoom, error) {
+	if e.CafeRoom != nil {
+		return e.CafeRoom, nil
+	} else if e.loadedTypes[3] {
+		return nil, &NotFoundError{label: caferoom.Label}
+	}
+	return nil, &NotLoadedError{edge: "cafe_room"}
+}
+
+// AssignedAccountOrErr returns the AssignedAccount value or an error if the edge
+// was not loaded in eager-loading, or loaded but was not found.
+func (e GroupBuyRoundEdges) AssignedAccountOrErr() (*Account, error) {
+	if e.AssignedAccount != nil {
+		return e.AssignedAccount, nil
+	} else if e.loadedTypes[4] {
+		return nil, &NotFoundError{label: account.Label}
+	}
+	return nil, &NotLoadedError{edge: "assigned_account"}
+}
+
+// AccountBindingsOrErr returns the AccountBindings value or an error if the edge
+// was not loaded in eager-loading.
+func (e GroupBuyRoundEdges) AccountBindingsOrErr() ([]*APIKeyAccountBinding, error) {
+	if e.loadedTypes[5] {
+		return e.AccountBindings, nil
+	}
+	return nil, &NotLoadedError{edge: "account_bindings"}
+}
+
 // scanValues returns the types for scanning values from sql.Rows.
 func (*GroupBuyRound) scanValues(columns []string) ([]any, error) {
 	values := make([]any, len(columns))
 	for i := range columns {
 		switch columns[i] {
-		case groupbuyround.FieldID, groupbuyround.FieldPlanID, groupbuyround.FieldTotalShares, groupbuyround.FieldPaidShares, groupbuyround.FieldReservedShares, groupbuyround.FieldTotalSeats, groupbuyround.FieldPaidSeats, groupbuyround.FieldReservedSeats:
+		case groupbuyround.FieldID, groupbuyround.FieldPlanID, groupbuyround.FieldCafeRoomID, groupbuyround.FieldAssignedAccountID, groupbuyround.FieldTotalShares, groupbuyround.FieldPaidShares, groupbuyround.FieldReservedShares, groupbuyround.FieldTotalSeats, groupbuyround.FieldPaidSeats, groupbuyround.FieldReservedSeats:
 			values[i] = new(sql.NullInt64)
-		case groupbuyround.FieldStatus, groupbuyround.FieldCloseReason:
+		case groupbuyround.FieldRoomCodeSnapshot, groupbuyround.FieldRoomNameSnapshot, groupbuyround.FieldStatus, groupbuyround.FieldActivationToken, groupbuyround.FieldCloseReason:
 			values[i] = new(sql.NullString)
-		case groupbuyround.FieldDeadlineAt, groupbuyround.FieldStartedAt, groupbuyround.FieldClosedAt, groupbuyround.FieldCreatedAt, groupbuyround.FieldUpdatedAt:
+		case groupbuyround.FieldDeadlineAt, groupbuyround.FieldStartedAt, groupbuyround.FieldClosedAt, groupbuyround.FieldActivatedAt, groupbuyround.FieldEntitlementExpiresAt, groupbuyround.FieldCompletedAt, groupbuyround.FieldCreatedAt, groupbuyround.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
 		default:
 			values[i] = new(sql.UnknownType)
@@ -131,6 +186,34 @@ func (_m *GroupBuyRound) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field plan_id", values[i])
 			} else if value.Valid {
 				_m.PlanID = value.Int64
+			}
+		case groupbuyround.FieldCafeRoomID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field cafe_room_id", values[i])
+			} else if value.Valid {
+				_m.CafeRoomID = new(int64)
+				*_m.CafeRoomID = value.Int64
+			}
+		case groupbuyround.FieldAssignedAccountID:
+			if value, ok := values[i].(*sql.NullInt64); !ok {
+				return fmt.Errorf("unexpected type %T for field assigned_account_id", values[i])
+			} else if value.Valid {
+				_m.AssignedAccountID = new(int64)
+				*_m.AssignedAccountID = value.Int64
+			}
+		case groupbuyround.FieldRoomCodeSnapshot:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field room_code_snapshot", values[i])
+			} else if value.Valid {
+				_m.RoomCodeSnapshot = new(string)
+				*_m.RoomCodeSnapshot = value.String
+			}
+		case groupbuyround.FieldRoomNameSnapshot:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field room_name_snapshot", values[i])
+			} else if value.Valid {
+				_m.RoomNameSnapshot = new(string)
+				*_m.RoomNameSnapshot = value.String
 			}
 		case groupbuyround.FieldStatus:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -194,6 +277,34 @@ func (_m *GroupBuyRound) assignValues(columns []string, values []any) error {
 				_m.ClosedAt = new(time.Time)
 				*_m.ClosedAt = value.Time
 			}
+		case groupbuyround.FieldActivatedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field activated_at", values[i])
+			} else if value.Valid {
+				_m.ActivatedAt = new(time.Time)
+				*_m.ActivatedAt = value.Time
+			}
+		case groupbuyround.FieldEntitlementExpiresAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field entitlement_expires_at", values[i])
+			} else if value.Valid {
+				_m.EntitlementExpiresAt = new(time.Time)
+				*_m.EntitlementExpiresAt = value.Time
+			}
+		case groupbuyround.FieldCompletedAt:
+			if value, ok := values[i].(*sql.NullTime); !ok {
+				return fmt.Errorf("unexpected type %T for field completed_at", values[i])
+			} else if value.Valid {
+				_m.CompletedAt = new(time.Time)
+				*_m.CompletedAt = value.Time
+			}
+		case groupbuyround.FieldActivationToken:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field activation_token", values[i])
+			} else if value.Valid {
+				_m.ActivationToken = new(string)
+				*_m.ActivationToken = value.String
+			}
 		case groupbuyround.FieldCloseReason:
 			if value, ok := values[i].(*sql.NullString); !ok {
 				return fmt.Errorf("unexpected type %T for field close_reason", values[i])
@@ -241,6 +352,21 @@ func (_m *GroupBuyRound) QueryEvents() *GroupBuyEventQuery {
 	return NewGroupBuyRoundClient(_m.config).QueryEvents(_m)
 }
 
+// QueryCafeRoom queries the "cafe_room" edge of the GroupBuyRound entity.
+func (_m *GroupBuyRound) QueryCafeRoom() *CafeRoomQuery {
+	return NewGroupBuyRoundClient(_m.config).QueryCafeRoom(_m)
+}
+
+// QueryAssignedAccount queries the "assigned_account" edge of the GroupBuyRound entity.
+func (_m *GroupBuyRound) QueryAssignedAccount() *AccountQuery {
+	return NewGroupBuyRoundClient(_m.config).QueryAssignedAccount(_m)
+}
+
+// QueryAccountBindings queries the "account_bindings" edge of the GroupBuyRound entity.
+func (_m *GroupBuyRound) QueryAccountBindings() *APIKeyAccountBindingQuery {
+	return NewGroupBuyRoundClient(_m.config).QueryAccountBindings(_m)
+}
+
 // Update returns a builder for updating this GroupBuyRound.
 // Note that you need to call GroupBuyRound.Unwrap() before calling this method if this GroupBuyRound
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -266,6 +392,26 @@ func (_m *GroupBuyRound) String() string {
 	builder.WriteString(fmt.Sprintf("id=%v, ", _m.ID))
 	builder.WriteString("plan_id=")
 	builder.WriteString(fmt.Sprintf("%v", _m.PlanID))
+	builder.WriteString(", ")
+	if v := _m.CafeRoomID; v != nil {
+		builder.WriteString("cafe_room_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.AssignedAccountID; v != nil {
+		builder.WriteString("assigned_account_id=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.RoomCodeSnapshot; v != nil {
+		builder.WriteString("room_code_snapshot=")
+		builder.WriteString(*v)
+	}
+	builder.WriteString(", ")
+	if v := _m.RoomNameSnapshot; v != nil {
+		builder.WriteString("room_name_snapshot=")
+		builder.WriteString(*v)
+	}
 	builder.WriteString(", ")
 	builder.WriteString("status=")
 	builder.WriteString(_m.Status)
@@ -299,6 +445,26 @@ func (_m *GroupBuyRound) String() string {
 	if v := _m.ClosedAt; v != nil {
 		builder.WriteString("closed_at=")
 		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.ActivatedAt; v != nil {
+		builder.WriteString("activated_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.EntitlementExpiresAt; v != nil {
+		builder.WriteString("entitlement_expires_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.CompletedAt; v != nil {
+		builder.WriteString("completed_at=")
+		builder.WriteString(v.Format(time.ANSIC))
+	}
+	builder.WriteString(", ")
+	if v := _m.ActivationToken; v != nil {
+		builder.WriteString("activation_token=")
+		builder.WriteString(*v)
 	}
 	builder.WriteString(", ")
 	if v := _m.CloseReason; v != nil {

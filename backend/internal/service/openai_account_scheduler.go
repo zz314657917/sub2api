@@ -1250,6 +1250,14 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	requireCompact bool,
 	platform string,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	if pinnedID, ok := pinnedAccountIDFromContext(ctx); ok {
+		selection, err := s.selectPinnedOpenAIAccount(ctx, pinnedID, groupID, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requiredAccountCapability, requireCompact, platform)
+		decision := OpenAIAccountScheduleDecision{Layer: "pinned", SelectedAccountID: pinnedID}
+		if selection != nil && selection.Account != nil {
+			decision.SelectedAccountType = selection.Account.Type
+		}
+		return selection, decision, err
+	}
 	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	platform = normalizeOpenAICompatiblePlatform(platform)
 	decision := OpenAIAccountScheduleDecision{}
@@ -1339,6 +1347,61 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	})
 }
 
+func (s *OpenAIGatewayService) selectPinnedOpenAIAccount(
+	ctx context.Context,
+	accountID int64,
+	groupID *int64,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requiredTransport OpenAIUpstreamTransport,
+	requiredCapability OpenAIEndpointCapability,
+	requiredImageCapability OpenAIImagesCapability,
+	requiredAccountCapability AccountCapability,
+	requireCompact bool,
+	platform string,
+) (*AccountSelectionResult, error) {
+	account, err := s.pinnedOpenAIAccount(ctx, accountID, groupID, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requiredAccountCapability, requireCompact, platform)
+	if err != nil {
+		return nil, err
+	}
+	result, acquireErr := s.tryAcquireAccountSlot(ctx, account.ID, account.Concurrency)
+	if acquireErr == nil && result.Acquired {
+		return s.newSelectionResult(ctx, account, true, result.ReleaseFunc, nil)
+	}
+	cfg := s.schedulingConfig()
+	return s.newSelectionResult(ctx, account, false, nil, &AccountWaitPlan{AccountID: account.ID, MaxConcurrency: account.Concurrency, Timeout: cfg.FallbackWaitTimeout, MaxWaiting: cfg.FallbackMaxWaiting})
+}
+
+func (s *OpenAIGatewayService) pinnedOpenAIAccount(
+	ctx context.Context,
+	accountID int64,
+	groupID *int64,
+	requestedModel string,
+	excludedIDs map[int64]struct{},
+	requiredTransport OpenAIUpstreamTransport,
+	requiredCapability OpenAIEndpointCapability,
+	requiredImageCapability OpenAIImagesCapability,
+	requiredAccountCapability AccountCapability,
+	requireCompact bool,
+	platform string,
+) (*Account, error) {
+	if s == nil || s.accountRepo == nil || accountID <= 0 {
+		return nil, ErrCafeAccountUnavailable
+	}
+	if _, excluded := excludedIDs[accountID]; excluded {
+		return nil, ErrCafeAccountUnavailable
+	}
+	account, err := s.accountRepo.GetByID(ctx, accountID)
+	if err != nil || account == nil || !openAIStickyAccountMatchesGroup(account, groupID) ||
+		!strings.EqualFold(normalizeOpenAICompatiblePlatform(account.Platform), normalizeOpenAICompatiblePlatform(platform)) ||
+		!isOpenAIAccountEligibleForRequest(ctx, account, requestedModel, requireCompact, requiredCapability, requiredAccountCapability) ||
+		!s.isOpenAIAccountTransportCompatible(account, requiredTransport) ||
+		!accountSupportsOpenAICapabilities(account, requiredCapability, requiredImageCapability, requiredAccountCapability) {
+		return nil, ErrCafeAccountUnavailable
+	}
+	return account, nil
+}
+
 func (s *OpenAIGatewayService) selectAccountWithSchedulerForUser(
 	ctx context.Context,
 	groupID *int64,
@@ -1354,6 +1417,9 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerForUser(
 	sub2apiUserID int64,
 	platform string,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
+	if _, pinned := pinnedAccountIDFromContext(ctx); pinned {
+		return s.selectAccountWithScheduler(ctx, groupID, previousResponseID, sessionHash, requestedModel, excludedIDs, requiredTransport, requiredCapability, requiredImageCapability, requiredAccountCapability, requireCompact, platform)
+	}
 	effectiveExcludedIDs := cloneExcludedAccountIDs(excludedIDs)
 	var lastDecision OpenAIAccountScheduleDecision
 	for attempts := 0; attempts < 1024; attempts++ {

@@ -24,6 +24,7 @@ import errorPassthrough from './errorPassthrough'
 import tlsFingerprintProfiles from './tlsFingerprintProfiles'
 import tickets from './tickets'
 import audit from './audit'
+import pixelCafe from './pixelCafe'
 
 export default {
   dashboard,
@@ -52,4 +53,5 @@ export default {
   tlsFingerprintProfiles,
   tickets,
   audit,
+  pixelCafe,
 }

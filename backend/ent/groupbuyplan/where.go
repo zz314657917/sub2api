@@ -140,6 +140,36 @@ func LaunchMode(v string) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldEQ(FieldLaunchMode, v))
 }
 
+// FulfillmentMode applies equality check predicate on the "fulfillment_mode" field. It's identical to FulfillmentModeEQ.
+func FulfillmentMode(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldFulfillmentMode, v))
+}
+
+// RoomKeyQuotaUsd applies equality check predicate on the "room_key_quota_usd" field. It's identical to RoomKeyQuotaUsdEQ.
+func RoomKeyQuotaUsd(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldRoomKeyQuotaUsd, v))
+}
+
+// RoomKeyRateLimit5h applies equality check predicate on the "room_key_rate_limit_5h" field. It's identical to RoomKeyRateLimit5hEQ.
+func RoomKeyRateLimit5h(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldRoomKeyRateLimit5h, v))
+}
+
+// RoomKeyRateLimit1d applies equality check predicate on the "room_key_rate_limit_1d" field. It's identical to RoomKeyRateLimit1dEQ.
+func RoomKeyRateLimit1d(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldRoomKeyRateLimit1d, v))
+}
+
+// RoomKeyRateLimit7d applies equality check predicate on the "room_key_rate_limit_7d" field. It's identical to RoomKeyRateLimit7dEQ.
+func RoomKeyRateLimit7d(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldRoomKeyRateLimit7d, v))
+}
+
+// AutoCreateRoomKey applies equality check predicate on the "auto_create_room_key" field. It's identical to AutoCreateRoomKeyEQ.
+func AutoCreateRoomKey(v bool) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldAutoCreateRoomKey, v))
+}
+
 // RefundMode applies equality check predicate on the "refund_mode" field. It's identical to RefundModeEQ.
 func RefundMode(v string) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldEQ(FieldRefundMode, v))
@@ -1035,6 +1065,241 @@ func LaunchModeContainsFold(v string) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldContainsFold(FieldLaunchMode, v))
 }
 
+// FulfillmentModeEQ applies the EQ predicate on the "fulfillment_mode" field.
+func FulfillmentModeEQ(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldFulfillmentMode, v))
+}
+
+// FulfillmentModeNEQ applies the NEQ predicate on the "fulfillment_mode" field.
+func FulfillmentModeNEQ(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNEQ(FieldFulfillmentMode, v))
+}
+
+// FulfillmentModeIn applies the In predicate on the "fulfillment_mode" field.
+func FulfillmentModeIn(vs ...string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldIn(FieldFulfillmentMode, vs...))
+}
+
+// FulfillmentModeNotIn applies the NotIn predicate on the "fulfillment_mode" field.
+func FulfillmentModeNotIn(vs ...string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNotIn(FieldFulfillmentMode, vs...))
+}
+
+// FulfillmentModeGT applies the GT predicate on the "fulfillment_mode" field.
+func FulfillmentModeGT(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGT(FieldFulfillmentMode, v))
+}
+
+// FulfillmentModeGTE applies the GTE predicate on the "fulfillment_mode" field.
+func FulfillmentModeGTE(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGTE(FieldFulfillmentMode, v))
+}
+
+// FulfillmentModeLT applies the LT predicate on the "fulfillment_mode" field.
+func FulfillmentModeLT(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLT(FieldFulfillmentMode, v))
+}
+
+// FulfillmentModeLTE applies the LTE predicate on the "fulfillment_mode" field.
+func FulfillmentModeLTE(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLTE(FieldFulfillmentMode, v))
+}
+
+// FulfillmentModeContains applies the Contains predicate on the "fulfillment_mode" field.
+func FulfillmentModeContains(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldContains(FieldFulfillmentMode, v))
+}
+
+// FulfillmentModeHasPrefix applies the HasPrefix predicate on the "fulfillment_mode" field.
+func FulfillmentModeHasPrefix(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldHasPrefix(FieldFulfillmentMode, v))
+}
+
+// FulfillmentModeHasSuffix applies the HasSuffix predicate on the "fulfillment_mode" field.
+func FulfillmentModeHasSuffix(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldHasSuffix(FieldFulfillmentMode, v))
+}
+
+// FulfillmentModeEqualFold applies the EqualFold predicate on the "fulfillment_mode" field.
+func FulfillmentModeEqualFold(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEqualFold(FieldFulfillmentMode, v))
+}
+
+// FulfillmentModeContainsFold applies the ContainsFold predicate on the "fulfillment_mode" field.
+func FulfillmentModeContainsFold(v string) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldContainsFold(FieldFulfillmentMode, v))
+}
+
+// RoomKeyQuotaUsdEQ applies the EQ predicate on the "room_key_quota_usd" field.
+func RoomKeyQuotaUsdEQ(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldRoomKeyQuotaUsd, v))
+}
+
+// RoomKeyQuotaUsdNEQ applies the NEQ predicate on the "room_key_quota_usd" field.
+func RoomKeyQuotaUsdNEQ(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNEQ(FieldRoomKeyQuotaUsd, v))
+}
+
+// RoomKeyQuotaUsdIn applies the In predicate on the "room_key_quota_usd" field.
+func RoomKeyQuotaUsdIn(vs ...float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldIn(FieldRoomKeyQuotaUsd, vs...))
+}
+
+// RoomKeyQuotaUsdNotIn applies the NotIn predicate on the "room_key_quota_usd" field.
+func RoomKeyQuotaUsdNotIn(vs ...float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNotIn(FieldRoomKeyQuotaUsd, vs...))
+}
+
+// RoomKeyQuotaUsdGT applies the GT predicate on the "room_key_quota_usd" field.
+func RoomKeyQuotaUsdGT(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGT(FieldRoomKeyQuotaUsd, v))
+}
+
+// RoomKeyQuotaUsdGTE applies the GTE predicate on the "room_key_quota_usd" field.
+func RoomKeyQuotaUsdGTE(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGTE(FieldRoomKeyQuotaUsd, v))
+}
+
+// RoomKeyQuotaUsdLT applies the LT predicate on the "room_key_quota_usd" field.
+func RoomKeyQuotaUsdLT(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLT(FieldRoomKeyQuotaUsd, v))
+}
+
+// RoomKeyQuotaUsdLTE applies the LTE predicate on the "room_key_quota_usd" field.
+func RoomKeyQuotaUsdLTE(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLTE(FieldRoomKeyQuotaUsd, v))
+}
+
+// RoomKeyRateLimit5hEQ applies the EQ predicate on the "room_key_rate_limit_5h" field.
+func RoomKeyRateLimit5hEQ(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldRoomKeyRateLimit5h, v))
+}
+
+// RoomKeyRateLimit5hNEQ applies the NEQ predicate on the "room_key_rate_limit_5h" field.
+func RoomKeyRateLimit5hNEQ(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNEQ(FieldRoomKeyRateLimit5h, v))
+}
+
+// RoomKeyRateLimit5hIn applies the In predicate on the "room_key_rate_limit_5h" field.
+func RoomKeyRateLimit5hIn(vs ...float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldIn(FieldRoomKeyRateLimit5h, vs...))
+}
+
+// RoomKeyRateLimit5hNotIn applies the NotIn predicate on the "room_key_rate_limit_5h" field.
+func RoomKeyRateLimit5hNotIn(vs ...float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNotIn(FieldRoomKeyRateLimit5h, vs...))
+}
+
+// RoomKeyRateLimit5hGT applies the GT predicate on the "room_key_rate_limit_5h" field.
+func RoomKeyRateLimit5hGT(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGT(FieldRoomKeyRateLimit5h, v))
+}
+
+// RoomKeyRateLimit5hGTE applies the GTE predicate on the "room_key_rate_limit_5h" field.
+func RoomKeyRateLimit5hGTE(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGTE(FieldRoomKeyRateLimit5h, v))
+}
+
+// RoomKeyRateLimit5hLT applies the LT predicate on the "room_key_rate_limit_5h" field.
+func RoomKeyRateLimit5hLT(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLT(FieldRoomKeyRateLimit5h, v))
+}
+
+// RoomKeyRateLimit5hLTE applies the LTE predicate on the "room_key_rate_limit_5h" field.
+func RoomKeyRateLimit5hLTE(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLTE(FieldRoomKeyRateLimit5h, v))
+}
+
+// RoomKeyRateLimit1dEQ applies the EQ predicate on the "room_key_rate_limit_1d" field.
+func RoomKeyRateLimit1dEQ(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldRoomKeyRateLimit1d, v))
+}
+
+// RoomKeyRateLimit1dNEQ applies the NEQ predicate on the "room_key_rate_limit_1d" field.
+func RoomKeyRateLimit1dNEQ(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNEQ(FieldRoomKeyRateLimit1d, v))
+}
+
+// RoomKeyRateLimit1dIn applies the In predicate on the "room_key_rate_limit_1d" field.
+func RoomKeyRateLimit1dIn(vs ...float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldIn(FieldRoomKeyRateLimit1d, vs...))
+}
+
+// RoomKeyRateLimit1dNotIn applies the NotIn predicate on the "room_key_rate_limit_1d" field.
+func RoomKeyRateLimit1dNotIn(vs ...float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNotIn(FieldRoomKeyRateLimit1d, vs...))
+}
+
+// RoomKeyRateLimit1dGT applies the GT predicate on the "room_key_rate_limit_1d" field.
+func RoomKeyRateLimit1dGT(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGT(FieldRoomKeyRateLimit1d, v))
+}
+
+// RoomKeyRateLimit1dGTE applies the GTE predicate on the "room_key_rate_limit_1d" field.
+func RoomKeyRateLimit1dGTE(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGTE(FieldRoomKeyRateLimit1d, v))
+}
+
+// RoomKeyRateLimit1dLT applies the LT predicate on the "room_key_rate_limit_1d" field.
+func RoomKeyRateLimit1dLT(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLT(FieldRoomKeyRateLimit1d, v))
+}
+
+// RoomKeyRateLimit1dLTE applies the LTE predicate on the "room_key_rate_limit_1d" field.
+func RoomKeyRateLimit1dLTE(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLTE(FieldRoomKeyRateLimit1d, v))
+}
+
+// RoomKeyRateLimit7dEQ applies the EQ predicate on the "room_key_rate_limit_7d" field.
+func RoomKeyRateLimit7dEQ(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldRoomKeyRateLimit7d, v))
+}
+
+// RoomKeyRateLimit7dNEQ applies the NEQ predicate on the "room_key_rate_limit_7d" field.
+func RoomKeyRateLimit7dNEQ(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNEQ(FieldRoomKeyRateLimit7d, v))
+}
+
+// RoomKeyRateLimit7dIn applies the In predicate on the "room_key_rate_limit_7d" field.
+func RoomKeyRateLimit7dIn(vs ...float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldIn(FieldRoomKeyRateLimit7d, vs...))
+}
+
+// RoomKeyRateLimit7dNotIn applies the NotIn predicate on the "room_key_rate_limit_7d" field.
+func RoomKeyRateLimit7dNotIn(vs ...float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNotIn(FieldRoomKeyRateLimit7d, vs...))
+}
+
+// RoomKeyRateLimit7dGT applies the GT predicate on the "room_key_rate_limit_7d" field.
+func RoomKeyRateLimit7dGT(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGT(FieldRoomKeyRateLimit7d, v))
+}
+
+// RoomKeyRateLimit7dGTE applies the GTE predicate on the "room_key_rate_limit_7d" field.
+func RoomKeyRateLimit7dGTE(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldGTE(FieldRoomKeyRateLimit7d, v))
+}
+
+// RoomKeyRateLimit7dLT applies the LT predicate on the "room_key_rate_limit_7d" field.
+func RoomKeyRateLimit7dLT(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLT(FieldRoomKeyRateLimit7d, v))
+}
+
+// RoomKeyRateLimit7dLTE applies the LTE predicate on the "room_key_rate_limit_7d" field.
+func RoomKeyRateLimit7dLTE(v float64) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldLTE(FieldRoomKeyRateLimit7d, v))
+}
+
+// AutoCreateRoomKeyEQ applies the EQ predicate on the "auto_create_room_key" field.
+func AutoCreateRoomKeyEQ(v bool) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldEQ(FieldAutoCreateRoomKey, v))
+}
+
+// AutoCreateRoomKeyNEQ applies the NEQ predicate on the "auto_create_room_key" field.
+func AutoCreateRoomKeyNEQ(v bool) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(sql.FieldNEQ(FieldAutoCreateRoomKey, v))
+}
+
 // RefundModeEQ applies the EQ predicate on the "refund_mode" field.
 func RefundModeEQ(v string) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(sql.FieldEQ(FieldRefundMode, v))
@@ -1464,6 +1729,29 @@ func HasEvents() predicate.GroupBuyPlan {
 func HasEventsWith(preds ...predicate.GroupBuyEvent) predicate.GroupBuyPlan {
 	return predicate.GroupBuyPlan(func(s *sql.Selector) {
 		step := newEventsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCafeRooms applies the HasEdge predicate on the "cafe_rooms" edge.
+func HasCafeRooms() predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, CafeRoomsTable, CafeRoomsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCafeRoomsWith applies the HasEdge predicate on the "cafe_rooms" edge with a given conditions (other predicates).
+func HasCafeRoomsWith(preds ...predicate.CafeRoom) predicate.GroupBuyPlan {
+	return predicate.GroupBuyPlan(func(s *sql.Selector) {
+		step := newCafeRoomsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

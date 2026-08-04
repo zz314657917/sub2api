@@ -14,6 +14,19 @@ func init() {
 	_ = timezone.Init("UTC")
 }
 
+func setTestTimezone(t *testing.T, name string) {
+	t.Helper()
+	previous := timezone.Name()
+	if err := timezone.Init(name); err != nil {
+		t.Fatalf("initialize test timezone %q: %v", name, err)
+	}
+	t.Cleanup(func() {
+		if err := timezone.Init(previous); err != nil {
+			t.Errorf("restore test timezone %q: %v", previous, err)
+		}
+	})
+}
+
 func newPeakGroup(enabled bool, start, end string, mult float64) *Group {
 	return &Group{
 		SubscriptionType:   "subscription",
@@ -29,6 +42,7 @@ func at(hour, min int) time.Time {
 }
 
 func TestPeakMultiplierAt_DisabledOrUnconfigured(t *testing.T) {
+	setTestTimezone(t, "UTC")
 	cases := []struct {
 		name string
 		g    *Group
@@ -50,6 +64,7 @@ func TestPeakMultiplierAt_DisabledOrUnconfigured(t *testing.T) {
 }
 
 func TestPeakMultiplierAt_NilReceiver(t *testing.T) {
+	setTestTimezone(t, "UTC")
 	var g *Group
 	if got := g.PeakMultiplierAt(at(15, 0)); got != 1.0 {
 		t.Fatalf("expect 1.0, got %v", got)
@@ -57,6 +72,7 @@ func TestPeakMultiplierAt_NilReceiver(t *testing.T) {
 }
 
 func TestPeakMultiplierAt_Boundaries(t *testing.T) {
+	setTestTimezone(t, "UTC")
 	g := newPeakGroup(true, "14:00", "18:00", 3.0)
 	cases := []struct {
 		t    time.Time
@@ -79,6 +95,7 @@ func TestPeakMultiplierAt_Boundaries(t *testing.T) {
 }
 
 func TestPeakMultiplierAt_RespectsTimezoneLocation(t *testing.T) {
+	setTestTimezone(t, "UTC")
 	// 全局时区为 UTC。北京 15:00 = UTC 07:00，不在 [14:00,18:00)。
 	nonUTC := time.Date(2026, 6, 29, 15, 0, 0, 0, mustLoad("Asia/Shanghai"))
 	g := newPeakGroup(true, "14:00", "18:00", 3.0)
@@ -133,6 +150,7 @@ func TestValidatePeakRateConfig(t *testing.T) {
 }
 
 func TestPeakMultiplierAt_StandardTypeDegradesToOne(t *testing.T) {
+	setTestTimezone(t, "UTC")
 	g := newPeakGroup(true, "14:00", "18:00", 3.0)
 	g.SubscriptionType = "standard"
 	if got := g.PeakMultiplierAt(at(15, 30)); got != 1.0 {
@@ -151,6 +169,7 @@ func TestPeakMultiplierAt_StandardTypeDegradesToOne(t *testing.T) {
 // 图片按次倍率基于基础倍率算出且不受高峰影响，高峰因子只乘入 token 倍率。
 // 若有人调换叠加顺序或把高峰并入 imageMultiplier，此测试会失败。
 func TestPeakMultiplier_GatewayBillingSequence(t *testing.T) {
+	setTestTimezone(t, "UTC")
 	const baseMultiplier = 0.8
 	apiKey := &APIKey{Group: newPeakGroup(true, "14:00", "18:00", 3.0)}
 	approxEq := func(a, b float64) bool { return math.Abs(a-b) < 1e-9 }
@@ -208,6 +227,7 @@ func TestPeakMultiplier_GatewayBillingSequence(t *testing.T) {
 // 必须携带高峰倍率 4 字段，否则扣费路径拿到的 apiKey.Group 会缺字段、PeakMultiplierAt 恒降级为 1.0。
 // 调用真实链路 snapshotFromAPIKey → snapshotToAPIKey，验证 peak 配置经快照往返后仍生效。
 func TestPeakMultiplier_SnapshotRoundTrip(t *testing.T) {
+	setTestTimezone(t, "UTC")
 	apiKey := &APIKey{
 		User:  &User{ID: 1, Status: StatusActive, Role: RoleUser},
 		Group: newPeakGroup(true, "14:00", "18:00", 3.0),
