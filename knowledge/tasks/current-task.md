@@ -1,6 +1,6 @@
 # 当前任务快照
 
-最后更新：2026-08-04 15:13 +08:00
+最后更新：2026-08-04 20:12 +08:00
 
 ## 背景
 
@@ -9,6 +9,13 @@
 - S157/S158 已补齐隔离 PostgreSQL/Redis 与最后一 Seat 运行态证据；Docker Desktop 曾在明确授权后重启，原有容器已恢复健康。
 
 ## 当前目标
+
+- S177 本地分支整合已收口到 `main@8ced00f75`：先完成 S135/S136 历史可达性整合，再把已逐 Sprint
+  验证的 S156-S161 邮件功能栈作为明确的堆叠 merge 合入。S156/S157、client-IP S140、i18n S143、
+  path-guard S136、等价原始 S135 及临时整合分支/worktree 已清理；四份脏改动先保存为命名 stash。
+  `backup/pre-s177-main-20260804` 与 `backup/pre-s157-merge-20260804` 保留。仅 S132、S169 和一个含
+  未验收 429 WIP 的 detached worktree继续保留；未执行 push、远端删除、Docker、数据库、部署或生产操作。
+  QA：`docs/workflow/qa-reports/git-branch-consolidation-s177-qa.md`。
 
 - S176 已完成源代码实现、聚焦测试和受保护的本地容器更新：用户页移除“今日使用用户”卡片及独立轮询；管理员可配置标题、说明和整个标题区显示；默认值保持原页面。合同：`docs/workflow/tasks/pixel-cafe-phase30-presentation-settings-s176.md`。
 - S176 当前仅剩浏览器验收阻断：源码/Vitest、typecheck/build、Linux amd64 编译、Docker 健康、`/health` 和 public settings HTTP 证据均通过；Playwright Chrome、内置浏览器和 Chrome 扩展均未能打开本地标签页，未生成截图。QA：`docs/workflow/qa-reports/pixel-cafe-phase30-presentation-settings-s176-qa.md`。
@@ -147,6 +154,8 @@
 
 ## 下一步
 
+1. 如继续整理高风险候选，先为 S132 的独立功能切片或 detached 429 WIP 建立单独合同并从当前 `main`
+   重建 -> 验证：不得整支合并 S132/S169，且 429 WIP 不得携带六个测试文件删除。
 1. 恢复一个可操作的本地浏览器会话并完成 S176 手动验收 -> 验证：捕获桌面截图，确认 `/group-buy` 无“今日使用用户”、可见/隐藏标题区均保留房间内容，`/admin/settings` 显示标题/说明/开关控件。
 2. 浏览器验收通过后更新 S176 QA/status/main-log/current-task 为 `PASS / browser` -> 验证：QA 首行 PASS、截图存在、容器健康和回滚标签仍可见；本轮 Docker guard 已释放。
 
@@ -156,6 +165,9 @@
 
 ## 验证记录
 
+- S177：`main@8ced00f75`；S156-S161 后端全仓 compile-only、聚焦 alias/OAuth/notification/ops
+  tests、Wire generation、前端 4 files / 43 tests、typecheck、1864-module build、gofmt/diff/unmerged
+  checks PASS。清理前四份脏改动已保存为命名 stash；本地保留分支只剩 S132、S169 和三个 backup refs。
 - S176：focused Go/Vitest/typecheck/build、Linux amd64 build、gofmt/diff/unmerged checks、guarded image promotion and Compose recreation、`/health` 200、PostgreSQL/Redis health and public-settings HTTP fields all PASS; browser screenshot blocked by local browser transports. Temporary binary cleanup was rejected by local shell safety policy; image/rollback tag and data volume remain retained.
 
 - `go generate ./ent`：PASS；`go generate ./cmd/server`：PASS。

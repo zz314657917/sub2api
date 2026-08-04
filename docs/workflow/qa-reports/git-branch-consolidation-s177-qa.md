@@ -1,23 +1,66 @@
 ### PASS: git-branch-consolidation-s177
 
-The primary dirty worktree was preserved in local snapshot commit `249bbf236` before integration.
-An isolated branch merged `origin/main` and that snapshot, resolving only additive compatibility
-conflicts: Prompt Audit plus Pixel Cafe Wire registration, Google native API-key IP ACL plus Cafe
-fail-closed account pinning, and both locale namespaces. Wire was regenerated.
+## Findings
 
-Candidate review retained rather than forced `codex/upstream-email-alias-dedup-s157`,
-`codex/v0168-extension-port-s132`, `codex/openai-overload-retry-s135`, and
-`codex/v0169-behavior-wide`; S156 is an ancestor of S157. Their conflict/overlap evidence is in
-`git-branch-consolidation-s177-branch-content-result.md`. No remote refs, backup branch, detached
-worktree, dirty worktree, Docker resource, database, or production resource changed.
+- `main` was updated only from clean isolated integration worktrees. The final local integration
+  commit is `8ced00f75`; the primary worktree's untracked `outputs/` files were preserved.
+- `codex/main-s135-s136-publish-20260801-234733` was merged as a history-only reconciliation. The
+  resulting merge tree stayed byte-identical to pre-merge `main`, so the old branch's superseded
+  source state was not brought back; its focused OpenAI retry behavior passed on the isolated line.
+- The stacked S156-S161 email line was resolved and verified as one explicit merge. It includes SMTP
+  compatibility, registration alias dedup, OAuth email completion, dark-theme balance contrast,
+  notification templates and operations report templates; it was not represented as a single S157
+  alias-only change.
+- The original S135 implementation is source-equivalent to the published mainline implementation,
+  and the detached OpenAI Messages patch is patch-id equivalent to `9544a268a`; neither was merged a
+  second time. The uncommitted i18n collision test was rejected because its full-directory glob does
+  not match the locale assembly topology and would report false collisions.
+- Retained candidates are not safe for blind merge: S132 stacks Passkey/Kimi/Model Plaza/Codex
+  manifest work and has 13 conflict files; S169 has 32 conflict files plus dirty Prompt Audit work;
+  the remaining detached rate-limit worktree mixes potentially useful 429 handling with six large
+  test-file deletions. Remote refs and upstream refs were not changed.
 
-Executed checks:
+## Executed Checks
 
-- `go generate ./cmd/server`, `go test ./cmd/server`, focused Pixel Cafe service/handler and Google
-  middleware regressions
-- Pixel Cafe Vitest (11 tests), `npm.cmd run typecheck`, `npm.cmd run build`, and full `npm.cmd run test:run`
-- `git diff --check`, conflict-marker scan, `git ls-files -u`
-- Full `go test ./... -count=1`: all integration-relevant packages passed; the only failure is the
-  known RegistrationRiskLimiter Redis-nil package failure reproduced unchanged on `origin/main`.
+- Isolated merge trial in `E:/codex-worktrees/sub2api-branch-consolidation-20260804`.
+- `go test ./internal/service -run "Test(IsOpenAIServerOverloadedError|OpenAISameAccountRetryPolicy|OpenAIGatewayService_Forward_(ModelCapacityError|ServerOverloaded)|OpenAIGatewayService_OpenAIPassthrough_(Capacity400|ServerOverloaded|429And529)|OpenAIStreaming(ResponseFailedBeforeOutputCapacity|ResponseFailedBeforeOutputServerOverloaded|PassthroughResponseFailedBeforeOutputCapacity|PassthroughResponseFailedBeforeOutputServerOverloaded))" -count=1` -> PASS.
+- `go test ./internal/handler -run "Test(SameAccountRetryLimit|SameAccountRetryDelay|HandleFailoverError_SameAccountRetry)" -count=1` -> PASS.
+- `go test ./... -run "^$"` -> PASS; all backend packages compiled with tests skipped.
+- S156-S161 focused repository/service/handler/middleware tests -> PASS, including alias guards,
+  OAuth completion, notification templates, operations reports and backend-mode OAuth boundaries.
+- S156-S161 frontend Vitest -> PASS, 4 files / 43 tests; `pnpm run typecheck` and production build
+  -> PASS, 1864 modules transformed.
+- `go generate ./cmd/server` -> PASS; the conflict-resolved Wire output stayed stable and preserved
+  both Prompt Audit coordinator wiring and notification-email wiring.
+- `git diff --check`, `git ls-files -u`, and worktree status checks -> PASS/clean for the temporary
+  integration worktree and the removed candidate worktree.
+- Mainline update: `git merge --ff-only codex/s177-integration` -> PASS.
+- Mainline update: `git merge --ff-only codex/s157-integration-20260804` -> PASS.
 
-S176 remains `BLOCKED / browser-tool`; this Git consolidation did not claim browser acceptance.
+## Cleanup Receipt
+
+- Removed worktree and local branch `codex/main-s135-s136-publish-20260801-234733`.
+- Removed temporary worktree and local branch `codex/s177-integration`.
+- Created and retained recovery branch `backup/pre-s177-main-20260804` at the pre-update `main`.
+- Created and retained recovery branch `backup/pre-s157-merge-20260804` before the email-stack merge.
+- Removed local branches/worktrees for S156, stacked S157, client-IP S140, i18n S143, path-guard
+  S136 and the source-equivalent original S135; removed the duplicate detached Messages worktree.
+- Preserved four dirty worktree states as named stashes before cleanup: `d52a6b61f`, `ccac601e7`,
+  `efd01586b` and `919c5052b`.
+- No remote branch deletion, push, Docker, database, deployment or production action occurred.
+
+## Unverified Risks
+
+- S132 and S169 still need independent behavior-level integration contracts and conflict resolution;
+  the rate-limit detached WIP needs reconstruction from current `main` without its six test deletions.
+- Migration `190` was not executed against PostgreSQL. Real SMTP, OAuth provider callbacks,
+  administrator browser flows, deployment and production behavior remain unverified for S156-S161.
+- S176 remains `BLOCKED / browser-tool`; this branch task does not provide the required browser
+  screenshot or change that QA verdict.
+- The full runtime Go suite was not rerun here; the known Redis `127.0.0.1:1` baseline failure and
+  external-provider/deployment behavior remain outside this Git-maintenance gate.
+
+## Recommendation
+
+`PASS / local-consolidation`：保留当前主线。后续只对 S132、S169 或 detached 429 WIP 建立独立
+行为合同并逐提交适配；不要整支合并，也不要删除远端 refs。
