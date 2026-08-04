@@ -248,7 +248,20 @@ func (s *TokenRefreshService) processRefresh() {
 // listActiveAccounts 获取所有active状态的账号
 // 使用ListActive确保刷新所有活跃账号的token（包括临时禁用的）
 func (s *TokenRefreshService) listActiveAccounts(ctx context.Context) ([]Account, error) {
-	return s.accountRepo.ListActive(ctx)
+	accounts, err := s.accountRepo.ListActive(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// schedulable=false is a permanent administrator decision. Temporary
+	// unschedulable states still need token refresh so they can recover.
+	filtered := accounts[:0]
+	for _, account := range accounts {
+		if !account.Schedulable {
+			continue
+		}
+		filtered = append(filtered, account)
+	}
+	return filtered, nil
 }
 
 // refreshWithRetry 带重试的刷新

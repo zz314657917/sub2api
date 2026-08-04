@@ -23,7 +23,12 @@ type tokenRefreshAccountRepo struct {
 	lastErrorMessage       string
 	lastTempUnschedReason  string
 	lastAccount            *Account
+	activeAccounts         []Account
 	updateErr              error
+}
+
+func (r *tokenRefreshAccountRepo) ListActive(ctx context.Context) ([]Account, error) {
+	return r.activeAccounts, nil
 }
 
 func (r *tokenRefreshAccountRepo) Update(ctx context.Context, account *Account) error {
@@ -151,6 +156,19 @@ func TestTokenRefreshService_RefreshWithRetry_InvalidatesCache(t *testing.T) {
 	require.Equal(t, 0, repo.fullUpdateCalls)
 	require.Equal(t, 1, invalidator.calls)
 	require.Equal(t, "new-token", account.GetCredential("access_token"))
+}
+
+func TestTokenRefreshService_ListActiveAccountsSkipsPermanentlyUnschedulable(t *testing.T) {
+	repo := &tokenRefreshAccountRepo{activeAccounts: []Account{
+		{ID: 1, Schedulable: true},
+		{ID: 2, Schedulable: false},
+		{ID: 3, Schedulable: true, TempUnschedulableUntil: func() *time.Time { value := time.Now().Add(time.Hour); return &value }()},
+	}}
+	service := &TokenRefreshService{accountRepo: repo}
+
+	accounts, err := service.listActiveAccounts(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, []int64{1, 3}, []int64{accounts[0].ID, accounts[1].ID})
 }
 
 func TestTokenRefreshService_RefreshWithRetry_InvalidatorErrorIgnored(t *testing.T) {
