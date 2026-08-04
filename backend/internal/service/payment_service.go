@@ -85,6 +85,7 @@ type CreateOrderRequest struct {
 	OrderType                     string
 	PlanID                        int64
 	RechargePackageID             string
+	Locale                        string
 	RechargePackagePayAmount      float64
 	RechargePackageCreditedAmount float64
 	MonthlyRechargeBonusPeriod    string
@@ -181,23 +182,24 @@ type TopUserStat struct {
 // --- Service ---
 
 type PaymentService struct {
-	providerMu       sync.Mutex
-	providersLoaded  bool
-	entClient        *dbent.Client
-	registry         *payment.Registry
-	loadBalancer     payment.LoadBalancer
-	redeemService    *RedeemService
-	subscriptionSvc  *SubscriptionService
-	configService    *PaymentConfigService
-	userRepo         UserRepository
-	groupRepo        GroupRepository
-	resumeService    *PaymentResumeService
-	affiliateService *AffiliateService
-	membershipSvc    *MembershipService
-	systemTicketSvc  *SystemTicketService
-	welfareService   *WelfareService
-	groupBuySvc      groupBuyFulfillmentService
-	now              func() time.Time
+	providerMu               sync.Mutex
+	providersLoaded          bool
+	entClient                *dbent.Client
+	registry                 *payment.Registry
+	loadBalancer             payment.LoadBalancer
+	redeemService            *RedeemService
+	subscriptionSvc          *SubscriptionService
+	configService            *PaymentConfigService
+	userRepo                 UserRepository
+	groupRepo                GroupRepository
+	resumeService            *PaymentResumeService
+	affiliateService         *AffiliateService
+	membershipSvc            *MembershipService
+	systemTicketSvc          *SystemTicketService
+	welfareService           *WelfareService
+	groupBuySvc              groupBuyFulfillmentService
+	notificationEmailService *NotificationEmailService
+	now                      func() time.Time
 }
 
 type groupBuyFulfillmentService interface {
@@ -213,6 +215,12 @@ func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, load
 	svc := &PaymentService{entClient: entClient, registry: registry, loadBalancer: newVisibleMethodLoadBalancer(loadBalancer, configService), redeemService: redeemService, subscriptionSvc: subscriptionSvc, configService: configService, userRepo: userRepo, groupRepo: groupRepo, affiliateService: affiliateService, membershipSvc: membership, now: time.Now}
 	svc.resumeService = psNewPaymentResumeService(configService)
 	return svc
+}
+
+func (s *PaymentService) SetNotificationEmailService(notificationEmailService *NotificationEmailService) {
+	if s != nil {
+		s.notificationEmailService = notificationEmailService
+	}
 }
 
 func (s *PaymentService) SetSystemTicketService(systemTicketSvc *SystemTicketService) {

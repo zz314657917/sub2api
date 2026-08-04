@@ -27,7 +27,7 @@ func normalizeOAuthSignupSource(signupSource string) string {
 
 // SendPendingOAuthVerifyCode sends a local verification code for pending OAuth
 // account-creation flows without relying on the public registration gate.
-func (s *AuthService) SendPendingOAuthVerifyCode(ctx context.Context, email string) (*SendVerifyCodeResult, error) {
+func (s *AuthService) SendPendingOAuthVerifyCode(ctx context.Context, email string, locale ...string) (*SendVerifyCodeResult, error) {
 	email = strings.TrimSpace(strings.ToLower(email))
 	if email == "" {
 		return nil, ErrEmailVerifyRequired
@@ -46,7 +46,7 @@ func (s *AuthService) SendPendingOAuthVerifyCode(ctx context.Context, email stri
 	if s.settingService != nil {
 		siteName = s.settingService.GetSiteName(ctx)
 	}
-	if err := s.emailService.SendVerifyCode(ctx, email, siteName); err != nil {
+	if err := s.emailService.SendVerifyCode(ctx, email, siteName, firstEmailLocale(locale)); err != nil {
 		return nil, err
 	}
 	return &SendVerifyCodeResult{
@@ -128,7 +128,8 @@ func (s *AuthService) RegisterOAuthEmailAccount(
 		return nil, nil, err
 	}
 
-	existsEmail, err := s.userRepo.ExistsByEmail(ctx, email)
+	// 该路径同样发放注册赠额，必须使用与本地注册相同的收件箱查重口径。
+	existsEmail, err := s.existsByEmailOrAlias(ctx, email)
 	if err != nil {
 		return nil, nil, ErrServiceUnavailable
 	}
@@ -156,7 +157,7 @@ func (s *AuthService) RegisterOAuthEmailAccount(
 		LastLoginIP:  loginIPFromContext(ctx),
 	}
 
-	if err := s.userRepo.Create(ctx, user); err != nil {
+	if err := s.userRepo.CreateWithEmailAliasGuard(ctx, user); err != nil {
 		if errors.Is(err, ErrEmailExists) {
 			return nil, nil, ErrEmailExists
 		}
@@ -207,7 +208,8 @@ func (s *AuthService) RegisterVerifiedOAuthEmailAccount(
 		return nil, nil, err
 	}
 
-	existsEmail, err := s.userRepo.ExistsByEmail(ctx, email)
+	// 已验证 OAuth 邮箱建号仍会发放注册赠额，因此同样执行收件箱查重。
+	existsEmail, err := s.existsByEmailOrAlias(ctx, email)
 	if err != nil {
 		return nil, nil, ErrServiceUnavailable
 	}
@@ -239,7 +241,7 @@ func (s *AuthService) RegisterVerifiedOAuthEmailAccount(
 		LastLoginIP:  loginIPFromContext(ctx),
 	}
 
-	if err := s.userRepo.Create(ctx, user); err != nil {
+	if err := s.userRepo.CreateWithEmailAliasGuard(ctx, user); err != nil {
 		if errors.Is(err, ErrEmailExists) {
 			return nil, nil, ErrEmailExists
 		}
